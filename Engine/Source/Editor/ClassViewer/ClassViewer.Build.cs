@@ -9,8 +9,10 @@ public class ClassViewer : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"AssetRegistry",
+                "AssetTools",
 				"EditorWidgets",
-                "PropertyEditor"
+				"GameProjectGeneration",
+                "PropertyEditor",
 			}
 		);
 
@@ -25,15 +27,16 @@ public class ClassViewer : ModuleRules
                 "EditorStyle",
 				"UnrealEd",
 				"PropertyEditor",
-				"GameProjectGeneration"
 			}
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"AssetRegistry",
+                "AssetTools",
 				"EditorWidgets",
-				"PropertyEditor"
+				"GameProjectGeneration",
+				"PropertyEditor",
 			}
 		);
 	}

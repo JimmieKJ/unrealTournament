@@ -13,7 +13,6 @@
 #include "DisplayDebugHelpers.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
-#include "Foliage/InstancedFoliageActor.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/DamageType.h"
 
@@ -56,6 +55,7 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 	CapsuleComponent->bShouldUpdatePhysicsVolume = true;
 	CapsuleComponent->bCheckAsyncSceneOnMove = false;
 	CapsuleComponent->bCanEverAffectNavigation = false;
+	CapsuleComponent->bDynamicObstacle = true;
 	RootComponent = CapsuleComponent;
 
 	JumpKeyHoldTime = 0.0f;
@@ -98,6 +98,8 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 		Mesh->bGenerateOverlapEvents = false;
 		Mesh->bCanEverAffectNavigation = false;
 	}
+
+	BaseRotationOffset = FQuat::Identity;
 }
 
 void ACharacter::PostInitializeComponents()
@@ -109,6 +111,7 @@ void ACharacter::PostInitializeComponents()
 		if (Mesh)
 		{
 			BaseTranslationOffset = Mesh->RelativeLocation;
+			BaseRotationOffset = Mesh->RelativeRotation.Quaternion();
 
 			// force animation tick after movement component updates
 			if (Mesh->PrimaryComponentTick.bCanEverTick && CharacterMovement)
@@ -167,7 +170,10 @@ void ACharacter::GetSimpleCollisionCylinder(float& CollisionRadius, float& Colli
 
 void ACharacter::UpdateNavigationRelevance()
 {
-	CapsuleComponent->SetCanEverAffectNavigation(bCanAffectNavigationGeneration);
+	if (CapsuleComponent)
+	{
+		CapsuleComponent->SetCanEverAffectNavigation(bCanAffectNavigationGeneration);
+	}
 }
 
 void ACharacter::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
@@ -206,10 +212,18 @@ UActorComponent* ACharacter::FindComponentByClass(const TSubclassOf<UActorCompon
 	return Super::FindComponentByClass(ComponentClass);
 }
 
-void ACharacter::OnWalkingOffLedge_Implementation()
+void ACharacter::OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta)
 {
 }
 
+void ACharacter::NotifyJumpApex()
+{
+	// Call delegate callback
+	if (OnReachedJumpApex.IsBound())
+	{
+		OnReachedJumpApex.Broadcast();
+	}
+}
 
 void ACharacter::Landed(const FHitResult& Hit)
 {
@@ -274,7 +288,7 @@ void ACharacter::OnRep_IsCrouched()
 
 bool ACharacter::CanCrouch()
 {
-	return !bIsCrouched && CharacterMovement && CharacterMovement->CanEverCrouch() && (CapsuleComponent->GetUnscaledCapsuleHalfHeight() > CharacterMovement->CrouchedHalfHeight) && GetRootComponent() && !GetRootComponent()->IsSimulatingPhysics();
+	return !bIsCrouched && CharacterMovement && CharacterMovement->CanEverCrouch() && GetRootComponent() && !GetRootComponent()->IsSimulatingPhysics();
 }
 
 void ACharacter::Crouch(bool bClientSimulation)
@@ -369,17 +383,6 @@ void ACharacter::ApplyDamageMomentum(float DamageTaken, FDamageEvent const& Dama
 	}
 }
 
-void ACharacter::TeleportSucceeded(bool bIsATest)
-{
-	if (!bIsATest && CharacterMovement)
-	{
-		CharacterMovement->OnTeleported();
-	}
-
-	Super::TeleportSucceeded(bIsATest);
-}
-
-
 void ACharacter::ClearCrossLevelReferences()
 {
 	if( BasedMovement.MovementBase != NULL && GetOutermost() != BasedMovement.MovementBase->GetOutermost() )
@@ -389,8 +392,6 @@ void ACharacter::ClearCrossLevelReferences()
 
 	Super::ClearCrossLevelReferences();
 }
-
-
 
 namespace MovementBaseUtility
 {
@@ -411,12 +412,6 @@ namespace MovementBaseUtility
 			AActor* NewBaseOwner = NewBase->GetOwner();
 			if (NewBaseOwner)
 			{
-				// NOTE: TTP# 341962: Temp hack to fix issues with landing on Foliage actors with thousands of components.
-				if (Cast<AInstancedFoliageActor>(NewBaseOwner))
-				{
-					return;
-				}
-
 				if (NewBaseOwner->PrimaryActorTick.bCanEverTick)
 				{
 					BasedObjectTick.AddPrerequisite(NewBaseOwner, NewBaseOwner->PrimaryActorTick);
@@ -442,12 +437,6 @@ namespace MovementBaseUtility
 			AActor* OldBaseOwner = OldBase->GetOwner();
 			if (OldBaseOwner)
 			{
-				// NOTE: TTP# 341962: Temp hack to fix issues with landing on Foliage actors with thousands of components.
-				if (Cast<AInstancedFoliageActor>(OldBaseOwner))
-				{
-					return;
-				}
-
 				BasedObjectTick.RemovePrerequisite(OldBaseOwner, OldBaseOwner->PrimaryActorTick);
 
 				// @TODO: We need to find a more efficient way of finding all ticking components in an actor.
@@ -562,8 +551,12 @@ namespace MovementBaseUtility
 
 
 /**	Change the Pawn's base. */
-void ACharacter::SetBase( UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn )
+void ACharacter::SetBase( UPrimitiveComponent* NewBaseComponent, const FName InBoneName, bool bNotifyPawn )
 {
+	// If NewBaseComponent is null, ignore bone name.
+	const FName BoneName = (NewBaseComponent ? InBoneName : NAME_None);
+
+	// See what changed.
 	const bool bBaseChanged = (NewBaseComponent != BasedMovement.MovementBase);
 	const bool bBoneChanged = (BoneName != BasedMovement.BoneName);
 
@@ -789,7 +782,7 @@ void ACharacter::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDis
 			BaseString = FString::Printf(TEXT("Based On %s"), *BaseString);
 		}
 		
-		Canvas->DrawText(RenderFont, FString::Printf(TEXT("RelativeLoc: %s Rot: %s %s"), *BasedMovement.Location.ToString(), *BasedMovement.Rotation.ToString(), *BaseString), Indent, YPos);
+		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("RelativeLoc: %s Rot: %s %s"), *BasedMovement.Location.ToString(), *BasedMovement.Rotation.ToString(), *BaseString), Indent, YPos);
 		YPos += YL;
 
 		if ( CharacterMovement != NULL )
@@ -798,7 +791,7 @@ void ACharacter::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDis
 		}
 		const bool Crouched = CharacterMovement && CharacterMovement->IsCrouching();
 		FString T = FString::Printf(TEXT("Crouched %i"), Crouched);
-		Canvas->DrawText(RenderFont, T, Indent, YPos );
+		YL = Canvas->DrawText(RenderFont, T, Indent, YPos );
 		YPos += YL;
 	}
 }
@@ -944,13 +937,14 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 	{
 		// Update transform relative to movement base
 		const FVector OldLocation = GetActorLocation();
+		const FQuat OldRotation = GetActorQuat();
 		MovementBaseUtility::GetMovementBaseTransform(ReplicatedBasedMovement.MovementBase, ReplicatedBasedMovement.BoneName, CharacterMovement->OldBaseLocation, CharacterMovement->OldBaseQuat);
 		const FVector NewLocation = CharacterMovement->OldBaseLocation + ReplicatedBasedMovement.Location;
 
 		if (ReplicatedBasedMovement.HasRelativeRotation())
 		{
 			// Relative location, relative rotation
-			FRotator NewRotation = (FRotationMatrix(ReplicatedBasedMovement.Rotation) * FQuatRotationTranslationMatrix(CharacterMovement->OldBaseQuat, FVector::ZeroVector)).Rotator();
+			FRotator NewRotation = (FRotationMatrix(ReplicatedBasedMovement.Rotation) * FQuatRotationMatrix(CharacterMovement->OldBaseQuat)).Rotator();
 			
 			// TODO: need a better way to not assume we only use Yaw.
 			NewRotation.Pitch = 0.f;
@@ -970,7 +964,7 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 		INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 		if (PredictionInterface)
 		{
-			PredictionInterface->SmoothCorrection(OldLocation);
+			PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
 		}
 	}
 }
@@ -1023,6 +1017,7 @@ void ACharacter::SimulatedRootMotionPositionFixup(float DeltaSeconds)
 		if( MoveIndex != INDEX_NONE )
 		{
 			const FVector OldLocation = GetActorLocation();
+			const FQuat OldRotation = GetActorQuat();
 			// Move Actor back to position of that buffered move. (server replicated position).
 			const FSimulatedRootMotionReplicatedMove& RootMotionRepMove = RootMotionRepMoves[MoveIndex];
 			if( RestoreReplicatedMove(RootMotionRepMove) )
@@ -1052,7 +1047,7 @@ void ACharacter::SimulatedRootMotionPositionFixup(float DeltaSeconds)
 							INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 							if (PredictionInterface)
 							{
-								PredictionInterface->SmoothCorrection(OldLocation);
+								PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
 							}
 						}
 					}
@@ -1200,12 +1195,13 @@ void ACharacter::PostNetReceiveLocationAndRotation()
 		if (!ReplicatedBasedMovement.HasRelativeLocation())
 		{
 			const FVector OldLocation = GetActorLocation();
+			const FQuat OldRotation = GetActorQuat();
 			UpdateSimulatedPosition(ReplicatedMovement.Location, ReplicatedMovement.Rotation);
 
 			INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 			if (PredictionInterface)
 			{
-				PredictionInterface->SmoothCorrection(OldLocation);
+				PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
 			}
 		}
 	}
@@ -1315,7 +1311,7 @@ void ACharacter::StopAnimMontage(class UAnimMontage* AnimMontage)
 
 	if ( bShouldStopMontage )
 	{
-		AnimInstance->Montage_Stop(MontageToStop->BlendOutTime);
+		AnimInstance->Montage_Stop(MontageToStop->BlendOutTime, MontageToStop);
 	}
 }
 

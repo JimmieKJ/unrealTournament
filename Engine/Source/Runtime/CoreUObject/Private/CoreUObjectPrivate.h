@@ -32,7 +32,6 @@
 #include "Linker.h"						// Linker.
 #include "GCObject.h"			        // non-UObject object referencer
 #include "RedirectCollector.h"
-#include "MessageTypeMap.h"
 #include "WorldCompositionUtility.h"
 #include "StringClassReference.h"
 #include "Blueprint/BlueprintSupport.h"

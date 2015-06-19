@@ -12,7 +12,7 @@
 
 DECLARE_DYNAMIC_DELEGATE(FPostEvaluateAnimEvent);
 
-UCLASS(transient)
+UCLASS(transient, NotBlueprintable)
 class ENGINE_API UAnimSingleNodeInstance : public UAnimInstance
 {
 	GENERATED_UCLASS_BODY()

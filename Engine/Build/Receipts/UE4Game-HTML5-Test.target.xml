@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="UE4Game" />
+    <Property Name="Platform" Value="HTML5" />
+    <Property Name="Configuration" Value="Test" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4Game-HTML5-Test.js" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4Game-HTML5-Test.js.mem" Type="RequiredResource" />
+    <BuildProduct Path="$(EngineDir)\Plugins\2D\Paper2D\Binaries\HTML5\UE4Game-Paper2D-HTML5-Test-Static.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\CharacterAI\Binaries\HTML5\UE4Game-CharacterAI-HTML5-Test-Static.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CableComponent\Binaries\HTML5\UE4Game-CableComponent-HTML5-Test-Static.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\ExampleDeviceProfileSelector\Binaries\HTML5\UE4Game-ExampleDeviceProfileSelector-HTML5-Test-Static.bc" Type="StaticLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+</BuildReceipt>

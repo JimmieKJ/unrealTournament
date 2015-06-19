@@ -44,6 +44,8 @@ void FClassViewerModule::ShutdownModule()
 	{
 		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner( ClassViewerModule::ClassViewerApp );
 	}
+
+	SClassViewer::DestroyClassHierarchy();
 }
 
 

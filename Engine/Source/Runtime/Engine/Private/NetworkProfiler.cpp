@@ -26,7 +26,9 @@ FNetworkProfiler GNetworkProfiler;
 /** Magic value, determining that file is a network profiler file.				*/
 #define NETWORK_PROFILER_MAGIC						0x1DBF348C
 /** Version of memory profiler. Incremented on serialization changes.			*/
-#define NETWORK_PROFILER_VERSION					5
+#define NETWORK_PROFILER_VERSION					8
+
+static const FString UnknownName("UnknownName");
 
 enum ENetworkProfilingPayloadType
 {
@@ -39,56 +41,52 @@ enum ENetworkProfilingPayloadType
 	NPTYPE_EndOfStreamMarker,			// End of stream marker		
 	NPTYPE_Event,						// Event
 	NPTYPE_RawSocketData,				// Raw socket data being sent
+	NPTYPE_SendAck,						// Ack being sent
+	NPTYPE_WritePropertyHeader,			// Property header being written
+	NPTYPE_ExportBunch,					// Exported GUIDs
+	NPTYPE_MustBeMappedGuids,			// Must be mapped GUIDs
+	NPTYPE_BeginContentBlock,			// Content block headers
+	NPTYPE_EndContentBlock,				// Content block footers
+	NPTYPE_WritePropertyHandle			// Property handles
 };
 
-
 /*=============================================================================
-	Network profiler header.
+	FNetworkProfilerHeader implementation.
 =============================================================================*/
 
-struct FNetworkProfilerHeader
+FNetworkProfilerHeader::FNetworkProfilerHeader()
+	: Magic(NETWORK_PROFILER_MAGIC)
+	, Version(NETWORK_PROFILER_VERSION)
+	, NameTableOffset(0)
+	, NameTableEntries(0)
 {
-	/** Magic to ensure we're opening the right file.	*/
-	uint32	Magic;
-	/** Version number to detect version mismatches.	*/
-	uint32	Version;
+}
 
-	/** Offset in file for name table.					*/
-	uint32	NameTableOffset;
-	/** Number of name table entries.					*/
-	uint32	NameTableEntries;
+void FNetworkProfilerHeader::Reset(const FURL& InURL)
+{
+	NameTableOffset = 0;
+	NameTableEntries = 0;
 
-	/** Tag, set via -networkprofiler=TAG				*/
-	FString Tag;
-	/** Game name, e.g. Example							*/
-	FString GameName;
-	/** URL used to open/ browse to the map.			*/
-	FString URL;
+	FParse::Value(FCommandLine::Get(), TEXT("NETWORKPROFILER="), Tag);
+	GameName = FApp::GetGameName();
+	URL = InURL.ToString();
+}
 
-	/**
-	 * Serialization operator.
-	 *
-	 * @param	Ar			Archive to serialize to
-	 * @param	Header		Header to serialize
-	 * @return	Passed in archive
-	 */
-	friend FArchive& operator << ( FArchive& Ar, FNetworkProfilerHeader Header )
-	{
-		check( Ar.IsSaving() );
-		Ar	<< Header.Magic
-			<< Header.Version
-			<< Header.NameTableOffset
-			<< Header.NameTableEntries;
-		Header.Tag.SerializeAsANSICharArray( Ar, 255 );
-		Header.GameName.SerializeAsANSICharArray( Ar, 255 );
-		Header.URL.SerializeAsANSICharArray( Ar, 255 );
-		return Ar;
-	}
-};
-
+FArchive& operator << ( FArchive& Ar, FNetworkProfilerHeader& Header )
+{
+	check( Ar.IsSaving() );
+	Ar	<< Header.Magic
+		<< Header.Version
+		<< Header.NameTableOffset
+		<< Header.NameTableEntries;
+	Header.Tag.SerializeAsANSICharArray( Ar );
+	Header.GameName.SerializeAsANSICharArray( Ar );
+	Header.URL.SerializeAsANSICharArray( Ar );
+	return Ar;
+}
 
 /*=============================================================================
-	FMallocProfiler implementation.
+	FNetworkProfiler implementation.
 =============================================================================*/
 
 /**
@@ -98,7 +96,6 @@ FNetworkProfiler::FNetworkProfiler()
 :	FileWriter(NULL)
 ,	bHasNoticeableNetworkTrafficOccured(false)
 ,	bIsTrackingEnabled(false)
-,	CurrentURL(NoInit)
 {
 }
 
@@ -174,7 +171,7 @@ void FNetworkProfiler::TrackFrameBegin()
  * @param	Function	Function being called
  * @param	NumBits		Number of bits serialized into bunch for this RPC
  */
-void FNetworkProfiler::TrackSendRPC( const AActor* Actor, const UFunction* Function, uint16 NumBits )
+void FNetworkProfiler::TrackSendRPC( const AActor* Actor, const UFunction* Function, uint16 NumHeaderBits, uint16 NumParameterBits, uint16 NumFooterBits  )
 {
 	if( bIsTrackingEnabled )
 	{
@@ -185,7 +182,52 @@ void FNetworkProfiler::TrackSendRPC( const AActor* Actor, const UFunction* Funct
 		(*FileWriter) << ActorNameTableIndex;
 		int32 FunctionNameTableIndex = GetNameTableIndex( Function->GetName() );
 		(*FileWriter) << FunctionNameTableIndex;
-		(*FileWriter) << NumBits;
+		(*FileWriter) << NumHeaderBits;
+		(*FileWriter) << NumParameterBits;
+		(*FileWriter) << NumFooterBits;
+	}
+}
+
+void FNetworkProfiler::TrackQueuedRPC( UNetConnection* Connection, UObject* TargetObject, const AActor* Actor, const UFunction* Function, uint16 NumHeaderBits, uint16 NumParameterBits, uint16 NumFooterBits  )
+{
+	if( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		
+		FQueuedRPCInfo Info;
+		Info.Connection = Connection;
+		Info.TargetObject = TargetObject;
+		Info.ActorNameIndex = GetNameTableIndex( Actor->GetName() );
+		Info.FunctionNameIndex = GetNameTableIndex( Function->GetName() );
+		Info.NumHeaderBits = NumHeaderBits;
+		Info.NumParameterBits = NumParameterBits;
+		Info.NumFooterBits = NumFooterBits;
+
+		QueuedRPCs.Add(Info);
+	}
+}
+
+void FNetworkProfiler::FlushQueuedRPCs( UNetConnection* Connection, UObject* TargetObject )
+{
+	if( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+
+		for ( int i = QueuedRPCs.Num() - 1; i >= 0; --i )
+		{
+			if (QueuedRPCs[i].Connection == Connection && QueuedRPCs[i].TargetObject == TargetObject)
+			{
+				uint8 Type = NPTYPE_SendRPC;
+				(*FileWriter) << Type;
+				(*FileWriter) << QueuedRPCs[i].ActorNameIndex;
+				(*FileWriter) << QueuedRPCs[i].FunctionNameIndex;
+				(*FileWriter) << QueuedRPCs[i].NumHeaderBits;
+				(*FileWriter) << QueuedRPCs[i].NumParameterBits;
+				(*FileWriter) << QueuedRPCs[i].NumFooterBits;
+
+				QueuedRPCs.RemoveAtSwap(i);
+			}
+		}
 	}
 }
 
@@ -202,7 +244,7 @@ void FNetworkProfiler::TrackSocketSend( const FString& SocketDesc, const void* D
 	{
 		SCOPE_LOCK_REF(CriticalSection);
 		uint32 DummyIp = 0;
-		TrackSocketSendToCore( SocketDesc, Data, BytesSent, DummyIp );
+		//TrackSocketSendToCore( SocketDesc, Data, BytesSent, DummyIp );
 	}
 }
 
@@ -214,13 +256,21 @@ void FNetworkProfiler::TrackSocketSend( const FString& SocketDesc, const void* D
  * @param	BytesSent				Bytes actually being sent
  * @param	Destination				Destination address
  */
-void FNetworkProfiler::TrackSocketSendTo( const FString& SocketDesc, const void* Data, uint16 BytesSent, const FInternetAddr& Destination )
+void FNetworkProfiler::TrackSocketSendTo(
+	const FString& SocketDesc,
+	const void* Data,
+	uint16 BytesSent,
+	uint16 NumPacketIdBits,
+	uint16 NumBunchBits,
+	uint16 NumAckBits,
+	uint16 NumPaddingBits,
+	const FInternetAddr& Destination )
 {
 	if( bIsTrackingEnabled )
 	{
 		uint32 NetworkByteOrderIP;
 		Destination.GetIp(NetworkByteOrderIP);
-		TrackSocketSendToCore( SocketDesc, Data, BytesSent, NetworkByteOrderIP);
+		TrackSocketSendToCore( SocketDesc, Data, BytesSent, NumPacketIdBits, NumBunchBits, NumAckBits, NumPaddingBits, NetworkByteOrderIP);
 		bHasNoticeableNetworkTrafficOccured = true;
 	}
 }
@@ -233,7 +283,15 @@ void FNetworkProfiler::TrackSocketSendTo( const FString& SocketDesc, const void*
  * @param	BytesSent				Bytes actually being sent
  * @param	IpAddr					Destination address
  */
-void FNetworkProfiler::TrackSocketSendToCore( const FString& SocketDesc, const void* Data, uint16 BytesSent, uint32 IpAddr )
+void FNetworkProfiler::TrackSocketSendToCore(
+	const FString& SocketDesc,
+	const void* Data,
+	uint16 BytesSent,
+	uint16 NumPacketIdBits,
+	uint16 NumBunchBits,
+	uint16 NumAckBits,
+	uint16 NumPaddingBits,
+	uint32 IpAddr )
 {
 	if( bIsTrackingEnabled )
 	{
@@ -246,6 +304,10 @@ void FNetworkProfiler::TrackSocketSendToCore( const FString& SocketDesc, const v
 		int32 NameTableIndex = GetNameTableIndex( SocketDesc );
 		(*FileWriter) << NameTableIndex;
 		(*FileWriter) << BytesSent;
+		(*FileWriter) << NumPacketIdBits;
+		(*FileWriter) << NumBunchBits;
+		(*FileWriter) << NumAckBits;
+		(*FileWriter) << NumPaddingBits;
 		(*FileWriter) << IpAddr;
 #if NETWORK_PROFILER_TRACK_RAW_NETWORK_DATA
 		Type = NPTYPE_RawSocketData;
@@ -276,6 +338,49 @@ void FNetworkProfiler::TrackSendBunch( FOutBunch* OutBunch, uint16 NumBits )
 		uint8 ChannelType = OutBunch->ChType;
 		(*FileWriter) << ChannelType;
 		(*FileWriter) << NumBits;
+	}
+}
+
+void FNetworkProfiler::PushSendBunch( UNetConnection* Connection, FOutBunch* OutBunch, uint16 NumHeaderBits, uint16 NumPayloadBits )
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		OutgoingBunches.FindOrAdd(Connection).Emplace(OutBunch->ChIndex, OutBunch->ChType, NumHeaderBits, NumPayloadBits);
+	}
+}
+
+void FNetworkProfiler::PopSendBunch( UNetConnection* Connection )
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		if ( OutgoingBunches.Contains(Connection) && OutgoingBunches[Connection].Num() > 0 )
+		{
+			OutgoingBunches[Connection].Pop();
+		}
+	}
+}
+
+void FNetworkProfiler::FlushOutgoingBunches( UNetConnection* Connection )
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		if ( OutgoingBunches.Contains(Connection) )
+		{
+			for ( FSendBunchInfo& BunchInfo : OutgoingBunches[Connection] )
+			{
+				uint8 Type = NPTYPE_SendBunch;
+				(*FileWriter) << Type;
+				(*FileWriter) << BunchInfo.ChannelIndex;
+				(*FileWriter) << BunchInfo.ChannelType;
+				(*FileWriter) << BunchInfo.NumHeaderBits;
+				(*FileWriter) << BunchInfo.NumPayloadBits;
+			}
+
+			OutgoingBunches[Connection].SetNum(0);
+		}
 	}
 }
 
@@ -314,6 +419,19 @@ void FNetworkProfiler::TrackReplicateProperty( const UProperty* Property, uint16
 	{
 		SCOPE_LOCK_REF(CriticalSection);
 		uint8 Type = NPTYPE_ReplicateProperty;
+		(*FileWriter) << Type;
+		int32 NameTableIndex = GetNameTableIndex( Property->GetName() );
+		(*FileWriter) << NameTableIndex;
+		(*FileWriter) << NumBits;
+	}
+}
+
+void FNetworkProfiler::TrackWritePropertyHeader( const UProperty* Property, uint16 NumBits )
+{
+	if( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		uint8 Type = NPTYPE_WritePropertyHeader;
 		(*FileWriter) << Type;
 		int32 NameTableIndex = GetNameTableIndex( Property->GetName() );
 		(*FileWriter) << NameTableIndex;
@@ -364,24 +482,15 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 		{	
 			if( bHasNoticeableNetworkTrafficOccured )
 			{
-				UE_LOG(LogNet, Log, TEXT("Network Profiler: Writing out session file for '%s'"), *CurrentURL.ToString());
+				UE_LOG(LogNet, Log, TEXT("Network Profiler: Writing out session file for '%s'"), *CurrentHeader.GetURL());
 
 				// Write end of stream marker.
 				uint8 Type = NPTYPE_EndOfStreamMarker;
 				(*FileWriter) << Type;
 
-				// Real header, written at start of the file but overwritten out right before we close the file.
-				FNetworkProfilerHeader Header;
-				Header.Magic	= NETWORK_PROFILER_MAGIC;
-				Header.Version	= NETWORK_PROFILER_VERSION;
-				Header.Tag		= TEXT("");
-				FParse::Value(FCommandLine::Get(), TEXT("NETWORKPROFILER="), Header.Tag);
-				Header.GameName = FApp::GetGameName();
-				Header.URL		= CurrentURL.ToString();
-
 				// Write out name table and update header with offset and count.
-				Header.NameTableOffset	= FileWriter->Tell();
-				Header.NameTableEntries	= NameArray.Num();
+				CurrentHeader.SetNameTableValues(FileWriter->Tell(), NameArray.Num());
+
 				for( int32 NameIndex=0; NameIndex<NameArray.Num(); NameIndex++ )
 				{
 					NameArray[NameIndex].SerializeAsANSICharArray( *FileWriter );
@@ -389,7 +498,7 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 
 				// Seek to the beginning of the file and write out proper header.
 				FileWriter->Seek( 0 );
-				(*FileWriter) << Header;
+				(*FileWriter) << CurrentHeader;
 
 				// Close file writer so we can rename the file to its final destination.
 				FileWriter->Close();
@@ -435,17 +544,87 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 			// Create folder and file writer.
 			IFileManager::Get().MakeDirectory( *FPaths::GetPath(TempFileName) );
 			FileWriter = IFileManager::Get().CreateFileWriter( *TempFileName, FILEWRITE_EvenIfReadOnly );
-			checkf( FileWriter );
+			check( FileWriter );
+			
+			CurrentHeader.Reset(InURL);
 
-			// Serialize dummy header, overwritten when session ends.
-			FNetworkProfilerHeader DummyHeader;
-			FMemory::Memzero( &DummyHeader, sizeof(DummyHeader) );
-			(*FileWriter) << DummyHeader;
+			// Serialize a header of the proper size, overwritten when session ends.
+			(*FileWriter) << CurrentHeader;
 		}
-
-		CurrentURL = InURL;
 	}
 #endif	//#if ALLOW_DEBUG_FILES
+}
+
+void FNetworkProfiler::TrackSendAck( uint16 NumBits )
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		uint8 Type = NPTYPE_SendAck;
+		(*FileWriter) << Type;
+		(*FileWriter) << NumBits;
+	}
+}
+
+void FNetworkProfiler::TrackMustBeMappedGuids( uint16 NumGuids, uint16 NumBits )
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		uint8 Type = NPTYPE_MustBeMappedGuids;
+		(*FileWriter) << Type;
+		(*FileWriter) << NumGuids;
+		(*FileWriter) << NumBits;
+	}
+}
+
+void FNetworkProfiler::TrackExportBunch( uint16 NumBits )
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		uint8 Type = NPTYPE_ExportBunch;
+		(*FileWriter) << Type;
+		(*FileWriter) << NumBits;
+	}
+}
+
+ 
+void FNetworkProfiler::TrackBeginContentBlock(UObject* Object, uint16 NumBits)
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		uint8 Type = NPTYPE_BeginContentBlock;
+		(*FileWriter) << Type;
+		int32 NameTableIndex = GetNameTableIndex( Object != nullptr ? Object->GetName() : UnknownName );
+		(*FileWriter) << NameTableIndex;
+		(*FileWriter) << NumBits;
+	 }
+}
+
+void FNetworkProfiler::TrackEndContentBlock(UObject* Object, uint16 NumBits)
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		uint8 Type = NPTYPE_EndContentBlock;
+		(*FileWriter) << Type;
+		int32 NameTableIndex = GetNameTableIndex( Object != nullptr ? Object->GetName() : UnknownName );
+		(*FileWriter) << NameTableIndex;
+		(*FileWriter) << NumBits;
+	}
+}
+
+void FNetworkProfiler::TrackWritePropertyHandle(uint16 NumBits)
+{
+	if ( bIsTrackingEnabled )
+	{
+		SCOPE_LOCK_REF(CriticalSection);
+		uint8 Type = NPTYPE_WritePropertyHandle;
+		(*FileWriter) << Type;
+		(*FileWriter) << NumBits;
+	}
 }
 
 /**

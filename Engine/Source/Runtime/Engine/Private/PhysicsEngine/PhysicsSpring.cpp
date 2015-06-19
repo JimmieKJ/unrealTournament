@@ -63,7 +63,7 @@ UPrimitiveComponent* UPhysicsSpringComponent::GetSpringCollision(const FVector& 
 	const float DeltaSize = Delta.Size();
 	if (DeltaSize > SMALL_NUMBER)
 	{
-		if (bool bBlockingHit = World->SweepSingle(Hit, Start, End, FQuat::Identity, SpringChannel, FCollisionShape::MakeSphere(SpringRadius), QueryParams))
+		if (bool bBlockingHit = World->SweepSingleByChannel(Hit, Start, End, FQuat::Identity, SpringChannel, FCollisionShape::MakeSphere(SpringRadius), QueryParams))
 		{
 			CollidedComponent = Hit.GetComponent();
 			Time = CollidedComponent ? Hit.Time : 1.f;

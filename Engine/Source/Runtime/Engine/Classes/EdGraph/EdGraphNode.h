@@ -184,8 +184,8 @@ public:
 	/** Find a pin on this node with the supplied name and assert if it is not present */
 	UEdGraphPin* FindPinChecked(const FString& PinName) const;
 	
-	/** Find a pin on this node with the supplied name and remove it */
-	void DiscardPin(UEdGraphPin* Pin);
+	/** Find a pin on this node with the supplied name and remove it, returns TRUE if successful */
+	bool RemovePin(UEdGraphPin* Pin);
 
 	/** Whether or not this node should be given the chance to override pin names.  If this returns true, then GetPinNameOverride() will be called for each pin, each frame */
 	virtual bool ShouldOverridePinNames() const { return false; }
@@ -223,7 +223,7 @@ public:
 	}
 
 	/** Generate a unique pin name, trying to stick close to a passed in name */
-	FString CreateUniquePinName(FString SourcePinName) const
+	virtual FString CreateUniquePinName(FString SourcePinName) const
 	{
 		FString PinName(SourcePinName);
 		
@@ -285,7 +285,7 @@ public:
 
 	/** Gets the name of this node, shown in title bar */
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const;
-	
+
 	/** 
 	 * Gets the draw color of a node's title bar
 	 */
@@ -309,7 +309,7 @@ public:
 	 *
 	 * @TODO: Should search keywords be localized? Probably.
 	 */
-	virtual FString GetKeywords() const { return TEXT(""); }
+	virtual FText GetKeywords() const;
 	 
 	/**
 	 * Returns the link used for external documentation for the graph node
@@ -420,6 +420,15 @@ public:
 	 * @param OutTaggedMetaData		Built array of tagged meta data for the node
 	 */
 	virtual void AddSearchMetaDataInfo(TArray<struct FSearchTagDataPair>& OutTaggedMetaData) const;
+
+	/** Return the requested metadata for the pin if there is any */
+	virtual FString GetPinMetaData(FString InPinName, FName InKey) { return FString(); }
+
+	/** Return false if the node and any expansion will isolate itself during compile */
+	virtual bool IsCompilerRelevant() const { return true; }
+
+	/** Return the matching "pass-through" pin for the given pin (if supported by this node) */
+	virtual UEdGraphPin* GetPassThroughPin(const UEdGraphPin* FromPin) const { return nullptr; }
 #endif // WITH_EDITOR
 
 };

@@ -24,7 +24,7 @@ class AIMODULE_API UPawnAction_Wait : public UPawnAction
 	virtual bool Start() override;
 	virtual bool Pause(const UPawnAction* PausedBy) override;
 	virtual bool Resume() override;
-	virtual EPawnActionAbortState::Type PerformAbort(EAIForceParam::Type ShouldForce);
+	virtual EPawnActionAbortState::Type PerformAbort(EAIForceParam::Type ShouldForce) override;
 
 	void TimerDone();
 };

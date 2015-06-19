@@ -79,7 +79,7 @@ public:
 	}
 
 	/** Returns set of curves to edit. Must not release the curves while being edited. */
-	virtual TArray<FRichCurveEditInfoConst> GetCurves() const
+	virtual TArray<FRichCurveEditInfoConst> GetCurves() const override
 	{
 		TArray<FRichCurveEditInfoConst> Curves;
 		FVectorCurve * VectorCurveData = (FVectorCurve*)(CurveData);
@@ -89,7 +89,7 @@ public:
 		return Curves;
 	}
 	/** Returns set of curves to query. Must not release the curves while being edited. */
-	virtual TArray<FRichCurveEditInfo> GetCurves()
+	virtual TArray<FRichCurveEditInfo> GetCurves() override
 	{
 		TArray<FRichCurveEditInfo> Curves;
 		FVectorCurve * VectorCurveData = (FVectorCurve*)(CurveData);
@@ -99,18 +99,8 @@ public:
 		return Curves;
 	}
 
-	virtual UObject* GetOwner()
-	{
-		if (BaseSequence.IsValid())
-		{
-			return BaseSequence.Get();
-		}
-
-		return NULL;
-	}
-
 	/** Called to modify the owner of the curve */
-	virtual void ModifyOwner()
+	virtual void ModifyOwner() override
 	{
 		if (BaseSequence.IsValid())
 		{
@@ -121,7 +111,7 @@ public:
 	}
 
 	/** Called to make curve owner transactional */
-	virtual void MakeTransactional()
+	virtual void MakeTransactional() override
 	{
 		if (BaseSequence.IsValid())
 		{
@@ -152,7 +142,7 @@ public:
 
 	TCHAR GetCurveTypeCharacter() const
 	{
-		switch (CurveType)
+		switch (CurveType) //-V719
 		{
 		case ETransformCurve::Translation:
 			return TCHAR('T');
@@ -163,7 +153,7 @@ public:
 		return TCHAR('S');
 	}
 
-	virtual void OnCurveChanged() override
+	virtual void OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos) override
 	{
 	}
 

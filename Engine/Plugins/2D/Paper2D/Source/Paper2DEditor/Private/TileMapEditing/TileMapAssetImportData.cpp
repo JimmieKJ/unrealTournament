@@ -2,6 +2,8 @@
 
 #include "Paper2DEditorPrivatePCH.h"
 #include "AssetData.h"
+#include "TileMapAssetImportData.h"
+#include "PaperTileMap.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UTileMapAssetImportData
@@ -18,7 +20,7 @@ UTileMapAssetImportData* UTileMapAssetImportData::GetImportDataForTileMap(UPaper
 	UTileMapAssetImportData* ImportData = Cast<UTileMapAssetImportData>(TileMap->AssetImportData);
 	if (ImportData == nullptr)
 	{
-		ImportData = ConstructObject<UTileMapAssetImportData>(UTileMapAssetImportData::StaticClass(), TileMap, NAME_None, RF_NoFlags/*, TemplateForCreation*/);
+		ImportData = NewObject<UTileMapAssetImportData>(TileMap, NAME_None, RF_NoFlags/*, TemplateForCreation*/);
 
 		// Try to preserve the source file path if possible
 		if (TileMap->AssetImportData != nullptr)

@@ -1,4 +1,5 @@
-﻿Title:W
+﻿INTSourceChangelist:2444875
+Title:W
 Crumbs:Shared/Glossary
 Description:
 Availability:Public
@@ -10,7 +11,12 @@ Availability:Public
 Widget（ウィジェット）
 	[/PARAM]
 	[PARAM:Definition]
-レベルエディタで使用するビジュアルツールです。ウィジェットは一般的にビューポートをビジュアルで表現します。例えばMoveツールは、X、Y、Z軸を示す赤、緑、そして青を矢印が表示されます。
+
+
+[EXCERPT:Glossary_widget]
+**ウィジェット** はレベルエディタで使用するビジュアルツールです。ウィジェットは一般的にビューポートでビジュアル表示されます。例えば Move ツールには、X、Y、Z の各軸を示す赤、緑、青の矢印があります。
+[/EXCERPT:Glossary_widget]
+
 	[/PARAM]
 [/OBJECT]
 
@@ -19,10 +25,29 @@ Widget（ウィジェット）
 Wire（ワイヤー）
 	[/PARAM]
 	[PARAM:Definition]
-ブループリントのグラフセクションで、2つのノードを接続しているラインです。ワイヤーはノードのピンからドラッグして作成します。ピンのドラッグ時にコンテクストメニューが作成されて、グラフに追加する別ノードを選択することができます。
+
+[EXCERPT:Glossary_wire]
+**ワイヤー** は、ブループリントなどのビジュアル スクリプトのグラフ セクションで、2 つのノードを接続するラインです。ワイヤーはノードのピンからドラッグして作成します。あるノードのピンから、別のノードのピンにワイヤーをドラッグできます。または、ピンから空きスペースにドラッグして、作成されるコンテキスト メニューを使用してグラフに追加する別のノードを選択します。ピンと同様に、ワイヤーも色分けされています。
+[/EXCERPT:Glossary_wire]
+
 	[/PARAM]
 [/OBJECT]
 
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+World（ワールド）
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_world]
+**ワールド** には、ロードされるレベルのリストがあります。レベルのストリーミングと動的アクタのスポーン (作成) を扱います。 
+
+ワールドと直接インタラクションする必要はありません。しかし、ワールドはゲーム構造内の特定の参照ポイントを示すのに役立ちます (すなわち、ワールドとは、レベル、マップ、ゲームのことではありません。)。 
+
+[/EXCERPT:Glossary_world]
+
+	[/PARAM]
+[/OBJECT]
 
 [/EXCERPT:Glossary_W]
 

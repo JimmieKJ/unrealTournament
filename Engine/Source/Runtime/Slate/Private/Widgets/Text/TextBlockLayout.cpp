@@ -3,32 +3,36 @@
 #include "SlatePrivatePCH.h"
 #include "TextBlockLayout.h"
 #include "SlateTextLayout.h"
-#include "BaseTextLayoutMarshaller.h"
+#include "ITextLayoutMarshaller.h"
 #include "SlateTextHighlightRunRenderer.h"
+#include "SlateStats.h"
 
 #if WITH_FANCY_TEXT
 
-TSharedRef<FTextBlockLayout> FTextBlockLayout::Create(FTextBlockStyle InDefaultTextStyle, TSharedRef<FBaseTextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy)
+SLATE_DECLARE_CYCLE_COUNTER(GSlateTextBlockLayoutComputeDesiredSize, "FTextBlockLayout ComputeDesiredSize");
+
+TSharedRef<FTextBlockLayout> FTextBlockLayout::Create(FTextBlockStyle InDefaultTextStyle, TSharedRef<ITextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy)
 {
 	return MakeShareable(new FTextBlockLayout(MoveTemp(InDefaultTextStyle), InMarshaller, InLineBreakPolicy));
 }
 
-FTextBlockLayout::FTextBlockLayout(FTextBlockStyle InDefaultTextStyle, TSharedRef<FBaseTextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy)
+FTextBlockLayout::FTextBlockLayout(FTextBlockStyle InDefaultTextStyle, TSharedRef<ITextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy)
 	: TextLayout(FSlateTextLayout::Create(MoveTemp(InDefaultTextStyle)))
 	, Marshaller(InMarshaller)
 	, TextHighlighter(FSlateTextHighlightRunRenderer::Create())
 	, CachedSize(ForceInitToZero)
-	, CachedDesiredSize(ForceInitToZero)
 {
 	TextLayout->SetLineBreakIterator(InLineBreakPolicy);
 }
 
-FVector2D FTextBlockLayout::ComputeDesiredSize(const FWidgetArgs& InWidgetArgs/*, const float InScale*/, const FTextBlockStyle& InTextStyle)
+FVector2D FTextBlockLayout::ComputeDesiredSize(const FWidgetArgs& InWidgetArgs, const float InScale, const FTextBlockStyle& InTextStyle)
 {
+	SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_HI, GSlateTextBlockLayoutComputeDesiredSize);
 	TextLayout->SetWrappingWidth(CalculateWrappingWidth(InWidgetArgs));
 	TextLayout->SetMargin(InWidgetArgs.Margin.Get());
 	TextLayout->SetJustification(InWidgetArgs.Justification.Get());
 	TextLayout->SetLineHeightPercentage(InWidgetArgs.LineHeightPercentage.Get());
+	TextLayout->SetScale(InScale);
 
 	// Has the style used for this text block changed?
 	if(!IsStyleUpToDate(InTextStyle))
@@ -74,24 +78,10 @@ FVector2D FTextBlockLayout::ComputeDesiredSize(const FWidgetArgs& InWidgetArgs/*
 		}
 	}
 
-	// We need to update our cached desired size if the text layout has become dirty
-	// todo: jdale - This is a hack until we can perform accurate measuring in ComputeDesiredSize
-	if(TextLayout->IsLayoutDirty())
-	{
-		// The desired size must always have a scale of 1, OnPaint will make sure the scale is set correctly for painting
-		TextLayout->SetScale(1.0f);
+	// We need to update our size if the text layout has become dirty
 		TextLayout->UpdateIfNeeded();
 
-		CachedDesiredSize = TextLayout->GetSize();
-	}
-	else
-	{
-		// This logic may look odd, but IsLayoutDirty() only checks that we've made a change that might affect the layout (which in turn might affect the 
-		// desired size), however there's also highlight changes, which don't affect the size, but still require a call to UpdateIfNeeded() to be applied
-		TextLayout->UpdateIfNeeded();
-	}
-
-	return CachedDesiredSize;
+	return TextLayout->GetSize();
 }
 
 int32 FTextBlockLayout::OnPaint(const FPaintArgs& InPaintArgs, const FGeometry& InAllottedGeometry, const FSlateRect& InClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled)
@@ -123,7 +113,6 @@ int32 FTextBlockLayout::OnPaint(const FPaintArgs& InPaintArgs, const FGeometry& 
 		}
 	}
 
-	TextLayout->SetScale(InAllottedGeometry.Scale);
 	TextLayout->SetVisibleRegion(InAllottedGeometry.Size, AutoScrollValue);
 
 	TextLayout->UpdateIfNeeded();
@@ -136,6 +125,19 @@ void FTextBlockLayout::DirtyLayout()
 	TextLayout->DirtyLayout();
 }
 
+void FTextBlockLayout::OverrideTextStyle(const FTextBlockStyle& InTextStyle)
+{
+	// Has the style used for this text block changed?
+	if(!IsStyleUpToDate(InTextStyle))
+	{
+		TextLayout->SetDefaultTextStyle(InTextStyle);
+		
+		FString CurrentText;
+		Marshaller->GetText(CurrentText, *TextLayout);
+		UpdateTextLayout(CurrentText);
+	}
+}
+
 FChildren* FTextBlockLayout::GetChildren()
 {
 	return TextLayout->GetChildren();
@@ -146,11 +148,17 @@ void FTextBlockLayout::ArrangeChildren(const FGeometry& AllottedGeometry, FArran
 	TextLayout->ArrangeChildren(AllottedGeometry, ArrangedChildren);
 }
 
+
 void FTextBlockLayout::UpdateTextLayout(const FText& InText)
+{
+	UpdateTextLayout(InText.ToString());
+}
+
+void FTextBlockLayout::UpdateTextLayout(const FString& InText)
 {
 	Marshaller->ClearDirty();
 	TextLayout->ClearLines();
-	Marshaller->SetText(InText.ToString(), *TextLayout);
+	Marshaller->SetText(InText, *TextLayout);
 
 	TextLayout->ClearLineHighlights();
 	TextLayout->ClearRunRenderers();

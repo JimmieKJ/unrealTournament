@@ -13,10 +13,11 @@ AOnlineBeacon::AOnlineBeacon(const FObjectInitializer& ObjectInitializer) :
 
 bool AOnlineBeacon::InitBase()
 {
-	if (BeaconNetDriverName != NAME_None && GEngine->CreateNamedNetDriver(GetWorld(), BeaconNetDriverName, NAME_BeaconNetDriver))
+	NetDriver = GEngine->CreateNetDriver(GetWorld(), NAME_BeaconNetDriver);
+	if (NetDriver != nullptr)
 	{
 		HandleNetworkFailureDelegateHandle = GEngine->OnNetworkFailure().AddUObject(this, &AOnlineBeacon::HandleNetworkFailure);
-		NetDriver = GEngine->FindNamedNetDriver(GetWorld(), BeaconNetDriverName);
+		NetDriverName = NetDriver->NetDriverName;
 		return true;
 	}
 
@@ -33,7 +34,7 @@ void AOnlineBeacon::DestroyBeacon()
 {
 	UE_LOG(LogBeacon, Verbose, TEXT("Destroying beacon %s, netdriver %s"), *GetName(), NetDriver ? *NetDriver->GetDescription() : TEXT("NULL"));
 	GEngine->OnNetworkFailure().Remove(HandleNetworkFailureDelegateHandle);
-	GEngine->DestroyNamedNetDriver(GetWorld(), BeaconNetDriverName);
+	GEngine->DestroyNamedNetDriver(GetWorld(), NetDriverName);
 	NetDriver = NULL;
 
 	Destroy();
@@ -41,7 +42,7 @@ void AOnlineBeacon::DestroyBeacon()
 
 void AOnlineBeacon::HandleNetworkFailure(UWorld *World, UNetDriver *InNetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
-	if (InNetDriver && InNetDriver->NetDriverName == BeaconNetDriverName)
+	if (InNetDriver && InNetDriver->NetDriverName == NetDriverName)
 	{
 		OnFailure();
 	}
@@ -50,7 +51,7 @@ void AOnlineBeacon::HandleNetworkFailure(UWorld *World, UNetDriver *InNetDriver,
 void AOnlineBeacon::OnFailure()
 {
 	GEngine->OnNetworkFailure().Remove(HandleNetworkFailureDelegateHandle);
-	GEngine->DestroyNamedNetDriver(GetWorld(), BeaconNetDriverName);
+	GEngine->DestroyNamedNetDriver(GetWorld(), NetDriverName);
 	NetDriver = NULL;
 }
 
@@ -133,9 +134,4 @@ bool AOnlineBeacon::NotifyAcceptingChannel(UChannel* Channel)
 
 void AOnlineBeacon::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType, FInBunch& Bunch)
 {
-}
-
-UNetConnection* AOnlineBeacon::GetNetConnection()
-{
-	return BeaconConnection;
 }

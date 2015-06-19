@@ -255,10 +255,10 @@ public:
 		return Result;
 	}
 
-	virtual IFileHandle* OpenRead(const TCHAR* Filename) override
+	virtual IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false) override
 	{
 		uint32  Access    = GENERIC_READ;
-		uint32  WinFlags  = FILE_SHARE_READ;
+		uint32  WinFlags  = FILE_SHARE_READ | (bAllowWrite ? FILE_SHARE_WRITE : 0);
 		uint32  Create    = OPEN_EXISTING;
 		HANDLE Handle    = CreateFileW(*NormalizeFilename(Filename), Access, WinFlags, NULL, Create, FILE_ATTRIBUTE_NORMAL, NULL);
 		if(Handle != INVALID_HANDLE_VALUE)

@@ -3,8 +3,3 @@
 #include "SlatePrivatePCH.h"
 
 
-UCheckBoxWidgetStyle::UCheckBoxWidgetStyle( const FObjectInitializer& ObjectInitializer )
-	: Super(ObjectInitializer)
-{
-	
-}

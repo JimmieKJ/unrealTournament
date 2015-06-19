@@ -915,7 +915,6 @@ namespace Manzana
 		static MobileDeviceWiniTunes11()
 		{
 			List<string> PathBits = new List<string>();
-			PathBits.Add(Environment.GetEnvironmentVariable("Path"));
 
 			// Try to add the paths from the registry (they aren't always available on newer iTunes installs though)
 			object RegistryDllPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Apple Inc.\Apple Mobile Device Support\Shared", "iTunesMobileDeviceDLL", DLLName);
@@ -952,6 +951,9 @@ namespace Manzana
 			{
 				PathBits.Add(AppleMobileDeviceSupportX86.FullName);
 			}
+
+			// add the rest of the path
+			PathBits.Add(Environment.GetEnvironmentVariable("Path"));
 
 			// Set the path from all the individual bits
 			Environment.SetEnvironmentVariable("Path", string.Join(";", PathBits));
@@ -1683,7 +1685,6 @@ namespace Manzana
 		static MobileDeviceWiniTunes12()
 		{
 			List<string> PathBits = new List<string>();
-			PathBits.Add(Environment.GetEnvironmentVariable("Path"));
 
 			// Try to add the paths from the registry (they aren't always available on newer iTunes installs though)
 			object RegistryDllPath = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Apple Inc.\Apple Mobile Device Support\Shared", "MobileDeviceDLL", DLLName);
@@ -1720,6 +1721,9 @@ namespace Manzana
 			{
 				PathBits.Add(AppleMobileDeviceSupportX86.FullName);
 			}
+
+			// add the rest of the path
+			PathBits.Add(Environment.GetEnvironmentVariable("Path"));
 
 			// Set the path from all the individual bits
 			Environment.SetEnvironmentVariable("Path", string.Join(";", PathBits));
@@ -2457,13 +2461,13 @@ namespace Manzana
 			{
 				string dllPath11 = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "iTunesMobileDeviceDLL", null) as string;
 				string dllPath12 = Microsoft.Win32.Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Apple Inc.\\Apple Mobile Device Support\\Shared", "MobileDeviceDLL", null) as string;
-				if (!String.IsNullOrEmpty(dllPath11) && File.Exists(dllPath11))
-				{
-					DeviceImpl = new MobileDeviceWiniTunes11();
-				}
-				else if (!String.IsNullOrEmpty(dllPath12) && File.Exists(dllPath12))
+				if (!String.IsNullOrEmpty(dllPath12) && File.Exists(dllPath12))
 				{
 					DeviceImpl = new MobileDeviceWiniTunes12();
+				}
+				else if (!String.IsNullOrEmpty(dllPath11) && File.Exists(dllPath11))
+				{
+					DeviceImpl = new MobileDeviceWiniTunes11();
 				}
 			}
 

@@ -78,7 +78,7 @@ void UDebugDrawService::Draw(const FEngineShowFlags Flags, FViewport* Viewport, 
 	UCanvas* CanvasObject = FindObject<UCanvas>(GetTransientPackage(),TEXT("DebugCanvasObject"));
 	if (CanvasObject == NULL)
 	{
-		CanvasObject = ConstructObject<UCanvas>(UCanvas::StaticClass(),GetTransientPackage(),TEXT("DebugCanvasObject"));
+		CanvasObject = NewObject<UCanvas>(GetTransientPackage(), TEXT("DebugCanvasObject"));
 		CanvasObject->AddToRoot();
 	}
 

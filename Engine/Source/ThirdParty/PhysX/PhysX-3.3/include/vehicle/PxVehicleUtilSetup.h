@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -32,6 +15,8 @@
 /** \addtogroup vehicle
   @{
 */
+#include "foundation/PxSimpleTypes.h"
+#include "vehicle/PxVehicleSDK.h"
 
 #ifndef PX_DOXYGEN
 namespace physx
@@ -79,7 +64,7 @@ length nbSprungMasses or greater.
 \param[in] centreOfMass is the coordinate of the center of mass of the rigid body relative to the actor.  This value corresponds to 
 the value set by PxRigidBody::setCMassLocalPose.
 \param[in] totalMass is the total mass of all the sprung masses.  This value corresponds to the value set by PxRigidBody::setMass.
-\param[in] gravityDirection is an integer describing the direction of gravitational acceleration. A value of 0 corresponds to (0,0,-1), 
+\param[in] gravityDirection is an integer describing the direction of gravitational acceleration. A value of 0 corresponds to (-1,0,0), 
 a value of 1 corresponds to (0,-1,0) and a value of 2 corresponds to (0,0,-1).
 \param[out] sprungMasses are the masses to set in the associated suspension data with PxVehicleSuspensionData::mSprungMass.  The sprungMasses array must be of length 
 nbSprungMasses or greater. Each element in the sprungMasses array corresponds to the suspension located at the same array element in sprungMassCoordinates.
@@ -101,8 +86,8 @@ a value of 1 corresponds to (0,-1,0) and a value of 2 corresponds to (0,0,-1).
 
 \note This function does not update the center of mass of the vehicle actor.  That needs to updated separately with PxRigidBody::setCMassLocalPose
 
-\note The suspension sprung masses are updated so that the natural frequency of the springs are preserved.  This involves altering the stiffness of the 
-suspension springs.
+\note The suspension sprung masses are updated so that the natural frequency and damping ratio of the springs are preserved.  This involves altering the
+stiffness and damping rate of the suspension springs.
 */
 void PxVehicleUpdateCMassLocalPose(const PxTransform& oldCMassLocalPose, const PxTransform& newCMassLocalPose, const PxU32 gravityDirection, PxVehicleWheels* vehicle);
 

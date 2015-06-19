@@ -15,8 +15,8 @@ public:
 
 	~FSlateTexture2DRHIRef();
 
-	virtual uint32 GetWidth() const { return Width; }
-	virtual uint32 GetHeight() const { return Height; }
+	virtual uint32 GetWidth() const override { return Width; }
+	virtual uint32 GetHeight() const override { return Height; }
 
 	/** FRenderResource Interface.  Called when render resources need to be initialized */
 	virtual void InitDynamicRHI() override;
@@ -108,13 +108,13 @@ public:
 	/** 
 	 * Releases all dynamic RHI data
 	 */
-	virtual void ReleaseDynamicRHI()
+	virtual void ReleaseDynamicRHI() override
 	{
 		ShaderResource.SafeRelease();
 	}
 
-	virtual uint32 GetWidth() const { return Width; }
-	virtual uint32 GetHeight() const { return Height; }
+	virtual uint32 GetWidth() const override { return Width; }
+	virtual uint32 GetHeight() const override { return Height; }
 
 	/** 
 	 *  Sets the RHI Ref to use.  Useful for reusing this class for multiple render targets

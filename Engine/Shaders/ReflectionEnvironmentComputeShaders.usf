@@ -17,7 +17,7 @@ TextureCubeArray ReflectionEnvironmentColorTexture;
 SamplerState ReflectionEnvironmentColorSampler;
 
 #define THREADGROUP_TOTALSIZE (THREADGROUP_SIZEX * THREADGROUP_SIZEY)
-
+  
 // Workaround performance issue with shared memory bank collisions in GLSL
 #if GL4_PROFILE
 #define ATOMIC_REDUCTION 0
@@ -443,11 +443,16 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 
 			// Fade out based on distance to capture
 			float DistanceAlpha = 0;
-
+			
 			#define PROJECT_ONTO_SHAPE 1
 			#if PROJECT_ONTO_SHAPE
+
+#if HAS_BOX_CAPTURES
+
+#	if HAS_SPHERE_CAPTURES
 				// Box
 				BRANCH if (CaptureProperties.b > 0)
+#	endif //HAS_SPHERE_CAPTURES
 				{
 					// Transform the ray into the local space of the box, where it is an AABB with mins at -1 and maxs at 1
 					float3 LocalRayStart		= mul(float4(WorldPosition, 1), ReflectionCapture.BoxTransform[CaptureIndex]).xyz;
@@ -478,8 +483,13 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 					// Setup a fade based on receiver distance to the box, hides the box influence shape
 					DistanceAlpha = 1.0 - smoothstep(0, .7f * BoxScales.w, BoxDistance);
 				}
+#endif //HAS_BOX_CAPTURES
+
+#if HAS_SPHERE_CAPTURES
 				// Sphere
+#	if HAS_BOX_CAPTURES
 				else
+#	endif //HAS_BOX_CAPTURES
 				{
 					float ProjectionSphereRadius = CapturePositionAndRadius.w;// * 1.2f;
 					float SphereRadiusSquared = ProjectionSphereRadius * ProjectionSphereRadius;
@@ -508,9 +518,10 @@ void GatherRadiance(inout float4 Color, float3 WorldPosition, float3 RayDirectio
 						DistanceAlpha = 1 - x*x*(3 - 2*x);
 					}
 				}
+#endif //HAS_SPHERE_CAPTURES
 			#else 
 				DistanceAlpha = 1.0;
-			#endif
+			#endif //PROJECT_ONTO_SHAPE
 
 			float CaptureArrayIndex = CaptureProperties.g;
 
@@ -566,7 +577,7 @@ Texture2D InSceneColor;
 
 /** Output HDR target. */
 RWTexture2D<float4> RWOutSceneColor;
-
+  
 [numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
 void ReflectionEnvironmentTiledDeferredMain(
 	uint3 GroupId : SV_GroupID,
@@ -627,17 +638,20 @@ void ReflectionEnvironmentTiledDeferredMain(
 		float a = Square( GBuffer.Roughness );
 		R = lerp( N, R, (1 - a) * ( sqrt(1 - a) + a ) );
 
+
 	#if 1//APPLY_SSR
 		float4 SSR = ScreenSpaceReflections.Load( int3(PixelPos, 0) );
 		Color.rgb = SSR.rgb;
 		Color.a = 1 - SSR.a;
 	#endif
 
+#if USE_CLEARCOAT
 		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 		{
 			const float ClearCoat = GBuffer.CustomData.x;
 			Color = lerp( Color, float4(0,0,0,1), ClearCoat );
 		}
+#endif
 	
 		float AO = ScreenSpaceData.AmbientOcclusion;
 		float SpecularOcclusion = saturate( pow( NoV + AO, a ) - 1 + AO );
@@ -646,6 +660,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 
 		GatherRadiance(Color, WorldPosition, R, GBuffer.Roughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);
 
+#if USE_CLEARCOAT
 		BRANCH
 		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 		{
@@ -671,9 +686,10 @@ void ReflectionEnvironmentTiledDeferredMain(
 			Color.a *= 1 - SSR.a;
 			Color.a *= SpecularOcclusion;
 
-			GatherRadiance(Color, WorldPosition, R, ClearCoatRoughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);
+			GatherRadiance(Color, WorldPosition, R, ClearCoatRoughness, ScreenPosition, IndirectIrradiance, GBuffer.ShadingModelID);			
 		}
 		else
+#endif
 		{
 			Color.rgb *= EnvBRDF( GBuffer.SpecularColor, GBuffer.Roughness, NoV );
 		}
@@ -691,7 +707,7 @@ void ReflectionEnvironmentTiledDeferredMain(
 #else
 		OutColor.rgb = Color.rgb;
 #endif
-
+		
 		// Transform NaNs to black, transform negative colors to black.
 		OutColor.rgb = -min(-OutColor.rgb, 0.0);
 

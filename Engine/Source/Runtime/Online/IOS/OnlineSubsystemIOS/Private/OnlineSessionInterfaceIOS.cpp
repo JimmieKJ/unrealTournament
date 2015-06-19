@@ -2,7 +2,8 @@
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 
-@implementation FGameCenterSessionDelegate
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+@implementation FGameCenterSessionDelegateGK
 @synthesize Session;
 
 - (void)initSessionWithName:(NSString*) sessionName
@@ -20,6 +21,18 @@
 	[self.Session disconnectFromAllPeers];
 	self.Session.available = NO;
 	self.Session.delegate = nil;
+}
+
+- (bool)sessionsAvailable
+{
+    NSArray* availablePeers = [self.Session peersWithConnectionState:GKPeerStateAvailable];
+    return [availablePeers count] > 0;
+}
+
+-(void)joinSession
+{
+    NSString* PeerID = [self.Session peerID];
+    [self connectToPeer:PeerID];
 }
 
 -(void)session:(GKSession *)session didReceiveConnectionRequestFromPeer:(NSString *)peerID
@@ -86,6 +99,159 @@
 	NSString* ErrorString = [NSString stringWithFormat:@"connectionWithPeerFailed - Failed to connect to %@ with error code %d", [session displayNameForPeer:peerID], (uint32)[error code]];
 	const FString ConvertedErrorStr(ErrorString);
 	UE_LOG(LogOnline, Display, TEXT("%s"), *ConvertedErrorStr);
+}
+
+@end
+#endif
+
+#ifdef __IPHONE_7_0
+@implementation FGameCenterSessionDelegateMC
+@synthesize Session;
+@synthesize PeerID;
+
+- (void)initSessionWithName:(NSString*) sessionName
+{
+    UE_LOG(LogOnline, Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
+    self.PeerID = [[MCPeerID alloc] initWithDisplayName:nil];
+    self.Session = [[MCSession alloc] initWithPeer:self.PeerID];
+    self.Session.delegate = self;
+}
+
+- (void)shutdownSession
+{
+    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+    [self.Session disconnect];
+    self.Session.delegate = nil;
+}
+
+- (bool)sessionsAvailable
+{
+    return NO;
+}
+
+-(void)joinSession
+{
+}
+
+- (void)session:(MCSession *)session didReceiveData:(NSData *)data fromPeer:(MCPeerID *)peerID
+{
+    
+}
+
+- (void)session:(MCSession *)session didStartReceivingResourceWithName:(NSString *)resourceName fromPeer:(MCPeerID *)peerID withProgress:(NSProgress *)progress
+{
+}
+
+- (void)session:(MCSession *)session didFinishReceivingResourceWithName:(NSString *)resourceName fromPeer:(MCPeerID *)peerID atURL:(NSURL *)localURL withError:(NSError *)error
+{
+    
+}
+
+- (void)session:(MCSession *)session didReceiveStream:(NSInputStream *)stream withName:(NSString *)streamName fromPeer:(MCPeerID *)peerID
+{
+    
+}
+
+- (void)session:(MCSession *)session peer:(MCPeerID *)peerID didChangeState:(MCSessionState)state
+{
+    const FString PeerId(PeerID.displayName);
+    switch (state)
+    {
+        case MCSessionStateConnected:
+        {
+            UE_LOG(LogOnline, Display, TEXT("Peer connected: %s"), *PeerId);
+            break;
+        }
+            
+        case MCSessionStateNotConnected:
+        {
+            UE_LOG(LogOnline, Display, TEXT("Peer not connected: %s"), *PeerId);
+            break;
+        }
+    }
+}
+
+@end
+#endif
+
+@implementation FGameCenterSessionDelegate
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+@synthesize SessionGK;
+#endif
+#ifdef __IPHONE_7_0
+@synthesize SessionMC;
+#endif
+
+- (void)initSessionWithName:(NSString*) sessionName
+{
+    UE_LOG(LogOnline, Display, TEXT("- (void)initSessionWithName:(NSString*) sessionName"));
+    // Create the session object
+#ifdef __IPHONE_7_0
+    if ([MCSession class])
+    {
+        self.SessionMC = [FGameCenterSessionDelegateMC alloc];
+        [self.SessionMC initSessionWithName:sessionName];
+    }
+    else
+#endif
+    {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+        self.SessionGK = [FGameCenterSessionDelegateGK alloc];
+        [self.SessionGK initSessionWithName:sessionName];
+#endif
+    }
+}
+
+- (void)shutdownSession
+{
+    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+#ifdef __IPHONE_7_0
+    if ([MCSession class])
+    {
+        [self.SessionMC shutdownSession];
+    }
+    else
+#endif
+    {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+        [self.SessionGK shutdownSession];
+#endif
+    }
+}
+
+- (bool)sessionsAvailable
+{
+    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+#ifdef __IPHONE_7_0
+    if ([MCSession class])
+    {
+        return [self.SessionMC sessionsAvailable];
+    }
+    else
+#endif
+    {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+        return [self.SessionGK sessionsAvailable];
+#endif
+    }
+    return NO;
+}
+
+- (void)joinSession
+{
+    UE_LOG(LogOnline, Display, TEXT("- (void)shutdownSession"));
+#ifdef __IPHONE_7_0
+    if ([MCSession class])
+    {
+        [self.SessionMC joinSession];
+    }
+    else
+#endif
+    {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+        [self.SessionGK joinSession];
+#endif
+    }
 }
 
 @end
@@ -205,7 +371,7 @@ bool FOnlineSessionIOS::CreateSession(int32 HostingPlayerNum, FName SessionName,
 		UE_LOG(LogOnline, Display, TEXT("Creating new session."));
 
 		// Create the session object
-		FGameCenterSessionDelegate* NewGKSession = [FGameCenterSessionDelegate alloc];
+        FGameCenterSessionDelegate* NewGKSession = [FGameCenterSessionDelegate alloc];
 		if( NewGKSession != NULL )
 		{
 			UE_LOG(LogOnline, Display, TEXT("Created session delegate"));
@@ -248,9 +414,9 @@ bool FOnlineSessionIOS::StartSession(FName SessionName)
 	if (Session != NULL)
 	{
 		// Find the linked GK session and start it.
-		FGameCenterSessionDelegate* LinkedGKSession = *GKSessions.Find( SessionName );
+        FGameCenterSessionDelegate* LinkedGKSession = *GKSessions.Find( SessionName );
 		NSString* SafeSessionName = [NSString stringWithFString:SessionName.ToString()];
-		[LinkedGKSession  initSessionWithName:SafeSessionName];
+		[LinkedGKSession initSessionWithName:SafeSessionName];
 
 		// Update the session state as we are now running.
 		Session->SessionState = EOnlineSessionState::InProgress;
@@ -319,15 +485,7 @@ bool FOnlineSessionIOS::IsPlayerInSession(FName SessionName, const FUniqueNetId&
 	return IsPlayerInSessionImpl(this, SessionName, UniqueId);
 }
 
-bool FOnlineSessionIOS::StartMatchmaking(int32 SearchingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
-{
-	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
-	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
-	return false;
-}
-
-
-bool FOnlineSessionIOS::StartMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
+bool FOnlineSessionIOS::StartMatchmaking(const TArray< TSharedRef<FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
 	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
@@ -360,8 +518,7 @@ bool FOnlineSessionIOS::FindSessions(int32 SearchingPlayerNum, const TSharedRef<
 		for (TMap< FName, FGameCenterSessionDelegate* >::TConstIterator SessionIt(GKSessions); SessionIt; ++SessionIt)
 		{
 			FGameCenterSessionDelegate* GKSession = SessionIt.Value();
-			NSArray* availablePeers = [[GKSession Session] peersWithConnectionState:GKPeerStateAvailable];
-			bSuccessfullyFoundSessions = [availablePeers count] > 0;
+            bSuccessfullyFoundSessions = [GKSession sessionsAvailable];
 		}
 	}
 
@@ -377,6 +534,12 @@ bool FOnlineSessionIOS::FindSessions(const FUniqueNetId& SearchingPlayerId, cons
 	return FindSessions(0, SearchSettings);
 }
 
+bool FOnlineSessionIOS::FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegates)
+{
+	FOnlineSessionSearchResult EmptyResult;
+	CompletionDelegates.ExecuteIfBound(0, false, EmptyResult);
+	return true;
+}
 
 bool FOnlineSessionIOS::CancelFindSessions()
 {
@@ -408,9 +571,7 @@ bool FOnlineSessionIOS::JoinSession(int32 PlayerNum, FName SessionName, const FO
 	FGameCenterSessionDelegate* SessionDelegate = *GKSessions.Find( SessionName );
 	if( SessionDelegate != NULL )
 	{
-		NSString* PeerID = [[SessionDelegate Session] peerID];
-		[SessionDelegate connectToPeer:PeerID];
-
+        [SessionDelegate joinSession];
 		JoinSessionResult = EOnJoinSessionCompleteResult::Success;
 	}
 

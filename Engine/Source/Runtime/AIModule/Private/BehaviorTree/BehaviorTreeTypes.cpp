@@ -5,6 +5,7 @@
 #include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"
+#include "BehaviorTree/BTDecorator.h"
 
 //----------------------------------------------------------------------//
 // FBehaviorTreeInstance
@@ -16,7 +17,14 @@ void FBehaviorTreeInstance::Initialize(UBehaviorTreeComponent& OwnerComp, UBTCom
 		Node.Services[ServiceIndex]->InitializeInSubtree(OwnerComp, Node.Services[ServiceIndex]->GetNodeMemory<uint8>(*this), InstancedIndex, InitType);
 	}
 
-	Node.InitializeInSubtree(OwnerComp, Node.GetNodeMemory<uint8>(*this), InstancedIndex, InitType);
+	uint8* NodeMemory = Node.GetNodeMemory<uint8>(*this);
+	Node.InitializeInSubtree(OwnerComp, NodeMemory, InstancedIndex, InitType);
+
+	UBTCompositeNode* InstancedComposite = Cast<UBTCompositeNode>(Node.GetNodeInstance(OwnerComp, NodeMemory));
+	if (InstancedComposite)
+	{
+		InstancedComposite->InitializeComposite(Node.GetLastExecutionIndex());
+	}
 
 	for (int32 ChildIndex = 0; ChildIndex < Node.Children.Num(); ChildIndex++)
 	{
@@ -24,7 +32,15 @@ void FBehaviorTreeInstance::Initialize(UBehaviorTreeComponent& OwnerComp, UBTCom
 
 		for (int32 DecoratorIndex = 0; DecoratorIndex < ChildInfo.Decorators.Num(); DecoratorIndex++)
 		{
-			ChildInfo.Decorators[DecoratorIndex]->InitializeInSubtree(OwnerComp, ChildInfo.Decorators[DecoratorIndex]->GetNodeMemory<uint8>(*this), InstancedIndex, InitType);
+			UBTDecorator* DecoratorOb = ChildInfo.Decorators[DecoratorIndex];
+			uint8* DecoratorMemory = DecoratorOb->GetNodeMemory<uint8>(*this);
+			DecoratorOb->InitializeInSubtree(OwnerComp, DecoratorMemory, InstancedIndex, InitType);
+
+			UBTDecorator* InstancedDecoratorOb = Cast<UBTDecorator>(DecoratorOb->GetNodeInstance(OwnerComp, DecoratorMemory));
+			if (InstancedDecoratorOb)
+			{
+				InstancedDecoratorOb->InitializeDecorator(DecoratorOb->GetChildIndex());
+			}
 		}
 
 		if (ChildInfo.ChildComposite)
@@ -144,9 +160,7 @@ void FBehaviorTreeSearchData::AddUniqueUpdate(const FBehaviorTreeSearchUpdate& U
 		if (Info.AuxNode == UpdateInfo.AuxNode && Info.TaskNode == UpdateInfo.TaskNode)
 		{
 			// duplicate, skip
-			// special case: AddForLowerPri replacing Add
-			if ((Info.Mode == UpdateInfo.Mode) ||
-				(Info.Mode == EBTNodeUpdateMode::Add && UpdateInfo.Mode == EBTNodeUpdateMode::AddForLowerPri))
+			if (Info.Mode == UpdateInfo.Mode)
 			{
 				bSkipAdding = true;
 				break;
@@ -225,65 +239,131 @@ void FBlackboardKeySelector::InitSelectedKey(UBlackboardData* BlackboardAsset)
 
 void FBlackboardKeySelector::AddObjectFilter(UObject* Owner, TSubclassOf<UObject> AllowedClass)
 {
-	UBlackboardKeyType_Object* FilterOb = NewNamedObject<UBlackboardKeyType_Object>(Owner, TEXT("BlackboardKeyType_Object"));
-	FilterOb->BaseClass = AllowedClass;
-	AllowedTypes.Add(FilterOb);
+	AddObjectFilter(Owner, TEXT("BlackboardKeyType"), AllowedClass);
 }
 
 void FBlackboardKeySelector::AddClassFilter(UObject* Owner, TSubclassOf<UClass> AllowedClass)
 {
-	UBlackboardKeyType_Class* FilterOb = NewNamedObject<UBlackboardKeyType_Class>(Owner, TEXT("BlackboardKeyType_Class"));
-	FilterOb->BaseClass = AllowedClass;
-	AllowedTypes.Add(FilterOb);
+	AddClassFilter(Owner, TEXT("BlackboardKeyType"), AllowedClass);
 }
 
 void FBlackboardKeySelector::AddEnumFilter(UObject* Owner, UEnum* AllowedEnum)
 {
-	UBlackboardKeyType_Enum* FilterOb = NewNamedObject<UBlackboardKeyType_Enum>(Owner, TEXT("BlackboardKeyType_Enum"));
-	FilterOb->EnumType = AllowedEnum;
-	AllowedTypes.Add(FilterOb);
+	AddEnumFilter(Owner, TEXT("BlackboardKeyType"), AllowedEnum);
 }
 
 void FBlackboardKeySelector::AddNativeEnumFilter(UObject* Owner, const FString& AllowedEnumName)
 {
-	UBlackboardKeyType_NativeEnum* FilterOb = NewNamedObject<UBlackboardKeyType_NativeEnum>(Owner, TEXT("BlackboardKeyType_NativeEnum"));
-	FilterOb->EnumName = AllowedEnumName;
-	AllowedTypes.Add(FilterOb);
+	AddNativeEnumFilter(Owner, TEXT("BlackboardKeyType"), AllowedEnumName);
 }
 
 void FBlackboardKeySelector::AddIntFilter(UObject* Owner)
 {
-	AllowedTypes.Add(NewNamedObject<UBlackboardKeyType_Int>(Owner, TEXT("BlackboardKeyType_Int")));
+	AddIntFilter(Owner, TEXT("BlackboardKeyType"));
 }
 
 void FBlackboardKeySelector::AddFloatFilter(UObject* Owner)
 {
-	AllowedTypes.Add(NewNamedObject<UBlackboardKeyType_Float>(Owner, TEXT("BlackboardKeyType_Float")));
+	AddFloatFilter(Owner, TEXT("BlackboardKeyType"));
 }
 
 void FBlackboardKeySelector::AddBoolFilter(UObject* Owner)
 {
-	AllowedTypes.Add(NewNamedObject<UBlackboardKeyType_Bool>(Owner, TEXT("BlackboardKeyType_Bool")));
+	AddBoolFilter(Owner, TEXT("BlackboardKeyType"));
 }
 
 void FBlackboardKeySelector::AddVectorFilter(UObject* Owner)
 {
-	AllowedTypes.Add(NewNamedObject<UBlackboardKeyType_Vector>(Owner, TEXT("BlackboardKeyType_Vector")));
+	AddVectorFilter(Owner, TEXT("BlackboardKeyType"));
 }
 
 void FBlackboardKeySelector::AddRotatorFilter(UObject* Owner)
 {
-	AllowedTypes.Add(NewNamedObject<UBlackboardKeyType_Rotator>(Owner, TEXT("BlackboardKeyType_Rotator")));
+	AddRotatorFilter(Owner, TEXT("BlackboardKeyType"));
 }
 
 void FBlackboardKeySelector::AddStringFilter(UObject* Owner)
 {
-	AllowedTypes.Add(NewNamedObject<UBlackboardKeyType_String>(Owner, TEXT("BlackboardKeyType_String")));
+	AddStringFilter(Owner, TEXT("BlackboardKeyType"));
 }
 
 void FBlackboardKeySelector::AddNameFilter(UObject* Owner)
 {
-	AllowedTypes.Add(NewNamedObject<UBlackboardKeyType_Name>(Owner, TEXT("BlackboardKeyType_Name")));
+	AddNameFilter(Owner, TEXT("BlackboardKeyType"));
+}
+
+void FBlackboardKeySelector::AddObjectFilter(UObject* Owner, FName PropertyName, TSubclassOf<UObject> AllowedClass)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Object");
+	UBlackboardKeyType_Object* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_Object>(*FilterName);
+	FilterOb->BaseClass = AllowedClass;
+	AllowedTypes.Add(FilterOb);
+}
+
+void FBlackboardKeySelector::AddClassFilter(UObject* Owner, FName PropertyName, TSubclassOf<UClass> AllowedClass)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Class");
+	UBlackboardKeyType_Class* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_Class>(*FilterName);
+	FilterOb->BaseClass = AllowedClass;
+	AllowedTypes.Add(FilterOb);
+}
+
+void FBlackboardKeySelector::AddEnumFilter(UObject* Owner, FName PropertyName, UEnum* AllowedEnum)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Enum");
+	UBlackboardKeyType_Enum* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_Enum>(*FilterName);
+	FilterOb->EnumType = AllowedEnum;
+	AllowedTypes.Add(FilterOb);
+}
+
+void FBlackboardKeySelector::AddNativeEnumFilter(UObject* Owner, FName PropertyName, const FString& AllowedEnumName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_NativeEnum");
+	UBlackboardKeyType_NativeEnum* FilterOb = Owner->CreateDefaultSubobject<UBlackboardKeyType_NativeEnum>(*FilterName);
+	FilterOb->EnumName = AllowedEnumName;
+	AllowedTypes.Add(FilterOb);
+}
+
+void FBlackboardKeySelector::AddIntFilter(UObject* Owner, FName PropertyName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Int");
+	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Int>(*FilterName));
+}
+
+void FBlackboardKeySelector::AddFloatFilter(UObject* Owner, FName PropertyName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Float");
+	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Float>(*FilterName));
+}
+
+void FBlackboardKeySelector::AddBoolFilter(UObject* Owner, FName PropertyName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Bool");
+	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Bool>(*FilterName));
+}
+
+void FBlackboardKeySelector::AddVectorFilter(UObject* Owner, FName PropertyName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Vector");
+	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Vector>(*FilterName));
+}
+
+void FBlackboardKeySelector::AddRotatorFilter(UObject* Owner, FName PropertyName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Rotator");
+	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Rotator>(*FilterName));
+}
+
+void FBlackboardKeySelector::AddStringFilter(UObject* Owner, FName PropertyName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_String");
+	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_String>(*FilterName));
+}
+
+void FBlackboardKeySelector::AddNameFilter(UObject* Owner, FName PropertyName)
+{
+	const FString FilterName = PropertyName.ToString() + TEXT("_Name");
+	AllowedTypes.Add(Owner->CreateDefaultSubobject<UBlackboardKeyType_Name>(*FilterName));
 }
 
 //----------------------------------------------------------------------//
@@ -319,7 +399,7 @@ FString UBehaviorTreeTypes::DescribeTaskStatus(EBTTaskStatus::Type TaskStatus)
 
 FString UBehaviorTreeTypes::DescribeNodeUpdateMode(EBTNodeUpdateMode::Type UpdateMode)
 {
-	static FString UpdateModeDesc[] = { TEXT("Add"), TEXT("AddForLowerPri"), TEXT("Remove") };
+	static FString UpdateModeDesc[] = { TEXT("Add"), TEXT("Remove") };
 	return (UpdateMode < ARRAY_COUNT(UpdateModeDesc)) ? UpdateModeDesc[UpdateMode] : FString();
 }
 

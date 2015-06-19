@@ -22,9 +22,6 @@ struct FGetVisibilityVisitor : TTreeItemGetter<bool>
 	/** Get a World's visibility */
 	virtual bool Get(const FWorldTreeItem& WorldItem) const override;
 
-	/** Get a Level Blueprint's visibility */
-	virtual bool Get(const FLevelBlueprintTreeItem& LevelBlueprintItem) const override;
-
 	/** Get a folder's visibility */
 	virtual bool Get(const FFolderTreeItem& FolderItem) const override;
 };

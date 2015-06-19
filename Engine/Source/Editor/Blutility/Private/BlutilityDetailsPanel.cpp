@@ -92,7 +92,8 @@ void FEditorUtilityInstanceDetails::CustomizeDetails(IDetailLayoutBuilder& Detai
 		{
 			UFunction* Function = *FuncIt;
 
-			const bool bCanExecute = (Function->NumParms == 0) && Function->HasAllFunctionFlags(FUNC_Exec);
+			const bool bCallInEditorFunc = Function->GetBoolMetaData( TEXT("CallInEditor") );
+			const bool bCanExecute = (Function->NumParms == 0) && bCallInEditorFunc;
 
 			if (bCanExecute)
 			{

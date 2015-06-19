@@ -6,7 +6,6 @@
 #include "CollisionQueryParams.h"
 #include "BodyInstance.generated.h"
 
-
 #define UE_WITH_PHYSICS (WITH_PHYSX || WITH_BOX2D)
 
 struct FCollisionShape;
@@ -21,6 +20,8 @@ class UPhysicsConstraintComponent;
 DECLARE_DELEGATE_TwoParams(FCalculateCustomPhysics, float, FBodyInstance*);
 
 #if WITH_PHYSX
+struct FShapeData;
+
 namespace physx
 {
 	class PxRigidActor;
@@ -29,32 +30,38 @@ namespace physx
 	class PxRigidDynamic;
 	class PxGeometry;
 	class PxShape;
+	class PxMaterial;
 	class PxTransform;
 	struct PxContactPair;
+	struct PxFilterData;
 }
+
 #endif // WITH_PHYSX
 
 UENUM(BlueprintType)
-namespace ELockedAxis
+namespace EDOFMode
 {
 	enum Type
 	{
-		/*Uses the default locked axis as specified in the project settings.*/
+		/*Inherits the degrees of freedom from the project settings.*/
 		Default,
-		/*Lock movement along the x-axis*/
-		X,
-		/*Lock movement along the y-axis*/
-		Y,
-		/*Lock movement along the z-axis*/
-		Z,
-		/*Lock movement along custom axis*/
-		Custom,
-		/*No axis is locked.*/
+		/*Specifies which axis to freeze rotation and movement along.*/
+		SixDOF,
+		/*Allows 2D movement along the Y-Z plane.*/
+		YZPlane,
+		/*Allows 2D movement along the X-Z plane.*/
+		XZPlane,
+		/*Allows 2D movement along the X-Y plane.*/
+		XYPlane,
+		/*Allows 2D movement along the plane of a given normal*/
+		CustomPlane,
+		/*No constraints.*/
 		None
 	};
 }
 
 struct FCollisionNotifyInfo;
+template <bool bCompileStatic> struct FInitBodiesHelper;
 
 USTRUCT()
 struct ENGINE_API FCollisionResponse
@@ -108,18 +115,29 @@ private:
 	friend struct FBodyInstance;
 };
 
+enum class BodyInstanceSceneState
+{
+	NotAdded,
+	AwaitingAdd,
+	Added,
+	AwaitingRemove,
+	Removed
+};
+
 /** Container for a physics representation of an object */
 USTRUCT()
 struct ENGINE_API FBodyInstance
 {
 	GENERATED_USTRUCT_BODY()
 
-
 	/** 
 	 *	Index of this BodyInstance within the SkeletalMeshComponent/PhysicsAsset. 
 	 *	Is INDEX_NONE if a single body component
 	 */
 	int32 InstanceBodyIndex;
+
+	/** When we are a body within a SkeletalMeshComponent, we cache the index of the bone we represent, to speed up sync'ing physics to anim. */
+	int32 InstanceBoneIndex;
 
 	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
 	UPROPERTY()
@@ -179,41 +197,41 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Physics)
 	uint32 bSimulatePhysics:1;
 
-	/** If true and is attached to a parent, the two bodies will be joined into a single rigid body. Physical settings like collision profile and body settings are determined by the root */
+	/** If true, mass will not be automatically computed and you must set it directly */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta=(DisplayName="Override"))
+	uint32 bOverrideMass : 1;
+
+	/**Mass of the body in KG. By default we compute this based on physical material and mass scale.
+	*@see bOverrideMass to set this directly */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMass", ClampMin = "0.001", UIMin = "0.001"))
+	float MassInKg;
+
+	/** 'Drag' force added to reduce linear movement */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	float LinearDamping;
+
+	/** 'Drag' force added to reduce angular movement */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
+	float AngularDamping;
+
+	/** If object should have the force of gravity applied */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics)
+	uint32 bEnableGravity : 1;
+
+	/** If true and is attached to a parent, the two bodies will be joined into a single rigid body. Physical settings like collision profile and body settings are determined by the root */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
 	uint32 bAutoWeld : 1;
 
 	/** determines if the body is currently welded */
 	uint32 bWelded : 1;
 
 	/** If object should start awake, or if it should initially be sleeping */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Physics, meta=(editcondition = "bSimulatePhysics"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bSimulatePhysics"))
 	uint32 bStartAwake:1;
-
-	/** If object should have the force of gravity applied */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
-	uint32 bEnableGravity:1;
 
 	/** If true, it will update mass when scale changes **/
 	UPROPERTY()
 	uint32 bUpdateMassWhenScaleChanges:1;
-
-	/** If true, mass will not be automatically computed and you must set it directly */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Physics)
-	uint32 bOverrideMass : 1;
-
-	/**Mass of the body in KG. By default we compute this based on physical material and mass scale.
-	   *@see bOverrideMass to set this directly */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMass", ClampMin = "0.001", UIMin = "0.001"))
-	float MassInKg;
-
-	/** Locks physical movement along specified axis.*/
-	UPROPERTY(EditAnywhere, Category = Physics, meta=(DisplayName="Locked Axis"))
-	TEnumAsByte<ELockedAxis::Type> LockedAxisMode;
-	
-	/** Locks physical movement along custom axis. (0,0,0) indicates no lock*/
-	UPROPERTY(EditAnywhere, Category = Physics)
-	FVector CustomLockedAxis;
 
 	/** When a Locked Axis Mode is selected, will lock translation on the specified axis*/
 	UPROPERTY(EditAnywhere, Category = Physics, meta=(DisplayName = "Lock Axis Translation"))
@@ -223,11 +241,58 @@ public:
 	UPROPERTY(EditAnywhere, Category = Physics, meta=(DisplayName = "Lock Axis Rotation"))
 	uint32 bLockRotation : 1;
 
+	/** Lock translation along the X-axis*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "X"))
+	uint32 bLockXTranslation : 1;
+
+	/** Lock translation along the Y-axis*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Y"))
+	uint32 bLockYTranslation : 1;
+
+	/** Lock translation along the Z-axis*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Z"))
+	uint32 bLockZTranslation : 1;
+
+	/** Lock rotation about the X-axis*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "X"))
+	uint32 bLockXRotation : 1;
+
+	/** Lock rotation about the Y-axis*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Y"))
+	uint32 bLockYRotation : 1;
+
+	/** Lock rotation about the Z-axis*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Z"))
+	uint32 bLockZRotation : 1;
+
+	/** Locks physical movement along specified axis.*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Mode"))
+	TEnumAsByte<EDOFMode::Type> DOFMode;
+
+	/** Locks physical movement along a custom plane for a given normal.*/
+	UPROPERTY(EditAnywhere, Category = Physics, meta = (DisplayName = "Plane Normal"))
+	FVector CustomDOFPlaneNormal;
+
+	/** User specified offset for the center of mass of this object, from the calculated location */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics, meta = (DisplayName = "Center Of Mass Offset"))
+	FVector COMNudge;
+
+	/** Per-instance scaling of mass */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
+	float MassScale;
+
+	/** The maximum angular velocity for this instance */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bSimulatePhysics"))
+	float MaxAngularVelocity;
+
+
 	/** Locks physical movement along axis. */
-	void SetDOFLock(ELockedAxis::Type NewAxisMode);
+	void SetDOFLock(EDOFMode::Type NewDOFMode);
 
 	FVector GetLockedAxis() const;
 	void CreateDOFLock();
+
+	static EDOFMode::Type ResolveDOFMode(EDOFMode::Type DOFMode);
 
 	/** Constraint used to allow for easy DOF setup per bodyinstance */
 	FConstraintInstance * DOFConstraint;
@@ -250,17 +315,6 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
 	uint32 bUseAsyncScene:1;
 
-	/** Whether this instance of the object has its own custom walkable slope override setting. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
-	uint32 bOverrideWalkableSlopeOnInstance:1;
-
-	/**
-	 * Custom walkable slope override setting for this instance.
-	 * @see GetWalkableSlopeOverride(), SetWalkableSlopeOverride()
-	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics, meta=(editcondition="bOverrideWalkableSlopeOnInstance"))
-	struct FWalkableSlopeOverride WalkableSlopeOverride;
-
 	/** Whether this body instance has its own custom MaxDepenetrationVelocity*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
 	uint32 bOverrideMaxDepenetrationVelocity : 1;
@@ -269,34 +323,25 @@ protected:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxDepenetrationVelocity", ClampMin = "0.0", UIMin = "0.0"))
 	float MaxDepenetrationVelocity;
 
+	/** Whether this instance of the object has its own custom walkable slope override setting. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
+	uint32 bOverrideWalkableSlopeOnInstance : 1;
+
+	/**
+	* Custom walkable slope override setting for this instance.
+	* @see GetWalkableSlopeOverride(), SetWalkableSlopeOverride()
+	*/
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideWalkableSlopeOnInstance"))
+	struct FWalkableSlopeOverride WalkableSlopeOverride;
+
 	/**	Allows you to override the PhysicalMaterial to use for simple collision on this body. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Collision)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Collision)
 	class UPhysicalMaterial* PhysMaterialOverride;
 
 public:
-	/** User specified offset for the center of mass of this object, from the calculated location */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics, meta=(DisplayName="Center Of Mass Offset"))
-	FVector COMNudge;
-
 	/** The set of values used in considering when put this body to sleep. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
-	TEnumAsByte<enum ESleepFamily> SleepFamily;
-
-	/** Per-instance scaling of mass */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
-	float MassScale;
-
-	/** 'Drag' force added to reduce angular movement */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
-	float AngularDamping;
-
-	/** 'Drag' force added to reduce linear movement */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Physics)
-	float LinearDamping;
-
-	/** The maximum angular velocity for this instance */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bSimulatePhysics"))
-	float MaxAngularVelocity;
+	ESleepFamily SleepFamily;
 
 	/**	Influence of rigid body physics (blending) on the mesh's pose (0.0 == use only animation, 1.0 == use only physics) */
 	/** Provide appropriate interface for doing this instead of allowing BlueprintReadWrite **/
@@ -326,6 +371,21 @@ public:
 	TSharedPtr<TArray<ANSICHAR>> CharDebugName;
 #endif	//WITH_PHYSX
 
+	/** Internal use. Physics-engine id of the actor used during serialization. Needs to be outside the ifdef for serialization purposes*/
+	UPROPERTY()
+	uint64 RigidActorSyncId;
+
+	/** Internal use. Physics-engine id of the actor used during serialization.  Needs to be outside the ifdef for serialization purposes*/
+	UPROPERTY()
+	uint64 RigidActorAsyncId;
+
+	/** Per instance data used to initialize dynamic instances */
+	/** Initial physx velocity to apply to dynamic instances */
+	FVector InitialLinearVelocity;
+
+	/** When initializing dynamic instances their component or velocity can override the bStartAwake flag */
+	bool bWokenExternally;
+
 	/** PrimitiveComponent containing this body.   */
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;
 
@@ -351,13 +411,185 @@ public:
 #endif
 
 #if UE_WITH_PHYSICS
+	/** Initialise a single rigid body (this FBodyInstance) for the given body setup
+	 *	@param Setup The setup to use to create the body
+	 *	@param Transform Transform of the body
+	 *	@param PrimComp The owning component
+	 *	@param InRBScene The physics scene to place the body into
+	 *	@param InAggregate An aggregate to place the body into
+	 */
 	void InitBody(class UBodySetup* Setup, const FTransform& Transform, class UPrimitiveComponent* PrimComp, class FPhysScene* InRBScene, PhysXAggregateType InAggregate = NULL);
+
+	/** Validate a body transform, outputting debug info
+	 *	@param Transform Transform to debug
+	 *	@param DebugName Name of the instance for logging
+	 *	@param Setup Body setup for this instance
+	 */
+	static bool ValidateTransform(const FTransform &Transform, const FString& DebugName, const UBodySetup* Setup);
+
+	/** Standalone path to batch initialize large amounts of static bodies, which will be deferred till the next scene update for fast scene addition.
+	 *	@param Bodies
+	 *	@param Transforms
+	 *	@param BodySetup
+	 *	@param PrimitiveComp
+	 *	@param InRBScene
+	 *  @param PhysicsSerializer
+	 */
+	static void InitStaticBodies(TArray<FBodyInstance*>& Bodies, TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, class UPhysicsSerializer* PhysicsSerializer);
+
+	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda. */
+	void ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func) const;
+
+	/** Obtains the appropriate PhysX scene lock for WRITING and executes the passed in lambda. */
+	void ExecuteOnPhysicsReadWrite(TFunctionRef<void()> Func) const;
+	
+#if WITH_PHYSX
+
+	/** If scene type is not specified return the first scene used. */
+	int32 GetSceneIndex(int32 SceneType = -1) const;
+
+
+	/** Initialise dynamic properties for this instance when using PhysX - this must be done after scene addition.
+	 */
+	DEPRECATED(4.8, "Please call InitDynamicProperties_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void InitDynamicProperties()
+	{
+		InitDynamicProperties_AssumesLocked();
+	}
+
+	/** Initialise dynamic properties for this instance when using PhysX - this must be done after scene addition.
+	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
+	 */
+	void InitDynamicProperties_AssumesLocked();
+
+	/** Populate the filter data within the provided FShapeData with the correct filters for this instance
+	 *	@param ShapeData ShapeData to populate
+	 *	@param bForceSimpleAsComplex Whether to force simple colision as complex
+	 */
+	DEPRECATED(4.8, "Please call GetFilterData_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void GetFilterData(FShapeData& ShapeData, bool bForceSimpleAsComplex = false)
+	{
+		GetFilterData_AssumesLocked(ShapeData, bForceSimpleAsComplex);
+	}
+
+	/** Populate the filter data within the provided FShapeData with the correct filters for this instance
+	 *	@param ShapeData ShapeData to populate
+	 *	@param bForceSimpleAsComplex Whether to force simple colision as complex
+	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
+	 */
+	void GetFilterData_AssumesLocked(FShapeData& ShapeData, bool bForceSimpleAsComplex = false);
+
+	/** Set initialisation flags on a provided shape
+	 *	@param UseCollisionEnabled Whether collision is enabled for the shape
+	 *	@param PShape The shape to set the flags on
+	 *	@param SceneType Which scene we are using
+	 *	@param bUseComplexAsSimple Whether to use complex collision as simple
+	 */
+	DEPRECATED(4.8, "Please call SetShapeFlags_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void SetShapeFlags(TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled, physx::PxShape* PShape, EPhysicsSceneType SceneType, const bool bUseComplexAsSimple = false)
+	{
+		SetShapeFlags_AssumesLocked(UseCollisionEnabled, PShape, SceneType, bUseComplexAsSimple);
+	}
+
+	/** Set initialisation flags on a provided shape
+	 *	@param UseCollisionEnabled Whether collision is enabled for the shape
+	 *	@param PShape The shape to set the flags on
+	 *	@param SceneType Which scene we are using
+	 *	@param bUseComplexAsSimple Whether to use complex collision as simple
+	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
+	 */
+	void SetShapeFlags_AssumesLocked(TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled, physx::PxShape* PShape, EPhysicsSceneType SceneType, const bool bUseComplexAsSimple = false);
+
+	/** Populate the flag fields of the provided FShapeData with correct initialisation flags
+	 *	@param ShapeData ShapeData to populate
+	 *	@param UseCollisionEnabled Whether collision is enabled for this instance
+	 *	@param bUseComplexAsSimple Whether to use complex collision as simple
+	 */
+	DEPRECATED(4.8, "Please call GetShapeFlags_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void GetShapeFlags(FShapeData& ShapeData, TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled, const bool bUseComplexAsSimple = false)
+	{
+		GetShapeFlags_AssumesLocked(ShapeData, UseCollisionEnabled, bUseComplexAsSimple);
+	}
+
+	/** Populate the flag fields of the provided FShapeData with correct initialisation flags
+	 *	@param ShapeData ShapeData to populate
+	 *	@param UseCollisionEnabled Whether collision is enabled for this instance
+	 *	@param bUseComplexAsSimple Whether to use complex collision as simple
+	 *  Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
+	 */
+	void GetShapeFlags_AssumesLocked(FShapeData& ShapeData, TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled, const bool bUseComplexAsSimple = false);
+
+	/**
+	 * Return the PxRigidActor from the given scene (see EPhysicsSceneType), if SceneType is in the range [0, PST_MAX).
+	 * If SceneType < 0, the PST_Sync actor is returned if it is not NULL, otherwise the PST_Async actor is returned.
+	 * Invalid scene types will cause NULL to be returned.
+	 */
+	DEPRECATED(4.8, "Please call GetPxRigidActor_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	physx::PxRigidActor* GetPxRigidActor(int32 SceneType = -1) const
+	{
+		return GetPxRigidActor_AssumesLocked(SceneType);
+	}
+
+	/**
+	 * Return the PxRigidActor from the given scene (see EPhysicsSceneType), if SceneType is in the range [0, PST_MAX).
+	 * If SceneType < 0, the PST_Sync actor is returned if it is not NULL, otherwise the PST_Async actor is returned.
+	 * Invalid scene types will cause NULL to be returned.
+	 * Note: Reading/writing from/to PxRigidActor is not thread safe. If you use the actor make sure to obtain the appropriate PhysX scene lock
+	 */
+	physx::PxRigidActor* GetPxRigidActor_AssumesLocked(int32 SceneType = -1) const;
+
+
+	/** Return the PxRigidDynamic if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidDynamic can exist in only one of the two scenes. */
+	DEPRECATED(4.8, "Please call GetPxRigidDynamic_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	physx::PxRigidDynamic* GetPxRigidDynamic() const
+	{
+		return GetPxRigidDynamic_AssumesLocked();
+	}
+
+	/** Return the PxRigidDynamic if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidDynamic can exist in only one of the two scenes.
+	 *  Note: This function assumes the appropriate scene lock has been obtained.
+	 *  @see ExecuteOnPxRigidDynamicReadOnly, ExecuteOnPxRigidDynamicReadWrite
+	 */
+	physx::PxRigidDynamic* GetPxRigidDynamic_AssumesLocked() const;
+
+	/** Return the PxRigidBody if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidBody can exist in only one of the two scenes. */
+	DEPRECATED(4.8, "Please call GetPxRigidBody_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	physx::PxRigidBody* GetPxRigidBody() const
+	{
+		return GetPxRigidBody_AssumesLocked();
+	}
+
+	/** Return the PxRigidBody if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidBody can exist in only one of the two scenes.
+	 *  Note: This function assumes the appropriate scene lock has been obtained.
+	 *  @see ExecuteOnPxRigidBodyReadOnly, ExecuteOnPxRigidBodyReadWrite
+	 */
+	physx::PxRigidBody* GetPxRigidBody_AssumesLocked() const;
+
+	
+
+	/** 
+	 *	Utility to get all the shapes from a FBodyInstance 
+	 *	Shapes belonging to sync actor are first, then async. Number of shapes belonging to sync actor is returned.
+	 */
+	DEPRECATED(4.8, "Please call GetAllShapes_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	TArray<physx::PxShape*> GetAllShapes(int32& OutNumSyncShapes) const
+	{
+		TArray<physx::PxShape*> Shapes;
+		OutNumSyncShapes = GetAllShapes_AssumesLocked(Shapes);
+		return Shapes;
+	}
+
+	/** 
+	 *	Utility to get all the shapes from a FBodyInstance 
+	 *	Shapes belonging to sync actor are first, then async. Number of shapes belonging to sync actor is returned.
+	 *	NOTE: This function is not thread safe. You must hold the PhysX scene lock while calling it and reading/writing from the shapes
+	 */
+	int32 GetAllShapes_AssumesLocked(TArray<physx::PxShape*>& OutShapes) const;
 #endif	//WITH_PHYSX
 
+#endif	//UE_WITH_PHYSICS
+
 	void TermBody();
-
-
-
 
 	/** 
 	 * Takes two body instances and welds them together to create a single simulated rigid body. Returns true if success.
@@ -393,8 +625,17 @@ public:
 	/** Find the correct PhysicalMaterial for simple geometry on this body */
 	UPhysicalMaterial* GetSimplePhysicalMaterial() const;
 
+	/** Find the correct PhysicalMaterial for simple geometry on a given body and owner. This is really for internal use during serialization */
+	static UPhysicalMaterial* GetSimplePhysicalMaterial(const FBodyInstance* BodyInstance, TWeakObjectPtr<UPrimitiveComponent> Owner, TWeakObjectPtr<UBodySetup> BodySetupPtr);
+
 	/** Get the complex PhysicalMaterial array for this body */
 	TArray<UPhysicalMaterial*> GetComplexPhysicalMaterials() const;
+
+	/** Find the correct PhysicalMaterial for simple geometry on a given body and owner. This is really for internal use during serialization */
+	static void GetComplexPhysicalMaterials(const FBodyInstance* BodyInstance, TWeakObjectPtr<UPrimitiveComponent> Owner, TArray<UPhysicalMaterial*>& OutPhysicalMaterials);
+
+	/** Get the complex PhysicalMaterials for this body */
+	void GetComplexPhysicalMaterials(TArray<UPhysicalMaterial*> &PhysMaterials) const;
 
 	/** Returns the slope override struct for this instance. If we don't have our own custom setting, it will return the setting from the body setup. */
 	const struct FWalkableSlopeOverride& GetWalkableSlopeOverride() const;
@@ -403,37 +644,28 @@ public:
 	void SetWalkableSlopeOverride(const FWalkableSlopeOverride& NewOverride);
 
 	/** Returns whether this body wants (and can) use the async scene. */
+	DEPRECATED(4.8, "Please call UseAsyncScene and pass in the PhysScene of the owning component (GetWorld()->GetPhysicsScene()).")
 	bool UseAsyncScene() const;
+
+	bool UseAsyncScene(const FPhysScene* PhysScene) const;
+
+	bool HasSharedShapes() const{ return bHasSharedShapes; }
 
 	/** Indicates whether this body should use the async scene. Must be called before body is init'd, will assert otherwise. Will have no affect if there is no async scene. */
 	void SetUseAsyncScene(bool bNewUseAsyncScene);
 
-#if WITH_PHYSX
-	/**
-	 * Return the PxRigidActor from the given scene (see EPhysicsSceneType), if SceneType is in the range [0, PST_MAX).
-	 * If SceneType < 0, the PST_Sync actor is returned if it is not NULL, otherwise the PST_Async actor is returned.
-	 * Invalid scene types will cause NULL to be returned.
-	 */
-	physx::PxRigidActor* GetPxRigidActor(int32 SceneType = -1) const;
-	/** Return the PxRigidDynamic if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidDynamic can exist in only one of the two scenes. */
-	physx::PxRigidDynamic* GetPxRigidDynamic() const;
-	/** Return the PxRigidBody if it exists in one of the scenes (NULL otherwise).  Currently a PxRigidBody can exist in only one of the two scenes. */
-	physx::PxRigidBody* GetPxRigidBody() const;
-
-	/** 
-	 *	Utility to get all the shapes from a FBodyInstance 
-	 *	Shapes belonging to sync actor are first, then async. Number of shapes belonging to sync actor is returned.
-	 */
-	TArray<physx::PxShape*> GetAllShapes(int32& OutNumSyncShapes) const;
-#endif	//WITH_PHYSX
-
 	/** Returns true if the body is not static */
 	bool IsDynamic() const;
+
+	/** Returns true if the body is non kinematic*/
+	bool IsNonKinematic() const;
 
 	/** Returns the body's mass */
 	float GetBodyMass() const;
 	/** Return bounds of physics representation */
 	FBox GetBodyBounds() const;
+	/** Return the body's inertia tensor. This is returned in local mass space */
+	FVector GetBodyInertiaTensor() const;
 
 
 	/** Set this body to be fixed (kinematic) or not. */
@@ -453,11 +685,11 @@ public:
 	/** Add custom forces and torques on the body. The callback will be called more than once, if substepping enabled, for every substep.  */
 	void AddCustomPhysics(FCalculateCustomPhysics& CalculateCustomPhysics);
 	/** Add a force to this body */
-	void AddForce(const FVector& Force, bool bAllowSubstepping = true);
+	void AddForce(const FVector& Force, bool bAllowSubstepping = true, bool bAccelChange = false);
 	/** Add a force at a particular world position to this body */
 	void AddForceAtPosition(const FVector& Force, const FVector& Position, bool bAllowSubstepping = true);
 	/** Add a torque to this body */
-	void AddTorque(const FVector& Torque, bool bAllowSubstepping = true);
+	void AddTorque(const FVector& Torque, bool bAllowSubstepping = true, bool bAccelChange = false);
 	/** Add a rotational impulse to this body */
 	void AddAngularImpulse(const FVector& Impulse, bool bVelChange);
 	/** Add an impulse to this body */
@@ -483,6 +715,9 @@ public:
 	/** Get current transform in world space from physics body. */
 	FTransform GetUnrealWorldTransform() const;
 
+	/** Get current transform in world space from physics body. */
+	FTransform GetUnrealWorldTransform_AssumesLocked() const;
+
 	/**
 	 *	Move the physics body to a new pose.
 	 *	@param	bTeleport	If true, no velocity is inferred on the kinematic body from this movement, but it moves right away.
@@ -492,11 +727,20 @@ public:
 	/** Get current velocity in world space from physics body. */
 	FVector GetUnrealWorldVelocity() const;
 
+	/** Get current velocity in world space from physics body. */
+	FVector GetUnrealWorldVelocity_AssumesLocked() const;
+
 	/** Get current angular velocity in world space from physics body. */
 	FVector GetUnrealWorldAngularVelocity() const;
 
+	/** Get current angular velocity in world space from physics body. */
+	FVector GetUnrealWorldAngularVelocity_AssumesLocked() const;
+
 	/** Get current velocity of a point on this physics body, in world space. Point is specified in world space. */
 	FVector GetUnrealWorldVelocityAtPoint(const FVector& Point) const;
+
+	/** Get current velocity of a point on this physics body, in world space. Point is specified in world space. */
+	FVector GetUnrealWorldVelocityAtPoint_AssumesLocked(const FVector& Point) const;
 
 	/** Set physical material override for this body */
 	void SetPhysMaterialOverride(class UPhysicalMaterial* NewPhysMaterial);
@@ -561,6 +805,32 @@ public:
 	/** Update the instance's material properties (friction, restitution) */
 	void UpdatePhysicalMaterials();
 
+#if WITH_PHYSX
+	DEPRECATED(4.8, "Please call ApplyMaterialToShape_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	static void ApplyMaterialToShape(physx::PxShape* PShape, physx::PxMaterial* PSimpleMat, TArray<UPhysicalMaterial*>& ComplexPhysMats)
+	{
+		ApplyMaterialToShape_AssumesLocked(PShape, PSimpleMat, ComplexPhysMats, false);
+	}
+
+	/** 
+	 *  Apply a material directly to the passed in shape. Note this function is very advanced and requires knowledge of shape sharing as well as threading. Note: assumes the appropriate locks have been obtained
+	 *  @param  PShape					The shape we are applying the material to
+	 *  @param  PSimpleMat				The material to use if a simple shape is provided (or complex materials are empty)
+	 *  @param  ComplexPhysMats			The array of materials to apply if a complex shape is provided
+	 *	@param	bSharedShape			If this is true it means you've already detached the shape from all actors that use it (attached shared shapes are not writable).
+	 */
+	static void ApplyMaterialToShape_AssumesLocked(physx::PxShape* PShape, physx::PxMaterial* PSimpleMat, const TArray<UPhysicalMaterial*>& ComplexPhysMats, const bool bSharedShape);
+
+	DEPRECATED(4.8, "Please call ApplyMaterialToInstanceShapes_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void ApplyMaterialToInstanceShapes(physx::PxMaterial* PSimpleMat, TArray<UPhysicalMaterial*>& ComplexPhysMats)
+	{
+		ApplyMaterialToInstanceShapes_AssumesLocked(PSimpleMat, ComplexPhysMats);
+	}
+
+	/** Note: This function is not thread safe. Make sure you obtain the appropriate PhysX scene lock before calling it*/
+	void ApplyMaterialToInstanceShapes_AssumesLocked(physx::PxMaterial* PSimpleMat, TArray<UPhysicalMaterial*>& ComplexPhysMats);
+#endif
+
 	/** Update the instances collision filtering data */
 	void UpdatePhysicsFilterData(bool bForceSimpleAsComplex = false);
 
@@ -597,9 +867,26 @@ public:
 	 *
 	 *	@param	PGeom			Geometry it would like to test
 	 *  @param  ShapePose       Transform information in world. Use U2PTransform to convert from FTransform
+	 *  @param  OutMTD			The minimum translation direction needed to push the shape out of this BodyInstance. (Optional)
 	 *  @return true if PrimComp overlaps this component at the specified location/rotation
 	 */
-	bool OverlapPhysX(const physx::PxGeometry& Geom, const physx::PxTransform&  ShapePose) const;
+	DEPRECATED(4.8, "Please call OverlapPhysX_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	bool OverlapPhysX(const physx::PxGeometry& Geom, const physx::PxTransform&  ShapePose, FMTDResult* OutMTD = nullptr) const
+	{
+		return OverlapPhysX_AssumesLocked(Geom, ShapePose, OutMTD);
+	}
+
+	/**
+	 *  Test if the bodyinstance overlaps with the geometry in the Pos/Rot
+	 *
+	 *	@param	PGeom			Geometry it would like to test
+	 *  @param  ShapePose       Transform information in world. Use U2PTransform to convert from FTransform
+	 *  @param  OutMTD			The minimum translation direction needed to push the shape out of this BodyInstance. (Optional)
+	 *  @return true if PrimComp overlaps this component at the specified location/rotation
+	 *
+	 *	Note: This function is not thread safe. Make sure to obtain the appropriate PhysX scene locks before calling this function
+	 */
+	bool OverlapPhysX_AssumesLocked(const physx::PxGeometry& Geom, const physx::PxTransform&  ShapePose, FMTDResult* OutMTD = nullptr) const;
 #endif	//WITH_PHYSX
 
 	/**
@@ -608,12 +895,24 @@ public:
 	 *  @param  Position		Position to place the shape at before testing
 	 *  @param  Rotation		Rotation to apply to the shape before testing
 	 *	@param	CollisionShape	Shape to test against
+	 *  @param  OutMTD			The minimum translation direction needed to push the shape out of this BodyInstance. (Optional)
 	 *  @return true if the geometry associated with this body instance overlaps the query shape at the specified location/rotation
 	 */
-	bool OverlapTest(const FVector& Position, const FQuat& Rotation, const struct FCollisionShape& CollisionShape) const;
+	bool OverlapTest(const FVector& Position, const FQuat& Rotation, const struct FCollisionShape& CollisionShape, FMTDResult* OutMTD = nullptr) const;
+
+	/**
+	 *  Test if the bodyinstance overlaps with the specified body instances
+	 *
+	 *  @param  Position		Position to place our shapes at before testing (shapes of this BodyInstance)
+	 *  @param  Rotation		Rotation to apply to our shapes before testing (shapes of this BodyInstance)
+	 *  @param  Bodies			The bodies we are testing for overlap with. These bodies will be in world space already
+	 *  @return true if any of the bodies passed in overlap with this
+	 */
+	bool OverlapTestForBodies(const FVector& Position, const FQuat& Rotation, const TArray<FBodyInstance*>& Bodies) const;
 
 	/**
 	 *  Determines the set of components that this body instance would overlap with at the supplied location/rotation
+	 *  @note The overload taking rotation as an FQuat is slightly faster than the version using FRotator (which will be converted to an FQuat)..
 	 *  @param  InOutOverlaps   Array of overlaps found between this component in specified pose and the world (new overlaps will be appended, the array is not cleared!)
 	 *  @param  World			World to use for overlap test
 	 *  @param  pWorldToComponent Used to convert the body instance world space position into local space before teleporting it to (Pos, Rot) [optional, use when the body instance isn't centered on the component instance]
@@ -625,6 +924,7 @@ public:
 	 *	@param	ObjectQueryParams	List of object types it's looking for. When this enters, we do object query with component shape
 	 *  @return TRUE if OutOverlaps contains any blocking results
 	 */
+	bool OverlapMulti(TArray<struct FOverlapResult>& InOutOverlaps, const class UWorld* World, const FTransform* pWorldToComponent, const FVector& Pos, const FQuat& Rot,    ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
 	bool OverlapMulti(TArray<struct FOverlapResult>& InOutOverlaps, const class UWorld* World, const FTransform* pWorldToComponent, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
 
 	/**
@@ -636,7 +936,7 @@ public:
 	 * @param Falloff		Allows you to control the strength of the impulse as a function of distance from Origin.
 	 * @param bVelChange	If true, the Strength is taken as a change in velocity instead of an impulse (ie. mass will have no affect).
 	 */
-	void AddRadialImpulseToBody(const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange);
+	void AddRadialImpulseToBody(const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange = false);
 
 	/**
 	 *	Add a force to this bodyinstance, originating from the supplied world-space location.
@@ -645,8 +945,10 @@ public:
 	 *	@param Radius		Radius within which to apply the force.
 	 *	@param Strength		Strength of force to apply.
 	 *  @param Falloff		Allows you to control the strength of the force as a function of distance from Origin.
+	 *  @param bAccelChange If true, Strength is taken as a change in acceleration instead of a physical force (i.e. mass will have no affect).
+	 *  @param bAllowSubstepping Whether we should sub-step this radial force. You should only turn this off if you're calling it from a sub-step callback, otherwise there will be energy loss
 	 */
-	void AddRadialForceToBody(const FVector& Origin, float Radius, float Strength, uint8 Falloff);
+	void AddRadialForceToBody(const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bAccelChange = false, bool bAllowSubstepping = true);
 
 	/**
 	 * Get distance to the body surface if available
@@ -673,6 +975,9 @@ public:
 #if WITH_PHYSX
 public:
 	FPhysxUserData PhysxUserData;
+
+	// Current state of the physx body for tracking deferred addition and removal.
+	BodyInstanceSceneState CurrentSceneState;
 
 private:
 	/**
@@ -706,13 +1011,20 @@ private:
 
 	friend class UCollisionProfile;
 	friend class FBodyInstanceCustomization;
+	
+	friend struct FInitBodiesHelper<true>;
+	friend struct FInitBodiesHelper<false>;
+	friend class FDerivedDataPhysXBinarySerializer;
 
 #if WITH_BOX2D
 
-protected:
+public:
 	class b2Body* BodyInstancePtr;
 
 #endif	//WITH_BOX2D
+
+private:
+	bool bHasSharedShapes;
 };
 
 template<>
@@ -736,3 +1048,13 @@ private:
 	FBodyInstanceEditorHelpers() {}
 };
 #endif
+
+//////////////////////////////////////////////////////////////////////////
+// BodyInstance inlines
+
+inline bool FBodyInstance::OverlapMulti(TArray<struct FOverlapResult>& InOutOverlaps, const class UWorld* World, const FTransform* pWorldToComponent, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+{
+	// Pass on to FQuat version
+	return OverlapMulti(InOutOverlaps, World, pWorldToComponent, Pos, Rot.Quaternion(), TestChannel, Params, ResponseParams, ObjectQueryParams);
+}
+

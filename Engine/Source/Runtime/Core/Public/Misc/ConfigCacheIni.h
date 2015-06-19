@@ -50,6 +50,53 @@ struct FConfigCommandlineOverride
 };
 #endif // !UE_BUILD_SHIPPING
 
+// Possible entries in a config hierarchy
+enum class EConfigFileHierarchy : uint8
+{
+	// Engine/Config/Base.ini
+	AbsoluteBase = 0,
+
+	// Engine/Config/*.ini
+	EngineDirBase,
+	// Engine/Config/NotForLicensees/*.ini
+	EngineDirBase_NotForLicensees,
+	// Engine/Config/NoRedist/*.ini -Not supported at this time.
+	EngineDirBase_NoRedist,
+
+	// Game/Config/*.ini
+	GameDirDefault,
+	// Game/Config/DedicatedServer*.ini
+	GameDirDedicatedServer,
+	// Game/Config/NotForLicensees/*.ini
+	GameDirDefault_NotForLicensees,
+	// Game/Config/NoRedist*.ini
+	GameDirDefault_NoRedist,
+
+	// Engine/Config/PlatformName/PlatformName*.ini
+	EngineDir_Platform,
+	// Engine/Config/NotForLicensees/PlatformName/PlatformName*.ini
+	EngineDir_Platform_NotForLicensees,
+	// Engine/Config/NoRedist/PlatformName/PlatformName*.ini
+	EngineDir_Platform_NoRedist,
+
+	// Game/Config/PlatformName/PlatformName*.ini
+	GameDir_Platform,
+	// Game/Config/NotForLicensees/PlatformName/PlatformName*.ini
+	GameDir_Platform_NotForLicensees,
+	// Game/Config/NoRedist/PlatformName/PlatformName*.ini
+	GameDir_Platform_NoRedist,
+
+	// <UserSettingsDir|AppData>/Unreal Engine/Engine/Config/User*.ini
+	UserSettingsDir_EngineDir_User,
+	// <UserDir|Documents>/Unreal Engine/Engine/Config/User*.ini
+	UserDir_User,
+	// Game/Config/User*.ini
+	GameDir_User,
+
+	// Number of config files in hierarchy.
+	NumHierarchyFiles,
+};
+typedef TMap<EConfigFileHierarchy, FIniFilename> FConfigFileHierarchy;
 
 // One config file.
 
@@ -62,7 +109,7 @@ public:
 	FName Name;
 
 	// The collection of source files which were used to generate this file.
-	TArray< FIniFilename > SourceIniHierarchy;
+	FConfigFileHierarchy SourceIniHierarchy;
 
 	/** The untainted config file which contains the coalesced base/default options. I.e. No Saved/ options*/
 	FConfigFile* SourceConfigFile;
@@ -122,6 +169,11 @@ public:
 	 */
 	CORE_API void UpdateSections(const TCHAR* DiskFilename, const TCHAR* IniRootName=NULL);
 
+	/**
+	 * Update a single property in the config file, for the section that is specified.
+	 */
+	CORE_API bool UpdateSinglePropertyInSection(const TCHAR* DiskFilename, const TCHAR* PropertyName, const TCHAR* SectionName);
+
 	
 	/** 
 	 * Check the source hierarchy which was loaded without any user changes from the Config/Saved dir.
@@ -172,6 +224,12 @@ class CORE_API FConfigCacheIni : public TMap<FString,FConfigFile>
 public:
 	// Basic functions.
 	FConfigCacheIni(EConfigCacheType Type);
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	FConfigCacheIni();
+#endif // WITH_HOT_RELOAD_CTORS
+
 	virtual ~FConfigCacheIni();
 
 	/**
@@ -377,6 +435,11 @@ public:
 		FColor&				Value,
 		const FString&	Filename
 	);
+	bool GetVector2D(
+		const TCHAR*   Section,
+		const TCHAR*   Key,
+		FVector2D&     Value,
+		const FString& Filename);
 	bool GetVector
 	(
 		const TCHAR*		Section,
@@ -454,6 +517,11 @@ public:
 		FColor				Value,
 		const FString&	Filename
 	);
+	void SetVector2D(
+		const TCHAR*   Section,
+		const TCHAR*   Key,
+		FVector2D      Value,
+		const FString& Filename);
 	void SetVector
 	(
 		const TCHAR*		Section,
@@ -499,14 +567,13 @@ public:
 	 * @param FinalIniFilename The output name of the generated .ini file (in Game\Saved\Config)
 	 * @param BaseIniName The "base" ini name, with no extension (ie, Engine, Game, etc)
 	 * @param Platform The platform to load the .ini for (if NULL, uses current)
-	 * @param GameName The name of the game to load the .ini for (if NULL, uses current)
 	 * @param bForceReload If true, the destination .in will be regenerated from the source, otherwise this will only process if the dest isn't in GConfig
 	 * @param bRequireDefaultIni If true, the Default*.ini file is required to exist when generating the final ini file.
 	 * @param bAllowGeneratedIniWhenCooked If true, the engine will attempt to load the generated/user INI file when loading.
 	 * @param GeneratedConfigDir The location where generated config files are made.
 	 * @return true if the final ini was created successfully.
 	 */
-	static bool LoadGlobalIniFile(FString& FinalIniFilename, const TCHAR* BaseIniName, const TCHAR* Platform=NULL, const TCHAR* GameName=NULL, bool bForceReload=false, bool bRequireDefaultIni=false, bool bAllowGeneratedIniWhenCooked=true, const TCHAR* GeneratedConfigDir = *FPaths::GeneratedConfigDir());
+	static bool LoadGlobalIniFile(FString& FinalIniFilename, const TCHAR* BaseIniName, const TCHAR* Platform=NULL, bool bForceReload=false, bool bRequireDefaultIni=false, bool bAllowGeneratedIniWhenCooked=true, const TCHAR* GeneratedConfigDir = *FPaths::GeneratedConfigDir());
 
 	/**
 	 * Load an ini file directly into an FConfigFile, and nothing is written to GConfig or disk. 
@@ -517,10 +584,9 @@ public:
 	 * @param IniName Either a Base ini name (Engine) or a full ini name (WrangleContent). NO PATH OR EXTENSION SHOULD BE USED!
 	 * @param bIsBaseIniName true if IniName is a Base name, which can be overridden on commandline, etc.
 	 * @param Platform The platform to use for Base ini names, NULL means to use the current platform
-	 * @param GameName The game to use for Base ini names, NULL means to use the current
 	 * @param bForceReload force reload the ini file from disk this is required if you make changes to the ini file not using the config system as the hierarchy cache will not be updated in this case
 	 */
-	static void LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, bool bIsBaseIniName, const TCHAR* Platform=NULL, const TCHAR* GameName=NULL, const bool bForceReload=false);
+	static void LoadLocalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, bool bIsBaseIniName, const TCHAR* Platform=NULL, const bool bForceReload=false);
 
 	/**
 	 * Load an ini file directly into an FConfigFile from the specified config folders, and nothing is written to GConfig or disk. 
@@ -533,10 +599,9 @@ public:
 	 * @param SourceConfigDir Game config directory.
 	 * @param bGenerateDestIni true if IniName is a Base name, which can be overridden on commandline, etc.
 	 * @param Platform The platform to use for Base ini names
-	 * @param GameName The game to use for Base ini names
 	 * @param bForceReload force reload the ini file from disk this is required if you make changes to the ini file not using the config system as the hierarchy cache will not be updated in this case
 	 */
-	static void LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, bool bGenerateDestIni, const TCHAR* Platform=NULL, const TCHAR* GameName=NULL, const bool bForceReload=false);
+	static void LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* IniName, const TCHAR* EngineConfigDir, const TCHAR* SourceConfigDir, bool bGenerateDestIni, const TCHAR* Platform=NULL, const bool bForceReload=false);
 
 	/**
 	 * Needs to be called after GConfig is set and LoadCoalescedFile was called.

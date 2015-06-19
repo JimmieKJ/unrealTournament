@@ -6,6 +6,7 @@
 UBehaviorTreeGraphNode_Decorator::UBehaviorTreeGraphNode_Decorator(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bIsSubNode = true;
 }
 
 void UBehaviorTreeGraphNode_Decorator::AllocateDefaultPins()
@@ -22,15 +23,13 @@ FText UBehaviorTreeGraphNode_Decorator::GetNodeTitle(ENodeTitleType::Type TitleT
 	}
 	else if (!ClassData.GetClassName().IsEmpty())
 	{
-		return NSLOCTEXT("BehaviorTreeGraphNode", "UnknownNodeClass", "Can't load class!");
+		FString StoredClassName = ClassData.GetClassName();
+		StoredClassName.RemoveFromEnd(TEXT("_C"));
+
+		return FText::Format(NSLOCTEXT("AIGraph", "NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
 	}
 
 	return Super::GetNodeTitle(TitleType);
-}
-
-bool UBehaviorTreeGraphNode_Decorator::IsSubNode() const
-{
-	return true;
 }
 
 void UBehaviorTreeGraphNode_Decorator::CollectDecoratorData(TArray<UBTDecorator*>& NodeInstances, TArray<FBTDecoratorLogic>& Operations) const

@@ -8,12 +8,6 @@
 #include "ScenePrivate.h"
 #include "AllocatorFixedSizeFreeList.h"
 
-static TAutoConsoleVariable<int32> CVarWholeSceneShadowUnbuiltInteractionThreshold(
-	TEXT("r.Shadow.WholeSceneShadowUnbuiltInteractionThreshold"),
-	500,
-	TEXT("How many unbuilt light-primitive interactions there can be for a light before the light switches to whole scene shadows"),
-	ECVF_RenderThreadSafe);
-
 /**
  * Fixed Size pool allocator for FLightPrimitiveInteractions
  */
@@ -125,17 +119,6 @@ void FLightPrimitiveInteraction::Create(FLightSceneInfo* LightSceneInfo,FPrimiti
 		{
 			// Create the light interaction.
 			FLightPrimitiveInteraction* Interaction = new FLightPrimitiveInteraction(LightSceneInfo, PrimitiveSceneInfo, bDynamic, bLightMapped, bShadowMapped, bTranslucentObjectShadow, bInsetObjectShadow);
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			// Treat the light as completely unbuilt if it has more unbuilt interactions than the threshold.
-			// This will result in the light using whole scene shadows instead of many per-object shadows, 
-			// Which prevents poor performance when many per-object shadows are created for previewing unbuilt lighting.
-			if (LightSceneInfo->NumUnbuiltInteractions >= CVarWholeSceneShadowUnbuiltInteractionThreshold.GetValueOnRenderThread() && LightSceneInfo->bPrecomputedLightingIsValid)
-			{
-				LightSceneInfo->bPrecomputedLightingIsValid = false;
-				LightSceneInfo->Proxy->InvalidatePrecomputedLighting(true);
-			}
-#endif
 		}
 	}
 }
@@ -154,9 +137,9 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 	bool bInHasTranslucentObjectShadow,
 	bool bInHasInsetObjectShadow
 	):
-	LightId(InLightSceneInfo->Id),
 	LightSceneInfo(InLightSceneInfo),
 	PrimitiveSceneInfo(InPrimitiveSceneInfo),
+	LightId(InLightSceneInfo->Id),
 	bLightMapped(bInLightMapped),
 	bIsDynamic(bInIsDynamic),
 	bIsShadowMapped(bInIsShadowMapped),
@@ -189,6 +172,8 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 		// Determine the type of dynamic shadow produced by this light.
 		if (PrimitiveSceneInfo->Proxy->HasStaticLighting()
 			&& PrimitiveSceneInfo->Proxy->CastsStaticShadow()
+			// Don't mark unbuilt for movable primitives which were built with lightmaps but moved into a new light's influence
+			&& !PrimitiveSceneInfo->Proxy->LightAsIfStatic()
 			&& (LightSceneInfo->Proxy->HasStaticLighting() || (LightSceneInfo->Proxy->HasStaticShadowing() && !bInIsShadowMapped)))
 		{
 			// Update the game thread's counter of number of uncached static lighting interactions.

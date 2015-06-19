@@ -34,17 +34,17 @@ class FTickObject : FTickableGameObject
 public:
 	FTickObject( FLiveEditorListenServer *_Owner );
 
-	virtual void Tick(float DeltaTime);
+	virtual void Tick(float DeltaTime) override;
 
-	virtual bool IsTickable() const
+	virtual bool IsTickable() const override
 	{
 		return true;
 	}
-	virtual bool IsTickableWhenPaused() const
+	virtual bool IsTickableWhenPaused() const override
 	{
 		return true;
 	}
-	virtual bool IsTickableInEditor() const
+	virtual bool IsTickableInEditor() const override
 	{
 		return false;
 	}

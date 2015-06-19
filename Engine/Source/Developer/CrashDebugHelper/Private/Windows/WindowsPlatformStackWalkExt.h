@@ -19,22 +19,48 @@ struct FWindowsPlatformStackWalkExt
 	/** Destructor. */
 	~FWindowsPlatformStackWalkExt();
 
+	/** Initializes the COM interface to grab stacks. */
 	bool InitStackWalking();
+
+	/** Shutdowns COM. */
 	void ShutdownStackWalking();
 
-	void GetExeFileVersionAndModuleList( FCrashModuleInfo& out_ExeFileVersion );
+	/** Sets the options we want for symbol lookup. */
 	void InitSymbols();
-	bool OpenDumpFile( const FString& DumpFileName );
-	void SetSymbolPathsFromModules();
-	void GetModuleInfoDetailed();
-	void GetSystemInfo();
-	void GetThreadInfo();
-	void GetExceptionInfo();
-	bool GetCallstacks();
 
+	/** Grabs the branch relative path of the binary. */
+	static FString ExtractRelativePath( const TCHAR* BaseName, TCHAR* FullName );
+
+	/** Gets the exe file versions and lists all modules. */
+	void GetExeFileVersionAndModuleList( FCrashModuleInfo& out_ExeFileVersion );
+
+	/** Set the symbol paths based on the module paths. */
+	void SetSymbolPathsFromModules();
+
+	/** Gets detailed info about each module. */
+	void GetModuleInfoDetailed();
+
+	/** Check to see if the stack address resides within one of the loaded modules i.e. is it valid?. */
 	bool IsOffsetWithinModules( uint64 Offset );
 
-	static FString ExtractRelativePath( const TCHAR* BaseName, TCHAR* FullName );
+	/** Extract the system info of the crash from the minidump. */ // @TODO yrx 2015-02-24 Move to crash report client?
+	void GetSystemInfo();
+
+	/** Extracts the thread info from the minidump. */
+	void GetThreadInfo(){}
+
+	/** Extracts info about the exception that caused the crash. */
+	void GetExceptionInfo();
+
+	/**
+	 * Gets the callstack of the crash.
+	 *
+	 * @return the number of valid function names
+	 */
+	int32 GetCallstacks();
+
+	/** Opens a minidump as a new session. */
+	bool OpenDumpFile( const FString& DumpFileName );
 
 protected:
 	/** Reference to the crash info. */

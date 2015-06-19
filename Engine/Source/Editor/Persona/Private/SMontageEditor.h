@@ -39,10 +39,6 @@ private:
 	TSharedPtr<class SAnimMontageSectionsPanel> AnimMontageSectionsPanel;
 	TSharedPtr<class SAnimMontageScrubPanel> AnimMontageScrubPanel;
 
-	/** do I have to update montage **/
-	bool bRebuildMontagePanel;
-	void RebuildMontagePanel();
-
 protected:
 	// Begin SAnimEditorBase interface
 	virtual TSharedRef<class SAnimationScrubPanel> ConstructAnimScrubPanel() override;
@@ -63,18 +59,21 @@ private:
 	/** Pointer to the animation sequence being edited */
 	UAnimMontage* MontageObj;
 
-	/** If currently previewing all or selected section */
-	bool bPreviewingAllSections;
-
-	/** If currently previewing tracks instead of sections */
-	bool bPreviewingTracks;
-
 	/** If previewing section, it is section used to restart previewing when play button is pushed */
 	int32 PreviewingStartSectionIdx;
 
+	/** If currently previewing all or selected section */
+	bool bPreviewingAllSections : 1;
+
+	/** If currently previewing tracks instead of sections */
+	bool bPreviewingTracks : 1;
+
 	/** If user is currently dragging an item */
-	bool bDragging;
-	
+	bool bDragging : 1;
+
+	/** If the active timer to trigger a montage panel rebuild is currently registered */
+	bool bIsActiveTimerRegistered : 1;
+
 	virtual float CalculateSequenceLengthOfEditorObject() const override;
 	void SortAndUpdateMontage();
 	void CollapseMontage();
@@ -92,6 +91,12 @@ private:
 
 	/** Updates Notify trigger offsets to take into account current montage state */
 	void RefreshNotifyTriggerOffsets();
+
+	/** One-off active timer to trigger a montage panel rebuild */
+	EActiveTimerReturnType TriggerRebuildMontagePanel(double InCurrentTime, float InDeltaTime);
+
+	/** Rebuilds the montage panel */
+	void RebuildMontagePanel();
 
 protected:
 	virtual void InitDetailsViewEditorObject(class UEditorAnimBaseObj* EdObj) override;
@@ -126,10 +131,6 @@ public:
 	/** Delegete handlers for when the editor UI is changing the montage */
 	void			PreAnimUpdate();
 	void			PostAnimUpdate();
-
-	// SWidget interface start
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	// SWidget interface end
 
 	// Begin SAnimEditorBase interface
 	virtual TSharedRef<SWidget> CreateDocumentAnchor() override;

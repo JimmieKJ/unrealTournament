@@ -19,6 +19,7 @@
 
 #include "ISocketManager.h"
 #include "StaticMeshEditorViewportClient.h"
+#include "Editor/UnrealEd/Public/STransformViewportToolbar.h"
 
 #include "../Private/GeomFitUtils.h"
 #include "ComponentReregisterContext.h"
@@ -34,6 +35,61 @@
 
 #define HITPROXY_SOCKET	1
 
+///////////////////////////////////////////////////////////
+// SStaticMeshEditorViewportToolbar
+
+// In-viewport toolbar widget used in the static mesh editor
+class SStaticMeshEditorViewportToolbar : public SCommonEditorViewportToolbarBase
+{
+public:
+	SLATE_BEGIN_ARGS(SStaticMeshEditorViewportToolbar) {}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, TSharedPtr<class ICommonEditorViewportToolbarInfoProvider> InInfoProvider)
+	{
+		SCommonEditorViewportToolbarBase::Construct(SCommonEditorViewportToolbarBase::FArguments(), InInfoProvider);
+	}
+
+	// SCommonEditorViewportToolbarBase interface
+	virtual TSharedRef<SWidget> GenerateShowMenu() const override
+	{
+		GetInfoProvider().OnFloatingButtonClicked();
+
+		TSharedRef<SEditorViewport> ViewportRef = GetInfoProvider().GetViewportWidget();
+
+		const bool bInShouldCloseWindowAfterMenuSelection = true;
+		FMenuBuilder ShowMenuBuilder(bInShouldCloseWindowAfterMenuSelection, ViewportRef->GetCommandList());
+		{
+			auto Commands = FStaticMeshEditorCommands::Get();
+
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowSockets);
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowPivot);
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowVertices);
+
+			ShowMenuBuilder.AddMenuSeparator();
+
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowGrid);
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowBounds);
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowCollision);
+
+			ShowMenuBuilder.AddMenuSeparator();
+
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowNormals);
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowTangents);
+			ShowMenuBuilder.AddMenuEntry(Commands.SetShowBinormals);
+
+			//ShowMenuBuilder.AddMenuSeparator();
+			//ShowMenuBuilder.AddMenuEntry(Commands.SetShowMeshEdges);
+		}
+
+		return ShowMenuBuilder.MakeWidget();
+	}
+	// End of SCommonEditorViewportToolbarBase
+};
+
+///////////////////////////////////////////////////////////
+// SStaticMeshEditorViewport
+
 void SStaticMeshEditorViewport::Construct(const FArguments& InArgs)
 {
 	StaticMeshEditorPtr = InArgs._StaticMeshEditor;
@@ -44,15 +100,14 @@ void SStaticMeshEditorViewport::Construct(const FArguments& InArgs)
 
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
 
-	PreviewMeshComponent = ConstructObject<UStaticMeshComponent>(
-		UStaticMeshComponent::StaticClass(), GetTransientPackage(), NAME_None, RF_Transient );
+	PreviewMeshComponent = NewObject<UStaticMeshComponent>(GetTransientPackage(), NAME_None, RF_Transient );
 
 	SetPreviewMesh(StaticMesh);
 
 	ViewportOverlay->AddSlot()
 		.VAlign(VAlign_Top)
 		.HAlign(HAlign_Left)
-		.Padding(10)
+		.Padding(FMargin(10.0f, 40.0f, 10.0f, 10.0f))
 		[
 			SAssignNew(OverlayTextVerticalBox, SVerticalBox)
 		];
@@ -83,6 +138,21 @@ void SStaticMeshEditorViewport::PopulateOverlayText(const TArray<FOverlayTextIte
 			.TextStyle(FEditorStyle::Get(), TextItem.Style)
 		];
 	}
+}
+
+TSharedRef<class SEditorViewport> SStaticMeshEditorViewport::GetViewportWidget()
+{
+	return SharedThis(this);
+}
+
+TSharedPtr<FExtender> SStaticMeshEditorViewport::GetExtenders() const
+{
+	TSharedPtr<FExtender> Result(MakeShareable(new FExtender));
+	return Result;
+}
+
+void SStaticMeshEditorViewport::OnFloatingButtonClicked()
+{
 }
 
 void SStaticMeshEditorViewport::AddReferencedObjects( FReferenceCollector& Collector )
@@ -155,17 +225,19 @@ void SStaticMeshEditorViewport::UpdatePreviewSocketMeshes()
 				// Handle adding a new component
 				if(i >= SocketedComponentCount)
 				{
-					SocketPreviewMeshComponent = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+					SocketPreviewMeshComponent = NewObject<UStaticMeshComponent>();
 					PreviewScene.AddComponent(SocketPreviewMeshComponent, FTransform::Identity);
 					SocketPreviewMeshComponents.Add(SocketPreviewMeshComponent);
+					SocketPreviewMeshComponent->SnapTo(PreviewMeshComponent, Socket->SocketName);
 				}
 				else
 				{
 					SocketPreviewMeshComponent = SocketPreviewMeshComponents[i];
+					// Force component to world update to take into account the new socket position.
+					SocketPreviewMeshComponent->UpdateComponentToWorld();
 				}
 
 				SocketPreviewMeshComponent->SetStaticMesh(Socket->PreviewStaticMesh);
-				SocketPreviewMeshComponent->SnapTo(PreviewMeshComponent, Socket->SocketName);
 			}
 		}
 	}
@@ -204,7 +276,7 @@ void SStaticMeshEditorViewport::UpdatePreviewMesh(UStaticMesh* InStaticMesh)
 		PreviewMeshComponent = NULL;
 	}
 
-	PreviewMeshComponent = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+	PreviewMeshComponent = NewObject<UStaticMeshComponent>();
 
 	PreviewMeshComponent->SetStaticMesh(InStaticMesh);
 	PreviewScene.AddComponent(PreviewMeshComponent,FTransform::Identity);
@@ -218,7 +290,7 @@ void SStaticMeshEditorViewport::UpdatePreviewMesh(UStaticMesh* InStaticMesh)
 		UStaticMeshComponent* SocketPreviewMeshComponent = NULL;
 		if( Socket && Socket->PreviewStaticMesh )
 		{
-			SocketPreviewMeshComponent = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+			SocketPreviewMeshComponent = NewObject<UStaticMeshComponent>();
 			SocketPreviewMeshComponent->SetStaticMesh(Socket->PreviewStaticMesh);
 			SocketPreviewMeshComponent->SnapTo(PreviewMeshComponent, Socket->SocketName);
 			SocketPreviewMeshComponents.Add(SocketPreviewMeshComponent);
@@ -319,7 +391,7 @@ TSharedRef<FEditorViewportClient> SStaticMeshEditorViewport::MakeEditorViewportC
 
 TSharedPtr<SWidget> SStaticMeshEditorViewport::MakeViewportToolbar()
 {
-	return NULL; 
+	return SNew(SStaticMeshEditorViewportToolbar, SharedThis(this));
 }
 
 EVisibility SStaticMeshEditorViewport::OnGetViewportContentVisibility() const
@@ -411,6 +483,12 @@ void SStaticMeshEditorViewport::BindCommands()
 		FExecuteAction::CreateSP( EditorViewportClientRef, &FStaticMeshEditorViewportClient::SetDrawAdditionalData ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( EditorViewportClientRef, &FStaticMeshEditorViewportClient::IsSetDrawAdditionalData ) );
+
+	CommandList->MapAction(
+		Commands.SetShowVertices,
+		FExecuteAction::CreateSP(EditorViewportClientRef, &FStaticMeshEditorViewportClient::SetDrawVertices ),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(EditorViewportClientRef, &FStaticMeshEditorViewportClient::IsSetDrawVerticesChecked ) );
 }
 
 void SStaticMeshEditorViewport::OnFocusViewportToSelection()

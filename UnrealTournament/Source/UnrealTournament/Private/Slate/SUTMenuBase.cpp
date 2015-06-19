@@ -4,6 +4,7 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "SScaleBox.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
 #include "SUTMenuBase.h"
@@ -35,82 +36,91 @@ void SUTMenuBase::CreateDesktop()
 	LeftMenuBar = NULL;
 	RightMenuBar = NULL;
 	ChildSlot
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Center)
 		[
-			SNew(SOverlay)
-			+SOverlay::Slot()
+			SNew(SScaleBox)
+			.Stretch(EStretch::ScaleToFit)
 			[
-				BuildBackground()
-			]
-			+SOverlay::Slot()
-			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SBox)
-					.HeightOverride(64)
-					[
-						SNew(SOverlay)
-						+ SOverlay::Slot()
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.HAlign(HAlign_Fill)
-							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
-							]
-						]
-						+SOverlay::Slot()
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew(SBox)
-								.HeightOverride(56)
-								[
-									// Left Menu
-									SNew(SOverlay)
-									+SOverlay::Slot()
-									.HAlign(HAlign_Left)
-									.VAlign(VAlign_Center)
-									[
-										BuildDefaultLeftMenuBar()
-									]
-									+SOverlay::Slot()
-									.HAlign(HAlign_Right)
-									.VAlign(VAlign_Center)
-									[
-										BuildDefaultRightMenuBar()
-									]
-								]
-							]
-							+SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew(SBox)
-								.HeightOverride(8)
-								[
-									SNew(SCanvas)
-								]
-							]
-
-						]
-					]
-				]
-
-				+ SVerticalBox::Slot()
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
+				SNew(SBox)
+				.WidthOverride(1920.0f)
+				.HeightOverride(1080.0f)
 				[
 					SNew(SOverlay)
-					+SOverlay::Slot()
+					+ SOverlay::Slot()
 					[
-						SAssignNew(Desktop, SOverlay)
+						BuildBackground()
+					]
+					+ SOverlay::Slot()
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.HAlign(HAlign_Fill)
+						[
+							SNew(SBox)
+							.HeightOverride(64)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Fill)
+									[
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
+									]
+								]
+								+ SOverlay::Slot()
+									[
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.AutoHeight()
+										[
+											SNew(SBox)
+											.HeightOverride(56)
+											[
+												// Left Menu
+												SNew(SOverlay)
+												+ SOverlay::Slot()
+												.HAlign(HAlign_Left)
+												.VAlign(VAlign_Center)
+												[
+													BuildDefaultLeftMenuBar()
+												]
+												+ SOverlay::Slot()
+													.HAlign(HAlign_Right)
+													.VAlign(VAlign_Center)
+													[
+														BuildDefaultRightMenuBar()
+													]
+											]
+										]
+										+ SVerticalBox::Slot()
+											.AutoHeight()
+											[
+												SNew(SBox)
+												.HeightOverride(8)
+												[
+													SNew(SCanvas)
+												]
+											]
+
+									]
+							]
+						]
+
+						+ SVerticalBox::Slot()
+							.VAlign(VAlign_Fill)
+							.HAlign(HAlign_Fill)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SAssignNew(Desktop, SOverlay)
+								]
+							]
 					]
 				]
 			]
@@ -305,7 +315,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 					SNew(SButton)
 					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "Quit the Game").ToString())
+					.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "Quit the Game"))
 					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 					.OnClicked(this, &SUTMenuBase::OnMenuConsoleCommand, FString(TEXT("quit")), ExitButton)
 				];
@@ -377,7 +387,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenPlayerSettings, DropDownButton)
 			]
@@ -387,7 +397,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenSocialSettings, DropDownButton)
 			]
@@ -397,7 +407,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenWeaponSettings, DropDownButton)
 			]
@@ -407,7 +417,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenSystemSettings, DropDownButton)
 			]
@@ -417,7 +427,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenControlSettings, DropDownButton)
 			]
@@ -437,7 +447,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::ClearCloud, DropDownButton)
 			]
@@ -495,7 +505,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_TPSReport", "Third Party Software").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_TPSReport", "Third Party Software"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenTPSReport, DropDownButton)
 			]
@@ -505,7 +515,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenCredits, DropDownButton)
 			]
@@ -515,7 +525,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTSite", "UnrealTournament.com").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTSite", "UnrealTournament.com"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OnMenuHTTPButton, FString(TEXT("http://www.unrealtournament.com/")),DropDownButton)
 			]
@@ -525,7 +535,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTForums", "Forums").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTForums", "Forums"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OnMenuHTTPButton, FString(TEXT("http://forums.unrealtournament.com/")), DropDownButton)
 			]
@@ -537,7 +547,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::ShowWidgetReflector, DropDownButton)
 			]
@@ -547,7 +557,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 			.AutoHeight()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion()))).ToString())
+				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion()))))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Version.TextStyle")
 			]
 		]
@@ -807,7 +817,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_SignIn","Sign In").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_SignIn","Sign In"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 			]
 		];

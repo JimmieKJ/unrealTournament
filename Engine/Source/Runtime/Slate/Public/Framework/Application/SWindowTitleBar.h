@@ -124,10 +124,10 @@ public:
 
 	// Begin IWindowTitleBar interface
 
-	void Flash( )
+	void Flash( ) override
 	{
 		TitleFlashSequence = FCurveSequence(0, SWindowTitleBarDefs::WindowFlashDuration, ECurveEaseFunction::Linear);
-		TitleFlashSequence.Play();
+		TitleFlashSequence.Play(this->AsShared());
 	}
 
 	// Begin IWindowTitleBar interface
@@ -165,124 +165,107 @@ protected:
 			return;
 		}
 
-		MinimizeButton = SNew(SButton)
-				.IsFocusable(false)
-				.IsEnabled(OwnerWindow->HasMinimizeBox())
-				.ContentPadding(0)
-				.OnClicked(this, &SWindowTitleBar::MinimizeButton_OnClicked)
-				.Cursor(EMouseCursor::Default)
-				.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-				[
-					SNew(SImage)
-						.Image(this, &SWindowTitleBar::GetMinimizeImage)
-						.ColorAndOpacity(this, &SWindowTitleBar::GetWindowTitleContentColor)
-				]
-			;
+		const bool bHasWindowButtons = OwnerWindow->HasCloseBox() || OwnerWindow->HasMinimizeBox() || OwnerWindow->HasMaximizeBox();
 
-		MaximizeRestoreButton = SNew(SButton)
-				.IsFocusable(false)
-				.IsEnabled(OwnerWindow->HasMaximizeBox())
-				.ContentPadding(0.0f)
-				.OnClicked(this, &SWindowTitleBar::MaximizeRestoreButton_OnClicked)
-				.Cursor(EMouseCursor::Default)
-				.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-				[
-					SNew(SImage)
-						.Image(this, &SWindowTitleBar::GetMaximizeRestoreImage)
-						.ColorAndOpacity(this, &SWindowTitleBar::GetWindowTitleContentColor)
-				]
-			;
+		if (bHasWindowButtons)
+		{
+			MinimizeButton = SNew(SButton)
+					.IsFocusable(false)
+					.IsEnabled(OwnerWindow->HasMinimizeBox())
+					.ContentPadding(0)
+					.OnClicked(this, &SWindowTitleBar::MinimizeButton_OnClicked)
+					.Cursor(EMouseCursor::Default)
+					.ButtonStyle(FCoreStyle::Get(), "NoBorder")
+					[
+						SNew(SImage)
+							.Image(this, &SWindowTitleBar::GetMinimizeImage)
+							.ColorAndOpacity(this, &SWindowTitleBar::GetWindowTitleContentColor)
+					]
+				;
 
-		CloseButton = SNew(SButton)
-				.IsFocusable(false)
-				.ContentPadding(0.0f)
-				.OnClicked(this, &SWindowTitleBar::CloseButton_OnClicked)
-				.Cursor(EMouseCursor::Default)
-				.ButtonStyle(FCoreStyle::Get(), "NoBorder")
-				[
-					SNew(SImage)
-						.Image(this, &SWindowTitleBar::GetCloseImage)
-						.ColorAndOpacity(this, &SWindowTitleBar::GetWindowTitleContentColor)
-				]
-			;
+			MaximizeRestoreButton = SNew(SButton)
+					.IsFocusable(false)
+					.IsEnabled(OwnerWindow->HasMaximizeBox())
+					.ContentPadding(0.0f)
+					.OnClicked(this, &SWindowTitleBar::MaximizeRestoreButton_OnClicked)
+					.Cursor(EMouseCursor::Default)
+					.ButtonStyle(FCoreStyle::Get(), "NoBorder")
+					[
+						SNew(SImage)
+							.Image(this, &SWindowTitleBar::GetMaximizeRestoreImage)
+							.ColorAndOpacity(this, &SWindowTitleBar::GetWindowTitleContentColor)
+					]
+				;
+
+			CloseButton = SNew(SButton)
+					.IsFocusable(false)
+					.IsEnabled(OwnerWindow->HasCloseBox())
+					.ContentPadding(0.0f)
+					.OnClicked(this, &SWindowTitleBar::CloseButton_OnClicked)
+					.Cursor(EMouseCursor::Default)
+					.ButtonStyle(FCoreStyle::Get(), "NoBorder")
+					[
+						SNew(SImage)
+							.Image(this, &SWindowTitleBar::GetCloseImage)
+							.ColorAndOpacity(this, &SWindowTitleBar::GetWindowTitleContentColor)
+					]
+				;
+		}
 
 #if PLATFORM_MAC
 
-		// Mac UI layout
-		OutLeftContent = SNew(SBox)
-			.Visibility(EVisibility::SelfHitTestInvisible)
-			.Padding(FMargin(0.0f, 2.0f, 0.0f, 0.0f))
-			[
-				SNew(SHorizontalBox)
-					.Visibility(EVisibility::SelfHitTestInvisible)
-
-				// Close button
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(FMargin( 4.0f, 0.0f, 0.0f, 0.0f))
-					[
-						CloseButton.ToSharedRef()
-					]
-
-				// Minimize
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						MinimizeButton.ToSharedRef()
-					]
-
-				// Maximize/Restore
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						MaximizeRestoreButton.ToSharedRef()
-					]
-			];
-
-		// No right content on Mac
+		// On Mac we use real window buttons drawn by the OS
+		OutLeftContent = SNew(SSpacer);
 		OutRightContent = SNew(SSpacer);
 
 #else // PLATFORM_MAC
 
 		// Windows UI layout
-		if (ShowAppIcon)
+		if (ShowAppIcon && bHasWindowButtons)
 		{
 			OutLeftContent = SNew(SAppIconWidget)
 				.IconColorAndOpacity(this, &SWindowTitleBar::GetWindowTitleContentColor);
 		}
 		else
 		{
-			OutLeftContent = SNullWidget::NullWidget;
+			OutLeftContent = SNew(SSpacer);
 		}
 
-		OutRightContent = SNew(SBox)
-			.Visibility(EVisibility::SelfHitTestInvisible)
-			.Padding(FMargin(2.0f, 0.0f, 0.0f, 0.0f))
-			[
-				// Minimize
-				SNew(SHorizontalBox)
-					.Visibility(EVisibility::SelfHitTestInvisible)
+		if (bHasWindowButtons)
+		{
+			OutRightContent = SNew(SBox)
+				.Visibility(EVisibility::SelfHitTestInvisible)
+				.Padding(FMargin(2.0f, 0.0f, 0.0f, 0.0f))
+				[
+					// Minimize
+					SNew(SHorizontalBox)
+						.Visibility(EVisibility::SelfHitTestInvisible)
 
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						MinimizeButton.ToSharedRef()
-					]
+					+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							MinimizeButton.ToSharedRef()
+						]
 
-				// Maximize/Restore
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						MaximizeRestoreButton.ToSharedRef()
-					]
+					// Maximize/Restore
+					+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							MaximizeRestoreButton.ToSharedRef()
+						]
 
-				// Close button
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						CloseButton.ToSharedRef()
-					]
-			];
+					// Close button
+					+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							CloseButton.ToSharedRef()
+						]
+				];
+		}
+		else
+		{
+			OutRightContent = SNew(SSpacer);
+		}
 
 #endif // PLATFORM_MAC
 	}
@@ -317,6 +300,12 @@ protected:
 						.TextStyle(&Style->TitleTextStyle)
 						.Text(Title)
 				];
+		}
+
+		// Adjust the center content alignment if needed. Windows without any title bar buttons look better if the title is centered.
+		if (LeftContent == SNullWidget::NullWidget && RightContent == SNullWidget::NullWidget && CenterContentAlignment == EHorizontalAlignment::HAlign_Left)
+		{
+			CenterContentAlignment = EHorizontalAlignment::HAlign_Center;
 		}
 
 		// calculate content dimensions
@@ -432,21 +421,11 @@ private:
 			return &Style->CloseButtonStyle.Pressed;
 		}
 
-#if PLATFORM_MAC
-		if (this->MinimizeButton->IsHovered() || MaximizeRestoreButton->IsHovered() || CloseButton->IsHovered())
-#else
 		if (CloseButton->IsHovered())
-#endif
 		{
 			return &Style->CloseButtonStyle.Hovered;
 		}
 
-#if PLATFORM_MAC
-		if (NativeWindow.IsValid() && !NativeWindow->IsForegroundWindow())
-		{
-			return &Style->CloseButtonStyle.Disabled;
-		}
-#endif
 		return &Style->CloseButtonStyle.Normal;
 	}
 
@@ -497,20 +476,10 @@ private:
 			{
 				return &Style->RestoreButtonStyle.Pressed;
 			}
-#if PLATFORM_MAC
-			else if (this->MinimizeButton->IsHovered() || MaximizeRestoreButton->IsHovered() || CloseButton->IsHovered())
-#else
 			else if (MaximizeRestoreButton->IsHovered())
-#endif
 			{
 				return &Style->RestoreButtonStyle.Hovered;
 			}
-#if PLATFORM_MAC
-			else if (NativeWindow.IsValid() && !NativeWindow->IsForegroundWindow())
-			{
-				return &Style->RestoreButtonStyle.Disabled;
-			}
-#endif
 			else
 			{
 				return &Style->RestoreButtonStyle.Normal;
@@ -526,20 +495,10 @@ private:
 			{
 				return &Style->MaximizeButtonStyle.Pressed;
 			}
-#if PLATFORM_MAC
-			else if (this->MinimizeButton->IsHovered() || MaximizeRestoreButton->IsHovered() || CloseButton->IsHovered())
-#else
 			else if (MaximizeRestoreButton->IsHovered())
-#endif
 			{
 				return &Style->MaximizeButtonStyle.Hovered;
 			}
-#if PLATFORM_MAC
-			else if (NativeWindow.IsValid() && !NativeWindow->IsForegroundWindow())
-			{
-				return &Style->MaximizeButtonStyle.Disabled;
-			}
-#endif
 			else
 			{
 				return &Style->MaximizeButtonStyle.Normal;
@@ -585,20 +544,10 @@ private:
 		{
 			return &Style->MinimizeButtonStyle.Pressed;
 		}
-	#if PLATFORM_MAC
-		else if (MinimizeButton->IsHovered() || MaximizeRestoreButton->IsHovered() || CloseButton->IsHovered())
-	#else
 		else if (MinimizeButton->IsHovered())
-	#endif
 		{
 			return &Style->MinimizeButtonStyle.Hovered;
 		}
-	#if PLATFORM_MAC
-		else if (NativeWindow.IsValid() && !NativeWindow->IsForegroundWindow())
-		{
-			return &Style->MinimizeButtonStyle.Disabled;
-		}
-	#endif
 		else
 		{
 			return &Style->MinimizeButtonStyle.Normal;

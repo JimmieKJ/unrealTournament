@@ -46,6 +46,10 @@ void AGameState::DefaultTimer()
 	if (IsMatchInProgress())
 	{
 		++ElapsedTime;
+		if (GetNetMode() != NM_DedicatedServer)
+		{
+			OnRep_ElapsedTime();
+		}
 	}
 
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AGameState::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation(), true);
@@ -239,6 +243,11 @@ void AGameState::OnRep_MatchState()
 	}
 
 	PreviousMatchState = MatchState;
+}
+
+void AGameState::OnRep_ElapsedTime()
+{
+	//Blank on purpose
 }
 
 bool AGameState::ShouldShowGore() const

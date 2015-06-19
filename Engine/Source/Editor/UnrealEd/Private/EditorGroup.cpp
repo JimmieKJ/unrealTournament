@@ -4,9 +4,6 @@
 #include "UnrealEd.h"
 #include "ScopedTransaction.h"
 #include "MainFrame.h"
-#include "Dialogs/SMeshProxyDialog.h"
-#include "Dialogs/SMeshMergingDialog.h"
-#include "Dialogs/DlgPickAssetPath.h"
 #include "MeshUtilities.h"
 #include "AssetRegistryModule.h"
 #include "ContentBrowserModule.h"
@@ -189,10 +186,12 @@ void UUnrealEdEngine::edactRemoveFromGroup()
 				if(ActorGroupParent)
 				{
 					ActorGroupParent->Add(*Actor);
+					ActorGroupParent->CenterGroupLocation();
 				}
 				else
 				{
 					ActorGroup->Remove(*Actor);
+					ActorGroup->CenterGroupLocation();
 				}
 			}
 		}
@@ -205,73 +204,3 @@ void UUnrealEdEngine::edactRemoveFromGroup()
 	}
 }
 
-void UUnrealEdEngine::edactMergeActors()
-{
-	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
-	if (MeshUtilities.GetMeshMergingInterface() != nullptr)
-	{
-		TSharedPtr<IMeshProxyDialog> MeshProxyControls;
-		if(MeshProxyControls.IsValid() && MeshProxyControls->GetParentWindow().IsValid())
-		{
-			MeshProxyControls->GetParentWindow()->HideWindow();
-		}
-
-		if(!MeshProxyControls.IsValid())
-		{
-			// Create the controls if they haven't already been created
-			MeshProxyControls = IMeshProxyDialog::MakeControls();
-		}
-
-		if(!MeshProxyControls->GetParentWindow().IsValid())
-		{
-			// Create window
-			TSharedRef<SWindow> MeshProxyDialog = SNew(SWindow);
-			MeshProxyDialog->SetTitle(NSLOCTEXT("SMeshProxyDialog", "MeshProxyDialogTitle", "Mesh Proxy"));
-			MeshProxyDialog->Resize(FVector2D(400.0f, 280.0f));
-
-			MeshProxyControls->AssignWindowContent(MeshProxyDialog);
-			MeshProxyControls->SetParentWindow(MeshProxyDialog);
-
-			MeshProxyDialog->SetOnWindowClosed(FOnWindowClosed::CreateSP(MeshProxyControls.ToSharedRef(), &IMeshProxyDialog::OnWindowClosed));
-
-			// Spawn the dialog window
-			TSharedPtr<SWindow> ParentWindow;
-			if(FModuleManager::Get().IsModuleLoaded("MainFrame"))
-			{
-				IMainFrameModule& MainFrame = FModuleManager::GetModuleChecked<IMainFrameModule>("MainFrame");
-				ParentWindow = MainFrame.GetParentWindow();
-			}
-
-			if(ParentWindow.IsValid())
-			{
-				// Parent the window to the main frame 
-				FSlateApplication::Get().AddWindowAsNativeChild(MeshProxyDialog, ParentWindow.ToSharedRef());
-			}
-			else
-			{
-				// Spawn new window
-				FSlateApplication::Get().AddWindow(MeshProxyDialog);
-			}
-		}
-		
-		MeshProxyControls->GetParentWindow()->ShowWindow();
-		MeshProxyControls->MarkDirty();
-	}
-}
-
-void UUnrealEdEngine::edactMergeActorsByMaterials()
-{
-	/** Create the window to host mesh megin widget */
-	TSharedRef<SWindow> MergeActorsWindow = SNew(SWindow)
-											.Title(FText::FromString("Merge actors"))
-											.ClientSize(FVector2D(400, 200));
-
-	/** Set the content of the window to our package dialog widget */
-	TSharedRef<SMeshMergingDialog> MergingDialog = SNew(SMeshMergingDialog)
-													.ParentWindow(MergeActorsWindow);
-
-	MergeActorsWindow->SetContent(MergingDialog);
-
-	/** Show the package dialog window as a modal window */
-	GEditor->EditorAddModalWindow(MergeActorsWindow);
-}

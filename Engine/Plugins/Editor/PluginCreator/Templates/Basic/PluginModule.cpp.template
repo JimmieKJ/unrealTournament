@@ -1,0 +1,79 @@
+// Some copyright should be here...
+
+#include "%PLUGIN_NAME%PrivatePCH.h"
+
+#include "SlateBasics.h"
+#include "SlateExtras.h"
+
+#include "%PLUGIN_NAME%Style.h"
+#include "%PLUGIN_NAME%Commands.h"
+
+#include "LevelEditor.h"
+
+%PUBLIC_HEADER_INCLUDES%
+
+static const FName %PLUGIN_NAME%TabName("%PLUGIN_NAME%");
+
+#define LOCTEXT_NAMESPACE "F%PLUGIN_NAME%Module"
+
+void F%PLUGIN_NAME%Module::StartupModule()
+{
+	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	
+	F%PLUGIN_NAME%Style::Initialize();
+	F%PLUGIN_NAME%Style::ReloadTextures();
+
+	F%PLUGIN_NAME%Commands::Register();
+	
+	PluginCommands = MakeShareable(new FUICommandList);
+
+	PluginCommands->MapAction(
+		F%PLUGIN_NAME%Commands::Get().PluginAction,
+		FExecuteAction::CreateRaw(this, &F%PLUGIN_NAME%Module::PluginButtonClicked),
+		FCanExecuteAction());
+		
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	
+	{
+		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
+		MenuExtender->AddMenuExtension("WindowLayout", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &F%PLUGIN_NAME%Module::AddMenuExtension));
+
+		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+	}
+	
+	{
+		TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+		ToolbarExtender->AddToolBarExtension("Settings", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &F%PLUGIN_NAME%Module::AddToolbarExtension));
+		
+		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
+	}
+}
+
+void F%PLUGIN_NAME%Module::ShutdownModule()
+{
+	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
+	// we call this function before unloading the module.
+	
+	F%PLUGIN_NAME%Style::Shutdown();
+
+	F%PLUGIN_NAME%Commands::Unregister();
+}
+
+void F%PLUGIN_NAME%Module::PluginButtonClicked()
+{
+	// Put your "OnButtonClicked" stuff here
+}
+
+void F%PLUGIN_NAME%Module::AddMenuExtension(FMenuBuilder& Builder)
+{
+	Builder.AddMenuEntry(F%PLUGIN_NAME%Commands::Get().PluginAction);
+}
+
+void F%PLUGIN_NAME%Module::AddToolbarExtension(FToolBarBuilder& Builder)
+{
+	Builder.AddToolBarButton(F%PLUGIN_NAME%Commands::Get().PluginAction);
+}
+
+#undef LOCTEXT_NAMESPACE
+	
+IMPLEMENT_MODULE(F%PLUGIN_NAME%Module, %PLUGIN_NAME%)

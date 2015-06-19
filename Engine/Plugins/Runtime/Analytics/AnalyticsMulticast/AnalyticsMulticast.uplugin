@@ -1,0 +1,21 @@
+{
+    "FileVersion": 3,
+
+    "FriendlyName": "Multicast Analytics Provider",
+    "Version": 1,
+    "VersionName": "1.0",
+    "CreatedBy": "Epic Games, Inc.",
+    "CreatedByURL": "http://epicgames.com",
+    "DocsURL": "https://docs.unrealengine.com/latest/INT/Gameplay/Analytics/index.html",
+    "EngineVersion": "4.8.0",
+    "Description": "Forwards analytics API calls to a list of analytics providers to log data to multiple services at once",
+    "Category": "Analytics",
+
+    "Modules": [
+        {
+            "Name": "AnalyticsMulticast",
+            "Type": "Runtime",
+            "LoadingPhase": "PreDefault"
+        }
+    ]
+}

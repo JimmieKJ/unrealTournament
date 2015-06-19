@@ -29,7 +29,7 @@ bool USlateBrushAssetFactory::ConfigureProperties()
 
 UObject* USlateBrushAssetFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	USlateBrushAsset* NewSlateBrushAsset = CastChecked<USlateBrushAsset>(StaticConstructObject(USlateBrushAsset::StaticClass(), InParent, Name, Flags));
+	USlateBrushAsset* NewSlateBrushAsset = NewObject<USlateBrushAsset>(InParent, Name, Flags);
 	NewSlateBrushAsset->Brush = InitialTexture != NULL ? FSlateDynamicImageBrush( InitialTexture, FVector2D( InitialTexture->GetImportedSize() ), NAME_None ) : FSlateBrush();
 	return NewSlateBrushAsset;
 }

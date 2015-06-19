@@ -38,7 +38,7 @@ FText UAnimGraphNode_RotationOffsetBlendSpace::GetNodeTitle(ENodeTitleType::Type
 	}
 	// @TODO: the bone can be altered in the property editor, so we have to 
 	//        choose to mark this dirty when that happens for this to properly work
-	else //if (!CachedNodeTitles.IsTitleCached(TitleType))
+	else //if (!CachedNodeTitles.IsTitleCached(TitleType, this))
 	{
 		const FText BlendSpaceName = FText::FromString(Node.BlendSpace->GetName());
 
@@ -48,20 +48,14 @@ FText UAnimGraphNode_RotationOffsetBlendSpace::GetNodeTitle(ENodeTitleType::Type
 		// FText::Format() is slow, so we cache this to save on performance
 		if (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle)
 		{
-			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AimOffsetListTitle", "AimOffset '{BlendSpaceName}'"), Args));
+			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AimOffsetListTitle", "AimOffset '{BlendSpaceName}'"), Args), this);
 		}
 		else
 		{
-			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AimOffsetFullTitle", "{BlendSpaceName}\nAimOffset"), Args));
+			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AimOffsetFullTitle", "{BlendSpaceName}\nAimOffset"), Args), this);
 		}
 	}
 	return CachedNodeTitles[TitleType];
-}
-
-void UAnimGraphNode_RotationOffsetBlendSpace::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	const bool bWantAimOffsets = true;
-	GetBlendSpaceEntries(bWantAimOffsets, ContextMenuBuilder);
 }
 
 void UAnimGraphNode_RotationOffsetBlendSpace::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
@@ -141,4 +135,16 @@ void UAnimGraphNode_RotationOffsetBlendSpace::GetContextMenuActions(const FGraph
 	}
 }
 
+void UAnimGraphNode_RotationOffsetBlendSpace::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& ComplexAnims, TArray<UAnimSequence*>& AnimationSequences) const
+{
+	if(Node.BlendSpace)
+	{
+		HandleAnimReferenceCollection(Node.BlendSpace, ComplexAnims, AnimationSequences);
+	}
+}
+
+void UAnimGraphNode_RotationOffsetBlendSpace::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ComplexAnimsMap, const TMap<UAnimSequence*, UAnimSequence*>& AnimSequenceMap)
+{
+	HandleAnimReferenceReplacement(Node.BlendSpace, ComplexAnimsMap, AnimSequenceMap);
+}
 #undef LOCTEXT_NAMESPACE

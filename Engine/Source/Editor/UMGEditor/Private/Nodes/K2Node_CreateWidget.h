@@ -18,7 +18,6 @@ class UMGEDITOR_API UK2Node_CreateWidget : public UK2Node_ConstructObjectFromCla
 	// End UEdGraphNode interface.
 
 	// Begin UK2Node interface
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual FName GetCornerIcon() const override;
 	// End UK2Node interface.
@@ -28,11 +27,11 @@ class UMGEDITOR_API UK2Node_CreateWidget : public UK2Node_ConstructObjectFromCla
 
 protected:
 	/** Gets the default node title when no class is selected */
-	virtual FText GetBaseNodeTitle() const;
+	virtual FText GetBaseNodeTitle() const override;
 	/** Gets the node title when a class has been selected. */
-	virtual FText GetNodeTitleFormat() const;
+	virtual FText GetNodeTitleFormat() const override;
 	/** Gets base class to use for the 'class' pin.  UObject by default. */
-	virtual UClass* GetClassPinBaseClass() const;
+	virtual UClass* GetClassPinBaseClass() const override;
 	/**  */
 	virtual bool IsSpawnVarPin(UEdGraphPin* Pin) override;
 };

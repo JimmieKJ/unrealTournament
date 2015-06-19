@@ -9,9 +9,8 @@ void SSpinningImage::Construct(const FArguments& InArgs)
 	ColorAndOpacity = InArgs._ColorAndOpacity;
 	OnMouseButtonDownHandler = InArgs._OnMouseButtonDown;
 	
-	Sequence = FCurveSequence();
-	Curve = Sequence.AddCurve(0.f, InArgs._Period);
-	Sequence.Play();
+	SpinAnimationSequence = FCurveSequence( 0.f, InArgs._Period );
+	SpinAnimationSequence.Play( this->AsShared(), true );
 }
 
 // Override SImage's OnPaint to draw rotated
@@ -26,7 +25,7 @@ int32 SSpinningImage::OnPaint( const FPaintArgs& Args, const FGeometry& Allotted
 
 		const FColor FinalColorAndOpacity( InWidgetStyle.GetColorAndOpacityTint() * ColorAndOpacity.Get().GetColor(InWidgetStyle) * ImageBrush->GetTint( InWidgetStyle ) );
 		
-		const float Angle = Curve.GetLerpLooping() * 2.0f * PI;
+		const float Angle = SpinAnimationSequence.GetLerp() * 2.0f * PI;
 
 		FSlateDrawElement::MakeRotatedBox( 
 			OutDrawElements,

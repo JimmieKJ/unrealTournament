@@ -10,6 +10,7 @@
 class FKCHandler_DynamicCast : public FNodeHandlingFunctor
 {
 protected:
+	TMap<UEdGraphNode*, FBPTerminal*> BoolTermMap; // should be deprecated at a certain point (left in for backwards compatibility)
 	EKismetCompiledStatementType CastType;
 
 public:

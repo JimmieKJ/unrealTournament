@@ -130,6 +130,7 @@ public:
 	virtual EHttpRequestStatus::Type GetStatus() override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual float GetElapsedTime() override;
 	// End IHttpRequest interface
 
 	/**
@@ -305,7 +306,7 @@ private:
 	TArray<uint8> RequestPayload;
 	/** Delegate that will get called once request completes or on any error */
 	FHttpRequestCompleteDelegate RequestCompleteDelegate;
-	/** Delegate that will get called once per tick with bytes downloaded so far */
+	/** Delegate that will get called once per tick with total bytes uploaded and downloaded so far */
 	FHttpRequestProgressDelegate RequestProgressDelegate;
 	/** Current status of request being processed */
 	EHttpRequestStatus::Type CompletionStatus;
@@ -313,6 +314,8 @@ private:
 	TMap<FString, FString> Headers;
 	/** Total elapsed time in seconds since the start of the request */
 	float ElapsedTime;
+	/** Elapsed time since the last received HTTP response. */
+	float TimeSinceLastResponse;
 };
 
 

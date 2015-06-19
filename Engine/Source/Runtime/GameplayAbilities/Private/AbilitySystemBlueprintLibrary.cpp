@@ -2,6 +2,7 @@
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
 #include "Abilities/GameplayAbility.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
@@ -18,6 +19,38 @@ UAbilitySystemBlueprintLibrary::UAbilitySystemBlueprintLibrary(const FObjectInit
 UAbilitySystemComponent* UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(AActor *Actor)
 {
 	return UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Actor);
+}
+
+void UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(AActor* Actor, FGameplayTag EventTag, FGameplayEventData Payload)
+{
+	if (Actor && !Actor->IsPendingKill())
+	{
+		IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(Actor);
+		if (AbilitySystemInterface != NULL)
+		{
+			UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface->GetAbilitySystemComponent();
+			if (AbilitySystemComponent != NULL)
+			{
+				FScopedPredictionWindow NewScopedWindow(AbilitySystemComponent, true);
+				AbilitySystemComponent->HandleGameplayEvent(EventTag, &Payload);
+			}
+		}
+	}
+}
+
+float UAbilitySystemBlueprintLibrary::GetFloatAttribute(const class AActor* Actor, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute)
+{
+	bSuccessfullyFoundAttribute = true;
+
+	const UAbilitySystemComponent* const AbilitySystem = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Actor);
+	if (!AbilitySystem || !AbilitySystem->HasAttributeSetForAttribute(Attribute))
+	{
+		bSuccessfullyFoundAttribute = false;
+		return 0.f;
+	}
+
+	const float Result = AbilitySystem->GetNumericAttribute(Attribute);
+	return Result;
 }
 
 FGameplayAbilityTargetDataHandle UAbilitySystemBlueprintLibrary::AppendTargetDataHandle(FGameplayAbilityTargetDataHandle TargetHandle, FGameplayAbilityTargetDataHandle HandleToAdd)
@@ -158,6 +191,25 @@ TArray<AActor*> UAbilitySystemBlueprintLibrary::GetActorsFromTargetData(FGamepla
 	return TArray<AActor*>();
 }
 
+bool UAbilitySystemBlueprintLibrary::DoesTargetDataContainActor(FGameplayAbilityTargetDataHandle TargetData, int32 Index, AActor* Actor)
+{
+	if (TargetData.Data.IsValidIndex(Index))
+	{
+		FGameplayAbilityTargetData* Data = TargetData.Data[Index].Get();
+		if (Data)
+		{
+			for (auto DataActorIter : Data->GetActors())
+			{
+				if (DataActorIter == Actor)
+				{
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 bool UAbilitySystemBlueprintLibrary::TargetDataHasActor(FGameplayAbilityTargetDataHandle TargetData, int32 Index)
 {
 	if (TargetData.Data.IsValidIndex(Index))
@@ -269,8 +321,73 @@ FVector UAbilitySystemBlueprintLibrary::GetTargetDataEndPoint(FGameplayAbilityTa
 	return FVector::ZeroVector;
 }
 
+FTransform UAbilitySystemBlueprintLibrary::GetTargetDataEndPointTransform(FGameplayAbilityTargetDataHandle TargetData, int32 Index)
+{
+	if (TargetData.Data.IsValidIndex(Index))
+	{
+		FGameplayAbilityTargetData* Data = TargetData.Data[Index].Get();
+		if (Data)
+		{
+			return Data->GetEndPointTransform();
+		}
+	}
+
+	return FTransform::Identity;
+}
+
+
 // -------------------------------------------------------------------------------------
 
+
+bool UAbilitySystemBlueprintLibrary::EffectContextIsInstigatorLocallyControlled(FGameplayEffectContextHandle EffectContext)
+{
+	return EffectContext.IsLocallyControlled();
+}
+
+FHitResult UAbilitySystemBlueprintLibrary::EffectContextGetHitResult(FGameplayEffectContextHandle EffectContext)
+{
+	if (EffectContext.GetHitResult())
+	{
+		return *EffectContext.GetHitResult();
+	}
+
+	return FHitResult();
+}
+
+bool UAbilitySystemBlueprintLibrary::EffectContextHasHitResult(FGameplayEffectContextHandle EffectContext)
+{
+	return EffectContext.GetHitResult() != NULL;
+}
+
+AActor*	UAbilitySystemBlueprintLibrary::EffectContextGetInstigatorActor(FGameplayEffectContextHandle EffectContext)
+{
+	return EffectContext.GetInstigator();
+}
+
+AActor*	UAbilitySystemBlueprintLibrary::EffectContextGetOriginalInstigatorActor(FGameplayEffectContextHandle EffectContext)
+{
+	return EffectContext.GetOriginalInstigator();
+}
+
+AActor*	UAbilitySystemBlueprintLibrary::EffectContextGetEffectCauser(FGameplayEffectContextHandle EffectContext)
+{
+	return EffectContext.GetEffectCauser();
+}
+
+UObject* UAbilitySystemBlueprintLibrary::EffectContextGetSourceObject(FGameplayEffectContextHandle EffectContext)
+{
+	return const_cast<UObject*>( EffectContext.GetSourceObject() );
+}
+
+FVector UAbilitySystemBlueprintLibrary::EffectContextGetOrigin(FGameplayEffectContextHandle EffectContext)
+{
+	if (EffectContext.HasOrigin())
+	{
+		return EffectContext.GetOrigin();
+	}
+
+	return FVector::ZeroVector;
+}
 
 bool UAbilitySystemBlueprintLibrary::IsInstigatorLocallyControlled(FGameplayCueParameters Parameters)
 {
@@ -342,6 +459,64 @@ FVector UAbilitySystemBlueprintLibrary::GetOrigin(FGameplayCueParameters Paramet
 	return FVector::ZeroVector;
 }
 
+bool UAbilitySystemBlueprintLibrary::GetGameplayCueEndLocationAndNormal(AActor* TargetActor, FGameplayCueParameters Parameters, FVector& Location, FVector& Normal)
+{
+	FGameplayEffectContext* Data = Parameters.EffectContext.Get();
+	if (Data && Data->GetHitResult())
+	{
+		
+		Location = Data->GetHitResult()->Location;
+		Normal = Data->GetHitResult()->Normal;
+		return true;
+	}
+	else if(TargetActor)
+	{
+		Location = TargetActor->GetActorLocation();
+		Normal = TargetActor->GetActorForwardVector();
+		return true;
+	}
+
+	return false;
+}
+
+bool UAbilitySystemBlueprintLibrary::GetGameplayCueDirection(AActor* TargetActor, FGameplayCueParameters Parameters, FVector& Direction)
+{
+	if (FGameplayEffectContext* Ctx = Parameters.EffectContext.Get())
+	{
+		if (Ctx->GetHitResult())
+		{
+			// Most projectiles and melee attacks will use this
+			Direction = (-1.f * Ctx->GetHitResult()->Normal);
+			return true;
+		}
+		else if (TargetActor && Ctx->HasOrigin())
+		{
+			// Fallback to trying to use the target location and the origin of the effect
+			FVector NewVec = (TargetActor->GetActorLocation() - Ctx->GetOrigin());
+			NewVec.Normalize();
+			Direction = NewVec;
+			return true;
+		}
+		else if (TargetActor && Ctx->GetEffectCauser())
+		{
+			// Finally, try to use the direction between the causer of the effect and the target of the effect
+			FVector NewVec = (TargetActor->GetActorLocation() - Ctx->GetEffectCauser()->GetActorLocation());
+			NewVec.Normalize();
+			Direction = NewVec;
+			return true;
+		}
+	}
+
+	Direction = FVector::ZeroVector;
+	return false;
+}
+
+bool UAbilitySystemBlueprintLibrary::DoesGameplayCueMeetTagRequirements(FGameplayCueParameters Parameters, FGameplayTagRequirements& SourceTagReqs, FGameplayTagRequirements& TargetTagReqs)
+{
+	return SourceTagReqs.RequirementsMet(Parameters.AggregatedSourceTags)
+		&& TargetTagReqs.RequirementsMet(Parameters.AggregatedSourceTags);
+}
+
 // ---------------------------------------------------------------------------------------
 
 FGameplayEffectSpecHandle UAbilitySystemBlueprintLibrary::AssignSetByCallerMagnitude(FGameplayEffectSpecHandle SpecHandle, FName DataName, float Magnitude)
@@ -349,7 +524,7 @@ FGameplayEffectSpecHandle UAbilitySystemBlueprintLibrary::AssignSetByCallerMagni
 	FGameplayEffectSpec* Spec = SpecHandle.Data.Get();
 	if (Spec)
 	{
-		Spec->SetMagnitude(DataName, Magnitude);
+		Spec->SetSetByCallerMagnitude(DataName, Magnitude);
 	}
 	else
 	{
@@ -364,7 +539,7 @@ FGameplayEffectSpecHandle UAbilitySystemBlueprintLibrary::SetDuration(FGameplayE
 	FGameplayEffectSpec* Spec = SpecHandle.Data.Get();
 	if (Spec)
 	{
-		Spec->SetDuration(Duration);
+		Spec->SetDuration(Duration, true);
 	}
 	else
 	{
@@ -417,4 +592,43 @@ FGameplayEffectSpecHandle UAbilitySystemBlueprintLibrary::AddLinkedGameplayEffec
 	}
 
 	return SpecHandle;
+}
+
+
+FGameplayEffectSpecHandle UAbilitySystemBlueprintLibrary::SetStackCount(FGameplayEffectSpecHandle SpecHandle, int32 StackCount)
+{
+	FGameplayEffectSpec* Spec = SpecHandle.Data.Get();
+	if (Spec)
+	{
+		Spec->StackCount = StackCount;
+	}
+	else
+	{
+		ABILITY_LOG(Warning, TEXT("UAbilitySystemBlueprintLibrary::AddLinkedGameplayEffectSpec called with invalid SpecHandle"));
+	}
+	return SpecHandle;
+}
+	
+FGameplayEffectSpecHandle UAbilitySystemBlueprintLibrary::SetStackCountToMax(FGameplayEffectSpecHandle SpecHandle)
+{
+	FGameplayEffectSpec* Spec = SpecHandle.Data.Get();
+	if (Spec && Spec->Def)
+	{
+		Spec->StackCount = Spec->Def->StackLimitCount;
+	}
+	else
+	{
+		ABILITY_LOG(Warning, TEXT("UAbilitySystemBlueprintLibrary::AddLinkedGameplayEffectSpec called with invalid SpecHandle"));
+	}
+	return SpecHandle;
+}
+
+int32 UAbilitySystemBlueprintLibrary::GetActiveGameplayEffectStackCount(FActiveGameplayEffectHandle ActiveHandle)
+{
+	UAbilitySystemComponent* ASC = ActiveHandle.GetOwningAbilitySystemComponent();
+	if (ASC)
+	{
+		return ASC->GetCurrentStackCount(ActiveHandle);
+	}
+	return 0;
 }

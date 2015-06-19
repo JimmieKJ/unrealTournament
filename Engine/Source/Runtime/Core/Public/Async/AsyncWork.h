@@ -6,6 +6,8 @@
 
 #pragma once
 
+DECLARE_STATS_GROUP(TEXT("ThreadPool Async Tasks"), STATGROUP_ThreadPoolAsyncTasks, STATCAT_Advanced);
+
 /**
 	FAutoDeleteAsyncTask - template task for jobs that delete themselves when complete
 
@@ -27,10 +29,10 @@
 			... do the work here
 		}
 
-		static const TCHAR *Name()
-		{
-			return TEXT("ExampleAutoDeleteAsyncTask");
-		}
+ 		FORCEINLINE TStatId GetStatId() const
+ 		{
+			RETURN_QUICK_DECLARE_CYCLE_STAT(ExampleAutoDeleteAsyncTask, STATGROUP_ThreadPoolAsyncTasks);
+ 		}
 	};
 
 	start an example job
@@ -43,7 +45,8 @@
 
 **/
 template<typename TTask>
-class FAutoDeleteAsyncTask : private FQueuedWork
+class FAutoDeleteAsyncTask
+	: private IQueuedWork
 {
 	/** User job embedded in this task */ 
 	TTask Task;
@@ -75,6 +78,8 @@ class FAutoDeleteAsyncTask : private FQueuedWork
 	**/
 	void DoWork()
 	{		
+		FScopeCycleCounter Scope(Task.GetStatId(), true); 
+
 		Task.DoWork();		
 		delete this;
 	}
@@ -205,9 +210,9 @@ public:
 			... do the work here
 		}
 
-		static const TCHAR *Name()
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("ExampleAsyncTask");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(ExampleAsyncTask, STATGROUP_ThreadPoolAsyncTasks);
 		}
 	};
 
@@ -238,7 +243,8 @@ public:
 
 **/
 template<typename TTask>
-class FAsyncTask : private FQueuedWork
+class FAsyncTask
+	: private IQueuedWork
 {
 	/** User job embedded in this task */ 
 	TTask Task;
@@ -253,8 +259,8 @@ class FAsyncTask : private FQueuedWork
 	**/
 	void DestroyEvent()
 	{
-		delete DoneEvent;
-		DoneEvent = NULL;
+		FPlatformProcess::ReturnSynchEventToPool(DoneEvent);
+		DoneEvent = nullptr;
 	}
 
 	/* Generic start function, not called directly
@@ -274,7 +280,7 @@ class FAsyncTask : private FQueuedWork
 		{
 			if (!DoneEvent)
 			{
-				DoneEvent = FPlatformProcess::CreateSynchEvent(true);
+				DoneEvent = FPlatformProcess::GetSynchEventFromPool(true);
 			}
 			DoneEvent->Reset();
 			QueuedPool->AddQueuedWork(this);
@@ -291,7 +297,9 @@ class FAsyncTask : private FQueuedWork
 	* Tells the user job to do the work, sometimes called synchronously, sometimes from the thread pool. Calls the event tracker.
 	**/
 	void DoWork()
-	{		
+	{	
+		FScopeCycleCounter Scope(Task.GetStatId(), true); 
+
 		Task.DoWork();		
 		check(WorkNotFinishedCounter.GetValue() == 1);
 		WorkNotFinishedCounter.Decrement();
@@ -617,12 +625,10 @@ public:
 		// Uncompress from memory to memory.
 		verify( FCompression::UncompressMemory( Flags, UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize, bIsSourceMemoryPadded ) );
 	}
-	/** Give the name for external event viewers
-	* @return	the name to display in external event viewers
-	*/
-	static const TCHAR *Name()
+
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncUncompress");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncUncompress, STATGROUP_ThreadPoolAsyncTasks);
 	}
 };
 

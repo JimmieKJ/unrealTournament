@@ -36,7 +36,7 @@
 #include "SScissorRectBox.h"
 #include "Online.h"
 #include "SNotificationList.h"
-#include "SDPIScaler.h"
+#include "SGameLayerManager.h"
 #include "NotificationManager.h"
 #include "Engine/Selection.h"
 #include "TimerManager.h"
@@ -58,10 +58,17 @@
 #include "EngineUtils.h"
 #include "GameMapsSettings.h"
 #include "GameFramework/Pawn.h"
+#include "GameDelegates.h"
+#include "GeneralProjectSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPlayLevel, Log, All);
 
 #define LOCTEXT_NAMESPACE "PlayLevel"
+
+inline FName GetOnlineIdentifier(const FWorldContext& WorldContext)
+{
+	return FName(*FString::Printf(TEXT(":%s"), *WorldContext.ContextHandle.ToString()));
+}
 
 void UEditorEngine::EndPlayMap()
 {
@@ -179,7 +186,7 @@ void UEditorEngine::EndPlayMap()
 			TeardownPlaySession(ThisContext);
 			
 			// Cleanup online subsystems instantiated during PIE
-			FName OnlineIdentifier = FName(*FString::Printf(TEXT(":%s"), *ThisContext.ContextHandle.ToString()));
+			FName OnlineIdentifier = GetOnlineIdentifier(ThisContext);
 			if (IOnlineSubsystem::DoesInstanceExist(OnlineIdentifier))
 			{
 				IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(OnlineIdentifier);
@@ -225,6 +232,8 @@ void UEditorEngine::EndPlayMap()
 	{
 		EditorWorld->GetNavigationSystem()->OnPIEEnd();
 	}
+
+	FGameDelegates::Get().GetEndPlayMapDelegate().Broadcast();
 
 	EditorWorld->bAllowAudioPlayback = true;
 	EditorWorld = NULL;
@@ -425,12 +434,12 @@ void UEditorEngine::TeardownPlaySession(FWorldContext &PieWorldContext)
 
 	
 	// Stop all audio and remove references to temp level.
-	if (GetAudioDevice())
+	if (FAudioDevice* AudioDevice = PlayWorld->GetAudioDevice())
 	{
-		GetAudioDevice()->Flush( PlayWorld );
-		GetAudioDevice()->ResetInterpolation();
-		GetAudioDevice()->OnEndPIE(bIsSimulatingInEditor);
-		GetAudioDevice()->TransientMasterVolume = 1.0f;
+		AudioDevice->Flush( PlayWorld );
+		AudioDevice->ResetInterpolation();
+		AudioDevice->OnEndPIE(bIsSimulatingInEditor);
+		AudioDevice->TransientMasterVolume = 1.0f;
 	}
 
 	// Clean up all streaming levels
@@ -1294,13 +1303,14 @@ void UEditorEngine::HandleStageStarted(const FString& InStage, TWeakPtr<SNotific
 	}
 	else if (InStage.Contains(TEXT("Build Task")))
 	{
+		EPlayOnBuildMode bBuildType = GetDefault<ULevelEditorPlaySettings>()->BuildGameBeforeLaunch;
 		FString PlatformName = PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")));
 		if (PlatformName.Contains(TEXT("NoEditor")))
 		{
 			PlatformName = PlatformName.Left(PlatformName.Find(TEXT("NoEditor")));
 		}
 		Arguments.Add(TEXT("PlatformName"), FText::FromString(PlatformName));
-		if (FRocketSupport::IsRocket() || !bPlayUsingLauncherHasCode || !bPlayUsingLauncherHasCompiler)
+		if (FRocketSupport::IsRocket() || !bPlayUsingLauncherHasCode || !bPlayUsingLauncherHasCompiler || bBuildType == EPlayOnBuildMode::PlayOnBuild_Never)
 		{
 			NotificationText = FText::Format(LOCTEXT("LauncherTaskValidateNotification", "Validating Executable for {PlatformName}..."), Arguments);
 		}
@@ -1448,12 +1458,27 @@ void UEditorEngine::PlayUsingLauncher()
 
 		// does the project have any code?
 		FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
-		bPlayUsingLauncherHasCode = GameProjectModule.Get().ProjectHasCodeFiles();
+		bPlayUsingLauncherHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")))));
 		bPlayUsingLauncherHasCompiler = FSourceCodeNavigation::IsCompilerAvailable();
 
 		// Setup launch profile, keep the setting here to a minimum.
 		ILauncherProfileRef LauncherProfile = LauncherServicesModule.CreateProfile(TEXT("Play On Device"));
-		LauncherProfile->SetBuildGame(bPlayUsingLauncherHasCode && bPlayUsingLauncherHasCompiler);
+		EPlayOnBuildMode bBuildType = GetDefault<ULevelEditorPlaySettings>()->BuildGameBeforeLaunch;
+		if ((bBuildType == EPlayOnBuildMode::PlayOnBuild_Always) || (bBuildType == PlayOnBuild_Default && (bPlayUsingLauncherHasCode) && bPlayUsingLauncherHasCompiler))
+		{
+			LauncherProfile->SetBuildGame(true);
+
+			// set the build configuration to be the same as the running editor
+			FString ExeName = FUnrealEdMisc::Get().GetExecutableForCommandlets();
+			if (ExeName.Contains(TEXT("Debug")))
+			{
+				LauncherProfile->SetBuildConfiguration(EBuildConfigurations::Debug);
+			}
+			else
+			{
+				LauncherProfile->SetBuildConfiguration(EBuildConfigurations::Development);
+			}
+		}
 
 		// select the quickest cook mode based on which in editor cook mode is enabled
 		bool bIncrimentalCooking = true;
@@ -1482,6 +1507,7 @@ void UEditorEngine::PlayUsingLauncher()
 			bIncrimentalCooking = false;
 		}
 		LauncherProfile->SetCookMode( CurrentLauncherCookMode );
+		LauncherProfile->SetUnversionedCooking(!bIncrimentalCooking);
 		LauncherProfile->SetIncrementalCooking(bIncrimentalCooking);
 		LauncherProfile->SetDeployedDeviceGroup(DeviceGroup);
 		LauncherProfile->SetIncrementalDeploying(bIncrimentalCooking);
@@ -1667,9 +1693,6 @@ void UEditorEngine::PlayForMovieCapture()
 	// (we add to EditorCommandLine because the URL is ignored by WindowsTools)
 	EditorCommandLine += TEXT(" -PIEVIACONSOLE");
 	
-	// Disable splash screen
-	EditorCommandLine += TEXT(" -NoSplash");
-	
 	// if we want to start movie capturing right away, then append the argument for that
 	if (bStartMovieCapture)
 	{
@@ -1680,19 +1703,19 @@ void UEditorEngine::PlayForMovieCapture()
 		EditorCommandLine += FString::Printf(TEXT(" -ResX=%d"), GEditor->MatineeCaptureResolutionX);
 		EditorCommandLine += FString::Printf(TEXT(" -ResY=%d"), GEditor->MatineeCaptureResolutionY);
 					
-		if( GUnrealEd->bNoTextureStreaming )
+		if( GUnrealEd->MatineeScreenshotOptions.bNoTextureStreaming )
 		{
 			EditorCommandLine += TEXT(" -NoTextureStreaming");
 		}
 
 		//set fps
-		EditorCommandLine += FString::Printf(TEXT(" -BENCHMARK -FPS=%d"), GEditor->MatineeCaptureFPS);
+		EditorCommandLine += FString::Printf(TEXT(" -BENCHMARK -FPS=%d"), GEditor->MatineeScreenshotOptions.MatineeCaptureFPS);
 	
-		if (GEditor->MatineeCaptureType.GetValue() != EMatineeCaptureType::AVI)
+		if (GEditor->MatineeScreenshotOptions.MatineeCaptureType.GetValue() != EMatineeCaptureType::AVI)
 		{
-			EditorCommandLine += FString::Printf(TEXT(" -MATINEESSCAPTURE=%s"), *GEngine->MatineeCaptureName);//*GEditor->MatineeNameForRecording);
+			EditorCommandLine += FString::Printf(TEXT(" -MATINEESSCAPTURE=%s"), *GEngine->MatineeScreenshotOptions.MatineeCaptureName);//*GEditor->MatineeNameForRecording);
 
-			switch(GEditor->MatineeCaptureType.GetValue())
+			switch(GEditor->MatineeScreenshotOptions.MatineeCaptureType.GetValue())
 			{
 			case EMatineeCaptureType::BMP:
 				EditorCommandLine += TEXT(" -MATINEESSFORMAT=BMP");
@@ -1703,6 +1726,7 @@ void UEditorEngine::PlayForMovieCapture()
 			case EMatineeCaptureType::JPEG:
 				EditorCommandLine += TEXT(" -MATINEESSFORMAT=JPEG");
 				break;
+			default: break;
 			}
 
 			// If buffer visualization dumping is enabled, we need to tell capture process to enable it too
@@ -1715,12 +1739,12 @@ void UEditorEngine::PlayForMovieCapture()
 		}
 		else
 		{
-			EditorCommandLine += FString::Printf(TEXT(" -MATINEEAVICAPTURE=%s"), *GEngine->MatineeCaptureName);//*GEditor->MatineeNameForRecording);
+			EditorCommandLine += FString::Printf(TEXT(" -MATINEEAVICAPTURE=%s"), *GEngine->MatineeScreenshotOptions.MatineeCaptureName);//*GEditor->MatineeNameForRecording);
 		}
 					
-		EditorCommandLine += FString::Printf(TEXT(" -MATINEEPACKAGE=%s"), *GEngine->MatineePackageCaptureName);//*GEditor->MatineePackageNameForRecording);
+		EditorCommandLine += FString::Printf(TEXT(" -MATINEEPACKAGE=%s"), *GEngine->MatineeScreenshotOptions.MatineePackageCaptureName);//*GEditor->MatineePackageNameForRecording);
 	
-		if (GEditor->bCompressMatineeCapture == 1)
+		if (GEditor->MatineeScreenshotOptions.bCompressMatineeCapture == 1)
 		{
 			EditorCommandLine += TEXT(" -CompressCapture");
 		}
@@ -1749,7 +1773,7 @@ void UEditorEngine::PlayForMovieCapture()
 	{
 		bool bCloseEditor = false;
 
-		GConfig->GetBool(TEXT("MatineeCreateMovieOptions"), TEXT("CloseEditor"), bCloseEditor, GEditorUserSettingsIni);
+		GConfig->GetBool(TEXT("MatineeCreateMovieOptions"), TEXT("CloseEditor"), bCloseEditor, GEditorPerProjectIni);
 
 		if (bCloseEditor)
 		{
@@ -1761,7 +1785,7 @@ void UEditorEngine::PlayForMovieCapture()
 	{
 		UE_LOG(LogPlayLevel, Error,  TEXT("Failed to run a copy of the game for matinee capture."));
 	}
-	ProcessHandle.Close();
+	FPlatformProcess::CloseProc(ProcessHandle);
 }
 
 
@@ -1780,7 +1804,7 @@ void UEditorEngine::RequestEndPlayMap()
 				if (ThisContext.WorldType == EWorldType::PIE)
 				{
 					FSlatePlayInEditorInfo* const SlatePlayInEditorSession = SlatePlayInEditorMap.Find(ThisContext.ContextHandle);
-					if ((SlatePlayInEditorSession != nullptr) && (SlatePlayInEditorSession->EditorPlayer.IsValid() == true) && (SlatePlayInEditorSession->EditorPlayer.Get()->PlayerController != nullptr ) )
+					if ((SlatePlayInEditorSession != nullptr) && (SlatePlayInEditorSession->EditorPlayer.IsValid() == true) )
 					{
 						if( SlatePlayInEditorSession->EditorPlayer.Get()->PlayerController != nullptr )
 						{
@@ -1879,7 +1903,33 @@ bool UEditorEngine::SpawnPlayFromHereStart( UWorld* World, AActor*& PlayerStart,
 
 void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 {
+	// Broadcast PreBeginPIE before checks that might block PIE below (BeginPIE is broadcast below after the checks)
+	FEditorDelegates::PreBeginPIE.Broadcast(bInSimulateInEditor);
+
 	double PIEStartTime = FPlatformTime::Seconds();
+
+	// Block PIE when there is a transaction recording into the undo buffer
+	if (GEditor->IsTransactionActive())
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("TransactionName"), GEditor->GetTransactionName());
+
+		FText NotificationText;
+		if (bInSimulateInEditor)
+		{
+			NotificationText = FText::Format(NSLOCTEXT("UnrealEd", "SIECantStartDuringTransaction", "Can't Simulate when performing {TransactionName} operation"), Args);
+		}
+		else
+		{
+			NotificationText = FText::Format(NSLOCTEXT("UnrealEd", "PIECantStartDuringTransaction", "Can't Play In Editor when performing {TransactionName} operation"), Args);
+		}
+
+		FNotificationInfo Info(NotificationText);
+		Info.ExpireDuration = 5.0f;
+		Info.bUseLargeFont = true;
+		FSlateNotificationManager::Get().AddNotification(Info);
+		return;
+	}
 
 	// Prompt the user that Matinee must be closed before PIE can occur.
 	if( GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_InterpEdit) )
@@ -1892,8 +1942,12 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 		GLevelEditorModeTools().DeactivateMode( FBuiltinEditorModes::EM_InterpEdit );
 	}
 
+	// Make sure there's no outstanding load requests
+	FlushAsyncLoading();
+
 	FBlueprintEditorUtils::FindAndSetDebuggableBlueprintInstances();
 
+	// Broadcast BeginPIE after checks that might block PIE above (PreBeginPIE is broadcast above before the checks)
 	FEditorDelegates::BeginPIE.Broadcast(bInSimulateInEditor);
 
 	// let navigation know PIE starts so it can avoid any blueprint creation/deletion/instantiation affect editor map's navmesh changes
@@ -2127,19 +2181,20 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	GEngine->ClearOnScreenDebugMessages();
 
 	// Flush all audio sources from the editor world
-	if( GetAudioDevice() )
+	FAudioDevice* AudioDevice = EditorWorld->GetAudioDevice();
+	if (AudioDevice)
 	{
-		GetAudioDevice()->Flush( EditorWorld );
-		GetAudioDevice()->ResetInterpolation();
-		GetAudioDevice()->OnBeginPIE(bInSimulateInEditor);
+		AudioDevice->Flush( EditorWorld );
+		AudioDevice->ResetInterpolation();
+		AudioDevice->OnBeginPIE(bInSimulateInEditor);
 	}
 	EditorWorld->bAllowAudioPlayback = false;
 
 	ULevelEditorPlaySettings* PlayInSettings = Cast<ULevelEditorPlaySettings>(ULevelEditorPlaySettings::StaticClass()->GetDefaultObject());
 
-	if (!PlayInSettings->EnableSound && GetAudioDevice())
+	if (!PlayInSettings->EnableSound && AudioDevice)
 	{
-		GetAudioDevice()->TransientMasterVolume = 0.0f;
+		AudioDevice->TransientMasterVolume = 0.0f;
 	}
 
 	if (!GEditor->bAllowMultiplePIEWorlds)
@@ -2385,7 +2440,7 @@ void UEditorEngine::LoginPIEInstances(bool bAnyBlueprintErrors, bool bStartInSpe
 		DataStruct.NetMode = PlayNetMode;
 
 		// Always get the interface (it will create the subsystem regardless)
-		FName OnlineIdentifier = FName(*FString::Printf(TEXT(":%s"), *PieWorldContext.ContextHandle.ToString()));
+		FName OnlineIdentifier = GetOnlineIdentifier(PieWorldContext);
 		UE_LOG(LogPlayLevel, Display, TEXT("Creating online subsystem for server %s"), *OnlineIdentifier.ToString());
 		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(OnlineIdentifier);
 		IOnlineIdentityPtr IdentityInt = OnlineSub->GetIdentityInterface();
@@ -2408,7 +2463,8 @@ void UEditorEngine::LoginPIEInstances(bool bAnyBlueprintErrors, bool bStartInSpe
 			Delegate.BindUObject(this, &UEditorEngine::OnLoginPIEComplete, DataStruct);
 
 			// Login first and continue the flow later
-			OnLoginPIECompleteDelegateHandle = IdentityInt->AddOnLoginCompleteDelegate_Handle(0, Delegate);
+			FDelegateHandle DelegateHandle = IdentityInt->AddOnLoginCompleteDelegate_Handle(0, Delegate);
+			OnLoginPIECompleteDelegateHandlesForPIEInstances.Add(OnlineIdentifier, DelegateHandle);
 			IdentityInt->Login(0, AccountCreds);
 
 			ClientNum++;
@@ -2439,7 +2495,7 @@ void UEditorEngine::LoginPIEInstances(bool bAnyBlueprintErrors, bool bStartInSpe
 		GetMultipleInstancePositions(DataStruct.SettingsIndex, NextX, NextY);
 		DataStruct.NetMode = EPlayNetMode::PIE_Client;
 
-		FName OnlineIdentifier = FName(*FString::Printf(TEXT(":%s"), *PieWorldContext.ContextHandle.ToString()));
+		FName OnlineIdentifier = GetOnlineIdentifier(PieWorldContext);
 		UE_LOG(LogPlayLevel, Display, TEXT("Creating online subsystem for client %s"), *OnlineIdentifier.ToString());
 		IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(OnlineIdentifier);
 		check(IdentityInt.IsValid());
@@ -2454,7 +2510,7 @@ void UEditorEngine::LoginPIEInstances(bool bAnyBlueprintErrors, bool bStartInSpe
 		Delegate.BindUObject(this, &UEditorEngine::OnLoginPIEComplete, DataStruct);
 
 		IdentityInt->ClearOnLoginCompleteDelegate_Handle(0, OnLoginPIECompleteDelegateHandlesForPIEInstances.FindRef(OnlineIdentifier));
-		OnLoginPIECompleteDelegateHandlesForPIEInstances[OnlineIdentifier] = IdentityInt->AddOnLoginCompleteDelegate_Handle(0, Delegate);
+		OnLoginPIECompleteDelegateHandlesForPIEInstances.Add(OnlineIdentifier, IdentityInt->AddOnLoginCompleteDelegate_Handle(0, Delegate));
 		IdentityInt->Login(0, AccountCreds);
 	}
 
@@ -2467,12 +2523,16 @@ void UEditorEngine::OnLoginPIEComplete(int32 LocalUserNum, bool bWasSuccessful, 
 	UE_LOG(LogOnline, Verbose, TEXT("OnLoginPIEComplete LocalUserNum: %d bSuccess: %d %s"), LocalUserNum, bWasSuccessful, *ErrorString);
 	FWorldContext& PieWorldContext = GetWorldContextFromHandleChecked(DataStruct.WorldContextHandle);
 
-	FName OnlineIdentifier = FName(*FString::Printf(TEXT(":%s"), *PieWorldContext.ContextHandle.ToString()));
+	FName OnlineIdentifier = GetOnlineIdentifier(PieWorldContext);
 	IOnlineIdentityPtr IdentityInt = Online::GetIdentityInterface(OnlineIdentifier);
 
 	// Cleanup the login delegate before calling create below
-	IdentityInt->ClearOnLoginCompleteDelegate_Handle(0, OnLoginPIECompleteDelegateHandle);
-	OnLoginPIECompleteDelegateHandlesForPIEInstances.Remove(OnlineIdentifier);
+	FDelegateHandle* DelegateHandle = OnLoginPIECompleteDelegateHandlesForPIEInstances.Find(OnlineIdentifier);
+	if (DelegateHandle)
+	{
+		IdentityInt->ClearOnLoginCompleteDelegate_Handle(0, *DelegateHandle);
+		OnLoginPIECompleteDelegateHandlesForPIEInstances.Remove(OnlineIdentifier);
+	}
 
 	// Create the new world
 	CreatePIEWorldFromLogin(PieWorldContext, DataStruct.NetMode, DataStruct);
@@ -2528,7 +2588,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 PIEInstance, bool bInS
 	{
 		GameInstanceClass = UGameInstance::StaticClass();
 	}
-	UGameInstance* GameInstance = ConstructObject<UGameInstance>(GameInstanceClass, this);
+	UGameInstance* GameInstance = NewObject<UGameInstance>(this, GameInstanceClass);
 
 	// We need to temporarily add the GameInstance to the root because the InitPIE call can do garbage collection wiping out the GameInstance
 	GameInstance->AddToRoot();
@@ -2555,18 +2615,16 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 PIEInstance, bool bInS
 	GWorld = PlayWorld;
 	SetPlayInEditorWorld( PlayWorld );
 
-	if( GetAudioDevice() )
-	{
-		GetAudioDevice()->SetDefaultBaseSoundMix( PlayWorld->GetWorldSettings()->DefaultBaseSoundMix );
-	}
-
 #if PLATFORM_64BITS
 	const FString PlatformBitsString( TEXT( "64" ) );
 #else
 	const FString PlatformBitsString( TEXT( "32" ) );
 #endif
+
+	const FText WindowTitleOverride = GetDefault<UGeneralProjectSettings>()->ProjectDisplayedTitle;
+
 	FFormatNamedArguments Args;
-	Args.Add( TEXT("GameName"), FText::FromString( FString( FApp::GetGameName() ) ) );
+	Args.Add( TEXT("GameName"), FText::FromString( FString( WindowTitleOverride.IsEmpty() ? FApp::GetGameName() : WindowTitleOverride.ToString() ) ) );
 	Args.Add( TEXT("PlatformBits"), FText::FromString( PlatformBitsString ) );
 	Args.Add( TEXT("RHIName"), FText::FromName( LegacyShaderPlatformToShaderFormat( GShaderPlatformForFeatureLevel[GMaxRHIFeatureLevel] ) ) );
 
@@ -2638,8 +2696,11 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 PIEInstance, bool bInS
 	
 	if (!PieWorldContext->RunAsDedicated)
 	{
-		ViewportClient = ConstructObject<UGameViewportClient>(GameViewportClientClass,this);
-		ViewportClient->Init(*PieWorldContext, GameInstance);
+		bool bCreateNewAudioDevice = PlayInSettings->IsCreateAudioDeviceForEveryPlayer();
+
+		ViewportClient = NewObject<UGameViewportClient>(this, GameViewportClientClass);
+		ViewportClient->Init(*PieWorldContext, GameInstance, bCreateNewAudioDevice);
+
 		GameViewport = ViewportClient;
 		GameViewport->bIsPlayInEditorViewport = true;
 		PieWorldContext->GameViewport = ViewportClient;
@@ -2732,9 +2793,14 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 PIEInstance, bool bInS
 
 				FSlateApplication::Get().AddWindow( PieWindow );
 
-				TSharedPtr<SDPIScaler> PIEDPIScaler;
+				TSharedRef<SOverlay> ViewportOverlayWidgetRef = SNew(SOverlay);
 
-				TSharedRef<SOverlay> ViewportOverlayWidgetRef = SNew( SOverlay );
+				TSharedRef<SGameLayerManager> GameLayerManagerRef = SNew(SGameLayerManager)
+					.SceneViewport_UObject(this, &UEditorEngine::GetGameSceneViewport, ViewportClient)
+					[
+						ViewportOverlayWidgetRef
+					];
+
 				PieViewportWidget = 
 					SNew( SViewport )
 						.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
@@ -2742,16 +2808,8 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 PIEInstance, bool bInS
 						.RenderDirectlyToWindow( bRenderDirectlyToWindow )
 						.EnableStereoRendering( bEnableStereoRendering )
 						[
-							SNew(SScissorRectBox)
-							[
-								SAssignNew(PIEDPIScaler, SDPIScaler)
-								[
-									ViewportOverlayWidgetRef
-								]
-							]
+							GameLayerManagerRef
 						];
-
-				PIEDPIScaler->SetDPIScale(TAttribute<float>::Create(TAttribute<float>::FGetter::CreateUObject(this, &UEditorEngine::GetGameViewportDPIScale, ViewportClient)));
 
 				// Create a viewport widget for the game to render in.
 				PieWindow->SetContent( PieViewportWidget.ToSharedRef() );
@@ -2760,6 +2818,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 PIEInstance, bool bInS
 				PieWindow->BringToFront();
 
 				ViewportClient->SetViewportOverlayWidget( PieWindow, ViewportOverlayWidgetRef );
+				ViewportClient->SetGameLayerManager(GameLayerManagerRef);
 
 				// Set up a notification when the window is closed so we can clean up PIE
 				{
@@ -2898,11 +2957,9 @@ void UEditorEngine::OnViewportCloseRequested(FViewport* InViewport)
 	RequestEndPlayMap();
 }
 
-float UEditorEngine::GetGameViewportDPIScale(UGameViewportClient* ViewportClient) const
+const FSceneViewport* UEditorEngine::GetGameSceneViewport(UGameViewportClient* ViewportClient) const
 {
-	FVector2D ViewportSize;
-	ViewportClient->GetViewportSize(ViewportSize);
-	return GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+	return ViewportClient->GetGameViewport();
 }
 
 FViewport* UEditorEngine::GetActiveViewport()
@@ -3266,6 +3323,8 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 	UWorld::WorldTypePreLoadMap.FindOrAdd(PlayWorldMapFName) = EWorldType::PIE;
 
 	// Create a package for the PIE world
+	UE_LOG( LogPlayLevel, Log, TEXT("Creating play world package: %s"),  *PlayWorldMapName );	
+
 	UPackage* PlayWorldPackage = CastChecked<UPackage>(CreatePackage(NULL,*PlayWorldMapName));
 	PlayWorldPackage->PackageFlags |= PKG_PlayInEditor;
 	PlayWorldPackage->PIEInstanceID = WorldContext.PIEInstance;

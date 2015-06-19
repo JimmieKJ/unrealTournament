@@ -38,8 +38,8 @@ FPaintArgs FPaintArgs::RecordHittestGeometry(const SWidget* Widget, const FGeome
 	return UpdatedArgs;
 }
 
-FPaintArgs FPaintArgs::InsertCustomHitTestPath( TSharedRef<ICustomHitTestPath> CustomHitTestPath, int32 LastHittestIndex ) const
+FPaintArgs FPaintArgs::InsertCustomHitTestPath( TSharedRef<ICustomHitTestPath> CustomHitTestPath, int32 InLastHittestIndex ) const
 {
-	const_cast<FHittestGrid&>(Grid).InsertCustomHitTestPath( CustomHitTestPath, LastHittestIndex );
+	const_cast<FHittestGrid&>(Grid).InsertCustomHitTestPath( CustomHitTestPath, InLastHittestIndex );
 	return *this;
 }

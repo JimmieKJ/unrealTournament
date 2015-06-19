@@ -116,7 +116,7 @@ FGuid& UMaterialExpressionLandscapeLayerSwitch::GetParameterExpressionId()
 }
 
 
-void UMaterialExpressionLandscapeLayerSwitch::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+void UMaterialExpressionLandscapeLayerSwitch::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 {
 	int32 CurrentSize = OutParameterNames.Num();
 	OutParameterNames.AddUnique(ParameterName);

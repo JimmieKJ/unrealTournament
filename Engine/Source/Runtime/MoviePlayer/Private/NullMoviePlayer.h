@@ -31,14 +31,12 @@ public:
 	virtual bool IsMovieCurrentlyPlaying() const override  {return false;}
 	virtual bool LoadingScreenIsPrepared() const override {return false;}
 	virtual void SetupLoadingScreenFromIni() override {}
-	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; };
-
+	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; }
 private:
 	FNullGameMoviePlayer() {}
 	
 private:
 	/** Singleton handle */
 	static TSharedPtr<FNullGameMoviePlayer> MoviePlayer;
-
 	FOnMoviePlaybackFinished OnMoviePlaybackFinishedDelegate;
 };

@@ -128,16 +128,19 @@ void UEdGraphSchema_BehaviorTreeDecorator::GetGraphContextActions(FGraphContextM
 	const UBehaviorTreeDecoratorGraphNode* ParentGraphNode = ContextMenuBuilder.FromPin 
 		? Cast<UBehaviorTreeDecoratorGraphNode>(ContextMenuBuilder.FromPin->GetOuter()) : NULL;
 
-	TArray<FClassData> NodeClasses;
-	FClassBrowseHelper::GatherClasses(UBTDecorator::StaticClass(), NodeClasses);
+	FBehaviorTreeEditorModule& EditorModule = FModuleManager::GetModuleChecked<FBehaviorTreeEditorModule>(TEXT("BehaviorTreeEditor"));
+	FGraphNodeClassHelper* ClassCache = EditorModule.GetClassCache().Get();
 
-	for (int32 i = 0; i < NodeClasses.Num(); i++)
+	TArray<FGraphNodeClassData> NodeClasses;
+	ClassCache->GatherClasses(UBTDecorator::StaticClass(), NodeClasses);
+
+	for (const auto& NodeClass : NodeClasses)
 	{
-		const FText NodeTypeName = FText::FromString(NodeClasses[i].ToString());
-		TSharedPtr<FDecoratorSchemaAction_NewNode> AddOpAction = AddNewDecoratorAction(ContextMenuBuilder, TEXT("Decorators"), NodeTypeName, "");
+		const FText NodeTypeName = FText::FromString(NodeClass.ToString());
+		TSharedPtr<FDecoratorSchemaAction_NewNode> AddOpAction = AddNewDecoratorAction(ContextMenuBuilder, NodeClass.GetCategory(), NodeTypeName, "");
 
 		UBehaviorTreeDecoratorGraphNode_Decorator* OpNode = NewObject<UBehaviorTreeDecoratorGraphNode_Decorator>(ContextMenuBuilder.OwnerOfTemporaries);
-		OpNode->ClassData = NodeClasses[i];
+		OpNode->ClassData = NodeClass;
 		AddOpAction->NodeTemplate = OpNode;
 	}
 

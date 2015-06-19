@@ -20,9 +20,12 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/LevelStreaming.h"
+#include "Landscape.h"
 #include "GameFramework/WorldSettings.h"
 #include "Engine/Light.h"
-#include "Foliage/InstancedFoliageActor.h"
+#include "InstancedFoliageActor.h"
+#include "LandscapeMeshProxyActor.h"
+#include "LandscapeMeshProxyComponent.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -265,10 +268,10 @@ TSharedPtr<FLevelDragDropOp> FWorldTileCollectionModel::CreateDragDropOp() const
 	return FLevelCollectionModel::CreateDragDropOp();
 }
 
-bool FWorldTileCollectionModel::PassesAllFilters(TSharedPtr<FLevelModel> Item) const
+bool FWorldTileCollectionModel::PassesAllFilters(const FLevelModel& Item) const
 {
-	TSharedPtr<FWorldTileModel> Tile = StaticCastSharedPtr<FWorldTileModel>(Item);
-	if (!Tile->IsInLayersList(SelectedLayers))
+	const FWorldTileModel& Tile = static_cast<const FWorldTileModel&>(Item);
+	if (!Tile.IsInLayersList(SelectedLayers))
 	{
 		return false;
 	}
@@ -355,6 +358,7 @@ void FWorldTileCollectionModel::BuildWorldCompositionMenu(FMenuBuilder& InMenuBu
 		if (IsOneLevelSelected())
 		{
 			InMenuBuilder.AddMenuEntry(Commands.MoveActorsToSelected);
+			InMenuBuilder.AddMenuEntry(Commands.MoveFoliageToSelected);
 		}
 	}
 	InMenuBuilder.EndSection();
@@ -465,6 +469,7 @@ void FWorldTileCollectionModel::BuildHierarchyMenu(FMenuBuilder& InMenuBuilder) 
 		if (IsOneLevelSelected())
 		{
 			InMenuBuilder.AddMenuEntry( Commands.MoveActorsToSelected );
+			InMenuBuilder.AddMenuEntry( Commands.MoveFoliageToSelected );
 		}
 	}
 	InMenuBuilder.EndSection();
@@ -571,30 +576,36 @@ void FWorldTileCollectionModel::CustomizeFileMainMenu(FMenuBuilder& InMenuBuilde
 	InMenuBuilder.EndSection();
 }
 
+bool FWorldTileCollectionModel::GetPlayerView(FVector& Location, FRotator& Rotation) const
+{
+	if (IsSimulating())
+	{
+		UWorld* SimulationWorld = GetSimulationWorld();
+		for (FConstPlayerControllerIterator Iterator = SimulationWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PlayerActor = *Iterator;
+			PlayerActor->GetPlayerViewPoint(Location, Rotation);
+			return true;
+		}
+	}
+	
+	return false;
+}
+
 bool FWorldTileCollectionModel::GetObserverView(FVector& Location, FRotator& Rotation) const
 {
 	const UEditorEngine* EditorEngine = Editor.Get();
 
-	if (IsSimulating())
+	// We are in the SIE
+	if (EditorEngine->bIsSimulatingInEditor && GCurrentLevelEditingViewportClient->IsSimulateInEditorViewport())
 	{
-		if (EditorEngine->bIsSimulatingInEditor && GCurrentLevelEditingViewportClient->IsSimulateInEditorViewport())
-		{
-			Rotation = GCurrentLevelEditingViewportClient->GetViewRotation();
-			Location = GCurrentLevelEditingViewportClient->GetViewLocation();
-			return true;
-		}
-		else
-		{
-			UWorld* SimulationWorld = GetSimulationWorld();
-			for (FConstPlayerControllerIterator Iterator = SimulationWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
-			{
-				APlayerController* PlayerActor = *Iterator;
-				PlayerActor->GetPlayerViewPoint(Location, Rotation);
-				return true;
-			}
-		}
+		Rotation = GCurrentLevelEditingViewportClient->GetViewRotation();
+		Location = GCurrentLevelEditingViewportClient->GetViewLocation();
+		return true;
 	}
-	else
+
+	// We are in the editor world
+	if (EditorEngine->PlayWorld == nullptr)
 	{
 		for (const FLevelEditorViewportClient* ViewportClient : EditorEngine->LevelViewportClients)
 		{
@@ -606,7 +617,7 @@ bool FWorldTileCollectionModel::GetObserverView(FVector& Location, FRotator& Rot
 			}
 		}
 	}
-	
+
 	return false;
 }
 
@@ -888,7 +899,7 @@ void FWorldTileCollectionModel::DeselectLevels(const FWorldTileLayer& InLayer)
 	}
 }
 
-const TSet<FName>& FWorldTileCollectionModel::GetPreviewStreamingLevels() const
+const TMap<FName, int32>& FWorldTileCollectionModel::GetPreviewStreamingLevels() const
 {
 	return PreviewVisibleTiles;
 }
@@ -911,7 +922,7 @@ void FWorldTileCollectionModel::UpdateStreamingPreview(FVector2D InLocation, boo
 
 			for (const auto& VisibleLevel : DistanceVisibleLevels)
 			{
-				PreviewVisibleTiles.Add(VisibleLevel.StreamingLevel->GetWorldAssetPackageFName());
+				PreviewVisibleTiles.Add(VisibleLevel.StreamingLevel->GetWorldAssetPackageFName(), VisibleLevel.LODIndex);
 			}
 		}
 	}
@@ -1113,16 +1124,16 @@ void FWorldTileCollectionModel::PostWorldOriginOffset(UWorld* InWorld, FIntVecto
 	}
 }
 
-bool FWorldTileCollectionModel::HasLandscapeLevel(const FWorldTileModelList& InLevels) const
+bool FWorldTileCollectionModel::AreAnySelectedLevelsHaveLandscape() const
 {
-	for (auto It = InLevels.CreateConstIterator(); It; ++It)
+	for (auto LevelModel : SelectedLevelsList)
 	{
-		if ((*It)->IsLandscapeBased())
+		if (LevelModel->IsLoaded() && StaticCastSharedPtr<FWorldTileModel>(LevelModel)->IsLandscapeBased())
 		{
 			return true;
 		}
 	}
-	
+
 	return false;
 }
 
@@ -1427,7 +1438,7 @@ static bool ReadRawFile(TArray<DataType>& Result, const FString& Filename, uint3
 		}
 		return 0;
 	}
-	Result.Init(Reader->TotalSize()/Result.GetTypeSize());
+	Result.SetNumUninitialized(Reader->TotalSize()/Result.GetTypeSize());
 	Reader->Serialize(Result.GetData(), Result.Num()*Result.GetTypeSize());
 	return Reader->Close();
 }
@@ -1454,7 +1465,7 @@ static bool ReadWeightmapFile(TArray<uint8>& Result, const FString& Filename, ui
 	return bResult;
 }
 
-static ULandscapeLayerInfoObject* GetandscapeLayerInfoObject(FName LayerName, FString ContentPath)
+static ULandscapeLayerInfoObject* GetLandscapeLayerInfoObject(FName LayerName, const FString& ContentPath)
 {
 	// Build default layer object name and package name
 	FString LayerObjectName = FString::Printf(TEXT("%s_LayerInfo"), *LayerName.ToString());
@@ -1474,7 +1485,7 @@ static ULandscapeLayerInfoObject* GetandscapeLayerInfoObject(FName LayerName, FS
 	ULandscapeLayerInfoObject* LayerInfo = FindObject<ULandscapeLayerInfoObject>(Package, *LayerObjectName);
 	if (LayerInfo == nullptr)
 	{
-		LayerInfo = ConstructObject<ULandscapeLayerInfoObject>(ULandscapeLayerInfoObject::StaticClass(), Package, FName(*LayerObjectName), RF_Public | RF_Standalone | RF_Transactional);
+		LayerInfo = NewObject<ULandscapeLayerInfoObject>(Package, FName(*LayerObjectName), RF_Public | RF_Standalone | RF_Transactional);
 		LayerInfo->LayerName = LayerName;
 		// Notify the asset registry
 		FAssetRegistryModule::AssetCreated(LayerInfo);
@@ -1488,6 +1499,33 @@ static ULandscapeLayerInfoObject* GetandscapeLayerInfoObject(FName LayerName, FS
 		
 	return LayerInfo;
 }
+
+static void SetupLandscapeImportLayers(const FTiledLandscapeImportSettings& InImportSettings, const FString& ContentPath, int32 TileIndex, TArray<FLandscapeImportLayerInfo>& OutLayerInfo)
+{
+	for (const auto& LayerSettings : InImportSettings.LandscapeLayerSettingsList)
+	{
+		FLandscapeImportLayerInfo LayerImportInfo(LayerSettings.Name);
+		
+		// Do we have a weightmap data for this tile?
+		const FString* WeightmapFile = nullptr;
+		if (InImportSettings.TileCoordinates.IsValidIndex(TileIndex))
+		{
+			FIntPoint TileCoordinates = InImportSettings.TileCoordinates[TileIndex];
+			WeightmapFile = LayerSettings.WeightmapFiles.Find(TileCoordinates);
+			if (WeightmapFile)
+			{
+				LayerImportInfo.SourceFilePath = *WeightmapFile;
+				ReadWeightmapFile(LayerImportInfo.LayerData, LayerImportInfo.SourceFilePath, FILEREAD_Silent);
+			}
+		}
+		
+		LayerImportInfo.LayerInfo = GetLandscapeLayerInfoObject(LayerImportInfo.LayerName, ContentPath);
+		LayerImportInfo.LayerInfo->bNoWeightBlend = LayerSettings.bNoBlendWeight;
+						
+		OutLayerInfo.Add(LayerImportInfo);
+	}
+}
+
 
 void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 {
@@ -1521,13 +1559,36 @@ void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 
 		GWarn->BeginSlowTask(LOCTEXT("ImportingLandscapeTilesBegin", "Importing landscape tiles"), true);
 		
-		// Shared GUID used between landscape proxies
-		FGuid LandscapeGuid;
+		// Create main landscape actor in persistent level, it will be empty (no components in it)
+		// All landscape tiles will go into it's own sub-levels
+		FGuid LandscapeGuid = FGuid::NewGuid();
+		{
+			ALandscape* Landscape = Cast<UWorld>(GetWorld())->SpawnActor<ALandscape>();
+			Landscape->SetActorTransform(FTransform(FQuat::Identity, FVector::ZeroVector, ImportSettings.Scale3D));
+
+			// Setup layers list for importing
+			TArray<FLandscapeImportLayerInfo> ImportLayers;
+			SetupLandscapeImportLayers(ImportSettings, GetWorld()->GetOutermost()->GetName(), INDEX_NONE, ImportLayers);
+			
+			// Set landscape configuration
+			Landscape->LandscapeMaterial	= ImportSettings.LandscapeMaterial.Get();
+			Landscape->ComponentSizeQuads	= ImportSettings.QuadsPerSection*ImportSettings.SectionsPerComponent;
+			Landscape->NumSubsections		= ImportSettings.SectionsPerComponent;
+			Landscape->SubsectionSizeQuads	= ImportSettings.QuadsPerSection;
+			Landscape->SetLandscapeGuid(LandscapeGuid);
+			for (const auto& ImportLayerInfo : ImportLayers)
+			{
+				Landscape->EditorLayerSettings.Add(FLandscapeEditorLayerSettings(ImportLayerInfo.LayerInfo));
+			}
+			ULandscapeInfo::RecreateLandscapeInfo(GetWorld(), false);
+		}
 
 		// Import tiles
 		int32 TileIndex = 0;
 		for (const FString& Filename : ImportSettings.HeightmapFileList)
 		{
+			check(LandscapeGuid.IsValid());
+									
 			FString TileName = FPaths::GetBaseFilename(Filename);
 			FVector TileScale = ImportSettings.Scale3D;
 
@@ -1544,25 +1605,8 @@ void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 			TileImportSettings.HeightmapFilename	= Filename;
 			TileImportSettings.LandscapeTransform.SetScale3D(TileScale);
 
-			// Setup weightmaps for each layer
-			for (int32 LayerIdx = 0; LayerIdx < ImportSettings.LandscapeLayerSettingsList.Num(); ++LayerIdx)
-			{
-				FName LayerName = ImportSettings.LandscapeLayerSettingsList[LayerIdx].Name;
-				
-				TileImportSettings.ImportLayers.Add(FLandscapeImportLayerInfo(LayerName));
-				FLandscapeImportLayerInfo& LayerImportInfo = TileImportSettings.ImportLayers.Last();
-				
-				// Do we have a weightmap for this tile?
-				FIntPoint TileCoordinates = ImportSettings.TileCoordinates[TileIndex];
-				const FString* WeightmapFile = ImportSettings.LandscapeLayerSettingsList[LayerIdx].WeightmapFiles.Find(TileCoordinates);
-				if (WeightmapFile)
-				{
-					LayerImportInfo.SourceFilePath = *WeightmapFile;
-					ReadWeightmapFile(LayerImportInfo.LayerData, LayerImportInfo.SourceFilePath, FILEREAD_Silent);
-					LayerImportInfo.LayerInfo = GetandscapeLayerInfoObject(LayerImportInfo.LayerName, GetWorld()->GetOutermost()->GetName());
-					LayerImportInfo.LayerInfo->bNoWeightBlend = ImportSettings.LandscapeLayerSettingsList[LayerIdx].bNoBlendWeight;
-				}
-			}
+			// Setup layers list for importing
+			SetupLandscapeImportLayers(ImportSettings, GetWorld()->GetOutermost()->GetName(), TileIndex, TileImportSettings.ImportLayers);
 						
 			if (ReadRawFile(TileImportSettings.HeightData, Filename, FILEREAD_Silent))
 			{
@@ -1580,44 +1624,18 @@ void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 					// Hide level, so we do not depend on a current world origin
 					NewTileModel->SetVisible(false);
 					
-					// Create landscape (actor/proxy) in a new level
-					ALandscapeProxy* NewLandscape = NewTileModel->ImportLandscape(TileImportSettings);
-
-					// Use first created landscape as a landscape actor and all next tiles as landscape proxies 
-					if (!LandscapeGuid.IsValid())
-					{
-						LandscapeGuid = NewLandscape->GetLandscapeGuid();
-					}
+					// Create landscape proxy in a new level
+					ALandscapeProxy* NewLandscape = NewTileModel->ImportLandscapeTile(TileImportSettings);
 
 					if (NewLandscape)
 					{
-						// update shared LandscapeInfo objects with new layers
-						ULandscapeInfo* LandscapeInfo = NewLandscape->GetLandscapeInfo(true);
-						LandscapeInfo->UpdateLayerInfoMap(NewLandscape);
-						for (const FLandscapeImportLayerInfo& LayerImportInfo : TileImportSettings.ImportLayers)
-						{
-							if (LayerImportInfo.LayerInfo)
-							{
-								NewLandscape->EditorLayerSettings.Add(FLandscapeEditorLayerSettings(LayerImportInfo.LayerInfo, LayerImportInfo.SourceFilePath));
-								int32 LayerInfoIndex = LandscapeInfo->GetLayerInfoIndex(LayerImportInfo.LayerInfo->LayerName);
-								if (ensure(LayerInfoIndex != INDEX_NONE))
-								{
-									FLandscapeInfoLayerSettings& LayerSettings = LandscapeInfo->Layers[LayerInfoIndex];
-									LayerSettings.LayerInfoObj = LayerImportInfo.LayerInfo;
-								}
-							}
-						}
+						// Set bounds of a tile
+						NewTileModel->TileDetails->Bounds = NewLandscape->GetComponentsBoundingBox();
 						
-						// Set landscape actor location at min corner of bounding rect, so it will be centered around origin
+						// Calculate this tile offset from world origin
 						FIntRect NewLandscapeRect = NewLandscape->GetBoundingRect();
 						float WidthX = NewLandscapeRect.Width()*TileScale.X;
 						float WidthY = NewLandscapeRect.Height()*TileScale.Y;
-						NewLandscape->SetActorLocation(-FVector(WidthX, WidthY, 0.f)*0.5f);
-						
-						// Set bounds of a tile
-						NewTileModel->TileDetails->Bounds = NewLandscape->GetComponentsBoundingBox();
-
-						// Calculate this tile offset from world origin
 						FIntPoint TileCoordinates = ImportSettings.TileCoordinates[TileIndex] + ImportSettings.TilesCoordinatesOffset;
 						FIntPoint TileOffset = FIntPoint(TileCoordinates.X*WidthX, TileCoordinates.Y*WidthY);
 						
@@ -1811,21 +1829,14 @@ void FWorldTileCollectionModel::OnNewCurrentLevel()
 	Focus(CurrentLevelModel->GetLevelBounds(), FWorldTileCollectionModel::OriginAtCenter);
 }
 
-bool FWorldTileCollectionModel::HasGenerateLODLevelSupport() const
+bool FWorldTileCollectionModel::HasMeshProxySupport() const
 {
 	return bMeshProxyAvailable;
 }
 
 bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, int32 TargetLODIndex)
 {
-	if (!HasGenerateLODLevelSupport())
-	{
-		return false;
-	}
-
 	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
-	IMeshMerging* MeshMerging = MeshUtilities.GetMeshMergingInterface();
-	check(MeshMerging);
 
 	// Select tiles that can be processed
 	TArray<TSharedPtr<FWorldTileModel>> TilesToProcess;
@@ -1854,6 +1865,32 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 	// Generate LOD maps for each tile
 	for (TSharedPtr<FWorldTileModel> TileModel : TilesToProcess)
 	{
+		TArray<AActor*>				Actors;
+		TArray<ALandscapeProxy*>	LandscapeActors;
+		// Separate landscape actors from all others
+		for (AActor* Actor : TileModel->GetLevelObject()->Actors)
+		{
+			if (Actor)
+			{
+				ALandscapeProxy* LandscapeProxy = Cast<ALandscapeProxy>(Actor);
+				if (LandscapeProxy)
+				{
+					LandscapeActors.Add(LandscapeProxy);
+				}
+				else 
+				{
+					Actors.Add(Actor);
+				}
+			}
+		}
+
+		// Check if we can simplify this level
+		IMeshMerging* MeshMerging = MeshUtilities.GetMeshMergingInterface();
+		if (MeshMerging == nullptr && LandscapeActors.Num() == 0)
+		{
+			continue;
+		}
+							
 		// We have to make original level visible, to correctly export it
 		const bool bVisibleLevel = TileModel->IsVisible();
 		if (!bVisibleLevel)
@@ -1886,44 +1923,47 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			ActorsOffset = FVector::ZeroVector;
 		}
 	
-		TArray<UStaticMesh*>		AssetsToSpawn;
-		TArray<FTransform>			AssetsToSpawnTransform;
-		TArray<AActor*>				Actors;
-		TArray<ALandscapeProxy*>	LandscapeActors;
+		struct FAssetToSpawnInfo
+		{
+			FAssetToSpawnInfo(UStaticMesh* InStaticMesh, const FTransform& InTransform, ALandscapeProxy* InSourceLandscape = nullptr, int32 InLandscapeLOD = 0)
+			: StaticMesh(InStaticMesh)
+			, Transform(InTransform)
+			, SourceLandscape(InSourceLandscape)
+			, LandscapeLOD(InLandscapeLOD)
+			{}
+
+			UStaticMesh* StaticMesh;
+			FTransform Transform;
+			ALandscapeProxy* SourceLandscape;
+			int32 LandscapeLOD;
+		};
+
+		TArray<FAssetToSpawnInfo>	AssetsToSpawn;
 		TArray<UObject*>			GeneratedAssets;
 		
 		// Where generated assets will be stored
 		UPackage* AssetsOuter = SimplificationDetails.bCreatePackagePerAsset ? nullptr : LODPackage;
 		// In case we don't have outer generated assets should have same path as LOD level
 		const FString AssetsPath = AssetsOuter ? TEXT("") : FPackageName::GetLongPackagePath(LODLevelPackageName) + TEXT("/");
-		
-		// Separate landscape actors from all others
-		for (AActor* Actor : TileModel->GetLevelObject()->Actors)
-		{
-			if (Actor)
-			{
-				ALandscapeProxy* LandscapeProxy = Cast<ALandscapeProxy>(Actor);
-				if (LandscapeProxy)
-				{
-					LandscapeActors.Add(LandscapeProxy);
-				}
-				else
-				{
-					Actors.Add(Actor);
-				}
-			}
-		}
 	
 		// Generate Proxy LOD mesh for all actors excluding landscapes
-		if (Actors.Num())
+		if (Actors.Num() && MeshMerging != nullptr)
 		{
 			GWarn->StatusUpdate(0, 10, LOCTEXT("GeneratingProxyMesh", "Generating Proxy Mesh"));
 
 			FMeshProxySettings ProxySettings;
 			ProxySettings.ScreenSize = ProxySettings.ScreenSize*(SimplificationDetails.DetailsPercentage/100.f);
+			ProxySettings.TextureWidth = 1024; // TODO: Expose texture size
+			ProxySettings.TextureHeight = 1024;
+			ProxySettings.bExportNormalMap = SimplificationDetails.bGenerateMeshNormalMap;
+			ProxySettings.bExportMetallicMap = SimplificationDetails.bGenerateMeshMetallicMap;
+			ProxySettings.bExportRoughnessMap = SimplificationDetails.bGenerateMeshRoughnessMap;
+			ProxySettings.bExportSpecularMap = SimplificationDetails.bGenerateMeshSpecularMap;
+
 			TArray<UObject*> OutAssets;
 			FVector OutProxyLocation;
-			FString ProxyPackageName = TEXT("PROXY_") + FPackageName::GetShortName(TileModel->TileDetails->PackageName);
+			FString ProxyPackageName = FString::Printf(TEXT("PROXY_%s_LOD%d"), *FPackageName::GetShortName(TileModel->TileDetails->PackageName), TargetLODIndex + 1);
+			
 			// Generate proxy mesh and proxy material assets
 			MeshUtilities.CreateProxyMesh(Actors, ProxySettings, AssetsOuter, AssetsPath + ProxyPackageName, OutAssets, OutProxyLocation);
 		
@@ -1932,8 +1972,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				UStaticMesh* ProxyMesh = nullptr;
 				if (OutAssets.FindItemByClass(&ProxyMesh))
 				{
-					AssetsToSpawn.Add(ProxyMesh);
-					AssetsToSpawnTransform.Add(FTransform(OutProxyLocation - ActorsOffset));
+					new(AssetsToSpawn) FAssetToSpawnInfo(ProxyMesh, FTransform(OutProxyLocation - ActorsOffset));
 				}
 
 				GeneratedAssets.Append(OutAssets);
@@ -1951,8 +1990,14 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			FRawMesh LandscapeRawMesh;
 			FFlattenMaterial LandscapeFlattenMaterial;
 			FVector LandscapeWorldLocation = Landscape->GetActorLocation();
+			
+			int32 LandscapeLOD = SimplificationDetails.LandscapeExportLOD;
+			if (!SimplificationDetails.bOverrideLandscapeExportLOD)
+			{
+				LandscapeLOD = Landscape->MaxLODLevel >= 0 ? Landscape->MaxLODLevel : FMath::CeilLogTwo(Landscape->SubsectionSizeQuads + 1) - 1;
+			}
 		
-			Landscape->ExportToRawMesh(SimplificationDetails.LandscapeExportLOD, LandscapeRawMesh);
+			Landscape->ExportToRawMesh(LandscapeLOD, LandscapeRawMesh);
 		
 			for (FVector& VertexPos : LandscapeRawMesh.VertexPositions)
 			{
@@ -1967,13 +2012,21 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				UObject* PrimitiveOuter = PrimitiveComp->GetOuter();
 				
 				const bool bTargetPrim = 
-					PrimitiveComp->GetOuter() == Landscape || 
+					(PrimitiveComp->GetOuter() == Landscape && !(!SimplificationDetails.bBakeGrassToLandscape && PrimitiveComp->IsA(UHierarchicalInstancedStaticMeshComponent::StaticClass()))) || 
 					(SimplificationDetails.bBakeFoliageToLandscape && PrimitiveOuter->IsA(AInstancedFoliageActor::StaticClass()));
 
 				if (!bTargetPrim && PrimitiveComp->IsRegistered() && PrimitiveComp->SceneProxy)
 				{
 					PrimitivesToHide.Add(PrimitiveComp->SceneProxy->GetPrimitiveComponentId());
 				}
+			}
+
+			if (SimplificationDetails.bBakeGrassToLandscape)
+			{
+				/* Flush existing grass components, but not grass maps */
+				Landscape->FlushGrassComponents(nullptr, false);
+				TArray<FVector> Cameras;
+				Landscape->UpdateGrass(Cameras, true);
 			}
 								
 			// This is texture resolution for a landscape mesh, probably needs to be calculated using landscape size
@@ -1986,7 +2039,11 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			
 			ExportMaterial(Landscape, PrimitivesToHide, LandscapeFlattenMaterial);
 		
-			FString LandscapeBaseAssetName = Landscape->GetName();
+			if (SimplificationDetails.bBakeGrassToLandscape)
+			{
+				Landscape->FlushGrassComponents(); // wipe this and let it fix itself later
+			}
+			FString LandscapeBaseAssetName = FString::Printf(TEXT("%s_LOD%d"), *Landscape->GetName(), TargetLODIndex + 1);
 			// Construct landscape material
 			UMaterial* StaticLandscapeMaterial = MaterialExportUtils::CreateMaterial(
 				LandscapeFlattenMaterial, AssetsOuter, *(AssetsPath + LandscapeBaseAssetName), RF_Public|RF_Standalone, GeneratedAssets);
@@ -2004,7 +2061,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				MeshOuter->Modify();
 			}
 
-			auto StaticMesh = NewNamedObject<UStaticMesh>(MeshOuter, *LandscapeMeshAssetName, RF_Public | RF_Standalone);
+			auto StaticMesh = NewObject<UStaticMesh>(MeshOuter, *LandscapeMeshAssetName, RF_Public | RF_Standalone);
 			StaticMesh->InitResources();
 			{
 				FString OutputPath = StaticMesh->GetPathName();
@@ -2032,8 +2089,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			}
 
 			GeneratedAssets.Add(StaticMesh);
-			AssetsToSpawn.Add(StaticMesh);
-			AssetsToSpawnTransform.Add(FTransform(LandscapeWorldLocation - ActorsOffset));
+			new(AssetsToSpawn) FAssetToSpawnInfo(StaticMesh, FTransform(LandscapeWorldLocation - ActorsOffset), Landscape, LandscapeLOD);
 
 			LandscapeActorIndex++;
 		}
@@ -2072,32 +2128,43 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			UWorld* LODWorld = UWorld::FindWorldInPackage(LODPackage);
 			if (LODWorld)
 			{
-				LODWorld->ClearFlags(RF_Standalone);
+				LODWorld->ClearFlags(RF_Public | RF_Standalone);
 				LODWorld->DestroyWorld(false);
 			}
-
+			
 			// Create a new world
 			LODWorld = UWorld::CreateWorld(EWorldType::None, false, FPackageName::GetShortFName(LODPackage->GetFName()), LODPackage);
-			LODWorld->SetFlags(RF_Standalone);
+			LODWorld->SetFlags(RF_Public | RF_Standalone);
 
-			for (int32 AssetIdx = 0; AssetIdx < AssetsToSpawn.Num(); ++AssetIdx)
+			for (FAssetToSpawnInfo& AssetInfo : AssetsToSpawn)
 			{
-				FVector Location = AssetsToSpawnTransform[AssetIdx].GetLocation();
+				FVector Location = AssetInfo.Transform.GetLocation();
 				FRotator Rotation(ForceInit);
-				AStaticMeshActor* MeshActor = LODWorld->SpawnActor<AStaticMeshActor>(Location, Rotation);
-				MeshActor->GetStaticMeshComponent()->StaticMesh = AssetsToSpawn[AssetIdx];
-				MeshActor->SetActorLabel(AssetsToSpawn[AssetIdx]->GetName());
+
+				if (AssetInfo.SourceLandscape != nullptr)
+				{
+					ALandscapeMeshProxyActor* MeshActor = LODWorld->SpawnActor<ALandscapeMeshProxyActor>(Location, Rotation);
+					MeshActor->GetLandscapeMeshProxyComponent()->StaticMesh = AssetInfo.StaticMesh;
+					MeshActor->GetLandscapeMeshProxyComponent()->InitializeForLandscape(AssetInfo.SourceLandscape, AssetInfo.LandscapeLOD);
+					MeshActor->SetActorLabel(AssetInfo.SourceLandscape->GetName());
+				}
+				else
+				{
+					AStaticMeshActor* MeshActor = LODWorld->SpawnActor<AStaticMeshActor>(Location, Rotation);
+					MeshActor->GetStaticMeshComponent()->StaticMesh = AssetInfo.StaticMesh;
+					MeshActor->SetActorLabel(AssetInfo.StaticMesh->GetName());
+				}
 			}
 		
 			// Save generated level
 			if (FEditorFileUtils::PromptToCheckoutLevels(false, LODWorld->PersistentLevel))
 			{
-				FEditorFileUtils::SaveLevel(LODWorld->PersistentLevel, *LODLevelFileName);
-				FAssetRegistryModule::AssetCreated(LODWorld->PersistentLevel);
+				FEditorFileUtils::SaveLevel(LODWorld->PersistentLevel, LODLevelFileName);
+				FAssetRegistryModule::AssetCreated(LODWorld);
 			}
 			
 			// Destroy the new world we created and collect the garbage
-			LODWorld->ClearFlags(RF_Standalone);
+			LODWorld->ClearFlags(RF_Public | RF_Standalone);
 			LODWorld->DestroyWorld(false);
 			CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 		}

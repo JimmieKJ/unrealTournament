@@ -27,7 +27,12 @@
 		{
 			"Name": "SteamController",
 			"Enabled": false
-		}
+		},
+		{
+			"Name": "OculusAudio",
+			"Enabled": true,
+			"WhitelistPlatforms" : [ "Win64" ]
+		},
 	],
 	"EpicSampleNameHash": "0"
 }

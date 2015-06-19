@@ -943,7 +943,7 @@ void FOnlineAsyncTaskSteamFindServerBase::ParseSearchResult(class gameserveritem
 		int32 BuildUniqueId = GetBuildUniqueId();
 
 		TArray<FString> TagArray;
-		GameTags.ParseIntoArray(&TagArray, TEXT(","), true);
+		GameTags.ParseIntoArray(TagArray, TEXT(","), true);
 		if (TagArray.Num() > 0 && TagArray[0].StartsWith(STEAMKEY_BUILDUNIQUEID))
 		{
 			ServerBuildId = FCString::Atoi(*TagArray[0].Mid(ARRAY_COUNT(STEAMKEY_BUILDUNIQUEID)));
@@ -1155,12 +1155,27 @@ void FOnlineAsyncTaskSteamFindServer::TriggerDelegates()
 	{
 		if (bWasSuccessful && SearchSettings->SearchResults.Num() > 0)
 		{
-			FindServerInviteCompleteDelegates.Broadcast(LocalUserNum, bWasSuccessful, SearchSettings->SearchResults[0]);
+			if (bIsUsingNetIdDelegate)
+			{
+				FindServerInviteCompleteWithUserIdDelegates.Broadcast(bWasSuccessful, LocalUserNum, MakeShareable<FUniqueNetId>(new FUniqueNetIdSteam(SteamUser()->GetSteamID())), SearchSettings->SearchResults[0]);
+			}
+			else
+			{
+				FindServerInviteCompleteDelegates.Broadcast(LocalUserNum, bWasSuccessful, SearchSettings->SearchResults[0]);
+			}
+			
 		}
 		else
 		{
 			FOnlineSessionSearchResult EmptyResult;
-			FindServerInviteCompleteDelegates.Broadcast(LocalUserNum, bWasSuccessful, EmptyResult);
+			if (bIsUsingNetIdDelegate)
+			{
+				FindServerInviteCompleteWithUserIdDelegates.Broadcast(bWasSuccessful, LocalUserNum, MakeShareable<FUniqueNetId>(new FUniqueNetIdSteam(SteamUser()->GetSteamID())), EmptyResult);
+			}
+			else
+			{
+				FindServerInviteCompleteDelegates.Broadcast(LocalUserNum, bWasSuccessful, EmptyResult);
+			}
 		}
 	}
 }
@@ -1223,7 +1238,7 @@ void FOnlineAsyncEventSteamInviteAccepted::Finalize()
 		if (bIsValid)
 		{
 			SessionInt->CurrentSessionSearch->QuerySettings.Set(FName(SEARCH_STEAM_HOSTIP), IpAddr->ToString(false), EOnlineComparisonOp::Equals);
-			FOnlineAsyncTaskSteamFindServer* NewTask = new FOnlineAsyncTaskSteamFindServer(Subsystem, SearchSettings, LocalUserNum, SessionInt->OnSessionInviteAcceptedDelegates[LocalUserNum]);
+			FOnlineAsyncTaskSteamFindServer* NewTask = new FOnlineAsyncTaskSteamFindServer(Subsystem, SearchSettings, LocalUserNum, SessionInt->OnSessionUserInviteAcceptedDelegates);
 			Subsystem->QueueAsyncTask(NewTask);
 		}
 	}

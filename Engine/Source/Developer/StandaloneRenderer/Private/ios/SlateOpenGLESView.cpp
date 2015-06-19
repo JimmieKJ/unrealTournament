@@ -1,10 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
+#include "StandaloneRendererPrivate.h"
 #include "IOS/SlateOpenGLESView.h"
 #include "IOSAppDelegate.h"
 #include "IOS/IOSInputInterface.h"
 
 @implementation SlateOpenGLESView
+
+@synthesize Context;
 
 - (id)initWithFrame:(CGRect)FrameRect
 {
@@ -85,8 +88,13 @@ void HandleSlateAppTouches(UIView* View, NSSet* Touches, TouchType Type)
 	// get the landcape size of the screen
 	CGRect Frame = [[UIScreen mainScreen] bounds];
 	EAGLContext* Context = [[EAGLContext alloc] initWithAPI: kEAGLRenderingAPIOpenGLES2];
-	self.view = [[SlateOpenGLESView alloc] initWithFrame:Frame context:Context];
+	SlateOpenGLESView* View = [[SlateOpenGLESView alloc] initWithFrame:Frame context:Context];
+	self.view = View;
 
+	// pass ownership to the view
+	View.Context = Context;
+	[Context release];
+	
 	// settings copied from InterfaceBuilder
 	self.wantsFullScreenLayout = YES;
 	self.view.clearsContextBeforeDrawing = NO;

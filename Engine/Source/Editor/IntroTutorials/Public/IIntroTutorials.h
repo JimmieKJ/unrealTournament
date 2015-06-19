@@ -45,6 +45,17 @@ public:
 	 */
 	virtual void LaunchTutorial(const FString& TutorialAssetName) = 0;
 
+	//Parameter for LaunchTutorial function
+	enum ETutorialStartType
+	{
+		//Default start type, picks up where user left off if appropriate
+		TST_CONTINUE,
+		//Restart and clear progress
+		TST_RESTART,
+		//Start at the last stage of the tutorial, used when backing up to a previous tutorial
+		TST_LASTSTAGE
+	};
+
 	/**
 	 * Launch a tutorial immediately, bypassing the tutorial browser.
 	 * 
@@ -52,7 +63,7 @@ public:
 	 * @param	bRestart	Whether to restart the tutorial or resume from where we left off last time.
 	 * @param	InNavigationWindow	Optional window to launch the tutorial from - this is where navigation will be displayed.
 	 */
-	virtual void LaunchTutorial(UEditorTutorial* Tutorial, bool bRestart = true, TWeakPtr<SWindow> InNavigationWindow = nullptr, FSimpleDelegate OnTutorialClosed = FSimpleDelegate(), FSimpleDelegate OnTutorialExited = FSimpleDelegate()) = 0;
+	virtual void LaunchTutorial(UEditorTutorial* Tutorial, IIntroTutorials::ETutorialStartType InStartType = TST_RESTART, TWeakPtr<SWindow> InNavigationWindow = nullptr, FSimpleDelegate OnTutorialClosed = FSimpleDelegate(), FSimpleDelegate OnTutorialExited = FSimpleDelegate()) = 0;
 
 	/**
  	 *  Close all tutorial content, including the browser.

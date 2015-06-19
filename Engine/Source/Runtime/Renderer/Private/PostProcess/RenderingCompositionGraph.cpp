@@ -405,8 +405,6 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 					GGMLFileWriter.WriteLine("\tedge");
 					GGMLFileWriter.WriteLine("\t[");
 					{
-						ANSICHAR Line[MAX_SPRINTF];
-
 						FCStringAnsi::Sprintf(Line, "\t\tsource\t%d", ComputeUniqueOutputId(OutputRefIt->Source, OutputRefIt->PassOutputId));
 						GGMLFileWriter.WriteLine(Line);
 						FCStringAnsi::Sprintf(Line, "\t\ttarget\t%d", PassId);
@@ -448,8 +446,6 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 				GGMLFileWriter.WriteLine("\tedge");
 				GGMLFileWriter.WriteLine("\t[");
 				{
-					ANSICHAR Line[MAX_SPRINTF];
-
 					FCStringAnsi::Sprintf(Line, "\t\tsource\t%d", ComputeUniqueOutputId(OutputRefIt->Source, OutputRefIt->PassOutputId));
 					GGMLFileWriter.WriteLine(Line);
 					FCStringAnsi::Sprintf(Line, "\t\ttarget\t%d", PassId);
@@ -478,14 +474,12 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 		}
 
 		uint32 OutputId = 0;
-		while(FRenderingCompositeOutput* Output = Pass->GetOutput((EPassOutputId)(OutputId)))
+		while(FRenderingCompositeOutput* PassOutput = Pass->GetOutput((EPassOutputId)(OutputId)))
 		{
-			UE_LOG(LogConsoleResponse,Log, TEXT("  ePId_Output%d %s %s Dep: %d"), OutputId, *Output->RenderTargetDesc.GenerateInfoString(), Output->RenderTargetDesc.DebugName, Output->GetDependencyCount());
+			UE_LOG(LogConsoleResponse,Log, TEXT("  ePId_Output%d %s %s Dep: %d"), OutputId, *PassOutput->RenderTargetDesc.GenerateInfoString(), PassOutput->RenderTargetDesc.DebugName, PassOutput->GetDependencyCount());
 
 			GGMLFileWriter.WriteLine("\tnode");
 			GGMLFileWriter.WriteLine("\t[");
-
-			ANSICHAR Line[MAX_SPRINTF];
 
 			{
 				GGMLFileWriter.WriteLine("\t\tgraphics");
@@ -504,8 +498,8 @@ void FRenderingCompositionGraph::RecursivelyProcess(const FRenderingCompositeOut
 				GGMLFileWriter.WriteLine("\t\t[");
 				FCStringAnsi::Sprintf(Line, "\t\t\ttext\t\"ePId_Output%d '%s'\r%s\"", 
 					OutputId, 
-					(const char *)TCHAR_TO_ANSI(Output->RenderTargetDesc.DebugName),
-					(const char *)TCHAR_TO_ANSI(*Output->RenderTargetDesc.GenerateInfoString()));
+					(const char *)TCHAR_TO_ANSI(PassOutput->RenderTargetDesc.DebugName),
+					(const char *)TCHAR_TO_ANSI(*PassOutput->RenderTargetDesc.GenerateInfoString()));
 				GGMLFileWriter.WriteLine(Line);
 				GGMLFileWriter.WriteLine("\t\t]");
 			}

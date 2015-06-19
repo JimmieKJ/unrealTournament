@@ -9,8 +9,6 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayEffectExtension_LifestealTest.h"
 #include "GameplayEffectExtension_ShieldTest.h"
-#include "GameplayEffectStackingExtension_CappedNumberTest.h"
-#include "GameplayEffectStackingExtension_DiminishingReturnsTest.h"
 
 #define SKILL_TEST_TEXT( Format, ... ) FString::Printf(TEXT("%s - %d: %s"), TEXT(__FILE__) , __LINE__ , *FString::Printf(TEXT(Format), ##__VA_ARGS__) )
 
@@ -44,7 +42,7 @@ static UDataTable* CreateGameplayDataTable()
 	CSV.Append(TEXT("\r\n22,SpellDmg.Buff"));
 	CSV.Append(TEXT("\r\n23,GameplayCue.Burning"));
 
-	UDataTable * DataTable = Cast<UDataTable>(StaticConstructObject(UDataTable::StaticClass(), GetTransientPackage(), FName(TEXT("TempDataTable"))));
+	auto DataTable = NewObject<UDataTable>(GetTransientPackage(), FName(TEXT("TempDataTable")));
 	DataTable->RowStruct = FGameplayTagTableRow::StaticStruct();
 	DataTable->CreateTableFromCSVString(CSV);
 
@@ -57,7 +55,7 @@ static UDataTable* CreateGameplayDataTable()
 }
 
 #define GET_FIELD_CHECKED(Class, Field) FindFieldChecked<UProperty>(Class::StaticClass(), GET_MEMBER_NAME_CHECKED(Class, Field))
-#define CONSTRUCT_CLASS(Class, Name) Class * Name = Cast<Class>(StaticConstructObject(Class::StaticClass(), GetTransientPackage(), FName(TEXT(#Name))))
+#define CONSTRUCT_CLASS(Class, Name) Class* Name = NewObject<Class>(GetTransientPackage(), FName(TEXT(#Name)))
 
 class GameplayEffectsTestSuite
 {
@@ -292,12 +290,12 @@ public:
 		ADD_TEST(Test_PeriodicDamage);
 	}
 
-	virtual uint32 GetTestFlags() const { return EAutomationTestFlags::ATF_Editor; }
+	virtual uint32 GetTestFlags() const override { return EAutomationTestFlags::ATF_Editor; }
 	virtual bool IsStressTest() const { return false; }
-	virtual uint32 GetRequiredDeviceNum() const { return 1; }
+	virtual uint32 GetRequiredDeviceNum() const override { return 1; }
 
 protected:
-	virtual FString GetBeautifiedTestName() const override { return "AbilitySystem.GameplayEffects"; }
+	virtual FString GetBeautifiedTestName() const override { return "System.AbilitySystem.GameplayEffects"; }
 	virtual void GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const override
 	{
 		for (const FString& TestName : TestFunctionNames)
@@ -307,7 +305,7 @@ protected:
 		}
 	}
 
-	bool RunTest(const FString& Parameters)
+	bool RunTest(const FString& Parameters) override
 	{
 		// find the matching test
 		TestFunc TestFunction = nullptr;

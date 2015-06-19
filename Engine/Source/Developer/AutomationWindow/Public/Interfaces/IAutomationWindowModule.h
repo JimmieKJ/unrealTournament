@@ -3,6 +3,9 @@
 #pragma once
 
 
+class ISessionManager;
+
+
 /** Delegate to call when the automation window module is shutdown. */
 DECLARE_DELEGATE(FOnAutomationWindowModuleShutdown);
 
@@ -22,7 +25,7 @@ public:
 	 * @param SessionManager The session manager to use.
 	 * @return	New Automation Test window widget
 	 */
-	virtual TSharedRef<class SWidget> CreateAutomationWindow( const IAutomationControllerManagerRef& AutomationController, const ISessionManagerRef& SessionManager ) = 0;
+	virtual TSharedRef<class SWidget> CreateAutomationWindow( const IAutomationControllerManagerRef& AutomationController, const TSharedRef<ISessionManager>& SessionManager ) = 0;
 
 	/**
 	 * Store a pointer to the AutomationWindowTab.

@@ -1,9 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SQLiteSupportPrivatePCH.h"
 
+#include "SQLiteSupport.h"
 #include "SQLiteResultSet.h"
+
 /**
 * SQLite database file
 */

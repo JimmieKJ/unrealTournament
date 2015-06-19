@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Properties>
+    <Property Name="TargetName" Value="UnrealFrontend" />
+    <Property Name="Platform" Value="Mac" />
+    <Property Name="Configuration" Value="Development" />
+    <Property Name="Precompile" Value="True" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/Info.plist" Type="RequiredResource" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/PkgInfo" Type="RequiredResource" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/Resources/UE4.icns" Type="RequiredResource" />
+    <BuildProduct Path="$(EngineDir)/Plugins/Messaging/UdpMessaging/Binaries/Mac/UnrealFrontend-UdpMessaging.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-CoreUObject.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Projects.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Core.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-MacTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-TargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-DesktopPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Json.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-MacNoEditorTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-MacClientTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-MacServerTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-DesktopTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-LaunchDaemonMessages.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-AndroidTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-AndroidDeviceDetection.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-Android_PVRTCTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-Android_ATCTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-Android_DXTTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-Android_ETC1TargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-Android_ETC2TargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/Android/UnrealFrontend-Android_ASTCTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/IOS/UnrealFrontend-IOSTargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ShaderPreprocessor.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ShaderCore.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-RHI.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-RenderCore.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ShaderFormatOpenGL.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ShaderCompilerCommon.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ImageWrapper.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-TextureFormatDXT.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/libnvcore.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/libnvimage.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/libnvmath.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/libnvtt.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ImageCore.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-TextureFormatPVR.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-TextureFormatASTC.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-TextureFormatUncompressed.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/HTML5/UnrealFrontend-HTML5TargetPlatform.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Sockets.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-SandboxFile.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-DerivedDataCache.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/NotForLicensees/UnrealFrontend-DDCUtils.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-TextureFormatAndroid.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/libTextureConverter.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-AudioFormatADPCM.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-MetalShaderFormat.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Networking.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Serialization.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Messaging.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Settings.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-AutomationController.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-AutomationMessages.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-UnrealEdMessages.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-DeviceManager.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-EditorStyle.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-SlateCore.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-InputCore.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Slate.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-WorkspaceMenuStructure.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-LauncherServices.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-SessionMessages.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-SourceCodeAccess.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ProfilerClient.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ProfilerMessages.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ProjectLauncher.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-SessionFrontend.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-SessionServices.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-EngineMessages.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-AutomationWindow.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ScreenShotComparison.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-ScreenShotComparisonTools.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-Profiler.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-SlateReflector.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-StandaloneRenderer.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealFrontend.app/Contents/MacOS/UnrealFrontend-TargetDeviceServices.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Plugins/Developer/XCodeSourceCodeAccess/Binaries/Mac/UnrealFrontend-XCodeSourceCodeAccess.dylib" Type="DynamicLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

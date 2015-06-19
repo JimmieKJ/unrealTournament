@@ -10,7 +10,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogNavigationPoint, Log, All);
 ANavigationObjectBase::ANavigationObjectBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	CapsuleComponent = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("CollisionCapsule"));
+	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CollisionCapsule"));
 	CapsuleComponent->ShapeColor = FColor(255, 138, 5, 255);
 	CapsuleComponent->bDrawOnlyIfSelected = true;
 	CapsuleComponent->InitCapsuleSize(50.0f, 50.0f);
@@ -21,9 +21,9 @@ ANavigationObjectBase::ANavigationObjectBase(const FObjectInitializer& ObjectIni
 	RootComponent = CapsuleComponent;
 	bCollideWhenPlacing = true;
 
-	GoodSprite = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	GoodSprite = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 
-	BadSprite = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite2"));
+	BadSprite = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite2"));
 
 #if WITH_EDITORONLY_DATA
 	if (!IsRunningCommandlet())
@@ -149,7 +149,7 @@ void ANavigationObjectBase::FindBase()
 
 		static FName NAME_NavFindBase = FName(TEXT("NavFindBase"));
 
-		GetWorld()->SweepSingle( Hit, TraceStart, TraceEnd, FQuat::Identity, FCollisionShape::MakeBox(CollisionSlice), FCollisionQueryParams(NAME_NavFindBase, false), FCollisionObjectQueryParams(ECC_WorldStatic));
+		GetWorld()->SweepSingleByObjectType( Hit, TraceStart, TraceEnd, FQuat::Identity, FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionShape::MakeBox(CollisionSlice), FCollisionQueryParams(NAME_NavFindBase, false));
 
 		// @fixme, ensure object is on the navmesh?
 // 		if( Hit.Actor != NULL )
@@ -191,7 +191,7 @@ void ANavigationObjectBase::Validate()
 		FHitResult Hit(ForceInit);
 		const FVector TraceStart = GetActorLocation();
 		const FVector TraceEnd = GetActorLocation() - FVector(0.f,0.f, 4.f * CapsuleComponent->GetScaledCapsuleHalfHeight());
-		GetWorld()->SweepSingle(Hit, TraceStart, TraceEnd, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(Slice), FCollisionQueryParams(NAME_None, false, this));
+		GetWorld()->SweepSingleByChannel(Hit, TraceStart, TraceEnd, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(Slice), FCollisionQueryParams(NAME_None, false, this));
 		if( Hit.bBlockingHit )
 		{
 			const FVector HitLocation = TraceStart + (TraceEnd - TraceStart) * Hit.Time;

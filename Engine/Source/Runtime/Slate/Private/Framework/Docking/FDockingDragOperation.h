@@ -53,14 +53,14 @@ public:
 	 * 
 	 * @param bDropWasHandled   true when the drop was handled by some widget; false otherwise
 	 */
-	virtual void OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent );
+	virtual void OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent ) override;
 
 	/** 
 	 * Called when the mouse was moved during a drag and drop operation
 	 *
 	 * @param DragDropEvent    The event that describes this drag drop operation.
 	 */
-	virtual void OnDragged( const FDragDropEvent& DragDropEvent );
+	virtual void OnDragged( const FDragDropEvent& DragDropEvent ) override;
 	
 	/**
 	 * DragTestArea widgets invoke this method when a drag enters them
@@ -128,6 +128,9 @@ protected:
 
 	/** @return the size of the DockNode that looks good in a preview given the initial size of the tab that we grabbed. */
 	static FVector2D DesiredSizeFrom( const FVector2D& InitialTabSize );
+
+	/** The tab was dropped onto nothing or someone interrupted the drag drop operation. */
+	void DroppedOntoNothing();
 
 	/** What is actually being dragged in this operation */
 	TSharedPtr<class SDockTab> TabBeingDragged;

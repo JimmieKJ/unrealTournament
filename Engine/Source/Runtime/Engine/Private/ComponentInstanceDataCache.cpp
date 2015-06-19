@@ -36,7 +36,7 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 		}
 	}
 
-	/*if (SourceComponent->CreationMethod == EComponentCreationMethod::SimpleConstructionScript)
+	if (SourceComponent->IsEditableWhenInherited())
 	{
 		class FComponentPropertyWriter : public FObjectWriter
 		{
@@ -44,18 +44,24 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 			FComponentPropertyWriter(const UActorComponent* Component, TArray<uint8>& InBytes)
 				: FObjectWriter(InBytes)
 			{
+				Component->GetUCSModifiedProperties(PropertiesToSkip);
+
 				UClass* ComponentClass = Component->GetClass();
 				ComponentClass->SerializeTaggedProperties(*this, (uint8*)Component, ComponentClass, (uint8*)Component->GetArchetype());
 			}
 
 			virtual bool ShouldSkipProperty(const UProperty* InProperty) const override
 			{
-				return (    InProperty->HasAnyPropertyFlags(CPF_Transient | CPF_ContainsInstancedReference | CPF_InstancedReference)
-						|| !InProperty->HasAnyPropertyFlags(CPF_Edit | CPF_Interp));
+				return (	InProperty->HasAnyPropertyFlags(CPF_Transient | CPF_ContainsInstancedReference | CPF_InstancedReference)
+						|| !InProperty->HasAnyPropertyFlags(CPF_Edit | CPF_Interp)
+						|| PropertiesToSkip.Contains(InProperty));
 			}
 
+		private:
+			TSet<const UProperty*> PropertiesToSkip;
+
 		} ComponentPropertyWriter(SourceComponent, SavedProperties);
-	}*/
+	}
 }
 
 bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Component) const
@@ -91,19 +97,43 @@ bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Compon
 
 void FActorComponentInstanceData::ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase)
 {
-	if (CacheApplyPhase == ECacheApplyPhase::PostSimpleConstructionScript && SavedProperties.Num() > 0)
+	// After the user construction script has run we will re-apply all the cached changes that do not conflict
+	// with a change that the user construction script made.
+	if (CacheApplyPhase == ECacheApplyPhase::PostUserConstructionScript && SavedProperties.Num() > 0)
 	{
+		Component->DetermineUCSModifiedProperties();
+
 		class FComponentPropertyReader : public FObjectReader
 		{
 		public:
-			FComponentPropertyReader(UActorComponent* Component, TArray<uint8>& InBytes)
+			FComponentPropertyReader(UActorComponent* InComponent, TArray<uint8>& InBytes)
 				: FObjectReader(InBytes)
 			{
-				UClass* Class = Component->GetClass();
-				Class->SerializeTaggedProperties(*this, (uint8*)Component, Class, nullptr);
+				InComponent->GetUCSModifiedProperties(PropertiesToSkip);
+
+				UClass* Class = InComponent->GetClass();
+				Class->SerializeTaggedProperties(*this, (uint8*)InComponent, Class, nullptr);
 			}
-		} ComponentPropertyReader(Component, SavedProperties);	
+
+			virtual bool ShouldSkipProperty(const UProperty* InProperty) const override
+			{
+				return PropertiesToSkip.Contains(InProperty);
+			}
+
+			TSet<const UProperty*> PropertiesToSkip;
+
+		} ComponentPropertyReader(Component, SavedProperties);
+
+		if (Component->IsRegistered())
+		{
+			Component->ReregisterComponent();
+		}
 	}
+}
+
+void FActorComponentInstanceData::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(SourceComponentClass);
 }
 
 FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
@@ -204,7 +234,7 @@ void FComponentInstanceDataCache::FindAndReplaceInstances(const TMap<UObject*, U
 		}
 	}
 	TArray<USceneComponent*> SceneComponents;
-	InstanceComponentTransformToRootMap.GetKeys(SceneComponents);
+	InstanceComponentTransformToRootMap.GenerateKeyArray(SceneComponents);
 
 	for (USceneComponent* SceneComponent : SceneComponents)
 	{
@@ -218,6 +248,22 @@ void FComponentInstanceDataCache::FindAndReplaceInstances(const TMap<UObject*, U
 			{
 				InstanceComponentTransformToRootMap.Remove(SceneComponent);
 			}
+		}
+	}
+}
+
+void FComponentInstanceDataCache::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	TArray<USceneComponent*> SceneComponents;
+	InstanceComponentTransformToRootMap.GenerateKeyArray(SceneComponents);
+
+	Collector.AddReferencedObjects(SceneComponents);
+
+	for (auto ComponentInstanceDataPair : TypeToDataMap)
+	{
+		if (ComponentInstanceDataPair.Value)
+		{
+			ComponentInstanceDataPair.Value->AddReferencedObjects(Collector);
 		}
 	}
 }

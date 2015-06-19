@@ -17,41 +17,12 @@
 #include "SInlineEditableTextBlock.h"
 #include "SCommentBubble.h"
 
-#define LOCTEXT_NAMESPACE "SGraphNode_BehaviorTree"
-
-TSharedRef<FDragNodeTimed> FDragNodeTimed::New(const TSharedRef<SGraphPanel>& InGraphPanel, const TSharedRef<SGraphNode>& InDraggedNode)
-{
-	TSharedRef<FDragNodeTimed> Operation = MakeShareable(new FDragNodeTimed);
-	Operation->StartTime = FPlatformTime::Seconds();
-	Operation->GraphPanel = InGraphPanel;
-	Operation->DraggedNodes.Add(InDraggedNode);
-	// adjust the decorator away from the current mouse location a small amount based on cursor size
-	Operation->DecoratorAdjust = FSlateApplication::Get().GetCursorSize();
-	Operation->Construct();
-	return Operation;
-}
-
-TSharedRef<FDragNodeTimed> FDragNodeTimed::New(const TSharedRef<SGraphPanel>& InGraphPanel, const TArray< TSharedRef<SGraphNode> >& InDraggedNodes)
-{
-	TSharedRef<FDragNodeTimed> Operation = MakeShareable(new FDragNodeTimed);
-	Operation->StartTime = FPlatformTime::Seconds();
-	Operation->GraphPanel = InGraphPanel;
-	Operation->DraggedNodes = InDraggedNodes;
-	Operation->DecoratorAdjust = FSlateApplication::Get().GetCursorSize();
-	Operation->Construct();
-	return Operation;
-}
-
-UBehaviorTreeGraphNode* FDragNodeTimed::GetDropTargetNode() const
-{
-	return Cast<UBehaviorTreeGraphNode>(GetHoveredNode());
-}
-
+#define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
 /////////////////////////////////////////////////////
 // SBehaviorTreePin
 
-class SBehaviorTreePin : public SGraphPin
+class SBehaviorTreePin : public SGraphPinAI
 {
 public:
 	SLATE_BEGIN_ARGS(SBehaviorTreePin){}
@@ -59,47 +30,13 @@ public:
 
 	void Construct(const FArguments& InArgs, UEdGraphPin* InPin);
 protected:
-	// Begin SGraphPin interface
-	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
-
 	/** @return The color that we should use to draw this pin */
 	virtual FSlateColor GetPinColor() const override;
-
-	// End SGraphPin interface
-
-	const FSlateBrush* GetPinBorder() const;
 };
 
 void SBehaviorTreePin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 {
-	this->SetCursor( EMouseCursor::Default );
-
-	bShowLabel = true;
-	IsEditable = true;
-
-	GraphPinObj = InPin;
-	check(GraphPinObj != NULL);
-
-	const UEdGraphSchema* Schema = GraphPinObj->GetSchema();
-	check(Schema);
-
-	SBorder::Construct( SBorder::FArguments()
-		.BorderImage( this, &SBehaviorTreePin::GetPinBorder )
-		.BorderBackgroundColor( this, &SBehaviorTreePin::GetPinColor )
-		.OnMouseButtonDown( this, &SBehaviorTreePin::OnPinMouseDown )
-		.Cursor( this, &SBehaviorTreePin::GetPinCursor )
-		.Padding(FMargin(5.0f))
-		);
-}
-
-TSharedRef<SWidget>	SBehaviorTreePin::GetDefaultValueWidget()
-{
-	return SNew(STextBlock);
-}
-
-const FSlateBrush* SBehaviorTreePin::GetPinBorder() const
-{
-	return FEditorStyle::GetBrush(TEXT("Graph.StateNode.Body"));
+	SGraphPinAI::Construct(SGraphPinAI::FArguments(), InPin);
 }
 
 FSlateColor SBehaviorTreePin::GetPinColor() const
@@ -207,11 +144,7 @@ void SGraphNode_BehaviorTree::Construct(const FArguments& InArgs, UBehaviorTreeG
 	DebuggerStateCounter = INDEX_NONE;
 	bSuppressDebuggerTriggers = false;
 
-	this->GraphNode = InNode;
-
-	this->SetCursor(EMouseCursor::CardinalCross);
-	
-	this->UpdateGraphNode();
+	SGraphNodeAI::Construct(SGraphNodeAI::FArguments(), InNode);
 }
 
 void SGraphNode_BehaviorTree::AddDecorator(TSharedPtr<SGraphNode> DecoratorWidget)
@@ -220,7 +153,9 @@ void SGraphNode_BehaviorTree::AddDecorator(TSharedPtr<SGraphNode> DecoratorWidge
 	[
 		DecoratorWidget.ToSharedRef()
 	];
+
 	DecoratorWidgets.Add(DecoratorWidget);
+	AddSubNode(DecoratorWidget);
 }
 
 void SGraphNode_BehaviorTree::AddService(TSharedPtr<SGraphNode> ServiceWidget)
@@ -230,14 +165,16 @@ void SGraphNode_BehaviorTree::AddService(TSharedPtr<SGraphNode> ServiceWidget)
 		ServiceWidget.ToSharedRef()
 	];
 	ServicesWidgets.Add(ServiceWidget);
+	AddSubNode(ServiceWidget);
 }
 
 FSlateColor SGraphNode_BehaviorTree::GetBorderBackgroundColor() const
 {
 	UBehaviorTreeGraphNode* BTGraphNode = Cast<UBehaviorTreeGraphNode>(GraphNode);
+	UBehaviorTreeGraphNode* BTParentNode = BTGraphNode ? Cast<UBehaviorTreeGraphNode>(BTGraphNode->ParentNode) : nullptr;
 	const bool bIsInDebuggerActiveState = BTGraphNode && BTGraphNode->bDebuggerMarkCurrentlyActive;
 	const bool bIsInDebuggerPrevState = BTGraphNode && BTGraphNode->bDebuggerMarkPreviouslyActive;
-	const bool bSelectedSubNode = BTGraphNode && BTGraphNode->ParentNode && GetOwnerPanel()->SelectionManager.SelectedNodes.Contains(GraphNode);
+	const bool bSelectedSubNode = BTParentNode && GetOwnerPanel()->SelectionManager.SelectedNodes.Contains(GraphNode);
 	
 	UBTNode* NodeInstance = BTGraphNode ? Cast<UBTNode>(BTGraphNode->NodeInstance) : NULL;
 	const bool bIsDisconnected = NodeInstance && NodeInstance->GetExecutionIndex() == MAX_uint16;
@@ -245,9 +182,9 @@ FSlateColor SGraphNode_BehaviorTree::GetBorderBackgroundColor() const
 	const bool bIsRootDecorator = BTGraphNode && BTGraphNode->bRootLevel;
 	const bool bIsInjected = BTGraphNode && BTGraphNode->bInjectedNode;
 	const bool bIsBrokenWithParent = bIsService ? 
-		BTGraphNode->ParentNode != NULL && BTGraphNode->ParentNode->Services.Find(BTGraphNode) == INDEX_NONE ? true : false :
-		BTGraphNode->ParentNode != NULL && BTGraphNode->ParentNode->Decorators.Find(BTGraphNode) == INDEX_NONE ? true : 
-		(BTGraphNode->NodeInstance != NULL && (Cast<UBTNode>(BTGraphNode->NodeInstance->GetOuter()) == NULL && Cast<UBehaviorTree>(BTGraphNode->NodeInstance->GetOuter())==NULL)) ? true : false;
+		BTParentNode && BTParentNode->Services.Find(BTGraphNode) == INDEX_NONE ? true : false :
+		BTParentNode && BTParentNode->Decorators.Find(BTGraphNode) == INDEX_NONE ? true :
+		(BTGraphNode && BTGraphNode->NodeInstance != NULL && (Cast<UBTNode>(BTGraphNode->NodeInstance->GetOuter()) == NULL && Cast<UBehaviorTree>(BTGraphNode->NodeInstance->GetOuter()) == NULL)) ? true : false;
 
 	if (FBehaviorTreeDebugger::IsPIENotSimulating() && BTGraphNode)
 	{
@@ -340,6 +277,7 @@ void SGraphNode_BehaviorTree::UpdateGraphNode()
 	LeftNodeBox.Reset();
 	DecoratorWidgets.Reset();
 	ServicesWidgets.Reset();
+	SubNodes.Reset();
 	OutputPinBox.Reset();
 
 	UBehaviorTreeGraphNode* BTNode = Cast<UBehaviorTreeGraphNode>(GraphNode);
@@ -554,11 +492,13 @@ void SGraphNode_BehaviorTree::UpdateGraphNode()
 		];
 	// Create comment bubble
 	TSharedPtr<SCommentBubble> CommentBubble;
+	const FSlateColor CommentColor = GetDefault<UGraphEditorSettings>()->DefaultCommentNodeTitleColor;
 
 	SAssignNew( CommentBubble, SCommentBubble )
 	.GraphNode( GraphNode )
 	.Text( this, &SGraphNode::GetNodeComment )
-	.ColorAndOpacity( this, &SGraphNode_BehaviorTree::GetCommentColor )
+	.OnTextCommitted( this, &SGraphNode::OnCommentTextCommitted )
+	.ColorAndOpacity( CommentColor )
 	.AllowPinning( true )
 	.EnableTitleBarBubble( true )
 	.EnableBubbleCtrls( true )
@@ -587,7 +527,7 @@ EVisibility SGraphNode_BehaviorTree::GetDebuggerSearchFailedMarkerVisibility() c
 
 void SGraphNode_BehaviorTree::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SGraphNode::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	SGraphNode::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 	CachedPosition = AllottedGeometry.AbsolutePosition / AllottedGeometry.Scale;
 
 	UBehaviorTreeGraphNode* MyNode = Cast<UBehaviorTreeGraphNode>(GraphNode);
@@ -673,249 +613,9 @@ void SGraphNode_BehaviorTree::Tick( const FGeometry& AllottedGeometry, const dou
 	FlashAlpha = NewFlashAlpha;
 }
 
-FReply SGraphNode_BehaviorTree::OnMouseMove(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent)
-{
-	if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && FBehaviorTreeDebugger::IsPIENotSimulating())
-	{
-		//if we are holding mouse over a subnode
-		if (Cast<UBehaviorTreeGraphNode>(GraphNode)->ParentNode)
-		{
-			const TSharedRef<SGraphPanel>& Panel = this->GetOwnerPanel().ToSharedRef();
-			const TSharedRef<SGraphNode>& Node = SharedThis(this);
-			return FReply::Handled().BeginDragDrop(FDragNodeTimed::New(Panel, Node));
-		}
-	}
-
-	if (!MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && bDragMarkerVisible)
-	{
-		SetDragMarker(false);
-	}
-
-	return FReply::Unhandled();
-}
-
-TSharedPtr<SGraphNode> SGraphNode_BehaviorTree::GetSubNodeUnderCursor(const FGeometry& WidgetGeometry, const FPointerEvent& MouseEvent) const
-{
-	TSharedPtr<SGraphNode> ResultNode;
-
-	// We just need to find the one WidgetToFind among our descendants.
-	TSet< TSharedRef<SWidget> > SubWidgetsSet;
-
-	for (int32 i=0; i < DecoratorWidgets.Num(); i++)
-	{
-		SubWidgetsSet.Add(DecoratorWidgets[i].ToSharedRef());
-	}
-	for (int32 i=0; i < ServicesWidgets.Num(); i++)
-	{
-		SubWidgetsSet.Add(ServicesWidgets[i].ToSharedRef());
-	}
-	TMap<TSharedRef<SWidget>, FArrangedWidget> Result;
-
-	FindChildGeometries(WidgetGeometry, SubWidgetsSet, Result);
-
-	if ( Result.Num() > 0 )
-	{
-		FArrangedChildren ArrangedChildren(EVisibility::Visible);
-		Result.GenerateValueArray( ArrangedChildren.GetInternalArray() );
-		int32 HoveredIndex = SWidget::FindChildUnderMouse( ArrangedChildren, MouseEvent );
-		if ( HoveredIndex != INDEX_NONE )
-		{
-			ResultNode = StaticCastSharedRef<SGraphNode>(ArrangedChildren[HoveredIndex].Widget);
-		}
-	}
-
-	return ResultNode;
-}
-
-FReply SGraphNode_BehaviorTree::OnMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent)
-{
-	if (Cast<UBehaviorTreeGraphNode>(GraphNode)->ParentNode)
-	{
-		GetOwnerPanel()->SelectionManager.ClickedOnNode(GraphNode,MouseEvent);
-		return FReply::Handled();
-	}
-
-	return FReply::Unhandled();
-}
-
 FReply SGraphNode_BehaviorTree::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent )
 {
 	return SGraphNode::OnMouseButtonDoubleClick(InMyGeometry, InMouseEvent );
-}
-
-void SGraphNode_BehaviorTree::SetDragMarker(bool bEnabled)
-{
-	bDragMarkerVisible = bEnabled;
-}
-
-EVisibility SGraphNode_BehaviorTree::GetDragOverMarkerVisibility() const
-{
-	return bDragMarkerVisible ? EVisibility::Visible : EVisibility::Collapsed; 
-}
-
-void SGraphNode_BehaviorTree::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
-{
-	// Is someone dragging a node?
-	TSharedPtr<FDragNode> DragConnectionOp = DragDropEvent.GetOperationAs<FDragNode>();
-	if (DragConnectionOp.IsValid())
-	{
-		// Inform the Drag and Drop operation that we are hovering over this node.
-		TSharedPtr<SGraphNode> SubNode = GetSubNodeUnderCursor(MyGeometry, DragDropEvent);
-		DragConnectionOp->SetHoveredNode( SubNode.IsValid() ? SubNode : SharedThis(this) );
-		if (DragConnectionOp->IsValidOperation() && Cast<UBehaviorTreeGraphNode>(GraphNode)->ParentNode)
-		{
-			SetDragMarker(true);
-		}
-	}
-	
-	SGraphNode::OnDragEnter(MyGeometry, DragDropEvent);
-}
-
-FReply SGraphNode_BehaviorTree::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
-{
-	// Is someone dragging a node?
-	TSharedPtr<FDragNode> DragConnectionOp = DragDropEvent.GetOperationAs<FDragNode>();
-	if (DragConnectionOp.IsValid())
-	{
-		// Inform the Drag and Drop operation that we are hovering over this node.
-		TSharedPtr<SGraphNode> SubNode = GetSubNodeUnderCursor(MyGeometry, DragDropEvent);
-		DragConnectionOp->SetHoveredNode( SubNode.IsValid() ? SubNode : SharedThis(this) );
-	}
-	return SGraphNode::OnDragOver(MyGeometry, DragDropEvent);
-}
-
-void SGraphNode_BehaviorTree::OnDragLeave( const FDragDropEvent& DragDropEvent )
-{
-	TSharedPtr<FDragNode> DragConnectionOp = DragDropEvent.GetOperationAs<FDragNode>();
-	if (DragConnectionOp.IsValid())
-	{
-		// Inform the Drag and Drop operation that we are not hovering any pins
-		DragConnectionOp->SetHoveredNode( TSharedPtr<SGraphNode>(NULL) );
-	}
-
-	SetDragMarker(false);
-	SGraphNode::OnDragLeave(DragDropEvent);
-}
-
-FReply SGraphNode_BehaviorTree::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
-{
-	SetDragMarker(false);
-
-	TSharedPtr<FDragNodeTimed> DragNodeOp = DragDropEvent.GetOperationAs<FDragNodeTimed>();
-	if (DragNodeOp.IsValid())
-	{
-		if (!DragNodeOp->IsValidOperation())
-		{
-			return FReply::Handled();
-		}
-
-		const float DragTime = float(FPlatformTime::Seconds() - DragNodeOp->StartTime);
-		if (DragTime < 0.5f)
-		{
-			return FReply::Handled();
-		}
-
-		//dropped on decorator, route to parent
-		if (Cast<UBehaviorTreeGraphNode>(GraphNode)->ParentNode != NULL)
-		{
-			return FReply::Unhandled();
-		}
-
-		const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "GraphEd_DragDropNode", "Drag&Drop Node") );
-
-		const TArray< TSharedRef<SGraphNode> >& DraggedNodes = DragNodeOp->GetNodes();
-		bool bReorderOperation = true;
-
-		for (int32 Idx = 0; Idx < DraggedNodes.Num(); Idx++)
-		{
-			bool bIsDraggedNodeService = Cast<UBehaviorTreeGraphNode_Service>(DraggedNodes[Idx]->GetNodeObj()) != NULL;
-
-			UBehaviorTreeGraphNode* ParentNode = (Cast<UBehaviorTreeGraphNode>(DraggedNodes[Idx]->GetNodeObj()))->ParentNode;
-			if (bReorderOperation && ParentNode != Cast<UBehaviorTreeGraphNode>(GraphNode))
-			{
-				bReorderOperation = false;
-			}
-
-			if (ParentNode)
-			{
-				ParentNode->Modify();
-				TArray<UBehaviorTreeGraphNode*> & SubNodes = bIsDraggedNodeService ? ParentNode->Services : ParentNode->Decorators;
-				for (int32 SubIdx = 0; SubIdx < SubNodes.Num(); SubIdx++)
-				{
-					if (SubNodes[SubIdx] == DraggedNodes[Idx]->GetNodeObj())
-					{
-						SubNodes.RemoveAt(SubIdx);
-					}
-				}
-			}
-		}
-
-		UBehaviorTreeGraphNode* BTNode = Cast<UBehaviorTreeGraphNode>(GraphNode);
-		UBehaviorTreeGraphNode* DropTargetNode = DragNodeOp->GetDropTargetNode();
-		int32 InsertIndex = -1;
-
-		{
-			const int32 DecoratorIdx = BTNode->Decorators.IndexOfByKey(DropTargetNode);
-			if (DecoratorIdx >= 0)
-			{
-				InsertIndex = DecoratorIdx;
-			}
-			else
-			{
-				const int32 ServiceIdx = BTNode->Services.IndexOfByKey(DropTargetNode);
-				if (ServiceIdx >= 0)
-				{
-					InsertIndex = ServiceIdx;
-				}
-			}
-		}
-
-		for (int32 Idx = 0; Idx < DraggedNodes.Num(); Idx++)
-		{
-			UBehaviorTreeGraphNode* DraggedNode = Cast<UBehaviorTreeGraphNode>(DraggedNodes[Idx]->GetNodeObj());
-			bool bIsDraggedNodeService = Cast<UBehaviorTreeGraphNode_Service>(DraggedNode) != NULL;
-			TArray<UBehaviorTreeGraphNode*> & SubNodes = bIsDraggedNodeService ? BTNode->Services : BTNode->Decorators;
-
-			DraggedNode->Modify();
-			DraggedNode->ParentNode = BTNode;
-			BTNode->Modify();
-
-			if (InsertIndex > -1)
-			{
-				SubNodes.Insert(DraggedNode, InsertIndex);
-			}
-			else
-			{
-				SubNodes.Add(DraggedNode);
-			}
-		}
-
-		if (bReorderOperation) // if updating this node is enough, do it
-		{
-			UpdateGraphNode();
-		}
-		else // if decorator was dragged between nodes, rebuild graph
-		{
-			GraphNode->GetGraph()->NotifyGraphChanged();
-
-			UBehaviorTreeGraph* MyGraph = Cast<UBehaviorTreeGraph>(GraphNode->GetGraph());
-			if (MyGraph)
-			{
-				FAbortDrawHelper EmptyMode;
-
-				MyGraph->UpdateAsset(UBehaviorTreeGraph::ClearDebuggerFlags);
-				MyGraph->UpdateAbortHighlight(EmptyMode, EmptyMode);
-			}
-		}
-	}
-
-	return SGraphNode::OnDrop(MyGeometry, DragDropEvent);
-}
-
-FText SGraphNode_BehaviorTree::GetDescription() const
-{
-	UBehaviorTreeGraphNode* StateNode = CastChecked<UBehaviorTreeGraphNode>(GraphNode);
-	return FText::FromString(StateNode->GetDescription());
 }
 
 FText SGraphNode_BehaviorTree::GetPinTooltip(UEdGraphPin* GraphPinObj) const
@@ -936,7 +636,6 @@ FText SGraphNode_BehaviorTree::GetPinTooltip(UEdGraphPin* GraphPinObj) const
 
 	return HoverText;
 }
-
 
 void SGraphNode_BehaviorTree::CreatePinWidgets()
 {
@@ -1073,12 +772,13 @@ const FSlateBrush* SGraphNode_BehaviorTree::GetNameIcon() const
 
 static UBehaviorTreeGraphNode* GetParentNode(UEdGraphNode* GraphNode)
 {
-	UBehaviorTreeGraphNode* StateNode = CastChecked<UBehaviorTreeGraphNode>(GraphNode);
-	if(StateNode->ParentNode != nullptr)
+	UBehaviorTreeGraphNode* BTGraphNode = Cast<UBehaviorTreeGraphNode>(GraphNode);
+	if (BTGraphNode->ParentNode != nullptr)
 	{
-		StateNode = StateNode->ParentNode;
+		BTGraphNode = Cast<UBehaviorTreeGraphNode>(BTGraphNode->ParentNode);
 	}
-	UEdGraphPin* MyInputPin = StateNode->GetInputPin();
+
+	UEdGraphPin* MyInputPin = BTGraphNode->GetInputPin();
 	UEdGraphPin* MyParentOutputPin = nullptr;
 	if (MyInputPin != nullptr && MyInputPin->LinkedTo.Num() > 0)
 	{
@@ -1308,29 +1008,6 @@ TSharedRef<SGraphNode> SGraphNode_BehaviorTree::GetNodeUnderMouse(const FGeometr
 {
 	TSharedPtr<SGraphNode> SubNode = GetSubNodeUnderCursor(MyGeometry, MouseEvent);
 	return SubNode.IsValid() ? SubNode.ToSharedRef() : StaticCastSharedRef<SGraphNode>(AsShared());
-}
-
-void SGraphNode_BehaviorTree::SetOwner( const TSharedRef<SGraphPanel>& OwnerPanel )
-{
-	SGraphNode::SetOwner(OwnerPanel);
-
-	for(auto& DecoratorWidget : DecoratorWidgets)
-	{
-		if(DecoratorWidget.IsValid())
-		{
-			DecoratorWidget->SetOwner(OwnerPanel);
-			OwnerPanel->AttachGraphEvents(DecoratorWidget);
-		}
-	}
-
-	for(auto& ServicesWidget : ServicesWidgets)
-	{
-		if(ServicesWidget.IsValid())
-		{
-			ServicesWidget->SetOwner(OwnerPanel);
-			OwnerPanel->AttachGraphEvents(ServicesWidget);
-		}
-	}
 }
 
 #undef LOCTEXT_NAMESPACE

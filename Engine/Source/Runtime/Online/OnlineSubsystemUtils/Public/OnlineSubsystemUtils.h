@@ -49,6 +49,7 @@ namespace Online
 
 	/** Reimplement all the interfaces of Online.h with support for UWorld accessors */
 	IMPLEMENT_GET_INTERFACE(Session);
+	IMPLEMENT_GET_INTERFACE(Party);
 	IMPLEMENT_GET_INTERFACE(Friends);
 	IMPLEMENT_GET_INTERFACE(User);
 	IMPLEMENT_GET_INTERFACE(SharedCloud);

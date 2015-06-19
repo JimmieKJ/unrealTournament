@@ -320,6 +320,13 @@ void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 		ReplicatedMovement.Rotation = MyFakeProjectile->GetActorRotation();
 		PostNetReceiveLocationAndRotation();
 	}
+	AUTPlayerController* MyPlayer = Cast<AUTPlayerController>(InstigatorController ? InstigatorController : GEngine->GetFirstLocalPlayerController(GetWorld()));
+	if (MyPlayer && (GetLifeSpan() != 0.f))
+	{
+		// remove forward prediction from lifespan
+		float CatchupTickDelta = MyPlayer->GetPredictionTime();
+		SetLifeSpan(FMath::Max(0.001f, GetLifeSpan() - CatchupTickDelta));
+	}
 	MyFakeProjectile->SetLifeSpan(GetLifeSpan());
 	if (bNetTemporary)
 	{
@@ -364,7 +371,8 @@ void AUTProjectile::SendInitialReplication()
 					FRotator ViewRotation = NetDriver->ClientConnections[i]->PlayerController->GetControlRotation();
 					NetDriver->ClientConnections[i]->PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
 				}
-				if (IsNetRelevantFor(NetDriver->ClientConnections[i]->PlayerController, ViewTarget, ViewLocation))
+				// Workaround to skip deprecation warning where it calls the PlayerController version of this function
+				if (IsNetRelevantFor(static_cast<AActor*>(NetDriver->ClientConnections[i]->PlayerController), ViewTarget, ViewLocation))
 				{
 					UActorChannel* Ch = NetDriver->ClientConnections[i]->ActorChannels.FindRef(this);
 					if (Ch == NULL)
@@ -582,13 +590,30 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 		ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
 	}
 }
+
 void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	// since PawnOverlapSphere doesn't hit blocking objects, it is possible it is touching a target through a wall
-	// make sure that the hit is valid before proceeding
-	if (!GetWorld()->LineTraceTest(SweepResult.Location, GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("PawnSphereOverlapTrace")), true, this)))
+	if (OtherActor != nullptr)
 	{
-		OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
+		FVector OtherLocation;
+		if (bFromSweep)
+		{
+			OtherLocation = SweepResult.Location;
+		}
+		else
+		{
+			OtherLocation = OtherActor->GetActorLocation();
+		}
+
+		FCollisionQueryParams Params(FName(TEXT("PawnSphereOverlapTrace")), true, this);
+		Params.AddIgnoredActor(OtherActor);
+
+		// since PawnOverlapSphere doesn't hit blocking objects, it is possible it is touching a target through a wall
+		// make sure that the hit is valid before proceeding
+		if (!GetWorld()->LineTraceTestByChannel(OtherLocation, GetActorLocation(), COLLISION_TRACE_WEAPON, Params))
+		{
+			OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
+		}
 	}
 }
 
@@ -636,10 +661,12 @@ bool AUTProjectile::ShouldIgnoreHit_Implementation(AActor* OtherActor, UPrimitiv
 	// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
 	// don't blow up on weapon redirectors that teleport weapons fire
 	// don't blow up from our side on weapon shields; let the shield do that so it can change damage/kill credit
+	// ignore client-side actors if will bounce
 	return ( ((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
 			|| (Cast<AUTProjectile>(OtherActor) != NULL && !InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
 			|| (Cast<AUTWeaponRedirector>(OtherActor) != NULL && ((AUTWeaponRedirector*)OtherActor)->bWeaponPortal)
-			|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL );
+			|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL )
+			|| (ProjectileMovement->bShouldBounce && (Role != ROLE_Authority) && OtherActor && OtherActor->bTearOff);
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)

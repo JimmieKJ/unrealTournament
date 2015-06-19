@@ -7,20 +7,13 @@
 #include "StatsData.h"
 #include "StatsMallocProfilerProxy.h"
 
-#define DECLARE_MEMORY_PTR_STAT(CounterName,StatId,GroupId)\
-	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_Ptr, false, false, FPlatformMemory::MCR_Invalid); \
-	static DEFINE_STAT(StatId)
-
-#define DECLARE_MEMORY_SIZE_STAT(CounterName,StatId,GroupId)\
-	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_int64, false, false, FPlatformMemory::MCR_Invalid); \
-	static DEFINE_STAT(StatId)
-
 /** Fake stat group and memory stats. */
 DECLARE_STATS_GROUP(TEXT("Memory Profiler"), STATGROUP_MemoryProfiler, STATCAT_Advanced);
 
-DECLARE_MEMORY_PTR_STAT(TEXT("Memory Free Ptr"),			STAT_Memory_FreePtr,		STATGROUP_MemoryProfiler);
-DECLARE_MEMORY_PTR_STAT(TEXT("Memory Alloc Ptr"),			STAT_Memory_AllocPtr,		STATGROUP_MemoryProfiler);
-DECLARE_MEMORY_SIZE_STAT(TEXT("Memory Alloc Size"),			STAT_Memory_AllocSize,		STATGROUP_MemoryProfiler);
+DECLARE_PTR_STAT( TEXT( "Memory Free Ptr" ), STAT_Memory_FreePtr, STATGROUP_MemoryProfiler );
+DECLARE_PTR_STAT( TEXT( "Memory Alloc Ptr" ), STAT_Memory_AllocPtr, STATGROUP_MemoryProfiler );
+DECLARE_MEMORY_STAT( TEXT( "Memory Alloc Size" ), STAT_Memory_AllocSize, STATGROUP_MemoryProfiler );
+DECLARE_MEMORY_STAT( TEXT( "Memory Operation Sequence Tag" ), STAT_Memory_OperationSequenceTag, STATGROUP_MemoryProfiler );
 
 /** Stats for memory usage by the profiler. */
 DECLARE_DWORD_COUNTER_STAT(TEXT("Profiler AllocPtr Calls"),	STAT_Memory_AllocPtr_Calls,	STATGROUP_StatSystem);
@@ -28,9 +21,15 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("Profiler FreePtr Calls"),	STAT_Memory_FreePtr_C
 DECLARE_MEMORY_STAT( TEXT( "Profiler AllocPtr" ),			STAT_Memory_AllocPtr_Mem,	STATGROUP_StatSystem );
 DECLARE_MEMORY_STAT( TEXT( "Profiler FreePtr" ),			STAT_Memory_FreePtr_Mem,	STATGROUP_StatSystem );
 
+//#define DEBUG_MALLOC_PROXY
+
+/** Debugging only. */
+CORE_API FThreadStats* GThreadStatsToDumpMemory = nullptr;
+
 FStatsMallocProfilerProxy::FStatsMallocProfilerProxy( FMalloc* InMalloc ) 
 	: UsedMalloc( InMalloc )
 	, bEnabled(false)
+	, bWasEnabled(false)
 {
 }
 
@@ -40,25 +39,38 @@ FStatsMallocProfilerProxy* FStatsMallocProfilerProxy::Get()
 	if( Instance == nullptr )
 	{
 		Instance = new FStatsMallocProfilerProxy( GMalloc );
+		// Initialize stats metadata.
+		// We need to do here, after all hardcoded names have been initialized.
+		Instance->InitializeStatsMetadata();
 	}
 	return Instance;
 }
 
-
-void FStatsMallocProfilerProxy::SetState( bool bEnable )
+bool FStatsMallocProfilerProxy::HasMemoryProfilerToken()
 {
-	bEnabled = bEnable;
-	FPlatformMisc::MemoryBarrier();
-	if( bEnable )
-	{
-		StatsMasterEnableAdd();
-	}
-	else
-	{
-		StatsMasterEnableSubtract();
-	}
+	return FParse::Param( FCommandLine::Get(), TEXT( "MemoryProfiler" ) );
 }
 
+void FStatsMallocProfilerProxy::SetState( bool bNewState )
+{
+	if( !bWasEnabled && bNewState )
+	{
+		bEnabled = true;
+		bWasEnabled = true;
+		
+		UE_LOG( LogStats, Warning, TEXT( "Malloc profiler is enabled" ) );
+	}
+	else if( bWasEnabled && !bNewState )
+	{
+		bEnabled = false;
+		UE_LOG( LogStats, Warning, TEXT( "Malloc profiler has been disabled, all data should be ready" ) );
+	}
+	else if( bWasEnabled )
+	{
+		UE_LOG( LogStats, Warning, TEXT( "Malloc profiler has already been stopped and cannot be restarted." ) );
+	}
+	FPlatformMisc::MemoryBarrier();
+}
 
 void FStatsMallocProfilerProxy::InitializeStatsMetadata()
 {
@@ -70,6 +82,7 @@ void FStatsMallocProfilerProxy::InitializeStatsMetadata()
 	const FName NameAllocPtr = GET_STATFNAME(STAT_Memory_AllocPtr);
 	const FName NameFreePtr = GET_STATFNAME(STAT_Memory_FreePtr);
 	const FName NameAllocSize = GET_STATFNAME(STAT_Memory_AllocSize);
+	const FName NameOperationSequenceTag = GET_STATFNAME(STAT_Memory_OperationSequenceTag);
 
 	GET_STATFNAME(STAT_Memory_AllocPtr_Calls);
 	GET_STATFNAME(STAT_Memory_FreePtr_Calls);
@@ -82,8 +95,7 @@ void FStatsMallocProfilerProxy::InitializeStatsMetadata()
 	//StatPtr_STAT_Memory_AllocSize;
 }
 
-
-void FStatsMallocProfilerProxy::TrackAlloc( void* Ptr, int64 Size )
+void FStatsMallocProfilerProxy::TrackAlloc( void* Ptr, int64 Size, int32 SequenceTag )
 {
 	if( bEnabled )
 	{
@@ -91,17 +103,38 @@ void FStatsMallocProfilerProxy::TrackAlloc( void* Ptr, int64 Size )
 		{
 			FThreadStats* ThreadStats = FThreadStats::GetThreadStats();
 
+#ifdef DEBUG_MALLOC_PROXY
+			if( GThreadStatsToDumpMemory == ThreadStats && ThreadStats->MemoryMessageScope == 0 )
+			{
+				ThreadStats->MemoryMessageScope++;
+				UE_LOG( LogStats, Warning, TEXT( "TrackAlloc, %llu, %lli, %i, %i" ), (uint64)(UPTRINT)Ptr, Size, SequenceTag, ThreadStats->MemoryMessageScope );
+				ThreadStats->MemoryMessageScope--;
+			}
+#endif // DEBUG_MALLOC_PROXY
+		
 			if( ThreadStats->MemoryMessageScope == 0 )
 			{
-				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_AllocPtr), (uint64)(UPTRINT)Ptr | (uint64)EMemoryOperation::Alloc );	// 16 bytes
-				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_AllocSize), Size );					// 32 bytes total
+#if	_DEBUG
+				if( ThreadStats->Packet.StatMessages.Num() > 0 && ThreadStats->Packet.StatMessages.Num() % 32767 == 0 )
+				{
+					ThreadStats->MemoryMessageScope++;
+					const double InvMB = 1.0f / 1024.0f / 1024.0f;
+					UE_LOG( LogStats, Verbose, TEXT( "ThreadID: %i, Current: %.1f" ), FPlatformTLS::GetCurrentThreadId(), InvMB*(int64)ThreadStats->Packet.StatMessages.Num()*sizeof( FStatMessage ) );
+					ThreadStats->MemoryMessageScope--;
+				}
+#endif // _DEBUG
+
+				// 48 bytes per allocation.
+				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_AllocPtr), (uint64)(UPTRINT)Ptr | (uint64)EMemoryOperation::Alloc );
+				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_AllocSize), Size );			
+				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_OperationSequenceTag), (int64)SequenceTag );			
 				AllocPtrCalls.Increment();
 			}
 		}	
 	}
 }
 
-void FStatsMallocProfilerProxy::TrackFree( void* Ptr )
+void FStatsMallocProfilerProxy::TrackFree( void* Ptr, int32 SequenceTag )
 {
 	if( bEnabled )
 	{
@@ -109,9 +142,20 @@ void FStatsMallocProfilerProxy::TrackFree( void* Ptr )
 		{
 			FThreadStats* ThreadStats = FThreadStats::GetThreadStats();
 
+#ifdef DEBUG_MALLOC_PROXY
+			if( GThreadStatsToDumpMemory == ThreadStats && ThreadStats->MemoryMessageScope == 0 )
+			{
+				ThreadStats->MemoryMessageScope++;
+				UE_LOG(LogStats, Warning, TEXT("TrackFree, %llu, 0, %i, %i"), (uint64)(UPTRINT)Ptr, SequenceTag, ThreadStats->MemoryMessageScope);
+				ThreadStats->MemoryMessageScope--;
+			}
+#endif // DEBUG_MALLOC_PROXY
+
 			if( ThreadStats->MemoryMessageScope == 0 )
 			{
-				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_FreePtr), (uint64)(UPTRINT)Ptr | (uint64)EMemoryOperation::Free );	// 16 bytes total
+				// 32 bytes per free.
+				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_FreePtr), (uint64)(UPTRINT)Ptr | (uint64)EMemoryOperation::Free );	// 16 bytes total				
+				ThreadStats->AddMemoryMessage( GET_STATFNAME(STAT_Memory_OperationSequenceTag), (int64)SequenceTag );	
 				FreePtrCalls.Increment();
 			}
 		}	
@@ -120,23 +164,29 @@ void FStatsMallocProfilerProxy::TrackFree( void* Ptr )
 
 void* FStatsMallocProfilerProxy::Malloc( SIZE_T Size, uint32 Alignment )
 {
+	const int32 SequenceTag = MemorySequenceTag.Increment();
 	void* Ptr = UsedMalloc->Malloc( Size, Alignment );
 	// We lose the Size's precision, but don't worry about it.
-	TrackAlloc( Ptr, (int64)Size );
+	TrackAlloc( Ptr, (int64)Size, SequenceTag );
 	return Ptr;
 }
 
 void* FStatsMallocProfilerProxy::Realloc( void* OldPtr, SIZE_T NewSize, uint32 Alignment )
 {
-	TrackFree( OldPtr );
+	// @TODO yrx 2015-02-18 Add TrackRealloc to optimize
+	const int32 FreeSequenceTag = MemorySequenceTag.Increment();
+	TrackFree( OldPtr, FreeSequenceTag );
+
+	const int32 AllocSequenceTag = MemorySequenceTag.Increment();
 	void* NewPtr = UsedMalloc->Realloc( OldPtr, NewSize, Alignment );
-	TrackAlloc( NewPtr, (int64)NewSize );
+	TrackAlloc( NewPtr, (int64)NewSize, AllocSequenceTag );
 	return NewPtr;
 }
 
 void FStatsMallocProfilerProxy::Free( void* Ptr )
 {
-	TrackFree( Ptr );
+	const int32 SequenceTag = MemorySequenceTag.Increment();
+	TrackFree( Ptr, SequenceTag );
 	UsedMalloc->Free( Ptr );
 }
 

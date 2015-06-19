@@ -46,7 +46,7 @@ uint32 FLauncherWorker::Run( )
 			// process the string to break it up in to lines
 			Line += NewLine;
 			TArray<FString> StringArray;
-			int32 count = Line.ParseIntoArray(&StringArray, TEXT("\n"), true);
+			int32 count = Line.ParseIntoArray(StringArray, TEXT("\n"), true);
 			if (count > 1)
 			{
 				for (int32 Index = 0; Index < count-1; ++Index)
@@ -70,7 +70,7 @@ uint32 FLauncherWorker::Run( )
 				// process the string to break it up in to lines
 				Line += NewLine;
 				TArray<FString> StringArray;
-				int32 count = Line.ParseIntoArray(&StringArray, TEXT("\n"), true);
+				int32 count = Line.ParseIntoArray(StringArray, TEXT("\n"), true);
 				if (count > 1)
 				{
 					for (int32 Index = 0; Index < count-1; ++Index)
@@ -183,7 +183,7 @@ void FLauncherWorker::OnTaskCompleted(const FString& TaskName)
 FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile, const TArray<FString>& InPlatforms, TArray<FCommandDesc>& OutCommands, FString& CommandStart )
 {
 	CommandStart = TEXT("");
-	FString UATCommand = TEXT("");
+	FString UATCommand = TEXT(" -utf8output");
 	static FGuid SessionId(FGuid::NewGuid());
 	FString InitialMap = InProfile->GetDefaultLaunchRole()->GetInitialMap();
 	if (InitialMap.IsEmpty() && InProfile->GetCookedMaps().Num() == 1)
@@ -218,6 +218,10 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		else if (PlatformInfo->TargetPlatformName == FName("WindowsServer"))
 		{
 			ServerPlatforms += TEXT("+Win64");
+		}
+		else if (PlatformInfo->TargetPlatformName == FName("MacServer"))
+		{
+			ServerPlatforms += TEXT("+Mac");
 		}
 		else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor"))
 		{
@@ -357,7 +361,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 
 			if (InProfile->IsCookingUnversioned())
 			{
-				UATCommand += TEXT(" -Unversioned");
+				UATCommand += TEXT(" -unversionedcookedcontent");
 			}
 
 			FString additionalOptions = InProfile->GetCookOptions();
@@ -370,6 +374,46 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			if (InProfile->IsPackingWithUnrealPak())
 			{
 				UATCommand += TEXT(" -pak");
+			}
+
+			if ( InProfile->IsCreatingReleaseVersion() )
+			{
+				UATCommand += TEXT(" -createreleaseversion=");
+				UATCommand += InProfile->GetCreateReleaseVersionName();
+				
+			}
+
+			if ( InProfile->IsCreatingDLC() )
+			{
+				UATCommand += TEXT(" -dlcname=");
+				UATCommand += InProfile->GetDLCName();
+			}
+
+			if ( InProfile->IsGeneratingPatch() )
+			{
+				UATCommand += TEXT(" -generatepatch");
+			}
+
+			if ( InProfile->IsGeneratingPatch() || 
+				InProfile->IsCreatingReleaseVersion() || 
+				InProfile->IsCreatingDLC() )
+			{
+				if ( InProfile->GetBasedOnReleaseVersionName().IsEmpty() == false )
+				{
+					UATCommand += TEXT(" -basedonreleaseversion=");
+					UATCommand += InProfile->GetBasedOnReleaseVersionName();
+				}
+			}
+
+			if (InProfile->IsGeneratingChunks())
+			{
+				UATCommand += TEXT(" -manifests");
+			}
+
+			if (InProfile->IsGenerateHttpChunkData())
+			{
+				auto Cmd = FString::Printf(TEXT(" -createchunkinstall -chunkinstalldirectory=\"%s\" -chunkinstallversion=\"%s\""), *InProfile->GetHttpChunkDataDirectory(), *InProfile->GetHttpChunkDataReleaseName());
+				UATCommand += Cmd;
 			}
 
 			FCommandDesc Desc;
@@ -422,6 +466,12 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	if (InProfile->IsCookingIncrementally())
 	{
 		UATCommand += TEXT(" -iterativecooking");
+	}
+
+
+	if ( InProfile->IsCompressed() )
+	{
+		UATCommand += TEXT(" -compressed");
 	}
 
 	// stage/package/deploy

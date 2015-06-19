@@ -9,6 +9,7 @@
 #include "ParticleDefinitions.h"
 #include "AnimationUtils.h"
 #include "LevelUtils.h"
+#include "EditorLevelUtils.h"
 #include "Layers/ILayers.h"
 #include "ScopedTransaction.h"
 #include "SurfaceIterators.h"
@@ -28,7 +29,7 @@
 #include "Matinee/InterpTrackAnimControl.h"
 #include "Matinee/InterpData.h"
 #include "Animation/SkeletalMeshActor.h"
-#include "Foliage/InstancedFoliageActor.h"
+#include "InstancedFoliageActor.h"
 
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
@@ -60,12 +61,26 @@
 #include "NotificationManager.h"
 #include "EditorUndoClient.h"
 #include "DesktopPlatformModule.h"
+#include "Layers/Layer.h"
+#include "Engine/Light.h"
+#include "Animation/AnimNotifies/AnimNotify.h"
+#include "Components/BillboardComponent.h"
+#include "Components/DrawFrustumComponent.h"
+#include "UnrealEngine.h"
+#include "AI/Navigation/NavLinkRenderingComponent.h"
+
+#include "Settings/EditorSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
 /** Used for the "tagsounds" and "checksounds" commands only			*/
 static FUObjectAnnotationSparseBool DebugSoundAnnotation;
 
+namespace EditorEngineDefs
+{
+	/** Limit the minimum size of the bounding box when centering cameras on individual components to avoid extreme zooming */
+	static const float MinComponentBoundsForZoom = 50.0f;
+}
 
 namespace 
 {
@@ -316,7 +331,7 @@ bool UEditorEngine::SafeExec( UWorld* InWorld, const TCHAR* InStr, FOutputDevice
 		UFactory* Factory = NULL;
 		if( Class->IsChildOf(UFactory::StaticClass()) )
 		{
-			Factory = ConstructObject<UFactory>( Class );
+			Factory = NewObject<UFactory>(GetTransientPackage(), Class);
 		}
 
 		UObject* NewObject = NULL;
@@ -1070,6 +1085,7 @@ void UEditorEngine::HandleTransactorRedo( FUndoSessionContext SessionContext, bo
 	PostUndo(Succeeded);
 
 	BroadcastPostRedo(SessionContext.Context, SessionContext.PrimaryObject, Succeeded);
+	InvalidateAllViewportsAndHitProxies();
 	ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "RedoMessageFormat", "Redo: {0}"), SessionContext.Title), Succeeded);
 }
 
@@ -1079,12 +1095,13 @@ void UEditorEngine::HandleTransactorUndo( FUndoSessionContext SessionContext, bo
 	PostUndo(Succeeded);
 
 	BroadcastPostUndo(SessionContext.Context, SessionContext.PrimaryObject, Succeeded);
+	InvalidateAllViewportsAndHitProxies();
 	ShowUndoRedoNotification(FText::Format(NSLOCTEXT("UnrealEd", "UndoMessageFormat", "Undo: {0}"), SessionContext.Title), Succeeded);
 }
 
 bool UEditorEngine::AreEditorAnalyticsEnabled() const 
 {
-	return GetGameAgnosticSettings().bEditorAnalyticsEnabled;
+	return GetDefault<UEditorSettings>()->bEditorAnalyticsEnabled;
 }
 
 void UEditorEngine::CreateStartupAnalyticsAttributes( TArray<FAnalyticsEventAttribute>& StartSessionAttributes ) const
@@ -1106,7 +1123,7 @@ UTransactor* UEditorEngine::CreateTrans()
 {
 	int32 UndoBufferSize;
 
-	if (!GConfig->GetInt(TEXT("Undo"), TEXT("UndoBufferSize"), UndoBufferSize, GEditorUserSettingsIni))
+	if (!GConfig->GetInt(TEXT("Undo"), TEXT("UndoBufferSize"), UndoBufferSize, GEditorPerProjectIni))
 	{
 		UndoBufferSize = 16;
 	}
@@ -1120,10 +1137,10 @@ UTransactor* UEditorEngine::CreateTrans()
 	return TransBuffer;
 }
 
-void UEditorEngine::PostUndo (bool bSuccess)
+void UEditorEngine::PostUndo(bool bSuccess)
 {
 	//Update the actor selection followed by the component selection if needed (note: order is important)
-
+		
 	//Get the list of all selected actors after the operation
 	TArray<AActor*> SelectedActors;
 	for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
@@ -1140,8 +1157,8 @@ void UEditorEngine::PostUndo (bool bSuccess)
 		}
 	}
 
-	USelection* Selection = GetSelectedActors();
-	Selection->BeginBatchSelectOperation();
+	USelection* ActorSelection = GetSelectedActors();
+	ActorSelection->BeginBatchSelectOperation();
 
 	//Deselect all of the actors that were selected prior to the operation
 	for (int32 OldSelectedActorIndex = OldSelectedActors.Num() - 1; OldSelectedActorIndex >= 0; --OldSelectedActorIndex)
@@ -1171,7 +1188,7 @@ void UEditorEngine::PostUndo (bool bSuccess)
 	}
 
 	OldSelectedActors.Empty();
-	Selection->EndBatchSelectOperation();
+	ActorSelection->EndBatchSelectOperation();
 	
 	if (GetSelectedComponentCount() > 0)
 	{
@@ -1184,8 +1201,8 @@ void UEditorEngine::PostUndo (bool bSuccess)
 			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
 		}
 		
-		USelection* Selection = GetSelectedComponents();
-		Selection->BeginBatchSelectOperation();
+		USelection* ComponentSelection = GetSelectedComponents();
+		ComponentSelection->BeginBatchSelectOperation();
 
 		//Deselect all of the actors that were selected prior to the operation
 		for (int32 OldSelectedComponentIndex = OldSelectedComponents.Num() - 1; OldSelectedComponentIndex >= 0; --OldSelectedComponentIndex)
@@ -1218,15 +1235,15 @@ void UEditorEngine::PostUndo (bool bSuccess)
 		OldSelectedComponents.Empty();
 
 		// We want to broadcast the component SelectionChangedEvent even if the selection didn't actually change
-		Selection->MarkBatchDirty();
-		Selection->EndBatchSelectOperation();
+		ComponentSelection->MarkBatchDirty();
+		ComponentSelection->EndBatchSelectOperation();
 	}
 }
 
 bool UEditorEngine::UndoTransaction()
 {
 	// make sure we're in a valid state to perform this
-	if (GIsSavingPackage || GIsGarbageCollecting)
+	if (GIsSavingPackage || IsGarbageCollecting())
 	{
 		return false;
 	}
@@ -1237,7 +1254,7 @@ bool UEditorEngine::UndoTransaction()
 bool UEditorEngine::RedoTransaction()
 {
 	// make sure we're in a valid state to perform this
-	if (GIsSavingPackage || GIsGarbageCollecting)
+	if (GIsSavingPackage || IsGarbageCollecting())
 	{
 		return false;
 	}
@@ -1253,6 +1270,11 @@ bool UEditorEngine::IsTransactionActive()
 FText UEditorEngine::GetTransactionName() const
 {
 	return Trans->GetUndoContext(false).Title;
+}
+
+bool UEditorEngine::IsObjectInTransactionBuffer( const UObject* Object ) const
+{
+	return Trans->IsObjectInTransationBuffer(Object);
 }
 
 bool UEditorEngine::Map_Select( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar)
@@ -1547,6 +1569,8 @@ void UEditorEngine::RebuildLevel(ULevel& Level)
 	{
 		IFA->MapRebuild();
 	}
+
+	GLevelEditorModeTools().MapChangeNotify();
 }
 
 void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushesOnly)
@@ -1609,71 +1633,79 @@ void UEditorEngine::RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushes
 
 void UEditorEngine::RebuildAlteredBSP()
 {
-	// Early out if BSP auto-updating is disabled
-	if (!GetDefault<ULevelEditorMiscSettings>()->bBSPAutoUpdate)
+	if( GUndo && !GIsTransacting )
 	{
-		return;
-	}
-
-	FlushRenderingCommands();
-
-	// A list of all the levels that need to be rebuilt
-	TArray< TWeakObjectPtr< ULevel > > LevelsToRebuild;
-	ABrush::NeedsRebuild( &LevelsToRebuild );
-
-	// Determine which levels need to be rebuilt
-	for (FSelectionIterator It(GetSelectedActorIterator()); It; ++It)
-	{
-		AActor* Actor = static_cast<AActor*>(*It);
-		checkSlow( Actor->IsA(AActor::StaticClass()) );
-
-		ABrush* SelectedBrush = Cast< ABrush >( Actor );
-		if (SelectedBrush && !FActorEditorUtils::IsABuilderBrush(Actor))
+		// Early out if BSP auto-updating is disabled
+		if (!GetDefault<ULevelEditorMiscSettings>()->bBSPAutoUpdate)
 		{
-			ULevel* Level = SelectedBrush->GetLevel();
-			if (Level)
-			{
-				LevelsToRebuild.AddUnique(Level);
-			}
+			return;
 		}
-		else
-		{
-			// In addition to any selected brushes, any brushes attached to a selected actor should be rebuilt
-			TArray<AActor*> AttachedActors;
-			Actor->GetAttachedActors( AttachedActors );
 
-			const bool bExactClass = true;
-			TArray<AActor*> AttachedBrushes;
-			// Get any brush actors attached to the selected actor
-			if( ContainsObjectOfClass( AttachedActors, ABrush::StaticClass(), bExactClass, &AttachedBrushes ) )
+		FlushRenderingCommands();
+
+		// A list of all the levels that need to be rebuilt
+		TArray< TWeakObjectPtr< ULevel > > LevelsToRebuild;
+			ABrush::NeedsRebuild(&LevelsToRebuild);
+
+		// Determine which levels need to be rebuilt
+		for (FSelectionIterator It(GetSelectedActorIterator()); It; ++It)
+		{
+			AActor* Actor = static_cast<AActor*>(*It);
+				checkSlow(Actor->IsA(AActor::StaticClass()));
+
+				ABrush* SelectedBrush = Cast< ABrush >(Actor);
+			if (SelectedBrush && !FActorEditorUtils::IsABuilderBrush(Actor))
 			{
-				for( int32 BrushIndex = 0; BrushIndex < AttachedBrushes.Num(); ++BrushIndex )
+				ULevel* Level = SelectedBrush->GetLevel();
+				if (Level)
 				{
-					ULevel* Level = CastChecked<ABrush>( AttachedBrushes[BrushIndex] )->GetLevel();
-					if (Level)
-					{
-						LevelsToRebuild.AddUnique(Level);
-					}
+					LevelsToRebuild.AddUnique(Level);
 				}
 			}
+			else
+			{
+				// In addition to any selected brushes, any brushes attached to a selected actor should be rebuilt
+				TArray<AActor*> AttachedActors;
+					Actor->GetAttachedActors(AttachedActors);
+
+				const bool bExactClass = true;
+				TArray<AActor*> AttachedBrushes;
+				// Get any brush actors attached to the selected actor
+					if (ContainsObjectOfClass(AttachedActors, ABrush::StaticClass(), bExactClass, &AttachedBrushes))
+				{
+						for (int32 BrushIndex = 0; BrushIndex < AttachedBrushes.Num(); ++BrushIndex)
+					{
+							ULevel* Level = CastChecked<ABrush>(AttachedBrushes[BrushIndex])->GetLevel();
+						if (Level)
+						{
+							LevelsToRebuild.AddUnique(Level);
+						}
+					}
+				}
+
+			}
 
 		}
 
-	}
-
-	// Rebuild the levels
-	for (int32 LevelIdx = 0; LevelIdx < LevelsToRebuild.Num(); ++LevelIdx)
-	{
-		TWeakObjectPtr< ULevel > LevelToRebuild = LevelsToRebuild[LevelIdx];
-		if ( LevelToRebuild.IsValid() )
+		// Rebuild the levels
+		for (int32 LevelIdx = 0; LevelIdx < LevelsToRebuild.Num(); ++LevelIdx)
 		{
-			RebuildLevel(*LevelToRebuild.Get());
+			TWeakObjectPtr< ULevel > LevelToRebuild = LevelsToRebuild[LevelIdx];
+				if (LevelToRebuild.IsValid())
+			{
+				RebuildLevel(*LevelToRebuild.Get());
+			}
 		}
+
+		RedrawLevelEditingViewports();
+
+		ABrush::OnRebuildDone();
 	}
-
-	RedrawLevelEditingViewports();
-
-	ABrush::OnRebuildDone();
+	else
+	{
+ 		ensureMsgf(0, TEXT("Rebuild BSP ignored. Not in a transaction") );
+		ABrush::OnRebuildDone();
+	}
 }
 
 void UEditorEngine::BSPIntersectionHelper(UWorld* InWorld, ECsgOper Operation)
@@ -1774,7 +1806,8 @@ void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& Cl
 
 	GUnrealEd->CurrentLODParentActor = NULL;
 	SelectNone( true, true );
-	EditorClearComponents();
+
+	ContextWorld->ClearWorldComponents();
 	ClearPreviewComponents();
 	// Remove all active groups, they belong to a map being unloaded
 	ContextWorld->ActiveGroupActors.Empty();
@@ -1783,9 +1816,9 @@ void UEditorEngine::EditorDestroyWorld( FWorldContext & Context, const FText& Cl
 	CloseEditedWorldAssets(ContextWorld);
 
 	// Stop all audio and remove references 
-	if ( GetAudioDevice() )
+	if (FAudioDevice* AudioDevice = ContextWorld->GetAudioDevice())
 	{
-		GetAudioDevice()->Flush(ContextWorld);
+		AudioDevice->Flush(ContextWorld);
 	}
 
 	// Reset the editor transform to avoid loading the new world with an offset if loading a sublevel
@@ -1853,11 +1886,11 @@ bool UEditorEngine::ShouldAbortBecauseOfUnsavedWorld() const
 	// If an unsaved world exists that would be lost in a map transition, give the user the option to cancel a map load.
 
 	// First check if we have a world and it is dirty
-	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-	if (EditorWorld && EditorWorld->GetOutermost()->IsDirty())
+	UWorld* LevelEditorWorld = GEditor->GetEditorWorldContext().World();
+	if (LevelEditorWorld && LevelEditorWorld->GetOutermost()->IsDirty())
 	{
 		// Now check if the world is in a path that can be saved (otherwise it is in something like the transient package or temp)
-		const FString PackageName = EditorWorld->GetOutermost()->GetName();
+		const FString PackageName = LevelEditorWorld->GetOutermost()->GetName();
 		const bool bIncludeReadOnlyRoots = false;
 		if ( FPackageName::IsValidLongPackageName(PackageName, bIncludeReadOnlyRoots) )
 		{
@@ -1865,7 +1898,7 @@ bool UEditorEngine::ShouldAbortBecauseOfUnsavedWorld() const
 			if ( !FPackageName::DoesPackageExist(PackageName) )
 			{
 				// This world will be completely lost if a map transition happens. Warn the user that this is happening and ask him/her how to proceed.
-				if (EAppReturnType::Yes != FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(NSLOCTEXT("UnrealEd", "Prompt_ThisActionWillDiscardWorldContinue", "The unsaved level {0} will be lost.  Continue?"), FText::FromString(EditorWorld->GetName()))))
+				if (EAppReturnType::Yes != FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(NSLOCTEXT("UnrealEd", "Prompt_ThisActionWillDiscardWorldContinue", "The unsaved level {0} will be lost.  Continue?"), FText::FromString(LevelEditorWorld->GetName()))))
 				{
 					// User doesn't want to lose the world -- abort the load.
 					return true;
@@ -1959,7 +1992,7 @@ UWorld* UEditorEngine::NewMap()
 	EditorDestroyWorld( Context, CleanseText );
 
 	// Create a new world
-	UWorldFactory* Factory = ConstructObject<UWorldFactory>(UWorldFactory::StaticClass());
+	UWorldFactory* Factory = NewObject<UWorldFactory>();
 	Factory->WorldType = EWorldType::Editor;
 	Factory->bInformEngineOfWorld = true;
 	Factory->FeatureLevel = GEditor->DefaultWorldFeatureLevel;
@@ -2007,7 +2040,7 @@ UWorld* UEditorEngine::NewMap()
 	GUnrealEd->ResetTransaction( CleanseText );
 
 	// Invalidate all the level viewport hit proxies
-	InvalidateAllViewportClientHitProxies();
+	InvalidateAllLevelEditorViewportClientHitProxies();
 
 	return NewWorld;
 }
@@ -2174,6 +2207,19 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 						NewWorld = ExistingWorld;
 					}
 					EditorDestroyWorld( Context, LocalizedLoadingMap, NewWorld );
+
+					// Unload all other map packages currently loaded, before opening a new map.
+					// The world is only initialized correctly as part of the level loading process, so ensure that every map package needs loading.
+					TArray<UPackage*> WorldPackages;
+					for (TObjectIterator<UWorld> It; It; ++It)
+					{
+						UPackage* Package = Cast<UPackage>(It->GetOuter());
+						if (Package && Package != GetTransientPackage())
+						{
+							WorldPackages.AddUnique(Package);
+						}
+					}
+					PackageTools::UnloadPackages(WorldPackages);
 
 					// Refresh ExistingPackage and Existing World now that GC has occurred.
 					ExistingPackage = FindPackage(NULL, *LongTempFname);
@@ -2444,7 +2490,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					}
 
 					// Invalidate all the level viewport hit proxies
-					InvalidateAllViewportClientHitProxies();
+					InvalidateAllLevelEditorViewportClientHitProxies();
 				}
 			}
 			else
@@ -2480,7 +2526,7 @@ bool UEditorEngine::Map_Import( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 		
 		ResetTransaction( LocalizedImportingMap );
 		GWarn->BeginSlowTask( LocalizedImportingMap, true );
-		EditorClearComponents();
+		InWorld->ClearWorldComponents();
 		InWorld->CleanupWorld();
 		ImportObject<UWorld>(InWorld->GetOuter(), InWorld->GetFName(), RF_Transactional, TempFname );
 		GWarn->EndSlowTask();
@@ -2813,10 +2859,22 @@ void UEditorEngine::DoMoveSelectedActorsToLevel( ULevel* InDestLevel )
 	// Copy the actors we have selected to the clipboard
 	CopySelectedActorsToClipboard( World, true );
 
-	// Set the new level
+	// Set the new level and force it visible while we do the paste
 	World->SetCurrentLevel( InDestLevel );
+	const bool bLevelVisible = InDestLevel->bIsVisible;
+	if (!bLevelVisible)
+	{
+		EditorLevelUtils::SetLevelVisibility(InDestLevel, true, false);
+	}
+
 	// Paste the actors into the new level
 	edactPasteSelected( World, false, false, false );
+
+	// Restore new level visibility to previous state
+	if (!bLevelVisible)
+	{
+		EditorLevelUtils::SetLevelVisibility(InDestLevel, false, false);
+	}
 
 	// Restore the original current level
 	World->SetCurrentLevel( OldCurrentLevel );
@@ -2825,9 +2883,41 @@ void UEditorEngine::DoMoveSelectedActorsToLevel( ULevel* InDestLevel )
 	GEditor->Trans->End();
 }
 
+void UEditorEngine::MoveSelectedFoliageToLevel(ULevel* InTargetLevel)
+{
+	// Can't move into a locked level
+	if (FLevelUtils::IsLevelLocked(InTargetLevel))
+	{
+		FNotificationInfo Info(NSLOCTEXT("UnrealEd", "CannotMoveFoliageIntoLockedLevel", "Cannot move the selected foliage into a locked level"));
+		Info.bUseThrobber = false;
+		FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
+		return;
+	}
+
+	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveSelectedFoliageToSelectedLevel", "Move Selected Foliage to Level"));
+
+	// Get a world context
+	UWorld* World = InTargetLevel->OwningWorld;
+	
+	// Iterate over all foliage actors in the world and move selected instances to a foliage actor in the target level
+	const int32 NumLevels = World->GetNumLevels();
+	for (int32 LevelIdx = 0; LevelIdx < NumLevels; ++LevelIdx)
+	{
+		ULevel* Level = World->GetLevel(LevelIdx);
+		if (Level != InTargetLevel)
+		{
+			AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(Level, /*bCreateIfNone*/ false);
+			if (IFA && IFA->HasSelectedInstances())
+			{
+				IFA->MoveSelectedInstancesToLevel(InTargetLevel);
+			}
+		}
+	}
+}
+
 ULevel*  UEditorEngine::CreateTransLevelMoveBuffer( UWorld* InWorld )
 {
-	ULevel* BufferLevel = NewNamedObject<ULevel>(GetTransientPackage(), TEXT("TransLevelMoveBuffer"));
+	ULevel* BufferLevel = NewObject<ULevel>(GetTransientPackage(), TEXT("TransLevelMoveBuffer"));
 	BufferLevel->Initialize(FURL(nullptr));
 	check( BufferLevel );
 	BufferLevel->AddToRoot();
@@ -2852,7 +2942,7 @@ ULevel*  UEditorEngine::CreateTransLevelMoveBuffer( UWorld* InWorld )
 	BufferDefaultBrush->Brush = CastChecked<UModel>(StaticFindObject(UModel::StaticClass(), BufferLevel->OwningWorld->GetOuter(), TEXT("Brush"), true), ECastCheckedType::NullAllowed);
 	if (!BufferDefaultBrush->Brush)
 	{
-		BufferDefaultBrush->Brush = NewNamedObject<UModel>(InWorld, TEXT("Brush"));
+		BufferDefaultBrush->Brush = NewObject<UModel>(InWorld, TEXT("Brush"));
 		BufferDefaultBrush->Brush->Initialize(BufferDefaultBrush, 1);
 	}
 	BufferDefaultBrush->GetBrushComponent()->Brush = BufferDefaultBrush->Brush;
@@ -3383,7 +3473,7 @@ void UEditorEngine::SelectByPropertyColoration(UWorld* InWorld)
 }
 
 
-bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar, bool bCheckDeprecatedOnly, EMapCheckNotification::Type Notification/*= EMapCheckNotification::DisplayResults*/)
+bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar, bool bCheckDeprecatedOnly, EMapCheckNotification::Type Notification/*= EMapCheckNotification::DisplayResults*/, bool bClearLog/*= true*/)
 {
 #define LOCTEXT_NAMESPACE "EditorEngine"
 	const FText CheckMapLocText = NSLOCTEXT("UnrealEd", "CheckingMap", "Checking map");
@@ -3391,6 +3481,8 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 	const double StartTime = FPlatformTime::Seconds();
 
 	FMessageLog MapCheckLog("MapCheck");
+
+	if (bClearLog)
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("Name"), FText::FromString(FPackageName::GetShortName(InWorld->GetOutermost())));
@@ -3589,7 +3681,7 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 	{
 		if(bCheckDeprecatedOnly)
 		{
-			if(WarningCount > 0)
+			if(ErrorCount > 0)
 			{
 				MapCheckLog.Notify(LOCTEXT("MapCheckGenErrors", "Map check generated errors!"));
 			}
@@ -4343,18 +4435,17 @@ void UEditorEngine::MoveViewportCamerasToActor(const TArray<AActor*> &Actors, co
 				}
 				else
 				{
-					TInlineComponentArray<UPrimitiveComponent*> Components;
-					Actor->GetComponents(Components);
+					TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents(Actor);
 
-					for(int32 ComponentIndex = 0; ComponentIndex < Components.Num(); ++ComponentIndex)
+					for(int32 ComponentIndex = 0; ComponentIndex < PrimitiveComponents.Num(); ++ComponentIndex)
 					{
-						UPrimitiveComponent* PrimitiveComponent = Components[ComponentIndex];
+						UPrimitiveComponent* PrimitiveComponent = PrimitiveComponents[ComponentIndex];
 
 						if(PrimitiveComponent->IsRegistered())
 						{
 
 							// Some components can have huge bounds but are not visible.  Ignore these components unless it is the only component on the actor 
-							const bool bIgnore = Components.Num() > 1 && PrimitiveComponentTypesToIgnore.IndexOfByPredicate(ComponentTypeMatcher(PrimitiveComponent)) != INDEX_NONE;
+							const bool bIgnore = PrimitiveComponents.Num() > 1 && PrimitiveComponentTypesToIgnore.IndexOfByPredicate(ComponentTypeMatcher(PrimitiveComponent)) != INDEX_NONE;
 
 							if(!bIgnore)
 							{
@@ -4403,42 +4494,7 @@ void UEditorEngine::MoveViewportCamerasToActor(const TArray<AActor*> &Actors, co
 		}
 	}
 
-	// Make sure we had atleast one non-null actor in the array passed in.
-	if( BoundingBox.GetSize() != FVector::ZeroVector )
-	{
-		if ( bActiveViewportOnly )
-		{
-			if ( GCurrentLevelEditingViewportClient )
-			{
-				GCurrentLevelEditingViewportClient->FocusViewportOnBox( BoundingBox );
-				
-				// Update Linked Orthographic viewports.
-				if( GCurrentLevelEditingViewportClient->IsOrtho() && GetDefault<ULevelEditorViewportSettings>()->bUseLinkedOrthographicViewports )
-				{
-					// Search through all viewports
-					for( auto ViewportIt = GEditor->LevelViewportClients.CreateConstIterator(); ViewportIt ; ++ViewportIt )
-					{
-						FLevelEditorViewportClient* LinkedViewportClient = *ViewportIt;
-						// Only update other orthographic viewports
-						if( LinkedViewportClient && LinkedViewportClient != GCurrentLevelEditingViewportClient && LinkedViewportClient->IsOrtho() )
-						{
-							LinkedViewportClient->FocusViewportOnBox( BoundingBox );
-						}
-					}
-				}
-			}
-
-		}
-		else
-		{
-			// Update all viewports.
-			for( int32 i = 0; i < LevelViewportClients.Num(); i++ )
-			{
-				FEditorViewportClient* ViewportClient = LevelViewportClients[i];
-				ViewportClient->FocusViewportOnBox( BoundingBox );
-			}
-		}
-	}
+	MoveViewportCamerasToBox(BoundingBox, bActiveViewportOnly);
 
 	// Warn the user with a suppressable dialog if they attempted to zoom to actors that are in an invisible level
 	if ( InvisLevelActors.Num() > 0 )
@@ -4460,6 +4516,29 @@ void UEditorEngine::MoveViewportCamerasToActor(const TArray<AActor*> &Actors, co
 
 	// Notify 'focus on actors' delegate
 	FEditorDelegates::OnFocusViewportOnActors.Broadcast(Actors);
+}
+
+void UEditorEngine::MoveViewportCamerasToComponent(USceneComponent* Component, bool bActiveViewportOnly)
+{
+	if (Component != nullptr)
+	{
+		if (FLevelUtils::IsLevelVisible(Component->GetComponentLevel()) && Component->IsRegistered())
+		{
+			FBox Box = Component->Bounds.GetBox();
+			FVector Center;
+			FVector Extents;
+			Box.GetCenterAndExtents(Center, Extents);
+
+			// Apply a minimum size to the extents of the component's box to avoid the camera's zooming too close to small or zero-sized components
+			if (Extents.SizeSquared() < EditorEngineDefs::MinComponentBoundsForZoom * EditorEngineDefs::MinComponentBoundsForZoom)
+			{
+				FVector NewExtents(EditorEngineDefs::MinComponentBoundsForZoom, SMALL_NUMBER, SMALL_NUMBER);
+				Box = FBox(Center - NewExtents, Center + NewExtents);
+			}
+
+			MoveViewportCamerasToBox(Box, bActiveViewportOnly);
+		}
+	}
 }
 
 /** 
@@ -4587,11 +4666,11 @@ bool UEditorEngine::SnapObjectTo( FActorOrComponent Object, const bool InAlign, 
 		Params.AddIgnoredComponent( Cast<UPrimitiveComponent>(Object.Component) );
 	}
 
-	if ( Object.GetWorld()->SweepSingle(Hit, StartLocation, StartLocation + Direction*WORLD_MAX, FQuat::Identity, FCollisionShape::MakeBox(Extent), Params, FCollisionObjectQueryParams(ECC_WorldStatic)))
+	if (Object.GetWorld()->SweepSingleByChannel(Hit, StartLocation, StartLocation + Direction*WORLD_MAX, FQuat::Identity, ECC_WorldStatic, FCollisionShape::MakeBox(Extent), Params))
 	{
 		FVector NewLocation = Hit.Location - LocationOffset;
 		NewLocation.Z += KINDA_SMALL_NUMBER;	// Move the new desired location up by an error tolerance
-
+		
 		Object.SetWorldLocation( NewLocation );
 		//InActor->TeleportTo( NewLocation, InActor->GetActorRotation(), false,true );
 		
@@ -4759,7 +4838,7 @@ bool UEditorEngine::Exec_Camera( const TCHAR* Str, FOutputDevice& Ar )
 		{
 			SelectedObject.Actor = GEditor->GetSelectedActors()->GetTop<AActor>();
 		}
-		
+
 		if (SelectedObject.IsValid())
 		{
 			// Set perspective viewport camera parameters to that of the selected camera.
@@ -4807,6 +4886,9 @@ void UEditorEngine::BroadcastPostRedo(const FString& Context, UObject* PrimaryOb
 			Client->PostRedo( bRedoSuccess );
 		}
 	}
+
+	// Invalidate all viewports
+	InvalidateAllViewportsAndHitProxies();
 }
 
 bool UEditorEngine::Exec_Particle(const TCHAR* Str, FOutputDevice& Ar)
@@ -4923,7 +5005,7 @@ void UEditorEngine::AssignReplacementComponentsByActors(TArray<AActor*>& ActorsT
 				FComponentReregisterContext ComponentReattch(PrimitiveComponent);
 
 				// set the replacement
-				PrimitiveComponent->ReplacementPrimitive = ReplacementComponent;
+				PrimitiveComponent->SetLODParentPrimitive(ReplacementComponent);
 
 				// makr the package as dirty now that we've modified it
 				Actor->MarkPackageDirty();
@@ -4955,7 +5037,7 @@ bool FixUpBadAnimNotifiers()
 				{
 					// fix animnotifiers
 					UE_LOG(LogEditorServer, Log, TEXT("Animation[%s] Notifier[%s:%d] is being fixed (Current Outer:%s)"), *AnimSeq->GetName(), *AnimSeq->Notifies[I].Notify->GetName(), I, *AnimSeq->Notifies[I].Notify->GetOuter()->GetName());
-					AnimSeq->Notifies[I].Notify = CastChecked<UAnimNotify>( StaticConstructObject(AnimSeq->Notifies[I].Notify->GetClass(), AnimSeq,NAME_None,RF_NoFlags,AnimSeq->Notifies[I].Notify) );
+					AnimSeq->Notifies[I].Notify = NewObject<UAnimNotify>(AnimSeq, AnimSeq->Notifies[I].Notify->GetClass(), NAME_None, RF_NoFlags, AnimSeq->Notifies[I].Notify);
 					UE_LOG(LogEditorServer, Log, TEXT("After fixed (Current Outer:%s)"), *AnimSeq->Notifies[I].Notify->GetOuter()->GetName());
 					AnimSeq->MarkPackageDirty();
 				}
@@ -5019,13 +5101,13 @@ void ListMapPackageDependencies(const TCHAR* InStr)
 			UE_LOG(LogEditorServer, Warning, TEXT("\tResave packages and run again to ensure accurate results."));
 		}
 
-		ULinkerLoad* Linker = ProcessingPackage->GetLinker();
-		if (Linker == NULL)
+		auto Linker = ProcessingPackage->GetLinker();
+		if (!Linker)
 		{
 			// Create a new linker object which goes off and tries load the file.
 			Linker = GetPackageLinker(NULL, *(ProcessingPackage->GetName()), LOAD_None, NULL, NULL );
 		}
-		if (Linker != NULL)
+		if (Linker)
 		{
 			for (int32 ImportIdx = 0; ImportIdx < Linker->ImportMap.Num(); ImportIdx++)
 			{
@@ -5062,13 +5144,13 @@ void ListMapPackageDependencies(const TCHAR* InStr)
 			UPackage* RefdPackage = LoadPackage(NULL, *RefdPkgName, LOAD_None);
 			if (RefdPackage != NULL)
 			{
-				ULinkerLoad* Linker = RefdPackage->GetLinker();
-				if (Linker == NULL)
+				auto Linker = RefdPackage->GetLinker();
+				if (!Linker)
 				{
 					// Create a new linker object which goes off and tries load the file.
 					Linker = GetPackageLinker(NULL, *RefdPkgName,  LOAD_None, NULL, NULL );
 				}
-				if (Linker != NULL)
+				if (Linker)
 				{
 					for (int32 ExportIdx = 0; ExportIdx < Linker->ExportMap.Num(); ExportIdx++)
 					{
@@ -5135,7 +5217,7 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	}
 	else if( FParse::Command(&Str,TEXT("EDCALLBACK")) )
 	{
-		HandleCallbackCommand( Str, Ar );
+		HandleCallbackCommand( InWorld, Str, Ar );
 	}
 	else if(FParse::Command(&Str,TEXT("STATICMESH")))
 	{
@@ -5429,10 +5511,6 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	{		
 		bProcessed = HandleCleanBSPMaterialCommand( Str, Ar, InWorld );
 	}
-	else if( FParse::Command(&Str,TEXT("CREATESMFROMBSP")) )
-	{
-		bProcessed = HandleCreateMeshFromBSPCommand( Str, Ar );
-	}
 	else if( FParse::Command(&Str,TEXT("AUTOMERGESM")) )
 	{		
 		bProcessed = HandleAutoMergeStaticMeshCommand( Str, Ar );
@@ -5486,7 +5564,7 @@ bool UEditorEngine::HandleBlueprintifyFunction( const TCHAR* Str , FOutputDevice
 	
 }
 
-bool UEditorEngine::HandleCallbackCommand( const TCHAR* Str , FOutputDevice& Ar )
+bool UEditorEngine::HandleCallbackCommand( UWorld* InWorld, const TCHAR* Str , FOutputDevice& Ar )
 {
 	bool bResult = true;
 	if ( FParse::Command(&Str,TEXT("SELECTEDPROPS")) )
@@ -5495,7 +5573,7 @@ bool UEditorEngine::HandleCallbackCommand( const TCHAR* Str , FOutputDevice& Ar 
 	}
 	else if( FParse::Command( &Str, TEXT( "FITTEXTURETOSURFACE" ) ) )
 	{
-		FEditorDelegates::FitTextureToSurface.Broadcast();
+		FEditorDelegates::FitTextureToSurface.Broadcast(InWorld);
 	}
 	else
 	{
@@ -5510,11 +5588,11 @@ bool UEditorEngine::HandleTestPropsCommand( const TCHAR* Str, FOutputDevice& Ar 
 	UClass* Class = NULL;
 	if( ParseObject<UClass>( Str, TEXT("CLASS="), Class, ANY_PACKAGE ) != false )
 	{ 
-		Object = ConstructObject<UObject>( Class );
+		Object = NewObject<UObject>(GetTransientPackage(), Class);
 	}
 	else
 	{
-		Object = ConstructObject<UPropertyEditorTestObject>( UPropertyEditorTestObject::StaticClass() );
+		Object = NewObject<UPropertyEditorTestObject>();
 	}
 
 	TSharedRef<SWindow> Window = SNew(SWindow)
@@ -5552,7 +5630,7 @@ bool UEditorEngine::HandleTestPropsCommand( const TCHAR* Str, FOutputDevice& Ar 
 
 		for (int Count = 0; Count < 50; Count++)
 		{
-			Objects.Add( ConstructObject<UPropertyEditorTestObject>( UPropertyEditorTestObject::StaticClass() ) );
+			Objects.Add(NewObject<UPropertyEditorTestObject>());
 		}
 
 		Table->SetObjects( Objects );
@@ -5649,6 +5727,7 @@ bool UEditorEngine::HandleMapCommand( const TCHAR* Str, FOutputDevice& Ar, UWorl
 	else if (FParse::Command (&Str,TEXT("CHECK")))
 	{
 		EMapCheckNotification::Type Notification = EMapCheckNotification::DisplayResults;
+		bool bClearLog = true;
 		if(FParse::Command(&Str,TEXT("DONTDISPLAYDIALOG")))
 		{
 			Notification = EMapCheckNotification::DontDisplayResults;
@@ -5657,11 +5736,16 @@ bool UEditorEngine::HandleMapCommand( const TCHAR* Str, FOutputDevice& Ar, UWorl
 		{
 			Notification = EMapCheckNotification::NotifyOfResults;
 		}
-		return Map_Check( InWorld, Str, Ar, false, Notification );
+		if (FParse::Command(&Str, TEXT("NOCLEARLOG")))
+		{
+			bClearLog = false;
+		}
+		return Map_Check(InWorld, Str, Ar, false, Notification, bClearLog);
 	}
 	else if (FParse::Command (&Str,TEXT("CHECKDEP")))
 	{
 		EMapCheckNotification::Type Notification = EMapCheckNotification::DisplayResults;
+		bool bClearLog = true;
 		if(FParse::Command(&Str,TEXT("DONTDISPLAYDIALOG")))
 		{
 			Notification = EMapCheckNotification::DontDisplayResults;
@@ -5670,7 +5754,11 @@ bool UEditorEngine::HandleMapCommand( const TCHAR* Str, FOutputDevice& Ar, UWorl
 		{
 			Notification = EMapCheckNotification::NotifyOfResults;
 		}
-		return Map_Check( InWorld, Str, Ar, true, Notification );
+		if (FParse::Command(&Str, TEXT("NOCLEARLOG")))
+		{
+			bClearLog = false;
+		}
+		return Map_Check(InWorld, Str, Ar, true, Notification, bClearLog);
 	}
 	else if (FParse::Command (&Str,TEXT("SCALE")))
 	{
@@ -5810,7 +5898,7 @@ bool UEditorEngine::HandleSetReplacementCommand( const TCHAR* Str, FOutputDevice
 			// then set it's replacement component
 			if (ClassToReplace == NULL || PrimitiveComponent->IsA(ClassToReplace))
 			{
-				PrimitiveComponent->ReplacementPrimitive = ReplacementComponent;
+				PrimitiveComponent->SetLODParentPrimitive(ReplacementComponent);
 			}
 		}
 	}
@@ -5864,6 +5952,12 @@ bool UEditorEngine::HandleJumpToCommand( const TCHAR* Str, FOutputDevice& Ar )
 
 bool UEditorEngine::HandleBugItGoCommand( const TCHAR* Str, FOutputDevice& Ar )
 {
+	if (PlayWorld)
+	{
+		// in PIE, let the in-game codepath handle it
+		return false;
+	}
+
 	const TCHAR* Stream = Str;
 	FVector Loc;
 	Stream = GetFVECTORSpaceDelimited( Stream, Loc );
@@ -6088,21 +6182,6 @@ bool UEditorEngine::HandleSetDetailModeViewCommand( const TCHAR* Str, FOutputDev
 		static IConsoleVariable* DetailModeCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DetailMode"));
 		check (DetailMode);
 		DetailModeCVar->Set(DetailMode);
-
-		// Reregister all primitive components so the view will respect the new detail mode filter
-		for ( FActorIterator It(InWorld) ; It ; ++It )
-		{
-			AActor* Actor = static_cast<AActor*>( *It );
-			checkSlow( Actor->IsA(AActor::StaticClass()) );
-
-			TInlineComponentArray<UPrimitiveComponent*> Components;
-			Actor->GetComponents(Components);
-
-			for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
-			{
-				Components[ComponentIndex]->MarkRenderStateDirty();
-			}
-		}
 	}
 
 	RedrawLevelEditingViewports( true );
@@ -6116,12 +6195,6 @@ bool UEditorEngine::HandleCleanBSPMaterialCommand( const TCHAR* Str, FOutputDevi
 	const int32 NumRefrencesCleared = CleanBSPMaterials( InWorld, false, true );
 	// Prompt the user that the operation is complete.
 	FMessageDialog::Open( EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "CleanBSPMaterialsReportF", "Cleared {0} BSP material references.  Check log window for further details."), FText::AsNumber(NumRefrencesCleared)) );
-	return true;
-}
-
-bool UEditorEngine::HandleCreateMeshFromBSPCommand( const TCHAR* Str, FOutputDevice& Ar )
-{
-	// TODO_STATICMESH: Remove this command.
 	return true;
 }
 
@@ -6229,27 +6302,6 @@ bool UEditorEngine::HandleRemoveArchtypeFlagCommand( const TCHAR* Str, FOutputDe
 		}
 	}
 	return true;
-}
-
-UClass* UEditorEngine::GetClassFromPairMap( FString ClassName )
-{
-	UClass* ClassToUse = FindObject<UClass>(ANY_PACKAGE,*ClassName);
-	for( int32 i = 0; i < ClassMapPair.Num(); i++ )
-	{
-		const FString& Str = ClassMapPair[i];
-		int32 DelimIdx = Str.Find(TEXT("/"), ESearchCase::CaseSensitive);
-		if( DelimIdx >= 0 )
-		{
-			const FString Key = Str.Left(DelimIdx);
-			const FString Value = Str.Mid(DelimIdx+1);
-			if( FCString::Stricmp( *ClassName, *Key ) == 0 )
-			{
-				ClassToUse = FindObject<UClass>(ANY_PACKAGE,*Value);
-				break;
-			}
-		}
-	}	
-	return ClassToUse;
 }
 
 /**
@@ -6514,4 +6566,44 @@ void UEditorEngine::AutoMergeStaticMeshes()
 		OwnerComponent->StaticMesh->Build();
 	}
 #endif // #if TODO_STATICMESH
+}
+
+void UEditorEngine::MoveViewportCamerasToBox(const FBox& BoundingBox, bool bActiveViewportOnly) const
+{
+	// Make sure we had at least one non-null actor in the array passed in.
+	if (BoundingBox.GetSize() != FVector::ZeroVector)
+	{
+		if (bActiveViewportOnly)
+		{
+			if (GCurrentLevelEditingViewportClient)
+			{
+				GCurrentLevelEditingViewportClient->FocusViewportOnBox(BoundingBox);
+
+				// Update Linked Orthographic viewports.
+				if (GCurrentLevelEditingViewportClient->IsOrtho() && GetDefault<ULevelEditorViewportSettings>()->bUseLinkedOrthographicViewports)
+				{
+					// Search through all viewports
+					for (auto ViewportIt = LevelViewportClients.CreateConstIterator(); ViewportIt; ++ViewportIt)
+					{
+						FLevelEditorViewportClient* LinkedViewportClient = *ViewportIt;
+						// Only update other orthographic viewports
+						if (LinkedViewportClient && LinkedViewportClient != GCurrentLevelEditingViewportClient && LinkedViewportClient->IsOrtho())
+						{
+							LinkedViewportClient->FocusViewportOnBox(BoundingBox);
+						}
+					}
+				}
+			}
+
+		}
+		else
+		{
+			// Update all viewports.
+			for (auto ViewportIt = LevelViewportClients.CreateConstIterator(); ViewportIt; ++ViewportIt)
+			{
+				FLevelEditorViewportClient* LinkedViewportClient = *ViewportIt;
+				LinkedViewportClient->FocusViewportOnBox(BoundingBox);
+			}
+		}
+	}
 }

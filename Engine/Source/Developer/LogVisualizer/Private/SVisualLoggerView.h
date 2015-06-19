@@ -16,7 +16,7 @@ public:
 		SLATE_EVENT(FOnFiltersSearchChanged, OnFiltersSearchChanged)
 	SLATE_END_ARGS();
 
-	void Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList, TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface);
+	void Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList);
 	float GetAnimationOutlinerFillPercentage() const { 
 		SSplitter::FSlot const& LeftSplitterSlot = SearchSplitter->SlotAt(0);
 		SSplitter::FSlot const& RightSplitterSlot = SearchSplitter->SlotAt(1);
@@ -34,16 +34,19 @@ public:
 	void OnFiltersSearchChanged(const FText& Filter);
 	void OnSearchSplitterResized();
 	void OnObjectSelectionChanged(TSharedPtr<class STimeline> TimeLine);
+	void OnChangedClassesFilter();
 
 	void GetTimelines(TArray<TSharedPtr<class STimeline> >&, bool bOnlySelectedOnes = false);
 	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const override;
+	TSharedRef<SWidget> MakeClassesFilterMenu();
+	void ResetData();
 
 protected:
-	TSharedPtr<struct IVisualLoggerInterface> VisualLoggerInterface;
 	TSharedPtr<class STimelinesContainer> TimelinesContainer;
 	TSharedPtr<class SSplitter> SearchSplitter;
 	TSharedPtr<class SScrollBox> ScrollBox;
 	TSharedPtr<class SSearchBox> SearchBox;
+	TSharedPtr<class SComboButton> ClassesComboButton;
 
 	FVisualLoggerEvents	VisualLoggerEvents;
 	float AnimationOutlinerFillPercentage;

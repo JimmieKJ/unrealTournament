@@ -58,7 +58,7 @@ bool UMovieSceneDirectorTrack::IsEmpty() const
 
 void UMovieSceneDirectorTrack::AddNewShot(FGuid CameraHandle, float Time)
 {
-	UMovieSceneShotSection* NewSection = ConstructObject<UMovieSceneShotSection>( UMovieSceneShotSection::StaticClass(), this );
+	UMovieSceneShotSection* NewSection = NewObject<UMovieSceneShotSection>(this);
 	NewSection->InitialPlacement(ShotSections, Time, Time + 1.f, SupportsMultipleRows()); //@todo find a better default end time
 	NewSection->SetCameraGuid(CameraHandle);
 	NewSection->SetTitle(LOCTEXT("AddNewShot", "New Shot"));

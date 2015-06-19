@@ -152,7 +152,9 @@ id<MTLRenderCommandEncoder> FMetalManager::GetContext()
 
 id<MTLComputeCommandEncoder> FMetalManager::GetComputeContext()
 {
-	return FMetalManager::Get()->CurrentComputeContext;
+	id<MTLComputeCommandEncoder> Encoder = FMetalManager::Get()->CurrentComputeContext;
+	checkf(Encoder != nil, TEXT("Attempted to use GetComputeContext before calling FMetalManager::ConditionalSwitchToCompute() to create the encoder"));
+	return Encoder;
 }
 
 void FMetalManager::ReleaseObject(id Object)
@@ -186,19 +188,21 @@ FMetalManager::FMetalManager()
 		CurrentColorRenderTextures[Index] = nil;
 		PreviousColorRenderTextures[Index] = nil;
 	}
-	FMemory::MemSet(CurrentRenderTargetsViewInfo, 0);
-	FMemory::MemSet(PreviousRenderTargetsViewInfo, 0);
-	FMemory::MemSet(CurrentDepthViewInfo, 0);
-	FMemory::MemSet(PreviousDepthViewInfo, 0);
-	FMemory::MemSet(CurrentStencilViewInfo, 0);
-	FMemory::MemSet(PreviousStencilViewInfo, 0);
+	FMemory::Memzero(CurrentRenderTargetsViewInfo);
+	FMemory::Memzero(PreviousRenderTargetsViewInfo);
+	FMemory::Memzero(CurrentDepthViewInfo);
+	FMemory::Memzero(PreviousDepthViewInfo);
+	FMemory::Memzero(CurrentStencilViewInfo);
+	FMemory::Memzero(PreviousStencilViewInfo);
 
 	CommandQueue = [Device newCommandQueue];
 
 	// get the size of the window
 	CGRect ViewFrame = [[IOSAppDelegate GetDelegate].IOSView frame];
 	FRHIResourceCreateInfo CreateInfo;
-	BackBuffer = (FMetalTexture2D*)(FTexture2DRHIParamRef)RHICreateTexture2D(ViewFrame.size.width, ViewFrame.size.height, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable | TexCreate_Presentable, CreateInfo);
+
+	float ScalingFactor = [[IOSAppDelegate GetDelegate].IOSView contentScaleFactor];
+	BackBuffer = (FMetalTexture2D*)(FTexture2DRHIParamRef)RHICreateTexture2D(ViewFrame.size.width*ScalingFactor, ViewFrame.size.height*ScalingFactor, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable | TexCreate_Presentable, CreateInfo);
 
 //@todo-rco: What Size???
 	// make a buffer for each shader type
@@ -215,9 +219,11 @@ FMetalManager::FMetalManager()
 	FrameReadyEvent = NULL;
 	if( FIOSPlatformRHIFramePacer::IsEnabled() )
 	{
-		FrameReadyEvent = FPlatformProcess::CreateSynchEvent();
+		FrameReadyEvent = FPlatformProcess::GetSynchEventFromPool();
 		FIOSPlatformRHIFramePacer::InitWithEvent( FrameReadyEvent );
 	}
+	
+	BoundRenderTargetDimensions = FIntPoint(0,0);
 	
 	InitFrame();
 }
@@ -311,7 +317,7 @@ void FMetalManager::CreateCurrentCommandBuffer(bool bWait)
 	// make a new event if we don't have enough
 	if (CurrentQueryEventIndex >= QueryEvents[WhichFreeList].Num())
 	{
-		LocalEvent = FPlatformProcess::CreateSynchEvent(true);
+		LocalEvent = FPlatformProcess::GetSynchEventFromPool(true);
 		CurrentQueryEventIndex = QueryEvents[WhichFreeList].Add(LocalEvent);
 	}
 	// otherwise, reuse an old one
@@ -358,38 +364,24 @@ void FMetalManager::SubmitCommandBufferAndWait()
 
 void FMetalManager::SubmitComputeCommandBufferAndWait()
 {
-	[CurrentCommandBuffer addCompletedHandler : ^ (id <MTLCommandBuffer> Buffer)
-	{
-		dispatch_semaphore_signal(CommandBufferSemaphore);
-	}];
-
-	// commit the compute context to the commandBuffer
-	[CurrentComputeContext endEncoding];
-	[CurrentComputeContext release];
-	CurrentComputeContext = nil;
-
-	// kick the whole buffer
-	// Commit to hand the commandbuffer off to the gpu
-	[CurrentCommandBuffer commit];
-
-	// wait for the gpu to finish executing our commands.
-	[CurrentCommandBuffer waitUntilCompleted];
-
-	//once a commandbuffer is commited it can't be added to again.
-	UNTRACK_OBJECT(CurrentCommandBuffer);
-	[CurrentCommandBuffer release];
-
-	// create a new command buffer.
-	CreateCurrentCommandBuffer(true);
 }
 
 void FMetalManager::EndFrame(bool bPresent)
 {
 //	NSLog(@"There were %d draw calls for final RT in frame %lld", NumDrawCalls, GFrameCounter);
 	// commit the render context to the commandBuffer
-	[CurrentContext endEncoding];
-	[CurrentContext release];
-	CurrentContext = nil;
+	if (CurrentContext)
+	{
+		[CurrentContext endEncoding];
+		[CurrentContext release];
+		CurrentContext = nil;
+	}
+	if (CurrentComputeContext)
+	{
+		[CurrentComputeContext endEncoding];
+		[CurrentComputeContext release];
+		CurrentComputeContext = nil;
+	}
 
 	// kick the whole buffer
 	[CurrentCommandBuffer addCompletedHandler : ^ (id <MTLCommandBuffer> Buffer)
@@ -599,15 +591,42 @@ bool FMetalManager::NeedsToSetRenderTarget(const FRHISetRenderTargetsInfo& Rende
 
 void FMetalManager::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderTargetsInfo)
 {
+	ConditionalSwitchToGraphics();
+	
 	// see if our new Info matches our previous Info
 	if (NeedsToSetRenderTarget(RenderTargetsInfo) == false)
 	{
 		return;
 	}
 
+	// commit pending commands on the old render target
+	if (CurrentContext)
+	{
+#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
+		//		if (NumDrawCalls == 0)
+		//		{
+		//			NSLog(@"There were %d draw calls for an RT in frame %lld", NumDrawCalls, GFrameCounter);
+		//		}
+#endif
+        
+		// Check if CurrentCommandBuffer was rendering to the BackBuffer.
+		if( PreviousRenderTargetsInfo.NumColorRenderTargets == 1 )
+		{
+			const FRHIRenderTargetView& RenderTargetView = PreviousRenderTargetsInfo.ColorRenderTarget[0];
+			FMetalSurface& Surface = *GetMetalSurfaceFromRHITexture(RenderTargetView.Texture);
+			if(&Surface == &BackBuffer->Surface && CurrentDrawable != nil)
+			{
+                // release our record of it to ensure we are allocated a new drawable.
+				CurrentDrawable = nil;
+				BackBuffer->Surface.Texture = nil;
+			}
+		}
+	}
+	
 	// back this up for next frame
 	PreviousRenderTargetsInfo = RenderTargetsInfo;
 
+	FIntPoint MaxDimensions(TNumericLimits<decltype(FIntPoint::X)>::Max(),TNumericLimits<decltype(FIntPoint::Y)>::Max());
 	// at this point, we need to fully set up an encoder/command buffer, so make a new one (autoreleased)
 	MTLRenderPassDescriptor* RenderPass = [MTLRenderPassDescriptor renderPassDescriptor];
 
@@ -629,6 +648,9 @@ void FMetalManager::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 			FMetalSurface& Surface = *GetMetalSurfaceFromRHITexture(RenderTargetView.Texture);
 			FormatKey = Surface.FormatKey;
 		
+			MaxDimensions.X = FMath::Min((uint32)MaxDimensions.X, Surface.SizeX);
+			MaxDimensions.Y = FMath::Min((uint32)MaxDimensions.Y, Surface.SizeY);
+
 			// if this is the back buffer, make sure we have a usable drawable
 			ConditionalUpdateBackBuffer(Surface);
             
@@ -695,6 +717,9 @@ void FMetalManager::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 	if (RenderTargetsInfo.DepthStencilRenderTarget.Texture != nullptr)
 	{
 		FMetalSurface& Surface= *GetMetalSurfaceFromRHITexture(RenderTargetsInfo.DepthStencilRenderTarget.Texture);
+		MaxDimensions.X = FMath::Min((uint32)MaxDimensions.X, Surface.SizeX);
+		MaxDimensions.Y = FMath::Min((uint32)MaxDimensions.Y, Surface.SizeY);
+
 		if (Surface.Texture != nil)
 		{
 			MTLRenderPassDepthAttachmentDescriptor* DepthAttachment = [[MTLRenderPassDepthAttachmentDescriptor alloc] init];
@@ -723,7 +748,7 @@ void FMetalManager::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 			// set up the stencil attachment
 			StencilAttachment.texture = Surface.StencilTexture;
 			StencilAttachment.loadAction = GetMetalRTLoadAction(RenderTargetsInfo.DepthStencilRenderTarget.StencilLoadAction);
-			StencilAttachment.storeAction = GetMetalRTStoreAction(RenderTargetsInfo.DepthStencilRenderTarget.StencilStoreAction);
+			StencilAttachment.storeAction = GetMetalRTStoreAction(RenderTargetsInfo.DepthStencilRenderTarget.GetStencilStoreAction());
 			StencilAttachment.clearStencil = RenderTargetsInfo.StencilClearValue;
 
 			Pipeline.StencilTargetFormat = StencilAttachment.texture.pixelFormat;
@@ -738,36 +763,43 @@ void FMetalManager::SetRenderTargetsInfo(const FRHISetRenderTargetsInfo& RenderT
 		}
 	}
 
+	check( MaxDimensions.X != TNumericLimits<decltype(FIntPoint::X)>::Max() &&
+		   MaxDimensions.Y != TNumericLimits<decltype(FIntPoint::Y)>::Max());
+	
+	BoundRenderTargetDimensions = MaxDimensions;
+
 	// update hash for the depth buffer
 	SET_HASH(OFFSET_DEPTH_ENABLED, NUMBITS_DEPTH_ENABLED, (Pipeline.DepthTargetFormat == MTLPixelFormatInvalid ? 0 : 1));
 	SET_HASH(OFFSET_STENCIL_ENABLED, NUMBITS_STENCIL_ENABLED, (Pipeline.StencilTargetFormat == MTLPixelFormatInvalid ? 0 : 1));
 	SET_HASH(OFFSET_SAMPLE_COUNT, NUMBITS_SAMPLE_COUNT, Pipeline.SampleCount);
 
-	// commit pending commands on the old render target
-	if (CurrentContext)
-	{
+    // commit pending commands on the old render target
+    if (CurrentContext)
+    {
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
-//		if (NumDrawCalls == 0)
-//		{
-//			NSLog(@"There were %d draw calls for an RT in frame %lld", NumDrawCalls, GFrameCounter);
-//		}
+        //		if (NumDrawCalls == 0)
+        //		{
+        //			NSLog(@"There were %d draw calls for an RT in frame %lld", NumDrawCalls, GFrameCounter);
+        //		}
 #endif
+        
+        [CurrentContext endEncoding];
+        NumDrawCalls = 0;
+        
+        UNTRACK_OBJECT(CurrentContext);
+        [CurrentContext release];
+        CurrentContext = nil;
+        
+        // commit the buffer for this context
+        [CurrentCommandBuffer commit];
+        UNTRACK_OBJECT(CurrentCommandBuffer);
+        [CurrentCommandBuffer release];
+        
+        // create the command buffer for this frame
+        CreateCurrentCommandBuffer(false);
+    }
 
-		[CurrentContext endEncoding];
-		NumDrawCalls = 0;
-
-		[CurrentContext release];
-
-		// commit the buffer for this context
-		[CurrentCommandBuffer commit];
-		UNTRACK_OBJECT(CurrentCommandBuffer);
-		[CurrentCommandBuffer release];
-
-		// create the command buffer for this frame
-		CreateCurrentCommandBuffer(false);
-	}
-
-	// make a new render context to use to render to the framebuffer
+    // make a new render context to use to render to the framebuffer
 	CurrentContext = [CurrentCommandBuffer renderCommandEncoderWithDescriptor:RenderPass];
 	[CurrentContext retain];
 	TRACK_OBJECT(CurrentContext);
@@ -964,6 +996,56 @@ void FMetalManager::SetRasterizerState(const FRasterizerStateInitializerRHI& Sta
 	bFirstRasterizerState = false;
 }
 
+
+void FMetalManager::ConditionalSwitchToGraphics()
+{
+	// were we in compute mode?
+	if (CurrentComputeContext != nil)
+	{
+		// stop the compute encoding and cleanup up
+		[CurrentComputeContext endEncoding];
+		[CurrentComputeContext release];
+		CurrentComputeContext = nil;
+	
+		// we can't start graphics encoding until a new SetRenderTargetsInfo is called because it needs the whole render pass
+		// we could cache the render pass if we want to support going back to previous render targets
+		// we will catch it by the fact that CurrentContext will be nil until we call SetRenderTargetsInfo
+	}
+}
+
+void FMetalManager::ConditionalSwitchToCompute()
+{
+	// if we were in graphics mode, stop the encoding and start compute
+	if (CurrentContext != nil)
+	{
+		// stop encoding graphics and clean up
+		[CurrentContext endEncoding];
+		[CurrentContext release];
+		CurrentContext = nil;
+		
+		// make sure that the next SetRenderTargetInfos will definitely set a new RT (if we SetRT to X, switched to compute, then back to X,
+		// the code would think it was already set and skip it, so this will make it so the next SetRT is 'different')
+		PreviousRenderTargetsInfo.NumColorRenderTargets = 0;
+
+		// start encoding for compute
+		CurrentComputeContext = [CurrentCommandBuffer computeCommandEncoder];
+		[CurrentComputeContext retain];
+	}
+	
+}
+
+void FMetalManager::SetComputeShader(FMetalComputeShader* InComputeShader)
+{
+	// active compute mode
+	ConditionalSwitchToCompute();
+	
+	// cache this for Dispatch
+	CurrentComputeShader = InComputeShader;
+	
+	// set this compute shader pipeline as the current (this resets all state, so we need to set all resources after calling this)
+	[CurrentComputeContext setComputePipelineState:CurrentComputeShader->Kernel];
+}
+
 void FMetalManager::Dispatch(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ)
 {
 	check(CurrentComputeShader);
@@ -972,6 +1054,23 @@ void FMetalManager::Dispatch(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY,
 	MTLSize Threadgroups = MTLSizeMake(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 	//@todo-rco: setThreadgroupMemoryLength?
 	[CurrentComputeContext dispatchThreadgroups:Threadgroups threadsPerThreadgroup:ThreadgroupCounts];
-	//@todo: Here?
-	SubmitComputeCommandBufferAndWait();
+}
+
+void FMetalManager::ResizeBackBuffer(uint32 InSizeX, uint32 InSizeY)
+{
+	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
+	FIOSView* GLView = AppDelegate.IOSView;
+	[GLView UpdateRenderWidth:InSizeX andHeight:InSizeY];
+	FRHIResourceCreateInfo CreateInfo;
+	BackBuffer = (FMetalTexture2D*)(FTexture2DRHIParamRef)RHICreateTexture2D(InSizeX, InSizeY, PF_B8G8R8A8, 1, 1, TexCreate_RenderTargetable | TexCreate_Presentable, CreateInfo);
+
+	// ensure a new drawable is created when this new backbuffer is used:
+	PreviousRenderTargetsInfo.NumColorRenderTargets = 0;
+	CurrentDrawable = nil;
+	BackBuffer->Surface.Texture = nil;
+	
+	// check the size of the window
+	float ScalingFactor = [[IOSAppDelegate GetDelegate].IOSView contentScaleFactor];
+	CGRect ViewFrame = [[IOSAppDelegate GetDelegate].IOSView frame];
+	check(ScalingFactor * ViewFrame.size.width == InSizeX && ScalingFactor * ViewFrame.size.height == InSizeY);
 }

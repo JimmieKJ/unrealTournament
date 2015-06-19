@@ -88,7 +88,7 @@ struct FTickPrerequisite
 
 		/** Noop constructor **/
 		FTickPrerequisite()
-		: PrerequisiteTickFunction(NULL)
+		: PrerequisiteTickFunction(nullptr)
 		{
 		}
 		/** 
@@ -115,7 +115,7 @@ struct FTickPrerequisite
 			{
 				return PrerequisiteTickFunction;
 			}
-			return NULL;
+			return nullptr;
 		}
 	
 };
@@ -141,6 +141,11 @@ public:
 	UPROPERTY()
 	TEnumAsByte<enum ETickingGroup> TickGroup;
 
+protected:
+	/** Internal data that indicates the tick group we actually executed in (it may have been delayed due to prerequisites) **/
+	TEnumAsByte<enum ETickingGroup> ActualTickGroup;
+
+public:
 	/** Bool indicating that this function should execute even if the game is paused. Pause ticks are very limited in capabilities. **/
 	UPROPERTY(EditDefaultsOnly, Category="Tick", AdvancedDisplay)
 	uint32 bTickEvenWhenPaused:1;
@@ -176,12 +181,8 @@ private:
 	/** Internal data to track if we have finshed visiting this tick function yet this frame **/
 	int32 TickQueuedGFrameCounter;
 
-protected:
-	/** Internal data that indicates the tick group we actually executed in (it may have been delayed due to prerequisites) **/
-	TEnumAsByte<enum ETickingGroup> ActualTickGroup;
-
 private:
-	/** Completion handle for the task that will run this tick. Caution, this is no reset to NULL until an unspecified future time **/
+	/** Completion handle for the task that will run this tick. Caution, this is no reset to nullptr until an unspecified future time **/
 	FGraphEventRef CompletionHandle;
 
 	/** Prerequisites for this tick function **/
@@ -268,14 +269,7 @@ private:
 	 * Queues a tick function for execution from the game thread
 	 * @param TickContext - context to tick in
 	 */
-	void QueueTickFunction(const struct FTickContext& TickContext);
-
-	/**
-	 * Queues a tick function for execution, assuming parallel queuing
-	 * @param TickContext - context to tick in
-	 * @param StackForCycleDetection - stack to detect cycles
-	*/
-	void QueueTickFunctionParallel(const FTickContext& TickContext, TArray<FTickFunction*, TInlineAllocator<4> >& StackForCycleDetection);
+	void QueueTickFunction(class FTickTaskSequencer& TTS, const struct FTickContext& TickContext);
 
 	/** 
 	 * Abstract function actually execute the tick. 
@@ -329,7 +323,7 @@ struct FActorTickFunction : public FTickFunction
 	**/
 	ENGINE_API virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	ENGINE_API virtual FString DiagnosticMessage();
+	ENGINE_API virtual FString DiagnosticMessage() override;
 };
 
 template<>
@@ -361,7 +355,7 @@ struct FActorComponentTickFunction : public FTickFunction
 	**/
 	ENGINE_API virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	ENGINE_API virtual FString DiagnosticMessage();
+	ENGINE_API virtual FString DiagnosticMessage() override;
 };
 
 
@@ -393,7 +387,7 @@ struct FPrimitiveComponentPostPhysicsTickFunction : public FTickFunction
 	**/
 	virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	virtual FString DiagnosticMessage();
+	virtual FString DiagnosticMessage() override;
 };
 
 template<>
@@ -523,6 +517,8 @@ namespace ETravelFailure
 			return TEXT("ServerTravelFailure");
 		case ClientTravelFailure:
 			return TEXT("ClientTravelFailure");
+		case CloudSaveFailure:
+			return TEXT("CloudSaveFailure");
 		}
 		return TEXT("Unknown ETravelFailure error occurred.");
 	}
@@ -615,7 +611,7 @@ struct ENGINE_API FURL
 	// Constructors.
 	/* FURL() prevent default from being generated */
 	explicit FURL( ENoInit ) { }
-	FURL( const TCHAR* Filename=NULL );
+	FURL( const TCHAR* Filename=nullptr );
 	FURL( FURL* Base, const TCHAR* TextURL, ETravelType Type );
 	static void StaticInit();
 	static void StaticExit();
@@ -635,7 +631,7 @@ struct ENGINE_API FURL
 	void LoadURLConfig( const TCHAR* Section, const FString& Filename=GGameIni );
 	void SaveURLConfig( const TCHAR* Section, const TCHAR* Item, const FString& Filename=GGameIni ) const;
 	void AddOption( const TCHAR* Str );
-	void RemoveOption( const TCHAR* Key, const TCHAR* Section = NULL, const FString& Filename = GGameIni);
+	void RemoveOption( const TCHAR* Key, const TCHAR* Section = nullptr, const FString& Filename = GGameIni);
 	FString ToString( bool FullyQualified=0 ) const;
 	ENGINE_API friend FArchive& operator<<( FArchive& Ar, FURL& U );
 
@@ -701,9 +697,9 @@ enum EViewModeIndex
 //	VMI_VertexDensity = 15,
 	VMI_CollisionPawn = 15, 
 	VMI_CollisionVisibility = 16, 
-	VMI_Max,
+	VMI_Max UMETA(Hidden),
 
-	VMI_Unknown = 255,
+	VMI_Unknown = 255 UMETA(Hidden),
 };
 
 

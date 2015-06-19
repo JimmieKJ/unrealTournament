@@ -87,6 +87,8 @@
 #define U_PF_UNKNOWN 0
 /** Windows @internal */
 #define U_PF_WINDOWS 1000
+/** Durango based off windows APIs */
+#define U_PF_DURANGO 1001
 /** MinGW. Windows, calls to Win32 API, but using GNU gcc and binutils. @internal */
 #define U_PF_MINGW 1800
 /**
@@ -140,6 +142,8 @@
 #   define U_PLATFORM U_PF_CYGWIN
 #elif defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
 #   define U_PLATFORM U_PF_WINDOWS
+#elif defined(_DURANGO)
+#	define U_PLATFORM U_PF_DURANGO
 #elif defined(__ANDROID__)
 #   define U_PLATFORM U_PF_ANDROID
     /* Android wchar_t support depends on the API level. */

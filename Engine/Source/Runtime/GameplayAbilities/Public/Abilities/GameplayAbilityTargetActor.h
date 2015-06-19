@@ -24,9 +24,7 @@ class GAMEPLAYABILITIES_API AGameplayAbilityTargetActor : public AActor
 
 public:
 
-	/** Native classes can set this to call StaticGetTargetData to instantly get TargetData, instead of instantiating the GameplayTargetActor and calling StartTargeting. */
-	UPROPERTY()
-	bool StaticTargetFunction;
+	void Destroyed() override;
 
 	/** The TargetData this class produces can be entirely generated on the server. We don't require the client to send us full or partial TargetData (possibly just a 'confirm') */
 	UPROPERTY(EditAnywhere, Category=Advanced)
@@ -36,8 +34,6 @@ public:
 	//UPROPERTY(BlueprintReadOnly, meta=(ExposeOnSpawn=true), Category=Targeting)
 	UPROPERTY(BlueprintReadOnly, meta = (ExposeOnSpawn = true), Replicated, Category = Targeting)
 	FGameplayAbilityTargetingLocationInfo StartLocation;
-
-	virtual FGameplayAbilityTargetDataHandle StaticGetTargetData(UWorld * World, const FGameplayAbilityActorInfo* ActorInfo, FGameplayAbilityActivationInfo ActivationInfo) const;
 	
 	/** Initialize and begin targeting logic  */
 	virtual void StartTargeting(UGameplayAbility* Ability);
@@ -50,8 +46,6 @@ public:
 	/** Outside code is saying 'stop and just give me what you have.' Returns true if the ability accepts this and can be forgotten. */
 	UFUNCTION()
 	virtual void ConfirmTargeting();
-
-	void NotifyPlayerControllerOfRejectedConfirmation();
 
 	/** Outside code is saying 'stop everything and just forget about it' */
 	UFUNCTION()
@@ -72,7 +66,7 @@ public:
 	FAbilityTargetData	TargetDataReadyDelegate;
 	FAbilityTargetData	CanceledDelegate;
 
-	virtual bool IsNetRelevantFor(const APlayerController* RealViewer, const AActor* Viewer, const FVector& SrcLocation) const override;
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Targeting")
 	APlayerController* MasterPC;
@@ -87,17 +81,20 @@ public:
 	AActor* SourceActor;
 
 	/** Parameters for world reticle. Usage of these parameters is dependent on the reticle. */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (ExposeOnSpawn = true), Category = Targeting)
+	UPROPERTY(BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = Targeting)
 	FWorldReticleParameters ReticleParams;
 
 	/** Reticle that will appear on top of acquired targets. Reticles will be spawned/despawned as targets are acquired/lost. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (ExposeOnSpawn = true), Category = Targeting)
 	TSubclassOf<AGameplayAbilityWorldReticle> ReticleClass;		//Using a special class for replication purposes.
 
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Replicated, meta = (ExposeOnSpawn = true), Category = Targeting)
+	UPROPERTY(BlueprintReadWrite, Replicated, meta = (ExposeOnSpawn = true), Category = Targeting)
 	FGameplayTargetDataFilterHandle Filter;
 
 	/** Draw the debug information (if applicable) for this targeting actor. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Replicated, meta = (ExposeOnSpawn = true), Category = Targeting)
 	bool bDebug;
+
+	FDelegateHandle GenericConfirmHandle;
+	FDelegateHandle GenericCancelHandle;
 };

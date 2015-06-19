@@ -21,7 +21,7 @@ FUdpMessageBeacon::FUdpMessageBeacon(FSocket* InSocket, const FGuid& InSocketId,
 	, Socket(InSocket)
 	, Stopping(false)
 {
-	EndpointLeftEvent = FPlatformProcess::CreateSynchEvent();
+	EndpointLeftEvent = FPlatformProcess::GetSynchEventFromPool(false);
 	MulticastAddress = InMulticastEndpoint.ToInternetAddr();
 
 	Thread = FRunnableThread::Create(this, TEXT("FUdpMessageBeacon"), 128 * 1024, TPri_AboveNormal, FPlatformAffinity::GetPoolThreadMask());
@@ -38,7 +38,8 @@ FUdpMessageBeacon::~FUdpMessageBeacon()
 
 	MulticastAddress = nullptr;
 
-	delete EndpointLeftEvent;
+	FPlatformProcess::ReturnSynchEventToPool(EndpointLeftEvent);
+	EndpointLeftEvent = nullptr;
 }
 
 

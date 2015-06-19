@@ -6,3 +6,19 @@ UNamedSlotInterface::UNamedSlotInterface(const FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 }
+
+bool INamedSlotInterface::ContainsContent(UWidget* Content) const
+{
+	TArray<FName> SlotNames;
+	GetSlotNames(SlotNames);
+
+	for ( const FName& SlotName : SlotNames )
+	{
+		if ( GetContentForSlot(SlotName) == Content )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}

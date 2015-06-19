@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraEditorPrivatePCH.h"
-#include "Engine/NiagaraScript.h"
-#include "Components/NiagaraComponent.h"
+#include "NiagaraScript.h"
+#include "NiagaraComponent.h"
 #include "CompilerResultsLog.h"
 #include "EdGraphUtilities.h"
 #include "VectorVM.h"
@@ -19,8 +19,8 @@ class FNiagaraExpression_VMOperation : public FNiagaraExpression
 public:
 	VectorVM::EOp OpCode;
 
-	FNiagaraExpression_VMOperation(FNiagaraCompiler* Compiler, ENiagaraDataType InType, TArray<TNiagaraExprPtr>& InputExpressions, VectorVM::EOp Op)
-		: FNiagaraExpression(Compiler, InType)
+	FNiagaraExpression_VMOperation(FNiagaraCompiler* Compiler, const FNiagaraVariableInfo& InResult, TArray<TNiagaraExprPtr>& InputExpressions, VectorVM::EOp Op)
+		: FNiagaraExpression(Compiler, InResult)
 		, OpCode(Op)
 	{
 		SourceExpressions = InputExpressions;
@@ -70,13 +70,14 @@ public:
 		//Add the bitfield defining whether each source operand comes from a constant or a register.
 		int32 NumOperands = SourceExpressions.Num();
 		check(NumOperands <= 4);
-		VMCompiler->WriteCode(
-			VectorVM::CreateSrcOperandMask(
-			NumOperands > 0 ? VMCompiler->ExpressionIsConstant(GetSourceExpression(0).Get()) : false,
-			NumOperands > 1 ? VMCompiler->ExpressionIsConstant(GetSourceExpression(1).Get()) : false,
-			NumOperands > 2 ? VMCompiler->ExpressionIsConstant(GetSourceExpression(2).Get()) : false,
-			NumOperands > 3 ? VMCompiler->ExpressionIsConstant(GetSourceExpression(3).Get()) : false)
-			);
+
+
+		uint8 OpTypeMask = VectorVM::CreateSrcOperandMask(NumOperands > 0 ? VMCompiler->GetVMOperandType(GetSourceExpression(0).Get()) : VectorVM::RegisterOperandType,
+			NumOperands > 1 ? VMCompiler->GetVMOperandType(GetSourceExpression(1).Get()) : VectorVM::RegisterOperandType,
+			NumOperands > 2 ? VMCompiler->GetVMOperandType(GetSourceExpression(2).Get()) : VectorVM::RegisterOperandType,
+			NumOperands > 3 ? VMCompiler->GetVMOperandType(GetSourceExpression(3).Get()) : VectorVM::RegisterOperandType);
+		VMCompiler->WriteCode(OpTypeMask);
+
 
 		//Add the locations for each of the source operands.
 		for (int32 SrcIdx = 0; SrcIdx < SourceExpressions.Num(); ++SrcIdx)
@@ -91,22 +92,19 @@ class FNiagaraExpression_VMOutput : public FNiagaraExpression
 {
 public:
 
-	FNiagaraExpression_VMOutput(class FNiagaraCompiler* InCompiler, ENiagaraDataType InType, FName InName, TNiagaraExprPtr& InSourceExpression)
-		: FNiagaraExpression(InCompiler, InType)
-		, AttributeName(InName)
+	FNiagaraExpression_VMOutput(class FNiagaraCompiler* InCompiler, const FNiagaraVariableInfo& InAttribute, TNiagaraExprPtr& InSourceExpression)
+		: FNiagaraExpression(InCompiler, InAttribute)
 	{
 		ResultLocation = ENiagaraExpressionResultLocation::OutputData;
 		SourceExpressions.Add(InSourceExpression);
 		check(SourceExpressions.Num() == 1);
 	}
 
-	FName AttributeName;
-
 	virtual void Process()override
 	{
 		FNiagaraCompiler_VectorVM* VMCompiler = (FNiagaraCompiler_VectorVM*)Compiler;
 		check(ResultLocation == ENiagaraExpressionResultLocation::OutputData);
-		ResultIndex = VMCompiler->GetAttributeIndex(AttributeName);
+		ResultIndex = VMCompiler->GetAttributeIndex(Result);
 		
 		FNiagaraExpression* SrcExpr = GetSourceExpression(0).Get();
 		check(SourceExpressions.Num() == 1);
@@ -116,7 +114,7 @@ public:
 
 		VMCompiler->WriteCode((uint8)VectorVM::EOp::output);
 		VMCompiler->WriteCode(DestIndex);
-		VMCompiler->WriteCode(VectorVM::CreateSrcOperandMask(VMCompiler->ExpressionIsConstant(SrcExpr)));
+		VMCompiler->WriteCode(VectorVM::CreateSrcOperandMask( VMCompiler->GetVMOperandType(SrcExpr) ) );
 		VMCompiler->WriteCode(SrcIndex);
 	}
 };
@@ -124,6 +122,18 @@ public:
 bool FNiagaraCompiler_VectorVM::ExpressionIsConstant(FNiagaraExpression*  Expression)
 {
 	return Expression->ResultLocation == ENiagaraExpressionResultLocation::Constants;
+}
+
+bool FNiagaraCompiler_VectorVM::ExpressionIsBufferConstant(FNiagaraExpression*  Expression)
+{
+	return Expression->ResultLocation == ENiagaraExpressionResultLocation::BufferConstants;
+}
+
+VectorVM::EOperandType FNiagaraCompiler_VectorVM::GetVMOperandType(FNiagaraExpression *Expression)
+{
+	return Expression->ResultLocation == ENiagaraExpressionResultLocation::Constants ? VectorVM::ConstantOperandType :
+		Expression->ResultLocation == ENiagaraExpressionResultLocation::BufferConstants ? VectorVM::DataObjConstantOperandType :
+		VectorVM::RegisterOperandType;
 }
 
 uint8 FNiagaraCompiler_VectorVM::GetResultVMIndex(FNiagaraExpression* Expression)
@@ -138,14 +148,20 @@ uint8 FNiagaraCompiler_VectorVM::GetResultVMIndex(FNiagaraExpression* Expression
 	}
 	else
 	{
+		if (Expression->ResultLocation == ENiagaraExpressionResultLocation::BufferConstants)
+		{
+			return Expression->ResultIndex; //TempRegister or Constant.
+		}
+
 		return Expression->ResultIndex;//TempRegister or Constant.
 	}
 }
 
-void FNiagaraCompiler_VectorVM::GetConstantResultIndex(FName Name, bool bInternal, int32& OutResultIndex, int32& OutComponentIndex)
+ENiagaraDataType FNiagaraCompiler_VectorVM::GetConstantResultIndex(const FNiagaraVariableInfo& Constant, bool bInternal, int32& OutResultIndex, int32& OutComponentIndex)
 {
 	ENiagaraDataType Type;
-	ConstantData.GetTableIndex(Name, bInternal, OutResultIndex, OutComponentIndex, Type);
+	ConstantData.GetTableIndex(Constant, bInternal, OutResultIndex, OutComponentIndex, Type);
+	return Type;
 }
 
 int32 FNiagaraCompiler_VectorVM::AquireTemporary()
@@ -167,9 +183,9 @@ void FNiagaraCompiler_VectorVM::WriteCode(uint8 InCode)
 	Script->ByteCode.Add(InCode);
 }
 
-TNiagaraExprPtr FNiagaraCompiler_VectorVM::Output(FName OutputName, TNiagaraExprPtr& SourceExpression)
+TNiagaraExprPtr FNiagaraCompiler_VectorVM::Output(const FNiagaraVariableInfo& Attr, TNiagaraExprPtr& SourceExpression)
 {
-	int32 Index = Expressions.Add(MakeShareable(new FNiagaraExpression_VMOutput(this, ENiagaraDataType::Vector, OutputName, SourceExpression)));
+	int32 Index = Expressions.Add(MakeShareable(new FNiagaraExpression_VMOutput(this, Attr, SourceExpression)));
 	return Expressions[Index];
 }
 
@@ -182,31 +198,26 @@ void FNiagaraCompiler_VectorVM::CompileScript(UNiagaraScript* InScript)
 	Script = InScript;
 	Source = CastChecked<UNiagaraScriptSource>(InScript->Source);
 
+	//Should we roll our own message/error log and put it in a window somewhere?
+	MessageLog.SetSourceName(InScript->GetPathName());
+
 	// Clone the source graph so we can modify it as needed; merging in the child graphs
-	UEdGraph* UpdateGraph = FEdGraphUtilities::CloneGraph(Source->UpdateGraph, Source, &MessageLog, true);
-	FEdGraphUtilities::MergeChildrenGraphsIn(UpdateGraph, UpdateGraph, /*bRequireSchemaMatch=*/ true);
+	SourceGraph = CastChecked<UNiagaraGraph>(FEdGraphUtilities::CloneGraph(Source->NodeGraph, NULL, &MessageLog));
+	FEdGraphUtilities::MergeChildrenGraphsIn(SourceGraph, SourceGraph, /*bRequireSchemaMatch=*/ true);
+
+	if (!MergeInFunctionNodes())
+	{ 
+		//TODO: Insert a good error reporting and compile failure system.
+		InScript->Attributes.Empty();
+		InScript->ByteCode.Empty();
+		InScript->ConstantData.Empty();
+		return;
+	}
 
 	TempRegisters.AddZeroed(VectorVM::NumTempRegisters);
 
 	// Find the output node.
-	UNiagaraNodeOutputUpdate* OutputNode = NULL;
-	{
-		TArray<UNiagaraNodeOutputUpdate*> OutputNodes;
-		Source->UpdateGraph->GetNodesOfClass(OutputNodes);
-		if (OutputNodes.Num() != 1)
-		{
-			UE_LOG(LogNiagaraCompiler_VectorVM, Error, TEXT("Script contains %s output nodes: %s"),
-				OutputNodes.Num() == 0 ? TEXT("no") : TEXT("too many"),
-				*InScript->GetPathName()
-				);
-			return;
-		}
-		OutputNode = OutputNodes[0];
-	}
-	check(OutputNode);
-
-	//Todo - Replace with attributes defined by an Emitter object.
-	Source->GetParticleAttributes(Attributes);
+	UNiagaraNodeOutput* OutputNode = SourceGraph->FindOutputNode();
 
 	TArray<FNiagaraNodeResult> OutputExpressions;
 	OutputNode->Compile(this, OutputExpressions);
@@ -238,13 +249,13 @@ void FNiagaraCompiler_VectorVM::CompileScript(UNiagaraScript* InScript)
 	Script->ByteCode.Add((int8)VectorVM::EOp::done);
 
 	Script->ConstantData = ConstantData;
-	Script->Attributes = Attributes;
-	//To do - scalar and matrix attributes.
+	Script->Attributes = OutputNode->Outputs;
 }
 
 TNiagaraExprPtr FNiagaraCompiler_VectorVM::Expression_VMNative(VectorVM::EOp Op, TArray<TNiagaraExprPtr>& InputExpressions)
 {
-	int32 Index = Expressions.Add(MakeShareable(new FNiagaraExpression_VMOperation(this, ENiagaraDataType::Vector, InputExpressions, Op)));
+	static const FName OpName(TEXT("VMOp"));
+	int32 Index = Expressions.Add(MakeShareable(new FNiagaraExpression_VMOperation(this, FNiagaraVariableInfo(OpName, ENiagaraDataType::Vector), InputExpressions, Op)));
 	return Expressions[Index];
 }
 
@@ -476,7 +487,7 @@ void FNiagaraCompiler_VectorVM::Matrix_Internal(TArray<TNiagaraExprPtr>& InputEx
 {
 	//Just collect the matrix rows into an expression for what ever use subsequent expressions have.
 	TNiagaraExprPtr MatrixExpr = Expression_Collection(InputExpressions);
-	MatrixExpr->ResultType = ENiagaraDataType::Matrix;
+	MatrixExpr->Result.Type = ENiagaraDataType::Matrix;
 	OutputExpressions.Add(MatrixExpr);
 }
 
@@ -593,5 +604,33 @@ void FNiagaraCompiler_VectorVM::LessThan_Internal(TArray<TNiagaraExprPtr>& Input
 {
 	OutputExpressions.Add(Expression_VMNative(VectorVM::EOp::lessthan, InputExpressions));
 }
+
+
+void FNiagaraCompiler_VectorVM::Sample_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
+{
+	OutputExpressions.Add(Expression_VMNative(VectorVM::EOp::sample, InputExpressions));
+}
+
+void FNiagaraCompiler_VectorVM::Write_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
+{
+	OutputExpressions.Add(Expression_VMNative(VectorVM::EOp::bufferwrite, InputExpressions));
+}
+
+void FNiagaraCompiler_VectorVM::EventBroadcast_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
+{
+	OutputExpressions.Add(Expression_VMNative(VectorVM::EOp::eventbroadcast, InputExpressions));
+}
+
+void FNiagaraCompiler_VectorVM::EaseIn_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
+{
+	OutputExpressions.Add(Expression_VMNative(VectorVM::EOp::easein, InputExpressions));
+}
+
+
+void FNiagaraCompiler_VectorVM::EaseInOut_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
+{
+	OutputExpressions.Add(Expression_VMNative(VectorVM::EOp::easeinout, InputExpressions));
+}
+
 
 #undef LOCTEXT_NAMESPACE

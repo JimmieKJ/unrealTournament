@@ -39,11 +39,14 @@ namespace EColumnSizeMode
 {
 	enum Type
 	{
-		/** Column stretches to a fractional of the header row */
+		/** Column stretches to a fraction of the header row */
 		Fill = 0,
 		
 		/**	Column is fixed width and cannot be resized */
 		Fixed = 1,
+
+		/** Column is set to a width which can be user-sized */
+		Manual = 2,
 	};
 };
 
@@ -82,8 +85,10 @@ public:
 		HACK_SLATE_SLOT_ARGS(FColumn)
 			: _ColumnId()
 			, _DefaultLabel()
+			, _DefaultTooltip()
 			, _FillWidth( 1.0f )
 			, _FixedWidth()
+			, _ManualWidth()
 			, _OnWidthChanged()
 			, _HeaderContent()
 			, _HAlignHeader( HAlign_Fill )
@@ -98,8 +103,10 @@ public:
 			{}
 			SLATE_ARGUMENT( FName, ColumnId )
 			SLATE_TEXT_ATTRIBUTE( DefaultLabel )
+			SLATE_TEXT_ATTRIBUTE( DefaultTooltip )
 			SLATE_ATTRIBUTE( float, FillWidth )
 			SLATE_ARGUMENT( TOptional< float >, FixedWidth )
+			SLATE_ATTRIBUTE( float, ManualWidth )
 			SLATE_EVENT( FOnWidthChanged, OnWidthChanged )
 
 			SLATE_DEFAULT_SLOT( FArguments, HeaderContent )
@@ -120,6 +127,7 @@ public:
 		FColumn( const FArguments& InArgs )
 			: ColumnId( InArgs._ColumnId )
 			, DefaultText( InArgs._DefaultLabel )
+			, DefaultTooltip( InArgs._DefaultTooltip )
 			, Width( 1.0f )
 			, DefaultWidth( 1.0f )
 			, OnWidthChanged( InArgs._OnWidthChanged)
@@ -140,6 +148,11 @@ public:
 			{
 				Width = InArgs._FixedWidth.GetValue();
 				SizeRule = EColumnSizeMode::Fixed;
+			}
+			else if ( InArgs._ManualWidth.IsSet() )
+			{
+				Width = InArgs._ManualWidth;
+				SizeRule = EColumnSizeMode::Manual;
 			}
 			else
 			{
@@ -174,6 +187,9 @@ public:
 
 		/** Default text to use if no widget is passed in. */
 		TAttribute< FText > DefaultText;
+
+		/** Default tooltip to use if no widget is passed in */
+		TAttribute< FText > DefaultTooltip;
 
 		/** A column width in Slate Units */
 		TAttribute< float > Width;

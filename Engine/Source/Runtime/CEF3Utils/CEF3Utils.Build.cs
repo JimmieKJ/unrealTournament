@@ -6,8 +6,8 @@ public class CEF3Utils : ModuleRules
 {
 	public CEF3Utils(TargetInfo Target)
 	{
-		PublicIncludePaths.Add("Developer/CEF3Utils/Public");
-		PrivateIncludePaths.Add("Developer/CEF3Utils/Private");
+		PublicIncludePaths.Add("Runtime/CEF3Utils/Public");
+		PrivateIncludePaths.Add("Runtime/CEF3Utils/Private");
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[]

@@ -94,6 +94,7 @@ public:
 	virtual bool Wait(ESocketWaitConditions::Type Condition, FTimespan WaitTime) override;
 	virtual ESocketConnectionState GetConnectionState() override;
 	virtual void GetAddress(FInternetAddr& OutAddr) override;
+	virtual bool GetPeerAddress(FInternetAddr& OutAddr) override;
 	virtual bool SetNonBlocking(bool bIsNonBlocking = true) override;
 	virtual bool SetBroadcast(bool bAllowBroadcast = true) override;
 	virtual bool JoinMulticastGroup(const FInternetAddr& GroupAddress) override;

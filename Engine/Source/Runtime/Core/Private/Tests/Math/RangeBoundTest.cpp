@@ -4,7 +4,7 @@
 #include "AutomationTest.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRangeBoundTest, "Core.Math.RangeBound", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRangeBoundTest, "System.Core.Math.RangeBound", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FRangeBoundTest::RunTest( const FString& Parameters )
 {

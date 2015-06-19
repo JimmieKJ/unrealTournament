@@ -29,6 +29,10 @@ class AIMODULE_API UBTTask_RunEQSQuery : public UBTTask_BlackboardBase
 	UPROPERTY(Category=Node, EditAnywhere)
 	TArray<FEnvNamedValue> QueryParams;
 
+	/** determines which item will be stored (All = only first matching) */
+	UPROPERTY(Category = Node, EditAnywhere)
+	TEnumAsByte<EEnvQueryRunMode::Type> RunMode;
+
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 

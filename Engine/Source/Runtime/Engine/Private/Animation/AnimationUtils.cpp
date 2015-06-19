@@ -10,6 +10,7 @@
 #include "Animation/AnimCompress_LeastDestructive.h"
 #include "Animation/AnimCompress_RemoveEverySecondKey.h"
 #include "Animation/AnimSet.h"
+#include "Animation/AnimationSettings.h"
 #include "AnimationUtils.h"
 #include "AnimationCompression.h"
 #include "AnimEncoding.h"
@@ -37,8 +38,7 @@ void FAnimationUtils::BuildSkeletonMetaData(USkeleton* Skeleton, TArray<FBoneDat
 	OutBoneData.Empty();
 	OutBoneData.AddZeroed( NumBones );
 
-	TArray<FString> KeyEndEffectorsMatchNameArray;
-	GConfig->GetArray( TEXT("AnimationCompression"), TEXT("KeyEndEffectorsMatchName"), KeyEndEffectorsMatchNameArray, GEngineIni );
+	const TArray<FString>& KeyEndEffectorsMatchNameArray = UAnimationSettings::Get()->KeyEndEffectorsMatchNameArray;
 
 	for (int32 BoneIndex = 0 ; BoneIndex<NumBones; ++BoneIndex )
 	{
@@ -367,41 +367,22 @@ namespace {
 static inline UAnimCompress* ConstructDefaultCompressionAlgorithm()
 {
 	// Algorithm.
-	FString DefaultCompressionAlgorithm( UAnimCompress_BitwiseCompressOnly::StaticClass()->GetName() );
-	GConfig->GetString( TEXT("AnimationCompression"), TEXT("DefaultCompressionAlgorithm"), DefaultCompressionAlgorithm, GEngineIni );
+	const UAnimationSettings* AnimSettings = UAnimationSettings::Get();
 
 	// Rotation compression format.
-	AnimationCompressionFormat RotationCompressionFormat = ACF_Float96NoW;
-	GConfig->GetInt( TEXT("AnimationCompression"), TEXT("RotationCompressionFormat"), (int32&)RotationCompressionFormat, GEngineIni );
-	RotationCompressionFormat = FMath::Clamp( RotationCompressionFormat, ACF_None, (AnimationCompressionFormat)(ACF_MAX-1) );
-
+	AnimationCompressionFormat RotationCompressionFormat = AnimSettings->RotationCompressionFormat;
 	// Translation compression format.
-	AnimationCompressionFormat TranslationCompressionFormat = ACF_None;
-	GConfig->GetInt( TEXT("AnimationCompression"), TEXT("TranslationCompressionFormat"), (int32&)TranslationCompressionFormat, GEngineIni );
-	TranslationCompressionFormat = FMath::Clamp( TranslationCompressionFormat, ACF_None, (AnimationCompressionFormat)(ACF_MAX-1) );
+	AnimationCompressionFormat TranslationCompressionFormat = AnimSettings->TranslationCompressionFormat;
 
-	// Find a class that inherits
-	UClass* CompressionAlgorithmClass = NULL;
-	for ( TObjectIterator<UClass> It ; It ; ++It )
-	{
-		UClass* Class = *It;
-		if( !Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated) )
-		{
-			if ( Class->IsChildOf(UAnimCompress::StaticClass()) && DefaultCompressionAlgorithm == Class->GetName() )
-			{
-				CompressionAlgorithmClass = Class;
-				break;
-
-			}
-		}
-	}
-
+	UClass* CompressionAlgorithmClass = AnimSettings->DefaultCompressionAlgorithm;
 	if ( !CompressionAlgorithmClass )
 	{
-		UE_LOG(LogAnimation, Fatal, TEXT("Couldn't find animation compression algorithm named %s"), *DefaultCompressionAlgorithm );
+		// if can't find back out to bitwise
+		CompressionAlgorithmClass = UAnimCompress_BitwiseCompressOnly::StaticClass();
+		UE_LOG(LogAnimation, Warning, TEXT("Couldn't find animation compression, default to AnimCompress_BitwiseCompressOnly") );
 	}
 
-	UAnimCompress* NewAlgorithm = ConstructObject<UAnimCompress>( CompressionAlgorithmClass );
+	UAnimCompress* NewAlgorithm = NewObject<UAnimCompress>(GetTransientPackage(), CompressionAlgorithmClass);
 	NewAlgorithm->RotationCompressionFormat = RotationCompressionFormat;
 	NewAlgorithm->TranslationCompressionFormat = TranslationCompressionFormat;
 	NewAlgorithm->AddToRoot();
@@ -430,10 +411,7 @@ UAnimCompress* FAnimationUtils::GetDefaultAnimationCompressionAlgorithm()
 float FAnimationUtils::GetAlternativeCompressionThreshold()
 {
 	// Allow the Engine INI file to provide a new override
-	float AlternativeCompressionThreshold = 0.0f;
-	GConfig->GetFloat( TEXT("AnimationCompression"), TEXT("AlternativeCompressionThreshold"), (float&)AlternativeCompressionThreshold, GEngineIni );
-
-	return AlternativeCompressionThreshold;
+	return UAnimationSettings::Get()->AlternativeCompressionThreshold;
 }
 
 /**
@@ -571,35 +549,27 @@ void FAnimationUtils::CompressAnimSequence(UAnimSequence* AnimSeq,  bool bAllowA
 		// get the master tolerance we will use to guide recompression
 		float MasterTolerance = GetAlternativeCompressionThreshold(); 
 
-		bool bOnlyCheckForMissingSkeletalMeshes = false;
-		GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bOnlyCheckForMissingSkeletalMeshes"), (bool&)bOnlyCheckForMissingSkeletalMeshes, GEngineIni );
-
+		bool bOnlyCheckForMissingSkeletalMeshes = UAnimationSettings::Get()->bOnlyCheckForMissingSkeletalMeshes;
 		if (bOnlyCheckForMissingSkeletalMeshes)
 		{
 			TestForMissingMeshes(AnimSeq);
 		}
 		else
 		{
-			bool bForceBelowThreshold = false;
-			bool bFirstRecompressUsingCurrentOrDefault = true;
-			bool bRaiseMaxErrorToExisting = false;
-			GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bForceBelowThreshold"), (bool&)bForceBelowThreshold, GEngineIni );
-			GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bFirstRecompressUsingCurrentOrDefault"), (bool&)bFirstRecompressUsingCurrentOrDefault, GEngineIni );
+			UAnimationSettings* AnimSetting = UAnimationSettings::Get();
+			bool bForceBelowThreshold = AnimSetting->bForceBelowThreshold;
+			bool bFirstRecompressUsingCurrentOrDefault = AnimSetting->bFirstRecompressUsingCurrentOrDefault;
+			bool bRaiseMaxErrorToExisting = AnimSetting->bRaiseMaxErrorToExisting;
 			// If we don't allow alternate compressors, and just want to recompress with default/existing, then make sure we do so.
 			if( !bAllowAlternateCompressor )
 			{
 				bFirstRecompressUsingCurrentOrDefault = true;
 			}
-			GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bRaiseMaxErrorToExisting"), (bool&)bRaiseMaxErrorToExisting, GEngineIni );
 
-			bool bTryFixedBitwiseCompression = true;
-			bool bTryPerTrackBitwiseCompression = true;
-			bool bTryLinearKeyRemovalCompression = true;
-			bool bTryIntervalKeyRemoval = true;
-			GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bTryFixedBitwiseCompression"), bTryFixedBitwiseCompression, GEngineIni );
-			GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bTryPerTrackBitwiseCompression"), bTryPerTrackBitwiseCompression, GEngineIni );
-			GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bTryLinearKeyRemovalCompression"), bTryLinearKeyRemovalCompression, GEngineIni );
-			GConfig->GetBool( TEXT("AnimationCompression"), TEXT("bTryIntervalKeyRemoval"), bTryIntervalKeyRemoval, GEngineIni );
+			bool bTryFixedBitwiseCompression = AnimSetting->bTryFixedBitwiseCompression;
+			bool bTryPerTrackBitwiseCompression = AnimSetting->bTryPerTrackBitwiseCompression;
+			bool bTryLinearKeyRemovalCompression = AnimSetting->bTryLinearKeyRemovalCompression;
+			bool bTryIntervalKeyRemoval = AnimSetting->bTryIntervalKeyRemoval;
 
 			CompressAnimSequenceExplicit(
 				AnimSeq,
@@ -632,13 +602,13 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 	UAnimSequence* AnimSeq,
 	float MasterTolerance,
 	bool bOutput,
-	bool bFirstRecompressUsingCurrentOrDefault,
-	bool bForceBelowThreshold,
-	bool bRaiseMaxErrorToExisting,
-	bool bTryFixedBitwiseCompression,
-	bool bTryPerTrackBitwiseCompression,
-	bool bTryLinearKeyRemovalCompression,
-	bool bTryIntervalKeyRemoval)
+	const bool bFirstRecompressUsingCurrentOrDefault,
+	const bool bForceBelowThreshold,
+	const bool bRaiseMaxErrorToExisting,
+	const bool bTryFixedBitwiseCompression,
+	const bool bTryPerTrackBitwiseCompression,
+	const bool bTryLinearKeyRemovalCompression,
+	const bool bTryIntervalKeyRemoval)
 {
 #if WITH_EDITORONLY_DATA
 	if( GDisableAnimationRecompression )
@@ -831,7 +801,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				// Progressive Algorithm
 				if( bTryPerTrackBitwiseCompression )
 				{
-					UAnimCompress_PerTrackCompression* PerTrackCompressor = ConstructObject<UAnimCompress_PerTrackCompression>(UAnimCompress_PerTrackCompression::StaticClass());
+					UAnimCompress_PerTrackCompression* PerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 
 					// Start not too aggressive
 					PerTrackCompressor->MaxPosDiffBitwise /= 10.f;
@@ -970,7 +940,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				// Start with Bitwise Compress only
 				if( bTryFixedBitwiseCompression )
 				{
-					UAnimCompress_BitwiseCompressOnly* BitwiseCompressor = ConstructObject<UAnimCompress_BitwiseCompressOnly>( UAnimCompress_BitwiseCompressOnly::StaticClass() );
+					UAnimCompress_BitwiseCompressOnly* BitwiseCompressor = NewObject<UAnimCompress_BitwiseCompressOnly>();
 
 					// Try ACF_Float96NoW
 					BitwiseCompressor->RotationCompressionFormat = ACF_Float96NoW;
@@ -998,7 +968,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				// this compressor has a minimum number of frames requirement. So no need to go there if we don't meet that...
 				if( bTryFixedBitwiseCompression && bTryIntervalKeyRemoval )
 				{
-					UAnimCompress_RemoveEverySecondKey* RemoveEveryOtherKeyCompressor = ConstructObject<UAnimCompress_RemoveEverySecondKey>( UAnimCompress_RemoveEverySecondKey::StaticClass() );
+					UAnimCompress_RemoveEverySecondKey* RemoveEveryOtherKeyCompressor = NewObject<UAnimCompress_RemoveEverySecondKey>();
 					if( AnimSeq->NumFrames > RemoveEveryOtherKeyCompressor->MinKeys )
 					{
 						RemoveEveryOtherKeyCompressor->bStartAtSecondKey = false;
@@ -1053,7 +1023,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				// construct the proposed compressor		
 				if( bTryLinearKeyRemovalCompression && AnimSeq->NumFrames > 1 )
 				{
-					UAnimCompress_RemoveLinearKeys* LinearKeyRemover = ConstructObject<UAnimCompress_RemoveLinearKeys>( UAnimCompress_RemoveLinearKeys::StaticClass() );
+					UAnimCompress_RemoveLinearKeys* LinearKeyRemover = NewObject<UAnimCompress_RemoveLinearKeys>();
 					{
 						// Try ACF_Float96NoW
 						LinearKeyRemover->RotationCompressionFormat = ACF_Float96NoW;
@@ -1080,7 +1050,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 
 				if( bTryPerTrackBitwiseCompression )
 				{
-					UAnimCompress_PerTrackCompression* PerTrackCompressor = ConstructObject<UAnimCompress_PerTrackCompression>(UAnimCompress_PerTrackCompression::StaticClass());
+					UAnimCompress_PerTrackCompression* PerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 
 					// Straight PerTrackCompression, no key decimation and no linear key removal
 					TRYCOMPRESSION(Bitwise_PerTrack, PerTrackCompressor);
@@ -1112,7 +1082,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 
 				if( bTryPerTrackBitwiseCompression )
 				{
-					UAnimCompress_PerTrackCompression* PerTrackCompressor = ConstructObject<UAnimCompress_PerTrackCompression>(UAnimCompress_PerTrackCompression::StaticClass());
+					UAnimCompress_PerTrackCompression* PerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 					PerTrackCompressor->bUseAdaptiveError = true;
 
 					if ( AnimSeq->NumFrames > 1 )
@@ -1145,7 +1115,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 
 				if( bTryPerTrackBitwiseCompression )
 				{
-					UAnimCompress_PerTrackCompression* PerTrackCompressor = ConstructObject<UAnimCompress_PerTrackCompression>(UAnimCompress_PerTrackCompression::StaticClass());
+					UAnimCompress_PerTrackCompression* PerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 					PerTrackCompressor->bUseAdaptiveError = true;
 
 					// Try the decimation algorithms
@@ -1197,7 +1167,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 					// Try the decimation algorithms
 					if (AnimSeq->NumFrames >= 3)
 					{
-						UAnimCompress_PerTrackCompression* NewPerTrackCompressor = ConstructObject<UAnimCompress_PerTrackCompression>(UAnimCompress_PerTrackCompression::StaticClass());
+						UAnimCompress_PerTrackCompression* NewPerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 
 						// Downsampling with linear key removal and adaptive error metrics v2
 						NewPerTrackCompressor->MinKeysForResampling = 3;
@@ -1220,7 +1190,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				if( bTryPerTrackBitwiseCompression)
 				{
 					// Adaptive error through probing the effect of perturbations at each track
-					UAnimCompress_PerTrackCompression* NewPerTrackCompressor = ConstructObject<UAnimCompress_PerTrackCompression>(UAnimCompress_PerTrackCompression::StaticClass());
+					UAnimCompress_PerTrackCompression* NewPerTrackCompressor = NewObject<UAnimCompress_PerTrackCompression>();
 					NewPerTrackCompressor->bUseAdaptiveError2 = true;
 					NewPerTrackCompressor->MaxPosDiffBitwise = 0.05;
 					NewPerTrackCompressor->MaxAngleDiffBitwise = 0.02;
@@ -1247,7 +1217,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 						(*WinningCompressorErrorSum) += WinningCompressorError;
 						AlternativeCompressorSavings += WinningCompressorSavings;
 						*WinningCompressorMarginalSavingsSum += WinningCompressorMarginalSavings;
-						checkf(WinningCompressorSavings == SizeDecrease);
+						check(WinningCompressorSavings == SizeDecrease);
 
 					UE_LOG(LogAnimation, Warning, TEXT("  Recompressing '%s' with compressor '%s' saved %i bytes (%i -> %i -> %i) (max diff=%f)\n"),
 							*AnimSeq->GetName(),

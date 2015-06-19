@@ -1,12 +1,16 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "EdGraph/EdGraphPin.h"
 #include "EdGraph/EdGraphNode.h"
 #include "BlueprintCore.h"
 #include "Blueprint.generated.h"
 
-/** States a blueprint can be in */
+
+/**
+ * Enumerates states a blueprint can be in.
+ */
 UENUM()
 enum EBlueprintStatus
 {
@@ -25,7 +29,10 @@ enum EBlueprintStatus
 	BS_MAX,
 };
 
-/** Types of blueprints */
+
+/**
+ * Enumerates types of blueprints.
+ */
 UENUM()
 enum EBlueprintType
 {
@@ -59,6 +66,7 @@ namespace EKismetCompileType
 	};
 };
 
+
 struct FKismetCompilerOptions
 {
 public:
@@ -73,6 +81,7 @@ public:
 
 	TSharedPtr<FString> OutHeaderSourceCode;
 	TSharedPtr<FString> OutCppSourceCode;
+	FString NewCppClassName;
 
 	bool DoesRequireCppCodeGeneration() const
 	{
@@ -124,6 +133,7 @@ struct FBPVariableMetaDataEntry
 		{}
 	
 };
+
 
 /** Struct indicating a variable in the generated class */
 USTRUCT()
@@ -184,6 +194,7 @@ struct FBPVariableDescription
 	
 };
 
+
 /** Struct containing information about what interfaces are implemented in this blueprint */
 USTRUCT()
 struct FBPInterfaceDescription
@@ -200,11 +211,10 @@ struct FBPInterfaceDescription
 
 
 	FBPInterfaceDescription()
-		: Interface(NULL)
-	{
-	}
-
+		: Interface(nullptr)
+	{ }
 };
+
 
 USTRUCT()
 struct FEditedDocumentInfo
@@ -223,28 +233,22 @@ struct FEditedDocumentInfo
 	float SavedZoomAmount;
 
 	FEditedDocumentInfo()
-		: EditedObject(NULL)
+		: EditedObject(nullptr)
 		, SavedViewOffset(0.0f, 0.0f)
 		, SavedZoomAmount(-1.0f)
-	{
-
-	}
+	{ }
 
 	FEditedDocumentInfo(UObject* InEditedObject)
 		: EditedObject(InEditedObject)
 		, SavedViewOffset(0.0f, 0.0f)
 		, SavedZoomAmount(-1.0f)
-	{
-
-	}
+	{ }
 
 	FEditedDocumentInfo(UObject* InEditedObject, FVector2D& InSavedViewOffset, float InSavedZoomAmount)
 		: EditedObject(InEditedObject)
 		, SavedViewOffset(InSavedViewOffset)
 		, SavedZoomAmount(InSavedZoomAmount)
-	{
-
-	}
+	{ }
 
 	friend bool operator==( const FEditedDocumentInfo& LHS, const FEditedDocumentInfo& RHS )
 	{
@@ -252,7 +256,6 @@ struct FEditedDocumentInfo
 	}
 };
 
-///////////////
 
 /**
  * Blueprints are special assets that provide an intuitive, node-based interface that can be used to create new types of Actors
@@ -268,7 +271,11 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	UPROPERTY(config)
 	uint32 bRecompileOnLoad:1;
 
-	/** Pointer to the parent class that the generated class should derive from */
+	/** 
+		Pointer to the parent class that the generated class should derive from. This *can* be null under rare circumstances, 
+		one such case can be created by creating a blueprint (A) based on another blueprint (B), shutting down the editor, and
+		deleting the parent blueprint.
+	*/
 	UPROPERTY(AssetRegistrySearchable)
 	TSubclassOf<class UObject> ParentClass;
 
@@ -445,7 +452,9 @@ protected:
 
 	/** Current world being debugged for this blueprint */
 	TWeakObjectPtr< class UWorld > CurrentWorldBeingDebugged;
+
 public:
+
 	/** Information for thumbnail rendering */
 	UPROPERTY(VisibleAnywhere, Instanced, Category=Thumbnail)
 	class UThumbnailInfo* ThumbnailInfo;
@@ -456,7 +465,10 @@ public:
 
 	/** CRC for CDO calculated right after the latest compilation used by Reinstancer to check if default values were changed */
 	UPROPERTY(transient, duplicatetransient)
-	uint32 CrcPreviousCompiledCDO;
+	uint32 CrcLastCompiledCDO;
+
+	UPROPERTY(transient, duplicatetransient)
+	uint32 CrcLastCompiledSignature;
 
 	bool bCachedDependenciesUpToDate;
 	TSet<TWeakObjectPtr<UBlueprint>> CachedDependencies;
@@ -522,23 +534,29 @@ public:
 
 	virtual void GetReparentingRules(TSet< const UClass* >& AllowedChildrenOfClasses, TSet< const UClass* >& DisallowedChildrenOfClasses) const;
 
+	/**
+	* Allows derived blueprints to require compilation on load, otherwise they may get treated as data only and not compiled on load.
+	*/
+	virtual bool AlwaysCompileOnLoad() const { return false; }
+
 private:
+
 	/** Sets the current object being debugged */
 	void DebuggingWorldRegistrationHelper(UObject* ObjectProvidingWorld, UObject* ValueToRegister);
-
 	
 public:
-	/** @return the current object being debugged, which can be NULL */
+
+	/** @return the current object being debugged, which can be nullptr */
 	virtual UObject* GetObjectBeingDebugged();
 
 	virtual class UWorld* GetWorldBeingDebugged();
 
 	/** Renames only the generated classes. Should only be used internally or when testing for rename. */
-	virtual bool RenameGeneratedClasses(const TCHAR* NewName = NULL, UObject* NewOuter = NULL, ERenameFlags Flags = REN_None);
+	virtual bool RenameGeneratedClasses(const TCHAR* NewName = nullptr, UObject* NewOuter = nullptr, ERenameFlags Flags = REN_None);
 
 	// Begin UObject interface (WITH_EDITOR)
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
-	virtual bool Rename(const TCHAR* NewName = NULL, UObject* NewOuter = NULL, ERenameFlags Flags = REN_None) override;
+	virtual bool Rename(const TCHAR* NewName = nullptr, UObject* NewOuter = nullptr, ERenameFlags Flags = REN_None) override;
 	virtual UClass* RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded) override;
 	virtual void PostLoad() override;
 	virtual void PostLoadSubobjects( FObjectInstancingGraph* OuterInstanceGraph ) override;
@@ -675,6 +693,7 @@ public:
 
 };
 
+
 #if WITH_EDITOR
 template<>
 inline FName UBlueprint::GetFieldNameFromClassByGuid<UFunction>(const UClass* InClass, const FGuid FunctionGuid)
@@ -687,4 +706,5 @@ inline bool UBlueprint::GetGuidFromClassByFieldName<UFunction>(const UClass* InC
 {
 	return GetFunctionGuidFromClassByFieldName(InClass, FunctionName, FunctionGuid);
 }
+
 #endif // #if WITH_EDITOR

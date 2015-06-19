@@ -11,15 +11,15 @@ class UNREALTOURNAMENT_API UUTCanvasRenderTarget2D : public UCanvasRenderTarget2
 {
 	GENERATED_BODY()
 public:
-	// temp workaround for engine crash
-	virtual UWorld* GetWorld() const override
+	UUTCanvasRenderTarget2D(const FObjectInitializer& OI)
+		: Super(OI)
 	{
-		return GetOuter()->GetWorld();
+		OnCanvasRenderTargetUpdate.AddDynamic(this, &UUTCanvasRenderTarget2D::UpdateDispatcher);
 	}
 
-	virtual void ReceiveUpdate(UCanvas* Canvas, int32 Width, int32 Height)
+	UFUNCTION()
+	void UpdateDispatcher(UCanvas* Canvas, int32 Width, int32 Height)
 	{
-		Super::ReceiveUpdate(Canvas, Width, Height);
 		OnNonUObjectRenderTargetUpdate.ExecuteIfBound(Canvas, Width, Height);
 	}
 

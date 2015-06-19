@@ -174,141 +174,6 @@ void Particle_ModifyVectorDistribution(UDistributionVector* pkDistribution, FVec
 	}
 }
 
-/*-----------------------------------------------------------------------------
-	AEmitter implementation.
------------------------------------------------------------------------------*/
-AEmitter::AEmitter(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	ParticleSystemComponent = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("ParticleSystemComponent0"));
-	ParticleSystemComponent->SecondsBeforeInactive = 1;
-	RootComponent = ParticleSystemComponent;
-
-#if WITH_EDITORONLY_DATA
-	SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ArrowComponent0"));
-
-	if (!IsRunningCommandlet())
-	{
-		// Structure to hold one-time initialization
-		struct FConstructorStatics
-		{
-			ConstructorHelpers::FObjectFinderOptional<UTexture2D> SpriteTextureObject;
-			FName ID_Effects;
-			FText NAME_Effects;
-			FConstructorStatics()
-				: SpriteTextureObject(TEXT("/Engine/EditorResources/S_Emitter"))
-				, ID_Effects(TEXT("Effects"))
-				, NAME_Effects(NSLOCTEXT("SpriteCategory", "Effects", "Effects"))
-			{
-			}
-		};
-		static FConstructorStatics ConstructorStatics;
-
-		if (SpriteComponent)
-		{
-			SpriteComponent->Sprite = ConstructorStatics.SpriteTextureObject.Get();
-			SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
-			SpriteComponent->bHiddenInGame = true;
-			SpriteComponent->bIsScreenSizeScaled = true;
-			SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Effects;
-			SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Effects;
-			SpriteComponent->AttachParent = ParticleSystemComponent;
-			SpriteComponent->bReceivesDecals = false;
-		}
-
-		if (ArrowComponent)
-		{
-			ArrowComponent->ArrowColor = FColor(0, 255, 128);
-
-			ArrowComponent->ArrowSize = 1.5f;
-			ArrowComponent->AlwaysLoadOnClient = false;
-			ArrowComponent->AlwaysLoadOnServer = false;
-			ArrowComponent->bTreatAsASprite = true;
-			ArrowComponent->bIsScreenSizeScaled = true;
-			ArrowComponent->SpriteInfo.Category = ConstructorStatics.ID_Effects;
-			ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Effects;
-			ArrowComponent->AttachParent = ParticleSystemComponent;
-			ArrowComponent->bAbsoluteScale = true;
-		}
-	}
-#endif // WITH_EDITORONLY_DATA
-}
-
-void AEmitter::PostActorCreated()
-{
-	Super::PostActorCreated();
-
-	if (ParticleSystemComponent && bPostUpdateTickGroup)
-	{
-		ParticleSystemComponent->SetTickGroup(TG_PostUpdateWork);
-	}
-}
-
-void AEmitter::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
-{
-	Super::GetLifetimeReplicatedProps( OutLifetimeProps );
-	
-	DOREPLIFETIME( AEmitter, bCurrentlyActive );
-}
-
-void AEmitter::SetTemplate(UParticleSystem* NewTemplate)
-{
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->SetTemplate(NewTemplate);
-		if (bPostUpdateTickGroup)
-		{
-			ParticleSystemComponent->SetTickGroup(TG_PostUpdateWork);
-		}
-	}
-}
-
-void AEmitter::AutoPopulateInstanceProperties()
-{
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->AutoPopulateInstanceProperties();
-	}
-}
-
-#if WITH_EDITOR
-void AEmitter::CheckForErrors()
-{
-	Super::CheckForErrors();
-
-	// Emitters placed in a level should have a non-NULL ParticleSystemComponent.
-	UObject* Outer = GetOuter();
-	if( Cast<ULevel>( Outer ) )
-	{
-		if ( !ParticleSystemComponent )
-		{
-			FMessageLog("MapCheck").Warning()
-				->AddToken(FUObjectToken::Create(this))
-				->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_ParticleSystemComponentNull", "Emitter actor has NULL ParticleSystemComponent property - please delete")))
-				->AddToken(FMapErrorToken::Create(FMapErrors::ParticleSystemComponentNull));
-		}
-	}
-}
-#endif
-
-
-FString AEmitter::GetDetailedInfoInternal() const
-{
-	FString Result;  
-
-	if( ParticleSystemComponent )
-	{
-		Result = ParticleSystemComponent->GetDetailedInfoInternal();
-	}
-	else
-	{
-		Result = TEXT("No_ParticleSystemComponent");
-	}
-
-	return Result;  
-}
-
 /** Console command to reset all particle components. */
 static void ResetAllParticleComponents()
 {
@@ -328,153 +193,6 @@ static FAutoConsoleCommand GResetAllParticleComponentsCmd(
 	TEXT("Restarts all particle system components"),
 	FConsoleCommandDelegate::CreateStatic(ResetAllParticleComponents)
 	);
-
-#if WITH_EDITOR
-
-void AEmitter::ResetInLevel()
-{
-	if (ParticleSystemComponent)
-	{
-		// Force a recache of the view relevance
-		ParticleSystemComponent->ResetParticles();
-		ParticleSystemComponent->ActivateSystem(true);
-		ParticleSystemComponent->bIsViewRelevanceDirty = true;
-		ParticleSystemComponent->CachedViewRelevanceFlags.Empty();
-		ParticleSystemComponent->ConditionalCacheViewRelevanceFlags();
-		ParticleSystemComponent->ReregisterComponent();
-	}
-}
-#endif
-
-void AEmitter::PostInitializeComponents()
-{
-	Super::PostInitializeComponents();
-
-	// Let them die quickly on a dedicated server
-	if (GetNetMode() == NM_DedicatedServer && (GetRemoteRole() == ROLE_None || bNetTemporary))
-	{
-		SetLifeSpan( 0.2f );
-	}
-
-	// Set Notification Delegate
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->OnSystemFinished.AddUniqueDynamic( this, &AEmitter::OnParticleSystemFinished );
-		bCurrentlyActive = ParticleSystemComponent->bAutoActivate;
-	}
-
-	if (ParticleSystemComponent && bPostUpdateTickGroup)
-	{
-		ParticleSystemComponent->SetTickGroup(TG_PostUpdateWork);
-	}
-}
-
-void AEmitter::OnRep_bCurrentlyActive()
-{
-	ParticleSystemComponent->SetActive(bCurrentlyActive);
-}
-
-void AEmitter::OnParticleSystemFinished(UParticleSystemComponent* FinishedComponent)
-{
-	if (bDestroyOnSystemFinish)
-	{
-		SetLifeSpan( 0.0001f );
-	}
-	bCurrentlyActive = false;
-}
-
-void AEmitter::Activate()
-{
-	if(ParticleSystemComponent)
-	{
-		ParticleSystemComponent->ActivateSystem(false);
-	}
-	bCurrentlyActive = true;
-}
-
-void AEmitter::Deactivate()
-{
-	if(ParticleSystemComponent)
-	{
-		ParticleSystemComponent->DeactivateSystem();
-	}
-	bCurrentlyActive = false;
-}
-
-void AEmitter::ToggleActive()
-{
-	if(ParticleSystemComponent)
-	{
-		ParticleSystemComponent->ToggleActive();
-		bCurrentlyActive = ParticleSystemComponent->bIsActive;
-	}
-}
-
-bool AEmitter::IsActive() const
-{
-	if(ParticleSystemComponent)
-	{
-		// @todo: I'm not updating bCurrentlyActive flag here. 
-		// Technically I don't have to, and it seems bCurrentlyActive flag can be easily broken if we modify Component directly.
-		return ParticleSystemComponent->IsActive();
-	}	
-
-	return false;
-}
-
-void AEmitter::SetFloatParameter(FName ParameterName, float Param)
-{
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->SetFloatParameter(ParameterName, Param);
-	}
-}
-
-void AEmitter::SetVectorParameter(FName ParameterName, FVector Param)
-{
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->SetVectorParameter(ParameterName, Param);
-	}
-}
-
-void AEmitter::SetColorParameter(FName ParameterName, FLinearColor Param)
-{
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->SetColorParameter(ParameterName, Param);
-	}
-}
-
-void AEmitter::SetActorParameter(FName ParameterName, AActor* Param)
-{
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->SetActorParameter(ParameterName, Param);
-	}
-}
-
-void AEmitter::SetMaterialParameter(FName ParameterName, UMaterialInterface* Param)
-{
-	if (ParticleSystemComponent)
-	{
-		ParticleSystemComponent->SetMaterialParameter(ParameterName, Param);
-	}
-}
-
-#if WITH_EDITOR
-
-bool AEmitter::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
-{
-	Super::GetReferencedContentObjects(Objects);
-
-	if (ParticleSystemComponent->Template)
-	{
-		Objects.Add(ParticleSystemComponent->Template);
-	}
-	return true;
-}
-#endif
 
 /*-----------------------------------------------------------------------------
 	UParticleLODLevel implementation.
@@ -814,7 +532,7 @@ void UParticleLODLevel::ConvertToSpawnModule()
 	}
 
 	UParticleEmitter* EmitterOuter = CastChecked<UParticleEmitter>(GetOuter());
-	SpawnModule = ConstructObject<UParticleModuleSpawn>(UParticleModuleSpawn::StaticClass(), EmitterOuter->GetOuter());
+	SpawnModule = NewObject<UParticleModuleSpawn>(EmitterOuter->GetOuter());
 	check(SpawnModule);
 
 	UDistributionFloat* SourceDist = RequiredModule->SpawnRate.Distribution;
@@ -1126,7 +844,7 @@ void UParticleEmitter::PostLoad()
 		{
 			LODLevel->ConditionalPostLoad();
 
-			ULinkerLoad* LODLevelLinker = LODLevel->GetLinker();
+			FLinkerLoad* LODLevelLinker = LODLevel->GetLinker();
 			if (LODLevel->SpawnModule == NULL)
 			{
 				// Force the conversion to SpawnModule
@@ -1456,7 +1174,7 @@ int32 UParticleEmitter::CreateLODLevel(int32 LODLevel, bool bGenerateModuleData)
 	}
 
 	// Create a ParticleLODLevel
-	CreatedLODLevel = ConstructObject<UParticleLODLevel>(UParticleLODLevel::StaticClass(), this);
+	CreatedLODLevel = NewObject<UParticleLODLevel>(this);
 	check(CreatedLODLevel);
 
 	CreatedLODLevel->Level = LODLevel;
@@ -1489,7 +1207,7 @@ int32 UParticleEmitter::CreateLODLevel(int32 LODLevel, bool bGenerateModuleData)
 	else
 	{
 		// Create the RequiredModule
-		UParticleModuleRequired* RequiredModule	= ConstructObject<UParticleModuleRequired>(UParticleModuleRequired::StaticClass(), GetOuter());
+		UParticleModuleRequired* RequiredModule = NewObject<UParticleModuleRequired>(GetOuter());
 		check(RequiredModule);
 		RequiredModule->SetToSensibleDefaults(this);
 		CreatedLODLevel->RequiredModule	= RequiredModule;
@@ -1515,7 +1233,7 @@ int32 UParticleEmitter::CreateLODLevel(int32 LODLevel, bool bGenerateModuleData)
 		RequiredModule->LODValidity = (1 << LODLevel);
 
 		// There must be a spawn module as well...
-		UParticleModuleSpawn* SpawnModule = ConstructObject<UParticleModuleSpawn>(UParticleModuleSpawn::StaticClass(), GetOuter());
+		UParticleModuleSpawn* SpawnModule = NewObject<UParticleModuleSpawn>(GetOuter());
 		check(SpawnModule);
 		CreatedLODLevel->SpawnModule = SpawnModule;
 		SpawnModule->LODValidity = (1 << LODLevel);
@@ -1605,7 +1323,7 @@ bool UParticleEmitter::AutogenerateLowestLODLevel(bool bDuplicateHighest)
 	{
 		// We need to generate it...
 		LODLevels.InsertZeroed(1, 1);
-		UParticleLODLevel* LODLevel = ConstructObject<UParticleLODLevel>(UParticleLODLevel::StaticClass(), this);
+		UParticleLODLevel* LODLevel = NewObject<UParticleLODLevel>(this);
 		check(LODLevel);
 		LODLevels[1]					= LODLevel;
 		LODLevel->Level					= 1;
@@ -1666,11 +1384,8 @@ bool UParticleEmitter::CalculateMaxActiveParticleCount()
 				UParticleModuleTypeDataBeam2* BeamTD = Cast<UParticleModuleTypeDataBeam2>(LODLevel->TypeDataModule);
 				if (BeamTD)
 				{
-					if (BeamTD)
-					{
-						bForceMaxCount = true;
-						MaxCount = BeamTD->MaxBeamCount + 2;
-					}
+					bForceMaxCount = true;
+					MaxCount = BeamTD->MaxBeamCount + 2;
 				}
 			}
 
@@ -1889,7 +1604,7 @@ void UParticleSpriteEmitter::SetToSensibleDefaults()
 	// Create basic set of modules
 
 	// Lifetime module
-	UParticleModuleLifetime* LifetimeModule = ConstructObject<UParticleModuleLifetime>(UParticleModuleLifetime::StaticClass(), GetOuter());
+	UParticleModuleLifetime* LifetimeModule = NewObject<UParticleModuleLifetime>(GetOuter());
 	UDistributionFloatUniform* LifetimeDist = Cast<UDistributionFloatUniform>(LifetimeModule->Lifetime.Distribution);
 	if (LifetimeDist)
 	{
@@ -1901,7 +1616,7 @@ void UParticleSpriteEmitter::SetToSensibleDefaults()
 	LODLevel->Modules.Add(LifetimeModule);
 
 	// Size module
-	UParticleModuleSize* SizeModule = ConstructObject<UParticleModuleSize>(UParticleModuleSize::StaticClass(), GetOuter());
+	UParticleModuleSize* SizeModule = NewObject<UParticleModuleSize>(GetOuter());
 	UDistributionVectorUniform* SizeDist = Cast<UDistributionVectorUniform>(SizeModule->StartSize.Distribution);
 	if (SizeDist)
 	{
@@ -1913,7 +1628,7 @@ void UParticleSpriteEmitter::SetToSensibleDefaults()
 	LODLevel->Modules.Add(SizeModule);
 
 	// Initial velocity module
-	UParticleModuleVelocity* VelModule = ConstructObject<UParticleModuleVelocity>(UParticleModuleVelocity::StaticClass(), GetOuter());
+	UParticleModuleVelocity* VelModule = NewObject<UParticleModuleVelocity>(GetOuter());
 	UDistributionVectorUniform* VelDist = Cast<UDistributionVectorUniform>(VelModule->StartVelocity.Distribution);
 	if (VelDist)
 	{
@@ -1925,7 +1640,7 @@ void UParticleSpriteEmitter::SetToSensibleDefaults()
 	LODLevel->Modules.Add(VelModule);
 
 	// Color over life module
-	UParticleModuleColorOverLife* ColorModule = ConstructObject<UParticleModuleColorOverLife>(UParticleModuleColorOverLife::StaticClass(), GetOuter());
+	UParticleModuleColorOverLife* ColorModule = NewObject<UParticleModuleColorOverLife>(GetOuter());
 	UDistributionVectorConstantCurve* ColorCurveDist = Cast<UDistributionVectorConstantCurve>(ColorModule->ColorOverLife.Distribution);
 	if (ColorCurveDist)
 	{
@@ -1940,7 +1655,7 @@ void UParticleSpriteEmitter::SetToSensibleDefaults()
 		}
 		ColorCurveDist->bIsDirty = true;
 	}
-	ColorModule->AlphaOverLife.Distribution = Cast<UDistributionFloatConstantCurve>(StaticConstructObject(UDistributionFloatConstantCurve::StaticClass(), ColorModule));
+	ColorModule->AlphaOverLife.Distribution = NewObject<UDistributionFloatConstantCurve>(ColorModule);
 	UDistributionFloatConstantCurve* AlphaCurveDist = Cast<UDistributionFloatConstantCurve>(ColorModule->AlphaOverLife.Distribution);
 	if (AlphaCurveDist)
 	{
@@ -3055,14 +2770,14 @@ bool UParticleSystemComponent::ParticleLineCheck(FHitResult& Hit, AActor* Source
 
 	if ( HalfExtent.IsZero() )
 	{
-		return GetWorld()->LineTraceSingle(Hit, Start, End, FCollisionQueryParams(NAME_ParticleCollision, true, SourceActor), ObjectParams);
+		return GetWorld()->LineTraceSingleByObjectType(Hit, Start, End, ObjectParams, FCollisionQueryParams(NAME_ParticleCollision, true, SourceActor));
 	}
 	else
 	{
 		FCollisionQueryParams BoxParams(false);
 		BoxParams.TraceTag = NAME_ParticleCollision;
 		BoxParams.AddIgnoredActor(SourceActor);
-		return GetWorld()->SweepSingle(Hit, Start, End, FQuat::Identity, FCollisionShape::MakeBox(HalfExtent), BoxParams, ObjectParams);
+		return GetWorld()->SweepSingleByObjectType(Hit, Start, End, FQuat::Identity, ObjectParams, FCollisionShape::MakeBox(HalfExtent), BoxParams);
 	}
 }
 
@@ -3243,7 +2958,8 @@ FDynamicEmitterDataBase* UParticleSystemComponent::CreateDynamicDataFromReplay( 
 		case DET_Mesh:
 			{
 				// Allocate the dynamic data
-				FDynamicMeshEmitterData* NewEmitterData = ::new FDynamicMeshEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
+				// PVS-Studio does not understand the checkSlow above, so it is warning us that EmitterInstance->CurrentLODLevel may be null.
+				FDynamicMeshEmitterData* NewEmitterData = ::new FDynamicMeshEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule); //-V595
 
 				// Fill in the source data
 				const FDynamicMeshEmitterReplayData* MeshEmitterReplayData =
@@ -3419,7 +3135,7 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 			if( ReplayData == NULL )
 			{
 				// Create a new replay clip!
-				ReplayData = ConstructObject< UParticleSystemReplay >( UParticleSystemReplay::StaticClass(), this );
+				ReplayData = NewObject<UParticleSystemReplay>(this);
 
 				// Set the clip ID number
 				ReplayData->ClipIDNumber = ReplayClipIDNumber;
@@ -3950,7 +3666,7 @@ int32 UParticleSystemComponent::GetCurrentDetailMode() const
 void UParticleSystemComponent::ComputeTickComponent_Concurrent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleComputeTickTime);
-	FScopeCycleCounterUObject AdditionalScope(AdditionalStatObject());
+	FScopeCycleCounterUObject AdditionalScope(AdditionalStatObject(), GET_STATID(STAT_ParticleComputeTickTime));
 	// Tick Subemitters.
 	int32 EmitterIndex;
 	for (EmitterIndex = 0; EmitterIndex < EmitterInstances.Num(); EmitterIndex++)
@@ -4126,6 +3842,7 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 		check(IsInGameThread());
 		SCOPE_CYCLE_COUNTER(STAT_GTSTallTime);
 		double StartTime = FPlatformTime::Seconds();
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_WaitForAsyncAndFinalize);
 		FTaskGraphInterface::Get().WaitUntilTaskCompletes(AsyncWork, ENamedThreads::GameThread_Local);
 		float ThisTime = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
 		if (Behavior != SILENT)
@@ -6100,11 +5817,3 @@ void AEmitterCameraLensEffectBase::ActivateLensEffect()
 
 #undef LOCTEXT_NAMESPACE
 
-/** Returns ParticleSystemComponent subobject **/
-UParticleSystemComponent* AEmitter::GetParticleSystemComponent() { return ParticleSystemComponent; }
-#if WITH_EDITORONLY_DATA
-/** Returns SpriteComponent subobject **/
-UBillboardComponent* AEmitter::GetSpriteComponent() const { return SpriteComponent; }
-/** Returns ArrowComponent subobject **/
-UArrowComponent* AEmitter::GetArrowComponent() const { return ArrowComponent; }
-#endif

@@ -40,6 +40,8 @@
 #include "BuildPatchHTTP.h"
 #include "BuildPatchChunk.h"
 #include "BuildPatchManifest.h"
+#include "BuildPatchVerification.h"
+#include "BuildPatchFileAttributes.h"
 #include "BuildPatchChunkCache.h"
 #include "BuildPatchCompactifier.h"
 #include "BuildPatchDataEnumeration.h"

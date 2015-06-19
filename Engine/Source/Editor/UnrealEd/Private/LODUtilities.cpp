@@ -71,7 +71,40 @@ void FLODUtilities::RemoveLOD(FSkeletalMeshUpdateContext& UpdateContext, int32 D
 	}
 }
 
-void FLODUtilities::SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings )
+void FLODUtilities::SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, int32 DesiredLOD )
+{
+	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
+	IMeshReduction* MeshReduction = MeshUtilities.GetMeshReductionInterface();
+
+	check (MeshReduction && MeshReduction->IsSupported());
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("DesiredLOD"), DesiredLOD);
+		Args.Add(TEXT("SkeletalMeshName"), FText::FromString(SkeletalMesh->GetName()));
+		const FText StatusUpdate = FText::Format(NSLOCTEXT("UnrealEd", "MeshSimp_GeneratingLOD_F", "Generating LOD{DesiredLOD} for {SkeletalMeshName}..."), Args);
+		GWarn->BeginSlowTask(StatusUpdate, true);
+	}
+
+	if(MeshReduction->ReduceSkeletalMesh(SkeletalMesh, DesiredLOD, InSetting, true))
+	{
+		check(SkeletalMesh->LODInfo.Num() >= 2);
+		SkeletalMesh->MarkPackageDirty();
+#if WITH_APEX_CLOTHING
+		ApexClothingUtils::ReImportClothingSectionsFromClothingAsset(SkeletalMesh);
+#endif// #if WITH_APEX_CLOTHING
+	}
+	else
+	{
+		// Simplification failed! Warn the user.
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("SkeletalMeshName"), FText::FromString(SkeletalMesh->GetName()));
+		const FText Message = FText::Format(NSLOCTEXT("UnrealEd", "MeshSimp_GenerateLODFailed_F", "An error occurred while simplifying the geometry for mesh '{SkeletalMeshName}'.  Consider adjusting simplification parameters and re-simplifying the mesh."), Args);
+		FMessageDialog::Open(EAppMsgType::Ok, Message);
+	}
+	GWarn->EndSlowTask();
+}
+
+void FLODUtilities::SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings, bool bForceRegenerate )
 {
 	USkeletalMesh* SkeletalMesh = UpdateContext.SkeletalMesh;
 	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
@@ -85,37 +118,13 @@ void FLODUtilities::SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateCont
 			uint32 DesiredLOD = SettingIndex + 1;
 
 			// check whether reduction settings are same or not
-			if (SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD) 
+			if (!bForceRegenerate && SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD) 
 			 && SkeletalMesh->LODInfo[DesiredLOD].ReductionSettings == InSettings[SettingIndex])
 			{
 				continue;
 			}
 
-			{
-				FFormatNamedArguments Args;
-				Args.Add( TEXT("DesiredLOD"), DesiredLOD );
-				Args.Add( TEXT("SkeletalMeshName"), FText::FromString(SkeletalMesh->GetName()) );
-				const FText StatusUpdate = FText::Format( NSLOCTEXT("UnrealEd", "MeshSimp_GeneratingLOD_F", "Generating LOD{DesiredLOD} for {SkeletalMeshName}..." ), Args );
-				GWarn->BeginSlowTask( StatusUpdate, true );
-			}
-
-			if (MeshReduction->ReduceSkeletalMesh(SkeletalMesh, DesiredLOD, InSettings[SettingIndex], true))
-			{
-				check( SkeletalMesh->LODInfo.Num() >= 2 );
-				SkeletalMesh->MarkPackageDirty();
-#if WITH_APEX_CLOTHING
-				ApexClothingUtils::ReImportClothingSectionsFromClothingAsset(SkeletalMesh);
-#endif// #if WITH_APEX_CLOTHING
-			}
-			else
-			{
-				// Simplification failed! Warn the user.
-				FFormatNamedArguments Args;
-				Args.Add( TEXT("SkeletalMeshName"), FText::FromString(SkeletalMesh->GetName()) );
-				const FText Message = FText::Format( NSLOCTEXT("UnrealEd", "MeshSimp_GenerateLODFailed_F", "An error occurred while simplifying the geometry for mesh '{SkeletalMeshName}'.  Consider adjusting simplification parameters and re-simplifying the mesh." ), Args );
-				FMessageDialog::Open( EAppMsgType::Ok, Message );
-			}
-			GWarn->EndSlowTask();
+			SimplifySkeletalMeshLOD( SkeletalMesh, InSettings[SettingIndex], DesiredLOD );
 		}
 
 		//Notify calling system of change

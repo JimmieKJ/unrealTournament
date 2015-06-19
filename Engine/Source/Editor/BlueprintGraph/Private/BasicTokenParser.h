@@ -55,6 +55,7 @@ public:
 	void SetConstFloat(float InFloat);
 	void SetConstName(FName InName);
 	void SetConstString(TCHAR* InString, int32 MaxLength=MAX_STRING_CONST_SIZE);
+	void SetGuid(TCHAR* InString, int32 MaxLength=MAX_STRING_CONST_SIZE);
 
 	//--------------------------------------
 	// Constant value getters
@@ -85,6 +86,7 @@ public:
 		TOKEN_Identifier		= 0x01,	// Alphanumeric identifier.
 		TOKEN_Symbol			= 0x02,	// Symbol.
 		TOKEN_Const				= 0x03,	// A constant.
+		TOKEN_Guid				= 0x04, // A variable guid
 		TOKEN_Max				= 0x0D
 	};
 	/** Type of this token. */

@@ -414,6 +414,7 @@ public:
 	virtual bool IsRestricted(const FString& Value) const override;
 	virtual bool IsRestricted(const FString& Value, TArray<FText>& OutReasons) const override;
 	virtual bool GenerateRestrictionToolTip(const FString& Value, FText& OutTooltip) const override;
+	virtual void SetIgnoreValidation(bool bInIgnore) override;
 
 	TSharedPtr<FPropertyNode> GetPropertyNode();
 protected:

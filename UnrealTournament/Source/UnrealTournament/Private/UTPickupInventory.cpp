@@ -110,13 +110,14 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 	{
 		if (NativeCompList[i]->AttachParent == CurrentAttachment)
 		{
-			USceneComponent* NewComp = ConstructObject<USceneComponent>(NativeCompList[i]->GetClass(), Pickup, NAME_None, RF_NoFlags, NativeCompList[i]);
+			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, NativeCompList[i]->GetClass(), NAME_None, RF_NoFlags, NativeCompList[i]);
 			NewComp->AttachParent = NULL;
 			NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 			if (Prim != NULL)
 			{
 				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				Prim->bShouldUpdatePhysicsVolume = false;
 			}
 			NewComp->RegisterComponent();
 			NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
@@ -128,13 +129,14 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 	{
 		if (BPNodes[i]->ComponentTemplate != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName)
 		{
-			USceneComponent* NewComp = ConstructObject<USceneComponent>(BPNodes[i]->ComponentTemplate->GetClass(), Pickup, NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
+			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, BPNodes[i]->ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
 			NewComp->AttachParent = NULL;
 			NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 			if (Prim != NULL)
 			{
 				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				Prim->bShouldUpdatePhysicsVolume = false;
 			}
 			NewComp->RegisterComponent();
 			NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
@@ -179,8 +181,9 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 					UnregisterComponentTree(PickupMesh);
 					PickupMesh = NULL;
 				}
-				PickupMesh = ConstructObject<UMeshComponent>(NewMesh->GetClass(), Pickup, NAME_None, RF_NoFlags, NewMesh);
+				PickupMesh = NewObject<UMeshComponent>(Pickup, NewMesh->GetClass(), NAME_None, RF_NoFlags, NewMesh);
 				PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				PickupMesh->bShouldUpdatePhysicsVolume = false;
 				PickupMesh->AttachParent = NULL;
 				PickupMesh->AttachChildren.Empty();
 				PickupMesh->RelativeRotation = FRotator::ZeroRotator;
@@ -241,6 +244,45 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 {
 	CreatePickupMesh(this, Mesh, InventoryType, FloatHeight, RotationOffset, bAllowRotatingPickup);
+	if (Mesh)
+	{
+		Mesh->bShouldUpdatePhysicsVolume = false;
+	}
+	if (GhostMeshMaterial != NULL)
+	{
+		if (GhostMesh != NULL)
+		{
+			UnregisterComponentTree(GhostMesh);
+			GhostMesh = NULL;
+		}
+		if (Mesh != NULL)
+		{
+			GhostMesh = DuplicateObject<UMeshComponent>(Mesh, this);
+			GhostMesh->AttachParent = NULL;
+			GhostMesh->AttachChildren.Empty();
+			GhostMesh->CastShadow = false;
+			for (int32 i = 0; i < GhostMesh->GetNumMaterials(); i++)
+			{
+				GhostMesh->SetMaterial(i, GhostMeshMaterial);
+				static FName NAME_Normal(TEXT("Normal"));
+				UMaterialInterface* OrigMat = Mesh->GetMaterial(i);
+				UTexture* NormalTex = NULL;
+				if (OrigMat != NULL && OrigMat->GetTextureParameterValue(NAME_Normal, NormalTex))
+				{
+					UMaterialInstanceDynamic* MID = GhostMesh->CreateAndSetMaterialInstanceDynamic(i);
+					MID->SetTextureParameterValue(NAME_Normal, NormalTex);
+				}
+			}
+			GhostMesh->RegisterComponent();
+			GhostMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
+			if (GhostMesh->bAbsoluteScale) // SnapToTarget doesn't handle absolute...
+			{
+				GhostMesh->SetWorldScale3D(Mesh->GetComponentScale());
+			}
+			GhostMesh->SetVisibility(!State.bActive, true);
+			GhostMesh->bShouldUpdatePhysicsVolume = false;
+		}
+	}
 	if (Mesh != NULL && !State.bActive && Role < ROLE_Authority)
 	{
 		// if State was received first whole actor might have been hidden, reset everything
@@ -267,8 +309,22 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 {
 	if (Mesh != NULL)
 	{
-		Mesh->SetHiddenInGame(bNowHidden, true);
-		Mesh->SetVisibility(!bNowHidden, true);
+		if (GhostMesh != NULL)
+		{
+			Mesh->SetRenderInMainPass(!bNowHidden);
+			Mesh->SetRenderCustomDepth(bNowHidden);
+			for (USceneComponent* Child : Mesh->AttachChildren)
+			{
+				Child->SetVisibility(!bNowHidden, true);
+			}
+			GhostMesh->SetVisibility(bNowHidden, true);
+		}
+		else
+		{
+			Mesh->SetHiddenInGame(bNowHidden, true);
+			Mesh->SetVisibility(!bNowHidden, true);
+		}
+		
 		// toggle audio components
 		TArray<USceneComponent*> Children;
 		Mesh->GetChildrenComponents(true, Children);

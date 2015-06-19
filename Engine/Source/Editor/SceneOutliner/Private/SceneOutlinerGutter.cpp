@@ -55,11 +55,6 @@ bool FGetVisibilityVisitor::Get(const FWorldTreeItem& WorldItem) const
 	return RecurseChildren(WorldItem);
 }
 
-bool FGetVisibilityVisitor::Get(const FLevelBlueprintTreeItem&) const
-{
-	return false;
-}
-
 bool FGetVisibilityVisitor::Get(const FFolderTreeItem& FolderItem) const
 {
 	return RecurseChildren(FolderItem);
@@ -221,7 +216,7 @@ private:
 		return FReply::Handled().DetectDrag(SharedThis(this), EKeys::LeftMouseButton);
 	}
 
-	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)
+	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override
 	{
 		return HandleClick();
 	}
@@ -334,16 +329,6 @@ SHeaderRow::FColumn::FArguments FSceneOutlinerGutter::ConstructHeaderRowColumn()
 
 const TSharedRef<SWidget> FSceneOutlinerGutter::ConstructRowWidget(FTreeItemRef TreeItem, const STableRow<FTreeItemPtr>& Row)
 {
-	bool bGutterIsApplicable = true;
-	TreeItem->Visit(FFunctionalVisitor().LevelBlueprint([&](const FLevelBlueprintTreeItem&){
-		bGutterIsApplicable = false;
-	}));
-
-	if (!bGutterIsApplicable)
-	{
-		return SNullWidget::NullWidget;
-	}
-	
 	return SNew(SHorizontalBox)
 		+SHorizontalBox::Slot()
 		.AutoWidth()

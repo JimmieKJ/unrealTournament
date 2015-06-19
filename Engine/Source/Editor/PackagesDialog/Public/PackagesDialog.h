@@ -28,12 +28,12 @@ public:
 	/**
 	 * Called right after the module DLL has been loaded and the module object has been created
 	 */
-	virtual void StartupModule();
+	virtual void StartupModule() override;
 
 	/**
 	 * Called before the module is unloaded, right before the module object is destroyed.
 	 */
-	virtual void ShutdownModule();
+	virtual void ShutdownModule() override;
 
 	/**
 	 * Used to create the package dialog window
@@ -42,8 +42,9 @@ public:
 	 * @param	Message							The message that gets displayed in the package dialog window
 	 * @param	InReadOnly						When true, this dialog only shows a list of packages without the ability to filter
 	 * @param	InAllowSourceControlConnection	When true, this dialog displays a 'connect to source control' button when needed
+	 * @param	InOnSourceControlStateChanged	Delegate called when the source control state changes
 	 */
-	virtual void CreatePackagesDialog(const FText& Title, const FText& Message, bool InReadOnly = false, bool InAllowSourceControlConnection = false);
+	virtual void CreatePackagesDialog(const FText& Title, const FText& Message, bool InReadOnly = false, bool InAllowSourceControlConnection = false, const FSimpleDelegate& InOnSourceControlStateChanged = FSimpleDelegate());
 
 	/**
 	 * Shows the package dialog window as a modal window
@@ -73,12 +74,23 @@ public:
 	virtual void SetMessage(const FText& InMessage);
 
 	/**
+	 * Sets the warning message displayed in the package dialog
+	 * @param InMessage		The warning to display
+	 */
+	virtual void SetWarning(const FText& InMessage);
+
+	/**
 	 * Populates the passed in array with the desired packages
 	 *
 	 * @param	OutPackages		The array that should be populated with the desired packages
 	 * @param	InChecked		The type of packages that we want to retrieve
 	 */
 	virtual void GetResults(TArray<UPackage*>& OutPackages, ECheckBoxState InChecked);
+
+	/**
+	 * Removes all package items from the dialog
+	 */
+	virtual void RemoveAllPackageItems();
 
 	/**
 	 * Adds a new item to the checkbox that represents a package
@@ -129,6 +141,9 @@ protected:
 private:
 	/** A default window size for the package dialog */
 	static const FVector2D DEFAULT_WINDOW_SIZE;
+
+	/** Extra window width if source control connection is allowed */
+	static const FVector2D EXTRA_WINDOW_WIDTH;
 
 	/** Editor package dialog window */
 	TWeakPtr<SWindow> EditorPackagesDialogWindow;

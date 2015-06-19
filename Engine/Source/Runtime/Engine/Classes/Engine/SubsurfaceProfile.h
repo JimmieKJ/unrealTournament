@@ -66,25 +66,22 @@ class USubsurfaceProfile : public UObject
 	// End UObject interface
 };
 
-// For render thread side, to identify the right index in a map, is never dereferenced
-typedef void* USubsurfaceProfilePointer;
-
-
 // render thread
 class FSubsurfaceProfileTexture : public FRenderResource
 {
 public:
-	// constructor runs on main thread (global variable)
+	// constructor
 	FSubsurfaceProfileTexture();
 
 	// destructor
 	~FSubsurfaceProfileTexture();
 
-	void SetRendererModule(class IRendererModule* InRendererModule) { RendererModule = InRendererModule; }
-
 	// convenience, can be optimized 
-	int32 AddOrUpdateProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfilePointer Profile)
+	// @param Profile must not be 0, game thread pointer, do not dereference, only for comparison
+	int32 AddOrUpdateProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfile* Profile)
 	{
+		check(Profile);
+
 		int32 AllocationId = FindAllocationId(Profile); 
 		
 		if (AllocationId != -1)
@@ -100,17 +97,17 @@ public:
 	}
 
 	// O(n) n is a small number
-	// @param Profile must not be 0
+	// @param InProfile must not be 0, game thread pointer, do not dereference, only for comparison
 	// @return AllocationId -1: no allocation, should be deallocated with DeallocateSubsurfaceProfile()
-	int32 AddProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfilePointer Profile);
+	int32 AddProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfile* InProfile);
 
 	// O(n) to find the element, n is the SSProfile count and usually quite small
-	void RemoveProfile(const USubsurfaceProfilePointer InProfile);
+	void RemoveProfile(const USubsurfaceProfile* InProfile);
 
-	// @param InRendererModule first call needs to have it != 0
-	void UpdateProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfilePointer Profile) { int32 AllocationId = FindAllocationId(Profile); UpdateProfile(AllocationId, Settings); }
+	// @param InProfile must not be 0, game thread pointer, do not dereference, only for comparison
+	void UpdateProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfile* Profile) { int32 AllocationId = FindAllocationId(Profile); UpdateProfile(AllocationId, Settings); }
 
-	// @param InRendererModule first call needs to have it != 0
+	// @param InProfile must not be 0, game thread pointer, do not dereference, only for comparison
 	void UpdateProfile(int32 AllocationId, const FSubsurfaceProfileStruct Settings);
 
 	// @return can be 0 if there is no SubsurfaceProfile
@@ -129,27 +126,28 @@ public:
 	// for debugging / VisualizeSSS
 	ENGINE_API bool GetEntryString(uint32 Index, FString& Out) const;
 
+	// @param InProfile must not be 0, game thread pointer, do not dereference, only for comparison
 	// @return -1 if not found
-	int32 FindAllocationId(const USubsurfaceProfilePointer InProfile) const;
+	int32 FindAllocationId(const USubsurfaceProfile* InProfile) const;
 
 private:
 
 	struct FSubsurfaceProfileEntry
 	{
-		FSubsurfaceProfileEntry(FSubsurfaceProfileStruct InSubsurfaceProfileStruct, const USubsurfaceProfilePointer InGameThreadObject)
+		// @param InProfile game thread pointer, do not dereference, only for comparison, 0 if the entry can be reused or it's [0] which is used as default
+		FSubsurfaceProfileEntry(FSubsurfaceProfileStruct InSubsurfaceProfileStruct, const USubsurfaceProfile* InProfile)
 			: Settings(InSubsurfaceProfileStruct)
-			, GameThreadObject(InGameThreadObject)
+			, Profile(InProfile)
 		{
 		}
 
 		FSubsurfaceProfileStruct Settings;
 
-		// not referenced, void and not USubsurfaceProfile* to prevent accidential access, 0 if the entry can be reused or it's [0] which is used as default
-		USubsurfaceProfilePointer GameThreadObject;
+		// 0 if the entry can be reused or it's [0] which is used as default
+		// game thread pointer, do not dereference, only for comparison
+		const USubsurfaceProfile* Profile;
 	};
 
-	// 0 if there if no user of the feature
-	IRendererModule* RendererModule;
 	//
 	TArray<FSubsurfaceProfileEntry> SubsurfaceProfileEntries;
 

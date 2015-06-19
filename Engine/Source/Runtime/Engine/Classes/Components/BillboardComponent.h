@@ -10,8 +10,8 @@ struct FConvexVolume;
 /** 
  * A 2d texture that will be rendered always facing the camera.
  */
-UCLASS(ClassGroup=Rendering, collapsecategories, hidecategories=(Object,Activation,"Components|Activation",Physics,Collision,Lighting,LOD,Mesh,PhysicsVolume), editinlinenew, meta=(BlueprintSpawnableComponent),MinimalAPI)
-class UBillboardComponent : public UPrimitiveComponent
+UCLASS(ClassGroup=Rendering, collapsecategories, hidecategories=(Object,Activation,"Components|Activation",Physics,Collision,Lighting,Mesh,PhysicsVolume), editinlinenew, meta=(BlueprintSpawnableComponent))
+class ENGINE_API UBillboardComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -73,7 +73,7 @@ class UBillboardComponent : public UPrimitiveComponent
 
 #if WITH_EDITORONLY_DATA
 	/** Set the scale that we use when rendering in-editor */
-	ENGINE_API static void SetEditorScale(float InEditorScale);
+	static void SetEditorScale(float InEditorScale);
 
 	/** The scale we use when rendering in-editor */
 	static float EditorScale;

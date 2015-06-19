@@ -13,11 +13,11 @@ DEFINE_LOG_CATEGORY_STATIC(LogAVIWriter, Log, All);
 
 #include "AllowWindowsPlatformTypes.h"
 typedef TCHAR* PTCHAR;
+#pragma warning(push)
 #pragma warning(disable : 4263) // 'function' : member function does not override any base class virtual member function
 #pragma warning(disable : 4264) // 'virtual_function' : no override available for virtual member function from base 'cla
 #include <streams.h>
-#pragma warning(default : 4263) // 'function' : member function does not override any base class virtual member function
-#pragma warning(default : 4264) // 'virtual_function' : no override available for virtual member function from base 'cla
+#pragma warning(pop)
 
 #include <dshow.h>
 #include <initguid.h>
@@ -111,7 +111,7 @@ public:
 
 	void StartCapture(FViewport* Viewport , const FString& OutputPath /*=FString()*/)
 	{
-		GCaptureSyncEvent = FPlatformProcess::CreateSynchEvent();
+		GCaptureSyncEvent = FPlatformProcess::GetSynchEventFromPool();
 		if (!bCapturing)
 		{
 			if (!Viewport)
@@ -190,7 +190,7 @@ public:
 			}
 
 			IAMVideoCompression* VideoCompression = NULL;
-			if (GEngine->bCompressMatineeCapture)
+			if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
 			{
 				// Create the filter graph manager and query for interfaces.
 				hr = CoCreateInstance (CLSID_MJPGEnc, NULL, CLSCTX_INPROC, IID_IBaseFilter, ( void ** ) &VideoCompression);
@@ -232,20 +232,20 @@ public:
 				FString OutputDir = FPaths::VideoCaptureDir();
 				IFileManager::Get().MakeDirectory(*OutputDir, true);
 
-				if (GEngine->bStartWithMatineeCapture)
+				if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
 				{
 					bool bFoundUnusedName = false;
 					while (!bFoundUnusedName)
 					{
 						const FString FileNameInfo = FString::Printf( TEXT("_%dfps_%dx%d"), 
-							GEngine->MatineeCaptureFPS, CaptureViewport->GetSizeXY().X, CaptureViewport->GetSizeXY().Y );
-						if (GEngine->bCompressMatineeCapture)
+							GEngine->MatineeScreenshotOptions.MatineeCaptureFPS, CaptureViewport->GetSizeXY().X, CaptureViewport->GetSizeXY().Y );
+						if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
 						{
-							FCString::Sprintf( File, TEXT("%s_%d.avi"), *(OutputDir + TEXT("/") + GEngine->MatineePackageCaptureName + "_" + GEngine->MatineeCaptureName + FileNameInfo + "_compressed"), MovieCaptureIndex );
+							FCString::Sprintf( File, TEXT("%s_%d.avi"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo + "_compressed"), MovieCaptureIndex );
 						}
 						else
 						{
-							FCString::Sprintf( File, TEXT("%s_%d.avi"), *(OutputDir + TEXT("/") + GEngine->MatineePackageCaptureName + "_" + GEngine->MatineeCaptureName + FileNameInfo), MovieCaptureIndex );
+							FCString::Sprintf( File, TEXT("%s_%d.avi"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo), MovieCaptureIndex );
 						}
 						if (IFileManager::Get().FileSize(File) != -1)
 						{
@@ -328,15 +328,16 @@ public:
 	{
 		if (bCapturing)
 		{
-			if (CaptureViewport)
-			{
-				ViewportColorBuffer.Empty();
-			}
+			Control->Stop();
+
+			// Trigger the event to force the capture thread to unblock and quit.
+			GCaptureSyncEvent->Trigger();
+			GCaptureSyncEvent->Wait();
+
 			MovieCaptureIndex = 0;
 			bCapturing = false;
 			bReadyForCapture = false;
 			bMatineeFinished = false;
-			Control->Stop();
 			CaptureViewport = NULL;
 			CaptureSlateRenderer = NULL;
 			FrameNumber = 0;
@@ -347,8 +348,13 @@ public:
 			SAFE_RELEASE(Control);
 			SAFE_RELEASE(Graph);
 			FWindowsPlatformMisc::CoUninitialize();
-			delete GCaptureSyncEvent;
-			GCaptureSyncEvent = NULL;
+			FPlatformProcess::ReturnSynchEventToPool(GCaptureSyncEvent);
+			GCaptureSyncEvent = nullptr;
+
+			if(CaptureViewport)
+			{
+				ViewportColorBuffer.Empty();
+			}
 		}
 	}
 
@@ -360,7 +366,7 @@ public:
 	void Update(float DeltaSeconds)
 	{
 		bool bShouldUpdate = true;
-		const float CaptureFrequency = 1.0f/(float)GEngine->MatineeCaptureFPS;
+		const float CaptureFrequency = 1.0f/(float)GEngine->MatineeScreenshotOptions.MatineeCaptureFPS;
 		if (CaptureFrequency > 0.f)
 		{
 			CurrentAccumSeconds += DeltaSeconds;
@@ -385,7 +391,7 @@ public:
 
 		if (bMatineeFinished)
 		{
-			if (GEngine->MatineeCaptureType == 0)
+			if (GEngine->MatineeScreenshotOptions.MatineeCaptureType == 0)
 			{
 				if (CaptureViewport)
 				{
@@ -404,8 +410,11 @@ public:
 		}
 		else if (bCapturing)
 		{
-			// Wait for the directshow thread to finish encoding the last data
-			GCaptureSyncEvent->Wait();
+			if ( GCaptureSyncEvent )
+			{
+				// Wait for the directshow thread to finish encoding the last data
+				GCaptureSyncEvent->Wait();
+			}
 
 			CaptureViewport->ReadPixels(ViewportColorBuffer, FReadSurfaceDataFlags());
 
@@ -423,14 +432,17 @@ public:
 		{
 			CaptureViewport->ReadPixels(ViewportColorBuffer, FReadSurfaceDataFlags());
 
-			// Allow the directshow thread to process the pixels we just read
-			GCaptureSyncEvent->Trigger();
-			Control->Run();
-			bReadyForCapture = false;
-			bCapturing = true;
-			UE_LOG(LogMovieCapture, Log, TEXT("-----------------START------------------"));
-			UE_LOG(LogMovieCapture, Log, TEXT(" INCREASE FrameNumber from %d "), FrameNumber);
-			FrameNumber++;
+			if ( GCaptureSyncEvent )
+			{
+				// Allow the directshow thread to process the pixels we just read
+				GCaptureSyncEvent->Trigger();
+				Control->Run();
+				bReadyForCapture = false;
+				bCapturing = true;
+				UE_LOG(LogMovieCapture, Log, TEXT("-----------------START------------------"));
+				UE_LOG(LogMovieCapture, Log, TEXT(" INCREASE FrameNumber from %d "), FrameNumber);
+				FrameNumber++;
+			}
 		}
 	}
 
@@ -494,20 +506,20 @@ public:
 				FString OutputDir = FPaths::VideoCaptureDir();
 				IFileManager::Get().MakeDirectory(*OutputDir, true);
 				
-				if (GEngine->bStartWithMatineeCapture)
+				if (GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture)
 				{
 					bool bFoundUnusedName = false;
 					while (!bFoundUnusedName)
 					{
 						const FString FileNameInfo = FString::Printf( TEXT("_%dfps_%dx%d"),
-																	 GEngine->MatineeCaptureFPS, CaptureViewport->GetSizeXY().X, CaptureViewport->GetSizeXY().Y );
-						if (GEngine->bCompressMatineeCapture)
+																	 GEngine->MatineeScreenshotOptions.MatineeCaptureFPS, CaptureViewport->GetSizeXY().X, CaptureViewport->GetSizeXY().Y );
+						if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
 						{
-							FCString::Sprintf( File, TEXT("%s_%d.mov"), *(OutputDir + TEXT("/") + GEngine->MatineePackageCaptureName + "_" + GEngine->MatineeCaptureName + FileNameInfo + "_compressed"), MovieCaptureIndex );
+							FCString::Sprintf( File, TEXT("%s_%d.mov"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo + "_compressed"), MovieCaptureIndex );
 						}
 						else
 						{
-							FCString::Sprintf( File, TEXT("%s_%d.mov"), *(OutputDir + TEXT("/") + GEngine->MatineePackageCaptureName + "_" + GEngine->MatineeCaptureName + FileNameInfo), MovieCaptureIndex );
+							FCString::Sprintf( File, TEXT("%s_%d.mov"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo), MovieCaptureIndex );
 						}
 						if (IFileManager::Get().FileSize(File) != -1)
 						{
@@ -558,7 +570,7 @@ public:
 			}
 			
 			NSDictionary* VideoSettings = nil;
-			if (GEngine->bCompressMatineeCapture && GEngine->bStartWithMatineeCapture)
+			if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture && GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture)
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
 								 AVVideoCodecH264, AVVideoCodecKey,
@@ -607,13 +619,14 @@ public:
 			[AVFWriterInputRef markAsFinished];
 			// This will finish asynchronously and then destroy the relevant objects.
 			// We must wait for this to complete.
-			FEvent* Event = FPlatformProcess::CreateSynchEvent(true);
+			FEvent* Event = FPlatformProcess::GetSynchEventFromPool(true);
 			[AVFWriterRef finishWritingWithCompletionHandler:^{
 				check(AVFWriterRef.status == AVAssetWriterStatusCompleted);
 				Event->Trigger();
 			}];
 			Event->Wait(~0u);
-			delete Event;
+			FPlatformProcess::ReturnSynchEventToPool(Event);
+			Event = nullptr;
 			[AVFWriterInputRef release];
 			[AVFWriterRef release];
 			[AVFPixelBufferAdaptorRef release];
@@ -644,7 +657,7 @@ public:
 	void Update(float DeltaSeconds)
 	{
 		bool bShouldUpdate = true;
-		const float CaptureFrequency = 1.0f/(float)GEngine->MatineeCaptureFPS;
+		const float CaptureFrequency = 1.0f/(float)GEngine->MatineeScreenshotOptions.MatineeCaptureFPS;
 		if (CaptureFrequency > 0.f)
 		{
 			CurrentAccumSeconds += DeltaSeconds;
@@ -669,7 +682,7 @@ public:
 		
 		if (bMatineeFinished)
 		{
-			if (GEngine->MatineeCaptureType == 0)
+			if (GEngine->MatineeScreenshotOptions.MatineeCaptureType == 0)
 			{
 				if (CaptureViewport)
 				{
@@ -704,7 +717,7 @@ public:
 			FMemory::Memcpy(Data, ViewportColorBuffer.GetData(), ViewportColorBuffer.Num()*sizeof(FColor));
 			CVPixelBufferUnlockBaseAddress(PixeBuffer, 0);
 			
-            CMTime PresentTime = FrameNumber > 0 ? CMTimeMake(FrameNumber, GEngine->MatineeCaptureFPS) : kCMTimeZero;
+            CMTime PresentTime = FrameNumber > 0 ? CMTimeMake(FrameNumber, GEngine->MatineeScreenshotOptions.MatineeCaptureFPS) : kCMTimeZero;
 			BOOL OK = [AVFPixelBufferAdaptorRef appendPixelBuffer:PixeBuffer withPresentationTime:PresentTime];
 			check(OK);
 			

@@ -27,21 +27,7 @@ public:
 	/** Constructs this widget with InArgs */
 	void Construct( const FArguments& InArgs );
 
-public:
-
-	// Begin SWidget overrides
-
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
-	// End SWidget overrides
-
 protected:
-
-	/**
-	 * Fades the entire dialog in over a short period of time.
-	 */
-	void FadeIn( );
-
 	/**
 	 * Opens the specified project.
 	 *
@@ -62,6 +48,8 @@ protected:
 	FReply ShowProjectBrowser( );
 
 private:
+	/** Ensures the fade-in animation is played post-construct */
+	EActiveTimerReturnType TriggerFadeInPostConstruct( double InCurrentTime, float InDeltaTime );
 
 	// Callback for getting the color of the custom content area.
 	FLinearColor HandleCustomContentColorAndOpacity() const;
@@ -82,9 +70,6 @@ private:
 
 	// Holds the fading animation.
 	FCurveSequence FadeAnimation;
-
-	// Holds the fading animation curve.
-	FCurveHandle FadeCurve;
 
 	/** The switcher widget to control which screen is in view */
 	TSharedPtr<SWidgetSwitcher> ContentAreaSwitcher;

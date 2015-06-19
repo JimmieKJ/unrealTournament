@@ -110,7 +110,7 @@ int32 UGatherTextCommandlet::Main( const FString& Params )
 			continue;
 		}
 
-		UGatherTextCommandletBase* Commandlet = ConstructObject<UGatherTextCommandletBase>( CommandletClass );
+		UGatherTextCommandletBase* Commandlet = NewObject<UGatherTextCommandletBase>(GetTransientPackage(), CommandletClass);
 		check(Commandlet);
 		Commandlet->AddToRoot();
 		Commandlet->Initialize( ManifestInfo, SourceControlInfo );

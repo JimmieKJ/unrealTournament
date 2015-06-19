@@ -33,6 +33,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("VoiceInt"), STAT_Voice_Interface, STATGROUP_Onli
 /** Forward declarations of all interface classes */
 typedef TSharedPtr<class IOnlineSession, ESPMode::ThreadSafe> IOnlineSessionPtr;
 typedef TSharedPtr<class IOnlineFriends, ESPMode::ThreadSafe> IOnlineFriendsPtr;
+typedef TSharedPtr<class IOnlineParty, ESPMode::ThreadSafe> IOnlinePartyPtr;
+typedef TSharedPtr<class IOnlineGroups, ESPMode::ThreadSafe> IOnlineGroupsPtr;
 typedef TSharedPtr<class IOnlineSharedCloud, ESPMode::ThreadSafe> IOnlineSharedCloudPtr;
 typedef TSharedPtr<class IOnlineUserCloud, ESPMode::ThreadSafe> IOnlineUserCloudPtr;
 typedef TSharedPtr<class IOnlineEntitlements, ESPMode::ThreadSafe> IOnlineEntitlementsPtr;
@@ -49,17 +51,18 @@ typedef TSharedPtr<class IOnlineSharing, ESPMode::ThreadSafe> IOnlineSharingPtr;
 typedef TSharedPtr<class IOnlineUser, ESPMode::ThreadSafe> IOnlineUserPtr;
 typedef TSharedPtr<class IOnlineMessage, ESPMode::ThreadSafe> IOnlineMessagePtr;
 typedef TSharedPtr<class IOnlinePresence, ESPMode::ThreadSafe> IOnlinePresencePtr;
-typedef TSharedPtr<class IOnlineParty, ESPMode::ThreadSafe> IOnlinePartyPtr;
 typedef TSharedPtr<class IOnlineChat, ESPMode::ThreadSafe> IOnlineChatPtr;
+typedef TSharedPtr<class IOnlineTurnBased, ESPMode::ThreadSafe> IOnlineTurnBasedPtr;
 typedef TSharedPtr<class FOnlineNotificationHandler, ESPMode::ThreadSafe> FOnlineNotificationHandlerPtr;
 typedef TSharedPtr<class FOnlineNotificationTransportManager, ESPMode::ThreadSafe> FOnlineNotificationTransportManagerPtr;
 
 /**
  * Called when the connection state as reported by the online platform changes
  *
- * @param ConnectionState state of the connection
+ * @param LastConnectionState last state of the connection
+ * @param ConnectionState current state of the connection
  */
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnConnectionStatusChanged, EOnlineServerConnectionStatus::Type);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnConnectionStatusChanged, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
 typedef FOnConnectionStatusChanged::FDelegate FOnConnectionStatusChangedDelegate;
 
 /**
@@ -143,19 +146,38 @@ public:
 	 */
 	virtual IOnlineFriendsPtr GetFriendsInterface() const = 0;
 
+	/**
+	 * Get the interface for accessing the groups services
+	 * @return Interface pointer for appropriate groups service
+	 */
+	virtual IOnlineGroupsPtr GetGroupsInterface() const = 0;
+
+	/** 
+	 * Get the interface for accessing the player party services
+	 * @return Interface pointer for the appropriate party service
+	 */
+	virtual IOnlinePartyPtr GetPartyInterface() const = 0;
+
 	/** 
 	 * Get the interface for sharing user files in the cloud
 	 * @return Interface pointer for the appropriate cloud service
 	 */
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const = 0;
 
-	/** 
-	 * Get the interface for accessing user files in the cloud
-	 * @return Interface pointer for the appropriate cloud service
-	 */
+	/**
+	* Get the interface for accessing user files in the cloud
+	* @return Interface pointer for the appropriate cloud service
+	*/
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const = 0;
 
-	/** 
+	/**
+	* Get the interface for accessing user files in the cloud for a specific service
+	* @param Key   The key for the required user cloud interface
+	* @return      Interface pointer for the appropriate cloud service
+	*/
+	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const = 0;
+
+	/**
 	 * Get the interface for accessing user entitlements
 	 * @return Interface pointer for the appropriate entitlements service
 	 */
@@ -190,12 +212,6 @@ public:
 	 * @return Interface pointer for the appropriate identity service
 	 */
 	virtual IOnlineIdentityPtr GetIdentityInterface() const = 0;
-
-	/** 
-	 * Get the interface for accessing party online services
-	 * @return Interface pointer for the appropriate party service
-	 */
-	virtual IOnlinePartyPtr GetPartyInterface() const = 0;
 
 	/** 
 	 * Get the interface for accessing title file online services
@@ -250,6 +266,7 @@ public:
 	 * @return Interface pointer for the appropriate online user service
 	 */
 	virtual IOnlineChatPtr GetChatInterface() const = 0;
+
 	/**
 	* Get the notification handler instance for this subsystem
 	* @return Pointer for the appropriate notification handler
@@ -258,6 +275,12 @@ public:
 	{
 		return OnlineNotificationHandler;
 	}
+
+	/**
+	* Get the interface for managing turn based multiplayer games
+	* @return Interface pointer for the appropriate online user service
+	*/
+	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const = 0;
 
 	/**
 	* Get the transport manager instance for this subsystem
@@ -354,9 +377,10 @@ public:
 	/**
 	 * Called when the connection state as reported by the online platform changes
 	 *
-	 * @param ConnectionState state of the connection
+	 * @param LastConnectionState last state of the connection
+	 * @param ConnectionState current state of the connection
 	 */
-	DEFINE_ONLINE_DELEGATE_ONE_PARAM(OnConnectionStatusChanged, EOnlineServerConnectionStatus::Type);
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnConnectionStatusChanged, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
 };
 
 /** Public references to the online subsystem pointer should use this */

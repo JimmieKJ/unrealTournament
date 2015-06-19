@@ -7,6 +7,8 @@
 #include "Button.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonClickedEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonPressedEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnButtonReleasedEvent);
 
 /**
  * The button is a click-able primitive widget to enable basic interaction, you
@@ -31,23 +33,23 @@ public:
 	FButtonStyle WidgetStyle;
 	
 	/** The color multiplier for the button content */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FLinearColor ColorAndOpacity;
 	
 	/** The color multiplier for the button background */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FLinearColor BackgroundColor;
 
 	/** The type of mouse action required by the user to trigger the buttons 'Click' */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
 	TEnumAsByte<EButtonClickMethod::Type> ClickMethod;
 
 	/** The type of touch action required by the user to trigger the buttons 'Click' */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
 	TEnumAsByte<EButtonTouchMethod::Type> TouchMethod;
 
 	/** Sometimes a button should only be mouse-clickable and never keyboard focusable. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
 	bool IsFocusable;
 
 public:
@@ -55,6 +57,14 @@ public:
 	/** Called when the button is clicked */
 	UPROPERTY(BlueprintAssignable, Category="Button|Event")
 	FOnButtonClickedEvent OnClicked;
+
+	/** Called when the button is pressed */
+	UPROPERTY(BlueprintAssignable, Category="Button|Event")
+	FOnButtonPressedEvent OnPressed;
+
+	/** Called when the button is released */
+	UPROPERTY(BlueprintAssignable, Category="Button|Event")
+	FOnButtonReleasedEvent OnReleased;
 
 public:
 	
@@ -104,6 +114,8 @@ protected:
 protected:
 	/** Handle the actual click event from slate and forward it on */
 	FReply SlateHandleClicked();
+	void SlateHandlePressed();
+	void SlateHandleReleased();
 
 protected:
 	// UWidget interface

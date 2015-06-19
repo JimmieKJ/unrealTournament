@@ -204,7 +204,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 								[
 									SNew(STextBlock)
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-									.Text(NSLOCTEXT("SUWSeverBrowser", "HideUnresponsive", "Hide Unresponsive Servers").ToString())
+									.Text(NSLOCTEXT("SUWSeverBrowser", "HideUnresponsive", "Hide Unresponsive Servers"))
 								]
 
 							]
@@ -1357,8 +1357,6 @@ void SUWServerBrowser::PingServer(TSharedPtr<FServerData> ServerToPing)
 	AUTServerBeaconClient* Beacon = PlayerOwner->GetWorld()->SpawnActor<AUTServerBeaconClient>(AUTServerBeaconClient::StaticClass());
 	if (Beacon)
 	{
-		FString BeaconNetDriverName = FString::Printf(TEXT("BeaconDriver%s"), *ServerToPing->BeaconIP);
-		Beacon->SetBeaconNetDriverName(BeaconNetDriverName);
 		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconResult );
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconFailure);
 		FURL BeaconURL(nullptr, *ServerToPing->BeaconIP, TRAVEL_Absolute);
@@ -1441,7 +1439,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			PingTrackers[i].Server->Players.Empty();
 			TArray<FString> PlayerData;
-			int32 Cnt = ServerInfo.ServerPlayers.ParseIntoArray(&PlayerData, TEXT("\t"), true);
+			int32 Cnt = ServerInfo.ServerPlayers.ParseIntoArray(PlayerData, TEXT("\t"), true);
 			for (int32 p=0;p+2 < Cnt; p+=3)
 			{
 				FString Name = PlayerData[p];
@@ -1453,7 +1451,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			PingTrackers[i].Server->Rules.Empty();
 			TArray<FString> RulesData;
-			Cnt = ServerInfo.ServerRules.ParseIntoArray(&RulesData, TEXT("\t"), true);
+			Cnt = ServerInfo.ServerRules.ParseIntoArray(RulesData, TEXT("\t"), true);
 			for (int32 r=0; r+1 < Cnt; r+=2)
 			{
 				FString Rule = RulesData[r];
@@ -1463,7 +1461,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			}
 
 			TArray<FString> BrokenIP;
-			if (PingTrackers[i].Server->IP.ParseIntoArray(&BrokenIP,TEXT(":"),true) == 2)
+			if (PingTrackers[i].Server->IP.ParseIntoArray(BrokenIP,TEXT(":"),true) == 2)
 			{
 				PingTrackers[i].Server->AddRule(TEXT("IP"), BrokenIP[0]);
 				PingTrackers[i].Server->AddRule(TEXT("Port"), BrokenIP[1]);
@@ -1478,7 +1476,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			PingTrackers[i].Server->HUBInstances.Empty();
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceCount; InstIndex++ )
 			{
-				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceDescriptions[InstIndex], PingTrackers[i].Beacon->InstanceHostNames[InstIndex]));	
+				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceInfo[InstIndex]));	
 			}
 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
@@ -1557,8 +1555,8 @@ void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bS
 {
 	if (GameFilterText.IsValid())
 	{
-		FString GameFilter = GameFilterText->GetText().ToString();
-		if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameModeName == GameFilter)
+		FString GameFilterString = GameFilterText->GetText().ToString();
+		if (GameFilterString.IsEmpty() || GameFilterString == TEXT("All") || NewServer->GameModeName == GameFilterString)
 		{
 			if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 			{
@@ -1889,7 +1887,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 						.AutoHeight()
 						[
 							SNew(STextBlock)
-							.Text(InItem->Name)
+							.Text(FText::FromString(InItem->Name))
 							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.TitleText")
 						]
 						+SVerticalBox::Slot()
@@ -2049,6 +2047,10 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HU
 		int32 Column = 0;
 		for (int32 i=0;i<HUB->HUBInstances.Num();i++)
 		{
+
+			HUB->HUBInstances[i]->BadgeTexture = LoadObject<UTexture2D>(nullptr, *HUB->HUBInstances[i]->RuleSetIcon, nullptr, LOAD_None, nullptr);
+			HUB->HUBInstances[i]->SlateBadge = new FSlateDynamicImageBrush(HUB->HUBInstances[i]->BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None);
+
 			if (Column == 0)
 			{
 				VBox->AddSlot()
@@ -2079,22 +2081,28 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HU
 							.WidthOverride(192)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Backdrop.Highlight"))
+								.Image(HUB->HUBInstances[i]->SlateBadge)
 							]
 						]
 						+SOverlay::Slot()
 						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.Padding(5.0,5.0,5.0,5.0)
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
 							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
 							[
-								SNew(SRichTextBlock)
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
-								.Justification(ETextJustify::Center)
-								.DecoratorStyleSet( &SUWindowsStyle::Get() )
-								.AutoWrapText( true )
-								.Text(FText::FromString(*HUB->HUBInstances[i]->Description))
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.Padding(5.0,5.0,5.0,5.0)
+								.HAlign(HAlign_Center)
+								[
+									SNew(SRichTextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
+									.Justification(ETextJustify::Center)
+									.DecoratorStyleSet( &SUWindowsStyle::Get() )
+									.AutoWrapText( true )
+									.Text(FText::FromString(*HUB->HUBInstances[i]->Description))
+								]
 							]
 						]
 					]

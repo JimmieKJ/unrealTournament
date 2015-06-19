@@ -3,6 +3,9 @@
 #include "SlateCorePrivatePCH.h"
 #include "LegacySlateFontInfoCache.h"
 
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Font Atlases"), STAT_SlateNumFontAtlases, STATGROUP_SlateMemory);
+DECLARE_MEMORY_STAT(TEXT("Font Kerning Table Memory"), STAT_SlateFontKerningTableMemory, STATGROUP_SlateMemory);
+DEFINE_STAT(STAT_SlateFontMeasureCacheMemory);
 
 #ifndef WITH_FREETYPE
 	#define WITH_FREETYPE	0
@@ -403,7 +406,7 @@ public:
 		// If the requested glyph doesn't exist, use the localization fallback font.
 		if ( FontFace == nullptr || (Char != 0 && GlyphIndex == 0) )
 		{
-			FontFace = GetFontFace( FLegacySlateFontInfoCache::Get().GetFallbackFont() );
+			FontFace = GetFontFace( FLegacySlateFontInfoCache::Get().GetFallbackFontData() );
 			if (FontFace != nullptr)
 			{					
 				GlyphIndex = FT_Get_Char_Index( FontFace, Char );
@@ -414,7 +417,7 @@ public:
 		// If the requested glyph doesn't exist, use the last resort fallback font.
 		if ( FontFace == nullptr || ( Char != 0 && GlyphIndex == 0 ) )
 		{
-			FontFace = GetFontFace( FLegacySlateFontInfoCache::Get().GetLastResortFont() );
+			FontFace = GetFontFace( FLegacySlateFontInfoCache::Get().GetLastResortFontData() );
 			check( FontFace );
 			GlyphIndex = FT_Get_Char_Index( FontFace, Char );
 			LocalGlyphFlags |= FT_LOAD_FORCE_AUTOHINT;
@@ -452,10 +455,9 @@ public:
 
 		FT_Bitmap* Bitmap = nullptr;
 
+		FT_Bitmap NewBitmap;
 		if( Slot->bitmap.pixel_mode == FT_PIXEL_MODE_MONO )
 		{
-			FT_Bitmap NewBitmap;
-
 			FT_Bitmap_New( &NewBitmap );
 			// Convert the mono font to 8bbp from 1bpp
 			FT_Bitmap_Convert( FTLibrary, &Slot->bitmap, &NewBitmap, 4 );
@@ -803,7 +805,7 @@ private:
 				{
 					// Parse out the font attributes
 					TArray<FString> Styles;
-					FString(FaceAndMemory->Face->style_name).ParseIntoArray(&Styles, TEXT(" "), true);
+					FString(FaceAndMemory->Face->style_name).ParseIntoArray(Styles, TEXT(" "), true);
 
 					for (const FString& Style : Styles)
 					{
@@ -904,18 +906,16 @@ int8 FKerningTable::GetKerning( const FFontData& InFontData, const int32 InSize,
 		{
 			OutKerning = FontCache.GetKerning( InFontData, InSize, FirstChar, SecondChar, InScale );
 
-#if STATS
-			const uint32 CurrentMemoryUsage = MappedKerningPairs.GetAllocatedSize();
-#endif
+			STAT(const uint32 CurrentMemoryUsage = MappedKerningPairs.GetAllocatedSize());
 			MappedKerningPairs.Add( KerningPair, OutKerning );
-		
-#if STATS
-			uint32 NewMemoryUsage = MappedKerningPairs.GetAllocatedSize();
-			if( NewMemoryUsage > CurrentMemoryUsage )
+			STAT(
 			{
-				INC_MEMORY_STAT_BY( STAT_SlateFontKerningTableMemory, NewMemoryUsage-CurrentMemoryUsage );
-			}
-#endif
+				uint32 NewMemoryUsage = MappedKerningPairs.GetAllocatedSize();
+				if (NewMemoryUsage > CurrentMemoryUsage)
+				{
+					INC_MEMORY_STAT_BY(STAT_SlateFontKerningTableMemory, NewMemoryUsage - CurrentMemoryUsage);
+				}
+			})
 		}
 	}
 
@@ -1017,31 +1017,33 @@ const FCharacterEntry& FCharacterList::GetCharacter( TCHAR Character )
 		}
 			
 		FCharacterEntry& CharacterEntry = DirectIndexEntries[ Character ];
-		if( !CharacterEntry.IsValidEntry() )
+		if( CharacterEntry.IsValidEntry() )
+		{
+			return CharacterEntry;
+		}
+		else
 		{
 			// Character has not been cached yet
-			CharacterEntry = CacheCharacter( Character );
+			return CacheCharacter( Character );
 		}
-
-		return CharacterEntry;
 	}
 	else
 	{
 		FCharacterEntry& CharacterEntry = MappedEntries.FindOrAdd( Character );
-		if( !CharacterEntry.IsValidEntry() )
+		if( CharacterEntry.IsValidEntry() )
+		{
+			return CharacterEntry;
+		}
+		else
 		{
 			// Character has not been cached yet
-			CharacterEntry = CacheCharacter( Character );
+			return CacheCharacter( Character );
 		}
-
-		return CharacterEntry;
 	}
 }
 
 FCharacterEntry& FCharacterList::CacheCharacter( TCHAR Character )
 {
-	SCOPE_CYCLE_COUNTER( STAT_SlateFontCachingTime );
-
 	FCharacterEntry NewEntry;
 	bool bSuccess = FontCache.AddNewEntry( Character, FontKey, NewEntry );
 

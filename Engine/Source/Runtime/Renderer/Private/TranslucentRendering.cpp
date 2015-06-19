@@ -27,8 +27,19 @@ static void SetTranslucentRenderTargetAndState(FRHICommandList& RHICmdList, cons
 	if (bSetupTranslucentState)
 	{
 		// Enable depth test, disable depth writes.
-		// Note, this is a reversed Z depth surface, using CF_GreaterEqual.
-		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_GreaterEqual>::GetRHI());
+		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
+	}
+}
+
+static void FinishTranslucentRenderTarget(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, bool bSeparateTranslucencyPass)
+{
+	if (bSeparateTranslucencyPass && GSceneRenderTargets.IsSeparateTranslucencyActive(View))
+	{
+		GSceneRenderTargets.FinishRenderingSeparateTranslucency(RHICmdList, View);
+	}
+	else
+	{
+		GSceneRenderTargets.FinishRenderingTranslucency(RHICmdList, View);
 	}
 }
 
@@ -59,7 +70,7 @@ const FProjectedShadowInfo* FDeferredShadingSceneRenderer::PrepareTranslucentSha
 				{
 					FProjectedShadowInfo* CurrentShadowInfo = VisibleLightInfo->AllProjectedShadows[ShadowIndex];
 
-					if (CurrentShadowInfo && CurrentShadowInfo->bTranslucentShadow && CurrentShadowInfo->ParentSceneInfo == PrimitiveSceneInfo)
+					if (CurrentShadowInfo && CurrentShadowInfo->bTranslucentShadow && CurrentShadowInfo->GetParentSceneInfo() == PrimitiveSceneInfo)
 					{
 						TranslucentSelfShadow = CurrentShadowInfo;
 						break;
@@ -153,7 +164,7 @@ public:
 		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << SceneTextureParameters;
@@ -208,9 +219,9 @@ class FDrawTranslucentMeshAction
 public:
 
 	const FViewInfo& View;
-	bool bBackFace;
-	FHitProxyId HitProxyId;
 	const FProjectedShadowInfo* TranslucentSelfShadow;
+	FHitProxyId HitProxyId;
+	bool bBackFace;
 	bool bUseTranslucentSelfShadowing;
 
 	/** Initialization constructor. */
@@ -222,9 +233,9 @@ public:
 		bool bInUseTranslucentSelfShadowing
 		):
 		View(InView),
-		bBackFace(bInBackFace),
-		HitProxyId(InHitProxyId),
 		TranslucentSelfShadow(InTranslucentSelfShadow),
+		HitProxyId(InHitProxyId),
+		bBackFace(bInBackFace),
 		bUseTranslucentSelfShadowing(bInUseTranslucentSelfShadowing)
 	{}
 
@@ -272,7 +283,7 @@ public:
 			// Translucent meshes need scene render targets set as textures
 			ESceneRenderTargetsMode::SetTextures,
 			bIsLitMaterial && Scene && Scene->SkyLight && !Scene->SkyLight->bHasStaticLighting,
-			Scene && Scene->HasAtmosphericFog() && View.Family->EngineShowFlags.Atmosphere,
+			Scene && Scene->HasAtmosphericFog() && View.Family->EngineShowFlags.AtmosphericFog && View.Family->EngineShowFlags.Fog,
 			View.Family->EngineShowFlags.ShaderComplexity,
 			Parameters.bAllowFog
 			);
@@ -407,8 +418,7 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 			}
 			else
 			{
-				// Note, this is a reversed Z depth surface, using CF_GreaterEqual.	
-				RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_GreaterEqual,true,CF_Always,SO_Keep,SO_Keep,SO_Replace>::GetRHI(), 1);
+				RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual,true,CF_Always,SO_Keep,SO_Keep,SO_Replace>::GetRHI(), 1);
 			}
 		}
 		else if( bDisableDepthTest )
@@ -440,8 +450,7 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 		if (bDisableDepthTest || bEnableResponsiveAA)
 		{
 			// Restore default depth state
-			// Note, this is a reversed Z depth surface, using CF_GreaterEqual.	
-			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_GreaterEqual>::GetRHI());
+			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 		}
 
 		bDirty = true;
@@ -870,6 +879,12 @@ public:
 	{
 		SetStateOnCommandList(ParentCmdList);
 	}
+
+	virtual ~FTranslucencyPassParallelCommandListSet()
+	{
+		Dispatch();
+	}
+
 	virtual void SetStateOnCommandList(FRHICommandList& CmdList) override
 	{
 		SetTranslucentRenderTargetAndState(CmdList, View, bSeparateTranslucency, bFirstTimeThisFrame);
@@ -898,7 +913,8 @@ void FDeferredShadingSceneRenderer::RenderTranslucencyParallel(FRHICommandListIm
 		const FViewInfo& View = Views[ViewIndex];
 
 		{
-			FTranslucencyPassParallelCommandListSet ParallelCommandListSet(View, RHICmdList, nullptr, CVarRHICmdTranslucencyPassDeferredContexts.GetValueOnRenderThread() > 0, false);
+			const bool bSeparateTranslucency = false;
+			FTranslucencyPassParallelCommandListSet ParallelCommandListSet(View, RHICmdList, nullptr, CVarRHICmdTranslucencyPassDeferredContexts.GetValueOnRenderThread() > 0, bSeparateTranslucency);
 
 			{
 				int32 NumPrims = View.TranslucentPrimSet.NumPrims() - View.TranslucentPrimSet.NumSeparateTranslucencyPrims();
@@ -934,6 +950,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucencyParallel(FRHICommandListIm
 			// Draw the view's mesh elements with the translucent drawing policy.
 			DrawViewElementsParallel<FTranslucencyDrawingPolicyFactory>(ThisContext, SDPG_Foreground, false, ParallelCommandListSet);
 
+			FinishTranslucentRenderTarget(RHICmdList, View, bSeparateTranslucency);
 		}
 
 #if 0 // unsupported visualization in the parallel case
@@ -1035,6 +1052,8 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 					LightPropagationVolume->Visualise(RHICmdList, View);
 				}
 			}
+
+			FinishTranslucentRenderTarget(RHICmdList, View, false);
 			
 			{
 				bool bRenderSeparateTranslucency = View.TranslucentPrimSet.NumSeparateTranslucencyPrims() > 0;
@@ -1047,7 +1066,7 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 				{
 					if (bSetupTranslucency)
 					{
-						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_GreaterEqual>::GetRHI());
+						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 					}
 
 					View.TranslucentPrimSet.DrawPrimitives(RHICmdList, View, *this, true);

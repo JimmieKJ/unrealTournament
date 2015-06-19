@@ -82,7 +82,6 @@ static FText GetTextForNotification( const EProfilerNotificationTypes::Type Noti
 
 SProfilerWindow::SProfilerWindow()
 	: DurationActive(0.0f)
-	, bIsActive(false)
 {}
 
 SProfilerWindow::~SProfilerWindow()
@@ -491,28 +490,34 @@ void SProfilerWindow::SendingServiceSideCapture_Load( const FString Filename )
 	}
 }
 
-void SProfilerWindow::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType SProfilerWindow::UpdateActiveDuration( double InCurrentTime, float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	DurationActive += InDeltaTime;
 
-	if (bIsActive)
-	{
-		DurationActive += InDeltaTime;
-	}
+	// The profiler window will explicitly unregister this active timer when the mouse leaves
+	return EActiveTimerReturnType::Continue;
 }
 
 void SProfilerWindow::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	SCompoundWidget::OnMouseEnter(MyGeometry, MouseEvent);
 
-	bIsActive = true;
+	if (!ActiveTimerHandle.IsValid())
+	{
+		ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SProfilerWindow::UpdateActiveDuration));
+	}
 }
 
 void SProfilerWindow::OnMouseLeave(const FPointerEvent& MouseEvent)
 {
 	SCompoundWidget::OnMouseLeave(MouseEvent);
 
-	bIsActive = false;
+	auto PinnedActiveTimerHandle = ActiveTimerHandle.Pin();
+	if (PinnedActiveTimerHandle.IsValid())
+	{
+		UnRegisterActiveTimer(PinnedActiveTimerHandle.ToSharedRef());
+	}
+	
 }
 
 FReply SProfilerWindow::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )

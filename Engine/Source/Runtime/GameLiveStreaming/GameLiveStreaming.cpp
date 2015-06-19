@@ -436,8 +436,6 @@ UTexture2D* FGameLiveStreaming::GetWebCamTexture( bool& bIsImageFlippedHorizonta
 	UTexture2D* WebCamTexture = nullptr;
 	if( IsBroadcastingGame() && bDrawSimpleWebCamVideo && LiveStreamer->IsWebCamEnabled() )
 	{
-		bool bIsImageFlippedHorizontally = false;
-		bool bIsImageFlippedVertically = false;
 		WebCamTexture = LiveStreamer->GetWebCamTexture( bIsImageFlippedHorizontally, bIsImageFlippedVertically );
 	}
 	return WebCamTexture;

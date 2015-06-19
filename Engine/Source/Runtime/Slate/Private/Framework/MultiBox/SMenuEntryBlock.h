@@ -229,7 +229,7 @@ protected:
 	virtual void OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent ) override;
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	//virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End of SWidget interface
 
 	/**
@@ -311,10 +311,16 @@ protected:
 	FSlateColor InvertOnHover() const;
 
 	/** Updates state machine for sub-menu opening logic.  Called in the widget's Tick as well as on demand in some cases. */
-	void UpdateSubMenuState();
+	//void UpdateSubMenuState();
 
 private:
 	const FSlateBrush* GetCheckBoxImageBrushFromStyle(const FCheckBoxStyle* Style) const;
+
+	/** One-off delayed active timer to update the open/closed state of the sub menu. */
+	EActiveTimerReturnType UpdateSubMenuState(double InCurrentTime, float InDeltaTime, bool bWantsOpen);
+
+	/** The handle to the active timer to update the sub-menu state */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 
 	/** The brush to use when an item should appear checked */
 	const FSlateBrush* CheckedImage;
@@ -322,20 +328,21 @@ private:
 	const FSlateBrush* UncheckedImage;
 	/** For pull-down or sub-menu entries, this stores a weak reference to the menu anchor widget that we'll use to summon the menu */
 	TWeakPtr< SMenuAnchor > MenuAnchor;
+	
 	/** The time until a SubMenu action is taken (open or close).  <0 means no action taken */
-	float TimeToSubMenuOpen;
+	//float TimeToSubMenuOpen;
 
 	/** Style for menu bar button with sub menu opened */
 	const FSlateBrush* MenuBarButtonBorderSubmenuOpen;
 	/** Style for menu bar button with no sub menu opened */
 	const FSlateBrush* MenuBarButtonBorderSubmenuClosed;
 
-	/** The pending SubMenu request state */
-	enum
-	{
-		Idle,
-		WantOpen,
-		WantClose
-	} 
-	SubMenuRequestState;
+	///** The pending SubMenu request state */
+	//enum
+	//{
+	//	Idle,
+	//	WantOpen,
+	//	WantClose
+	//} 
+	//SubMenuRequestState;
 };

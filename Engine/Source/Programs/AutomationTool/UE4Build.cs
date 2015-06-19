@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using System.Xml;
+using System.Diagnostics;
 
 namespace AutomationTool
 {
@@ -54,7 +55,7 @@ namespace AutomationTool
 			}
 		}
 
-		void PrepareManifest(string ManifestName)
+		void PrepareManifest(string ManifestName, bool bAddReceipt)
 		{
 			if (FileExists(ManifestName) == false)
 			{
@@ -79,8 +80,20 @@ namespace AutomationTool
 			UnrealBuildTool.BuildManifest Manifest = ReadManifest(ManifestName);
 			foreach (string Item in Manifest.BuildProducts)
 			{
-				PrepareBuildProduct(Item);
+				if(bAddReceipt && IsBuildReceipt(Item))
+				{
+					AddBuildProduct(Item);
+				}
+				else
+				{
+					PrepareBuildProduct(Item);
+				}
 			}
+		}
+
+		static bool IsBuildReceipt(string FileName)
+		{
+			return Path.GetDirectoryName(FileName).Replace('\\', '/').EndsWith("/Receipts", StringComparison.InvariantCultureIgnoreCase);
 		}
 
 		void AddBuildProductsFromManifest(string ManifestName)
@@ -100,8 +113,7 @@ namespace AutomationTool
 			}
 		}
 
-		public static string BaseUBTDirectory = "";
-		
+	
 		/// True if UBT is compiled and ready to build!
 		private bool bIsUBTReady = false;
 		
@@ -164,17 +176,7 @@ namespace AutomationTool
 			{
 				AddArgs += " -forcedebuginfo";
 			}
-			if(AddArgs.Contains("PostedRocket"))
-			{
-				if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealBuildTool.UnrealTargetPlatform.Win64)
-				{
-					BaseUBTDirectory = @"Rocket/TempInst/Windows";
-				}
-				if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealBuildTool.UnrealTargetPlatform.Mac)
-				{
-					BaseUBTDirectory = @"Rocket/TempInst/Mac";
-				}
-			}
+
 			PrepareUBT();
 
             string UBTManifest = GetUBTManifest(UprojectPath, AddArgs);
@@ -186,7 +188,7 @@ namespace AutomationTool
 
 			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: Platform.ToString(), Config: Config, AdditionalArgs: "-generatemanifest -nobuilduht -xgeexport" + AddArgs, EnvVars: EnvVars);
 
-			PrepareManifest(UBTManifest);
+			PrepareManifest(UBTManifest, true);
 
 			Result.Platform = Platform;
 			Result.Config = Config;
@@ -281,7 +283,7 @@ namespace AutomationTool
 			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: Platform.ToString(), Config: Config, AdditionalArgs: "-clean" + AddArgs, EnvVars: EnvVars);
 		}
 
-		void BuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform TargetPlatform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "", bool ForceUnity = false, Dictionary<string, string> EnvVars = null, bool BuildProductsOnly = false)
+		void BuildWithUBT(string ProjectName, string TargetName, UnrealBuildTool.UnrealTargetPlatform TargetPlatform, string Config, string UprojectPath, bool ForceMonolithic = false, bool ForceNonUnity = false, bool ForceDebugInfo = false, bool ForceFlushMac = false, bool DisableXGE = false, string InAddArgs = "", bool ForceUnity = false, Dictionary<string, string> EnvVars = null)
 		{
 			string AddArgs = "";
 			if (string.IsNullOrEmpty(UprojectPath) == false)
@@ -313,17 +315,6 @@ namespace AutomationTool
 			{
 				AddArgs += " -noxge";
 			}
-			if(AddArgs.Contains("PostedRocket"))
-			{
-				if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealBuildTool.UnrealTargetPlatform.Win64)
-				{
-					BaseUBTDirectory = @"Rocket/TempInst/Windows";
-				}
-				if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealBuildTool.UnrealTargetPlatform.Mac)
-				{
-					BaseUBTDirectory = @"Rocket/TempInst/Mac";
-				}
-			}
 
 			PrepareUBT();
 
@@ -336,18 +327,15 @@ namespace AutomationTool
 
 				DeleteFile(UBTManifest);
 
-				RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: "-generatemanifest" + AddArgs, EnvVars: EnvVars);
+				RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs +  " -generatemanifest" , EnvVars: EnvVars);
 
-				PrepareManifest(UBTManifest);
+				PrepareManifest(UBTManifest, false);
 			}
 
-			if(!BuildProductsOnly)
-			{
-				RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs, EnvVars: EnvVars);
+			RunUBT(CmdEnv, UBTExecutable: UBTExecutable, Project: ProjectName, Target: TargetName, Platform: TargetPlatform.ToString(), Config: Config, AdditionalArgs: AddArgs, EnvVars: EnvVars);
 
-				// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
-				Platform.Platforms[TargetPlatform].PostBuildTarget(this, string.IsNullOrEmpty(ProjectName) ? TargetName : ProjectName, UprojectPath, Config);
-			}
+			// allow the platform to perform any actions after building a target (seems almost like this should be done in UBT)
+			Platform.Platforms[TargetPlatform].PostBuildTarget(this, string.IsNullOrEmpty(ProjectName) ? TargetName : ProjectName, UprojectPath, Config);
 
 			if (UseManifest)
 			{
@@ -380,6 +368,7 @@ namespace AutomationTool
                 "SwarmCoordinator",
                 "SwarmCoordinatorInterface",
                 "SwarmInterface",
+				"SwarmCommonUtils"
             };
 		}
 
@@ -600,6 +589,7 @@ namespace AutomationTool
 			return Values;
 		}
 
+		[DebuggerDisplay("{TargetName} {Platform} {Config}")]
 		public class BuildTarget
 		{
 			/// Unreal project name, if needed
@@ -652,6 +642,11 @@ namespace AutomationTool
 			/// the solution file base name, but with various binary file extensions
 			public List<string> IOSDotNetProjects = new List<string>();
 
+			/// These are .NET project binary files that are specific to HTML5.  We define these build products as existing in the 
+			/// DotNET directory and assume that the output binary file names match
+			/// the solution file base name, but with various binary file extensions
+			public List<string> HTML5DotNetProjects = new List<string>();
+
 			public string SwarmProject = "";
 
 
@@ -676,6 +671,12 @@ namespace AutomationTool
 			/// <param name="InAddArgs">Specifies additional arguments for UBT</param>
 			public void AddTarget(string TargetName, UnrealBuildTool.UnrealTargetPlatform InPlatform, UnrealBuildTool.UnrealTargetConfiguration InConfiguration, string InUprojectPath = null, bool bForceMonolithic = false, bool bForceNonUnity = false, bool bForceDebugInfo = false, string InAddArgs = "")
 			{
+				// Is this platform a compilable target?
+				if (!Platform.Platforms[InPlatform].CanBeCompiled())
+				{
+					return;
+				}
+
 				Targets.Add(new BuildTarget()
 				{
 					TargetName = TargetName,
@@ -701,6 +702,12 @@ namespace AutomationTool
 			/// <param name="bForceDebugInfo">Force debug info even in development builds</param>
 			public void AddTargets(string[] TargetNames, UnrealBuildTool.UnrealTargetPlatform InPlatform, UnrealBuildTool.UnrealTargetConfiguration InConfiguration, string InUprojectPath = null, bool bForceMonolithic = false, bool bForceNonUnity = false, bool bForceDebugInfo = false, string InAddArgs = "")
 			{
+				// Is this platform a compilable target?
+				if (!Platform.Platforms[InPlatform].CanBeCompiled())
+				{
+					return;
+				}
+
 				foreach (var Target in TargetNames)
 				{
 					Targets.Add(new BuildTarget()
@@ -728,7 +735,7 @@ namespace AutomationTool
 		public List<string> FindXGEFiles()
 		{
 			var Result = new List<string>();
-			var Root = CombinePaths(CmdEnv.LocalRoot, BaseUBTDirectory, @"\Engine\Intermediate\Build");			
+			var Root = CombinePaths(CmdEnv.LocalRoot, @"\Engine\Intermediate\Build");			
 			Result.AddRange(FindFiles_NoExceptions("*.xge.xml", false, Root));
 			Result.Sort();
 			return Result;
@@ -913,7 +920,10 @@ namespace AutomationTool
 
 								ToolElement.SetAttribute("Params", Element.Attributes["Params"].Value);
 								ToolElement.SetAttribute("Path", Element.Attributes["Path"].Value);
-								ToolElement.SetAttribute("VCCompiler", Element.Attributes["VCCompiler"].Value);
+								if(Element.HasAttribute("VCCompiler"))
+								{
+									ToolElement.SetAttribute("VCCompiler", Element.Attributes["VCCompiler"].Value);
+								}
 								ToolElement.SetAttribute("SkipIfProjectFailed", Element.Attributes["SkipIfProjectFailed"].Value);
 								if (Element.HasAttribute("AutoReserveMemory"))
 								{
@@ -1157,13 +1167,8 @@ namespace AutomationTool
 		/// <param name="InDeleteBuildProducts">if specified, determines if the build products will be deleted before building. If not specified -clean parameter will be used,</param>
 		/// <param name="InUpdateVersionFiles">True if the version files are to be updated </param>
 		/// <param name="InForceNoXGE">If true will force XGE off</param>
-		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InForceNonUnity = false, bool InForceUnity = false, Dictionary<UnrealBuildTool.UnrealTargetPlatform, Dictionary<string, string>> PlatformEnvVars = null, bool InBuildProductsOnly = false)
+		public void Build(BuildAgenda Agenda, bool? InDeleteBuildProducts = null, bool InUpdateVersionFiles = true, bool InForceNoXGE = false, bool InForceNonUnity = false, bool InForceUnity = false, Dictionary<UnrealBuildTool.UnrealTargetPlatform, Dictionary<string, string>> PlatformEnvVars = null)
 		{
-			if (GlobalCommandLine.NoCodeProject)
-			{
-				throw new AutomationException("Building is not supported when -nocodeproject flag is provided.");
-			}
-
 			if (!CmdEnv.HasCapabilityToCompile)
 			{
 				throw new AutomationException("You are attempting to compile on a machine that does not have a supported compiler!");
@@ -1211,11 +1216,7 @@ namespace AutomationTool
 				string SwarmSolution = Path.Combine(CmdEnv.LocalRoot, Agenda.SwarmProject);
 				PrepareBuildProductsForCSharpProj(SwarmSolution);
 
-				if(!InBuildProductsOnly)
-				{
-					BuildSolution(CmdEnv, SwarmSolution);
-				}
-
+				BuildSolution(CmdEnv, SwarmSolution);
 				AddSwarmBuildProducts();
 			}
 
@@ -1225,10 +1226,7 @@ namespace AutomationTool
 
 				PrepareBuildProductsForCSharpProj(Solution);
 
-				if(!InBuildProductsOnly)
-				{
-					BuildSolution(CmdEnv, Solution);
-				}
+				BuildSolution(CmdEnv, Solution);
 
 				AddBuildProductsForCSharpProj(Solution);
 			}
@@ -1239,10 +1237,7 @@ namespace AutomationTool
 
 				PrepareBuildProductsForCSharpProj(CsProj);
 
-				if(!InBuildProductsOnly)
-				{
-					BuildCSharpProject(CmdEnv, CsProj);
-				}
+				BuildCSharpProject(CmdEnv, CsProj);
 
 				AddBuildProductsForCSharpProj(CsProj);
 			}
@@ -1253,12 +1248,20 @@ namespace AutomationTool
 
 				PrepareBuildProductsForCSharpProj(IOSCsProj);
 
-				if(!InBuildProductsOnly)
-				{
-					BuildCSharpProject(CmdEnv, IOSCsProj);
-				}
+				BuildCSharpProject(CmdEnv, IOSCsProj);
 
 				AddIOSBuildProductsForCSharpProj(IOSCsProj);
+			}
+
+			foreach (var HTML5DotNetProject in Agenda.HTML5DotNetProjects)
+			{
+				string CsProj = Path.Combine(CmdEnv.LocalRoot, HTML5DotNetProject);
+
+				PrepareBuildProductsForCSharpProj(CsProj);
+
+				BuildCSharpProject(CmdEnv, CsProj);
+
+				AddBuildProductsForCSharpProj(CsProj);
 			}
 
 			foreach (var File in Agenda.ExtraDotNetFiles)
@@ -1271,7 +1274,7 @@ namespace AutomationTool
 			bool bForceUnity = OwnerCommand.ParseParam("ForceUnity") || InForceUnity;
 			bool bForceDebugInfo = OwnerCommand.ParseParam("ForceDebugInfo");
 			bool bUsedXGE = false;
-			bool bCanUseXGE = !OwnerCommand.ParseParam("NoXGE") && !InForceNoXGE && !InBuildProductsOnly;
+			bool bCanUseXGE = !OwnerCommand.ParseParam("NoXGE") && !InForceNoXGE;
 			string XGEConsole = XGEConsoleExe();
 			if (bCanUseXGE && !FileExists(XGEConsole))
 			{
@@ -1280,10 +1283,10 @@ namespace AutomationTool
 			}
 
 			Log("************************* UE4Build:");
-			Log("************************* ForceMonolithic: ", bForceMonolithic);
-			Log("************************* ForceNonUnity: ", bForceNonUnity);
-			Log("************************* ForceDebugInfo: ", bForceDebugInfo);
-			Log("************************* UseXGE: ", bCanUseXGE);
+			Log("************************* ForceMonolithic: {0}", bForceMonolithic);
+			Log("************************* ForceNonUnity:{0} ", bForceNonUnity);
+			Log("************************* ForceDebugInfo: {0}", bForceDebugInfo);
+			Log("************************* UseXGE: {0}", bCanUseXGE);
 
 			if (bCanUseXGE)
 			{
@@ -1344,7 +1347,7 @@ namespace AutomationTool
 				{
 					// When building a target for Mac or iOS, use UBT's -flushmac option to clean up the remote builder
 					bool bForceFlushMac = DeleteBuildProducts && (Target.Platform == UnrealBuildTool.UnrealTargetPlatform.Mac || Target.Platform == UnrealBuildTool.UnrealTargetPlatform.IOS);
-					BuildWithUBT(Target.ProjectName, Target.TargetName, Target.Platform, Target.Config.ToString(), Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, bForceFlushMac, true, Target.UBTArgs, bForceUnity, BuildProductsOnly: InBuildProductsOnly);
+					BuildWithUBT(Target.ProjectName, Target.TargetName, Target.Platform, Target.Config.ToString(), Target.UprojectPath, bForceMonolithic, bForceNonUnity, bForceDebugInfo, bForceFlushMac, true, Target.UBTArgs, bForceUnity);
 				}
 			}
 
@@ -1363,15 +1366,18 @@ namespace AutomationTool
 				Log("Build products *******");
 				if (BuildProductFiles.Count < 1)
 				{
-					throw new AutomationException("BUILD FAILED: no build products??");
+					Log("No build products were made");
 				}
-				foreach (var Product in BuildProductFiles)
+				else
 				{
-					if (!FileExists(Product))
+					foreach (var Product in BuildProductFiles)
 					{
-						throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", Product);
+						if (!FileExists(Product))
+						{
+							throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", Product);
+						}
+						Log(Product);
 					}
-					Log(Product);
 				}
 				Log("End Build products *******");
 			}
@@ -1387,13 +1393,13 @@ namespace AutomationTool
 			Log("Adding {0} build products to changelist {1}...", Files.Count, WorkingCL);
 			foreach (var File in Files)
 			{
-				P4.Sync("-f -k " + File + "#head"); // sync the file without overwriting local one
+				P4.Sync("-f -k " + CommandUtils.MakePathSafeToUseWithCommandLine(File) + "#head"); // sync the file without overwriting local one
 				if (!FileExists(File))
 				{
 					throw new AutomationException("BUILD FAILED {0} was a build product but no longer exists", File);
 				}
 
-				P4.ReconcileNoDeletes(WorkingCL, File);
+				P4.ReconcileNoDeletes(WorkingCL, CommandUtils.MakePathSafeToUseWithCommandLine(File));
 
 				// Change file type on binary files to be always writeable.
 				var FileStats = P4.FStat(File);
@@ -1424,7 +1430,7 @@ namespace AutomationTool
 		/// <returns>True if this is a Windows build product. False otherwise.</returns>
 		private static bool IsBuildProduct(string File, P4FileStat FileStats)
 		{
-			if(FileStats.Type == P4FileType.Binary)
+			if(FileStats.Type == P4FileType.Binary || IsBuildReceipt(File))
 			{
 				return true;
 			}
@@ -1447,6 +1453,8 @@ namespace AutomationTool
 					{
 						"UnrealBuildTool.exe",
 						"UnrealBuildTool.exe.config",
+						"EnvVarsToXML.exe",
+						"EnvVarsToXML.exe.config"
 					});
 
 			foreach (var UBTFile in UBTFiles)
@@ -1523,7 +1531,7 @@ namespace AutomationTool
 
 		public static string GetUBTExecutable()
 		{
-			return CommandUtils.CombinePaths(CmdEnv.LocalRoot, BaseUBTDirectory, @"Engine/Binaries/DotNET/UnrealBuildTool.exe");
+			return CommandUtils.CombinePaths(CmdEnv.LocalRoot, @"Engine/Binaries/DotNET/UnrealBuildTool.exe");
 		}
 
 		public string UBTExecutable

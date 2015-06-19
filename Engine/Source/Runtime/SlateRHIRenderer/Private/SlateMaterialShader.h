@@ -20,11 +20,13 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial* Material, float InDisplayGamma, const FVector4& InShaderParams );
 
+	void SetDisplayGamma(FRHICommandList& RHICmdList, float InDisplayGamma);
+
 	virtual bool Serialize(FArchive& Ar) override;
 
 private:
 
-	FShaderParameter DisplayGamma;
+	FShaderParameter GammaValues;
 	FShaderParameter ShaderParams;
 };
 

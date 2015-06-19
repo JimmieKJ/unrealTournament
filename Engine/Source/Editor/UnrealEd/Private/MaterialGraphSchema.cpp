@@ -22,6 +22,8 @@
 
 #define LOCTEXT_NAMESPACE "MaterialGraphSchema"
 
+int32 UMaterialGraphSchema::CurrentCacheRefreshID = 0;
+
 ////////////////////////////////////////
 // FMaterialGraphSchemaAction_NewNode //
 
@@ -782,9 +784,12 @@ bool UMaterialGraphSchema::HasCompatibleConnection(const FAssetData& FunctionAss
 		if (CombinedOutputTypes == 0)
 		{
 			// Need to load function to build combined output types
-			UMaterialFunction* MaterialFunction = CastChecked<UMaterialFunction>(FunctionAssetData.GetAsset());
-			CombinedInputTypes = MaterialFunction->CombinedInputTypes;
-			CombinedOutputTypes = MaterialFunction->CombinedOutputTypes;
+			UMaterialFunction* MaterialFunction = Cast<UMaterialFunction>(FunctionAssetData.GetAsset());
+			if (MaterialFunction != nullptr)
+			{
+				CombinedInputTypes = MaterialFunction->CombinedInputTypes;
+				CombinedOutputTypes = MaterialFunction->CombinedOutputTypes;
+			}
 		}
 
 		if (TestDirection == EGPD_Output)
@@ -804,6 +809,21 @@ bool UMaterialGraphSchema::HasCompatibleConnection(const FAssetData& FunctionAss
 	}
 
 	return false;
+}
+
+bool UMaterialGraphSchema::IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const
+{
+	return CurrentCacheRefreshID != InVisualizationCacheID;
+}
+
+int32 UMaterialGraphSchema::GetCurrentVisualizationCacheID() const
+{
+	return CurrentCacheRefreshID;
+}
+
+void UMaterialGraphSchema::ForceVisualizationCacheClear() const
+{
+	++CurrentCacheRefreshID;
 }
 
 #undef LOCTEXT_NAMESPACE

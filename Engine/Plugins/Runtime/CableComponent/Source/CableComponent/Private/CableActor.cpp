@@ -6,6 +6,6 @@
 ACableActor::ACableActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	CableComponent = ObjectInitializer.CreateDefaultSubobject<UCableComponent>(this, TEXT("CableComponent0"));
+	CableComponent = CreateDefaultSubobject<UCableComponent>(TEXT("CableComponent0"));
 	RootComponent = CableComponent;
 }

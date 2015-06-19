@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
-#include "K2ActionMenuBuilder.h"
 #include "Kismet2NameValidators.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
@@ -50,22 +49,6 @@ FText UK2Node_Knot::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	else
 	{
 		return LOCTEXT("KnotTitle", "Reroute Node");
-	}
-}
-
-void UK2Node_Knot::GetMenuEntries(struct FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	if (ContextMenuBuilder.FromPin != nullptr)
-	{
-		UK2Node_Knot* TemplateNode = NewObject<UK2Node_Knot>(GetTransientPackage(), GetClass());
-
-		FString EmptyCategory;
-		FText MenuDesc = LOCTEXT("KnotMenuDescription", "Add Reroute Node...");
-		FString Tooltip = TemplateNode->GetTooltipText().ToString();//@TODO: Make this work +LOCTEXT("KnotMenuExtraTooltip", "\nYou can also create one by Shift+Dragging off a pin").ToString();
-		FString Keywords = TemplateNode->GetKeywords();
-
-		TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, EmptyCategory, MenuDesc, Tooltip, 0, Keywords);
-		NodeAction->NodeTemplate = TemplateNode;
 	}
 }
 
@@ -187,6 +170,16 @@ TSharedPtr<class INameValidatorInterface> UK2Node_Knot::MakeNameValidator() cons
 {
 	// Comments can be duplicated, etc...
 	return MakeShareable(new FDummyNameValidator(EValidatorResult::Ok));
+}
+
+UEdGraphPin* UK2Node_Knot::GetPassThroughPin(const UEdGraphPin* FromPin) const
+{
+	if(FromPin && Pins.Contains(FromPin))
+	{
+		return FromPin == Pins[0] ? Pins[1] : Pins[0];
+	}
+
+	return nullptr;
 }
 
 /////////////////////////////////////////////////////

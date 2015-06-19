@@ -10,7 +10,7 @@
 UCLASS(hidecategories=Object)
 class SLATECORE_API USlateWidgetStyleAsset : public UObject
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 		  
 public:  
 	/**  */

@@ -11,8 +11,7 @@
  *	OnlineSubsystemIOS - Implementation of the online subsystem for IOS services
  */
 class ONLINESUBSYSTEMIOS_API FOnlineSubsystemIOS : 
-	public FOnlineSubsystemImpl,
-	public FTickerObjectBase
+	public FOnlineSubsystemImpl
 {
 
 public:
@@ -22,14 +21,16 @@ public:
 	// Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
 	virtual IOnlineFriendsPtr GetFriendsInterface() const override;
+	virtual IOnlinePartyPtr GetPartyInterface() const override;
+	virtual IOnlineGroupsPtr GetGroupsInterface() const override;
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const override;
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
+	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const override;
 	virtual IOnlineLeaderboardsPtr GetLeaderboardsInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const  override;
 	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;
 	virtual IOnlineTimePtr GetTimeInterface() const override;
 	virtual IOnlineIdentityPtr GetIdentityInterface() const override;
-	virtual IOnlinePartyPtr GetPartyInterface() const override;
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
 	virtual IOnlineEntitlementsPtr GetEntitlementsInterface() const override;
 	virtual IOnlineStorePtr GetStoreInterface() const override;
@@ -38,8 +39,9 @@ public:
 	virtual IOnlineSharingPtr GetSharingInterface() const override;
 	virtual IOnlineUserPtr GetUserInterface() const override;
 	virtual IOnlineMessagePtr GetMessageInterface() const override;
-	virtual IOnlinePresencePtr GetPresenceInterface() const override;
+    virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
+    virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;
@@ -86,6 +88,9 @@ private:
 
 	/** Interface to the external UI services */
 	FOnlineExternalUIIOSPtr ExternalUIInterface;
+
+    /** Interface to the turnbased multiplayer services */
+    FOnlineTurnBasedIOSPtr TurnBasedInterface;
 };
 
 typedef TSharedPtr<FOnlineSubsystemIOS, ESPMode::ThreadSafe> FOnlineSubsystemIOSPtr;

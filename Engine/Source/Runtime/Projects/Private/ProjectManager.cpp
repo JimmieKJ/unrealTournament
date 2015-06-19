@@ -8,7 +8,6 @@ DEFINE_LOG_CATEGORY_STATIC( LogProjectManager, Log, All );
 
 FProjectManager::FProjectManager()
 {
-	bRestartRequired = false;
 }
 
 const FProjectDescriptor* FProjectManager::GetCurrentProject() const
@@ -105,19 +104,6 @@ const FString& FProjectManager::GetAutoLoadProjectFileName()
 {
 	static FString RecentProjectFileName = FPaths::Combine(*FPaths::GameAgnosticSavedDir(), TEXT("AutoLoadProject.txt"));
 	return RecentProjectFileName;
-}
-
-bool FProjectManager::GenerateNewProjectFile(const FString& NewProjectFilename, const TArray<FString>& StartupModuleNames, const FString& EngineIdentifier, FText& OutFailReason)
-{
-	FProjectDescriptor Descriptor;
-	Descriptor.EngineAssociation = EngineIdentifier;
-
-	for(int32 Idx = 0; Idx < StartupModuleNames.Num(); Idx++)
-	{
-		Descriptor.Modules.Add(FModuleDescriptor(*StartupModuleNames[Idx]));
-	}
-
-	return Descriptor.Save(NewProjectFilename, OutFailReason);
 }
 
 bool FProjectManager::SignSampleProject(const FString& FilePath, const FString& Category, FText& OutFailReason)
@@ -253,7 +239,7 @@ void FProjectManager::ClearSupportedTargetPlatformsForCurrentProject()
 void FProjectManager::GetEnabledPlugins(TArray<FString>& OutPluginNames) const
 {
 	// Get the default list of plugin names
-	GetDefaultEnabledPlugins(OutPluginNames);
+	GetDefaultEnabledPlugins(OutPluginNames, true);
 
 	// Modify that with the list of plugins in the project file
 	const FProjectDescriptor *Project = GetCurrentProject();
@@ -280,7 +266,7 @@ bool FProjectManager::IsNonDefaultPluginEnabled() const
 
 	for(const FPluginStatus& Plugin: IPluginManager::Get().QueryStatusForAllPlugins())
 	{
-		if((!Plugin.bIsBuiltIn || !Plugin.bIsEnabledByDefault) && EnabledPlugins.Contains(Plugin.Name))
+		if ((Plugin.LoadedFrom == EPluginLoadedFrom::GameProject || !Plugin.Descriptor.bEnabledByDefault || Plugin.Descriptor.bInstalled) && EnabledPlugins.Contains(Plugin.Name))
 		{
 			return true;
 		}
@@ -289,7 +275,7 @@ bool FProjectManager::IsNonDefaultPluginEnabled() const
 	return false;
 }
 
-bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason)
+bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason, const FString& MarketplaceURL)
 {
 	// Don't go any further if there's no project loaded
 	if(!CurrentProject.IsValid())
@@ -304,7 +290,7 @@ bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled,
 	{
 		if(PluginRefIdx == CurrentProject->Plugins.Num())
 		{
-			PluginRefIdx = CurrentProject->Plugins.Add(FPluginReferenceDescriptor(PluginName, bEnabled));
+			PluginRefIdx = CurrentProject->Plugins.Add(FPluginReferenceDescriptor(PluginName, bEnabled, MarketplaceURL));
 			break;
 		}
 		else if(CurrentProject->Plugins[PluginRefIdx].Name == PluginName)
@@ -318,15 +304,20 @@ bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled,
 	const FPluginReferenceDescriptor* PluginRef = &CurrentProject->Plugins[PluginRefIdx];
 	if(PluginRef->WhitelistPlatforms.Num() == 0 && PluginRef->BlacklistPlatforms.Num() == 0)
 	{
-		// Get the default list of enabled plugins
-		TArray<FString> DefaultEnabledPlugins;
-		GetDefaultEnabledPlugins(DefaultEnabledPlugins);
-
-		// Check the enabled state is the same in that
-		if(DefaultEnabledPlugins.Contains(PluginName) == bEnabled)
+		// We alway need to be explicit about installed plugins, because they'll be auto-enabled again if we're not.
+		TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
+		if(!Plugin.IsValid() || !Plugin->GetDescriptor().bInstalled)
 		{
-			CurrentProject->Plugins.RemoveAt(PluginRefIdx);
-			PluginRefIdx = INDEX_NONE;
+			// Get the default list of enabled plugins
+			TArray<FString> DefaultEnabledPlugins;
+			GetDefaultEnabledPlugins(DefaultEnabledPlugins, false);
+
+			// Check the enabled state is the same in that
+			if(DefaultEnabledPlugins.Contains(PluginName) == bEnabled)
+			{
+				CurrentProject->Plugins.RemoveAt(PluginRefIdx);
+				PluginRefIdx = INDEX_NONE;
+			}
 		}
 	}
 
@@ -336,25 +327,21 @@ bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled,
 		return false;
 	}
 
-	// Flag that a restart is required and return
-	bRestartRequired = true;
 	return true;
 }
 
-bool FProjectManager::IsRestartRequired() const
-{
-	return bRestartRequired;
-}
-
-void FProjectManager::GetDefaultEnabledPlugins(TArray<FString>& OutPluginNames)
+void FProjectManager::GetDefaultEnabledPlugins(TArray<FString>& OutPluginNames, bool bIncludeInstalledPlugins)
 {
 	// Add all the game plugins and everything marked as enabled by default
 	TArray<FPluginStatus> PluginStatuses = IPluginManager::Get().QueryStatusForAllPlugins();
 	for(const FPluginStatus& PluginStatus: PluginStatuses)
 	{
-		if(PluginStatus.bIsEnabledByDefault || !PluginStatus.bIsBuiltIn)
+		if(PluginStatus.Descriptor.bEnabledByDefault || PluginStatus.LoadedFrom == EPluginLoadedFrom::GameProject)
 		{
-			OutPluginNames.AddUnique(PluginStatus.Name);
+			if(bIncludeInstalledPlugins || !PluginStatus.Descriptor.bInstalled)
+			{
+				OutPluginNames.AddUnique(PluginStatus.Name);
+			}
 		}
 	}
 }

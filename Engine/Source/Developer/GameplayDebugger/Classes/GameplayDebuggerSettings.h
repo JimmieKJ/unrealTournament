@@ -31,7 +31,7 @@ struct FGDTCustomViewNames
 	FString GameView5;
 };
 
-UCLASS(config = EditorUserSettings)
+UCLASS(config = EditorPerProjectUserSettings)
 class GAMEPLAYDEBUGGER_API UGameplayDebuggerSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -62,6 +62,8 @@ public:
 
 		return Settings;
 	}
+
+	bool UseAlternateKeys() { return bUseAlternateKeys; }
 
 	const FGDTCustomViewNames& GetCustomViewNames() { return CustomViewNames; }
 
@@ -110,6 +112,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, config, Category = "GameplayDebugger")
 	bool GameView5;
+
+	UPROPERTY(EditAnywhere, config, Category = "GameplayDebugger")
+	bool bUseAlternateKeys;
 
 	// Holds an event delegate that is executed when a setting has changed.
 	FSettingChangedEvent SettingChangedEvent;

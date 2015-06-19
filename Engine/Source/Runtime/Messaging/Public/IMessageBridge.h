@@ -15,7 +15,7 @@
  * separate processes or en different computers. Another common use case is to connect an Unreal Engine
  * message bus to an entirely different messaging system that is not based on Unreal Engine.
  *
- * Message bridge instances can be created with the @see IMessagingModule.CreateBridge method.
+ * Message bridge instances can be created with the IMessagingModule.CreateBridge method.
  */
 class IMessageBridge
 {

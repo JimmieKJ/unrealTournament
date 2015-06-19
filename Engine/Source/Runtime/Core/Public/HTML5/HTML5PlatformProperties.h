@@ -28,11 +28,6 @@ struct FHTML5PlatformProperties
 		return false;
 	}
 
-	static FORCEINLINE uint32 MaxGpuSkinBones( )
-	{
-		return 20;
-	}
-
 	static FORCEINLINE const char* PlatformName()
 	{
 		return "HTML5";

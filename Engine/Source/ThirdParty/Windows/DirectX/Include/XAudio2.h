@@ -48,9 +48,9 @@
 //DEFINE_CLSID(XAudio2_Debug, 47199894, 7cc2, 444d, 98, 73, ce, d2, 56, 2c, c6, 0e);
 
 // XAudio 2.7 (June 2010 SDK)
-DEFINE_CLSID(XAudio2, 5a508685, a254, 4fba, 9b, 82, 9a, 24, b0, 03, 06, af);
-DEFINE_CLSID(XAudio2_Debug, db05ea35, 0329, 4d4b, a5, 3a, 6d, ea, d0, 3d, 38, 52);
-DEFINE_IID(IXAudio2, 8bcf1f58, 9fe7, 4583, 8a, c6, e2, ad, c4, 65, c8, bb);
+DEFINE_CLSID(XAudio2,5a508685,a254,4fba,9b,82,9a,24,b0,03,06,af);
+DEFINE_CLSID(XAudio2_Debug,db05ea35,0329,4d4b,a5,3a,6d,ea,d0,3d,38,52);
+DEFINE_IID(IXAudio2, 8bcf1f58,9fe7,4583,8a,c6,e2,ad,c4,65,c8,bb);
 
 
 // Ignore the rest of this header if only the GUID definitions were requested

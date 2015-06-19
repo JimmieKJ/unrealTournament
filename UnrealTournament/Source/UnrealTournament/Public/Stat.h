@@ -82,6 +82,9 @@ public:
 	UPROPERTY()
 	TArray<int32> StatDataByPeriod;
 
+	UPROPERTY()
+	bool bBackendStat;
+
 	/** Never ever let this stat get over this max value regardless of what is in MaxValue. If it is 0, it is ignored.*/
 	UPROPERTY()
 	int32 AbsoluteMaxValue;

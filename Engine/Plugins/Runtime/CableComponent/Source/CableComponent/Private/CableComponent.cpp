@@ -2,6 +2,9 @@
 
 #include "CableComponentPluginPrivatePCH.h"
 #include "DynamicMeshBuilder.h"
+#include "EngineGlobals.h"
+#include "LocalVertexFactory.h"
+#include "Engine/Engine.h"
 
 
 /** Vertex Buffer */
@@ -296,7 +299,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
@@ -306,7 +309,7 @@ public:
 		return Result;
 	}
 
-	virtual uint32 GetMemoryFootprint( void ) const { return( sizeof( *this ) + GetAllocatedSize() ); }
+	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 
 	uint32 GetAllocatedSize( void ) const { return( FPrimitiveSceneProxy::GetAllocatedSize() ); }
 
@@ -465,6 +468,22 @@ void UCableComponent::PerformSubstep(float InSubstepTime, const FVector& Gravity
 {
 	VerletIntegrate(InSubstepTime, Gravity);
 	SolveConstraints();
+}
+
+void UCableComponent::SetAttachEndTo(AActor* Actor, FName ComponentProperty)
+{
+	AttachEndTo.OtherActor = Actor;
+	AttachEndTo.ComponentProperty = ComponentProperty;
+}
+
+AActor* UCableComponent::GetAttachedActor() const
+{
+	return AttachEndTo.OtherActor;
+}
+
+USceneComponent* UCableComponent::GetAttachedComponent() const
+{
+	return AttachEndTo.GetComponent(GetOwner());
 }
 
 void UCableComponent::GetEndPositions(FVector& OutStartPosition, FVector& OutEndPosition)

@@ -1,11 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
+
 #include "Breakpoint.generated.h"
 
+
 UCLASS()
-class ENGINE_API UBreakpoint : public UObject
+class ENGINE_API UBreakpoint
+	: public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -30,7 +32,6 @@ private:
 
 public:
 
-public:
 	/** Get the target node for the breakpoint */
 	UEdGraphNode* GetLocation() const
 	{
@@ -54,6 +55,3 @@ public:
 
 	friend class FKismetDebugUtilities;
 };
-
-
-

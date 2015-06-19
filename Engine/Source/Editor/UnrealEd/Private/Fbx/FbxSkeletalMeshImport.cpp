@@ -54,6 +54,8 @@
 #include "ComponentReregisterContext.h"
 
 #include "FbxErrors.h"
+#include "PhysicsEngine/PhysicsAsset.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 #define LOCTEXT_NAMESPACE "FBXImpoter"
 
@@ -860,7 +862,7 @@ bool UnFbx::FFbxImporter::ImportBone(TArray<FbxNode*>& NodeArray, FSkeletalMeshI
 
 			if(FCStringAnsi::Strcmp(Link->GetName(), AltLink->GetName()) == 0)
 			{
-				FString RawBoneName = ANSI_TO_TCHAR(Link->GetName());
+				FString RawBoneName = UTF8_TO_TCHAR(Link->GetName());
 				AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_DuplicateBoneName", "Error, Could not import {0}.\nDuplicate bone name found ('{1}'). Each bone must have a unique name."),
 					FText::FromString(NodeArray[0]->GetName()), FText::FromString(RawBoneName))), FFbxErrors::SkeletalMesh_DuplicateBones);
 				return false;
@@ -946,7 +948,7 @@ bool UnFbx::FFbxImporter::ImportBone(TArray<FbxNode*>& NodeArray, FSkeletalMeshI
 				if(!bUseTime0AsRefPose && !bDisableMissingBindPoseWarning)
 				{
 					bAnyLinksNotInBindPose = true;
-					LinksWithoutBindPoses +=  ANSI_TO_TCHAR(Link->GetName());
+					LinksWithoutBindPoses +=  UTF8_TO_TCHAR(Link->GetName());
 					LinksWithoutBindPoses +=  TEXT("  \n");
 				}
 
@@ -1000,7 +1002,7 @@ bool UnFbx::FFbxImporter::ImportBone(TArray<FbxNode*>& NodeArray, FSkeletalMeshI
 		FString BoneName;
 
 		const char* LinkName = Link->GetName();
-		BoneName = ANSI_TO_TCHAR( MakeName( LinkName ) );
+		BoneName = UTF8_TO_TCHAR( MakeName( LinkName ) );
 		Bone.Name = BoneName;
 
 		VJointPos& JointMatrix = Bone.BonePos;
@@ -1111,7 +1113,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ImportSkeletalMesh(UObject* InParent, TArray
 	}
 
 	// [from USkeletalMeshFactory::FactoryCreateBinary]
-	USkeletalMesh* SkeletalMesh = CastChecked<USkeletalMesh>( StaticConstructObject( USkeletalMesh::StaticClass(), InParent, Name, Flags ) );
+	USkeletalMesh* SkeletalMesh = NewObject<USkeletalMesh>(InParent, Name, Flags);
 	
 	SkeletalMesh->PreEditChange(NULL);
 	
@@ -1458,7 +1460,7 @@ UObject* UnFbx::FFbxImporter::CreateAssetOfClass(UClass* AssetClass, FString Par
 	{
 		// add it to the set
 		// do not add to the set, now create independent asset
-		Object = StaticConstructObject( AssetClass, Parent, *ObjectName, RF_Public|RF_Standalone  );
+		Object = NewObject<UObject>(Parent, AssetClass, *ObjectName, RF_Public | RF_Standalone);
 		Object->MarkPackageDirty();
 		// Notify the asset registry
 		FAssetRegistryModule::AssetCreated(Object);
@@ -1505,7 +1507,7 @@ USkeletalMesh* UnFbx::FFbxImporter::ReimportSkeletalMesh(USkeletalMesh* Mesh, UF
 	}
 
 	char MeshName[1024];
-	FCStringAnsi::Strcpy(MeshName, TCHAR_TO_ANSI(*Mesh->GetName()));
+	FCStringAnsi::Strcpy(MeshName, TCHAR_TO_UTF8(*Mesh->GetName()));
 	TArray<FbxNode*>* FbxNodes = NULL;
 	USkeletalMesh* NewMesh = NULL;
 
@@ -1719,7 +1721,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 					if (ElementUV)
 					{
 						const char* UVSetName = ElementUV->GetName();
-						FString LocalUVSetName = ANSI_TO_TCHAR(UVSetName);
+						FString LocalUVSetName = UTF8_TO_TCHAR(UVSetName);
 
 						UVSets.AddUnique(LocalUVSetName);
 					}
@@ -1785,7 +1787,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 
 			if (ImportOptions->bImportMaterials && Materials.IsValidIndex(MaterialIndex) )
 			{
-				ImportData.Materials[ExistingMatIndex].MaterialImportName = ANSI_TO_TCHAR(MakeName(FbxMaterial->GetName()));
+				ImportData.Materials[ExistingMatIndex].MaterialImportName = UTF8_TO_TCHAR(MakeName(FbxMaterial->GetName()));
 				ImportData.Materials[ExistingMatIndex].Material = Materials[MaterialIndex];
 			}
 		}
@@ -1837,7 +1839,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 
 	if (!Mesh->IsTriangleMesh())
 	{
-		UE_LOG(LogFbx, Log, TEXT("Triangulating skeletal mesh %s"), ANSI_TO_TCHAR(Node->GetName()));
+		UE_LOG(LogFbx, Log, TEXT("Triangulating skeletal mesh %s"), UTF8_TO_TCHAR(Node->GetName()));
 		
 		const bool bReplace = true;
 		FbxNodeAttribute* ConvertedNode = GeometryConverter->Triangulate(Mesh, bReplace);
@@ -1877,9 +1879,8 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 	LayerCount = Mesh->GetLayerCount();
 	for (uint32 UVIndex = 0; UVIndex < UniqueUVCount; UVIndex++)
 	{
-		bool bFoundUV = false;
 		LayerElementUV[UVIndex] = NULL;
-		for (int32 UVLayerIndex = 0; !bFoundUV && UVLayerIndex<LayerCount; UVLayerIndex++)
+		for (int32 UVLayerIndex = 0; UVLayerIndex<LayerCount; UVLayerIndex++)
 		{
 			FbxLayer* lLayer = Mesh->GetLayer(UVLayerIndex);
 			int32 UVSetCount = lLayer->GetUVSetCount();
@@ -1892,7 +1893,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 					if (ElementUV)
 					{
 						const char* UVSetName = ElementUV->GetName();
-						FString LocalUVSetName = ANSI_TO_TCHAR(UVSetName);
+						FString LocalUVSetName = UTF8_TO_TCHAR(UVSetName);
 						if (LocalUVSetName == UVSets[UVIndex])
 						{
 							LayerElementUV[UVIndex] = const_cast<FbxLayerElementUV*>(ElementUV);
@@ -2024,7 +2025,6 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 	
 	bool OddNegativeScale = IsOddNegativeScale(TotalMatrix);
 	
-	int32 VertexIndex;
 	int32 TriangleCount = Mesh->GetPolygonCount();
 	int32 ExistFaceNum = ImportData.Faces.Num();
 	ImportData.Faces.AddUninitialized( TriangleCount );
@@ -2057,7 +2057,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 			}
 		}
 
-		for (VertexIndex=0; VertexIndex<3; VertexIndex++)
+		for (int32 VertexIndex=0; VertexIndex<3; VertexIndex++)
 		{
 			// If there are odd number negative scale, invert the vertex order for triangles
 			int32 UnrealVertexIndex = OddNegativeScale ? 2 - VertexIndex : VertexIndex;
@@ -2151,9 +2151,10 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 				Triangle.MatIndex = 0;
 			}
 		}
-	
+		ImportData.MaxMaterialIndex = FMath::Max<uint32>( ImportData.MaxMaterialIndex, Triangle.MatIndex );
+
 		Triangle.AuxMatIndex = 0;
-		for (VertexIndex=0; VertexIndex<3; VertexIndex++)
+		for (int32 VertexIndex=0; VertexIndex<3; VertexIndex++)
 		{
 			// If there are odd number negative scale, invert the vertex order for triangles
 			int32 UnrealVertexIndex = OddNegativeScale ? 2 - VertexIndex : VertexIndex;
@@ -2175,7 +2176,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 			if (LayerElementUV[UVLayerIndex] != NULL) 
 			{
 				// Get each UV from the layer
-				for (VertexIndex=0;VertexIndex<3;VertexIndex++)
+				for (int32 VertexIndex=0;VertexIndex<3;VertexIndex++)
 				{
 					// If there are odd number negative scale, invert the vertex order for triangles
 					int32 UnrealVertexIndex = OddNegativeScale ? 2 - VertexIndex : VertexIndex;
@@ -2195,8 +2196,12 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 			{
 				// Set all UV's to zero.  If we are here the mesh had no UV sets so we only need to do this for the
 				// first UV set which always exists.
-				TmpWedges[VertexIndex].UVs[ UVLayerIndex ].X = 0.0f;
-				TmpWedges[VertexIndex].UVs[ UVLayerIndex ].Y = 0.0f;
+
+				for (int32 VertexIndex=0; VertexIndex<3; VertexIndex++)
+				{
+					TmpWedges[VertexIndex].UVs[UVLayerIndex].X = 0.0f;
+					TmpWedges[VertexIndex].UVs[UVLayerIndex].Y = 0.0f;
+				}
 			}
 		}
 
@@ -2207,8 +2212,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 			{
 			case FbxLayerElement::eByControlPoint:
 				{
-					int32 VertexIndex;
-					for (VertexIndex=0;VertexIndex<3;VertexIndex++)
+					for (int32 VertexIndex=0;VertexIndex<3;VertexIndex++)
 					{
 						int32 UnrealVertexIndex = OddNegativeScale ? 2 - VertexIndex : VertexIndex;
 
@@ -2225,8 +2229,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 				break;
 			case FbxLayerElement::eByPolygonVertex:
 				{	
-					int32 VertexIndex;
-					for (VertexIndex=0;VertexIndex<3;VertexIndex++)
+					for (int32 VertexIndex=0;VertexIndex<3;VertexIndex++)
 					{
 						int32 UnrealVertexIndex = OddNegativeScale ? 2 - VertexIndex : VertexIndex;
 
@@ -2247,7 +2250,7 @@ bool UnFbx::FFbxImporter::FillSkelMeshImporterFromFbx( FSkeletalMeshImportData& 
 		//
 		// basic wedges matching : 3 unique per face. TODO Can we do better ?
 		//
-		for (VertexIndex=0; VertexIndex<3; VertexIndex++)
+		for (int32 VertexIndex=0; VertexIndex<3; VertexIndex++)
 		{
 			int32 w;
 			
@@ -2660,9 +2663,9 @@ public:
 		MeshUtilities->BuildSkeletalMesh( TempSkeletalMesh->GetImportedResource()->LODModels[0], TempSkeletalMesh->RefSkeleton, LODInfluences, LODWedges, LODFaces, LODPoints, LODPointToRawMap, bKeepOverlappingVertices);
 	}
 
-	static const TCHAR *Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncImportMorphTargetWork");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncImportMorphTargetWork, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
 private:
@@ -2703,7 +2706,7 @@ void UnFbx::FFbxImporter::ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMesh
 				FbxBlendShape* BlendShape = (FbxBlendShape*)Geometry->GetDeformer(BlendShapeIndex, FbxDeformer::eBlendShape);
 				const int32 BlendShapeChannelCount = BlendShape->GetBlendShapeChannelCount();
 
-				FString BlendShapeName = ANSI_TO_TCHAR(MakeName(BlendShape->GetName()));
+				FString BlendShapeName = UTF8_TO_TCHAR(MakeName(BlendShape->GetName()));
 
 				// see below where this is used for explanation...
 				const bool bMightBeBadMAXFile = (BlendShapeName == FString("Morpher"));
@@ -2716,7 +2719,7 @@ void UnFbx::FFbxImporter::ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMesh
 						//Find which shape should we use according to the weight.
 						const int32 CurrentChannelShapeCount = Channel->GetTargetShapeCount();
 						
-						FString ChannelName = ANSI_TO_TCHAR(MakeName(Channel->GetName()));
+						FString ChannelName = UTF8_TO_TCHAR(MakeName(Channel->GetName()));
 
 						// Maya adds the name of the blendshape and an underscore to the front of the channel name, so remove it
 						if(ChannelName.StartsWith(BlendShapeName))
@@ -2731,13 +2734,13 @@ void UnFbx::FFbxImporter::ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMesh
 							FString ShapeName;
 							if( CurrentChannelShapeCount > 1 )
 							{
-								ShapeName = ANSI_TO_TCHAR(MakeName(Shape->GetName() ) );
+								ShapeName = UTF8_TO_TCHAR(MakeName(Shape->GetName() ) );
 							}
 							else
 							{
 								if (bMightBeBadMAXFile)
 								{
-									ShapeName = ANSI_TO_TCHAR(MakeName(Shape->GetName()));
+									ShapeName = UTF8_TO_TCHAR(MakeName(Shape->GetName()));
 								}
 								else
 								{
@@ -2785,7 +2788,7 @@ void UnFbx::FFbxImporter::ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMesh
 		{
 			if (LODIndex == 0)
 			{
-				Result = NewNamedObject<UMorphTarget>(BaseSkelMesh, FName(*ShapeName));
+				Result = NewObject<UMorphTarget>(BaseSkelMesh, FName(*ShapeName));
 			}
 			else
 			{

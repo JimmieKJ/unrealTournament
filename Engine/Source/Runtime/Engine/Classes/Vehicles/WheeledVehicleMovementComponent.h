@@ -225,6 +225,21 @@ class ENGINE_API UWheeledVehicleMovementComponent : public UPawnMovementComponen
 	UPROPERTY(EditAnywhere, Category = VehicleSetup, AdvancedDisplay)
 	float MaxNormalizedTireLoadFiltered;
 
+    /** PhysX sub-steps
+     More sub-steps provides better stability but with greater computational cost.
+     Typically, vehicles require more sub-steps at very low forward speeds.
+     The threshold longitudinal speed has a default value of 5 metres per second. */
+    UPROPERTY(EditAnywhere, Category=VehicleSetup, AdvancedDisplay, meta = (ClampMin = "0.1", UIMin = "1.0", ClampMax = "1000.0", UIMax = "10.0"))
+    float ThresholdLongitudinalSpeed;
+    
+    /** The sub-step count below the threshold longitudinal speed has a default of 3. */
+    UPROPERTY(EditAnywhere, Category=VehicleSetup, AdvancedDisplay, meta = (ClampMin = "1", UIMin = "1", ClampMax = "10", UIMax = "5"))
+    int32 LowForwardSpeedSubStepCount;
+    
+    /** The sub-step count above the threshold longitudinal speed has a default of 1. */
+    UPROPERTY(EditAnywhere, Category=VehicleSetup, AdvancedDisplay, meta = (ClampMin = "1", UIMin = "1", ClampMax = "10", UIMax = "5"))
+    int32 HighForwardSpeedSubStepCount;
+    
 	// Our instanced wheels
 	UPROPERTY(transient, duplicatetransient, BlueprintReadOnly, Category=Vehicle)
 	TArray<class UVehicleWheel*> Wheels;

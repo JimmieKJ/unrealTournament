@@ -363,7 +363,7 @@ static const DWORD D3D11_PixelShader_Textures[] = {
 
     float4 main(PixelShaderInput input) : SV_TARGET
     {
-        const float3 offset = {-0.0625, -0.5, -0.5};
+        const float3 offset = {-0.0627451017, -0.501960814, -0.501960814};
         const float3 Rcoeff = {1.164,  0.000,  1.596};
         const float3 Gcoeff = {1.164, -0.391, -0.813};
         const float3 Bcoeff = {1.164,  2.018,  0.000};
@@ -387,12 +387,12 @@ static const DWORD D3D11_PixelShader_Textures[] = {
 */
 #if defined(D3D11_USE_SHADER_MODEL_4_0_level_9_1)
 static const DWORD D3D11_PixelShader_YUV[] = {
-    0x43425844, 0x04e69cba, 0x74ce6dd2, 0x7fcf84cb, 0x3003d677, 0x00000001,
+    0x43425844, 0x2321c6c6, 0xf14df2d1, 0xc79d068d, 0x8e672abf, 0x00000001,
     0x000005e8, 0x00000006, 0x00000038, 0x000001dc, 0x000003bc, 0x00000438,
     0x00000540, 0x000005b4, 0x396e6f41, 0x0000019c, 0x0000019c, 0xffff0200,
     0x0000016c, 0x00000030, 0x00300000, 0x00300000, 0x00300000, 0x00240003,
     0x00300000, 0x00000000, 0x00010001, 0x00020002, 0xffff0200, 0x05000051,
-    0xa00f0000, 0xbd800000, 0xbf000000, 0xbf000000, 0x3f800000, 0x05000051,
+    0xa00f0000, 0xbd808081, 0xbf008081, 0xbf008081, 0x3f800000, 0x05000051,
     0xa00f0001, 0x3f94fdf4, 0x3fcc49ba, 0x00000000, 0x00000000, 0x05000051,
     0xa00f0002, 0x3f94fdf4, 0xbec83127, 0xbf5020c5, 0x00000000, 0x05000051,
     0xa00f0003, 0x3f94fdf4, 0x400126e9, 0x00000000, 0x00000000, 0x0200001f,
@@ -419,7 +419,7 @@ static const DWORD D3D11_PixelShader_YUV[] = {
     0x00000001, 0x00101046, 0x00000001, 0x00107e46, 0x00000002, 0x00106000,
     0x00000000, 0x05000036, 0x00100042, 0x00000000, 0x0010000a, 0x00000001,
     0x0a000000, 0x00100072, 0x00000000, 0x00100246, 0x00000000, 0x00004002,
-    0xbd800000, 0xbf000000, 0xbf000000, 0x00000000, 0x0a00000f, 0x00100012,
+    0xbd808081, 0xbf008081, 0xbf008081, 0x00000000, 0x0a00000f, 0x00100012,
     0x00000001, 0x00100086, 0x00000000, 0x00004002, 0x3f94fdf4, 0x3fcc49ba,
     0x00000000, 0x00000000, 0x0a000010, 0x00100022, 0x00000001, 0x00100246,
     0x00000000, 0x00004002, 0x3f94fdf4, 0xbec83127, 0xbf5020c5, 0x00000000,
@@ -453,12 +453,12 @@ static const DWORD D3D11_PixelShader_YUV[] = {
 };
 #elif defined(D3D11_USE_SHADER_MODEL_4_0_level_9_3)
 static const DWORD D3D11_PixelShader_YUV[] = {
-    0x43425844, 0xe6d969fc, 0x63cac33c, 0xa4926502, 0x5d788135, 0x00000001,
+    0x43425844, 0x6ede7360, 0x45ff5f8a, 0x34ac92ba, 0xb865f5e0, 0x00000001,
     0x000005c0, 0x00000006, 0x00000038, 0x000001b4, 0x00000394, 0x00000410,
     0x00000518, 0x0000058c, 0x396e6f41, 0x00000174, 0x00000174, 0xffff0200,
     0x00000144, 0x00000030, 0x00300000, 0x00300000, 0x00300000, 0x00240003,
     0x00300000, 0x00000000, 0x00010001, 0x00020002, 0xffff0201, 0x05000051,
-    0xa00f0000, 0xbd800000, 0xbf000000, 0x3f800000, 0x00000000, 0x05000051,
+    0xa00f0000, 0xbd808081, 0xbf008081, 0x3f800000, 0x00000000, 0x05000051,
     0xa00f0001, 0x3f94fdf4, 0x3fcc49ba, 0x00000000, 0x400126e9, 0x05000051,
     0xa00f0002, 0x3f94fdf4, 0xbec83127, 0xbf5020c5, 0x00000000, 0x0200001f,
     0x80000000, 0xb0030000, 0x0200001f, 0x80000000, 0xb00f0001, 0x0200001f,
@@ -483,7 +483,7 @@ static const DWORD D3D11_PixelShader_YUV[] = {
     0x09000045, 0x001000f2, 0x00000001, 0x00101046, 0x00000001, 0x00107e46,
     0x00000002, 0x00106000, 0x00000000, 0x05000036, 0x00100042, 0x00000000,
     0x0010000a, 0x00000001, 0x0a000000, 0x00100072, 0x00000000, 0x00100246,
-    0x00000000, 0x00004002, 0xbd800000, 0xbf000000, 0xbf000000, 0x00000000,
+    0x00000000, 0x00004002, 0xbd808081, 0xbf008081, 0xbf008081, 0x00000000,
     0x0a00000f, 0x00100012, 0x00000001, 0x00100086, 0x00000000, 0x00004002,
     0x3f94fdf4, 0x3fcc49ba, 0x00000000, 0x00000000, 0x0a000010, 0x00100022,
     0x00000001, 0x00100246, 0x00000000, 0x00004002, 0x3f94fdf4, 0xbec83127,
@@ -829,9 +829,24 @@ D3D11_CreateRenderer(SDL_Window * window, Uint32 flags)
     renderer->info.flags = (SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
     renderer->driverdata = data;
 
+#if WINAPI_FAMILY == WINAPI_FAMILY_PHONE_APP
+    /* VSync is required in Windows Phone, at least for Win Phone 8.0 and 8.1.
+     * Failure to use it seems to either result in:
+     *
+     *  - with the D3D11 debug runtime turned OFF, vsync seemingly gets turned
+     *    off (framerate doesn't get capped), but nothing appears on-screen
+     *
+     *  - with the D3D11 debug runtime turned ON, vsync gets automatically
+     *    turned back on, and the following gets output to the debug console:
+     *    
+     *    DXGI ERROR: IDXGISwapChain::Present: Interval 0 is not supported, changed to Interval 1. [ UNKNOWN ERROR #1024: ] 
+     */
+    renderer->info.flags |= SDL_RENDERER_PRESENTVSYNC;
+#else
     if ((flags & SDL_RENDERER_PRESENTVSYNC)) {
         renderer->info.flags |= SDL_RENDERER_PRESENTVSYNC;
     }
+#endif
 
     /* HACK: make sure the SDL_Renderer references the SDL_Window data now, in
      * order to give init functions access to the underlying window handle:
@@ -1330,10 +1345,22 @@ D3D11_IsDisplayRotated90Degrees(DXGI_MODE_ROTATION rotation)
 }
 
 static int
+D3D11_GetRotationForCurrentRenderTarget(SDL_Renderer * renderer)
+{
+    D3D11_RenderData *data = (D3D11_RenderData *)renderer->driverdata;
+    if (data->currentOffscreenRenderTargetView) {
+        return DXGI_MODE_ROTATION_IDENTITY;
+    } else {
+        return data->rotation;
+    }
+}
+
+static int
 D3D11_GetViewportAlignedD3DRect(SDL_Renderer * renderer, const SDL_Rect * sdlRect, D3D11_RECT * outRect)
 {
     D3D11_RenderData *data = (D3D11_RenderData *) renderer->driverdata;
-    switch (data->rotation) {
+    const int rotation = D3D11_GetRotationForCurrentRenderTarget(renderer);
+    switch (rotation) {
         case DXGI_MODE_ROTATION_IDENTITY:
             outRect->left = sdlRect->x;
             outRect->right = sdlRect->x + sdlRect->w;
@@ -2151,6 +2178,7 @@ D3D11_UpdateViewport(SDL_Renderer * renderer)
     SDL_FRect orientationAlignedViewport;
     BOOL swapDimensions;
     D3D11_VIEWPORT viewport;
+    const int rotation = D3D11_GetRotationForCurrentRenderTarget(renderer);
 
     if (renderer->viewport.w == 0 || renderer->viewport.h == 0) {
         /* If the viewport is empty, assume that it is because
@@ -2166,7 +2194,7 @@ D3D11_UpdateViewport(SDL_Renderer * renderer)
      * default coordinate system) so rotations will be done in the opposite
      * direction of the DXGI_MODE_ROTATION enumeration.
      */
-    switch (data->rotation) {
+    switch (rotation) {
         case DXGI_MODE_ROTATION_IDENTITY:
             projection = MatrixIdentity();
             break;
@@ -2217,7 +2245,7 @@ D3D11_UpdateViewport(SDL_Renderer * renderer)
      * a landscape mode, for all Windows 8/RT devices, or a portrait mode,
      * for Windows Phone devices.
      */
-    swapDimensions = D3D11_IsDisplayRotated90Degrees(data->rotation);
+    swapDimensions = D3D11_IsDisplayRotated90Degrees(rotation);
     if (swapDimensions) {
         orientationAlignedViewport.x = (float) renderer->viewport.y;
         orientationAlignedViewport.y = (float) renderer->viewport.x;
@@ -2888,7 +2916,7 @@ D3D11_RenderReadPixels(SDL_Renderer * renderer, const SDL_Rect * rect,
          */
         char errorMessage[1024];
         SDL_snprintf(errorMessage, sizeof(errorMessage), __FUNCTION__ ", Convert Pixels failed: %s", SDL_GetError());
-        SDL_SetError(errorMessage);
+        SDL_SetError("%s", errorMessage);
         goto done;
     }
 

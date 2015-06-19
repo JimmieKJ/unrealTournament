@@ -9,32 +9,42 @@ public class Facebook : ModuleRules
         Type = ModuleType.External;
 
         Definitions.Add("WITH_FACEBOOK=1");
+		Definitions.Add("UE4_FACEBOOK_VER=4");
 
-		string FacebookPath = UEBuildConfiguration.UEThirdPartySourceDirectory + "Facebook/";
         if (Target.Platform == UnrealTargetPlatform.IOS)
         {
-            string FacebookVersion = "3.16";
-            if( FacebookVersion == "3.16" )
-            {
-                Definitions.Add("FACEBOOK_VER_3_16=1");
-            }
+			// Access to Facebook core
+			PublicAdditionalFrameworks.Add(
+				new UEBuildFramework(
+					"FBSDKCoreKit",
+					"IOS/FacebookSDK/FBSDKCoreKit.embeddedframework.zip"
+				)
+			);
 
-            FacebookPath += ("Facebook-IOS-" + FacebookVersion + "/");
+			// Add the FBAudienceNetwork framework
+			PublicAdditionalFrameworks.Add(
+				new UEBuildFramework(
+					"FBAudienceNetwork",
+					"IOS/FacebookSDK/FBAudienceNetwork.embeddedframework.zip"
+				)
+			);
 
-            PublicIncludePaths.Add(FacebookPath + "Include");
-
-			string LibDir = FacebookPath + "Lib/Release" + Target.Architecture;
-
-            PublicLibraryPaths.Add(LibDir);
-            PublicAdditionalLibraries.Add("Facebook-IOS-"+FacebookVersion);
-
-            PublicAdditionalShadowFiles.Add(LibDir + "/libFacebook-IOS-" + FacebookVersion + ".a");
-            
-            AddThirdPartyPrivateStaticDependencies( Target, "Bolts" );
+			// Access to Facebook login
+			PublicAdditionalFrameworks.Add(
+				new UEBuildFramework(
+					"FBSDKLoginKit",
+					"IOS/FacebookSDK/FBSDKLoginKit.embeddedframework.zip"
+				)
+			);
 
 
-            // Needed for the facebook sdk to link.
-            PublicFrameworks.Add("CoreGraphics");
+			// Access to Facebook sharing
+			PublicAdditionalFrameworks.Add(
+				new UEBuildFramework(
+					"FBSDKShareKit",
+					"IOS/FacebookSDK/FBSDKShareKit.embeddedframework.zip"
+				)
+			);
         }
     }
 }

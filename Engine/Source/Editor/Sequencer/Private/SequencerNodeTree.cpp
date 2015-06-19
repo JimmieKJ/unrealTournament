@@ -15,7 +15,7 @@ void FSequencerNodeTree::Empty()
 {
 	RootNodes.Empty();
 	ObjectBindingMap.Empty();
-	SelectedNodes.Empty();
+	Sequencer.GetSelection()->EmptySelectedOutlinerNodes();
 	EditorMap.Empty();
 	FilteredNodes.Empty();
 }
@@ -48,7 +48,7 @@ void FSequencerNodeTree::Update()
 	// Make nodes for all object bindings
 	for( int32 BindingIndex = 0; BindingIndex < ObjectBindings.Num(); ++BindingIndex )
 	{
-		TSharedRef<FObjectBindingNode> ObjectBindingNode = AddObjectBinding( ObjectBindings[BindingIndex].GetDisplayName(), ObjectBindings[BindingIndex].GetObjectGuid() );
+		TSharedRef<FObjectBindingNode> ObjectBindingNode = AddObjectBinding( ObjectBindings[BindingIndex].GetName(), ObjectBindings[BindingIndex].GetObjectGuid() );
 
 		const TArray<UMovieSceneTrack*>& Tracks = ObjectBindings[BindingIndex].GetTracks();
 
@@ -133,7 +133,7 @@ const TArray< TSharedRef<FSequencerDisplayNode> >& FSequencerNodeTree::GetRootNo
 }
 
 
-TSharedRef<FObjectBindingNode> FSequencerNodeTree::AddObjectBinding( const FText& ObjectName, const FGuid& ObjectBinding )
+TSharedRef<FObjectBindingNode> FSequencerNodeTree::AddObjectBinding( const FString& ObjectName, const FGuid& ObjectBinding )
 {
 	// The node name is the object guid
 	FName ObjectNodeName = *ObjectBinding.ToString();
@@ -178,30 +178,6 @@ bool FSequencerNodeTree::GetSavedExpansionState( const FSequencerDisplayNode& No
 	bool bCollapsed = EditorData.CollapsedSequencerNodes.Contains( Node.GetPathName() );
 
 	return !bCollapsed;
-}
-
-void FSequencerNodeTree::SetSelectionState( TSharedRef<const FSequencerDisplayNode> AffectedNode, bool bSelect, bool bDeselectOtherNodes )
-{
-	if( bSelect && AffectedNode->IsSelectable() )
-	{
-		if( bDeselectOtherNodes )
-		{
-			// empty current selection set unless multiple selecting
-			SelectedNodes.Empty();
-		}
-
-		SelectedNodes.Add( AffectedNode );
-	}
-	else
-	{
-		// Not selecting so remove the node from the selection set
-		SelectedNodes.Remove( AffectedNode );
-	}
-}
-
-bool FSequencerNodeTree::IsNodeSelected( TSharedRef<const FSequencerDisplayNode> Node ) const
-{
-	return SelectedNodes.Contains( Node );
 }
 
 bool FSequencerNodeTree::IsNodeFiltered( const TSharedRef<const FSequencerDisplayNode> Node ) const
@@ -278,7 +254,7 @@ void FSequencerNodeTree::FilterNodes( const FString& InFilter )
 		FilterString.Trim();
 		FilterString.TrimTrailing();
 		const bool bCullEmpty = true;
-		FilterString.ParseIntoArray( &FilterStrings, TEXT(" "), bCullEmpty );
+		FilterString.ParseIntoArray( FilterStrings, TEXT(" "), bCullEmpty );
 
 		for( auto It = ObjectBindingMap.CreateIterator(); It; ++It )
 		{

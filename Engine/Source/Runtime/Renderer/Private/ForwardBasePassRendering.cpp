@@ -78,29 +78,32 @@ public:
 			DrawType = FScene::EBasePass_Masked;	
 		}
 
-		// Find the appropriate draw list for the static mesh based on the light-map policy type.
-		TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType> >& DrawList =
-			Scene->GetForwardShadingBasePassDrawList<LightMapPolicyType>(DrawType);
+		if ( Scene )
+		{
+			// Find the appropriate draw list for the static mesh based on the light-map policy type.
+			TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType> >& DrawList =
+				Scene->GetForwardShadingBasePassDrawList<LightMapPolicyType>(DrawType);
 
-		ERHIFeatureLevel::Type FeatureLevel = Scene->GetFeatureLevel();
-		// Add the static mesh to the draw list.
-		DrawList.AddMesh(
-			StaticMesh,
-			typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType>::ElementDataType(LightMapElementData),
-			TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType>(
+			ERHIFeatureLevel::Type FeatureLevel = Scene->GetFeatureLevel();
+			// Add the static mesh to the draw list.
+			DrawList.AddMesh(
+				StaticMesh,
+				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType>::ElementDataType(LightMapElementData),
+				TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType>(
 				StaticMesh->VertexFactory,
 				StaticMesh->MaterialRenderProxy,
 				*Parameters.Material,
 				LightMapPolicy,
 				Parameters.BlendMode,
 				Parameters.TextureMode,
-				Parameters.ShadingModel != MSM_Unlit && Scene && Scene->ShouldRenderSkylight(),
+				Parameters.ShadingModel != MSM_Unlit && Scene->ShouldRenderSkylight(),
 				false,
 				FeatureLevel,
 				Parameters.bEditorCompositeDepthTest
 				),
 				FeatureLevel
-			);
+				);
+		}
 	}
 };
 
@@ -180,8 +183,7 @@ public:
 		// Treat masked materials as if they don't occlude in shader complexity, which is PVR behavior
 		if(Parameters.BlendMode == BLEND_Masked && View.Family->EngineShowFlags.ShaderComplexity)
 		{
-			// Note, this is a reversed Z depth surface, using CF_GreaterEqual.
-			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_GreaterEqual>::GetRHI());
+			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 		}
 #endif
 
@@ -222,8 +224,7 @@ public:
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if(Parameters.BlendMode == BLEND_Masked && View.Family->EngineShowFlags.ShaderComplexity)
 		{
-			// Note, this is a reversed Z depth surface, using CF_GreaterEqual.
-			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true,CF_GreaterEqual>::GetRHI());
+			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true,CF_DepthNearOrEqual>::GetRHI());
 		}
 #endif
 	}
@@ -359,8 +360,7 @@ void FForwardShadingSceneRenderer::RenderForwardShadingBasePass(FRHICommandListI
 
 		// Opaque blending
 		RHICmdList.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
-		// Note, this is a reversed Z depth surface, using CF_GreaterEqual.
-		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true, CF_GreaterEqual>::GetRHI());
+		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1);
 
 		{

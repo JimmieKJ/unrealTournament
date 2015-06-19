@@ -20,11 +20,11 @@ public:
 	/** Which group the flags should show up */
 	EShowFlagGroup	Group;
 
-	/** Gesture for activating the show flag */
-	FInputGesture InputGesture;
+	/** Chord for activating the show flag */
+	FInputChord InputChord;
 
 	/**
-	 *  FShowFlagData constructor with no gesture associated
+	 *  FShowFlagData constructor with no chord associated
 	 *
 	 * @param InName				The non-localized flag name string
 	 * @param InDisplayName			The localized display name for the flag
@@ -34,15 +34,15 @@ public:
 	FShowFlagData(const FString& InName, const FText& InDisplayName, const uint32 InEngineShowFlagIndex, EShowFlagGroup InGroup = SFG_Normal);
 
 	/**
-	 *  FShowFlagData constructor with no gesture associated
+	 *  FShowFlagData constructor with no chord associated
 	 *
 	 * @param InName				The non-localized flag name string
 	 * @param InDisplayName			The localized display name for the flag
 	 * @param InEngineShowFlagIndex	Index on this flag in the array of flags in FEngineShowFlags
 	 * @param InGroup				The group that the flag belongs to (default: SFG_Normal)
-	 * @param InInputGesture		InputGesture to be used for the flag
+	 * @param InInputChord			InputChord to be used for the flag
 	 */
-	FShowFlagData(const FString& InName, const FText& InDisplayName, const uint32 InEngineShowFlagIndex, EShowFlagGroup InGroup, const FInputGesture& InInputGesture);
+	FShowFlagData(const FString& InName, const FText& InDisplayName, const uint32 InEngineShowFlagIndex, EShowFlagGroup InGroup, const FInputChord& InInputChord);
 
 	bool IsEnabled(const FLevelEditorViewportClient* ViewportClient) const;
 

@@ -26,9 +26,9 @@ static float ExplodeRange = 5.0f;
 
 void FDestructibleMeshEditorCommands::RegisterCommands()
 {
-	UI_COMMAND( Fracture, "Fracture Mesh", "Fractures the mesh's root chunk(s) based upon the Fracture Settings.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( Refresh, "Refresh", "Refreshes the DestructibleMesh from the StaticMesh it was created from.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ImportFBXChunks, "Import FBX Chunks", "Imports a FBX as level 1 chunks.", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( Fracture, "Fracture Mesh", "Fractures the mesh's root chunk(s) based upon the Fracture Settings.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( Refresh, "Refresh", "Refreshes the DestructibleMesh from the StaticMesh it was created from.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ImportFBXChunks, "Import FBX Chunks", "Imports a FBX as level 1 chunks.", EUserInterfaceActionType::Button, FInputChord() );
 }
 
 
@@ -56,15 +56,18 @@ void FDestructibleMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabMan
 
 	TabManager->RegisterTabSpawner( PropertiesTabId, FOnSpawnTab::CreateSP(this, &FDestructibleMeshEditor::SpawnTab_Properties) )
 		.SetDisplayName( LOCTEXT("PropertiesTab", "Destructible Settings") )
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "DestructibleMeshEditor.Tabs.DestructibleSettings"));
 
 	TabManager->RegisterTabSpawner( FractureSettingsTabId, FOnSpawnTab::CreateSP(this, &FDestructibleMeshEditor::SpawnTab_FractureSettings) )
 		.SetDisplayName( LOCTEXT("FractureSettingsTab", "Fracture Settings") )
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "DestructibleMeshEditor.Tabs.FractureSettings"));
 
 	TabManager->RegisterTabSpawner( ChunkParametersTabId, FOnSpawnTab::CreateSP(this, &FDestructibleMeshEditor::SpawnTab_ChunkParameters) )
 		.SetDisplayName( LOCTEXT("ChunkParametersTab", "Chunk Parameters") )
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "DestructibleMeshEditor.Tabs.ChunkParameters"));
 }
 
 void FDestructibleMeshEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
@@ -532,11 +535,17 @@ void FDestructibleMeshEditor::SetSelectedChunks( const TArray<UObject*>& Selecte
 {
 	if (SelectedChunks.Num() > 0)
 	{
-		ChunkParametersViewTab->ActivateInParent(ETabActivationCause::SetDirectly);
+		if(ChunkParametersViewTab.IsValid())
+		{
+			ChunkParametersViewTab->ActivateInParent(ETabActivationCause::SetDirectly);
+		}
 	}
 	else
 	{
-		DestructibleMeshDetailsViewTab->ActivateInParent(ETabActivationCause::SetDirectly);
+		if(DestructibleMeshDetailsViewTab.IsValid())
+		{
+			DestructibleMeshDetailsViewTab->ActivateInParent(ETabActivationCause::SetDirectly);
+		}
 	}
 
 	ChunkParametersView->SetObjects(SelectedChunks, true);

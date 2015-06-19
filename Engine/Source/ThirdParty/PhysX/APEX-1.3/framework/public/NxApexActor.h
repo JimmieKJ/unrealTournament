@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_APEX_ACTOR_H
 #define NX_APEX_ACTOR_H
@@ -42,9 +26,109 @@ class NxActorDescBase;
 class NxShapeDesc;
 class NxBodyDesc;
 #elif NX_SDK_VERSION_MAJOR == 3
+#include "PxActor.h"
+#include "PxShape.h"
+#include "PxFiltering.h"
 namespace physx { namespace apex
 {
-class PhysX3DescTemplate;
+
+/** Corresponds to 20 frames for a time step of 0.02, PhysX 3.3 took PX_SLEEP_INTERVAL away */
+#define APEX_DEFAULT_WAKE_UP_COUNTER 0.4f
+
+/** Used to define generic get/set methods for 1-parameter values in NxPhysX3DescTemplate. */
+#define NX_APEX_ACTOR_TEMPLATE_PARAM(_type, _name, _valid, _default) \
+bool is##_name##Valid(_type x) const { PX_UNUSED(x); return _valid; } \
+_type getDefault##_name() const { return _default; } \
+virtual _type get##_name() const = 0; \
+virtual bool set##_name(_type) = 0
+
+/**
+	Template for PhysX3.x actor, body and shape.  Used by the Destruction module when creating PhysX objects.
+
+	See NxApexActorSource::setPhysX3Template and NxApexActorSource::getPhysX3Template.
+*/
+class NxPhysX3DescTemplate
+{
+public:
+	/*
+		For each Name below, there are functions: getName(), setName(), isNameValid(), and getDefaultName().  For example:
+
+		PxDominanceGroup	getDominanceGroup() const;
+		bool				setDominanceGroup(PxDominanceGroup);	// Returns true iff the passed-in value is valid.  (Note, will set the internal values even if they are not valid.)
+		bool				isDominanceGroupValid() const;
+		PxDominanceGroup	getDefaultDominanceGroup() const;
+	*/
+
+	/*							 Type						Name					Validity Condition		Default Value */
+	// Actor
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=DominanceGroup (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxDominanceGroup,	DominanceGroup,			(1),					0);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ActorFlags (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxU16,				ActorFlags,				(1),					physx::PxActorFlag::eSEND_SLEEP_NOTIFIES);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=OwnerClient (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxClientID,			OwnerClient,			(1),					0);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ClientBehaviorBits (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxU32,				ClientBehaviorBits,		(1),					0);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ContactReportFlags (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxU16,				ContactReportFlags,		(1),					0);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=UserData (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(void*,						UserData,				(1),					NULL);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=Name (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(const char*,				Name,					(1),					NULL);
+
+	// Body
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=Density (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				Density,				(x >= 0.0f),			1.0f);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=BodyFlags (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxU8,				BodyFlags,				(1),					0);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=WakeUpCounter (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				WakeUpCounter,			(x >= 0.0f),			APEX_DEFAULT_WAKE_UP_COUNTER);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=LinearDamping (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				LinearDamping,			(x >= 0.0f),			0.0f);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=AngularDamping (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				AngularDamping,			(x >= 0.0f),			0.05f);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=MaxAngularVelocity (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				MaxAngularVelocity,		(1),					7.0f);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=SleepLinearVelocity (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				SleepLinearVelocity,	(1),					0.0f);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=SolverIterationCount (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxU32,				SolverIterationCount,	(x >= 1 && x <= 255),	4);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=VelocityIterationCount (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxU32,				VelocityIterationCount,	(x >= 1 && x <= 255),	1);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ContactReportThreshold (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				ContactReportThreshold,	(1),					PX_MAX_F32);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=SleepThreshold (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				SleepThreshold,			(1),					0.005f);
+
+	// Shape
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ShapeFlags (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxU8,				ShapeFlags,				(1),					physx::PxShapeFlag::eSIMULATION_SHAPE | physx::PxShapeFlag::eSCENE_QUERY_SHAPE | physx::PxShapeFlag::eVISUALIZATION);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ShapeUserData (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(void*,						ShapeUserData,			(1),					NULL);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ShapeName (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(const char*,				ShapeName,				(1),					NULL);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=SimulationFilterData (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxFilterData,		SimulationFilterData,	(1),					physx::PxFilterData(0, 0, 0, 0));
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=QueryFilterData (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxFilterData,		QueryFilterData,		(1),					physx::PxFilterData(0, 0, 0, 0));
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=ContactOffset (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				ContactOffset,			(1),					-1.0f);
+	/** getX(), setX(), getDefaultX(), and isXValid() for X=RestOffset (see NX_APEX_ACTOR_TEMPLATE_PARAM) */
+	NX_APEX_ACTOR_TEMPLATE_PARAM(physx::PxReal,				RestOffset,				(1),					PX_MAX_F32);
+	// Shape materials get explicitly defined API:
+	/** getMaterials function is non-generic, as it returns two parameters (the materials array and the array size in materialCount) */
+	virtual physx::PxMaterial**	getMaterials(physx::PxU32& materialCount) const = 0;
+	/** setMaterials function is non-generic, as it sets two parameters (the materials array in materialArray and the array size in materialCount) */
+	virtual bool				setMaterials(physx::PxMaterial** materialArray, physx::PxU32 materialCount) = 0;	// Must have non-zero sized array of materials to be valid.
+
+
+	/** Use this method to release this object */
+	virtual void release() = 0;
+
+protected:
+	virtual ~NxPhysX3DescTemplate() {}
+};	// NxPhysX3DescTemplate
+
 }}
 #endif
 
@@ -78,12 +162,12 @@ public:
 	\note The max value can change with different graphical Lods
 	\see NxApexActor::forcePhysicalLod()
 	*/
-	virtual void getPhysicalLodRange(physx::PxF32& min, physx::PxF32& max, bool& intOnly) = 0;
+	virtual void getPhysicalLodRange(physx::PxF32& min, physx::PxF32& max, bool& intOnly) const = 0;
 
 	/**
 	\brief Get current physical lod.
 	*/
-	virtual physx::PxF32 getActivePhysicalLod() = 0;
+	virtual physx::PxF32 getActivePhysicalLod() const = 0;
 
 	/**
 	\brief Force an APEX Actor to use a certian physical Lod
@@ -217,14 +301,17 @@ public:
 
 	Because it is not possible to instance the type NxShapeDesc directly, it is simplest to pass a pointer to a NxSphereShapeDesc.
 	*/
-	virtual void setPhysX3Template(const PhysX3DescTemplate*) = 0;
+	virtual void setPhysX3Template(const NxPhysX3DescTemplate*) = 0;
 
 	/**
 	\brief Retrieve the current body template
-
-	If the template is NULL this will return false; otherwise it will fill in dest and return true.
 	*/
-	virtual bool getPhysX3Template(PhysX3DescTemplate& dest) const = 0;
+	virtual bool getPhysX3Template(NxPhysX3DescTemplate& dest) const = 0;
+
+	/**
+	\brief Create an NxPhysX3DescTemplate object to pass into the get/set methods.
+	*/
+	virtual NxPhysX3DescTemplate* createPhysX3DescTemplate() const = 0;
 #endif
 };
 

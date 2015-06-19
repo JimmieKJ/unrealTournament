@@ -14,17 +14,12 @@ public class SessionFrontend : ModuleRules
 			}
 		);
 
-		PublicIncludePathModuleNames.AddRange(
-			new string[] {
-				"SessionServices",
-			}
-		);
-
-		PrivateDependencyModuleNames.AddRange(
+        PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"DesktopPlatform",
                 "InputCore",
 				"Json",
+                "SessionServices",
 				"SlateCore",
 
 				// @todo gmp: remove these dependencies by making the session front-end extensible

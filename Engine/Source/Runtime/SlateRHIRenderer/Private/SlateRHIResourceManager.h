@@ -8,7 +8,7 @@ class FSlateDynamicTextureResource;
 class FSlateUTextureResource;
 class FSlateMaterialResource;
 
-struct FDynamicResourceMap : public FGCObject
+struct FDynamicResourceMap
 {
 public:
 	TSharedPtr<FSlateDynamicTextureResource> GetDynamicTextureResource( FName ResourceName ) const;
@@ -35,14 +35,10 @@ public:
 	void ReleaseResources();
 
 	uint32 GetNumObjectResources() const { return UTextureResourceMap.Num() + MaterialResourceMap.Num(); }
-
-	/** FGCObject interface */
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-
 private:
 	TMap<FName, TSharedPtr<FSlateDynamicTextureResource> > NativeTextureMap;
 	
-	TMap<UObject*, TSharedPtr<FSlateUTextureResource> > UTextureResourceMap;
+	TMap<TWeakObjectPtr<UTexture2D>, TSharedPtr<FSlateUTextureResource> > UTextureResourceMap;
 
 	/** Map of all material resources */
 	TMap<TWeakObjectPtr<UMaterialInterface>, TSharedPtr<FSlateMaterialResource> > MaterialResourceMap;
@@ -181,6 +177,11 @@ private:
 	 */
 	void OnAppExit();
 
+	/**
+	 * Get or create the bad resource texture.
+	 */
+	UTexture* GetBadResourceTexture();
+
 private:
 	/** Map of all active dynamic resources being used by brushes */
 	FDynamicResourceMap DynamicResourceMap;
@@ -200,6 +201,7 @@ private:
 	uint32 AtlasSize;
 	/** This max size of each texture in an atlas */
 	FIntPoint MaxAltasedTextureSize;
-
+	/** Needed for displaying an error texture when we end up with bad resources. */
+	UTexture* BadResourceTexture;
 };
 

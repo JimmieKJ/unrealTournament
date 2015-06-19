@@ -14,7 +14,7 @@
 class UNREALED_API SViewportToolBarComboMenu : public SCompoundWidget 
 {
 public:
-	SLATE_BEGIN_ARGS(SViewportToolBarComboMenu) : _BlockLocation(EMultiBlockLocation::Start) {}
+	SLATE_BEGIN_ARGS(SViewportToolBarComboMenu) : _BlockLocation(EMultiBlockLocation::Start), _MinDesiredButtonWidth(-1.0f) {}
 	
 		/** We need to know about the toolbar we are in */
 		SLATE_ARGUMENT( TSharedPtr<class SViewportToolBar>, ParentToolBar );
@@ -45,6 +45,9 @@ public:
 
 		/** The button location */
 		SLATE_ARGUMENT( EMultiBlockLocation::Type, BlockLocation )
+
+		/** The minimum desired width of the menu button contents */
+		SLATE_ARGUMENT( float, MinDesiredButtonWidth )
 
 	SLATE_END_ARGS( )
 

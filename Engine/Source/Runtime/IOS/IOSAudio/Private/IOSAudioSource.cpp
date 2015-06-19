@@ -243,7 +243,13 @@ void FIOSAudioSoundSource::Update(void)
 		return;
 	}
 
-	AudioUnitParameterValue Volume = WaveInstance->Volume * WaveInstance->VolumeMultiplier;
+	AudioUnitParameterValue Volume = 0.0f;
+
+	if (!AudioDevice->bIsDeviceMuted)
+	{
+		Volume = WaveInstance->Volume * WaveInstance->VolumeMultiplier;
+	}
+
 	if (SetStereoBleed())
 	{
 		// Emulate the bleed to rear speakers followed by stereo fold down

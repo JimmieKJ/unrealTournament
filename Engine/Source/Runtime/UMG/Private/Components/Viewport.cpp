@@ -14,7 +14,7 @@ namespace FocusConstants
 }
 
 FUMGViewportCameraTransform::FUMGViewportCameraTransform()
-	: TransitionCurve(new FCurveSequence(0.0f, FocusConstants::TransitionTime, ECurveEaseFunction::CubicOut))
+	: TransitionStartTime(0)
 	, ViewLocation(FVector::ZeroVector)
 	, ViewRotation(FRotator::ZeroRotator)
 	, DesiredLocation(FVector::ZeroVector)
@@ -34,25 +34,27 @@ void FUMGViewportCameraTransform::TransitionToLocation(const FVector& InDesiredL
 	if ( bInstant )
 	{
 		SetLocation(InDesiredLocation);
-		TransitionCurve->JumpToEnd();
+		TransitionStartTime = FSlateApplication::Get().GetCurrentTime() - FocusConstants::TransitionTime;
 	}
 	else
 	{
 		DesiredLocation = InDesiredLocation;
 		StartLocation = ViewLocation;
 
-		TransitionCurve->Play();
+		TransitionStartTime = FSlateApplication::Get().GetCurrentTime();
 	}
 }
 
 bool FUMGViewportCameraTransform::UpdateTransition()
 {
 	bool bIsAnimating = false;
-	if ( TransitionCurve->IsPlaying() || ViewLocation != DesiredLocation )
+	double TransitionProgress = FMath::Clamp(( FSlateApplication::Get().GetCurrentTime() - TransitionStartTime ) / FocusConstants::TransitionTime, 0.0, 1.0);
+	if (TransitionProgress < 1.0 || ViewLocation != DesiredLocation)
 	{
-		float LerpWeight = TransitionCurve->GetLerp();
+		const float Offset = (float)TransitionProgress - 1.0f;
+		float LerpWeight = Offset * Offset * Offset + 1.0f;
 
-		if ( LerpWeight == 1.0f )
+		if (LerpWeight == 1.0f)
 		{
 			// Failsafe for the value not being exact on lerps
 			ViewLocation = DesiredLocation;
@@ -83,9 +85,6 @@ FMatrix FUMGViewportCameraTransform::ComputeOrbitMatrix() const
 FUMGViewportClient::FUMGViewportClient(FPreviewScene* InPreviewScene)
 	: PreviewScene(InPreviewScene)
 	, Viewport(nullptr)
-	, ViewFOV(90.0f)
-	, FOVAngle(90.0f)
-	, AspectRatio(1.777777f)
 	, EngineShowFlags(ESFIM_Game)
 {
 	ViewState.Allocate();
@@ -95,12 +94,6 @@ FUMGViewportClient::FUMGViewportClient(FPreviewScene* InPreviewScene)
 
 FUMGViewportClient::~FUMGViewportClient()
 {
-
-}
-
-void FUMGViewportClient::AddReferencedObjects(FReferenceCollector & Collector)
-{
-
 }
 
 void FUMGViewportClient::Tick(float InDeltaTime)
@@ -184,6 +177,8 @@ void FUMGViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 
 	Canvas->Clear(BackgroundColor);
 
+	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
+	--GFrameNumber;
 	GetRendererModule().BeginRenderingViewFamily(Canvas, &ViewFamily);
 
 	// Remove temporary debug lines.
@@ -198,13 +193,6 @@ void FUMGViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 		World->ForegroundLineBatcher->Flush();
 	}
 	
-	//FCanvas* DebugCanvas = Viewport->GetDebugCanvas();
-
-	//UDebugDrawService::Draw(ViewFamily.EngineShowFlags, Viewport, View, DebugCanvas);
-
-	//
-	//FlushRenderingCommands();
-
 	Viewport = ViewportBackup;
 }
 
@@ -234,24 +222,9 @@ UWorld* FUMGViewportClient::GetWorld() const
 	return OutWorldPtr;
 }
 
-bool FUMGViewportClient::IsOrtho() const
-{
-	return ViewInfo.ProjectionMode == ECameraProjectionMode::Orthographic;
-}
-
-bool FUMGViewportClient::IsPerspective() const
-{
-	return ViewInfo.ProjectionMode == ECameraProjectionMode::Perspective;
-}
-
 bool FUMGViewportClient::IsAspectRatioConstrained() const
 {
 	return ViewInfo.bConstrainAspectRatio;
-}
-
-ECameraProjectionMode::Type FUMGViewportClient::GetProjectionType() const
-{
-	return ViewInfo.ProjectionMode;
 }
 
 void FUMGViewportClient::SetBackgroundColor(FLinearColor InBackgroundColor)
@@ -262,26 +235,6 @@ void FUMGViewportClient::SetBackgroundColor(FLinearColor InBackgroundColor)
 FLinearColor FUMGViewportClient::GetBackgroundColor() const
 {
 	return BackgroundColor;
-}
-
-float FUMGViewportClient::GetNearClipPlane() const
-{
-	return ( NearPlane < 0.0f ) ? GNearClippingPlane : NearPlane;
-}
-
-void FUMGViewportClient::OverrideNearClipPlane(float InNearPlane)
-{
-	NearPlane = InNearPlane;
-}
-
-float FUMGViewportClient::GetFarClipPlaneOverride() const
-{
-	return FarPlane;
-}
-
-void FUMGViewportClient::OverrideFarClipPlane(const float InFarPlane)
-{
-	FarPlane = InFarPlane;
 }
 
 float FUMGViewportClient::GetOrthoUnitsPerPixel(const FViewport* InViewport) const
@@ -305,111 +258,19 @@ FSceneView* FUMGViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily)
 	FIntRect ViewRect = FIntRect(0, 0, ViewportSizeXY.X, ViewportSizeXY.Y);
 	ViewInitOptions.SetViewRectangle(ViewRect);
 
-	const ECameraProjectionMode::Type ProjectionType = GetProjectionType();
-	const bool bConstrainAspectRatio = ViewInfo.bConstrainAspectRatio;
+	ViewInitOptions.ViewOrigin = ViewLocation;
 
-	ViewInitOptions.ViewMatrix = FTranslationMatrix(-GetViewLocation());
-	if ( ProjectionType == ECameraProjectionMode::Perspective )
-	{
-		ViewInitOptions.ViewMatrix = ViewInitOptions.ViewMatrix * FInverseRotationMatrix(ViewRotation);
+	ViewInitOptions.ViewRotationMatrix = FInverseRotationMatrix(ViewRotation);
+	ViewInitOptions.ViewRotationMatrix = ViewInitOptions.ViewRotationMatrix * FMatrix(
+		FPlane(0, 0, 1, 0),
+		FPlane(1, 0, 0, 0),
+		FPlane(0, 1, 0, 0),
+		FPlane(0, 0, 0, 1));
 
-		ViewInitOptions.ViewMatrix = ViewInitOptions.ViewMatrix * FMatrix(
-			FPlane(0, 0, 1, 0),
-			FPlane(1, 0, 0, 0),
-			FPlane(0, 1, 0, 0),
-			FPlane(0, 0, 0, 1));
+	//@TODO: Should probably be locally configurable (or just made into a FMinimalViewInfo property)
+	const EAspectRatioAxisConstraint AspectRatioAxisConstraint = GetDefault<ULocalPlayer>()->AspectRatioAxisConstraint;
 
-		float MinZ = GetNearClipPlane();
-		float MaxZ = MinZ;
-		float MatrixFOV = ViewFOV * (float)PI / 360.0f;
-
-		if ( bConstrainAspectRatio )
-		{
-			ViewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(
-				MatrixFOV,
-				MatrixFOV,
-				1.0f,
-				AspectRatio,
-				MinZ,
-				MaxZ
-				);
-
-			ViewInitOptions.SetConstrainedViewRectangle(Viewport->CalculateViewExtents(AspectRatio, ViewRect));
-		}
-		else
-		{
-			float XAxisMultiplier;
-			float YAxisMultiplier;
-
-			if ( ViewportSizeXY.X > ViewportSizeXY.Y )
-			{
-				//if the viewport is wider than it is tall
-				XAxisMultiplier = 1.0f;
-				YAxisMultiplier = ViewportSizeXY.X / (float)ViewportSizeXY.Y;
-			}
-			else
-			{
-				//if the viewport is taller than it is wide
-				XAxisMultiplier = ViewportSizeXY.Y / (float)ViewportSizeXY.X;
-				YAxisMultiplier = 1.0f;
-			}
-
-			ViewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(
-				MatrixFOV,
-				MatrixFOV,
-				XAxisMultiplier,
-				YAxisMultiplier,
-				MinZ,
-				MaxZ
-				);
-		}
-	}
-	else if ( ProjectionType == ECameraProjectionMode::Orthographic )
-	{
-		float ZScale = 0.5f / HALF_WORLD_MAX;
-		float ZOffset = HALF_WORLD_MAX;
-
-		//The divisor for the matrix needs to match the translation code.
-		const float Zoom = GetOrthoUnitsPerPixel(Viewport);
-
-		float OrthoWidth = Zoom * ViewportSizeXY.X / 2.0f;
-		float OrthoHeight = Zoom * ViewportSizeXY.Y / 2.0f;
-
-		ViewInitOptions.ViewMatrix = ViewInitOptions.ViewMatrix * FInverseRotationMatrix(ViewRotation);
-		ViewInitOptions.ViewMatrix = ViewInitOptions.ViewMatrix * FMatrix(
-			FPlane(0, 0, 1, 0),
-			FPlane(1, 0, 0, 0),
-			FPlane(0, 1, 0, 0),
-			FPlane(0, 0, 0, 1));
-
-		const float EffectiveAspectRatio = bConstrainAspectRatio ? AspectRatio : ( ViewportSizeXY.X / (float)ViewportSizeXY.Y );
-		const float YScale = 1.0f / EffectiveAspectRatio;
-		OrthoWidth = ViewInfo.OrthoWidth / 2.0f;
-		OrthoHeight = ( ViewInfo.OrthoWidth / 2.0f ) * YScale;
-
-		const float NearViewPlane = ViewInitOptions.ViewMatrix.GetOrigin().Z;
-		const float FarViewPlane = NearViewPlane - 2.0f*WORLD_MAX;
-
-		const float InverseRange = 1.0f / ( FarViewPlane - NearViewPlane );
-		ZScale = -2.0f * InverseRange;
-		ZOffset = -( FarViewPlane + NearViewPlane ) * InverseRange;
-
-		ViewInitOptions.ProjectionMatrix = FReversedZOrthoMatrix(
-			OrthoWidth,
-			OrthoHeight,
-			ZScale,
-			ZOffset
-			);
-
-		if ( bConstrainAspectRatio )
-		{
-			ViewInitOptions.SetConstrainedViewRectangle(Viewport->CalculateViewExtents(AspectRatio, ViewRect));
-		}
-	}
-	else
-	{
-		check(false);
-	}
+	FMinimalViewInfo::CalculateProjectionMatrixGivenView(ViewInfo, AspectRatioAxisConstraint, Viewport, /*inout*/ ViewInitOptions);
 
 	ViewInitOptions.ViewFamily = ViewFamily;
 	ViewInitOptions.SceneViewStateInterface = ViewState.GetReference();
@@ -423,7 +284,6 @@ FSceneView* FUMGViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily)
 	//ViewInitOptions.OverrideLODViewOrigin = FVector::ZeroVector;
 	//ViewInitOptions.bUseFauxOrthoViewPos = true;
 
-	ViewInitOptions.OverrideFarClippingPlaneDistance = FarPlane;
 	//ViewInitOptions.CursorPos = CurrentMousePos;
 
 	FSceneView* View = new FSceneView(ViewInitOptions);
@@ -464,13 +324,12 @@ class SAutoRefreshViewport : public SViewport
 		SetViewportInterface(Viewport.ToSharedRef());
 	}
 
-	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
 		Viewport->Invalidate();
-		Viewport->InvalidateDisplay();
+		//Viewport->InvalidateDisplay();
 
 		Viewport->Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 		ViewportClient->Tick(InDeltaTime);
 	}
 
@@ -611,7 +470,10 @@ AActor* UViewport::Spawn(TSubclassOf<AActor> ActorClass)
 	if ( ViewportWidget.IsValid() )
 	{
 		UWorld* World = GetViewportWorld();
-		return World->SpawnActor<AActor>(ActorClass, FVector(0, 0, 0), FRotator());
+		FActorSpawnParameters SpawnParameters;
+		SpawnParameters.bNoCollisionFail = true;
+
+		return World->SpawnActor<AActor>(ActorClass, FVector(0, 0, 0), FRotator(), SpawnParameters);
 	}
 
 	// TODO UMG Report spawning actor error before the world is ready.

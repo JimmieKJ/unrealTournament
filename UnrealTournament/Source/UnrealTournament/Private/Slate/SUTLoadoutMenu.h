@@ -8,7 +8,7 @@
 
 #if !UE_SERVER
 
-class SUTLoadoutMenu : public SUWindowsDesktop
+class UNREALTOURNAMENT_API SUTLoadoutMenu : public SUWindowsDesktop
 {
 protected:
 	virtual void CreateDesktop();

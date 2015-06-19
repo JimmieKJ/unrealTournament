@@ -177,7 +177,7 @@ void DragDropHandler::HandleFoldersDroppedOnAssetFolder(const TSharedRef<SWidget
 			LOCTEXT("DragDropCopyFolder", "Copy Folder Here"),
 			LOCTEXT("DragDropCopyFolderTooltip", "Creates a copy of all assets in the dragged folders to this folder, preserving folder structure."),
 			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateLambda([=]() { MoveActionHandler.ExecuteIfBound(FinalPathNames, TargetPath); }))
+			FUIAction(FExecuteAction::CreateLambda([=]() { CopyActionHandler.ExecuteIfBound(FinalPathNames, TargetPath); }))
 			);
 
 		MenuBuilder.AddMenuEntry(

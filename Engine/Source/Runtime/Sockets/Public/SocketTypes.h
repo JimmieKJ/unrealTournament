@@ -78,6 +78,8 @@ enum ESocketErrors
 	SE_NO_RECOVERY,
 	SE_NO_DATA,
 	SE_UDP_ERR_PORT_UNREACH,
+	SE_ADDRFAMILY,
+	SE_SYSTEM,
 
 	// this is a special error which means to lookup the most recent error (via GetLastErrorCode())
 	SE_GET_LAST_ERROR_CODE,

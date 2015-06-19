@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateBasics.h"
-#include "EditorStyle.h"
+#include "TaskGraphStyle.h"
 #include "TaskGraphInterfaces.h"
 #include "VisualizerEvents.h"
 #include "SGraphBar.h"
@@ -44,9 +44,9 @@ void SGraphBar::Construct( const FArguments& InArgs )
 	OnSelectionChanged = InArgs._OnSelectionChanged;
 	OnGeometryChanged = InArgs._OnGeometryChanged;
 
-	BackgroundImage = FEditorStyle::GetBrush("TaskGraph.Background");
-	FillImage = FEditorStyle::GetBrush("TaskGraph.Mono");
-	SelectedImage = FEditorStyle::GetBrush("TaskGraph.Selected");
+	BackgroundImage = FTaskGraphStyle::Get()->GetBrush("TaskGraph.Background");
+	FillImage = FTaskGraphStyle::Get()->GetBrush("TaskGraph.Mono");
+	SelectedImage = FTaskGraphStyle::Get()->GetBrush("TaskGraph.Selected");
 
 	LastHoveredEvent = INDEX_NONE;
 	Zoom = 1.0f;
@@ -67,7 +67,7 @@ int32 SGraphBar::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 	const FColor SelectedBarColor( 255, 255, 255, 255 );
 
 	// Paint inside the border only. 
-	const FVector2D BorderPadding = FEditorStyle::GetVector("ProgressBar.BorderPadding");
+	const FVector2D BorderPadding = FTaskGraphStyle::Get()->GetVector("TaskGraph.ProgressBar.BorderPadding");
 	const FSlateRect ForegroundClippingRect = AllottedGeometry.GetClippingRect().InsetBy(FMargin(BorderPadding.X, BorderPadding.Y)).IntersectionWith(MyClippingRect);
 
 	FSlateDrawElement::MakeBox(
@@ -115,8 +115,6 @@ void SGraphBar::Tick( const FGeometry& AllottedGeometry, const double InCurrentT
 			LastGeometry = AllottedGeometry;
 		}
 	}
-
-	SLeafWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
 FReply SGraphBar::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
@@ -211,9 +209,9 @@ FReply SGraphBar::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent&
 	return SLeafWidget::OnMouseMove( MyGeometry, MouseEvent );
 }
 
-FVector2D SGraphBar::ComputeDesiredSize() const
+FVector2D SGraphBar::ComputeDesiredSize( float ) const
 {
-	return FVector2D( 500.0f, 50.0f );
+	return FVector2D( 8.0f, 16.0f );
 }
 
 void SGraphBar::SetEvents( const FVisualizerEventsArray& InEvents, double InStartTime, double InTotalTime )

@@ -60,6 +60,15 @@ typedef enum
     SDL_NUM_SYSTEM_CURSORS
 } SDL_SystemCursor;
 
+/**
+ * \brief Scroll direction types for the Scroll event
+ */
+typedef enum
+{
+    SDL_MOUSEWHEEL_NORMAL,    /**< The scroll direction is normal */
+    SDL_MOUSEWHEEL_FLIPPED    /**< The scroll direction is flipped / natural */
+} SDL_MouseWheelDirection;
+
 /* Function prototypes */
 
 /**
@@ -122,6 +131,16 @@ extern DECLSPEC Uint32 SDLCALL SDL_GetRelativeMouseState(int *x, int *y);
  */
 extern DECLSPEC void SDLCALL SDL_WarpMouseInWindow(SDL_Window * window,
                                                    int x, int y);
+
+/**
+ *  \brief Moves the mouse to the given position in global screen space.
+ *
+ *  \param x The x coordinate
+ *  \param y The y coordinate
+ *
+ *  \note This function generates a mouse motion event
+ */
+extern DECLSPEC void SDLCALL SDL_WarpMouseGlobal(int x, int y);
 
 /**
  *  \brief Set relative mouse mode.

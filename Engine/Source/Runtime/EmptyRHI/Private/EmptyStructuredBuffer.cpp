@@ -32,7 +32,7 @@ FStructuredBufferRHIRef FEmptyDynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 
 void* FEmptyDynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(StructuredBuffer,StructuredBuffer);
+	FEmptyStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
 	return NULL;
 }

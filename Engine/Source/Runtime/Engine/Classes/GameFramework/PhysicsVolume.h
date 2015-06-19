@@ -22,6 +22,7 @@ class ENGINE_API APhysicsVolume : public AVolume
 
 	virtual void PostInitializeComponents() override;
 	virtual void Destroyed() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	//======================================================================================
 	// Character Movement related properties

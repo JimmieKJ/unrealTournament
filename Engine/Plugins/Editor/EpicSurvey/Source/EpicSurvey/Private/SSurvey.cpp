@@ -12,7 +12,6 @@
 
 void SSurvey::Construct( const FArguments& Args, const TSharedRef< FEpicSurvey >& InEpicSurvey, const TSharedRef< FSurvey >& InSurvey )
 {
-	FinishedLoading = false;
 	EpicSurvey = InEpicSurvey;
 	Survey = InSurvey;
 	PageBox = NULL;
@@ -47,47 +46,52 @@ void SSurvey::Construct( const FArguments& Args, const TSharedRef< FEpicSurvey >
 		]
 	];
 
+	bool bIsLoaded = false;
 	if ( InSurvey->GetInitializationState() == EContentInitializationState::NotStarted )
 	{
 		InSurvey->Initialize();
 		ConstructLoadingLayout();
-		FinishedLoading = false;
 	}
 	else if ( InSurvey->GetInitializationState() == EContentInitializationState::Working )
 	{
 		ConstructLoadingLayout();
-		FinishedLoading = false;
 	}
 	else if ( InSurvey->GetInitializationState() == EContentInitializationState::Success )
 	{
 		ConstructSurveyLayout();
-		FinishedLoading = true;
+		bIsLoaded = true;
 	}
 	else if ( InSurvey->GetInitializationState() == EContentInitializationState::Failure )
 	{
 		ConstructFailureLayout();
-		FinishedLoading = true;
+		bIsLoaded = true;
+	}
+
+	if (!bIsLoaded)
+	{
+		//Construct the proper layout when finished loading
+		RegisterActiveTimer( 0.1f, FWidgetActiveTimerDelegate::CreateSP( this, &SSurvey::MonitorLoadStatePostConstruct ) );
 	}
 }
 
-void SSurvey::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SSurvey::MonitorLoadStatePostConstruct( double InCurrentTime, float InDeltaTime )
 {
-	if ( !FinishedLoading )
-	{
-		EContentInitializationState::Type State = Survey->GetInitializationState();
+	EContentInitializationState::Type State = Survey->GetInitializationState();
 
-		if ( State == EContentInitializationState::Success )
-		{
-			FinishedLoading = true;
-			ConstructSurveyLayout();
-		}
-		else if ( State == EContentInitializationState::Failure )
-		{
-			//Show Error message
-			FinishedLoading = true;
-			ConstructFailureLayout();
-		}
+	bool bIsLoaded = false;
+	if ( State == EContentInitializationState::Success )
+	{
+		bIsLoaded = true;
+		ConstructSurveyLayout();
 	}
+	else if ( State == EContentInitializationState::Failure )
+	{
+		//Show Error message
+		bIsLoaded = true;
+		ConstructFailureLayout();
+	}
+
+	return bIsLoaded ? EActiveTimerReturnType::Stop : EActiveTimerReturnType::Continue;
 }
 
 void SSurvey::ConstructLoadingLayout()

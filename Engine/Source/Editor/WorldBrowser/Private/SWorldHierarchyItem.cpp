@@ -378,11 +378,11 @@ FSlateFontInfo SWorldHierarchyItem::GetLevelDisplayNameFont() const
 {
 	if (LevelModel->IsCurrent())
 	{
-		return FEditorStyle::GetFontStyle("LevelBrowser.LabelFontBold");
+		return FEditorStyle::GetFontStyle("WorldBrowser.LabelFontBold");
 	}
 	else
 	{
-		return FEditorStyle::GetFontStyle("LevelBrowser.LabelFont");
+		return FEditorStyle::GetFontStyle("WorldBrowser.LabelFont");
 	}
 }
 

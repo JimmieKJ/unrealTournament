@@ -14,56 +14,35 @@ struct FBotPersonality
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** overall skill modifier, generally [-1, +1]
-	 * NOTE: this is applied to the bot's Skill property and shouldn't be queried directly
-	 */
-	UPROPERTY(EditAnywhere, Category = Personality)
-	float SkillModifier;
 	/** aggressiveness (not a modifier) [-1, 1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Aggressiveness;
 	/** tactical ability (both a modifier for general tactics and a standalone value for advanced or specialized tactics) [-1, 1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Tactics;
 	/** likelihood of jumping/dodging, particularly in combat */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "0", UIMin = "0", ClampMax = "1", UIMax = "1"))
 	float Jumpiness;
 	/** ability to perform advanced movement options (lift jumps, impact jumps, advanced translocator throws, etc) (skill modifier) [-1, 1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float MovementAbility;
 	/** reaction time (skill modifier) [-1, +1], positive is better (lower reaction time)
 	 * affects enemy acquisition and incoming fire avoidance
 	 */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float ReactionTime;
 	/** modifier to aim accuracy (skill modifier) [-1, +1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Accuracy;
 	/** modifies likelihood of bot detecting stimulus, particularly at long ranges and/or edges of vision (skill modifier) [-1, +1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Alertness;
 	/** modifies bot's awareness of map control and strategy (pickup respawn state and timers, knowledge of accumulated map data like high traffic areas, hiding spots, etc) */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "0", UIMin = "0", ClampMax = "1", UIMax = "1"))
 	float MapAwareness;
 	/** favorite weapon; bot will bias towards acquiring and using this weapon */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	FName FavoriteWeapon;
-};
-
-USTRUCT(BlueprintType)
-struct FBotCharacter : public FBotPersonality
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** bot's name */
-	UPROPERTY(EditAnywhere, Category = Display)
-	FString PlayerName;
-	
-	// TODO: audio/visual details (mesh, voice pack, etc)
-
-	/** transient runtime tracking of how many times this entry has been used to avoid unnecessary duplicates */
-	UPROPERTY(Transient, BlueprintReadWrite, Category = Game)
-	uint8 SelectCount;
 };
 
 struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
@@ -253,6 +232,10 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY(EditDefaultsOnly, Category = Environment)
 	float TacticalHeightAdvantage;
 
+	/** ref to the bot character definition used to initialize the bot's attributes */
+	UPROPERTY(Transient)
+	const class UUTBotCharacter* CharacterData;
+
 	UPROPERTY(BlueprintReadWrite, Category = Personality)
 	FBotPersonality Personality;
 	/** core skill rating, generally 0 - 7 */
@@ -345,6 +328,10 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	FVector TranslocTarget;
 
+	/** if set use serpentine movement for current move (when allowed by path being followed) */
+	UPROPERTY()
+	bool bUseSerpentineMovement;
+
 	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
 	UPROPERTY()
 	float CurrentAggression;
@@ -391,6 +378,12 @@ protected:
 	/** when bAdjusting is true, temporary intermediate move point that bot uses to get more on path or around minor avoidable obstacles */
 	UPROPERTY()
 	FVector AdjustLoc;
+	/** strafe direction when using serpentine movement */
+	UPROPERTY()
+	float SerpentineDir;
+	/** markers that AI should try to adjust its movement around while pathing (temporary danger spots) */
+	UPROPERTY()
+	TArray<class AUTAvoidMarker*> FearSpots;
 public:
 	inline const FRouteCacheItem& GetMoveTarget() const
 	{
@@ -438,6 +431,7 @@ public:
 		{
 			AdjustLoc = NewAdjustLoc;
 			bAdjusting = true;
+			bUseSerpentineMovement = false;
 		}
 	}
 	inline void ClearMoveTarget()
@@ -522,6 +516,10 @@ public:
 	 * pass a shooter with NULL for projectile for instant hit warnings
 	 */
 	virtual void SetWarningTimer(AUTProjectile* Incoming, AUTCharacter* Shooter, float TimeToImpact);
+
+	/** adds a new spot to the FearSpots list after skill checks, etc */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void AddFearSpot(class AUTAvoidMarker* NewSpot);
 protected:
 	/** projectile for ProcessIncomingWarning() call on a pending timer */
 	UPROPERTY()
@@ -614,6 +612,8 @@ public:
 
 	/** set when planning on wall dodging next time we hit a wall during current fall */
 	bool bPlannedWallDodge;
+	/** set to execute wall dodge during PostMovementUpdate() (deferred because NotifyMoveBlocked() happens during physics and may clobber velocity changes) */
+	FVector PendingWallDodgeDir;
 
 	/** sets base bot skill and all parameters derived from skill */
 	virtual void InitializeSkill(float NewBaseSkill);
@@ -654,6 +654,8 @@ public:
 	UFUNCTION()
 	virtual void NotifyBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit);
 	virtual void NotifyMoveBlocked(const FHitResult& Impact);
+	UFUNCTION()
+	virtual void PostMovementUpdate(float DeltaTime, FVector OldLocation,  FVector OldVelocity);
 	virtual void NotifyLanded(const FHitResult& Hit);
 	virtual void NotifyJumpApex();
 
@@ -715,6 +717,12 @@ public:
 	/** returns whether bot really wants to find a better weapon (i.e. because have none with ammo or current is a weak starting weapon) */
 	virtual bool NeedsWeapon();
 
+	/** called for each new move point to check for advanced movement options (strafing, dodge, translocator, etc) */
+	virtual void UpdateMovementOptions();
+	/** set default focus
+	 * note that decision code, special paths, etc can override by setting a higher priority focus item
+	 */
+	virtual void SetDefaultFocus();
 	/** if translocator available, consider translocation to a point along our current path */
 	virtual void ConsiderTranslocation();
 
@@ -756,6 +764,8 @@ public:
 	/** check for line of sight to target DeltaTime from now */
 	virtual bool CheckFutureSight(float DeltaTime);
 
+	/** return whether passed in Actor is or belongs to a teammate */
+	virtual bool IsTeammate(AActor* TestActor);
 	/** get info on enemy, from team if available or local list if not
 	 * returned pointer is from an array so it is only guaranteed valid until next enemy update
 	 */

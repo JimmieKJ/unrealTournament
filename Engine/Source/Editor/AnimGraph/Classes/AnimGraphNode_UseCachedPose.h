@@ -27,12 +27,11 @@ public:
 	// UK2Node interface.
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual bool IsActionFilteredOut(class FBlueprintActionFilter const& Filter) override;
-	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	// End of UK2Node interface
 
 	// UAnimGraphNode_Base interface
 	virtual FString GetNodeCategory() const override;
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
+	virtual void EarlyValidation(class FCompilerResultsLog& MessageLog) const override;
 	// End of UAnimGraphNode_Base interface
 
 private:

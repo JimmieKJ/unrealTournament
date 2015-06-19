@@ -59,16 +59,16 @@ public:
 	virtual IConsoleVariable* RegisterConsoleVariableRef(const TCHAR* Name, float& RefValue, const TCHAR* Help, uint32 Flags) override;
 	virtual IConsoleVariable* RegisterConsoleVariableBitRef(const TCHAR* CVarName, const TCHAR* FlagName, uint32 BitNumber, uint8* Force0MaskPtr, uint8* Force1MaskPtr, const TCHAR* Help, uint32 Flags) override;
 	
-	virtual void CallAllConsoleVariableSinks();
+	virtual void CallAllConsoleVariableSinks() override;
 
 	DELEGATE_DEPRECATED("This function is deprecated - please replace any usage with RegisterConsoleVariableSink_Handle.")
-	virtual void RegisterConsoleVariableSink(const FConsoleCommandDelegate& Command);
+	virtual void RegisterConsoleVariableSink(const FConsoleCommandDelegate& Command) override;
 
 	DELEGATE_DEPRECATED("Delegate comparison is deprecated - please replace any usage with UnregisterConsoleVariableSink_Handle, passing the result of RegisterConsoleVariableSink_Handle.")
-	virtual void UnregisterConsoleVariableSink(const FConsoleCommandDelegate& Command);
+	virtual void UnregisterConsoleVariableSink(const FConsoleCommandDelegate& Command) override;
 
-	virtual FConsoleVariableSinkHandle RegisterConsoleVariableSink_Handle(const FConsoleCommandDelegate& Command);
-	virtual void UnregisterConsoleVariableSink_Handle(FConsoleVariableSinkHandle Handle);
+	virtual FConsoleVariableSinkHandle RegisterConsoleVariableSink_Handle(const FConsoleCommandDelegate& Command) override;
+	virtual void UnregisterConsoleVariableSink_Handle(FConsoleVariableSinkHandle Handle) override;
 
 	virtual IConsoleCommand* RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandDelegate& Command, uint32 Flags) override;
 	virtual IConsoleCommand* RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandWithArgsDelegate& Command, uint32 Flags) override;
@@ -76,11 +76,12 @@ public:
 	virtual IConsoleCommand* RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandWithWorldAndArgsDelegate& Command, uint32 Flags) override;
 	virtual IConsoleCommand* RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, const FConsoleCommandWithOutputDeviceDelegate& Command, uint32 Flags) override;
 	virtual IConsoleCommand* RegisterConsoleCommand(const TCHAR* Name, const TCHAR* Help, uint32 Flags) override;
+	virtual IConsoleObject* FindConsoleObject(const TCHAR* Name) const;
 	virtual IConsoleVariable* FindConsoleVariable(const TCHAR* Name) const override;
 	virtual void ForEachConsoleObject(const FConsoleObjectVisitor& Visitor, const TCHAR* ThatStartsWith) const override;
 	virtual bool ProcessUserConsoleInput(const TCHAR* InInput, FOutputDevice& Ar, UWorld* InWorld) override;
-	virtual void AddConsoleHistoryEntry(const TCHAR* Input);
-	virtual void GetConsoleHistory(TArray<FString>& Out);
+	virtual void AddConsoleHistoryEntry(const TCHAR* Input) override;
+	virtual void GetConsoleHistory(TArray<FString>& Out) override;
 	virtual bool IsNameRegistered(const TCHAR* Name) const override;	
 	virtual void RegisterThreadPropagation(uint32 ThreadId, IConsoleThreadPropagation* InCallback) override;
 	virtual void UnregisterConsoleObject( IConsoleObject* Object, bool bKeepState) override;
@@ -125,13 +126,6 @@ private: // ----------------------------------------------------
 	 * inefficient but this code is not performance critical
 	 */
 	static FString GetTextSection(const TCHAR* &It);
-
-	/**
-	 * Find a console variable or command
-	 * @param Name must not be 0
-	 * @return 0 if the object wasn't found
-	 */
-	IConsoleObject* FindConsoleObject(const TCHAR* Name) const;
 
 	/** same as FindConsoleObject() but ECVF_CreatedFromIni are not filtered out (for internal use) */
 	IConsoleObject* FindConsoleObjectUnfiltered(const TCHAR* Name) const;

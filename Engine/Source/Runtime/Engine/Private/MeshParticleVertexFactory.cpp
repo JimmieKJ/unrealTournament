@@ -42,7 +42,7 @@ public:
 
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override
 	{
-		const bool bInstanced = View.GetFeatureLevel() >= ERHIFeatureLevel::SM4;
+		const bool bInstanced = RHISupportsInstancing(GetFeatureLevelShaderPlatform(View.GetFeatureLevel()));
 		FMeshParticleVertexFactory* MeshParticleVF = (FMeshParticleVertexFactory*)VertexFactory;
 		FVertexShaderRHIParamRef VertexShaderRHI = Shader->GetVertexShader();
 		SetUniformBufferParameter(RHICmdList, VertexShaderRHI, Shader->GetUniformBufferParameter<FMeshParticleUniformParameters>(), MeshParticleVF->GetUniformBuffer() );
@@ -86,7 +86,7 @@ void FMeshParticleVertexFactory::InitRHI()
 {
 	FVertexDeclarationElementList Elements;
 
-	const bool bInstanced = GetFeatureLevel() >= ERHIFeatureLevel::SM4;
+    const bool bInstanced = RHISupportsInstancing(GetFeatureLevelShaderPlatform(GetFeatureLevel()));
 
 	if (Data.bInitialized)
 	{

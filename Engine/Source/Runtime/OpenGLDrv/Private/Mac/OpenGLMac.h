@@ -6,7 +6,7 @@
 #include <OpenGL/gl3ext.h>
 
 #ifndef GL_COMPUTE_SHADER
-#define GL_COMPUTE_SHADER 0x91B9
+#define GL_COMPUTE_SHADER	0x91B9
 #endif
 
 #include "OpenGL3.h"
@@ -24,15 +24,31 @@ private:
 	/** Must we employ a workaround for radr://15553950, TTP# 315197 */
 	static bool MustFlushTexStorage(void);
 	
+	/** Is the current renderer the Intel HD3000? */
+	static bool IsIntelHD3000();
+	
 public:
 	static void ProcessQueryGLInt();
 	static void ProcessExtensions(const FString& ExtensionsString);
 	static uint64 GetVideoMemorySize();
 	
+	static FORCEINLINE ERHIFeatureLevel::Type GetFeatureLevel()
+	{
+		// The Intel HD 3000 on OS X can't cope with our deferred renderer, but ES2 mode works fine :(
+		static bool bForceFeatureLevelES2 = FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES2"));
+		if (bForceFeatureLevelES2 || IsIntelHD3000())
+		{
+			return ERHIFeatureLevel::ES2;
+		}
+		
+		return FOpenGL3::GetFeatureLevel();
+	}
+	
 	static FORCEINLINE EShaderPlatform GetShaderPlatform()
 	{
+		// The Intel HD 3000 on OS X can't cope with our deferred renderer, but ES2 mode works fine :(
 		static bool bForceFeatureLevelES2 = FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES2"));
-		if (bForceFeatureLevelES2)
+		if (bForceFeatureLevelES2 || IsIntelHD3000())
 		{
 			return SP_OPENGL_PCES2;
 		}
@@ -59,6 +75,31 @@ public:
 	static FORCEINLINE void Flush()
 	{
 		glFlushRenderAPPLE();
+	}
+	
+	// Workaround Mac-specific MapBuffer issues without exposing the changes to other platforms
+	static FORCEINLINE void* MapBufferRange(GLenum Type, uint32 InOffset, uint32 InSize, EResourceLockMode LockMode)
+	{
+		GLenum Access;
+		switch ( LockMode )
+		{
+			case RLM_ReadOnly:
+				Access = GL_MAP_READ_BIT;
+				break;
+			case RLM_WriteOnly:
+				Access = (GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_WRITE_BIT);
+				break;
+			case RLM_WriteOnlyUnsynchronized:
+				Access = (GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT);
+				break;
+			case RLM_WriteOnlyPersistent:
+				Access = (GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+				break;
+			case RLM_ReadWrite:
+			default:
+				Access = (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT);
+		}
+		return glMapBufferRange(Type, InOffset, InSize, Access);
 	}
 	
 	static void DeleteTextures(GLsizei Number, const GLuint* Textures);

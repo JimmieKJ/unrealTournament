@@ -14,6 +14,9 @@ void FGameplayTagContainerCustomization::CustomizeHeader(TSharedRef<class IPrope
 {
 	StructPropertyHandle = InStructPropertyHandle;
 
+	FSimpleDelegate OnTagContainerChanged = FSimpleDelegate::CreateSP(this, &FGameplayTagContainerCustomization::RefreshTagList);
+	StructPropertyHandle->SetOnPropertyValueChanged(OnTagContainerChanged);
+
 	BuildEditableContainerList();
 
 	HeaderRow
@@ -25,35 +28,38 @@ void FGameplayTagContainerCustomization::CustomizeHeader(TSharedRef<class IPrope
 		.MaxDesiredWidth(512)
 		[
 			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
 			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.Text(LOCTEXT("GameplayTagContainerCustomization_Edit", "Edit..."))
-					.OnClicked(this, &FGameplayTagContainerCustomization::OnEditButtonClicked)
-				]
-				+SVerticalBox::Slot()
+				SNew(SButton)
+				.IsEnabled(!StructPropertyHandle->GetProperty()->HasAnyPropertyFlags(CPF_EditConst))
+				.Text(LOCTEXT("GameplayTagContainerCustomization_Edit", "Edit..."))
+				.OnClicked(this, &FGameplayTagContainerCustomization::OnEditButtonClicked)
+			]
+			+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
 					SNew(SButton)
 					.IsEnabled(!StructPropertyHandle->GetProperty()->HasAnyPropertyFlags(CPF_EditConst))
 					.Text(LOCTEXT("GameplayTagContainerCustomization_Clear", "Clear All"))
 					.OnClicked(this, &FGameplayTagContainerCustomization::OnClearAllButtonClicked)
+					.Visibility(this, &FGameplayTagContainerCustomization::GetClearAllVisibility)
 				]
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
+		]
+	+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBorder)
+			.Padding(4.0f)
+			.Visibility(this, &FGameplayTagContainerCustomization::GetTagsListVisibility)
 			[
-				SNew(SBorder)
-				.Padding(4.0f)
-				[
-					ActiveTags()
-				]
+				ActiveTags()
+			]
 			]
 		];
 
@@ -169,7 +175,7 @@ FReply FGameplayTagContainerCustomization::OnClearAllButtonClicked()
 
 	for (int32 ContainerIdx = 0; ContainerIdx < EditableContainers.Num(); ++ContainerIdx)
 	{
-		UObject* OwnerObj = EditableContainers[ContainerIdx].TagContainerOwner;
+		UObject* OwnerObj = EditableContainers[ContainerIdx].TagContainerOwner.Get();
 		FGameplayTagContainer* Container = EditableContainers[ContainerIdx].TagContainer;
 
 		if (OwnerObj && Container)
@@ -182,6 +188,16 @@ FReply FGameplayTagContainerCustomization::OnClearAllButtonClicked()
 		}
 	}
 	return FReply::Handled();
+}
+
+EVisibility FGameplayTagContainerCustomization::GetClearAllVisibility() const
+{
+	return TagNames.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility FGameplayTagContainerCustomization::GetTagsListVisibility() const
+{
+	return TagNames.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void FGameplayTagContainerCustomization::PostUndo( bool bSuccess )

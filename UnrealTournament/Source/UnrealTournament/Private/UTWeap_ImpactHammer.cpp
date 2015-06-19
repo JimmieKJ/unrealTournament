@@ -76,7 +76,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 			const FVector EndTrace = SpawnLocation + FireDir * TraceDist;
 			
-			if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, TraceParams))
+			if (!GetWorld()->LineTraceSingleByChannel(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, TraceParams))
 			{
 				Hit.Location = EndTrace;
 			}
@@ -368,13 +368,13 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 			if (bFullImpactJump || (JumpSpec != NULL && JumpSpec->CalcRequiredJumpZ(UTOwner) * 1.05f < UTOwner->UTCharacterMovement->EasyImpactImpulse))
 			{
 				// do it!
-				const float ZSpeed = bFullImpactJump ? UTOwner->UTCharacterMovement->EasyImpactImpulse : UTOwner->UTCharacterMovement->FullImpactImpulse;
+				const float ZSpeed = bFullImpactJump ? UTOwner->UTCharacterMovement->FullImpactImpulse : UTOwner->UTCharacterMovement->EasyImpactImpulse;
 				FVector DesiredVel2D;
 				if (AUTBot::FindBestJumpVelocityXY(DesiredVel2D, UTOwner->GetActorLocation(), B->GetMovePoint(), ZSpeed, UTOwner->UTCharacterMovement->GetGravityZ(), UTOwner->GetSimpleCollisionHalfHeight()))
 				{
 					float DesiredSpeed = DesiredVel2D.Size2D();
 					// if low speed and not going to bump head on ceiling, do normal jump
-					if (DesiredSpeed < UTOwner->UTCharacterMovement->GetMaxSpeed() && !GetWorld()->LineTraceTest(UTOwner->GetActorLocation(), UTOwner->GetActorLocation() + FVector(0.0f, 0.0f, ZSpeed * 0.5f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("ImpactJump")), false, UTOwner)))
+					if (DesiredSpeed < UTOwner->UTCharacterMovement->GetMaxSpeed() && !GetWorld()->LineTraceTestByChannel(UTOwner->GetActorLocation(), UTOwner->GetActorLocation() + FVector(0.0f, 0.0f, ZSpeed * 0.5f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("ImpactJump")), false, UTOwner)))
 					{
 						UTOwner->UTCharacterMovement->Velocity = DesiredVel2D;
 					}

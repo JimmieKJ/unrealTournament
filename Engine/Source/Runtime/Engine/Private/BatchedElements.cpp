@@ -324,6 +324,9 @@ static void SetBlendState(FRHICommandList& RHICmdList, ESimpleElementBlendMode B
 	case SE_BLEND_AlphaBlend:
 		RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA,BO_Add,BF_SourceAlpha,BF_InverseSourceAlpha,BO_Add,BF_SourceAlpha,BF_InverseSourceAlpha>::GetRHI());
 		break;
+	case SE_BLEND_RGBA_MASK_END:
+	case SE_BLEND_RGBA_MASK_START:
+		break;
 	}
 }
 
@@ -353,6 +356,9 @@ static void SetHitTestingBlendState(FRHICommandList& RHICmdList, ESimpleElementB
 		break;
 	case SE_BLEND_Modulate:
 		RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_Zero, BO_Add, BF_One, BF_Zero>::GetRHI());
+		break;
+	case SE_BLEND_RGBA_MASK_END:
+	case SE_BLEND_RGBA_MASK_START:
 		break;
 	}
 }

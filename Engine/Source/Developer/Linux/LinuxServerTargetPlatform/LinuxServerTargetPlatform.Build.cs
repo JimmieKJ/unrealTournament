@@ -13,6 +13,7 @@ public class LinuxServerTargetPlatform : ModuleRules
 				"Core",
 				"TargetPlatform",
 				"DesktopPlatform",
+				"Projects"
 			}
         );
 

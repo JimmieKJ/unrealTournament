@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See https://www.facebook.com/groups/303159406399348/permalink/410968105618477/ -->
+<!-- @generated SignedSource<<c04b8126218b1d2a283a1074270ecf1a>> -->
+<!-- @nolint -->
+<!-- @mobile export_name="fbandroid 2015-03-24 at 22:55:32 GMT" locale="ja_JP" lib_name="vr-lib" -->
+
+<resources>
+    <string name="swipe_to_browse">スワイプして閲覧</string>
+    <string name="out_of_memory">Oculus 360 Photosを使用するには、携帯電話の空き容量を%1$sKB以上確保してください。</string>
+</resources>

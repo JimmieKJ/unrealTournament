@@ -20,7 +20,7 @@ class AIMODULE_API UBTDecorator_ForceSuccess : public UBTDecorator
 
 protected:
 
-	virtual void OnNodeProcessed(struct FBehaviorTreeSearchData& SearchData, EBTNodeResult::Type& NodeResult);
+	virtual void OnNodeProcessed(struct FBehaviorTreeSearchData& SearchData, EBTNodeResult::Type& NodeResult) override;
 
 #if WITH_EDITOR
 	virtual FName GetNodeIconName() const override;

@@ -3,6 +3,15 @@
 #include "Paper2DEditorPrivatePCH.h"
 #include "ContentBrowserModule.h"
 #include "ContentBrowserExtensions.h"
+#include "PaperSprite.h"
+#include "PaperFlipbook.h"
+#include "PaperTileSet.h"
+#include "PaperSpriteFactory.h"
+#include "PaperTileSetFactory.h"
+#include "PaperImporterSettings.h"
+#include "PaperStyle.h"
+
+#include "ExtractSprites/SPaperExtractSpritesDialog.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 
@@ -45,8 +54,6 @@ struct FCreateSpriteFromTextureExtension : public FContentBrowserSelectedAssetEx
 
 	void CreateSpritesFromTextures(TArray<UTexture2D*>& Textures)
 	{
-		const FString DefaultSuffix = TEXT("_Sprite");
-
 		FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
 		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 
@@ -57,7 +64,7 @@ struct FCreateSpriteFromTextureExtension : public FContentBrowserSelectedAssetEx
 			UTexture2D* Texture = *TextureIt;
 
 			// Create the factory used to generate the sprite
-			UPaperSpriteFactory* SpriteFactory = ConstructObject<UPaperSpriteFactory>(UPaperSpriteFactory::StaticClass());
+			UPaperSpriteFactory* SpriteFactory = NewObject<UPaperSpriteFactory>();
 			SpriteFactory->InitialTexture = Texture;
 
 			// Create the sprite
@@ -67,6 +74,7 @@ struct FCreateSpriteFromTextureExtension : public FContentBrowserSelectedAssetEx
 			if (!bExtractSprites)
 			{
 				// Get a unique name for the sprite
+				const FString DefaultSuffix = TEXT("_Sprite");
 				AssetToolsModule.Get().CreateUniqueAssetName(Texture->GetOutermost()->GetName(), DefaultSuffix, /*out*/ PackageName, /*out*/ Name);
 				const FString PackagePath = FPackageName::GetLongPackagePath(PackageName);
 
@@ -77,81 +85,7 @@ struct FCreateSpriteFromTextureExtension : public FContentBrowserSelectedAssetEx
 			}
 			else
 			{
-				FScopedSlowTask Feedback(1, NSLOCTEXT("Paper2D", "Paper2D_ExtractSpritesFromTexture", "Extracting Sprites From Texture"));
-				Feedback.MakeDialog(true);
-
-				// First extract the rects from the texture
-				TArray<FIntRect> ExtractedRects;
-				UPaperSprite::ExtractRectsFromTexture(Texture, /*out*/ ExtractedRects);
-
-				// Sort the rectangles by approximate row
-				struct FRectangleSortHelper
-				{
-					FRectangleSortHelper(TArray<FIntRect>& InOutSprites)
-					{
-						// Sort by Y, then by X (top left corner), descending order (so we can use it as a stack from the top row down)
-						TArray<FIntRect> SpritesLeft = InOutSprites;
-						SpritesLeft.Sort([](const FIntRect& A, const FIntRect& B) { return (A.Min.Y == B.Min.Y) ? (A.Min.X > B.Min.X) : (A.Min.Y > B.Min.Y); });
-						InOutSprites.Reset();
-
-						// Start pulling sprites out, the first one in each row will dominate remaining ones and cause them to get labeled
-						TArray<FIntRect> DominatedSprites;
-						DominatedSprites.Empty(SpritesLeft.Num());
- 						while (SpritesLeft.Num())
- 						{
-							FIntRect DominatingSprite = SpritesLeft.Pop();
-							DominatedSprites.Add(DominatingSprite);
-
-							// Find the sprites that are dominated (intersect the infinite horizontal band described by the dominating sprite)
-							for (int32 Index = 0; Index < SpritesLeft.Num();)
-							{
-								const FIntRect& CurElement = SpritesLeft[Index];
-								if ((CurElement.Min.Y <= DominatingSprite.Max.Y) && (CurElement.Max.Y >= DominatingSprite.Min.Y))
-								{
-									DominatedSprites.Add(CurElement);
-									SpritesLeft.RemoveAt(Index, /*Count=*/ 1, /*bAllowShrinking=*/ false);
-								}
-								else
-								{
-									++Index;
-								}
-							}
-
-							// Sort the sprites in the band by X and add them to the result
-							DominatedSprites.Sort([](const FIntRect& A, const FIntRect& B) { return (A.Min.X < B.Min.X); });
-							InOutSprites.Append(DominatedSprites);
-							DominatedSprites.Reset();
- 						}
-					}
-				};
-				FRectangleSortHelper RectSorter(ExtractedRects);
-
-				Feedback.TotalAmountOfWork = ExtractedRects.Num();
-
-				for (int ExtractedRectIndex = 0; ExtractedRectIndex < ExtractedRects.Num(); ++ExtractedRectIndex)
-				{
-					Feedback.EnterProgressFrame(1, NSLOCTEXT("Paper2D", "Paper2D_ExtractSpritesFromTexture", "Extracting Sprites From Texture"));
-
-					FIntRect& ExtractedRect = ExtractedRects[ExtractedRectIndex];
-					SpriteFactory->bUseSourceRegion = true;
-					SpriteFactory->InitialSourceUV = FVector2D(ExtractedRect.Min.X, ExtractedRect.Min.Y);
-					SpriteFactory->InitialSourceDimension = FVector2D(ExtractedRect.Width(), ExtractedRect.Height());
-
-					// Get a unique name for the sprite
-					const FString Suffix = FString::Printf(TEXT("%s_%d"), *DefaultSuffix, ExtractedRectIndex);
-					AssetToolsModule.Get().CreateUniqueAssetName(Texture->GetOutermost()->GetName(), Suffix, /*out*/ PackageName, /*out*/ Name);
-					const FString PackagePath = FPackageName::GetLongPackagePath(PackageName);
-
-					if (UObject* NewAsset = AssetToolsModule.Get().CreateAsset(Name, PackagePath, UPaperSprite::StaticClass(), SpriteFactory))
-					{
-						ObjectsToSync.Add(NewAsset);
-					}
-
-					if (GWarn->ReceivedUserCancel()) 
-					{
-						break;
-					}
-				}
+				SPaperExtractSpritesDialog::ShowWindow(Texture);
 			}
 		}
 
@@ -188,11 +122,7 @@ struct FConfigureTexturesForSpriteUsageExtension : public FContentBrowserSelecte
 			const FAssetData& AssetData = *AssetIt;
 			if (UTexture2D* Texture = Cast<UTexture2D>(AssetData.GetAsset()))
 			{
-				Texture->Modify();
-				Texture->LODGroup = TEXTUREGROUP_UI;
-				Texture->CompressionSettings = TC_EditorIcon;
-				Texture->Filter = TF_Nearest;
-				Texture->PostEditChange();
+				GetDefault<UPaperImporterSettings>()->ApplyTextureSettings(Texture);
 			}
 		}
 	}
@@ -214,7 +144,7 @@ struct FCreateTileSetFromTextureExtension : public FContentBrowserSelectedAssetE
 			UTexture2D* Texture = *TextureIt;
 
 			// Create the factory used to generate the tile set
-			UPaperTileSetFactory* TileSetFactory = ConstructObject<UPaperTileSetFactory>(UPaperTileSetFactory::StaticClass());
+			UPaperTileSetFactory* TileSetFactory = NewObject<UPaperTileSetFactory>();
 			TileSetFactory->InitialTexture = Texture;
 
 			// Get a unique name for the tile set
@@ -283,10 +213,12 @@ public:
 		FUIAction Action_CreateSpritesFromTextures(
 			FExecuteAction::CreateStatic(&FPaperContentBrowserExtensions_Impl::ExecuteSelectedContentFunctor, StaticCastSharedPtr<FContentBrowserSelectedAssetExtensionBase>(SpriteCreatorFunctor)));
 		
+		const FName PaperStyleSetName = FPaperStyle::Get()->GetStyleSetName();
+
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("CB_Extension_Texture_CreateSprite", "Create Sprite"),
 			LOCTEXT("CB_Extension_Texture_CreateSprite_Tooltip", "Create sprites from selected textures"),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.PaperSprite"),
+			FSlateIcon(PaperStyleSetName, "AssetActions.CreateSprite"),
 			Action_CreateSpritesFromTextures,
 			NAME_None,
 			EUserInterfaceActionType::Button);
@@ -301,13 +233,13 @@ public:
 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("CB_Extension_Texture_ExtractSprites", "Extract Sprites"),
-			LOCTEXT("CB_Extension_Texture_ExtractSprite_Tooltip", "Detects and extracts sprites from the selected textures using transparency"),
-			FSlateIcon(),
+			LOCTEXT("CB_Extension_Texture_ExtractSprites_Tooltip", "Extract sprites from selected textures"),
+			FSlateIcon(PaperStyleSetName, "AssetActions.ExtractSprites"),
 			Action_ExtractSpritesFromTextures,
 			NAME_None,
 			EUserInterfaceActionType::Button);
 
-		// Configure for retro sprites
+		// Configure the selected textures according to the project settings (same as if it got imported from a sprite sheet)
 		TSharedPtr<FConfigureTexturesForSpriteUsageExtension> TextureConfigFunctor = MakeShareable(new FConfigureTexturesForSpriteUsageExtension());
 		TextureConfigFunctor->SelectedAssets = SelectedAssets;
 
@@ -315,9 +247,9 @@ public:
 			FExecuteAction::CreateStatic(&FPaperContentBrowserExtensions_Impl::ExecuteSelectedContentFunctor, StaticCastSharedPtr<FContentBrowserSelectedAssetExtensionBase>(TextureConfigFunctor)));
 
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("CB_Extension_Texture_ConfigureTextureForSprites", "Configure For Retro Sprites"),
-			LOCTEXT("CB_Extension_Texture_ConfigureTextureForSprites_Tooltip", "Sets compression settings and sampling modes to good defaults for retro sprites (nearest filtering, uncompressed, etc...)"),
-			FSlateIcon(),
+			LOCTEXT("CB_Extension_Texture_ConfigureTextureForSprites", "Apply Paper2D Texture Settings"),
+			LOCTEXT("CB_Extension_Texture_ConfigureTextureForSprites_Tooltip", "Sets compression settings and sampling modes to the defaults specified in the 'Paper2D - Import' project settings"),
+			FSlateIcon(PaperStyleSetName, "AssetActions.ConfigureForRetroSprites"),
 			Action_ConfigureTexturesForSprites,
 			NAME_None,
 			EUserInterfaceActionType::Button);
@@ -332,7 +264,7 @@ public:
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("CB_Extension_Texture_CreateTileSet", "Create Tile Set"),
 			LOCTEXT("CB_Extension_Texture_CreateTileSet_Tooltip", "Create tile set from selected texture"),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.PaperTileSet"),
+			FSlateIcon(PaperStyleSetName, "AssetActions.CreateTileSet"),
 			Action_CreateTileSetFromTextures,
 			NAME_None,
 			EUserInterfaceActionType::Button);

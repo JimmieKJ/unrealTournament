@@ -17,9 +17,6 @@ public:
 	
 private:
 
-	/** Handler for when CompressionPreview is selected */
-	void ExecuteCompressionPreview(TArray<TWeakObjectPtr<USoundWave>> Objects);
-
 	/** Creates a SoundCue of the same name for the sound, if one does not already exist */
 	void ExecuteCreateSoundCue(TArray<TWeakObjectPtr<USoundWave>> Objects);
 };

@@ -18,7 +18,7 @@ class UMaterialExpressionFeatureLevelSwitch : public UMaterialExpression
 	FExpressionInput Inputs[ERHIFeatureLevel::Num];
 
 	// Begin UObject interface.
-	virtual void Serialize(FArchive& Ar);
+	virtual void Serialize(FArchive& Ar) override;
 	// End UObject interface.
 
 	// Begin UMaterialExpression Interface

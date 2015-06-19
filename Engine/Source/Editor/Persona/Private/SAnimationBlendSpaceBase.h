@@ -357,13 +357,11 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	// SWidget interface
-	virtual void	Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
-	// End of SWidget
-
 	void PostUndo();
 
 protected:
+	/** Updates the preview */
+	EActiveTimerReturnType UpdatePreview( double InCurrentTime, float InDeltaTime );
 
 	/** Creates the editor heading UI */
 	TSharedRef<SWidget> MakeEditorHeader() const;
@@ -413,5 +411,8 @@ protected:
 
 	/** This is used to tell the user when they do something wrong */
 	TSharedPtr<SNotificationList> NotificationListPtr;
+
+	/** Whether the active timer to update the preview is registered */
+	bool bIsActiveTimerRegistered;
 };
 

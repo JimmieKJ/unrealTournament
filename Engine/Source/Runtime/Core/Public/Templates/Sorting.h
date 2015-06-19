@@ -74,7 +74,7 @@ void SortInternal( T* First, const int32 Num, const PREDICATE_CLASS& Predicate )
 		return;
 	}
 	FStack RecursionStack[32]={{First,First+Num-1}}, Current, Inner;
-	for( FStack* StackTop=RecursionStack; StackTop>=RecursionStack; --StackTop )
+	for( FStack* StackTop=RecursionStack; StackTop>=RecursionStack; --StackTop ) //-V625
 	{
 		Current = *StackTop;
 	Loop:

@@ -19,6 +19,7 @@
 #include "WidgetBlueprintEditorUtils.h"
 
 #include "Components/PanelWidget.h"
+#include "GenericCommands.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -42,6 +43,14 @@ void SHierarchyView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluep
 	FilterHandler->SetFilter(SearchBoxWidgetFilter.Get());
 	FilterHandler->SetRootItems(&RootWidgets, &TreeRootWidgets);
 	FilterHandler->SetGetChildrenDelegate(TreeFilterHandler< TSharedPtr<FHierarchyModel> >::FOnGetChildren::CreateRaw(this, &SHierarchyView::WidgetHierarchy_OnGetChildren));
+
+	CommandList = MakeShareable(new FUICommandList);
+
+	CommandList->MapAction(
+		FGenericCommands::Get().Rename,
+		FExecuteAction::CreateSP(this, &SHierarchyView::BeginRename),
+		FCanExecuteAction::CreateSP(this, &SHierarchyView::CanRename)
+	);
 
 	ChildSlot
 	[
@@ -93,10 +102,8 @@ SHierarchyView::~SHierarchyView()
 	GEditor->OnObjectsReplaced().RemoveAll(this);
 }
 
-void SHierarchyView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SHierarchyView::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	if ( bRebuildTreeRequested || bRefreshRequested )
 	{
 		if ( bRebuildTreeRequested )
@@ -138,7 +145,24 @@ FReply SHierarchyView::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& I
 		return FReply::Handled();
 	}
 
+	if ( CommandList->ProcessCommandBindings(InKeyEvent) )
+	{
+		return FReply::Handled();
+	}
+
 	return FReply::Unhandled();
+}
+
+void SHierarchyView::BeginRename()
+{
+	TArray< TSharedPtr<FHierarchyModel> > SelectedItems = WidgetTreeView->GetSelectedItems();
+	SelectedItems[0]->BeginRename();
+}
+
+bool SHierarchyView::CanRename() const
+{
+	TArray< TSharedPtr<FHierarchyModel> > SelectedItems = WidgetTreeView->GetSelectedItems();
+	return SelectedItems.Num() == 1 && SelectedItems[0]->CanRename();
 }
 
 void SHierarchyView::TransformWidgetToString(TSharedPtr<FHierarchyModel> Item, OUT TArray< FString >& Array)
@@ -197,6 +221,8 @@ TSharedPtr<SWidget> SHierarchyView::WidgetHierarchy_OnContextMenuOpening()
 	FMenuBuilder MenuBuilder(true, nullptr);
 
 	FWidgetBlueprintEditorUtils::CreateWidgetContextMenu(MenuBuilder, BlueprintEditor.Pin().ToSharedRef(), FVector2D(0, 0));
+
+	MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename);
 
 	return MenuBuilder.MakeWidget();
 }

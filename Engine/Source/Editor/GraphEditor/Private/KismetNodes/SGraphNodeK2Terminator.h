@@ -12,7 +12,7 @@ public:
 
 	void Construct( const FArguments& InArgs, UK2Node* InNode );
 
-	virtual const FSlateBrush* GetShadowBrush(bool bSelected) const;
+	virtual const FSlateBrush* GetShadowBrush(bool bSelected) const override;
 
 protected:
 	virtual void UpdateGraphNode() override;

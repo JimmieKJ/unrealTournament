@@ -72,11 +72,11 @@ void SMessageLog::Construct( const FArguments& InArgs, const TSharedRef<FMessage
 	{
 		IMessageLogListingPtr DefaultViewModel = ViewModels[0];
 
-		if (FPaths::FileExists(GEditorUserSettingsIni))
+		if (FPaths::FileExists(GEditorPerProjectIni))
 		{
 			FString LogName;
 
-			if (GConfig->GetString(TEXT("MessageLog"), TEXT("LastLogListing"), LogName, GEditorUserSettingsIni))
+			if (GConfig->GetString(TEXT("MessageLog"), TEXT("LastLogListing"), LogName, GEditorPerProjectIni))
 			{
 				IMessageLogListingPtr LoadedViewModel = ViewModel->FindLogListingViewModel(FName(*LogName));
 				

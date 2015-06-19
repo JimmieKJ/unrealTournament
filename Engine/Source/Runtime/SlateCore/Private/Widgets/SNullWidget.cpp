@@ -45,7 +45,7 @@ public:
 		return LayerId;
 	}
 
-	virtual FVector2D ComputeDesiredSize( ) const override final
+	virtual FVector2D ComputeDesiredSize(float) const override final
 	{
 		return FVector2D(0.0f, 0.0f);
 	}

@@ -1,10 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "HAL/Platform.h"
 #include "Templates/SharedPointer.h"
 
+
 struct FGenericWindowDefinition;
+
 
 /**
  * Modes that an FGenericWindow can be in
@@ -48,6 +51,7 @@ namespace EWindowMode
 		return WindowMode;
 	}
 }
+
 
 class CORE_API FGenericWindow
 {

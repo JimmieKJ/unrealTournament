@@ -120,7 +120,7 @@ void SWidgetSwitcher::OnArrangeChildren( const FGeometry& AllottedGeometry, FArr
 	}
 }
 	
-FVector2D SWidgetSwitcher::ComputeDesiredSize( ) const
+FVector2D SWidgetSwitcher::ComputeDesiredSize( float ) const
 {
 	return AllChildren.Num() > 0
 		? AllChildren[WidgetIndex.Get()].GetWidget()->GetDesiredSize()

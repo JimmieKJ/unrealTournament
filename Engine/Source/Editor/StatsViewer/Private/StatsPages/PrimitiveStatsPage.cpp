@@ -8,6 +8,8 @@
 #include "LandscapeComponent.h"
 #include "LightMap.h"
 #include "ShadowMap.h"
+#include "Components/ModelComponent.h"
+#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.PrimitiveStats"
 
@@ -228,15 +230,8 @@ struct PrimitiveStatsGenerator
 					// If Count represents the Model itself, we do NOT want to increment it now.
 					StatsEntry->Count--;
 
-					#if PLATFORM_COMPILER_HAS_RANGED_FOR_LOOP
 					for (const auto& Element : ModelComponent->GetElements())
 					{
-					#else
-					TIndirectArray<FModelElement> Elements = ModelComponent->GetElements();
-					for( int32 ElementIndex=0; ElementIndex<Elements.Num(); ElementIndex++ )
-					{
-						const FModelElement& Element = Elements[ElementIndex];
-					#endif
 						StatsEntry->Triangles += Element.NumTriangles;
 						StatsEntry->Sections++;
 					}
@@ -258,7 +253,7 @@ struct PrimitiveStatsGenerator
 			else
 			{
 				// We don't. Create new base entry.
-				UPrimitiveStats* NewStatsEntry = ConstructObject<UPrimitiveStats>( UPrimitiveStats::StaticClass() );
+				UPrimitiveStats* NewStatsEntry = NewObject<UPrimitiveStats>();
 				NewStatsEntry->AddToRoot();
 				NewStatsEntry->Object			= Resource;
 				NewStatsEntry->Actors.AddUnique(ActorOuter);
@@ -412,7 +407,7 @@ void FPrimitiveStatsPage::GenerateTotals( const TArray< TWeakObjectPtr<UObject> 
 {
 	if(InObjects.Num())
 	{
-		UPrimitiveStats* TotalEntry = ConstructObject<UPrimitiveStats>( UPrimitiveStats::StaticClass() );
+		UPrimitiveStats* TotalEntry = NewObject<UPrimitiveStats>();
 
 		TotalEntry->RadiusMin = FLT_MAX;
 		TotalEntry->RadiusMax = 0.0f;

@@ -31,6 +31,12 @@ struct FAnalyticsEventAttribute
 	{
 	}
 
+	FAnalyticsEventAttribute(const FString& InName,FGuid InValue)
+		:AttrName(InName)
+		,AttrValue(InValue.ToString())
+	{
+	}
+
 	// Allow any type that we have a valid format specifier for (disallowing implicit conversions).
 	template <typename T>
 	FAnalyticsEventAttribute(const FString& InName, T InValue)
@@ -46,7 +52,7 @@ struct FAnalyticsEventAttribute
 		,AttrValue(FString())
 	{
 		// Serialize the array into "value1,value2,..." format
-		for (T& Value : InValueArray)
+		for (const T& Value : InValueArray)
 		{
 			AttrValue += TTypeToString<T>::ToString(Value) + ",";
 		}
@@ -54,6 +60,22 @@ struct FAnalyticsEventAttribute
 		// Remove the trailing comma
 		AttrValue = AttrValue.LeftChop(1);
 	}
+
+	// special case maps of FString->FString since TTypeToString (ironically) doesn't support FString
+	FAnalyticsEventAttribute(const FString& InName, const TMap<FString, FString>& InValueMap)
+		:AttrName(InName)
+		, AttrValue(FString())
+	{
+		// Serialize the map into "key:value,..." format
+		for (auto& KVP : InValueMap)
+		{
+			AttrValue += KVP.Key + ":" + KVP.Value + ",";
+		}
+
+		// Remove the trailing comma
+		AttrValue = AttrValue.LeftChop(1);
+	}
+
 
 	// Allow maps to be used as values formatted as comma delimited key-value pairs
 	template <typename T>

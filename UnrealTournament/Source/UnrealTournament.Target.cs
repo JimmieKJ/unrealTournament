@@ -9,6 +9,8 @@ public class UnrealTournamentTarget : TargetRules
 	{
         Type = TargetType.Game;
 
+        bUsesCEF3 = true;
+
         // Turn on shipping logging
         UEBuildConfiguration.bUseLoggingInShipping = true;
 	}

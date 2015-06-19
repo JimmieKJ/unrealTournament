@@ -476,21 +476,28 @@ class FActionToken
 public:
 
 	/** Factory method, tokens can only be constructed as shared refs */
-	CORE_API static TSharedRef<FActionToken> Create( const FText& ActionName, const FText& ActionDescription, const FOnActionTokenExecuted& Action )
+	CORE_API static TSharedRef<FActionToken> Create( const FText& ActionName, const FText& ActionDescription, const FOnActionTokenExecuted& Action, bool bInSingleUse=false )
 	{
-		return MakeShareable(new FActionToken(ActionName, ActionDescription, Action));
+		return MakeShareable(new FActionToken(ActionName, ActionDescription, Action, bInSingleUse));
 	}
 
 	/** Executes the assigned action delegate. */
-	void ExecuteAction( )
+	void ExecuteAction()
 	{
 		Action.ExecuteIfBound();
+		bActionExecuted = true;
 	}
 
 	/** Gets the action's description text. */
-	const FText& GetActionDescription( )
+	const FText& GetActionDescription()
 	{
 		return ActionDescription;
+	}
+
+	/** Returns true if the action can be activated */
+	bool CanExecuteAction() const
+	{
+		return Action.IsBound() && (!bSingleUse || !bActionExecuted);
 	}
 
 public:
@@ -504,9 +511,11 @@ public:
 protected:
 
 	/** Hidden constructor. */
-	FActionToken( const FText& InActionName, const FText& InActionDescription, const FOnActionTokenExecuted& InAction )
+	FActionToken(const FText& InActionName, const FText& InActionDescription, const FOnActionTokenExecuted& InAction, bool bInSingleUse)
 		: Action(InAction)
 		, ActionDescription(InActionDescription)
+		, bSingleUse(bInSingleUse)
+		, bActionExecuted(false)
 	{
 		CachedText = InActionName;
 	}
@@ -518,6 +527,12 @@ private:
 
 	/** The action's description text. */
 	const FText ActionDescription;
+	
+	/** If true, the action can only be performed once. */
+	bool bSingleUse;
+
+	/** If true, the action has been executed already. */
+	bool bActionExecuted;
 };
 
 

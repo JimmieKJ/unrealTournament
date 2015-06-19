@@ -3,6 +3,7 @@
 #include "CorePrivatePCH.h"
 #include "GenericApplication.h"
 
+
 void FDisplayMetrics::PrintToLog() const
 {
 	UE_LOG(LogInit, Log, TEXT("Display metrics:"));
@@ -12,15 +13,18 @@ void FDisplayMetrics::PrintToLog() const
 	UE_LOG(LogInit, Log, TEXT("    Left=%d, Top=%d, Right=%d, Bottom=%d"), 
 		PrimaryDisplayWorkAreaRect.Left, PrimaryDisplayWorkAreaRect.Top, 
 		PrimaryDisplayWorkAreaRect.Right, PrimaryDisplayWorkAreaRect.Bottom);
+
 	UE_LOG(LogInit, Log, TEXT("  VirtualDisplayRect:"));
 	UE_LOG(LogInit, Log, TEXT("    Left=%d, Top=%d, Right=%d, Bottom=%d"), 
 		VirtualDisplayRect.Left, VirtualDisplayRect.Top, 
 		VirtualDisplayRect.Right, VirtualDisplayRect.Bottom);
+
 	UE_LOG(LogInit, Log, TEXT("  TitleSafePaddingSize: %s"), *TitleSafePaddingSize.ToString());
 	UE_LOG(LogInit, Log, TEXT("  ActionSafePaddingSize: %s"), *ActionSafePaddingSize.ToString());
 
 	const int NumMonitors = MonitorInfo.Num();
 	UE_LOG(LogInit, Log, TEXT("  Number of monitors: %d"), NumMonitors);
+
 	for (int MonitorIdx = 0; MonitorIdx < NumMonitors; ++MonitorIdx)
 	{
 		const FMonitorInfo & Info = MonitorInfo[MonitorIdx];

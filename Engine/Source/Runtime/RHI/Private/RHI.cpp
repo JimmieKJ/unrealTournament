@@ -107,6 +107,10 @@ void FRHIResource::FlushPendingDeletes()
 }
 
 
+static_assert(ERHIZBuffer::FarPlane != ERHIZBuffer::NearPlane, "Near and Far planes must be different!");
+static_assert((int32)ERHIZBuffer::NearPlane == 0 || (int32)ERHIZBuffer::NearPlane == 1, "Invalid Values for Near Plane, can only be 0 or 1!");
+static_assert((int32)ERHIZBuffer::FarPlane == 0 || (int32)ERHIZBuffer::FarPlane == 1, "Invalid Values for Far Plane, can only be 0 or 1");
+
 
 /**
  * RHI configuration settings.
@@ -159,6 +163,7 @@ namespace RHIConfig
 
 bool GIsRHIInitialized = false;
 int32 GMaxTextureMipCount = MAX_TEXTURE_MIP_COUNT;
+bool GSupportsQuadBufferStereo = false;
 bool GSupportsDepthFetchDuringDepthTest = true;
 FString GRHIAdapterName;
 uint32 GRHIVendorId = 0;
@@ -188,6 +193,8 @@ bool GSupportsDepthBoundsTest = false;
 bool GRHISupportsBaseVertexIndex = true;
 bool GRHISupportsFirstInstance = false;
 bool GRHIRequiresEarlyBackBufferRenderTarget = true;
+bool GRHISupportsRHIThread = false;
+bool GRHISupportsParallelRHIExecute = false;
 
 /** Whether we are profiling GPU hitches. */
 bool GTriggerGPUHitchProfile = false;
@@ -263,6 +270,7 @@ RHI_API void GetFeatureLevelName(ERHIFeatureLevel::Type InFeatureLevel, FName& O
 
 static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
 static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));
+static FName NAME_PCD3D_ES3_1(TEXT("PCD3D_ES31"));
 static FName NAME_PCD3D_ES2(TEXT("PCD3D_ES2"));
 static FName NAME_GLSL_150(TEXT("GLSL_150"));
 static FName NAME_GLSL_150_MAC(TEXT("GLSL_150_MAC"));
@@ -270,6 +278,8 @@ static FName NAME_SF_PS4(TEXT("SF_PS4"));
 static FName NAME_SF_XBOXONE(TEXT("SF_XBOXONE"));
 static FName NAME_GLSL_430(TEXT("GLSL_430"));
 static FName NAME_OPENGL_150_ES2(TEXT("GLSL_150_ES2"));
+static FName NAME_OPENGL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
+static FName NAME_OPENGL_150_ES3_1(TEXT("GLSL_150_ES31"));
 static FName NAME_OPENGL_ES2(TEXT("GLSL_ES2"));
 static FName NAME_OPENGL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
 static FName NAME_OPENGL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
@@ -285,6 +295,8 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 		return NAME_PCD3D_SM5;
 	case SP_PCD3D_SM4:
 		return NAME_PCD3D_SM4;
+	case SP_PCD3D_ES3_1:
+		return NAME_PCD3D_ES3_1;
 	case SP_PCD3D_ES2:
 		return NAME_PCD3D_ES2;
 	case SP_OPENGL_SM4:
@@ -298,7 +310,12 @@ FName LegacyShaderPlatformToShaderFormat(EShaderPlatform Platform)
 	case SP_OPENGL_SM5:
 		return NAME_GLSL_430;
 	case SP_OPENGL_PCES2:
-		return NAME_OPENGL_150_ES2;
+	{
+		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("OpenGL.UseEmulatedUBs"));
+		return (CVar && CVar->GetValueOnAnyThread() != 0) ? NAME_OPENGL_150_ES2_NOUB : NAME_OPENGL_150_ES2;
+	}
+	case SP_OPENGL_PCES3_1:
+		return NAME_OPENGL_150_ES3_1;
 	case SP_OPENGL_ES2:
 		return NAME_OPENGL_ES2;
 	case SP_OPENGL_ES2_WEBGL:
@@ -322,16 +339,19 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 {
 	if (ShaderFormat == NAME_PCD3D_SM5)			return SP_PCD3D_SM5;	
 	if (ShaderFormat == NAME_PCD3D_SM4)			return SP_PCD3D_SM4;
+	if (ShaderFormat == NAME_PCD3D_ES3_1)		return SP_PCD3D_ES3_1;
 	if (ShaderFormat == NAME_PCD3D_ES2)			return SP_PCD3D_ES2;
 	if (ShaderFormat == NAME_GLSL_150)			return SP_OPENGL_SM4;
 	if (ShaderFormat == NAME_GLSL_150_MAC)		return SP_OPENGL_SM4_MAC;
-	if (ShaderFormat == NAME_SF_PS4)			return SP_PS4;
-	if (ShaderFormat == NAME_SF_XBOXONE)		return SP_XBOXONE;
+	if (ShaderFormat == NAME_SF_PS4)				return SP_PS4;
+	if (ShaderFormat == NAME_SF_XBOXONE)			return SP_XBOXONE;
 	if (ShaderFormat == NAME_GLSL_430)			return SP_OPENGL_SM5;
-	if (ShaderFormat == NAME_OPENGL_150_ES2)	return SP_OPENGL_PCES2;
-	if (ShaderFormat == NAME_OPENGL_ES2)		return SP_OPENGL_ES2;
+	if (ShaderFormat == NAME_OPENGL_150_ES2 || ShaderFormat == NAME_OPENGL_150_ES2_NOUB)
+												return SP_OPENGL_PCES2;
+	if (ShaderFormat == NAME_OPENGL_150_ES3_1)	return SP_OPENGL_PCES3_1;
+	if (ShaderFormat == NAME_OPENGL_ES2)			return SP_OPENGL_ES2;
 	if (ShaderFormat == NAME_OPENGL_ES2_WEBGL)	return SP_OPENGL_ES2_WEBGL;
-	if (ShaderFormat == NAME_OPENGL_ES2_IOS)	return SP_OPENGL_ES2_IOS;
+	if (ShaderFormat == NAME_OPENGL_ES2_IOS)		return SP_OPENGL_ES2_IOS;
 	if (ShaderFormat == NAME_SF_METAL)			return SP_METAL;
 	if (ShaderFormat == NAME_SF_METAL_MRT)		return SP_METAL_MRT;
 	if (ShaderFormat == NAME_GLSL_310_ES_EXT)	return SP_OPENGL_ES31_EXT;
@@ -341,12 +361,14 @@ EShaderPlatform ShaderFormatToLegacyShaderPlatform(FName ShaderFormat)
 
 RHI_API bool IsRHIDeviceAMD()
 {
+	check(GRHIVendorId != 0);
 	// AMD's drivers tested on July 11 2013 have hitching problems with async resource streaming, setting single threaded for now until fixed.
 	return GRHIVendorId == 0x1002;
 }
 
 RHI_API bool IsRHIDeviceIntel()
 {
+	check(GRHIVendorId != 0);
 	// Intel GPUs are integrated and use both DedicatedVideoMemory and SharedSystemMemory.
 	// The hardware has fast clears so we disable exclude rects (see r.ClearWithExcludeRects)
 	return GRHIVendorId == 0x8086;
@@ -354,6 +376,7 @@ RHI_API bool IsRHIDeviceIntel()
 
 RHI_API bool IsRHIDeviceNVIDIA()
 {
+	check(GRHIVendorId != 0);
 	// NVIDIA GPUs are discrete and use DedicatedVideoMemory only.
 	return GRHIVendorId == 0x10DE;
 }

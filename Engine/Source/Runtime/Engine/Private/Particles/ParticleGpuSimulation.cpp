@@ -494,7 +494,7 @@ public:
 
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override;
 
-	virtual uint32 GetSize() const { return sizeof(*this); }
+	virtual uint32 GetSize() const override { return sizeof(*this); }
 
 private:
 
@@ -874,8 +874,14 @@ public:
 		RenderAttributesTextureSampler.Bind(Initializer.ParameterMap, TEXT("RenderAttributesTextureSampler"));
 		CurveTexture.Bind(Initializer.ParameterMap, TEXT("CurveTexture"));
 		CurveTextureSampler.Bind(Initializer.ParameterMap, TEXT("CurveTextureSampler"));
-		VectorFieldTextures.Bind(Initializer.ParameterMap, TEXT("VectorFieldTextures"));
-		VectorFieldTexturesSampler.Bind(Initializer.ParameterMap, TEXT("VectorFieldTexturesSampler"));
+		VectorFieldTextures0.Bind(Initializer.ParameterMap, TEXT("VectorFieldTextures0"));
+		VectorFieldTextures1.Bind(Initializer.ParameterMap, TEXT("VectorFieldTextures1"));
+		VectorFieldTextures2.Bind(Initializer.ParameterMap, TEXT("VectorFieldTextures2"));
+		VectorFieldTextures3.Bind(Initializer.ParameterMap, TEXT("VectorFieldTextures3"));
+		VectorFieldTexturesSampler0.Bind(Initializer.ParameterMap, TEXT("VectorFieldTexturesSampler0"));
+		VectorFieldTexturesSampler1.Bind(Initializer.ParameterMap, TEXT("VectorFieldTexturesSampler1"));
+		VectorFieldTexturesSampler2.Bind(Initializer.ParameterMap, TEXT("VectorFieldTexturesSampler2"));
+		VectorFieldTexturesSampler3.Bind(Initializer.ParameterMap, TEXT("VectorFieldTexturesSampler3"));
 		SceneDepthTextureParameter.Bind(Initializer.ParameterMap,TEXT("SceneDepthTexture"));
 		SceneDepthTextureParameterSampler.Bind(Initializer.ParameterMap,TEXT("SceneDepthTextureSampler"));
 		GBufferATextureParameter.Bind(Initializer.ParameterMap,TEXT("GBufferATexture"));
@@ -898,8 +904,14 @@ public:
 		Ar << RenderAttributesTextureSampler;
 		Ar << CurveTexture;
 		Ar << CurveTextureSampler;
-		Ar << VectorFieldTextures;
-		Ar << VectorFieldTexturesSampler;
+		Ar << VectorFieldTextures0;
+		Ar << VectorFieldTextures1;
+		Ar << VectorFieldTextures2;
+		Ar << VectorFieldTextures3;
+		Ar << VectorFieldTexturesSampler0;
+		Ar << VectorFieldTexturesSampler1;
+		Ar << VectorFieldTexturesSampler2;
+		Ar << VectorFieldTexturesSampler3;
 		Ar << SceneDepthTextureParameter;
 		Ar << SceneDepthTextureParameterSampler;
 		Ar << GBufferATextureParameter;
@@ -970,10 +982,10 @@ public:
 		FPixelShaderRHIParamRef PixelShaderRHI = GetPixelShader();
 		FSamplerStateRHIParamRef SamplerStateLinear = TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 		SetUniformBufferParameter(RHICmdList, PixelShaderRHI, GetUniformBufferParameter<FVectorFieldUniformParameters>(), UniformBuffer);
-		for (int32 TextureIndex = 0; TextureIndex < MAX_VECTOR_FIELDS; ++TextureIndex)
-		{
-			SetTextureParameter(RHICmdList, PixelShaderRHI, VectorFieldTextures, VectorFieldTexturesSampler, SamplerStateLinear, VolumeTexturesRHI[TextureIndex], TextureIndex);
-		}
+		SetTextureParameter(RHICmdList, PixelShaderRHI, VectorFieldTextures0, VectorFieldTexturesSampler0, SamplerStateLinear, VolumeTexturesRHI[0], 0);
+		SetTextureParameter(RHICmdList, PixelShaderRHI, VectorFieldTextures1, VectorFieldTexturesSampler1, SamplerStateLinear, VolumeTexturesRHI[1], 0);
+		SetTextureParameter(RHICmdList, PixelShaderRHI, VectorFieldTextures2, VectorFieldTexturesSampler2, SamplerStateLinear, VolumeTexturesRHI[2], 0);
+		SetTextureParameter(RHICmdList, PixelShaderRHI, VectorFieldTextures3, VectorFieldTexturesSampler3, SamplerStateLinear, VolumeTexturesRHI[3], 0);
 	}
 
 	/**
@@ -993,13 +1005,21 @@ public:
 	{
 		FPixelShaderRHIParamRef PixelShaderRHI = GetPixelShader();
 		FShaderResourceViewRHIParamRef NullSRV = FShaderResourceViewRHIParamRef();
-		if (VectorFieldTextures.IsBound())
+		if (VectorFieldTextures0.IsBound())
 		{
-			const uint32 ResourceCount = VectorFieldTextures.GetNumResources();
-			for (uint32 ResourceIndex = 0; ResourceIndex < ResourceCount; ++ResourceIndex)
-			{
-				RHICmdList.SetShaderResourceViewParameter(PixelShaderRHI, VectorFieldTextures.GetBaseIndex() + ResourceIndex, NullSRV);
-			}
+			RHICmdList.SetShaderResourceViewParameter(PixelShaderRHI, VectorFieldTextures0.GetBaseIndex(), NullSRV);
+		}
+		if (VectorFieldTextures1.IsBound())
+		{
+			RHICmdList.SetShaderResourceViewParameter(PixelShaderRHI, VectorFieldTextures1.GetBaseIndex(), NullSRV);
+		}
+		if (VectorFieldTextures2.IsBound())
+		{
+			RHICmdList.SetShaderResourceViewParameter(PixelShaderRHI, VectorFieldTextures2.GetBaseIndex(), NullSRV);
+		}
+		if (VectorFieldTextures3.IsBound())
+		{
+			RHICmdList.SetShaderResourceViewParameter(PixelShaderRHI, VectorFieldTextures3.GetBaseIndex(), NullSRV);
 		}
 	}
 
@@ -1021,8 +1041,14 @@ private:
 	FShaderResourceParameter CurveTexture;
 	FShaderResourceParameter CurveTextureSampler;
 	/** Vector fields. */
-	FShaderResourceParameter VectorFieldTextures;
-	FShaderResourceParameter VectorFieldTexturesSampler;
+	FShaderResourceParameter VectorFieldTextures0;
+	FShaderResourceParameter VectorFieldTextures1;
+	FShaderResourceParameter VectorFieldTextures2;
+	FShaderResourceParameter VectorFieldTextures3;
+	FShaderResourceParameter VectorFieldTexturesSampler0;
+	FShaderResourceParameter VectorFieldTexturesSampler1;
+	FShaderResourceParameter VectorFieldTexturesSampler2;
+	FShaderResourceParameter VectorFieldTexturesSampler3;
 	/** The SceneDepthTexture parameter for depth buffer collision. */
 	FShaderResourceParameter SceneDepthTextureParameter;
 	FShaderResourceParameter SceneDepthTextureParameterSampler;
@@ -1532,13 +1558,11 @@ void InjectNewParticles(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type Feat
 		// Copy new particles in to the vertex buffer.
 		const int32 ParticlesThisDrawCall = FMath::Min<int32>( ParticleCount, MaxParticlesPerDrawCall );
 		const void* Src = NewParticles.GetData() + FirstParticle;
-#if PLATFORM_SUPPORTS_RHI_THREAD
 		if (GRHIThread)
 		{
 			RHICmdList.UpdateVertexBuffer(ScratchVertexBufferRHI, Src, ParticlesThisDrawCall * sizeof(FNewParticle));
 		}
 		else
-#endif
 		{
 			void* Dest = RHILockVertexBuffer( ScratchVertexBufferRHI, 0, ParticlesThisDrawCall * sizeof(FNewParticle), RLM_WriteOnly );
 			FMemory::Memcpy( Dest, Src, ParticlesThisDrawCall * sizeof(FNewParticle) );
@@ -2520,7 +2544,7 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 	/**
 	 * Called to create render thread resources.
 	 */
-	virtual void UpdateRenderThreadResourcesEmitter(const FParticleSystemSceneProxy* InOwnerProxy)
+	virtual void UpdateRenderThreadResourcesEmitter(const FParticleSystemSceneProxy* InOwnerProxy) override
 	{
 		check(Simulation);
 
@@ -2565,7 +2589,7 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 	/**
 	 * Called to release render thread resources.
 	 */
-	virtual void ReleaseRenderThreadResources(const FParticleSystemSceneProxy* InOwnerProxy)
+	virtual void ReleaseRenderThreadResources(const FParticleSystemSceneProxy* InOwnerProxy) override
 	{		
 	}
 
@@ -2685,7 +2709,7 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 	/**
 	 * Retrieves the material render proxy with which to render sprites.
 	 */
-	virtual const FMaterialRenderProxy* GetMaterialRenderProxy(bool bSelected)
+	virtual const FMaterialRenderProxy* GetMaterialRenderProxy(bool bSelected) override
 	{
 		check( Material );
 		return Material->GetRenderProxy( bSelected );
@@ -2694,7 +2718,7 @@ struct FGPUSpriteDynamicEmitterData : FDynamicEmitterDataBase
 	/**
 	 * Emitter replay data. A dummy value is returned as data is stored on the GPU.
 	 */
-	virtual const FDynamicEmitterReplayDataBase& GetSource() const
+	virtual const FDynamicEmitterReplayDataBase& GetSource() const override
 	{
 		static FDynamicEmitterReplayDataBase DummyData;
 		return DummyData;
@@ -2831,7 +2855,7 @@ public:
 	 *
 	 *	@return	bool		true if GetDynamicData should continue, false if it should return NULL
 	 */
-	virtual bool IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel)
+	virtual bool IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel) override
 	{
 		bool bShouldRender = (ActiveParticles >= 0 || TilesToClear.Num() || NewParticles.Num());
 		bool bCanRender = (FXSystem != NULL) && (Component != NULL) && (Component->FXSystem == FXSystem);
@@ -2841,7 +2865,7 @@ public:
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected)
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override
 	{
 		check(Component);
 		check(SpriteTemplate);
@@ -2968,7 +2992,7 @@ public:
 	/**
 	 * Initializes the emitter.
 	 */
-	virtual void Init()
+	virtual void Init() override
 	{
 		FParticleEmitterInstance::Init();
 
@@ -3016,8 +3040,19 @@ public:
 			*Component->GetName(),*Component->Template->GetName(),(PTRINT)this, AllocatedTiles.Num());
 #endif // #if TRACK_TILE_ALLOCATIONS
 
-		ActiveTiles.Init(false, AllocatedTiles.Num());
-		ClearAllocatedTiles();
+		bool bClearExistingParticles = false;
+		UParticleLODLevel* LODLevel = SpriteTemplate->LODLevels[0];
+		if (LODLevel)
+		{
+			UParticleModuleTypeDataGpu* TypeDataModule = CastChecked<UParticleModuleTypeDataGpu>(LODLevel->TypeDataModule);
+			bClearExistingParticles = TypeDataModule->bClearExistingParticlesOnInit;
+		}
+
+		if (bClearExistingParticles || ActiveTiles.Num() != AllocatedTiles.Num())
+		{
+			ActiveTiles.Init(false, AllocatedTiles.Num());
+			ClearAllocatedTiles();
+		}
 
 		Simulation->bDirty_GameThread = true;
 		FXSystem->AddGPUSimulation(Simulation);
@@ -3030,7 +3065,7 @@ public:
 	/**
 	 * Simulates the emitter forward by the specified amount of time.
 	 */
-	virtual void Tick(float DeltaSeconds, bool bSuppressSpawning)
+	virtual void Tick(float DeltaSeconds, bool bSuppressSpawning) override
 	{
 		SCOPE_CYCLE_COUNTER(STAT_GPUSpriteTickTime);
 
@@ -3218,7 +3253,7 @@ public:
 	/**
 	 * Returns true if the emitter has completed.
 	 */
-	virtual bool HasCompleted()
+	virtual bool HasCompleted() override
 	{
 		if ( AllowedLoopCount == 0 || LoopCount < AllowedLoopCount )
 		{
@@ -3233,7 +3268,7 @@ public:
 	 *		requires syncing with the GPU to read back the emitter's bounds.
 	 *		This function should NEVER be called at runtime!
 	 */
-	virtual void ForceUpdateBoundingBox()
+	virtual void ForceUpdateBoundingBox() override
 	{
 		if ( !GIsEditor )
 		{
@@ -3248,7 +3283,7 @@ public:
 			
 			EmitterInstance->ParticleBoundingBox = ComputeParticleBounds(
 				RHICmdList,
-				EmitterInstance->Simulation->VertexBuffer.VertexBufferSRV, 
+				EmitterInstance->Simulation->VertexBuffer.VertexBufferSRV,
 				EmitterInstance->FXSystem->GetParticleSimulationResources()->GetCurrentStateTextures().PositionTextureRHI,
 				EmitterInstance->Simulation->VertexBuffer.ParticleCount
 				);
@@ -3635,19 +3670,19 @@ private:
 		LocalVectorFieldRotation += EmitterInfo.LocalVectorField.RotationRate * DeltaSeconds;
 	}
 
-	virtual void UpdateBoundingBox(float DeltaSeconds)
+	virtual void UpdateBoundingBox(float DeltaSeconds) override
 	{
 		// Setup a bogus bounding box at the origin. GPU emitters must use fixed bounds.
 		FVector Origin = Component ? Component->GetComponentToWorld().GetTranslation() : FVector::ZeroVector;
 		ParticleBoundingBox = FBox::BuildAABB(Origin, FVector(1.0f));
 	}
 
-	virtual bool Resize(int32 NewMaxActiveParticles, bool bSetMaxActiveCount = true)
+	virtual bool Resize(int32 NewMaxActiveParticles, bool bSetMaxActiveCount = true) override
 	{
 		return false;
 	}
 
-	virtual float Tick_SpawnParticles(float DeltaTime, UParticleLODLevel* CurrentLODLevel, bool bSuppressSpawning, bool bFirstTime)
+	virtual float Tick_SpawnParticles(float DeltaTime, UParticleLODLevel* CurrentLODLevel, bool bSuppressSpawning, bool bFirstTime) override
 	{
 		return 0.0f;
 	}
@@ -3656,7 +3691,7 @@ private:
 	{
 	}
 
-	virtual void Tick_ModuleUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel)
+	virtual void Tick_ModuleUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override
 	{
 		// We cannot update particles that have spawned, but modules such as BoneSocket and Skel Vert/Surface may need to perform calculations each tick.
 		UParticleLODLevel* HighestLODLevel = SpriteTemplate->LODLevels[0];
@@ -3672,11 +3707,11 @@ private:
 		}
 	}
 
-	virtual void Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel)
+	virtual void Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override
 	{
 	}
 
-	virtual void Tick_ModuleFinalUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel)
+	virtual void Tick_ModuleFinalUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override
 	{
 		// We cannot update particles that have spawned, but modules such as BoneSocket and Skel Vert/Surface may need to perform calculations each tick.
 		UParticleLODLevel* HighestLODLevel = SpriteTemplate->LODLevels[0];
@@ -3692,28 +3727,28 @@ private:
 		}
 	}
 
-	virtual void SetCurrentLODIndex(int32 InLODIndex, bool bInFullyProcess)
+	virtual void SetCurrentLODIndex(int32 InLODIndex, bool bInFullyProcess) override
 	{
 		bool bDifferent = (InLODIndex != CurrentLODLevelIndex);
 		FParticleEmitterInstance::SetCurrentLODIndex(InLODIndex, bInFullyProcess);
 	}
 
-	virtual uint32 RequiredBytes()
+	virtual uint32 RequiredBytes() override
 	{
 		return 0;
 	}
 
-	virtual uint8* GetTypeDataModuleInstanceData()
+	virtual uint8* GetTypeDataModuleInstanceData() override
 	{
 		return NULL;
 	}
 
-	virtual uint32 CalculateParticleStride(uint32 ParticleSize)
+	virtual uint32 CalculateParticleStride(uint32 ParticleSize) override
 	{
 		return ParticleSize;
 	}
 
-	virtual void ResetParticleParameters(float DeltaTime)
+	virtual void ResetParticleParameters(float DeltaTime) override
 	{
 	}
 
@@ -3723,21 +3758,21 @@ private:
 	{
 	}
 
-	virtual void UpdateOrbitData(float DeltaTime)
+	virtual void UpdateOrbitData(float DeltaTime) override
 	{
 
 	}
 
-	virtual void ParticlePrefetch()
+	virtual void ParticlePrefetch() override
 	{
 	}
 
-	virtual float Spawn(float DeltaTime)
+	virtual float Spawn(float DeltaTime) override
 	{
 		return 0.0f;
 	}
 
-	virtual void ForceSpawn(float DeltaTime, int32 InSpawnCount, int32 InBurstCount, FVector& InLocation, FVector& InVelocity)
+	virtual void ForceSpawn(float DeltaTime, int32 InSpawnCount, int32 InBurstCount, FVector& InLocation, FVector& InVelocity) override
 	{
 		const bool bUseLocalSpace = GetCurrentLODLevelChecked()->RequiredModule->bUseLocalSpace;
 		FVector SpawnLocation = bUseLocalSpace ? FVector::ZeroVector : InLocation;
@@ -3763,19 +3798,19 @@ private:
 		}
 	}
 
-	virtual void PreSpawn(FBaseParticle* Particle, const FVector& InitialLocation, const FVector& InitialVelocity)
+	virtual void PreSpawn(FBaseParticle* Particle, const FVector& InitialLocation, const FVector& InitialVelocity) override
 	{
 	}
 
-	virtual void PostSpawn(FBaseParticle* Particle, float InterpolationPercentage, float SpawnTime)
+	virtual void PostSpawn(FBaseParticle* Particle, float InterpolationPercentage, float SpawnTime) override
 	{
 	}
 
-	virtual void KillParticles()
+	virtual void KillParticles() override
 	{
 	}
 
-	virtual void KillParticle(int32 Index)
+	virtual void KillParticle(int32 Index) override
 	{
 	}
 
@@ -3783,19 +3818,19 @@ private:
 	{
 	}
 
-	virtual FBaseParticle* GetParticle(int32 Index)
+	virtual FBaseParticle* GetParticle(int32 Index) override
 	{
 		return NULL;
 	}
 
-	virtual FBaseParticle* GetParticleDirect(int32 InDirectIndex)
+	virtual FBaseParticle* GetParticleDirect(int32 InDirectIndex) override
 	{
 		return NULL;
 	}
 
 protected:
 
-	virtual bool FillReplayData(FDynamicEmitterReplayDataBase& OutData)
+	virtual bool FillReplayData(FDynamicEmitterReplayDataBase& OutData) override
 	{
 		return true;
 	}
@@ -3810,24 +3845,24 @@ void DumpTileAllocations()
 		const TSet<FGPUSpriteParticleEmitterInstance*>& Emitters = It.Value();
 		int32 TotalAllocatedTiles = 0;
 
-		UE_LOG(LogParticles,Info,TEXT("---------- GPU Particle Tile Allocations : FXSystem=0x%016x ----------"), (PTRINT)FXSystem);
+		UE_LOG(LogParticles,Display,TEXT("---------- GPU Particle Tile Allocations : FXSystem=0x%016x ----------"), (PTRINT)FXSystem);
 		for (TSet<FGPUSpriteParticleEmitterInstance*>::TConstIterator It(Emitters); It; ++It)
 		{
 			FGPUSpriteParticleEmitterInstance* Emitter = *It;
 			int32 TileCount = Emitter->GetAllocatedTileCount();
-			UE_LOG(LogParticles,Info,
+			UE_LOG(LogParticles,Display,
 				TEXT("%s|%s|0x%016x %d tiles"),
 				*Emitter->Component->GetName(),*Emitter->Component->Template->GetName(),(PTRINT)Emitter, TileCount);
 			TotalAllocatedTiles += TileCount;
 		}
 
-		UE_LOG(LogParticles,Info,TEXT("---"));
-		UE_LOG(LogParticles,Info,TEXT("Total Allocated: %d"), TotalAllocatedTiles);
-		UE_LOG(LogParticles,Info,TEXT("Free (est.): %d"), GParticleSimulationTileCount - TotalAllocatedTiles);
+		UE_LOG(LogParticles,Display,TEXT("---"));
+		UE_LOG(LogParticles,Display,TEXT("Total Allocated: %d"), TotalAllocatedTiles);
+		UE_LOG(LogParticles,Display,TEXT("Free (est.): %d"), GParticleSimulationTileCount - TotalAllocatedTiles);
 		if (FXSystem)
 		{
-			UE_LOG(LogParticles,Info,TEXT("Free (actual): %d"), FXSystem->GetParticleSimulationResources()->GetFreeTileCount());
-			UE_LOG(LogParticles,Info,TEXT("Leaked: %d"), GParticleSimulationTileCount - TotalAllocatedTiles - FXSystem->GetParticleSimulationResources()->GetFreeTileCount());
+			UE_LOG(LogParticles,Display,TEXT("Free (actual): %d"), FXSystem->GetParticleSimulationResources()->GetFreeTileCount());
+			UE_LOG(LogParticles,Display,TEXT("Leaked: %d"), GParticleSimulationTileCount - TotalAllocatedTiles - FXSystem->GetParticleSimulationResources()->GetFreeTileCount());
 		}
 	}
 }
@@ -3835,7 +3870,7 @@ void DumpTileAllocations()
 FAutoConsoleCommand DumpTileAllocsCommand(
 	TEXT("FX.DumpTileAllocations"),
 	TEXT("Dump GPU particle tile allocations."),
-	FConsoleCommandDelegate::CreateRaw(DumpTileAllocations)
+	FConsoleCommandDelegate::CreateStatic(DumpTileAllocations)
 	);
 #endif // #if TRACK_TILE_ALLOCATIONS
 
@@ -4013,21 +4048,19 @@ void FFXSystem::SimulateGPUParticles(
 	// On some platforms, the textures are filled with garbage after creation, so we need to clear them to black the first time we use them
 	if ( !CurrentStateTextures.bTexturesCleared )
 	{
-		SetRenderTarget(RHICmdList, CurrentStateTextures.PositionTextureTargetRHI, FTextureRHIRef());
-		RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, FIntRect());
-		SetRenderTarget(RHICmdList, CurrentStateTextures.VelocityTextureTargetRHI, FTextureRHIRef());
-		RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, FIntRect());
+		SetRenderTarget(RHICmdList, CurrentStateTextures.PositionTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearToDefault);
+		SetRenderTarget(RHICmdList, CurrentStateTextures.VelocityTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearToDefault);
 
 		CurrentStateTextures.bTexturesCleared = true;
 	}
 
 	if ( !PrevStateTextures.bTexturesCleared )
 	{
-		SetRenderTarget(RHICmdList, PrevStateTextures.PositionTextureTargetRHI, FTextureRHIRef());
-		RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, FIntRect());
-		SetRenderTarget(RHICmdList, PrevStateTextures.VelocityTextureTargetRHI, FTextureRHIRef());
-		RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, FIntRect());
-
+		SetRenderTarget(RHICmdList, PrevStateTextures.PositionTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearToDefault);
+		SetRenderTarget(RHICmdList, PrevStateTextures.VelocityTextureTargetRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearToDefault);
+		RHICmdList.CopyToResolveTarget(PrevStateTextures.PositionTextureTargetRHI, PrevStateTextures.PositionTextureTargetRHI, true, FResolveParams());
+		RHICmdList.CopyToResolveTarget(PrevStateTextures.VelocityTextureTargetRHI, PrevStateTextures.VelocityTextureTargetRHI, true, FResolveParams());
+		
 		PrevStateTextures.bTexturesCleared = true;
 	}
 

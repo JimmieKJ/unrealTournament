@@ -32,15 +32,20 @@ protected:
 
 	void BindCommands();
 
-	EVisibility GetTileSetSelectorVisibility() const;
-
 	void OnSelectTool(ETileMapEditorTool::Type NewTool);
 	bool IsToolSelected(ETileMapEditorTool::Type QueryTool) const;
 
-	void OnSelectLayerPaintingMode(ETileMapLayerPaintingMode::Type NewMode);
-	bool IsLayerPaintingModeSelected(ETileMapLayerPaintingMode::Type PaintingMode) const;
+	bool DoesSelectedTileSetHaveTerrains() const;
 
 	TSharedRef<SWidget> BuildToolBar() const;
+	TSharedRef<SWidget> GenerateTerrainMenu();
+	void SetTerrainBrush(int32 NewTerrainTypeIndex);
+
+	EVisibility GetTileSetPaletteCornerTextVisibility() const;
+	FReply ClickedOnTileSetPaletteCornerText();
+
+	bool OnAssetDraggedOver(const UObject* InObject) const;
+
 private:
 	class FEdModeTileMap* TileMapEditor;
 
@@ -52,6 +57,6 @@ private:
 	// The tile set selector palette
 	TSharedPtr<class STileSetSelectorViewport> TileSetPalette;
 
-	// Command list for binding functions for the toolbar.
-	TSharedPtr<FUICommandList> UICommandList;
+	// The tile set asset reference widget
+	TSharedPtr<class SContentReference> TileSetAssetReferenceWidget;
 };

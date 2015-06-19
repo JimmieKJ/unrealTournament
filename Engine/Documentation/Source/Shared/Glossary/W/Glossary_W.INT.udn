@@ -32,6 +32,21 @@ A **wire** is a line connecting two nodes in the graph section of a visual scrip
 	[/PARAM]
 [/OBJECT]
 
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+World
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_world]
+A **World** contains a list of Levels that are loaded. It handles the streaming of Levels and the spawning (creation) of dynamic Actors. 
+
+Direct interaction with a World is not necessary, but it does help provide a specific reference point within the game structure (ie: mentioning World directly means you are not speaking about Levels, Maps or the game). 
+
+[/EXCERPT:Glossary_world]
+
+	[/PARAM]
+[/OBJECT]
 
 [/EXCERPT:Glossary_W]
 

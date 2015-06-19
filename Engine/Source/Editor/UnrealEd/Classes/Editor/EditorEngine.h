@@ -4,12 +4,13 @@
 
 #include "Engine/Brush.h"
 #include "Engine/Engine.h"
-#include "EditorUserSettings.h"
+#include "EditorPerProjectUserSettings.h"
 #include "Transactor.h"
 #include "../Settings/LevelEditorPlaySettings.h"
 #include "../Settings/LevelEditorViewportSettings.h"
 #include "EditorEngine.generated.h"
 
+class UEditorSettings;
 class APlayerStart;
 class FAssetData;
 class FPoly;
@@ -281,7 +282,11 @@ struct FActorOrComponent
 UCLASS(config=Engine, transient)
 class UNREALED_API UEditorEngine : public UEngine
 {
-	GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
+
+public:
+	UEditorEngine(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	// Objects.
 	UPROPERTY()
@@ -342,6 +347,9 @@ class UNREALED_API UEditorEngine : public UEngine
 	class UPackage* ParentContext;
 
 	UPROPERTY()
+	FVector UnsnappedClickLocation;
+
+	UPROPERTY()
 	FVector ClickLocation;
 
 	UPROPERTY()
@@ -363,9 +371,6 @@ class UNREALED_API UEditorEngine : public UEngine
 
 	UPROPERTY(EditAnywhere, config, Category=Advanced)
 	uint32 GodMode:1;
-
-	UPROPERTY(EditAnywhere, config, Category=Advanced)
-	uint32 InvertwidgetZAxis:1;
 
 	UPROPERTY(EditAnywhere, config, Category=Advanced)
 	FString GameCommandLine;
@@ -393,16 +398,9 @@ class UNREALED_API UEditorEngine : public UEngine
 	UPROPERTY()
 	TArray<class UActorFactory*> ActorFactories;
 
-	/** Actors that are being deleted and should processed in the global re-attach*/
+	/** Actors that are being deleted and should processed in the global re-attach */
 	UPROPERTY()
 	TArray<class AActor*> ActorsForGlobalReregister;
-
-	/** String that maps one class name to another, used to create hook for game-specific actors created through shortcuts etc 
-	 *  Pairing is "ORIGINALCLASS;DESIREDCLASS
-	 *  (ie APylon;AMyGamePylon)
-	 */
-	UPROPERTY(config)
-	TArray<FString> ClassMapPair;
 
 	/** The name of the file currently being opened in the editor. "" if no file is being opened. */
 	UPROPERTY()
@@ -538,20 +536,6 @@ class UNREALED_API UEditorEngine : public UEngine
 	UPROPERTY(transient)
 	class UTextureRenderTarget2D* ScratchRenderTarget256;
 
-	/**
-	 *	Display StreamingBounds for textures
-	 */
-	UPROPERTY(transient)
-	class UTexture2D* StreamingBoundsTexture;
-
-	/** Global instance of the editor user settings */
-	UPROPERTY()
-	class UEditorUserSettings* EditorUserSettings;
-
-	/** Global instance of the game agnostic editor settings */
-	UPROPERTY()
-	class UEditorGameAgnosticSettings* GameAgnosticSettings;
-
 	/** A mesh component used to preview in editor without spawning a static mesh actor. */
 	UPROPERTY(transient)
 	class UStaticMeshComponent* PreviewMeshComp;
@@ -685,14 +669,40 @@ public:
 	void BroadcastObjectReimported(UObject* InObject);
 
 	// Begin UObject interface.
-	virtual void FinishDestroy() override;	
+	virtual void FinishDestroy() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End UObject interface.
 
 	// Begin UEngine interface.
+public:
 	virtual void Init(IEngineLoop* InEngineLoop) override;
+	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing = true) const override;
+	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
+	virtual bool ShouldDrawBrushWireframe(AActor* InActor) override;
+	virtual void NotifyToolsOfObjectReplacement(const TMap<UObject*, UObject*>& OldToNewInstanceMap) override;
+	virtual bool ShouldThrottleCPUUsage() const override;
+	virtual bool GetPropertyColorationColor(class UObject* Object, FColor& OutColor) override;
+	virtual bool WorldIsPIEInNewViewport(UWorld* InWorld) override;
+	virtual void FocusNextPIEWorld(UWorld* CurrentPieWorld, bool previous = false) override;
+	virtual class UGameViewportClient* GetNextPIEViewport(UGameViewportClient* CurrentViewport) override;
+	virtual UWorld* CreatePIEWorldByDuplication(FWorldContext &WorldContext, UWorld* InWorld, FString &PlayWorldMapName) override;
+	virtual bool GetMapBuildCancelled() const override { return false; }
+	virtual void SetMapBuildCancelled(bool InCancelled) override { /* Intentionally empty. */ }
+protected:
 	virtual void InitializeObjectReferences() override;
+	virtual void ProcessToggleFreezeCommand(UWorld* InWorld) override;
+	virtual void ProcessToggleFreezeStreamingCommand(UWorld* InWorld) override;
+private:
+	virtual void RemapGamepadControllerIdForPIE(class UGameViewportClient* GameViewport, int32 &ControllerId) override;
+	virtual TSharedPtr<SViewport> GetGameViewportWidget() const override;
+	virtual void TriggerStreamingDataRebuild() override;
+	virtual bool NetworkRemapPath(UWorld* InWorld, FString &Str, bool reading = true) override;
+	virtual bool NetworkRemapPath(UPendingNetGame* PendingNetGame, FString& Str, bool reading = true) override;
+	virtual bool AreEditorAnalyticsEnabled() const override;
+	virtual void CreateStartupAnalyticsAttributes(TArray<FAnalyticsEventAttribute>& StartSessionAttributes) const override;
+	virtual void VerifyLoadMapWorldCleanup() override;
+public:
 	// End UEngine interface.
 	
 	// Begin FExec Interface
@@ -705,7 +715,7 @@ public:
 	 * Exec command handlers
 	 */
 	bool	HandleBlueprintifyFunction( const TCHAR* Str , FOutputDevice& Ar );
-	bool	HandleCallbackCommand( const TCHAR* Str, FOutputDevice& Ar );
+	bool	HandleCallbackCommand( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleTestPropsCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleMapCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
 	bool	HandleSelectCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
@@ -731,17 +741,12 @@ public:
 	bool	HandleSetDetailModeCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleSetDetailModeViewCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
 	bool	HandleCleanBSPMaterialCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld  );
-	bool	HandleCreateMeshFromBSPCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleAutoMergeStaticMeshCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleAddSelectedCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleToggleSocketGModeCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleListMapPackageDependenciesCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool	HandleRebuildVolumesCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
 	bool	HandleRemoveArchtypeFlagCommand( const TCHAR* Str, FOutputDevice& Ar );
-	
-
-	/** Get tick rate limitor. */
-	virtual float GetMaxTickRate( float DeltaTime, bool bAllowFrameRateSmoothing = true ) const override;
 
 	/**
 	 * Initializes the Editor.
@@ -754,22 +759,6 @@ public:
 	 * @param		InWorld			World in which to create the builder brush.
 	 */
 	void InitBuilderBrush( UWorld* InWorld );
-
-	virtual void Tick( float DeltaSeconds, bool bIdleMode ) override;
-
-	/** Returns the global instance of the editor user settings class. */
-	const UEditorUserSettings& GetEditorUserSettings() const;
-	UEditorUserSettings& AccessEditorUserSettings();
-
-	/** Saves the user settings to disk. */
-	void SaveEditorUserSettings();
-
-	/** Returns the global instance of the game agnostic editor settings class. */
-	const UEditorGameAgnosticSettings& GetGameAgnosticSettings() const;
-	UEditorGameAgnosticSettings& AccessGameAgnosticSettings();
-
-	/** Saves the game agnostic settings to disk. */
-	void SaveGameAgnosticSettings();
 
 	/** Access user setting for audio mute. */
 	bool IsRealTimeAudioMuted() const;
@@ -804,30 +793,6 @@ public:
 		MP_NoChange
 	};
 
-	/**
-	 * Returns whether or not the map build in progressed was cancelled by the user.
-	 */
-	virtual bool GetMapBuildCancelled() const override
-	{
-		return false;
-	}
-
-	/**
-	 * Sets the flag that states whether or not the map build was cancelled.
-	 *
-	 * @param InCancelled	New state for the cancelled flag.
-	 */
-	virtual void SetMapBuildCancelled( bool InCancelled ) override
-	{
-		// Intentionally empty.
-	}
-
-	/**
-	 * Returns whether or not the actor passed in should draw as wireframe.
-	 *
-	 * @param InActor	Actor that is being drawn.
-	 */
-	virtual bool ShouldDrawBrushWireframe( AActor* InActor ) override;
 
 	// Execute a command that is safe for rebuilds.
 	virtual bool SafeExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog );
@@ -859,6 +824,7 @@ public:
 	bool RedoTransaction();
 	bool IsTransactionActive();
 	FText GetTransactionName() const;
+	bool IsObjectInTransactionBuffer( const UObject* Object ) const;
 
 	/**
 	 * Rebuilds the map.
@@ -942,6 +908,13 @@ public:
 	*/
 	void MoveViewportCamerasToActor(const TArray<AActor*> &Actors, const TArray<UPrimitiveComponent*>& Components, bool bActiveViewportOnly);
 
+	/**
+	* Moves all viewport cameras to focus on the provided component.
+	* @param	Component				Target component
+	* @param	bActiveViewportOnly		If true, move/reorient only the active viewport.
+	*/
+	void MoveViewportCamerasToComponent(USceneComponent* Component, bool bActiveViewportOnly);
+
 	/** 
 	 * Snaps an actor in a direction.  Optionally will align with the trace normal.
 	 * @param InActor			Actor to move to the floor.
@@ -969,12 +942,6 @@ public:
 	 * @param	Yaw			If true, the camera yaw is reset to zero.
 	 */
 	void RemovePerspectiveViewRotation(bool Roll, bool Pitch, bool Yaw);
-
-	/**
-	 * Notifies tools that a set of objects is being replaced with a new set of objects, so if any of the old
-	 * objects are being edited, they should be discarded and replaced with the new instance.
-	 */
-	virtual void NotifyToolsOfObjectReplacement(const TMap<UObject*, UObject*>& OldToNewInstanceMap) override;
 
 	//
 	// Pivot handling.
@@ -1322,7 +1289,7 @@ public:
 	virtual void polySetAndClearPolyFlags( UModel* Model, uint32 SetBits, uint32 ClearBits, bool SelectedOnly, bool UpdateMaster );
 
 	// Selection.
-	virtual void SelectActor(AActor* Actor, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden=false) {}
+	virtual void SelectActor(AActor* Actor, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden = false, bool bForceRefresh = false) {}
 	virtual bool CanSelectActor(AActor* Actor, bool bInSelected, bool bSelectEvenIfHidden=false, bool bWarnIfLevelLocked=false) const { return true; }
 	virtual void SelectGroup(class AGroupActor* InGroupActor, bool bForceSelection=false, bool bInSelected=true, bool bNotify=true) {}
 	virtual void SelectComponent(class UActorComponent* Component, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden = false) {}
@@ -1499,11 +1466,6 @@ public:
 
 	// Level management.
 	void AnalyzeLevel(ULevel* Level,FOutputDevice& Ar);
-
-	/**
-	 * Removes all components from the current level's scene.
-	 */
-	void EditorClearComponents();
 
 	/**
 	 * Updates all components in the current level's scene.
@@ -1691,7 +1653,6 @@ public:
 	 */
 	bool IsAnyViewportRealtime();
 
-	virtual bool ShouldThrottleCPUUsage() const override;
 
 	/**
 	 * @return true if all windows are hidden (including minimized)                                                         
@@ -1708,16 +1669,6 @@ public:
 	 *  Returns the Editors timer manager instance.
 	 */
 	TSharedRef<class FTimerManager> GetTimerManager() { return TimerManager.ToSharedRef(); }
-
-	/**
-	 * Handles freezing/unfreezing of rendering
-	 */
-	virtual void ProcessToggleFreezeCommand( UWorld* InWorld ) override;
-
-	/**
-	 * Handles frezing/unfreezing of streaming
-	 */
-	virtual void ProcessToggleFreezeStreamingCommand( UWorld* InWorld ) override;
 
 	// Editor specific
 
@@ -1740,8 +1691,11 @@ public:
 	/** Returns True is a world info Actor is selected */
 	bool IsWorldSettingsSelected();
 
-	/** Function to return list of assets currently selected in content browser (loaded/not loaded) */
-	void GetContentBrowserSelections( TArray<UClass*>& Selection ) const;
+	/** Function to return unique list of the classes of the assets currently selected in content browser (loaded/not loaded) */
+	void GetContentBrowserSelectionClasses( TArray<UClass*>& Selection ) const;
+
+	/** Function to return list of assets currently selected in the content browser */
+	void GetContentBrowserSelections(TArray<FAssetData>& Selections) const;
 
 	/**
 	 * Returns an FSelectionIterator that iterates over the set of selected actors.
@@ -1804,6 +1758,13 @@ public:
 	void MoveSelectedActorsToLevel( ULevel* InLevel );
 
 	/**
+	 * Moves selected foliage instances to the target level.
+	 *
+	 * @param	InLevel		The target level.
+	 */
+	void MoveSelectedFoliageToLevel( ULevel* InTargetLevel );
+
+	/**
 	 * Checks to see whether it's possible to perform a copy operation on the selected actors.
 	 *
 	 * @param InWorld		World to get the selected actors from
@@ -1839,15 +1800,6 @@ public:
 	void PasteSelectedActorsFromClipboard( UWorld* InWorld, const FText& TransDescription, const EPasteTo PasteTo );
 
 	/**
-	 * Computes a color to use for property coloration for the given object.
-	 *
-	 * @param	Object		The object for which to compute a property color.
-	 * @param	OutColor	[out] The returned color.
-	 * @return				true if a color was successfully set on OutColor, false otherwise.
-	 */
-	virtual bool GetPropertyColorationColor(class UObject* Object, FColor& OutColor);
-
-	/**
 	 * Sets property value and property chain to be used for property-based coloration.
 	 *
 	 * @param	PropertyValue		The property value to color.
@@ -1871,14 +1823,6 @@ public:
 	 * Selects actors that match the property coloration settings.
 	 */
 	void SelectByPropertyColoration(UWorld* InWorld);
-
-	/**
-	 *	Sets the texture to use for displaying StreamingBounds.
-	 *
-	 *	@param	InTexture	The source texture for displaying StreamingBounds.
-	 *						Pass in NULL to disable displaying them.
-	 */
-	void SetStreamingBoundsTexture(UTexture2D* InTexture);
 
 	/**
 	 * Warns the user of any hidden levels, and prompts them with a Yes/No dialog
@@ -1921,12 +1865,9 @@ public:
 	 */
 	virtual bool Game_Map_Check_Actor(const TCHAR* Str, FOutputDevice& Ar, bool bCheckDeprecatedOnly, AActor* InActor) { return true; }
 
-	/** Map given class name key to value in ClassMapPair array - if no key match just return the class of given name */
-	class UClass* GetClassFromPairMap( FString ClassName );
-
 	/**
 	 * Auto merge all staticmeshes that are able to be merged
-	*/
+	 */
 	void AutoMergeStaticMeshes();
 
 	/**
@@ -2059,7 +2000,7 @@ public:
 
 	/** The editor wrapper for UPackage::SavePackage. Auto-adds files to source control when necessary */
 	bool SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename, 
-		FOutputDevice* Error=GError, ULinkerLoad* Conform=NULL, bool bForceByteSwapping=false, bool bWarnOfLongFilename=true, 
+		FOutputDevice* Error=GError, FLinkerLoad* Conform=NULL, bool bForceByteSwapping=false, bool bWarnOfLongFilename=true, 
 		uint32 SaveFlags=SAVE_None, const class ITargetPlatform* TargetPlatform = NULL, const FDateTime& FinalTimeStamp = FDateTime::MinValue(), bool bSlowTask = true );
 
 	/** Invoked before a UWorld is saved to update editor systems */
@@ -2179,8 +2120,6 @@ public:
 
 	void UpdateReflectionCaptures();
 
-	void UpdateSkyCaptures();
-
 	/**
 	 * Convenience method for adding a Slate modal window that is parented to the main frame (if it exists)
 	 * This function does not return until the modal window is closed.
@@ -2249,6 +2188,9 @@ public:
 	 */
 	FWorldContext &GetEditorWorldContext(bool bEnsureIsGWorld = false);
 
+	/** Returns the WorldContext for the PIE world.
+	*/
+	FWorldContext* GetPIEWorldContext();
 
 	/** 
 	 * mostly done to check if PIE is being set up, go GWorld is going to change, and it's not really _the_G_World_
@@ -2300,15 +2242,6 @@ public:
 	bool ShouldAbortBecauseOfUnsavedWorld() const;
 
 	/**
-	 * Assigns a new label to an actor. If the name exists it will be appended with a number to make it unique. Actor labels are only available in development builds.
-	 *
-	 * @param	Actor					The actor to change the label of
-	 * @param	NewActorLabel			The new label string to assign to the actor.  If empty, the actor will have a default label.
-	 * @param	InExistingActorLabels	(optional) Pointer to a set of actor labels that are currently in use
-	 */
-	void SetActorLabelUnique( AActor* Actor, const FString& NewActorLabel, const FCachedActorLabels* InExistingActorLabels = nullptr ) const;
-
-	/**
 	 * Gets the user-friendly, localized (if exists) name of a property
 	 *
 	 * @param	Property	the property we want to try to et the friendly name of	
@@ -2323,13 +2256,13 @@ public:
 	 * Register a client tool to receive undo events 
 	 * @param UndoClient	An object wanting to receive PostUndo/PostRedo events
 	 */
-	void RegisterForUndo (class FEditorUndoClient* UndoClient );
+	void RegisterForUndo(class FEditorUndoClient* UndoClient );
 
 	/**
 	 * Unregister a client from receiving undo events 
 	 * @param UndoClient	An object wanting to unsubscribe from PostUndo/PostRedo events
 	 */
-	void UnregisterForUndo ( class FEditorUndoClient* UndoEditor );
+	void UnregisterForUndo( class FEditorUndoClient* UndoEditor );
 
 	/** 
 	 * Are we playing on a local PC session?
@@ -2359,19 +2292,11 @@ public:
 	 */
 	bool UsePercentageBasedScaling() const;
 
-	/**
-	 * Returns if this world is a PIE world that has its own viewport (is not using the editor viewport)
-	 */
-	virtual bool WorldIsPIEInNewViewport(UWorld *InWorld) override;
-
-	virtual void FocusNextPIEWorld(UWorld *CurrentPieWorld, bool previous=false) override;
-
 	DECLARE_DELEGATE(FPIEInstanceWindowSwitch);
 
 	/** Sets the delegate for when the focused PIE window is changed */
 	void SetPIEInstanceWindowSwitchDelegate(FPIEInstanceWindowSwitch PIEInstanceWindowSwitchDelegate);
 
-	virtual class UGameViewportClient *	GetNextPIEViewport(UGameViewportClient * CurrentViewport) override;
 
 private:
 	//
@@ -2398,7 +2323,7 @@ private:
 	/**
 	 * Checks map for common errors.
 	 */
-	bool Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar, bool bCheckDeprecatedOnly, EMapCheckNotification::Type Notification = EMapCheckNotification::DisplayResults );
+	bool Map_Check(UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar, bool bCheckDeprecatedOnly, EMapCheckNotification::Type Notification = EMapCheckNotification::DisplayResults, bool bClearLog = true);
 	bool Map_Scale( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar );
 	bool Map_Setbrush( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar );
 
@@ -2417,13 +2342,6 @@ private:
 	 * @param	InLevel		Destination level.
 	 */
 	void DoMoveSelectedActorsToLevel( ULevel* InLevel );
-public:
-	/**
-	 * Creates a PIE world by duplicating the editor world	 
-	 */
-	virtual UWorld* CreatePIEWorldByDuplication(FWorldContext &WorldContext, UWorld* InWorld, FString &PlayWorldMapName) override;
-private:
-	virtual void RemapGamepadControllerIdForPIE(class UGameViewportClient* GameViewport, int32 &ControllerId) override;
 
 public:
 	/** Creates a PIE world by saving to a temp file and then reloading it */
@@ -2470,8 +2388,8 @@ public:
 	void OnViewportCloseRequested(FViewport* InViewport);
 
 private:
-	/** Gets the DPI Scale for the game viewport in the editor. */
-	float GetGameViewportDPIScale(UGameViewportClient* ViewportClient) const;
+	/** Gets the scene viewport for a viewport client */
+	const FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
 
 	/**
 	 * Non Online PIE creation flow, creates all instances of PIE at once when online isn't requested/required
@@ -2515,36 +2433,6 @@ public:
 
 private:
 	/**
-	* snap a child actor to a named socket in a specific SkeletalMeshComponent
-	*
-	* @param ParentActor	Actor to parent the child to
-	* @param ChildActor	Actor being parented
-	* @param SkeletalMeshComponent	Component which has the Socket
-	* @param SocketName	An optional socket name to attach to in the parent (use NAME_None when there is no socket)
-	* @return true if successful, false otherwise
-	*/
-	bool AttachActorToComponent(AActor* ParentActor, AActor* ChildActor, USkeletalMeshComponent* SkeletalMeshComponent, const FName SocketName);
-	/**
-	* snap a child actor to a named socket in a specific StaticMeshComponent
-	*
-	* @param ChildActor	Actor being parented
-	* @param StaticMeshComponent	Component which has the Socket
-	* @param SocketName	An optional socket name to attach to in the parent (use NAME_None when there is no socket)
-	* @return true if successful, false otherwise
-	*/
-	bool AttachActorToComponent(AActor* ChildActor, UStaticMeshComponent* StaticMeshComponent, const FName SocketName);
-	/**
-	 * Utility method to try and snap a child actor to a named socket in the parent
-	 *
-	 * @param ParentActor	Actor to parent the child to
-	 * @param ChildActor	Actor being parented
-	 * @param SocketName	An optional socket name to attach to in the parent (use NAME_None when there is no socket)
-	 * @param Component		Actual Component which has the Socket, this component will be used when ParentActor is a blueprint actor
-	 * @return true if successful, false otherwise
-	 */
-	bool SnapToSocket( AActor* ParentActor, AActor* ChildActor, const FName SocketName, USceneComponent* Component=NULL );
-
-	/**
 	 * Delegate definition for the execute function that follows
 	 */
 	DECLARE_DELEGATE_OneParam( FSelectCommand, UModel* );
@@ -2583,19 +2471,6 @@ private:
 	 */
 	void EditorDestroyWorld( FWorldContext & Context, const FText& CleanseText, UWorld* NewWorld = nullptr );
 
-	/** Returns the GameViewport widget */
-	virtual TSharedPtr<SViewport> GetGameViewportWidget() const override;
-
-	/**
-	 * Given a label, attempts to split this into its alpha/numeric parts.
-	 *
-	 * @param	InOutLabel	The label to start with, this will only be modified if it ends in a number.
-	 * @param	OutIdx		The number which the string ends with, if any.
-	 *
-	 * @return	true if the label ends with a number.
-	 */
-	bool SplitActorLabel( FString& InOutLabel, int32& OutIdx ) const;
-
 	ULevel* CreateTransLevelMoveBuffer( UWorld* InWorld );
 
 	/**	Broadcasts that an undo has just occurred. */
@@ -2631,14 +2506,6 @@ private:
 	/** Updates the project file to auto load and initializes the bLoadTheMostRecentlyLoadedProjectAtStartup flag */
 	void UpdateAutoLoadProject();
 
-	virtual void TriggerStreamingDataRebuild() override;
-
-	/** Remaps a network path for PIE Networking under multiple worlds */
-	virtual bool NetworkRemapPath( UWorld *InWorld, FString &Str, bool reading=true) override;
-
-	/** Remaps a network path for PIE Networking under multiple worlds */
-	virtual bool NetworkRemapPath( UPendingNetGame *PendingNetGame, FString &Str, bool reading=true) override;
-
 	/** Handles user setting changes. */
 	void HandleSettingChanged( FName Name );
 
@@ -2651,9 +2518,6 @@ private:
 	/** Callback for finished undo transactions. */
 	void HandleTransactorUndo( FUndoSessionContext SessionContext, bool Succeeded );
 
-	/** UEngine interface */
-	virtual bool AreEditorAnalyticsEnabled() const override;
-	virtual void CreateStartupAnalyticsAttributes( TArray<FAnalyticsEventAttribute>& StartSessionAttributes ) const override;
 private:
 
 	/** Delegate broadcast just before a blueprint is compiled */
@@ -2710,7 +2574,7 @@ private:
 		FProcHandle ProcessHandle;
 	};
 
-	TArray<FPlayOnPCInfo>	PlayOnLocalPCSessions;
+	TArray<FPlayOnPCInfo> PlayOnLocalPCSessions;
 
 	bool bPlayOnLocalPcSession;
 
@@ -2728,8 +2592,6 @@ private:
 	/** List of files we are deferring adding to source control */
 	TArray<FString> DeferredFilesToAddToSourceControl;
 
-	virtual void VerifyLoadMapWorldCleanup() override;
-
 	FPIEInstanceWindowSwitch PIEInstanceWindowSwitchDelegate;
 
 	/** Number of currently running instances logged into an online platform */
@@ -2742,7 +2604,7 @@ private:
 	FRotator LastViewRotation;
 	
 	/** Are the lastview/rotation variables valid */
-	bool	bLastViewAndLocationValid;
+	bool bLastViewAndLocationValid;
 
 protected:
 
@@ -2763,8 +2625,13 @@ protected:
 	/** Called when Matinee is opened */
 	virtual void OnOpenMatinee(){};
 
-	/** Invalidate all viewport client hit proxies immediately */
-	void InvalidateAllViewportClientHitProxies();
+	/**
+	 * Invalidates all editor viewports and hit proxies, used when global changes like Undo/Redo may have invalidated state everywhere
+	 */
+	void InvalidateAllViewportsAndHitProxies();
+
+	/** Invalidate all level editor viewport client hit proxies immediately */
+	void InvalidateAllLevelEditorViewportClientHitProxies();
 
 	/** Destroy any online subsystems generated by PIE */
 	void CleanupPIEOnlineSessions(TArray<FName> OnlineIdentifiers);
@@ -2789,8 +2656,14 @@ private:
 	/** Gets the init values for worlds opened via Map_Load in the editor */
 	UWorld::InitializationValues GetEditorWorldInitializationValues() const;
 
-	FDelegateHandle OnLoginPIECompleteDelegateHandle;
+	/**
+	* Moves all viewport cameras to focus on the provided bounding box.
+	* @param	BoundingBox				Target box
+	* @param	bActiveViewportOnly		If true, move/reorient only the active viewport.
+	*/
+	void MoveViewportCamerasToBox(const FBox& BoundingBox, bool bActiveViewportOnly) const;
 
+	/** Mapping of delegate handles for each online Login() call while in flight */
 	TMap<FName, FDelegateHandle> OnLoginPIECompleteDelegateHandlesForPIEInstances;
 
 public:
@@ -2800,6 +2673,59 @@ public:
 	/** Function to run the Play On command for automation testing. */
 	void AutomationPlayUsingLauncher(const FString& InLauncherDeviceId);	
 
+public:
+	/**
+	 * Given a label, attempts to split this into its alpha/numeric parts.
+	 *
+	 * @param	InOutLabel	The label to start with, this will only be modified if it ends in a number.
+	 * @param	OutIdx		The number which the string ends with, if any.
+	 *
+	 * @return	true if the label ends with a number.
+	 */
+	DEPRECATED(4.8, "This function is deprecated.  Please use FActorLabelUtilities::SplitActorLabel instead")
+	bool SplitActorLabel( FString& InOutLabel, int32& OutIdx ) const;
+
+	/**
+	 * Assigns a new label to an actor. If the name exists it will be appended with a number to make it unique. Actor labels are only available in development builds.
+	 *
+	 * @param	Actor					The actor to change the label of
+	 * @param	NewActorLabel			The new label string to assign to the actor.  If empty, the actor will have a default label.
+	 * @param	InExistingActorLabels	(optional) Pointer to a set of actor labels that are currently in use
+	 */
+	DEPRECATED(4.8, "This function is deprecated.  Please use FActorLabelUtilities::SetActorLabelUnique instead")
+	void SetActorLabelUnique( AActor* Actor, const FString& NewActorLabel, const FCachedActorLabels* InExistingActorLabels = nullptr ) const;
+
+	virtual void HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type FailureType, const FString& ErrorString);
+
 private:
 	FTimerHandle CleanupPIEOnlineSessionsTimerHandle;
+};
+
+//////////////////////////////////////////////////////////////////////////
+// FActorLabelUtilities
+
+struct UNREALED_API FActorLabelUtilities
+{
+public:
+	/**
+	 * Given a label, attempts to split this into its alpha/numeric parts.
+	 *
+	 * @param	InOutLabel	The label to start with, this will only be modified if it ends in a number.
+	 * @param	OutIdx		The number which the string ends with, if any.
+	 *
+	 * @return	true if the label ends with a number.
+	 */
+	static bool SplitActorLabel(FString& InOutLabel, int32& OutIdx);
+
+	/**
+	 * Assigns a new label to an actor. If the name exists it will be appended with a number to make it unique. Actor labels are only available in development builds.
+	 *
+	 * @param	Actor					The actor to change the label of
+	 * @param	NewActorLabel			The new label string to assign to the actor.  If empty, the actor will have a default label.
+	 * @param	InExistingActorLabels	(optional) Pointer to a set of actor labels that are currently in use
+	 */
+	static void SetActorLabelUnique(AActor* Actor, const FString& NewActorLabel, const FCachedActorLabels* InExistingActorLabels = nullptr);
+
+private:
+	FActorLabelUtilities() {}
 };

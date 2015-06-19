@@ -4,10 +4,7 @@
 #include "PropertyTag.h"
 #include "InputCoreTypes.h"
 
-UInputCoreTypes::UInputCoreTypes(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
-{
-}
+DEFINE_LOG_CATEGORY(LogInput);
 
 #define LOCTEXT_NAMESPACE "InputKeys"
 
@@ -217,15 +214,19 @@ const FKey EKeys::TouchKeys[NUM_TOUCH_KEYS] =
 };
 
 // Gestures
-const FKey EKeys::Gesture_SwipeLeftRight("Gesture_SwipeLeftRight");
-const FKey EKeys::Gesture_SwipeUpDown("Gesture_SwipeUpDown");
-const FKey EKeys::Gesture_TwoFingerSwipeLeftRight("Gesture_TwoFingerSwipeLeftRight");
-const FKey EKeys::Gesture_TwoFingerSwipeUpDown("Gesture_TwoFingerSwipeUpDown");
 const FKey EKeys::Gesture_Pinch("Gesture_Pinch");
 const FKey EKeys::Gesture_Flick("Gesture_Flick");
 
 // PS4-specific
 const FKey EKeys::PS4_Special("PS4_Special");
+
+// Steam Controller Specific
+const FKey EKeys::Steam_Touch_0("Steam_Touch_0");
+const FKey EKeys::Steam_Touch_1("Steam_Touch_1");
+const FKey EKeys::Steam_Touch_2("Steam_Touch_2");
+const FKey EKeys::Steam_Touch_3("Steam_Touch_3");
+const FKey EKeys::Steam_Back_Left("Steam_Back_Left");
+const FKey EKeys::Steam_Back_Right("Steam_Back_Right");
 
 // Xbox One global speech commands
 const FKey EKeys::Global_Menu("Global_Menu");
@@ -234,17 +235,68 @@ const FKey EKeys::Global_Pause("Global_Pause");
 const FKey EKeys::Global_Play("Global_Play");
 const FKey EKeys::Global_Back("Global_Back");
 
+// Android-specific
 const FKey EKeys::Android_Back("Android_Back");
- 
+const FKey EKeys::Android_Volume_Up("Android_Volume_Up");
+const FKey EKeys::Android_Volume_Down("Android_Volume_Down");
+const FKey EKeys::Android_Menu("Android_Menu");
+
 const FKey EKeys::Invalid(NAME_None);
+
+const FName EKeys::NAME_GamepadCategory("Gamepad");
+const FName EKeys::NAME_MouseCategory("Mouse");
+const FName EKeys::NAME_KeyboardCategory("Key");
 
 bool EKeys::bInitialized = false;
 TMap<FKey, TSharedPtr<FKeyDetails> > EKeys::InputKeys;
+TMap<FName, EKeys::FCategoryDisplayInfo> EKeys::MenuCategoryDisplayInfo;
+
+FKeyDetails::FKeyDetails(const FKey InKey, const TAttribute<FText>& InDisplayName, const uint8 InKeyFlags, const FName InMenuCategory)
+	: Key(InKey)
+	, DisplayName(InDisplayName)
+	, MenuCategory(InMenuCategory)
+	, bIsModifierKey((InKeyFlags & EKeyFlags::ModifierKey) != 0)
+	, bIsGamepadKey((InKeyFlags & EKeyFlags::GamepadKey) != 0)
+	, bIsMouseButton((InKeyFlags & EKeyFlags::MouseButton) != 0)
+	, bIsBindableInBlueprints((~InKeyFlags & EKeyFlags::NotBlueprintBindableKey) != 0)
+	, AxisType(EInputAxisType::None)
+{
+	if ((InKeyFlags & EKeyFlags::FloatAxis) != 0)
+	{
+		ensure((InKeyFlags & EKeyFlags::VectorAxis) == 0);
+		AxisType = EInputAxisType::Float;
+	}
+	else if ((InKeyFlags & EKeyFlags::VectorAxis) != 0)
+	{
+		AxisType = EInputAxisType::Vector;
+	}
+
+	// Set up default menu categories
+	if (MenuCategory.IsNone())
+	{
+		if (IsGamepadKey())
+		{
+			MenuCategory = EKeys::NAME_GamepadCategory;
+		}
+		else if (IsMouseButton())
+		{
+			MenuCategory = EKeys::NAME_MouseCategory;
+		}
+		else
+		{
+			MenuCategory = EKeys::NAME_KeyboardCategory;
+		}
+	}
+}
 
 void EKeys::Initialize()
 {
 	if (bInitialized) return;
 	bInitialized = true;
+
+	AddMenuCategoryDisplayInfo(NAME_GamepadCategory, LOCTEXT("GamepadSubCategory", "Gamepad"), TEXT("GraphEditor.PadEvent_16x"));
+	AddMenuCategoryDisplayInfo(NAME_MouseCategory, LOCTEXT("MouseSubCategory", "Mouse"), TEXT("GraphEditor.MouseEvent_16x"));
+	AddMenuCategoryDisplayInfo(NAME_KeyboardCategory, LOCTEXT("KeyboardSubCategory", "Keyboard"), TEXT("GraphEditor.KeyEvent_16x"));
 
 	AddKey(FKeyDetails(EKeys::MouseX, LOCTEXT("MouseX", "Mouse X"), FKeyDetails::FloatAxis | FKeyDetails::MouseButton));
 	AddKey(FKeyDetails(EKeys::MouseY, LOCTEXT("MouseY", "Mouse Y"), FKeyDetails::FloatAxis | FKeyDetails::MouseButton));
@@ -364,28 +416,28 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::LeftCommand, LOCTEXT("LeftCommand", "Left Cmd"), FKeyDetails::ModifierKey));
 	AddKey(FKeyDetails(EKeys::RightCommand, LOCTEXT("RightCommand", "Right Cmd"), FKeyDetails::ModifierKey));
 
-	AddKey(FKeyDetails(EKeys::Semicolon, FText::FromString(";")));
+	AddKey(FKeyDetails(EKeys::Semicolon, LOCTEXT("Semicolon", "Semicolon")));
 	AddKey(FKeyDetails(EKeys::Equals, FText::FromString("=")));
-	AddKey(FKeyDetails(EKeys::Comma, FText::FromString(",")));
-	AddKey(FKeyDetails(EKeys::Hyphen, FText::FromString("-")));
-	AddKey(FKeyDetails(EKeys::Underscore, FText::FromString("_")));
-	AddKey(FKeyDetails(EKeys::Period, FText::FromString(".")));
+	AddKey(FKeyDetails(EKeys::Comma, LOCTEXT("Comma", "Comma")));
+	AddKey(FKeyDetails(EKeys::Hyphen, LOCTEXT("Hyphen", "Hyphen")));
+	AddKey(FKeyDetails(EKeys::Underscore, LOCTEXT("Underscore", "Underscore")));
+	AddKey(FKeyDetails(EKeys::Period, LOCTEXT("Period", "Period")));
 	AddKey(FKeyDetails(EKeys::Slash, FText::FromString("/")));
 	AddKey(FKeyDetails(EKeys::Tilde, FText::FromString("`"))); // Yes this is not actually a tilde, it is a long, sad, and old story
 	AddKey(FKeyDetails(EKeys::LeftBracket, FText::FromString("[")));
 	AddKey(FKeyDetails(EKeys::Backslash, FText::FromString("\\")));
 	AddKey(FKeyDetails(EKeys::RightBracket, FText::FromString("]")));
-	AddKey(FKeyDetails(EKeys::Apostrophe, FText::FromString("'")));
+	AddKey(FKeyDetails(EKeys::Apostrophe, LOCTEXT("Apostrophe", "Apostrophe")));
 	AddKey(FKeyDetails(EKeys::Quote, FText::FromString("\"")));
 
 	AddKey(FKeyDetails(EKeys::LeftParantheses, FText::FromString("(")));
 	AddKey(FKeyDetails(EKeys::RightParantheses, FText::FromString(")")));
 	AddKey(FKeyDetails(EKeys::Ampersand, FText::FromString("&")));
-	AddKey(FKeyDetails(EKeys::Asterix, FText::FromString("*")));
+	AddKey(FKeyDetails(EKeys::Asterix, LOCTEXT("Asterix", "Asterix")));
 	AddKey(FKeyDetails(EKeys::Caret, FText::FromString("^")));
 	AddKey(FKeyDetails(EKeys::Dollar, FText::FromString("$")));
 	AddKey(FKeyDetails(EKeys::Exclamation, FText::FromString("!")));
-	AddKey(FKeyDetails(EKeys::Colon, FText::FromString(":")));
+	AddKey(FKeyDetails(EKeys::Colon, LOCTEXT("Colon", "Colon")));
 
 	AddKey(FKeyDetails(EKeys::A_AccentGrave, FText::FromString(FString::Chr(224))));
 	AddKey(FKeyDetails(EKeys::E_AccentGrave, FText::FromString(FString::Chr(232))));
@@ -433,11 +485,12 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::Gamepad_LeftThumbstick, TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic(&EKeys::GetGamepadDisplayName, EKeys::Gamepad_LeftThumbstick)), FKeyDetails::GamepadKey));
 	AddKey(FKeyDetails(EKeys::Gamepad_RightThumbstick, TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic(&EKeys::GetGamepadDisplayName, EKeys::Gamepad_RightThumbstick)), FKeyDetails::GamepadKey));
 
-	// Vector axes (FVector, not float)
-	AddKey(FKeyDetails(EKeys::Tilt, LOCTEXT("Tilt", "Tilt"), FKeyDetails::VectorAxis));
-	AddKey(FKeyDetails(EKeys::RotationRate, LOCTEXT("RotationRate", "Rotation Rate"), FKeyDetails::VectorAxis));
-	AddKey(FKeyDetails(EKeys::Gravity, LOCTEXT("Gravity", "Gravity"), FKeyDetails::VectorAxis));
-	AddKey(FKeyDetails(EKeys::Acceleration, LOCTEXT("Acceleration", "Acceleration"), FKeyDetails::VectorAxis));
+	AddMenuCategoryDisplayInfo("Motion", LOCTEXT("MotionSubCateogry", "Motion"), TEXT("GraphEditor.KeyEvent_16x"));
+
+	AddKey(FKeyDetails(EKeys::Tilt, LOCTEXT("Tilt", "Tilt"), FKeyDetails::VectorAxis, "Motion"));
+	AddKey(FKeyDetails(EKeys::RotationRate, LOCTEXT("RotationRate", "Rotation Rate"), FKeyDetails::VectorAxis, "Motion"));
+	AddKey(FKeyDetails(EKeys::Gravity, LOCTEXT("Gravity", "Gravity"), FKeyDetails::VectorAxis, "Motion"));
+	AddKey(FKeyDetails(EKeys::Acceleration, LOCTEXT("Acceleration", "Acceleration"), FKeyDetails::VectorAxis, "Motion"));
 
 	// Fingers
 	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch1], LOCTEXT("Touch1", "Touch 1"), FKeyDetails::NotBlueprintBindableKey));
@@ -452,24 +505,40 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::TouchKeys[ETouchIndex::Touch10], LOCTEXT("Touch10", "Touch 10"), FKeyDetails::NotBlueprintBindableKey));
 
 	// Gestures
-	AddKey(FKeyDetails(EKeys::Gesture_SwipeLeftRight, LOCTEXT("Gesture_SwipeLeftRight", "Swipe Left To Right"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::Gesture_SwipeUpDown, LOCTEXT("Gesture_SwipeUpDown", "Swipe Up To Down"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::Gesture_TwoFingerSwipeLeftRight, LOCTEXT("Gesture_TwoFingerSwipeLeftRight", "Two Finger Swipe Left To Right"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::Gesture_TwoFingerSwipeUpDown, LOCTEXT("Gesture_TwoFingerSwipeUpDown", "Two Finger Swipe Up To Down"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::Gesture_Pinch, LOCTEXT("Gesture_Pinch", "Pinch"), FKeyDetails::NotBlueprintBindableKey));
-	AddKey(FKeyDetails(EKeys::Gesture_Flick, LOCTEXT("Gesture_Flick", "Flick"), FKeyDetails::NotBlueprintBindableKey));
+	AddMenuCategoryDisplayInfo("Gesture", LOCTEXT("GestureSubCateogry", "Gesture"), TEXT("GraphEditor.KeyEvent_16x"));
+
+	AddKey(FKeyDetails(EKeys::Gesture_Pinch, LOCTEXT("Gesture_Pinch", "Pinch"), 0, "Gesture"));
+	AddKey(FKeyDetails(EKeys::Gesture_Flick, LOCTEXT("Gesture_Flick", "Flick"), 0, "Gesture"));
 
 	// PS4-specific
 	AddKey(FKeyDetails(EKeys::PS4_Special, LOCTEXT("PS4_Special", "PS4_Special"), FKeyDetails::NotBlueprintBindableKey));
 
-	// Xbox One global speech commands
-	AddKey(FKeyDetails(EKeys::Global_Menu, LOCTEXT("Global_Menu", "Global Menu"), FKeyDetails::GamepadKey));
-	AddKey(FKeyDetails(EKeys::Global_View, LOCTEXT("Global_View", "Global View"), FKeyDetails::GamepadKey));
-	AddKey(FKeyDetails(EKeys::Global_Pause, LOCTEXT("Global_Pause", "Global Pause"), FKeyDetails::GamepadKey));
-	AddKey(FKeyDetails(EKeys::Global_Play, LOCTEXT("Global_Play", "Global Play"), FKeyDetails::GamepadKey));
-	AddKey(FKeyDetails(EKeys::Global_Back, LOCTEXT("Global_Back", "Global Back"), FKeyDetails::GamepadKey));
+	// Steam Controller specific
+	AddMenuCategoryDisplayInfo("Steam", LOCTEXT("SteamSubCateogry", "Steam"), TEXT("GraphEditor.PadEvent_16x"));
 
-	AddKey(FKeyDetails(EKeys::Android_Back, LOCTEXT("Android_Back", "Android Back"), FKeyDetails::GamepadKey));
+	AddKey(FKeyDetails(EKeys::Steam_Touch_0, LOCTEXT("Steam_Touch_0", "Steam Touch 0"), FKeyDetails::GamepadKey, "Steam"));
+	AddKey(FKeyDetails(EKeys::Steam_Touch_1, LOCTEXT("Steam_Touch_1", "Steam Touch 1"), FKeyDetails::GamepadKey, "Steam"));
+	AddKey(FKeyDetails(EKeys::Steam_Touch_2, LOCTEXT("Steam_Touch_2", "Steam Touch 2"), FKeyDetails::GamepadKey, "Steam"));
+	AddKey(FKeyDetails(EKeys::Steam_Touch_3, LOCTEXT("Steam_Touch_3", "Steam Touch 3"), FKeyDetails::GamepadKey, "Steam"));
+	AddKey(FKeyDetails(EKeys::Steam_Back_Left, LOCTEXT("Steam_Back_Left", "Steam Back Left"), FKeyDetails::GamepadKey, "Steam"));
+	AddKey(FKeyDetails(EKeys::Steam_Back_Right, LOCTEXT("Steam_Back_Right", "Steam Back Right"), FKeyDetails::GamepadKey, "Steam"));
+
+	// Xbox One global speech commands
+	AddMenuCategoryDisplayInfo("XBoxOne", LOCTEXT("XBoxOneSubCateogry", "XBox One"), TEXT("GraphEditor.PadEvent_16x"));
+
+	AddKey(FKeyDetails(EKeys::Global_Menu, LOCTEXT("Global_Menu", "Global Menu"), FKeyDetails::GamepadKey, "XBoxOne"));
+	AddKey(FKeyDetails(EKeys::Global_View, LOCTEXT("Global_View", "Global View"), FKeyDetails::GamepadKey, "XBoxOne"));
+	AddKey(FKeyDetails(EKeys::Global_Pause, LOCTEXT("Global_Pause", "Global Pause"), FKeyDetails::GamepadKey, "XBoxOne"));
+	AddKey(FKeyDetails(EKeys::Global_Play, LOCTEXT("Global_Play", "Global Play"), FKeyDetails::GamepadKey, "XBoxOne"));
+	AddKey(FKeyDetails(EKeys::Global_Back, LOCTEXT("Global_Back", "Global Back"), FKeyDetails::GamepadKey, "XBoxOne"));
+
+	// Android-specific
+	AddMenuCategoryDisplayInfo("Android", LOCTEXT("AndroidSubCateogry", "Android"), TEXT("GraphEditor.KeyEvent_16x"));
+
+	AddKey(FKeyDetails(EKeys::Android_Back, LOCTEXT("Android_Back", "Android Back"), FKeyDetails::GamepadKey, "Android"));
+	AddKey(FKeyDetails(EKeys::Android_Volume_Up, LOCTEXT("Android_Volume_Up", "Android Volume Up"), FKeyDetails::GamepadKey, "Android"));
+	AddKey(FKeyDetails(EKeys::Android_Volume_Down, LOCTEXT("Android_Volume_Down", "Android Volume Down"), FKeyDetails::GamepadKey, "Android"));
+	AddKey(FKeyDetails(EKeys::Android_Menu, LOCTEXT("Android_Menu", "Android Menu"), FKeyDetails::GamepadKey, "Android"));
 
 	// Initialize the input key manager.  This will cause any additional OEM keys to get added
 	FInputKeyManager::Get();
@@ -496,6 +565,36 @@ TSharedPtr<FKeyDetails> EKeys::GetKeyDetails(const FKey Key)
 		return TSharedPtr<FKeyDetails>();
 	}
 	return *KeyDetails;
+}
+
+void EKeys::AddMenuCategoryDisplayInfo(const FName CategoryName, const FText DisplayName, const FName PaletteIcon)
+{
+	if (MenuCategoryDisplayInfo.Contains(CategoryName))
+	{
+		UE_LOG(LogInput, Warning, TEXT("Category %s already has menu display info that is being replaced."), *CategoryName.ToString());
+	}
+	FCategoryDisplayInfo DisplayInfo;
+	DisplayInfo.DisplayName = DisplayName;
+	DisplayInfo.PaletteIcon = PaletteIcon;
+	MenuCategoryDisplayInfo.FindOrAdd(CategoryName) = DisplayInfo;
+}
+
+FText EKeys::GetMenuCategoryDisplayName(const FName CategoryName)
+{
+	if (FCategoryDisplayInfo* DisplayInfo = MenuCategoryDisplayInfo.Find(CategoryName))
+	{
+		return DisplayInfo->DisplayName;
+	}
+	return MenuCategoryDisplayInfo[NAME_KeyboardCategory].DisplayName;
+}
+
+FName EKeys::GetMenuCategoryPaletteIcon(const FName CategoryName)
+{
+	if (FCategoryDisplayInfo* DisplayInfo = MenuCategoryDisplayInfo.Find(CategoryName))
+	{
+		return DisplayInfo->PaletteIcon;
+	}
+	return MenuCategoryDisplayInfo[NAME_KeyboardCategory].PaletteIcon;
 }
 
 EConsoleForGamepadLabels::Type EKeys::ConsoleForGamepadLabels = EConsoleForGamepadLabels::None;
@@ -751,6 +850,12 @@ FText FKey::GetDisplayName() const
 {
 	ConditionalLookupKeyDetails();
 	return (KeyDetails.IsValid() ? KeyDetails->GetDisplayName() : FText::FromName(KeyName));
+}
+
+FName FKey::GetMenuCategory() const
+{
+	ConditionalLookupKeyDetails();
+	return (KeyDetails.IsValid() ? KeyDetails->GetMenuCategory() : EKeys::NAME_KeyboardCategory);
 }
 
 void FKey::ConditionalLookupKeyDetails() const

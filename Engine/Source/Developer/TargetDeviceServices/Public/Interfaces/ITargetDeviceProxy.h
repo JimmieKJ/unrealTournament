@@ -240,13 +240,6 @@ public:
 	 */
 	virtual bool IsShared() const = 0;
 
-	/**
-	 * Gets the name of the operating system on the device.
-	 *
-	 * @return true if the device is being shared, false otherwise.
-	 */
-	virtual const FString& GetOperatingSystemName() const = 0;
-
 public:
 
 	/**

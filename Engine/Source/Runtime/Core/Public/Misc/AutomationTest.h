@@ -256,7 +256,7 @@ private:
 	{
 		//Split New Test Name into string array
 		TArray<FString> Pieces;
-		InTestInfo.ParseIntoArray(&Pieces, TEXT(","), true);
+		InTestInfo.ParseIntoArray(Pieces, TEXT(","), true);
 
 		// We should always have at least 3 parameters
 		check( Pieces.Num() >= 3 )
@@ -1040,7 +1040,7 @@ private:\
 public: \
 	F##ClassDeclaration(int32 InRoleIndex) : RoleIndex(InRoleIndex) {} \
 	virtual ~F##ClassDeclaration() {} \
-	virtual uint32 GetRoleIndex() const { return RoleIndex; } \
+	virtual uint32 GetRoleIndex() const override { return RoleIndex; } \
 	virtual void Run() override 
 
 //close the class and add to the framework
@@ -1066,9 +1066,9 @@ public: \
 	public: \
 		TClass( const FString& InName ) \
 		:FAutomationTestBase( InName, false ) {} \
-		virtual uint32 GetTestFlags() const { return TFlags; } \
+		virtual uint32 GetTestFlags() const override { return TFlags; } \
 		virtual bool IsStressTest() const { return false; } \
-		virtual uint32 GetRequiredDeviceNum() const { return 1; } \
+		virtual uint32 GetRequiredDeviceNum() const override { return 1; } \
 	protected: \
 		virtual void GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const override \
 		{ \
@@ -1085,9 +1085,9 @@ public: \
 	public: \
 		TClass( const FString& InName ) \
 		:FAutomationTestBase( InName, true ) {} \
-		virtual uint32 GetTestFlags() const { return (TFlags & ~(EAutomationTestFlags::ATF_SmokeTest)); } \
+		virtual uint32 GetTestFlags() const override { return (TFlags & ~(EAutomationTestFlags::ATF_SmokeTest)); } \
 		virtual bool IsStressTest() const { return true; } \
-		virtual uint32 GetRequiredDeviceNum() const { return 1; } \
+		virtual uint32 GetRequiredDeviceNum() const override { return 1; } \
 	protected: \
 		virtual void GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const override; \
 		virtual bool RunTest(const FString& Parameters) override; \
@@ -1100,8 +1100,8 @@ public: \
 	public: \
 		TClass( const FString& InName ) \
 		:FAutomationTestBase( InName, false ) {} \
-		virtual uint32 GetTestFlags() const { return (TFlags & ~(EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_Commandlet | EAutomationTestFlags::ATF_SmokeTest)); } \
-		virtual uint32 GetRequiredDeviceNum() const { return NumParticipants; } \
+		virtual uint32 GetTestFlags() const override { return (TFlags & ~(EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_Commandlet | EAutomationTestFlags::ATF_SmokeTest)); } \
+		virtual uint32 GetRequiredDeviceNum() const override { return NumParticipants; } \
 	protected: \
 		virtual void GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const override \
 		{ \

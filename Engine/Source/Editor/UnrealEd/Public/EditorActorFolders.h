@@ -29,7 +29,8 @@ struct FActorFolderProps
 UCLASS()
 class UEditorActorFolders : public UObject
 {
-	GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
 public:
 	virtual void Serialize(FArchive& Ar) override;
 

@@ -3,6 +3,7 @@
 #include "UnrealEd.h"
 #include "ComponentVisualizerManager.h"
 #include "ILevelEditor.h"
+#include "ILevelViewport.h"
 
 /** Handle a click on the specified editor viewport client */
 bool FComponentVisualizerManager::HandleClick(FLevelEditorViewportClient* InViewportClient, HHitProxy* HitProxy, const FViewportClick& Click)
@@ -14,10 +15,11 @@ bool FComponentVisualizerManager::HandleClick(FLevelEditorViewportClient* InView
 		if (MenuWidget.IsValid())
 		{
 			auto ParentLevelEditor = InViewportClient->ParentLevelEditor.Pin();
-			if (ParentLevelEditor.IsValid())
+			if (ParentLevelEditor.IsValid() && ParentLevelEditor->GetActiveViewportInterface().IsValid() )
 			{
+				TSharedPtr<SWidget> MenuParent = ParentLevelEditor->GetActiveViewportInterface()->GetViewportWidget().Pin();
 				FSlateApplication::Get().PushMenu(
-					ParentLevelEditor.ToSharedRef(),
+					MenuParent.ToSharedRef(),
 					MenuWidget.ToSharedRef(),
 					FSlateApplication::Get().GetCursorPos(),
 					FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));

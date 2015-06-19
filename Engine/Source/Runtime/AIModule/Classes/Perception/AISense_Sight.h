@@ -73,10 +73,12 @@ struct FAISightQuery
 	float Score;
 	float Importance;
 
+	FVector LastSeenLocation;
+
 	uint32 bLastResult : 1;
 
 	FAISightQuery(FPerceptionListenerID ListenerId = FPerceptionListenerID::InvalidID(), FAISightTarget::FTargetId Target = FAISightTarget::InvalidTargetId)
-		: ObserverId(ListenerId), TargetId(Target), Age(0), Score(0), Importance(0), bLastResult(false)
+		: ObserverId(ListenerId), TargetId(Target), Age(0), Score(0), Importance(0), LastSeenLocation(FAISystem::InvalidLocation), bLastResult(false)
 	{
 	}
 
@@ -108,6 +110,7 @@ public:
 	{
 		float PeripheralVisionAngleCos;
 		float SightRadiusSq;
+		float AutoSuccessRangeSqFromLastSeenLocation;
 		float LoseSightRadiusSq;
 		uint8 AffiliationFlags;
 
@@ -123,18 +126,18 @@ public:
 	TArray<FAISightQuery> SightQueryQueue;
 
 protected:
-	UPROPERTY(config)
+	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
 	int32 MaxTracesPerTick;
 
-	UPROPERTY(config)
+	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
 	float HighImportanceQueryDistanceThreshold;
 
 	float HighImportanceDistanceSquare;
 
-	UPROPERTY(config)
+	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
 	float MaxQueryImportance;
 
-	UPROPERTY(config)
+	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
 	float SightLimitQueryImportance;
 
 public:
@@ -144,9 +147,13 @@ public:
 	void RegisterEvent(const FAISightEvent& Event);	
 
 	virtual void RegisterSource(AActor& SourceActors) override;
+	virtual void UnregisterSource(AActor& SourceActor) override;
+	virtual void CleanseInvalidSources() override;
 	
 protected:
 	virtual float Update() override;
+
+	virtual bool ShouldAutomaticallySeeTarget(const FDigestedSightProperties& PropDigest, FAISightQuery* SightQuery, FPerceptionListener& Listener, AActor* TargetActor, float& OutStimulusStrength) const;
 
 	void OnNewListenerImpl(const FPerceptionListener& NewListener);
 	void OnListenerUpdateImpl(const FPerceptionListener& UpdatedListener);
@@ -160,7 +167,7 @@ protected:
 		Sort
 	};
 	void RemoveAllQueriesByListener(const FPerceptionListener& Listener, FQueriesOperationPostProcess PostProcess);
-	void RemoveAllQueriesToTarget(const FName& TargetId, FQueriesOperationPostProcess PostProcess);
+	void RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& TargetId, FQueriesOperationPostProcess PostProcess);
 
 	/** returns information whether new LoS queries have been added */
 	bool RegisterTarget(AActor& TargetActor, FQueriesOperationPostProcess PostProcess);
@@ -174,7 +181,7 @@ public:
 	//----------------------------------------------------------------------//
 	// DEBUG
 	//----------------------------------------------------------------------//
-	FString GetDebugLegend() const;
+	FString GetDebugLegend() const override;
 	static FColor GetDebugSightRangeColor() { return FColor::Green; }
 	static FColor GetDebugLoseSightColor() { return FColorList::NeonPink; }
 #endif // !UE_BUILD_SHIPPING

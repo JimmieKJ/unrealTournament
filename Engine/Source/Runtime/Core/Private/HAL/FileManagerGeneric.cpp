@@ -40,7 +40,7 @@ void FFileManagerGeneric::ProcessCommandLineOptions()
 
 FArchive* FFileManagerGeneric::CreateFileReader( const TCHAR* InFilename, uint32 Flags )
 {
-	IFileHandle* Handle = GetLowLevel().OpenRead( InFilename );
+	IFileHandle* Handle = GetLowLevel().OpenRead( InFilename, !!(Flags & FILEREAD_AllowWrite) );
 	if( !Handle )
 	{
 		if( Flags & FILEREAD_NoFail )
@@ -80,7 +80,7 @@ public:
 	{
 		Pos += Length;
 	}
-	virtual FString GetArchiveName() const { return TEXT( "FArchiveFileWriterDummy" ); }
+	virtual FString GetArchiveName() const override { return TEXT( "FArchiveFileWriterDummy" ); }
 protected:
 	int64             Pos;
 };
@@ -374,8 +374,8 @@ void FFileManagerGeneric::FindFiles( TArray<FString>& Result, const TCHAR* InFil
 		}
 		virtual bool Visit( const TCHAR* FilenameOrDirectory, bool bIsDirectory )
 		{
-			if( ( bIsDirectory && bDirectories ) ||
-				( !bIsDirectory && bFiles && FPaths::GetCleanFilename(FilenameOrDirectory).MatchesWildcard( WildCard ) ) )
+			if (((bIsDirectory && bDirectories) || (!bIsDirectory && bFiles))
+				&& FPaths::GetCleanFilename(FilenameOrDirectory).MatchesWildcard(WildCard))
 			{
 				new( Result ) FString( FPaths::GetCleanFilename(FilenameOrDirectory) );
 			}
@@ -414,12 +414,6 @@ double FFileManagerGeneric::GetFileAgeSeconds( const TCHAR* Filename )
 
 FDateTime FFileManagerGeneric::GetTimeStamp(const TCHAR* Filename)
 {
-	// if the file doesn't exist, use a dummy DateTime
-	if (!GetLowLevel().FileExists(Filename))
-	{
-		return FDateTime::MinValue();
-	}
-
 	// ask low level for timestamp
 	return GetLowLevel().GetTimeStamp(Filename);
 }
@@ -438,12 +432,6 @@ bool FFileManagerGeneric::SetTimeStamp(const TCHAR* Filename, FDateTime DateTime
 
 FDateTime FFileManagerGeneric::GetAccessTimeStamp( const TCHAR* Filename )
 {
-	// if the file doesn't exist, use a dummy DateTime
-	if (!GetLowLevel().FileExists(Filename))
-	{
-		return FDateTime::MinValue();
-	}
-
 	// ask low level for timestamp
 	return GetLowLevel().GetAccessTimeStamp(Filename);
 }
@@ -460,8 +448,8 @@ FString FFileManagerGeneric::DefaultConvertToRelativePath( const TCHAR* Filename
 	FPaths::NormalizeFilename(RelativePath);
 
 	// See whether it is a relative path.
-	FString RootDir( FPlatformMisc::RootDir() );
-	FPaths::NormalizeFilename(RootDir);
+	FString RootDirectory( FPlatformMisc::RootDir() );
+	FPaths::NormalizeFilename(RootDirectory);
 
 	//the default relative directory it to the app root which is 3 directories up from the starting directory
 	int32 NumberOfDirectoriesToGoUp = 3;
@@ -470,26 +458,26 @@ FString FFileManagerGeneric::DefaultConvertToRelativePath( const TCHAR* Filename
 	int32 CurrentSlashPosition;
 
 	//while we haven't run out of parent directories until we which a drive name
-	while( ( CurrentSlashPosition = RootDir.Find( TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromEnd ) ) != INDEX_NONE )
+	while( ( CurrentSlashPosition = RootDirectory.Find( TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromEnd ) ) != INDEX_NONE )
 	{
-		if( RelativePath.StartsWith( RootDir ) )
+		if( RelativePath.StartsWith( RootDirectory ) )
 		{
 			FString BinariesDir = FString(FPlatformProcess::BaseDir());
 			FPaths::MakePathRelativeTo( RelativePath, *BinariesDir );
 			break;
 		}
-		int32 PositionOfNextSlash = RootDir.Find( TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromEnd, CurrentSlashPosition );
+		int32 PositionOfNextSlash = RootDirectory.Find( TEXT("/"), ESearchCase::CaseSensitive, ESearchDir::FromEnd, CurrentSlashPosition );
 		//if there is another slash to find
 		if( PositionOfNextSlash != INDEX_NONE )
 		{
 			//move up a directory and on an extra .. TEXT("/")
 			// the +1 from "InStr" moves to include the "\" at the end of the directory name
 			NumberOfDirectoriesToGoUp++;
-			RootDir = RootDir.Left( PositionOfNextSlash + 1 );
+			RootDirectory = RootDirectory.Left( PositionOfNextSlash + 1 );
 		}
 		else
 		{
-			RootDir.Empty();
+			RootDirectory.Empty();
 		}
 	}
 	return RelativePath;
@@ -561,7 +549,7 @@ void FArchiveFileReaderGeneric::Seek( int64 InPos )
 	{
 		TCHAR ErrorBuffer[1024];
 		ArIsError = true;
-		UE_LOG( LogFileManager, Error, TEXT( "SetFilePointer Failed %lld/%lld: %lld %s" ), InPos, Size, Pos, FPlatformMisc::GetSystemErrorMessage( ErrorBuffer, 1024, 0 ) );
+		UE_LOG(LogFileManager, Error, TEXT("SetFilePointer on %s Failed %lld/%lld: %lld %s"), *Filename, InPos, Size, Pos, FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, 1024, 0));
 	}
 	Pos         = InPos;
 	BufferBase  = Pos;
@@ -715,7 +703,7 @@ void FArchiveFileWriterGeneric::Seek( int64 InPos )
 	if( !SeekLowLevel( InPos ) )
 	{
 		ArIsError = true;
-		UE_LOG( LogFileManager, Error, TEXT("%s"), TEXT("Error seeking file") );
+		LogWriteError(TEXT("Error seeking file"));
 	}
 	Pos = InPos;
 }
@@ -726,7 +714,7 @@ bool FArchiveFileWriterGeneric::Close()
 	if( !CloseLowLevel() )
 	{
 		ArIsError = true;
-		UE_LOG( LogFileManager, Error, TEXT("%s"), TEXT("Error writing to file") );
+		LogWriteError(TEXT("Error closing file"));
 	}
 	return !ArIsError;
 }
@@ -740,7 +728,7 @@ void FArchiveFileWriterGeneric::Serialize( void* V, int64 Length )
 		if( !WriteLowLevel( (uint8*)V, Length ) )
 		{
 			ArIsError = true;
-			UE_LOG( LogFileManager, Error, TEXT("%s"), TEXT("Error writing to file") );
+			LogWriteError(TEXT("Error writing to file"));
 		}
 	}
 	else
@@ -772,12 +760,17 @@ void FArchiveFileWriterGeneric::Flush()
 		if( !WriteLowLevel( Buffer, BufferCount ) )
 		{
 			ArIsError = true;
-			UE_LOG( LogFileManager, Error, TEXT("%s"), TEXT("Error writing to file") );
+			LogWriteError(TEXT("Error flushing file"));
 		}
 		BufferCount = 0;
 	}
 }
 
+void FArchiveFileWriterGeneric::LogWriteError(const TCHAR* Message)
+{
+	TCHAR ErrorBuffer[1024];
+	UE_LOG(LogFileManager, Error, TEXT("%s: %s (%s)"), Message, *Filename, FPlatformMisc::GetSystemErrorMessage(ErrorBuffer, 1024, 0));
+}
 //---
 
 

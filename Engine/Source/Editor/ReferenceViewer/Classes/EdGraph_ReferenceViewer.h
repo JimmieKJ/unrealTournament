@@ -11,7 +11,7 @@ class UEdGraph_ReferenceViewer : public UEdGraph
 
 public:
 	// UObject implementation
-	virtual void BeginDestroy();
+	virtual void BeginDestroy() override;
 	// End UObject implementation
 
 	void SetGraphRoot(const TArray<FName>& GraphRootPackageNames, const FIntPoint& GraphRootOrigin = FIntPoint(ForceInitToZero));

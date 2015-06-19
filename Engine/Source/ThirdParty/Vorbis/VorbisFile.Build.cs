@@ -15,6 +15,7 @@ public class VorbisFile : ModuleRules
 			PublicLibraryPaths.Add(VorbisLibPath);
 			PublicAdditionalLibraries.Add("libvorbisfile_64.lib");
 			PublicDelayLoadDLLs.Add("libvorbisfile_64.dll");
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Vorbis/Win64/VS" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/libvorbisfile_64.dll"));
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32 )
 		{
@@ -22,6 +23,7 @@ public class VorbisFile : ModuleRules
 			PublicLibraryPaths.Add(VorbisLibPath);
 			PublicAdditionalLibraries.Add("libvorbisfile.lib");
 			PublicDelayLoadDLLs.Add("libvorbisfile.dll");
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Vorbis/Win32/VS" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/libvorbisfile.dll"));
 		}
 		else if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32")
         {

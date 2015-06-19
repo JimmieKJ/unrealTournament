@@ -4,6 +4,8 @@
 #include "Internationalization/CulturePointer.h"
 #include "Templates/SharedPointer.h"
 #include "UObject/NameTypes.h"
+#include "TextLocalizationManager.h"
+#include "Optional.h"
 
 struct FTimespan;
 struct FDateTime;
@@ -18,9 +20,10 @@ namespace ETextFlag
 {
 	enum Type
 	{
-		Transient = (1<<0),
-		CultureInvariant = (1<<1),
-		ConvertedProperty = (1<<2)
+		Transient = (1 << 0),
+		CultureInvariant = (1 << 1),
+		ConvertedProperty = (1 << 2),
+		Immutable = (1 << 3),
 	};
 }
 
@@ -113,6 +116,18 @@ struct CORE_API FNumberFormattingOptions
 	FNumberFormattingOptions& SetMaximumFractionalDigits( int32 InValue ){ MaximumFractionalDigits = InValue; return *this; }
 
 	friend FArchive& operator<<(FArchive& Ar, FNumberFormattingOptions& Value);
+
+	/** Get the hash code to use for the given formatting options */
+	friend uint32 GetTypeHash( const FNumberFormattingOptions& Key );
+
+	/** Check to see if our formatting options match the other formatting options */
+	bool IsIdentical( const FNumberFormattingOptions& Other ) const;
+
+	/** Get the default number formatting options with grouping enabled */
+	static const FNumberFormattingOptions& DefaultWithGrouping();
+
+	/** Get the default number formatting options with grouping disabled */
+	static const FNumberFormattingOptions& DefaultNoGrouping();
 };
 
 class FCulture;
@@ -183,6 +198,11 @@ public:
 	static FText AsTimespan(const FTimespan& Timespan, const FCulturePtr& TargetCulture = NULL);
 
 	/**
+	 * Gets the time zone string that represents a non-specific, zero offset, culture invariant time zone.
+	 */
+	static FString GetInvariantTimeZone();
+
+	/**
 	 * Generate an FText that represents the passed number as a memory size in the current culture
 	 */
 	static FText AsMemory(SIZE_T NumBytes, const FNumberFormattingOptions* const Options = NULL, const FCulturePtr& TargetCulture = NULL);
@@ -236,6 +256,9 @@ public:
 	 *			If you actually want to perform a lexical comparison, then you need to use EqualTo instead
 	 */
 	bool IdenticalTo( const FText& Other ) const;
+
+	/** Trace the history of this Text until we find the base Texts it was comprised from */
+	void GetSourceTextsFromFormatHistory(TArray<FText>& OutSourceTexts) const;
 
 	class CORE_API FSortPredicate
 	{
@@ -349,7 +372,7 @@ private:
 
 private:
 	/** The visible display string for this FText */
-	TSharedRef<FString, ESPMode::ThreadSafe> DisplayString;
+	FTextDisplayStringRef DisplayString;
 
 	/** The FText's history, to allow it to rebuild under a new culture */
 	TSharedPtr<class FTextHistory, ESPMode::ThreadSafe> History;
@@ -372,6 +395,7 @@ public:
 	static const FText UnEscapedCloseBraceOutsideOfArgumentBlock;
 	static const FText SerializationFailureError;
 
+	friend class FTextFormatHelper;
 	friend class FTextSnapshot;
 	friend class FTextInspector;
 	friend class FInternationalization;
@@ -382,10 +406,7 @@ public:
 	friend class FTextHistory_NamedFormat;
 	friend class FTextHistory_ArgumentDataFormat;
 	friend class FTextHistory_OrderedFormat;
-
-#if !UE_ENABLE_ICU
-	friend class FLegacyTextHelper;
-#endif
+	friend class FScopedTextIdentityPreserver;
 };
 
 /** A snapshot of an FText at a point in time that can be used to detect changes in the FText, including live-culture changes */
@@ -404,7 +425,7 @@ public:
 
 private:
 	/** A pointer to the visible display string for the FText we took a snapshot of (used for an efficient pointer compare) */
-	TSharedPtr<FString, ESPMode::ThreadSafe> DisplayStringPtr;
+	FTextDisplayStringPtr DisplayStringPtr;
 
 	/** Revision index of the history of the FText we took a snapshot of, or INDEX_NONE if there was no history */
 	int32 HistoryRevision;
@@ -421,10 +442,11 @@ private:
 
 public:
 	static bool ShouldGatherForLocalization(const FText& Text);
-	static const FString* GetNamespace(const FText& Text);
-	static const FString* GetKey(const FText& Text);
+	static TOptional<FString> GetNamespace(const FText& Text);
+	static TOptional<FString> GetKey(const FText& Text);
 	static const FString* GetSourceString(const FText& Text);
 	static const FString& GetDisplayString(const FText& Text);
+	static const FTextDisplayStringRef GetSharedDisplayString(const FText& Text);
 	static int32 GetFlags(const FText& Text);
 };
 
@@ -562,6 +584,20 @@ public:
 private:
 	FString Report;
 	int32 IndentCount;
+};
+
+class CORE_API FScopedTextIdentityPreserver
+{
+public:
+	FScopedTextIdentityPreserver(FText& InTextToPersist);
+	~FScopedTextIdentityPreserver();
+
+private:
+	bool HadFoundNamespaceAndKey;
+	FString Namespace;
+	FString Key;
+	int32 Flags;
+	FText& TextToPersist;
 };
 
 Expose_TNameOf(FText)

@@ -38,17 +38,15 @@ namespace UnrealBuildTool
 
 		void SetUpGlobalEnvironment();
 
-        void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary);
+		void AddFilesToReceipt(BuildReceipt Receipt, UEBuildBinary Binary);
 
 		void SetupBundleDependencies(List<UEBuildBinary> Binaries, string GameName);
 
 		void FixBundleBinariesPaths(UEBuildTarget Target, List<UEBuildBinary> Binaries);
 
-		string GetPlatformVersion();
-
-		string GetPlatformDevices();
-
 		UnrealTargetPlatform GetPlatform();
+
+		void StripSymbols(string SourceFileName, string TargetFileName);
 	}
 
 	public abstract class UEToolChain : IUEToolChain
@@ -168,96 +166,15 @@ namespace UnrealBuildTool
 
 		public virtual void ParseProjectSettings()
 		{
-			ConfigCacheIni Ini = new ConfigCacheIni(GetPlatform(), "Engine", UnrealBuildTool.GetUProjectPath());
-			bool bValue = UEBuildConfiguration.bCompileAPEX;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileApex", out bValue))
-			{
-				UEBuildConfiguration.bCompileAPEX = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileBox2D;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileBox2D", out bValue))
-			{
-				UEBuildConfiguration.bCompileBox2D = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileICU;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileICU", out bValue))
-			{
-				UEBuildConfiguration.bCompileICU = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileSimplygon;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileSimplygon", out bValue))
-			{
-				UEBuildConfiguration.bCompileSimplygon = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileLeanAndMeanUE;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileLeanAndMeanUE", out bValue))
-			{
-				UEBuildConfiguration.bCompileLeanAndMeanUE = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bIncludeADO;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bIncludeADO", out bValue))
-			{
-				UEBuildConfiguration.bIncludeADO = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileRecast;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileRecast", out bValue))
-			{
-				UEBuildConfiguration.bCompileRecast = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileSpeedTree;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileSpeedTree", out bValue))
-			{
-				UEBuildConfiguration.bCompileSpeedTree = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileWithPluginSupport;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileWithPluginSupport", out bValue))
-			{
-				UEBuildConfiguration.bCompileWithPluginSupport = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompilePhysXVehicle;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompilePhysXVehicle", out bValue))
-			{
-				UEBuildConfiguration.bCompilePhysXVehicle = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileFreeType;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileFreeType", out bValue))
-			{
-				UEBuildConfiguration.bCompileFreeType = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileForSize;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileForSize", out bValue))
-			{
-				UEBuildConfiguration.bCompileForSize = bValue;
-			}
-
-			bValue = UEBuildConfiguration.bCompileCEF3;
-			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileCEF3", out bValue))
-			{
-				UEBuildConfiguration.bCompileCEF3 = bValue;
-			}
 		}
 
 		protected void RunUnrealHeaderToolIfNeeded()
 		{
-
 		}
 
-        public virtual void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary)
-        {
-
-        }
-
+		public virtual void AddFilesToReceipt(BuildReceipt Receipt, UEBuildBinary Binary)
+		{
+		}
 
 		protected void AddPrerequisiteSourceFile( UEBuildTarget Target, IUEBuildPlatform BuildPlatform, CPPEnvironment CompileEnvironment, FileItem SourceFile, List<FileItem> PrerequisiteItems )
 		{
@@ -270,21 +187,24 @@ namespace UnrealBuildTool
 				RemoteThis.QueueFileForBatchUpload(SourceFile);
 			}
 
-			if( !BuildConfiguration.bUseExperimentalFastBuildIteration )	// In fast build iteration mode, we'll gather includes later on
+			if( !BuildConfiguration.bUseUBTMakefiles )	// In fast build iteration mode, we'll gather includes later on
 			{
-				// @todo fastubt: What if one of the prerequisite files has become missing since it was updated in our cache? (usually, because a coder eliminated the source file)
+				// @todo ubtmake: What if one of the prerequisite files has become missing since it was updated in our cache? (usually, because a coder eliminated the source file)
 				//		-> Two CASES:
 				//				1) NOT WORKING: Non-unity file went away (SourceFile in this context).  That seems like an existing old use case.  Compile params or Response file should have changed?
 				//				2) WORKING: Indirect file went away (unity'd original source file or include).  This would return a file that no longer exists and adds to the prerequiteitems list
-				var IncludedFileList = CPPEnvironment.FindAndCacheAllIncludedFiles( Target, SourceFile, BuildPlatform, CompileEnvironment.Config.CPPIncludeInfo, bOnlyCachedDependencies:BuildConfiguration.bUseExperimentalFastDependencyScan );
-				foreach (FileItem IncludedFile in IncludedFileList)
+				var IncludedFileList = CPPEnvironment.FindAndCacheAllIncludedFiles( Target, SourceFile, BuildPlatform, CompileEnvironment.Config.CPPIncludeInfo, bOnlyCachedDependencies:BuildConfiguration.bUseUBTMakefiles );
+				if( IncludedFileList != null )
 				{
-					PrerequisiteItems.Add( IncludedFile );
-
-					if( bAllowUploading &&
-						!BuildConfiguration.bUseExperimentalFastDependencyScan )	// With fast dependency scanning, we will not have an exhaustive list of dependencies here.  We rely on PostCodeGeneration() to upload these files.
+					foreach (FileItem IncludedFile in IncludedFileList)
 					{
-						RemoteThis.QueueFileForBatchUpload(IncludedFile);
+						PrerequisiteItems.Add( IncludedFile );
+
+						if( bAllowUploading &&
+							!BuildConfiguration.bUseUBTMakefiles )	// With fast dependency scanning, we will not have an exhaustive list of dependencies here.  We rely on PostCodeGeneration() to upload these files.
+						{
+							RemoteThis.QueueFileForBatchUpload(IncludedFile);
+						}
 					}
 				}
 			}
@@ -300,19 +220,15 @@ namespace UnrealBuildTool
 
 		}
 
-		public virtual string GetPlatformVersion()
-		{
-			return "";
-		}
-
-		public virtual string GetPlatformDevices()
-		{
-			return "";
-		}
-
 		public virtual UnrealTargetPlatform GetPlatform()
 		{
 			return UnrealTargetPlatform.Unknown;
+		}
+
+		public virtual void StripSymbols(string SourceFileName, string TargetFileName)
+		{
+			Log.TraceWarning("StripSymbols() has not been implemented for {0}; copying files", GetPlatform().ToString());
+			File.Copy(SourceFileName, TargetFileName, true);
 		}
 	};
 }

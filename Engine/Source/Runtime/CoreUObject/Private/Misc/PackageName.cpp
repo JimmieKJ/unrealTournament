@@ -96,6 +96,7 @@ struct FPathPair
 
 struct FLongPackagePathsSingleton
 {
+	FString ConfigRootPath;
 	FString EngineRootPath;
 	FString GameRootPath;
 	FString ScriptRootPath;
@@ -107,9 +108,11 @@ struct FLongPackagePathsSingleton
 	FString EngineShadersPath;
 	FString EngineShadersPathShort;
 	FString GameContentPath;
+	FString GameConfigPath;
 	FString GameScriptPath;
 	FString GameSavedPath;
 	FString GameContentPathRebased;
+	FString GameConfigPathRebased;
 	FString GameScriptPathRebased;
 	FString GameSavedPathRebased;
 
@@ -132,6 +135,7 @@ struct FLongPackagePathsSingleton
 
 		if (bIncludeReadOnlyRoots)
 		{
+			OutRoots.Add(ConfigRootPath);
 			OutRoots.Add(ScriptRootPath);
 			OutRoots.Add(TempRootPath);
 		}
@@ -144,7 +148,7 @@ struct FLongPackagePathsSingleton
 		FString RelativeContentPath = IFileManager::Get().ConvertToRelativePath( *ContentPath );
 
 		// Make sure the path ends in a trailing path separator.  We are expecting that in the InternalFilenameToLongPackageName code.
-		if( !RelativeContentPath.EndsWith( TEXT( "/" ) ) )
+		if( !RelativeContentPath.EndsWith( TEXT( "/" ), ESearchCase::CaseSensitive ) )
 		{
 			RelativeContentPath += TEXT( "/" );
 		}
@@ -165,7 +169,7 @@ struct FLongPackagePathsSingleton
 		FString RelativeContentPath = IFileManager::Get().ConvertToRelativePath(*ContentPath);
 
 		// Make sure the path ends in a trailing path separator.  We are expecting that in the InternalFilenameToLongPackageName code.
-		if (!RelativeContentPath.EndsWith(TEXT("/")))
+		if (!RelativeContentPath.EndsWith(TEXT("/"), ESearchCase::CaseSensitive))
 		{
 			RelativeContentPath += TEXT("/");
 		}
@@ -185,6 +189,7 @@ struct FLongPackagePathsSingleton
 private:
 	FLongPackagePathsSingleton()
 	{
+		ConfigRootPath = TEXT("/Config/");
 		EngineRootPath = TEXT("/Engine/");
 		GameRootPath   = TEXT("/Game/");
 		ScriptRootPath = TEXT("/Script/");
@@ -195,16 +200,18 @@ private:
 		EngineShadersPath      = FPaths::EngineDir() / TEXT("Shaders/");
 		EngineShadersPathShort = TEXT("../../Shaders/");
 		GameContentPath        = FPaths::GameContentDir();
+		GameConfigPath         = FPaths::GameConfigDir();
 		GameScriptPath         = FPaths::GameDir() / TEXT("Script/");
 		GameSavedPath          = FPaths::GameSavedDir();
 
 		FString RebasedGameDir = FString::Printf(TEXT("../../../%s/"), FApp::GetGameName());
 
         GameContentPathRebased = RebasedGameDir / TEXT("Content/");
+		GameConfigPathRebased  = RebasedGameDir / TEXT("Config/");
         GameScriptPathRebased  = RebasedGameDir / TEXT("Script/");
         GameSavedPathRebased   = RebasedGameDir / TEXT("Saved/");
 		
-		ContentPathToRoot.Empty(10);
+		ContentPathToRoot.Empty(11);
 		ContentPathToRoot.Emplace(EngineRootPath, EngineContentPath);
 #if IS_MONOLITHIC
 		ContentPathToRoot.Emplace(GameRootPath,   ContentPathShort);
@@ -219,9 +226,9 @@ private:
 		ContentPathToRoot.Emplace(GameRootPath,   GameContentPathRebased);
 		ContentPathToRoot.Emplace(ScriptRootPath, GameScriptPathRebased);
 		ContentPathToRoot.Emplace(TempRootPath,   GameSavedPathRebased);
+		ContentPathToRoot.Emplace(ConfigRootPath, GameConfigPath);
 
-
-		ContentRootToPath.Empty(8);
+		ContentRootToPath.Empty(9);
 		ContentRootToPath.Emplace(EngineRootPath, EngineContentPath);
 		ContentRootToPath.Emplace(EngineRootPath, EngineShadersPath);
 		ContentRootToPath.Emplace(GameRootPath,   GameContentPath);
@@ -230,7 +237,7 @@ private:
 		ContentRootToPath.Emplace(GameRootPath,   GameContentPathRebased);
 		ContentRootToPath.Emplace(ScriptRootPath, GameScriptPathRebased);
 		ContentRootToPath.Emplace(TempRootPath,   GameSavedPathRebased);
-
+		ContentRootToPath.Emplace(ConfigRootPath, GameConfigPathRebased);
 
 		// Allow the plugin manager to mount new content paths by exposing access through a delegate.  PluginManager is 
 		// a Core class, but content path functionality is added at the CoreUObject level.
@@ -241,7 +248,7 @@ private:
 FString FPackageName::InternalFilenameToLongPackageName(const FString& InFilename)
 {
 	const FLongPackagePathsSingleton& Paths = FLongPackagePathsSingleton::Get();
-	FString Filename = InFilename.Replace(TEXT("\\"), TEXT("/"));
+	FString Filename = InFilename.Replace(TEXT("\\"), TEXT("/"), ESearchCase::CaseSensitive);
 
 	// Convert to relative path if it's not already a long package name
 	bool bIsValidLongPackageName = false;
@@ -262,7 +269,7 @@ FString FPackageName::InternalFilenameToLongPackageName(const FString& InFilenam
 	FString PackageName         = FPaths::GetBaseFilename(Filename);
 	int32   PackageNameStartsAt = Filename.Len() - FPaths::GetCleanFilename(Filename).Len();
 	FString Result              = Filename.Mid(0, PackageNameStartsAt + PackageName.Len());
-	Result.ReplaceInline(TEXT("\\"), TEXT("/"));
+	Result.ReplaceInline(TEXT("\\"), TEXT("/"), ESearchCase::CaseSensitive);
 
 	for (const auto& Pair : Paths.ContentPathToRoot)
 	{
@@ -276,30 +283,21 @@ FString FPackageName::InternalFilenameToLongPackageName(const FString& InFilenam
 	return Result;
 }
 
-bool FPackageName::TryConvertFilenameToLongPackageName(const FString& InFilename, FString& OutPackageName)
+bool FPackageName::TryConvertFilenameToLongPackageName(const FString& InFilename, FString& OutPackageName, FString* OutFailureReason)
 {
-	FString Result = InternalFilenameToLongPackageName(InFilename);
+	FString LongPackageName = InternalFilenameToLongPackageName(InFilename);
 
 	// we don't support loading packages from outside of well defined places
-	if (Result.Contains(TEXT(".")) || Result.Contains(TEXT("\\")) || Result.Contains(TEXT(":")))
+	const bool bContainsDot = LongPackageName.Contains(TEXT("."), ESearchCase::CaseSensitive);
+	const bool bContainsBackslash = LongPackageName.Contains(TEXT("\\"), ESearchCase::CaseSensitive);
+	const bool bContainsColon = LongPackageName.Contains(TEXT(":"), ESearchCase::CaseSensitive);
+	const bool bResult = !(bContainsDot || bContainsBackslash || bContainsColon);
+
+	if (bResult)
 	{
-		return false;
+		OutPackageName = MoveTemp(LongPackageName);
 	}
-
-	OutPackageName = MoveTemp(Result);
-	return true;
-}
-
-FString FPackageName::FilenameToLongPackageName(const FString& InFilename)
-{
-	FString Result = InternalFilenameToLongPackageName(InFilename);
-
-	// we don't support loading packages from outside of well defined places
-	const bool bContainsDot       = Result.Contains(TEXT("."));
-	const bool bContainsBackslash = Result.Contains(TEXT("\\"));
-	const bool bContainsColon     = Result.Contains(TEXT(":"));
-
-	if (bContainsDot || bContainsBackslash || bContainsColon)
+	else if (OutFailureReason != nullptr)
 	{
 		FString InvalidChars;
 		if (bContainsDot)
@@ -314,10 +312,19 @@ FString FPackageName::FilenameToLongPackageName(const FString& InFilename)
 		{
 			InvalidChars += TEXT(":");
 		}
-
-		UE_LOG(LogPackageName, Fatal,TEXT("FilenameToLongPackageName failed to convert '%s'. Attempt result was '%s', but the path contains illegal characters '%s'"), *InFilename, *Result, *InvalidChars);
+		*OutFailureReason = FString::Printf(TEXT("FilenameToLongPackageName failed to convert '%s'. Attempt result was '%s', but the path contains illegal characters '%s'"), *InFilename, *LongPackageName, *InvalidChars);
 	}
+	return bResult;
+}
 
+FString FPackageName::FilenameToLongPackageName(const FString& InFilename)
+{
+	FString FailureReason;
+	FString Result;
+	if (!TryConvertFilenameToLongPackageName(InFilename, Result, &FailureReason))
+	{
+		UE_LOG(LogPackageName, Fatal, TEXT("%s"), *FailureReason);
+	}
 	return Result;
 }
 
@@ -377,7 +384,7 @@ bool FPackageName::SplitLongPackageName(const FString& InLongPackageName, FStrin
 	OutPackagePath = FPaths::GetPath(RemainingPackageName) / "";
 	OutPackageName = FPaths::GetCleanFilename(RemainingPackageName);
 
-	if(bStripRootLeadingSlash && OutPackageRoot.StartsWith("/"))
+	if(bStripRootLeadingSlash && OutPackageRoot.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
 	{
 		OutPackageRoot.RemoveAt(0);
 	}
@@ -399,7 +406,7 @@ bool FPackageName::DoesPackageNameContainInvalidCharacters(const FString& InLong
 	for (const TCHAR* InvalidCharacters = INVALID_LONGPACKAGE_CHARACTERS; *InvalidCharacters; ++InvalidCharacters)
 	{
 		CharString[0] = *InvalidCharacters;
-		if (InLongPackageName.Contains(CharString))
+		if (InLongPackageName.Contains(CharString, ESearchCase::CaseSensitive))
 		{
 			MatchedInvalidChars += *InvalidCharacters;
 		}
@@ -658,6 +665,8 @@ bool FPackageName::DoesPackageExist(const FString& LongPackageName, const FGuid*
 
 bool FPackageName::SearchForPackageOnDisk(const FString& PackageName, FString* OutLongPackageName, FString* OutFilename, bool bUseLocalizedNames)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FPackageName::SearchForPackageOnDisk"), STAT_PackageName_SearchForPackageOnDisk, STATGROUP_LoadTime);
+
 	bool bResult = false;
 	double StartTime = FPlatformTime::Seconds();
 	if (FPackageName::IsShortPackageName(PackageName) == false)
@@ -692,7 +701,7 @@ bool FPackageName::SearchForPackageOnDisk(const FString& PackageName, FString* O
 			}
 		}
 
-		const FString PackageWildcard = (PackageName.Find(TEXT(".")) != INDEX_NONE ? PackageName : PackageName + TEXT(".*"));
+		const FString PackageWildcard = (PackageName.Find(TEXT("."), ESearchCase::CaseSensitive) != INDEX_NONE ? PackageName : PackageName + TEXT(".*"));
 		TArray<FString> Results;
 
 		for (int32 PathIndex = 0; PathIndex < Paths.Num() && !bResult; ++PathIndex)
@@ -803,12 +812,12 @@ void FPackageName::EnsureContentPathsAreRegistered()
 
 bool FPackageName::ParseExportTextPath(const FString& InExportTextPath, FString* OutClassName, FString* OutObjectPath)
 {
-	if ( InExportTextPath.Split(TEXT("'"), OutClassName, OutObjectPath) )
+	if (InExportTextPath.Split(TEXT("'"), OutClassName, OutObjectPath, ESearchCase::CaseSensitive))
 	{
 		if ( OutObjectPath )
 		{
 			FString& OutObjectPathRef = *OutObjectPath;
-			if ( OutObjectPathRef.EndsWith(TEXT("'")) )
+			if ( OutObjectPathRef.EndsWith(TEXT("'"), ESearchCase::CaseSensitive) )
 			{
 				OutObjectPathRef = OutObjectPathRef.LeftChop(1);
 			}

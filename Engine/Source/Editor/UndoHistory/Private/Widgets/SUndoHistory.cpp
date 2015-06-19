@@ -75,16 +75,8 @@ void SUndoHistory::Construct( const FArguments& InArgs )
 
 	ReloadUndoList();
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
-
-/* SUndoHistory implementation
- *****************************************************************************/
-
 void SUndoHistory::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	// reload the transaction list if necessary
 	if ((GEditor == nullptr) || (GEditor->Trans == nullptr) || (LastQueueLength != GEditor->Trans->GetQueueLength()))
 	{

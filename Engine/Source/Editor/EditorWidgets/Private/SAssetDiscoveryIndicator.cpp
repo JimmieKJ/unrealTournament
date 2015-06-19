@@ -33,7 +33,7 @@ void SAssetDiscoveryIndicator::Construct( const FArguments& InArgs )
 
 		if ( InArgs._FadeIn )
 		{
-			FadeAnimation.Play();
+			FadeAnimation.Play( this->AsShared() );
 		}
 		else
 		{
@@ -96,7 +96,7 @@ void SAssetDiscoveryIndicator::OnAssetRegistryFileLoadProgress(int32 NumDiscover
 
 		if ( Progress >= 1.f )
 		{
-			FadeAnimation.PlayReverse();
+			FadeAnimation.PlayReverse(this->AsShared());
 		}
 	}
 }

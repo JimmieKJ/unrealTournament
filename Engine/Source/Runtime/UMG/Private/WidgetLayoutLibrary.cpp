@@ -16,6 +16,38 @@ UWidgetLayoutLibrary::UWidgetLayoutLibrary(const FObjectInitializer& ObjectIniti
 {
 }
 
+bool UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(APlayerController* PlayerController, FVector WorldLocation, FVector2D& ScreenPosition)
+{
+	if ( PlayerController )
+	{
+		FVector2D PixelLocation;
+		const bool bProjected = PlayerController->ProjectWorldLocationToScreen(WorldLocation, PixelLocation);
+
+		if ( bProjected )
+		{
+			// If the user has configured a resolution quality we need to multiply
+			// the pixels by the resolution quality to arrive at the true position in
+			// the viewport, as the rendered image will be stretched to fill whatever
+			// size the viewport is at.
+			Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+			const float QualityScale = ( ScalabilityQuality.ResolutionQuality / 100.0f );
+
+			// Remove the resolution quality scale.
+			ScreenPosition = PixelLocation / QualityScale;
+
+			// Get the application / DPI scale
+			const float Scale = UWidgetLayoutLibrary::GetViewportScale(PlayerController);
+
+			// Apply inverse DPI scale so that the widget ends up in the expected position
+			ScreenPosition = ScreenPosition / Scale;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 float UWidgetLayoutLibrary::GetViewportScale(UObject* WorldContextObject)
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
@@ -90,6 +122,18 @@ UUniformGridSlot* UWidgetLayoutLibrary::SlotAsUniformGridSlot(UWidget* ChildWidg
 UVerticalBoxSlot* UWidgetLayoutLibrary::SlotAsVerticalBoxSlot(UWidget* ChildWidget)
 {
 	return Cast<UVerticalBoxSlot>(ChildWidget->Slot);
+}
+
+void UWidgetLayoutLibrary::RemoveAllWidgets(UObject* WorldContextObject)
+{
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if ( World && World->IsGameWorld() )
+	{
+		if ( UGameViewportClient* ViewportClient = World->GetGameViewport() )
+		{
+			ViewportClient->RemoveAllViewportWidgets();
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -5,6 +5,8 @@
 #include "EditorViewportClient.h"
 #include "Engine/WindDirectionalSource.h"
 
+class FAnimationEditorPreviewScene;
+
 //////////////////////////////////////////////////////////////////////////
 // ELocalAxesMode
 
@@ -50,7 +52,7 @@ protected:
 	void DisplayInfo( FCanvas* Canvas, FSceneView* View, bool bDisplayAllInfo );
 
 public:
-	FAnimationViewportClient( FPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr );
+	FAnimationViewportClient(FAnimationEditorPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr, const TSharedRef<SAnimationEditorViewport>& InAnimationEditorViewport);
 	virtual ~FAnimationViewportClient();
 
 	// FEditorViewportClient interface
@@ -101,6 +103,12 @@ public:
 
 	/** Function to check whether grid is displayed or not */
 	bool IsShowingFloor() const;
+
+	/** Function to enable/disable floor auto align */
+	void OnToggleAutoAlignFloor();
+
+	/** Function to check whether floor is auto align or not */
+	bool IsAutoAlignFloor() const;
 
 	/** Function to show/hide Sky in the viewport */
 	void OnToggleShowSky();
@@ -238,6 +246,9 @@ private:
 	/** add follow option @todo change to enum later - we share editorviewportclient, which is only problem*/
 	bool bCameraFollow;
 
+	/** Should we auto align floor to mesh bounds */
+	bool bAutoAlignFloor;
+
 	/** True when we're in an editor transaction (moving/rotating sockets) */
 	bool bInTransaction;
 
@@ -272,11 +283,6 @@ private:
 		MaxGridSize	= 50,
 	};
 
-	/** Editor accessory components **/
-	UStaticMeshComponent* EditorFloorComp;
-	UStaticMeshComponent* EditorSkyComp;
-	UExponentialHeightFogComponent* EditorHeightFogComponent;
-
 	/** Wind actor used for preview */
 	TWeakObjectPtr<AWindDirectionalSource> SelectedWindActor;
 
@@ -296,8 +302,8 @@ private:
 	void DrawMeshBones(USkeletalMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const;
 	/** Draws the given array of transforms as bones */
 	void DrawBonesFromTransforms(TArray<FTransform>& Transforms, UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI, FLinearColor BoneColour, FLinearColor RootBoneColour) const;
-	/** Draws Bones for compressed animation **/
-	void DrawMeshBonesCompressedAnimation(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const;
+	/** Draws Bones for uncompressed animation **/
+	void DrawMeshBonesUncompressedAnimation(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const;
 	/** Draw Bones for non retargeted animation. */
 	void DrawMeshBonesNonRetargetedAnimation(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const;
 	/** Draws Bones for Additive Base Pose */
@@ -325,4 +331,6 @@ private:
 	TWeakObjectPtr<class UAnimGraphNode_SkeletalControlBase> SelectedSkelControlAnimGraph;
 	// to check whether we should update literal values in selected AnimGraphNode
 	bool bShouldUpdateDefaultValues;
+
+	FAnimationEditorPreviewScene* GetAnimPreviewScene() const;
 };

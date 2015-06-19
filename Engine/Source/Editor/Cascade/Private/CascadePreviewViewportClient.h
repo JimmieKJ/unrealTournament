@@ -15,7 +15,7 @@ class FCascadeEdPreviewViewportClient : public FEditorViewportClient
 {
 public:
 	/** Constructor */
-	FCascadeEdPreviewViewportClient(TWeakPtr<FCascade> InCascade, TWeakPtr<SCascadePreviewViewport> InCascadeViewport);
+	FCascadeEdPreviewViewportClient(TWeakPtr<FCascade> InCascade, const TSharedRef<SCascadePreviewViewport>& InCascadeViewport);
 	~FCascadeEdPreviewViewportClient();
 
 	/** FEditorViewportClient interface */
@@ -64,9 +64,6 @@ public:
 private:
 	/** Pointer back to the ParticleSystem editor tool that owns us */
 	TWeakPtr<FCascade> CascadePtr;
-
-	/** Pointer back to the ParticleSystem viewport control that owns us */
-	TWeakPtr<SCascadePreviewViewport> CascadeViewportPtr;
 	
 	/** Preview mesh */
 	UStaticMeshComponent* FloorComponent;

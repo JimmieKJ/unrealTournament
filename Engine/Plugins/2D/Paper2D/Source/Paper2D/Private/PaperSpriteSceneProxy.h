@@ -4,28 +4,32 @@
 
 #include "PaperRenderSceneProxy.h"
 
+struct FSpriteDrawCallRecord;
+class UPaperSpriteComponent;
+
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteSceneProxy
 
 class FPaperSpriteSceneProxy : public FPaperRenderSceneProxy
 {
 public:
-	FPaperSpriteSceneProxy(const UPaperSpriteComponent* InComponent);
+	FPaperSpriteSceneProxy(UPaperSpriteComponent* InComponent);
 
 	// FPrimitiveSceneProxy interface
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 	// End of FPrimitiveSceneProxy interface
 
-	void SetSprite_RenderThread(const FSpriteDrawCallRecord& NewDynamicData, int32 SplitIndex);
+	void SetSprite_RenderThread(const struct FSpriteDrawCallRecord& NewDynamicData, int32 SplitIndex);
 
 protected:
 
 	// FPaperRenderSceneProxy interface
-	virtual void GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, bool bUseOverrideColor, const FLinearColor& OverrideColor, FMeshElementCollector& Collector) const override;
+	virtual void GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector) const override;
 	// End of FPaperRenderSceneProxy interface
 
+protected:
 	UMaterialInterface* AlternateMaterial;
 	int32 MaterialSplitIndex;
-	const UPaperSprite* SourceSprite;
+	const UBodySetup* BodySetup;
 	TArray<FSpriteDrawCallRecord> AlternateBatchedSprites;
 };

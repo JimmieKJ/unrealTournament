@@ -43,7 +43,10 @@ void FSlateWindowHelper::ArrangeWindowToFront( TArray< TSharedRef<SWindow> >& Wi
 void FSlateWindowHelper::BringWindowToFront( TArray<TSharedRef<SWindow>>& Windows, const TSharedRef<SWindow>& BringMeToFront )
 {
 	const TSharedRef<SWindow> TopLeveWindowToReorder = BringToFrontInParent(BringMeToFront);
-	FSlateWindowHelper::ArrangeWindowToFront(Windows, TopLeveWindowToReorder);
+	if (!PLATFORM_MAC || TopLeveWindowToReorder == BringMeToFront)
+	{
+		FSlateWindowHelper::ArrangeWindowToFront(Windows, TopLeveWindowToReorder);
+	}
 }
 
 

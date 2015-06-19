@@ -35,6 +35,8 @@ echo '
 		tell disk "'$VOLUME_NAME'"
 			open
 
+			delay 8
+
 			tell container window
 				set current view to icon view
 				set toolbar visible to false
@@ -42,7 +44,7 @@ echo '
 				set the bounds to {200, 200, 840, 575}
 			end tell
 
-			delay 4
+			delay 8
 
 			set Options to the icon view options of container window
 			tell Options
@@ -51,16 +53,16 @@ echo '
 			end tell
 			set background picture of Options to file ".background:'$BACKGROUND_FILE_NAME'"
 
-			delay 4
+			delay 8
 
 			set position of item "'$APP_NAME'" of container window to {170, 220}
 			set position of item "Applications" of container window to {485, 220}
 
-			delay 4
+			delay 8
 
 			update without registering applications
 
-			delay 4
+			delay 8
 			close
 		end tell
 	end tell

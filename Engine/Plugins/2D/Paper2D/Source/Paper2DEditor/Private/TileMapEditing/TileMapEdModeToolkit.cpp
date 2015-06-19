@@ -2,11 +2,15 @@
 
 #include "Paper2DEditorPrivatePCH.h"
 #include "EdModeTileMap.h"
+#include "PaperTileMapComponent.h"
+#include "PaperTileSet.h"
+
 #include "TileMapEdModeToolkit.h"
-#include "../TileSetEditor.h"
+#include "TileSetEditor/TileSetSelectorViewport.h"
 #include "SContentReference.h"
-#include "PaperEditorCommands.h"
+#include "TileMapEditorCommands.h"
 #include "Engine/Selection.h"
+#include "SAssetDropTarget.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 
@@ -38,7 +42,7 @@ FText FTileMapEdModeToolkit::GetBaseToolkitName() const
 
 FText FTileMapEdModeToolkit::GetToolkitName() const
 {
-	if ( CurrentTileSetPtr.IsValid() )
+	if (CurrentTileSetPtr.IsValid())
 	{
 		const bool bDirtyState = CurrentTileSetPtr->GetOutermost()->IsDirty();
 
@@ -77,6 +81,44 @@ void FTileMapEdModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost
 
 	TileSetPalette = SNew(STileSetSelectorViewport, CurrentTileSetPtr.Get(), TileMapEditor);
 
+	TSharedRef<SWidget> TileSetPaletteWidget = SNew(SOverlay)
+		// The palette widget
+		+SOverlay::Slot()
+		[
+			SNew(SAssetDropTarget)
+			.OnIsAssetAcceptableForDrop(this, &FTileMapEdModeToolkit::OnAssetDraggedOver)
+			.OnAssetDropped(this, &FTileMapEdModeToolkit::OnChangeTileSet)
+			[
+				TileSetPalette.ToSharedRef()
+			]
+		]
+		// The no tile set selected warning text/button
+		+SOverlay::Slot()
+		.Padding(8.0f)
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Right)
+		[
+			SNew(SButton)
+			.ButtonStyle(FEditorStyle::Get(), "NoBorder")
+			.Visibility(this, &FTileMapEdModeToolkit::GetTileSetPaletteCornerTextVisibility)
+			.OnClicked(this, &FTileMapEdModeToolkit::ClickedOnTileSetPaletteCornerText)
+			.Content()
+			[
+				SNew(STextBlock)
+				.TextStyle(FPaperStyle::Get(), "TileMapEditor.TileSetPalette.NothingSelectedText")
+				.Text(LOCTEXT("NoTileSetSelected", "Pick a tile set"))
+				.ToolTipText(LOCTEXT("NoTileSetSelectedTooltip", "A tile set must be selected before painting the tile map.\nClick here to select one."))
+			]
+		];
+
+	TileSetAssetReferenceWidget = SNew(SContentReference)
+		.WidthOverride(ContentRefWidth)
+		.AssetReference(this, &FTileMapEdModeToolkit::GetCurrentTileSet)
+		.OnSetReference(this, &FTileMapEdModeToolkit::OnChangeTileSet)
+		.AllowedClass(UPaperTileSet::StaticClass())
+		.AllowSelectingNewAsset(true)
+		.AllowClearingReference(false);
+
 	// Create the contents of the editor mode toolkit
 	MyWidget = 
 		SNew(SBorder)
@@ -97,7 +139,6 @@ void FTileMapEdModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost
 			.VAlign(VAlign_Fill)
 			[
 				SNew(SVerticalBox)
-				.Visibility(this, &FTileMapEdModeToolkit::GetTileSetSelectorVisibility)
 
 				+SVerticalBox::Slot()
 				.AutoHeight()
@@ -106,23 +147,19 @@ void FTileMapEdModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.HAlign(HAlign_Left)
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("CurrentTileSetAssetToPaintWith", "Active Set"))
-					]
-					+SHorizontalBox::Slot()
 					.FillWidth(1.0f)
 					.HAlign(HAlign_Right)
+					.VAlign(VAlign_Center)
+					.Padding(FMargin(0.0f, 0.0f, 4.0f, 0.0f))
 					[
-						SNew(SContentReference)
-						.WidthOverride(ContentRefWidth)
-						.AssetReference(this, &FTileMapEdModeToolkit::GetCurrentTileSet)
-						.OnSetReference(this, &FTileMapEdModeToolkit::OnChangeTileSet)
-						.AllowedClass(UPaperTileSet::StaticClass())
-						.AllowSelectingNewAsset(true)
-						.AllowClearingReference(false)
+						SNew(STextBlock)
+						.Text(LOCTEXT("CurrentTileSetAssetToPaintWith", "Active Tile Set"))
+					]
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Right)
+					.AutoWidth()
+					[
+						TileSetAssetReferenceWidget.ToSharedRef()
 					]
 				]
 
@@ -135,7 +172,7 @@ void FTileMapEdModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost
 					+SHorizontalBox::Slot()
 					.HAlign(HAlign_Fill)
 					[
-						TileSetPalette.ToSharedRef()
+						TileSetPaletteWidget
 					]
 				]
 			]
@@ -175,36 +212,54 @@ UObject* FTileMapEdModeToolkit::GetCurrentTileSet() const
 
 void FTileMapEdModeToolkit::BindCommands()
 {
-	UICommandList = MakeShareable(new FUICommandList());
+	FTileMapEditorCommands::Register();
+	const FTileMapEditorCommands& Commands = FTileMapEditorCommands::Get();
 
-	const FPaperEditorCommands& Commands = FPaperEditorCommands::Get();
-
-	UICommandList->MapAction(
+	ToolkitCommands->MapAction(
 		Commands.SelectPaintTool,
 		FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::OnSelectTool, ETileMapEditorTool::Paintbrush),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &FTileMapEdModeToolkit::IsToolSelected, ETileMapEditorTool::Paintbrush) );
-	UICommandList->MapAction(
+	ToolkitCommands->MapAction(
 		Commands.SelectEraserTool,
 		FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::OnSelectTool, ETileMapEditorTool::Eraser),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &FTileMapEdModeToolkit::IsToolSelected, ETileMapEditorTool::Eraser) );
-	UICommandList->MapAction(
+	ToolkitCommands->MapAction(
 		Commands.SelectFillTool,
 		FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::OnSelectTool, ETileMapEditorTool::PaintBucket),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &FTileMapEdModeToolkit::IsToolSelected, ETileMapEditorTool::PaintBucket) );
+	ToolkitCommands->MapAction(
+		Commands.SelectEyeDropperTool,
+		FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::OnSelectTool, ETileMapEditorTool::EyeDropper),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FTileMapEdModeToolkit::IsToolSelected, ETileMapEditorTool::EyeDropper),
+		FIsActionButtonVisible::CreateSP(this, &FTileMapEdModeToolkit::IsToolSelected, ETileMapEditorTool::EyeDropper));
+	ToolkitCommands->MapAction(
+		Commands.SelectTerrainTool,
+		FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::OnSelectTool, ETileMapEditorTool::TerrainBrush),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FTileMapEdModeToolkit::IsToolSelected, ETileMapEditorTool::TerrainBrush),
+		FIsActionButtonVisible::CreateSP(this, &FTileMapEdModeToolkit::DoesSelectedTileSetHaveTerrains));
 
-	UICommandList->MapAction(
-		Commands.SelectVisualLayersPaintingMode,
-		FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::OnSelectLayerPaintingMode, ETileMapLayerPaintingMode::VisualLayers),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &FTileMapEdModeToolkit::IsLayerPaintingModeSelected, ETileMapLayerPaintingMode::VisualLayers) );
-	UICommandList->MapAction(
-		Commands.SelectCollisionLayersPaintingMode,
-		FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::OnSelectLayerPaintingMode, ETileMapLayerPaintingMode::CollisionLayers),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &FTileMapEdModeToolkit::IsLayerPaintingModeSelected, ETileMapLayerPaintingMode::CollisionLayers) );
+	// Selection actions
+	ToolkitCommands->MapAction(
+		Commands.FlipSelectionHorizontally,
+		FExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::FlipSelectionHorizontally),
+		FCanExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::HasValidSelection));
+	ToolkitCommands->MapAction(
+		Commands.FlipSelectionVertically,
+		FExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::FlipSelectionVertically),
+		FCanExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::HasValidSelection));
+	ToolkitCommands->MapAction(
+		Commands.RotateSelectionCW,
+		FExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::RotateSelectionCW),
+		FCanExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::HasValidSelection));
+	ToolkitCommands->MapAction(
+		Commands.RotateSelectionCCW,
+		FExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::RotateSelectionCCW),
+		FCanExecuteAction::CreateSP(TileMapEditor, &FEdModeTileMap::HasValidSelection));
 }
 
 void FTileMapEdModeToolkit::OnSelectTool(ETileMapEditorTool::Type NewTool)
@@ -217,38 +272,42 @@ bool FTileMapEdModeToolkit::IsToolSelected(ETileMapEditorTool::Type QueryTool) c
 	return (TileMapEditor->GetActiveTool() == QueryTool);
 }
 
-void FTileMapEdModeToolkit::OnSelectLayerPaintingMode(ETileMapLayerPaintingMode::Type NewMode)
+bool FTileMapEdModeToolkit::DoesSelectedTileSetHaveTerrains() const
 {
-	TileMapEditor->SetActiveLayerPaintingMode(NewMode);
-}
-
-bool FTileMapEdModeToolkit::IsLayerPaintingModeSelected(ETileMapLayerPaintingMode::Type PaintingMode) const
-{
-	return (TileMapEditor->GetActiveLayerPaintingMode() == PaintingMode);
-}
-
-EVisibility FTileMapEdModeToolkit::GetTileSetSelectorVisibility() const
-{
-	bool bShouldShowSelector = (TileMapEditor->GetActiveLayerPaintingMode() == ETileMapLayerPaintingMode::VisualLayers);
-	
-	return bShouldShowSelector ? EVisibility::Visible : EVisibility::Collapsed;
+	if (UPaperTileSet* CurrentTileSet = CurrentTileSetPtr.Get())
+	{
+		return CurrentTileSet->GetNumTerrains() > 0;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 TSharedRef<SWidget> FTileMapEdModeToolkit::BuildToolBar() const
 {
-	const FPaperEditorCommands& Commands = FPaperEditorCommands::Get();
+	const FTileMapEditorCommands& Commands = FTileMapEditorCommands::Get();
 
-	FToolBarBuilder ToolsToolbar(UICommandList, FMultiBoxCustomization::None);
+	FToolBarBuilder SelectionFlipToolsToolbar(ToolkitCommands, FMultiBoxCustomization::None, TSharedPtr<FExtender>(), Orient_Horizontal, /*bForceSmallIcons=*/ true);
 	{
+		SelectionFlipToolsToolbar.AddToolBarButton(Commands.FlipSelectionHorizontally, NAME_None, LOCTEXT("FlipHorizontalShortLabel", "|X"));
+		SelectionFlipToolsToolbar.AddToolBarButton(Commands.FlipSelectionVertically, NAME_None, LOCTEXT("FlipVerticalShortLabel", "|Y"));
+		SelectionFlipToolsToolbar.AddToolBarButton(Commands.RotateSelectionCW, NAME_None, LOCTEXT("RotateClockwiseShortLabel", "CW"));
+		SelectionFlipToolsToolbar.AddToolBarButton(Commands.RotateSelectionCCW, NAME_None, LOCTEXT("RotateCounterclockwiseShortLabel", "CCW"));
+	}
+
+	FToolBarBuilder ToolsToolbar(ToolkitCommands, FMultiBoxCustomization::None);
+	{
+		ToolsToolbar.AddToolBarButton(Commands.SelectEyeDropperTool);
 		ToolsToolbar.AddToolBarButton(Commands.SelectPaintTool);
 		ToolsToolbar.AddToolBarButton(Commands.SelectEraserTool);
 		ToolsToolbar.AddToolBarButton(Commands.SelectFillTool);
-	}
+		ToolsToolbar.AddToolBarButton(Commands.SelectTerrainTool);
 
-	FToolBarBuilder PaintingModeToolbar(UICommandList, FMultiBoxCustomization::None);
-	{
-		PaintingModeToolbar.AddToolBarButton(Commands.SelectVisualLayersPaintingMode);
-		PaintingModeToolbar.AddToolBarButton(Commands.SelectCollisionLayersPaintingMode);
+		//@TODO: TileMapTerrain: Ugly styling
+		FUIAction TerrainTypeDropdownAction;
+		TerrainTypeDropdownAction.IsActionVisibleDelegate = FIsActionButtonVisible::CreateSP(this, &FTileMapEdModeToolkit::DoesSelectedTileSetHaveTerrains);
+		ToolsToolbar.AddComboButton(TerrainTypeDropdownAction, FOnGetContent::CreateSP(this, &FTileMapEdModeToolkit::GenerateTerrainMenu));
 	}
 
 	return
@@ -257,20 +316,22 @@ TSharedRef<SWidget> FTileMapEdModeToolkit::BuildToolBar() const
 		+SHorizontalBox::Slot()
 		.FillWidth(1.f)
 		.HAlign(HAlign_Left)
-		.Padding(4,0)
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f)
 		[
 			SNew(SBorder)
 			.Padding(0)
 			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
 			.IsEnabled( FSlateApplication::Get().GetNormalExecutionAttribute() )
 			[
-				PaintingModeToolbar.MakeWidget()
+				SelectionFlipToolsToolbar.MakeWidget()
 			]
 		]
 
 		+SHorizontalBox::Slot()
 		.AutoWidth()
-		.Padding(4,0)
+		.HAlign(HAlign_Right)
+		.Padding(4.0f, 0.0f)
 		[
 			SNew(SBorder)
 			.Padding(0)
@@ -280,6 +341,56 @@ TSharedRef<SWidget> FTileMapEdModeToolkit::BuildToolBar() const
 				ToolsToolbar.MakeWidget()
 			]
 		];
+}
+
+TSharedRef<SWidget> FTileMapEdModeToolkit::GenerateTerrainMenu()
+{
+	FMenuBuilder TerrainMenu(/*bInShouldCloseWindowAfterMenuSelection=*/ true, ToolkitCommands);
+
+	if (UPaperTileSet* TileSet = CurrentTileSetPtr.Get())
+	{
+		const FText MenuHeading = FText::Format(LOCTEXT("TerrainMenu", "Terrain types for {0}"), FText::AsCultureInvariant(TileSet->GetName()));
+		TerrainMenu.BeginSection(NAME_None, MenuHeading);
+
+		for (int32 TerrainIndex = 0; TerrainIndex < TileSet->GetNumTerrains(); ++TerrainIndex)
+		{
+			FPaperTileSetTerrain TerrainInfo = TileSet->GetTerrain(TerrainIndex);
+
+			const FText TerrainName = FText::AsCultureInvariant(TerrainInfo.TerrainName);
+			const FText TerrainLabel = FText::Format(LOCTEXT("TerrainLabel", "Terrain '{0}'"), TerrainName);
+			const FText TerrainTooltip = FText::Format(LOCTEXT("TerrainTooltip", "Change the active terrain brush type to '{0}'"), TerrainName);
+			FUIAction TerrainSwitchAction(FExecuteAction::CreateSP(this, &FTileMapEdModeToolkit::SetTerrainBrush, TerrainIndex));
+
+			TerrainMenu.AddMenuEntry(TerrainLabel, TerrainTooltip, FSlateIcon(), TerrainSwitchAction);
+		}
+
+		TerrainMenu.EndSection();
+	}
+
+	return TerrainMenu.MakeWidget();
+}
+
+void FTileMapEdModeToolkit::SetTerrainBrush(int32 NewTerrainTypeIndex)
+{
+	//@TODO: TileMapTerrain: Do something here...
+	UE_LOG(LogInit, Warning, TEXT("Set terrain brush to %d"), NewTerrainTypeIndex);
+}
+
+EVisibility FTileMapEdModeToolkit::GetTileSetPaletteCornerTextVisibility() const
+{
+	return (GetCurrentTileSet() != nullptr) ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+FReply FTileMapEdModeToolkit::ClickedOnTileSetPaletteCornerText()
+{
+	TileSetAssetReferenceWidget->OpenAssetPickerMenu();
+
+	return FReply::Handled();
+}
+
+bool FTileMapEdModeToolkit::OnAssetDraggedOver(const UObject* InObject) const
+{
+	return Cast<UPaperTileSet>(InObject) != nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////

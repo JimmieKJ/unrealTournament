@@ -1,7 +1,7 @@
 Build scripts for native Linux build
 ====================================
 
-This document describes how to build Unreal Engine 4.6 natively on a Linux host. 
+This document describes how to build Unreal Engine 4.8 natively on a Linux host. 
 The steps are described here are applicable to the current build, but you may
 want to visit https://wiki.unrealengine.com/Building_On_Linux for the
 latest updates on the process.
@@ -23,11 +23,8 @@ distributions only (Debian itself, (K)Ubuntu and Linux Mint).
 
 Most important dependencies:
 - mono 3.x (2.x may work, but is not recommended), including xbuild and C# compiler (*mcs), and libraries for NET 4.0 framework.
-- clang 3.3 (clang 3.5.0 is also supported, but NOT clang 3.4).
-- python (2 or 3) - needed for the script that downloads the binary dependencies.
-- Qt(4,5) or GTK development packages to build LinuxNativeDialogs.
-- SDL2 is also needed for building LinuxNativeDialogs module, but the rest
-of the engine is using our own (modified) version of it from Engine/Source/ThirdParty/SDL2.
+- clang 3.5.0 (clang 3.6 and 3.3 are also supported, but NOT clang 3.4).
+- For non-Ubuntu OSes: Qt(4,5) or GTK development packages to build LinuxNativeDialogs.
 
 You will also need at least 20 GB of free disk space and a relatively powerful
 machine.
@@ -52,7 +49,7 @@ How to set up the sources for building, step by step:
 
 1. Clone EpicGames/UnrealEngine repository
 
-    ``git clone https://github.com/EpicGames/UnrealEngine -b 4.6``
+    ``git clone https://github.com/EpicGames/UnrealEngine -b 4.8``
     
 2. Run Setup.sh once.
 
@@ -81,16 +78,21 @@ registered as a post-merge hook by Setup.sh, so third party libraries will be up
 Building and running
 --------------------
 
-GenerateProjectFiles.sh also produces both makefile and CMakeLists.txt which you can use to import the
-project in your favorite IDE. KDevelop 4.6+ is known to handle the project well 
-(it takes about 3-4 GB of resident RAM to load the project though).
+GenerateProjectFiles.sh produces a number of "project" files, including Makefile, CMakeLists.txt which you can use to import the
+project in your favorite IDE and qmake project file. Both QtCreator and KDevelop 4.6+ are known to handle the project well 
+(although the latter takes about 3-4 GB of resident RAM to load the project).
 
 The targets match the name of the resulting binary, e.g. UE4Editor-Linux-Debug or UE4Game. You can build them
 by just typing make <target> in the engine's root folder.
 
-Specifically, to be able to run the editor, build the following targets:
+4.8 and later versions have simplified building the editor by providing makefile targets "StandardSet" and "DebugSet", the former
+being the default. You can now just type
 
-    make ShaderCompileWorker UnrealLightmass UnrealPak UE4Editor
+    make
+
+to build the editor. Alternatively, build the following targets:
+
+    make CrashReportClient ShaderCompileWorker UnrealLightmass UnrealPak UE4Editor
 
 If you intend to develop the editor, you can build a debug configuration of it:
 
@@ -133,7 +135,8 @@ Depending on the project, the editor may need rather large number of file handle
 you may need to adjust your limits.
 
 It is advised that you install the editor on a case insensitive filesystem if you
-intend to open projects from other systems (OS X and Windows), or Marketplace.
+intend to open projects from other systems (OS X and Windows), or Marketplace. JFS formatted
+with -O option seems to be the best solution.
 
 The time it takes to build the editor in development configuration can be large,
 debug configuration takes about 2/3 of this time. The build process can also take 

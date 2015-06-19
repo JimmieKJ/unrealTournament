@@ -535,8 +535,7 @@ private:
 				UE_CLOG(0/*MONITOR_LINK_ALLOCATION*/,LogLockFreeList, Log, TEXT("Number of links %d"),NumUsedLinks.GetValue());
 			}
 
-			FLink*  NewLink = nullptr;
-			NewLink = FLink::Unlink(&FreeLinks);
+			FLink*  NewLink = FLink::Unlink(&FreeLinks);
 			if (NewLink)
 			{
 				NumFreeLinks.Decrement();

@@ -41,7 +41,10 @@ namespace EBuildPatchInstallError
 		UserCanceled = 7,
 
 		// A prerequisites installer failed
-		PrerequisiteError = 8
+		PrerequisiteError = 8,
+
+		// An initialization error
+		InitializationError = 9
 	};
 };
 

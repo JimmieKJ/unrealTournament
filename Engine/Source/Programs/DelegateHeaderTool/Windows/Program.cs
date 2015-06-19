@@ -117,6 +117,7 @@ namespace DelegateHeaderTool
 			Output.WriteLine( "" );
 
 			var DefineFuncSuffix = new StringBuilder( "#define FUNC_SUFFIX " );
+            var DefineRetvalTypedef = new StringBuilder( "#define FUNC_RETVAL_TYPEDEF " );
 			var DefineTemplateDecl = new StringBuilder( "#define FUNC_TEMPLATE_DECL " );
 			var DefineTemplateDeclTypename = new StringBuilder( "#define FUNC_TEMPLATE_DECL_TYPENAME " );
 			var DefineTemplateDeclNoShadow = new StringBuilder( "#define FUNC_TEMPLATE_DECL_NO_SHADOW " );
@@ -238,13 +239,13 @@ namespace DelegateHeaderTool
             DefineDeclareEvent.AppendFormat(" ) FUNC_DECLARE_EVENT( OwningType, EventName, {0}", FuncSuffix);
 			if( bSupportsRetVal )
 			{
-				DefineDeclareDynamicDelegate.AppendFormat( " ) FUNC_DECLARE_DYNAMIC_DELEGATE_RETVAL( {0}, {1}, DelegateName, DelegateName##_DelegateWrapper", DynamicDelegateDefaultPtr, FuncSuffix );
+				DefineDeclareDynamicDelegate.AppendFormat(" ) BODY_MACRO_COMBINE(CURRENT_FILE_ID,_,__LINE__,_DELEGATE) FUNC_DECLARE_DYNAMIC_DELEGATE_RETVAL( {0}, {1}, DelegateName, DelegateName##_DelegateWrapper", DynamicDelegateDefaultPtr, FuncSuffix);
 			}
 			else
 			{
-				DefineDeclareDynamicDelegate.AppendFormat( " ) FUNC_DECLARE_DYNAMIC_DELEGATE( {0}, {1}, DelegateName, DelegateName##_DelegateWrapper", DynamicDelegateDefaultPtr, FuncSuffix );
+				DefineDeclareDynamicDelegate.AppendFormat(" ) BODY_MACRO_COMBINE(CURRENT_FILE_ID,_,__LINE__,_DELEGATE) FUNC_DECLARE_DYNAMIC_DELEGATE( {0}, {1}, DelegateName, DelegateName##_DelegateWrapper", DynamicDelegateDefaultPtr, FuncSuffix);
 			}
-			DefineDeclareDynamicMulticastDelegate.AppendFormat( " ) FUNC_DECLARE_DYNAMIC_MULTICAST_DELEGATE( {0}, {1}, DelegateName, DelegateName##_DelegateWrapper", DynamicDelegateDefaultPtr, FuncSuffix );
+			DefineDeclareDynamicMulticastDelegate.AppendFormat(" ) BODY_MACRO_COMBINE(CURRENT_FILE_ID,_,__LINE__,_DELEGATE) FUNC_DECLARE_DYNAMIC_MULTICAST_DELEGATE( {0}, {1}, DelegateName, DelegateName##_DelegateWrapper", DynamicDelegateDefaultPtr, FuncSuffix);
 
 			if( bSupportsRetVal )
 			{
@@ -291,6 +292,7 @@ namespace DelegateHeaderTool
 			{
 				DefineDeclareDelegate.Append( ", RetValType" );
 				DefineDeclareDynamicDelegate.Append( ", RetValType" );
+                DefineRetvalTypedef.Append( " typedef RetValType RetValType;" );
 			}
 			else
 			{
@@ -324,6 +326,7 @@ namespace DelegateHeaderTool
 			DefineTemplateArgs.Append( TemplateArgs );
 
 			Output.WriteLine( DefineFuncSuffix );
+            Output.WriteLine( DefineRetvalTypedef );
 			Output.WriteLine( DefineTemplateDecl );
 			Output.WriteLine( DefineTemplateDeclTypename );
             Output.WriteLine( DefineTemplateDeclNoShadow );

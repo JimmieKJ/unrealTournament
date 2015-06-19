@@ -12,8 +12,9 @@
 #include "LandscapeSplineProxies.h"
 #include "LandscapeEditorModule.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "LandscapeEdMode.h"
 #include "LandscapeEdModeTools.h"
-#include "Foliage/InstancedFoliageActor.h"
+#include "InstancedFoliageActor.h"
 #include "ComponentReregisterContext.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 
@@ -682,11 +683,7 @@ public:
 					// Need to move or recreate all related data (Height map, Weight map, maybe collision components, allocation info)
 
 					// Move any foliage associated
-					AInstancedFoliageActor* OldIFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(Component->GetLandscapeProxy()->GetLevel());
-					if (OldIFA)
-					{
-						OldIFA->MoveInstancesForComponentToCurrentLevel(Component);
-					}
+					AInstancedFoliageActor::MoveInstancesForComponentToCurrentLevel(Component);
 
 					Component->GetLandscapeProxy()->CollisionComponents.Remove(Component);
 					Component->UnregisterComponent();
@@ -814,12 +811,12 @@ public:
 			{
 				for (int32 ComponentIndexX = ComponentIndexX1; ComponentIndexX <= ComponentIndexX2; ComponentIndexX++)
 				{
-					ULandscapeComponent* Component = LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX, ComponentIndexY));
-					if (!Component)
+					ULandscapeComponent* LandscapeComponent = LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX, ComponentIndexY));
+					if (!LandscapeComponent)
 					{
 						// Add New component...
 						FIntPoint ComponentBase = FIntPoint(ComponentIndexX, ComponentIndexY)*Landscape->ComponentSizeQuads;
-						ULandscapeComponent* LandscapeComponent = ConstructObject<ULandscapeComponent>(ULandscapeComponent::StaticClass(), Landscape, NAME_None, RF_Transactional);
+						LandscapeComponent = NewObject<ULandscapeComponent>(Landscape, NAME_None, RF_Transactional);
 						Landscape->LandscapeComponents.Add(LandscapeComponent);
 						NewComponents.Add(LandscapeComponent);
 						LandscapeComponent->Init(
@@ -844,6 +841,9 @@ public:
 						HeightData.AddZeroed(FMath::Square(ComponentVerts));
 						LandscapeComponent->InitHeightmapData(HeightData, true);
 						LandscapeComponent->UpdateMaterialInstances();
+
+						LandscapeInfo->XYtoComponentMap.Add(FIntPoint(ComponentIndexX, ComponentIndexY), LandscapeComponent);
+						LandscapeInfo->XYtoAddCollisionMap.Remove(FIntPoint(ComponentIndexX, ComponentIndexY));
 					}
 				}
 			}
@@ -863,13 +863,13 @@ public:
 			HeightCache.SetCachedData(X1, Y1, X2, Y2, Data);
 			HeightCache.Flush();
 
-			for (int32 Idx = 0; Idx < NewComponents.Num(); Idx++)
+			for (ULandscapeComponent* NewComponent : NewComponents)
 			{
 				// Update Collision
-				NewComponents[Idx]->UpdateCachedBounds();
-				NewComponents[Idx]->UpdateBounds();
-				NewComponents[Idx]->MarkRenderStateDirty();
-				ULandscapeHeightfieldCollisionComponent* CollisionComp = NewComponents[Idx]->CollisionComponent.Get();
+				NewComponent->UpdateCachedBounds();
+				NewComponent->UpdateBounds();
+				NewComponent->MarkRenderStateDirty();
+				ULandscapeHeightfieldCollisionComponent* CollisionComp = NewComponent->CollisionComponent.Get();
 				if (CollisionComp && !bHasXYOffset)
 				{
 					CollisionComp->MarkRenderStateDirty();
@@ -906,6 +906,13 @@ public:
 
 	virtual void SetEditRenderType() override { GLandscapeEditRenderMode = ELandscapeEditRenderMode::None | (GLandscapeEditRenderMode & ELandscapeEditRenderMode::BitMaskForMask); }
 	virtual bool SupportsMask() override { return false; }
+
+	virtual void EnterTool() override
+	{
+		FLandscapeToolBase<FLandscapeToolStrokeAddComponent>::EnterTool();
+		ULandscapeInfo* LandscapeInfo = EdMode->CurrentToolTarget.LandscapeInfo.Get();
+		LandscapeInfo->UpdateAllAddCollisions(); // Todo - as this is only used by this tool, move it into this tool?
+	}
 
 	virtual void ExitTool() override
 	{
@@ -986,7 +993,16 @@ public:
 				ALandscape::SplitHeightmap(Component, false);
 			}
 
-			TArray<FIntPoint> DeletedNeighborKeys;
+			// Remove attached foliage
+			for (TSet<ULandscapeComponent*>::TIterator It(SelectedComponents); It; ++It)
+			{
+				ULandscapeHeightfieldCollisionComponent* CollisionComp = (*It)->CollisionComponent.Get();
+				if (CollisionComp)
+				{
+					AInstancedFoliageActor::DeleteInstancesForComponent(ViewportClient->GetWorld(), CollisionComp);
+				}
+			}
+
 			// Check which ones are need for height map change
 			for (TSet<ULandscapeComponent*>::TIterator It(SelectedComponents); It; ++It)
 			{
@@ -997,7 +1013,7 @@ public:
 
 				// Reset neighbors LOD information
 				FIntPoint ComponentBase = Component->GetSectionBase() / Component->ComponentSizeQuads;
-				FIntPoint LandscapeKey[8] =
+				FIntPoint NeighborKeys[8] =
 				{
 					ComponentBase + FIntPoint(-1, -1),
 					ComponentBase + FIntPoint(+0, -1),
@@ -1009,13 +1025,15 @@ public:
 					ComponentBase + FIntPoint(+1, +1)
 				};
 
-				for (int32 Idx = 0; Idx < 8; ++Idx)
+				for (const FIntPoint& NeighborKey : NeighborKeys)
 				{
-					ULandscapeComponent* NeighborComp = LandscapeInfo->XYtoComponentMap.FindRef(LandscapeKey[Idx]);
+					ULandscapeComponent* NeighborComp = LandscapeInfo->XYtoComponentMap.FindRef(NeighborKey);
 					if (NeighborComp)
 					{
 						NeighborComp->Modify();
 						NeighborComp->InvalidateLightingCache();
+
+						// is this really needed? It can happen multiple times per component and even for components about to be deleted!
 						FComponentReregisterContext ReregisterContext(NeighborComp);
 					}
 				}
@@ -1053,16 +1071,6 @@ public:
 					Component->XYOffsetmapTexture->ClearFlags(RF_Standalone);
 				}
 
-				FIntPoint Key = Component->GetSectionBase() / Component->ComponentSizeQuads;
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(-1, -1));
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(+0, -1));
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(+1, -1));
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(-1, +0));
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(+1, +0));
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(-1, +1));
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(+0, +1));
-				DeletedNeighborKeys.AddUnique(Key + FIntPoint(+1, +1));
-
 				ULandscapeHeightfieldCollisionComponent* CollisionComp = Component->CollisionComponent.Get();
 				if (CollisionComp)
 				{
@@ -1070,26 +1078,6 @@ public:
 				}
 				Component->DestroyComponent();
 			}
-
-			// Update AddCollisions...
-			for (int32 i = 0; i < DeletedNeighborKeys.Num(); ++i)
-			{
-				LandscapeInfo->XYtoAddCollisionMap.Remove(DeletedNeighborKeys[i]);
-			}
-
-			for (int32 i = 0; i < DeletedNeighborKeys.Num(); ++i)
-			{
-				ULandscapeComponent* Component = LandscapeInfo->XYtoComponentMap.FindRef(DeletedNeighborKeys[i]);
-				if (Component)
-				{
-					ULandscapeHeightfieldCollisionComponent* CollisionComp = Component->CollisionComponent.Get();
-					if (CollisionComp)
-					{
-						CollisionComp->UpdateAddCollisions();
-					}
-				}
-			}
-
 
 			// Remove Selection
 			LandscapeInfo->ClearSelectedRegion(true);
@@ -1834,7 +1822,7 @@ public:
 	virtual const TCHAR* GetToolName() override { return TEXT("CopyPaste"); }
 	virtual FText GetDisplayName() override { return NSLOCTEXT("UnrealEd", "LandscapeMode_Region", "Region Copy/Paste"); };
 
-	virtual void EnterTool()
+	virtual void EnterTool() override
 	{
 		// Make sure gizmo actor is selected
 		ALandscapeGizmoActiveActor* Gizmo = this->EdMode->CurrentGizmoActor.Get();
@@ -1914,29 +1902,29 @@ public:
 	virtual void SetEditRenderType() override { GLandscapeEditRenderMode = ELandscapeEditRenderMode::None | (GLandscapeEditRenderMode & ELandscapeEditRenderMode::BitMaskForMask); }
 	virtual bool SupportsMask() override { return false; }
 
-	virtual void EnterTool()
+	virtual void EnterTool() override
 	{
 		EdMode->NewLandscapePreviewMode = NewLandscapePreviewMode;
 	}
 
-	virtual void ExitTool()
+	virtual void ExitTool() override
 	{
 		NewLandscapePreviewMode = EdMode->NewLandscapePreviewMode;
 		EdMode->NewLandscapePreviewMode = ENewLandscapePreviewMode::None;
 	}
 
-	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation)
+	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation) override
 	{
 		// does nothing
 		return false;
 	}
 
-	virtual void EndTool(FEditorViewportClient* ViewportClient)
+	virtual void EndTool(FEditorViewportClient* ViewportClient) override
 	{
 		// does nothing
 	}
 
-	virtual bool MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 x, int32 y)
+	virtual bool MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 x, int32 y) override
 	{
 		// does nothing
 		return false;
@@ -1964,7 +1952,7 @@ public:
 	virtual void SetEditRenderType() override { GLandscapeEditRenderMode = ELandscapeEditRenderMode::None | (GLandscapeEditRenderMode & ELandscapeEditRenderMode::BitMaskForMask); }
 	virtual bool SupportsMask() override { return false; }
 
-	virtual void EnterTool()
+	virtual void EnterTool() override
 	{
 		const int32 ComponentSizeQuads = EdMode->CurrentToolTarget.LandscapeInfo->ComponentSizeQuads;
 		int32 MinX, MinY, MaxX, MaxY;
@@ -1985,22 +1973,22 @@ public:
 		EdMode->UISettings->ResizeLandscape_SectionsPerComponent = EdMode->UISettings->ResizeLandscape_Original_SectionsPerComponent;
 	}
 
-	virtual void ExitTool()
+	virtual void ExitTool() override
 	{
 	}
 
-	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation)
+	virtual bool BeginTool(FEditorViewportClient* ViewportClient, const FLandscapeToolTarget& Target, const FVector& InHitLocation) override
 	{
 		// does nothing
 		return false;
 	}
 
-	virtual void EndTool(FEditorViewportClient* ViewportClient)
+	virtual void EndTool(FEditorViewportClient* ViewportClient) override
 	{
 		// does nothing
 	}
 
-	virtual bool MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 x, int32 y)
+	virtual bool MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 x, int32 y) override
 	{
 		// does nothing
 		return false;

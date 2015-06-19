@@ -2,6 +2,7 @@
 
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "SBehaviorTreeBlackboardView.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardData.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyAllTypes.h"
 #include "SGraphActionMenu.h"
@@ -13,6 +14,7 @@
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
 #include "SInlineEditableTextBlock.h"
+#include "AssetRegistryModule.h"
 
 #define LOCTEXT_NAMESPACE "SBehaviorTreeBlackboardView"
 
@@ -25,37 +27,33 @@ namespace EBlackboardSectionTitles
 	};
 }
 
+FName FEdGraphSchemaAction_BlackboardEntry::StaticGetTypeId() 
+{ 
+	static FName Type("FEdGraphSchemaAction_BlackboardEntry"); return Type; 
+}
 
-class FEdGraphSchemaAction_BlackboardEntry : public FEdGraphSchemaAction_Dummy
+FName FEdGraphSchemaAction_BlackboardEntry::GetTypeId() const 
+{ 
+	return StaticGetTypeId(); 
+}
+
+FEdGraphSchemaAction_BlackboardEntry::FEdGraphSchemaAction_BlackboardEntry( UBlackboardData* InBlackboardData, FBlackboardEntry& InKey, bool bInIsInherited )
+	: FEdGraphSchemaAction_Dummy()
+	, BlackboardData(InBlackboardData)
+	, Key(InKey)
+	, bIsInherited(bInIsInherited)
+	, bIsNew(false)
 {
-public:
-	static FName StaticGetTypeId() { static FName Type("FEdGraphSchemaAction_BlackboardEntry"); return Type; }
-	virtual FName GetTypeId() const override { return StaticGetTypeId(); }
+	check(BlackboardData);
+	Update();
+}
 
-	FEdGraphSchemaAction_BlackboardEntry( UBlackboardData* InBlackboardData, FBlackboardEntry& InKey, bool bInIsInherited )
-		: FEdGraphSchemaAction_Dummy()
-		, BlackboardData(InBlackboardData)
-		, Key(InKey)
-		, bIsInherited(bInIsInherited)
-	{
-		check(BlackboardData);
-		Update();
-	}
-
-	void Update()
-	{
-		MenuDescription = FText::FromName(Key.EntryName);
-		TooltipDescription = FText::Format(LOCTEXT("BlackboardEntryFormat", "{0} '{1}'"), Key.KeyType ? Key.KeyType->GetClass()->GetDisplayNameText() : LOCTEXT("NullKeyDesc", "None"), FText::FromName(Key.EntryName)).ToString();
-		SectionID = bIsInherited ? EBlackboardSectionTitles::InheritedKeys : EBlackboardSectionTitles::Keys;	
-	}
-
-	UBlackboardData* BlackboardData;
-
-	FBlackboardEntry& Key;
-
-	bool bIsInherited;
-};
-
+void FEdGraphSchemaAction_BlackboardEntry::Update()
+{
+	MenuDescription = FText::FromName(Key.EntryName);
+	TooltipDescription = FText::Format(LOCTEXT("BlackboardEntryFormat", "{0} '{1}'"), Key.KeyType ? Key.KeyType->GetClass()->GetDisplayNameText() : LOCTEXT("NullKeyDesc", "None"), FText::FromName(Key.EntryName)).ToString();
+	SectionID = bIsInherited ? EBlackboardSectionTitles::InheritedKeys : EBlackboardSectionTitles::Keys;	
+}
 
 class SBehaviorTreeBlackboardItem : public SGraphPaletteItem
 {
@@ -181,17 +179,112 @@ private:
 		check(ActionPtr.Pin()->GetTypeId() == FEdGraphSchemaAction_BlackboardEntry::StaticGetTypeId());
 		TSharedPtr<FEdGraphSchemaAction_BlackboardEntry> BlackboardEntryAction = StaticCastSharedPtr<FEdGraphSchemaAction_BlackboardEntry>(ActionPtr.Pin());
 
+		FName OldName = BlackboardEntryAction->Key.EntryName;
 		FName NewName = FName(*NewText.ToString());
-		if(NewName != BlackboardEntryAction->Key.EntryName)
+		if(NewName != OldName)
 		{
+			if(!BlackboardEntryAction->bIsNew)
+			{
+				// Preload behavior trees before we transact otherwise they will add objects to 
+				// the transaction buffer whether we change them or not.
+				// Blueprint regeneration does this in UEdGraphNode::CreatePin.
+				LoadAllBehaviorTrees();
+			}
+
 			const FScopedTransaction Transaction(LOCTEXT("BlackboardEntryRenameTransaction", "Rename Blackboard Entry"));
 			BlackboardEntryAction->BlackboardData->SetFlags(RF_Transactional);
 			BlackboardEntryAction->BlackboardData->Modify();
-			BlackboardEntryAction->Key.EntryName = FName(*NewText.ToString());
+			BlackboardEntryAction->Key.EntryName = NewName;
 
 			BlackboardEntryAction->Update();
 
 			OnBlackboardKeyChanged.ExecuteIfBound(BlackboardEntryAction->BlackboardData, &BlackboardEntryAction->Key);
+
+			if(!BlackboardEntryAction->bIsNew)
+			{
+				UpdateExternalBlackboardKeyReferences(OldName, NewName);
+			}
+		}
+
+		BlackboardEntryAction->bIsNew = false;
+	}
+
+	void LoadAllBehaviorTrees()
+	{
+		FAssetRegistryModule& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+		FARFilter Filter;
+		Filter.ClassNames.Add(UBehaviorTree::StaticClass()->GetFName());
+		Filter.bRecursiveClasses = true;
+
+		TArray<FAssetData> AssetData;
+		AssetRegistry.Get().GetAssets(Filter, AssetData);
+
+		FScopedSlowTask SlowTask((float)AssetData.Num(), LOCTEXT("UpdatingBehaviorTrees", "Updating behavior trees"));
+		SlowTask.MakeDialog();
+
+		for (const auto& BehaviorTreeAsset : AssetData)
+		{
+			SlowTask.EnterProgressFrame(1.0f, FText::Format(LOCTEXT("CheckingBehaviorTree", "Key renamed, loading {0}"), FText::FromName(BehaviorTreeAsset.AssetName)));
+			BehaviorTreeAsset.GetAsset();
+		}
+	}
+
+	#define GET_STRUCT_NAME_CHECKED(StructName) \
+		((void)sizeof(StructName), TEXT(#StructName))
+
+	void UpdateExternalBlackboardKeyReferences(const FName& OldKey, const FName& NewKey) const
+	{
+		// update all behavior trees that reference this key
+		check(ActionPtr.Pin()->GetTypeId() == FEdGraphSchemaAction_BlackboardEntry::StaticGetTypeId());
+		TSharedPtr<FEdGraphSchemaAction_BlackboardEntry> BlackboardEntryAction = StaticCastSharedPtr<FEdGraphSchemaAction_BlackboardEntry>(ActionPtr.Pin());
+
+		FAssetRegistryModule& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+		FARFilter Filter;
+		Filter.ClassNames.Add(UBehaviorTree::StaticClass()->GetFName());
+		Filter.bRecursiveClasses = true;
+
+		TArray<FAssetData> AssetData;
+		AssetRegistry.Get().GetAssets(Filter, AssetData);
+
+		for (const auto& BehaviorTreeAsset : AssetData)
+		{
+			UBehaviorTree* BehaviorTree = Cast<UBehaviorTree>(BehaviorTreeAsset.GetAsset());
+			if(BehaviorTree)
+			{
+				if(BehaviorTree->BlackboardAsset == BlackboardEntryAction->BlackboardData)
+				{
+					UPackage* BehaviorTreePackage = BehaviorTreeAsset.GetPackage();
+					if(BehaviorTreePackage)
+					{
+						// search all subobjects of this package for FBlackboardKeySelector structs and update as necessary
+						TArray<UObject*> Objects;
+						GetObjectsWithOuter(BehaviorTreePackage, Objects);
+						for(const auto& SubObject : Objects)
+						{
+							for (UProperty* Property = SubObject->GetClass()->PropertyLink; Property; Property = Property->PropertyLinkNext)
+							{
+								uint8* PropertyData = Property->ContainerPtrToValuePtr<uint8>(SubObject);
+								UStructProperty* StructProperty = Cast<UStructProperty>(Property);
+
+								if (StructProperty && StructProperty->GetCPPType(NULL, CPPF_None).Contains(GET_STRUCT_NAME_CHECKED(FBlackboardKeySelector)))
+								{
+									FBlackboardKeySelector* PropertyValue = (FBlackboardKeySelector*)PropertyData;
+									if(PropertyValue)
+									{
+										if(PropertyValue->SelectedKeyName == OldKey)
+										{
+											SubObject->Modify();
+											PropertyValue->SelectedKeyName = NewKey;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -420,13 +513,16 @@ FText SBehaviorTreeBlackboardView::HandleGetSectionTitle(int32 SectionID) const
 	return FText();
 }
 
-void SBehaviorTreeBlackboardView::HandleActionSelected(const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions) const
+void SBehaviorTreeBlackboardView::HandleActionSelected(const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions, ESelectInfo::Type InSelectionType) const
 {
-	if(SelectedActions.Num() > 0)
+	if (InSelectionType == ESelectInfo::OnMouseClick  || InSelectionType == ESelectInfo::OnKeyPress || SelectedActions.Num() == 0)
 	{
-		check(SelectedActions[0]->GetTypeId() == FEdGraphSchemaAction_BlackboardEntry::StaticGetTypeId());
-		TSharedPtr<FEdGraphSchemaAction_BlackboardEntry> BlackboardEntry = StaticCastSharedPtr<FEdGraphSchemaAction_BlackboardEntry>(SelectedActions[0]);
-		OnEntrySelected.ExecuteIfBound(&BlackboardEntry->Key, BlackboardEntry->bIsInherited);
+		if(SelectedActions.Num() > 0)
+		{
+			check(SelectedActions[0]->GetTypeId() == FEdGraphSchemaAction_BlackboardEntry::StaticGetTypeId());
+			TSharedPtr<FEdGraphSchemaAction_BlackboardEntry> BlackboardEntry = StaticCastSharedPtr<FEdGraphSchemaAction_BlackboardEntry>(SelectedActions[0]);
+			OnEntrySelected.ExecuteIfBound(&BlackboardEntry->Key, BlackboardEntry->bIsInherited);
+		}
 	}
 }
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See https://www.facebook.com/groups/303159406399348/permalink/410968105618477/ -->
+<!-- @generated SignedSource<<5de8446e419971d65d2c099cf156b7e9>> -->
+<!-- @nolint -->
+<!-- @mobile export_name="fbandroid 2015-03-14 at 04:58:55 GMT" locale="de_DE" lib_name="vr-lib" -->
+
+<resources>
+    <string name="swipe_to_browse">Zum Browsen wischen</string>
+    <string name="out_of_memory">Bitte mache mindestens %1$s KB Speicherplatz auf deinem Telefon frei, damit du Oculus 360 Photos verwenden kannst.</string>
+</resources>

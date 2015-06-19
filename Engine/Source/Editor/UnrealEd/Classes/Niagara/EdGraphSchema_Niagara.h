@@ -54,6 +54,8 @@ class UEdGraphSchema_Niagara : public UEdGraphSchema
 	FString PC_Vector;
 	UPROPERTY()
 	FString PC_Matrix;
+	UPROPERTY()
+	FString PC_Curve;
 
 	// Begin EdGraphSchema interface
 	virtual void GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
@@ -62,9 +64,16 @@ class UEdGraphSchema_Niagara : public UEdGraphSchema
 	virtual bool ShouldHidePinDefaultValue(UEdGraphPin* Pin) const override;
 	// End EdGraphSchema interface
 
-	UNREALED_API ENiagaraDataType GetPinDataType(UEdGraphPin* Pin)const;
+	UNREALED_API ENiagaraDataType GetPinType(UEdGraphPin* Pin)const;
 	UNREALED_API void GetPinDefaultValue(UEdGraphPin* Pin, float& OutDefault)const;
 	UNREALED_API void GetPinDefaultValue(UEdGraphPin* Pin, FVector4& OutDefault)const;
 	UNREALED_API void GetPinDefaultValue(UEdGraphPin* Pin, FMatrix& OutDefault)const;
+	
+	bool IsSystemConstant(const FNiagaraVariableInfo& Variable)const;
+
+	static const FLinearColor NodeTitleColor_Attribute;
+	static const FLinearColor NodeTitleColor_Constant;
+	static const FLinearColor NodeTitleColor_SystemConstant;
+	static const FLinearColor NodeTitleColor_FunctionCall;
 };
 

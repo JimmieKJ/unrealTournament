@@ -13,7 +13,7 @@ FAIResourceLock::FAIResourceLock()
 
 void FAIResourceLock::ForceClearAllLocks()
 {
-	FMemory::MemZero(Locks);
+	FMemory::Memzero(Locks);
 }
 
 FString FAIResourceLock::GetLockPriorityName() const
@@ -48,7 +48,7 @@ namespace FAIResources
 
 	void RegisterResource(const FAIResourceID& Resource)
 	{
-		if (FAIResourceID::GetSize() - FAIResources::ResourceIDs.Num() > 0)
+		if (FAIResourceID::GetSize() > static_cast<uint32>(FAIResources::ResourceIDs.Num()))
 		{
 			ResourceIDs.AddZeroed(FAIResourceID::GetSize() - FAIResources::ResourceIDs.Num());
 		}
@@ -104,3 +104,74 @@ const FAIRequestID FAIRequestID::InvalidRequest(FAIRequestID::InvalidRequestID);
 const FAIRequestID FAIRequestID::AnyRequest(FAIRequestID::AnyRequestID);
 // same as AnyRequest on purpose. Just a readability thing
 const FAIRequestID FAIRequestID::CurrentRequest(FAIRequestID::AnyRequestID);
+
+//----------------------------------------------------------------------//
+// FAIMoveRequest
+//----------------------------------------------------------------------//
+
+FAIMoveRequest::FAIMoveRequest() : 
+	GoalActor(nullptr), GoalLocation(FAISystem::InvalidLocation), FilterClass(nullptr),
+	bInitialized(false), bHasGoalActor(false),
+	bUsePathfinding(true), bAllowPartialPath(true), bProjectGoalOnNavigation(true),
+	bStopOnOverlap(true), bCanStrafe(false)
+{
+	AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius;
+}
+
+FAIMoveRequest::FAIMoveRequest(const AActor* InGoalActor) :
+	GoalActor((AActor*)InGoalActor), GoalLocation(FAISystem::InvalidLocation), FilterClass(nullptr),
+	bInitialized(true), bHasGoalActor(true),
+	bUsePathfinding(true), bAllowPartialPath(true), bProjectGoalOnNavigation(true),
+	bStopOnOverlap(true), bCanStrafe(false)
+{
+	AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius;
+}
+
+FAIMoveRequest::FAIMoveRequest(const FVector& InGoalLocation) :
+	GoalActor(nullptr), GoalLocation(InGoalLocation), FilterClass(nullptr),
+	bInitialized(true), bHasGoalActor(false),
+	bUsePathfinding(true), bAllowPartialPath(true), bProjectGoalOnNavigation(true),
+	bStopOnOverlap(true), bCanStrafe(false)
+{
+	AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius;
+}
+
+void FAIMoveRequest::SetGoalActor(const AActor* InGoalActor)
+{
+	if (!bInitialized)
+	{
+		GoalActor = (AActor*)InGoalActor;
+		bHasGoalActor = true;
+		bInitialized = true;
+	}
+}
+
+void FAIMoveRequest::SetGoalLocation(const FVector& InGoalLocation)
+{
+	if (!bInitialized)
+	{
+		GoalLocation = InGoalLocation;
+		bInitialized = true;
+	}
+}
+
+bool FAIMoveRequest::UpdateGoalLocation(const FVector& NewLocation) const
+{
+	if (!bHasGoalActor)
+	{
+		GoalLocation = NewLocation;
+		return true;
+	}
+
+	return false;
+}
+
+FString FAIMoveRequest::ToString() const
+{
+	return FString::Printf(TEXT("%s(%s) Mode(%s) Filter(%s) AcceptanceRadius(%.1f%s)"),
+		bHasGoalActor ? TEXT("Actor") : TEXT("Location"), bHasGoalActor ? *GetNameSafe(GoalActor) : *GoalLocation.ToString(),
+		bUsePathfinding ? (bAllowPartialPath ? TEXT("partial path") : TEXT("complete path")) : TEXT("direct"),
+		*GetNameSafe(FilterClass),
+		AcceptanceRadius, bStopOnOverlap ? TEXT(" + overlap") : TEXT("")
+		);
+}

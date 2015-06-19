@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "SessionServices.h"
-
 
 /* Dependencies
  *****************************************************************************/
@@ -17,6 +15,10 @@
 
 /* Private includes
  *****************************************************************************/
+
+#include "ISessionInfo.h"
+#include "ISessionInstanceInfo.h"
+#include "SessionLogMessage.h"
 
 #include "SessionInstanceInfo.h"
 #include "SessionInfo.h"

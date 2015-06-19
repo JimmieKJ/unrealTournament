@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+
+	"FriendlyName" : "Experimental HTML5 Networking Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.8.0",
+	"Description" : "HTML5 Networking",
+	"Category" : "Misc",
+	"EnabledByDefault" : false,
+
+	"Modules" :
+	[
+		{
+			"Name" : "HTML5Networking",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64", "HTML5" ]
+		}
+	]
+}

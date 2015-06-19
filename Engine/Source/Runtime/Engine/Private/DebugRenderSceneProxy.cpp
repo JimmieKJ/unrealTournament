@@ -19,6 +19,7 @@ FDebugRenderSceneProxy::FDebugRenderSceneProxy(const UPrimitiveComponent* InComp
 	, ViewFlagName(TEXT("Game"))
 	, TextWithoutShadowDistance(1500)
 	, DrawType(WireMesh)
+	, DrawAlpha(60)
 {
 
 }
@@ -147,27 +148,27 @@ void FDebugRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 			// Draw Cylinders
 			for(const auto& Cylinder : Cylinders)
 			{
-				if (DrawType & SolidAndWireMeshes || DrawType & WireMesh)
+				if (DrawType == SolidAndWireMeshes || DrawType == WireMesh)
 				{
-					DrawWireCylinder(PDI, Cylinder.Base, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), Cylinder.Color, Cylinder.Radius, Cylinder.HalfHeight, (DrawType & SolidAndWireMeshes) ? 9 : 16, SDPG_World, DrawType & SolidAndWireMeshes ? 2 : 0, 0, true);
+					DrawWireCylinder(PDI, Cylinder.Base, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), Cylinder.Color, Cylinder.Radius, Cylinder.HalfHeight, (DrawType == SolidAndWireMeshes) ? 9 : 16, SDPG_World, DrawType == SolidAndWireMeshes ? 2 : 0, 0, true);
 				}
 
-				if (DrawType & SolidAndWireMeshes || DrawType & SolidMesh)
+				if (DrawType == SolidAndWireMeshes || DrawType == SolidMesh)
 				{
-					GetCylinderMesh(Cylinder.Base, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), Cylinder.Radius, Cylinder.HalfHeight, 16, MaterialCache[Cylinder.Color.WithAlpha(60)], SDPG_World, ViewIndex, Collector);
+					GetCylinderMesh(Cylinder.Base, FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1), Cylinder.Radius, Cylinder.HalfHeight, 16, MaterialCache[Cylinder.Color.WithAlpha(DrawAlpha)], SDPG_World, ViewIndex, Collector);
 				}
 			}
 
 			// Draw Boxes
 			for(const auto& Box :  Boxes)
 			{
-				if (DrawType & SolidAndWireMeshes || DrawType & WireMesh)
+				if (DrawType == SolidAndWireMeshes || DrawType == WireMesh)
 				{
-					DrawWireBox(PDI, Box.Box, Box.Color, SDPG_World, DrawType & SolidAndWireMeshes ? 2 : 0, 0, true);
+					DrawWireBox(PDI, Box.Transform.ToMatrixWithScale(), Box.Box, Box.Color, SDPG_World, DrawType == SolidAndWireMeshes ? 2 : 0, 0, true);
 				}
-				if (DrawType & SolidAndWireMeshes || DrawType & SolidMesh)
+				if (DrawType == SolidAndWireMeshes || DrawType == SolidMesh)
 				{
-					GetBoxMesh(FTransform(Box.Box.GetCenter()).ToMatrixNoScale(), Box.Box.GetExtent(), MaterialCache[Box.Color.WithAlpha(60)], SDPG_World, ViewIndex, Collector);
+					GetBoxMesh(FTransform(Box.Box.GetCenter()).ToMatrixNoScale() * Box.Transform.ToMatrixWithScale(), Box.Box.GetExtent(), MaterialCache[Box.Color.WithAlpha(DrawAlpha)], SDPG_World, ViewIndex, Collector);
 				}
 			}
 
@@ -175,13 +176,13 @@ void FDebugRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 			TArray<FVector> Verts;
 			for (auto& CurrentCone : Cones)
 			{
-				if (DrawType & SolidAndWireMeshes || DrawType & WireMesh)
+				if (DrawType == SolidAndWireMeshes || DrawType == WireMesh)
 				{
-					DrawWireCone(PDI, Verts, CurrentCone.ConeToWorld, 1, CurrentCone.Angle2, (DrawType & SolidAndWireMeshes) ? 9 : 16, CurrentCone.Color, SDPG_World, DrawType & SolidAndWireMeshes ? 2 : 0, 0, true);
+					DrawWireCone(PDI, Verts, CurrentCone.ConeToWorld, 1, CurrentCone.Angle2, (DrawType == SolidAndWireMeshes) ? 9 : 16, CurrentCone.Color, SDPG_World, DrawType == SolidAndWireMeshes ? 2 : 0, 0, true);
 				}
-				if (DrawType & SolidAndWireMeshes || DrawType & SolidMesh)
+				if (DrawType == SolidAndWireMeshes || DrawType == SolidMesh)
 				{
-					GetConeMesh(CurrentCone.ConeToWorld, CurrentCone.Angle1, CurrentCone.Angle2, 16, MaterialCache[CurrentCone.Color.WithAlpha(60)], SDPG_World, ViewIndex, Collector);
+					GetConeMesh(CurrentCone.ConeToWorld, CurrentCone.Angle1, CurrentCone.Angle2, 16, MaterialCache[CurrentCone.Color.WithAlpha(DrawAlpha)], SDPG_World, ViewIndex, Collector);
 				}
 			}
 
@@ -189,13 +190,13 @@ void FDebugRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 			{
 				if (PointInView(It->Location, View))
 				{
-					if (DrawType & SolidAndWireMeshes || DrawType & WireMesh)
+					if (DrawType == SolidAndWireMeshes || DrawType == WireMesh)
 					{
-						DrawWireSphere(PDI, It->Location, It->Color.WithAlpha(255), It->Radius, 20, SDPG_World, DrawType & SolidAndWireMeshes ? 2 : 0, 0, true);
+						DrawWireSphere(PDI, It->Location, It->Color.WithAlpha(255), It->Radius, 20, SDPG_World, DrawType == SolidAndWireMeshes ? 2 : 0, 0, true);
 					}
-					if (DrawType & SolidAndWireMeshes || DrawType & SolidMesh)
+					if (DrawType == SolidAndWireMeshes || DrawType == SolidMesh)
 					{
-						GetSphereMesh(It->Location, FVector(It->Radius), 20, 7, MaterialCache[It->Color.WithAlpha(60)], SDPG_World, false, ViewIndex, Collector);
+						GetSphereMesh(It->Location, FVector(It->Radius), 20, 7, MaterialCache[It->Color.WithAlpha(DrawAlpha)], SDPG_World, false, ViewIndex, Collector);
 					}
 				}
 			}
@@ -204,18 +205,18 @@ void FDebugRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 			{
 				if (PointInView(It->Location, View))
 				{
-					if (DrawType & SolidAndWireMeshes || DrawType & WireMesh)
+					if (DrawType == SolidAndWireMeshes || DrawType == WireMesh)
 					{
 						const float HalfAxis = FMath::Max<float>(It->HalfHeight - It->Radius, 1.f);
 						const FVector BottomEnd = It->Location + It->Radius * It->Z;
 						const FVector TopEnd = BottomEnd + (2 * HalfAxis) * It->Z;
 						const float CylinderHalfHeight = (TopEnd - BottomEnd).Size() * 0.5;
 						const FVector CylinderLocation = BottomEnd + CylinderHalfHeight * It->Z;
-						DrawWireCapsule(PDI, CylinderLocation, It->X, It->Y, It->Z, It->Color, It->Radius, It->HalfHeight, (DrawType & SolidAndWireMeshes) ? 9 : 16, SDPG_World, DrawType & SolidAndWireMeshes ? 2 : 0, 0, true);
+						DrawWireCapsule(PDI, CylinderLocation, It->X, It->Y, It->Z, It->Color, It->Radius, It->HalfHeight, (DrawType == SolidAndWireMeshes) ? 9 : 16, SDPG_World, DrawType == SolidAndWireMeshes ? 2 : 0, 0, true);
 					}
-					if (DrawType & SolidAndWireMeshes || DrawType & SolidMesh)
+					if (DrawType == SolidAndWireMeshes || DrawType == SolidMesh)
 					{
-						GetCapsuleMesh(It->Location, It->X, It->Y, It->Z, It->Color, It->Radius, It->HalfHeight, 16, MaterialCache[It->Color.WithAlpha(60)], SDPG_World, false, ViewIndex, Collector);
+						GetCapsuleMesh(It->Location, It->X, It->Y, It->Z, It->Color, It->Radius, It->HalfHeight, 16, MaterialCache[It->Color.WithAlpha(DrawAlpha)], SDPG_World, false, ViewIndex, Collector);
 					}
 				}
 			}
@@ -226,7 +227,7 @@ void FDebugRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 				MeshBuilder.AddVertices(Mesh.Vertices);
 				MeshBuilder.AddTriangles(Mesh.Indices);
 
-				MeshBuilder.GetMesh(FMatrix::Identity, MaterialCache[Mesh.Color.WithAlpha(60)], SDPG_World, false, false, ViewIndex, Collector);
+				MeshBuilder.GetMesh(FMatrix::Identity, MaterialCache[Mesh.Color.WithAlpha(DrawAlpha)], SDPG_World, false, false, ViewIndex, Collector);
 			}
 
 		}

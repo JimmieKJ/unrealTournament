@@ -3,9 +3,8 @@
 #pragma once
 
 
-class FGeomObject;
 class FPoly;
-
+typedef TSharedPtr<class FGeomObject> FGeomObjectPtr;
 
 /**
  * Base class for all classes that support storing and editing of geometry.
@@ -37,8 +36,8 @@ public:
 	virtual FRotator GetWidgetRotation() const			{ return Normal.Rotation(); }
 
 	//@{
-	FGeomObject* GetParentObject();
-	const FGeomObject* GetParentObject() const;
+	FGeomObjectPtr GetParentObject();
+	const FGeomObjectPtr GetParentObject() const;
 	//@}
 
 	/** Returns true if this geometry objects is a vertex. */
@@ -224,7 +223,7 @@ class FGeomObject : public FGeomBase, public FGCObject
 public:
 	FGeomObject();
 	
-	virtual FVector GetMidPoint() const;
+	virtual FVector GetMidPoint() const override;
 
 	/** Index to the ABrush actor this object represents. */
 	ABrush* ActualBrush;
@@ -280,7 +279,7 @@ public:
 	/** Erases all current data for this object. */
 	void ClearData();
 
-	virtual FVector GetWidgetLocation();
+	virtual FVector GetWidgetLocation() override;
 	int32 AddVertexToPool( int32 InObjectIndex, int32 InParentPolyIndex, int32 InPolyIndex, int32 InVertexIndex );
 	int32 AddEdgeToPool( FGeomPoly* InPoly, int32 InParentPolyIndex, int32 InVectorIdxA, int32 InVectorIdxB );
 	virtual void GetFromSource();
@@ -324,16 +323,18 @@ struct HGeomPolyProxy : public HHitProxy
 {
 	DECLARE_HIT_PROXY(UNREALED_API);
 
-	FGeomObject*	GeomObject;
+	TWeakPtr<FGeomObject> GeomObjectWeakPtr;
 	int32				PolyIndex;
 
-	HGeomPolyProxy(FGeomObject* InGeomObject, int32 InPolyIndex):
+	HGeomPolyProxy(FGeomObjectPtr InGeomObject, int32 InPolyIndex):
 		HHitProxy(HPP_UI),
-		GeomObject(InGeomObject),
+		GeomObjectWeakPtr(InGeomObject),
 		PolyIndex(InPolyIndex)
 	{}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	FGeomObject* GetGeomObject() { return GeomObjectWeakPtr.IsValid() ? GeomObjectWeakPtr.Pin().Get() : nullptr; }
+
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -346,7 +347,7 @@ struct HGeomPolyProxy : public HHitProxy
 	 *
 	 * @return	true if translucent primitives are always allowed with this hit proxy; false otherwise
 	 */
-	virtual bool AlwaysAllowsTranslucentPrimitives() const
+	virtual bool AlwaysAllowsTranslucentPrimitives() const override
 	{
 		return true;
 	}
@@ -359,16 +360,19 @@ struct HGeomEdgeProxy : public HHitProxy
 {
 	DECLARE_HIT_PROXY(UNREALED_API);
 
-	FGeomObject*	GeomObject;
+	// Kept around for backwards compat
+	TWeakPtr<FGeomObject> GeomObjectWeakPtr;
 	int32				EdgeIndex;
 
-	HGeomEdgeProxy(FGeomObject* InGeomObject, int32 InEdgeIndex):
+	HGeomEdgeProxy(FGeomObjectPtr InGeomObject, int32 InEdgeIndex):
 		HHitProxy(HPP_UI),
-		GeomObject(InGeomObject),
+		GeomObjectWeakPtr(InGeomObject),
 		EdgeIndex(InEdgeIndex)
 	{}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	FGeomObject* GetGeomObject() { return GeomObjectWeakPtr.IsValid() ? GeomObjectWeakPtr.Pin().Get() : nullptr; }
+
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -381,7 +385,7 @@ struct HGeomEdgeProxy : public HHitProxy
 	 *
 	 * @return	true if translucent primitives are always allowed with this hit proxy; false otherwise
 	 */
-	virtual bool AlwaysAllowsTranslucentPrimitives() const
+	virtual bool AlwaysAllowsTranslucentPrimitives() const override
 	{
 		return true;
 	}
@@ -396,16 +400,18 @@ struct HGeomVertexProxy : public HHitProxy
 {
 	DECLARE_HIT_PROXY(UNREALED_API);
 
-	FGeomObject*	GeomObject;
+	TWeakPtr<FGeomObject> GeomObjectWeakPtr;
 	int32				VertexIndex;
 
-	HGeomVertexProxy(FGeomObject* InGeomObject, int32 InVertexIndex):
+	HGeomVertexProxy(FGeomObjectPtr InGeomObject, int32 InVertexIndex):
 		HHitProxy(HPP_UI),
-		GeomObject(InGeomObject),
+		GeomObjectWeakPtr(InGeomObject),
 		VertexIndex(InVertexIndex)
 	{}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	FGeomObject* GetGeomObject() { return GeomObjectWeakPtr.IsValid() ? GeomObjectWeakPtr.Pin().Get() : nullptr; }
+
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -418,7 +424,7 @@ struct HGeomVertexProxy : public HHitProxy
 	 *
 	 * @return	true if translucent primitives are always allowed with this hit proxy; false otherwise
 	 */
-	virtual bool AlwaysAllowsTranslucentPrimitives() const
+	virtual bool AlwaysAllowsTranslucentPrimitives() const override
 	{
 		return true;
 	}

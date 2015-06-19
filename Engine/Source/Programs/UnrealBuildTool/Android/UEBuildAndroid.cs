@@ -57,12 +57,6 @@ namespace UnrealBuildTool
         private bool HasAnySDK()
         {
             string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
-/* Don't check for existence of env vars, always set them from the .ini values if they exist
-//			bool bNeedsNDKPath = string.IsNullOrEmpty(NDKPath);
-//			bool bNeedsAndroidHome = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANDROID_HOME"));
-//			bool bNeedsAntHome = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ANT_HOME"));
- //           if((bNeedsNDKPath || bNeedsAndroidHome || bNeedsAntHome))
- */
             {
                 var configCacheIni = new ConfigCacheIni("Engine", null);
                 var AndroidEnv = new Dictionary<string, string>();
@@ -79,7 +73,6 @@ namespace UnrealBuildTool
                 {
                     if (configCacheIni.GetPath("/Script/AndroidPlatformEditor.AndroidSDKSettings", kvp.Value, out path) && !string.IsNullOrEmpty(path))
                     {
-//                        Log.TraceWarning("Adding {0} from ini as {1} to {2}", kvp.Value, path, kvp.Key);
                         AndroidEnv.Add(kvp.Key, path);
                     }
                     else
@@ -87,7 +80,6 @@ namespace UnrealBuildTool
                         var envValue = Environment.GetEnvironmentVariable(kvp.Key);
                         if(!String.IsNullOrEmpty(envValue))
                         {
-//                            Log.TraceWarning("Adding {0} from env as {1}", kvp.Key, envValue);
                             AndroidEnv.Add(kvp.Key, envValue);
                         }
                     }
@@ -254,6 +246,24 @@ namespace UnrealBuildTool
 
 			BuildConfiguration.bUseSharedPCHs = false;
 		}
+			
+		public override bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, string ProjectPath)
+		{
+			string[] BoolKeys = new string[] {
+				"bBuildForArmV7", "bBuildForArm64", "bBuildForX86", "bBuildForX8664", 
+				"bBuildForES2", "bBuildForES31",
+			};
+
+			// look up iOS specific settings
+			if (!DoProjectSettingsMatchDefault(Platform, ProjectPath, "/Script/AndroidRuntimeSettings.AndroidRuntimeSettings",
+				BoolKeys, null, null))
+			{
+				return false;
+			}
+
+			// check the base settings
+			return base.HasDefaultBuildConfig(Platform, ProjectPath);
+		}
 
 		public override bool ShouldCompileMonolithicBinary(UnrealTargetPlatform InPlatform)
 		{
@@ -302,9 +312,7 @@ namespace UnrealBuildTool
 							InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_DXTTargetPlatform");
 							InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ETC1TargetPlatform");
 							InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ETC2TargetPlatform");
-							InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ES31TargetPlatform");
-							// @todo gl4android				
-							// InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_GL4TargetPlatform");
+							InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ASTCTargetPlatform");
                         }
 					}
 					else if (InModule.ToString() == "TargetPlatform")
@@ -330,9 +338,7 @@ namespace UnrealBuildTool
 					InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_DXTTargetPlatform");
 					InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ETC1TargetPlatform");
 					InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ETC2TargetPlatform");
-					InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ES31TargetPlatform");
-					// @todo gl4android				
-					// InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_GL4TargetPlatform");
+					InModule.AddPlatformSpecificDynamicallyLoadedModule("Android_ASTCTargetPlatform");
                 }
 
 				if (bBuildShaderFormats)

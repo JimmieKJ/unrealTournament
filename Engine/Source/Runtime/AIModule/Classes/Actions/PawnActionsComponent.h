@@ -55,8 +55,8 @@ public:
 	 *	and if found action will be popped along with all it's siblings */
 	void PopAction(UPawnAction& ActionToPop);
 	
-	FORCEINLINE UPawnAction* GetTop() { return TopAction; }
-	FORCEINLINE const UPawnAction* GetTop() const { return TopAction; }
+	FORCEINLINE UPawnAction* GetTop() const { return TopAction; }
+
 	FORCEINLINE bool IsEmpty() const { return TopAction == NULL; }
 
 	//----------------------------------------------------------------------//
@@ -91,10 +91,15 @@ private:
 
 public:
 	//----------------------------------------------------------------------//
+	// UActorComponent
+	//----------------------------------------------------------------------//
+	virtual void OnUnregister() override;
+
+	//----------------------------------------------------------------------//
 	// blueprint interface
 	//----------------------------------------------------------------------//
 
-	UFUNCTION(BlueprintCallable, Category = "AI|PawnActions", meta = (FriendlyName = "PerformAction"))
+	UFUNCTION(BlueprintCallable, Category = "AI|PawnActions", meta = (DisplayName = "PerformAction"))
 	static bool K2_PerformAction(APawn* Pawn, UPawnAction* Action, TEnumAsByte<EAIRequestPriority::Type> Priority = EAIRequestPriority::HardScript);
 	static bool PerformAction(APawn& Pawn, UPawnAction& Action, TEnumAsByte<EAIRequestPriority::Type> Priority = EAIRequestPriority::HardScript);
 
@@ -112,17 +117,17 @@ public:
 
 	bool OnEvent(UPawnAction& Action, EPawnActionEventType::Type Event);
 
-	UFUNCTION(BlueprintCallable, Category = PawnAction, meta = (FriendlyName = "PushAction"))
+	UFUNCTION(BlueprintCallable, Category = PawnAction, meta = (DisplayName = "PushAction"))
 	bool K2_PushAction(UPawnAction* NewAction, EAIRequestPriority::Type Priority, UObject* Instigator = NULL);
 	bool PushAction(UPawnAction& NewAction, EAIRequestPriority::Type Priority, UObject* Instigator = NULL);	
 
 	/** Aborts given action instance */
-	UFUNCTION(BlueprintCallable, Category = PawnAction, meta = (FriendlyName = "AbortAction"))
+	UFUNCTION(BlueprintCallable, Category = PawnAction, meta = (DisplayName = "AbortAction"))
 	EPawnActionAbortState::Type K2_AbortAction(UPawnAction* ActionToAbort);
 	EPawnActionAbortState::Type AbortAction(UPawnAction& ActionToAbort);
 
 	/** Aborts given action instance */
-	UFUNCTION(BlueprintCallable, Category = PawnAction, meta = (FriendlyName = "ForceAbortAction"))
+	UFUNCTION(BlueprintCallable, Category = PawnAction, meta = (DisplayName = "ForceAbortAction"))
 	EPawnActionAbortState::Type K2_ForceAbortAction(UPawnAction* ActionToAbort);
 	EPawnActionAbortState::Type ForceAbortAction(UPawnAction& ActionToAbort);
 
@@ -134,7 +139,8 @@ public:
 	
 	void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 
-	FORCEINLINE UPawnAction* GetActiveAction(EAIRequestPriority::Type Priority) { return ActionStacks[Priority].GetTop(); }
+	FORCEINLINE UPawnAction* GetActiveAction(EAIRequestPriority::Type Priority) const { return ActionStacks[Priority].GetTop(); }
+	bool HasActiveActionOfType(EAIRequestPriority::Type Priority, TSubclassOf<UPawnAction> PawnActionClass) const;
 
 #if ENABLE_VISUAL_LOG
 	void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const;

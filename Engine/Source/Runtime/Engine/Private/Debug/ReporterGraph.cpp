@@ -163,7 +163,6 @@ void UReporterGraph::DrawLegend(UCanvas* Canvas)
 		FVector2D ScreenPos = ToScreenSpace(CurrentTextPos, Canvas);
 		if (LegendPosition == ELegendPosition::Outside)
 		{
-			int32 DummyY, CurrentX;
 			StringSize(Font, CurrentX, DummyY, *CurrentData[i].LineName);
 			LegendWidth = CurrentX + 10;
 		}
@@ -227,7 +226,6 @@ void UReporterGraph::DrawAxis(UCanvas* Canvas, FVector2D Start, FVector2D End, f
 		case EGraphAxisStyle::Lines:
 		{
 			NumNotches = 1;
-			FVector2D NotchDataDelta = (GraphMinMaxData.Max - GraphMinMaxData.Min) / NumNotches;
 			NotchDelta = (Start - End).Size();
 			if(bIsVerticalAxis)
 			{
@@ -301,6 +299,34 @@ void UReporterGraph::DrawAxis(UCanvas* Canvas, FVector2D Start, FVector2D End, f
 		else
 		{
 			NotchLocation.X += NotchDelta;
+		}
+	}
+
+	if (bIsVerticalAxis && bDrawExtremes)
+	{
+		for (int32 i = 0; i < CurrentData.Num(); i++)
+		{
+
+			if (CurrentData[i].Data.Num() == 0)
+				continue;
+
+			FVector2D DataStart = CurrentData[i].LeftExtreme;
+			DataStart.X = Start.X;
+			FVector2D TextPos = ToScreenSpace(DataToNormalized(DataStart), Canvas) /*+ DrawOffset*/;
+
+			FString Text = FString::Printf(TEXT("%.2f"), CurrentData[i].LeftExtreme.Y);
+			int32 StringSizeX, StringSizeY;
+			StringSize(Font, StringSizeX, StringSizeY, *Text);
+			Canvas->Canvas->DrawShadowedString(TextPos.X - StringSizeX * 0.5f, TextPos.Y + (AxisStyle == EGraphAxisStyle::Grid ? +5 : -NotchLength.Y * Canvas->SizeY), *Text, Font, CurrentData[i].Color);
+
+			FVector2D DataEnd = CurrentData[i].Data[CurrentData[i].Data.Num()-1];
+			DataEnd = DataToNormalized(DataEnd);
+			DataEnd.X = GraphScreenSize.Max.X;
+			TextPos = ToScreenSpace(DataEnd, Canvas) /*+ DrawOffset*/;
+
+			Text = FString::Printf(TEXT("%.2f"), CurrentData[i].RightExtreme.Y);
+			StringSize(Font, StringSizeX, StringSizeY, *Text);
+			Canvas->Canvas->DrawShadowedString(TextPos.X - StringSizeX * 0.5f, TextPos.Y + (AxisStyle == EGraphAxisStyle::Grid ? +5 : -NotchLength.Y * Canvas->SizeY), *Text, Font, CurrentData[i].Color);
 		}
 	}
 }

@@ -5,6 +5,7 @@
 
 #if UE_ENABLE_ICU
 #include "ICUTextCharacterIterator.h"
+#include "ICUCulture.h"
 
 FICUBreakIteratorManager* FICUBreakIteratorManager::Singleton = nullptr;
 
@@ -29,8 +30,7 @@ FICUBreakIteratorManager& FICUBreakIteratorManager::Get()
 
 TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateCharacterBoundaryIterator()
 {
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	TSharedRef<icu::BreakIterator> Iterator = MakeShareable(icu::BreakIterator::createCharacterInstance(icu::Locale::getDefault(), ICUStatus));
+	TSharedRef<icu::BreakIterator> Iterator = MakeShareable( FInternationalization::Get().GetDefaultCulture()->Implementation->GetBreakIterator(EBreakIteratorType::Grapheme)->clone() );
 	{
 		FScopeLock ScopeLock(&AllocatedIteratorsCS);
 		AllocatedIterators.Add(Iterator);
@@ -40,8 +40,7 @@ TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateCharacterBoundaryIt
 
 TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateWordBreakIterator()
 {
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	TSharedRef<icu::BreakIterator> Iterator = MakeShareable(icu::BreakIterator::createWordInstance(icu::Locale::getDefault(), ICUStatus));
+	TSharedRef<icu::BreakIterator> Iterator = MakeShareable( FInternationalization::Get().GetDefaultCulture()->Implementation->GetBreakIterator(EBreakIteratorType::Word)->clone() );
 	{
 		FScopeLock ScopeLock(&AllocatedIteratorsCS);
 		AllocatedIterators.Add(Iterator);
@@ -51,8 +50,7 @@ TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateWordBreakIterator()
 
 TWeakPtr<icu::BreakIterator> FICUBreakIteratorManager::CreateLineBreakIterator()
 {
-	UErrorCode ICUStatus = U_ZERO_ERROR;
-	TSharedRef<icu::BreakIterator> Iterator = MakeShareable(icu::BreakIterator::createLineInstance(icu::Locale::getDefault(), ICUStatus));
+	TSharedRef<icu::BreakIterator> Iterator = MakeShareable( FInternationalization::Get().GetDefaultCulture()->Implementation->GetBreakIterator(EBreakIteratorType::Line)->clone() );
 	{
 		FScopeLock ScopeLock(&AllocatedIteratorsCS);
 		AllocatedIterators.Add(Iterator);

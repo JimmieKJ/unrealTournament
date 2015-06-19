@@ -181,7 +181,7 @@ void SMediaPlayerEditorViewer::Construct( const FArguments& InArgs, UMediaPlayer
 									.VAlign(VAlign_Center)
 									[
 										SNew(STextBlock)
-											.Text(LOCTEXT("CaptionTrackLabel", "Playback Rate:"))
+											.Text(LOCTEXT("PlaybackRateLabel", "Playback Rate:"))
 									]
 
 								+ SHorizontalBox::Slot()
@@ -282,7 +282,7 @@ void SMediaPlayerEditorViewer::Construct( const FArguments& InArgs, UMediaPlayer
 	];
 
 	MediaPlayer->OnMediaChanged().AddRaw(this, &SMediaPlayerEditorViewer::HandleMediaPlayerMediaChanged);
-
+	RegisterActiveTimer(0.0f, FWidgetActiveTimerDelegate::CreateSP(this, &SMediaPlayerEditorViewer::HandleActiveTimer));
 	ReloadMediaPlayer();
 }
 
@@ -380,6 +380,12 @@ void SMediaPlayerEditorViewer::ReloadMediaPlayer()
 
 /* SMediaPlayerEditorPlayer callbacks
  *****************************************************************************/
+
+EActiveTimerReturnType SMediaPlayerEditorViewer::HandleActiveTimer(double InCurrentTime, float InDeltaTime)
+{
+	return EActiveTimerReturnType::Continue;
+}
+
 
 TSharedRef<SWidget> SMediaPlayerEditorViewer::HandleAudioTrackComboBoxGenerateWidget( IMediaTrackPtr Value ) const
 {

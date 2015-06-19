@@ -29,7 +29,7 @@ bool FIPv4Address::Parse( const FString& AddressString, FIPv4Address& OutAddress
 {
 	TArray<FString> Tokens;
 
-	if (AddressString.ParseIntoArray(&Tokens, TEXT("."), false) == 4)
+	if (AddressString.ParseIntoArray(Tokens, TEXT("."), false) == 4)
 	{
 		OutAddress.Bytes[0] = FCString::Atoi(*Tokens[3]);
 		OutAddress.Bytes[1] = FCString::Atoi(*Tokens[2]);

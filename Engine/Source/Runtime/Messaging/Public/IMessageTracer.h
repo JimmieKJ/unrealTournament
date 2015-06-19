@@ -3,7 +3,6 @@
 #pragma once
 
 
-// forward declarations
 class IMessageContext;
 
 
@@ -67,6 +66,9 @@ struct FMessageTracerDispatchState
 
 	/** Holds the endpoint to which the message was or is being dispatched. */
 	FMessageTracerEndpointInfoPtr EndpointInfo;
+
+	/** The thread on which the endpoint receives messages. */
+	ENamedThreads::Type RecipientThread;
 
 	/** Holds the time at which the message was dispatched. */
 	double TimeDispatched;

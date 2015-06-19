@@ -101,7 +101,7 @@ bool FAvfMediaPlayer::SupportsScrubbing() const
 
 bool FAvfMediaPlayer::SupportsSeeking() const
 {
-	return false;
+	return true;
 }
 
 
@@ -191,7 +191,7 @@ bool FAvfMediaPlayer::IsPaused() const
 
 bool FAvfMediaPlayer::IsPlaying() const
 {
-    return (MediaPlayer != nil) && (1.0f == MediaPlayer.rate) && (Tracks.Num() > 0) && (CurrentTime <= Duration);
+	return (MediaPlayer != nil) && !FMath::IsNearlyZero([MediaPlayer rate]) && (Tracks.Num() > 0) && (CurrentTime <= Duration);
 }
 
 
@@ -327,20 +327,23 @@ bool FAvfMediaPlayer::Open( const TSharedRef<TArray<uint8>>& Buffer, const FStri
 bool FAvfMediaPlayer::Seek( const FTimespan& Time )
 {
     // We need to find a suitable way to seek using avplayer and AVAssetReader,
-/*
     CurrentTime = Time;
-
-    [[MediaPlayer currentItem] seekToTime:CMTimeMakeWithSeconds(CurrentTime.GetSeconds(), 1000)];
+	
+	double TotalSeconds = CurrentTime.GetTotalSeconds();
+	CMTime CurrentTimeInSeconds = CMTimeMake(TotalSeconds, 1);
+	
+	[MediaPlayer seekToTime:CurrentTimeInSeconds];
+	[[MediaPlayer currentItem] seekToTime:CurrentTimeInSeconds];
 
     for( IMediaTrackRef& Track : Tracks )
     {
         FAvfMediaVideoTrack* AVFTrack = (FAvfMediaVideoTrack*)&Track.Get();
         if( AVFTrack != nil )
         {
-            AVFTrack->SeekToTime( [[MediaPlayer currentItem] currentTime] );
+            AVFTrack->SeekToTime(CurrentTimeInSeconds);
         }
     }
-*/
+
     return false;
 }
 

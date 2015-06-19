@@ -38,11 +38,6 @@ public:
 	void SaveSettings();
 
 	/**
-	 * Refresh the available source control providers.
-	 */
-	void RefreshSourceControlProviders() const;
-
-	/**
 	 * Get the number of currently registered source control providers.
 	 */
 	int32 GetNumSourceControlProviders();

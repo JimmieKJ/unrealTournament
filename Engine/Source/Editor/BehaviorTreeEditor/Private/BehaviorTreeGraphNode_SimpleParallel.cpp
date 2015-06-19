@@ -3,7 +3,7 @@
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "Internationalization.h" // for LOCTEXT()
 
-#define LOCTEXT_NAMESPACE "BehaviorTreeSchema"
+#define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
 UBehaviorTreeGraphNode_SimpleParallel::UBehaviorTreeGraphNode_SimpleParallel(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

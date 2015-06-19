@@ -39,13 +39,3 @@ struct FFileServerReady
 		, InstanceId(InInstanceId)
 	{ }
 };
-
-
-template<>
-struct TStructOpsTypeTraits<FFileServerReady> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};

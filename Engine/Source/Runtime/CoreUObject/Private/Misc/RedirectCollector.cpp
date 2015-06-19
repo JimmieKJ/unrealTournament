@@ -3,6 +3,7 @@
 
 // Core includes.
 #include "CoreUObjectPrivate.h"
+#include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogRedirectors, Log, All);
 
@@ -44,11 +45,11 @@ void FRedirectCollector::OnRedirectorFollowed(const FString& InString, UObject* 
 
 void FRedirectCollector::OnStringAssetReferenceLoaded(const FString& InString)
 {
-	extern UObject* GSerializedObject;
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 	FString ContainingPackage;
-	if (GSerializedObject)
+	if (ThreadContext.SerializedObject)
 	{
-		ULinker* Linker = GSerializedObject->GetLinker();
+		auto Linker = ThreadContext.SerializedObject->GetLinker();
 		if (Linker)
 		{
 			ContainingPackage = Linker->Filename;

@@ -15,6 +15,7 @@ namespace EPlaybackMode
 
 DECLARE_DELEGATE_RetVal(bool, FOnGetLooping)
 DECLARE_DELEGATE_RetVal(EPlaybackMode::Type, FOnGetPlaybackMode)
+DECLARE_DELEGATE_TwoParams(FOnTickPlayback, double /*InCurrentTime*/, float /*InDeltaTime*/)
 
 struct FTransportControlArgs
 {
@@ -29,6 +30,7 @@ struct FTransportControlArgs
 		, OnToggleLooping()
 		, OnGetLooping()
 		, OnGetPlaybackMode()
+		, OnTickPlayback()
 	{}
 
 	FOnClicked OnForwardPlay;
@@ -41,6 +43,7 @@ struct FTransportControlArgs
 	FOnClicked OnToggleLooping;
 	FOnGetLooping OnGetLooping;
 	FOnGetPlaybackMode OnGetPlaybackMode;
+	FOnTickPlayback OnTickPlayback;
 };
 
 /**

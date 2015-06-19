@@ -171,7 +171,7 @@ public:
 		FString VertexFactoryIncludeString = FString::Printf( TEXT("#include \"%s.usf\""), GetShaderFilename() );
 		OutEnvironment.IncludeFileNameToContentsMap.Add(TEXT("VertexFactory.usf"), VertexFactoryIncludeString);
 
-		OutEnvironment.SetDefine(TEXT("MESH_MATERIAL_SHADER"), 1);
+		OutEnvironment.SetDefine(TEXT("HAS_PRIMITIVE_UNIFORM_BUFFER"), 1);
 
 		(*ModifyCompilationEnvironmentRef)(Platform, Material, OutEnvironment);
 	}
@@ -259,7 +259,7 @@ extern SHADERCORE_API FVertexFactoryType* FindVertexFactoryType(FName TypeName);
 #define DECLARE_VERTEX_FACTORY_TYPE(FactoryClass) \
 	public: \
 	static FVertexFactoryType StaticType; \
-	virtual FVertexFactoryType* GetType() const { return &StaticType; }
+	virtual FVertexFactoryType* GetType() const override { return &StaticType; }
 
 /**
  * A macro for implementing the static vertex factory type object, and specifying parameters used by the type.
@@ -314,7 +314,13 @@ class FCompareVertexFactoryTypes
 public:		
 	FORCEINLINE bool operator()(const FVertexFactoryType& A, const FVertexFactoryType& B ) const
 	{
-		return FCString::Strncmp(A.GetName(), B.GetName(), FMath::Min(FCString::Strlen(A.GetName()), FCString::Strlen(B.GetName()))) > 0;
+		int32 AL = FCString::Strlen(A.GetName());
+		int32 BL = FCString::Strlen(B.GetName());
+		if ( AL == BL )
+		{
+			return FCString::Strncmp(A.GetName(), B.GetName(), AL) > 0;
+		}
+		return AL > BL;
 	}
 };
 

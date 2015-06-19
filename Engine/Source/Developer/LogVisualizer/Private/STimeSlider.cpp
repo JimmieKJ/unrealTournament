@@ -34,7 +34,7 @@ FReply STimeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointerEven
 	return TimeSliderController->OnMouseMove( SharedThis(this), MyGeometry, MouseEvent );
 }
 
-FVector2D STimeSlider::ComputeDesiredSize() const 
+FVector2D STimeSlider::ComputeDesiredSize( float ) const
 {
 	return FVector2D(100, 22);
 }

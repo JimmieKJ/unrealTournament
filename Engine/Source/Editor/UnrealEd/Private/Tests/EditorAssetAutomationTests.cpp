@@ -422,16 +422,20 @@ bool FLogAssetCreationStatsCommand::Update()
 	return true;
 }
 
+template<typename TAssetClass, typename TFactoryClass, typename ExtraCommandsFunc>
+void AssetTestCreate(const TCHAR* NamePrefix, const FString& CurrentTimestamp, const FString& GamePath, TArray< TSharedPtr<CreateAssetHelper::FCreateAssetInfo> >& AssetInfos, const TSharedPtr<CreateAssetHelper::FCreateAssetStats>& BuildStats, ExtraCommandsFunc ExtraCommands)
+{
+	FString NameString = FString::Printf(TEXT("%s_%s"), NamePrefix, *CurrentTimestamp);
+	TFactoryClass* FactoryInst = NewObject<TFactoryClass>();
+	ExtraCommands(FactoryInst);
+	TSharedPtr<CreateAssetHelper::FCreateAssetInfo> CreateInfo = MakeShareable(new CreateAssetHelper::FCreateAssetInfo(NameString, GamePath, TAssetClass::StaticClass(), FactoryInst, BuildStats));
+	AssetInfos.Add(CreateInfo);
+	ADD_LATENT_AUTOMATION_COMMAND(FCreateNewAssetCommand(CreateInfo));
+}
+
 //Macro to create a factory and queue up a command to create a given asset type
 #define ASSET_TEST_CREATE( TAssetClass, TFactoryClass, NamePrefix, ExtraCommands ) \
-{ \
-	FString NameString = FString::Printf(TEXT("%s_%s"), TEXT(#NamePrefix), *CurrentTimestamp); \
-	TFactoryClass* FactoryInst = ConstructObject<TFactoryClass>(TFactoryClass::StaticClass()); \
-	ExtraCommands \
-	TSharedPtr<CreateAssetHelper::FCreateAssetInfo> CreateInfo = MakeShareable(new CreateAssetHelper::FCreateAssetInfo(NameString, GamePath, TAssetClass::StaticClass(), FactoryInst, BuildStats)); \
-	AssetInfos.Add(CreateInfo); \
-	ADD_LATENT_AUTOMATION_COMMAND(FCreateNewAssetCommand(CreateInfo)); \
-}
+	AssetTestCreate<TAssetClass, TFactoryClass>(TEXT(#NamePrefix), CurrentTimestamp, GamePath, AssetInfos, BuildStats, [=](TFactoryClass* FactoryInst) { ExtraCommands });
 
 //Macro to create a factory by name and queue up a command to create an asset
 #define ASSET_TEST_CREATE_BY_NAME(TAssetClassName, TFactoryClassName, NamePrefix, ExtraCommands) \
@@ -440,7 +444,7 @@ bool FLogAssetCreationStatsCommand::Update()
 	UClass* FactoryClass = StaticLoadClass(UFactory::StaticClass(), NULL, TEXT(#TFactoryClassName), NULL, LOAD_None, NULL); \
 	if (FactoryClass) \
 	{ \
-		UFactory* FactoryInst = ConstructObject<UFactory>(FactoryClass); \
+		UFactory* FactoryInst = NewObject<UFactory>(GetTransientPackage(), FactoryClass); \
 		ExtraCommands \
 		UClass* AssetClass = StaticLoadClass(UObject::StaticClass(), NULL, TEXT(#TAssetClassName), NULL, LOAD_None, NULL); \
 		TSharedPtr<CreateAssetHelper::FCreateAssetInfo> CreateInfo = MakeShareable(new CreateAssetHelper::FCreateAssetInfo(NameString, GamePath, AssetClass, FactoryInst, BuildStats)); \
@@ -457,7 +461,7 @@ bool FLogAssetCreationStatsCommand::Update()
 /**
 * Automation test for creating, saving, and duplicating assets
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetEditorTest, "Editor.Content.Asset Creation and Duplication", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetEditorTest, "System.Editor.Content.Asset Creation and Duplication", EAutomationTestFlags::ATF_Editor);
 
 bool FAssetEditorTest::RunTest(const FString& Parameters)
 {
@@ -821,7 +825,7 @@ namespace ImportExportAssetHelper
 			{
 				GWarn->BeginSlowTask(LOCTEXT("ImportSlowTask", "Importing"), true);
 
-				UFactory* ImportFactory = ConstructObject<UFactory>(FactoryClass);
+				UFactory* ImportFactory = NewObject<UFactory>(GetTransientPackage(), FactoryClass);
 
 				//Apply any custom settings to the factory
 				AutomationEditorCommonUtils::ApplyCustomFactorySettings(ImportFactory, FactorySettings);
@@ -1063,7 +1067,7 @@ bool FLogImportExportTestResultsCommand::Update()
 /**
 * Automation test to import, open, screenshot, and export assets
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetImportEditorTest, "Editor.Content.Asset Import and Export", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAssetImportEditorTest, "Project.Editor.Content.Asset Import and Export", EAutomationTestFlags::ATF_Editor);
 bool FAssetImportEditorTest::RunTest(const FString& Parameters)
 {
 	UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();

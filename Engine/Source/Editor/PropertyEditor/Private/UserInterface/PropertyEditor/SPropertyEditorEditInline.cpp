@@ -27,7 +27,7 @@ public:
 	/** Limits the visible classes to meeting IsA relationships with all the objects. */
 	TSet< const UObject* > LimitToIsAOfAllObjects;
 
-	bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs )
+	bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs ) override
 	{
 		const bool bChildOfObjectClass = ObjProperty && InClass->IsChildOf(ObjProperty->PropertyClass);
 		const bool bDerivedInterfaceClass = IntProperty && InClass->ImplementsInterface(IntProperty->InterfaceClass);
@@ -203,9 +203,9 @@ void SPropertyEditorEditInline::OnClassPicked(UClass* InClass)
 				{
 					MaskedOuterFlags |= RF_ArchetypeObject;
 				}
-				UObject*		NewObject = StaticConstructObject(InClass, UseOuter, NAME_None, MaskedOuterFlags, NULL);
+				UObject*		NewUObject = NewObject<UObject>(UseOuter, InClass, NAME_None, MaskedOuterFlags, NULL);
 
-				NewValue = NewObject->GetPathName();
+				NewValue = NewUObject->GetPathName();
 			}
 			else
 			{

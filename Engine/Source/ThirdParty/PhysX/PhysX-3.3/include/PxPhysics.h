@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -199,9 +182,9 @@ public:
 	\param[in] stream The triangle mesh stream.
 	\return The new triangle mesh.
 
-	@see PxTriangleMesh PxTriangleMesh.release() PxInputStream
+	@see PxTriangleMesh PxMeshPreprocessingFlag PxTriangleMesh.release() PxInputStream PxTriangleMeshFlag
 	*/
-	virtual PxTriangleMesh*    createTriangleMesh(PxInputStream& stream)					= 0;
+	virtual PxTriangleMesh*    createTriangleMesh(PxInputStream& stream) = 0;
 	
 
 
@@ -732,28 +715,62 @@ PX_C_EXPORT PX_PHYSX_CORE_API physx::PxU32 PX_CALL_CONV PxGetValue(physx::PxCook
 
 
 /**
-\brief Registers optional components for articulations.
+\brief Enables the usage of the articulations feature.  This function is called automatically inside PxCreatePhysics().
+On resource constrained platforms, it is possible to call PxCreateBasePhysics() and then NOT call this function 
+to save on code memory if your application does not use articulations.  In this case the linker should strip out
+the relevant implementation code from the library.  If you need to use articulations but not some other optional 
+component, you shoud call PxCreateBasePhysics() followed by this call.
 */
 PX_C_EXPORT PX_PHYSX_CORE_API void PX_CALL_CONV PxRegisterArticulations(physx::PxPhysics& physics);
 
 /**
-\brief Registers optional components for height field collision.
+\brief Enables the usage of the default heightfield feature.  This function is called automatically inside PxCreatePhysics().
+On resource constrained platforms, it is possible to call PxCreateBasePhysics() and then NOT call this function
+to save on code memory if your application does not use heightfields.  In this case the linker should strip out
+the relevant implementation code from the library.  If you need to use heightfield but not some other optional
+component, you shoud call PxCreateBasePhysics() followed by this call.
+
+This call will link the default 'legacy' implementation of heightfields which uses a special purpose collison code 
+path distinct from triangle meshes.
+
+You must call this function at a time where no ::PxScene instance exists, typically before calling PxPhysics::createScene().
+This is to prevent a change to the heightfield implementation code at runtime which would have undefined results.
+
+Calling PxCreateBasePhysics() and then attempting to create a heightfield shape without first calling 
+::PxRegisterHeightFields() or ::PxRegisterUnifiedHeightFields() will result in an error.
 */
 PX_C_EXPORT PX_PHYSX_CORE_API void PX_CALL_CONV PxRegisterHeightFields(physx::PxPhysics& physics);
 
 /**
-\brief Registers optional components for unified height field collision.
+\brief Enables the usage of the unified heightfield feature.  
+
+This call will enable the new implementation of heightfields which is identical to the narrow phase of triangle meshes.
+
+You can call this after either PxCreatePhysics() or after PxCreateBasePhysics(), but you must call it at a time where 
+no ::PxScene instance exists, typically before calling PxPhysics::createScene().  This is to prevent a change to the 
+heightfield implementation code at runtime which would have undefined results.
+
+Calling PxCreateBasePhysics() and then attempting to create a heightfield shape without first calling
+::PxRegisterHeightFields() or ::PxRegisterUnifiedHeightFields() will result in an error.
 */
 
 PX_C_EXPORT PX_PHYSX_CORE_API void PX_CALL_CONV PxRegisterUnifiedHeightFields(physx::PxPhysics& physics);
 
 /**
-\brief Registers optional components for cloth.
+\brief Enables the usage of the cloth feature.  This function is called automatically inside PxCreatePhysics().
+On resource constrained platforms, it is possible to call PxCreateBasePhysics() and then NOT call this function
+to save on code memory if your application does not use cloth.  In this case the linker should strip out
+the relevant implementation code from the library.  If you need to use cloth but not some other optional
+component, you shoud call PxCreateBasePhysics() followed by this call.
 */
 PX_C_EXPORT PX_PHYSX_CORE_API void PX_CALL_CONV PxRegisterCloth(physx::PxPhysics& physics);
 
 /**
-\brief Registers optional components for particles.
+\brief Enables the usage of the particles feature.  This function is called automatically inside PxCreatePhysics().
+On resource constrained platforms, it is possible to call PxCreateBasePhysics() and then NOT call this function
+to save on code memory if your application does not use particles.  In this case the linker should strip out
+the relevant implementation code from the library.  If you need to use particles but not some other optional
+component, you shoud call PxCreateBasePhysics() followed by this call.
 */
 PX_C_EXPORT PX_PHYSX_CORE_API void PX_CALL_CONV PxRegisterParticles(physx::PxPhysics& physics);
 
@@ -790,6 +807,12 @@ Creates an instance of this class. May not be a class member to avoid name mangl
 Pass the constant PX_PHYSICS_VERSION as the argument.
 There may be only one instance of this class per process. Calling this method after an instance 
 has been created already will result in an error message and NULL will be returned.
+
+Calling this will register all optional code modules (Articulations, HeightFields, Cloth 
+and Particles), preparing them for use.  If you do not need some of these modules, consider
+calling PxCreateBasePhysics() instead and registering needed modules manually.  If you would
+like to use the unified heightfield collision code instead, it is permitted to follow this call
+with a call to ::PxRegisterUnifiedHeightFields().
 
 \param version Version number we are expecting(should be PX_PHYSICS_VERSION)
 \param foundation Foundation instance (see #PxFoundation)
@@ -856,13 +879,11 @@ PX_C_EXPORT PX_PHYSX_CORE_API void PX_CALL_CONV PxUnregisterPhysicsSerializers(p
 
 
 /**
-\brief Adds collected objects to this physics.
+\brief Adds collected objects to PxPhysics.
 
-This function adds all objects contained in the input collection to this physics. This is
-typically used after deserializing the collection, to populate the physics with deserialized
-objects. Non-physics level objects are ignored.
-
-\param[in] collection Objects to add to this physics.
+This function adds all objects contained in the input collection to the PxPhysics instance. This is used after deserializing 
+the collection, to populate the physics with inplace deserialized objects.
+\param[in] collection Objects to add to the PxPhysics instance.
 
 @see PxCollection
 */

@@ -20,7 +20,7 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static void* GetHardwareWindow();
 
 #if !UE_BUILD_SHIPPING
-	FORCEINLINE static bool IsDebuggerPresent()
+	static bool IsDebuggerPresent()
 	{
 		// Based on http://developer.apple.com/library/mac/#qa/qa1361/_index.html
 
@@ -58,6 +58,21 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 #if !UE_BUILD_SHIPPING
 		DebugBreak();
 #endif
+		return false;
+	}
+
+	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
+	FORCEINLINE static bool DebugBreakAndPromptForRemoteReturningFalse()
+	{
+#if !UE_BUILD_SHIPPING
+		if (!IsDebuggerPresent())
+		{
+			PromptForRemoteDebugging(false);
+		}
+
+		DebugBreak();
+#endif
+
 		return false;
 	}
 

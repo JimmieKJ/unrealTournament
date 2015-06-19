@@ -675,11 +675,16 @@ public:
 		}
 		if (bShutdown)
 		{
-			if(FParse::Param(FCommandLine::Get(), TEXT("MergePaks")) && WritePakCache && WritePakCache->IsWritable())
+			FString MergePaks;
+			if(WritePakCache && WritePakCache->IsWritable() && FParse::Value(FCommandLine::Get(), TEXT("MergePaks="), MergePaks))
 			{
-				for (int32 ReadPakIndex = 0; ReadPakIndex < ReadPakCache.Num(); ReadPakIndex++)
+				TArray<FString> MergePakList;
+				MergePaks.FString::ParseIntoArray(MergePakList, TEXT("+"));
+
+				for(const FString& MergePakName : MergePakList)
 				{
-					WritePakCache->MergeCache(ReadPakCache[ReadPakIndex]);
+					FPakFileDerivedDataBackend ReadPak(*FPaths::Combine(*FPaths::GetPath(WritePakFilename), *MergePakName), false);
+					WritePakCache->MergeCache(&ReadPak);
 				}
 			}
 			for (int32 ReadPakIndex = 0; ReadPakIndex < ReadPakCache.Num(); ReadPakIndex++)

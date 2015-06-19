@@ -14,7 +14,7 @@ public:
 	FIOSPlatformTextField();
 	virtual ~FIOSPlatformTextField();
 
-	virtual void ShowVirtualKeyboard(bool bShow, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget) override;
+	virtual void ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget) override;
 
 private:
 	SlateTextField* TextField;

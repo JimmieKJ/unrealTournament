@@ -33,22 +33,30 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		}
 	}
 
-	if (bIsStatusAnnouncement)
+	if (ShouldPlayAnnouncement(ClientData))
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->StatusAnnouncer != NULL)
+		if (PC != NULL && PC->Announcer != NULL)
 		{
-			PC->StatusAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 		}
 	}
-
-
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
+}
+
+bool UUTLocalMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
+{
+	return bIsStatusAnnouncement;
 }
 
 float UUTLocalMessage::GetAnnouncementDelay(int32 Switch)
 {
 	return AnnouncementDelay;
+}
+
+float UUTLocalMessage::GetAnnouncementPriority(int32 Switch) const
+{
+	return bIsStatusAnnouncement ? 0.5f : 0.8f;
 }
 
 bool UUTLocalMessage::UseLargeFont(int32 MessageIndex) const
@@ -151,6 +159,11 @@ bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const U
 {
 	// by default interrupt messages of same type, and countdown messages
 	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
+}
+
+bool UUTLocalMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+{
+	return false;
 }
 
 void UUTLocalMessage::OnAnnouncementPlayed_Implementation(int32 Switch, const UObject* OptionalObject) const

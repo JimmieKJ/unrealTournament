@@ -110,4 +110,4 @@ const FPlatformUserId PLATFORMUSERID_NONE = INDEX_NONE;
 #define PREPROCESSOR_JOIN(x, y) PREPROCESSOR_JOIN_INNER(x, y)
 
 // When passed to pragma message will result in clickable warning in VS
-#define WARNING_LOCATION __FILE__ "(" PREPROCESSOR_TO_STRING(__LINE__) ")"
+#define WARNING_LOCATION(Line) __FILE__ "(" PREPROCESSOR_TO_STRING(Line) ")"

@@ -8,6 +8,8 @@
 #include "Perception/AISense_Touch.h"
 #include "Perception/AISense_Prediction.h"
 #include "Perception/AISense_Damage.h"
+#include "Perception/AISenseConfig.h"
+#include "Perception/AISenseEvent.h"
 
 DECLARE_CYCLE_STAT(TEXT("Perception System"),STAT_AI_PerceptionSys,STATGROUP_AI);
 
@@ -29,11 +31,14 @@ UAIPerceptionSystem::UAIPerceptionSystem(const FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 	, PerceptionAgingRate(0.3f)
 	, bSomeListenersNeedUpdateDueToStimuliAging(false)
+	, bStimuliSourcesRefreshRequired(false)
+	, bHandlePawnNotification(false)
 	, CurrentTime(0.f)
 {
+	StimuliSourceEndPlayDelegate.BindDynamic(this, &UAIPerceptionSystem::OnPerceptionStimuliSourceEndPlay);
 }
 
-void UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseClass)
+FAISenseID UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseClass)
 {
 	check(SenseClass);
 	FAISenseID SenseID = UAISense::GetSenseID(SenseClass);
@@ -45,7 +50,7 @@ void UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseClass)
 		if (SenseID.IsValid() == false)
 		{
 			// @todo log a message here
-			return;
+			return FAISenseID::InvalidID();
 		}
 	}
 
@@ -60,8 +65,20 @@ void UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseClass)
 
 	if (Senses[SenseID] == nullptr)
 	{
-		Senses[SenseID] = ConstructObject<UAISense>(SenseClass, this);
+		Senses[SenseID] = NewObject<UAISense>(this, SenseClass);
 		check(Senses[SenseID]);
+		bHandlePawnNotification |= Senses[SenseID]->ShouldAutoRegisterAllPawnsAsSources() || Senses[SenseID]->WantsNewPawnNotification();
+
+		if (Senses[SenseID]->ShouldAutoRegisterAllPawnsAsSources())
+		{
+			UWorld* World = GetWorld();
+			if (World->HasBegunPlay())
+			{
+				RegisterAllPawnsAsSourcesForSense(SenseID);
+			}
+			// otherwise it will get called in StartPlay()
+		}
+
 #if !UE_BUILD_SHIPPING
 		DebugSenseColors[SenseID] = Senses[SenseID]->GetDebugColor();
 		PerceptionDebugLegend += Senses[SenseID]->GetDebugLegend();
@@ -71,6 +88,8 @@ void UAIPerceptionSystem::RegisterSenseClass(TSubclassOf<UAISense> SenseClass)
 		UE_VLOG(this, LogAIPerception, Log, TEXT("Registering sense %s"), *Senses[SenseID]->GetName());
 #endif
 	}
+
+	return SenseID;
 }
 
 UWorld* UAIPerceptionSystem::GetWorld() const
@@ -81,15 +100,6 @@ UWorld* UAIPerceptionSystem::GetWorld() const
 void UAIPerceptionSystem::PostInitProperties() 
 {
 	Super::PostInitProperties();
-
-	if (HasAnyFlags(RF_ClassDefaultObject) == false)
-	{
-		UWorld* World = GEngine->GetWorldFromContextObject(GetOuter());
-		if (World)
-		{
-			World->GetTimerManager().SetTimer(AgeStimuliTimerHandle, this, &UAIPerceptionSystem::AgeStimuli, PerceptionAgingRate, /*inbLoop=*/true);
-		}
-	}
 }
 
 TStatId UAIPerceptionSystem::GetStatId() const
@@ -97,11 +107,10 @@ TStatId UAIPerceptionSystem::GetStatId() const
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UAIPerceptionSystem, STATGROUP_Tickables);
 }
 
-
 void UAIPerceptionSystem::RegisterSource(FAISenseID SenseID, AActor& SourceActor)
 {
 	ensure(IsSenseInstantiated(SenseID));
-	SourcesToRegister.Add(FPerceptionSourceRegistration(SenseID, &SourceActor));
+	SourcesToRegister.AddUnique(FPerceptionSourceRegistration(SenseID, &SourceActor));
 }
 
 void UAIPerceptionSystem::PerformSourceRegistration()
@@ -111,9 +120,17 @@ void UAIPerceptionSystem::PerformSourceRegistration()
 	for (const auto& PercSource : SourcesToRegister)
 	{
 		AActor* SourceActor = PercSource.Source.Get();
-		if (SourceActor)
+		if (SourceActor != nullptr && SourceActor->IsPendingKillPending() == false)
 		{
 			Senses[PercSource.SenseID]->RegisterSource(*SourceActor);
+
+			// hook into notification about actor's EndPlay to remove it as a source 
+			SourceActor->OnEndPlay.AddUnique(StimuliSourceEndPlayDelegate);
+
+			// store information we have this actor as given sense's source
+			FPerceptionStimuliSource& StimuliSource = RegisteredStimuliSources.FindOrAdd(SourceActor);
+			StimuliSource.SourceActor = SourceActor;
+			StimuliSource.RelevantSenses.AcceptChannel(PercSource.SenseID);
 		}
 	}
 
@@ -162,6 +179,34 @@ void UAIPerceptionSystem::Tick(float DeltaSeconds)
 
 		bool bNeedsUpdate = false;
 
+		if (bStimuliSourcesRefreshRequired == true)
+		{
+			// this is a bit naive, but we don't get notifications from the engine which Actor ended play, 
+			// we just know one did. Let's just refresh the map removing all no-longer-valid instances
+			// @todo: we should be just calling senses directly here to unregister specific source
+			// but at this point source actor is invalid already so we can't really pin and use it
+			// this will go away once OnEndPlay broadcast passes in its instigator
+			FPerceptionChannelWhitelist SensesToUpdate;
+			for (auto It = RegisteredStimuliSources.CreateIterator(); It; ++It)
+			{
+				if (It->Value.SourceActor.IsValid() == false)
+				{
+					SensesToUpdate.MergeFilterIn(It->Value.RelevantSenses);
+					It.RemoveCurrent();
+				}
+			}
+
+			for (FPerceptionChannelWhitelist::FConstIterator It(SensesToUpdate); It && Senses.IsValidIndex(*It); ++It)
+			{
+				if (Senses[*It] != nullptr)
+				{
+					Senses[*It]->CleanseInvalidSources();
+				}
+			}
+
+			bStimuliSourcesRefreshRequired = false;
+		}
+		
 		if (SourcesToRegister.Num() > 0)
 		{
 			PerformSourceRegistration();
@@ -309,12 +354,46 @@ void UAIPerceptionSystem::UnregisterListener(UAIPerceptionComponent& Listener)
 	}
 }
 
+void UAIPerceptionSystem::UnregisterSource(AActor& SourceActor, TSubclassOf<UAISense> Sense)
+{
+	SourceActor.OnEndPlay.Remove(StimuliSourceEndPlayDelegate);
+	
+	FPerceptionStimuliSource* StimuliSource = RegisteredStimuliSources.Find(&SourceActor);
+	if (StimuliSource)
+	{
+		// single sense case
+		if (Sense)
+		{
+			const FAISenseID SenseID = UAISense::GetSenseID(Sense);
+			if (StimuliSource->RelevantSenses.ShouldRespondToChannel(Senses[SenseID]->GetSenseID()))
+			{
+				Senses[SenseID]->UnregisterSource(SourceActor);
+				StimuliSource->RelevantSenses.FilterOutChannel(SenseID);
+			}
+		}
+		else // unregister from all senses
+		{
+			for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID)
+			{
+				if (StimuliSource->RelevantSenses.ShouldRespondToChannel(Senses[SenseID]->GetSenseID()))
+				{
+					Senses[SenseID]->UnregisterSource(SourceActor);
+				}
+			}
+		}
+	}
+	else
+	{
+		UE_VLOG(this, LogAIPerception, Log, TEXT("UnregisterSource called for %s but it doesn't seem to be registered as a source"), *SourceActor.GetName());
+	}
+}
+
 void UAIPerceptionSystem::OnListenerRemoved(const FPerceptionListener& NewListener)
 {
 	UAISense** SenseInstance = Senses.GetData();
 	for (int32 SenseID = 0; SenseID < Senses.Num(); ++SenseID, ++SenseInstance)
 	{
-		if (*SenseInstance != nullptr)
+		if (*SenseInstance != nullptr && NewListener.HasSense((*SenseInstance)->GetSenseID()))
 		{
 			(*SenseInstance)->OnListenerRemoved(NewListener);
 		}
@@ -376,13 +455,70 @@ bool UAIPerceptionSystem::DeliverDelayedStimuli(UAIPerceptionSystem::EDelayedSti
 
 void UAIPerceptionSystem::MakeNoiseImpl(AActor* NoiseMaker, float Loudness, APawn* NoiseInstigator, const FVector& NoiseLocation)
 {
-	check(NoiseMaker != nullptr || NoiseInstigator != nullptr);
+	UE_CLOG(NoiseMaker == nullptr && NoiseInstigator == nullptr, LogAIPerception, Warning
+		, TEXT("UAIPerceptionSystem::MakeNoiseImpl called with both NoiseMaker and NoiseInstigator being null. Unable to resolve UWorld context!"));
+	
+	UWorld* World = NoiseMaker ? NoiseMaker->GetWorld() : (NoiseInstigator ? NoiseInstigator->GetWorld() : nullptr);
 
-	UWorld* World = NoiseMaker ? NoiseMaker->GetWorld() : NoiseInstigator->GetWorld();
-
-	UAIPerceptionSystem::OnEvent(World, FAINoiseEvent(NoiseInstigator ? NoiseInstigator : NoiseMaker
+	if (World)
+	{
+		UAIPerceptionSystem::OnEvent(World, FAINoiseEvent(NoiseInstigator ? NoiseInstigator : NoiseMaker
 			, NoiseLocation
 			, Loudness));
+	}
+}
+
+void UAIPerceptionSystem::OnNewPawn(APawn& Pawn)
+{
+	if (bHandlePawnNotification == false)
+	{
+		return;
+	}
+
+	for (UAISense* Sense : Senses)
+	{
+		if (Sense->WantsNewPawnNotification())
+		{
+			Sense->OnNewPawn(Pawn);
+		}
+
+		if (Sense->ShouldAutoRegisterAllPawnsAsSources())
+		{
+			FAISenseID SenseID = Sense->GetSenseID();
+			check(IsSenseInstantiated(SenseID));
+			RegisterSource(SenseID, Pawn);
+		}
+	}
+}
+
+void UAIPerceptionSystem::StartPlay()
+{
+	for (UAISense* Sense : Senses)
+	{
+		if (Sense->ShouldAutoRegisterAllPawnsAsSources())
+		{
+			FAISenseID SenseID = Sense->GetSenseID();
+			RegisterAllPawnsAsSourcesForSense(SenseID);
+		}
+	}
+
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		World->GetTimerManager().SetTimer(AgeStimuliTimerHandle, this, &UAIPerceptionSystem::AgeStimuli, PerceptionAgingRate, /*inbLoop=*/true);
+	}
+}
+
+void UAIPerceptionSystem::RegisterAllPawnsAsSourcesForSense(FAISenseID SenseID)
+{
+	UWorld* World = GetWorld();
+	for (auto PawnIt = World->GetPawnIterator(); PawnIt; ++PawnIt)
+	{
+		if (*PawnIt)
+		{
+			RegisterSource(SenseID, **PawnIt);
+		}
+	}
 }
 
 bool UAIPerceptionSystem::RegisterPerceptionStimuliSource(UObject* WorldContext, TSubclassOf<UAISense> Sense, AActor* Target)
@@ -394,21 +530,38 @@ bool UAIPerceptionSystem::RegisterPerceptionStimuliSource(UObject* WorldContext,
 		if (World && World->GetAISystem())
 		{
 			UAISystem* AISys = Cast<UAISystem>(World->GetAISystem());
-			if (AISys && AISys->GetPerceptionSystem())
+			if (AISys != nullptr && AISys->GetPerceptionSystem() != nullptr)
 			{
-				const FAISenseID SenseID = UAISense::GetSenseID(Sense);
-				if (AISys->GetPerceptionSystem()->IsSenseInstantiated(SenseID) == false)
-				{
-					AISys->GetPerceptionSystem()->RegisterSenseClass(Sense);
-				}
+				// just a cache
+				UAIPerceptionSystem* PerceptionSys = AISys->GetPerceptionSystem();
+				
+				PerceptionSys->RegisterSourceForSenseClass(Sense, *Target);
 
-				AISys->GetPerceptionSystem()->RegisterSource(SenseID, *Target);
 				bResult = true;
 			}
 		}
 	}
 
 	return bResult;
+}
+
+void UAIPerceptionSystem::RegisterSourceForSenseClass(TSubclassOf<UAISense> Sense, AActor& Target)	
+{
+	FAISenseID SenseID = UAISense::GetSenseID(Sense);
+	if (IsSenseInstantiated(SenseID) == false)
+	{
+		SenseID = RegisterSenseClass(Sense);
+	}
+
+	RegisterSource(SenseID, Target);
+}
+
+void UAIPerceptionSystem::OnPerceptionStimuliSourceEndPlay(EEndPlayReason::Type EndPlayReason)
+{
+	// this tells us just that _a_ source has been removed. We need to parse through all sources and find which one was it
+	// this is a fall-back behavior, if source gets unregistered manually this function won't get called 
+	// note, the actual work will be done on system's tick
+	bStimuliSourcesRefreshRequired = true;
 }
 
 TSubclassOf<UAISense> UAIPerceptionSystem::GetSenseClassForStimulus(UObject* WorldContext, const FAIStimulus& Stimulus)
@@ -452,7 +605,6 @@ void UAIPerceptionSystem::ReportPerceptionEvent(UObject* WorldContext, UAISenseE
 		PerceptionSys->ReportEvent(PerceptionEvent);
 	}
 }
-
 
 #if !UE_BUILD_SHIPPING
 FColor UAIPerceptionSystem::GetSenseDebugColor(FAISenseID SenseID) const

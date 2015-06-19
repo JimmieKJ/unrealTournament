@@ -84,7 +84,7 @@ void SBlutilityShelf::OnBlutilityDoubleClicked(const class FAssetData& AssetData
 		Blueprint = Cast<UEditorUtilityBlueprint>(AssetData.GetAsset());
 	}
 	else
-	{
+	{ //-V523 Remove it when todo will be implemented
 		Blueprint = Cast<UEditorUtilityBlueprint>(AssetData.GetAsset());
 	}
 		

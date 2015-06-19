@@ -11,6 +11,8 @@ DECLARE_CYCLE_STAT(TEXT("Map Staging Buffer"),STAT_MapStagingBuffer,STATGROUP_Cr
 DECLARE_CYCLE_STAT(TEXT("Generate Capture Buffer"),STAT_GenerateCaptureBuffer,STATGROUP_CrashTracker);
 DECLARE_CYCLE_STAT(TEXT("Unmap Staging Buffer"),STAT_UnmapStagingBuffer,STATGROUP_CrashTracker);
 
+DECLARE_CYCLE_STAT(TEXT("Slate Rendering RT Time"), STAT_SlateRenderingRTTime, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("Slate RT Present Time"), STAT_SlatePresentRTTime, STATGROUP_Slate);
 
 // Defines the maximum size that a slate viewport will create
 #define MAX_VIEWPORT_SIZE 16384
@@ -70,8 +72,7 @@ void FSlateRHIRenderer::FViewportInfo::InitRHI()
 void FSlateRHIRenderer::FViewportInfo::ReleaseRHI()
 {
 	DepthStencil.SafeRelease();
-	ViewportRHI.SafeRelease();
-	RenderTargetTexture.SafeRelease();
+	ViewportRHI.SafeRelease();	
 }
 
 void FSlateRHIRenderer::FViewportInfo::ConditionallyUpdateDepthBuffer(bool bInRequiresStencilTest)
@@ -258,12 +259,18 @@ void FSlateRHIRenderer::CreateViewport( const TSharedRef<SWindow> Window )
 		NewInfo->DesiredWidth = Width;
 		NewInfo->DesiredHeight = Height;
 		NewInfo->ProjectionMatrix = CreateProjectionMatrix( Width, Height );
+#if ALPHA_BLENDED_WINDOWS		
+		if( Window->GetTransparencySupport() == EWindowTransparency::PerPixel )
+		{
+			NewInfo->PixelFormat = PF_B8G8R8A8;
+		}
+#endif
 
 		// Sanity check dimensions
 		checkf(Width <= MAX_VIEWPORT_SIZE && Height <= MAX_VIEWPORT_SIZE, TEXT("Invalid window with Width=%u and Height=%u"), Width, Height);
 
 		bool bFullscreen = IsViewportFullscreen( *Window );
-		NewInfo->ViewportRHI = RHICreateViewport( NewInfo->OSWindow, Width, Height, bFullscreen );
+		NewInfo->ViewportRHI = RHICreateViewport( NewInfo->OSWindow, Width, Height, bFullscreen, NewInfo->PixelFormat );
 		NewInfo->bFullscreen = bFullscreen;
 
 		WindowToViewportInfo.Add( &Window.Get(), NewInfo );
@@ -276,14 +283,14 @@ void FSlateRHIRenderer::ConditionalResizeViewport( FViewportInfo* ViewInfo, uint
 {
 	check( IsThreadSafeForSlateRendering() );
 
-	if( ViewInfo && ( ViewInfo->Height != Height || ViewInfo->Width != Width ||  ViewInfo->bFullscreen != bFullscreen || !IsValidRef(ViewInfo->ViewportRHI) ) )
+	if( IsInGameThread() && !IsInSlateThread() && ViewInfo && ( ViewInfo->Height != Height || ViewInfo->Width != Width ||  ViewInfo->bFullscreen != bFullscreen || !IsValidRef(ViewInfo->ViewportRHI) ) )
 	{
 		// The viewport size we have doesn't match the requested size of the viewport.
 		// Resize it now.
 
-		// Suspend the rendering thread to avoid deadlocks with the gpu
-		bool bRecreateThread = true;
-		SCOPED_SUSPEND_RENDERING_THREAD( bRecreateThread );
+		// cannot resize the viewport while potentially using it.
+		FlushRenderingCommands();
+	
 
 		// Windows are allowed to be zero sized ( sometimes they are animating to/from zero for example)
 		// but viewports cannot be zero sized.  Use 8x8 as a reasonably sized viewport in this case.
@@ -316,11 +323,8 @@ void FSlateRHIRenderer::ConditionalResizeViewport( FViewportInfo* ViewInfo, uint
 		}
 		else
 		{
-			ViewInfo->ViewportRHI = RHICreateViewport(ViewInfo->OSWindow, NewWidth, NewHeight, bFullscreen);
+			ViewInfo->ViewportRHI = RHICreateViewport(ViewInfo->OSWindow, NewWidth, NewHeight, bFullscreen, ViewInfo->PixelFormat);
 		}
-
-		// Safe to call here as the rendering thread has been suspended: game thread == render thread!
-		ViewInfo->RecreateDepthBuffer_RenderThread();
 	}
 }
 
@@ -387,7 +391,7 @@ void FSlateRHIRenderer::OnWindowDestroyed( const TSharedRef<SWindow>& InWindow )
 }
 
 /** Draws windows from a FSlateDrawBuffer on the render thread */
-void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, const FViewportInfo& ViewportInfo, const FSlateWindowElementList& WindowElementList, bool bLockToVsync)
+void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, const FViewportInfo& ViewportInfo, const FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, SlateUI);
 
@@ -402,11 +406,12 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 		// should have been created by the game thread
 		check( IsValidRef(ViewportInfo.ViewportRHI) );
 
-		FTexture2DRHIRef BackBuffer = (ViewportInfo.RenderTargetTexture) ? 
-			ViewportInfo.RenderTargetTexture : RHICmdList.GetViewportBackBuffer(ViewportInfo.ViewportRHI);
+		FTexture2DRHIRef ViewportRT = ViewportInfo.GetRenderTargetTexture();
+		FTexture2DRHIRef BackBuffer = (ViewportRT) ?
+		ViewportRT : RHICmdList.GetViewportBackBuffer(ViewportInfo.ViewportRHI);
 		
-		const uint32 ViewportWidth  = (ViewportInfo.RenderTargetTexture) ? ViewportInfo.RenderTargetTexture->GetSizeX() : ViewportInfo.Width;
-		const uint32 ViewportHeight = (ViewportInfo.RenderTargetTexture) ? ViewportInfo.RenderTargetTexture->GetSizeY() : ViewportInfo.Height;
+		const uint32 ViewportWidth = (ViewportRT) ? ViewportRT->GetSizeX() : ViewportInfo.Width;
+		const uint32 ViewportHeight = (ViewportRT) ? ViewportRT->GetSizeY() : ViewportInfo.Height;
 
 		RHICmdList.BeginDrawingViewport( ViewportInfo.ViewportRHI, FTextureRHIRef() );
 		RHICmdList.SetViewport( 0,0,0,ViewportWidth, ViewportHeight, 0.0f ); 
@@ -423,6 +428,11 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 		else
 		{
 			SetRenderTarget(RHICmdList, BackBuffer, FTextureRHIRef());
+		}
+
+		if (bClear)
+		{
+			RHICmdList.Clear( true, FLinearColor(ForceInitToZero), false, 0.0f, true, 0x00, FIntRect());
 		}
 
 #if DEBUG_OVERDRAW
@@ -443,9 +453,9 @@ void FSlateRHIRenderer::DrawWindow_RenderThread(FRHICommandListImmediate& RHICmd
 	}
 
 	bool bNeedCallFinishFrameForStereo = false;
-	if (GEngine && IsValidRef(ViewportInfo.RenderTargetTexture) && GEngine->StereoRenderingDevice.IsValid())
+	if (GEngine && IsValidRef(ViewportInfo.GetRenderTargetTexture()) && GEngine->StereoRenderingDevice.IsValid())
 	{
-		GEngine->StereoRenderingDevice->RenderTexture_RenderThread(RHICmdList, RHICmdList.GetViewportBackBuffer(ViewportInfo.ViewportRHI), ViewportInfo.RenderTargetTexture);
+		GEngine->StereoRenderingDevice->RenderTexture_RenderThread(RHICmdList, RHICmdList.GetViewportBackBuffer(ViewportInfo.ViewportRHI), ViewportInfo.GetRenderTargetTexture());
 		bNeedCallFinishFrameForStereo = true;
 	}
 
@@ -543,8 +553,6 @@ void FSlateRHIRenderer::PrepareToTakeScreenshot(const FIntRect& Rect, TArray<FCo
  */
 void FSlateRHIRenderer::DrawWindows_Private( FSlateDrawBuffer& WindowDrawBuffer )
 {
-	SCOPE_CYCLE_COUNTER( STAT_SlateRenderingGTTime );
-
 	check( IsThreadSafeForSlateRendering() );
 
 	// Enqueue a command to unlock the draw buffer after all windows have been drawn
@@ -618,12 +626,18 @@ void FSlateRHIRenderer::DrawWindows_Private( FSlateDrawBuffer& WindowDrawBuffer 
 						FSlateWindowElementList* WindowElementList;
 						SWindow* SlateWindow;
 						bool bLockToVsync;
+						bool bClear;
 					} Params;
 
 					Params.Renderer = this;
 					Params.ViewportInfo = ViewInfo;
 					Params.WindowElementList = &ElementList;
 					Params.bLockToVsync = bLockToVsync;
+#if ALPHA_BLENDED_WINDOWS
+					Params.bClear = Window->GetTransparencySupport() == EWindowTransparency::PerPixel;
+#else
+					Params.bClear = false;
+#endif
 
 					// NOTE: We pass a raw pointer to the SWindow so that we don't have to use a thread-safe weak pointer in
 					// the FSlateWindowElementList structure
@@ -635,7 +649,7 @@ void FSlateRHIRenderer::DrawWindows_Private( FSlateDrawBuffer& WindowDrawBuffer 
 						ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateDrawWindowsCommand,
 							FSlateDrawWindowCommandParams, Params, Params,
 							{
-								Params.Renderer->DrawWindow_RenderThread(RHICmdList, *Params.ViewportInfo, *Params.WindowElementList, Params.bLockToVsync);
+								Params.Renderer->DrawWindow_RenderThread(RHICmdList, *Params.ViewportInfo, *Params.WindowElementList, Params.bLockToVsync, Params.bClear);
 							});
 					}
 
@@ -734,10 +748,7 @@ FIntRect FSlateRHIRenderer::SetupVirtualScreenBuffer(const bool bPrimaryWorkArea
 		if( CrashTrackerResource != nullptr )
 		{
 			// Size has changed, so clear out our old resource and create a new one
-			if (CrashTrackerResource != nullptr)
-			{
-				BeginReleaseResource(CrashTrackerResource);
-			}
+			BeginReleaseResource(CrashTrackerResource);
 
 			FlushRenderingCommands();
 	
@@ -894,11 +905,11 @@ void FSlateRHIRenderer::CopyWindowsToVirtualScreenBuffer(const TArray<FString>& 
 	// @todo livestream: The cursor is probably still hidden when dragging with the mouse captured (grabby hand)
 	if( FSlateApplication::Get().GetMouseCaptureWindow() == nullptr )
 	{
-	FSlateDrawElement::MakeBox(
-		*WindowElementList,
-		0,
+		FSlateDrawElement::MakeBox(
+			*WindowElementList,
+			0,
 			FPaintGeometry(ScaledCursorLocation, FVector2D(32, 32) * XScaling, XScaling),
-		FCoreStyle::Get().GetBrush("CrashTracker.Cursor"),
+			FCoreStyle::Get().GetBrush("CrashTracker.Cursor"),
 			FSlateRect(0, 0, VirtualScreenSize.X, VirtualScreenSize.Y));
 	}
 	
@@ -1058,8 +1069,10 @@ bool FSlateRHIRenderer::GenerateDynamicImageResource( FName ResourceName, uint32
  */
 void FSlateRHIRenderer::FlushCommands() const
 {
-	check(!IsInSlateThread());
-	FlushRenderingCommands();
+	if( IsInGameThread() )
+	{
+		FlushRenderingCommands();
+	}
 }
 
 /**
@@ -1119,7 +1132,7 @@ void* FSlateRHIRenderer::GetViewportResource( const SWindow& Window )
 
 			const bool bFullscreen = IsViewportFullscreen( Window );
 
-			ViewportInfo->ViewportRHI = RHICreateViewport( ViewportInfo->OSWindow, ViewportInfo->Width, ViewportInfo->Height, bFullscreen );
+			ViewportInfo->ViewportRHI = RHICreateViewport( ViewportInfo->OSWindow, ViewportInfo->Width, ViewportInfo->Height, bFullscreen, ViewportInfo->PixelFormat );
 		}
 
 		return &ViewportInfo->ViewportRHI;
@@ -1154,7 +1167,7 @@ void FSlateRHIRenderer::ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture)
 {
 	if (IsInRenderingThread())
 	{
-		Texture->GetRenderResource()->InitResource();
+		Texture->GetRenderResource()->ReleaseResource();
 	}
 	else
 	{
@@ -1204,11 +1217,11 @@ void FSlateRHIRenderer::RequestResize( const TSharedPtr<SWindow>& Window, uint32
 	}
 }
 
-void FSlateRHIRenderer::SetWindowRenderTarget(const SWindow& Window, FTexture2DRHIParamRef RT)
-{
+void FSlateRHIRenderer::SetWindowRenderTarget(const SWindow& Window, IViewportRenderTargetProvider* Provider)
+{	
 	FViewportInfo* ViewInfo = WindowToViewportInfo.FindRef(&Window);
 	if (ViewInfo)
 	{
-		ViewInfo->RenderTargetTexture = RT;
+		ViewInfo->RTProvider = Provider;
 	}
 }

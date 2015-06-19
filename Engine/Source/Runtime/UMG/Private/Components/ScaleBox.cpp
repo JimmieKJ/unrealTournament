@@ -11,9 +11,11 @@ UScaleBox::UScaleBox(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bIsVariable = false;
+	Visibility = ESlateVisibility::SelfHitTestInvisible;
 
 	StretchDirection = EStretchDirection::Both;
 	Stretch = EStretch::ScaleToFit;
+	UserSpecifiedScale = 1.0f;
 }
 
 void UScaleBox::ReleaseSlateResources(bool bReleaseChildren)
@@ -41,6 +43,7 @@ void UScaleBox::SynchronizeProperties()
 
 	MyScaleBox->SetStretchDirection(StretchDirection);
 	MyScaleBox->SetStretch(Stretch);
+	MyScaleBox->SetUserSpecifiedScale(UserSpecifiedScale);
 }
 
 UClass* UScaleBox::GetSlotClass() const

@@ -70,7 +70,6 @@ bool AUTDuelGame::CheckRelevance_Implementation(AActor* Other)
 	if (PickupWeapon != NULL && PickupWeapon->WeaponType != NULL && !PickupWeapon->WeaponType.GetDefaultObject()->bWeaponStay)
 	{
 		PickupWeapon->SetInventoryType(nullptr);
-		PickupWeapon->bDisplayRespawnTimer = false;
 	}
 
 	return Super::CheckRelevance_Implementation(Other);

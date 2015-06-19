@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "ISessionManager.h"
+
 
 /**
  * Implement the session manager
@@ -19,58 +21,45 @@ public:
 	 */
 	FSessionManager( const IMessageBusRef& InMessageBus );
 	
-	/** Default destructor */
+	/** Destructor */
 	~FSessionManager();
 
 public:
 
-	// Begin ISessionManager Interface
+	// ISessionManager interface
 
 	virtual void AddOwner( const FString& InOwner ) override;
-	virtual void GetSelectedInstances( TArray<ISessionInstanceInfoPtr>& OutInstances) const override;
+	virtual void GetSelectedInstances( TArray<TSharedPtr<ISessionInstanceInfo>>& OutInstances) const override;
+	virtual const ISessionInfoPtr& GetSelectedSession() const override;
+	virtual void GetSessions( TArray<TSharedPtr<ISessionInfo>>& OutSessions ) const override;
+	virtual bool IsInstanceSelected( const TSharedRef<ISessionInstanceInfo>& Instance ) const override;
 
-	virtual const ISessionInfoPtr& GetSelectedSession() const override
-	{
-		return SelectedSession;
-	}
-
-	virtual void GetSessions( TArray<ISessionInfoPtr>& OutSessions ) const override;
-
-	virtual bool IsInstanceSelected( const ISessionInstanceInfoRef& Instance ) const override
-	{
-		return ((Instance->GetOwnerSession() == SelectedSession) && !DeselectedInstances.Contains(Instance));
-	}
-
-	virtual FOnCanSelectSession& OnCanSelectSession() override
+	DECLARE_DERIVED_EVENT(FSessionManager, ISessionManager::FCanSelectSessionEvent, FCanSelectSessionEvent)
+	virtual FCanSelectSessionEvent& OnCanSelectSession() override
 	{
 		return CanSelectSessionDelegate;
 	}
 
-	virtual FOnSessionInstanceSelectionChanged& OnInstanceSelectionChanged() override
+	DECLARE_DERIVED_EVENT(FSessionManager, ISessionManager::FInstanceSelectionChangedEvent, FInstanceSelectionChangedEvent)
+	virtual FInstanceSelectionChangedEvent& OnInstanceSelectionChanged() override
 	{
 		return InstanceSelectionChangedDelegate;
 	}
 
-	virtual FOnSessionLogReceived& OnLogReceived() override
+	DECLARE_DERIVED_EVENT(FSessionManager, ISessionManager::FLogReceivedEvent, FLogReceivedEvent)
+	virtual FLogReceivedEvent& OnLogReceived() override
 	{
-		return LogReceivedDelegate;
+		return LogReceivedEvent;
 	}
 
-	virtual FOnSelectedSessionChanged& OnSelectedSessionChanged() override
+	DECLARE_DERIVED_EVENT(FSessionManager, ISessionManager::FSelectedSessionChangedEvent, FSelectedSessionChangedEvent)
+	virtual FSelectedSessionChangedEvent& OnSelectedSessionChanged() override
 	{
-		return SelectedSessionChangedDelegate;
+		return SelectedSessionChangedEvent;
 	}
 
-	virtual FSimpleMulticastDelegate& OnSessionsUpdated() override
-	{
-		return SessionsUpdatedDelegate;
-	}
-
-	virtual FSimpleMulticastDelegate& OnSessionInstanceUpdated() override
-	{
-		return SessionInstanceUpdatedDelegate;
-	}
-
+	virtual FSimpleMulticastDelegate& OnSessionsUpdated() override;
+	virtual FSimpleMulticastDelegate& OnSessionInstanceUpdated() override;
 	virtual void RemoveOwner( const FString& InOwner ) override;
 	virtual bool SelectSession( const ISessionInfoPtr& Session ) override;
 	virtual bool SetInstanceSelected( const ISessionInstanceInfoPtr& Instance, bool Selected ) override;
@@ -135,33 +124,30 @@ private:
 	ISessionInfoPtr SelectedSession;
 
 	/** Holds the collection of discovered sessions. */
-	TMap<FGuid, TSharedPtr<FSessionInfo> > Sessions;
+	TMap<FGuid, TSharedPtr<FSessionInfo>> Sessions;
 
 private:
 
 	/** Holds a delegate to be invoked before a session is selected. */
-	FOnCanSelectSession CanSelectSessionDelegate;
+	FCanSelectSessionEvent CanSelectSessionDelegate;
 
 	/** Holds a delegate to be invoked when an instance changes its selection state. */
-	FOnSessionInstanceSelectionChanged InstanceSelectionChangedDelegate;
+	FInstanceSelectionChangedEvent InstanceSelectionChangedDelegate;
 
 	/** Owner filter list. */
 	TArray<FString> FilteredOwners;
 
 	/** Holds a delegate to be invoked when the selected session received a log message. */
-	FOnSessionLogReceived LogReceivedDelegate;
+	FLogReceivedEvent LogReceivedEvent;
 
 	/** Holds a delegate to be invoked when the selected session changed. */
-	FOnSelectedSessionChanged SelectedSessionChangedDelegate;
+	FSelectedSessionChangedEvent SelectedSessionChangedEvent;
 
 	/** Holds a delegate to be invoked when the session list was updated. */
 	FSimpleMulticastDelegate SessionsUpdatedDelegate;
 
 	/** Holds a delegate to be invoked when a session instance is updated. */
 	FSimpleMulticastDelegate SessionInstanceUpdatedDelegate;
-
-	/** Holds a delegate to be invoked when the widget ticks. */
-	FTickerDelegate TickDelegate;
 
 	/** Holds a delegate to be invoked when the widget ticks. */
 	FDelegateHandle TickDelegateHandle;

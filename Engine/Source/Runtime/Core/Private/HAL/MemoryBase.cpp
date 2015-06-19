@@ -66,21 +66,23 @@ void FMalloc::InitializeStatsMetadata()
 
 void FMalloc::UpdateStats()
 {
+#if	STATS
 	GetCurrentFrameCalls().Update();
 
 	SET_DWORD_STAT( STAT_MallocCalls, GetCurrentFrameCalls().MallocCalls );
 	SET_DWORD_STAT( STAT_ReallocCalls, GetCurrentFrameCalls().ReallocCalls );
 	SET_DWORD_STAT( STAT_FreeCalls, GetCurrentFrameCalls().FreeCalls );
 	SET_DWORD_STAT( STAT_TotalAllocatorCalls, GetCurrentFrameCalls().AllocatorCalls );
+#endif
 }
 
 
 void FMalloc::GetAllocatorStats( FGenericMemoryStats& out_Stats )
 {
 #if	STATS
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_MallocCalls ), GetCurrentFrameCalls().MallocCalls );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_ReallocCalls ), GetCurrentFrameCalls().ReallocCalls );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_FreeCalls ), GetCurrentFrameCalls().FreeCalls );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_TotalAllocatorCalls ), GetCurrentFrameCalls().AllocatorCalls );
+	out_Stats.Add( TEXT("Malloc calls"), GetCurrentFrameCalls().MallocCalls );
+	out_Stats.Add( TEXT("Realloc calls"), GetCurrentFrameCalls().ReallocCalls );
+	out_Stats.Add( TEXT("Free calls"), GetCurrentFrameCalls().FreeCalls );
+	out_Stats.Add( TEXT("Total Allocator calls"), GetCurrentFrameCalls().AllocatorCalls );
 #endif // STATS
 }

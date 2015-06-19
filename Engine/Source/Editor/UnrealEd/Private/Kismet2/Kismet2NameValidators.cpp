@@ -45,6 +45,10 @@ FString INameValidatorInterface::GetErrorString(const FString& Name, EValidatorR
 		case ExistingName:
 			ErrorText = LOCTEXT("ExistingName_Error", "Name cannot be the same as the existing name.").ToString();
 			break;
+		case LocallyInUse:
+		case TooLong:
+		case Ok:
+			break;
 	}
 	return ErrorText;
 }

@@ -18,10 +18,8 @@ public:
 	 */
 	FSlateRemoteServer( ISocketSubsystem& InSocketSubsystem, const FIPv4Endpoint& InServerEndpoint );
 
-	/**
-	 * Destructor.
-	 */
-	~FSlateRemoteServer( );
+	/** Destructor. */
+	~FSlateRemoteServer();
 
 public:
 
@@ -33,82 +31,60 @@ public:
 	 */
 	bool StartServer( const FIPv4Endpoint& ServerEndpoint );
 
-	/**
-	 * Stops the server.
-	 */
-	void StopServer( );
+	/** Stops the server. */
+	void StopServer();
 
 protected:
 
-	/**
-	 * Processes a DT_Gyro message.
-	 *
-	 * @param Message The message to process.
-	 */
+	/** Processes a DT_Gyro message. */
 	void ProcessGyroMessage( const FSlateRemoteServerMessage& Message );
 
-	/**
-	 * Processes a DT_Motion message.
-	 *
-	 * @param Message The message to process.
-	 */
+	/** Processes a DT_Motion message. */
 	void ProcessMotionMessage( const FSlateRemoteServerMessage& Message );
 
-	/**
-	 * Processes a DT_Ping message.
-	 *
-	 * @param Message The message to process.
-	 */
+	/** Processes a DT_Ping message. */
 	void ProcessPingMessage( const FSlateRemoteServerMessage& Message );
 
-	/**
-	 * Processes a DT_Tilt message.
-	 *
-	 * @param Message The message to process.
-	 */
+	/** Processes a DT_Tilt message. */
 	void ProcessTiltMessage( const FSlateRemoteServerMessage& Message );
 
-	/**
-	 * Processes a DT_Touch message.
-	 *
-	 * @param Message The message to process.
-	 */
+	/** Processes a DT_Touch message. */
 	void ProcessTouchMessage( const FSlateRemoteServerMessage& Message );
 
 private:
 
-	// Callback for when the ticker fires.
+	/** Callback for when the ticker fires. */
 	bool HandleTicker( float DeltaTime );
 
 private:
 
-	// The widget path to the game viewport.
+	/** The widget path to the game viewport. */
 	FWeakWidgetPath GameViewportWidgetPath;
 
-	// Highest message ID (must handle wrapping around at 16 bits).
+	/** Highest message ID (must handle wrapping around at 16 bits). */
 	uint16 HighestMessageReceived;
 
-	// The socket to send image data on, will be initialized in first tick.
+	/** The socket to send image data on, will be initialized in first tick. */
 	FSocket* ImageSocket;
 
-	// The address of the most recent UDKRemote to talk to us, this is who we reply to.
+	/** The address of the most recent UDKRemote to talk to us, this is who we reply to. */
 	TSharedRef<FInternetAddr> ReplyAddr;
 
-	// The socket to listen on, will be initialized in first tick.
+	/** The socket to listen on, will be initialized in first tick. */
 	FSocket* ServerSocket;
 
-	// Holds a pointer to the socket sub-system being used.
+	/** Holds a pointer to the socket sub-system being used. */
 	ISocketSubsystem& SocketSubsystem;
 
-	// Holds a delegate to be invoked when the server ticks.
+	/** Holds a delegate to be invoked when the server ticks. */
 	FTickerDelegate TickDelegate;
 
-	// Handle to the registered TickDelegate.
+	/** Handle to the registered TickDelegate. */
 	FDelegateHandle TickDelegateHandle;
 
-	// The time since the last message was received from the Slate Remote application.
+	/** The time since the last message was received from the Slate Remote application. */
 	float TimeSinceLastPing;
 
-	// Ever increasing timestamp to send to the input system.
+	/** Ever increasing timestamp to send to the input system. */
 	double Timestamp;
 };

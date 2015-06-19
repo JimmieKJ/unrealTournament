@@ -10,6 +10,7 @@
 #include "UTProfileSettings.h"
 #include "OnlinePresenceInterface.h"
 #include "Http.h"
+
 #include "UTLocalPlayer.generated.h"
 
 class SUWServerBrowser;
@@ -17,6 +18,8 @@ class SUWFriendsPopup;
 class SUTQuickMatch;
 class SUWLoginDialog;
 class SUWRedirectDialog;
+class SUWMapVoteDialog;
+class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
 
@@ -71,6 +74,8 @@ public:
 
 	virtual void MessageBox(FText MessageTitle, FText MessageText);
 
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
+
 #if !UE_SERVER
 	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
 	virtual TSharedPtr<class SUWDialog> ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback = FDialogResultDelegate());
@@ -79,6 +84,7 @@ public:
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog, int32 ZOrder = 255);
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
+	TSharedPtr<class SUWReplayBrowser> GetReplayBrowser();
 	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
 	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
@@ -101,6 +107,9 @@ public:
 	UPROPERTY(Config)
 	bool bFragCenterAutoPlay;
 
+	UPROPERTY(Config)
+	bool bFragCenterAutoMute;
+
 
 protected:
 
@@ -110,6 +119,7 @@ protected:
 	// Holds a persistent reference to the server browser.
 	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
 
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowserWidget;
 	TSharedPtr<class SUWStatsViewer> StatsViewerWidget;
 	TSharedPtr<class SUWCreditsPanel> CreditsPanelWidget;
 
@@ -127,6 +137,8 @@ protected:
 
 	bool bWantsToConnectAsSpectator;
 	bool bWantsToFindMatch;
+
+	int32 ConnectDesiredTeam;
 
 public:
 	FProcHandle DedicatedServerProcessHandle;
@@ -298,15 +310,6 @@ protected:
 #endif
 
 public:
-	// Holds the unique GUID for the current lobby to return to
-	FString LastLobbyServerGUID;
-
-	// Holds the Session Id of the lobby to return to
-	FString LastLobbySessionId;
-
-	// Tells this local player to remember a lobby before traveling to an instance server owned by that lobby.
-	virtual void RememberLobby(FString LobbyServerGUID);
-
 	virtual void ShowHUDSettings();
 	virtual void HideHUDSettings();
 
@@ -340,12 +343,12 @@ public:
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false);
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false, int32 DesiredTeam = -1);
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
 	// Updates this user's online presence
-	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId);
+	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
 
 	// Does the player have pending social notifications - should the social bang be shown?
 	bool IsPlayerShowingSocialNotification() const;
@@ -362,9 +365,9 @@ protected:
 	FOnlineSessionSearchResult PendingSession;
 
 	// friend join functionality
-	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId);
+	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
 	virtual void OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult);
-	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId);
+	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
 	virtual bool AllowFriendsJoinGame();
 	virtual void HandleFriendsNotificationAvail(bool bAvailable);
 	virtual void HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage);
@@ -456,15 +459,28 @@ public:
 protected:
 #if !UE_SERVER
 	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
+	TSharedPtr<SUWMapVoteDialog> MapVoteMenu;
 #endif
 
 public:
 	virtual void OpenLoadout(bool bBuyMenu = false);
 	virtual void CloseLoadout();
 
+	virtual void OpenMapVote(AUTGameState* GameState);
+	virtual void CloseMapVote();
+
 	// What is your role within the unreal community.
 	EUnrealRoles::Type CommunityRole;
 
+	//Replay Stuff
+#if !UE_SERVER
+	TSharedPtr<SUTReplayWindow> ReplayWindow;
+#endif
+	void OpenReplayWindow();
+	void CloseReplayWindow();
+	void ToggleReplayWindow();
+
+	virtual bool IsReplay();
 };
 
 

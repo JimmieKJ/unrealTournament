@@ -42,7 +42,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(Desc)
+					.Text(FText::FromString(Desc))
 					.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 				]
 			]
@@ -63,7 +63,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 					[
 						SAssignNew(SelectedItemWidget, STextBlock)
-						.Text(*GeneralScalabilityList[SettingValue].Get())
+						.Text(FText::FromString(*GeneralScalabilityList[SettingValue].Get()))
 						.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 					]
 				]
@@ -87,7 +87,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Des
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(Desc)
+					.Text(FText::FromString(Desc))
 					.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 				]
 			]
@@ -108,7 +108,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Des
 					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 					[
 						SAssignNew(SelectedItemWidget, STextBlock)
-						.Text(*AAModeList[SettingValue].Get())
+						.Text(FText::FromString(*AAModeList[SettingValue].Get()))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 					]
 				]
@@ -131,7 +131,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FStri
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(Desc)
+				.Text(FText::FromString(Desc))
 				.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 			]
 		]
@@ -167,7 +167,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWithLabelWidget(TS
 			[
 				SAssignNew(LabelWidget, STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(InitialLabel)
+				.Text(FText::FromString(InitialLabel))
 				.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 			]
 		]
@@ -250,7 +250,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
-							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGeneral", "General").ToString())
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGeneral", "General"))
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGeneral)
 						]
@@ -264,7 +264,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGraphics", "Graphics").ToString())
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGraphics", "Graphics"))
 							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGraphics)
 						]
 
@@ -277,7 +277,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabAudio", "Audio").ToString())
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabAudio", "Audio"))
 							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickAudio)
 						]
 
@@ -376,10 +376,13 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 	{
 		CurrentResIndex = ResList.Add(MakeShareable(new FString(FString::Printf(TEXT("%ix%i"), int32(ViewportSize.X), int32(ViewportSize.Y)))));
 	}
+	
+	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayModeFullscreen", "Fullscreen").ToString())));
+	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayModeWindowedFullscreen", "Windowed (Fullscreen)").ToString())));
+	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayModeWindowed", "Windowed").ToString())));
+	int32 CurrentDisplayIndex = FMath::Clamp(int32(UserSettings->GetFullscreenMode()), 0, DisplayModeList.Num() - 1);
 
 	return SNew(SVerticalBox)
-
-
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
@@ -393,7 +396,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution").ToString())
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution"))
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution_Tooltip", "Set the resolution of the game window.")))
 			]
 		]
@@ -410,7 +413,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			.Content()
 			[
 				SAssignNew(SelectedRes, STextBlock)
-				.Text(*ResList[CurrentResIndex].Get())
+				.Text(FText::FromString(*ResList[CurrentResIndex].Get()))
 				.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.Black")
 			]
 		]
@@ -429,16 +432,26 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayMode", "Display Mode"))
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen_Tooltip", "Toggle whether the application runs in full-screen mode or is in a window.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		[
-			SAssignNew(Fullscreen, SCheckBox)
-			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-			.IsChecked(GetPlayerOwner()->ViewportClient->IsFullScreenViewport() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+			SAssignNew(DisplayModeComboBox, SComboBox< TSharedPtr<FString> >)
+			.InitiallySelectedItem(DisplayModeList[CurrentDisplayIndex])
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.OptionsSource(&DisplayModeList)
+			.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+			.OnSelectionChanged(this, &SUWSystemSettingsDialog::OnDisplayModeSelected)
+			.Content()
+			[
+				SAssignNew(SelectedDisplayMode, STextBlock)
+				.Text(FText::FromString(*DisplayModeList[CurrentDisplayIndex].Get()))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+			]
 		]
 	]
 	+ SVerticalBox::Slot()
@@ -480,7 +493,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap", "Frame Rate Cap").ToString())
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap", "Frame Rate Cap"))
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "FrameRateCap_Tooltip", "Limiting the max frame rate can improve the smoothness of mouse improvement.")))
 			]
 		]
@@ -507,7 +520,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
+					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate"))
 					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "SmoothFramerate_Tooltip", "This setting is used to smooth framerate spikes which can affect mouse control.")))
 				]
 			]
@@ -606,7 +619,33 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 		NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction the vlolumes below will determine the volume of a particular piece of audio."))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUWSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUWSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUWSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice));
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUWSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
+	
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "HRTFText", "HRTF [EXPERIMENTAL] [WIN64 ONLY]"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "HRTF_Tooltip", "Toggle Head Related Transfer Function, EXPERIMENTAL, WIN64 ONLY")))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SAssignNew(HRTFCheckBox, SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	];
 }
 
 void SUWSystemSettingsDialog::OnSoundVolumeChangedMaster(float NewValue)
@@ -697,8 +736,8 @@ FString SUWSystemSettingsDialog::GetDecalLifetimeLabelText(float SliderValue)
 		return NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetimeInf", "Decal Lifetime (INF)").ToString();
 	}
 	
-	int32 DecalLifetime = FMath::TruncToInt(SliderValue * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
-	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({Value} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), DecalLifetime))).ToString();
+	int32 NewDecalLifetime = FMath::TruncToInt(SliderValue * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({Value} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), NewDecalLifetime))).ToString();
 }
 
 void SUWSystemSettingsDialog::OnDecalLifetimeChange(float NewValue)
@@ -752,8 +791,14 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Scalability::SetQualityLevels(UserSettings->ScalabilityQuality);
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
-	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
+	TArray<FString> Suffixes;
+	Suffixes.Add(FString("f"));
+	Suffixes.Add(FString("wf"));
+	Suffixes.Add(FString("w"));
+	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
+	UserSettings->SetHRTFEnabled(HRTFCheckBox->IsChecked());
 	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
 
 	// Increments of 5, so divide by 5 and multiply by 5
@@ -765,7 +810,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	const TCHAR* CmdTemp = FCString::Strchr(Cmd,'x') ? FCString::Strchr(Cmd,'x')+1 : FCString::Strchr(Cmd,'X') ? FCString::Strchr(Cmd,'X')+1 : TEXT("");
 	int32 Y=FCString::Atoi(CmdTemp);
 	UserSettings->SetScreenResolution(FIntPoint(X, Y));
-	UserSettings->SetFullscreenMode(Fullscreen->IsChecked() ? EWindowMode::Fullscreen : EWindowMode::Windowed);
+	UserSettings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SaveConfig();
 
@@ -823,6 +868,10 @@ void SUWSystemSettingsDialog::OnResolutionSelected(TSharedPtr<FString> NewSelect
 {
 	SelectedRes->SetText(*NewSelection.Get());
 }
+void SUWSystemSettingsDialog::OnDisplayModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedDisplayMode->SetText(*NewSelection.Get());
+}
 void SUWSystemSettingsDialog::OnTextureResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedTextureRes->SetText(*NewSelection.Get());
@@ -839,20 +888,19 @@ void SUWSystemSettingsDialog::OnEffectQualitySelected(TSharedPtr<FString> NewSel
 {
 	SelectedEffectQuality->SetText(*NewSelection.Get());
 }
-
 void SUWSystemSettingsDialog::OnAAModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedAAMode->SetText(*NewSelection.Get());
 }
 
-int32 SUWSystemSettingsDialog::ConvertAAModeToComboSelection(int32 AAMode)
+int32 SUWSystemSettingsDialog::ConvertAAModeToComboSelection(int32 NewAAMode)
 {
 	// 0:off, 1:very low (faster FXAA), 2:low (FXAA), 3:medium (faster TemporalAA), 4:high (default TemporalAA)
-	if (AAMode == 0)
+	if (NewAAMode == 0)
 	{
 		return 0;
 	}
-	else if (AAMode == 1 || AAMode == 2)
+	else if (NewAAMode == 1 || NewAAMode == 2)
 	{
 		return 1;
 	}

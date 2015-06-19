@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Engine/DeveloperSettings.h"
+
 /**
  *	This will hold all of our enums and types and such that we need to
  *	use in multiple files where the enum can't be mapped to a specific file.
@@ -17,7 +19,7 @@ struct FCollisionProfileName
 
 	FCollisionProfileName()
 		: Name(NAME_None)
-	{}
+	{ }
 
 	UPROPERTY(EditAnywhere, Category = Collision)
 	FName Name;
@@ -89,21 +91,21 @@ struct FCustomChannelSetup
 
 	/** Default Response for the channel */
 	UPROPERTY()
-	TEnumAsByte<enum ECollisionResponse>	DefaultResponse;
+	TEnumAsByte<enum ECollisionResponse> DefaultResponse;
 
 	/** Sets meta data TraceType="1" for the enum entry if true. Otherwise, this channel will be treated as object query channel, so you can query object types**/
 	UPROPERTY()
-	bool	bTraceType;
+	bool bTraceType;
 	
 	/** Specifies if this is static object. Otherwise it will be dynamic object. This is used for query all objects vs all static objects vs all dynamic objects **/
 	UPROPERTY()
-	bool	bStaticObject;	
+	bool bStaticObject;	
 
 	FCustomChannelSetup()
 		: DefaultResponse(ECR_Block)
 		, bTraceType(false)
 		, bStaticObject(false)
-	{}
+	{ }
 
 	bool operator==(const FCustomChannelSetup& Other) const
 	{
@@ -134,15 +136,15 @@ struct ENGINE_API FCustomProfile
 
 
 /**
- * Implements a collision profile for the collision sub-system.
+ * Set up and modify collision settings.
  */
-UCLASS(abstract, config=Engine, defaultconfig, MinimalAPI)
-class UCollisionProfile
-	: public UObject
+UCLASS(abstract, config=Engine, defaultconfig, MinimalAPI, meta=(DisplayName="Collision"))
+class UCollisionProfile : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()
 
 private:
+
 	// This is hacky, but without this edit tag, we can't get valid property handle
 	// and we can't save them properly to config, so we need this tag. 
 	UPROPERTY(globalconfig)

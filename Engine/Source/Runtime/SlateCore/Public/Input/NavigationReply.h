@@ -2,18 +2,29 @@
 
 #pragma once
 
+#include "SlateEnums.h"
+
 #include "NavigationReply.generated.h"
 
 class SWidget;
 
-UENUM()
-enum class EUINavigationRule
+UENUM(BlueprintType)
+enum class EUINavigationRule : uint8
 {
+	/** Allow the movement to continue in that direction, seeking the next navigable widget automatically. */
 	Escape,
+	/** Move to a specific widget. */
 	Explicit,
+	/**
+	 * Wrap movement inside this container, causing the movement to cycle around from the opposite side, 
+	 * if the navigation attempt would have escaped.
+	 */
 	Wrap,
+	/** Stops movement in this direction */
 	Stop,
+	/** Custom navigation handled by user code. */
 	Custom,
+	/** Invalid Rule */
 	Invalid
 };
 

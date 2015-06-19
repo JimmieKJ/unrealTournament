@@ -96,7 +96,7 @@ extern void D3D11TextureAllocated2D( FD3D11Texture2D& Texture );
 /**
  * Creates a FD3D11Surface to represent a swap chain's back buffer.
  */
-FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI,IDXGISwapChain* SwapChain)
+FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain)
 {
 	// Grab the back buffer
 	TRefCountPtr<ID3D11Texture2D> BackBufferResource;
@@ -138,7 +138,7 @@ FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI,IDXGISwapChain* Sw
 		1,
 		1,
 		1,
-		PF_A2B10G10R10,
+		PixelFormat,
 		false,
 		false,
 		false
@@ -172,7 +172,7 @@ DXGI_MODE_DESC FD3D11Viewport::SetupDXGI_MODE_DESC() const
 	Ret.Height = SizeY;
 	Ret.RefreshRate.Numerator = 0;	// illamas: use 0 to avoid a potential mismatch with hw
 	Ret.RefreshRate.Denominator = 0;	// illamas: ditto
-	Ret.Format = (DXGI_FORMAT)FD3D11Viewport::GetBackBufferFormat();
+	Ret.Format = GetRenderTargetFormat(PixelFormat);
 	Ret.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 	Ret.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
 
@@ -209,7 +209,7 @@ void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
 		check(SizeY > 0);
 
 		// Resize the swap chain.
-		VERIFYD3D11RESULT_EX(SwapChain->ResizeBuffers(1,SizeX,SizeY,(DXGI_FORMAT)FD3D11Viewport::GetBackBufferFormat(),DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH), D3DRHI->GetDevice());
+		VERIFYD3D11RESULT_EX(SwapChain->ResizeBuffers(1,SizeX,SizeY,GetRenderTargetFormat(PixelFormat),DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH), D3DRHI->GetDevice());
 
 		if(bInIsFullscreen)
 		{
@@ -233,7 +233,7 @@ void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
 	}
 
 	// Create a RHI surface to represent the viewport's back buffer.
-	BackBuffer = GetSwapChainSurface(D3DRHI,SwapChain);
+	BackBuffer = GetSwapChainSurface(D3DRHI, PixelFormat, SwapChain);
 }
 
 /** Returns true if desktop composition is enabled. */
@@ -283,7 +283,7 @@ void FD3D11Viewport::PresentWithVsyncDWM()
 
 	// Find out how long since we last flipped and query DWM for timing information.
 	QueryPerformanceCounter(&Cycles);
-	FMemory::MemZero(TimingInfo);
+	FMemory::Memzero(TimingInfo);
 	TimingInfo.cbSize = sizeof(DWM_TIMING_INFO);
 	DwmGetCompositionTimingInfo(WindowHandle, &TimingInfo);
 
@@ -455,15 +455,22 @@ bool FD3D11Viewport::Present(bool bLockToVsync)
 /*=============================================================================
  *	The following RHI functions must be called from the main thread.
  *=============================================================================*/
-FViewportRHIRef FD3D11DynamicRHI::RHICreateViewport(void* WindowHandle,uint32 SizeX,uint32 SizeY,bool bIsFullscreen)
+FViewportRHIRef FD3D11DynamicRHI::RHICreateViewport(void* WindowHandle,uint32 SizeX,uint32 SizeY,bool bIsFullscreen,EPixelFormat PreferredPixelFormat)
 {
 	check( IsInGameThread() );
-	return new FD3D11Viewport(this,(HWND)WindowHandle,SizeX,SizeY,bIsFullscreen);
+
+	// Use a default pixel format if none was specified	
+	if (PreferredPixelFormat == EPixelFormat::PF_Unknown)
+	{
+		PreferredPixelFormat = EPixelFormat::PF_A2B10G10R10;
+	}
+
+	return new FD3D11Viewport(this,(HWND)WindowHandle,SizeX,SizeY,bIsFullscreen,PreferredPixelFormat);
 }
 
 void FD3D11DynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI,uint32 SizeX,uint32 SizeY,bool bIsFullscreen)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(Viewport,Viewport);
+	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
 
 	check( IsInGameThread() );
 	Viewport->Resize(SizeX,SizeY,bIsFullscreen);
@@ -492,7 +499,7 @@ void FD3D11DynamicRHI::RHITick( float DeltaTime )
 
 void FD3D11DynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI, FTextureRHIParamRef RenderTarget)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(Viewport,Viewport);
+	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
 
 	SCOPE_CYCLE_COUNTER(STAT_D3D11PresentTime);
 
@@ -505,7 +512,7 @@ void FD3D11DynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI,
 		RenderTarget = Viewport->GetBackBuffer();
 	}
 	FRHIRenderTargetView View(RenderTarget);
-	RHISetRenderTargets(1,&View,FTextureRHIRef(),0,NULL);
+	RHISetRenderTargets(1,&View,nullptr,0,NULL);
 
 	// Set an initially disabled scissor rect.
 	RHISetScissorRect(false,0,0,0,0);
@@ -513,7 +520,7 @@ void FD3D11DynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI,
 
 void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bool bPresent,bool bLockToVsync)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(Viewport,Viewport);
+	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
 
 	SCOPE_CYCLE_COUNTER(STAT_D3D11PresentTime);
 
@@ -523,7 +530,7 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 	// Clear references the device might have to resources.
 	CurrentDepthTexture = NULL;
 	CurrentDepthStencilTarget = NULL;
-	CurrentDSVAccessType = DSAT_Writable;
+	CurrentDSVAccessType = FExclusiveDepthStencil::DepthWrite_StencilWrite;
 	CurrentRenderTargets[0] = NULL;
 	for(uint32 RenderTargetIndex = 1;RenderTargetIndex < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT;++RenderTargetIndex)
 	{
@@ -580,6 +587,10 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 			GInputLatencyTimer.RenderThreadTrigger = false;
 		}
 	}
+
+#if CHECK_SRV_TRANSITIONS
+	UnresolvedTargets.Reset();
+#endif
 }
 
 /**
@@ -592,15 +603,13 @@ bool FD3D11DynamicRHI::RHIIsDrawingViewport()
 	return DrawingViewport != NULL;
 }
 
-#if PLATFORM_SUPPORTS_RHI_THREAD
 void FD3D11DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
 {
 }
-#endif
 
 FTexture2DRHIRef FD3D11DynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(Viewport,Viewport);
+	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
 
 	return Viewport->GetBackBuffer();
 }

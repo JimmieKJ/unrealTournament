@@ -71,13 +71,7 @@ private:
 	void ChangePinType(UEdGraphPin* Pin);
 
 	/** Generates the available custom pins for the current ease function if applicable */
-	bool ConditionalGenerateCustomPins();
-
-	/** Try to remove all custom pins that exist */
-	bool RemoveCustomPins(const bool bRemoveValuePins);
-
-	/** Generate custom pins used by the current ease function */
-	bool GenerateCustomPins(const int32 NewEasingFunc);
+	void RefreshPinVisibility();
 
 	/** Update MyPin with data from another pin. Return FALSE in case nothing was changed, TRUE otherwise. */
 	bool UpdatePin(UEdGraphPin* MyPin, UEdGraphPin* OtherPin);
@@ -93,14 +87,6 @@ private:
 
 	/** Called right after the wildcard pins has been assigned a value */
 	void GenerateExtraPins();
-
-	/** Custom pins that are curently used */
-	UPROPERTY()
-	TArray<FCustomPin> CustomPinNames;
-
-	/** Previous easing function, used to only recreate custom pins if required */
-	UPROPERTY()
-	int32 OldEasingFunc;
 
 	/** Name of the kismet ease function to be called */
 	UPROPERTY()

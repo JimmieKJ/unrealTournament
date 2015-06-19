@@ -397,9 +397,9 @@ void SMergeGraphView::Construct(const FArguments InArgs
 						.ColorAndOpacity(Color);
 			};
 
-			const auto SelectGraphNode = [](FOnMergeNodeSelected SelectionCallback, FMergeGraphRowEntry DiffEntry, SMergeGraphView* Parent)
+			const auto SelectGraphNode = [](FOnMergeNodeSelected InSelectionCallback, FMergeGraphRowEntry DiffEntry, SMergeGraphView* Parent)
 			{
-				SelectionCallback.ExecuteIfBound();
+				InSelectionCallback.ExecuteIfBound();
 				Parent->HighlightEntry( DiffEntry );
 			};
 
@@ -416,7 +416,7 @@ void SMergeGraphView::Construct(const FArguments InArgs
 			}
 		}
 
-		const auto Widget = []( const FMergeGraphEntry* Difference ) -> TSharedRef<SWidget>
+		const auto Widget = []( const FMergeGraphEntry* InDifference ) -> TSharedRef<SWidget>
 		{
 			// blue indicates added, red indicates changed, yellow indicates removed, white indicates no change:
 			const auto ComputeColor = [](const bool bAnyConflicts, const bool bAnyDifferences) -> FLinearColor
@@ -446,26 +446,26 @@ void SMergeGraphView::Construct(const FArguments InArgs
 					];
 			};
 
-			FLinearColor RemoteColor = ComputeColor(Difference->bAnyConflics, Difference->bRemoteDifferences);
-			FLinearColor BaseColor = ComputeColor(Difference->bAnyConflics, false);
-			FLinearColor LocalColor = ComputeColor(Difference->bAnyConflics, Difference->bLocalDifferences);
-			FLinearColor TextColor = ComputeColor(Difference->bAnyConflics, Difference->bLocalDifferences || Difference->bRemoteDifferences);
+			FLinearColor RemoteColor = ComputeColor(InDifference->bAnyConflics, InDifference->bRemoteDifferences);
+			FLinearColor BaseColor = ComputeColor(InDifference->bAnyConflics, false);
+			FLinearColor LocalColor = ComputeColor(InDifference->bAnyConflics, InDifference->bLocalDifferences);
+			FLinearColor TextColor = ComputeColor(InDifference->bAnyConflics, InDifference->bLocalDifferences || InDifference->bRemoteDifferences);
 
 			return SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
 				[
 					SNew(STextBlock)
 					.ColorAndOpacity( TextColor )
-					.Text(FText::FromString(Difference->GraphName.GetPlainNameString()))
+					.Text(FText::FromString(InDifference->GraphName.GetPlainNameString()))
 				]
-				+ DiffViewUtils::Box(Difference->bExistsInRemote, RemoteColor)
-				+ DiffViewUtils::Box(Difference->bExistsInBase, BaseColor)
-				+ DiffViewUtils::Box(Difference->bExistsInLocal, LocalColor);
+				+ DiffViewUtils::Box(InDifference->bExistsInRemote, RemoteColor)
+				+ DiffViewUtils::Box(InDifference->bExistsInBase, BaseColor)
+				+ DiffViewUtils::Box(InDifference->bExistsInLocal, LocalColor);
 		};
 
-		const auto FocusGraph = [](FOnMergeNodeSelected SelectionCallback, SMergeGraphView* Parent, FName GraphName)
+		const auto FocusGraph = [](FOnMergeNodeSelected InSelectionCallback, SMergeGraphView* Parent, FName GraphName)
 		{
-			SelectionCallback.ExecuteIfBound();
+			InSelectionCallback.ExecuteIfBound();
 			Parent->FocusGraph( GraphName );
 		};
 

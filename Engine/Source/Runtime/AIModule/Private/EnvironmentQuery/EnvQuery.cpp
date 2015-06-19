@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
+#include "DataProviders/AIDataProvider_QueryParams.h"
 #include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvironmentQuery/EnvQueryOption.h"
@@ -60,20 +61,32 @@ static void AddNamedValuesFromObject(const UObject* Ob, TArray<FEnvNamedValue>& 
 		}
 
 		FString TypeDesc = TestStruct->GetCPPType(NULL, CPPF_None);
-		if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FEnvIntParam)))
+		if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderIntValue)))
 		{
-			const FEnvIntParam* PropertyValue = TestStruct->ContainerPtrToValuePtr<FEnvIntParam>(Ob);
-			AddNamedValue(PropertyValue->ParamName, EEnvQueryParam::Int, *((float*)&PropertyValue->Value), NamedValues, RequiredParams);
+			const FAIDataProviderIntValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderIntValue>(Ob);
+			const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
+			if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+			{
+				AddNamedValue(QueryParamProvider->ParamName, EEnvQueryParam::Int, *((float*)&PropertyValue->DefaultValue), NamedValues, RequiredParams);
+			}
 		}
-		else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FEnvFloatParam)))
+		else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderFloatValue)))
 		{
-			const FEnvFloatParam* PropertyValue = TestStruct->ContainerPtrToValuePtr<FEnvFloatParam>(Ob);
-			AddNamedValue(PropertyValue->ParamName, EEnvQueryParam::Float, PropertyValue->Value, NamedValues, RequiredParams);
+			const FAIDataProviderFloatValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderFloatValue>(Ob);
+			const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
+			if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+			{
+				AddNamedValue(QueryParamProvider->ParamName, EEnvQueryParam::Float, PropertyValue->DefaultValue, NamedValues, RequiredParams);
+			}
 		}
-		else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FEnvBoolParam)))
+		else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderBoolValue)))
 		{
-			const FEnvBoolParam* PropertyValue = TestStruct->ContainerPtrToValuePtr<FEnvBoolParam>(Ob);
-			AddNamedValue(PropertyValue->ParamName, EEnvQueryParam::Bool, PropertyValue->Value ? 1.0f : -1.0f, NamedValues, RequiredParams);
+			const FAIDataProviderBoolValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderBoolValue>(Ob);
+			const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
+			if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+			{
+				AddNamedValue(QueryParamProvider->ParamName, EEnvQueryParam::Bool, PropertyValue->DefaultValue ? 1.0f : -1.0f, NamedValues, RequiredParams);
+			}
 		}
 	}
 }

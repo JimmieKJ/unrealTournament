@@ -188,6 +188,9 @@ public:
 	UPROPERTY(replicated,transient)
 	uint32 bPaused:1;
 
+	UPROPERTY(replicated,transient)
+	uint32 bPendingStop:1;
+
 	UPROPERTY(replicated)
 	float InterpPosition;
 
@@ -309,7 +312,7 @@ public:
 #endif
 
 	// Begin AActor Interface
-	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, APlayerController* Viewer, UActorChannel* InChannel, float Time, bool bLowBandwidth) override;
+	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void PreNetReceive() override;
 	virtual void PostNetReceive() override;
@@ -341,6 +344,9 @@ public:
 
 	/** Scan the matinee data for camera cuts and sets up the CameraCut array. */
 	void SetupCameraCuts();
+
+	/** Used when setting up the camera cuts to make sure the parent is updated. */
+	void UpdateInterpForParentMovementTracks( float Time, UInterpGroupInst* ViewGroupInst );
 
 	/** Disable the radio filter effect if "Disable Radio Filter" is checked. */
 	void DisableRadioFilterIfNeeded();
@@ -461,10 +467,10 @@ public:
 	
 
 	/** Try to invoke the event with the given name in the level script */
-	virtual void NotifyEventTriggered(FName EventName, float EventTime);
+	virtual void NotifyEventTriggered(FName EventName, float EventTime, bool bUseCustomEventName=false);
 
 	/** Util to get the name of the function to find for the given event name */
-	ENGINE_API FName GetFunctionNameForEvent(FName EventName);
+	ENGINE_API FName GetFunctionNameForEvent(FName EventName,bool bUseCustomEventName=false);
 
 public:
 #if WITH_EDITORONLY_DATA

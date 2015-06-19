@@ -11,7 +11,7 @@
 #include "UTLevelSummary.h"
 #include "UTReplicatedGameRuleset.h"
 #include "Panels/SUWCreateGamePanel.h"
-
+#include "UTGameEngine.h"
 
 #if !UE_SERVER
 
@@ -55,42 +55,43 @@ struct FRuleSubsetInfo
 
 };
 
-class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog, public FGCObject
+class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog
 {
 private:
 	struct FMapPlayListInfo
 	{
-		FString MapName;
+		TSharedPtr<FMapListItem> MapInfo;
+		
 		FSlateDynamicImageBrush* MapImage;
-		UUTLevelSummary* LevelSummary;
 		TSharedPtr<SUTComboButton> Button;
+		TSharedPtr<SImage> ImageWidget;
 		TSharedPtr<SImage> CheckMark;
 		bool bSelected;
 
 		FMapPlayListInfo()
 		{
-			MapName = TEXT("");
-			MapImage = nullptr;
-			LevelSummary = nullptr;
 			CheckMark.Reset();
 			Button.Reset();
 			bSelected = false;
 		}
 
-		FMapPlayListInfo(FString InMapName, FSlateDynamicImageBrush* InMapImage, UUTLevelSummary* InLevelSummary, bool bInitiallySelected)
+		FMapPlayListInfo(TSharedPtr<FMapListItem> inMapInfo, bool bInitiallySelected)
 		{
-			MapName = InMapName;
-			MapImage = InMapImage;
-			LevelSummary = InLevelSummary;
+			MapInfo = inMapInfo;
+
+			// Create the default Image Brush.  This will be replaced in time.
+			MapImage = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), NAME_None);
+			
 			bSelected = bInitiallySelected;
 			CheckMark.Reset();
 			Button.Reset();
 		}
 
-		void SetWidgets(TSharedPtr<SUTComboButton> InButton, TSharedPtr<SImage> InCheckMark)
+		void SetWidgets(TSharedPtr<SUTComboButton> InButton, TSharedPtr<SImage> InImageWidget, TSharedPtr<SImage> InCheckMark)
 		{
 			Button = InButton;
 			CheckMark = InCheckMark;
+			ImageWidget = InImageWidget;
 
 			if (bSelected)
 			{
@@ -141,7 +142,9 @@ public:
 		return CurrentCategory == FName(TEXT("Custom"));
 	}
 
-	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount);
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount);
+
+	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime);
 
 protected:
 
@@ -156,6 +159,8 @@ protected:
 	
 	TSharedPtr<class SSplitter> HorzSplitter;
 	TSharedPtr<SHorizontalBox> TabButtonPanel;
+
+	TSharedPtr<SVerticalBox> MainBox;
 
 	TSharedPtr<SGridPanel> RulesPanel;
 	TArray<FTabButtonInfo> Tabs;
@@ -192,13 +197,17 @@ protected:
 	FText GetBotSkillText() const;
 	void OnBotMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
 
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		for (FMapPlayListInfo& Map : MapPlayList)
-		{
-			Collector.AddReferencedObject(Map.LevelSummary);
-		}
-	}
+	void TextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
+
+	// Will be true if this dialog was opened while connected to a hub.
+	bool bHubMenu;
+
+
+
+public:
+
+	FString GetSelectedMap();
+
 };
 
 #endif

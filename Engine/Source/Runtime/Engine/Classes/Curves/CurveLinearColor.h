@@ -30,7 +30,7 @@ class ENGINE_API UCurveLinearColor : public UCurveBase
 	// Begin FCurveOwnerInterface
 	virtual TArray<FRichCurveEditInfoConst> GetCurves() const override;
 	virtual TArray<FRichCurveEditInfo> GetCurves() override;
-	virtual bool IsLinearColorCurve() const { return true; }
+	virtual bool IsLinearColorCurve() const override { return true; }
 
 	UFUNCTION(BlueprintCallable, Category="Math|Curves")
 	virtual FLinearColor GetLinearColorValue(float InTime) const override;

@@ -39,15 +39,25 @@ FDragValidationInfo FActorDropTarget::ValidateDrop(FDragDropPayload& DraggedObje
 	bool bDraggedOntoAttachmentParent = true;
 
 	const auto& DragActors = DraggedObjects.Actors.GetValue();
-	for (const auto& Actor : DragActors)
+	for (const auto& DragActorPtr : DragActors)
 	{
-		AActor* DragActor = Actor.Get();
+		AActor* DragActor = DragActorPtr.Get();
 		if (DragActor)
 		{
-			if (!GEditor->CanParentActors(DropTarget, DragActor, &AttachErrorMsg))
+			if (bCanAttach)
 			{
-				bCanAttach = false;
+				if (DragActor->ParentComponentActor.Get())
+				{
+					AttachErrorMsg = FText::Format(LOCTEXT("Error_AttachChildActor", "Cannot move {0} as it is a child actor."), FText::FromString(DragActor->GetActorLabel()));
+					bCanAttach = bDraggedOntoAttachmentParent = false;
+					break;
+				}
+				if (!GEditor->CanParentActors(DropTarget, DragActor, &AttachErrorMsg))
+				{
+					bCanAttach = false;
+				}
 			}
+
 			if (DragActor->GetAttachParentActor() != DropTarget)
 			{
 				bDraggedOntoAttachmentParent = false;

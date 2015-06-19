@@ -53,26 +53,15 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 
 	// Get source path.
 	FString SourcePath;
-	if( !( GetConfigString( *SectionName, TEXT("SourcePath"), SourcePath, GatherTextConfigPath ) ) )
+	if( !( GetPathFromConfig( *SectionName, TEXT("SourcePath"), SourcePath, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("No source path specified."));
 		return -1;
 	}
 
-	if (FPaths::IsRelative(SourcePath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			SourcePath = FPaths::Combine( *( FPaths::GameDir() ), *SourcePath );
-		}
-		else
-		{
-			SourcePath = FPaths::Combine( *( FPaths::EngineDir() ), *SourcePath );
-		}
-	}
 	// Get manifest name.
 	FString ManifestName;
-	if( !( GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) ) )
+	if( !( GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("No manifest name specified."));
 		return -1;
@@ -80,7 +69,7 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 
 	// Get cultures to generate.
 	TArray<FString> CulturesToGenerate;
-	GetConfigArray( *SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath );
+	GetStringArrayFromConfig( *SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath );
 
 	if( CulturesToGenerate.Num() == 0 )
 	{
@@ -98,27 +87,15 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 
 	// Get destination path.
 	FString DestinationPath;
-	if( !( GetConfigString( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) ) )
+	if( !( GetPathFromConfig( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("No destination path specified."));
 		return -1;
 	}
 
-	if (FPaths::IsRelative(DestinationPath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::GameDir() ), *DestinationPath );
-		}
-		else
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::EngineDir() ), *DestinationPath );
-		}
-	}
-
 	// Get resource name.
 	FString ResourceName;
-	if( !( GetConfigString( *SectionName, TEXT("ResourceName"), ResourceName, GatherTextConfigPath ) ) )
+	if( !( GetStringFromConfig( *SectionName, TEXT("ResourceName"), ResourceName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("No resource name specified."));
 		return -1;

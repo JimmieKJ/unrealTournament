@@ -13,6 +13,9 @@ struct ENGINE_API FAnimNode_TransitionResult : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Result, meta=(AlwaysAsPin))
 	bool bCanEnterTransition;
 
+	/** Native delegate to use when checking transition */
+	FCanTakeTransition NativeTransitionDelegate;
+
 public:	
 	FAnimNode_TransitionResult();
 

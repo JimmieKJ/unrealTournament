@@ -1,10 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#import <OpenGLES/EAGLDrawable.h>
-#import <QuartzCore/QuartzCore.h>
-
+#include "StandaloneRendererPrivate.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
 #include "IOS/SlateOpenGLESView.h"
+
+#import <OpenGLES/EAGLDrawable.h>
+#import <QuartzCore/QuartzCore.h>
 
 
 uint GDeviceWidth = 0;

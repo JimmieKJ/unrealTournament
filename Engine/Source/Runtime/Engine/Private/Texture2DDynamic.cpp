@@ -35,7 +35,7 @@ void FTexture2DDynamicResource::InitRHI()
 	// Create the sampler state RHI resource.
 	FSamplerStateInitializerRHI SamplerStateInitializer
 	(
-		GSystemSettings.TextureLODSettings.GetSamplerFilter( Owner ),
+		(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter( Owner ),
 		AM_Wrap,
 		AM_Wrap,
 		AM_Wrap
@@ -121,7 +121,7 @@ UTexture2DDynamic* UTexture2DDynamic::Create(int32 InSizeX, int32 InSizeY, EPixe
 	if (InSizeX > 0 && InSizeY > 0 )
 	{
 		
-		UTexture2DDynamic* NewTexture = Cast<UTexture2DDynamic>(StaticConstructObject(UTexture2DDynamic::StaticClass(), GetTransientPackage(), NAME_None, RF_Transient));
+		auto NewTexture = NewObject<UTexture2DDynamic>(GetTransientPackage(), NAME_None, RF_Transient);
 		if (NewTexture != NULL)
 		{
 			// Disable compression

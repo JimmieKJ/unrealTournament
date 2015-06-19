@@ -49,10 +49,19 @@ public:
 		FMargin AdjustedDefaultHeaderContentPadding = DefaultHeaderContentPadding;
 
 		TAttribute< FText > LabelText = Column.DefaultText;
+		TAttribute< FText > TooltipText = Column.DefaultTooltip;
 
-		if (Column.HeaderContent.Widget == SNullWidget::NullWidget && !Column.DefaultText.IsBound() && Column.DefaultText.Get().IsEmpty())
+		if (Column.HeaderContent.Widget == SNullWidget::NullWidget)
 		{
-			LabelText = FText::FromString( Column.ColumnId.ToString() + TEXT("[LabelMissing]") );
+			if (!Column.DefaultText.IsSet())
+			{
+				LabelText = FText::FromString( Column.ColumnId.ToString() + TEXT("[LabelMissing]") );
+			}
+
+			if (!Column.DefaultTooltip.IsSet())
+			{
+				TooltipText = LabelText;
+			}
 		}
 
 		TSharedPtr< SHorizontalBox > Box;
@@ -73,7 +82,7 @@ public:
 				[
 					SNew(STextBlock)
 					.Text( LabelText )
-					.ToolTipText( LabelText )
+					.ToolTipText( TooltipText )
 				];
 		}
 
@@ -553,32 +562,125 @@ void SHeaderRow::RegenerateWidgets()
 				SAssignNew(NewlyMadeHeader, STableColumnHeader, SomeColumn, DefaultPadding)
 				.Style( (SlotIndex + 1 == Columns.Num()) ? &Style->LastColumnStyle : &Style->ColumnStyle );
 
-			if ( SomeColumn.SizeRule == EColumnSizeMode::Fixed )
+			switch(SomeColumn.SizeRule)
 			{
-				// Add resizable cell
-				Splitter->AddSlot()
-				.SizeRule( SSplitter::SizeToContent )
-				[
-					SNew( SBox )
-					.WidthOverride( SomeColumn.Width.Get() )
+			case EColumnSizeMode::Fill:
+				{
+					TAttribute<float> WidthBinding;
+					WidthBinding.BindRaw( &SomeColumn, &FColumn::GetWidth );
+
+					// Add resizable cell
+					Splitter->AddSlot()
+					.Value( WidthBinding )
+					.SizeRule( SSplitter::FractionOfParent )
+					.OnSlotResized( SSplitter::FOnSlotResized::CreateRaw( &SomeColumn, &FColumn::SetWidth ) )
 					[
 						NewHeader
-					]
-				];
-			}
-			else 
-			{
-				TAttribute<float> WidthBinding;
-				WidthBinding.BindRaw( &SomeColumn, &FColumn::GetWidth );
+					];
+				}
+				break;
 
-				// Add resizable cell
-				Splitter->AddSlot()
-				.Value( WidthBinding )
-				.SizeRule( SSplitter::FractionOfParent )
-				.OnSlotResized( SSplitter::FOnSlotResized::CreateRaw( &SomeColumn, &FColumn::SetWidth ) )
-				[
-					NewHeader
-				];
+			case EColumnSizeMode::Fixed:
+				{
+					// Add fixed size cell
+					Splitter->AddSlot()
+					.SizeRule( SSplitter::SizeToContent )
+					[
+						SNew( SBox )
+						.WidthOverride( SomeColumn.GetWidth() )
+						[
+							NewHeader
+						]
+					];
+				}
+				break;
+
+			case EColumnSizeMode::Manual:
+				{
+					// Sizing grip to put at the end of the column - we can't use a SSplitter here as it doesn't have the resizing behavior we need
+					const float GripSize = 5.0f;
+					TSharedRef<SBorder> SizingGrip = SNew(SBorder)
+						.Padding(0.0f)
+						.BorderImage( FCoreStyle::Get().GetBrush("NoBorder") )
+						.Cursor( EMouseCursor::ResizeLeftRight )
+						.Content()
+						[
+							SNew(SSpacer)
+							.Size(FVector2D(GripSize, GripSize))
+						];
+
+					TWeakPtr<SBorder> WeakSizingGrip = SizingGrip;
+					auto SizingGrip_OnMouseButtonDown = [&SomeColumn, WeakSizingGrip](const FGeometry&, const FPointerEvent&) -> FReply
+					{
+						TSharedPtr<SBorder> SizingGripPtr = WeakSizingGrip.Pin();
+						if ( SizingGripPtr.IsValid() )
+						{
+							return FReply::Handled().CaptureMouse(SizingGripPtr.ToSharedRef());
+						}
+						return FReply::Unhandled();
+					};
+
+					auto SizingGrip_OnMouseButtonUp = [&SomeColumn, WeakSizingGrip](const FGeometry&, const FPointerEvent&) -> FReply
+					{
+						TSharedPtr<SBorder> SizingGripPtr = WeakSizingGrip.Pin();
+						if ( SizingGripPtr.IsValid() && SizingGripPtr->HasMouseCapture() )
+						{
+							return FReply::Handled().ReleaseMouseCapture();
+						}
+						return FReply::Unhandled();
+					};
+
+					auto SizingGrip_OnMouseMove = [&SomeColumn, WeakSizingGrip](const FGeometry&, const FPointerEvent& InPointerEvent) -> FReply
+					{
+						TSharedPtr<SBorder> SizingGripPtr = WeakSizingGrip.Pin();
+						if ( SizingGripPtr.IsValid() && SizingGripPtr->HasMouseCapture() )
+						{
+							// The sizing grip has been moved, so update our columns size from the movement delta
+							const float NewWidth = SomeColumn.GetWidth() + InPointerEvent.GetCursorDelta().X;
+							SomeColumn.SetWidth(FMath::Max(20.0f, NewWidth));
+							return FReply::Handled();
+						}
+						return FReply::Unhandled();
+					};
+
+					// Bind the events to handle the drag sizing
+					SizingGrip->SetOnMouseButtonDown( FPointerEventHandler::CreateLambda(SizingGrip_OnMouseButtonDown) );
+					SizingGrip->SetOnMouseButtonUp( FPointerEventHandler::CreateLambda(SizingGrip_OnMouseButtonUp) );
+					SizingGrip->SetOnMouseMove( FPointerEventHandler::CreateLambda(SizingGrip_OnMouseMove) );
+
+					auto GetColumnWidthAsOptionalSize = [&SomeColumn]() -> FOptionalSize
+					{
+						const float DesiredWidth = SomeColumn.GetWidth();
+						return FOptionalSize(DesiredWidth);
+					};
+
+					TAttribute<FOptionalSize> WidthBinding;
+					WidthBinding.Bind(TAttribute<FOptionalSize>::FGetter::CreateLambda(GetColumnWidthAsOptionalSize));
+
+					// Add resizable cell
+					Splitter->AddSlot()
+					.SizeRule( SSplitter::SizeToContent )
+					[
+						SNew(SBox)
+						.WidthOverride(WidthBinding)
+						[
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								NewHeader
+							]
+							+SOverlay::Slot()
+							.HAlign(HAlign_Right)
+							[
+								SizingGrip
+							]
+						]
+					];
+				}
+				break;
+
+			default:
+				break;
 			}
 		}
 	}

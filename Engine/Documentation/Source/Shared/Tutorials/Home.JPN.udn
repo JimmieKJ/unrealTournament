@@ -1,56 +1,87 @@
-﻿Availability:NoPublish
+﻿INTSourceChangelist:2251491
+Availability:NoPublish
 Title:チュートリアルのホームページ
 Crumbs:
-Description:アンリアル・エンジン 4 チュートリアル入門の内容
+Description:アンリアル・エンジン 4 入門チュートリアルのコンテンツ
 
 [EXCERPT:TutorialsHome]
-
-## アンリアル・エンジン 4 へようこそ！
-
-アンリアル・エンジン 4の新規ユーザーを対象としたチュートリアル入門は以下となります。
-
-
-
-Window->Tutorial を選択してメニューバーから開くことができます。
-
-
----
-### In Editor のチュートリアル:基礎
-![](InEditorBasicsTutorialTopic.png)
-
-アンリアル エンジン 4 のエディタ チュートリアルの第一巻です。本チュートリアルでは、カメラ制御、アクタの配置と操作、コンテンツ ブラウザの使用、シーン アウトライナー、詳細パネルの基礎を説明します。
-[In Editor Tutorial: The Basics](Shared\Tutorials\inEditorTutorial)
-
-
+##アンリアル エンジン 4 チュートリアル
 ---
 
-### In Editor のチュートリアル:Gamified の基礎
-![](GamifiedTutorial.png)
+[チュートリアルへようこそ](Shared/Tutorials/UE4Welcome)
 
+[2D & 3D ビューポート](Shared/Tutorials/inEditorTutorialCamera)
 
----
+[アクタの配置](Shared/Tutorials/inEditorTutorialPlacement)
 
-本チュートリアルを完了するには、プロジェクト ブラウザから「TutorialProject」をロードする必要があります。
+[アクタの操作](Shared/Tutorials/inEditorTutorialManipulation)
 
 ---
 
 
-アンリアル エンジン 4 エディタを説明する Gamified チュートリアル シリーズの第一巻です。本チュートリアルでは、アクタの配置、平行移動、回転、スケーリング、コンテンツ ブラウザの使用、詳細パネルを説明します。 
-[In Editor Tutorial: Gamified Basics](Shared\Tutorials\inEditorGamifiedTutorial)
+## エディタの概要
 
+このクイックスタートガイドは、アンリアル・エンジン 4に内蔵されたサブエディタの一般的に使用するインターフェースエレメント基本用途について説明します。
+
+[スタティックメッシュエディタへようこそ](Shared/Tutorials/InStaticMeshEditorTutorial)
+
+[マテリアルエディタへようこそ](Shared/Tutorials/InMaterialEditorTutorial)
+
+[ペルソナへようこそSkeletal Mesh モード](Shared/Tutorials/InSkeletalMeshEditorTutorial)
+
+[ペルソナ（Persona）へようこそ](Shared/Tutorials/InPersonaAnimEditorTutorial)
+
+[ペルソナ（Persona）へようこそ](Shared/Tutorials/InPersonaAnimBlueprintEditorTutorial)
+
+[カスケードパーティクルエディタへようこそ](Shared/Tutorials/InParticleSystemEditorTutorial)
+
+[ブループリントエディタへようこそ](Shared/Tutorials/InBlueprintEditorTutorial)
+
+[被破壊メッシュエディタへようこそ](Shared/Tutorials/InDestructibleMeshEditorTutorial)
+
+[スプライトエディタへようこそ](Shared/Tutorials/InPaperSpriteEditorTutorial)
+
+[Flipbook Editor へようこそ](Shared/Tutorials/InPaperFlipbookEditorTutorial)
+
+---
+
+## インターフェースのウォークスルー
+
+このウォークスルーは、インターフェースエレメントをハイライトするためにあるエディタが開かれている状態を想定しています。
+
+[コンテンツブラウザのウォークスルー](Shared/Tutorials/ContentBrowserWalkthrough)
+
+[ブループリントエディタインターフェースのウォークスルー](Shared/Tutorials/BlueprintInterfaceTutorial)
+
+[Blueprint Mactro Library（ブループリントマクロライブラリ）エディタのウォークスルー](Shared/Tutorials/BlueprintMacroLibInterfaceTutorial)
+
+[ブループリントインターフェースエディタのウォークスルー](Shared/Tutorials/BlueprintInterfacesInterfaceTutorial)
+
+[レベルブループリントインターフェースのウォークスルー](Shared/Tutorials/LevelBlueprintInterfaceTutorial)
+
+---
+
+## クイックスタートガイド
+
+ユーザーがエンジン機能をすぐに使いこなせるようにクイックスタートガイドを用意しました。アンリアルエンジンのオンラインドキュメントで、さまざまなガイドを参照してください。
+
+[クイックスタートガイド](DOCLINK:GettingStarted/QuickStartDirectory)
+
+---
+
+## その他のチュートリアル
+
+エピックとコミュニティによるその他のチュートリアルは、アンリアルエンジンのWikiページからドキュメントおよびビデオ両方にアクセスできます。
+
+[エピックが作成したドキュメントチュートリアル](https://wiki.unrealengine.com/Category:Epic_Created_Content)
+[エピックが作成したビデオチュートリアル](https://wiki.unrealengine.com/Category:Epic_Video_Playlists)
+[コミュニティが作成したドキュメントチュートリアル](https://wiki.unrealengine.com/Category:Community_Created_Content)
+[コミュニティが作成したビデオチュートリアル](https://wiki.unrealengine.com/Category:Community_Videos)
 
 
 ---
 
-### In Editor のチュートリアル:Blueprints（ブループリント）
 
-![](BP_Overview_small.png)
-
-[My Blueprints] タブ、ピンタイプ、実行フロー、コンテクスト メニュー、[Dragging off] ノードを含めたアンリアル・エンジン 4 のブループリントを編集する基礎
-
-
-[In Editor Tutorial: Blueprints](Shared\Tutorials\InBlueprintEditorTutorial)
-
----
+![](UE4LogoImg.png)
 
 [/EXCERPT:TutorialsHome]

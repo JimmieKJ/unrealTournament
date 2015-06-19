@@ -13,7 +13,7 @@ PRAGMA_DISABLE_OPTIMIZATION
 
 #define LOCTEXT_NAMESPACE "Slate.Tests.RickTextMarkupProcessingTest"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRTFProcessingTest, "Slate.Misc.RickTextMarkupProcessing", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRTFProcessingTest, "System.Slate.Misc.RickTextMarkupProcessing", EAutomationTestFlags::ATF_SmokeTest)
 
 namespace
 {

@@ -72,7 +72,7 @@ void FTwitchLiveStreaming::StartupModule()
 	bWantsChatEnabled = false;
 	ChatState = EChatState::Uninitialized;
 
-	FMemory::MemZero( VideoBuffers );
+	FMemory::Memzero( VideoBuffers );
 
 	// @todo twitch: Sometimes crashes on exit after streaming in the editor on Windows 8.1
 	// @todo twitch urgent: Authorization of end-user games is having problems (bad auth token error)
@@ -436,7 +436,7 @@ void FTwitchLiveStreaming::Async_AuthenticateWithTwitchDirectly( const FString& 
 	check( TwitchState == ETwitchState::ReadyToAuthenticate );
 
 	// This will be filled in by TTV_RequestAuthToken()
-	FMemory::MemZero( TwitchAuthToken );
+	FMemory::Memzero( TwitchAuthToken );
 
 	TTV_AuthParams TwitchAuthParams;
 	TwitchAuthParams.size = sizeof( TwitchAuthParams );
@@ -617,7 +617,7 @@ void FTwitchLiveStreaming::Async_LoginToTwitch()
 	check( TwitchState == ETwitchState::ReadyToLogin );
 
 	// Calling TTV_Login() will fill the TwitchChannelInfo structure with information about the Twitch channel
-	FMemory::MemZero( TwitchChannelInfo );	// @todo twitch: We should expose this to the live stream API
+	FMemory::Memzero( TwitchChannelInfo );	// @todo twitch: We should expose this to the live stream API
 	TwitchChannelInfo.size = sizeof( TwitchChannelInfo );
 
 	// Called when TwitchLogin finishes async work
@@ -670,7 +670,7 @@ void FTwitchLiveStreaming::Async_GetIngestServers()
 	check( BroadcastState == EBroadcastState::Idle );
 
 	// This will be filled in by calling TTV_GetIngestServers()
-	FMemory::MemZero( TwitchIngestList );
+	FMemory::Memzero( TwitchIngestList );
 
 	// Called when TwitchGetIngestServers finishes async work
 	void* CallbackUserDataPtr = this;
@@ -722,7 +722,7 @@ void FTwitchLiveStreaming::Async_StartBroadcasting()
 
 	// Pick an ingest server
 	TTV_IngestServer SelectedTwitchIngestServer;
-	FMemory::MemZero( SelectedTwitchIngestServer );
+	FMemory::Memzero( SelectedTwitchIngestServer );
 	{
 		// Select the default ingest server recommended by the Twitch SDK
 		// @todo twitch: We might want to run an 'ingest test' first.  This will help with bitrate selection too, apparently
@@ -794,7 +794,7 @@ void FTwitchLiveStreaming::Async_StartBroadcasting()
 	{
 		// @todo twitch: Make sure these settings are all filled in!
 		TTV_VideoParams TwitchVideoParams;
-		FMemory::MemZero( TwitchVideoParams );
+		FMemory::Memzero( TwitchVideoParams );
 		TwitchVideoParams.size = sizeof( TwitchVideoParams );
 		TwitchVideoParams.outputWidth = BroadcastConfig.VideoBufferWidth;
 		TwitchVideoParams.outputHeight = BroadcastConfig.VideoBufferHeight;
@@ -825,7 +825,7 @@ void FTwitchLiveStreaming::Async_StartBroadcasting()
 		}
 
 		TTV_AudioParams TwitchAudioParams;
-		FMemory::MemZero( TwitchAudioParams );
+		FMemory::Memzero( TwitchAudioParams );
 		TwitchAudioParams.size = sizeof( TwitchAudioParams );
 		TwitchAudioParams.audioEnabled = BroadcastConfig.bCaptureAudioFromComputer || BroadcastConfig.bCaptureAudioFromMicrophone;
 		TwitchAudioParams.enableMicCapture = BroadcastConfig.bCaptureAudioFromMicrophone;
@@ -1989,7 +1989,7 @@ void FTwitchLiveStreaming::Async_GetGameLiveStreams( const FString& GameName, FQ
 	auto* CallbackPayload = new FCallbackPayload();	// This will be deleted by the async callback function below
 	CallbackPayload->This = this;
 	CallbackPayload->GameName = GameName;
-	FMemory::MemZero( CallbackPayload->TwitchGameStreamList );
+	FMemory::Memzero( CallbackPayload->TwitchGameStreamList );
 	CallbackPayload->CompletionCallback = CompletionCallback;
 
 	void* CallbackUserDataPtr = CallbackPayload;

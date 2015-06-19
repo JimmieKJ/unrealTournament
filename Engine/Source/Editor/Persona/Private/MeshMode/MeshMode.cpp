@@ -31,7 +31,7 @@ public:
 	{
 		PersonaPtr = InPersona;
 
-		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments(), true, true);
+		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments().HostCommandList(InPersona->GetToolkitCommands()), true, true);
 
 		PropertyView->SetGenericLayoutDetailsDelegate( FOnGetDetailCustomizationInstance::CreateStatic( &FPersonaMeshDetails::MakeInstance, InPersona ) );
 	}

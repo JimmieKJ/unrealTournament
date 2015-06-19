@@ -35,6 +35,8 @@ public:
 	/** Replaces any references to old instances during Actor reinstancing */
 	virtual void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap) { };
 
+	virtual void AddReferencedObjects(FReferenceCollector& Collector);
+
 	bool ContainsSavedProperties() const { return SavedProperties.Num() > 0; }
 
 protected:
@@ -73,6 +75,8 @@ public:
 	void FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
 
 	bool HasInstanceData() const { return TypeToDataMap.Num() > 0; }
+
+	void AddReferencedObjects(FReferenceCollector& Collector);
 
 private:
 	/** Map of data type name to data of that type */

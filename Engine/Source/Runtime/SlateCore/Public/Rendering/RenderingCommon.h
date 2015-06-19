@@ -166,7 +166,7 @@ typedef FSlateRotatedRect FSlateRotatedClipRectType;
 struct FSlateVertex
 {
 	/** Texture coordinates.  The first 2 are in xy and the 2nd are in zw */
-	FVector4 TexCoords; 
+	float TexCoords[4]; 
 	/** Position of the vertex in window space */
 	int16 Position[2];
 	/** clip center/extents in render window space (window space with render transforms applied) */
@@ -242,7 +242,7 @@ public:
 	/**
 	 * Performs any ticking necessary by this handle                   
 	 */
-	virtual void Tick( const FGeometry& AllottedGeometry, double InCurrentTime, float DeltaTime )
+	virtual void Tick(const FGeometry& AllottedGeometry, double InCurrentTime, float DeltaTime )
 	{
 	}
 

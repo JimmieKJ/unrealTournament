@@ -14,7 +14,7 @@ UMovieScene2DTransformTrack::UMovieScene2DTransformTrack( const FObjectInitializ
 
 UMovieSceneSection* UMovieScene2DTransformTrack::CreateNewSection()
 {
-	return ConstructObject<UMovieSceneSection>( UMovieScene2DTransformSection::StaticClass(), this, NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneSection>(this, UMovieScene2DTransformSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieScene2DTransformTrack::CreateInstance()

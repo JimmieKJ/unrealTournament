@@ -9,13 +9,13 @@
 #include "BlueprintEditor.h"
 #include "SMyBlueprint.h"
 #include "BlueprintEditorUtils.h"
-#include "K2ActionMenuBuilder.h" // for FBlueprintPaletteListBuilder
 #include "BlueprintActionMenuBuilder.h"
 #include "BlueprintActionFilter.h"
 #include "BlueprintActionMenuUtils.h"
 #include "BlueprintPaletteFavorites.h"
 #include "IDocumentation.h"
 #include "SSCSEditor.h"
+#include "SBlueprintContextTargetMenu.h"
 
 #define LOCTEXT_NAMESPACE "SBlueprintGraphContextMenu"
 
@@ -116,7 +116,7 @@ private:
 		bool bNoFavorites = false;
 		GConfig->GetBool(TEXT("BlueprintEditor.Palette"), TEXT("bUseLegacyLayout"), bNoFavorites, GEditorIni);
 
-		UBlueprintPaletteFavorites const* const BlueprintFavorites = GEditor->EditorUserSettings->BlueprintFavorites;
+		UBlueprintPaletteFavorites const* const BlueprintFavorites = GetDefault<UEditorPerProjectUserSettings>()->BlueprintFavorites;
 
 		EVisibility CurrentVisibility = EVisibility::Hidden;
 		if (!bNoFavorites && BlueprintFavorites && BlueprintFavorites->CanBeFavorited(ActionPtr.Pin()))
@@ -154,9 +154,13 @@ private:
 	ECheckBoxState GetFavoritedState() const
 	{
 		ECheckBoxState FavoriteState = ECheckBoxState::Unchecked;
-		if (GEditor->EditorUserSettings->BlueprintFavorites->IsFavorited(ActionPtr.Pin()))
+		if (ActionPtr.IsValid())
 		{
-			FavoriteState = ECheckBoxState::Checked;
+			const UEditorPerProjectUserSettings& EditorSettings = *GetDefault<UEditorPerProjectUserSettings>();
+			if (UBlueprintPaletteFavorites* BlueprintFavorites = EditorSettings.BlueprintFavorites)
+			{
+				FavoriteState = BlueprintFavorites->IsFavorited(ActionPtr.Pin()) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			}
 		}
 		return FavoriteState;
 	}
@@ -171,11 +175,11 @@ private:
 	{
 		if (InNewState == ECheckBoxState::Checked)
 		{
-			GEditor->EditorUserSettings->BlueprintFavorites->AddFavorite(ActionPtr.Pin());
+			GetMutableDefault<UEditorPerProjectUserSettings>()->BlueprintFavorites->AddFavorite(ActionPtr.Pin());
 		}
 		else
 		{
-			GEditor->EditorUserSettings->BlueprintFavorites->RemoveFavorite(ActionPtr.Pin());
+			GetMutableDefault<UEditorPerProjectUserSettings>()->BlueprintFavorites->RemoveFavorite(ActionPtr.Pin());
 		}
 	}	
 
@@ -229,6 +233,21 @@ void SBlueprintActionMenu::Construct( const FArguments& InArgs, TSharedPtr<FBlue
 			ContextIcon = FEditorStyle::GetBrush( OnePin->PinType.bIsArray ? TEXT("Graph.ArrayPin.Connected") : TEXT("Graph.Pin.Connected") );
 		}
 	}
+
+	FBlueprintActionContext MenuContext;
+	ConstructActionContext(MenuContext);
+
+	TSharedPtr<SComboButton> TargetContextSubMenuButton;
+	// @TODO: would be nice if we could use a checkbox style for this, and have a different state for open/closed
+	SAssignNew(TargetContextSubMenuButton, SComboButton)
+		.MenuPlacement(MenuPlacement_MenuRight)
+		.HasDownArrow(false)
+		.ButtonStyle(FEditorStyle::Get(), "BlueprintEditor.ContextMenu.TargetsButton")
+		.MenuContent()
+		[
+			SAssignNew(ContextTargetSubMenu, SBlueprintContextTargetMenu, MenuContext)
+				.OnTargetMaskChanged(this, &SBlueprintActionMenu::OnContextTargetsChanged)
+		];
 
 	// Build the widget layout
 	SBorder::Construct( SBorder::FArguments()
@@ -295,16 +314,25 @@ void SBlueprintActionMenu::Construct( const FArguments& InArgs, TSharedPtr<FBlue
 							.Text(LOCTEXT("BlueprintActionMenuContextToggle", "Context Sensitive"))
 						]
 					]
+
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Right)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(3.f, 0.f, 0.f, 0.f)
+					[
+						TargetContextSubMenuButton.ToSharedRef()
+					]
 				]
 
 				// ACTION LIST 
 				+SVerticalBox::Slot()
 				[
 					SAssignNew(GraphActionMenu, SGraphActionMenu)
-					.OnActionSelected(this, &SBlueprintActionMenu::OnActionSelected)
-					.OnCreateWidgetForAction( SGraphActionMenu::FOnCreateWidgetForAction::CreateSP(this, &SBlueprintActionMenu::OnCreateWidgetForAction) )
-					.OnCollectAllActions(this, &SBlueprintActionMenu::CollectAllActions)
-					.OnCreateCustomRowExpander_Static(&CreateCustomBlueprintActionExpander)
+						.OnActionSelected(this, &SBlueprintActionMenu::OnActionSelected)
+						.OnCreateWidgetForAction(SGraphActionMenu::FOnCreateWidgetForAction::CreateSP(this, &SBlueprintActionMenu::OnCreateWidgetForAction))
+						.OnCollectAllActions(this, &SBlueprintActionMenu::CollectAllActions)
+						.OnCreateCustomRowExpander_Static(&CreateCustomBlueprintActionExpander)
 				]
 			]
 		]
@@ -381,60 +409,86 @@ void SBlueprintActionMenu::OnContextToggleChanged(ECheckBoxState CheckState)
 	GraphActionMenu->RefreshAllActions(true, false);
 }
 
+void SBlueprintActionMenu::OnContextTargetsChanged(uint32 /*ContextTargetMask*/)
+{
+	GraphActionMenu->RefreshAllActions(/*bPreserveExpansion =*/true, /*bHandleOnSelectionEvent =*/false);
+}
+
 ECheckBoxState SBlueprintActionMenu::ContextToggleIsChecked() const
 {
 	return EditorPtr.Pin()->GetIsContextSensitive() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
 void SBlueprintActionMenu::CollectAllActions(FGraphActionListBuilderBase& OutAllActions)
-{
-	UBlueprint* Blueprint = EditorPtr.Pin()->GetBlueprintObj();
-	
+{	
 	check(EditorPtr.IsValid());
 	TSharedPtr<FBlueprintEditor> BlueprintEditor = EditorPtr.Pin();
 	bool const bIsContextSensitive = BlueprintEditor->GetIsContextSensitive();
-	
-	FBlueprintActionContext FilterContext;
-	FilterContext.Blueprints.Add(Blueprint);
-	// we still want context from the graph (even if the user has unchecked
-	// "Context Sensitive"), otherwise the user would be presented with nodes
-	// that can't be placed in the graph... if the user isn't being presented
-	// with a valid node, then fix it up in filtering
-	FilterContext.Graphs.Add(GraphObj);
-	
-	if (bIsContextSensitive)
+
+	uint32 ContextTargetMask = 0;
+	if (bIsContextSensitive && ContextTargetSubMenu.IsValid())
 	{
-		FilterContext.Pins = DraggedFromPins;
-		
-		// Get selection from the "My Blueprint" view.
-		FEdGraphSchemaAction_K2Var* SelectedVar = BlueprintEditor->GetMyBlueprintWidget()->SelectionAsVar();
-		if ((SelectedVar != nullptr) && (SelectedVar->GetProperty() != nullptr))
-		{
-			FilterContext.SelectedObjects.Add(SelectedVar->GetProperty());
-		}
-		// If the selection come from the SCS editor, add it to the filter context.
-		else if ( Blueprint->SkeletonGeneratedClass && BlueprintEditor->GetSCSEditor().IsValid() )
-		{
-			TArray<FSCSEditorTreeNodePtrType> Nodes = BlueprintEditor->GetSCSEditor()->GetSelectedNodes();
-			if ( Nodes.Num() == 1 && Nodes[0]->GetNodeType() == FSCSEditorTreeNode::ComponentNode )
-			{
-				FName PropertyName = Nodes[0]->GetVariableName();
-				UObjectProperty* VariableProperty = FindField<UObjectProperty>(Blueprint->SkeletonGeneratedClass, PropertyName);
-				FilterContext.SelectedObjects.Add(VariableProperty);
-			}
-		}
+		ContextTargetMask = ContextTargetSubMenu->GetContextTargetMask();
 	}
+
+	FBlueprintActionContext FilterContext;
+	ConstructActionContext(FilterContext);
 	
 	FBlueprintActionMenuBuilder MenuBuilder(EditorPtr);
 	// NOTE: cannot call GetGraphContextActions() during serialization and GC due to its use of FindObject()
-	if(!GIsSavingPackage && !GIsGarbageCollecting)
+	if(!GIsSavingPackage && !IsGarbageCollecting())
 	{
-		FBlueprintActionMenuUtils::MakeContextMenu(FilterContext, bIsContextSensitive, MenuBuilder);
+		FBlueprintActionMenuUtils::MakeContextMenu(FilterContext, bIsContextSensitive, ContextTargetMask, MenuBuilder);
 	}
 	// copy the added options back to the main list
 	OutAllActions.Append(MenuBuilder); // @TODO: Avoid this copy
 	// also try adding promote to variable if we can do so.
 	TryInsertPromoteToVariable(FilterContext, OutAllActions);
+}
+
+void SBlueprintActionMenu::ConstructActionContext(FBlueprintActionContext& ContextDescOut)
+{
+	check(EditorPtr.IsValid());
+	TSharedPtr<FBlueprintEditor> BlueprintEditor = EditorPtr.Pin();
+	bool const bIsContextSensitive = BlueprintEditor->GetIsContextSensitive();
+
+	// we still want context from the graph (even if the user has unchecked
+	// "Context Sensitive"), otherwise the user would be presented with nodes
+	// that can't be placed in the graph... if the user isn't being presented
+	// with a valid node, then fix it up in filtering
+	ContextDescOut.Graphs.Add(GraphObj);
+
+	UBlueprint* Blueprint = BlueprintEditor->GetBlueprintObj();
+	const bool bBlueprintIsValid = IsValid(Blueprint) && Blueprint->GeneratedClass && (Blueprint->GeneratedClass->ClassGeneratedBy == Blueprint);
+	if (!ensure(bBlueprintIsValid))  // to track UE-11597 and UE-11595
+	{
+		return;
+	}
+
+	ContextDescOut.Blueprints.Add(Blueprint);
+
+	if (bIsContextSensitive)
+	{
+		ContextDescOut.Pins = DraggedFromPins;
+
+		// Get selection from the "My Blueprint" view.
+		FEdGraphSchemaAction_K2Var* SelectedVar = BlueprintEditor->GetMyBlueprintWidget()->SelectionAsVar();
+		if ((SelectedVar != nullptr) && (SelectedVar->GetProperty() != nullptr))
+		{
+			ContextDescOut.SelectedObjects.Add(SelectedVar->GetProperty());
+		}
+		// If the selection come from the SCS editor, add it to the filter context.
+		else if (Blueprint->SkeletonGeneratedClass && BlueprintEditor->GetSCSEditor().IsValid())
+		{
+			TArray<FSCSEditorTreeNodePtrType> Nodes = BlueprintEditor->GetSCSEditor()->GetSelectedNodes();
+			if (Nodes.Num() == 1 && Nodes[0]->GetNodeType() == FSCSEditorTreeNode::ComponentNode)
+			{
+				FName PropertyName = Nodes[0]->GetVariableName();
+				UObjectProperty* VariableProperty = FindField<UObjectProperty>(Blueprint->SkeletonGeneratedClass, PropertyName);
+				ContextDescOut.SelectedObjects.Add(VariableProperty);
+			}
+		}
+	}
 }
 
 TSharedRef<SEditableTextBox> SBlueprintActionMenu::GetFilterTextBox()
@@ -449,24 +503,27 @@ TSharedRef<SWidget> SBlueprintActionMenu::OnCreateWidgetForAction(FCreateWidgetF
 	return SNew(SBlueprintPaletteItem, InCreateData, EditorPtr.Pin()); 
 }
 
-void SBlueprintActionMenu::OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedAction )
+void SBlueprintActionMenu::OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedAction, ESelectInfo::Type InSelectionType )
 {
-	for ( int32 ActionIndex = 0; ActionIndex < SelectedAction.Num(); ActionIndex++ )
+	if (InSelectionType == ESelectInfo::OnMouseClick  || InSelectionType == ESelectInfo::OnKeyPress || SelectedAction.Num() == 0)
 	{
-		if ( SelectedAction[ActionIndex].IsValid() && GraphObj != NULL )
+		for ( int32 ActionIndex = 0; ActionIndex < SelectedAction.Num(); ActionIndex++ )
 		{
-			// Don't dismiss when clicking on dummy action
-			if ( !bActionExecuted && (SelectedAction[ActionIndex]->GetTypeId() != FEdGraphSchemaAction_Dummy::StaticGetTypeId()))
+			if ( SelectedAction[ActionIndex].IsValid() && GraphObj != NULL )
 			{
-				FSlateApplication::Get().DismissAllMenus();
-				bActionExecuted = true;
-			}
+				// Don't dismiss when clicking on dummy action
+				if ( !bActionExecuted && (SelectedAction[ActionIndex]->GetTypeId() != FEdGraphSchemaAction_Dummy::StaticGetTypeId()))
+				{
+					FSlateApplication::Get().DismissAllMenus();
+					bActionExecuted = true;
+				}
 
-			UEdGraphNode* ResultNode = SelectedAction[ActionIndex]->PerformAction(GraphObj, DraggedFromPins, NewNodePosition);
+				UEdGraphNode* ResultNode = SelectedAction[ActionIndex]->PerformAction(GraphObj, DraggedFromPins, NewNodePosition);
 
-			if ( ResultNode != NULL )
-			{
-				NewNodePosition.Y += UEdGraphSchema_K2::EstimateNodeHeight( ResultNode );
+				if ( ResultNode != NULL )
+				{
+					NewNodePosition.Y += UEdGraphSchema_K2::EstimateNodeHeight( ResultNode );
+				}
 			}
 		}
 	}

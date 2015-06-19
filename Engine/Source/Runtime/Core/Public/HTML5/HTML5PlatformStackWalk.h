@@ -17,6 +17,8 @@ struct CORE_API FHTML5PlatformStackWalk : public FGenericPlatformStackWalk
 
 	static void ProgramCounterToSymbolInfo(uint64 ProgramCounter,FProgramCounterSymbolInfo& out_SymbolInfo);
 	static void CaptureStackBackTrace(uint64* BackTrace,uint32 MaxDepth,void* Context = nullptr);
+	//Additional
+	static int32 GetStackBackTraceString(char* OutputString, int32 MaxLen);
 };
 
 typedef FHTML5PlatformStackWalk FPlatformStackWalk;

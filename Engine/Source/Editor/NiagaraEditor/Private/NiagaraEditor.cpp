@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraEditorPrivatePCH.h"
-#include "Engine/NiagaraScript.h"
+#include "NiagaraScript.h"
 
 #include "Toolkits/IToolkitHost.h"
 #include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
@@ -13,7 +13,7 @@
  
 #define LOCTEXT_NAMESPACE "NiagaraEditor"
 
-const FName FNiagaraEditor::UpdateGraphTabId(TEXT("NiagaraEditor_UpdateGraph"));
+const FName FNiagaraEditor::NodeGraphTabId(TEXT("NiagaraEditor_NodeGraph"));
 const FName FNiagaraEditor::PropertiesTabId(TEXT("NiagaraEditor_MaterialProperties"));
 
 void FNiagaraEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
@@ -24,8 +24,8 @@ void FNiagaraEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& Ta
 	
 	TSharedRef<FWorkspaceItem> WorkspaceMenuCategoryRef = WorkspaceMenuCategory.ToSharedRef();
 
-	TabManager->RegisterTabSpawner( UpdateGraphTabId, FOnSpawnTab::CreateSP(this, &FNiagaraEditor::SpawnTab_UpdateGraph) )
-		.SetDisplayName( LOCTEXT("UpdateGraph", "Update Graph") )
+	TabManager->RegisterTabSpawner( NodeGraphTabId, FOnSpawnTab::CreateSP(this, &FNiagaraEditor::SpawnTab_NodeGraph) )
+		.SetDisplayName( LOCTEXT("NodeGraph", "Node Graph") )
 		.SetGroup(WorkspaceMenuCategoryRef);
 
 	TabManager->RegisterTabSpawner(PropertiesTabId, FOnSpawnTab::CreateSP(this, &FNiagaraEditor::SpawnTab_NodeProperties))
@@ -38,7 +38,7 @@ void FNiagaraEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& 
 {
 	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
 
-	TabManager->UnregisterTabSpawner(UpdateGraphTabId);
+	TabManager->UnregisterTabSpawner(NodeGraphTabId);
 	TabManager->UnregisterTabSpawner(PropertiesTabId);
 }
 
@@ -53,9 +53,9 @@ void FNiagaraEditor::InitNiagaraEditor( const EToolkitMode::Type Mode, const TSh
 	Script = InScript;
 	check(Script != NULL);
 	Source = CastChecked<UNiagaraScriptSource>(Script->Source);
-	check(Source->UpdateGraph != NULL);
+	check(Source->NodeGraph != NULL);
 
-	TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout( "Standalone_Niagara_Layout_v3" )
+	TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout( "Standalone_Niagara_Layout_v4" )
 	->AddArea
 	(
 		FTabManager::NewPrimaryArea() ->SetOrientation(Orient_Vertical)
@@ -79,7 +79,7 @@ void FNiagaraEditor::InitNiagaraEditor( const EToolkitMode::Type Mode, const TSh
 			(
 				FTabManager::NewStack()
 				->SetSizeCoefficient(0.8f)
-				->AddTab(UpdateGraphTabId, ETabState::OpenedTab)
+				->AddTab(NodeGraphTabId, ETabState::OpenedTab)
 			)
 		)
 	);
@@ -103,7 +103,7 @@ void FNiagaraEditor::InitNiagaraEditor( const EToolkitMode::Type Mode, const TSh
 	if( IsWorldCentricAssetEditor() )
 	{
 		const FString TabInitializationPayload(TEXT(""));		// NOTE: Payload not currently used for table properties
-		SpawnToolkitTab( UpdateGraphTabId, TabInitializationPayload, EToolkitTabSpot::Details );
+		SpawnToolkitTab( NodeGraphTabId, TabInitializationPayload, EToolkitTabSpot::Details );
 	}*/
 }
 
@@ -164,7 +164,7 @@ TSharedRef<SGraphEditor> FNiagaraEditor::CreateGraphEditorWidget(UEdGraph* InGra
 			.FillWidth(1.f)
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("UpdateGraphLabel", "Update Graph"))
+				.Text(LOCTEXT("NodeGraphLabel", "Node Graph"))
 				.TextStyle( FEditorStyle::Get(), TEXT("GraphBreadcrumbButtonText") )
 			]
 		];
@@ -179,19 +179,19 @@ TSharedRef<SGraphEditor> FNiagaraEditor::CreateGraphEditorWidget(UEdGraph* InGra
 }
 
 
-TSharedRef<SDockTab> FNiagaraEditor::SpawnTab_UpdateGraph( const FSpawnTabArgs& Args )
+TSharedRef<SDockTab> FNiagaraEditor::SpawnTab_NodeGraph( const FSpawnTabArgs& Args )
 {
-	check( Args.GetTabId().TabType == UpdateGraphTabId );
+	check( Args.GetTabId().TabType == NodeGraphTabId );
 
-	TSharedRef<SGraphEditor> UpdateGraphEditor = CreateGraphEditorWidget(Source->UpdateGraph);
+	TSharedRef<SGraphEditor> NodeGraphEditor = CreateGraphEditorWidget(Source->NodeGraph);
 
-	UpdateGraphEditorPtr = UpdateGraphEditor; // Keep pointer to editor
+	NodeGraphEditorPtr = NodeGraphEditor; // Keep pointer to editor
 
 	return SNew(SDockTab)
-		.Label( LOCTEXT("UpdateGraph", "Update Graph") )
+		.Label( LOCTEXT("NodeGraph", "Node Graph") )
 		.TabColorScale( GetTabColorScale() )
 		[
-			UpdateGraphEditor
+			NodeGraphEditor
 		];
 }
 
@@ -204,11 +204,11 @@ TSharedRef<SDockTab> FNiagaraEditor::SpawnTab_NodeProperties(const FSpawnTabArgs
 			NiagaraDetailsView.ToSharedRef()
 		];
 
-	TSharedPtr<SGraphEditor> UpdateGraphEditor = UpdateGraphEditorPtr.Pin();
-	if (UpdateGraphEditor.IsValid())
+	TSharedPtr<SGraphEditor> NodeGraphEditor = NodeGraphEditorPtr.Pin();
+	if (NodeGraphEditor.IsValid())
 	{
 		// Since we're initialising, make sure nothing is selected
-		UpdateGraphEditor->ClearSelectionSet();
+		NodeGraphEditor->ClearSelectionSet();
 	}
 
 	return SpawnedTab;
@@ -276,14 +276,14 @@ FReply FNiagaraEditor::OnCompileClicked()
 
 void FNiagaraEditor::DeleteSelectedNodes()
 {
-	TSharedPtr<SGraphEditor> UpdateGraphEditor = UpdateGraphEditorPtr.Pin();
-	if (!UpdateGraphEditor.IsValid())
+	TSharedPtr<SGraphEditor> NodeGraphEditor = NodeGraphEditorPtr.Pin();
+	if (!NodeGraphEditor.IsValid())
 	{
 		return;
 	}
 
-	const FGraphPanelSelectionSet SelectedNodes = UpdateGraphEditor->GetSelectedNodes();
-	UpdateGraphEditor->ClearSelectionSet();
+	const FGraphPanelSelectionSet SelectedNodes = NodeGraphEditor->GetSelectedNodes();
+	NodeGraphEditor->ClearSelectionSet();
 
 	for (FGraphPanelSelectionSet::TConstIterator NodeIt( SelectedNodes ); NodeIt; ++NodeIt)
 	{
@@ -299,8 +299,8 @@ void FNiagaraEditor::DeleteSelectedNodes()
 
 bool FNiagaraEditor::CanDeleteNodes() const
 {
-	TSharedPtr<SGraphEditor> UpdateGraphEditor = UpdateGraphEditorPtr.Pin();
-	return (UpdateGraphEditor.IsValid() && UpdateGraphEditor->GetSelectedNodes().Num() > 0);
+	TSharedPtr<SGraphEditor> NodeGraphEditor = NodeGraphEditorPtr.Pin();
+	return (NodeGraphEditor.IsValid() && NodeGraphEditor->GetSelectedNodes().Num() > 0);
 }
 
 void FNiagaraEditor::OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection)

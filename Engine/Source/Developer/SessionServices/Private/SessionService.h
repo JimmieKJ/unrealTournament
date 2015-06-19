@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "ISessionService.h"
+
 
 /**
  * Implements an application session service.

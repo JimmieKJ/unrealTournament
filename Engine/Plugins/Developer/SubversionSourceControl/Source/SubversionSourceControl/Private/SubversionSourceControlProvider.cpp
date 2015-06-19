@@ -107,6 +107,20 @@ ECommandResult::Type FSubversionSourceControlProvider::GetState( const TArray<FS
 	return ECommandResult::Succeeded;
 }
 
+TArray<FSourceControlStateRef> FSubversionSourceControlProvider::GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const
+{
+	TArray<FSourceControlStateRef> Result;
+	for (const auto& CacheItem : StateCache)
+	{
+		FSourceControlStateRef State = CacheItem.Value;
+		if (Predicate(State))
+		{
+			Result.Add(State);
+		}
+	}
+	return Result;
+}
+
 void FSubversionSourceControlProvider::RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
 {
 	OnSourceControlStateChanged.Add( SourceControlStateChanged );

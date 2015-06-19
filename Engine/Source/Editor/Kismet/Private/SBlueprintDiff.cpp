@@ -82,11 +82,14 @@ FSCSDiffControl::FSCSDiffControl(
 	TArray< FSCSResolvedIdentifier > NewHierarchy = NewSCS.GetDisplayedHierarchy();
 	DiffUtils::CompareUnrelatedSCS(InOldBlueprint, OldHierarchy, InNewBlueprint, NewHierarchy, DifferingProperties);
 
-	const auto FocusSCSDifferenceEntry = [](FSCSDiffEntry Entry, FOnSCSDiffControlChanged SelectionCallback, FSCSDiffControl* Owner)
+	const auto FocusSCSDifferenceEntry = [](FSCSDiffEntry Entry, FOnSCSDiffControlChanged InSelectionCallback, FSCSDiffControl* Owner)
 	{
-		SelectionCallback.ExecuteIfBound();
-		Owner->OldSCS.HighlightProperty(Entry.TreeIdentifier.Name, FPropertyPath());
-		Owner->NewSCS.HighlightProperty(Entry.TreeIdentifier.Name, FPropertyPath());
+		InSelectionCallback.ExecuteIfBound();
+		if (Entry.TreeIdentifier.Name != NAME_None)
+		{
+			Owner->OldSCS.HighlightProperty(Entry.TreeIdentifier.Name, FPropertyPath());
+			Owner->NewSCS.HighlightProperty(Entry.TreeIdentifier.Name, FPropertyPath());
+		}
 	};
 
 	const auto CreateSCSDifferenceWidget = [](FSCSDiffEntry Entry, FText ObjectName) -> TSharedRef<SWidget>
@@ -117,10 +120,10 @@ FSCSDiffControl::FSCSDiffControl(
 		Children.Push(FBlueprintDifferenceTreeEntry::NoDifferencesEntry());
 	}
 
-	const auto ForwardSelection = [](FOnSCSDiffControlChanged SelectionCallback)
+	const auto ForwardSelection = [](FOnSCSDiffControlChanged InSelectionCallback)
 	{
 		// This allows the owning control to focus the correct tab (or do whatever else it likes):
-		SelectionCallback.ExecuteIfBound();
+		InSelectionCallback.ExecuteIfBound();
 	};
 
 	OutTreeEntries.Push(FBlueprintDifferenceTreeEntry::CreateComponentsCategoryEntry(
@@ -174,9 +177,9 @@ FCDODiffControl::FCDODiffControl(
 	TArray<FPropertySoftPath> OldProperties = OldDetails.GetDisplayedProperties();
 	TArray<FPropertySoftPath> NewProperties = NewDetails.GetDisplayedProperties();
 
-	const auto FindDiffering = [](TArray< FSingleObjectDiffEntry > const& InDifferences, const FPropertySoftPath& PropertyIdentifer) -> const FSingleObjectDiffEntry*
+	const auto FindDiffering = [](TArray< FSingleObjectDiffEntry > const& InDifferenceEntries, const FPropertySoftPath& PropertyIdentifer) -> const FSingleObjectDiffEntry*
 	{
-		for (const auto& Difference : InDifferences)
+		for (const auto& Difference : InDifferenceEntries)
 		{
 			if (Difference.Identifier == PropertyIdentifer)
 			{
@@ -228,10 +231,10 @@ FCDODiffControl::FCDODiffControl(
 			.ColorAndOpacity(DiffViewUtils::Differs());
 	};
 
-	const auto FocusDetailsDifferenceEntry = [](FPropertySoftPath Identifier, FCDODiffControl* Control, FOnCDODiffControlChanged SelectionCallback)
+	const auto FocusDetailsDifferenceEntry = [](FPropertySoftPath Identifier, FCDODiffControl* Control, FOnCDODiffControlChanged InSelectionCallback)
 	{
 		// This allows the owning control to focus the correct tab (or do whatever else it likes):
-		SelectionCallback.ExecuteIfBound();
+		InSelectionCallback.ExecuteIfBound();
 		Control->HighlightDifference(Identifier);
 	};
 
@@ -258,10 +261,10 @@ FCDODiffControl::FCDODiffControl(
 		Children.Push(FBlueprintDifferenceTreeEntry::NoDifferencesEntry() );
 	}
 
-	const auto ForwardSelection = [](FOnCDODiffControlChanged SelectionCallback)
+	const auto ForwardSelection = [](FOnCDODiffControlChanged InSelectionCallback)
 	{
 		// This allows the owning control to focus the correct tab (or do whatever else it likes):
-		SelectionCallback.ExecuteIfBound();
+		InSelectionCallback.ExecuteIfBound();
 	};
 
 	OutTreeEntries.Push(FBlueprintDifferenceTreeEntry::CreateDefaultsCategoryEntry(

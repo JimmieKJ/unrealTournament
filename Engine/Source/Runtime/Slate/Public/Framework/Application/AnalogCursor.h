@@ -4,6 +4,15 @@
 
 #include "IInputProcessor.h"
 
+namespace AnalogCursorMode
+{
+	enum Type
+	{
+		Accelerated,
+		Direct,
+	};
+}
+
 /**
  * A class that simulates a cursor driven by an analog stick.
  */
@@ -22,6 +31,12 @@ public:
 	virtual bool HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEvent& InKeyEvent) override;
 	virtual bool HandleAnalogInputEvent(FSlateApplication& SlateApp, const FAnalogInputEvent& InAnalogInputEvent) override;
 
+	void SetAcceleration(float NewAcceleration);
+	void SetMaxSpeed(float NewMaxSpeed);
+	void SetStickySlowdown(float NewStickySlowdown);
+	void SetDeadZone(float NewDeadZone);
+	void SetMode(AnalogCursorMode::Type NewMode);
+
 protected:
 
 	/** Getter */
@@ -36,9 +51,15 @@ protected:
 	/** Current speed of the cursor */
 	FVector2D CurrentSpeed;
 
-	/** Helpful statics */
-	static const float DefaultAcceleration;
-	static const float DefaultMaxSpeed;
+	/** Current sub-pixel offset */
+	FVector2D CurrentOffset;
+
+	/** Current settings */
+	float Acceleration;
+	float MaxSpeed;
+	float StickySlowdown;
+	float DeadZone;
+	AnalogCursorMode::Type Mode;
 
 private:
 

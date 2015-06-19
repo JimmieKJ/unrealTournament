@@ -1,11 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #include "CorePrivatePCH.h"
 #include "Runtime/Online/HTTP/Public/Interfaces/IHttpBase.h"
 #include "Runtime/Online/HTTP/Public/Interfaces/IHttpRequest.h"
 #include "Runtime/Online/HTTP/Public/Interfaces/IHttpResponse.h"
 #include "StringConv.h"
+
 
 /**
  * A generic http request
@@ -20,7 +20,7 @@ public:
 	virtual TArray<FString> GetAllHeaders() override { return TArray<FString>(); }
 	virtual FString GetContentType() override { return TEXT(""); }
 	virtual int32 GetContentLength() override { return 0; }
-	virtual const TArray<uint8>& GetContent() { static TArray<uint8> Temp; return Temp; }
+	virtual const TArray<uint8>& GetContent() override { static TArray<uint8> Temp; return Temp; }
 
 	// IHttpRequest
 	virtual FString GetVerb() override { return TEXT(""); }
@@ -36,6 +36,7 @@ public:
 	virtual EHttpRequestStatus::Type GetStatus() override { return EHttpRequestStatus::NotStarted; }
 	virtual const FHttpResponsePtr GetResponse() const override { return nullptr; }
 	virtual void Tick(float DeltaSeconds) override {}
+	virtual float GetElapsedTime() override { return 0.0f; }
 };
 
 
@@ -75,6 +76,7 @@ static bool IsAllowedChar(UTF8CHAR LookupChar)
 
 	return AllowedTable[LookupChar];
 }
+
 
 FString FGenericPlatformHttp::UrlEncode(const FString &UnencodedString)
 {

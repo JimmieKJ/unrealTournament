@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "This is a plugin that the LiveEditor uses to replicate tuning changes to different machines on the network",
-	"Category" : "Editor.Productivity",
+	"Category" : "Input Devices",
 	
 	"Modules" :
 	[

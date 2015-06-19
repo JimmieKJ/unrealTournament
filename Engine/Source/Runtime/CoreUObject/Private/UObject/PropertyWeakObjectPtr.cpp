@@ -31,7 +31,7 @@ FString UWeakObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	return TEXT("WEAKOBJECT");
 }
 
-void UWeakObjectProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UWeakObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	UObject* ObjectValue = GetObjectPropertyValue(Value);
 	Ar << *(FWeakObjectPtr*)Value;

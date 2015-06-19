@@ -56,7 +56,7 @@ public:
 	virtual void SetForwardTicked(bool bWasForwardTicked) override;
 
 	/** Overridden to do the combo */
-	virtual void ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser) override;
+	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	virtual void PerformCombo(class AController* InstigatedBy, class AActor* DamageCauser);
 

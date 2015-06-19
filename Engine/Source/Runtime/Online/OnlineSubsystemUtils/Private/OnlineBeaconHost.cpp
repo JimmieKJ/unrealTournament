@@ -7,7 +7,7 @@
 AOnlineBeaconHost::AOnlineBeaconHost(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)
 {
-	NetDriverName = FName(TEXT("BeaconDriver"));
+	NetDriverName = FName(TEXT("BeaconDriverHost"));
 }
 
 void AOnlineBeaconHost::OnNetCleanup(UNetConnection* Connection)
@@ -17,7 +17,7 @@ void AOnlineBeaconHost::OnNetCleanup(UNetConnection* Connection)
 
 bool AOnlineBeaconHost::InitHost()
 {
-	FURL URL(NULL, TEXT(""), TRAVEL_Absolute);
+	FURL URL(nullptr, TEXT(""), TRAVEL_Absolute);
 
 	// Allow the command line to override the default port
 	int32 PortOverride;
@@ -37,8 +37,8 @@ bool AOnlineBeaconHost::InitHost()
 				ListenPort = URL.Port;
 				NetDriver->SetWorld(GetWorld());
 				NetDriver->Notify = this;
-				NetDriver->InitialConnectTimeout = BEACON_CONNECTION_TIMEOUT;
-				NetDriver->ConnectionTimeout = BEACON_CONNECTION_TIMEOUT;
+				NetDriver->InitialConnectTimeout = BeaconConnectionInitialTimeout;
+				NetDriver->ConnectionTimeout = BeaconConnectionTimeout;
 				return true;
 			}
 			else
@@ -55,7 +55,7 @@ bool AOnlineBeaconHost::InitHost()
 
 void AOnlineBeaconHost::HandleNetworkFailure(UWorld* World, class UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
-	if (NetDriver && NetDriver->NetDriverName == BeaconNetDriverName)
+	if (NetDriver && NetDriver->NetDriverName == NetDriverName)
 	{
 		// Timeouts from clients are ignored
 		if (FailureType != ENetworkFailure::ConnectionTimeout)
@@ -67,7 +67,7 @@ void AOnlineBeaconHost::HandleNetworkFailure(UWorld* World, class UNetDriver *Ne
 
 void AOnlineBeaconHost::NotifyControlMessage(UNetConnection* Connection, uint8 MessageType, class FInBunch& Bunch)
 {
-	if(NetDriver->ServerConnection == NULL)
+	if(NetDriver->ServerConnection == nullptr)
 	{
 		bool bCloseConnection = false;
 
@@ -118,12 +118,12 @@ void AOnlineBeaconHost::NotifyControlMessage(UNetConnection* Connection, uint8 M
 				if (Connection->ClientWorldPackageName == NAME_None)
 				{
 					AOnlineBeaconClient* ClientActor = GetClientActor(Connection);
-					if (ClientActor == NULL)
+					if (ClientActor == nullptr)
 					{
 						UWorld* World = GetWorld();
 						Connection->ClientWorldPackageName = World->GetOutermost()->GetFName();
 
-						AOnlineBeaconClient* NewClientActor = NULL;
+						AOnlineBeaconClient* NewClientActor = nullptr;
 						FOnBeaconSpawned* OnBeaconSpawnedDelegate = OnBeaconSpawnedMapping.Find(BeaconType);
 						if (OnBeaconSpawnedDelegate && OnBeaconSpawnedDelegate->IsBound())
 						{
@@ -137,6 +137,8 @@ void AOnlineBeaconHost::NotifyControlMessage(UNetConnection* Connection, uint8 M
 							Connection->OwningActor = NewClientActor;
 							NewClientActor->Role = ROLE_None;
 							NewClientActor->SetReplicates(false);
+							check(NetDriverName == NetDriver->NetDriverName);
+							NewClientActor->NetDriverName = NetDriverName;
 							ClientActors.Add(NewClientActor);
 							FNetControlMessage<NMT_BeaconAssignGUID>::Send(Connection, NetGUID);
 						}
@@ -243,7 +245,7 @@ AOnlineBeaconClient* AOnlineBeaconHost::GetClientActor(UNetConnection* Connectio
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 void AOnlineBeaconHost::RemoveClientActor(AOnlineBeaconClient* ClientActor)
@@ -287,7 +289,7 @@ void AOnlineBeaconHost::UnregisterHost(const FString& BeaconType)
 	AOnlineBeaconHostObject* HostObject = GetHost(BeaconType);
 	if (HostObject)
 	{
-		HostObject->SetOwner(NULL);
+		HostObject->SetOwner(nullptr);
 	}
 	
 	OnBeaconSpawned(BeaconType).Unbind();
@@ -305,13 +307,13 @@ AOnlineBeaconHostObject* AOnlineBeaconHost::GetHost(const FString& BeaconType)
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 AOnlineBeaconHost::FOnBeaconSpawned& AOnlineBeaconHost::OnBeaconSpawned(const FString& BeaconType)
 { 
 	FOnBeaconSpawned* BeaconDelegate = OnBeaconSpawnedMapping.Find(BeaconType);
-	if (BeaconDelegate == NULL)
+	if (BeaconDelegate == nullptr)
 	{
 		FOnBeaconSpawned NewDelegate;
 		OnBeaconSpawnedMapping.Add(BeaconType, NewDelegate);
@@ -324,7 +326,7 @@ AOnlineBeaconHost::FOnBeaconSpawned& AOnlineBeaconHost::OnBeaconSpawned(const FS
 AOnlineBeaconHost::FOnBeaconConnected& AOnlineBeaconHost::OnBeaconConnected(const FString& BeaconType)
 { 
 	FOnBeaconConnected* BeaconDelegate = OnBeaconConnectedMapping.Find(BeaconType);
-	if (BeaconDelegate == NULL)
+	if (BeaconDelegate == nullptr)
 	{
 		FOnBeaconConnected NewDelegate;
 		OnBeaconConnectedMapping.Add(BeaconType, NewDelegate);

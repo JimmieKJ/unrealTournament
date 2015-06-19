@@ -2,8 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTPlayerInput.h"
 
-UUTPlayerInput::UUTPlayerInput(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer)
+UUTPlayerInput::UUTPlayerInput()
+: Super()
 {
 	AccelerationPower = 0;
 	Acceleration = 0.00005f;

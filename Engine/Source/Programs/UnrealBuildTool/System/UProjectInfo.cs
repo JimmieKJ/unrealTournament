@@ -53,7 +53,7 @@ namespace UnrealBuildTool
 				foreach (KeyValuePair<string, UProjectInfo> Entry in ProjectInfoDictionary)
 				{
 					FileInfo ProjectFileInfo = new FileInfo(Entry.Key);
-					string ProjectDir = ProjectFileInfo.DirectoryName;
+					string ProjectDir = ProjectFileInfo.DirectoryName.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
 					if (TargetFilename.StartsWith(ProjectDir, StringComparison.InvariantCultureIgnoreCase))
 					{
 						FileInfo TargetInfo = new FileInfo(TargetFilename);
@@ -300,46 +300,26 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Get the project folder for the given project name
+		/// Determine if a plugin is enabled for a given project
 		/// </summary>
-		/// <param name="InProjectName">Name of the project of interest</param>
-		/// <returns>The project filename, empty string if not found</returns>
-		public static List<string> GetEnabledPlugins(string ProjectFileName, List<string> DefaultEnabledPlugins, UnrealTargetPlatform Platform)
+		/// <param name="Project">The project to check</param>
+		/// <param name="Plugin">Information about the plugin</param>
+		/// <param name="Platform">The target platform</param>
+		/// <returns>True if the plugin should be enabled for this project</returns>
+		public static bool IsPluginEnabledForProject(PluginInfo Plugin, ProjectDescriptor Project, UnrealTargetPlatform Platform)
 		{
-			// Parse the project file
-			string ProjectFile = File.ReadAllText(ProjectFileName);
-			try
+			bool bEnabled = Plugin.Descriptor.bEnabledByDefault || Plugin.LoadedFrom == PluginLoadedFrom.GameProject;
+			if(Project != null && Project.Plugins != null)
 			{
-				List<string> EnabledPlugins = new List<string>(DefaultEnabledPlugins);
-
-				// Create a case-insensitive dictionary of the contents
-				Dictionary<string, object> Descriptor = fastJSON.JSON.Instance.ToObject<Dictionary<string, object>>(ProjectFile);
-				Descriptor = new Dictionary<string,object>(Descriptor, StringComparer.InvariantCultureIgnoreCase);
-
-				// Get the list of plugins
-				object PluginsObject;
-				if(Descriptor.TryGetValue("Plugins", out PluginsObject))
+				foreach(PluginReferenceDescriptor PluginReference in Project.Plugins)
 				{
-					object[] PluginsArrayObject = (object[])PluginsObject;
-					foreach(object PluginObject in PluginsArrayObject)
+					if(String.Compare(PluginReference.Name, Plugin.Name, true) == 0)
 					{
-						PluginReferenceDescriptor Plugin = PluginReferenceDescriptor.FromJson((Dictionary<string, object>)PluginObject);
-						if(Plugin.IsEnabledForPlatform(Platform))
-						{
-							EnabledPlugins.Add(Plugin.Name);
-						}
-						else
-						{
-							EnabledPlugins.RemoveAll(x => x.Equals(Plugin.Name, StringComparison.CurrentCultureIgnoreCase));
-						}
+						bEnabled = PluginReference.IsEnabledForPlatform(Platform);
 					}
 				}
-				return EnabledPlugins;
 			}
-			catch(BuildException Exception)
-			{
-				throw new BuildException("While parsing '{0}': {1}", ProjectFileName, Exception.ToString());
-			}
+			return bEnabled;
 		}
 	}
 }

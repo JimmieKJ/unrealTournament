@@ -31,7 +31,7 @@ int32 SSpacer::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	return LayerId;
 }
 
-FVector2D SSpacer::ComputeDesiredSize() const
+FVector2D SSpacer::ComputeDesiredSize( float ) const
 {
 	return SpacerSize.Get();
 }

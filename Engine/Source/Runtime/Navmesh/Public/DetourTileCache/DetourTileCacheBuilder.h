@@ -47,7 +47,7 @@ struct dtTileCacheLayer
 {
 	dtTileCacheLayerHeader* header;
 	unsigned short regCount;					///< Region count.
-	unsigned char* heights;
+	unsigned short* heights;
 	unsigned char* areas;
 	unsigned char* cons;
 	unsigned short* regs;
@@ -182,7 +182,7 @@ inline int getDirOffsetY(int dir)
 
 NAVMESH_API dtStatus dtBuildTileCacheLayer(dtTileCacheCompressor* comp,
 							   dtTileCacheLayerHeader* header,
-							   const unsigned char* heights,
+							   const unsigned short* heights,
 							   const unsigned char* areas,
 							   const unsigned char* cons,
 							   unsigned char** outData, int* outDataSize);
@@ -237,13 +237,15 @@ NAVMESH_API dtStatus dtReplaceConvexArea(dtTileCacheLayer& layer, const float* o
 NAVMESH_API dtStatus dtBuildTileCacheDistanceField(dtTileCacheAlloc* alloc, dtTileCacheLayer& layer, dtTileCacheDistanceField& dfield);
 
 NAVMESH_API dtStatus dtBuildTileCacheRegions(dtTileCacheAlloc* alloc,
-								const int borderSize, const int minRegionArea, const int mergeRegionArea,
+								const int minRegionArea, const int mergeRegionArea,
 								dtTileCacheLayer& layer, dtTileCacheDistanceField dfield);
 
 NAVMESH_API dtStatus dtBuildTileCacheRegionsMonotone(dtTileCacheAlloc* alloc,
+								const int minRegionArea, const int mergeRegionArea,
 								dtTileCacheLayer& layer);
 
 NAVMESH_API dtStatus dtBuildTileCacheRegionsChunky(dtTileCacheAlloc* alloc,
+								const int minRegionArea, const int mergeRegionArea,
 								dtTileCacheLayer& layer, int regionChunkSize);
 //@UE4 END
 
@@ -273,7 +275,8 @@ NAVMESH_API dtStatus dtBuildTileCacheClusters(dtTileCacheAlloc* alloc,
 //@UE4 END
 
 /// Swaps the endianess of the compressed tile data's header (#dtTileCacheLayerHeader).
-/// Tile layer data does not need endian swapping as it consits only of bytes.
+/// Tile layer data does not need endian swapping as it consist only of bytes.
+/// UE4: not anymore, there are short types as well now
 ///  @param[in,out]	data		The tile data array.
 ///  @param[in]		dataSize	The size of the data array.
 NAVMESH_API bool dtTileCacheHeaderSwapEndian(unsigned char* data, const int dataSize);

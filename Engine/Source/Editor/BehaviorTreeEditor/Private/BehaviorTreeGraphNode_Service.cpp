@@ -6,6 +6,7 @@
 UBehaviorTreeGraphNode_Service::UBehaviorTreeGraphNode_Service(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bIsSubNode = true;
 }
 
 void UBehaviorTreeGraphNode_Service::AllocateDefaultPins()
@@ -23,13 +24,11 @@ FText UBehaviorTreeGraphNode_Service::GetNodeTitle(ENodeTitleType::Type TitleTyp
 	}
 	else if (!ClassData.GetClassName().IsEmpty())
 	{
-		return NSLOCTEXT("BehaviorTreeGraphNode", "UnknownNodeClass", "Can't load class!");
+		FString StoredClassName = ClassData.GetClassName();
+		StoredClassName.RemoveFromEnd(TEXT("_C"));
+
+		return FText::Format(NSLOCTEXT("AIGraph", "NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
 	}
 
 	return Super::GetNodeTitle(TitleType);
-}
-
-bool UBehaviorTreeGraphNode_Service::IsSubNode() const
-{
-	return true;
 }

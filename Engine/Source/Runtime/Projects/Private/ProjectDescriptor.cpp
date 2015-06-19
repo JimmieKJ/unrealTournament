@@ -21,6 +21,18 @@ bool FProjectDescriptor::IsSigned(const FString& FilePath) const
 	return EpicSampleNameHash == GetTypeHash(FPaths::GetCleanFilename(FilePath));
 }
 
+int32 FProjectDescriptor::FindPluginReferenceIndex(const FString& PluginName) const
+{
+	for(int32 Idx = 0; Idx < Plugins.Num(); Idx++)
+	{
+		if(Plugins[Idx].Name == PluginName)
+		{
+			return Idx;
+		}
+	}
+	return INDEX_NONE;
+}
+
 void FProjectDescriptor::UpdateSupportedTargetPlatforms(const FName& InPlatformName, bool bIsSupported)
 {
 	if ( bIsSupported )

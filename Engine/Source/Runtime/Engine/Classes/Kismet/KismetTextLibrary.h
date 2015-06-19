@@ -40,21 +40,21 @@ struct FFormatTextArgument
 	FText TextValue;
 };
 
-UCLASS(MinimalAPI)
-class UKismetTextLibrary : public UBlueprintFunctionLibrary
+UCLASS()
+class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
 	/** Converts localizable text to the string */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (text)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (text)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_TextToString(const FText& InText);
 
 	/** Converts string to localizable text */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToText (string)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (string)", CompactNodeTitle = "->"), Category="Utilities|Text")
 	static FText Conv_StringToText(const FString& InString);
 
 	/** Converts string to localizable text */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToText (name)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (name)", CompactNodeTitle = "->"), Category="Utilities|Text")
 	static FText Conv_NameToText(FName InName);
 
 	/* Returns true if text is empty. */
@@ -90,68 +90,68 @@ class UKismetTextLibrary : public UBlueprintFunctionLibrary
 	static bool FindTextInLocalizationTable(const FString& Namespace, const FString& Key, FText& OutText);
 
 	/* Returns true if A and B are linguistically equal (A == B). */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "Equal (text)", CompactNodeTitle = "=="), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal (text)", CompactNodeTitle = "=="), Category="Utilities|Text")
 	static bool EqualEqual_TextText(const FText& A, const FText& B);
 
 	/* Returns true if A and B are linguistically equal (A == B), ignoring case. */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "Equal, Case Insensitive (text)", CompactNodeTitle = "=="), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal, Case Insensitive (text)", CompactNodeTitle = "=="), Category="Utilities|Text")
 	static bool EqualEqual_IgnoreCase_TextText(const FText& A, const FText& B);
 				
 	/* Returns true if A and B are linguistically not equal (A != B). */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "NotEqual (text)", CompactNodeTitle = "!="), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "NotEqual (text)", CompactNodeTitle = "!="), Category="Utilities|Text")
 	static bool NotEqual_TextText(const FText& A, const FText& B);
 
 	/* Returns true if A and B are linguistically not equal (A != B), ignoring case. */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "NotEqual, Case Insensitive (text)", CompactNodeTitle = "!="), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "NotEqual, Case Insensitive (text)", CompactNodeTitle = "!="), Category="Utilities|Text")
 	static bool NotEqual_IgnoreCase_TextText(const FText& A, const FText& B);
 
 	/** Converts a boolean value to text, either 'true' or 'false' */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToText (boolean)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (boolean)", CompactNodeTitle = "->"), Category="Utilities|Text")
 	static FText Conv_BoolToText(bool InBool);
 
 	/** Converts a byte value to text */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToText (byte)", CompactNodeTitle = "->"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (byte)", CompactNodeTitle = "->"), Category="Utilities|Text")
 	static FText Conv_ByteToText(uint8 Value);
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in integer to a text based on formatting options */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToText (int)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (int)", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText Conv_IntToText(int32 Value, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324);
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in float to a text based on formatting options */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToText (float)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToText (float)", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText Conv_FloatToText(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3);
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in integer to a text formatted as a currency */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "AsCurrency (int)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsCurrency (int)", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsCurrency_Integer(int32 Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3, const FString& CurrencyCode = TEXT(""));
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in float to a text formatted as a currency */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "AsCurrency (float)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsCurrency (float)", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsCurrency_Float(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3, const FString& CurrencyCode = TEXT(""));
 
 	// Default values are duplicated from FNumberFormattingOptions and should be replicated in all functions and in the struct when changed!
 	/* Converts a passed in float to a text, formatted as a percent */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "AsPercent", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsPercent", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsPercent_Float(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3);
 
 	/* Converts a passed in date & time to a text, formatted as a date */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "AsDate", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsDate", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsDate_DateTime(const FDateTime& InDateTime);
 
 	/* Converts a passed in date & time to a text, formatted as a date & time */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "AsDateTime", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsDateTime", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsDateTime_DateTime(const FDateTime& In);
 
 	/* Converts a passed in date & time to a text, formatted as a time */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "AsTime", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsTime", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsTime_DateTime(const FDateTime& In);
 
 	/* Converts a passed in time span to a text, formatted as a time span */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "AsTimespan", AdvancedDisplay = "1"), Category="Utilities|Text")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsTimespan", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsTimespan_Timespan(const FTimespan& InTimespan);
 
 	/* Used for formatting text using the FText::Format function and utilized by the UK2Node_FormatText */

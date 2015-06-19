@@ -115,6 +115,16 @@ struct FTextureBuildSettings
 	mutable FIntPoint TopMipSize;
 	/** Can the texture be streamed */
 	uint32 bStreamable : 1;
+	/** Whether to chroma key the image, replacing any pixels that match ChromaKeyColor with transparent black */
+	uint32 bChromaKeyTexture : 1;
+	/** How to stretch or pad the texture to a power of 2 size (if necessary); ETexturePowerOfTwoSetting::Type, opaque to avoid dependencies on Engine headers. */
+	uint8 PowerOfTwoMode;
+	/** The color used to pad the texture out if it is resized due to PowerOfTwoMode */
+	FColor PaddingColor;
+	/** The color that will be replaced with transparent black if chroma keying is enabled */
+	FColor ChromaKeyColor;
+	/** The threshold that components have to match for the texel to be considered equal to the ChromaKeyColor when chroma keying (<=, set to 0 to require a perfect exact match) */
+	float ChromaKeyThreshold;
 
 	/** Default settings. */
 	FTextureBuildSettings()
@@ -142,6 +152,11 @@ struct FTextureBuildSettings
 		, LODBias(0)
 		, TopMipSize(0, 0)
 		, bStreamable(false)
+		, bChromaKeyTexture(false)
+		, PowerOfTwoMode(0 /*ETexturePowerOfTwoSetting::None*/)
+		, PaddingColor(FColor::Black)
+		, ChromaKeyColor(FColorList::Magenta)
+		, ChromaKeyThreshold(1.0f / 255.0f)
 	{
 	}
 };

@@ -2,9 +2,6 @@
 
 #pragma once
 
-typedef const FAssetData& AssetFilterType;
-typedef TFilterCollection<AssetFilterType> AssetFilterCollectionType;
-
 class FFrontendFilterCategory
 {
 public:
@@ -17,7 +14,7 @@ public:
 	const FText Tooltip;
 };
 
-class FFrontendFilter : public IFilter<AssetFilterType>
+class FFrontendFilter : public IFilter<FAssetFilterType>
 {
 public:
 	FFrontendFilter(TSharedPtr<FFrontendFilterCategory> InCategory) : FilterCategory(InCategory) {}
@@ -46,8 +43,17 @@ public:
 	/** Notification that the filter became active or inactive */
 	virtual void ActiveStateChanged(bool bActive) { }
 
+	/** Called when the right-click context menu is being built for this filter */
+	virtual void ModifyContextMenu(FMenuBuilder& MenuBuilder) { }
+
+	/** Called when the state of a particular Content Browser is being saved to INI */
+	virtual void SaveSettings(const FString& IniFilename, const FString& IniSection, const FString& SettingsString) const {}
+
+	/** Called when the state of a particular Content Browser is being loaded from INI */
+	virtual void LoadSettings(const FString& IniFilename, const FString& IniSection, const FString& SettingsString) {}
+
 	// IFilter implementation
-	DECLARE_DERIVED_EVENT( FFrontendFilter, IFilter<AssetFilterType>::FChangedEvent, FChangedEvent );
+	DECLARE_DERIVED_EVENT( FFrontendFilter, IFilter<FAssetFilterType>::FChangedEvent, FChangedEvent );
 	virtual FChangedEvent& OnChanged() override { return ChangedEvent; }
 
 	TSharedPtr<FFrontendFilterCategory> GetCategory() { return FilterCategory; }

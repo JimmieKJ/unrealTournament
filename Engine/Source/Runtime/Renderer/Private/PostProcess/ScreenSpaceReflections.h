@@ -13,9 +13,9 @@ class FRCPassPostProcessDepthDownSample : public TRenderingCompositePassBase<1, 
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 // ePId_Input0: half res scene color
@@ -29,9 +29,9 @@ public:
 	{}
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
 	bool bPrevFrame;
@@ -44,9 +44,9 @@ class FRCPassPostProcessApplyScreenSpaceReflections : public TRenderingComposite
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 void ScreenSpaceReflections(FRHICommandListImmediate& RHICmdList, FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& SSROutput);

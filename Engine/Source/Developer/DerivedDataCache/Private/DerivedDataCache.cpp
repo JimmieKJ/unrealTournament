@@ -98,12 +98,10 @@ class FDerivedDataCache : public FDerivedDataCacheInterface
 			}
 			FDerivedDataBackend::Get().AddToAsyncCompletionCounter(-1);
 		}
-		/** Give the name for external event viewers
-		 * @return	the name to display in external event viewers
-		**/
-		static const TCHAR *Name()
+
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FBuildAsyncWorker");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FBuildAsyncWorker, STATGROUP_ThreadPoolAsyncTasks);
 		}
 
 		/** true in the case of a cache hit, otherwise the result of the deriver build call **/
@@ -139,7 +137,7 @@ public:
 		PendingTasks.Empty();
 	}
 
-	virtual bool GetSynchronous(FDerivedDataPluginInterface* DataDeriver, TArray<uint8>& OutData)
+	virtual bool GetSynchronous(FDerivedDataPluginInterface* DataDeriver, TArray<uint8>& OutData) override
 	{
 		check(DataDeriver);
 		FString CacheKey = FDerivedDataCache::BuildCacheKey(DataDeriver);
@@ -151,7 +149,7 @@ public:
 		return PendingTask.GetTask().bSuccess;
 	}
 
-	virtual uint32 GetAsynchronous(FDerivedDataPluginInterface* DataDeriver)
+	virtual uint32 GetAsynchronous(FDerivedDataPluginInterface* DataDeriver) override
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
 		uint32 Handle = NextHandle();

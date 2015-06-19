@@ -75,6 +75,15 @@ FSceneRenderTargetItem& GetEffectiveSourceTexture(bool bDownsamplePass, int32 Ta
 	return GSceneRenderTargets.ReflectionColorScratchCubemap[ScratchTextureIndex]->GetRenderTargetItem();
 }
 
+void FullyResolveReflectionScratchCubes(FRHICommandListImmediate& RHICmdList)
+{
+	FTextureRHIRef& Scratch0 = GSceneRenderTargets.ReflectionColorScratchCubemap[0]->GetRenderTargetItem().TargetableTexture;
+	FTextureRHIRef& Scratch1 = GSceneRenderTargets.ReflectionColorScratchCubemap[1]->GetRenderTargetItem().TargetableTexture;
+	FResolveParams ResolveParams(FResolveRect(), CubeFace_PosX, -1, -1, -1);
+	RHICmdList.CopyToResolveTarget(Scratch0, Scratch0, true, ResolveParams);
+	RHICmdList.CopyToResolveTarget(Scratch1, Scratch1, true, ResolveParams);  
+}
+
 class FDownsamplePS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FDownsamplePS,Global);
@@ -109,7 +118,7 @@ public:
 			SourceTextureValue.ShaderResourceTexture);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << CubeFace;
@@ -166,7 +175,7 @@ public:
 			GSceneRenderTargets.GetReflectionBrightnessTarget()->GetRenderTargetItem().ShaderResourceTexture);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FDownsamplePS::Serialize(Ar);
 		Ar << AverageBrightnessTexture;
@@ -254,7 +263,7 @@ public:
 		SetShaderValue(RHICmdList, GetPixelShader(), NumCaptureArrayMips, FMath::CeilLogTwo(GReflectionCaptureSize) + 1);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << ReflectionEnvironmentColorTexture;
@@ -275,7 +284,8 @@ IMPLEMENT_SHADER_TYPE(,FComputeBrightnessPS,TEXT("ReflectionEnvironmentShaders")
 /** Computes the average brightness of the given reflection capture and stores it in the scene. */
 void ComputeAverageBrightness(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel)
 {
-	SetRenderTarget(RHICmdList, GSceneRenderTargets.GetReflectionBrightnessTarget()->GetRenderTargetItem().TargetableTexture, NULL);
+	FTextureRHIRef& BrightnessTarget = GSceneRenderTargets.GetReflectionBrightnessTarget()->GetRenderTargetItem().TargetableTexture;
+	SetRenderTarget(RHICmdList, BrightnessTarget, NULL);
 	RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
 	RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 	RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
@@ -299,6 +309,8 @@ void ComputeAverageBrightness(FRHICommandList& RHICmdList, ERHIFeatureLevel::Typ
 		FIntPoint(1, 1),
 		FIntPoint(1, 1),
 		*VertexShader);
+
+	RHICmdList.CopyToResolveTarget(BrightnessTarget, BrightnessTarget, true, FResolveParams());
 }
 
 /** Generates mips for glossiness and filters the cubemap for a given reflection. */
@@ -312,6 +324,9 @@ void FilterReflectionEnvironment(FRHICommandListImmediate& RHICmdList, ERHIFeatu
 
 	static const auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DiffuseFromCaptures"));
 	bNormalize = bNormalize && CVar->GetInt() == 0;
+
+	// necessary to resolve the clears which touched all the mips.  scene rendering only resolves mip 0.
+	FullyResolveReflectionScratchCubes(RHICmdList);	
 
 	auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
 
@@ -456,7 +471,7 @@ public:
 		FGlobalShader::SetParameters(RHICmdList, GetVertexShader(),View);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		return bShaderHasOutdatedParameters;
@@ -529,7 +544,7 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, SkyLightCaptureParameters, SkyLightParametersValue);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << DeferredParameters;
@@ -587,7 +602,7 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, SkyLightCaptureParameters, FVector(bIsSkyLight ? 1.0f : 0.0f, 0.0f, bLowerHemisphereIsBlack ? 1.0f : 0.0f));
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << CubeFace;
@@ -660,7 +675,7 @@ void ClearScratchCubemaps(FRHICommandList& RHICmdList)
 		for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 		{
 			SetRenderTarget(RHICmdList, RT0.TargetableTexture, MipIndex, CubeFace, NULL);
-			RHICmdList.Clear(true, FLinearColor(0, 10000, 0, 0), false, 0, false, 0, FIntRect());
+			RHICmdList.Clear(true, FLinearColor(0, 10000, 0, 0), false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
 		}
 	}
 
@@ -671,7 +686,7 @@ void ClearScratchCubemaps(FRHICommandList& RHICmdList)
 		for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
 		{
 			SetRenderTarget(RHICmdList, RT1.TargetableTexture, MipIndex, CubeFace, NULL);
-			RHICmdList.Clear(true, FLinearColor(0, 10000, 0, 0), false, 0, false, 0, FIntRect());
+			RHICmdList.Clear(true, FLinearColor(0, 10000, 0, 0), false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
 		}
 	}
 }
@@ -1045,7 +1060,7 @@ void UploadReflectionCapture_RenderingThread(FScene* Scene, const FReflectionCap
 }
 
 /** Creates a transformation for a cubemap face, following the D3D cubemap layout. */
-FMatrix CalcCubeFaceViewMatrix(ECubeFace Face, FVector WorldLocation)
+FMatrix CalcCubeFaceViewRotationMatrix(ECubeFace Face)
 {
 	FMatrix Result(FMatrix::Identity);
 
@@ -1084,7 +1099,7 @@ FMatrix CalcCubeFaceViewMatrix(ECubeFace Face, FVector WorldLocation)
 	// derive right vector
 	FVector vRight( vUp ^ vDir );
 	// create matrix from the 3 axes
-	Result = FBasisVectorMatrix( vRight, vUp, vDir, -WorldLocation );	
+	Result = FBasisVectorMatrix( vRight, vUp, vDir, FVector::ZeroVector );	
 
 	return Result;
 }
@@ -1162,14 +1177,27 @@ void CaptureSceneIntoScratchCubemap(FScene* Scene, FVector CapturePosition, bool
 
 		// Projection matrix based on the fov, near / far clip settings
 		// Each face always uses a 90 degree field of view
-		ViewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(
-			90.0f * (float)PI / 360.0f,
-			(float)GReflectionCaptureSize * GSupersampleCaptureFactor,
-			(float)GReflectionCaptureSize * GSupersampleCaptureFactor,
-			NearPlane
-			);
+		if ((int32)ERHIZBuffer::IsInverted != 0)
+		{
+			ViewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(
+				90.0f * (float)PI / 360.0f,
+				(float)GReflectionCaptureSize * GSupersampleCaptureFactor,
+				(float)GReflectionCaptureSize * GSupersampleCaptureFactor,
+				NearPlane
+				);
+		}
+		else
+		{
+			ViewInitOptions.ProjectionMatrix = FPerspectiveMatrix(
+				90.0f * (float)PI / 360.0f,
+				(float)GReflectionCaptureSize * GSupersampleCaptureFactor,
+				(float)GReflectionCaptureSize * GSupersampleCaptureFactor,
+				NearPlane
+				);
+		}
 
-		ViewInitOptions.ViewMatrix = CalcCubeFaceViewMatrix((ECubeFace)CubeFace, CapturePosition);
+		ViewInitOptions.ViewOrigin = CapturePosition;
+		ViewInitOptions.ViewRotationMatrix = CalcCubeFaceViewRotationMatrix((ECubeFace)CubeFace);
 
 		FSceneView* View = new FSceneView(ViewInitOptions);
 

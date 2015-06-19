@@ -9,7 +9,7 @@ Description:
 
 Enables rotation mode in the 3D viewport. This will allow you to select and rotate Actors in the viewport.
 
-Tip: When selecting multiple Actors (Shift + Left Mouse Click) the last Actor selected will be the rotation point for all the selected Actors:
+Tip: When selecting multiple Actors (Shift + Left Mouse Click), the last Actor selected will be the rotation point for all the selected Actors:
 
 ![](EVP_rotateTip.png)
 

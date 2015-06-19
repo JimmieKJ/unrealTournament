@@ -4,6 +4,8 @@
 #include "ScriptCodeGeneratorBase.h"
 #include "GenericScriptCodeGenerator.h"
 #include "LuaScriptCodeGenerator.h"
+#include "IProjectManager.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
 
 DEFINE_LOG_CATEGORY(LogScriptGenerator);
 
@@ -18,11 +20,12 @@ class FScriptGeneratorPlugin : public IScriptGeneratorPlugin
 
 	/** IScriptGeneratorPlugin interface */
 	virtual FString GetGeneratedCodeModuleName() const override { return TEXT("ScriptPlugin"); }
-	virtual bool ShouldExportClassesForModule(const FString& ModuleName, EBuildModuleType::Type ModuleType, const FString& ModuleGeneratedIncludeDirectory) const;
-	virtual bool SupportsTarget(const FString& TargetName) const override { return true; }
+	virtual bool ShouldExportClassesForModule(const FString& ModuleName, EBuildModuleType::Type ModuleType, const FString& ModuleGeneratedIncludeDirectory) const override;
+	virtual bool SupportsTarget(const FString& TargetName) const override;
 	virtual void Initialize(const FString& RootLocalPath, const FString& RootBuildPath, const FString& OutputDirectory, const FString& IncludeBase) override;
 	virtual void ExportClass(UClass* Class, const FString& SourceHeaderFilename, const FString& GeneratedHeaderFilename, bool bHasChanged) override;
 	virtual void FinishExport() override;
+	virtual FString GetGeneratorName() const override;
 };
 
 IMPLEMENT_MODULE( FScriptGeneratorPlugin, ScriptGeneratorPlugin )
@@ -30,11 +33,25 @@ IMPLEMENT_MODULE( FScriptGeneratorPlugin, ScriptGeneratorPlugin )
 
 void FScriptGeneratorPlugin::StartupModule()
 {
+	// Register ourselves as an editor feature
+	IModularFeatures::Get().RegisterModularFeature(TEXT("ScriptGenerator"), this);
 }
 
 void FScriptGeneratorPlugin::ShutdownModule()
 {
 	CodeGenerator.Reset();
+
+	// Unregister our feature
+	IModularFeatures::Get().UnregisterModularFeature(TEXT("ScriptGenerator"), this);
+}
+
+FString FScriptGeneratorPlugin::GetGeneratorName() const
+{
+#if WITH_LUA
+	return TEXT("Lua Example Code Generator Plugin");
+#else
+	return TEXT("Example Code Generator Plugin");
+#endif
 }
 
 void FScriptGeneratorPlugin::Initialize(const FString& RootLocalPath, const FString& RootBuildPath, const FString& OutputDirectory, const FString& IncludeBase)
@@ -76,4 +93,28 @@ void FScriptGeneratorPlugin::ExportClass(UClass* Class, const FString& SourceHea
 void FScriptGeneratorPlugin::FinishExport()
 {
 	CodeGenerator->FinishExport();
+}
+
+bool FScriptGeneratorPlugin::SupportsTarget(const FString& TargetName) const
+{
+	// We only support the target if it explicitly enables the required script plugin in its uproject file
+	bool bSupportsTarget = false;
+	if (FPaths::IsProjectFilePathSet())
+	{
+		FProjectDescriptor ProjectDescriptor;
+		FText OutError;
+		if (ProjectDescriptor.Load(FPaths::GetProjectFilePath(), OutError))
+		{
+			for (auto& PluginDescriptor : ProjectDescriptor.Plugins)
+			{
+				// For your own script plugin you might want to change the hardcoded name here to something else
+				if (PluginDescriptor.bEnabled && PluginDescriptor.Name == TEXT("ScriptPlugin"))
+				{
+					bSupportsTarget = true;
+					break;
+				}
+			}
+		}
+	}
+	return bSupportsTarget;
 }

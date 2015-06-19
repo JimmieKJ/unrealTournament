@@ -1,17 +1,20 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
+
 #include "HAL/Platform.h"
+
 
 struct FVector2D;
 
 #if PLATFORM_WINDOWS || PLATFORM_XBOXONE || PLATFORM_WINRT
-struct tagRECT;
-typedef struct tagRECT RECT;
+	struct tagRECT;
+	typedef struct tagRECT RECT;
 #else
-struct RECT;
+	struct RECT;
 #endif
+
+
 /**
  * Mouse cursor types
  */
@@ -66,6 +69,7 @@ namespace EMouseCursor
 	};
 }
 
+
 class ICursor
 {
 public:
@@ -99,4 +103,3 @@ public:
 	 */
 	virtual void Lock( const RECT* const Bounds ) = 0;
 };
-

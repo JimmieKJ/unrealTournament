@@ -17,7 +17,6 @@
 #include "Ticker.h"
 #include "DerivedDataCacheInterface.h"
 
-
 DEFINE_LOG_CATEGORY(LogSHA);
 DEFINE_LOG_CATEGORY(LogStats);
 DEFINE_LOG_CATEGORY(LogStreaming);
@@ -29,6 +28,7 @@ DEFINE_LOG_CATEGORY(LogLocalization);
 DEFINE_LOG_CATEGORY(LogLongPackageNames);
 DEFINE_LOG_CATEGORY(LogProcess);
 DEFINE_LOG_CATEGORY(LogLoad);
+DEFINE_LOG_CATEGORY(LogCore);
 
 
 /*-----------------------------------------------------------------------------
@@ -399,7 +399,14 @@ bool FFileHelper::CreateBitmap( const TCHAR* Pattern, int32 SourceWidth, int32 S
 		IH.biHeight             = INTEL_ORDER32((uint32) Height);
 		IH.biPlanes             = INTEL_ORDER16((uint16) 1);
 		IH.biBitCount           = INTEL_ORDER16((uint16) BytesPerPixel * 8);
-		IH.biCompression        = INTEL_ORDER32((uint32) 3); //BI_BITFIELDS
+		if(bInWriteAlpha)
+		{
+			IH.biCompression    = INTEL_ORDER32((uint32) 3); //BI_BITFIELDS
+		}
+		else
+		{
+			IH.biCompression    = INTEL_ORDER32((uint32) 0); //BI_RGB
+		}
 		IH.biSizeImage          = INTEL_ORDER32((uint32) BytesPerLine * Height);
 		IH.biXPelsPerMeter      = INTEL_ORDER32((uint32) 0);
 		IH.biYPelsPerMeter      = INTEL_ORDER32((uint32) 0);
@@ -545,6 +552,7 @@ bool FFileHelper::LoadANSITextFileToStrings(const TCHAR* InFilename, IFileManage
 
 bool FCommandLine::bIsInitialized = false;
 TCHAR FCommandLine::CmdLine[FCommandLine::MaxCommandLineSize] = TEXT("");
+TCHAR FCommandLine::OriginalCmdLine[FCommandLine::MaxCommandLineSize] = TEXT("");
 FString FCommandLine::SubprocessCommandLine(TEXT(" -Multiprocess"));
 
 bool FCommandLine::IsInitialized()
@@ -558,8 +566,19 @@ const TCHAR* FCommandLine::Get()
 	return CmdLine;
 }
 
+const TCHAR* FCommandLine::GetOriginal()
+{
+	UE_CLOG(!bIsInitialized, LogInit, Fatal, TEXT("Attempting to get the command line but it hasn't been initialized yet."));
+	return OriginalCmdLine;
+}
+
 bool FCommandLine::Set(const TCHAR* NewCommandLine)
-{		
+{
+	if (!bIsInitialized)
+	{
+		FCString::Strncpy(OriginalCmdLine, NewCommandLine, ARRAY_COUNT(CmdLine));
+	}
+
 	FCString::Strncpy( CmdLine, NewCommandLine, ARRAY_COUNT(CmdLine) );
 	bIsInitialized = true;
 
@@ -753,46 +772,6 @@ FTicker& FTicker::GetCoreTicker()
 	return Singleton;
 }
 
-// Josh, delete this once you have a real usage of tickers
-#if 0
-
-struct FTestTicker
-{
-	FTestTicker()
-		: StartTime(FPlatformTime::Seconds())
-	{
-		FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FTestTicker::OneSecond), 1.0f);
-		FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FTestTicker::FiveSecond), 5.0f);
-		FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FTestTicker::EveryFrame), 0.0f);
-		FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FTestTicker::TwentyTimes), 0.0f);
-	}
-
-	bool OneSecond(float DeltaTime)
-	{
-		UE_LOG(LogTemp, Display, TEXT("OneSecond %f"), float(FPlatformTime::Seconds() - StartTime));
-		return true;
-	}
-	bool FiveSecond(float DeltaTime)
-	{
-		UE_LOG(LogTemp, Display, TEXT("FiveSecond %f"), float(FPlatformTime::Seconds() - StartTime));
-		return true;
-	}
-	bool EveryFrame(float DeltaTime)
-	{
-		UE_LOG(LogTemp, Display, TEXT("EveryFrame %f  (%f)"), float(FPlatformTime::Seconds() - StartTime), DeltaTime);
-		return true;
-	}
-	bool TwentyTimes(float DeltaTime)
-	{
-		static int32 Count = 0;
-		UE_LOG(LogTemp, Display, TEXT("TwentyTimes %f"), float(FPlatformTime::Seconds() - StartTime));
-		return ++Count < 20;
-	}
-
-	double StartTime;
-} TestTicker;
-
-#endif
 
 /*----------------------------------------------------------------------------
 	Runtime functions.
@@ -974,3 +953,12 @@ FBoolConfigValueHelper::FBoolConfigValueHelper(const TCHAR* Section, const TCHAR
 {
 	GConfig->GetBool(Section, Key, bValue, Filename);
 }
+
+#if WITH_HOT_RELOAD_CTORS
+bool GIsRetrievingVTablePtr = false;
+
+void EnsureRetrievingVTablePtr()
+{
+	UE_CLOG(!GIsRetrievingVTablePtr, LogCore, Fatal, TEXT("This should be used only during vtable ptr retrieval process."));
+}
+#endif // WITH_HOT_RELOAD_CTORS

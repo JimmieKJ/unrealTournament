@@ -25,8 +25,8 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	SpreadResetInterval = 1.f;
 	SpreadIncrease = 0.03f;
 	MaxSpread = 0.12f;
-	BringUpTime = 0.3f;
-	DualBringUpTime = 0.4f;
+	BringUpTime = 0.28f;
+	DualBringUpTime = 0.36f;
 	PutDownTime = 0.2f;
 	DualPutDownTime = 0.3f;
 	StoppingPower = 30000.f;
@@ -252,10 +252,10 @@ void AUTWeap_Enforcer::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMod
 			//TODO: This is a really ugly solution, what if somebody modifies this later
 			//Is the best solution really to split out a separate MuzzleFlash too??
 			uint8 LeftHandMuzzleFlashIndex = CurrentFireMode + 2;
-			const FVector SpawnLocation = (MuzzleFlash.IsValidIndex(LeftHandMuzzleFlashIndex) && MuzzleFlash[LeftHandMuzzleFlashIndex] != NULL) ? MuzzleFlash[LeftHandMuzzleFlashIndex]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
+			const FVector LeftSpawnLocation = (MuzzleFlash.IsValidIndex(LeftHandMuzzleFlashIndex) && MuzzleFlash[LeftHandMuzzleFlashIndex] != NULL) ? MuzzleFlash[LeftHandMuzzleFlashIndex]->GetComponentLocation() : UTOwner->GetActorLocation() + UTOwner->GetControlRotation().RotateVector(FireOffset);
 			if (FireEffect.IsValidIndex(CurrentFireMode) && FireEffect[CurrentFireMode] != NULL)
 			{
-				UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], SpawnLocation, (MuzzleFlash.IsValidIndex(LeftHandMuzzleFlashIndex) && MuzzleFlash[LeftHandMuzzleFlashIndex] != NULL) ? MuzzleFlash[LeftHandMuzzleFlashIndex]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation(), true);
+				UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[CurrentFireMode], LeftSpawnLocation, (MuzzleFlash.IsValidIndex(LeftHandMuzzleFlashIndex) && MuzzleFlash[LeftHandMuzzleFlashIndex] != NULL) ? MuzzleFlash[LeftHandMuzzleFlashIndex]->GetComponentRotation() : (TargetLoc - SpawnLocation).Rotation(), true);
 				PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
 				PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));
 			}
@@ -270,7 +270,7 @@ void AUTWeap_Enforcer::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMod
 			{
 				if (ImpactEffect.IsValidIndex(CurrentFireMode) && ImpactEffect[CurrentFireMode] != NULL)
 				{
-					FHitResult ImpactHit = GetImpactEffectHit(UTOwner, SpawnLocation, TargetLoc);
+					FHitResult ImpactHit = GetImpactEffectHit(UTOwner, LeftSpawnLocation, TargetLoc);
 					if (!CancelImpactEffect(ImpactHit))
 					{
 						ImpactEffect[CurrentFireMode].GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(ImpactHit.Normal.Rotation(), ImpactHit.Location), ImpactHit.Component.Get(), NULL, UTOwner->Controller);

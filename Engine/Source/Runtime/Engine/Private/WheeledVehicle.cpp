@@ -16,7 +16,7 @@ FName AWheeledVehicle::VehicleMeshComponentName(TEXT("VehicleMesh"));
 AWheeledVehicle::AWheeledVehicle(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, VehicleMeshComponentName);
+	Mesh = CreateDefaultSubobject<USkeletalMeshComponent>(VehicleMeshComponentName);
 	Mesh->SetCollisionProfileName(UCollisionProfile::Vehicle_ProfileName);
 	Mesh->BodyInstance.bSimulatePhysics = true;
 	Mesh->BodyInstance.bNotifyRigidBodyCollision = true;
@@ -26,7 +26,7 @@ AWheeledVehicle::AWheeledVehicle(const FObjectInitializer& ObjectInitializer)
 	Mesh->bCanEverAffectNavigation = false;
 	RootComponent = Mesh;
 
-	VehicleMovement = ObjectInitializer.CreateDefaultSubobject<UWheeledVehicleMovementComponent, UWheeledVehicleMovementComponent4W>(this, VehicleMovementComponentName);
+	VehicleMovement = CreateDefaultSubobject<UWheeledVehicleMovementComponent, UWheeledVehicleMovementComponent4W>(VehicleMovementComponentName);
 	VehicleMovement->SetIsReplicated(true); // Enable replication by default
 	VehicleMovement->UpdatedComponent = Mesh;
 }

@@ -83,7 +83,7 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FEnvQuerySpatialD
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
 		uint8* RawData = ContextData.RawData.GetData();
 
-		Data.Init(ContextData.NumValues);
+		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
 			Data[ValueIndex].Location = DefTypeOb->GetItemLocation(RawData);
@@ -111,7 +111,7 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FVector>& Data)
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
 		uint8* RawData = (uint8*)ContextData.RawData.GetData();
 
-		Data.Init(ContextData.NumValues);
+		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
 			Data[ValueIndex] = DefTypeOb->GetItemLocation(RawData);
@@ -138,7 +138,7 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FRotator>& Data)
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
 		uint8* RawData = ContextData.RawData.GetData();
 
-		Data.Init(ContextData.NumValues);
+		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
 			Data[ValueIndex] = DefTypeOb->GetItemRotation(RawData);
@@ -165,15 +165,19 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<AActor*>& Data)
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
 		uint8* RawData = ContextData.RawData.GetData();
 
-		Data.Init(ContextData.NumValues);
+		Data.Reserve(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
-			Data[ValueIndex] = DefTypeOb->GetActor(RawData);
+			AActor* Actor = DefTypeOb->GetActor(RawData);
+			if (Actor)
+			{
+				Data.Add(Actor);
+			}
 			RawData += DefTypeValueSize;
 		}
 	}
 
-	return bSuccess;
+	return Data.Num() > 0;
 }
 
 void FEnvQueryInstance::ExecuteOneStep(double InTimeLimit)
@@ -185,6 +189,13 @@ void FEnvQueryInstance::ExecuteOneStep(double InTimeLimit)
 	}
 
 	check(IsFinished() == false);
+
+	if (!Options.IsValidIndex(OptionIndex))
+	{
+		NumValidItems = 0;
+		FinalizeQuery();
+		return;
+	}
 
 	FEnvQueryOptionInstance& OptionItem = Options[OptionIndex];
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_AI_EQS_GeneratorTime, CurrentTest < 0);
@@ -316,6 +327,10 @@ FEnvQueryInstance::ItemIterator::ItemIterator(const UEnvQueryTest* QueryTest, FE
 	: Instance(&QueryInstance)
 	, CurrentItem(StartingItemIndex != INDEX_NONE ? StartingItemIndex : QueryInstance.CurrentTestStartingItem)
 {
+	CachedFilterOp = QueryTest ? QueryTest->MultipleContextFilterOp.GetValue() : EEnvTestFilterOperator::AllPass;
+	CachedScoreOp = QueryTest ? QueryTest->MultipleContextScoreOp.GetValue() : EEnvTestScoreOperator::AverageScore;
+	bIsFiltering = (QueryTest->TestPurpose == EEnvTestPurpose::Filter) || (QueryTest->TestPurpose == EEnvTestPurpose::FilterAndScore);
+
 	Deadline = QueryInstance.TimeLimit > 0.0 ? (FPlatformTime::Seconds() + QueryInstance.TimeLimit) : -1.0;
 	// it's possible item 'CurrentItem' has been already discarded. Find a valid starting index
 	--CurrentItem;
@@ -335,6 +350,8 @@ void FEnvQueryInstance::ItemIterator::HandleFailedTestResult()
 
 void FEnvQueryInstance::ItemIterator::StoreTestResult()
 {
+	CheckItemPassed();
+
 	if (Instance->IsInSingleItemFinalSearch())
 	{
 		// handle SingleResult mode
@@ -343,7 +360,7 @@ void FEnvQueryInstance::ItemIterator::StoreTestResult()
 			Instance->PickSingleItem(CurrentItem);
 			Instance->bFoundSingleResult = true;
 		}
-		else if (!bPassed || NumPartialScores == 0)
+		else if (!bPassed)
 		{
 			HandleFailedTestResult();
 		}
@@ -354,13 +371,13 @@ void FEnvQueryInstance::ItemIterator::StoreTestResult()
 		{
 			ItemScore = UEnvQueryTypes::SkippedItemValue;
 		}
-		else if (!bPassed || NumPartialScores == 0)
+		else if (!bPassed)
 		{
 			HandleFailedTestResult();
 		}
-		else
+		else if (CachedScoreOp == EEnvTestScoreOperator::AverageScore)
 		{
-			ItemScore /= NumPartialScores;
+			ItemScore /= NumPassedForItem;
 		}
 
 		Instance->ItemDetails[CurrentItem].TestResults[Instance->CurrentTest] = ItemScore;
@@ -406,20 +423,6 @@ void FEnvQueryInstance::NormalizeScores()
 void FEnvQueryInstance::SortScores()
 {
 	const int32 NumItems = Items.Num();
-	if (Options[OptionIndex].bShuffleItems)
-	{
-		for (int32 ItemIndex = 0; ItemIndex < NumItems; ItemIndex++)
-		{
-			const int32 Idx1 = FMath::RandHelper(NumItems);
-			const int32 Idx2 = FMath::RandHelper(NumItems);
-			Items.Swap(Idx1, Idx2);
-
-#if USE_EQS_DEBUGGER
-			ItemDetails.Swap(Idx1, Idx2);
-#endif
-		}
-	}
-
 #if USE_EQS_DEBUGGER
 	struct FSortHelperForDebugData
 	{
@@ -461,13 +464,13 @@ void FEnvQueryInstance::StripRedundantData()
 	Items.SetNum(NumValidItems);
 }
 
-void FEnvQueryInstance::PickBestItem()
+void FEnvQueryInstance::PickBestItem(float MinScore)
 {
-	// find first valid item with score worse than best one
+	// find first valid item with score worse than best range
 	int32 NumBestItems = NumValidItems;
 	for (int32 ItemIndex = 1; ItemIndex < NumValidItems; ItemIndex++)
 	{
-		if (Items[ItemIndex].Score < Items[0].Score)
+		if (Items[ItemIndex].Score < MinScore)
 		{
 			NumBestItems = ItemIndex;
 			break;
@@ -525,8 +528,14 @@ void FEnvQueryInstance::FinalizeQuery()
 			if (bFoundSingleResult == false && bPassOnSingleResult == false)
 			{
 				SortScores();
-				PickBestItem();
+				PickBestItem(Items[0].Score);
 			}
+		}
+		else if (Mode == EEnvQueryRunMode::RandomBest5Pct || Mode == EEnvQueryRunMode::RandomBest25Pct)
+		{
+			SortScores();
+			const float ScoreRangePct = (Mode == EEnvQueryRunMode::RandomBest5Pct) ? 0.95f : 0.75f;
+			PickBestItem(Items[0].Score * ScoreRangePct);
 		}
 		else
 		{

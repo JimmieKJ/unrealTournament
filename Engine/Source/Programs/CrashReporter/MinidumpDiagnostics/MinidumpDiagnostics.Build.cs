@@ -18,8 +18,5 @@ public class MinidumpDiagnostics : ModuleRules
 				"Projects"
 			}
 			);
-
-		// Need database support!
-		Definitions.Add( "WITH_DATABASE_SUPPORT=1" );
 	}
 }

@@ -12,6 +12,7 @@
 class UAnimationGraphSchema;
 class UAnimGraphNode_SaveCachedPose;
 class UAnimGraphNode_UseCachedPose;
+class UBlueprintGeneratedClass;
 struct FPoseLinkMappingRecord;
 
 //////////////////////////////////////////////////////////////////////////

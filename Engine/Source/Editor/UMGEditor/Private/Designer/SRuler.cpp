@@ -103,6 +103,9 @@ static float GetNextSpacing( uint32 CurrentStep )
  */
 float DetermineOptimalSpacing( float InPixelsPerInput, uint32 MinTick, float MinTickSpacing )
 {
+	if (InPixelsPerInput == 0.0f)
+		return MinTickSpacing;
+	
 	uint32 CurStep = 0;
 
 	// Start with the smallest spacing
@@ -253,7 +256,7 @@ int32 SRuler::DrawTicks( FSlateWindowElementList& OutDrawElements, const struct 
 	// Draw line that runs along the bottom of all the ticks.
 	{
 		LinePoints[0] = Orientation == Orient_Horizontal ? FVector2D(0, InArgs.AllottedGeometry.Size.Y) : FVector2D(InArgs.AllottedGeometry.Size.X, 0);
-		LinePoints[1] = Orientation == Orient_Horizontal ? FVector2D(InArgs.AllottedGeometry.Size.X, InArgs.AllottedGeometry.Size.Y) : FVector2D(InArgs.AllottedGeometry.Size.X, InArgs.AllottedGeometry.Size.Y);
+		LinePoints[1] = FVector2D(InArgs.AllottedGeometry.Size.X, InArgs.AllottedGeometry.Size.Y);
 
 		const bool bAntiAlias = false;
 		// Draw each sub mark
@@ -366,7 +369,7 @@ FReply SRuler::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& Mou
 	return FReply::Unhandled();
 }
 
-FVector2D SRuler::ComputeDesiredSize() const
+FVector2D SRuler::ComputeDesiredSize( float ) const
 {
 	return Orientation == Orient_Horizontal ? FVector2D(100, 18) : FVector2D(18, 100);
 }

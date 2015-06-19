@@ -54,6 +54,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	void TokenRevoke(FName TokenUniqueID);
 	void TokensCommit();
 	void TokensReset();
+	
+	// debug only
+	void TokensClear();
 
 	/**
 	 *	Gather all of the settings so that this profile object can be saved.
@@ -96,6 +99,8 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 
 	UPROPERTY()
 	uint32 CountryFlag;
+
+	bool bNeedProfileWriteForTokens;
 
 protected:
 
@@ -146,15 +151,9 @@ protected:
 
 	UPROPERTY()
 	float MaxDodgeTapTimeValue;
-
+	
 	UPROPERTY()
 	uint32 bSingleTapWallDodge:1;
-
-	UPROPERTY()
-	uint32 bTapCrouchToSlide : 1;
-
-	UPROPERTY()
-	uint32 bAutoSlide : 1;
 
 	UPROPERTY()
 	uint32 bSingleTapAfterJump : 1;
@@ -187,7 +186,7 @@ protected:
 	// Linear list of token unique ids for serialization
 	UPROPERTY()
 	TArray<FName> FoundTokenUniqueIDs;
-
+	
 	TArray<FName> TempFoundTokenUniqueIDs;
 
 	// If true, then the player will not show toasts in game.

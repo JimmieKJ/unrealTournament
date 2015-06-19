@@ -8,6 +8,7 @@
 #include "UTWorldSettings.h"
 
 static FName NAME_Progress(TEXT("Progress"));
+static FName NAME_RespawnTime(TEXT("RespawnTime"));
 
 void AUTPickup::PostEditImport()
 {
@@ -28,6 +29,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	Collision = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->InitCapsuleSize(64.0f, 75.0f);
+	Collision->bShouldUpdatePhysicsVolume = false;
 	RootComponent = Collision;
 
 	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
@@ -50,7 +52,6 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 
 	State.bActive = true;
 	RespawnTime = 30.0f;
-	bDisplayRespawnTimer = true;
 	SetReplicates(true);
 	bAlwaysRelevant = true;
 	NetUpdateFrequency = 1.0f;
@@ -58,6 +59,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	PickupMessageString = NSLOCTEXT("PickupMessage", "ItemPickedUp", "Item snagged.");
 	bHasTacComView = false;
 	TeamSide = 255;
+	bOverride_TeamSide = false;
 }
 
 void AUTPickup::SetTacCom(bool bTacComEnabled)
@@ -114,7 +116,7 @@ void AUTPickup::Reset_Implementation()
 void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
 {
 	APawn* P = Cast<APawn>(OtherActor);
-	if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTest(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+	if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTestByChannel(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 	{
 		ProcessTouch(P);
 	}
@@ -216,6 +218,7 @@ void AUTPickup::StartSleeping_Implementation()
 			TimerEffect->SetWorldScale3D(FixedScale);
 
 			TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
+			TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
 			TimerEffect->SetHiddenInGame(false);
 			PrimaryActorTick.SetTickFunctionEnable(true);
 		}
@@ -325,8 +328,8 @@ float AUTPickup::GetRespawnTimeOffset(APawn* Asker) const
 	}
 	else
 	{
-		float RespawnTime = GetWorldTimerManager().GetTimerRemaining(WakeUpTimerHandle);
-		return (RespawnTime <= 0.0f) ? FLT_MAX : RespawnTime;
+		float OutRespawnTime = GetWorldTimerManager().GetTimerRemaining(WakeUpTimerHandle);
+		return (OutRespawnTime <= 0.0f) ? FLT_MAX : OutRespawnTime;
 	}
 }
 

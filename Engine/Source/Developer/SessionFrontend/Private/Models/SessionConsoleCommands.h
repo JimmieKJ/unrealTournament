@@ -2,6 +2,7 @@
 
 #pragma once
 
+#define LOCTEXT_NAMESPACE ""
 
 /**
  * The device details commands.
@@ -26,9 +27,9 @@ public:
 
 	virtual void RegisterCommands() override
 	{
-		UI_COMMAND(Clear, "Clear Log", "Clear the log window", EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(SessionCopy, "Copy", "Copy the selected log messages to the clipboard", EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(SessionSave, "Save Log...", "Save the entire log to a file", EUserInterfaceActionType::ToggleButton, FInputGesture());
+		UI_COMMAND(Clear, "Clear Log", "Clear the log window", EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(SessionCopy, "Copy", "Copy the selected log messages to the clipboard", EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(SessionSave, "Save Log...", "Save the entire log to a file", EUserInterfaceActionType::ToggleButton, FInputChord());
 	}
 
 public:
@@ -37,3 +38,5 @@ public:
 	TSharedPtr<FUICommandInfo> SessionCopy;
 	TSharedPtr<FUICommandInfo> SessionSave;
 };
+
+#undef LOCTEXT_NAMESPACE

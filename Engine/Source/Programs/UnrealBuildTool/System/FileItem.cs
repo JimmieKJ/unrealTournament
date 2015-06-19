@@ -48,7 +48,7 @@ namespace UnrealBuildTool
 					// Uh oh.  We're clobbering our cached CompileEnvironment for this file with a different CompileEnvironment.  This means
 					// that the same source file is being compiled into more than one module. (e.g. PCLaunch.rc)
 
-					// @todo fastubt: The only expected offender here is PCLaunch.rc and friends, which are injected by UBT into every module when not compiling monolithic.
+					// @todo ubtmake: The only expected offender here is PCLaunch.rc and friends, which are injected by UBT into every module when not compiling monolithic.
 					// PCLaunch.rc and ModuleVersionResource.rc.inl are "safe" because they do not include any headers that would be affected by include path order.
 					// ==> Ideally we would use a different "shared" CompileEnvironment for these injected .rc files, so their include paths would not change
 					// ==> OR, we can make an Intermediate copy of the .rc file for each module (easier)
@@ -56,7 +56,7 @@ namespace UnrealBuildTool
 						!AbsolutePath.EndsWith( "ModuleVersionResource.rc.inl", StringComparison.InvariantCultureIgnoreCase ) )
 					{ 					
 						// Let's make sure the include paths are the same
-						// @todo fastubt: We have not seen examples of this actually firing off, so we could probably remove the check for matching includes and simply always make this an error case
+						// @todo ubtmake: We have not seen examples of this actually firing off, so we could probably remove the check for matching includes and simply always make this an error case
 						var CachedIncludePathsToSearch = _CachedCPPIncludeInfo.GetIncludesPathsToSearch( this );
 						var NewIncludePathsToSearch = value.GetIncludesPathsToSearch( this );
 

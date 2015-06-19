@@ -84,7 +84,7 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 		.Content()
 		[
 			SAssignNew(TextBlock, STextBlock)
-			.Text(CurrentText)
+			.Text(FText::FromString(CurrentText))
 		];
 	}
 
@@ -120,12 +120,12 @@ struct FMuzzleFlashItem : public TSharedFromThis<FMuzzleFlashItem>
 			.Padding(5)
 			[
 				SNew(STextBlock)
-				.Text(InItem->DisplayName.ToString())
+				.Text(FText::FromName(InItem->DisplayName))
 			];
 	}
 };
 
-class FMFArrayBuilder : public FDetailArrayBuilder
+class UNREALTOURNAMENT_API FMFArrayBuilder : public FDetailArrayBuilder
 {
 public:
 	FMFArrayBuilder(TWeakObjectPtr<UObject> InObj, TSharedRef<IPropertyHandle> InBaseProperty, TArray<TSharedPtr<FMuzzleFlashChoice>>& InChoices, bool InGenerateHeader = true)

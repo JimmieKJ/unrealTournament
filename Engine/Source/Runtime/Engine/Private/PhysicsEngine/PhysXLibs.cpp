@@ -46,13 +46,8 @@ void LoadPhysXModules()
 
 	#if PLATFORM_64BITS
 
-		#if _MSC_VER >= 1800
-			FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win64/VS2013/"));
-			FString RootAPEXPath(APEXBinariesRoot + TEXT("Win64/VS2013/"));
-		#else
-			FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win64/VS2012/"));
-			FString RootAPEXPath(APEXBinariesRoot + TEXT("Win64/VS2012/"));
-		#endif
+		FString RootPhysXPath(PhysXBinariesRoot + TEXT("Win64/VS2013/"));
+		FString RootAPEXPath(APEXBinariesRoot + TEXT("Win64/VS2013/"));
 
 
 		#if UE_BUILD_DEBUG && !defined(NDEBUG)	// Use !defined(NDEBUG) to check to see if we actually are linking with Debug third party libraries (bDebugBuildsActuallyUseDebugCRT)

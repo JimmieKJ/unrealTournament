@@ -110,7 +110,6 @@ public class GooglePlayStoreHelper extends StoreHelper
 					}
 					
 					// If we have this item, but somehow failed to consume it on purchase.
-					// make sure to consume it now. TPMB - TODO: make this part of the purchase workflow?
 					if (inventory.hasPurchase(productId))
 					{
 						try {

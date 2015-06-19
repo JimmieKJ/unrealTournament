@@ -770,6 +770,7 @@ void SwapEndianStringPtr(CStringPtr& cStringPtr)
 	#endif
 	
 	SwapEndian4Bytes<st_uint32>(uiPtrConvert);
+	// @fixme: this looks fishy (converting uint32 to a 64-bit pointer)
 	cStringPtr = (const char*) uiPtrConvert;
 }
 

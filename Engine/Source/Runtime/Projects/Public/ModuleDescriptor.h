@@ -108,6 +108,9 @@ struct PROJECTS_API FModuleDescriptor
 	/** List of disallowed platforms */
 	TArray<FString> BlacklistPlatforms;
 
+	/** List of additional dependencies for building this module. */
+	TArray<FString> AdditionalDependencies;
+
 	/** Normal constructor */
 	FModuleDescriptor(const FName InName = NAME_None, EHostType::Type InType = EHostType::Runtime, ELoadingPhase::Type InLoadingPhase = ELoadingPhase::Default);
 

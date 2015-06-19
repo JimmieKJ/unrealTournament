@@ -14,6 +14,7 @@
 
 #include "AnimationUtils.h"
 #include "AnimationCompression.h"
+#include "Animation/AnimationSettings.h"
 
 #include "CollectionManagerModule.h"
 #include "GameFramework/WorldSettings.h"
@@ -163,6 +164,15 @@ bool NormalizePackageNames( TArray<FString> PackageNames, TArray<FString>& Packa
 					continue;
 				}
 			}
+
+			if ( (PackageFilter&NORMALIZE_ExcludeNoRedistPackages) != 0 )
+			{
+				if(PackagePathNames.Contains("/NoRedist/") || PackagePathNames.Contains("/NotForLicensees/") || PackagePathNames.Contains("/EpicInternal/"))
+				{
+					PackagePathNames.RemoveAt(PackageIndex);
+					continue;
+				}
+			}
 		}
 	}
 
@@ -198,7 +208,7 @@ bool NormalizePackageNames( TArray<FString> PackageNames, TArray<FString>& Packa
 
 * @return true if successful
 */
-bool SavePackageHelper(UPackage* Package, FString Filename, EObjectFlags KeepObjectFlags, FOutputDevice* ErrorDevice, ULinkerLoad* LinkerToConformAgainst, ESaveFlags SaveFlags)
+bool SavePackageHelper(UPackage* Package, FString Filename, EObjectFlags KeepObjectFlags, FOutputDevice* ErrorDevice, FLinkerLoad* LinkerToConformAgainst, ESaveFlags SaveFlags)
 {
 	// look for a world object in the package (if there is one, there's a map)
 	UWorld* World = UWorld::FindWorldInPackage(Package);
@@ -691,7 +701,7 @@ int32 ULoadPackageCommandlet::Main( const FString& Params )
 		if (bCheckForLegacyPackages)
 		{
 			BeginLoad();
-			ULinkerLoad* Linker = GetPackageLinker(NULL,*Filename,LOAD_NoVerify,NULL,NULL);
+			auto Linker = GetPackageLinker(NULL,*Filename,LOAD_NoVerify,NULL,NULL);
 			EndLoad();
 			MinVersion = FMath::Min<int32>(MinVersion, Linker->Summary.GetFileVersionUE4());
 		}
@@ -728,7 +738,7 @@ struct FExportInfo
 	FString PathName;
 	FString OuterPathName;
 
-	FExportInfo( ULinkerLoad* Linker, int32 InIndex )
+	FExportInfo( FLinkerLoad* Linker, int32 InIndex )
 	: Export(Linker->ExportMap[InIndex]), ExportIndex(InIndex)
 	, OuterPathName(TEXT("NULL"))
 	{
@@ -736,7 +746,7 @@ struct FExportInfo
 		SetOuterPathName(Linker);
 	}
 
-	void SetOuterPathName( ULinkerLoad* Linker )
+	void SetOuterPathName( FLinkerLoad* Linker )
 	{
 		if ( !Export.OuterIndex.IsNull() )
 		{
@@ -815,7 +825,7 @@ namespace
  *
  * @param	InLinker	if specified, changes this reporter's Linker before generating the report.
  */
-void FPkgInfoReporter_Log::GeneratePackageReport( ULinkerLoad* InLinker/*=NULL*/ )
+void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/ )
 {
 	check(InLinker);
 
@@ -839,7 +849,8 @@ void FPkgInfoReporter_Log::GeneratePackageReport( ULinkerLoad* InLinker/*=NULL*/
 
 	UE_LOG(LogPackageUtilities, Warning, TEXT("\t         Filename: %s"), *Linker->Filename);
 	UE_LOG(LogPackageUtilities, Warning, TEXT("\t     File Version: %i"), Linker->UE4Ver() );
-	UE_LOG(LogPackageUtilities, Warning, TEXT("\t   Engine Version: %s"), *Linker->Summary.EngineVersion.ToString());
+	UE_LOG(LogPackageUtilities, Warning, TEXT("\t   Engine Version: %s"), *Linker->Summary.SavedByEngineVersion.ToString());
+	UE_LOG(LogPackageUtilities, Warning, TEXT("\t   Compat Version: %s"), *Linker->Summary.CompatibleWithEngineVersion.ToString());
 	UE_LOG(LogPackageUtilities, Warning, TEXT("\t     PackageFlags: %X"), Linker->Summary.PackageFlags );
 	UE_LOG(LogPackageUtilities, Warning, TEXT("\t        NameCount: %d"), Linker->Summary.NameCount );
 	UE_LOG(LogPackageUtilities, Warning, TEXT("\t       NameOffset: %d"), Linker->Summary.NameOffset );
@@ -1008,7 +1019,7 @@ void FPkgInfoReporter_Log::GeneratePackageReport( ULinkerLoad* InLinker/*=NULL*/
 		if ( FParse::Value(FCommandLine::Get(), TEXT("SORT="), SortingParms) )
 		{
 			TArray<FString> SortValues;
-			SortingParms.ParseIntoArray(&SortValues, TEXT(","), true);
+			SortingParms.ParseIntoArray(SortValues, TEXT(","), true);
 
 			for ( int32 i = 0; i < EXPORTSORT_MAX; i++ )
 			{
@@ -1392,7 +1403,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 		}
 
 		BeginLoad();
-		ULinkerLoad* Linker = GetPackageLinker( NULL, *Filename, LOAD_NoVerify, NULL, NULL );
+		auto Linker = GetPackageLinker( NULL, *Filename, LOAD_NoVerify, NULL, NULL );
 		EndLoad();
 
 		if( Linker )
@@ -1510,9 +1521,7 @@ struct CompressAnimationsFunctor
 		}
 
 		// Get version number. Bump this up every time you want to recompress all animations.
-		int32 CompressCommandletVersion = 0;
-		GConfig->GetInt( TEXT("AnimationCompression"), TEXT("CompressCommandletVersion"), (int32&)CompressCommandletVersion, GEngineIni );
-
+		const int32 CompressCommandletVersion = UAnimationSettings::Get()->CompressCommandletVersion;
 
 		// Count the number of animations to provide some limited progress indication
 		int32 NumAnimationsInPackage = 0;
@@ -1978,7 +1987,7 @@ struct CompressAnimationsFunctor
 			if( bResetCompression )
 			{
 				UE_LOG(LogPackageUtilities, Warning, TEXT("%s (%s) Resetting with BitwiseCompressOnly."), *AnimSeq->GetName(), *AnimSeq->GetFullName());
-				UAnimCompress* CompressionAlgorithm = ConstructObject<UAnimCompress_BitwiseCompressOnly>( UAnimCompress_BitwiseCompressOnly::StaticClass() );
+				UAnimCompress* CompressionAlgorithm = NewObject<UAnimCompress_BitwiseCompressOnly>();
 				CompressionAlgorithm->RotationCompressionFormat = ACF_Float96NoW;
 				CompressionAlgorithm->TranslationCompressionFormat = ACF_None;
 				CompressionAlgorithm->ScaleCompressionFormat = ACF_Float96NoW;

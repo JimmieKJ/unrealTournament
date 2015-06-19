@@ -32,6 +32,8 @@ typedef FHTML5Types FPlatformTypes;
 #define PLATFORM_HAS_BSD_TIME						0
 #define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS	0
 #define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES	0
+#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS	0
+#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	0
 #define PLATFORM_USES_MICROSOFT_LIBC_FUNCTIONS		1
 #define PLATFORM_MAX_FILEPATH_LENGTH				MAX_PATH
 #define PLATFORM_HAS_BSD_SOCKETS					0
@@ -54,7 +56,6 @@ typedef FHTML5Types FPlatformTypes;
 #if PLATFORM_HTML5_WIN32
 #define FORCEINLINE _forceinline
 #define FORCENOINLINE __declspec(noinline)	/* Force code to NOT be inline */
-#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS 0
 #define CONSTEXPR    
 #else
 #define FORCEINLINE		inline __attribute__((__always_inline__))		/* Force code to be inline */

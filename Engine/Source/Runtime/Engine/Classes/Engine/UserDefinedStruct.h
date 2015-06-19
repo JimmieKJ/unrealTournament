@@ -40,14 +40,20 @@ public:
 	UObject* EditorData;
 #endif // WITH_EDITORONLY_DATA
 
+	UPROPERTY()
+	FGuid Guid;
+
 #if WITH_EDITOR
 	// UObject interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	virtual void PostLoad() override;
 	// End of UObject interface.
 
 	void InitializeDefaultValue(uint8* StructData) const;
+
+	void ValidateGuid();
 #endif	// WITH_EDITOR
 
 	virtual void SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad=NULL) const override;
@@ -55,6 +61,7 @@ public:
 
 	// UScriptStruct interface.
 	virtual void RecursivelyPreload() override;
+	virtual FGuid GetCustomGuid() const override;
 	// End of  UScriptStruct interface.
 
 #if WITH_EDITOR

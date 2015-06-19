@@ -12,7 +12,7 @@ UK2Node_SwitchString::UK2Node_SwitchString(const FObjectInitializer& ObjectIniti
 {
 
 	bIsCaseSensitive = false;
-	FunctionName = TEXT("NotEqual_StrStr");
+	SetupCaseSensitivityFunction();
 	FunctionClass = UKismetStringLibrary::StaticClass();
 }
 
@@ -26,9 +26,7 @@ void UK2Node_SwitchString::PostEditChangeProperty(struct FPropertyChangedEvent& 
 	}
 	else if (PropertyName == TEXT("bIsCaseSensitive"))
 	{
-		FunctionName = (bIsCaseSensitive == true)
-			?  TEXT("NotEqual_StrStr")
-			: TEXT("NotEqual_StriStri");
+		SetupCaseSensitivityFunction();
 
 		FunctionClass = UKismetStringLibrary::StaticClass();
 		bIsDirty = true;
@@ -40,6 +38,13 @@ void UK2Node_SwitchString::PostEditChangeProperty(struct FPropertyChangedEvent& 
 		GetGraph()->NotifyGraphChanged();
 	}
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+void UK2Node_SwitchString::SetupCaseSensitivityFunction()
+{
+	FunctionName = (bIsCaseSensitive == true)
+		?  TEXT("NotEqual_StrStr")
+		: TEXT("NotEqual_StriStri");
 }
 
 FText UK2Node_SwitchString::GetNodeTitle(ENodeTitleType::Type TitleType) const

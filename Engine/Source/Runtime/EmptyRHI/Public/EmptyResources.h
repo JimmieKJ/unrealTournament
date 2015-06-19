@@ -307,3 +307,133 @@ public:
 	~FEmptyShaderResourceView();
 };
 
+template<class T>
+struct TEmptyResourceTraits
+{
+};
+template<>
+struct TEmptyResourceTraits<FRHIVertexDeclaration>
+{
+	typedef FEmptyVertexDeclaration TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIVertexShader>
+{
+	typedef FEmptyVertexShader TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIGeometryShader>
+{
+	typedef FEmptyGeometryShader TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIHullShader>
+{
+	typedef FEmptyHullShader TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIDomainShader>
+{
+	typedef FEmptyDomainShader TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIPixelShader>
+{
+	typedef FEmptyPixelShader TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIComputeShader>
+{
+	typedef FEmptyComputeShader TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIBoundShaderState>
+{
+	typedef FEmptyBoundShaderState TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHITexture3D>
+{
+	typedef FEmptyTexture3D TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHITexture>
+{
+	typedef FEmptyTexture TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHITexture2D>
+{
+	typedef FEmptyTexture2D TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHITexture2DArray>
+{
+	typedef FEmptyTexture2DArray TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHITextureCube>
+{
+	typedef FEmptyTextureCube TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIRenderQuery>
+{
+	typedef FEmptyRenderQuery TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIUniformBuffer>
+{
+	typedef FEmptyUniformBuffer TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIIndexBuffer>
+{
+	typedef FEmptyIndexBuffer TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIStructuredBuffer>
+{
+	typedef FEmptyStructuredBuffer TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIVertexBuffer>
+{
+	typedef FEmptyVertexBuffer TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIShaderResourceView>
+{
+	typedef FEmptyShaderResourceView TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIUnorderedAccessView>
+{
+	typedef FEmptyUnorderedAccessView TConcreteType;
+};
+
+template<>
+struct TEmptyResourceTraits<FRHISamplerState>
+{
+	typedef FEmptySamplerState TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIRasterizerState>
+{
+	typedef FEmptyRasterizerState TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIDepthStencilState>
+{
+	typedef FEmptyDepthStencilState TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIBlendState>
+{
+	typedef FEmptyBlendState TConcreteType;
+};
+template<>
+struct TEmptyResourceTraits<FRHIViewport>
+{
+	typedef FEmptyViewport TConcreteType;
+};

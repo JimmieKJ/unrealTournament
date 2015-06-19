@@ -27,7 +27,7 @@ public:
 			MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().GreenChannel);
 			MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().BlueChannel);
 			MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().AlphaChannel);
-			MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().Saturation);
+			MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().Desaturation);
 		}
 		MenuBuilder.EndSection();
 

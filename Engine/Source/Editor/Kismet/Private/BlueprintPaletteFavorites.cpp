@@ -69,7 +69,7 @@ static FBlueprintNodeSignature BlueprintPaletteFavoritesImpl::ConstructLegacySig
 		// to discern between them
 		if (UK2Node_CallFunction const* CallFuncNode = Cast<UK2Node_CallFunction const>(NodeTemplate))
 		{
-			SignatureSubObject = CallFuncNode->FunctionReference.ResolveMember<UFunction>(CallFuncNode);
+			SignatureSubObject = CallFuncNode->FunctionReference.ResolveMember<UFunction>(CallFuncNode->GetBlueprintClassFromNode());
 			bIsSupported = (SignatureSubObject != nullptr);
 		}
 		else if (UK2Node_InputAxisEvent const* InputAxisEventNode = Cast<UK2Node_InputAxisEvent const>(NodeTemplate))
@@ -79,11 +79,8 @@ static FBlueprintNodeSignature BlueprintPaletteFavoritesImpl::ConstructLegacySig
 		}
 		else if (UK2Node_Event const* EventNode = Cast<UK2Node_Event const>(NodeTemplate))
 		{
-			if (EventNode->EventSignatureClass != nullptr)
-			{
-				SignatureSubObject = FindField<UFunction>(EventNode->EventSignatureClass, EventNode->EventSignatureName);
-				bIsSupported = (SignatureSubObject != nullptr);
-			}
+			SignatureSubObject = EventNode->EventReference.ResolveMember<UFunction>(EventNode->GetBlueprintClassFromNode());
+			bIsSupported = (SignatureSubObject != nullptr);
 		}
 		else if (UK2Node_MacroInstance const* MacroNode = Cast<UK2Node_MacroInstance const>(NodeTemplate))
 		{
@@ -258,8 +255,11 @@ bool UBlueprintPaletteFavorites::CanBeFavorited(TSharedPtr<FEdGraphSchemaAction>
 bool UBlueprintPaletteFavorites::IsFavorited(TSharedPtr<FEdGraphSchemaAction> PaletteAction) const
 {
 	bool bIsFavorited = false;
-
-	if (PaletteAction->GetTypeId() == FBlueprintDragDropMenuItem::StaticGetTypeId())
+	if (!PaletteAction.IsValid())
+	{
+		bIsFavorited = false;
+	}
+	else if (PaletteAction->GetTypeId() == FBlueprintDragDropMenuItem::StaticGetTypeId())
 	{
 		FBlueprintDragDropMenuItem* CollectionMenuItem = (FBlueprintDragDropMenuItem*)PaletteAction.Get();
 

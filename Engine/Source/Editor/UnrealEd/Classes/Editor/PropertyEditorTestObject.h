@@ -181,6 +181,9 @@ class UPropertyEditorTestObject : public UObject
 	TArray<UObject*> ObjectPropertyArray;
 
 	UPROPERTY(EditAnywhere, Category=ArraysOfProperties)
+	TArray<AActor*> ActorPropertyArray;
+
+	UPROPERTY(EditAnywhere, Category=ArraysOfProperties)
 	TArray<FLinearColor> LinearColorPropertyArray;
 
 	UPROPERTY(EditAnywhere, Category=ArraysOfProperties)

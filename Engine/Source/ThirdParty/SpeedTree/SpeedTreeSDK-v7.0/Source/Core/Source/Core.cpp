@@ -1041,7 +1041,7 @@ st_bool Scale3dGeometry(SLod& sLod, st_float32 fScalar)
 	}
 
 	// bones
-	assert(static_cast<SBone*>(sLod.m_pBones));
+	assert(sLod.m_nNumBones == 0 || static_cast<SBone*>(sLod.m_pBones));
 	for (st_int32 nBone = 0; nBone < sLod.m_nNumBones; ++nBone)
 	{
 		SBone& sBone= (SBone&) sLod.m_pBones[nBone];
@@ -1101,16 +1101,3 @@ void CCore::ApplyScale(st_float32 fScalar)
 		m_sLodProfile.Square(m_sLodProfileSquared);
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

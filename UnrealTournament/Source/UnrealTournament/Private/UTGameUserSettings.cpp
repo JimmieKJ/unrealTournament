@@ -58,6 +58,7 @@ void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 
 	SetAAMode(AAMode);
 	SetScreenPercentage(ScreenPercentage);
+	SetHRTFEnabled(bHRTFEnabled);
 }
 
 void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)
@@ -177,6 +178,24 @@ void UUTGameUserSettings::SetScreenPercentage(int32 NewScreenPercentage)
 	ScreenPercentageCVar->Set(ScreenPercentage, ECVF_SetByGameSetting);
 }
 
+bool UUTGameUserSettings::IsHRTFEnabled()
+{
+	return bHRTFEnabled;
+}
+
+void UUTGameUserSettings::SetHRTFEnabled(bool NewHRTFEnabled)
+{
+	bHRTFEnabled = NewHRTFEnabled;
+#if PLATFORM_WINDOWS
+	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+	if (AudioDevice)
+	{
+		AudioDevice->SetSpatializationExtensionEnabled(bHRTFEnabled);
+		AudioDevice->SetHRTFEnabledForAll(bHRTFEnabled);
+	}
+#endif
+}
+
 #if !UE_SERVER
 void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalPlayer)
 {
@@ -229,8 +248,8 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 		Scalability::SaveState(GGameUserSettingsIni);
 
 		// Set specific features in game settings. These values are controlled by scalability initially but can be overwritten in the settings screen.
-		int32 AAMode = UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(DetectedLevels.AntiAliasingQuality);
-		SetAAMode(AAMode);
+		int32 NewAAMode = UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(DetectedLevels.AntiAliasingQuality);
+		SetAAMode(NewAAMode);
 		SetScreenPercentage(DetectedLevels.ResolutionQuality);
 
 		// Mark initial benchmark state as being complete. Even if this benchmark wasn't triggered by the initial run system, it
@@ -248,4 +267,5 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 		GEngine->GameViewport->RemoveViewportWidgetContent(AutoDetectingSettingsDialog.ToSharedRef());
 	}
 }
+
 #endif // !UE_SERVER

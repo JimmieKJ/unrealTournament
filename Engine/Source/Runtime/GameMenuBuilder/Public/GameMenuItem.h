@@ -40,7 +40,7 @@ public:
 	TSharedPtr<SGameMenuItemWidget> Widget;
 
 	/** shared pointer to actual slate widget representing the custom menu item, ie whole options screen */
-	TSharedPtr<SWidget> CustomWidget;
+	TSharedPtr<SGameMenuItemWidget> CustomWidget;
 
 	/** texts for multiple choice menu item (like INF AMMO ON/OFF or difficulty/resolution etc) */
 	TArray<FText> MultiChoice;
@@ -67,10 +67,10 @@ public:
 	}
 
 	/** custom widgets cannot contain sub menus, all functionality must be handled by custom widget itself */
-	FGameMenuItem(TSharedPtr<SWidget> _Widget)
+	FGameMenuItem(TSharedPtr<SGameMenuItemWidget> InWidget)
 	{
 		MenuItemType = EGameMenuItemType::CustomWidget;
-		CustomWidget = _Widget;
+		CustomWidget = InWidget;
 		MinMultiChoiceIndex = MaxMultiChoiceIndex = SelectedMultiChoice = 0;
 		bInactive = false;
 	}

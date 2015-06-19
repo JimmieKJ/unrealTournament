@@ -51,7 +51,16 @@ public:
 	 */
 	FSlateBrush const* GetMenuIcon(FSlateColor& ColorOut);
 
-	
+	/** Utility struct for pairing documentation page names with excerpt names */
+	struct FDocExcerptRef
+	{
+		bool IsValid() const;
+
+		FString DocLink;
+		FString DocExcerptName;		
+	};
+	/**  */
+	const FDocExcerptRef& GetDocumentationExcerpt() const;
 
 private:
 	/** Specialized node-spawner, that comprises the action portion of this menu entry. */
@@ -62,4 +71,6 @@ private:
 	FSlateBrush const* IconBrush;
 	/** */
 	IBlueprintNodeBinder::FBindingSet Bindings;
+	/** References the documentation page/excerpt pertaining to the node this will spawn */
+	FDocExcerptRef DocExcerptRef;
 };

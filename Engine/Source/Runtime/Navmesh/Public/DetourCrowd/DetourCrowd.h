@@ -25,6 +25,7 @@
 #include "DetourNavMeshQuery.h"
 #include "DetourObstacleAvoidance.h"
 #include "DetourLocalBoundary.h"
+#include "DetourSharedBoundary.h"
 #include "DetourPathCorridor.h"
 #include "DetourProximityGrid.h"
 #include "DetourPathQueue.h"
@@ -92,6 +93,9 @@ struct dtCrowdAgentParams
 
 	/// How aggresive the agent manager should be at avoiding collisions with this agent. [Limit: >= 0]
 	float separationWeight;
+
+	/// [UE4] Mutliplier for avoidance velocities
+	float avoidanceQueryMultiplier;
 
 	/// [UE4] Groups flags attached to the agent
 	unsigned int avoidanceGroup;
@@ -221,6 +225,7 @@ class NAVMESH_API dtCrowd
 	dtCrowdAgentAnimation* m_agentAnims;
 	
 	dtPathQueue m_pathq;
+	dtSharedBoundary m_sharedBoundary;
 
 	dtObstacleAvoidanceParams m_obstacleQueryParams[DT_CROWD_MAX_OBSTAVOIDANCE_PARAMS];
 	dtObstacleAvoidanceQuery* m_obstacleQuery;
@@ -238,8 +243,6 @@ class NAVMESH_API dtCrowd
 
 	// [UE4] time between attempts to restore agents state
 	float m_agentStateCheckInterval;
-	// [UE4] remove segments from local boundary that are too close to offmesh links (disrupts VO)
-	float m_linkRemovalRadius;
 
 	int m_velocitySampleCount;
 
@@ -440,10 +443,6 @@ public:
 	/// @param[in]		npath	The number of polygons in the path.
 	bool setAgentCorridor(const int idx, const dtPolyRef* path, const int npath);
 
-	/// [UE4] Set radius around offmesh link start, that will remove wall segments from boundary
-	/// @param[in]		radius	Radius threshold, remove segments that are closer 
-	void setOffmeshLinkSegmentRemovalRadius(const float radius);
-
 	/// [UE4] Set visibility optimization to use single area raycasts
 	/// This will prevent from cutting through polys marked as different area
 	/// which could have been avoided in corridor's path
@@ -486,6 +485,9 @@ public:
 
 	/// Gets the query object used by the crowd.
 	const dtNavMeshQuery* getNavMeshQuery() const { return m_navquery; }
+
+	/// Gets shared boundary cache
+	const dtSharedBoundary* getSharedBoundary() const { return &m_sharedBoundary; }
 
 	/// Gets all cached active agents 
 	dtCrowdAgent** getActiveAgents() const { return m_activeAgents; }

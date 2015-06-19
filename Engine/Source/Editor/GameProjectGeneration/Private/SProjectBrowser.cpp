@@ -10,6 +10,7 @@
 #include "TargetPlatform.h"
 #include "PlatformInfo.h"
 #include "SSearchBox.h"
+#include "Settings/EditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "ProjectBrowser"
 
@@ -262,7 +263,7 @@ void SProjectBrowser::Construct( const FArguments& InArgs )
 				.VAlign(VAlign_Center)
 				[
 					SNew(SCheckBox)			
-					.IsChecked(GEditor->GetGameAgnosticSettings().bLoadTheMostRecentlyLoadedProjectAtStartup ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+					.IsChecked(GetDefault<UEditorSettings>()->bLoadTheMostRecentlyLoadedProjectAtStartup ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 					.OnCheckStateChanged(this, &SProjectBrowser::OnAutoloadLastProjectChanged)
 					.Content()
 					[
@@ -738,7 +739,9 @@ FReply SProjectBrowser::FindProjects()
 	}
 
 	// Add all the native project files we can find, and automatically filter them depending on their directory
-	const TArray<FString> &NativeProjectFiles = FUProjectDictionary::GetDefault().GetProjectPaths();
+	FUProjectDictionary& DefaultProjectDictionary = FUProjectDictionary::GetDefault();
+	DefaultProjectDictionary.Refresh();
+	const TArray<FString> &NativeProjectFiles = DefaultProjectDictionary.GetProjectPaths();
 	for(int32 Idx = 0; Idx < NativeProjectFiles.Num(); Idx++)
 	{
 		if(!NativeProjectFiles[Idx].Contains(TEXT("/Templates/")))
@@ -962,6 +965,17 @@ bool SProjectBrowser::OpenProject( const FString& InProjectFile )
 	// Get the identifier for the project
 	FString ProjectIdentifier;
 	FDesktopPlatformModule::Get()->GetEngineIdentifierForProject(ProjectFile, ProjectIdentifier);
+
+	// Abort straight away if the project engine version is newer than the current engine version
+	FEngineVersion EngineVersion;
+	if (FDesktopPlatformModule::Get()->TryParseStockEngineVersion(ProjectIdentifier, EngineVersion))
+	{
+		if (FEngineVersion::GetNewest(EngineVersion, GEngineVersion, nullptr) == EVersionComparison::First)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("CantLoadNewerProject", "Unable to open this project, as it was made with a newer version of the Unreal Engine."));
+			return false;
+		}
+	}
 	
 	// Get the identifier for the current engine
 	FString CurrentIdentifier = FDesktopPlatformModule::Get()->GetCurrentEngineIdentifier();
@@ -975,22 +989,36 @@ bool SProjectBrowser::OpenProject( const FString& InProjectFile )
 			return false;
 		}
 
+		// Hyperlinks for the upgrade dialog
+		TArray<FText> Hyperlinks;
+		int32 MoreOptionsHyperlink = Hyperlinks.Add(LOCTEXT("ProjectConvert_MoreOptions", "More Options..."));
+
 		// Button labels for the upgrade dialog
 		TArray<FText> Buttons;
 		int32 OpenCopyButton = Buttons.Add(LOCTEXT("ProjectConvert_OpenCopy", "Open a copy"));
-		int32 OpenExistingButton = Buttons.Add(LOCTEXT("ProjectConvert_ConvertInPlace", "Convert in-place"));
-		int32 SkipConversionButton = Buttons.Add(LOCTEXT("ProjectConvert_SkipConversion", "Skip conversion"));
 		int32 CancelButton = Buttons.Add(LOCTEXT("ProjectConvert_Cancel", "Cancel"));
+		int32 OpenExistingButton = -1;
+		int32 SkipConversionButton = -1;
 
 		// Prompt for upgrading. Different message for code and content projects, since the process is a bit trickier for code.
-		int32 Selection;
+		FText DialogText;
 		if(ProjectStatus.bCodeBasedProject)
 		{
-			Selection = SVerbChoiceDialog::ShowModal(LOCTEXT("ProjectConversionTitle", "Convert Project"), LOCTEXT("ConvertCodeProjectPrompt", "This project was made with a different version of the Unreal Engine. Converting to this version will rebuild your code projects.\n\nNew features and improvements sometimes cause API changes, which may require you to modify your code before it compiles. Content saved with newer versions of the editor will not open in older versions.\n\nWe recommend you open a copy of your project to avoid damaging the original."), Buttons);
+			DialogText = LOCTEXT("ConvertCodeProjectPrompt", "This project was made with a different version of the Unreal Engine. Converting to this version will rebuild your code projects.\n\nNew features and improvements sometimes cause API changes, which may require you to modify your code before it compiles. Content saved with newer versions of the editor will not open in older versions.\n\nWe recommend you open a copy of your project to avoid damaging the original.");
 		}
 		else
 		{
-			Selection = SVerbChoiceDialog::ShowModal(LOCTEXT("ProjectConversionTitle", "Convert Project"), LOCTEXT("ConvertContentProjectPrompt", "This project was made with a different version of the Unreal Engine.\n\nOpening it with this version of the editor may prevent it opening with the original editor, and may lose data. We recommend you open a copy to avoid damaging the original."), Buttons);
+			DialogText = LOCTEXT("ConvertContentProjectPrompt", "This project was made with a different version of the Unreal Engine.\n\nOpening it with this version of the editor may prevent it opening with the original editor, and may lose data. We recommend you open a copy to avoid damaging the original.");
+		}
+
+		// Show the dialog, and expand to the advanced dialog if the user selects 'More Options...'
+		int32 Selection = SVerbChoiceDialog::ShowModal(LOCTEXT("ProjectConversionTitle", "Convert Project"), DialogText, Hyperlinks, Buttons);
+		if(~Selection == MoreOptionsHyperlink)
+		{
+			OpenExistingButton = Buttons.Insert(LOCTEXT("ProjectConvert_ConvertInPlace", "Convert in-place"), 1);
+			SkipConversionButton = Buttons.Insert(LOCTEXT("ProjectConvert_SkipConversion", "Skip conversion"), 2);
+			CancelButton += 2;
+			Selection = SVerbChoiceDialog::ShowModal(LOCTEXT("ProjectConversionTitle", "Convert Project"), DialogText, Buttons);
 		}
 
 		// Handle the selection
@@ -1115,7 +1143,7 @@ FReply SProjectBrowser::OnBrowseToProjectClicked()
 
 	// Find the first valid project file to select by default
 	FString DefaultFolder = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::PROJECT);
-	for ( auto ProjectIt = GEditor->GetGameAgnosticSettings().RecentlyOpenedProjectFiles.CreateConstIterator(); ProjectIt; ++ProjectIt )
+	for ( auto ProjectIt = GetDefault<UEditorSettings>()->RecentlyOpenedProjectFiles.CreateConstIterator(); ProjectIt; ++ProjectIt )
 	{
 		if ( IFileManager::Get().FileSize(**ProjectIt) > 0 )
 		{
@@ -1242,14 +1270,14 @@ void SProjectBrowser::OnFilterTextChanged(const FText& InText)
 
 void SProjectBrowser::OnAutoloadLastProjectChanged(ECheckBoxState NewState)
 {
-	UEditorGameAgnosticSettings &Settings = GEditor->AccessGameAgnosticSettings();
-	Settings.bLoadTheMostRecentlyLoadedProjectAtStartup = (NewState == ECheckBoxState::Checked);
+	UEditorSettings *Settings = GetMutableDefault<UEditorSettings>();
+	Settings->bLoadTheMostRecentlyLoadedProjectAtStartup = (NewState == ECheckBoxState::Checked);
 
-	UProperty* AutoloadProjectProperty = FindField<UProperty>(Settings.GetClass(), "bLoadTheMostRecentlyLoadedProjectAtStartup");
+	UProperty* AutoloadProjectProperty = FindField<UProperty>(Settings->GetClass(), "bLoadTheMostRecentlyLoadedProjectAtStartup");
 	if (AutoloadProjectProperty != NULL)
 	{
 		FPropertyChangedEvent PropertyUpdateStruct(AutoloadProjectProperty);
-		Settings.PostEditChangeProperty(PropertyUpdateStruct);
+		Settings->PostEditChangeProperty(PropertyUpdateStruct);
 	}
 }
 

@@ -9,8 +9,8 @@ struct CORE_API FMacCrashContext : public FApplePlatformCrashContext
 	/** Mimics Windows WER format */
 	void GenerateWindowsErrorReport(char const* WERPath) const;
 
-	/** Creates (fake so far) minidump */
-	void GenerateMinidump(char const* Path) const;
+	/** Copies the PLCrashReporter minidump */
+	void CopyMinidump(char const* OutputPath, char const* InputPath) const;
 
 	/** Generates information for crash reporter */
 	void GenerateCrashInfoAndLaunchReporter() const;

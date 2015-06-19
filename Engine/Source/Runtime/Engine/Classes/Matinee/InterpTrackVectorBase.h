@@ -4,8 +4,8 @@
 #pragma once
 #include "InterpTrackVectorBase.generated.h"
 
-UCLASS(abstract, MinimalAPI)
-class UInterpTrackVectorBase : public UInterpTrack
+UCLASS(abstract)
+class ENGINE_API UInterpTrackVectorBase : public UInterpTrack
 {
 	GENERATED_UCLASS_BODY()
 

@@ -43,7 +43,7 @@ void URadialForceComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 
 		FCollisionQueryParams Params(AddForceOverlapName, false);
 		Params.bTraceAsyncScene = true; // want to hurt stuff in async scene
-		GetWorld()->OverlapMulti(Overlaps, Origin, FQuat::Identity, FCollisionShape::MakeSphere(Radius), Params, CollisionObjectQueryParams);
+		GetWorld()->OverlapMultiByObjectType(Overlaps, Origin, FQuat::Identity, CollisionObjectQueryParams, FCollisionShape::MakeSphere(Radius), Params);
 
 		// Iterate over each and apply force
 		for ( int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); OverlapIdx++ )
@@ -97,7 +97,7 @@ void URadialForceComponent::FireImpulse()
 		Params.AddIgnoredActor(GetOwner());
 	}
 
-	GetWorld()->OverlapMulti(Overlaps, Origin, FQuat::Identity, FCollisionShape::MakeSphere(Radius), Params, CollisionObjectQueryParams);
+	GetWorld()->OverlapMultiByObjectType(Overlaps, Origin, FQuat::Identity, CollisionObjectQueryParams, FCollisionShape::MakeSphere(Radius), Params);
 
 	// Iterate over each and apply an impulse
 	for ( int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); OverlapIdx++ )
@@ -180,10 +180,10 @@ void URadialForceComponent::UpdateCollisionObjectQueryParams()
 ARadialForceActor::ARadialForceActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ForceComponent = ObjectInitializer.CreateDefaultSubobject<URadialForceComponent>(this, TEXT("ForceComponent0"));
+	ForceComponent = CreateDefaultSubobject<URadialForceComponent>(TEXT("ForceComponent0"));
 
 #if WITH_EDITOR
-	SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 	if (SpriteComponent)
 	{
 		// Structure to hold one-time initialization

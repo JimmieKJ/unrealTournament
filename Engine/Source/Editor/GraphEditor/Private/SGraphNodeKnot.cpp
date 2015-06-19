@@ -8,6 +8,17 @@
 #include "GenericCommands.h"
 #include "SInlineEditableTextBlock.h"
 
+namespace SKnotNodeDefinitions
+{
+	/** Offset from the left edge to display comment toggle button at */
+	static const float KnotCenterButtonAdjust = 3.f;
+
+	/** Offset from the left edge to display comment bubbles at */
+	static const float KnotCenterBubbleAdjust = 20.f;
+
+	/** Knot node spacer sizes */
+	static const FVector2D NodeSpacerSize(42.0f, 24.0f);
+}
 
 class FAmbivalentDirectionDragConnection : public FDragConnection
 {
@@ -258,8 +269,6 @@ void SGraphNodeKnot::Construct(const FArguments& InArgs, UK2Node_Knot* InKnot)
 
 void SGraphNodeKnot::UpdateGraphNode()
 {
-	const FVector2D NodeSpacerSize(42.0f, 24.0f);
-
 	InputPins.Empty();
 	OutputPins.Empty();
 
@@ -288,7 +297,7 @@ void SGraphNodeKnot::UpdateGraphNode()
 			[
 				// Grab handle to be able to move the node
 				SNew(SSpacer)
-				.Size(NodeSpacerSize)
+				.Size(SKnotNodeDefinitions::NodeSpacerSize)
 				.Visibility(EVisibility::Visible)
 				.Cursor(EMouseCursor::CardinalCross)
 			]
@@ -322,18 +331,26 @@ void SGraphNodeKnot::UpdateGraphNode()
 			]
 		];
 	// Create comment bubble
-	SAssignNew( CommentBubble, SCommentBubble )
-	.GraphNode( GraphNode )
-	.Text( this, &SGraphNode::GetNodeComment )
-	.ColorAndOpacity( FLinearColor::White )
-	.GraphLOD( this, &SGraphNode::GetCurrentLOD )
-	.IsGraphNodeHovered( this, &SGraphNode::IsHovered );
+	const FSlateColor CommentColor = GetDefault<UGraphEditorSettings>()->DefaultCommentNodeTitleColor;
 
-	GetOrAddSlot( ENodeZone::TopCenter )
-	.SlotOffset( TAttribute<FVector2D>( this, &SGraphNodeKnot::GetCommentOffset ))
-	.SlotSize( TAttribute<FVector2D>( CommentBubble.Get(), &SCommentBubble::GetSize ))
-	.AllowScaling( TAttribute<bool>( CommentBubble.Get(), &SCommentBubble::IsScalingAllowed ))
-	.VAlign( VAlign_Top )
+	SAssignNew(CommentBubble, SCommentBubble)
+	.GraphNode(GraphNode)
+	.Text(this, &SGraphNode::GetNodeComment)
+	.OnTextCommitted(this, &SGraphNode::OnCommentTextCommitted)
+	.ToggleButtonCheck(this, &SGraphNodeKnot::GetBubbleCheckState)
+	.EnableTitleBarBubble(true)
+	.EnableBubbleCtrls(true)
+	.AllowPinning(true)
+	.ColorAndOpacity(CommentColor)
+	.GraphLOD(this, &SGraphNode::GetCurrentLOD)
+	.IsGraphNodeHovered(this, &SGraphNodeKnot::IsKnotHovered);
+	bHoveredCommentVisibility = false;
+
+	GetOrAddSlot(ENodeZone::TopCenter)
+	.SlotOffset(TAttribute<FVector2D>(this, &SGraphNodeKnot::GetCommentOffset))
+	.SlotSize( TAttribute<FVector2D>( CommentBubble.Get(), &SCommentBubble::GetSize))
+	.AllowScaling( TAttribute<bool>(CommentBubble.Get(), &SCommentBubble::IsScalingAllowed))
+	.VAlign(VAlign_Top)
 	[
 		CommentBubble.ToSharedRef()
 	];
@@ -384,24 +401,44 @@ void SGraphNodeKnot::AddPin(const TSharedRef<SGraphPin>& PinToAdd)
 
 FVector2D SGraphNodeKnot::GetCommentOffset() const
 {
-	static const FVector2D CenterAdjust( 8.f, 0.f );
-	return CommentBubble->GetOffset() + CenterAdjust;
+	const bool bBubbleVisible = GraphNode->bCommentBubbleVisible || bHoveredCommentVisibility;
+	const float ZoomAmount = GraphNode->bCommentBubblePinned && OwnerGraphPanelPtr.IsValid() ? OwnerGraphPanelPtr.Pin()->GetZoomAmount() : 1.f;
+	const float NodeWidthOffset = bBubbleVisible ?	SKnotNodeDefinitions::KnotCenterBubbleAdjust * ZoomAmount :
+													SKnotNodeDefinitions::KnotCenterButtonAdjust * ZoomAmount;
+
+	return FVector2D(NodeWidthOffset - CommentBubble->GetArrowCenterOffset(), -CommentBubble->GetDesiredSize().Y);
 }
 
 void SGraphNodeKnot::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if( !GraphNode->NodeComment.IsEmpty() )
+	SGraphNode::OnMouseEnter(MyGeometry, MouseEvent);
+	if (!GraphNode->bCommentBubbleVisible && !GraphNode->NodeComment.IsEmpty())
 	{
-		GraphNode->bCommentBubbleVisible = true;
-		CommentBubble->UpdateBubble();
+		bHoveredCommentVisibility = true;
+		// Create the bubble widget while hovered
+		CommentBubble->OnCommentBubbleToggle(ECheckBoxState::Checked);
 	}
 }
 
-void SGraphNodeKnot::OnMouseLeave( const FPointerEvent& MouseEvent )
+void SGraphNodeKnot::OnMouseLeave(const FPointerEvent& MouseEvent)
 {
-	if( !GraphNode->NodeComment.IsEmpty() )
+	SGraphNode::OnMouseLeave(MouseEvent);
+	if (bHoveredCommentVisibility)
 	{
-		GraphNode->bCommentBubbleVisible = false;
-		CommentBubble->UpdateBubble();
+		bHoveredCommentVisibility = false;
+		// Destroy the comment is visibility hasn't changed
+		CommentBubble->OnCommentBubbleToggle(ECheckBoxState::Unchecked);
 	}
+}
+
+bool SGraphNodeKnot::IsKnotHovered() const
+{
+	const bool bIsVisible = bHoveredCommentVisibility || GraphNode->bCommentBubbleVisible;
+	return bIsVisible ? false : IsHovered();
+}
+
+ECheckBoxState SGraphNodeKnot::GetBubbleCheckState() const
+{
+	const bool bIsChecked = GraphNode->bCommentBubbleVisible && !bHoveredCommentVisibility;
+	return bIsChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }

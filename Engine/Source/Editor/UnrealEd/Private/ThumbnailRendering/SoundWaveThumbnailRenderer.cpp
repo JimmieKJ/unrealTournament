@@ -91,7 +91,7 @@ void USoundWaveThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32
 					{
 						for (int32 ChannelIndex = 0; ChannelIndex < SoundWave->NumChannels; ++ChannelIndex)
 						{
-							const float ScaledSample = SampleSum[ChannelIndex] / SamplesPerX * SampleYScale;
+							const float ScaledSample = static_cast<float>(SampleSum[ChannelIndex]) / SamplesPerX * SampleYScale;
 							if (bDrawAsCurve)
 							{
 								if (XOffset > 0)
@@ -116,7 +116,7 @@ void USoundWaveThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32
 							int32 ActiveChannelCount = 0;
 							for (int32 ChannelIndex = 0; ChannelIndex < SoundWave->NumChannels; ++ChannelIndex)
 							{
-								const float ScaledSample = SampleSum[ChannelIndex] / SamplesPerX * SampleYScale;
+								const float ScaledSample = static_cast<float>(SampleSum[ChannelIndex]) / SamplesPerX * SampleYScale;
 								if (FMath::Abs(ScaledSample) > 0.001f)
 								{
 									ScaledSampleSum += ScaledSample;
@@ -136,7 +136,7 @@ void USoundWaveThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32
 							float MaxScaledSample = 0.f;
 							for (int32 ChannelIndex = 0; ChannelIndex < SoundWave->NumChannels; ++ChannelIndex)
 							{
-								const float ScaledSample = SampleSum[ChannelIndex] / SamplesPerX * SampleYScale;
+								const float ScaledSample = static_cast<float>(SampleSum[ChannelIndex]) / SamplesPerX * SampleYScale;
 								MaxScaledSample = FMath::Max(MaxScaledSample, ScaledSample);
 							}
 							if (MaxScaledSample > 0.001f)

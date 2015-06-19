@@ -31,7 +31,7 @@ EBTNodeResult::Type UBTTask_RunEQSQuery::ExecuteTask(UBehaviorTreeComponent& Own
 	QueryRequest.SetNamedParams(QueryParams);
 
 	FBTEnvQueryTaskMemory* MyMemory = (FBTEnvQueryTaskMemory*)NodeMemory;
-	MyMemory->RequestID = QueryRequest.Execute(EEnvQueryRunMode::SingleResult, this, &UBTTask_RunEQSQuery::OnQueryFinished);
+	MyMemory->RequestID = QueryRequest.Execute(RunMode, this, &UBTTask_RunEQSQuery::OnQueryFinished);
 
 	const bool bValid = (MyMemory->RequestID >= 0);
 	if (bValid)

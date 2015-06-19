@@ -7,6 +7,8 @@
 namespace physx
 {
 	class PxD6Joint;
+	class PxRigidActor;
+	class PxScene;
 }
 #endif // WITH_PHYSX
 
@@ -325,7 +327,7 @@ struct ENGINE_API FConstraintInstance
 	FQuat AngularPositionTarget_DEPRECATED;
 	
 	/** The way rotation paths are estimated */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (editcondition = "bAngularVelocityDrive"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor)
 	TEnumAsByte<enum EAngularDriveMode::Type> AngularDriveMode;
 
 	/** Target orientation for the angular drive. */
@@ -341,7 +343,7 @@ struct ENGINE_API FConstraintInstance
 	float AngularDriveSpring;
 
 	/** Damping value to apply to the for angular drive. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Angular Velocity Strength", editcondition = "bAngularVelocityDrive"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AngularMotor, meta = (DisplayName = "Angular Velocity Strength"))
 	float AngularDriveDamping;
 
 	/** Limit to the force the angular drive can apply. */
@@ -486,9 +488,27 @@ public:
 
 	void OnConstraintBroken();
 
+	void EnableProjection();
+
+	void DisableProjection();
+
 	//Hacks to easily get zeroed memory for special case when we don't use GC
 	static void Free(FConstraintInstance * Ptr);
 	static FConstraintInstance * Alloc();
+
+private:
+#if WITH_PHYSX 
+	bool CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene, const float Scale);
+	void UpdateConstraintFlags_AssumesLocked();
+	void UpdateAverageMass_AssumesLocked(const physx::PxRigidActor* PActor1, const physx::PxRigidActor* PActor2);
+	physx::PxD6Joint* GetUnbrokenJoint_AssumesLocked() const;
+
+	bool ExecuteOnUnbrokenJointReadOnly(TFunctionRef<void(const physx::PxD6Joint*)> Func) const;
+	bool ExecuteOnUnbrokenJointReadWrite(TFunctionRef<void(physx::PxD6Joint*)> Func) const;
+#endif
+
+	void UpdateBreakable();
+	void UpdateDriveTarget();
 };
 
 template<>

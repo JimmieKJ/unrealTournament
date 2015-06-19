@@ -14,9 +14,6 @@ namespace UnrealBuildTool
         [XmlConfig]
         public static string HTML5Architecture = "";
 
-        // Enable and link in code for serving HTTP request via NFS. 
-        [XmlConfig]
-        public static bool EnableHTTPForNFS = true;
 
         static private string TargetPlatformName = "HTML5";
 
@@ -345,22 +342,6 @@ namespace UnrealBuildTool
                     InModule.AddPublicDependencyModule("UEOgg");
                     InModule.AddPublicDependencyModule("Vorbis");
                 }
-
-                if (InModule.ToString() == "NetworkFile")
-                {
-                    if (EnableHTTPForNFS)
-                    {   
-                        InModule.AddPublicDefinition("ENABLE_HTTP_FOR_NFS=1");
-                        if (Target.Architecture == "-win32")
-                        {
-                            InModule.AddPrivateDependencyModule("HTML5Win32");
-                        }
-                        else
-                        {
-                            InModule.AddPrivateDependencyModule("HTML5JS");
-                        }
-                    }
-                }
             }
             else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Mac )
             {
@@ -371,26 +352,6 @@ namespace UnrealBuildTool
                     || UEBuildConfiguration.bForceBuildTargetPlatforms)
                 {
                     InModule.AddPlatformSpecificDynamicallyLoadedModule("HTML5TargetPlatform");
-                }
-
-                if (EnableHTTPForNFS && (Target.Platform == UnrealTargetPlatform.Win64  
-                                         || Target.Platform == UnrealTargetPlatform.Mac)
-                    )
-                {
-                    if (InModule.ToString() == "NetworkFile") // client
-                    {
-                        InModule.AddPrivateDependencyModule("HTTP");
-                        InModule.AddPublicDefinition("ENABLE_HTTP_FOR_NFS=1");
-                    }
-                    else if (InModule.ToString() == "NetworkFileSystem") // server 
-                    {
-                        if (UnrealBuildTool.RunningRocket() == false || 
-                            Target.Type == TargetRules.TargetType.Game )
-                        {
-                            InModule.AddPrivateDependencyModule("WebSockets");
-                            InModule.AddPublicDefinition("ENABLE_HTTP_FOR_NFS=1");
-                        }
-                    }
                 }
             }
         }

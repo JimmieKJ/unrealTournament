@@ -821,16 +821,16 @@ bool FGenericPlatformMisc::IsRunningOnBattery()
 FGuid FGenericPlatformMisc::GetMachineId()
 {
 	static FGuid MachineId;
-	FString MachineIdStr;
+	FString MachineIdString;
 
 	// Check to see if we already have a valid machine ID to use
-	if( !MachineId.IsValid() && (!FPlatformMisc::GetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "MachineId" ), MachineIdStr ) || !FGuid::Parse( MachineIdStr, MachineId )) )
+	if( !MachineId.IsValid() && (!FPlatformMisc::GetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "MachineId" ), MachineIdString ) || !FGuid::Parse( MachineIdString, MachineId )) )
 	{
 		// No valid machine ID, generate and save a new one
 		MachineId = FGuid::NewGuid();
-		MachineIdStr = MachineId.ToString( EGuidFormats::Digits );
+		MachineIdString = MachineId.ToString( EGuidFormats::Digits );
 
-		if( !FPlatformMisc::SetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "MachineId" ), MachineIdStr ) )
+		if( !FPlatformMisc::SetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "MachineId" ), MachineIdString ) )
 		{
 			// Failed to persist the machine ID - reset it to zero to avoid returning a transient value
 			MachineId = FGuid();
@@ -842,14 +842,19 @@ FGuid FGenericPlatformMisc::GetMachineId()
 
 FString FGenericPlatformMisc::GetEpicAccountId()
 {
-	FString EpicAccountId;
-	FPlatformMisc::GetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "AccountId" ), EpicAccountId );
-	return EpicAccountId;
+	FString AccountId;
+	FPlatformMisc::GetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "AccountId" ), AccountId );
+	return AccountId;
 }
 
 bool FGenericPlatformMisc::SetEpicAccountId( const FString& AccountId )
 {
 	return FPlatformMisc::SetStoredValue( TEXT( "Epic Games" ), TEXT( "Unreal Engine/Identifiers" ), TEXT( "AccountId" ), AccountId );
+}
+
+EConvertibleLaptopMode FGenericPlatformMisc::GetConvertibleLaptopMode()
+{
+	return EConvertibleLaptopMode::NotSupported;
 }
 
 const TCHAR* FGenericPlatformMisc::GetEngineMode()

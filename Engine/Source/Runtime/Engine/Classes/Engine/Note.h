@@ -33,7 +33,7 @@ public:
 
 #if WITH_EDITOR
 	// Begin AActor Interface
-	virtual void CheckForErrors();
+	virtual void CheckForErrors() override;
 	// End AActor Interface
 #endif
 

@@ -17,11 +17,11 @@ class ULevelStreamingPersistent : public ULevelStreaming
 
 
 	// Begin ULevelStreaming Interface
-	virtual bool ShouldBeLoaded() override
+	virtual bool ShouldBeLoaded() const override
 	{
 		return true;
 	}
-	virtual bool ShouldBeVisible() override
+	virtual bool ShouldBeVisible() const override
 	{
 		return true;
 	}

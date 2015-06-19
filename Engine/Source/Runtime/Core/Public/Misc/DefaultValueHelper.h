@@ -40,6 +40,7 @@ class CORE_API FDefaultValueHelper
 
 	/** return if the string can be parse to an int. OutBase is the base of the integer (8, 10, 16)*/
 	static bool IsStringValidInteger(const TCHAR* Start, const TCHAR* End, int32& OutBase);
+	static bool IsStringValidInteger(const TCHAR* Start, const TCHAR* End);
 
 public:
 
@@ -149,4 +150,15 @@ public:
 	 * @return true if the conversion happened, false otherwise
 	 */
 	static bool ParseLinearColor(const FString& Source, FLinearColor& OutVal);
+
+	/**
+	 * Converts a string into a FLinearColor. 
+	 * Accepted forms: " %d, %d, %d " or " %d, %d, %d, %d " (alpha is optional).
+	 *
+	 * @param Source the input string to try to convert
+	 * @param OutVal the output color
+	 *
+	 * @return true if the conversion happened, false otherwise
+	 */
+	static bool ParseColor(const FString& Source, FColor& OutVal);
 };

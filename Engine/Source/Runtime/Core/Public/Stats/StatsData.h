@@ -37,22 +37,25 @@ struct CORE_API FStatConstants
 	static const FString ThreadNameMarker;
 };
 
-template<>
-struct TTypeFromString<FName>
+namespace LexicalConversion
 {
-	static void FromString( FName& OutValue, const TCHAR* Buffer )
+	inline void FromString(FName& OutValue, const TCHAR* Buffer )
 	{
 		OutValue = FName( Buffer );
 	}
-};
+}
 
+/** Parse a typed value into the specified out parameter.
+ * 	Expects to find a FromString function that takes a reference to T. Defaults are provided in the LexicalConversion namespace.
+ */
 template <typename T>
 void ParseTypedValue( const TCHAR* Stream, const TCHAR* Match, T& Out )
 {
 	TCHAR Temp[64] = TEXT( "" );
 	if( FParse::Value( Stream, Match, Temp, ARRAY_COUNT( Temp ) ) )
 	{
-		TTypeFromString<T>::FromString( Out, Temp );
+		using namespace LexicalConversion;
+		FromString( Out, Temp );
 	}
 }
 
@@ -189,10 +192,15 @@ struct CORE_API FStatPacketArray
 		Empty();
 	}
 
+	/** Deletes all stats packets. */
 	void Empty();
+
+	void RemovePtrsButNoData()
+	{
+		Packets.Empty();
+	}
 };
 
-// @TODO yrx 2014-11-21 basic memory profiling?
 /**
 * A call stack of stat messages. Normally we don't store or transmit these; they are used for stats processing and visualization.
 */
@@ -388,9 +396,6 @@ protected:
 
 //@todo split header
 
-/** Delegate that FStatsThreadState calls on the stats thread whenever we have a new frame. */
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnNewFrameHistory, int64);
-
 /**
 * Some of the FStatsThreadState data methods allow filtering. Derive your filter from this class
 */
@@ -400,37 +405,9 @@ struct IItemFiler
 	virtual bool Keep(FStatMessage const& Item) = 0;
 };
 
-/** Simple allocation info, temporary. */
-struct FAllocationInfo
-{
-	int64 Size;
-	FName Scope;
-	FAllocationInfo(int64 InSize, FName InScope)
-		: Size(InSize)
-		, Scope(InScope)
-	{}
-	FAllocationInfo()
-		: Size(0)
-	{}
-};
 
-/** Simple allocation info, temporary. */
-struct FAllocationInfoEx
-{
-	int64 Size;
-	FName Scope;
-	int64 Cycles;
-	FAllocationInfoEx(int64 InSize, FName InScope, int64 InCycles)
-		: Size(InSize)
-		, Scope(InScope)
-		, Cycles(InCycles)
-	{}
-	FAllocationInfoEx()
-		: Size(0)
-		, Cycles(0)
-	{}
-};
 
+// @TODO yrx 2014-12-03 Separete stats thread state vs rawstats thread state?
 // @TODO yrx 2014-03-21 Move metadata functionality into a separate class
 /**
 * Tracks stat state and history
@@ -440,13 +417,21 @@ struct FAllocationInfoEx
 class CORE_API FStatsThreadState
 {
 	friend class FStatsThread;
+	friend struct FStatPacketArray;
 
-	/** Internal method to scan the messages to update the current frame **/
+	/** Delegate that FStatsThreadState calls on the stats thread whenever we have a new frame. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnNewFrameHistory, int64);
+
+	/** Delegate that FStatsThreadState calls on the stats thread whenever we have a new raw stats packet. */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnNewRawStatPacket, const FStatPacket*);
+
+	/** Internal method to scan the messages to update the current frame. */
 	void ScanForAdvance(const FStatMessagesArray& Data);
 
-	/** Internal method to scan the messages to update the current frame and accumulate any non-frame stats. **/
+	/** Internal method to scan the messages to update the current frame. */
 	void ScanForAdvance(FStatPacketArray& NewData);
 
+	// @TODO yrx 2014-11-28 Remove from here
 	/** Internal method to scan the messages to accumulate any non-frame stats. **/
 	void ProcessMetaDataForLoad(TArray<FStatMessage>& Data);
 
@@ -454,6 +439,7 @@ public:
 	/** Internal method to add meta data packets to the data structures. **/
 	void ProcessMetaDataOnly(TArray<FStatMessage>& Data);
 
+	// @TODO yrx 2014-11-28 Remove from here
 	/** Marks this stats state as loaded. */
 	void MarkAsLoaded()
 	{
@@ -463,12 +449,30 @@ public:
 	/** Toggles tracking the most memory expensive stats. */
 	void ToggleFindMemoryExtensiveStats();
 
+	void ResetStatsForRawStats()
+	{
+		MaxNumStatMessages = 0;
+		TotalNumStatMessages = 0;
+	}
+
 private:
-	/** Internal method to scan the messages to accumulate any non-frame stats. **/
+	/** Internal method to accumulate any non-frame stats. **/
 	void ProcessNonFrameStats(FStatMessagesArray& Data, TSet<FName>* NonFrameStatsFound);
 
 	/** Internal method to place the data into the history, discard and broadcast any new frames to anyone who cares. **/
 	void AddToHistoryAndEmpty(FStatPacketArray& NewData);
+
+	/** Does basic processing on the raw stats packets, discard and broadcast any new raw stats packets to anyone who cares. */
+	void ProcessRawStats(FStatPacketArray& NewData);
+
+	/** Resets the state of the raw stats. */
+	void ResetRawStats();
+
+	/** Reset the state of the regular stats. */
+	void ResetRegularStats();
+
+	/** Prepares fake FGameThreadHudData to display the raw stats memory overhead. */
+	void UpdateStatMessagesMemoryUsage();
 
 	/** Generates a list of most memory expensive stats and dump to the log. */
 	void FindAndDumpMemoryExtensiveStats( FStatPacketArray &Frame );
@@ -488,9 +492,11 @@ private:
 	/** Number of frames to keep in the history. **/
 	int32 HistoryFrames;
 
+	// @TODO yrx 2014-11-28 
 	/** Largest frame seen. Loaded stats only. **/
 	int64 MaxFrameSeen;
 
+	// @TODO yrx 2014-11-28 
 	/** First frame seen. Loaded stats only. **/
 	int64 MinFrameSeen;
 
@@ -500,20 +506,8 @@ private:
 	/** Used to track which packets have been sent to listeners **/
 	int64 LastFullFrameProcessed;
 
-	/** Valid frame computation is different if we just loaded these stats **/
-	bool bWasLoaded;
-
-	/** If true, stats each frame will dump to the log a list of most memory expensive stats. */
-	bool bFindMemoryExtensiveStats;
-
 	/** Cached condensed frames. This saves a lot of time since multiple listeners can use the same condensed data **/
 	mutable TMap<int64, TArray<FStatMessage>* > CondensedStackHistory;
-
-	/** Map from allocation pointer to allocation info, currently active allocations */
-	mutable TMap< uint64, FAllocationInfo > AllocationMap;
-
-	/** Map from allocation pointer to allocation info. */
-	mutable TMap< uint64, FAllocationInfoEx > NonSequentialAllocationMap;
 
 	/** After we add to the history, these frames are known good. **/
 	TSet<int64>	GoodFrames;
@@ -521,17 +515,39 @@ private:
 	/** These frames are known bad. **/
 	TSet<int64>	BadFrames;
 
+	/** Array of stat packets that are not processed yet. */
+	FStatPacketArray StartupRawStats;
+
+	/** Total number of stats messages for active session. */
+	int64 TotalNumStatMessages;
+
+	/** Current number of stat messages stored by stats thread and ready to be processed (for visualization, for saving). */
+	FThreadSafeCounter NumStatMessages;
+
+	/** Maximum number of stat messages seen so far for active session. */
+	int32 MaxNumStatMessages;
+
+	// @TODO yrx 2014-11-28 
+	/** Valid frame computation is different if we just loaded these stats **/
+	bool bWasLoaded;
+
+	/** If true, stats each frame will dump to the log a list of most memory expensive stats. */
+	bool bFindMemoryExtensiveStats;
+
 public:
 
 	/** Constructor used by GetLocalState(), also used by the profiler to hold a previewing stats thread state. We don't keep many frames by default **/
 	FStatsThreadState(int32 InHistoryFrames = STAT_FRAME_SLOP + 2);
 
+	// @TODO yrx 2014-11-28 
 	/** Constructor to load stats from a file **/
 	FStatsThreadState(FString const& Filename);
 
 	/** Delegate we fire every time we have a new complete frame of data. **/
-	// @TODO yrx 2014-03-21 Not thread-safe ?
 	mutable FOnNewFrameHistory NewFrameDelegate;
+
+	/** Delegate we fire every time we have a new raw stats packet, the data is no longer valid outside the broadcast. */
+	mutable FOnNewRawStatPacket NewRawStatPacket;
 
 	/** New packets not on the render thread as assign this frame **/
 	int64 CurrentGameFrame;
@@ -569,17 +585,6 @@ public:
 		return GoodFrames.Contains(Frame);
 	}
 
-	/** Gets allocations map. */
-	const TMap< uint64, FAllocationInfo >& GetAllocations() const 
-	{ 
-		return AllocationMap; 
-	}
-
-	const TMap< uint64, FAllocationInfoEx >& GetNonSequentialAllocations() const 
-	{ 
-		return NonSequentialAllocationMap; 
-	}
-
 	/** Used by the hitch detector. Does a very fast look a thread to decide if this is a hitch frame. **/
 	int64 GetFastThreadFrameTime(int64 TargetFrame, EThreadType::Type Thread) const;
 	int64 GetFastThreadFrameTime(int64 TargetFrame, uint32 ThreadID) const;
@@ -610,10 +615,11 @@ public:
 	/** Adds missing stats to the group so it doesn't jitter. **/
 	void AddMissingStats(TArray<FStatMessage>& Dest, TSet<FName> const& EnabledItems) const;
 
+	// @TODO yrx 2014-11-28 REmove from here, it's file related.
 	/** Adds a frame worth of messages */
 	void AddMessages(TArray<FStatMessage>& InMessages);
 
-	/** Singleton to get the stats being collected by this executable **/
+	/** Singleton to get the stats being collected by this executable. Can be only accessed from the stats thread. **/
 	static FStatsThreadState& GetLocalState();
 };
 
@@ -817,11 +823,19 @@ struct FHudGroup
 */
 struct FGameThreadHudData
 {
+	/** Initialization constructor. */
+	FGameThreadHudData( bool bInDrawOnlyRawStats )
+		: bDrawOnlyRawStats(bInDrawOnlyRawStats)
+	{}
+
 	TIndirectArray<FHudGroup> HudGroups;
 	TArray<FName> GroupNames;
 	TArray<FString> GroupDescriptions;
 	TMap<FPlatformMemory::EMemoryCounterRegion, int64> PoolCapacity;
 	TMap<FPlatformMemory::EMemoryCounterRegion, FString> PoolAbbreviation;
+
+	/** Whether to display minimal stats for the raw stats mode. */
+	const bool bDrawOnlyRawStats;
 };
 
 /**

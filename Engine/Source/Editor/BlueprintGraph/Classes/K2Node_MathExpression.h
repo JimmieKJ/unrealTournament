@@ -38,10 +38,13 @@ public:
 	// End of UEdGraphNode interface
 
 	// UK2Node interface
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	// End of UK2Node interface
+
+	// Begin UK2Node_EditablePinBase interface
+	virtual bool CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage) override { return false; }
+	// End UK2Node_EditablePinBase interface
 
 private:
 	/**
@@ -59,12 +62,20 @@ private:
 	*/
 	void ClearExpression();
 
+	/** Sanitizes an expression for display, removing outermost parentheses */
+	FString SanitizeDisplayExpression(FString InExpression) const;
+
+	/** Helper function to build the node's full title */
+	FText GetFullTitle(FText InExpression) const;
 private:
 	/** Cached so we don't have to regenerate it when the graph is recompiled */
 	TSharedPtr<class FCompilerResultsLog> CachedMessageLog;
 
 	/** Constructing FText strings can be costly, so we cache the node's title */
 	FNodeTextCache CachedNodeTitle;
+
+	/** Constructing the display string for a Math Expression is costly, so we cache it */
+	FNodeTextCache CachedDisplayExpression;
 };
 
 

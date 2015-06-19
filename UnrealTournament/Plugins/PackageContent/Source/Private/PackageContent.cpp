@@ -12,6 +12,7 @@
 #include "SHyperlink.h"
 #include "UTUnrealEdEngine.h"
 #include "ITargetPlatformManagerModule.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 #define LOCTEXT_NAMESPACE "PackageContent"
 
@@ -83,7 +84,7 @@ public:
 						SNew(SHyperlink)
 						.OnNavigate(this, &SPackageCompleteChoiceDialog::HandleFilePathHyperlinkNaviate)
 						.Text(FilePathLinkText)
-						.ToolTipText(FilePath)
+						.ToolTipText(FText::FromString(FilePath))
 					]
 
 					+ SHorizontalBox::Slot()
@@ -388,11 +389,11 @@ public:
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
 #if PLATFORM_WINDOWS
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Win64"), *DLCName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Win64 -version=%d"), *DLCName, ENGINE_VERSION);
 #elif PLATFORM_LINUX
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Linux"), *DLCName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Linux -version=%d"), *DLCName, ENGINE_VERSION);
 #else
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Mac"), *DLCName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -skipcook -DLCName=%s -platform=Mac -version=%d"), *DLCName, ENGINE_VERSION);
 #endif
 		
 		PackageContent->CreateUATTask(CommandLine, DLCName, LOCTEXT("CookingTaskName", "Publishing"), LOCTEXT("CookingTaskName", "Publishing"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
@@ -714,11 +715,11 @@ void FPackageContent::PackageDLC(const FString& DLCName, const FText& TaskName, 
 	else
 	{
 #if PLATFORM_WINDOWS
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64"), *DLCName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Win64 -version=%d"), *DLCName, ENGINE_VERSION);
 #elif PLATFORM_LINUX
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux"), *DLCName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Linux -version=%d"), *DLCName, ENGINE_VERSION);
 #else
-		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac"), *DLCName);
+		FString CommandLine = FString::Printf(TEXT("makeUTDLC -DLCName=%s -platform=Mac -version=%d"), *DLCName, ENGINE_VERSION);
 #endif
 
 		CreateUATTask(CommandLine, DLCName, TaskName, TaskShortName, FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));

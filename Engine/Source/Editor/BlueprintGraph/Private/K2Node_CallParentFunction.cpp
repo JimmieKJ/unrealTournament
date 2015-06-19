@@ -15,16 +15,20 @@ UK2Node_CallParentFunction::UK2Node_CallParentFunction(const FObjectInitializer&
 
 FText UK2Node_CallParentFunction::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	UFunction* Function = FunctionReference.ResolveMember<UFunction>(this);
-	FString FunctionName = Function ? GetUserFacingFunctionName( Function ) : FunctionReference.GetMemberName().ToString();
+	UFunction* Function = FunctionReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
+	FText FunctionName;
 
-	if( GEditor && GetDefault<UEditorStyleSettings>()->bShowFriendlyNames )
+	if (Function)
 	{
-		FunctionName = FName::NameToDisplayString(FunctionName, false);
+		FunctionName = GetUserFacingFunctionName( Function );
+	}
+	else if ( GEditor && GetDefault<UEditorStyleSettings>()->bShowFriendlyNames )
+	{
+		FunctionName = FText::FromString(FName::NameToDisplayString(FunctionReference.GetMemberName().ToString(), false));
 	}
 
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("FunctionName"),  FText::FromString( FunctionName ));
+	Args.Add(TEXT("FunctionName"), FunctionName);
 	return FText::Format( LOCTEXT( "CallSuperFunction", "Parent: {FunctionName}" ), Args);
 }
 

@@ -87,16 +87,16 @@ UBlueprintDelegateNodeSpawner* UBlueprintDelegateNodeSpawner::Create(TSubclassOf
 
 	auto SetDelegateLambda = [](UEdGraphNode* NewNode, UField const* Field)
 	{
-		UMulticastDelegateProperty const* Property = Cast<UMulticastDelegateProperty>(Field);
+		UMulticastDelegateProperty const* MCDProperty = Cast<UMulticastDelegateProperty>(Field);
 
 		UK2Node_BaseMCDelegate* DelegateNode = Cast<UK2Node_BaseMCDelegate>(NewNode);
-		if ((DelegateNode != nullptr) && (Property != nullptr))
+		if ((DelegateNode != nullptr) && (MCDProperty != nullptr))
 		{
 			UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNodeChecked(NewNode);
-			UClass* OwnerClass = Property->GetOwnerClass();
+			UClass* OwnerClass = MCDProperty->GetOwnerClass();
 			bool const bIsSelfContext = Blueprint->SkeletonGeneratedClass->IsChildOf(OwnerClass);
 
-			DelegateNode->SetFromProperty(Property, bIsSelfContext);
+			DelegateNode->SetFromProperty(MCDProperty, bIsSelfContext);
 		}
 	};
 	NodeSpawner->SetNodeFieldDelegate = FSetNodeFieldDelegate::CreateStatic(SetDelegateLambda);

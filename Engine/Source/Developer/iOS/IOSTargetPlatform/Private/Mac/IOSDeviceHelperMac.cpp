@@ -113,8 +113,8 @@ public:
     bool Connect()
     {
         bool Result = false;
-		int LogLevel = 7;
-		CFPreferencesSetAppValue(CFSTR("LogLevel"), CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &LogLevel), CFSTR("com.apple.MobileDevice"));
+		int AppLogLevel = 7;
+		CFPreferencesSetAppValue(CFSTR("LogLevel"), CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &AppLogLevel), CFSTR("com.apple.MobileDevice"));
 
 		// connect to the device
         int32 rc = AMDeviceConnect(DeviceHandle);

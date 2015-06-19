@@ -19,3 +19,8 @@ FStringClassReference UAISystemBase::GetAISystemClassName()
 	UAISystemBase* AISystemDefaultObject = Cast<UAISystemBase>(StaticClass()->GetDefaultObject());
 	return AISystemDefaultObject != NULL ? AISystemDefaultObject->AISystemClassName : FStringClassReference();
 }
+
+void UAISystemBase::StartPlay()
+{
+
+}

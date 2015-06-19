@@ -506,7 +506,7 @@ namespace UnrealBuildTool
 				if (CompileEnvironment.Config.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
 					// Generate a CPP File that just includes the precompiled header.
-					string PCHCPPFilename = "PCH." + ModuleName + "." + Path.GetFileName(CompileEnvironment.Config.PrecompiledHeaderIncludeFilename) + ".cpp";
+					string PCHCPPFilename = "PCH." + Path.GetFileName(CompileEnvironment.Config.PrecompiledHeaderIncludeFilename) + ".cpp";
 					string PCHCPPPath = Path.Combine(CompileEnvironment.Config.OutputDirectory, PCHCPPFilename);
 					FileItem PCHCPPFile = FileItem.CreateIntermediateTextFile(
 						PCHCPPPath,
@@ -645,7 +645,6 @@ namespace UnrealBuildTool
 
 				CompileAction.WorkingDirectory = Path.GetFullPath(".");
 				CompileAction.CommandPath = GetVCToolPath(CompileEnvironment.Config.Target.Platform, CompileEnvironment.Config.Target.Configuration, "cl");
-				CompileAction.bIsVCCompiler = true;
 				CompileAction.CommandArguments = Arguments + FileArguments + CompileEnvironment.Config.AdditionalArguments;
 				CompileAction.StatusDescription = string.Format("{0}", Path.GetFileName(SourceFile.AbsolutePath));
 
@@ -796,9 +795,10 @@ namespace UnrealBuildTool
 
 			if (!bIsBuildingLibrary)
 			{
-				// Xbox 360 LTCG does not seem to produce those.
-				if (LinkEnvironment.Config.bHasExports &&
-					(LinkEnvironment.Config.Target.Configuration != CPPTargetConfiguration.Shipping))
+				// There is anything to export
+				if (LinkEnvironment.Config.bHasExports
+					// Shipping monolithic builds don't need exports
+					&& (!((LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping) && (LinkEnvironment.bShouldCompileMonolithic != false))))
 				{
 					// Write the import library to the output directory for nFringe support.
 					FileItem ImportLibraryFile = FileItem.GetItemByPath(ImportLibraryFilePath);

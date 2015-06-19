@@ -30,23 +30,17 @@ public:
 	
 	TSharedPtr<FUICommandInfo> SetShowSockets;
 
-	TSharedPtr<FUICommandInfo> SetShowNormals;
 	TSharedPtr<FUICommandInfo> SetShowPivot;
 	TSharedPtr<FUICommandInfo> SetShowMeshEdges;
+
+	// Source region edit mode
+	TSharedPtr<FUICommandInfo> ExtractSprites;
+	TSharedPtr<FUICommandInfo> ToggleShowRelatedSprites;
+	TSharedPtr<FUICommandInfo> ToggleShowSpriteNames;
 
 	// Editing modes
 	TSharedPtr<FUICommandInfo> EnterViewMode;
 	TSharedPtr<FUICommandInfo> EnterSourceRegionEditMode;
 	TSharedPtr<FUICommandInfo> EnterCollisionEditMode;
 	TSharedPtr<FUICommandInfo> EnterRenderingEditMode;
-	TSharedPtr<FUICommandInfo> EnterAddSpriteMode;
-
-	// Misc. actions
-	TSharedPtr<FUICommandInfo> FocusOnSprite;
-
-	// Geometry editing commands
-	TSharedPtr<FUICommandInfo> DeleteSelection;
-	TSharedPtr<FUICommandInfo> SplitEdge;
-	TSharedPtr<FUICommandInfo> ToggleAddPolygonMode;
-	TSharedPtr<FUICommandInfo> SnapAllVertices;
 };

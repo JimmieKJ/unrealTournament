@@ -209,7 +209,7 @@ void UFont::GetCharSize(TCHAR InCh, float& Width, float& Height) const
 			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
 
 			const FCharacterEntry& Entry = CharacterList[InCh];
-			Width = Entry.HorizontalOffset + Entry.XAdvance;
+			Width = Entry.XAdvance;
 
 			// The height of the character will always be the maximum height of any character in this font
 			Height = CharacterList.GetMaxHeight();
@@ -245,6 +245,23 @@ int8 UFont::GetCharKerning(TCHAR First, TCHAR Second) const
 
 	default:
 		break;
+	}
+
+	return 0;
+}
+
+int16 UFont::GetCharHorizontalOffset(TCHAR InCh) const
+{
+	if(FontCacheType == EFontCacheType::Runtime)
+	{
+		TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
+	
+		const float FontScale = 1.0f;
+		const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
+		FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+
+		const FCharacterEntry& Entry = CharacterList[InCh];
+		return Entry.HorizontalOffset;
 	}
 
 	return 0;
@@ -324,7 +341,7 @@ void UFont::GetStringHeightAndWidth( const TCHAR *Text, int32& Height, int32& Wi
 		}
 
 		TotalWidth += TmpWidth + CharKerning;
-		TotalHeight += TmpHeight;
+		TotalHeight = FMath::Max( TotalHeight, TmpHeight );
 
 		PrevChar = Text++;
 	}

@@ -83,41 +83,17 @@ int32 UGenerateTextLocalizationReportCommandlet::Main(const FString& Params)
 	bool bConflictReport = false;
 	
 	// Get source path.
-	if( !( GetConfigString( *SectionName, TEXT("SourcePath"), SourcePath, GatherTextConfigPath ) ) )
+	if( !( GetPathFromConfig( *SectionName, TEXT("SourcePath"), SourcePath, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No source path specified."));
 		return -1;
 	}
 
-	if (FPaths::IsRelative(SourcePath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			SourcePath = FPaths::Combine( *( FPaths::GameDir() ), *SourcePath );
-		}
-		else
-		{
-			SourcePath = FPaths::Combine( *( FPaths::EngineDir() ), *SourcePath );
-		}
-	}
-
 	// Get destination path.
-	if( !( GetConfigString( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) ) )
+	if( !( GetPathFromConfig( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No destination path specified."));
 		return -1;
-	}
-
-	if (FPaths::IsRelative(DestinationPath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::GameDir() ), *DestinationPath );
-		}
-		else
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::EngineDir() ), *DestinationPath );
-		}
 	}
 
 	// Get the timestamp from the commandline, if not provided we will use the current time.
@@ -127,8 +103,8 @@ int32 UGenerateTextLocalizationReportCommandlet::Main(const FString& Params)
 		CmdlineTimeStamp = *TimeStampParamVal;
 	}
 
-	GetConfigBool( *SectionName, TEXT("bWordCountReport"), bWordCountReport, GatherTextConfigPath );
-	GetConfigBool( *SectionName, TEXT("bConflictReport"), bConflictReport, GatherTextConfigPath );
+	GetBoolFromConfig( *SectionName, TEXT("bWordCountReport"), bWordCountReport, GatherTextConfigPath );
+	GetBoolFromConfig( *SectionName, TEXT("bConflictReport"), bConflictReport, GatherTextConfigPath );
 
 
 	if( bWordCountReport )
@@ -162,27 +138,21 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 	TimeStamp = (CmdlineTimeStamp.IsEmpty()) ? *FDateTime::Now().ToString() : CmdlineTimeStamp;
 
 	// Get manifest name.
-	if( !( GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) ) )
+	if( !( GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No manifest name specified."));
 		return false;
 	}
 
 	// Get report name.
-	if( !( GetConfigString( *SectionName, TEXT("WordCountReportName"), WordCountReportName, GatherTextConfigPath ) ) )
+	if( !( GetStringFromConfig( *SectionName, TEXT("WordCountReportName"), WordCountReportName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No word count report name specified."));
 		return false;
 	}
 
 	// Get cultures to generate.
-	GetConfigArray( *SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath );
-
-	if( CulturesToGenerate.Num() == 0 )
-	{
-		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No cultures specified for generation."));
-		return false;
-	}
+	GetStringArrayFromConfig( *SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath );
 
 	for(int32 i = 0; i < CulturesToGenerate.Num(); ++i)
 	{
@@ -364,6 +334,15 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessWordCountReport(const FSt
 		ReportData.SetEntry(NewRowIndex, CultureStr, FString::FromInt( TranslatedWords ) );
 	}
 
+	if( SourceControlInfo.IsValid() )
+	{
+		FText SCCErrorText;
+		if (!SourceControlInfo->CheckOutFile(ReportFilePath, SCCErrorText))
+		{
+			UE_LOG(LogGenerateTextLocalizationReportCommandlet, Warning, TEXT("Check out of file %s failed: %s"), *ReportFilePath, *SCCErrorText.ToString());
+		}
+	}
+
 	if ( !FFileHelper::SaveStringToFile( ReportData.ToCSV(), *ReportFilePath ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("Unable to save report at %s."), *ReportFilePath);
@@ -381,7 +360,7 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessConflictReport(const FStr
 	TimeStamp = (CmdlineTimeStamp.IsEmpty()) ? *FDateTime::Now().ToString() : CmdlineTimeStamp;
 
 	// Get report name.
-	if( !( GetConfigString( *SectionName, TEXT("ConflictReportName"), ConflictReportName, GatherTextConfigPath ) ) )
+	if( !( GetStringFromConfig( *SectionName, TEXT("ConflictReportName"), ConflictReportName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateTextLocalizationReportCommandlet, Error, TEXT("No conflict report name specified."));
 		return false;
@@ -391,6 +370,15 @@ bool UGenerateTextLocalizationReportCommandlet::ProcessConflictReport(const FStr
 	FString ReportFilePath = (DestinationPath / ConflictReportName);
 
 	ReportStr = FConflictReportInfo::GetInstance().ToString();
+
+	if( SourceControlInfo.IsValid() )
+	{
+		FText SCCErrorText;
+		if (!SourceControlInfo->CheckOutFile(ReportFilePath, SCCErrorText))
+		{
+			UE_LOG(LogGenerateTextLocalizationReportCommandlet, Warning, TEXT("Check out of file %s failed: %s"), *ReportFilePath, *SCCErrorText.ToString());
+		}
+	}
 
 	if ( !FFileHelper::SaveStringToFile( ReportStr, *ReportFilePath ) )
 	{

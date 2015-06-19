@@ -17,6 +17,8 @@ UTextureCube::UTextureCube(const FObjectInitializer& ObjectInitializer)
 
 void UTextureCube::Serialize(FArchive& Ar)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("UTextureCube::Serialize"), STAT_TextureCube_Serialize, STATGROUP_LoadTime);
+
 	Super::Serialize(Ar);
 
 	FStripDataFlags StripFlags(Ar);
@@ -57,6 +59,7 @@ void UTextureCube::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) cons
 
 	const FString Dimensions = FString::Printf(TEXT("%dx%d"), SizeX, SizeY);
 	OutTags.Add( FAssetRegistryTag("Dimensions", Dimensions, FAssetRegistryTag::TT_Dimensional) );
+	OutTags.Add( FAssetRegistryTag("Format", GPixelFormats[GetPixelFormat()].Name, FAssetRegistryTag::TT_Alphabetical) );
 
 	Super::GetAssetRegistryTags(OutTags);
 }
@@ -225,7 +228,7 @@ public:
 		// Create the sampler state RHI resource.
 		FSamplerStateInitializerRHI SamplerStateInitializer
 		(
-			GSystemSettings.TextureLODSettings.GetSamplerFilter( Owner ),
+			(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter( Owner ),
 			AM_Clamp,
 			AM_Clamp,
 			AM_Clamp
@@ -247,13 +250,13 @@ public:
 	}
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return Owner->GetSizeX();
 	}
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const
+	virtual uint32 GetSizeY() const override
 	{
 		return Owner->GetSizeY();
 	}

@@ -163,6 +163,7 @@ struct LANDSCAPE_API FLandscapeEditDataInterface
 	void CopyTextureChannel(UTexture2D* Dest, int32 DestChannel, UTexture2D* Src, int32 SrcChannel);
 	void ZeroTextureChannel(UTexture2D* Dest, int32 DestChannel);
 	void CopyTextureFromHeightmap(UTexture2D* Dest, int32 DestChannel, ULandscapeComponent* Comp, int32 SrcChannel);
+	void CopyTextureFromWeightmap(UTexture2D* Dest, int32 DestChannel, ULandscapeComponent* Comp, ULandscapeLayerInfoObject* LayerInfo);
 
 	template<typename TData>
 	void SetTextureValueTempl(UTexture2D* Dest, TData Value);

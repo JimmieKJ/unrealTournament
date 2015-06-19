@@ -79,7 +79,8 @@ protected:
 	TArray<AActor*> PendingJumpActors;
 
 	/** Event when this actor overlaps another actor. */
-	virtual void ReceiveActorBeginOverlap(class AActor* OtherActor);
+	UFUNCTION()
+	virtual void TriggerBeginOverlap(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
 

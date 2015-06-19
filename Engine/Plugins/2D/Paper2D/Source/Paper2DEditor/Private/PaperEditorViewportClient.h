@@ -3,6 +3,7 @@
 #pragma once
 
 #include "SceneViewport.h"
+#include "AssetEditorModeManager.h"
 
 struct FViewportSelectionRectangle
 {
@@ -12,39 +13,17 @@ struct FViewportSelectionRectangle
 };
 
 //////////////////////////////////////////////////////////////////////////
-// FAssetEditorModeTools
-
-class FAssetEditorModeTools : public FEditorModeTools
-{
-public:
-	FAssetEditorModeTools();
-	virtual ~FAssetEditorModeTools();
-
-	// FEditorModeTools interface
-	virtual class USelection* GetSelectedActors() const override;
-	virtual class USelection* GetSelectedObjects() const override;
-	virtual UWorld* GetWorld() const override;
-	// End of FEditorModeTools interface
-
-	void SetPreviewScene(class FPreviewScene* NewPreviewScene);
-protected:
-	class USelection* ActorSet;
-	class USelection* ObjectSet;
-	class FPreviewScene* PreviewScene;
-};
-
-//////////////////////////////////////////////////////////////////////////
 // FPaperEditorViewportClient
 
 class FPaperEditorViewportClient : public FEditorViewportClient
 {
 public:
 	/** Constructor */
-	FPaperEditorViewportClient();
+	explicit FPaperEditorViewportClient(const TWeakPtr<class SEditorViewport>& InEditorViewportWidget = nullptr);
 	~FPaperEditorViewportClient();
 
 	// FViewportClient interface
-	virtual void Draw(FViewport* Viewport, FCanvas* Canvas) override;
+	virtual void Tick(float DeltaSeconds) override;
 	// End of FViewportClient interface
 
 	// FEditorViewportClient interface
@@ -54,6 +33,9 @@ public:
 	// FSerializableObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	// End of FSerializableObject interface
+
+	// Called to request a focus on the current selection
+	virtual void RequestFocusOnSelection(bool bInstant);
 
 	/** Modifies the checkerboard texture's data */
 	void ModifyCheckerboardTextureColors();
@@ -76,9 +58,19 @@ private:
 protected:
 	void DrawSelectionRectangles(FViewport* Viewport, FCanvas* Canvas);
 
+	virtual FBox GetDesiredFocusBounds() const
+	{
+		return FBox(ForceInitToZero);
+	}
+
 protected:
 	/** Checkerboard texture */
 	UTexture2D* CheckerboardTexture;
 	FVector2D ZoomPos;
 	float ZoomAmount;
+
+private:
+	// Should we zoom to the focus bounds next tick?
+	bool bDeferZoomToSprite;
+	bool bDeferZoomToSpriteIsInstant;
 };

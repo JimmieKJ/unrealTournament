@@ -53,6 +53,15 @@ AIPerception::FListenerMap* UAISense::GetListeners()
 	return &(PerceptionSystemInstance->GetListenersMap());
 }
 
+void UAISense::OnNewPawn(APawn& NewPawn)
+{
+	if (WantsNewPawnNotification())
+	{
+		UE_VLOG(GetPerceptionSystem(), LogAIPerception, Warning
+			, TEXT("%s declars it needs New Pawn notification but does not override OnNewPawn"), *GetName());		
+	}		
+}
+
 void UAISense::SetSenseID(FAISenseID Index)
 {
 	check(Index != FAISenseID::InvalidID());
@@ -81,7 +90,7 @@ FAISenseID UAISense::UpdateSenseID()
 
 void UAISense::RegisterWrappedEvent(UAISenseEvent& PerceptionEvent)
 {
-	UE_VLOG(this, LogAIPerception, Error, TEXT("%s did not override UAISense::RegisterWrappedEvent!"), *GetName());
+	UE_VLOG(GetPerceptionSystem(), LogAIPerception, Error, TEXT("%s did not override UAISense::RegisterWrappedEvent!"), *GetName());
 }
 
 #if !UE_BUILD_SHIPPING

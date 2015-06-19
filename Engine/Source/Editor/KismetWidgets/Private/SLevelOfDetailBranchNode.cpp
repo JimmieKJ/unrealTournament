@@ -21,7 +21,7 @@ void SLevelOfDetailBranchNode::Construct(const FArguments& InArgs)
 	ChildSlot[ChildSlotHighDetail];
 }
 
-void SLevelOfDetailBranchNode::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SLevelOfDetailBranchNode::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	const int32 CurrentValue = ShowLowDetailAttr.Get() ? 1 : 0;
 	if (CurrentValue != LastCachedValue)
@@ -32,6 +32,4 @@ void SLevelOfDetailBranchNode::Tick(const FGeometry& AllottedGeometry, const dou
 			(CurrentValue != 0) ? ChildSlotLowDetail : ChildSlotHighDetail
 		];
 	}
-
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }

@@ -25,19 +25,40 @@ public:
 	TSharedPtr< FUICommandInfo > ToggleIsSnapEnabled;
 
 	/** Toggles whether or not keys should snap to the selected interval. */
-	TSharedPtr< FUICommandInfo > ToggleSnapKeysToInterval;
+	TSharedPtr< FUICommandInfo > ToggleSnapKeyTimesToInterval;
 
 	/** Toggles whether or not keys should snap to other keys in the section. */
-	TSharedPtr< FUICommandInfo > ToggleSnapKeysToKeys;
+	TSharedPtr< FUICommandInfo > ToggleSnapKeyTimesToKeys;
 
 	/** Toggles whether or not sections should snap to the selected interval. */
-	TSharedPtr< FUICommandInfo > ToggleSnapSectionsToInterval;
+	TSharedPtr< FUICommandInfo > ToggleSnapSectionTimesToInterval;
 
 	/** Toggles whether or not sections should snap to other sections. */
-	TSharedPtr< FUICommandInfo > ToggleSnapSectionsToSections;
+	TSharedPtr< FUICommandInfo > ToggleSnapSectionTimesToSections;
 
 	/** Toggles whether or not the play time should snap to the selected interval. */
 	TSharedPtr< FUICommandInfo > ToggleSnapPlayTimeToInterval;
+
+	/** Toggles whether or not to snap curve values to the interval. */
+	TSharedPtr< FUICommandInfo > ToggleSnapCurveValueToInterval;
+
+	/** Toggles whether the "clean view" is enabled in the level editor. */
+	TSharedPtr< FUICommandInfo > ToggleCleanView;
+
+	/** Toggles whether or not the curve editor should be shown. */
+	TSharedPtr< FUICommandInfo > ToggleShowCurveEditor;
+
+	/** Toggles whether or not to show tool tips for the curves in the curve editor. */
+	TSharedPtr< FUICommandInfo > ToggleShowCurveEditorCurveToolTips;
+
+	/** Sets the curve visibility to all curves. */
+	TSharedPtr< FUICommandInfo > SetAllCurveVisibility;
+
+	/** Sets the curve visibility to the selected curves. */
+	TSharedPtr< FUICommandInfo > SetSelectedCurveVisibility;
+
+	/** Sets the curve visibility to the animated curves. */
+	TSharedPtr< FUICommandInfo > SetAnimatedCurveVisibility;
 
 	/**
 	 * Initialize commands

@@ -159,54 +159,13 @@ public:
 	static const FName MD_DynamicOutputType;
 	/** Metadata that flags the function output param that will be controlled by the "MD_DynamicOutputType" pin */
 	static const FName MD_DynamicOutputParam;
+
+	static const FName MD_ArrayParam;
+	static const FName MD_ArrayDependentParam;
 	
 private:
 	// This class should never be instantiated
 	FBlueprintMetadata() {}
-};
-
-/** Information about what we want to call this function on */
-struct FFunctionTargetInfo
-{
-	enum EFunctionTarget
-	{
-		EFT_Default, // Just call function on target object
-		EFT_Actor, // Create an Actor node and wire to target
-		EFT_Component // Create a component variable ref node and wire to target
-	};
-
-	/** What kind of call function action are we creating */
-	EFunctionTarget FunctionTarget;
-
-	/** If CFO_Actor, call on these Actors. */
-	TArray< TWeakObjectPtr<AActor> > Actors;
-
-	/** If CFO_Component, call on this component variable of blueprint */
-	FName ComponentPropertyName;
-
-	// Constructor
-	FFunctionTargetInfo()
-		: FunctionTarget(EFT_Default)
-		, ComponentPropertyName(NAME_None)
-	{}
-
-	FFunctionTargetInfo(TArray<AActor*>& InActors)
-		: FunctionTarget(EFT_Actor)
-		, ComponentPropertyName(NAME_None)
-	{
-		for ( int32 ActorIndex = 0; ActorIndex < InActors.Num(); ActorIndex++ )
-		{
-			if ( InActors[ActorIndex] != NULL )
-			{
-				Actors.Add( TWeakObjectPtr<AActor>( InActors[ActorIndex] ) );
-			}
-		}
-	}
-
-	FFunctionTargetInfo( FName InComponentPropertyName )
-		: FunctionTarget(EFT_Component)
-		, ComponentPropertyName(InComponentPropertyName)
-	{}
 };
 
 USTRUCT()
@@ -304,6 +263,9 @@ class BLUEPRINTGRAPH_API UEdGraphSchema_K2 : public UEdGraphSchema
 	// Somewhat hacky mechanism to prevent tooltips created for pins from including the display name and type when generating BP API documentation
 	static bool bGeneratingDocumentation;
 
+	// ID for checking dirty status of node titles against, increases every compile
+	static int32 CurrentCacheRefreshID;
+
 	UPROPERTY(globalconfig)
 	TArray<FBlueprintCallableFunctionRedirect> EditoronlyBPFunctionRedirects;
 
@@ -382,7 +344,6 @@ public:
 
 public:
 	// Begin EdGraphSchema Interface
-	virtual void GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual void GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, class FMenuBuilder* MenuBuilder, bool bIsDebugging) const override;
 	virtual const FPinConnectionResponse CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const override;
 	virtual bool TryCreateConnection(UEdGraphPin* A, UEdGraphPin* B) const override;
@@ -421,8 +382,15 @@ public:
 	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateDocumentNodeAction() const override;
 	virtual bool FadeNodeWhenDraggingOffPin(const UEdGraphNode* Node, const UEdGraphPin* Pin) const override;
 	virtual void BackwardCompatibilityNodeConversion(UEdGraph* Graph, bool bOnlySafeChanges) const override;
+	virtual bool ShouldAlwaysPurgeOnModification() const override { return false; }
 	virtual void SplitPin(UEdGraphPin* Pin) const override;
 	virtual void RecombinePin(UEdGraphPin* Pin) const override;
+	virtual void OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphPin* PinB, const FVector2D& GraphPosition) const override;
+	virtual UEdGraphPin* DropPinOnNode(UEdGraphNode* InTargetNode, const FString& InSourcePinName, const FEdGraphPinType& InSourcePinType, EEdGraphPinDirection InSourcePinDirection) const override;
+	virtual bool SupportsDropPinOnNode(UEdGraphNode* InTargetNode, const FEdGraphPinType& InSourcePinType, EEdGraphPinDirection InSourcePinDirection, FText& OutErrorMessage) const override;
+	virtual bool IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const override;
+	virtual int32 GetCurrentVisualizationCacheID() const override;
+	virtual void ForceVisualizationCacheClear() const override;
 	// End EdGraphSchema Interface
 
 	/**
@@ -681,6 +649,9 @@ public:
 	/** Can this function be called by kismet code */
 	static bool CanUserKismetCallFunction(const UFunction* Function);
 
+	/** Returns if hunction has output parameter(s) */
+	static bool HasFunctionAnyOutputParameter(const UFunction* Function);
+
 	enum EDelegateFilterMode
 	{
 		CannotBeDelegate,
@@ -695,7 +666,7 @@ public:
 	static bool CanKismetOverrideFunction(const UFunction* Function);
 
 	/** returns friendly signature name if possible or Removes any mangling to get the unmangled signature name of the function */
-	static FString GetFriendlySignatureName(const UFunction* Function);
+	static FText GetFriendlySignatureName(const UFunction* Function);
 
 	static bool IsAllowableBlueprintVariableType(const class UEnum* InEnum);
 	static bool IsAllowableBlueprintVariableType(const class UClass* InClass);
@@ -940,10 +911,9 @@ public:
 	 * @param	InDestGraph			Graph we will be using action for (may be NULL)
 	 * @param	InFunctionTypes		Combination of EFunctionType to indicate types of functions accepted
 	 * @param	bInCalledForEach	Call for each element in an array (a node accepts array)
-	 * @param	InTargetInfo		Allows spawning nodes which also create a target variable as well
 	 * @param	OutReason			Allows callers to receive a localized string containing more detail when the function is determined to be invalid (optional)
 	 */
-	bool CanFunctionBeUsedInGraph(const UClass* InClass, const UFunction* InFunction, const UEdGraph* InDestGraph, uint32 InFunctionTypes, bool bInCalledForEach, const FFunctionTargetInfo& InTargetInfo, FText* OutReason = nullptr) const;
+	bool CanFunctionBeUsedInGraph(const UClass* InClass, const UFunction* InFunction, const UEdGraph* InDestGraph, uint32 InFunctionTypes, bool bInCalledForEach, FText* OutReason = nullptr) const;
 
 	/**
 	 * Makes connections into/or out of the gateway node, connect directly to the associated networks on the opposite side of the tunnel
@@ -965,11 +935,10 @@ public:
 	 */
 	void CombineTwoPinNetsAndRemoveOldPins(UEdGraphPin* InPinA, UEdGraphPin* InPinB) const;
 
-	/** Function that returns _all_ nodes we could place */
-	static void GetAllActions(struct FBlueprintPaletteListBuilder& PaletteBuilder);
-
-	/** Helper method to add items valid to the palette list */
-	static void GetPaletteActions(struct FBlueprintPaletteListBuilder& ActionMenuBuilder, TWeakObjectPtr<UClass> FilterClass = NULL);
+	/**
+	 * Make links from all data pins from InOutputNode output to InInputNode input.
+	 */
+	void LinkDataPinFromOutputToInput(UEdGraphNode* InOutputNode, UEdGraphNode* InInputNode) const;
 
 	/** some inherited schemas don't want anim-notify actions listed, so this is an easy way to check that */
 	virtual bool DoesSupportAnimNotifyActions() const { return true; }

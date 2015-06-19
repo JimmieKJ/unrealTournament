@@ -14,6 +14,7 @@ public class MinidumpDiagnosticsTarget : TargetRules
 	public override bool GetSupportedPlatforms( ref List<UnrealTargetPlatform> OutPlatforms )
 	{
 		OutPlatforms.Add( UnrealTargetPlatform.Win64 );
+		OutPlatforms.Add( UnrealTargetPlatform.Mac );
 		return true;
 	}
 
@@ -27,6 +28,8 @@ public class MinidumpDiagnosticsTarget : TargetRules
 			new UEBuildBinaryConfiguration(	InType: UEBuildBinaryType.Executable,
 											InModuleNames: new List<string>() { "MinidumpDiagnostics" })
 			);
+
+		UEBuildConfiguration.bCompileICU = false;
 	}
 
 	public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
@@ -40,8 +43,6 @@ public class MinidumpDiagnosticsTarget : TargetRules
 		ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
 		)
 	{
-		OutCPPEnvironmentConfiguration.Definitions.Add("WITH_DATABASE_SUPPORT=1");
-
 		UEBuildConfiguration.bCompileLeanAndMeanUE = true;
 
 		// Don't need editor
@@ -50,7 +51,8 @@ public class MinidumpDiagnosticsTarget : TargetRules
 		// MinidumpDiagnostics doesn't ever compile with the engine linked in
 		UEBuildConfiguration.bCompileAgainstEngine = false;
 
-		UEBuildConfiguration.bIncludeADO = true;
+		UEBuildConfiguration.bIncludeADO = false;
+		//UEBuildConfiguration.bCompileICU = false;
 
 		// MinidumpDiagnostics.exe has no exports, so no need to verify that a .lib and .exp file was emitted by the linker.
 		OutLinkEnvironmentConfiguration.bHasExports = false;
@@ -60,10 +62,11 @@ public class MinidumpDiagnosticsTarget : TargetRules
 
 		OutCPPEnvironmentConfiguration.Definitions.Add("MINIDUMPDIAGNOSTICS=1");
 	}
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, bool bBuildingRocket, out bool bInternalToolOnly, out bool SeparateNode)
+    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
     {
         bInternalToolOnly = true;
         SeparateNode = false;
+		CrossCompile = false;
         return true;
     }
 }

@@ -52,4 +52,14 @@ public:
 	virtual void UnbindPossessableObjects( const FGuid& PossessableGuid ) = 0;
 	
 	virtual void GetRuntimeObjects( const TSharedRef<FMovieSceneInstance>& MovieSceneInstance, const FGuid& ObjectGuid, TArray<UObject*>& OutRuntimeObjects ) const = 0;
+
+	/**
+	 * 
+	 * Tries to get a display name for the binding represented by the guid.
+	 *
+	 * @param ObjectGuid	the guid for the object binding.
+	 * @param DisplayName	the display name for the object binding.
+	 * @returns true if DisplayName has been set to a valid display name, otherwise false.
+	 */
+	virtual bool TryGetObjectBindingDisplayName( const FGuid& ObjectGuid, FText& DisplayName ) const = 0;
 };

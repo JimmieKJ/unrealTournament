@@ -48,17 +48,20 @@ protected:
 
 	/** UBlackboardComponent instances that reference the blackboard data definition */
 	FBlackboardDataToComponentsMap BlackboardDataToComponentsMap;
+
+	FDelegateHandle ActorSpawnedDelegateHandle;
 	
 public:
-	virtual ~UAISystem();
-
+	virtual void BeginDestroy() override;
+	
 	virtual void PostInitProperties() override;
 
-	// IAISystemInterface begin		
+	// UAISystemBase begin		
 	virtual void InitializeActorsForPlay(bool bTimeGotReset) override;
 	virtual void WorldOriginLocationChanged(FIntVector OldOriginLocation, FIntVector NewOriginLocation) override;
 	virtual void CleanupWorld(bool bSessionEnded = true, bool bCleanupResources = true, UWorld* NewWorld = NULL) override;
-	// IAISystemInterface end
+	virtual void StartPlay() override;
+	// UAISystemBase end
 	
 	/** Behavior tree manager getter */
 	FORCEINLINE UBehaviorTreeManager* GetBehaviorTreeManager() { return BehaviorTreeManager; }
@@ -177,4 +180,7 @@ public:
 	* BlackboardAsset and it's parents.
 	*/
 	FBlackboardDataToComponentsIterator CreateBlackboardDataToComponentsIterator(class UBlackboardData& BlackboardAsset);
+
+protected:
+	virtual void OnActorSpawned(AActor* SpawnedActor);
 };

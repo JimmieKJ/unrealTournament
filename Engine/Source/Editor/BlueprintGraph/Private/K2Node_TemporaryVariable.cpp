@@ -49,26 +49,26 @@ void UK2Node_TemporaryVariable::AllocateDefaultPins()
 
 FText UK2Node_TemporaryVariable::GetTooltipText() const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("VariableType"), UEdGraphSchema_K2::TypeToText(VariableType));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "LocalTemporaryVariable", "Local temporary {VariableType} variable"), Args);
+		CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "LocalTemporaryVariable", "Local temporary {VariableType} variable"), Args), this);
 	}
 	return CachedTooltip;
 }
 
 FText UK2Node_TemporaryVariable::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	if (CachedNodeTitle.IsOutOfDate())
+	if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("VariableType"), UEdGraphSchema_K2::TypeToText(VariableType));
 
 		FText TitleFormat = !bIsPersistent ? NSLOCTEXT("K2Node", "LocalVariable", "Local {VariableType}") : NSLOCTEXT("K2Node", "PersistentLocalVariable", "Persistent Local {VariableType}");
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(TitleFormat, Args);
+		CachedNodeTitle.SetCachedText(FText::Format(TitleFormat, Args), this);
 	}
 	
 	return CachedNodeTitle;
@@ -151,19 +151,19 @@ void UK2Node_TemporaryVariable::GetMenuActions(FBlueprintActionDatabaseRegistrar
 		return;
 	}
 
-	auto MakeTempVarNodeSpawner = [](FEdGraphPinType const& VarType, bool bIsPersistent)
+	auto MakeTempVarNodeSpawner = [](FEdGraphPinType const& VarType, bool bVarIsPersistent)
 	{
 		UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(UK2Node_TemporaryVariable::StaticClass());
 		check(NodeSpawner != nullptr);
 
-		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, FEdGraphPinType VarType, bool bIsPersistent)
+		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, FEdGraphPinType InVarType, bool bInIsPersistent)
 		{
 			UK2Node_TemporaryVariable* TempVarNode = CastChecked<UK2Node_TemporaryVariable>(NewNode);
-			TempVarNode->VariableType  = VarType;
-			TempVarNode->bIsPersistent = bIsPersistent;
+			TempVarNode->VariableType  = InVarType;
+			TempVarNode->bIsPersistent = bInIsPersistent;
 		};
 
-		NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(PostSpawnLambda, VarType, bIsPersistent);
+		NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(PostSpawnLambda, VarType, bVarIsPersistent);
 		return NodeSpawner;
 	};
 
@@ -180,15 +180,15 @@ void UK2Node_TemporaryVariable::GetMenuActions(FBlueprintActionDatabaseRegistrar
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Text, TEXT(""), nullptr, /*bIsArray =*/false, /*bIsReference =*/false), /*bIsPersistent =*/false));
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Text, TEXT(""), nullptr, /*bIsArray =*/ true, /*bIsReference =*/false), /*bIsPersistent =*/false));
 
-	UScriptStruct* VectorStruct  = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Vector"));
+	UScriptStruct* VectorStruct  = GetBaseStructure(TEXT("Vector"));
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Struct, TEXT("Vector"), VectorStruct, /*bIsArray =*/false, /*bIsReference =*/false), /*bIsPersistent =*/false));
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Struct, TEXT("Vector"), VectorStruct, /*bIsArray =*/ true, /*bIsReference =*/false), /*bIsPersistent =*/false));
 	
-	UScriptStruct* RotatorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Rotator"));
+	UScriptStruct* RotatorStruct = GetBaseStructure(TEXT("Rotator"));
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Struct, TEXT("Rotator"), RotatorStruct, /*bIsArray =*/false, /*bIsReference =*/false), /*bIsPersistent =*/false));
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Struct, TEXT("Rotator"), RotatorStruct, /*bIsArray =*/ true, /*bIsReference =*/false), /*bIsPersistent =*/false));
 	
-	UScriptStruct* TransformStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Transform"));
+	UScriptStruct* TransformStruct = GetBaseStructure(TEXT("Transform"));
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Struct, TEXT("Transform"), TransformStruct, /*bIsArray =*/false, /*bIsReference =*/false), /*bIsPersistent =*/false));
 	ActionRegistrar.AddBlueprintAction(ActionKey, MakeTempVarNodeSpawner(FEdGraphPinType(K2Schema->PC_Struct, TEXT("Transform"), TransformStruct, /*bIsArray =*/ true, /*bIsReference =*/false), /*bIsPersistent =*/false));
 

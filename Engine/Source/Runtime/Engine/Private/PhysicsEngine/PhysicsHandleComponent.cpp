@@ -34,6 +34,7 @@ void UPhysicsHandleComponent::OnUnregister()
 
 		// use correct scene
 		PxScene* PScene = GetPhysXSceneFromIndex( SceneIndex );
+		SCOPED_SCENE_WRITE_LOCK(PScene);
 		if(PScene)
 		{
 			// destroy joint
@@ -72,90 +73,74 @@ void UPhysicsHandleComponent::GrabComponent(UPrimitiveComponent* InComponent, FN
 		return;
 	}
 
-	PxRigidDynamic* Actor = BodyInstance->GetPxRigidDynamic();
-	if (!Actor)
-		return;
-
-	// Get the scene the PxRigidDynamic we want to grab is in.
-	PxScene* Scene = Actor->getScene();
-	check(Scene);
-
-	// Get transform of actor we are grabbing
-	PxVec3 KinLocation = U2PVector(Location);
-	PxTransform GrabbedActorPose = Actor->getGlobalPose();
-	PxTransform KinPose(KinLocation, GrabbedActorPose.q);
-
-	// set target and current, so we don't need another "Tick" call to have it right
-	TargetTransform = CurrentTransform = P2UTransform(KinPose);
-
-	// If we don't already have a handle - make one now.
-	if (!HandleData)
+	ExecuteOnPxRigidDynamicReadWrite(BodyInstance, [&](PxRigidDynamic* Actor)
 	{
-		SCOPED_SCENE_WRITE_LOCK(Scene);
-		// Create kinematic actor we are going to create joint with. This will be moved around with calls to SetLocation/SetRotation.
-		PxRigidDynamic* KinActor = Scene->getPhysics().createRigidDynamic(KinPose);
-		KinActor->setRigidDynamicFlag(PxRigidDynamicFlag::eKINEMATIC, true);
-		KinActor->setMass(1.0f);
-		KinActor->setMassSpaceInertiaTensor(PxVec3(1.0f, 1.0f, 1.0f));
-
-		// No bodyinstance
-		KinActor->userData = NULL;
-
-		// Add to Scene
-		Scene->addActor(*KinActor);
-
-		// Save reference to the kinematic actor.
-		KinActorData = KinActor;
+		PxScene* Scene = Actor->getScene();
 		
-		// Create the joint
-		PxVec3 LocalHandlePos = GrabbedActorPose.transformInv(KinLocation);
-		PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform::createIdentity(), Actor, PxTransform(LocalHandlePos));
+		// Get transform of actor we are grabbing
+		PxVec3 KinLocation = U2PVector(Location);
+		PxTransform GrabbedActorPose = Actor->getGlobalPose();
+		PxTransform KinPose(KinLocation, GrabbedActorPose.q);
 
-		if(!NewJoint)
+		// set target and current, so we don't need another "Tick" call to have it right
+		TargetTransform = CurrentTransform = P2UTransform(KinPose);
+
+		// If we don't already have a handle - make one now.
+		if (!HandleData)
 		{
-			HandleData = 0;
-		}
-		else
-		{
-			// No constraint instance
-			NewJoint->userData = NULL;
-			HandleData = NewJoint;
+			// Create kinematic actor we are going to create joint with. This will be moved around with calls to SetLocation/SetRotation.
+			PxRigidDynamic* KinActor = Scene->getPhysics().createRigidDynamic(KinPose);
+			KinActor->setRigidDynamicFlag(PxRigidDynamicFlag::eKINEMATIC, true);
+			KinActor->setMass(1.0f);
+			KinActor->setMassSpaceInertiaTensor(PxVec3(1.0f, 1.0f, 1.0f));
 
-			// Remember the scene index that the handle joint/actor are in.
-			FPhysScene* RBScene = FPhysxUserData::Get<FPhysScene>(Scene->userData);
-			const uint32 SceneType = InComponent->BodyInstance.UseAsyncScene() ? PST_Async : PST_Sync;
-			SceneIndex = RBScene->PhysXSceneIndex[SceneType];
+			// No bodyinstance
+			KinActor->userData = NULL;
 
-			// Setting up the joint
-			NewJoint->setMotion(PxD6Axis::eX, PxD6Motion::eFREE);
-			NewJoint->setMotion(PxD6Axis::eY, PxD6Motion::eFREE);
-			NewJoint->setMotion(PxD6Axis::eZ, PxD6Motion::eFREE);
+			// Add to Scene
+			Scene->addActor(*KinActor);
 
-			NewJoint->setDrive(PxD6Drive::eX, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-			NewJoint->setDrive(PxD6Drive::eY, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-			NewJoint->setDrive(PxD6Drive::eZ, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-			NewJoint->setDrivePosition(PxTransform(PxVec3(0,0,0)));
+			// Save reference to the kinematic actor.
+			KinActorData = KinActor;
 
+			// Create the joint
+			PxVec3 LocalHandlePos = GrabbedActorPose.transformInv(KinLocation);
+			PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform::createIdentity(), Actor, PxTransform(LocalHandlePos));
 
-			NewJoint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eFREE);
-			NewJoint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eFREE);
-			NewJoint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eFREE);
-			
-			bRotationConstrained = bConstrainRotation;
-			
-			if (bRotationConstrained)
+			if (!NewJoint)
 			{
-				NewJoint->setDrive(PxD6Drive::eSLERP, PxD6JointDrive(AngularStiffness, AngularDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+				HandleData = 0;
+			}
+			else
+			{
+				// No constraint instance
+				NewJoint->userData = NULL;
+				HandleData = NewJoint;
 
-				//NewJoint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive(AngularStiffness, AngularDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-				//NewJoint->setDrive(PxD6Drive::eSWING, PxD6JointDrive(AngularStiffness, AngularDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
-				
-				//PosJointDesc.setGlobalAxis(NxVec3(0,0,1));
+				// Remember the scene index that the handle joint/actor are in.
+				FPhysScene* RBScene = FPhysxUserData::Get<FPhysScene>(Scene->userData);
+				const uint32 SceneType = InComponent->BodyInstance.UseAsyncScene(RBScene) ? PST_Async : PST_Sync;
+				SceneIndex = RBScene->PhysXSceneIndex[SceneType];
+
+				// Setting up the joint
+				NewJoint->setMotion(PxD6Axis::eX, PxD6Motion::eFREE);
+				NewJoint->setMotion(PxD6Axis::eY, PxD6Motion::eFREE);
+				NewJoint->setMotion(PxD6Axis::eZ, PxD6Motion::eFREE);
+				NewJoint->setDrivePosition(PxTransform(PxVec3(0, 0, 0)));
+
+				NewJoint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eFREE);
+				NewJoint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eFREE);
+				NewJoint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eFREE);
+
+				bRotationConstrained = bConstrainRotation;
+
+				UpdateDriveSettings();
 			}
 
 		}
+	});
 	
-	}
+	
 #endif // WITH_PHYSX
 
 
@@ -163,6 +148,25 @@ void UPhysicsHandleComponent::GrabComponent(UPrimitiveComponent* InComponent, FN
 	GrabbedBoneName = InBoneName;
 }
 
+void UPhysicsHandleComponent::UpdateDriveSettings()
+{
+#if WITH_PHYSX
+	if(HandleData != nullptr)
+	{
+		HandleData->setDrive(PxD6Drive::eX, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		HandleData->setDrive(PxD6Drive::eY, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		HandleData->setDrive(PxD6Drive::eZ, PxD6JointDrive(LinearStiffness, LinearDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+
+		if (bRotationConstrained)
+		{
+			HandleData->setDrive(PxD6Drive::eSLERP, PxD6JointDrive(AngularStiffness, AngularDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+
+			//NewJoint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive(AngularStiffness, AngularDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+			//NewJoint->setDrive(PxD6Drive::eSWING, PxD6JointDrive(AngularStiffness, AngularDamping, PX_MAX_F32, PxD6JointDriveFlag::eACCELERATION));
+		}
+	}
+#endif // WITH_PHYSX
+}
 
 void UPhysicsHandleComponent::ReleaseComponent()
 {
@@ -198,6 +202,8 @@ void UPhysicsHandleComponent::ReleaseComponent()
 }
 
 
+
+
 void UPhysicsHandleComponent::SetTargetLocation(FVector NewLocation)
 {
 	TargetTransform.SetTranslation(NewLocation);
@@ -226,6 +232,8 @@ void UPhysicsHandleComponent::UpdateHandleTransform(const FTransform& NewTransfo
 	bool bChangedRotation = true;
 
 	PxRigidDynamic* KinActor = KinActorData;
+	PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
+	SCOPED_SCENE_WRITE_LOCK(PScene);
 
 	// Check if the new location is worthy of change
 	PxVec3 PNewLocation = U2PVector(NewTransform.GetTranslation());
@@ -285,4 +293,33 @@ void UPhysicsHandleComponent::GetTargetLocationAndRotation(FVector& OutLocation,
 {
 	OutRotation = TargetTransform.Rotator();
 	OutLocation = TargetTransform.GetTranslation();
+}
+
+void UPhysicsHandleComponent::SetLinearDamping(float NewLinearDamping)
+{
+	LinearDamping = NewLinearDamping;
+	UpdateDriveSettings();
+}
+
+void UPhysicsHandleComponent::SetLinearStiffness(float NewLinearStiffness)
+{
+	LinearStiffness = NewLinearStiffness;
+	UpdateDriveSettings();
+}
+
+void UPhysicsHandleComponent::SetAngularDamping(float NewAngularDamping)
+{
+	AngularDamping = NewAngularDamping;
+	UpdateDriveSettings();
+}
+
+void UPhysicsHandleComponent::SetAngularStiffness(float NewAngularStiffness)
+{
+	AngularStiffness = NewAngularStiffness;
+	UpdateDriveSettings();
+}
+
+void UPhysicsHandleComponent::SetInterpolationSpeed(float NewInterpolationSpeed)
+{
+	InterpolationSpeed = NewInterpolationSpeed;
 }

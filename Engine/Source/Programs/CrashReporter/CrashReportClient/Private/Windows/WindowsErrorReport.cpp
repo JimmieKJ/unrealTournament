@@ -34,23 +34,17 @@ struct FWindowsReportParser
 		const FString FileAsString = reinterpret_cast<TCHAR*>(FileData.GetData());
 
 		TArray<FString> String;
-		FileAsString.ParseIntoArray( &String, TEXT( "\r\n" ), true );
+		FileAsString.ParseIntoArray( String, TEXT( "\r\n" ), true );
 
 		for( const auto& StringLine : String )
 		{
 			if( StringLine.Contains( Marker ) )
 			{
 				TArray<FString> SeparatedParameters;
-				StringLine.ParseIntoArray( &SeparatedParameters, Marker, true );
+				StringLine.ParseIntoArray( SeparatedParameters, Marker, true );
 
-				FString MatchedValue;
-				const bool bFound = FParse::Value( *StringLine, Marker, MatchedValue );
-
-				if( bFound )
-				{
-					Result = MatchedValue;
-					break;
-				}
+				Result = SeparatedParameters[SeparatedParameters.Num()-1];
+				break;
 			}
 		}
 
@@ -71,6 +65,11 @@ void FWindowsErrorReport::Init()
 void FWindowsErrorReport::ShutDown()
 {
 	CrashHelperModule->ShutdownModule();
+}
+
+FString FWindowsErrorReport::FindCrashedAppPath() const
+{
+	return FWindowsReportParser::Find(ReportDirectory, TEXT("AppPath="));
 }
 
 FText FWindowsErrorReport::DiagnoseReport() const
@@ -97,12 +96,8 @@ FText FWindowsErrorReport::DiagnoseReport() const
 		return LOCTEXT("NoDebuggingSymbols", "You do not have any debugging symbols required to display the callstack for this crash.");
 	}
 
-	// Don't write a Diagnostics.txt to disk in UE4 release build. It will be displayed in the UI but not sent to the server.
-	if ( !FRocketSupport::IsRocket() )
-	{
-		// There's a callstack, so write it out to save the server trying to do it
-		CrashDebugHelper->CrashInfo.GenerateReport(ReportDirectory / GDiagnosticsFilename);
-	}
+	// There's a callstack, so write it out to save the server trying to do it
+	CrashDebugHelper->CrashInfo.GenerateReport(ReportDirectory / FCrashReportClientConfig::Get().GetDiagnosticsFilename());
 
 	const auto& Exception = CrashDebugHelper->CrashInfo.Exception;
 	const FString Assertion = FWindowsReportParser::Find( ReportDirectory, TEXT( "AssertLog=" ) );

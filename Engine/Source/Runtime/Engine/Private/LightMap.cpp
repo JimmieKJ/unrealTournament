@@ -253,6 +253,9 @@ struct FLightMapAllocation
 			// TODO: We currently only support one LOD of static lighting in foliage
 			// Need to create per-LOD instance data to fix that
 			Component->PerInstanceSMData[InstanceIndex].LightmapUVBias = LightMap->GetCoordinateBias();
+
+			Component->ReleasePerInstanceRenderData();
+			Component->MarkRenderStateDirty();
 		}
 	}
 
@@ -812,7 +815,7 @@ void FLightMapPendingTexture::StartEncoding()
 
 	if (bNeedsSkyOcclusionTexture)
 	{
-		auto Texture = NewNamedObject<ULightMapTexture2D>(Outer, GetSkyOcclusionTextureName(GLightmapCounter));
+		auto Texture = NewObject<ULightMapTexture2D>(Outer, GetSkyOcclusionTextureName(GLightmapCounter));
 		SkyOcclusionTexture = Texture;
 
 		Texture->Source.Init2DWithMipChain(GetSizeX(), GetSizeY(), TSF_BGRA8);
@@ -911,7 +914,7 @@ void FLightMapPendingTexture::StartEncoding()
 		}
 
 		// Create the light-map texture for this coefficient.
-		auto Texture = NewNamedObject<ULightMapTexture2D>(Outer, GetLightmapName(GLightmapCounter, CoefficientIndex));
+		auto Texture = NewObject<ULightMapTexture2D>(Outer, GetLightmapName(GLightmapCounter, CoefficientIndex));
 		Textures[CoefficientIndex] = Texture;
 		Texture->Source.Init2DWithMipChain(GetSizeX(), GetSizeY() * 2, TSF_BGRA8);	// Top/bottom atlased
 		Texture->MipGenSettings = TMGS_LeaveExistingMips;
@@ -1588,6 +1591,11 @@ UTexture2D* FLightMap2D::GetTexture(uint32 BasisIndex)
 	return Textures[BasisIndex];
 }
 
+UTexture2D* FLightMap2D::GetSkyOcclusionTexture()
+{
+	return SkyOcclusionTexture;
+}
+
 /**
  * Returns whether the specified basis has a valid lightmap texture or not.
  * @param	BasisIndex - The basis index.
@@ -1794,49 +1802,62 @@ void TQuantizedLightSampleBulkData<QuantizedLightSampleType>::SerializeElement( 
 	} 
 };
 
-FArchive& operator<<(FArchive& Ar,FLightMap*& R)
+FArchive& operator<<(FArchive& Ar, FLightMap*& R)
 {
 	uint32 LightMapType = FLightMap::LMT_None;
-	if(Ar.IsSaving())
+
+	if (Ar.IsSaving())
 	{
-		if(R != NULL)
+		if (R != nullptr)
 		{
-			if(R->GetLightMap2D())
+			if (R->GetLightMap2D())
 			{
 				LightMapType = FLightMap::LMT_2D;
 			}
 		}
 	}
+
 	Ar << LightMapType;
 
-	if(Ar.IsLoading())
+	if (Ar.IsLoading())
 	{
-		if(LightMapType == FLightMap::LMT_1D)
+		// explicitly don't call "delete R;",
+		// we expect the calling code to handle that
+		switch (LightMapType)
 		{
+		case FLightMap::LMT_None:
+			R = nullptr;
+			break;
+		case FLightMap::LMT_1D:
 			R = new FLegacyLightMap1D();
-		}
-		else if(LightMapType == FLightMap::LMT_2D)
-		{
+			break;
+		case FLightMap::LMT_2D:
 			R = new FLightMap2D();
+			break;
+		default:
+			check(0);
 		}
 	}
 
-	if(R != NULL)
+	if (R != nullptr)
 	{
 		R->Serialize(Ar);
 
-		// Toss legacy vertex lightmaps
-		if (LightMapType == FLightMap::LMT_1D)
+		if (Ar.IsLoading())
 		{
-			delete R;
-			R = NULL;
-		}
+			// Toss legacy vertex lightmaps
+			if (LightMapType == FLightMap::LMT_1D)
+			{
+				delete R;
+				R = nullptr;
+			}
 
-		// Dump old lightmaps
-		if( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_COMBINED_LIGHTMAP_TEXTURES )
-		{
-			delete R;
-			R = NULL;
+			// Dump old lightmaps
+			if (Ar.UE4Ver() < VER_UE4_COMBINED_LIGHTMAP_TEXTURES)
+			{
+				delete R; // safe because if we're loading we new'd this above
+				R = nullptr;
+			}
 		}
 	}
 

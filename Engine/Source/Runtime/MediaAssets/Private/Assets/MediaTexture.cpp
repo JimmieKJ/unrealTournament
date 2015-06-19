@@ -104,9 +104,9 @@ void UMediaTexture::FinishDestroy()
 
 FString UMediaTexture::GetDesc()
 {
-	TSharedPtr<IMediaPlayer> MediaPlayer = GetPlayer();
+	TSharedPtr<IMediaPlayer> MediaPlayerPtr = GetPlayer();
 
-	if (!MediaPlayer.IsValid())
+	if (!MediaPlayerPtr.IsValid())
 	{
 		return FString();
 	}

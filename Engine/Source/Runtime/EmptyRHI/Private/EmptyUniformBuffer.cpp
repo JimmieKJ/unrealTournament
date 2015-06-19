@@ -65,5 +65,6 @@ FEmptyUniformBuffer::~FEmptyUniformBuffer()
 
 FUniformBufferRHIRef FEmptyDynamicRHI::RHICreateUniformBuffer(const void* Contents, uint32 NumBytes, EUniformBufferUsage Usage)
 {
+	check(IsInRenderingThread());
 	return new FEmptyUniformBuffer(Contents, NumBytes, Usage);
 }

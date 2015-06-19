@@ -35,11 +35,11 @@ public:
 	static void OnChangeSectionsPerComponent(TSharedRef<IPropertyHandle> PropertyHandle, int32 NewSize);
 	static FText GetSectionsPerComponent(TSharedRef<IPropertyHandle> PropertyHandle);
 
-	int32 GetLandscapeResolutionX() const;
+	TOptional<int32> GetLandscapeResolutionX() const;
 	void OnChangeLandscapeResolutionX(int32 NewValue);
 	void OnCommitLandscapeResolutionX(int32 NewValue, ETextCommit::Type CommitInfo);
 
-	int32 GetLandscapeResolutionY() const;
+	TOptional<int32> GetLandscapeResolutionY() const;
 	void OnChangeLandscapeResolutionY(int32 NewValue);
 	void OnCommitLandscapeResolutionY(int32 NewValue, ETextCommit::Type CommitInfo);
 

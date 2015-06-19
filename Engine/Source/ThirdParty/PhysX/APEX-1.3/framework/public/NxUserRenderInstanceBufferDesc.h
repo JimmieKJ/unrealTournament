@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_USER_RENDER_INSTANCE_BUFFER_DESC_H
 #define NX_USER_RENDER_INSTANCE_BUFFER_DESC_H
@@ -73,37 +57,10 @@ struct NxRenderInstanceSemantic
 
 		USER_DATA,		//!< User data - 32 bits
 
+		POSE,			//!< pose matrix
+
 		NUM_SEMANTICS	//!< Count of semantics, not a valid semantic.
 	};
-
-	/**
-	\brief Get semantic format
-	*/
-	static PX_INLINE NxRenderDataFormat::Enum getSemanticFormat(Enum semantic)
-	{
-		switch (semantic)
-		{
-		case POSITION:
-			return NxRenderDataFormat::FLOAT3;
-		case ROTATION_SCALE:
-			return NxRenderDataFormat::FLOAT3x3;
-		case VELOCITY_LIFE:
-			return NxRenderDataFormat::FLOAT4;
-		case DENSITY:
-			return NxRenderDataFormat::FLOAT1;
-		case COLOR:
-			return NxRenderDataFormat::B8G8R8A8;
-		case UV_OFFSET:
-			return NxRenderDataFormat::FLOAT2;
-		case LOCAL_OFFSET:
-			return NxRenderDataFormat::FLOAT3;
-		case USER_DATA:
-			return NxRenderDataFormat::UINT1;
-		default:
-			PX_ALWAYS_ASSERT();
-			return NxRenderDataFormat::NUM_FORMATS;
-		}
-	}
 };
 
 /**
@@ -126,6 +83,7 @@ struct NxRenderInstanceLayoutElement
 		UV_OFFSET_FLOAT2,
 		LOCAL_OFFSET_FLOAT3,
 		USER_DATA_UINT1,
+		POSE_FLOAT3x4,
 
 		NUM_SEMANTICS
 	};
@@ -157,6 +115,8 @@ struct NxRenderInstanceLayoutElement
 			return NxRenderDataFormat::FLOAT3;
 		case USER_DATA_UINT1:
 			return NxRenderDataFormat::UINT1;
+		case POSE_FLOAT3x4:
+			return NxRenderDataFormat::FLOAT3x4;
 		default:
 			PX_ALWAYS_ASSERT();
 			return NxRenderDataFormat::NUM_FORMATS;
@@ -187,6 +147,8 @@ struct NxRenderInstanceLayoutElement
 			return NxRenderInstanceSemantic::LOCAL_OFFSET;
 		case USER_DATA_UINT1:
 			return NxRenderInstanceSemantic::USER_DATA;
+		case POSE_FLOAT3x4:
+			return NxRenderInstanceSemantic::POSE;
 		default:
 			PX_ALWAYS_ASSERT();
 			return NxRenderInstanceSemantic::NUM_SEMANTICS;
@@ -214,10 +176,6 @@ public:
 		interopContext = 0;
 		maxInstances = 0;
 		hint         = NxRenderBufferHint::STATIC;
-		for (physx::PxU32 i = 0; i < NxRenderInstanceSemantic::NUM_SEMANTICS; i++)
-		{
-			semanticFormats[i] = NxRenderDataFormat::UNSPECIFIED;
-		}
 		for (physx::PxU32 i = 0; i < NxRenderInstanceLayoutElement::NUM_SEMANTICS; i++)
 		{
 			semanticOffsets[i] = physx::PxU32(-1);
@@ -234,10 +192,38 @@ public:
 
 		numFailed += (maxInstances == 0);
 		numFailed += (stride == 0);
-		numFailed += (semanticOffsets[NxRenderInstanceSemantic::POSITION] == physx::PxU32(-1));
+		numFailed += (semanticOffsets[NxRenderInstanceLayoutElement::POSITION_FLOAT3] == physx::PxU32(-1))
+			&& (semanticOffsets[NxRenderInstanceLayoutElement::POSE_FLOAT3x4] == physx::PxU32(-1));
 		numFailed += registerInCUDA && (interopContext == 0);
 
+		numFailed += ((stride & 0x03) != 0);
+		for (physx::PxU32 i = 0; i < NxRenderInstanceLayoutElement::NUM_SEMANTICS; i++)
+		{
+			if (semanticOffsets[i] != static_cast<physx::PxU32>(-1))
+			{
+				numFailed += (semanticOffsets[i] >= stride);
+				numFailed += ((semanticOffsets[i] & 0x03) != 0);
+			}
+		}
+
 		return (numFailed == 0);
+	}
+
+	/**
+	\brief Check if this object is the same as other
+	*/
+	bool isTheSameAs(const NxUserRenderInstanceBufferDesc& other) const
+	{
+		if (registerInCUDA != other.registerInCUDA) return false;
+		if (maxInstances != other.maxInstances) return false;
+		if (hint != other.hint) return false;
+
+		if (stride != other.stride) return false;
+		for (physx::PxU32 i = 0; i < NxRenderInstanceLayoutElement::NUM_SEMANTICS; i++)
+		{
+			if (semanticOffsets[i] != other.semanticOffsets[i]) return false;
+		}
+		return true;
 	}
 
 public:
@@ -245,13 +231,7 @@ public:
 	NxRenderBufferHint::Enum		hint; //!< Hint on how often this buffer is updated.
 	
 	/**
-	\brief Array of the corresponding formats for each semantic.
-
-	NxRenderInstanceSemantic::UNSPECIFIED is used for semantics that are disabled
-	*/
-	NxRenderDataFormat::Enum		semanticFormats[NxRenderInstanceSemantic::NUM_SEMANTICS];
-	/**
-	\brief Array of the corresponding offsets (in bytes) for each semantic. Required when CUDA interop is used!
+	\brief Array of the corresponding offsets (in bytes) for each semantic.
 	*/
 	physx::PxU32					semanticOffsets[NxRenderInstanceLayoutElement::NUM_SEMANTICS];
 

@@ -68,6 +68,8 @@ int Android_JNI_GetPowerInfo(int* plugged, int* charged, int* battery, int* seco
 /* Joystick support */
 void Android_JNI_PollInputDevices();
 
+/* Video */
+void Android_JNI_SuspendScreenSaver(SDL_bool suspend);
 
 /* Touch support */
 int Android_JNI_GetTouchDeviceIds(int **ids);
@@ -76,6 +78,7 @@ int Android_JNI_GetTouchDeviceIds(int **ids);
 #include <jni.h>
 JNIEnv *Android_JNI_GetEnv(void);
 int Android_JNI_SetupThread(void);
+jclass Android_JNI_GetActivityClass(void);
 
 /* Generic messages */
 int Android_JNI_SendMessage(int command, int param);

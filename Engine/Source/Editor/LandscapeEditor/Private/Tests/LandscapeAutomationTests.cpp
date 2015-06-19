@@ -81,7 +81,7 @@ bool FBeginModifyLandscapeCommand::Update()
 	//Find a location on the edge of the landscape along the x axis so the default camera can see it in the distance.
 	FVector LandscapeSizePerComponent = LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection * LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent * LandscapeEdMode->UISettings->NewLandscape_Scale;
 	FVector TargetLoctaion(0);
-	TargetLoctaion.X = -LandscapeSizePerComponent.X * (LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X / 2);
+	TargetLoctaion.X = -LandscapeSizePerComponent.X * (LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X / 2.f);
 
 	ALandscapeProxy* Proxy = LandscapeEdMode->CurrentToolTarget.LandscapeInfo.Get()->GetCurrentLevelLandscapeProxy(true);
 	if (Proxy)
@@ -117,7 +117,7 @@ bool FEndModifyLandscapeCommand::Update()
 /**
 * Landscape creation / edit test
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLandscapeEditorTest, "Promotion.Editor Promotion Pass.Step 1 Main Editor Test.New Landscape", EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_NonNullRHI );
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLandscapeEditorTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.New Landscape", EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_NonNullRHI );
 bool FLandscapeEditorTest::RunTest(const FString& Parameters)
 {
 	//New level

@@ -273,62 +273,20 @@ void glsl_type::generate_130_types(glsl_symbol_table *symtab, bool add_deprecate
 
 	add_types_to_symbol_table(symtab, builtin_130_types,
 		Elements(builtin_130_types), false);
-	generate_EXT_texture_array_types(symtab, false);
 }
 
 
 void glsl_type::generate_140_types(glsl_symbol_table *symtab)
 {
 	generate_130_types(symtab, false);
-
-	//   add_types_to_symbol_table(symtab, builtin_140_types,
-	//			     Elements(builtin_140_types), false);
-
-	//   add_types_to_symbol_table(symtab, builtin_EXT_texture_buffer_object_types,
-	//			     Elements(builtin_EXT_texture_buffer_object_types),
-	//			     false);
 }
 
 
-void glsl_type::generate_ARB_texture_rectangle_types(glsl_symbol_table *symtab, bool warn)
-{
-	//   add_types_to_symbol_table(symtab, builtin_ARB_texture_rectangle_types,
-	//			     Elements(builtin_ARB_texture_rectangle_types),
-	//			     warn);
-}
-
-
-void glsl_type::generate_EXT_texture_array_types(glsl_symbol_table *symtab, bool warn)
-{
-	//   add_types_to_symbol_table(symtab, builtin_EXT_texture_array_types,
-	//			     Elements(builtin_EXT_texture_array_types),
-	//			     warn);
-}
-
-
-void
-glsl_type::generate_OES_texture_3D_types(glsl_symbol_table *symtab, bool warn)
-{
-	//   add_types_to_symbol_table(symtab, &_sampler3D_type, 1, warn);
-}
-
-
-void
-glsl_type::generate_OES_EGL_image_external_types(glsl_symbol_table *symtab,
-bool warn)
-{
-	//   add_types_to_symbol_table(symtab, builtin_OES_EGL_image_external_types,
-	//			     Elements(builtin_OES_EGL_image_external_types),
-	//			     warn);
-}
-
-void
-_mesa_glsl_initialize_types(struct _mesa_glsl_parse_state *state)
+void _mesa_glsl_initialize_types(struct _mesa_glsl_parse_state *state)
 {
 	switch (state->language_version)
 	{
 	case 100:
-		check(state->es_shader);
 		glsl_type::generate_100ES_types(state->symbols);
 		break;
 	case 110:
@@ -353,35 +311,6 @@ _mesa_glsl_initialize_types(struct _mesa_glsl_parse_state *state)
 	default:
 		/* error */
 		break;
-	}
-
-	if (state->ARB_texture_rectangle_enable ||
-		state->language_version >= 140)
-	{
-		glsl_type::generate_ARB_texture_rectangle_types(state->symbols,
-			state->ARB_texture_rectangle_warn);
-	}
-	if (state->OES_texture_3D_enable && state->language_version == 100)
-	{
-		glsl_type::generate_OES_texture_3D_types(state->symbols,
-			state->OES_texture_3D_warn);
-	}
-
-	if (state->EXT_texture_array_enable && state->language_version < 130)
-	{
-		// These are already included in 130; don't create twice.
-		glsl_type::generate_EXT_texture_array_types(state->symbols,
-			state->EXT_texture_array_warn);
-	}
-
-	/* We cannot check for language_version == 100 here because we need the
-	* types to support fixed-function program generation.  But this is fine
-	* since the extension is never enabled for OpenGL contexts.
-	*/
-	if (state->OES_EGL_image_external_enable)
-	{
-		glsl_type::generate_OES_EGL_image_external_types(state->symbols,
-			state->OES_EGL_image_external_warn);
 	}
 }
 

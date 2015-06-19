@@ -47,6 +47,7 @@ public:
 		, _ScrollBarAlwaysVisible(false)
 		, _ScrollBarThickness(FVector2D(5, 5))
 		, _OnUserScrolled()
+		, _ConsumeMouseWheel(EConsumeMouseWheel::WhenScrollingPossible)
 		{}
 		
 		SLATE_SUPPORTS_SLOT( FSlot )
@@ -71,6 +72,8 @@ public:
 
 		/** Called when the button is clicked */
 		SLATE_EVENT(FOnUserScrolled, OnUserScrolled)
+
+		SLATE_ARGUMENT(EConsumeMouseWheel, ConsumeMouseWheel);
 
 	SLATE_END_ARGS()
 
@@ -189,20 +192,16 @@ private:
 	/** Does the user need a hint that they can scroll to the end of the list? */
 	FSlateColor GetEndShadowOpacity() const;
 
+	/** Active timer to update inertial scrolling as needed */
+	EActiveTimerReturnType UpdateInertialScroll(double InCurrentTime, float InDeltaTime);
+
+private:
+
 	/** The panel which stacks the child slots */
 	TSharedPtr<class SScrollPanel> ScrollPanel;
 
 	/** The scrollbar which controls scrolling for the scrollbox. */
 	TSharedPtr<SScrollBar> ScrollBar;
-
-	/** Whether or not the user supplied an external scrollbar to control scrolling. */
-	bool bScrollBarIsExternal;
-	
-	/** Are we actively scrolling right now */
-	bool bIsScrolling;
-
-	/** Should the current scrolling be animated or immediately jump to the desired scroll offer */
-	bool bAnimateScroll;
 
 	/** How much we scrolled while the rmb has been held */
 	float AmountScrolledWhileRightMouseDown;
@@ -212,9 +211,6 @@ private:
 
 	/**	The current position of the software cursor */
 	FVector2D SoftwareCursorPosition;
-
-	/**	Whether the software cursor should be drawn in the viewport */
-	bool bShowSoftwareCursor;
 
 	/** Fired when the user scrolls the scrollbox */
 	FOnUserScrolled OnUserScrolled;
@@ -228,8 +224,29 @@ private:
 	/** Style resource for the scrollbar */
 	const FScrollBarStyle* ScrollBarStyle;
 
+	/** How we should handle scrolling with the mouse wheel */
+	EConsumeMouseWheel ConsumeMouseWheel;
+
+	/** Cached geometry for use with the active timer */
+	FGeometry CachedGeometry;
+
+	/**	Whether the software cursor should be drawn in the viewport */
+	bool bShowSoftwareCursor : 1;
+
+	/** Whether or not the user supplied an external scrollbar to control scrolling. */
+	bool bScrollBarIsExternal : 1;
+
+	/** Are we actively scrolling right now */
+	bool bIsScrolling : 1;
+
+	/** Should the current scrolling be animated or immediately jump to the desired scroll offer */
+	bool bAnimateScroll : 1;
+
 	/** If true, will scroll to the end next Tick */
-	bool bScrollToEnd;
+	bool bScrollToEnd : 1;
+
+	/** Whether the active timer to update the inertial scroll is registered */
+	bool bIsActiveTimerRegistered : 1;
 };
 
 

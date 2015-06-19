@@ -40,7 +40,7 @@ Description:블루프린트 노드의 다양한 카테고리 관련 정보입니
 [/VAR]
 [/EXCERPT:Variables__Tooltip]
 
-[EXCERPT:Interface Messages__Tooltipz]
+[EXCERPT:Interface Messages__Tooltip]
 [VAR:ToolTip]
 인터페이스를 구현할 수도 있는 오브젝트에서 함수나 이벤트를 호출해 보는 노드입니다.
 [/VAR]

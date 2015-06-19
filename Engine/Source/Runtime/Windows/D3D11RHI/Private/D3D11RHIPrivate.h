@@ -20,10 +20,6 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D11RHI, Log, All);
 #include "D3D11RHIBasePrivate.h"
 #include "StaticArray.h"
 
-/** This is a macro that casts a dynamically bound RHI reference to the appropriate D3D type. */
-#define DYNAMIC_CAST_D3D11RESOURCE(Type,Name) \
-	FD3D11##Type* Name = (FD3D11##Type*)Name##RHI;
-
 // D3D RHI public headers.
 #include "D3D11Util.h"
 #include "D3D11State.h"
@@ -32,11 +28,15 @@ DECLARE_LOG_CATEGORY_EXTERN(LogD3D11RHI, Log, All);
 #include "D3D11ConstantBuffer.h"
 #include "D3D11StateCache.h"
 
+#if UE_BUILD_SHIPPING || UE_BUILD_TEST
+#define CHECK_SRV_TRANSITIONS 0
+#else
+#define CHECK_SRV_TRANSITIONS 1
+#endif
+
 // DX11 doesn't support higher MSAA count
 #define DX_MAX_MSAA_COUNT 8
 
-// Definitions.
-#define D3D11 1
 
 /**
  * The D3D RHI stats.
@@ -159,20 +159,12 @@ public:
 		Timing(InRHI, 1)
 	{
 		// Initialize Buffered timestamp queries 
-#if PLATFORM_SUPPORTS_RHI_THREAD
-		Timing.InitDynamicRHI();
-#else
 		Timing.InitResource(); // can't do this from the RHI thread
-#endif
 	}
 
 	virtual ~FD3D11EventNode()
 	{
-#if PLATFORM_SUPPORTS_RHI_THREAD
-		Timing.ReleaseDynamicRHI();
-#else
 		Timing.ReleaseResource();  // can't do this from the RHI thread
-#endif
 	}
 
 	/** 
@@ -205,26 +197,14 @@ public:
 		RootEventTiming(InRHI, 1),
 		DisjointQuery(InRHI)
 	{
-#if PLATFORM_SUPPORTS_RHI_THREAD
-		RootEventTiming.InitDynamicRHI();
-		DisjointQuery.InitDynamicRHI();
-#else
-		// can't do these on the RHI thread
 		RootEventTiming.InitResource();
 		DisjointQuery.InitResource();
-#endif
 	}
 
 	~FD3D11EventNodeFrame()
 	{
-#if PLATFORM_SUPPORTS_RHI_THREAD
-		RootEventTiming.ReleaseDynamicRHI();
-		DisjointQuery.ReleaseDynamicRHI();
-#else
-		// can't do these on the RHI thread
 		RootEventTiming.ReleaseResource();
 		DisjointQuery.ReleaseResource();
-#endif
 	}
 
 	/** Start this frame of per tracking */
@@ -245,37 +225,6 @@ public:
 	FD3D11DisjointTimeStampQuery DisjointQuery;
 };
 
-/** The state of a pending GPU timestamp profile. */
-class FD3D11GPUProfile
-{
-public:
-
-	FD3D11GPUProfile(FD3D11DynamicRHI* D3D11RHI)
-	: DisjointQuery(D3D11RHI)
-	{
-#if PLATFORM_SUPPORTS_RHI_THREAD
-		DisjointQuery.InitDynamicRHI();
-#else
-		// can't do these on the RHI thread
-		DisjointQuery.InitResource();
-#endif
-	}
-
-	~FD3D11GPUProfile()
-	{
-#if PLATFORM_SUPPORTS_RHI_THREAD
-		DisjointQuery.ReleaseDynamicRHI();
-#else
-		// can't do these on the RHI thread
-		DisjointQuery.ReleaseResource();
-#endif
-	}
-
-	FD3D11DisjointTimeStampQuery DisjointQuery;
-	TArray<TRefCountPtr<ID3D11Query> > EventTimestampQueries;
-};
-
-
 /** 
  * Encapsulates GPU profiling logic and data. 
  * There's only one global instance of this struct so it should only contain global data, nothing specific to a frame.
@@ -284,9 +233,6 @@ struct FD3DGPUProfiler : public FGPUProfiler
 {
 	/** Used to measure GPU time per frame. */
 	FD3D11BufferedGPUTiming FrameTiming;
-
-	/** Current GPU profiling state. */
-	TScopedPointer<FD3D11GPUProfile> CurrentGPUProfile;
 
 	class FD3D11DynamicRHI* D3D11RHI;
 
@@ -314,20 +260,10 @@ struct FD3DGPUProfiler : public FGPUProfiler
 	void BeginFrame(class FD3D11DynamicRHI* InRHI);
 
 	void EndFrame();
-
-	void StartProfiling(FD3D11DynamicRHI* D3D11RHI)
-	{
-		CurrentGPUProfile.Reset(new FD3D11GPUProfile(D3D11RHI));
-		CurrentGPUProfile->DisjointQuery.StartTracking();
-	}
-
-	int32 RecordEventTimestamp(ID3D11Device* Direct3DDevice, ID3D11DeviceContext* Direct3DDeviceIMContext);
-
-	bool FinishProfiling(TMap<int32, double>& OutEventIdToTimestampMap, ID3D11DeviceContext* Direct3DDeviceIMContext);
 };
 
 /** The interface which is implemented by the dynamically bound RHI. */
-class FD3D11DynamicRHI : public FDynamicRHI
+class D3D11RHI_API FD3D11DynamicRHI : public FDynamicRHI, public IRHICommandContext
 {
 public:
 
@@ -337,7 +273,7 @@ public:
 	TMap<FD3D11LockedKey,FD3D11LockedData> OutstandingLocks;
 
 	/** Initialization constructor. */
-	FD3D11DynamicRHI(IDXGIFactory* InDXGIFactory,D3D_FEATURE_LEVEL InFeatureLevel,int32 InChosenAdapter);
+	FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEVEL InFeatureLevel,int32 InChosenAdapter);
 
 	/** Destructor */
 	virtual ~FD3D11DynamicRHI() {}
@@ -348,6 +284,12 @@ public:
 	// FDynamicRHI interface.
 	virtual void Init() override;
 	virtual void Shutdown() override;
+
+	template<typename TRHIType>
+	static FORCEINLINE typename TD3D11ResourceTraits<TRHIType>::TConcreteType* ResourceCast(TRHIType* Resource)
+	{
+		return static_cast<typename TD3D11ResourceTraits<TRHIType>::TConcreteType*>(Resource);
+	}
 
 	/**
 	 * Reads a D3D query's data into the provided buffer.
@@ -374,9 +316,9 @@ public:
 		return Direct3DDeviceIMContext;
 	}
 
-	IDXGIFactory* GetFactory() const
+	IDXGIFactory1* GetFactory() const
 	{
-		return DXGIFactory;
+		return DXGIFactory1;
 	}
 private:
 	template <EShaderFrequency ShaderFrequency>
@@ -384,6 +326,8 @@ private:
 
 	template <EShaderFrequency ShaderFrequency>
 	void ClearAllShaderResourcesForFrequency();
+
+	void CheckIfSRVIsResolved(ID3D11ShaderResourceView* SRV);
 
 	template <EShaderFrequency ShaderFrequency>
 	void InternalSetShaderResourceView(FD3D11BaseShaderResource* Resource, ID3D11ShaderResourceView* SRV, int32 ResourceIndex, FD3D11StateCache::ESRV_Type SrvType = FD3D11StateCache::SRV_Unknown);
@@ -423,7 +367,7 @@ public:
 
 protected:
 	/** The global D3D interface. */
-	TRefCountPtr<IDXGIFactory> DXGIFactory;
+	TRefCountPtr<IDXGIFactory1> DXGIFactory1;
 
 	/** The global D3D device's immediate context */
 	TRefCountPtr<FD3D11DeviceContext> Direct3DDeviceIMContext;
@@ -484,7 +428,7 @@ protected:
 	uint16 DirtyUniformBuffers[SF_NumFrequencies];
 
 	/** Tracks the current depth stencil access type. */
-	EDepthStencilAccessType CurrentDSVAccessType;
+	FExclusiveDepthStencil CurrentDSVAccessType;
 
 	/** When a new shader is set, we discard all old constants set for the previous shader. */
 	bool bDiscardSharedConstants;
@@ -517,6 +461,39 @@ protected:
 	TGlobalResource< TBoundShaderStateHistory<10000> > BoundShaderStateHistory;
 	FComputeShaderRHIRef CurrentComputeShader;
 
+#if CHECK_SRV_TRANSITIONS
+	/*
+	 * Rendertargets must be explicitly 'resolved' to manage their transition to an SRV on some platforms and DX12
+	 * We keep track of targets that need 'resolving' to provide safety asserts at SRV binding time.
+	 */
+	struct FUnresolvedRTInfo
+	{
+		FUnresolvedRTInfo(FName InResourceName, int32 InMipLevel, int32 InNumMips, int32 InArraySlice, int32 InArraySize)
+		: ResourceName(InResourceName)
+		, MipLevel(InMipLevel)
+		, NumMips(InNumMips)
+		, ArraySlice(InArraySlice)  
+		, ArraySize(InArraySize)
+		{
+		}
+
+		bool operator==(const FUnresolvedRTInfo& Other) const
+		{
+			return MipLevel == Other.MipLevel &&
+				NumMips == Other.NumMips &&
+				ArraySlice == Other.ArraySlice &&
+				ArraySize == Other.ArraySize;
+		}
+
+		FName ResourceName;
+		int32 MipLevel;
+		int32 NumMips;
+		int32 ArraySlice;
+		int32 ArraySize;
+	};
+	TMultiMap<ID3D11Resource*, FUnresolvedRTInfo> UnresolvedTargets;
+#endif
+
 	FD3DGPUProfiler GPUProfilingData;
 	// >= 0, was computed before, unless hardware was changed during engine init it should be the same
 	int32 ChosenAdapter;
@@ -539,6 +516,8 @@ protected:
 	template <class ShaderType> void SetResourcesFromTables(const ShaderType* RESTRICT);
 	void CommitGraphicsResourceTables();
 	void CommitComputeResourceTables(FD3D11ComputeShader* ComputeShader);
+
+	void ValidateExclusiveDepthStencilAccess(FExclusiveDepthStencil Src) const;
 
 	/** 
 	 * Gets the best supported MSAA settings from the provided MSAA count to check against. 
@@ -604,11 +583,8 @@ protected:
 
 	void ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous& RHICmdList, FTextureRHIParamRef TextureRHI, FIntRect Rect, TArray<uint8>& OutData, FReadSurfaceDataFlags InFlags);
 
-#if PLATFORM_SUPPORTS_RHI_THREAD
-	void SetupRecursiveResources();
-#endif
-
 	friend struct FD3DGPUProfiler;
+
 };
 
 struct FD3D11Adapter

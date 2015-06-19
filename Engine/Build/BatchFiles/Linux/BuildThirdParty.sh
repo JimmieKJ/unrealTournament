@@ -226,26 +226,8 @@ BuildLND()
   cmake ..
   make $MAKE_ARGS
   local LIB_DIR=../lib/Linux/$TARGET_ARCH/
-  if [ -f libqt4dialog.so ]; then
-    ln -s libqt4dialog.so libLND.so
-    mv *.so $LIB_DIR/
-    cp -P --remove-destination $LIB_DIR/*.so ${TOP_DIR}/Binaries/Linux/
-  fi
-  if [ -f libqt5dialog.so ]; then
-    ln -s libqt5dialog.so libLND.so
-    mv *.so $LIB_DIR/
-    cp -P --remove-destination $LIB_DIR/*.so ${TOP_DIR}/Binaries/Linux/
-  fi
-  if [ -f libgtk2dialog.so ]; then
-    ln -s libgtk2dialog.so libLND.so
-    mv *.so $LIB_DIR/
-    cp -P --remove-destination $LIB_DIR/*.so ${TOP_DIR}/Binaries/Linux/
-  fi
-  if [ -f libgtk3dialog.so ]; then
-    ln -s libgtk3dialog.so libLND.so
-    mv *.so $LIB_DIR/
-    cp -P --remove-destination $LIB_DIR/*.so ${TOP_DIR}/Binaries/Linux/
-  fi
+  mv *.so $LIB_DIR
+  cp -P --remove-destination $LIB_DIR/*.so ${TOP_DIR}/Binaries/ThirdParty/LinuxNativeDialogs/Linux/$TARGET_ARCH/
   set +x
 }
 
@@ -496,6 +478,7 @@ echo "Building ThirdParty libraries"
 echo
 echo "If you don't see SUCCESS message in the end, then building did not finish properly."
 echo "In that case, take a look into ${SCRIPT_DIR}/BuildThirdParty.log for details."
+echo
 
 rm -f ${SCRIPT_DIR}/BuildThirdParty.log
 
@@ -521,8 +504,24 @@ fi
 if [[ $ALL -eq 1 ]]; then
   build_all
 else
-  Run BuildLND
+  # detect the OS and only build on non-Ubuntu
+  BUILD_LND=true
+  if [ -e /etc/os-release ]; then
+    source /etc/os-release
+    if [[ "$ID" == "ubuntu" ]] || [[ "$ID_LIKE" == "ubuntu" ]]; then
+        # assuming reasonably new version. FIXME: should check
+        BUILD_LND=false
+    fi
+  fi
+
+  if [ "$BUILD_LND" = true ]; then
+    echo "You run some non-Ubuntu Linux distro. We have to build LinuxNativeDialogs for your OS."
+    Run BuildLND
+  else
+    echo "You run Ubuntu or its fork. All dependencies have been already prebuilt."
+  fi
 fi
 
+echo
 Success
 

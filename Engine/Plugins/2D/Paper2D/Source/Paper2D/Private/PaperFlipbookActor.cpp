@@ -9,7 +9,7 @@
 APaperFlipbookActor::APaperFlipbookActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	RenderComponent = ObjectInitializer.CreateDefaultSubobject<UPaperFlipbookComponent>(this, TEXT("RenderComponent"));
+	RenderComponent = CreateDefaultSubobject<UPaperFlipbookComponent>(TEXT("RenderComponent"));
 
 	RootComponent = RenderComponent;
 }

@@ -709,7 +709,7 @@ struct FParticleSpriteEmitterInstance : public FParticleEmitterInstance
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected);
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
 
 	/**
 	 *	Updates the dynamic data for the instance
@@ -717,14 +717,14 @@ struct FParticleSpriteEmitterInstance : public FParticleEmitterInstance
 	 *	@param	DynamicData		The dynamic data to fill in
 	 *	@param	bSelected		true if the particle system component is selected
 	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected);
+	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
 	 *
 	 *	@return	The replay data, or NULL on failure
 	 */
-	virtual FDynamicEmitterReplayDataBase* GetReplayData();
+	virtual FDynamicEmitterReplayDataBase* GetReplayData() override;
 
 	/**
 	 *	Retrieve the allocated size of this instance.
@@ -732,7 +732,7 @@ struct FParticleSpriteEmitterInstance : public FParticleEmitterInstance
 	 *	@param	OutNum			The size of this instance
 	 *	@param	OutMax			The maximum size of this instance
 	 */
-	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax);
+	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax) override;
 
 	/**
 	 * Returns the size of the object/ resource for display to artists/ LDs in the Editor.
@@ -751,7 +751,7 @@ protected:
 	 *
 	 * @return Returns true if successful
 	 */
-	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData );
+	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData ) override;
 
 };
 
@@ -770,31 +770,31 @@ struct ENGINE_API FParticleMeshEmitterInstance : public FParticleEmitterInstance
 	/** Constructor	*/
 	FParticleMeshEmitterInstance();
 
-	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true);
-	virtual void Init();
-	virtual bool Resize(int32 NewMaxActiveParticles, bool bSetMaxActiveCount = true);
-	virtual void Tick(float DeltaTime, bool bSuppressSpawning);
-	virtual void UpdateBoundingBox(float DeltaTime);
-	virtual uint32 RequiredBytes();
-	virtual void PostSpawn(FBaseParticle* Particle, float InterpolationPercentage, float SpawnTime);
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected);
+	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true) override;
+	virtual void Init() override;
+	virtual bool Resize(int32 NewMaxActiveParticles, bool bSetMaxActiveCount = true) override;
+	virtual void Tick(float DeltaTime, bool bSuppressSpawning) override;
+	virtual void UpdateBoundingBox(float DeltaTime) override;
+	virtual uint32 RequiredBytes() override;
+	virtual void PostSpawn(FBaseParticle* Particle, float InterpolationPercentage, float SpawnTime) override;
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
 	virtual bool IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel) override;
 
-	virtual bool Tick_MaterialOverrides();
+	virtual bool Tick_MaterialOverrides() override;
 	/**
 	 *	Updates the dynamic data for the instance
 	 *
 	 *	@param	DynamicData		The dynamic data to fill in
 	 *	@param	bSelected		true if the particle system component is selected
 	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected);
+	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
 	 *
 	 *	@return	The replay data, or NULL on failure
 	 */
-	virtual FDynamicEmitterReplayDataBase* GetReplayData();
+	virtual FDynamicEmitterReplayDataBase* GetReplayData() override;
 
 	/**
 	 *	Retrieve the allocated size of this instance.
@@ -802,7 +802,7 @@ struct ENGINE_API FParticleMeshEmitterInstance : public FParticleEmitterInstance
 	 *	@param	OutNum			The size of this instance
 	 *	@param	OutMax			The maximum size of this instance
 	 */
-	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax);
+	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax) override;
 
 	/**
 	 * Returns the size of the object/ resource for display to artists/ LDs in the Editor.
@@ -855,7 +855,7 @@ protected:
 	 *
 	 * @return Returns true if successful
 	 */
-	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData );
+	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData ) override;
 };
 
 /*-----------------------------------------------------------------------------
@@ -939,16 +939,16 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	virtual void ApplyWorldOffset(FVector InOffset, bool bWorldShift) override;
 	
 	//
-	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true);
-	virtual void Init();
-	virtual void Tick(float DeltaTime, bool bSuppressSpawning);
+	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true) override;
+	virtual void Init() override;
+	virtual void Tick(float DeltaTime, bool bSuppressSpawning) override;
 	/**
 	 *	Tick sub-function that handles module post updates
 	 *
 	 *	@param	DeltaTime			The current time slice
 	 *	@param	CurrentLODLevel		The current LOD level for the instance
 	 */
-	virtual void Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel);
+	virtual void Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override;
 
 	/**
 	 *	Set the LOD to the given index
@@ -956,7 +956,7 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	 *	@param	InLODIndex			The index of the LOD to set as current
 	 *	@param	bInFullyProcess		If true, process burst lists, etc.
 	 */
-	virtual void SetCurrentLODIndex(int32 InLODIndex, bool bInFullyProcess);
+	virtual void SetCurrentLODIndex(int32 InLODIndex, bool bInFullyProcess) override;
 
 	/**
 	 * Handle any post-spawning actions required by the instance
@@ -967,11 +967,11 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	 */
 	virtual void PostSpawn(FBaseParticle* Particle, float InterpolationPercentage, float SpawnTime) override;
 
-	virtual void UpdateBoundingBox(float DeltaTime);
+	virtual void UpdateBoundingBox(float DeltaTime) override;
 	virtual void ForceUpdateBoundingBox() override;
-	virtual uint32 RequiredBytes();
+	virtual uint32 RequiredBytes() override;
 	float SpawnBeamParticles(float OldLeftover, float Rate, float DeltaTime, int32 Burst = 0, float BurstTime = 0.0f);
-	virtual void KillParticles();
+	virtual void KillParticles() override;
 	void SetupBeamModules();
 	void SetupBeamModifierModules();
 	/**
@@ -986,7 +986,7 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected);
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
 
 	/**
 	 *	Updates the dynamic data for the instance
@@ -994,14 +994,14 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	 *	@param	DynamicData		The dynamic data to fill in
 	 *	@param	bSelected		true if the particle system component is selected
 	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected);
+	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
 	 *
 	 *	@return	The replay data, or NULL on failure
 	 */
-	virtual FDynamicEmitterReplayDataBase* GetReplayData();
+	virtual FDynamicEmitterReplayDataBase* GetReplayData() override;
 
 	/**
 	 *	Retrieve the allocated size of this instance.
@@ -1009,7 +1009,7 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	 *	@param	OutNum			The size of this instance
 	 *	@param	OutMax			The maximum size of this instance
 	 */
-	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax);
+	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax) override;
 
 	/**
 	 * Returns the size of the object/ resource for display to artists/ LDs in the Editor.
@@ -1043,7 +1043,7 @@ protected:
 	 *
 	 * @return Returns true if successful
 	 */
-	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData );
+	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData ) override;
 
 };
 
@@ -1109,9 +1109,9 @@ struct FParticleTrailsEmitterInstance_Base : public FParticleEmitterInstance
 	{
 	}
 
-	virtual void Init();
-	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true);
-	virtual void Tick(float DeltaTime, bool bSuppressSpawning);
+	virtual void Init() override;
+	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true) override;
+	virtual void Tick(float DeltaTime, bool bSuppressSpawning) override;
 
 	/**
 	 *	Tick sub-function that handles recalculation of tangents
@@ -1120,9 +1120,9 @@ struct FParticleTrailsEmitterInstance_Base : public FParticleEmitterInstance
 	 *	@param	CurrentLODLevel		The current LOD level for the instance
 	 */
 	virtual void Tick_RecalculateTangents(float DeltaTime, UParticleLODLevel* CurrentLODLevel);
-	virtual void UpdateBoundingBox(float DeltaTime);
+	virtual void UpdateBoundingBox(float DeltaTime) override;
 	virtual void ForceUpdateBoundingBox() override;
-	virtual void KillParticles();
+	virtual void KillParticles() override;
 
 	/**
 	 *	Kill the given number of particles from the end of the trail.
@@ -1140,7 +1140,7 @@ struct FParticleTrailsEmitterInstance_Base : public FParticleEmitterInstance
 	/**
 	 *	Called when the particle system is deactivating...
 	 */
-	virtual void OnDeactivateSystem();
+	virtual void OnDeactivateSystem() override;
 
 protected:
 	/**
@@ -1257,7 +1257,7 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	/** Destructor	*/
 	virtual ~FParticleRibbonEmitterInstance();
 
-	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true);
+	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true) override;
 
 	/**
 	 *	Tick sub-function that handles recalculation of tangents
@@ -1265,7 +1265,7 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	 *	@param	DeltaTime			The current time slice
 	 *	@param	CurrentLODLevel		The current LOD level for the instance
 	 */
-	virtual void Tick_RecalculateTangents(float DeltaTime, UParticleLODLevel* CurrentLODLevel);
+	virtual void Tick_RecalculateTangents(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override;
 
 	virtual bool GetSpawnPerUnitAmount(float DeltaTime, int32 InTrailIdx, int32& OutCount, float& OutRate);
 
@@ -1285,7 +1285,7 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	 *	@param	DeltaTime		The time slice to spawn over
 	 *	@return	float			The leftover fraction of spawning
 	 */
-	virtual float Spawn(float DeltaTime);
+	virtual float Spawn(float DeltaTime) override;
 
 	/**
 	 *	Spawn source-based ribbon particles.
@@ -1304,9 +1304,9 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	 */
 	float Spawn_RateAndBurst(float DeltaTime);
 	
-	virtual void SetupTrailModules();
+	virtual void SetupTrailModules() override;
 	void ResolveSource();
-	virtual void UpdateSourceData(float DeltaTime, bool bFirstTime);
+	virtual void UpdateSourceData(float DeltaTime, bool bFirstTime) override;
 	// Update the start particles of the trail, if needed
 //	virtual void UpdateStartParticles(float DeltaTime, bool bFirstTime);
 	bool ResolveSourcePoint(int32 InTrailIdx, FVector& OutPosition, FQuat& OutRotation, FVector& OutUp, FVector& OutTangent, float& OutTangentStrength);
@@ -1319,12 +1319,12 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	 *
 	 *	@return	bool		true if GetDynamicData should continue, false if it should return NULL
 	 */
-	virtual bool IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel);
+	virtual bool IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel) override;
 
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected);
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
 
 	/**
 	 *	Updates the dynamic data for the instance
@@ -1332,14 +1332,14 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	 *	@param	DynamicData		The dynamic data to fill in
 	 *	@param	bSelected		true if the particle system component is selected
 	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected);
+	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
 	 *
 	 *	@return	The replay data, or NULL on failure
 	 */
-	virtual FDynamicEmitterReplayDataBase* GetReplayData();
+	virtual FDynamicEmitterReplayDataBase* GetReplayData() override;
 
 	/**
 	 *	Retrieve the allocated size of this instance.
@@ -1347,7 +1347,7 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	 *	@param	OutNum			The size of this instance
 	 *	@param	OutMax			The maximum size of this instance
 	 */
-	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax);
+	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax) override;
 
 	/**
 	 * Returns the size of the object/ resource for display to artists/ LDs in the Editor.
@@ -1380,7 +1380,7 @@ protected:
 	 *
 	 * @return Returns true if successful
 	 */
-	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData );
+	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData ) override;
 };
 
 /*-----------------------------------------------------------------------------
@@ -1447,7 +1447,7 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	/** Destructor	*/
 	virtual ~FParticleAnimTrailEmitterInstance();
 
-	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true);
+	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent, bool bClearResources = true) override;
 
 	/**
 	 *	Helper function for recalculating tangents and the spline interpolation parameter...
@@ -1470,7 +1470,7 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	 *	@param	DeltaTime			The current time slice
 	 *	@param	CurrentLODLevel		The current LOD level for the instance
 	 */
-	virtual void Tick_RecalculateTangents(float DeltaTime, UParticleLODLevel* CurrentLODLevel);
+	virtual void Tick_RecalculateTangents(float DeltaTime, UParticleLODLevel* CurrentLODLevel) override;
 
 	virtual bool GetSpawnPerUnitAmount(float DeltaTime, int32 InTrailIdx, int32& OutCount, float& OutRate);
 
@@ -1479,14 +1479,14 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	 *	@param	DeltaTime		The time slice to spawn over
 	 *	@return	float			The leftover fraction of spawning
 	 */
-	virtual float Spawn(float DeltaTime);
+	virtual float Spawn(float DeltaTime) override;
 
-	virtual void SetupTrailModules();
+	virtual void SetupTrailModules() override;
 	void ResolveSource();
-	virtual void UpdateSourceData(float DeltaTime, bool bFirstTime);
+	virtual void UpdateSourceData(float DeltaTime, bool bFirstTime) override;
 
-	void UpdateBoundingBox(float DeltaTime);
-	void ForceUpdateBoundingBox();
+	void UpdateBoundingBox(float DeltaTime) override;
+	void ForceUpdateBoundingBox() override;
 
 	/** Determine the number of vertices and triangles in each trail */
 	void DetermineVertexAndTriangleCount();
@@ -1495,7 +1495,7 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected);
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
 
 	/**
 	 *	Updates the dynamic data for the instance
@@ -1503,14 +1503,14 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	 *	@param	DynamicData		The dynamic data to fill in
 	 *	@param	bSelected		true if the particle system component is selected
 	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected);
+	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
 	 *
 	 *	@return	The replay data, or NULL on failure
 	 */
-	virtual FDynamicEmitterReplayDataBase* GetReplayData();
+	virtual FDynamicEmitterReplayDataBase* GetReplayData() override;
 
 	/**
 	 *	Retrieve the allocated size of this instance.
@@ -1518,7 +1518,7 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	 *	@param	OutNum			The size of this instance
 	 *	@param	OutMax			The maximum size of this instance
 	 */
-	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax);
+	virtual void GetAllocatedSize(int32& OutNum, int32& OutMax) override;
 
 	/**
 	 * Returns the size of the object/ resource for display to artists/ LDs in the Editor.
@@ -1528,17 +1528,17 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	 */
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 
-	virtual bool IsTrailEmitter()const{ return true; }
+	virtual bool IsTrailEmitter() const override { return true; }
 
 	/**
 	 * Begins the trail.
 	 */
-	virtual void BeginTrail();
+	virtual void BeginTrail() override;
 
 	/**
 	 * Ends the trail.
 	 */
-	virtual void EndTrail();
+	virtual void EndTrail() override;
 
 	/**
 	* Sets the date that defines this trail.
@@ -1548,7 +1548,7 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	* @param	InWidthMode			How the width value is applied to the trail.
 	* @param	InWidth				The width of the trail.
 	*/
-	virtual void SetTrailSourceData(FName InFirstSocketName, FName InSecondSocketName, ETrailWidthMode InWidthMode, float InWidth);
+	virtual void SetTrailSourceData(FName InFirstSocketName, FName InSecondSocketName, ETrailWidthMode InWidthMode, float InWidth) override;
 
 	bool IsTrailActive()const;
 
@@ -1573,7 +1573,7 @@ protected:
 	 *
 	 * @return Returns true if successful
 	 */
-	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData );
+	virtual bool FillReplayData( FDynamicEmitterReplayDataBase& OutData ) override;
 
 	/** 
 	*	Helper to spawn a trail particle during SpawnParticles(). 
@@ -1583,9 +1583,9 @@ protected:
 	void SpawnParticle( int32& StartParticleIndex, const struct FAnimTrailParticleSpawnParams& Params );
 
 	/** Prints out info for a single particle. */
-	virtual void PrintParticleData(FBaseParticle* Particle, FTrailsBaseTypeDataPayload* TrailData, int32 CurrentIndex, int32 TrailIndex);
+	virtual void PrintParticleData(FBaseParticle* Particle, FTrailsBaseTypeDataPayload* TrailData, int32 CurrentIndex, int32 TrailIndex) override;
 	/** Prints out info for all active particles. */
-	virtual void PrintAllActiveParticles();
+	virtual void PrintAllActiveParticles() override;
 	/** Traverses all trails and prints out debugging info. */
-	virtual void PrintTrails();
+	virtual void PrintTrails() override;
 };

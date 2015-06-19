@@ -15,15 +15,20 @@ public:
 	static void MapActions(TSharedRef<FUICommandList>& ToolkitCommands);
 
 protected:
-	static void OnPressedCtrlTab();
+	static void OnPressedCtrlTab(TSharedPtr<FUICommandInfo> TriggeringCommand);
 	static void OnSummonedAssetPicker();
 	static void OnSummonedConsoleCommandBox();
+
+	static TSharedPtr<SWindow> OpenPopup(TSharedRef<SWidget> WindowContents, const FVector2D& PopupDesiredSize);
 public:
 	TSharedPtr<FUICommandInfo> FindInContentBrowser;
 	TSharedPtr<FUICommandInfo> SummonControlTabNavigation;
+	TSharedPtr<FUICommandInfo> SummonControlTabNavigationAlternate;
 	TSharedPtr<FUICommandInfo> SummonOpenAssetDialog;
+	TSharedPtr<FUICommandInfo> SummonOpenAssetDialogAlternate;
 	TSharedPtr<FUICommandInfo> OpenDocumentation;
 	TSharedPtr<FUICommandInfo> ViewReferences;
+	TSharedPtr<FUICommandInfo> ViewSizeMap;
 	TSharedPtr<FUICommandInfo> OpenConsoleCommandBox;
 };
 

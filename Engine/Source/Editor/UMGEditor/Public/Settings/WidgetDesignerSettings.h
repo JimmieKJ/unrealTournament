@@ -7,9 +7,8 @@
 /**
  * Implements the settings for the Widget Blueprint Designer.
  */
-UCLASS(config=EditorUserSettings)
-class UMGEDITOR_API UWidgetDesignerSettings
-	: public UObject
+UCLASS(config=EditorPerProjectUserSettings)
+class UMGEDITOR_API UWidgetDesignerSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -19,4 +18,7 @@ class UMGEDITOR_API UWidgetDesignerSettings
 
 	UPROPERTY(config)
 	int32 GridSnapSize;
+
+	UPROPERTY(EditAnywhere, config, Category=Dragging)
+	bool bLockToPanelOnDragByDefault;
 };

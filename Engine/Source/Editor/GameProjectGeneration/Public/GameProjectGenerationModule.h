@@ -87,7 +87,7 @@ public:
 	virtual bool UpdateGameProject(const FString& ProjectFile, const FString& EngineIdentifier, FText& OutFailReason);
 
 	/** Updates the current code project */
-	virtual bool UpdateCodeProject(FText& OutFailReason);
+	virtual bool UpdateCodeProject(FText& OutFailReason, FText& OutFailLog);
 
 	/** Gets the current projects source file count */
 	virtual bool ProjectHasCodeFiles();
@@ -124,6 +124,9 @@ public:
 
 	/** Clear the list of supported target platforms */
 	virtual void ClearSupportedTargetPlatforms();
+
+	/** Check to see if the project requires a code build */
+	virtual bool ProjectRequiresBuild(const FName InPlatformInfoName);
 
 public:
 

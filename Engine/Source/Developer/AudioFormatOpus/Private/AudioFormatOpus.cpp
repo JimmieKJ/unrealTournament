@@ -33,7 +33,7 @@ class FAudioFormatOpus : public IAudioFormat
 	};
 
 public:
-	virtual bool AllowParallelBuild() const
+	virtual bool AllowParallelBuild() const override
 	{
 		return false;
 	}
@@ -45,12 +45,12 @@ public:
 	}
 
 
-	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const
+	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const override
 	{
 		OutFormats.Add(NAME_OPUS);
 	}
 
-	virtual bool Cook(FName Format, const TArray<uint8>& SrcBuffer, FSoundQualityInfo& QualityInfo, TArray<uint8>& CompressedDataStore) const
+	virtual bool Cook(FName Format, const TArray<uint8>& SrcBuffer, FSoundQualityInfo& QualityInfo, TArray<uint8>& CompressedDataStore) const override
 	{
 		check(Format == NAME_OPUS);
 
@@ -150,7 +150,7 @@ public:
 		return CompressedDataStore.Num() > 0;
 	}
 
-	virtual bool CookSurround(FName Format, const TArray<TArray<uint8> >& SrcBuffers, FSoundQualityInfo& QualityInfo, TArray<uint8>& CompressedDataStore) const
+	virtual bool CookSurround(FName Format, const TArray<TArray<uint8> >& SrcBuffers, FSoundQualityInfo& QualityInfo, TArray<uint8>& CompressedDataStore) const override
 	{
 		check(Format == NAME_OPUS);
 
@@ -312,7 +312,7 @@ public:
 		return CompressedDataStore.Num() > 0;
 	}
 
-	virtual int32 Recompress(FName Format, const TArray<uint8>& SrcBuffer, FSoundQualityInfo& QualityInfo, TArray<uint8>& OutBuffer) const
+	virtual int32 Recompress(FName Format, const TArray<uint8>& SrcBuffer, FSoundQualityInfo& QualityInfo, TArray<uint8>& OutBuffer) const override
 	{
 		check(Format == NAME_OPUS);
 		FOpusAudioInfo	AudioInfo;

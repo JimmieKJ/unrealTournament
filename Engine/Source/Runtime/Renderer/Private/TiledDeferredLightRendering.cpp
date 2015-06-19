@@ -234,7 +234,7 @@ public:
 		OutTexture.UnsetUAV(RHICmdList, GetComputeShader());
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << DeferredParameters;

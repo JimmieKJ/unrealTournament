@@ -6,6 +6,7 @@
 #include "Components/SkinnedMeshComponent.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 #include "SkeletalMeshTypes.h"
+#include "Animation/AnimationAsset.h"
 #include "SkeletalMeshComponent.generated.h"
 
 class UAnimInstance;
@@ -258,7 +259,7 @@ struct FSkeletalMeshComponentPreClothTickFunction : public FTickFunction
 	**/
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	virtual FString DiagnosticMessage();
+	virtual FString DiagnosticMessage() override;
 };
 
 
@@ -329,6 +330,12 @@ public:
 	/** If true, there is at least one body in the current PhysicsAsset with a valid bone in the current SkeletalMesh */
 	UPROPERTY(transient)
 	uint32 bHasValidBodies:1;
+
+	/** Set during InitArticulated, to indicate if there are bodies in the sync scene */
+	uint32 bHasBodiesInSyncScene:1;
+
+	/** Set during InitArticulated, to indicate if there are bodies in the async scene */
+	uint32 bHasBodiesInAsyncScene:1;
 
 	/** If we are running physics, should we update non-simulated bones based on the animation bone positions. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
@@ -559,9 +566,11 @@ public:
 
 	/**
 	 * Set Morph Target with Name and Value(0-1)
+	 *
+	 * @param bRemoveZeroWeight : Used by editor code when it should stay in the active list with zero weight
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
-	void SetMorphTarget(FName MorphTargetName, float Value);
+	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh", meta=(UnsafeDuringActorConstruction="true"))
+	void SetMorphTarget(FName MorphTargetName, float Value, bool bRemoveZeroWeight=true);
 
 	/**
 	 * Clear all Morph Target that are set to this mesh
@@ -630,6 +639,9 @@ public:
 public:
 	/** Temporary array of bone indices required this frame. Filled in by UpdateSkelPose. */
 	TArray<FBoneIndexType> RequiredBones;
+
+	/** Tempory array of bone indices required to populate space bases */
+	TArray<FBoneIndexType> FillSpaceBasesRequiredBones;
 
 	/** 
 	 *	Index of the 'Root Body', or top body in the asset hierarchy. 
@@ -791,29 +803,38 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
+
+	//Handle registering our pre cloth tick function
+	void RegisterPreClothTick(bool bRegister);
+
 	// End UActorComponent interface.
 
 	// Begin USceneComponent interface.
-	virtual void UpdateBounds();
+	virtual void UpdateBounds() override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	virtual bool IsAnySimulatingPhysics() const override;
 	virtual void OnUpdateTransform(bool bSkipPhysicsMove) override;
 	virtual void UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps=NULL, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=NULL) override;
-	
+	// End USceneComponent interface.
+
+	// Begin UPrimitiveComponent interface.
+protected:
 	/**
 	 *  Test the collision of the supplied component at the supplied location/rotation, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of overlaps found between this component in specified pose and the world
 	 *  @param  World			World to use for overlap test
-	 *  @param  Pos             Location to place the component's geometry at to test against the world
-	 *  @param  Rot             Rotation to place components' geometry at to test against the world
+	 *  @param  Pos             Location of the component's geometry for the test against the world
+	 *  @param  Rot             Rotation of the component's geometry for the test against the world
 	 *  @param  TestChannel		The 'channel' that this ray is in, used to determine which components to hit
 	 *	@param	ObjectQueryParams	List of object types it's looking for. When this enters, we do object query with component shape
 	 *  @return TRUE if OutOverlaps contains any blocking results
 	 */
-	virtual bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const override;
-	// End USceneComponent interface.
+	virtual bool ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FQuat& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const override;
+	
+	virtual bool ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Quat, const FCollisionQueryParams& Params) override;
 
-	// Begin UPrimitiveComponent interface.
+public:
+
 	virtual class UBodySetup* GetBodySetup() override;
 	virtual bool CanEditSimulatePhysics() override;
 	virtual FBodyInstance* GetBodyInstance(FName BoneName = NAME_None, bool bGetWelded = true) const override;
@@ -826,13 +847,13 @@ public:
 	virtual bool IsAnyRigidBodyAwake() override;
 	virtual void OnComponentCollisionSettingsChanged() override;
 	virtual void SetPhysMaterialOverride(UPhysicalMaterial* NewPhysMaterial) override;
+	virtual float GetDistanceToCollision(const FVector& Point, FVector& ClosestPointOnCollision) const override;
 	virtual bool LineTraceComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionQueryParams& Params ) override;
 	virtual bool SweepComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionShape& CollisionShape, bool bTraceComplex=false) override;
-	virtual bool ComponentOverlapComponent(class UPrimitiveComponent* PrimComp, const FVector Pos, const FRotator FRotator, const FCollisionQueryParams& Params) override;
 	virtual bool OverlapComponent(const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape) override;
 	virtual void SetSimulatePhysics(bool bEnabled) override;
 	virtual void AddRadialImpulse(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff, bool bVelChange=false) override;
-	virtual void AddRadialForce(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff) override;
+	virtual void AddRadialForce(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff, bool bAccelChange=false) override;
 	virtual void SetAllPhysicsLinearVelocity(FVector NewVel,bool bAddToCurrent = false) override;
 	virtual void SetAllMassScale(float InMassScale = 1.f) override;
 	virtual float GetMass() const override;
@@ -849,7 +870,7 @@ public:
 	// Begin USkinnedMeshComponent interface
 	virtual bool UpdateLODStatus() override;
 	virtual void RefreshBoneTransforms( FActorComponentTickFunction* TickFunction = NULL ) override;
-	virtual void TickPose( float DeltaTime ) override;
+	virtual void TickPose(float DeltaTime, bool bNeedsValidRootMotion) override;
 	virtual void UpdateSlaveComponent() override;
 	virtual bool ShouldUpdateTransform(bool bLODHasChanged) const override;
 	virtual bool ShouldTickPose() const override;
@@ -862,6 +883,7 @@ public:
 	virtual FVector GetSkinnedVertexPosition(int32 VertexIndex) const override;
 
 	virtual bool IsPlayingRootMotion() override;
+	virtual bool IsPlayingRootMotionFromEverything() override;
 
 	// End USkinnedMeshComponent interface
 	/** 
@@ -922,6 +944,9 @@ public:
 	/** Set bSimulatePhysics to true for all bone bodies. Does not change the component bSimulatePhysics flag. */
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
 	void SetAllBodiesSimulatePhysics(bool bNewSimulate);
+
+	/** Update Material Parameters based on AnimInstance */
+	void UpdateMaterialParameters();
 
 	/** This is global set up for setting physics blend weight
 	 * This does multiple things automatically
@@ -1014,7 +1039,7 @@ public:
 	 *	Iterate over each physics body in the physics for this mesh, and for each 'kinematic' (ie fixed or default if owner isn't simulating) one, update its
 	 *	transform based on the animated transform.
 	 */
-	void UpdateKinematicBonesToPhysics(const TArray<FTransform>& InSpaceBases, bool bTeleport, bool bNeedsSkinning, bool bForceUpdate = false);
+	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, bool bTeleport, bool bNeedsSkinning, bool bForceUpdate = false);
 	
 	/**
 	 * Look up all bodies for broken constraints.
@@ -1152,18 +1177,26 @@ private:
 
 	void RenderAxisGizmo(const FTransform& Transform, class UCanvas* Canvas) const;
 
-	bool ShouldBlendPhysicsBones();	
+	bool ShouldBlendPhysicsBones() const;
+	bool DoAnyPhysicsBodiesHaveWeight() const;
+
 	void ClearAnimScriptInstance();
+	virtual void RefreshActiveVertexAnims() override;
 
 	//Data for parallel evaluation of animation
 	FAnimationEvaluationContext AnimEvaluationContext;
 
+	// Reference to our current parallel animation evaluation task (if there is one)
+	FGraphEventRef				ParallelAnimationEvaluationTask;
+
 public:
 	// Parallel evaluation wrappers
 	void ParallelAnimationEvaluation() { PerformAnimationEvaluation(AnimEvaluationContext.SkeletalMesh, AnimEvaluationContext.AnimInstance, AnimEvaluationContext.SpaceBases, AnimEvaluationContext.LocalAtoms, AnimEvaluationContext.VertexAnims, AnimEvaluationContext.RootBoneTranslation); }
-	void CompleteParallelAnimationEvaluation()
+	void CompleteParallelAnimationEvaluation(bool bDoPostAnimEvaluation)
 	{
-		if ((AnimEvaluationContext.AnimInstance == AnimScriptInstance) && (AnimEvaluationContext.SkeletalMesh == SkeletalMesh) && (AnimEvaluationContext.SpaceBases.Num() == GetNumSpaceBases()))
+		ParallelAnimationEvaluationTask.SafeRelease(); //We are done with this task now, clean up!
+
+		if (bDoPostAnimEvaluation && (AnimEvaluationContext.AnimInstance == AnimScriptInstance) && (AnimEvaluationContext.SkeletalMesh == SkeletalMesh) && (AnimEvaluationContext.SpaceBases.Num() == GetNumSpaceBases()))
 		{
 			Exchange(AnimEvaluationContext.SpaceBases, AnimEvaluationContext.bDoInterpolation ? CachedSpaceBases : GetEditableSpaceBases() );
 			Exchange(AnimEvaluationContext.LocalAtoms, AnimEvaluationContext.bDoInterpolation ? CachedLocalAtoms : LocalAtoms);
@@ -1172,15 +1205,20 @@ public:
 
 			PostAnimEvaluation(AnimEvaluationContext);
 		}
-		else
-		{
-			AnimEvaluationContext.Clear();
-		}
+		AnimEvaluationContext.Clear();
 	}
+
+	bool IsRunningParallelEvaluation(bool bBlockOnTask, bool bPerformPostAnimEvaluation);
 
 	friend class FSkeletalMeshComponentDetails;
 
 private:
+	// Returns whether we need to run the Pre Cloth Tick or not
+	bool ShouldRunPreClothTick() const;
+
+	// Handles registering/unregistering the pre cloth tick as it is needed
+	void UpdatePreClothTickRegisteredState();
+
 	// these are deprecated variables from removing SingleAnimSkeletalComponent
 	// remove if this version goes away : VER_UE4_REMOVE_SINGLENODEINSTANCE
 	// deprecated variable to be re-save
@@ -1208,12 +1246,17 @@ private:
 	float DefaultPlayRate_DEPRECATED;
 
 public:
-	/** Keep track of when animation haa been ticked to ensure it is ticked only once per frame. */
+	/** Keep track of when animation has been ticked to ensure it is ticked only once per frame. */
 	UPROPERTY(Transient)
-	float LastTickTime;
+	float LastPoseTickTime;
+
+	/** Checked whether we have already ticked the pose this frame */
+	bool PoseTickedThisFrame() const { return LastPoseTickTime == GetWorld()->TimeSeconds; }
 
 	/** Take extracted RootMotion and convert it from local space to world space. */
 	FTransform ConvertLocalRootMotionToWorld(const FTransform& InTransform);
+
+	FRootMotionMovementParams ConsumeRootMotion();
 };
 
 

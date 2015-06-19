@@ -17,9 +17,6 @@
 
 DEFINE_LOG_CATEGORY(LogALAudio);
 
-ALCdevice* FALAudioDevice::HardwareDevice = NULL;
-ALCcontext*	FALAudioDevice::SoundContext = NULL;
-
 
 class FALAudioDeviceModule : public IAudioDeviceModule
 {
@@ -36,44 +33,63 @@ IMPLEMENT_MODULE(FALAudioDeviceModule, ALAudio );
 /*------------------------------------------------------------------------------------
 	UALAudioDevice constructor and UObject interface.
 ------------------------------------------------------------------------------------*/
+FALAudioDevice::FALAudioDevice()
+	: HardwareDevice(nullptr)
+	, SoundContext(nullptr)
+{}
 
 void FALAudioDevice::TeardownHardware( void )
 {
-	// Flush stops all sources and deletes all buffers so sources can be safely deleted below.
-	Flush( NULL );
-	
 	// Push any pending data to the hardware
 	if( &alcProcessContext )
-	{	
+	{
 		alcProcessContext( SoundContext );
 	}
 
 	// Destroy all sound sources
-	for( int i = 0; i < Sources.Num(); i++ )
+	for( int32 i = 0; i < Sources.Num(); i++ )
 	{
 		delete Sources[ i ];
 	}
 	Sources.Empty();
 	FreeSources.Empty();
 
+	// Destroy OpenAL buffers associated with this audio device
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+	check(AudioDeviceManager != nullptr);
+	for( int32 i = 0; i < AudioDeviceManager->Buffers.Num(); i++ )
+	{
+		FALSoundBuffer* Buffer = static_cast<FALSoundBuffer*>(AudioDeviceManager->Buffers[i]);
+		if( Buffer->AudioDevice == this )
+		{
+			alDeleteBuffers(1, &Buffer->BufferId);
+			Buffer->AudioDevice = nullptr;
+			Buffer->BufferId = 0;
+		}
+	}
+
 	// Disable the context
 	if( &alcMakeContextCurrent )
-	{	
-		alcMakeContextCurrent( NULL );
+	{
+		alcMakeContextCurrent(nullptr);
 	}
 
 	// Destroy the context
 	if( &alcDestroyContext )
-	{	
+	{
 		alcDestroyContext( SoundContext );
 		SoundContext = NULL;
 	}
 
 	// Close the hardware device
 	if( &alcCloseDevice )
-	{	
+	{
+		checkf(HardwareDevice, TEXT("Tearing down invalid OpenAL device! (HardwareDevice should not be null)."));
+		const ALCchar* DeviceName = alcGetString(HardwareDevice, ALC_DEVICE_SPECIFIER);
+		UE_LOG(LogALAudio, Log, TEXT("Closing ALAudio device : %s"), StringCast<TCHAR>(static_cast<const ANSICHAR*>(DeviceName)).Get());
+
 		alcCloseDevice( HardwareDevice );
-		HardwareDevice = NULL;
+		HardwareDevice = nullptr;
 	}
 
 }
@@ -84,7 +100,7 @@ void FALAudioDevice::TeardownHardware( void )
 /**
  * Initializes the audio device and creates sources.
  *
- * @warning: 
+ * @warning:
  *
  * @return TRUE if initialization was successful, FALSE otherwise
  */
@@ -102,9 +118,8 @@ bool FALAudioDevice::InitializeHardware( void )
 	// Load ogg and vorbis dlls if they haven't been loaded yet
 	//LoadVorbisLibraries();
 
-	
 	// Open device
-	HardwareDevice = alcOpenDevice(  NULL );
+	HardwareDevice = alcOpenDevice(nullptr);
 	if( !HardwareDevice )
 	{
 		UE_LOG(LogALAudio, Log, TEXT( "ALAudio: no OpenAL devices found." ) );
@@ -116,12 +131,12 @@ bool FALAudioDevice::InitializeHardware( void )
 	UE_LOG(LogALAudio, Log, TEXT("ALAudio device opened : %s"), StringCast<TCHAR>(static_cast<const ANSICHAR*>(OpenedDeviceName)).Get());
 
 	// Create a context
-	int Caps[] = 
-	{ 
-		ALC_FREQUENCY, 44100, 
-		ALC_STEREO_SOURCES, 4, 
-		0, 0 
-    };
+	int Caps[] =
+	{
+		ALC_FREQUENCY, 44100,
+		ALC_STEREO_SOURCES, 4,
+		0, 0
+	};
 #if PLATFORM_HTML5_WIN32 || PLATFORM_LINUX
 	SoundContext = alcCreateContext( HardwareDevice, Caps );
 #elif PLATFORM_HTML5
@@ -133,8 +148,7 @@ bool FALAudioDevice::InitializeHardware( void )
 		return false ;
 	}
 
-	alcMakeContextCurrent( SoundContext );
-	
+	alcMakeContextCurrent(SoundContext);
 
 	// Make sure everything happened correctly
 	if( alError( TEXT( "Init" ) ) )
@@ -147,7 +161,7 @@ bool FALAudioDevice::InitializeHardware( void )
 	UE_LOG(LogALAudio, Log, TEXT("AL_RENDERER    : %s"), StringCast<TCHAR>(static_cast<const ANSICHAR*>(alGetString(AL_RENDERER))).Get());
 	UE_LOG(LogALAudio, Log, TEXT("AL_VERSION     : %s"), StringCast<TCHAR>(static_cast<const ANSICHAR*>(alGetString(AL_VERSION))).Get());
 	UE_LOG(LogALAudio, Log, TEXT("AL_EXTENSIONS  : %s"), StringCast<TCHAR>(static_cast<const ANSICHAR*>(alGetString(AL_EXTENSIONS))).Get());
- 
+
 	// Get the enums for multichannel support
 #if !PLATFORM_HTML5
 	Surround40Format = alGetEnumValue( "AL_FORMAT_QUAD16" );
@@ -187,7 +201,7 @@ bool FALAudioDevice::InitializeHardware( void )
 	// Use our own distance model.
 	alDistanceModel( AL_NONE );
 
-	// Set up a default (nop) effects manager 
+	// Set up a default (nop) effects manager
 	Effects = new FAudioEffectsManager( this );
 
 	return true ;
@@ -205,7 +219,6 @@ void FALAudioDevice::Update( bool Realtime )
 	FVector ListenerFront		= Listeners[ 0 ].GetFront();
 	FVector ListenerUp			= Listeners[ 0 ].GetUp();
 
-
 	// Set Player position
 	FVector Location;
 
@@ -214,30 +227,32 @@ void FALAudioDevice::Update( bool Realtime )
 	Location.Y = ListenerLocation.Z; // Z/Y swapped on purpose, see file header
 	Location.Z = ListenerLocation.Y; // Z/Y swapped on purpose, see file header
 	Location *= AUDIO_DISTANCE_FACTOR;
-	
+
 	// Set Player orientation.
 	FVector Orientation[2];
 
 	// See file header for coordinate system explanation.
 	Orientation[0].X = ListenerFront.X;
-	Orientation[0].Y = ListenerFront.Z; // Z/Y swapped on purpose, see file header	
+	Orientation[0].Y = ListenerFront.Z; // Z/Y swapped on purpose, see file header
 	Orientation[0].Z = ListenerFront.Y; // Z/Y swapped on purpose, see file header
-	
+
 	// See file header for coordinate system explanation.
 	Orientation[1].X = ListenerUp.X;
 	Orientation[1].Y = ListenerUp.Z; // Z/Y swapped on purpose, see file header
 	Orientation[1].Z = ListenerUp.Y; // Z/Y swapped on purpose, see file header
 
-	// Make the listener still and the sounds move relatively -- this allows 
+	// Make the listener still and the sounds move relatively -- this allows
 	// us to scale the doppler effect on a per-sound basis.
 	FVector Velocity = FVector( 0.0f, 0.0f, 0.0f );
-	
+
+	MakeCurrent(TEXT("FALAudioDevice::Update()"));
+
 	alListenerfv( AL_POSITION, ( ALfloat* )&Location );
 	alListenerfv( AL_ORIENTATION, ( ALfloat* )&Orientation[0] );
 	alListenerfv( AL_VELOCITY, ( ALfloat* )&Velocity );
 
 	alError( TEXT( "UALAudioDevice::Update" ) );
-}	
+}
 
 ALuint FALAudioDevice::GetInternalFormat( int NumChannels )
 {
@@ -261,45 +276,31 @@ ALuint FALAudioDevice::GetInternalFormat( int NumChannels )
 		break;
 	case 6:
 		InternalFormat = Surround51Format;
-		break;	
+		break;
 	case 7:
 		InternalFormat = Surround61Format;
-		break;	
+		break;
 	case 8:
 		InternalFormat = Surround71Format;
 		break;
-#endif 
+#endif
 	}
 
 	return( InternalFormat );
 }
 
+void FALAudioDevice::MakeCurrent(const TCHAR * CallSiteIdentifier)
+{
+	checkf(SoundContext, TEXT("Unitialiized sound context in FALAudioDevice::MakeCurrent()!"));
+	if (!alcMakeContextCurrent(SoundContext))
+	{
+		alError(CallSiteIdentifier ? CallSiteIdentifier : TEXT("FALAudioDevice::MakeCurrent()"));
+	}
+}
+
 /*------------------------------------------------------------------------------------
 OpenAL utility functions
 ------------------------------------------------------------------------------------*/
-//
-//	FindExt
-//
-bool FALAudioDevice::FindExt( const TCHAR* Name )
-{
-	return alIsExtensionPresent(TCHAR_TO_ANSI(Name)) || alcIsExtensionPresent(HardwareDevice, TCHAR_TO_ANSI(Name));
-}
-
-//
-//	FindProc
-//
-void FALAudioDevice::FindProc( void*& ProcAddress, char* Name, char* SupportName, bool& Supports, bool AllowExt )
-{
-	
-}
-
-//
-//	FindProcs
-//
-void FALAudioDevice::FindProcs( bool AllowExt )
-{
-
-}
 
 //
 //	alError
@@ -309,8 +310,8 @@ bool FALAudioDevice::alError( const TCHAR* Text, bool Log )
 	ALenum Error = alGetError();
 	if( Error != AL_NO_ERROR )
 	{
-		do 
-		{		
+		do
+		{
 			if( Log )
 			{
 				switch ( Error )
@@ -338,10 +339,10 @@ bool FALAudioDevice::alError( const TCHAR* Text, bool Log )
 		}
 		while( ( Error = alGetError() ) != AL_NO_ERROR );
 
-		return true ; 
+		return true;
 	}
 
-	return false ;
+	return false;
 }
 
 FSoundSource* FALAudioDevice::CreateSoundSource()

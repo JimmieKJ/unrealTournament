@@ -100,7 +100,7 @@ void DrawClearQuadMRT(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type Featur
 
 	SetGlobalBoundShaderState(RHICmdList, FeatureLevel, GClearMRTBoundShaderState[FMath::Max(NumClearColors - 1, 0)], GetVertexDeclarationFVector4(), *VertexShader, PixelShader);
 	FLinearColor ShaderClearColors[MaxSimultaneousRenderTargets];
-	FMemory::MemZero(ShaderClearColors);
+	FMemory::Memzero(ShaderClearColors);
 
 	for (int32 i = 0; i < NumClearColors; i++)
 	{

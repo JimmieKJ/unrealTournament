@@ -17,9 +17,30 @@
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
+static TAutoConsoleVariable<int32> CVarEnableSaveGeneratedLODsInPackage(
+	TEXT("r.StaticMesh.EnableSaveGeneratedLODsInPackage"),
+	0,
+	TEXT("Enables saving generated LODs in the Package.\n") \
+	TEXT("0 - Do not save (and hide this menu option) [default].\n") \
+	TEXT("1 - Enable this option and save the LODs in the Package.\n"),
+	ECVF_Default);
+
 void FAssetTypeActions_StaticMesh::GetActions( const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder )
 {
 	auto Meshes = GetTypedWeakObjectPtrs<UStaticMesh>(InObjects);
+
+	if (CVarEnableSaveGeneratedLODsInPackage.GetValueOnGameThread() != 0)
+	{
+		MenuBuilder.AddMenuEntry(
+			NSLOCTEXT("AssetTypeActions_StaticMesh", "ObjectContext_SaveGeneratedLODsInPackage", "Save Generated LODs"),
+			NSLOCTEXT("AssetTypeActions_StaticMesh", "ObjectContext_SaveGeneratedLODsInPackageTooltip", "Run the mesh reduce and save the generated LODs as part of the package."),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &FAssetTypeActions_StaticMesh::ExecuteSaveGeneratedLODsInPackage, Meshes),
+				FCanExecuteAction()
+				)
+			);
+	}
 
 	MenuBuilder.AddMenuEntry(
 		NSLOCTEXT("AssetTypeActions_StaticMesh", "ObjectContext_CreateDestructibleMesh", "Create Destructible Mesh"),
@@ -59,7 +80,7 @@ UThumbnailInfo* FAssetTypeActions_StaticMesh::GetThumbnailInfo(UObject* Asset) c
 	UThumbnailInfo* ThumbnailInfo = StaticMesh->ThumbnailInfo;
 	if ( ThumbnailInfo == NULL )
 	{
-		ThumbnailInfo = ConstructObject<USceneThumbnailInfo>(USceneThumbnailInfo::StaticClass(), StaticMesh);
+		ThumbnailInfo = NewObject<USceneThumbnailInfo>(StaticMesh);
 		StaticMesh->ThumbnailInfo = ThumbnailInfo;
 	}
 
@@ -126,6 +147,18 @@ void FAssetTypeActions_StaticMesh::ExecuteCreateDestructibleMesh(TArray<TWeakObj
 	if ( Assets.Num() > 0 )
 	{
 		FAssetTools::Get().SyncBrowserToAssets(Assets);
+	}
+}
+
+void FAssetTypeActions_StaticMesh::ExecuteSaveGeneratedLODsInPackage(TArray<TWeakObjectPtr<UStaticMesh>> Objects)
+{
+	for (auto StaticMeshIt = Objects.CreateConstIterator(); StaticMeshIt; ++StaticMeshIt)
+	{
+		auto StaticMesh = (*StaticMeshIt).Get();
+		if (StaticMesh)
+		{
+			StaticMesh->GenerateLodsInPackage();
+		}
 	}
 }
 

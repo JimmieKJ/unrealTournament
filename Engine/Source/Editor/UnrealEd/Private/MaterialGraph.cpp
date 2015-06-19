@@ -7,6 +7,7 @@
 
 #include "Materials/MaterialExpressionComment.h"
 #include "Materials/MaterialExpressionFunctionOutput.h"
+#include "Materials/MaterialExpressionCustomOutput.h"
 
 #include "GraphEditor.h"
 #include "MaterialShared.h"
@@ -54,6 +55,7 @@ void UMaterialGraph::RebuildGraph()
 		}
 
 		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("MaterialAttributes", "Material Attributes"), MP_MaterialAttributes) );
+		MaterialInputs.Add( FMaterialInputInfo( LOCTEXT("PixelDepthOffset", "Pixel Depth Offset"), MP_PixelDepthOffset ) );
 
 		// Add Root Node
 		FGraphNodeCreator<UMaterialGraphNode_Root> NodeCreator(*this);
@@ -324,6 +326,19 @@ void UMaterialGraph::GetUnusedExpressions(TArray<UEdGraphNode*>& UnusedNodes) co
 				&& InputPins[Index]->LinkedTo.Num() > 0 && InputPins[Index]->LinkedTo[0])
 			{
 				NodesToCheck.Push(InputPins[Index]->LinkedTo[0]->GetOwningNode());
+			}
+		}
+
+		for (int32 Index = 0; Index < Nodes.Num(); Index++)
+		{
+			UMaterialGraphNode* GraphNode = Cast<UMaterialGraphNode>(Nodes[Index]);
+			if (GraphNode)
+			{
+				UMaterialExpressionCustomOutput* CustomOutput = Cast<UMaterialExpressionCustomOutput>(GraphNode->MaterialExpression);
+				if (CustomOutput)
+				{
+					NodesToCheck.Push(GraphNode);
+				}
 			}
 		}
 	}

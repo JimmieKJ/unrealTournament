@@ -56,7 +56,7 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 }
 #endif
 
-#if EDITOR_PRIMITIVE_MATERIAL
+#if USE_EDITOR_COMPOSITING
 bool bEnableEditorPrimitiveDepthTest;
 // depth in the red channel in DeviceZ
 Texture2D		FilteredSceneDepthTexture;
@@ -64,7 +64,7 @@ SamplerState	FilteredSceneDepthTextureSampler;
 #endif
 
 
-#if EDITOR_PRIMITIVE_MATERIAL && (ES2_EMULATION)
+#if USE_EDITOR_COMPOSITING && (ES2_EMULATION)
 // @return 0:translucent..1:opaque
 float ClipForEditorPrimitives(FMaterialPixelParameters MaterialParameters)
 {
@@ -204,7 +204,7 @@ void Main(
 #if MOVABLE_DIRECTIONAL_LIGHT_CSM
 		// Cascaded Shadow Map
 		{
-			FPCFSamplerSettings Settings;			
+			FPCFSamplerSettings Settings;
 			Settings.ShadowDepthTexture = View.DirectionalLightShadowTexture;
 			Settings.ShadowDepthTextureSampler = View.DirectionalLightShadowSampler;
 			Settings.TransitionScale = View.DirectionalLightShadowTransition;
@@ -212,24 +212,17 @@ void Main(
 			Settings.bSubsurface = false;
 			Settings.DensityMulConstant = 0;
 			Settings.ProjectionDepthBiasParameters = 0;
-						
-			float4 ShadowPosition;	
-	#if MAX_FORWARD_SHADOWCASCADES == 2			
-			{				
-				if (MaterialParameters.ScreenPosition.w >= View.DirectionalLightShadowDistances.x)
-				{
-					ShadowPosition = mul(float4(MaterialParameters.ScreenPosition.xyw, 1), View.DirectionalLightScreenToShadow[1]);
-				}
-				else
-				{
-					ShadowPosition = mul(float4(MaterialParameters.ScreenPosition.xyw, 1), View.DirectionalLightScreenToShadow[0]);
-				}
-			}
-	#else			
+
+			float4 ShadowPosition;
+			for (int i = 0; i < MAX_FORWARD_SHADOWCASCADES; i++)
 			{
-				ShadowPosition = mul(float4(MaterialParameters.ScreenPosition.xyw, 1), View.DirectionalLightScreenToShadow[0]);				
+				if (i == (MAX_FORWARD_SHADOWCASCADES - 1) // ignore test for last shadow map.
+					|| MaterialParameters.ScreenPosition.w < View.DirectionalLightShadowDistances[i])
+				{
+					ShadowPosition = mul(float4(MaterialParameters.ScreenPosition.xyw, 1), View.DirectionalLightScreenToShadow[i]);
+					break; // position found.
+				}
 			}
-	#endif
 
 			// Clamp pixel depth in light space for shadowing opaque, because areas of the shadow depth buffer that weren't rendered to will have been cleared to 1
 			// We want to force the shadow comparison to result in 'unshadowed' in that case, regardless of whether the pixel being shaded is in front or behind that plane
@@ -320,7 +313,7 @@ void Main(
 	#endif
 
 	// Editor primitive depth testing
-	#if EDITOR_PRIMITIVE_MATERIAL && (ES2_EMULATION)
+	#if USE_EDITOR_COMPOSITING && (ES2_EMULATION)
 		#if MATERIALBLENDING_MASKED
 			// some material might have a opacity value
 			OutColor.a = GetMaterialMaskInputRaw(MaterialParameters);

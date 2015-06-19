@@ -80,7 +80,7 @@ void FAssetTypeActions_Texture::ExecuteCreateMaterial(TArray<TWeakObjectPtr<UTex
 			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
 
 			// Create the factory used to generate the asset
-			UMaterialFactoryNew* Factory = ConstructObject<UMaterialFactoryNew>(UMaterialFactoryNew::StaticClass());
+			UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
 			Factory->InitialTexture = Object;
 
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
@@ -101,7 +101,7 @@ void FAssetTypeActions_Texture::ExecuteCreateMaterial(TArray<TWeakObjectPtr<UTex
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 				// Create the factory used to generate the asset
-				UMaterialFactoryNew* Factory = ConstructObject<UMaterialFactoryNew>(UMaterialFactoryNew::StaticClass());
+				UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
 				Factory->InitialTexture = Object;
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");

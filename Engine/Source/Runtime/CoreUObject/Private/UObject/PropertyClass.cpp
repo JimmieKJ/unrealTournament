@@ -13,7 +13,7 @@ void UClassProperty::BeginDestroy()
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(MetaClass))
 	{
-		PlaceholderClass->RemovePropertyReference(this);
+		PlaceholderClass->RemoveReferencingProperty(this);
 	}
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
@@ -56,9 +56,9 @@ void UClassProperty::SetMetaClass(UClass* NewMetaClass)
 		NewPlaceholderClass->AddReferencingProperty(this);
 	}
 
-	if (ULinkerPlaceholderClass* OldPlaceholderClass = Cast<ULinkerPlaceholderClass>(NewMetaClass))
+	if (ULinkerPlaceholderClass* OldPlaceholderClass = Cast<ULinkerPlaceholderClass>(MetaClass))
 	{
-		OldPlaceholderClass->RemovePropertyReference(this);
+		OldPlaceholderClass->RemoveReferencingProperty(this);
 	}
 	MetaClass = NewMetaClass;
 }
@@ -91,7 +91,14 @@ const TCHAR* UClassProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 
 FString UClassProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
 {
-	return FString::Printf(TEXT("TSubclassOf<%s%s> "),MetaClass->GetPrefixCPP(),*MetaClass->GetName());
+	if (PropertyFlags & CPF_UObjectWrapper)
+	{
+		return FString::Printf(TEXT("TSubclassOf<%s%s> "),MetaClass->GetPrefixCPP(),*MetaClass->GetName());
+	}
+	else
+	{
+		return TEXT("UClass*");
+	}
 }
 
 FString UClassProperty::GetCPPTypeForwardDeclaration() const

@@ -11,8 +11,12 @@ static TArray< TSharedPtr<FJsonValue> > EmptyArray;
 
 FString FPaperJSONHelpers::ReadString(TSharedPtr<class FJsonObject> Item, const FString& Key, const FString& DefaultValue)
 {
-	const TSharedPtr<FJsonValue>& ValuePtr = Item->GetField<EJson::String>(Key);
-	return ValuePtr.IsValid() ? ValuePtr->AsString() : DefaultValue;
+	FString Result;
+	if (!Item->TryGetStringField(Key, /*out*/ Result))
+	{
+		Result = DefaultValue;
+	}
+	return Result;
 }
 
 TSharedPtr<class FJsonObject> FPaperJSONHelpers::ReadObject(TSharedPtr<class FJsonObject> Item, const FString& Key)
@@ -41,21 +45,20 @@ const TArray< TSharedPtr<FJsonValue> >& FPaperJSONHelpers::ReadArray(TSharedPtr<
 
 bool FPaperJSONHelpers::ReadBoolean(const TSharedPtr<class FJsonObject> Item, const FString& Key, bool bDefaultIfMissing)
 {
-	if (Item->HasTypedField<EJson::Boolean>(Key))
+	bool bResult;
+	if (!Item->TryGetBoolField(Key, /*out*/ bResult))
 	{
-		return Item->GetBoolField(Key);
+		bResult = bDefaultIfMissing;
 	}
-	else
-	{
-		return bDefaultIfMissing;
-	}
+	return bResult;
 }
 
 bool FPaperJSONHelpers::ReadFloatNoDefault(const TSharedPtr<class FJsonObject> Item, const FString& Key, float& Out_Value)
 {
-	if (Item->HasTypedField<EJson::Number>(Key))
+	double DoubleOutValue;
+	if (Item->TryGetNumberField(Key, /*out*/ DoubleOutValue))
 	{
-		Out_Value = Item->GetNumberField(Key);
+		Out_Value = DoubleOutValue;
 		return true;
 	}
 	else
@@ -79,22 +82,22 @@ bool FPaperJSONHelpers::ReadIntegerNoDefault(const TSharedPtr<class FJsonObject>
 	}
 }
 
-bool FPaperJSONHelpers::ReadRectangle(const TSharedPtr<class FJsonObject> Item, const FString& Key, FVector2D& Out_XY, FVector2D& Out_WH)
+bool FPaperJSONHelpers::ReadRectangle(const TSharedPtr<class FJsonObject> Item, const FString& Key, FIntPoint& Out_XY, FIntPoint& Out_WH)
 {
 	const TSharedPtr<FJsonObject> Struct = ReadObject(Item, Key);
 	if (Struct.IsValid())
 	{
-		if (ReadFloatNoDefault(Struct, TEXT("x"), /*out*/ Out_XY.X) &&
-			ReadFloatNoDefault(Struct, TEXT("y"), /*out*/ Out_XY.Y) &&
-			ReadFloatNoDefault(Struct, TEXT("w"), /*out*/ Out_WH.X) &&
-			ReadFloatNoDefault(Struct, TEXT("h"), /*out*/ Out_WH.Y))
+		if (ReadIntegerNoDefault(Struct, TEXT("x"), /*out*/ Out_XY.X) &&
+			ReadIntegerNoDefault(Struct, TEXT("y"), /*out*/ Out_XY.Y) &&
+			ReadIntegerNoDefault(Struct, TEXT("w"), /*out*/ Out_WH.X) &&
+			ReadIntegerNoDefault(Struct, TEXT("h"), /*out*/ Out_WH.Y))
 		{
 			return true;
 		}
 		else
 		{
-			Out_XY = FVector2D::ZeroVector;
-			Out_WH = FVector2D::ZeroVector;
+			Out_XY = FIntPoint::ZeroValue;
+			Out_WH = FIntPoint::ZeroValue;
 			return false;
 		}
 	}

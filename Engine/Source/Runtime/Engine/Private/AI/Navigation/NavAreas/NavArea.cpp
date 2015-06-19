@@ -45,7 +45,7 @@ void UNavArea::CopyFrom(TSubclassOf<UNavArea> AreaClass)
 		UNavArea* DefArea = (UNavArea*)AreaClass->GetDefaultObject();
 
 		DefaultCost = DefArea->DefaultCost;
-		FixedAreaEnteringCost = DefArea->FixedAreaEnteringCost;
+		FixedAreaEnteringCost = DefArea->GetFixedAreaEnteringCost();
 		AreaFlags = DefArea->GetAreaFlags();
 		DrawColor = DefArea->DrawColor;
 
@@ -60,11 +60,11 @@ void UNavArea::UpdateAgentConfig()
 	check(DefNavSys);
 
 	const int32 MaxAllowedAgents = 16;
-	const int32 NumAgents = FMath::Min(DefNavSys->SupportedAgents.Num(), MaxAllowedAgents);
-	if (DefNavSys->SupportedAgents.Num() > MaxAllowedAgents)
+	const int32 NumAgents = FMath::Min(DefNavSys->GetSupportedAgents().Num(), MaxAllowedAgents);
+	if (DefNavSys->GetSupportedAgents().Num() > MaxAllowedAgents)
 	{
 		UE_LOG(LogNavigation, Error, TEXT("Navigation system supports %d agents, but only %d can be shown in %s properties!"),
-			DefNavSys->SupportedAgents.Num(), MaxAllowedAgents, *GetClass()->GetName());
+			DefNavSys->GetSupportedAgents().Num(), MaxAllowedAgents, *GetClass()->GetName());
 	}
 
 	const FString CustomNameMeta = TEXT("DisplayName");
@@ -77,7 +77,7 @@ void UNavArea::UpdateAgentConfig()
 		if (i < NumAgents && NumAgents > 1)
 		{
 			Prop->SetPropertyFlags(CPF_Edit);
-			Prop->SetMetaData(*CustomNameMeta, *FString::Printf(TEXT("Supports Agent: %s"), *DefNavSys->SupportedAgents[i].Name.ToString()));
+			Prop->SetMetaData(*CustomNameMeta, *FString::Printf(TEXT("Supports Agent: %s"), *DefNavSys->GetSupportedAgents()[i].Name.ToString()));
 		}
 		else
 		{

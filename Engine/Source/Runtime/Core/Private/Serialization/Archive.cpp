@@ -6,6 +6,7 @@
 #include "CorePrivatePCH.h"
 #include "Serialization/Archive.h"
 #include "Serialization/CustomVersion.h"
+#include "EngineVersion.h"
 
 /*-----------------------------------------------------------------------------
 	FArchiveProxy implementation.
@@ -62,6 +63,7 @@ void FArchive::Reset()
 	ArNetVer							= GEngineNegotiationVersion;
 	ArUE4Ver							= GPackageFileUE4Version;
 	ArLicenseeUE4Ver					= GPackageFileLicenseeUE4Version;
+	ArEngineVer = GEngineVersion;
 	ArIsLoading							= false;
 	ArIsSaving							= false;
 	ArIsTransacting						= false;
@@ -100,6 +102,7 @@ void FArchive::CopyTrivialFArchiveStatusMembers(const FArchive& ArchiveToCopy)
 	ArNetVer                             = ArchiveToCopy.ArNetVer;
 	ArUE4Ver                             = ArchiveToCopy.ArUE4Ver;
 	ArLicenseeUE4Ver                     = ArchiveToCopy.ArLicenseeUE4Ver;
+	ArEngineVer                          = ArchiveToCopy.ArEngineVer;
 	ArIsLoading                          = ArchiveToCopy.ArIsLoading;
 	ArIsSaving                           = ArchiveToCopy.ArIsSaving;
 	ArIsTransacting                      = ArchiveToCopy.ArIsTransacting;
@@ -303,12 +306,9 @@ public:
 		verify( FCompression::CompressMemory( Flags, CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize ) );
 	}
 
-	/** Give the name for external event viewers
-	* @return	the name to display in external event viewers
-	*/
-	static const TCHAR *Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncCompressionChunks");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncCompressionChunk, STATGROUP_ThreadPoolAsyncTasks);
 	}
 };
 #endif		// WITH_MULTI_THREADED_COMPRESSION
@@ -675,7 +675,7 @@ void FArchive::SerializeCompressed( void* V, int64 Length, ECompressionFlags Fla
 
 		// Overrwrite chunk infos by seeking to the beginning, serializing the data and then
 		// seeking back to the end.
-		int32 EndPosition = Tell();
+		auto EndPosition = Tell();
 		// Seek to the beginning.
 		Seek( StartPosition );
 		// Serialize chunk infos.

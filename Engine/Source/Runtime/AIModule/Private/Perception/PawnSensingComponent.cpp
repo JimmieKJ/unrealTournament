@@ -335,7 +335,7 @@ bool UPawnSensingComponent::CouldSeePawn(const APawn *Other, bool bMaySkipChecks
 
 	// check field of view
 	FVector const SelfToOtherDir = SelfToOther.GetSafeNormal();
-	FVector const MyFacingDir = Owner->GetActorRotation().Vector();
+	FVector const MyFacingDir = GetSensorRotation().Vector();
 
 // 	UE_LOG(LogPath, Warning, TEXT("DotProductFacing: %f, PeripheralVisionCosine: %f"), SelfToOtherDir | MyFacingDir, PeripheralVisionCosine);
 
@@ -375,12 +375,8 @@ FVector UPawnSensingComponent::GetSensorLocation() const
 
 	if (SensorActor != NULL)
 	{
-		SensorLocation = SensorActor->GetActorLocation();
-		const APawn* SensorPawn = Cast<const APawn>(SensorActor);
-		if (SensorPawn != NULL)
-		{
-			SensorLocation.Z += SensorPawn->BaseEyeHeight;
-		}
+		FRotator ViewRotation;
+		SensorActor->GetActorEyesViewPoint(SensorLocation, ViewRotation);
 	}
 
 	return SensorLocation;
@@ -429,7 +425,7 @@ bool UPawnSensingComponent::CanHear(const FVector& NoiseLoc, float Loudness, boo
 
 	// check if sound is occluded
 	static FName NAME_CanHear = FName(TEXT("CanHear"));
-	return !Owner->GetWorld()->LineTraceTest(HearingLocation, NoiseLoc, ECC_Visibility, FCollisionQueryParams(NAME_CanHear, true, Owner));
+	return !Owner->GetWorld()->LineTraceTestByChannel(HearingLocation, NoiseLoc, ECC_Visibility, FCollisionQueryParams(NAME_CanHear, true, Owner));
 }
 
 

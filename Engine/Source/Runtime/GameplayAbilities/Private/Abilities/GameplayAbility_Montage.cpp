@@ -15,10 +15,10 @@ UGameplayAbility_Montage::UGameplayAbility_Montage(const FObjectInitializer& Obj
 	: Super(ObjectInitializer)
 {
 	PlayRate = 1.f;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::Server;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
 }
 
-void UGameplayAbility_Montage::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
+void UGameplayAbility_Montage::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
@@ -34,10 +34,10 @@ void UGameplayAbility_Montage::ActivateAbility(const FGameplayAbilitySpecHandle 
 		GetGameplayEffectsWhileAnimating(Effects);
 		for (const UGameplayEffect* Effect : Effects)
 		{
-			FActiveGameplayEffectHandle Handle = ActorInfo->AbilitySystemComponent->ApplyGameplayEffectToSelf(Effect, 1.f, GetEffectContext(ActorInfo));
-			if (Handle.IsValid())
+			FActiveGameplayEffectHandle EffectHandle = ActorInfo->AbilitySystemComponent->ApplyGameplayEffectToSelf(Effect, 1.f, GetEffectContext(Handle, ActorInfo));
+			if (EffectHandle.IsValid())
 			{
-				AppliedEffects.Add(Handle);
+				AppliedEffects.Add(EffectHandle);
 			}
 		}
 

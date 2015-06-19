@@ -78,7 +78,7 @@ public:
 	/** Recompiles the bytecode of a blueprint only.  Should only be run for recompiling dependencies during compile on load */
 	static void RecompileBlueprintBytecode(UBlueprint* BlueprintObj, TArray<UObject*>* ObjLoaded = NULL);
 
-	static void GenerateCppCode(UBlueprint* BlueprintObj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource);
+	static void GenerateCppCode(UBlueprint* BlueprintObj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource, const FString& OptionalClassName = FString());
 
 	/** Tries to make sure that a data-only blueprint is conformed to its native parent, in case any native class flags have changed */
 	static void ConformBlueprintFlagsAndComponents(UBlueprint* BlueprintObj);
@@ -220,10 +220,10 @@ public:
 	 * @param InGraph			The graph to spawn the event node in
 	 * @param InEventName		The name of the event function
 	 * @param InEventClass		The class this event can be found in
-	 * @param InNodePosY		Optional Y-position to spawn the node at to easily spawn in a line
+	 * @param InOutNodePosY		Position to spawn the node at, will return with an offset more suitable to offset the next node
 	 * @return					The K2Node_Event will be returned
 	 */
-	static class UK2Node_Event* AddDefaultEventNode(UBlueprint* InBlueprint, UEdGraph* InGraph, FName InEventName, UClass* InEventClass, int32 InNodePosY = 0);
+	static class UK2Node_Event* AddDefaultEventNode(UBlueprint* InBlueprint, UEdGraph* InGraph, FName InEventName, UClass* InEventClass, int32& InOutNodePosY);
 
 private:
 	/** Stores whether we are already listening for kismet clicks */

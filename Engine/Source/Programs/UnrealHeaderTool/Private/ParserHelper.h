@@ -1,9 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-#include "ClassMaps.h"
-
 #pragma once
+#include "ClassMaps.h"
 
 extern class FCompilerMetadataManager GScriptHelper;
 
@@ -60,26 +58,6 @@ struct ERefQualifier
 	};
 };
 
-/** Misc helper functions */
-struct FClassUtils
-{
-	FORCEINLINE static bool IsTemporaryClass(UClass* InClass)
-	{
-		return GTemporaryClasses.Contains(InClass);
-	}
-	FORCEINLINE static void MarkAsTemporaryClass(UClass* InClass)
-	{
-		if (!IsTemporaryClass(InClass))
-		{
-			GTemporaryClasses.Add(InClass);
-		}
-	}
-	FORCEINLINE static bool IsNoExportOrTemporaryClass(UClass* InClass)
-	{
-		return InClass->HasAnyClassFlags(CLASS_NoExport) || IsTemporaryClass(InClass);
-	}
-};
-
 #ifndef CASE_TEXT
 #define CASE_TEXT(txt) case txt: return TEXT(#txt)
 #endif
@@ -95,6 +73,8 @@ public:
 	EArrayType::Type    ArrayType;
 	uint64              PropertyFlags;
 	ERefQualifier::Type RefQualifier; // This is needed because of legacy stuff - FString mangles the flags for reasons that have become lost in time but we need this info for testing for invalid replicated function signatures.
+
+	TSharedPtr<FPropertyBase> MapKeyProp;
 
 	/**
 	 * A mask of EPropertyHeaderExportFlags which are used for modifying how this property is exported to the native class header
@@ -814,6 +794,14 @@ public:
 		}
 		TokenType = TOKEN_Const;
 	}
+	void SetConstChar(TCHAR InChar)
+	{
+		//@TODO: Treating this like a string for now, nothing consumes it
+		(FPropertyBase&)*this = FPropertyBase(CPT_String);
+		String[0] = InChar;
+		String[1] = 0;
+		TokenType = TOKEN_Const;
+	}
 	//!!struct constants
 
 	// Getters.
@@ -889,12 +877,8 @@ struct FFuncInfo
 	FString		MarshallAndCallName;
 	/** Name of the actual implementation **/
 	FString		CppImplName;
-	/** Cached info whether CppImplName ends with _Implementation suffix to avoid string comparisons. **/
-	bool		bCppImplNameEndsWith_Implementation;
 	/** Name of the actual validation implementation **/
 	FString		CppValidationImplName;
-	/** Cached info whether CppValidationImplName ends with _Validate suffix to avoid string comparisons. **/
-	bool		bCppValidationImplNameEndsWith_Validate;
 	/** Name for callback-style names **/
 	FString		UnMarshallAndCallName;
 	/** Identifier for an RPC call to a platform service */
@@ -903,31 +887,39 @@ struct FFuncInfo
 	int16		RPCResponseId;
 	/** Whether this function represents a sealed event */
 	bool		bSealedEvent;
+	/** Delegate macro line in header. */
+	int32		MacroLine;
+	/** Position in file where this function was declared. Points to first char of function name. */
+	int32 InputPos;
 	//@}
 
 	/** Constructor. */
 	FFuncInfo()
-	:	Function            ()
-	,	FunctionFlags       (0)
-	,	FunctionExportFlags (0)
-	,	ExpectParms		    (0)
-	,	FunctionReference(NULL)
-	,	bCppImplNameEndsWith_Implementation(false)
-	,	bCppValidationImplNameEndsWith_Validate(false)
-	,	RPCId               (0)
-	,	RPCResponseId       (0)
-	,	bSealedEvent        (false)
+		: Function()
+		, FunctionFlags(0)
+		, FunctionExportFlags(0)
+		, ExpectParms(0)
+		, FunctionReference(NULL)
+		, CppImplName(TEXT(""))
+		, CppValidationImplName(TEXT(""))
+		, RPCId(0)
+		, RPCResponseId(0)
+		, bSealedEvent(false)
+		, MacroLine(-1)
+		, InputPos(-1)
 	{}
 
-	FFuncInfo( const FFuncInfo& Other )
-	:	FunctionFlags   (Other.FunctionFlags)
-	,	FunctionExportFlags(Other.FunctionExportFlags)
-	,	ExpectParms		(Other.ExpectParms)
-	,	FunctionReference(Other.FunctionReference)
-	,	bCppImplNameEndsWith_Implementation(Other.bCppImplNameEndsWith_Implementation)
-	,	bCppValidationImplNameEndsWith_Validate(Other.bCppValidationImplNameEndsWith_Validate)
-	,	RPCId(Other.RPCId)
-	,	RPCResponseId(Other.RPCResponseId)
+	FFuncInfo(const FFuncInfo& Other)
+		: FunctionFlags(Other.FunctionFlags)
+		, FunctionExportFlags(Other.FunctionExportFlags)
+		, ExpectParms(Other.ExpectParms)
+		, FunctionReference(Other.FunctionReference)
+		, CppImplName(Other.CppImplName)
+		, CppValidationImplName(Other.CppValidationImplName)
+		, RPCId(Other.RPCId)
+		, RPCResponseId(Other.RPCResponseId)
+		, MacroLine(Other.MacroLine)
+		, InputPos(Other.InputPos)
 	{
 		Function.Clone(Other.Function);
 		if (FunctionReference)
@@ -945,8 +937,7 @@ struct FFuncInfo
 			FunctionName = FunctionName.LeftChop( FString( TEXT( "__DelegateSignature" ) ).Len() );
 		}
 		UnMarshallAndCallName = FString(TEXT("exec")) + FunctionName;
-		CppImplName = FunctionName;
-
+		
 		if (FunctionReference->HasAnyFunctionFlags(FUNC_BlueprintEvent))
 		{
 			MarshallAndCallName = FunctionName;
@@ -955,8 +946,6 @@ struct FFuncInfo
 		{
 			MarshallAndCallName = FString(TEXT("event")) + FunctionName;
 		}
-
-		CppValidationImplName = TEXT("");
 
 		if (FunctionReference->HasAllFunctionFlags(FUNC_Native | FUNC_Net))
 		{
@@ -968,12 +957,22 @@ struct FFuncInfo
 			}
 			else
 			{
-				CppImplName = FunctionReference->GetName() + TEXT("_Implementation");
-				bCppImplNameEndsWith_Implementation = true;
-				if (FunctionReference->HasAllFunctionFlags(FUNC_NetValidate))
+				if (CppImplName.IsEmpty())
+				{
+					CppImplName = FunctionReference->GetName() + TEXT("_Implementation");
+				}
+				else if (CppImplName == FunctionName)
+				{
+					FError::Throwf(TEXT("Native implementation function must be different than original function name."));
+				}
+
+				if (CppValidationImplName.IsEmpty() && FunctionReference->HasAllFunctionFlags(FUNC_NetValidate))
 				{
 					CppValidationImplName = FunctionReference->GetName() + TEXT("_Validate");
-					bCppValidationImplNameEndsWith_Validate = true;
+				}
+				else if(CppValidationImplName == FunctionName)
+				{
+					FError::Throwf(TEXT("Validation function must be different than original function name."));
 				}
 			}
 		}
@@ -987,7 +986,11 @@ struct FFuncInfo
 		{
 			MarshallAndCallName = FunctionName;
 			CppImplName = FunctionReference->GetName() + TEXT("_Implementation");
-			bCppImplNameEndsWith_Implementation = true;
+		}
+
+		if (CppImplName.IsEmpty())
+		{
+			CppImplName = FunctionName;
 		}
 	}
 };
@@ -1284,6 +1287,29 @@ public:
 	{
 		FunctionData.FunctionExportFlags &= ~ClearFlags;
 	}
+
+	/**
+	 * Finds function data for given function object.
+	 */
+	static FFunctionData* FindForFunction(UFunction* Function);
+
+	/**
+	 * Adds function data object for given function object.
+	 */
+	static FFunctionData* Add(UFunction* Function);
+
+	/**
+	 * Adds function data object for given function object.
+	 */
+	static FFunctionData* Add(const FFuncInfo& FunctionInfo);
+
+	/**
+	 * Tries to find function data for given function object.
+	 */
+	static bool TryFindForFunction(UFunction* Function, FFunctionData*& OutData);
+
+private:
+	static TMap<UFunction*, TSharedRef<FFunctionData> > FunctionDataMap;
 };
 
 /**
@@ -1326,8 +1352,6 @@ class FClassMetaData
 
 	/** structs declared in this class */
 	TMap< UScriptStruct*, TScopedPointer<FStructData> >		StructData;
-	/** functions of this class */
-	TMap< UFunction*, TScopedPointer<FFunctionData> >		FunctionData;
 
 	/** base classes to multiply inherit from (other than the main base class */
 	TArray<FMultipleInheritanceBaseClass>					MultipleInheritanceParents;
@@ -1335,46 +1359,92 @@ class FClassMetaData
 	/** whether this class declares delegate functions or properties */
 	bool													bContainsDelegates;
 
+	/** The line of UCLASS/UINTERFACE macro in this class. */
+	int32 PrologLine;
+
+	/** The line of GENERATED_BODY/GENERATED_UCLASS_BODY macro in this class. */
+	int32 GeneratedBodyLine;
+
+	/** Same as above, but for interface class associated with this class. */
+	int32 InterfaceGeneratedBodyLine;
+
 public:
 	/** Default constructor */
 	FClassMetaData()
 		: bContainsDelegates(false)
+		, PrologLine(-1)
+		, GeneratedBodyLine(-1)
+		, InterfaceGeneratedBodyLine(-1)
 		, bConstructorDeclared(false)
 		, bDefaultConstructorDeclared(false)
 		, bObjectInitializerConstructorDeclared(false)
+#if WITH_HOT_RELOAD_CTORS
+		, bCustomVTableHelperConstructorDeclared(false)
+#endif // WITH_HOT_RELOAD_CTORS
 		, GeneratedBodyMacroAccessSpecifier(ACCESS_NotAnAccessSpecifier)
 	{
 	}
 
 	/**
-	 * Adds a new function to be tracked
-	 * 
-	 * @param	FunctionInfo	the function to add
-	 *
-	 * @return	a pointer to the newly added FFunctionData
+	 * Gets prolog line number for this class.
 	 */
-	FFunctionData* AddFunction( const FFuncInfo& FunctionInfo )
+	int32 GetPrologLine() const
 	{
-		check(FunctionInfo.FunctionReference!=NULL);
+		check(PrologLine > 0);
+		return PrologLine;
+	}
 
-		FFunctionData* Result = NULL;
+	/**
+	 * Gets generated body line number for this class.
+	 */
+	int32 GetGeneratedBodyLine() const
+	{
+		check(GeneratedBodyLine > 0);
+		return GeneratedBodyLine;
+	}
 
-		TScopedPointer<FFunctionData>* pFuncData = FunctionData.Find(FunctionInfo.FunctionReference);
-		if ( pFuncData != NULL )
-		{
-			Result = pFuncData->GetOwnedPointer();
-			*Result = FFunctionData(FunctionInfo);
-		}
-		else
-		{
-			pFuncData = &FunctionData.Emplace(FunctionInfo.FunctionReference, new FFunctionData(FunctionInfo));
-			Result = pFuncData->GetOwnedPointer();
-		}
+	/**
+	 * Gets interface generated body line number for this class.
+	 */
+	int32 GetInterfaceGeneratedBodyLine() const
+	{
+		check(InterfaceGeneratedBodyLine > 0);
+		return InterfaceGeneratedBodyLine;
+	}
 
-		// update optimization flags
-		bContainsDelegates = bContainsDelegates || FunctionInfo.FunctionReference->HasAnyFunctionFlags(FUNC_Delegate);
+	/**
+	 * Sets prolog line number for this class.
+	 */
+	void SetPrologLine(int32 Line)
+	{
+		check(Line > 0);
+		PrologLine = Line;
+	}
 
-		return Result;
+	/**
+	 * Sets generated body line number for this class.
+	 */
+	void SetGeneratedBodyLine(int32 Line)
+	{
+		check(Line > 0);
+		GeneratedBodyLine = Line;
+	}
+
+	/**
+	 * Sets interface generated body line number for this class.
+	 */
+	void SetInterfaceGeneratedBodyLine(int32 Line)
+	{
+		check(Line > 0);
+		InterfaceGeneratedBodyLine = Line;
+	}
+
+	/**
+	 * Sets contains delegates flag for this class.
+	 */
+	void MarkContainsDelegate()
+	{
+		bContainsDelegates = true;
 	}
 
 	/**
@@ -1417,7 +1487,7 @@ public:
 		check(Prop);
 
 		UObject* Outer = Prop->GetOuter();
-		UClass* OuterClass = Cast<UClass>(Outer);
+		UStruct* OuterClass = Cast<UStruct>(Outer);
 		if ( OuterClass != NULL )
 		{
 			// global property
@@ -1425,14 +1495,12 @@ public:
 		}
 		else
 		{
+			checkNoEntry();
 			UFunction* OuterFunction = Cast<UFunction>(Outer);
 			if ( OuterFunction != NULL )
 			{
 				// function parameter, return, or local property
-				TScopedPointer<FFunctionData>* FuncData = FunctionData.Find(OuterFunction);
-				check(FuncData != NULL);
-
-				(*FuncData)->AddProperty(PropertyToken);
+				FFunctionData::FindForFunction(OuterFunction)->AddProperty(PropertyToken);
 			}
 			else
 			{
@@ -1476,7 +1544,7 @@ public:
 	 * @param	Field		the property or function to add to
 	 * @param	InMetaData	the metadata to add
 	 */
-	void AddMetaData(UField* Field, const TMap<FName, FString>& InMetaData)
+	static void AddMetaData(UField* Field, const TMap<FName, FString>& InMetaData)
 	{
 		// only add if we have some!
 		if (InMetaData.Num())
@@ -1578,7 +1646,6 @@ public:
 	{
 		GlobalPropertyData.Shrink();
 		StructData.Shrink();
-		FunctionData.Shrink();
 		MultipleInheritanceParents.Shrink();
 	}
 
@@ -1591,6 +1658,11 @@ public:
 	// Is ObjectInitializer constructor (i.e. a constructor with only one parameter of type FObjectInitializer) declared?
 	bool bObjectInitializerConstructorDeclared;
 
+#if WITH_HOT_RELOAD_CTORS
+	// Is custom VTable helper constructor declared?
+	bool bCustomVTableHelperConstructorDeclared;
+#endif // WITH_HOT_RELOAD_CTORS
+
 	// GENERATED_BODY access specifier to preserve.
 	EAccessSpecifier GeneratedBodyMacroAccessSpecifier;
 };
@@ -1600,22 +1672,22 @@ public:
  * The type of data tracked by this class is data that would otherwise only be accessible by adding a 
  * member property to UFunction/UProperty.  
  */
-class FCompilerMetadataManager : protected TMap<UClass*, TScopedPointer<FClassMetaData> >
+class FCompilerMetadataManager : protected TMap<UStruct*, TScopedPointer<FClassMetaData> >
 {
 public:
 	/**
 	 * Adds a new class to be tracked
 	 * 
-	 * @param	Cls	the UClass to add
+	 * @param	Struct	the UStruct to add
 	 *
 	 * @return	a pointer to the newly added metadata for the class specified
 	 */
-	FClassMetaData* AddClassData( UClass* Cls )
+	FClassMetaData* AddClassData(UStruct* Struct)
 	{
-		TScopedPointer<FClassMetaData>* pClassData = Find(Cls);
-		if ( pClassData == NULL )
+		TScopedPointer<FClassMetaData>* pClassData = Find(Struct);
+		if (pClassData == NULL)
 		{
-			pClassData = &Emplace(Cls, new FClassMetaData());
+			pClassData = &Emplace(Struct, new FClassMetaData());
 		}
 
 		return *pClassData;
@@ -1624,16 +1696,16 @@ public:
 	/**
 	 * Find the metadata associated with the class specified
 	 * 
-	 * @param	Cls	the UClass to add
+	 * @param	Struct	the UStruct to add
 	 *
 	 * @return	a pointer to the newly added metadata for the class specified
 	 */
-	FClassMetaData* FindClassData( UClass* Cls )
+	FClassMetaData* FindClassData(UStruct* Struct)
 	{
 		FClassMetaData* Result = NULL;
 
-		TScopedPointer<FClassMetaData>* pClassData = Find(Cls);
-		if ( pClassData )
+		TScopedPointer<FClassMetaData>* pClassData = Find(Struct);
+		if (pClassData)
 		{
 			Result = pClassData->GetOwnedPointer();
 		}
@@ -1642,28 +1714,12 @@ public:
 	}
 
 	/**
-	 * (debug) Dumps the values of this FFunctionData to the log file
-	 * 
-	 * @param	Indent	number of spaces to insert at the beginning of each line
-	 */	
-	void Dump()
-	{
-		for ( TMap<UClass*,TScopedPointer<FClassMetaData> >::TIterator It(*this); It; ++It )
-		{
-			UClass* Cls = It.Key();
-			TScopedPointer<FClassMetaData>& Data = It.Value();
-			UE_LOG(LogCompile, Log, TEXT("=== %s ==="), *Cls->GetName());
-			Data->Dump(4);
-		}
-	}
-
-	/**
 	 * Shrink TMaps to avoid slack in Pairs array.
 	 */
 	void Shrink()
 	{
-		TMap<UClass*,TScopedPointer<FClassMetaData> >::Shrink();
-		for( TMap<UClass*,TScopedPointer<FClassMetaData> >::TIterator It(*this); It; ++It )
+		TMap<UStruct*, TScopedPointer<FClassMetaData> >::Shrink();
+		for (TMap<UStruct*, TScopedPointer<FClassMetaData> >::TIterator It(*this); It; ++It)
 		{
 			FClassMetaData* MetaData = It.Value();
 			MetaData->Shrink();
@@ -1738,17 +1794,11 @@ struct FNameLookupCPP
 	{
 		TCHAR* NameCPP = StructNameMap.FindRef( Struct );
 		if (NameCPP && !bForceInterface)
-			return NameCPP;
-
-		FString DesiredStructName = Struct->GetName();
-		if (UClass* TestClass = Cast<UClass>(Struct))
 		{
-			if (FClassUtils::IsTemporaryClass(TestClass))
-			{
-				DesiredStructName = GClassHeaderNameWithNoPathMap[TestClass];
-			}
+			return NameCPP;
 		}
 
+		FString DesiredStructName = Struct->GetName();
 		FString	TempName = FString(bForceInterface ? TEXT("I") : Struct->GetPrefixCPP()) + DesiredStructName;
 		int32 StringLength = TempName.Len();
 

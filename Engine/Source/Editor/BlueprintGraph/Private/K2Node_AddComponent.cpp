@@ -150,7 +150,7 @@ void UK2Node_AddComponent::ValidateNodeDuringCompilation(FCompilerResultsLog& Me
 		{
 			UBlueprint const* Blueprint = GetBlueprint();
 
-			UClass const* ChildActorClass = ChildActorComponent->ChildActorClass;
+			UClass const* ChildActorClass = ChildActorComponent->GetChildActorClass();
 			if (ChildActorClass == Blueprint->GeneratedClass)
 			{
 				UEdGraph const* ParentGraph = GetGraph();
@@ -248,7 +248,7 @@ void UK2Node_AddComponent::PostPasteNode()
 		{
 			ensure(NULL != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
 			// Create a new template object and update the template pin to point to it
-			UActorComponent* NewTemplate = ConstructObject<UActorComponent>(ComponentClass, Blueprint->GeneratedClass, NAME_None, RF_ArchetypeObject|RF_Public);
+			UActorComponent* NewTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, ComponentClass, NAME_None, RF_ArchetypeObject|RF_Public);
 			Blueprint->ComponentTemplates.Add(NewTemplate);
 
 			TemplateNamePin->DefaultValue = NewTemplate->GetName();
@@ -299,11 +299,11 @@ FText UK2Node_AddComponent::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 		if (UActorComponent* SourceTemplate = Blueprint->FindTemplateByName(FName(*TemplateName)))
 		{
-			CachedNodeTitle = SourceTemplate->GetClass()->GetDisplayNameText();
-
-			FFormatNamedArguments Args;
-			Args.Add(TEXT("ComponentType"), SourceTemplate->GetClass()->GetDisplayNameText());
-			CachedNodeTitle = FText::Format(LOCTEXT("AddClass", "Add {ComponentType}"), Args);
+			{
+				FFormatNamedArguments Args;
+				Args.Add(TEXT("ComponentType"), SourceTemplate->GetClass()->GetDisplayNameText());
+				CachedNodeTitle = FText::Format(LOCTEXT("AddClass", "Add {ComponentType}"), Args);
+			}
 
 			UChildActorComponent* SubActorComp = Cast<UChildActorComponent>(SourceTemplate);
 
@@ -314,10 +314,10 @@ FText UK2Node_AddComponent::GetNodeTitle(ENodeTitleType::Type TitleType) const
 				Args.Add(TEXT("AssetName"), FText::FromString(AssociatedAsset->GetName()));
 				CachedAssetTitle = FText::Format(LOCTEXT("AddComponentAssetDescription", "{AssetType} {AssetName}"), Args);
 			}
-			else if ((SubActorComp != nullptr) && (SubActorComp->ChildActorClass != nullptr))
+			else if ((SubActorComp != nullptr) && (SubActorComp->GetChildActorClass() != nullptr))
 			{
 				FFormatNamedArguments Args;
-				Args.Add(TEXT("ComponentClassName"), SubActorComp->ChildActorClass->GetDisplayNameText());
+				Args.Add(TEXT("ComponentClassName"), SubActorComp->GetChildActorClass()->GetDisplayNameText());
 				CachedAssetTitle = FText::Format(LOCTEXT("AddChildActorComponent", "Actor Class {ComponentClassName}"), Args);
 			}
 			else

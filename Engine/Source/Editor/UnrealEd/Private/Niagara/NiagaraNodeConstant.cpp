@@ -5,7 +5,7 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeConst"
 
-UNiagaraNodeConstant::UNiagaraNodeConstant(const FObjectInitializer& ObjectInitializer)
+UDEPRECATED_NiagaraNodeConstant::UDEPRECATED_NiagaraNodeConstant(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	ConstName = NAME_None;
@@ -14,7 +14,7 @@ UNiagaraNodeConstant::UNiagaraNodeConstant(const FObjectInitializer& ObjectIniti
 	bExposeToEffectEditor = false;
 }
 
-void UNiagaraNodeConstant::AllocateDefaultPins()
+void UDEPRECATED_NiagaraNodeConstant::AllocateDefaultPins()
 {
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
 
@@ -45,9 +45,14 @@ void UNiagaraNodeConstant::AllocateDefaultPins()
 		}
 		CreatePin(EGPD_Output, Schema->PC_Matrix, TEXT(""), NULL, false, false, ConstName.ToString());
 	}
+	else if (DataType == ENiagaraDataType::Curve)
+	{
+		//CreatePin(EGPD_Input, Schema->PC_Vector, TEXT(""), NULL, false, false, LOCTEXT("FloatPinName", "Time").ToString(), true);
+		CreatePin(EGPD_Output, Schema->PC_Curve, TEXT(""), NULL, false, false, ConstName.ToString());
+	}
 }
 
-FText UNiagaraNodeConstant::GetNodeTitle(ENodeTitleType::Type TitleType) const
+FText UDEPRECATED_NiagaraNodeConstant::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	if (ConstName != NAME_None)
 		return FText::FromName(ConstName);
@@ -55,7 +60,7 @@ FText UNiagaraNodeConstant::GetNodeTitle(ENodeTitleType::Type TitleType) const
 		return LOCTEXT("DefaultTitle", "External Constant");
 }
 
-FLinearColor UNiagaraNodeConstant::GetNodeTitleColor() const
+FLinearColor UDEPRECATED_NiagaraNodeConstant::GetNodeTitleColor() const
 {
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
 
@@ -69,69 +74,80 @@ FLinearColor UNiagaraNodeConstant::GetNodeTitleColor() const
 	}
 }
 
-void UNiagaraNodeConstant::Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNodeResult>& Outputs)
+void UDEPRECATED_NiagaraNodeConstant::Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNodeResult>& Outputs)
 {
-	TArray<int32> OutputExpressions;
-	if (DataType == ENiagaraDataType::Scalar)
-	{
-		float Default = 1.0f;
-		UEdGraphPin* OutPin;
-		if (bNeedsDefault)
-		{
-			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[0], Default);
-			OutPin = Pins[1];
-		}
-		else
-		{
-			OutPin = Pins[0];
-		}
-		Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(ConstName, Default), OutPin));
-	}
-	else if (DataType == ENiagaraDataType::Vector)
-	{
-		FVector4 Default = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
-		UEdGraphPin* OutPin;
-		if (bNeedsDefault)
-		{
-			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[0], Default);
-			OutPin = Pins[1];
-		}
-		else
-		{
-			OutPin = Pins[0];
-		}
-		Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(ConstName, Default), OutPin));
-	}
-	else if (DataType == ENiagaraDataType::Matrix)
-	{
-		FVector4 Default0 = FVector4(1.0f, 0.0f, 0.0f, 0.0f);
-		FVector4 Default1 = FVector4(0.0f, 1.0f, 0.0f, 0.0f);
-		FVector4 Default2 = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
-		FVector4 Default3 = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
+	//UE_LOG(LogNiagara, Fatal, TEXT("UDEPRECATED_NiagaraNodeConstant is deprecated. All instance of it should have been replaced in UNiagaraGraph::PostLoad()"));
+	check(0);
 
-		UEdGraphPin* OutPin;
-		if (bNeedsDefault)
-		{
-			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[0], Default0);
-			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[1], Default1);
-			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[2], Default2);
-			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[3], Default3);
-			OutPin = Pins[4];
-		}
-		else
-		{
-			OutPin = Pins[0];
-		}
-		FMatrix Default;
-		Default.M[0][0] = Default0[0]; Default.M[0][1] = Default0[1]; Default.M[0][2] = Default0[2]; Default.M[0][3] = Default0[3];
-		Default.M[1][0] = Default1[0]; Default.M[1][1] = Default1[1]; Default.M[1][2] = Default1[2]; Default.M[1][3] = Default1[3];
-		Default.M[2][0] = Default2[0]; Default.M[2][1] = Default2[1]; Default.M[2][2] = Default2[2]; Default.M[2][3] = Default2[3];
-		Default.M[3][0] = Default3[0]; Default.M[3][1] = Default3[1]; Default.M[3][2] = Default3[2]; Default.M[3][3] = Default3[3];
-		Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(ConstName, Default), OutPin));
-	}
+	return;
+
+	//TODO REMOVE THIS NODE ENTIRELY
+// 	TArray<int32> OutputExpressions;
+// 	if (DataType == ENiagaraDataType::Scalar)
+// 	{
+// 		float Default = 1.0f;
+// 		UEdGraphPin* OutPin;
+// 		if (bNeedsDefault)
+// 		{
+// 			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[0], Default);
+// 			OutPin = Pins[1];
+// 		}
+// 		else
+// 		{
+// 			OutPin = Pins[0];
+// 		}
+// 		Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(ConstName, Default), OutPin));
+// 	}
+// 	else if (DataType == ENiagaraDataType::Vector)
+// 	{
+// 		FVector4 Default = FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+// 		UEdGraphPin* OutPin;
+// 		if (bNeedsDefault)
+// 		{
+// 			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[0], Default);
+// 			OutPin = Pins[1];
+// 		}
+// 		else
+// 		{
+// 			OutPin = Pins[0];
+// 		}
+// 		Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(ConstName, Default), OutPin));
+// 	}
+// 	else if (DataType == ENiagaraDataType::Matrix)
+// 	{
+// 		FVector4 Default0 = FVector4(1.0f, 0.0f, 0.0f, 0.0f);
+// 		FVector4 Default1 = FVector4(0.0f, 1.0f, 0.0f, 0.0f);
+// 		FVector4 Default2 = FVector4(0.0f, 0.0f, 1.0f, 0.0f);
+// 		FVector4 Default3 = FVector4(0.0f, 0.0f, 0.0f, 1.0f);
+// 
+// 		UEdGraphPin* OutPin;
+// 		if (bNeedsDefault)
+// 		{
+// 			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[0], Default0);
+// 			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[1], Default1);
+// 			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[2], Default2);
+// 			CastChecked<UEdGraphSchema_Niagara>(GetSchema())->GetPinDefaultValue(Pins[3], Default3);
+// 			OutPin = Pins[4];
+// 		}
+// 		else
+// 		{
+// 			OutPin = Pins[0];
+// 		}
+// 		FMatrix Default;
+// 		Default.M[0][0] = Default0[0]; Default.M[0][1] = Default0[1]; Default.M[0][2] = Default0[2]; Default.M[0][3] = Default0[3];
+// 		Default.M[1][0] = Default1[0]; Default.M[1][1] = Default1[1]; Default.M[1][2] = Default1[2]; Default.M[1][3] = Default1[3];
+// 		Default.M[2][0] = Default2[0]; Default.M[2][1] = Default2[1]; Default.M[2][2] = Default2[2]; Default.M[2][3] = Default2[3];
+// 		Default.M[3][0] = Default3[0]; Default.M[3][1] = Default3[1]; Default.M[3][2] = Default3[2]; Default.M[3][3] = Default3[3];
+// 		Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalConstant(ConstName, Default), OutPin));
+// 	}
+//	else if (DataType == ENiagaraDataType::Curve)
+//	{
+//		UEdGraphPin* OutPin = Pins[0];
+//		Outputs.Add(FNiagaraNodeResult(Compiler->GetExternalCurveConstant(ConstName), OutPin));
+//	}
 }
 
-void UNiagaraNodeConstant::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+void UDEPRECATED_NiagaraNodeConstant::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
 	static FName DataTypePropertyName(TEXT("DataType"));
 	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == DataTypePropertyName)

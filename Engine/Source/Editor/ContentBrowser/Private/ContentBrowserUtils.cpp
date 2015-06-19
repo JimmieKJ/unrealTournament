@@ -12,6 +12,7 @@
 #include "EngineBuildSettings.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
+#include "IPluginManager.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -277,7 +278,7 @@ bool ContentBrowserUtils::OpenEditorForAsset(const TArray<UObject*>& Assets)
 	return false;
 }
 
-bool ContentBrowserUtils::LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths, TArray<UObject*>& LoadedObjects, bool bAllowedToPromptToLoadAssets)
+bool ContentBrowserUtils::LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths, TArray<UObject*>& LoadedObjects, bool bAllowedToPromptToLoadAssets, bool bLoadRedirects)
 {
 	bool bAnyObjectsWereLoadedOrUpdated = false;
 
@@ -328,14 +329,15 @@ bool ContentBrowserUtils::LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths,
 
 		GIsEditorLoadingPackage = true;
 
+		// We usually don't want to follow redirects when loading objects for the Content Browser.  It would
+		// allow a user to interact with a ghost/unverified asset as if it were still alive.
+		// This can be overridden by providing bLoadRedirects = true as a parameter.
+		const ELoadFlags LoadFlags = bLoadRedirects ? LOAD_None : LOAD_NoRedirects;
+
 		bool bSomeObjectsFailedToLoad = false;
 		for (int32 PathIdx = 0; PathIdx < UnloadedObjectPaths.Num(); ++PathIdx)
 		{
 			const FString& ObjectPath = UnloadedObjectPaths[PathIdx];
-
-			// We never want to follow redirects when loading objects for the Content Browser.  It would
-			// allow a user to interact with a ghost/unverified asset as if it were still alive.
-			const ELoadFlags LoadFlags = LOAD_NoRedirects;
 
 			// Load up the object
 			UObject* LoadedObject = LoadObject<UObject>(NULL, *ObjectPath, NULL, LoadFlags, NULL);
@@ -631,7 +633,10 @@ bool ContentBrowserUtils::SaveDirtyPackages()
 	const bool bPromptUserToSave = true;
 	const bool bSaveMapPackages = true;
 	const bool bSaveContentPackages = true;
-	return FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages );
+	const bool bFastSave = false;
+	const bool bNotifyNoPackagesSaved = false;
+	const bool bCanBeDeclined = false;
+	return FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages, bFastSave, bNotifyNoPackagesSaved, bCanBeDeclined );
 }
 
 TArray<UPackage*> ContentBrowserUtils::LoadPackages(const TArray<FString>& PackageNames)
@@ -729,13 +734,14 @@ void ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, 
 void ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath)
 {
 	TMap<FString, TArray<UObject*> > SourcePathToLoadedAssets;
+	FString DestPathWithTrailingSlash = DestPath / "";
 
 	// Do not allow parent directories to be moved to themselves or children.
 	TArray<FString> SourcePathNames = InSourcePathNames;
 	TArray<FString> SourcePathNamesToRemove;
 	for (auto SourcePathIt = SourcePathNames.CreateConstIterator(); SourcePathIt; ++SourcePathIt)
 	{
-		if (DestPath.StartsWith(*SourcePathIt))
+		if(DestPathWithTrailingSlash.StartsWith(*SourcePathIt / ""))
 		{
 			SourcePathNamesToRemove.Add(*SourcePathIt);
 		}
@@ -757,7 +763,7 @@ void ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, 
 		// Put dragged folders in a sub-folder under the destination path
 		const FString SourcePath = PathIt.Key();
 		const FString SubFolderName = FPackageName::GetLongPackageAssetName(SourcePath);
-		const FString Destination = DestPath + TEXT("/") + SubFolderName;
+		const FString Destination = DestPathWithTrailingSlash + SubFolderName;
 
 		// Add the new path to notify sources views
 		AssetRegistryModule.Get().AddPath(Destination);
@@ -1091,11 +1097,14 @@ bool ContentBrowserUtils::IsDevelopersFolder( const FString& InPath )
 bool ContentBrowserUtils::IsPluginFolder( const FString& InPath )
 {
 	FString PathWithSlash = InPath / TEXT("");
-	for(const FPluginContentFolder& ContentFolder: IPluginManager::Get().GetPluginContentFolders())
+	for(const TSharedRef<IPlugin>& Plugin: IPluginManager::Get().GetEnabledPlugins())
 	{
-		if(PathWithSlash.StartsWith(ContentFolder.RootPath) || InPath == ContentFolder.Name)
+		if(Plugin->CanContainContent())
 		{
-			return true;
+			if(PathWithSlash.StartsWith(Plugin->GetMountedAssetPath()) || InPath == Plugin->GetName())
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -1329,11 +1338,11 @@ const TSharedPtr<FLinearColor> ContentBrowserUtils::LoadColor(const FString& Fol
 		}
 		
 		// Loads the color of folder at the given path from the config
-		if(FPaths::FileExists(GEditorUserSettingsIni))
+		if(FPaths::FileExists(GEditorPerProjectIni))
 		{
 			// Create a new entry from the config, skip if it's default
 			FString ColorStr;
-			if(GConfig->GetString(TEXT("PathColor"), *InPath, ColorStr, GEditorUserSettingsIni))
+			if(GConfig->GetString(TEXT("PathColor"), *InPath, ColorStr, GEditorPerProjectIni))
 			{
 				FLinearColor Color;
 				if(Color.InitFromString(ColorStr) && !Color.Equals(ContentBrowserUtils::GetDefaultColor()))
@@ -1369,24 +1378,24 @@ const TSharedPtr<FLinearColor> ContentBrowserUtils::LoadColor(const FString& Fol
 
 void ContentBrowserUtils::SaveColor(const FString& FolderPath, const TSharedPtr<FLinearColor>& FolderColor, bool bForceAdd)
 {
-	auto SaveColorInternal = [](const FString& InPath, const TSharedPtr<FLinearColor>& FolderColor)
+	auto SaveColorInternal = [](const FString& InPath, const TSharedPtr<FLinearColor>& InFolderColor)
 	{
 		// Saves the color of the folder to the config
-		if(FPaths::FileExists(GEditorUserSettingsIni))
+		if(FPaths::FileExists(GEditorPerProjectIni))
 		{
-			GConfig->SetString(TEXT("PathColor"), *InPath, *FolderColor->ToString(), GEditorUserSettingsIni);
+			GConfig->SetString(TEXT("PathColor"), *InPath, *InFolderColor->ToString(), GEditorPerProjectIni);
 		}
 
 		// Update the map too
-		PathColors.Add(InPath, FolderColor);
+		PathColors.Add(InPath, InFolderColor);
 	};
 
 	auto RemoveColorInternal = [](const FString& InPath)
 	{
 		// Remove the color of the folder from the config
-		if(FPaths::FileExists(GEditorUserSettingsIni))
+		if(FPaths::FileExists(GEditorPerProjectIni))
 		{
-			GConfig->RemoveKey(TEXT("PathColor"), *InPath, GEditorUserSettingsIni);
+			GConfig->RemoveKey(TEXT("PathColor"), *InPath, GEditorPerProjectIni);
 		}
 
 		// Update the map too
@@ -1418,11 +1427,11 @@ bool ContentBrowserUtils::HasCustomColors( TArray< FLinearColor >* OutColors )
 	// Check to see how many paths are currently using this color
 	// Note: we have to use the config, as paths which haven't been rendered yet aren't registered in the map
 	bool bHasCustom = false;
-	if (FPaths::FileExists(GEditorUserSettingsIni))
+	if (FPaths::FileExists(GEditorPerProjectIni))
 	{
 		// Read individual entries from a config file.
 		TArray< FString > Section; 
-		GConfig->GetSection( TEXT("PathColor"), Section, GEditorUserSettingsIni );
+		GConfig->GetSection( TEXT("PathColor"), Section, GEditorPerProjectIni );
 
 		for( int32 SectionIndex = 0; SectionIndex < Section.Num(); SectionIndex++ )
 		{

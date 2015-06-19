@@ -13,6 +13,9 @@ public:
 	virtual void UnregisterAssetTypeActions(const TSharedRef<IAssetTypeActions>& ActionsToRemove) override;
 	virtual void GetAssetTypeActionsList( TArray<TWeakPtr<IAssetTypeActions>>& OutAssetTypeActionsList ) const override;
 	virtual TWeakPtr<IAssetTypeActions> GetAssetTypeActionsForClass( UClass* Class ) const override;
+	virtual EAssetTypeCategories::Type RegisterAdvancedAssetCategory(FName CategoryKey, FText CategoryDisplayName) override;
+	virtual EAssetTypeCategories::Type FindAdvancedAssetCategory(FName CategoryKey) const override;
+	virtual void GetAllAdvancedAssetCategories(TArray<FAdvancedAssetCategory>& OutCategoryList) const override;
 	virtual void RegisterClassTypeActions(const TSharedRef<IClassTypeActions>& NewActions) override;
 	virtual void UnregisterClassTypeActions(const TSharedRef<IClassTypeActions>& ActionsToRemove) override;
 	virtual void GetClassTypeActionsList( TArray<TWeakPtr<IClassTypeActions>>& OutClassTypeActionsList ) const override;
@@ -32,6 +35,7 @@ public:
 	virtual bool CreateDiffProcess(const FString& DiffCommand, const FString& OldTextFilename, const FString& NewTextFilename, const FString& DiffArgs = FString("")) const override;
 	virtual void MigratePackages(const TArray<FName>& PackageNamesToMigrate) const override;
 	virtual void FixupReferencers(const TArray<UObjectRedirector*>& Objects) const override;
+	virtual FAssetPostRenameEvent& OnAssetPostRename() override { return AssetRenameManager->OnAssetPostRenameEvent(); }
 
 public:
 	/** Gets the asset tools singleton as a FAssetTools for asset tools module use */
@@ -78,4 +82,10 @@ private:
 
 	/** The list of all registered ClassTypeActions */
 	TArray<TSharedRef<IClassTypeActions>> ClassTypeActionsList;
+
+	/** The categories that have been allocated already */
+	TMap<FName, FAdvancedAssetCategory> AllocatedCategoryBits;
+	
+	/** The next user category bit to allocate (set to 0 when there are no more bits left) */
+	uint32 NextUserCategoryBit;
 };

@@ -200,22 +200,25 @@ const FTexture2DRHIRef& FRenderTarget::GetRenderTargetTexture() const
 }
 
 
-void FScreenshotRequest::RequestScreenshot( const FString& InFilename, bool bInShowUI )
+void FScreenshotRequest::RequestScreenshot( const FString& InFilename, bool bInShowUI, bool bAddUniqueSuffix )
 {
-	Filename = InFilename;
-	CreateViewportScreenShotFilename( Filename );
+	FString GeneratedFilename = InFilename;
+	CreateViewportScreenShotFilename(GeneratedFilename);
+
+	if (bAddUniqueSuffix)
+	{
+		const bool bRemovePath = false;
+		GeneratedFilename = FPaths::GetBaseFilename(GeneratedFilename, bRemovePath);
+		FFileHelper::GenerateNextBitmapFilename(GeneratedFilename, TEXT("png"), Filename);
+	}
+	else
+	{
+		Filename = GeneratedFilename;
+	}
+
 	bShowUI = bInShowUI;
 }
 
-
-void FScreenshotRequest::RequestScreenshot( bool bInShowUI, const FString& InExtension )
-{
-	FString NewFilename;
-	CreateViewportScreenShotFilename( NewFilename );
-	FFileHelper::GenerateNextBitmapFilename(NewFilename, InExtension, Filename);
-
-	bShowUI = bInShowUI;
-}
 
 void FScreenshotRequest::Reset()
 {
@@ -303,10 +306,10 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 	RawGPUFrameTime = FPlatformTime::ToMilliseconds(GPUCycles);
 	GPUFrameTime = 0.9 * GPUFrameTime + 0.1 * RawGPUFrameTime;
 
-	SET_FLOAT_STAT(STAT_FPSChart_UnitFrame, FrameTime);
-	SET_FLOAT_STAT(STAT_FPSChart_UnitRender, RenderThreadTime);
-	SET_FLOAT_STAT(STAT_FPSChart_UnitGame, GameThreadTime);
-	SET_FLOAT_STAT(STAT_FPSChart_UnitGPU, GPUFrameTime);
+	SET_FLOAT_STAT(STAT_UnitFrame, FrameTime);
+	SET_FLOAT_STAT(STAT_UnitRender, RenderThreadTime);
+	SET_FLOAT_STAT(STAT_UnitGame, GameThreadTime);
+	SET_FLOAT_STAT(STAT_UnitGPU, GPUFrameTime);
 
 	GEngine->SetAverageUnitTimes(FrameTime, RenderThreadTime, GameThreadTime, GPUFrameTime);
 
@@ -355,16 +358,17 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 #endif // #if !UE_BUILD_SHIPPING
 
 	// Render CPU thread and GPU frame times.
+	const bool bStereoRendering = (GEngine && GEngine->IsStereoscopic3D(InViewport));
 	UFont* Font = (!FPlatformProperties::SupportsWindowedMode() && GEngine->GetMediumFont()) ? GEngine->GetMediumFont() : GEngine->GetSmallFont();
-	const int32 SafeZone = FPlatformProperties::SupportsWindowedMode() ? 0 : FMath::TruncToInt(InViewport->GetSizeXY().X * 0.05f);
 
 	FColor Color;
-	int32 X3 = InViewport->GetSizeXY().X - SafeZone;
+	// Note InX should already be within the safe zone
+	int32 X3 = InX * (bStereoRendering ? 0.5f : 1.0f);
 	if (bShowUnitMaxTimes)
 	{
 		X3 -= Font->GetStringSize(TEXT(" 0000.00 ms "));
 	}
-	const int32 X2 = X3 - Font->GetStringSize(TEXT(" 000.00 ms "));
+	const int32 X2 = bShowUnitMaxTimes ? X3 - Font->GetStringSize(TEXT(" 000.00 ms ")) : X3;
 	const int32 X1 = X2 - Font->GetStringSize(TEXT("Frame: "));
 	const int32 RowHeight = FMath::TruncToInt(Font->GetMaxCharHeight() * 1.1f);
 	const bool bShowUnitTimeGraph = InViewport->GetClient() ? InViewport->GetClient()->IsStatEnabled(TEXT("UnitGraph")) : false;
@@ -414,10 +418,10 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 	// Draw simple unit time graph
 	if (bShowUnitTimeGraph)
 	{
-		UFont* Font = GEngine->GetSmallFont();
-		check(Font);
-		int32 AlertPrintWidth = Font->GetStringSize(TEXT("000.0"));
-		int32 AlertPrintHeight = Font->GetStringHeightSize(TEXT("000.0"));
+		UFont* SmallFont = GEngine->GetSmallFont();
+		check(SmallFont);
+		int32 AlertPrintWidth = SmallFont->GetStringSize(TEXT("000.0"));
+		int32 AlertPrintHeight = SmallFont->GetStringHeightSize(TEXT("000.0"));
 
 		// The vertical axis is time in milliseconds
 		// The horizontal axis is the frame number (NOT time!!!)
@@ -586,7 +590,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 					if (StartX > LastPrintX)
 					{
 
-						InCanvas->DrawShadowedString(StartX, PrintY, *FString::Printf(TEXT("%3.1f"), TimeValues[CurUnitIndex]), Font, StatColor);
+						InCanvas->DrawShadowedString(StartX, PrintY, *FString::Printf(TEXT("%3.1f"), TimeValues[CurUnitIndex]), SmallFont, StatColor);
 						LastPrintX = StartX + AlertPrintWidth + AlertPadding;
 					}
 				}
@@ -945,8 +949,9 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 		{
 			if( GIsHighResScreenshot || bTakeHighResScreenShot )
 			{
-				bool bShowUI = false;
-				FScreenshotRequest::RequestScreenshot( bShowUI, TEXT("png") );
+				const bool bShowUI = false;
+				const bool bAddFilenameSuffix = true;
+				FScreenshotRequest::RequestScreenshot( FString(), bShowUI, bAddFilenameSuffix );
 				GIsHighResScreenshot = true;
 				GScreenMessagesRestoreState = GAreScreenMessagesEnabled;
 				GAreScreenMessagesEnabled = false;
@@ -985,8 +990,9 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 					GameThread.Waits = 0;
 				}
 
-				auto World = ViewportClient->GetWorld();
-				FCanvas Canvas(this, NULL, World, World ? World->FeatureLevel : GMaxRHIFeatureLevel);
+				UWorld* ViewportWorld = ViewportClient->GetWorld();
+				FCanvas Canvas(this, NULL, ViewportWorld, ViewportWorld ? ViewportWorld->FeatureLevel : GMaxRHIFeatureLevel);
+				Canvas.SetRenderTargetRect(FIntRect(0, 0, SizeX, SizeY));
 				{
 					// Make sure the Canvas is not rendered upside down
 					Canvas.SetAllowSwitchVerticalAxis(false);
@@ -1275,8 +1281,8 @@ void FViewport::UpdateViewportRHI(bool bDestroyed,uint32 NewSizeX,uint32 NewSize
 					GetWindow(),
 					SizeX,
 					SizeY,
-					IsFullscreen()
-					);
+					IsFullscreen(),
+					EPixelFormat::PF_Unknown /* ie, use default format */);
 			}
 		
 			// Initialize the viewport's resources.
@@ -1369,7 +1375,8 @@ void FViewport::InitRHI()
 			GetWindow(),
 			SizeX,
 			SizeY,
-			IsFullscreen()
+			IsFullscreen(),
+			EPixelFormat::PF_Unknown
 			);
 		UpdateRenderTargetSurfaceRHIToCurrentBackBuffer();
 	}

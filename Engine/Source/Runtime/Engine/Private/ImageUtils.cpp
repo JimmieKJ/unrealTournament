@@ -126,7 +126,7 @@ UTexture2D* FImageUtils::CreateTexture2D(int32 SrcWidth, int32 SrcHeight, const 
 #if WITH_EDITOR
 	UTexture2D* Tex2D;
 
-	Tex2D = CastChecked<UTexture2D>( StaticConstructObject(UTexture2D::StaticClass(), Outer, FName(*Name), Flags) );
+	Tex2D = NewObject<UTexture2D>(Outer, FName(*Name), Flags);
 	Tex2D->Source.Init(SrcWidth, SrcHeight, /*NumSlices=*/ 1, /*NumMips=*/ 1, TSF_BGRA8);
 	
 	// Create base mip for the texture we created.
@@ -152,6 +152,12 @@ UTexture2D* FImageUtils::CreateTexture2D(int32 SrcWidth, int32 SrcHeight, const 
 		}
 	}
 	Tex2D->Source.UnlockMip(0);
+
+	// Set the Source Guid/Hash if specified
+	if (InParams.SourceGuidHash.IsValid())
+	{
+		Tex2D->Source.SetId(InParams.SourceGuidHash, true);
+	}
 
 	// Set compression options.
 	Tex2D->SRGB = InParams.bSRGB;
@@ -249,4 +255,40 @@ void FImageUtils::CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArra
 	TempThumbnail.CompressImageData();
 	TArray<uint8>& CompressedByteArray = TempThumbnail.AccessCompressedImageData();
 	DstData = TempThumbnail.AccessCompressedImageData();
+}
+
+UTexture2D* FImageUtils::CreateCheckerboardTexture(FColor ColorOne, FColor ColorTwo, int32 CheckerSize)
+{
+	CheckerSize = FMath::RoundUpToPowerOfTwo(CheckerSize);
+	const int32 HalfPixelNum = CheckerSize >> 1;
+
+	// Create the texture
+	UTexture2D* CheckerboardTexture = UTexture2D::CreateTransient(CheckerSize, CheckerSize, PF_B8G8R8A8);
+
+	// Lock the checkerboard texture so it can be modified
+	FColor* MipData = static_cast<FColor*>( CheckerboardTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE) );
+
+	// Fill in the colors in a checkerboard pattern
+	for ( int32 RowNum = 0; RowNum < CheckerSize; ++RowNum )
+	{
+		for ( int32 ColNum = 0; ColNum < CheckerSize; ++ColNum )
+		{
+			FColor& CurColor = MipData[( ColNum + ( RowNum * CheckerSize ) )];
+
+			if ( ColNum < HalfPixelNum )
+			{
+				CurColor = ( RowNum < HalfPixelNum ) ? ColorOne : ColorTwo;
+			}
+			else
+			{
+				CurColor = ( RowNum < HalfPixelNum ) ? ColorTwo : ColorOne;
+			}
+		}
+	}
+
+	// Unlock the texture
+	CheckerboardTexture->PlatformData->Mips[0].BulkData.Unlock();
+	CheckerboardTexture->UpdateResource();
+
+	return CheckerboardTexture;
 }

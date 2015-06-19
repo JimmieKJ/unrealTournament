@@ -56,6 +56,12 @@ public:
 	static UMG_API UWidgetAnimation* GetNullAnimation();
 #endif
 
+	UFUNCTION(BlueprintCallable, Category="Animation")
+	UMG_API float GetStartTime() const;
+
+	UFUNCTION(BlueprintCallable, Category="Animation")
+	UMG_API float GetEndTime() const;
+
 public:
 	UPROPERTY()
 	UMovieScene* MovieScene;

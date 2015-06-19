@@ -110,7 +110,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	TArray<FInstantHitDamageInfo> InstantHitInfo;
 
 	/** firing state for mode, contains core firing sequence and directs to appropriate global firing functions */
-	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon", NoClear)
 	TArray<class UUTWeaponStateFiring*> FiringState;
 
 	/** True for melee weapons affected by "stopping power" (momentum added for weapons that don't normally impart much momentum) */
@@ -195,7 +195,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	bool bMustBeHolstered;
 
 	/** If true , weapon can be thrown. */
-	UPROPERTY(EditAnywhere, Category = "Weapon")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Weapon")
 	bool bCanThrowWeapon;
 
 	/** if true, don't display in menus like the weapon priority menu (generally because the weapon's use is outside the user's control, e.g. instagib) */
@@ -807,4 +807,16 @@ public:
 
 	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
 	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
+
+	// TEMP for testing 1p offsets
+	UFUNCTION(exec)
+	void TestWeaponLoc(float X, float Y, float Z);
+	UFUNCTION(exec)
+	void TestWeaponRot(float Pitch, float Yaw, float Roll = 0.0f);
+	UFUNCTION(exec)
+	void TestWeaponScale(float X, float Y, float Z);
+
+	/** blueprint hook to modify team color materials */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+	void NotifyTeamChanged();
 };

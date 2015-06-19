@@ -44,6 +44,17 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 {
 	GENERATED_UCLASS_BODY()
 
+	/**
+	* Color temperature in Kelvin of the blackbody illuminant.
+	* White (D65) is 6500K.
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category = Light, meta = (UIMin = "1700.0", UIMax = "12000.0"))
+	float Temperature;
+	
+	/** false: use white (D65) as illuminant. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(DisplayName = "Use Temperature"))
+	uint32 bUseTemperature : 1;
+
 	/** 
 	 * Shadow map channel which is used to match up with the appropriate static shadowing during a deferred shading pass.
 	 * This is generated during a lighting build.
@@ -81,6 +92,14 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	/** Whether the light is allowed to cast dynamic shadows from translucency. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, AdvancedDisplay)
 	uint32 CastTranslucentShadows:1;
+
+	/** 
+	 * Whether the light should only cast shadows from components marked as bCastCinematicShadows. 
+	 * This is useful for setting up cinematic Movable spotlights aimed at characters and avoiding the shadow depth rendering costs of the background.
+	 * Note: this only works with dynamic shadow maps, not with static shadowing or Ray Traced Distance Field shadows.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, AdvancedDisplay)
+	uint32 bCastShadowsFromCinematicObjectsOnly:1;
 
 	/**
 	 * Whether the light should be injected into the Light Propagation Volume
@@ -151,17 +170,30 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	 * They have less aliasing artifacts than standard shadowmaps, but inherit all the limitations of distance field representations (only uniform scale, no deformation).
 	 * These shadows have a low per-object cost (and don't depend on triangle count) so they are effective for distant shadows from a dynamic sun.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldShadows, meta=(DisplayName = "Use RayTraced DistanceField Shadows"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldShadows, meta=(DisplayName = "RayTraced DistanceField Shadows"))
 	bool bUseRayTracedDistanceFieldShadows;
+
+	/** 
+	 * Controls how large of an offset ray traced shadows have from the receiving surface as the camera gets further away.  
+	 * This can be useful to hide self-shadowing artifacts from low resolution distance fields on huge static meshes.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldShadows, meta=(UIMin = "0", UIMax = ".1"), AdvancedDisplay)
+	float RayStartOffsetDepthScale;
 
 public:
 	/** Set intensity of the light */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetIntensity(float NewIntensity);
 
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
+	void SetIndirectLightingIntensity(float NewIntensity);
+
 	/** Set color of the light */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetLightColor(FLinearColor NewLightColor);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetTemperature(float NewTemperature);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetLightFunctionMaterial(UMaterialInterface* NewLightFunctionMaterial);
@@ -171,6 +203,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetLightFunctionFadeDistance(float NewLightFunctionFadeDistance);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
+	void SetLightFunctionDisabledBrightness(float NewValue);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetAffectDynamicIndirectLighting(bool bNewValue);
@@ -190,7 +225,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetBloomTint(FColor NewValue);
 
-	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light", meta=(FriendlyName = "Set IES Texture"))
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light", meta=(DisplayName = "Set IES Texture"))
 	void SetIESTexture(UTextureLightProfile* NewValue);
 
 public:
@@ -264,8 +299,6 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
-	virtual void PreEditUndo() override;
-	virtual void PostEditUndo() override;
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void UpdateLightSpriteTexture() override;

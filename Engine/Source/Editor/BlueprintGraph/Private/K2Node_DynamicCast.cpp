@@ -2,9 +2,12 @@
 
 
 #include "BlueprintGraphPrivatePCH.h"
+
+#include "BlueprintEditorSettings.h"
 #include "DynamicCastHandler.h"
 #include "EditorCategoryUtils.h"
-#include "BlueprintEditorSettings.h"
+#include "KismetEditorUtilities.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_DynamicCast"
 
@@ -21,9 +24,12 @@ UK2Node_DynamicCast::UK2Node_DynamicCast(const FObjectInitializer& ObjectInitial
 
 void UK2Node_DynamicCast::AllocateDefaultPins()
 {
-	// Check to track down possible BP comms corruption
-	//@TODO: Move this somewhere more sensible
-	check((TargetType == NULL) || (!TargetType->HasAnyClassFlags(CLASS_NewerVersionExists)));
+	const bool bReferenceObsoleteClass = TargetType && TargetType->HasAnyClassFlags(CLASS_NewerVersionExists);
+	if (bReferenceObsoleteClass)
+	{
+		Message_Error(FString::Printf(TEXT("Node '%s' references obsolete class '%s'"), *GetPathName(), *TargetType->GetPathName()));
+	}
+	ensure(!bReferenceObsoleteClass);
 
 	const UEdGraphSchema_K2* K2Schema = Cast<UEdGraphSchema_K2>(GetSchema());
 	check(K2Schema != nullptr);
@@ -43,7 +49,7 @@ void UK2Node_DynamicCast::AllocateDefaultPins()
 	}
 
 	// Input - Source type Pin
-	CreatePin(EGPD_Input, K2Schema->PC_Object, TEXT(""), UObject::StaticClass(), false, false, K2Schema->PN_ObjectToCast);
+	CreatePin(EGPD_Input, K2Schema->PC_Wildcard, TEXT(""), UObject::StaticClass(), false, false, K2Schema->PN_ObjectToCast);
 
 	// Output - Data Pin
 	if (TargetType != NULL)
@@ -76,7 +82,7 @@ FText UK2Node_DynamicCast::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		return NSLOCTEXT("K2Node_DynamicCast", "BadCastNode", "Bad cast node");
 	}
-	else if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		// If casting to BP class, use BP name not class name (ie. remove the _C)
 		FString TargetName;
@@ -94,7 +100,7 @@ FText UK2Node_DynamicCast::GetNodeTitle(ENodeTitleType::Type TitleType) const
 		Args.Add(TEXT("TargetName"), FText::FromString(TargetName));
 
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(NSLOCTEXT("K2Node_DynamicCast", "CastTo", "Cast To {TargetName}"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("K2Node_DynamicCast", "CastTo", "Cast To {TargetName}"), Args), this);
 	}
 	return CachedNodeTitle;
 }
@@ -106,12 +112,12 @@ void UK2Node_DynamicCast::GetContextMenuActions(const FGraphNodeContextMenuBuild
 	Context.MenuBuilder->BeginSection("K2NodeDynamicCast", LOCTEXT("DynamicCastHeader", "Cast"));
 	{
 		FText MenuEntryTitle   = LOCTEXT("MakePureTitle",   "Convert to pure cast");
-		FText MenuEntryTooltip = LOCTEXT("MakePureTooltip", "Removes the execution pins to make the node more versitile (NOTE: the cast could still, resulting in an invalid output).");
+		FText MenuEntryTooltip = LOCTEXT("MakePureTooltip", "Removes the execution pins to make the node more versitile (NOTE: the cast could still fail, resulting in an invalid output).");
 
 		bool bCanTogglePurity = true;
-		auto CanExecutePurityToggle = [](bool const bCanTogglePurity)->bool
+		auto CanExecutePurityToggle = [](bool const bInCanTogglePurity)->bool
 		{
-			return bCanTogglePurity;
+			return bInCanTogglePurity;
 		};
 
 		if (bIsPureCast)
@@ -141,6 +147,13 @@ void UK2Node_DynamicCast::GetContextMenuActions(const FGraphNodeContextMenuBuild
 		);
 	}
 	Context.MenuBuilder->EndSection();
+}
+
+void UK2Node_DynamicCast::PostReconstructNode()
+{
+	Super::PostReconstructNode();
+	// update the pin name (to "Interface" if an interface is connected)
+	NotifyPinConnectionListChanged(GetCastSourcePin());
 }
 
 void UK2Node_DynamicCast::PostPlacedNewNode()
@@ -198,8 +211,7 @@ UEdGraphPin* UK2Node_DynamicCast::GetCastSourcePin() const
 UEdGraphPin* UK2Node_DynamicCast::GetBoolSuccessPin() const
 {
 	UEdGraphPin* Pin = FindPin(UK2Node_DynamicCastImpl::CastSuccessPinName);
-	check(Pin != nullptr);
-	check(Pin->Direction == EGPD_Output);
+	check((Pin == nullptr) || (Pin->Direction == EGPD_Output));
 	return Pin;
 }
 
@@ -219,6 +231,18 @@ void UK2Node_DynamicCast::SetPurity(bool bNewPurity)
 
 void UK2Node_DynamicCast::TogglePurity()
 {
+	FText TransactionTitle;
+	if(bIsPureCast)
+	{
+		TransactionTitle = LOCTEXT("TogglePure", "Convert to Pure Cast");
+	}
+	else
+	{
+		TransactionTitle = LOCTEXT("ToggleImpure", "Convert to Impure Cast");
+	}
+	const FScopedTransaction Transaction( TransactionTitle );
+	Modify();
+
 	SetPurity(!bIsPureCast);
 }
 
@@ -264,10 +288,10 @@ bool UK2Node_DynamicCast::HasExternalBlueprintDependencies(TArray<class UStruct*
 FText UK2Node_DynamicCast::GetMenuCategory() const
 {
 	static FNodeTextCache CachedCategory;
-	if (CachedCategory.IsOutOfDate())
+	if (CachedCategory.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedCategory = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Utilities, LOCTEXT("ActionMenuCategory", "Casting"));
+		CachedCategory.SetCachedText(FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Utilities, LOCTEXT("ActionMenuCategory", "Casting")), this);
 	}
 	return CachedCategory;
 }
@@ -278,6 +302,190 @@ FBlueprintNodeSignature UK2Node_DynamicCast::GetSignature() const
 	NodeSignature.AddSubObject(TargetType);
 
 	return NodeSignature;
+}
+
+bool UK2Node_DynamicCast::IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const
+{
+	bool bIsDisallowed = Super::IsConnectionDisallowed(MyPin, OtherPin, OutReason);
+
+	if (MyPin == GetCastSourcePin())
+	{
+		const FEdGraphPinType& OtherPinType = OtherPin->PinType;
+		const FText OtherPinName = OtherPin->PinFriendlyName.IsEmpty() ? FText::FromString(OtherPin->PinName) : OtherPin->PinFriendlyName;
+
+		if (OtherPinType.bIsArray)
+		{
+			bIsDisallowed = true;
+			OutReason = LOCTEXT("CannotArrayCast", "You cannot cast arrays of objects.").ToString();
+		}
+		else if (TargetType == nullptr)
+		{
+			bIsDisallowed = true;
+			OutReason = LOCTEXT("BadCastNode", "This cast has an invalid target type (was the class deleted without a redirect?).").ToString();
+		}
+		else if ((OtherPinType.PinCategory == UEdGraphSchema_K2::PC_Interface) || TargetType->HasAnyClassFlags(CLASS_Interface))
+		{
+			// allow all interface casts
+		}
+		else if (OtherPinType.PinCategory == UEdGraphSchema_K2::PC_Object)
+		{
+			// let's handle wasted cast inputs with warnings in ValidateNodeDuringCompilation() instead
+		}
+		else
+		{
+			bIsDisallowed = true;
+			OutReason = LOCTEXT("NonObjectCast", "You can only cast objects/interfaces.").ToString();
+		}
+	}
+	return bIsDisallowed;
+}
+
+void UK2Node_DynamicCast::NotifyPinConnectionListChanged(UEdGraphPin* Pin)
+{
+	Super::NotifyPinConnectionListChanged(Pin);
+
+	if (Pin == GetCastSourcePin())
+	{
+		Pin->PinFriendlyName = FText::GetEmpty();
+
+		FEdGraphPinType& InputPinType = Pin->PinType;
+		if (Pin->LinkedTo.Num() == 0)
+		{
+			InputPinType.PinCategory = UEdGraphSchema_K2::PC_Wildcard;
+			InputPinType.PinSubCategory.Empty();
+			InputPinType.PinSubCategoryObject = nullptr;
+		}
+		else
+		{
+			const FEdGraphPinType& ConnectedPinType = Pin->LinkedTo[0]->PinType;
+			if (ConnectedPinType.PinCategory == UEdGraphSchema_K2::PC_Interface)
+			{
+				Pin->PinFriendlyName = LOCTEXT("InterfaceInputName", "Interface");
+				InputPinType.PinCategory = UEdGraphSchema_K2::PC_Interface;
+				InputPinType.PinSubCategoryObject = ConnectedPinType.PinSubCategoryObject;
+			}
+			else if (ConnectedPinType.PinCategory == UEdGraphSchema_K2::PC_Object)
+			{
+				InputPinType.PinCategory = UEdGraphSchema_K2::PC_Object;
+				InputPinType.PinSubCategoryObject = UObject::StaticClass();
+			}
+		}
+	}
+}
+
+void UK2Node_DynamicCast::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins)
+{
+	Super::ReallocatePinsDuringReconstruction(OldPins);
+
+	// Update exec pins if we converted from impure to pure
+	ReconnectPureExecPins(OldPins);
+}
+
+void UK2Node_DynamicCast::ValidateNodeDuringCompilation(FCompilerResultsLog& MessageLog) const
+{
+	Super::ValidateNodeDuringCompilation(MessageLog);
+
+	UEdGraphPin* SourcePin = GetCastSourcePin();
+	if ((SourcePin->LinkedTo.Num() > 0) && (TargetType != nullptr))
+	{
+		const UClass* SourceType = *TargetType;
+		for (UEdGraphPin* CastInput : SourcePin->LinkedTo)
+		{
+			const FEdGraphPinType& SourcePinType = CastInput->PinType;
+			if (SourcePinType.PinCategory != UEdGraphSchema_K2::PC_Object)
+			{
+				// all other types should have been rejected by IsConnectionDisallowed()
+				continue;
+			}
+
+			UClass* SourceClass = Cast<UClass>(SourcePinType.PinSubCategoryObject.Get());
+			if ((SourceClass == nullptr) && (SourcePinType.PinSubCategory == UEdGraphSchema_K2::PSC_Self))
+			{
+				if (UK2Node* K2Node = Cast<UK2Node>(CastInput->GetOwningNode()))
+				{
+					SourceClass = K2Node->GetBlueprint()->GeneratedClass;
+				}
+			}
+
+			if (SourceClass == nullptr)
+			{
+				const FString SourcePinName = CastInput->PinFriendlyName.IsEmpty() ? CastInput->PinName : CastInput->PinFriendlyName.ToString();
+
+				FText const ErrorFormat = LOCTEXT("BadCastInput", "'%s' does not have a clear object type (invalid input into @@).");
+				MessageLog.Error( *FString::Printf(*ErrorFormat.ToString(), *SourcePinName), this );
+
+				continue;
+			}
+
+			if (SourceClass == SourceType)
+			{
+				const FString SourcePinName = CastInput->PinFriendlyName.IsEmpty() ? CastInput->PinName : CastInput->PinFriendlyName.ToString();
+
+				FText const WarningFormat = LOCTEXT("EqualObjectCast", "'%s' is already a '%s', you don't need @@.");
+				MessageLog.Warning( *FString::Printf(*WarningFormat.ToString(), *SourcePinName, *TargetType->GetDisplayNameText().ToString()), this );
+			}
+			else if (SourceClass->IsChildOf(SourceType))
+			{
+				const FString SourcePinName = CastInput->PinFriendlyName.IsEmpty() ? CastInput->PinName : CastInput->PinFriendlyName.ToString();
+
+				FText const WarningFormat = LOCTEXT("UnneededObjectCast", "'%s' is already a '%s' (which inherits from '%s'), so you don't need @@.");
+				MessageLog.Warning( *FString::Printf(*WarningFormat.ToString(), *SourcePinName, *SourceClass->GetDisplayNameText().ToString(), *TargetType->GetDisplayNameText().ToString()), this );
+			}
+			else if (!SourceType->IsChildOf(SourceClass) && !FKismetEditorUtilities::IsClassABlueprintInterface(SourceType))
+			{
+				FText const WarningFormat = LOCTEXT("DisallowedObjectCast", "'%s' does not inherit from '%s' (@@ would always fail).");
+				MessageLog.Warning( *FString::Printf(*WarningFormat.ToString(), *TargetType->GetDisplayNameText().ToString(), *SourceClass->GetDisplayNameText().ToString()), this );
+			}
+		}
+	}
+}
+
+
+bool UK2Node_DynamicCast::ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins)
+{
+	if (bIsPureCast)
+	{
+		// look for an old exec pin
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		UEdGraphPin* PinExec = nullptr;
+		for (UEdGraphPin* Pin : OldPins)
+		{
+			if (Pin->PinName == K2Schema->PN_Execute)
+			{
+				PinExec = Pin;
+				break;
+			}
+		}
+		if (PinExec)
+		{
+			// look for old then pin
+			UEdGraphPin* PinThen = nullptr;
+			for (UEdGraphPin* Pin : OldPins)
+			{
+				if (Pin->PinName == K2Schema->PN_Then)
+				{
+					PinThen = Pin;
+					break;
+				}
+			}
+			if (PinThen)
+			{
+				// reconnect all incoming links to old exec pin to the far end of the old then pin.
+				if (PinThen->LinkedTo.Num() > 0)
+				{
+					UEdGraphPin* PinThenLinked = PinThen->LinkedTo[0];
+					while (PinExec->LinkedTo.Num() > 0)
+					{
+						UEdGraphPin* PinExecLinked = PinExec->LinkedTo[0];
+						PinExecLinked->BreakLinkTo(PinExec);
+						PinExecLinked->MakeLinkTo(PinThenLinked);
+					}
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }
 
 #undef LOCTEXT_NAMESPACE

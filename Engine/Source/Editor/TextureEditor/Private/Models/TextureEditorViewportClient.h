@@ -37,9 +37,6 @@ private:
 	/** Returns the positions of the scrollbars relative to the Texture textures */
 	FVector2D GetViewportScrollBarPositions() const;
 
-	/** Initialize the checkerboard texture for the texture preview, if necessary */
-	void SetupCheckerboardTexture();
-
 	/** Destroy the checkerboard texture if one exists */
 	void DestroyCheckerboardTexture();
 

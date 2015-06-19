@@ -8,6 +8,8 @@
 
 @interface SlateOpenGLESView : GLKView
 
+@property(retain) EAGLContext* Context;
+
 @end
 
 @interface SlateOpenGLESViewController : UIViewController

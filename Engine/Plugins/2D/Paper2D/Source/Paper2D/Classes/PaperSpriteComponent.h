@@ -42,6 +42,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="Sprite")
 	virtual UPaperSprite* GetSprite();
 
+	/** Returns the current color of the sprite */
+	FLinearColor GetSpriteColor() const { return SpriteColor; }
+
 	/** Set color of the sprite */
 	UFUNCTION(BlueprintCallable, Category="Sprite")
 	void SetSpriteColor(FLinearColor NewColor);
@@ -54,10 +57,8 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
-#if WITH_EDITORONLY_DATA
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
-#endif
 	// End of UObject interface
 
 	// UActorComponent interface
@@ -85,6 +86,10 @@ public:
 	virtual void GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 	virtual int32 GetNumMaterials() const override;
 	// End of UPrimitiveComponent interface
+
+#if WITH_EDITOR
+	void SetTransientTextureOverride(const UTexture* TextureToModifyOverrideFor, UTexture* OverrideTexture);
+#endif
 
 protected:
 	friend class FPaperSpriteSceneProxy;

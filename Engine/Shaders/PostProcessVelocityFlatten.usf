@@ -1,0 +1,128 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "Common.usf"
+#include "PostProcessCommon.usf"
+
+#define THREADGROUP_TOTALSIZE (THREADGROUP_SIZEX * THREADGROUP_SIZEY)
+
+groupshared float2 Shared[ THREADGROUP_TOTALSIZE ];
+
+float4 CameraMotion[5];
+
+// View rect min in xy, max in zw.
+uint4 ViewDimensions;
+
+RWTexture2D<float4>	OutVelocityFlat;
+RWTexture2D<float4>	OutMaxTileVelocity;
+
+float2 MaxLength( float2 v0, float2 v1 )
+{
+	float LengthSqr0 = dot( v0, v0 );
+	float LengthSqr1 = dot( v1, v1 );
+	return LengthSqr0 > LengthSqr1 ? v0 : v1;
+}
+
+[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
+void VelocityFlattenMain(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+	uint3 GroupThreadId : SV_GroupThreadID,
+	uint GroupIndex : SV_GroupIndex ) 
+{
+	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
+	uint2 PixelPos = DispatchThreadId.xy * 2 + ViewDimensions.xy;
+	float2 ScreenUV = ( (float2)( DispatchThreadId.xy * 2 ) + 0.5 ) / ( ViewDimensions.zw - ViewDimensions.xy );
+	float2 ScreenPosition = float2(2.0f, -2.0f) * ScreenUV + float2(-1.0f, 1.0f);
+
+	// FIXME for sub viewrect
+	float2 UV = ScreenUV;
+
+	uint2 Offsets[] =
+	{
+		{ 0, 0 },
+		{ 0, 1 },
+		{ 1, 0 },
+		{ 1, 1 },
+	};
+	
+	float4 DepthSamples;
+	float2 VelocitySamples[4];
+#if 0
+	// using Gather: xyzw in counter clockwise order starting with the sample to the lower left of the queried location
+	float4 X = PostprocessInput0.GatherRed( PostprocessInput0Sampler, UV ).wzxy;
+	float4 Y = PostprocessInput0.GatherGreen( PostprocessInput0Sampler, UV ).wzxy;
+
+	VelocitySamples[0] = float2(X.x, Y.x);
+	VelocitySamples[1] = float2(X.y, Y.y);
+	VelocitySamples[2] = float2(X.z, Y.z);
+	VelocitySamples[3] = float2(X.w, Y.w);
+	
+	DepthSamples = PostprocessInput1.GatherRed( PostprocessInput1Sampler, UV, 0 ).wzxy;
+#else
+	VelocitySamples[0] = PostprocessInput0[ PixelPos + Offsets[0] ].xy;
+	VelocitySamples[1] = PostprocessInput0[ PixelPos + Offsets[1] ].xy;
+	VelocitySamples[2] = PostprocessInput0[ PixelPos + Offsets[2] ].xy;
+	VelocitySamples[3] = PostprocessInput0[ PixelPos + Offsets[3] ].xy;
+	
+	DepthSamples[0] = PostprocessInput1[ PixelPos + Offsets[0] ].x;
+	DepthSamples[1] = PostprocessInput1[ PixelPos + Offsets[1] ].x;
+	DepthSamples[2] = PostprocessInput1[ PixelPos + Offsets[2] ].x;
+	DepthSamples[3] = PostprocessInput1[ PixelPos + Offsets[3] ].x;
+#endif
+
+	float2 Velocity[4];
+	UNROLL
+	for( uint i = 0; i < 4; i++ )
+	{
+		if( VelocitySamples[i].x > 0.0 )
+		{
+			Velocity[i] = DecodeVelocityFromTexture( VelocitySamples[i] );
+		}
+		else
+		{
+			float3 PosN = float3( ScreenUV, DepthSamples[i] );
+			float ScaleM = rcp( dot( PosN, CameraMotion[0].xyz ) + CameraMotion[0].w );
+			Velocity[i].x = -2.0 * ((PosN.x * ((CameraMotion[1].x * PosN.y) + (CameraMotion[1].y * PosN.z) + CameraMotion[1].z)) + (CameraMotion[1].w * PosN.y) + (CameraMotion[2].x * PosN.x * PosN.x) + (CameraMotion[2].y * PosN.z) + CameraMotion[2].z) * ScaleM;
+			Velocity[i].y =  2.0 * ((PosN.y * ((CameraMotion[3].x * PosN.x) + (CameraMotion[3].y * PosN.z) + CameraMotion[3].z)) + (CameraMotion[3].w * PosN.x) + (CameraMotion[4].x * PosN.y * PosN.y) + (CameraMotion[4].y * PosN.z) + CameraMotion[4].z) * ScaleM;
+		}
+
+		BRANCH
+		if( all( PixelPos.xy + Offsets[i] < ViewDimensions.zw ) )
+		{
+			OutVelocityFlat[ PixelPos + Offsets[i] ] = EncodeVelocityToTexture( Velocity[i] ).xyxy;
+			//OutPackedVelocityDepth[ PixelPos + Offsets[i] ] = float2( Velocity[i], DepthSamples[i] ).xyxy;
+		}
+	}
+
+	Shared[ GroupIndex ] = MaxLength(
+		MaxLength( Velocity[0], Velocity[1] ),
+		MaxLength( Velocity[2], Velocity[3] )
+	);
+
+	GroupMemoryBarrierWithGroupSync();
+
+#if 0
+	if( GroupIndex < 512 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex + 512 ] );
+	GroupMemoryBarrierWithGroupSync();
+	if( GroupIndex < 256 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex + 256 ] );
+	GroupMemoryBarrierWithGroupSync();
+	if( GroupIndex < 128 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex + 128 ] );
+	GroupMemoryBarrierWithGroupSync();
+	if( GroupIndex <  64 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex +  64 ] );
+	GroupMemoryBarrierWithGroupSync();
+#endif
+
+	// Safe for vector sizes 32 or larger, AMD and NV
+	// TODO Intel variable size vector
+	if( GroupIndex < 32 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex + 32 ] );
+	if( GroupIndex < 16 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex + 16 ] );
+	if( GroupIndex <  8 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex +  8 ] );
+	if( GroupIndex <  4 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex +  4 ] );
+	if( GroupIndex <  2 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex +  2 ] );
+	if( GroupIndex <  1 )	Shared[ GroupIndex ] = MaxLength( Shared[ GroupIndex ], Shared[ GroupIndex +  1 ] );
+
+	if( GroupIndex == 0 )
+	{
+		OutMaxTileVelocity[ GroupId.xy ] = Shared[0].xyxy;
+	}
+}

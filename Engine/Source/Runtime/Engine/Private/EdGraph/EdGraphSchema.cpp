@@ -67,14 +67,14 @@ void FGraphActionListBuilderBase::ActionGroup::GetCategoryChain(TArray<FString>&
 {
 #if WITH_EDITOR
 	static FString const CategoryDelim("|");
-	FEditorCategoryUtils::GetCategoryDisplayString(RootCategory).ParseIntoArray(&HierarchyOut, *CategoryDelim, true);
+	FEditorCategoryUtils::GetCategoryDisplayString(RootCategory).ParseIntoArray(HierarchyOut, *CategoryDelim, true);
 
 	if (Actions.Num() > 0)
 	{
 		TArray<FString> SubCategoryChain;
 
 		FString SubCategory = FEditorCategoryUtils::GetCategoryDisplayString(Actions[0]->Category);
-		SubCategory.ParseIntoArray(&SubCategoryChain, *CategoryDelim, true);
+		SubCategory.ParseIntoArray(SubCategoryChain, *CategoryDelim, true);
 
 		HierarchyOut.Append(SubCategoryChain);
 	}
@@ -126,6 +126,15 @@ void FCategorizedGraphActionListBuilder::AddAction(TSharedPtr<FEdGraphSchemaActi
 void FCategorizedGraphActionListBuilder::AddActionList(TArray<TSharedPtr<FEdGraphSchemaAction> > const& NewActions, FString const& CategoryIn/* = TEXT("")*/)
 {
 	FGraphActionListBuilderBase::AddActionList(NewActions, ConcatCategories(Category, CategoryIn));
+}
+
+/////////////////////////////////////////////////////
+// FGraphContextMenuBuilder
+
+FGraphContextMenuBuilder::FGraphContextMenuBuilder(const UEdGraph* InGraph) 
+	: CurrentGraph(InGraph)
+{
+	OwnerOfTemporaries =  NewObject<UEdGraph>((UObject*)GetTransientPackage());
 }
 
 /////////////////////////////////////////////////////
@@ -491,8 +500,23 @@ FPinConnectionResponse UEdGraphSchema::CopyPinLinks(UEdGraphPin& CopyFromPin, UE
 
 FText UEdGraphSchema::GetPinDisplayName(const UEdGraphPin* Pin) const
 {
+	FText ResultPinName;
 	check(Pin != NULL);
-	return !Pin->PinFriendlyName.IsEmpty() ? Pin->PinFriendlyName : FText::FromString(Pin->PinName);
+	if (Pin->PinFriendlyName.IsEmpty())
+	{
+		ResultPinName = FText::FromString(Pin->PinName);
+	}
+	else
+	{
+		ResultPinName = Pin->PinFriendlyName;
+		bool bShowNodesAndPinsUnlocalized;
+		GConfig->GetBool( TEXT("Internationalization"), TEXT("ShowNodesAndPinsUnlocalized"), bShowNodesAndPinsUnlocalized, GEditorSettingsIni );
+		if (bShowNodesAndPinsUnlocalized)
+		{
+			ResultPinName = FText::FromString(ResultPinName.BuildSourceString());
+		}
+	}
+	return ResultPinName;
 }
 
 void UEdGraphSchema::ConstructBasicPinTooltip(UEdGraphPin const& Pin, FText const& PinDescription, FString& TooltipOut) const
@@ -620,6 +644,7 @@ void UEdGraphSchema::GetContextMenuActions(const UEdGraph* CurrentGraph, const U
 					.OnTextCommitted_Static(&Local::OnNodeCommentTextCommitted, SelectedNodeWeakPtr)
 					.SelectAllTextWhenFocused( true )
 					.RevertTextOnEscape( true )
+					.ModiferKeyForNewLine( EModifierKey::Control )
 				];
 				MenuBuilder->EndSection();
 			}

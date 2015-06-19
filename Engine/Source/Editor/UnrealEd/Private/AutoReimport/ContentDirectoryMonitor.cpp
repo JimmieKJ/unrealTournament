@@ -7,12 +7,19 @@
 #include "AssetRegistryModule.h"
 #include "PackageTools.h"
 #include "ObjectTools.h"
+#include "AssetToolsModule.h"
 #include "ReimportFeedbackContext.h"
 
 #define LOCTEXT_NAMESPACE "ContentDirectoryMonitor"
 
+bool IsAssetDirty(UObject* Asset)
+{
+	UPackage* Package = Asset ? Asset->GetOutermost() : nullptr;
+	return Package ? Package->IsDirty() : false;
+}
+
 /** Generate a config from the specified options, to pass to FFileCache on construction */
-FFileCacheConfig GenerateFileCacheConfig(const FString& InPath, const FString& InSupportedExtensions, const FString& InMountedContentPath)
+FFileCacheConfig GenerateFileCacheConfig(const FString& InPath, const FMatchRules& InMatchRules, const FString& InMountedContentPath)
 {
 	FString Directory = FPaths::ConvertRelativePathToFull(InPath);
 
@@ -21,15 +28,16 @@ FFileCacheConfig GenerateFileCacheConfig(const FString& InPath, const FString& I
 	FString CacheFilename = FPaths::ConvertRelativePathToFull(FPaths::GameIntermediateDir()) / TEXT("ReimportCache") / FString::Printf(TEXT("%u.bin"), CRC);
 
 	FFileCacheConfig Config(MoveTemp(Directory), MoveTemp(CacheFilename));
-	Config.IncludeExtensions = InSupportedExtensions;
+	Config.Rules = InMatchRules;
 	// We always store paths inside content folders relative to the folder
 	Config.PathType = EPathType::Relative;
 
+	Config.bDetectChangesSinceLastRun = GetDefault<UEditorLoadingSavingSettings>()->bDetectChangesOnRestart;
 	return Config;
 }
 
-FContentDirectoryMonitor::FContentDirectoryMonitor(const FString& InDirectory, const FString& InSupportedExtensions, const FString& InMountedContentPath)
-	: Cache(GenerateFileCacheConfig(InDirectory, InSupportedExtensions, InMountedContentPath))
+FContentDirectoryMonitor::FContentDirectoryMonitor(const FString& InDirectory, const FMatchRules& InMatchRules, const FString& InMountedContentPath)
+	: Cache(GenerateFileCacheConfig(InDirectory, InMatchRules, InMountedContentPath))
 	, MountedContentPath(InMountedContentPath)
 	, LastSaveTime(0)
 {
@@ -41,14 +49,29 @@ void FContentDirectoryMonitor::Destroy()
 	Cache.Destroy();
 }
 
-void FContentDirectoryMonitor::ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action)
+void FContentDirectoryMonitor::IgnoreNewFile(const FString& Filename)
 {
-	Cache.ReportExternalChange(Filename, Action);
+	Cache.IgnoreNewFile(Filename);
 }
 
-void FContentDirectoryMonitor::Tick(const FTimeLimit& TimeLimit)
+void FContentDirectoryMonitor::IgnoreFileModification(const FString& Filename)
 {
-	Cache.Tick(TimeLimit);
+	Cache.IgnoreFileModification(Filename);
+}
+
+void FContentDirectoryMonitor::IgnoreMovedFile(const FString& SrcFilename, const FString& DstFilename)
+{
+	Cache.IgnoreMovedFile(SrcFilename, DstFilename);
+}
+
+void FContentDirectoryMonitor::IgnoreDeletedFile(const FString& Filename)
+{
+	Cache.IgnoreDeletedFile(Filename);
+}
+
+void FContentDirectoryMonitor::Tick()
+{
+	Cache.Tick();
 
 	const double Now = FPlatformTime::Seconds();
 	if (Now - LastSaveTime > ResaveIntervalS)
@@ -62,7 +85,13 @@ void FContentDirectoryMonitor::StartProcessing()
 {
 	WorkProgress = TotalWork = 0;
 
-	auto OutstandingChanges = Cache.GetOutstandingChanges();
+	// We only process things that haven't changed for a given threshold
+	auto& FileManager = IFileManager::Get();
+	const FDateTime Threshold = FDateTime::UtcNow() - FTimespan(0, 0, GetDefault<UEditorLoadingSavingSettings>()->AutoReimportThreshold);
+	auto OutstandingChanges = Cache.FilterOutstandingChanges([&](const FUpdateCacheTransaction& Transaction, const FDateTime& TimeOfChange){
+		return TimeOfChange < Threshold;
+	});
+
 	if (OutstandingChanges.Num() != 0)
 	{
 		const auto* Settings = GetDefault<UEditorLoadingSavingSettings>();
@@ -71,7 +100,7 @@ void FContentDirectoryMonitor::StartProcessing()
 		{
 			switch(Transaction.Action)
 			{
-				case FFileChangeData::FCA_Added:
+				case EFileAction::Added:
 					if (Settings->bAutoCreateAssets && !MountedContentPath.IsEmpty())
 					{
 						AddedFiles.Emplace(MoveTemp(Transaction));
@@ -82,11 +111,12 @@ void FContentDirectoryMonitor::StartProcessing()
 					}
 					break;
 
-				case FFileChangeData::FCA_Modified:
+				case EFileAction::Moved:
+				case EFileAction::Modified:
 					ModifiedFiles.Emplace(MoveTemp(Transaction));
 					break;
 
-				case FFileChangeData::FCA_Removed:
+				case EFileAction::Removed:
 					if (Settings->bAutoDeleteAssets && !MountedContentPath.IsEmpty())
 					{
 						DeletedFiles.Emplace(MoveTemp(Transaction));
@@ -103,7 +133,24 @@ void FContentDirectoryMonitor::StartProcessing()
 	}
 }
 
-void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, TArray<UPackage*>& OutPackagesToSave, const FTimeLimit& TimeLimit, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, FReimportFeedbackContext& Context)
+UObject* AttemptImport(UClass* InFactoryType, UPackage* Package, FName InName, bool& bCancelled, const FString& FullFilename)
+{
+	UObject* Asset = nullptr;
+
+	if (UFactory* Factory = NewObject<UFactory>(GetTransientPackage(), InFactoryType))
+	{
+		Factory->AddToRoot();
+		if (Factory->ConfigureProperties())
+		{
+			Asset = UFactory::StaticImportObject(Factory->SupportedClass, Package, InName, RF_Public | RF_Standalone, bCancelled, *FullFilename, nullptr, Factory);
+		}
+		Factory->RemoveFromRoot();
+	}
+
+	return Asset;
+}
+
+void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, const FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, FReimportFeedbackContext& Context)
 {
 	bool bCancelled = false;
 	for (int32 Index = 0; Index < AddedFiles.Num(); ++Index)
@@ -144,11 +191,7 @@ void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, 
 		FString NewAssetName = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(FullFilename));
 		FString PackagePath = PackageTools::SanitizePackageName(MountedContentPath / FPaths::GetPath(Addition.Filename.Get()) / NewAssetName);
 
-		if (FEditorFileUtils::IsMapPackageAsset(PackagePath))
-		{
-			Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_ExistingMap", "Attempted to create asset with the same name as a map ({0})."), FText::FromString(PackagePath)));
-		}
-		else if (FindPackage(nullptr, *PackagePath))
+		if (FPackageName::DoesPackageExist(*PackagePath))
 		{
 			Context.AddMessage(EMessageSeverity::Warning, FText::Format(LOCTEXT("Warning_ExistingAsset", "Can't create a new asset at {0} - one already exists."), FText::FromString(PackagePath)));
 		}
@@ -161,60 +204,56 @@ void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, 
 			}
 			else
 			{
-				Context.AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Info_CreatingNewAsset", "Creating new asset {0}."), FText::FromString(PackagePath)));
+				Context.AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Info_CreatingNewAsset", "Importing new asset {0}."), FText::FromString(PackagePath)));
 
 				// Make sure the destination package is loaded
 				NewPackage->FullyLoad();
-
-				bool bSuccess = false;
 				
+				UObject* NewAsset = nullptr;
+
 				// Find a relevant factory for this file
 				const FString Ext = FPaths::GetExtension(Addition.Filename.Get(), false);
-				UFactory* FactoryType = nullptr;
-				if (auto* Factories = InFactoriesByExtension.Find(Ext))
+				auto* Factories = InFactoriesByExtension.Find(Ext);
+				if (Factories && Factories->Num() != 0)
 				{
-					FactoryType = (*Factories)[0];
-
-					UFactory* const* FoundCompatibleFactoryType = Factories->FindByPredicate([&](UFactory* InFactory){
-						return InFactory->FactoryCanImport(FullFilename);
-					});
-
-					if (FoundCompatibleFactoryType)
+					// Prefer a factory if it explicitly can import. UFactory::FactoryCanImport returns false by default, even if the factory supports the extension, so we can't use it directly.
+					UFactory* const * PreferredFactory = Factories->FindByPredicate([&](UFactory* F){ return F->FactoryCanImport(FullFilename); });
+					if (PreferredFactory)
 					{
-						FactoryType = *FoundCompatibleFactoryType;
+						NewAsset = AttemptImport((*PreferredFactory)->GetClass(), NewPackage, *NewAssetName, bCancelled, FullFilename);
 					}
-				}
-
-				UObject* NewAsset = nullptr;
-				UFactory* FactoryInstance = FactoryType ? ConstructObject<UFactory>(FactoryType->GetClass()) : nullptr;
-				if (FactoryInstance)
-				{
-					FactoryInstance->AddToRoot();
-					if (FactoryInstance->ConfigureProperties())
+					// If there was no preferred factory, just try them all until one succeeds
+					else for (UFactory* Factory : *Factories)
 					{
-						UClass* ImportAssetType = FactoryInstance->SupportedClass;
-						NewAsset = UFactory::StaticImportObject(ImportAssetType, NewPackage, FName(*NewAssetName), RF_Public | RF_Standalone, bCancelled, *FullFilename, nullptr, FactoryInstance);
-					}
-					FactoryInstance->RemoveFromRoot();
-				}
+						NewAsset = AttemptImport(Factory->GetClass(), NewPackage, *NewAssetName, bCancelled, FullFilename);
 
-				if (!bCancelled)
-				{
-					if (!NewAsset)
-					{
-						TArray<UPackage*> Packages;
-						Packages.Add(NewPackage);
-
-						FText ErrorMessage;
-						if (!PackageTools::UnloadPackages(Packages, ErrorMessage))
+						if (bCancelled || NewAsset)
 						{
-							Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_UnloadingPackage", "There was an error unloading a package: {0}."), ErrorMessage));
-						}						
+							break;
+						}
+					}
+				}
 
-						Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_FailedToImportAsset", "Failed to import file {0}."), FText::FromString(FullFilename)));
-						continue;
+				// If we didn't create an asset, unload and delete the package we just created
+				if (!NewAsset)
+				{
+					TArray<UPackage*> Packages;
+					Packages.Add(NewPackage);
+
+					TGuardValue<bool> SuppressSlowTaskMessages(Context.bSuppressSlowTaskMessages, true);
+
+					FText ErrorMessage;
+					if (!PackageTools::UnloadPackages(Packages, ErrorMessage))
+					{
+						Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_UnloadingPackage", "There was an error unloading a package: {0}."), ErrorMessage));
 					}
 
+					// Just add the message to the message log rather than add it to the UI
+					// Factories may opt not to import the file, so we let them report errors if they do
+					Context.GetMessageLog().Message(EMessageSeverity::Info, FText::Format(LOCTEXT("Info_FailedToImportAsset", "Failed to import file {0}."), FText::FromString(FullFilename)));
+				}
+				else if (!bCancelled)
+				{
 					FAssetRegistryModule::AssetCreated(NewAsset);
 					GEditor->BroadcastObjectReimported(NewAsset);
 
@@ -223,7 +262,7 @@ void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, 
 
 				// Refresh the supported class.  Some factories (e.g. FBX) only resolve their type after reading the file
 				// ImportAssetType = Factory->ResolveSupportedClass();
-				// @todo: analytics
+				// @todo: analytics?
 			}
 		}
 
@@ -241,26 +280,84 @@ void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, 
 	AddedFiles.Empty();
 }
 
-void FContentDirectoryMonitor::ProcessModifications(const IAssetRegistry& Registry, const FTimeLimit& TimeLimit, FReimportFeedbackContext& Context)
+void FContentDirectoryMonitor::ProcessModifications(const IAssetRegistry& Registry, const FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, FReimportFeedbackContext& Context)
 {
 	auto* ReimportManager = FReimportManager::Instance();
 
 	for (int32 Index = 0; Index < ModifiedFiles.Num(); ++Index)
 	{
 		auto& Change = ModifiedFiles[Index];
-
 		const FString FullFilename = Cache.GetDirectory() + Change.Filename.Get();
 
-		for (const auto& AssetData : Utils::FindAssetsPertainingToFile(Registry, FullFilename))
+		// Move the asset before reimporting it. We always reimport moved assets to ensure that their import path is up to date
+		if (Change.Action == EFileAction::Moved)
 		{
-			UObject* Asset = AssetData.GetAsset();
-			if (!ReimportManager->Reimport(Asset, false /* Ask for new file */, false /* Show notification */))
+			const FString OldFilename = Cache.GetDirectory() + Change.MovedFromFilename.Get();
+			const auto Assets = Utils::FindAssetsPertainingToFile(Registry, OldFilename);
+
+			if (Assets.Num() == 1)
 			{
-				Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_FailedToReimportAsset", "Failed to reimport asset {0}."), FText::FromString(Asset->GetName())));
+				UObject* Asset = Assets[0].GetAsset();
+				if (Asset && Utils::ExtractSourceFilePaths(Asset).Num() == 1)
+				{
+					const bool bAssetWasDirty = IsAssetDirty(Asset);
+
+					const FString NewAssetName = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Change.Filename.Get()));
+					const FString PackagePath = PackageTools::SanitizePackageName(MountedContentPath / FPaths::GetPath(Change.Filename.Get()));
+					const FString FullDestPath = PackagePath / NewAssetName;
+
+					const FText SrcPathText = FText::FromString(Assets[0].PackageName.ToString()),
+						DstPathText = FText::FromString(FullDestPath);
+
+					if (FPackageName::DoesPackageExist(*FullDestPath))
+					{
+						Context.AddMessage(EMessageSeverity::Warning, FText::Format(LOCTEXT("MoveWarning_ExistingAsset", "Can't move {0} to {1} - one already exists."), SrcPathText, DstPathText));
+					}
+					else
+					{
+						TArray<FAssetRenameData> RenameData;
+						RenameData.Emplace(Asset, PackagePath, NewAssetName);
+
+						Context.AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Success_MovedAsset", "Moving asset {0} to {1}."),	SrcPathText, DstPathText));
+
+						FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get().RenameAssets(RenameData);
+
+						TArray<FString> Filenames;
+						Filenames.Add(FullFilename);
+
+						// Update the reimport file names
+						FReimportManager::Instance()->UpdateReimportPaths(Asset, Filenames);
+						Asset->MarkPackageDirty();
+
+						if (!bAssetWasDirty)
+						{
+							OutPackagesToSave.Add(Asset->GetOutermost());
+						}
+					}
+				}
 			}
-			else
+		}
+		else if (Change.Action == EFileAction::Modified)
+		{
+			for (const auto& AssetData : Utils::FindAssetsPertainingToFile(Registry, FullFilename))
 			{
-				Context.AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Success_CreatedNewAsset", "Reimported asset {0} from {1}."), FText::FromString(Asset->GetName()), FText::FromString(FullFilename)));
+				UObject* Asset = AssetData.GetAsset();
+				if (Asset)
+				{
+					const bool bAssetWasDirty = IsAssetDirty(Asset);
+					if (!ReimportManager->Reimport(Asset, false /* Ask for new file */, false /* Show notification */))
+					{
+						Context.AddMessage(EMessageSeverity::Error, FText::Format(LOCTEXT("Error_FailedToReimportAsset", "Failed to reimport asset {0}."), FText::FromString(Asset->GetName())));
+					}
+					else
+					{
+						Context.AddMessage(EMessageSeverity::Info, FText::Format(LOCTEXT("Success_CreatedNewAsset", "Reimported asset {0} from {1}."), FText::FromString(Asset->GetName()), FText::FromString(FullFilename)));
+						if (!bAssetWasDirty)
+						{
+							OutPackagesToSave.Add(Asset->GetOutermost());
+						}
+					}
+				}
 			}
 		}
 

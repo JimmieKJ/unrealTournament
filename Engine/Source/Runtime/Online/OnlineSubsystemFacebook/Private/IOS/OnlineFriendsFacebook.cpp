@@ -6,6 +6,8 @@
 #include "OnlineSharingFacebook.h"
 #include "OnlineFriendsFacebook.h"
 
+#import <FBSDKCoreKit/FBSDKCoreKit.h>
+
 // FOnlineFriendFacebook
 
 TSharedRef<FUniqueNetId> FOnlineFriendFacebook::GetUserId() const
@@ -205,14 +207,15 @@ void FOnlineFriendsFacebook::ReadFriendsUsingGraphPath(int32 LocalUserNum, const
 	dispatch_async(dispatch_get_main_queue(),^ 
 		{
 			// We need to determine what the graph path we are querying is.
+			// Facebook permissions only return friends who have our app installed.
 			NSMutableString* GraphPath = [[NSMutableString alloc] init];
 			[GraphPath appendString:@"/me/friends"];
 
+			NSMutableDictionary *parameters = [NSMutableDictionary dictionaryWithDictionary: @{@"limit" : @"50"}];
+			
 			// Optional list of fields to query for each friend
 			if(FriendsFields.Num() > 0)
 			{
-				[GraphPath appendString:@"?fields={"];
-
 				FString FieldsStr;
 				for (int32 Idx=0; Idx < FriendsFields.Num(); Idx++)
 				{
@@ -222,31 +225,33 @@ void FOnlineFriendsFacebook::ReadFriendsUsingGraphPath(int32 LocalUserNum, const
 						FieldsStr += TEXT(",");
 					}
 				}
-
-				[GraphPath appendString:[NSString stringWithFString:FieldsStr]];
-                
-				[GraphPath appendString:@"}"];
+				
+				[parameters setObject:[NSString stringWithFString:FieldsStr] forKey:@"fields"];
 			}
 
 			UE_LOG(LogOnline, Verbose, TEXT("GraphPath=%s"), *FString(GraphPath));
 
-			[FBRequestConnection startWithGraphPath:GraphPath parameters:nil HTTPMethod:@"GET"
-				completionHandler:^(FBRequestConnection *connection, id result, NSError *error)
+			[[[FBSDKGraphRequest alloc] initWithGraphPath:GraphPath parameters:parameters HTTPMethod:@"GET"]
+				startWithCompletionHandler:^(FBSDKGraphRequestConnection *connection, id result, NSError *error)
 				{
-					bool bSuccess = error == nil && result;
+					bool bSuccess = error == nil;
 
-					if(bSuccess)
+					if(error)
+					{
+			 			 UE_LOG(LogOnline, Display, TEXT("Error=%s"), *FString([error localizedDescription]));
+					}
+					else
 					{
                         NSArray* friends = [[NSArray alloc] initWithArray:[result objectForKey:@"data"]];
 
-						UE_LOG(LogOnline, Verbose, TEXT("Found %i friends"), [friends count]);
+						UE_LOG(LogOnline, Display, TEXT("Found %i friends"), [friends count]);
 
 						// Clear our previosly cached friends before we repopulate the cache.
 						CachedFriends.Empty();
 
 						for( int32 FriendIdx = 0; FriendIdx < [friends count]; FriendIdx++ )
 						{	
-							NSDictionary<FBGraphUser>* user = friends[ FriendIdx ];		
+							NSDictionary* user = friends[ FriendIdx ];		
 							const FString Id([user objectForKey : @"objectID"]);
 							// Add new friend entry to list
 							TSharedRef<FOnlineFriendFacebook> FriendEntry(

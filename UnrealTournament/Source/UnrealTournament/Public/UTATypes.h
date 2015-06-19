@@ -360,15 +360,6 @@ namespace FFriendsStatus
 	const FName Friend = FName(TEXT("Friend"));
 }
 
-namespace FGameRuleCategories
-{
-	const FName TeamPlay = FName(TEXT("TeamPlay"));
-	const FName Casual = FName(TEXT("Casual"));
-	const FName Big = FName(TEXT("Big"));
-	const FName Competitive = FName(TEXT("Competitive"));
-	const FName Custom = FName(TEXT("Custom"));
-}
-
 namespace FQuickMatchTypeRulesetTag
 {
 	const FString CTF = TEXT("CTF");
@@ -399,8 +390,23 @@ struct FMapListItem
 	/** optional title pulled from asset registry, if it exists */
 	FString Title;
 
-	FMapListItem(const FString& InPackageName, const FString& InTitle)
-		: PackageName(InPackageName), Title(InTitle)
+	/** Pull this from the asset registery now */
+	FString Author;
+
+	/** Pulled from the asset registery now */
+	FString Description;
+
+	/** reference to the screenshot for this map */
+	FString Screenshot;
+
+	/** The best # of players for this map in a non-team game **/
+	int32 OptimalPlayerCount;
+
+	/** The best # of players for this map in a team game **/
+	int32 OptimalTeamPlayerCount;
+
+	FMapListItem(const FString& InPackageName, const FString& InTitle, const FString& InAuthor, const FString& InDescription, const FString& InScreenshot, int32 inOptimalPlayerCount, int32 inOptimalTeamPlayerCount)
+		: PackageName(InPackageName), Title(InTitle), Author(InAuthor), Description(InDescription), Screenshot(InScreenshot), OptimalPlayerCount(inOptimalPlayerCount), OptimalTeamPlayerCount(inOptimalTeamPlayerCount)
 	{}
 
 	FString GetDisplayName() const
@@ -469,29 +475,18 @@ struct FAllowedData
 	UPROPERTY()
 	TEnumAsByte<EGameDataType::Type> DataType;
 
-	// The menu description for this data.  Since we do not want to 
+	// The package name of this content
 	UPROPERTY()
-	FString MenuDescription;
-
-	UPROPERTY()
-	FString Reference;
-
-	UPROPERTY()
-	FString Package;
-
-	UPROPERTY()
-	bool bIsCustomContent;
+	FString PackageName;
 
 	FAllowedData()
 		: DataType(EGameDataType::GameMode)
-		, MenuDescription(TEXT(""))
-		, Reference(TEXT(""))
-		, Package(TEXT(""))
-		, bIsCustomContent(false)
+		, PackageName(TEXT(""))
 	{}
 
-	FAllowedData(EGameDataType::Type inDataType, FString inMenuDescription, FString inReference, FString inPackage, bool inbIsCustomContent)
-		: DataType(inDataType), MenuDescription(inMenuDescription), Reference(inReference), Package(inPackage), bIsCustomContent(inbIsCustomContent)
+	FAllowedData(EGameDataType::Type inDataType, const FString& inPackageName)
+		: DataType(inDataType)
+		, PackageName(inPackageName)
 	{}
 
 };
@@ -545,5 +540,50 @@ struct FFlagInfo
 		return MakeShareable( new FFlagInfo( inTitle, inId) );
 	}
 
+};
+
+static FName NAME_MapInfo_Title(TEXT("Title"));
+static FName NAME_MapInfo_Author(TEXT("Author"));
+static FName NAME_MapInfo_Description(TEXT("Description"));
+static FName NAME_MapInfo_OptimalPlayerCount(TEXT("OptimalPlayerCount"));
+static FName NAME_MapInfo_OptimalTeamPlayerCount(TEXT("OptimalTeamPlayerCount"));
+static FName NAME_MapInfo_ScreenshotReference(TEXT("ScreenshotReference"));
+
+// Called upon completion of a redirect transfer.  
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FContentDownloadComplete, class UUTGameViewportClient*, ERedirectStatus::Type, const FString&);
+
+USTRUCT()
+struct FServerInstanceData 
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString RuleSetIcon;
+
+	UPROPERTY()
+	FString Description;
+
+	UTexture2D* BadgeTexture;
+
+#if !UE_SERVER
+	FSlateDynamicImageBrush* SlateBadge;
+#endif
+
+	FServerInstanceData()
+		: RuleSetIcon(TEXT(""))
+		, Description(TEXT(""))
+	{
+	}
+
+	FServerInstanceData(FString inRuleSetIcon, FString inDescription)
+		: RuleSetIcon(inRuleSetIcon)
+		, Description(inDescription)
+	{
+	}
+
+	static TSharedRef<FServerInstanceData> Make(FServerInstanceData& inData)
+	{
+		return MakeShareable( new FServerInstanceData( inData.RuleSetIcon, inData.Description) );
+	}
 
 };

@@ -40,15 +40,9 @@ namespace UnrealBuildTool
                 }
 
                 // First check if Visual Sudio 2013 is installed.
-                // If both 2012 and 2013 are installed, prefer 2013
                 if (!String.IsNullOrEmpty(WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2013)))
                 {
                     CachedCompiler = WindowsCompiler.VisualStudio2013;
-                }
-                // Next try Visual Studio 2012
-                else if (!String.IsNullOrEmpty(WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2012)))
-                {
-                    CachedCompiler = WindowsCompiler.VisualStudio2012;
                 }
                 // Finally assume 2013 is installed to defer errors somewhere else like VCToolChain
                 else
@@ -60,19 +54,19 @@ namespace UnrealBuildTool
             }
         }
 
-        /// True if we are using "clang-cl" to compile instead of MSVC on Windows platform
+        /// True if we should use Clang/LLVM instead of MSVC to compile code on Windows platform
         public static readonly bool bCompileWithClang = false;
 
+        /// When using Clang, enabling enables the MSVC-like "clang-cl" wrapper, otherwise we pass arguments to Clang directly
+		public static readonly bool bUseVCCompilerArgs = !bCompileWithClang || false;
+
 		/// True if we should use the Clang linker (LLD) when bCompileWithClang is enabled, otherwise we use the MSVC linker
-		public static readonly bool bAllowClangLinker = false;
+		public static readonly bool bAllowClangLinker = bCompileWithClang && true;
 
         /// True if we're targeting Windows XP as a minimum spec.  In Visual Studio 2012 and higher, this may change how
         /// we compile and link the application (http://blogs.msdn.com/b/vcblog/archive/2012/10/08/10357555.aspx)
 		/// This is a flag to determine we should support XP if possible from XML
-        [XmlConfig]
-		public static bool SupportWindowsXPIfAvailable = false;
-
-		private static bool SupportWindowsXP;
+		public static bool SupportWindowsXP;
 		public static bool IsWindowsXPSupported()
 		{
 			return SupportWindowsXP;
@@ -179,13 +173,6 @@ namespace UnrealBuildTool
          */
         protected override void RegisterBuildPlatformInternal()
         {
-			// All the plumbing for VS2012 is still in place to support console toolchains that piggy-back on the VS2012 environment, but we require VS2013 for building the editor
-			// and host tools. We always prefer VS2013 over VS2012, so if we detected VS2012 as the only installed compiler, halt now.
-            if (!Utils.IsRunningOnMono && Compiler == WindowsCompiler.VisualStudio2012)
-            {
-				throw new BuildException("Visual Studio 2012 is no longer supported for building the editor and host platform tools. Please also install Visual Studio 2013.");
-            }
-
             // Register this build platform for both Win64 and Win32
             Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Win64.ToString());
             UEBuildPlatform.RegisterBuildPlatform(UnrealTargetPlatform.Win64, this);
@@ -338,45 +325,73 @@ namespace UnrealBuildTool
             return false;
         }
 
+		public override bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, string ProjectPath)
+		{
+			if (Platform == UnrealTargetPlatform.Win32)
+			{
+				string[] StringKeys = new string[] {
+					"MinimumOSVersion"
+				};
+
+				// look up OS specific settings
+				if (!DoProjectSettingsMatchDefault(Platform, ProjectPath, "/Script/WindowsTargetPlatform.WindowsTargetSettings",
+					null, null, StringKeys))
+				{
+					return false;
+				}
+			}
+
+			// check the base settings
+			return base.HasDefaultBuildConfig(Platform, ProjectPath);
+		}
+
+		private void SetupXPSupportFromConfiguration()
+		{
+			string[] CmdLine = Environment.GetCommandLineArgs();
+
+			bool SupportWindowsXPIfAvailable = false;
+			SupportWindowsXPIfAvailable = CmdLine.Contains("-winxp", StringComparer.InvariantCultureIgnoreCase);
+
+			// ...check if it was supported from a config.
+			if (!SupportWindowsXPIfAvailable)
+			{
+				ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Win64, "Engine", UnrealBuildTool.GetUProjectPath());
+				string MinimumOS;
+				if (Ini.GetString("/Script/WindowsTargetPlatform.WindowsTargetSettings", "MinimumOSVersion", out MinimumOS))
+				{
+					if (string.IsNullOrEmpty(MinimumOS) == false)
+					{
+						SupportWindowsXPIfAvailable = MinimumOS == "MSOS_XP";
+					}
+				}
+			}
+
+			SupportWindowsXP = SupportWindowsXPIfAvailable;
+		}
+
         public override void ResetBuildConfiguration(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
         {
 			UEBuildConfiguration.bCompileICU = true;
-
-			// Should we enable Windows XP support
+			if (InPlatform == UnrealTargetPlatform.Win32)
 			{
-				// If it wasnt set as an XML flag, check if it is requested from the commandline.
-				if (!SupportWindowsXPIfAvailable)
-				{
-					string[] CmdLine = Environment.GetCommandLineArgs();
-					SupportWindowsXPIfAvailable = CmdLine.Contains("-winxp", StringComparer.InvariantCultureIgnoreCase);
-
-					// ...check if it was supported from a config.
-					if( !SupportWindowsXPIfAvailable )
-					{
-						ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Win64, "Engine", UnrealBuildTool.GetUProjectPath());
-						string MinimumOS;
-						if (Ini.GetString("/Script/WindowsTargetPlatform.WindowsTargetSettings", "MinimumOSVersion", out MinimumOS))
-						{
-							if (string.IsNullOrEmpty(MinimumOS) == false)
-							{
-								SupportWindowsXPIfAvailable = MinimumOS == "MSOS_XP";
-							}
-						}
-					}
-				}
-
-				// Win32 XP is only supported at this time.
-				SupportWindowsXP = SupportWindowsXPIfAvailable && (GetCPPTargetPlatform(InPlatform) == CPPTargetPlatform.Win32);
+				SetupXPSupportFromConfiguration();
 			}
+
         }
 
         public override void ValidateBuildConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo)
         {
-            // @todo clang: PCH files aren't quite working yet with "clang-cl" (no /Yc support, and "-x c++-header" cannot be specified)
             if( WindowsPlatform.bCompileWithClang )
             {
-                BuildConfiguration.bUsePCHFiles = false;
+				// @todo clang: Shared PCHs don't work on clang yet because the PCH will have definitions assigned to different values
+				// than the consuming translation unit.  Unlike the warning in MSVC, this is a compile in Clang error which cannot be suppressed
                 BuildConfiguration.bUseSharedPCHs = false;
+
+	            // @todo clang: PCH files aren't supported by "clang-cl" yet (no /Yc support, and "-x c++-header" cannot be specified)
+ 				if( WindowsPlatform.bUseVCCompilerArgs )
+				{
+                	BuildConfiguration.bUsePCHFiles = false;
+				}
             }
         }
 
@@ -411,6 +426,7 @@ namespace UnrealBuildTool
                     InModule.AddDynamicallyLoadedModule("WindowsNoEditorTargetPlatform");
                     InModule.AddDynamicallyLoadedModule("WindowsServerTargetPlatform");
                     InModule.AddDynamicallyLoadedModule("WindowsClientTargetPlatform");
+					InModule.AddDynamicallyLoadedModule("DesktopTargetPlatform");
                 }
 
                 if (bBuildShaderFormats)
@@ -436,8 +452,16 @@ namespace UnrealBuildTool
         {
             InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WIN32=1");
 
-			// Win32 XP is only supported at this time.
-			SupportWindowsXP = SupportWindowsXPIfAvailable && (GetCPPTargetPlatform(InBuildTarget.Platform) == CPPTargetPlatform.Win32);
+			// Should we enable Windows XP support
+			if ((InBuildTarget.TargetType == TargetRules.TargetType.Program) && (GetCPPTargetPlatform(InBuildTarget.Platform) == CPPTargetPlatform.Win32))
+			{
+				// Check if the target has requested XP support.
+				if (String.Equals(InBuildTarget.Rules.PreferredSubPlatform, "WindowsXP", StringComparison.InvariantCultureIgnoreCase))
+				{
+					SupportWindowsXP = true;
+				}
+			}
+
 			if (IsWindowsXPSupported())
             {
                 // Windows XP SP3 or higher required
@@ -456,6 +480,11 @@ namespace UnrealBuildTool
             if (File.Exists(MorpheusShaderPath))
             {
                 InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("HAS_MORPHEUS=1");
+                InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("MORPHEUS_120HZ=0");
+
+				//on PS4 the SDK now handles distortion correction.  On PC we will still have to handle it manually,
+				//but we require SDK changes before we can get the required data.  For the moment, no platform does in-engine morpheus distortion
+				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("MORPHEUS_ENGINE_DISTORTION=1");				
             }
 
             if (InBuildTarget.Rules != null)

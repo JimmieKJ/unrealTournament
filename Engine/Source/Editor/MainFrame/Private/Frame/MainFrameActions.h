@@ -31,6 +31,7 @@ public:
 	TSharedPtr< FUICommandInfo > OpenIDE;
 	TSharedPtr< FUICommandInfo > RefreshCodeProject;
 	TSharedPtr< FUICommandInfo > PackagingSettings;
+	TSharedPtr< FUICommandInfo > LocalizeProject;
 	TArray< TSharedPtr< FUICommandInfo > > SwitchProjectCommands;
 
 	TSharedPtr< FUICommandInfo > OpenContentBrowser;
@@ -191,6 +192,9 @@ public:
 	/** Opens the Packaging settings tab */
 	static void PackagingSettings();
 
+	/** Opens the Project Localization Dashboard */
+	static void LocalizeProject();
+	
 	/** Restarts the editor and switches projects */
 	static void SwitchProjectByIndex( int32 ProjectIndex );
 

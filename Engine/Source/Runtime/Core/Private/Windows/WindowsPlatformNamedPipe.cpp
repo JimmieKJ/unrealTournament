@@ -24,7 +24,7 @@ FWindowsPlatformNamedPipe::FWindowsPlatformNamedPipe() :
 	bIsServer(false),
 	State(FPlatformNamedPipe::State_Uninitialized)
 {
-	FMemory::MemZero(Overlapped);
+	FMemory::Memzero(Overlapped);
 }
 
 FWindowsPlatformNamedPipe::~FWindowsPlatformNamedPipe()
@@ -71,7 +71,7 @@ bool FWindowsPlatformNamedPipe::Create(const FString& PipeName, bool bAsServer, 
 		return false;
 	}
 
-	FMemory::MemZero(Overlapped);
+	FMemory::Memzero(Overlapped);
 
 	State = bAsServer ? State_Created : State_ReadyForRW;
 

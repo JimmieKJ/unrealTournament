@@ -16,7 +16,7 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 		{
 			bool bSavedDrawNavMesh = NavMesh->bDrawNavMesh;
 			NavMesh->bDrawNavMesh = false;
-			GatherData(&ProxyData);
+			GatherData(ProxyData);
 			NavMesh->bDrawNavMesh = bSavedDrawNavMesh;
 		}
 		if (NavMesh->bDrawNavMesh)

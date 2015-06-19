@@ -90,8 +90,8 @@ struct FTriangle
 
 	FTriangle(FTriangle & Copy)
 	{
-		FMemory::MemCopy(Vertices, Copy.Vertices);
-		FMemory::MemCopy(Edges, Copy.Edges);
+		FMemory::Memcpy(Vertices, Copy.Vertices);
+		FMemory::Memcpy(Edges, Copy.Edges);
 		Center = Copy.Center;
 
 		Vertices[0]->AddTriangle(this);

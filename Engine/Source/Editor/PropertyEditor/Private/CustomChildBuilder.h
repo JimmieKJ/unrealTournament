@@ -13,7 +13,7 @@ public:
 	virtual IDetailGroup& AddChildGroup( FName GroupName, const FText& LocalizedDisplayName ) override;
 	virtual FDetailWidgetRow& AddChildContent( const FText& SearchString ) override;
 	virtual IDetailPropertyRow& AddChildProperty( TSharedRef<IPropertyHandle> PropertyHandle ) override;
-	virtual TSharedRef<SWidget> GenerateStructValueWidget( TSharedRef<IPropertyHandle> StructPropertyHandle );
+	virtual TSharedRef<SWidget> GenerateStructValueWidget( TSharedRef<IPropertyHandle> StructPropertyHandle ) override;
 
 	const TArray< FDetailLayoutCustomization >& GetChildCustomizations() const { return ChildCustomizations; }
 private:

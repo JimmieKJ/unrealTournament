@@ -199,7 +199,7 @@ void SStatsViewer::Construct( const FArguments& InArgs )
 	{
 		TSharedPtr<IStatsPage> InitialStatsPage;
 		FString DisplayedStatsPageName;
-		if (GConfig->GetString(*StatsViewerConstants::ConfigSectionName, TEXT("DisplayedStatsPageName"), DisplayedStatsPageName, GEditorUserSettingsIni))
+		if (GConfig->GetString(*StatsViewerConstants::ConfigSectionName, TEXT("DisplayedStatsPageName"), DisplayedStatsPageName, GEditorPerProjectIni))
 		{
 			InitialStatsPage = FStatsPageManager::Get().GetPage(FName(*DisplayedStatsPageName));
 		}
@@ -701,7 +701,7 @@ void SStatsViewer::SetDisplayedStats( TSharedRef<IStatsPage> StatsPage )
 	}
 
 	CurrentStats = StatsPage;
-	GConfig->SetString(*StatsViewerConstants::ConfigSectionName, TEXT("DisplayedStatsPageName"), *StatsPage->GetName().ToString(), GEditorUserSettingsIni);
+	GConfig->SetString(*StatsViewerConstants::ConfigSectionName, TEXT("DisplayedStatsPageName"), *StatsPage->GetName().ToString(), GEditorPerProjectIni);
 	CurrentStats->OnShow( SharedThis(this) );
 	CurrentObjectSetIndex = CurrentStats->GetSelectedObjectSet();
 	CurrentFilterIndex = 0;

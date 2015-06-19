@@ -61,7 +61,7 @@ public:
 	{
 	}
 
-	virtual void UpdateOperation(FLatentResponse& Response)
+	virtual void UpdateOperation(FLatentResponse& Response) override
 	{
 		// Update elapsed time
 		TimeElapsed += Response.ElapsedTime();

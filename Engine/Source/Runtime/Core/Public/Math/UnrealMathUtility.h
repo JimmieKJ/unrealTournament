@@ -110,6 +110,12 @@ struct FMath : public FPlatformMath
 		return InMin + (InMax - InMin) * FRand();
 	}
 
+	/** Util to generate a random boolean. */
+	static FORCEINLINE bool RandBool()
+	{
+		return (RandRange(0,1) == 1) ? true : false;
+	}
+
 	/** Return a uniformly distributed random unit length vector = point on the unit sphere surface. */
 	static FVector VRand();
 	
@@ -290,6 +296,86 @@ struct FMath : public FPlatformMath
 		return Loge(Value) * LogToLog2;
 	}
 
+	/**
+	* Computes the sine and cosine of a scalar float.
+	*
+	* @param ScalarSin	Pointer to where the Sin result should be stored
+	* @param ScalarCos	Pointer to where the Cos result should be stored
+	* @param Value  input angles 
+	*/
+	static FORCEINLINE void SinCos( float* ScalarSin, float* ScalarCos, float  Value )
+	{
+		// Map Value to y in [-pi,pi], x = 2*pi*quotient + remainder.
+		float quotient = (INV_PI*0.5f)*Value;
+		if (Value >= 0.0f)
+		{
+			quotient = (float)((int)(quotient + 0.5f));
+		}
+		else
+		{
+			quotient = (float)((int)(quotient - 0.5f));
+		}
+		float y = Value - (2.0f*PI)*quotient;
+
+		// Map y to [-pi/2,pi/2] with sin(y) = sin(Value).
+		float sign;
+		if (y > HALF_PI)
+		{
+			y = PI - y;
+			sign = -1.0f;
+		}
+		else if (y < -HALF_PI)
+		{
+			y = -PI - y;
+			sign = -1.0f;
+		}
+		else
+		{
+			sign = +1.0f;
+		}
+
+		float y2 = y * y;
+
+		// 11-degree minimax approximation
+		*ScalarSin = ( ( ( ( (-2.3889859e-08f * y2 + 2.7525562e-06f) * y2 - 0.00019840874f ) * y2 + 0.0083333310f ) * y2 - 0.16666667f ) * y2 + 1.0f ) * y;
+
+		// 10-degree minimax approximation
+		float p = ( ( ( ( -2.6051615e-07f * y2 + 2.4760495e-05f ) * y2 - 0.0013888378f ) * y2 + 0.041666638f ) * y2 - 0.5f ) * y2 + 1.0f;
+		*ScalarCos = sign*p;
+	}
+
+
+	// Note:  We use FASTASIN_HALF_PI instead of HALF_PI inside of FastASin(), since it was the value that accompanied the minimax coefficients below.
+	// It is important to use exactly the same value in all places inside this function to ensure that FastASin(0.0f) == 0.0f.
+	// For comparison:
+	//		HALF_PI				== 1.57079632679f == 0x3fC90FDB
+	//		FASTASIN_HALF_PI	== 1.5707963050f  == 0x3fC90FDA
+#define FASTASIN_HALF_PI (1.5707963050f)
+	/**
+	* Computes the ASin of a scalar float.
+	*
+	* @param Value  input angle
+	* @return ASin of Value
+	*/
+	static FORCEINLINE float FastAsin(float Value)
+	{
+		// Clamp input to [-1,1].
+		bool nonnegative = (Value >= 0.0f);
+		float x = FMath::Abs(Value);
+		float omx = 1.0f - x;
+		if (omx < 0.0f)
+		{
+			omx = 0.0f;
+		}
+		float root = FMath::Sqrt(omx);
+		// 7-degree minimax approximation
+		float result = ((((((-0.0012624911f * x + 0.0066700901f) * x - 0.0170881256f) * x + 0.0308918810f) * x - 0.0501743046f) * x + 0.0889789874f) * x - 0.2145988016f) * x + FASTASIN_HALF_PI;
+		result *= root;  // acos(|x|)
+		// acos(x) = pi - acos(-x) when x < 0, asin(x) = pi/2 - acos(x)
+		return (nonnegative ? FASTASIN_HALF_PI - result : result - FASTASIN_HALF_PI);
+	}
+#undef FASTASIN_HALF_PI
+
 
 	// Conversion Functions
 
@@ -299,13 +385,7 @@ struct FMath : public FPlatformMath
 	 * @return					Value in degrees.
 	 */
 	template<class T>
-	static FORCEINLINE float RadiansToDegrees(T const& RadVal)
-	{
-		return RadVal * (180.f / PI);
-	}
-
-	/** This overload allows us to maintain double precision */
-	static FORCEINLINE double RadiansToDegrees(double RadVal)
+	static FORCEINLINE auto RadiansToDegrees(T const& RadVal) -> decltype(RadVal * (180.f / PI))
 	{
 		return RadVal * (180.f / PI);
 	}
@@ -316,13 +396,7 @@ struct FMath : public FPlatformMath
 	 * @return					Value in radians.
 	 */
 	template<class T>
-	static FORCEINLINE float DegreesToRadians(T const& DegVal)
-	{
-		return DegVal * (PI / 180.f);
-	}
-
-	/** This overload allows us to maintain double precision */
-	static FORCEINLINE double DegreesToRadians(double DegVal)
+	static FORCEINLINE auto DegreesToRadians(T const& DegVal) -> decltype(DegVal * (PI / 180.f))
 	{
 		return DegVal * (PI / 180.f);
 	}
@@ -771,7 +845,11 @@ struct FMath : public FPlatformMath
 	static FVector LinePlaneIntersection( const FVector &Point1, const FVector &Point2, const FVector &PlaneOrigin, const FVector &PlaneNormal);
 	static FVector LinePlaneIntersection( const FVector &Point1, const FVector &Point2, const FPlane  &Plane);
 
-	/**
+	// @parma InOutScissorRect should be set to View.ViewRect before the call
+	// @return 0: light is not visible, 1:use scissor rect, 2: no scissor rect needed
+	static CORE_API uint32 ComputeProjectedSphereScissorRect(struct FIntRect& InOutScissorRect, FVector SphereOrigin, float Radius, FVector ViewOrigin, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix);
+
+	/** 
 	 * Determine if a plane and an AABB intersect
 	 * @param P - the plane to test
 	 * @param AABB - the axis aligned bounding box to test

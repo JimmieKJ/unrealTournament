@@ -55,6 +55,8 @@ public class Slate : ModuleRules
 				"Runtime/Slate/Private/Widgets/Text",
 				"Runtime/Slate/Private/Widgets/Tutorials",
 				"Runtime/Slate/Private/Widgets/Views",
+
+                "Runtime/Toolbox/Public/"
 			}
 		);
 

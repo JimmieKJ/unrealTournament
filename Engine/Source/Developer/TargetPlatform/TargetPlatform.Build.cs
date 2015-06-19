@@ -60,6 +60,7 @@ public class TargetPlatform : ModuleRules
 					DynamicallyLoadedModuleNames.Add("Android_DXTTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
+					DynamicallyLoadedModuleNames.Add("Android_ASTCTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
                     DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
 				}
@@ -78,6 +79,7 @@ public class TargetPlatform : ModuleRules
 				if (UEBuildConfiguration.bCompileAgainstEngine)
 				{
 					DynamicallyLoadedModuleNames.Add("AudioFormatOgg");
+					DynamicallyLoadedModuleNames.Add("AudioFormatOpus");
 				}
 
 				if (Target.Type == TargetRules.TargetType.Editor || Target.Type == TargetRules.TargetType.Program)
@@ -89,11 +91,7 @@ public class TargetPlatform : ModuleRules
 					DynamicallyLoadedModuleNames.Add("Android_ETC1TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("Android_ETC2TargetPlatform");
 					DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-
-					if (!UnrealBuildTool.UnrealBuildTool.RunningRocket() && !UnrealBuildTool.UnrealBuildTool.BuildingRocket())
-					{
-						DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
-					}
+					DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
 				}
 			}
             else if (Target.Platform == UnrealTargetPlatform.Linux)

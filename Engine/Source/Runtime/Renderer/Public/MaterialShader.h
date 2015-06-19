@@ -131,7 +131,7 @@ public:
 	FTextureRHIRef& GetEyeAdaptation(const FSceneView& View);
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 	virtual uint32 GetAllocatedSize() const override;
 
 private:
@@ -140,13 +140,14 @@ private:
 	TArray<FShaderUniformBufferParameter> ParameterCollectionUniformBuffers;
 	TArray<FShaderParameter> PerFrameScalarExpressions;
 	TArray<FShaderParameter> PerFrameVectorExpressions;
+	TArray<FShaderParameter> PerFramePrevScalarExpressions;
+	TArray<FShaderParameter> PerFramePrevVectorExpressions;
 	FDeferredPixelShaderParameters DeferredParameters;
 	FShaderResourceParameter LightAttenuation;
 	FShaderResourceParameter LightAttenuationSampler;
 
 	// For materials using atmospheric fog color 
 	FAtmosphereShaderTextureParameters AtmosphericFogTextureParameters;
-	FPostProcessPassParameters PostprocessParameter;
 
 	//Use of the eye adaptation texture here is experimental and potentially dangerous as it can introduce a feedback loop. May be removed.
 	FShaderResourceParameter EyeAdaptation;

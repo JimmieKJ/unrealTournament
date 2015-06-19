@@ -21,7 +21,7 @@ DECLARE_DELEGATE_OneParam(FOnCategorySelected, const FString& /* InCategory */);
 
 namespace TutorialBrowserConstants
 {
-	const float RefreshTimerInterval = 0.25f;
+	const float RefreshTimerInterval = 1.0f;
 
 	const float ProgressUpdateInterval = 0.5f;
 }
@@ -101,17 +101,30 @@ public:
 					.HAlign(HAlign_Center)
 					.Padding(8.0f)
 					[
-						SNew(SBox)
-						.WidthOverride(64.0f)
-						.HeightOverride(64.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Center)
+						SNew(SOverlay)
+						+ SOverlay::Slot()
+						[
+							SNew(SBox)
+							.WidthOverride(64.0f)
+							.HeightOverride(64.0f)
+							.VAlign(VAlign_Center)
+							.HAlign(HAlign_Center)
+							[
+								SNew(SImage)
+								.Image(SlateBrush)
+							]
+						]
+						+ SOverlay::Slot()
+						.VAlign(VAlign_Bottom)
+						.HAlign(HAlign_Right)
 						[
 							SNew(SImage)
-							.Image(SlateBrush)
+							.ToolTipText(LOCTEXT("CompletedCheckToolTip", "This category has been completed"))
+							.Visibility(this, &FTutorialListEntry_Category::GetCompletedVisibility)
+							.Image(FEditorStyle::Get().GetBrush("Tutorials.Browser.Completed"))
 						]
 					]
-					+SHorizontalBox::Slot()
+					+ SHorizontalBox::Slot()
 					.FillWidth(1.0f)
 					.VAlign(VAlign_Center)
 					[
@@ -203,6 +216,25 @@ public:
 	EVisibility OnGetArrowVisibility() const
 	{
 		return (SubCategories.Num() > 0 || Tutorials.Num() > 0) ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	EVisibility GetCompletedVisibility() const override
+	{
+		for (int32 i = 0; i < Tutorials.Num(); ++i)
+		{
+			if (Tutorials[i].IsValid() && (Tutorials[i]->GetCompletedVisibility() != EVisibility::Visible))
+			{
+				return EVisibility::Hidden;
+			}
+		}
+		for (int32 i = 0; i < SubCategories.Num(); ++i)
+		{
+			if (SubCategories[i].IsValid() && (SubCategories[i]->GetCompletedVisibility() != EVisibility::Visible))
+			{
+				return EVisibility::Hidden;
+			}
+		}
+		return EVisibility::Visible;
 	}
 
 public:
@@ -437,7 +469,7 @@ public:
 		return EVisibility::Collapsed;
 	}
 
-	EVisibility GetCompletedVisibility() const
+	EVisibility GetCompletedVisibility() const override
 	{
 		CacheProgress();
 		return bHaveCompletedTutorial ? EVisibility::Visible : EVisibility::Hidden;
@@ -505,6 +537,8 @@ void STutorialsBrowser::Construct(const FArguments& InArgs)
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	AssetRegistryModule.Get().OnAssetAdded().AddSP(this, &STutorialsBrowser::HandleAssetAdded);
+
+	RegisterActiveTimer( TutorialBrowserConstants::RefreshTimerInterval, FWidgetActiveTimerDelegate::CreateSP( this, &STutorialsBrowser::TriggerReloadTutorials ) );
 
 	ChildSlot
 	[
@@ -586,16 +620,15 @@ void STutorialsBrowser::Construct(const FArguments& InArgs)
 	RebuildCrumbs();
 }
 
-void STutorialsBrowser::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType STutorialsBrowser::TriggerReloadTutorials( double InCurrentTime, float InDeltaTime )
 {
-	RefreshTimer -= InDeltaTime;
-
-	if(bNeedsRefresh && RefreshTimer <= 0.0f)
+	if (bNeedsRefresh)
 	{
-		ReloadTutorials();
 		bNeedsRefresh = false;
-		RefreshTimer = TutorialBrowserConstants::RefreshTimerInterval;
+		ReloadTutorials();
 	}
+	
+	return EActiveTimerReturnType::Continue;
 }
 
 void STutorialsBrowser::SetFilter(const FString& InFilter)
@@ -637,7 +670,7 @@ TSharedPtr<FTutorialListEntry_Category> STutorialsBrowser::RebuildCategories()
 		// We're expecting the category string to be in the "A.B.C" format.  We'll split up the string here and form
 		// a proper hierarchy in the UI
 		TArray< FString > SplitCategories;
-		CategoryPath.ParseIntoArray( &SplitCategories, TEXT( "." ), true /* bCullEmpty */ );
+		CategoryPath.ParseIntoArray( SplitCategories, TEXT( "." ), true /* bCullEmpty */ );
 
 		FString CurrentCategoryPath;
 
@@ -696,12 +729,6 @@ void STutorialsBrowser::RebuildTutorials(TSharedPtr<FTutorialListEntry_Category>
 
 	//Ensure that tutorials are loaded into the asset registry before making a list of them.
 	FAssetRegistryModule& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	bool IsStillLoading = AssetRegistry.Get().IsLoadingAssets();
-	if (IsStillLoading)
-	{
-		//This can happen if you close the editor with the tutorials browser open, then restart the editor so that the browser opens immediately.
-		return;
-	}
 
 	// rebuild tutorials
 	FARFilter Filter;
@@ -735,7 +762,7 @@ void STutorialsBrowser::RebuildTutorials(TSharedPtr<FTutorialListEntry_Category>
 		// We're expecting the category string to be in the "A.B.C" format.  We'll split up the string here and form
 		// a proper hierarchy in the UI
 		TArray< FString > SplitCategories;
-		CategoryPath.ParseIntoArray( &SplitCategories, TEXT( "." ), true /* bCullEmpty */ );
+		CategoryPath.ParseIntoArray( SplitCategories, TEXT( "." ), true /* bCullEmpty */ );
 
 		FString CurrentCategoryPath;
 
@@ -845,7 +872,7 @@ void STutorialsBrowser::OnTutorialSelected(UEditorTutorial* InTutorial, bool bRe
 			IntroTutorials.DismissTutorialBrowser();
 		}
 	}
-	OnLaunchTutorial.ExecuteIfBound(InTutorial, bRestart, ParentWindow, FSimpleDelegate(), FSimpleDelegate());
+	OnLaunchTutorial.ExecuteIfBound(InTutorial, bRestart ? IIntroTutorials::ETutorialStartType::TST_RESTART : IIntroTutorials::ETutorialStartType::TST_CONTINUE, ParentWindow, FSimpleDelegate(), FSimpleDelegate());
 }
 
 void STutorialsBrowser::OnCategorySelected(const FString& InCategory)

@@ -1,11 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
+#include "PaperFlipbook.h"
+#include "PaperFlipbookFactory.generated.h"
+
 /**
  * Factory for flipbooks
  */
-
-#pragma once
-#include "PaperFlipbookFactory.generated.h"
 
 UCLASS()
 class PAPER2DEDITOR_API UPaperFlipbookFactory : public UFactory

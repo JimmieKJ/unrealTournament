@@ -8,30 +8,40 @@ FOnlineSubsystemIOS::FOnlineSubsystemIOS()
 
 }
 
-
 IOnlineSessionPtr FOnlineSubsystemIOS::GetSessionInterface() const
 {
 	return SessionInterface;
 }
-
 
 IOnlineFriendsPtr FOnlineSubsystemIOS::GetFriendsInterface() const
 {
 	return FriendsInterface;
 }
 
+IOnlinePartyPtr FOnlineSubsystemIOS::GetPartyInterface() const
+{
+	return nullptr;
+}
+
+IOnlineGroupsPtr FOnlineSubsystemIOS::GetGroupsInterface() const
+{
+	return nullptr;
+}
 
 IOnlineSharedCloudPtr FOnlineSubsystemIOS::GetSharedCloudInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineUserCloudPtr FOnlineSubsystemIOS::GetUserCloudInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
+IOnlineUserCloudPtr FOnlineSubsystemIOS::GetUserCloudInterface(const FString& Key) const
+{
+	return nullptr;
+}
 
 IOnlineLeaderboardsPtr FOnlineSubsystemIOS::GetLeaderboardsInterface() const
 {
@@ -40,45 +50,33 @@ IOnlineLeaderboardsPtr FOnlineSubsystemIOS::GetLeaderboardsInterface() const
 
 IOnlineVoicePtr FOnlineSubsystemIOS::GetVoiceInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineExternalUIPtr FOnlineSubsystemIOS::GetExternalUIInterface() const
 {
 	return ExternalUIInterface;
 }
 
-
 IOnlineTimePtr FOnlineSubsystemIOS::GetTimeInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineIdentityPtr FOnlineSubsystemIOS::GetIdentityInterface() const
 {
 	return IdentityInterface;
 }
 
-
-IOnlinePartyPtr FOnlineSubsystemIOS::GetPartyInterface() const
-{
-	return NULL;
-}
-
-
 IOnlineTitleFilePtr FOnlineSubsystemIOS::GetTitleFileInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineEntitlementsPtr FOnlineSubsystemIOS::GetEntitlementsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineStorePtr FOnlineSubsystemIOS::GetStoreInterface() const
 {
@@ -87,7 +85,7 @@ IOnlineStorePtr FOnlineSubsystemIOS::GetStoreInterface() const
 
 IOnlineEventsPtr FOnlineSubsystemIOS::GetEventsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineAchievementsPtr FOnlineSubsystemIOS::GetAchievementsInterface() const
@@ -95,31 +93,34 @@ IOnlineAchievementsPtr FOnlineSubsystemIOS::GetAchievementsInterface() const
 	return AchievementsInterface;
 }
 
-
 IOnlineSharingPtr FOnlineSubsystemIOS::GetSharingInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineUserPtr FOnlineSubsystemIOS::GetUserInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineMessagePtr FOnlineSubsystemIOS::GetMessageInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlinePresencePtr FOnlineSubsystemIOS::GetPresenceInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineChatPtr FOnlineSubsystemIOS::GetChatInterface() const
 {
-	return NULL;
+	return nullptr;
+}
+
+IOnlineTurnBasedPtr FOnlineSubsystemIOS::GetTurnBasedInterface() const
+{
+    return TurnBasedInterface;
 }
 
 bool FOnlineSubsystemIOS::Init() 
@@ -146,6 +147,7 @@ bool FOnlineSubsystemIOS::Init()
 		LeaderboardsInterface = MakeShareable(new FOnlineLeaderboardsIOS(this));
 		AchievementsInterface = MakeShareable(new FOnlineAchievementsIOS(this));
 		ExternalUIInterface = MakeShareable(new FOnlineExternalUIIOS());
+        TurnBasedInterface = MakeShareable(new FOnlineTurnBasedIOS());
 	}
 
 	if( IsInAppPurchasingEnabled() )
@@ -158,6 +160,11 @@ bool FOnlineSubsystemIOS::Init()
 
 bool FOnlineSubsystemIOS::Tick(float DeltaTime)
 {
+	if (!FOnlineSubsystemImpl::Tick(DeltaTime))
+	{
+		return false;
+	}
+
 	if (SessionInterface.IsValid())
 	{
 		SessionInterface->Tick(DeltaTime);

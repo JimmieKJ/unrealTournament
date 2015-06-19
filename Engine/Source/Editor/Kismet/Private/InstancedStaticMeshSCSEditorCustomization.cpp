@@ -3,7 +3,6 @@
 #include "BlueprintEditorPrivatePCH.h"
 #include "InstancedStaticMeshSCSEditorCustomization.h"
 #include "BlueprintEditorModule.h"
-#include "InstancedFoliage.h"
 #include "Components/InstancedStaticMeshComponent.h"
 
 TSharedRef<ISCSEditorCustomization> FInstancedStaticMeshSCSEditorCustomization::MakeInstance(TSharedRef< IBlueprintEditor > InBlueprintEditor)

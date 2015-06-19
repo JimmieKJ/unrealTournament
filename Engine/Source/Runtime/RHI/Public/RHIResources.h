@@ -108,7 +108,7 @@ class FRHIShader : public FRHIResource
 {
 public:
 	FRHIShader(bool InbDoNotDeferDelete = false) : FRHIResource(InbDoNotDeferDelete) {}
-
+	
 	void SetHash(FSHAHash InHash) { Hash = InHash; }
 	FSHAHash GetHash() const { return Hash; }
 
@@ -367,6 +367,16 @@ public:
 		return &LastRenderTime;
 	}
 
+	void SetName(FName& InName)
+	{
+		TextureName = InName;
+	}
+
+	FName GetName() const
+	{
+		return TextureName;
+	}
+
 private:
 	uint32 NumMips;
 	uint32 NumSamples;
@@ -374,6 +384,7 @@ private:
 	uint32 Flags;
 	FLastRenderTimeContainer& LastRenderTime;
 	FLastRenderTimeContainer DefaultLastRenderTime;
+	FName TextureName;
 };
 
 class RHI_API FRHITexture2D : public FRHITexture
@@ -566,6 +577,11 @@ public:
 	 * Sets custom Present handler on the viewport
 	 */
 	virtual void SetCustomPresent(class FRHICustomPresent*) {}
+
+	/**
+	 * Returns currently set custom present handler.
+	 */
+	virtual class FRHICustomPresent* GetCustomPresent() const { return nullptr; }
 };
 
 //
@@ -575,11 +591,88 @@ public:
 class FRHIUnorderedAccessView : public FRHIResource {};
 class FRHIShaderResourceView : public FRHIResource {};
 
-// Declare RHI resource reference types.
-#define DEFINE_RHI_REFERENCE_TYPE(Type,ParentType) \
-	typedef FRHI##Type*              F##Type##RHIParamRef; \
-	typedef TRefCountPtr<FRHI##Type> F##Type##RHIRef;
-ENUM_RHI_RESOURCE_TYPES(DEFINE_RHI_REFERENCE_TYPE);
+
+
+typedef FRHISamplerState*              FSamplerStateRHIParamRef;
+typedef TRefCountPtr<FRHISamplerState> FSamplerStateRHIRef;
+
+typedef FRHIRasterizerState*              FRasterizerStateRHIParamRef;
+typedef TRefCountPtr<FRHIRasterizerState> FRasterizerStateRHIRef;
+
+typedef FRHIDepthStencilState*              FDepthStencilStateRHIParamRef;
+typedef TRefCountPtr<FRHIDepthStencilState> FDepthStencilStateRHIRef;
+
+typedef FRHIBlendState*              FBlendStateRHIParamRef;
+typedef TRefCountPtr<FRHIBlendState> FBlendStateRHIRef;
+
+typedef FRHIVertexDeclaration*              FVertexDeclarationRHIParamRef;
+typedef TRefCountPtr<FRHIVertexDeclaration> FVertexDeclarationRHIRef;
+
+typedef FRHIVertexShader*              FVertexShaderRHIParamRef;
+typedef TRefCountPtr<FRHIVertexShader> FVertexShaderRHIRef;
+
+typedef FRHIHullShader*              FHullShaderRHIParamRef;
+typedef TRefCountPtr<FRHIHullShader> FHullShaderRHIRef;
+
+typedef FRHIDomainShader*              FDomainShaderRHIParamRef;
+typedef TRefCountPtr<FRHIDomainShader> FDomainShaderRHIRef;
+
+typedef FRHIPixelShader*              FPixelShaderRHIParamRef;
+typedef TRefCountPtr<FRHIPixelShader> FPixelShaderRHIRef;
+
+typedef FRHIGeometryShader*              FGeometryShaderRHIParamRef;
+typedef TRefCountPtr<FRHIGeometryShader> FGeometryShaderRHIRef;
+
+typedef FRHIComputeShader*              FComputeShaderRHIParamRef;
+typedef TRefCountPtr<FRHIComputeShader> FComputeShaderRHIRef;
+
+typedef FRHIBoundShaderState*              FBoundShaderStateRHIParamRef;
+typedef TRefCountPtr<FRHIBoundShaderState> FBoundShaderStateRHIRef;
+
+typedef FRHIUniformBuffer*              FUniformBufferRHIParamRef;
+typedef TRefCountPtr<FRHIUniformBuffer> FUniformBufferRHIRef;
+
+typedef FRHIIndexBuffer*              FIndexBufferRHIParamRef;
+typedef TRefCountPtr<FRHIIndexBuffer> FIndexBufferRHIRef;
+
+typedef FRHIVertexBuffer*              FVertexBufferRHIParamRef;
+typedef TRefCountPtr<FRHIVertexBuffer> FVertexBufferRHIRef;
+
+typedef FRHIStructuredBuffer*              FStructuredBufferRHIParamRef;
+typedef TRefCountPtr<FRHIStructuredBuffer> FStructuredBufferRHIRef;
+
+typedef FRHITexture*              FTextureRHIParamRef;
+typedef TRefCountPtr<FRHITexture> FTextureRHIRef;
+
+typedef FRHITexture2D*              FTexture2DRHIParamRef;
+typedef TRefCountPtr<FRHITexture2D> FTexture2DRHIRef;
+
+typedef FRHITexture2DArray*              FTexture2DArrayRHIParamRef;
+typedef TRefCountPtr<FRHITexture2DArray> FTexture2DArrayRHIRef;
+
+typedef FRHITexture3D*              FTexture3DRHIParamRef;
+typedef TRefCountPtr<FRHITexture3D> FTexture3DRHIRef;
+
+typedef FRHITextureCube*              FTextureCubeRHIParamRef;
+typedef TRefCountPtr<FRHITextureCube> FTextureCubeRHIRef;
+
+typedef FRHITextureReference*              FTextureReferenceRHIParamRef;
+typedef TRefCountPtr<FRHITextureReference> FTextureReferenceRHIRef;
+
+typedef FRHIRenderQuery*              FRenderQueryRHIParamRef;
+typedef TRefCountPtr<FRHIRenderQuery> FRenderQueryRHIRef;
+
+typedef FRHIViewport*              FViewportRHIParamRef;
+typedef TRefCountPtr<FRHIViewport> FViewportRHIRef;
+
+typedef FRHIUnorderedAccessView*              FUnorderedAccessViewRHIParamRef;
+typedef TRefCountPtr<FRHIUnorderedAccessView> FUnorderedAccessViewRHIRef;
+
+typedef FRHIShaderResourceView*              FShaderResourceViewRHIParamRef;
+typedef TRefCountPtr<FRHIShaderResourceView> FShaderResourceViewRHIRef;
+
+
+
 
 class FRHIRenderTargetView
 {
@@ -644,47 +737,232 @@ public:
 	}
 };
 
+class FExclusiveDepthStencil
+{
+public:
+	enum Type
+	{
+		// don't use those directly, use the combined versions below
+		// 4 bits are used for depth and 4 for stencil to make the hex value readable and non overlapping
+		DepthNop =		0x00,
+		DepthRead =		0x01,
+		DepthWrite =	0x02,
+		DepthMask =		0x0f,
+		StencilNop =	0x00,
+		StencilRead =	0x10,
+		StencilWrite =	0x20,
+		StencilMask =	0xf0,
+
+		// use those:
+		DepthNop_StencilNop = DepthNop + StencilNop,
+		DepthRead_StencilNop = DepthRead + StencilNop,
+		DepthWrite_StencilNop = DepthWrite + StencilNop,
+		DepthNop_StencilRead = DepthNop + StencilRead,
+		DepthRead_StencilRead = DepthRead + StencilRead,
+		DepthWrite_StencilRead = DepthWrite + StencilRead,
+		DepthNop_StencilWrite = DepthNop + StencilWrite,
+		DepthRead_StencilWrite = DepthRead + StencilWrite,
+		DepthWrite_StencilWrite = DepthWrite + StencilWrite,
+	};
+
+private:
+	Type Value;
+
+public:
+	// constructor
+	FExclusiveDepthStencil(Type InValue = DepthNop_StencilNop)
+		: Value(InValue)
+	{
+	}
+
+	inline bool IsUsingDepthStencil() const
+	{
+		return Value != DepthNop_StencilNop;
+	}
+	inline bool IsDepthWrite() const
+	{
+		return ExtractDepth() == DepthWrite;
+	}
+	inline bool IsStencilWrite() const
+	{
+		return ExtractStencil() == StencilWrite;
+	}
+	inline void SetDepthWrite()
+	{
+		Value = (Type)(ExtractStencil() | DepthWrite);
+	}
+	inline void SetStencilWrite()
+	{
+		Value = (Type)(ExtractDepth() | StencilWrite);
+	}
+	inline void SetDepthStencilWrite(bool bDepth, bool bStencil)
+	{
+		Value = DepthNop_StencilNop;
+
+		if (bDepth)
+		{
+			SetDepthWrite();
+		}
+		if (bStencil)
+		{
+			SetStencilWrite();
+		}
+	}
+	bool operator==(const FExclusiveDepthStencil& rhs) const
+	{
+		return Value == rhs.Value;
+	}
+	inline bool IsValid(FExclusiveDepthStencil& Current) const
+	{
+		Type Depth = ExtractDepth();
+
+		if (Depth != DepthNop && Depth != Current.ExtractDepth())
+		{
+			return false;
+		}
+
+		Type Stencil = ExtractStencil();
+
+		if (Stencil != StencilNop && Stencil != Current.ExtractStencil())
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	uint32 GetIndex() const
+	{
+		// Note: The array to index has views created in that specific order.
+
+		// we don't care about the Nop versions so less views are needed
+		// we combine Nop and Write
+		switch (Value)
+		{
+			case DepthWrite_StencilNop:
+			case DepthNop_StencilWrite:
+			case DepthWrite_StencilWrite:
+			case DepthNop_StencilNop:
+				return 0; // old DSAT_Writable
+		
+			case DepthRead_StencilNop:
+			case DepthRead_StencilWrite:
+				return 1; // old DSAT_ReadOnlyDepth
+
+			case DepthNop_StencilRead:
+			case DepthWrite_StencilRead:
+				return 2; // old DSAT_ReadOnlyStencil
+
+			case DepthRead_StencilRead:
+				return 3; // old DSAT_ReadOnlyDepthAndStencil
+		}
+		// should never happen
+		check(0);
+		return -1;
+	}
+	static const uint32 MaxIndex = 4;
+
+private:
+	inline Type ExtractDepth() const
+	{
+		return (Type)(Value & DepthMask);
+	}
+	inline Type ExtractStencil() const
+	{
+		return (Type)(Value & StencilMask);
+	}
+};
+
 class FRHIDepthRenderTargetView
 {
 public:
 	FTextureRHIParamRef Texture;
 
-	ERenderTargetLoadAction DepthLoadAction;
-	ERenderTargetStoreAction DepthStoreAction;
-	ERenderTargetLoadAction StencilLoadAction;
-	ERenderTargetStoreAction StencilStoreAction;
+	ERenderTargetLoadAction		DepthLoadAction;
+	ERenderTargetStoreAction	DepthStoreAction;
+	ERenderTargetLoadAction		StencilLoadAction;
+
+private:
+	ERenderTargetStoreAction	StencilStoreAction;
+	FExclusiveDepthStencil		DepthStencilAccess;
+public:
+
+	// accessor to prevent write access to StencilStoreAction
+	ERenderTargetStoreAction GetStencilStoreAction() const { return StencilStoreAction; }
+	// accessor to prevent write access to DepthStencilAccess
+	FExclusiveDepthStencil GetDepthStencilAccess() const { return DepthStencilAccess; }
 
 	FRHIDepthRenderTargetView() :
 		Texture(nullptr),
 		DepthLoadAction(ERenderTargetLoadAction::EClear),
 		DepthStoreAction(ERenderTargetStoreAction::EStore),
 		StencilLoadAction(ERenderTargetLoadAction::EClear),
-		StencilStoreAction(ERenderTargetStoreAction::EStore)
-	{}
+		StencilStoreAction(ERenderTargetStoreAction::EStore),
+		DepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite)
+	{
+		Validate();
+	}
 
 	FRHIDepthRenderTargetView(FTextureRHIParamRef InTexture) :
 		Texture(InTexture),
 		DepthLoadAction(ERenderTargetLoadAction::EClear),
 		DepthStoreAction(ERenderTargetStoreAction::EStore),
 		StencilLoadAction(ERenderTargetLoadAction::EClear),
-		StencilStoreAction(ERenderTargetStoreAction::EStore)
-	{}
+		StencilStoreAction(ERenderTargetStoreAction::EStore),
+		DepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite)
+	{
+		Validate();
+	}
 
 	FRHIDepthRenderTargetView(FTextureRHIParamRef InTexture, ERenderTargetLoadAction InLoadAction, ERenderTargetStoreAction InStoreAction) :
 		Texture(InTexture),
 		DepthLoadAction(InLoadAction),
 		DepthStoreAction(InStoreAction),
 		StencilLoadAction(InLoadAction),
-		StencilStoreAction(InStoreAction)
-	{}
+		StencilStoreAction(InStoreAction),
+		DepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite)
+	{
+		Validate();
+	}
+
+	FRHIDepthRenderTargetView(FTextureRHIParamRef InTexture, ERenderTargetLoadAction InLoadAction, ERenderTargetStoreAction InStoreAction, FExclusiveDepthStencil InDepthStencilAccess) :
+		Texture(InTexture),
+		DepthLoadAction(InLoadAction),
+		DepthStoreAction(InStoreAction),
+		StencilLoadAction(InLoadAction),
+		StencilStoreAction(InStoreAction),
+		DepthStencilAccess(InDepthStencilAccess)
+	{
+		Validate();
+	}
 
 	FRHIDepthRenderTargetView(FTextureRHIParamRef InTexture, ERenderTargetLoadAction InDepthLoadAction, ERenderTargetStoreAction InDepthStoreAction, ERenderTargetLoadAction InStencilLoadAction, ERenderTargetStoreAction InStencilStoreAction) :
 		Texture(InTexture),
 		DepthLoadAction(InDepthLoadAction),
 		DepthStoreAction(InDepthStoreAction),
 		StencilLoadAction(InStencilLoadAction),
-		StencilStoreAction(InStencilStoreAction)
-	{}
+		StencilStoreAction(InStencilStoreAction),
+		DepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite)
+	{
+		Validate();
+	}
+
+	FRHIDepthRenderTargetView(FTextureRHIParamRef InTexture, ERenderTargetLoadAction InDepthLoadAction, ERenderTargetStoreAction InDepthStoreAction, ERenderTargetLoadAction InStencilLoadAction, ERenderTargetStoreAction InStencilStoreAction, FExclusiveDepthStencil InDepthStencilAccess) :
+		Texture(InTexture),
+		DepthLoadAction(InDepthLoadAction),
+		DepthStoreAction(InDepthStoreAction),
+		StencilLoadAction(InStencilLoadAction),
+		StencilStoreAction(InStencilStoreAction),
+		DepthStencilAccess(InDepthStencilAccess)
+	{
+		Validate();
+	}
+
+	void Validate() const
+	{
+		// Missed optimization, resolve is not needed for read only ops
+		ensure(!(DepthStencilAccess == FExclusiveDepthStencil::DepthRead_StencilRead && StencilStoreAction != ERenderTargetStoreAction::ENoAction));
+	}
 
 	bool operator==(const FRHIDepthRenderTargetView& Other)
 	{
@@ -693,7 +971,8 @@ public:
 			DepthLoadAction == Other.DepthLoadAction &&
 			DepthStoreAction == Other.DepthStoreAction &&
 			StencilLoadAction == Other.StencilLoadAction &&
-			StencilStoreAction == Other.StencilStoreAction;
+			StencilStoreAction == Other.StencilStoreAction &&
+			DepthStencilAccess == Other.DepthStencilAccess;
 	}
 };
 
@@ -716,7 +995,7 @@ public:
 	FRHISetRenderTargetsInfo() :
 		NumColorRenderTargets(0),
 		bClearColor(false),
-		DepthClearValue(0.0f),
+		DepthClearValue((float)ERHIZBuffer::FarPlane),
 		StencilClearValue(0),
 		bClearDepth(false),
 		bClearStencil(false)
@@ -726,10 +1005,10 @@ public:
 		NumColorRenderTargets(InNumColorRenderTargets),
 		bClearColor(InNumColorRenderTargets > 0 && InColorRenderTargets[0].LoadAction == ERenderTargetLoadAction::EClear),
 		DepthStencilRenderTarget(InDepthStencilRenderTarget),
-		DepthClearValue(0.0f),
+		DepthClearValue((float)ERHIZBuffer::FarPlane),
 		StencilClearValue(0),
-		bClearDepth(InDepthStencilRenderTarget.DepthLoadAction == ERenderTargetLoadAction::EClear),
-		bClearStencil(InDepthStencilRenderTarget.StencilLoadAction == ERenderTargetLoadAction::EClear)
+		bClearDepth(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.DepthLoadAction == ERenderTargetLoadAction::EClear),
+		bClearStencil(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.StencilLoadAction == ERenderTargetLoadAction::EClear)
 	{
 		check(InNumColorRenderTargets <= 0 || InColorRenderTargets);
 		for (int32 Index = 0; Index < InNumColorRenderTargets; ++Index)
@@ -770,14 +1049,19 @@ public:
 	// Called when viewport is resized.
 	virtual void OnBackBufferResize() = 0;
 
-	// @return	true if normal Present should be performed; false otherwise.
-	virtual bool Present(int32 SyncInterval) = 0;
+	// @param InOutSyncInterval - in out param, indicates if vsync is on (>0) or off (==0).
+	// @return	true if normal Present should be performed; false otherwise. If it returns
+	// true, then InOutSyncInterval could be modified to switch between VSync/NoVSync for the normal Present.
+	virtual bool Present(int32& InOutSyncInterval) = 0;
 
 protected:
 	// Weak reference, don't create a circular dependency that would prevent the viewport from being destroyed.
 	FRHIViewport* ViewportRHI;
 };
-DEFINE_RHI_REFERENCE_TYPE(CustomPresent, Resource)
+
+
+typedef FRHICustomPresent*              FCustomPresentRHIParamRef;
+typedef TRefCountPtr<FRHICustomPresent> FCustomPresentRHIRef;
 
 // Template magic to convert an FRHI*Shader to its enum
 template<typename TRHIShader> struct TRHIShaderToEnum {};

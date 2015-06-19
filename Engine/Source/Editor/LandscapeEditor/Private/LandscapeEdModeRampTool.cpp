@@ -71,7 +71,7 @@ class HLandscapeRampToolPointHitProxy : public HHitProxy
 	{
 	}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -554,7 +554,7 @@ public:
 					ULandscapeHeightfieldCollisionComponent* CollisionComponent = Component->CollisionComponent.Get();
 					if (CollisionComponent)
 					{
-						CollisionComponent->RecreateCollision(false);
+						CollisionComponent->RecreateCollision();
 						UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
 						if (NavSys)
 						{

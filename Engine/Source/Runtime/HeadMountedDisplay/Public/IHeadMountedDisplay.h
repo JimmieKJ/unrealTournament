@@ -18,7 +18,8 @@ namespace EHMDDeviceType
 		DT_OculusRift,
 		DT_Morpheus,
 		DT_ES2GenericStereoMesh,
-		DT_NoPost						// don't register any post passes
+		DT_SteamVR,
+		DT_GearVR
 	};
 }
 
@@ -78,9 +79,9 @@ public:
 	virtual bool	GetHMDMonitorInfo(MonitorInfo&) = 0;
 	
     /**
-	 * Calculates the FOV, based on the screen dimensions of the device
+	 * Calculates the FOV, based on the screen dimensions of the device. Original FOV is passed as params.
 	 */
-	virtual void	GetFieldOfView(float& OutHFOVInDegrees, float& OutVFOVInDegrees) const = 0;
+	virtual void	GetFieldOfView(float& InOutHFOVInDegrees, float& InOutVFOVInDegrees) const = 0;
 
 	/**
 	 * Whether or not the HMD supports positional tracking (either via camera or other means)
@@ -90,12 +91,12 @@ public:
 	/**
 	 * If the device has positional tracking, whether or not we currently have valid tracking
 	 */
-	virtual bool	HasValidTrackingPosition() const = 0;
+	virtual bool	HasValidTrackingPosition() = 0;
 
 	/**
 	 * If the HMD supports positional tracking via a camera, this returns the frustum properties (all in game-world space) of the tracking camera.
 	 */
-	virtual void	GetPositionalTrackingCameraProperties(FVector& OutOrigin, FRotator& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const = 0;	
+	virtual void	GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const = 0;	
 
 	/**
 	 * Accessors to modify the interpupillary distance (meters)
@@ -111,7 +112,7 @@ public:
     /**
      * Get the ISceneViewExtension for this HMD, or none.
      */
-    virtual class ISceneViewExtension* GetViewExtension() = 0;
+    virtual TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> GetViewExtension() = 0;
 
 	/**
      * Apply the orientation of the headset to the PC's rotation.
@@ -222,15 +223,6 @@ public:
 	virtual void ResetPosition() {}
 
 	/** 
-	 * Sets near and far clipping planes (NCP and FCP) for stereo rendering. Similar to 'stereo ncp= fcp' console command, but NCP and FCP set by this
-	 * call won't be saved in .ini file.
-	 *
-	 * @param NCP				(in) Near clipping plane, in centimeters
-	 * @param FCP				(in) Far clipping plane, in centimeters
-	 */
-	virtual void SetClippingPlanes(float NCP, float FCP) {}
-
-	/** 
 	 * Sets base orientation by setting yaw, pitch, roll, assuming that this is forward direction. 
 	 * Position is not changed. 
 	 *
@@ -256,34 +248,26 @@ public:
 	 */
 	virtual FQuat GetBaseOrientation() const { return FQuat::Identity; }
 
-	/**
-	 * Sets HMD position offset that will be added to current HMD position, 
-	 * effectively moving the virtual camera by the specified offset. The addition
-	 * occurs after the HMD orientation and position are applied.
-	 *
-	 * @param PosOffset			(in) the vector to be added to HMD position.
-	 */
-	virtual void SetPositionOffset(const FVector& PosOffset) {}
+
+	virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize) {}
 
 	/**
-	 * Returns the currently set position offset, previously set by the 
-	 * SetPositionOffset call.
+	 * This method is able to change screen settings right before any drawing occurs. 
+	 * It is called at the beginning of UGameViewportClient::Draw() method.
+	 * We might remove this one as UpdatePostProcessSettings should be able to capture all needed cases
 	 */
-	virtual FVector GetPositionOffset() const { return FVector::ZeroVector; }
-
-	virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FSceneView& View, const FIntPoint& TextureSize) {}
+	virtual void UpdateScreenSettings(const FViewport* InViewport) {}
 
 	/**
-	 * This method is able to change screen settings (such as rendering scale) right before
-	 * any drawing occurs. It is called at the beginning of UGameViewportClient::Draw() method.
+	 * Allows to override the PostProcessSettings in the last moment e.g. allows up sampled 3D rendering
 	 */
-	virtual void UpdateScreenSettings(const FViewport* InViewport) = 0;
+	virtual void UpdatePostProcessSettings(FPostProcessSettings*) {}
 
 	/**
 	 * Draw desired debug information related to the HMD system.
 	 * @param Canvas The canvas on which to draw.
 	 */
-	virtual void DrawDebug(UCanvas* Canvas, EStereoscopicPass StereoPass) {}
+	virtual void DrawDebug(UCanvas* Canvas) {}
 
 	/**
 	 * Passing key events to HMD.
@@ -302,6 +286,16 @@ public:
 	 */
 	virtual void OnEndPlay() {}
 
+	/**
+	 * This method is called when new game frame begins (called on a game thread).
+	 */
+	virtual bool OnStartGameFrame() { return false; }
+
+	/**
+	 * This method is called when game frame ends (called on a game thread).
+	 */
+	virtual bool OnEndGameFrame() { return false; }
+
 	/** 
 	 * Additional optional distorion rendering parameters
 	 * @todo:  Once we can move shaders into plugins, remove these!
@@ -313,10 +307,16 @@ public:
 	virtual FVector2D GetTextureScaleLeft() const {return FVector2D::ZeroVector;}
 	virtual FVector2D GetTextureScaleRight() const {return FVector2D::ZeroVector;}
 
+	virtual bool NeedsUpscalePostProcessPass()  { return false; }
+
 	/**
 	 * Record analytics
 	 */
 	virtual void RecordAnalytics() {}
+	/**
+	 * Returns version string.
+	 */
+	virtual FString GetVersionString() const { return FString(TEXT("GenericHMD")); }
 
 private:
 	/** Stores the dimensions of the window before we moved into fullscreen mode, so they can be restored */

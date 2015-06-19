@@ -119,19 +119,19 @@ FText UK2Node_TransitionRuleGetter::GetNodeTitle(ENodeTitleType::Type TitleType)
 
 void UK2Node_TransitionRuleGetter::GetStateSpecificAnimGraphSchemaMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar, const UAnimBlueprint* AnimBlueprint, UAnimStateNode* StateNode) const
 {
-	auto UiSpecOverride = [](const FBlueprintActionContext& /*Context*/, const IBlueprintNodeBinder::FBindingSet& Bindings, FBlueprintActionUiSpec* UiSpecOut, UAnimStateNode* StateNode)
+	auto UiSpecOverride = [](const FBlueprintActionContext& /*Context*/, const IBlueprintNodeBinder::FBindingSet& Bindings, FBlueprintActionUiSpec* UiSpecOut, UAnimStateNode* AnimStateNode)
 	{
-		const FString OwnerName = StateNode->GetOuter()->GetName();
+		const FString OwnerName = AnimStateNode->GetOuter()->GetName();
 		UiSpecOut->MenuName = FText::Format(LOCTEXT("TransitionRuleGetterTitle", "Current {0} for state '{1}.{2}'"), 
 			UK2Node_TransitionRuleGetter::GetFriendlyName(ETransitionGetter::ArbitraryState_GetBlendWeight), 
 			FText::FromString(OwnerName), 
-			FText::FromString(StateNode->GetStateName()));
+			FText::FromString(AnimStateNode->GetStateName()));
 	};
 
-	auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, UAnimStateNode* StateNode)
+	auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, UAnimStateNode* AnimStateNode)
 	{
 		UK2Node_TransitionRuleGetter* NewNodeTyped = CastChecked<UK2Node_TransitionRuleGetter>(NewNode);
-		NewNodeTyped->AssociatedStateNode = StateNode;
+		NewNodeTyped->AssociatedStateNode = AnimStateNode;
 		NewNodeTyped->GetterType = ETransitionGetter::ArbitraryState_GetBlendWeight;
 	};
 
@@ -166,37 +166,35 @@ void UK2Node_TransitionRuleGetter::GetStateSpecificAnimTransitionSchemaMenuActio
 
 			if (AnimNode->DoesSupportTimeForTransitionGetter())
 			{
-				FString AssetName;
 				UAnimationAsset * AnimAsset = AnimNode->GetAnimationAsset();
-				UAnimGraphNode_Base* AssociatedAnimAssetPlayerNode = nullptr;
 				if (AnimAsset)
 				{
-					auto UiSpecOverride = [](const FBlueprintActionContext& /*Context*/, const IBlueprintNodeBinder::FBindingSet& Bindings, FBlueprintActionUiSpec* UiSpecOut, FString AssetName, TEnumAsByte<ETransitionGetter::Type> GetterType)
+					auto UiSpecOverride = [](const FBlueprintActionContext& /*Context*/, const IBlueprintNodeBinder::FBindingSet& Bindings, FBlueprintActionUiSpec* UiSpecOut, FString AssetName, TEnumAsByte<ETransitionGetter::Type> InGetterType)
 					{
 						UiSpecOut->Category = LOCTEXT("AssetPlayer", "Asset Player");
 
 						FFormatNamedArguments Args;
-						Args.Add(TEXT("NodeName"), UK2Node_TransitionRuleGetter::GetFriendlyName(GetterType));
+						Args.Add(TEXT("NodeName"), UK2Node_TransitionRuleGetter::GetFriendlyName(InGetterType));
 						Args.Add(TEXT("AssetName"), FText::FromString(AssetName));
 						FText Title = FText::Format(LOCTEXT("TransitionFor", "{NodeName} for '{AssetName}'"), Args);
 						UiSpecOut->MenuName = Title;
 					};
 
-					auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, UAnimGraphNode_Base* AssociatedAnimAssetPlayerNode, TEnumAsByte<ETransitionGetter::Type> GetterType)
+					auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, UAnimGraphNode_Base* InAssociatedAnimAssetPlayerNode, TEnumAsByte<ETransitionGetter::Type> InGetterType)
 					{
 						UK2Node_TransitionRuleGetter* NewNodeTyped = CastChecked<UK2Node_TransitionRuleGetter>(NewNode);
-						NewNodeTyped->AssociatedAnimAssetPlayerNode = AssociatedAnimAssetPlayerNode;
-						NewNodeTyped->GetterType = GetterType;
+						NewNodeTyped->AssociatedAnimAssetPlayerNode = InAssociatedAnimAssetPlayerNode;
+						NewNodeTyped->GetterType = InGetterType;
 					};
 
 					// Prepare the node spawner
-					AssociatedAnimAssetPlayerNode = AnimNode;
-					AssetName = AnimAsset->GetName();
+					UAnimGraphNode_Base* AssociatedAnimNode = AnimNode;
+					const FString AssetName = AnimAsset->GetName();
 
-					TEnumAsByte<ETransitionGetter::Type> GetterType = SequenceSpecificGetters[TypeIndex];
+					TEnumAsByte<ETransitionGetter::Type> TransitionGetterType = SequenceSpecificGetters[TypeIndex];
 
-					UBlueprintNodeSpawner* Spawner = UBlueprintNodeSpawner::Create( UK2Node_TransitionRuleGetter::StaticClass(), nullptr, UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(PostSpawnSetupLambda, AssociatedAnimAssetPlayerNode, GetterType) );
-					Spawner->DynamicUiSignatureGetter = UBlueprintNodeSpawner::FUiSpecOverrideDelegate::CreateStatic(UiSpecOverride, AssetName, GetterType);
+					UBlueprintNodeSpawner* Spawner = UBlueprintNodeSpawner::Create( UK2Node_TransitionRuleGetter::StaticClass(), nullptr, UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(PostSpawnSetupLambda, AssociatedAnimNode, TransitionGetterType) );
+					Spawner->DynamicUiSignatureGetter = UBlueprintNodeSpawner::FUiSpecOverrideDelegate::CreateStatic(UiSpecOverride, AssetName, TransitionGetterType);
 					ActionRegistrar.AddBlueprintAction( AnimBlueprint, Spawner );
 				}
 			}
@@ -242,21 +240,21 @@ void UK2Node_TransitionRuleGetter::GetNonStateSpecificMenuActions(FBlueprintActi
 
 		for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(NonSpecificGetters); ++TypeIndex)
 		{
-			auto UiSpecOverride = [](const FBlueprintActionContext& /*Context*/, const IBlueprintNodeBinder::FBindingSet& Bindings, FBlueprintActionUiSpec* UiSpecOut, TEnumAsByte<ETransitionGetter::Type> GetterType)
+			auto UiSpecOverride = [](const FBlueprintActionContext& /*Context*/, const IBlueprintNodeBinder::FBindingSet& Bindings, FBlueprintActionUiSpec* UiSpecOut, TEnumAsByte<ETransitionGetter::Type> InGetterType)
 			{
 				UiSpecOut->Category = LOCTEXT("Transition", "Transition");
-				UiSpecOut->MenuName = UK2Node_TransitionRuleGetter::GetFriendlyName(GetterType);
+				UiSpecOut->MenuName = UK2Node_TransitionRuleGetter::GetFriendlyName(InGetterType);
 			};
 
-			auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, TEnumAsByte<ETransitionGetter::Type> GetterType)
+			auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, TEnumAsByte<ETransitionGetter::Type> InGetterType)
 			{
 				UK2Node_TransitionRuleGetter* NewNodeTyped = CastChecked<UK2Node_TransitionRuleGetter>(NewNode);
-				NewNodeTyped->GetterType = GetterType;
+				NewNodeTyped->GetterType = InGetterType;
 			};
 
-			TEnumAsByte<ETransitionGetter::Type> GetterType = NonSpecificGetters[TypeIndex];
-			UBlueprintNodeSpawner* Spawner = UBlueprintNodeSpawner::Create( UK2Node_TransitionRuleGetter::StaticClass(), nullptr, UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(PostSpawnSetupLambda, GetterType) );
-			Spawner->DynamicUiSignatureGetter = UBlueprintNodeSpawner::FUiSpecOverrideDelegate::CreateStatic(UiSpecOverride, GetterType);
+			TEnumAsByte<ETransitionGetter::Type> TransitionGetterType = NonSpecificGetters[TypeIndex];
+			UBlueprintNodeSpawner* Spawner = UBlueprintNodeSpawner::Create( UK2Node_TransitionRuleGetter::StaticClass(), nullptr, UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(PostSpawnSetupLambda, TransitionGetterType) );
+			Spawner->DynamicUiSignatureGetter = UBlueprintNodeSpawner::FUiSpecOverrideDelegate::CreateStatic(UiSpecOverride, TransitionGetterType);
 			ActionRegistrar.AddBlueprintAction( ActionKey, Spawner );
 		}
 	}

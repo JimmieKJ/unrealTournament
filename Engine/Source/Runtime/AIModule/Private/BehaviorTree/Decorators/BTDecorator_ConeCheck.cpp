@@ -9,13 +9,13 @@ UBTDecorator_ConeCheck::UBTDecorator_ConeCheck(const FObjectInitializer& ObjectI
 	NodeName = "Cone Check";
 
 	// accept only actors and vectors
-	ConeOrigin.AddObjectFilter(this, AActor::StaticClass());
-	ConeOrigin.AddVectorFilter(this);
-	ConeDirection.AddObjectFilter(this, AActor::StaticClass());
-	ConeDirection.AddVectorFilter(this);
+	ConeOrigin.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_ConeCheck, ConeOrigin), AActor::StaticClass());
+	ConeOrigin.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_ConeCheck, ConeOrigin));
+	ConeDirection.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_ConeCheck, ConeDirection), AActor::StaticClass());
+	ConeDirection.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_ConeCheck, ConeDirection));
 	ConeDirection.AllowNoneAsValue(true);
-	Observed.AddObjectFilter(this, AActor::StaticClass());
-	Observed.AddVectorFilter(this);
+	Observed.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_ConeCheck, Observed), AActor::StaticClass());
+	Observed.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_ConeCheck, Observed));
 
 	bNotifyBecomeRelevant = true;
 	bNotifyTick = true;

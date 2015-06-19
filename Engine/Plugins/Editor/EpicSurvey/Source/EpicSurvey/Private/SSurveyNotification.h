@@ -68,11 +68,11 @@ public:
 			{
 				if ( Sequence.IsAtStart() )
 				{
-					const_cast<SSurveyNotification*>(this)->Sequence.Play();
+					const_cast<SSurveyNotification*>(this)->Sequence.Play(this->AsShared());
 				}
 				else
 				{
-					const_cast<SSurveyNotification*>(this)->Sequence.PlayReverse();
+					const_cast<SSurveyNotification*>(this)->Sequence.PlayReverse(this->AsShared());
 				}
 			}
 

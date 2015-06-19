@@ -40,6 +40,9 @@ protected:
 
 private:
 
+	/** Callback for the active timer. */
+	EActiveTimerReturnType HandleActiveTimer(double InCurrentTime, float InDeltaTime);
+
 	/** Callback for generating a widget for a value in the audio track combo box. */
 	TSharedRef<SWidget> HandleAudioTrackComboBoxGenerateWidget( IMediaTrackPtr Value ) const;
 

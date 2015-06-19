@@ -8,23 +8,12 @@
 #include "SecureHash.h"
 #include "MessageLog.h"
 #include "UObjectToken.h"
+#include "LinkerManager.h"
+#include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY(LogLinker);
 
 #define LOCTEXT_NAMESPACE "Linker"
-
-TMap<UPackage*, ULinkerLoad*>		GObjLoaders;
-TMap<UPackage*, ULinkerLoad*>		GObjPendingLoaders;
-TSet<ULinkerLoad*>					GObjLoadersWithNewImports;
-
-/** Points to the main PackageLinker currently being serialized */
-ULinkerLoad* GSerializedPackageLinker = NULL;
-/** The main Import Index currently being used for serialization by CreateImports()		*/
-int32 GSerializedImportIndex = INDEX_NONE;
-/** Points to the main Linker currently being used for serialization by CreateImports()	*/
-ULinkerLoad* GSerializedImportLinker = NULL;
-/** Points to the main UObject currently being serialized								*/
-UObject* GSerializedObject = NULL;
 
 
 /*-----------------------------------------------------------------------------
@@ -101,18 +90,16 @@ FName FLinkerTables::GetExportClassName( int32 i )
 }
 
 /*----------------------------------------------------------------------------
-	ULinker.
+	FLinker.
 ----------------------------------------------------------------------------*/
-ULinker::ULinker(const FObjectInitializer& ObjectInitializer, UPackage* InRoot, const TCHAR* InFilename )
-:	UObject(ObjectInitializer)
-,	LinkerRoot( InRoot )
-,	Summary()
-,	Filename( InFilename )
-,	FilterClientButNotServer(false)
-,	FilterServerButNotClient(false)
+FLinker::FLinker(ELinkerType::Type InType, UPackage* InRoot, const TCHAR* InFilename)
+: LinkerType(InType)
+, LinkerRoot( InRoot )
+, Filename( InFilename )
+, FilterClientButNotServer(false)
+, FilterServerButNotClient(false)
+, ScriptSHA(nullptr)
 {
-	check(!HasAnyFlags(RF_ClassDefaultObject));
-
 	check(LinkerRoot);
 	check(InFilename);
 
@@ -126,10 +113,8 @@ ULinker::ULinker(const FObjectInitializer& ObjectInitializer, UPackage* InRoot, 
 	}
 }
 
-void ULinker::Serialize( FArchive& Ar )
+void FLinker::Serialize( FArchive& Ar )
 {
-	Super::Serialize( Ar );
-
 	if( Ar.IsCountingMemory() )
 	{
 		// Can't use CountBytes as ExportMap is array of structs of arrays.
@@ -146,35 +131,32 @@ void ULinker::Serialize( FArchive& Ar )
 	// Prevent garbage collecting of linker's names and package.
 	Ar << NameMap << LinkerRoot;
 	{
-		for( int32 i=0; i<ExportMap.Num(); i++ )
+		for (auto& E : ExportMap)
 		{
-			FObjectExport& E = ExportMap[i];
 			Ar << E.ObjectName;
 		}
 	}
 	{
-		for( int32 i=0; i<ImportMap.Num(); i++ )
+		for (auto& I : ImportMap)
 		{
-			FObjectImport& I = ImportMap[i];
-			Ar << (UObject*&)I.SourceLinker;
+			UObject* LegacyLinkerObject = nullptr;
+			Ar << LegacyLinkerObject;
 			Ar << I.ClassPackage << I.ClassName;
 		}
 	}
 }
 
-void ULinker::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+void FLinker::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	ULinker* This = CastChecked<ULinker>(InThis);
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
-		Collector.AddReferencedObject( *(UObject**)&This->LinkerRoot, This );
+		Collector.AddReferencedObject(*(UObject**)&LinkerRoot);
 	}
 #endif
-	Super::AddReferencedObjects( This, Collector );
 }
 
-// ULinker interface.
+// FLinker interface.
 /**
  * Return the path name of the UObject represented by the specified import. 
  * (can be used with StaticFindObject)
@@ -183,18 +165,16 @@ void ULinker::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collect
  *
  * @return	the path name of the UObject represented by the resource at ImportIndex
  */
-FString ULinker::GetImportPathName(int32 ImportIndex)
+FString FLinker::GetImportPathName(int32 ImportIndex)
 {
-	ULinkerLoad* Loader = dynamic_cast<ULinkerLoad*>(this);
-
 	FString Result;
 	for (FPackageIndex LinkerIndex = FPackageIndex::FromImport(ImportIndex); !LinkerIndex.IsNull();)
 	{
 		FObjectResource Resource = ImpExp(LinkerIndex);
 		bool bSubobjectDelimiter=false;
 
-		if (Result.Len() > 0 && Loader != NULL && Loader->GetClassName(LinkerIndex) != NAME_Package
-			&& (Resource.OuterIndex.IsNull() || Loader->GetClassName(Resource.OuterIndex) == NAME_Package) )
+		if (Result.Len() > 0 && GetClassName(LinkerIndex) != NAME_Package
+			&& (Resource.OuterIndex.IsNull() || GetClassName(Resource.OuterIndex) == NAME_Package) )
 		{
 			bSubobjectDelimiter = true;
 		}
@@ -229,10 +209,9 @@ FString ULinker::GetImportPathName(int32 ImportIndex)
  *
  * @return	the path name of the UObject represented by the resource at ExportIndex
  */
-FString ULinker::GetExportPathName(int32 ExportIndex, const TCHAR* FakeRoot,bool bResolveForcedExports/*=false*/)
+FString FLinker::GetExportPathName(int32 ExportIndex, const TCHAR* FakeRoot,bool bResolveForcedExports/*=false*/)
 {
 	FString Result;
-	ULinkerLoad* Loader = dynamic_cast<ULinkerLoad*>(this);
 
 	bool bForcedExport = false;
 	for ( FPackageIndex LinkerIndex = FPackageIndex::FromExport(ExportIndex); !LinkerIndex.IsNull(); LinkerIndex = Exp(LinkerIndex).OuterIndex )
@@ -243,10 +222,8 @@ FString ULinker::GetExportPathName(int32 ExportIndex, const TCHAR* FakeRoot,bool
 		if ( Result.Len() > 0 )
 		{
 			// if this export is not a UPackage but this export's Outer is a UPackage, we need to use subobject notation
-			if (Loader != NULL
-			&&	(	Export.OuterIndex.IsNull()
-				||	Loader->GetExportClassName(Export.OuterIndex) == NAME_Package)
-			&&	Loader->GetExportClassName(LinkerIndex) != NAME_Package)
+			if ((Export.OuterIndex.IsNull() || GetExportClassName(Export.OuterIndex) == NAME_Package)
+			  && GetExportClassName(LinkerIndex) != NAME_Package)
 			{
 				Result = FString(SUBOBJECT_DELIMITER) + Result;
 			}
@@ -268,12 +245,12 @@ FString ULinker::GetExportPathName(int32 ExportIndex, const TCHAR* FakeRoot,bool
 	return (FakeRoot ? FakeRoot : LinkerRoot->GetPathName()) + TEXT(".") + Result;
 }
 
-FString ULinker::GetImportFullName(int32 ImportIndex)
+FString FLinker::GetImportFullName(int32 ImportIndex)
 {
 	return ImportMap[ImportIndex].ClassName.ToString() + TEXT(" ") + GetImportPathName(ImportIndex);
 }
 
-FString ULinker::GetExportFullName(int32 ExportIndex, const TCHAR* FakeRoot,bool bResolveForcedExports/*=false*/)
+FString FLinker::GetExportFullName(int32 ExportIndex, const TCHAR* FakeRoot,bool bResolveForcedExports/*=false*/)
 {
 	FPackageIndex ClassIndex = ExportMap[ExportIndex].ClassIndex;
 	FName ClassName = ClassIndex.IsNull() ? FName(NAME_Class) : ImpExp(ClassIndex).ObjectName;
@@ -284,7 +261,7 @@ FString ULinker::GetExportFullName(int32 ExportIndex, const TCHAR* FakeRoot,bool
 /**
  * Tell this linker to start SHA calculations
  */
-void ULinker::StartScriptSHAGeneration()
+void FLinker::StartScriptSHAGeneration()
 {
 	// create it if needed
 	if (ScriptSHA == NULL)
@@ -301,7 +278,7 @@ void ULinker::StartScriptSHAGeneration()
  *
  * @param ScriptCode Code to SHAify
  */
-void ULinker::UpdateScriptSHAKey(const TArray<uint8>& ScriptCode)
+void FLinker::UpdateScriptSHAKey(const TArray<uint8>& ScriptCode)
 {
 	// if we are doing SHA, update it
 	if (ScriptSHA && ScriptCode.Num())
@@ -315,7 +292,7 @@ void ULinker::UpdateScriptSHAKey(const TArray<uint8>& ScriptCode)
  *
  * @param OutKey Storage for the key bytes (20 bytes)
  */
-void ULinker::GetScriptSHAKey(uint8* OutKey)
+void FLinker::GetScriptSHAKey(uint8* OutKey)
 {
 	check(ScriptSHA);
 
@@ -324,10 +301,8 @@ void ULinker::GetScriptSHAKey(uint8* OutKey)
 	ScriptSHA->GetHash(OutKey);
 }
 
-void ULinker::BeginDestroy()
+FLinker::~FLinker()
 {
-	Super::BeginDestroy();
-
 	// free any SHA memory
 	delete ScriptSHA;
 }
@@ -345,54 +320,7 @@ void ResetLoaders( UObject* InPkg )
 {
 	// Make sure we're not in the middle of loading something in the background.
 	FlushAsyncLoading();
-
-	// Top level package to reset loaders for.
-	UObject*		TopLevelPackage = InPkg ? InPkg->GetOutermost() : NULL;
-
-	// Find loader/ linker associated with toplevel package. We do this upfront as Detach resets LinkerRoot.
-	if( TopLevelPackage )
-	{
-		// Linker to reset/ detach.
-		ULinkerLoad* LinkerToReset = ULinkerLoad::FindExistingLinkerForPackage(CastChecked<UPackage>(TopLevelPackage));
-		if ( LinkerToReset )
-		{
-			for (TMap<UPackage*, ULinkerLoad*>::TIterator It(GObjLoaders); It; ++It)
-			{
-				ULinkerLoad* Linker = It.Value();
-				// Detach LinkerToReset from other linker's import table.
-				if( Linker->LinkerRoot != TopLevelPackage )
-				{
-					for( int32 j=0; j<Linker->ImportMap.Num(); j++ )
-					{
-						if( Linker->ImportMap[j].SourceLinker == LinkerToReset )
-						{
-							Linker->ImportMap[j].SourceLinker	= NULL;
-							Linker->ImportMap[j].SourceIndex	= INDEX_NONE;
-						}
-					}
-				}
-				else
-				{
-					check(Linker == LinkerToReset);
-				}
-			}
-			// Detach linker, also removes from array and sets LinkerRoot to NULL.
-			LinkerToReset->Detach(true);
-		}
-	}
-	else
-	{
-		TArray<ULinkerLoad *> LinkersToDetach;
-		GObjLoaders.GenerateValueArray(LinkersToDetach);
-
-		for (int32 Index = 0; Index < LinkersToDetach.Num(); Index++)
-		{
-			ULinkerLoad* Linker = LinkersToDetach[Index];
-			// Detach linker, also removes from array and sets LinkerRoot to NULL.
-			Linker->Detach(true);
-		}
-	}
-
+	FLinkerManager::Get().ResetLoaders(InPkg);
 }
 
 
@@ -403,47 +331,7 @@ void ResetLoaders( UObject* InPkg )
  */
 void DissociateImportsAndForcedExports()
 {
-	if( GImportCount && GObjLoadersWithNewImports.Num())
-	{
-		for (TSet< ULinkerLoad*>::TIterator It(GObjLoadersWithNewImports); It; ++It)
-		{
-			ULinkerLoad* Linker = *It;
-			for( int32 ImportIndex=0; ImportIndex<Linker->ImportMap.Num(); ImportIndex++ )
-			{
-				FObjectImport& Import = Linker->ImportMap[ImportIndex];
-				if( Import.XObject && !Import.XObject->HasAnyFlags(RF_Native) )
-				{
-					Import.XObject = NULL;
-				}
-				Import.SourceLinker = NULL;
-				// when the SourceLinker is reset, the SourceIndex must also be reset, or recreating
-				// an import that points to a redirector will fail to find the redirector
-				Import.SourceIndex = INDEX_NONE;
-			}
-		}
-	}
-	GImportCount = 0;
-	GObjLoadersWithNewImports.Empty();
-
-	if( GForcedExportCount )
-	{
-		for (TMap<UPackage*, ULinkerLoad*>::TIterator It(GObjLoaders); It; ++It)
-		{
-			ULinkerLoad* Linker = It.Value();
-			//@todo optimization: only dissociate exports for loaders that had forced exports created
-			//@todo optimization: since the last time this function was called.
-			for( int32 ExportIndex=0; ExportIndex<Linker->ExportMap.Num(); ExportIndex++ )
-			{
-				FObjectExport& Export = Linker->ExportMap[ExportIndex];
-				if( Export.Object && Export.bForcedExport )
-				{
-					Export.Object->SetLinker( NULL, INDEX_NONE );
-					Export.Object = NULL;
-				}
-			}
-		}
-	}
-	GForcedExportCount = 0;
+	FLinkerManager::Get().DissociateImportsAndForcedExports();
 }
 
 static void LogGetPackageLinkerError(FArchiveUObject* LinkerArchive, const TCHAR* InFilename, const FText& InFullErrorMessage, const FText& InSummaryErrorMessage, UObject* InOuter, uint32 LoadFlags)
@@ -452,18 +340,19 @@ static void LogGetPackageLinkerError(FArchiveUObject* LinkerArchive, const TCHAR
 	struct Local
 	{
 		/** Helper function to output more detailed error info if available */
-		static void OutputErrorDetail(FArchiveUObject* LinkerArchive, const FName& LogName)
+		static void OutputErrorDetail(FArchiveUObject* InLinkerArchive, const FName& LogName)
 		{
-			if ( GSerializedObject && GSerializedImportLinker )
+			FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+			if (ThreadContext.SerializedObject && ThreadContext.SerializedImportLinker)
 			{
 				FMessageLog LoadErrors(LogName);
 
 				TSharedRef<FTokenizedMessage> Message = LoadErrors.Info();
 				Message->AddToken(FTextToken::Create(LOCTEXT("FailedLoad_Message", "Failed to load")));
-				Message->AddToken(FAssetNameToken::Create(GSerializedImportLinker->GetImportPathName(GSerializedImportIndex)));
+				Message->AddToken(FAssetNameToken::Create(ThreadContext.SerializedImportLinker->GetImportPathName(ThreadContext.SerializedImportIndex)));
 				Message->AddToken(FTextToken::Create(LOCTEXT("FailedLoad_Referenced", "Referenced by")));
-				Message->AddToken(FUObjectToken::Create(GSerializedObject));
-				auto SerializedProperty = LinkerArchive ? LinkerArchive->GetSerializedProperty() : nullptr;
+				Message->AddToken(FUObjectToken::Create(ThreadContext.SerializedObject));
+				auto SerializedProperty = InLinkerArchive ? InLinkerArchive->GetSerializedProperty() : nullptr;
 				if (SerializedProperty != nullptr)
 				{
 					FString PropertyPathName = SerializedProperty->GetPathName();
@@ -529,7 +418,7 @@ static void LogGetPackageLinkerError(FArchiveUObject* LinkerArchive, const TCHAR
 		else
 		{
 			// Gracefully handle missing packages
-			SafeLoadError( InOuter, LoadFlags, *InFullErrorMessage.ToString(), *Error.ToString() );
+			SafeLoadError(InOuter, LoadFlags, *Error.ToString());
 		}
 	}
 }
@@ -537,7 +426,7 @@ static void LogGetPackageLinkerError(FArchiveUObject* LinkerArchive, const TCHAR
 //
 // Find or create the linker for a package.
 //
-ULinkerLoad* GetPackageLinker
+FLinkerLoad* GetPackageLinker
 (
 	UPackage*		InOuter,
 	const TCHAR*	InLongPackageName,
@@ -547,11 +436,11 @@ ULinkerLoad* GetPackageLinker
 )
 {
 	// See if there is already a linker for this package.
-	ULinkerLoad* Result = ULinkerLoad::FindExistingLinkerForPackage(InOuter);
+	auto Result = FLinkerLoad::FindExistingLinkerForPackage(InOuter);
 
 	// Try to load the linker.
 	// See if the linker is already loaded.
-	if( Result )
+	if (Result)
 	{
 		return Result;
 	}
@@ -570,13 +459,14 @@ ULinkerLoad* GetPackageLinker
 
 		if( !FPackageName::DoesPackageExist(InOuter->GetName(), CompatibleGuid, &NewFilename) )
 		{
-			// Compiled in packages have no linker and this is ok
-			if (!(LoadFlags & LOAD_AllowDll) && !(InOuter->PackageFlags & PKG_CompiledIn))
+			// In memory-only packages have no linker and this is ok.
+			if (!(LoadFlags & LOAD_AllowDll) && !(InOuter->PackageFlags & PKG_InMemoryOnly))
 			{
+				FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 				FFormatNamedArguments Arguments;
 				Arguments.Add(TEXT("AssetName"), FText::FromString(InOuter->GetName()));
-				Arguments.Add(TEXT("PackageName"), FText::FromString(GSerializedPackageLinker ? *(GSerializedPackageLinker->Filename) : TEXT("NULL")));
-				LogGetPackageLinkerError(Result, GSerializedPackageLinker ? *GSerializedPackageLinker->Filename : nullptr,
+				Arguments.Add(TEXT("PackageName"), FText::FromString(ThreadContext.SerializedPackageLinker ? *(ThreadContext.SerializedPackageLinker->Filename) : TEXT("NULL")));
+				LogGetPackageLinkerError(Result, ThreadContext.SerializedPackageLinker ? *ThreadContext.SerializedPackageLinker->Filename : nullptr,
 											FText::Format(LOCTEXT("PackageNotFound", "Can't find file for asset '{AssetName}' while loading {PackageName}."), Arguments),
 											LOCTEXT("PackageNotFoundShort", "Can't find file for asset."),
 											InOuter,
@@ -599,9 +489,9 @@ ULinkerLoad* GetPackageLinker
 
 		if (UPackage* ExistingPackage = FindObject<UPackage>(nullptr, *PackageName))
 		{
-			if (!ExistingPackage->GetOuter() && (ExistingPackage->PackageFlags & PKG_CompiledIn))
+			if (!ExistingPackage->GetOuter() && (ExistingPackage->PackageFlags & PKG_InMemoryOnly))
 			{
-				// this is a compiled in package and so it has no linker and this is ok
+				// This is a memory-only in package and so it has no linker and this is ok.
 				return nullptr;
 			}
 		}
@@ -619,7 +509,7 @@ ULinkerLoad* GetPackageLinker
 
 		// Create the package with the provided long package name.
 		UPackage* FilenamePkg = CreatePackage(nullptr, *PackageName);
-		if (LoadFlags & LOAD_PackageForPIE)
+		if (FilenamePkg && (LoadFlags & LOAD_PackageForPIE))
 		{
 			FilenamePkg->PackageFlags |= PKG_PlayInEditor;
 		}
@@ -635,7 +525,7 @@ ULinkerLoad* GetPackageLinker
 				return nullptr;
 			}
 			InOuter = FilenamePkg;
-			Result = ULinkerLoad::FindExistingLinkerForPackage(InOuter);
+			Result = FLinkerLoad::FindExistingLinkerForPackage(InOuter);
 		}
 		else if (InOuter != FilenamePkg) //!!should be tested and validated in new UnrealEd
 		{
@@ -665,11 +555,11 @@ ULinkerLoad* GetPackageLinker
 		// we will already have found the filename above
 		check(NewFilename.Len() > 0);
 
-		Result = ULinkerLoad::CreateLinker( InOuter, *NewFilename, LoadFlags );
+		Result = FLinkerLoad::CreateLinker( InOuter, *NewFilename, LoadFlags );
 	}
 
 	// Verify compatibility.
-	if( CompatibleGuid && Result->Summary.Guid!=*CompatibleGuid )
+	if (Result && CompatibleGuid && Result->Summary.Guid != *CompatibleGuid)
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("AssetName"), FText::FromString(InOuter->GetName()));
@@ -693,7 +583,7 @@ void ResetLoadersForSave(UObject* InOuter, const TCHAR *Filename)
 {
 	UPackage* Package = dynamic_cast<UPackage*>(InOuter);
 	// If we have a loader for the package, unload it to prevent conflicts if we are resaving to the same filename
-	ULinkerLoad* Loader = ULinkerLoad::FindExistingLinkerForPackage(Package);
+	FLinkerLoad* Loader = FLinkerLoad::FindExistingLinkerForPackage(Package);
 	// This is the loader corresponding to the package we're saving.
 	if( Loader )
 	{
@@ -709,15 +599,5 @@ void ResetLoadersForSave(UObject* InOuter, const TCHAR *Filename)
 		}
 	}
 }
-
-IMPLEMENT_CORE_INTRINSIC_CLASS(ULinker, UObject,
-	{
-		Class->ClassAddReferencedObjects = &ULinker::AddReferencedObjects;
-		Class->EmitObjectReference(STRUCT_OFFSET(ULinker, LinkerRoot), TEXT("LinkerRoot"));
-		const uint32 SkipIndexIndex = Class->EmitStructArrayBegin(STRUCT_OFFSET(ULinker, ImportMap), TEXT("ImportMap"), sizeof(FObjectImport));
-		Class->EmitObjectReference(STRUCT_OFFSET(FObjectImport, SourceLinker), TEXT("SourceLinker"));
-		Class->EmitStructArrayEnd( SkipIndexIndex );
-	}
-);
 
 #undef LOCTEXT_NAMESPACE

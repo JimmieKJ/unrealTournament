@@ -31,7 +31,7 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(AmbientCubemap, SFG_LightingFeatures, LOCTEXT("Ambien
 /** Human like eye simulation to adapt to the brightness of the view */
 SHOWFLAG_ALWAYS_ACCESSIBLE(EyeAdaptation, SFG_PostProcess, LOCTEXT("EyeAdaptationSF", "Eye Adaptation"))
 /** Display a histogram of the scene HDR color */
-SHOWFLAG_ALWAYS_ACCESSIBLE(VisualizeHDR, SFG_Visualize, LOCTEXT("VisualizeHDRSF", "HDR"))
+SHOWFLAG_ALWAYS_ACCESSIBLE(VisualizeHDR, SFG_Visualize, LOCTEXT("VisualizeHDRSF", "HDR (Eye Adaptation)"))
 /** Image based lens flares (Simulate artifact of reflections within a camera system) */
 SHOWFLAG_ALWAYS_ACCESSIBLE(LensFlares, SFG_PostProcess, LOCTEXT("LensFlaresSF", "Lens Flares"))
 /** show indirect lighting component */
@@ -128,8 +128,12 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(TexturedLightProfiles, SFG_LightingFeatures, LOCTEXT(
 SHOWFLAG_ALWAYS_ACCESSIBLE(LightFunctions, SFG_LightingFeatures, LOCTEXT("LightFunctionsSF", "Light Functions"))
 /** Hardware Tessellation (DX11 feature) */
 SHOWFLAG_ALWAYS_ACCESSIBLE(Tessellation, SFG_Advanced, LOCTEXT("TessellationSF", "Tessellation"))
-/** Draws instanced static meshes such as foliage. */
+/** Draws instanced static meshes that are not foliage or grass. */
 SHOWFLAG_ALWAYS_ACCESSIBLE(InstancedStaticMeshes, SFG_Advanced, LOCTEXT("InstancedStaticMeshesSF", "Instanced Static Meshes"))
+/** Draws instanced foliage. */
+SHOWFLAG_ALWAYS_ACCESSIBLE(InstancedFoliage, SFG_Advanced, LOCTEXT("InstancedFoliageSF", "Foliage"))
+/** Draws instanced grass. */
+SHOWFLAG_ALWAYS_ACCESSIBLE(InstancedGrass, SFG_Advanced, LOCTEXT("InstancedGrassSF", "Grass"))
 /** non baked shadows */
 SHOWFLAG_ALWAYS_ACCESSIBLE(DynamicShadows, SFG_LightingComponents, LOCTEXT("DynamicShadowsSF", "Dynamic Shadows"))
 /** Particles */
@@ -230,8 +234,8 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(CollisionPawn, SFG_Hidden, LOCTEXT("CollisionPawn", "
 SHOWFLAG_ALWAYS_ACCESSIBLE(LightShafts, SFG_LightingFeatures, LOCTEXT("LightShaftsSF", "Light Shafts"))
 /** Render the PostProcess Material */
 SHOWFLAG_ALWAYS_ACCESSIBLE(PostProcessMaterial, SFG_PostProcess, LOCTEXT("PostProcessMaterialSF", "Post Process Material"))
-/** Render Atmospheric scattering */
-SHOWFLAG_ALWAYS_ACCESSIBLE(Atmosphere, SFG_Normal, LOCTEXT("AtmosphereSF", "Atmosphere"))
+/** Render Atmospheric scattering (Atmospheric Fog) */
+SHOWFLAG_ALWAYS_ACCESSIBLE(AtmosphericFog, SFG_Advanced, LOCTEXT("AtmosphereSF", "Atmospheric Fog"))
 /** Render safe frames bars*/
 SHOWFLAG_ALWAYS_ACCESSIBLE(CameraAspectRatioBars, SFG_Advanced, LOCTEXT("CameraAspectRatioBarsSF", "Camera Aspect Ratio Bars"))
 /** Render safe frames */
@@ -241,7 +245,7 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(TextRender, SFG_Advanced, LOCTEXT("TextRenderSF", "Re
 /** Any rendering/buffer clearing  (good for benchmarking) */
 SHOWFLAG_ALWAYS_ACCESSIBLE(Rendering, SFG_Hidden, LOCTEXT("RenderingSF", "Any Rendering"))
 /** Show the current mask being used by the highres screenshot capture */
-SHOWFLAG_ALWAYS_ACCESSIBLE(HighResScreenshotMask, SFG_Advanced, LOCTEXT("HighResScreenshotMaskSF", "High Res Screenshot Mask"))
+SHOWFLAG_ALWAYS_ACCESSIBLE(HighResScreenshotMask, SFG_Hidden, LOCTEXT("HighResScreenshotMaskSF", "High Res Screenshot Mask"))
 /** Distortion of output for HMD devices */
 SHOWFLAG_ALWAYS_ACCESSIBLE(HMDDistortion, SFG_PostProcess, LOCTEXT("HMDDistortionSF", "HMD Distortion"))
 /** Whether to render in stereoscopic 3d */
@@ -267,17 +271,23 @@ SHOWFLAG_ALWAYS_ACCESSIBLE(LpvLightingOnly, SFG_Hidden, LOCTEXT("VisualizeLPVSF_
 /** Render Paper2D sprites */
 SHOWFLAG_ALWAYS_ACCESSIBLE(Paper2DSprites, SFG_Advanced, LOCTEXT("Paper2DSpritesSF", "Paper 2D Sprites"))
 /** Visualization of distance field AO */
-SHOWFLAG_ALWAYS_ACCESSIBLE(VisualizeDistanceFieldAO, SFG_Visualize, LOCTEXT("VisualizeDistanceFieldAOSF", "DistanceField AO"))
+SHOWFLAG_ALWAYS_ACCESSIBLE(VisualizeDistanceFieldAO, SFG_Visualize, LOCTEXT("VisualizeDistanceFieldAOSF", "Distance Field Ambient Occlusion"))
+/** Visualization of distance field GI */
+SHOWFLAG_ALWAYS_ACCESSIBLE(VisualizeDistanceFieldGI, SFG_Visualize, LOCTEXT("VisualizeDistanceFieldGISF", "Distance Field Global Illumination"))
 /** Mesh Distance fields */
 SHOWFLAG_ALWAYS_ACCESSIBLE(VisualizeMeshDistanceFields, SFG_Visualize, LOCTEXT("MeshDistanceFieldsSF", "Mesh DistanceFields"))
 /** Distance field AO */
-SHOWFLAG_ALWAYS_ACCESSIBLE(DistanceFieldAO, SFG_LightingFeatures, LOCTEXT("DistanceFieldAOSF", "DistanceField AO"))
+SHOWFLAG_ALWAYS_ACCESSIBLE(DistanceFieldAO, SFG_LightingFeatures, LOCTEXT("DistanceFieldAOSF", "Distance Field Ambient Occlusion"))
+/** Distance field GI */
+SHOWFLAG_ALWAYS_ACCESSIBLE(DistanceFieldGI, SFG_LightingFeatures, LOCTEXT("DistanceFieldGISF", "Distance Field Global Illumination"))
 /** Visualize screen space reflections, for developer (by default off): */
 SHOWFLAG_FIXED_IN_SHIPPING(VisualizeSSR, 0, SFG_Visualize, LOCTEXT("VisualizeSSR", "Screen Space Reflections"))
 /** Force the use of the GBuffer. */
 SHOWFLAG_ALWAYS_ACCESSIBLE(ForceGBuffer, SFG_Hidden, LOCTEXT("ForceGBuffer", "Force usage of GBuffer"))
-/** Visualize the senses of the Senses component */
+/** Visualize the senses configuration of AIs' PawnSensingComponent */
 SHOWFLAG_ALWAYS_ACCESSIBLE(VisualizeSenses, SFG_Advanced, LOCTEXT("VisualizeSenses", "Senses"))
+/** Visualize the bloom, for developer (by default off): */
+SHOWFLAG_FIXED_IN_SHIPPING(VisualizeBloom, 0, SFG_Visualize, LOCTEXT("VisualizeBloom", "Bloom"))
 
 #undef SHOWFLAG_ALWAYS_ACCESSIBLE
 #undef SHOWFLAG_FIXED_IN_SHIPPING

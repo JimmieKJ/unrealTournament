@@ -61,8 +61,9 @@ class USoundCue : public USoundBase
 	UPROPERTY()
 	TArray<USoundNode*> AllNodes;
 
-	/** EdGraph based representation of the SoundCue */
-	class USoundCueGraph* SoundCueGraph;
+	UPROPERTY()
+	class UEdGraph* SoundCueGraph;
+
 #endif
 
 private:
@@ -97,7 +98,7 @@ public:
 	template<class T>
 	T* ConstructSoundNode(TSubclassOf<USoundNode> SoundNodeClass = T::StaticClass(), bool bSelectNewNode = true)
 	{
-		T* SoundNode = ConstructObject<T>(SoundNodeClass, this);
+		T* SoundNode = NewObject<T>(this, SoundNodeClass);
 #if WITH_EDITOR
 		AllNodes.Add(SoundNode);
 		SetupSoundNode(SoundNode, bSelectNewNode);
@@ -152,10 +153,7 @@ public:
 	ENGINE_API void CompileSoundNodesFromGraphNodes();
 
 	/** Get the EdGraph of SoundNodes */
-	USoundCueGraph* GetGraph()
-	{
-		return SoundCueGraph;
-	}
+	ENGINE_API class USoundCueGraph* GetGraph();
 #endif
 };
 

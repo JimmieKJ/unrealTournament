@@ -3,7 +3,6 @@
 #pragma once
 #include "GameplayCueInterface.h"
 #include "AbilitySystemInterface.h"
-#include "GameplayCueView.h"
 #include "AbilitySystemTestPawn.generated.h"
 
 UCLASS(Blueprintable, BlueprintType, notplaceable)
@@ -21,9 +20,6 @@ private_subobject:
 	UPROPERTY(Category = AbilitySystem, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UAbilitySystemComponent* AbilitySystemComponent;
 public:
-
-	UPROPERTY(EditDefaultsOnly, Category=GameplayEffects)
-	FGameplayCueHandler	GameplayCueHandler;
 
 	//UPROPERTY(EditDefaultsOnly, Category=GameplayEffects)
 	//UGameplayAbilitySet * DefaultAbilitySet;

@@ -311,7 +311,7 @@ TSharedRef<ITableRow> SSuggestionTextBox::HandleSuggestionListViewGenerateRow( T
 					SNew(STextBlock)
 						.HighlightText(this, &SSuggestionTextBox::HandleSuggestionListWidgetHighlightText)
 						.TextStyle( SuggestionTextStyle )
-						.Text( Combined )						
+						.Text( FText::FromString(Combined) )						
 				]
 		];
 }

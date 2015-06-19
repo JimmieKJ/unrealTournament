@@ -161,7 +161,7 @@ public:
 	 * 
 	 * @param NewSelection	List of objects that are now selected
 	 */
-	virtual void BroadcastActorSelectionChanged( const TArray<UObject*>& NewSelection );
+	virtual void BroadcastActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh=false);
 	
 	/**
 	 * Called by the engine when level editing viewports need to be redrawn
@@ -187,7 +187,7 @@ public:
 	virtual void BroadcastComponentsEdited();
 
 	/** Called when actor selection changes */
-	DECLARE_EVENT_OneParam( FLevelEditorModule, FActorSelectionChangedEvent, const TArray<UObject*>& );
+	DECLARE_EVENT_TwoParams(FLevelEditorModule, FActorSelectionChangedEvent, const TArray<UObject*>&, bool);
 	virtual FActorSelectionChangedEvent& OnActorSelectionChanged() { return ActorSelectionChangedEvent; }
 
 	/** Called when level editor viewports should be redrawn */
@@ -216,8 +216,8 @@ public:
 	virtual TArray<FLevelEditorMenuExtender>& GetAllLevelEditorToolbarCreateMenuExtenders() { return LevelEditorToolbarCreateMenuExtenders; }
 	
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and toolbars */
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
-	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() {return ToolBarExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override {return MenuExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() override {return ToolBarExtensibilityManager;}
 	virtual TSharedPtr<FExtensibilityManager> GetModeBarExtensibilityManager() {return ModeBarExtensibilityManager;}
 	virtual TSharedPtr<FExtensibilityManager> GetNotificationBarExtensibilityManager() {return NotificationBarExtensibilityManager;}
 

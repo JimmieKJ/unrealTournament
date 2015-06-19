@@ -57,6 +57,7 @@
 #include "KismetPins/SGraphPinClass.h"
 #include "KismetPins/SGraphPinExec.h"
 #include "KismetPins/SGraphPinNum.h"
+#include "KismetPins/SGraphPinInteger.h"
 #include "KismetPins/SGraphPinColor.h"
 #include "KismetPins/SGraphPinEnum.h"
 #include "KismetPins/SGraphPinKey.h"
@@ -293,7 +294,11 @@ TSharedPtr<SGraphPin> FNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
 		{
 			return SNew(SGraphPinClass, InPin);
 		}
-		else if ((InPin->PinType.PinCategory == K2Schema->PC_Int) || (InPin->PinType.PinCategory == K2Schema->PC_Float))
+		else if (InPin->PinType.PinCategory == K2Schema->PC_Int)
+		{
+			return SNew(SGraphPinInteger, InPin);
+		}
+		else if (InPin->PinType.PinCategory == K2Schema->PC_Float)
 		{
 			return SNew(SGraphPinNum, InPin);
 		}
@@ -304,10 +309,10 @@ TSharedPtr<SGraphPin> FNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
 		else if (InPin->PinType.PinCategory == K2Schema->PC_Struct)
 		{
 			// If you update this logic you'll probably need to update UEdGraphSchema_K2::ShouldHidePinDefaultValue!
-			UScriptStruct* ColorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("LinearColor"));
-			UScriptStruct* VectorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Vector"));
-			UScriptStruct* Vector2DStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Vector2D"));
-			UScriptStruct* RotatorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Rotator"));
+			UScriptStruct* ColorStruct = GetBaseStructure(TEXT("LinearColor"));
+			UScriptStruct* VectorStruct = GetBaseStructure(TEXT("Vector"));
+			UScriptStruct* Vector2DStruct = GetBaseStructure(TEXT("Vector2D"));
+			UScriptStruct* RotatorStruct = GetBaseStructure(TEXT("Rotator"));
 
 			if (InPin->PinType.PinSubCategoryObject == ColorStruct)
 			{
@@ -343,7 +348,7 @@ TSharedPtr<SGraphPin> FNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
 			}
 			else
 			{
-				return SNew(SGraphPinNum, InPin);
+				return SNew(SGraphPinInteger, InPin);
 			}
 		}
 		else if ((InPin->PinType.PinCategory == K2Schema->PC_Wildcard) && (InPin->PinType.PinSubCategory == K2Schema->PSC_Index))
@@ -391,6 +396,11 @@ TSharedPtr<SGraphPin> FNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
 		{
 			return SNew(SGraphPin, InPin);
 		}
+		if (InPin->PinType.PinCategory == NSchema->PC_Curve)
+		{
+			return SNew(SGraphPin, InPin);
+		}
+
 	}
 
 

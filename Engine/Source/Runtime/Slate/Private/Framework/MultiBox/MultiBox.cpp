@@ -47,7 +47,7 @@ void FMultiBoxSettings::ToggleToolbarEditing()
 	bool bCanBeEnabled = false;
 	if( GIsEditor )
 	{
-		GConfig->GetBool(TEXT("/Script/UnrealEd.EditorExperimentalSettings"), TEXT("bToolbarCustomization"), bCanBeEnabled, GEditorUserSettingsIni);
+		GConfig->GetBool(TEXT("/Script/UnrealEd.EditorExperimentalSettings"), TEXT("bToolbarCustomization"), bCanBeEnabled, GEditorPerProjectIni);
 	}
 
 	bInToolbarEditMode = !bInToolbarEditMode && bCanBeEnabled;
@@ -268,7 +268,7 @@ bool FMultiBox::IsCustomizable() const
 	bool bIsCustomizable = false;
 	if( CustomizationData->GetCustomizationName() != NAME_None )
 	{
-		GConfig->GetBool(TEXT("/Script/UnrealEd.EditorExperimentalSettings"), TEXT("bToolbarCustomization"), bIsCustomizable, GEditorUserSettingsIni);
+		GConfig->GetBool(TEXT("/Script/UnrealEd.EditorExperimentalSettings"), TEXT("bToolbarCustomization"), bIsCustomizable, GEditorPerProjectIni);
 	}
 
 	return bIsCustomizable;
@@ -491,7 +491,7 @@ void SMultiBoxWidget::AddBlockWidget( const FMultiBlock& Block, TSharedPtr<SHori
 					SNew(STextBlock)
 					.Visibility(bDisplayExtensionHooks ? EVisibility::Visible : EVisibility::Collapsed)
 					.ColorAndOpacity(StyleSet->GetColor("MultiboxHookColor"))
-					.Text(Block.GetExtensionHook().ToString())
+					.Text(FText::FromName(Block.GetExtensionHook()))
 				]
 				+SVerticalBox::Slot()
 				[
@@ -514,7 +514,7 @@ void SMultiBoxWidget::AddBlockWidget( const FMultiBlock& Block, TSharedPtr<SHori
 						SNew(STextBlock)
 						.Visibility(bDisplayExtensionHooks ? EVisibility::Visible : EVisibility::Collapsed)
 						.ColorAndOpacity(StyleSet->GetColor("MultiboxHookColor"))
-						.Text(Block.GetExtensionHook().ToString())
+						.Text(FText::FromName(Block.GetExtensionHook()))
 					]
 					+SVerticalBox::Slot()
 					[
@@ -542,7 +542,7 @@ void SMultiBoxWidget::AddBlockWidget( const FMultiBlock& Block, TSharedPtr<SHori
 					SNew(STextBlock)
 					.Visibility(bDisplayExtensionHooks ? EVisibility::Visible : EVisibility::Collapsed)
 					.ColorAndOpacity(StyleSet->GetColor("MultiboxHookColor"))
-					.Text(Block.GetExtensionHook().ToString())
+					.Text(FText::FromName(Block.GetExtensionHook()))
 				]
 				+SHorizontalBox::Slot()
 				[

@@ -42,12 +42,6 @@ TArray<FFactoryItem> FindFactoriesInCategory(EAssetTypeCategories::Type AssetTyp
 	return FactoriesInThisCategory;
 }
 
-struct FAdvancedAssetCategory
-{
-	EAssetTypeCategories::Type CategoryType;
-	FText CategoryName;
-};
-
 class SFactoryMenuEntry : public SCompoundWidget
 {
 public:
@@ -317,9 +311,10 @@ void FNewAssetOrClassContextMenu::MakeContextMenu(
 		MenuBuilder.EndSection();
 	}
 
-	// Add Basic Asset
+	
 	if (InOnNewAssetRequested.IsBound())
 	{
+		// Add Basic Asset
 		MenuBuilder.BeginSection("ContentBrowserNewBasicAsset", LOCTEXT("BasicAssetsMenuHeading", "Create Basic Asset") );
 		{
 			CreateNewAssetMenuCategory(
@@ -331,30 +326,19 @@ void FNewAssetOrClassContextMenu::MakeContextMenu(
 				);
 		}
 		MenuBuilder.EndSection(); //ContentBrowserNewBasicAsset
-	}
 
-	// Add Advanced Asset
-	if (InOnNewAssetRequested.IsBound())
-	{
+		// Add Advanced Asset
 		MenuBuilder.BeginSection("ContentBrowserNewAdvancedAsset", LOCTEXT("AdvancedAssetsMenuHeading", "Create Advanced Asset"));
 		{
-			// List of advanced categories to add, in order
-			const FAdvancedAssetCategory AdvancedAssetCategories[] = {
-				//	CategoryType								CategoryName
-				{	EAssetTypeCategories::Animation,			LOCTEXT("AnimationAssetCategory", "Animation")				},
-				{	EAssetTypeCategories::Blueprint,			LOCTEXT("BlueprintAssetCategory", "Blueprints")				},
-				{	EAssetTypeCategories::MaterialsAndTextures,	LOCTEXT("MaterialAssetCategory", "Materials & Textures")	},
-				{	EAssetTypeCategories::Sounds,				LOCTEXT("SoundAssetCategory", "Sounds")						},
-				{	EAssetTypeCategories::Physics,				LOCTEXT("PhysicsAssetCategory", "Physics")					},
-				{	EAssetTypeCategories::UI,					LOCTEXT("UserInterfaceAssetCategory", "User Interface")		},
-				{	EAssetTypeCategories::Misc,					LOCTEXT("MiscellaneousAssetCategory", "Miscellaneous")		},
-				{	EAssetTypeCategories::Gameplay,				LOCTEXT("GameplayAssetCategory", "Gameplay")				},
-			};
+			FAssetToolsModule& AssetToolsModule = FAssetToolsModule::GetModule();
+
+			TArray<FAdvancedAssetCategory> AdvancedAssetCategories;
+			AssetToolsModule.Get().GetAllAdvancedAssetCategories(/*out*/ AdvancedAssetCategories);
 
 			for (const FAdvancedAssetCategory& AdvancedAssetCategory : AdvancedAssetCategories)
 			{
-				TArray<FFactoryItem> AnimationFactories = FindFactoriesInCategory(AdvancedAssetCategory.CategoryType);
-				if (AnimationFactories.Num() > 0)
+				TArray<FFactoryItem> Factories = FindFactoriesInCategory(AdvancedAssetCategory.CategoryType);
+				if (Factories.Num() > 0)
 				{
 					MenuBuilder.AddSubMenu(
 						AdvancedAssetCategory.CategoryName,

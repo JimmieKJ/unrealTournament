@@ -3,8 +3,9 @@
 #pragma once
 
 /**
- * Function that is initializing and constructing the whole GUI.
+ * Initializes and starts GUI.
  *
- * @param CommandLine Command line that has been passed to the process.
+ * @param CommandLine Command line passed to the program.
+ * @param bP4EnvTabOnly Tells if initialize GUI with P4 env settings tab only.
  */
-void InitGUI(const TCHAR* CommandLine);
+void InitGUI(const TCHAR* CommandLine, bool bP4EnvTabOnly = false);

@@ -6,6 +6,8 @@
 #include "SScrubWidget.h"
 #include "Editor/EditorWidgets/Public/ITransportControl.h"
 
+struct FAnimBlueprintDebugData;
+
 class SAnimationScrubPanel : public SCompoundWidget
 {
 public:
@@ -64,6 +66,7 @@ protected:
 
 	/** Function to crop animation sequence before/after selected frame */
 	void OnCropAnimSequence( bool bFromStart, float CurrentTime );
+	void OnInsertAnimSequence( bool bBefore, int32 CurrentFrame );
 
 	/** Function to zero out translation of the selected frame */
 	void OnReZeroAnimSequence( );

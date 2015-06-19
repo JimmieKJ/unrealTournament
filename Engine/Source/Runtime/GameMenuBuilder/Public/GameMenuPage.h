@@ -94,6 +94,24 @@ public:
 	}
 
 	/**
+	 * Add a custom menu entry 
+	 *
+	 * @param	Text		Label of the menu item
+	 * @param	
+	 * @param	
+	 * @param	
+	 * @returns  SharedRef to the MenuItem that was created.
+	 */
+	template< class UserClass >
+	FORCEINLINE TSharedRef<FGameMenuItem> AddCustomMenuItem(const FText& Text, TSharedPtr<SGameMenuItemWidget> CustomWidget, UserClass* InObj, typename FGameMenuItem::FOnOptionChanged::TSPMethodDelegate< UserClass >::FMethodPtr InMethod)
+	{
+		TSharedPtr<FGameMenuItem> Item = MakeShareable(new FGameMenuItem(CustomWidget));
+		Item->OnOptionChanged.BindSP(InObj, InMethod);
+		MenuItems.Add(Item);
+		return Item.ToSharedRef();
+	}
+
+	/**
 	* Add a handler for the menu being canceled.
 	*
 	* @param	InObj		Menu page object

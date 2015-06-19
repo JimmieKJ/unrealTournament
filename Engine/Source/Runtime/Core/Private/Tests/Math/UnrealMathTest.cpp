@@ -77,6 +77,34 @@ bool TestVectorsEqual3( VectorRegister Vec0, VectorRegister Vec1, float Toleranc
 	return GSum <= Tolerance;
 }
 
+/**
+ * Tests if two vectors (xyz) are equal within an optional tolerance
+ *
+ * @param Vec0 First vector
+ * @param Vec1 Second vector
+ * @param Tolerance Error allowed for the comparison
+ *
+ * @return true if equal(ish)
+ */
+bool TestVectorsEqual3_NoVec( const FVector& Vec0, const FVector& Vec1, float Tolerance = 0.0f)
+{
+	GScratch[0] = Vec0.X;
+	GScratch[1] = Vec0.Y;
+	GScratch[2] = Vec0.Z;
+	GScratch[3] = 0.0f;
+	GScratch[4] = Vec1.X;
+	GScratch[5] = Vec1.Y;
+	GScratch[6] = Vec1.Z;
+	GScratch[7] = 0.0f;
+	GSum = 0.f;
+
+	for ( int32 Component = 0; Component < 3; Component++ ) 
+	{
+		GSum += FMath::Abs<float>( GScratch[ Component + 0 ] - GScratch[ Component + 4 ] );
+	}
+	GPassing = GPassing && GSum <= Tolerance;
+	return GSum <= Tolerance;
+}
 
 /**
  * Tests if two matrices (4x4 xyzw) are equal within an optional tolerance
@@ -256,6 +284,49 @@ VectorRegister TestVectorTransformVector(const VectorRegister&  VecP,  const voi
 	return Result.v;
 }
 
+/**
+* Get Rotation as a quaternion.
+* @param Rotator FRotator 
+* @return Rotation as a quaternion.
+*/
+FORCENOINLINE FQuat TestRotatorToQuaternion( const FRotator& Rotator)
+{
+	const float CR = FMath::Cos(FMath::DegreesToRadians(Rotator.Roll  * 0.5f));
+	const float CP = FMath::Cos(FMath::DegreesToRadians(Rotator.Pitch * 0.5f));
+	const float CY = FMath::Cos(FMath::DegreesToRadians(Rotator.Yaw   * 0.5f));
+	const float SR = FMath::Sin(FMath::DegreesToRadians(Rotator.Roll  * 0.5f));
+	const float SP = FMath::Sin(FMath::DegreesToRadians(Rotator.Pitch * 0.5f));
+	const float SY = FMath::Sin(FMath::DegreesToRadians(Rotator.Yaw   * 0.5f));
+
+	FQuat RotationQuat;
+	RotationQuat.W = CR*CP*CY + SR*SP*SY;
+	RotationQuat.X = CR*SP*SY - SR*CP*CY;
+	RotationQuat.Y = -CR*SP*CY - SR*CP*SY;
+	RotationQuat.Z = CR*CP*SY - SR*SP*CY;
+	return RotationQuat;
+}
+
+FORCENOINLINE FVector TestQuaternionRotateVector(const FQuat& Quat, const FVector& Vector)
+{
+	// (q.W*q.W-qv.qv)v + 2(qv.v)qv + 2 q.W (qv x v)
+	const FVector qv(Quat.X, Quat.Y, Quat.Z);
+	FVector vOut = (2.f * Quat.W) * (qv ^ Vector);
+	vOut += ((Quat.W * Quat.W) - (qv | qv)) * Vector;
+	vOut += (2.f * (qv | Vector)) * qv;
+	
+	return vOut;
+}
+
+FORCENOINLINE FVector TestQuaternionMultiplyVector(const FQuat& Quat, const FVector& Vector)
+{
+	FQuat VQ(Vector.X, Vector.Y, Vector.Z, 0.f);
+	FQuat VT, VR;
+	FQuat I = Quat.Inverse();
+	VectorQuaternionMultiply(&VT, &Quat, &VQ);
+	VectorQuaternionMultiply(&VR, &VT, &I);
+
+	return FVector(VR.X, VR.Y, VR.Z);
+}
 
 /**
 * Multiplies two quaternions: The order matters.
@@ -282,6 +353,50 @@ void TestVectorQuaternionMultiply( void *Result, const void* Quat1, const void* 
 	R[1] = TY;
 	R[2] = TZ;
 	R[3] = TW;
+}
+
+/**
+ * Converts a Quaternion to a Rotator.
+ */
+FORCENOINLINE FRotator TestQuaternionToRotator(const FQuat& Quat)
+{
+	const float X = Quat.X;
+	const float Y = Quat.Y;
+	const float Z = Quat.Z;
+	const float W = Quat.W;
+
+	const float SingularityTest = Z*X-W*Y;
+	const float YawY = 2.f*(W*Z+X*Y);
+	const float YawX = (1.f-2.f*(FMath::Square(Y) + FMath::Square(Z)));
+	const float SINGULARITY_THRESHOLD = 0.4999995f;
+
+	static const float RAD_TO_DEG = (180.f)/PI;
+	FRotator RotatorFromQuat;
+
+	if (SingularityTest < -SINGULARITY_THRESHOLD)
+	{
+		RotatorFromQuat.Pitch = 270.f;
+		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = -RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG);
+	}
+	else if (SingularityTest > SINGULARITY_THRESHOLD)
+	{
+		RotatorFromQuat.Pitch = 90.f;
+		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG);
+	}
+	else
+	{
+		RotatorFromQuat.Pitch = FMath::Asin(2.f*(SingularityTest)) * RAD_TO_DEG;
+		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
+		RotatorFromQuat.Roll = FMath::Atan2(-2.f*(W*X+Y*Z), (1.f-2.f*(FMath::Square(X) + FMath::Square(Y)))) * RAD_TO_DEG;
+	}
+
+	RotatorFromQuat.Pitch = FRotator::NormalizeAxis(RotatorFromQuat.Pitch);
+	RotatorFromQuat.Yaw = FRotator::NormalizeAxis(RotatorFromQuat.Yaw);
+	RotatorFromQuat.Roll = FRotator::NormalizeAxis(RotatorFromQuat.Roll);
+
+	return RotatorFromQuat;
 }
 
 
@@ -317,7 +432,7 @@ void SetScratch( float X, float Y, float Z, float W, float U = 0.0f )
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVectorRegisterAbstractionTest, "Core.Math.Vector Register Abstraction Test", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVectorRegisterAbstractionTest, "System.Core.Math.Vector Register Abstraction Test", EAutomationTestFlags::ATF_SmokeTest)
 
 /**
  * Run a suite of vector operations to validate vector intrinsics are working on the platform
@@ -715,6 +830,82 @@ bool FVectorRegisterAbstractionTest::RunTest(const FString& Parameters)
 	LogTest( TEXT("VectorTransformVector"), TestVectorsEqual( V1, V2 ) );
 
 	FQuat Q0, Q1, Q2, Q3;
+
+	{
+		FRotator Rotator0;
+		Rotator0 = FRotator(30.0f, -45.0f, 90.0f);
+		Q0 = Rotator0.Quaternion();
+		Q1 = TestRotatorToQuaternion(Rotator0);
+		LogTest( TEXT("TestRotatorToQuaternion"), Q0.Equals( Q1, 1e-6f ) );
+
+		FVector FV0, FV1;
+		FV0 = Rotator0.Vector();
+		FV1 = FRotationMatrix( Rotator0 ).GetScaledAxis( EAxis::X );
+		LogTest( TEXT("Test0 Rotator::Vector()"), FV0.Equals( FV1, 1e-6f ) );
+		
+		FV0 = FRotationMatrix( Rotator0 ).GetScaledAxis( EAxis::X );
+		FV1 = FQuatRotationMatrix( Q0 ).GetScaledAxis( EAxis::X );
+		LogTest( TEXT("Test0 FQuatRotationMatrix"), FV0.Equals( FV1, 1e-5f ) );
+
+		Rotator0 = FRotator(45.0f,  60.0f, 120.0f);
+		Q0 = Rotator0.Quaternion();
+		Q1 = TestRotatorToQuaternion(Rotator0);
+		LogTest( TEXT("TestRotatorToQuaternion"), Q0.Equals( Q1, 1e-6f ) );
+
+		FV0 = Rotator0.Vector();
+		FV1 = FRotationMatrix( Rotator0 ).GetScaledAxis( EAxis::X );
+		LogTest( TEXT("Test1 Rotator::Vector()"), FV0.Equals( FV1, 1e-6f ) );
+
+		FV0 = FRotationMatrix( Rotator0 ).GetScaledAxis( EAxis::X );
+		FV1 = FQuatRotationMatrix( Q0 ).GetScaledAxis( EAxis::X );
+		LogTest(TEXT("Test1 FQuatRotationMatrix"), FV0.Equals(FV1, 1e-5f));
+
+		FV0 = FRotationMatrix(FRotator::ZeroRotator).GetScaledAxis(EAxis::X);
+		FV1 = FQuatRotationMatrix(FQuat::Identity).GetScaledAxis(EAxis::X);
+		LogTest(TEXT("Test2 FQuatRotationMatrix"), FV0.Equals(FV1, 1e-6f));
+	}
+
+	{
+		const FRotator Rotator0(30.0f, -45.0f, 90.0f);
+		const FRotator Rotator1(45.0f,  60.0f, 120.0f);
+		const FQuat Quat0(Rotator0);
+		const FQuat Quat1(Rotator1);
+		const float Tolerance = 1e-4f;
+
+		LogTest( TEXT("Test0 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0.RotateVector(FVector::ForwardVector), TestQuaternionRotateVector(Quat0, FVector::ForwardVector),	Tolerance ));
+		LogTest( TEXT("Test0 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0 * FVector::ForwardVector, TestQuaternionMultiplyVector(Quat0, FVector::ForwardVector), Tolerance ));
+		LogTest( TEXT("Test1 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0.RotateVector(FVector::RightVector), TestQuaternionRotateVector(Quat0, FVector::RightVector),	Tolerance ));
+		LogTest( TEXT("Test1 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0 * FVector::RightVector, TestQuaternionMultiplyVector(Quat0, FVector::RightVector), Tolerance ));
+		LogTest( TEXT("Test2 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0.RotateVector(FVector::UpVector), TestQuaternionRotateVector(Quat0, FVector::UpVector),	Tolerance ));
+		LogTest( TEXT("Test2 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0 * FVector::UpVector, TestQuaternionMultiplyVector(Quat0, FVector::UpVector), Tolerance ));
+		LogTest( TEXT("Test3 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0.RotateVector(FVector(45.0f, -60.0f, 120.0f)), TestQuaternionRotateVector(Quat0, FVector(45.0f, -60.0f, 120.0f)),	Tolerance ));
+		LogTest( TEXT("Test3 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat0 * FVector(45.0f, -60.0f, 120.0f), TestQuaternionMultiplyVector(Quat0, FVector(45.0f, -60.0f, 120.0f)), Tolerance ));
+		LogTest( TEXT("Test4 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1.RotateVector(FVector::ForwardVector), TestQuaternionRotateVector(Quat1, FVector::ForwardVector),	Tolerance ));
+		LogTest( TEXT("Test4 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1 * FVector::ForwardVector, TestQuaternionMultiplyVector(Quat1, FVector::ForwardVector), Tolerance ));
+		LogTest( TEXT("Test5 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1.RotateVector(FVector::RightVector), TestQuaternionRotateVector(Quat1, FVector::RightVector),	Tolerance ));
+		LogTest( TEXT("Test5 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1 * FVector::RightVector, TestQuaternionMultiplyVector(Quat1, FVector::RightVector), Tolerance ));
+		LogTest( TEXT("Test6 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1.RotateVector(FVector::UpVector), TestQuaternionRotateVector(Quat1, FVector::UpVector),	Tolerance ));
+		LogTest( TEXT("Test6 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1 * FVector::UpVector, TestQuaternionMultiplyVector(Quat1, FVector::UpVector), Tolerance ));
+		LogTest( TEXT("Test7 FQuat::RotateVector(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1.RotateVector(FVector(45.0f, -60.0f, 120.0f)), TestQuaternionRotateVector(Quat1, FVector(45.0f, -60.0f, 120.0f)),	Tolerance ));
+		LogTest( TEXT("Test7 FQuat::operator*(const FVector& Vec)"),		TestVectorsEqual3_NoVec(Quat1 * FVector(45.0f, -60.0f, 120.0f), TestQuaternionMultiplyVector(Quat1, FVector(45.0f, -60.0f, 120.0f)), Tolerance ));
+
+	}
+
+	{
+		FRotator Rotator0, Rotator1, Rotator2;
+		Rotator0 = FRotator(30.0f, -45.0f, 90.0f);
+		Q0 = TestRotatorToQuaternion(Rotator0);
+		Rotator1 = Q0.Rotator();
+		Rotator2 = TestQuaternionToRotator(Q0);
+		LogTest(TEXT("TestQuaternionToRotator"), Rotator1.Equals(Rotator2, 1e-5f));
+
+		Rotator0 = FRotator(45.0f, 60.0f, 120.0f);
+		Q0 = TestRotatorToQuaternion(Rotator0);
+		Rotator1 = Q0.Rotator();
+		Rotator2 = TestQuaternionToRotator(Q0);
+		LogTest(TEXT("TestQuaternionToRotator"), Rotator1.Equals(Rotator2, 1e-5f));
+	}
+
 	Q0 = FQuat(FRotator(30.0f, -45.0f, 90.0f));
 	Q1 = FQuat(FRotator(45.0f,  60.0f, 120.0f));
 	VectorQuaternionMultiply(&Q2, &Q0, &Q1);

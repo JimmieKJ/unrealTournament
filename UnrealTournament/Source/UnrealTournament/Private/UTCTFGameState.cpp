@@ -306,3 +306,68 @@ uint8 AUTCTFGameState::NearestTeamSide(AActor* InActor)
 	return 255;
 }
 
+bool AUTCTFGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList)
+{
+	Super::GetImportantPickups_Implementation(PickupList);
+	TMap<UClass*, TArray<AUTPickup*> > PickupGroups;
+
+	//Collect the Powerups without bOverride_TeamSide and group by class
+	for (AUTPickup* Pickup : PickupList)
+	{
+		if (!Pickup->bOverride_TeamSide)
+		{
+			UClass* PickupClass = (Cast<AUTPickupInventory>(Pickup) != nullptr) ? *Cast<AUTPickupInventory>(Pickup)->GetInventoryType() : Pickup->GetClass();
+			TArray<AUTPickup*>& PickupGroup = PickupGroups.FindOrAdd(PickupClass);
+			PickupGroup.Add(Pickup);
+		}
+	}
+
+	//Auto get the TeamSide
+	if (FlagBases.Num() > 1)
+	{
+		for (auto& Pair : PickupGroups)
+		{
+			TArray<AUTPickup*>& PickupGroup = Pair.Value;
+
+			//Find the midfield pickup for an odd number of pickups per group
+			if (PickupGroup.Num() % 2 != 0 && PickupGroup.Num() > 2)
+			{
+				AUTPickup* MidfieldPickup = nullptr;
+				float FarthestDist = 0.0;
+
+				//Find the furthest pickup that would've been returned by NearestTeamSide()
+				for (AUTPickup* Pickup : PickupGroup)
+				{
+					float ClosestFlagDist = MAX_FLT;
+					for (AUTCTFFlagBase* Flag : FlagBases)
+					{
+						if (Flag != nullptr)
+						{
+							ClosestFlagDist = FMath::Min(ClosestFlagDist, FVector::Dist(Pickup->GetActorLocation(), Flag->GetActorLocation()));
+						}
+					}
+
+					if (FarthestDist < ClosestFlagDist)
+					{
+						MidfieldPickup = Pickup;
+						FarthestDist = ClosestFlagDist;
+					}
+				}
+
+				if (MidfieldPickup != nullptr)
+				{
+					MidfieldPickup->TeamSide = 255;
+				}
+			}
+		}
+	}
+
+	//Sort the list by team and by respawn time 
+	//TODO: powerup priority so different armors sort properly
+	PickupList.Sort([](const AUTPickup& A, const AUTPickup& B) -> bool
+	{
+		return A.TeamSide > B.TeamSide || (A.TeamSide == B.TeamSide && A.RespawnTime > B.RespawnTime);
+	});
+
+	return true;
+}

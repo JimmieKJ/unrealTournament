@@ -21,9 +21,11 @@ bool UFloatBinding::IsSupportedSource(UProperty* Property) const
 
 float UFloatBinding::GetValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
-		float Value;
+		float Value = 0;
 		if ( SourcePath.GetValue<float>(Source, Value) )
 		{
 			return Value;

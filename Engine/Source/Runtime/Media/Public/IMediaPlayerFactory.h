@@ -3,27 +3,27 @@
 #pragma once
 
 
-// forward declarations
 class IMediaPlayer;
 
 
 /**
- * Type definition for media file container formats.
+ * Type definition for media container file types.
  *
  * This type is a TMap that maps the file extensions of supported media file containers
  * formats to a human readable description text. The file extensions are stored without
  * a leading dot, i.e. {"avi", "Audio Video Interleave File"}.
  */
-typedef TMap<FString, FText> FMediaFormats;
+typedef TMap<FString, FText> FMediaFileTypes;
 
 
 /**
  * Interface for media player factories.
  *
- * Video player factories are used to create instances of media player implementations.
+ * Media player factories are used to create instances of media player implementations.
  * Most media players will be implemented inside plug-ins, which will register their
- * factories on startup. By associating a media format with a factory, the Video module
- * can provide available media players for a given format.
+ * factories on startup. The Media module will use the SupportsUrl() method on this
+ * interface to determine which media player to instantiate for a given media URL, such
+ * as a file path or a resource identifier on the internet.
  */
 class IMediaPlayerFactory
 {
@@ -37,25 +37,26 @@ public:
 	virtual TSharedPtr<IMediaPlayer> CreatePlayer() = 0;
 
 	/**
-	 * Gets the collection of supported media formats.
+	 * Gets a read-only collection of supported media file types.
 	 *
-	 * @return A collection of supported formats.
-	 * @see SupportsFile
+	 * This function is used for file based media containers that reside on the users
+	 * local hard drive, a shared network drive or a location on the internet. It does
+	 * not take into account support for extension-less streaming media URI schemes,
+	 * such as rtsp:// and udp://
+	 *
+	 * @return A collection of supported file types.
+	 * @see SupportsUrl
 	 */
-	virtual const FMediaFormats& GetSupportedFormats() const = 0;
-
-public:
+	virtual const FMediaFileTypes& GetSupportedFileTypes() const = 0;
 
 	/**
-	 * Checks whether this factory can create media players that support the specified file format.
+	 * Checks whether this factory can create media players that support the given URL.
 	 *
-	 * @param Url The URL to the media file container.
-	 * @see GetSupportedFormats
+	 * @param Url The URL to the media, i.e. a file path or URI.
+	 * @return true if the URL supported, false otherwise.
+	 * @see GetSupportedFileTypes
 	 */
-	bool SupportsFile( const FString& Url ) const
-	{
-		return GetSupportedFormats().Contains(FPaths::GetExtension(Url));
-	}
+	virtual bool SupportsUrl(const FString& Url) const = 0;
 
 public:
 

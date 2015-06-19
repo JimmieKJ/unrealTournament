@@ -50,7 +50,7 @@ struct FMaterialSpriteElement
 /** 
  * A 2d material that will be rendered always facing the camera.
  */
-UCLASS(ClassGroup=Rendering, collapsecategories, hidecategories=(Object,Activation,"Components|Activation",Physics,Collision,Lighting,LOD,Mesh,PhysicsVolume), editinlinenew, meta=(BlueprintSpawnableComponent))
+UCLASS(ClassGroup=Rendering, collapsecategories, hidecategories=(Object,Activation,"Components|Activation",Physics,Collision,Lighting,Mesh,PhysicsVolume), editinlinenew, meta=(BlueprintSpawnableComponent))
 class ENGINE_API UMaterialBillboardComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -72,5 +72,7 @@ class ENGINE_API UMaterialBillboardComponent : public UPrimitiveComponent
 	// Begin UPrimitiveComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
+	virtual UMaterialInterface* GetMaterial(int32 Index) const override;
+	virtual void SetMaterial(int32 ElementIndex, class UMaterialInterface* Material) override;
 	// End UPrimitiveComponent Interface
 };

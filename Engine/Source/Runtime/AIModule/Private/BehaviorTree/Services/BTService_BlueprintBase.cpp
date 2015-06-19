@@ -14,7 +14,7 @@ UBTService_BlueprintBase::UBTService_BlueprintBase(const FObjectInitializer& Obj
 
 	bNotifyBecomeRelevant = ReceiveActivationImplementations != 0;
 	bNotifyCeaseRelevant = bNotifyBecomeRelevant;
-	bNotifyOnSearch = ReceiveTickImplementations != 0 || ReceiveSearchStartImplementations != 0;
+	bNotifyOnSearch = ReceiveSearchStartImplementations != 0;
 	bNotifyTick = ReceiveTickImplementations != 0;
 	bShowPropertyDetails = true;
 
@@ -25,12 +25,6 @@ UBTService_BlueprintBase::UBTService_BlueprintBase(const FObjectInitializer& Obj
 	{
 		BlueprintNodeHelpers::CollectPropertyData(this, StopAtClass, PropertyData);
 	}
-}
-
-void UBTService_BlueprintBase::PostInitProperties()
-{
-	Super::PostInitProperties();
-	NodeName = BlueprintNodeHelpers::GetNodeName(this);
 }
 
 void UBTService_BlueprintBase::SetOwner(AActor* InActorOwner)
@@ -85,7 +79,7 @@ void UBTService_BlueprintBase::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp
 
 void UBTService_BlueprintBase::OnSearchStart(FBehaviorTreeSearchData& SearchData)
 {
-	// skip flag, will be handled by bNotifyOnSearch
+	Super::OnSearchStart(SearchData);
 
 	if (ReceiveSearchStartImplementations != 0)
 	{
@@ -97,14 +91,6 @@ void UBTService_BlueprintBase::OnSearchStart(FBehaviorTreeSearchData& SearchData
 		{
 			ReceiveSearchStart(ActorOwner);
 		}
-
-		const float NextTickTime = FMath::FRandRange(FMath::Max(0.0f, Interval - RandomDeviation), (Interval + RandomDeviation));
-		uint8* NodeMemory = GetNodeMemory<uint8>(SearchData);
-		SetNextTickTime(NodeMemory, NextTickTime);
-	}
-	else
-	{
-		Super::OnSearchStart(SearchData);
 	}
 }
 
@@ -136,12 +122,20 @@ FString UBTService_BlueprintBase::GetStaticServiceDescription() const
 	UBTService_BlueprintBase* CDO = (UBTService_BlueprintBase*)(GetClass()->GetDefaultObject());
 	if (CDO)
 	{
-		ReturnDesc = FString::Printf(TEXT("%s, %s, %s, %s\n"),
-			ReceiveTickImplementations != 0 ? *GetStaticTickIntervalDescription() : TEXT("No tick"),
-			ReceiveActivationImplementations != 0 ? TEXT("Activation") : TEXT("No Activation"),
-			ReceiveDeactivationImplementations != 0 ? TEXT("Deactivation") : TEXT("No Deactivation"),
-			ReceiveSearchStartImplementations != 0 ? TEXT("Search Start") : TEXT("No Search Start"));
-								
+		if (bShowEventDetails)
+		{
+			ReturnDesc = FString::Printf(TEXT("%s, %s, %s, %s\n"),
+				ReceiveTickImplementations != 0 ? *GetStaticTickIntervalDescription() : TEXT("No tick"),
+				ReceiveActivationImplementations != 0 ? TEXT("Activation") : TEXT("No Activation"),
+				ReceiveDeactivationImplementations != 0 ? TEXT("Deactivation") : TEXT("No Deactivation"),
+				ReceiveSearchStartImplementations != 0 ? TEXT("Search Start") : TEXT("No Search Start"));
+		}
+		else
+		{
+			ReturnDesc = Super::GetStaticServiceDescription();
+			ReturnDesc += TEXT('\n');
+		}
+						
 		if (bShowPropertyDetails)
 		{
 			UClass* StopAtClass = UBTService_BlueprintBase::StaticClass();

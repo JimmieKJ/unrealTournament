@@ -112,7 +112,7 @@ void SPropertyTreeViewImpl::Construct(const FArguments& InArgs)
 	ConstructExternalColumnHeaders = InArgs._ConstructExternalColumnHeaders;
 	ConstructExternalColumnCell = InArgs._ConstructExternalColumnCell;
 
-	if( !GConfig->GetBool(TEXT("PropertyWindow"), TEXT("ShowFavoritesWindow"), bFavoritesEnabled, GEditorUserSettingsIni) )
+	if( !GConfig->GetBool(TEXT("PropertyWindow"), TEXT("ShowFavoritesWindow"), bFavoritesEnabled, GEditorPerProjectIni) )
 	{
 		bFavoritesEnabled = false;
 	}
@@ -278,7 +278,7 @@ FReply SPropertyTreeViewImpl::OnToggleFavoritesClicked()
 	bFavoritesEnabled = !bFavoritesEnabled;
 
 	//save off state of the filter window
-	GConfig->SetBool(TEXT("PropertyWindow"), TEXT("ShowFavoritesWindow"), bFavoritesEnabled, GEditorUserSettingsIni);
+	GConfig->SetBool(TEXT("PropertyWindow"), TEXT("ShowFavoritesWindow"), bFavoritesEnabled, GEditorPerProjectIni);
 
 	return FReply::Handled();
 }
@@ -449,7 +449,7 @@ void SPropertyTreeViewImpl::SaveExpandedItems()
 // 				ExpansionName += TEXT("Favorites");
 // 			}
 
-			GConfig->SetSingleLineArray(TEXT("PropertyWindowExpansion"), *ExpansionName, ExpandedItemNames, GEditorUserSettingsIni);
+			GConfig->SetSingleLineArray(TEXT("PropertyWindowExpansion"), *ExpansionName, ExpandedItemNames, GEditorPerProjectIni);
 		}
 	}
 }
@@ -461,7 +461,7 @@ void SPropertyTreeViewImpl::SaveColumnWidths()
 	{
 		const SHeaderRow::FColumn& Column = Columns[Idx];
 		const float Width = Column.GetWidth();
-		GConfig->SetFloat(TEXT("PropertyWindowWidths"), *Column.ColumnId.ToString(), Width, GEditorUserSettingsIni);
+		GConfig->SetFloat(TEXT("PropertyWindowWidths"), *Column.ColumnId.ToString(), Width, GEditorPerProjectIni);
 	}
 }
 
@@ -488,7 +488,7 @@ void SPropertyTreeViewImpl::RestoreExpandedItems()
 // 			ExpansionName += TEXT("Favorites");
 // 		}
 
-		GConfig->GetSingleLineArray(TEXT("PropertyWindowExpansion"), *ExpansionName, ExpandedItems, GEditorUserSettingsIni);
+		GConfig->GetSingleLineArray(TEXT("PropertyWindowExpansion"), *ExpansionName, ExpandedItems, GEditorPerProjectIni);
 		
 		TSharedRef<SPropertyTree> PropertyTreeRef = PropertyTree.ToSharedRef();
 		SetExpandedItems( RootPropertyNode, PropertyTreeRef, ExpandedItems );
@@ -503,7 +503,7 @@ void SPropertyTreeViewImpl::RestoreColumnWidths()
 	{
 		const SHeaderRow::FColumn& Column = Columns[Idx];
 		float Width = 1.0f;
-		if ( GConfig->GetFloat(TEXT("PropertyWindowWidths"), *Column.ColumnId.ToString(), Width, GEditorUserSettingsIni) )
+		if ( GConfig->GetFloat(TEXT("PropertyWindowWidths"), *Column.ColumnId.ToString(), Width, GEditorPerProjectIni) )
 		{
 			ColumnHeaderRow->SetColumnWidth( Column.ColumnId, Width );
 		}
@@ -966,7 +966,7 @@ void SPropertyTreeViewImpl::FilterView( const FString& InFilterText )
 	// Remove whitespace from the front and back of the string
 	ParseString.Trim();
 	ParseString.TrimTrailing();
-	ParseString.ParseIntoArray(&FilterStrings, TEXT(" "), true);
+	ParseString.ParseIntoArray(FilterStrings, TEXT(" "), true);
 
 	RootPropertyNode->FilterNodes( FilterStrings );
 	RootPropertyNode->ProcessSeenFlags(true);
@@ -1128,7 +1128,7 @@ void SPropertyTreeViewImpl::LoadFavorites()
 			FString ContextName = BestClass->GetName() + TEXT("Favorites");
 
 			TArray<FString> OutFavoritesList;
-			GConfig->GetSingleLineArray(TEXT("PropertyWindow"), *ContextName, OutFavoritesList, GEditorUserSettingsIni);
+			GConfig->GetSingleLineArray(TEXT("PropertyWindow"), *ContextName, OutFavoritesList, GEditorPerProjectIni);
 		
 			for(int32 i=0; i<OutFavoritesList.Num(); i++)
 			{
@@ -1162,7 +1162,7 @@ void SPropertyTreeViewImpl::SaveFavorites()
 				FavoritesArray.Add( *It );
 			}
 
-			GConfig->SetSingleLineArray(TEXT("PropertyWindow"), *ContextName, FavoritesArray, GEditorUserSettingsIni);
+			GConfig->SetSingleLineArray(TEXT("PropertyWindow"), *ContextName, FavoritesArray, GEditorPerProjectIni);
 		}
 	}
 }

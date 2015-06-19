@@ -13,6 +13,7 @@
 #include "SKismetLinearExpression.h"
 #include "STextEntryPopup.h"
 #include "SExpandableArea.h"
+#include "BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "FAnimStateNodeDetails"
 
@@ -101,6 +102,33 @@ void FAnimTransitionNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 					CanExecPin = ResultNode->FindPin(TEXT("bCanEnterTransition"));
 				}
 			}
+
+			// indicate if a native transition rule applies to this
+			UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNodeChecked(TransitionNode.Get());
+			if(Blueprint && Blueprint->ParentClass)
+			{
+				UAnimInstance* AnimInstance = CastChecked<UAnimInstance>(Blueprint->ParentClass->GetDefaultObject());
+				if(AnimInstance)
+				{
+					UEdGraph* ParentGraph = TransitionNode->GetGraph();
+					UAnimStateNodeBase* PrevState = TransitionNode->GetPreviousState();
+					UAnimStateNodeBase* NextState = TransitionNode->GetNextState();
+					if(PrevState != nullptr && NextState != nullptr && ParentGraph != nullptr)
+					{
+						FName FunctionName;
+						if(AnimInstance->HasNativeTransitionBinding(ParentGraph->GetFName(), FName(*PrevState->GetStateName()), FName(*NextState->GetStateName()), FunctionName))
+						{
+							TransitionCategory.AddCustomRow( LOCTEXT("NativeBindingPresent", "Transition has native binding") )
+							[
+								SNew(STextBlock)
+								.Text(FText::Format(LOCTEXT("NativeBindingPresent", "Transition has native binding to {0}()"), FText::FromName(FunctionName)))
+								.Font( IDetailLayoutBuilder::GetDetailFontBold() )
+							];
+						}
+					}
+				}
+			}
+
 			TransitionCategory.AddCustomRow( CanExecPin ? CanExecPin->PinFriendlyName : FText::GetEmpty() )
 			[
 				SNew(SKismetLinearExpression, CanExecPin)
@@ -200,8 +228,6 @@ FReply FAnimTransitionNodeDetails::OnPromoteToSharedClick(bool RuleShare)
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
 			);
-
-		TextEntry->FocusDefaultWidget();
 		TextEntryWidget = TextEntry;
 	}
 

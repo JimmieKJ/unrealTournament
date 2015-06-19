@@ -277,7 +277,7 @@ void SCollectionView::LoadSettings(const FString& IniFilename, const FString& In
 	if ( GConfig->GetString(*IniSection, *(SettingsString + TEXT(".SelectedCollections")), SelectedCollectionsString, IniFilename) )
 	{
 		TArray<FString> NewSelectedCollectionStrings;
-		SelectedCollectionsString.ParseIntoArray(&NewSelectedCollectionStrings, TEXT(","), /*bCullEmpty*/true);
+		SelectedCollectionsString.ParseIntoArray(NewSelectedCollectionStrings, TEXT(","), /*bCullEmpty*/true);
 
 		for ( auto CollectionIt = NewSelectedCollectionStrings.CreateConstIterator(); CollectionIt; ++CollectionIt )
 		{
@@ -301,11 +301,6 @@ void SCollectionView::LoadSettings(const FString& IniFilename, const FString& In
 		SetSelectedCollections(NewSelectedCollections);
 		CollectionSelectionChanged( TSharedPtr<FCollectionItem>(), ESelectInfo::Direct );
 	}
-}
-
-void SCollectionView::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 FReply SCollectionView::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )

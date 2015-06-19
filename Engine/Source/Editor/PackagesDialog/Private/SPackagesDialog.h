@@ -9,6 +9,7 @@
 #endif
 
 #include "PackagesDialog.h"
+#include "ISourceControlModule.h"
 
 
 /**
@@ -202,6 +203,25 @@ public:
 	FString GetIconName() const { return IconName; }
 
 	/**
+	 * Get a string containing the name(s) of other users who have the file checked out
+	 *
+	 * @return names of other users who have the file checked out
+	 */
+	FString GetCheckedOutByString() const
+	{
+		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package, EStateCacheUsage::Use);
+
+		FString CheckedOutBy;
+		if (SourceControlState.IsValid())
+		{
+			SourceControlState->IsCheckedOutOther(&CheckedOutBy);
+		}
+
+		return CheckedOutBy;
+	}
+
+	/**
 	 * Gets the type name and color of the package item
 	 *
 	 * @param OutName	FString into which the type name will be placed, or an empty string if type cannot be obtained
@@ -258,6 +278,7 @@ public:
 		: _ReadOnly(false)
 		, _AllowSourceControlConnection(false)
 		, _Message()
+		, _Warning()
 		{}
 
 		/** When true, this dialog only shows a list of packages without the ability to filter */
@@ -268,6 +289,12 @@ public:
 
 		/** The message of the widget */
 		SLATE_ARGUMENT(FText, Message)
+
+		/** The warning message of the widget */
+		SLATE_ARGUMENT(FText, Warning)
+
+		/** Called when source control state changes */
+		SLATE_EVENT(FSimpleDelegate, OnSourceControlStateChanged)
 
 	SLATE_END_ARGS()
 	
@@ -289,6 +316,11 @@ public:
 	TSharedRef<SWidget> GenerateWidgetForItemAndColumn( TSharedPtr<FPackageItem> Item, const FName ColumnID ) const;
 
 	/**
+	 * Removes all checkbox items from the dialog
+	 */
+	void RemoveAll();
+
+	/**
 	 * Adds a new checkbox item to the dialog
 	 *
 	 * @param	Item	The item to be added
@@ -308,6 +340,13 @@ public:
 	 * @param	InMessage	The string that the message should be set to
 	 */
 	void SetMessage(const FText& InMessage);
+
+	/**
+	 * Sets the warning message of the widget
+	 *
+	 * @param	InMessage	The string that the warning message should be set to
+	 */
+	void SetWarning(const FText& InMessage);
 
 	/**
 	 * Gets the return type of the dialog and it populates the package array results
@@ -353,6 +392,11 @@ public:
 	 * Reset the state of this dialogs buttons
 	 */
 	void Reset();
+
+	/**
+	 * Whether the dialog allows a source control connection
+	 */
+	bool IsSourceControlConnectionAllowed() const { return bAllowSourceControlConnection; }
 
 private:
 
@@ -407,6 +451,12 @@ private:
 
 	/** Delegate used to supply message text to the widget */
 	FText GetMessage() const;
+
+	/** Delegate used to supply warning text to the widget */
+	FText GetWarning() const;
+
+	/** Delegate used to determine visibility of the warning */
+	EVisibility GetWarningVisibility() const;
 
 	/**
 	 * Returns the current column sort mode (ascending or descending) if the ColumnId parameter matches the current
@@ -464,14 +514,23 @@ private:
 	/** When true, this dialog displays a 'connect to source control' button */
 	bool bAllowSourceControlConnection;
 
+	/** When true, the warning message is displayed in the widget */
+	bool bShowWarning;
+
 	/** The message to display */
 	FText Message;
+
+	/** The warning to display */
+	FText Warning;
 
 	/** Specify which column to sort with */
 	FName SortByColumn;
 
 	/** Currently selected sorting mode */
 	EColumnSortMode::Type SortMode;
+
+	/** Called when source control state changes */
+	FSimpleDelegate OnSourceControlStateChanged;
 };
 
 /** Widget that represents a row in the PackagesDialog's list view.  Generates widgets for each column on demand. */

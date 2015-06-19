@@ -52,6 +52,9 @@ class UInterpTrackEvent : public UInterpTrack
 	UPROPERTY(EditAnywhere, Category=InterpTrackEvent)
 	uint32 bFireEventsWhenJumpingForwards:1;
 
+	/** If checked each key's event name is the exact name of the custom event function in level script that will be called */
+	UPROPERTY(EditAnywhere, Category=InterpTrackEvent)
+	uint32 bUseCustomEventName:1;
 
 	// Begin UInterpTrack Interface
 	virtual int32 GetNumKeyframes() const override;
@@ -64,6 +67,7 @@ class UInterpTrackEvent : public UInterpTrack
 	virtual void RemoveKeyframe( int32 KeyIndex ) override;
 	virtual int32 DuplicateKeyframe(int32 KeyIndex, float NewKeyTime, UInterpTrack* ToTrack = NULL) override;
 	virtual bool GetClosestSnapPosition( float InPosition, TArray<int32>& IgnoreKeys, float& OutPosition ) override;
+	virtual void PreviewUpdateTrack(float NewPosition, class UInterpTrackInst* TrInst) override;
 	virtual void UpdateTrack( float NewPosition, UInterpTrackInst* TrackInst, bool bJump ) override;
 	virtual const FString GetEdHelperClassName() const override;
 	virtual const FString GetSlateHelperClassName() const override;

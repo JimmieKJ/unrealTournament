@@ -22,7 +22,7 @@ public:
 		, _TreeViewWidth(300.f)
 		, _TreeViewHeight(400.f)
 		, _Font( FEditorStyle::GetFontStyle( TEXT("NormalFont") ) )
-		, _FilterBlueprintBindable( false )
+		, _FilterBlueprintBindable( true )
 		, _HasMultipleValues( false )
 		{}
 		SLATE_ATTRIBUTE( FKey, CurrentKey )

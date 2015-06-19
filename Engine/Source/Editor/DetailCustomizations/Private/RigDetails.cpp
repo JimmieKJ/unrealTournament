@@ -39,23 +39,6 @@ void FRigDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 	TransformBasesPropertyHandle = DetailBuilder.GetProperty("TransformBases");
 	NodesPropertyHandle = DetailBuilder.GetProperty("Nodes");
 
-	// since now we can't really resize the array, we'll just allocate everything here
-	// if you reallocate, TSharedPtr<FString> for combo box won't work because
-	uint32 NumElement = 0;
-	check (FPropertyAccess::Fail != NodesPropertyHandle->AsArray()->GetNumElements(NumElement));
-
-	if ( NumElement > 0 )
-	{
-		DisplayNameTextBoxes.AddZeroed(NumElement);
-	}
-
-	check (FPropertyAccess::Fail != TransformBasesPropertyHandle->AsArray()->GetNumElements(NumElement));
-	if ( NumElement > 0 )
-	{
-		ParentSpaceOptionList.AddZeroed(NumElement);
-		// I need two per each - translation/orientation
-		ParentSpaceComboBoxes.AddZeroed(NumElement*2);
-	}
 
 	TSharedRef<FDetailArrayBuilder> NodeArrayBuilder = MakeShareable(new FDetailArrayBuilder(NodesPropertyHandle.ToSharedRef()));
 	NodeArrayBuilder->OnGenerateArrayElementWidget(FOnGenerateArrayElementWidget::CreateSP(this, &FRigDetails::GenerateNodeArrayElementWidget, &DetailBuilder));
@@ -201,6 +184,12 @@ void FRigDetails::GenerateNodeArrayElementWidget(TSharedRef<IPropertyHandle> Pro
 		]
 	];
 
+	// we're adding on demand because if array expands, we'll have to handle it dynamically
+	if (!DisplayNameTextBoxes.IsValidIndex(ArrayIndex))
+	{
+		DisplayNameTextBoxes.AddZeroed(ArrayIndex-DisplayNameTextBoxes.Num()+1);
+	}
+
 	DisplayNameTextBoxes[ArrayIndex] = DisplayTextBox;
 };
 
@@ -279,9 +268,26 @@ void FRigDetails::GenerateTransformBaseArrayElementWidget(TSharedRef<IPropertyHa
 	check(ParentNameProp_T->GetValueAsDisplayString(ParentNodeName_T) != FPropertyAccess::Fail);
 	check(ParentNameProp_R->GetValueAsDisplayString(ParentNodeName_R) != FPropertyAccess::Fail);
 
+	// we add them on demand since the array can expand or reduce
+	if(!ParentSpaceOptionList.IsValidIndex(ArrayIndex))
+	{
+		int32 NumToAdd = ArrayIndex-ParentSpaceOptionList.Num()+1;
+		for(int32 Idx = 0 ; Idx < NumToAdd ; ++Idx)
+		{
+			ParentSpaceOptionList.Add(new TArray<TSharedPtr<FString>>);
+		}
+	}
+
+	// ParentSpaceComboBoxees creates 2 per element - one for translation, and one for rotation
+	if(!ParentSpaceComboBoxes.IsValidIndex(ArrayIndex*2))
+	{
+		int32 NumNewItem = ArrayIndex-(ParentSpaceComboBoxes.Num()/2)+1;
+		ParentSpaceComboBoxes.AddZeroed(NumNewItem*2);
+	}
+
 	// create string list for picking parent node
 	// make sure you don't include itself and find what is curretn selected item
-	TArray<TSharedPtr<FString>> & ParentNodeOptions = ParentSpaceOptionList[ArrayIndex];
+	TArray<TSharedPtr<FString>>& ParentNodeOptions = ParentSpaceOptionList[ArrayIndex];
 
 	ParentNodeOptions.Empty();
 	ParentNodeOptions.Add(MakeShareable(new FString(URig::WorldNodeName.ToString())));

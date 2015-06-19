@@ -306,8 +306,7 @@ void FIntroTutorials::SummonBlueprintTutorialHome(UObject* Asset, bool bForceWel
 			check(ContextWindow.IsValid());
 		}
 
-		const bool bRestart = true;
-		IntroTutorials.LaunchTutorial(LaunchTutorial, bRestart, ContextWindow);
+		IntroTutorials.LaunchTutorial(LaunchTutorial, IIntroTutorials::ETutorialStartType::TST_RESTART, ContextWindow);
 	}
 }
 
@@ -443,11 +442,11 @@ void FIntroTutorials::LaunchTutorialByName(const FString& InAssetPath, bool bInR
 	UBlueprint* Blueprint = LoadObject<UBlueprint>(nullptr, *InAssetPath);
 	if (Blueprint && Blueprint->GeneratedClass)
 	{
-		LaunchTutorial(Blueprint->GeneratedClass->GetDefaultObject<UEditorTutorial>(), bInRestart, InNavigationWindow, OnTutorialClosed, OnTutorialExited);
+		LaunchTutorial(Blueprint->GeneratedClass->GetDefaultObject<UEditorTutorial>(), bInRestart ? IIntroTutorials::ETutorialStartType::TST_RESTART : IIntroTutorials::ETutorialStartType::TST_CONTINUE, InNavigationWindow, OnTutorialClosed, OnTutorialExited);
 	}
 }
 
-void FIntroTutorials::LaunchTutorial(UEditorTutorial* InTutorial, bool bInRestart, TWeakPtr<SWindow> InNavigationWindow, FSimpleDelegate OnTutorialClosed, FSimpleDelegate OnTutorialExited)
+void FIntroTutorials::LaunchTutorial(UEditorTutorial* InTutorial, ETutorialStartType InStartType, TWeakPtr<SWindow> InNavigationWindow, FSimpleDelegate OnTutorialClosed, FSimpleDelegate OnTutorialExited)
 {
 	if(TutorialRoot.IsValid())
 	{
@@ -456,8 +455,7 @@ void FIntroTutorials::LaunchTutorial(UEditorTutorial* InTutorial, bool bInRestar
 			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
 			InNavigationWindow = MainFrameModule.GetParentWindow();
 		}
-
-		TutorialRoot->LaunchTutorial(InTutorial, bInRestart, InNavigationWindow, OnTutorialClosed, OnTutorialExited);
+		TutorialRoot->LaunchTutorial(InTutorial, InStartType, InNavigationWindow, OnTutorialClosed, OnTutorialExited);
 	}
 }
 

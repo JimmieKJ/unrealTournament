@@ -12,7 +12,7 @@ UEnvQueryItemType_ActorBase::UEnvQueryItemType_ActorBase(const FObjectInitialize
 void UEnvQueryItemType_ActorBase::AddBlackboardFilters(FBlackboardKeySelector& KeySelector, UObject* FilterOwner) const
 {
 	Super::AddBlackboardFilters(KeySelector, FilterOwner);
-	KeySelector.AddObjectFilter(FilterOwner, AActor::StaticClass());
+	KeySelector.AddObjectFilter(FilterOwner, TEXT("EnvQueryActor"), AActor::StaticClass());
 }
 
 bool UEnvQueryItemType_ActorBase::StoreInBlackboard(FBlackboardKeySelector& KeySelector, UBlackboardComponent* Blackboard, const uint8* RawData) const

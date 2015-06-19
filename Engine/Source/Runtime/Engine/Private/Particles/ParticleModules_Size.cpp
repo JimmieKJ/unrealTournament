@@ -42,7 +42,7 @@ void UParticleModuleSize::InitializeDefaults()
 {
 	if (!StartSize.Distribution)
 	{
-		UDistributionVectorUniform* DistributionStartSize = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionStartSize"));
+		UDistributionVectorUniform* DistributionStartSize = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartSize"));
 		DistributionStartSize->Min = FVector(1.0f, 1.0f, 1.0f);
 		DistributionStartSize->Max = FVector(1.0f, 1.0f, 1.0f);
 		StartSize.Distribution = DistributionStartSize;
@@ -146,7 +146,7 @@ void UParticleModuleSizeMultiplyLife::InitializeDefaults()
 {
 	if (!LifeMultiplier.Distribution)
 	{
-		LifeMultiplier.Distribution = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionLifeMultiplier"));
+		LifeMultiplier.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLifeMultiplier"));
 	}
 }
 
@@ -301,7 +301,7 @@ void UParticleModuleSizeMultiplyLife::Update(FParticleEmitterInstance* Owner, in
 
 void UParticleModuleSizeMultiplyLife::SetToSensibleDefaults(UParticleEmitter* Owner)
 {
-	LifeMultiplier.Distribution = Cast<UDistributionVectorConstantCurve>(StaticConstructObject(UDistributionVectorConstantCurve::StaticClass(), this));
+	LifeMultiplier.Distribution = NewObject<UDistributionVectorConstantCurve>(this);
 	UDistributionVectorConstantCurve* LifeMultiplierDist = Cast<UDistributionVectorConstantCurve>(LifeMultiplier.Distribution);
 	if (LifeMultiplierDist)
 	{
@@ -336,7 +336,7 @@ void UParticleModuleSizeScale::InitializeDefaults()
 {
 	if (!SizeScale.Distribution)
 	{
-		SizeScale.Distribution = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionSizeScale"));
+		SizeScale.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSizeScale"));
 	}
 }
 

@@ -19,8 +19,12 @@
 #endif
 
 #if defined CACHE_FREED_OS_ALLOCS
-#	define MAX_CACHED_OS_FREES (32)
-#	define MAX_CACHED_OS_FREES_BYTE_LIMIT (4*1024*1024)
+	#define MAX_CACHED_OS_FREES (64)
+	#if PLATFORM_64BITS
+		#define MAX_CACHED_OS_FREES_BYTE_LIMIT (64*1024*1024)
+	#else
+		#define MAX_CACHED_OS_FREES_BYTE_LIMIT (16*1024*1024)
+	#endif
 #endif
 
 #if defined USE_INTERNAL_LOCKS && !defined USE_COARSE_GRAIN_LOCKS
@@ -37,8 +41,8 @@ DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Waste Current"),	STAT_Binned_WasteCurren
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Waste Peak"),		STAT_Binned_WastePeak,STATGROUP_MemoryAllocator, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Used Current"),		STAT_Binned_UsedCurrent,STATGROUP_MemoryAllocator, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Used Peak"),		STAT_Binned_UsedPeak,STATGROUP_MemoryAllocator, CORE_API);
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Current Allocs"),	STAT_Binned_CurrentAllocs,STATGROUP_MemoryAllocator, CORE_API);
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Total Allocs"),		STAT_Binned_TotalAllocs,STATGROUP_MemoryAllocator, CORE_API);
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Binned Current Allocs"),	STAT_Binned_CurrentAllocs,STATGROUP_MemoryAllocator, CORE_API);
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Binned Total Allocs"),		STAT_Binned_TotalAllocs,STATGROUP_MemoryAllocator, CORE_API);
 DECLARE_MEMORY_STAT_EXTERN(TEXT("Binned Slack Current"),	STAT_Binned_SlackCurrent,STATGROUP_MemoryAllocator, CORE_API);
 
 
@@ -519,7 +523,7 @@ private:
 			for (UPTRINT i=(UPTRINT)PageSize, Offset=0; i<OsBytes; i+=PageSize, ++Offset)
 			{
 				FPoolInfo* TrailingPool = GetPoolInfo(((UPTRINT)Free)+i);
-				checkf(TrailingPool)
+				check(TrailingPool);
 				//Set trailing pools to point back to first pool
 				TrailingPool->SetAllocationSizes(0, 0, Offset, BinnedOSTableIndex);
 			}
@@ -686,17 +690,21 @@ private:
 #ifdef USE_FINE_GRAIN_LOCKS
 		FScopeLock MainLock(&AccessGuard);
 #endif
-		if ((CachedTotal + Size > MAX_CACHED_OS_FREES_BYTE_LIMIT) || (Size > BINNED_ALLOC_POOL_SIZE))
+		if (Size > MAX_CACHED_OS_FREES_BYTE_LIMIT / 4)
 		{
 			FPlatformMemory::BinnedFreeToOS(Ptr);
 			return;
 		}
-		if (FreedPageBlocksNum >= MAX_CACHED_OS_FREES) 
+		while (FreedPageBlocksNum && (FreedPageBlocksNum >= MAX_CACHED_OS_FREES || CachedTotal + Size > MAX_CACHED_OS_FREES_BYTE_LIMIT)) 
 		{
 			//Remove the oldest one
-			void* FreePtr = FreedPageBlocks[FreedPageBlocksNum-1].Ptr;
-			CachedTotal -= FreedPageBlocks[FreedPageBlocksNum-1].ByteSize;
-			--FreedPageBlocksNum;
+			void* FreePtr = FreedPageBlocks[0].Ptr;
+			CachedTotal -= FreedPageBlocks[0].ByteSize;
+			FreedPageBlocksNum--;
+			if (FreedPageBlocksNum)
+			{
+				FMemory::Memmove(&FreedPageBlocks[0], &FreedPageBlocks[1], sizeof(FFreePageBlock) * FreedPageBlocksNum);
+			}
 			FPlatformMemory::BinnedFreeToOS(FreePtr);
 		}
 		FreedPageBlocks[FreedPageBlocksNum].Ptr = Ptr;
@@ -720,13 +728,33 @@ private:
 #endif
 			for (uint32 i=0; i < FreedPageBlocksNum; ++i)
 			{
+				// look for exact matches first, these are aligned to the page size, so it should be quite common to hit these on small pages sizes
+				if (FreedPageBlocks[i].ByteSize == NewSize)
+				{
+					void* Ret=FreedPageBlocks[i].Ptr;
+					OutActualSize=FreedPageBlocks[i].ByteSize;
+					CachedTotal-=FreedPageBlocks[i].ByteSize;
+					if (i < FreedPageBlocksNum - 1)
+					{
+						FMemory::Memmove(&FreedPageBlocks[i], &FreedPageBlocks[i + 1], sizeof(FFreePageBlock) * (FreedPageBlocksNum - i - 1));
+					}
+					FreedPageBlocksNum--;
+					return Ret;
+				}
+			};
+			for (uint32 i=0; i < FreedPageBlocksNum; ++i)
+			{
 				// is it possible (and worth i.e. <25% overhead) to use this block
 				if (FreedPageBlocks[i].ByteSize >= NewSize && FreedPageBlocks[i].ByteSize * 3 <= NewSize * 4)
 				{
 					void* Ret=FreedPageBlocks[i].Ptr;
 					OutActualSize=FreedPageBlocks[i].ByteSize;
 					CachedTotal-=FreedPageBlocks[i].ByteSize;
-					FreedPageBlocks[i]=FreedPageBlocks[--FreedPageBlocksNum];
+					if (i < FreedPageBlocksNum - 1)
+					{
+						FMemory::Memmove(&FreedPageBlocks[i], &FreedPageBlocks[i + 1], sizeof(FFreePageBlock) * (FreedPageBlocksNum - i - 1));
+					}
+					FreedPageBlocksNum--;
 					return Ret;
 				}
 			};
@@ -817,11 +845,11 @@ public:
 		*/
 		HashKeyShift = PoolBitShift+IndirectPoolBitShift;
 		/** Used to mask off the bits that have been used to lookup the indirect table */
-		PoolMask =  ( ( 1 << ( HashKeyShift - PoolBitShift ) ) - 1 );
+		PoolMask =  ( ( 1ull << ( HashKeyShift - PoolBitShift ) ) - 1 );
 		BinnedSizeLimit = PAGE_SIZE_LIMIT/2;
 		BinnedOSTableIndex = BinnedSizeLimit+EXTENED_PAGE_POOL_ALLOCATION_COUNT;
 
-		checkf((BinnedSizeLimit & (BinnedSizeLimit-1)) == 0);
+		check((BinnedSizeLimit & (BinnedSizeLimit-1)) == 0);
 
 
 		// Init tables.
@@ -1017,7 +1045,7 @@ public:
 			if( Pool->TableIndex < BinnedOSTableIndex )
 			{
 				// Allocated from pool, so grow or shrink if necessary.
-				checkf(Pool->TableIndex > 0); // it isn't possible to allocate a size of 0, Malloc will increase the size to DEFAULT_BINNED_ALLOCATOR_ALIGNMENT
+				check(Pool->TableIndex > 0); // it isn't possible to allocate a size of 0, Malloc will increase the size to DEFAULT_BINNED_ALLOCATOR_ALIGNMENT
 				if( NewSize>MemSizeToPoolTable[Pool->TableIndex]->BlockSize || NewSize<=MemSizeToPoolTable[Pool->TableIndex-1]->BlockSize )
 				{
 					NewPtr = Malloc( NewSize, Alignment );
@@ -1088,7 +1116,7 @@ public:
 		}
 		UPTRINT BasePtr;
 		FPoolInfo* Pool = FindPoolInfo((UPTRINT)Original, BasePtr);
-		SizeOut = Pool->TableIndex < BinnedSizeLimit ? MemSizeToPoolTable[Pool->TableIndex]->BlockSize : Pool->GetBytes();
+		SizeOut = Pool->TableIndex < BinnedOSTableIndex ? MemSizeToPoolTable[Pool->TableIndex]->BlockSize : Pool->GetBytes();
 		return true;
 	}
 
@@ -1131,6 +1159,7 @@ public:
 	/** Called once per frame, gathers and sets all memory allocator statistics into the corresponding stats. */
 	virtual void UpdateStats() override
 	{
+		FMalloc::UpdateStats();
 #if STATS
 		SIZE_T	LocalOsCurrent = 0;
 		SIZE_T	LocalOsPeak = 0;
@@ -1166,8 +1195,8 @@ public:
 		SET_MEMORY_STAT( STAT_Binned_WastePeak, LocalWastePeak );
 		SET_MEMORY_STAT( STAT_Binned_UsedCurrent, LocalUsedCurrent );
 		SET_MEMORY_STAT( STAT_Binned_UsedPeak, LocalUsedPeak );
-		SET_MEMORY_STAT( STAT_Binned_CurrentAllocs, LocalCurrentAllocs );
-		SET_MEMORY_STAT( STAT_Binned_TotalAllocs, LocalTotalAllocs );
+		SET_DWORD_STAT( STAT_Binned_CurrentAllocs, LocalCurrentAllocs );
+		SET_DWORD_STAT( STAT_Binned_TotalAllocs, LocalTotalAllocs );
 		SET_MEMORY_STAT( STAT_Binned_SlackCurrent, LocalSlackCurrent );
 #endif
 	}

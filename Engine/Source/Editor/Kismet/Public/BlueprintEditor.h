@@ -459,8 +459,8 @@ public:
 	/** Find all instances of the selected custom event. */
 	void OnFindInstancesCustomEvent();
 
-	/** Handles spawning a graph node in the current graph using the passed in gesture */
-	FReply OnSpawnGraphNodeByShortcut(FInputGesture InGesture, const FVector2D& InPosition, UEdGraph* InGraph);
+	/** Handles spawning a graph node in the current graph using the passed in chord */
+	FReply OnSpawnGraphNodeByShortcut(FInputChord InChord, const FVector2D& InPosition, UEdGraph* InGraph);
 
 	/** 
 	 * Perform the actual promote to variable action on the given pin in the given blueprint.
@@ -782,7 +782,7 @@ protected:
 
 	virtual void OnEditTabClosed(TSharedRef<SDockTab> Tab);
 
-	virtual bool GetBoundsForSelectedNodes(class FSlateRect& Rect, float Padding);
+	virtual bool GetBoundsForSelectedNodes(class FSlateRect& Rect, float Padding) override;
 
 	/**
 	 * Pulls out the pins to use as a template when collapsing a selection to a function with a custom event involved.
@@ -879,10 +879,11 @@ protected:
 	virtual void	PostRedo(bool bSuccess) override;
 	// End of FEditorUndoClient
 
-	/** Get graph appearance */
-	virtual FGraphAppearanceInfo GetGraphAppearance() const;
-	/** Used to get the apperance of a specific graph, GetGraphAppearance() uses the currently focused graph. */
-	FGraphAppearanceInfo GetGraphAppearance(class UEdGraph* InGraph) const;
+	/** Get the graph appearance of the currently focused graph */
+	FGraphAppearanceInfo GetCurrentGraphAppearance() const;
+
+	/** Get the graph appearance of a specific graph, GetCurrentGraphAppearance() uses the currently focused graph. */
+	virtual FGraphAppearanceInfo GetGraphAppearance(class UEdGraph* InGraph) const;
 
 	/** Attempts to invoke the details tab if it's currently possible to. */
 	void TryInvokingDetailsTab(bool bFlash = true);
@@ -943,6 +944,15 @@ private:
 
 	/** Checks to see if it is possible to jump to the selected node's graph definition. */
 	bool CanGoToDefinition() const;
+
+	/** Open documentation for the selected node class */
+	void OnGoToDocumentation();
+
+	/** Can we open documentation for the selected node */
+	bool CanGoToDocumentation();
+
+	/** Util to try and get doc link for the currently selected node */
+	FString GetDocLinkForSelectedNode();
 
 public://@TODO
 	TSharedPtr<FDocumentTracker> DocumentManager;

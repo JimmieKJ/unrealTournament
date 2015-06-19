@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Adds a UDP based transport and tunneling layer to the messaging sub-system for sending and receiving messages between networked computers and devices.",
-	"Category" : "Messaging.Plugins",
+	"Category" : "Misc",
 	"EnabledByDefault" : true,
 
 	"Modules" :

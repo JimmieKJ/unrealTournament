@@ -41,7 +41,7 @@ protected:
 	virtual void BuildDescription();
 
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void InitializeFromAsset(UBehaviorTree& Asset) override;
-
 #endif
+
+	virtual void InitializeFromAsset(UBehaviorTree& Asset) override;
 };

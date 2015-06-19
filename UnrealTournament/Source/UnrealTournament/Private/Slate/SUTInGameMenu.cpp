@@ -44,12 +44,37 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_ChangeTeam","CHANGE TEAM").ToString())
+						.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_ChangeTeam","CHANGE TEAM"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 					]
 				]
 			];
 		}
+
+		if (GS && GS->GetMatchState() == MatchState::MapVoteHappening)
+		{
+			LeftMenuBar->AddSlot()
+			.Padding(5.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.OnClicked(this, &SUTInGameMenu::OnMapVoteClick)
+				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(this, &SUTInGameMenu::GetMapVoteTitle)
+						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+					]
+				]
+			];
+		}
+
+
 /*
 		LeftMenuBar->AddSlot()
 		.Padding(5.0f,0.0f,0.0f,0.0f)
@@ -65,7 +90,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_Spectate","SPECTATE").ToString())
+					.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_Spectate","SPECTATE"))
 					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 				]
 			]
@@ -82,7 +107,7 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 		SNew(SButton)
 		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 		.ContentPadding(FMargin(10.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu").ToString())
+		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"))
 		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 		.OnClicked(this, &SUTInGameMenu::OnCloseMenu, ExitButton)
 	];
@@ -96,7 +121,8 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 		.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
 	];
 
-	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState && GameState->HubGuid.IsValid() )
 	{
 		MenuSpace->AddSlot()
 		.AutoHeight()
@@ -109,8 +135,7 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 			.OnClicked(this, &SUTInGameMenu::OnReturnToLobby, ExitButton)
 		];
 	}
-
-
+	
 	MenuSpace->AddSlot()
 	.AutoHeight()
 	[
@@ -135,16 +160,14 @@ FReply SUTInGameMenu::OnCloseMenu(TSharedPtr<SComboButton> MenuButton)
 FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState && GameState->HubGuid.IsValid() )
 	{
 		CloseMenus();
-		// Connect to that GUID
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (PC)
 		{
-			FString GUID = PlayerOwner->LastLobbyServerGUID;
-			PlayerOwner->LastLobbyServerGUID = TEXT("");
-			PC->ConnectToServerViaGUID(GUID, false, true);
+			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
 		}
 	}
 
@@ -238,7 +261,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenPlayerSettings, DropDownButton)
 			]
@@ -248,7 +271,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenSocialSettings, DropDownButton)
 			]
@@ -258,7 +281,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenWeaponSettings, DropDownButton)
 			]
@@ -268,7 +291,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTInGameMenu::OpenHUDSettings, DropDownButton)
 			]
@@ -278,7 +301,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenSystemSettings, DropDownButton)
 			]
@@ -288,7 +311,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenControlSettings, DropDownButton)
 			]
@@ -308,7 +331,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::ClearCloud, DropDownButton)
 			]
@@ -320,5 +343,26 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 
 }
 
+FReply SUTInGameMenu::OnMapVoteClick()
+{
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState )
+	{
+		PlayerOwner->OpenMapVote(GameState);
+	}
+
+	return FReply::Handled();
+}
+
+FText SUTInGameMenu::GetMapVoteTitle() const
+{
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState )
+	{
+		return FText::Format(NSLOCTEXT("SUTInGameMenu","MapVoteFormat","MAP VOTE ({0})"), FText::AsNumber(GameState->VoteTimer));
+	}
+
+	return NSLOCTEXT("SUWindowsDesktop","MenuBar_MapVote","MAP VOTE");
+}
 
 #endif

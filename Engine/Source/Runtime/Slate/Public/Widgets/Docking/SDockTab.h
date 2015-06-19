@@ -78,27 +78,21 @@ public:
 	/** Construct the widget from the declaration. */
 	void Construct( const FArguments& InArgs );
 
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
+	// SWidget interface
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-
 	virtual FReply OnDragDetected( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent  ) override;
-	
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-
 	virtual void OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
-
 	virtual void OnDragLeave( const FDragDropEvent& DragDropEvent ) override;
-
 	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
-
 	virtual FReply OnTouchStarted( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent ) override;
-
 	virtual FReply OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent ) override;
+	// End of SWidget interface
 
+	// SBorder interface
 	virtual void SetContent(TSharedRef<SWidget> InContent) override;
+	// End of SBorder interface
 
 	void SetLeftContent( TSharedRef<SWidget> InContent );
 	void SetRightContent( TSharedRef<SWidget> InContent );
@@ -112,8 +106,12 @@ public:
 	/** Is this an MajorTab? A tool panel tab? */
 	ETabRole GetTabRole() const;
 
-	/** Returns true if the tab role is NomadTab, but is being visualized as a major tab. */
-	bool IsNomadTabWithMajorTabStyle() const;
+	/** Similar to GetTabRole() but returns the correct role for UI style and user input purposes */
+	ETabRole GetVisualTabRole() const;
+
+	/** Returns true if the tab role is NomadTab, but is being visualized as a major tab */
+	DEPRECATED(4.8, "Use GetVisualTabRole(), which will return ETabRole::MajorTab for nomads with major tab style.")
+	bool IsNomadTabWithMajorTabStyle() const { return GetTabRole() == ETabRole::NomadTab && GetVisualTabRole() == ETabRole::MajorTab; }
 
 	/**
 	 * What should the content area look like for this type of tab?
@@ -238,8 +236,19 @@ public:
 	 */
 	bool HasSiblingTab(const FTabId& SiblingTabId, const bool TreatIndexNoneAsWildcard = true) const;
 
-protected:
+	/** Updates the 'last activated' time to the current time */
+	void UpdateActivationTime()
+	{
+		LastActivationTime = FSlateApplication::Get().GetCurrentTime();
+	}
 
+	/** Returns the time this tab was last activated */
+	double GetLastActivationTime()
+	{
+		return LastActivationTime;
+	}
+protected:
+	
 	/** Gets the dock tab stack this dockable tab resides within, if any */
 	TSharedPtr<SDockingTabStack> GetParentDockTabStack() const;
 
@@ -270,11 +279,21 @@ protected:
 	/** Called when the close button is clicked on the tab. */
 	FReply OnCloseButtonClicked();
 
+	/** The close button tooltip showing the appropriate close command shortcut */
+	FText GetCloseButtonToolTipText() const;
+
 	/** Specify the TabId that was used to spawn this tab. */
 	void SetLayoutIdentifier( const FTabId& TabId );
 
 	/** @return if the close button should be visible. */
 	EVisibility HandleIsCloseButtonVisible() const;
+
+private:
+	/** Activates the tab in its tab well */
+	EActiveTimerReturnType TriggerActivateTab( double InCurrentTime, float InDeltaTime );
+
+	/** The handle to the active tab activation tick */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 
 protected:
 
@@ -330,11 +349,13 @@ protected:
 
 	/** @return the scaling of the tab based on the opening/closing animation */
 	FVector2D GetAnimatedScale() const;
+
 	/** Animation that shows the tab opening up */
 	FCurveSequence SpawnAnimCurve;
 
 	/** Animation that causes the tab to flash */
 	FCurveSequence FlashTabCurve;
+
 	/** Get the desired color of tab. These change during flashing. */
 	float GetFlashValue() const;
 
@@ -343,10 +364,10 @@ protected:
 
 	/** Widget used to show the label on the tab */
 	TSharedPtr<STextBlock> LabelWidget;
+	
 	/** Widget used to show the icon on the tab */
 	TSharedPtr<SImage> IconWidget;
-
-
-	/** The amount of time spent until we bring this tab to the front */
-	float DragTimer;
+	
+	/** Time this tab was last activated */
+	double LastActivationTime;
 };

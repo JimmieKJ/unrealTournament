@@ -7,6 +7,7 @@
 #include "Common.usf"
 #include "DeferredShadingCommon.usf"
 #include "ReflectionEnvironmentShared.usf"
+#include "BRDF.usf"
 
 Texture2D BentNormalAOTexture;
 SamplerState BentNormalAOSampler;
@@ -30,12 +31,28 @@ void SkyLightDiffusePS(
 	if (ShadingModelId > 0)
 	{
 		FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
-		FGBufferData InGBufferData = ScreenSpaceData.GBuffer;
+		FGBufferData GBuffer = ScreenSpaceData.GBuffer;
 
 		float SkyVisibility = 1;
 		float DotProductFactor = 1;
-		float3 SkyLightingNormal = InGBufferData.WorldNormal;
+		float3 SkyLightingNormal = GBuffer.WorldNormal;
 		float3 DiffuseIrradiance = 0;
+
+		// screen position in [-1, 1] screen space
+		float2 ScreenSpacePos = UVAndScreenPos.zw;
+		float3 ScreenVector = normalize(mul(float4(ScreenSpacePos, 1, 0), View.ScreenToWorld).xyz);
+
+		float3 N = GBuffer.WorldNormal;
+		float3 V = -ScreenVector;
+		float NoV = abs( dot(N, V) ) + 1e-5;
+
+		float a = Square( GBuffer.Roughness );
+		float3 DominantDiffuseDir = lerp( N, V, saturate( ( NoV * (1.02341 * a - 1.51174) + -0.511705 * a + 0.755868 ) * a ) );
+		DominantDiffuseDir = normalize( DominantDiffuseDir );
+		SkyLightingNormal = DominantDiffuseDir;
+
+		float3 ABC = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rgb;
+		GBuffer.DiffuseColor *= ABC.z;
 
 #if APPLY_SHADOWING
 		float3 BentNormal = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UV, 0).xyz;
@@ -50,8 +67,8 @@ void SkyLightDiffusePS(
 			// Use more bent normal in corners
 			float BentNormalWeightFactor = SkyVisibility;
 
-			SkyLightingNormal = lerp(NormalizedBentNormal, InGBufferData.WorldNormal, BentNormalWeightFactor);
-			DotProductFactor = lerp(dot(NormalizedBentNormal, InGBufferData.WorldNormal), 1, BentNormalWeightFactor);
+			SkyLightingNormal = lerp(NormalizedBentNormal, DominantDiffuseDir, BentNormalWeightFactor);
+			DotProductFactor = lerp(dot(NormalizedBentNormal, DominantDiffuseDir), 1, BentNormalWeightFactor);
 		}
 		#else
 		{
@@ -70,16 +87,18 @@ void SkyLightDiffusePS(
 		SkyVisibility = saturate(ContrastCurve * ContrastAndNormalizeMulAdd.y + ContrastAndNormalizeMulAdd.z);
 		
 		#if SUPPORT_IRRADIANCE
-			DiffuseIrradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UV, 0).xyz * View.GeneralPurposeTweak;
+			DiffuseIrradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UV, 0).xyz;
 		#endif
 #endif
 
-		float ScalarFactors = lerp(SkyVisibility, 1, OcclusionTintAndMinOcclusion.w) * InGBufferData.GBufferAO * ScreenSpaceData.AmbientOcclusion;
+		SkyVisibility = min(SkyVisibility, min(GBuffer.GBufferAO, ScreenSpaceData.AmbientOcclusion));
+		
+		float ScalarFactors = lerp(SkyVisibility, 1, OcclusionTintAndMinOcclusion.w);
 
-		if (InGBufferData.ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE)
+		if (ShadingModelId == SHADINGMODELID_TWOSIDED_FOLIAGE)
 		{
-			float3 SubsurfaceLookup = GetSkySHDiffuse(-InGBufferData.WorldNormal) * View.SkyLightColor.rgb;
-			float3 SubsurfaceColor = ExtractSubsurfaceColor(InGBufferData);
+			float3 SubsurfaceLookup = GetSkySHDiffuse(-GBuffer.WorldNormal) * View.SkyLightColor.rgb;
+			float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
 			Lighting += ScalarFactors * SubsurfaceLookup * SubsurfaceColor;
 		}
 
@@ -87,9 +106,9 @@ void SkyLightDiffusePS(
 		float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * View.SkyLightColor.rgb;
 		
 		// Apply AO to the sky diffuse and account for darkening due to the geometry term
-		Lighting += (ScalarFactors * DotProductFactor) * DiffuseLookup * InGBufferData.DiffuseColor + (1 - SkyVisibility) * OcclusionTintAndMinOcclusion.xyz;
+		Lighting += (ScalarFactors * DotProductFactor) * DiffuseLookup * GBuffer.DiffuseColor + (1 - SkyVisibility) * OcclusionTintAndMinOcclusion.xyz;
 
-		Lighting += DiffuseIrradiance * InGBufferData.DiffuseColor;
+		Lighting += DiffuseIrradiance * GBuffer.DiffuseColor * (GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion);
 
 		// For debugging
 		#if SUPPORT_IRRADIANCE

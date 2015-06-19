@@ -15,7 +15,7 @@ public:
 
 	/** Widget constructor */
 	void Construct( const FArguments& Args, const TSharedRef< FEpicSurvey >& InEpicSurvey, const TSharedRef< FSurvey >& InSurvey );
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	//virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 
@@ -40,7 +40,8 @@ private:
 	void DisplayPage( int32 NewPageIndex );
 
 private:
-	bool FinishedLoading;
+	/** Initializes the survey once its done loading */
+	EActiveTimerReturnType MonitorLoadStatePostConstruct( double InCurrentTime, float InDeltaTime );
 
 	TSharedPtr< FEpicSurvey > EpicSurvey;
 	TSharedPtr< FSurvey > Survey;

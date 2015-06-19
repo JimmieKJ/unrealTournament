@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "ProjectTargetPlatformEditorPrivatePCH.h"
+#include "IProjectManager.h"
 
 #define LOCTEXT_NAMESPACE "SProjectTargetPlatformSettings"
 

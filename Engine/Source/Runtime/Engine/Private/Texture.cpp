@@ -54,6 +54,10 @@ UTexture::UTexture(const FObjectInitializer& ObjectInitializer)
 	MipGenSettings = TMGS_FromTextureGroup;
 	CompositeTextureMode = CTM_NormalRoughnessToAlpha;
 	CompositePower = 1.0f;
+
+	PaddingColor = FColor::Black;
+	ChromaKeyColor = FColorList::Magenta;
+	ChromaKeyThreshold = 1.0f / 255.0f;
 #endif // #if WITH_EDITORONLY_DATA
 
 	if (FApp::CanEverRender() && !IsTemplate())
@@ -117,6 +121,7 @@ void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 		static const FName DeferCompressionName("DeferCompression");
 #if WITH_EDITORONLY_DATA
 		static const FName MaxTextureSizeName("MaxTextureSize");
+		static const FName PowerOfTwoModeName("PowerOfTwoMode");
 #endif // #if WITH_EDITORONLY_DATA
 
 		const FName PropertyName = PropertyThatChanged->GetFName();
@@ -137,7 +142,23 @@ void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 			}
 			else
 			{
-				MaxTextureSize = FMath::Min<int32>(FMath::RoundUpToPowerOfTwo(MaxTextureSize), GetMaximumDimension());
+				if (!Source.IsPowerOfTwo() && PowerOfTwoMode == ETexturePowerOfTwoSetting::None)
+				{
+					// Force power-of-two padding if a max texture size is specified on a non power-of-two sized texture
+					PowerOfTwoMode = ETexturePowerOfTwoSetting::PadToPowerOfTwo;
+				}
+				else
+				{
+					MaxTextureSize = FMath::Min<int32>(FMath::RoundUpToPowerOfTwo(MaxTextureSize), GetMaximumDimension());
+				}
+			}
+		}
+		else if (PropertyName == PowerOfTwoModeName)
+		{
+			if (PowerOfTwoMode == ETexturePowerOfTwoSetting::None && MaxTextureSize > 0 && !Source.IsPowerOfTwo())
+			{
+				// Force no max texture size if the source texture is not power-of-two sized and we are requesting no power-of-two padding
+				MaxTextureSize = 0;
 			}
 		}
 #endif // #if WITH_EDITORONLY_DATA
@@ -326,7 +347,9 @@ void UTexture::FinishDestroy()
 	}
 
 	CleanupCachedRunningPlatformData();
-	CleanupCachedCookedPlatformData();
+#if WITH_EDITOR
+	ClearAllCachedCookedPlatformData();
+#endif
 }
 
 void UTexture::PreSave()
@@ -458,6 +481,9 @@ bool UTexture::ForceUpdateTextureStreaming()
 FTextureSource::FTextureSource()
 	: LockedMipData(NULL)
 	, LockedMips(0)
+#if WITH_EDITOR
+	, bHasHadBulkDataCleared(false)
+#endif
 #if WITH_EDITORONLY_DATA
 	, SizeX(0)
 	, SizeY(0)
@@ -515,8 +541,8 @@ void FTextureSource::Init2DWithMipChain(
 	ETextureSourceFormat NewFormat
 	)
 {
-	int32 NumMips = FMath::Max(FMath::CeilLogTwo(NewSizeX),FMath::CeilLogTwo(NewSizeY)) + 1;
-	Init(NewSizeX, NewSizeY, 1, NumMips, NewFormat);
+	int32 NewMipCount = FMath::Max(FMath::CeilLogTwo(NewSizeX),FMath::CeilLogTwo(NewSizeY)) + 1;
+	Init(NewSizeX, NewSizeY, 1, NewMipCount, NewFormat);
 }
 
 void FTextureSource::InitCubeWithMipChain(
@@ -525,8 +551,8 @@ void FTextureSource::InitCubeWithMipChain(
 	ETextureSourceFormat NewFormat
 	)
 {
-	int32 NumMips = FMath::Max(FMath::CeilLogTwo(NewSizeX),FMath::CeilLogTwo(NewSizeY)) + 1;
-	Init(NewSizeX, NewSizeY, 6, NumMips, NewFormat);
+	int32 NewMipCount = FMath::Max(FMath::CeilLogTwo(NewSizeX),FMath::CeilLogTwo(NewSizeY)) + 1;
+	Init(NewSizeX, NewSizeY, 6, NewMipCount, NewFormat);
 }
 
 void FTextureSource::Compress()
@@ -590,7 +616,9 @@ uint8* FTextureSource::LockMip(int32 MipIndex)
 						if (RawData->Num() > 0)
 						{
 							LockedMipData = (uint8*)FMemory::Malloc(RawData->Num());
-							FMemory::Memcpy(LockedMipData, RawData->GetData(), RawData->Num());
+							// PVS-Studio does not understand that IImageWrapper::GetRaw's return value validates the pointer, so we disable
+							// the warning that we are using the RawData pointer before checking for null:
+							FMemory::Memcpy(LockedMipData, RawData->GetData(), RawData->Num()); //-V595
 						}
 					}
 					if (RawData == NULL || RawData->Num() == 0)
@@ -773,6 +801,16 @@ void FTextureSource::ForceGenerateGuid()
 	bGuidIsHash = false;
 }
 
+void FTextureSource::ReleaseSourceMemory()
+{
+	bHasHadBulkDataCleared = true;
+	if (BulkData.IsLocked())
+	{
+		BulkData.Unlock();
+	}
+	BulkData.RemoveBulkData();
+}
+
 void FTextureSource::RemoveSourceData()
 {
 	SizeX = 0;
@@ -820,6 +858,12 @@ void FTextureSource::UseHashAsGuid()
 		BulkData.Unlock();
 		Id = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
 	}
+}
+
+void FTextureSource::SetId(const FGuid& InId, bool bInGuidIsHash)
+{
+	Id = InId;
+	bGuidIsHash = bInGuidIsHash;
 }
 
 uint32 UTexture::GetMaximumDimension() const

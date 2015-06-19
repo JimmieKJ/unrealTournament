@@ -321,7 +321,7 @@ protected:
 		return AllFrames.Num() > 0;
 	}
 
-	bool ShouldUpdateData()
+	bool ShouldUpdateData() const
 	{
 		return bUpdateData;
 	}
@@ -395,4 +395,11 @@ protected:
 
 	/** Cursor type. */
 	EMiniviewCursor::Type CursorType;
+
+private:
+	/** Actively ticks the widget to update to process new frame data as long as any frames have been added recently */
+	EActiveTimerReturnType EnsureDataUpdateDuringPreview( double InCurrentTime, float InDeltaTime );
+
+	/** True if the active timer is currently registered */
+	bool bIsActiveTimerRegistered;
 };

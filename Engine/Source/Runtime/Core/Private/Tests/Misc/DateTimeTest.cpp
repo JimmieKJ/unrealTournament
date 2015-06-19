@@ -4,14 +4,14 @@
 #include "AutomationTest.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDateTimeTest, "Core.Misc.DateTime", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDateTimeTest, "System.Core.Misc.DateTime", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FDateTimeTest::RunTest( const FString& Parameters )
 {
-	const int32 UnixEpochTimestamp = 0;
-	const int32 UnixBillenniumTimestamp = 1000000000;
-	const int32 UnixOnesTimestamp = 1111111111;
-	const int32 UnixDecimalSequenceTimestamp = 1234567890;
+	const int64 UnixEpochTimestamp = 0;
+	const int64 UnixBillenniumTimestamp = 1000000000;
+	const int64 UnixOnesTimestamp = 1111111111;
+	const int64 UnixDecimalSequenceTimestamp = 1234567890;
 
 	const FDateTime UnixEpoch = FDateTime::FromUnixTimestamp(UnixEpochTimestamp);
 	const FDateTime UnixBillennium = FDateTime::FromUnixTimestamp(UnixBillenniumTimestamp);

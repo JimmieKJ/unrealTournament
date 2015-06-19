@@ -23,7 +23,6 @@
 #include "Editor/NewLevelDialog/Public/NewLevelDialogModule.h"
 #include "DelegateFilter.h"
 #include "BlueprintUtilities.h"
-#include "LightingTools.h"
 #include "MRUFavoritesList.h"
 #include "Editor/SceneOutliner/Private/SSocketChooser.h"
 #include "SnappingUtils.h"
@@ -41,6 +40,7 @@
 #include "AnalyticsEventAttribute.h"
 #include "IAnalyticsProvider.h"
 #include "ReferenceViewer.h"
+#include "ISizeMapModule.h"
 #include "Developer/MeshUtilities/Public/MeshUtilities.h"
 #include "EditorClassUtils.h"
 #include "ComponentEditorUtils.h"
@@ -63,6 +63,7 @@
 #include "Animation/SkeletalMeshActor.h"
 #include "Editor/Persona/Public/AnimationRecorder.h"
 #include "Editor/KismetWidgets/Public/CreateBlueprintFromActorDialog.h"
+#include "EditorProjectSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LevelEditorActions, Log, All);
 
@@ -252,6 +253,9 @@ void FLevelEditorActionCallbacks::OpenFavoriteFile( int32 FavoriteFileIndex )
 		{
 			// Load the requested level.
 			FEditorFileUtils::LoadMap( FileName );
+
+			// Move the item to the head of the list
+			MRUFavoritesList->MoveFavoritesItemToHead( FileName );
 		}
 		else
 		{
@@ -306,11 +310,16 @@ void FLevelEditorActionCallbacks::RemoveFavorite( int32 FavoriteFileIndex )
 
 bool FLevelEditorActionCallbacks::ToggleFavorite_CanExecute()
 {
-	FString FileName;
-	const bool bMapFileExists = FPackageName::DoesPackageExist(GetWorld()->GetOutermost()->GetName(), NULL, &FileName);
-	
-	// Disable the favorites button if the map isn't associated to a file yet (new map, never before saved, etc.)
-	return bMapFileExists;
+	if( GetWorld() && GetWorld()->GetOutermost() )
+	{
+		FString FileName;
+		const bool bMapFileExists = FPackageName::DoesPackageExist(GetWorld()->GetOutermost()->GetName(), NULL, &FileName);
+
+		// Disable the favorites button if the map isn't associated to a file yet (new map, never before saved, etc.)
+		return bMapFileExists;
+	}
+
+	return false;
 }
 
 
@@ -334,7 +343,6 @@ bool FLevelEditorActionCallbacks::ToggleFavorite_IsChecked()
 
 	return bIsChecked;
 }
-
 
 bool FLevelEditorActionCallbacks::CanSaveWorld()
 {
@@ -455,12 +463,13 @@ void FLevelEditorActionCallbacks::AttachToSocketSelection(const FName SocketName
 
 void FLevelEditorActionCallbacks::SetMaterialQualityLevel( EMaterialQualityLevel::Type NewQualityLevel )
 {
-	GUnrealEd->AccessEditorUserSettings().MaterialQualityLevel = NewQualityLevel;
-	GUnrealEd->AccessEditorUserSettings().PostEditChange();
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+	Settings->MaterialQualityLevel = NewQualityLevel;
+	Settings->PostEditChange();
 
 	//Ensure the material quality cvar is also set.
 	static IConsoleVariable* MaterialQualityLevelVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MaterialQualityLevel"));
-	MaterialQualityLevelVar->Set(NewQualityLevel, ECVF_SetByConsole);
+	MaterialQualityLevelVar->Set(NewQualityLevel, ECVF_SetByScalability);
 
 	GUnrealEd->RedrawAllViewports();
 }
@@ -499,10 +508,10 @@ bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewChecked(ERHIFeatureLevel:
 
 void FLevelEditorActionCallbacks::ConfigureLightingBuildOptions( const FLightingBuildOptions& Options )
 {
-	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"),		Options.bOnlyBuildSelected,			GEditorUserSettingsIni );
-	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"),	Options.bOnlyBuildCurrentLevel,		GEditorUserSettingsIni );
-	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"),Options.bOnlyBuildSelectedLevels,	GEditorUserSettingsIni );
-	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"),	Options.bOnlyBuildVisibility,		GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"),		Options.bOnlyBuildSelected,			GEditorPerProjectIni );
+	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"),	Options.bOnlyBuildCurrentLevel,		GEditorPerProjectIni );
+	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"),Options.bOnlyBuildSelectedLevels,	GEditorPerProjectIni );
+	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"),	Options.bOnlyBuildVisibility,		GEditorPerProjectIni );
 }
 
 
@@ -563,7 +572,7 @@ void FLevelEditorActionCallbacks::BuildLightingOnly_VisibilityOnly_Execute()
 bool FLevelEditorActionCallbacks::LightingBuildOptions_UseErrorColoring_IsChecked()
 {
 	bool bUseErrorColoring = false;
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), bUseErrorColoring, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), bUseErrorColoring, GEditorPerProjectIni);
 	return bUseErrorColoring;
 }
 
@@ -571,15 +580,15 @@ bool FLevelEditorActionCallbacks::LightingBuildOptions_UseErrorColoring_IsChecke
 void FLevelEditorActionCallbacks::LightingBuildOptions_UseErrorColoring_Toggled()
 {
 	bool bUseErrorColoring = false;
-	GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), bUseErrorColoring, GEditorUserSettingsIni );
-	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), !bUseErrorColoring, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), bUseErrorColoring, GEditorPerProjectIni );
+	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), !bUseErrorColoring, GEditorPerProjectIni );
 }
 
 
 bool FLevelEditorActionCallbacks::LightingBuildOptions_ShowLightingStats_IsChecked()
 {
 	bool bShowLightingBuildInfo = false;
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), bShowLightingBuildInfo, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), bShowLightingBuildInfo, GEditorPerProjectIni);
 	return bShowLightingBuildInfo;
 }
 
@@ -587,8 +596,8 @@ bool FLevelEditorActionCallbacks::LightingBuildOptions_ShowLightingStats_IsCheck
 void FLevelEditorActionCallbacks::LightingBuildOptions_ShowLightingStats_Toggled()
 {
 	bool bShowLightingBuildInfo = false;
-	GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), bShowLightingBuildInfo, GEditorUserSettingsIni );
-	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), !bShowLightingBuildInfo, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), bShowLightingBuildInfo, GEditorPerProjectIni );
+	GConfig->SetBool( TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), !bShowLightingBuildInfo, GEditorPerProjectIni );
 }
 
 
@@ -613,77 +622,22 @@ void FLevelEditorActionCallbacks::BuildPathsOnly_Execute()
 	FEditorBuildUtils::EditorBuild( GetWorld(), EBuildOptions::BuildAIPaths );
 }
 
+void FLevelEditorActionCallbacks::BuildLODsOnly_Execute()
+{
+	// Build HLOD
+	FEditorBuildUtils::EditorBuild(GetWorld(), EBuildOptions::BuildHierarchicalLOD);
+}
 
 bool FLevelEditorActionCallbacks::IsLightingQualityChecked( ELightingBuildQuality TestQuality )
 {
 	int32 CurrentQualityLevel;
-	GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), CurrentQualityLevel, GEditorUserSettingsIni);
+	GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), CurrentQualityLevel, GEditorPerProjectIni);
 	return TestQuality == CurrentQualityLevel;
 }
 
 void FLevelEditorActionCallbacks::SetLightingQuality( ELightingBuildQuality NewQuality )
 {
-	GConfig->SetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), (int32)NewQuality, GEditorUserSettingsIni);
-}
-
-void FLevelEditorActionCallbacks::SetLightingToolShowBounds()
-{
-	FLightingToolsSettings& Settings = FLightingToolsSettings::Get();
-	Settings.bShowLightingBounds = !Settings.bShowLightingBounds;
-	Settings.ApplyToggle();
-}
-
-bool FLevelEditorActionCallbacks::IsLightingToolShowBoundsChecked()
-{
-	return FLightingToolsSettings::Get().bShowLightingBounds;
-}
-
-void FLevelEditorActionCallbacks::SetLightingToolShowTraces()
-{
-	FLightingToolsSettings& Settings = FLightingToolsSettings::Get();
-	Settings.bShowShadowTraces = !Settings.bShowShadowTraces;
-	Settings.ApplyToggle();
-}
-
-bool FLevelEditorActionCallbacks::IsLightingToolShowTracesChecked()
-{
-	return FLightingToolsSettings::Get().bShowShadowTraces;
-}
-
-void FLevelEditorActionCallbacks::SetLightingToolShowDirectOnly()
-{
-	FLightingToolsSettings& Settings = FLightingToolsSettings::Get();
-	Settings.bShowDirectOnly = !Settings.bShowDirectOnly;
-	Settings.ApplyToggle();
-}
-
-bool FLevelEditorActionCallbacks::IsLightingToolShowDirectOnlyChecked()
-{
-	return FLightingToolsSettings::Get().bShowDirectOnly;
-}
-
-void FLevelEditorActionCallbacks::SetLightingToolShowIndirectOnly()
-{
-	FLightingToolsSettings& Settings = FLightingToolsSettings::Get();
-	Settings.bShowIndirectOnly = !Settings.bShowIndirectOnly;
-	Settings.ApplyToggle();
-}
-
-bool FLevelEditorActionCallbacks::IsLightingToolShowIndirectOnlyChecked()
-{
-	return FLightingToolsSettings::Get().bShowIndirectOnly;
-}
-
-void FLevelEditorActionCallbacks::SetLightingToolShowIndirectSamples()
-{
-	FLightingToolsSettings& Settings = FLightingToolsSettings::Get();
-	Settings.bShowIndirectSamples = !Settings.bShowIndirectSamples;
-	Settings.ApplyToggle();
-}
-
-bool FLevelEditorActionCallbacks::IsLightingToolShowIndirectSamplesChecked()
-{
-	return FLightingToolsSettings::Get().bShowIndirectSamples;
+	GConfig->SetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), (int32)NewQuality, GEditorPerProjectIni);
 }
 
 float FLevelEditorActionCallbacks::GetLightingDensityIdeal()
@@ -1038,6 +992,38 @@ bool FLevelEditorActionCallbacks::CanViewReferences()
 	return ReferencedAssets.Num() > 0;
 }
 
+void FLevelEditorActionCallbacks::ViewSizeMap_Execute()
+{
+	if( GEditor->GetSelectedActorCount() > 0 )
+	{
+		TArray< UObject* > ReferencedAssets;
+		GEditor->GetReferencedAssetsForEditorSelection( ReferencedAssets );
+
+		if (ReferencedAssets.Num() > 0)
+		{
+			TArray< FName > ViewableObjects;
+			for( auto ObjectIter = ReferencedAssets.CreateConstIterator(); ObjectIter; ++ObjectIter )
+			{
+				// Don't allow user to perform certain actions on objects that aren't actually assets (e.g. Level Script blueprint objects)
+				const auto EditingObject = *ObjectIter;
+				if( EditingObject != NULL && EditingObject->IsAsset() )
+				{
+					ViewableObjects.Add( EditingObject->GetOuter()->GetFName());
+				}
+			}
+
+			ISizeMapModule::Get().InvokeSizeMapTab(ViewableObjects);
+		}
+	}
+}
+
+bool FLevelEditorActionCallbacks::CanViewSizeMap()
+{
+	TArray< UObject* > ReferencedAssets;
+	GEditor->GetReferencedAssetsForEditorSelection(ReferencedAssets);
+	return ReferencedAssets.Num() > 0;
+}
+
 void FLevelEditorActionCallbacks::EditAsset_Clicked( const EToolkitMode::Type ToolkitMode, TWeakPtr< SLevelEditor > LevelEditor, bool bConfirmMultiple )
 {
 	if( GEditor->GetSelectedActorCount() > 0 )
@@ -1166,7 +1152,7 @@ void FLevelEditorActionCallbacks::GoHere_Clicked( const FVector* Point )
 				static FName FocusOnPoint = FName(TEXT("FocusOnPoint"));
 				FCollisionQueryParams LineParams(FocusOnPoint, true);
 
-				if(GCurrentLevelEditingViewportClient->GetWorld()->LineTraceSingle(HitResult, WorldOrigin, WorldOrigin + WorldDirection * HALF_WORLD_MAX, LineParams, FCollisionObjectQueryParams(ECC_WorldStatic)))
+				if(GCurrentLevelEditingViewportClient->GetWorld()->LineTraceSingleByObjectType(HitResult, WorldOrigin, WorldOrigin + WorldDirection * HALF_WORLD_MAX, FCollisionObjectQueryParams(ECC_WorldStatic), LineParams))
 				{
 					ZoomToPoint = HitResult.ImpactPoint;
 				}
@@ -1358,7 +1344,7 @@ bool FLevelEditorActionCallbacks::Duplicate_CanExecute()
 	if (GEditor->GetSelectedComponentCount() > 0)
 	{
 		TArray<UActorComponent*> SelectedComponents;
-		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		for (FSelectionIterator It(GEditor->GetSelectedComponentIterator()); It; ++It)
 		{
 			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
 		}
@@ -1394,7 +1380,7 @@ bool FLevelEditorActionCallbacks::Delete_CanExecute()
 	if (GEditor->GetSelectedComponentCount() > 0)
 	{
 		TArray<UActorComponent*> SelectedComponents;
-		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		for (FSelectionIterator It(GEditor->GetSelectedComponentIterator()); It; ++It)
 		{
 			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
 		}
@@ -1467,7 +1453,7 @@ bool FLevelEditorActionCallbacks::Cut_CanExecute()
 	{
 		// Make sure the components can be copied and deleted
 		TArray<UActorComponent*> SelectedComponents;
-		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		for (FSelectionIterator It(GEditor->GetSelectedComponentIterator()); It; ++It)
 		{
 			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
 		}
@@ -1504,7 +1490,7 @@ bool FLevelEditorActionCallbacks::Copy_CanExecute()
 	if (GEditor->GetSelectedComponentCount() > 0)
 	{
 		TArray<UActorComponent*> SelectedComponents;
-		for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+		for (FSelectionIterator It(GEditor->GetSelectedComponentIterator()); It; ++It)
 		{
 			SelectedComponents.Add(CastChecked<UActorComponent>(*It));
 		}
@@ -1658,7 +1644,7 @@ void FLevelEditorActionCallbacks::OnSelectStationaryLightsExceedingOverlap()
 
 void FLevelEditorActionCallbacks::OnSurfaceAlignment( ETexAlign AlignmentMode )
 {
-	GTexAlignTools.GetAligner( AlignmentMode )->Align( AlignmentMode );
+	GTexAlignTools.GetAligner( AlignmentMode )->Align( GetWorld(), AlignmentMode );
 }
 
 void FLevelEditorActionCallbacks::RegroupActor_Clicked()
@@ -1691,34 +1677,6 @@ void FLevelEditorActionCallbacks::RemoveActorsFromGroup_Clicked()
 	GUnrealEd->edactRemoveFromGroup();
 }
 
-void FLevelEditorActionCallbacks::MergeActors_Clicked()
-{
-	GUnrealEd->edactMergeActors();
-}
-
-bool FLevelEditorActionCallbacks::CanExecuteMergeActors()
-{
-	IMeshUtilities* MeshUtilities = FModuleManager::Get().LoadModulePtr<IMeshUtilities>("MeshUtilities");
-	
-	if (MeshUtilities && MeshUtilities->GetMeshMergingInterface() != nullptr)
-	{
-		FSelectedActorInfo Info = AssetSelectionUtils::GetSelectedActorInfo();
-		return (Info.bHaveStaticMeshComponent || Info.bHaveLandscape);
-	}
-	
-	return false;
-}
-
-void FLevelEditorActionCallbacks::MergeActorsByMaterials_Clicked()
-{
-	GUnrealEd->edactMergeActorsByMaterials();
-}
-
-bool FLevelEditorActionCallbacks::CanExecuteMergeActorsByMaterials()
-{
-	FSelectedActorInfo Info = AssetSelectionUtils::GetSelectedActorInfo();
-	return Info.bHaveStaticMeshComponent;
-}
 
 void FLevelEditorActionCallbacks::LocationGridSnap_Clicked()
 {
@@ -2058,7 +2016,7 @@ void FLevelEditorActionCallbacks::OpenLevelBlueprint( TWeakPtr< SLevelEditor > L
 void FLevelEditorActionCallbacks::CreateBlankBlueprintClass()
 {
 	// Use the BlueprintFactory to allow the user to pick a parent class for the new Blueprint class
-	UBlueprintFactory* NewFactory = Cast<UBlueprintFactory>(ConstructObject<UFactory>( UBlueprintFactory::StaticClass() ));
+	UBlueprintFactory* NewFactory = Cast<UBlueprintFactory>(NewObject<UFactory>(GetTransientPackage(), UBlueprintFactory::StaticClass()));
 	FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(NewFactory);
 	if ( NewFactory->ConfigureProperties() )
 	{
@@ -2133,9 +2091,11 @@ bool FLevelEditorActionCallbacks::OnGetTransformWidgetVisibility()
 
 void FLevelEditorActionCallbacks::OnAllowTranslucentSelection()
 {
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+
 	// Toggle 'allow select translucent'
-	GEditor->AccessEditorUserSettings().bAllowSelectTranslucent = !GEditor->AccessEditorUserSettings().bAllowSelectTranslucent;
-	GEditor->AccessEditorUserSettings().PostEditChange();
+	Settings->bAllowSelectTranslucent = !Settings->bAllowSelectTranslucent;
+	Settings->PostEditChange();
 
 	// Need to refresh hit proxies as we changed what should be rendered into them
 	GUnrealEd->RedrawAllViewports();
@@ -2143,7 +2103,7 @@ void FLevelEditorActionCallbacks::OnAllowTranslucentSelection()
 
 bool FLevelEditorActionCallbacks::OnIsAllowTranslucentSelectionEnabled()
 {
-	return GEditor->GetEditorUserSettings().bAllowSelectTranslucent == true;
+	return GetDefault<UEditorPerProjectUserSettings>()->bAllowSelectTranslucent == true;
 }
 
 void FLevelEditorActionCallbacks::OnAllowGroupSelection()
@@ -2309,6 +2269,20 @@ bool FLevelEditorActionCallbacks::GetAudioMuted()
 void FLevelEditorActionCallbacks::OnAudioMutedChanged(bool bMuted)
 {
 	GEditor->MuteRealTimeAudio(bMuted);
+}
+
+void FLevelEditorActionCallbacks::SnapObjectToView_Clicked()
+{
+	for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
+	{
+		AActor* Actor = Cast<AActor>(*It);
+		FVector location = GCurrentLevelEditingViewportClient->GetViewLocation();
+		FRotator rotation = GCurrentLevelEditingViewportClient->GetViewRotation();
+
+		Actor->SetActorLocation(location);
+		Actor->SetActorRotation(rotation);
+	}
+
 }
 
 void FLevelEditorActionCallbacks::OnEnableActorSnap()
@@ -2550,6 +2524,117 @@ void FLevelEditorActionCallbacks::MoveActorTo_Clicked( const bool InAlign, const
 	GEditor->RebuildAlteredBSP(); // Update the Bsp of any levels containing a modified brush
 }
 
+void FLevelEditorActionCallbacks::SnapTo2DLayer_Clicked()
+{
+	// Fires ULevel::LevelDirtiedEvent when falling out of scope.
+	FScopedLevelDirtied LevelDirtyCallback;
+
+	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
+	const ULevelEditor2DSettings* Settings2D = GetDefault<ULevelEditor2DSettings>();
+	if (Settings2D->SnapLayers.IsValidIndex(ViewportSettings->ActiveSnapLayerIndex))
+	{
+		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "SnapSelection2D", "Snap Selection to 2D Layer"));
+
+		float SnapDepth = Settings2D->SnapLayers[ViewportSettings->ActiveSnapLayerIndex].Depth;
+		USelection* SelectedActors = GEditor->GetSelectedActors();
+		for (FSelectionIterator Iter(*SelectedActors); Iter; ++Iter)
+		{
+			AActor* Actor = CastChecked<AActor>(*Iter);
+
+			// Only snap actors that are not attached to something else
+			if (Actor->GetAttachParentActor() == nullptr)
+			{
+				FTransform Transform = Actor->GetTransform();
+				FVector CurrentLocation = Transform.GetLocation();
+
+				switch (Settings2D->SnapAxis)
+				{
+				case ELevelEditor2DAxis::X: CurrentLocation.X = SnapDepth; break;
+				case ELevelEditor2DAxis::Y: CurrentLocation.Y = SnapDepth; break;
+				case ELevelEditor2DAxis::Z: CurrentLocation.Z = SnapDepth; break;
+				}
+
+				Transform.SetLocation(CurrentLocation);
+				Actor->Modify();
+				Actor->SetActorTransform(Transform);
+
+				Actor->InvalidateLightingCache();
+				Actor->UpdateComponentTransforms();
+
+				Actor->MarkPackageDirty();
+				LevelDirtyCallback.Request();
+			}
+		}
+
+		GEditor->RedrawLevelEditingViewports(true);
+		GEditor->RebuildAlteredBSP();
+	}
+}
+
+bool FLevelEditorActionCallbacks::CanSnapTo2DLayer()
+{
+	const ULevelEditor2DSettings* Settings = GetDefault<ULevelEditor2DSettings>();
+	return Settings->SnapLayers.IsValidIndex(GetDefault<ULevelEditorViewportSettings>()->ActiveSnapLayerIndex) && (GEditor->GetSelectedActorCount() > 0);
+}
+
+void FLevelEditorActionCallbacks::MoveSelectionToDifferent2DLayer_Clicked(bool bGoingUp, bool bForceToTopOrBottom)
+{
+	// Change the active layer first
+	const ULevelEditor2DSettings* Settings2D = GetDefault<ULevelEditor2DSettings>();
+	ULevelEditorViewportSettings* SettingsVP = GetMutableDefault<ULevelEditorViewportSettings>();
+
+	const int32 NumLayers = Settings2D->SnapLayers.Num();
+
+	if (NumLayers > 0)
+	{
+		if (bGoingUp && (SettingsVP->ActiveSnapLayerIndex > 0))
+		{
+			SettingsVP->ActiveSnapLayerIndex = bForceToTopOrBottom ? 0 : (SettingsVP->ActiveSnapLayerIndex - 1);
+			SettingsVP->PostEditChange();
+		}
+		else if (!bGoingUp && ((SettingsVP->ActiveSnapLayerIndex + 1) < NumLayers))
+		{
+			SettingsVP->ActiveSnapLayerIndex = bForceToTopOrBottom ? (NumLayers - 1) : (SettingsVP->ActiveSnapLayerIndex + 1);
+			SettingsVP->PostEditChange();
+		}
+	}
+
+	// Snap the selection to the new active layer
+	SnapTo2DLayer_Clicked();
+}
+
+bool FLevelEditorActionCallbacks::CanMoveSelectionToDifferent2DLayer(bool bGoingUp)
+{
+	const ULevelEditor2DSettings* Settings2D = GetDefault<ULevelEditor2DSettings>();
+	const ULevelEditorViewportSettings* SettingsVP = GetMutableDefault<ULevelEditorViewportSettings>();
+
+	const int32 SelectedIndex = SettingsVP->ActiveSnapLayerIndex;
+	const int32 NumLayers = Settings2D->SnapLayers.Num();
+
+	const bool bHasLayerInDirection = bGoingUp ? (SelectedIndex > 0) : (SelectedIndex + 1 < NumLayers);
+	const bool bHasActorSelected = GEditor->GetSelectedActorCount() > 0;
+
+	// Allow it even if there is no layer in the corresponding direction, to let it double as a snap operation shortcut even when at the end stops
+	return bHasLayerInDirection || bHasActorSelected;
+}
+
+void FLevelEditorActionCallbacks::Select2DLayerDeltaAway_Clicked(int32 Delta)
+{
+	const ULevelEditor2DSettings* Settings2D = GetDefault<ULevelEditor2DSettings>();
+	ULevelEditorViewportSettings* SettingsVP = GetMutableDefault<ULevelEditorViewportSettings>();
+
+	const int32 SelectedIndex = SettingsVP->ActiveSnapLayerIndex;
+	const int32 NumLayers = Settings2D->SnapLayers.Num();
+
+	if (NumLayers > 0)
+	{
+		const int32 NewIndex = ((NumLayers + SelectedIndex + Delta) % NumLayers);
+
+		SettingsVP->ActiveSnapLayerIndex = NewIndex;
+		SettingsVP->PostEditChange();
+	}
+}
+
 void FLevelEditorActionCallbacks::SnapToFloor_Clicked( bool InAlign, bool InUseLineTrace, bool InUseBounds, bool InUsePivot )
 {
 	const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "SnapActorsToFloor", "Snap Actors To Floor") );
@@ -2779,15 +2864,15 @@ class UWorld* FLevelEditorActionCallbacks::GetWorld()
 PRAGMA_DISABLE_OPTIMIZATION
 void FLevelEditorCommands::RegisterCommands()
 {
-	UI_COMMAND( BrowseDocumentation, "Documentation...", "Opens the main documentation page", EUserInterfaceActionType::Button, FInputGesture( EKeys::F1 ) );
-	UI_COMMAND( BrowseAPIReference, "API Reference...", "Opens the API reference documentation", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( BrowseViewportControls, "Viewport Controls...", "Opens the viewport controls cheat sheet", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( NewLevel, "New Level...", "Create a new level, or choose a level template to start from.", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Control, EKeys::N ) );
-	UI_COMMAND( OpenLevel, "Open Level...", "Loads an existing level", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Control, EKeys::O ) );
-	UI_COMMAND( Save, "Save", "Saves the current level to disk", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SaveAs, "Save As...", "Save the current level as...", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift|EModifierKey::Control, EKeys::S ) );
-	UI_COMMAND( SaveAllLevels, "Save All Levels", "Saves all unsaved levels to disk", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ToggleFavorite, "Toggle Favorite", "Sets whether the currently loaded level will appear in the list of favorite levels", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( BrowseDocumentation, "Documentation...", "Opens the main documentation page", EUserInterfaceActionType::Button, FInputChord( EKeys::F1 ) );
+	UI_COMMAND( BrowseAPIReference, "API Reference...", "Opens the API reference documentation", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BrowseViewportControls, "Viewport Controls...", "Opens the viewport controls cheat sheet", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( NewLevel, "New Level...", "Create a new level, or choose a level template to start from.", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::N ) );
+	UI_COMMAND( OpenLevel, "Open Level...", "Loads an existing level", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::O ) );
+	UI_COMMAND( Save, "Save", "Saves the current level to disk", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SaveAs, "Save As...", "Save the current level as...", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift|EModifierKey::Control, EKeys::S ) );
+	UI_COMMAND( SaveAllLevels, "Save All Levels", "Saves all unsaved levels to disk", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ToggleFavorite, "Toggle Favorite", "Sets whether the currently loaded level will appear in the list of favorite levels", EUserInterfaceActionType::Button, FInputChord() );
 
 	for( int32 CurRecentIndex = 0; CurRecentIndex < FLevelEditorCommands::MaxRecentFiles; ++CurRecentIndex )
 	{
@@ -2800,287 +2885,260 @@ void FLevelEditorCommands::RegisterCommands()
 				FText::Format( NSLOCTEXT( "LevelEditorCommands", "OpenRecentFile", "Open Recent File {0}" ), FText::AsNumber( CurRecentIndex ) ),
 				NSLOCTEXT( "LevelEditorCommands", "OpenRecentFileToolTip", "Opens a recently opened file" ) )
 			.UserInterfaceType( EUserInterfaceActionType::Button )
-			.DefaultGesture( FInputGesture() );
+			.DefaultChord( FInputChord() );
 		OpenRecentFileCommands.Add( OpenRecentFile );
 	}
 
-	for( int32 CurFavoriteIndex = 0; CurFavoriteIndex < FLevelEditorCommands::MaxFavoriteFiles; ++CurFavoriteIndex )
-	{
-		// NOTE: The actual label and tool-tip will be overridden at runtime when the command is bound to a menu item, however
-		// we still need to set one here so that the key bindings UI can function properly
-		TSharedRef< FUICommandInfo > OpenFavoriteFile =
-			FUICommandInfoDecl(
-				this->AsShared(),
-				FName( *FString::Printf( TEXT( "OpenFavoriteFile%i" ), CurFavoriteIndex ) ),
-				FText::Format( NSLOCTEXT( "LevelEditorCommands", "OpenFavoriteFile", "Open Favorite File {0}" ), FText::AsNumber( CurFavoriteIndex ) ),
-				NSLOCTEXT( "LevelEditorCommands", "OpenFavoriteFileTaggedToolTip", "Opens a file that was tagged as a favorite" ) )
-			.UserInterfaceType( EUserInterfaceActionType::Button )
-			.DefaultGesture( FInputGesture() );
-		OpenFavoriteFileCommands.Add( OpenFavoriteFile );
-	}
+	UI_COMMAND( Import, "Import...", "Imports objects and actors from a T3D format into the current level", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ExportAll, "Export All...", "Exports the entire level to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ExportSelected, "Export Selected...", "Exports currently-selected objects to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputChord() );
 
-	for( int32 CurFavoriteIndex = 0; CurFavoriteIndex < FLevelEditorCommands::MaxFavoriteFiles; ++CurFavoriteIndex )
-	{
-		// NOTE: The actual label and tool-tip will be overridden at runtime when the command is bound to a menu item, however
-		// we still need to set one here so that the key bindings UI can function properly
-		TSharedRef< FUICommandInfo > RemoveFavorite =
-			FUICommandInfoDecl(
-			this->AsShared(),
-			FName( *FString::Printf( TEXT( "RemoveFavorite%i" ), CurFavoriteIndex ) ),
-			FText::Format( NSLOCTEXT( "LevelEditorCommands", "RemoveFavorite", "Remove Favorite {0}" ), FText::AsNumber( CurFavoriteIndex ) ),
-			NSLOCTEXT( "LevelEditorCommands", "RemoveFavoriteToolTip", "Removes an entry from the favorites list" ) )
-			.UserInterfaceType( EUserInterfaceActionType::Button )
-			.DefaultGesture( FInputGesture() );
-		RemoveFavoriteCommands.Add( RemoveFavorite );
-	}
+	UI_COMMAND( Build, "Build All Levels", "Builds all levels (precomputes lighting data and visibility data, generates navigation networks and updates brush models.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildAndSubmitToSourceControl, "Build and Submit...", "Displays a window that allows you to build all levels and submit them to source control", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildLightingOnly, "Build Lighting", "Only precomputes lighting (all levels.)", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control|EModifierKey::Shift, EKeys::Semicolon) );
+	UI_COMMAND( BuildReflectionCapturesOnly, "Update Reflection Captures", "Only updates Reflection Captures (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildLightingOnly_VisibilityOnly, "Precompute Static Visibility", "Only precomputes static visibility data (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LightingBuildOptions_UseErrorColoring, "Use Error Coloring", "When enabled, errors during lighting precomputation will be baked as colors into light map data", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( LightingBuildOptions_ShowLightingStats, "Show Lighting Stats", "When enabled, a window containing metrics about lighting performance and memory will be displayed after a successful build.", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( BuildGeometryOnly, "Build Geometry", "Only builds geometry (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildGeometryOnly_OnlyCurrentLevel, "Build Geometry (Current Level)", "Builds geometry, only for the current level", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildPathsOnly, "Build Paths", "Only builds paths (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( BuildLODsOnly, "Build LODs", "Only builds LODs (all levels.)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LightingQuality_Production, "Production", "Sets precomputed lighting quality to highest possible quality (slowest computation time.)", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( LightingQuality_High, "High", "Sets precomputed lighting quality to high quality", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( LightingQuality_Medium, "Medium", "Sets precomputed lighting quality to medium quality", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( LightingQuality_Preview, "Preview", "Sets precomputed lighting quality to preview quality (fastest computation time.)", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( LightingDensity_RenderGrayscale, "Render Grayscale", "Renders the lightmap density.", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( LightingResolution_CurrentLevel, "Current Level", "Adjust only primitives in the current level.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( LightingResolution_SelectedLevels, "Selected Levels", "Adjust only primitives in the selected levels.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( LightingResolution_AllLoadedLevels, "All Loaded Levels", "Adjust primitives in all loaded levels.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( LightingResolution_SelectedObjectsOnly, "Selected Objects Only", "Adjust only selected objects in the levels.", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( LightingStaticMeshInfo, "Lighting StaticMesh Info...", "Shows the lighting information for the StaticMeshes.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SceneStats, "Open Scene Stats", "Opens the Scene Stats viewer", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( TextureStats, "Open Texture Stats", "Opens the Texture Stats viewer", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MapCheck, "Open Map Check", "Checks map for errors", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( Import, "Import...", "Imports objects and actors from a T3D format into the current level", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ExportAll, "Export All...", "Exports the entire level to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ExportSelected, "Export Selected...", "Exports currently-selected objects to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( RecompileGameCode, "Recompile Game Code", "Recompiles and reloads C++ code for game systems on the fly", EUserInterfaceActionType::Button, FInputChord( EKeys::P, EModifierKey::Alt | EModifierKey::Control | EModifierKey::Shift ) );
 
-	UI_COMMAND( Build, "Build All Levels", "Builds all levels (precomputes lighting data and visibility data, generates navigation networks and updates brush models.)", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( BuildAndSubmitToSourceControl, "Build and Submit...", "Displays a window that allows you to build all levels and submit them to source control", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( BuildLightingOnly, "Build Lighting", "Only precomputes lighting (all levels.)", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Control|EModifierKey::Shift, EKeys::Semicolon) );
-	UI_COMMAND( BuildReflectionCapturesOnly, "Update Reflection Captures", "Only updates Reflection Captures (all levels.)", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( BuildLightingOnly_VisibilityOnly, "Precompute Static Visibility", "Only precomputes static visibility data (all levels.)", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( LightingBuildOptions_UseErrorColoring, "Use Error Coloring", "When enabled, errors during lighting precomputation will be baked as colors into light map data", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingBuildOptions_ShowLightingStats, "Show Lighting Stats", "When enabled, a window containing metrics about lighting performance and memory will be displayed after a successful build.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( BuildGeometryOnly, "Build Geometry", "Only builds geometry (all levels.)", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND(BuildGeometryOnly_OnlyCurrentLevel, "Build Geometry (Current Level)", "Builds geometry, only for the current level", EUserInterfaceActionType::Button, FInputGesture(EKeys::B, EModifierKey::Control|EModifierKey::Shift));
-	UI_COMMAND( BuildPathsOnly, "Build Paths", "Only builds paths (all levels.)", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( LightingQuality_Production, "Production", "Sets precomputed lighting quality to highest possible quality (slowest computation time.)", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( LightingQuality_High, "High", "Sets precomputed lighting quality to high quality", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( LightingQuality_Medium, "Medium", "Sets precomputed lighting quality to medium quality", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( LightingQuality_Preview, "Preview", "Sets precomputed lighting quality to preview quality (fastest computation time.)", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( LightingTools_ShowBounds, "Show Lighting Bounds", "Draws a wireframe sphere for the lighting bounds of the Light Environment, and a point for the center, or multiple points if NumVolumeVisibilitySamples is greater than zero.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingTools_ShowTraces, "Show Shadow Traces", "Draws lines for any shadow rays that the Light Environment traced. The lines will be white if the light is not shadowed, and red otherwise.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingTools_ShowDirectOnly, "Show Direct Lighting", "Renders only the influence of direct lighting on the Light Environments.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingTools_ShowIndirectOnly, "Show Indirect Lighting", "Renders only the influence of indirect lighting on the Light Environments.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingTools_ShowIndirectSamples, "Show Indirect Lighting Samples", "Draws the indirect lighting samples that contributed to the indirect lighting for the Light Environments.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingDensity_RenderGrayscale, "Render Grayscale", "Renders the lightmap density.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingResolution_CurrentLevel, "Current Level", "Adjust only primitives in the current level.", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( LightingResolution_SelectedLevels, "Selected Levels", "Adjust only primitives in the selected levels.", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( LightingResolution_AllLoadedLevels, "All Loaded Levels", "Adjust primitives in all loaded levels.", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( LightingResolution_SelectedObjectsOnly, "Selected Objects Only", "Adjust only selected objects in the levels.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LightingStaticMeshInfo, "Lighting StaticMesh Info...", "Shows the lighting information for the StaticMeshes.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SceneStats, "Open Scene Stats", "Opens the Scene Stats viewer", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( TextureStats, "Open Texture Stats", "Opens the Texture Stats viewer", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MapCheck, "Open Map Check", "Checks map for errors", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( EditAsset, "Edit Asset", "Edits the asset associated with the selected actor", EUserInterfaceActionType::Button, FInputChord( EKeys::E, EModifierKey::Control ) );
+	UI_COMMAND( EditAssetNoConfirmMultiple, "Edit Asset", "Edits the asset associated with the selected actor", EUserInterfaceActionType::Button, FInputChord( EKeys::E, EModifierKey::Control | EModifierKey::Shift ) );
 
-	UI_COMMAND( RecompileGameCode, "Recompile Game Code", "Recompiles and reloads C++ code for game systems on the fly", EUserInterfaceActionType::Button, FInputGesture( EKeys::P, EModifierKey::Alt | EModifierKey::Control | EModifierKey::Shift ) );
+	UI_COMMAND( GoHere, "Go Here", "Moves the camera to the current mouse position", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( EditAsset, "Edit Asset", "Edits the asset associated with the selected actor", EUserInterfaceActionType::Button, FInputGesture( EKeys::E, EModifierKey::Control ) );
-	UI_COMMAND( EditAssetNoConfirmMultiple, "Edit Asset", "Edits the asset associated with the selected actor", EUserInterfaceActionType::Button, FInputGesture( EKeys::E, EModifierKey::Control | EModifierKey::Shift ) );
+	UI_COMMAND( SnapCameraToObject, "Snap View to Object", "Snaps the view to the selected object", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SnapObjectToCamera, "Snap Object to View", "Snaps the selected object to the view", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( GoHere, "Go Here", "Moves the camera to the current mouse position", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( GoToCodeForActor, "Go to C++ Code for Actor", "Opens a code editing IDE and navigates to the source file associated with the seleced actor", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( GoToDocsForActor, "Go to Documentation for Actor", "Opens documentation for the Actor in the default web browser", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( SnapCameraToObject, "Snap View to Object", "Snaps the view to the selected object", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( PasteHere, "Paste Here", "Pastes the actor at the click location", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( GoToCodeForActor, "Go to C++ Code for Actor", "Opens a code editing IDE and navigates to the source file associated with the seleced actor", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( GoToDocsForActor, "Go to Documentation for Actor", "Opens documentation for the Actor in the default web browser", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SnapOriginToGrid, "Snap Origin to Grid", "Snaps the actor to the nearest grid location at its origin", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::End ) );
+	UI_COMMAND( SnapOriginToGridPerActor, "Snap Origin to Grid Per Actor", "Snaps each selected actor separately to the nearest grid location at its origin", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AlignOriginToGrid, "Align Origin to Grid", "Aligns the actor to the nearest grid location at its origin", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( PasteHere, "Paste Here", "Pastes the actor at the click location", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SnapTo2DLayer, "Snap to 2D Layer", "Snaps the actor to the current 2D snap layer", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::SpaceBar ) );
+	UI_COMMAND( MoveSelectionUpIn2DLayers, "Bring selection forward a snap layer", "Bring selection forward a snap layer", EUserInterfaceActionType::Button, FInputChord(EKeys::PageUp, EModifierKey::Control) );
+	UI_COMMAND( MoveSelectionDownIn2DLayers, "Send selection backward a snap layer", "Send selection backward a snap layer", EUserInterfaceActionType::Button, FInputChord(EKeys::PageDown, EModifierKey::Control) );
+	UI_COMMAND( MoveSelectionToTop2DLayer, "Bring selection to the front snap layer", "Bring selection to the front snap layer", EUserInterfaceActionType::Button, FInputChord(EKeys::PageUp, EModifierKey::Shift | EModifierKey::Control) );
+	UI_COMMAND( MoveSelectionToBottom2DLayer, "Send selection to the back snap layer", "Send selection to the back snap layer", EUserInterfaceActionType::Button, FInputChord(EKeys::PageDown, EModifierKey::Shift | EModifierKey::Control) );
+	UI_COMMAND( Select2DLayerAbove, "Select next 2D layer", "Changes the active layer to the next 2D layer", EUserInterfaceActionType::Button, FInputChord(EKeys::PageUp, EModifierKey::Alt) );
+	UI_COMMAND( Select2DLayerBelow, "Select previous 2D layer", "Changes the active layer to the previous 2D layer", EUserInterfaceActionType::Button, FInputChord(EKeys::PageDown, EModifierKey::Alt) );
 
-	UI_COMMAND( SnapOriginToGrid, "Snap Origin to Grid", "Snaps the actor to the nearest grid location at its origin", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Control, EKeys::End ) );
-	UI_COMMAND( SnapOriginToGridPerActor, "Snap Origin to Grid Per Actor", "Snaps each selected actor separately to the nearest grid location at its origin", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AlignOriginToGrid, "Align Origin to Grid", "Aligns the actor to the nearest grid location at its origin", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SnapToFloor, "Snap to Floor", "Snaps the actor or component to the floor below it", EUserInterfaceActionType::Button, FInputGesture( EKeys::End ) );
-	UI_COMMAND( AlignToFloor, "Align to Floor", "Aligns the actor or component with the floor", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SnapPivotToFloor, "Snap Pivot to Floor", "Snaps the actor to the floor at its pivot point", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Alt, EKeys::End ) );	
-	UI_COMMAND( AlignPivotToFloor, "Align Pivot to Floor", "Aligns the actor with the floor at its pivot point", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SnapBottomCenterBoundsToFloor, "Snap Bottom Center Bounds to Floor", "Snaps the actor to the floor at its bottom center bounds", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift, EKeys::End ) );
-	UI_COMMAND( AlignBottomCenterBoundsToFloor, "Align Bottom Center Bounds to Floor", "Aligns the actor with the floor at its bottom center bounds", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SnapOriginToActor, "Snap Origin to Actor", "SNaps the actor to another actor at its origin", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AlignOriginToActor, "Align Origin to Actor", "Aligns the actor to another actor at its origin", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SnapToActor, "Snap to Actor", "Snaps the actor to another actor", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AlignToActor, "Align to Actor", "Aligns the actor with another actor", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SnapPivotToActor, "Snap Pivot to Actor", "Snaps the actor to another actor at its pivot point", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AlignPivotToActor, "Align Pivot to Actor", "Aligns the actor with another actor at its pivot point", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SnapBottomCenterBoundsToActor, "Snap Bottom Center Bounds to Actor", "Snaps the actor to another actor at its bottom center bounds", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AlignBottomCenterBoundsToActor, "Align Bottom Center Bounds to Actor", "Aligns the actor with another actor at its bottom center bounds", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( DeltaTransformToActors, "Delta Transform", "Apply Delta Transform to selected actors", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MirrorActorX, "Mirror X", "Mirrors the actor along the X axis", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MirrorActorY, "Mirror Y", "Mirrors the actor along the Y axis", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MirrorActorZ, "Mirror Z", "Mirrors the actor along the Z axis", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( LockActorMovement, "Lock Actor Movement", "Locks the actor so it cannot be moved", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( DetachFromParent, "Detach", "Detach the actor from its parent", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AttachSelectedActors, "Attach Selected Actors", "Attach the selected actors to the last selected actor", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Alt, EKeys::B) );
-	UI_COMMAND( AttachActorIteractive, "Attach Actor Interactive", "Start an interactive actor picker to let you choose a parent for the currently selected actor", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Alt, EKeys::A) );
-	UI_COMMAND( CreateNewOutlinerFolder, "Create Folder", "Place the selected actors in a new folder", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( HoldToEnableVertexSnapping, "Hold to Enable Vertex Snapping", "When the key binding is pressed and held vertex snapping will be enabled", EUserInterfaceActionType::ToggleButton, FInputGesture(EKeys::V) );
+
+	UI_COMMAND( SnapToFloor, "Snap to Floor", "Snaps the actor or component to the floor below it", EUserInterfaceActionType::Button, FInputChord( EKeys::End ) );
+	UI_COMMAND( AlignToFloor, "Align to Floor", "Aligns the actor or component with the floor", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SnapPivotToFloor, "Snap Pivot to Floor", "Snaps the actor to the floor at its pivot point", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Alt, EKeys::End ) );	
+	UI_COMMAND( AlignPivotToFloor, "Align Pivot to Floor", "Aligns the actor with the floor at its pivot point", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SnapBottomCenterBoundsToFloor, "Snap Bottom Center Bounds to Floor", "Snaps the actor to the floor at its bottom center bounds", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift, EKeys::End ) );
+	UI_COMMAND( AlignBottomCenterBoundsToFloor, "Align Bottom Center Bounds to Floor", "Aligns the actor with the floor at its bottom center bounds", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SnapOriginToActor, "Snap Origin to Actor", "SNaps the actor to another actor at its origin", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AlignOriginToActor, "Align Origin to Actor", "Aligns the actor to another actor at its origin", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SnapToActor, "Snap to Actor", "Snaps the actor to another actor", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AlignToActor, "Align to Actor", "Aligns the actor with another actor", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SnapPivotToActor, "Snap Pivot to Actor", "Snaps the actor to another actor at its pivot point", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AlignPivotToActor, "Align Pivot to Actor", "Aligns the actor with another actor at its pivot point", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SnapBottomCenterBoundsToActor, "Snap Bottom Center Bounds to Actor", "Snaps the actor to another actor at its bottom center bounds", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AlignBottomCenterBoundsToActor, "Align Bottom Center Bounds to Actor", "Aligns the actor with another actor at its bottom center bounds", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( DeltaTransformToActors, "Delta Transform", "Apply Delta Transform to selected actors", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MirrorActorX, "Mirror X", "Mirrors the actor along the X axis", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MirrorActorY, "Mirror Y", "Mirrors the actor along the Y axis", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MirrorActorZ, "Mirror Z", "Mirrors the actor along the Z axis", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LockActorMovement, "Lock Actor Movement", "Locks the actor so it cannot be moved", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( DetachFromParent, "Detach", "Detach the actor from its parent", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AttachSelectedActors, "Attach Selected Actors", "Attach the selected actors to the last selected actor", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Alt, EKeys::B) );
+	UI_COMMAND( AttachActorIteractive, "Attach Actor Interactive", "Start an interactive actor picker to let you choose a parent for the currently selected actor", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Alt, EKeys::A) );
+	UI_COMMAND( CreateNewOutlinerFolder, "Create Folder", "Place the selected actors in a new folder", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( HoldToEnableVertexSnapping, "Hold to Enable Vertex Snapping", "When the key binding is pressed and held vertex snapping will be enabled", EUserInterfaceActionType::ToggleButton, FInputChord(EKeys::V) );
 
 	//@ todo Slate better tooltips for pivot options
-	UI_COMMAND( SavePivotToPrePivot, "Save Pivot to Pre-Pivot", "Saves the pivot to the pre-pivot", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ResetPivot, "Reset Pivot", "Resets the pivot", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ResetPrePivot, "Reset Pre-Pivot", "Resets the pre-pivot", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MovePivotHere, "Move Here", "Moves the pivot to the clicked location", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MovePivotHereSnapped, "Move Here (Snapped)", "Moves the pivot to the nearest grid point to the clicked location", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MovePivotToCenter, "Center on Selection", "Centers the pivot to the middle of the selection", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SavePivotToPrePivot, "Save Pivot to Pre-Pivot", "Saves the pivot to the pre-pivot", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ResetPivot, "Reset Pivot", "Resets the pivot", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ResetPrePivot, "Reset Pre-Pivot", "Resets the pre-pivot", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MovePivotHere, "Move Here", "Moves the pivot to the clicked location", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MovePivotHereSnapped, "Move Here (Snapped)", "Moves the pivot to the nearest grid point to the clicked location", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MovePivotToCenter, "Center on Selection", "Centers the pivot to the middle of the selection", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( ConvertToAdditive, "Additive", "Converts the selected brushes to additive brushes", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ConvertToSubtractive, "Subtractive", "Converts the selected brushes to subtractive brushes", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( ConvertToAdditive, "Additive", "Converts the selected brushes to additive brushes", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ConvertToSubtractive, "Subtractive", "Converts the selected brushes to subtractive brushes", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( OrderFirst, "To First", "Changes the drawing order of the selected brushes so they are the first to draw", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( OrderLast, "To Last", "Changes the drawing order of the selected brushes so they are the last to draw", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( OrderFirst, "To First", "Changes the drawing order of the selected brushes so they are the first to draw", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( OrderLast, "To Last", "Changes the drawing order of the selected brushes so they are the last to draw", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( MakeSolid, "Solid", "Makes the selected brushes solid", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MakeSemiSolid, "Semi-Solid", "Makes the selected brushes semi-solid", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MakeNonSolid, "Non-Solid", "Makes the selected brushes non-solid", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( MakeSolid, "Solid", "Makes the selected brushes solid", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MakeSemiSolid, "Semi-Solid", "Makes the selected brushes semi-solid", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( MakeNonSolid, "Non-Solid", "Makes the selected brushes non-solid", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( MergePolys, "Merge", "Merges multiple polygons on a brush face into as few as possible", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SeparatePolys, "Separate", "Reverses the effect of a previous merge", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( MergePolys, "Merge", "Merges multiple polygons on a brush face into as few as possible", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SeparatePolys, "Separate", "Reverses the effect of a previous merge", EUserInterfaceActionType::Button, FInputChord() );
 
-	// RegroupActors uses GroupActors for it's label and tooltip when simply grouping a selection of actors using overrides. This is to provide display of the gesture which is the same for both.
-	UI_COMMAND( GroupActors, "Group", "Groups the selected actors", EUserInterfaceActionType::Button, FInputGesture( /*EKeys::G, EModifierKey::Control*/ ) );
-	UI_COMMAND( RegroupActors, "Regroup", "Regroups the selected actors into a new group, removing any current groups in the selection", EUserInterfaceActionType::Button, FInputGesture( EKeys::G, EModifierKey::Control ) );
-	UI_COMMAND( UngroupActors, "Ungroup", "Ungroups the selected actors", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift, EKeys::G ) );
-	UI_COMMAND( AddActorsToGroup, "Add to Group", "Adds the selected actors to the selected group", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( RemoveActorsFromGroup, "Remove from Group", "Removes the selected actors from the selected groups", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( LockGroup, "Lock", "Locks the selected groups", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( UnlockGroup, "Unlock", "Unlocks the selected groups", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MergeActors, "Create Mesh Proxy...", "Harvest geometry from selected actors and merge them into single mesh", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( MergeActorsByMaterials, "Merge Actors...", "Harvest geometry from selected actors and merge grouping them by materials", EUserInterfaceActionType::Button, FInputGesture() );
+	// RegroupActors uses GroupActors for it's label and tooltip when simply grouping a selection of actors using overrides. This is to provide display of the chord which is the same for both.
+	UI_COMMAND( GroupActors, "Group", "Groups the selected actors", EUserInterfaceActionType::Button, FInputChord( /*EKeys::G, EModifierKey::Control*/ ) );
+	UI_COMMAND( RegroupActors, "Regroup", "Regroups the selected actors into a new group, removing any current groups in the selection", EUserInterfaceActionType::Button, FInputChord( EKeys::G, EModifierKey::Control ) );
+	UI_COMMAND( UngroupActors, "Ungroup", "Ungroups the selected actors", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift, EKeys::G ) );
+	UI_COMMAND( AddActorsToGroup, "Add to Group", "Adds the selected actors to the selected group", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( RemoveActorsFromGroup, "Remove from Group", "Removes the selected actors from the selected groups", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LockGroup, "Lock", "Locks the selected groups", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( UnlockGroup, "Unlock", "Unlocks the selected groups", EUserInterfaceActionType::Button, FInputChord() );
 
 #if PLATFORM_MAC
-	UI_COMMAND( ShowAll, "Show All Actors", "Shows all actors", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Command, EKeys::H ) );
+	UI_COMMAND( ShowAll, "Show All Actors", "Shows all actors", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Command, EKeys::H ) );
 #else
-	UI_COMMAND( ShowAll, "Show All Actors", "Shows all actors", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Control, EKeys::H ) );
+	UI_COMMAND( ShowAll, "Show All Actors", "Shows all actors", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::H ) );
 #endif
-	UI_COMMAND( ShowSelectedOnly, "Show Only Selected", "Shows only the selected actors", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ShowSelected, "Show Selected", "Shows the selected actors", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift, EKeys::H ) );
-	UI_COMMAND( HideSelected, "Hide Selected", "Hides the selected actors", EUserInterfaceActionType::Button, FInputGesture( EKeys::H ) );
-	UI_COMMAND( ShowAllStartup, "Show All At Startup", "Shows all actors at startup", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ShowSelectedStartup, "Show Selected At Startup", "Shows selected actors at startup", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( HideSelectedStartup, "Hide Selected At Startup", "Hide selected actors at startup", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( CycleNavigationDataDrawn, "Cycle Navigation Data Drawn", "Cycles through navigation data (navmeshes for example) to draw one at a time", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Alt, EKeys::N ) );
+	UI_COMMAND( ShowSelectedOnly, "Show Only Selected", "Shows only the selected actors", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ShowSelected, "Show Selected", "Shows the selected actors", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift, EKeys::H ) );
+	UI_COMMAND( HideSelected, "Hide Selected", "Hides the selected actors", EUserInterfaceActionType::Button, FInputChord( EKeys::H ) );
+	UI_COMMAND( ShowAllStartup, "Show All At Startup", "Shows all actors at startup", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ShowSelectedStartup, "Show Selected At Startup", "Shows selected actors at startup", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( HideSelectedStartup, "Hide Selected At Startup", "Hide selected actors at startup", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( CycleNavigationDataDrawn, "Cycle Navigation Data Drawn", "Cycles through navigation data (navmeshes for example) to draw one at a time", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Alt, EKeys::N ) );
 
-	UI_COMMAND( SelectNone, "Unselect All", "Unselects all actors", EUserInterfaceActionType::Button, FInputGesture( EKeys::Escape ) ) ;
-	UI_COMMAND( InvertSelection, "Invert Selection", "Inverts the current selection", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SelectNone, "Unselect All", "Unselects all actors", EUserInterfaceActionType::Button, FInputChord( EKeys::Escape ) ) ;
+	UI_COMMAND( InvertSelection, "Invert Selection", "Inverts the current selection", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( SelectAllActorsOfSameClass, "Select All Actors of Same Class", "Selects all the actors that have the same class", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift|EModifierKey::Control, EKeys::A) );
-	UI_COMMAND( SelectAllActorsOfSameClassWithArchetype, "Select All Actors with Same Archetype", "Selects all the actors of the same class that have the same archetype", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SelectComponentOwnerActor, "Select Component Owner", "Select the actor that owns the currently selected component(s)", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SelectRelevantLights, "Select Relevant Lights", "Select all lights relevant to the current selection", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectStaticMeshesOfSameClass, "Select All Using Selected Static Meshes (Selected Actor Types)", "Selects all actors with the same static mesh and actor class as the selection", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectStaticMeshesAllClasses, "Select All Using Selected Static Meshes (All Actor Types)", "Selects all actors with the same static mesh as the selection", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift, EKeys::E ) ); 
-	UI_COMMAND( SelectSkeletalMeshesOfSameClass, "Select All Using Selected Skeletal Meshes (Selected Actor Types)", "Selects all actors with the same skeletal mesh and actor class as the selection", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectSkeletalMeshesAllClasses, "Select All Using Selected Skeletal Meshes (All Actor Types)", "Selects all actors with the same skeletal mesh as the selection", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectAllWithSameMaterial, "Select All With Same Material", "Selects all actors with the same material as the selection", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectMatchingEmitter, "Select All Matching Emitters", "Selects all emitters with the same particle system as the selection", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectAllLights, "Select All Lights", "Selects all lights", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectStationaryLightsExceedingOverlap, "Select Stationary Lights exceeding overlap", "Selects all stationary lights exceeding the overlap limit", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectAllAddditiveBrushes, "Select All Additive Brushes", "Selects all additive brushes", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectAllSubtractiveBrushes, "Select All Subtractive Brushes", "Selects all subtractive brushes", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectAllSemiSolidBrushes, "Select All Semi-Solid Brushes", "Selects all semi-solid brushes", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectAllNonSolidBrushes, "Select All Non-Solid Brushes", "Selects all non-solid brushes", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( SelectAllActorsControlledByMatinee, "Select Actors Used by This Matinee", "Selects all actors controlled by this Matinee", EUserInterfaceActionType::Button, FInputGesture() ); 
+	UI_COMMAND( SelectAllActorsOfSameClass, "Select All Actors of Same Class", "Selects all the actors that have the same class", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift|EModifierKey::Control, EKeys::A) );
+	UI_COMMAND( SelectAllActorsOfSameClassWithArchetype, "Select All Actors with Same Archetype", "Selects all the actors of the same class that have the same archetype", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SelectComponentOwnerActor, "Select Component Owner", "Select the actor that owns the currently selected component(s)", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SelectRelevantLights, "Select Relevant Lights", "Select all lights relevant to the current selection", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectStaticMeshesOfSameClass, "Select All Using Selected Static Meshes (Selected Actor Types)", "Selects all actors with the same static mesh and actor class as the selection", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectStaticMeshesAllClasses, "Select All Using Selected Static Meshes (All Actor Types)", "Selects all actors with the same static mesh as the selection", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift, EKeys::E ) ); 
+	UI_COMMAND( SelectSkeletalMeshesOfSameClass, "Select All Using Selected Skeletal Meshes (Selected Actor Types)", "Selects all actors with the same skeletal mesh and actor class as the selection", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectSkeletalMeshesAllClasses, "Select All Using Selected Skeletal Meshes (All Actor Types)", "Selects all actors with the same skeletal mesh as the selection", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectAllWithSameMaterial, "Select All With Same Material", "Selects all actors with the same material as the selection", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectMatchingEmitter, "Select All Matching Emitters", "Selects all emitters with the same particle system as the selection", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectAllLights, "Select All Lights", "Selects all lights", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectStationaryLightsExceedingOverlap, "Select Stationary Lights exceeding overlap", "Selects all stationary lights exceeding the overlap limit", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectAllAddditiveBrushes, "Select All Additive Brushes", "Selects all additive brushes", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectAllSubtractiveBrushes, "Select All Subtractive Brushes", "Selects all subtractive brushes", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( SelectAllActorsControlledByMatinee, "Select Actors Used by This Matinee", "Selects all actors controlled by this Matinee", EUserInterfaceActionType::Button, FInputChord() ); 
 
-	UI_COMMAND( SelectAllSurfaces, "Select All Surfaces", "Selects all bsp surfaces", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::S) ); 
+	UI_COMMAND( SelectAllSurfaces, "Select All Surfaces", "Selects all bsp surfaces", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::S) ); 
 
-	UI_COMMAND( SurfSelectAllMatchingBrush, "Select Matching Brush", "Selects the surfaces belonging to the same brush as the selected surfaces", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::B) ); 
-	UI_COMMAND( SurfSelectAllMatchingTexture, "Select Matching Material", "Selects all surfaces with the same material as the selected surfaces", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::T) ); 
-	UI_COMMAND( SurfSelectAllAdjacents, "Select All Adjacent Surfaces", "Selects all surfaces adjacent to the currently selected surfaces", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::J) ); 
-	UI_COMMAND( SurfSelectAllAdjacentCoplanars, "Select All Coplanar Surfaces", "Selects all surfaces adjacent and coplanar with the selected surfaces", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::C) ); 
-	UI_COMMAND( SurfSelectAllAdjacentWalls, "Select All Adjacent Wall Surfaces", "Selects all adjacent upright surfaces", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::W) ); 
-	UI_COMMAND( SurfSelectAllAdjacentFloors, "Select All Adjacent Floor Surfaces", "Selects all adjacent floor sufaces(ones with normals pointing up)", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::U) ); 
-	UI_COMMAND( SurfSelectAllAdjacentSlants, "Select All Adjacent Slant Surfaces", "Selects all adjacent slant surfaces (surfaces that are not walls, floors, or ceilings according to their normals) to the currently selected surfaces.", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::Y) ); 
-	UI_COMMAND( SurfSelectReverse, "Invert Surface Selection", "Inverts the current surface selection", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::Q) );
-	UI_COMMAND( SurfSelectMemorize, "Memorize Surface Selection", "Stores the current surface selection in memory", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::M) ); 
-	UI_COMMAND( SurfSelectRecall, "Recall Surface Selection", "Replace the current selection with the selection saved in memory", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::R) ); 
-	UI_COMMAND( SurfSelectOr, "Surface Selection OR", "Replace the current selection with only the surfaces which are both currently selected and contained within the saved selection in memory", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::O) ); 
-	UI_COMMAND( SurfSelectAnd, "Surface Selection AND", "Add the selection of surfaces saved in memory to the current selection", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::A) ); 
-	UI_COMMAND( SurfSelectXor, "Surace Selection XOR", " Replace the current selection with only the surfaces that are not in both the current selection and the selection saved in memory", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Shift, EKeys::X) ); 
-	UI_COMMAND( SurfUnalign, "Align Surface Default", "Default surface alignment", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SurfAlignPlanarAuto, "Align Surface Planar", "Planar surface alignment", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SurfAlignPlanarWall, "Align Surface Planar Wall", "Planar wall surface alignment", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SurfAlignPlanarFloor, "Align Surface Planar Floor", "Planar floor surface alignment", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SurfAlignBox, "Align Surface Box", "Box surface alignment", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( SurfAlignFit, "Align Surface Fit", "Best fit surface alignment", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ApplyMaterialToSurface, "Apply Material to Surface Selection", "Applies the selected material to the selected surfaces", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SurfSelectAllMatchingBrush, "Select Matching Brush", "Selects the surfaces belonging to the same brush as the selected surfaces", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::B) ); 
+	UI_COMMAND( SurfSelectAllMatchingTexture, "Select Matching Material", "Selects all surfaces with the same material as the selected surfaces", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::T) ); 
+	UI_COMMAND( SurfSelectAllAdjacents, "Select All Adjacent Surfaces", "Selects all surfaces adjacent to the currently selected surfaces", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::J) ); 
+	UI_COMMAND( SurfSelectAllAdjacentCoplanars, "Select All Coplanar Surfaces", "Selects all surfaces adjacent and coplanar with the selected surfaces", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::C) ); 
+	UI_COMMAND( SurfSelectAllAdjacentWalls, "Select All Adjacent Wall Surfaces", "Selects all adjacent upright surfaces", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::W) ); 
+	UI_COMMAND( SurfSelectAllAdjacentFloors, "Select All Adjacent Floor Surfaces", "Selects all adjacent floor sufaces(ones with normals pointing up)", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::U) ); 
+	UI_COMMAND( SurfSelectAllAdjacentSlants, "Select All Adjacent Slant Surfaces", "Selects all adjacent slant surfaces (surfaces that are not walls, floors, or ceilings according to their normals) to the currently selected surfaces.", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::Y) ); 
+	UI_COMMAND( SurfSelectReverse, "Invert Surface Selection", "Inverts the current surface selection", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::Q) );
+	UI_COMMAND( SurfSelectMemorize, "Memorize Surface Selection", "Stores the current surface selection in memory", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::M) ); 
+	UI_COMMAND( SurfSelectRecall, "Recall Surface Selection", "Replace the current selection with the selection saved in memory", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::R) ); 
+	UI_COMMAND( SurfSelectOr, "Surface Selection OR", "Replace the current selection with only the surfaces which are both currently selected and contained within the saved selection in memory", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::O) ); 
+	UI_COMMAND( SurfSelectAnd, "Surface Selection AND", "Add the selection of surfaces saved in memory to the current selection", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::A) ); 
+	UI_COMMAND( SurfSelectXor, "Surace Selection XOR", " Replace the current selection with only the surfaces that are not in both the current selection and the selection saved in memory", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::X) ); 
+	UI_COMMAND( SurfUnalign, "Align Surface Default", "Default surface alignment", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SurfAlignPlanarAuto, "Align Surface Planar", "Planar surface alignment", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SurfAlignPlanarWall, "Align Surface Planar Wall", "Planar wall surface alignment", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SurfAlignPlanarFloor, "Align Surface Planar Floor", "Planar floor surface alignment", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SurfAlignBox, "Align Surface Box", "Box surface alignment", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( SurfAlignFit, "Align Surface Fit", "Best fit surface alignment", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ApplyMaterialToSurface, "Apply Material to Surface Selection", "Applies the selected material to the selected surfaces", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( CreateBoundingBoxVolume, "Create Bounding Box Blocking Volume From Mesh", "Create a bounding box blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( CreateHeavyConvexVolume, "Heavy Convex Blocking Volume From Mesh", "Creates a heavy convex blocing volume from the static mesh", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( CreateNormalConvexVolume, "Normal Convex Blocking Volume From Mesh", "Creates a normal convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputGesture() ); 
-	UI_COMMAND( CreateLightConvexVolume, "Light Convex Blocking Volume From Mesh", "Creates a light convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( CreateRoughConvexVolume, "Rought Convex Blocking Volume From Mesh", "Creates a rough convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( CreateBoundingBoxVolume, "Create Bounding Box Blocking Volume From Mesh", "Create a bounding box blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( CreateHeavyConvexVolume, "Heavy Convex Blocking Volume From Mesh", "Creates a heavy convex blocing volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( CreateNormalConvexVolume, "Normal Convex Blocking Volume From Mesh", "Creates a normal convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() ); 
+	UI_COMMAND( CreateLightConvexVolume, "Light Convex Blocking Volume From Mesh", "Creates a light convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( CreateRoughConvexVolume, "Rought Convex Blocking Volume From Mesh", "Creates a rough convex blocking volume from the static mesh", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( SaveBrushAsCollision, "Save Collision from Builder Brush", "Creates a collision primitive on the selected static meshes based on the shape of the builder brush", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( SaveBrushAsCollision, "Save Collision from Builder Brush", "Creates a collision primitive on the selected static meshes based on the shape of the builder brush", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( KeepSimulationChanges, "Keep Simulation Changes", "Saves the changes made to this actor in Simulate mode to the actor's default state.", EUserInterfaceActionType::Button, FInputGesture( EKeys::K ) );
+	UI_COMMAND( KeepSimulationChanges, "Keep Simulation Changes", "Saves the changes made to this actor in Simulate mode to the actor's default state.", EUserInterfaceActionType::Button, FInputChord( EKeys::K ) );
 
-	UI_COMMAND( MakeActorLevelCurrent, "Make Selected Actor's Level Current", "Makes the selected actors level the current level", EUserInterfaceActionType::Button, FInputGesture( EKeys::M ) );
+	UI_COMMAND( MakeActorLevelCurrent, "Make Selected Actor's Level Current", "Makes the selected actors level the current level", EUserInterfaceActionType::Button, FInputChord( EKeys::M ) );
 #if PLATFORM_MAC
-	UI_COMMAND( MoveSelectedToCurrentLevel, "Move Selection to Current Level", "Moves the selected actors to the current level", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Command, EKeys::M ) );
+	UI_COMMAND( MoveSelectedToCurrentLevel, "Move Selection to Current Level", "Moves the selected actors to the current level", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Command, EKeys::M ) );
 #else
-	UI_COMMAND( MoveSelectedToCurrentLevel, "Move Selection to Current Level", "Moves the selected actors to the current level", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Control, EKeys::M ) );
+	UI_COMMAND( MoveSelectedToCurrentLevel, "Move Selection to Current Level", "Moves the selected actors to the current level", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::M ) );
 #endif
-	UI_COMMAND( FindLevelsInLevelBrowser, "Find Levels in Level Browser", "Finds the selected actors level in the level browser", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AddLevelsToSelection, "Add Levels to Selection", "Adds the selected actors levels  to the current level browser selection", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( RemoveLevelsFromSelection, "Remove Levels from Selection", "Removes the selected actors levels from the current level browser selection", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( FindLevelsInLevelBrowser, "Find Levels in Level Browser", "Finds the selected actors level in the level browser", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddLevelsToSelection, "Add Levels to Selection", "Adds the selected actors levels  to the current level browser selection", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( RemoveLevelsFromSelection, "Remove Levels from Selection", "Removes the selected actors levels from the current level browser selection", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( FindActorInLevelScript, "Find in Level Blueprint", "Finds any references to the selected actor in its level's blueprint", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( FindActorInLevelScript, "Find in Level Blueprint", "Finds any references to the selected actor in its level's blueprint", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( WorldProperties, "World Settings", "Displays the world settings", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( OpenContentBrowser, "Open Content Browser", "Opens the Content Browser", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Control|EModifierKey::Shift, EKeys::F) );
-	UI_COMMAND( OpenMarketplace, "Open Marketplace", "Opens the Marketplace", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AddMatinee, "Add Matinee", "Creates a new matinee actor to edit", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( EditMatinee, "Edit Matinee", "Selects a Matinee to edit", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( WorldProperties, "World Settings", "Displays the world settings", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( OpenContentBrowser, "Open Content Browser", "Opens the Content Browser", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control|EModifierKey::Shift, EKeys::F) );
+	UI_COMMAND( OpenMarketplace, "Open Marketplace", "Opens the Marketplace", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddMatinee, "Add Matinee", "Creates a new matinee actor to edit", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( EditMatinee, "Edit Matinee", "Selects a Matinee to edit", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( OpenLevelBlueprint, "Open Level Blueprint", "Edit the Level Blueprint for the current level", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( CheckOutProjectSettingsConfig, "Check Out", "Checks out the project settings config file so the game mode can be set.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( CreateBlankBlueprintClass, "New Empty Blueprint Class...", "Create a new Blueprint Class", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ConvertSelectionToBlueprintViaHarvest, "Convert Selected Components to Blueprint Class...", "Replace all of the selected actors with a new Blueprint Class based on Actor that contains the components", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ConvertSelectionToBlueprintViaSubclass, "Convert Selected Actor to Blueprint Class...", "Replace the selected actor with a new Blueprint subclass based on the class of the selected Actor", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( OpenLevelBlueprint, "Open Level Blueprint", "Edit the Level Blueprint for the current level", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( CheckOutProjectSettingsConfig, "Check Out", "Checks out the project settings config file so the game mode can be set.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( CreateBlankBlueprintClass, "New Empty Blueprint Class...", "Create a new Blueprint Class", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ConvertSelectionToBlueprintViaHarvest, "Convert Selected Components to Blueprint Class...", "Replace all of the selected actors with a new Blueprint Class based on Actor that contains the components", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ConvertSelectionToBlueprintViaSubclass, "Convert Selected Actor to Blueprint Class...", "Replace the selected actor with a new Blueprint subclass based on the class of the selected Actor", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( ShowTransformWidget, "Show Transform Widget", "Toggles the visibility of the transform widgets", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( AllowTranslucentSelection, "Allow Translucent Selection", "Allows translucent objects to be selected", EUserInterfaceActionType::ToggleButton, FInputGesture(EKeys::T) );
-	UI_COMMAND( AllowGroupSelection, "Allow Group Selection", "Allows actor groups to be selected", EUserInterfaceActionType::ToggleButton, FInputGesture(EModifierKey::Control|EModifierKey::Shift, EKeys::G) );
-	UI_COMMAND( StrictBoxSelect, "Strict Box Selection", "When enabled an object must be entirely encompassed by the selection box when marquee box selecting", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( TransparentBoxSelect, "Transparent Box Selection", "When enabled, marquee box select operations will also select objects that are occluded by other objects.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( DrawBrushMarkerPolys, "Draw Brush Polys", "Draws semi-transparent polygons around a brush when selected", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( OnlyLoadVisibleInPIE, "Only Load Visible Levels in Game Preview", "If enabled, when game preview starts, only visible levels will be loaded", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ToggleSocketSnapping, "Enable Socket Snapping", "Enables or disables snapping to sockets", EUserInterfaceActionType::ToggleButton, FInputGesture() ); 
-	UI_COMMAND( ToggleParticleSystemLOD, "Enable Particle System LOD Switching", "If enabled particle systems will use distance LOD switching in perspective viewports", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ToggleFreezeParticleSimulation, "Freeze Particle Simulation", "If enabled particle systems will freeze their simulation state", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ToggleParticleSystemHelpers, "Toggle Particle System Helpers", "Toggles showing particle system helper widgets in viewports", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ToggleLODViewLocking, "Enable LOD View Locking", "If enabled viewports of the same type will use the same LOD", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( LevelStreamingVolumePrevis, "Enable Automatic Level Streaming", "If enabled, the viewport will stream in levels automatically when the camera is moved", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( EnableActorSnap, "Enable Actor Snapping", "If enabled, actors will snap to the location of other actors when they are within distance", EUserInterfaceActionType::ToggleButton, FInputGesture(EModifierKey::Control|EModifierKey::Shift, EKeys::K) );
-	UI_COMMAND( EnableVertexSnap, "Enable Vertex Snapping","If enabled, actors will snap to the location of the nearest vertex on another actor in the direction of movement", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ToggleHideViewportUI, "Hide Viewport UI", "Toggles hidden viewport UI mode. Hides all overlaid viewport UI widgets", EUserInterfaceActionType::ToggleButton, FInputGesture() );
+	UI_COMMAND( ShowTransformWidget, "Show Transform Widget", "Toggles the visibility of the transform widgets", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( AllowTranslucentSelection, "Allow Translucent Selection", "Allows translucent objects to be selected", EUserInterfaceActionType::ToggleButton, FInputChord(EKeys::T) );
+	UI_COMMAND( AllowGroupSelection, "Allow Group Selection", "Allows actor groups to be selected", EUserInterfaceActionType::ToggleButton, FInputChord(EModifierKey::Control|EModifierKey::Shift, EKeys::G) );
+	UI_COMMAND( StrictBoxSelect, "Strict Box Selection", "When enabled an object must be entirely encompassed by the selection box when marquee box selecting", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( TransparentBoxSelect, "Box Select Occluded Objects", "When enabled, marquee box select operations will also select objects that are occluded by other objects.", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( DrawBrushMarkerPolys, "Draw Brush Polys", "Draws semi-transparent polygons around a brush when selected", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( OnlyLoadVisibleInPIE, "Only Load Visible Levels in Game Preview", "If enabled, when game preview starts, only visible levels will be loaded", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ToggleSocketSnapping, "Enable Socket Snapping", "Enables or disables snapping to sockets", EUserInterfaceActionType::ToggleButton, FInputChord() ); 
+	UI_COMMAND( ToggleParticleSystemLOD, "Enable Particle System LOD Switching", "If enabled particle systems will use distance LOD switching in perspective viewports", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ToggleFreezeParticleSimulation, "Freeze Particle Simulation", "If enabled particle systems will freeze their simulation state", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ToggleParticleSystemHelpers, "Toggle Particle System Helpers", "Toggles showing particle system helper widgets in viewports", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ToggleLODViewLocking, "Enable LOD View Locking", "If enabled viewports of the same type will use the same LOD", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( LevelStreamingVolumePrevis, "Enable Automatic Level Streaming", "If enabled, the viewport will stream in levels automatically when the camera is moved", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( EnableActorSnap, "Enable Actor Snapping", "If enabled, actors will snap to the location of other actors when they are within distance", EUserInterfaceActionType::ToggleButton, FInputChord(EModifierKey::Control|EModifierKey::Shift, EKeys::K) );
+	UI_COMMAND( EnableVertexSnap, "Enable Vertex Snapping","If enabled, actors will snap to the location of the nearest vertex on another actor in the direction of movement", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ToggleHideViewportUI, "Hide Viewport UI", "Toggles hidden viewport UI mode. Hides all overlaid viewport UI widgets", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
 	//if (FParse::Param( FCommandLine::Get(), TEXT( "editortoolbox" ) ))
 	//{
-	//	UI_COMMAND( BspMode, "Enable Bsp Mode", "Enables BSP mode", EUserInterfaceActionType::ToggleButton, FInputGesture( EModifierKey::Shift, EKeys::One ) );
-	//	UI_COMMAND( MeshPaintMode, "Enable Mesh Paint Mode", "Enables mesh paint mode", EUserInterfaceActionType::ToggleButton, FInputGesture( EModifierKey::Shift, EKeys::Two ) );
-	//	UI_COMMAND( LandscapeMode, "Enable Landscape Mode", "Enables landscape editing", EUserInterfaceActionType::ToggleButton, FInputGesture( EModifierKey::Shift, EKeys::Three ) );
-	//	UI_COMMAND( FoliageMode, "Enable Foliage Mode", "Enables foliage editing", EUserInterfaceActionType::ToggleButton, FInputGesture( EModifierKey::Shift, EKeys::Four ) );
+	//	UI_COMMAND( BspMode, "Enable Bsp Mode", "Enables BSP mode", EUserInterfaceActionType::ToggleButton, FInputChord( EModifierKey::Shift, EKeys::One ) );
+	//	UI_COMMAND( MeshPaintMode, "Enable Mesh Paint Mode", "Enables mesh paint mode", EUserInterfaceActionType::ToggleButton, FInputChord( EModifierKey::Shift, EKeys::Two ) );
+	//	UI_COMMAND( LandscapeMode, "Enable Landscape Mode", "Enables landscape editing", EUserInterfaceActionType::ToggleButton, FInputChord( EModifierKey::Shift, EKeys::Three ) );
+	//	UI_COMMAND( FoliageMode, "Enable Foliage Mode", "Enables foliage editing", EUserInterfaceActionType::ToggleButton, FInputChord( EModifierKey::Shift, EKeys::Four ) );
 	//}
 
-	UI_COMMAND( ShowSelectedDetails, "Show Actor Details", "Opens a details panel for the selected actors", EUserInterfaceActionType::Button, FInputGesture( EKeys::F4 ) );
+	UI_COMMAND( ShowSelectedDetails, "Show Actor Details", "Opens a details panel for the selected actors", EUserInterfaceActionType::Button, FInputChord( EKeys::F4 ) );
 
-	UI_COMMAND( RecompileShaders, "Recompile Changed Shaders", "Recompiles shaders which are out of date", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift|EModifierKey::Control, EKeys::Period ) );
-	UI_COMMAND( ProfileGPU, "Profile GPU", "Profiles the GPU for the next frame and opens a window with profiled data", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift|EModifierKey::Control, EKeys::Comma ) );
+	UI_COMMAND( RecompileShaders, "Recompile Changed Shaders", "Recompiles shaders which are out of date", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift|EModifierKey::Control, EKeys::Period ) );
+	UI_COMMAND( ProfileGPU, "Profile GPU", "Profiles the GPU for the next frame and opens a window with profiled data", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift|EModifierKey::Control, EKeys::Comma ) );
 
-	UI_COMMAND( ResetAllParticleSystems, "Reset All Particle Systems", "Resets all particle system emitters (removes all active particles and restarts them)", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift, EKeys::Slash ) );
-	UI_COMMAND( ResetSelectedParticleSystem, "Resets Selected Particle Systems" , "Resets selected particle system emitters (removes all active particles and restarts them)", EUserInterfaceActionType::Button, FInputGesture( EKeys::Slash ) );
+	UI_COMMAND( ResetAllParticleSystems, "Reset All Particle Systems", "Resets all particle system emitters (removes all active particles and restarts them)", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift, EKeys::Slash ) );
+	UI_COMMAND( ResetSelectedParticleSystem, "Resets Selected Particle Systems" , "Resets selected particle system emitters (removes all active particles and restarts them)", EUserInterfaceActionType::Button, FInputChord( EKeys::Slash ) );
 
-	UI_COMMAND( SelectActorsInLayers, "Select all actors in selected actor's layers", "Selects all actors belonging to the layers of the currently selected actors", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Control, EKeys::L ) );
+	UI_COMMAND( SelectActorsInLayers, "Select all actors in selected actor's layers", "Selects all actors belonging to the layers of the currently selected actors", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control, EKeys::L ) );
 
-	UI_COMMAND( FocusAllViewportsToSelection, "Focus Selected Actors in All Viewports", "Moves the camera in front of the selected actors in all open viewports", EUserInterfaceActionType::Button, FInputGesture( EKeys::F, EModifierKey::Shift ) );
+	UI_COMMAND( FocusAllViewportsToSelection, "Focus Selected Actors in All Viewports", "Moves the camera in front of the selected actors in all open viewports", EUserInterfaceActionType::Button, FInputChord( EKeys::F, EModifierKey::Shift ) );
 
-	UI_COMMAND( MaterialQualityLevel_Low, "Low", "Sets material quality in the scene to low.", EUserInterfaceActionType::RadioButton, FInputGesture() );
-	UI_COMMAND( MaterialQualityLevel_High, "High", "Sets material quality in the scene to high.", EUserInterfaceActionType::RadioButton, FInputGesture() );
+	UI_COMMAND( MaterialQualityLevel_Low, "Low", "Sets material quality in the scene to low.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( MaterialQualityLevel_High, "High", "Sets material quality in the scene to high.", EUserInterfaceActionType::RadioButton, FInputChord() );
 
-	UI_COMMAND( ConnectToSourceControl, "Connect to Source Control...", "Opens a dialog to connect to source control.", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND( ChangeSourceControlSettings, "Change Source Control Settings...", "Opens a dialog to change source control settings.", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND( CheckOutModifiedFiles, "Check Out Modified Files...", "Opens a dialog to check out any assets which have been modified.", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND( SubmitToSourceControl, "Submit to Source Control...", "Opens a dialog with check in options for content and levels.", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND( ConnectToSourceControl, "Connect to Source Control...", "Opens a dialog to connect to source control.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND( ChangeSourceControlSettings, "Change Source Control Settings...", "Opens a dialog to change source control settings.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND( CheckOutModifiedFiles, "Check Out Modified Files...", "Opens a dialog to check out any assets which have been modified.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND( SubmitToSourceControl, "Submit to Source Control...", "Opens a dialog with check in options for content and levels.", EUserInterfaceActionType::Button, FInputChord());
 
 	static const FText FeatureLevelLabels[ERHIFeatureLevel::Num] = 
 	{
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES2", "Mobile / HTML5"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES3", "High-End Mobile"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_ES31", "High-End Mobile / Metal"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM4", "Shader Model 4"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewType_SM5", "Shader Model 5"),
 	};
@@ -3088,7 +3146,7 @@ void FLevelEditorCommands::RegisterCommands()
 	static const FText FeatureLevelToolTips[ERHIFeatureLevel::Num] = 
 	{
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_ES2", "OpenGLES 2"),
-		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_ES3", "OpenGLES 3"),
+		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_ES3", "OpenGLES 3.1, Metal"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_SM4", "DirectX 10, OpenGL 3.3+"),
 		NSLOCTEXT("LevelEditorCommands", "FeatureLevelPreviewTooltip_SM5", "DirectX 11, OpenGL 4.3+, PS4, XB1"),
 	};
@@ -3105,7 +3163,7 @@ void FLevelEditorCommands::RegisterCommands()
 			FeatureLevelLabels[i],
 			FeatureLevelToolTips[i])
 			.UserInterfaceType(EUserInterfaceActionType::RadioButton)
-			.DefaultGesture(FInputGesture());
+			.DefaultChord(FInputChord());
 	}
 }
 

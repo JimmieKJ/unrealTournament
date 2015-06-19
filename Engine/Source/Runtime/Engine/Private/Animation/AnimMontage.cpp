@@ -20,6 +20,7 @@ UAnimMontage::UAnimMontage(const FObjectInitializer& ObjectInitializer)
 	bAnimBranchingPointNeedsSort = true;
 	BlendInTime = 0.25f;
 	BlendOutTime = 0.25f;
+	BlendOutTriggerTime = -1.f;
 }
 
 bool UAnimMontage::IsValidSlot(FName InSlotName) const
@@ -683,7 +684,7 @@ EAnimEventTriggerOffsets::Type UAnimMontage::CalculateOffsetFromSections(float T
 	for(auto Iter = CompositeSections.CreateConstIterator(); Iter; ++Iter)
 	{
 		float SectionTime = Iter->GetTime();
-		if(SectionTime == Time)
+		if(FMath::IsNearlyEqual(SectionTime,Time))
 		{
 			return EAnimEventTriggerOffsets::OffsetBefore;
 		}
@@ -852,7 +853,7 @@ void FAnimMontageInstance::Play(float InPlayRate)
 	DesiredWeight = 1.f;
 }
 
-void FAnimMontageInstance::Stop(float BlendOut, bool bInterrupt)
+void FAnimMontageInstance::Stop(float BlendOutDuration, bool bInterrupt)
 {
 	// overwrite bInterrupted if it hasn't already interrupted
 	// once interrupted, you don't go back to non-interrupted
@@ -861,42 +862,36 @@ void FAnimMontageInstance::Stop(float BlendOut, bool bInterrupt)
 		bInterrupted = bInterrupt;
 	}
 
-	// It is already stopped, but if BlendOut < BlendTime, that means 
-	// we need to readjust BlendTime, we don't want old animation to blend longer than
-	// new animation
-	if (DesiredWeight == 0.f)
+	if (DesiredWeight > 0.f)
+	{
+		DesiredWeight = 0.f;
+		if (Montage)
+		{
+			// do not use default Montage->BlendOut  Time
+			// depending on situation, the BlendOut time changes
+			// check where this function gets called and see how we calculate BlendTime
+			BlendTime = BlendOutDuration;
+
+			if (UAnimInstance* Inst = AnimInstance.Get())
+			{
+				// Let AnimInstance know we are being stopped.
+				Inst->OnMontageInstanceStopped(*this);
+				Inst->QueueMontageBlendingOutEvent(FQueuedMontageBlendingOutEvent(Montage, bInterrupted, OnMontageBlendingOutStarted));
+			}
+		}
+	}
+	else
 	{
 		// it is already stopped, but new montage blendtime is shorter than what 
 		// I'm blending out, that means this needs to readjust blendtime
 		// that way we don't accumulate old longer blendtime for newer montage to play
-		if (BlendOut < BlendTime)
+		if (BlendOutDuration < BlendTime)
 		{
-			BlendTime = BlendOut;
+			BlendTime = BlendOutDuration;
 		}
-
-		return;
 	}
 
-	DesiredWeight = 0.f;
-
-	if( Montage )
-	{
-		
-		// do not use default Montage->BlendOut  Time
-		// depending on situation, the BlendOut time changes
-		// check where this function gets called and see how we calculate BlendTime
-		BlendTime = BlendOut;
-
-		if (UAnimInstance* Inst = AnimInstance.Get())
-		{
-			// Let AnimInstance know we are being stopped.
-			Inst->OnMontageInstanceStopped(*this);
-			Inst->OnMontageBlendingOut.Broadcast(Montage, bInterrupt);
-		}
-		OnMontageBlendingOutStarted.ExecuteIfBound(Montage, bInterrupted);
-	}
-
-	if (BlendTime == 0.0f)
+	if (BlendTime <= 0.0f)
 	{
 		bPlaying = false;
 	}
@@ -957,7 +952,7 @@ void FAnimMontageInstance::AddReferencedObjects( FReferenceCollector& Collector 
 
 void FAnimMontageInstance::Terminate()
 {
-	if ( Montage == NULL )
+	if (Montage == NULL)
 	{
 		return;
 	}
@@ -965,20 +960,24 @@ void FAnimMontageInstance::Terminate()
 	UAnimMontage* OldMontage = Montage;
 	Montage = NULL;
 
-	// End all active State BranchingPoints
-	for (int32 Index = ActiveStateBranchingPoints.Num() - 1; Index >= 0; Index--)
+	UAnimInstance* Inst = AnimInstance.Get();
+	if (Inst)
 	{
-		FAnimNotifyEvent& NotifyEvent = ActiveStateBranchingPoints[Index];
-		NotifyEvent.NotifyStateClass->NotifyEnd(AnimInstance->GetSkelMeshComponent(), Cast<UAnimSequenceBase>(NotifyEvent.NotifyStateClass->GetOuter()));
-	}
-	ActiveStateBranchingPoints.Empty();
+		// End all active State BranchingPoints
+		for (int32 Index = ActiveStateBranchingPoints.Num() - 1; Index >= 0; Index--)
+		{
+			FAnimNotifyEvent& NotifyEvent = ActiveStateBranchingPoints[Index];
+			NotifyEvent.NotifyStateClass->NotifyEnd(Inst->GetSkelMeshComponent(), Cast<UAnimSequenceBase>(NotifyEvent.NotifyStateClass->GetOuter()));
+		}
+		ActiveStateBranchingPoints.Empty();
 
-	// terminating, trigger end
-	if (UAnimInstance* Inst = AnimInstance.Get())
-	{
-		Inst->OnMontageEnded.Broadcast(OldMontage, bInterrupted);
+		// terminating, trigger end
+		Inst->QueueMontageEndedEvent(FQueuedMontageEndedEvent(OldMontage, bInterrupted, OnMontageEnded));
 	}
-	OnMontageEnded.ExecuteIfBound(OldMontage, bInterrupted);
+
+	// Clear any active synchronization
+	MontageSync_StopFollowing();
+	MontageSync_StopLeading();
 }
 
 bool FAnimMontageInstance::JumpToSectionName(FName const & SectionName, bool bEndOfSection)
@@ -1096,6 +1095,103 @@ FName FAnimMontageInstance::GetSectionNameFromID(int32 const & SectionID) const
 	return NAME_None;
 }
 
+void FAnimMontageInstance::MontageSync_Follow(struct FAnimMontageInstance* NewLeaderMontageInstance)
+{
+	// Stop following previous leader if any.
+	MontageSync_StopFollowing();
+
+	// Follow new leader
+	// Note: we don't really care about detecting loops there, there's no real harm in doing so.
+	if (NewLeaderMontageInstance && (NewLeaderMontageInstance != this))
+	{
+		NewLeaderMontageInstance->MontageSyncFollowers.AddUnique(this);
+		MontageSyncLeader = NewLeaderMontageInstance;
+	}
+}
+
+void FAnimMontageInstance::MontageSync_StopLeading()
+{
+	for (auto MontageSyncFollower : MontageSyncFollowers)
+	{
+		if (MontageSyncFollower)
+		{
+			ensure(MontageSyncFollower->MontageSyncLeader == this);
+			MontageSyncFollower->MontageSyncLeader = NULL;
+		}
+	}
+	MontageSyncFollowers.Empty();
+}
+
+void FAnimMontageInstance::MontageSync_StopFollowing()
+{
+	if (MontageSyncLeader)
+	{
+		MontageSyncLeader->MontageSyncFollowers.RemoveSingleSwap(this);
+		MontageSyncLeader = NULL;
+	}
+}
+
+uint32 FAnimMontageInstance::MontageSync_GetFrameCounter() const
+{
+	return (GFrameCounter % MAX_uint32);
+}
+
+bool FAnimMontageInstance::MontageSync_HasBeenUpdatedThisFrame() const
+{
+	return (MontageSyncUpdateFrameCounter == MontageSync_GetFrameCounter());
+}
+
+void FAnimMontageInstance::MontageSync_PreUpdate()
+{
+	// If we are being synchronized to a leader
+	// And our leader HASN'T been updated yet, then we need to synchronize ourselves now.
+	// We're basically synchronizing to last frame's values.
+	// If we want to avoid that frame of lag, a tick prerequisite should be put between the follower and the leader.
+	if (MontageSyncLeader && !MontageSyncLeader->MontageSync_HasBeenUpdatedThisFrame())
+	{
+		MontageSync_PerformSyncToLeader();
+	}
+}
+
+void FAnimMontageInstance::MontageSync_PostUpdate()
+{
+	// Tag ourselves as updated this frame.
+	MontageSyncUpdateFrameCounter = MontageSync_GetFrameCounter();
+
+	// If we are being synchronized to a leader
+	// And our leader HAS already been updated, then we can synchronize ourselves now.
+	// To make sure we are in sync before rendering.
+	if (MontageSyncLeader && MontageSyncLeader->MontageSync_HasBeenUpdatedThisFrame())
+	{
+		MontageSync_PerformSyncToLeader();
+	}
+}
+
+void FAnimMontageInstance::MontageSync_PerformSyncToLeader()
+{
+	if (MontageSyncLeader)
+	{
+		// Sync follower position only if significant error.
+		// We don't want continually 'teleport' it, which could have side-effects and skip AnimNotifies.
+		const float LeaderPosition = MontageSyncLeader->GetPosition();
+		const float FollowerPosition = GetPosition();
+		if (FMath::Abs(FollowerPosition - LeaderPosition) > KINDA_SMALL_NUMBER)
+		{
+			SetPosition(LeaderPosition);
+		}
+
+		SetPlayRate(MontageSyncLeader->GetPlayRate());
+
+		// If source and target share same section names, keep them in sync as well. So we properly handle jumps and loops.
+		const FName LeaderCurrentSectionName = MontageSyncLeader->GetCurrentSection();
+		if ((LeaderCurrentSectionName != NAME_None) && (GetCurrentSection() == LeaderCurrentSectionName))
+		{
+			const FName LeaderNextSectionName = MontageSyncLeader->GetNextSection();
+			SetNextSectionName(LeaderCurrentSectionName, LeaderNextSectionName);
+		}
+	}
+}
+
 void FAnimMontageInstance::UpdateWeight(float DeltaTime)
 {
 	if ( IsValid() )
@@ -1104,6 +1200,10 @@ void FAnimMontageInstance::UpdateWeight(float DeltaTime)
 
 		// update weight
 		FAnimationRuntime::TickBlendWeight(DeltaTime, DesiredWeight, Weight, BlendTime);
+
+		// Notify weight is max of previous and current as notify could have come
+		// from any point between now and last tick
+		NotifyWeight = FMath::Max(PreviousWeight, Weight);
 	}
 }
 
@@ -1209,6 +1309,7 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 			RefreshNextPrevSections();
 		}
 #endif
+
 		// if no weight, no reason to update, and if not playing, we don't need to advance
 		// this portion is to advance position
 		// If we just reached zero weight, still tick this frame to fire end of animation events.
@@ -1263,10 +1364,14 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 					float PrevPosition = Position;
 					Position = FMath::Clamp<float>(Position + ActualDeltaPos, CurrentSection.GetTime(), CurrentSectionEndPos);
 
-					if( FMath::Abs(ActualDeltaMove) > 0.f )
+					const float PositionBeforeFiringEvents = Position;
+
+					const bool bHaveMoved = FMath::Abs(ActualDeltaMove) > 0.f;
+
+					if (bHaveMoved)
 					{
 						// Extract Root Motion for this time slice, and accumulate it.
-						if( bExtractRootMotion && AnimInstance.IsValid() )
+						if (bExtractRootMotion && AnimInstance.IsValid())
 						{
 							FTransform RootMotion = Montage->ExtractRootMotionFromTrackRange(PrevPosition, Position);
 							if (bBlendRootMotion)
@@ -1280,53 +1385,56 @@ void FAnimMontageInstance::Advance(float DeltaTime, struct FRootMotionMovementPa
 								OutRootMotionParams->Accumulate(RootMotion);
 							}
 						}
+					}
 
-						// If about to reach the end of the montage...
-						if( NextSectionIndex == INDEX_NONE )
+					// If current section is last one, check to trigger a blend out.
+					if( NextSectionIndex == INDEX_NONE )
+					{
+						const float DeltaPosToEnd = bPlayingForward ? (CurrentSectionLength - PosInSection) : PosInSection;
+						const float DeltaTimeToEnd = DeltaPosToEnd / FMath::Abs(CombinedPlayRate);
+
+						const bool bCustomBlendOutTriggerTime = (Montage->BlendOutTriggerTime >= 0);
+						const float DefaultBlendOutTime = Montage->BlendOutTime * DefaultBlendTimeMultiplier;
+						const float BlendOutTriggerTime = bCustomBlendOutTriggerTime ? Montage->BlendOutTriggerTime : DefaultBlendOutTime;
+							
+						// ... trigger blend out if within blend out time window.
+						if (DeltaTimeToEnd <= FMath::Max<float>(BlendOutTriggerTime, KINDA_SMALL_NUMBER))
 						{
-							// ... trigger blend out if within blend out time window.
-							const float DeltaPosToEnd = bPlayingForward ? (CurrentSectionLength - PosInSection) : PosInSection;
-							const float DeltaTimeToEnd = DeltaPosToEnd / CombinedPlayRate;
-							const float BlendOutTime = FMath::Max<float>(Montage->BlendOutTime * DefaultBlendTimeMultiplier, KINDA_SMALL_NUMBER);
-							if( DeltaTimeToEnd <= BlendOutTime )
-							{
-								Stop(DeltaTimeToEnd, false);
-							}
+							const float BlendOutTime = bCustomBlendOutTriggerTime ? DefaultBlendOutTime : DeltaTimeToEnd;
+							Stop(BlendOutTime, false);
 						}
+					}
 
+					if (bHaveMoved)
+					{
 						// Delegate has to be called last in this loop
 						// so that if this changes position, the new position will be applied in the next loop
 						// first need to have event handler to handle it
 
 						// Save position before firing events.
-						const float PositionBeforeFiringEvents = Position;
-						if( !bInterrupted )
+						if (!bInterrupted)
 						{
 							HandleEvents(PrevPosition, Position, BranchingPointMarker);
 						}
-
-						// if we reached end of section, and we were not processing a branching point, and no events has messed with out current position..
-						// .. Move to next section.
-						// (this also handles looping, the same as jumping to a different section).
-						if ((AdvanceType != ETAA_Default) && !BranchingPointMarker && (PositionBeforeFiringEvents == Position))
-						{
-							// Get recent NextSectionIndex in case it's been changed by previous events.
-							const int32 RecentNextSectionIndex = bPlayingForward ? NextSections[CurrentSectionIndex] : PrevSections[CurrentSectionIndex];
-
-							if( RecentNextSectionIndex != INDEX_NONE )
-							{
-								float LatestNextSectionStartTime, LatestNextSectionEndTime;
-								Montage->GetSectionStartAndEndTime(RecentNextSectionIndex, LatestNextSectionStartTime, LatestNextSectionEndTime);
-
-								// Jump to next section's appropriate starting point (start or end).
-								float EndOffset = KINDA_SMALL_NUMBER/2.f; //KINDA_SMALL_NUMBER/2 because we use KINDA_SMALL_NUMBER to offset notifies for triggering and SMALL_NUMBER is too small
-								Position = bPlayingForward ? LatestNextSectionStartTime : (LatestNextSectionEndTime - EndOffset);
-							}
-						}
 					}
-					else
+
+					// if we reached end of section, and we were not processing a branching point, and no events has messed with out current position..
+					// .. Move to next section.
+					// (this also handles looping, the same as jumping to a different section).
+					if ((AdvanceType != ETAA_Default) && !BranchingPointMarker && (PositionBeforeFiringEvents == Position))
 					{
-						break;
+						// Get recent NextSectionIndex in case it's been changed by previous events.
+						const int32 RecentNextSectionIndex = bPlayingForward ? NextSections[CurrentSectionIndex] : PrevSections[CurrentSectionIndex];
+
+						if( RecentNextSectionIndex != INDEX_NONE )
+						{
+							float LatestNextSectionStartTime, LatestNextSectionEndTime;
+							Montage->GetSectionStartAndEndTime(RecentNextSectionIndex, LatestNextSectionStartTime, LatestNextSectionEndTime);
+
+							// Jump to next section's appropriate starting point (start or end).
+							float EndOffset = KINDA_SMALL_NUMBER/2.f; //KINDA_SMALL_NUMBER/2 because we use KINDA_SMALL_NUMBER to offset notifies for triggering and SMALL_NUMBER is too small
+							Position = bPlayingForward ? LatestNextSectionStartTime : (LatestNextSectionEndTime - EndOffset);
+						}
 					}
 				}
 				else
@@ -1387,7 +1495,7 @@ void FAnimMontageInstance::HandleEvents(float PreviousTrackPos, float CurrentTra
 		// we'll do this for all slots for now
 		for (auto SlotTrack = Montage->SlotAnimTracks.CreateIterator(); SlotTrack; ++SlotTrack)
 		{
-			if (AnimInstance->IsActiveSlotNode(SlotTrack->SlotName))
+			if (AnimInstance->IsSlotNodeRelevantForNotifies(SlotTrack->SlotName))
 			{
 				for (auto AnimSegment = SlotTrack->AnimTrack.AnimSegments.CreateIterator(); AnimSegment; ++AnimSegment)
 				{
@@ -1397,7 +1505,7 @@ void FAnimMontageInstance::HandleEvents(float PreviousTrackPos, float CurrentTra
 		}
 
 		// Queue all these notifies.
-		AnimInstance->AddAnimNotifies(Notifies, Weight);
+		AnimInstance->AddAnimNotifies(Notifies, NotifyWeight);
 	}
 
 	// Update active state branching points, before we handle the immediate tick marker.

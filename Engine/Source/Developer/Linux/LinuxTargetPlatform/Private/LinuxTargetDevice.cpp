@@ -81,7 +81,12 @@ bool FLinuxTargetDevice::Launch( const FString& AppId, EBuildConfigurations::Typ
 
 	// launch the game
 	FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*ExecutablePath, *Params, true, false, false, OutProcessId, 0, NULL, NULL);
-	return ProcessHandle.Close();
+	if (ProcessHandle.IsValid())
+	{
+		FPlatformProcess::CloseProc(ProcessHandle);
+		return true;
+	}
+	return false;
 #else
 	// @todo: support launching on a remote machine
 	STUBBED("FLinuxTargetDevice::Launch");
@@ -99,7 +104,12 @@ bool FLinuxTargetDevice::Run( const FString& ExecutablePath, const FString& Para
 {
 #if PLATFORM_LINUX	// if running natively, support simplified, local deployment	
 	FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*ExecutablePath, *Params, true, false, false, OutProcessId, 0, NULL, NULL);
-	return ProcessHandle.Close();
+	if (ProcessHandle.IsValid())
+	{
+		FPlatformProcess::CloseProc(ProcessHandle);
+		return true;
+	}
+	return false;
 #else
 	// @todo: support remote run
 	STUBBED("FLinuxTargetDevice::Run");

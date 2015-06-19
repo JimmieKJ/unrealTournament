@@ -426,6 +426,11 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			Ar.Logf(TEXT("%s $%X: EX_EndArray"), *Indents, (int32)Opcode);
 			break;
 		}
+	case EX_EndArrayConst:
+		{
+			Ar.Logf(TEXT("%s $%X: EX_EndArrayConst"), *Indents, (int32)Opcode);
+			break;
+		}
 	case EX_IntZero:
 		{
 			Ar.Logf(TEXT("%s $%X: EX_IntZero"), *Indents, (int32)Opcode);
@@ -644,6 +649,17 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
  				// Array contents
  			}
  			break;
+		}
+	case EX_ArrayConst:
+		{
+			UProperty* InnerProp = ReadPointer<UProperty>(ScriptIndex);
+			int32 Num = ReadINT(ScriptIndex);
+			Ar.Logf(TEXT("%s $%X: set array const - elements number: %d, inner property: %s"), *Indents, (int32)Opcode, Num, *GetNameSafe(InnerProp));
+			while (SerializeExpr(ScriptIndex) != EX_EndArrayConst)
+			{
+				// Array contents
+			}
+			break;
 		}
 	case EX_ByteConst:
 		{

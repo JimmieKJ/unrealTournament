@@ -70,12 +70,12 @@ public:
 	}
 
 	/** return true if this cache is writable **/
-	virtual bool IsWritable()
+	virtual bool IsWritable() override
 	{
 		return bWriting && !bClosed;
 	}
 
-	virtual bool BackfillLowerCacheLevels()
+	virtual bool BackfillLowerCacheLevels() override
 	{
 		return false;
 	}
@@ -86,7 +86,7 @@ public:
 	 * @param	CacheKey	Alphanumeric+underscore key of this cache item
 	 * @return				true if the data probably will be found, this can't be guaranteed because of concurrency in the backends, corruption, etc
 	 */
-	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey)
+	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
 		return CacheItems.Contains(FString(CacheKey));
@@ -98,7 +98,7 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData)
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
 		if (bWriting || bClosed)
 		{
@@ -359,20 +359,26 @@ public:
 		// Get all the existing keys
 		TArray<FString> KeyNames;
 		OtherPak->CacheItems.GenerateKeyArray(KeyNames);
-		UE_LOG(LogDerivedDataCache, Display, TEXT("Found %d entries."), KeyNames.Num());
 
-		// Copy them all to the new cache
-		TArray<uint8> Buffer;
-		for(int32 Idx = 0; Idx < KeyNames.Num(); Idx++)
+		// Find all the keys to copy
+		TArray<FString> CopyKeyNames;
+		for(const FString& KeyName : KeyNames)
 		{
-			if(!CachedDataProbablyExists(*KeyNames[Idx]))
+			if(!CachedDataProbablyExists(*KeyName))
 			{
-				Buffer.Reset();
-				if(OtherPak->GetCachedData(*KeyNames[Idx], Buffer))
-				{
-					UE_LOG(LogDerivedDataCache, Display, TEXT("[%d/%d] Copying %s (%d bytes)..."), Idx + 1, KeyNames.Num(), *KeyNames[Idx], Buffer.Num());
-					PutCachedData(*KeyNames[Idx], Buffer, false);
-				}
+				CopyKeyNames.Add(KeyName);
+			}
+		}
+		UE_LOG(LogDerivedDataCache, Display, TEXT("Merging %d entries (%d skipped)."), CopyKeyNames.Num(), KeyNames.Num() - CopyKeyNames.Num());
+
+		// Copy them all to the new cache. Don't use the overloaded get/put methods (which may compress/decompress); copy the raw data directly.
+		TArray<uint8> Buffer;
+		for(const FString& CopyKeyName : CopyKeyNames)
+		{
+			Buffer.Reset();
+			if(OtherPak->FPakFileDerivedDataBackend::GetCachedData(*CopyKeyName, Buffer))
+			{
+				FPakFileDerivedDataBackend::PutCachedData(*CopyKeyName, Buffer, false);
 			}
 		}
 	}
@@ -398,12 +404,23 @@ public:
 
 		// Copy all the DDC to the new cache
 		TArray<uint8> Buffer;
+		TArray<uint32> KeySizes;
 		for (int KeyIndex = 0; KeyIndex < KeyNames.Num(); KeyIndex++)
 		{
 			Buffer.Reset();
 			InputPak.GetCachedData(*KeyNames[KeyIndex], Buffer);
 			OutputPak.PutCachedData(*KeyNames[KeyIndex], Buffer, false);
+			KeySizes.Add(Buffer.Num());
 		}
+
+		// Write out a TOC listing for debugging
+		FStringOutputDevice Output;
+		Output.Logf(TEXT("Asset,Size") LINE_TERMINATOR);
+		for(int KeyIndex = 0; KeyIndex < KeyNames.Num(); KeyIndex++)
+		{
+			Output.Logf(TEXT("%s,%d") LINE_TERMINATOR, *KeyNames[KeyIndex], KeySizes[KeyIndex]);
+		}
+		FFileHelper::SaveStringToFile(Output, *FPaths::Combine(*FPaths::GetPath(OutputFilename), *(FPaths::GetBaseFilename(OutputFilename) + TEXT(".csv"))));
 		return true;
 	}
 

@@ -27,7 +27,8 @@ class UK2Node_InputAxisEvent : public UK2Node_Event
 
 	// Begin UObject interface
 	virtual void PostLoad() override;
-	// End UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
 
 	// Begin EdGraphNode interface
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;

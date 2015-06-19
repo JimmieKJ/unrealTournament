@@ -10,7 +10,7 @@
 
 void UArrayProperty::LinkInternal(FArchive& Ar)
 {
-	ULinkerLoad* MyLinker = GetLinker();
+	FLinkerLoad* MyLinker = GetLinker();
 	if( MyLinker )
 	{
 		MyLinker->Preload(this);
@@ -24,37 +24,30 @@ bool UArrayProperty::Identical( const void* A, const void* B, uint32 PortFlags )
 	checkSlow(Inner);
 
 	FScriptArrayHelper ArrayHelperA(this, A);
-	FScriptArrayHelper ArrayHelperB(this, B);
 
 	const int32 ArrayNum = ArrayHelperA.Num();
-	if ( ArrayNum != (B ? ArrayHelperB.Num() : 0) )
+	if ( B == NULL )
+	{
+		return ArrayNum == 0;
+	}
+
+	FScriptArrayHelper ArrayHelperB(this, B);
+	if ( ArrayNum != ArrayHelperB.Num() )
 	{
 		return false;
 	}
 
-	if ( B != NULL )
+	for ( int32 ArrayIndex = 0; ArrayIndex < ArrayNum; ArrayIndex++ )
 	{
-		for ( int32 ArrayIndex = 0; ArrayIndex < ArrayNum; ArrayIndex++ )
+		if ( !Inner->Identical( ArrayHelperA.GetRawPtr(ArrayIndex), ArrayHelperB.GetRawPtr(ArrayIndex), PortFlags) )
 		{
-			if ( !Inner->Identical( ArrayHelperA.GetRawPtr(ArrayIndex), ArrayHelperB.GetRawPtr(ArrayIndex), PortFlags) )
-			{
-				return false;
-			}
+			return false;
 		}
 	}
-	else
-	{
-		for ( int32 ArrayIndex = 0; ArrayIndex < ArrayNum; ArrayIndex++ )
-		{
-			if ( !Inner->Identical( ArrayHelperA.GetRawPtr(ArrayIndex), 0, PortFlags) )
-			{
-				return false;
-			}
-		}
-	}
+
 	return true;
 }
-void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	checkSlow(Inner);
 
@@ -70,11 +63,9 @@ void UArrayProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadByte
 	}
 	ArrayHelper.CountBytes( Ar );
 
-	const int32 ArrayMaxReadBytes = MaxReadBytes > 0 ? ( MaxReadBytes - sizeof( n ) ) : 0;
 	for( int32 i=0; i<n; i++ )
 	{
-		const int32 ItemMaxReadBytes = ArrayMaxReadBytes > 0 ? ArrayMaxReadBytes / n: 0;
-		Inner->SerializeItem( Ar, ArrayHelper.GetRawPtr(i), ItemMaxReadBytes );
+		Inner->SerializeItem( Ar, ArrayHelper.GetRawPtr(i) );
 	}
 }
 
@@ -178,12 +169,6 @@ void UArrayProperty::ExportTextItem( FString& ValueStr, const void* PropertyValu
 		uint8* PropDefault = ( StructProperty != NULL ) ? StructDefaults :
 			( ( DefaultValue && DefaultArrayHelper.Num() > i ) ? DefaultArrayHelper.GetRawPtr(i) : NULL );
 
-		// Do not re-export duplicate data from superclass when exporting to .int file
-		if ( (PortFlags & PPF_LocalizedOnly) != 0 && Inner->Identical(PropData, PropDefault) )
-		{
-			continue;
-		}
-
 		Inner->ExportTextItem( ValueStr, PropData, PropDefault, Parent, PortFlags|PPF_Delimited, ExportRootScope );
 	}
 
@@ -217,11 +202,7 @@ const TCHAR* UArrayProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 		return NULL;
 	}
 
-	// only clear the array if we're not importing localized text
-	if ( (PortFlags&PPF_LocalizedOnly) == 0 )
-	{
-		ArrayHelper.EmptyValues();
-	}
+	ArrayHelper.EmptyValues();
 
 	SkipWhitespace(Buffer);
 
@@ -325,10 +306,6 @@ void UArrayProperty::DestroyValueInternal( void* Dest ) const
 
 	//@todo UE4 potential double destroy later from this...would be ok for a script array, but still
 	((FScriptArray*)Dest)->~FScriptArray();
-}
-bool UArrayProperty::IsLocalized() const
-{
-	return Inner->IsLocalized() ? true : Super::IsLocalized();
 }
 bool UArrayProperty::PassCPPArgsByRef() const
 {

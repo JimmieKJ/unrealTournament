@@ -20,6 +20,12 @@
 #include "ComponentReregisterContext.h"
 #include "ShaderCompiler.h"
 #include "Lightmass/Lightmass.h"
+#include "Engine/LevelStreaming.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/ModelComponent.h"
+#include "Engine/GeneratedMeshAreaLight.h"
+#include "Components/SkyLightComponent.h"
+#include "UnrealEngine.h"
 
 extern FSwarmDebugOptions GSwarmDebugOptions;
 
@@ -106,7 +112,7 @@ static NSwarm::TChannelFlags LM_DEBUGOUTPUT_CHANNEL_FLAGS		= NSwarm::SWARM_JOB_C
 
 void Copy( const ULightComponentBase* In, Lightmass::FLightData& Out )
 {	
-	FMemory::MemZero(Out);
+	FMemory::Memzero(Out);
 
 	Out.LightFlags = 0;
 	if (In->CastShadows)
@@ -152,6 +158,11 @@ void Copy( const ULightComponent* In, Lightmass::FLightData& Out )
 	Out.Brightness = In->ComputeLightBrightness();
 	Out.Position = In->GetLightPosition();
 	Out.Direction = In->GetDirection();
+
+	if( In->bUseTemperature )
+	{
+		Out.Color *= FLinearColor::MakeFromColorTemperature(In->Temperature);
+	}
 
 	FMemory::Memset(Out.LightProfileTextureData, 0xff, sizeof(Out.LightProfileTextureData));
 
@@ -357,6 +368,7 @@ void FLightmassProcessor::SwarmCallback( NSwarm::FMessage* CallbackMessage, void
 
 			switch (AlertMessage->AlertLevel)
 			{
+			case NSwarm::ALERT_LEVEL_INFO:	break;
 			case NSwarm::ALERT_LEVEL_WARNING:			CheckType = EMessageSeverity::Warning;			break;
 			case NSwarm::ALERT_LEVEL_ERROR:				CheckType = EMessageSeverity::Error;			break;
 			case NSwarm::ALERT_LEVEL_CRITICAL_ERROR:	CheckType = EMessageSeverity::CriticalError;	break;
@@ -435,10 +447,18 @@ FLightmassExporter::~FLightmassExporter()
 	}
 }
 
-void FLightmassExporter::AddMaterial(UMaterialInterface* InMaterialInterface)
+void FLightmassExporter::AddMaterial(UMaterialInterface* InMaterialInterface, const FStaticLightingMesh* InStaticLightingMesh /*= nullptr*/)
 {
 	if (InMaterialInterface)
 	{
+		FLightmassMaterialExportSettings ExportSettings = { InStaticLightingMesh };
+
+		if (auto* ExistingExportSettings = MaterialExportSettings.Find(InMaterialInterface))
+		{
+			checkf(ExportSettings == *ExistingExportSettings, TEXT("Attempting to add the same material twice with different export settings, this is not (currently) supported"));
+			return;
+		}
+
 		// Check for material texture changes...
 		//@TODO: Add package to warning list if it needs to be resaved (perf warning)
 		InMaterialInterface->UpdateLightmassTextureTracking();
@@ -458,7 +478,8 @@ void FLightmassExporter::AddMaterial(UMaterialInterface* InMaterialInterface)
 			}
 		}
 
-		Materials.AddUnique(InMaterialInterface);
+		Materials.Add(InMaterialInterface);
+		MaterialExportSettings.Add(InMaterialInterface, ExportSettings);
 	}
 }
 
@@ -651,7 +672,8 @@ bool FLightmassExporter::WriteToMaterialChannel(FLightmassStatistics& Stats)
 					}
 					else
 					{
-						ExportMaterial(Materials[CurrentAmortizationIndex]);
+						auto* CurrentMaterial = Materials[CurrentAmortizationIndex];
+						ExportMaterial(CurrentMaterial, MaterialExportSettings.FindChecked(CurrentMaterial));
 						++CurrentAmortizationIndex;
 					}
 				}
@@ -691,7 +713,7 @@ float FLightmassExporter::GetAmortizedExportPercentDone() const
 		ExportStage == ShaderCompilation ? Materials.Num():
 		ExportStage == ExportMaterials ? (Materials.Num() + CurrentAmortizationIndex) :
 		ExportStage == CleanupMaterialExport ? (Materials.Num() * 2 + CurrentAmortizationIndex) : EstimatedTotalTaskCount;
-	return CurrentTaskId / EstimatedTotalTaskCount;
+	return static_cast<float>(CurrentTaskId) / EstimatedTotalTaskCount;
 }
 
 void FLightmassExporter::WriteVisibilityData( int32 Channel )
@@ -1105,7 +1127,7 @@ void FLightmassExporter::WriteStaticMeshes()
 
 void FLightmassExporter::BuildMaterialMap(UMaterialInterface* Material)
 {
-	if (Material)
+	if (ensure(Material))
 	{
 		FGuid LightingGuid = Material->GetLightingGuid();
 
@@ -1150,12 +1172,12 @@ void FLightmassExporter::BlockOnShaderCompilation()
 	GShaderCompilingManager->FinishAllCompilation();
 }
 
-void FLightmassExporter::ExportMaterial(UMaterialInterface* Material)
+void FLightmassExporter::ExportMaterial(UMaterialInterface* Material, const FLightmassMaterialExportSettings& ExportSettings)
 {
 	FMaterialExportDataEntry* ExportEntry = MaterialExportData.Find(Material);
 
 	// Only create the Swarm channel if there is something to export
-	if (Material && ExportEntry)
+	if (ensure(Material) && ExportEntry)
 	{
 		Lightmass::FBaseMaterialData BaseMaterialData;
 		BaseMaterialData.Guid = Material->GetLightingGuid();
@@ -1165,8 +1187,8 @@ void FLightmassExporter::ExportMaterial(UMaterialInterface* Material)
 		FMemory::Memzero(&MaterialData,sizeof(MaterialData));
 		UMaterial* BaseMaterial = Material->GetMaterial();
 		MaterialData.bTwoSided = (uint32)Material->IsTwoSided();
-		MaterialData.EmissiveBoost =  Material->GetEmissiveBoost();
-		MaterialData.DiffuseBoost =  Material->GetDiffuseBoost();
+		MaterialData.EmissiveBoost = Material->GetEmissiveBoost();
+		MaterialData.DiffuseBoost = Material->GetDiffuseBoost();
 
 		TArray<FFloat16Color> MaterialEmissive;
 		TArray<FFloat16Color> MaterialDiffuse;
@@ -1174,12 +1196,13 @@ void FLightmassExporter::ExportMaterial(UMaterialInterface* Material)
 		TArray<FFloat16Color> MaterialNormal;
 
 		if (MaterialRenderer.GenerateMaterialData(
-			*Material, 
-			MaterialData, 
-			*ExportEntry, 
+			*Material,
+			ExportSettings,
+			MaterialData,
+			*ExportEntry,
 			MaterialDiffuse,
 			MaterialEmissive,
-			MaterialTransmission, 
+			MaterialTransmission,
 			MaterialNormal))
 		{
 			// open the channel
@@ -1196,7 +1219,7 @@ void FLightmassExporter::ExportMaterial(UMaterialInterface* Material)
 				uint8* OutData;
 				int32 OutSize;
 
-				OutSize = FMath::Square(MaterialData.EmissiveSize) * sizeof(FFloat16Color);  
+				OutSize = FMath::Square(MaterialData.EmissiveSize) * sizeof(FFloat16Color);
 				if (OutSize > 0)
 				{
 					OutData = (uint8*)(MaterialEmissive.GetData());
@@ -1337,6 +1360,7 @@ void FLightmassExporter::WriteBaseTextureMappingData( int32 Channel, const FStat
 	
 	Lightmass::FStaticLightingTextureMappingData TextureMappingData;
 	FMemory::Memzero(&TextureMappingData,sizeof(TextureMappingData));
+	check(TextureMapping->SizeX > 0 && TextureMapping->SizeY > 0);
 	TextureMappingData.SizeX = TextureMapping->SizeX;
 	TextureMappingData.SizeY = TextureMapping->SizeY;
 	TextureMappingData.LightmapTextureCoordinateIndex = TextureMapping->LightmapTextureCoordinateIndex;
@@ -1486,8 +1510,20 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 			Copy(*SplineParams, SMInstanceMeshData.SplineParameters);
 			SMInstanceMeshData.SplineParameters.SplineUpDir = SplineComponent->SplineUpDir;
 			SMInstanceMeshData.SplineParameters.bSmoothInterpRollScale = SplineComponent->bSmoothInterpRollScale;
-			SMInstanceMeshData.SplineParameters.MeshMinZ = MeshBounds.Origin[SplineComponent->ForwardAxis] - MeshBounds.BoxExtent[SplineComponent->ForwardAxis];
-			SMInstanceMeshData.SplineParameters.MeshRangeZ = 2.f * MeshBounds.BoxExtent[SplineComponent->ForwardAxis];
+
+			if (FMath::IsNearlyEqual(SplineComponent->SplineBoundaryMin, SplineComponent->SplineBoundaryMax))
+			{
+				// set ranges according to the extents of the mesh
+				SMInstanceMeshData.SplineParameters.MeshMinZ = MeshBounds.Origin[SplineComponent->ForwardAxis] - MeshBounds.BoxExtent[SplineComponent->ForwardAxis];
+				SMInstanceMeshData.SplineParameters.MeshRangeZ = 2.f * MeshBounds.BoxExtent[SplineComponent->ForwardAxis];
+			}
+			else
+			{
+				// set ranges according to the custom boundary min/max
+				SMInstanceMeshData.SplineParameters.MeshMinZ = SplineComponent->SplineBoundaryMin;
+				SMInstanceMeshData.SplineParameters.MeshRangeZ = SplineComponent->SplineBoundaryMax - SplineComponent->SplineBoundaryMin;
+			}
+
 			SMInstanceMeshData.SplineParameters.ForwardAxis = (Lightmass::ESplineMeshAxis::Type)SplineComponent->ForwardAxis.GetValue();
 		}
 		else
@@ -1757,7 +1793,7 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 		verify(GConfig->GetInt(TEXT("DevOptions.StaticLighting"), TEXT("MaxTriangleIrradiancePhotonCacheSamples"), Scene.GeneralSettings.MaxTriangleIrradiancePhotonCacheSamples, GLightmassIni));
 
 		int32 CheckQualityLevel;
-		GConfig->GetInt( TEXT("LightingBuildOptions"), TEXT("QualityLevel"), CheckQualityLevel, GEditorUserSettingsIni);
+		GConfig->GetInt( TEXT("LightingBuildOptions"), TEXT("QualityLevel"), CheckQualityLevel, GEditorPerProjectIni);
 		CheckQualityLevel = FMath::Clamp<int32>(CheckQualityLevel, Quality_Preview, Quality_Production);
 		UE_LOG(LogLightmassSolver, Log, TEXT("LIGHTMASS: Writing scene settings: Quality level %d (%d in INI)"), (int32)(QualityLevel), CheckQualityLevel);
 		if (CheckQualityLevel != QualityLevel)
@@ -1775,7 +1811,7 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 		default:
 			{
 				bool bUseErrorColoring = false;
-				GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"),		bUseErrorColoring,					GEditorUserSettingsIni );
+				GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"),		bUseErrorColoring,					GEditorPerProjectIni );
 				Scene.GeneralSettings.bUseErrorColoring = bUseErrorColoring;
 				if (bUseErrorColoring == false)
 				{
@@ -2574,7 +2610,7 @@ bool FLightmassProcessor::BeginRun()
 
 	// Check to see if swarm should be run minimized (it should by default)
 	bool bMinimizeSwarm = true;
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("MinimizeSwarm"), bMinimizeSwarm, GEditorGameAgnosticIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("MinimizeSwarm"), bMinimizeSwarm, GEditorSettingsIni);
 	if ( bMinimizeSwarm )
 	{
 		UE_LOG(LogLightmassSolver, Log,  TEXT("Swarm will be run minimized") );
@@ -2586,22 +2622,6 @@ bool FLightmassProcessor::BeginRun()
 	{
 		CommandLineParameters += TEXT(" -stats");
 	}
-	
-	int32 NumUnusedLightmassThreads;
-	verify(GConfig->GetInt(TEXT("DevOptions.StaticLighting"), TEXT("NumUnusedLightmassThreads"), NumUnusedLightmassThreads, GLightmassIni));
-
-	const int32 NumVirtualCores = FPlatformMisc::NumberOfCoresIncludingHyperthreads();
-	int32 NumThreads = NumVirtualCores - NumUnusedLightmassThreads;
-
-	// On machines with few cores, each core will have a massive impact on build time, so we prioritize build latency over editor performance during the build
-	if (NumVirtualCores <= 4)
-	{
-		NumThreads = NumVirtualCores - 1;
-	}
-
-	NumThreads = FMath::Max(1, NumThreads);
-
-	CommandLineParameters += FString::Printf(TEXT(" -numthreads %i"), NumThreads);
 
 	NSwarm::FJobSpecification JobSpecification32, JobSpecification64;
 	if ( !bUse64bitProcess )
@@ -3886,7 +3906,7 @@ bool FLightmassProcessor::ImportLightMapData2DData(int32 Channel, FQuantizedLigh
 	// decompress the temp buffer into another temp buffer 
 	if (!FCompression::UncompressMemory(COMPRESS_ZLIB, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
 	{
-		checkf(TEXT("Uncompress failed, which is unexpected"));
+		checkf(false, TEXT("Uncompress failed, which is unexpected"));
 	}
 
 	// can free one buffer now
@@ -3930,7 +3950,7 @@ bool FLightmassProcessor::ImportSignedDistanceFieldShadowMapData2D(int32 Channel
 		// Decompress the temp buffer into another temp buffer 
 		if (!FCompression::UncompressMemory(COMPRESS_ZLIB, DataBuffer, UncompressedSize, CompressedBuffer, CompressedSize))
 		{
-			checkf(TEXT("Uncompress failed, which is unexpected"));
+			checkf(false, TEXT("Uncompress failed, which is unexpected"));
 		}
 		FMemory::Free(CompressedBuffer);
 
@@ -4003,7 +4023,7 @@ bool FLightmassProcessor::ImportTextureMapping(int32 Channel, FTextureMappingImp
 		}
 	}
 
-	if (TMImport.QuantizedData && TMImport.QuantizedData->Data.Num() > 0)
+	if (TMImport.QuantizedData->Data.Num() > 0)
 	{
 		TMImport.UnmappedTexelsPercentage = (float)NumUnmappedTexels / (float)TMImport.QuantizedData->Data.Num();
 	}
@@ -4036,7 +4056,7 @@ bool FLightmassProcessor::ImportTextureMapping(int32 Channel, FTextureMappingImp
 	int32 TotalMemory = FMath::TruncToInt(TotalMemoryAmount * BytesPerPixel * MIP_FACTOR * LightMapTypeModifier);
 	
 	FStatsViewerModule& StatsViewerModule = FModuleManager::Get().LoadModuleChecked<FStatsViewerModule>(TEXT("StatsViewer"));
-	ULightingBuildInfo* LightingBuildInfo = ConstructObject<ULightingBuildInfo>(ULightingBuildInfo::StaticClass());
+	ULightingBuildInfo* LightingBuildInfo = NewObject<ULightingBuildInfo>();
 	LightingBuildInfo->Set( MappedObject, TMImport.ExecutionTime, TMImport.UnmappedTexelsPercentage, WastedMemory, TotalMemory );
 	StatsViewerModule.GetPage(EStatsPage::LightingBuildInfo)->AddEntry( LightingBuildInfo );
 

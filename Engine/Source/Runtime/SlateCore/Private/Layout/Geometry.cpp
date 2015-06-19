@@ -15,7 +15,7 @@ FGeometry& FGeometry::operator=(const FGeometry& RHS)
 	// HACK to allow us to make FGeometry public members immutable to catch misuse.
 	if (this != &RHS)
 	{
-		FMemory::MemCopy(*this, RHS);
+		FMemory::Memcpy(*this, RHS);
 	}
 	return *this;
 }

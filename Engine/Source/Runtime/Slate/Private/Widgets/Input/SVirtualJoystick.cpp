@@ -115,40 +115,50 @@ int32 SVirtualJoystick::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 		{
 			const FControlInfo& Control = Controls[ControlIndex];
 
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				RetLayerId++,
-				AllottedGeometry.ToPaintGeometry(
-				Control.VisualCenter - FVector2D(Control.VisualSize.X * 0.5f, Control.VisualSize.Y * 0.5f),
-				Control.VisualSize),
-				Control.Image2.Get(),
-				MyClippingRect,
-				ESlateDrawEffect::None,
-				ColorAndOpacitySRGB
-				);
+			if (Control.Image2.IsValid())
+			{
+				FSlateDrawElement::MakeBox(
+					OutDrawElements,
+					RetLayerId++,
+					AllottedGeometry.ToPaintGeometry(
+					Control.VisualCenter - FVector2D(Control.VisualSize.X * 0.5f, Control.VisualSize.Y * 0.5f),
+					Control.VisualSize),
+					Control.Image2.Get(),
+					MyClippingRect,
+					ESlateDrawEffect::None,
+					ColorAndOpacitySRGB
+					);
+			}
 
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				RetLayerId++,
-				AllottedGeometry.ToPaintGeometry(
-				Control.VisualCenter + Control.ThumbPosition - FVector2D(Control.ThumbSize.X * 0.5f, Control.ThumbSize.Y * 0.5f),
-				Control.ThumbSize),
-				Control.Image1.Get(),
-				MyClippingRect,
-				ESlateDrawEffect::None,
-				ColorAndOpacitySRGB
-				);
+			if (Control.Image1.IsValid())
+			{
+				FSlateDrawElement::MakeBox(
+					OutDrawElements,
+					RetLayerId++,
+					AllottedGeometry.ToPaintGeometry(
+					Control.VisualCenter + Control.ThumbPosition - FVector2D(Control.ThumbSize.X * 0.5f, Control.ThumbSize.Y * 0.5f),
+					Control.ThumbSize),
+					Control.Image1.Get(),
+					MyClippingRect,
+					ESlateDrawEffect::None,
+					ColorAndOpacitySRGB
+					);
+			}
 		}
 	}
 	
 	return RetLayerId;
 }
 
-FVector2D SVirtualJoystick::ComputeDesiredSize() const
+FVector2D SVirtualJoystick::ComputeDesiredSize( float ) const
 {
 	return FVector2D(100, 100);
 }
 
+bool SVirtualJoystick::SupportsKeyboardFocus() const
+{
+	return false;
+}
 
 FReply SVirtualJoystick::OnTouchStarted(const FGeometry& MyGeometry, const FPointerEvent& Event)
 {
@@ -228,12 +238,12 @@ FReply SVirtualJoystick::OnTouchMoved(const FGeometry& MyGeometry, const FPointe
 
 FReply SVirtualJoystick::OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent& Event)
 {
-	for (int32 ControlIndex = 0; ControlIndex < Controls.Num(); ControlIndex++)
+	for ( int32 ControlIndex = 0; ControlIndex < Controls.Num(); ControlIndex++ )
 	{
 		FControlInfo& Control = Controls[ControlIndex];
 
 		// is this control the one captured to this pointer?
-		if (Control.CapturedPointerIndex == Event.GetPointerIndex())
+		if ( Control.CapturedPointerIndex == Event.GetPointerIndex() )
 		{
 			// release and center the joystick
 			Control.ThumbPosition = FVector2D(0, 0);
@@ -243,7 +253,7 @@ FReply SVirtualJoystick::OnTouchEnded(const FGeometry& MyGeometry, const FPointe
 			Control.bSendOneMoreEvent = true;
 
 			// Pass event as unhandled if time is too short
-			if (Control.bNeedUpdatedCenter)
+			if ( Control.bNeedUpdatedCenter )
 			{
 				Control.bNeedUpdatedCenter = false;
 				return FReply::Unhandled();
@@ -300,8 +310,6 @@ bool SVirtualJoystick::HandleTouch(int32 ControlIndex, const FVector2D& LocalCoo
 
 void SVirtualJoystick::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SLeafWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	if (State == State_WaitForStart || State == State_CountingDownToStart)
 	{
 		CurrentOpacity = 0.f;
@@ -464,4 +472,33 @@ void SVirtualJoystick::SetJoystickVisibility(const bool bInVisible, const bool b
 	}
 
 	bVisible = bInVisible;
+}
+
+void SVirtualJoystick::AlignBoxIntoScreen(FVector2D& Position, const FVector2D& Size, const FVector2D& ScreenSize)
+{
+	if ( Size.X > ScreenSize.X || Size.Y > ScreenSize.Y )
+	{
+		return;
+	}
+
+	// Align box to fit into screen
+	if ( Position.X - Size.X * 0.5f < 0.f )
+	{
+		Position.X = Size.X * 0.5f;
+	}
+
+	if ( Position.X + Size.X * 0.5f > ScreenSize.X )
+	{
+		Position.X = ScreenSize.X - Size.X * 0.5f;
+	}
+
+	if ( Position.Y - Size.Y * 0.5f < 0.f )
+	{
+		Position.Y = Size.Y * 0.5f;
+	}
+
+	if ( Position.Y + Size.Y * 0.5f > ScreenSize.Y )
+	{
+		Position.Y = ScreenSize.Y - Size.Y * 0.5f;
+	}
 }

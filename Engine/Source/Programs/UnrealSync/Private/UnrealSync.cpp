@@ -4,6 +4,7 @@
 #include "GUI.h"
 #include "P4DataCache.h"
 #include "P4Env.h"
+#include "XmlParser.h"
 
 #include "RequiredProgramMainCPPInclude.h"
 
@@ -11,14 +12,58 @@ DEFINE_LOG_CATEGORY_STATIC(LogUnrealSync, Log, All);
 
 IMPLEMENT_APPLICATION(UnrealSync, "UnrealSync");
 
-/**
- * Unreal sync main function.
- *
- * @param CommandLine Command line that the program was called with.
- */
-void RunUnrealSync(const TCHAR* CommandLine)
+bool FUnrealSync::UpdateOriginalUS(const FString& OriginalUSPath)
 {
-	InitGUI(CommandLine);
+	FString Output;
+	return FP4Env::RunP4Output(TEXT("sync ") + OriginalUSPath, Output);
+}
+
+bool FUnrealSync::RunDetachedUS(const FString& USPath, bool bDoNotRunFromCopy, bool bDoNotUpdateOnStartUp, bool bPassP4Env)
+{
+	FString CommandLine = FString()
+		+ (bDoNotRunFromCopy ? TEXT("-DoNotRunFromCopy ") : TEXT(""))
+		+ (bDoNotUpdateOnStartUp ? TEXT("-DoNotUpdateOnStartUp ") : TEXT(""))
+		+ (FUnrealSync::IsDebugParameterSet() ? TEXT("-Debug ") : TEXT(""))
+		+ (bPassP4Env ? *FP4Env::Get().GetCommandLine() : TEXT(""));
+
+	return RunProcess(USPath, CommandLine);
+}
+
+bool FUnrealSync::DeleteIfExistsAndCopyFile(const FString& To, const FString& From)
+{
+	auto& PlatformPhysical = IPlatformFile::GetPlatformPhysical();
+
+	if (PlatformPhysical.FileExists(*To) && !PlatformPhysical.DeleteFile(*To))
+	{
+		UE_LOG(LogUnrealSync, Warning, TEXT("Deleting existing file '%s' failed."), *To);
+		return false;
+	}
+
+	return PlatformPhysical.CopyFile(*To, *From);
+}
+
+void FUnrealSync::RunUnrealSync(const TCHAR* CommandLine)
+{
+	// start up the main loop
+	GEngineLoop.PreInit(CommandLine);
+
+	if (!FP4Env::Init(CommandLine))
+	{
+		GLog->Flush();
+		InitGUI(CommandLine, true);
+	}
+	else
+	{
+		if (FUnrealSync::Initialization(CommandLine))
+		{
+			InitGUI(CommandLine);
+		}
+
+		if (!FUnrealSync::GetInitializationError().IsEmpty())
+		{
+			UE_LOG(LogUnrealSync, Fatal, TEXT("Error: %s"), *FUnrealSync::GetInitializationError());
+		}
+	}
 }
 
 FString FUnrealSync::GetLatestLabelForGame(const FString& GameName)
@@ -166,13 +211,38 @@ TSharedPtr<TArray<FString> > FUnrealSync::GetAllLabels()
 
 TSharedPtr<TArray<FString> > FUnrealSync::GetPossibleGameNames()
 {
-	/* TODO: Hard coded game names. Needs to be fixed! */
 	TSharedPtr<TArray<FString> > PossibleGames = MakeShareable(new TArray<FString>());
 
-	PossibleGames->Add("FortniteGame");
-	PossibleGames->Add("OrionGame");
-	PossibleGames->Add("Shadow");
-	PossibleGames->Add("Soul");
+	FP4Env& Env = FP4Env::Get();
+
+	FString FileList;
+	if (!Env.RunP4Output(FString::Printf(TEXT("files -e %s/.../Build/ArtistSyncRules.xml"), *Env.GetBranch()), FileList) || FileList.IsEmpty())
+	{
+		return PossibleGames;
+	}
+
+	FString Line, Rest = FileList;
+	while (Rest.Split(LINE_TERMINATOR, &Line, &Rest, ESearchCase::CaseSensitive))
+	{
+		if (!Line.StartsWith(Env.GetBranch()))
+		{
+			continue;
+		}
+
+		int32 ArtistSyncRulesPos = Line.Find("/Build/ArtistSyncRules.xml#", ESearchCase::IgnoreCase);
+
+		if (ArtistSyncRulesPos == INDEX_NONE)
+		{
+			continue;
+		}
+
+		FString MiddlePart = Line.Mid(Env.GetBranch().Len(), ArtistSyncRulesPos - Env.GetBranch().Len());
+
+		int32 LastSlash = INDEX_NONE;
+		MiddlePart.FindLastChar('/', LastSlash);
+
+		PossibleGames->Add(MiddlePart.Mid(LastSlash + 1));
+	}
 
 	return PossibleGames;
 }
@@ -243,16 +313,15 @@ public:
 	/**
 	 * Constructor
 	 *
-	 * @param bArtist Artist sync?
-	 * @param bPreview Preview sync?
+	 * @param Settings Sync settings.
 	 * @param LabelNameProvider Label name provider.
 	 * @param OnSyncFinished Delegate to run when syncing process has finished.
 	 * @param OnSyncProgress Delegate to run when syncing process has made progress.
 	 */
-	FSyncingThread(bool bArtist, bool bPreview, ILabelNameProvider& LabelNameProvider, const FUnrealSync::FOnSyncFinished& OnSyncFinished, const FUnrealSync::FOnSyncProgress& OnSyncProgress)
-		: bArtist(bArtist), bPreview(bPreview), LabelNameProvider(LabelNameProvider), OnSyncFinished(OnSyncFinished), OnSyncProgress(OnSyncProgress)
+	FSyncingThread(FSyncSettings Settings, ILabelNameProvider& LabelNameProvider, const FUnrealSync::FOnSyncFinished& OnSyncFinished, const FUnrealSync::FOnSyncProgress& OnSyncProgress)
+		: Settings(MoveTemp(Settings)), LabelNameProvider(LabelNameProvider), OnSyncFinished(OnSyncFinished), OnSyncProgress(OnSyncProgress), bTerminate(false)
 	{
-		FRunnableThread::Create(this, TEXT("Syncing thread"));
+		Thread = FRunnableThread::Create(this, TEXT("Syncing thread"));
 	}
 
 	/**
@@ -267,8 +336,32 @@ public:
 
 		FString Label = LabelNameProvider.GetLabelName();
 		FString Game = LabelNameProvider.GetGameName();
+
+		struct FProcessStopper
+		{
+			FProcessStopper(bool& bStop, FUnrealSync::FOnSyncProgress& OuterSyncProgress)
+				: bStop(bStop), OuterSyncProgress(OuterSyncProgress) {}
+
+			bool OnProgress(const FString& Text)
+			{
+				if (OuterSyncProgress.IsBound())
+				{
+					if (!OuterSyncProgress.Execute(Text))
+					{
+						bStop = true;
+					}
+				}
+
+				return !bStop;
+			}
+
+		private:
+			bool& bStop;
+			FUnrealSync::FOnSyncProgress& OuterSyncProgress;
+		};
 		
-		bool bSuccess = FUnrealSync::Sync(bArtist, bPreview, Label, Game, OnSyncProgress);
+		FProcessStopper Stopper(bTerminate, OnSyncProgress);
+		bool bSuccess = FUnrealSync::Sync(Settings, Label, Game, FUnrealSync::FOnSyncProgress::CreateRaw(&Stopper, &FProcessStopper::OnProgress));
 
 		if (OnSyncProgress.IsBound())
 		{
@@ -280,12 +373,25 @@ public:
 		return 0;
 	}
 
-private:
-	/* Artist sync? */
-	bool bArtist;
+	/**
+	 * Stops process runnning in the background and terminates wait for the
+	 * watcher thread to finish.
+	 */
+	void Terminate()
+	{
+		bTerminate = true;
+		Thread->WaitForCompletion();
+	}
 
-	/* Preview sync? */
-	bool bPreview;
+private:
+	/* Tells the thread to terminate the process. */
+	bool bTerminate;
+
+	/* Handle for thread object. */
+	FRunnableThread* Thread;
+
+	/* Sync settings. */
+	FSyncSettings Settings;
 
 	/* Label name provider. */
 	ILabelNameProvider& LabelNameProvider;
@@ -297,9 +403,17 @@ private:
 	FUnrealSync::FOnSyncProgress OnSyncProgress;
 };
 
-void FUnrealSync::LaunchSync(bool bArtist, bool bPreview, ILabelNameProvider& LabelNameProvider, const FOnSyncFinished& OnSyncFinished, const FOnSyncProgress& OnSyncProgress)
+void FUnrealSync::TerminateSyncingProcess()
 {
-	SyncingThread = MakeShareable(new FSyncingThread(bArtist, bPreview, LabelNameProvider, OnSyncFinished, OnSyncProgress));
+	if (SyncingThread.IsValid())
+	{
+		SyncingThread->Terminate();
+	}
+}
+
+void FUnrealSync::LaunchSync(FSyncSettings Settings, ILabelNameProvider& LabelNameProvider, const FOnSyncFinished& OnSyncFinished, const FOnSyncProgress& OnSyncProgress)
+{
+	SyncingThread = MakeShareable(new FSyncingThread(MoveTemp(Settings), LabelNameProvider, OnSyncFinished, OnSyncProgress));
 }
 
 /**
@@ -316,7 +430,22 @@ void SyncingMessage(const FUnrealSync::FOnSyncProgress& OnSyncProgress, const FS
 	}
 }
 
-#include "XmlParser.h"
+/**
+ * Contains file and revision specification as sync step.
+ */
+struct FSyncStep
+{
+	FSyncStep(FString FileSpec, FString RevSpec)
+		: FileSpec(MoveTemp(FileSpec)), RevSpec(MoveTemp(RevSpec))
+	{}
+
+	const FString& GetFileSpec() const { return FileSpec; }
+	const FString& GetRevSpec() const { return RevSpec; }
+
+private:
+	FString FileSpec;
+	FString RevSpec;
+};
 
 /**
  * Parses sync rules XML content and fills array with sync steps
@@ -327,7 +456,7 @@ void SyncingMessage(const FUnrealSync::FOnSyncProgress& OnSyncProgress, const FS
  * @param ContentRevisionSpec Content revision spec.
  * @param ProgramRevisionSpec Program revision spec.
  */
-void FillWithSyncSteps(TArray<FString>& SyncSteps, const FString& SyncRules, const FString& ContentRevisionSpec, const FString& ProgramRevisionSpec)
+void FillWithSyncSteps(TArray<FSyncStep>& SyncSteps, const FString& SyncRules, const FString& ContentRevisionSpec, const FString& ProgramRevisionSpec)
 {
 	TSharedRef<FXmlFile> Doc = MakeShareable(new FXmlFile(SyncRules, EConstructMethod::ConstructFromBuffer));
 
@@ -357,7 +486,17 @@ void FillWithSyncSteps(TArray<FString>& SyncSteps, const FString& SyncRules, con
 				SyncStep += ContentRevisionSpec;
 			}
 
-			SyncSteps.Add(SyncStep);
+			int32 AtLastPos = INDEX_NONE;
+			SyncStep.FindLastChar('@', AtLastPos);
+
+			int32 HashLastPos = INDEX_NONE;
+			SyncStep.FindLastChar('#', HashLastPos);
+
+			int32 RevSpecSeparatorPos = FMath::Max<int32>(AtLastPos, HashLastPos);
+
+			check(RevSpecSeparatorPos != INDEX_NONE); // At least one rev specifier needed here.
+			
+			SyncSteps.Add(FSyncStep(SyncStep.Mid(0, RevSpecSeparatorPos), SyncStep.Mid(RevSpecSeparatorPos)));
 		}
 	}
 }
@@ -386,14 +525,14 @@ static bool GetLatestChangelist(FString& CL)
 	return true;
 }
 
-bool FUnrealSync::Sync(bool bArtist, bool bPreview, const FString& Label, const FString& Game, const FOnSyncProgress& OnSyncProgress)
+bool FUnrealSync::Sync(const FSyncSettings& Settings, const FString& Label, const FString& Game, const FOnSyncProgress& OnSyncProgress)
 {
 	SyncingMessage(OnSyncProgress, "Syncing to label: " + Label);
 
 	auto ProgramRevisionSpec = "@" + Label;
-	TArray<FString> SyncSteps;
+	TArray<FSyncStep> SyncSteps;
 
-	if (bArtist)
+	if (Settings.bArtist)
 	{
 		SyncingMessage(OnSyncProgress, "Performing artist sync.");
 		
@@ -414,7 +553,7 @@ bool FUnrealSync::Sync(bool bArtist, bool bPreview, const FString& Label, const 
 			*FP4Env::Get().GetBranch(), Game.IsEmpty() ? TEXT("Samples") : *Game);
 
 		FString SyncRules;
-		if (!FP4Env::RunP4Output("print -q " + ArtistSyncRulesPath + "#head", SyncRules))
+		if (!FP4Env::RunP4Output("print -q " + ArtistSyncRulesPath + "#head", SyncRules) || SyncRules.IsEmpty())
 		{
 			return false;
 		}
@@ -425,19 +564,136 @@ bool FUnrealSync::Sync(bool bArtist, bool bPreview, const FString& Label, const 
 	}
 	else
 	{
-		SyncSteps.Add("/..." + ProgramRevisionSpec); // all files to label
+		SyncSteps.Add(FSyncStep(Settings.OverrideSyncStep.IsEmpty() ? "/..." : Settings.OverrideSyncStep, ProgramRevisionSpec)); // all files to label
 	}
 
-	for(auto SyncStep : SyncSteps)
+	class FSyncCollectAndPassThrough
 	{
-		if (!FP4Env::RunP4Progress(FString("sync ") + (bPreview ? "-n " : "") + FP4Env::Get().GetBranch() + SyncStep, OnSyncProgress))
+	public:
+		FSyncCollectAndPassThrough(const FOnSyncProgress& Progress)
+			: Progress(Progress)
+		{ }
+
+		operator FOnSyncProgress() const
 		{
-			return false;
+			return FOnSyncProgress::CreateRaw(this, &FSyncCollectAndPassThrough::OnProgress);
+		}
+
+		bool OnProgress(const FString& Text)
+		{
+			Log += Text;
+
+			return Progress.Execute(Text);
+		}
+
+		void ProcessLog()
+		{
+			Log = Log.Replace(TEXT("\r"), TEXT(""));
+			const FRegexPattern CantClobber(TEXT("Can't clobber writable file ([^\\n]+)"));
+
+			FRegexMatcher Match(CantClobber, Log);
+
+			while (Match.FindNext())
+			{
+				CantClobbers.Add(Log.Mid(
+					Match.GetCaptureGroupBeginning(1),
+					Match.GetCaptureGroupEnding(1) - Match.GetCaptureGroupBeginning(1)));
+			}
+		}
+
+		const TArray<FString>& GetCantClobbers() const { return CantClobbers; }
+
+	private:
+		const FOnSyncProgress& Progress;
+
+		FString Log;
+
+		TArray<FString> CantClobbers;
+	};
+
+	FString CommandPrefix = FString("sync ") + (Settings.bPreview ? "-n " : "") + FP4Env::Get().GetBranch();
+	for(const auto& SyncStep : SyncSteps)
+	{
+		FSyncCollectAndPassThrough ErrorsCollector(OnSyncProgress);
+		if (!FP4Env::RunP4Progress(CommandPrefix + SyncStep.GetFileSpec() + SyncStep.GetRevSpec(), ErrorsCollector))
+		{
+			if (!Settings.bAutoClobber)
+			{
+				return false;
+			}
+
+			ErrorsCollector.ProcessLog();
+
+			FString AutoClobberCommandPrefix("sync -f ");
+			for (const auto& CantClobber : ErrorsCollector.GetCantClobbers())
+			{
+				if (!FP4Env::RunP4Progress(AutoClobberCommandPrefix + CantClobber + SyncStep.GetRevSpec(), OnSyncProgress))
+				{
+					return false;
+				}
+			}
 		}
 	}
 
 	return true;
 }
+
+bool FUnrealSync::IsDebugParameterSet()
+{
+	const auto bDebug = FParse::Param(FCommandLine::Get(), TEXT("Debug"));
+
+	return bDebug;
+}
+
+bool FUnrealSync::Initialization(const TCHAR* CommandLine)
+{
+	FString CommonExecutablePath =
+		FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), TEXT("Win64"),
+#if !UE_BUILD_DEBUG
+		TEXT("UnrealSync")
+#else
+		TEXT("UnrealSync-Win64-Debug")
+#endif
+		));
+
+	FString OriginalExecutablePath = CommonExecutablePath + TEXT(".exe");
+	FString TemporaryExecutablePath = CommonExecutablePath + TEXT(".Temporary.exe");
+
+	bool bDoNotRunFromCopy = FParse::Param(CommandLine, TEXT("DoNotRunFromCopy"));
+	bool bDoNotUpdateOnStartUp = FParse::Param(CommandLine, TEXT("DoNotUpdateOnStartUp"));
+
+	if (!bDoNotRunFromCopy)
+	{
+		if (!DeleteIfExistsAndCopyFile(*TemporaryExecutablePath, *OriginalExecutablePath))
+		{
+			InitializationError = TEXT("Copying UnrealSync to temp location failed.");
+		}
+		else if (!RunDetachedUS(TemporaryExecutablePath, true, bDoNotUpdateOnStartUp, true))
+		{
+			InitializationError = TEXT("Running remote UnrealSync failed.");
+		}
+
+		return false;
+	}
+
+	if (!bDoNotUpdateOnStartUp && FP4Env::CheckIfFileNeedsUpdate(OriginalExecutablePath))
+	{
+		if (!UpdateOriginalUS(OriginalExecutablePath))
+		{
+			InitializationError = TEXT("UnrealSync update failed.");
+		}
+		else if (!RunDetachedUS(OriginalExecutablePath, false, true, true))
+		{
+			InitializationError = TEXT("Running UnrealSync failed.");
+		}
+
+		return false;
+	}
+
+	return true;
+}
+
 
 /* Static fields initialization. */
 FUnrealSync::FOnDataLoaded FUnrealSync::OnDataLoaded;
@@ -446,3 +702,4 @@ TSharedPtr<FP4DataCache> FUnrealSync::Data;
 bool FUnrealSync::bLoadingFinished = false;
 TSharedPtr<FP4DataLoader> FUnrealSync::LoaderThread;
 TSharedPtr<FSyncingThread> FUnrealSync::SyncingThread;
+FString FUnrealSync::InitializationError;

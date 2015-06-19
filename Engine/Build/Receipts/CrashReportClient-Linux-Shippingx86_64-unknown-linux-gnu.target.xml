@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="CrashReportClient" />
+    <Property Name="Platform" Value="Linux" />
+    <Property Name="Configuration" Value="Shipping" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\CrashReportClient" Type="Executable" />
+  </BuildProducts>
+  <RuntimeDependencies />
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

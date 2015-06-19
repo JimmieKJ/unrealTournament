@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2301579
+﻿INTSourceChangelist:2483481
 Availability:NoPublish
 Title:UK2Node_AddComponent
 Crumbs:
@@ -8,7 +8,7 @@ Description:블루프린트 Add Component 노드에 대한 개요입니다.
 
 ArrowComponent (애로우 컴포넌트)는 선을 사용해서 렌더링되는 간단한 화살표 모양입니다 (오브젝트가 향하는 방향을 나타내는 데 좋습니다). 실행하면, 이 노드는 지정된 'Target' (타겟) 액터에 대한 ArrowComponent 를 새로 만듭니다.
 
-'Manual Attachment' (수동 붙이기) 입력을 설정하지 않은 (False) 상태로 놔두면, 새로운 컴포넌트는 Actor 의 루트 아래 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정되면, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' (수동 붙이기) 입력을 설정하지 않은 (False) 상태로 놔두면, 새로운 컴포넌트는 Actor 의 루트 아래 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정되면, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 ArrowComponent 는 'Return Value' (반환값) 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 가 선택된 경우, 사용자는 그것을 받아서 ("Attach to" (붙이기) 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -19,7 +19,7 @@ ArrowComponent (애로우 컴포넌트)는 선을 사용해서 렌더링되는 �
 
 AtmosphericFogComponent (애트머스페릭 포그 컴포넌트)는 (구름과 같은) 대기안개 효과를 만드는 데 사용됩니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 AtmosphericFogComponent 를 새로 만듭니다.
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 AtmosphericFogComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -30,7 +30,7 @@ AtmosphericFogComponent (애트머스페릭 포그 컴포넌트)는 (구름과 �
 
 AudioComponent (오디오 컴포넌트)는 오브젝트에 오디오를 넣을 때 사용됩니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 AudioComponent 를 새로 만듭니다.
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 AudioComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -41,7 +41,7 @@ AudioComponent (오디오 컴포넌트)는 오브젝트에 오디오를 넣을 �
 
 BoxComponent (박스 컴포넌트)는 선을 사용해서 렌더링되는 간단한 박스 모양(으로 보통 심플 콜리전에 사용되는 것)입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대한 BoxComponent 를 새로 만듭니다.
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 BoxComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -52,7 +52,7 @@ BoxComponent (박스 컴포넌트)는 선을 사용해서 렌더링되는 간단
 
 CapsuleComponent (캡슐 컴포넌트)는 선을 사용해서 렌더링되는 간단한 캡슐 모양(으로, 보통 심플 콜리전에 사용되는 것)입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 CapsuleComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -63,7 +63,7 @@ CapsuleComponent (캡슐 컴포넌트)는 선을 사용해서 렌더링되는 �
 
 CustomMeshComponent (커스텀 메시 컴포넌트)는 커스텀 트라이앵글 메시 지오메트리를 생성할 수 있도록 해 줍니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 CustomMeshComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -74,7 +74,7 @@ CustomMeshComponent (커스텀 메시 컴포넌트)는 커스텀 트라이앵글
 
 DecalComponent (데칼 컴포넌트)는 메시의 표면 위에 렌더링되는 머티리얼(, 즉 모델의 '범퍼 스티커' 같은 것)입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 DecalComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -85,7 +85,7 @@ DecalComponent (데칼 컴포넌트)는 메시의 표면 위에 렌더링되는 
 
 DestructibleComponent (디스트럭터블 컴포넌트)는 DestructibleActor (디스트럭터블 액터)에 대한 피직스 데이터를 담는 것입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 DestructibleComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -96,7 +96,7 @@ DestructibleComponent (디스트럭터블 컴포넌트)는 DestructibleActor (�
 
 DirectionalLightComponent (디렉셔널 라이트 컴포넌트)는 태양과 같은 광원 역할을 합니다. 라이트매스 임포턴스 볼륨 내 어느 표면에 대해서도 균등한 라이팅을 제공해 줍니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 DirectionalLightComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -107,7 +107,7 @@ DirectionalLightComponent (디렉셔널 라이트 컴포넌트)는 태양과 같
 
 ExponentialHeightFogComponent (익스포넨셜 하이트 포그 컴포넌트, 고도에 따라 급변하는 안개 컴포넌트)는 (연기와 같은 포그 이펙트 생성에 사용되는) AtmosphericFogComponent (대기안개 컴포넌트)와 매우 유사하나, 고도에 따른 안개의 밀도에 관련이 있습니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 ExponentialHeightFogComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -118,7 +118,7 @@ ExponentialHeightFogComponent (익스포넨셜 하이트 포그 컴포넌트, �
 
 InstancedStaticMeshComponent (인스턴싱된 스태틱 메시 컴포넌트)는 복수의 인스턴스를 가질 수 있는 스태틱 메시입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 InstancedStaticMeshComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -129,7 +129,7 @@ InstancedStaticMeshComponent (인스턴싱된 스태틱 메시 컴포넌트)는 
 
 MaterialSpriteComponent (머티리얼 스프라이트 컴포넌트)는 항상 카메라쪽을 향해 렌더링되는 2D 머티리얼입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 MaterialSpriteComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -140,7 +140,7 @@ MaterialSpriteComponent (머티리얼 스프라이트 컴포넌트)는 항상 �
 
 ParticleSystemComponent (파티클 시스템 컴포넌트)는 파티클 이미터 역할을 합니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 ParticleSystemComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -153,7 +153,7 @@ PawnNoiseEmitterComponent (폰 노이즈 이미터 컴포넌트)는 PawnSensingC
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 PawnNoiseEmitterComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -166,7 +166,7 @@ PawnSensingComponent (폰 감지 컴포넌트)는 액터의 (시각이나 청각
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 PawnSensingComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -179,7 +179,7 @@ PhysicsConstraintComponent (피직스 컨스트레인트 컴포넌트)는 두 �
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 PhysicsConstraintComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 CapsuleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -190,7 +190,7 @@ PhysicsConstraintComponent (피직스 컨스트레인트 컴포넌트)는 두 �
 
 PhysicsHandleComponent (피직스 핸들 컴포넌트)는 피직스 액터의 이동을 위한 유틸리티 오브젝트입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 PhysicsHandleComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 PhysicsHandleComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -201,7 +201,7 @@ PhysicsHandleComponent (피직스 핸들 컴포넌트)는 피직스 액터의 �
 
 PhysicsThrusterComponent (피직스 쓰러스터 컴포넌트)는 피직스 액터의 이동을 위한 유틸리티 오브젝트입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 PhysicsThrusterComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 PhysicsThrusterComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -212,7 +212,7 @@ PhysicsThrusterComponent (피직스 쓰러스터 컴포넌트)는 피직스 액�
 
 PointLightComponent (포인트 라이트 컴포넌트)는 한 지점에서 모든 방향으로 동일하게 빛을 내뿜는 라이트 컴포넌트입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 PointLightComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 PointLightComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -223,7 +223,7 @@ PointLightComponent (포인트 라이트 컴포넌트)는 한 지점에서 모�
 
 PoseableMeshComponent (포즈가능 메시 컴포넌트)는 블루프린트를 통한 본 트랜스폼 작업을 가능하도록 합니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 PoseableMeshComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 PoseableMeshComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -236,7 +236,7 @@ ProjectileMovementComponent (발사체 이동 컴포넌트)는 관련된 컴포�
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 ProjectileMovementComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 ProjectileMovementComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -247,7 +247,7 @@ ProjectileMovementComponent (발사체 이동 컴포넌트)는 관련된 컴포�
 
 RadialForceComponent (방사형 포스 컴포넌트)는 피직스 오브젝트나 디스트럭터블 오브젝트에 영향을 끼칠 수 있는 방사형 포스/임펄스를 방출하는 데 사용됩니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 RadialForceComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 RadialForceComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -258,7 +258,7 @@ RadialForceComponent (방사형 포스 컴포넌트)는 피직스 오브젝트�
 
 RotatingMovementComponent (회전 이동 컴포넌트)는 매 틱마다 연관된 프리미티브 컴포넌트의 위치를 업데이트하는 데 사용됩니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 RotatingMovementComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 RotatingMovementComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -271,7 +271,7 @@ SceneCaptureComponent2D (씬 캡처 컴포넌트 2D)는 하나의 평면에서 �
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 SceneCaptureComponent2D 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 SceneCaptureComponent2D 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -284,7 +284,7 @@ SceneCaptureComponentCube (씬 캡처 컴포넌트 큐브)는 육면체에서 �
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 SceneCaptureComponentCube 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 SceneCaptureComponentCube 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -295,7 +295,7 @@ SceneCaptureComponentCube (씬 캡처 컴포넌트 큐브)는 육면체에서 �
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 SceneComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 SceneComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -306,7 +306,7 @@ SceneCaptureComponentCube (씬 캡처 컴포넌트 큐브)는 육면체에서 �
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 SkeletalMeshComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 SkeletalMeshComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -317,7 +317,7 @@ SceneCaptureComponentCube (씬 캡처 컴포넌트 큐브)는 육면체에서 �
 
 SphereComponent (구체 컴포넌트)는 선을 사용하여 렌더링되는 단순한 구체 모양(으로, 보통 심플 콜리전에 사용되는 것)입니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 SphereComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 SphereComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -328,7 +328,7 @@ SphereComponent (구체 컴포넌트)는 선을 사용하여 렌더링되는 단
 
 SpotLightComponent (스포트 라이트 컴포넌트)는 (횃불처럼) 일정 방향으로 원뿔 모양 빛을 내뿜습니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 SpotLightComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 SpotLightComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -339,7 +339,7 @@ SpotLightComponent (스포트 라이트 컴포넌트)는 (횃불처럼) 일정 �
 
 DecalComponent (데칼 컴포넌트)는 메시의 표면 위에 렌더링되는 머티리얼(, 즉 모델의 '범퍼 스티커'같은) 역할을 합니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 DecalComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 DecalComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -352,7 +352,7 @@ SpringArmComponent (스프링 팔 컴포넌트)는 부모와 자손에 일정한
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 SpringArmComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 SpringArmComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -363,7 +363,7 @@ SpringArmComponent (스프링 팔 컴포넌트)는 부모와 자손에 일정한
 
 UBillboardComponent (U 빌보드 컴포넌트)는 항상 카메라를 향하도록 렌더링되는 2D 텍스처를 나타냅니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 UBillboardComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 UBillboardComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -374,7 +374,7 @@ UBillboardComponent (U 빌보드 컴포넌트)는 항상 카메라를 향하도�
 
 StaticMeshComponent (스태틱 메시 컴포넌트)는 애니메이션이 없는 메시에 사용됩니다. 실행되면, 이 노드는 지정된 'Target' 액터에 대해 StaticMeshComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 StaticMeshComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -387,7 +387,7 @@ TextRenderComponent (텍스트 렌더 컴포넌트)는 월드에 주어진 폰�
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 TextRenderComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 TextRenderComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 
@@ -398,7 +398,7 @@ TextRenderComponent (텍스트 렌더 컴포넌트)는 월드에 주어진 폰�
 
 실행되면, 이 노드는 지정된 'Target' 액터에 대해 VectorFieldComponent 를 새로 만듭니다.  
 
-'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachement' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
+'Manual Attachment' 입력을 설정하지 않은 (False) 상태로 놔두면 새 컴포넌트는 Actor 의 루트에 자동으로 붙게 (되거나 기존의 것이 존재하지 않는 경우 루트가) 됩니다. 'Manual Attachment' 입력이 (True) 설정된 경우, 새 컴포넌트는 붙지 않은 상태로 남습니다.
 
 새로 생성되는 VectorFieldComponent 는 'Return Value' 출력을 통해 사용자에게 반환됩니다. 'Manual Attachment' 이 선택된 경우, 사용자는 그것을 받아서 ("Attach to" 노드를 통해) 직접 붙일 수 있습니다.
 

@@ -15,7 +15,6 @@ enum class EAllowOverscroll
 	No
 };
 
-
 /** If the list panel is arranging items horizontally, this enum dictates how the items should be aligned (basically, where any extra space is placed) */
 enum class EListItemAlignment : uint8
 {
@@ -30,7 +29,15 @@ enum class EListItemAlignment : uint8
 
 	/** Items are center aligned on the row (any extra space is halved and added to the left of the items) */
 	CenterAligned,
+
+	/** Items are evenly horizontally stretched to distribute any extra space */
+	Fill,
 };
+
+
+DECLARE_DELEGATE_OneParam(
+	FOnTableViewScrolled,
+	double );	/** Scroll offset from the beginning of the list in items */
 
 
 /**
@@ -43,7 +50,7 @@ class SLATE_API STableViewBase
 public:
 
 	/** Create the child widgets that comprise the list */
-	void ConstructChildren( const TAttribute<float>& InItemWidth, const TAttribute<float>& InItemHeight, const TAttribute<EListItemAlignment>& InItemAlignment, const TSharedPtr<SHeaderRow>& InColumnHeaders, const TSharedPtr<SScrollBar>& InScrollBar  );
+	void ConstructChildren( const TAttribute<float>& InItemWidth, const TAttribute<float>& InItemHeight, const TAttribute<EListItemAlignment>& InItemAlignment, const TSharedPtr<SHeaderRow>& InColumnHeaders, const TSharedPtr<SScrollBar>& InScrollBar, const FOnTableViewScrolled& InOnTableViewScrolled );
 
 	/** Sets the item height */
 	void SetItemHeight(TAttribute<float> Height);
@@ -80,6 +87,15 @@ public:
 	/** Is this list backing a tree or just a standalone list */
 	const ETableViewMode::Type TableViewMode;
 
+	/** Scrolls the view to the top */
+	void ScrollToTop();
+
+	/** Scrolls the view to the bottom */
+	void ScrollToBottom();
+
+	/** Set the scroll offset of this view (in items) */
+	void SetScrollOffset( const float InScrollOffset );
+
 public:
 
 	// SWidget interface
@@ -113,7 +129,7 @@ public:
 protected:
 
 	STableViewBase( ETableViewMode::Type InTableViewMode );
-	
+
 	/**
 	 * Scroll the list view by some number of screen units.
 	 *
@@ -213,12 +229,20 @@ protected:
 	/** @return how many items there are in the TArray being observed */
 	virtual int32 GetNumItemsBeingObserved() const = 0;
 
+	enum class EScrollIntoViewResult
+	{
+		/** The function scrolled an item (if set) into view (or the item was already in view) */
+		Success,
+		/** The function did not have enough data to scroll the given item into view, so it should be deferred until the next Tick */
+		Deferred,
+	};
+
 	/**
 	 * If there is a pending request to scroll an item into view, do so.
 	 * 
 	 * @param ListViewGeometry  The geometry of the listView; can be useful for centering the item.
 	 */
-	virtual void ScrollIntoView(const FGeometry& ListViewGeometry) = 0;
+	virtual EScrollIntoViewResult ScrollIntoView(const FGeometry& ListViewGeometry) = 0;
 
 	/**
 	 * Called when an item has entered the visible geometry to check to see if the ItemScrolledIntoView delegate should be fired.
@@ -227,8 +251,12 @@ protected:
 
 	/** The panel which holds the visible widgets in this list */
 	TSharedPtr< SListPanel > ItemsPanel;
+
 	/** The scroll bar widget */
 	TSharedPtr< SScrollBar > ScrollBar;
+
+	/** Delegate to call when the table view is scrolled */
+	FOnTableViewScrolled OnTableViewScrolled;
 
 	/** Scroll offset from the beginning of the list in items */
 	double ScrollOffset;
@@ -274,8 +302,17 @@ private:
 	/** Check whether the current state of the table warrants inertial scroll by the specified amount */
 	bool CanUseInertialScroll( float ScrollAmount ) const;
 
-	/** Called every tick to update and perform the inertial scroll */
-	void TickInertialScroll( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+	/** Active timer to update the inertial scroll */
+	EActiveTimerReturnType UpdateInertialScroll(double InCurrentTime, float InDeltaTime);
+
+	/** One-off active timer to refresh the contents of the table as needed */
+	EActiveTimerReturnType EnsureTickToRefresh(double InCurrentTime, float InDeltaTime);
+
+	/** Whether the active timer to update the inertial scrolling is currently registered */
+	bool bIsScrollingActiveTimerRegistered;
+
+	/** Cached geometry for use by the active timer */
+	FGeometry CachedGeometry;
 
 protected:
 
@@ -312,6 +349,9 @@ protected:
 
 	/** Whether to permit overscroll on this list view */
 	EAllowOverscroll AllowOverscroll;
+
+	/** How we should handle scrolling with the mouse wheel */
+	EConsumeMouseWheel ConsumeMouseWheel;
 
 private:
 	

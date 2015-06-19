@@ -71,6 +71,9 @@ public:
 	// Construct a SContentReference
 	void Construct(const FArguments& InArgs);
 
+	// Causes the asset picker to open, allowing the user to select a new asset
+	void OpenAssetPickerMenu();
+
 protected:
 	EVisibility GetUseButtonVisibility() const;
 	EVisibility GetPickButtonVisibility() const;
@@ -87,6 +90,9 @@ protected:
 
 	FText GetAssetShortName() const;
 	FText GetAssetFullName() const;
+
+	FReply OnDoubleClickedOnAssetName(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent);
+	void OpenAssetToEdit();
 
 	const FSlateBrush* GetBorderImage() const;
 

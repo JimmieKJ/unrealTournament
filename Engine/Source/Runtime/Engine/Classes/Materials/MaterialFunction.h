@@ -82,22 +82,22 @@ public:
 	ENGINE_API void AppendReferencedTextures(TArray<UTexture*>& InOutTextures) const;
 
 	template<typename ExpressionType>
-	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 	{
 		for (int32 ExpressionIndex = 0; ExpressionIndex < FunctionExpressions.Num(); ExpressionIndex++)
 		{
-			UMaterialExpressionMaterialFunctionCall* FunctionExpression = Cast<UMaterialExpressionMaterialFunctionCall>(FunctionExpressions[ExpressionIndex]);
+			const UMaterialExpressionMaterialFunctionCall* FunctionExpression = Cast<const UMaterialExpressionMaterialFunctionCall>(FunctionExpressions[ExpressionIndex]);
 
 			if (FunctionExpression)
 			{
 				if (FunctionExpression->MaterialFunction)
 				{
-					FunctionExpression->MaterialFunction->GetAllParameterNames<ExpressionType>(OutParameterNames, OutParameterIds);
+					FunctionExpression->MaterialFunction->GetAllParameterNames<const ExpressionType>(OutParameterNames, OutParameterIds);
 				}
 			}
 			else
 			{
-				ExpressionType* ParameterExpression = Cast<ExpressionType>(FunctionExpressions[ExpressionIndex]);
+				const ExpressionType* ParameterExpression = Cast<const ExpressionType>(FunctionExpressions[ExpressionIndex]);
 
 				if (ParameterExpression)
 				{

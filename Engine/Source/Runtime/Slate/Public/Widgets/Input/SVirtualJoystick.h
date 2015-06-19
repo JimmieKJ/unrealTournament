@@ -124,7 +124,7 @@ public:
 
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 	
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	virtual FReply OnTouchStarted(const FGeometry& MyGeometry, const FPointerEvent& Event) override;
 	virtual FReply OnTouchMoved(const FGeometry& MyGeometry, const FPointerEvent& Event) override;
@@ -132,41 +132,11 @@ public:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
-	virtual bool SupportsKeyboardFocus() const override
-	{
-		return true;
-	}
-
-	void AlignBoxIntoScreen( FVector2D& Position, const FVector2D& Size, const FVector2D& ScreenSize )
-	{
-		if (Size.X > ScreenSize.X || Size.Y > ScreenSize.Y)
-		{
-			return;
-		}
-
-		// Align box to fit into screen
-		if (Position.X - Size.X * 0.5f < 0.f )
-		{
-			Position.X = Size.X * 0.5f;
-		}
-
-		if (Position.X + Size.X * 0.5f > ScreenSize.X )
-		{
-			Position.X = ScreenSize.X - Size.X * 0.5f;
-		}
-
-		if (Position.Y - Size.Y * 0.5f < 0.f)
-		{
-			Position.Y = Size.Y * 0.5f;
-		}
-
-		if (Position.Y + Size.Y * 0.5f > ScreenSize.Y )
-		{
-			Position.Y = ScreenSize.Y - Size.Y * 0.5f;
-		}
-	}
+	virtual bool SupportsKeyboardFocus() const override;
 
 private:
+	void AlignBoxIntoScreen(FVector2D& Position, const FVector2D& Size, const FVector2D& ScreenSize);
+
 	/**
 	 * Process a touch event (on movement and possibly on initial touch)
 	 *

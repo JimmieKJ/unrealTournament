@@ -734,6 +734,8 @@ private:
 			case ESlateBrushTileType::Vertical:
 				HorizontalAlignment = EHorizontalAlignment::HAlign_Center;
 				break;
+			case ESlateBrushTileType::Both:
+				break;
 			}
 		}
 
@@ -985,7 +987,7 @@ class SSlateBrushStaticPreview : public SCompoundWidget
 		];
 	}
 
-	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 	{
 		TArray<void*> RawData;
 		ResourceObjectProperty->AccessRawData(RawData);
@@ -1058,10 +1060,6 @@ class SBrushResourceObjectBox : public SCompoundWidget
 		FSimpleDelegate OnBrushResourceChangedDelegate = FSimpleDelegate::CreateSP(this, &SBrushResourceObjectBox::OnBrushResourceChanged);
 		ResourceObjectProperty->SetOnPropertyValueChanged(OnBrushResourceChangedDelegate);
 
-		TArray<const UClass*> SupportedClasses;
-		SupportedClasses.Add(UTexture2D::StaticClass());
-		SupportedClasses.Add(UMaterialInterface::StaticClass());
-
 		ChildSlot
 		[
 			SNew(SVerticalBox)
@@ -1071,8 +1069,6 @@ class SBrushResourceObjectBox : public SCompoundWidget
 				SNew(SObjectPropertyEntryBox)
 				.PropertyHandle(InResourceObjectProperty)
 				.ThumbnailPool(StructCustomizationUtils->GetThumbnailPool())
-				.NewAssetFactories(PropertyCustomizationHelpers::GetNewAssetFactoriesForClasses(SupportedClasses))
-				.OnShouldFilterAsset(this, &SBrushResourceObjectBox::OnFilterAssetPicker)
 				.OnObjectChanged(this, &SBrushResourceObjectBox::OnAssetPicked)
 			]
 			+ SVerticalBox::Slot()
@@ -1134,13 +1130,6 @@ private:
 		}
 	}
 
-	/** Called when the asset picker needs to be filtered */
-	bool OnFilterAssetPicker(const FAssetData& InAssetData) const
-	{
-		UClass* Class = InAssetData.GetClass();
-		return !Class->IsChildOf(UTexture2D::StaticClass()) && !Class->IsChildOf(UMaterialInterface::StaticClass());
-	}
-
 	/**
 	 * When the asset is picked if it's a material being used in the UI we 
 	 * automatically set the bUsedWithUI flag if it isn't already set.
@@ -1175,8 +1164,8 @@ TSharedRef<IPropertyTypeCustomization> FSlateBrushStructCustomization::MakeInsta
 	return MakeShareable( new FSlateBrushStructCustomization(bIncludePreview) );
 }
 
-FSlateBrushStructCustomization::FSlateBrushStructCustomization(bool bIncludePreview)
-	: bIncludePreview(bIncludePreview)
+FSlateBrushStructCustomization::FSlateBrushStructCustomization(bool bInIncludePreview)
+	: bIncludePreview(bInIncludePreview)
 {
 }
 
@@ -1208,7 +1197,7 @@ void FSlateBrushStructCustomization::CustomizeChildren( TSharedRef<IPropertyHand
 	TSharedPtr<IPropertyHandle> TintProperty = StructPropertyHandle->GetChildHandle( TEXT("TintColor") );
 	TSharedPtr<IPropertyHandle> ResourceObjectProperty = StructPropertyHandle->GetChildHandle( TEXT("ResourceObject") );
 	
-	StructBuilder.AddChildContent( NSLOCTEXT( "SlateBrushCustomization", "ResourceObjectFilterString", "Resource" ) )
+	StructBuilder.AddChildContent( NSLOCTEXT( "SlateBrushCustomization", "ResourceObjectFilterString", "Image" ) )
 	.NameContent()
 	[
 		ResourceObjectProperty->CreatePropertyNameWidget()

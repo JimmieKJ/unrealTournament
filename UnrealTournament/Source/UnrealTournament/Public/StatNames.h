@@ -8,7 +8,7 @@ static const FName NAME_TeamKills(TEXT("TeamKills"));
 
 static const FName NAME_UDamageTime(TEXT("UDamageTime"));
 static const FName NAME_BerserkTime(TEXT("BerserkTime"));
-static const FName NAME_InvisibilityTime(TEXT("InvisbilityTime"));
+static const FName NAME_InvisibilityTime(TEXT("InvisibilityTime"));
 static const FName NAME_BootJumps(TEXT("BootJumps"));
 static const FName NAME_ShieldBeltCount(TEXT("ShieldBeltCount"));
 static const FName NAME_ArmorVestCount(TEXT("ArmorVestCount"));
@@ -86,4 +86,5 @@ static const FName NAME_PlayerXP(TEXT("PlayerXP"));
 static const FName NAME_BestShockCombo(TEXT("BestShockCombo"));
 static const FName NAME_AmazingCombos(TEXT("AmazingCombos"));
 static const FName NAME_AirRox(TEXT("AirRox"));
-
+static const FName NAME_FlakShreds(TEXT("FlakShreds"));
+static const FName NAME_AirSnot(TEXT("AirSnot"));

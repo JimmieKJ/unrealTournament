@@ -8,7 +8,9 @@ struct FVisualLoggerTimeSliderArgs : FTimeSliderArgs
 {
 	FVisualLoggerTimeSliderArgs()
 		: CursorSize(0.1f)
-	{}
+	{
+		ViewRange = TRange<float>(0.0f, 5.0f);
+	}
 
 	/** Cursor range for data like histogram graphs, etc. */
 	TAttribute< float > CursorSize;
@@ -22,6 +24,7 @@ class FVisualLoggerTimeSliderController : public ITimeSliderController
 {
 public:
 	FVisualLoggerTimeSliderController(const FVisualLoggerTimeSliderArgs& InArgs);
+	void SetTimesliderArgs(const FVisualLoggerTimeSliderArgs& InArgs);
 
 	/** ITimeSliderController Interface */
 	virtual int32 OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
@@ -45,6 +48,7 @@ public:
 
 	void SetExternalScrollbar(TSharedRef<SScrollBar> Scrollbar);
 	void SetTimeRange(float MinValue, float MaxValue);
+	void SetClampRange(float MinValue, float MaxValue);
 	bool IsPanning() { return bPanning; }
 
 private:

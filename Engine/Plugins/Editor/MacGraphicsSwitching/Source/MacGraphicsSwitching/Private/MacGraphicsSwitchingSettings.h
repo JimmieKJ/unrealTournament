@@ -3,7 +3,7 @@
 
 #include "MacGraphicsSwitchingSettings.generated.h"
 
-UCLASS(Config=EditorGameAgnostic)
+UCLASS(Config=EditorSettings)
 class UMacGraphicsSwitchingSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()

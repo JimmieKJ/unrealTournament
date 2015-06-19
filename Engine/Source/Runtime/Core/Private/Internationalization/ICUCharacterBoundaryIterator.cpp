@@ -6,20 +6,9 @@
 #if UE_ENABLE_ICU
 #include "ICUBreakIterator.h"
 
-class FICUCharacterBoundaryIterator : public FICUBreakIterator
-{
-public:
-	FICUCharacterBoundaryIterator();
-};
-
-FICUCharacterBoundaryIterator::FICUCharacterBoundaryIterator()
-	: FICUBreakIterator(FICUBreakIteratorManager::Get().CreateCharacterBoundaryIterator())
-{
-}
-
 TSharedRef<IBreakIterator> FBreakIterator::CreateCharacterBoundaryIterator()
 {
-	return MakeShareable(new FICUCharacterBoundaryIterator());
+	return MakeShareable(new FICUBreakIterator(FICUBreakIteratorManager::Get().CreateCharacterBoundaryIterator()));
 }
 
 #endif

@@ -17,7 +17,7 @@ void FAssetTypeActions_AnimationAsset::GetActions( const TArray<UObject*>& InObj
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("AnimSequenceBase_FindSkeleton", "Find Skeleton"),
 		LOCTEXT("AnimSequenceBase_FindSkeletonTooltip", "Finds the skeleton for the selected assets in the content browser."),
-		FSlateIcon(),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.FindSkeleton"),
 		FUIAction(
 			FExecuteAction::CreateSP( this, &FAssetTypeActions_AnimationAsset::ExecuteFindSkeleton, AnimAssets ),
 			FCanExecuteAction()
@@ -27,7 +27,10 @@ void FAssetTypeActions_AnimationAsset::GetActions( const TArray<UObject*>& InObj
 	MenuBuilder.AddSubMenu( 
 		LOCTEXT("RetargetAnimSubmenu", "Retarget Anim Assets"),
 		LOCTEXT("RetargetAnimSubmenu_ToolTip", "Opens the retarget anim assets menu"),
-		FNewMenuDelegate::CreateSP( this, &FAssetTypeActions_AnimationAsset::FillRetargetMenu, InObjects ) );
+		FNewMenuDelegate::CreateSP( this, &FAssetTypeActions_AnimationAsset::FillRetargetMenu, InObjects ),
+		false,
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.RetargetSkeleton")
+		);
 }
 
 void FAssetTypeActions_AnimationAsset::FillRetargetMenu( FMenuBuilder& MenuBuilder, const TArray<UObject*> InObjects )
@@ -51,7 +54,7 @@ void FAssetTypeActions_AnimationAsset::FillRetargetMenu( FMenuBuilder& MenuBuild
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("AnimAsset_RetargetSkeletonInPlace", "Retarget skeleton on existing Anim Assets"),
 			LOCTEXT("AnimAsset_RetargetSkeletonInPlaceTooltip", "Retargets the selected Anim Assets to a new skeleton (and optionally all referenced animations too)"),
-			FSlateIcon(),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.RetargetSkeleton"),
 			FUIAction(
 			FExecuteAction::CreateSP( this, &FAssetTypeActions_AnimationAsset::RetargetAssets, InObjects, false, false, TSharedPtr<IToolkitHost>() ), // false = do not duplicate assets first
 			FCanExecuteAction()
@@ -62,7 +65,7 @@ void FAssetTypeActions_AnimationAsset::FillRetargetMenu( FMenuBuilder& MenuBuild
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("AnimAsset_DuplicateAndRetargetSkeleton", "Duplicate Anim Assets and Retarget"),
 		LOCTEXT("AnimAsset_DuplicateAndRetargetSkeletonTooltip", "Duplicates and then retargets the selected Anim Assets to a new skeleton (and optionally all referenced animations too)"),
-		FSlateIcon(),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.DuplicateAndRetargetSkeleton"),
 		FUIAction(
 		FExecuteAction::CreateSP( this, &FAssetTypeActions_AnimationAsset::RetargetAssets, InObjects, true, false, TSharedPtr<IToolkitHost>() ), // true = duplicate assets and retarget them
 		FCanExecuteAction()
@@ -76,7 +79,7 @@ UThumbnailInfo* FAssetTypeActions_AnimationAsset::GetThumbnailInfo(UObject* Asse
 	UThumbnailInfo* ThumbnailInfo = Anim->ThumbnailInfo;
 	if (ThumbnailInfo == NULL)
 	{
-		ThumbnailInfo = ConstructObject<USceneThumbnailInfo>(USceneThumbnailInfo::StaticClass(), Anim);
+		ThumbnailInfo = NewObject<USceneThumbnailInfo>(Anim);
 		Anim->ThumbnailInfo = ThumbnailInfo;
 	}
 

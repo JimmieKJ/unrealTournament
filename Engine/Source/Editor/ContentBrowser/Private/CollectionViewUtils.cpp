@@ -91,11 +91,11 @@ const TSharedPtr<FLinearColor> CollectionViewUtils::LoadColor(const FString& InC
 	}
 		
 	// Loads the color of collection at the given path from the config
-	if(FPaths::FileExists(GEditorUserSettingsIni))
+	if(FPaths::FileExists(GEditorPerProjectIni))
 	{
 		// Create a new entry from the config, skip if it's default
 		FString ColorStr;
-		if(GConfig->GetString(TEXT("CollectionColor"), *ColorKeyStr, ColorStr, GEditorUserSettingsIni))
+		if(GConfig->GetString(TEXT("CollectionColor"), *ColorKeyStr, ColorStr, GEditorPerProjectIni))
 		{
 			FLinearColor Color;
 			if(Color.InitFromString(ColorStr) && !Color.Equals(CollectionViewUtils::GetDefaultColor()))
@@ -122,16 +122,16 @@ void CollectionViewUtils::SaveColor(const FString& InCollectionName, const EColl
 	const bool bRemove = !CollectionColor.IsValid() || (!bForceAdd && CollectionColor->Equals(CollectionViewUtils::GetDefaultColor()));
 
 	// Saves the color of the collection to the config
-	if(FPaths::FileExists(GEditorUserSettingsIni))
+	if(FPaths::FileExists(GEditorPerProjectIni))
 	{
 		// If this is no longer custom, remove it
 		if(bRemove)
 		{
-			GConfig->RemoveKey(TEXT("CollectionColor"), *ColorKeyStr, GEditorUserSettingsIni);
+			GConfig->RemoveKey(TEXT("CollectionColor"), *ColorKeyStr, GEditorPerProjectIni);
 		}
 		else
 		{
-			GConfig->SetString(TEXT("CollectionColor"), *ColorKeyStr, *CollectionColor->ToString(), GEditorUserSettingsIni);
+			GConfig->SetString(TEXT("CollectionColor"), *ColorKeyStr, *CollectionColor->ToString(), GEditorPerProjectIni);
 		}
 	}
 
@@ -148,14 +148,14 @@ void CollectionViewUtils::SaveColor(const FString& InCollectionName, const EColl
 
 bool CollectionViewUtils::HasCustomColors( TArray< FLinearColor >* OutColors )
 {
-	if(!FPaths::FileExists(GEditorUserSettingsIni))
+	if(!FPaths::FileExists(GEditorPerProjectIni))
 	{
 		return false;
 	}
 
 	// Read individual entries from a config file.
 	TArray<FString> Section;
-	GConfig->GetSection(TEXT("CollectionColor"), Section, GEditorUserSettingsIni);
+	GConfig->GetSection(TEXT("CollectionColor"), Section, GEditorPerProjectIni);
 
 	bool bHasCustom = false;
 	const FCollectionManagerModule& CollectionManagerModule = FModuleManager::Get().LoadModuleChecked<FCollectionManagerModule>("CollectionManager");

@@ -35,15 +35,6 @@ public:
 	void Construct(const FArguments& InArgs, TWeakPtr<FBlueprintEditor> InBlueprintEditor);
 
 	/**
-	 * Ticks this widget.
-	 *
-	 * @param  AllottedGeometry The space allotted for this widget
-	 * @param  InCurrentTime  Current absolute real time
-	 * @param  InDeltaTime  Real time passed since last tick
-	 */
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
-	/**
 	 * Retrieves, from the owning blueprint-editor, the blueprint currently  
 	 * being worked on.
 	 * 
@@ -106,6 +97,9 @@ private:
 	/** Immediately calls RefreshActionsList(), doesn't not defer until Tick() like RequestRefreshActionsList() does. */
 	void ForceRefreshActionList();
 
+	/** One-off active timer to trigger a refresh of the action list */
+	EActiveTimerReturnType TriggerRefreshActionsList(double InCurrentTime, float InDeltaTime);
+
 	/**
 	 * Constructs a slate widget for the right-click context menu in this 
 	 * palette. While this isn't virtual, sub-classes can override GenerateContextMenuEntries()
@@ -115,10 +109,11 @@ private:
 	 */
 	TSharedPtr<SWidget> ConstructContextMenuWidget() const;
 
+private:
 	/** Pointer to the command list created for this (so multiple sub-palettes can have their own bindings)*/
 	TSharedPtr<FUICommandList> CommandList;
 
-	/** Flag to indicate whether or not the action list needs to be refreshed */
-	bool bNeedsRefresh;
+	/** Whether the active timer to refresh the actions list is currently registered */
+	bool bIsActiveTimerRegistered;
 };
 

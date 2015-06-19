@@ -12,23 +12,21 @@ bool FFriendGameInviteItem::IsGameRequest() const
 
 bool FFriendGameInviteItem::IsGameJoinable() const
 {
-	FString SessionId = GetGameSessionId();
-	if (!SessionId.IsEmpty())
-	{
-		if (SessionId != FFriendsAndChatManager::Get()->GetGameSessionId())
-		{
-			return true;
-		}
-	}
-	return false;
+	const TSharedPtr<const IFriendItem> Item = AsShared();
+	return !FFriendsAndChatManager::Get()->IsFriendInSameSession(Item);
 }
 
-FString FFriendGameInviteItem::GetGameSessionId() const
+TSharedPtr<FUniqueNetId> FFriendGameInviteItem::GetGameSessionId() const
 {
-	FString SessionId;
+	TSharedPtr<FUniqueNetId> SessionId = NULL;
 	if (SessionResult->Session.SessionInfo.IsValid())
 	{
-		SessionId = SessionResult->Session.SessionInfo->GetSessionId().ToString();
+		SessionId = MakeShareable(new FUniqueNetIdString(SessionResult->Session.SessionInfo->GetSessionId().ToString()));
 	}
 	return SessionId;
+}
+
+const FString FFriendGameInviteItem::GetClientId() const
+{
+	return ClientId;
 }

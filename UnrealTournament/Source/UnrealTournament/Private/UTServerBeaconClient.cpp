@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTLobbyGameState.h"
+#include "UTLobbyMatchInfo.h"
 #include "UTServerBeaconClient.h"
 
 AUTServerBeaconClient::AUTServerBeaconClient(const class FObjectInitializer& ObjectInitializer) :
@@ -8,13 +10,6 @@ Super(ObjectInitializer)
 {
 	PingStartTime = -1;
 }
-
-void AUTServerBeaconClient::SetBeaconNetDriverName(FString InBeaconName)
-{
-	BeaconNetDriverName = FName(*InBeaconName);
-	NetDriverName = BeaconNetDriverName;
-}
-
 
 void AUTServerBeaconClient::OnConnected()
 {
@@ -91,7 +86,7 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 	if (BaseGame)
 	{
-		NumInstances = BaseGame->GetInstanceData(InstanceHostNames, InstanceDescriptions);
+		NumInstances = BaseGame->GetInstanceData(InstanceIDs);
 	}
 
 	UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Info %i"), NumInstances);
@@ -120,39 +115,44 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 {
 	LastInstanceIndex++;
 
-	UE_LOG(LogBeacon, Verbose,TEXT("ServerRequestInstances %i/%i %i"), InstanceHostNames.Num(), InstanceDescriptions.Num(), LastInstanceIndex);
-	if (LastInstanceIndex < InstanceHostNames.Num() && LastInstanceIndex < InstanceDescriptions.Num() )
+	UE_LOG(LogBeacon, Verbose,TEXT("ServerRequestInstances %i %i"), InstanceIDs.Num(), LastInstanceIndex);
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+
+	if ( LobbyGameState && LastInstanceIndex < InstanceIDs.Num() )
 	{
 		UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
-		ClientReceiveInstance(LastInstanceIndex, InstanceHostNames.Num(), InstanceHostNames[LastInstanceIndex], InstanceDescriptions[LastInstanceIndex]);
+		AUTLobbyMatchInfo* Match = LobbyGameState->FindMatch(InstanceIDs[LastInstanceIndex]);
+		if (Match)
+		{
+			ClientReceiveInstance(LastInstanceIndex, InstanceIDs.Num(), Match->CurrentRuleset->DisplayTexture, Match->MatchBadge);
+		}
+		
 	}
-	else
-	{
-		UE_LOG(LogBeacon, Verbose, TEXT("<--- Out of Instances [%i] %i"), LastInstanceIndex, InstanceHostNames.Num());
-		ClientReceivedAllInstance(InstanceHostNames.Num());
-	}
+
+	UE_LOG(LogBeacon, Verbose, TEXT("<--- Out of Instances [%i] %i"), LastInstanceIndex, InstanceIDs.Num());
+	ClientReceivedAllInstance(InstanceIDs.Num());
 }
 
-void AUTServerBeaconClient::ClientReceiveInstance_Implementation(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription)
+void AUTServerBeaconClient::ClientReceiveInstance_Implementation(uint32 InInstanceCount, uint32 TotalInstances, const FString& InstanceRuleIcon, const FString& InstanceDescription)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("---> Received Instance [%i] Host [%s] Desc [%s]"), InstanceCount, *InstanceHostName, *InstanceDescription);
-	if (InstanceCount >= 0 && InstanceCount < TotalInstances)
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Received Instance [%i] Rule Icon[%s] Desc [%s]"), InInstanceCount, *InstanceRuleIcon, *InstanceDescription);
+	if (InInstanceCount >= 0 && InInstanceCount < TotalInstances)
 	{
-		InstanceHostNames.Add(InstanceHostName);
-		InstanceDescriptions.Add(InstanceDescription);
+		InstanceInfo.Add(FServerInstanceData(InstanceRuleIcon, InstanceDescription));
 	}
 
-	ServerRequestInstances(InstanceCount);
+	ServerRequestInstances(InInstanceCount);
 }
 
 void AUTServerBeaconClient::ClientReceivedAllInstance_Implementation(uint32 FinalCount)
 {
-	if (InstanceHostNames.Num() != InstanceDescriptions.Num() || InstanceHostNames.Num() != FinalCount)
+	if (InstanceInfo.Num() != FinalCount)
 	{
-		UE_LOG(UT, Log, TEXT("ERROR: Instance Names/Descriptions doesn't meet the final size requirement: %i/%i vs %i"), InstanceHostNames.Num(), InstanceDescriptions.Num(), FinalCount);
+		UE_LOG(UT, Log, TEXT("ERROR: Instance Names/Descriptions doesn't meet the final size requirement: %i vs %i"), InstanceInfo.Num(), FinalCount);
+		InstanceCount = InstanceInfo.Num();
 	}
 
-	UE_LOG(LogBeacon, Verbose, TEXT("---> Got them All DONE!!!!  [%i vs %i]"), InstanceHostNames.Num(), FinalCount );
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Got them All DONE!!!!  [%i vs %i]"), InstanceInfo.Num(), FinalCount );
 
 	OnServerRequestResults.ExecuteIfBound(this, HostServerInfo);		
 }

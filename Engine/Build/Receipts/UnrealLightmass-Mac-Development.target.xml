@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Properties>
+    <Property Name="TargetName" Value="UnrealLightmass" />
+    <Property Name="Platform" Value="Mac" />
+    <Property Name="Configuration" Value="Development" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)/Plugins/Messaging/UdpMessaging/Binaries/Mac/UnrealLightmass-UdpMessaging.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Core.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-CoreUObject.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Projects.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Json.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-SwarmInterface.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Messaging.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Networking.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Sockets.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-SandboxFile.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-DerivedDataCache.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/NotForLicensees/UnrealLightmass-DDCUtils.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Serialization.dylib" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/UnrealLightmass-Settings.dylib" Type="DynamicLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

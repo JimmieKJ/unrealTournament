@@ -1,0 +1,21 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Plugin Browser",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "User interface for managing installed plugins.",
+	"Category" : "Misc",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "PluginBrowser",
+			"Type" : "Editor"
+		}
+	]
+}

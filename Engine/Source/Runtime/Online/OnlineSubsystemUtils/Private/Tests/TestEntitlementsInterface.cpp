@@ -67,14 +67,14 @@ void FTestEntitlementsInterface::FinishTest()
 	delete this;
 }
 
-void FTestEntitlementsInterface::OnQueryEntitlementsComplete(bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Namespace, const FString& Error)
+void FTestEntitlementsInterface::OnQueryEntitlementsComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& Namespace, const FString& Error)
 {
 	UE_LOG(LogOnline, Log, TEXT("enumerated entitlements. UserId=%s Result=%s Error=[%s]"), 
-		*UserId.ToDebugString(), bWasSuccessful ? TEXT("true") : TEXT("false"), *Error);
+		*InUserId.ToDebugString(), bWasSuccessful ? TEXT("true") : TEXT("false"), *Error);
 
 	// Now check em out
 	TArray<TSharedRef<FOnlineEntitlement>> Entitlements;
-	EntitlementsOSS->GetAllEntitlements(UserId, FString(), Entitlements);
+	EntitlementsOSS->GetAllEntitlements(InUserId, FString(), Entitlements);
 
 	for (auto It = Entitlements.CreateConstIterator(); It; ++It)
 	{

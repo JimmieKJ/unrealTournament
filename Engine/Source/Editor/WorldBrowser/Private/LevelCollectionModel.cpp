@@ -85,6 +85,10 @@ void FLevelCollectionModel::BindCommands()
 	ActionList.MapAction(Commands.MoveActorsToSelected,
 		FExecuteAction::CreateSP(this, &FLevelCollectionModel::MoveActorsToSelected_Executed),
 		FCanExecuteAction::CreateSP(this, &FLevelCollectionModel::IsValidMoveActorsToLevel));
+
+	ActionList.MapAction(Commands.MoveFoliageToSelected,
+		FExecuteAction::CreateSP(this, &FLevelCollectionModel::MoveFoliageToSelected_Executed),
+		FCanExecuteAction::CreateSP(this, &FLevelCollectionModel::IsValidMoveFoliageToLevel));
 		
 	ActionList.MapAction(Commands.World_SaveSelectedLevels,
 		FExecuteAction::CreateSP(this, &FLevelCollectionModel::SaveSelectedLevels_Executed),
@@ -206,12 +210,10 @@ void FLevelCollectionModel::PopulateFilteredLevelsList()
 	FilteredLevelsList.Empty();
 
 	// Filter out our flat list
-	for (auto It = AllLevelsList.CreateIterator(); It; ++It)
+	for (auto& LevelModel : AllLevelsList)
 	{
-		TSharedPtr<FLevelModel> LevelModel = (*It);
-		
 		LevelModel->SetLevelFilteredOutFlag(true);
-		if (LevelModel->IsPersistent() || PassesAllFilters(LevelModel))
+		if (LevelModel->IsPersistent() || PassesAllFilters(*LevelModel))
 		{
 			FilteredLevelsList.Add(LevelModel);
 			LevelModel->SetLevelFilteredOutFlag(false);
@@ -331,9 +333,9 @@ void FLevelCollectionModel::SetSelectedLevels(const FLevelModelList& InList)
 	SelectedLevelsList.Empty(); 
 	
 	// Set selection flag to selected levels	
-	for (auto LevelModel : InList)
+	for (auto& LevelModel : InList)
 	{
-		if (LevelModel.IsValid() && PassesAllFilters(LevelModel))
+		if (LevelModel.IsValid() && PassesAllFilters(*LevelModel))
 		{
 			LevelModel->SetLevelSelectionFlag(true);
 			SelectedLevelsList.Add(LevelModel);
@@ -652,9 +654,9 @@ TSharedPtr<FLevelDragDropOp> FLevelCollectionModel::CreateDragDropOp() const
 	return TSharedPtr<FLevelDragDropOp>();
 }
 
-bool FLevelCollectionModel::PassesAllFilters(TSharedPtr<FLevelModel> Item) const
+bool FLevelCollectionModel::PassesAllFilters(const FLevelModel& Item) const
 {
-	if (Item->IsPersistent() || Filters->PassesAllFilters(Item))
+	if (Item.IsPersistent() || Filters->PassesAllFilters(&Item))
 	{
 		return true;
 	}
@@ -684,6 +686,11 @@ void FLevelCollectionModel::CustomizeFileMainMenu(FMenuBuilder& InMenuBuilder) c
 		InMenuBuilder.AddMenuEntry( Commands.World_SaveSelectedLevelAs );
 		InMenuBuilder.AddMenuEntry( Commands.World_MigrateSelectedLevels );
 	}
+}
+
+bool FLevelCollectionModel::GetPlayerView(FVector& Location, FRotator& Rotation) const
+{
+	return false;
 }
 
 bool FLevelCollectionModel::GetObserverView(FVector& Location, FRotator& Rotation) const
@@ -979,7 +986,8 @@ void FLevelCollectionModel::SCCCheckIn(const FLevelModelList& InList)
 								UserResponse == FEditorFileUtils::EPromptReturnCode::PR_Declined;
 	if (bShouldProceed)
 	{
-		FSourceControlWindows::PromptForCheckin(FilenamesToCheckIn);
+		const bool bUseSourceControlStateCache = false;
+		FSourceControlWindows::PromptForCheckin(bUseSourceControlStateCache, FilenamesToCheckIn);
 	}
 	else
 	{
@@ -1281,22 +1289,22 @@ void FLevelCollectionModel::LoadSettings()
 {
 	// Display paths
 	bool bDisplayPathsSetting = false;
-	GConfig->GetBool(*ConfigIniSection, TEXT("DisplayPaths"), bDisplayPathsSetting, GEditorUserSettingsIni);
+	GConfig->GetBool(*ConfigIniSection, TEXT("DisplayPaths"), bDisplayPathsSetting, GEditorPerProjectIni);
 	SetDisplayPathsState(bDisplayPathsSetting);
 
 	// Display actors count
 	bool bDisplayActorsCountSetting = false;
-	GConfig->GetBool(*ConfigIniSection, TEXT("DisplayActorsCount"), bDisplayActorsCountSetting, GEditorUserSettingsIni);
+	GConfig->GetBool(*ConfigIniSection, TEXT("DisplayActorsCount"), bDisplayActorsCountSetting, GEditorPerProjectIni);
 	SetDisplayActorsCountState(bDisplayActorsCountSetting);
 }
 	
 void FLevelCollectionModel::SaveSettings()
 {
 	// Display paths
-	GConfig->SetBool(*ConfigIniSection, TEXT("DisplayPaths"), GetDisplayPathsState(), GEditorUserSettingsIni);
+	GConfig->SetBool(*ConfigIniSection, TEXT("DisplayPaths"), GetDisplayPathsState(), GEditorPerProjectIni);
 
 	// Display actors count
-	GConfig->SetBool(*ConfigIniSection, TEXT("DisplayActorsCount"), GetDisplayActorsCountState(), GEditorUserSettingsIni);
+	GConfig->SetBool(*ConfigIniSection, TEXT("DisplayActorsCount"), GetDisplayActorsCountState(), GEditorPerProjectIni);
 }
 
 void FLevelCollectionModel::RefreshBrowser_Executed()
@@ -1497,6 +1505,15 @@ void FLevelCollectionModel::MoveActorsToSelected_Executed()
 	Editor->MoveSelectedActorsToLevel(GetWorld()->GetCurrentLevel());
 
 	RequestUpdateAllLevels();
+}
+
+void FLevelCollectionModel::MoveFoliageToSelected_Executed()
+{
+	if (GetSelectedLevels().Num() == 1)
+	{
+		ULevel* TargetLevel = GetSelectedLevels()[0]->GetLevelObject();
+		Editor->MoveSelectedFoliageToLevel(TargetLevel);
+	}
 }
 
 void FLevelCollectionModel::SelectActors_Executed()
@@ -1757,7 +1774,7 @@ void FLevelCollectionModel::CacheCanExecuteSourceControlVars() const
 	}
 }
 
-bool FLevelCollectionModel::IsValidMoveActorsToLevel() 
+bool FLevelCollectionModel::IsValidMoveActorsToLevel() const
 {
 	static bool bCachedIsValidActorMoveResult = false;
 	if (bSelectionHasChanged)
@@ -1791,6 +1808,18 @@ bool FLevelCollectionModel::IsValidMoveActorsToLevel()
 			
 	// if non of the selected actors are in the level, just check the level is unlocked
 	return bCachedIsValidActorMoveResult && AreAllSelectedLevelsEditableAndVisible();
+}
+
+bool FLevelCollectionModel::IsValidMoveFoliageToLevel() const
+{
+	if (IsOneLevelSelected() && 
+		AreAllSelectedLevelsEditableAndVisible() && 
+		GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_Foliage))
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void FLevelCollectionModel::OnActorSelectionChanged(UObject* obj)

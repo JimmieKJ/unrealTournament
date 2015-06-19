@@ -5,9 +5,6 @@
 #include "Slate/SlateGameResources.h"
 #include "UTGameViewportClient.generated.h"
 
-// Called upon completion of a redirect transfer.  
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FContentDownloadComplete, class UUTGameViewportClient*, ERedirectStatus::Type, const FString&);
-
 // Used to hold a list of items for redirect download.
 USTRUCT()
 struct FPendingRedirect
@@ -73,7 +70,7 @@ protected:
 	virtual void CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void VerifyFilesToDownloadAndReconnect();
-	virtual void ReconnectAfterDownloadingMap();
+	virtual void ReconnectAfterDownloadingContent();
 
 	FContentDownloadComplete ContentDownloadComplete;
 
@@ -83,7 +80,7 @@ protected:
 	// if there are pending redirects, this function is called each tick.  NOTE: it will only be called if there are pending directs.
 	virtual void UpdateRedirects(float DeltaTime);
 
-	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes);
+	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv);
 	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 

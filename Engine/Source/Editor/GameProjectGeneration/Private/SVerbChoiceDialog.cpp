@@ -4,7 +4,13 @@
 #include "SVerbChoiceDialog.h"
 #include "SHyperlink.h"
 
-int32 SVerbChoiceDialog::ShowModal( const FText& InTitle, const FText& InMessage, const TArray<FText>& InButtons )
+int32 SVerbChoiceDialog::ShowModal(const FText& InTitle, const FText& InText, const TArray<FText>& InButtons)
+{
+	TArray<FText> Hyperlinks;
+	return ShowModal(InTitle, InText, Hyperlinks, InButtons);
+}
+
+int32 SVerbChoiceDialog::ShowModal( const FText& InTitle, const FText& InMessage, const TArray<FText>& InHyperlinks, const TArray<FText>& InButtons)
 {
 	TSharedRef<SWindow> ModalWindow = SNew(SWindow)
 		.Title( InTitle )
@@ -16,6 +22,7 @@ int32 SVerbChoiceDialog::ShowModal( const FText& InTitle, const FText& InMessage
 	TSharedRef<SVerbChoiceDialog> MessageBox = SNew(SVerbChoiceDialog)
 		.ParentWindow(ModalWindow)
 		.Message( InMessage )
+		.Hyperlinks( InHyperlinks )
 		.Buttons( InButtons )
 		.WrapMessageAt(640.0f);
 
@@ -35,9 +42,11 @@ void SVerbChoiceDialog::Construct( const FArguments& InArgs )
 
 	FSlateFontInfo MessageFont( FEditorStyle::GetFontStyle("StandardDialog.LargeFont"));
 	Message = InArgs._Message;
+	Hyperlinks = InArgs._Hyperlinks;
 	Buttons = InArgs._Buttons;
-
+	
 	TSharedPtr<SUniformGridPanel> ButtonBox;
+	TSharedPtr<SUniformGridPanel> HyperlinksBox;
 
 	this->ChildSlot
 		[	
@@ -74,19 +83,19 @@ void SVerbChoiceDialog::Construct( const FArguments& InArgs )
 								.FillWidth(1.0f)
 								.HAlign(HAlign_Left)
 								.VAlign(VAlign_Center)
-								.Padding(12.0f)
+								.Padding(5.0f)
 								[
-									SNew(SHyperlink)
-										.OnNavigate(this, &SVerbChoiceDialog::HandleCopyMessageHyperlinkNavigate)
-										.Text( NSLOCTEXT("SVerbChoiceDialog", "CopyMessageHyperlink", "Copy Message") )
-										.ToolTipText( NSLOCTEXT("SVerbChoiceDialog", "CopyMessageTooltip", "Copy the text in this message to the clipboard (CTRL+C)") )
+									SAssignNew( HyperlinksBox, SUniformGridPanel )
+										.SlotPadding(FEditorStyle::GetMargin("StandardDialog.SlotPadding"))
+										.MinDesiredSlotWidth(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotWidth"))
+										.MinDesiredSlotHeight(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotHeight"))
 								]
 
 							+ SHorizontalBox::Slot()
 								.AutoWidth()
 								.HAlign(HAlign_Right)
 								.VAlign(VAlign_Center)
-								.Padding(2.f)
+								.Padding(5.0f)
 								[
 									SAssignNew( ButtonBox, SUniformGridPanel )
 										.SlotPadding(FEditorStyle::GetMargin("StandardDialog.SlotPadding"))
@@ -96,6 +105,24 @@ void SVerbChoiceDialog::Construct( const FArguments& InArgs )
 						]
 				]
 		];
+
+	HyperlinksBox->AddSlot(0, 0)
+		[
+			SNew(SHyperlink)
+				.OnNavigate(this, &SVerbChoiceDialog::HandleCopyMessageHyperlinkNavigate)
+				.Text( NSLOCTEXT("SVerbChoiceDialog", "CopyMessageHyperlink", "Copy Message") )
+				.ToolTipText( NSLOCTEXT("SVerbChoiceDialog", "CopyMessageTooltip", "Copy the text in this message to the clipboard (CTRL+C)") )
+		];
+
+	for(int32 Idx = 0; Idx < Hyperlinks.Get().Num(); Idx++)
+	{
+		HyperlinksBox->AddSlot(Idx + 1, 0)
+			[
+				SNew(SHyperlink)
+					.Text( Hyperlinks.Get()[Idx] )
+					.OnNavigate(this, &SVerbChoiceDialog::HandleHyperlinkClicked, ~Idx)
+			];
+	}
 
 	for(int32 Idx = 0; Idx < Buttons.Get().Num(); Idx++)
 	{
@@ -140,15 +167,21 @@ void SVerbChoiceDialog::CopyMessageToClipboard( )
 	FPlatformMisc::ClipboardCopy( *Message.Get().ToString() );
 }
 
+void SVerbChoiceDialog::HandleCopyMessageHyperlinkNavigate( )
+{
+	CopyMessageToClipboard();
+}
+
+void SVerbChoiceDialog::HandleHyperlinkClicked( int32 InResponse )
+{
+	Response = InResponse;
+	ParentWindow->RequestDestroyWindow();
+}
+
 FReply SVerbChoiceDialog::HandleButtonClicked( int32 InResponse )
 {
 	Response = InResponse;
 	ParentWindow->RequestDestroyWindow();
 
 	return FReply::Handled();
-}
-
-void SVerbChoiceDialog::HandleCopyMessageHyperlinkNavigate( )
-{
-	CopyMessageToClipboard();
 }

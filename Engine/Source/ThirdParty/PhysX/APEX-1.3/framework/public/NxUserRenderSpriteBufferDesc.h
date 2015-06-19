@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_USER_RENDER_SPRITE_BUFFER_DESC_H
 #define NX_USER_RENDER_SPRITE_BUFFER_DESC_H
@@ -242,6 +226,20 @@ public:
 		arrayIndex = 0;
 		mipLevel = 0;
 	}
+
+	/**
+	\brief Check if this object is the same as other
+	*/
+	bool isTheSameAs(const NxUserRenderSpriteTextureDesc& other) const
+	{
+		if (layout != other.layout) return false;
+		if (width != other.width) return false;
+		if (height != other.height) return false;
+		if (pitchBytes != other.pitchBytes) return false;
+		if (arrayIndex != other.arrayIndex) return false;
+		if (mipLevel != other.mipLevel) return false;
+		return true;
+	}
 };
 
 /**
@@ -288,7 +286,7 @@ public:
 
 		numFailed += (maxSprites == 0);
 		numFailed += (textureCount == 0) && (stride == 0);
-		numFailed += (textureCount == 0) && (semanticOffsets[NxRenderSpriteSemantic::POSITION] == physx::PxU32(-1));
+		numFailed += (textureCount == 0) && (semanticOffsets[NxRenderSpriteLayoutElement::POSITION_FLOAT3] == physx::PxU32(-1));
 		numFailed += registerInCUDA && (interopContext == 0);
 
 		numFailed += ((stride & 0x03) != 0);
@@ -304,12 +302,39 @@ public:
 		return (numFailed == 0);
 	}
 
+	/**
+	\brief Check if this object is the same as other
+	*/
+	bool isTheSameAs(const NxUserRenderSpriteBufferDesc& other) const
+	{
+		if (registerInCUDA != other.registerInCUDA) return false;
+		if (maxSprites != other.maxSprites) return false;
+		if (hint != other.hint) return false;
+		if (textureCount != other.textureCount) return false;
+		if (textureCount == 0)
+		{
+			if (stride != other.stride) return false;
+			for (physx::PxU32 i = 0; i < NxRenderSpriteLayoutElement::NUM_SEMANTICS; i++)
+			{
+				if (semanticOffsets[i] != other.semanticOffsets[i]) return false;
+			}
+		}
+		else
+		{
+			for (physx::PxU32 i = 0; i < textureCount; i++)
+			{
+				if (textureDescs[i].isTheSameAs(other.textureDescs[i]) == false) return false;
+			}
+		}
+		return true;
+	}
+
 public:
 	physx::PxU32					maxSprites;		//!< The maximum number of sprites that APEX will store in this buffer
 	NxRenderBufferHint::Enum		hint;			//!< A hint about the update frequency of this buffer
 
 	/**
-	\brief Array of the corresponding offsets (in bytes) for each semantic. Required when CUDA interop is used!
+	\brief Array of the corresponding offsets (in bytes) for each semantic.
 	*/
 	physx::PxU32					semanticOffsets[NxRenderSpriteLayoutElement::NUM_SEMANTICS];
 

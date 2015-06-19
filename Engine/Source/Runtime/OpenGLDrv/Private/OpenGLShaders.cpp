@@ -82,7 +82,7 @@ static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode )
 {
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderCompileVerifyTime);
 
-#if UE_BUILD_DEBUG
+#if UE_BUILD_DEBUG || DEBUG_GL_SHADERS
 	if (FOpenGL::SupportsSeparateShaderObjects() && glIsProgram(Shader))
 	{
 		bool const bCompiledOK = VerifyLinkedProgram(Shader);
@@ -291,6 +291,22 @@ namespace
 		return true;
 	}
 
+	inline int CStringCountOccurances(TArray<ANSICHAR> & Source, const ANSICHAR * TargetString)
+	{
+		int32 TargetLen = FCStringAnsi::Strlen(TargetString);
+		int Count = 0;
+		int32 FoundIndex = 0;
+		for (const ANSICHAR * FoundPointer = FCStringAnsi::Strstr(Source.GetData(), TargetString);
+			nullptr != FoundPointer;
+			FoundPointer = FCStringAnsi::Strstr(Source.GetData() + FoundIndex, TargetString))
+		{
+			FoundIndex = FoundPointer - Source.GetData();
+			FoundIndex += TargetLen;
+			Count++;
+		}
+		return Count;
+	}
+
 	inline bool MoveHashLines(TArray<ANSICHAR> & Dest, TArray<ANSICHAR> & Source)
 	{
 		// Walk through the lines to find the first non-# line...
@@ -343,7 +359,7 @@ inline uint32 GetTypeHash(FAnsiCharArray const& CharArray)
 	return FCrc::MemCrc32(CharArray.GetData(), CharArray.Num() * sizeof(ANSICHAR));
 }
 
-static void BindShaderLocations(GLenum TypeEnum, GLuint Resource, uint16 InOutMask)
+static void BindShaderLocations(GLenum TypeEnum, GLuint Resource, uint16 InOutMask, const uint8 * RemapTable = nullptr)
 {
 	if ( OpenGLShaderPlatformNeedsBindLocation(GMaxRHIShaderPlatform) )
 	{
@@ -370,7 +386,18 @@ static void BindShaderLocations(GLenum TypeEnum, GLuint Resource, uint16 InOutMa
 							Buf[13] = '0' + (Index % 10);
 							Buf[14] = 0;
 						}
-						glBindAttribLocation(Resource, Index, Buf);
+
+						if (FOpenGL::NeedsVertexAttribRemapTable())
+						{
+							check(RemapTable != nullptr);
+							uint32 MappedAttributeIndex = RemapTable[Index];
+							check(MappedAttributeIndex < NUM_OPENGL_VERTEX_STREAMS);
+							glBindAttribLocation(Resource, MappedAttributeIndex, Buf);
+						}
+						else
+						{
+							glBindAttribLocation(Resource, Index, Buf);
+						}
 					}
 					Index++;
 					Mask >>= 1;
@@ -621,6 +648,22 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 						AppendCString(GlslCode,
 							"#define textureCubeLodEXT textureCubeLod \n");
 					}
+
+					// Deal with gl_FragCoord using one of the varying vectors and shader possibly exceeding the limit
+					if (FOpenGL::RequiresGLFragCoordVaryingLimitHack())
+					{
+						if (CStringCountOccurances(GlslCodeOriginal, "vec4 var_TEXCOORD") >= FOpenGL::GetMaxVaryingVectors())
+						{
+							// It is likely gl_FragCoord is used for mosaic color output so use an appropriate constant
+							ReplaceCString(GlslCodeOriginal, "gl_FragCoord.xy", "vec2(400.5,240.5)");
+						}
+					}
+
+					if (FOpenGL::RequiresTexture2DPrecisionHack())
+					{
+						AppendCString(GlslCode,	"#define TEXCOORDPRECISIONWORKAROUND \n");
+					}
+
 				}
 			}
 		}
@@ -654,6 +697,16 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 		// On Android the same shader is compiled with different hacks to find the right one(s) to apply so don't cache unless successful
 		glGetShaderiv(Resource, GL_COMPILE_STATUS, &CompileStatus);
 #endif
+#if PLATFORM_HTML5
+		glGetShaderiv(Resource, GL_COMPILE_STATUS, &CompileStatus);
+		if (CompileStatus == GL_FALSE)
+		{
+			char Msg[2048];
+			glGetShaderInfoLog(Resource, 2048, nullptr, Msg);
+			UE_LOG(LogRHI, Error, TEXT("Shader compile failed: %s\n Original Source is (len %d) %s"), ANSI_TO_TCHAR(Msg), GlslCodeLength, ANSI_TO_TCHAR(GlslCodeString));
+		}
+#endif
+
 		if ( CompileStatus == GL_TRUE )
 		{
 			if ( FOpenGL::SupportsSeparateShaderObjects() )
@@ -818,9 +871,29 @@ void FOpenGLDynamicRHI::BindUniformBufferBase(FOpenGLContextState& ContextState,
 
 // ============================================================================================================================
 
-static TMap<GLuint, TMap<FAnsiCharArray, int64>>& GetOpenGLUniformBlockLocations()
+struct FOpenGLUniformName
 {
-	static TMap<GLuint, TMap<FAnsiCharArray, int64>> UniformBlockLocations;
+	FOpenGLUniformName()
+	{
+		FMemory::Memzero(Buffer);
+	}
+	
+	ANSICHAR Buffer[10];
+	
+	friend bool operator ==(const FOpenGLUniformName& A,const FOpenGLUniformName& B)
+	{
+		return FMemory::Memcmp(A.Buffer, B.Buffer, sizeof(A.Buffer)) == 0;
+	}
+	
+	friend uint32 GetTypeHash(const FOpenGLUniformName &Key)
+	{
+		return FCrc::MemCrc32(Key.Buffer, sizeof(Key.Buffer));
+	}
+};
+
+static TMap<GLuint, TMap<FOpenGLUniformName, int64>>& GetOpenGLUniformBlockLocations()
+{
+	static TMap<GLuint, TMap<FOpenGLUniformName, int64>> UniformBlockLocations;
 	return UniformBlockLocations;
 }
 
@@ -830,20 +903,18 @@ static TMap<GLuint, TMap<int64, int64>>& GetOpenGLUniformBlockBindings()
 	return UniformBlockBindings;
 }
 
-static GLuint GetOpenGLProgramUniformBlockIndex(GLuint Program, const GLchar* UniformBlockName)
+static GLuint GetOpenGLProgramUniformBlockIndex(GLuint Program, const FOpenGLUniformName& UniformBlockName)
 {
-	TMap<FAnsiCharArray, int64>& Locations = GetOpenGLUniformBlockLocations().FindOrAdd(Program);
-	FAnsiCharArray Name;
-	Name.Append(UniformBlockName, FCStringAnsi::Strlen(UniformBlockName) + 1);
-	int64* Location = Locations.Find(Name);
+	TMap<FOpenGLUniformName, int64>& Locations = GetOpenGLUniformBlockLocations().FindOrAdd(Program);
+	int64* Location = Locations.Find(UniformBlockName);
 	if(Location)
 	{
 		return *Location;
 	}
 	else
 	{
-		int64& Loc = Locations.Emplace(Name);
-		Loc = (int64)FOpenGL::GetUniformBlockIndex(Program, UniformBlockName);
+		int64& Loc = Locations.Emplace(UniformBlockName);
+		Loc = (int64)FOpenGL::GetUniformBlockIndex(Program, UniformBlockName.Buffer);
 		return Loc;
 	}
 }
@@ -851,7 +922,7 @@ static GLuint GetOpenGLProgramUniformBlockIndex(GLuint Program, const GLchar* Un
 static void GetOpenGLProgramUniformBlockBinding(GLuint Program, GLuint UniformBlockIndex, GLuint UniformBlockBinding)
 {
 	TMap<int64, int64>& Bindings = GetOpenGLUniformBlockBindings().FindOrAdd(Program);
-	int64* Bind = Bindings.Find(UniformBlockIndex);
+	int64* Bind = static_cast<int64 *>(Bindings.Find(UniformBlockIndex));
 	if(!Bind)
 	{
 		Bind = &(Bindings.Emplace(UniformBlockIndex));
@@ -985,7 +1056,7 @@ public:
 	static inline void SortPackedUniformInfos(const TArray<FPackedUniformInfo>& ReflectedUniformInfos, const TArray<CrossCompiler::FPackedArrayInfo>& PackedGlobalArrays, TArray<FPackedUniformInfo>& OutPackedUniformInfos)
 	{
 		check(OutPackedUniformInfos.Num() == 0);
-		OutPackedUniformInfos.AddUninitialized(PackedGlobalArrays.Num());
+		OutPackedUniformInfos.Empty(PackedGlobalArrays.Num());
 		for (int32 Index = 0; Index < PackedGlobalArrays.Num(); ++Index)
 		{
 			auto& PackedArray = PackedGlobalArrays[Index];
@@ -998,16 +1069,9 @@ public:
 				if (ReflectedInfo.ArrayType == PackedArray.TypeName)
 				{
 					FoundIndex = FindIndex;
-					OutPackedUniformInfos[Index] = ReflectedInfo;
+					OutPackedUniformInfos.Add(ReflectedInfo);
 					break;
 				}
-			}
-
-			if (FoundIndex == -1)
-			{
-				OutPackedUniformInfos[Index].Location = -1;
-				OutPackedUniformInfos[Index].ArrayType = -1;
-				OutPackedUniformInfos[Index].Index = -1;
 			}
 		}
 	}
@@ -1047,19 +1111,16 @@ void FOpenGLLinkedProgram::VerifyUniformBlockBindings( int Stage, uint32 FirstUn
 	if ( FOpenGL::SupportsSeparateShaderObjects() && FOpenGL::SupportsUniformBuffers() )
 	{
 		static const ANSICHAR StagePrefix[CrossCompiler::NUM_SHADER_STAGES] = { 'v', 'p', 'g', 'h', 'd', 'c'};
-		ANSICHAR NameBuffer[10] = {0};
-		NameBuffer[0] = StagePrefix[Stage];
-		NameBuffer[1] = 'b';
-		NameBuffer[2] = 0;
-		NameBuffer[3] = 0;
-		NameBuffer[4] = 0;
+		FOpenGLUniformName Name;
+		Name.Buffer[0] = StagePrefix[Stage];
+		Name.Buffer[1] = 'b';
 		
 		GLuint StageProgram = Config.Shaders[Stage].Resource;
 
 		for (int32 BufferIndex = 0; BufferIndex < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++BufferIndex)
 		{
-			SetIndex(NameBuffer, 2, BufferIndex);
-			GLint Location = GetOpenGLProgramUniformBlockIndex(StageProgram, NameBuffer);
+			SetIndex(Name.Buffer, 2, BufferIndex);
+			GLint Location = GetOpenGLProgramUniformBlockIndex(StageProgram, Name);
 			if (Location >= 0)
 			{
 				GetOpenGLProgramUniformBlockBinding(StageProgram, Location, FirstUniformBuffer + BufferIndex);
@@ -1089,31 +1150,31 @@ void FOpenGLLinkedProgram::ConfigureShaderStage( int Stage, uint32 FirstUniformB
 		OGL_UAV_NOT_SUPPORTED_FOR_GRAPHICS_UNIT,
 		FOpenGL::GetFirstComputeUAVUnit()
 	};
-	ANSICHAR NameBuffer[10] = {0};
-
+	
 	// verify that only CS uses UAVs
 	check((Stage != CrossCompiler::SHADER_STAGE_COMPUTE) ? (CountSetBits(UAVStageNeeds) == 0) : true);
 
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderBindParameterTime);
 	VERIFY_GL_SCOPE();
 
-	NameBuffer[0] = StagePrefix[Stage];
+	FOpenGLUniformName Name;
+	Name.Buffer[0] = StagePrefix[Stage];
 
 	GLuint StageProgram = FOpenGL::SupportsSeparateShaderObjects() ? Config.Shaders[Stage].Resource : Program;
 	
 	// Bind Global uniform arrays (vu_h, pu_i, etc)
 	{
-		NameBuffer[1] = 'u';
-		NameBuffer[2] = '_';
-		NameBuffer[3] = 0;
-		NameBuffer[4] = 0;
+		Name.Buffer[1] = 'u';
+		Name.Buffer[2] = '_';
+		Name.Buffer[3] = 0;
+		Name.Buffer[4] = 0;
 
 		TArray<FPackedUniformInfo> PackedUniformInfos;
 		for (uint8 Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)
 		{
 			uint8 ArrayIndexType = CrossCompiler::PackedTypeIndexToTypeName(Index);
-			NameBuffer[3] = ArrayIndexType;
-			GLint Location = glGetUniformLocation(StageProgram, NameBuffer);
+			Name.Buffer[3] = ArrayIndexType;
+			GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
 			if ((int32)Location != -1)
 			{
 				FPackedUniformInfo Info = {Location, ArrayIndexType, Index};
@@ -1126,23 +1187,23 @@ void FOpenGLLinkedProgram::ConfigureShaderStage( int Stage, uint32 FirstUniformB
 
 	// Bind uniform buffer packed arrays (vc0_h, pc2_i, etc)
 	{
-		NameBuffer[1] = 'c';
-		NameBuffer[2] = 0;
-		NameBuffer[3] = 0;
-		NameBuffer[4] = 0;
-		NameBuffer[5] = 0;
-		NameBuffer[6] = 0;
+		Name.Buffer[1] = 'c';
+		Name.Buffer[2] = 0;
+		Name.Buffer[3] = 0;
+		Name.Buffer[4] = 0;
+		Name.Buffer[5] = 0;
+		Name.Buffer[6] = 0;
 		for (uint8 UB = 0; UB < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++UB)
 		{
 			TArray<FPackedUniformInfo> PackedBuffers;
-			ANSICHAR* Str = SetIndex(NameBuffer, 2, UB);
+			ANSICHAR* Str = SetIndex(Name.Buffer, 2, UB);
 			*Str++ = '_';
 			Str[1] = 0;
 			for (uint8 Index = 0; Index < CrossCompiler::PACKED_TYPEINDEX_MAX; ++Index)
 			{
 				uint8 ArrayIndexType = CrossCompiler::PackedTypeIndexToTypeName(Index);
 				Str[0] = ArrayIndexType;
-				GLint Location = glGetUniformLocation(StageProgram, NameBuffer);
+				GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
 				if ((int32)Location != -1)
 				{
 					FPackedUniformInfo Info = {Location, ArrayIndexType, Index};
@@ -1159,28 +1220,28 @@ void FOpenGLLinkedProgram::ConfigureShaderStage( int Stage, uint32 FirstUniformB
 	StagePackedUniformInfo[Stage].LastEmulatedUniformBufferSet.AddZeroed(Config.Shaders[Stage].Bindings.NumUniformBuffers);
 
 	// Bind samplers.
-	NameBuffer[1] = 's';
-	NameBuffer[2] = 0;
-	NameBuffer[3] = 0;
-	NameBuffer[4] = 0;
+	Name.Buffer[1] = 's';
+	Name.Buffer[2] = 0;
+	Name.Buffer[3] = 0;
+	Name.Buffer[4] = 0;
 	int32 LastFoundIndex = -1;
 	for (int32 SamplerIndex = 0; SamplerIndex < Config.Shaders[Stage].Bindings.NumSamplers; ++SamplerIndex)
 	{
-		SetIndex(NameBuffer, 2, SamplerIndex);
-		GLint Location = glGetUniformLocation(StageProgram, NameBuffer);
+		SetIndex(Name.Buffer, 2, SamplerIndex);
+		GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
 		if (Location == -1)
 		{
 			if (LastFoundIndex != -1)
 			{
 				// It may be an array of samplers. Get the initial element location, if available, and count from it.
-				SetIndex(NameBuffer, 2, LastFoundIndex);
+				SetIndex(Name.Buffer, 2, LastFoundIndex);
 				int32 OffsetOfArraySpecifier = (LastFoundIndex>9)?4:3;
 				int32 ArrayIndex = SamplerIndex-LastFoundIndex;
-				NameBuffer[OffsetOfArraySpecifier] = '[';
-				ANSICHAR* EndBracket = SetIndex(NameBuffer, OffsetOfArraySpecifier+1, ArrayIndex);
+				Name.Buffer[OffsetOfArraySpecifier] = '[';
+				ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier+1, ArrayIndex);
 				*EndBracket++ = ']';
 				*EndBracket = 0;
-				Location = glGetUniformLocation(StageProgram, NameBuffer);
+				Location = glGetUniformLocation(StageProgram, Name.Buffer);
 			}
 		}
 		else
@@ -1209,28 +1270,28 @@ void FOpenGLLinkedProgram::ConfigureShaderStage( int Stage, uint32 FirstUniformB
 	}
 
 	// Bind UAVs/images.
-	NameBuffer[1] = 'i';
-	NameBuffer[2] = 0;
-	NameBuffer[3] = 0;
-	NameBuffer[4] = 0;
+	Name.Buffer[1] = 'i';
+	Name.Buffer[2] = 0;
+	Name.Buffer[3] = 0;
+	Name.Buffer[4] = 0;
 	int32 LastFoundUAVIndex = -1;
 	for (int32 UAVIndex = 0; UAVIndex < Config.Shaders[Stage].Bindings.NumUAVs; ++UAVIndex)
 	{
-		SetIndex(NameBuffer, 2, UAVIndex);
-		GLint Location = glGetUniformLocation(StageProgram, NameBuffer);
+		SetIndex(Name.Buffer, 2, UAVIndex);
+		GLint Location = glGetUniformLocation(StageProgram, Name.Buffer);
 		if (Location == -1)
 		{
 			if (LastFoundUAVIndex != -1)
 			{
 				// It may be an array of UAVs. Get the initial element location, if available, and count from it.
-				SetIndex(NameBuffer, 2, LastFoundUAVIndex);
+				SetIndex(Name.Buffer, 2, LastFoundUAVIndex);
 				int32 OffsetOfArraySpecifier = (LastFoundUAVIndex>9)?4:3;
 				int32 ArrayIndex = UAVIndex-LastFoundUAVIndex;
-				NameBuffer[OffsetOfArraySpecifier] = '[';
-				ANSICHAR* EndBracket = SetIndex(NameBuffer, OffsetOfArraySpecifier+1, ArrayIndex);
+				Name.Buffer[OffsetOfArraySpecifier] = '[';
+				ANSICHAR* EndBracket = SetIndex(Name.Buffer, OffsetOfArraySpecifier+1, ArrayIndex);
 				*EndBracket++ = ']';
 				*EndBracket = '\0';
-				Location = glGetUniformLocation(StageProgram, NameBuffer);
+				Location = glGetUniformLocation(StageProgram, Name.Buffer);
 			}
 		}
 		else
@@ -1250,14 +1311,14 @@ void FOpenGLLinkedProgram::ConfigureShaderStage( int Stage, uint32 FirstUniformB
 	// Bind uniform buffers.
 	if (FOpenGL::SupportsUniformBuffers())
 	{
-		NameBuffer[1] = 'b';
-		NameBuffer[2] = 0;
-		NameBuffer[3] = 0;
-		NameBuffer[4] = 0;
+		Name.Buffer[1] = 'b';
+		Name.Buffer[2] = 0;
+		Name.Buffer[3] = 0;
+		Name.Buffer[4] = 0;
 		for (int32 BufferIndex = 0; BufferIndex < Config.Shaders[Stage].Bindings.NumUniformBuffers; ++BufferIndex)
 		{
-			SetIndex(NameBuffer, 2, BufferIndex);
-			GLint Location = GetOpenGLProgramUniformBlockIndex(StageProgram, NameBuffer);
+			SetIndex(Name.Buffer, 2, BufferIndex);
+			GLint Location = GetOpenGLProgramUniformBlockIndex(StageProgram, Name);
 			if (Location >= 0)
 			{
 				GetOpenGLProgramUniformBlockBinding(StageProgram, Location, FirstUniformBuffer + BufferIndex);
@@ -1570,7 +1631,8 @@ static FOpenGLLinkedProgram* LinkProgram( const FOpenGLLinkedProgramConfiguratio
 			// Bind attribute indices.
 			if (Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX].Resource)
 			{
-				BindShaderLocations(GL_VERTEX_SHADER, Program, Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX].Bindings.InOutMask);
+				auto& VertexBindings = Config.Shaders[CrossCompiler::SHADER_STAGE_VERTEX].Bindings;
+				BindShaderLocations(GL_VERTEX_SHADER, Program, VertexBindings.InOutMask, VertexBindings.VertexAttributeRemap);
 			}
 
 			// Bind frag data locations.
@@ -1731,7 +1793,7 @@ static FString GetShaderStageSource(TOpenGLStage* Shader)
 				ANSICHAR* Code = new ANSICHAR[Len + 1];
 				glGetShaderSource(Shaders[i], Len + 1, &Len, Code);
 				Source += Code;
-				delete Code;
+				delete [] Code;
 			}
 		}
 	}
@@ -1859,8 +1921,6 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 		
 			if(!bInterpolatorMatches)
 			{
-				FString PrevSource = GetShaderStageSource<TOpenGLStage1>(PrevStage);
-				
 				if(InputErrors.Num() == 0)
 				{
 					FOpenGLCodeHeader Header;
@@ -1893,7 +1953,7 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 					
 					TArray<FString> PrevLines;
 					FString PrevSource = GetShaderStageSource<TOpenGLStage1>(PrevStage);
-					PrevSource.ParseIntoArrayLines(&PrevLines);
+					PrevSource.ParseIntoArrayLines(PrevLines);
 					bool const bOutputElimination = OutputElimination.Num() > 0;
 					for(FOpenGLShaderVarying Output : OutputElimination)
 					{
@@ -1953,10 +2013,10 @@ static void BindShaderStage(FOpenGLLinkedProgramConfiguration::ShaderInfo& Shade
 				
 				if(!bInterpolatorMatches)
 				{
-					FString PrevSource = GetShaderStageSource<TOpenGLStage1>(PrevStage);
-					FString NextSource = GetShaderStageSource<TOpenGLStage0>(NextStage);
-					UE_LOG(LogRHI,Error,TEXT("Separate Shader Object Stage 0x%x:\n%s"), TOpenGLStage1::TypeEnum, *PrevSource);
-					UE_LOG(LogRHI,Error,TEXT("Separate Shader Object Stage 0x%x:\n%s"), TOpenGLStage0::TypeEnum, *NextSource);
+					FString PrevShaderStageSource = GetShaderStageSource<TOpenGLStage1>(PrevStage);
+					FString NextShaderStageSource = GetShaderStageSource<TOpenGLStage0>(NextStage);
+					UE_LOG(LogRHI, Error, TEXT("Separate Shader Object Stage 0x%x:\n%s"), TOpenGLStage1::TypeEnum, *PrevShaderStageSource);
+					UE_LOG(LogRHI, Error, TEXT("Separate Shader Object Stage 0x%x:\n%s"), TOpenGLStage0::TypeEnum, *NextShaderStageSource);
 				}
 			}
 			
@@ -1980,6 +2040,8 @@ FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState(
 	FGeometryShaderRHIParamRef GeometryShaderRHI
 	)
 { 
+	check(IsInRenderingThread());
+
 	VERIFY_GL_SCOPE();
 
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLCreateBoundShaderStateTime);
@@ -2009,12 +2071,12 @@ FBoundShaderStateRHIRef FOpenGLDynamicRHI::RHICreateBoundShaderState(
 	{
 		check(VertexDeclarationRHI);
 		
-		DYNAMIC_CAST_OPENGLRESOURCE(VertexDeclaration,VertexDeclaration);
-		DYNAMIC_CAST_OPENGLRESOURCE(VertexShader,VertexShader);
-		DYNAMIC_CAST_OPENGLRESOURCE(PixelShader,PixelShader);
-		DYNAMIC_CAST_OPENGLRESOURCE(HullShader,HullShader);
-		DYNAMIC_CAST_OPENGLRESOURCE(DomainShader,DomainShader);
-		DYNAMIC_CAST_OPENGLRESOURCE(GeometryShader,GeometryShader);
+		FOpenGLVertexDeclaration* VertexDeclaration = ResourceCast(VertexDeclarationRHI);
+		FOpenGLVertexShader* VertexShader = ResourceCast(VertexShaderRHI);
+		FOpenGLPixelShader* PixelShader = ResourceCast(PixelShaderRHI);
+		FOpenGLHullShader* HullShader = ResourceCast(HullShaderRHI);
+		FOpenGLDomainShader* DomainShader = ResourceCast(DomainShaderRHI);
+		FOpenGLGeometryShader* GeometryShader = ResourceCast(GeometryShaderRHI);
 
 		FOpenGLLinkedProgramConfiguration Config;
 
@@ -2374,12 +2436,12 @@ FOpenGLBoundShaderState::FOpenGLBoundShaderState(
 	:	CacheLink(InVertexDeclarationRHI, InVertexShaderRHI, InPixelShaderRHI,
 		InHullShaderRHI, InDomainShaderRHI,	InGeometryShaderRHI, this)
 {
-	DYNAMIC_CAST_OPENGLRESOURCE(VertexDeclaration,InVertexDeclaration);
-	DYNAMIC_CAST_OPENGLRESOURCE(VertexShader,InVertexShader);
-	DYNAMIC_CAST_OPENGLRESOURCE(PixelShader,InPixelShader);
-	DYNAMIC_CAST_OPENGLRESOURCE(HullShader,InHullShader);
-	DYNAMIC_CAST_OPENGLRESOURCE(DomainShader,InDomainShader);
-	DYNAMIC_CAST_OPENGLRESOURCE(GeometryShader,InGeometryShader);
+	FOpenGLVertexDeclaration* InVertexDeclaration = FOpenGLDynamicRHI::ResourceCast(InVertexDeclarationRHI);
+	FOpenGLVertexShader* InVertexShader = FOpenGLDynamicRHI::ResourceCast(InVertexShaderRHI);
+	FOpenGLPixelShader* InPixelShader = FOpenGLDynamicRHI::ResourceCast(InPixelShaderRHI);
+	FOpenGLHullShader* InHullShader = FOpenGLDynamicRHI::ResourceCast(InHullShaderRHI);
+	FOpenGLDomainShader* InDomainShader = FOpenGLDynamicRHI::ResourceCast(InDomainShaderRHI);
+	FOpenGLGeometryShader* InGeometryShader = FOpenGLDynamicRHI::ResourceCast(InGeometryShaderRHI);
 
 	VertexDeclaration = InVertexDeclaration;
 	VertexShader = InVertexShader;
@@ -2440,7 +2502,7 @@ bool FOpenGLComputeShader::NeedsUAVStage(int32 UAVStageIndex)
 void FOpenGLDynamicRHI::BindPendingComputeShaderState(FOpenGLContextState& ContextState, FComputeShaderRHIParamRef ComputeShaderRHI)
 {
 	VERIFY_GL_SCOPE();
-	DYNAMIC_CAST_OPENGLRESOURCE(ComputeShader,ComputeShader);
+	FOpenGLComputeShader* ComputeShader = ResourceCast(ComputeShaderRHI);
 	bool ForceUniformBindingUpdate = false;
 
 	GLuint PendingProgram = ComputeShader->LinkedProgram->Program;
@@ -2511,8 +2573,8 @@ FOpenGLShaderParameterCache::~FOpenGLShaderParameterCache()
 		FMemory::Free(PackedGlobalUniforms[0]);
 	}
 
-	FMemory::MemZero(PackedUniformsScratch);
-	FMemory::MemZero(PackedGlobalUniforms);
+	FMemory::Memzero(PackedUniformsScratch);
+	FMemory::Memzero(PackedGlobalUniforms);
 
 	GlobalUniformArraySize = -1;
 }
@@ -2570,7 +2632,8 @@ void FOpenGLShaderParameterCache::CommitPackedGlobals(const FOpenGLLinkedProgram
 	for (int32 PackedUniform = 0; PackedUniform < PackedUniforms.Num(); ++PackedUniform)
 	{
 		const FOpenGLLinkedProgram::FPackedUniformInfo& UniformInfo = PackedUniforms[PackedUniform];
-		const int32 ArrayIndex = UniformInfo.Index;
+		const uint32 ArrayIndex = UniformInfo.Index;
+		check(ArrayIndex < CrossCompiler::PACKED_TYPEINDEX_MAX);
 		const int32 NumVectors = PackedArrays[PackedUniform].Size / BytesPerRegister;
 		GLint Location = UniformInfo.Location;
 		const void* UniformData = PackedGlobalUniforms[ArrayIndex];

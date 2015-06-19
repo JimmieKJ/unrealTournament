@@ -6,8 +6,8 @@
 #include "IFilter.h"
 #include "FilterCollection.h"
 
-typedef IFilter< const TSharedPtr<FLevelModel>& >				LevelFilter;
-typedef TFilterCollection< const TSharedPtr<FLevelModel>& >		LevelFilterCollection;
+typedef IFilter< const FLevelModel* >				LevelFilter;
+typedef TFilterCollection< const FLevelModel* >		LevelFilterCollection;
 
 /**
  * Interface for non-UI presentation logic for a world
@@ -122,15 +122,18 @@ public:
 	virtual TSharedPtr<class FLevelDragDropOp> CreateDragDropOp() const;
 	
 	/**	@return	Whether specified level passes all filters */
-	virtual bool PassesAllFilters(TSharedPtr<FLevelModel> InLevelModel) const;
+	virtual bool PassesAllFilters(const FLevelModel& InLevelModel) const;
 	
 	/**	Builds 'hierarchy' commands menu for a selected levels */
 	virtual void BuildHierarchyMenu(FMenuBuilder& InMenuBuilder) const;
 	
 	/**	Customize 'File' section in main menu  */
 	virtual void CustomizeFileMainMenu(FMenuBuilder& InMenuBuilder) const;
+		
+	/**	@return	Player view in the PIE/Simulation world */
+	virtual bool GetPlayerView(FVector& Location, FRotator& Rotation) const;
 
-	/**	@return	Observer view in the world, usually camera view */
+	/**	@return	Observer view in the Editor/Similuation world */
 	virtual bool GetObserverView(FVector& Location, FRotator& Rotation) const;
 
 	/**	Compares 2 levels by Z order */
@@ -209,7 +212,10 @@ public:
 	bool AreActorsSelected() const;
 
 	/** @return whether moving the selected actors to the selected level is a valid action */
-	bool IsValidMoveActorsToLevel();
+	bool IsValidMoveActorsToLevel() const;
+
+	/** @return whether moving the selected foliage to the selected level is a valid action */
+	bool IsValidMoveFoliageToLevel() const;
 
 	/** delegate used to pickup when the selection has changed */
 	void OnActorSelectionChanged(UObject* obj);
@@ -303,6 +309,9 @@ protected:
 
 	/** Moves the selected actors to this level */
 	void MoveActorsToSelected_Executed();
+
+	/** Moves the selected foliage to this level */
+	void MoveFoliageToSelected_Executed();
 
 	/** Saves selected levels */
 	void SaveSelectedLevels_Executed();
@@ -520,7 +529,7 @@ protected:
 	mutable bool						bCanExecuteSCC;
 
 	/** Flag for whether the selection of levels or actors has changed */
-	bool								bSelectionHasChanged;
+	mutable bool						bSelectionHasChanged;
 
 	/** Guard to avoid recursive level selection updates */
 	bool								bUpdatingLevelsSelection;

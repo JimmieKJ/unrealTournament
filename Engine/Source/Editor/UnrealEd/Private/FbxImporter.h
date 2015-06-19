@@ -145,6 +145,7 @@ struct FBXImportOptions
 	struct FIntPoint AnimationRange;
 	FString AnimationName;
 	bool	bPreserveLocalTransform;
+	bool	bDeleteExistingMorphTargetCurves;
 	bool	bImportCustomAttribute;
 
 	bool ShouldImportNormals()
@@ -696,7 +697,7 @@ protected:
 	 * @param LODIndex	LOD level to set up for StaticMesh
 	 * @return bool true if set up successfully
 	 */
-	bool BuildStaticMeshFromGeometry(FbxMesh* FbxMesh, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,
+	bool BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,FRawMesh* InRawMesh,
 									 EVertexColorImportOption::Type VertexColorImportOption, const TMap<FVector, FColor>& ExistingVertexColorData, const FColor& VertexOverrideColor);
 	
 	/**

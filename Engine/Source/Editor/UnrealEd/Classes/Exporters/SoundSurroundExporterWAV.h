@@ -10,8 +10,11 @@
 UCLASS()
 class USoundSurroundExporterWAV : public UExporter
 {
-	GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
 
+public:
+	USoundSurroundExporterWAV(const FObjectInitializer& ObjectInitializer = FObjectInitializer());
 
 	// Begin UExporter Interface
 	virtual int32 GetFileCount( void ) const override;

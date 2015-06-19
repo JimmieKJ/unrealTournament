@@ -9,7 +9,7 @@
 UCLASS(hidecategories=Object, MinimalAPI)
 class UCheckBoxWidgetStyle : public USlateWidgetStyleContainerBase
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 public:
 	/** The actual data describing the button's appearance. */

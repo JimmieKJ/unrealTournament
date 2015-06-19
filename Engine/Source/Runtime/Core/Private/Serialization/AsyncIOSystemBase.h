@@ -233,9 +233,8 @@ protected:
 	 * @param	Size		Size in bytes to read at current position from passed in file handle
 	 * @param	Dest		Pointer to data to read into
 	 *
-	 * @return	true if read was successful, false otherwise
 	 */	
-	bool InternalRead( IFileHandle* FileHandle, int64 Offset, int64 Size, void* Dest );
+	void InternalRead( IFileHandle* FileHandle, int64 Offset, int64 Size, void* Dest );
 
 
 	/** 

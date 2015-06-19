@@ -13,7 +13,6 @@ void SComboButton::Construct( const FArguments& InArgs )
 	MenuBorderBrush = &InArgs._ComboButtonStyle->MenuBorderBrush;
 	MenuBorderPadding = InArgs._ComboButtonStyle->MenuBorderPadding;
 	
-	OnGetMenuContent = InArgs._OnGetMenuContent;
 	OnComboBoxOpened = InArgs._OnComboBoxOpened;
 	ContentWidgetPtr = InArgs._MenuContent.Widget;
 	bIsFocusable = InArgs._IsFocusable;
@@ -24,6 +23,7 @@ void SComboButton::Construct( const FArguments& InArgs )
 		.Placement(InArgs._MenuPlacement)
 		.Method(InArgs._Method)
 		.OnMenuOpenChanged(InArgs._OnMenuOpenChanged)
+		.OnGetMenuContent(InArgs._OnGetMenuContent)
 		[
 			SNew( SButton )
 			.ButtonStyle( OurButtonStyle )
@@ -72,13 +72,6 @@ void SComboButton::Construct( const FArguments& InArgs )
 
 FReply SComboButton::OnButtonClicked()
 {
-	TSharedPtr<SWidget> Content = nullptr;
-	if( OnGetMenuContent.IsBound() )
-	{
-		Content = OnGetMenuContent.Execute();
-		SetMenuContent( Content.ToSharedRef() );
-	}
-
 	// Button was clicked; show the popup.
 	// Do nothing if clicking on the button also dismissed the menu, because we will end up doing the same thing twice.
 	this->SetIsOpen( ShouldOpenDueToClick(), bIsFocusable );
@@ -98,7 +91,7 @@ FReply SComboButton::OnButtonClicked()
 		if (!WidgetToFocus.IsValid())
 		{
 			// no explicitly focused widget, try to focus the content
-			WidgetToFocus = Content;
+			WidgetToFocus = MenuContent;
 		}
 
 		if (!WidgetToFocus.IsValid())
@@ -116,13 +109,7 @@ FReply SComboButton::OnButtonClicked()
 	return ButtonClickedReply;
 }
 
-
-/**
- * Sets the content for this border
- *
- * @param	InContent	The widget to use as content for the border
- */
-void SComboButton::SetMenuContent( const TSharedRef< SWidget >& InContent )
+void SComboButton::SetMenuContent(TSharedRef<SWidget> InContent)
 {
 	MenuContent = 
 		SNew(SBorder)

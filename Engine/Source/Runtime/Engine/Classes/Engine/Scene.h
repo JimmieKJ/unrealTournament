@@ -13,6 +13,7 @@ enum EDepthOfFieldMethod
 {
 	DOFM_BokehDOF UMETA(DisplayName="BokehDOF"),
 	DOFM_Gaussian UMETA(DisplayName="Gaussian"),
+	DOFM_CircleDOF UMETA(DisplayName="CircleDOF"),
 	DOFM_MAX,
 };
 
@@ -36,6 +37,22 @@ struct FPostProcessSettings
 	GENERATED_USTRUCT_BODY()
 
 	// first all bOverride_... as they get grouped together into bitfields
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_WhiteTemp:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_WhiteTint:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_ColorSaturation:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_ColorContrast:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_ColorGamma:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_ColorGain:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_ColorOffset:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_FilmWhitePoint:1;
@@ -72,6 +89,17 @@ struct FPostProcessSettings
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_FilmShadowTintAmount:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_FilmSlope:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_FilmToe:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_FilmShoulder:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_FilmBlackClip:1;
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_FilmWhiteClip:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_SceneColorTint:1;
@@ -123,6 +151,15 @@ struct FPostProcessSettings
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_Bloom5Size:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_Bloom6Tint:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_Bloom6Size:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_BloomSizeScale:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_BloomDirtMaskIntensity:1;
@@ -182,9 +219,6 @@ struct FPostProcessSettings
 	uint32 bOverride_VignetteIntensity:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
-	uint32 bOverride_VignetteColor:1;
-
-	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_GrainIntensity:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
@@ -205,8 +239,8 @@ struct FPostProcessSettings
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_AmbientOcclusionFadeRadius:1;
 
-	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
-	uint32 bOverride_AmbientOcclusionDistance:1;
+	UPROPERTY()
+	uint32 bOverride_AmbientOcclusionDistance_DEPRECATED:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_AmbientOcclusionRadiusInWS:1;
@@ -270,6 +304,15 @@ struct FPostProcessSettings
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_DepthOfFieldFocalDistance:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_DepthOfFieldFstop:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_DepthOfFieldDepthBlurRadius:1;
+
+	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
+	uint32 bOverride_DepthOfFieldDepthBlurAmount:1;
 
 	UPROPERTY(BlueprintReadWrite, Category=Overrides, meta=(PinHiddenByDefault))
 	uint32 bOverride_DepthOfFieldFocalRegion:1;
@@ -339,6 +382,21 @@ struct FPostProcessSettings
 
 	// -----------------------------------------------------------------------
 
+	UPROPERTY(interp, BlueprintReadWrite, Category=WhiteBalance, meta=(UIMin = "1500.0", UIMax = "15000.0", editcondition = "bOverride_WhiteTemp", DisplayName = "Temp"))
+	float WhiteTemp;
+	UPROPERTY(interp, BlueprintReadWrite, Category=WhiteBalance, meta=(UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_WhiteTint", DisplayName = "Tint"))
+	float WhiteTint;
+
+	UPROPERTY(interp, BlueprintReadWrite, Category=ColorGrading, meta=(UIMin = "0.0", UIMax = "2.0", editcondition = "bOverride_ColorSaturation", DisplayName = "Saturation"))
+	FVector ColorSaturation;
+	UPROPERTY(interp, BlueprintReadWrite, Category=ColorGrading, meta=(UIMin = "0.0", UIMax = "2.0", editcondition = "bOverride_ColorContrast", DisplayName = "Contrast"))
+	FVector ColorContrast;
+	UPROPERTY(interp, BlueprintReadWrite, Category=ColorGrading, meta=(UIMin = "0.0", UIMax = "2.0", editcondition = "bOverride_ColorGamma", DisplayName = "Gamma"))
+	FVector ColorGamma;
+	UPROPERTY(interp, BlueprintReadWrite, Category=ColorGrading, meta=(UIMin = "0.0", UIMax = "2.0", editcondition = "bOverride_ColorGain", DisplayName = "Gain"))
+	FVector ColorGain;
+	UPROPERTY(interp, BlueprintReadWrite, Category=ColorGrading, meta=(UIMin = "-1.0", UIMax = "1.0", editcondition = "bOverride_ColorOffset", DisplayName = "Offset"))
+	FVector ColorOffset;
 
 	UPROPERTY(interp, BlueprintReadWrite, Category=Film, meta=(editcondition = "bOverride_FilmWhitePoint", DisplayName = "Tint", HideAlphaChannel))
 	FLinearColor FilmWhitePoint;
@@ -367,8 +425,17 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category=Film, AdvancedDisplay, meta=(UIMin = "1.0", UIMax = "4.0", editcondition = "bOverride_FilmDynamicRange", DisplayName = "Dynamic Range"))
 	float FilmDynamicRange;
 
-
-
+	UPROPERTY(interp, BlueprintReadWrite, Category=Film, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_FilmSlope", DisplayName = "Slope"))
+	float FilmSlope;
+	UPROPERTY(interp, BlueprintReadWrite, Category=Film, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_FilmToe", DisplayName = "Toe"))
+	float FilmToe;
+	UPROPERTY(interp, BlueprintReadWrite, Category=Film, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_FilmShoulder", DisplayName = "Shoulder"))
+	float FilmShoulder;
+	UPROPERTY(interp, BlueprintReadWrite, Category=Film, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_FilmBlackClip", DisplayName = "Black clip"))
+	float FilmBlackClip;
+	UPROPERTY(interp, BlueprintReadWrite, Category=Film, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_FilmWhiteClip", DisplayName = "White clip"))
+	float FilmWhiteClip;
+	
 	/** Scene tint color */
 	UPROPERTY(interp, BlueprintReadWrite, Category=SceneColor, AdvancedDisplay, meta=(editcondition = "bOverride_SceneColorTint", HideAlphaChannel))
 	FLinearColor SceneColorTint;
@@ -391,6 +458,12 @@ struct FPostProcessSettings
 	 */
 	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(ClampMin = "-1.0", UIMin = "0.0", UIMax = "8.0", editcondition = "bOverride_BloomThreshold", DisplayName = "Threshold"))
 	float BloomThreshold;
+
+	/**
+	 * Scale for all bloom sizes
+	 */
+	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(ClampMin = "0.0", UIMax = "64.0", editcondition = "bOverride_BloomSizeScale", DisplayName = "Size scale"))
+	float BloomSizeScale;
 
 	/**
 	 * Diameter size for the Bloom1 in percent of the screen width
@@ -427,6 +500,13 @@ struct FPostProcessSettings
 	 */
 	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(ClampMin = "0.0", UIMax = "64.0", editcondition = "bOverride_Bloom5Size", DisplayName = "#5 Size"))
 	float Bloom5Size;
+	/**
+	 * Diameter size for Bloom6 in percent of the screen width
+	 * (is done in 1/64 resolution, larger values cost more performance, best for wide contributions)
+	 * >=0: can be clamped because of shader limitations
+	 */
+	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(ClampMin = "0.0", UIMax = "128.0", editcondition = "bOverride_Bloom6Size", DisplayName = "#6 Size"))
+	float Bloom6Size;
 
 	/** Bloom1 tint color */
 	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(editcondition = "bOverride_Bloom1Tint", DisplayName = "#1 Tint", HideAlphaChannel))
@@ -443,6 +523,9 @@ struct FPostProcessSettings
 	/** Bloom5 tint color */
 	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(editcondition = "bOverride_Bloom5Tint", DisplayName = "#5 Tint", HideAlphaChannel))
 	FLinearColor Bloom5Tint;
+	/** Bloom6 tint color */
+	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, AdvancedDisplay, meta=(editcondition = "bOverride_Bloom6Tint", DisplayName = "#6 Tint", HideAlphaChannel))
+	FLinearColor Bloom6Tint;
 
 	/** BloomDirtMask intensity */
 	UPROPERTY(interp, BlueprintReadWrite, Category=Bloom, meta=(ClampMin = "0.0", UIMax = "8.0", editcondition = "bOverride_BloomDirtMaskIntensity", DisplayName = "Dirt Mask Intensity"))
@@ -597,10 +680,6 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category=SceneColor, meta=(UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_VignetteIntensity"))
 	float VignetteIntensity;
 
-	/** Vignette color. */
-	UPROPERTY(interp, BlueprintReadWrite, Category=SceneColor, AdvancedDisplay, meta=(editcondition = "bOverride_VignetteColor", DisplayName = "Vignette Color", HideAlphaChannel))
-	FLinearColor VignetteColor;
-
 	/** 0..1 grain jitter */
 	UPROPERTY(interp, BlueprintReadWrite, Category = SceneColor, AdvancedDisplay, meta=(UIMin = "0.0", UIMax = "1.0", editcondition = "bOverride_GrainJitter"))
 	float GrainJitter;
@@ -618,7 +697,7 @@ struct FPostProcessSettings
 	float AmbientOcclusionStaticFraction;
 
 	/** >0, in unreal units, bigger values means even distant surfaces affect the ambient occlusion */
-	UPROPERTY(interp, BlueprintReadWrite, Category=AmbientOcclusion, meta=(ClampMin = "0.1", UIMax = "200.0", editcondition = "bOverride_AmbientOcclusionRadius", DisplayName = "Radius"))
+	UPROPERTY(interp, BlueprintReadWrite, Category=AmbientOcclusion, meta=(ClampMin = "0.1", UIMax = "500.0", editcondition = "bOverride_AmbientOcclusionRadius", DisplayName = "Radius"))
 	float AmbientOcclusionRadius;
 
 	/** true: AO radius is in world space units, false: AO radius is locked the view space in 400 units */
@@ -633,9 +712,9 @@ struct FPostProcessSettings
 	UPROPERTY(interp, BlueprintReadWrite, Category=AmbientOcclusion, AdvancedDisplay, meta=(ClampMin = "0.0", UIMax = "20000.0", editcondition = "bOverride_AmbientOcclusionFadeRadius", DisplayName = "Fade Out Radius"))
 	float AmbientOcclusionFadeRadius;
 
-	/** >0, in unreal units, how wide the ambient occlusion effect should affect the geometry (in depth) */
-	UPROPERTY(interp, BlueprintReadWrite, Category=AmbientOcclusion, AdvancedDisplay, meta=(ClampMin = "0.0", UIMax = "2000.0", editcondition = "bOverride_AmbientOcclusionDistance", DisplayName = "Occlusion Distance"))
-	float AmbientOcclusionDistance;
+	/** >0, in unreal units, how wide the ambient occlusion effect should affect the geometry (in depth), will be removed - only used for non normal method which is not exposed */
+	UPROPERTY()
+	float AmbientOcclusionDistance_DEPRECATED;
 
 	/** >0, in unreal units, bigger values means even distant surfaces affect the ambient occlusion */
 	UPROPERTY(interp, BlueprintReadWrite, Category=AmbientOcclusion, AdvancedDisplay, meta=(ClampMin = "0.1", UIMax = "8.0", editcondition = "bOverride_AmbientOcclusionPower", DisplayName = "Power"))
@@ -680,6 +759,18 @@ struct FPostProcessSettings
 	/** BokehDOF, Simple gaussian, ... */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=DepthOfField, meta=(editcondition = "bOverride_DepthOfFieldMethod", DisplayName = "Method"))
 	TEnumAsByte<enum EDepthOfFieldMethod> DepthOfFieldMethod;
+
+	/** CircleDOF only: Depth blur km for 50% */
+	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "0.000001", ClampMax = "100.0", editcondition = "bOverride_DepthOfFieldDepthBlurAmount", DisplayName = "Depth Blur km for 50%"))
+	float DepthOfFieldDepthBlurAmount;
+
+	/** CircleDOF only: Depth blur radius in pixels at 1920x */
+	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "0.0", ClampMax = "4.0", editcondition = "bOverride_DepthOfFieldDepthBlurRadius", DisplayName = "Depth Blur Radius"))
+	float DepthOfFieldDepthBlurRadius;
+	
+	/** CircleDOF only: F-stop number (1/fstop) */
+	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(ClampMin = "1.0", ClampMax = "32.0", editcondition = "bOverride_DepthOfFieldFstop", DisplayName = "1/Fstop"))
+	float DepthOfFieldFstop;
 
 	/** Distance in which the Depth of Field effect should be sharp, in unreal units (cm) */
 	UPROPERTY(interp, BlueprintReadWrite, Category=DepthOfField, meta=(UIMin = "0.0", UIMax = "10000.0", editcondition = "bOverride_DepthOfFieldFocalDistance", DisplayName = "Focal Distance"))
@@ -777,7 +868,7 @@ struct FPostProcessSettings
 	 * Allows custom post process materials to be defined, using a MaterialInstance with the same Material as its parent to allow blending.
 	 * Make sure you use the "PostProcess" domain type. This can be used for any UObject object implementing the IBlendableInterface (e.g. could be used to fade weather settings).
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Misc)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Misc", meta=( AllowedClasses="BlendableInterface", Keywords="PostProcess" ))
 	TArray<UObject*> Blendables;
 
 	// good start values for a new volume, by default no value is overriding
@@ -785,6 +876,15 @@ struct FPostProcessSettings
 	{
 		// to set all bOverride_.. by default to false
 		FMemory::Memzero(this, sizeof(FPostProcessSettings));
+
+		WhiteTemp = 6500.0f;
+		WhiteTint = 0.0f;
+
+		ColorSaturation = FVector( 1.0f, 1.0f, 1.0f );
+		ColorContrast = FVector( 1.0f, 1.0f, 1.0f );
+		ColorGamma = FVector( 1.0f, 1.0f, 1.0f );
+		ColorGain = FVector( 1.0f, 1.0f, 1.0f );
+		ColorOffset = FVector( 0.0f, 0.0f, 0.0f );
 
 		// default values:
 		FilmWhitePoint = FLinearColor(1.0f,1.0f,1.0f);
@@ -800,6 +900,13 @@ struct FPostProcessSettings
 		FilmShadowTintBlend = 0.5;
 		FilmShadowTintAmount = 0.0;
 
+		// ACES settings
+		FilmSlope = 0.88f;
+		FilmToe = 0.55f;
+		FilmShoulder = 0.26f;
+		FilmBlackClip = 0.0f;
+		FilmWhiteClip = 0.04f;
+
 		SceneColorTint = FLinearColor(1, 1, 1);
 		SceneFringeIntensity = 0.0f;
 		SceneFringeSaturation = 0.5f;
@@ -807,6 +914,8 @@ struct FPostProcessSettings
 		BloomIntensity = 1.0f;
 		BloomThreshold = 1.0f;
 		Bloom1Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		// default is 4 to maintain old settings after fixing something that caused a factor of 4
+		BloomSizeScale = 4.0;
 		Bloom1Size = 1.0f;
 		Bloom2Tint = FLinearColor(0.5f, 0.5f, 0.5f);
 		Bloom2Size = 4.0f;
@@ -815,7 +924,9 @@ struct FPostProcessSettings
 		Bloom4Tint = FLinearColor(0.5f, 0.5f, 0.5f);
 		Bloom4Size = 32.0f;
 		Bloom5Tint = FLinearColor(0.5f, 0.5f, 0.5f);
-		Bloom5Size = 100.0f;
+		Bloom5Size = 64.0f;
+		Bloom6Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		Bloom6Size = 64.0f;
 		BloomDirtMaskIntensity = 1.0f;
 		BloomDirtMaskTint = FLinearColor(0.5f, 0.5f, 0.5f);
 		AmbientCubemapIntensity = 1.0f;
@@ -845,16 +956,15 @@ struct FPostProcessSettings
 		LensFlareTint = FLinearColor(1.0f, 1.0f, 1.0f);
 		LensFlareBokehSize = 3.0f;
 		LensFlareThreshold = 8.0f;
-		VignetteIntensity = 0.0f;
-		VignetteColor = FLinearColor(0.0f, 0.0f, 0.0f);
+		VignetteIntensity = 0.4f;
 		GrainIntensity = 0.0f;
 		GrainJitter = 0.0f;
 		// next value might get overwritten by r.DefaultFeature.AmbientOcclusion
 		AmbientOcclusionIntensity = .5f;
 		// next value might get overwritten by r.DefaultFeature.AmbientOcclusionStaticFraction
 		AmbientOcclusionStaticFraction = 1.0f;
-		AmbientOcclusionRadius = 40.0f;
-		AmbientOcclusionDistance = 80.0f;
+		AmbientOcclusionRadius = 200.0f;
+		AmbientOcclusionDistance_DEPRECATED = 80.0f;
 		AmbientOcclusionFadeDistance = 8000.0f;
 		AmbientOcclusionFadeRadius = 5000.0f;
 		AmbientOcclusionPower = 2.0f;
@@ -868,6 +978,9 @@ struct FPostProcessSettings
 		IndirectLightingIntensity = 1.0f;
 		ColorGradingIntensity = 1.0f;
 		DepthOfFieldFocalDistance = 1000.0f;
+		DepthOfFieldFstop = 4.0f;
+		DepthOfFieldDepthBlurAmount = 1.0f;
+		DepthOfFieldDepthBlurRadius = 0.0f;
 		DepthOfFieldFocalRegion = 0.0f;
 		DepthOfFieldNearTransitionRegion = 300.0f;
 		DepthOfFieldFarTransitionRegion = 500.0f;

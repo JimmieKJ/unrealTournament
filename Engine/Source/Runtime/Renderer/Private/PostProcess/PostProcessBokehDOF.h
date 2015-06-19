@@ -32,9 +32,9 @@ public:
 	{}
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 	FDepthOfFieldStats DepthOfFieldStats;
 };
@@ -46,9 +46,9 @@ class FRCPassPostProcessBokehDOFSetup : public TRenderingCompositePassBase<2, 1>
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
@@ -60,9 +60,9 @@ class FRCPassPostProcessBokehDOF : public TRenderingCompositePassBase<3, 1>
 public:
 	// interface FRenderingCompositePass ---------
 
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 	static void ComputeDepthOfFieldParams(const FRenderingCompositePassContext& Context, FVector4 Out[2]);
 

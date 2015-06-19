@@ -4,9 +4,9 @@
 
 class FHeadMountedDisplayModule : public IHeadMountedDisplayModule
 {
-	virtual TSharedPtr< class IHeadMountedDisplay > CreateHeadMountedDisplay()
+	virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay()
 	{
-		TSharedPtr<IHeadMountedDisplay> DummyVal = NULL;
+		TSharedPtr<IHeadMountedDisplay, ESPMode::ThreadSafe> DummyVal = NULL;
 		return DummyVal;
 	}
 

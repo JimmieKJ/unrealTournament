@@ -16,16 +16,23 @@
 /** Setting describing the beacon host port (value is int32) */
 #define SETTING_BEACONPORT FName(TEXT("BEACONPORT"))
 
+/** 8 user defined integer params to be used when filtering searches for sessions */
+#define SETTING_CUSTOMSEARCHINT1 FName(TEXT("CUSTOMSEARCHINT1"))
+#define SETTING_CUSTOMSEARCHINT2 FName(TEXT("CUSTOMSEARCHINT2"))
+#define SETTING_CUSTOMSEARCHINT3 FName(TEXT("CUSTOMSEARCHINT3"))
+#define SETTING_CUSTOMSEARCHINT4 FName(TEXT("CUSTOMSEARCHINT4"))
+#define SETTING_CUSTOMSEARCHINT5 FName(TEXT("CUSTOMSEARCHINT5"))
+#define SETTING_CUSTOMSEARCHINT6 FName(TEXT("CUSTOMSEARCHINT6"))
+#define SETTING_CUSTOMSEARCHINT7 FName(TEXT("CUSTOMSEARCHINT7"))
+#define SETTING_CUSTOMSEARCHINT8 FName(TEXT("CUSTOMSEARCHINT8"))
+
 /** TODO ONLINE Settings to consider */
 /** The server's nonce for this session */
-/** Whether this match is publicly advertised on the online service */
-/** Whether joining in progress is allowed or not */
 /** Whether the game is an invitation or searched for game */
 /** The ping of the server in milliseconds (-1 means the server was unreachable) */
 /** Whether this server is a dedicated server or not */
 /** Represents how good a match this is in a range from 0 to 1 */
 /** Whether there is a skill update in progress or not (don't do multiple at once) */
-/** Used to keep different builds from seeing each other during searches */
 /** Whether to shrink the session slots when a player leaves the match or not */
 
 /**
@@ -336,7 +343,7 @@ public:
 };
 
 /** Holds the per session information for named sessions */
-class ONLINESUBSYSTEM_API FNamedOnlineSession : public FOnlineSession
+class FNamedOnlineSession : public FOnlineSession
 {
 protected:
 	FNamedOnlineSession() :
@@ -392,10 +399,38 @@ public:
 	 * @param bPublicJoinable [out] is the game joinable by anyone at all
 	 * @param bFriendJoinable [out] is the game joinable by friends via presence (doesn't require invite)
 	 * @param bInviteOnly [out] is the game joinable via explicit invites
+	 * @param bAllowInvites [out] are invites possible (use with bInviteOnly to determine if invites are available right now)
 	 *
 	 * @return true if the out params are valid, false otherwise
 	 */
-	bool GetJoinability(bool& bPublicJoinable, bool& bFriendJoinable, bool& bInviteOnly) const;
+	bool GetJoinability(bool& bPublicJoinable, bool& bFriendJoinable, bool& bInviteOnly, bool& bAllowInvites) const
+	{
+		// Only states that have a valid session are considered
+		if (SessionState != EOnlineSessionState::NoSession && SessionState != EOnlineSessionState::Creating && SessionState != EOnlineSessionState::Destroying)
+		{
+			bool bAllowJIP = SessionSettings.bAllowJoinInProgress || (SessionState != EOnlineSessionState::Starting && SessionState != EOnlineSessionState::InProgress);
+			if (bAllowJIP)
+			{
+				bPublicJoinable = SessionSettings.bShouldAdvertise || SessionSettings.bAllowJoinViaPresence;
+				bFriendJoinable = SessionSettings.bAllowJoinViaPresenceFriendsOnly;
+				bInviteOnly = !bPublicJoinable && !bFriendJoinable && SessionSettings.bAllowInvites;
+				bAllowInvites = SessionSettings.bAllowInvites;
+			}
+			else
+			{
+				bPublicJoinable = false;
+				bFriendJoinable = false;
+				bInviteOnly = false;
+				bAllowInvites = false;
+			}
+
+			// Valid session, joinable or otherwise
+			return true;
+		}
+		
+		// Invalid session
+		return false;
+	}
 };
 
 /** Value returned on unreachable or otherwise bad search results */
@@ -407,11 +442,11 @@ class FOnlineSessionSearchResult
 public:
 	/** All advertised session information */
 	FOnlineSession Session;
-	/** Ping to the search result, -1 is unreachable */
+	/** Ping to the search result, MAX_QUERY_PING is unreachable */
 	int32 PingInMs;
 
 	FOnlineSessionSearchResult() : 
-		PingInMs(-1)
+		PingInMs(MAX_QUERY_PING)
 	{}
 
 	~FOnlineSessionSearchResult() {}
@@ -428,7 +463,7 @@ public:
 	 */
 	bool IsValid() const
 	{
-		return (Session.OwningUserId.IsValid() && Session.SessionInfo.IsValid());
+		return (Session.OwningUserId.IsValid() && Session.SessionInfo.IsValid() && Session.SessionInfo->IsValid());
 	}
 };
 
@@ -498,6 +533,16 @@ public:
 	 *	Give the game a chance to sort the returned results
 	 */
 	virtual void SortSearchResults() {}
+
+	/**
+	 * Get the default session settings for this search type
+	 * Allows games to set reasonable defaults that aren't advertised
+	 * but would be setup for each instantiated search result
+	 */
+	virtual TSharedPtr<FOnlineSessionSettings> GetDefaultSessionSettings() const 
+	{ 
+		return MakeShareable(new FOnlineSessionSettings()); 
+	}
 };
 
 /**

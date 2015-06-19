@@ -34,13 +34,18 @@ void SUWInputBox::Construct(const FArguments& InArgs)
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
 			.AutoHeight()
+			.HAlign(HAlign_Fill)
 			.HAlign(HAlign_Center)
 			.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
 			[ 
-				SNew(STextBlock)
-				.Text(InArgs._MessageText)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.AutoWrapText(true)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().FillWidth(1.0)
+				[
+					SNew(STextBlock)
+					.Text(InArgs._MessageText)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.AutoWrapText(true)
+				]
 			]
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Bottom)

@@ -31,10 +31,20 @@ class ENGINE_API UShapeComponent : public UPrimitiveComponent
 	UPROPERTY()
 	uint32 bShouldCollideWhenPlacing:1;
 
+	/** If set, shape will be exported for navigation as dynamic modifier instead of using regular collision data */
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	uint32 bDynamicObstacle : 1;
+
+	/** Navigation area type (empty = default obstacle) */
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	TSubclassOf<class UNavArea> AreaClass;
+
 	// Begin UPrimitiveComponent interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const override; 
 	virtual class UBodySetup* GetBodySetup() override;
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
+	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
 	// End UPrimitiveComponent interface.
 
 	// Begin USceneComponent interface

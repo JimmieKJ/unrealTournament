@@ -7,7 +7,7 @@
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "AnimGraphNode_LookAt.generated.h"
 
-UCLASS(MinimalAPI)
+UCLASS(MinimalAPI, meta=(Keywords = "Look At, Follow, Trace, Track"))
 class UAnimGraphNode_LookAt : public UAnimGraphNode_SkeletalControlBase
 {
 	GENERATED_UCLASS_BODY()
@@ -19,7 +19,6 @@ public:
 	// UEdGraphNode interface
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
-	virtual FString GetKeywords() const override;
 	// End of UEdGraphNode interface
 
 	// UAnimGraphNode_SkeletalControlBase interface

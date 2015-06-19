@@ -91,7 +91,7 @@ void SDebugConsole::Construct( const FArguments& InArgs, const EDebugConsoleStyl
 	AnimCurve = AnimCurveSequence.AddCurve( 0.0f, DebugConsoleDefs::IntroAnimationDuration, ECurveEaseFunction::QuadOut );
 	FlashCurve = AnimCurveSequence.AddCurve( DebugConsoleDefs::IntroAnimationDuration, .15f, ECurveEaseFunction::QuadInOut );
 
-	AnimCurveSequence.Play();
+	AnimCurveSequence.Play(this->AsShared());
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 

@@ -15,12 +15,14 @@
 #include "BufferVisualizationData.h"
 #include "Interfaces/Interface_PostProcessVolume.h"
 #include "Engine/TextureCube.h"
+#include "IHeadMountedDisplay.h"
 #include "Classes/Engine/RendererSettings.h"
 
 DEFINE_LOG_CATEGORY(LogBufferVisualization);
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters,TEXT("Primitive"));
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FViewUniformShaderParameters,TEXT("View"));
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FForwardLightData,TEXT("ForwardLightData"));
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 static TAutoConsoleVariable<float> CVarSSRMaxRoughness(
@@ -268,6 +270,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, OverlayColor(InitOptions.OverlayColor)
 	, ColorScale(InitOptions.ColorScale)
 	, StereoPass(InitOptions.StereoPass)
+	, bRenderFirstInstanceOnly(false)
 	, DiffuseOverrideParameter(FVector4(0,0,0,1))
 	, SpecularOverrideParameter(FVector4(0,0,0,1))
 	, NormalOverrideParameter(FVector4(0,0,0,1))
@@ -296,7 +299,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	check(UnscaledViewRect.Width() > 0);
 	check(UnscaledViewRect.Height() > 0);
 
-	ViewMatrices.ViewMatrix = InitOptions.ViewMatrix;
+	ViewMatrices.ViewMatrix = FTranslationMatrix(-InitOptions.ViewOrigin) * InitOptions.ViewRotationMatrix;
 
 	// Adjust the projection matrix for the current RHI.
 	ViewMatrices.ProjMatrix = AdjustProjectionMatrixForRHI(ProjectionMatrixUnadjustedForRHI);
@@ -308,31 +311,36 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	InvViewMatrix = ViewMatrices.ViewMatrix.Inverse();
 	InvViewProjectionMatrix = ViewMatrices.GetInvProjMatrix() * InvViewMatrix;
 
-	bool ApplyPreViewTranslation = true;
+	bool bApplyPreViewTranslation = true;
+	bool bViewOriginIsFudged = false;
 
 	// Calculate the view origin from the view/projection matrices.
 	if(IsPerspectiveProjection())
 	{
-		ViewMatrices.ViewOrigin = InvViewMatrix.GetOrigin();
+		ViewMatrices.ViewOrigin = InitOptions.ViewOrigin;
 	}
 #if WITH_EDITOR
 	else if (InitOptions.bUseFauxOrthoViewPos)
 	{
 		float DistanceToViewOrigin = WORLD_MAX;
-		ViewMatrices.ViewOrigin = FVector4(InvViewMatrix.TransformVector(FVector(0,0,-1)).GetSafeNormal()*DistanceToViewOrigin,1) + InvViewMatrix.GetOrigin();
+		ViewMatrices.ViewOrigin = FVector4(InvViewMatrix.TransformVector(FVector(0,0,-1)).GetSafeNormal()*DistanceToViewOrigin,1) + InitOptions.ViewOrigin;
+		bViewOriginIsFudged = true;
 	}
 #endif
 	else
 	{
 		ViewMatrices.ViewOrigin = FVector4(InvViewMatrix.TransformVector(FVector(0,0,-1)).GetSafeNormal(),0);
 		// to avoid issues with view dependent effect (e.g. Frensel)
-		ApplyPreViewTranslation = false;
+		bApplyPreViewTranslation = false;
 	}
+
+	/** The view transform, starting from world-space points translated by -ViewOrigin. */
+	FMatrix TranslatedViewMatrix = InitOptions.ViewRotationMatrix;
 
 	// Translate world-space so its origin is at ViewOrigin for improved precision.
 	// Note that this isn't exactly right for orthogonal projections (See the above special case), but we still use ViewOrigin
 	// in that case so the same value may be used in shaders for both the world-space translation and the camera's world position.
-	if(ApplyPreViewTranslation)
+	if(bApplyPreViewTranslation)
 	{
 		ViewMatrices.PreViewTranslation = -FVector(ViewMatrices.ViewOrigin);
 
@@ -355,11 +363,21 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 		}
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	}
+	else
+	{
+		// If not applying PreViewTranslation then we need to use the view matrix directly.
+		TranslatedViewMatrix = ViewMatrices.ViewMatrix;
+	}
 
-	/** The view transform, starting from world-space points translated by -ViewOrigin. */
-	FMatrix TranslatedViewMatrix = FTranslationMatrix(-ViewMatrices.PreViewTranslation) * ViewMatrices.ViewMatrix;
+	// When the view origin is fudged for faux ortho view position the translations don't cancel out.
+	if (bViewOriginIsFudged)
+	{
+		TranslatedViewMatrix = FTranslationMatrix(-ViewMatrices.PreViewTranslation)
+			* FTranslationMatrix(-InitOptions.ViewOrigin) * InitOptions.ViewRotationMatrix;
+	}
 	
 	// Compute a transform from view origin centered world-space to clip space.
+	ViewMatrices.TranslatedViewMatrix = TranslatedViewMatrix;
 	ViewMatrices.TranslatedViewProjectionMatrix = TranslatedViewMatrix * ViewMatrices.ProjMatrix;
 	ViewMatrices.InvTranslatedViewProjectionMatrix = ViewMatrices.TranslatedViewProjectionMatrix.Inverse();
 
@@ -408,6 +426,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 
 	// Derive the view's near clipping distance and plane.
 	// The GetFrustumFarPlane() is the near plane because of reverse Z projection.
+	static_assert((int32)ERHIZBuffer::IsInverted != 0, "Fix Near Clip distance!");
 	bHasNearClippingPlane = ViewProjectionMatrix.GetFrustumFarPlane(NearClippingPlane);
 	if(ViewMatrices.ProjMatrix.M[2][3] > DELTA)
 	{
@@ -446,6 +465,8 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 		bIsGameView = (Family && Family->Scene && Family->Scene->GetWorld() ) ? Family->Scene->GetWorld()->IsGameWorld() : false;
 	}
 
+	bUseFieldOfViewForLOD = InitOptions.bUseFieldOfViewForLOD;
+
 #if WITH_EDITOR
 	EditorViewBitflag = InitOptions.EditorViewBitflag;
 
@@ -453,10 +474,19 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 #endif
 }
 
+static TAutoConsoleVariable<int32> CVarCompensateForFOV(
+	TEXT("lod.CompensateForFOV"),
+	1,
+	TEXT("When not 0 account for FOV in LOD calculations."));
+
 float FSceneView::GetLODDistanceFactor() const
 {
-	const float ScreenMultiple = FMath::Max(ViewRect.Width() / 2.0f * ViewMatrices.ProjMatrix.M[0][0],
-		ViewRect.Height() / 2.0f * ViewMatrices.ProjMatrix.M[1][1]);
+	bool bCompensateForFOV = bUseFieldOfViewForLOD && CVarCompensateForFOV.GetValueOnAnyThread() != 0;
+	float ScreenScaleX = bCompensateForFOV ? ViewMatrices.ProjMatrix.M[0][0] : 1.0f;
+	float ScreenScaleY = bCompensateForFOV ? ViewMatrices.ProjMatrix.M[1][1] : (static_cast<float>(ViewRect.Width()) / ViewRect.Height());
+
+	const float ScreenMultiple = FMath::Max(ViewRect.Width() / 2.0f * ScreenScaleX,
+		ViewRect.Height() / 2.0f * ScreenScaleY);
 	float Fac = PI * ScreenMultiple * ScreenMultiple / ViewRect.Area();
 	return Fac;
 }
@@ -497,11 +527,20 @@ float FSceneView::GetTemporalLODTransition() const
 	return 0.0f;
 }
 
+uint32 FSceneView::GetViewKey() const
+{
+	if (State)
+	{
+		return State->GetViewKey();
+	}
+	return 0;
+}
+
 
 void FSceneView::UpdateViewMatrix()
 {
 	FVector StereoViewLocation = ViewLocation;
-	if (GEngine->IsStereoscopic3D() && StereoPass != eSSP_FULL)
+	if (GEngine->StereoRenderingDevice.IsValid() && StereoPass != eSSP_FULL)
 	{
 		GEngine->StereoRenderingDevice->CalculateStereoViewOffset(StereoPass, ViewRotation, WorldToMetersScale, StereoViewLocation);
 		ViewLocation = StereoViewLocation;
@@ -559,8 +598,8 @@ bool FSceneView::ScreenToPixel(const FVector4& ScreenPoint,FVector2D& OutPixelLo
 		float InvW = 1.0f / ScreenPoint.W;
 		float Y = (GProjectionSignY > 0.0f) ? ScreenPoint.Y : 1.0f - ScreenPoint.Y;
 		OutPixelLocation = FVector2D(
-			ViewRect.Min.X + (0.5f + ScreenPoint.X * 0.5f * InvW) * ViewRect.Width(),
-			ViewRect.Min.Y + (0.5f - Y * 0.5f * InvW) * ViewRect.Height()
+			UnscaledViewRect.Min.X + (0.5f + ScreenPoint.X * 0.5f * InvW) * UnscaledViewRect.Width(),
+			UnscaledViewRect.Min.Y + (0.5f - Y * 0.5f * InvW) * UnscaledViewRect.Height()
 			);
 		return true;
 	}
@@ -575,8 +614,8 @@ FVector4 FSceneView::PixelToScreen(float InX,float InY,float Z) const
 	if (GProjectionSignY > 0.0f)
 	{
 		return FVector4(
-			-1.0f + InX / ViewRect.Width() * +2.0f,
-			+1.0f + InY / ViewRect.Height() * -2.0f,
+			-1.0f + InX / UnscaledViewRect.Width() * +2.0f,
+			+1.0f + InY / UnscaledViewRect.Height() * -2.0f,
 			Z,
 			1
 			);
@@ -584,8 +623,8 @@ FVector4 FSceneView::PixelToScreen(float InX,float InY,float Z) const
 	else
 	{
 		return FVector4(
-			-1.0f + InX / ViewRect.Width() * +2.0f,
-			1.0f - (+1.0f + InY / ViewRect.Height() * -2.0f),
+			-1.0f + InX / UnscaledViewRect.Width() * +2.0f,
+			1.0f - (+1.0f + InY / UnscaledViewRect.Height() * -2.0f),
 			Z,
 			1
 			);
@@ -712,6 +751,15 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 	FFinalPostProcessSettings& Dest = FinalPostProcessSettings;
 
 	// The following code needs to be adjusted when settings in FPostProcessSettings change.
+	LERP_PP(WhiteTemp);
+	LERP_PP(WhiteTint);
+	
+	LERP_PP(ColorSaturation);
+	LERP_PP(ColorContrast);
+	LERP_PP(ColorGamma);
+	LERP_PP(ColorGain);
+	LERP_PP(ColorOffset);
+
 	LERP_PP(FilmWhitePoint);
 	LERP_PP(FilmSaturation);
 	LERP_PP(FilmChannelMixerRed);
@@ -725,12 +773,19 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 	LERP_PP(FilmShadowTintBlend);
 	LERP_PP(FilmShadowTintAmount);
 
+	LERP_PP(FilmSlope);
+	LERP_PP(FilmToe);
+	LERP_PP(FilmShoulder);
+	LERP_PP(FilmBlackClip);
+	LERP_PP(FilmWhiteClip);
+
 	LERP_PP(SceneColorTint);
 	LERP_PP(SceneFringeIntensity);
 	LERP_PP(SceneFringeSaturation);
 	LERP_PP(BloomIntensity);
 	LERP_PP(BloomThreshold);
 	LERP_PP(Bloom1Tint);
+	LERP_PP(BloomSizeScale);
 	LERP_PP(Bloom1Size);
 	LERP_PP(Bloom2Tint);
 	LERP_PP(Bloom2Size);
@@ -740,6 +795,8 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 	LERP_PP(Bloom4Size);
 	LERP_PP(Bloom5Tint);
 	LERP_PP(Bloom5Size);
+	LERP_PP(Bloom6Tint);
+	LERP_PP(Bloom6Size);
 	LERP_PP(BloomDirtMaskIntensity);
 	LERP_PP(BloomDirtMaskTint);
 	LERP_PP(AmbientCubemapIntensity);
@@ -761,7 +818,6 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 	LERP_PP(LensFlareBokehSize);
 	LERP_PP(LensFlareThreshold);
 	LERP_PP(VignetteIntensity);
-	LERP_PP(VignetteColor);
 	LERP_PP(GrainIntensity);
 	LERP_PP(GrainJitter);
 	LERP_PP(AmbientOcclusionIntensity);
@@ -769,7 +825,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 	LERP_PP(AmbientOcclusionRadius);
 	LERP_PP(AmbientOcclusionFadeDistance);
 	LERP_PP(AmbientOcclusionFadeRadius);
-	LERP_PP(AmbientOcclusionDistance);
+	LERP_PP(AmbientOcclusionDistance_DEPRECATED);
 	LERP_PP(AmbientOcclusionPower);
 	LERP_PP(AmbientOcclusionBias);
 	LERP_PP(AmbientOcclusionQuality);
@@ -779,6 +835,9 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 	LERP_PP(IndirectLightingColor);
 	LERP_PP(IndirectLightingIntensity);
 	LERP_PP(DepthOfFieldFocalDistance);
+	LERP_PP(DepthOfFieldFstop);
+	LERP_PP(DepthOfFieldDepthBlurRadius);
+	LERP_PP(DepthOfFieldDepthBlurAmount);
 	LERP_PP(DepthOfFieldFocalRegion);
 	LERP_PP(DepthOfFieldNearTransitionRegion);
 	LERP_PP(DepthOfFieldFarTransitionRegion);
@@ -1069,7 +1128,6 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	if(!Family->EngineShowFlags.Vignette)
 	{
 		FinalPostProcessSettings.VignetteIntensity = 0;
-		FinalPostProcessSettings.VignetteColor = FLinearColor(0.0f, 0.0f, 0.0f);
 	}
 
 	if(!Family->EngineShowFlags.Grain)
@@ -1107,7 +1165,16 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 
 		if(Value >= 0.0)
 		{
-			FinalPostProcessSettings.ScreenPercentage = Value;
+			FinalPostProcessSettings.ScreenPercentage *= Value / 100.0f;
+		}
+	}
+
+	{
+		const bool bStereoEnabled = StereoPass != eSSP_FULL;
+		const bool bScaledToRenderTarget = GEngine->HMDDevice.IsValid() && bStereoEnabled;
+		if (bScaledToRenderTarget)
+		{
+			GEngine->HMDDevice->UpdatePostProcessSettings(&FinalPostProcessSettings);
 		}
 	}
 
@@ -1146,7 +1213,7 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.AmbientOcclusionRadiusScale"));
 
-		float Scale = FMath::Clamp(CVar->GetValueOnGameThread(), 0.1f, 5.0f);
+		float Scale = FMath::Clamp(CVar->GetValueOnGameThread(), 0.1f, 15.0f);
 		
 		FinalPostProcessSettings.AmbientOcclusionRadius *= Scale;
 	}
@@ -1154,7 +1221,7 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	{
 		float Scale = FMath::Clamp(CVarSSAOFadeRadiusScale.GetValueOnGameThread(), 0.01f, 50.0f);
 
-		FinalPostProcessSettings.AmbientOcclusionDistance *= Scale;
+		FinalPostProcessSettings.AmbientOcclusionDistance_DEPRECATED *= Scale;
 	}
 
 	{
@@ -1189,19 +1256,20 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 
 	// Anti-Aliasing
 	{
-		const auto FeatureLevel = GetFeatureLevel();
+		const auto SceneViewFeatureLevel = GetFeatureLevel();
 
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PostProcessAAQuality")); 
 		static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
 		static auto* MobileMSAACvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-		static uint32 MSAAValue = GShaderPlatformForFeatureLevel[FeatureLevel] == SP_OPENGL_ES2_IOS ? 1 : MobileMSAACvar->GetValueOnGameThread();
+		static uint32 MSAAValue = GShaderPlatformForFeatureLevel[SceneViewFeatureLevel] == SP_OPENGL_ES2_IOS ? 1 : MobileMSAACvar->GetValueOnGameThread();
 
 		int32 Quality = FMath::Clamp(CVar->GetValueOnGameThread(), 0, 6);
 
 		if( !Family->EngineShowFlags.PostProcessing || !Family->EngineShowFlags.AntiAliasing || Quality <= 0
 			// Disable antialiasing in GammaLDR mode to avoid jittering.
-			|| (FeatureLevel == ERHIFeatureLevel::ES2 && MobileHDRCvar->GetValueOnGameThread() == 0)
-			|| (FeatureLevel <= ERHIFeatureLevel::ES3_1 && (MSAAValue > 1)))
+			|| (SceneViewFeatureLevel == ERHIFeatureLevel::ES2 && MobileHDRCvar->GetValueOnGameThread() == 0)
+			|| (SceneViewFeatureLevel <= ERHIFeatureLevel::ES3_1 && (MSAAValue > 1))
+			|| Family->EngineShowFlags.VisualizeBloom)
 		{
 			FinalPostProcessSettings.AntiAliasingMethod = AAM_None;
 		}
@@ -1237,7 +1305,7 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 		{
 			// ...and if this is the viewport associated with the highres screenshot UI
 			auto ConfigViewport = Config.TargetViewport.Pin();
-			if (ConfigViewport.IsValid() && Family && Family->RenderTarget == ConfigViewport->GetViewport())
+			if (ConfigViewport.IsValid() && Family->RenderTarget == ConfigViewport->GetViewport())
 			{
 				static const FName ParamName = "RegionRect";
 				FLinearColor NormalizedCaptureRegion;
@@ -1405,6 +1473,7 @@ FSceneViewFamily::FSceneViewFamily( const ConstructionValues& CVS )
 	bRealtimeUpdate(CVS.bRealtimeUpdate),
 	bDeferClear(CVS.bDeferClear),
 	bResolveScene(CVS.bResolveScene),
+	bWorldIsPaused(false),
 	GammaCorrection(CVS.GammaCorrection)
 {
 	// If we do not pass a valid scene pointer then SetWorldTimes must be called to initialized with valid times.
@@ -1429,15 +1498,26 @@ FSceneViewFamily::FSceneViewFamily( const ConstructionValues& CVS )
 
 	// instead of checking IsGameWorld on rendering thread to see if we allow this flag to be disabled 
 	// we force it on in the game thread.
-	if(IsInGameThread())
+	if(IsInGameThread() && Scene)
 	{
-		if ( Scene && Scene->GetWorld() && Scene->GetWorld()->IsGameWorld() )
+		UWorld* World = Scene->GetWorld();
+
+		if (World)
 		{
-			EngineShowFlags.LOD = 1;
+			if (World->IsGameWorld())
+			{
+				EngineShowFlags.LOD = 1;
+			}
+
+			if (World->IsPaused())
+			{
+				bWorldIsPaused = true;
+			}
 		}
 	}
 
 	LandscapeLODOverride = -1;
+	HierarchicalLODOverride = -1;
 	bDrawBaseInfo = true;
 #endif
 

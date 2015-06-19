@@ -86,26 +86,25 @@ FConnectionDrawingPolicy::FConnectionDrawingPolicy(int32 InBackLayerID, int32 In
 	, ZoomFactor(InZoomFactor)
 	, ClippingRect(InClippingRect)
 	, DrawElementsList(InDrawElements)
+	, LocalMousePosition(0.0f, 0.0f)
 {
 	ArrowImage = FEditorStyle::GetBrush( TEXT("Graph.Arrow") );
 	ArrowRadius = ArrowImage->ImageSize * ZoomFactor * 0.5f;
-	MidpointImage = NULL;
+	MidpointImage = nullptr;
 	MidpointRadius = FVector2D::ZeroVector;
 	HoverDeemphasisDarkFraction = 0.8f;
 
 	BubbleImage = FEditorStyle::GetBrush( TEXT("Graph.ExecutionBubble") );
 }
 
-void FConnectionDrawingPolicy::DrawSplineWithArrow(const FVector2D& StartPoint, const FVector2D& EndPoint, const FLinearColor& WireColor, float WireThickness, bool bDrawBubbles, bool Bidirectional)
+void FConnectionDrawingPolicy::DrawSplineWithArrow(const FVector2D& StartPoint, const FVector2D& EndPoint, const FConnectionParams& Params)
 {
 	// Draw the spline
 	DrawConnection(
 		WireLayerID,
 		StartPoint,
 		EndPoint,
-		WireColor,
-		WireThickness,
-		bDrawBubbles);
+		Params);
 
 	// Draw the arrow
 	if (ArrowImage != nullptr)
@@ -119,12 +118,12 @@ void FConnectionDrawingPolicy::DrawSplineWithArrow(const FVector2D& StartPoint, 
 			ArrowImage,
 			ClippingRect,
 			ESlateDrawEffect::None,
-			WireColor
+			Params.WireColor
 			);
 	}
 }
 
-void FConnectionDrawingPolicy::DrawSplineWithArrow(FGeometry& StartGeom, FGeometry& EndGeom, const FLinearColor& WireColor, float WireThickness, bool bDrawBubbles, bool Bidirectional)
+void FConnectionDrawingPolicy::DrawSplineWithArrow(const FGeometry& StartGeom, const FGeometry& EndGeom, const FConnectionParams& Params)
 {
 	//@TODO: These values should be pushed into the Slate style, they are compensating for a bit of
 	// empty space inside of the pin brush images.
@@ -133,7 +132,7 @@ void FConnectionDrawingPolicy::DrawSplineWithArrow(FGeometry& StartGeom, FGeomet
 	const FVector2D StartPoint = FGeometryHelper::VerticalMiddleRightOf(StartGeom) - FVector2D(StartFudgeX, 0.0f);
 	const FVector2D EndPoint = FGeometryHelper::VerticalMiddleLeftOf(EndGeom) - FVector2D(ArrowRadius.X - EndFudgeX, 0);
 
-	DrawSplineWithArrow(StartPoint, EndPoint, WireColor, WireThickness, bDrawBubbles, Bidirectional);
+	DrawSplineWithArrow(StartPoint, EndPoint, Params);
 }
 
 // Update the drawing policy with the set of hovered pins (which can be empty)
@@ -169,6 +168,11 @@ void FConnectionDrawingPolicy::SetHoveredPins(const TSet< TWeakObjectPtr<UEdGrap
 	}
 }
 
+void FConnectionDrawingPolicy::SetMousePosition(const FVector2D& InMousePos)
+{
+	LocalMousePosition = InMousePos;
+}
+
 void FConnectionDrawingPolicy::SetMarkedPin(TWeakPtr<SGraphPin> InMarkedPin)
 {
 	if (InMarkedPin.IsValid())
@@ -188,9 +192,9 @@ void FConnectionDrawingPolicy::SetMarkedPin(TWeakPtr<SGraphPin> InMarkedPin)
 /** Util to make a 'distance->alpha' table and also return spline length */
 float FConnectionDrawingPolicy::MakeSplineReparamTable(const FVector2D& P0, const FVector2D& P0Tangent, const FVector2D& P1, const FVector2D& P1Tangent, FInterpCurve<float>& OutReparamTable)
 {
-	OutReparamTable.Reset();
-
 	const int32 NumSteps = 10; // TODO: Make this adaptive...
+
+	OutReparamTable.Points.Empty(NumSteps);
 
 	// Find range of input
 	float Param = 0.f;
@@ -224,13 +228,96 @@ FVector2D FConnectionDrawingPolicy::ComputeSplineTangent(const FVector2D& Start,
 	return Settings->ComputeSplineTangent(Start, End);
 }
 
-void FConnectionDrawingPolicy::DrawConnection( int32 LayerId, const FVector2D& Start, const FVector2D& End, const FLinearColor& InColor, float Thickness, bool bDrawBubbles )
+void FConnectionDrawingPolicy::DrawConnection(int32 LayerId, const FVector2D& Start, const FVector2D& End, const FConnectionParams& Params)
 {
 	const FVector2D& P0 = Start;
 	const FVector2D& P1 = End;
 
-	const FVector2D P0Tangent = ComputeSplineTangent(P0, P1);
-	const FVector2D P1Tangent = P0Tangent;
+	const FVector2D SplineTangent = ComputeSplineTangent(P0, P1);
+	const FVector2D P0Tangent = (Params.StartDirection == EGPD_Output) ? SplineTangent : -SplineTangent;
+	const FVector2D P1Tangent = (Params.EndDirection == EGPD_Input) ? SplineTangent : -SplineTangent;
+
+	if (Settings->bTreatSplinesLikePins)
+	{
+		// Distance to consider as an overlap
+		const float QueryDistanceTriggerThresholdSquared = FMath::Square(Settings->SplineHoverTolerance + Params.WireThickness * 0.5f);
+
+		// Distance to pass the bounding box cull test (may want to expand this later on if we want to do 'closest pin' actions that don't require an exact hit)
+		const float QueryDistanceToBoundingBoxSquared = QueryDistanceTriggerThresholdSquared;
+
+		bool bCloseToSpline = false;
+		{
+			// The curve will include the endpoints but can extend out of a tight bounds because of the tangents
+			// P0Tangent coefficient maximizes to 4/27 at a=1/3, and P1Tangent minimizes to -4/27 at a=2/3.
+			const float MaximumTangentContribution = 4.0f / 27.0f;
+			FBox2D Bounds(ForceInit);
+
+			Bounds += FVector2D(P0);
+			Bounds += FVector2D(P0 + MaximumTangentContribution * P0Tangent);
+			Bounds += FVector2D(P1);
+			Bounds += FVector2D(P1 - MaximumTangentContribution * P1Tangent);
+
+			bCloseToSpline = Bounds.ComputeSquaredDistanceToPoint(LocalMousePosition) < QueryDistanceToBoundingBoxSquared;
+
+			// Draw the bounding box for debugging
+#if 0
+#define DrawSpaceLine(Point1, Point2, DebugWireColor) {const FVector2D FakeTangent = (Point2 - Point1).GetSafeNormal(); FSlateDrawElement::MakeDrawSpaceSpline(DrawElementsList, LayerId, Point1, FakeTangent, Point2, FakeTangent, ClippingRect, 1.0f, ESlateDrawEffect::None, DebugWireColor); }
+
+			if (bCloseToSpline)
+			{
+				const FLinearColor BoundsWireColor = bCloseToSpline ? FLinearColor::Green : FLinearColor::White;
+
+				FVector2D TL = Bounds.Min;
+				FVector2D BR = Bounds.Max;
+				FVector2D TR = FVector2D(Bounds.Max.X, Bounds.Min.Y);
+				FVector2D BL = FVector2D(Bounds.Min.X, Bounds.Max.Y);
+
+				DrawSpaceLine(TL, TR, BoundsWireColor);
+				DrawSpaceLine(TR, BR, BoundsWireColor);
+				DrawSpaceLine(BR, BL, BoundsWireColor);
+				DrawSpaceLine(BL, TL, BoundsWireColor);
+			}
+#endif
+		}
+
+		if (bCloseToSpline)
+		{
+			// Find the closest approach to the spline
+			FVector2D ClosestPoint(ForceInit);
+			float ClosestDistanceSquared = FLT_MAX;
+
+			const int32 NumStepsToTest = 16;
+			const float StepInterval = 1.0f / (float)NumStepsToTest;
+			FVector2D Point1 = FMath::CubicInterp(P0, P0Tangent, P1, P1Tangent, 0.0f);
+			for (float TestAlpha = 0.0f; TestAlpha < 1.0f; TestAlpha += StepInterval)
+			{
+				const FVector2D Point2 = FMath::CubicInterp(P0, P0Tangent, P1, P1Tangent, TestAlpha + StepInterval);
+
+				const FVector2D ClosestPointToSegment = FMath::ClosestPointOnSegment2D(LocalMousePosition, Point1, Point2);
+				const float DistanceSquared = (LocalMousePosition - ClosestPointToSegment).SizeSquared();
+
+				if (DistanceSquared < ClosestDistanceSquared)
+				{
+					ClosestDistanceSquared = DistanceSquared;
+					ClosestPoint = ClosestPointToSegment;
+				}
+
+				Point1 = Point2;
+			}
+
+			// Record the overlap
+			if (ClosestDistanceSquared < QueryDistanceTriggerThresholdSquared)
+			{
+				if (ClosestDistanceSquared < SplineOverlapResult.GetDistanceSquared())
+				{
+					const float SquaredDistToPin1 = (Params.AssociatedPin1 != nullptr) ? (P0 - ClosestPoint).SizeSquared() : FLT_MAX;
+					const float SquaredDistToPin2 = (Params.AssociatedPin2 != nullptr) ? (P1 - ClosestPoint).SizeSquared() : FLT_MAX;
+
+					SplineOverlapResult = FGraphSplineOverlapResult(Params.AssociatedPin1, Params.AssociatedPin2, ClosestDistanceSquared, SquaredDistToPin1, SquaredDistToPin2);
+				}
+			}
+		}
+	}
 
 	// Draw the spline itself
 	FSlateDrawElement::MakeDrawSpaceSpline(
@@ -239,23 +326,23 @@ void FConnectionDrawingPolicy::DrawConnection( int32 LayerId, const FVector2D& S
 		P0, P0Tangent,
 		P1, P1Tangent,
 		ClippingRect,
-		Thickness,
+		Params.WireThickness,
 		ESlateDrawEffect::None,
-		InColor
+		Params.WireColor
 	);
 
-	if (bDrawBubbles || (MidpointImage != NULL))
+	if (Params.bDrawBubbles || (MidpointImage != nullptr))
 	{
 		// This table maps distance along curve to alpha
 		FInterpCurve<float> SplineReparamTable;
-		float SplineLength = MakeSplineReparamTable(P0, P0Tangent, P1, P1Tangent, SplineReparamTable);
+		const float SplineLength = MakeSplineReparamTable(P0, P0Tangent, P1, P1Tangent, SplineReparamTable);
 
 		// Draw bubbles on the spline
-		if (bDrawBubbles)
+		if (Params.bDrawBubbles)
 		{
 			const float BubbleSpacing = 64.f * ZoomFactor;
 			const float BubbleSpeed = 192.f * ZoomFactor;
-			const FVector2D BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * Thickness;
+			const FVector2D BubbleSize = BubbleImage->ImageSize * ZoomFactor * 0.1f * Params.WireThickness;
 
 			float Time = (FPlatformTime::Seconds() - GStartTime);
 			const float BubbleOffset = FMath::Fmod(Time * BubbleSpeed, BubbleSpacing);
@@ -276,14 +363,14 @@ void FConnectionDrawingPolicy::DrawConnection( int32 LayerId, const FVector2D& S
 						BubbleImage,
 						ClippingRect,
 						ESlateDrawEffect::None,
-						InColor
+						Params.WireColor
 						);
 				}
 			}
 		}
 
 		// Draw the midpoint image
-		if (MidpointImage != NULL)
+		if (MidpointImage != nullptr)
 		{
 			// Determine the spline position for the midpoint
 			const float MidpointAlpha = SplineReparamTable.Eval(SplineLength * 0.5f, 0.f);
@@ -308,7 +395,7 @@ void FConnectionDrawingPolicy::DrawConnection( int32 LayerId, const FVector2D& S
 				AngleInRadians,
 				TOptional<FVector2D>(),
 				FSlateDrawElement::RelativeToElement,
-				InColor
+				Params.WireColor
 				);
 		}
 	}
@@ -317,21 +404,19 @@ void FConnectionDrawingPolicy::DrawConnection( int32 LayerId, const FVector2D& S
 
 void FConnectionDrawingPolicy::DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin)
 {
-	float Thickness = 1.0f;
-	FLinearColor WireColor = FLinearColor::White;
-	bool bDrawBubbles = false;
-	bool bBiDirectional = false;
-	DetermineWiringStyle(Pin, NULL, /*inout*/ Thickness, /*inout*/ WireColor, /*inout*/ bDrawBubbles, /*inout*/ bBiDirectional);
-	DrawSplineWithArrow(StartPoint, EndPoint, WireColor, Thickness, bDrawBubbles, bBiDirectional);
+	FConnectionParams Params;
+	DetermineWiringStyle(Pin, nullptr, /*inout*/ Params);
+
+	DrawSplineWithArrow(StartPoint, EndPoint, Params);
 }
 
-void FConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ float& Thickness, /*inout*/ FLinearColor& WireColor, /*inout*/bool& bDrawBubbles, /*inout*/ bool &bBidirectional)
+void FConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params)
 {
+	Params.AssociatedPin1 = OutputPin;
+	Params.AssociatedPin2 = InputPin;
 }
 
 void FConnectionDrawingPolicy::DetermineLinkGeometry(
-	TMap<TSharedRef<SWidget>,
-	FArrangedWidget>& PinGeometries,
 	FArrangedChildren& ArrangedNodes, 
 	TSharedRef<SWidget>& OutputPinWidget,
 	UEdGraphPin* OutputPin,
@@ -340,19 +425,21 @@ void FConnectionDrawingPolicy::DetermineLinkGeometry(
 	/*out*/ FArrangedWidget*& EndWidgetGeometry
 	)
 {
-	StartWidgetGeometry = PinGeometries.Find(OutputPinWidget);
+	StartWidgetGeometry = PinGeometries->Find(OutputPinWidget);
 	
 	if (TSharedRef<SGraphPin>* pTargetWidget = PinToPinWidgetMap.Find(InputPin))
 	{
 		TSharedRef<SGraphPin> InputWidget = *pTargetWidget;
-		EndWidgetGeometry = PinGeometries.Find(InputWidget);
+		EndWidgetGeometry = PinGeometries->Find(InputWidget);
 	}
 }
 
-void FConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& PinGeometries, FArrangedChildren& ArrangedNodes)
+void FConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
 {
+	PinGeometries = &InPinGeometries;
+
 	PinToPinWidgetMap.Empty();
-	for (TMap<TSharedRef<SWidget>, FArrangedWidget>::TIterator ConnectorIt(PinGeometries); ConnectorIt; ++ConnectorIt)
+	for (TMap<TSharedRef<SWidget>, FArrangedWidget>::TIterator ConnectorIt(InPinGeometries); ConnectorIt; ++ConnectorIt)
 	{
 		TSharedRef<SWidget> SomePinWidget = ConnectorIt.Key();
 		SGraphPin& PinWidget = static_cast<SGraphPin&>(SomePinWidget.Get());
@@ -360,7 +447,7 @@ void FConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& 
 		PinToPinWidgetMap.Add(PinWidget.GetPinObj(), StaticCastSharedRef<SGraphPin>(SomePinWidget));
 	}
 
-	for (TMap<TSharedRef<SWidget>, FArrangedWidget>::TIterator ConnectorIt(PinGeometries); ConnectorIt; ++ConnectorIt)
+	for (TMap<TSharedRef<SWidget>, FArrangedWidget>::TIterator ConnectorIt(InPinGeometries); ConnectorIt; ++ConnectorIt)
 	{
 		TSharedRef<SWidget> SomePinWidget = ConnectorIt.Key();
 		SGraphPin& PinWidget = static_cast<SGraphPin&>(SomePinWidget.Get());
@@ -370,23 +457,18 @@ void FConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& 
 		{
 			for (int32 LinkIndex=0; LinkIndex < ThePin->LinkedTo.Num(); ++LinkIndex)
 			{
-				FArrangedWidget* LinkStartWidgetGeometry = NULL;
-				FArrangedWidget* LinkEndWidgetGeometry = NULL;
+				FArrangedWidget* LinkStartWidgetGeometry = nullptr;
+				FArrangedWidget* LinkEndWidgetGeometry = nullptr;
 
 				UEdGraphPin* TargetPin = ThePin->LinkedTo[LinkIndex];
 
-				DetermineLinkGeometry(PinGeometries, ArrangedNodes, SomePinWidget, ThePin, TargetPin, /*out*/ LinkStartWidgetGeometry, /*out*/ LinkEndWidgetGeometry);
+				DetermineLinkGeometry(ArrangedNodes, SomePinWidget, ThePin, TargetPin, /*out*/ LinkStartWidgetGeometry, /*out*/ LinkEndWidgetGeometry);
 
-				if(( LinkEndWidgetGeometry && LinkStartWidgetGeometry ) && !IsConnectionCulled( *LinkStartWidgetGeometry, *LinkEndWidgetGeometry ))
+				if (( LinkEndWidgetGeometry && LinkStartWidgetGeometry ) && !IsConnectionCulled( *LinkStartWidgetGeometry, *LinkEndWidgetGeometry ))
 				{
-
-					float Thickness = 1.0f;
-					FLinearColor WireColor = FLinearColor::White;
-					bool bDrawBubbles = false;
-					bool bBidirectional = false;
-
-					DetermineWiringStyle(ThePin, TargetPin, /*inout*/ Thickness, /*inout*/ WireColor, /*inout*/ bDrawBubbles, /*inout*/ bBidirectional);
-					DrawSplineWithArrow(LinkStartWidgetGeometry->Geometry, LinkEndWidgetGeometry->Geometry, WireColor, Thickness, bDrawBubbles, bBidirectional);
+					FConnectionParams Params;
+					DetermineWiringStyle(ThePin, TargetPin, /*inout*/ Params);
+					DrawSplineWithArrow(LinkStartWidgetGeometry->Geometry, LinkEndWidgetGeometry->Geometry, Params);
 				}
 			}
 		}
@@ -414,6 +496,7 @@ void FConnectionDrawingPolicy::ResetIncompatiblePinDrawState(const TSet< TShared
 
 void FConnectionDrawingPolicy::ApplyHoverDeemphasis(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ float& Thickness, /*inout*/ FLinearColor& WireColor)
 {
+	//@TODO: Move these parameters into the settings object
 	const float FadeInBias = 0.75f; // Time in seconds before the fading starts to occur
 	const float FadeInPeriod = 0.6f; // Time in seconds after the bias before the fade is fully complete
 	const float TimeFraction = FMath::SmoothStep(0.0f, FadeInPeriod, (float)(FSlateApplication::Get().GetCurrentTime() - LastHoverTimeEvent - FadeInBias));
@@ -424,7 +507,7 @@ void FConnectionDrawingPolicy::ApplyHoverDeemphasis(UEdGraphPin* OutputPin, UEdG
 
 	const bool bContainsBoth = HoveredPins.Contains(InputPin) && HoveredPins.Contains(OutputPin);
 	const bool bContainsOutput = HoveredPins.Contains(OutputPin);
-	const bool bEmphasize = bContainsBoth || (bContainsOutput && (InputPin == NULL));
+	const bool bEmphasize = bContainsBoth || (bContainsOutput && (InputPin == nullptr));
 	if (bEmphasize)
 	{
 		Thickness = FMath::Lerp(Thickness, Thickness * ((Thickness < 3.0f) ? 5.0f : 3.0f), TimeFraction);
@@ -435,3 +518,69 @@ void FConnectionDrawingPolicy::ApplyHoverDeemphasis(UEdGraphPin* OutputPin, UEdG
 		WireColor = FMath::Lerp<FLinearColor>(WireColor, DarkenedColor, HoverDeemphasisDarkFraction * TimeFraction);
 	}
 }
+
+//////////////////////////////////////////////////////////////////////////
+// FGraphSplineOverlapResult
+
+void FGraphSplineOverlapResult::ComputeBestPin()
+{
+	UEdGraphPin* BestPin = nullptr;
+	if (Pin1 == nullptr)
+	{
+		BestPin = Pin2;
+	}
+	else if (Pin2 == nullptr)
+	{
+		BestPin = Pin1;
+	}
+	else
+	{
+		// Both are valid, now see if one of the pins has one connection while the other has more than one
+		const int32 LinksTo1 = Pin1->LinkedTo.Num();
+		const int32 LinksTo2 = Pin2->LinkedTo.Num();
+
+		if ((LinksTo1 > 1) && (LinksTo2 == 1))
+		{
+			BestPin = Pin2;
+		}
+		else if ((LinksTo1 == 1) && (LinksTo2 > 1))
+		{
+			BestPin = Pin1;
+		}
+		else
+		{
+			// Both pins have multiple links, or both pins have one link, choose based on distance to the pins
+			BestPin = (DistanceSquaredToPin1 < DistanceSquaredToPin2) ? Pin1 : Pin2;
+		}
+	}
+
+	BestPinHandle = FGraphPinHandle(BestPin);
+
+	Pin1 = nullptr;
+	Pin2 = nullptr;
+}
+
+bool FGraphSplineOverlapResult::GetPins(const class SGraphPanel& InGraphPanel, UEdGraphPin*& OutPin1, UEdGraphPin*& OutPin2) const
+{
+	OutPin1 = nullptr;
+	OutPin2 = nullptr;
+
+	if (IsValid())
+	{
+		TSharedPtr<SGraphPin> Pin1Widget = Pin1Handle.FindInGraphPanel(InGraphPanel);
+		TSharedPtr<SGraphPin> Pin2Widget = Pin2Handle.FindInGraphPanel(InGraphPanel);
+
+		if (Pin1Widget.IsValid())
+		{
+			OutPin1 = Pin1Widget->GetPinObj();
+		}
+
+		if (Pin2Widget.IsValid())
+		{
+			OutPin2 = Pin2Widget->GetPinObj();
+		}
+	}
+
+	return (OutPin1 != nullptr) && (OutPin2 != nullptr);
+}
+

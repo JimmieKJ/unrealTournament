@@ -308,5 +308,6 @@ void FMetalUniformBuffer::CacheResourcesInternal()
 
 FUniformBufferRHIRef FMetalDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
+	check(IsInRenderingThread());
 	return new FMetalUniformBuffer(Contents, Layout, Usage);
 }

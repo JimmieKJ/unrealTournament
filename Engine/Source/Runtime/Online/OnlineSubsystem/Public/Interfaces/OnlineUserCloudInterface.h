@@ -14,6 +14,17 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEnumerateUserFilesComplete, bool, const 
 typedef FOnEnumerateUserFilesComplete::FDelegate FOnEnumerateUserFilesCompleteDelegate;
 
 /**
+ * Delegate fired at intervals during a user file write to the network platform's storage
+ *
+ * @param BytesWritten the number of bytes written so far
+ * @param UserId User owning the storage
+ * @param FileName the name of the file this was for
+ *
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnWriteUserFileProgress, int32, const FUniqueNetId&, const FString&);
+typedef FOnWriteUserFileProgress::FDelegate FOnWriteUserFileProgressDelegate;
+
+/**
  * Delegate fired when a user file write to the network platform's storage is complete
  *
  * @param bWasSuccessful whether the file Write was successful or not
@@ -23,6 +34,17 @@ typedef FOnEnumerateUserFilesComplete::FDelegate FOnEnumerateUserFilesCompleteDe
  */
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnWriteUserFileComplete, bool, const FUniqueNetId&, const FString&);
 typedef FOnWriteUserFileComplete::FDelegate FOnWriteUserFileCompleteDelegate;
+
+/**
+ * Delegate fired when a user file write to the network platform's storage is canceled
+ *
+ * @param bWasSuccessful whether the cancellation was successful or not
+ * @param UserId User owning the storage
+ * @param FileName the name of the file this was for
+ *
+ */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnWriteUserFileCanceled, bool, const FUniqueNetId&, const FString&);
+typedef FOnWriteUserFileCanceled::FDelegate FOnWriteUserFileCanceledDelegate;
 
 /**
  * Delegate fired when a user file read from the network platform's storage is complete
@@ -44,6 +66,17 @@ typedef FOnReadUserFileComplete::FDelegate FOnReadUserFileCompleteDelegate;
  */
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnDeleteUserFileComplete, bool, const FUniqueNetId&, const FString&);
 typedef FOnDeleteUserFileComplete::FDelegate FOnDeleteUserFileCompleteDelegate;
+
+/**
+ * Delegate fired when getting usage statistics from the network platform's storage is complete
+ *
+ * @param bWasSuccessful  Whether the operation was successful or not
+ * @param UserId          User owning the storage
+ * @param BytesUsed       Will be set to the total number of bytes used by the user
+ * @param TotalQuota      The total number of bytes the user is entitled to write
+ */
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnRequestUsageInfoComplete, bool, const FUniqueNetId&, int64, TOptional<int64>);
+typedef FOnRequestUsageInfoComplete::FDelegate FOnRequestUsageInfoCompleteDelegate;
 
 
 /**
@@ -146,6 +179,16 @@ public:
 	virtual bool WriteUserFile(const FUniqueNetId& UserId, const FString& FileName, TArray<uint8>& FileContents) = 0;
 
 	/**
+	* Delegate fired at intervals during a user file write to the network platform's storage
+	*
+	* @param BytesWritten the number of bytes written so far
+	* @param UserId User owning the storage
+	* @param FileName the name of the file this was for
+	*
+	*/
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnWriteUserFileProgress, int32, const FUniqueNetId&, const FString&);
+
+	/**
 	 * Delegate fired when a user file write to the network platform's storage is complete
 	 *
 	 * @param bWasSuccessful whether the file Write was successful or not
@@ -154,6 +197,24 @@ public:
 	 *
 	 */
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnWriteUserFileComplete, bool, const FUniqueNetId&, const FString&);
+
+	/**
+	 * Cancel the ongoing upload of the specified file, if it is in progress
+	 * @param UserId User owning the storage
+	 * @param FileNam the name of the file to cancel
+	 *
+	 */
+	virtual void CancelWriteUserFile(const FUniqueNetId& UserId, const FString& FileName) = 0;
+
+	/**
+	 * Delegate fired when a user file write to the network platform's storage is canceled
+	 *
+	 * @param bWasSuccessful whether the file upload cancellations was successful or not
+	 * @param UserId User owning the storage
+	 * @param FileName the name of the file this was for
+	 *
+	 */
+	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnWriteUserFileCanceled, bool, const FUniqueNetId&, const FString&);
 
 	/**
 	 * Starts an asynchronous delete of the specified user file from the network platform's file store
@@ -175,6 +236,25 @@ public:
 	 * @param FileName the name of the file this was for
 	 */
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnDeleteUserFileComplete, bool, const FUniqueNetId&, const FString&);
+
+	/**
+	 * Starts an asynchronous request to get the usage statistics from the cloud storage service
+	 *
+	 * @param UserId      IN      User owning the storage
+	 *
+	 * @return true if the call starts successfully, false otherwise
+	 */
+	virtual bool RequestUsageInfo(const FUniqueNetId& UserId) = 0;
+
+	/**
+	 * Delegate fired when getting usage statistics from the network platform's storage is complete
+	 *
+	 * @param bWasSuccessful  Whether the operation was successful or not
+	 * @param UserId          User owning the storage
+	 * @param BytesUsed       Will be set to the total number of bytes used by the user
+	 * @param TotalQuota      The total number of bytes the user is entitled to write
+	 */
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnRequestUsageInfoComplete, bool, const FUniqueNetId&, int64, TOptional<int64>);
 
 	/**
 	 *	Print out the state of the cloud for this service

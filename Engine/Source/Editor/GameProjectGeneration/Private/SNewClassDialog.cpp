@@ -26,8 +26,11 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "AssetRegistryModule.h"
+#include "AssetEditorManager.h"
+#include "ContentBrowserModule.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
+#include "Engine/BlueprintGeneratedClass.h"
 
 
 #define LOCTEXT_NAMESPACE "GameProjectGeneration"
@@ -166,6 +169,7 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 	Options.bShowUnloadedBlueprints = false;
 	Options.bShowNoneOption = false;
 	Options.bShowObjectRootClass = true;
+	Options.bExpandRootNodes = true;
 
 	if (InArgs._ClassViewerFilter.IsValid())
 	{
@@ -175,6 +179,12 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 	{
 		// Prevent creating native classes based on blueprint classes
 		Options.ClassFilter = MakeShareable(new FNativeClassParentFilter());
+	}
+
+	// Only show the Object root class if it's a valid base (this helps keep the tree clean)
+	if (Options.ClassFilter.IsValid() && !Options.ClassFilter->IsClassAllowed(Options, UObject::StaticClass(), MakeShareable(new FClassViewerFilterFuncs)))
+	{
+		Options.bShowObjectRootClass = false;
 	}
 
 	ClassViewer = StaticCastSharedRef<SClassViewer>(FModuleManager::LoadModuleChecked<FClassViewerModule>("ClassViewer").CreateClassViewer(Options, FOnClassPicked::CreateSP(this, &SNewClassDialog::OnAdvancedClassSelected)));
@@ -225,6 +235,13 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 			[
 				SAssignNew( MainWizard, SWizard)
 				.ShowPageList(false)
+
+				.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
+				.CancelButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
+				.FinishButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+				.ButtonTextStyle(FEditorStyle::Get(), "LargeText")
+				.ForegroundColor(FEditorStyle::Get().GetSlateColor("WhiteBrush"))
+
 				.CanFinish(this, &SNewClassDialog::CanFinish)
 				.FinishButtonText( ClassDomain == EClassDomain::Native ? LOCTEXT("FinishButtonText_Native", "Create Class") : LOCTEXT("FinishButtonText_Blueprint", "Create Blueprint Class") )
 				.FinishButtonToolTip (
@@ -442,7 +459,7 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 								.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
 								.OnNavigate(this, &SNewClassDialog::OnEditCodeClicked)
 								.Text(this, &SNewClassDialog::GetSelectedParentClassFilename)
-								.ToolTipText(LOCTEXT("GoToCode_ToolTip", "Click to open this source file in a text editor"))
+								.ToolTipText(FText::Format(LOCTEXT("GoToCode_ToolTip", "Click to open this source file in {0}"), FSourceCodeNavigation::GetSuggestedSourceCodeIDE()))
 								.Visibility(this, &SNewClassDialog::GetSourceHyperlinkVisibility)
 							]
 						]
@@ -595,10 +612,9 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 												[
 													SNew(SCheckBox)
 													.Style(FEditorStyle::Get(), "Property.ToggleButton.Start")
-													.IsEnabled(this, &SNewClassDialog::CanChangeClassLocation)
 													.IsChecked(this, &SNewClassDialog::IsClassLocationActive, GameProjectUtils::EClassLocation::Public)
 													.OnCheckStateChanged(this, &SNewClassDialog::OnClassLocationChanged, GameProjectUtils::EClassLocation::Public)
-													.ToolTipText(this, &SNewClassDialog::GetClassLocationTooltip, GameProjectUtils::EClassLocation::Public)
+													.ToolTipText(LOCTEXT("ClassLocation_Public", "A public class can be included and used inside other modules in addition to the module it resides in"))
 													[
 														SNew(SBox)
 														.VAlign(VAlign_Center)
@@ -617,10 +633,9 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 												[
 													SNew(SCheckBox)
 													.Style(FEditorStyle::Get(), "Property.ToggleButton.End")
-													.IsEnabled(this, &SNewClassDialog::CanChangeClassLocation)
 													.IsChecked(this, &SNewClassDialog::IsClassLocationActive, GameProjectUtils::EClassLocation::Private)
 													.OnCheckStateChanged(this, &SNewClassDialog::OnClassLocationChanged, GameProjectUtils::EClassLocation::Private)
-													.ToolTipText(this, &SNewClassDialog::GetClassLocationTooltip, GameProjectUtils::EClassLocation::Private)
+													.ToolTipText(LOCTEXT("ClassLocation_Private", "A private class can only be included and used within the module it resides in"))
 													[
 														SNew(SBox)
 														.VAlign(VAlign_Center)
@@ -776,12 +791,8 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 		ParentClassListView->SetSelection(ParentClassItemsSource[0], ESelectInfo::Direct);
 	}
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
 void SNewClassDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	// Every few seconds, the class name/path is checked for validity in case the disk contents changed and the location is now valid or invalid.
 	// After class creation, periodic checks are disabled to prevent a brief message indicating that the class you created already exists.
 	// This feature is re-enabled if the user did not restart and began editing parameters again.
@@ -880,12 +891,12 @@ EVisibility SNewClassDialog::GetSourceHyperlinkVisibility() const
 		return EVisibility::Collapsed;
 	}
 
-	return (GetClassHeaderPath(ParentClassInfo.BaseClass).Len() > 0 ? EVisibility::Visible : EVisibility::Hidden);
+	return (ParentClassInfo.GetBaseClassHeaderFilename().Len() > 0 ? EVisibility::Visible : EVisibility::Hidden);
 }
 
 FText SNewClassDialog::GetSelectedParentClassFilename() const
 {
-	const FString ClassHeaderPath = GetClassHeaderPath(ParentClassInfo.BaseClass);
+	const FString ClassHeaderPath = ParentClassInfo.GetBaseClassHeaderFilename();
 	if (ClassHeaderPath.Len() > 0)
 	{
 		return FText::FromString(FPaths::GetCleanFilename(*ClassHeaderPath));
@@ -905,7 +916,7 @@ FString SNewClassDialog::GetSelectedParentDocLink() const
 
 void SNewClassDialog::OnEditCodeClicked()
 {
-	const FString ClassHeaderPath = GetClassHeaderPath(ParentClassInfo.BaseClass);
+	const FString ClassHeaderPath = ParentClassInfo.GetBaseClassHeaderFilename();
 	if (ClassHeaderPath.Len() > 0)
 	{
 		const FString AbsoluteHeaderPath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ClassHeaderPath);
@@ -985,7 +996,7 @@ EVisibility SNewClassDialog::GetGlobalErrorLabelVisibility() const
 
 FText SNewClassDialog::GetGlobalErrorLabelText() const
 {
-	if ( !FSourceCodeNavigation::IsCompilerAvailable() )
+	if ( ClassDomain == EClassDomain::Native && !FSourceCodeNavigation::IsCompilerAvailable() )
 	{
 		return FText::Format( LOCTEXT("NoCompilerFound", "No compiler was found. In order to use C++ code, you must first install {0}."), FSourceCodeNavigation::GetSuggestedSourceCodeIDE() );
 	}
@@ -1084,7 +1095,7 @@ void SNewClassDialog::CancelClicked()
 
 bool SNewClassDialog::CanFinish() const
 {
-	return bLastInputValidityCheckSuccessful && ParentClassInfo.IsSet() && FSourceCodeNavigation::IsCompilerAvailable();
+	return bLastInputValidityCheckSuccessful && ParentClassInfo.IsSet() && (ClassDomain == EClassDomain::Blueprint || FSourceCodeNavigation::IsCompilerAvailable());
 }
 
 void SNewClassDialog::FinishClicked()
@@ -1122,6 +1133,15 @@ void SNewClassDialog::FinishClicked()
 
 					OnAddedToProject.ExecuteIfBound( NewClassName, PackagePath, FString() );
 
+					// Sync the content browser to the new asset
+					TArray<UObject*> SyncAssets;
+					SyncAssets.Add(NewBP);
+					FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+					ContentBrowserModule.Get().SyncBrowserToAssets(SyncAssets);
+
+					// Open the editor for the new asset
+					FAssetEditorManager::Get().OpenEditorForAsset(NewBP);
+
 					// Successfully created the code and potentially opened the IDE. Close the dialog.
 					CloseContainingWindow();
 
@@ -1143,7 +1163,8 @@ void SNewClassDialog::FinishClicked()
 
 		FText FailReason;
 		const TSet<FString>& DisallowedHeaderNames = FSourceCodeNavigation::GetSourceFileDatabase().GetDisallowedHeaderNames();
-		if (GameProjectUtils::AddCodeToProject(NewClassName, NewClassPath, *SelectedModuleInfo, ParentClassInfo, DisallowedHeaderNames, HeaderFilePath, CppFilePath, FailReason))
+		const GameProjectUtils::EAddCodeToProjectResult AddCodeResult = GameProjectUtils::AddCodeToProject(NewClassName, NewClassPath, *SelectedModuleInfo, ParentClassInfo, DisallowedHeaderNames, HeaderFilePath, CppFilePath, FailReason);
+		if (AddCodeResult == GameProjectUtils::EAddCodeToProjectResult::Succeeded)
 		{
 			OnAddedToProject.ExecuteIfBound( NewClassName, NewClassPath, SelectedModuleInfo->ModuleName );
 
@@ -1151,7 +1172,7 @@ void SNewClassDialog::FinishClicked()
 			bPreventPeriodicValidityChecksUntilNextChange = true;
 
 			// Display a nag if we didn't automatically hot-reload for the newly added class
-			const bool bWasHotReloaded = GEditor->AccessEditorUserSettings().bAutomaticallyHotReloadNewClasses;
+			const bool bWasHotReloaded = GetDefault<UEditorPerProjectUserSettings>()->bAutomaticallyHotReloadNewClasses;
 			if( bWasHotReloaded )
 			{
 				FNotificationInfo Notification( FText::Format( LOCTEXT("AddedClassSuccessNotification", "Added new class {0}"), FText::FromString(NewClassName) ) );
@@ -1164,7 +1185,7 @@ void SNewClassDialog::FinishClicked()
 				{
 					// Code successfully added, notify the user. We are either running on a platform that does not support source access or a file was not given so don't ask about editing the file
 					const FText Message = FText::Format( 
-						LOCTEXT("AddCodeSuccessWithHotReload", "Successfully added class {0}, however you must recompile {1} before it will appear in the Content Browser.")
+						LOCTEXT("AddCodeSuccessWithHotReload", "Successfully added class '{0}', however you must recompile the '{1}' module before it will appear in the Content Browser.")
 						, FText::FromString(NewClassName), FText::FromString(SelectedModuleInfo->ModuleName) );
 					FMessageDialog::Open(EAppMsgType::Ok, Message);
 				}
@@ -1185,7 +1206,7 @@ void SNewClassDialog::FinishClicked()
 				{
 					// Code successfully added, notify the user and ask about opening the IDE now
 					const FText Message = FText::Format( 
-						LOCTEXT("AddCodeSuccessWithHotReloadAndSync", "Successfully added class {0}, however you must recompile {1} before it will appear in the Content Browser.\n\nWould you like to edit the code now?")
+						LOCTEXT("AddCodeSuccessWithHotReloadAndSync", "Successfully added class '{0}', however you must recompile the '{1}' module before it will appear in the Content Browser.\n\nWould you like to edit the code now?")
 						, FText::FromString(NewClassName), FText::FromString(SelectedModuleInfo->ModuleName) );
 					bEditSourceFilesNow = ( FMessageDialog::Open( EAppMsgType::YesNo, Message ) == EAppReturnType::Yes );
 				}
@@ -1200,14 +1221,47 @@ void SNewClassDialog::FinishClicked()
 				}
 			}
 
+			// Sync the content browser to the new class
+			UPackage* const ClassPackage = FindPackage(nullptr, *(FString("/Script/") + SelectedModuleInfo->ModuleName));
+			if ( ClassPackage )
+			{
+				UClass* const NewClass = static_cast<UClass*>(FindObjectWithOuter(ClassPackage, UClass::StaticClass(), *NewClassName));
+				if ( NewClass )
+				{
+					TArray<UObject*> SyncAssets;
+					SyncAssets.Add(NewClass);
+					FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+					ContentBrowserModule.Get().SyncBrowserToAssets(SyncAssets);
+				}
+			}
+
 			// Successfully created the code and potentially opened the IDE. Close the dialog.
+			CloseContainingWindow();
+		}
+		else if (AddCodeResult == GameProjectUtils::EAddCodeToProjectResult::FailedToHotReload)
+		{
+			OnAddedToProject.ExecuteIfBound( NewClassName, NewClassPath, SelectedModuleInfo->ModuleName );
+
+			// Prevent periodic validity checks. This is to prevent a brief error message about the class already existing while you are exiting.
+			bPreventPeriodicValidityChecksUntilNextChange = true;
+
+			// Failed to compile new code
+			const FText Message = FText::Format(
+				LOCTEXT("AddCodeFailed_HotReloadFailed", "Successfully added class '{0}', however you must recompile the '{1}' module before it will appear in the Content Browser. {2}\n\nWould you like to open the Output Log to see more details?")
+				, FText::FromString(NewClassName), FText::FromString(SelectedModuleInfo->ModuleName), FailReason );
+			if( FMessageDialog::Open(EAppMsgType::YesNo, Message) == EAppReturnType::Yes )
+			{
+				FGlobalTabmanager::Get()->InvokeTab(FName("OutputLog"));
+			}
+
+			// We did manage to add the code itself, so we can close the dialog.
 			CloseContainingWindow();
 		}
 		else
 		{
 			// @todo show fail reason in error label
 			// Failed to add code
-			const FText Message = FText::Format( LOCTEXT("AddCodeFailed_Native", "Failed to add class {0}. {1}"), FText::FromString(NewClassName), FailReason );
+			const FText Message = FText::Format( LOCTEXT("AddCodeFailed_AddCodeFailed", "Failed to add class '{0}'. {1}"), FText::FromString(NewClassName), FailReason );
 			FMessageDialog::Open(EAppMsgType::Ok, Message);
 		}
 	}
@@ -1296,26 +1350,6 @@ FSlateColor SNewClassDialog::GetClassLocationTextColor(GameProjectUtils::EClassL
 	return (ClassLocation == InLocation) ? FSlateColor(FLinearColor(0, 0, 0)) : FSlateColor(FLinearColor(0.72f, 0.72f, 0.72f, 1.f));
 }
 
-FText SNewClassDialog::GetClassLocationTooltip(GameProjectUtils::EClassLocation InLocation) const
-{
-	if(CanChangeClassLocation())
-	{
-		switch(InLocation)
-		{
-		case GameProjectUtils::EClassLocation::Public:
-			return LOCTEXT("ClassLocation_Public", "A public class can be included and used inside other modules in addition to the module it resides in");
-
-		case GameProjectUtils::EClassLocation::Private:
-			return LOCTEXT("ClassLocation_Private", "A private class can only be included and used within the module it resides in");
-
-		default:
-			break;
-		}
-	}
-
-	return LOCTEXT("ClassLocation_UserDefined", "Your project is either not using a Public and Private source layout, or you're explicitly creating your class outside of the Public or Private folder");
-}
-
 ECheckBoxState SNewClassDialog::IsClassLocationActive(GameProjectUtils::EClassLocation InLocation) const
 {
 	return (ClassLocation == InLocation) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
@@ -1346,6 +1380,10 @@ void SNewClassDialog::OnClassLocationChanged(ECheckBoxState InCheckedState, Game
 			{
 				NewClassPath = AbsoluteClassPath.Replace(*RootPath, *PublicPath);
 			}
+			else
+			{
+				NewClassPath = PublicPath;
+			}
 			break;
 
 		case GameProjectUtils::EClassLocation::Private:
@@ -1357,6 +1395,10 @@ void SNewClassDialog::OnClassLocationChanged(ECheckBoxState InCheckedState, Game
 			{
 				NewClassPath = AbsoluteClassPath.Replace(*RootPath, *PrivatePath);
 			}
+			else
+			{
+				NewClassPath = PrivatePath;
+			}
 			break;
 
 		default:
@@ -1366,11 +1408,6 @@ void SNewClassDialog::OnClassLocationChanged(ECheckBoxState InCheckedState, Game
 		// Will update ClassVisibility correctly
 		UpdateInputValidity();
 	}
-}
-
-bool SNewClassDialog::CanChangeClassLocation() const
-{
-	return ClassLocation != GameProjectUtils::EClassLocation::UserDefined;
 }
 
 void SNewClassDialog::UpdateInputValidity()

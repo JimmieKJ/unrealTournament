@@ -76,7 +76,7 @@ int32 FromHex( TCHAR Ch )
 void UTrueTypeFontFactory::SetupFontImportOptions()
 {
 	// Allocate our import options object if it hasn't been created already!
-	ImportOptions = ConstructObject< UFontImportOptions >( UFontImportOptions::StaticClass(), this, NAME_None );
+	ImportOptions = NewObject<UFontImportOptions>(this, NAME_None);
 }
 
 bool UTrueTypeFontFactory::ConfigureProperties()
@@ -153,7 +153,7 @@ UObject* UTrueTypeFontFactory::FactoryCreateNew(
 	}
 
 	// Create font and its texture.
-	auto Font = NewNamedObject<UFont>(InParent, Name, Flags);
+	auto Font = NewObject<UFont>(InParent, Name, Flags);
 	
 	if (ImportOptions->Data.bUseDistanceFieldAlpha)
 	{
@@ -370,12 +370,9 @@ class FTextureAlphaToDistanceField
 		/** Called by the thread pool to do the work in this task */
 		void DoWork(void);
 
-		/** Give the name for external event viewers
-		* @return	the name to display in external event viewers
-		*/
-		static const TCHAR *Name()
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FBuildDistanceFieldTask");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FBuildDistanceFieldTask, STATGROUP_ThreadPoolAsyncTasks);
 		}
 
 	private:
@@ -777,7 +774,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromDC( UFont* Font, HDC dc, int3
 	}
 
 	// Create texture for page.
-	auto Texture = NewNamedObject<UTexture2D>(Font, *TextureString);
+	auto Texture = NewObject<UTexture2D>(Font, *TextureString);
 
 	// note RF_Public because font textures can be referenced directly by material expressions
 	Texture->SetFlags(RF_Public);
@@ -1674,7 +1671,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromBitmap( UFont* Font, uint8* B
 	}
 
 	// Create texture for page.
-	UTexture2D* Texture = NewNamedObject<UTexture2D>(Font, *TextureString);
+	UTexture2D* Texture = NewObject<UTexture2D>(Font, *TextureString);
 
 	// note RF_Public because font textures can be referenced directly by material expressions
 	Texture->SetFlags(RF_Public);

@@ -145,7 +145,7 @@ void FMediaPlayerActions::ExecuteCreateMediaSoundWave( TArray<TWeakObjectPtr<UMe
 			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
 
 			// Create the factory used to generate the asset
-			UMediaSoundWaveFactoryNew* Factory = ConstructObject<UMediaSoundWaveFactoryNew>(UMediaSoundWaveFactoryNew::StaticClass());
+			UMediaSoundWaveFactoryNew* Factory = NewObject<UMediaSoundWaveFactoryNew>();
 			Factory->InitialMediaPlayer = Object;
 
 			ContentBrowserSingleton.CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), UMediaSoundWave::StaticClass(), Factory);
@@ -166,7 +166,7 @@ void FMediaPlayerActions::ExecuteCreateMediaSoundWave( TArray<TWeakObjectPtr<UMe
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 				// Create the factory used to generate the asset
-				UMediaSoundWaveFactoryNew* Factory = ConstructObject<UMediaSoundWaveFactoryNew>(UMediaSoundWaveFactoryNew::StaticClass());
+				UMediaSoundWaveFactoryNew* Factory = NewObject<UMediaSoundWaveFactoryNew>();
 				Factory->InitialMediaPlayer = Object;
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
@@ -204,7 +204,7 @@ void FMediaPlayerActions::ExecuteCreateMediaTexture( TArray<TWeakObjectPtr<UMedi
 			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
 
 			// Create the factory used to generate the asset
-			UMediaTextureFactoryNew* Factory = ConstructObject<UMediaTextureFactoryNew>(UMediaTextureFactoryNew::StaticClass());
+			UMediaTextureFactoryNew* Factory = NewObject<UMediaTextureFactoryNew>();
 			Factory->InitialMediaPlayer = Object;
 
 			ContentBrowserSingleton.CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), UMediaTexture::StaticClass(), Factory);
@@ -225,7 +225,7 @@ void FMediaPlayerActions::ExecuteCreateMediaTexture( TArray<TWeakObjectPtr<UMedi
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 				// Create the factory used to generate the asset
-				UMediaTextureFactoryNew* Factory = ConstructObject<UMediaTextureFactoryNew>(UMediaTextureFactoryNew::StaticClass());
+				UMediaTextureFactoryNew* Factory = NewObject<UMediaTextureFactoryNew>();
 				Factory->InitialMediaPlayer = Object;
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");

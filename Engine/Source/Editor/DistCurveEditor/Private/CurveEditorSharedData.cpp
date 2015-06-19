@@ -9,7 +9,7 @@
 FCurveEditorSharedData::FCurveEditorSharedData(UInterpCurveEdSetup* InEdSetup)
 	: LabelEntryHeight(36)
 {
-	EditorOptions = ConstructObject<UCurveEdOptions>(UCurveEdOptions::StaticClass());
+	EditorOptions = NewObject<UCurveEdOptions>(GetTransientPackage(), TEXT("EditorOptions"));
 	check(EditorOptions);
 	MinViewRange = EditorOptions->MinViewRange;
 	MaxViewRange = EditorOptions->MaxViewRange;

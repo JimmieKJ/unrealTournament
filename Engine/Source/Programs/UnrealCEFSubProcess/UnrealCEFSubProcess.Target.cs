@@ -66,16 +66,29 @@ public class UnrealCEFSubProcessTarget : TargetRules
 		// CEFSubProcess is a console application, not a Windows app (sets entry point to main(), instead of WinMain())
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = false;
 
-		// Do NOT produce additional console app exe
-		OutLinkEnvironmentConfiguration.bBuildAdditionalConsoleApplication = false;
-
 		// Disable logging, as the sub processes are spawned often and logging will just slow them down
 		OutCPPEnvironmentConfiguration.Definitions.Add("ALLOW_LOG_FILE=0");
 	}
-    public override bool GUBP_AlwaysBuildWithBaseEditor()
+
+    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
     {
+        bInternalToolOnly = false;
+        SeparateNode = false;
+        CrossCompile = false;
         return true;
     }
+    public override List<UnrealTargetPlatform> GUBP_ToolPlatforms(UnrealTargetPlatform InHostPlatform)
+    {
+		if(InHostPlatform == UnrealTargetPlatform.Win64)
+		{
+			return new List<UnrealTargetPlatform>{ UnrealTargetPlatform.Win32, UnrealTargetPlatform.Win64 };
+		}
+		else
+		{
+			return new List<UnrealTargetPlatform> { InHostPlatform };
+		}
+    }
+
     public override bool GUBP_NeedsPlatformSpecificDLLs()
     {
         return true;

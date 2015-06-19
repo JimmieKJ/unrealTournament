@@ -9,5 +9,5 @@ class URecastFilter_UseDefaultArea : public UNavigationQueryFilter
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual void InitializeFilter(const ANavigationData* NavData, FNavigationQueryFilter* Filter) const override;
+	virtual void InitializeFilter(const ANavigationData& NavData, FNavigationQueryFilter& Filter) const override;
 };

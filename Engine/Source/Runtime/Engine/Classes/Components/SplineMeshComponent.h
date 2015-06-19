@@ -101,6 +101,10 @@ class ENGINE_API USplineMeshComponent : public UStaticMeshComponent, public IInt
 	UPROPERTY(EditAnywhere, Category=SplineMesh)
 	FVector SplineUpDir;
 
+	/** If true, spline keys may be edited per instance in the level viewport. Otherwise, the spline should be initialized in the construction script. */
+	UPROPERTY(EditDefaultsOnly, Category = Spline)
+	uint32 bAllowSplineEditingPerInstance:1;
+
 	/** If true, will use smooth interpolation (ease in/out) for Scale, Roll, and Offset along this section of spline. If false, uses linear */
 	UPROPERTY(EditAnywhere, Category=SplineMesh, AdvancedDisplay)
 	uint32 bSmoothInterpRollScale:1;
@@ -109,15 +113,23 @@ class ENGINE_API USplineMeshComponent : public UStaticMeshComponent, public IInt
 	UPROPERTY(EditAnywhere, Category=SplineMesh)
 	TEnumAsByte<ESplineMeshAxis::Type> ForwardAxis;
 
+	/** Minimum coordinate along the spline forward axis which corresponds to start of spline. If set to 0.0, will use bounding box to determine bounds */
+	UPROPERTY(EditAnywhere, Category = SplineMesh, AdvancedDisplay)
+	float SplineBoundaryMin;
+
+	/** Maximum coordinate along the spline forward axis which corresponds to end of spline. If set to 0.0, will use bounding box to determine bounds */
+	UPROPERTY(EditAnywhere, Category = SplineMesh, AdvancedDisplay)
+	float SplineBoundaryMax;
+	
 	// Physics data.
 	UPROPERTY()
 	class UBodySetup* BodySetup;
 
-#if WITH_EDITORONLY_DATA
 	// Used to automatically trigger rebuild of collision data
 	UPROPERTY()
 	FGuid CachedMeshBodySetupGuid;
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY(transient)
 	uint32 bSelected:1;
 #endif
@@ -126,6 +138,13 @@ class ENGINE_API USplineMeshComponent : public UStaticMeshComponent, public IInt
 	virtual void Serialize(FArchive& Ar) override;
 	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
 	//End UObject Interface
+
+	// Begin UActorComponent interface.
+	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
+	virtual FName GetComponentInstanceDataType() const override;
+	// End UActorComponent interface.
+
+	void ApplyComponentInstanceData(class FSplineMeshInstanceData* ComponentInstanceData);
 
 	//Begin USceneComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
@@ -141,17 +160,18 @@ class ENGINE_API USplineMeshComponent : public UStaticMeshComponent, public IInt
 		return Super::ShouldRenderSelected() || bSelected;
 	}
 #endif
-	virtual bool DoCustomNavigableGeometryExport(struct FNavigableGeometryExport* GeomExport) const override;
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 	//End UPrimitiveComponent Interface
 
 	//Begin UStaticMeshComponent Interface
-	virtual class FStaticMeshStaticLightingMesh* AllocateStaticLightingMesh(int32 LODIndex, const TArray<ULightComponent*>& InRelevantLights);
+	virtual class FStaticMeshStaticLightingMesh* AllocateStaticLightingMesh(int32 LODIndex, const TArray<ULightComponent*>& InRelevantLights) override;
 	//End UStaticMeshComponent Interface
 
 	// Begin Interface_CollisionDataProvider Interface
 	virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override { return false; }
+	virtual void GetMeshId(FString& OutMeshId) override;
 	// End Interface_CollisionDataProvider Interface
 
 	/** Called when spline params are changed, to notify render thread and possibly collision */
@@ -257,6 +277,22 @@ class ENGINE_API USplineMeshComponent : public UStaticMeshComponent, public IInt
 	UFUNCTION(BlueprintCallable, Category = SplineMesh)
 	void SetSplineUpDir(const FVector& InSplineUpDir);
 
+	/** Get the boundary min */
+	UFUNCTION(BlueprintCallable, Category = SplineMesh)
+	float GetBoundaryMin() const;
+
+	/** Set the boundary min */
+	UFUNCTION(BlueprintCallable, Category = SplineMesh)
+	void SetBoundaryMin(float InBoundaryMin);
+
+	/** Get the boundary max */
+	UFUNCTION(BlueprintCallable, Category = SplineMesh)
+	float GetBoundaryMax() const;
+
+	/** Set the boundary max */
+	UFUNCTION(BlueprintCallable, Category = SplineMesh)
+	void SetBoundaryMax(float InBoundaryMax);
+
 	// Destroys the body setup, used to clear collision if the mesh goes missing
 	void DestroyBodySetup();
 #if WITH_EDITOR
@@ -266,12 +302,20 @@ class ENGINE_API USplineMeshComponent : public UStaticMeshComponent, public IInt
 
 	/**
 	 * Calculates the spline transform, including roll, scale, and offset along the spline at a specified distance
-	 * @Note:  This is mirrored to Lightmass::CalcSliceTransform() and LocalVertexShader.usf.  If you update one of these, please update them all! 
 	 */
 	FTransform CalcSliceTransform(const float DistanceAlong) const;
 
+	/**
+	 * Calculates the spline transform, including roll, scale, and offset along the spline at a specified alpha interpolation parameter along the spline
+	 * @Note:  This is mirrored to Lightmass::CalcSliceTransform() and LocalVertexShader.usf.  If you update one of these, please update them all!
+	 */
+	FTransform CalcSliceTransformAtSplineOffset(const float Alpha) const;
+
 	inline static const float& GetAxisValue(const FVector& InVector, ESplineMeshAxis::Type InAxis);
 	inline static float& GetAxisValue(FVector& InVector, ESplineMeshAxis::Type InAxis);
+
+	/** Returns a vector which, when componentwise-multiplied by another vector, will zero all the components not corresponding to the supplied ESplineMeshAxis */
+	inline static FVector GetAxisMask(ESplineMeshAxis::Type InAxis);
 };
 
 const float& USplineMeshComponent::GetAxisValue(const FVector& InVector, ESplineMeshAxis::Type InAxis)
@@ -306,3 +350,18 @@ float& USplineMeshComponent::GetAxisValue(FVector& InVector, ESplineMeshAxis::Ty
 	}
 }
 
+FVector USplineMeshComponent::GetAxisMask(ESplineMeshAxis::Type InAxis)
+{
+	switch (InAxis)
+	{
+	case ESplineMeshAxis::X:
+		return FVector(0, 1, 1);
+	case ESplineMeshAxis::Y:
+		return FVector(1, 0, 1);
+	case ESplineMeshAxis::Z:
+		return FVector(1, 1, 0);
+	default:
+		check(0);
+		return FVector::ZeroVector;
+	}
+}

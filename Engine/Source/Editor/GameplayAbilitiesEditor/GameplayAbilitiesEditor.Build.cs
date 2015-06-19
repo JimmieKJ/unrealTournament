@@ -23,6 +23,7 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"AssetTools",
+					"ClassViewer",
                     "GameplayTags",
 					"GameplayAbilities",
                     "InputCore",

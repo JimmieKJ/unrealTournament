@@ -63,7 +63,7 @@ void UFbxFactory::PostInitProperties()
 	bEditorImport = true;
 	bText = false;
 
-	ImportUI = ConstructObject<UFbxImportUI>( UFbxImportUI::StaticClass(), this, NAME_None, RF_NoFlags );
+	ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_NoFlags);
 }
 
 
@@ -586,10 +586,10 @@ UFbxImportUI::UFbxImportUI(const FObjectInitializer& ObjectInitializer)
 {
 	bCombineMeshes = true;
 
-	StaticMeshImportData = ConstructObject<UFbxStaticMeshImportData>(UFbxStaticMeshImportData::StaticClass(), this);
-	SkeletalMeshImportData = ConstructObject<UFbxSkeletalMeshImportData>(UFbxSkeletalMeshImportData::StaticClass(), this);
-	AnimSequenceImportData = ConstructObject<UFbxAnimSequenceImportData>(UFbxAnimSequenceImportData::StaticClass(), this);
-	TextureImportData = ConstructObject<UFbxTextureImportData>(UFbxTextureImportData::StaticClass(), this);
+	StaticMeshImportData = CreateDefaultSubobject<UFbxStaticMeshImportData>(TEXT("StaticMeshImportData"));
+	SkeletalMeshImportData = CreateDefaultSubobject<UFbxSkeletalMeshImportData>(TEXT("SkeletalMeshImportData"));
+	AnimSequenceImportData = CreateDefaultSubobject<UFbxAnimSequenceImportData>(TEXT("AnimSequenceImportData"));
+	TextureImportData = CreateDefaultSubobject<UFbxTextureImportData>(TEXT("TextureImportData"));
 }
 
 

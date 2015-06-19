@@ -15,10 +15,10 @@ public:
 	{
 
 		TArray< FString > RecentlyPlacedAsStrings;
-		GConfig->GetArray(TEXT("PlacementMode"), TEXT("RecentlyPlaced"), RecentlyPlacedAsStrings, GEditorUserSettingsIni);
+		GConfig->GetArray(TEXT("PlacementMode"), TEXT("RecentlyPlaced"), RecentlyPlacedAsStrings, GEditorPerProjectIni);
 
 		//FString ActivePaletteName;
-		//GConfig->GetString( TEXT( "PlacementMode" ), TEXT( "ActivePalette" ), ActivePaletteName, GEditorUserSettingsIni );
+		//GConfig->GetString( TEXT( "PlacementMode" ), TEXT( "ActivePalette" ), ActivePaletteName, GEditorPerProjectIni );
 
 		for (int Index = 0; Index < RecentlyPlacedAsStrings.Num(); Index++)
 		{
@@ -116,7 +116,7 @@ public:
 				RecentlyPlacedAsStrings.Add(RecentlyPlaced[Index].ToString());
 			}
 
-			GConfig->SetArray(TEXT("PlacementMode"), TEXT("RecentlyPlaced"), RecentlyPlacedAsStrings, GEditorUserSettingsIni);
+			GConfig->SetArray(TEXT("PlacementMode"), TEXT("RecentlyPlaced"), RecentlyPlacedAsStrings, GEditorPerProjectIni);
 			RecentlyPlacedChanged.Broadcast(RecentlyPlaced);
 		}
 	}

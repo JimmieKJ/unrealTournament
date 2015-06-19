@@ -1,0 +1,89 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	ForEachLight.usf: Common code for dynamic forward lighting
+=============================================================================*/
+
+#ifndef __FOR_EACH_LIGHT_COMMON__
+#define __FOR_EACH_LIGHT_COMMON__
+
+#include "DeferredLightingCommon.usf"	// FSimpleDeferredLightData and GetSimpleDynamicLighting() 
+Buffer<uint> LightGrid;
+
+float3 SimplePointLightDiffuse( FScreenSpaceData ScreenSpaceData )
+{
+	return Diffuse_Lambert(ScreenSpaceData.GBuffer.DiffuseColor);
+}
+
+float3 LightingForOneLight(FMaterialPixelParameters Parameters, uint LightIndex, FScreenSpaceData ScreenSpaceData)
+{
+	float3 CameraVector = normalize(Parameters.WorldPosition - View.ViewOrigin.xyz);
+	
+	FDeferredLightData LightData = (FDeferredLightData)0;
+	LightData.LightPositionAndInvRadius = ForwardLightData.LightPositionAndInvRadius[LightIndex];
+	LightData.LightColorAndFalloffExponent = ForwardLightData.LightColorAndFalloffExponent[LightIndex];
+	{
+		float4 Value = ForwardLightData.LightDirectionAndSpotlightMaskAndMinRoughness[LightIndex];
+		LightData.LightDirection = Value.xyz;
+		LightData.bSpotLight = Value.w > 0;
+		LightData.MinRoughness = abs(Value.w);
+	}
+	LightData.SpotAnglesAndSourceRadius = float4( ForwardLightData.SpotAnglesAndSourceRadiusAndDir[LightIndex].xyz, 0 );
+	// currently we don't support shadows
+	LightData.ShadowMapChannelMask = 0;
+	LightData.bInverseSquared = ForwardLightData.LightColorAndFalloffExponent[LightIndex].w == 0;
+	// Only radial lights supported with tiled deferred
+	LightData.bRadialLight = ForwardLightData.SpotAnglesAndSourceRadiusAndDir[LightIndex].w == 0;
+	// The only type of shadowing supported for lights using tiled is static shadowing, so the light should only compute shadowing if it has static shadowing
+	LightData.bShadowed = dot(LightData.ShadowMapChannelMask, float4(1, 1, 1, 1));
+	
+	float2 ScreenUV = Parameters.SVPosition.xy * View.ViewSizeAndSceneTexelSize.zw;
+
+	return GetDynamicLighting(Parameters.WorldPosition, CameraVector, ScreenUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, float4(1, 1, 1, 1), uint2(0,0)).rgb;
+}
+
+// @param WorldNormal is not assumed to be normalized
+float3 AccumulateForwardLights(FMaterialPixelParameters Parameters, float3 DiffuseColor, float Roughness, float3 SpecularColor)
+{
+	float3 Ret = 0;
+
+	// not yet supported on opengl (firstbitlow() does not exist)
+#if !COMPILER_GLSL && !COMPILER_GLSL_ES2
+
+	// Which tile we are?
+	int2 Tile = int2((Parameters.SVPosition.xy - View.ViewRectMin.xy) * ForwardLightData.InvTileSize);
+
+	// Get bitmask from CPU for this tile
+	uint culling = LightGrid[Tile.x + Tile.y * ForwardLightData.TileCountX];
+
+	FScreenSpaceData ScreenSpaceData = (FScreenSpaceData)0;
+	ScreenSpaceData.GBuffer.WorldNormal = normalize(Parameters.WorldNormal);
+	ScreenSpaceData.GBuffer.Roughness = Roughness;
+	ScreenSpaceData.GBuffer.SpecularColor = SpecularColor;
+	ScreenSpaceData.GBuffer.DiffuseColor = DiffuseColor;
+	ScreenSpaceData.GBuffer.BaseColor = 1;
+	ScreenSpaceData.GBuffer.Specular = 1;
+	ScreenSpaceData.GBuffer.Opacity = GetMaterialOpacity(Parameters);
+	ScreenSpaceData.GBuffer.PrecomputedShadowFactors = 1;
+//	ScreenSpaceData.GBuffer.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
+	ScreenSpaceData.GBuffer.ShadingModelID = SHADINGMODELID_TWOSIDED_FOLIAGE;
+	ScreenSpaceData.GBuffer.CustomData = DiffuseColor;
+	ScreenSpaceData.AmbientOcclusion = 1;
+
+	// todo: support more than 32 lights
+
+	// loop through all lights specified by this bitmask
+	ALLOW_UAV_CONDITION while (culling != 0)
+	{
+		uint LightIndex = firstbitlow(culling);
+
+		culling &= ~(1 << LightIndex);
+
+		Ret += LightingForOneLight(Parameters, LightIndex, ScreenSpaceData);
+	}
+#endif
+
+	return Ret;
+}
+
+#endif // __FOR_EACH_LIGHT_COMMON__

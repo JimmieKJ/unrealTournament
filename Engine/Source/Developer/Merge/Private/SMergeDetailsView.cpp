@@ -53,12 +53,12 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 			2. Iterate properties in remote, add any new properties to DifferingProperties
 			3. Iterate properties in local, add any new properties to DifferingProperties, if they have not already been added
 	*/
-	const auto AddPropertiesOrdered = [](FPropertySoftPath const& Property, const FPropertySoftPathSet& DifferingProperties, TArray<FPropertySoftPath>& ResultingProperties)
+	const auto AddPropertiesOrdered = [](FPropertySoftPath const& Property, const FPropertySoftPathSet& InDifferingProperties, TArray<FPropertySoftPath>& ResultingProperties)
 	{
 		// contains check here is O(n), so we're needlessly n^2:
 		if (!ResultingProperties.Contains(Property))
 		{
-			if (DifferingProperties.Contains(Property))
+			if (InDifferingProperties.Contains(Property))
 			{
 				ResultingProperties.Add(Property);
 			}
@@ -105,19 +105,19 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 	};
 
 	const auto ProcessPotentialDifference = []( const FPropertySoftPath& PropertyIdentifier
-											, TArray<FSingleObjectDiffEntry> const& RemoteDifferences
-											, TArray<FSingleObjectDiffEntry> const& LocalDifferences
+											, TArray<FSingleObjectDiffEntry> const& InRemoteDifferences
+											, TArray<FSingleObjectDiffEntry> const& InLocalDifferences
 											, TArray< FDiffPair >& OutProcessedDifferences
 											, bool& bOutAnyConflict )
 	{
 		const FText RemoteLabel = NSLOCTEXT("SMergeDetailsView", "RemoteLabel", "Remote");
 		const FText LocalLabel = NSLOCTEXT("SMergeDetailsView", "LocalLabel", "Local");
 
-		const auto FindDiffering = [](TArray< FSingleObjectDiffEntry > const& InDifferences, const FPropertySoftPath& PropertyIdentifier) -> const FSingleObjectDiffEntry*
+		const auto FindDiffering = [](TArray< FSingleObjectDiffEntry > const& InDifferences, const FPropertySoftPath& InPropertyIdentifier) -> const FSingleObjectDiffEntry*
 		{
 			for (const auto& Difference : InDifferences)
 			{
-				if (Difference.Identifier == PropertyIdentifier)
+				if (Difference.Identifier == InPropertyIdentifier)
 				{
 					return &Difference;
 				}
@@ -125,8 +125,8 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 			return nullptr;
 		};
 
-		const FSingleObjectDiffEntry* RemoteDiffering = FindDiffering(RemoteDifferences, PropertyIdentifier);
-		const FSingleObjectDiffEntry* LocalDiffering = FindDiffering(LocalDifferences, PropertyIdentifier);
+		const FSingleObjectDiffEntry* RemoteDiffering = FindDiffering(InRemoteDifferences, PropertyIdentifier);
+		const FSingleObjectDiffEntry* LocalDiffering = FindDiffering(InLocalDifferences, PropertyIdentifier);
 		if (RemoteDiffering && LocalDiffering)
 		{
 			// conflicting change:
@@ -215,9 +215,9 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 				.ColorAndOpacity(Entry.bConflicted ? DiffViewUtils::Conflicting() : DiffViewUtils::Differs());
 		};
 
-		const auto FocusDetailsDifferenceEntry = []( FPropertySoftPath PropertyIdentifier, SMergeDetailsView* Parent, FOnMergeNodeSelected SelectionCallback )
+		const auto FocusDetailsDifferenceEntry = []( FPropertySoftPath PropertyIdentifier, SMergeDetailsView* Parent, FOnMergeNodeSelected InSelectionCallback )
 		{
-			SelectionCallback.ExecuteIfBound();
+			InSelectionCallback.ExecuteIfBound();
 			Parent->HighlightDifference(PropertyIdentifier);
 		};
 
@@ -239,10 +239,10 @@ void SMergeDetailsView::Construct(const FArguments InArgs
 		}
 	}
 
-	const auto ForwardSelection = [](FOnMergeNodeSelected SelectionCallback)
+	const auto ForwardSelection = [](FOnMergeNodeSelected InSelectionCallback)
 	{
 		// This allows the owning control to focus the correct tab (or do whatever else it likes):
-		SelectionCallback.ExecuteIfBound();
+		InSelectionCallback.ExecuteIfBound();
 	};
 
 	TSharedPtr<FBlueprintDifferenceTreeEntry> Category = FBlueprintDifferenceTreeEntry::CreateDefaultsCategoryEntryForMerge(FOnDiffEntryFocused::CreateStatic(ForwardSelection, SelectionCallback), Children, RemoteDifferences.Num() != 0, LocalDifferences.Num() != 0, bAnyConflict);

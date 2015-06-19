@@ -31,7 +31,7 @@ public:
 	virtual TSharedRef<IDataTableEditor> CreateDataTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UDataTable* Table );
 
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and toolbars */
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override {return MenuExtensibilityManager;}
 
 	/** DataTable Editor app identifier string */
 	static const FName DataTableEditorAppIdentifier;

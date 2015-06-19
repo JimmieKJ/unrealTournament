@@ -4,6 +4,7 @@
 
 #include "WorldTreeItem.h"
 #include "LevelEditor.h"
+#include "EditorActorFolders.h"
 
 #define LOCTEXT_NAMESPACE "SceneOutliner_WorldTreeItem"
 
@@ -63,22 +64,42 @@ bool FWorldTreeItem::CanInteract() const
 
 void FWorldTreeItem::GenerateContextMenu(FMenuBuilder& MenuBuilder, SSceneOutliner& Outliner)
 {
+	auto SharedOutliner = StaticCastSharedRef<SSceneOutliner>(Outliner.AsShared());
+	
 	const FSlateIcon WorldSettingsIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.WorldProperties.Tab");
+	const FSlateIcon NewFolderIcon(FEditorStyle::GetStyleSetName(), "SceneOutliner.NewFolderIcon");
 
+	MenuBuilder.AddMenuEntry(LOCTEXT("CreateFolder", "Create Folder"), FText(), NewFolderIcon, FUIAction(FExecuteAction::CreateSP(this, &FWorldTreeItem::CreateFolder, TWeakPtr<SSceneOutliner>(SharedOutliner))));
 	MenuBuilder.AddMenuEntry(LOCTEXT("OpenWorldSettings", "World Settings"), FText(), WorldSettingsIcon, FExecuteAction::CreateSP(this, &FWorldTreeItem::OpenWorldSettings));
 }
 
-FDragValidationInfo FWorldTreeItem::ValidateDrop(FDragDropPayload& DraggedObjects, UWorld& World) const
+void FWorldTreeItem::CreateFolder(TWeakPtr<SSceneOutliner> WeakOutliner)
+{
+	auto Outliner = WeakOutliner.Pin();
+
+	if (Outliner.IsValid() && SharedData->RepresentingWorld)
+	{
+		const FScopedTransaction Transaction(LOCTEXT("UndoAction_CreateFolder", "Create Folder"));
+
+		const FName NewFolderName = FActorFolders::Get().GetDefaultFolderName(*SharedData->RepresentingWorld, "");
+		FActorFolders::Get().CreateFolder(*SharedData->RepresentingWorld, NewFolderName);
+
+		// At this point the new folder will be in our newly added list, so select it and open a rename when it gets refreshed
+		Outliner->OnItemAdded(NewFolderName, ENewItemAction::Select | ENewItemAction::Rename);
+	}
+}
+
+FDragValidationInfo FWorldTreeItem::ValidateDrop(FDragDropPayload& DraggedObjects, UWorld& InWorld) const
 {
 	// Dropping on the world means 'moving to the root' in folder terms
 	FFolderDropTarget Target(NAME_None);
-	return Target.ValidateDrop(DraggedObjects, World);
+	return Target.ValidateDrop(DraggedObjects, InWorld);
 }
 
-void FWorldTreeItem::OnDrop(FDragDropPayload& DraggedObjects, UWorld& World, const FDragValidationInfo& ValidationInfo, TSharedRef<SWidget> DroppedOnWidget)
+void FWorldTreeItem::OnDrop(FDragDropPayload& DraggedObjects, UWorld& InWorld, const FDragValidationInfo& ValidationInfo, TSharedRef<SWidget> DroppedOnWidget)
 {
 	FFolderDropTarget Target(NAME_None);
-	return Target.OnDrop(DraggedObjects, World, ValidationInfo, DroppedOnWidget);
+	return Target.OnDrop(DraggedObjects, InWorld, ValidationInfo, DroppedOnWidget);
 }
 
 void FWorldTreeItem::OpenWorldSettings() const

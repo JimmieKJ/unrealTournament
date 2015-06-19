@@ -87,19 +87,33 @@ void SGraphEditorImpl::NotifyGraphChanged()
 
 void SGraphEditorImpl::OnGraphChanged(const FEdGraphEditAction& InAction)
 {
-	if (!bNeedsRefresh)
+	if ( !bIsActiveTimerRegistered )
 	{
-		// Remove the old user interface nodes
-		GraphPanel->PurgeVisualRepresentation();
+		const UEdGraphSchema* Schema = EdGraphObj->GetSchema();
+		const bool bSchemaRequiresFullRefresh = Schema->ShouldAlwaysPurgeOnModification();
+
+		const bool bWasAddAction = (InAction.Action & GRAPHACTION_AddNode) != 0;
+		const bool bWasSelectAction = (InAction.Action & GRAPHACTION_SelectNode) != 0;
+		const bool bWasRemoveAction = (InAction.Action & GRAPHACTION_RemoveNode) != 0;
+
+		// If we did a 'default action' (or some other action not handled by SGraphPanel::OnGraphChanged
+		// or if we're using a schema that always needs a full refresh, then purge the current nodes
+		// and queue an update:
+		if (bSchemaRequiresFullRefresh || 
+			(!bWasAddAction && !bWasSelectAction && !bWasRemoveAction) )
+		{
+			GraphPanel->PurgeVisualRepresentation();
+			// Trigger the refresh
+			bIsActiveTimerRegistered = true;
+			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SGraphEditorImpl::TriggerRefresh));
+		}
 	}
-
-	bNeedsRefresh = true;
 }
 
-void SGraphEditorImpl::GraphEd_OnPanelUpdated()
-{
-	bNeedsRefresh = false;
-}
+//void SGraphEditorImpl::GraphEd_OnPanelUpdated()
+//{
+//	
+//}
 
 const TSet<class UObject*>& SGraphEditorImpl::GetSelectedNodes() const
 {
@@ -122,8 +136,11 @@ void SGraphEditorImpl::SelectAllNodes()
 	for (int32 NodeIndex = 0; NodeIndex < EdGraphObj->Nodes.Num(); ++NodeIndex)
 	{
 		UEdGraphNode* Node = EdGraphObj->Nodes[NodeIndex];
-		ensureMsg(Node->IsValidLowLevel(), TEXT("Node is invalid"));
-		NewSet.Add(Node);
+		if (Node)
+		{
+			ensureMsg(Node->IsValidLowLevel(), TEXT("Node is invalid"));
+			NewSet.Add(Node);
+		}
 	}
 	GraphPanel->SelectionManager.SetSelectionSet(NewSet);
 }
@@ -155,6 +172,8 @@ void SGraphEditorImpl::Construct( const FArguments& InArgs )
 	OnNavigateHistoryBack = InArgs._OnNavigateHistoryBack;
 	OnNavigateHistoryForward = InArgs._OnNavigateHistoryForward;
 	OnNodeSpawnedByKeymap = InArgs._GraphEvents.OnNodeSpawnedByKeymap;
+
+	bIsActiveTimerRegistered = false;
 
 	// Make sure that the editor knows about what kinds
 	// of commands GraphEditor can do.
@@ -188,8 +207,7 @@ void SGraphEditorImpl::Construct( const FArguments& InArgs )
 
 	GraphPinForMenu = NULL;
 	EdGraphObj = InArgs._GraphToEdit;
-	bNeedsRefresh = false;
-		
+
 	OnFocused = InArgs._GraphEvents.OnFocused;
 	OnCreateActionMenu = InArgs._GraphEvents.OnCreateActionMenu;
 	
@@ -241,7 +259,7 @@ void SGraphEditorImpl::Construct( const FArguments& InArgs )
 			.OnVerifyTextCommit( InArgs._GraphEvents.OnVerifyTextCommit )
 			.OnTextCommitted( InArgs._GraphEvents.OnTextCommitted )
 			.OnSpawnNodeByShortcut( InArgs._GraphEvents.OnSpawnNodeByShortcut )
-			.OnUpdateGraphPanel( this, &SGraphEditorImpl::GraphEd_OnPanelUpdated )
+			//.OnUpdateGraphPanel( this, &SGraphEditorImpl::GraphEd_OnPanelUpdated )
 			.OnDisallowedPinConnection( InArgs._GraphEvents.OnDisallowedPinConnection )
 			.ShowGraphStateOverlay(InArgs._ShowGraphStateOverlay)
 		]
@@ -372,12 +390,6 @@ SGraphEditorImpl::~SGraphEditorImpl()
 
 void SGraphEditorImpl::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	if (bNeedsRefresh)
-	{
-		bNeedsRefresh = false;
-		GraphPanel->Update();
-	}	
-
 	// If locked to another graph editor, and our panel has moved, synchronise the locked graph editor accordingly
 	if ((EdGraphObj != NULL) && GraphPanel.IsValid())
 	{
@@ -386,6 +398,14 @@ void SGraphEditorImpl::Tick( const FGeometry& AllottedGeometry, const double InC
 			FocusLockedEditorHere();
 		}
 	}
+}
+
+EActiveTimerReturnType SGraphEditorImpl::TriggerRefresh( double InCurrentTime, float InDeltaTime )
+{
+	GraphPanel->Update();
+
+	bIsActiveTimerRegistered = false;
+	return EActiveTimerReturnType::Stop;
 }
 
 void SGraphEditorImpl::OnClosedActionMenu()

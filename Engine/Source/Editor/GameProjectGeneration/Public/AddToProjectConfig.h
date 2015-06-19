@@ -84,6 +84,9 @@ struct FNewClassInfo
 	/** Get the path needed to include this class into another file */
 	bool GetIncludePath(FString& OutIncludePath) const;
 
+	/** Gets header filename of the base class. */
+	FString GetBaseClassHeaderFilename() const;
+
 	/** Given a class name, generate the header file (.h) that should be used for this class */
 	FString GetHeaderFilename(const FString& ClassName) const;
 
@@ -107,14 +110,28 @@ struct FNewClassInfo
 /** @todo make this ini configurable */
 struct FFeaturedClasses
 {
+public:
 	/** Get a list of all featured native class types */
 	static TArray<FNewClassInfo> AllNativeClasses();
 	
 	/** Get a list of all featured Actor class types */
 	static TArray<FNewClassInfo> ActorClasses();
 
-	/** Get a list of all featured class types */
+	/** Get a list of all featured Component class types */
 	static TArray<FNewClassInfo> ComponentClasses();
+
+private:
+	/** Append the featured Actor class types that are commonly used */
+	static void AddCommonActorClasses(TArray<FNewClassInfo>& Array);
+
+	/** Append the featured Actor class types that are less commonly used */
+	static void AddExtraActorClasses(TArray<FNewClassInfo>& Array);
+
+	/** Append the featured Component class types that are commonly used */
+	static void AddCommonComponentClasses(TArray<FNewClassInfo>& Array);
+
+	/** Append the featured Component class types that are less commonly used */
+	static void AddExtraComponentClasses(TArray<FNewClassInfo>& Array);
 };
 
 /** Add to project dialog configuration structure */

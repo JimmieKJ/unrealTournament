@@ -15,7 +15,7 @@ class GAMEPLAYABILITIES_API AGameplayAbilityTargetActor_Radius : public AGamepla
 
 public:
 
-	virtual void StartTargeting(UGameplayAbility* Ability);
+	virtual void StartTargeting(UGameplayAbility* Ability) override;
 	
 	virtual void ConfirmTargetingAndContinue() override;
 

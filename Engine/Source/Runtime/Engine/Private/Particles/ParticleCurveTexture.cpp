@@ -158,7 +158,7 @@ public:
 		VertexDeclarationRHI = RHICreateVertexDeclaration( Elements );
 	}
 
-	virtual void ReleaseRHI()
+	virtual void ReleaseRHI() override
 	{
 		VertexDeclarationRHI.SafeRelease();
 	}

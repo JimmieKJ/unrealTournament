@@ -11,5 +11,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		public string CrashesByWeek { get; set; }
 		/// <summary>An encoded table of crashes by day for the display plugin to use.</summary>
 		public string CrashesByDay { get; set; }
+		/// <summary>An encoded table of buggs by day for the display plugin to use.</summary>
+		public string BuggsByDay { get; set; }
+
+		/// <summary></summary>
+		public string GenerationTime { get; set; }
 	}
 }

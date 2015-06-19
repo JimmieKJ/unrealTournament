@@ -38,5 +38,5 @@ class UFbxSkeletalMeshImportData : public UFbxMeshImportData
 	/** Gets or creates fbx import data for the specified skeletal mesh */
 	static UFbxSkeletalMeshImportData* GetImportDataForSkeletalMesh(USkeletalMesh* SkeletalMesh, UFbxSkeletalMeshImportData* TemplateForCreation);
 
-	bool CanEditChange( const UProperty* InProperty ) const;
+	bool CanEditChange( const UProperty* InProperty ) const override;
 };

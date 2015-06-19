@@ -7,23 +7,25 @@
 #include "OnlineUserFacebook.h"
 
 FOnlineSubsystemFacebook::FOnlineSubsystemFacebook() 
-	: FacebookIdentity(NULL)
-	, FacebookFriends(NULL)
-	, FacebookSharing(NULL)
+	: FacebookIdentity(nullptr)
+	, FacebookFriends(nullptr)
+	, FacebookSharing(nullptr)
+	, FacebookUser(nullptr)
 {
 
 }
 
 FOnlineSubsystemFacebook::~FOnlineSubsystemFacebook()
 {
-	FacebookIdentity = NULL;
-	FacebookFriends = NULL;
-	FacebookSharing = NULL; 
+	FacebookIdentity = nullptr;
+	FacebookFriends = nullptr;
+	FacebookSharing = nullptr; 
+	FacebookUser = nullptr;
 }
 
 IOnlineSessionPtr FOnlineSubsystemFacebook::GetSessionInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineIdentityPtr FOnlineSubsystemFacebook::GetIdentityInterface() const
@@ -36,59 +38,74 @@ IOnlineFriendsPtr FOnlineSubsystemFacebook::GetFriendsInterface() const
 	return FacebookFriends;
 }
 
+IOnlineGroupsPtr FOnlineSubsystemFacebook::GetGroupsInterface() const
+{
+	return nullptr;
+}
+
+IOnlinePartyPtr FOnlineSubsystemFacebook::GetPartyInterface() const
+{
+	return nullptr;
+}
+
 IOnlineSharedCloudPtr FOnlineSubsystemFacebook::GetSharedCloudInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineUserCloudPtr FOnlineSubsystemFacebook::GetUserCloudInterface() const
 {
-	return NULL;
+	return nullptr;
+}
+
+IOnlineUserCloudPtr FOnlineSubsystemFacebook::GetUserCloudInterface(const FString& Key) const
+{
+	return nullptr;
 }
 
 IOnlineLeaderboardsPtr FOnlineSubsystemFacebook::GetLeaderboardsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineVoicePtr FOnlineSubsystemFacebook::GetVoiceInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineExternalUIPtr FOnlineSubsystemFacebook::GetExternalUIInterface() const	
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineTimePtr FOnlineSubsystemFacebook::GetTimeInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineTitleFilePtr FOnlineSubsystemFacebook::GetTitleFileInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineEntitlementsPtr FOnlineSubsystemFacebook::GetEntitlementsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineStorePtr FOnlineSubsystemFacebook::GetStoreInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineEventsPtr FOnlineSubsystemFacebook::GetEventsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineAchievementsPtr FOnlineSubsystemFacebook::GetAchievementsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineSharingPtr FOnlineSubsystemFacebook::GetSharingInterface() const
@@ -103,28 +120,42 @@ IOnlineUserPtr FOnlineSubsystemFacebook::GetUserInterface() const
 
 IOnlineMessagePtr FOnlineSubsystemFacebook::GetMessageInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlinePresencePtr FOnlineSubsystemFacebook::GetPresenceInterface() const
 {
-	return NULL;
-}
-
-IOnlinePartyPtr FOnlineSubsystemFacebook::GetPartyInterface() const
-{
-	return NULL;
+	return nullptr;
 }
 
 IOnlineChatPtr FOnlineSubsystemFacebook::GetChatInterface() const
 {
-	return NULL;
+	return nullptr;
+}
+
+IOnlineTurnBasedPtr FOnlineSubsystemFacebook::GetTurnBasedInterface() const
+{
+	return nullptr;
+}
+
+static void ListenFacebookOpenURL(UIApplication* application, NSURL* url, NSString* sourceApplication, id annotation)
+{
+	[[FBSDKApplicationDelegate sharedInstance] application:application
+												   openURL:url
+										 sourceApplication:sourceApplication
+												annotation:annotation];
 }
 
 bool FOnlineSubsystemFacebook::Init() 
 {
 	bool bSuccessfullyStartedUp = true;
 
+	[FBSDKAppEvents activateApp];
+	FIOSCoreDelegates::OnOpenURL.AddStatic(&ListenFacebookOpenURL);
+	
+	[[FBSDKApplicationDelegate sharedInstance] application:[UIApplication sharedApplication]
+							 didFinishLaunchingWithOptions:[IOSAppDelegate GetDelegate].launchOptions];
+	
 	FacebookIdentity = MakeShareable(new FOnlineIdentityFacebook());
 	FacebookSharing = MakeShareable(new FOnlineSharingFacebook(this));
 	FacebookFriends = MakeShareable(new FOnlineFriendsFacebook(this));
@@ -153,6 +184,11 @@ bool FOnlineSubsystemFacebook::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDe
 
 bool FOnlineSubsystemFacebook::Tick(float DeltaTime)
 {
+	if (!FOnlineSubsystemImpl::Tick(DeltaTime))
+	{
+		return false;
+	}
+
 	return true;
 }
 

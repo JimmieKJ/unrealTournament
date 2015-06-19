@@ -32,19 +32,22 @@ void STextComboBox::Construct( const FArguments& InArgs )
 	SelectedItem = StringCombo->GetSelectedItem();
 }
 
-FString STextComboBox::GetItemTextLabel(TSharedPtr<FString> StringItem) const
+FText STextComboBox::GetItemTextLabel(TSharedPtr<FString> StringItem) const
 {
 	if (!StringItem.IsValid())
 	{
-		return FString();
+		return FText::GetEmpty();
 	}
 
-	return (GetTextLabelForItem.IsBound())
+	// todo: jdale - should this be using FText natively?
+	return FText::FromString(
+		(GetTextLabelForItem.IsBound())
 		? GetTextLabelForItem.Execute(StringItem)
-		: *StringItem;
+		: *StringItem
+		);
 }
 
-FString STextComboBox::GetSelectedTextLabel() const
+FText STextComboBox::GetSelectedTextLabel() const
 {
 	TSharedPtr<FString> StringItem = StringCombo->GetSelectedItem();
 	return GetItemTextLabel(StringItem);

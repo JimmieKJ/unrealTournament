@@ -75,6 +75,8 @@ FName FSubversionSourceControlState::GetIconName() const
 		}
 	case EWorkingCopyState::NotControlled:
 		return FName("Subversion.NotInDepot");
+	case EWorkingCopyState::Deleted:
+		return FName("Subversion.MarkedForDelete");
 	}
 
 	return NAME_None;
@@ -108,6 +110,8 @@ FName FSubversionSourceControlState::GetSmallIconName() const
 		}
 	case EWorkingCopyState::NotControlled:
 		return FName("Subversion.NotInDepot_Small");
+	case EWorkingCopyState::Deleted:
+		return FName("Subversion.MarkedForDelete_Small");
 	}
 
 	return NAME_None;
@@ -124,7 +128,7 @@ FText FSubversionSourceControlState::GetDisplayName() const
 		return FText::Format( LOCTEXT("LockedOther", "Locked by "), FText::FromString(LockUser) );
 	}
 
-	switch(WorkingCopyState)
+	switch(WorkingCopyState) //-V719
 	{
 	case EWorkingCopyState::Unknown:
 		return LOCTEXT("Unknown", "Unknown");
@@ -177,7 +181,7 @@ FText FSubversionSourceControlState::GetDisplayTooltip() const
 		return FText::Format( LOCTEXT("LockedOther_Tooltip", "Locked for editing by: {0}"), FText::FromString(LockUser) );
 	}
 
-	switch(WorkingCopyState)
+	switch(WorkingCopyState) //-V719
 	{
 	case EWorkingCopyState::Unknown:
 		return LOCTEXT("Unknown_Tooltip", "Unknown source control state");

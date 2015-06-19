@@ -39,17 +39,17 @@ bool UTextProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 	return FTextInspector::GetDisplayString(ValueA).IsEmpty();
 }
 
-void UTextProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UTextProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	const TCppType PropertyValue = GetPropertyValue(Value);
-	if ( Ar.IsSaving() && Ar.IsPersistent() && PropertyValue.IsTransient() )
+/*	if ( Ar.IsSaving() && Ar.IsPersistent() && PropertyValue.IsTransient() )
 	{
 		// Convert to a string and back, to get it set as an invariant message instead of transient. If it stayed transient, error messages recursively expand
 		FString ErrorMessage = FText::Format( FText::SerializationFailureError, FText::FromString( FTextInspector::GetDisplayString(PropertyValue) ) ).ToString();
 		UE_LOG( LogProperty, Warning, TEXT("%s"), *ErrorMessage);
 		SetPropertyValue(Value, FText::FromString(ErrorMessage));
 	}
-
+*/
 	Ar << *GetPropertyValuePtr(Value);
 }
 
@@ -106,7 +106,7 @@ const TCHAR* UTextProperty::ImportText_Internal( const TCHAR* Buffer, void* Data
 		BufferAsString = FString(Temp);
 	}
 
-	*Text = FText::FromString( FString(BufferAsString) );
+	*Text = FText::FromString(FString(BufferAsString));
 
 	return Buffer;
 }

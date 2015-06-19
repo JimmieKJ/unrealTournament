@@ -2,8 +2,6 @@
 
 #include "SlatePrivatePCH.h"
 
-DECLARE_CYCLE_STAT( TEXT("OnPaint SSlider"), STAT_SlateOnPaint_SSlider, STATGROUP_Slate );
-
 void SSlider::Construct( const SSlider::FArguments& InDeclaration )
 {
 	check(InDeclaration._Style);
@@ -24,10 +22,6 @@ void SSlider::Construct( const SSlider::FArguments& InDeclaration )
 
 int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-#if SLATE_HD_STATS
-	SCOPE_CYCLE_COUNTER(STAT_SlateOnPaint_SSlider);
-#endif
-
 	// we draw the slider like a horizontal slider regardless of the orientation, and apply a render transform to make it display correctly.
 	// However, the AllottedGeometry is computed as it will be rendered, so we have to use the "horizontal orientation" when doing drawing computations.
 	const float AllottedWidth = Orientation == Orient_Horizontal ? AllottedGeometry.GetLocalSize().X : AllottedGeometry.GetLocalSize().Y;
@@ -109,7 +103,7 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	return LayerId;
 }
 
-FVector2D SSlider::ComputeDesiredSize() const
+FVector2D SSlider::ComputeDesiredSize( float ) const
 {
 	static const FVector2D SSliderDesiredSize(16.0f, 16.0f);
 

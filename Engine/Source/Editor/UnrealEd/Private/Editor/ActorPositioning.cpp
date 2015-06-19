@@ -33,7 +33,8 @@ FActorPositionTraceResult FActorPositioning::TraceWorldForPosition(const FViewpo
 
 	// Start with a ray that encapsulates the entire world
 	FVector RayStart = Cursor.GetOrigin();
-	if (ViewportType == LVT_OrthoXY || ViewportType == LVT_OrthoXZ || ViewportType == LVT_OrthoYZ)
+	if (ViewportType == LVT_OrthoXY || ViewportType == LVT_OrthoXZ || ViewportType == LVT_OrthoYZ ||
+		ViewportType == LVT_OrthoNegativeXY || ViewportType == LVT_OrthoNegativeXZ || ViewportType == LVT_OrthoNegativeYZ)
 	{
 		RayStart -= Cursor.GetDirection() * HALF_WORLD_MAX/2;
 	}
@@ -99,7 +100,7 @@ FActorPositionTraceResult FActorPositioning::TraceWorldForPosition(const UWorld&
 	}
 
 	FActorPositionTraceResult Results;
-	if ( InWorld.LineTraceMulti(Hits, RayStart, RayEnd, Param, FCollisionObjectQueryParams(FCollisionObjectQueryParams::InitType::AllObjects)) )
+	if ( InWorld.LineTraceMultiByObjectType(Hits, RayStart, RayEnd, FCollisionObjectQueryParams(FCollisionObjectQueryParams::InitType::AllObjects), Param) )
 	{
 		{
 			// Filter out anything that should be ignored

@@ -98,7 +98,7 @@ static bool IsPoolingEnabled()
 
 FUniformBufferRHIRef FD3D11DynamicRHI::RHICreateUniformBuffer(const void* Contents,const FRHIUniformBufferLayout& Layout,EUniformBufferUsage Usage)
 {
-	check(IsInRenderingThread() || IsInRHIThread());
+	check(IsInRenderingThread());
 
 	FD3D11UniformBuffer* NewUniformBuffer = nullptr;
 	const uint32 NumBytes = Layout.ConstantBufferSize;

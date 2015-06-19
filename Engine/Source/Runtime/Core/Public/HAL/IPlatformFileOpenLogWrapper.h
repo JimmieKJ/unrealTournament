@@ -45,7 +45,7 @@ public:
 			TArray<FString> PlatformNames;
 			if (!(PlatformStr == TEXT("None") || PlatformStr == TEXT("All")))
 			{
-				PlatformStr.ParseIntoArray(&PlatformNames, TEXT("+"), true);
+				PlatformStr.ParseIntoArray(PlatformNames, TEXT("+"), true);
 			}
 
 			for (int32 Platform = 0;Platform < PlatformNames.Num(); ++Platform)
@@ -57,7 +57,11 @@ public:
 				LogFilePath = FPaths::Combine( *LogFileDirectory, TEXT("GameOpenOrder.log"));
 #endif
 				Inner->CreateDirectoryTree(*LogFileDirectory);
-				LogOutput.Add(Inner->OpenWrite(*LogFilePath, false, false));
+				auto* FileHandle = Inner->OpenWrite(*LogFilePath, false, false);
+				if (FileHandle) 
+				{
+					LogOutput.Add(FileHandle);
+				}
 			}
 		}
 		else
@@ -69,7 +73,11 @@ public:
 			LogFilePath = FPaths::Combine( *LogFileDirectory, TEXT("GameOpenOrder.log"));
 #endif
 			Inner->CreateDirectoryTree(*LogFileDirectory);
-			LogOutput.Add(Inner->OpenWrite(*LogFilePath, false, false));
+			auto* FileHandle = Inner->OpenWrite(*LogFilePath, false, false);
+			if (FileHandle)
+			{
+				LogOutput.Add(FileHandle);
+			}
 		}
 		return true;
 	}
@@ -125,9 +133,9 @@ public:
 	{
 		return LowerLevel->GetFilenameOnDisk(Filename);
 	}
-	virtual IFileHandle*	OpenRead(const TCHAR* Filename) override
+	virtual IFileHandle*	OpenRead(const TCHAR* Filename, bool bAllowWrite) override
 	{
-		IFileHandle* Result = LowerLevel->OpenRead(Filename);
+		IFileHandle* Result = LowerLevel->OpenRead(Filename, bAllowWrite);
 		if (Result)
 		{
 			CriticalSection.Lock();

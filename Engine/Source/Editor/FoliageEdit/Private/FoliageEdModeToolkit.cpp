@@ -2,7 +2,6 @@
 
 #include "UnrealEd.h"
 #include "FoliageEdModeToolkit.h"
-
 #include "SFoliageEdit.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEditMode"
@@ -46,8 +45,12 @@ TSharedPtr<SWidget> FFoliageEdModeToolkit::GetInlineContent() const
 
 void FFoliageEdModeToolkit::RefreshFullList()
 {
-	// When an undo relates to the Foliage Edit mode, refresh the list.
 	FoliageEdWidget->RefreshFullList();
+}
+
+void FFoliageEdModeToolkit::NotifyFoliageTypeMeshChanged(class UFoliageType* FoliageType)
+{
+	FoliageEdWidget->NotifyFoliageTypeMeshChanged(FoliageType);
 }
 
 #undef LOCTEXT_NAMESPACE

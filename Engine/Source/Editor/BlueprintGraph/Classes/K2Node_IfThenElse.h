@@ -5,7 +5,7 @@
 #include "K2Node.h"
 #include "K2Node_IfThenElse.generated.h"
 
-UCLASS(MinimalAPI)
+UCLASS(MinimalAPI, meta=(Keywords = "if bool"))
 class UK2Node_IfThenElse : public UK2Node
 {
 	GENERATED_UCLASS_BODY()
@@ -15,7 +15,6 @@ class UK2Node_IfThenElse : public UK2Node
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
-	virtual FString GetKeywords() const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Branch_16x"); }
 	// End UEdGraphNode interface
 

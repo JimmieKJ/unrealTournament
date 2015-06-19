@@ -8,6 +8,9 @@
 /* Private dependencies
  *****************************************************************************/
 
+#include "ISessionInfo.h"
+#include "ISessionInstanceInfo.h"
+#include "ISessionManager.h"
 #include "Messaging.h"
 #include "ProfilerClient.h"
 #include "StatsData.h"

@@ -2,14 +2,18 @@
 
 #pragma once
 
+#include "IContentSource.generated.h"
+
 /** Defines categories for content sources. */
-enum class EContentSourceCategory
+UENUM()
+enum class EContentSourceCategory:uint8
 {
 	BlueprintFeature,
 	CodeFeature,
 	Content,
 	Unknown
 };
+
 
 /** Represents raw binary image data in png format. */
 class FImageData
@@ -80,29 +84,31 @@ class IContentSource
 {
 public:
 	/** Gets the name of the content source as an array of localized strings. */
-	virtual TArray<FLocalizedText> GetLocalizedNames() = 0;
+	virtual TArray<FLocalizedText> GetLocalizedNames() const = 0;
 
 	/** Gets the description of the content source as an array or localized strings. */
-	virtual TArray<FLocalizedText> GetLocalizedDescriptions() = 0;
+	virtual TArray<FLocalizedText> GetLocalizedDescriptions() const = 0;
 
 	/** Gets the category for the content source. */
-	virtual EContentSourceCategory GetCategory() = 0;
+	virtual EContentSourceCategory GetCategory() const = 0;
 
 	/** Gets the image data for the icon which should represent the content source in the UI. */
-	virtual TSharedPtr<FImageData> GetIconData() = 0;
+	virtual TSharedPtr<FImageData> GetIconData() const = 0;
 
 	/** Gets an array or image data for screenshots for the content source. */
-	virtual TArray<TSharedPtr<FImageData>> GetScreenshotData() = 0;
+	virtual TArray<TSharedPtr<FImageData>> GetScreenshotData() const = 0;
 
 	/** Gets the asset types used in this pack. */
-	virtual TArray<FLocalizedText> GetLocalizedAssetTypes() = 0;
+	virtual TArray<FLocalizedText> GetLocalizedAssetTypes() const = 0;
 
 	/** Gets the class types used in this pack. */
-	virtual FString GetClassTypesUsed() = 0;
+	virtual FString GetClassTypesUsed() const = 0;
 
+	/** Gets the category for the content source. */
+	virtual FString GetSortKey() const = 0;
 	/*
 	 * Installs the content in the content source to the specific path. 
-	 * @returns true if install suceeded
+	 * @returns true if install succeeded
 	 */
 	virtual bool InstallToProject(FString InstallPath) = 0;
 

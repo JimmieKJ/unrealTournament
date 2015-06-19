@@ -17,7 +17,12 @@ typedef void(*STRUCT_DTOR)( void* TPtr );					// destruct
  * on the UObject that a modification was performed on, but it does not see other changes that may have
  * to be remembered in order to properly restore the object internals.
  */
-class ITransactionObjectAnnotation { };
+class ITransactionObjectAnnotation 
+{ 
+public:
+	virtual ~ITransactionObjectAnnotation() {}
+	virtual void AddReferencedObjects(class FReferenceCollector& Collector) = 0;
+};
 
 
 /**

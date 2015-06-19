@@ -67,7 +67,7 @@ protected:
 public:
 
 	/** Elapsed game time since match has started. */
-	UPROPERTY(replicated, BlueprintReadOnly, Category=GameState)
+	UPROPERTY(replicatedUsing=OnRep_ElapsedTime, BlueprintReadOnly, Category = GameState)
 	int32 ElapsedTime;
 
 	/** Array of all PlayerStates, maintained on both server and clients (PlayerStates are always relevant) */
@@ -89,6 +89,10 @@ public:
 	/** Match state has changed */
 	UFUNCTION()
 	virtual void OnRep_MatchState();
+
+	/** Gives clients the chance to do something when time gets updates */
+	UFUNCTION()
+	virtual void OnRep_ElapsedTime();
 
 	// Begin AActor interface
 	virtual void PostInitializeComponents() override;

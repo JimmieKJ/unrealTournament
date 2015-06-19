@@ -5,11 +5,66 @@
 
 #include "EditorLoadingSavingSettings.generated.h"
 
+UENUM()
+namespace ELoadLevelAtStartup
+{
+	enum Type
+	{
+		None,
+		ProjectDefault,
+		LastOpened
+	};
+}
+
+/** A filter used by the auto reimport manager to explicitly include/exclude files matching the specified wildcard */
+USTRUCT()
+struct FAutoReimportWildcard
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** The wildcard filter as a string. Files that match this wildcard will be included/excluded according to the bInclude member */
+	UPROPERTY(EditAnywhere, config, Category=AutoReimport)
+	FString Wildcard;
+	
+	/** When true, files that match this wildcard will be included (if it doesn't fail any other filters), when false, matches will be excluded from the reimporter */
+	UPROPERTY(EditAnywhere, config, Category=AutoReimport)
+	bool bInclude;
+};
+
+/** Auto reimport settings for a specific directory */
+USTRUCT()
+struct FAutoReimportDirectoryConfig
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** The source directory to monitor. Either an absolute directory on the file system, or a virtual mounted path */
+	UPROPERTY(EditAnywhere, config, Category=AutoReimport)
+	FString SourceDirectory;
+
+	/** Where SourceDirectory points to an ordinary file system path, MountPoint specifies the virtual mounted location to import new files to. */
+	UPROPERTY(EditAnywhere, config, Category=AutoReimport)
+	FString MountPoint;
+
+	/** A set of wildcard filters to apply to this directory */
+	UPROPERTY(EditAnywhere, config, Category=AutoReimport)
+	TArray<FAutoReimportWildcard> Wildcards;
+
+	struct UNREALED_API FParseContext
+	{
+		TArray<TPair<FString, FString>> MountedPaths;
+		bool bEnableLogging;
+		FParseContext(bool bInEnableLogging = true);
+	};
+
+	/** Parse and validate the specified source directory / mount point combination */
+	UNREALED_API static bool ParseSourceDirectoryAndMountPoint(FString& SourceDirectory, FString& MountPoint, const FParseContext& InContext = FParseContext());
+};
+
 
 /**
  * Implements the Level Editor's loading and saving settings.
  */
-UCLASS(config=EditorUserSettings, autoexpandcategories=(AutoSave, AutoReimport, Blueprints))
+UCLASS(config=EditorPerProjectUserSettings, autoexpandcategories=(AutoSave, AutoReimport, Blueprints))
 class UNREALED_API UEditorLoadingSavingSettings
 	: public UObject
 {
@@ -17,9 +72,13 @@ class UNREALED_API UEditorLoadingSavingSettings
 
 public:
 
-	/** Whether to load a default example map at startup */
+	/** Whether to load a default example map at startup  */
 	UPROPERTY(EditAnywhere, config, Category=Startup)
-	uint32 bLoadDefaultLevelAtStartup:1;
+	TEnumAsByte<ELoadLevelAtStartup::Type> LoadLevelAtStartup;
+
+	/** Force project compilation at startup */
+	UPROPERTY(EditAnywhere, config, Category=Startup)
+	uint32 bForceCompilationAtStartup:1;
 
 	/** Whether to restore previously open assets at startup */
 	UPROPERTY(EditAnywhere, config, Category=Startup)
@@ -27,18 +86,36 @@ public:
 
 public:
 
+	/** Check that the current source control settings will play nicely with the auto-reimport feature */
+	void CheckSourceControlCompatability();
+
+private:
+
+	/** true when CheckSourceControlCompatability is enabled */
+	UPROPERTY(config)
+	bool bEnableSourceControlCompatabilityCheck;
+
+public:
+
 	/**Automatically reimports textures when a change to source content is detected */
 	UPROPERTY(EditAnywhere, config, Category=AutoReimport, meta=(DisplayName="Monitor Content Directories", ToolTip="When enabled, changes to made to source content files inside the content directories will automatically be reflected in the content browser."))
 	bool bMonitorContentDirectories;
 
+	UPROPERTY(config)
+	TArray<FString> AutoReimportDirectories_DEPRECATED;
+
 	/** Directories being monitored for Auto Reimport */
 	UPROPERTY(EditAnywhere, config, AdvancedDisplay,Category=AutoReimport, meta=(DisplayName="Directories to Monitor", ToolTip="Lists every directory to monitor for content changes. Can be virtual package paths (eg /Game/ or /MyPlugin/), or absolute paths on disk."))
-	TArray<FString> AutoReimportDirectories;
+	TArray<FAutoReimportDirectoryConfig> AutoReimportDirectorySettings;
 
+	UPROPERTY(EditAnywhere, config, AdvancedDisplay,Category=AutoReimport, meta=(ClampMin=0, ClampMax=60, DisplayName="Import Threshold Time", ToolTip="Specifies an amount of time to wait before a specific file change is considered for auto reimport"))
+	float AutoReimportThreshold;
 	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=AutoReimport, meta=(DisplayName="Auto Create Assets", ToolTip="When enabled, newly added source content files will be automatically imported into new assets."))
 	bool bAutoCreateAssets;
 	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=AutoReimport, meta=(DisplayName="Auto Delete Assets", ToolTip="When enabled, deleting a source content file will automatically prompt the deletion of any related assets."))
 	bool bAutoDeleteAssets;
+	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=AutoReimport, meta=(DisplayName="Detect Changes On Restart", ToolTip="When enabled, changes to monitored directories since UE4 was closed will be detected on restart.\n(Not recommended when working in collaboration with others using source control)."))
+	bool bDetectChangesOnRestart;
 
 	/** Internal setting to control whether we should ask the user whether we should automatically delete source files when their assets are deleted */
 	UPROPERTY(config)
@@ -82,6 +159,10 @@ public:
 
 public:
 
+	/** Whether to automatically checkout on asset modification */
+	UPROPERTY(EditAnywhere, config, Category=SourceControl)
+	uint32 bAutomaticallyCheckoutOnAssetModification:1;
+
 	/** Whether to automatically prompt for SCC checkout on asset modification */
 	UPROPERTY(EditAnywhere, config, Category=SourceControl)
 	uint32 bPromptForCheckoutOnAssetModification:1;
@@ -118,6 +199,7 @@ protected:
 	// UObject overrides
 
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent ) override;
+	virtual void PostInitProperties() override;
 
 private:
 

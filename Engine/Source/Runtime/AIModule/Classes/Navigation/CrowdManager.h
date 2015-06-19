@@ -225,7 +225,7 @@ class AIMODULE_API UCrowdManager : public UObject
 	/** notify called when detour navmesh is changed */
 	void OnNavMeshUpdate();
 
-	UWorld* GetWorld() const;
+	UWorld* GetWorld() const override;
 
 	static UCrowdManager* GetCurrent(UObject* WorldContextObject);
 	static UCrowdManager* GetCurrent(UWorld* World);
@@ -269,6 +269,10 @@ protected:
 
 	uint32 bPruneStartedOffmeshConnections : 1;
 	uint32 bSingleAreaVisibilityOptimization : 1;
+	
+	/** should crowd simulation resolve collisions between agents? if not, this will be handled by their movement components */
+	UPROPERTY(config, EditAnywhere, Category = Config)
+	uint32 bResolveCollisions : 1;
 
 	/** agents registered in crowd manager */
 	TMap<ICrowdAgentInterface*, FCrowdAgentData> ActiveAgents;
@@ -321,5 +325,6 @@ protected:
 	void DrawDebugVelocityObstacles(const dtCrowdAgent* CrowdAgent) const;
 	void DrawDebugPathOptimization(const dtCrowdAgent* CrowdAgent) const;
 	void DrawDebugNeighbors(const dtCrowdAgent* CrowdAgent) const;
+	void DrawDebugSharedBoundary() const;
 #endif
 };

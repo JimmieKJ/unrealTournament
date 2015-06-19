@@ -96,9 +96,41 @@ public:
 	virtual FString GetUserID() const = 0;
 
 	/**
+	 * Sets a user defined string as the build information/version for the session
+	 */
+	virtual void SetBuildInfo(const FString& InBuildInfo)
+	{
+		RecordEvent(TEXT("BuildInfo"), TEXT("BuildInfo"), InBuildInfo);
+	}
+
+	/**
+	 * Sets the gender the game believes the user is as part of the session
+	 */
+	virtual void SetGender(const FString& InGender)
+	{
+		RecordEvent(TEXT("Gender"), TEXT("Gender"), InGender);
+	}
+
+	/**
+	 * Sets the location the game believes the user is playing in as part of the session
+	 */
+	virtual void SetLocation(const FString& InLocation)
+	{
+		RecordEvent(TEXT("Location"), TEXT("Location"), InLocation);
+	}
+
+	/**
+	 * Sets the location the game believes the user is playing in as part of the session
+	 */
+	virtual void SetAge(const int32 InAge)
+	{
+		RecordEvent(TEXT("Age"), TEXT("Age"), *TTypeToString<int32>::ToString(InAge));
+	}
+
+	/**
 	 * Records a named event with an array of attributes
 	 *
-	 * @param EventName name of hte event
+	 * @param EventName name of the event
 	 * @param ParamArray array of attribute name/value pairs
 	 */
 	virtual void RecordEvent(const FString& EventName, const TArray<FAnalyticsEventAttribute>& Attributes) = 0;
@@ -106,7 +138,7 @@ public:
 	/**
 	 * Overload for RecordEvent that takes no parameters
 	 *
-	 * @param EventName name of hte event
+	 * @param EventName name of the event
 	 */
 	void RecordEvent(const FString& EventName)
 	{
@@ -154,11 +186,41 @@ public:
 	virtual void RecordItemPurchase(const FString& ItemId, const FString& Currency, int PerItemCost, int ItemQuantity)
 	{
 		TArray<FAnalyticsEventAttribute> Params;
-		Params.Add(FAnalyticsEventAttribute(TEXT("ItemId"), ItemId));
 		Params.Add(FAnalyticsEventAttribute(TEXT("Currency"), Currency));
 		Params.Add(FAnalyticsEventAttribute(TEXT("PerItemCost"), PerItemCost));
+		RecordItemPurchase(ItemId, ItemQuantity, Params);
+	}
+
+	/**
+	 * Record an in-game purchase of a an item.
+	 * 
+	 * Note that not all providers support item purchase events. In this case this method
+	 * is equivalent to sending a regular event with name "Item Purchase".
+	 * 
+	 * @param ItemId - the ID of the item, should be registered with the provider first.
+	 * @param ItemQuantity - the number of Items purchased.
+	 * @param EventAttrs - a list of key/value pairs to assign to this event
+	 */
+	virtual void RecordItemPurchase(const FString& ItemId, int ItemQuantity, const TArray<FAnalyticsEventAttribute>& EventAttrs)
+	{
+		TArray<FAnalyticsEventAttribute> Params(EventAttrs);
+		Params.Add(FAnalyticsEventAttribute(TEXT("ItemId"), ItemId));
 		Params.Add(FAnalyticsEventAttribute(TEXT("ItemQuantity"), ItemQuantity));
 		RecordEvent(TEXT("Item Purchase"), Params);
+	}
+
+	/**
+	 * Record an in-game purchase of a an item.
+	 * 
+	 * Note that not all providers support item purchase events. In this case this method
+	 * is equivalent to sending a regular event with name "Item Purchase".
+	 * 
+	 * @param ItemId - the ID of the item, should be registered with the provider first.
+	 * @param ItemQuantity - the number of Items purchased.
+	 */
+	void RecordItemPurchase(const FString& ItemId, int ItemQuantity)
+	{
+		RecordItemPurchase(ItemId, ItemQuantity, TArray<FAnalyticsEventAttribute>());
 	}
 
 	/**
@@ -176,12 +238,42 @@ public:
 	virtual void RecordCurrencyPurchase(const FString& GameCurrencyType, int GameCurrencyAmount, const FString& RealCurrencyType, float RealMoneyCost, const FString& PaymentProvider)
 	{
 		TArray<FAnalyticsEventAttribute> Params;
-		Params.Add(FAnalyticsEventAttribute(TEXT("GameCurrencyType"), GameCurrencyType));
-		Params.Add(FAnalyticsEventAttribute(TEXT("GameCurrencyAmount"), GameCurrencyAmount));
 		Params.Add(FAnalyticsEventAttribute(TEXT("RealCurrencyType"), RealCurrencyType));
 		Params.Add(FAnalyticsEventAttribute(TEXT("RealMoneyCost"), RealMoneyCost));
 		Params.Add(FAnalyticsEventAttribute(TEXT("PaymentProvider"), PaymentProvider));
+		RecordCurrencyPurchase(GameCurrencyType, GameCurrencyAmount, Params);
+	}
+
+	/**
+	 * Record a purchase of in-game currency using real-world money.
+	 * 
+	 * Note that not all providers support currency events. In this case this method
+	 * is equivalent to sending a regular event with name "Currency Purchase".
+	 * 
+	 * @param GameCurrencyType - type of in game currency purchased, should be registered with the provider first.
+	 * @param GameCurrencyAmount - amount of in game currency purchased.
+	 * @param EventAttrs - a list of key/value pairs to assign to this event
+	 */
+	virtual void RecordCurrencyPurchase(const FString& GameCurrencyType, int GameCurrencyAmount, const TArray<FAnalyticsEventAttribute>& EventAttrs)
+	{
+		TArray<FAnalyticsEventAttribute> Params(EventAttrs);
+		Params.Add(FAnalyticsEventAttribute(TEXT("GameCurrencyType"), GameCurrencyType));
+		Params.Add(FAnalyticsEventAttribute(TEXT("GameCurrencyAmount"), GameCurrencyAmount));
 		RecordEvent(TEXT("Currency Purchase"), Params);
+	}
+
+	/**
+	 * Record an in-game purchase of a an item.
+	 * 
+	 * Note that not all providers support item purchase events. In this case this method
+	 * is equivalent to sending a regular event with name "Item Purchase".
+	 * 
+	 * @param ItemId - the ID of the item, should be registered with the provider first.
+	 * @param ItemQuantity - the number of Items purchased.
+	 */
+	virtual void RecordCurrencyPurchase(const FString& GameCurrencyType, int GameCurrencyAmount)
+	{
+		RecordCurrencyPurchase(GameCurrencyType, GameCurrencyAmount, TArray<FAnalyticsEventAttribute>());
 	}
 
 	/**
@@ -195,10 +287,110 @@ public:
 	 */
 	virtual void RecordCurrencyGiven(const FString& GameCurrencyType, int GameCurrencyAmount)
 	{
-		TArray<FAnalyticsEventAttribute> Params;
+		RecordCurrencyGiven(GameCurrencyType, GameCurrencyAmount, TArray<FAnalyticsEventAttribute>());
+	}
+
+	/**
+	 * Record a gift of in-game currency from the game itself.
+	 * 
+	 * Note that not all providers support currency events. In this case this method
+	 * is equivalent to sending a regular event with name "Currency Given".
+	 * 
+	 * @param GameCurrencyType - type of in game currency given, should be registered with the provider first.
+	 * @param GameCurrencyAmount - amount of in game currency given.
+	 * @param EventAttrs - a list of key/value pairs to assign to this event
+	 */
+	virtual void RecordCurrencyGiven(const FString& GameCurrencyType, int GameCurrencyAmount, const TArray<FAnalyticsEventAttribute>& EventAttrs)
+	{
+		TArray<FAnalyticsEventAttribute> Params(EventAttrs);
 		Params.Add(FAnalyticsEventAttribute(TEXT("GameCurrencyType"), GameCurrencyType));
 		Params.Add(FAnalyticsEventAttribute(TEXT("GameCurrencyAmount"), GameCurrencyAmount));
 		RecordEvent(TEXT("Currency Given"), Params);
+	}
+
+	/**
+	 * Records an error that has happened in the game
+	 * 
+	 * Note that not all providers support all events. In this case this method
+	 * is equivalent to sending a regular event with name "Game Error".
+	 *
+	 * @param Error - the error string to record
+	 * @param EventAttrs - a list of key/value pairs to assign to this event
+	 */
+	virtual void RecordError(const FString& Error, const TArray<FAnalyticsEventAttribute>& EventAttrs)
+	{
+		TArray<FAnalyticsEventAttribute> Params(EventAttrs);
+		Params.Add(FAnalyticsEventAttribute(TEXT("Error"), *Error));
+		RecordEvent(TEXT("Game Error"), Params);
+	}
+
+	/**
+	 * Records an error that has happened in the game
+	 * 
+	 * Note that not all providers support all events. In this case this method
+	 * is equivalent to sending a regular event with name "Game Error".
+	 *
+	 * @param Error - the error string to record
+	 */
+	virtual void RecordError(const FString& Error)
+	{
+		RecordError(Error, TArray<FAnalyticsEventAttribute>());
+	}
+
+	/**
+	 * Record a player progression event that has happened in the game
+	 * 
+	 * Note that not all providers support all events. In this case this method
+	 * is equivalent to sending a regular event with name "Progression".
+	 *
+	 * @param Error - the error string to record
+	 */
+	virtual void RecordProgress(const FString& ProgressType, const TArray<FString>& ProgressHierarchy, const TArray<FAnalyticsEventAttribute>& EventAttrs)
+	{
+		TArray<FAnalyticsEventAttribute> Params(EventAttrs);
+		Params.Add(FAnalyticsEventAttribute(TEXT("ProgressType"), *ProgressType));
+		FString Hierarchy;
+		// Build a dotted hierarchy string from the list of hierarchy progress
+		for (int32 Index = 0; Index < ProgressHierarchy.Num(); Index++)
+		{
+			Hierarchy += ProgressHierarchy[Index];
+			if (Index + 1 < ProgressHierarchy.Num())
+			{
+				Hierarchy += TEXT(".");
+			}
+		}
+		Params.Add(FAnalyticsEventAttribute(TEXT("ProgressHierarchy"), *Hierarchy));
+		RecordEvent(TEXT("Progression"), Params);
+	}
+
+	/**
+	 * Record a player progression event that has happened in the game
+	 * 
+	 * Note that not all providers support all events. In this case this method
+	 * is equivalent to sending a regular event with name "Progression".
+	 *
+	 * @param Error - the error string to record
+	 */
+	virtual void RecordProgress(const FString& ProgressType, const FString& ProgressHierarchy)
+	{
+		TArray<FString> Hierarchy;
+		Hierarchy.Add(ProgressHierarchy);
+		RecordProgress(ProgressType, Hierarchy, TArray<FAnalyticsEventAttribute>());
+	}
+
+	/**
+	 * Record a player progression event that has happened in the game
+	 * 
+	 * Note that not all providers support all events. In this case this method
+	 * is equivalent to sending a regular event with name "Progression".
+	 *
+	 * @param Error - the error string to record
+	 */
+	virtual void RecordProgress(const FString& ProgressType, const FString& ProgressHierarchy, const TArray<FAnalyticsEventAttribute>& EventAttrs)
+	{
+		TArray<FString> Hierarchy;
+		Hierarchy.Add(ProgressHierarchy);
+		RecordProgress(ProgressType, Hierarchy, EventAttrs);
 	}
 
 	virtual ~IAnalyticsProvider() {}

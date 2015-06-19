@@ -130,12 +130,12 @@ void FStaticLightingSystem::EmitPhotons()
 	}
 	
 	// Presize for the results from two emitting passes (direct photon emitting, then indirect)
-	IrradiancePhotons.Empty(NumPhotonWorkRanges * 2);
+	mIrradiancePhotons.Empty(NumPhotonWorkRanges * 2);
 
 	const double StartEmitDirectTime = FPlatformTime::Seconds();
 	TArray<TArray<FIndirectPathRay> > IndirectPathRays;
 	// Emit photons for the direct photon map, and gather rays which resulted in indirect photon paths.
-	EmitDirectPhotons(ImportanceVolumeBounds, IndirectPathRays, IrradiancePhotons);
+	EmitDirectPhotons(ImportanceVolumeBounds, IndirectPathRays, mIrradiancePhotons);
 
 	const double EndEmitDirectTime = FPlatformTime::Seconds();
 	Stats.EmitDirectPhotonsTime = EndEmitDirectTime - StartEmitDirectTime;
@@ -152,7 +152,7 @@ void FStaticLightingSystem::EmitPhotons()
 	Stats.CachingIndirectPhotonPathsTime = EndCachingIndirectPathsTime - EndEmitDirectTime;
 
 	// Emit photons for the indirect photon map, using the indirect photon paths to guide photon emission.
-	EmitIndirectPhotons(ImportanceVolumeBounds, IndirectPathRays, IrradiancePhotons);
+	EmitIndirectPhotons(ImportanceVolumeBounds, IndirectPathRays, mIrradiancePhotons);
 	const double EndEmitIndirectTime = FPlatformTime::Seconds();
 	Stats.EmitIndirectPhotonsTime = EndEmitIndirectTime - EndCachingIndirectPathsTime;
 	LogSolverMessage(FString::Printf(TEXT("EmitIndirectPhotons complete, %.3f million photons emitted in %.1f seconds"), Stats.NumSecondPassPhotonsEmitted / 1000000.0f, Stats.EmitIndirectPhotonsTime));
@@ -162,7 +162,7 @@ void FStaticLightingSystem::EmitPhotons()
 		// Process all irradiance photons and mark ones that have direct photons nearby,
 		// So that we can search for those with a smaller radius when using them for rendering.
 		// This allows more accurate direct shadow transitions with irradiance photons.
-		MarkIrradiancePhotons(ImportanceVolumeBounds, IrradiancePhotons);
+		MarkIrradiancePhotons(ImportanceVolumeBounds, mIrradiancePhotons);
 		const double EndMarkIrradiancePhotonsTime = FPlatformTime::Seconds();
 		Stats.IrradiancePhotonMarkingTime = EndMarkIrradiancePhotonsTime - EndEmitIndirectTime;
 		LogSolverMessage(FString::Printf(TEXT("Marking Irradiance Photons complete, %.3f million photons marked in %.1f seconds"), Stats.NumIrradiancePhotons / 1000000.0f, Stats.IrradiancePhotonMarkingTime));
@@ -182,7 +182,7 @@ void FStaticLightingSystem::EmitPhotons()
 		// The optimization is that irradiance is pre-calculated at a subset of the photons so that final gather rays can just lookup the nearest irradiance photon,
 		// Instead of doing a photon density estimation to calculate irradiance.
 		const double StartCalculateIrradiancePhotonsTime = FPlatformTime::Seconds();
-		CalculateIrradiancePhotons(ImportanceVolumeBounds, IrradiancePhotons);
+		CalculateIrradiancePhotons(ImportanceVolumeBounds, mIrradiancePhotons);
 		Stats.IrradiancePhotonCalculatingTime = FPlatformTime::Seconds() - StartCalculateIrradiancePhotonsTime;
 		LogSolverMessage(FString::Printf(TEXT("Calculate Irradiance Photons complete, %.3f million irradiance calculations in %.1f seconds"), Stats.NumFoundIrradiancePhotons / 1000000.0f, Stats.IrradiancePhotonCalculatingTime));
 
@@ -1362,7 +1362,7 @@ uint32 FIrradiancePhotonCalculatingThreadRunnable::Run()
 void FStaticLightingSystem::CalculateIrradiancePhotonsThreadLoop(
 	int32 ThreadIndex, 
 	TArray<TArray<FIrradiancePhoton>>& IrradiancePhotons, 
-	FCalculateIrradiancePhotonStats& Stats)
+	FCalculateIrradiancePhotonStats& OutStats)
 {
 	while (true)
 	{
@@ -1372,7 +1372,7 @@ void FStaticLightingSystem::CalculateIrradiancePhotonsThreadLoop(
 		const int32 RangeIndex = IrradianceCalcWorkRangeIndex.Increment() - 1;
 		if (RangeIndex < IrradianceCalculationWorkRanges.Num())
 		{
-			CalculateIrradiancePhotonsWorkRange(IrradiancePhotons, IrradianceCalculationWorkRanges[RangeIndex], Stats);
+			CalculateIrradiancePhotonsWorkRange(IrradiancePhotons, IrradianceCalculationWorkRanges[RangeIndex], OutStats);
 		}
 		else
 		{
@@ -1386,7 +1386,7 @@ void FStaticLightingSystem::CalculateIrradiancePhotonsThreadLoop(
 void FStaticLightingSystem::CalculateIrradiancePhotonsWorkRange(
 	TArray<TArray<FIrradiancePhoton>>& IrradiancePhotons, 
 	FIrradianceCalculatingWorkRange WorkRange,
-	FCalculateIrradiancePhotonStats& Stats)
+	FCalculateIrradiancePhotonStats& OutStats)
 {
 	// Temporary array that is reused for all photon searches by this thread, to reduce allocations
 	TArray<FPhoton> TempFoundPhotons;
@@ -1419,7 +1419,7 @@ void FStaticLightingSystem::CalculateIrradiancePhotonsWorkRange(
 				CurrentIrradiancePhoton,
 				bDebugThisPhoton && GeneralSettings.ViewSingleBounceNumber == 0,
 				TempFoundPhotons,
-				Stats);
+				OutStats);
 
 			checkSlow(FLinearColorUtils::AreFloatsValid(DirectPhotonIrradiance));
 
@@ -1445,7 +1445,7 @@ void FStaticLightingSystem::CalculateIrradiancePhotonsWorkRange(
 				CurrentIrradiancePhoton,
 				bDebugThisPhoton && GeneralSettings.ViewSingleBounceNumber == 1,
 				TempFoundPhotons,
-				Stats);
+				OutStats);
 
 			checkSlow(FLinearColorUtils::AreFloatsValid(FirstBouncePhotonIrradiance));
 
@@ -1469,7 +1469,7 @@ void FStaticLightingSystem::CalculateIrradiancePhotonsWorkRange(
 					CurrentIrradiancePhoton,
 					bDebugThisPhoton && GeneralSettings.ViewSingleBounceNumber > 1,
 					TempFoundPhotons,
-					Stats);
+					OutStats);
 
 				checkSlow(FLinearColorUtils::AreFloatsValid(SecondBouncePhotonIrradiance));
 
@@ -1532,9 +1532,9 @@ void FStaticLightingSystem::CacheIrradiancePhotonsThreadLoop(int32 ThreadIndex, 
 			if (bIsMainThread)
 			{
 				// Check the health of all static lighting threads.
-				for (int32 ThreadIndex = 0; ThreadIndex < IrradiancePhotonCachingThreads.Num(); ThreadIndex++)
+				for (int32 ThreadIndexIter = 0; ThreadIndexIter < IrradiancePhotonCachingThreads.Num(); ThreadIndexIter++)
 				{
-					IrradiancePhotonCachingThreads[ThreadIndex].CheckHealth();
+					IrradiancePhotonCachingThreads[ThreadIndexIter].CheckHealth();
 				}
 			}
 
@@ -2126,7 +2126,7 @@ FLinearColor FStaticLightingSystem::CalculatePhotonIrradiance(
 	const FIrradiancePhoton& IrradiancePhoton,
 	bool bDebugThisCalculation,
 	TArray<FPhoton>& TempFoundPhotons,
-	FCalculateIrradiancePhotonStats& Stats) const
+	FCalculateIrradiancePhotonStats& OutStats) const
 {
 	// Empty TempFoundPhotons without causing any allocations / frees
 	TempFoundPhotons.Empty(TempFoundPhotons.Num() + TempFoundPhotons.GetSlack());
@@ -2140,13 +2140,13 @@ FLinearColor FStaticLightingSystem::CalculatePhotonIrradiance(
 		false,
 		bDebugThisCalculation, 
 		TempFoundPhotons, 
-		Stats);
+		OutStats);
 
 	FLinearColor PhotonIrradiance(FLinearColor::Black);
 
 	if (TempFoundPhotons.Num() > 0)
 	{
-		LIGHTINGSTAT(FScopedRDTSCTimer CalculateIrradianceTimer(Stats.CalculateIrradianceThreadTime));
+		LIGHTINGSTAT(FScopedRDTSCTimer CalculateIrradianceTimer(OutStats.CalculateIrradianceThreadTime));
 		const float MaxFoundDistance = FMath::Sqrt(MaxFoundDistanceSquared);
 		// Estimate the photon density using a cone filter, from the paper "Global Illumination using Photon Maps"
 		const float DiskArea = (float)PI * MaxFoundDistanceSquared;

@@ -13,7 +13,7 @@
 /**
  * Implements the settings for the destructable mesh editor.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class UNREALED_API UDestructableMeshEditorSettings
 	: public UObject
 {

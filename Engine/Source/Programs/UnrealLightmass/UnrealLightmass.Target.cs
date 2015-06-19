@@ -75,20 +75,11 @@ public class UnrealLightmassTarget : TargetRules
 		// Disable logging, lightmass will create its own unique logging file
 		OutCPPEnvironmentConfiguration.Definitions.Add("ALLOW_LOG_FILE=0");
 	}
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, bool bBuildingRocket, out bool bInternalToolOnly, out bool SeparateNode)
+    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
     {
         bInternalToolOnly = false;
         SeparateNode = false;
+		CrossCompile = true;
         return true;
     }
-	public override List<UnrealTargetPlatform> GUBP_ToolPlatforms(UnrealTargetPlatform InHostPlatform)
-	{
-		List<UnrealTargetPlatform> PlatformList = new List<UnrealTargetPlatform>();
-		PlatformList.Add(InHostPlatform);
-		if(InHostPlatform == UnrealTargetPlatform.Win64)
-		{
-			PlatformList.Add(UnrealTargetPlatform.Linux);			
-		}
-		return PlatformList;
-	}
 }

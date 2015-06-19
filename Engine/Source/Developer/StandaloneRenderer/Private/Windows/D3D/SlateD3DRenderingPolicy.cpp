@@ -7,6 +7,12 @@
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DTextures.h"
+#include "SlateStats.h"
+
+SLATE_DECLARE_CYCLE_COUNTER(GSlateResizeRenderBuffers, "Resize Render Buffers");
+SLATE_DECLARE_CYCLE_COUNTER(GSlateLockRenderBuffers, "Lock Render Buffers");
+SLATE_DECLARE_CYCLE_COUNTER(GSlateMemCopyRenderBuffers, "Memcopy Render Buffers");
+SLATE_DECLARE_CYCLE_COUNTER(GSlateUnlockRenderBuffers, "Unlock Render Buffers");
 
 /** Offset to apply to UVs to line up texels with pixels */
 const float PixelCenterOffsetD3D11 = 0.0f;
@@ -54,22 +60,22 @@ void FSlateD3D11RenderingPolicy::InitResources()
 	SamplerDesc.MinLOD = 0;
 
 	HRESULT Hr = GD3DDevice->CreateSamplerState( &SamplerDesc, PointSamplerState_Wrap.GetInitReference() );
-	check( SUCCEEDED( Hr ) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
 	Hr = GD3DDevice->CreateSamplerState( &SamplerDesc, BilinearSamplerState_Wrap.GetInitReference() );
-	check( SUCCEEDED( Hr ) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	SamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
 	SamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
 	SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
 
 	Hr = GD3DDevice->CreateSamplerState( &SamplerDesc, BilinearSamplerState_Clamp.GetInitReference() );
-	check( SUCCEEDED( Hr ) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	SamplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
 	Hr = GD3DDevice->CreateSamplerState( &SamplerDesc, PointSamplerState_Clamp.GetInitReference() );
-	check( SUCCEEDED( Hr ) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	WhiteTexture = TextureManager->CreateColorTexture( TEXT("DefaultWhite"), FColor::White )->Resource;
 
@@ -83,11 +89,14 @@ void FSlateD3D11RenderingPolicy::InitResources()
 	BlendDesc.AlphaToCoverageEnable = false;
 	BlendDesc.IndependentBlendEnable = false;
 	BlendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-	BlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_SRC_ALPHA;
 	BlendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+
+	// dest.a = 1-(1-dest.a)*src.a + dest.a
+	BlendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_INV_DEST_ALPHA;
+	BlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
 	BlendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+
 	BlendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	BlendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
 	BlendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 	BlendDesc.RenderTarget[0].BlendEnable = true;
 
@@ -156,16 +165,27 @@ void FSlateD3D11RenderingPolicy::UpdateBuffers( const FSlateWindowElementList& I
 		// resize if needed
 		if( NumVertices*sizeof(FSlateVertex) > VertexBuffer.GetBufferSize() )
 		{
+			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
 			uint32 NumBytesNeeded = NumVertices*sizeof(FSlateVertex);
 			// increase by a static size.
 			// @todo make this better
 			VertexBuffer.ResizeBuffer( NumBytesNeeded + 200*sizeof(FSlateVertex) );
 		}
 
-		void* VerticesPtr = VertexBuffer.Lock(0);
-		FMemory::Memcpy( VerticesPtr, Vertices.GetData(), sizeof(FSlateVertex)*NumVertices );
+		void* VerticesPtr = nullptr;
+		{
+			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateLockRenderBuffers);
+			VerticesPtr = VertexBuffer.Lock(0);
+		}
+		{
+			SLATE_CYCLE_COUNTER_SCOPE(GSlateMemCopyRenderBuffers);
+			FMemory::Memcpy(VerticesPtr, Vertices.GetData(), sizeof(FSlateVertex)*NumVertices);
+		}
 
-		VertexBuffer.Unlock();
+		{
+			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateUnlockRenderBuffers);
+			VertexBuffer.Unlock();
+		}
 	}
 
 	if( Indices.Num() )
@@ -175,15 +195,26 @@ void FSlateD3D11RenderingPolicy::UpdateBuffers( const FSlateWindowElementList& I
 		// resize if needed
 		if( NumIndices > IndexBuffer.GetMaxNumIndices() )
 		{
+			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
 			// increase by a static size.
 			// @todo make this better
 			IndexBuffer.ResizeBuffer( NumIndices + 100 );
 		}
 
-		void* IndicesPtr = IndexBuffer.Lock(0);
-		FMemory::Memcpy( IndicesPtr, Indices.GetData(), sizeof(SlateIndex)*NumIndices );
+		void* IndicesPtr = nullptr;
+		{
+			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateLockRenderBuffers);
+			IndicesPtr = IndexBuffer.Lock(0);
+		}
+		{
+			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateMemCopyRenderBuffers);
+			FMemory::Memcpy(IndicesPtr, Indices.GetData(), sizeof(SlateIndex)*NumIndices);
+		}
 
-		IndexBuffer.Unlock();
+		{
+			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateUnlockRenderBuffers);
+			IndexBuffer.Unlock();
+		}
 	}
 }
 
@@ -261,15 +292,7 @@ void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatr
 		// Disable stenciling and depth testing by default 
 		GD3DDeviceContext->OMSetDepthStencilState( DSStateOff, 0x00);
 
-		if( RenderBatch.ShaderType == ESlateShader::LineSegment )
-		{
-			// debugging
-			//GD3DDeviceContext->RSSetState( WireframeRasterState );
-			//PixelShader->SetShaderType( ESlateShader::Default );
-
-			PixelShader->SetTexture( ((FSlateD3DTexture*)Texture)->GetTypedResource(), BilinearSamplerState_Clamp );
-		}
-		else if( Texture )
+		if( Texture )
 		{
 			TRefCountPtr<ID3D11SamplerState> SamplerState;
 			if( DrawFlags & ESlateBatchDrawFlag::TileU || DrawFlags & ESlateBatchDrawFlag::TileV )

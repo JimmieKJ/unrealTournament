@@ -23,10 +23,12 @@ class UMG_API UNativeWidgetHost : public UWidget
 #endif
 
 protected:
-	TSharedPtr<SWidget> MyWidget;
-
-protected:
 	// UWidget interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	// End of UWidget interface
+
+	TSharedRef<SWidget> GetDefaultContent();
+
+protected:
+	TSharedPtr<SWidget> NativeWidget;
 };

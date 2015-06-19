@@ -7,6 +7,7 @@
 #include "LiveEditorDeviceSetupWindow.h"
 #include "LiveEditorWizardBase.h"
 #include "SExpandableArea.h"
+#include "Engine/Selection.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LiveEditorConfigWindow, Log, All);
 
@@ -195,8 +196,6 @@ public:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
-		SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
 		bool success = FLiveEditorManager::Get().GetDeviceData( *DeviceID.Get(), DeviceData );
 		check(success);
 	}

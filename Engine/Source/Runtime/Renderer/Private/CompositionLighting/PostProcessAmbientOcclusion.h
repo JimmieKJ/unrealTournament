@@ -17,23 +17,25 @@ class FRCPassPostProcessAmbientOcclusionSetup : public TRenderingCompositePassBa
 public:
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
 	// otherwise this is a down sampling pass which takes two MRT inputs from the setup pass before
 	bool IsInitialPass() const;
 
+	// @return VertexShader
 	template <uint32 bInitialSetup>
-	void SetShaderSetupTempl(const FRenderingCompositePassContext& Context);
+	FShader* SetShaderSetupTempl(const FRenderingCompositePassContext& Context);
 };
 
 // ePId_Input0: defines the resolution we compute AO and provides the normal
 // ePId_Input1: setup in same resolution as ePId_Input1 for depth expect when running in full resolution, then it's half
 // ePId_Input2: optional AO result one lower resolution
+// ePId_Input3: optional HZB
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessAmbientOcclusion : public TRenderingCompositePassBase<3, 1>
+class FRCPassPostProcessAmbientOcclusion : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// @param bInAOSetupAsInput true:use AO setup as input, false: use GBuffer normal and native z depth
@@ -42,9 +44,9 @@ public:
 	}
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
 	
@@ -60,9 +62,9 @@ class FRCPassPostProcessBasePassAO : public TRenderingCompositePassBase<0, 1>
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 
@@ -132,7 +134,7 @@ public:
 		float InvFadeRadius = 1.0f / FadeRadius;
 
 		// /1000 to be able to define the value in that distance
-		Value[0] = FVector4(Settings.AmbientOcclusionPower, Settings.AmbientOcclusionBias / 1000.0f, 1.0f / Settings.AmbientOcclusionDistance, Settings.AmbientOcclusionIntensity);
+		Value[0] = FVector4(Settings.AmbientOcclusionPower, Settings.AmbientOcclusionBias / 1000.0f, 1.0f / Settings.AmbientOcclusionDistance_DEPRECATED, Settings.AmbientOcclusionIntensity);
 		Value[1] = FVector4(ViewportUVToRandomUV.X, ViewportUVToRandomUV.Y, AORadiusInShader, Ratio);
 		Value[2] = FVector4(ScaleToFullRes, Settings.AmbientOcclusionMipThreshold / ScaleToFullRes, ScaleRadiusInWorldSpace, Settings.AmbientOcclusionMipBlend);
 		Value[3] = FVector4(0, 0, StaticFraction, InvTanHalfFov);
@@ -154,10 +156,79 @@ public:
 
 	void Bind(const FShaderParameterMap& ParameterMap);
 
-	void Set(FRHICommandList& RHICmdList, const FSceneView& View, const FPixelShaderRHIParamRef ShaderRHI) const;
+	template< typename ShaderRHIParamRef >
+	void Set(FRHICommandList& RHICmdList, const FSceneView& View, const ShaderRHIParamRef ShaderRHI) const;
 
 	friend FArchive& operator<<(FArchive& Ar, FCameraMotionParameters& This);
 
 private:
 	FShaderParameter CameraMotion;
 };
+
+
+template< typename ShaderRHIParamRef >
+void FCameraMotionParameters::Set(FRHICommandList& RHICmdList, const FSceneView& View, const ShaderRHIParamRef ShaderRHI) const
+{
+	FSceneViewState* ViewState = (FSceneViewState*)View.State;
+
+	FMatrix Proj = View.ViewMatrices.ProjMatrix;
+	FMatrix PrevProj = ViewState->PrevViewMatrices.ProjMatrix;
+
+	// Remove jitter
+	Proj.M[2][0] -= View.ViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
+	Proj.M[2][1] -= View.ViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();
+	PrevProj.M[2][0] -= ViewState->PrevViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
+	PrevProj.M[2][1] -= ViewState->PrevViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();
+
+	FVector DeltaTranslation = ViewState->PrevViewMatrices.PreViewTranslation - View.ViewMatrices.PreViewTranslation;
+	FMatrix ViewProj = ( View.ViewMatrices.TranslatedViewMatrix * Proj ).GetTransposed();
+	FMatrix PrevViewProj = ( FTranslationMatrix(DeltaTranslation) * ViewState->PrevViewMatrices.TranslatedViewMatrix * PrevProj ).GetTransposed();
+
+	double InvViewProj[16];
+	Inverse4x4( InvViewProj, (float*)ViewProj.M );
+
+	const float* p = (float*)PrevViewProj.M;
+
+	const double cxx = InvViewProj[ 0]; const double cxy = InvViewProj[ 1]; const double cxz = InvViewProj[ 2]; const double cxw = InvViewProj[ 3];
+	const double cyx = InvViewProj[ 4]; const double cyy = InvViewProj[ 5]; const double cyz = InvViewProj[ 6]; const double cyw = InvViewProj[ 7];
+	const double czx = InvViewProj[ 8]; const double czy = InvViewProj[ 9]; const double czz = InvViewProj[10]; const double czw = InvViewProj[11];
+	const double cwx = InvViewProj[12]; const double cwy = InvViewProj[13]; const double cwz = InvViewProj[14]; const double cww = InvViewProj[15];
+
+	const double pxx = (double)(p[ 0]); const double pxy = (double)(p[ 1]); const double pxz = (double)(p[ 2]); const double pxw = (double)(p[ 3]);
+	const double pyx = (double)(p[ 4]); const double pyy = (double)(p[ 5]); const double pyz = (double)(p[ 6]); const double pyw = (double)(p[ 7]);
+	const double pwx = (double)(p[12]); const double pwy = (double)(p[13]); const double pwz = (double)(p[14]); const double pww = (double)(p[15]);
+
+	FVector4 CameraMotionValue[5];
+
+	CameraMotionValue[0] = FVector4(
+		(float)(4.0*(cwx*pww + cxx*pwx + cyx*pwy + czx*pwz)),
+		(float)((-4.0)*(cwy*pww + cxy*pwx + cyy*pwy + czy*pwz)),
+		(float)(2.0*(cwz*pww + cxz*pwx + cyz*pwy + czz*pwz)),
+		(float)(2.0*(cww*pww - cwx*pww + cwy*pww + (cxw - cxx + cxy)*pwx + (cyw - cyx + cyy)*pwy + (czw - czx + czy)*pwz)));
+
+	CameraMotionValue[1] = FVector4(
+		(float)(( 4.0)*(cwy*pww + cxy*pwx + cyy*pwy + czy*pwz)),
+		(float)((-2.0)*(cwz*pww + cxz*pwx + cyz*pwy + czz*pwz)),
+		(float)((-2.0)*(cww*pww + cwy*pww + cxw*pwx - 2.0*cxx*pwx + cxy*pwx + cyw*pwy - 2.0*cyx*pwy + cyy*pwy + czw*pwz - 2.0*czx*pwz + czy*pwz - cwx*(2.0*pww + pxw) - cxx*pxx - cyx*pxy - czx*pxz)),
+		(float)(-2.0*(cyy*pwy + czy*pwz + cwy*(pww + pxw) + cxy*(pwx + pxx) + cyy*pxy + czy*pxz)));
+
+	CameraMotionValue[2] = FVector4(
+		(float)((-4.0)*(cwx*pww + cxx*pwx + cyx*pwy + czx*pwz)),
+		(float)(cyz*pwy + czz*pwz + cwz*(pww + pxw) + cxz*(pwx + pxx) + cyz*pxy + czz*pxz),
+		(float)(cwy*pww + cwy*pxw + cww*(pww + pxw) - cwx*(pww + pxw) + (cxw - cxx + cxy)*(pwx + pxx) + (cyw - cyx + cyy)*(pwy + pxy) + (czw - czx + czy)*(pwz + pxz)),
+		(float)(0));
+
+	CameraMotionValue[3] = FVector4(
+		(float)((-4.0)*(cwx*pww + cxx*pwx + cyx*pwy + czx*pwz)),
+		(float)((-2.0)*(cwz*pww + cxz*pwx + cyz*pwy + czz*pwz)),
+		(float)(2.0*((-cww)*pww + cwx*pww - 2.0*cwy*pww - cxw*pwx + cxx*pwx - 2.0*cxy*pwx - cyw*pwy + cyx*pwy - 2.0*cyy*pwy - czw*pwz + czx*pwz - 2.0*czy*pwz + cwy*pyw + cxy*pyx + cyy*pyy + czy*pyz)),
+		(float)(2.0*(cyx*pwy + czx*pwz + cwx*(pww - pyw) + cxx*(pwx - pyx) - cyx*pyy - czx*pyz)));
+
+	CameraMotionValue[4] = FVector4(
+		(float)(4.0*(cwy*pww + cxy*pwx + cyy*pwy + czy*pwz)),
+		(float)(cyz*pwy + czz*pwz + cwz*(pww - pyw) + cxz*(pwx - pyx) - cyz*pyy - czz*pyz),
+		(float)(cwy*pww + cww*(pww - pyw) - cwy*pyw + cwx*((-pww) + pyw) + (cxw - cxx + cxy)*(pwx - pyx) + (cyw - cyx + cyy)*(pwy - pyy) + (czw - czx + czy)*(pwz - pyz)),
+		(float)(0));
+
+	SetShaderValueArray(RHICmdList, ShaderRHI, CameraMotion, CameraMotionValue, 5);
+}

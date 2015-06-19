@@ -6,8 +6,8 @@
 #include "LaunchEngineLoop.h"
 #include "TaskGraphInterfaces.h"
 
-FMainLoopTiming::FMainLoopTiming(float IdealTickRate, EMainLoopOptions::Type Options)
-	: IdealFrameTime(1.f / IdealTickRate)
+FMainLoopTiming::FMainLoopTiming(float InIdealTickRate, EMainLoopOptions::Type Options)
+	: IdealFrameTime(1.f / InIdealTickRate)
 	, ActualDeltaTime(0)
 	, LastTime(FPlatformTime::Seconds())
 	, bTickSlate(Options & EMainLoopOptions::UsingSlate)

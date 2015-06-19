@@ -126,6 +126,16 @@ void UMediaSoundWave::Serialize( FArchive& Ar )
 	USoundBase::Serialize(Ar);
 }
 
+void UMediaSoundWave::PostLoad()
+{
+	Super::PostLoad();
+
+	if (!HasAnyFlags(RF_ClassDefaultObject) && !GIsBuildMachine)
+	{
+		InitializeTrack();
+	}
+}
+
 
 /* UMediaSoundWave implementation
  *****************************************************************************/

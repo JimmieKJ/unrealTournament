@@ -3,6 +3,7 @@
 
 #include "UTScoreboard.h"
 #include "UTHUDWidget.h"
+#include "UTHUDWidget_ReplayTimeSlider.h"
 #include "Json.h"
 #include "UTHUD.generated.h"
 
@@ -95,6 +96,17 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	class UUTHUDWidget_Spectator* SpectatorMessageWidget;
 
+	/** Cached reference to the replay time slider widget. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	class UUTHUDWidget_ReplayTimeSlider* ReplayTimeSliderWidget;
+
+	class UUTHUDWidget_ReplayTimeSlider* GetReplayTimeSlider() { return ReplayTimeSliderWidget; }
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	class UUTHUDWidget_SpectatorSlideOut* SpectatorSlideOutWidget;
+
+	class UUTHUDWidget_SpectatorSlideOut* GetSpectatorSlideOut() { return SpectatorSlideOutWidget; }
+
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
@@ -168,7 +180,7 @@ public:
 	
 	UTexture2D* OldHudTexture;
 
-	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire);
+	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
 
 	/** called when PlayerOwner caused damage to HitPawn */

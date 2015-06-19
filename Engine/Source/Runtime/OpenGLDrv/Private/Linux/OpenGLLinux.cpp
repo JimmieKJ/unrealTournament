@@ -208,10 +208,7 @@ struct FPlatformOpenGLDevice
 
         ContextUsageGuard = new FCriticalSection;
 
-		if	( SDL_GL_SetAttribute( SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0 ) )
-		{
-			verifyf( false, TEXT("OpenGLRHI: %s\n."), SDL_GetError() );
-		}
+		verifyf(SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0) == 0, TEXT("SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 0) failed: %s\n."), UTF8_TO_TCHAR(SDL_GetError()));
 
 		_PlatformCreateDummyGLWindow( &SharedContext );
 		_PlatformCreateOpenGLContextCore( &SharedContext );
@@ -225,10 +222,8 @@ struct FPlatformOpenGLDevice
 			InitDefaultGLContextState();
 		}
 
-		if	( SDL_GL_SetAttribute( SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1 ) )
-		{
-			verifyf( false, TEXT("OpenGLRHI: %s\n."), SDL_GetError() );
-		}
+		verifyf(SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1) == 0, TEXT("SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1) failed: %s\n."), UTF8_TO_TCHAR(SDL_GetError()));
+
 		_ContextMakeCurrent( SharedContext.hWnd, SharedContext.hGLContext );
 
 		_PlatformCreateDummyGLWindow( &RenderingContext );
@@ -282,10 +277,7 @@ FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Devic
 	check( Device->SharedContext.hGLContext )
 	{
 		FScopeContext Scope(&(Device->SharedContext));
-		if	( SDL_GL_SetAttribute( SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1 ) )
-		{
-			verifyf( false, TEXT("OpenGLRHI: %s\n."), SDL_GetError() );
-		}
+		verifyf(SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1) == 0, TEXT("SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1) failed: %s\n."), UTF8_TO_TCHAR(SDL_GetError()));
 		_PlatformCreateOpenGLContextCore( Context );
 	}
 
@@ -378,14 +370,23 @@ bool PlatformBlitToViewport(FPlatformOpenGLDevice* Device,
 	{
 		FScopeContext ScopeContext( Context );
 
+		if (Viewport.GetCustomPresent())
+		{
+			glDisable(GL_FRAMEBUFFER_SRGB);
+			Viewport.GetCustomPresent()->Present(SyncInterval);
+			glEnable(GL_FRAMEBUFFER_SRGB);
+			return false;
+		}
+
 		glBindFramebuffer( GL_DRAW_FRAMEBUFFER, 0 );
 		glDrawBuffer( GL_BACK );
 		glBindFramebuffer( GL_READ_FRAMEBUFFER, Context->ViewportFramebuffer );
 		glReadBuffer( GL_COLOR_ATTACHMENT0 );
 		glDisable(GL_FRAMEBUFFER_SRGB);
 
-		int WinW, WinH;
-		SDL_GetWindowSize(Context->hWnd, &WinW, &WinH);
+		int WinW = 0;
+		int WinH = 0;
+		SDL_GL_GetDrawableSize(Context->hWnd, &WinW, &WinH);
 		GLenum BlitFilter;
 		GLint DestX0, DestY0, DestX1, DestY1;
 
@@ -797,7 +798,7 @@ bool PlatformInitOpenGL()
 	{
 		if (SDL_GL_LoadLibrary(NULL))
 		{
-			verifyf(false, TEXT("Unable to dynamically load libGL: %s\n."), SDL_GetError());
+			UE_LOG(LogLinux, Fatal, TEXT("Unable to dynamically load libGL: %s\n."), UTF8_TO_TCHAR(SDL_GetError()));
 		}
 
 		int MajorVersion = 0;
@@ -811,28 +812,32 @@ bool PlatformInitOpenGL()
 		}
 	
 		_PlatformOpenGLVersionFromCommandLine(MajorVersion, MinorVersion);
-		if	( SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, MajorVersion ) )
+		if (SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, MajorVersion) != 0)
 		{
-			verifyf( false, TEXT("OpenGLRHI: %s\n."), SDL_GetError() );
-			UE_LOG(LogLinux, Fatal, TEXT("SDL error errno=%d (%s)"), SDL_GetError());
+			UE_LOG(LogLinux, Fatal, TEXT("SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, %d) failed: %s"), MajorVersion, UTF8_TO_TCHAR(SDL_GetError()));
 		}
 
-		if	( SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, MinorVersion ) )
+		if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, MinorVersion) != 0)
 		{
-			verifyf( false, TEXT("OpenGLRHI: %s\n."), SDL_GetError() );
-			UE_LOG(LogLinux, Fatal, TEXT("SDL error errno=%d (%s)"), SDL_GetError());
+			UE_LOG(LogLinux, Fatal, TEXT("SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, %d) failed: %s"), MinorVersion, UTF8_TO_TCHAR(SDL_GetError()));
 		}
 
-		if	( SDL_GL_SetAttribute( SDL_GL_CONTEXT_FLAGS, DebugFlag ) )
+		if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, DebugFlag) != 0)
 		{
-			verifyf( false, TEXT("OpenGLRHI: %s\n."), SDL_GetError() );
-			UE_LOG(LogLinux, Fatal, TEXT("SDL error errno=%d (%s)"), SDL_GetError());
+			UE_LOG(LogLinux, Fatal, TEXT("SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, %d) failed: %s"), DebugFlag, UTF8_TO_TCHAR(SDL_GetError()));
 		}
 
-		if	( SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE ) )
+		if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) != 0)
 		{
-			verifyf( false, TEXT("OpenGLRHI: %s\n."), SDL_GetError() );
-			UE_LOG(LogLinux, Fatal, TEXT("SDL error errno=%d (%s)"), SDL_GetError());
+			UE_LOG(LogLinux, Fatal, TEXT("SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) failed: %s"), UTF8_TO_TCHAR(SDL_GetError()));
+		}
+
+		if (FParse::Param(FCommandLine::Get(), TEXT("quad_buffer_stereo")))
+		{
+			if (SDL_GL_SetAttribute(SDL_GL_STEREO, 1) != 0)
+			{
+				UE_LOG(LogLinux, Fatal, TEXT("SDL_GL_SetAttribute(SDL_GL_STEREO, 1) failed: %s"), UTF8_TO_TCHAR(SDL_GetError()));
+			}
 		}
 
 		// Create a dummy context to verify opengl support.
@@ -911,18 +916,18 @@ EOpenGLCurrentContext PlatformOpenGLCurrentContext( FPlatformOpenGLDevice* Devic
 
 void PlatformGetBackbufferDimensions( uint32& OutWidth, uint32& OutHeight )
 {
-	SDL_HWindow h_cwnd = SDL_GL_GetCurrentWindow();
+	SDL_HWindow CurrentWindow = SDL_GL_GetCurrentWindow();
 
-	if	( h_cwnd )
+	int Width = 0;
+	int Height = 0;
+
+	if (CurrentWindow)
 	{
-		SDL_Surface *p_surf = SDL_GetWindowSurface( h_cwnd );
-
-		if	( p_surf )
-		{
-			OutWidth  = p_surf->w;
-			OutHeight = p_surf->h;
-		}
+		SDL_GL_GetDrawableSize(CurrentWindow, &Width, &Height);
 	}
+
+	OutWidth = Width;
+	OutHeight = Height;
 }
 
 // =============================================================

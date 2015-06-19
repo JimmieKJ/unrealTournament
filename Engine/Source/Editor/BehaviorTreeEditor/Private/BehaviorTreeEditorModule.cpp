@@ -11,6 +11,10 @@
 #include "SGraphNode_Decorator.h"
 #include "EdGraphUtilities.h"
 
+#include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
+#include "BehaviorTree/Decorators/BTDecorator_BlueprintBase.h"
+#include "BehaviorTree/Services/BTService_BlueprintBase.h"
+
 
 IMPLEMENT_MODULE( FBehaviorTreeEditorModule, BehaviorTreeEditor );
 DEFINE_LOG_CATEGORY(LogBehaviorTreeEditor);
@@ -109,7 +113,11 @@ TSharedRef<IBehaviorTreeEditor> FBehaviorTreeEditorModule::CreateBehaviorTreeEdi
 {
 	if (!ClassCache.IsValid())
 	{
-		ClassCache = MakeShareable(new FClassBrowseHelper);
+		ClassCache = MakeShareable(new FGraphNodeClassHelper(UBTNode::StaticClass()));
+		FGraphNodeClassHelper::AddObservedBlueprintClasses(UBTTask_BlueprintBase::StaticClass());
+		FGraphNodeClassHelper::AddObservedBlueprintClasses(UBTDecorator_BlueprintBase::StaticClass());
+		FGraphNodeClassHelper::AddObservedBlueprintClasses(UBTService_BlueprintBase::StaticClass());
+		ClassCache->UpdateAvailableBlueprintClasses();
 	}
 
 	TSharedRef< FBehaviorTreeEditor > NewBehaviorTreeEditor( new FBehaviorTreeEditor() );

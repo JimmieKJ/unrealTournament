@@ -19,6 +19,13 @@ class UInterpTrackFade : public UInterpTrackFloatBase
 	UPROPERTY(EditAnywhere, Category=InterpTrackFade)
 	uint32 bPersistFade:1;
 
+	/** True to set master audio volume along with the visual fade. */
+	UPROPERTY(EditAnywhere, Category = InterpTrackFade)
+	uint32 bFadeAudio : 1;
+
+	/** Color to fade to. */
+	UPROPERTY(EditAnywhere, Category = InterpTrackFade)
+	FLinearColor FadeColor;
 
 	// Begin UInterpTrack interface.
 	virtual int32 AddKeyframe(float Time, UInterpTrackInst* TrInst, EInterpCurveMode InitInterpMode) override;

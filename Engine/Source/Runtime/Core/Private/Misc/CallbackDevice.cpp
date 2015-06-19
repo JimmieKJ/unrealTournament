@@ -68,3 +68,4 @@ FCoreDelegates::FStatDisabled FCoreDelegates::StatDisabled;
 FCoreDelegates::FStatDisableAll FCoreDelegates::StatDisableAll;
 
 FCoreDelegates::FApplicationLicenseChange FCoreDelegates::ApplicationLicenseChange;
+FCoreDelegates::FPlatformChangedLaptopMode FCoreDelegates::PlatformChangedLaptopMode;

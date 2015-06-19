@@ -6,6 +6,8 @@
 
 class AGameplayAbilityTargetActor;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpawnActorDelegate, AActor*, SpawnedActor);
+
 /**
  *	Convenience task for spawning actors on the network authority. If not the net authority, we will not spawn and Success will not be called.
  *	The nice thing this adds is the ability to modify expose on spawn properties while also implicitly checking network role before spawning.
@@ -22,8 +24,6 @@ UCLASS(MinimalAPI)
 class UAbilityTask_SpawnActor: public UAbilityTask
 {
 	GENERATED_UCLASS_BODY()
-
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpawnActorDelegate, AActor*, SpawnedActor);
 
 	UPROPERTY(BlueprintAssignable)
 	FSpawnActorDelegate	Success;

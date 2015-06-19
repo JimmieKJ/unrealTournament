@@ -25,6 +25,7 @@ FDlgAnimCompression::FDlgAnimCompression( TArray<TWeakObjectPtr<UAnimSequence>>&
 			[
 				SAssignNew(DialogWidget, SAnimationCompressionPanel)
 				.AnimSequences(AnimSequences)
+				.ParentWindow(DialogWindow)
 			];
 
 		DialogWindow->SetContent(DialogWrapper.ToSharedRef());
@@ -38,6 +39,8 @@ void FDlgAnimCompression::ShowModal()
 
 void SAnimationCompressionPanel::Construct(const FArguments& InArgs)
 {
+	ParentWindow = InArgs._ParentWindow.Get();
+
 	AnimSequences = InArgs._AnimSequences;
 	CurrentCompressionChoice = 0;
 
@@ -48,7 +51,7 @@ void SAnimationCompressionPanel::Construct(const FArguments& InArgs)
 		{
 			if ( Class->IsChildOf(UAnimCompress::StaticClass()) )
 			{
-				UAnimCompress* NewAlgorithm = ConstructObject<UAnimCompress>( Class );
+				UAnimCompress* NewAlgorithm = NewObject<UAnimCompress>(GetTransientPackage(), Class);
 				AnimationCompressionAlgorithms.Add( NewAlgorithm );
 			}
 		}
@@ -143,6 +146,7 @@ void SAnimationCompressionPanel::ApplyAlgorithm(class UAnimCompress* Algorithm)
 
 			GWarn->EndSlowTask( );
 
+			ParentWindow->RequestDestroyWindow();
 		}
 	}
 }

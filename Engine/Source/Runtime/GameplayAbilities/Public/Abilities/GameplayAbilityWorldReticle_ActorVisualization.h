@@ -27,7 +27,7 @@ public:
 	TArray<UActorComponent*> VisualizationComponents;
 
 	/** Overridable function called whenever this actor is being removed from a level */
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason);
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** Returns CollisionComponent subobject **/
 	GAMEPLAYABILITIES_API class UCapsuleComponent* GetCollisionComponent();

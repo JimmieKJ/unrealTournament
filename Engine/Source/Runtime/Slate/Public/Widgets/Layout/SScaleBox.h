@@ -30,7 +30,9 @@ namespace EStretch
 		/** Scales the content uniformly (preserving aspect ratio) until it can no longer scale the content without clipping it. */
 		ScaleToFit,
 		/** Scales the content uniformly (preserving aspect ratio), until all sides meet or exceed the size of the area.  Will result in clipping longer sides. */
-		ScaleToFill
+		ScaleToFill,
+		/** Scales the content by the scale specified by the user */
+		UserSpecified
 	};
 }
 
@@ -48,6 +50,7 @@ public:
 	, _VAlign(VAlign_Center)
 	, _StretchDirection(EStretchDirection::Both)
 	, _Stretch(EStretch::None)
+	, _UserSpecifiedScale(1.0f)
 	{}
 		/** Slot for this designers content (optional) */
 		SLATE_DEFAULT_SLOT(FArguments, Content)
@@ -63,6 +66,9 @@ public:
 		
 		/** The stretching rule to apply when content is stretched */
 		SLATE_ATTRIBUTE(EStretch::Type, Stretch)
+
+		/** Optional scale that can be specified by the User */
+		SLATE_ATTRIBUTE(float, UserSpecifiedScale)
 
 	SLATE_END_ARGS()
 
@@ -87,6 +93,9 @@ public:
 
 	/** See Stretch argument */
 	void SetStretch(EStretch::Type InStretch);
+
+	/** See UserSpecifiedScale argument */
+	void SetUserSpecifiedScale(float InUserSpecifiedScale);
 	
 private:
 	/** The allowed direction of stretching of the content */
@@ -94,4 +103,7 @@ private:
 
 	/** The method of scaling that is applied to the content. */
 	TAttribute<EStretch::Type> Stretch;
+
+	/** Optional scale that can be specified by the User */
+	TAttribute<float> UserSpecifiedScale;
 };

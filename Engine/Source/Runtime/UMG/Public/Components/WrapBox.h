@@ -18,7 +18,7 @@ class UMG_API UWrapBox : public UPanelWidget
 
 public:
 	/** The inner slot padding goes between slots sharing borders */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Content Layout")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Content Layout")
 	FVector2D InnerSlotPadding;
 
 	/** Sets the inner slot padding goes between slots sharing borders */

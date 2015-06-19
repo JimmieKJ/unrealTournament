@@ -93,7 +93,7 @@ public:
 			while (Socket->HasPendingData(Size))
 			{
 				FArrayReaderPtr Reader = MakeShareable(new FArrayReader(true));
-				Reader->Init(FMath::Min(Size, 65507u));
+				Reader->SetNumUninitialized(FMath::Min(Size, 65507u));
 
 				int32 Read = 0;
 				Socket->RecvFrom(Reader->GetData(), Reader->Num(), Read, *Sender);

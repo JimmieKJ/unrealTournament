@@ -625,7 +625,7 @@ public:
 	 * @param bShow	true to show the keyboard, false to hide it
 	 * @param TextEntryWidget The widget that will receive the input from the virtual keyboard
 	 */
-	void ShowVirtualKeyboard( bool bShow, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget = nullptr );
+	void ShowVirtualKeyboard( bool bShow, int32 UserIndex, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget = nullptr );
 
 	/** Get the work area that has the largest intersection with the specified rectangle */
 	FSlateRect GetWorkArea( const FSlateRect& InRect ) const;
@@ -713,6 +713,8 @@ protected:
 
 	/** Engages or disengages application throttling based on user behavior */
 	void ThrottleApplicationBasedOnMouseMovement();
+
+	virtual FWidgetPath LocateWidgetInWindow(FVector2D ScreenspaceMouseCoordinate, const TSharedRef<SWindow>& Window, bool bIgnoreEnabledStatus) const override;
 
 public:
 
@@ -849,6 +851,9 @@ public:
 	/** Called when the slate application is being shut down. */
 	void OnShutdown();
 
+	/** Closes all active windows immediately */
+	void CloseAllWindowsImmediately();
+
 	/**
 	 * Destroy the native and slate windows in the array provided.
 	 *
@@ -893,12 +898,6 @@ public:
 	 */
 	void UpdateToolTip( bool AllowSpawningOfNewToolTips );
 
-	/**
-	 * Creates a mouse move event for the last known cursor position.  This should be called every tick to make
-	 * sure that widgets that appear (or vanish from) underneath the cursor have hover state set appropriately.
-	 */
-	virtual void SynthesizeMouseMove();
-
 	/** @return an array of top-level windows that can be interacted with. e.g. when a modal window is up, only return the modal window */
 	TArray< TSharedRef<SWindow> > GetInteractiveTopLevelWindows();
 
@@ -927,10 +926,10 @@ public:
 	double GetLastUserInteractionTime() const { return LastUserInteractionTime; }
 
 	/** @return the deadzone size for dragging in screen pixels (aka virtual desktop pixels) */
-	float GetDragTriggerDistnace() const;
+	float GetDragTriggerDistance() const;
 
 	/** Set the size of the deadzone for dragging in screen pixels */
-	void SetDragTriggerDistnace( float ScreenPixels );
+	void SetDragTriggerDistance( float ScreenPixels );
 	
 	/** Set the analog cursor to be enabled or disabled. */
 	void SetInputPreProcessor(bool bEnable, TSharedPtr<class IInputProcessor> NewInputProcessor = nullptr);
@@ -982,6 +981,11 @@ public:
 	virtual EVisibility GetSoftwareCursorVis() const override;	
 	virtual TSharedPtr<SWidget> GetKeyboardFocusedWidget() const override;
 
+	virtual EWindowTransparency GetWindowTransparencySupport() const override
+	{
+		return PlatformApplication->GetWindowTransparencySupport();
+	}
+
 protected:
 
 	virtual TSharedPtr< SWidget > GetMouseCaptorImpl() const override;
@@ -998,6 +1002,7 @@ public:
 	virtual bool IsWindowHousingInteractiveTooltip(const TSharedRef<const SWindow>& WindowToTest) const override;
 	virtual TSharedRef<SWidget> MakeImage( const TAttribute<const FSlateBrush*>& Image, const TAttribute<FSlateColor>& Color, const TAttribute<EVisibility>& Visibility ) const override;
 	virtual TSharedRef<SWidget> MakeWindowTitleBar( const TSharedRef<SWindow>& Window, const TSharedPtr<SWidget>& CenterContent, EHorizontalAlignment CenterContentAlignment, TSharedPtr<IWindowTitleBar>& OutTitleBar ) const override;
+	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")
 	virtual TSharedRef<IToolTip> MakeToolTip( const TAttribute<FString>& ToolTipString ) override;
 	virtual TSharedRef<IToolTip> MakeToolTip( const TAttribute<FText>& ToolTipText ) override;
 	virtual TSharedRef<IToolTip> MakeToolTip( const FText& ToolTipText ) override;
@@ -1037,7 +1042,7 @@ public:
 	virtual void OnMovedWindow( const TSharedRef< FGenericWindow >& PlatformWindow, const int32 X, const int32 Y ) override;
 	virtual bool OnWindowActivationChanged( const TSharedRef< FGenericWindow >& PlatformWindow, const EWindowActivation::Type ActivationType ) override;
 	virtual bool OnApplicationActivationChanged( const bool IsActive ) override;
-	virtual bool OnConvertibleDeviceModeChanged(const EConvertibleLaptopModes NewMode) override;
+	virtual bool OnConvertibleLaptopModeChanged() override;
 	virtual EWindowZone::Type GetWindowZoneForPoint( const TSharedRef< FGenericWindow >& PlatformWindow, const int32 X, const int32 Y ) override;
 	virtual void OnWindowClose( const TSharedRef< FGenericWindow >& PlatformWindow ) override;
 	virtual EDropEffect::Type OnDragEnterText( const TSharedRef< FGenericWindow >& Window, const FString& Text ) override;
@@ -1113,6 +1118,15 @@ private:
 private:
 
 	/**
+	 * Creates a mouse move event for the last known cursor position.  This should be called every tick to make
+	 * sure that widgets that appear (or vanish from) underneath the cursor have hover state set appropriately.
+	 */
+	void SynthesizeMouseMove();
+
+	/** Signal that a synthesized mouse move will be required after this operation. */
+	void QueueSynthesizedMouseMove();
+
+	/**
 	 * Will be invoked when the size of the geometry of the virtual
 	 * desktop changes (e.g. resolution change or monitors re-arranged)
 	 */
@@ -1122,6 +1136,9 @@ private:
 	static TSharedPtr< FSlateApplication > CurrentApplication;
 
 	TSet<FKey> PressedMouseButtons;
+
+	/** After processing an event or performing an active timer, we need to synthesize a mouse move. @see SynthesizeMouseMove */
+	int32 SynthesizeMouseMovePending;
 
 	/** true when the slate app is active; i.e. the current foreground window is from our Slate app*/
 	bool bAppIsActive;
@@ -1133,7 +1150,7 @@ private:
 	float Scale;
 
 	/** The dead zone distance in virtual desktop pixels (a.k.a screen pixels) that the user has to move their finder before it is considered a drag.*/
-	float DragTriggerDistnace;
+	float DragTriggerDistance;
 
 	/** All the top-level windows owned by this application; they are tracked here in a platform-agnostic way. */
 	TArray< TSharedRef<SWindow> > SlateWindows;
@@ -1270,6 +1287,9 @@ private:
 	/** Subset of LastUserInteractionTime that is used only when considering when to throttle */
 	double LastUserInteractionTimeForThrottling;
 
+	/** Used when considering whether to put Slate to sleep */
+	double LastMouseMoveTime;
+
 	/** Helper for detecting when a drag should begin */
 	struct FDragDetector
 	{
@@ -1385,6 +1405,9 @@ private:
 	/** When not null, the content of the current drag drop operation. */
 	TSharedPtr< FDragDropOperation > DragDropContent;
 
+	/** The window the drag drop content is over. */
+	TWeakPtr< SWindow > DragDropWindowPtr;
+
 	/** Whether or not we are requesting that we leave debugging mode after the tick is complete */
 	bool bRequestLeaveDebugMode;
 	/** Whether or not we need to leave debug mode for single stepping */
@@ -1463,5 +1486,4 @@ private:
 	// e.g. On windows the origin (coordinates X=0, Y=0) is the upper left of the primary monitor,
 	// but there could be another monitor on any of the sides.
 	FSlateRect VirtualDesktopRect;
-
 };

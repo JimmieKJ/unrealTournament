@@ -90,7 +90,7 @@ void FStructSerializer::Serialize( const void* Struct, UStruct& TypeInfo, IStruc
 	// process state stack
 	while (StateStack.Num() > 0)
 	{
-		FWriteState CurrentState = StateStack.Pop();
+		FWriteState CurrentState = StateStack.Pop(/*bAllowShrinking=*/ false);
 
 		// structures
 		if ((CurrentState.Property == nullptr) || (CurrentState.TypeInfo == UStructProperty::StaticClass()))

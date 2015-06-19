@@ -28,7 +28,6 @@
 FWidgetBlueprintEditor::FWidgetBlueprintEditor()
 	: PreviewScene(FPreviewScene::ConstructionValues().AllowAudioPlayback(true).ShouldSimulatePhysics(true))
 	, PreviewBlueprint(nullptr)
-	, HoverTime(0)
 	, bIsSimulateEnabled(false)
 	, bIsRealTime(true)
 {
@@ -226,6 +225,8 @@ void FWidgetBlueprintEditor::InvalidatePreview()
 
 void FWidgetBlueprintEditor::OnBlueprintChangedImpl(UBlueprint* InBlueprint, bool bIsJustBeingCompiled )
 {
+	DestroyPreview();
+
 	FBlueprintEditor::OnBlueprintChangedImpl(InBlueprint, bIsJustBeingCompiled);
 
 	if ( InBlueprint )
@@ -300,18 +301,8 @@ const UWidgetAnimation* FWidgetBlueprintEditor::RefreshCurrentAnimation()
 {
 	if( !SequencerObjectBindingManager->HasValidWidgetAnimation() )
 	{
-		const TArray<UWidgetAnimation*>& Animations = GetWidgetBlueprintObj()->Animations;
-		if( Animations.Num() > 0 )
-		{
-			// Ensure we are viewing a valid animation
-			ChangeViewedAnimation( *Animations[0] );
-			return Animations[0];
-		}
-		else
-		{
-			ChangeViewedAnimation( *UWidgetAnimation::GetNullAnimation() );
-			return nullptr;
-		}
+		ChangeViewedAnimation(*UWidgetAnimation::GetNullAnimation());
+		return nullptr;
 	}
 
 	return SequencerObjectBindingManager->GetWidgetAnimation();
@@ -350,8 +341,6 @@ void FWidgetBlueprintEditor::PasteWidgets()
 void FWidgetBlueprintEditor::Tick(float DeltaTime)
 {
 	FBlueprintEditor::Tick(DeltaTime);
-
-	HoverTime += DeltaTime;
 
 	// Tick the preview scene world.
 	if ( !GIntraFrameDebuggingGameThread )
@@ -469,15 +458,26 @@ TSharedRef<SWidget> FWidgetBlueprintEditor::CreateSequencerWidget()
 {
 	TSharedRef<SOverlay> SequencerOverlayRef =
 		SNew(SOverlay)
-		.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Sequencer")))
-		+ SOverlay::Slot()
-		[
-			GetSequencer()->GetSequencerWidget()
-		];
-
+		.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Sequencer")));
 	SequencerOverlay = SequencerOverlayRef;
 
-	RefreshCurrentAnimation();
+	TSharedRef<STextBlock> NoAnimationTextBlockRef = 
+		SNew(STextBlock)
+		.TextStyle(FEditorStyle::Get(), "UMGEditor.NoAnimationFont")
+		.Text(LOCTEXT("NoAnimationSelected", "No Animation Selected"));
+	NoAnimationTextBlock = NoAnimationTextBlockRef;
+
+	SequencerOverlayRef->AddSlot(0)
+	[
+		GetSequencer()->GetSequencerWidget()
+	];
+
+	SequencerOverlayRef->AddSlot(1)
+		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Center)
+	[
+		NoAnimationTextBlockRef
+	];
 
 	return SequencerOverlayRef;
 }
@@ -541,32 +541,14 @@ TSharedPtr<ISequencer>& FWidgetBlueprintEditor::GetSequencer()
 {
 	if(!Sequencer.IsValid())
 	{
-		UWidgetBlueprint* Blueprint = GetWidgetBlueprintObj();
-
-		UWidgetAnimation* WidgetAnimation = nullptr;
-
-		if( Blueprint->Animations.Num() )
-		{
-			WidgetAnimation = Blueprint->Animations[0];
-		}
-		else
-		{
-			UWidgetAnimation* NewAnimation = ConstructObject<UWidgetAnimation>(UWidgetAnimation::StaticClass(), Blueprint, MakeUniqueObjectName(Blueprint, UWidgetAnimation::StaticClass(), "NewAnimation"), RF_Transactional);
-			NewAnimation->MovieScene =  ConstructObject<UMovieScene>(UMovieScene::StaticClass(), NewAnimation, NAME_None, RF_Transactional);
-
-			WidgetAnimation = NewAnimation;
-		}
-
-		TSharedRef<FUMGSequencerObjectBindingManager> ObjectBindingManager = MakeShareable(new FUMGSequencerObjectBindingManager(*this, *WidgetAnimation ) );
-		check( !SequencerObjectBindingManager.IsValid() );
-
-		SequencerObjectBindingManager = ObjectBindingManager;
-
 		FSequencerViewParams ViewParams;
 		ViewParams.InitalViewRange = TRange<float>(-0.02f, 3.2f);
 		ViewParams.InitialScrubPosition = 0;
 
-		Sequencer = FModuleManager::LoadModuleChecked< ISequencerModule >("Sequencer").CreateSequencer( WidgetAnimation->MovieScene, ViewParams, ObjectBindingManager );
+		SequencerObjectBindingManager = MakeShareable(new FUMGSequencerObjectBindingManager(*this, *UWidgetAnimation::GetNullAnimation()));
+
+		Sequencer = FModuleManager::LoadModuleChecked< ISequencerModule >("Sequencer").CreateSequencer(UWidgetAnimation::GetNullAnimation()->MovieScene, ViewParams, SequencerObjectBindingManager.ToSharedRef());
+		ChangeViewedAnimation(*UWidgetAnimation::GetNullAnimation());
 	}
 
 	return Sequencer;
@@ -574,43 +556,33 @@ TSharedPtr<ISequencer>& FWidgetBlueprintEditor::GetSequencer()
 
 void FWidgetBlueprintEditor::ChangeViewedAnimation( UWidgetAnimation& InAnimationToView )
 {
-	if( InAnimationToView.MovieScene != Sequencer->GetRootMovieScene() )
+	TSharedRef<FUMGSequencerObjectBindingManager> NewObjectBindingManager = MakeShareable(new FUMGSequencerObjectBindingManager(*this, InAnimationToView));
+	Sequencer->ResetToNewRootMovieScene(*InAnimationToView.MovieScene, NewObjectBindingManager);
+
+	check(SequencerObjectBindingManager.IsUnique());
+	SequencerObjectBindingManager = NewObjectBindingManager;
+	SequencerObjectBindingManager->InitPreviewObjects();
+
+	TSharedPtr<SOverlay> SequencerOverlayPin = SequencerOverlay.Pin();
+	if (SequencerOverlayPin.IsValid())
 	{
-		TSharedRef<FUMGSequencerObjectBindingManager> NewObjectBindingManager = MakeShareable(new FUMGSequencerObjectBindingManager(*this, InAnimationToView));
-
-		Sequencer->ResetToNewRootMovieScene(*InAnimationToView.MovieScene, NewObjectBindingManager);
-
-		check(SequencerObjectBindingManager.IsUnique());
-
-		SequencerObjectBindingManager = NewObjectBindingManager;
-
-		SequencerObjectBindingManager->InitPreviewObjects();
-
-		TSharedPtr<SOverlay> SequencerOverlayPin = SequencerOverlay.Pin();
-		if( &InAnimationToView == UWidgetAnimation::GetNullAnimation() && SequencerOverlayPin.IsValid() )
+		TSharedPtr<STextBlock> NoAnimationTextBlockPin = NoAnimationTextBlock.Pin();
+		if( &InAnimationToView == UWidgetAnimation::GetNullAnimation())
 		{
-			Sequencer->GetSequencerWidget()->SetEnabled(false);
 			// Disable sequencer from interaction
-			SequencerOverlayPin->AddSlot(1)
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			[
-				SNew( STextBlock )
-				.TextStyle( FEditorStyle::Get(), "UMGEditor.NoAnimationFont" )
-				.Text( LOCTEXT("NoAnimationSelected","No Animation Selected") )
-			];
-
+			Sequencer->GetSequencerWidget()->SetEnabled(false);
+			NoAnimationTextBlockPin->SetVisibility(EVisibility::Visible);
 			SequencerOverlayPin->SetVisibility( EVisibility::HitTestInvisible );
 		}
-		else if( SequencerOverlayPin.IsValid() && SequencerOverlayPin->GetNumWidgets() > 1 )
+		else
 		{
-			Sequencer->GetSequencerWidget()->SetEnabled(true);
-
-			SequencerOverlayPin->RemoveSlot(1);
 			// Allow sequencer to be interacted with
+			Sequencer->GetSequencerWidget()->SetEnabled(true);
+			NoAnimationTextBlockPin->SetVisibility(EVisibility::Collapsed);
 			SequencerOverlayPin->SetVisibility( EVisibility::SelfHitTestInvisible );
 		}
 	}
+	InvalidatePreview();
 }
 
 void FWidgetBlueprintEditor::RefreshPreview()
@@ -673,9 +645,9 @@ void FWidgetBlueprintEditor::UpdatePreview(UBlueprint* InBlueprint, bool bInForc
 	OnWidgetPreviewUpdated.Broadcast();
 }
 
-FGraphAppearanceInfo FWidgetBlueprintEditor::GetGraphAppearance() const
+FGraphAppearanceInfo FWidgetBlueprintEditor::GetGraphAppearance(UEdGraph* InGraph) const
 {
-	FGraphAppearanceInfo AppearanceInfo = FBlueprintEditor::GetGraphAppearance();
+	FGraphAppearanceInfo AppearanceInfo = FBlueprintEditor::GetGraphAppearance(InGraph);
 
 	if ( GetBlueprintObj()->IsA(UWidgetBlueprint::StaticClass()) )
 	{
@@ -688,26 +660,21 @@ FGraphAppearanceInfo FWidgetBlueprintEditor::GetGraphAppearance() const
 void FWidgetBlueprintEditor::ClearHoveredWidget()
 {
 	HoveredWidget = FWidgetReference();
-	HoverTime = 0;
+	OnHoveredWidgetCleared.Broadcast();
 }
 
 void FWidgetBlueprintEditor::SetHoveredWidget(FWidgetReference& InHoveredWidget)
 {
-	if ( !( InHoveredWidget == HoveredWidget ) )
+	if (InHoveredWidget != HoveredWidget)
 	{
 		HoveredWidget = InHoveredWidget;
-		HoverTime = 0;
+		OnHoveredWidgetSet.Broadcast(InHoveredWidget);
 	}
 }
 
-FWidgetReference FWidgetBlueprintEditor::GetHoveredWidget() const
+const FWidgetReference& FWidgetBlueprintEditor::GetHoveredWidget() const
 {
 	return HoveredWidget;
-}
-
-float FWidgetBlueprintEditor::GetHoveredWidgetTime() const
-{
-	return HoverTime;
 }
 
 void FWidgetBlueprintEditor::AddPostDesignerLayoutAction(TFunction<void()> Action)

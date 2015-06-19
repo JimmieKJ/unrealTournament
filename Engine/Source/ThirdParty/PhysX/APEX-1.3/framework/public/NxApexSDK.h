@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_APEX_SDK_H
 #define NX_APEX_SDK_H
@@ -260,6 +244,7 @@ public:
 	at actor creation or lazily during updateRenderResource upon necessity.
 	Additionally it will call NxUserRenderResourceManager::getMaxBonesPerMaterial for the freshly created material right
 	after a successful material creation.
+	If this is set to true, the updateRenderResource calls should not run asynchronously.
 	*/
 	bool renderMeshActorLoadMaterialsLazily;
 
@@ -296,6 +281,12 @@ public:
 
 	*/
 	physx::PxU32 physXObjDescTableAllocationIncrement;
+
+	/**
+	\brief Enables warnings upon detection of concurent access to the APEX SDK
+
+	*/
+	bool enableConcurrencyCheck;
 
 	/**
 	\brief constructor sets to default.
@@ -367,6 +358,7 @@ private:
 		appGuid = NULL;
 		resourceProviderIsCaseSensitive = false;
 		physXObjDescTableAllocationIncrement = 128;
+		enableConcurrencyCheck = false;
 	}
 };
 
@@ -383,6 +375,8 @@ enum NxApexCreateError
 
 	/**
 	\brief Unable to find the libraries.
+	For statically linked APEX, a module specific instantiate function must be called
+	prior to the createModule call.
 	*/
 	APEX_CE_NOT_FOUND = 1,
 
@@ -402,6 +396,7 @@ enum NxApexCreateError
 	APEX_CE_CREATE_NO_ALLOWED = 4,
 
 };
+
 
 /**
 \brief The ApexSDK abstraction. Manages scenes and modules.
@@ -437,6 +432,9 @@ public:
 	 current platform.
 	*/
 	virtual physx::PxCpuDispatcher* createCpuDispatcher(physx::PxU32 numThreads = 0) = 0;
+	/**
+	 \brief Releases a CpuDispatcher
+	*/
 	virtual void						   releaseCpuDispatcher(physx::PxCpuDispatcher& cd) = 0;
 
 	/**
@@ -723,7 +721,7 @@ public:
 	\return Success
 
 	Name format: compiler + compiler version (if needed) + architecture.
-	Supported names: VcWin32, VcWin64, VcXbox (or VcXbox360), VcXboxOne, GccPs3 (both Gcc and Snc), GccPs4, AndroidARM, GccOsX32, Pib.
+	Supported names: VcWin32, VcWin64, VcXbox (or VcXbox360), VcXboxOne, GccPs3 (both Gcc and Snc), GccPs4, AndroidARM, GccLinux32, GccLinux64, GccOsX32, Pib.
 	*/
 	virtual bool getPlatformFromString(const char* name, NxParameterized::SerializePlatform& platform) const = 0;
 
@@ -752,6 +750,21 @@ public:
 	\brief Get the PhysX Visual Debugger binding
 	*/
 	virtual PVD::PvdBinding* getPvdBinding() = 0;
+
+	/**
+	\brief Enable or disable the APEX module-specific stat collection (some modules can be time consuming)
+	*/
+	virtual void setEnableApexStats(bool enableApexStats) = 0;
+
+	/**
+	\brief Enable or disable the APEX concurrent access check
+	*/
+	virtual void setEnableConcurrencyCheck(bool enableConcurrencyChecks) = 0;
+
+	/**
+	\brief Returns current setting for APEX concurrent access check
+	*/
+	virtual bool isConcurrencyCheckEnabled() = 0;
 
 protected:
 	virtual ~NxApexSDK() {}

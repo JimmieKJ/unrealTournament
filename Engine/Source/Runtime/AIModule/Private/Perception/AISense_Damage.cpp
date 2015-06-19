@@ -47,6 +47,24 @@ void FAIDamageEvent::Compile()
 	}
 
 }
+
+IAIPerceptionListenerInterface* FAIDamageEvent::GetDamagedActorAsPerceptionListener() const
+{
+	IAIPerceptionListenerInterface* Listener = nullptr;
+	if (DamagedActor)
+	{
+		Listener = Cast<IAIPerceptionListenerInterface>(DamagedActor);
+		if (Listener == nullptr)
+		{
+			APawn* ListenerAsPawn = Cast<APawn>(DamagedActor);
+			if (ListenerAsPawn)
+			{
+				Listener = Cast<IAIPerceptionListenerInterface>(ListenerAsPawn->GetController());
+			}
+		}
+	}
+	return Listener;
+}
 //----------------------------------------------------------------------//
 // 
 //----------------------------------------------------------------------//
@@ -65,11 +83,11 @@ float UAISense_Damage::Update()
 	{
 		const FAIDamageEvent& Event = RegisteredEvents[EventIndex];
 
-		IAIPerceptionListenerInterface* PerceptionListener = Cast<IAIPerceptionListenerInterface>(Event.DamagedActor);
-		if (PerceptionListener != NULL)
+		IAIPerceptionListenerInterface* PerceptionListener = Event.GetDamagedActorAsPerceptionListener();
+		if (PerceptionListener != nullptr)
 		{
 			UAIPerceptionComponent* PerceptionComponent = PerceptionListener->GetPerceptionComponent();
-			if (PerceptionComponent != NULL)
+			if (PerceptionComponent != nullptr)
 			{
 				// this has to succeed, will assert a failure
 				FPerceptionListener& Listener = ListenersMap[PerceptionComponent->GetListenerId()];
@@ -102,5 +120,15 @@ void UAISense_Damage::RegisterWrappedEvent(UAISenseEvent& PerceptionEvent)
 	if (DamageEvent)
 	{
 		RegisterEvent(DamageEvent->GetDamageEvent());
+	}
+}
+
+void UAISense_Damage::ReportDamageEvent(UObject* WorldContext, AActor* DamagedActor, AActor* Instigator, float DamageAmount, FVector EventLocation, FVector HitLocation)
+{
+	UAIPerceptionSystem* PerceptionSystem = UAIPerceptionSystem::GetCurrent(WorldContext);
+	if (PerceptionSystem)
+	{
+		FAIDamageEvent Event(DamagedActor, Instigator, DamageAmount, EventLocation, HitLocation);
+		PerceptionSystem->OnEvent(Event);
 	}
 }

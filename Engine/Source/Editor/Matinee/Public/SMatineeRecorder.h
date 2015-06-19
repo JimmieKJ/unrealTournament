@@ -22,7 +22,6 @@ public:
 	void Construct(const FArguments& InArgs);
 	virtual ~SMatineeRecorder();
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	void RefreshViewport();
 
 	FLevelEditorViewportClient* GetViewport() const { return LevelViewportClient.Get(); }

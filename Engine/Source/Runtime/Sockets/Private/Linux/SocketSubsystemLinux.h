@@ -49,5 +49,5 @@ public:
 	virtual bool Init(FString& Error) override;
 	virtual void Shutdown() override;
 	virtual bool HasNetworkDevice() override;
-	virtual TSharedRef<FInternetAddr> GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll);
+	virtual TSharedRef<FInternetAddr> GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll) override;
 };

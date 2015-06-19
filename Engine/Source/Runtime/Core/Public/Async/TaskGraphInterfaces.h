@@ -23,6 +23,8 @@ DECLARE_STATS_GROUP(TEXT("Task Graph Tasks"), STATGROUP_TaskGraphTasks, STATCAT_
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FReturnGraphTask"), STAT_FReturnGraphTask, STATGROUP_TaskGraphTasks, CORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FTriggerEventGraphTask"), STAT_FTriggerEventGraphTask, STATGROUP_TaskGraphTasks, CORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Unknown Graph Task"), STAT_UnknownGraphTask, STATGROUP_TaskGraphTasks, CORE_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("ParallelFor"), STAT_ParallelFor, STATGROUP_TaskGraphTasks, CORE_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("ParallelForTask"), STAT_ParallelForTask, STATGROUP_TaskGraphTasks, CORE_API);
 
 namespace ENamedThreads
 {
@@ -35,9 +37,7 @@ namespace ENamedThreads
 #if STATS
 		StatsThread, 
 #endif
-#if PLATFORM_SUPPORTS_RHI_THREAD
 		RHIThread,
-#endif
 		GameThread,
 		// The render thread is sometimes the game thread and is sometimes the actual rendering thread
 		ActualRenderingThread = GameThread + 1,
@@ -121,14 +121,18 @@ public:
 	 *	Explicit start call to shutdown the system. This is unlikely to work unless the system is idle.
 	**/
 	static CORE_API void Shutdown();
-	/** 
+    /**
+     *	Check to see if the system is running.
+     **/
+    static CORE_API bool IsRunning();
+	/**
 	 *	Singleton for the system
 	 *	@return a reference to the task graph system
 	**/
 	static CORE_API FTaskGraphInterface& Get();
 
 	/** Return the current thread type, if known. **/
-	virtual ENamedThreads::Type GetCurrentThreadIfKnown() = 0;
+	virtual ENamedThreads::Type GetCurrentThreadIfKnown(bool bLocalQueue = false) = 0;
 
 	/** Return the number of worker (non-named) threads **/
 	virtual	int32 GetNumWorkerThreads() = 0;
@@ -209,6 +213,14 @@ public:
  **/
 class FBaseGraphTask
 {
+public:
+	// Allocator for small tasks.
+	enum
+	{
+		/** Total size in bytes for a small task that will use the custom allocator **/
+		SMALL_TASK_SIZE = 256
+	};
+	typedef TLockFreeFixedSizeAllocator_TLSCache<SMALL_TASK_SIZE> TSmallTaskAllocator;
 protected:
 	/** 
 	 *	Constructor
@@ -222,7 +234,7 @@ protected:
 	}
 	/** 
 	 *	Sets the desired execution thread. This is not part of the constructor because this information may not be known quite yet duiring construction.
-	 *	@param InNumberOfPrerequistitesOutstanding; the number of prerequisites outstanding. We actually add one to this internally to prevent the task from firing while we are setting up the task
+	 *	@param InThreadToExecuteOn; the desired thread to execute on.
 	 **/
 	void SetThreadToExecuteOn(ENamedThreads::Type InThreadToExecuteOn)
 	{
@@ -233,11 +245,13 @@ protected:
 	/** 
 	 *	Indicates that the prerequisites are set up and that the task can be executed as soon as the prerequisites are finished.
 	 *	@param NumAlreadyFinishedPrequistes; the number of prerequisites that have not been set up because those tasks had already completed.
+	 *	@param bUnlock; if true, let the task execute if it can
 	 **/
-	void PrerequisitesComplete(ENamedThreads::Type CurrentThread, int32 NumAlreadyFinishedPrequistes)
+	void PrerequisitesComplete(ENamedThreads::Type CurrentThread, int32 NumAlreadyFinishedPrequistes, bool bUnlock = true)
 	{
 		checkThreadGraph(LifeStage.Increment() == int32(LS_PrequisitesSetup));
-		if (NumberOfPrerequistitesOutstanding.Subtract(NumAlreadyFinishedPrequistes + 1) == NumAlreadyFinishedPrequistes + 1) // the +1 is for the "lock" we set up in the constructor
+		int32 NumToSub = NumAlreadyFinishedPrequistes + (bUnlock ? 1 : 0); // the +1 is for the "lock" we set up in the constructor
+		if (NumberOfPrerequistitesOutstanding.Subtract(NumToSub) == NumToSub) 
 		{
 			QueueTask(CurrentThread);
 		}
@@ -253,14 +267,20 @@ protected:
 	static void CORE_API LogPossiblyInvalidSubsequentsTask(const TCHAR* TaskName);
 #endif
 
-	// Allocator for small tasks.
-	enum
-	{
-		/** Total size in bytes for a small task that will use the custom allocator **/
-		SMALL_TASK_SIZE = 256
-	};
 	/** Singleton to retrieve the small task allocator **/
-	static CORE_API TLockFreeFixedSizeAllocator<SMALL_TASK_SIZE>& GetSmallTaskAllocator();
+	static CORE_API TSmallTaskAllocator& GetSmallTaskAllocator();
+
+	/** 
+	 *	An indication that a prerequisite has been completed. Reduces the number of prerequisites by one and if no prerequisites are outstanding, it queues the task for execution.
+	 *	@param CurrentThread; provides the index of the thread we are running on. This is handy for submitting new taks. Can be ENamedThreads::AnyThread if the current thread is unknown.
+	 **/
+	void ConditionalQueueTask(ENamedThreads::Type CurrentThread)
+	{
+		if (NumberOfPrerequistitesOutstanding.Decrement()==0)
+		{
+			QueueTask(CurrentThread);
+		}
+	}
 
 private:
 	friend class FTaskThread;
@@ -276,18 +296,6 @@ private:
 	virtual void ExecuteTask(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread)=0;
 
 	// API called from other parts of the system
-
-	/** 
-	 *	An indication that a prerequisite has been completed. Reduces the number of prerequisites by one and if no prerequisites are outstanding, it queues the task for execution.
-	 *	@param CurrentThread; provides the index of the thread we are running on. This is handy for submitting new taks. Can be ENamedThreads::AnyThread if the current thread is unknown.
-	 **/
-	void ConditionalQueueTask(ENamedThreads::Type CurrentThread)
-	{
-		if (NumberOfPrerequistitesOutstanding.Decrement()==0)
-		{
-			QueueTask(CurrentThread);
-		}
-	}
 
 	/** 
 	 *	Called by the system to execute this task after it has been removed from an internal queue.
@@ -397,13 +405,7 @@ public:
 	}
 private:
 	friend class TRefCountPtr<FGraphEvent>;
-	friend class TLockFreeClassAllocator<FGraphEvent>;
-
-	/**
-	 *	Internal function to retrieve the graph event allocation singleton
-	 *	@return a reference to the graph event allocation singleton
-	**/
-	static CORE_API TLockFreeClassAllocator<FGraphEvent>& GetAllocator();
+	friend class TLockFreeClassAllocator_TLSCache<FGraphEvent>;
 
 	/** 
 	 *	Internal function to call the destructor and recycle a graph event
@@ -499,7 +501,7 @@ public:
 	{
 		// The arguments are useful for setting up other tasks. 
 		// Do work here, probably using SomeArgument.
-		MyCompletionEvent->DontCompleteUntil(TGraphTask<FSomeChildTask>::CreateTask(NULL,CurrentThread).ConstructAndDispatchWhenReady());
+		MyCompletionGraphEvent->DontCompleteUntil(TGraphTask<FSomeChildTask>::CreateTask(NULL,CurrentThread).ConstructAndDispatchWhenReady());
 	}
 };
 **/
@@ -520,75 +522,148 @@ public:
 	class FConstructor
 	{
 	public:
+	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
+		template<typename...T>
+		FGraphEventRef ConstructAndDispatchWhenReady(T&&... Args)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Args)...);
+			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
+		}
+	#else
+		/** Passthrough internal task constructor and dispatch. */
 		FGraphEventRef ConstructAndDispatchWhenReady()
 		{
 			new ((void *)&Owner->TaskStorage) TTask();
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T>
 		FGraphEventRef ConstructAndDispatchWhenReady(T&& Arg1)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Arg1));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1,typename T2>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1,typename T2, typename T3>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1,typename T2, typename T3, typename T4>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1,typename T2, typename T3, typename T4, typename T5>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
 		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9)
 		{
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
+		}		
+	#endif
+
+	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+		/** Passthrough internal task constructor and hold. */
+		template<typename...T>
+		TGraphTask* ConstructAndHold(T&&... Args)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Args)...);
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
 		}
+	#else
+		/** Passthrough internal task constructor and hold. */
+		TGraphTask* ConstructAndHold()
+		{
+			new ((void *)&Owner->TaskStorage) TTask();
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T>
+		TGraphTask* ConstructAndHold(T&& Arg1)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Arg1));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1,typename T2>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1,typename T2, typename T3>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1,typename T2, typename T3, typename T4>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1,typename T2, typename T3, typename T4, typename T5>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
+		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9));
+			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
+		}
+	#endif
+
 	private:
 		friend class TGraphTask;
 
@@ -626,12 +701,23 @@ public:
 	**/
 	static FConstructor CreateTask(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
 	{
+		int32 NumPrereq = Prerequisites ? Prerequisites->Num() : 0;
 		if (sizeof(TGraphTask) <= FBaseGraphTask::SMALL_TASK_SIZE)
 		{
 			void *Mem = FBaseGraphTask::GetSmallTaskAllocator().Allocate();
-			return FConstructor(new (Mem) TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), Prerequisites ? Prerequisites->Num() : 0), Prerequisites, CurrentThreadIfKnown);
+			return FConstructor(new (Mem) TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), NumPrereq), Prerequisites, CurrentThreadIfKnown);
 		}
-		return FConstructor(new TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), Prerequisites ? Prerequisites->Num() : 0), Prerequisites, CurrentThreadIfKnown);
+		return FConstructor(new TGraphTask(TTask::GetSubsequentsMode() == ESubsequentsMode::FireAndForget ? NULL : FGraphEvent::CreateGraphEvent(), NumPrereq), Prerequisites, CurrentThreadIfKnown);
+	}
+
+	void Unlock(ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+	{
+		ConditionalQueueTask(CurrentThreadIfKnown);
+	}
+
+	FGraphEventRef GetCompletionEvent()
+	{
+		return Subsequents;
 	}
 
 private:
@@ -665,7 +751,8 @@ private:
 		{
 			FScopeCycleCounter Scope(Task.GetStatId(), true); 
 			Task.DoTask(CurrentThread, Subsequents);
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if (UE_BUILD_DEBUG || UE_BUILD_DEBUGGAME) && 0 // enable this to find nasty overwrite bugs
+			
 			if (TTask::GetSubsequentsMode() == ESubsequentsMode::TrackSubsequents)
 			{
 				if (!Subsequents->CheckSubsequents())
@@ -682,7 +769,7 @@ private:
 #endif
 
 			Task.~TTask();
-			checkSlow(ENamedThreads::GetThreadIndex(CurrentThread) <= ENamedThreads::RenderThread || FMemStack::Get().IsEmpty()); // you must mark and pop memstacks if you use them in tasks! Named threads are excepted.
+			checkThreadGraph(ENamedThreads::GetThreadIndex(CurrentThread) <= ENamedThreads::RenderThread || FMemStack::Get().IsEmpty()); // you must mark and pop memstacks if you use them in tasks! Named threads are excepted.
 		}
 		
 		TaskConstructed = false;
@@ -730,14 +817,14 @@ private:
 	 *	Call from FConstructor to complete the setup process
 	 *	@param Prerequisites; the list of FGraphEvents that must be completed prior to this task executing.
 	 *	@param CurrentThreadIfKnown; provides the index of the thread we are running on. Can be ENamedThreads::AnyThread if the current thread is unknown.
-	 *	@return A new graph event which represents the completion of this task.
+	 *	@param bUnlock; if true, task can execute right now if possible
 	 * 
 	 *	Create the completed event
 	 *	Set the thread to execute on based on the embedded task
 	 *	Attempt to add myself as a subsequent to each prerequisite
 	 *	Tell the base task that I am ready to start as soon as my prerequisites are ready.
 	 **/
-	FGraphEventRef Setup(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+	void SetupPrereqs(const FGraphEventArray* Prerequisites, ENamedThreads::Type CurrentThreadIfKnown, bool bUnlock)
 	{
 		checkThreadGraph(!TaskConstructed);
 		TaskConstructed = true;
@@ -755,9 +842,42 @@ private:
 				}
 			}
 		}
+		PrerequisitesComplete(CurrentThreadIfKnown, AlreadyCompletedPrerequisites, bUnlock);
+	}
+
+	/** 
+	 *	Call from FConstructor to complete the setup process
+	 *	@param Prerequisites; the list of FGraphEvents that must be completed prior to this task executing.
+	 *	@param CurrentThreadIfKnown; provides the index of the thread we are running on. Can be ENamedThreads::AnyThread if the current thread is unknown.
+	 *	@return A new graph event which represents the completion of this task.
+	 * 
+	 *	Create the completed event
+	 *	Set the thread to execute on based on the embedded task
+	 *	Attempt to add myself as a subsequent to each prerequisite
+	 *	Tell the base task that I am ready to start as soon as my prerequisites are ready.
+	 **/
+	FGraphEventRef Setup(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+	{
 		FGraphEventRef ReturnedEventRef = Subsequents; // very important so that this doesn't get destroyed before we return
-		PrerequisitesComplete(CurrentThreadIfKnown, AlreadyCompletedPrerequisites); // can execute now if all of the prereqs are done
+		SetupPrereqs(Prerequisites, CurrentThreadIfKnown, true);
 		return ReturnedEventRef;
+	}
+
+	/** 
+	 *	Call from FConstructor to complete the setup process, but doesn't allow the task to dispatch yet
+	 *	@param Prerequisites; the list of FGraphEvents that must be completed prior to this task executing.
+	 *	@param CurrentThreadIfKnown; provides the index of the thread we are running on. Can be ENamedThreads::AnyThread if the current thread is unknown.
+	 *	@return a pointer to the task
+	 * 
+	 *	Create the completed event
+	 *	Set the thread to execute on based on the embedded task
+	 *	Attempt to add myself as a subsequent to each prerequisite
+	 *	Tell the base task that I am ready to start as soon as my prerequisites are ready.
+	 **/
+	TGraphTask* Hold(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+	{
+		SetupPrereqs(Prerequisites, CurrentThreadIfKnown, false);
+		return this;
 	}
 
 	/** 
@@ -1079,6 +1199,68 @@ public:
 		Prerequisites.Add(InPrerequisite);
 		return CreateAndDispatchWhenReady(InTaskDeletegate, InStatId, &Prerequisites, InCurrentThreadIfKnown, InDesiredThread);
 	}
+};
+
+/** Task class for lambda based tasks. **/
+class FFunctionGraphTask : public FCustomStatIDGraphTaskBase
+{
+public:
+    /** Function to run **/
+    TFunction<void()> Function;
+    /** Thread to run the function on **/
+    const ENamedThreads::Type			DesiredThread;
+    
+public:
+    ENamedThreads::Type GetDesiredThread()
+    {
+        return DesiredThread;
+    }
+    static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+    
+    void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+    {
+        Function();
+    }
+    /**
+     * Task constructor
+     * @param InFunction - function to execute when the prerequisites are complete
+     *	@param StatId The stat id for this task.
+     * @param InDesiredThread - Thread to run on
+     **/
+    FFunctionGraphTask(TFunction<void()>& InFunction, const TStatId StatId, ENamedThreads::Type InDesiredThread)
+    : FCustomStatIDGraphTaskBase(StatId)
+    , Function(InFunction)
+    , DesiredThread(InDesiredThread)
+    {
+    }
+    
+    /**
+     * Create a task and dispatch it when the prerequisites are complete
+     * @param InTaskDelegate - delegate to execute when the prerequisites are complete
+     * @param InStatId - StatId of task for debugging or analysis tools
+     * @param InPrerequisites - Handles for prerequisites for this task, can be NULL if there are no prerequisites
+     * @param InDesiredThread - Thread to run on
+     * @return completion handle for the new task
+     **/
+    static FGraphEventRef CreateAndDispatchWhenReady(TFunction<void()> InFunction, const TStatId InStatId, const FGraphEventArray* InPrerequisites = NULL, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
+    {
+        return TGraphTask<FFunctionGraphTask>::CreateTask(InPrerequisites).ConstructAndDispatchWhenReady(InFunction, InStatId, InDesiredThread);
+    }
+    /**
+     * Create a task and dispatch it when the prerequisites are complete
+     * @param InTaskDelegate - delegate to execute when the prerequisites are complete
+     * @param InStatId - StatId of task for debugging or analysis tools
+     * @param InPrerequisite - Handle for a single prerequisite for this task
+     * @param InDesiredThread - Thread to run on
+     * @return completion handle for the new task
+     **/
+    static FGraphEventRef CreateAndDispatchWhenReady(TFunction<void()> InFunction, const TStatId&& InStatId, const FGraphEventRef& InPrerequisite, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
+    {
+        FGraphEventArray Prerequisites;
+        check(InPrerequisite.GetReference());
+        Prerequisites.Add(InPrerequisite);
+        return CreateAndDispatchWhenReady(InFunction, InStatId, &Prerequisites, InDesiredThread);
+    }
 };
 
 /**

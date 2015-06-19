@@ -63,6 +63,13 @@ public:
 	/** Creates a property named PropertyName of type PropertyType in the Scope or returns NULL if the type is unknown, but does *not* link that property in */
 	static UProperty* CreatePropertyOnScope(UStruct* Scope, const FName& PropertyName, const FEdGraphPinType& Type, UClass* SelfClass, uint64 PropertyFlags, const class UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog);
 
+	/**
+	 * Checks that the property name isn't taken in the given scope (used by CreatePropertyOnScope())
+	 *
+	 * @return	Ptr to an existing object with that name in the given scope or nullptr if none exists
+	 */
+	static UObject* CheckPropertyNameOnScope(UStruct* Scope, const FName& PropertyName);
+
 private:
 	/** Counter to ensure unique names in the transient package, to avoid GC collection issues with classes and their CDOs */
 	static uint32 ConsignToOblivionCounter;
@@ -76,8 +83,20 @@ public:
 	/* checks if enum variables from given object store proper indexes */
 	static void ValidateEnumProperties(UObject* DefaultObject, FCompilerResultsLog& MessageLog);
 
+	/** checks if the specified pin can default to self */
+	static bool ValidateSelfCompatibility(const UEdGraphPin* Pin, FKismetFunctionContext& Context);
+
 	/** Create 'set var by name' nodes and hook them up - used to set values when components are added or actor are created at run time. Returns the 'last then' pin of the assignment nodes */
 	static UEdGraphPin* GenerateAssignmentNodes( class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, UK2Node_CallFunction* CallBeginSpawnNode, UEdGraphNode* SpawnNode, UEdGraphPin* CallBeginResult, const UClass* ForClass );
+
+	/** Create Kismet assignment statement with proper object <-> interface cast */
+	static void CreateObjectAssignmentStatement(FKismetFunctionContext& Context, UEdGraphNode* Node, FBPTerminal* SrcTerm, FBPTerminal* DstTerm);
+
+	/** Checks if each execution path ends with a Return node */
+	static void ValidateProperEndExecutionPath(FKismetFunctionContext& Context);
+
+	/** Generate an error for non-const output parameters */
+	static void DetectValuesReturnedByRef(const UFunction* Func, const UK2Node * Node, FCompilerResultsLog& MessageLog);
 };
 
 //////////////////////////////////////////////////////////////////////////

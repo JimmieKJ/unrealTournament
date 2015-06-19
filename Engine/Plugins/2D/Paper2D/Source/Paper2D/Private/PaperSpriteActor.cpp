@@ -9,7 +9,7 @@
 APaperSpriteActor::APaperSpriteActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	RenderComponent = ObjectInitializer.CreateDefaultSubobject<UPaperSpriteComponent>(this, TEXT("RenderComponent"));
+	RenderComponent = CreateDefaultSubobject<UPaperSpriteComponent>(TEXT("RenderComponent"));
 	RenderComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	RenderComponent->Mobility = EComponentMobility::Static;
 

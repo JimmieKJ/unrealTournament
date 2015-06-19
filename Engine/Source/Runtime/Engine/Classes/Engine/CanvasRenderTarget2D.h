@@ -5,10 +5,12 @@
 #include "TextureRenderTarget2D.h"
 #include "CanvasRenderTarget2D.generated.h"
 
+
 class UCanvas;
 
 /** This delegate is assignable through Blueprint and has similar functionality to the above. */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCanvasRenderTargetUpdate, UCanvas*, Canvas, int32, Width, int32, Height);
+
 
 /**
  * CanvasRenderTarget2D is 2D render target which exposes a Canvas interface to allow you to draw elements onto 
@@ -19,7 +21,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCanvasRenderTargetUpdate, UCan
  * garbage collected.
  */
 UCLASS(BlueprintType, Blueprintable)
-class ENGINE_API UCanvasRenderTarget2D : public UTextureRenderTarget2D
+class ENGINE_API UCanvasRenderTarget2D
+	: public UTextureRenderTarget2D
 {
 	GENERATED_UCLASS_BODY()
 
@@ -57,7 +60,7 @@ public:
 	 * @param	Height				Height of the render target.
 	 */
 	UFUNCTION(BlueprintImplementableEvent, Category="Canvas Render Target 2D")
-	virtual void ReceiveUpdate(UCanvas* Canvas, int32 Width, int32 Height);
+	void ReceiveUpdate(UCanvas* Canvas, int32 Width, int32 Height);
 
 	/**
 	 * Gets a specific render target's size from the global map of canvas render targets.
@@ -75,7 +78,6 @@ public:
 
 	// UObject overrides
 	virtual UWorld* GetWorld() const override;
-	
 
 protected:
 

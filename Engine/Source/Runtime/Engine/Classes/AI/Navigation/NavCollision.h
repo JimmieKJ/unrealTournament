@@ -103,6 +103,8 @@ class ENGINE_API UNavCollision : public UObject
 protected:
 	void ClearCollision();
 
+	FORCEINLINE bool ShouldUseConvexCollision() const { return bGatherConvexGeometry || (CylinderCollision.Num() == 0 && BoxCollision.Num() == 0);  }
+
 #if WITH_EDITOR
 	void InvalidatePhysicsData();
 #endif // WITH_EDITOR

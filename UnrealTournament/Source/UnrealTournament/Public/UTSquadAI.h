@@ -111,6 +111,20 @@ public:
 		Super::BeginPlay();
 	}
 
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override
+	{
+		Super::EndPlay(Reason);
+
+		for (int32 i = Members.Num() - 1; i >= 0; i--)
+		{
+			RemoveMember(Members[i]);
+		}
+		if (Team != NULL)
+		{
+			Team->RemoveSquad(this);
+		}
+	}
+
 	virtual void Initialize(AUTTeamInfo* InTeam, FName InOrders)
 	{
 		Team = InTeam;
@@ -205,6 +219,9 @@ public:
 	 * should set MoveTarget to desired destination but don't set action
 	 */
 	virtual bool PickRetreatDestination(AUTBot* B);
+
+	/** @return whether bot should try to use translocator to follow path faster (if available, skilled enough, and legal for game type) */
+	virtual bool ShouldUseTranslocator(AUTBot* B);
 
 	/** set timer to retask bot, partially just to stagger updates and partially to account for their reaction time */
 	virtual void SetRetaskTimer(AUTBot* B)

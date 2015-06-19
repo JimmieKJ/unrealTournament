@@ -29,7 +29,7 @@ public:
 	SLATE_END_ARGS()
 
 	/** Simple struct holding a tag container and its owner for generic re-use of the widget */
-	struct FEditableGameplayTagContainerDatum : public FGCObject
+	struct FEditableGameplayTagContainerDatum
 	{
 		/** Constructor */
 		FEditableGameplayTagContainerDatum(class UObject* InOwnerObj, struct FGameplayTagContainer* InTagContainer)
@@ -38,16 +38,10 @@ public:
 		{}
 
 		/** Owning UObject of the container being edited */
-		class UObject* TagContainerOwner;
+		TWeakObjectPtr<class UObject> TagContainerOwner;
 
 		/** Tag container to edit */
 		struct FGameplayTagContainer* TagContainer; 
-
-		/** Overridden to emit tag container owner reference */
-		virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-		{
-			Collector.AddReferencedObject(TagContainerOwner);
-		}
 	};
 
 	/** Construct the actual widget */

@@ -2,9 +2,11 @@
 
 #pragma once
 #include "Interface.h"
+#include "AI/Navigation/NavigationTypes.h"
 #include "NavRelevantInterface.generated.h"
 
 struct FNavigationRelevantData;
+struct FNavigableGeometryExport;
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UNavRelevantInterface : public UInterface
@@ -21,6 +23,18 @@ class INavRelevantInterface
 
 	/** Get bounds for navigation octree */
 	virtual FBox GetNavigationBounds() const { return FBox(0); }
+
+	/** if this instance knows how to export sub-sections of self */
+	virtual bool SupportsGatheringGeometrySlices() const { return false; }
+
+	/** This function is called "on demand", whenever that specified piece of geometry is needed for navigation generation */
+	virtual void GatherGeometrySlice(FNavigableGeometryExport& GeomExport, const FBox& SliceBox) const {}
+
+	virtual ENavDataGatheringMode GetGeometryGatheringMode() const { return ENavDataGatheringMode::Default; }
+
+	/** Called on Game-thread to give implementer a change to perform actions that require game-thread to run, 
+	 *	for example precaching physics data */
+	virtual void PrepareGeometryExportSync() {}
 
 	/** Update bounds, called after moving owning actor */
 	virtual void UpdateNavigationBounds() {}

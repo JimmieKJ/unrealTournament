@@ -35,23 +35,23 @@ class UCommandlet : public UObject
 	GENERATED_UCLASS_BODY()
 
 	/** Description of the commandlet's purpose */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString HelpDescription;
 
 	/** Usage template to show for "ucc help" */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString HelpUsage;
 
 	/** Hyperlink for more info */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString HelpWebLink;
 
 	/** The name of the parameter the commandlet takes */
-	UPROPERTY(localized)
+	UPROPERTY()
 	TArray<FString> HelpParamNames;
 
 	/** The description of the parameter */
-	UPROPERTY(localized)
+	UPROPERTY()
 	TArray<FString> HelpParamDescriptions;
 
 	/**
@@ -129,7 +129,7 @@ class UCommandlet : public UObject
 		{
 			FString& Switch = Switches[SwitchIdx];
 			TArray<FString> SplitSwitch;
-			if (2 == Switch.ParseIntoArray(&SplitSwitch, TEXT("="), true))
+			if (2 == Switch.ParseIntoArray(SplitSwitch, TEXT("="), true))
 			{
 				Params.Add(SplitSwitch[0], SplitSwitch[1].TrimQuotes());
 				Switches.RemoveAt(SwitchIdx);

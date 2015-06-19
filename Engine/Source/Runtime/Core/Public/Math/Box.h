@@ -309,6 +309,14 @@ public:
 	FORCEINLINE bool IntersectXY( const FBox& Other ) const;
 
 	/**
+	 * Returns the overlap FBox of two box
+	 *
+	 * @param Other The bounding box to test overlap
+	 * @return the overlap box. It can be 0 if they don't overlap
+	 */
+	CORE_API FBox Overlap( const FBox& Other ) const;
+
+	/**
 	  * Gets a bounding volume transformed by an inverted FTransform object.
 	  *
 	  * @param M The transformation object to perform the inversely transform this box with.

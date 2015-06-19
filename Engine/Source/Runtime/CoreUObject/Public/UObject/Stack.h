@@ -45,6 +45,7 @@ enum EPropertyType
 	CPT_LazyObjectReference,
 	CPT_AssetObjectReference,
 	CPT_Double,
+	CPT_Map,
 
 	// when you add new property types, make sure you add the corresponding entry
 	// in the PropertyTypeToNameMap array in ScriptCompiler.cpp!!
@@ -279,6 +280,7 @@ inline VariableSizeType FFrame::ReadVariableSize( UField** ExpressionField/*=NUL
 
 	if ( Field != NULL )
 	{
+		// currently only Property (or null) seems to be a valid option.
 		if (UProperty* Property = dynamic_cast<UProperty*>(Field))
 		{
 			Result = Property->GetSize();
@@ -347,6 +349,8 @@ inline VariableSizeType FFrame::ReadVariableSize( UField** ExpressionField/*=NUL
 			break;
 		case CPT_Text: Result = sizeof(FText);
 			break;
+		case CPT_Map: Result = sizeof(FScriptMap);
+			break;
 		default:
 			UE_LOG(LogScriptFrame, Fatal, TEXT("Unhandled property type in FFrame::ReadVariableSize(): %u"), NullPropertyType);
 			break;
@@ -412,6 +416,5 @@ FORCEINLINE_DEBUGGABLE TNativeType& FFrame::StepCompiledInRef(void*const Tempora
 		StepExplicitProperty(TemporaryBuffer, Property);
 	}
 
-	check(MostRecentPropertyAddress);
-	return *(TNativeType*)(MostRecentPropertyAddress);
+	return (MostRecentPropertyAddress != NULL) ? *(TNativeType*)(MostRecentPropertyAddress) : *(TNativeType*)TemporaryBuffer;
 }

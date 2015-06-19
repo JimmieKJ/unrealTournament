@@ -253,7 +253,6 @@ private:
 	void OnSkeletonSelected(const FAssetData& AssetData)
 	{
 		TargetSkeleton = AssetData;
-		MakeParentClassPicker();
 	}
 
 	/** Handler for when ok is clicked */

@@ -37,12 +37,15 @@
 #include "Editor/UnrealEd/Public/PackageTools.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h" // for FNotificationInfo
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Engine/SCS_Node.h"
+#include "GeneralProjectSettings.h"
 
 DECLARE_CYCLE_STAT(TEXT("Compile Blueprint"), EKismetCompilerStats_CompileBlueprint, STATGROUP_KismetCompiler);
 DECLARE_CYCLE_STAT(TEXT("Broadcast Precompile"), EKismetCompilerStats_BroadcastPrecompile, STATGROUP_KismetCompiler);
 DECLARE_CYCLE_STAT(TEXT("Update Search Metadata"), EKismetCompilerStats_UpdateSearchMetaData, STATGROUP_KismetCompiler);
 DECLARE_CYCLE_STAT(TEXT("Garbage Collection"), EKismetCompilerStats_GarbageCollection, STATGROUP_KismetCompiler);
-DECLARE_CYCLE_STAT(TEXT("Notify Blueprint Changed"), EKismetCompilerStats_NotifyBlueprintChanged, STATGROUP_KismetCompiler);
 DECLARE_CYCLE_STAT(TEXT("Refresh Dependent Blueprints"), EKismetCompilerStats_RefreshDependentBlueprints, STATGROUP_KismetCompiler);
 DECLARE_CYCLE_STAT(TEXT("Validate Generated Class"), EKismetCompilerStats_ValidateGeneratedClass, STATGROUP_KismetCompiler);
 
@@ -376,7 +379,7 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 	}
 	
 	// Create new UBlueprint object
-	UBlueprint* NewBP = ConstructObject<UBlueprint>(*BlueprintClassType, Outer, NewBPName, RF_Public|RF_Standalone|RF_Transactional|RF_LoadCompleted);
+	UBlueprint* NewBP = NewObject<UBlueprint>(Outer, *BlueprintClassType, NewBPName, RF_Public | RF_Standalone | RF_Transactional | RF_LoadCompleted);
 	NewBP->Status = BS_BeingCreated;
 	NewBP->BlueprintType = BlueprintType;
 	NewBP->ParentClass = ParentClass;
@@ -393,8 +396,8 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 		// >>> Temporary workaround, before a BlueprintGeneratedClass is the main asset.
 		FName NewSkelClassName, NewGenClassName;
 		NewBP->GetBlueprintClassNames(NewGenClassName, NewSkelClassName);
-		UBlueprintGeneratedClass* NewClass = ConstructObject<UBlueprintGeneratedClass>(
-			*BlueprintGeneratedClassType, NewBP->GetOutermost(), NewGenClassName, RF_Public | RF_Transactional);
+		UBlueprintGeneratedClass* NewClass = NewObject<UBlueprintGeneratedClass>(
+			NewBP->GetOutermost(), *BlueprintGeneratedClassType, NewGenClassName, RF_Public | RF_Transactional);
 		NewBP->GeneratedClass = NewClass;
 		NewClass->ClassGeneratedBy = NewBP;
 		NewClass->SetSuperStruct(ParentClass);
@@ -412,13 +415,17 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 		{
 			check( UCSGraph->Nodes.Num() > 0 );
 			UK2Node_FunctionEntry* UCSEntry = CastChecked<UK2Node_FunctionEntry>(UCSGraph->Nodes[0]);
-			UK2Node_CallParentFunction* ParentCallNodeTemplate = NewObject<UK2Node_CallParentFunction>();
-			ParentCallNodeTemplate->FunctionReference.SetExternalMember(K2Schema->FN_UserConstructionScript, NewBP->ParentClass);
-			UK2Node_CallParentFunction* ParentCallNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_CallParentFunction>(UCSGraph, ParentCallNodeTemplate, FVector2D(200, 0));
+			FGraphNodeCreator<UK2Node_CallParentFunction> FunctionNodeCreator(*UCSGraph);
+			UK2Node_CallParentFunction* ParentFunctionNode = FunctionNodeCreator.CreateNode();
+			ParentFunctionNode->FunctionReference.SetExternalMember(K2Schema->FN_UserConstructionScript, NewBP->ParentClass);
+			ParentFunctionNode->NodePosX = 200;
+			ParentFunctionNode->NodePosY = 0;
+			ParentFunctionNode->AllocateDefaultPins();
+			FunctionNodeCreator.Finalize();
 
 			// Wire up the new node
 			UEdGraphPin* ExecPin = UCSEntry->FindPin(K2Schema->PN_Then);
-			UEdGraphPin* SuperPin = ParentCallNode->FindPin(K2Schema->PN_Execute);
+			UEdGraphPin* SuperPin = ParentFunctionNode->FindPin(K2Schema->PN_Execute);
 			ExecPin->MakeLinkTo(SuperPin);
 		}
 
@@ -461,59 +468,72 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 	FKismetCompilerOptions CompileOptions;
 	Compiler.CompileBlueprint(NewBP, CompileOptions, Results);
 
-	//@TODO: ANIMREFACTOR 2: This kind of code should be on a per-blueprint basis; not centralized here
-	if(UAnimBlueprint* AnimBP = Cast<UAnimBlueprint>(NewBP))
+	UBlueprintEditorSettings* Settings = GetMutableDefault<UBlueprintEditorSettings>();
+	if(Settings && Settings->bSpawnDefaultBlueprintNodes)
 	{
-		// add default nodes to event graph
-		UEdGraph* Graph = NewBP->UbergraphPages[0];
+		//@TODO: ANIMREFACTOR 2: This kind of code should be on a per-blueprint basis; not centralized here
+		if(UAnimBlueprint* AnimBP = Cast<UAnimBlueprint>(NewBP))
+		{
+			// add default nodes to event graph
+			UEdGraph* Graph = NewBP->UbergraphPages[0];
 
-		if(Graph->Nodes.Num() == 0)
-		{
-			// add update event graph
-			UK2Node_Event* EventNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, Graph, FName(TEXT("BlueprintUpdateAnimation")), UAnimInstance::StaticClass());
+			if(Graph->Nodes.Num() == 0)
+			{
+				// add update event graph
+				int32 NodePositionY = 0;
+				UK2Node_Event* EventNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, Graph, FName(TEXT("BlueprintUpdateAnimation")), UAnimInstance::StaticClass(), NodePositionY);
+				check(EventNode);
 
-			// add try get owner node
-			UK2Node_CallFunction* GetOwnerNode = NewObject<UK2Node_CallFunction>(Graph);
-			UFunction* MakeNodeFunction = FindObject<UClass>(ANY_PACKAGE, TEXT("AnimInstance"))->FindFunctionByName(TEXT("TryGetPawnOwner"));
-			GetOwnerNode->CreateNewGuid();
-			GetOwnerNode->PostPlacedNewNode();
-			GetOwnerNode->SetFromFunction(MakeNodeFunction);
-			GetOwnerNode->AllocateDefaultPins();
-			GetOwnerNode->NodePosX = EventNode->NodePosX;
-			GetOwnerNode->NodePosY = EventNode->NodePosY + EventNode->NodeHeight + 100;
-			UEdGraphSchema_K2::SetNodeMetaData(GetOwnerNode, FNodeMetadata::DefaultGraphNode);
-			GetOwnerNode->bIsNodeEnabled = false;
+				// add try get owner node
+				UK2Node_CallFunction* GetOwnerNode = NewObject<UK2Node_CallFunction>(Graph);
+				UFunction* MakeNodeFunction = FindObject<UClass>(ANY_PACKAGE, TEXT("AnimInstance"))->FindFunctionByName(TEXT("TryGetPawnOwner"));
+				GetOwnerNode->CreateNewGuid();
+				GetOwnerNode->PostPlacedNewNode();
+				GetOwnerNode->SetFromFunction(MakeNodeFunction);
+				GetOwnerNode->SetFlags(RF_Transactional);
+				GetOwnerNode->AllocateDefaultPins();
+				GetOwnerNode->NodePosX = EventNode->NodePosX;
+				GetOwnerNode->NodePosY = EventNode->NodePosY + EventNode->NodeHeight + 100;
+				UEdGraphSchema_K2::SetNodeMetaData(GetOwnerNode, FNodeMetadata::DefaultGraphNode);
+				GetOwnerNode->bIsNodeEnabled = false;
 
-			Graph->AddNode(GetOwnerNode);
+				Graph->AddNode(GetOwnerNode);
+			}
 		}
-	}
-	else
-	{
-		// Based on the Blueprint type we are constructing, place some starting events.
-		// Note, this cannot happen in the Factories for constructing these Blueprint types due to the fact that creating child BPs circumvent the factories
-		UClass* WidgetClass = FindObject<UClass>(ANY_PACKAGE, TEXT("UserWidget"));
-		UClass* GameplayAbilityClass = FindObject<UClass>(ANY_PACKAGE, TEXT("GameplayAbility"));
+		else
+		{
+			// Only add default events if there is an ubergraph and they are supported
+			if(NewBP->UbergraphPages.Num() && FBlueprintEditorUtils::DoesSupportEventGraphs(NewBP))
+			{
+				// Based on the Blueprint type we are constructing, place some starting events.
+				// Note, this cannot happen in the Factories for constructing these Blueprint types due to the fact that creating child BPs circumvent the factories
+				UClass* WidgetClass = FindObject<UClass>(ANY_PACKAGE, TEXT("UserWidget"));
+				UClass* GameplayAbilityClass = FindObject<UClass>(ANY_PACKAGE, TEXT("GameplayAbility"));
 
-		if(NewBP->GeneratedClass->IsChildOf(AActor::StaticClass()))
-		{
-			UEdGraphNode* BeginPlayNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveBeginPlay")), AActor::StaticClass());
-			UEdGraphNode* ActorBeginOverlapNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveActorBeginOverlap")), AActor::StaticClass(), BeginPlayNode->NodePosY + BeginPlayNode->NodeHeight + 200);
-			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveTick")), AActor::StaticClass(), ActorBeginOverlapNode->NodePosY + ActorBeginOverlapNode->NodeHeight + 200);
-		}
-		else if(NewBP->GeneratedClass->IsChildOf(UActorComponent::StaticClass()))
-		{
-			UEdGraphNode* ReceiveTickNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveTick")), UActorComponent::StaticClass());
-			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveInitializeComponent")), UActorComponent::StaticClass(), ReceiveTickNode->NodePosY + ReceiveTickNode->NodeHeight + 200);
-		}
-		else if(NewBP->GeneratedClass->IsChildOf(WidgetClass))
-		{
-			UEdGraphNode* EventNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("Construct")), WidgetClass);
-			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("Tick")), WidgetClass, EventNode->NodePosY + EventNode->NodeHeight + 200);
-		}
-		else if(NewBP->GeneratedClass->IsChildOf(GameplayAbilityClass))
-		{
-			UEdGraphNode* EventNode = FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("K2_ActivateAbility")), GameplayAbilityClass);
-			FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("K2_OnEndAbility")), GameplayAbilityClass, EventNode->NodePosY + EventNode->NodeHeight + 200);
+				int32 NodePositionY = 0;
+
+				if(NewBP->GeneratedClass->IsChildOf(AActor::StaticClass()))
+				{
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveBeginPlay")), AActor::StaticClass(), NodePositionY);
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveActorBeginOverlap")), AActor::StaticClass(), NodePositionY);
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveTick")), AActor::StaticClass(), NodePositionY);
+				}
+				else if(NewBP->GeneratedClass->IsChildOf(UActorComponent::StaticClass()))
+				{
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveTick")), UActorComponent::StaticClass(), NodePositionY);
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("ReceiveBeginPlay")), UActorComponent::StaticClass(), NodePositionY);
+				}
+				else if(NewBP->GeneratedClass->IsChildOf(WidgetClass))
+				{
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("Construct")), WidgetClass, NodePositionY);
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("Tick")), WidgetClass, NodePositionY);
+				}
+				else if(NewBP->GeneratedClass->IsChildOf(GameplayAbilityClass))
+				{
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("K2_ActivateAbility")), GameplayAbilityClass, NodePositionY);
+					FKismetEditorUtilities::AddDefaultEventNode(NewBP, NewBP->UbergraphPages[0], FName(TEXT("K2_OnEndAbility")), GameplayAbilityClass, NodePositionY);
+				}
+			}
 		}
 	}
 	
@@ -546,55 +566,62 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprint(UClass* ParentClass, UObject
 	return NewBP;
 }
 
-UK2Node_Event* FKismetEditorUtilities::AddDefaultEventNode(UBlueprint* InBlueprint, UEdGraph* InGraph, FName InEventName, UClass* InEventClass, int32 InNodePosY/* = 0*/)
+UK2Node_Event* FKismetEditorUtilities::AddDefaultEventNode(UBlueprint* InBlueprint, UEdGraph* InGraph, FName InEventName, UClass* InEventClass, int32& InOutNodePosY)
 {
-	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+	UK2Node_Event* NewEventNode = nullptr;
 
-	// Add a "Begin Play" event
-	UK2Node_Event* NewEventNode = NewObject<UK2Node_Event>(InGraph);
-	NewEventNode->EventSignatureClass = InEventClass;
-	NewEventNode->EventSignatureName = InEventName;
+	FMemberReference EventReference;
+	EventReference.SetExternalMember(InEventName, InEventClass);
 
-	// add update event graph
-	NewEventNode->bOverrideFunction=true;
-	NewEventNode->CreateNewGuid();
-	NewEventNode->PostPlacedNewNode();
-	NewEventNode->SetFlags(RF_Transactional);
-	NewEventNode->AllocateDefaultPins();
-	NewEventNode->bIsNodeEnabled = false;
-	NewEventNode->NodeComment = LOCTEXT("DisabledNodeComment", "This node is disabled and will not be called.\nDrag off pins to build functionality.").ToString();
-	NewEventNode->NodePosY = InNodePosY;
-	UEdGraphSchema_K2::SetNodeMetaData(NewEventNode, FNodeMetadata::DefaultGraphNode);
-
-	InGraph->AddNode(NewEventNode);
-
-	// Rebuild the skeleton class so we can determine if we are overriding the function from the parent
-	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(InBlueprint);
-
-	// Get the function that the event node or function entry represents
-	FFunctionFromNodeHelper FunctionFromNode(NewEventNode);
-	if (FunctionFromNode.Function && Schema->GetCallableParentFunction(FunctionFromNode.Function))
+	// Prevent events that are hidden in the Blueprint's class from being auto-generated.
+	if(!FObjectEditorUtils::IsFunctionHiddenFromClass(EventReference.ResolveMember<UFunction>(InBlueprint), InBlueprint->ParentClass))
 	{
-		UFunction* ValidParent = Schema->GetCallableParentFunction(FunctionFromNode.Function);
-		FGraphNodeCreator<UK2Node_CallParentFunction> FunctionNodeCreator(*InGraph);
-		UK2Node_CallParentFunction* ParentFunctionNode = FunctionNodeCreator.CreateNode();
-		ParentFunctionNode->SetFromFunction(ValidParent);
-		ParentFunctionNode->AllocateDefaultPins();
+		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 
-		ParentFunctionNode->GetExecPin()->MakeLinkTo(NewEventNode->FindPin(Schema->PN_Then));
+		// Add the event
+		NewEventNode = NewObject<UK2Node_Event>(InGraph);
+		NewEventNode->EventReference = EventReference;
 
-		ParentFunctionNode->NodePosX = FunctionFromNode.Node->NodePosX + FunctionFromNode.Node->NodeWidth + 200;
-		ParentFunctionNode->NodePosY = FunctionFromNode.Node->NodePosY;
-		UEdGraphSchema_K2::SetNodeMetaData(ParentFunctionNode, FNodeMetadata::DefaultGraphNode);
-		FunctionNodeCreator.Finalize();
-
-		ParentFunctionNode->bIsNodeEnabled = false;
-
-		// Adding the call to parent and connecting it will reset this value
+		// add update event graph
+		NewEventNode->bOverrideFunction=true;
+		NewEventNode->CreateNewGuid();
+		NewEventNode->PostPlacedNewNode();
+		NewEventNode->SetFlags(RF_Transactional);
+		NewEventNode->AllocateDefaultPins();
 		NewEventNode->bIsNodeEnabled = false;
 		NewEventNode->NodeComment = LOCTEXT("DisabledNodeComment", "This node is disabled and will not be called.\nDrag off pins to build functionality.").ToString();
-	}
+		NewEventNode->bCommentBubblePinned = true;
+		NewEventNode->bCommentBubbleVisible = true;
+		NewEventNode->NodePosY = InOutNodePosY;
+		UEdGraphSchema_K2::SetNodeMetaData(NewEventNode, FNodeMetadata::DefaultGraphNode);
+		InOutNodePosY = NewEventNode->NodePosY + NewEventNode->NodeHeight + 200;
 
+		InGraph->AddNode(NewEventNode);
+
+		// Get the function that the event node or function entry represents
+		FFunctionFromNodeHelper FunctionFromNode(NewEventNode);
+		if (FunctionFromNode.Function && Schema->GetCallableParentFunction(FunctionFromNode.Function))
+		{
+			UFunction* ValidParent = Schema->GetCallableParentFunction(FunctionFromNode.Function);
+			FGraphNodeCreator<UK2Node_CallParentFunction> FunctionNodeCreator(*InGraph);
+			UK2Node_CallParentFunction* ParentFunctionNode = FunctionNodeCreator.CreateNode();
+			ParentFunctionNode->SetFromFunction(ValidParent);
+			ParentFunctionNode->AllocateDefaultPins();
+
+			ParentFunctionNode->GetExecPin()->MakeLinkTo(NewEventNode->FindPin(Schema->PN_Then));
+
+			ParentFunctionNode->NodePosX = FunctionFromNode.Node->NodePosX + FunctionFromNode.Node->NodeWidth + 200;
+			ParentFunctionNode->NodePosY = FunctionFromNode.Node->NodePosY;
+			UEdGraphSchema_K2::SetNodeMetaData(ParentFunctionNode, FNodeMetadata::DefaultGraphNode);
+			FunctionNodeCreator.Finalize();
+
+			ParentFunctionNode->bIsNodeEnabled = false;
+
+			// Adding the call to parent and connecting it will reset this value
+			NewEventNode->bIsNodeEnabled = false;
+			NewEventNode->NodeComment = LOCTEXT("DisabledNodeComment", "This node is disabled and will not be called.\nDrag off pins to build functionality.").ToString();
+		}
+	}
 
 	return NewEventNode;
 }
@@ -615,6 +642,11 @@ UBlueprint* FKismetEditorUtilities::ReloadBlueprint(UBlueprint* StaleBlueprint)
 
 UBlueprint* FKismetEditorUtilities::ReplaceBlueprint(UBlueprint* Target, UBlueprint const* ReplacementArchetype)
 {
+	if (Target == ReplacementArchetype)
+	{
+		return Target;
+	}
+
 	UPackage* BlueprintPackage = Target->GetOutermost();
 	check(BlueprintPackage != GetTransientPackage());
 	const FString BlueprintName = Target->GetName();
@@ -623,7 +655,7 @@ UBlueprint* FKismetEditorUtilities::ReplaceBlueprint(UBlueprint* Target, UBluepr
 	Unloader.UnloadBlueprint(/*bResetPackage =*/false);
 
 	UBlueprint* Replacement = Cast<UBlueprint>(StaticDuplicateObject(ReplacementArchetype, BlueprintPackage, *BlueprintName));
-
+	
 	Unloader.ReplaceStaleRefs(Replacement);
 	return Replacement;
 }
@@ -695,14 +727,14 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	FCompilerResultsLog LocalResults;
 	FCompilerResultsLog& Results = (pResults != NULL) ? *pResults : LocalResults;
 
-	FBlueprintCompileReinstancer ReinstanceHelper(OldClass);
+	auto ReinstanceHelper = FBlueprintCompileReinstancer::Create(OldClass);
 
 	// Suppress errors/warnings in the log if we're recompiling on load on a build machine
 	Results.bLogInfoOnly = BlueprintObj->bIsRegeneratingOnLoad && GIsBuildMachine;
 
 	FKismetCompilerOptions CompileOptions;
 	CompileOptions.bSaveIntermediateProducts = bSaveIntermediateProducts;
-	Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, &ReinstanceHelper);
+	Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, ReinstanceHelper);
 
 	FBlueprintEditorUtils::UpdateDelegatesInBlueprint(BlueprintObj);
 
@@ -717,7 +749,18 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 		}
 	}
 
-	ReinstanceHelper.UpdateBytecodeReferences();
+	ReinstanceHelper->UpdateBytecodeReferences();
+
+	const bool bIsInterface = FBlueprintEditorUtils::IsInterfaceBlueprint(BlueprintObj);
+	const bool bLetReinstancerRefreshDependBP = !bIsRegeneratingOnLoad && (OldClass != NULL) && !bIsInterface;
+	if (bLetReinstancerRefreshDependBP)
+	{
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_RefreshDependentBlueprints);
+
+		TArray<UBlueprint*> DependentBPs;
+		FBlueprintEditorUtils::GetDependentBlueprints(BlueprintObj, DependentBPs);
+		ReinstanceHelper->ListDependentBlueprintsToRefresh(DependentBPs);
+	}
 
 	if (!bIsRegeneratingOnLoad && (OldClass != NULL))
 	{
@@ -731,8 +774,7 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 		}
 
 		// Replace instances of this class
-		static const FBoolConfigValueHelper ReinstanceOnlyWhenNecessary(TEXT("Kismet"), TEXT("bReinstanceOnlyWhenNecessary"), GEngineIni);
-		ReinstanceHelper.ReinstanceObjects(!ReinstanceOnlyWhenNecessary);
+		ReinstanceHelper->ReinstanceObjects();
 
 		// Notify everyone a blueprint has been compiled and reinstanced, but before GC so they can perform any final cleanup.
 		if ( GEditor )
@@ -769,7 +811,8 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 		BlueprintObj->NewVariables[VarIndex].DefaultValue.Empty();
 	}
 
-	{ 
+	if (!bLetReinstancerRefreshDependBP && (bIsInterface || !BlueprintObj->bIsRegeneratingOnLoad))
+	{
 		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_RefreshDependentBlueprints);
 
 		TArray<UBlueprint*> DependentBPs;
@@ -780,7 +823,7 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 		{
 			// for interface changes, auto-refresh nodes on any dependent blueprints
 			// note: RefreshAllNodes() will internally send a change notification event to the dependent blueprint
-			if (FBlueprintEditorUtils::IsInterfaceBlueprint(BlueprintObj))
+			if (bIsInterface)
 			{
 				bool bPreviousRegenValue = Dependent->bIsRegeneratingOnLoad;
 				Dependent->bIsRegeneratingOnLoad = Dependent->bIsRegeneratingOnLoad || BlueprintObj->bIsRegeneratingOnLoad;
@@ -868,22 +911,34 @@ void FKismetEditorUtilities::RecompileBlueprintBytecode(UBlueprint* BlueprintObj
 	TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
 	FCompilerResultsLog Results;
 
-	FBlueprintCompileReinstancer ReinstanceHelper(BlueprintObj->GeneratedClass, true);
+	auto ReinstanceHelper = FBlueprintCompileReinstancer::Create(BlueprintObj->GeneratedClass, true);
 
 	FKismetCompilerOptions CompileOptions;
 	CompileOptions.CompileType = EKismetCompileType::BytecodeOnly;
 	Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, NULL, ObjLoaded);
 
-	ReinstanceHelper.UpdateBytecodeReferences();
+	ReinstanceHelper->UpdateBytecodeReferences();
 
 	if (BlueprintPackage != NULL)
 	{
 		BlueprintPackage->SetDirtyFlag(bStartedWithUnsavedChanges);
 	}
+
+	if (!BlueprintObj->bIsRegeneratingOnLoad)
+	{
+		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_NotifyBlueprintChanged);
+
+		BlueprintObj->BroadcastCompiled();
+
+		if (GEditor)
+		{
+			GEditor->BroadcastBlueprintCompiled();
+		}
+	}
 }
 
 /** Recompiles the bytecode of a blueprint only.  Should only be run for recompiling dependencies during compile on load */
-void FKismetEditorUtilities::GenerateCppCode(UBlueprint* InBlueprintObj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource)
+void FKismetEditorUtilities::GenerateCppCode(UBlueprint* InBlueprintObj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource, const FString& OptionalClassName)
 {
 	check(InBlueprintObj);
 	check(InBlueprintObj->GetOutermost() != GetTransientPackage());
@@ -895,6 +950,8 @@ void FKismetEditorUtilities::GenerateCppCode(UBlueprint* InBlueprintObj, TShared
 	{
 		auto BlueprintObj = DuplicateObject<UBlueprint>(InBlueprintObj, GetTransientPackage(), *InBlueprintObj->GetName());
 		{
+			auto Reinstancer = FBlueprintCompileReinstancer::Create(BlueprintObj->GeneratedClass);
+
 			IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
 
 			TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
@@ -904,12 +961,123 @@ void FKismetEditorUtilities::GenerateCppCode(UBlueprint* InBlueprintObj, TShared
 			CompileOptions.CompileType = EKismetCompileType::Cpp;
 			CompileOptions.OutCppSourceCode = OutCppSource;
 			CompileOptions.OutHeaderSourceCode = OutHeaderSource;
+			CompileOptions.NewCppClassName = OptionalClassName;
 			Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results);
 		}
 		BlueprintObj->RemoveGeneratedClasses();
 		BlueprintObj->ClearFlags(RF_Standalone);
 		BlueprintObj->MarkPendingKill();
 	}
+}
+
+
+namespace ConformComponentsUtils
+{
+	static void ConformRemovedNativeComponents(UObject* BpCdo);
+	static UObject* FindeNativeArchetype(UActorComponent* Component);
+};
+
+static void ConformComponentsUtils::ConformRemovedNativeComponents(UObject* BpCdo)
+{
+	UClass* BlueprintClass = BpCdo->GetClass();
+	check(BpCdo->HasAnyFlags(RF_ClassDefaultObject) && BlueprintClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
+
+	AActor* ActorCDO = Cast<AActor>(BpCdo);
+	if (ActorCDO == nullptr)
+	{
+		return;
+	}
+
+	UClass* const NativeSuperClass = FBlueprintEditorUtils::FindFirstNativeClass(BlueprintClass);
+	const AActor* NativeCDO = GetDefault<AActor>(NativeSuperClass);
+
+	TInlineComponentArray<UActorComponent*> OldNativeComponents;
+	ActorCDO->GetComponents(OldNativeComponents);
+	TInlineComponentArray<UActorComponent*> NewNativeComponents;
+	NativeCDO->GetComponents(NewNativeComponents);
+
+	TSet<UObject*> DestroyedComponents;
+	for (UActorComponent* Component : OldNativeComponents)
+	{
+		UObject* NativeArchetype = FindeNativeArchetype(Component);
+		if ((NativeArchetype == nullptr) || !NativeArchetype->HasAnyFlags(RF_ClassDefaultObject))
+		{
+			continue;
+		}
+		// else, the component has been removed from our native super class
+
+		Component->DestroyComponent(/*bPromoteChildren =*/false);
+		DestroyedComponents.Add(Component);
+
+		UClass* ComponentClass = Component->GetClass();
+		for (TFieldIterator<UArrayProperty> ArrayPropIt(NativeSuperClass); ArrayPropIt; ++ArrayPropIt)
+		{
+			UArrayProperty* ArrayProp = *ArrayPropIt;
+
+			UObjectProperty* ObjInnerProp = Cast<UObjectProperty>(ArrayProp->Inner);
+			if ((ObjInnerProp == nullptr) || !ComponentClass->IsChildOf(ObjInnerProp->PropertyClass))
+			{
+				continue;
+			}
+
+			uint8* BpArrayPtr = ArrayProp->ContainerPtrToValuePtr<uint8>(ActorCDO);
+			FScriptArrayHelper BpArrayHelper(ArrayProp, BpArrayPtr);
+			// iterate backwards so we can remove as we go
+			for (int32 ArrayIndex = BpArrayHelper.Num()-1; ArrayIndex >= 0; --ArrayIndex)
+			{
+				uint8* BpEntryPtr = BpArrayHelper.GetRawPtr(ArrayIndex);
+				UObject* ObjEntryValue = ObjInnerProp->GetObjectPropertyValue(BpEntryPtr);
+
+				if (ObjEntryValue == Component)
+				{
+					// NOTE: until we fixup UE-15224, then this may be undesirably diverging from the natively defined 
+					//       array (think delta serialization); however, I think from Blueprint creation on we treat 
+					//       instanced sub-object arrays as differing (just may be confusing to the user)
+					BpArrayHelper.RemoveValues(ArrayIndex);
+				}
+			}
+		}
+
+		// @TODO: have to also remove from map properties now that they're available
+	}
+
+	// 
+	for (TFieldIterator<UObjectProperty> ObjPropIt(NativeSuperClass); ObjPropIt; ++ObjPropIt)
+	{
+		UObjectProperty* ObjectProp = *ObjPropIt;
+		UObject* PropObjValue = ObjectProp->GetObjectPropertyValue_InContainer(ActorCDO);
+
+		if (DestroyedComponents.Contains(PropObjValue))
+		{
+			UObject* SuperObjValue = ObjectProp->GetObjectPropertyValue_InContainer(NativeCDO);
+			ObjectProp->SetObjectPropertyValue_InContainer(ActorCDO, SuperObjValue);
+		}
+	}
+}
+
+static UObject* ConformComponentsUtils::FindeNativeArchetype(UActorComponent* Component)
+{
+	check(Component->HasAnyFlags(RF_DefaultSubObject));
+
+	UActorComponent* Archetype = Cast<UActorComponent>(Component->GetArchetype());
+	if (Archetype == nullptr)
+	{
+		return nullptr;
+	}
+
+	UObject* ArchetypeOwner = Archetype->GetOuter();
+	UClass* OwnerClass = ArchetypeOwner->GetClass();
+
+	const bool bOwnerIsNative = OwnerClass->HasAnyClassFlags(CLASS_Native);
+	if (bOwnerIsNative)
+	{
+		return Archetype;
+	}
+	if (Archetype == Component)
+	{
+		return nullptr;
+	}
+	return FindeNativeArchetype(Archetype);
 }
 
 /** Tries to make sure that a blueprint is conformed to its native parent, in case any native class flags have changed */
@@ -922,6 +1090,9 @@ void FKismetEditorUtilities::ConformBlueprintFlagsAndComponents(UBlueprint* Blue
 	{
 		SkelClass->ClassFlags |= (ParentClass->ClassFlags & CLASS_ScriptInherit);
 		UObject* SkelCDO = SkelClass->GetDefaultObject();
+		// NOTE: we don't need to call ConformRemovedNativeComponents() for skel
+		//       classes, as they're generated on load (and not saved with stale 
+		//       components)
 		SkelCDO->InstanceSubobjectTemplates();
 	}
 
@@ -929,6 +1100,7 @@ void FKismetEditorUtilities::ConformBlueprintFlagsAndComponents(UBlueprint* Blue
 	{
 		GenClass->ClassFlags |= (ParentClass->ClassFlags & CLASS_ScriptInherit);
 		UObject* GenCDO = GenClass->GetDefaultObject();
+		ConformComponentsUtils::ConformRemovedNativeComponents(GenCDO);
 		GenCDO->InstanceSubobjectTemplates();
 	}
 }
@@ -946,10 +1118,13 @@ bool FKismetEditorUtilities::CanCreateBlueprintOfClass(const UClass* Class)
 		&& !Class->HasAnyClassFlags(CLASS_NewerVersionExists)
 		&& (!Class->ClassGeneratedBy || (bAllowDerivedBlueprints && !IsClassABlueprintSkeleton(Class)));
 
+	const bool bIsBPGC = (Cast<UBlueprintGeneratedClass>(Class) != nullptr);
+
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 	const bool bIsValidClass = Class->GetBoolMetaDataHierarchical(FBlueprintMetadata::MD_IsBlueprintBase)
 		|| (Class == UObject::StaticClass())
-		|| (bAllowBlueprintableComponents && (Class->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || Class == USceneComponent::StaticClass() || Class == UActorComponent::StaticClass()));
+		|| (bAllowBlueprintableComponents && (Class->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || Class == USceneComponent::StaticClass() || Class == UActorComponent::StaticClass()))
+		|| bIsBPGC;  // BPs are always considered inheritable
 
 	return bCanCreateBlueprint && bIsValidClass;
 }
@@ -1039,9 +1214,9 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 				else if (SceneComponent->AttachParent->IsCreatedByConstructionScript())
 				{
 					USCS_Node* ParentSCSNode = nullptr;
-					for (UBlueprint* Blueprint : ParentBPStack)
+					for (UBlueprint* ParentBlueprint : ParentBPStack)
 					{
-						ParentSCSNode = Blueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->AttachParent->GetFName());
+						ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->AttachParent->GetFName());
 						if (ParentSCSNode)
 						{
 							break;
@@ -1117,33 +1292,21 @@ UBlueprint* FKismetEditorUtilities::CreateBlueprintFromActor(const FName Bluepri
 
 			if (NewBlueprint->GeneratedClass != nullptr)
 			{
-				// Since we already created SCS Nodes for the instance components, temporarily cache and clear the
-				// array to avoid creating duplicates in the new CDO
-				const TArray<UActorComponent*> TempInstanceComponents(Actor->GetInstanceComponents());
-				Actor->ClearInstanceComponents(false);
+				AActor* CDO = CastChecked<AActor>(NewBlueprint->GeneratedClass->GetDefaultObject());
+				const auto CopyOptions = (EditorUtilities::ECopyOptions::Type)(EditorUtilities::ECopyOptions::OnlyCopyEditOrInterpProperties | EditorUtilities::ECopyOptions::PropagateChangesToArchetypeInstances);
+				EditorUtilities::CopyActorProperties(Actor, CDO, CopyOptions);
 
-				UObject* CDO = NewBlueprint->GeneratedClass->GetDefaultObject();
-				UEditorEngine::CopyPropertiesForUnrelatedObjects(Actor, CDO);
-
-				for (UActorComponent* Component : TempInstanceComponents)
+				if (USceneComponent* Scene = CDO->GetRootComponent())
 				{
-					Actor->AddInstanceComponent(Component);
-				}
+					Scene->RelativeLocation = FVector::ZeroVector;
+					Scene->RelativeRotation = FRotator::ZeroRotator;
 
-				if (AActor* CDOAsActor = Cast<AActor>(CDO))
-				{
-					if (USceneComponent* Scene = CDOAsActor->GetRootComponent())
-					{
-						Scene->RelativeLocation = FVector::ZeroVector;
-						Scene->RelativeRotation = FRotator::ZeroRotator;
+					// Clear out the attachment info after having copied the properties from the source actor
+					Scene->AttachParent = NULL;
+					Scene->AttachChildren.Empty();
 
-						// Clear out the attachment info after having copied the properties from the source actor
-						Scene->AttachParent = NULL;
-						Scene->AttachChildren.Empty();
-
-						// Ensure the light mass information is cleaned up
-						Scene->InvalidateLightingCache();
-					}
+					// Ensure the light mass information is cleaned up
+					Scene->InvalidateLightingCache();
 				}
 			}
 
@@ -1740,7 +1903,7 @@ bool FKismetEditorUtilities::CanBlueprintImplementInterface(UBlueprint const* Bl
 			FString const& ProhibitedList = Blueprint->ParentClass->GetMetaData(FBlueprintMetadata::MD_ProhibitedInterfaces);
 			
 			TArray<FString> ProhibitedInterfaceNames;
-			ProhibitedList.ParseIntoArray(&ProhibitedInterfaceNames, TEXT(","), true);
+			ProhibitedList.ParseIntoArray(ProhibitedInterfaceNames, TEXT(","), true);
 
 			FString const& InterfaceName = Class->GetName();
 			// loop over all the prohibited interfaces

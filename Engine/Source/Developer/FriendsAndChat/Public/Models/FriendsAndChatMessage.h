@@ -54,6 +54,7 @@ namespace EFriendsDisplayLists
 		FriendRequestsDisplay,			// Friend request display
 		OutgoingFriendInvitesDisplay,	// Outgoing friends invites
 		GameInviteDisplay,				// GameInviteDisplay
+		ClanMemberDisplay,				// Clan member
 		MAX_None
 	};
 
@@ -63,8 +64,8 @@ namespace EFriendsDisplayLists
 		static const FText RecentPlayersList = NSLOCTEXT("FriendsListTypes", "RecentPlayersList", "Recent Players");
 		static const FText FriendRequestList = NSLOCTEXT("FriendsListTypes", "InvitesList", "Invitations");
 		static const FText OutgoingFriendRequestList = NSLOCTEXT("FriendsListTypes", "OutgoingInvites", "Outgoing");
-		static const FText GameInviteList = NSLOCTEXT("FriendsListTypes", "GameInvites", "Game Invites");
-
+		static const FText GameInviteList = NSLOCTEXT("FriendsListTypes", "GameInvites", "GameInvites");
+		static const FText ClanMemberList = NSLOCTEXT("FriendsListTypes", "ClanMember", "Member");
 
 		switch (EnumVal)
 		{
@@ -73,6 +74,7 @@ namespace EFriendsDisplayLists
 			case FriendRequestsDisplay: return FriendRequestList;
 			case OutgoingFriendInvitesDisplay : return OutgoingFriendRequestList;
 			case GameInviteDisplay : return GameInviteList;
+			case ClanMemberDisplay : return ClanMemberList;
 		}
 
 		return FText::GetEmpty();
@@ -144,6 +146,16 @@ public:
 	void SetButtonDescription( FText Description )
 	{
 		MessageDescriptions.Add( Description );
+	}
+
+	/**
+	* Set a button style.
+	*
+	* @param ButtonStyle The button callback.
+	*/
+	void SetButtonStyle(FName ButtonStyle)
+	{
+		ButtonStyles.Add(ButtonStyle);
 	}
 
 	/**
@@ -262,6 +274,16 @@ public:
 		return MessageDescriptions;
 	}
 
+	/**
+	* Get button styles.
+	*
+	* @return The button style array.
+	*/
+	const TArray< FName >& GetButtonStyles() const
+	{
+		return ButtonStyles;
+	}
+
 	/** Set this message into a handled state. */
 	void SetHandled()
 	{
@@ -273,8 +295,11 @@ private:
 	// Holds the button callbacks
 	TArray< FOnClicked > ButtonCallbacks;
 
+	// Holds the button styles
+	TArray< FName > ButtonStyles;
+
 	// Holds the Action Descriptions
-	TArray< FText > MessageDescriptions;
+	TArray< FText > MessageDescriptions;	
 	
 	// Holds the message content
 	FString MessageConent;

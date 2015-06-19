@@ -4,7 +4,7 @@
 
 
 // Code analysis features
-#if defined( _PREFAST_ )
+#if defined( _PREFAST_ ) || defined( PVS_STUDIO )
 	#define USING_CODE_ANALYSIS 1
 #else
 	#define USING_CODE_ANALYSIS 0
@@ -91,5 +91,84 @@
 	// We use this exception handler in Windows code, it may be worth a closer look, but disabling for now
 	// so we can get the benefits of analysis on cross-platform code sooner.
 	#pragma warning(disable : 6320) // warning C6320: Exception-filter expression is the constant EXCEPTION_EXECUTE_HANDLER. This might mask exceptions that were not intended to be handled.
+
+	//PVS-Studio settings:
+	//-V::505,668,677,688,690,703,704,720
+	//-V:TRYCOMPRESSION:519,547
+	//-V:check(:501,547,560
+	//-V:ENABLE_TEXT_ERROR_CHECKING_RESULTS:560
+	//-V:ENABLE_LOC_TESTING:560,617
+	//-V:WITH_EDITOR:560
+	//-V:UE_LOG_ACTIVE:560
+	//-V:verify:501
+	//-V:%n:609
+	//-V:UE_BUILD_SHIPPING:501
+	//-V:WITH_EDITOR:501
+	//-V:PLATFORM_:517,547
+	//-V:ensureMsg:562
+	//-V:WindowsMinorVersion:547 
+	//-V:AddUninitialized(sizeof(void*)/:514
+	//-V:TestTrue:678
+	//-V:SetViewTarget:678
+	//-V:Slot:607
+	//-V:bHitTesting:581
+	//-V:OptionalType:580 
+	//-V:GetNextNode:681
+	//-V:ConvertToAbsolutePathForExternalAppFor:524
+	//-V:CopySingleValue:524
+	//-V:bTimeLimitReached:560
+	//-V:bRedirectionAllowed:560
+	//-V:NumFailures:560
+	//-V:bAllowInstantToolTips:560
+	//-V:bIsRealTime:560
+	//-V:Position:519
+	//-V:DynamicParameterValue[ParameterIndex]:557
+	//-V:Interpolation:560
+	//-V:storePortals:560
+	//-V:bDefaultShouldBeMaximized:560
+	//-V:bAllowPerfHUD:560
+	//-V:bUseClientStorage:560
+	//-V:Particle->Size.Z:570
+	//-V:ComponentMaskParameter:601
+	//-V:SelectedEmitter:519
+	//-V:MAX_VERTS_PER_POLY:512
+	//-V:127:547
+	//-V:0x7F:547
+	//-V:FT_LOAD_TARGET_NORMAL:616
+	//-V:OPENGL_PERFORMANCE_DATA_INVALID:564
+	//-V:HLSLCC_VersionMajor:616
+	//-V:UWorld:623
+	//-V:TextureRHI:623
+	//-V:bIgnoreFieldReferences:519
+	//-V:CachedQueryInstance:519
+	//-V:MeshContext:519
+	//-V:bAffectedByMarquee:519
+	//-V:CopyCompleteValueFromScriptVM:524
+	//-V:OnStopWatchingPin:524
+	//-V:GetMinChildNodes:524
+	//-V:FromWorldMatrix:524
+	//-V:RemoveSelectedActorsFromSelectedLayer_CanExecute:524
+	//-V:NotifyLevelRemovedFromWorld:524
+	//-V:SPAWN_INIT:595
+	//-V:BEGIN_UPDATE_LOOP:595
+	//-V:OPENGL_PERFORMANCE_DATA_INVALID:560
+	//-V:bSkipTranslationTrack:560
+	//-V:NumSelected>0:581
+	//-V:bTryPerTrackBitwiseCompression:581
+	//-V:DataStripped:581
+	//-V:FromInt:601
+	//-V:UE_CLOG(:501
+	//-V:UE_LOG(:501
+	//-V:UGL_REQUIRED_VOID:501
+	//-V:ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER:601
+	//-V:AnimScriptInstance:595
+	//-V:Driver:595
+	//-V:PSceneAsync->lockWrite:595
+	//-V:Context.World():595
+	//-V:ALLOCATE_VERTEX_DATA_TEMPLATE:501
+	//-V:UGL_REQUIRED:501
+	//-V:DEBUG_LOG_HTTP:523
+	//-V:GIsEditor:560
+	//-V:bHasEditorToken:560
 
 #endif

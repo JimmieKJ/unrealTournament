@@ -10,7 +10,7 @@ UNavModifierComponent::UNavModifierComponent(const FObjectInitializer& ObjectIni
 	AreaClass = UNavArea_Null::StaticClass();
 }
 
-void UNavModifierComponent::CalcBounds()
+void UNavModifierComponent::CalcAndCacheBounds() const
 {
 	const AActor* MyOwner = GetOwner();
 	if (MyOwner)
@@ -24,5 +24,6 @@ void UNavModifierComponent::CalcBounds()
 
 void UNavModifierComponent::GetNavigationData(FNavigationRelevantData& Data) const
 {
+	CalcAndCacheBounds();
 	Data.Modifiers.Add(FAreaNavModifier(Bounds, FTransform::Identity, AreaClass));
 }

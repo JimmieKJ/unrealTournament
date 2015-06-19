@@ -40,9 +40,9 @@ public:
 	FText DiagnoseReport() const;
 
 	/**
-	 * Get the name of the crashed app from the report (hides implementation in FGenericErrorReport)
+	 * Get the full path of the crashed app from the report (hides implementation in FGenericErrorReport)
 	 */
-	FString FindCrashedAppName() const;
+	FString FindCrashedAppPath() const;
 
 	/**
 	 * Look for the most recent Mac Error Report

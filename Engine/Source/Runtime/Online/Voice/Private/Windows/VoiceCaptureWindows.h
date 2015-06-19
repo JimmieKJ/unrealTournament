@@ -5,12 +5,11 @@
 #include "VoiceCapture.h"
 #include "VoicePackage.h"
 
-#include "AllowWindowsPlatformTypes.h"
-#include "audiodefs.h"
-#include "dsound.h"
+typedef struct IDirectSound8 *LPDIRECTSOUND8;
 
 class IVoiceCapture;
 class FVoiceCaptureWindows;
+struct FVoiceCaptureWindowsVars;
 
 /** Number of notification events distributed throughout the capture buffer */
 #define NUM_EVENTS 5
@@ -105,28 +104,14 @@ public:
 
 private:
 
-	/** Voice capture device */
-	LPDIRECTSOUNDCAPTURE8 VoiceCaptureDev;
-	/** Voice capture device caps */
-	DSCCAPS VoiceCaptureDevCaps;
-	/** State of capture device */
-	EVoiceCaptureState::Type VoiceCaptureState;
-	/** Voice capture buffer */
-	LPDIRECTSOUNDCAPTUREBUFFER8 VoiceCaptureBuffer8;
-	/** Wave format of buffer */
-	WAVEFORMATEX WavFormat;
-	/** Buffer description */
-	DSCBUFFERDESC VoiceCaptureBufferDesc;
-	/** Buffer caps */
-	DSCBCAPS VoiceCaptureBufferCaps8;
+	/** All windows related variables to hide windows includes */
+	FVoiceCaptureWindowsVars* CV;
 	/** Event sentinel */
 	uint32 LastEventTriggered;
-	/** Notification events */
-	HANDLE Events[NUM_EVENTS];
+	/** State of capture device */
+	EVoiceCaptureState::Type VoiceCaptureState;
 	/** Uncompressed audio buffer */
 	TArray<uint8> UncompressedAudioBuffer;
-	/** Current audio position of valid data in capture buffer */
-	DWORD NextCaptureOffset;
 
 	/**
 	 * Lock the DirectSound audio buffer and copy out the available data based on a notification
@@ -140,5 +125,3 @@ private:
 	 */
 	bool CreateNotifications(uint32 BufferSize);
 };
-
-#include "HideWindowsPlatformTypes.h"

@@ -1,7 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
+
 
 class FGenericWindow;
 class ICursor;
@@ -9,6 +11,7 @@ class ITextInputMethodSystem;
 class IForceFeedbackSystem;
 class IInputInterface;
 class IAnalyticsProvider;
+
 
 /**
 * Enumerates available modifier keys for input gestures.
@@ -44,6 +47,7 @@ namespace EModifierKey
 	}
 };
 
+
 namespace EPopUpOrientation
 {
 	enum Type
@@ -52,6 +56,7 @@ namespace EPopUpOrientation
 		Vertical,
 	};
 }
+
 
 /**
  * FModifierKeysState stores the pressed state of keys that are commonly used as modifiers
@@ -292,6 +297,7 @@ private:
 	bool bAreCapsLocked;
 };
 
+
 struct FPlatformRect
 {
 	int32 Left;
@@ -299,6 +305,7 @@ struct FPlatformRect
 	int32 Right;
 	int32 Bottom;
 };
+
 
 /**
  * Contains info on a physical monitor connected to the display device
@@ -311,6 +318,7 @@ struct FMonitorInfo
 	int32 NativeHeight;
 	bool bIsPrimary;
 };
+
 
 /**
  * Contains metrics information for the desktop area
@@ -363,6 +371,7 @@ namespace EWindowTitleAlignment
 	};
 }
 
+
 /**
  * Generic platform application interface
  */
@@ -401,6 +410,9 @@ public:
 
 	virtual FModifierKeysState GetModifierKeys() const  { return FModifierKeysState(); }
 
+	/** @return true if the system cursor is currently directly over a slate window. */
+	virtual bool IsCursorDirectlyOverSlateWindow() const { return true; }
+
 	virtual void SetHighPrecisionMouseMode( const bool Enable, const TSharedPtr< FGenericWindow >& InWindow ) { };
 
 	virtual bool IsUsingHighPrecisionMouseMode() const { return false; }
@@ -433,6 +445,11 @@ public:
 	virtual EWindowTitleAlignment::Type GetWindowTitleAlignment() const
 	{
 		return EWindowTitleAlignment::Left;
+	}
+
+	virtual EWindowTransparency GetWindowTransparencySupport() const
+	{
+		return EWindowTransparency::None;
 	}
 
 	virtual void DestroyApplication() { }

@@ -19,29 +19,31 @@ FMaterialGraphConnectionDrawingPolicy::FMaterialGraphConnectionDrawingPolicy(int
 	HoverDeemphasisDarkFraction = 0.4f;
 }
 
-void FMaterialGraphConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ float& Thickness, /*inout*/ FLinearColor& WireColor, /*inout*/bool& bDrawBubbles, /*inout*/ bool& bBidirectional)
+void FMaterialGraphConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ FConnectionParams& Params)
 {
-	WireColor = MaterialGraphSchema->ActivePinColor;
+	Params.AssociatedPin1 = OutputPin;
+	Params.AssociatedPin2 = InputPin;
+	Params.WireColor = MaterialGraphSchema->ActivePinColor;
 
 	// Have to consider both pins as the input will be an 'output' when previewing a connection
 	if (OutputPin)
 	{
 		if (!MaterialGraph->IsInputActive(OutputPin))
 		{
-			WireColor = MaterialGraphSchema->InactivePinColor;
+			Params.WireColor = MaterialGraphSchema->InactivePinColor;
 		}
 	}
 	if (InputPin)
 	{
 		if (!MaterialGraph->IsInputActive(InputPin))
 		{
-			WireColor = MaterialGraphSchema->InactivePinColor;
+			Params.WireColor = MaterialGraphSchema->InactivePinColor;
 		}
 	}
 
 	const bool bDeemphasizeUnhoveredPins = HoveredPins.Num() > 0;
 	if (bDeemphasizeUnhoveredPins)
 	{
-		ApplyHoverDeemphasis(OutputPin, InputPin, /*inout*/ Thickness, /*inout*/ WireColor);
+		ApplyHoverDeemphasis(OutputPin, InputPin, /*inout*/ Params.WireThickness, /*inout*/ Params.WireColor);
 	}
 }

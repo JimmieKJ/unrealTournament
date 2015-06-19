@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
+#include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/Decorators/BTDecorator_Blackboard.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyAllTypes.h"
@@ -27,53 +28,62 @@ bool UBTDecorator_Blackboard::EvaluateOnBlackboard(const UBlackboardComponent& B
 		UBlackboardKeyType* KeyCDO = BlackboardKey.SelectedKeyType->GetDefaultObject<UBlackboardKeyType>();
 		const uint8* KeyMemory = BlackboardComp.GetKeyRawData(BlackboardKey.GetSelectedKeyID());
 
-		const EBlackboardKeyOperation::Type Op = KeyCDO->GetTestOperation();
-		switch (Op)
+		// KeyMemory can be NULL if the blackboard has its data setup wrong, so we must conditionally handle that case.
+		if (ensure(KeyCDO != NULL) && (KeyMemory != NULL))
 		{
+			const EBlackboardKeyOperation::Type Op = KeyCDO->GetTestOperation();
+			switch (Op)
+			{
 			case EBlackboardKeyOperation::Basic:
-				bResult = KeyCDO->TestBasicOperation(KeyMemory, (EBasicKeyOperation::Type)OperationType);
+				bResult = KeyCDO->WrappedTestBasicOperation(BlackboardComp, KeyMemory, (EBasicKeyOperation::Type)OperationType);
 				break;
 
 			case EBlackboardKeyOperation::Arithmetic:
-				bResult = KeyCDO->TestArithmeticOperation(KeyMemory, (EArithmeticKeyOperation::Type)OperationType, IntValue, FloatValue);
+				bResult = KeyCDO->WrappedTestArithmeticOperation(BlackboardComp, KeyMemory, (EArithmeticKeyOperation::Type)OperationType, IntValue, FloatValue);
 				break;
 
 			case EBlackboardKeyOperation::Text:
-				bResult = KeyCDO->TestTextOperation(KeyMemory, (ETextKeyOperation::Type)OperationType, StringValue);
+				bResult = KeyCDO->WrappedTestTextOperation(BlackboardComp, KeyMemory, (ETextKeyOperation::Type)OperationType, StringValue);
 				break;
 
 			default:
 				break;
+			}
 		}
 	}
 
 	return bResult;
 }
 
-void UBTDecorator_Blackboard::OnBlackboardChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
+EBlackboardNotificationResult UBTDecorator_Blackboard::OnBlackboardKeyValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
 {
 	UBehaviorTreeComponent* BehaviorComp = (UBehaviorTreeComponent*)Blackboard.GetBrainComponent();
-	if (BlackboardKey.GetSelectedKeyID() == ChangedKeyID &&
-		GetFlowAbortMode() != EBTFlowAbortMode::None &&
-		BehaviorComp)
+	if (BehaviorComp == nullptr)
 	{
-		if (NotifyObserver == EBTBlackboardRestart::ResultChange)
+		return EBlackboardNotificationResult::RemoveObserver;
+	}
+
+	if (BlackboardKey.GetSelectedKeyID() == ChangedKeyID && GetFlowAbortMode() != EBTFlowAbortMode::None)
+	{
+		const bool bIsExecutingBranch = BehaviorComp->IsExecutingBranch(this, GetChildIndex());
+		const bool bPass = EvaluateOnBlackboard(Blackboard);
+
+		UE_VLOG(BehaviorComp->GetOwner(), LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] pass:%d executing:%d => %s"),
+			*UBehaviorTreeTypes::DescribeNodeHelper(this),
+			*Blackboard.GetKeyName(ChangedKeyID).ToString(), bPass, bIsExecutingBranch,
+			(bIsExecutingBranch && !bPass) || (!bIsExecutingBranch && bPass) ? TEXT("restart") : TEXT("skip"));
+
+		// this is basically a XOR, but written down this way for readability's sake
+		if ((bIsExecutingBranch && !bPass) || (!bIsExecutingBranch && bPass))
 		{
-			const bool bIsExecutingBranch = BehaviorComp->IsExecutingBranch(this, GetChildIndex());
-			const bool bPass = EvaluateOnBlackboard(Blackboard);
-
-			UE_VLOG(BehaviorComp->GetOwner(), LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] pass:%d executing:%d => %s"),
-				*UBehaviorTreeTypes::DescribeNodeHelper(this),
-				*Blackboard.GetKeyName(ChangedKeyID).ToString(), bPass, bIsExecutingBranch,
-				(bIsExecutingBranch && !bPass) || (!bIsExecutingBranch && bPass) ? TEXT("restart") : TEXT("skip"));
-
-			if ((bIsExecutingBranch && !bPass) ||
-				(!bIsExecutingBranch && bPass))
-			{
-				BehaviorComp->RequestExecution(this);
-			}
+			BehaviorComp->RequestExecution(this);
 		}
-		else
+		else if (!bIsExecutingBranch && !bPass && GetParentNode() && GetParentNode()->Children.IsValidIndex(GetChildIndex()))
+		{
+			const UBTCompositeNode* BranchRoot = GetParentNode()->Children[GetChildIndex()].ChildComposite;
+			BehaviorComp->UnregisterAuxNodesInBranch(BranchRoot);
+		}
+		else if (bIsExecutingBranch && bPass && NotifyObserver == EBTBlackboardRestart::ValueChange)
 		{
 			UE_VLOG(BehaviorComp->GetOwner(), LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] => restart"),
 				*UBehaviorTreeTypes::DescribeNodeHelper(this),
@@ -89,6 +99,8 @@ void UBTDecorator_Blackboard::OnBlackboardChange(const UBlackboardComponent& Bla
 			}
 		}
 	}
+
+	return EBlackboardNotificationResult::ContinueObserving;
 }
 
 void UBTDecorator_Blackboard::DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const

@@ -71,18 +71,22 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 	}
 	EFBXImportType ImportType = ImportUI->MeshTypeToImport;
 
-	if(ImportUI->OriginalImportType == FBXIT_SkeletalMesh)
-	{
-		TSharedRef<IPropertyHandle> ImportMeshProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportMesh));
-		ImportMeshProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ImportMeshToggleChanged));
-		MeshCategory.AddProperty(ImportMeshProp);
-	}
-
 	if(ImportType != FBXIT_Animation)
 	{
 		TSharedRef<IPropertyHandle> ImportSkeletalProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportAsSkeletal));
 		ImportSkeletalProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::MeshImportModeChanged));
 		MeshCategory.AddProperty(ImportSkeletalProp);
+	}
+
+	TSharedRef<IPropertyHandle> ImportMeshProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportMesh));
+	if(ImportUI->OriginalImportType == FBXIT_SkeletalMesh && ImportType != FBXIT_StaticMesh)
+	{
+		ImportMeshProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::ImportMeshToggleChanged));
+		MeshCategory.AddProperty(ImportMeshProp);
+	}
+	else
+	{
+		DetailBuilder.HideProperty(ImportMeshProp);
 	}
 
 	for(TSharedRef<IPropertyHandle> Handle : CategoryDefaultProperties)
@@ -301,7 +305,7 @@ void FFbxImportUIDetails::CollectChildPropertiesRecursive(TSharedPtr<IPropertyHa
 bool FFbxImportUIDetails::IsImportTypeMetaDataValid(EFBXImportType& ImportType, FString& MetaData)
 {
 	TArray<FString> Types;
-	MetaData.ParseIntoArray(&Types, TEXT("|"), 1);
+	MetaData.ParseIntoArray(Types, TEXT("|"), 1);
 	switch(ImportType)
 	{
 		case FBXIT_StaticMesh:
@@ -320,6 +324,7 @@ void FFbxImportUIDetails::MeshImportModeChanged()
 	if(CachedDetailBuilder)
 	{
 		ImportUI->MeshTypeToImport = ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh ? FBXIT_StaticMesh : FBXIT_SkeletalMesh;
+		ImportUI->bImportMesh = true;
 		CachedDetailBuilder->ForceRefreshDetails();
 	}
 }

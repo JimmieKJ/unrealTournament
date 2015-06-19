@@ -3,6 +3,7 @@
 #pragma once
 #include "UniquePtr.h"
 #include "IPackageAutoSaver.h"
+#include "ISourceControlModule.h"
 #include "ComponentVisualizerManager.h"
 #include "UnrealEdEngine.generated.h"
 
@@ -15,6 +16,8 @@ enum EPackageNotifyState
 	NS_DialogPrompted,
 	// The package has been marked dirty and is pending a balloon prompt
 	NS_PendingPrompt,
+	// The package has been marked dirty but cannot be checked out, and is pending a modal warning dialog
+	NS_PendingWarning,
 	NS_MAX,
 };
 
@@ -85,7 +88,9 @@ class FPerformanceMonitor;
 UCLASS(config=Engine, transient)
 class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 {
-	GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
+public:
 
 	/** Global instance of the editor options class. */
 	UPROPERTY()
@@ -175,7 +180,7 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 	// End FNotify interface.
 
 	// Begin UEditorEngine Interface
-	virtual void SelectActor(AActor* Actor, bool InSelected, bool bNotify, bool bSelectEvenIfHidden=false) override;
+	virtual void SelectActor(AActor* Actor, bool InSelected, bool bNotify, bool bSelectEvenIfHidden = false, bool bForceRefresh = false) override;
 	virtual bool CanSelectActor(AActor* Actor, bool InSelected, bool bSelectEvenIfHidden=false, bool bWarnIfLevelLocked=false) const override;
 	virtual void SelectGroup(AGroupActor* InGroupActor, bool bForceSelection=false, bool bInSelected=true, bool bNotify=true) override;
 	virtual void SelectComponent(class UActorComponent* Component, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden = false) override;
@@ -214,6 +219,10 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 
 	/** called when a package has has its dirty state updated */
 	void OnPackageDirtyStateUpdated( UPackage* Pkg);
+	/** called when a package's source control state is updated */
+	void OnSourceControlStateUpdated(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TWeakObjectPtr<UPackage> Package);
+	/** called when a package is automatically checked out from source control */
+	void OnPackageCheckedOut(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TWeakObjectPtr<UPackage> Package);
 	/** caled by FCoreDelegate::PostGarbageCollect */
 	void OnPostGarbageCollect();
 	/** called by color picker change event */
@@ -239,7 +248,7 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 	void DrawComponentVisualizersHUD(const FViewport* Viewport, const FSceneView* View, FCanvas* Canvas);
 
 	/** Updates the property windows of selected actors */
-	virtual void UpdateFloatingPropertyWindows();
+	virtual void UpdateFloatingPropertyWindows(bool bForceRefresh=false);
 
 	/**
 	*	Updates the property windows of the actors in the supplied ActorList
@@ -247,7 +256,7 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 	*	@param	ActorList	The list of actors whose property windows should be updated
 	*
 	*/
-	virtual void UpdateFloatingPropertyWindowsFromActorList( const TArray< UObject *>& ActorList );
+	virtual void UpdateFloatingPropertyWindowsFromActorList(const TArray< UObject *>& ActorList, bool bForceRefresh=false);
 
 	/**
 	 * Fast track function to set render thread flags marking selection rather than reconnecting all components
@@ -415,16 +424,6 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 	virtual void edactRemoveFromGroup();
 	
 	/**
-	 * Opens the dialog window for merging selected actors into single static mesh
-	 */
-	virtual void edactMergeActors();
-
-	/**
-	 * Merges selected actors geometry grouping them by materials 
-	 */
-	virtual void edactMergeActorsByMaterials();
-
-	/**
 	 * Copy selected actors to the clipboard.  Does not copy PrefabInstance actors or parts of Prefabs.
 	 *
 	 * @param	InWorld					World context
@@ -552,7 +551,7 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 	/**
 	 * Start cook by the book in the editor process space
 	 */
-	virtual void StartCookByTheBookInEditor( const TArray<ITargetPlatform*> &TargetPlatforms, const TArray<FString> &CookMaps, const TArray<FString> &CookDirectories, const TArray<FString> &CookCultures, const TArray<FString> &IniMapSections );
+	virtual void StartCookByTheBookInEditor( const TArray<ITargetPlatform*> &TargetPlatforms, const TArray<FString> &CookMaps, const TArray<FString> &CookDirectories, const TArray<FString> &CookCultures, const TArray<FString> &IniMapSections ) override;
 
 	/**
 	 * Checks if the cook by the book is finished
@@ -638,12 +637,17 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 	/**
 	 * @return true if selection of translucent objects in perspective viewports is allowed
 	 */
-	virtual bool AllowSelectTranslucent() const;
+	virtual bool AllowSelectTranslucent() const override;
 
 	/**
 	 * @return true if only editor-visible levels should be loaded in Play-In-Editor sessions
 	 */
-	virtual bool OnlyLoadEditorVisibleLevelsInPIE() const;
+	virtual bool OnlyLoadEditorVisibleLevelsInPIE() const override;
+
+	/**
+	 * @return true if level streaming should prefer to stream levels from disk instead of duplicating them from editor world
+	 */
+	virtual bool PreferToStreamLevelsInPIE() const override;
 	
 	/**
 	 * If all selected actors belong to the same level, that level is made the current level.
@@ -676,7 +680,7 @@ class UNREALED_API UUnrealEdEngine : public UEditorEngine, public FNotifyHook
 	 *
 	 * @return	Index of the provided sprite category, if possible; INDEX_NONE otherwise
 	 */
-	virtual int32 GetSpriteCategoryIndex( const FName& InSpriteCategory );
+	virtual int32 GetSpriteCategoryIndex( const FName& InSpriteCategory ) override;
 	
 	/**
 	 * Shows the LightingStaticMeshInfoWindow, creating it first if it hasn't been initialized.

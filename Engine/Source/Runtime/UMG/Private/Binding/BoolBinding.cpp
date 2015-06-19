@@ -21,9 +21,11 @@ bool UBoolBinding::IsSupportedDestination(UProperty* Property) const
 
 bool UBoolBinding::GetValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
-		bool Value;
+		bool Value = false;
 		if ( SourcePath.GetValue<bool>(Source, Value) )
 		{
 			return Value;

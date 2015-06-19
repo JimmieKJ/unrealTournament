@@ -24,7 +24,7 @@ protected:
 	uint32 bStartsEnabled : 1;
 	
 public:
-	UAISenseConfig(const FObjectInitializer& ObjectInitializer);
+	UAISenseConfig(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual TSubclassOf<UAISense> GetSenseImplementation() const { return UAISense::StaticClass(); }
 	FAISenseID GetSenseID() const;

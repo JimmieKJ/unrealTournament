@@ -10,11 +10,10 @@
 /**
  * A FFeedbackContext implementation for use in UnrealEd.
  */
-class FFeedbackContextEditor : public FFeedbackContext
+class UNREALED_API FFeedbackContextEditor : public FFeedbackContext
 {
 	/** Slate slow task widget */
 	TWeakPtr<class SWindow> SlowTaskWindow;
-	TSharedPtr<class SSlowTaskWidget> SlowTaskWidget;
 
 	/** Special Windows/Widget popup for building */
 	TWeakPtr<class SWindow> BuildProgressWindow;
@@ -24,7 +23,7 @@ class FFeedbackContextEditor : public FFeedbackContext
 
 public:
 
-	UNREALED_API FFeedbackContextEditor();
+	FFeedbackContextEditor();
 
 	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
 
@@ -32,7 +31,7 @@ public:
 	virtual void FinalizeSlowTask( ) override;
 	virtual void ProgressReported( const float TotalProgressInterp, FText DisplayMessage ) override;
 
-	void SetContext( FContextSupplier* InSupplier ) {}
+	void SetContext( FContextSupplier* InSupplier ) override {}
 
 	/** Whether or not the user has canceled out of this dialog */
 	virtual bool ReceivedUserCancel() override;
@@ -48,8 +47,8 @@ public:
 	 * Show the Build Progress Window 
 	 * @return Handle to the Build Progress Widget created
 	 */
-	TWeakPtr<class SBuildProgressWidget> ShowBuildProgressWindow();
+	TWeakPtr<class SBuildProgressWidget> ShowBuildProgressWindow() override;
 	
 	/** Close the Build Progress Window */
-	void CloseBuildProgressWindow();
+	void CloseBuildProgressWindow() override;
 };

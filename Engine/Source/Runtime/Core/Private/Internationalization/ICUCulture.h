@@ -4,6 +4,7 @@
 #if UE_ENABLE_ICU
 #include "Internationalization/Text.h"
 #include <unicode/locid.h>
+#include <unicode/brkiter.h>
 #include <unicode/coll.h>
 #include <unicode/numfmt.h>
 #include <unicode/decimfmt.h>
@@ -99,10 +100,229 @@ inline icu::DecimalFormat::ERoundingMode UEToICU(const ERoundingMode RoundingMod
 	return Value;
 }
 
+enum class EBreakIteratorType
+{
+	Grapheme,
+	Word,
+	Line,
+	Sentence,
+	Title
+};
+
+/**
+ * Basic Least Recently Used (LRU) cache to potentially keep ICU formatters alive for multiple format calls
+ */
+template <typename TFormatterType, ESPMode Mode>
+class FLRUFormatterCache
+{
+public:
+	typedef TSharedPtr<const TFormatterType, Mode> ValueType;
+
+	FLRUFormatterCache( int32 InMaxNumElements )
+		: LookupSet()
+		, MostRecent(nullptr)
+		, LeastRecent(nullptr)
+		, MaxNumElements(InMaxNumElements)
+	{
+	}
+
+	~FLRUFormatterCache()
+	{
+		Empty();
+	}
+
+	/**
+	 * Accesses an item in the cache.  
+	 */
+	FORCEINLINE const ValueType AccessItem(const FNumberFormattingOptions& Key)
+	{
+		CacheEntry** Entry = LookupSet.Find( Key );
+		if( Entry )
+		{
+			MarkAsRecent( *Entry );
+			return ((*Entry)->Value);
+		}
+		
+		return nullptr;
+	}
+
+	void Add( const FNumberFormattingOptions& Key, const ValueType& Value )
+	{
+		CacheEntry** Entry = LookupSet.Find( Key );
+	
+		// Make a new link
+		if( !Entry )
+		{
+			if( LookupSet.Num() == MaxNumElements )
+			{
+				Eject();
+				checkf( LookupSet.Num() < MaxNumElements, TEXT("Could not eject item from the LRU: (%d of %d)"), LookupSet.Num(), MaxNumElements );
+			}
+
+			CacheEntry* NewEntry = new CacheEntry( Key, Value );
+
+			// Link before the most recent so that we become the most recent
+			NewEntry->Link(MostRecent);
+			MostRecent = NewEntry;
+
+			if( LeastRecent == nullptr )
+			{
+				LeastRecent = NewEntry;
+			}
+
+			LookupSet.Add( NewEntry );
+		}
+		else
+		{
+			// Trying to add an existing value 
+			CacheEntry* EntryPtr = *Entry;
+			
+			// Update the value
+			EntryPtr->Value = Value;
+			checkSlow( EntryPtr->Key.IsIdentical( Key ) );
+			// Mark as the most recent
+			MarkAsRecent( EntryPtr );
+		}
+	}
+
+	void Empty()
+	{
+		for( auto& Entry : LookupSet )
+		{
+			// Note no need to unlink anything here. we are emptying the entire list
+			delete Entry;
+		}
+		LookupSet.Empty();
+
+		MostRecent = LeastRecent = nullptr;
+	}
+
+private:
+	struct CacheEntry
+	{
+		FNumberFormattingOptions Key;
+		ValueType Value;
+		CacheEntry* Next;
+		CacheEntry* Prev;
+
+		CacheEntry( const FNumberFormattingOptions& InKey, const ValueType& InValue )
+			: Key( InKey )
+			, Value( InValue )
+			, Next( nullptr )
+			, Prev( nullptr )
+		{
+		}
+
+		~CacheEntry()
+		{
+		}
+
+		FORCEINLINE void Link( CacheEntry* Before )
+		{
+			Next = Before;
+
+			if( Before )
+			{
+				Before->Prev = this;
+			}
+		}
+
+		FORCEINLINE void Unlink()
+		{
+			if( Prev )
+			{
+				Prev->Next = Next;
+			}
+
+			if( Next )
+			{
+				Next->Prev = Prev;
+			}
+
+			Prev = nullptr;
+			Next = nullptr;
+		}
+	};
+
+	struct FNumberFormattingOptionsKeyFuncs : BaseKeyFuncs<CacheEntry*, FNumberFormattingOptions>
+	{
+		FORCEINLINE static const FNumberFormattingOptions& GetSetKey( const CacheEntry* Entry )
+		{
+			return Entry->Key;
+		}
+
+		FORCEINLINE static bool Matches(const FNumberFormattingOptions& A,const FNumberFormattingOptions& B)
+		{
+			return A.IsIdentical( B );
+		}
+
+		FORCEINLINE static uint32 GetKeyHash(const FNumberFormattingOptions& Identifier)
+		{
+			return GetTypeHash( Identifier );
+		}
+	};
+
+	/**
+	 * Marks the link as the the most recent
+	 *
+	 * @param Link	The link to mark as most recent
+	 */
+	FORCEINLINE void MarkAsRecent( CacheEntry* Entry )
+	{
+		checkSlow( LeastRecent && MostRecent );
+
+		// If we are the least recent entry we are no longer the least recent
+		// The previous least recent item is now the most recent.  If it is nullptr then this entry is the only item in the list
+		if( Entry == LeastRecent && LeastRecent->Prev != nullptr )
+		{
+			LeastRecent = LeastRecent->Prev;
+		}
+
+		// No need to relink if we happen to already be accessing the most recent value
+		if( Entry != MostRecent )
+		{
+			// Unlink from its current spot
+			Entry->Unlink();
+
+			// Relink before the most recent so that we become the most recent
+			Entry->Link(MostRecent);
+			MostRecent = Entry;
+		}
+	}
+
+	/**
+	 * Removes the least recent item from the cache
+	 */
+	FORCEINLINE void Eject()
+	{
+		CacheEntry* EntryToRemove = LeastRecent;
+		// Eject the least recent, no more space
+		check( EntryToRemove );
+		LookupSet.Remove( EntryToRemove->Key );
+
+		LeastRecent = LeastRecent->Prev;
+
+		// Unlink the LRU
+		EntryToRemove->Unlink();
+
+		delete EntryToRemove;
+	}
+
+private:
+	TSet< CacheEntry*, FNumberFormattingOptionsKeyFuncs > LookupSet;
+	/** Most recent item in the cache */
+	CacheEntry* MostRecent;
+	/** Least recent item in the cache */
+	CacheEntry* LeastRecent;
+	/** The maximum number of elements in the cache */
+	int32 MaxNumElements;
+};
+
 class FCulture::FICUCultureImplementation
 {
 	friend FCulture;
 	friend FText;
+	friend class FICUBreakIteratorManager;
 
 	FICUCultureImplementation(const FString& LocaleName);
 
@@ -136,21 +356,33 @@ class FCulture::FICUCultureImplementation
 
 	FString GetVariant() const;
 
-	TSharedRef<const icu::Collator, ESPMode::ThreadSafe> GetCollator(const ETextComparisonLevel::Type ComparisonLevel) const;
-	TSharedRef<const icu::DecimalFormat> GetDecimalFormatter(const FNumberFormattingOptions* const Options = NULL) const;
-	TSharedRef<const icu::DecimalFormat> GetCurrencyFormatter(const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL) const;
-	TSharedRef<const icu::DecimalFormat> GetPercentFormatter(const FNumberFormattingOptions* const Options = NULL) const;
-	TSharedRef<const icu::DateFormat> GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone) const;
-	TSharedRef<const icu::DateFormat> GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone) const;
-	TSharedRef<const icu::DateFormat> GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone) const;
+	TSharedRef<const icu::BreakIterator> GetBreakIterator(const EBreakIteratorType Type);
+	TSharedRef<const icu::Collator, ESPMode::ThreadSafe> GetCollator(const ETextComparisonLevel::Type ComparisonLevel);
+	TSharedRef<const icu::DecimalFormat, ESPMode::ThreadSafe> GetDecimalFormatter(const FNumberFormattingOptions* const Options = NULL);
+	TSharedRef<const icu::DecimalFormat> GetCurrencyFormatter(const FString& CurrencyCode = FString(), const FNumberFormattingOptions* const Options = NULL);
+	TSharedRef<const icu::DecimalFormat> GetPercentFormatter(const FNumberFormattingOptions* const Options = NULL);
+	TSharedRef<const icu::DateFormat> GetDateFormatter(const EDateTimeStyle::Type DateStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat> GetTimeFormatter(const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
+	TSharedRef<const icu::DateFormat> GetDateTimeFormatter(const EDateTimeStyle::Type DateStyle, const EDateTimeStyle::Type TimeStyle, const FString& TimeZone);
 
 	icu::Locale ICULocale;
-	const TSharedRef<const icu::Collator, ESPMode::ThreadSafe> ICUCollator;
-	const TSharedRef<const icu::DecimalFormat> ICUDecimalFormat;
-	const TSharedRef<const icu::DecimalFormat> ICUCurrencyFormat;
-	const TSharedRef<const icu::DecimalFormat> ICUPercentFormat;
-	const TSharedRef<const icu::DateFormat> ICUDateFormat;
-	const TSharedRef<const icu::DateFormat> ICUTimeFormat;
-	const TSharedRef<const icu::DateFormat> ICUDateTimeFormat;
+	TSharedPtr<const icu::BreakIterator> ICUGraphemeBreakIterator;
+	TSharedPtr<const icu::BreakIterator> ICUWordBreakIterator;
+	TSharedPtr<const icu::BreakIterator> ICULineBreakIterator;
+	TSharedPtr<const icu::BreakIterator> ICUSentenceBreakIterator;
+	TSharedPtr<const icu::BreakIterator> ICUTitleBreakIterator;
+	TSharedPtr<const icu::Collator, ESPMode::ThreadSafe> ICUCollator;
+
+	TSharedPtr<const icu::DecimalFormat, ESPMode::ThreadSafe> ICUDecimalFormat_DefaultForCulture;
+	TSharedPtr<const icu::DecimalFormat, ESPMode::ThreadSafe> ICUDecimalFormat_DefaultWithGrouping;
+	TSharedPtr<const icu::DecimalFormat, ESPMode::ThreadSafe> ICUDecimalFormat_DefaultNoGrouping;
+	FLRUFormatterCache<icu::DecimalFormat, ESPMode::ThreadSafe> ICUDecimalFormatLRUCache;
+	FCriticalSection ICUDecimalFormatLRUCacheCS;
+
+	TSharedPtr<const icu::DecimalFormat> ICUCurrencyFormat;
+	TSharedPtr<const icu::DecimalFormat> ICUPercentFormat;
+	TSharedPtr<const icu::DateFormat> ICUDateFormat;
+	TSharedPtr<const icu::DateFormat> ICUTimeFormat;
+	TSharedPtr<const icu::DateFormat> ICUDateTimeFormat;
 };
 #endif

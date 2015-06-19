@@ -5,44 +5,31 @@
 
 UEnvironmentQueryGraphNode_Test::UEnvironmentQueryGraphNode_Test(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	bIsSubNode = true;
 	bTestEnabled = true;
 	bHasNamedWeight = false;
 	TestWeightPct = -1.0f;
 }
 
-void UEnvironmentQueryGraphNode_Test::PostPlacedNewNode()
+void UEnvironmentQueryGraphNode_Test::InitializeInstance()
 {
-	if (EnvQueryNodeClass != NULL)
+	UEnvQueryTest* TestInstance = Cast<UEnvQueryTest>(NodeInstance);
+	if (TestInstance)
 	{
-		UEnvQuery* Query = Cast<UEnvQuery>(GetEnvironmentQueryGraph()->GetOuter());
-		NodeInstance = ConstructObject<UEnvQueryTest>(EnvQueryNodeClass, Query);
-		NodeInstance->SetFlags(RF_Transactional);
-
-		UEnvQueryTest* TestInstance = Cast<UEnvQueryTest>(NodeInstance);
-		TestInstance->UpdateTestVersion();
+		TestInstance->UpdateNodeVersion();
 	}
 
-	if (ParentNode)
+	UEnvironmentQueryGraphNode_Option* ParentOption = Cast<UEnvironmentQueryGraphNode_Option>(ParentNode);
+	if (ParentOption)
 	{
-		ParentNode->CalculateWeights();
+		ParentOption->CalculateWeights();
 	}
-}
-
-void UEnvironmentQueryGraphNode_Test::DestroyNode()
-{
-	if (ParentNode)
-	{
-		ParentNode->Modify();
-		ParentNode->Tests.Remove(this);
-	}
-
-	Super::DestroyNode();
 }
 
 FText UEnvironmentQueryGraphNode_Test::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	UEnvQueryTest* TestInstance = Cast<UEnvQueryTest>(NodeInstance);
-	return TestInstance ? FText::FromString(TestInstance->GetDescriptionTitle()) : FText::GetEmpty();
+	return TestInstance ? TestInstance->GetDescriptionTitle() : FText::GetEmpty();
 }
 
 FText UEnvironmentQueryGraphNode_Test::GetDescription() const

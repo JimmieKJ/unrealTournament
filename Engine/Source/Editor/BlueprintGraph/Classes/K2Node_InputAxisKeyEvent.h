@@ -24,6 +24,10 @@ class UK2Node_InputAxisKeyEvent : public UK2Node_Event
 	UPROPERTY(EditAnywhere, Category = "Input")
 	uint32 bOverrideParentBinding : 1;
 
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
+
 	// Begin EdGraphNode interface
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;

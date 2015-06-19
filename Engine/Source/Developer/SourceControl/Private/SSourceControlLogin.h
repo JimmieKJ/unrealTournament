@@ -34,15 +34,15 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	/** SWidget interface */
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
 	/**
 	 * Refresh the displayed settings. Usually called when a provider is changed.
 	 */
 	void RefreshSettings();
 
 private:
+
+	/** Ticks the source control module (only necessary if the login window is modal) */
+	EActiveTimerReturnType TickSourceControlModule( double InCurrentTime, float InDeltaTime );
 
 	/** Delegate called when the user clicks the 'Accept Settings' button */
 	FReply OnAcceptSettings();
@@ -51,7 +51,7 @@ private:
 	FReply OnDisableSourceControl();
 
 	/** Called when a connection attempt fails */
-	void DisplayConnectionError(const FText& InErrorText = FText()) const;
+	void DisplayConnectionError(const FText& InErrorText = FText());
 
 	/** Called when a connection attempt succeeds */
 	void DisplayConnectionSuccess() const;
@@ -75,6 +75,8 @@ private:
 	EVisibility GetDisabledTextVisibility() const;
 
 private:
+	/** The frequency at which to tick to scc module when inside a modal window */
+	static const float RefreshFrequency;
 
 	/** The parent window of this widget */
 	TWeakPtr<SWindow> ParentWindowPtr;
@@ -90,6 +92,9 @@ private:
 
 	/** The currently displayed settings widget container */
 	TSharedPtr<class SBorder> SettingsBorder;
+
+	/** The handle to the active scc module tick */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 };
 
 #endif // SOURCE_CONTROL_WITH_SLATE

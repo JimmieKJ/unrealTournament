@@ -7,6 +7,10 @@ class FSlateOpenGLTextureManager;
 class FSlateOpenGLRenderingPolicy;
 class FSlateElementBatcher;
 
+// Optionally use 3.2 context on Linux. There's no real need to require this in a standalone application since it only renders Slate UI.
+// With this set to 0, StandaloneRenderer will use OpenGL 2.1 on Linux, which is almost universally supported (as of 2015).
+#define LINUX_USE_OPENGL_3_2		0
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 #define CHECK_GL_ERRORS \
 {\
@@ -31,13 +35,6 @@ struct FSlateOpenGLContext
 	NSView* View;
 	NSOpenGLPixelFormat* PixelFormat;
 	NSOpenGLContext* Context;
-	GLuint CompositeVertexShader;
-	GLuint CompositeFragmentShader;
-	GLuint CompositeProgram;
-	GLint WindowTextureUniform;
-	GLint TextureDirectionUniform;
-	GLuint CompositeTexture;
-	GLuint CompositeVAO;
 	bool bNeedsUpdate;
 #elif PLATFORM_IOS
 	UIWindow* WindowHandle;
@@ -46,7 +43,10 @@ struct FSlateOpenGLContext
 	SDL_Window* WindowHandle;
 	SDL_GLContext Context;
 	bool bReleaseWindowOnDestroy;
+#if LINUX_USE_OPENGL_3_2
 	GLuint VertexArrayObject; 
+#endif // LINUX_USE_OPENGL_3_2
+
 #else
 #error "Unknown platform"
 #endif

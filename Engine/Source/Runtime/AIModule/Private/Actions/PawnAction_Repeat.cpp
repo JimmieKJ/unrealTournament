@@ -23,6 +23,8 @@ UPawnAction_Repeat* UPawnAction_Repeat::CreateAction(UWorld& World, UPawnAction*
 		Action->ActionToRepeat = ActionToRepeat;
 		Action->RepeatsLeft = NumberOfRepeats;
 		Action->SubActionTriggeringPolicy = InSubActionTriggeringPolicy;
+
+		Action->bShouldPauseMovement = ActionToRepeat->ShouldPauseMovement();
 	}
 
 	return Action;
@@ -93,8 +95,9 @@ bool UPawnAction_Repeat::PushSubAction()
 		? Cast<UPawnAction>(StaticDuplicateObject(ActionToRepeat, this, NULL))
 		: ActionToRepeat;
 
-	UE_VLOG(GetPawn(), LogPawnAction, Log, TEXT("%s> pushing repeted action copy %s, repeats left: %d")
-		, *GetName(), *GetNameSafe(ActionCopy), RepeatsLeft);
+	UE_VLOG(GetPawn(), LogPawnAction, Log, TEXT("%s> pushing repeted action %s %s, repeats left: %d")
+		, *GetName(), SubActionTriggeringPolicy == EPawnSubActionTriggeringPolicy::CopyBeforeTriggering ? TEXT("copy") : TEXT("instance")
+		, *GetNameSafe(ActionCopy), RepeatsLeft);
 	check(ActionCopy);
 	RecentActionCopy = ActionCopy;
 	return PushChildAction(*ActionCopy); 

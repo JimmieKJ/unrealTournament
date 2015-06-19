@@ -41,7 +41,7 @@ struct FKinematicTarget
 	FKinematicTarget(FBodyInstance* Body, const FTransform& TM) :
 		BodyInstance(Body),
 		TargetTM(TM),
-		OriginalTM(Body->GetUnrealWorldTransform())
+		OriginalTM(Body->GetUnrealWorldTransform_AssumesLocked())
 	{
 	}
 
@@ -64,6 +64,7 @@ struct FForceTarget
 	FVector Force;
 	FVector Position;
 	bool bPosition;
+	bool bAccelChange;
 };
 
 struct FTorqueTarget
@@ -71,6 +72,17 @@ struct FTorqueTarget
 	FTorqueTarget(){}
 	FTorqueTarget(const FVector& GivenTorque) : Torque(GivenTorque){}
 	FVector Torque;
+	bool bAccelChange;
+};
+
+struct FRadialForceTarget
+{
+	FRadialForceTarget(){}
+	FVector Origin;
+	float Radius;
+	float Strength;
+	uint8 Falloff;
+	bool bAccelChange;
 };
 
 struct FCustomTarget
@@ -87,6 +99,7 @@ struct FPhysTarget
 
 	TArray<FForceTarget>  Forces;	//we can apply force at multiple places
 	TArray<FTorqueTarget> Torques;
+	TArray<FRadialForceTarget> RadialForces;
 	TArray<FCustomTarget> CustomPhysics; //for calculating custom physics forces
 	FKinematicTarget KinematicTarget;
 
@@ -112,15 +125,16 @@ public:
 	FPhysSubstepTask(PxApexScene * GivenScene);
 #endif
 
-	void SetKinematicTarget(FBodyInstance* Body, const FTransform& TM);
-	bool GetKinematicTarget(const FBodyInstance* Body, FTransform& OutTM) const;
-	void AddCustomPhysics(FBodyInstance* Body, const FCalculateCustomPhysics& CalculateCustomPhysics);
-	void AddForce(FBodyInstance* Body, const FVector& Force);
-	void AddForceAtPosition(FBodyInstance* Body, const FVector& Force, const FVector& Position);
-	void AddTorque(FBodyInstance* Body, const FVector& Torque);
+	void SetKinematicTarget_AssumesLocked(FBodyInstance* Body, const FTransform& TM);
+	bool GetKinematicTarget_AssumesLocked(const FBodyInstance* Body, FTransform& OutTM) const;
+	void AddCustomPhysics_AssumesLocked(FBodyInstance* Body, const FCalculateCustomPhysics& CalculateCustomPhysics);
+	void AddForce_AssumesLocked(FBodyInstance* Body, const FVector& Force, bool bAccelChange);
+	void AddForceAtPosition_AssumesLocked(FBodyInstance* Body, const FVector& Force, const FVector& Position);
+	void AddTorque_AssumesLocked(FBodyInstance* Body, const FVector& Torque, bool bAccelChange);
+	void AddRadialForceToBody_AssumesLocked(FBodyInstance* Body, const FVector& Origin, const float Radius, const float Strength, const uint8 Falloff, const bool bAccelChange);
 
 	/** Removes a BodyInstance from doing substep work - should only be called when the FBodyInstance is getting destroyed */
-	void RemoveBodyInstance(FBodyInstance* Body);
+	void RemoveBodyInstance_AssumesLocked(FBodyInstance* Body);
 
 	
 	void SwapBuffers();
@@ -138,16 +152,17 @@ private:
 	/** Applies interpolation and forces on all needed actors*/
 	void SubstepInterpolation(float Scale, float DeltaTime);
 	void ApplyCustomPhysics(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance, float DeltaTime);
-	void ApplyForces(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance);
-	void ApplyTorques(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance);
-	void InterpolateKinematicActor(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance, float Alpha);
+	void ApplyForces_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance);
+	void ApplyTorques_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance);
+	void ApplyRadialForces_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance);
+	void InterpolateKinematicActor_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance, float Alpha);
 
 	typedef TMap<FBodyInstance*, FPhysTarget> PhysTargetMap;
 	PhysTargetMap PhysTargetBuffers[2];	//need to double buffer between physics thread and game thread
 	uint32 NumSubsteps;
 	float SubTime;
 	float DeltaSeconds;
-	bool External;
+	FThreadSafeBool External;
 	class  PhysXCompletionTask * FullSimulationTask;
 	float Alpha;
 	float StepScale;

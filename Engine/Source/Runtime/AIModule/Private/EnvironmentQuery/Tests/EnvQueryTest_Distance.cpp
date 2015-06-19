@@ -47,58 +47,71 @@ void UEnvQueryTest_Distance::RunTest(FEnvQueryInstance& QueryInstance) const
 
 	switch (TestMode)
 	{
-	case EEnvTestDistance::Distance3D:	
-		for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
-		{
-			const FVector ItemLocation = GetItemLocation(QueryInstance, *It);
-			for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+		case EEnvTestDistance::Distance3D:	
+			for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 			{
-				const float Distance = CalcDistance3D(ItemLocation, ContextLocations[ContextIndex]);
-				It.SetScore(TestPurpose, FilterType, Distance, MinThresholdValue, MaxThresholdValue);
+				const FVector ItemLocation = GetItemLocation(QueryInstance, It.GetIndex());
+				for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+				{
+					const float Distance = CalcDistance3D(ItemLocation, ContextLocations[ContextIndex]);
+					It.SetScore(TestPurpose, FilterType, Distance, MinThresholdValue, MaxThresholdValue);
+				}
 			}
-		}
-		break;
-	case EEnvTestDistance::Distance2D:	
-		for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
-		{
-			const FVector ItemLocation = GetItemLocation(QueryInstance, *It);
-			for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+			break;
+
+		case EEnvTestDistance::Distance2D:	
+			for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 			{
-				const float Distance = CalcDistance2D(ItemLocation, ContextLocations[ContextIndex]);
-				It.SetScore(TestPurpose, FilterType, Distance, MinThresholdValue, MaxThresholdValue);
+				const FVector ItemLocation = GetItemLocation(QueryInstance, It.GetIndex());
+				for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+				{
+					const float Distance = CalcDistance2D(ItemLocation, ContextLocations[ContextIndex]);
+					It.SetScore(TestPurpose, FilterType, Distance, MinThresholdValue, MaxThresholdValue);
+				}
 			}
-		}
-		break;
-	case EEnvTestDistance::DistanceZ:	
-		for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
-		{
-			const FVector ItemLocation = GetItemLocation(QueryInstance, *It);
-			for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+			break;
+
+		case EEnvTestDistance::DistanceZ:	
+			for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 			{
-				const float Distance = CalcDistanceZ(ItemLocation, ContextLocations[ContextIndex]);
-				It.SetScore(TestPurpose, FilterType, Distance, MinThresholdValue, MaxThresholdValue);
+				const FVector ItemLocation = GetItemLocation(QueryInstance, It.GetIndex());
+				for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+				{
+					const float Distance = CalcDistanceZ(ItemLocation, ContextLocations[ContextIndex]);
+					It.SetScore(TestPurpose, FilterType, Distance, MinThresholdValue, MaxThresholdValue);
+				}
 			}
-		}
-		break;
-	default:
-		return;
+			break;
+
+		default:
+			return;
 	}
 }
 
-FString UEnvQueryTest_Distance::GetDescriptionTitle() const
+FText UEnvQueryTest_Distance::GetDescriptionTitle() const
 {
 	FString ModeDesc;
 	switch (TestMode)
 	{
-	case EEnvTestDistance::Distance3D:	ModeDesc = TEXT(""); break;
-	case EEnvTestDistance::Distance2D:	ModeDesc = TEXT(" 2D"); break;
-	case EEnvTestDistance::DistanceZ:	ModeDesc = TEXT(" Z"); break;
-	default: break;
+		case EEnvTestDistance::Distance3D:
+			ModeDesc = TEXT("");
+			break;
+
+		case EEnvTestDistance::Distance2D:
+			ModeDesc = TEXT(" 2D");
+			break;
+
+		case EEnvTestDistance::DistanceZ:
+			ModeDesc = TEXT(" Z");
+			break;
+
+		default:
+			break;
 	}
 
-	return FString::Printf(TEXT("%s%s: to %s"), 
-		*Super::GetDescriptionTitle(), *ModeDesc,
-		*UEnvQueryTypes::DescribeContext(DistanceTo).ToString());
+	return FText::FromString(FString::Printf(TEXT("%s%s: to %s"), 
+		*Super::GetDescriptionTitle().ToString(), *ModeDesc,
+		*UEnvQueryTypes::DescribeContext(DistanceTo).ToString()));
 }
 
 FText UEnvQueryTest_Distance::GetDescriptionDetails() const

@@ -72,6 +72,10 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Particles/ParticleSystemReplay.h"
 #include "ContentStreaming.h"
+#include "Matinee/InterpTrackFloatAnimBPParam.h"
+#include "Matinee/InterpTrackInstFloatAnimBPParam.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
 
 #if WITH_EDITOR
 #include "UnrealEd.h"
@@ -79,6 +83,8 @@
 #include "GameFramework/GameState.h"
 #include "Engine/Light.h"
 #include "Components/DecalComponent.h"
+
+#include "Sound/SoundCue.h"
 
 DEFINE_LOG_CATEGORY(LogMatinee);
 
@@ -323,11 +329,11 @@ bool AMatineeActor::IgnoreActorSelection()
 AMatineeActor::AMatineeActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	USceneComponent* SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
+	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComp"));
 	RootComponent = SceneComponent;
 
 #if WITH_EDITORONLY_DATA
-	SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 	if (!IsRunningCommandlet() && (SpriteComponent != nullptr))
 	{
 		// Structure to hold one-time initialization
@@ -371,19 +377,28 @@ AMatineeActor::AMatineeActor(const FObjectInitializer& ObjectInitializer)
 	ReplicationForceIsPlaying = 0;
 }
 
-FName AMatineeActor::GetFunctionNameForEvent(FName EventName)
+FName AMatineeActor::GetFunctionNameForEvent(FName EventName,bool bUseCustomEventName)
 {
-	FString EventFuncName = FString::Printf(TEXT("%s_%s"), *MatineeControllerName.ToString(), *EventName.ToString());
-	return FName(*EventFuncName);
+	FName EventFuncName;
+	if( bUseCustomEventName )
+	{
+		EventFuncName = EventName;
+	}
+	else
+	{
+		EventFuncName = *(FString::Printf(TEXT("%s_%s"), *MatineeControllerName.ToString(), *EventName.ToString()));	
+	}
+
+	return EventFuncName;
 }
 
-void AMatineeActor::NotifyEventTriggered(FName EventName, float EventTime)
+void AMatineeActor::NotifyEventTriggered(FName EventName, float EventTime, bool bUseCustomEventName)
 {
 	ULevel* Level = GetLevel();
 	ALevelScriptActor* LevelScriptActor = Level->LevelScriptActor;
 	if(LevelScriptActor != NULL)
 	{
-		FName EventFuncName = GetFunctionNameForEvent(EventName);
+		FName EventFuncName = GetFunctionNameForEvent(EventName,bUseCustomEventName);
 		UFunction* EventFunction = LevelScriptActor->FindFunction(EventFuncName);
 		if(EventFunction != NULL)
 		{
@@ -467,17 +482,7 @@ void AMatineeActor::Reverse()
 
 void AMatineeActor::Stop()
 {
-	// Re-enable the radio filter
-	EnableRadioFilter();
-
-	bIsPlaying = false;
-	bPaused = false;
-
-	if( GetWorld()->IsGameWorld() )
-	{
-		// We should only terminate the interp in the game.  The editor handles this from inside the matinee editor
-		TermInterp();
-	}
+	bPendingStop = true;
 }
 
 void AMatineeActor::Pause()
@@ -572,7 +577,7 @@ void AMatineeActor::AddPlayerToDirectorTracks(class APlayerController* PC)
 					if( IsMatineeCompatibleWithPlayer( PC ) )
 					{
 						// create a new instance with this player
-						UInterpGroupInstDirector* NewGroupInstDir = ConstructObject<UInterpGroupInstDirector>(UInterpGroupInstDirector::StaticClass(), this, NAME_None, RF_Transactional);
+						UInterpGroupInstDirector* NewGroupInstDir = NewObject<UInterpGroupInstDirector>(this, NAME_None, RF_Transactional);
 						GroupInst.Add(NewGroupInstDir);
 
 						// and initialize the instance
@@ -591,6 +596,22 @@ void AMatineeActor::Tick(float DeltaTime)
 	if ( bIsPlaying && MatineeData != NULL )
 	{
 		StepInterp(DeltaTime, false);
+	}
+
+	if (bPendingStop)
+	{
+		// Re-enable the radio filter
+		EnableRadioFilter();
+
+		bIsPlaying = false;
+		bPaused = false;
+		bPendingStop = false;
+
+		if (GetWorld()->IsGameWorld())
+		{
+			// We should only terminate the interp in the game.  The editor handles this from inside the matinee editor
+			TermInterp();
+		}
 	}
 }
 
@@ -716,21 +737,8 @@ void AMatineeActor::UpdateInterp( float NewPosition, bool bPreview, bool bJump )
 			for( int32 GroupIndex = 0; GroupIndex < Groups.Num(); ++GroupIndex )
 			{
 				Groups[GroupIndex]->Group->UpdateGroup( NewPosition, Groups[GroupIndex], bPreview, bJump );
-
-				const bool bhasBeenTerminated = (GroupInst.Num() == 0);
-#if WITH_EDITORONLY_DATA
-				if (bhasBeenTerminated && !bIsBeingEdited)
-#else
-				if (bhasBeenTerminated)
-#endif
-				{
-					UE_LOG(LogMatinee, Log, TEXT("WARNING: A matinee was stopped while updating group '%s'; the next groups will not be updated."), *Groups[GroupIndex]->Group->GetFullGroupName(true));
-					InterpPosition = NewPosition;
-					return;
-				}
 			}
 		}
-
 
 		InterpPosition = NewPosition;
 	}
@@ -794,7 +802,7 @@ void AMatineeActor::InitInterp()
 						if (IsMatineeCompatibleWithPlayer( PC ) )
 						{
 							// create a new instance with this player
-							UInterpGroupInstDirector* NewGroupInstDir = ConstructObject<UInterpGroupInstDirector>(UInterpGroupInstDirector::StaticClass(), this, NAME_None, RF_Transactional);
+							UInterpGroupInstDirector* NewGroupInstDir = NewObject<UInterpGroupInstDirector>(this, NAME_None, RF_Transactional);
 							GroupInst.Add(NewGroupInstDir);
 
 							// and initialize the instance
@@ -807,7 +815,7 @@ void AMatineeActor::InitInterp()
 				else
 				{
 					// In the editor always create a director group instance with a NULL group actor since there are no player controllers.
-					UInterpGroupInstDirector* NewGroupInstDir = ConstructObject<UInterpGroupInstDirector>(UInterpGroupInstDirector::StaticClass(), this, NAME_None, RF_Transactional);
+					UInterpGroupInstDirector* NewGroupInstDir = NewObject<UInterpGroupInstDirector>(this, NAME_None, RF_Transactional);
 					GroupInst.Add(NewGroupInstDir);
 
 					// and initialize the instance
@@ -827,7 +835,7 @@ void AMatineeActor::InitInterp()
 						{
 							AActor* Actor = GroupInfo->Actors[ ActorIndex ];
 
-							UInterpGroupInst* NewGroupInst = ConstructObject<UInterpGroupInst>(UInterpGroupInst::StaticClass(), this, NAME_None, RF_Transactional);
+							UInterpGroupInst* NewGroupInst = NewObject<UInterpGroupInst>(this, NAME_None, RF_Transactional);
 							GroupInst.Add(NewGroupInst);
 
 							NewGroupInst->InitGroupInst(Group, Actor);
@@ -837,7 +845,7 @@ void AMatineeActor::InitInterp()
 					{
 						// we need to create groupinst when actor does not exist. 
 						// Create new InterpGroupInst
-						UInterpGroupInst* NewGroupInst = ConstructObject<UInterpGroupInst>( UInterpGroupInst::StaticClass(), this, NAME_None, RF_Transactional );
+						UInterpGroupInst* NewGroupInst = NewObject<UInterpGroupInst>(this, NAME_None, RF_Transactional);
 						GroupInst.Add(NewGroupInst);
 						// Initialise group instance, saving ref to actor it works on.
 						NewGroupInst->InitGroupInst(Group, NULL);
@@ -890,6 +898,38 @@ void AMatineeActor::TermInterp()
 	EnableCinematicMode(false);
 }
 
+void AMatineeActor::UpdateInterpForParentMovementTracks( float Time, UInterpGroupInst* ViewGroupInst )
+{
+	AActor* Actor = ViewGroupInst->GetGroupActor();
+	if( Actor )
+	{
+		AActor* Parent = Actor->GetAttachParentActor();
+
+		UInterpGroupInst* ParentInst = FindGroupInst(Parent);
+		if(ParentInst)
+		{
+			UInterpTrackInst* ParentTrackInst = nullptr;
+			for(UInterpTrackInst* Inst : ParentInst->TrackInst)
+			{
+				if(Inst->GetGroupActor() == Parent)
+				{
+					ParentTrackInst = Inst;
+					break;
+				}
+			}
+
+			if(ParentTrackInst)
+			{
+				TArray<UInterpTrack*> FoundTracks;
+				ParentInst->Group->FindTracksByClass(UInterpTrackMove::StaticClass(), FoundTracks);
+				//Just use the first one, multiple move tracks wouldnt work well anyway
+				UInterpTrackMove* MoveTrack = CastChecked<UInterpTrackMove>(FoundTracks[0]);
+				MoveTrack->ConditionalUpdateTrack(Time, ParentTrackInst, true);
+			}
+		}
+	}
+}
+
 void AMatineeActor::SetupCameraCuts()
 {
 	if( MatineeData )
@@ -899,6 +939,8 @@ void AMatineeActor::SetupCameraCuts()
 		if ( DirTrack && DirTrack->CutTrack.Num() > 0 )
 		{
 			CameraCuts.Reserve( DirTrack->CutTrack.Num() );
+
+			float OldInterpPosition = InterpPosition;
 
 			// Find the starting camera location for each cut.
 			for( int32 KeyFrameIndex=0; KeyFrameIndex < DirTrack->CutTrack.Num(); KeyFrameIndex++)
@@ -919,17 +961,14 @@ void AMatineeActor::SetupCameraCuts()
 							FRotator CameraRotation;
 
 							UInterpTrackInst* TrackInst = ViewGroupInst->TrackInst[ TrackIndex ];
-							bool bSucceeded = MoveTrack->GetLocationAtTime( TrackInst, Cut.Time, CameraCut.Location, CameraRotation );
-
-							// The first keyframe could be (0,0,0), try again slightly past it in time.
-							if ( !bSucceeded || CameraCut.Location.IsNearlyZero() == true )
-							{
-								bSucceeded = MoveTrack->GetLocationAtTime( TrackInst, Cut.Time+0.01f, CameraCut.Location, CameraRotation );
-							}
+							UpdateInterpForParentMovementTracks(Cut.Time + .01f, ViewGroupInst);
+							bool bSucceeded = MoveTrack->GetLocationAtTime( TrackInst, Cut.Time+0.01f, CameraCut.Location, CameraRotation );
+							UpdateInterpForParentMovementTracks(OldInterpPosition, ViewGroupInst);
 
 							// Only add locations that aren't (0,0,0)
 							if ( bSucceeded && CameraCut.Location.IsNearlyZero() == false )
 							{
+								//UE_LOG(LogTemp, Display, TEXT("Cut %d   %s    %f    %f %f %f"), CameraCuts.Num(), *Cut.TargetCamGroup.ToString(), Cut.Time, CameraCut.Location.X, CameraCut.Location.Y, CameraCut.Location.Z);
 								CameraCut.TimeStamp = Cut.Time;
 								CameraCuts.Add( CameraCut );
 								break;
@@ -1102,7 +1141,7 @@ void AMatineeActor::StepInterp( float DeltaTime, bool bPreview )
 
 void AMatineeActor::DisableRadioFilterIfNeeded()
 {
-	FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
+	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 	if( AudioDevice )
 	{
 		AudioDevice->EnableRadioEffect( !bDisableRadioFilter );
@@ -1127,7 +1166,7 @@ void AMatineeActor::EnableCinematicMode(bool bEnable)
 
 void AMatineeActor::EnableRadioFilter()
 {
-	FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
+	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 	if( AudioDevice )
 	{
 		AudioDevice->EnableRadioEffect( true );
@@ -1760,36 +1799,36 @@ UInterpData::UInterpData(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 void UInterpData::CreateDefaultFilters()
 {
-	UInterpFilter* FilterAll = NewNamedObject<UInterpFilter>(this, TEXT("FilterAll"), RF_Transient | RF_TextExportTransient);
+	UInterpFilter* FilterAll = NewObject<UInterpFilter>(this, TEXT("FilterAll"), RF_Transient | RF_TextExportTransient);
 	FilterAll->Caption = TEXT("All");
 	DefaultFilters.Add(FilterAll);
 
-	UInterpFilter_Classes* FilterCameras = NewNamedObject<UInterpFilter_Classes>(this, TEXT("FilterCameras"), RF_Transient | RF_TextExportTransient);
+	UInterpFilter_Classes* FilterCameras = NewObject<UInterpFilter_Classes>(this, TEXT("FilterCameras"), RF_Transient | RF_TextExportTransient);
 	FilterCameras->Caption = TEXT("Cameras");
 	FilterCameras->ClassToFilterBy = ACameraActor::StaticClass();
 	DefaultFilters.Add(FilterCameras);
 
-	UInterpFilter_Classes* FilterSkeletalMeshes = NewNamedObject<UInterpFilter_Classes>(this, TEXT("FilterSkeletalMeshes"), RF_Transient | RF_TextExportTransient);
+	UInterpFilter_Classes* FilterSkeletalMeshes = NewObject<UInterpFilter_Classes>(this, TEXT("FilterSkeletalMeshes"), RF_Transient | RF_TextExportTransient);
 	FilterSkeletalMeshes->Caption = TEXT("Skeletal Meshes");
 	FilterSkeletalMeshes->ClassToFilterBy = ASkeletalMeshActor::StaticClass();
 	DefaultFilters.Add(FilterSkeletalMeshes);
 
-	UInterpFilter_Classes* FilterLighting = NewNamedObject<UInterpFilter_Classes>(this, TEXT("FilterLighting"), RF_Transient | RF_TextExportTransient);
+	UInterpFilter_Classes* FilterLighting = NewObject<UInterpFilter_Classes>(this, TEXT("FilterLighting"), RF_Transient | RF_TextExportTransient);
 	FilterLighting->Caption = TEXT("Lights");
 	FilterLighting->ClassToFilterBy = ALight::StaticClass();
 	DefaultFilters.Add(FilterLighting);
 
-	UInterpFilter_Classes* FilterEmitters = NewNamedObject<UInterpFilter_Classes>(this, TEXT("FilterEmitters"), RF_Transient | RF_TextExportTransient);
+	UInterpFilter_Classes* FilterEmitters = NewObject<UInterpFilter_Classes>(this, TEXT("FilterEmitters"), RF_Transient | RF_TextExportTransient);
 	FilterEmitters->Caption = TEXT("Particles");
 	FilterEmitters->ClassToFilterBy = AEmitter::StaticClass();
 	DefaultFilters.Add(FilterEmitters);
 
-	UInterpFilter_Classes* FilterSounds = NewNamedObject<UInterpFilter_Classes>(this, TEXT("FilterSounds"), RF_Transient | RF_TextExportTransient);
+	UInterpFilter_Classes* FilterSounds = NewObject<UInterpFilter_Classes>(this, TEXT("FilterSounds"), RF_Transient | RF_TextExportTransient);
 	FilterSounds->Caption = TEXT("Sounds");
 	FilterSounds->TrackClasses.Add(UInterpTrackSound::StaticClass());
 	DefaultFilters.Add(FilterSounds);
 
-	UInterpFilter_Classes* FilterEvents = NewNamedObject<UInterpFilter_Classes>(this, TEXT("FilterEvents"), RF_Transient | RF_TextExportTransient);
+	UInterpFilter_Classes* FilterEvents = NewObject<UInterpFilter_Classes>(this, TEXT("FilterEvents"), RF_Transient | RF_TextExportTransient);
 	FilterEvents->Caption = TEXT("Events");
 	FilterEvents->TrackClasses.Add(UInterpTrackEvent::StaticClass());
 	DefaultFilters.Add(FilterEvents);
@@ -1979,7 +2018,7 @@ void UInterpGroup::UpdateGroup(float NewPosition, UInterpGroupInst* GrInst, bool
 	check( InterpTracks.Num() == GrInst->TrackInst.Num() );
 
 	// Update animation state of Actor.
-#if WITH_EDITORONLY_DATA
+#if 0
 	// if in editor and preview and anim control exists, let them update weight before update track
 	if ( GIsEditor && bPreview && HasAnimControlTrack() )
 	{
@@ -2007,8 +2046,10 @@ void UInterpGroup::UpdateGroup(float NewPosition, UInterpGroupInst* GrInst, bool
 		}
 	}
 
+#if 0
 	// Update animation state of Actor.
 	UpdateAnimWeights(NewPosition, GrInst, bPreview, bJump);
+#endif // disable this, it doesn't w
 }
 
 bool UInterpGroup::HasSelectedTracks() const
@@ -2481,7 +2522,7 @@ void UInterpGroupInst::InitGroupInst(UInterpGroup* InGroup, AActor* InGroupActor
 	for(int32 i=0; i<InGroup->InterpTracks.Num(); i++)
 	{
 		// Construct Track instance object
-		UInterpTrackInst* TrInst = ConstructObject<UInterpTrackInst>( InGroup->InterpTracks[i]->TrackInstClass, this, NAME_None, RF_Transactional );
+		UInterpTrackInst* TrInst = NewObject<UInterpTrackInst>(this, InGroup->InterpTracks[i]->TrackInstClass, NAME_None, RF_Transactional);
 		TrackInst.Add(TrInst);
 
 		TrInst->InitTrackInst( InGroup->InterpTracks[i] );
@@ -4712,7 +4753,7 @@ void UInterpTrackMove::CreateSubTracks( bool bCopy )
 		check( TrackDef && TrackDef->bSubTrackOnly );
 
 		UInterpTrack* NewSubTrack = NULL;
-		NewSubTrack = ConstructObject<UInterpTrack>( SubTrackInfo.SupportedClass, this, NAME_None, RF_Transactional );
+		NewSubTrack = NewObject<UInterpTrack>(this, SubTrackInfo.SupportedClass, NAME_None, RF_Transactional);
 		check( NewSubTrack );
 
 		int32 NewTrackIndex = SubTracks.Add( NewSubTrack );
@@ -5012,24 +5053,26 @@ void UInterpTrackToggle::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst
 			for (int32 KeyIndex = ToggleTrack.Num() - 1; KeyIndex >= 0; KeyIndex--)
 			{
 				FToggleTrackKey& ToggleKey = ToggleTrack[KeyIndex];
-				// We have found the key to the left of the position
-				if (ToggleKey.ToggleAction == ETTA_On)
+				if( ToggleKey.Time < NewPosition )
 				{
-					EmitterActor->GetParticleSystemComponent()->ActivateSystem(bActivateWithJustAttachedFlag);
-				}
-				else
-				if (ToggleKey.ToggleAction == ETTA_Trigger)
-				{
-					if (ToggleKey.Time >= ToggleInst->LastUpdatePosition)
+					// We have found the key to the left of the position
+					if( ToggleKey.ToggleAction == ETTA_On )
 					{
-						EmitterActor->GetParticleSystemComponent()->SetActive(true, bActivateWithJustAttachedFlag);
+						EmitterActor->GetParticleSystemComponent()->ActivateSystem( bActivateWithJustAttachedFlag );
 					}
+					else if( ToggleKey.ToggleAction == ETTA_Trigger )
+					{
+						if( ToggleKey.Time >= ToggleInst->LastUpdatePosition )
+						{
+							EmitterActor->GetParticleSystemComponent()->SetActive( true, bActivateWithJustAttachedFlag );
+						}
+					}
+					else
+					{
+						EmitterActor->GetParticleSystemComponent()->DeactivateSystem();
+					}
+					break;
 				}
-				else
-				{
-					EmitterActor->GetParticleSystemComponent()->DeactivateSystem();
-				}
-				break;
 			}
 		}
 	}
@@ -6279,6 +6322,15 @@ void UInterpTrackEvent::RemoveKeyframe(int32 KeyIndex)
 	}
 }
 
+void UInterpTrackEvent::PreviewUpdateTrack(float NewPosition, class UInterpTrackInst* TrInst)
+{
+	UInterpGroupInst* GrInst = CastChecked<UInterpGroupInst>( TrInst->GetOuter() );
+	AMatineeActor* MatineeActor = CastChecked<AMatineeActor>( GrInst->GetOuter() );
+
+	bool bJump = !( MatineeActor->bIsPlaying );
+	UpdateTrack(NewPosition, TrInst, bJump);
+}
+
 void UInterpTrackEvent::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst, bool bJump)
 {
 	UInterpTrackInstEvent* EventInst = CastChecked<UInterpTrackInstEvent>(TrInst);
@@ -6372,7 +6424,7 @@ void UInterpTrackEvent::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst,
 
 			if( bFireThisEvent )
 			{
-				MatineeActor->NotifyEventTriggered(EventTrack[i].EventName, EventTime);
+				MatineeActor->NotifyEventTriggered(EventTrack[i].EventName, EventTime, bUseCustomEventName);
 			}
 		}
 	}
@@ -6762,6 +6814,8 @@ void UInterpTrackInstDirector::TermTrackInst(UInterpTrack* Track)
 UInterpTrackFade::UInterpTrackFade(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	FadeColor = FLinearColor::Black;
+	
 	bOnePerGroup = true;
 	bDirGroupOnly = true;
 	TrackInstClass = UInterpTrackInstFade::StaticClass();
@@ -6802,10 +6856,7 @@ void UInterpTrackFade::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst, 
 		APlayerController* PC = Cast<APlayerController>(GrInst->GetGroupActor());
 		if(PC && PC->PlayerCameraManager && !PC->PlayerCameraManager->IsPendingKill())
 		{
-			PC->PlayerCameraManager->bEnableFading = true;
-			PC->PlayerCameraManager->FadeAmount = GetFadeAmountAtTime(NewPosition);
-			// disable the Kismet fade control so that we don't thrash
-			PC->PlayerCameraManager->FadeTimeRemaining = 0.0f;
+			PC->PlayerCameraManager->SetManualCameraFade(GetFadeAmountAtTime(NewPosition), FadeColor, bFadeAudio);
 		}
 	}
 }
@@ -6830,12 +6881,12 @@ void UInterpTrackInstFade::TermTrackInst(UInterpTrack* Track)
 	UInterpTrackFade *FadeTrack = Cast<UInterpTrackFade>(Track);
 	if (FadeTrack == NULL || !FadeTrack->bPersistFade)
 	{
-		UInterpGroupInst* GrInst = CastChecked<UInterpGroupInst>( GetOuter() );
-		APlayerController* PC = Cast<APlayerController>(GrInst->GroupActor);
+		UInterpGroupInst* const GrInst = CastChecked<UInterpGroupInst>(GetOuter());
+		APlayerController* const PC = Cast<APlayerController>(GrInst->GroupActor);
 		if(PC && PC->PlayerCameraManager && !PC->PlayerCameraManager->IsPendingKill())
 		{
-			PC->PlayerCameraManager->bEnableFading = false;
-			PC->PlayerCameraManager->FadeAmount = 0.f;
+			PC->PlayerCameraManager->StopCameraFade();
+
 			// if the player is remote, ensure they got it
 			// this handles cases where the LDs stream out this level immediately afterwards,
 			// which can mean the client never gets the matinee replication if it was temporarily unresponsive
@@ -6993,6 +7044,7 @@ UInterpTrackAnimControl::UInterpTrackAnimControl(const FObjectInitializer& Objec
 	TrackInstClass = UInterpTrackInstAnimControl::StaticClass();
 	TrackTitle = TEXT("Anim");
 	bIsAnimControlTrack = true;
+	SlotName = FAnimSlotGroup::DefaultSlotName;
 #if WITH_EDITORONLY_DATA
 	TrackIcon = Cast<UTexture2D>(StaticLoadObject( UTexture2D::StaticClass(), NULL, TEXT("/Engine/EditorMaterials/MatineeGroups/MAT_Groups_Anim.MAT_Groups_Anim"), NULL, LOAD_None, NULL ));
 #endif // WITH_EDITORONLY_DATA
@@ -7237,14 +7289,18 @@ void UInterpTrackAnimControl::PreviewUpdateTrack(float NewPosition, class UInter
 	int32 ChannelIndex = CalcChannelIndex();
 
 	UAnimSequence* NewAnimSeq = NULL;
-	float NewAnimPosition, TimeElapsed = 0.f;
+
+	UInterpGroupInst* GrInst = CastChecked<UInterpGroupInst>(TrInst->GetOuter());
+	AMatineeActor* MatineeActor = CastChecked<AMatineeActor>(GrInst->GetOuter());
+	bool bJump = !( MatineeActor->bIsPlaying );
+	float NewAnimPosition, TimeElapsed = (bJump || NewPosition < AnimInst->LastUpdatePosition)? 0.f : NewPosition - AnimInst->LastUpdatePosition;
 	bool bNewLooping;
 	bool bResetTime = GetAnimForTime(NewPosition, &NewAnimSeq, NewAnimPosition, bNewLooping);
 
 	if( NewAnimSeq != NULL )
 	{
 		// if we're going backward or if not @ the first frame of the animation
-		bool bFireNotifier = !bSkipAnimNotifiers && (TimeElapsed < 0.f || !bResetTime) ;
+		bool bFireNotifier = !bSkipAnimNotifiers && (!bResetTime) ;
 		IMatineeAnimInterface * IMAI = Cast<IMatineeAnimInterface>(Actor);
 		if (IMAI)
 		{
@@ -7791,7 +7847,7 @@ void UInterpTrackSound::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst,
 		// Check if we're in the audio range, and if we need to start playing the audio,
 		// either because it has never been played, or isn't currently playing.
 		// We only do this when we've jumped position.
-		bool bIsInRangeAndNeedsStart = !bPlaying && NewPosition >= SoundTrackKey.Time && NewPosition <= ( SoundTrackKey.Time + SoundTrackKey.Sound->Duration );
+		bool bIsInRangeAndNeedsStart = !bPlaying && SoundTrackKey.Sound != nullptr && NewPosition >= SoundTrackKey.Time && NewPosition <= ( SoundTrackKey.Time + SoundTrackKey.Sound->Duration );
 		if ( bIsInRangeAndNeedsStart )
 		{
 			bIsInRangeAndNeedsStart = SoundInst->PlayAudioComp == NULL || !SoundInst->PlayAudioComp->IsPlaying();
@@ -7950,9 +8006,11 @@ void UInterpTrackSound::PreviewUpdateTrack(float NewPosition, UInterpTrackInst* 
 	if ( bTimeChangedDrastically && MatineeActor->bIsScrubbing )
 	{
 		FSoundTrackKey& SoundTrackKey = GetSoundTrackKeyAtPosition(NewPosition);
-		const bool bIsInRange = NewPosition >= SoundTrackKey.Time && NewPosition <= ( SoundTrackKey.Time + SoundTrackKey.Sound->Duration );
+		const bool bIsInRange = (SoundTrackKey.Sound)
+				? (NewPosition >= SoundTrackKey.Time && NewPosition <= (SoundTrackKey.Time + SoundTrackKey.Sound->Duration))
+				: false;
 
-		USoundCue* TempPlaybackAudioCue = ConstructObject<USoundCue>(USoundCue::StaticClass());
+		USoundCue* TempPlaybackAudioCue = NewObject<USoundCue>();
 		UAudioComponent* Component = FAudioDevice::CreateComponent(TempPlaybackAudioCue, NULL, NULL, false, false);
 
 		if ( bIsInRange && Component )
@@ -8692,11 +8750,11 @@ static void GetListOfStaticActors(FString& OutString, const TArray<AActor*>& Act
 AMaterialInstanceActor::AMaterialInstanceActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	USceneComponent* SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
+	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComp"));
 	RootComponent = SceneComponent;
 
 #if WITH_EDITORONLY_DATA
-	SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 	if (!IsRunningCommandlet() && (SpriteComponent != NULL))
 	{
 		// Structure to hold one-time initialization
@@ -9574,3 +9632,178 @@ UBillboardComponent* AMatineeActor::GetSpriteComponent() const { return SpriteCo
 /** Returns SpriteComponent subobject **/
 UBillboardComponent* AMaterialInstanceActor::GetSpriteComponent() const { return SpriteComponent; }
 #endif
+
+
+/*-----------------------------------------------------------------------------
+	Float anim BP parameter track.
+-----------------------------------------------------------------------------*/
+UInterpTrackFloatAnimBPParam::UInterpTrackFloatAnimBPParam(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+	, bRefreshParamter(false)
+{
+	TrackInstClass = UInterpTrackInstFloatAnimBPParam::StaticClass();
+	TrackTitle = TEXT("Float AnimBP Param");
+}
+
+#if WITH_EDITOR
+
+void UInterpTrackFloatAnimBPParam::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
+	FName PropertyName = PropertyThatChanged != NULL ? PropertyThatChanged->GetFName() : NAME_None;
+
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, ParamName) ||
+		PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, AnimBlueprintClass))
+	{
+		bRefreshParamter = true;
+	}
+}
+#endif // WITH_EDITOR
+
+int32 UInterpTrackFloatAnimBPParam::AddKeyframe(float Time, UInterpTrackInst* TrInst, EInterpCurveMode InitInterpMode)
+{
+	int32 NewKeyIndex = FloatTrack.AddPoint( Time, 0.f );
+	FloatTrack.Points[NewKeyIndex].InterpMode = InitInterpMode;
+	if ( NewKeyIndex > 0 )
+	{
+		if ( NewKeyIndex < FloatTrack.Points.Num() - 1 )
+		{
+			const float Duration = FloatTrack.Points[NewKeyIndex+1].InVal - FloatTrack.Points[NewKeyIndex-1].InVal;
+			const float Remaining = FloatTrack.Points[NewKeyIndex+1].InVal - FloatTrack.Points[NewKeyIndex].InVal;
+			const float DurationPct = ( Duration > 0.f ? ((Duration - Remaining) / Duration) : 0.f );
+			if( FloatTrack.Points[NewKeyIndex-1].InterpMode == CIM_Linear || FloatTrack.Points[NewKeyIndex-1].InterpMode == CIM_Constant )	// Linear or Constant interpolation
+			{
+				FloatTrack.Points[NewKeyIndex].OutVal = FMath::Lerp<float>(FloatTrack.Points[NewKeyIndex-1].OutVal, FloatTrack.Points[NewKeyIndex+1].OutVal, DurationPct);
+			}
+			else	// Cubic Interpolation
+			{
+				FloatTrack.Points[NewKeyIndex].OutVal = FMath::CubicInterp<float>(FloatTrack.Points[NewKeyIndex-1].OutVal, FloatTrack.Points[NewKeyIndex-1].LeaveTangent * Duration, FloatTrack.Points[NewKeyIndex+1].OutVal, FloatTrack.Points[NewKeyIndex+1].ArriveTangent * Duration, DurationPct);
+			}
+		}
+		else	// Same position as previous point
+		{
+			FloatTrack.Points[NewKeyIndex].OutVal = FloatTrack.Points[NewKeyIndex-1].OutVal;
+		}
+	}
+	else if ( NewKeyIndex < FloatTrack.Points.Num() - 1 )	// Same position as next point
+	{
+		FloatTrack.Points[NewKeyIndex].OutVal = FloatTrack.Points[NewKeyIndex+1].OutVal;
+	}
+	FloatTrack.AutoSetTangents(CurveTension);
+	return NewKeyIndex;
+}
+
+
+void UInterpTrackFloatAnimBPParam::PreviewUpdateTrack(float NewPosition, UInterpTrackInst* TrInst)
+{
+	if (bRefreshParamter)
+	{
+		UInterpTrackInstFloatAnimBPParam* ParamTrackInst = Cast<UInterpTrackInstFloatAnimBPParam>(TrInst);
+		if(ParamTrackInst != NULL)
+		{
+			ParamTrackInst->RefreshParameter(this);
+		}
+
+		bRefreshParamter = false;
+	}
+
+	UpdateTrack(NewPosition, TrInst, false);
+}
+
+
+void UInterpTrackFloatAnimBPParam::UpdateTrack(float NewPosition, UInterpTrackInst* TrInst, bool bJump)
+{
+	UInterpTrackInstFloatAnimBPParam* ParamTrackInst = Cast<UInterpTrackInstFloatAnimBPParam>(TrInst);
+	if (ParamTrackInst != NULL)
+	{
+		float NewFloatValue = FloatTrack.Eval(NewPosition, 0.f);
+		// set value
+		ParamTrackInst->SetValue(NewFloatValue);
+	}
+}
+
+UInterpTrackInstFloatAnimBPParam::UInterpTrackInstFloatAnimBPParam(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+	, AnimScriptInstance(nullptr)
+	, ResetFloat(0.f)
+	, ParamProperty(nullptr)
+{
+}
+
+void UInterpTrackInstFloatAnimBPParam::InitTrackInst(UInterpTrack* Track)
+{
+	Super::InitTrackInst(Track);
+	RefreshParameter(Track);
+}
+
+void UInterpTrackInstFloatAnimBPParam::RefreshParameter(UInterpTrack* Track)
+{
+	// if currently has correct setup, restore actor state
+	RestoreActorState(Track);
+
+	AnimScriptInstance = nullptr;
+	ParamProperty = nullptr;
+
+	UInterpTrackFloatAnimBPParam* ParamTrack = Cast<UInterpTrackFloatAnimBPParam>(Track);
+	if(ParamTrack != nullptr && ParamTrack->ParamName != NAME_None)
+	{
+		AActor* Actor=GetGroupActor();
+		if(Actor)
+		{
+			TInlineComponentArray<USkeletalMeshComponent*> SkeletalMeshComponents;
+			Actor->GetComponents(SkeletalMeshComponents);
+
+			if(SkeletalMeshComponents.Num() > 0)
+			{
+				UAnimInstance* NewAnimInstance = SkeletalMeshComponents[0]->GetAnimInstance();
+
+				if(NewAnimInstance && NewAnimInstance->GetClass() == ParamTrack->AnimBlueprintClass)
+				{
+					AnimScriptInstance = NewAnimInstance;
+					// make sure the class has the parameter
+					ParamProperty = NewAnimInstance->GetClass()->FindPropertyByName(ParamTrack->ParamName);
+				}
+			}
+		}
+	}
+
+	// save actor state since now property might have changed
+	SaveActorState(Track);
+}
+
+void UInterpTrackInstFloatAnimBPParam::SetValue(float InValue)
+{
+	if (AnimScriptInstance && ParamProperty)
+	{
+		float* Value = ParamProperty->ContainerPtrToValuePtr<float>(AnimScriptInstance);
+		if(Value)
+		{
+			*Value = InValue;
+		}
+	}
+}
+
+float UInterpTrackInstFloatAnimBPParam::GetValue() const
+{
+	if(AnimScriptInstance && ParamProperty)
+	{
+		float* Value = ParamProperty->ContainerPtrToValuePtr<float>(AnimScriptInstance);
+		if(Value)
+		{
+			return *Value;
+		}
+	}
+
+	return 0.f;
+}
+
+void UInterpTrackInstFloatAnimBPParam::SaveActorState(UInterpTrack* Track) 
+{
+	ResetFloat = GetValue();
+}
+void UInterpTrackInstFloatAnimBPParam::RestoreActorState(UInterpTrack* Track)
+{
+	SetValue(ResetFloat);
+}

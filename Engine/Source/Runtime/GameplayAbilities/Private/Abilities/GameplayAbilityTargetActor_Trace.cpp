@@ -17,7 +17,6 @@ AGameplayAbilityTargetActor_Trace::AGameplayAbilityTargetActor_Trace(const FObje
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickGroup = TG_PostUpdateWork;
-	StaticTargetFunction = false;
 
 	MaxRange = 999999.0f;
 	bTraceAffectsAimPitch = true;
@@ -77,14 +76,6 @@ void AGameplayAbilityTargetActor_Trace::SweepWithFilter(FHitResult& OutHitResult
 			return;
 		}
 	}
-}
-
-FGameplayAbilityTargetDataHandle AGameplayAbilityTargetActor_Trace::StaticGetTargetData(UWorld * World, const FGameplayAbilityActorInfo* ActorInfo, FGameplayAbilityActivationInfo ActivationInfo) const
-{
-	check(false);		//This should never actually be called, and if it is, it will require a const version of PerformTrace()
-	AActor* StaticSourceActor = ActorInfo->AvatarActor.Get();
-	//return MakeTargetData(PerformTrace(StaticSourceActor));		//Old way, requires PerformTrace to be a const call
-	return MakeTargetData(FHitResult());
 }
 
 void AGameplayAbilityTargetActor_Trace::AimWithPlayerController(const AActor* InSourceActor, FCollisionQueryParams Params, const FVector& TraceStart, FVector& OutTraceEnd, bool bIgnorePitch) const
@@ -167,7 +158,7 @@ void AGameplayAbilityTargetActor_Trace::StartTargeting(UGameplayAbility* InAbili
 		AGameplayAbilityWorldReticle* SpawnedReticleActor = GetWorld()->SpawnActor<AGameplayAbilityWorldReticle>(ReticleClass, GetActorLocation(), GetActorRotation());
 		if (SpawnedReticleActor)
 		{
-			SpawnedReticleActor->InitializeReticle(this, ReticleParams);
+			SpawnedReticleActor->InitializeReticle(this, MasterPC, ReticleParams);
 			ReticleActor = SpawnedReticleActor;
 
 			// This is to catch cases of playing on a listen server where we are using a replicated reticle actor.

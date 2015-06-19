@@ -27,7 +27,7 @@ struct FRuleCategoryData
 };
 
 UCLASS(Config=Rules)
-class UUTEpicDefaultRulesets : public UObject
+class UNREALTOURNAMENT_API UUTEpicDefaultRulesets : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -41,15 +41,16 @@ public:
 		if (!Owner) return;
 
 		AUTReplicatedGameRuleset* NewRuleset;
-		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
-			TEXT("Deathmatch"), 
-			TEXT("Casual"), 
-			TEXT("Deathmatch"), 
+		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner,
+			TEXT("Deathmatch"),
+			TEXT("Deathmatch"),
+			TEXT("Free For All"),
 			TEXT("Standard free-for-all Deathmatch."), 
 			TEXT("Standard free-for-all deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\nMaximum of 6 players allowed!"),
-			6, 
-			TEXT("DM-Outpost23,DM-Tuba,DM-NickTest1,DM-Chill,DM-ASDF,DM-Focus,DM-Temple,DM-Lea"), 
-			6, 
+			TEXT("DM"), 
+			TEXT("DM-Outpost23"),
+			8,
+			6,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_DM.GB_DM'"), 
 			TEXT("DM"),
 			TEXT("/Script/UnrealTournament.UTDMGameMode"),
@@ -60,13 +61,14 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("BigDM"), 
-			TEXT("Big"), 
+			TEXT("Deathmatch"), 
 			TEXT("Big Deathmatch"), 
 			TEXT("Deathmatch with an insane # of players on big maps."), 
 			TEXT("Deathmatch with big player counts on big maps!\n\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n\nMaximum of 16 players allowed!"),
-			6, 
-			TEXT("DM-Outpost23,DM-DeckTest,DM-SidCastle,DM-Cannon,DM-Deadfall,DM-Spacer"), 
+			TEXT("DM"), 
+			TEXT("DM-Outpost23"),
 			16, 
+			0,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeDM.GB_LargeDM'"), 
 			TEXT("DM"),
 			TEXT("/Script/UnrealTournament.UTDMGameMode"),
@@ -81,9 +83,10 @@ public:
 			TEXT("Team Deathmatch"), 
 			TEXT("Two teams trying to kill each other."), 
 			TEXT("Team-Deathmatch pits two teams against each other!\n\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 12 players allowed!"),
-			6, 
-			TEXT("DM-Outpost23,DM-DeckTest,DM-SidCastle,DM-Cannon,DM-Deadfall,DM-Spacer"), 
+			TEXT("DM"), 
+			TEXT("DM-Outpost23"),
 			12, 
+			10,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'"), 
 			TEXT("TDM"),
 			TEXT("/Script/UnrealTournament.UTTeamDMGameMode"),
@@ -94,30 +97,32 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("DUEL"), 
-			TEXT("Competitive"), 
+			TEXT("Deathmatch"), 
 			TEXT("Duel"), 
 			TEXT("Two players enter, one player leaves!"), 
 			TEXT("You against one other opponent!\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n\nMaximum of 2 players allowed!"),
-			3, 
-			TEXT("DM-Outpost23,DM-Tuba,DM-DeckTest,DM-NickTest1,DM-Chill,DM-ASDF,DM-Focus,DM-Temple,DM-Lea,DM-Solo"), 
+			TEXT("DM"), 
+			TEXT("DM-Lea"),
 			2, 
+			2,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'"), 
 			TEXT("Duel"),
 			TEXT("/Script/UnrealTournament.UTDuelGame"),
 			TEXT("?TimeLimit=10?GoalScore=0"),
-			false);
+			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("CTF"), 
-			TEXT("Casual,TeamPlay"), 
+			TEXT("TeamPlay"), 
 			TEXT("Capture the Flag"), 
 			TEXT("Two teams trying to steal each other flags."), 
 			TEXT("Try to steal the enemy flag and return it home.!\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 12 players allowed!"),
-			6, 
-			TEXT("CTF-Blank,CTF-Outside,CTF-FaceTest,CTF-BigRock,CTF-Dam,CTF-Crashsite,CTF-Mine"), 
+			TEXT("CTF"), 
+			TEXT("CTF-Outside"),
 			12, 
+			10,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'"), 
 			TEXT("CTF"),
 			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
@@ -129,13 +134,14 @@ public:
 
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("BIGCTF"), 
-			TEXT("Big"), 
+			TEXT("TeamPlay"), 
 			TEXT("Big Capture the Flag"), 
 			TEXT("Two teams trying to steal each other flags with insane player counts."), 
 			TEXT("Try to steal the enemy flag and return it home.!\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 20 players allowed!"),
-			6, 
-			TEXT("CTF-Blank,CTF-Outside,CTF-FaceTest,CTF-BigRock,CTF-Dam,CTF-Crashsite,CTF-Mine"), 
+			TEXT("CTF"), 
+			TEXT("CTF-Outside"),
 			20, 
+			0,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeCTF.GB_LargeCTF'"), 
 			TEXT("CTF"),
 			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
@@ -150,9 +156,10 @@ public:
 			TEXT("Instagib DM"), 
 			TEXT("One hit one kill deathmatch."), 
 			TEXT("One hit one kill Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n\nMaximum of 6 players allowed!"),
-			6, 
-			TEXT("DM-Outpost23,DM-Tuba,DM-NickTest1,DM-Chill,DM-ASDF,DM-Focus,DM-Temple,DM-Lea"), 
-			6, 
+			TEXT("DM"), 
+			TEXT("DM-Outpost23"),
+			6,
+			6,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDM.GB_InstagibDM'"), 
 			TEXT("DM"),
 			TEXT("/Script/UnrealTournament.UTDMGameMode"),
@@ -167,9 +174,10 @@ public:
 			TEXT("Instagib TDM"), 
 			TEXT("One hit one kill team deathmatch."), 
 			TEXT("One hit one kill Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 6 players allowed!"),
-			6, 
-			TEXT("DM-Outpost23,DM-SidCastle,DM-Cannon,DM-Deadfall,DM-Spacer"), 
+			TEXT("DM"), 
+			TEXT("DM-Outpost23"),
 			12, 
+			10,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDuel.GB_InstagibDuel'"), 
 			TEXT("TDM"),
 			TEXT("/Script/UnrealTournament.UTTeamDMGameMode"),
@@ -181,12 +189,13 @@ public:
 		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner, 
 			TEXT("iCTF"), 
 			TEXT("Instagib"), 
-			TEXT("Instgib CTF"), 
+			TEXT("Instagib CTF"), 
 			TEXT("One hit one kill CTF."), 
 			TEXT("Try to steal the enemy flag and return it home while avoiding even a single hit!\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nMaximum of 12 players allowed!"),
-			6, 
-			TEXT("CTF-Blank,CTF-Outside,CTF-FaceTest,CTF-BigRock,CTF-Dam,CTF-Crashsite,CTF-Mine"), 
+			TEXT("CTF"), 
+			TEXT("CTF-Outside"),
 			12, 
+			10,
 			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'"), 
 			TEXT("CTF"),
 			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
@@ -197,8 +206,8 @@ public:
 	}
 
 
-	static AUTReplicatedGameRuleset* AddDefaultRuleset(AActor* Owner, FString inUniqueTag, FString inCategoryList, FString inTitle, FString inTooltip, FString inDescription, int32 inMapPlaylistSize,
-												FString inMapPlaylist, int32 inMaxPlayers, FString inDisplayTexture, FString inGameMode, FString inGameModeClass, FString inGameOptions, bool bTeamGame)
+	static AUTReplicatedGameRuleset* AddDefaultRuleset(AActor* Owner, FString inUniqueTag, FString inCategoryList, FString inTitle, FString inTooltip, FString inDescription, FString inMapPrefixes, FString inDefaultMap,
+						int32 inMaxPlayers, int32 inOptimalPlayers, FString inDisplayTexture, FString inGameMode, FString inGameModeClass, FString inGameOptions, bool bTeamGame)
 	{
 		FActorSpawnParameters Params;
 		Params.Owner = Owner;
@@ -209,27 +218,27 @@ public:
 			NewReplicatedRuleset->Title = inTitle;
 			NewReplicatedRuleset->Tooltip = inTooltip;
 			NewReplicatedRuleset->Description = inDescription;
-			NewReplicatedRuleset->MapPlaylistSize = inMapPlaylistSize;
 			NewReplicatedRuleset->MinPlayersToStart = 2;
 			NewReplicatedRuleset->MaxPlayers = inMaxPlayers;
+			NewReplicatedRuleset->OptimalPlayers = inOptimalPlayers;
 			NewReplicatedRuleset->DisplayTexture = inDisplayTexture;
 			NewReplicatedRuleset->GameMode = inGameMode;
 			NewReplicatedRuleset->GameModeClass = inGameModeClass;
 			NewReplicatedRuleset->GameOptions = inGameOptions;
 			NewReplicatedRuleset->bTeamGame = bTeamGame;
-
+			NewReplicatedRuleset->DefaultMap = inDefaultMap;
 
 			TArray<FString> StrArray;
-			inCategoryList.ParseIntoArray(&StrArray, TEXT(","), true);
+			inCategoryList.ParseIntoArray(StrArray, TEXT(","), true);
 			for (int32 i=0;i<StrArray.Num();i++)
 			{
 				NewReplicatedRuleset->Categories.Add(FName(*StrArray[i]));
 			}
 
-			inMapPlaylist.ParseIntoArray(&StrArray, TEXT(","), true);
+			inMapPrefixes.ParseIntoArray(StrArray, TEXT(","), true);
 			for (int32 i=0;i<StrArray.Num();i++)
 			{
-				NewReplicatedRuleset->MapPlaylist.Add(StrArray[i]);
+				NewReplicatedRuleset->MapPrefixes.Add(StrArray[i]);
 			}
 
 			return NewReplicatedRuleset;

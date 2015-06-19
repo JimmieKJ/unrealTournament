@@ -26,13 +26,15 @@ public class StandaloneRenderer : ModuleRules
 			// @todo: This should be private? Not sure!!
 			AddThirdPartyPrivateStaticDependencies(Target, "DX11");
 		}
-
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicFrameworks.Add("QuartzCore");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
 			AddThirdPartyPrivateStaticDependencies(Target, "SDL2");
 		}
-
-		if (Target.Platform == UnrealTargetPlatform.IOS)
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
 			PublicFrameworks.AddRange(new string[] { "OpenGLES", "GLKit" });
 			// weak for IOS8 support since CAMetalLayer is in QuartzCore

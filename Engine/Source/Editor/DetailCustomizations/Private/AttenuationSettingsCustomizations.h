@@ -21,4 +21,5 @@ protected:
 
 	TSharedPtr< IPropertyHandle > AttenuationShapeHandle;
 	TSharedPtr< IPropertyHandle > DistanceAlgorithmHandle;
+	TSharedPtr< IPropertyHandle > SpatializationAlgorithmHandle;
 };

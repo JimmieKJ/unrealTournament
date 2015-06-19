@@ -155,9 +155,6 @@ public:
 	/** Create component mask node */
 	TSharedPtr< FUICommandInfo > CreateComponentMaskNode;
 
-	/** Go to node documentation */
-	TSharedPtr< FUICommandInfo > GoToDocumentation;
-
 
 	/**
 	 * Initialize commands
@@ -176,7 +173,7 @@ public:
 	/** Constructor */
 	FExpressionSpawnInfo(UClass* InMaterialExpressionClass) : MaterialExpressionClass(InMaterialExpressionClass) {}
 
-	/** Holds the UI Command to verify gestures for this action are held */
+	/** Holds the UI Command to verify chords for this action are held */
 	TSharedPtr< FUICommandInfo > CommandInfo;
 
 	/**
@@ -212,14 +209,14 @@ public:
 	virtual void RegisterCommands() override;
 
 	/**
-	 * Returns a graph action assigned to the passed in gesture
+	 * Returns a graph action assigned to the passed in chord
 	 *
-	 * @param InGesture		The gesture to use for lookup
+	 * @param InChord		The chord to use for lookup
 	 * @param InDestGraph	The graph to create the graph action for, used for validation purposes and to link any important node data to the graph
 	 */
-	TSharedPtr< FEdGraphSchemaAction > GetGraphActionByGesture(FInputGesture& InGesture, UEdGraph* InDestGraph) const;
+	TSharedPtr< FEdGraphSchemaAction > GetGraphActionByChord(FInputChord& InChord, UEdGraph* InDestGraph) const;
 
-	const TSharedPtr<const FInputGesture> GetGestureByClass(UClass* MaterialExpressionClass) const;
+	const TSharedPtr<const FInputChord> GetChordByClass(UClass* MaterialExpressionClass) const;
 
 private:
 	/** An array of all the possible commands for spawning nodes */

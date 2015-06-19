@@ -259,7 +259,7 @@ void FUdpMessageTunnel::UdpToTcp( FSocket* Socket )
 	while (Socket->HasPendingData(DatagramSize))
 	{
 		FArrayReaderPtr Datagram = MakeShareable(new FArrayReader(true));
-		Datagram->Init(FMath::Min(DatagramSize, 65507u));
+		Datagram->SetNumUninitialized(FMath::Min(DatagramSize, 65507u));
 
 		int32 BytesRead = 0;
 

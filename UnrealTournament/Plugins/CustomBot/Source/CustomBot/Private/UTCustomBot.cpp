@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CustomBotPrivatePCH.h"
-#include "UTBotConfig.h"
 #include "UTCustomPathFollowingComponent.h"
 #include "UTCustomBot.h"
 #include "Perception/AIPerceptionComponent.h"

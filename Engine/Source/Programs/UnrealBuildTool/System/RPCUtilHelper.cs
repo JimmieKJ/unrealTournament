@@ -115,8 +115,7 @@ namespace UnrealBuildTool
 						string[] Commands = new string[] 
 						{
 							"+\"%s\"",
-							"vm_stat | grep Statistics | awk '{print $8}'",
-							"vm_stat | grep 'Pages free:' | awk '{print $3}'",
+							"sysctl -a | grep hw.memsize | awk '{print $2}'",
 							"sysctl -a | grep hw.logicalcpu: | awk '{print $2}'",
 						};
 						Hashtable Results = Command("/", "date", string.Join(" && ", Commands), null);
@@ -139,12 +138,12 @@ namespace UnrealBuildTool
 						TimeDifferenceFromRemote = DateTime.UtcNow - RemoteTimebase;
 
 						// now figure out max number of commands to run at once
-						int PageSize = int.Parse(Lines[1]);
-						Int64 AvailableMem = Int64.Parse(Lines[2].Replace(".", "")) * PageSize;
+//						int PageSize = int.Parse(Lines[1]);
+						Int64 AvailableMem = Int64.Parse(Lines[1].Replace(".", ""));// *PageSize;
 						int NumProcesses = (int)Math.Max(1, AvailableMem / (RemoteToolChain.MemoryPerCompileMB * 1024 * 1024));
 
 						// now, combine that with actual number of cores
-						int NumCores = int.Parse(Lines[3]);
+						int NumCores = int.Parse(Lines[2]);
 						MaxRemoteCommandsAllowed = Math.Min(NumProcesses, NumCores);
 
 						Console.WriteLine("Remote time is {0}, difference is {1}", RemoteTimebase.ToString(), TimeDifferenceFromRemote.ToString());

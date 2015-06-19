@@ -46,14 +46,15 @@ void FSlateNotificationManager::FRegionalNotificationList::Arrange()
 		if( PinnedWindow.IsValid() )
 		{
 			const FVector2D DesiredSize = PinnedWindow->GetDesiredSize();
-			const FVector2D NewPosition( AnchorPoint.X - DesiredSize.X, AnchorPoint.Y - DesiredSize.Y );
+			const FVector2D NewPosition(AnchorPoint.X - DesiredSize.X, AnchorPoint.Y - DesiredSize.Y);
 			if( NewPosition != PinnedWindow->GetPositionInScreen() && DesiredSize != PinnedWindow->GetSizeInScreen() )
 			{
 				PinnedWindow->ReshapeWindow( NewPosition, DesiredSize );
 			}
 			else if( NewPosition != PinnedWindow->GetPositionInScreen() )
 			{
-				PinnedWindow->MoveWindowTo( NewPosition );
+				float StackOffset = NotificationManagerConstants::NotificationOffset.Y * ((Notifications.Num()-1) - ListIndex);
+				PinnedWindow->MoveWindowTo(NewPosition - FVector2D(0, StackOffset));
 			}
 			AnchorPoint.Y -= DesiredSize.Y;
 		}

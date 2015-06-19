@@ -13,26 +13,17 @@ struct FLandscapeEditorLayerSettings;
 struct FLandscapeDataInterface;
 
 /** Structure storing Collision for LandscapeComponent Add */
-USTRUCT()
+#if WITH_EDITORONLY_DATA
 struct FLandscapeAddCollision
 {
-	GENERATED_USTRUCT_BODY()
-
-#if WITH_EDITORONLY_DATA
-	UPROPERTY()
 	FVector Corners[4];
 
-#endif // WITH_EDITORONLY_DATA
-
-
-		FLandscapeAddCollision()
-		{
-			#if WITH_EDITORONLY_DATA
-			Corners[0] = Corners[1] = Corners[2] = Corners[3] = FVector::ZeroVector;
-			#endif // WITH_EDITORONLY_DATA
-		}
-	
+	FLandscapeAddCollision()
+	{
+		Corners[0] = Corners[1] = Corners[2] = Corners[3] = FVector::ZeroVector;
+	}
 };
+#endif // WITH_EDITORONLY_DATA
 
 USTRUCT()
 struct FLandscapeInfoLayerSettings
@@ -129,8 +120,11 @@ public:
 	/** Map of the offsets (in component space) to the component. Valid in editor only. */
 	TMap<FIntPoint, ULandscapeComponent*> XYtoComponentMap;
 
-	/** Map of the offsets to the newly added collision components. Only available near valid LandscapeComponents. Valid in editor only. */
+#if WITH_EDITORONLY_DATA
+	/** Lookup map used by the "add component" tool. Only available near valid LandscapeComponents.
+	    only for use by the "add component" tool. Todo - move into the tool? */
 	TMap<FIntPoint, FLandscapeAddCollision> XYtoAddCollisionMap;
+#endif
 
 	TSet<ALandscapeProxy*> Proxies;
 
@@ -178,8 +172,9 @@ public:
 	LANDSCAPE_API void SortSelectedComponents();
 	LANDSCAPE_API void ClearSelectedRegion(bool bIsComponentwise = true);
 
+	// only for use by the "add component" tool. Todo - move into the tool?
 	LANDSCAPE_API void UpdateAllAddCollisions();
-	void UpdateAddCollision(FIntPoint LandscapeKey);
+	LANDSCAPE_API void UpdateAddCollision(FIntPoint LandscapeKey);
 
 	LANDSCAPE_API FLandscapeEditorLayerSettings& GetLayerEditorSettings(ULandscapeLayerInfoObject* LayerInfo) const;
 	LANDSCAPE_API void CreateLayerEditorSettingsFor(ULandscapeLayerInfoObject* LayerInfo);
@@ -189,7 +184,14 @@ public:
 	LANDSCAPE_API int32 GetLayerInfoIndex(ULandscapeLayerInfoObject* LayerInfo, ALandscapeProxy* Owner = NULL) const;
 	LANDSCAPE_API bool UpdateLayerInfoMap(ALandscapeProxy* Proxy = NULL, bool bInvalidate = false);
 
-	/** 
+	/**
+	 *  Returns the landscape proxy of this landscape info in the given level (if it exists)
+	 *  @param  Level  Level to look in
+	 *	@return        Landscape or landscape proxy found in the given level, or null if none
+	 */
+	LANDSCAPE_API ALandscapeProxy* GetLandscapeProxyForLevel(ULevel* Level) const;
+
+	/**
 	 *  Returns landscape which is spawned in the current level that was previously added to this landscape info object
 	 *  @param	bRegistered		Whether to consider only registered(visible) landscapes
 	 *	@return					Landscape or landscape proxy found in the current level 
@@ -243,5 +245,8 @@ public:
 	LANDSCAPE_API void RecreateCollisionComponents();
 
 	LANDSCAPE_API void RemoveXYOffsets();
+
+	/** Postpones landscape textures baking, usually used during landscape painting to avoid hitches */
+	LANDSCAPE_API void PostponeTextureBaking();
 #endif
 };

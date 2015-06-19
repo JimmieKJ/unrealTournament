@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ArrayBuilder.h: Declares the TArrayBuilder template.
-=============================================================================*/
-
 #pragma once
 
 
@@ -17,10 +13,8 @@ template<typename ElementType, typename Allocator = FDefaultAllocator> class TAr
 {
 public:
 
-	/**
-	 * Default constructor.
-	 */
-	TArrayBuilder( ) { }
+	/** Default constructor. */
+	TArrayBuilder() { }
 
 	/**
 	 * Creates and initializes an array builder from an array of items.
@@ -81,7 +75,7 @@ public:
 	 *
 	 * @return A new array.
 	 */
-	TArray<ElementType, Allocator> Build( )
+	TArray<ElementType, Allocator> Build()
 	{
 		return Array;
 	}
@@ -91,13 +85,13 @@ public:
 	 *
 	 * @return A new array.
 	 */
-	operator TArray<ElementType, Allocator>( )
+	operator TArray<ElementType, Allocator>()
 	{
 		return Build();
 	}
 
 private:
 
-	// Holds the array.
+	/** Holds the array. */
 	TArray<ElementType, Allocator> Array;
 };

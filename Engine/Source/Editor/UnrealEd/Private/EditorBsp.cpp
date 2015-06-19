@@ -1146,13 +1146,27 @@ int UEditorEngine::bspBrushCSG
 		}
 
 		GWarn->BeginSlowTask( Description, true );
+		// Transform original brush poly into same coordinate system as world
+		// so Bsp filtering operations make sense.
+		GWarn->StatusUpdate(0, 0, NSLOCTEXT("UnrealEd", "Transforming", "Transforming"));
 	}
 
-	// Transform original brush poly into same coordinate system as world
-	// so Bsp filtering operations make sense.
-	if( ReallyBig ) GWarn->StatusUpdate(0,0, NSLOCTEXT("UnrealEd", "Transforming", "Transforming"));
+
 
 	UMaterialInterface* SelectedMaterialInstance = GetSelectedObjects()->GetTop<UMaterialInterface>();
+
+	const FVector PrePivot = Actor->GetPrePivot();
+	const FVector Scale = Actor->GetActorScale();
+	const FRotator Rotation = Actor->GetActorRotation();
+	const FVector Location = Actor->GetActorLocation();
+
+	// Cache actor transform which is used for the geometry being built
+	Brush->OwnerLocationWhenLastBuilt = Location;
+	Brush->OwnerRotationWhenLastBuilt = Rotation;
+	Brush->OwnerScaleWhenLastBuilt = Scale;
+	Brush->OwnerPrepivotWhenLastBuilt = PrePivot;
+	Brush->bCachedOwnerTransformValid = true;
+
 	for( i=0; i<Brush->Polys->Element.Num(); i++ )
 	{
 		FPoly& CurrentPoly = Brush->Polys->Element[i];
@@ -1183,9 +1197,9 @@ int UEditorEngine::bspBrushCSG
 			DestEdPoly.iLink = i;
 
 		// Transform it.
-		DestEdPoly.Scale( Actor->GetPrePivot(), Actor->GetActorScale() );
-		DestEdPoly.Rotate( Actor->GetPrePivot(), Actor->GetActorRotation() );
-		DestEdPoly.Transform( Actor->GetPrePivot(), Actor->GetActorLocation() );
+		DestEdPoly.Scale( PrePivot, Scale );
+		DestEdPoly.Rotate( PrePivot, Rotation );
+		DestEdPoly.Transform( PrePivot, Location );
 
 		// Add poly to the temp model.
 		new(TempModel->Polys->Element)FPoly( DestEdPoly );

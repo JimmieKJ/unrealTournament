@@ -41,6 +41,7 @@ class UNREALTOURNAMENT_API AUTCTFSquadAI : public AUTSquadAI
 
 	virtual void Initialize(AUTTeamInfo* InTeam, FName InOrders) override;
 	virtual bool MustKeepEnemy(APawn* TheEnemy) override;
+	virtual bool ShouldUseTranslocator(AUTBot* B) override;
 	virtual float ModifyEnemyRating(float CurrentRating, const FBotEnemyInfo& EnemyInfo, AUTBot* B) override;
 	virtual bool CheckSquadObjectives(AUTBot* B) override;
 

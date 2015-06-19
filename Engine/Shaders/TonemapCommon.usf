@@ -4,8 +4,15 @@
 	TonemapCommon.usf: PostProcessing tone mapping common
 =============================================================================*/
 
+// #todo-rco: Fix in the cross-compiler
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || METAL_PROFILE
+#define log10(x)  log(x) / log(10.0)
+#endif
+
+#include "ACES.usf"
+
 // usually 1/2.2, the .y is used for inverse gamma when "gamma only" mode is not used
-half2 InverseGamma;
+half3 InverseGamma;
 
 // Film tonal and color control.
 half4 ColorMatrixR_ColorCurveCd1;
@@ -59,9 +66,9 @@ half3 FilmPostProcess(half3 LinearColor)
 		half3 MatrixColorM = min(MatrixColor, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.zzz);
 		half3 CurveColor = (MatrixColorH*ColorCurve_Ch1_Ch2.xxx + ColorCurve_Ch1_Ch2.yyy) * rcp(MatrixColorH + ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.www) + MatrixColorM;
 	#endif
+
 	return CurveColor;
 }
-
 
 half3 TonemapAndGammaCorrect(half3 LinearColor)
 {
@@ -69,21 +76,146 @@ half3 TonemapAndGammaCorrect(half3 LinearColor)
 	// This displays negative colors as black
 	LinearColor = max(LinearColor, 0);
 
-	half TonemapperRange = 20;
-	half TonemapperScaleClamped = 1;
-	half A = 0.22 / TonemapperScaleClamped;
-	half B = (TonemapperRange + A) / TonemapperRange;
-
-	half LinearSteepness = 1;
-	// value below we have linear adjustments to the sigmoid curve that we don't to above the value
-	half FunctionSplitPos = sqrt(A * B / LinearSteepness) - A;
-
-	half3 GammaColor;
-
-	GammaColor = pow(LinearColor, InverseGamma.x);
+	half3 GammaColor = pow(LinearColor, InverseGamma.x);
 	
 	// in all cases it's good to clamp into the 0..1 range (e.g for LUT color grading)
 	GammaColor = saturate(GammaColor);
 
 	return GammaColor;
+}
+
+
+/*
+============================================
+// Uncharted settings
+Slope = 0.63;
+Toe = 0.55;
+Shoulder = 0.47;
+BlackClip= 0;
+WhiteClip = 0.01;
+
+// HP settings
+Slope = 0.65;
+Toe = 0.63;
+Shoulder = 0.45;
+BlackClip = 0;
+WhiteClip = 0;
+
+// Weta settings
+Slope = 0.6;
+Toe = 0.72;
+Shoulder = 0.55;
+BlackClip = 0;
+WhiteClip = 0.02;
+
+// Legacy settings
+Slope = 0.98;
+Toe = 0.3;
+Shoulder = 0.22;
+BlackClip = 0;
+WhiteClip = 0.025;
+
+// ACES settings
+Slope = 0.88;
+Toe = 0.55;
+Shoulder = 0.26;
+BlackClip = 0;
+WhiteClip = 0.04;
+===========================================
+*/
+
+float FilmSlope;
+float FilmToe;
+float FilmShoulder;
+float FilmBlackClip;
+float FilmWhiteClip;
+
+half3 FilmToneMap( half3 LinearColor ) 
+{
+	const float3x3 sRGB_2_AP0 = mul( XYZ_2_AP0_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+	const float3x3 sRGB_2_AP1 = mul( XYZ_2_AP1_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+	const float3x3 AP1_2_sRGB = mul( XYZ_2_sRGB_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
+	
+#if 1
+	float3 ACESColor = mul( sRGB_2_AP0, LinearColor );
+
+	// --- Red modifier --- //
+	const float RRT_RED_SCALE = 0.82;
+	const float RRT_RED_PIVOT = 0.03;
+	const float RRT_RED_HUE = 0;
+	const float RRT_RED_WIDTH = 135;
+
+	float saturation = rgb_2_saturation( ACESColor );
+	float hue = rgb_2_hue( ACESColor );
+	float centeredHue = center_hue( hue, RRT_RED_HUE );
+	float hueWeight = Square( smoothstep( 0, 1, 1 - abs( 2 * centeredHue / RRT_RED_WIDTH ) ) );
+		
+	ACESColor.r += hueWeight * saturation * (RRT_RED_PIVOT - ACESColor.r) * (1. - RRT_RED_SCALE);
+
+	// Use ACEScg primaries as working space
+	float3 WorkingColor = mul( AP0_2_AP1_MAT, ACESColor );
+#else
+	// Use ACEScg primaries as working space
+	float3 WorkingColor = mul( sRGB_2_AP1, LinearColor );
+#endif
+
+	WorkingColor = max( 0, WorkingColor );
+
+	// Pre desaturate
+	WorkingColor = lerp( dot( WorkingColor, AP1_RGB2Y ), WorkingColor, 0.96 );
+	
+	const half ToeScale			= 1 + FilmBlackClip - FilmToe;
+	const half ShoulderScale	= 1 + FilmWhiteClip - FilmShoulder;
+	
+	const float InMatch = 0.18;
+	const float OutMatch = 0.18;
+
+	float ToeMatch;
+	if( FilmToe > 0.8 )
+	{
+		// 0.18 will be on straight segment
+		ToeMatch = ( 1 - FilmToe  - OutMatch ) / FilmSlope + log10( InMatch );
+	}
+	else
+	{
+		// 0.18 will be on toe segment
+
+		// Solve for ToeMatch such that input of InMatch gives output of OutMatch.
+		const float bt = ( OutMatch + FilmBlackClip ) / ToeScale - 1;
+		ToeMatch = log10( InMatch ) - 0.5 * log( (1+bt)/(1-bt) ) * (ToeScale / FilmSlope);
+	}
+
+	float StraightMatch = ( 1 - FilmToe ) / FilmSlope - ToeMatch;
+	float ShoulderMatch = FilmShoulder / FilmSlope - StraightMatch;
+	
+	half3 LogColor = log10( WorkingColor );
+	half3 StraightColor = FilmSlope * ( LogColor + StraightMatch );
+	
+	half3 ToeColor		= (    -FilmBlackClip ) + (2 *      ToeScale) / ( 1 + exp( (-2 * FilmSlope /      ToeScale) * ( LogColor -      ToeMatch ) ) );
+	half3 ShoulderColor	= ( 1 + FilmWhiteClip ) - (2 * ShoulderScale) / ( 1 + exp( ( 2 * FilmSlope / ShoulderScale) * ( LogColor - ShoulderMatch ) ) );
+
+	ToeColor		= LogColor <      ToeMatch ?      ToeColor : StraightColor;
+	ShoulderColor	= LogColor > ShoulderMatch ? ShoulderColor : StraightColor;
+
+	half3 t = saturate( ( LogColor - ToeMatch ) / ( ShoulderMatch - ToeMatch ) );
+	t = ShoulderMatch < ToeMatch ? 1 - t : t;
+	t = (3-2*t)*t*t;
+	half3 ToneColor = lerp( ToeColor, ShoulderColor, t );
+
+	// Post desaturate
+	ToneColor = lerp( dot( ToneColor, AP1_RGB2Y ), ToneColor, 0.93 );
+
+	ToneColor = mul( AP1_2_sRGB, ToneColor );
+
+	//return saturate( ToneColor );
+	return max( 0, ToneColor );
+}
+
+float3 ACES( float3 LinearColor )
+{
+	const float3x3 sRGB_2_AP0 = mul( XYZ_2_AP0_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+
+	float3 aces = mul( sRGB_2_AP0, LinearColor * 1.5 );
+	float3 oces = RRT( aces );
+	return ODT( oces );
 }

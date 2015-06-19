@@ -238,6 +238,7 @@ TSharedRef<SCheckBox> SGeometryModeControls::CreateSingleModifierRadioButton(UGe
 	.IsChecked(this, &SGeometryModeControls::IsModifierChecked, Modifier)
 	.IsEnabled(this, &SGeometryModeControls::IsModifierEnabled, Modifier)
 	.OnCheckStateChanged(this, &SGeometryModeControls::OnModifierStateChanged, Modifier)
+	.ToolTip(SNew(SToolTip).Text(Modifier->GetModifierTooltip()))
 	[
 		SNew(STextBlock).Text( Modifier->GetModifierDescription() )
 	];
@@ -252,6 +253,7 @@ TSharedRef<SButton> SGeometryModeControls::CreateSingleModifierButton(UGeomModif
 	TSharedRef<SButton> Widget =
 	SNew(SButton)
 	.Text( Modifier->GetModifierDescription() )
+	.ToolTip(SNew(SToolTip).Text(Modifier->GetModifierTooltip()))
 	.HAlign(HAlign_Center)
 	.IsEnabled(this, &SGeometryModeControls::IsModifierEnabled, Modifier)
 	.OnClicked(this, &SGeometryModeControls::OnModifierClicked, Modifier);

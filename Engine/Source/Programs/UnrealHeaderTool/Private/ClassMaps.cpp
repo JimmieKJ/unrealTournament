@@ -3,19 +3,27 @@
 #include "UnrealHeaderTool.h"
 
 #include "ClassMaps.h"
+#include "UnrealSourceFile.h"
+#include "UnrealTypeDefinitionInfo.h"
 
-TMap<UClass*, FString>                   GClassStrippedHeaderTextMap;
-TMap<UClass*, FString>                   GClassSourceFileMap;
-TMap<UClass*, int32>                     GClassDeclarationLineNumber;
-TMap<UClass*, FClassHeaderInfo>          GClassGeneratedFileMap;
-TMap<UClass*, TUniqueObj<TArray<FName>>> GClassDependentOnMap;
-TMap<UClass*, FString>                   GClassHeaderNameWithNoPathMap;
-TMap<UClass*, FString>                   GClassModuleRelativePathMap;
-TMap<UClass*, FString>                   GClassIncludePathMap;
-TSet<UClass*>                            GPublicClassSet;
-TSet<UClass*>                            GExportedClasses;
-TMap<UProperty*, FString>                GArrayDimensions;
+TMap<FString, TSharedRef<FUnrealSourceFile> > GUnrealSourceFilesMap;
+TMap<UField*, TSharedRef<FUnrealTypeDefinitionInfo> > GTypeDefinitionInfoMap;
+TMap<UClass*, FString> GClassStrippedHeaderTextMap;
+TMap<UClass*, FString> GClassHeaderNameWithNoPathMap;
+TSet<UClass*> GPublicClassSet;
+TSet<FUnrealSourceFile*> GPublicSourceFileSet;
+TSet<FUnrealSourceFile*> GExportedSourceFiles;
+TMap<UProperty*, FString> GArrayDimensions;
 TMap<UPackage*,  const FManifestModule*> GPackageToManifestModuleMap;
-TMap<UField*, uint32>                    GGeneratedCodeCRCs;
-TMap<UEnum*,  EPropertyType>             GEnumUnderlyingTypes;
-TSet<UClass*>                            GTemporaryClasses;
+TMap<UField*, uint32> GGeneratedCodeCRCs;
+TMap<UEnum*,  EPropertyType> GEnumUnderlyingTypes;
+TMap<FName, TSharedRef<FClassDeclarationMetaData> > GClassDeclarations;
+
+TSharedRef<FUnrealTypeDefinitionInfo> AddTypeDefinition(FUnrealSourceFile& SourceFile, UField* Field, int32 Line)
+{
+	TSharedRef<FUnrealTypeDefinitionInfo> DefinitionInfo = MakeShareable(new FUnrealTypeDefinitionInfo(SourceFile, Line));
+
+	GTypeDefinitionInfoMap.Add(Field, DefinitionInfo);
+
+	return DefinitionInfo;
+}

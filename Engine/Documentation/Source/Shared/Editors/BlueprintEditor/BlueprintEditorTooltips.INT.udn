@@ -65,3 +65,13 @@ Engine/Blueprints/Editor/Modes/GraphPanel
 [/VAR]
 
 [/EXCERPT:GraphMode]
+
+[EXCERPT:FindInBlueprint_IndexAll]
+Older Blueprints do not contain the data they need for searching while unloaded and require resaving. This will auto-checkout any files that are uncached if source control is enabled and will report any failures.
+[/EXCERPT:FindInBlueprint_IndexAll]
+
+[EXCERPT:FindInBlueprint_FailedCache]
+Blueprints can fail to cache for a few reasons:
+* Asset is read only, this may be a result of a failure to checkout through source control.
+* Asset cannot fully load, this can be a sign of corruption.
+[/EXCERPT:FindInBlueprint_FailedCache]

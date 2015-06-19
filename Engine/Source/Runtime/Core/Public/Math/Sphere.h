@@ -83,12 +83,24 @@ public:
 	 */
 	bool IsInside( const FSphere& Other, float Tolerance = KINDA_SMALL_NUMBER ) const
 	{
-		if (W > Other.W - Tolerance)
+		if (W > Other.W + Tolerance)
 		{
 			return false;
 		}
 
-		return (Center - Other.Center).SizeSquared() <= FMath::Square(Other.W - Tolerance - W);
+		return (Center - Other.Center).SizeSquared() <= FMath::Square(Other.W + Tolerance - W);
+	}
+
+
+	/**
+	* Checks whether the given location is inside this sphere.
+	*
+	* @param In The location to test for inside the bounding volume.
+	* @return true if location is inside this volume.
+	*/
+	bool IsInside(const FVector& In, float Tolerance = KINDA_SMALL_NUMBER) const
+	{
+		return (Center - In).SizeSquared() <= FMath::Square(W + Tolerance);
 	}
 
 	
@@ -119,6 +131,31 @@ public:
 	 * @return Result of transformation.
 	 */
 	CORE_API FSphere TransformBy( const FTransform& M ) const;
+
+	/**
+	 * Get volume of the current sphere
+	 * 
+	 */
+	CORE_API float GetVolume() const;
+
+	/**
+	 * Adds to this bounding box to include a new bounding volume.
+	 *
+	 * @param Other the bounding volume to increase the bounding volume to.
+	 * @return Reference to this bounding volume after resizing to include the other bounding volume.
+	 */
+	CORE_API FSphere& operator+=( const FSphere& Other );
+
+	/**
+	 * Gets the result of addition to this bounding volume.
+	 *
+	 * @param Other The other volume to add to this.
+	 * @return A new bounding volume.
+	 */
+	FSphere operator+( const FSphere& Other ) const
+	{
+		return FSphere(*this) += Other;
+	}
 
 public:
 

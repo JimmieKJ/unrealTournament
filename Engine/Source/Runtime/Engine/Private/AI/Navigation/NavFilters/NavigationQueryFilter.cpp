@@ -115,31 +115,31 @@ UNavigationQueryFilter::UNavigationQueryFilter(const FObjectInitializer& ObjectI
 	ExcludeFlags.Packed = 0;
 }
 
-TSharedPtr<const FNavigationQueryFilter> UNavigationQueryFilter::GetQueryFilter(const ANavigationData* NavData) const
+TSharedPtr<const FNavigationQueryFilter> UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData) const
 {
-	TSharedPtr<const FNavigationQueryFilter> SharedFilter = NavData->GetQueryFilter(GetClass());
+	TSharedPtr<const FNavigationQueryFilter> SharedFilter = NavData.GetQueryFilter(GetClass());
 	if (!SharedFilter.IsValid())
 	{
 		FNavigationQueryFilter* NavFilter = new FNavigationQueryFilter();
-		NavFilter->SetFilterImplementation(NavData->GetDefaultQueryFilterImpl());
+		NavFilter->SetFilterImplementation(NavData.GetDefaultQueryFilterImpl());
 
-		InitializeFilter(NavData, NavFilter);
+		InitializeFilter(NavData, *NavFilter);
 
 		SharedFilter = MakeShareable(NavFilter);
-		((ANavigationData*)NavData)->StoreQueryFilter(GetClass(), SharedFilter);
+		const_cast<ANavigationData&>(NavData).StoreQueryFilter(GetClass(), SharedFilter);
 	}
 
 	return SharedFilter;
 }
 
-void UNavigationQueryFilter::InitializeFilter(const ANavigationData* NavData, FNavigationQueryFilter* Filter) const
+void UNavigationQueryFilter::InitializeFilter(const ANavigationData& NavData, FNavigationQueryFilter& Filter) const
 {
 	// apply overrides
 	for (int32 i = 0; i < Areas.Num(); i++)
 	{
 		const FNavigationFilterArea& AreaData = Areas[i];
 		
-		const int32 AreaId = NavData->GetAreaID(AreaData.AreaClass);
+		const int32 AreaId = NavData.GetAreaID(AreaData.AreaClass);
 		if (AreaId == INDEX_NONE)
 		{
 			continue;
@@ -147,31 +147,38 @@ void UNavigationQueryFilter::InitializeFilter(const ANavigationData* NavData, FN
 
 		if (AreaData.bIsExcluded)
 		{
-			Filter->SetExcludedArea(AreaId);
+			Filter.SetExcludedArea(AreaId);
 		}
 		else
 		{
 			if (AreaData.bOverrideTravelCost)
 			{
-				Filter->SetAreaCost(AreaId, FMath::Max(1.0f, AreaData.TravelCostOverride));
+				Filter.SetAreaCost(AreaId, FMath::Max(1.0f, AreaData.TravelCostOverride));
 			}
 
 			if (AreaData.bOverrideEnteringCost)
 			{
-				Filter->SetFixedAreaEnteringCost(AreaId, FMath::Max(0.0f, AreaData.EnteringCostOverride));
+				Filter.SetFixedAreaEnteringCost(AreaId, FMath::Max(0.0f, AreaData.EnteringCostOverride));
 			}
 		}
 	}
 
 	// apply flags
-	Filter->SetIncludeFlags(IncludeFlags.Packed);
-	Filter->SetExcludeFlags(ExcludeFlags.Packed);
+	Filter.SetIncludeFlags(IncludeFlags.Packed);
+	Filter.SetExcludeFlags(ExcludeFlags.Packed);
 }
 
-TSharedPtr<const FNavigationQueryFilter> UNavigationQueryFilter::GetQueryFilter(const ANavigationData* NavData, UClass* FilterClass)
+TSharedPtr<const FNavigationQueryFilter> UNavigationQueryFilter::GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass)
 {
-	UNavigationQueryFilter* DefFilterOb = FilterClass ? FilterClass->GetDefaultObject<UNavigationQueryFilter>() : NULL;
-	return NavData && DefFilterOb ? DefFilterOb->GetQueryFilter(NavData) : NULL;
+	if (FilterClass)
+	{
+		UNavigationQueryFilter* DefFilterOb = FilterClass.GetDefaultObject();
+		// no way we have not default object here
+		check(DefFilterOb);
+		return DefFilterOb->GetQueryFilter(NavData);
+	}
+
+	return nullptr;
 }
 
 void UNavigationQueryFilter::AddTravelCostOverride(TSubclassOf<UNavArea> AreaClass, float TravelCost)

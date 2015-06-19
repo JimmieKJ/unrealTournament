@@ -164,18 +164,18 @@ TSharedPtr<FGraphActionNode> FGraphActionNode::NewRootNode()
 }
 
 //------------------------------------------------------------------------------
-FGraphActionNode::FGraphActionNode(int32 Grouping, int32 SectionID)
-	: SectionID(SectionID)
-	, Grouping(Grouping)
+FGraphActionNode::FGraphActionNode(int32 InGrouping, int32 InSectionID)
+	: SectionID(InSectionID)
+	, Grouping(InGrouping)
 	, bPendingRenameRequest(false)
 	, InsertOrder(0)
 {
 }
 
 //------------------------------------------------------------------------------
-FGraphActionNode::FGraphActionNode(TArray< TSharedPtr<FEdGraphSchemaAction> > const& ActionList, int32 Grouping, int32 SectionID)
-	: SectionID(SectionID)
-	, Grouping(Grouping)
+FGraphActionNode::FGraphActionNode(TArray< TSharedPtr<FEdGraphSchemaAction> > const& ActionList, int32 InGrouping, int32 InSectionID)
+	: SectionID(InSectionID)
+	, Grouping(InGrouping)
 	, Actions(ActionList)
 	, bPendingRenameRequest(false)
 	, InsertOrder(0)
@@ -195,13 +195,13 @@ TSharedPtr<FGraphActionNode> FGraphActionNode::AddChild(FGraphActionListBuilderB
 }
 
 //------------------------------------------------------------------------------
-TSharedPtr<FGraphActionNode> FGraphActionNode::AddSection(int32 Grouping, int32 InSectionID)
+TSharedPtr<FGraphActionNode> FGraphActionNode::AddSection(int32 InGrouping, int32 InSectionID)
 {
 	if ( !ChildSections.Contains(InSectionID) )
 	{
 		ChildSections.Add(InSectionID);
 
-		TSharedPtr<FGraphActionNode> Section = NewSectionHeadingNode(SharedThis(this), Grouping, InSectionID);
+		TSharedPtr<FGraphActionNode> Section = NewSectionHeadingNode(SharedThis(this), InGrouping, InSectionID);
 		InsertChild(Section);
 
 		return Section;
@@ -341,11 +341,11 @@ FString FGraphActionNode::GetCategoryPath() const
 	TWeakPtr<FGraphActionNode> AncestorNode = ParentNode;
 	while (AncestorNode.IsValid())
 	{
-		const FText& DisplayText = AncestorNode.Pin()->DisplayText;
+		const FText& AncestorDisplayText = AncestorNode.Pin()->DisplayText;
 
-		if( !DisplayText.IsEmpty() )
+		if( !AncestorDisplayText.IsEmpty() )
 		{
-			CategoryPath = DisplayText.ToString() + TEXT("|") + CategoryPath;
+			CategoryPath = AncestorDisplayText.ToString() + TEXT("|") + CategoryPath;
 		}
 		AncestorNode = AncestorNode.Pin()->GetParentNode();
 	}
@@ -506,7 +506,6 @@ TSharedPtr<FGraphActionNode> FGraphActionNode::FindMatchingParent(FString const&
 		if (ChildNode->IsCategoryNode())
 		{
 			if ((NodeToAdd->SectionID == ChildNode->SectionID) &&
-				(NodeToAdd->Grouping  == ChildNode->Grouping)  &&
 				(ParentName == ChildNode->DisplayText.ToString()))
 			{
 				FoundCategoryNode = ChildNode;

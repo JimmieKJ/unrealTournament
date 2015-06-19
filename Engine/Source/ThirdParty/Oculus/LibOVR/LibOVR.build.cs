@@ -4,50 +4,31 @@ using UnrealBuildTool;
 
 public class LibOVR : ModuleRules
 {
+	// Version of LibOVR
+	public const int LibOVR_Major = 0;
+	public       int LibOVR_Minor = 6;
+	public const int LibOVR_Patch = 0;
+
 	public LibOVR(TargetInfo Target)
 	{
-		/** Mark the current version of the Oculus SDK */
-		string LibOVRVersion = "_04";
 		Type = ModuleType.External;
 
-		string OculusThirdPartyDirectory = UEBuildConfiguration.UEThirdPartySourceDirectory + "Oculus/LibOVR/LibOVR" + LibOVRVersion;
-
-		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
-			(Target.Platform == UnrealTargetPlatform.Win32))
-		{
-
-            PublicIncludePaths.Add(OculusThirdPartyDirectory + "/Include");
-
-            string LibraryPath = OculusThirdPartyDirectory + "/Lib/";
-			string LibraryName = "libovr";
-			if (Target.Platform == UnrealTargetPlatform.Win64)
-			{
-				LibraryPath += "x64/";
-				LibraryName += "64";
-			}
-            else if (Target.Platform == UnrealTargetPlatform.Win32)
-            {
-                LibraryPath += "Win32/";
-            }
-
-			//LibraryName += "_sp";
-
-			LibraryPath += "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/";
-			PublicLibraryPaths.Add(LibraryPath);
-			PublicAdditionalLibraries.Add(LibraryName + ".lib");
-
-			PublicAdditionalLibraries.Add("Wtsapi32.lib");
-            //PublicAdditionalLibraries.Add(LibraryName + "d.lib");
-			//PublicDelayLoadDLLs.Add(LibraryName + ".dll");
-		}
-		else if ((Target.Platform == UnrealTargetPlatform.Mac))
-		{
-            PublicIncludePaths.Add(OculusThirdPartyDirectory + "/Include");
-
-            string LibraryPath = OculusThirdPartyDirectory + "/Lib/MacOS/Release/";
-			string LibraryName = "libovr";
-			PublicLibraryPaths.Add(LibraryPath);
-			PublicAdditionalLibraries.Add(LibraryPath + LibraryName + ".a");
-		}
+        // PC uses SDK 0.6.0, while Mac uses 0.5.0
+        if (Target.Platform == UnrealTargetPlatform.Mac)
+        {
+            LibOVR_Minor = 5;
+            PublicIncludePaths.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "Oculus/LibOVR/" +
+                                   "/LibOVR_" + LibOVR_Major + "_" +
+                                   LibOVR_Minor + "_" + LibOVR_Patch);
+        }
+        else
+        {
+            PublicIncludePaths.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "Oculus/LibOVR/" +
+                                   "/LibOVR_" + LibOVR_Major + "_" +
+                                   LibOVR_Minor + "_" + LibOVR_Patch + "/Include");
+            PublicIncludePaths.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "Oculus/LibOVR/" +
+                                   "/LibOVR_" + LibOVR_Major + "_" +
+                                   LibOVR_Minor + "_" + LibOVR_Patch + "/Src");
+        }
 	}
 }

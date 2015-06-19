@@ -20,14 +20,14 @@ bool UK2Node_ComponentBoundEvent::Modify(bool bAlwaysMarkDirty)
 
 FText UK2Node_ComponentBoundEvent::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	if (CachedNodeTitle.IsOutOfDate())
+	if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("DelegatePropertyName"), FText::FromName(DelegatePropertyName));
 		Args.Add(TEXT("ComponentPropertyName"), FText::FromName(ComponentPropertyName));
 
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LOCTEXT("ComponentBoundEvent_Title", "{DelegatePropertyName} ({ComponentPropertyName})"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("ComponentBoundEvent_Title", "{DelegatePropertyName} ({ComponentPropertyName})"), Args), this);
 	}
 	return CachedNodeTitle;
 }
@@ -38,9 +38,11 @@ void UK2Node_ComponentBoundEvent::InitializeComponentBoundEventParams(UObjectPro
 	{
 		ComponentPropertyName = InComponentProperty->GetFName();
 		DelegatePropertyName = InDelegateProperty->GetFName();
-		EventSignatureName = InDelegateProperty->SignatureFunction->GetFName();
-		EventSignatureClass = CastChecked<UClass>(InDelegateProperty->SignatureFunction->GetOuter());
-		CustomFunctionName = FName( *FString::Printf(TEXT("BndEvt__%s_%s_%s"), *InComponentProperty->GetName(), *GetName(), *EventSignatureName.ToString()) );
+		DelegateOwnerClass = CastChecked<UClass>(InDelegateProperty->GetOuter())->GetAuthoritativeClass();
+
+		EventReference.SetFromField<UFunction>(InDelegateProperty->SignatureFunction, /*bIsConsideredSelfContext =*/false);
+
+		CustomFunctionName = FName( *FString::Printf(TEXT("BndEvt__%s_%s_%s"), *InComponentProperty->GetName(), *GetName(), *EventReference.GetMemberName().ToString()) );
 		bOverrideFunction = false;
 		bInternalEvent = true;
 		CachedNodeTitle.MarkDirty();
@@ -73,7 +75,7 @@ bool UK2Node_ComponentBoundEvent::IsUsedByAuthorityOnlyDelegate() const
 
 UMulticastDelegateProperty* UK2Node_ComponentBoundEvent::GetTargetDelegateProperty() const
 {
-	return Cast<UMulticastDelegateProperty>(FindField<UMulticastDelegateProperty>(EventSignatureClass, DelegatePropertyName));
+	return Cast<UMulticastDelegateProperty>(FindField<UMulticastDelegateProperty>(DelegateOwnerClass, DelegatePropertyName));
 }
 
 
@@ -92,9 +94,9 @@ FText UK2Node_ComponentBoundEvent::GetTooltipText() const
 
 FString UK2Node_ComponentBoundEvent::GetDocumentationLink() const
 {
-	if (EventSignatureClass)
+	if (DelegateOwnerClass)
 	{
-		return FString::Printf(TEXT("Shared/GraphNodes/Blueprint/%s%s"), EventSignatureClass->GetPrefixCPP(), *EventSignatureClass->GetName());
+		return FString::Printf(TEXT("Shared/GraphNodes/Blueprint/%s%s"), DelegateOwnerClass->GetPrefixCPP(), *EventReference.GetMemberName().ToString());
 	}
 
 	return FString();
@@ -104,5 +106,43 @@ FString UK2Node_ComponentBoundEvent::GetDocumentationExcerptName() const
 {
 	return DelegatePropertyName.ToString();
 }
+
+void UK2Node_ComponentBoundEvent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	// Fix up legacy nodes that may not yet have a delegate pin
+	if(Ar.IsLoading())
+	{
+		bool bNeedsFixup = false;
+		if(Ar.UE4Ver() < VER_UE4_K2NODE_EVENT_MEMBER_REFERENCE)
+		{
+			DelegateOwnerClass = EventSignatureClass_DEPRECATED;
+			bNeedsFixup = true;
+		}
+
+		if (bNeedsFixup || !DelegateOwnerClass)
+		{
+			// We need to fixup our event reference as it may have been saved incorrectly
+			UMulticastDelegateProperty* TargetDelegateProp = GetTargetDelegateProperty();
+			if (TargetDelegateProp && TargetDelegateProp->SignatureFunction)
+			{
+				FName ReferenceName = TargetDelegateProp->SignatureFunction->GetFName();
+				UClass* ReferenceClass = TargetDelegateProp->SignatureFunction->GetOwnerClass();
+
+				if (EventReference.GetMemberName() != ReferenceName || EventReference.GetMemberParentClass() != ReferenceClass)
+				{
+					// Set the reference if it wasn't already set properly, owner class may end up being NULL for native delegates
+					EventReference.SetExternalMember(ReferenceName, ReferenceClass);
+				}
+			}
+			else
+			{
+				UE_LOG(LogBlueprint, Warning, TEXT("Loaded invalid component bound event in node %s."), *GetPathName());
+			}
+		}
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE

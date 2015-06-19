@@ -143,6 +143,10 @@ public:
 	UPROPERTY()
 	UAudioComponent* MusicComp;
 
+	/** world list of weapon pickups, used primarily to handle per-player visual state when weapon stay is on */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<AUTPickupWeapon*> WeaponPickups;
+
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
 
@@ -161,7 +165,8 @@ public:
 
 	virtual void FadeImpactEffects(float DeltaTime);
 
-	const float ImpactEffectFadeTime;
+	UPROPERTY()
+	float ImpactEffectFadeTime;
 	
 	UPROPERTY()
 	float ImpactEffectFadeSpeed;

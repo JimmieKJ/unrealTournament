@@ -284,9 +284,9 @@ FAsyncAudioDecompressWorker::FAsyncAudioDecompressWorker(USoundWave* InWave)
 	: Wave(InWave)
 	, AudioInfo(NULL)
 {
-	if (GEngine && GEngine->GetAudioDevice())
+	if (GEngine && GEngine->GetMainAudioDevice())
 	{
-		AudioInfo = GEngine->GetAudioDevice()->CreateCompressedAudioInfo(Wave);
+		AudioInfo = GEngine->GetMainAudioDevice()->CreateCompressedAudioInfo(Wave);
 	}
 }
 
@@ -299,6 +299,7 @@ void FAsyncAudioDecompressWorker::DoWork( void )
 		// Parse the audio header for the relevant information
 		if (AudioInfo->ReadCompressedInfo(Wave->ResourceData, Wave->ResourceSize, &QualityInfo))
 		{
+			FScopeCycleCounterUObject WaveObject( Wave );
 
 #if PLATFORM_ANDROID
 			// Handle resampling
@@ -325,6 +326,7 @@ void FAsyncAudioDecompressWorker::DoWork( void )
 			AudioInfo->ExpandFile(Wave->RawPCMData, &QualityInfo);
 
 			const SIZE_T ResSize = Wave->GetResourceSize(EResourceSizeMode::Exclusive);
+			Wave->TrackedMemoryUsage += ResSize;
 			INC_DWORD_STAT_BY( STAT_AudioMemorySize, ResSize );
 			INC_DWORD_STAT_BY( STAT_AudioMemory, ResSize );
 		}

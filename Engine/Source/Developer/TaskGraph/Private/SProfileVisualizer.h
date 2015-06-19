@@ -21,6 +21,10 @@ public:
 
 		SLATE_ARGUMENT( FText, ProfilerType )
 
+		SLATE_ARGUMENT( FText, HeaderMessageText )
+
+		SLATE_ARGUMENT( FLinearColor, HeaderMessageTextColor )
+
 	SLATE_END_ARGS()
 
 	
@@ -83,5 +87,11 @@ private:
 
 	/** Profiler name */
 	FText ProfilerType;
+
+	/** Optional header message to display at the top of the profile window */
+	FText HeaderMessageText;
+	 
+	/** Optional header message text color */
+	FLinearColor HeaderMessageTextColor;
 };
 

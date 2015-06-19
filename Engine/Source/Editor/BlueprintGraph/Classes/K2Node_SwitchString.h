@@ -42,4 +42,7 @@ protected:
 	virtual void CreateSelectionPin() override;
 	virtual void CreateCasePins() override;
 	virtual void RemovePin(UEdGraphPin* TargetPin) override;
+
+	/** Sets the nodes function to call based on case sensitivity */
+	void SetupCaseSensitivityFunction();
 };

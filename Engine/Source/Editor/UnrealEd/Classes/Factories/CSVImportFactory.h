@@ -10,7 +10,7 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogCSVImportFactory, Log, All);
 
 UCLASS(hidecategories=Object)
-class UCSVImportFactory : public UFactory
+class UNREALED_API UCSVImportFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 
@@ -24,9 +24,27 @@ class UCSVImportFactory : public UFactory
 	/* Reimport an object that was created based on a CSV */
 	bool ReimportCSV(UObject* Obj);
 
+protected:
+	virtual TArray<FString> DoImportDataTable(class UDataTable* TargetDataTable, const FString& DataToImport);
+	virtual TArray<FString> DoImportCurveTable(class UCurveTable* TargetCurveTable, const FString& DataToImport, const ERichCurveInterpMode ImportCurveInterpMode);
+	virtual TArray<FString> DoImportCurve(class UCurveBase* TargetCurve, const FString& DataToImport);
+
 private:
 	/* Reimport object from the given path*/
 	bool Reimport(UObject* Obj, const FString& Path  );
-
 };
 
+/** Enum to indicate what to import CSV as */
+enum class ECSVImportType : uint8
+{
+	/** Import as UDataTable */
+	ECSV_DataTable,
+	/** Import as UCurveTable */
+	ECSV_CurveTable,
+	/** Import as a UCurveFloat */
+	ECSV_CurveFloat,
+	/** Import as a UCurveVector */
+	ECSV_CurveVector,
+	/** Import as a UCurveLinearColor */
+	ECSV_CurveLinearColor,
+};

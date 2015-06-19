@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationWorkerPrivatePCH.h"
+#include "AssetRegistryModule.h"
 
 
 #define LOCTEXT_NAMESPACE "AutomationTest"
@@ -14,8 +15,16 @@ IMPLEMENT_MODULE(FAutomationWorkerModule, AutomationWorker);
 void FAutomationWorkerModule::StartupModule()
 {
 	Initialize();
+
+	FAutomationTestFramework::GetInstance().PreTestingEvent.AddRaw(this, &FAutomationWorkerModule::HandlePreTestingEvent);
+	FAutomationTestFramework::GetInstance().PostTestingEvent.AddRaw(this, &FAutomationWorkerModule::HandlePostTestingEvent);
 }
 
+void FAutomationWorkerModule::ShutdownModule()
+{
+	FAutomationTestFramework::GetInstance().PreTestingEvent.RemoveAll(this);
+	FAutomationTestFramework::GetInstance().PostTestingEvent.RemoveAll(this);
+}
 
 bool FAutomationWorkerModule::SupportsDynamicReloading()
 {
@@ -61,6 +70,9 @@ void FAutomationWorkerModule::Tick()
 	{
 		MessageEndpoint->ProcessInbox();
 	}
+
+	// Run any of the automation commands that was obtained during initialization.
+	//RunDeferredAutomationCommands();
 }
 
 
@@ -114,15 +126,6 @@ void FAutomationWorkerModule::Initialize()
 			MessageEndpoint->Subscribe<FAutomationWorkerFindWorkers>();
 		}
 
-#if WITH_ENGINE
-		if (!GIsEditor && GEngine->GameViewport)
-		{
-			GEngine->GameViewport->OnPNGScreenshotCaptured().BindRaw(this, &FAutomationWorkerModule::HandleScreenShotCaptured);
-		}
-		//Register the editor screen shot callback
-		FAutomationTestFramework::GetInstance().OnScreenshotCaptured().BindRaw(this, &FAutomationWorkerModule::HandleScreenShotCaptured);
-#endif
-
 		bExecuteNextNetworkCommand = true;		
 	}
 	else
@@ -131,8 +134,28 @@ void FAutomationWorkerModule::Initialize()
 	}
 	ExecutionCount = INDEX_NONE;
 	bExecutingNetworkCommandResults = false;
-}
 
+#if !(UE_BUILD_SHIPPING)
+	//Obtain any command line tests commands that use '-automationtests='.
+	FString AutomationCmds;
+	if (FParse::Value(FCommandLine::Get(), TEXT("AutomationTests="), AutomationCmds, false))
+	{
+		new(DeferredAutomationCommands) FString(FString(TEXT("Automation CommandLineTests ")) + AutomationCmds);
+	}
+
+	//If the asset registry is loading assets then we'll wait for it to stop before running our automation tests.
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	if (AssetRegistryModule.Get().IsLoadingAssets())
+	{
+		AssetRegistryModule.Get().OnFilesLoaded().AddRaw(this, &FAutomationWorkerModule::RunDeferredAutomationCommands);
+	}
+	else
+	{
+		//If the registry is not loading then we'll just go ahead and run our tests.
+		RunDeferredAutomationCommands();
+	}
+#endif // !(UE_BUILD_SHIPPING)
+}
 
 void FAutomationWorkerModule::ReportNetworkCommandComplete()
 {
@@ -305,8 +328,41 @@ void FAutomationWorkerModule::HandleRequestTestsMessage( const FAutomationWorker
 }
 
 
+void FAutomationWorkerModule::HandlePreTestingEvent()
+{
 #if WITH_ENGINE
-void FAutomationWorkerModule::HandleScreenShotCaptured( int32 Width, int32 Height, const TArray<FColor>& Bitmap, const FString& ScreenShotName )
+	if (!GIsEditor && GEngine->GameViewport)
+	{
+		GEngine->GameViewport->OnScreenshotCaptured().AddRaw(this, &FAutomationWorkerModule::HandleScreenShotCaptured);
+	}
+	//Register the editor screen shot callback
+	FAutomationTestFramework::GetInstance().OnScreenshotCaptured().BindRaw(this, &FAutomationWorkerModule::HandleScreenShotCapturedWithName);
+#endif
+}
+
+
+void FAutomationWorkerModule::HandlePostTestingEvent()
+{
+#if WITH_ENGINE
+	if (!GIsEditor && GEngine->GameViewport)
+	{
+		GEngine->GameViewport->OnScreenshotCaptured().RemoveAll(this);
+	}
+	//Register the editor screen shot callback
+	FAutomationTestFramework::GetInstance().OnScreenshotCaptured().BindRaw(this, &FAutomationWorkerModule::HandleScreenShotCapturedWithName);
+#endif
+}
+
+
+#if WITH_ENGINE
+void FAutomationWorkerModule::HandleScreenShotCaptured(int32 Width, int32 Height, const TArray<FColor>& Bitmap)
+{
+	FString Filename = FScreenshotRequest::GetFilename();
+
+	HandleScreenShotCapturedWithName(Width, Height, Bitmap, Filename);
+}
+
+void FAutomationWorkerModule::HandleScreenShotCapturedWithName(int32 Width, int32 Height, const TArray<FColor>& Bitmap, const FString& ScreenShotName)
 {
 	if( FAutomationTestFramework::GetInstance().IsScreenshotAllowed() )
 	{
@@ -393,6 +449,27 @@ void FAutomationWorkerModule::RunTest(const FString& InTestToRun, const int32 In
 	FAutomationTestFramework::GetInstance().StartTestByName(InTestToRun, InRoleIndex);
 }
 
+void FAutomationWorkerModule::RunDeferredAutomationCommands()
+{
+	// Get the loaded asset registry module.
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	
+	// Don't run any of the deferred commands if the registry is still loading otherwise not all possible tests will be found and ran.
+	if (!AssetRegistryModule.Get().IsLoadingAssets())
+	{
+		// Execute all currently queued deferred commands (allows commands to be queued up for next frame).
+		const int32 DeferredCommandsCount = DeferredAutomationCommands.Num();
+		for (int32 DeferredCommandsIndex = 0; DeferredCommandsIndex < DeferredCommandsCount; DeferredCommandsIndex++)
+		{
+			{
+				GEngine->Exec(NULL, *DeferredAutomationCommands[DeferredCommandsIndex], *GLog);
+			}
+		}
+
+		// Once all of the commands have executed then we remove them from the array.
+		DeferredAutomationCommands.RemoveAt(0, DeferredCommandsCount);
+	}
+}
 
 /**
  * Implements a local controller to run tests and spew results, mostly used by automated testing.
@@ -523,7 +600,7 @@ bool GenerateTestNamesFromCommandLine(const TCHAR* InTestCommands, TArray<FStrin
 	//Split the test names up
 	TArray<FString> TestList;
 	const FString StringCommand = InTestCommands;
-	StringCommand.ParseIntoArray(&TestList, TEXT(","), true);
+	StringCommand.ParseIntoArray(TestList, TEXT(","), true);
 
 	//Get the list of valid names
 	TArray<FAutomationTestInfo> TestInfo;
@@ -543,7 +620,6 @@ bool GenerateTestNamesFromCommandLine(const TCHAR* InTestCommands, TArray<FStrin
 
 	return OutTestNames.Num() > 0;
 }
-
 
 bool DirectAutomationCommand(const TCHAR* Cmd, FOutputDevice* Ar = GLog)
 {
@@ -614,6 +690,8 @@ bool DirectAutomationCommand(const TCHAR* Cmd, FOutputDevice* Ar = GLog)
 	}
 	return bResult;
 }
+
+
 
 
 static class FAutomationTestCmd : private FSelfRegisteringExec

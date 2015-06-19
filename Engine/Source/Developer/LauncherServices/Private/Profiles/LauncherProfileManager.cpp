@@ -406,7 +406,7 @@ ILauncherDeviceGroupPtr FLauncherProfileManager::ParseDeviceGroup( const FString
 		Result = MakeShareable(new FLauncherDeviceGroup(GroupId, GroupName));
 
 		TArray<FString> DeviceList;
-		DevicesString.ParseIntoArray(&DeviceList, TEXT(", "), false);
+		DevicesString.ParseIntoArray(DeviceList, TEXT(", "), false);
 
 		for (int32 Index = 0; Index < DeviceList.Num(); ++Index)
 		{

@@ -418,7 +418,7 @@ void FAssetTypeActions_Skeleton::GetActions( const TArray<UObject*>& InObjects, 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Skeleton_Retarget", "Retarget to Another Skeleton"),
 			LOCTEXT("Skeleton_RetargetTooltip", "Allow all animation assets for this skeleton retarget to another skeleton."),
-			FSlateIcon(),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.RetargetSkeleton"),
 			FUIAction(
 				FExecuteAction::CreateSP(this, &FAssetTypeActions_Skeleton::ExecuteRetargetSkeleton, Skeletons),
 				FCanExecuteAction()

@@ -8,6 +8,11 @@
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
 #include "ElementBatcher.h"
 #include "FontCache.h"
+#include "SlateStats.h"
+
+SLATE_DECLARE_CYCLE_COUNTER(GRendererDrawElementList, "Renderer DrawElementList");
+SLATE_DECLARE_CYCLE_COUNTER(GRendererUpdateBuffers, "Renderer UpdateBuffers");
+SLATE_DECLARE_CYCLE_COUNTER(GRendererDrawElements, "Renderer DrawElements");
 
 TRefCountPtr<ID3D11Device> GD3DDevice;
 TRefCountPtr<ID3D11DeviceContext> GD3DDeviceContext;
@@ -109,7 +114,7 @@ void FSlateD3DRenderer::CreateDevice()
 		const D3D_FEATURE_LEVEL FeatureLevels[] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_9_3 };
 		D3D_FEATURE_LEVEL CreatedFeatureLevel;
 		HRESULT Hr = D3D11CreateDevice( NULL, DriverType, NULL, DeviceCreationFlags, FeatureLevels, sizeof(FeatureLevels)/sizeof(D3D_FEATURE_LEVEL), D3D11_SDK_VERSION, GD3DDevice.GetInitReference(), &CreatedFeatureLevel, GD3DDeviceContext.GetInitReference() );
-		check( SUCCEEDED(Hr) );
+		checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 	}
 }
 
@@ -174,23 +179,23 @@ void FSlateD3DRenderer::Private_CreateViewport( TSharedRef<SWindow> InWindow, co
 
 	TRefCountPtr<IDXGIDevice> DXGIDevice;
 	HRESULT Hr = GD3DDevice->QueryInterface( __uuidof(IDXGIDevice), (void**)DXGIDevice.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	TRefCountPtr<IDXGIAdapter> DXGIAdapter;
 	Hr = DXGIDevice->GetParent(__uuidof(IDXGIAdapter), (void **)DXGIAdapter.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	TRefCountPtr<IDXGIFactory> DXGIFactory;
-	DXGIAdapter->GetParent(__uuidof(IDXGIFactory), (void **)DXGIFactory.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	Hr = DXGIAdapter->GetParent(__uuidof(IDXGIFactory), (void **)DXGIFactory.GetInitReference());
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	FSlateD3DViewport Viewport;
 
 	Hr = DXGIFactory->CreateSwapChain(DXGIDevice.GetReference(), &SwapChainDesc, Viewport.D3DSwapChain.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	Hr = DXGIFactory->MakeWindowAssociation((HWND)NativeWindow->GetOSWindowHandle(),DXGI_MWA_NO_ALT_ENTER);
-	check(SUCCEEDED(Hr));
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	uint32 Width = FMath::TruncToInt(WindowSize.X);
 	uint32 Height = FMath::TruncToInt(WindowSize.Y);
@@ -253,7 +258,7 @@ void FSlateD3DRenderer::Private_ResizeViewport( const TSharedRef<SWindow> InWind
 		DXGI_SWAP_CHAIN_DESC Desc;
 		Viewport->D3DSwapChain->GetDesc( &Desc );
 		HRESULT Hr = Viewport->D3DSwapChain->ResizeBuffers( Desc.BufferCount, Viewport->ViewportInfo.Width, Viewport->ViewportInfo.Height, Desc.BufferDesc.Format, Desc.Flags );
-		check( SUCCEEDED(Hr) );
+		checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 		CreateBackBufferResources( Viewport->D3DSwapChain, Viewport->BackBufferTexture,Viewport->RenderTargetView );
 	}
@@ -268,7 +273,7 @@ void FSlateD3DRenderer::CreateBackBufferResources( TRefCountPtr<IDXGISwapChain>&
 	RTVDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
 	RTVDesc.Texture2D.MipSlice = 0;
 	HRESULT Hr = GD3DDevice->CreateRenderTargetView( OutBackBuffer, &RTVDesc, OutRTV.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 }
 
 void FSlateD3DRenderer::CreateViewport( const TSharedRef<SWindow> InWindow )
@@ -305,7 +310,7 @@ void FSlateD3DRenderer::CreateDepthStencilBuffer( FSlateD3DViewport& Viewport )
 	DescDepth.CPUAccessFlags = 0;
 	DescDepth.MiscFlags = 0;
 	HRESULT Hr = GD3DDevice->CreateTexture2D( &DescDepth, NULL, DepthStencil.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	D3D11_DEPTH_STENCIL_VIEW_DESC DescDSV;
 #if DEPTH_32_BIT_CONVERSION
@@ -319,7 +324,7 @@ void FSlateD3DRenderer::CreateDepthStencilBuffer( FSlateD3DViewport& Viewport )
 
 	// Create the depth stencil view
 	Hr = GD3DDevice->CreateDepthStencilView( DepthStencil, &DescDSV, Viewport.DepthStencilView.GetInitReference() ); 
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 }
 
 void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
@@ -332,6 +337,7 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
 	{
 		FSlateWindowElementList& ElementList = WindowElementLists[ListIndex];
+		SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GRendererDrawElementList, ElementList.GetWindow()->GetCreatedInLocation());
 
 		if ( ElementList.GetWindow().IsValid() )
 		{
@@ -351,17 +357,29 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 			FSlateD3DViewport* Viewport = WindowToViewportMap.Find( &WindowToDraw.Get() );
 			check(Viewport);
 
-			RenderingPolicy->UpdateBuffers( ElementList );
+			{
+				SLATE_CYCLE_COUNTER_SCOPE(GRendererUpdateBuffers);
+				RenderingPolicy->UpdateBuffers(ElementList);
+			}
 
 			check(Viewport);
 			GD3DDeviceContext->RSSetViewports(1, &Viewport->ViewportInfo );
 
 			ID3D11RenderTargetView* RTV = Viewport->RenderTargetView;
 			ID3D11DepthStencilView* DSV = Viewport->DepthStencilView;
-
+			
+#if ALPHA_BLENDED_WINDOWS
+			if ( WindowToDraw->GetTransparencySupport() == EWindowTransparency::PerPixel )
+			{
+				GD3DDeviceContext->ClearRenderTargetView(RTV, &FLinearColor::Transparent.R);
+			}
+#endif
 			GD3DDeviceContext->OMSetRenderTargets( 1, &RTV, NULL );
 
-			RenderingPolicy->DrawElements( ViewMatrix*Viewport->ProjectionMatrix, ElementList.GetRenderBatches() );
+			{
+				SLATE_CYCLE_COUNTER_SCOPE(GRendererDrawElements);
+				RenderingPolicy->DrawElements(ViewMatrix*Viewport->ProjectionMatrix, ElementList.GetRenderBatches());
+			}
 
 			GD3DDeviceContext->OMSetRenderTargets(0, NULL, NULL);
 

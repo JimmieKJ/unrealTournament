@@ -76,7 +76,7 @@ void FCurveColorCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InStr
 			];
 
 		check(CurveWidget.IsValid());
-		if (RuntimeCurve->ExternalCurve)
+		if (RuntimeCurve && RuntimeCurve->ExternalCurve)
 		{
 			CurveWidget->SetCurveOwner(RuntimeCurve->ExternalCurve, false);
 		}
@@ -192,11 +192,6 @@ TArray<FRichCurveEditInfo> FCurveColorCustomization::GetCurves()
 	return Curves;
 }
 
-UObject* FCurveColorCustomization::GetOwner()
-{
-	return Owner;
-}
-
 void FCurveColorCustomization::ModifyOwner()
 {
 	if (Owner)
@@ -213,7 +208,7 @@ void FCurveColorCustomization::MakeTransactional()
 	}
 }
 
-void FCurveColorCustomization::OnCurveChanged()
+void FCurveColorCustomization::OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos)
 {
 	StructPropertyHandle->NotifyPostChange();
 }
@@ -405,6 +400,7 @@ FReply FCurveColorCustomization::OnCurvePreviewDoubleClick(const FGeometry& InMy
 			TSharedRef<SMiniCurveEditor> MiniCurveEditor =
 				SNew(SMiniCurveEditor)
 				.CurveOwner(this)
+				.OwnerObject(Owner)
 				.ParentWindow(Window);
 
 			Window->SetContent( MiniCurveEditor );

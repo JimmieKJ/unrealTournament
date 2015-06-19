@@ -66,8 +66,9 @@ void SAboutScreen::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Right)
 					.Padding(FMargin(0.f, 52.f, 7.f, 0.f))
 					[
-						SNew(STextBlock)
+						SNew(SEditableText)
 						.ColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f))
+						.IsReadOnly(true)
 						.Text( Version )
 					]
 				]

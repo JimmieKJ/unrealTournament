@@ -12,6 +12,12 @@
 #include "Engine/LatentActionManager.h"
 #include "Runtime/RHI/Public/RHIDefinitions.h"
 #include "GameFramework/Actor.h"
+#include "GameInstance.h"
+
+#if WITH_EDITOR
+	#include "Editor/UnrealEd/Public/HierarchicalLOD.h"
+#endif // WITH_EDITOR
+
 #include "World.generated.h"
 
 class FPhysScene;
@@ -144,7 +150,7 @@ private:
 	void CopyWorldData();
 
 	/** callback sent to async loading code to inform us when the level package is complete */
-	void SeamlessTravelLoadCallback(const FName& PackageName, UPackage* LevelPackage);
+	void SeamlessTravelLoadCallback(const FName& PackageName, UPackage* LevelPackage, EAsyncLoadingResult::Type Result);
 
 	void SetHandlerLoadedData(UObject* InLevelPackage, UWorld* InLoadedWorld);
 
@@ -263,18 +269,25 @@ private:
 };
 
 /** Saved editor viewport state information */
+USTRUCT()
 struct ENGINE_API FLevelViewportInfo
 {
+	GENERATED_BODY()
+
 	/** Where the camera is positioned within the viewport. */
+	UPROPERTY()
 	FVector CamPosition;
 
 	/** The camera's position within the viewport. */
+	UPROPERTY()
 	FRotator CamRotation;
 
 	/** The zoom value  for orthographic mode. */
+	UPROPERTY()
 	float CamOrthoZoom;
 
 	/** Whether camera settings have been systematically changed since the last level viewport update. */
+	UPROPERTY()
 	bool CamUpdated;
 
 	FLevelViewportInfo()
@@ -292,7 +305,8 @@ struct ENGINE_API FLevelViewportInfo
 		, CamUpdated(false)
 	{
 	}
-
+	
+	// Needed for backwards compatibility for VER_UE4_ADD_EDITOR_VIEWS, can be removed along with it
 	friend FArchive& operator<<( FArchive& Ar, FLevelViewportInfo& I )
 	{
 		Ar << I.CamPosition;
@@ -333,7 +347,7 @@ struct FStartPhysicsTickFunction : public FTickFunction
 	**/
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	virtual FString DiagnosticMessage();
+	virtual FString DiagnosticMessage() override;
 };
 
 /** 
@@ -356,7 +370,7 @@ struct FEndPhysicsTickFunction : public FTickFunction
 	**/
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	virtual FString DiagnosticMessage();
+	virtual FString DiagnosticMessage() override;
 };
 
 /**
@@ -379,7 +393,7 @@ struct FStartClothSimulationFunction : public FTickFunction
 	**/
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	virtual FString DiagnosticMessage();
+	virtual FString DiagnosticMessage() override;
 };
 
 /**
@@ -402,7 +416,7 @@ struct FEndClothSimulationFunction : public FTickFunction
 	**/
 	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
-	virtual FString DiagnosticMessage();
+	virtual FString DiagnosticMessage() override;
 };
 
 /* Struct of optional parameters passed to SpawnActor function(s). */
@@ -488,6 +502,39 @@ struct ENGINE_API FWorldAsyncTraceState
 	int32 NextAvailableOverlapIndex;
 };
 
+#if WITH_EDITOR
+/* FAsyncPreRegisterDDCRequest - info about an async DDC request that we're going to wait on before registering components */
+class ENGINE_API FAsyncPreRegisterDDCRequest
+{
+	/* DDC Key used for the request */
+	FString DDCKey;
+
+	/* Handle for Async DDC request. 0 if no longer invalid. */
+	uint32 Handle;
+public:
+	/** constructor */
+	FAsyncPreRegisterDDCRequest(const FString& InKey, uint32 InHandle)
+	: DDCKey(InKey)
+	, Handle(InHandle)
+	{}
+
+	/** destructor */
+	~FAsyncPreRegisterDDCRequest();
+
+	/** returns true if the request is complete */
+	bool PollAsynchronousCompletion();
+
+	/** waits until the request is complete */
+	void WaitAsynchronousCompletion();
+
+	/** returns true if the DDC returned the results requested. Must only be called once. */
+	bool GetAsynchronousResults(TArray<uint8>& OutData);
+
+	/** get the DDC key associated with this request */
+	const FString& GetKey() const { return DDCKey; }
+};
+#endif
+
 /** 
  * The World is the top level object representing a map or a sandbox in which Actors and Components will exist and be rendered.  
  *
@@ -503,6 +550,8 @@ UCLASS(customConstructor, config=Engine)
 class ENGINE_API UWorld : public UObject, public FNetworkNotify
 {
 	GENERATED_UCLASS_BODY()
+
+	~UWorld();
 
 #if WITH_EDITORONLY_DATA
 	/** List of all the layers referenced by the world's actors */
@@ -623,6 +672,11 @@ public:
 	/** Array of actors that are candidates for sending over the network */
 	TArray<class AActor*>						NetworkActors;
 
+#if WITH_EDITOR
+	/** Hierarchical LOD System. Used when WorldSetting.bEnableHierarchicalLODSystem is true */
+	FHierarchicalLODBuilder						HierarchicalLODBuilder;
+#endif // WITH_EDITOR
+
 private:
 
 	/** Pointer to the current level being edited. Level has to be in the Levels array and == PersistentLevel in the game.		*/
@@ -646,8 +700,11 @@ public:
 	/** The current renderer feature level of this world */
 	ERHIFeatureLevel::Type						FeatureLevel;
 	
-	/** Saved editor viewport states - one for each view type. Indexed using ELevelViewportType above.							*/
-	FLevelViewportInfo							EditorViews[4];
+#if WITH_EDITORONLY_DATA
+	/** Saved editor viewport states - one for each view type. Indexed using ELevelViewportType from UnrealEdTypes.h.	*/
+	UPROPERTY(NonTransactional)
+	TArray<FLevelViewportInfo>					EditorViews;
+#endif
 
 	/** 
 	 * Set the CurrentLevel for this world. 
@@ -698,10 +755,10 @@ private:
 	FPhysScene*									PhysicsScene;
 
 	/** Set of components that need updates at the end of the frame */
-	TSet<TWeakObjectPtr<class UActorComponent> > ComponentsThatNeedEndOfFrameUpdate;
+	TArray<TWeakObjectPtr<class UActorComponent> > ComponentsThatNeedEndOfFrameUpdate;
 
 	/** Set of components that need recreates at the end of the frame */
-	TSet<TWeakObjectPtr<class UActorComponent> > ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
+	TArray<TWeakObjectPtr<class UActorComponent> > ComponentsThatNeedEndOfFrameUpdate_OnGameThread;
 
 	/** The state of async tracing - abstracted into its own object for easier reference */
 	FWorldAsyncTraceState AsyncTraceState;
@@ -887,6 +944,9 @@ public:
 	/** Pointer to the higest priority audio volumes, each volume has a reference to the next lower priority volume creating a linked list of prioritized audio volumes in descending order */
 	TAutoWeakObjectPtr<class AAudioVolume> HighestPriorityAudioVolume;
 
+	/** Handle to the active audio device for this world. */
+	uint32 AudioDeviceHandle;
+
 	/** Time in FPlatformTime::Seconds unbuilt time was last encountered. 0 means not yet.							*/
 	double LastTimeUnbuiltLightingWasEncountered;
 
@@ -996,10 +1056,18 @@ public:
 	UPROPERTY(transient)
 	uint32 bAreConstraintsDirty:1;
 
+	/** Coordinates async tasks started in post load that we want completed before we register components.  May not be here for long; currently used to convert foliage instance buffers.*/
+	FThreadSafeCounter AsyncPreRegisterLevelStreamingTasks;
+
+#if WITH_EDITORONLY_DATA
+	/** List of DDC async requests we need to wait on before we register components. Game thread only. */
+	TArray<TSharedPtr<FAsyncPreRegisterDDCRequest>> AsyncPreRegisterDDCRequests;
+#endif
+
 	/**
 	 * UWorld default constructor
 	 */
-	UWorld( const FObjectInitializer& ObjectInitializer );
+	UWorld(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	
 	// LINE TRACE
 
@@ -1012,8 +1080,23 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace
 	 *  @return TRUE if a blocking hit is found
 	 */
-	bool LineTraceTest(const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use LineTraceTestByChannel instead.")
+	bool LineTraceTest(const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return LineTraceTestByChannel(Start, End, TraceChannel, Params, ResponseParam);
+	}
 
+	/**
+	 *  Trace a ray against the world using a specific channel and return if a blocking hit is found.
+	 *  @param  Start           Start location of the ray
+	 *  @param  End             End location of the ray
+	 *  @param  TraceChannel    The 'channel' that this ray is in, used to determine which components to hit
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace
+	 *  @return TRUE if a blocking hit is found
+	 */
+	bool LineTraceTestByChannel(const FVector& Start,const FVector& End,ECollisionChannel TraceChannel, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	
 	/**
 	 *  Trace a ray against the world using object types and return if a blocking hit is found.
 	 *  @param  Start           	Start location of the ray
@@ -1022,7 +1105,21 @@ public:
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @return TRUE if any hit is found
 	 */
-	bool LineTraceTest(const FVector& Start,const FVector& End,const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use LineTraceTestByObjectType instead.")
+	bool LineTraceTest(const FVector& Start,const FVector& End,const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return LineTraceTestByObjectType(Start, End, ObjectQueryParams, Params);
+	}
+
+	/**
+	 *  Trace a ray against the world using object types and return if a blocking hit is found.
+	 *  @param  Start           	Start location of the ray
+	 *  @param  End             	End location of the ray
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param  Params          	Additional parameters used for the trace
+	 *  @return TRUE if any hit is found
+	 */
+	bool LineTraceTestByObjectType(const FVector& Start,const FVector& End,const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Trace a ray against the world using a specific profile and return if a blocking hit is found.
@@ -1032,7 +1129,7 @@ public:
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if a blocking hit is found
 	 */
-	bool LineTraceTestByProfile(const FVector& Start, const FVector& End, FName ProfileName, const struct FCollisionQueryParams& Params) const;
+	bool LineTraceTestByProfile(const FVector& Start, const FVector& End, FName ProfileName, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Trace a ray against the world using a specific channel and return the first blocking hit
@@ -1044,7 +1141,22 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
 	 *  @return TRUE if a blocking hit is found
 	 */
-	bool LineTraceSingle(struct FHitResult& OutHit,const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use LineTraceSingleByChannel instead.")
+	bool LineTraceSingle(struct FHitResult& OutHit,const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return LineTraceSingleByChannel(OutHit, Start, End, TraceChannel, Params, ResponseParam);
+	}
+	/**
+	 *  Trace a ray against the world using a specific channel and return the first blocking hit
+	 *  @param  OutHit          First blocking hit found
+	 *  @param  Start           Start location of the ray
+	 *  @param  End             End location of the ray
+	 *  @param  TraceChannel    The 'channel' that this ray is in, used to determine which components to hit
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
+	 *  @return TRUE if a blocking hit is found
+	 */
+	bool LineTraceSingleByChannel(struct FHitResult& OutHit,const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
 	 *  Trace a ray against the world using object types and return the first blocking hit
@@ -1055,7 +1167,22 @@ public:
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @return TRUE if any hit is found
 	 */
-	bool LineTraceSingle(struct FHitResult& OutHit,const FVector& Start,const FVector& End,const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use LineTraceSingleByObjectType instead.")
+	bool LineTraceSingle(struct FHitResult& OutHit,const FVector& Start,const FVector& End,const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return LineTraceSingleByObjectType(OutHit, Start, End, ObjectQueryParams, Params);
+	}
+
+	/**
+	 *  Trace a ray against the world using object types and return the first blocking hit
+	 *  @param  OutHit          First blocking hit found
+	 *  @param  Start           Start location of the ray
+	 *  @param  End             End location of the ray
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param  Params          Additional parameters used for the trace
+	 *  @return TRUE if any hit is found
+	 */
+	bool LineTraceSingleByObjectType(struct FHitResult& OutHit,const FVector& Start,const FVector& End,const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Trace a ray against the world using a specific profile and return the first blocking hit
@@ -1066,7 +1193,7 @@ public:
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if a blocking hit is found
 	 */
-	bool LineTraceSingleByProfile(struct FHitResult& OutHit, const FVector& Start, const FVector& End, FName ProfileName, const struct FCollisionQueryParams& Params) const;
+	bool LineTraceSingleByProfile(struct FHitResult& OutHit, const FVector& Start, const FVector& End, FName ProfileName, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Trace a ray against the world using a specific channel and return overlapping hits and then first blocking hit
@@ -1080,7 +1207,26 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
 	 *  @return TRUE if OutHits contains any blocking hit entries
 	 */
-	bool LineTraceMulti(TArray<struct FHitResult>& OutHits,const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use LineTraceMultiByChannel instead.")
+	bool LineTraceMulti(TArray<struct FHitResult>& OutHits,const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return LineTraceMultiByChannel(OutHits, Start, End, TraceChannel, Params, ResponseParam);
+	}
+
+	/**
+	 *  Trace a ray against the world using a specific channel and return overlapping hits and then first blocking hit
+	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
+	 *  Only the single closest blocking result will be generated, no tests will be done after that
+	 *  @param  OutHits         Array of hits found between ray and the world
+	 *  @param  Start           Start location of the ray
+	 *  @param  End             End location of the ray
+	 *  @param  TraceChannel    The 'channel' that this ray is in, used to determine which components to hit
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
+	 *  @return TRUE if OutHits contains any blocking hit entries
+	 */
+	bool LineTraceMultiByChannel(TArray<struct FHitResult>& OutHits,const FVector& Start,const FVector& End,ECollisionChannel TraceChannel,const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+
 
 	/**
 	 *  Trace a ray against the world using object types and return overlapping hits and then first blocking hit
@@ -1093,7 +1239,25 @@ public:
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @return TRUE if any hit is found
 	 */
-	bool LineTraceMulti(TArray<struct FHitResult>& OutHits,const FVector& Start,const FVector& End,const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use LineTraceMultiByObjectType instead.")
+	bool LineTraceMulti(TArray<struct FHitResult>& OutHits,const FVector& Start,const FVector& End,const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return LineTraceMultiByObjectType(OutHits, Start, End, ObjectQueryParams, Params);
+	}
+
+	/**
+	 *  Trace a ray against the world using object types and return overlapping hits and then first blocking hit
+	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
+	 *  Only the single closest blocking result will be generated, no tests will be done after that
+	 *  @param  OutHits         Array of hits found between ray and the world
+	 *  @param  Start           Start location of the ray
+	 *  @param  End             End location of the ray
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param  Params          Additional parameters used for the trace
+	 *  @return TRUE if any hit is found
+	 */
+	bool LineTraceMultiByObjectType(TArray<struct FHitResult>& OutHits,const FVector& Start,const FVector& End,const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
+
 
 	/**
 	 *  Trace a ray against the world using a specific profile and return overlapping hits and then first blocking hit
@@ -1106,7 +1270,7 @@ public:
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if OutHits contains any blocking hit entries
 	 */
-	bool LineTraceMultiByProfile(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, FName ProfileName, const struct FCollisionQueryParams& Params) const;
+	bool LineTraceMultiByProfile(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, FName ProfileName, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Sweep a sphere against the world using a specific channel and return if a blocking hit is found.
@@ -1118,7 +1282,23 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 	 
 	 *  @return TRUE if a blocking hit is found
 	 */
-	bool SweepTest(const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use SweepTestByChannel instead.")
+	bool SweepTest(const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return SweepTestByChannel(Start, End, Rot, TraceChannel, CollisionShape, Params, ResponseParam);
+	}
+
+	/**
+	 *  Sweep a sphere against the world using a specific channel and return if a blocking hit is found.
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *  @param  TraceChannel    The 'channel' that this trace uses, used to determine which components to hit
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 	 
+	 *  @return TRUE if a blocking hit is found
+	 */
+	bool SweepTestByChannel(const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
 	 *  Sweep a sphere against the world using object types and return if a blocking hit is found.
@@ -1129,7 +1309,23 @@ public:
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @return TRUE if any hit is found
 	 */
-	bool SweepTest(const FVector& Start, const FVector& End, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use SweepTestByObjectType instead.")
+	bool SweepTest(const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return SweepTestByObjectType(Start, End, Rot, ObjectQueryParams, CollisionShape, Params);
+	}
+
+	/**
+	 *  Sweep a sphere against the world using object types and return if a blocking hit is found.
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 *  @return TRUE if any hit is found
+	 */
+	bool SweepTestByObjectType(const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
+
 
 	/**
 	 *  Sweep a sphere against the world using a specific profile and return if a blocking hit is found.
@@ -1140,7 +1336,7 @@ public:
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if a blocking hit is found
 	 */
-	bool SweepTestByProfile(const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const;
+	bool SweepTestByProfile(const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params) const;
 
 	/**
 	 *  Sweep a sphere against the world and return the first blocking hit using a specific channel
@@ -1153,7 +1349,24 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
 	 *  @return TRUE if OutHits contains any blocking hit entries
 	 */
-	bool SweepSingle(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use SweepSingleByChannel instead.")
+	bool SweepSingle(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return SweepSingleByChannel(OutHit, Start, End, Rot, TraceChannel, CollisionShape, Params, ResponseParam);
+	}
+
+	/**
+	 *  Sweep a sphere against the world and return the first blocking hit using a specific channel
+	 *  @param  OutHit          First blocking hit found
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *  @param  TraceChannel    The 'channel' that this trace is in, used to determine which components to hit
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
+	 *  @return TRUE if OutHits contains any blocking hit entries
+	 */
+	bool SweepSingleByChannel(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
 	 *  Sweep a sphere against the world and return the first blocking hit using object types
@@ -1165,7 +1378,23 @@ public:
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @return TRUE if any hit is found
 	 */
-	bool SweepSingle(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use SweepSingleByObjectType instead.")
+	bool SweepSingle(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return SweepSingleByObjectType(OutHit, Start, End, Rot, ObjectQueryParams, CollisionShape, Params);
+	}
+
+	/**
+	 *  Sweep a sphere against the world and return the first blocking hit using object types
+	 *  @param  OutHit          First blocking hit found
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 *  @return TRUE if any hit is found
+	 */
+	bool SweepSingleByObjectType(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Sweep a sphere against the world and return the first blocking hit using a specific profile
@@ -1177,7 +1406,7 @@ public:
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if OutHits contains any blocking hit entries
 	 */
-	bool SweepSingleByProfile(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const;
+	bool SweepSingleByProfile(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Sweep a sphere against the world and return all initial overlaps using a specific channel (including blocking) if requested, then overlapping hits and then first blocking hit
@@ -1192,7 +1421,26 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
 	 *  @return TRUE if OutHits contains any blocking hit entries
 	 */
-	bool SweepMulti(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use SweepMultiByChannel instead.")
+	bool SweepMulti(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return SweepMultiByChannel(OutHits, Start, End, Rot, TraceChannel, CollisionShape, Params, ResponseParam);
+	}
+
+	/**
+	 *  Sweep a sphere against the world and return all initial overlaps using a specific channel (including blocking) if requested, then overlapping hits and then first blocking hit
+	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
+	 *  Only the single closest blocking result will be generated, no tests will be done after that
+	 *  @param  OutHits         Array of hits found between ray and the world
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *  @param  TraceChannel    The 'channel' that this ray is in, used to determine which components to hit
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
+	 *  @return TRUE if OutHits contains any blocking hit entries
+	 */
+	bool SweepMultiByChannel(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
 	 *  Sweep a sphere against the world and return all initial overlaps using object types (including blocking) if requested, then overlapping hits and then first blocking hit
@@ -1206,7 +1454,25 @@ public:
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @return TRUE if any hit is found
 	 */
-	bool SweepMulti(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use SweepMultiByObjectType instead.")
+	bool SweepMulti(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return SweepMultiByObjectType(OutHits, Start, End, Rot, ObjectQueryParams, CollisionShape, Params);
+	}
+
+	/**
+	 *  Sweep a sphere against the world and return all initial overlaps using object types (including blocking) if requested, then overlapping hits and then first blocking hit
+	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
+	 *  Only the single closest blocking result will be generated, no tests will be done after that
+	 *  @param  OutHits         Array of hits found between ray and the world
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 *  @return TRUE if any hit is found
+	 */
+	bool SweepMultiByObjectType(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
 	 *  Sweep a sphere against the world and return all initial overlaps using a specific profile, then overlapping hits and then first blocking hit
@@ -1220,10 +1486,10 @@ public:
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if OutHits contains any blocking hit entries
 	 */
-	bool SweepMultiByProfile(TArray<FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const;
+	bool SweepMultiByProfile(TArray<FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
-	 *  Test the collision of an AABB at the supplied location using a specific channel, and return if any blocking overlap is found
+	 *  Test the collision of a shape at the supplied location using a specific channel, and return if any blocking overlap is found
 	 *  @param  Pos             Location of center of box to test against the world
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
@@ -1231,64 +1497,131 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
 	 *  @return TRUE if any blocking results are found
 	 */
-	bool OverlapTest(const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use OverlapBlockingTestByChannel instead.")
+	bool OverlapTest(const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return OverlapBlockingTestByChannel(Pos, Rot, TraceChannel, CollisionShape, Params, ResponseParam);
+	}
 
 	/**
-	 *  Test the collision of an AABB at the supplied location using object types, and return if any blocking overlap is found
+	*  Test the collision of a shape at the supplied location using a specific channel, and return if any blocking overlap is found
+	*  @param  Pos             Location of center of box to test against the world
+	*  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
+	*  @param  CollisionShape	CollisionShape - supports Box, Sphere, Capsule, Convex
+	*  @param  Params          Additional parameters used for the trace
+	*  @param  ResponseParam	ResponseContainer to be used for this trace
+	*  @return TRUE if any blocking results are found
+	*/
+	bool OverlapBlockingTestByChannel(const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+
+	/**
+	*  Test the collision of a shape at the supplied location using a specific channel, and return if any blocking or overlapping shape is found
+	*  @param  Pos             Location of center of box to test against the world
+	*  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
+	*  @param  CollisionShape	CollisionShape - supports Box, Sphere, Capsule, Convex
+	*  @param  Params          Additional parameters used for the trace
+	*  @param  ResponseParam	ResponseContainer to be used for this trace
+	*  @return TRUE if any blocking or overlapping results are found
+	*/
+	bool OverlapAnyTestByChannel(const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+
+	/**
+	 *  Test the collision of a shape at the supplied location using object types, and return if any blocking overlap is found
 	 *  @param  Pos             Location of center of box to test against the world
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
-	 *  @return TRUE if any hit is found
+	 *  @return TRUE if any blocking results are found
 	 */
-	bool OverlapTest(const FVector& Pos, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use OverlapAnyTestByObjectType instead.")
+	bool OverlapTest(const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return OverlapAnyTestByObjectType(Pos, Rot, ObjectQueryParams, CollisionShape, Params);
+	}
 
 	/**
-	 *  Test the collision of an AABB at the supplied location using a specific profile, and return if any blocking overlap is found
+	*  Test the collision of a shape at the supplied location using object types, and return if any overlap is found
+	*  @param  Pos             Location of center of box to test against the world
+	*  @param  ObjectQueryParams	List of object types it's looking for
+	*  @param  CollisionShape	CollisionShape - supports Box, Sphere, Capsule, Convex
+	*  @param  Params          Additional parameters used for the trace
+	*  @return TRUE if any blocking results are found
+	*/
+	bool OverlapAnyTestByObjectType(const FVector& Pos, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
+
+	/**
+	 *  Test the collision of a shape at the supplied location using a specific profile, and return if any blocking overlap is found
 	 *  @param  Pos             Location of center of box to test against the world
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if any blocking results are found
 	 */
-	bool OverlapTestByProfile(const FVector& Pos, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const;
+	DEPRECATED(4.8, "Use OverlapBlockingTestByProfile instead.")
+	bool OverlapTestByProfile(const FVector& Pos, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params) const
+	{
+		return OverlapBlockingTestByProfile(Pos, Rot, ProfileName, CollisionShape, Params);
+	}
 
 	/**
-	 *  Test the collision of a sphere at the supplied location using a specific channel, and determine the set of components that it overlaps
-	 *  @param  OutOverlaps     Array of components found to overlap supplied box
+	*  Test the collision of a shape at the supplied location using a specific profile, and return if any blocking overlap is found
+	*  @param  Pos             Location of center of box to test against the world
+	*  @param  ProfileName     The 'profile' used to determine which components to hit
+	*  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	*  @param  Params          Additional parameters used for the trace
+	*  @return TRUE if any blocking results are found
+	*/
+	bool OverlapBlockingTestByProfile(const FVector& Pos, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
+
+	/**
+	*  Test the collision of a shape at the supplied location using a specific profile, and return if any blocking or overlap is found
+	*  @param  Pos             Location of center of box to test against the world
+	*  @param  ProfileName     The 'profile' used to determine which components to hit
+	*  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	*  @param  Params          Additional parameters used for the trace
+	*  @return TRUE if any blocking or overlapping results are found
+	*/
+	bool OverlapAnyTestByProfile(const FVector& Pos, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
+
+	/**
+	 *  Test the collision of a shape at the supplied location using a specific channel, and determine the set of components that it overlaps
+	 *  @param  OutOverlap      Component found to overlap supplied shape
 	 *  @param  Pos             Location of center of sphere to test against the world
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace
-	 *  @return TRUE if OutOverlaps contains any blocking results
+	 *  @return TRUE if OutOverlap is a blocking result
 	 */
-	bool OverlapSingle(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use OverlapMultiByChannel instead. Deciding which overlap to use is gameplay specific.")
+	bool OverlapSingle(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
-	 *  Test the collision of a sphere at the supplied location using object types, and determine the set of components that it overlaps
-	 *  @param  OutOverlaps     Array of components found to overlap supplied box
+	 *  Test the collision of a shape at the supplied location using object types, and determine the set of components that it overlaps
+	 *  @param  OutOverlap      Component found to overlap supplied shape
 	 *  @param  Pos             Location of center of sphere to test against the world
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
-	 *  @return TRUE if any hit is found
+	 *  @return TRUE if any overlap is found
 	 */
-	bool OverlapSingle(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use OverlapMultiByObjectType instead. Deciding which overlap to use is gameplay specific.")
+	bool OverlapSingle(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const;
 
 	/**
-	 *  Test the collision of a sphere at the supplied location using a specific profile, and determine the set of components that it overlaps
-	 *  @param  OutOverlaps     Array of components found to overlap supplied box
+	 *  Test the collision of a shape at the supplied location using a specific profile, and determine the set of components that it overlaps
+	 *  @param  OutOverlap      Component found to overlap supplied shape
 	 *  @param  Pos             Location of center of sphere to test against the world
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
-	 *  @return TRUE if OutOverlaps contains any blocking results
+	 *  @return TRUE if OutOverlap is blocking
 	 */
-	bool OverlapSingleByProfile(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const;
+	DEPRECATED(4.8, "Use OverlapMultiByProfile instead. Deciding which overlap to use is gameplay specific.")
+	bool OverlapSingleByProfile(struct FOverlapResult& OutOverlap, const FVector& Pos, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params) const;
 
 	/**
-	 *  Test the collision of a sphere at the supplied location using a specific channel, and determine the set of components that it overlaps
+	 *  Test the collision of a shape at the supplied location using a specific channel, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
 	 *  @param  Pos             Location of center of sphere to test against the world
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
@@ -1297,21 +1630,52 @@ public:
 	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace
 	 *  @return TRUE if OutOverlaps contains any blocking results
 	 */
-	bool OverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+	DEPRECATED(4.8, "Use OverlapMultiByChannel instead.")
+	bool OverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const
+	{
+		return OverlapMultiByChannel(OutOverlaps, Pos, Rot, TraceChannel, CollisionShape, Params, ResponseParam);
+	}
 
 	/**
-	 *  Test the collision of a sphere at the supplied location using object types, and determine the set of components that it overlaps
+	 *  Test the collision of a shape at the supplied location using a specific channel, and determine the set of components that it overlaps
+	 *  @param  OutOverlaps     Array of components found to overlap supplied box
+	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace
+	 *  @return TRUE if OutOverlaps contains any blocking results
+	 */
+	bool OverlapMultiByChannel(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
+
+	/**
+	 *  Test the collision of a shape at the supplied location using object types, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
 	 *  @param  Pos             Location of center of sphere to test against the world
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
-	 *  @return TRUE if any hit is found
+	 *  @return TRUE if any overlap is found
 	 */
-	bool OverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const;
+	DEPRECATED(4.8, "Use OverlapMultiByObjectType instead.")
+	bool OverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams) const
+	{
+		return OverlapMultiByObjectType(OutOverlaps, Pos, Rot, ObjectQueryParams, CollisionShape, Params);
+	}
 	
 	/**
-	 *  Test the collision of a sphere at the supplied location using a specific profile, and determine the set of components that it overlaps
+	 *  Test the collision of a shape at the supplied location using object types, and determine the set of components that it overlaps
+	 *  @param  OutOverlaps     Array of components found to overlap supplied box
+	 *  @param  Pos             Location of center of sphere to test against the world
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 *  @return TRUE if any overlap is found
+	 */
+	bool OverlapMultiByObjectType(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
+
+	/**
+	 *  Test the collision of a shape at the supplied location using a specific profile, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
 	 *  @param  Pos             Location of center of sphere to test against the world
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
@@ -1319,45 +1683,66 @@ public:
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if OutOverlaps contains any blocking results
 	 */
-	bool OverlapMultiByProfile(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, FName ProfileName, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params) const;
+	bool OverlapMultiByProfile(TArray<struct FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	// COMPONENT SWEEP
 
 	/**
-	 *  Sweep the geometry of the supplied component, and determine the set of components that it hits
+	 *  Sweep the geometry of the supplied component, and determine the set of components that it hits.
+	 *  @note The overload taking rotation as an FQuat is slightly faster than the version using FRotator (which will be converted to an FQuat)..
 	 *  @param  OutHits         Array of hits found between ray and the world
-	 *  @param  PrimComp        Component to use geometry from to test against the world. Transform of this component is ignored
+	 *  @param  PrimComp        Component's geometry to test against the world. Transform of this component is ignored
 	 *  @param  Start           Start location of the trace
 	 *  @param  End             End location of the trace
-	 *  @param  Rot             Rotation to place PrimComp geometry at to test against the world (rotation remains constant over trace)
+	 *  @param  Rot             Rotation of PrimComp geometry for test against the world (rotation remains constant over sweep)
 	 *  @param  Params          Additional parameters used for the trace
 	 *  @return TRUE if OutHits contains any blocking hit entries
 	 */
-	bool ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrimitiveComponent* PrimComp, const FVector& Start,const FVector& End, const FRotator& Rot, const struct FComponentQueryParams& Params)  const;
+	bool ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrimitiveComponent* PrimComp, const FVector& Start, const FVector& End, const FQuat& Rot,    const FComponentQueryParams& Params) const;
+	bool ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrimitiveComponent* PrimComp, const FVector& Start, const FVector& End, const FRotator& Rot, const FComponentQueryParams& Params) const;
 
 	// COMPONENT OVERLAP
 
 	/**
 	 *  Test the collision of the supplied component at the supplied location/rotation using object types, and determine the set of components that it overlaps
+	 *  @note The overload taking rotation as an FQuat is slightly faster than the version using FRotator (which will be converted to an FQuat)..
 	 *  @param  OutOverlaps     Array of overlaps found between component in specified pose and the world
-	 *  @param  PrimComp        Component to use geometry from to test against the world. Transform of this component is ignored
-	 *  @param  Pos             Location to place PrimComp geometry at to test against the world
-	 *  @param  Rot             Rotation to place PrimComp geometry at to test against the world
+	 *  @param  PrimComp        Component's geometry to test against the world. Transform of this component is ignored
+	 *  @param  Pos             Location of PrimComp geometry for test against the world
+	 *  @param  Rot             Rotation of PrimComp geometry for test against the world
 	 *	@param	ObjectQueryParams	List of object types it's looking for. When this enters, we do object query with component shape
 	 *  @return TRUE if any hit is found
 	 */
-	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams=FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FQuat& Rot,    const FComponentQueryParams& Params = FComponentQueryParams::DefaultComponentQueryParams, const FCollisionObjectQueryParams& ObjectQueryParams=FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, const FComponentQueryParams& Params = FComponentQueryParams::DefaultComponentQueryParams, const FCollisionObjectQueryParams& ObjectQueryParams=FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
 
 	/**
 	 *  Test the collision of the supplied component at the supplied location/rotation using a specific channel, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of overlaps found between component in specified pose and the world
-	 *  @param  PrimComp        Component to use geometry from to test against the world. Transform of this component is ignored
-	 *  @param  Pos             Location to place PrimComp geometry at to test against the world
-	 *  @param  Rot             Rotation to place PrimComp geometry at to test against the world
+	 *  @param  PrimComp        Component's geometry to test against the world. Transform of this component is ignored
+	 *  @param  Pos             Location of PrimComp geometry for test against the world
+	 *  @param  Rot             Rotation of PrimComp geometry for test against the world
 	 *  @param  TraceChannel	The 'channel' that this query is in, used to determine which components to hit
 	 *  @return TRUE if OutOverlaps contains any blocking results
 	 */
-	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, ECollisionChannel TraceChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams=FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+	DEPRECATED(4.8, "Use ComponentOverlapMultiByChannel instead.")
+	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, ECollisionChannel TraceChannel, const FComponentQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams=FCollisionObjectQueryParams::DefaultObjectQueryParam) const
+	{
+		return ComponentOverlapMultiByChannel(OutOverlaps, PrimComp, Pos, Rot.Quaternion(), TraceChannel, Params, ObjectQueryParams);
+	}
+
+	/**
+	 *  Test the collision of the supplied component at the supplied location/rotation using a specific channel, and determine the set of components that it overlaps
+	 *  @note The overload taking rotation as an FQuat is slightly faster than the version using FRotator (which will be converted to an FQuat)..
+	 *  @param  OutOverlaps     Array of overlaps found between component in specified pose and the world
+	 *  @param  PrimComp        Component's geometry to test against the world. Transform of this component is ignored
+	 *  @param  Pos             Location of PrimComp geometry for test against the world
+	 *  @param  Rot             Rotation of PrimComp geometry for test against the world
+	 *  @param  TraceChannel	The 'channel' that this query is in, used to determine which components to hit
+	 *  @return TRUE if OutOverlaps contains any blocking results
+	 */
+	bool ComponentOverlapMultiByChannel(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FQuat& Rot,    ECollisionChannel TraceChannel, const FComponentQueryParams& Params = FComponentQueryParams::DefaultComponentQueryParams, const FCollisionObjectQueryParams& ObjectQueryParams=FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+	bool ComponentOverlapMultiByChannel(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, ECollisionChannel TraceChannel, const FComponentQueryParams& Params = FComponentQueryParams::DefaultComponentQueryParams, const FCollisionObjectQueryParams& ObjectQueryParams=FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
 
 	/**
 	 * Interface for Async. Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
@@ -1379,7 +1764,33 @@ public:
 	 *	@param	UserData		UserData
 	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
 	 */ 
-	FTraceHandle	AsyncLineTrace(const FVector& Start,const FVector& End, ECollisionChannel TraceChannel, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0, bool bMultiTrace=false );
+	DEPRECATED(4.8, "Use AsyncLineTraceByChannel instead.")
+	FTraceHandle	AsyncLineTrace(const FVector& Start,const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0, bool bMultiTrace=false )
+	{
+		return AsyncLineTraceByChannel(Start, End, TraceChannel, Params, ResponseParam, InDelegate, UserData, bMultiTrace);
+	}
+
+	/**
+	 * Interface for Async. Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
+	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
+	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
+	 *
+	 *  @param  Start           Start location of the ray
+	 *  @param  End             End location of the ray
+	 *  @param  TraceChannel    The 'channel' that this ray is in, used to determine which components to hit
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace
+	 *	@param	InDeleagte		Delegate function to be called - to see example, search FTraceDelegate
+	 *							Example can be void MyActor::TraceDone(const FTraceHandle& TraceHandle, FTraceDatum & TraceData)
+	 *							Before sending to the function, 
+	 *						
+	 *							FTraceDelegate TraceDelegate;
+	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
+	 * 
+	 *	@param	UserData		UserData
+	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
+	 */ 
+	FTraceHandle	AsyncLineTraceByChannel(const FVector& Start,const FVector& End, ECollisionChannel TraceChannel, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0, bool bMultiTrace=false );
 
 	/**
 	 * Interface for Async. Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
@@ -1400,7 +1811,32 @@ public:
 	 *	@param	UserData		UserData
 	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
 	 */ 
-	FTraceHandle	AsyncLineTrace(const FVector& Start,const FVector& End, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0, bool bMultiTrace=false );
+	DEPRECATED(4.8, "Use AsyncLineTraceByObjectType instead.")
+	FTraceHandle	AsyncLineTrace(const FVector& Start,const FVector& End, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0, bool bMultiTrace=false )
+	{
+		return AsyncLineTraceByObjectType(Start, End, ObjectQueryParams, Params, InDelegate, UserData, bMultiTrace);
+	}
+
+	/**
+	 * Interface for Async. Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
+	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
+	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
+	 *
+	 *  @param  Start           Start location of the ray
+	 *  @param  End             End location of the ray
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param  Params          Additional parameters used for the trace
+	 *	@param	InDeleagte		Delegate function to be called - to see example, search FTraceDelegate
+	 *							Example can be void MyActor::TraceDone(const FTraceHandle& TraceHandle, FTraceDatum & TraceData)
+	 *							Before sending to the function, 
+	 *						
+	 *							FTraceDelegate TraceDelegate;
+	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
+	 * 
+	 *	@param	UserData		UserData
+	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
+	 */ 
+	FTraceHandle	AsyncLineTraceByObjectType(const FVector& Start,const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, FTraceDelegate * InDelegate=NULL, uint32 UserData = 0, bool bMultiTrace=false );
 
 	/**
 	 * Interface for Async trace
@@ -1424,7 +1860,35 @@ public:
 	 *	@param	UserData		UserData
 	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
 	 */ 
-	FTraceHandle	AsyncSweep(const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false);
+	DEPRECATED(4.8, "Use AsyncSweepByChannel instead.")
+	FTraceHandle	AsyncSweep(const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false)
+	{
+		return AsyncSweepByChannel(Start, End, TraceChannel, CollisionShape, Params, ResponseParam, InDelegate, UserData, bMultiTrace);
+	}
+
+	/**
+	 * Interface for Async trace
+	 * Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
+	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
+	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
+	 *
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *  @param  TraceChannel    The 'channel' that this trace is in, used to determine which components to hit
+	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace	 
+	 *	@param	InDeleagte		Delegate function to be called - to see example, search FTraceDelegate
+	 *							Example can be void MyActor::TraceDone(const FTraceHandle& TraceHandle, FTraceDatum & TraceData)
+	 *							Before sending to the function, 
+	 *						
+	 *							FTraceDelegate TraceDelegate;
+	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
+	 * 
+	 *	@param	UserData		UserData
+	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
+	 */ 
+	FTraceHandle	AsyncSweepByChannel(const FVector& Start, const FVector& End, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false);
 
 	/**
 	 * Interface for Async trace
@@ -1447,7 +1911,36 @@ public:
 	 *	@param	UserData		UserData
 	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
 	 */ 
-	FTraceHandle	AsyncSweep(const FVector& Start, const FVector& End, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false);
+	DEPRECATED(4.8, "Use AsyncSweepByObjectType instead.")
+	FTraceHandle	AsyncSweep(const FVector& Start, const FVector& End, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false)
+	{
+		return AsyncSweepByObjectType(Start, End, ObjectQueryParams, CollisionShape, Params, InDelegate, UserData, bMultiTrace);
+	}
+	
+	
+	/**
+	 * Interface for Async trace
+	 * Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
+	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
+	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
+	 *
+	 *  @param  Start           Start location of the sphere
+	 *  @param  End             End location of the sphere
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 *	@param	InDeleagte		Delegate function to be called - to see example, search FTraceDelegate
+	 *							Example can be void MyActor::TraceDone(const FTraceHandle& TraceHandle, FTraceDatum & TraceData)
+	 *							Before sending to the function, 
+	 *						
+	 *							FTraceDelegate TraceDelegate;
+	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
+	 * 
+	 *	@param	UserData		UserData
+	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
+	 */ 
+	FTraceHandle	AsyncSweepByObjectType(const FVector& Start, const FVector& End, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, FTraceDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false);
+
 	// overlap functions
 
 	/**
@@ -1470,9 +1963,35 @@ public:
 	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
 	 * 
 	 *	@param UserData			UserData
-	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
 	 */ 
-	FTraceHandle	AsyncOverlap(const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FOverlapDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false);
+	DEPRECATED(4.8, "Use AsyncOverlapByChannel instead.")
+	FTraceHandle	AsyncOverlap(const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FOverlapDelegate * InDelegate = NULL, uint32 UserData = 0)
+	{
+		return AsyncOverlapByChannel(Pos, Rot, TraceChannel, CollisionShape, Params, ResponseParam, InDelegate, UserData);
+	}
+
+	/**
+	 * Interface for Async trace
+	 * Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
+	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
+	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
+	 *
+	 *  @param  Pos             Location of center of sphere to test against the world
+	 *	@param	bMultiTrace		true if you'd like to do multi trace, or false otherwise
+	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
+	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 * 	@param 	ResponseParam	ResponseContainer to be used for this trace
+	 *	@param	InDeleagte		Delegate function to be called - to see example, search FTraceDelegate
+	 *							Example can be void MyActor::TraceDone(const FTraceHandle& TraceHandle, FTraceDatum & TraceData)
+	 *							Before sending to the function, 
+	 *						
+	 *							FTraceDelegate TraceDelegate;
+	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
+	 * 
+	 *	@param UserData			UserData
+	 */ 
+	FTraceHandle	AsyncOverlapByChannel(const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, FOverlapDelegate * InDelegate = NULL, uint32 UserData = 0);
 
 	/**
 	 * Interface for Async trace
@@ -1493,9 +2012,33 @@ public:
 	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
 	 * 
 	 *	@param UserData			UserData
-	 *	@param bMultiTrace		true if you'd like to get continuous result from the trace, false if you want single
 	 */ 
-	FTraceHandle	AsyncOverlap(const FVector& Pos, const FQuat& Rot, const struct FCollisionShape& CollisionShape, const struct FCollisionQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams, FOverlapDelegate * InDelegate = NULL, uint32 UserData = 0, bool bMultiTrace = false);
+	DEPRECATED(4.8, "Use AsyncOverlapByObjectType instead.")
+	FTraceHandle	AsyncOverlap(const FVector& Pos, const FQuat& Rot, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params, const FCollisionObjectQueryParams& ObjectQueryParams, FOverlapDelegate * InDelegate = NULL, uint32 UserData = 0)
+	{
+		return AsyncOverlapByObjectType(Pos, Rot, ObjectQueryParams, CollisionShape, Params, InDelegate, UserData);
+	}
+
+	/**
+	 * Interface for Async trace
+	 * Pretty much same parameter set except you can optional set delegate to be called when execution is completed and you can set UserData if you'd like
+	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
+	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
+	 *
+	 *  @param  Pos             Location of center of sphere to test against the world
+	 *	@param	ObjectQueryParams	List of object types it's looking for
+	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
+	 *  @param  Params          Additional parameters used for the trace
+	 *	@param	InDeleagte		Delegate function to be called - to see example, search FTraceDelegate
+	 *							Example can be void MyActor::TraceDone(const FTraceHandle& TraceHandle, FTraceDatum & TraceData)
+	 *							Before sending to the function, 
+	 *						
+	 *							FTraceDelegate TraceDelegate;
+	 *							TraceDelegate.BindRaw(this, &MyActor::TraceDone);
+	 * 
+	 *	@param UserData			UserData
+	 */ 
+	FTraceHandle	AsyncOverlapByObjectType(const FVector& Pos, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, FOverlapDelegate * InDelegate = NULL, uint32 UserData = 0);
 
 	/**
 	 * Query function 
@@ -1796,9 +2339,11 @@ public:
 	void UpdateWorldComponents(bool bRerunConstructionScripts, bool bCurrentLevelOnly);
 
 	/**
-	 * Updates all cull distance volumes.
+	 * Updates cull distance volumes for a specified component or a specified actor or all actors
+         * @param ComponentToUpdate If specified just that Component will be updated
+	 * @param ActorToUpdate If specified (and ComponentToUpdate is not specified), all Components owned by this Actor will be updated
 	 */
-	void UpdateCullDistanceVolumes();
+	void UpdateCullDistanceVolumes(AActor* ActorToUpdate = nullptr, UPrimitiveComponent* ComponentToUpdate = nullptr);
 
 	/**
 	 * Cleans up components, streaming data and assorted other intermediate data.
@@ -1912,8 +2457,8 @@ public:
 			, bAllowAudioPlayback(true)
 			, bRequiresHitProxies(true)
 			, bCreatePhysicsScene(true)
-			, bCreateNavigation(false)
-			, bCreateAISystem(false)
+			, bCreateNavigation(true)
+			, bCreateAISystem(true)
 			, bShouldSimulatePhysics(true)
 			, bEnableTraceCollision(false)
 			, bTransactional(true)
@@ -2034,6 +2579,13 @@ public:
 	 * @param bForceGameThread - if true, force this to happen on the game thread
 	 */
 	void MarkActorComponentForNeededEndOfFrameUpdate(class UActorComponent* Component, bool bForceGameThread);
+
+	/**
+	 * Updates an ActorComponent's cached state of whether it has been marked for end of frame update based on the current
+	 * state of the World's NeedsEndOfFrameUpdate arrays
+	 * @param Component - Component to update the cached state of
+	 */
+	void UpdateActorComponentEndOfFrameUpdateState(class UActorComponent* Component) const;
 
 	/**
 	 * Send all render updates to the rendering thread.
@@ -2198,7 +2750,7 @@ public:
 	 * @param	ThisActor				Actor to remove.
 	 * @param	bNetForce				[opt] Ignored unless called during play.  Default is false.
 	 * @param	bShouldModifyLevel		[opt] If true, Modify() the level before removing the actor.  Default is true.
-	 * @return							true if destroy, false if actor couldn't be destroyed.
+	 * @return							true if destroyed or already marked for destruction, false if actor couldn't be destroyed.
 	 */
 	bool DestroyActor( AActor* Actor, bool bNetForce=false, bool bShouldModifyLevel=true );
 
@@ -2410,7 +2962,7 @@ public:
 	void NotifyOfBlueprintDebuggingAssociation(class UBlueprint* Blueprint, UObject* DebugObject);
 
 	/** Broadcasts that the number of levels has changed. */
-	void BroadcastLevelsChanged() { LevelsChangedEvent.Broadcast(); }
+	void BroadcastLevelsChanged();
 
 	/** Returns the LevelsChangedEvent member. */
 	FOnLevelsChangedEvent& OnLevelsChanged() { return LevelsChangedEvent; }
@@ -2436,6 +2988,16 @@ public:
 	 * @return							If the settings came from an audio volume, the audio volume object is returned.
 	 */
 	class AAudioVolume* GetAudioSettings( const FVector& ViewLocation, struct FReverbSettings* OutReverbSettings, struct FInteriorSettings* OutInteriorSettings );
+
+	/** Sets the audio device handle to the active audio device for this world.*/
+	void SetAudioDeviceHandle(const uint32 InAudioDeviceHandle);
+
+	/**
+	* Returns the audio device associated with this world, or returns the main audio device if there is none.
+	*
+	* @return Audio device to use with this world.
+	*/
+	class FAudioDevice* GetAudioDevice();
 
 	/** Return the URL of this level on the local machine. */
 	virtual FString GetLocalURL() const;
@@ -2559,7 +3121,7 @@ public:
 	/** Returns TimerManager instance for this world. */
 	inline FTimerManager& GetTimerManager() const
 	{
-		return *TimerManager;
+		return (OwningGameInstance ? OwningGameInstance->GetTimerManager() : *TimerManager);
 	}
 
 	/** Returns LatentActionManager instance for this world. */
@@ -2689,9 +3251,46 @@ public:
 	// removed from the world without a RemoveFromWorld call for each)
 	static FOnLevelChanged			LevelRemovedFromWorld;
 
+	// Called after offset was applied to a level
+	DECLARE_MULTICAST_DELEGATE_FourParams(FLevelOffsetEvent, ULevel*,  UWorld*, const FVector&, bool);
+	static FLevelOffsetEvent		PostApplyLevelOffset;
+
 	// called by UWorld::GetAssetRegistryTags()
 	static FWorldGetAssetTags GetAssetTags;
+
+#if WITH_EDITOR
+	// Delegate called when levelscript actions need refreshing
+	DECLARE_MULTICAST_DELEGATE_OneParam(FRefreshLevelScriptActionsEvent, UWorld*);
+
+	// Called when changes in the levels require blueprint actions to be refreshed.
+	static FRefreshLevelScriptActionsEvent RefreshLevelScriptActions;
+#endif
 
 private:
 	FWorldDelegates() {}
 };
+
+
+//////////////////////////////////////////////////////////////////////////
+// UWorld inlines:
+
+FORCEINLINE_DEBUGGABLE bool UWorld::ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+{
+	// Pass through to FQuat version.
+	return ComponentOverlapMulti(OutOverlaps, PrimComp, Pos, Rot.Quaternion(), Params, ObjectQueryParams);
+}
+
+FORCEINLINE_DEBUGGABLE bool UWorld::ComponentOverlapMultiByChannel(TArray<struct FOverlapResult>& OutOverlaps, const class UPrimitiveComponent* PrimComp, const FVector& Pos, const FRotator& Rot, ECollisionChannel TraceChannel, const FComponentQueryParams& Params /* = FComponentQueryParams::DefaultComponentQueryParams */, const FCollisionObjectQueryParams& ObjectQueryParams/* =FCollisionObjectQueryParams::DefaultObjectQueryParam */) const
+{
+	// Pass through to FQuat version.
+	return ComponentOverlapMultiByChannel(OutOverlaps, PrimComp, Pos, Rot.Quaternion(), TraceChannel, Params);
+}
+
+FORCEINLINE_DEBUGGABLE bool UWorld::ComponentSweepMulti(TArray<struct FHitResult>& OutHits, class UPrimitiveComponent* PrimComp, const FVector& Start, const FVector& End, const FRotator& Rot, const struct FComponentQueryParams& Params) const
+{
+	// Pass through to FQuat version.
+	return ComponentSweepMulti(OutHits, PrimComp, Start, End, Rot.Quaternion(), Params);
+}
+
+
+

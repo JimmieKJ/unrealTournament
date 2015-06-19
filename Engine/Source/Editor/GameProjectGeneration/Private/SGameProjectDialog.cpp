@@ -31,6 +31,9 @@ void SGameProjectDialog::Construct( const FArguments& InArgs )
 		ProjectBrowser = SNew(SProjectBrowser);
 	}
 
+	FadeAnimation.AddCurve( 0.f, 0.5f, ECurveEaseFunction::QuadOut );
+	RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SGameProjectDialog::TriggerFadeInPostConstruct ) );
+
 	TSharedPtr<SWidget> Content;
 
 	if (InArgs._AllowProjectCreate && InArgs._AllowProjectOpening)
@@ -185,36 +188,19 @@ void SGameProjectDialog::Construct( const FArguments& InArgs )
 		check(false);
 	}
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-
-/* SWidget overrides
-*****************************************************************************/
-
-void SGameProjectDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SGameProjectDialog::TriggerFadeInPostConstruct(double InCurrentTime, float InDeltaTime)
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	// Play the intro fade in the first frame after the widget is created.
 	// We start it now instead of Construct because there is a lot of elapsed time between Construct and when we
 	// see the dialog and the beginning of the animation is cut off.
-	if (FadeAnimation.IsAtStart())
-	{
-		FadeIn();
-	}
-}
+	FadeAnimation.Play(this->AsShared());
 
+	return EActiveTimerReturnType::Stop;
+}
 
 /* SGameProjectDialog implementation
 *****************************************************************************/
-
-void SGameProjectDialog::FadeIn( )
-{
-	FadeAnimation = FCurveSequence();
-	FadeCurve = FadeAnimation.AddCurve(0.f, 0.5f, ECurveEaseFunction::QuadOut);
-	FadeAnimation.Play();
-}
-
 
 bool SGameProjectDialog::OpenProject( const FString& ProjectFile )
 {
@@ -258,7 +244,7 @@ FReply SGameProjectDialog::ShowProjectBrowser( )
 
 FLinearColor SGameProjectDialog::HandleCustomContentColorAndOpacity( ) const
 {
-	return FLinearColor(1,1,1, FadeCurve.GetLerp());
+	return FLinearColor(1,1,1, FadeAnimation.GetLerp());
 }
 
 

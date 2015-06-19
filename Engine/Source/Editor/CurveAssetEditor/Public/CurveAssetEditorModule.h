@@ -31,7 +31,7 @@ public:
 	virtual TSharedRef<ICurveAssetEditor> CreateCurveAssetEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveBase* CurveToEdit );
 
 	/** Gets the extensibility managers for outside entities to extend curve asset editor's menus and toolbars */
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override {return MenuExtensibilityManager;}
 
 	/** Curve Asset Editor app identifier string */
 	static const FName CurveAssetEditorAppIdentifier;

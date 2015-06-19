@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UMGPrivatePCH.h"
+#include "SlateFontInfo.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -20,7 +21,7 @@ UEditableText::UEditableText(const FObjectInitializer& ObjectInitializer)
 
 	// Grab other defaults from slate arguments.
 	IsReadOnly = Defaults._IsReadOnly.Get();
-	IsPassword = Defaults._IsReadOnly.Get();
+	IsPassword = Defaults._IsPassword.Get();
 	MinimumDesiredWidth = Defaults._MinDesiredWidth.Get();
 	IsCaretMovedWhenGainFocus = Defaults._IsCaretMovedWhenGainFocus.Get();
 	SelectAllTextWhenFocused = Defaults._SelectAllTextWhenFocused.Get();
@@ -116,14 +117,14 @@ void UEditableText::SetIsReadOnly(bool InbIsReadyOnly)
 	}
 }
 
-void UEditableText::HandleOnTextChanged(const FText& Text)
+void UEditableText::HandleOnTextChanged(const FText& InText)
 {
-	OnTextChanged.Broadcast(Text);
+	OnTextChanged.Broadcast(InText);
 }
 
-void UEditableText::HandleOnTextCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+void UEditableText::HandleOnTextCommitted(const FText& InText, ETextCommit::Type CommitMethod)
 {
-	OnTextCommitted.Broadcast(Text, CommitMethod);
+	OnTextCommitted.Broadcast(InText, CommitMethod);
 }
 
 void UEditableText::PostLoad()

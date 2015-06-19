@@ -5,6 +5,7 @@
 #include "WidgetTemplateBlueprintClass.h"
 #include "IDocumentation.h"
 #include "WidgetBlueprint.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "UMGEditor"
 
@@ -35,9 +36,18 @@ FText FWidgetTemplateBlueprintClass::GetCategory() const
 	}
 	else
 	{
-		//If the blueprint is unloaded we need to extract it from the asset metadata.
-		auto DefaultUserWidget = UUserWidget::StaticClass()->GetDefaultObject<UUserWidget>();
-		return DefaultUserWidget->GetPaletteCategory();
+		const FString* FoundPaletteCategory = WidgetAssetData.TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UWidgetBlueprint, PaletteCategory));
+
+		if ( FoundPaletteCategory && !FoundPaletteCategory->IsEmpty() )
+		{
+			return FText::FromString(*FoundPaletteCategory);
+		}
+		else
+		{
+			//If the blueprint is unloaded we need to extract it from the asset metadata.
+			auto DefaultUserWidget = UUserWidget::StaticClass()->GetDefaultObject<UUserWidget>();
+			return DefaultUserWidget->GetPaletteCategory();
+		}
 	}
 }
 
@@ -51,7 +61,7 @@ UWidget* FWidgetTemplateBlueprintClass::Create(UWidgetTree* Tree)
 		WidgetClass = CastChecked<UClass>(LoadedWidget->GeneratedClass);
 	}
 
-	return FWidgetTemplateClass::Create(Tree);
+	return FWidgetTemplateClass::CreateNamed(Tree, FName(*FBlueprintEditorUtils::GetClassNameWithoutSuffix(WidgetClass.Get())));
 }
 
 const FSlateBrush* FWidgetTemplateBlueprintClass::GetIcon() const

@@ -124,25 +124,29 @@ UK2Node_BreakStruct::UK2Node_BreakStruct(const FObjectInitializer& ObjectInitial
 {
 }
 
-bool UK2Node_BreakStruct::CanCreatePinForProperty(const UProperty* Property)
+static bool CanCreatePinForProperty(const UProperty* Property, bool bIncludeEditAnywhere = true)
 {
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 	FEdGraphPinType DumbGraphPinType;
 	const bool bConvertable = Schema->ConvertPropertyToPinType(Property, /*out*/ DumbGraphPinType);
 
-	//TODO: remove CPF_Edit in a next release.
-	const bool bVisible = Property ? Property->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible) : false;
+	const bool bVisible = Property ? (bIncludeEditAnywhere ? Property->HasAnyPropertyFlags(CPF_Edit | CPF_BlueprintVisible) : Property->HasAnyPropertyFlags(CPF_BlueprintVisible) ): false;
 	return bVisible && bConvertable;
 }
 
-bool UK2Node_BreakStruct::CanBeBroken(const UScriptStruct* Struct)
+bool UK2Node_BreakStruct::CanBeBroken(const UScriptStruct* Struct, bool bIncludeEditAnywhere )
 {
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 	if(Struct && Schema && !Struct->HasMetaData(TEXT("HasNativeBreak")))
 	{
+		if (UEdGraphSchema_K2::IsAllowableBlueprintVariableType(Struct))
+		{
+			return true;
+		}
+
 		for (TFieldIterator<UProperty> It(Struct); It; ++It)
 		{
-			if (CanCreatePinForProperty(*It))
+			if (CanCreatePinForProperty(*It, bIncludeEditAnywhere))
 			{
 				return true;
 			}
@@ -162,7 +166,7 @@ void UK2Node_BreakStruct::AllocateDefaultPins()
 		{
 			virtual bool CanTreatPropertyAsOptional(UProperty* TestProperty) const override
 			{
-				return UK2Node_BreakStruct::CanCreatePinForProperty(TestProperty);
+				return CanCreatePinForProperty(TestProperty);
 			}
 		};
 
@@ -197,13 +201,13 @@ FText UK2Node_BreakStruct::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		return LOCTEXT("BreakNullStruct_Title", "Break <unknown struct>");
 	}
-	else if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("StructName"), FText::FromString(StructType->GetName()));
 
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LOCTEXT("BreakNodeTitle", "Break {StructName}"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("BreakNodeTitle", "Break {StructName}"), Args), this);
 	}
 	return CachedNodeTitle;
 }
@@ -214,13 +218,13 @@ FText UK2Node_BreakStruct::GetTooltipText() const
 	{
 		return LOCTEXT("BreakNullStruct_Tooltip", "Adds a node that breaks an '<unknown struct>' into its member fields");
 	}
-	else if (CachedTooltip.IsOutOfDate())
+	else if (CachedTooltip.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(
+		CachedTooltip.SetCachedText(FText::Format(
 			LOCTEXT("BreakStruct_Tooltip", "Adds a node that breaks a '{0}' into its member fields"),
 			FText::FromName(StructType->GetFName())
-		);
+		), this);
 	}
 	return CachedTooltip;
 }
@@ -242,7 +246,7 @@ void UK2Node_BreakStruct::ValidateNodeDuringCompilation(class FCompilerResultsLo
 				const bool bIsBlueprintVisible = Property->HasAnyPropertyFlags(CPF_BlueprintVisible) || (Property->GetOwnerStruct() && Property->GetOwnerStruct()->IsA<UUserDefinedStruct>());
 				bHasAnyBlueprintVisibleProperty |= bIsBlueprintVisible;
 
-				const UEdGraphPin* Pin = Property ? FindPin(Property->GetName()) : NULL;
+				const UEdGraphPin* Pin = FindPin(Property->GetName());
 				const bool bIsLinked = Pin && Pin->LinkedTo.Num();
 
 				if (!bIsBlueprintVisible && bIsLinked)
@@ -338,7 +342,7 @@ void UK2Node_BreakStruct::GetMenuActions(FBlueprintActionDatabaseRegistrar& Acti
 	for (TObjectIterator<UScriptStruct> StructIt; StructIt; ++StructIt)
 	{
 		UScriptStruct const* Struct = (*StructIt);
-		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(Struct) || !CanBeBroken(Struct))
+		if (!CanBeBroken(Struct, false))
 		{
 			continue;
 		}

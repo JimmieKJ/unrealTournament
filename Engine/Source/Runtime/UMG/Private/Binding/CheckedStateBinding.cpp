@@ -16,7 +16,7 @@ bool UCheckedStateBinding::IsSupportedSource(UProperty* Property) const
 
 bool UCheckedStateBinding::IsSupportedDestination(UProperty* Property) const
 {
-	static const FName CheckBoxStateEnum(TEXT("ESlateCheckBoxState"));
+	static const FName CheckBoxStateEnum(TEXT("ECheckBoxState"));
 
 	if ( UByteProperty* ByteProperty = Cast<UByteProperty>(Property) )
 	{
@@ -31,11 +31,13 @@ bool UCheckedStateBinding::IsSupportedDestination(UProperty* Property) const
 
 ECheckBoxState UCheckedStateBinding::GetValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
 		if ( bConversion.Get(EConversion::None) == EConversion::None )
 		{
-			uint8 Value;
+			uint8 Value = 0;
 			if ( SourcePath.GetValue<uint8>(Source, Value) )
 			{
 				bConversion = EConversion::None;
@@ -45,7 +47,7 @@ ECheckBoxState UCheckedStateBinding::GetValue() const
 
 		if ( bConversion.Get(EConversion::Bool) == EConversion::Bool )
 		{
-			bool Value;
+			bool Value = false;
 			if ( SourcePath.GetValue<bool>(Source, Value) )
 			{
 				bConversion = EConversion::Bool;

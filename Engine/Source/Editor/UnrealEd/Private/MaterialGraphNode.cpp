@@ -181,7 +181,8 @@ FText UMaterialGraphNode::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 		if (bIsPreviewExpression)
 		{
-			NodeTitle.AppendLine(LOCTEXT("PreviewExpression", "\nPreviewing"));
+			NodeTitle.AppendLine();
+			NodeTitle.AppendLine(LOCTEXT("PreviewExpression", "Previewing"));
 		}
 
 		return NodeTitle.ToText();
@@ -392,7 +393,7 @@ void UMaterialGraphNode::GetContextMenuActions(const FGraphNodeContextMenuBuilde
 
 		Context.MenuBuilder->BeginSection("MaterialEditorMenuDocumentation");
 		{
-			Context.MenuBuilder->AddMenuEntry(FMaterialEditorCommands::Get().GoToDocumentation);
+			Context.MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().GoToDocumentation);
 		}
 		Context.MenuBuilder->EndSection();
 
@@ -594,6 +595,17 @@ void UMaterialGraphNode::PostPlacedNewNode()
 		NodePosX = MaterialExpression->MaterialExpressionEditorX;
 		NodePosY = MaterialExpression->MaterialExpressionEditorY;
 		bCanRenameNode = MaterialExpression->CanRenameNode();
+	}
+}
+
+void UMaterialGraphNode::NodeConnectionListChanged()
+{
+	Super::NodeConnectionListChanged();
+
+	const UEdGraphSchema* Schema = GetSchema();
+	if (Schema != nullptr)
+	{
+		Schema->ForceVisualizationCacheClear();
 	}
 }
 

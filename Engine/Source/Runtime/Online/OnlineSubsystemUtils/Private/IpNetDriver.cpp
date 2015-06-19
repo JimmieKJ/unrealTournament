@@ -133,11 +133,12 @@ bool UIpNetDriver::InitConnect( FNetworkNotify* InNotify, const FURL& ConnectURL
 {
 	if( !InitBase( true, InNotify, ConnectURL, false, Error ) )
 	{
+		UE_LOG(LogNet, Warning, TEXT("Failed to init net driver ConnectURL: %s: %s"), *ConnectURL.ToString(), *Error);
 		return false;
 	}
 
 	// Create new connection.
-	ServerConnection = ConstructObject<UNetConnection>(NetConnectionClass);
+	ServerConnection = NewObject<UNetConnection>(GetTransientPackage(), NetConnectionClass);
 	ServerConnection->InitLocalConnection( this, Socket, ConnectURL, USOCK_Pending);
 	UE_LOG(LogNet, Log, TEXT("Game client on port %i, rate %i"), ConnectURL.Port, ServerConnection->CurrentNetSpeed );
 
@@ -151,6 +152,7 @@ bool UIpNetDriver::InitListen( FNetworkNotify* InNotify, FURL& LocalURL, bool bR
 {
 	if( !InitBase( false, InNotify, LocalURL, bReuseAddressAndPort, Error ) )
 	{
+		UE_LOG(LogNet, Warning, TEXT("Failed to init net driver ListenURL: %s: %s"), *LocalURL.ToString(), *Error);
 		return false;
 	}
 
@@ -262,7 +264,7 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 
 				if (bAcceptingConnection)
 				{
-					Connection = ConstructObject<UIpConnection>(NetConnectionClass);
+					Connection = NewObject<UIpConnection>(GetTransientPackage(), NetConnectionClass);
                     check(Connection);
 					Connection->InitRemoteConnection( this, Socket,  FURL(), *FromAddr, USOCK_Open);
 					Notify->NotifyAcceptedConnection( Connection );
@@ -293,7 +295,7 @@ void UIpNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Functio
 			for (int32 i=0; i<ClientConnections.Num(); ++i)
 			{
 				Connection = ClientConnections[i];
-				if (Connection && Connection->Viewer)
+				if (Connection && Connection->ViewTarget)
 				{
 					// Do relevancy check if unreliable.
 					// Reliables will always go out. This is odd behavior. On one hand we wish to garuntee "reliables always get there". On the other
@@ -306,7 +308,7 @@ void UIpNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Functio
 					if ((Function->FunctionFlags & FUNC_NetReliable) == 0)
 					{
 						FNetViewer Viewer(Connection, 0.f);
-						IsRelevant = Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.Viewer, Viewer.ViewLocation);
+						IsRelevant = Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation);
 					}
 					
 					if (IsRelevant)
@@ -321,6 +323,12 @@ void UIpNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Functio
 				}
 			}			
 
+			// Replicate any RPCs to the replay net driver so that they can get saved in network replays
+			UNetDriver* NetDriver = GEngine->FindNamedNetDriver(GetWorld(), NAME_DemoNetDriver);
+			if (NetDriver)
+			{
+				NetDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject);
+			}
 			// Return here so we don't call InternalProcessRemoteFunction again at the bottom of this function
 			return;
 		}

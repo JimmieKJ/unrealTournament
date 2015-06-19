@@ -1,16 +1,30 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
-#include "TimerManager.h"
+#include "Tickable.h"
 #include "LevelBounds.generated.h"
+
+
+
+/**
+ *  Ticks only in the editor, regardless of viewport 'Realtime' option
+ */
+class FEditorTickableLevelBounds 
+#if WITH_EDITOR
+	: FTickableGameObject
+#endif
+{
+};
 
 /**
  *
  * Defines level bounds
  * Updates bounding box automatically based on actors transformation changes or holds fixed user defined bounding box
- * 
+ * Uses only actors where AActor::IsLevelBoundsRelevant() == true
  */
 UCLASS(hidecategories=(Advanced, Collision, Display, Rendering, Physics, Input), showcategories=("Input|MouseInput", "Input|TouchInput"), MinimalAPI)
-class ALevelBounds : public AActor
+class ALevelBounds 
+	: public AActor
+	, public FEditorTickableLevelBounds 
 {
 	GENERATED_UCLASS_BODY()
 		
@@ -29,7 +43,7 @@ class ALevelBounds : public AActor
 
 	/** @return Bounding box which includes all relevant actors bounding boxes belonging to specified level */
 	ENGINE_API static FBox CalculateLevelBounds(ULevel* InLevel);
-		
+
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 	virtual void PostEditMove(bool bFinished) override;
@@ -37,8 +51,8 @@ class ALevelBounds : public AActor
 	virtual void PostRegisterAllComponents() override;
 	virtual void PostUnregisterAllComponents() override;
 	
-	/** Tells actors that level bounds was changed so actor bounds should be recalculated  */
-	void OnLevelBoundsDirtied();
+	/** Marks level bounds as dirty so they will be recalculated on next tick */
+	void MarkLevelBoundsDirty();
 
 	/** @return True if there were no actors contributing to bounds and we are currently using the default bounds */
 	ENGINE_API bool IsUsingDefaultBounds() const;
@@ -47,10 +61,12 @@ class ALevelBounds : public AActor
 	ENGINE_API void UpdateLevelBoundsImmediately();
 	
 private:
+	/** FTickableGameObject interface */
+	virtual void Tick(float DeltaTime) override;
+	virtual TStatId GetStatId() const override;
+	virtual bool IsTickable() const override;
+	virtual bool IsTickableInEditor() const override;
 	
-	/** Handle for efficient management of OnTimerTick timer */
-	FTimerHandle TimerHandle_OnTimerTick;
-
 	/** Updates this actor bounding box by summing all level actors bounding boxes  */
 	void UpdateLevelBounds();
 
@@ -63,18 +79,12 @@ private:
 	/** Called whenever any actor added or removed  */
 	void OnLevelActorAddedRemoved(AActor* InActor);
 
-	/** Timer tick for auto updating level bounds  */
-	void OnTimerTick();
-
 	/** Subscribes for actors transformation events */
 	void SubscribeToUpdateEvents();
 	
 	/** Unsubscribes from actors transformation events */
 	void UnsubscribeFromUpdateEvents();
 	
-	/** Whether this actor is currently subscribed to transformation events */
-	bool bSubscribedToEvents;
-
 	/** Whether currently level bounds is dirty and needs to be updated  */
 	bool bLevelBoundsDirty;
 

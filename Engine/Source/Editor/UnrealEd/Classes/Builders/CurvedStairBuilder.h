@@ -10,7 +10,11 @@
 UCLASS(MinimalAPI, autoexpandcategories=BrushSettings, EditInlineNew,meta=(DisplayName="Curved Stair"))
 class UCurvedStairBuilder : public UEditorBrushBuilder
 {
-	GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
+
+public:
+	UCurvedStairBuilder(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	/** The radius of the inner curve of the stair */
 	UPROPERTY(EditAnywhere, Category=BrushSettings, meta=(ClampMin = "1"))

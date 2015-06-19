@@ -5,10 +5,14 @@
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemPackage.h"
 
+DECLARE_DELEGATE(FNextTickDelegate);
+
 /**
  *	FOnlineSubsystemImpl - common functionality to share across online platforms, not intended for direct use
  */
-class ONLINESUBSYSTEM_API FOnlineSubsystemImpl : public IOnlineSubsystem
+class ONLINESUBSYSTEM_API FOnlineSubsystemImpl 
+	: public IOnlineSubsystem
+	, public FTickerObjectBase
 {
 protected:
 
@@ -28,6 +32,12 @@ protected:
 	/** Load in any named interfaces specified by the ini configuration */
 	void InitNamedInterfaces();
 
+	/** Queue to hold callbacks scheduled for next tick using ExecuteNextTick */
+	TQueue<FNextTickDelegate, EQueueMode::Mpsc> NextTickQueue;
+
+	/** Buffer to hold callbacks for the current tick (so it's safe to call ExecuteNextTick within a tick callback) */
+	TArray<FNextTickDelegate> CurrentTickBuffer;
+
 public:
 	
 	virtual ~FOnlineSubsystemImpl();
@@ -44,12 +54,30 @@ public:
 
 	virtual void SetUsingMultiplayerFeatures(const FUniqueNetId& UniqueId, bool bUsingMP) override {};
 
+	// FTickerObjectBase
+
+	virtual bool Tick(float DeltaTime) override;
+
 	// FOnlineSubsystemImpl
 
 	/**
 	 * @return the name of the online subsystem instance
 	 */
 	FName GetInstanceName() const { return InstanceName; }
+
+	/**
+	 * Queue a delegate to be executed on the next tick
+	 */
+	void ExecuteDelegateNextTick(const FNextTickDelegate& Callback);
+
+	/**
+	 * Templated helper for calling ExecuteDelegateNextTick with a lambda function
+	 */
+	template<typename LAMBDA_TYPE>
+	FORCEINLINE void ExecuteNextTick(LAMBDA_TYPE&& Callback)
+	{
+		ExecuteDelegateNextTick(FNextTickDelegate::CreateLambda(Callback));
+	}
 
 	/** Name given to default OSS instances (disambiguates for PIE) */
 	static const FName DefaultInstanceName;

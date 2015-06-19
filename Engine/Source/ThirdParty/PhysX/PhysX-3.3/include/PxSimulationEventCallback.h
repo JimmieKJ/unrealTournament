@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -190,7 +173,7 @@ struct PxContactPairExtraDataIterator
 	\brief Advances the iterator to next set of extra data items.
 	
 	The contact pair extra data stream contains sets of items as requested by the corresponding #PxPairFlag flags
-	::ePRE_SOLVER_VELOCITY, ::ePOST_SOLVER_VELOCITY, ::eCONTACT_EVENT_POSE. A set can contain one
+	#PxPairFlag::ePRE_SOLVER_VELOCITY, #PxPairFlag::ePOST_SOLVER_VELOCITY, #PxPairFlag::eCONTACT_EVENT_POSE. A set can contain one
 	item of each plus the PxContactPairIndex item. This method parses the stream and points the iterator
 	member variables to the corresponding items of the current set, if they are available. If CCD is not enabled,
 	you should only get one set of items. If CCD with multiple passes is enabled, you might get more than one item
@@ -324,8 +307,11 @@ struct PxContactPairHeaderFlag
 {
 	enum Enum
 	{
-		eDELETED_ACTOR_0				= (1<<0),	//!< The actor with index 0 has been deleted.
-		eDELETED_ACTOR_1				= (1<<1)	//!< The actor with index 1 has been deleted.
+		eREMOVED_ACTOR_0				= (1<<0),			//!< The actor with index 0 has been removed from the scene.
+		eREMOVED_ACTOR_1				= (1<<1),			//!< The actor with index 1 has been removed from the scene.
+		PX_DEPRECATED eDELETED_ACTOR_0	= eREMOVED_ACTOR_0,	//!< \deprecated use eREMOVED_ACTOR_0 instead
+		PX_DEPRECATED eDELETED_ACTOR_1	= eREMOVED_ACTOR_1	//!< \deprecated use eREMOVED_ACTOR_1 instead
+		
 	};
 };
 
@@ -395,14 +381,24 @@ struct PxContactPairFlag
 	enum Enum
 	{
 		/**
-		\brief The shape with index 0 has been deleted.
+		\brief The shape with index 0 has been removed from the actor/scene.
 		*/
-		eDELETED_SHAPE_0				= (1<<0),
+		eREMOVED_SHAPE_0				= (1<<0),
 
 		/**
-		\brief The shape with index 1 has been deleted.
+		\brief The shape with index 1 has been removed from the actor/scene.
 		*/
-		eDELETED_SHAPE_1				= (1<<1),
+		eREMOVED_SHAPE_1				= (1<<1),
+
+		/**
+		\deprecated use eREMOVED_SHAPE_0 instead
+		*/
+		PX_DEPRECATED eDELETED_SHAPE_0	= eREMOVED_SHAPE_0,
+
+		/**
+		\deprecated use eREMOVED_SHAPE_1 instead
+		*/
+		PX_DEPRECATED eDELETED_SHAPE_1	= eREMOVED_SHAPE_1,
 		
 		/**
 		\brief First actor pair contact.
@@ -469,7 +465,7 @@ struct PxContactPairPoint
 	PxReal	separation;
 
 	/**
-	\brief The normal of the contacting surfaces at the contact point.  
+	\brief The normal of the contacting surfaces at the contact point. The normal direction points from the second shape to the first shape.
 	*/
 	PxVec3	normal;
 
@@ -676,8 +672,11 @@ struct PxTriggerPairFlag
 {
 	enum Enum
 	{
-		eDELETED_SHAPE_TRIGGER			= (1<<0),	//!< The trigger shape has been deleted.
-		eDELETED_SHAPE_OTHER			= (1<<1)	//!< The shape causing the trigger event has been deleted.
+		eREMOVED_SHAPE_TRIGGER					= (1<<0),					//!< The trigger shape has been removed from the actor/scene.
+		eREMOVED_SHAPE_OTHER					= (1<<1),					//!< The shape causing the trigger event has been removed from the actor/scene.
+		PX_DEPRECATED eDELETED_SHAPE_TRIGGER	= eREMOVED_SHAPE_TRIGGER,	//!< \deprecated use eREMOVED_SHAPE_TRIGGER instead
+		PX_DEPRECATED eDELETED_SHAPE_OTHER		= eREMOVED_SHAPE_OTHER,		//!< \deprecated use eREMOVED_SHAPE_OTHER instead
+		eNEXT_FREE								= (1<<2)					//!< For internal use only.
 	};
 };
 
@@ -711,7 +710,7 @@ struct PxTriggerPair
 	PxShape*				otherShape;		//!< The shape causing the trigger event. If collision between trigger shapes is enabled, then this member might point to a trigger shape as well.
 	PxRigidActor*			otherActor;		//!< The actor to which otherShape is attached
 	PxPairFlag::Enum		status;			//!< Type of trigger event (eNOTIFY_TOUCH_FOUND or eNOTIFY_TOUCH_LOST). eNOTIFY_TOUCH_PERSISTS events are not supported.
-	PxTriggerPairFlags		flags;			//!< Additional information on the pair
+	PxTriggerPairFlags		flags;			//!< Additional information on the pair (see #PxTriggerPairFlag)
 };
 
 
@@ -734,16 +733,18 @@ struct PxConstraintInfo
 
 
 /**
- \brief An interface class that the user can implement in order to receive simulation events.
+\brief An interface class that the user can implement in order to receive simulation events.
 
-  \note SDK state should not be modified from within the callbacks. In particular objects should not
-  be created or destroyed. If state modification is needed then the changes should be stored to a buffer
-  and performed after the simulation step.
+The events get sent during the call to either #PxScene::fetchResults() or #PxScene::flushSimulation() with sendPendingReports=true.
 
-  <b>Threading:</b> It is not necessary to make this class thread safe as it will only be called in the context of the
-  user thread.
+\note SDK state should not be modified from within the callbacks. In particular objects should not
+be created or destroyed. If state modification is needed then the changes should be stored to a buffer
+and performed after the simulation step.
 
- @see PxScene.setSimulationEventCallback() PxScene.getSimulationEventCallback()
+<b>Threading:</b> It is not necessary to make this class thread safe as it will only be called in the context of the
+user thread.
+
+@see PxScene.setSimulationEventCallback() PxScene.getSimulationEventCallback()
 */
 class PxSimulationEventCallback
 	{
@@ -763,7 +764,7 @@ class PxSimulationEventCallback
 	virtual void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count) = 0;
 
 	/**
-	\brief This is called during PxScene::fetchResults with the actors which have just been woken up.
+	\brief This is called with the actors which have just been woken up.
 
 	\note Only supported by rigid bodies yet.
 	\note Only called on actors for which the PxActorFlag eSEND_SLEEP_NOTIFIES has been set.
@@ -781,7 +782,7 @@ class PxSimulationEventCallback
 	virtual void onWake(PxActor** actors, PxU32 count) = 0;
 
 	/**
-	\brief This is called during PxScene::fetchResults with the actors which have just been put to sleep.
+	\brief This is called with the actors which have just been put to sleep.
 
 	\note Only supported by rigid bodies yet.
 	\note Only called on actors for which the PxActorFlag eSEND_SLEEP_NOTIFIES has been set.
@@ -800,8 +801,7 @@ class PxSimulationEventCallback
 	virtual void onSleep(PxActor** actors, PxU32 count) = 0;
 
 	/**
-	\brief The user needs to implement this interface class in order to be notified when
-	certain contact events occur.
+	\brief This is called when certain contact events occur.
 
 	The method will be called for a pair of actors if one of the colliding shape pairs requested contact notification.
 	You request which events are reported using the filter shader/callback mechanism (see #PxSimulationFilterShader,
@@ -818,8 +818,8 @@ class PxSimulationEventCallback
 	*/
 	virtual void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs) = 0;
 
-	/*
-	\brief This is called during PxScene::fetchResults with the current trigger pair events.
+	/**
+	\brief This is called with the current trigger pair events.
 
 	Shapes which have been marked as triggers using PxShapeFlag::eTRIGGER_SHAPE will send events
 	according to the pair flag specification in the filter shader (see #PxPairFlag, #PxSimulationFilterShader).

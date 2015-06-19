@@ -70,6 +70,11 @@ UEdGraphPin* UEdGraphNode::CreatePin(EEdGraphPinDirection Dir, const FString& Pi
 	NewPin->PinType.bIsConst = bIsConst;
 	NewPin->SetFlags(RF_Transactional);
 
+	if (HasAnyFlags(RF_Transient))
+	{
+		NewPin->SetFlags(RF_Transient);
+	}
+
 	Modify(false);
 	if ( Pins.IsValidIndex( Index ) )
 	{
@@ -102,13 +107,26 @@ UEdGraphPin* UEdGraphNode::FindPinChecked(const FString& PinName) const
 	return Result;
 }
 
-void UEdGraphNode::DiscardPin(UEdGraphPin* Pin)
+bool UEdGraphNode::RemovePin(UEdGraphPin* Pin)
 {
 	check( Pin );
 	
 	Modify();
-	Pins.Remove( Pin );
-	Pin->BreakAllPinLinks();
+	UEdGraphPin* RootPin = (Pin->ParentPin != nullptr)? Pin->ParentPin : Pin;
+	RootPin->BreakAllPinLinks();
+
+	if (Pins.Remove( RootPin ))
+	{
+		// Remove any children pins to ensure the entirety of the pin's representation is removed
+		for (UEdGraphPin* ChildPin : RootPin->SubPins)
+		{
+			Pins.Remove(ChildPin);
+			ChildPin->Modify();
+			ChildPin->BreakAllPinLinks();
+		}
+		return true;
+	}
+	return false;
 }
 
 void UEdGraphNode::BreakAllNodeLinks()
@@ -349,9 +367,17 @@ void UEdGraphNode::AddSearchMetaDataInfo(TArray<struct FSearchTagDataPair>& OutT
 
 void UEdGraphNode::OnUpdateCommentText( const FString& NewComment )
 {
-	const FScopedTransaction Transaction( LOCTEXT( "CommentCommitted", "Comment Changed" ) );
-	Modify();
-	NodeComment	= NewComment;
+	if( !NodeComment.Equals( NewComment ))
+	{
+		const FScopedTransaction Transaction( LOCTEXT( "CommentCommitted", "Comment Changed" ) );
+		Modify();
+		NodeComment	= NewComment;
+	}
+}
+
+FText UEdGraphNode::GetKeywords() const
+{
+	return GetClass()->GetMetaDataText(TEXT("Keywords"), TEXT("UObjectKeywords"), GetClass()->GetFullGroupName(false));
 }
 
 #endif	//#if WITH_EDITOR

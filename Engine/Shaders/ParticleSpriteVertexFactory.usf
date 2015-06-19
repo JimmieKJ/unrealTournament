@@ -231,6 +231,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 {
 	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
 	Result.WorldPosition = WorldPosition - View.PreViewTranslation.xyz;
+	Result.PrevWorldPosition = WorldPosition - View.PrevPreViewTranslation.xyz;
 	Result.VertexColor = Input.Color;
 	Result.TangentToWorld = mul(TangentToLocal, GetLocalToWorld3x3()); 
 	Result.Particle.MacroUV = SpriteVF.MacroUVParameters;

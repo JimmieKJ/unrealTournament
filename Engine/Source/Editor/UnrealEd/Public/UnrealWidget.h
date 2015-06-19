@@ -16,6 +16,7 @@ public:
 		WM_None			= -1,
 		WM_Translate,
 		WM_TranslateRotateZ,
+		WM_2D,
 		WM_Rotate,
 		WM_Scale,
 		WM_Max,
@@ -44,7 +45,7 @@ public:
 	 * Draws an arrow head line for a specific axis.
 	 * @param	bCubeHead		[opt] If true, render a cube at the axis tips.  If false (the default), render a cone.
 	 */
-	void Render_Axis(const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, FMatrix& InMatrix, UMaterialInterface* InMaterial, const FLinearColor& InColor, FVector2D& OutAxisEnd, const FVector& InScale, bool bDrawWidget, bool bCubeHead=false);
+	void Render_Axis(const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, FMatrix& InMatrix, UMaterialInterface* InMaterial, const FLinearColor& InColor, FVector2D& OutAxisDir, const FVector& InScale, bool bDrawWidget, bool bCubeHead=false);
 
 	/**
 	 * Draws a cube
@@ -72,9 +73,14 @@ public:
 	void Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInterface* PDI, FEditorViewportClient* ViewportClient, const FVector& InLocation, bool bDrawWidget );
 
 	/**
+	* Draws the combined 2D widget.
+	*/
+	void Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FEditorViewportClient* ViewportClient, const FVector& InLocation, bool bDrawWidget);
+
+	/**
 	 * Converts mouse movement on the screen to widget axis movement/rotation.
 	 */
-	void ConvertMouseMovementToAxisMovement( FEditorViewportClient* InViewportClient, const FVector& InLocation, const FVector& InDiff, FVector& InDrag, FRotator& InRotation, FVector& InScale );
+	void ConvertMouseMovementToAxisMovement( FEditorViewportClient* InViewportClient, bool bInUsedDragModifier, FVector& InDiff, FVector& OutDrag, FRotator& OutRotation, FVector& OutScale );
 
 	/**
 	 * Absolute Translation conversion from mouse movement on the screen to widget axis movement/rotation.
@@ -120,9 +126,20 @@ public:
 		return CurrentAxis;
 	}
 
+	/** 
+	 * @return	The widget origin in viewport space.
+	 */
 	FVector2D GetOrigin() const
 	{
 		return Origin;
+	}
+
+	/**
+	 * @return	The mouse drag start position in viewport space.
+	 */
+	void SetDragStartPosition(const FVector2D& Position)
+	{
+		DragStartPos = Position;
 	}
 
 	/**
@@ -260,8 +277,9 @@ private:
 	 * @param InDirectionToWidget - Direction from camera to the widget
 	 * @param InColor - The color associated with the axis of rotation
 	 * @param InScale - Multiplier to maintain a constant screen size for rendering the widget
+	 * @param OutAxisDir - Viewport-space direction of rotation arc chord is placed here
 	 */
-	void DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, const FVector& InLocation, const FVector& Axis0, const FVector& Axis1, const FVector& InDirectionToWidget, const FColor& InColor, const float InScale);
+	void DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, const FVector& InLocation, const FVector& Axis0, const FVector& Axis1, const FVector& InDirectionToWidget, const FColor& InColor, const float InScale, FVector2D& OutAxisEnd);
 
 	/**
 	 * If actively dragging, draws a ring representing the potential rotation of the selected objects, snap ticks, and "delta" markers
@@ -340,8 +358,12 @@ private:
 	/** The axis currently being moused over */
 	EAxisList::Type CurrentAxis;
 
-	/** Locations of the various points on the widget */
-	FVector2D Origin, XAxisEnd, YAxisEnd, ZAxisEnd;
+	/** Viewport space origin location of the widget */
+	FVector2D Origin;
+	/** Viewport space direction vectors of the axes on the widget */
+	FVector2D XAxisDir, YAxisDir, ZAxisDir;
+	/** Drag start position in viewport space */
+	FVector2D DragStartPos;
 
 	enum
 	{
@@ -389,6 +411,8 @@ private:
 	bool bSnapEnabled;
 	/** Default visibility for the widget if an Editor Mode Tool doesn't override it */
 	bool bDefaultVisibility;
+	/** Whether we are drawing the full ring in rotation mode (ortho viewports only) */
+	bool bIsOrthoDrawingFullRing;
 
 	/** Total delta rotation applied since the widget was dragged */
 	float TotalDeltaRotation;
@@ -412,7 +436,7 @@ struct HWidgetAxis : public HHitProxy
 		Axis(InAxis),
 		bDisabled(InbDisabled) {}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		if (bDisabled)
 		{
@@ -429,7 +453,7 @@ struct HWidgetAxis : public HHitProxy
 	 *
 	 * @return	true if translucent primitives are always allowed with this hit proxy; false otherwise
 	 */
-	virtual bool AlwaysAllowsTranslucentPrimitives() const
+	virtual bool AlwaysAllowsTranslucentPrimitives() const override
 	{
 		return true;
 	}

@@ -161,12 +161,8 @@ void SConsoleInputBox::Construct( const FArguments& InArgs )
 			)
 	];
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
 void SConsoleInputBox::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	if (!GIntraFrameDebuggingGameThread && !IsEnabled())
 	{
 		SetEnabled(true);
@@ -662,9 +658,11 @@ void SOutputLog::Construct( const FArguments& InArgs )
 	MessagesTextBox = SNew(SMultiLineEditableTextBox)
 		.Style(FEditorStyle::Get(), "Log.TextBox")
 		.TextStyle(FEditorStyle::Get(), "Log.Normal")
+		.ForegroundColor(FLinearColor::Gray)
 		.Marshaller(MessagesTextMarshaller)
 		.IsReadOnly(true)
 		.AlwaysShowScrollbars(true)
+		.OnVScrollBarUserScrolled(this, &SOutputLog::OnUserScrolled)
 		.ContextMenuExtender(this, &SOutputLog::ExtendTextBoxMenu);
 
 	ChildSlot
@@ -692,6 +690,7 @@ void SOutputLog::Construct( const FArguments& InArgs )
 	
 	GLog->AddOutputDevice(this);
 
+	bIsUserScrolled = false;
 	RequestForceScroll();
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -769,8 +768,7 @@ void SOutputLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const
 	if ( MessagesTextMarshaller->AppendMessage(V, Verbosity, Category) )
 	{
 		// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
-		const float DistanceFromBottom = MessagesTextBox->GetVScrollBar()->DistanceFromBottom();
-		if( DistanceFromBottom <= KINDA_SMALL_NUMBER )
+		if( !bIsUserScrolled )
 		{
 			MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));
 		}
@@ -799,6 +797,12 @@ void SOutputLog::OnClearLog()
 
 	MessagesTextMarshaller->ClearMessages();
 	MessagesTextBox->Refresh();
+	bIsUserScrolled = false;
+}
+
+void SOutputLog::OnUserScrolled(float ScrollOffset)
+{
+	bIsUserScrolled = !FMath::IsNearlyEqual(ScrollOffset, 1.0f);
 }
 
 bool SOutputLog::CanClearLog() const
@@ -816,5 +820,6 @@ void SOutputLog::RequestForceScroll()
 	if(MessagesTextMarshaller->GetNumMessages() > 0)
 	{
 		MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));
+		bIsUserScrolled = false;
 	}
 }

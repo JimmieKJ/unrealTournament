@@ -49,14 +49,14 @@ FIndexBufferRHIRef FEmptyDynamicRHI::RHICreateIndexBuffer(uint32 Stride, uint32 
 
 void* FEmptyDynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRHI, uint32 Offset, uint32 Size, EResourceLockMode LockMode)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(IndexBuffer,IndexBuffer);
+	FEmptyIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 
 	return (uint8*)IndexBuffer->Lock(LockMode, Size) + Offset;
 }
 
 void FEmptyDynamicRHI::RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(IndexBuffer,IndexBuffer);
+	FEmptyIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 
 	IndexBuffer->Unlock();
 }

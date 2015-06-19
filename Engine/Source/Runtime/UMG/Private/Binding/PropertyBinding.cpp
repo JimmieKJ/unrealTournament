@@ -5,6 +5,8 @@
 
 #define LOCTEXT_NAMESPACE "UMG"
 
+DEFINE_STAT(STAT_UMGBinding);
+
 UPropertyBinding::UPropertyBinding()
 {
 }

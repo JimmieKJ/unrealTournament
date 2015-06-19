@@ -81,13 +81,9 @@ struct FSearchData
 	/** Cached to determine if the Blueprint is seen as no longer valid, allows it to be cleared out next save to disk */
 	bool bMarkedForDeletion;
 
-	/** Retrieval ID from the DDC, set to INDEX_None when retrieval is not necessary */
-	int32 DDCRetrievalID;
-
 	FSearchData()
 		: Blueprint(nullptr)
 		, bMarkedForDeletion(false)
-		, DDCRetrievalID(INDEX_NONE)
 	{
 
 	}
@@ -170,9 +166,51 @@ public:
 	/** Serializes an FText to memory and converts the memory into a string of hex characters */
 	static FString ConvertFTextToHexString(FText InValue);
 
+	/** Returns the number of uncached Blueprints */
+	int32 GetNumberUncachedBlueprints() const { return UncachedBlueprints.Num(); };
+
+	/**
+	 * Starts caching all uncached Blueprints at a rate of 1 per tick
+	 *
+	 * @param InSourceWidget		The source FindInBlueprints widget, this widget will be informed when caching is complete
+	 */
+	void CacheAllUncachedBlueprints(TWeakPtr< class SFindInBlueprints > InSourceWidgetm, FWidgetActiveTimerDelegate& OutActiveTimerDelegate);
+	void OnCacheAllUncachedBlueprints(bool bInSourceControlActive);
+
+	/** Stops the caching process where it currently is at, the rest can be continued later */
+	void CancelCacheAll(SFindInBlueprints* InFindInBlueprintWidget);
+
+	/** Returns the current index in the caching */
+	int32 GetCurrentCacheIndex() const;
+
+	/** Returns the name of the current Blueprint being cached */
+	FString GetCurrentCacheBlueprintName() const;
+
+	/** Returns the progress complete on the caching */
+	float GetCacheProgress() const;
+
+	/** Returns the list of Blueprint paths that failed to cache */
+	TArray<FString> GetFailedToCachePathList() const { return FailedToCachePaths; }
+
+	/** Returns the number of Blueprints that failed to cache */
+	int32 GetFailedToCacheCount() const { return FailedToCachePaths.Num(); }
+
+	/** Returns TRUE if caching failed */
+	bool HasCachingFailed() const { return FailedToCachePaths.Num() > 0; };
+	/**
+	 * Callback to note that Blueprint caching is complete
+	 *
+	 * @param InNumberCached		The number of Blueprints cached, to be chopped off the existing array so the rest (if any) can be finished later
+	 */
+	void FinishedCachingBlueprints(int32 InNumberCached, TArray<FString>& InFailedToCacheList);
+
+	/** Returns TRUE if Blueprints are being cached. */
+	bool IsCacheInProgress() const;
+
 	/** Serializes an FString to memory and converts the memory into a string of hex characters */
 	static FString ConvertFStringToHexString(FString InValue);
 
+	/** Given a fully constructed Find-in-Blueprint FString of searchable data, will parse and construct a JsonObject */
 	static TSharedPtr< class FJsonObject > ConvertJsonStringToObject(FString InJsonString);
 
 private:
@@ -206,9 +244,19 @@ private:
 	/** Builds the cache from all available Blueprint assets that the asset registry has discovered at the time of this function. Occurs on startup */
 	void BuildCache();
 
-	/** Retrieves Find-in-Blueprint data from the DDC */
-	void RetrieveDDCData(FSearchData& InOutSearchData, FName InBlueprintPath);
+	/**
+	 * Helper to properly add a Blueprint's SearchData to the database
+	 *
+	 * @param InSearchData		Data to add to the database
+	 * @return					Index into the SearchArray for looking up the added item
+	 */
+	int32 AddSearchDataToDatabase(FSearchData& InSearchData);
 
+	/** Removes a Blueprint from being managed by the FiB system by passing in the UBlueprint's path */
+	void RemoveBlueprintByPath(FString InPath);
+
+	/** Removes a World Blueprint with compound FiB searchable data from being managed by the FiB system by passing in the World's path */
+	void RemoveWorldByPath(FString InPath);
 protected:
 	/** Maps the Blueprint paths to their index in the SearchArray */
 	TMap<FString, int> SearchMap;
@@ -237,6 +285,15 @@ protected:
 	/** Because we are unable to query for the module on another thread, cache it for use later */
 	class FAssetRegistryModule* AssetRegistryModule;
 
-	/** A list of all the FindInBlueprints widgets that need to be informed that caching is complete */
-	TArray< TWeakPtr<class SFindInBlueprints> > OnCachingCompleteCallbackWidgets;
+	/** FindInBlueprints widget that started the cache process */
+	TWeakPtr<SFindInBlueprints> SourceCachingWidget;
+
+	/** Blueprint paths that have not been cached for searching due to lack of data, this means that they are either older Blueprints, or the DDC cannot find the data */
+	TArray<FString> UncachedBlueprints;
+
+	/** List of paths for Blueprints that failed to cache */
+	TArray<FString> FailedToCachePaths;
+
+	/** Tickable object that does the caching of uncached Blueprints at a rate of once per tick */
+	class FCacheAllBlueprintsTickableObject* CachingObject;
 };

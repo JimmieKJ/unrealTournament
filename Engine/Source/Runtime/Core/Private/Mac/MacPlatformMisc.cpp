@@ -18,6 +18,7 @@
 #include "MacMallocZone.h"
 #include "ApplePlatformSymbolication.h"
 #include "MacPlatformCrashContext.h"
+#include "PLCrashReporter.h"
 
 #include <dlfcn.h>
 #include <IOKit/IOKitLib.h>
@@ -37,25 +38,43 @@
  * Information that cannot be obtained during a signal-handler is initialised here.
  * This ensures that we only call safe functions within the crash reporting handler.
  */
-struct MacApplicationInfo
+struct FMacApplicationInfo
 {
 	void Init()
 	{
 		SCOPED_AUTORELEASE_POOL;
 		
-		NSDictionary* SystemVersion = [NSDictionary dictionaryWithContentsOfFile: @"/System/Library/CoreServices/SystemVersion.plist"];
-		OSVersion = FString((NSString*)[SystemVersion objectForKey: @"ProductVersion"]);
-		FCStringAnsi::Strcpy(OSVersionUTF8, PATH_MAX+1, [[SystemVersion objectForKey: @"ProductVersion"] UTF8String]);
-		OSBuild = FString((NSString*)[SystemVersion objectForKey: @"ProductBuildVersion"]);
+		AppName = FApp::GetGameName();
+		FCStringAnsi::Strcpy(AppNameUTF8, PATH_MAX+1, TCHAR_TO_UTF8(*AppName));
 		
-		TArray<FString> Components;
-		OSVersion.ParseIntoArray(&Components, TEXT("."), true);
-		uint8 ComponentValues[2] = {0};
-		for(uint32 i = 0; i < Components.Num() && i < 2; i++)
+		ExecutableName = FPlatformProcess::ExecutableName();
+		
+		AppPath = FString([[NSBundle mainBundle] executablePath]);
+
+		AppBundleID = FString([[NSBundle mainBundle] bundleIdentifier]);
+
+		bIsSandboxed = FPlatformProcess::IsSandboxedApplication();
+		
+		NumCores = FPlatformMisc::NumberOfCores();
+		
+		LCID = FString::Printf(TEXT("%d"), FInternationalization::Get().GetCurrentCulture()->GetLCID());
+		
+		PrimaryGPU = FPlatformMisc::GetPrimaryGPUBrand();
+		
+		RunUUID = RunGUID();
+		
+		OSXVersion = [[NSProcessInfo processInfo] operatingSystemVersion];
+		OSVersion = FString::Printf(TEXT("%ld.%ld.%ld"), OSXVersion.majorVersion, OSXVersion.minorVersion, OSXVersion.patchVersion);
+		FCStringAnsi::Strcpy(OSVersionUTF8, PATH_MAX+1, TCHAR_TO_UTF8(*OSVersion));
+		
+		// OS X build number is only accessible on non-sandboxed applications as it resides outside the accessible sandbox
+		if(!bIsSandboxed)
 		{
-			TTypeFromString<uint8>::FromString(ComponentValues[i], *Components[i]);
+			NSDictionary* SystemVersion = [NSDictionary dictionaryWithContentsOfFile: @"/System/Library/CoreServices/SystemVersion.plist"];
+			OSBuild = FString((NSString*)[SystemVersion objectForKey: @"ProductBuildVersion"]);
 		}
-		RunningOnMavericks = ComponentValues[0] == 10 && ComponentValues[1] == 9;
+		
+		RunningOnMavericks = OSXVersion.majorVersion == 10 && OSXVersion.minorVersion == 9;
 		
 		char TempSysCtlBuffer[PATH_MAX] = {};
 		size_t TempSysCtlBufferSize = PATH_MAX;
@@ -91,12 +110,6 @@ struct MacApplicationInfo
 		MachineModel = TempSysCtlBuffer;
 		TempSysCtlBufferSize = PATH_MAX+1;
 		sysctlbyname("machdep.cpu.brand_string", MachineCPUString, &TempSysCtlBufferSize, NULL, 0);
-		
-		FMacPlatformMisc::NumberOfCores();
-		FMacPlatformMisc::NumberOfCoresIncludingHyperthreads();
-		
-		AppName = FApp::GetGameName();
-		FCStringAnsi::Strcpy(AppNameUTF8, PATH_MAX+1, TCHAR_TO_UTF8(*AppName));
 		
 		gethostname(MachineName, ARRAY_COUNT(MachineName));
 		
@@ -137,14 +150,6 @@ struct MacApplicationInfo
 		FCStringAnsi::Strcpy(CrashReportClient, PATH_MAX+1, TCHAR_TO_UTF8(*ReportClient));
 		IFileManager::Get().MakeDirectory(*ReportPath, true);
 		
-		AppPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
-		
-		AppBundleID = FString([[NSBundle mainBundle] bundleIdentifier]);
-		
-		LCID = FString::Printf(TEXT("%d"), FInternationalization::Get().GetCurrentCulture()->GetLCID());
-		
-		PrimaryGPU = FPlatformMisc::GetPrimaryGPUBrand();
-		
 		// Notification handler to check we are running from a battery - this only applies to MacBook's.
 		notify_handler_t PowerSourceNotifyHandler = ^(int32 Token){
 			RunningOnBattery = false;
@@ -175,9 +180,68 @@ struct MacApplicationInfo
 		
 		NumCores = FPlatformMisc::NumberOfCores();
 		
-		FPlatformMisc::CreateGuid(RunUUID);
+		NSString* PLCrashReportFile = [TemporaryCrashReportFolder().GetNSString() stringByAppendingPathComponent:TemporaryCrashReportName().GetNSString()];
+		[PLCrashReportFile getCString:PLCrashReportPath maxLength:PATH_MAX encoding:NSUTF8StringEncoding];
 	}
 	
+	~FMacApplicationInfo()
+	{
+		if(GMalloc != CrashMalloc)
+		{
+			delete CrashMalloc;
+		}
+		if(CrashReporter)
+		{
+			CrashReporter = nil;
+			[CrashReporter release];
+		}
+		if(PowerSourceNotification)
+		{
+			notify_cancel(PowerSourceNotification);
+			PowerSourceNotification = 0;
+		}
+	}
+	
+	static FGuid RunGUID()
+	{
+		static FGuid Guid;
+		if(!Guid.IsValid())
+		{
+			FPlatformMisc::CreateGuid(Guid);
+		}
+		return Guid;
+	}
+	
+	static FString TemporaryCrashReportFolder()
+	{
+		static FString PLCrashReportFolder;
+		if(PLCrashReportFolder.IsEmpty())
+		{
+			SCOPED_AUTORELEASE_POOL;
+			
+			NSArray* Paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
+			NSString* CacheDir = [Paths objectAtIndex: 0];
+			
+			NSString* BundleID = [[NSBundle mainBundle] bundleIdentifier];
+			if(!BundleID)
+			{
+				BundleID = [[NSProcessInfo processInfo] processName];
+			}
+			check(BundleID);
+			
+			NSString* PLCrashReportFolderPath = [CacheDir stringByAppendingPathComponent: BundleID];
+			PLCrashReportFolder = FString(PLCrashReportFolderPath);
+		}
+		return PLCrashReportFolder;
+	}
+	
+	static FString TemporaryCrashReportName()
+	{
+		static FString PLCrashReportFileName(RunGUID().ToString() + TEXT(".plcrash"));
+		return PLCrashReportFileName;
+	}
+	
+	bool bIsSandboxed;
 	bool RunningOnBattery;
 	bool RunningOnMavericks;
 	int32 PowerSourceNotification;
@@ -185,6 +249,7 @@ struct MacApplicationInfo
 	char AppNameUTF8[PATH_MAX+1];
 	char AppLogPath[PATH_MAX+1];
 	char CrashReportPath[PATH_MAX+1];
+	char PLCrashReportPath[PATH_MAX+1];
 	char CrashReportClient[PATH_MAX+1];
 	char CrashReportVideo[PATH_MAX+1];
 	char OSVersionUTF8[PATH_MAX+1];
@@ -205,12 +270,19 @@ struct MacApplicationInfo
 	FString CommandLine;
 	FString BranchBaseDir;
 	FString PrimaryGPU;
+	FString ExecutableName;
+	NSOperatingSystemVersion OSXVersion;
 	FGuid RunUUID;
+	static PLCrashReporter* CrashReporter;
+	static FMacMallocCrashHandler* CrashMalloc;
 };
-static MacApplicationInfo GMacAppInfo;
+static FMacApplicationInfo GMacAppInfo;
+PLCrashReporter* FMacApplicationInfo::CrashReporter = nullptr;
+FMacMallocCrashHandler* FMacApplicationInfo::CrashMalloc = nullptr;
 
 UpdateCachedMacMenuStateProc FMacPlatformMisc::UpdateCachedMacMenuState = nullptr;
 bool FMacPlatformMisc::bChachedMacMenuStateNeedsUpdate = true;
+id<NSObject> FMacPlatformMisc::CommandletActivity = nil;
 
 void FMacPlatformMisc::PlatformPreInit()
 {
@@ -245,6 +317,8 @@ void FMacPlatformMisc::PlatformPreInit()
 	{
 		UE_LOG(LogInit, Warning, TEXT("Failed to change open file limit, UE4 may be unstable."));
 	}
+	
+	FApplePlatformSymbolication::EnableCoreSymbolication(!FPlatformProcess::IsSandboxedApplication() && IS_PROGRAM);
 }
 
 void FMacPlatformMisc::PlatformInit()
@@ -313,6 +387,26 @@ void FMacPlatformMisc::PlatformPostInit(bool ShowSplashScreen)
 
 		UpdateWindowMenu();
 	}
+
+	if (!MacApplication)
+	{
+		// No MacApplication means that app is a dedicated server, commandline tool or the editor running a commandlet. In these cases we don't want OS X to put our app into App Nap mode.
+		CommandletActivity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:IsRunningCommandlet() ? @"Running commandlet" : @"Running dedicated server"];
+		[CommandletActivity retain];
+	}
+}
+
+void FMacPlatformMisc::PlatformTearDown()
+{
+	if (CommandletActivity)
+	{
+		MainThreadCall(^{
+			[[NSProcessInfo processInfo] endActivity:CommandletActivity];
+			[CommandletActivity release];
+		}, NSDefaultRunLoopMode, false);
+		CommandletActivity = nil;
+	}
+	FApplePlatformSymbolication::EnableCoreSymbolication(false);
 }
 
 void FMacPlatformMisc::UpdateWindowMenu()
@@ -329,7 +423,7 @@ void FMacPlatformMisc::UpdateWindowMenu()
 	}
 
 	NSMenuItem* MinimizeItem = [[[NSMenuItem alloc] initWithTitle:@"Minimize" action:@selector(miniaturize:) keyEquivalent:@"m"] autorelease];
-	NSMenuItem* ZoomItem = [[[NSMenuItem alloc] initWithTitle:@"Zoom" action:@selector(performZoom:) keyEquivalent:@""] autorelease];
+	NSMenuItem* ZoomItem = [[[NSMenuItem alloc] initWithTitle:@"Zoom" action:@selector(zoom:) keyEquivalent:@""] autorelease];
 	NSMenuItem* CloseItem = [[[NSMenuItem alloc] initWithTitle:@"Close" action:@selector(performClose:) keyEquivalent:@"w"] autorelease];
 	NSMenuItem* BringAllToFrontItem = [[[NSMenuItem alloc] initWithTitle:@"Bring All to Front" action:@selector(arrangeInFront:) keyEquivalent:@""] autorelease];
 
@@ -345,7 +439,7 @@ void FMacPlatformMisc::ActivateApplication()
 {
 	MainThreadCall(^{
 		[NSApp activateIgnoringOtherApps:YES];
-	});
+	}, NSDefaultRunLoopMode, false);
 }
 
 bool FMacPlatformMisc::ControlScreensaver(EScreenSaverAction Action)
@@ -489,16 +583,13 @@ void FMacPlatformMisc::PumpMessages( bool bFromMainLoop )
 	{
 		ProcessGameThreadEvents();
 
-		if (MacApplication && !MacApplication->IsProcessingNSEvent() && IsInGameThread())
+		if (MacApplication && !MacApplication->IsProcessingDeferredEvents() && IsInGameThread())
 		{
 			if (UpdateCachedMacMenuState && bChachedMacMenuStateNeedsUpdate)
 			{
 				UpdateCachedMacMenuState();
 				bChachedMacMenuStateNeedsUpdate = false;
 			}
-
-			MacApplication->InvalidateTextLayouts();
-			MacApplication->CloseQueuedWindows();
 		}
 	}
 }
@@ -600,6 +691,11 @@ void FMacPlatformMisc::RequestExit( bool Force )
 	}
 }
 
+void FMacPlatformMisc::RequestMinimize()
+{
+	[NSApp hide : nil];
+}
+
 const TCHAR* FMacPlatformMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error)
 {
 	// There's no Mac equivalent for GetLastError()
@@ -610,15 +706,20 @@ const TCHAR* FMacPlatformMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 Buf
 
 void FMacPlatformMisc::ClipboardCopy(const TCHAR* Str)
 {
-	SCOPED_AUTORELEASE_POOL;
+	// Don't attempt to copy the text to the clipboard if we've crashed or we'll crash again & become unkillable.
+	// The MallocZone used for crash reporting will be enabled before this call if we've crashed so that will do for testing.
+	if ( GMalloc != FMacApplicationInfo::CrashMalloc )
+	{
+		SCOPED_AUTORELEASE_POOL;
 
-	CFStringRef CocoaString = FPlatformString::TCHARToCFString(Str);
-	NSPasteboard *Pasteboard = [NSPasteboard generalPasteboard];
-	[Pasteboard clearContents];
-	NSPasteboardItem *Item = [[[NSPasteboardItem alloc] init] autorelease];
-	[Item setString: (NSString *)CocoaString forType: NSPasteboardTypeString];
-	[Pasteboard writeObjects:[NSArray arrayWithObject:Item]];
-	CFRelease(CocoaString);
+		CFStringRef CocoaString = FPlatformString::TCHARToCFString(Str);
+		NSPasteboard *Pasteboard = [NSPasteboard generalPasteboard];
+		[Pasteboard clearContents];
+		NSPasteboardItem *Item = [[[NSPasteboardItem alloc] init] autorelease];
+		[Item setString: (NSString *)CocoaString forType: NSPasteboardTypeString];
+		[Pasteboard writeObjects:[NSArray arrayWithObject:Item]];
+		CFRelease(CocoaString);
+	}
 }
 
 void FMacPlatformMisc::ClipboardPaste(class FString& Result)
@@ -656,12 +757,7 @@ EAppReturnType::Type FMacPlatformMisc::MessageBoxExt(EAppMsgType::Type MsgType, 
 {
 	SCOPED_AUTORELEASE_POOL;
 
-	if (MacApplication)
-	{
-		MacApplication->UseMouseCaptureWindow(false);
-	}
-
-	EAppReturnType::Type RetValue = MainThreadReturn(^{
+	EAppReturnType::Type ReturnValue = MainThreadReturn(^{
 		EAppReturnType::Type RetValue = EAppReturnType::Cancel;
 		NSInteger Result;
 
@@ -824,12 +920,7 @@ EAppReturnType::Type FMacPlatformMisc::MessageBoxExt(EAppMsgType::Type MsgType, 
 		return RetValue;
 	});
 
-	if (MacApplication)
-	{
-		MacApplication->UseMouseCaptureWindow(true);
-	}
-
-	return RetValue;
+	return ReturnValue;
 }
 
 static bool HandleFirstInstall()
@@ -890,6 +981,7 @@ int32 FMacPlatformMisc::NumberOfCoresIncludingHyperthreads()
 
 void FMacPlatformMisc::NormalizePath(FString& InPath)
 {
+	SCOPED_AUTORELEASE_POOL;
 	if (InPath.Len() > 1)
 	{
 		const bool bAppendSlash = InPath[InPath.Len() - 1] == '/'; // NSString will remove the trailing slash, if present, so we need to restore it after conversion
@@ -1054,6 +1146,25 @@ int32 FMacPlatformMisc::ConvertSlateYPositionToCocoa(int32 YPosition)
 	return -((YPosition - WholeWorkspaceOrigin) - WholeWorkspaceHeight + 1);
 }
 
+int32 FMacPlatformMisc::ConvertCocoaYPositionToSlate(int32 YPosition)
+{
+    NSArray* AllScreens = [NSScreen screens];
+    NSScreen* PrimaryScreen = (NSScreen*)[AllScreens objectAtIndex: 0];
+    NSRect ScreenFrame = [PrimaryScreen frame];
+    NSRect WholeWorkspace = {{0,0},{0,0}};
+    for(NSScreen* Screen in AllScreens)
+    {
+        if(Screen)
+        {
+            WholeWorkspace = NSUnionRect(WholeWorkspace, [Screen frame]);
+        }
+    }
+    
+    CGFloat const OffsetToPrimary = ((ScreenFrame.origin.y + ScreenFrame.size.height) - (WholeWorkspace.origin.y + WholeWorkspace.size.height));
+    CGFloat const OffsetToWorkspace = (WholeWorkspace.size.height - (YPosition)) + WholeWorkspace.origin.y;
+    return OffsetToWorkspace + OffsetToPrimary;
+}
+
 
 FString FMacPlatformMisc::GetDefaultLocale()
 {
@@ -1088,16 +1199,8 @@ bool FMacPlatformMisc::IsRunningOnMavericks()
 
 int32 FMacPlatformMisc::MacOSXVersionCompare(uint8 Major, uint8 Minor, uint8 Revision)
 {
-	TArray<FString> Components;
-	GMacAppInfo.OSVersion.ParseIntoArray(&Components, TEXT("."), true);
-	
 	uint8 TargetValues[3] = {Major, Minor, Revision};
-	uint8 ComponentValues[3] = {0, 0, 0};
-	
-	for(uint32 i = 0; i < Components.Num(); i++)
-	{
-		TTypeFromString<uint8>::FromString(ComponentValues[i], *Components[i]);
-	}
+	NSInteger ComponentValues[3] = {GMacAppInfo.OSXVersion.majorVersion, GMacAppInfo.OSXVersion.minorVersion, GMacAppInfo.OSXVersion.patchVersion};
 	
 	for(uint32 i = 0; i < 3; i++)
 	{
@@ -1134,7 +1237,6 @@ FString FMacPlatformMisc::GetOperatingSystemId()
 
 /** Global pointer to crash handler */
 void (* GCrashHandlerPointer)(const FGenericCrashContext& Context) = NULL;
-FMacMallocCrashHandler* GCrashMalloc = nullptr;
 
 /**
  * Good enough default crash reporter.
@@ -1161,16 +1263,17 @@ static void DefaultCrashHandler(FMacCrashContext const& Context)
 }
 
 /** True system-specific crash handler that gets called first */
-static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
+static void PlatformCrashHandler(siginfo_t* Info, ucontext_t* Uap, void* Context)
 {
-	FApplePlatformSymbolication::SetSymbolicationAllowed( false );
+	// Disable CoreSymbolication
+	FApplePlatformSymbolication::EnableCoreSymbolication( false );
 	
 	FMacCrashContext CrashContext;
-	CrashContext.InitFromSignal(Signal, Info, Context);
+	CrashContext.InitFromSignal((int32)Info->si_signo, Info, Context);
 	
 	// Switch to crash handler malloc to avoid malloc reentrancy
-	check(GCrashMalloc);
-	GCrashMalloc->Enable(&CrashContext, FPlatformTLS::GetCurrentThreadId());
+	check(FMacApplicationInfo::CrashMalloc);
+	FMacApplicationInfo::CrashMalloc->Enable(&CrashContext, FPlatformTLS::GetCurrentThreadId());
 	
 	if (GCrashHandlerPointer)
 	{
@@ -1226,24 +1329,35 @@ void FMacPlatformMisc::SetGracefulTerminationHandler()
 
 void FMacPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context))
 {
+	SCOPED_AUTORELEASE_POOL;
+	
 	GCrashHandlerPointer = CrashHandler;
 	
-	// Configure the crash handler malloc zone to reserve some VM space for itself
-	GCrashMalloc = new FMacMallocCrashHandler( 128 * 1024 * 1024 );
-	
-	struct sigaction Action;
-	FMemory::Memzero(&Action, sizeof(struct sigaction));
-	Action.sa_sigaction = PlatformCrashHandler;
-	sigemptyset(&Action.sa_mask);
-	Action.sa_flags = SA_SIGINFO | SA_RESTART | SA_ONSTACK;
-	sigaction(SIGQUIT, &Action, NULL);	// SIGQUIT is a user-initiated "crash".
-	sigaction(SIGILL, &Action, NULL);
-	sigaction(SIGEMT, &Action, NULL);
-	sigaction(SIGFPE, &Action, NULL);
-	sigaction(SIGBUS, &Action, NULL);
-	sigaction(SIGSEGV, &Action, NULL);
-	sigaction(SIGSYS, &Action, NULL);
-	sigaction(SIGABRT, &Action, NULL);
+	if(!FMacApplicationInfo::CrashReporter && !FMacApplicationInfo::CrashMalloc)
+	{
+		// Configure the crash handler malloc zone to reserve some VM space for itself
+		FMacApplicationInfo::CrashMalloc = new FMacMallocCrashHandler( 128 * 1024 * 1024 );
+		
+		PLCrashReporterConfig* Config = [[[PLCrashReporterConfig alloc] initWithSignalHandlerType: PLCrashReporterSignalHandlerTypeBSD
+																		symbolicationStrategy: PLCrashReporterSymbolicationStrategyNone
+																		crashReportFolder:FMacApplicationInfo::TemporaryCrashReportFolder().GetNSString()
+																		crashReportName:FMacApplicationInfo::TemporaryCrashReportName().GetNSString()] autorelease];
+		FMacApplicationInfo::CrashReporter = [[PLCrashReporter alloc] initWithConfiguration: Config];
+		
+		PLCrashReporterCallbacks CrashReportCallback = {
+			.version = 0,
+			.context = nullptr,
+			.handleSignal = PlatformCrashHandler
+		};
+		
+		[FMacApplicationInfo::CrashReporter setCrashCallbacks: &CrashReportCallback];
+
+		NSError* Error = nil;
+		if (![FMacApplicationInfo::CrashReporter enableCrashReporterAndReturnError: &Error])
+		{
+			UE_LOG(LogMac, Log,  TEXT("Failed to enable PLCrashReporter: %s"), *FString([Error localizedDescription]) );
+		}
+	}
 }
 
 void FMacCrashContext::GenerateWindowsErrorReport(char const* WERPath) const
@@ -1320,25 +1434,20 @@ void FMacCrashContext::GenerateWindowsErrorReport(char const* WERPath) const
 		WriteUTF16String(ReportFile, ItoTCHAR(ENGINE_MINOR_VERSION, 10));
 		WriteUTF16String(ReportFile, TEXT("."));
 		WriteUTF16String(ReportFile, ItoTCHAR(ENGINE_PATCH_VERSION, 10));
-		WriteLine(ReportFile, TEXT(".0</Parameter1>"));
+		WriteLine(ReportFile, TEXT("</Parameter1>"));
 
 		// App time stamp
 		WriteLine(ReportFile, TEXT("\t\t<Parameter2>528f2d37</Parameter2>"));													// FIXME: supply valid?
 		
-		uint64 BackTrace[7] = {0, 0, 0, 0, 0, 0, 0};
-		FPlatformStackWalk::CaptureStackBackTrace( BackTrace, 7, Context );
-		
-		if(BackTrace[6] != 0)
+		Dl_info DLInfo;
+		if(Info && Info->si_addr != 0 && dladdr(Info->si_addr, &DLInfo) != 0)
 		{
-			Dl_info Info;
-			dladdr((void*)BackTrace[6], &Info);
-			
 			// Crash Module name
 			WriteUTF16String(ReportFile, TEXT("\t\t<Parameter3>"));
-			if (FCStringAnsi::Strlen(Info.dli_fname))
+			if (DLInfo.dli_fname && FCStringAnsi::Strlen(DLInfo.dli_fname))
 			{
 				FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-				FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, Info.dli_fname, FCStringAnsi::Strlen(Info.dli_fname));
+				FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, DLInfo.dli_fname, FCStringAnsi::Strlen(DLInfo.dli_fname));
 				WriteUTF16String(ReportFile, Line);
 			}
 			else
@@ -1350,7 +1459,7 @@ void FMacCrashContext::GenerateWindowsErrorReport(char const* WERPath) const
 			// Check header
 			uint32 Version = 0;
 			uint32 TimeStamp = 0;
-			struct mach_header_64* Header = (struct mach_header_64*)Info.dli_fbase;
+			struct mach_header_64* Header = (struct mach_header_64*)DLInfo.dli_fbase;
 			struct load_command *CurrentCommand = (struct load_command *)( (char *)Header + sizeof(struct mach_header_64) );
 			if( Header->magic == MH_MAGIC_64 )
 			{
@@ -1384,7 +1493,7 @@ void FMacCrashContext::GenerateWindowsErrorReport(char const* WERPath) const
 			
 			// IL Offset -> Function pointer
 			WriteUTF16String(ReportFile, TEXT("\t\t<Parameter7>"));
-			WriteUTF16String(ReportFile, ItoTCHAR(BackTrace[6], 16));
+			WriteUTF16String(ReportFile, ItoTCHAR((uint64)Info->si_addr, 16));
 			WriteLine(ReportFile, TEXT("</Parameter7>"));
 		}
 		
@@ -1440,267 +1549,24 @@ void FMacCrashContext::GenerateWindowsErrorReport(char const* WERPath) const
 	}
 }
 
-void FMacCrashContext::GenerateMinidump(char const* Path) const
+void FMacCrashContext::CopyMinidump(char const* OutputPath, char const* InputPath) const
 {
-	int ReportFile = open(Path, O_CREAT|O_WRONLY, 0766);
-	if (ReportFile != -1)
+	int ReportFile = open(OutputPath, O_CREAT|O_WRONLY, 0766);
+	int DumpFile = open(InputPath, O_RDONLY, 0766);
+	if (ReportFile != -1 && DumpFile != -1)
 	{
-		TCHAR Line[PATH_MAX] = {};
+		char Data[PATH_MAX];
 		
-		// write BOM
-		static uint16 ByteOrderMarker = 0xFEFF;
-		write(ReportFile, &ByteOrderMarker, sizeof(ByteOrderMarker));
-		
-		WriteUTF16String(ReportFile, TEXT("Process:\tUE4-"));
-		WriteUTF16String(ReportFile, *GMacAppInfo.AppName);
-		WriteUTF16String(ReportFile, TEXT(" ["));
-		WriteUTF16String(ReportFile, ItoTCHAR(FPlatformProcess::GetCurrentProcessId(), 10));
-		WriteLine(ReportFile, TEXT("]"));
-		
-		WriteUTF16String(ReportFile, TEXT("Path:\t"));
-		WriteLine(ReportFile, *GMacAppInfo.AppPath);
-		
-		WriteUTF16String(ReportFile, TEXT("Identifier:\t"));
-		WriteLine(ReportFile, *GMacAppInfo.AppBundleID);
-		
-		WriteUTF16String(ReportFile, TEXT("Version:\t"));
-		WriteUTF16String(ReportFile, ENGINE_VERSION_STRINGIFY(ENGINE_MAJOR_VERSION) ENGINE_VERSION_TEXT(".") ENGINE_VERSION_STRINGIFY(ENGINE_MINOR_VERSION) ENGINE_VERSION_TEXT(".") ENGINE_VERSION_STRINGIFY(ENGINE_PATCH_VERSION));
-		WriteUTF16String(ReportFile, TEXT(" ("));
-		WriteUTF16String(ReportFile, ENGINE_VERSION_STRING);
-		WriteLine(ReportFile, TEXT(")"));
-		
-		WriteLine(ReportFile, TEXT("Code Type:\tX86-64 (Native)"));
-		
-		WriteUTF16String(ReportFile, TEXT("Parent Process:\t"));
-		WriteUTF16String(ReportFile, *GMacAppInfo.ParentProcess);
-		WriteUTF16String(ReportFile, TEXT(" ["));
-		WriteUTF16String(ReportFile, ItoTCHAR(getppid(), 10));
-		WriteLine(ReportFile, TEXT("]"));
-		
-		WriteUTF16String(ReportFile, TEXT("Responsible:\t"));
-		WriteUTF16String(ReportFile, *GMacAppInfo.ParentProcess);
-		WriteUTF16String(ReportFile, TEXT(" ["));
-		WriteUTF16String(ReportFile, ItoTCHAR(getppid(), 10));
-		WriteLine(ReportFile, TEXT("]"));
-		
-		WriteUTF16String(ReportFile, TEXT("User ID:\t"));
-		WriteLine(ReportFile, ItoTCHAR(getuid(), 10));
-		
-		WriteLine(ReportFile, TEXT(""));
-		
-		WriteUTF16String(ReportFile, TEXT("Date/Time:\t"));
-		
-		time_t Now;
-		time(&Now);
-		struct tm LocalTime;
-		localtime_r(&Now, &LocalTime);
-		wcsftime(Line, PATH_MAX, TEXT("%Y-%m-%d %H:%M:%S %z"), &LocalTime);
-		WriteLine(ReportFile, Line);
-		
-		WriteUTF16String(ReportFile, TEXT("OS Version:\tMac OS X "));
-		WriteUTF16String(ReportFile, *GMacAppInfo.OSVersion);
-		WriteUTF16String(ReportFile, TEXT(" ("));
-		WriteUTF16String(ReportFile, *GMacAppInfo.OSBuild);
-		WriteLine(ReportFile, TEXT(")"));
-		
-		WriteLine(ReportFile, TEXT("Report Version:\t11"));
-		
-		WriteUTF16String(ReportFile, TEXT("Anonymous UUID:\t"));
-		WriteUTF16String(ReportFile, *GMacAppInfo.MachineUUID);
-										  
-		WriteLine(ReportFile, TEXT(""));
-		WriteLine(ReportFile, TEXT(""));
-		
-		WriteLine(ReportFile, TEXT("Crashed Thread:\t0"));
-		WriteLine(ReportFile, TEXT(""));
-		
-		WriteUTF16String(ReportFile, TEXT("Exception Type:\t"));
-		WriteUTF16String(ReportFile, ItoTCHAR(Info->si_errno, 10));
-		WriteUTF16String(ReportFile, TEXT(" ("));
-		WriteUTF16String(ReportFile, ItoTCHAR(Signal, 10));
-		WriteLine(ReportFile, TEXT(")"));
-		
-		WriteUTF16String(ReportFile, TEXT("Exception Codes:\t"));
-		WriteUTF16String(ReportFile, TEXT(" 0x"));
-		WriteUTF16String(ReportFile, ItoTCHAR(Info->si_code, 16));
-		WriteUTF16String(ReportFile, TEXT(", 0x"));
-		WriteLine(ReportFile, ItoTCHAR(Info->si_band, 16));
-		
-		WriteLine(ReportFile, TEXT("Application Specific Information:"));
-		FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-		FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, SignalDescription, FCStringAnsi::Strlen(SignalDescription));
-		WriteLine(ReportFile, Line);
-		
-		WriteLine(ReportFile, TEXT(""));
-		WriteLine(ReportFile, TEXT("Thread 0:"));
-		
-		static const int MAX_DEPTH = 100;
-		static uint64 StackTrace[MAX_DEPTH];
-		FMemory::MemZero( StackTrace );
-		FPlatformStackWalk::CaptureStackBackTrace( StackTrace, MAX_DEPTH, Context );
-		
-		// Skip the first two entries as they are inside the stack walking code.
-		Dl_info Info;
-		static const int32 IgnoreCount = 6;
-		int32 CurrentDepth = IgnoreCount;
-		// Allow the first entry to be NULL as the crash could have been caused by a call to a NULL function pointer,
-		// which would mean the top of the callstack is NULL.
-		while( StackTrace[CurrentDepth] || ( CurrentDepth == IgnoreCount ) )
+		int Bytes = 0;
+		while((Bytes = read(DumpFile, Data, PATH_MAX)) > 0)
 		{
-			WriteUTF16String(ReportFile, ItoTCHAR(CurrentDepth - IgnoreCount, 10));
-			WriteUTF16String(ReportFile, TEXT("\t"));
-			
-			if(dladdr((void*)StackTrace[CurrentDepth], &Info) == 0)
-			{
-				Info.dli_fbase = nullptr;
-				Info.dli_fname = nullptr;
-				Info.dli_saddr = nullptr;
-				Info.dli_sname = nullptr;
-			}
-			if(Info.dli_fname && FCStringAnsi::Strrchr(Info.dli_fname, '/'))
-			{
-				char const* Name = FCStringAnsi::Strrchr(Info.dli_fname, '/');
-				Name++;
-				FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-				FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, Name, FCStringAnsi::Strlen(Name));
-				WriteUTF16String(ReportFile, Line);
-			}
-			else
-			{
-				WriteUTF16String(ReportFile, TEXT("[Unknown]"));
-			}
-			WriteUTF16String(ReportFile, TEXT("\t0x"));
-			WriteUTF16String(ReportFile, ItoTCHAR(StackTrace[CurrentDepth], 16));
-			WriteUTF16String(ReportFile, TEXT(" "));
-			if(Info.dli_sname && FCStringAnsi::Strlen(Info.dli_sname))
-			{
-				FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-				FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, Info.dli_sname, FCStringAnsi::Strlen(Info.dli_sname));
-				WriteUTF16String(ReportFile, Line);
-			}
-			else
-			{
-				WriteUTF16String(ReportFile, TEXT("[Unknown]"));
-			}
-			WriteUTF16String(ReportFile, TEXT(" + "));
-			WriteLine(ReportFile, ItoTCHAR(StackTrace[CurrentDepth] - (uint64)Info.dli_saddr, 10));
-			
-			CurrentDepth++;
+			write(ReportFile, Data, Bytes);
 		}
 		
-		WriteLine(ReportFile, TEXT(""));
-		
-		WriteLine(ReportFile, TEXT("Binary Images:"));
-		uint32 ModuleCount = _dyld_image_count();
-		for(uint32 Index = 0; Index < ModuleCount; Index++)
-		{
-			char const* ModulePath = _dyld_get_image_name(Index);
-			uint32 CompatVersion = 0;
-			uint32 CurrentVersion = 0;
-			uint8 UUID[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-			struct mach_header_64* Header = (struct mach_header_64*)_dyld_get_image_header(Index);
-			struct load_command *CurrentCommand = (struct load_command *)( (char *)Header + sizeof(struct mach_header_64) );
-			if( Header->magic == MH_MAGIC_64 )
-			{
-				uint8 Found = 0;
-				for( int32 i = 0; i < Header->ncmds && Found < 2; i++ )
-				{
-					if( CurrentCommand->cmd == LC_LOAD_DYLIB )
-					{
-						struct dylib_command *DylibCommand = (struct dylib_command *) CurrentCommand;
-						CompatVersion = DylibCommand->dylib.compatibility_version;
-						CurrentVersion = DylibCommand->dylib.current_version;
-						Found++;
-					}
-					else if ( CurrentCommand->cmd == LC_UUID )
-					{
-						struct uuid_command* UUIDCommand = (struct uuid_command*)CurrentCommand;
-						FMemory::Memcpy(UUID, UUIDCommand->uuid, 16);
-						Found++;
-					}
-					
-					CurrentCommand = (struct load_command *)( (char *)CurrentCommand + CurrentCommand->cmdsize );
-				}
-			}
-			
-			WriteUTF16String(ReportFile, TEXT("0x"));
-			WriteUTF16String(ReportFile, ItoTCHAR((uint64)Header, 16));
-			WriteUTF16String(ReportFile, TEXT(" -\t0x"));
-			WriteUTF16String(ReportFile, ItoTCHAR((uint64)Header + sizeof(struct mach_header_64) + Header->sizeofcmds, 16));
-			WriteUTF16String(ReportFile, TEXT(" "));
-			
-			char const* Name = FCStringAnsi::Strrchr(ModulePath, '/');
-            if ( Name )
-            {
-                Name++;
-            }
-            else
-            {
-                Name = ModulePath;
-            }
-			FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-			FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, Name, FCStringAnsi::Strlen(Name));
-			WriteUTF16String(ReportFile, Line);
-			WriteUTF16String(ReportFile, TEXT(" ("));
-			
-			WriteUTF16String(ReportFile, ItoTCHAR(((CompatVersion >> 16) & 0xffff), 10));
-			WriteUTF16String(ReportFile, TEXT("."));
-			WriteUTF16String(ReportFile, ItoTCHAR(((CompatVersion >> 8) & 0xff), 10));
-			WriteUTF16String(ReportFile, TEXT("."));
-			WriteUTF16String(ReportFile, ItoTCHAR((CompatVersion & 0xff), 10));
-			WriteUTF16String(ReportFile, TEXT(" - "));
-			WriteUTF16String(ReportFile, ItoTCHAR(((CurrentVersion >> 16) & 0xffff), 10));
-			WriteUTF16String(ReportFile, TEXT("."));
-			WriteUTF16String(ReportFile, ItoTCHAR(((CurrentVersion >> 8) & 0xff), 10));
-			WriteUTF16String(ReportFile, TEXT("."));
-			WriteUTF16String(ReportFile, ItoTCHAR((CurrentVersion & 0xff), 10));
-			WriteUTF16String(ReportFile, TEXT(") <"));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[0], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[1], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[2], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[3], 16, 2));
-			WriteUTF16String(ReportFile, TEXT("-"));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[4], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[5], 16, 2));
-			WriteUTF16String(ReportFile, TEXT("-"));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[6], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[7], 16, 2));
-			WriteUTF16String(ReportFile, TEXT("-"));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[8], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[9], 16, 2));
-			WriteUTF16String(ReportFile, TEXT("-"));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[10], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[11], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[12], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[13], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[14], 16, 2));
-			WriteUTF16String(ReportFile, ItoTCHAR(UUID[15], 16, 2));
-			WriteUTF16String(ReportFile, TEXT("> "));
-			
-			FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-			FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, ModulePath, FCStringAnsi::Strlen(ModulePath));
-			WriteLine(ReportFile, Line);
-		}
-		
-		WriteLine(ReportFile, TEXT(""));
-		
-		WriteLine(ReportFile, TEXT("System Profile:"));
-		WriteUTF16String(ReportFile, TEXT("Model: "));
-		WriteUTF16String(ReportFile, *GMacAppInfo.MachineModel);
-		WriteUTF16String(ReportFile, TEXT(", "));
-		WriteUTF16String(ReportFile, ItoTCHAR(GMacAppInfo.NumCores, 10));
-		WriteUTF16String(ReportFile, TEXT(" processors, "));
-		WriteUTF16String(ReportFile, ItoTCHAR(GMacAppInfo.NumCores, 10));
-		WriteUTF16String(ReportFile, TEXT("-Core "));
-
-		FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-		FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, GMacAppInfo.MachineCPUString, FCStringAnsi::Strlen(GMacAppInfo.MachineCPUString));
-		WriteLine(ReportFile, Line);
-		
-		WriteUTF16String(ReportFile, TEXT("Graphics: "));
-		WriteLine(ReportFile, *GMacAppInfo.PrimaryGPU);
-		
+		close(DumpFile);
 		close(ReportFile);
+		
+		unlink(InputPath);
 	}
 }
 
@@ -1720,8 +1586,7 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 	FCStringAnsi::Strcat(CrashInfoFolder, PATH_MAX, ItoANSI(GMacAppInfo.RunUUID.D, 16));
 
 	// Prevent CrashReportClient from spawning another CrashReportClient.
-	const TCHAR* ExecutableName = FPlatformProcess::ExecutableName();
-	const bool bCanRunCrashReportClient = FCString::Stristr( ExecutableName, TEXT( "CrashReportClient" ) ) == nullptr;
+	const bool bCanRunCrashReportClient = FCString::Stristr( *(GMacAppInfo.ExecutableName), TEXT( "CrashReportClient" ) ) == nullptr;
 
 	if(!mkdir(CrashInfoFolder, 0766) && bCanRunCrashReportClient)
 	{
@@ -1750,7 +1615,7 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 		// generate "minidump" (Apple crash log format)
 		FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
 		FCStringAnsi::Strcat(FilePath, PATH_MAX, "/minidump.dmp");
-		GenerateMinidump(FilePath);
+		CopyMinidump(FilePath, GMacAppInfo.PLCrashReportPath);
 		
 		// generate "info.txt" custom data for our server
 		FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
@@ -1811,7 +1676,6 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 			int VideoSrc = open(GMacAppInfo.CrashReportVideo, O_RDONLY);
 			int VideoDst = open(FilePath, O_CREAT|O_WRONLY, 0766);
 			
-			int Bytes = 0;
 			while((Bytes = read(VideoSrc, Data, PATH_MAX)) > 0)
 			{
 				write(VideoDst, Data, Bytes);
@@ -1831,12 +1695,28 @@ void FMacCrashContext::GenerateCrashInfoAndLaunchReporter() const
 			FCStringAnsi::Strcat(FilePath, PATH_MAX, "/");
 			execl(GMacAppInfo.CrashReportClient, "CrashReportClient", FilePath, NULL);
 		}
-		else
-		{
-			// Parent
-			int StatLoc = 0;
-			waitpid(ForkPID, &StatLoc, 0);
-		}
+		// We no longer wait here because on return the OS will scribble & crash again due to the behaviour of the XPC function
+		// OS X uses internally to launch/wait on the CrashReportClient. It is simpler, easier & safer to just die here like a good little Mac.app.
+	}
+	
+	// Sandboxed applications re-raise the signal to trampoline into the system crash reporter as suppressing it may fall foul of Apple's Mac App Store rules.
+	// @todo Submit an application to the MAS & see whether Apple's reviewers highlight our crash reporting or trampolining to the system reporter.
+	if(GMacAppInfo.bIsSandboxed)
+	{
+		struct sigaction Action;
+		FMemory::Memzero(&Action, sizeof(struct sigaction));
+		Action.sa_handler = SIG_DFL;
+		sigemptyset(&Action.sa_mask);
+		sigaction(SIGQUIT, &Action, NULL);
+		sigaction(SIGILL, &Action, NULL);
+		sigaction(SIGEMT, &Action, NULL);
+		sigaction(SIGFPE, &Action, NULL);
+		sigaction(SIGBUS, &Action, NULL);
+		sigaction(SIGSEGV, &Action, NULL);
+		sigaction(SIGSYS, &Action, NULL);
+		sigaction(SIGABRT, &Action, NULL);
+	
+		raise(Signal);
 	}
 	
 	_Exit(0);

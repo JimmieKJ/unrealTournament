@@ -7,20 +7,15 @@
 #include "Json.h"
 #include "SlateCore.h"
 #include "SlateClasses.h"
-
-
-// Enables or disables more slate stats.  These stats are usually per widget and can be gathered hundreds or thousands of times per frame
-// enabling these constantly causes a bit of a performance drop due to stat gathering overhead so these should only be enabled for profiling
-#define SLATE_HD_STATS 0
-
-#define BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION PRAGMA_DISABLE_OPTIMIZATION
-#define END_SLATE_FUNCTION_BUILD_OPTIMIZATION   PRAGMA_ENABLE_OPTIMIZATION
+#include "SlateOptMacros.h"
 
 #include "IPlatformTextField.h"
 #if PLATFORM_IOS
 	#include "IOS/IOSPlatformTextField.h"
 #elif PLATFORM_ANDROID
 	#include "Android/AndroidPlatformTextField.h"
+#elif PLATFORM_PS4
+	#include "PS4/PS4PlatformTextField.h"
 #else
 	#include "GenericPlatformTextField.h"
 #endif
@@ -36,7 +31,7 @@
 #include "SlateIcon.h"
 
 // Commands
-#include "InputGesture.h"
+#include "InputChord.h"
 #include "UIAction.h"
 #include "UICommandInfo.h"
 #include "InputBindingManager.h"

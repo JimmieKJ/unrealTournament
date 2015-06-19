@@ -3,26 +3,23 @@
 #include "SlatePrivatePCH.h"
 #include "SSearchBox.h"
 
+const double SSearchBox::FilterDelayAfterTyping = 0.25f;
 
 void SSearchBox::Construct( const FArguments& InArgs )
 {
-	// Allow style to be optionally overridden, but fallback to default if not specified
-	const FSearchBoxStyle* InStyle = InArgs._Style.IsSet() ? InArgs._Style.GetValue() : &FCoreStyle::Get().GetWidgetStyle<FSearchBoxStyle>("SearchBox");
+	check(InArgs._Style);
 
+	bIsActiveTimerRegistered = false;
 	OnSearchDelegate = InArgs._OnSearch;
 	OnTextChangedDelegate = InArgs._OnTextChanged;
 	OnTextCommittedDelegate = InArgs._OnTextCommitted;
 	DelayChangeNotificationsWhileTyping = InArgs._DelayChangeNotificationsWhileTyping;
 
-	InactiveFont = InStyle->TextBoxStyle.Font;
-	ActiveFont = InStyle->ActiveFontInfo;
-
-	bTypingFilterText = false;
-	LastTypeTime = 0;
-	FilterDelayAfterTyping = 0.25f;
+	InactiveFont = InArgs._Style->TextBoxStyle.Font;
+	ActiveFont = InArgs._Style->ActiveFontInfo;
 
 	SEditableTextBox::Construct( SEditableTextBox::FArguments()
-		.Style( &InStyle->TextBoxStyle )
+		.Style( &InArgs._Style->TextBoxStyle )
 		.Font( this, &SSearchBox::GetWidgetFont )
 		.Text( InArgs._InitialText )
 		.HintText( InArgs._HintText )
@@ -35,14 +32,14 @@ void SSearchBox::Construct( const FArguments& InArgs )
 	);
 
 	// If we want to have the buttons appear to the left of the text box we have to insert the slots instead of add them
-	int32 SlotIndex = InStyle->bLeftAlignButtons ? 0 : Box->NumSlots();
+	int32 SlotIndex = InArgs._Style->bLeftAlignButtons ? 0 : Box->NumSlots();
 
 	// If a search delegate was bound, add a previous and next button
 	if (OnSearchDelegate.IsBound())
 	{
 		Box->InsertSlot(SlotIndex++)
 		.AutoWidth()
-		.Padding(InStyle->ImagePadding)
+		.Padding(InArgs._Style->ImagePadding)
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Center)
 		[
@@ -56,13 +53,13 @@ void SSearchBox::Construct( const FArguments& InArgs )
 			.IsFocusable(false)
 			[
 				SNew(SImage)
-				.Image( &InStyle->UpArrowImage )
+				.Image( &InArgs._Style->UpArrowImage )
 				.ColorAndOpacity( FSlateColor::UseForeground() )
 			]
 		];
 		Box->InsertSlot(SlotIndex++)
 		.AutoWidth()
-		.Padding(InStyle->ImagePadding)
+		.Padding(InArgs._Style->ImagePadding)
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Center)
 		[
@@ -76,7 +73,7 @@ void SSearchBox::Construct( const FArguments& InArgs )
 			.IsFocusable(false)
 			[
 				SNew(SImage)
-				.Image( &InStyle->DownArrowImage )
+				.Image( &InArgs._Style->DownArrowImage )
 				.ColorAndOpacity( FSlateColor::UseForeground() )
 			]
 		];
@@ -85,20 +82,20 @@ void SSearchBox::Construct( const FArguments& InArgs )
 	// Add a search glass image so that the user knows this text box is for searching
 	Box->InsertSlot(SlotIndex++)
 	.AutoWidth()
-	.Padding(InStyle->ImagePadding)
+	.Padding(InArgs._Style->ImagePadding)
 	.HAlign(HAlign_Center)
 	.VAlign(VAlign_Center)
 	[
 		SNew(SImage)
 		.Visibility(this, &SSearchBox::GetSearchGlassVisibility)
-		.Image( &InStyle->GlassImage )
+		.Image( &InArgs._Style->GlassImage )
 		.ColorAndOpacity( FSlateColor::UseForeground() )
 	];
 
 	// Add an X to clear the search whenever there is some text typed into it
 	Box->InsertSlot(SlotIndex++)
 	.AutoWidth()
-	.Padding(InStyle->ImagePadding)
+	.Padding(InArgs._Style->ImagePadding)
 	.HAlign(HAlign_Center)
 	.VAlign(VAlign_Center)
 	[
@@ -115,21 +112,19 @@ void SSearchBox::Construct( const FArguments& InArgs )
 		.IsFocusable(false)
 		[
 			SNew(SImage)
-			.Image( &InStyle->ClearImage )
+			.Image( &InArgs._Style->ClearImage )
 			.ColorAndOpacity( FSlateColor::UseForeground() )
 		]
 	];
 }
 
-void SSearchBox::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SSearchBox::TriggerOnTextChanged( double InCurrentTime, float InDeltaTime )
 {
-	CurrentTime = InCurrentTime;
+	// Reset the flag first in case the delegate winds up triggering HandleTextChanged
+	bIsActiveTimerRegistered = false;
 
-	if ( bTypingFilterText && InCurrentTime > LastTypeTime + FilterDelayAfterTyping)
-{
 	OnTextChangedDelegate.ExecuteIfBound( LastPendingTextChangedValue );
-		bTypingFilterText = false;
-	}
+	return EActiveTimerReturnType::Stop;
 }
 
 void SSearchBox::HandleTextChanged(const FText& NewText)
@@ -137,8 +132,14 @@ void SSearchBox::HandleTextChanged(const FText& NewText)
 	if ( DelayChangeNotificationsWhileTyping.Get() )
 	{
 		LastPendingTextChangedValue = NewText;
-		LastTypeTime = CurrentTime;
-		bTypingFilterText = true;
+
+		// Remove the existing registered tick if necessary
+		if ( ActiveTimerHandle.IsValid() )
+		{
+			UnRegisterActiveTimer( ActiveTimerHandle.Pin().ToSharedRef() );
+		}
+		bIsActiveTimerRegistered = true;
+		ActiveTimerHandle = RegisterActiveTimer( FilterDelayAfterTyping, FWidgetActiveTimerDelegate::CreateSP( this, &SSearchBox::TriggerOnTextChanged ) );
 	}
 	else
 	{
@@ -148,7 +149,12 @@ void SSearchBox::HandleTextChanged(const FText& NewText)
 
 void SSearchBox::HandleTextCommitted(const FText& NewText, ETextCommit::Type CommitType)
 {
-	bTypingFilterText = false;
+	if ( bIsActiveTimerRegistered && ActiveTimerHandle.IsValid() )
+	{
+		bIsActiveTimerRegistered = false;
+		UnRegisterActiveTimer( ActiveTimerHandle.Pin().ToSharedRef() );
+	}
+
 	OnTextCommittedDelegate.ExecuteIfBound( NewText, CommitType );
 }
 
@@ -176,7 +182,7 @@ FReply SSearchBox::OnClearSearch()
 {
 	// We clear the focus to commit any unset values as the search box is typically used for filtering
 	// and the widget could get immediately destroyed before committing its value.
-	FSlateApplication::Get().ClearKeyboardFocus( EFocusCause::SetDirectly );
+	FSlateApplication::Get().ClearKeyboardFocus( EFocusCause::Cleared );
 
 	this->SetText( FText::GetEmpty() );
 	return FReply::Handled().SetUserFocus(EditableText.ToSharedRef(), EFocusCause::SetDirectly);

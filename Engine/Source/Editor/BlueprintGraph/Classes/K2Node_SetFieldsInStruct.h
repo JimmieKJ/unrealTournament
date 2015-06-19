@@ -35,6 +35,16 @@ class UK2Node_SetFieldsInStruct : public UK2Node_MakeStruct
 	BLUEPRINTGRAPH_API bool AllPinsAreShown() const;
 	BLUEPRINTGRAPH_API void RestoreAllPins();
 
+protected:
+	struct FSetFieldsInStructPinManager : public FMakeStructPinManager
+	{
+	public:
+		FSetFieldsInStructPinManager(const uint8* InSampleStructMemory) : FMakeStructPinManager(InSampleStructMemory) 
+		{}
+
+		virtual void GetRecordDefaults(UProperty* TestProperty, FOptionalPinFromProperty& Record) const override;
+	};
+
 private:
 	/** Constructing FText strings can be costly, so we cache the node's title/tooltip */
 	FNodeTextCache CachedTooltip;

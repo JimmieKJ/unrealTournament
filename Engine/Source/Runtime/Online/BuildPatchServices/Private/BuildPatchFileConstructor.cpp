@@ -27,11 +27,11 @@ public:
 	// A string determining the app and version we are installing
 	const FString PatchVersion;
 
-	// An array of files that were started
-	TArray< FString > FilesStarted;
+	// The set of files that were started
+	TSet<FString> FilesStarted;
 
-	// An array of files that were completed, determined by expected filesize
-	TArray< FString > FilesCompleted;
+	// The set of files that were completed, determined by expected filesize
+	TSet<FString> FilesCompleted;
 
 	// The manifest for the app we are installing
 	FBuildPatchAppManifestRef BuildManifest;
@@ -53,24 +53,17 @@ public:
 	{
 		// Load data from previous resume file
 		bHasResumeData = FPaths::FileExists( ResumeDataFile );
+		GLog->Logf(TEXT("BuildPatchResumeData file found %d"), bHasResumeData);
 		if( bHasResumeData )
 		{
 			FString PrevResumeData;
 			TArray< FString > ResumeDataLines;
 			FFileHelper::LoadFileToString( PrevResumeData, *ResumeDataFile );
-			PrevResumeData.ParseIntoArray( &ResumeDataLines, TEXT( "\n" ), true );
+			PrevResumeData.ParseIntoArray( ResumeDataLines, TEXT( "\n" ), true );
 			// Line 1 will be the previously attempted version
-			bHasResumeData = ( ResumeDataLines.Num() >= 1 ) && ResumeDataLines[0] == PatchVersion;
-			if( bHasResumeData )
-			{
-				// The rest of the lines will be the filenames that were started
-				for( int32 LineIdx = 1; LineIdx < ResumeDataLines.Num(); ++LineIdx )
-				{
-					const FString& Filename = ResumeDataLines[ LineIdx ];
-					const FString FullFilename = InStagingDir / Filename;
-					FilesStarted.Add( Filename );
-				}
-			}
+			FString PreviousVersion = (ResumeDataLines.Num() > 0) ? MoveTemp(ResumeDataLines[0]) : TEXT("");
+			bHasResumeData = PreviousVersion  == PatchVersion;
+			GLog->Logf(TEXT("BuildPatchResumeData version matched %d %s == %s"), bHasResumeData, *PreviousVersion, *PatchVersion);
 		}
 	}
 
@@ -79,14 +72,8 @@ public:
 	 */
 	void SaveOut()
 	{
-		// Save out the data
-		FString DataOut = PatchVersion + TEXT("\n");
-		for( auto FilesStartedIt = FilesStarted.CreateConstIterator(); FilesStartedIt; ++FilesStartedIt )
-		{
-			const FString& Filename = *FilesStartedIt;
-			DataOut += Filename  + TEXT("\n");
-		}
-		FFileHelper::SaveStringToFile( DataOut, *ResumeDataFile );
+		// Save out the patch version
+		FFileHelper::SaveStringToFile(PatchVersion + TEXT("\n"), *ResumeDataFile);
 	}
 
 	/**
@@ -96,19 +83,18 @@ public:
 	void CheckFile( const FString& Filename )
 	{
 		// If we had resume data, check file size is correct
-		if( bHasResumeData && FilesStarted.Contains( Filename ) )
+		if(bHasResumeData)
 		{
 			const FString FullFilename = StagingDir / Filename;
 			const int64 DiskFileSize = IFileManager::Get().FileSize( *FullFilename );
 			const int64 CompleteFileSize = BuildManifest->GetFileSize( Filename );
+			if (DiskFileSize > 0 && DiskFileSize <= CompleteFileSize)
+			{
+				FilesStarted.Add(Filename);
+			}
 			if( DiskFileSize == CompleteFileSize )
 			{
 				FilesCompleted.Add( Filename );
-			}
-			// Sanity check, if file is larger than we expect, that's bad
-			else if( DiskFileSize > CompleteFileSize )
-			{
-				FilesStarted.Remove( Filename );
 			}
 		}
 	}
@@ -120,6 +106,7 @@ FBuildPatchFileConstructor::FBuildPatchFileConstructor( FBuildPatchAppManifestPt
 	: Thread( NULL )
 	, bIsRunning( false )
 	, bIsInited( false )
+	, bInitFailed( false )
 	, bIsDownloadStarted( false )
 	, ThreadLock()
 	, InstalledManifest( InInstalledManifest )
@@ -157,8 +144,18 @@ FBuildPatchFileConstructor::~FBuildPatchFileConstructor()
 bool FBuildPatchFileConstructor::Init()
 {
 	// We are ready to go if our delegates are bound and directories successfully created
-	bool bReady = IFileManager::Get().DirectoryExists( *StagingDirectory );
-	bReady = bReady && IFileManager::Get().DirectoryExists( *InstallDirectory );
+	bool bStageDirExists = IFileManager::Get().DirectoryExists(*StagingDirectory);
+	if (!bStageDirExists)
+	{
+		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, FString::Printf(TEXT("File Constructor failed init: Stage directory missing %s"), *StagingDirectory));
+	}
+	bool bInstallDirExists = IFileManager::Get().DirectoryExists(*InstallDirectory);
+	if (!bInstallDirExists)
+	{
+		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::InitializationError, FString::Printf(TEXT("File Constructor failed init: Install directory missing %s"), *InstallDirectory));
+	}
+	bool bReady = bStageDirExists && bInstallDirExists;
+	SetInitFailed(!bReady);
 	return bReady;
 }
 
@@ -173,6 +170,9 @@ uint32 FBuildPatchFileConstructor::Run()
 
 	// Check for resume data
 	FResumeData ResumeData( StagingDirectory, BuildManifest );
+
+	// Save for started version
+	ResumeData.SaveOut();
 
 	// Start resume progress at zero or one
 	BuildProgress->SetStateProgress( EBuildPatchProgress::Resuming, ResumeData.bHasResumeData ? 0.0f : 1.0f );
@@ -202,11 +202,6 @@ uint32 FBuildPatchFileConstructor::Run()
 		else
 		{
 			bFileSuccess = ConstructFileFromChunks( FileToConstruct, bFilePreviouslyStarted );
-			// Add to resume data if successful or failure was not file construction fail
-			if( bFileSuccess || FBuildPatchInstallError::GetErrorState() != EBuildPatchInstallError::FileConstructionFail )
-			{
-				ResumeData.FilesStarted.AddUnique( FileToConstruct );
-			}
 		}
 
 		// If the file succeeded, add to lists
@@ -224,14 +219,11 @@ uint32 FBuildPatchFileConstructor::Run()
 		BuildProgress->WaitWhilePaused();
 	}
 
-	// Save resume data
-	ResumeData.SaveOut();
 	BuildProgress->SetStateProgress(EBuildPatchProgress::Resuming, 1.0f);
 
 	// Set constructed files
 	ThreadLock.Lock();
-	FilesConstructed.Empty();
-	FilesConstructed.Append( ConstructedFiles );
+	FilesConstructed = MoveTemp(ConstructedFiles);
 	ThreadLock.Unlock();
 
 	SetRunning( false );
@@ -249,7 +241,7 @@ void FBuildPatchFileConstructor::Wait()
 bool FBuildPatchFileConstructor::IsComplete()
 {
 	FScopeLock Lock( &ThreadLock );
-	return !bIsRunning && bIsInited;
+	return ( !bIsRunning && bIsInited ) || bInitFailed;
 }
 
 void FBuildPatchFileConstructor::GetFilesConstructed( TArray< FString >& ConstructedFiles )
@@ -308,6 +300,12 @@ void FBuildPatchFileConstructor::SetInited( bool bInited )
 {
 	FScopeLock Lock( &ThreadLock );
 	bIsInited = bInited;
+}
+
+void FBuildPatchFileConstructor::SetInitFailed( bool bFailed )
+{
+	FScopeLock Lock( &ThreadLock );
+	bInitFailed = bFailed;
 }
 
 void FBuildPatchFileConstructor::CountBytesProcessed( const int64& ByteCount )
@@ -504,6 +502,13 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 	}
 #endif
 	
+#if PLATFORM_ANDROID || PLATFORM_ANDROIDGL4 || PLATFORM_ANDROIDES31
+	if (bSuccess)
+	{
+		IFileManager::Get().SetTimeStamp(*NewFilename, FDateTime::UtcNow());
+	}
+#endif
+
 	// Delete the staging file if unsuccessful by means of construction fail (i.e. keep if canceled or download issue)
 	if( !bSuccess && FBuildPatchInstallError::GetErrorState() == EBuildPatchInstallError::FileConstructionFail )
 	{

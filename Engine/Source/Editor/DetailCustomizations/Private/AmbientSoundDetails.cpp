@@ -167,7 +167,7 @@ void FAmbientSoundDetails::CreateNewSoundCue( ESoundCueLayouts Layout )
 		int32 NodeColumn = 0;
 		USoundNode* PrevNode = NULL;
 
-		SoundCue = ConstructObject<USoundCue>(USoundCue::StaticClass(), AS, FName(*AS->GetInternalSoundCueName()));
+		SoundCue = NewObject<USoundCue>(AS, FName(*AS->GetInternalSoundCueName()));
 		AS->GetAudioComponent()->Sound = SoundCue;
 		AS->GetAudioComponent()->PostEditChange();
 

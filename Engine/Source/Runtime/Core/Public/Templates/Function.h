@@ -4,6 +4,7 @@
 
 #include <new>
 
+#include "AreTypesEqual.h"
 #include "UnrealMemory.h"
 
 // Disable visualization hack for shipping or test builds.
@@ -11,15 +12,6 @@
 	#define ENABLE_TFUNCTIONREF_VISUALIZATION 1
 #else
 	#define ENABLE_TFUNCTIONREF_VISUALIZATION 0
-#endif
-
-// VS2012 doesn't support defaulted function template arguments, so we need a workaround for that.
-// The workaround technically changes the signature of the constructors, but we assume that the modified
-// signature will not be used.
-#if defined(_MSC_VER) && _MSC_VER < 1800
-	#define ENABLE_TFUNCTIONREF_WORKAROUND 1
-#else
-	#define ENABLE_TFUNCTIONREF_WORKAROUND 0
 #endif
 
 /**
@@ -324,11 +316,11 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to a non-const lvalue function object.
 	 */
-#if ENABLE_TFUNCTIONREF_WORKAROUND
+#if !PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS
 	template <typename FunctorType>
-	TFunctionRef(FunctorType& Functor, typename TEnableIf<!TIsFunction<FunctorType>::Value && !TIsATFunctionRef<FunctorType>::Value>::Type* = nullptr)
+	TFunctionRef(FunctorType& Functor, typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type* = nullptr)
 #else
-	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TIsATFunctionRef<FunctorType>::Value>::Type>
+	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
 	TFunctionRef(FunctorType& Functor)
 #endif
 	{
@@ -341,11 +333,11 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to an rvalue or const lvalue function object.
 	 */
-#if ENABLE_TFUNCTIONREF_WORKAROUND
+#if !PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS
 	template <typename FunctorType>
-	TFunctionRef(const FunctorType& Functor, typename TEnableIf<!TIsFunction<FunctorType>::Value && !TIsATFunctionRef<FunctorType>::Value>::Type* = nullptr)
+	TFunctionRef(const FunctorType& Functor, typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type* = nullptr)
 #else
-	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TIsATFunctionRef<FunctorType>::Value>::Type>
+	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
 	TFunctionRef(const FunctorType& Functor)
 #endif
 	{
@@ -358,7 +350,7 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to a function pointer.
 	 */
-#if ENABLE_TFUNCTIONREF_WORKAROUND
+#if !PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS
 	template <typename FunctionType>
 	TFunctionRef(FunctionType* Function, typename TEnableIf<TIsFunction<FunctionType>::Value>::Type* = nullptr)
 #else
@@ -540,11 +532,11 @@ public:
 	/**
 	 * Constructor which binds a TFunction to any function object.
 	 */
-#if ENABLE_TFUNCTIONREF_WORKAROUND
+#if !PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS
 	template <typename FunctorType>
-	TFunction(FunctorType&& InFunc, typename TEnableIf<!TIsATFunction<typename TDecay<FunctorType>::Type>::Value>::Type* = nullptr)
+	TFunction(FunctorType&& InFunc, typename TEnableIf<!TAreTypesEqual<TFunction, typename TDecay<FunctorType>::Type>::Value>::Type* = nullptr)
 #else
-	template <typename FunctorType, typename = typename TEnableIf<!TIsATFunction<typename TDecay<FunctorType>::Type>::Value>::Type>
+	template <typename FunctorType, typename = typename TEnableIf<!TAreTypesEqual<TFunction, typename TDecay<FunctorType>::Type>::Value>::Type>
 	TFunction(FunctorType&& InFunc)
 #endif
 		: Super(NoInit)
@@ -645,37 +637,41 @@ public:
 	SAFE_BOOL_OPERATORS(TFunction)
 
 private:
-	/**
-	 * Nullptr equality operator.
-	 */
-	friend bool operator==(TYPE_OF_NULLPTR, const TFunction& Func)
-	{
-		return !Func;
-	}
-
-	/**
-	 * Nullptr equality operator.
-	 */
-	friend bool operator==(const TFunction& Func, TYPE_OF_NULLPTR)
-	{
-		return !Func;
-	}
-
-	/**
-	 * Nullptr inequality operator.
-	 */
-	friend bool operator!=(TYPE_OF_NULLPTR, const TFunction& Func)
-	{
-		return (bool)Func;
-	}
-
-	/**
-	 * Nullptr inequality operator.
-	 */
-	friend bool operator!=(const TFunction& Func, TYPE_OF_NULLPTR)
-	{
-		return (bool)Func;
-	}
-
 	UE4Function_Private::IFunction_OwnedObject* Func;
 };
+
+/**
+ * Nullptr equality operator.
+ */
+template <typename FuncType>
+bool operator==(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
+{
+	return !Func;
+}
+
+/**
+ * Nullptr equality operator.
+ */
+template <typename FuncType>
+bool operator==(const TFunction<FuncType>& Func, TYPE_OF_NULLPTR)
+{
+	return !Func;
+}
+
+/**
+ * Nullptr inequality operator.
+ */
+template <typename FuncType>
+bool operator!=(TYPE_OF_NULLPTR, const TFunction<FuncType>& Func)
+{
+	return (bool)Func;
+}
+
+/**
+ * Nullptr inequality operator.
+ */
+template <typename FuncType>
+bool operator!=(const TFunction<FuncType>& Func, TYPE_OF_NULLPTR)
+{
+	return (bool)Func;
+}

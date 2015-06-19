@@ -7,6 +7,7 @@
 #include "UTSpectatorCamera.h"
 #include "UTPickupInventory.h"
 #include "UTArmor.h"
+#include "UTDemoRecSpectator.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -99,6 +100,26 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				{
 					AutoCamBind = Input->SpectatorBinds[i].KeyName;
 				}
+				else if (Input->SpectatorBinds[i].Command == "DemoRestart")
+				{
+					DemoRestartBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoGoToLive")
+				{
+					DemoLiveBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoPause")
+				{
+					DemoPauseBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoSeek -5")
+				{
+					DemoRewindBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoSeek 10")
+				{
+					DemoFastForwardBind = Input->SpectatorBinds[i].KeyName;
+				}
 			}
 		}
 	}
@@ -120,50 +141,23 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 void UUTHUDWidget_SpectatorSlideOut::InitPowerupList()
 {
 	bPowerupListInitialized = true;
-	TArray<UClass *> PickupClasses;
-	for (FActorIterator It(GetWorld()); It; ++It)
+	if (UTGameState != nullptr)
 	{
-		AUTPickupInventory* Pickup = Cast<AUTPickupInventory>(*It);
-		// @TODO FIXMESTEVE add superhealth
-		if (Pickup && Pickup->GetInventoryType() && Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer
-			&& ((Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
-		{
-			PowerupList.Add(Pickup);
-			PickupClasses.AddUnique(Pickup->GetInventoryType()->GetClass());
-		}
-	}  
-
-	// now differentiate by team side if multiple of the same powerup
-	if (UTGameState)
-	{
-		for (int32 i = 0; i < PickupClasses.Num(); i++)
-		{
-			int32 Count = 0;
-			for (int32 j = 0; j < PowerupList.Num(); j++)
-			{
-				if (PickupClasses[i] == PowerupList[j]->GetInventoryType()->GetClass())
-				{
-					Count++;
-				}
-			}
-			if (Count > 1)
-			{
-				for (int32 j = 0; j < PowerupList.Num(); j++)
-				{
-					if (PickupClasses[i] == PowerupList[j]->GetInventoryType()->GetClass())
-					{
-						// assign a team side  
-						PowerupList[j]->TeamSide = UTGameState->NearestTeamSide(PowerupList[j]);
-					}
-				}
-			}
-		}
+		UTGameState->GetImportantPickups(PowerupList);
 	}
 }
 
 void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
+
+	if (bIsInteractive)
+	{
+		ClickElementStack.Empty();
+	}
+
+	// Hack to allow animations during pause
+	DeltaTime = GetWorld()->DeltaTimeSeconds;
 
 	if (TextureAtlas && UTGameState)
 	{
@@ -355,6 +349,24 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
 			DrawOffset += CellHeight;
 
+			if (Cast<AUTDemoRecSpectator>(UTHUDOwner->PlayerOwner) != nullptr)
+			{
+				DrawCamBind(DemoRestartBind, "Restart Demo", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoRewindBind, "Rewind Demo", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoFastForwardBind, "Fast Forward", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoLiveBind, "Jump to Real Time", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoPauseBind, "Pause Demo", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+			}
+
 			bool bOverflow = false;
 			for (int32 i = 0; i < NumCameras; i++)
 			{
@@ -381,7 +393,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 	}
 }
 
-void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickupInventory* Pickup, float XOffset, float YOffset)
+void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffset, float YOffset)
 {
 	// @TODO FIXMESTEVE get rid of armor hacks when they have icons
 	FLinearColor BarColor = FLinearColor::White;
@@ -393,17 +405,23 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickupInventory* Pickup, flo
 	{
 		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YOffset, 0.08f*Size.X, 0.08f*Size.X, UTHUDOwner->TeamIconUV[Pickup->TeamSide].X, UTHUDOwner->TeamIconUV[Pickup->TeamSide].Y, 72, 72, 1.f, ((Pickup->TeamSide == 0) ? FLinearColor::Red : FLinearColor::Blue));
 	}
-	if (Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
+	AUTPickupInventory* PickupInventory = Cast<AUTPickupInventory>(Pickup);
+	if (PickupInventory && PickupInventory->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
 	{
 		DrawTexture(ArmorIcon.Texture, XOffset + 0.12f*Size.X, YOffset, 0.085f*Size.X, 0.085f*Size.X, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.f, FLinearColor::White);
 		FFormatNamedArguments Args;
-		Args.Add("Armor", FText::AsNumber(Pickup->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
+		Args.Add("Armor", FText::AsNumber(PickupInventory->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
 		FLinearColor DrawColor = FLinearColor::Yellow;
 		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.16f*Size.X, YOffset + ColumnY, SlideOutFont, FVector2D(1.f, 1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
+	else if (PickupInventory)
+	{
+		FCanvasIcon HUDIcon = PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
+		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.021f*Size.X, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
+	}
 	else
 	{
-		FCanvasIcon HUDIcon = Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
+		FCanvasIcon HUDIcon = Pickup->HUDIcon;
 		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.021f*Size.X, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
 	}
 
@@ -429,6 +447,18 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 	float BarOpacity = 0.3f;
 	float Width = Size.X;
 
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive && KeyName != NAME_None)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement(KeyName, Bounds));
+		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+		{
+			BarOpacity = 0.5;
+		}
+	}
+
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
 	float FinalBarOpacity = BarOpacity;
@@ -453,6 +483,18 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
 	float Width = Size.X;
+
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive && KeyName != NAME_None)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement(KeyName, Bounds));
+		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
+		{
+			BarOpacity = 0.5;
+		}
+	}
 
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
@@ -480,6 +522,18 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	float FinalBarOpacity = 0.3f;
 	float Width = Size.X;
 
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement(NumberToKey(Index), Bounds));
+		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+		{
+			FinalBarOpacity = 1.f;
+		}
+	}
+
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, SlideOutFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
 
@@ -491,12 +545,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
-	if (Character && (Character->Health > 0) && (PlayerState->SpectatorNameScale <= 1.1f))
-	{
-		float LastActionTime = GetWorld()->GetTimeSeconds() - FMath::Max(Character->LastTakeHitTime, Character->LastWeaponFireTime);
-		PlayerState->SpectatorNameScale = FMath::Max(PlayerState->SpectatorNameScale, 1.4f - LastActionTime / ActionHighlightTime);
-	}
-	PlayerState->SpectatorNameScale = FMath::Max(1.f, (1.f - 5.f*RenderDelta) * PlayerState->SpectatorNameScale + 5.f*RenderDelta);
+	PlayerState->SpectatorNameScale = 1.f; 
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	if ((PlayerState == UTHUDOwner->UTPlayerOwner->LastSpectatedPlayerState) || (PlayerState->CarriedObject && (PlayerState->CarriedObject == UTHUDOwner->UTPlayerOwner->GetViewTarget())))
@@ -507,8 +556,8 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	int32 FlagU=0;
 	int32 FlagV=0;
 
-	UTexture2D* FlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagU, FlagV);
-	DrawTexture(FlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 36,26, FlagU,FlagV,36,26,1.0, FLinearColor::White, FVector2D(0.0f,0.5f));	// Add a function to support additional flags
+	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagU, FlagV);
+	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 36, 26, FlagU, FlagV, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	// Add a function to support additional flags
 
 	// Draw the Text
 	if (Index >= 0)
@@ -546,20 +595,21 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 			if (Character->ArmorAmount > 0)
 			{
 				DrawTexture(ArmorIcon.Texture, XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY - 0.015f*Width, 0.065f*Width, 0.065f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
-				FFormatNamedArguments Args;
-				Args.Add("Armor", FText::AsNumber(Character->ArmorAmount));
+				FFormatNamedArguments ArmorArgs;
+				ArmorArgs.Add("Armor", FText::AsNumber(Character->ArmorAmount));
 				DrawColor = FLinearColor::Yellow;
 				DrawColor.R *= 0.5f;
 				DrawColor.G *= 0.5f;
 				DrawColor.B *= 0.5f;
-				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + (Width * (ColumnHeaderArmor + 0.062f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * (ColumnHeaderArmor + 0.062f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 			}
 			if (Character->GetWeaponClass())
 			{
 				AUTWeapon* DefaultWeapon = Character->GetWeaponClass()->GetDefaultObject<AUTWeapon>();
 				if (DefaultWeapon)
 				{
-					DrawTexture(WeaponAtlas, XOffset + Width, YOffset + ColumnY - 0.015f*Width, 0.5f*DefaultWeapon->WeaponBarSelectedUVs.UL, 0.5f*DefaultWeapon->WeaponBarSelectedUVs.VL, DefaultWeapon->WeaponBarSelectedUVs.U, DefaultWeapon->WeaponBarSelectedUVs.V, DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.VL, 1.0, FLinearColor::White);
+					float WeaponScale = 0.5f * (1.f + FMath::Clamp(0.6f - GetWorld()->GetTimeSeconds() + Character->LastWeaponFireTime, 0.f, 0.4f));  
+					DrawTexture(WeaponAtlas, XOffset + Width, YOffset + ColumnY - 0.015f*Width, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.UL, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.VL, DefaultWeapon->WeaponBarSelectedUVs.U + DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.V, -1.f * DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.VL, 1.0, FLinearColor::White);
 				}
 			}
 		}
@@ -569,4 +619,50 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderScoreX), YOffset, 0.075f*Width, 0.075f*Width, 725, 0, 28, 36, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 		}
 	}
+}
+
+int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D Position)
+{
+	if (bIsInteractive)
+	{
+		for (int32 i = 0; i < ClickElementStack.Num(); i++)
+		{
+			if (Position.X >= ClickElementStack[i].Bounds.X && Position.X <= ClickElementStack[i].Bounds.Z &&
+				Position.Y >= ClickElementStack[i].Bounds.Y && Position.Y <= ClickElementStack[i].Bounds.W)
+			{
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
+{ 
+	int32 ElementIndex = MouseHitTest(InMousePosition);
+	if (ClickElementStack.IsValidIndex(ElementIndex) && UTHUDOwner && UTHUDOwner->PlayerOwner && Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput))
+	{
+		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
+		Input->ExecuteCustomBind(ClickElementStack[ElementIndex].Key, EInputEvent::IE_Pressed);
+		return true;
+	}
+	return false; 
+}
+
+FKey UUTHUDWidget_SpectatorSlideOut::NumberToKey(int32 InNumber)
+{
+	switch (InNumber)
+	{
+	case 0: return FKey(TEXT("Zero"));
+	case 1: return FKey(TEXT("One"));
+	case 2: return FKey(TEXT("Two"));
+	case 3: return FKey(TEXT("Three"));
+	case 4: return FKey(TEXT("Four"));
+	case 5: return FKey(TEXT("Five"));
+	case 6: return FKey(TEXT("Six"));
+	case 7: return FKey(TEXT("Seven"));
+	case 8: return FKey(TEXT("Eight"));
+	case 9: return FKey(TEXT("Nine"));
+	}
+	return FKey();
 }

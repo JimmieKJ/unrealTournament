@@ -1,12 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Custom allocator.
-
-=============================================================================*/
 #pragma once
-#ifndef __ALLOCATORFIXEDSIZEFREELIST_H__
-#define __ALLOCATORFIXEDSIZEFREELIST_H__
+
 
 /**
  * Fixed-sized allocator that uses a free list to cache allocations.
@@ -36,7 +31,7 @@ public:
 	 * @param	InitialBlockSize		- number of allocations to warm the cache with
 	 */
 	TAllocatorFixedSizeFreeList(uint32 InitialBlockSize=0)
-		:FreeList(NULL)
+		:FreeList(nullptr)
 		,NumAllocated(0)
 		,NumLive(0)
 	{
@@ -133,6 +128,7 @@ public:
 	}
 
 private:
+
 	struct FreeListNode
 	{
 		FreeListNode* NextFreeAllocation;
@@ -143,12 +139,14 @@ private:
 		checkSlow(NumAllocated >= NumLive);
 	}
 
+private:
+
 	/** Linked List of free memory blocks. */
 	FreeListNode* FreeList;
+
 	/** The number of objects that have been allocated. */
 	uint32 NumAllocated;
+
 	/** The number of objects that are constructed and "out in the wild". */
 	uint32 NumLive;
 };
-
-#endif

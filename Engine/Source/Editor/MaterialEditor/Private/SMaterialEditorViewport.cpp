@@ -15,11 +15,13 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/Selection.h"
 #include "Engine/TextureCube.h"
+#include "ComponentAssetBroker.h"
+
 /** Viewport Client for the preview viewport */
 class FMaterialEditorViewportClient : public FEditorViewportClient
 {
 public:
-	FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene);
+	FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene, const TSharedRef<SMaterialEditorViewport>& InMaterialEditorViewport);
 
 	// FEditorViewportClient interface
 	virtual FLinearColor GetBackgroundColor() const override;
@@ -44,8 +46,8 @@ private:
 	TWeakPtr<IMaterialEditor> MaterialEditorPtr;
 };
 
-FMaterialEditorViewportClient::FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene)
-	: FEditorViewportClient( nullptr, &InPreviewScene )
+FMaterialEditorViewportClient::FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene, const TSharedRef<SMaterialEditorViewport>& InMaterialEditorViewport)
+	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InMaterialEditorViewport))
 	, MaterialEditorPtr(InMaterialEditor)
 {
 	// Setup defaults for the common draw helper.
@@ -174,7 +176,7 @@ void FMaterialEditorViewportClient::FocusViewportOnBounds(const FBoxSphereBounds
 	FVector CameraOffsetVector = ViewTransform.GetRotation().Vector() * -DistanceFromSphere;
 
 	ViewTransform.SetLookAt(Position);
-	ViewTransform.TransitionToLocation(Position + CameraOffsetVector, bInstant);
+	ViewTransform.TransitionToLocation(Position + CameraOffsetVector, EditorViewportWidget, bInstant);
 
 	// Tell the viewport to redraw itself.
 	Invalidate();
@@ -193,25 +195,23 @@ void SMaterialEditorViewport::Construct(const FArguments& InArgs)
 
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
 
+	PreviewMaterial = nullptr;
+	PreviewMeshComponent = nullptr;
 
-	PreviewMeshComponent = ConstructObject<UMaterialEditorMeshComponent>(
-		UMaterialEditorMeshComponent::StaticClass(), GetTransientPackage(), NAME_None, RF_Transient );
-	PreviewSkeletalMeshComponent = ConstructObject<USkeletalMeshComponent>(
-		USkeletalMeshComponent::StaticClass(), GetTransientPackage(), NAME_None, RF_Transient );
-
-	UMaterialInterface* Material = MaterialEditorPtr.Pin()->GetMaterialInterface();
-	if (Material)
+	if (UMaterialInterface* Material = MaterialEditorPtr.Pin()->GetMaterialInterface())
 	{
 		SetPreviewMaterial(Material);
 	}
 
-	SetPreviewMesh( GUnrealEd->GetThumbnailManager()->EditorSphere, NULL );
+	SetPreviewAsset( GUnrealEd->GetThumbnailManager()->EditorSphere );
 }
 
 SMaterialEditorViewport::~SMaterialEditorViewport()
 {
-	PreviewMeshComponent->OverrideMaterials.Empty();
-	PreviewSkeletalMeshComponent->OverrideMaterials.Empty();
+	if (PreviewMeshComponent != nullptr)
+	{
+		PreviewMeshComponent->OverrideMaterials.Empty();
+	}
 
 	if (EditorViewportClient.IsValid())
 	{
@@ -222,60 +222,57 @@ SMaterialEditorViewport::~SMaterialEditorViewport()
 void SMaterialEditorViewport::AddReferencedObjects( FReferenceCollector& Collector )
 {
 	Collector.AddReferencedObject( PreviewMeshComponent );
-	Collector.AddReferencedObject( PreviewSkeletalMeshComponent );
+	Collector.AddReferencedObject( PreviewMaterial );
 }
 
 void SMaterialEditorViewport::RefreshViewport()
 {
-	//reregister the preview components, so if the preview material changed it will be propagated to the render thread
-	PreviewMeshComponent->MarkRenderStateDirty();
-	PreviewSkeletalMeshComponent->MarkRenderStateDirty();
+	// reregister the preview components, so if the preview material changed it will be propagated to the render thread
+	if (PreviewMeshComponent != nullptr)
+	{
+		PreviewMeshComponent->MarkRenderStateDirty();
+	}
 	SceneViewport->InvalidateDisplay();
 }
 
-void SMaterialEditorViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+bool SMaterialEditorViewport::SetPreviewAsset(UObject* InAsset)
 {
-	SEditorViewport::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-}
-
-bool SMaterialEditorViewport::SetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh)
-{
-	// Only permit the use of a skeletal mesh if the material has bUsedWithSkeltalMesh.
-	if (!MaterialEditorPtr.Pin()->ApproveSetPreviewMesh(InStaticMesh, InSkeletalMesh))
+	if (!MaterialEditorPtr.Pin()->ApproveSetPreviewAsset(InAsset))
 	{
 		return false;
 	}
-	
-	FTransform Transform = FTransform::Identity;
-	bUseSkeletalMeshAsPreview = InSkeletalMesh != NULL;
-	if ( bUseSkeletalMeshAsPreview )
-	{
-		// Remove the static mesh from the preview scene.
-		PreviewScene.RemoveComponent( PreviewMeshComponent );
-		PreviewScene.AddComponent( PreviewSkeletalMeshComponent, Transform );
-		
-		// Update the toolbar state implicitly through PreviewPrimType.
-		PreviewPrimType = TPT_None;
 
-		// Set the new preview skeletal mesh.
-		PreviewSkeletalMeshComponent->SetSkeletalMesh( InSkeletalMesh );
-	}
-	else
+	// Unregister the current component
+	if (PreviewMeshComponent != nullptr)
 	{
+		PreviewScene.RemoveComponent(PreviewMeshComponent);
+		PreviewMeshComponent = nullptr;
+	}
+
+	FTransform Transform = FTransform::Identity;
+
+	if (UStaticMesh* StaticMesh = Cast<UStaticMesh>(InAsset))
+	{
+		// Special case handling for static meshes, to use more accurate bounds via a subclass
+		UStaticMeshComponent* NewSMComponent = NewObject<UMaterialEditorMeshComponent>(GetTransientPackage(), NAME_None, RF_Transient);
+		NewSMComponent->SetStaticMesh(StaticMesh);
+
+		PreviewMeshComponent = NewSMComponent;
+
 		// Update the toolbar state implicitly through PreviewPrimType.
-		if ( InStaticMesh == GUnrealEd->GetThumbnailManager()->EditorCylinder )
+		if (StaticMesh == GUnrealEd->GetThumbnailManager()->EditorCylinder)
 		{
 			PreviewPrimType = TPT_Cylinder;
 		}
-		else if ( InStaticMesh == GUnrealEd->GetThumbnailManager()->EditorCube )
+		else if (StaticMesh == GUnrealEd->GetThumbnailManager()->EditorCube)
 		{
 			PreviewPrimType = TPT_Cube;
 		}
-		else if ( InStaticMesh == GUnrealEd->GetThumbnailManager()->EditorSphere )
+		else if (StaticMesh == GUnrealEd->GetThumbnailManager()->EditorSphere)
 		{
 			PreviewPrimType = TPT_Sphere;
 		}
-		else if ( InStaticMesh == GUnrealEd->GetThumbnailManager()->EditorPlane )
+		else if (StaticMesh == GUnrealEd->GetThumbnailManager()->EditorPlane)
 		{
 			// Need to rotate the plane so that it faces the camera
 			Transform.SetRotation(FQuat(FRotator(0, 90, 0)));
@@ -285,36 +282,43 @@ bool SMaterialEditorViewport::SetPreviewMesh(UStaticMesh* InStaticMesh, USkeleta
 		{
 			PreviewPrimType = TPT_None;
 		}
+	}
+	else if (InAsset != nullptr)
+	{
+		// Fall back to the component asset broker
+		if (TSubclassOf<UActorComponent> ComponentClass = FComponentAssetBrokerage::GetPrimaryComponentForAsset(InAsset->GetClass()))
+		{
+			if (ComponentClass->IsChildOf(UMeshComponent::StaticClass()))
+			{
+				PreviewMeshComponent = NewObject<UMeshComponent>(GetTransientPackage(), ComponentClass, NAME_None, RF_Transient);
 
-		// Remove the skeletal mesh from the preview scene.
-		PreviewScene.RemoveComponent( PreviewSkeletalMeshComponent );
-		PreviewScene.AddComponent( PreviewMeshComponent, Transform );
+				FComponentAssetBrokerage::AssignAssetToComponent(PreviewMeshComponent, InAsset);
 
-		// Set the new preview static mesh.
-		FComponentReregisterContext ReregisterContext( PreviewMeshComponent );
-		PreviewMeshComponent->StaticMesh = InStaticMesh;
+				PreviewPrimType = TPT_None;
+			}
+		}
 	}
 
-	return true;
+	// Add the new component to the scene
+	if (PreviewMeshComponent != nullptr)
+	{
+		PreviewScene.AddComponent(PreviewMeshComponent, Transform);
+	}
+
+	// Make sure the preview material is applied to the component
+	SetPreviewMaterial(PreviewMaterial);
+
+	return (PreviewMeshComponent != nullptr);
 }
 
-bool SMaterialEditorViewport::SetPreviewMesh(const TCHAR* InMeshName)
+bool SMaterialEditorViewport::SetPreviewAssetByName(const TCHAR* InAssetName)
 {
 	bool bSuccess = false;
-	if ( InMeshName && FString(InMeshName).Len() > 0 )
+	if ((InAssetName != nullptr) && (*InAssetName != 0))
 	{
-		UStaticMesh* StaticMesh = LoadObject<UStaticMesh>( NULL, InMeshName);
-		if ( StaticMesh )
+		if (UObject* Asset = LoadObject<UObject>(nullptr, InAssetName))
 		{
-			bSuccess = SetPreviewMesh( StaticMesh, NULL );
-		}
-		else
-		{
-			USkeletalMesh* SkeletalMesh = LoadObject<USkeletalMesh>( NULL, InMeshName );
-			if ( SkeletalMesh )
-			{
-				bSuccess = SetPreviewMesh( NULL, SkeletalMesh );
-			}
+			bSuccess = SetPreviewAsset(Asset);
 		}
 	}
 	return bSuccess;
@@ -322,24 +326,13 @@ bool SMaterialEditorViewport::SetPreviewMesh(const TCHAR* InMeshName)
 
 void SMaterialEditorViewport::SetPreviewMaterial(UMaterialInterface* InMaterialInterface)
 {
-	check( PreviewMeshComponent );
-	check( PreviewSkeletalMeshComponent );
+	PreviewMaterial = InMaterialInterface;
 
-	PreviewMeshComponent->OverrideMaterials.Empty();
-	PreviewMeshComponent->OverrideMaterials.Add( InMaterialInterface );
-	PreviewSkeletalMeshComponent->OverrideMaterials.Empty();
-	PreviewSkeletalMeshComponent->OverrideMaterials.Add( InMaterialInterface );
-}
-
-void SMaterialEditorViewport::ToggleRealtime()
-{
-	EditorViewportClient->ToggleRealtime();
-}
-
-TSharedRef<FUICommandList> SMaterialEditorViewport::GetMaterialEditorCommands() const
-{
-	check(MaterialEditorPtr.IsValid());
-	return MaterialEditorPtr.Pin()->GetToolkitCommands();
+	if (PreviewMeshComponent != nullptr)
+	{
+		PreviewMeshComponent->OverrideMaterials.Empty();
+		PreviewMeshComponent->OverrideMaterials.Add(PreviewMaterial);
+	}
 }
 
 void SMaterialEditorViewport::OnAddedToTab( const TSharedRef<SDockTab>& OwnerTab )
@@ -357,45 +350,48 @@ void SMaterialEditorViewport::BindCommands()
 	SEditorViewport::BindCommands();
 
 	const FMaterialEditorCommands& Commands = FMaterialEditorCommands::Get();
-	TSharedRef<FUICommandList> ToolkitCommandList = GetMaterialEditorCommands();
+
+	check(MaterialEditorPtr.IsValid());
+	CommandList->Append(MaterialEditorPtr.Pin()->GetToolkitCommands());
 
 	// Add the commands to the toolkit command list so that the toolbar buttons can find them
-	ToolkitCommandList->MapAction(
+	CommandList->MapAction(
 		Commands.SetCylinderPreview,
 		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Cylinder ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Cylinder ) );
 
-	ToolkitCommandList->MapAction(
+	CommandList->MapAction(
 		Commands.SetSpherePreview,
 		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Sphere ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Sphere ) );
 
-	ToolkitCommandList->MapAction(
+	CommandList->MapAction(
 		Commands.SetPlanePreview,
 		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Plane ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Plane ) );
 
-	ToolkitCommandList->MapAction(
+	CommandList->MapAction(
 		Commands.SetCubePreview,
 		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Cube ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Cube ) );
 
-	ToolkitCommandList->MapAction(
+	CommandList->MapAction(
 		Commands.SetPreviewMeshFromSelection,
 		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewMeshFromSelection ),
-		FCanExecuteAction());
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewMeshFromSelectionChecked ) );
 
-	ToolkitCommandList->MapAction(
+	CommandList->MapAction(
 		Commands.TogglePreviewGrid,
 		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::TogglePreviewGrid ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsTogglePreviewGridChecked ) );
 
-	ToolkitCommandList->MapAction(
+	CommandList->MapAction(
 		Commands.TogglePreviewBackground,
 		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::TogglePreviewBackground ),
 		FCanExecuteAction(),
@@ -404,9 +400,9 @@ void SMaterialEditorViewport::BindCommands()
 
 void SMaterialEditorViewport::OnFocusViewportToSelection()
 {
-	if( PreviewMeshComponent || PreviewSkeletalMeshComponent )
+	if( PreviewMeshComponent != nullptr )
 	{
-		EditorViewportClient->FocusViewportOnBounds( bUseSkeletalMeshAsPreview ? PreviewSkeletalMeshComponent->Bounds : PreviewMeshComponent->Bounds );
+		EditorViewportClient->FocusViewportOnBounds( PreviewMeshComponent->Bounds );
 	}
 }
 
@@ -414,7 +410,7 @@ void SMaterialEditorViewport::OnSetPreviewPrimitive(EThumbnailPrimType PrimType)
 {
 	if (SceneViewport.IsValid())
 	{
-		UStaticMesh* Primitive = NULL;
+		UStaticMesh* Primitive = nullptr;
 		switch (PrimType)
 		{
 		case TPT_Cylinder: Primitive = GUnrealEd->GetThumbnailManager()->EditorCylinder; break;
@@ -422,9 +418,10 @@ void SMaterialEditorViewport::OnSetPreviewPrimitive(EThumbnailPrimType PrimType)
 		case TPT_Plane: Primitive = GUnrealEd->GetThumbnailManager()->EditorPlane; break;
 		case TPT_Cube: Primitive = GUnrealEd->GetThumbnailManager()->EditorCube; break;
 		}
-		if (Primitive)
+
+		if (Primitive != nullptr)
 		{
-			SetPreviewMesh(Primitive , NULL );
+			SetPreviewAsset(Primitive);
 			RefreshViewport();
 		}
 	}
@@ -440,35 +437,37 @@ void SMaterialEditorViewport::OnSetPreviewMeshFromSelection()
 	bool bFoundPreviewMesh = false;
 	FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
 
-	// Look for a selected static mesh.
-	UStaticMesh* SelectedStaticMesh = GEditor->GetSelectedObjects()->GetTop<UStaticMesh>();
 	UMaterialInterface* MaterialInterface = MaterialEditorPtr.Pin()->GetMaterialInterface();
-	if ( SelectedStaticMesh )
-	{
-		SetPreviewMesh( SelectedStaticMesh, NULL );
-		MaterialInterface->PreviewMesh = SelectedStaticMesh->GetPathName();
-		bFoundPreviewMesh = true;
-	}
-	else
-	{
-		// No static meshes were selected; look for a selected skeletal mesh.
-		USkeletalMesh* SelectedSkeletalMesh = GEditor->GetSelectedObjects()->GetTop<USkeletalMesh>();
-		if ( SelectedSkeletalMesh )
-		{
-			//Automatically set the usage flag.
-			if( MaterialInterface->GetMaterial() )
-			{
-				bool bNeedsRecompile = false;
-				MaterialInterface->GetMaterial()->SetMaterialUsage( bNeedsRecompile, MATUSAGE_SkeletalMesh );
-			}
 
-			SetPreviewMesh( NULL, SelectedSkeletalMesh );
-			MaterialInterface->PreviewMesh = SelectedSkeletalMesh->GetPathName();
-			bFoundPreviewMesh = true;
+	// Look for a selected asset that can be converted to a mesh component
+	for (FSelectionIterator SelectionIt(*GEditor->GetSelectedObjects()); SelectionIt && !bFoundPreviewMesh; ++SelectionIt)
+	{
+		UObject* TestAsset = *SelectionIt;
+		if (TestAsset->IsAsset())
+		{
+			if (TSubclassOf<UActorComponent> ComponentClass = FComponentAssetBrokerage::GetPrimaryComponentForAsset(TestAsset->GetClass()))
+			{
+				if (ComponentClass->IsChildOf(UMeshComponent::StaticClass()))
+				{
+					if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(TestAsset))
+					{
+						// Special case handling for skeletal meshes, sets the material to be usable with them
+						if (MaterialInterface->GetMaterial())
+						{
+							bool bNeedsRecompile = false;
+							MaterialInterface->GetMaterial()->SetMaterialUsage(bNeedsRecompile, MATUSAGE_SkeletalMesh);
+						}
+					}
+
+					SetPreviewAsset(TestAsset);
+					MaterialInterface->PreviewMesh = TestAsset->GetPathName();
+					bFoundPreviewMesh = true;
+				}
+			}
 		}
 	}
 
-	if ( bFoundPreviewMesh )
+	if (bFoundPreviewMesh)
 	{
 		FMaterialEditor::UpdateThumbnailInfoPreviewMesh(MaterialInterface);
 
@@ -477,13 +476,18 @@ void SMaterialEditorViewport::OnSetPreviewMeshFromSelection()
 	}
 	else
 	{
-		FSuppressableWarningDialog::FSetupInfo Info(NSLOCTEXT("UnrealEd", "Warning_NoPreviewMeshFound_Message", "You need to select a mesh in the content browser to preview it."),
+		FSuppressableWarningDialog::FSetupInfo Info(NSLOCTEXT("UnrealEd", "Warning_NoPreviewMeshFound_Message", "You need to select a mesh-based asset in the content browser to preview it."),
 			NSLOCTEXT("UnrealEd", "Warning_NoPreviewMeshFound", "Warning: No Preview Mesh Found"), "Warning_NoPreviewMeshFound");
 		Info.ConfirmText = NSLOCTEXT("UnrealEd", "Warning_NoPreviewMeshFound_Confirm", "Continue");
 		
 		FSuppressableWarningDialog NoPreviewMeshWarning( Info );
 		NoPreviewMeshWarning.ShowModal();
 	}
+}
+
+bool SMaterialEditorViewport::IsPreviewMeshFromSelectionChecked() const
+{
+	return (PreviewPrimType == TPT_None && PreviewMeshComponent != nullptr);
 }
 
 void SMaterialEditorViewport::TogglePreviewGrid()
@@ -510,9 +514,24 @@ bool SMaterialEditorViewport::IsTogglePreviewBackgroundChecked() const
 	return bShowBackground;
 }
 
+TSharedRef<class SEditorViewport> SMaterialEditorViewport::GetViewportWidget()
+{
+	return SharedThis(this);
+}
+
+TSharedPtr<FExtender> SMaterialEditorViewport::GetExtenders() const
+{
+	TSharedPtr<FExtender> Result(MakeShareable(new FExtender));
+	return Result;
+}
+
+void SMaterialEditorViewport::OnFloatingButtonClicked()
+{
+}
+
 TSharedRef<FEditorViewportClient> SMaterialEditorViewport::MakeEditorViewportClient() 
 {
-	EditorViewportClient = MakeShareable( new FMaterialEditorViewportClient(MaterialEditorPtr, PreviewScene) );
+	EditorViewportClient = MakeShareable( new FMaterialEditorViewportClient(MaterialEditorPtr, PreviewScene, SharedThis(this)) );
 	
 	EditorViewportClient->SetViewLocation( FVector::ZeroVector );
 	EditorViewportClient->SetViewRotation( FRotator::ZeroRotator );
@@ -525,10 +544,19 @@ TSharedRef<FEditorViewportClient> SMaterialEditorViewport::MakeEditorViewportCli
 	return EditorViewportClient.ToSharedRef();
 }
 
-TSharedPtr<SWidget> SMaterialEditorViewport::MakeViewportToolbar()
+void SMaterialEditorViewport::PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay)
 {
-	return SNew(SMaterialEditorViewportToolBar)
-		.Viewport(SharedThis(this));
+	Overlay->AddSlot()
+		.VAlign(VAlign_Top)
+		[
+			SNew(SMaterialEditorViewportToolBar, SharedThis(this))
+		];
+
+	Overlay->AddSlot()
+		.VAlign(VAlign_Bottom)
+		[
+			SNew(SMaterialEditorViewportPreviewShapeToolBar, SharedThis(this))
+		];
 }
 
 EVisibility SMaterialEditorViewport::OnGetViewportContentVisibility() const

@@ -72,7 +72,7 @@ namespace StructSerializerTest
 /* Tests
  *****************************************************************************/
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJsonStructSerializerTest, "Core.Serialization.JsonStructSerializer", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FJsonStructSerializerTest, "System.Core.Serialization.JsonStructSerializer", EAutomationTestFlags::ATF_Editor)
 
 
 bool FJsonStructSerializerTest::RunTest( const FString& Parameters )

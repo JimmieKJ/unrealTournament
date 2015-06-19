@@ -285,7 +285,7 @@ bool SDeviceProfileCreateProfilePanel::IsCreateProfileButtonEnabled() const
 
 FReply SDeviceProfileCreateProfilePanel::HandleCreateDeviceProfileButtonClicked()
 {
-	UDeviceProfile* NewProfile = DeviceProfileManager->CreateProfile( *DeviceProfileNameTextBox->GetText().ToString(), *SelectedDeviceProfileType, SelectedDeviceProfileParent.IsValid() ? SelectedDeviceProfileParent->GetName() : TEXT("") );
+	DeviceProfileManager->CreateProfile( *DeviceProfileNameTextBox->GetText().ToString(), *SelectedDeviceProfileType, SelectedDeviceProfileParent.IsValid() ? SelectedDeviceProfileParent->GetName() : TEXT("") );
 
 	// Set the components for this panel back to default
 	ResetComponentsState();

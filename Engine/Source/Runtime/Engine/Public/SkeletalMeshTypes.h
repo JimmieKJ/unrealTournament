@@ -818,7 +818,7 @@ public:
 	/**
 	* @return text description for the resource type
 	*/
-	virtual FString GetFriendlyName() const;
+	virtual FString GetFriendlyName() const override;
 
 	// Vertex data accessors.
 
@@ -1078,8 +1078,6 @@ private:
 	bool bUseFullPrecisionUVs;
 	/** true if this vertex buffer will be used with CPU skinning. Resource arrays are set to cpu accessible if this is true */
 	bool bNeedsCPUAccess;
-	/** Position data has already been packed. Used during cooking to avoid packing twice. */
-	bool bProcessedPackedPositions;
 	/** Has extra bone influences per Vertex, which means using a different TGPUSkinVertexBase */
 	bool bExtraBoneInfluences;
 	/** The vertex data storage type */
@@ -1185,7 +1183,7 @@ public:
 	/**
 	 * @return text description for the resource type
 	 */
-	virtual FString GetFriendlyName() const;
+	virtual FString GetFriendlyName() const override;
 
 	/** 
 	 * @return number of vertices in this vertex buffer
@@ -1315,7 +1313,7 @@ public:
 	/**
 	 * @return text description for the resource type
 	 */
-	virtual FString GetFriendlyName() const;
+	virtual FString GetFriendlyName() const override;
 
 	// Vertex data accessors.
 	FORCEINLINE FApexClothPhysToRenderVertData& MappingData(uint32 VertexIndex)
@@ -1763,7 +1761,7 @@ public:
 	 */
 	void DebugDrawPhysicsAsset(int32 ViewIndex, FMeshElementCollector& Collector, const FEngineShowFlags& EngineShowFlags) const;
 
-	virtual uint32 GetMemoryFootprint( void ) const { return( sizeof( *this ) + GetAllocatedSize() ); }
+	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	uint32 GetAllocatedSize( void ) const { return( FPrimitiveSceneProxy::GetAllocatedSize() + LODSections.GetAllocatedSize() ); }
 
 	/**

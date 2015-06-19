@@ -5,6 +5,7 @@
 #include "PropertyEditing.h"
 #include "PropertyCustomizationHelpers.h"
 
+#include "Settings/EditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "FEditorLoadingSavingSettingsCustomization"
 
@@ -56,7 +57,7 @@ protected:
 		IDetailCategoryBuilder& StartupCategory = LayoutBuilder.EditCategory("Startup");
 		{
 			TArray<UObject*> ObjectList;
-			ObjectList.Add(&GEditor->AccessGameAgnosticSettings());
+			ObjectList.Add(GetMutableDefault<UEditorSettings>());
 			StartupCategory.AddExternalProperty(ObjectList, "bLoadTheMostRecentlyLoadedProjectAtStartup");
 
 			StartupCategory.AddExternalProperty(ObjectList, "bEditorAnalyticsEnabled", EPropertyLocation::Advanced);

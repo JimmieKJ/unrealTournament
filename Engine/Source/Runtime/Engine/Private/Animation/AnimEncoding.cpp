@@ -218,7 +218,10 @@ void AnimationFormat_GetAnimationPose(
 {
 	// decompress the translation component using the proper method
 	checkSlow(Seq.TranslationCodec != NULL);
-	((AnimEncoding*)Seq.TranslationCodec)->GetPoseTranslations(Atoms, TranslationPairs, Seq, Time);
+	if (TranslationPairs.Num() > 0)
+	{
+		((AnimEncoding*)Seq.TranslationCodec)->GetPoseTranslations(Atoms, TranslationPairs, Seq, Time);
+	}
 
 	// decompress the rotation component using the proper method
 	checkSlow(Seq.RotationCodec != NULL);
@@ -525,9 +528,9 @@ void AnimationFormat_GetStats(
 			}
 
 			// Scale.
-			for ( int32 TrackIndex = 0; TrackIndex < NumTransTracks; ++TrackIndex )
+			for ( int32 ScaleIndex = 0; ScaleIndex < NumScaleTracks; ++ScaleIndex )
 			{
-				const int32 NumKeys = Seq->CompressedScaleOffsets.GetOffsetData(TrackIndex, 1);
+				const int32 NumKeys = Seq->CompressedScaleOffsets.GetOffsetData(ScaleIndex, 1);
 				TotalNumScaleKeys += NumKeys;
 				if ( NumKeys == 1 )
 				{
@@ -865,8 +868,8 @@ void AnimationFormat_SetInterfaceLinks(UAnimSequence& Seq)
 		Seq.TranslationCodec = &StaticCodec;
 		Seq.ScaleCodec = &StaticCodec;
 
-		checkf(Seq.RotationCompressionFormat == ACF_Identity);
-		checkf(Seq.TranslationCompressionFormat == ACF_Identity);
+		check(Seq.RotationCompressionFormat == ACF_Identity);
+		check(Seq.TranslationCompressionFormat == ACF_Identity);
 		// commenting out scale check because the older versions won't have this set correctly
 		// and I can't get the version VER_UE4_ANIM_SUPPORT_NONUNIFORM_SCALE_ANIMATION here because this function
 		// is called in Serialize where GetLinker is too early to call

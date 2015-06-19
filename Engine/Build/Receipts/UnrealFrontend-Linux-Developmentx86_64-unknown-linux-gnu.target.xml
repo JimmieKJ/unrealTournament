@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="UnrealFrontend" />
+    <Property Name="Platform" Value="Linux" />
+    <Property Name="Configuration" Value="Development" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\UnrealFrontend" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Messaging\UdpMessaging\Binaries\Linux\libUnrealFrontend-UdpMessaging.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-AutomationController.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-AutomationMessages.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Core.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\Linux\libUnrealFrontend-LinuxTargetPlatform.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-CoreUObject.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Projects.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Json.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\Linux\libUnrealFrontend-LinuxNoEditorTargetPlatform.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-TargetPlatform.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-DesktopPlatform.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\Linux\libUnrealFrontend-LinuxServerTargetPlatform.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-DesktopTargetPlatform.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-LaunchDaemonMessages.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ShaderPreprocessor.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ShaderCore.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-RHI.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-RenderCore.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ShaderFormatOpenGL.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ShaderCompilerCommon.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ImageWrapper.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-TextureFormatDXT.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ImageCore.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-TextureFormatPVR.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-TextureFormatASTC.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-TextureFormatUncompressed.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-UnrealEdMessages.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-DeviceManager.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-EditorStyle.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-SlateCore.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-InputCore.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Slate.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-WorkspaceMenuStructure.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-LauncherServices.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-SessionMessages.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-SourceCodeAccess.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Settings.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Messaging.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ProfilerClient.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ProfilerMessages.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ProjectLauncher.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-SessionFrontend.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-SessionServices.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-EngineMessages.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-AutomationWindow.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ScreenShotComparison.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-ScreenShotComparisonTools.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Profiler.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-SlateReflector.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-StandaloneRenderer.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-TargetDeviceServices.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Networking.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Sockets.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-SandboxFile.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-DerivedDataCache.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\NotForLicensees\libUnrealFrontend-DDCUtils.so" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\libUnrealFrontend-Serialization.so" Type="DynamicLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

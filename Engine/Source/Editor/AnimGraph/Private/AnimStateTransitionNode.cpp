@@ -13,6 +13,7 @@
 #include "AnimGraphNode_TransitionResult.h"
 #include "EdGraphUtilities.h"
 #include "Kismet2/Kismet2NameValidators.h"
+#include "Animation/AnimInstance.h"
 
 //////////////////////////////////////////////////////////////////////////
 // IAnimStateTransitionNodeSharedDataHelper
@@ -468,7 +469,29 @@ void UAnimStateTransitionNode::ValidateNodeDuringCompilation(class FCompilerResu
 		UEdGraphPin* BoolResultPin = ResultNode->Pins[0];
 		if ((BoolResultPin->LinkedTo.Num() == 0) && (BoolResultPin->DefaultValue.ToBool() == false))
 		{
-			MessageLog.Warning(TEXT("@@ will never be taken, please connect something to @@"), this, BoolResultPin);
+			// check for native transition rule before warning
+			bool bHasNative = false;
+			UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNodeChecked(this);
+			if(Blueprint && Blueprint->ParentClass)
+			{
+				UAnimInstance* AnimInstance = CastChecked<UAnimInstance>(Blueprint->ParentClass->GetDefaultObject());
+				if(AnimInstance)
+				{
+					UEdGraph* ParentGraph = GetGraph();
+					UAnimStateNodeBase* PrevState = GetPreviousState();
+					UAnimStateNodeBase* NextState = GetNextState();
+					if(PrevState != nullptr && NextState != nullptr && ParentGraph != nullptr)
+					{
+						FName FunctionName;
+						bHasNative = AnimInstance->HasNativeTransitionBinding(ParentGraph->GetFName(), FName(*PrevState->GetStateName()), FName(*NextState->GetStateName()), FunctionName);
+					}
+				}
+			}
+
+			if(!bHasNative)
+			{
+				MessageLog.Warning(TEXT("@@ will never be taken, please connect something to @@"), this, BoolResultPin);
+			}
 		}
 	}
 	else

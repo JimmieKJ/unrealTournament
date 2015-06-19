@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Engine/CurveTable.h"
+#include "Engine/DataTable.h"
 #include "AttributeSet.generated.h"
 
 class UAbilitySystemComponent;
@@ -44,6 +46,7 @@ struct GAMEPLAYABILITIES_API FGameplayAttribute
 
 	void SetNumericValueChecked(float NewValue, class UAttributeSet* Dest) const;
 
+	float GetNumericValue(const UAttributeSet* Src) const;
 	float GetNumericValueChecked(const UAttributeSet* Src) const;
 	
 	/** Equality/Inequality operators */
@@ -97,7 +100,7 @@ public:
 	virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData &Data) { }
 
 	/**
-	 *	An "On Aggregator Change" type of event could go here, and that could be called when active gamepaly effects are added or removed to an attribute aggregator.
+	 *	An "On Aggregator Change" type of event could go here, and that could be called when active gameplay effects are added or removed to an attribute aggregator.
 	 *	It is difficult to give all the information in these cases though - aggregators can change for many reasons: being added, being removed, being modified, having a modifier change, immunity, stacking rules, etc.
 	 */
 
@@ -111,15 +114,13 @@ public:
 	 */
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) { }
 
-	/** 
-	 * Called to determine the set of gameplay attributes that the specified attribute requires as pre-requisites in order to accurately compute
-	 * the value of an attribute modification to the specified attribute. As an example, if you had a custom, complex implementation of a damage formula
-	 * and the damage relied on other attributes to perform its calculation (such as crit %, etc.), they would be output by this function.
-	 * 
-	 * @param AttributeToBeModified	Attribute that is being considered for modification and requires pre-requisites computed
-	 * @param OutPrereqs			[OUT] Pre-requisite attributes whose values/modifiers must be known prior to resolving a computation of the specified attribute
+	/**
+	 *	This is called just before any modification happens to an attribute's base value when an attribute aggregator exists.
+	 *	This function should enforce clamping (presuming you wish to clamp the base value along with the final value in PreAttributeChange)
+	 *	This function should NOT invoke gameplay related events or callbacks. Do those in PreAttributeChange() which will be called prior to the
+	 *	final value of the attribute actually changing.
 	 */
-	virtual void GetPrerequisiteAttributesForAttributeModification(const FGameplayAttribute& AttributeToBeModified, OUT TArray<FGameplayAttribute>& OutPrereqs) const {}
+	virtual void PreAttributeBaseChange(const FGameplayAttribute& Attribute, float& NewValue) const { }
 
 	/** This signifies the attribute set can be ID'd by name over the network. */
 	void SetNetAddressable();
@@ -131,9 +132,9 @@ public:
 
 	virtual void PrintDebug();
 
-	virtual void PreNetReceive();
+	virtual void PreNetReceive() override;
 	
-	virtual void PostNetReceive();
+	virtual void PostNetReceive() override;
 
 protected:
 	/** Is this attribute set safe to ID over the network by name?  */
@@ -159,14 +160,19 @@ struct GAMEPLAYABILITIES_API FScalableFloat
 
 	FScalableFloat()
 		: Value(0.f)
-		, FinalCurve(NULL)
+		, FinalCurve(nullptr)
 	{
 	}
 
 	FScalableFloat(float InInitialValue)
 		: Value(InInitialValue)
-		, FinalCurve(NULL)
+		, FinalCurve(nullptr)
 	{
+	}
+
+	~FScalableFloat()
+	{
+		UnRegisterOnCurveTablePostReimport();
 	}
 
 public:
@@ -181,24 +187,12 @@ public:
 
 	bool IsStatic() const
 	{
-		return (Curve.RowName == NAME_None);
+		return Curve.RowName.IsNone();
 	}
 
-	void SetValue(float NewValue)
-	{
-		Value = NewValue;
-		Curve.CurveTable = NULL;
-		Curve.RowName = NAME_None;
-		FinalCurve = NULL;
-	}
+	void SetValue(float NewValue);
 
-	void SetScalingValue(float InCoeffecient, FName InRowName, UCurveTable * InTable)
-	{
-		Value = InCoeffecient;
-		Curve.RowName = InRowName;
-		Curve.CurveTable = InTable;
-		FinalCurve = NULL;
-	}
+	void SetScalingValue(float InCoeffecient, FName InRowName, UCurveTable * InTable);
 
 	void LockValueAtLevel(float Level, FGlobalCurveDataOverride *GlobalOverrides)
 	{
@@ -225,6 +219,20 @@ public:
 	bool operator!=(const FScalableFloat& Other) const;
 
 private:
+
+	/** Conditionally register the OnCurveTablePostReimport function with the re-import manager */
+	void RegisterOnCurveTablePostReimport() const;
+
+	/** Conditionally unregister the OnCurveTablePostReimport function from the re-import manager */
+	void UnRegisterOnCurveTablePostReimport() const;
+
+#if WITH_EDITOR
+	/** Function to call when the curve table has been re-imported */
+	void OnCurveTablePostReimport(UObject* InObject, bool);
+
+	/** Handle to the delegate called when the curve table has been re-imported */
+	mutable FDelegateHandle OnCurveTablePostReimportHandle;
+#endif // WITH_EDITOR
 
 	// Cached direct pointer to RichCurve we should evaluate
 	mutable FRichCurve* FinalCurve;

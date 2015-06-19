@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="UE4Game" />
+    <Property Name="Platform" Value="Linux" />
+    <Property Name="Configuration" Value="Development" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\Linux\UE4Game" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Plugins\2D\Paper2D\Binaries\Linux\libUE4-Paper2D.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\CharacterAI\Binaries\Linux\libUE4-CharacterAI.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Messaging\UdpMessaging\Binaries\Linux\libUE4-UdpMessaging.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CableComponent\Binaries\Linux\libUE4-CableComponent.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CustomMeshComponent\Binaries\Linux\libUE4-CustomMeshComponent.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\ExampleDeviceProfileSelector\Binaries\Linux\libUE4-ExampleDeviceProfileSelector.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\ProceduralMeshComponent\Binaries\Linux\libUE4-ProceduralMeshComponent.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Slate\SlateRemote\Binaries\Linux\libUE4-SlateRemote.a" Type="StaticLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

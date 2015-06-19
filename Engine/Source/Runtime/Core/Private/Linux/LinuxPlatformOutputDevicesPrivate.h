@@ -1,5 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
+#include "OutputDeviceConsole.h"
+
 class FOutputDeviceLinuxError : public FOutputDeviceError
 {
 public:
@@ -19,7 +21,7 @@ public:
 	 * Error handling function that is being called from within the system wide global
 	 * error handler, e.g. using structured exception handling on the PC.
 	 */
-	void HandleError();
+	void HandleError() override;
 
 private:
 

@@ -153,13 +153,13 @@ void FTestSessionInterface::Test(UWorld* InWorld, bool bTestLAN, bool bIsPresenc
 	}
 
 	// Always on the lookout for invite acceptance (via actual invite or join in an external client)
-	OnSessionInviteAcceptedDelegate = FOnSessionInviteAcceptedDelegate::CreateRaw(this, &FTestSessionInterface::OnSessionInviteAccepted);
-	OnSessionInviteAcceptedDelegateHandle = SessionInt->AddOnSessionInviteAcceptedDelegate_Handle(0, OnSessionInviteAcceptedDelegate);
+	OnSessionUserInviteAcceptedDelegate = FOnSessionUserInviteAcceptedDelegate::CreateRaw(this, &FTestSessionInterface::OnSessionUserInviteAccepted);
+	OnSessionUserInviteAcceptedDelegateHandle = SessionInt->AddOnSessionUserInviteAcceptedDelegate_Handle(OnSessionUserInviteAcceptedDelegate);
 }
 
 void FTestSessionInterface::ClearDelegates()
 {
-	SessionInt->ClearOnSessionInviteAcceptedDelegate_Handle(0, OnSessionInviteAcceptedDelegateHandle);
+	SessionInt->ClearOnSessionUserInviteAcceptedDelegate_Handle(OnSessionUserInviteAcceptedDelegateHandle);
 	GEngine->OnWorldDestroyed().RemoveAll(this);
 }
 
@@ -180,14 +180,14 @@ void FTestSessionInterface::OnReadFriendsListComplete(int32 LocalUserNum, bool b
 	}
 }
 
-void FTestSessionInterface::OnSessionInviteAccepted(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult)
+void FTestSessionInterface::OnSessionUserInviteAccepted(bool bWasSuccessful, int32 ControllerId, TSharedPtr<FUniqueNetId> InUserId, const FOnlineSessionSearchResult& SearchResult)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("OnSessionInviteAccepted LocalUserNum: %d bSuccess: %d"), LocalUserNum, bWasSuccessful);
+	UE_LOG(LogOnline, Verbose, TEXT("OnSessionInviteAccepted ControllerId: %d bSuccess: %d"), ControllerId, bWasSuccessful);
 	// Don't clear invite accept delegate
 
 	if (bWasSuccessful)
 	{
-		JoinSession(LocalUserNum, GameSessionName, SearchResult);
+		JoinSession(ControllerId, GameSessionName, SearchResult);
 	}
 }
 
@@ -229,7 +229,7 @@ void FTestSessionInterface::OnUnregisterPlayerComplete(FName SessionName, const 
 	SessionInt->ClearOnUnregisterPlayersCompleteDelegate_Handle(OnUnregisterPlayersCompleteDelegateHandle);
 }
 
-void FTestSessionInterface::JoinSession(int32 LocalUserNum, FName SessionName, const FOnlineSessionSearchResult& SearchResult)
+void FTestSessionInterface::JoinSession(int32 ControllerId, FName SessionName, const FOnlineSessionSearchResult& SearchResult)
 {
 	// Clean up existing sessions if applicable
 	EOnlineSessionState::Type SessionState = SessionInt->GetSessionState(SessionName);
@@ -241,7 +241,7 @@ void FTestSessionInterface::JoinSession(int32 LocalUserNum, FName SessionName, c
 	else
 	{
 		OnJoinSessionCompleteDelegateHandle = SessionInt->AddOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegate);
-		SessionInt->JoinSession(LocalUserNum, SessionName, SearchResult);
+		SessionInt->JoinSession(ControllerId, SessionName, SearchResult);
 	}
 }
 
@@ -513,10 +513,10 @@ bool FTestSessionInterface::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevic
 					if (!bFound)
 					{
 						// use friend str as id instead of display name
-						TSharedPtr<FUniqueNetId> UserId = Identity->CreateUniquePlayerId(FriendStr);
-						if (UserId.IsValid())
+						TSharedPtr<FUniqueNetId> FriendUserId = Identity->CreateUniquePlayerId(FriendStr);
+						if (FriendUserId.IsValid())
 						{	
-							SessionInt->SendSessionInviteToFriend(LocalUserNum, SessionName, *UserId);
+							SessionInt->SendSessionInviteToFriend(LocalUserNum, SessionName, *FriendUserId);
 						}
 					}
 				}

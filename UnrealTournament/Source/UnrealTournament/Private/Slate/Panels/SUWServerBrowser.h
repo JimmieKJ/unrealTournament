@@ -160,25 +160,6 @@ private:
 
 static const FString LOBBY_GAME_PATH = TEXT("/Script/UnrealTournament.UTLobbyGameMode");
 
-class FServerInstanceData 
-{
-public:
-	FString Description;
-	FString HostName;
-
-	FServerInstanceData(const FString& inDescription, const FString& inHostName)
-		: Description(inDescription)
-		, HostName(inHostName)
-	{};
-
-	static TSharedRef<FServerInstanceData> Make(const FString& inDescription, const FString& inHostName)
-	{
-		return MakeShareable( new FServerInstanceData( inDescription, inHostName) );
-	}
-};
-
-
-
 class FServerData : public TSharedFromThis<FServerData>
 {
 public: 

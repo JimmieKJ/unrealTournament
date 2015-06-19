@@ -25,16 +25,29 @@ namespace UnrealBuildTool
 		public ActionHistory(string InFilePath)
 		{
 			FilePath = Path.GetFullPath(InFilePath);
+
+			var bFoundCache = false;
 			if (File.Exists(FilePath) == true)
 			{
-				// Deserialize the history from disk if the file exists.
-				using (FileStream Stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
+				try
 				{
-					BinaryFormatter Formatter = new BinaryFormatter();
-					ProducedItemToPreviousActionCommandLine = Formatter.Deserialize(Stream) as Dictionary<string, string>;
+					// Deserialize the history from disk if the file exists.
+					using (FileStream Stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read))
+					{
+						BinaryFormatter Formatter = new BinaryFormatter();
+						ProducedItemToPreviousActionCommandLine = Formatter.Deserialize(Stream) as Dictionary<string, string>;
+					}
+
+					bFoundCache = true;
+				}
+				catch (Exception)
+				{
+					// If this fails for any reason just reset. History will be created later.
+					ProducedItemToPreviousActionCommandLine = null;
 				}
 			}
-			else
+
+			if (!bFoundCache)
 			{
 				// Otherwise create a fresh history.
 				ProducedItemToPreviousActionCommandLine = new Dictionary<string, string>();
@@ -96,7 +109,7 @@ namespace UnrealBuildTool
 			else
 			{
 				// Shared action history (unless this is a rocket target)
-				Folder = UnrealBuildTool.RunningRocket() ?
+				Folder = (UnrealBuildTool.RunningRocket() && UnrealBuildTool.HasUProjectFile()) ?
 					Path.Combine(UnrealBuildTool.GetUProjectPath(), BuildConfiguration.BaseIntermediateFolder) :
 					BuildConfiguration.BaseIntermediatePath;
 			}

@@ -3,7 +3,6 @@
 #include "GameplayTagsEditorModulePrivatePCH.h"
 #include "KismetCompiler.h"
 #include "GameplayTags.h"
-#include "K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "BlueprintActionDatabaseRegistrar.h"
@@ -37,21 +36,6 @@ FText UGameplayTagsK2Node_LiteralGameplayTag::GetNodeTitle(ENodeTitleType::Type 
 bool UGameplayTagsK2Node_LiteralGameplayTag::CanCreateUnderSpecifiedSchema( const UEdGraphSchema* Schema ) const
 {
 	return Schema->IsA(UEdGraphSchema_K2::StaticClass());
-}
-
-void UGameplayTagsK2Node_LiteralGameplayTag::GetMenuEntries( FGraphContextMenuBuilder& ContextMenuBuilder ) const
-{
-	Super::GetMenuEntries(ContextMenuBuilder);
-
-	UK2Node* EnumNodeTemplate = ContextMenuBuilder.CreateTemplateNode<UGameplayTagsK2Node_LiteralGameplayTag>();
-
-	const FString Category = TEXT("Gameplay Tags|Tag Container");
-	const FText MenuDesc = EnumNodeTemplate->GetNodeTitle(ENodeTitleType::ListView);
-	const FString Tooltip = EnumNodeTemplate->GetTooltipText().ToString();
-	const FString Keywords = EnumNodeTemplate->GetKeywords();
-
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, Category, MenuDesc, Tooltip, 0, Keywords);
-	NodeAction->NodeTemplate = EnumNodeTemplate;
 }
 
 void UGameplayTagsK2Node_LiteralGameplayTag::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)

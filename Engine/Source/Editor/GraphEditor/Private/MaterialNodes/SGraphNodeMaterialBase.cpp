@@ -7,6 +7,8 @@
 #include "ScopedTransaction.h"
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "TutorialMetaData.h"
+#include "CanvasTypes.h"
+#include "CanvasItem.h"
 
 
 

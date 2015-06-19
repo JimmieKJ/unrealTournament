@@ -2,6 +2,7 @@
 
 
 #include "Common.usf"
+#include "GammaCorrectionCommon.usf"
 
 #if USE_MATERIALS
 #include "Material.usf"
@@ -26,8 +27,8 @@
 /** Enable to debug clipping issues */
 #define DEBUG_CLIPPING 0
 
-/** Display gamma */
-float InvDisplayGamma;
+/** Display gamma x:gamma curve adjustment, y:inverse gamma (1/GEngine->DisplayGamma) */
+float2 GammaValues;
 /** Per element params */
 float4 ShaderParams;
 
@@ -37,6 +38,36 @@ Texture2D ElementTexture;
 SamplerState ElementTextureSampler;
 
 #endif
+
+
+float3 GammaCorrect(float3 InColor)
+{
+	float3 CorrectedColor = InColor;
+
+#if !(ES2_PROFILE || ES3_1_PROFILE)
+	FLATTEN if( GammaValues.y != 1.0f )
+	{
+		// Apply "gamma" curve adjustment.
+		CorrectedColor = pow(CorrectedColor, GammaValues.x);
+
+		#if MAC
+			// Note, MacOSX native output is raw gamma 2.2 not sRGB!
+			CorrectedColor = pow(CorrectedColor, 1.0/2.2);
+		#else
+			#if USE_709
+				// Didn't profile yet if the branching version would be faster (different linear segment).
+				CorrectedColor = LinearTo709Branchless(CorrectedColor);
+			#else
+				CorrectedColor = LinearToSrgbBranching(CorrectedColor);
+			#endif
+		#endif
+	}
+#endif
+
+	return CorrectedColor;
+}
+
+
 
 struct VertexOut
 {
@@ -68,8 +99,19 @@ float4 GetMaterialColor( VertexOut InVertex, float2 UV )
 
 	// Clip if masked
 	GetMaterialCoverageAndClipping( Parameters );
+	
+	float Opacity = GetMaterialOpacity(Parameters);
+	float3 Color = GetMaterialEmissive(Parameters);
 
-	return float4( GetMaterialEmissive( Parameters ), GetMaterialOpacity(Parameters) );
+	float4 OutColor;
+
+	#if MATERIALBLENDING_ADDITIVE
+		OutColor = float4(Color * Opacity, 0.0f);
+	#else
+		OutColor = float4( Color, Opacity );
+	#endif
+
+	return OutColor;
 }
 #endif
 
@@ -202,7 +244,7 @@ float4 GetLineSegmentElementColor( VertexOut InVertex )
 	// samples the first and we get white pixels 
 	const float HalfPixelOffset = 1/32.f;
 
-	Color.a *= Texture2DSample(ElementTexture, ElementTextureSampler, float2(Index-HalfPixelOffset,0)).x;
+	Color.a *= smoothstep(0.3, 1.0f, Index);
 	
 	// Simple alpha test to help with overlapping segments
 	if( Color.a < 0.05f )
@@ -327,10 +369,8 @@ float4 Main( VertexOut VIn ) : SV_Target0
 	OutColor = ApplyColorVisionDeficiencyFilter(OutColor);
 #endif
 
-#if !(ES2_PROFILE || ES3_1_PROFILE)
 	// gamma correct
-	OutColor.rgb = pow(OutColor.rgb,InvDisplayGamma);
-#endif
+	OutColor.rgb = GammaCorrect(OutColor.rgb);
 
 
 #if DEBUG_CLIPPING

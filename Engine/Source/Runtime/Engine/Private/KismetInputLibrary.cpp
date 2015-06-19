@@ -28,6 +28,41 @@ bool UKismetInputLibrary::EqualEqual_KeyKey(FKey A, FKey B)
 	return A == B;
 }
 
+bool UKismetInputLibrary::Key_IsModifierKey(const FKey& Key)
+{
+	return Key.IsModifierKey();
+}
+
+bool UKismetInputLibrary::Key_IsGamepadKey(const FKey& Key)
+{
+	return Key.IsGamepadKey();
+}
+
+bool UKismetInputLibrary::Key_IsMouseButton(const FKey& Key)
+{
+	return Key.IsMouseButton();
+}
+
+bool UKismetInputLibrary::Key_IsKeyboardKey(const FKey& Key)
+{
+	return Key.IsBindableInBlueprints() && (Key.IsGamepadKey() == false && Key.IsMouseButton() == false);
+}
+
+bool UKismetInputLibrary::Key_IsFloatAxis(const FKey& Key)
+{
+	return Key.IsFloatAxis();
+}
+
+bool UKismetInputLibrary::Key_IsVectorAxis(const FKey& Key)
+{
+	return Key.IsVectorAxis();
+}
+
+FText UKismetInputLibrary::Key_GetDisplayName(const FKey& Key)
+{
+	return Key.GetDisplayName();
+}
+
 bool UKismetInputLibrary::InputEvent_IsRepeat(const FInputEvent& Input)
 {
 	return Input.IsRepeat();

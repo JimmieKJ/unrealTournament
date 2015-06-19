@@ -30,6 +30,11 @@ class USkeletalMeshSocket : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=SkeletalMeshSocket)
 	FVector RelativeScale;
 
+	/** If true then the hierarchy of bones this socket is attached to will always be 
+	    evaluated, even if it had previously been removed due to the current lod setting */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=SkeletalMeshSocket)
+	bool bForceAlwaysAnimated;
+
 	UFUNCTION(BlueprintCallable, Category="Components|SkeletalMesh")
 	ENGINE_API FVector GetSocketLocation(const class USkeletalMeshComponent* SkelComp) const;
 
@@ -79,6 +84,21 @@ class USkeletalMeshSocket : public UObject
 	 *	@return	bool			true if successful, false if not
 	 */
 	ENGINE_API bool AttachActor (class AActor* Actor, class USkeletalMeshComponent* SkelComp) const;
+
+#if WITH_EDITOR
+	/** Broadcasts a notification whenever the socket property has changed. */
+	DECLARE_EVENT_TwoParams(USkeletalMeshSocket, FSocketChangedEvent, const class USkeletalMeshSocket*, const class UProperty*);
+	FSocketChangedEvent& OnPropertyChanged() { return ChangedEvent; }
+
+	// Begin UObject interface
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	// End UObject interface
+
+private: 
+	/** Broadcasts a notification whenever the socket property has changed. */
+	FSocketChangedEvent ChangedEvent;
+
+#endif // WITH_EDITOR
 };
 
 

@@ -29,8 +29,6 @@
 #include "EditorViewportCommands.h"
 #include "Runtime/Engine/Classes/Engine/UserInterfaceSettings.h"
 #include "Runtime/Engine/Classes/Engine/RendererSettings.h"
-#include "SScissorRectBox.h"
-#include "SDPIScaler.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "SLevelViewportControlsPopup.h"
@@ -40,6 +38,8 @@
 #include "Engine/Selection.h"
 #include "GameFramework/PlayerInput.h"
 #include "GameFramework/PlayerController.h"
+#include "SActorPilotViewportToolbar.h"
+#include "SGameLayerManager.h"
 
 static const FName LevelEditorName("LevelEditor");
 
@@ -180,13 +180,10 @@ void SLevelViewport::ConstructViewportOverlayContent()
 #if ALLOW_PLAY_IN_VIEWPORT_GAMEUI
 		ViewportOverlay->AddSlot( SlotIndex )
 		[
-			SNew( SScissorRectBox )
+			SAssignNew(GameLayerManager, SGameLayerManager)
+			.SceneViewport(this, &SLevelViewport::GetGameSceneViewport)
 			[
-				SNew(SDPIScaler)
-				.DPIScale(this, &SLevelViewport::GetGameViewportDPIScale)
-				[
-					PIEViewportOverlayWidget.ToSharedRef()
-				]
+				PIEViewportOverlayWidget.ToSharedRef()
 			]
 		];
 
@@ -286,7 +283,7 @@ void SLevelViewport::ConstructViewportOverlayContent()
 
 void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArgs )
 {
-	LevelViewportClient = MakeShareable( new FLevelEditorViewportClient() );
+	LevelViewportClient = MakeShareable( new FLevelEditorViewportClient(SharedThis(this)) );
 
 	// Default level viewport client values for settings that could appear in layout config ini
 	FLevelEditorViewportInstanceSettings ViewportInstanceSettings;
@@ -385,14 +382,9 @@ void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArg
 	LevelViewportClient->SetViewModes(ViewportInstanceSettings.PerspViewModeIndex, ViewportInstanceSettings.OrthoViewModeIndex );
 }
 
-float SLevelViewport::GetGameViewportDPIScale() const
+const FSceneViewport* SLevelViewport::GetGameSceneViewport() const
 {
-	if ( HasPlayInEditorViewport() || LevelViewportClient->IsSimulateInEditorViewport() )
-	{
-		return GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(ActiveViewport->GetSize());
-	}
-
-	return 1.0f;
+	return ActiveViewport.Get();
 }
 
 FReply SLevelViewport::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
@@ -464,7 +456,10 @@ void SLevelViewport::OnDragLeave( const FDragDropEvent& DragDropEvent )
 		LevelViewportClient->DestroyDropPreviewActors();
 	}
 
-	DragDropEvent.GetOperation()->SetDecoratorVisibility(true);
+	if (DragDropEvent.GetOperation().IsValid())
+	{
+		DragDropEvent.GetOperation()->SetDecoratorVisibility(true);
+	}
 }
 
 bool SLevelViewport::HandleDragObjects(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
@@ -741,7 +736,7 @@ bool SLevelViewport::HandlePlaceDraggedObjects(const FGeometry& MyGeometry, cons
 		DroppedObjects.Empty();
 
 		// Create a container object to hold the export text and pass it into the actor placement code
-		UExportTextContainer* NewContainer = ConstructObject<UExportTextContainer>(UExportTextContainer::StaticClass());
+		UExportTextContainer* NewContainer = NewObject<UExportTextContainer>();
 		NewContainer->ExportText = DragDropOp->ActorExportText;
 		DroppedObjects.Add(NewContainer);
 	}
@@ -822,11 +817,9 @@ FReply SLevelViewport::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent
 
 void SLevelViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SEditorViewport::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	SEditorViewport::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 
 	const bool bContainsFocus = HasFocusedDescendants();
-
-	LastTickTime = FPlatformTime::Seconds();
 
 	// When we have focus we update the 'Allow Throttling' option in slate to be disabled so that interactions in the
 	// viewport with Slate widgets that are part of the game, don't throttle.
@@ -855,7 +848,7 @@ void SLevelViewport::Tick( const FGeometry& AllottedGeometry, const double InCur
 	// user could miss part of the animation, or even the whole thing!
 	if( bViewTransitionAnimPending )
 	{
-		ViewTransitionAnim.Play();
+		ViewTransitionAnim.Play(this->AsShared());
 		bViewTransitionAnimPending = false;
 	}
 
@@ -868,19 +861,19 @@ void SLevelViewport::Tick( const FGeometry& AllottedGeometry, const double InCur
 			if(PIEOverlaySlotIndex)
 			{
 				PIEOverlayAnim = FCurveSequence(0.0f, SLevelViewportPIEAnimation::MouseControlLabelFadeout, ECurveEaseFunction::CubicInOut);
-				PIEOverlayAnim.Play();
+				PIEOverlayAnim.Play(this->AsShared());
 			}
 		}
 		ViewTransitionType = EViewTransition::None;
 		ViewTransitionAnim = FCurveSequence( 0.0f, 0.25f, ECurveEaseFunction::QuadOut );
-		ViewTransitionAnim.PlayReverse();
+		ViewTransitionAnim.PlayReverse(this->AsShared());
 	}
 
 	if(IsPlayInEditorViewportActive() && bPIEHasFocus != ActiveViewport->HasMouseCapture())
 	{
 		bPIEHasFocus = ActiveViewport->HasMouseCapture();
 		PIEOverlayAnim = FCurveSequence(0.0f, SLevelViewportPIEAnimation::MouseControlLabelFadeout, ECurveEaseFunction::CubicInOut);
-		PIEOverlayAnim.Play();
+		PIEOverlayAnim.Play(this->AsShared());
 	}
 
 	// Update actor preview viewports, if we have any
@@ -1155,8 +1148,8 @@ void SLevelViewport::BindOptionCommands( FUICommandList& CommandList )
 		);
 
 	CommandList.MapAction(
-		ViewportActions.ToggleLockedCameraView,
-		FExecuteAction::CreateSP(this, &SLevelViewport::ToggleLockedCameraView),
+		ViewportActions.ToggleActorPilotCameraView,
+		FExecuteAction::CreateSP(this, &SLevelViewport::ToggleActorPilotCameraView),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsLockedCameraViewEnabled )
 		);
@@ -1197,22 +1190,15 @@ void SLevelViewport::BindViewCommands( FUICommandList& CommandList )
 		);
 
 	CommandList.MapAction(
-		ViewportActions.ActorUnlock,
+		ViewportActions.EjectActorPilot,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnActorUnlock ),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanExecuteActorUnlock )
 		);
 
 	CommandList.MapAction(
-		ViewportActions.ActorLockSelected,
+		ViewportActions.PilotSelectedActor,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnActorLockSelected ),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanExecuteActorLockSelected )
-		);
-
-	CommandList.MapAction(
-		ViewportActions.ActorUnlockSelected,
-		FExecuteAction::CreateSP( this, &SLevelViewport::OnActorUnlock ),
-		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanExecuteActorUnlock ),
-		FIsActionChecked::CreateSP( this, &SLevelViewport::IsSelectedActorLocked )
 		);
 
 	CommandList.MapAction(
@@ -1573,15 +1559,9 @@ TSharedPtr<SWidget> SLevelViewport::MakeViewportToolbar()
 		.VAlign(VAlign_Top)
 		.HAlign(HAlign_Left)
 		[
-			SNew(SHorizontalBox)
-			.Visibility( EVisibility::SelfHitTestInvisible )
-			+SHorizontalBox::Slot()
-			[
-				SNew(SImage)
-				.Image(FEditorStyle::GetBrush("LevelViewport.ActorLockIcon"))
-				.Visibility(this, &SLevelViewport::GetLockedIconVisibility)
-				.ToolTipText(this, &SLevelViewport::GetLockedIconToolTip)
-			]
+			SNew(SActorPilotViewportToolbar)
+			.Viewport( SharedThis( this ) )
+			.Visibility(this, &SLevelViewport::GetLockedIconVisibility)
 		];
 }
 
@@ -1662,6 +1642,7 @@ void SLevelViewport::OnCreateCameraActor()
 	ACameraActor* pNewCamera = ViewportClient->GetWorld()->SpawnActor<ACameraActor>();
 	pNewCamera->SetActorLocation( ViewportClient->GetViewLocation(), false );
 	pNewCamera->SetActorRotation( ViewportClient->GetViewRotation() );
+	pNewCamera->CameraComponent->FieldOfView = ViewportClient->ViewFOV;
 
 	// Deselect any currently selected actors
 	GUnrealEd->SelectNone( true, true );
@@ -1955,7 +1936,7 @@ void SLevelViewport::SaveConfig(const FString& ConfigName)
 }
 
 
-FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(const FString& ConfigKey, const FLevelEditorViewportInstanceSettings& InDefaultSettings)
+FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(const FString& InConfigKey, const FLevelEditorViewportInstanceSettings& InDefaultSettings)
 {
 	FLevelEditorViewportInstanceSettings ViewportInstanceSettings = InDefaultSettings;
 
@@ -1963,7 +1944,7 @@ FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(con
 
 	{
 		int32 ViewportTypeAsInt = ViewportInstanceSettings.ViewportType;
-		GConfig->GetInt(*IniSection, *(ConfigKey + TEXT(".Type")), ViewportTypeAsInt, GEditorUserSettingsIni);
+		GConfig->GetInt(*IniSection, *(InConfigKey + TEXT(".Type")), ViewportTypeAsInt, GEditorPerProjectIni);
 		ViewportInstanceSettings.ViewportType = (ViewportTypeAsInt == -1 || ViewportTypeAsInt == 255) ? LVT_None : static_cast<ELevelViewportType>(ViewportTypeAsInt); // LVT_None used to be -1 or 255
 
 		if(ViewportInstanceSettings.ViewportType == LVT_None)
@@ -1972,18 +1953,18 @@ FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(con
 		}
 	}
 	
-	GConfig->GetString(*IniSection, *(ConfigKey + TEXT(".EditorShowFlags")), ViewportInstanceSettings.EditorShowFlagsString, GEditorUserSettingsIni);
-	GConfig->GetString(*IniSection, *(ConfigKey + TEXT(".GameShowFlags")), ViewportInstanceSettings.GameShowFlagsString, GEditorUserSettingsIni);
+	GConfig->GetString(*IniSection, *(InConfigKey + TEXT(".EditorShowFlags")), ViewportInstanceSettings.EditorShowFlagsString, GEditorPerProjectIni);
+	GConfig->GetString(*IniSection, *(InConfigKey + TEXT(".GameShowFlags")), ViewportInstanceSettings.GameShowFlagsString, GEditorPerProjectIni);
 		
 	// A single view mode index has been deprecated in favor of separate perspective and orthographic settings
 	EViewModeIndex LegacyViewModeIndex = VMI_Unknown;
 	{
 		int32 LegacyVMIAsInt = VMI_Unknown;
-		GConfig->GetInt(*IniSection, *(ConfigKey+TEXT(".ViewModeIndex")), LegacyVMIAsInt, GEditorUserSettingsIni);
+		GConfig->GetInt(*IniSection, *(InConfigKey+TEXT(".ViewModeIndex")), LegacyVMIAsInt, GEditorPerProjectIni);
 		LegacyViewModeIndex = (LegacyVMIAsInt == -1) ? VMI_Unknown : static_cast<EViewModeIndex>(LegacyVMIAsInt); // VMI_Unknown used to be -1
 	}
 
-	if(!GConfig->GetInt(*IniSection, *(ConfigKey+TEXT(".PerspViewModeIndex")), (int32&)ViewportInstanceSettings.PerspViewModeIndex, GEditorUserSettingsIni))
+	if(!GConfig->GetInt(*IniSection, *(InConfigKey+TEXT(".PerspViewModeIndex")), (int32&)ViewportInstanceSettings.PerspViewModeIndex, GEditorPerProjectIni))
 	{
 		if(ViewportInstanceSettings.ViewportType == LVT_Perspective)
 		{
@@ -1997,7 +1978,7 @@ FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(con
 		}
 	}
 
-	if(!GConfig->GetInt(*IniSection, *(ConfigKey+TEXT(".OrthoViewModeIndex")), (int32&)ViewportInstanceSettings.OrthoViewModeIndex, GEditorUserSettingsIni))
+	if(!GConfig->GetInt(*IniSection, *(InConfigKey+TEXT(".OrthoViewModeIndex")), (int32&)ViewportInstanceSettings.OrthoViewModeIndex, GEditorPerProjectIni))
 	{
 		// Default to Brush Wireframe for an orthographic viewport
 		ViewportInstanceSettings.OrthoViewModeIndex = (ViewportInstanceSettings.ViewportType != LVT_Perspective && LegacyViewModeIndex != VMI_Unknown) ? LegacyViewModeIndex : VMI_BrushWireframe;
@@ -2005,7 +1986,7 @@ FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(con
 
 	{
 		FString BufferVisualizationModeString;
-		if(GConfig->GetString(*IniSection, *(ConfigKey+TEXT(".BufferVisualizationMode")), BufferVisualizationModeString, GEditorUserSettingsIni))
+		if(GConfig->GetString(*IniSection, *(InConfigKey+TEXT(".BufferVisualizationMode")), BufferVisualizationModeString, GEditorPerProjectIni))
 		{
 			ViewportInstanceSettings.BufferVisualizationMode = *BufferVisualizationModeString;
 		}
@@ -2013,16 +1994,16 @@ FLevelEditorViewportInstanceSettings SLevelViewport::LoadLegacyConfigFromIni(con
 	
 	{
 		FString ExposureSettingsString;
-		if(GConfig->GetString(*IniSection, *(ConfigKey + TEXT(".ExposureSettings")), ExposureSettingsString, GEditorUserSettingsIni))
+		if(GConfig->GetString(*IniSection, *(InConfigKey + TEXT(".ExposureSettings")), ExposureSettingsString, GEditorPerProjectIni))
 		{
 			ViewportInstanceSettings.ExposureSettings.SetFromString(*ExposureSettingsString);
 		}
 	}
 
-	GConfig->GetBool(*IniSection, *(ConfigKey + TEXT(".bIsRealtime")), ViewportInstanceSettings.bIsRealtime, GEditorUserSettingsIni);
-	GConfig->GetBool(*IniSection, *(ConfigKey + TEXT(".bWantStats")), ViewportInstanceSettings.bShowStats, GEditorUserSettingsIni);
-	GConfig->GetBool(*IniSection, *(ConfigKey + TEXT(".bWantFPS")), ViewportInstanceSettings.bShowFPS_DEPRECATED, GEditorUserSettingsIni);
-	GConfig->GetFloat(*IniSection, *(ConfigKey + TEXT(".FOVAngle")), ViewportInstanceSettings.FOVAngle, GEditorUserSettingsIni);
+	GConfig->GetBool(*IniSection, *(InConfigKey + TEXT(".bIsRealtime")), ViewportInstanceSettings.bIsRealtime, GEditorPerProjectIni);
+	GConfig->GetBool(*IniSection, *(InConfigKey + TEXT(".bWantStats")), ViewportInstanceSettings.bShowStats, GEditorPerProjectIni);
+	GConfig->GetBool(*IniSection, *(InConfigKey + TEXT(".bWantFPS")), ViewportInstanceSettings.bShowFPS_DEPRECATED, GEditorPerProjectIni);
+	GConfig->GetFloat(*IniSection, *(InConfigKey + TEXT(".FOVAngle")), ViewportInstanceSettings.FOVAngle, GEditorPerProjectIni);
 
 	return ViewportInstanceSettings;
 }
@@ -2117,7 +2098,7 @@ bool SLevelViewport::IsAnyActorLocked() const
 	return LevelViewportClient->IsAnyActorLocked();
 }
 
-void SLevelViewport::ToggleLockedCameraView()
+void SLevelViewport::ToggleActorPilotCameraView()
 {
 	LevelViewportClient->bLockedCameraView = !LevelViewportClient->bLockedCameraView;
 }
@@ -2391,7 +2372,7 @@ bool SLevelViewport::IsPlayInEditorViewportActive() const
 	return ActiveViewport->IsPlayInEditorViewport();
 }
 
-void SLevelViewport::OnActorSelectionChanged( const TArray<UObject*>& NewSelection )
+void SLevelViewport::OnActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh)
 {
 	// On the first actor selection after entering Game View, enable the selection show flag
 	if (IsVisible() && IsInGameView() && NewSelection.Num() != 0)
@@ -2647,7 +2628,7 @@ void SActorPreview::Construct( const FArguments& InArgs )
 		FadeSequence = FCurveSequence( TimeBeforeFadingIn, FadeTime );
 
 		// Start fading in!
-		FadeSequence.Play( TimeBeforeFadingIn );	// Skip the initial time delay and just fade straight in
+		FadeSequence.Play(this->AsShared(), false, TimeBeforeFadingIn);	// Skip the initial time delay and just fade straight in
 	}
 
 	HighlightSequence = FCurveSequence(0.f, 0.5f, ECurveEaseFunction::Linear);
@@ -2727,7 +2708,7 @@ void SActorPreview::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEve
 		}
 		else
 		{
-			FadeSequence.PlayReverse();
+			FadeSequence.PlayReverse(this->AsShared());
 		}
 	}
 }
@@ -2750,7 +2731,7 @@ void SActorPreview::OnMouseLeave( const FPointerEvent& MouseEvent )
 		}
 		else
 		{
-			FadeSequence.Play();
+			FadeSequence.Play(this->AsShared());
 		}
 	}
 
@@ -2792,7 +2773,7 @@ void SActorPreview::OnActorSelected(UObject* InActor)
 void SActorPreview::Highlight()
 {
 	HighlightSequence.JumpToStart();
-	HighlightSequence.Play();
+	HighlightSequence.Play(this->AsShared());
 }
 
 FSlateColor SActorPreview::GetBorderColorAndOpacity() const
@@ -2962,7 +2943,7 @@ void SLevelViewport::PreviewActors( const TArray< AActor* >& ActorsToPreview )
 		{
 			auto CurActor = *ActorIt;
 
-			TSharedPtr< FLevelEditorViewportClient > ActorPreviewLevelViewportClient = MakeShareable( new FLevelEditorViewportClient() );
+			TSharedPtr< FLevelEditorViewportClient > ActorPreviewLevelViewportClient = MakeShareable( new FLevelEditorViewportClient(SharedThis(this)) );
 			{
 				// NOTE: We don't bother setting ViewLocation, ViewRotation, etc, here.  This is because we'll call
 				//       PushControllingActorDataToViewportClient() below which will do this!
@@ -3256,7 +3237,7 @@ bool SLevelViewport::IsViewportConfigurationSet(FName ConfigurationName) const
 	return false;
 }
 
-void SLevelViewport::StartPlayInEditorSession( UGameViewportClient* PlayClient, const bool bInSimulateInEditor )
+void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, const bool bInSimulateInEditor)
 {
 	check( !HasPlayInEditorViewport() );
 
@@ -3286,6 +3267,7 @@ void SLevelViewport::StartPlayInEditorSession( UGameViewportClient* PlayClient, 
 	ActiveViewport->OnPlayWorldViewportSwapped( *InactiveViewport );
 
 	PlayClient->SetViewportOverlayWidget( TSharedPtr<SWindow>(), PIEViewportOverlayWidget.ToSharedRef() );
+	PlayClient->SetGameLayerManager(GameLayerManager);
 
 	// Our viewport widget should start rendering the new viewport for the play in editor scene
 	ViewportWidget->SetViewportInterface( ActiveViewport.ToSharedRef() );
@@ -3319,19 +3301,17 @@ void SLevelViewport::StartPlayInEditorSession( UGameViewportClient* PlayClient, 
 
 EVisibility SLevelViewport::GetMouseCaptureLabelVisibility() const
 {
-	EVisibility visibility = EVisibility::Collapsed;
-
 	if (GEditor->PlayWorld)
 	{
 		// Show the label if the local player's PC isn't set to show the cursor
 		auto const TargetPlayer = GEngine->GetLocalPlayerFromControllerId(GEditor->PlayWorld, 0);
 		if (TargetPlayer && TargetPlayer->PlayerController && !TargetPlayer->PlayerController->bShowMouseCursor)
 		{
-			visibility = EVisibility::Visible;
+			return EVisibility::HitTestInvisible;
 		}
 	}
 
-	return visibility;
+	return EVisibility::Collapsed;
 }
 
 FLinearColor SLevelViewport::GetMouseCaptureLabelColorAndOpacity() const
@@ -3361,21 +3341,21 @@ FText SLevelViewport::GetMouseCaptureLabelText() const
 	{
 		// Only need to fetch the exec binding once since it can't change
 		// but better than hard coding to the current binding.
-		static FInputGesture Gesture(EKeys::F1, EModifierKey::Shift);
-		static bool bInitedGesture = false;
-		if(!bInitedGesture)
+		static FInputChord Chord(EKeys::F1, EModifierKey::Shift);
+		static bool bInitedChord = false;
+		if(!bInitedChord)
 		{
 			ULocalPlayer* const TargetPlayer = GEngine->GetLocalPlayerFromControllerId(GetWorld(), 0);
 			if (TargetPlayer && TargetPlayer->PlayerController && TargetPlayer->PlayerController->PlayerInput)
 			{
 				FKeyBind Binding = TargetPlayer->PlayerController->PlayerInput->GetExecBind(TEXT("ShowMouseCursor"));
-				Gesture = FInputGesture(Binding.Key, EModifierKey::FromBools(Binding.Control, Binding.Alt, Binding.Shift, Binding.Cmd));
-				bInitedGesture = true;
+				Chord = FInputChord(Binding.Key, EModifierKey::FromBools(Binding.Control, Binding.Alt, Binding.Shift, Binding.Cmd));
+				bInitedChord = true;
 			}
 		}
 
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("InputText"), Gesture.GetInputText() );
+		Args.Add( TEXT("InputText"), Chord.GetInputText() );
 		return FText::Format( LOCTEXT("ShowMouseCursorLabel", "{InputText} for Mouse Cursor"), Args );
 	}
 	else
@@ -3460,9 +3440,6 @@ void SLevelViewport::ResetNewLevelViewFlags()
 {
 	ChangeExposureSetting(FEditorViewportCommands::AutoExposureRadioID);
 
-	const bool bIsPerspective = LevelViewportClient->IsPerspective();
-	LevelViewportClient->SetViewMode(bIsPerspective ? FEditorViewportClient::DefaultPerspectiveViewMode : FEditorViewportClient::DefaultOrthoViewMode);
-
 	const bool bUseSavedDefaults = true;
 	OnUseDefaultShowFlags(bUseSavedDefaults);
 }
@@ -3513,8 +3490,6 @@ void SLevelViewport::EndPlayInEditorSession()
 	{
 		HideMouseCaptureLabel();
 	}
-
-	FSlateApplication::Get().SetKeyboardFocus( ViewportWidget );
 
 	// Kick off a quick transition effect (border graphics)
 	ViewTransitionType = EViewTransition::ReturningToEditor;

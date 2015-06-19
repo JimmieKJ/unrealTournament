@@ -28,7 +28,7 @@ FPackageReportNode::FPackageReportNode(const FString& InNodeName, bool InIsFolde
 void FPackageReportNode::AddPackage(const FString& PackageName)
 {
 	TArray<FString> PathElements;
-	PackageName.ParseIntoArray(&PathElements, TEXT("/"), /*InCullEmpty=*/true);
+	PackageName.ParseIntoArray(PathElements, TEXT("/"), /*InCullEmpty=*/true);
 
 	return AddPackage_Recursive(PathElements);
 }

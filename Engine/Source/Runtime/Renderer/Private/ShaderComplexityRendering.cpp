@@ -129,7 +129,7 @@ public:
 	* Serialize shader parameters for this shader
 	* @param Ar - archive to serialize with
 	*/
-	bool Serialize(FArchive& Ar)
+	bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter;

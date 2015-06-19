@@ -47,11 +47,11 @@ public:
 
 	// INetworkFileServer interface
 
-	virtual bool IsItReadyToAcceptConnections(void) const; 
+	virtual bool IsItReadyToAcceptConnections(void) const override;
 	virtual bool GetAddressList(TArray<TSharedPtr<FInternetAddr> >& OutAddresses) const override;
 	virtual FString GetSupportedProtocol() const override;
-	virtual int32 NumConnections() const;
-	virtual void Shutdown();
+	virtual int32 NumConnections() const override;
+	virtual void Shutdown() override;
 
 private:
 

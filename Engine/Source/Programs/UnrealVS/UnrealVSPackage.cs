@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.ComponentModel.Design;
 using System.Threading;
@@ -54,7 +55,7 @@ namespace UnrealVS
 	{
 		/** Constants */
 
-		private const string VersionString = "v1.31";
+		private const string VersionString = "v1.34";
 		private const string UnrealSolutionFileNamePrefix = "UE4";
 		private const string ExtensionName = "UnrealVS";
 		private const string CommandLineOptionKey = ExtensionName + "CommandLineMRU";
@@ -764,13 +765,40 @@ namespace UnrealVS
 
 		private void UpdateUnrealLoadedStatus()
 		{
+			if (!DTE.Solution.IsOpen)
+			{
+				IsUE4Loaded = false;
+				return;
+			}
+
 			string SolutionDirectory, UserOptsFile;
 			SolutionManager.GetSolutionInfo(out SolutionDirectory, out _SolutionFilepath, out UserOptsFile);
-			IsUE4Loaded =
-				(
-					_SolutionFilepath != null &&
-					Path.GetFileName(_SolutionFilepath).StartsWith(UnrealSolutionFileNamePrefix, StringComparison.InvariantCultureIgnoreCase)
-				);
+
+			var SolutionLines = new string[0];
+			try
+			{
+				SolutionLines = File.ReadAllLines(_SolutionFilepath);
+			}
+			catch
+			{
+			}
+
+			const string UBTTag = "# UnrealEngineGeneratedSolutionVersion=";
+			var UBTLine = SolutionLines.FirstOrDefault(TextLine => TextLine.Trim().StartsWith(UBTTag));
+			if (UBTLine != null)
+			{
+				_UBTVersion = UBTLine.Trim().Substring(UBTTag.Length);
+				IsUE4Loaded = true;
+			}
+			else
+			{
+				_UBTVersion = string.Empty;
+				IsUE4Loaded =
+					(
+						_SolutionFilepath != null &&
+						Path.GetFileName(_SolutionFilepath).StartsWith(UnrealSolutionFileNamePrefix, StringComparison.OrdinalIgnoreCase)
+					);
+			}
 		}
 
 		/** Private Fields & Properties */
@@ -806,6 +834,8 @@ namespace UnrealVS
 
 		/// Ticker thread cancel flag
 		private int bCancelTicker = 0;
+
+		private string _UBTVersion = string.Empty;
 
 		/// Obtains the DTE2 interface for this instance of VS from the RunningObjectTable
 		private static DTE2 GetDTE2ForCurrentInstance(DTE DTE)

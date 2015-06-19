@@ -91,7 +91,7 @@ struct FLinuxPlatformProperties
 
 	static FORCEINLINE bool HasFixedResolution()
 	{
-		return true; // Fullscreen on Linux is always WindowedFullscreen (to avoid badness happening when switching to various resolutions)
+		return false;
 	}
 
 	static FORCEINLINE bool SupportsWindowedMode()

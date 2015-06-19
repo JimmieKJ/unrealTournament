@@ -188,8 +188,13 @@ void USoundCueGraphNode::ResetSoundNodeOwner()
 {
 	if (SoundNode)
 	{
-		// Ensures SoundNode is owned by the SoundCue
-		SoundNode->Rename(NULL, CastChecked<USoundCueGraph>(GetGraph())->GetSoundCue(), REN_DontCreateRedirectors);
+		USoundCue* SoundCue = CastChecked<USoundCueGraph>(GetGraph())->GetSoundCue();
+
+		if (SoundNode->GetOuter() != SoundCue)
+		{
+			// Ensures SoundNode is owned by the SoundCue
+			SoundNode->Rename(NULL, SoundCue, REN_DontCreateRedirectors);
+		}
 
 		// Set up the back pointer for newly created sound nodes
 		SoundNode->GraphNode = this;

@@ -349,7 +349,7 @@ static void drawLayerPortals(duDebugDraw* dd, const rcHeightfieldLayer* layer)
 		{
 			const int idx = x+y*w;
 			const int lh = (int)layer->heights[idx];
-			if (lh == 255) continue;
+			if (lh == 0xffff) continue;
 			
 			for (int dir = 0; dir < 4; ++dir)
 			{
@@ -398,7 +398,7 @@ void duDebugDrawHeightfieldLayer(duDebugDraw* dd, const struct rcHeightfieldLaye
 		{
 			const int lidx = x+y*w;
 			const int lh = (int)layer.heights[lidx];
-			if (h == 0xff) continue;
+			if (h == 0xffff) continue;
 			const unsigned char area = layer.areas[lidx];
 			
 			unsigned int col;

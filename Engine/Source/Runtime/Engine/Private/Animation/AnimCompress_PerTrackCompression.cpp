@@ -346,7 +346,7 @@ protected:
 			FQuat DecompressedQ;
 			Compressor.ToQuat(DecompressedQ);
 
-			checkf(DecompressedQ.IsNormalized());
+			check(DecompressedQ.IsNormalized());
 			const float Error = FQuat::ErrorAutoNormalize(Q, DecompressedQ);
 			MaxError = FMath::Max(MaxError, Error);
 			SumError += Error;
@@ -447,7 +447,7 @@ protected:
 				UE_LOG(LogAnimationCompression, Log, TEXT(" XYZ: %i, %i, %i"), X, Y, Z);
 			}
 
-			checkf(DecompressedQ.IsNormalized());
+			check(DecompressedQ.IsNormalized());
 			const float Error = FQuat::ErrorAutoNormalize(Q, DecompressedQ);
 			MaxError = FMath::Max(MaxError, Error);
 			SumError += Error;
@@ -555,7 +555,7 @@ protected:
 				UE_LOG(LogAnimationCompression, Log, TEXT(" XYZ: %f, %f, %f, %f"), QRenorm.X, QRenorm.Y, QRenorm.Z, QRenorm.W);
 				UE_LOG(LogAnimationCompression, Log, TEXT(" Mins(%f, %f, %f)   Maxs(%f, %f,%f)"), KeyBounds.Min.X, KeyBounds.Min.Y, KeyBounds.Min.Z, KeyBounds.Max.X, KeyBounds.Max.Y, KeyBounds.Max.Z);
 			}
-			checkf(DecompressedQ.IsNormalized());
+			check(DecompressedQ.IsNormalized());
 			const float Error = FQuat::ErrorAutoNormalize(Q, DecompressedQ);
 			MaxError = FMath::Max(MaxError, Error);
 			SumError += Error;
@@ -1039,7 +1039,6 @@ void UAnimCompress_PerTrackCompression::CompressUsingUnderlyingCompressor(
 		FPerTrackParams Params;
 		Params.AnimSeq = AnimSeq;
 		Params.MaxZeroingThreshold = MaxZeroingThreshold;
-		Params.bIncludeKeyTable = false;
 
 		// Determine the local-space error cutoffs
 		float MaxPositionErrorCutoff = MaxPosDiffBitwise;
@@ -1173,7 +1172,7 @@ void UAnimCompress_PerTrackCompression::CompressUsingUnderlyingCompressor(
 			int32 ScaleOffset = INDEX_NONE;
 			if (BestScale.CompressedBytes.Num() > 0)
 			{
-				checkf(BestScale.ActualCompressionMode < ACF_MAX);
+				check(BestScale.ActualCompressionMode < ACF_MAX);
 				ScaleOffset = AnimSeq->CompressedByteStream.Num();
 				AnimSeq->CompressedByteStream.Append(BestScale.CompressedBytes);
 			}
@@ -1195,7 +1194,7 @@ void UAnimCompress_PerTrackCompression::CompressUsingUnderlyingCompressor(
 		int32 TranslationOffset = INDEX_NONE;
 		if( !bSkipTranslationTrack && BestTranslation.CompressedBytes.Num() > 0 )
 		{
-			checkf(BestTranslation.ActualCompressionMode < ACF_MAX);
+			check(BestTranslation.ActualCompressionMode < ACF_MAX);
 			TranslationOffset = AnimSeq->CompressedByteStream.Num();
 			AnimSeq->CompressedByteStream.Append(BestTranslation.CompressedBytes);
 		}
@@ -1204,7 +1203,7 @@ void UAnimCompress_PerTrackCompression::CompressUsingUnderlyingCompressor(
 		int32 RotationOffset = INDEX_NONE;
 		if (BestRotation.CompressedBytes.Num() > 0)
 		{
-			checkf(BestRotation.ActualCompressionMode < ACF_MAX);
+			check(BestRotation.ActualCompressionMode < ACF_MAX);
 			RotationOffset = AnimSeq->CompressedByteStream.Num();
 			AnimSeq->CompressedByteStream.Append(BestRotation.CompressedBytes);
 		}
@@ -1272,10 +1271,10 @@ void ResamplePositionKeys(
 
 		FVector Value;
 
-		checkf(Track.Times[CachedIndex] <= Time);
+		check(Track.Times[CachedIndex] <= Time);
 		if (CachedIndex + 1 < KeyCount)
 		{
-			checkf(Track.Times[CachedIndex+1] >= Time);
+			check(Track.Times[CachedIndex+1] >= Time);
 
 			FVector A = Track.PosKeys[CachedIndex];
 			FVector B = Track.PosKeys[CachedIndex + 1];
@@ -1343,10 +1342,10 @@ void ResampleScaleKeys(
 
 		FVector Value;
 
-		checkf(Track.Times[CachedIndex] <= Time);
+		check(Track.Times[CachedIndex] <= Time);
 		if (CachedIndex + 1 < KeyCount)
 		{
-			checkf(Track.Times[CachedIndex+1] >= Time);
+			check(Track.Times[CachedIndex+1] >= Time);
 
 			FVector A = Track.ScaleKeys[CachedIndex];
 			FVector B = Track.ScaleKeys[CachedIndex + 1];
@@ -1414,10 +1413,10 @@ void ResampleRotationKeys(
 
 		FQuat Value;
 
-		checkf(Track.Times[CachedIndex] <= Time);
+		check(Track.Times[CachedIndex] <= Time);
 		if (CachedIndex + 1 < KeyCount)
 		{
-			checkf(Track.Times[CachedIndex+1] >= Time);
+			check(Track.Times[CachedIndex+1] >= Time);
 
 			FQuat A = Track.RotKeys[CachedIndex];
 			FQuat B = Track.RotKeys[CachedIndex + 1];

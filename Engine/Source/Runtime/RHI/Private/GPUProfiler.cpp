@@ -13,6 +13,8 @@
 #include "TaskGraphInterfaces.h"
 #endif
 
+#define LOCTEXT_NAMESPACE "GpuProfiler"
+
 static TAutoConsoleVariable<FString> GProfileGPUPatternCVar(
 	TEXT("r.ProfileGPU.Pattern"),
 	TEXT("*"),
@@ -120,10 +122,10 @@ static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, in
 		const float UnaccountedTime = FMath::Max(Node->TimingResult - TotalChildTime, 0.0f);
 		const float UnaccountedPercent = UnaccountedTime * 100.0f / (RootResult * 1000.0f);
 
-		// Add an 'Unaccounted' node if necessary to show time spent in the current node that is not in any of its children
+		// Add an 'Other Children' node if necessary to show time spent in the current node that is not in any of its children
 		if (bMatchesFilter && Node->Children.Num() > 0 && TotalChildDraws > 0 && (UnaccountedPercent > 2.0f || UnaccountedTime > .2f))
 		{
-			UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms Unaccounted"), 
+			UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms Other Children"), 
 				*FString(TEXT("")).LeftPad((EffectiveDepth + 1) * 3), 
 				UnaccountedPercent,
 				UnaccountedTime);
@@ -188,6 +190,16 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 		float RootResult = GetRootTimingResults();
 
 		UE_LOG(LogRHI, Warning, TEXT("Perf marker hierarchy, total GPU time %.2fms"), RootResult * 1000.0f);
+
+		// Display a warning if this is a GPU profile and the GPU was profiled with v-sync enabled
+		FText VsyncEnabledWarningText = FText::GetEmpty();
+		static IConsoleVariable* CVSyncVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync"));
+		if (CVSyncVar->GetInt() != 0 && !PlatformDisablesVSync())
+		{
+			VsyncEnabledWarningText = LOCTEXT("GpuProfileVsyncEnabledWarning",
+				"WARNING: This GPU profile was captured with v-sync enabled.  V-sync wait time may show up in any bucket, and as a result the data in this profile may be skewed. Please profile with v-sync disabled to obtain the most accurate data.");
+			UE_LOG(LogRHI, Warning, TEXT("%s"), *(VsyncEnabledWarningText.ToString()));
+		}
 
 		LogDisjointQuery();
 
@@ -283,13 +295,14 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 			{
 				struct FDisplayProfilerVisualizer
 				{
-					void Thread( TSharedPtr<FVisualizerEvent> InVisualizerData )
+					void Thread( TSharedPtr<FVisualizerEvent> InVisualizerData, const FText InVsyncEnabledWarningText )
 					{
 						static FName TaskGraphModule(TEXT("TaskGraph"));			
 						if (FModuleManager::Get().IsModuleLoaded(TaskGraphModule))
 						{
 							IProfileVisualizerModule& ProfileVisualizer = FModuleManager::GetModuleChecked<IProfileVisualizerModule>(TaskGraphModule);
-							ProfileVisualizer.DisplayProfileVisualizer( InVisualizerData, TEXT("GPU") );
+							// Display a warning if this is a GPU profile and the GPU was profiled with v-sync enabled (otherwise InVsyncEnabledWarningText is empty)
+							ProfileVisualizer.DisplayProfileVisualizer( InVisualizerData, TEXT("GPU"), InVsyncEnabledWarningText, FLinearColor::Red );
 						}
 					}
 				} DisplayProfilerVisualizer;
@@ -301,7 +314,7 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 					STATGROUP_TaskGraphTasks);
 
 				FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
-					FSimpleDelegateGraphTask::FDelegate::CreateRaw(&DisplayProfilerVisualizer, &FDisplayProfilerVisualizer::Thread, VisualizerData),
+					FSimpleDelegateGraphTask::FDelegate::CreateRaw(&DisplayProfilerVisualizer, &FDisplayProfilerVisualizer::Thread, VisualizerData, VsyncEnabledWarningText),
 					GET_STATID(STAT_FSimpleDelegateGraphTask_DisplayProfilerVisualizer), nullptr, ENamedThreads::GameThread
 				);
 			}
@@ -355,3 +368,5 @@ uint64 FGPUTiming::GTimingFrequency = 0;
 
 /** Whether the static variables have been initialized. */
 bool FGPUTiming::GAreGlobalsInitialized = false;
+
+#undef LOCTEXT_NAMESPACE

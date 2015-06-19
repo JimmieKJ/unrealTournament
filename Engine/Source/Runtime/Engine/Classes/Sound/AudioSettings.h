@@ -6,11 +6,10 @@
 
 
 /**
- * Implements audio related settings.
+ * Audio settings.
  */
-UCLASS(config=Engine, defaultconfig)
-class ENGINE_API UAudioSettings
-	: public UObject
+UCLASS(config=Engine, defaultconfig, meta=(DisplayName="Audio"))
+class ENGINE_API UAudioSettings : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()
 

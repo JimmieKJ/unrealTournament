@@ -54,3 +54,9 @@ bool FLoadGameMapCommand::Update()
 	GEngine->Exec(GEngine->GetWorldContexts()[0].World(), *FString::Printf(TEXT("Open %s"), *MapName));
 	return true;
 }
+
+bool FRequestExitCommand::Update()
+{
+	GIsRequestingExit = true;
+	return true;
+}

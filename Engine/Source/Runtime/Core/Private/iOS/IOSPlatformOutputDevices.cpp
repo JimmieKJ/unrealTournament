@@ -81,4 +81,6 @@ void FOutputDeviceIOSError::HandleError()
 	GIsRunning = 0;
 	GIsCriticalError = 1;
 	GLogConsole = NULL;
+
+	GLog->Flush();
 }

@@ -8,14 +8,14 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Enables support for the UE4 Remote iOS application to remotely control games with your iPhone, iPad or iPod.",
-	"Category" : "Slate.Plugins",
+	"Category" : "Misc",
 	"EnabledByDefault" : true,
 
 	"Modules" :
 	[
 		{
 			"Name" : "SlateRemote",
-			"Type" : "Runtime",
+			"Type" : "RuntimeNoCommandlet",
 			"LoadingPhase" : "Default",
 			"BlacklistPlatforms" : [ "HTML5" ]
 		}

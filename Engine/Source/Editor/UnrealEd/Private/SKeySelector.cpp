@@ -78,9 +78,12 @@ void SKeySelector::Construct(const FArguments& InArgs)
 	OnKeyChanged = InArgs._OnKeyChanged;
 	CurrentKey = InArgs._CurrentKey;
 
-	auto PadCategory = *new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(LOCTEXT("PadCategory", "Gamepad"), nullptr)));
-	auto KeyCategory = *new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(LOCTEXT("KeyCategory", "Keyboard"), nullptr)));
-	auto MouseCategory = *new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(LOCTEXT("MouseCategory", "Mouse"), nullptr)));
+	TMap<FName, FKeyTreeItem> TreeRootsForCatgories;
+
+	// Ensure that Gamepad, Keyboard, and Mouse will appear at the top of the list, other categories will dynamically get added as the keys are encountered
+	TreeRootsForCatgories.Add(EKeys::NAME_GamepadCategory, *new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(EKeys::GetMenuCategoryDisplayName(EKeys::NAME_GamepadCategory), nullptr))));
+	TreeRootsForCatgories.Add(EKeys::NAME_KeyboardCategory, *new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(EKeys::GetMenuCategoryDisplayName(EKeys::NAME_KeyboardCategory), nullptr))));
+	TreeRootsForCatgories.Add(EKeys::NAME_MouseCategory, *new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(EKeys::GetMenuCategoryDisplayName(EKeys::NAME_MouseCategory), nullptr))));
 
 	TArray<FKey> AllKeys;
 	EKeys::GetAllKeys(AllKeys);
@@ -89,19 +92,14 @@ void SKeySelector::Construct(const FArguments& InArgs)
 	{
 		if (!InArgs._FilterBlueprintBindable || Key.IsBindableInBlueprints())
 		{
-			auto NewKeyItem = MakeShareable(new FKeyTreeInfo(FText(), MakeShareable(new FKey(Key))));
-			if (Key.IsMouseButton())
+			const FName KeyMenuCategory = Key.GetMenuCategory();
+			FKeyTreeItem* KeyCategory = TreeRootsForCatgories.Find(KeyMenuCategory);
+			if (KeyCategory == nullptr)
 			{
-				MouseCategory->Children.Add(NewKeyItem);
+				KeyCategory = new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(EKeys::GetMenuCategoryDisplayName(KeyMenuCategory), nullptr)));
+				TreeRootsForCatgories.Add(KeyMenuCategory, *KeyCategory);
 			}
-			else if (Key.IsGamepadKey())
-			{
-				PadCategory->Children.Add(NewKeyItem);
-			}
-			else
-			{
-				KeyCategory->Children.Add(NewKeyItem);
-			}
+			(*KeyCategory)->Children.Add(MakeShareable(new FKeyTreeInfo(FText(), MakeShareable(new FKey(Key)))));
 		}
 	}
 
@@ -344,7 +342,7 @@ void SKeySelector::OnFilterTextCommitted(const FText& NewText, ETextCommit::Type
 
 void SKeySelector::GetSearchTokens(const FString& SearchString, TArray<FString>& OutTokens) const
 {
-	if (SearchString.Contains("\"") && SearchString.ParseIntoArray(&OutTokens, TEXT("\""), true) > 0)
+	if (SearchString.Contains("\"") && SearchString.ParseIntoArray(OutTokens, TEXT("\""), true) > 0)
 	{
 		for (auto &TokenIt : OutTokens)
 		{
@@ -368,7 +366,7 @@ void SKeySelector::GetSearchTokens(const FString& SearchString, TArray<FString>&
 	else
 	{
 		// unquoted search equivalent to a match-any-of search
-		SearchString.ParseIntoArray(&OutTokens, TEXT(" "), true);
+		SearchString.ParseIntoArray(OutTokens, TEXT(" "), true);
 	}
 }
 
@@ -401,22 +399,7 @@ bool SKeySelector::GetChildrenMatchingSearch(const TArray<FString>& InSearchToke
 
 const FSlateBrush* SKeySelector::GetIconFromKey(FKey Key) const
 {
-	static const FName NAME_MouseEvent(TEXT("GraphEditor.MouseEvent_16x"));
-	static const FName NAME_PadEvent(TEXT("GraphEditor.PadEvent_16x"));
-	static const FName NAME_KeyEvent(TEXT("GraphEditor.KeyEvent_16x"));
-
-	if (Key.IsMouseButton())
-	{
-		return FEditorStyle::GetBrush(NAME_MouseEvent);
-	}
-	else if (Key.IsGamepadKey())
-	{
-		return FEditorStyle::GetBrush(NAME_PadEvent);
-	}
-	else
-	{
-		return FEditorStyle::GetBrush(NAME_KeyEvent);
-	}
+	return FEditorStyle::GetBrush(EKeys::GetMenuCategoryPaletteIcon(Key.GetMenuCategory()));
 }
 
 #undef LOCTEXT_NAMESPACE

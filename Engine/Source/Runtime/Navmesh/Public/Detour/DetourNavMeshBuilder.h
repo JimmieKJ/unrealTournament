@@ -33,6 +33,8 @@ struct dtOffMeshLinkCreateParams
 	float vertsB1[3];
 	/// Off-mesh connection radii. [Unit: wu]
 	float snapRadius;
+	/// Off-mesh connection height, less than 0 = use step height [Unit: wu]
+	float snapHeight;
 	/// The user defined ids of the off-mesh connection.
 	unsigned int userID;
 	/// User defined flags assigned to the polys of off-mesh connections

@@ -91,8 +91,8 @@ void SPropertyTableCell::EnteredEditMode()
 {
 	if (Cell->IsValid())
 	{
-		// We delay the activation of editing mode till Tick due to mouse related input replys stomping on the focus
-		bEnterEditingMode = true;
+		// We delay the activation of editing mode till Tick due to mouse related input replies stomping on the focus
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SPropertyTableCell::TriggerEnterEditingMode));
 	}
 }
 
@@ -110,33 +110,28 @@ void SPropertyTableCell::ExitedEditMode()
 	}
 }
 
-void SPropertyTableCell::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SPropertyTableCell::TriggerEnterEditingMode(double InCurrentTime, float InDeltaTime)
 {
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
-	if ( bEnterEditingMode )
+	if (Cell->GetTable()->GetCurrentCell() == Cell)
 	{
-		if ( Cell->GetTable()->GetCurrentCell() == Cell )
+		if (Presenter.IsValid())
 		{
-			if ( Presenter.IsValid() )
-			{
-				SetContent( ConstructCellContents() );
+			SetContent(ConstructCellContents());
 
-				if ( DropDownAnchor.IsValid() && Presenter->RequiresDropDown() )
-				{
-					DropDownAnchor->SetIsOpen( true, false );
-				}
-
-				FSlateApplication::Get().SetKeyboardFocus( Presenter->WidgetToFocusOnEdit(), EFocusCause::SetDirectly );
-			}
-			else
+			if (DropDownAnchor.IsValid() && Presenter->RequiresDropDown())
 			{
-				FSlateApplication::Get().SetKeyboardFocus( ChildSlot.GetChildAt( 0 ), EFocusCause::SetDirectly );
+				DropDownAnchor->SetIsOpen(true, false);
 			}
+
+			FSlateApplication::Get().SetKeyboardFocus(Presenter->WidgetToFocusOnEdit(), EFocusCause::SetDirectly);
 		}
-
-		bEnterEditingMode = false;
+		else
+		{
+			FSlateApplication::Get().SetKeyboardFocus(ChildSlot.GetChildAt(0), EFocusCause::SetDirectly);
+		}
 	}
+
+	return EActiveTimerReturnType::Stop;
 }
 
 int32 SPropertyTableCell::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const

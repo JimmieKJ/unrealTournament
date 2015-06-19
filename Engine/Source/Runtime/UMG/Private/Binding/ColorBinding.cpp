@@ -37,6 +37,8 @@ void UColorBinding::Bind(UProperty* Property, FScriptDelegate* Delegate)
 
 FSlateColor UColorBinding::GetSlateValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
 		if ( !bNeedsConversion.Get(false) )
@@ -51,7 +53,7 @@ FSlateColor UColorBinding::GetSlateValue() const
 
 		if ( bNeedsConversion.Get(true) )
 		{
-			FLinearColor LinearValue;
+			FLinearColor LinearValue(ForceInitToZero);
 			if ( SourcePath.GetValue<FLinearColor>(Source, LinearValue) )
 			{
 				bNeedsConversion = true;
@@ -65,11 +67,13 @@ FSlateColor UColorBinding::GetSlateValue() const
 
 FLinearColor UColorBinding::GetLinearValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
 		if ( !bNeedsConversion.Get(false) )
 		{
-			FLinearColor LinearValue;
+			FLinearColor LinearValue(ForceInitToZero);
 			if ( SourcePath.GetValue<FLinearColor>(Source, LinearValue) )
 			{
 				bNeedsConversion = false;

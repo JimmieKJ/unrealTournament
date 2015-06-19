@@ -41,18 +41,18 @@ namespace OneSky
             Success
         }
 
-        public Task<ExportTranslationState> ExportTranslation(CultureInfo culture, Stream destinationStream)
+        public Task<ExportTranslationState> ExportTranslation(string cultureName, Stream destinationStream)
         {
             return Task.Factory.StartNew(() =>
             {
-                var export = TranslationApi.Export(Connection, OwningProject.Id, Filename, culture, destinationStream);
+                var export = TranslationApi.Export(Connection, OwningProject.Id, Filename, cultureName, destinationStream);
 
                 while (export == TranslationExport.Accepted) //Began exporting translations
                 {
-                    Task statusTask = TranslationApi.Status(Connection, OwningProject.Id, Filename, culture);
+                    Task statusTask = TranslationApi.Status(Connection, OwningProject.Id, Filename, cultureName);
                     statusTask.Wait();
 
-                    export = TranslationApi.Export(Connection, OwningProject.Id, Filename, culture, destinationStream);
+                    export = TranslationApi.Export(Connection, OwningProject.Id, Filename, cultureName, destinationStream);
                 }
 
                 if (export == TranslationExport.Completed)
@@ -152,6 +152,50 @@ namespace OneSky
             _projectType = type;
         }
 
+        private string _baseCultureName;
+        public string BaseCultureName
+        {
+            get
+            {
+                if (_baseCultureName == null)
+                {
+                    var response = ProjectApi.ListLanguages(Connection, Id);
+                    _cultures = response.Data.Select(c => c.Code);
+
+                    var baseLanguage = response.Data.FirstOrDefault(c => c.IsBaseLanguage);
+
+                    if (baseLanguage != null)
+                    {
+                        _baseCultureName = baseLanguage.Code;
+                    }
+                }
+
+                return _baseCultureName;
+            }
+        }
+
+        private IEnumerable<string> _cultures;
+        public IEnumerable<string> EnabledCultures
+        {
+            get
+            {
+                if (_cultures == null)
+                {
+                    var response = ProjectApi.ListLanguages(Connection, Id);
+                    _cultures = response.Data.Select(c => c.Code);
+
+                    var baseLanguage = response.Data.FirstOrDefault(c => c.IsBaseLanguage);
+
+                    if (baseLanguage != null)
+                    {
+                        _baseCultureName = baseLanguage.Code;
+                    }
+                }
+
+                return _cultures;
+            }
+        }
+
         public IEnumerable<UploadedFile> UploadedFiles
         {
             get
@@ -208,7 +252,7 @@ namespace OneSky
             }
         }
 
-        public Task<UploadedFile> Upload(string filename, Stream stream, CultureInfo culture)
+        public Task<UploadedFile> Upload(string filename, Stream stream, string cultureName)
         {
             return Task.Factory.StartNew(() =>
             {
@@ -217,7 +261,7 @@ namespace OneSky
                     return null;
                 }
 
-                var response = FileApi.Upload(Connection, Id, filename, stream, culture).Result;
+                var response = FileApi.Upload(Connection, Id, filename, stream, cultureName).Result;
 
                 if (response != null && response.Meta.Status == 201)
                 {
@@ -305,23 +349,23 @@ namespace OneSky
             get { return _projects; }
         }
 
-        public CultureInfo BaseCulture { get; set; }
+        public string BaseCultureName { get; set; }
 
-        private IEnumerable<CultureInfo> _cultures;
-        public IEnumerable<CultureInfo> EnabledCultures
+        private IEnumerable<string> _cultures;
+        public IEnumerable<string> EnabledCultures
         {
             get
             {
                 if (_cultures == null)
                 {
                     var response = ProjectGroupApi.ListEnabledLanguages(Connection, Id);
-                    _cultures = response.Data.Select(c => new CultureInfo(LocaleCodeHelper.ConvertFromLocaleCode(c.Code)));
+                    _cultures = response.Data.Select(c => c.Code);
 
                     var baseLanguage = response.Data.FirstOrDefault(c => c.IsBaseLanguage);
 
                     if (baseLanguage != null)
                     {
-                        BaseCulture = new CultureInfo(LocaleCodeHelper.ConvertFromLocaleCode(baseLanguage.Code));
+                        BaseCultureName = baseLanguage.Code;
                     }
                 }
 
@@ -334,10 +378,10 @@ namespace OneSky
             _projects = new MyCollection<Project>(OnLoadProjects, OnCreateProject, OnDeleteProject);
         }
 
-        public ProjectGroup(string name, CultureInfo baseCulture)
+        public ProjectGroup(string name, string baseCultureName)
         {
             Name = name;
-            BaseCulture = baseCulture;
+            BaseCultureName = baseCultureName;
 
             _projects = new MyCollection<Project>(OnLoadProjects, OnCreateProject, OnDeleteProject);
         }
@@ -614,7 +658,7 @@ namespace OneSky
 
         private ProjectGroup OnCreateProjectGroup(ProjectGroup newProjectGroup)
         {
-            var response = ProjectGroupApi.Create(this, newProjectGroup.Name, newProjectGroup.BaseCulture);
+            var response = ProjectGroupApi.Create(this, newProjectGroup.Name, newProjectGroup.BaseCultureName);
 
             if (response.Meta.Status == 201 && response.Data != null)
             {

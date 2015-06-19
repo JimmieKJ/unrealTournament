@@ -29,6 +29,7 @@ UCrowdFollowingComponent::UCrowdFollowingComponent(const FObjectInitializer& Obj
 	CollisionQueryRange = 400.0f;		// approx: radius * 12.0f
 	PathOptimizationRange = 1000.0f;	// approx: radius * 30.0f
 	AvoidanceQuality = ECrowdAvoidanceQuality::Low;
+	AvoidanceRangeMultiplier = 1.0f;
 
 	AvoidanceGroup.SetFlagsDirectly(1);
 	GroupsToAvoid.SetFlagsDirectly(MAX_uint32);
@@ -239,6 +240,11 @@ void UCrowdFollowingComponent::ApplyCrowdAgentVelocity(const FVector& NewVelocit
 	}
 }
 
+void UCrowdFollowingComponent::ApplyCrowdAgentPosition(const FVector& NewPosition)
+{
+	// base implementation does nothing
+}
+
 void UCrowdFollowingComponent::SetCrowdSimulation(bool bEnable)
 {
 	if (bEnableCrowdSimulation == bEnable)
@@ -329,6 +335,10 @@ void UCrowdFollowingComponent::ResumeMove(FAIRequestID RequestID)
 			const bool bHasMoved = HasMovedDuringPause();
 			CrowdManager->ResumeAgent(this, bHasMoved);
 		}
+
+		// reset cached direction, will be set again after velocity update
+		// but before it happens do not change actor's focus point (rotation)
+		CrowdAgentMoveDirection = FVector::ZeroVector;
 	}
 
 	Super::ResumeMove(RequestID);
@@ -571,7 +581,6 @@ void UCrowdFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 		MoveSegmentDirection = FVector::ZeroVector;
 
 		CurrentDestination.Set(Path->GetBaseActor(), CurrentTargetPt);
-		SuspendCrowdSteering(false);
 
 		LogPathPartHelper(GetOwner(), NavMeshPath, PathStartIndex, PathPartEndIdx);
 		UE_VLOG_SEGMENT(GetOwner(), LogCrowdFollowing, Log, MovementComp->GetActorFeetLocation(), CurrentTargetPt, FColor::Red, TEXT("path part"));
@@ -594,11 +603,10 @@ void UCrowdFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 
 		bFinalPathPart = true;
 		bCheckMovementAngle = true;
-		bUpdateDirectMoveVelocity = DestinationActor.IsValid();
+		bUpdateDirectMoveVelocity = true;
 		CurrentDestination.Set(Path->GetBaseActor(), CurrentTargetPt);
 		CrowdAgentMoveDirection = (CurrentTargetPt - AgentLoc).GetSafeNormal();
 		MoveSegmentDirection = CrowdAgentMoveDirection;
-		SuspendCrowdSteering(true);
 
 		UE_VLOG(GetOwner(), LogCrowdFollowing, Log, TEXT("SetMoveSegment, direct move"));
 		UE_VLOG_SEGMENT(GetOwner(), LogCrowdFollowing, Log, AgentLoc, CurrentTargetPt, FColor::Red, TEXT("path"));
@@ -645,7 +653,13 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 		const FVector CurrentLocation = MovementComp->GetActorFeetLocation();
 		const FVector GoalLocation = GetCurrentTargetLocation();
 
-		if (bFinalPathPart)
+		if (bCollidedWithGoal)
+		{
+			// check if collided with goal actor
+			OnSegmentFinished();
+			OnPathFinished(EPathFollowingResult::Success);
+		}
+		else if (bFinalPathPart)
 		{
 			const FVector ToTarget = (GoalLocation - MovementComp->GetActorFeetLocation());
 			const bool bDirectPath = Path->CastPath<FAbstractNavigationPath>() != NULL;
@@ -654,7 +668,7 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 
 			// can't use HasReachedDestination here, because it will use last path point
 			// which is not set correctly for partial paths without string pulling
-			if (bMovedTooFar || HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, AcceptanceRadius, bStopOnOverlap))
+			if (bMovedTooFar || HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, AcceptanceRadius, bStopOnOverlap ? MinAgentRadiusPct : 0.0f))
 			{
 				UE_VLOG(GetOwner(), LogCrowdFollowing, Log, TEXT("Last path segment finished due to \'%s\'"), bMovedTooFar ? TEXT("Missing Last Point") : TEXT("Reaching Destination"));
 				OnPathFinished(EPathFollowingResult::Success);
@@ -663,12 +677,8 @@ void UCrowdFollowingComponent::UpdatePathSegment()
 		else
 		{
 			// override radius multiplier and switch to next path part when closer than 4x agent radius
-			const float SavedAgentRadiusPct = MinAgentRadiusPct;
-			MinAgentRadiusPct = 4.0f;
-			
-			const bool bHasReached = HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, 0.0f, false);
-			
-			MinAgentRadiusPct = SavedAgentRadiusPct;
+			const float NextPartMultiplier = 4.0f;
+			const bool bHasReached = HasReachedInternal(GoalLocation, 0.0f, 0.0f, CurrentLocation, 0.0f, NextPartMultiplier);
 
 			if (bHasReached)
 			{
@@ -696,20 +706,22 @@ void UCrowdFollowingComponent::FollowPathSegment(float DeltaTime)
 		return;
 	}
 
-	if (bUpdateDirectMoveVelocity && DestinationActor.IsValid())
+	if (bUpdateDirectMoveVelocity)
 	{
-		const FVector CurrentTargetPt = DestinationActor->GetActorLocation();
-		const float DistSq = (CurrentTargetPt - GetCurrentTargetLocation()).SizeSquared();
-		if (DistSq > FMath::Square(10.0f))
+		const FVector CurrentTargetPt = DestinationActor.IsValid() ? DestinationActor->GetActorLocation() : GetCurrentTargetLocation();
+		const FVector AgentLoc = GetCrowdAgentLocation();
+		const FVector NewDirection = (CurrentTargetPt - AgentLoc).GetSafeNormal();
+
+		const bool bDirectionChanged = !NewDirection.Equals(CrowdAgentMoveDirection);
+		if (bDirectionChanged)
 		{
-			UCrowdManager* Manager = UCrowdManager::GetCurrent(GetWorld());
-			const FVector AgentLoc = GetCrowdAgentLocation();
-
 			CurrentDestination.Set(Path->GetBaseActor(), CurrentTargetPt);
-			CrowdAgentMoveDirection = (CurrentTargetPt - AgentLoc).GetSafeNormal();
-			MoveSegmentDirection = CrowdAgentMoveDirection;
+			CrowdAgentMoveDirection = NewDirection;
+			MoveSegmentDirection = NewDirection;
 
-			Manager->SetAgentMoveDirection(this, MoveSegmentDirection);
+			UCrowdManager* Manager = UCrowdManager::GetCurrent(GetWorld());
+			Manager->SetAgentMoveDirection(this, NewDirection);
+
 			UE_VLOG(GetOwner(), LogCrowdFollowing, Log, TEXT("Updated direct move direction for crowd agent."));
 		}
 	}
@@ -729,7 +741,7 @@ FVector UCrowdFollowingComponent::GetMoveFocus(bool bAllowStrafe) const
 		// if we're not moving, falling, or don't have a crowd agent move direction, set our focus to ahead of the rotation of our owner to keep the same rotation,
 		// otherwise use the Crowd Agent Move Direction to move in the direction we're supposed to be going
 		const FVector ForwardDir = MovementComp->GetOwner() && ((Status != EPathFollowingStatus::Moving) || (CharacterMovement && (CharacterMovement->MovementMode == MOVE_Falling)) || CrowdAgentMoveDirection.IsNearlyZero()) ?
-			MovementComp->GetOwner()->GetActorRotation().Vector() :
+			MovementComp->GetOwner()->GetActorForwardVector() :
 			CrowdAgentMoveDirection;
 
 		return AgentLoc + ForwardDir * 100.0f;

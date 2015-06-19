@@ -5,7 +5,7 @@
 //=============================================================================
 
 #pragma once
-#include "Texture2DFactoryNew.generated.h"
+#include "Texture2dFactoryNew.generated.h"
 
 UCLASS(hidecategories=Object, MinimalAPI)
 class UTexture2DFactoryNew : public UFactory

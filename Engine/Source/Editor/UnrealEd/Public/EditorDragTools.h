@@ -13,7 +13,7 @@ class FEditorViewportClient;
 class FDragTool
 {
 public:
-	FDragTool();
+	FDragTool(FEditorModeTools* InModeTools);
 	virtual ~FDragTool() {}
 
 	/**
@@ -51,6 +51,8 @@ public:
 	bool bConvertDelta;
 
 protected:
+	FEditorModeTools* ModeTools;
+
 	/** The start/end location of the current drag. */
 	FVector Start, End, EndWk;
 

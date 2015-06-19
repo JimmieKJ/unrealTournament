@@ -136,6 +136,7 @@ void SAssetViewItem::Construct( const FArguments& InArgs )
 	OnFilesDragDropped = InArgs._OnFilesDragDropped;
 	OnGetCustomAssetToolTip = InArgs._OnGetCustomAssetToolTip;
 	OnVisualizeAssetToolTip = InArgs._OnVisualizeAssetToolTip;
+	OnAssetToolTipClosing = InArgs._OnAssetToolTipClosing;
 
 	bDraggedOver = false;
 
@@ -143,14 +144,6 @@ void SAssetViewItem::Construct( const FArguments& InArgs )
 	OnAssetDataChanged();
 
 	AssetItem->OnAssetDataChanged.AddSP(this, &SAssetViewItem::OnAssetDataChanged);
-
-	TMap<FName, FString> ImportantStaticMeshTags;
-	ImportantStaticMeshTags.Add("CollisionPrims", TEXT("0"));
-	ImportantTagMap.Add("StaticMesh", ImportantStaticMeshTags);
-
-	TMap<FName, FString> ImportantSkelMeshTags;
-	ImportantSkelMeshTags.Add("PhysicsAsset", TEXT("None"));
-	ImportantTagMap.Add("SkeletalMesh", ImportantSkelMeshTags);
 
 	AssetDirtyBrush = FEditorStyle::GetBrush("ContentBrowser.ContentDirty");
 	SCCStateBrush = nullptr;
@@ -173,8 +166,6 @@ void SAssetViewItem::Construct( const FArguments& InArgs )
 
 void SAssetViewItem::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	const float PrevSizeX = LastGeometry.Size.X;
 
 	LastGeometry = AllottedGeometry;
@@ -403,9 +394,12 @@ TSharedRef<SToolTip> SAssetViewItem::CreateToolTipWidget() const
 			AddToToolTipInfoBox( InfoBox, LOCTEXT("TileViewTooltipPath", "Path"), FText::FromName(AssetData.PackagePath), false );
 
 			// If we are using a loaded class, find all the hidden tags so we don't display them
+			TMap<FName, UObject::FAssetRegistryTagMetadata> MetadataMap;
 			TSet<FName> ShownTags;
 			if ( AssetClass != NULL && AssetClass->GetDefaultObject() != NULL )
 			{
+				AssetClass->GetDefaultObject()->GetAssetRegistryTagMetadata(MetadataMap);
+
 				TArray<UObject::FAssetRegistryTag> Tags;
 				AssetClass->GetDefaultObject()->GetAssetRegistryTags(Tags);
 
@@ -418,9 +412,6 @@ TSharedRef<SToolTip> SAssetViewItem::CreateToolTipWidget() const
 				}
 			}
 
-			// Get the list of important tags for this class
-			TMap<FName, FString> ImportantTags = ImportantTagMap.FindRef(AssetData.AssetClass);
-
 			// If an asset class could not be loaded we cannot determine hidden tags so display no tags.  
 			if( AssetClass != NULL )
 			{
@@ -430,8 +421,9 @@ TSharedRef<SToolTip> SAssetViewItem::CreateToolTipWidget() const
 					// Skip tags that are set to be hidden
 					if ( ShownTags.Contains(TagIt.Key()) )
 					{
-						const FString* ImportantValue = ImportantTags.Find(TagIt.Key());
-						const bool bImportant = (ImportantValue && (*ImportantValue) == TagIt.Value());
+						const UObject::FAssetRegistryTagMetadata* Metadata = MetadataMap.Find(TagIt.Key());
+
+						const bool bImportant = (Metadata != nullptr && !Metadata->ImportantValue.IsEmpty() && Metadata->ImportantValue == TagIt.Value());
 
 						// Since all we have at this point is a string, we can't be very smart here.
 						// We need to strip some noise off class paths in some cases, but can't load the asset to inspect its UPROPERTYs manually due to performance concerns.
@@ -472,6 +464,13 @@ TSharedRef<SToolTip> SAssetViewItem::CreateToolTipWidget() const
 							DisplayName = FText::FromString(FName::NameToDisplayString(TagIt.Key().ToString(), bIsBool));
 						}
 					
+						// Add suffix to the value string, if one is defined for this tag
+						if (Metadata != nullptr && !Metadata->Suffix.IsEmpty())
+						{
+							ValueString += TEXT(" ");
+							ValueString += Metadata->Suffix.ToString();
+						}
+
 						AddToToolTipInfoBox(InfoBox, DisplayName, FText::FromString(ValueString), bImportant);
 					}
 				}
@@ -655,7 +654,7 @@ EVisibility SAssetViewItem::GetCheckedOutByOtherTextVisibility() const
 
 FText SAssetViewItem::GetCheckedOutByOtherText() const
 {
-	if ( AssetItem.IsValid() && AssetItem->GetType() != EAssetItemType::Folder && !GIsSavingPackage && !GIsGarbageCollecting )
+	if ( AssetItem.IsValid() && AssetItem->GetType() != EAssetItemType::Folder && !GIsSavingPackage && !IsGarbageCollecting() )
 	{
 		const FAssetData& AssetData = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data;
 		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
@@ -876,6 +875,11 @@ bool SAssetViewItem::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipConten
 	return false;
 }
 
+void SAssetViewItem::OnToolTipClosing()
+{
+	OnAssetToolTipClosing.ExecuteIfBound();
+}
+
 ///////////////////////////////
 // SAssetListItem
 ///////////////////////////////
@@ -902,6 +906,7 @@ void SAssetListItem::Construct( const FArguments& InArgs )
 		.OnFilesDragDropped(InArgs._OnFilesDragDropped)
 		.OnGetCustomAssetToolTip(InArgs._OnGetCustomAssetToolTip)
 		.OnVisualizeAssetToolTip(InArgs._OnVisualizeAssetToolTip)
+		.OnAssetToolTipClosing( InArgs._OnAssetToolTipClosing )
 		);
 
 	AssetThumbnail = InArgs._AssetThumbnail;
@@ -1113,6 +1118,7 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 		.OnFilesDragDropped(InArgs._OnFilesDragDropped)
 		.OnGetCustomAssetToolTip(InArgs._OnGetCustomAssetToolTip)
 		.OnVisualizeAssetToolTip(InArgs._OnVisualizeAssetToolTip)
+		.OnAssetToolTipClosing( InArgs._OnAssetToolTipClosing )
 		);
 
 	AssetThumbnail = InArgs._AssetThumbnail;
@@ -1152,7 +1158,7 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 		SNew(SBorder)
 		.BorderImage(this, &SAssetViewItem::GetBorderImage)
 		.Padding(0)
-		.AddMetaData<FTagMetaData>(FTagMetaData(AssetItem->GetType() == EAssetItemType::Normal ? StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data.ObjectPath : NAME_None))
+		.AddMetaData<FTagMetaData>(FTagMetaData((AssetItem->GetType() == EAssetItemType::Normal) ? StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data.ObjectPath : ((AssetItem->GetType() == EAssetItemType::Folder) ? FName(*StaticCastSharedPtr<FAssetViewFolder>(AssetItem)->FolderPath) : NAME_None)))
 		[
 			SNew(SVerticalBox)
 
@@ -1164,7 +1170,7 @@ void SAssetTileItem::Construct( const FArguments& InArgs )
 				// The remainder of the space is reserved for the name.
 				SNew(SBox)
 				.Padding(ThumbnailPadding - 4.f)
-				.WidthOverride( this, &SAssetTileItem::GetThumbnailBoxSize )
+				.WidthOverride(this, &SAssetTileItem::GetThumbnailBoxSize)
 				.HeightOverride( this, &SAssetTileItem::GetThumbnailBoxSize )
 				[
 					// Drop shadow border
@@ -1318,6 +1324,49 @@ FSlateFontInfo SAssetTileItem::GetThumbnailFont() const
 // SAssetColumnItem
 ///////////////////////////////
 
+/** Custom box for the Name column of an asset */
+class SAssetColumnItemNameBox : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS( SAssetColumnItemNameBox ) {}
+
+		/** The color of the asset  */
+		SLATE_ATTRIBUTE( FMargin, Padding )
+
+		/** The widget content presented in the box */
+		SLATE_DEFAULT_SLOT(FArguments, Content)
+
+	SLATE_END_ARGS()
+
+	~SAssetColumnItemNameBox() {}
+
+	void Construct( const FArguments& InArgs, const TSharedRef<SAssetColumnItem>& InOwnerAssetColumnItem )
+	{
+		OwnerAssetColumnItem = InOwnerAssetColumnItem;
+
+		ChildSlot
+		[
+			SNew(SBox)
+			.Padding(InArgs._Padding)
+			[
+				InArgs._Content.Widget
+			]
+		];
+	}
+
+	/** Forward the event to the view item that this name box belongs to */
+	virtual void OnToolTipClosing() override
+	{
+		if ( OwnerAssetColumnItem.IsValid() )
+		{
+			OwnerAssetColumnItem.Pin()->OnToolTipClosing();
+		}
+	}
+
+private:
+	TWeakPtr<SAssetViewItem> OwnerAssetColumnItem;
+};
+
 void SAssetColumnItem::Construct( const FArguments& InArgs )
 {
 	SAssetViewItem::Construct( SAssetViewItem::FArguments()
@@ -1332,6 +1381,7 @@ void SAssetColumnItem::Construct( const FArguments& InArgs )
 		.OnFilesDragDropped(InArgs._OnFilesDragDropped)
 		.OnGetCustomAssetToolTip(InArgs._OnGetCustomAssetToolTip)
 		.OnVisualizeAssetToolTip(InArgs._OnVisualizeAssetToolTip)
+		.OnAssetToolTipClosing(InArgs._OnAssetToolTipClosing)
 		);
 	
 	HighlightText = InArgs._HighlightText;
@@ -1341,6 +1391,9 @@ BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 TSharedRef<SWidget> SAssetColumnItem::GenerateWidgetForColumn( const FName& ColumnName, FIsSelected InIsSelected )
 {
 	TSharedPtr<SWidget> Content;
+
+	// A little right padding so text from this column does not run directly into text from the next.
+	static const FMargin ColumnItemPadding( 0, 0, 6, 0 );
 
 	if ( ColumnName == "Name" )
 	{
@@ -1428,6 +1481,13 @@ TSharedRef<SWidget> SAssetColumnItem::GenerateWidgetForColumn( const FName& Colu
 		{
 			AssetItem->RenamedRequestEvent.BindSP( InlineRenameWidget.Get(), &SInlineEditableTextBlock::EnterEditingMode );
 		}
+
+		return SNew( SAssetColumnItemNameBox, SharedThis(this) )
+			.Padding( ColumnItemPadding )
+			.ToolTip( CreateToolTipWidget() )
+			[
+				Content.ToSharedRef()
+			];
 	}
 	else if ( ColumnName == "Class" )
 	{
@@ -1451,8 +1511,7 @@ TSharedRef<SWidget> SAssetColumnItem::GenerateWidgetForColumn( const FName& Colu
 	}
 
 	return SNew(SBox)
-		.Padding(FMargin(0, 0, 6, 0)) // Add a little right padding so text from this column does not run directly into text from the next.
-		.ToolTip(CreateToolTipWidget())
+		.Padding( ColumnItemPadding )
 		[
 			Content.ToSharedRef()
 		];
@@ -1472,8 +1531,6 @@ void SAssetColumnItem::OnAssetDataChanged()
 	{
 		PathText->SetText( GetAssetPathText() );
 	}
-
-	SetToolTip( CreateToolTipWidget() );
 }
 
 FString SAssetColumnItem::GetAssetNameToolTipText() const

@@ -33,7 +33,7 @@ TSharedRef<SWidget> UCircularThrobber::RebuildWidget()
 
 	MyCircularThrobber = SNew(SCircularThrobber)
 		.PieceImage(&Image)
-		.NumPieces(NumberOfPieces)
+		.NumPieces(FMath::Clamp(NumberOfPieces, 1, 25))
 		.Period(Period)
 		.Radius(Radius);
 
@@ -44,7 +44,7 @@ void UCircularThrobber::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
 
-	MyCircularThrobber->SetNumPieces(NumberOfPieces);
+	MyCircularThrobber->SetNumPieces(FMath::Clamp(NumberOfPieces, 1, 25));
 	MyCircularThrobber->SetPeriod(Period);
 	MyCircularThrobber->SetRadius(Radius);
 }
@@ -54,7 +54,7 @@ void UCircularThrobber::SetNumberOfPieces(int32 InNumberOfPieces)
 	NumberOfPieces = InNumberOfPieces;
 	if (MyCircularThrobber.IsValid())
 	{
-		MyCircularThrobber->SetNumPieces(InNumberOfPieces);
+		MyCircularThrobber->SetNumPieces(FMath::Clamp(NumberOfPieces, 1, 25));
 	}
 }
 

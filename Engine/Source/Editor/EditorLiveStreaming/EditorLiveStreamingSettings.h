@@ -35,7 +35,7 @@ namespace EEditorLiveStreamingWebCamResolution
 
 
 /** Holds preferences for the editor live streaming features */
-UCLASS(config=EditorGameAgnostic)
+UCLASS(config=EditorSettings)
 class UEditorLiveStreamingSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()

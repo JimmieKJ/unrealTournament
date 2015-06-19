@@ -48,14 +48,11 @@ public:
 	}
 };
 
-/** 
- * Shader compiling thread
- * This runs in the background while UE4 is running, launches shader compile worker processes when necessary, and feeds them inputs and reads back the outputs.
- */
-class FShaderCompileThreadRunnable : public FRunnable
+class FShaderCompileThreadRunnableBase : public FRunnable
 {
 	friend class FShaderCompilingManager;
-private:
+
+protected:
 	/** The manager for this thread */
 	class FShaderCompilingManager* Manager;
 	/** The runnable thread */
@@ -65,26 +62,52 @@ private:
 	FString ErrorMessage;
 	/** true if the thread has been terminated by an unhandled exception. */
 	bool bTerminatedByError;
+
+	volatile bool bForceFinish;
+
+public:
+	FShaderCompileThreadRunnableBase(class FShaderCompilingManager* InManager);
+	virtual ~FShaderCompileThreadRunnableBase()
+	{}
+
+	void StartThread();
+
+	// FRunnable interface.
+	virtual void Stop() { bForceFinish = true; }
+	virtual uint32 Run();
+	inline void WaitForCompletion() const
+	{
+		if( Thread )
+		{
+			Thread->WaitForCompletion();
+		}
+	}
+
+	/** Checks the thread's health, and passes on any errors that have occured.  Called by the main thread. */
+	void CheckHealth() const;
+
+	/** Main work loop. */
+	virtual int32 CompilingLoop() = 0;
+};
+
+/** 
+ * Shader compiling thread
+ * This runs in the background while UE4 is running, launches shader compile worker processes when necessary, and feeds them inputs and reads back the outputs.
+ */
+class FShaderCompileThreadRunnable : public FShaderCompileThreadRunnableBase
+{
+	friend class FShaderCompilingManager;
+private:
+
 	/** Information about the active workers that this thread is tracking. */
 	TArray<struct FShaderCompileWorkerInfo*> WorkerInfos;
 	/** Tracks the last time that this thread checked if the workers were still active. */
 	double LastCheckForWorkersTime;
 
-	volatile bool bForceFinish;
-	volatile bool bIsRunning;
 public:
 	/** Initialization constructor. */
 	FShaderCompileThreadRunnable(class FShaderCompilingManager* InManager);
 	virtual ~FShaderCompileThreadRunnable();
-
-	// FRunnable interface.
-	virtual bool Init(void) { bIsRunning = true; return true; }
-	virtual void Exit(void) { bIsRunning = false; }
-	virtual void Stop(void) { bForceFinish = true; }
-	virtual uint32 Run(void);
-
-	/** Checks the thread's health, and passes on any errors that have occured.  Called by the main thread. */
-	void CheckHealth() const;
 
 private:
 
@@ -107,12 +130,99 @@ private:
 	void CompileDirectlyThroughDll();
 
 	/** Main work loop. */
-	int32 CompilingLoop();
+	virtual int32 CompilingLoop() override;
 
 	/** Used when compiling through workers, launches worker processes if needed. */
 	void LaunchWorkerIfNeeded(FShaderCompileWorkerInfo & CurrentWorkerInfo, uint32 WorkerIndex);
+};
 
-	inline bool IsRunning() { return bIsRunning; }
+class FShaderCompileXGEThreadRunnable : public FShaderCompileThreadRunnableBase
+{
+private:
+	/** The handle referring to the XGE console process, if a build is in progress. */
+	FProcHandle BuildProcessHandle;
+	
+	/** Process ID of the XGE console, if a build is in progress. */
+	uint32 BuildProcessID;
+
+	/**
+	 * A map of directory paths to shader jobs contained within that directory.
+	 * One entry per XGE task.
+	 */
+	class FShaderBatch
+	{
+		TArray<FShaderCompileJob*> Jobs;
+		bool bTransferFileWritten;
+
+	public:
+		const FString& DirectoryBase;
+		const FString& InputFileName;
+		const FString& SuccessFileName;
+		const FString& OutputFileName;
+
+		int32 BatchIndex;
+		int32 DirectoryIndex;
+
+		FString WorkingDirectory;
+		FString OutputFileNameAndPath;
+		FString SuccessFileNameAndPath;
+		FString InputFileNameAndPath;
+		
+		FShaderBatch(const FString& InDirectoryBase, const FString& InInputFileName, const FString& InSuccessFileName, const FString& InOutputFileName, int32 InDirectoryIndex, int32 InBatchIndex)
+			: bTransferFileWritten(false)
+			, DirectoryBase(InDirectoryBase)
+			, InputFileName(InInputFileName)
+			, SuccessFileName(InSuccessFileName)
+			, OutputFileName(InOutputFileName)
+		{
+			SetIndices(InDirectoryIndex, InBatchIndex);
+		}
+
+		void SetIndices(int32 InDirectoryIndex, int32 InBatchIndex);
+
+		void CleanUpFiles(bool keepInputFile);
+
+		inline int32 NumJobs()
+		{
+			return Jobs.Num();
+		}
+		inline const TArray<FShaderCompileJob*>& GetJobs() const
+		{
+			return Jobs;
+		}
+
+		void AddJob(FShaderCompileJob* Job);
+		
+		void WriteTransferFile();
+	};
+	TArray<FShaderBatch*> ShaderBatchesInFlight;
+	TArray<FShaderBatch*> ShaderBatchesFull;
+	TSparseArray<FShaderBatch*> ShaderBatchesIncomplete;
+
+	/** The full path to the two working directories for XGE shader builds. */
+	const FString XGEWorkingDirectory;
+	uint32 XGEDirectoryIndex;
+
+	uint64 LastAddTime;
+	uint64 StartTime;
+	int32 BatchIndexToCreate;
+	int32 BatchIndexToFill;
+
+	FDateTime ScriptFileCreationTime;
+
+	void PostCompletedJobsForBatch(FShaderBatch* Batch);
+
+	void GatherResultsFromXGE();
+
+public:
+	/** Initialization constructor. */
+	FShaderCompileXGEThreadRunnable(class FShaderCompilingManager* InManager);
+	virtual ~FShaderCompileXGEThreadRunnable();
+
+	/** Main work loop. */
+	virtual int32 CompilingLoop() override;
+
+	static bool IsSupported();
 };
 
 /** Results for a single compiled shader map. */
@@ -148,7 +258,9 @@ struct FShaderMapFinalizeResults : public FShaderMapCompileResults
  */
 class FShaderCompilingManager
 {
+	friend class FShaderCompileThreadRunnableBase;
 	friend class FShaderCompileThreadRunnable;
+	friend class FShaderCompileXGEThreadRunnable;
 private:
 
 	//////////////////////////////////////////////////////
@@ -173,7 +285,7 @@ private:
 	TMap<int32, FShaderMapFinalizeResults> PendingFinalizeShaderMaps;
 
 	/** The threads spawned for shader compiling. */
-	TScopedPointer<FShaderCompileThreadRunnable> Thread;
+	TScopedPointer<FShaderCompileThreadRunnableBase> Thread;
 
 	//////////////////////////////////////////////////////
 	// Configuration properties - these are set only on initialization and can be read from either thread

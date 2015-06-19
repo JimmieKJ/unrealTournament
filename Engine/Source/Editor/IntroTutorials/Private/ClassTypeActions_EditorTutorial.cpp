@@ -3,6 +3,7 @@
 #include "IntroTutorialsPrivatePCH.h"
 #include "ClassTypeActions_EditorTutorial.h"
 #include "EditorTutorial.h"
+#include "AssetData.h"
 
 #define LOCTEXT_NAMESPACE "IntroTutorials"
 

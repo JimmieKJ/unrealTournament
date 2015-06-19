@@ -10,102 +10,110 @@
  * being computed by the APlayerCameraManager (@see ModifyCamera). A CameraModifier
  * can be stateful, and is associated uniquely with a specific APlayerCameraManager.
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class ENGINE_API UCameraModifier : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-protected:
-	/** If true, do not apply this modifier to the camera. */
-	UPROPERTY()
-	uint32 bDisabled:1;
-
 public:
-	/** If true, this modifier will disable itself when finished interpolating out. */
-	UPROPERTY()
-	uint32 bPendingDisable:1;
-
-	/** Camera this object is associated with. */
-	UPROPERTY()
-	class APlayerCameraManager* CameraOwner;
-
-protected:
-	/** Priority value that determines the order in which modifiers are applied. 0 = highest priority, 255 = lowest. */
-	UPROPERTY()
-	uint8 Priority;
+	/** If true, enables certain debug visualization features. */
+	UPROPERTY(EditAnywhere, Category = Debug)
+	uint32 bDebug : 1;
 
 	/** If true, no other modifiers of same priority allowed. */
-	UPROPERTY()
-	uint32 bExclusive:1;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CameraModifier)
+	uint32 bExclusive : 1;
+
+protected:
+	/** If true, do not apply this modifier to the camera. */
+	uint32 bDisabled:1;
+
+	/** If true, this modifier will disable itself when finished interpolating out. */
+	uint32 bPendingDisable:1;
+
+public:
+	/** Priority value that determines the order in which modifiers are applied. 0 = highest priority, 255 = lowest. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CameraModifier)
+	uint8 Priority;	
+	
+protected:
+	/** Camera this object is associated with. */
+	UPROPERTY(transient, BlueprintReadOnly, Category = CameraModifier)
+	class APlayerCameraManager* CameraOwner;
 
 	/** When blending in, alpha proceeds from 0 to 1 over this time */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CameraModifier)
 	float AlphaInTime;
 
 	/** When blending out, alpha proceeds from 1 to 0 over this time */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CameraModifier)
 	float AlphaOutTime;
 
 	/** Current blend alpha. */
-	UPROPERTY(transient)
+	UPROPERTY(transient, BlueprintReadOnly, Category = CameraModifier)
 	float Alpha;
-
-	/** Desired alpha we are interpolating towards. */
-	UPROPERTY(transient)
-	float TargetAlpha;
-
-public:
-	/** If true, enables certain debug visualization features. */
-	UPROPERTY(EditAnywhere, Category=Debug)
-	uint32 bDebug:1;
 
 protected:
 	/** @return Returns the ideal blend alpha for this modifier. Interpolation will seek this value. */
-	virtual float GetTargetAlpha(class APlayerCameraManager* Camera);
+	virtual float GetTargetAlpha();
 
 public:
 	/** 
 	 * Allows any custom initialization. Called immediately after creation.
 	 * @param Camera - The camera this modifier should be associated with.
 	 */
-	virtual void Init( APlayerCameraManager* Camera );
+	virtual void AddedToCamera( APlayerCameraManager* Camera );
 	
 	/**
-	 * Directly modifies variables in the camera actor
-	 * @param	Camera		reference to camera actor we are modifying
+	 * Directly modifies variables in the owning camera
 	 * @param	DeltaTime	Change in time since last update
-	 * @param	InOutPOV		current Point of View, to be updated.
-	 * @return	bool		true if should STOP looping the chain, false otherwise
+	 * @param	InOutPOV	Current Point of View, to be updated.
+	 * @return	bool		True if should STOP looping the chain, false otherwise
 	 */
-	virtual bool ModifyCamera(APlayerCameraManager* Camera, float DeltaTime, struct FMinimalViewInfo& InOutPOV);
-	
+	virtual bool ModifyCamera(float DeltaTime, struct FMinimalViewInfo& InOutPOV);
+
+	/** 
+	 * Called per tick that the modifier is active to allow Blueprinted modifiers to modify the camera's transform. 
+	 * Scaling by Alpha happens after this in code, so no need to deal with that in the blueprint.
+	 * @param	DeltaTime	Change in time since last update
+	 * @param	ViewLocation		The current camera location.
+	 * @param	ViewRotation		The current camera rotation.
+	 * @param	FOV					The current camera fov.
+	 * @param	NewViewLocation		(out) The modified camera location.
+	 * @param	NewViewRotation		(out) The modified camera rotation.
+	 * @param	NewFOV				(out) The modified camera FOV.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
+	void BlueprintModifyCamera(float DeltaTime, FVector ViewLocation, FRotator ViewRotation, float FOV, FVector& NewViewLocation, FRotator& NewViewRotation, float& NewFOV);
+
+	/**
+	 * Called per tick that the modifier is active to allow Blueprinted modifiers to modify the camera's postprocess effects.
+	 * Scaling by Alpha happens after this in code, so no need to deal with that in the blueprint.
+	 * @param	DeltaTime				Change in time since last update
+	 * @param	PostProcessBlendWeight	(out) Blend weight applied to the entire postprocess structure.
+	 * @param	PostProcessSettings		(out) Post process structure defining what settings and values to override.
+	 */
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
+	void BlueprintModifyPostProcess(float DeltaTime, float& PostProcessBlendWeight, FPostProcessSettings& PostProcessSettings);
+
 	/** @return Returns true if modifier is disabled, false otherwise. */
+	UFUNCTION(BlueprintCallable, Category = CameraModifier)
 	virtual bool IsDisabled() const;
 	
-	/**
-	 * Camera modifier evaluates itself vs the given camera's modifier list
-	 * and decides whether to add itself or not. Handles adding by priority and avoiding 
-	 * adding the same modifier twice.
-	 *
-	 * @param	Camera - reference to camera actor we want add this modifier to
-	 * @return	Returns true if modifier added to camera's modifier list, false otherwise.
-	 */
-	virtual bool AddCameraModifier( APlayerCameraManager* Camera );
-	
-	/**
-	 * Camera modifier removes itself from given camera's modifier list
-	 * @param	Camera	- reference to camera actor we want to remove this modifier from
-	 * @return	Returns true if modifier removed successfully, false otherwise.
-	 */
-	virtual bool RemoveCameraModifier( APlayerCameraManager* Camera );
-	
+	/** @return Returns the actor the camera is currently viewing. */
+	UFUNCTION(BlueprintCallable, Category = CameraModifier)
+	virtual AActor* GetViewTarget() const;
+
+
 	/** 
 	 *  Disables this modifier.
 	 *  @param  bImmediate  - true to disable with no blend out, false (default) to allow blend out
 	 */
+	UFUNCTION(BlueprintCallable, Category=CameraModifier)
 	virtual void DisableModifier(bool bImmediate = false);
 
 	/** Enables this modifier. */
+	UFUNCTION(BlueprintCallable, Category = CameraModifier)
 	virtual void EnableModifier();
 
 	/** Toggled disabled/enabled state of this modifier. */
@@ -129,7 +137,7 @@ public:
 	 * @param	Camera		- Camera that is being updated
 	 * @param	DeltaTime	- Amount of time since last update
 	 */
-	virtual void UpdateAlpha( APlayerCameraManager* Camera, float DeltaTime );
+	virtual void UpdateAlpha(float DeltaTime);
 
 	/** @return Returns the appropriate world context for this object. */
 	UWorld* GetWorld() const;

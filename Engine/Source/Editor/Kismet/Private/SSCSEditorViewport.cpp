@@ -62,6 +62,17 @@ public:
 					.OnGetMenuContent(this, &SSCSEditorViewportToolBar::GenerateCameraMenu)
 				]
 				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(2.0f, 2.0f)
+				[
+					SNew( SEditorViewportToolbarMenu )
+					.ParentToolBar( SharedThis( this ) )
+					.Cursor( EMouseCursor::Default )
+					.Label(this, &SSCSEditorViewportToolBar::GetViewMenuLabel)
+					.LabelIcon(this, &SSCSEditorViewportToolBar::GetViewMenuLabelIcon)
+					.OnGetMenuContent(this, &SSCSEditorViewportToolBar::GenerateViewMenu)
+				]
+				+ SHorizontalBox::Slot()
 				.Padding( 3.0f, 1.0f )
 				.HAlign( HAlign_Right )
 				[
@@ -114,11 +125,23 @@ public:
 				break;
 
 			case LVT_OrthoYZ:
-				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Side", "Side");
+				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Left", "Left");
 				break;
 
 			case LVT_OrthoXZ:
 				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Front", "Front");
+				break;
+
+			case LVT_OrthoNegativeXY:
+				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Bottom", "Bottom");
+				break;
+
+			case LVT_OrthoNegativeYZ:
+				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Right", "Right");
+				break;
+
+			case LVT_OrthoNegativeXZ:
+				Label = NSLOCTEXT("BlueprintEditor", "CameraMenuTitle_Back", "Back");
 				break;
 
 			case LVT_OrthoFreelook:
@@ -132,6 +155,14 @@ public:
 
 	const FSlateBrush* GetCameraMenuLabelIcon() const
 	{
+		static FName PerspectiveIconName("EditorViewport.Perspective");
+		static FName TopIconName("EditorViewport.Top");
+		static FName LeftIconName("EditorViewport.Left");
+		static FName FrontIconName("EditorViewport.Front");
+		static FName BottomIconName("EditorViewport.Bottom");
+		static FName RightIconName("EditorViewport.Right");
+		static FName BackIconName("EditorViewport.Back");
+
 		FName Icon = NAME_None;
 
 		if(EditorViewport.IsValid())
@@ -139,19 +170,31 @@ public:
 			switch(EditorViewport.Pin()->GetViewportClient()->GetViewportType())
 			{
 			case LVT_Perspective:
-				Icon = FName("EditorViewport.Perspective");
+				Icon = PerspectiveIconName;
 				break;
 
 			case LVT_OrthoXY:
-				Icon = FName("EditorViewport.Top");
+				Icon = TopIconName;
 				break;
 
 			case LVT_OrthoYZ:
-				Icon = FName( "EditorViewport.Side");
+				Icon = LeftIconName;
 				break;
 
 			case LVT_OrthoXZ:
-				Icon = FName("EditorViewport.Front");
+				Icon = FrontIconName;
+				break;
+
+			case LVT_OrthoNegativeXY:
+				Icon = BottomIconName;
+				break;
+
+			case LVT_OrthoNegativeYZ:
+				Icon = RightIconName;
+				break;
+
+			case LVT_OrthoNegativeXZ:
+				Icon = BackIconName;
 				break;
 			}
 		}
@@ -170,11 +213,82 @@ public:
 
 		CameraMenuBuilder.BeginSection("LevelViewportCameraType_Ortho", NSLOCTEXT("BlueprintEditor", "CameraTypeHeader_Ortho", "Orthographic"));
 			CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Top);
-			CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Side);
+			CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Bottom);
+			CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Left);
+			CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Right);
 			CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Front);
+			CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Back);
 		CameraMenuBuilder.EndSection();
 
 		return CameraMenuBuilder.MakeWidget();
+	}
+
+	FText GetViewMenuLabel() const
+	{
+		FText Label = NSLOCTEXT("BlueprintEditor", "ViewMenuTitle_Default", "View");
+
+		if (EditorViewport.IsValid())
+		{
+			switch (EditorViewport.Pin()->GetViewportClient()->GetViewMode())
+			{
+			case VMI_Lit:
+				Label = NSLOCTEXT("BlueprintEditor", "ViewMenuTitle_Lit", "Lit");
+				break;
+
+			case VMI_Unlit:
+				Label = NSLOCTEXT("BlueprintEditor", "ViewMenuTitle_Unlit", "Unlit");
+				break;
+
+			case VMI_BrushWireframe:
+				Label = NSLOCTEXT("BlueprintEditor", "ViewMenuTitle_Wireframe", "Wireframe");
+				break;
+			}
+		}
+
+		return Label;
+	}
+
+	const FSlateBrush* GetViewMenuLabelIcon() const
+	{
+		static FName LitModeIconName("EditorViewport.LitMode");
+		static FName UnlitModeIconName("EditorViewport.UnlitMode");
+		static FName WireframeModeIconName("EditorViewport.WireframeMode");
+
+		FName Icon = NAME_None;
+
+		if (EditorViewport.IsValid())
+		{
+			switch (EditorViewport.Pin()->GetViewportClient()->GetViewMode())
+			{
+			case VMI_Lit:
+				Icon = LitModeIconName;
+				break;
+
+			case VMI_Unlit:
+				Icon = UnlitModeIconName;
+				break;
+
+			case VMI_BrushWireframe:
+				Icon = WireframeModeIconName;
+				break;
+			}
+		}
+
+		return FEditorStyle::GetBrush(Icon);
+	}
+
+	TSharedRef<SWidget> GenerateViewMenu() const
+	{
+		TSharedPtr<const FUICommandList> CommandList = EditorViewport.IsValid() ? EditorViewport.Pin()->GetCommandList() : nullptr;
+
+		const bool bInShouldCloseWindowAfterMenuSelection = true;
+		FMenuBuilder ViewMenuBuilder(bInShouldCloseWindowAfterMenuSelection, CommandList);
+
+		ViewMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().LitMode, NAME_None, NSLOCTEXT("BlueprintEditor", "LitModeMenuOption", "Lit"));
+		ViewMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().UnlitMode, NAME_None, NSLOCTEXT("BlueprintEditor", "UnlitModeMenuOption", "Unlit"));
+		ViewMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().WireframeMode, NAME_None, NSLOCTEXT("BlueprintEditor", "WireframeModeMenuOption", "Wireframe"));
+
+		return ViewMenuBuilder.MakeWidget();
 	}
 
 private:
@@ -189,9 +303,7 @@ private:
 
 void SSCSEditorViewport::Construct(const FArguments& InArgs)
 {
-	// Initialize
-	bPreviewNeedsUpdating = false;
-	bResetCameraOnNextPreviewUpdate = false;
+	bIsActiveTimerRegistered = false;
 
 	// Save off the Blueprint editor reference, we'll need this later
 	BlueprintEditorPtr = InArgs._BlueprintEditor;
@@ -222,7 +334,7 @@ TSharedRef<FEditorViewportClient> SSCSEditorViewport::MakeEditorViewportClient()
 	FPreviewScene* PreviewScene = BlueprintEditorPtr.Pin()->GetPreviewScene();
 
 	// Construct a new viewport client instance.
-	ViewportClient = MakeShareable(new FSCSEditorViewportClient(BlueprintEditorPtr, PreviewScene));
+	ViewportClient = MakeShareable(new FSCSEditorViewportClient(BlueprintEditorPtr, PreviewScene, SharedThis(this)));
 	ViewportClient->SetRealtime(true);
 	ViewportClient->bSetListenerPosition = false;
 	ViewportClient->VisibilityDelegate.BindSP(this, &SSCSEditorViewport::IsVisible);
@@ -241,31 +353,49 @@ TSharedPtr<SWidget> SSCSEditorViewport::MakeViewportToolbar()
 
 void SSCSEditorViewport::BindCommands()
 {
+	FSCSEditorViewportCommands::Register(); // make sure the viewport specific commands have been registered
+
+	TSharedPtr<FBlueprintEditor> BlueprintEditor = BlueprintEditorPtr.Pin();
+	TSharedPtr<SSCSEditor> SCSEditorWidgetPtr = BlueprintEditor->GetSCSEditor();
+	SSCSEditor* SCSEditorWidget = SCSEditorWidgetPtr.Get();
+	// for mac, we have to bind a command that would override the BP-Editor's 
+	// "NavigateToParentBackspace" command, because the delete key is the 
+	// backspace key for that platform (and "NavigateToParentBackspace" does not 
+	// make sense in the viewport window... it blocks the generic delete command)
+	// 
+	// NOTE: this needs to come before we map any other actions (so it is 
+	// prioritized first)
+	CommandList->MapAction(
+		FSCSEditorViewportCommands::Get().DeleteComponent,
+		FExecuteAction::CreateSP(SCSEditorWidget, &SSCSEditor::OnDeleteNodes),
+		FCanExecuteAction::CreateSP(SCSEditorWidget, &SSCSEditor::CanDeleteNodes)
+	);
+
 	const FBlueprintEditorCommands& Commands = FBlueprintEditorCommands::Get();
 
-	GetCommandList()->Append( BlueprintEditorPtr.Pin()->GetToolkitCommands() );
-	GetCommandList()->Append( BlueprintEditorPtr.Pin()->GetSCSEditor()->CommandList.ToSharedRef() );
+	CommandList->Append(BlueprintEditor->GetToolkitCommands());
+	CommandList->Append(BlueprintEditor->GetSCSEditor()->CommandList.ToSharedRef());
 	SEditorViewport::BindCommands();
 
 	BlueprintEditorPtr.Pin()->GetToolkitCommands()->MapAction(
-		FBlueprintEditorCommands::Get().EnableSimulation,
+		Commands.EnableSimulation,
 		FExecuteAction::CreateSP(this, &SSCSEditorViewport::ToggleIsSimulateEnabled),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(ViewportClient.Get(), &FSCSEditorViewportClient::GetIsSimulateEnabled));
 
 	// Toggle camera lock on/off
 	CommandList->MapAction(
-		FBlueprintEditorCommands::Get().ResetCamera,
+		Commands.ResetCamera,
 		FExecuteAction::CreateSP(ViewportClient.Get(), &FSCSEditorViewportClient::ResetCamera) );
 
 	CommandList->MapAction(
-		FBlueprintEditorCommands::Get().ShowFloor,
+		Commands.ShowFloor,
 		FExecuteAction::CreateSP(ViewportClient.Get(), &FSCSEditorViewportClient::ToggleShowFloor),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(ViewportClient.Get(), &FSCSEditorViewportClient::GetShowFloor));
 
 	CommandList->MapAction(
-		FBlueprintEditorCommands::Get().ShowGrid,
+		Commands.ShowGrid,
 		FExecuteAction::CreateSP(ViewportClient.Get(), &FSCSEditorViewportClient::ToggleShowGrid),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(ViewportClient.Get(), &FSCSEditorViewportClient::GetShowGrid));
@@ -312,8 +442,6 @@ void SSCSEditorViewport::RequestRefresh(bool bResetCamera, bool bRefreshNow)
 {
 	if(bRefreshNow)
 	{
-		Invalidate();
-
 		if(ViewportClient.IsValid())
 		{
 			ViewportClient->InvalidatePreview(bResetCamera);
@@ -322,10 +450,10 @@ void SSCSEditorViewport::RequestRefresh(bool bResetCamera, bool bRefreshNow)
 	else
 	{
 		// Defer the update until the next tick. This way we don't accidentally spawn the preview actor in the middle of a transaction, for example.
-		bPreviewNeedsUpdating = true;
-		if(bResetCamera)
+		if (!bIsActiveTimerRegistered)
 		{
-			bResetCameraOnNextPreviewUpdate = true;
+			bIsActiveTimerRegistered = true;
+			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SSCSEditorViewport::DeferredUpdatePreview, bResetCamera));
 		}
 	}
 }
@@ -362,19 +490,13 @@ FReply SSCSEditorViewport::OnDrop(const FGeometry& MyGeometry, const FDragDropEv
 	return SCSEditor->TryHandleAssetDragDropOperation(DragDropEvent);
 }
 
-void SSCSEditorViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType SSCSEditorViewport::DeferredUpdatePreview(double InCurrentTime, float InDeltaTime, bool bResetCamera)
 {
-	SEditorViewport::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-	// If the preview scene is no longer valid (i.e. all actors have destroyed themselves), then attempt to recreate the scene. This way we can "loop" certain "finite" Blueprints that might destroy themselves.
-	if(ViewportClient.IsValid() && bPreviewNeedsUpdating)
+	if (ViewportClient.IsValid())
 	{
-		Invalidate();
-
-		ViewportClient->InvalidatePreview(bResetCameraOnNextPreviewUpdate);
-
-		// Reset for next update
-		bPreviewNeedsUpdating = false;
-		bResetCameraOnNextPreviewUpdate = false;
+		ViewportClient->InvalidatePreview(bResetCamera);
 	}
+
+	bIsActiveTimerRegistered = false;
+	return EActiveTimerReturnType::Stop;
 }

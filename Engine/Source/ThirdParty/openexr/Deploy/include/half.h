@@ -468,7 +468,11 @@ half::half (float f)
 	// to do the float-to-half conversion.
 	//
 
+#ifdef __clang__
+	int e = (x.i >> 23) & 0x000001ff;
+#else
 	register int e = (x.i >> 23) & 0x000001ff;
+#endif
 
 	e = _eLut[e];
 
@@ -479,7 +483,11 @@ half::half (float f)
 	    // bits and combine it with the sign and exponent.
 	    //
 
-	    register int m = x.i & 0x007fffff;
+#ifdef __clang__
+	    int m = x.i & 0x007fffff;
+#else
+		register int m = x.i & 0x007fffff;
+#endif
 	    _h = e + ((m + 0x00000fff + ((m >> 13) & 1)) >> 13);
 	}
 	else

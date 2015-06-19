@@ -17,6 +17,7 @@
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 #include "Panels/SUWServerBrowser.h"
+#include "Panels/SUWReplayBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
 #include "Panels/SUTFragCenterPanel.h"
@@ -45,11 +46,9 @@ void SUWindowsMainMenu::SetInitialPanel()
 
 	if (HomePanel.IsValid())
 	{
-		TSharedPtr<SUTFragCenterPanel> WebPanel = StaticCastSharedPtr<SUTFragCenterPanel>(HomePanel);
-		WebPanel->Browse(TEXT("http://www.necris.net/fragcenter"));
+		TSharedPtr<SUTFragCenterPanel> FragCenterPanel = StaticCastSharedPtr<SUTFragCenterPanel>(HomePanel);
+		FragCenterPanel->Browse(TEXT("http://www.unrealtournament.com/fragcenter"));
 		ActivatePanel(HomePanel);
-
-		WebPanel->UpdateAutoPlay();
 	}
 }
 
@@ -72,8 +71,97 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 		[
 			BuildTutorialSubMenu()
 		];
-
+		
+		LeftMenuBar->AddSlot()
+		.Padding(40.0f,0.0f,0.0f,0.0f)
+		.AutoWidth()
+		[
+			BuildWatchSubMenu()
+		];
 	}
+}
+
+TSharedRef<SWidget> SUWindowsMainMenu::BuildWatchSubMenu()
+{
+	TSharedPtr<SComboButton> DropDownButton = NULL;
+		SNew(SBox)
+	.HeightOverride(56)
+	[
+		SAssignNew(DropDownButton, SComboButton)
+		.HasDownArrow(false)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
+		.ButtonContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_REPLAYS", "WATCH"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+			]
+		]
+	];
+		
+	DropDownButton->SetMenuContent
+	(
+		SNew(SBorder)
+		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
+		.Padding(FMargin(0.0f,2.0f))
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_YourReplays", "Your Replays"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnYourReplaysClick, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_RecentReplays", "Recent Replays"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnRecentReplaysClick, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_LiveGames", "Live Games"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnLiveGameReplaysClick, DropDownButton)
+			]
+		]
+	);
+
+	MenuButtons.Add(DropDownButton);
+	return DropDownButton.ToSharedRef();
 }
 
 TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
@@ -94,7 +182,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "LEARN").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "LEARN"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
 		]
@@ -113,7 +201,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnBootCampClick, DropDownButton)
 			]
@@ -131,7 +219,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "Training Videos").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "Training Videos"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnCommunityClick, DropDownButton)
 			]
@@ -162,7 +250,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 			]
 		]
@@ -182,7 +270,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::Deathmatch)
 			]
@@ -193,7 +281,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::CaptureTheFlag)
 			]
@@ -219,7 +307,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"))
 				.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel, DropDownButton)
 			]
 			+ SVerticalBox::Slot()
@@ -242,7 +330,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game...").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game..."))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OnShowServerBrowser, DropDownButton)
 			]
@@ -253,7 +341,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_IPConnect", "Connect via IP").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_IPConnect", "Connect via IP"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnConnectIP, DropDownButton)
 			]
@@ -302,7 +390,7 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 	SUTMenuBase::OpenDelayedMenu();
 	if (bNeedToShowGamePanel)
 	{
-
+		bNeedToShowGamePanel = false;
 		if (AvailableGameRulesets.Num() == 0)
 		{
 			UUTEpicDefaultRulesets::GetDefaultRules(PlayerOwner->GetWorld()->GetAuthGameMode(), AvailableGameRulesets);
@@ -377,6 +465,96 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
+FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
+		return FReply::Handled();
+	}
+
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
+	if (ReplayBrowser.IsValid())
+	{
+		ReplayBrowser->bLiveOnly = false;
+		ReplayBrowser->bShowReplaysFromAllUsers = false;
+		ReplayBrowser->MetaString = TEXT("");
+
+		if (ReplayBrowser == ActivePanel)
+		{
+			ReplayBrowser->BuildReplayList();
+		}
+		else
+		{
+			ActivatePanel(ReplayBrowser);
+		}
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
+		return FReply::Handled();
+	}
+
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
+	if (ReplayBrowser.IsValid())
+	{
+		ReplayBrowser->bLiveOnly = false;
+		ReplayBrowser->bShowReplaysFromAllUsers = true;
+		ReplayBrowser->MetaString = TEXT("");
+
+		if (ReplayBrowser == ActivePanel)
+		{
+			ReplayBrowser->BuildReplayList();
+		}
+		else
+		{
+			ActivatePanel(ReplayBrowser);
+		}
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
+		return FReply::Handled();
+	}
+
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
+	if (ReplayBrowser.IsValid())
+	{
+		ReplayBrowser->bLiveOnly = true;
+		ReplayBrowser->bShowReplaysFromAllUsers = true;
+		ReplayBrowser->MetaString = TEXT("");
+
+		if (ReplayBrowser == ActivePanel)
+		{
+			ReplayBrowser->BuildReplayList();
+		}
+		else
+		{
+			ActivatePanel(ReplayBrowser);
+		}
+	}
+
+	return FReply::Handled();
+}
+
 FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid())
@@ -409,7 +587,7 @@ FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
 	PlayerOwner->OpenDialog(
 							SNew(SUWInputBox)
 							.DefaultInput(PlayerOwner->LastConnectToIP)
-							.DialogSize(FVector2D(600, 200))
+							.DialogSize(FVector2D(700, 300))
 							.OnDialogResult(this, &SUWindowsMainMenu::ConnectIPDialogResult)
 							.PlayerOwner(PlayerOwner)
 							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
@@ -468,8 +646,8 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 					LP->PlayerController->SetInputMode(FInputModeGameOnly());
 				}
 
-				UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-				GameSettings->SaveConfig();
+				UUTGameUserSettings* LamdaGameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+				LamdaGameSettings->SaveConfig();
 			};
 
 			bool bCanBindAll = false;
@@ -560,11 +738,12 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 	if (CreateGameDialog->IsCustomSettings())
 	{
 		FString GameMode;
+		FString Description;
 		TArray<FString> GameOptionsList;
 
 		int32 DesiredPlayerCount = 0;
 
-		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptionsList, DesiredPlayerCount);	
+		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptionsList, DesiredPlayerCount);	
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *GameMode);
 		for (int32 i = 0; i < GameOptionsList.Num(); i++)
@@ -576,6 +755,10 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		{
 			GameOptions += FString::Printf(TEXT("?Difficulty=%i?BotFill=%i?MaxPlayers=%i"),CreateGameDialog->BotSkillLevel, DesiredPlayerCount, DesiredPlayerCount);
 		}
+		else
+		{
+			GameOptions += TEXT("?BotFill=0");
+		}
 
 	}
 	else
@@ -584,26 +767,9 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 
 		AUTReplicatedGameRuleset* CurrentRule = CreateGameDialog->SelectedRuleset.Get();
 	
-		StartingMap = TEXT(""); //
-
-		// Copy the map rotation list in to the config.
-		AUTGameMode* DefaultGameMode = CurrentRule->GetDefaultGameModeObject();
-		DefaultGameMode->MapRotation.Empty();
-		for (int32 i=0; i< CreateGameDialog->MapPlayList.Num(); i++ )
-		{
-			if (CreateGameDialog->MapPlayList[i].bSelected)
-			{
-				DefaultGameMode->MapRotation.Add(CreateGameDialog->MapPlayList[i].MapName);
-				if (StartingMap == TEXT(""))
-				{
-					StartingMap = CreateGameDialog->MapPlayList[i].MapName;
-				}
-			}
-		}
-
-		if (StartingMap == TEXT("")) StartingMap = CreateGameDialog->MapPlayList[0].MapName;
+		StartingMap = CreateGameDialog->GetSelectedMap();
 		
-		DefaultGameMode->SaveConfig();
+		AUTGameMode* DefaultGameMode = CurrentRule->GetDefaultGameModeObject();
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *CurrentRule->GameMode);
 		GameOptions += FString::Printf(TEXT("?MaxPlayers=%i"), CurrentRule->MaxPlayers);
@@ -611,13 +777,14 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 
 		if ( CreateGameDialog->BotSkillLevel >= 0 )
 		{
-			// Load the level summary of this map.
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
-
 			// This match wants bots.  
-			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? CreateGameDialog->MapPlayList[0].MapInfo->OptimalTeamPlayerCount : CreateGameDialog->MapPlayList[0].MapInfo->OptimalPlayerCount;
 
 			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
+		}
+		else
+		{
+			GameOptions += TEXT("?BotFill=0");
 		}
 	}
 

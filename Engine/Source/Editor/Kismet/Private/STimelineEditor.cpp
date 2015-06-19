@@ -975,7 +975,7 @@ FReply STimelineEditor::CreateNewTrack(FTimelineEdTrack::ETrackType Type)
 			{
 				FTTEventTrack NewTrack;
 				NewTrack.TrackName = TrackName;
-				NewTrack.CurveKeys = NewNamedObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public); // Needs to be marked public so that it can be referenced from timeline instances in the level
+				NewTrack.CurveKeys = NewObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public); // Needs to be marked public so that it can be referenced from timeline instances in the level
 				NewTrack.CurveKeys->bIsEventCurve = true;
 				TimelineObj->EventTracks.Add(NewTrack);
 			}
@@ -987,7 +987,7 @@ FReply STimelineEditor::CreateNewTrack(FTimelineEdTrack::ETrackType Type)
 				NewTrack.CurveFloat = FindObject<UCurveFloat>(ANY_PACKAGE, *TrackName.ToString() );
 				if (NewTrack.CurveFloat == NULL)
 				{
-					NewTrack.CurveFloat = NewNamedObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public);
+					NewTrack.CurveFloat = NewObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public);
 				}
 				TimelineObj->FloatTracks.Add(NewTrack);
 			}
@@ -995,14 +995,14 @@ FReply STimelineEditor::CreateNewTrack(FTimelineEdTrack::ETrackType Type)
 			{
 				FTTVectorTrack NewTrack;
 				NewTrack.TrackName = TrackName;
-				NewTrack.CurveVector = NewNamedObject<UCurveVector>(OwnerClass, NAME_None, RF_Public);
+				NewTrack.CurveVector = NewObject<UCurveVector>(OwnerClass, NAME_None, RF_Public);
 				TimelineObj->VectorTracks.Add(NewTrack);
 			}
 			else if(Type == FTimelineEdTrack::TT_LinearColorInterp)
 			{
 				FTTLinearColorTrack NewTrack;
 				NewTrack.TrackName = TrackName;
-				NewTrack.CurveLinearColor = NewNamedObject<UCurveLinearColor>(OwnerClass, NAME_None, RF_Public);
+				NewTrack.CurveLinearColor = NewObject<UCurveLinearColor>(OwnerClass, NAME_None, RF_Public);
 				TimelineObj->LinearColorTracks.Add(NewTrack);
 			}
 
@@ -1048,19 +1048,19 @@ UCurveBase* STimelineEditor::CreateNewCurve( FTimelineEdTrack::ETrackType Type )
 	UCurveBase* NewCurve = NULL;
 	if(Type == FTimelineEdTrack::TT_Event)
 	{
-		NewCurve = NewNamedObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public);
+		NewCurve = NewObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public);
 	}
 	else if(Type == FTimelineEdTrack::TT_FloatInterp)
 	{
-		NewCurve = NewNamedObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public);
+		NewCurve = NewObject<UCurveFloat>(OwnerClass, NAME_None, RF_Public);
 	}
 	else if(Type == FTimelineEdTrack::TT_VectorInterp)
 	{
-		NewCurve = NewNamedObject<UCurveVector>(OwnerClass, NAME_None, RF_Public);
+		NewCurve = NewObject<UCurveVector>(OwnerClass, NAME_None, RF_Public);
 	}
 	else if(Type == FTimelineEdTrack::TT_LinearColorInterp)
 	{
-		NewCurve = NewNamedObject<UCurveLinearColor>(OwnerClass, NAME_None, RF_Public);
+		NewCurve = NewObject<UCurveLinearColor>(OwnerClass, NAME_None, RF_Public);
 	}
 
 
@@ -1363,11 +1363,11 @@ void STimelineEditor::OnTrackNameCommitted( const FText& StringName, ETextCommit
 
 bool STimelineEditor::IsCurveAssetSelected() const
 {
-	// Note: Cannot call GetContentBrowserSelections() during serialization and GC due to its use of FindObject()
-	if(!GIsSavingPackage && !GIsGarbageCollecting)
+	// Note: Cannot call GetContentBrowserSelectionClasses() during serialization and GC due to its use of FindObject()
+	if(!GIsSavingPackage && !IsGarbageCollecting())
 	{
 		TArray<UClass*> SelectionList;
-		GEditor->GetContentBrowserSelections(SelectionList);
+		GEditor->GetContentBrowserSelectionClasses(SelectionList);
 
 		for( int i=0; i<SelectionList.Num(); i++ )
 		{

@@ -19,7 +19,7 @@ class USoundNodeGroupControl : public USoundNode
 
 public:
 	// Begin USoundNode interface.
-	virtual bool NotifyWaveInstanceFinished( FWaveInstance* WaveInstance );
+	virtual bool NotifyWaveInstanceFinished( FWaveInstance* WaveInstance ) override;
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual int32 GetMaxChildNodes() const override 
 	{ 

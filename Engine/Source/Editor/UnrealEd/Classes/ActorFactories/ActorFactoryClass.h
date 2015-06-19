@@ -12,7 +12,6 @@ class UActorFactoryClass : public UActorFactory
 
 	// Begin UActorFactory Interface
 	virtual bool PreSpawnActor( UObject* Asset, FTransform& InOutLocation ) override;
-	virtual void PostSpawnActor( UObject* Asset, AActor* NewActor ) override;
 	virtual bool CanCreateActorFrom( const FAssetData& AssetData, FText& OutErrorMsg ) override;
 	virtual AActor* GetDefaultActor( const FAssetData& AssetData ) override;
 	// End UActorFactory Interface	

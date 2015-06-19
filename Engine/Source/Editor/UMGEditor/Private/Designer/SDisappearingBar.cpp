@@ -12,10 +12,6 @@
 void SDisappearingBar::Construct(const FArguments& InArgs)
 {
 	FadeCurve = FCurveSequence(0, 0.25f);
-	//FadeCurve.Play();
-
-	bDisappear = false;
-
 	ColorAndOpacity = TAttribute<FLinearColor>::Create(TAttribute<FLinearColor>::FGetter::CreateSP(this, &SDisappearingBar::GetFadeColorAndOpacity));
 
 	ChildSlot
@@ -24,25 +20,35 @@ void SDisappearingBar::Construct(const FArguments& InArgs)
 	];
 }
 
-void SDisappearingBar::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SDisappearingBar::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
-	if ( AllottedGeometry.IsUnderLocation(FSlateApplication::Get().GetCursorPos()) )
+	if ( !FadeCurve.IsAtEnd() )
 	{
-		if ( !bDisappear )
+		// Play the curve forward to fade the bar out
+		if ( FadeCurve.IsInReverse() && FadeCurve.IsPlaying() )
 		{
-			FadeCurve.Play();
+			FadeCurve.Reverse();
 		}
-
-		bDisappear = true;
+		else if ( !FadeCurve.IsPlaying() )
+		{
+			FadeCurve.Play( this->AsShared() );
+		}
 	}
-	else
-	{
-		if ( bDisappear )
-		{
-			FadeCurve.PlayReverse();
-		}
+}
 
-		bDisappear = false;
+void SDisappearingBar::OnDragLeave( const FDragDropEvent& DragDropEvent )
+{
+	if ( !FadeCurve.IsAtStart() )
+	{
+		// Play the curve in reverse to fade the bar back in
+		if ( !FadeCurve.IsInReverse() && FadeCurve.IsPlaying() )
+		{
+			FadeCurve.Reverse();
+		}
+		else if ( !FadeCurve.IsPlaying() )
+		{
+			FadeCurve.PlayReverse( this->AsShared() );
+		}
 	}
 }
 

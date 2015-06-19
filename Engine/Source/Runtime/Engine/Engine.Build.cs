@@ -28,7 +28,8 @@ public class Engine : ModuleRules
 				"TargetPlatform",
 				"ImageWrapper",
 				"HeadMountedDisplay",
-				"Advertising"
+				"Advertising",
+				"NetworkReplayStreaming"
 			}
 		);
 
@@ -54,7 +55,6 @@ public class Engine : ModuleRules
 				"EngineSettings",
 				"SynthBenchmark",
                 "AIModule",
-				"VectorVM",
 				"DatabaseSupport",
 			}
 		);
@@ -65,15 +65,18 @@ public class Engine : ModuleRules
 				"Networking",
 				"Sockets",
 				"SlateReflector",
-				"VectorVM",
 				"Landscape",
                 "UMG",
+				"Projects",
+				"Niagara",
+                "Internationalization"
 			}
         );
 
         CircularlyReferencedDependentModules.Add("AIModule");
 		CircularlyReferencedDependentModules.Add("Landscape");
         CircularlyReferencedDependentModules.Add("UMG");
+		CircularlyReferencedDependentModules.Add("Niagara");
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
@@ -98,7 +101,12 @@ public class Engine : ModuleRules
 					"SlateRHIRenderer",
 				}
 			);
-		};
+		}
+
+		if (Target.Type == TargetRules.TargetType.Server)
+		{
+			PrivateDependencyModuleNames.Add("PerfCounters");
+		}
 
 		if (UEBuildConfiguration.bBuildDeveloperTools)
 		{
@@ -135,6 +143,7 @@ public class Engine : ModuleRules
 						"WindowsNoEditorTargetPlatform",
 						"WindowsServerTargetPlatform",
 						"WindowsClientTargetPlatform",
+						"DesktopTargetPlatform",
 					}
 				);
 			}
@@ -145,7 +154,8 @@ public class Engine : ModuleRules
 					    "MacTargetPlatform",
 					    "MacNoEditorTargetPlatform",
 						"MacServerTargetPlatform",
-						"MacClientTargetPlatform"
+						"MacClientTargetPlatform",
+						"DesktopTargetPlatform",
 					}
 				);
 			}
@@ -156,6 +166,7 @@ public class Engine : ModuleRules
 						"LinuxTargetPlatform",
 						"LinuxNoEditorTargetPlatform",
 						"LinuxServerTargetPlatform",
+						"DesktopTargetPlatform",
 					}
 				);
 			}
@@ -165,6 +176,9 @@ public class Engine : ModuleRules
 			new string[] {
 				"Analytics",
 				"AnalyticsET",
+				"NetworkReplayStreaming",
+				"NullNetworkReplayStreaming",
+				"HttpNetworkReplayStreaming",
 				"OnlineSubsystem", 
 				"OnlineSubsystemUtils",
 				"Advertising"

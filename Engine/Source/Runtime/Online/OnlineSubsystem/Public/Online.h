@@ -10,6 +10,7 @@
 #include "OnlineFriendsInterface.h"
 #include "OnlineEventsInterface.h"
 #include "OnlineSessionInterface.h"
+#include "OnlinePartyInterface.h"
 #include "OnlineExternalUIInterface.h"
 #include "VoiceInterface.h"
 #include "OnlineTitleFileInterface.h"
@@ -17,7 +18,6 @@
 #include "OnlinePresenceInterface.h"
 #include "OnlineUserCloudInterface.h"
 #include "OnlineUserInterface.h"
-#include "OnlinePartyInterface.h"
 #include "OnlineFriendsInterface.h" //Needed for online friend functionality
 
 /** Macro to handle the boilerplate of accessing the proper online subsystem and getting the requested interface */
@@ -37,6 +37,13 @@ namespace Online
 	 * @return Interface pointer for the appropriate session service
 	 */
 	IMPLEMENT_GET_INTERFACE(Session);
+
+	/**
+	 * Get the interface for accessing the party services
+	 * @param SubsystemName - Name of the requested online service
+	 * @return Interface pointer for the appropriate party service
+	 */
+	IMPLEMENT_GET_INTERFACE(Party);
 
 	/** 
 	 * Get the interface for accessing the player friends services
@@ -91,14 +98,7 @@ namespace Online
 	 * @return Interface pointer for the appropriate identity service
 	 */
 	IMPLEMENT_GET_INTERFACE(Identity);
-
-	/** 
-	 * Get the interface for accessing party services
-	 * @param SubsystemName - Name of the requested online service
-	 * @return Interface pointer for the appropriate party service
-	 */
-	IMPLEMENT_GET_INTERFACE(Party);
-
+	
 	/** 
 	 * Get the interface for accessing title file online services
 	 * @param SubsystemName - Name of the requested online service

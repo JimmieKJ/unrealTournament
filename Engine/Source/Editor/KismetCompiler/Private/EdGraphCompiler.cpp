@@ -141,7 +141,7 @@ void FGraphCompilerContext::FindNodesByClass(const UEdGraph* Graph, TSubclassOf<
 	for (int32 NodeIndex = 0; NodeIndex < Graph->Nodes.Num(); ++NodeIndex)
 	{
 		UEdGraphNode* Node = Graph->Nodes[NodeIndex];
-		if (Node->IsA(NodeClass))
+		if (Node && Node->IsA(NodeClass))
 		{
 			FoundNodes.Add(Node);
 		}
@@ -238,7 +238,7 @@ void FGraphCompilerContext::CreateExecutionSchedule(const TArray<UEdGraphNode*>&
 
 						if (NumEdgesLeft <= 0)
 						{
-							MessageLog.Error(TEXT("Internal compiler error inside CreateExecutionSchedule (site 1); please contact the framework team as we need a repro for this bug!"));
+							MessageLog.Error(TEXT("Internal compiler error inside CreateExecutionSchedule (site 1); there is an issue with node/pin manipulation that was performed in this graph, please contact the Blueprints team!"));
 							LinearExecutionSchedule.Empty();
 							return;
 						}
@@ -253,7 +253,7 @@ void FGraphCompilerContext::CreateExecutionSchedule(const TArray<UEdGraphNode*>&
 					}
 					else
 					{
-						MessageLog.Error(TEXT("Internal compiler error inside CreateExecutionSchedule (site 2); please contact the framework team as we need a repro for this bug!"));
+						MessageLog.Error(TEXT("Internal compiler error inside CreateExecutionSchedule (site 2); there is an issue with node/pin manipulation that was performed in this graph, please contact the Blueprints team!"));
 						LinearExecutionSchedule.Empty();
 						return;
 					}

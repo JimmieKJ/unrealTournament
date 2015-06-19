@@ -82,27 +82,31 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FGBufferResourceStruct, )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferCTexture )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferDTexture )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferETexture )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D,			GBufferVelocityTexture )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferATextureNonMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferBTextureNonMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferCTextureNonMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferDTextureNonMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferETextureNonMS )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2D<float4>,	GBufferVelocityTextureNonMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferATextureMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferBTextureMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferCTextureMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferDTextureMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferETextureMS )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE( Texture2DMS<float4>,	GBufferVelocityTextureMS )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferATextureSampler )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferBTextureSampler )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferCTextureSampler )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferDTextureSampler )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferETextureSampler )
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER( SamplerState,			GBufferVelocityTextureSampler)
 END_UNIFORM_BUFFER_STRUCT( FGBufferResourceStruct )
 
 /**
  * Encapsulates the render targets used for scene rendering.
  */
-class FSceneRenderTargets : public FRenderResource
+class RENDERER_API FSceneRenderTargets : public FRenderResource
 {
 public:
 	/** Destructor. */
@@ -130,7 +134,8 @@ protected:
 		CurrentMobile32bpp(0),
 		bCurrentLightPropagationVolume(false),
 		CurrentFeatureLevel(ERHIFeatureLevel::Num),
-		CurrentShadingPath(EShadingPath::Num)
+		CurrentShadingPath(EShadingPath::Num),
+		bAllocateVelocityGBuffer(false)
 		{
 		}
 public:
@@ -158,11 +163,15 @@ public:
 	 *
 	 */
 	void SetBufferSize(int32 InBufferSizeX, int32 InBufferSizeY);
+
+	void BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, const FLinearColor& ClearColor = FLinearColor(0, 0, 0, 1));
+	void FinishRenderingGBuffer(FRHICommandListImmediate& RHICmdList);
+
 	/**
 	 * Sets the scene color target and restores its contents if necessary
 	 */
-	void BeginRenderingSceneColor(FRHICommandList& RHICmdList, ESimpleRenderTargetMode RenderTargetMode=ESimpleRenderTargetMode::EUninitializedColorExistingDepth);
-	void BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, const FLinearColor& ClearColor=FLinearColor(0,0,0,1));
+	void BeginRenderingSceneColor(FRHICommandList& RHICmdList, ESimpleRenderTargetMode RenderTargetMode = ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil DepthStencilAccess = FExclusiveDepthStencil::DepthWrite_StencilWrite);
+	
 	/**
 	 * Called when finished rendering to the scene color surface
 	 * @param bKeepChanges - if true then the SceneColorSurface is resolved to the SceneColorTexture
@@ -197,9 +206,10 @@ public:
 	void FinishRenderingReflectiveShadowMap(FRHICommandList& RHICmdList, const FResolveRect& ResolveRect = FResolveRect());
 
 	/** Resolves the appropriate shadow depth cube map and restores default state. */
-	void FinishRenderingCubeShadowDepth(FRHICommandList& RHICmdList, int32 ShadowResolution, const FResolveParams& ResolveParams = FResolveParams());
+	void FinishRenderingCubeShadowDepth(FRHICommandList& RHICmdList, int32 ShadowResolution);
 	
 	void BeginRenderingTranslucency(FRHICommandList& RHICmdList, const class FViewInfo& View);
+	void FinishRenderingTranslucency(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View);
 
 	bool BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame);
 	void FinishRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View);
@@ -208,7 +218,7 @@ public:
 	void ResolveSceneDepthTexture(FRHICommandList& RHICmdList);
 	void ResolveSceneDepthToAuxiliaryTexture(FRHICommandList& RHICmdList);
 
-	void BeginRenderingPrePass(FRHICommandList& RHICmdList);
+	void BeginRenderingPrePass(FRHICommandList& RHICmdList, bool bPerformClear);
 	void FinishRenderingPrePass(FRHICommandListImmediate& RHICmdList);
 
 	void BeginRenderingSceneAlphaCopy(FRHICommandListImmediate& RHICmdList);
@@ -345,6 +355,23 @@ public:
 		return (const FTexture2DRHIRef&)AuxiliarySceneDepthZ->GetRenderTargetItem().TargetableTexture; 
 	}
 
+	IPooledRenderTarget* GetGBufferVelocityRT();
+
+	int32 GetGBufferEIndex() const
+	{
+		return bAllowStaticLighting ? 5 : -1;
+	}
+
+	int32 GetGBufferVelocityIndex() const
+	{
+		if (bAllocateVelocityGBuffer)
+		{
+			return bAllowStaticLighting ? 6 : 5;
+		}
+
+		return -1;
+	}
+
 	// @return can be 0 if the feature is disabled
 	IPooledRenderTarget* RequestCustomDepth(bool bPrimitives);
 
@@ -417,6 +444,7 @@ public:
 	void AdjustGBufferRefCount(int Delta);
 
 	//
+	void PreallocGBufferTargets(bool bShouldRenderVelocities);
 	void AllocGBufferTargets();
 
 	void AllocLightAttenuation();
@@ -424,6 +452,13 @@ public:
 	void AllocateReflectionTargets();
 
 	TRefCountPtr<IPooledRenderTarget>& GetReflectionBrightnessTarget();
+
+	/**
+	 * Takes the requested buffer size and quantizes it to an appropriate size for the rest of the
+	 * rendering pipeline. Currently ensures that sizes are multiples of 8 so that they can safely
+	 * be halved in size several times.
+	 */
+	static void QuantizeBufferSize(int32& InOutBufferSizeX, int32& InOutBufferSizeY);
 
 private: // Get...() methods instead of direct access
 
@@ -449,6 +484,8 @@ public:
 	TRefCountPtr<IPooledRenderTarget> GBufferC;
 	TRefCountPtr<IPooledRenderTarget> GBufferD;
 	TRefCountPtr<IPooledRenderTarget> GBufferE;
+
+	TRefCountPtr<IPooledRenderTarget> GBufferVelocity;
 
 	// DBuffer: For decals before base pass (only temporarily available after early z pass and until base pass)
 	TRefCountPtr<IPooledRenderTarget> DBufferA;
@@ -523,13 +560,6 @@ private:
 	uint32 ThisFrameNumber;
 
 	/**
-	 * Takes the requested buffer size and quantizes it to an appropriate size for the rest of the
-	 * rendering pipeline. Currently ensures that sizes are multiples of 8 so that they can safely
-	 * be halved in size several times.
-	 */
-	void QuantizeBufferSize(int32& InOutBufferSizeX, int32& InOutBufferSizeY) const;
-
-	/**
 	 * Initializes the editor primitive color render target
 	 */
 	void InitEditorPrimitivesColor();
@@ -574,6 +604,9 @@ private:
 	/** Determine whether the render targets for any shading path have been allocated */
 	bool AreAnyShadingPathRenderTargetsAllocated() const { return AreShadingPathRenderTargetsAllocated(EShadingPath::Deferred) || AreShadingPathRenderTargetsAllocated(EShadingPath::Forward); }
 
+	/** Gets all GBuffers to use.  Returns the number actually used. */
+	int32 GetGBufferRenderTargets(ERenderTargetLoadAction ColorLoadAction, FRHIRenderTargetView OutRenderTargets[MaxSimultaneousRenderTargets], int32& OutVelocityRTIndex);
+
 private:
 	/** Uniform buffer containing GBuffer resources. */
 	FUniformBufferRHIRef GBufferResourcesUniformBuffer;
@@ -607,7 +640,18 @@ private:
 	ERHIFeatureLevel::Type CurrentFeatureLevel;
 	/** Shading path that we are currently drawing through. Set when calling Allocate at the start of a scene render. */
 	EShadingPath CurrentShadingPath;
+
+	// Set this per frame since there might be cases where we don't need an extra GBuffer
+	bool bAllocateVelocityGBuffer;
+
+	/** Helpers to track gbuffer state on platforms that need to propagate clear information across parallel rendering boundaries. */
+	bool bGBuffersCleared;
+	FLinearColor GBufferClearColor;
+
+	/** Helpers to track scenedepth state on platforms that need to propagate clear information across parallel rendering boundaries. */
+	bool bSceneDepthCleared;
+	float SceneDepthClearValue;
 };
 
 /** The global render targets used for scene rendering. */
-extern TGlobalResource<FSceneRenderTargets> GSceneRenderTargets;
+extern RENDERER_API TGlobalResource<FSceneRenderTargets> GSceneRenderTargets;

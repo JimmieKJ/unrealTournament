@@ -3,6 +3,7 @@
 #pragma once
 
 class UBTNode;
+class UBehaviorTreeComponent;
 
 namespace BlueprintNodeHelpers
 {

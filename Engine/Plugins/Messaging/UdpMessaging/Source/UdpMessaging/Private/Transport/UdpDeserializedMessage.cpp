@@ -21,7 +21,8 @@ bool FUdpDeserializedMessage::Deserialize( const FUdpReassembledMessageRef& Reas
 		FName MessageType;
 		MessageReader << MessageType;
 
-		TypeInfo = FMessageTypeMap::MessageTypeMap.Find(MessageType.ToString());
+		// @todo gmp: cache message types for faster lookup
+		TypeInfo = FindObjectSafe<UScriptStruct>(ANY_PACKAGE, *MessageType.ToString());
 
 		if (!TypeInfo.IsValid(false, true))
 		{
@@ -39,7 +40,7 @@ bool FUdpDeserializedMessage::Deserialize( const FUdpReassembledMessageRef& Reas
 		int32 NumRecipients = 0;
 		MessageReader << NumRecipients;
 
-		if (NumRecipients > UDP_MESSAGING_MAX_RECIPIENTS)
+		if ((NumRecipients < 0) || (NumRecipients > UDP_MESSAGING_MAX_RECIPIENTS))
 		{
 			return false;
 		}

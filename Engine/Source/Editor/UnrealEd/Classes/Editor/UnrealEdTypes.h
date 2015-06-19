@@ -115,11 +115,14 @@ struct FLightmassParameterizedMaterialSettings
 UENUM()
 enum ELevelViewportType
 {
-	LVT_OrthoXY = 0,	// Top
-	LVT_OrthoXZ = 1,	// Front
-	LVT_OrthoYZ = 2,	// Side
+	LVT_OrthoXY = 0,			// Top
+	LVT_OrthoXZ = 1,			// Front
+	LVT_OrthoYZ = 2,			// Left
 	LVT_Perspective = 3,
 	LVT_OrthoFreelook = 4,
+	LVT_OrthoNegativeXY = 5,	// Bottom
+	LVT_OrthoNegativeXZ = 6,	// Back
+	LVT_OrthoNegativeYZ = 7,	// Right
 	LVT_MAX,
 
 	LVT_None = 255,

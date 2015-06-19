@@ -1,10 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	StaticBitArray.h: Static bit array definition
-=============================================================================*/
-
 #pragma once
+
 
 /** Used to read/write a bit in the static array as a bool. */
 template<typename T>
@@ -47,9 +44,9 @@ class TConstStaticBitReference
 public:
 
 	TConstStaticBitReference(const T& InData,T InMask)
-	:	Data(InData)
-	,	Mask(InMask)
-	{}
+		: Data(InData)
+		, Mask(InMask)
+	{ }
 
 	FORCEINLINE operator bool() const
 	{
@@ -64,7 +61,7 @@ private:
 
 
 /**
- * A statically sized bit array 
+ * A statically sized bit array.
  */
 template<uint32 NumBits>
 class TStaticBitArray
@@ -77,17 +74,13 @@ class TStaticBitArray
 
 public:
 
-	/**
-	 * Minimal initialization constructor
-	 */
+	/** Minimal initialization constructor */
 	FORCEINLINE TStaticBitArray()
 	{
 		Clear_();
 	}
 
-	/**
-	 * Constructor that allows initializing by assignment from 0
-	 */
+	/** Constructor that allows initializing by assignment from 0 */
 	FORCEINLINE TStaticBitArray(UnspecifiedZeroType)
 	{
 		Clear_();
@@ -96,7 +89,7 @@ public:
 	/**
 	 * Constructor to initialize to a single bit
 	 */
-	FORCEINLINE TStaticBitArray(bool,uint32 InBitIndex)
+	FORCEINLINE TStaticBitArray(bool, uint32 InBitIndex)
 	{
 		/***********************************************************************
 

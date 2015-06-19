@@ -94,7 +94,12 @@ public:
 	void PanInputViewRange(int32 ScreenDelta, FVector2D ScreenViewSize);
 
 	virtual float GetSequenceLength() const {return 0.0f;}
+
 protected:
+
+	// Calls out to notify of a range change, can be overridden by derived classes to respond
+	// but they must call this version too after processing range changes
+	virtual void InputViewRangeChanged(float ViewMin, float ViewMax);
 
 	/** Create a 2 column widget */
 	TSharedRef<class S2ColumnWidget> Create2ColumnWidget( TSharedRef<SVerticalBox> Parent );	

@@ -56,11 +56,15 @@ UBlueprintVariableNodeSpawner* UBlueprintVariableNodeSpawner::Create(TSubclassOf
 		MenuSignature.MenuName = FText::Format(LOCTEXT("SetterMenuName", "Set {0}"), VarName);
 		MenuSignature.Tooltip  = UK2Node_VariableSet::GetPropertyTooltip(VarProperty);
 	}
-	// add at least one character, so that PrimeDefaultMenuSignature() doesn't 
+	// add at least one character, so that PrimeDefaultUiSpec() doesn't 
 	// attempt to query the template node
 	//
 	// @TODO: maybe UPROPERTY() fields should have keyword metadata like functions
-	MenuSignature.Keywords = TEXT(" ");
+	if (MenuSignature.Keywords.IsEmpty())
+	{
+		// want to set it to something so we won't end up back in this condition
+		MenuSignature.Keywords = FText::FromString(TEXT(" "));
+	}
 	MenuSignature.IconName = UK2Node_Variable::GetVarIconFromPinType(NodeSpawner->GetVarType(), MenuSignature.IconTint);
 
 	//--------------------------------------
@@ -75,10 +79,6 @@ UBlueprintVariableNodeSpawner* UBlueprintVariableNodeSpawner::Create(TSubclassOf
 			UClass* OwnerClass = Property->GetOwnerClass();
 
 			// We need to use a generated class instead of a skeleton class for IsChildOf, so if the OwnerClass has a Blueprint, grab the GeneratedClass
-			if(!UBlueprintGeneratedClass::CompileSkeletonClassesInheritSkeletonClasses() && OwnerClass)
-			{
-				OwnerClass = OwnerClass->GetAuthoritativeClass();
-			}
 			bool const bIsSelfContext = Blueprint->SkeletonGeneratedClass->GetAuthoritativeClass() == OwnerClass || Blueprint->SkeletonGeneratedClass->IsChildOf(OwnerClass);
 
 			UK2Node_Variable* VarNode = CastChecked<UK2Node_Variable>(NewNode);
@@ -129,9 +129,13 @@ UBlueprintVariableNodeSpawner* UBlueprintVariableNodeSpawner::Create(TSubclassOf
 		MenuSignature.MenuName = FText::Format(LOCTEXT("LocalSetterMenuName", "Set {0}"), VarName);
 		MenuSignature.Tooltip  = UK2Node_VariableSet::GetBlueprintVarTooltip(VarDesc);
 	}
-	// add at least one character, so that PrimeDefaultMenuSignature() doesn't 
+	// add at least one character, so that PrimeDefaultUiSpec() doesn't 
 	// attempt to query the template node
-	MenuSignature.Keywords = TEXT(" ");
+	if (MenuSignature.Keywords.IsEmpty())
+	{
+		// want to set it to something so we won't end up back in this condition
+		MenuSignature.Keywords = FText::FromString(TEXT(" "));
+	}
 	MenuSignature.IconName = UK2Node_Variable::GetVarIconFromPinType(NodeSpawner->GetVarType(), MenuSignature.IconTint);
 
 	return NodeSpawner;
@@ -207,17 +211,17 @@ UEdGraphNode* UBlueprintVariableNodeSpawner::Invoke(UEdGraph* ParentGraph, FBind
 	//        conform to UBlueprintFieldNodeSpawner
 	if (IsLocalVariable())
 	{
-		auto LocalVarSetupLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, FName VarName, UObject const* VarOuter, FGuid VarGuid, FCustomizeNodeDelegate UserDelegate)
+		auto LocalVarSetupLambda = [](UEdGraphNode* InNewNode, bool bIsTemplateNode, FName VarName, UObject const* VarOuter, FGuid VarGuid, FCustomizeNodeDelegate UserDelegate)
 		{
-			UK2Node_Variable* VarNode = CastChecked<UK2Node_Variable>(NewNode);
+			UK2Node_Variable* VarNode = CastChecked<UK2Node_Variable>(InNewNode);
 			VarNode->VariableReference.SetLocalMember(VarName, VarOuter->GetName(), VarGuid);
-			UserDelegate.ExecuteIfBound(NewNode, bIsTemplateNode);
+			UserDelegate.ExecuteIfBound(InNewNode, bIsTemplateNode);
 		};
 
 		FCustomizeNodeDelegate PostSpawnDelegate = CustomizeNodeDelegate;
-		if (UObject const* LocalVarOuter = GetVarOuter())
+		if (UObject const* LocalVariableOuter = GetVarOuter())
 		{
-			PostSpawnDelegate = FCustomizeNodeDelegate::CreateStatic(LocalVarSetupLambda, LocalVarDesc.VarName, LocalVarOuter, LocalVarDesc.VarGuid, CustomizeNodeDelegate);
+			PostSpawnDelegate = FCustomizeNodeDelegate::CreateStatic(LocalVarSetupLambda, LocalVarDesc.VarName, LocalVariableOuter, LocalVarDesc.VarGuid, CustomizeNodeDelegate);
 		}
 
 		NewNode = UBlueprintNodeSpawner::SpawnNode<UEdGraphNode>(NodeClass, ParentGraph, Bindings, Location, PostSpawnDelegate);

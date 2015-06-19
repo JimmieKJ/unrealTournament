@@ -514,10 +514,14 @@ private:
 	/** The class that owns this item */
 	TWeakObjectPtr<UClass>		OwningClass;
 
+	/** TRUE if the variable's type is boolean */
+	bool bIsVarBool;
+
 public:
-	void SetVariableInfo(const FName& InVarName, const UClass* InOwningClass)
+	void SetVariableInfo(const FName& InVarName, const UClass* InOwningClass, bool bInIsVarBool)
 	{
 		VarName = InVarName;
+		bIsVarBool = bInIsVarBool;
 
 		check(InOwningClass);
 		OwningClass = InOwningClass;
@@ -538,6 +542,11 @@ public:
 	FName GetVariableName() const
 	{
 		return VarName;
+	}
+
+	FString GetFriendlyVariableName() const
+	{
+		return FName::NameToDisplayString( VarName.ToString(), bIsVarBool );
 	}
 
 	UClass* GetVariableClass() const
@@ -572,10 +581,14 @@ private:
 	/** The struct that owns this item */
 	TWeakObjectPtr<UStruct>		VariableScope;
 
+	/** TRUE if the variable's type is boolean */
+	bool bIsVarBool;
+
 public:
-	void SetVariableInfo(const FName& InVarName, const UStruct* InVariableScope)
+	void SetVariableInfo(const FName& InVarName, const UStruct* InVariableScope, bool bInIsVarBool)
 	{
 		VarName = InVarName;
+		bIsVarBool = bInIsVarBool;
 
 		check(InVariableScope);
 		VariableScope = InVariableScope;
@@ -596,6 +609,11 @@ public:
 	FName GetVariableName() const
 	{
 		return VarName;
+	}
+
+	FString GetFriendlyVariableName() const
+	{
+		return FName::NameToDisplayString( VarName.ToString(), bIsVarBool );
 	}
 
 	UStruct* GetVariableScope() const

@@ -134,7 +134,7 @@ UTextureCube* UTextureRenderTargetCube::ConstructTextureCube(
 		if (CubeResource && TextureFormat != TSF_Invalid)
 		{
 			// create the cube texture
-			Result = CastChecked<UTextureCube>(StaticConstructObject(UTextureCube::StaticClass(), ObjOuter, FName(*NewTexName), InFlags));
+			Result = NewObject<UTextureCube>(ObjOuter, FName(*NewTexName), InFlags);
 
 			bool bSRGB = true;
 			// if render target gamma used was 1.0 then disable SRGB for the static texture
@@ -251,7 +251,7 @@ void FTextureRenderTargetCubeResource::InitDynamicRHI()
 	// Create the sampler state RHI resource.
 	FSamplerStateInitializerRHI SamplerStateInitializer
 	(
-		GSystemSettings.TextureLODSettings.GetSamplerFilter(Owner),
+		(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter(Owner),
 		AM_Clamp,
 		AM_Clamp,
 		AM_Clamp

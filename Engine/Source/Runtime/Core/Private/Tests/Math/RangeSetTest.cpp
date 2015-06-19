@@ -4,7 +4,7 @@
 #include "AutomationTest.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRangeSetTest, "Core.Math.RangeSet", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRangeSetTest, "System.Core.Math.RangeSet", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FRangeSetTest::RunTest( const FString& Parameters )
 {

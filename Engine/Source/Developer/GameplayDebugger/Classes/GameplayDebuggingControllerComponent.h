@@ -8,6 +8,8 @@
 #include "TimerManager.h"
 #include "GameplayDebuggingTypes.h"
 #include "GameplayDebugger.h"
+#include "GameFramework/HUD.h"
+#include "Engine/DebugCameraController.h"
 #include "GameplayDebuggingControllerComponent.generated.h"
 
 class AGameplayDebuggingReplicator;
@@ -16,6 +18,11 @@ UCLASS(config = Engine)
 class GAMEPLAYDEBUGGER_API UGameplayDebuggingControllerComponent : public UActorComponent
 {
 	GENERATED_UCLASS_BODY()
+		
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	UGameplayDebuggingControllerComponent(FVTableHelper& Helper);
+#endif // WITH_HOT_RELOAD_CTORS
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void BeginDestroy() override;
@@ -44,6 +51,8 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggingControllerComponent : public UActor
 
 	float GetUpdateNavMeshTimeRemaining() const;
 
+	TWeakObjectPtr<ADebugCameraController> GetDebugCameraController() { return DebugCameraController; }
+
 	FOnChangeEQSQuery OnNextEQSQuery;
 	FOnChangeEQSQuery OnPreviousEQSQuery;
 
@@ -57,6 +66,9 @@ protected:
 
 	UPROPERTY(Transient)
 	class UInputComponent* AIDebugViewInputComponent;
+
+	UPROPERTY(Transient)
+	class UInputComponent* DebugCameraInputComponent;
 
 	void OpenDebugTool();
 	void CloseDebugTool();
@@ -76,10 +88,12 @@ protected:
 	virtual void ToggleAIDebugView_SetView9();
 	virtual void NextEQSQuery();
 
-	virtual void BindAIDebugViewKeys();
+	virtual void BindAIDebugViewKeys(class UInputComponent*& InputComponent);
 	AGameplayDebuggingReplicator* GetDebuggingReplicator() const;
+	virtual void ToggleDebugCamera();
 
 	TWeakObjectPtr<APlayerController> PlayerOwner;
+	TWeakObjectPtr<ADebugCameraController> DebugCameraController;
 
 	/** Handle for efficient management of UpdateNavMesh timer */
 	FTimerHandle TimerHandle_UpdateNavMeshTimer;
@@ -91,3 +105,18 @@ protected:
 	uint32 bToolActivated : 1;
 	uint32 bWaitingForOwnersComponent : 1;
 };
+
+UCLASS()
+class AGaneplayDebuggerProxyHUD : public AHUD
+{
+	GENERATED_UCLASS_BODY()
+
+	FFontRenderInfo TextRenderInfo;
+
+	// Begin AActor Interface
+	virtual void PostRender() override;
+	// End AActor Interface
+
+	TWeakObjectPtr<AHUD> RedirectedHUD;
+};
+

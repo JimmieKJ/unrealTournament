@@ -13,7 +13,7 @@ namespace ESplitterResizeMode
 
 class FLayoutGeometry;
 /**
- * SSPlitter divides its allotted area into N segments, where N is the number of children it has.
+ * SSplitter divides its allotted area into N segments, where N is the number of children it has.
  * It allows the users to resize the children along the splitters axis: that is, horizontally or vertically.
  */
 class SLATE_API SSplitter : public SPanel
@@ -150,7 +150,7 @@ public:
 	 * A Panel's desired size in the space required to arrange of its children on the screen while respecting all of
 	 * the children's desired sizes and any layout-related options specified by the user. See StackPanel for an example.
 	 */
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	/**
 	 * All widgets must provide a way to access their children in a layout-agnostic way.
@@ -397,7 +397,7 @@ private:
 	 * A Panel's desired size in the space required to arrange of its children on the screen while respecting all of
 	 * the children's desired sizes and any layout-related options specified by the user. See StackPanel for an example.
 	 */
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	/**
 	 * All widgets must provide a way to access their children in a layout-agnostic way.

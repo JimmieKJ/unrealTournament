@@ -6,9 +6,12 @@
 #include "WindowsApplication.h"
 #include "EngineVersion.h"
 
+#include "GenericPlatformChunkInstall.h"
+
 // Resource includes.
 #include "Runtime/Launch/Resources/Windows/Resource.h"
 #include "Runtime/Launch/Resources/Version.h"
+
 #include "AllowWindowsPlatformTypes.h"
 	#include <time.h>
 	#include <MMSystem.h>
@@ -19,6 +22,7 @@
 	#include <shellapi.h>
 	#include <Iphlpapi.h>
 #include "HideWindowsPlatformTypes.h"
+
 #include "MallocTBB.h"
 #include "ModuleManager.h"
 #include "MallocAnsi.h"
@@ -36,6 +40,13 @@
 #include <io.h>
 
 #include "AllowWindowsPlatformTypes.h"
+
+// This might not be defined by Windows when maintaining backwards-compatibility to pre-Win8 builds
+#ifndef SM_CONVERTIBLESLATEMODE
+#define SM_CONVERTIBLESLATEMODE			0x2003
+#endif
+
+
 int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel )
 {
 	int32 ErrorCode = (int32)SUCCEEDED;
@@ -55,10 +66,11 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 	OsVersionInfo.dwOSVersionInfoSize = sizeof( OSVERSIONINFOEX );
 	out_OSVersionLabel = TEXT( "Windows (unknown version)" );
 	out_OSSubVersionLabel = FString();
+#pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated
 	CA_SUPPRESS(28159)
 	if( GetVersionEx( (LPOSVERSIONINFO)&OsVersionInfo ) )
-#pragma warning(default : 4996)
+#pragma warning(pop)
 	{
 		bool bIsInvalidVersion = false;
 
@@ -368,7 +380,8 @@ static void InitSHAHashes()
 static void SetProcessMemoryLimit( SIZE_T ProcessMemoryLimitMB )
 {
 	HANDLE JobObject = ::CreateJobObject(nullptr, TEXT("UE4-JobObject"));
-	JOBOBJECT_EXTENDED_LIMIT_INFORMATION JobLimitInfo = {0};
+	JOBOBJECT_EXTENDED_LIMIT_INFORMATION JobLimitInfo;
+	FMemory::Memzero( JobLimitInfo );
 	JobLimitInfo.ProcessMemoryLimit = 1024*1024*ProcessMemoryLimitMB;
 	JobLimitInfo.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_PROCESS_MEMORY;
 	const BOOL bSetJob = ::SetInformationJobObject(JobObject,JobObjectExtendedLimitInformation,&JobLimitInfo,sizeof(JobLimitInfo));
@@ -568,6 +581,8 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 			return;
 		}
 
+		const uint32 MAX_STRING_LEN = 256;
+
 		TCHAR ReportDumpVersion[] = TEXT("3");
 
 		FString ReportDumpPath;
@@ -579,60 +594,60 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 		FArchive * AutoReportFile = IFileManager::Get().CreateFileWriter(*ReportDumpPath, FILEWRITE_EvenIfReadOnly);
 		if (AutoReportFile != NULL)
 		{
-			TCHAR CompName[256];
-			FCString::Strcpy(CompName, FPlatformProcess::ComputerName());
-			TCHAR UserName[256];
-			FCString::Strcpy(UserName, FPlatformProcess::UserName());
-			TCHAR GameName[256];
-			FCString::Strcpy(GameName, *FString::Printf(TEXT("%s %s"), TEXT(BRANCH_NAME), FApp::GetGameName()));
-			TCHAR PlatformName[32];
+			TCHAR CompName[MAX_STRING_LEN];
+			FCString::Strncpy(CompName, FPlatformProcess::ComputerName(), MAX_STRING_LEN);
+			TCHAR UserName[MAX_STRING_LEN];
+			FCString::Strncpy(UserName, FPlatformProcess::UserName(), MAX_STRING_LEN);
+			TCHAR GameName[MAX_STRING_LEN];
+			FCString::Strncpy(GameName, *FString::Printf(TEXT("%s %s"), TEXT(BRANCH_NAME), FApp::GetGameName()), MAX_STRING_LEN);
+			TCHAR PlatformName[MAX_STRING_LEN];
 #if PLATFORM_64BITS
-			FCString::Strcpy(PlatformName, TEXT("PC 64-bit"));
+			FCString::Strncpy(PlatformName, TEXT("PC 64-bit"), MAX_STRING_LEN);
 #else	//PLATFORM_64BITS
-			FCString::Strcpy(PlatformName, TEXT("PC 32-bit"));
+			FCString::Strncpy(PlatformName, TEXT("PC 32-bit"), MAX_STRING_LEN);
 #endif	//PLATFORM_64BITS
-			TCHAR CultureName[10];
-			FCString::Strcpy(CultureName, *FInternationalization::Get().GetDefaultCulture()->GetName());
-			TCHAR SystemTime[256];
-			FCString::Strcpy(SystemTime, *FDateTime::Now().ToString());
-			TCHAR EngineVersionStr[32];
-			FCString::Strcpy(EngineVersionStr, *GEngineVersion.ToString());
+			TCHAR CultureName[MAX_STRING_LEN];
+			FCString::Strncpy(CultureName, *FInternationalization::Get().GetDefaultCulture()->GetName(), MAX_STRING_LEN);
+			TCHAR SystemTime[MAX_STRING_LEN];
+			FCString::Strncpy(SystemTime, *FDateTime::Now().ToString(), MAX_STRING_LEN);
+			TCHAR EngineVersionStr[MAX_STRING_LEN];
+			FCString::Strncpy(EngineVersionStr, *GEngineVersion.ToString(), 256 );
 
-			TCHAR ChangelistVersionStr[32];
+			TCHAR ChangelistVersionStr[MAX_STRING_LEN];
 			int32 ChangelistFromCommandLine = 0;
 			const bool bFoundAutomatedBenchMarkingChangelist = FParse::Value( FCommandLine::Get(), TEXT("-gABC="), ChangelistFromCommandLine );
 			if( bFoundAutomatedBenchMarkingChangelist == true )
 			{
-				FCString::Strcpy(ChangelistVersionStr, *FString::FromInt(ChangelistFromCommandLine));
+				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(ChangelistFromCommandLine), MAX_STRING_LEN);
 			}
 			// we are not passing in the changelist to use so use the one that was stored in the ObjectVersion
 			else
 			{
-				FCString::Strcpy(ChangelistVersionStr, *FString::FromInt(GEngineVersion.GetChangelist()));
+				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(GEngineVersion.GetChangelist()), MAX_STRING_LEN);
 			}
 
 			TCHAR CmdLine[2048];
-			FCString::Strcpy(CmdLine, FCommandLine::Get());
+			FCString::Strncpy(CmdLine, FCommandLine::Get(),ARRAY_COUNT(CmdLine));
 			TCHAR BaseDir[260];
-			FCString::Strcpy(BaseDir, FPlatformProcess::BaseDir());
+			FCString::Strncpy(BaseDir, FPlatformProcess::BaseDir(), ARRAY_COUNT(BaseDir));
 			TCHAR separator = 0;
 
-			TCHAR EngineMode[64];
+			TCHAR EngineMode[MAX_STRING_LEN];
 			if( IsRunningCommandlet() )
 			{
-				FCString::Strcpy(EngineMode, TEXT("Commandlet"));
+				FCString::Strncpy(EngineMode, TEXT("Commandlet"), MAX_STRING_LEN);
 			}
 			else if( GIsEditor )
 			{
-				FCString::Strcpy(EngineMode, TEXT("Editor"));
+				FCString::Strncpy(EngineMode, TEXT("Editor"), MAX_STRING_LEN);
 			}
 			else if( IsRunningDedicatedServer() )
 			{
-				FCString::Strcpy(EngineMode, TEXT("Server"));
+				FCString::Strncpy(EngineMode, TEXT("Server"), MAX_STRING_LEN);
 			}
 			else
 			{
-				FCString::Strcpy(EngineMode, TEXT("Game"));
+				FCString::Strncpy(EngineMode, TEXT("Game"), MAX_STRING_LEN);
 			}
 
 			//build the report dump file
@@ -725,6 +740,9 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 
 				case EErrorReportMode::Balloon:
 					CallingCommandLine += TEXT( " -balloon" );
+					break;
+
+				case EErrorReportMode::Interactive:
 					break;
 				}
 
@@ -966,6 +984,11 @@ void FWindowsPlatformMisc::RequestExit( bool Force )
 		PostQuitMessage( 0 );
 		GIsRequestingExit = 1;
 	}
+}
+
+void FWindowsPlatformMisc::RequestMinimize()
+{
+	::ShowWindow(::GetActiveWindow(), SW_MINIMIZE);
 }
 
 const TCHAR* FWindowsPlatformMisc::GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error)
@@ -1658,11 +1681,12 @@ int32 FWindowsPlatformMisc::GetAppIcon()
 	return IDICON_UE4Game;
 }
 
-bool FWindowsPlatformMisc::VerifyWindowsMajorVersion(uint32 MajorVersion)
+bool FWindowsPlatformMisc::VerifyWindowsVersion(uint32 MajorVersion, uint32 MinorVersion)
 {
 	OSVERSIONINFOEX Version;
 	Version.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
 	Version.dwMajorVersion = MajorVersion;
+	Version.dwMinorVersion = MinorVersion;
 	ULONGLONG ConditionMask = 0;
 	return !!VerifyVersionInfo( &Version, VER_MAJORVERSION, VerSetConditionMask(ConditionMask,VER_MAJORVERSION,VER_GREATER_EQUAL) );
 }
@@ -1763,7 +1787,7 @@ int32 FWindowsPlatformMisc::NumberOfCoresIncludingHyperthreads()
 void FWindowsPlatformMisc::LoadPreInitModules()
 {
 	// D3D11 is not supported on WinXP, so in this case we use the OpenGL RHI
-	if(FWindowsPlatformMisc::VerifyWindowsMajorVersion(6))
+	if(FWindowsPlatformMisc::VerifyWindowsVersion(6, 0))
 	{
 		FModuleManager::Get().LoadModule(TEXT("D3D11RHI"));
 	}
@@ -1792,6 +1816,44 @@ bool FWindowsPlatformMisc::OsExecute(const TCHAR* CommandType, const TCHAR* Comm
 		SW_SHOWNORMAL);
 	bool bSucceeded = hApp > (HINSTANCE)32;
 	return bSucceeded;
+}
+
+struct FGetMainWindowHandleData
+{
+	HWND Handle;
+	uint32 ProcessId;
+};
+
+int32 CALLBACK GetMainWindowHandleCallback(HWND Handle, LPARAM lParam)
+{
+	FGetMainWindowHandleData& Data = *(FGetMainWindowHandleData*)lParam;
+	
+	unsigned long ProcessId = 0;
+	{
+		::GetWindowThreadProcessId(Handle, &ProcessId);
+	}
+	
+	if ((Data.ProcessId != ProcessId) || (::GetWindow(Handle, GW_OWNER) != (HWND)0) || !::IsWindowVisible(Handle))
+	{
+		return 1;
+	}
+
+	Data.Handle = Handle;
+
+	return 0;
+}
+
+HWND FWindowsPlatformMisc::GetTopLevelWindowHandle(uint32 ProcessId)
+{
+	FGetMainWindowHandleData Data;
+	{
+		Data.Handle = 0;
+		Data.ProcessId = ProcessId;
+	}
+
+	::EnumWindows(GetMainWindowHandleCallback, (LPARAM)&Data);
+
+	return Data.Handle;
 }
 
 bool FWindowsPlatformMisc::GetWindowTitleMatchingText(const TCHAR* TitleStartsWith, FString& OutTitle)
@@ -2180,7 +2242,7 @@ FString FWindowsPlatformMisc::GetPrimaryGPUBrand()
 				break;
 			}
 
-			FMemory::MemZero( DisplayDevice );
+			FMemory::Memzero( DisplayDevice );
 			DisplayDevice.cb = sizeof( DisplayDevice );
 			DeviceIndex++;
 		}
@@ -2328,4 +2390,43 @@ FString FWindowsPlatformMisc::GetOperatingSystemId()
 	// more info on this key can be found here: http://stackoverflow.com/questions/99880/generating-a-unique-machine-id
 	QueryRegKey(HKEY_LOCAL_MACHINE, TEXT("Software\\Microsoft\\Cryptography"), TEXT("MachineGuid"), Result);
 	return Result;
+}
+
+
+EConvertibleLaptopMode FWindowsPlatformMisc::GetConvertibleLaptopMode()
+{
+	if (!VerifyWindowsVersion(6, 2))
+	{
+		return EConvertibleLaptopMode::NotSupported;
+	}
+
+	if (::GetSystemMetrics(SM_CONVERTIBLESLATEMODE) == 0)
+	{
+		return EConvertibleLaptopMode::Tablet;
+	}
+	
+	return EConvertibleLaptopMode::Laptop;
+}
+
+IPlatformChunkInstall* FWindowsPlatformMisc::GetPlatformChunkInstall()
+{
+	static IPlatformChunkInstall* ChunkInstall = nullptr;
+	if (!ChunkInstall)
+	{
+#if !(WITH_EDITORONLY_DATA || IS_PROGRAM)
+		static IPlatformChunkInstallModule* PlatformChunkInstallModule = FModuleManager::LoadModulePtr<IPlatformChunkInstallModule>("HTTPChunkInstaller");
+		if (PlatformChunkInstallModule != NULL)
+		{
+			// Attempt to grab the platform installer
+			ChunkInstall = PlatformChunkInstallModule->GetPlatformChunkInstall();
+		}
+		else
+#endif
+		{
+			// Placeholder instance
+			ChunkInstall = new FGenericPlatformChunkInstall();
+		}
+	}
+
+	return ChunkInstall;
 }

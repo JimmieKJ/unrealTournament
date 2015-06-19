@@ -177,6 +177,9 @@ public:
 	 */
 	void Clip( const FIntRect& Other );
 
+	/** Combines the two rectanges. */
+	void Union( const FIntRect& Other);
+
 	/**
 	 * Test whether this rectangle contains a point.
 	 *
@@ -276,6 +279,7 @@ public:
 	 * @return New divided rectangle.
 	 */
 	static FIntRect DivideAndRoundUp( FIntRect lhs, int32 Div );
+	static FIntRect DivideAndRoundUp( FIntRect lhs, FIntPoint Div );
 
 	/**
 	 * Gets number of points in the Rectangle.
@@ -447,6 +451,13 @@ FORCEINLINE void FIntRect::Clip( const FIntRect& R )
 	Max.Y = FMath::Max<int32>(Min.Y, Max.Y);
 }
 
+FORCEINLINE void FIntRect::Union( const FIntRect& R )
+{
+	Min.X = FMath::Min<int32>(Min.X, R.Min.X);
+	Min.Y = FMath::Min<int32>(Min.Y, R.Min.Y);
+	Max.X = FMath::Max<int32>(Max.X, R.Max.X);
+	Max.Y = FMath::Max<int32>(Max.Y, R.Max.Y);
+}
 
 FORCEINLINE bool FIntRect::Contains( FIntPoint P ) const
 {
@@ -456,9 +467,13 @@ FORCEINLINE bool FIntRect::Contains( FIntPoint P ) const
 
 FORCEINLINE FIntRect FIntRect::DivideAndRoundUp( FIntRect lhs, int32 Div )
 {
-	return FIntRect(lhs.Min / Div, FIntPoint::DivideAndRoundUp(lhs.Max, Div));
+	return DivideAndRoundUp(lhs, FIntPoint(Div, Div));
 }
 
+FORCEINLINE FIntRect FIntRect::DivideAndRoundUp( FIntRect lhs, FIntPoint Div )
+{
+	return FIntRect(lhs.Min / Div, FIntPoint::DivideAndRoundUp(lhs.Max, Div));
+}
 
 FORCEINLINE void FIntRect::GetCenterAndExtents( FIntPoint& OutCenter, FIntPoint& OutExtent ) const
 {

@@ -9,24 +9,37 @@
 
 FString UDeviceProfileManager::DeviceProfileFileName;
 
+UDeviceProfileManager* UDeviceProfileManager::DeviceProfileManagerSingleton = nullptr;
+
+UDeviceProfileManager& UDeviceProfileManager::Get()
+{
+	if (DeviceProfileManagerSingleton == nullptr)
+	{
+		DeviceProfileManagerSingleton = NewObject<UDeviceProfileManager>();
+
+		DeviceProfileManagerSingleton->AddToRoot();
+		if (!FPlatformProperties::RequiresCookedData())
+		{
+			DeviceProfileManagerSingleton->LoadProfiles();
+		}
+
+		UDeviceProfile* ActiveProfile = &DeviceProfileManagerSingleton->FindProfile(GetActiveProfileName());
+		DeviceProfileManagerSingleton->SetActiveDeviceProfile(ActiveProfile);
+
+		InitializeSharedSamplerStates();
+	}
+	return *DeviceProfileManagerSingleton;
+}
+
+
 void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile()
 {
 	// Find the device profile selector module used in this instance
 	FString DeviceProfileSelectionModule;
 	GConfig->GetString( TEXT("DeviceProfileManager"), TEXT("DeviceProfileSelectionModule"), DeviceProfileSelectionModule, GEngineIni );
 
-	FString SelectedPlatformDeviceProfileName;
-#if PLATFORM_HTML5
-	SelectedPlatformDeviceProfileName = FPlatformProperties::PlatformName();
-#else
-	if ( !DeviceProfileSelectionModule.IsEmpty() )
-	{
-		// Load the module we had specified in the ini and Run our logic to select a device profile for this run
-		IDeviceProfileSelectorModule& DPSelectorModule = FModuleManager::LoadModuleChecked<IDeviceProfileSelectorModule>(*DeviceProfileSelectionModule);
-		SelectedPlatformDeviceProfileName = DPSelectorModule.GetRuntimeDeviceProfileName();
-		UE_LOG(LogInit, Log, TEXT("Applying CVar settings loaded from the selected device profile: [%s]"), *SelectedPlatformDeviceProfileName);
-	}
-#endif
+	FString SelectedPlatformDeviceProfileName = GetActiveProfileName();
+	UE_LOG(LogInit, Log, TEXT("Applying CVar settings loaded from the selected device profile: [%s]"), *SelectedPlatformDeviceProfileName);
 
 	// Load the device profile config
 	FConfigCacheIni::LoadGlobalIniFile(DeviceProfileFileName, TEXT("DeviceProfiles"));
@@ -123,64 +136,44 @@ void UDeviceProfileManager::InitializeCVarsForActiveDeviceProfile()
 }
 
 
-UDeviceProfileManager::UDeviceProfileManager( const FObjectInitializer& ObjectInitializer )
-	: Super( ObjectInitializer )
-{
-	RenameIndex = 0;
-#if WITH_EDITOR
-	LoadProfiles();
-#endif
-}
-
-
-UDeviceProfile* UDeviceProfileManager::CreateProfile( const FString& ProfileName )
-{
-	UDeviceProfile* NewProfile = ConstructObject<UDeviceProfile>( UDeviceProfile::StaticClass(), GetTransientPackage(), *ProfileName, RF_Transient|RF_Public);
-	Profiles.Add( NewProfile );
-
-	// Inform the UI that the device list has changed
-	ManagerUpdatedDelegate.Broadcast();
-
-	return NewProfile;
-}
-
-
-UDeviceProfile* UDeviceProfileManager::CreateProfile( const FString& ProfileName, const FString& ProfileType, const FString& ParentName )
+UDeviceProfile& UDeviceProfileManager::CreateProfile( const FString& ProfileName, const FString& ProfileType, const FString& InSpecifyParentName )
 {
 	UDeviceProfile* DeviceProfile = FindObject<UDeviceProfile>( GetTransientPackage(), *ProfileName );
 	if( DeviceProfile == NULL )
 	{
-		DeviceProfile = ConstructObject<UDeviceProfile>( UDeviceProfile::StaticClass(), GetTransientPackage(), *ProfileName, RF_Transient|RF_Public);
-		DeviceProfile->LoadConfig( UDeviceProfile::StaticClass(), *DeviceProfileFileName );
-		DeviceProfile->BaseProfileName = ParentName != TEXT("") ? ParentName : DeviceProfile->BaseProfileName;
-		DeviceProfile->DeviceType = ProfileType;
+		// Build Parent objects first. Important for setup
+		FString ParentName = InSpecifyParentName;
+		if (ParentName.Len() == 0)
+		{
+			const FString SectionName = FString::Printf(TEXT("%s %s"), *ProfileName, *UDeviceProfile::StaticClass()->GetName());
+			GConfig->GetString(*SectionName, TEXT("BaseProfileName"), ParentName, GetDeviceProfileIniName());
+		}
 
-		UDeviceProfile* ObjectTemplate = NULL;
-
+		UObject* ParentObject = nullptr;
 		// Recursively build the parent tree
-		if( DeviceProfile->BaseProfileName != TEXT("") )
+		if (ParentName.Len() > 0)
 		{
-			DeviceProfile->Parent = FindObject<UDeviceProfile>( GetTransientPackage(), *DeviceProfile->BaseProfileName );
-			if( DeviceProfile->Parent == NULL )
+			ParentObject = FindObject<UDeviceProfile>(GetTransientPackage(), *ParentName);
+			if (ParentObject == nullptr)
 			{
-				DeviceProfile->Parent = CreateProfile( DeviceProfile->BaseProfileName, ProfileType );
+				ParentObject = &CreateProfile(ParentName, ProfileType);
 			}
-			ObjectTemplate = CastChecked<UDeviceProfile>(DeviceProfile->Parent);
 		}
 
-		if( ObjectTemplate )
-		{
-			DeviceProfile->BaseProfileName = ObjectTemplate->GetName();
-		}
-		DeviceProfile->DeviceType = ProfileType;
+		// Create the profile after it's parents have been created.
+		DeviceProfile = NewObject<UDeviceProfile>(GetTransientPackage(), *ProfileName);
+		DeviceProfile->DeviceType = DeviceProfile->DeviceType.Len() > 0 ? DeviceProfile->DeviceType : ProfileType;
+		DeviceProfile->BaseProfileName = DeviceProfile->BaseProfileName.Len() > 0 ? DeviceProfile->BaseProfileName : ParentName;
+		DeviceProfile->Parent = ParentObject;
 
+		// Add the new profile to the accessible device profile list
 		Profiles.Add( DeviceProfile );
 
-		// Inform the UI that the device list has changed
+		// Inform any listeners that the device list has changed
 		ManagerUpdatedDelegate.Broadcast(); 
 	}
 
-	return DeviceProfile;
+	return *DeviceProfile;
 }
 
 
@@ -190,9 +183,9 @@ void UDeviceProfileManager::DeleteProfile( UDeviceProfile* Profile )
 }
 
 
-UDeviceProfile* UDeviceProfileManager::FindProfile( const FString& ProfileName )
+UDeviceProfile& UDeviceProfileManager::FindProfile( const FString& ProfileName )
 {
-	UDeviceProfile* FoundProfile = NULL;
+	UDeviceProfile* FoundProfile = nullptr;
 
 	for( int32 Idx = 0; Idx < Profiles.Num(); Idx++ )
 	{
@@ -204,17 +197,17 @@ UDeviceProfile* UDeviceProfileManager::FindProfile( const FString& ProfileName )
 		}
 	}
 
-	return FoundProfile;
+	return FoundProfile != nullptr ? *FoundProfile : CreateProfile(ProfileName, FPlatformProperties::PlatformName());
 }
 
 
-const FString UDeviceProfileManager::GetDeviceProfileIniName()
+const FString UDeviceProfileManager::GetDeviceProfileIniName() const
 {
 	return DeviceProfileFileName;
 }
 
 
-FOnManagerUpdated& UDeviceProfileManager::OnManagerUpdated()
+FOnDeviceProfileManagerUpdated& UDeviceProfileManager::OnManagerUpdated()
 {
 	return ManagerUpdatedDelegate;
 }
@@ -238,6 +231,23 @@ void UDeviceProfileManager::LoadProfiles()
 				CreateProfile(NewDeviceProfileSelectorPlatformName, NewDeviceProfileSelectorPlatformType);
 			}
 		}
+
+		if (!FPlatformProperties::RequiresCookedData())
+		{
+			// Register Texture LOD settings with each Target Platform
+			ITargetPlatformManagerModule& TargetPlatformManager = GetTargetPlatformManagerRef();
+			const TArray<ITargetPlatform*>& TargetPlatforms = TargetPlatformManager.GetTargetPlatforms();
+			for (int32 PlatformIndex = 0; PlatformIndex < TargetPlatforms.Num(); ++PlatformIndex)
+			{
+				ITargetPlatform* Platform = TargetPlatforms[PlatformIndex];
+				if (const UTextureLODSettings* TextureLODSettingsObj = (UTextureLODSettings*)&FindProfile(Platform->PlatformName()))
+				{
+					// Set TextureLODSettings
+					Platform->RegisterTextureLODSettings(TextureLODSettingsObj);
+				}
+			}
+		}
+
 		ManagerUpdatedDelegate.Broadcast();
 	}
 }
@@ -277,6 +287,23 @@ void UDeviceProfileManager::SaveProfiles(bool bSaveToDefaults)
 }
 
 
+const FString UDeviceProfileManager::GetActiveProfileName()
+{
+	FString ActiveProfileName = FPlatformProperties::PlatformName();
+
+	FString DeviceProfileSelectionModule;
+	if (GConfig->GetString(TEXT("DeviceProfileManager"), TEXT("DeviceProfileSelectionModule"), DeviceProfileSelectionModule, GEngineIni))
+	{
+		if (IDeviceProfileSelectorModule* DPSelectorModule = FModuleManager::LoadModulePtr<IDeviceProfileSelectorModule>(*DeviceProfileSelectionModule))
+		{
+			ActiveProfileName = DPSelectorModule->GetRuntimeDeviceProfileName();
+		}
+	}
+
+	return ActiveProfileName;
+}
+
+
 void UDeviceProfileManager::SetActiveDeviceProfile( UDeviceProfile* DeviceProfile )
 {
 	ActiveDeviceProfile = DeviceProfile;
@@ -289,7 +316,7 @@ UDeviceProfile* UDeviceProfileManager::GetActiveProfile() const
 }
 
 
-void UDeviceProfileManager::GetAllPossibleParentProfiles(const UDeviceProfile* ChildProfile, OUT TArray<UDeviceProfile*>& PossibleParentProfiles)
+void UDeviceProfileManager::GetAllPossibleParentProfiles(const UDeviceProfile* ChildProfile, OUT TArray<UDeviceProfile*>& PossibleParentProfiles) const
 {
 	for(auto& NextProfile : Profiles)
 	{

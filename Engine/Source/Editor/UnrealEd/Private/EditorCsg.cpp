@@ -353,24 +353,36 @@ void UEditorEngine::polyUpdateMaster
 )
 {
 	FBspSurf &Surf = Model->Surfs[iSurf];
-	if( !Surf.Actor )
+	ABrush* Actor = Surf.Actor;
+	if( !Actor )
 		return;
 
-	for( int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Surf.Actor->Brush->Polys->Element.Num(); iEdPoly++ )
+	UModel* Brush = Actor->Brush;
+	check(Brush);
+
+	// Use transform cached when the geometry was last built, in case the current Actor transform has changed since then
+	// (e.g. because Auto Update BSP is disabled)
+	check(Brush->bCachedOwnerTransformValid);
+	const FVector ActorLocation = Brush->OwnerLocationWhenLastBuilt;
+	const FVector ActorPrePivot = Brush->OwnerPrepivotWhenLastBuilt;
+	const FVector ActorScale = Brush->OwnerScaleWhenLastBuilt;
+	const FRotator ActorRotation = -Brush->OwnerRotationWhenLastBuilt;
+
+	for( int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Brush->Polys->Element.Num(); iEdPoly++ )
 	{
-		FPoly& MasterEdPoly = Surf.Actor->Brush->Polys->Element[iEdPoly];
+		FPoly& MasterEdPoly = Brush->Polys->Element[iEdPoly];
 		if( iEdPoly==Surf.iBrushPoly || MasterEdPoly.iLink==Surf.iBrushPoly )
 		{
-			Surf.Actor->Brush->Polys->Element.ModifyItem( iEdPoly );
+			Brush->Polys->Element.ModifyItem( iEdPoly );
 
 			MasterEdPoly.Material  = Surf.Material;
 			MasterEdPoly.PolyFlags = Surf.PolyFlags & ~(PF_NoEdit);
 
 			if( UpdateTexCoords )
 			{
-				MasterEdPoly.Base = (Model->Points[Surf.pBase] - Surf.Actor->GetActorLocation()) + Surf.Actor->GetPrePivot();
-				MasterEdPoly.TextureU = Model->Vectors[Surf.vTextureU];
-				MasterEdPoly.TextureV = Model->Vectors[Surf.vTextureV];
+				MasterEdPoly.Base = ActorRotation.RotateVector(Model->Points[Surf.pBase] - ActorLocation) / ActorScale + ActorPrePivot;
+				MasterEdPoly.TextureU = ActorRotation.RotateVector(Model->Vectors[Surf.vTextureU]) * ActorScale;
+				MasterEdPoly.TextureV = ActorRotation.RotateVector(Model->Vectors[Surf.vTextureV]) * ActorScale;
 			}
 		}
 	}

@@ -25,9 +25,9 @@
 DEFINE_LOG_CATEGORY(LogWindowsMoviePlayer);
 
 FMediaFoundationMovieStreamer::FMediaFoundationMovieStreamer()
-	: VideoPlayer(NULL)
+	: TextureData()
+	, VideoPlayer(NULL)
 	, SampleGrabberCallback(NULL)
-	, TextureData()
 {
 	MovieViewport = MakeShareable(new FMovieViewport());
 }
@@ -411,7 +411,7 @@ FIntPoint FVideoPlayer::AddStreamToTopology(IMFTopology* Topology, IMFPresentati
 
 			IMFMediaType* InputType = NULL;
 			HResult = MFCreateMediaType(&InputType);
-
+			check(SUCCEEDED(HResult));
 			UINT32 Width = 0, Height = 0;
 			HResult = MFGetAttributeSize(OutputType, MF_MT_FRAME_SIZE, &Width, &Height);
 			check(SUCCEEDED(HResult));

@@ -238,7 +238,7 @@ int32 UMaterialExpressionLandscapeLayerBlend::Compile(class FMaterialCompiler* C
 				bool bHeightIsMaterialAttributes = Layers[LayerIdx].HeightInput.Expression->IsResultMaterialAttributes(Layers[LayerIdx].HeightInput.OutputIndex);
 				if (bHeightIsMaterialAttributes)
 				{
-					Compiler->Errorf(TEXT("Height input (%s) does not accept MaterialAttributes"), Layers[LayerIdx].LayerName);
+					Compiler->Errorf(TEXT("Height input (%s) does not accept MaterialAttributes"), *(Layers[LayerIdx].LayerName.ToString()));
 				}
 			}
 			if (Layers[LayerIdx].LayerInput.Expression)
@@ -304,11 +304,11 @@ void UMaterialExpressionLandscapeLayerBlend::PostEditChangeProperty(FPropertyCha
 #endif
 
 
-void UMaterialExpressionLandscapeLayerBlend::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+void UMaterialExpressionLandscapeLayerBlend::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 {
 	for (int32 LayerIdx = 0; LayerIdx<Layers.Num(); LayerIdx++)
 	{
-		FLayerBlendInput& Layer = Layers[LayerIdx];
+		const FLayerBlendInput& Layer = Layers[LayerIdx];
 
 		int32 CurrentSize = OutParameterNames.Num();
 		OutParameterNames.AddUnique(Layer.LayerName);

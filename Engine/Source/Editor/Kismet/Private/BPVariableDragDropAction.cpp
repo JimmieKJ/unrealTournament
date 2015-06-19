@@ -54,8 +54,8 @@ void FKismetVariableDragDropAction::HoverTargetChanged()
 
 	// Icon/text to draw on tooltip
 	FSlateColor IconColor = FLinearColor::White;
-	const FSlateBrush* StatusSymbol = FEditorStyle::GetBrush(TEXT("NoBrush")); 
-	FText Message;
+	const FSlateBrush* StatusSymbol = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.Error"));
+	FText Message = LOCTEXT("InvalidDropTarget", "Invalid drop target!");
 
 	UEdGraphPin* PinUnderCursor = GetHoveredPin();
 
@@ -378,7 +378,11 @@ FReply FKismetVariableDragDropAction::DroppedOnNode(FVector2D ScreenPosition, FV
 			UEdGraphPin* Pin = TargetNode->FindPin(OldVarName);
 			DropOnBlueprint->Modify();
 			TargetNode->Modify();
-			Pin->Modify();
+
+			if (Pin != NULL)
+			{
+				Pin->Modify();
+			}
 
 			UEdGraphSchema_K2::ConfigureVarNode(TargetNode, VariableName, VariableSource.Get(), DropOnBlueprint);
 
@@ -457,7 +461,6 @@ FReply FKismetVariableDragDropAction::DroppedOnPanel( const TSharedRef< SWidget 
 			
 			FNodeConstructionParams NewNodeParams;
 			NewNodeParams.VariableName = VariableName;
-			const UBlueprint* DropOnBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(&Graph);
 			NewNodeParams.Graph = &Graph;
 			NewNodeParams.GraphPosition = GraphPosition;
 			NewNodeParams.VariableSource= Outer;
@@ -465,15 +468,23 @@ FReply FKismetVariableDragDropAction::DroppedOnPanel( const TSharedRef< SWidget 
 			// call analytics
 			AnalyticCallback.ExecuteIfBound();
 
-			// Asking for a getter
-			if (bControlDrag || !CanExecuteMakeSetter(NewNodeParams, VariableProperty))
+			// Take into account current state of modifier keys in case the user changed his mind
+			auto ModifierKeys = FSlateApplication::Get().GetModifierKeys();
+			const bool bModifiedKeysActive = ModifierKeys.IsControlDown() || ModifierKeys.IsAltDown();
+			const bool bAutoCreateGetter = bModifiedKeysActive ? ModifierKeys.IsControlDown() : bControlDrag;
+			const bool bAutoCreateSetter = bModifiedKeysActive ? ModifierKeys.IsAltDown() : bAltDrag;
+			// Handle Getter/Setters
+			if (bAutoCreateGetter || bAutoCreateSetter)
 			{
-				MakeGetter(NewNodeParams);
-			}
-			// Asking for a setter
-			else if (bAltDrag && CanExecuteMakeSetter(NewNodeParams, VariableProperty))
-			{
-				MakeSetter(NewNodeParams);
+				if (bAutoCreateGetter || !CanExecuteMakeSetter(NewNodeParams, VariableProperty))
+				{
+					MakeGetter(NewNodeParams);
+					NewNodeParams.GraphPosition.Y += 50.f;
+				}
+				if (bAutoCreateSetter && CanExecuteMakeSetter( NewNodeParams, VariableProperty))
+				{
+					MakeSetter(NewNodeParams);
+				}
 			}
 			// Show selection menu
 			else
@@ -583,18 +594,22 @@ FReply FKismetVariableDragDropAction::DroppedOnCategory(FString Category)
 
 bool FKismetVariableDragDropAction::CanVariableBeDropped(const UProperty* InVariableProperty, const UEdGraph& InGraph) const
 {
-	UObject* Outer = InVariableProperty->GetOuter();
-
-	// Only allow variables to be placed within the same blueprint (otherwise the self context on the dropped node will be invalid)
-	bool bCanVariableBeDropped = IsFromBlueprint(FBlueprintEditorUtils::FindBlueprintForGraph(&InGraph));
-
-	// Local variables have some special conditions for being allowed to be placed
-	if(bCanVariableBeDropped && Outer->IsA(UFunction::StaticClass()))
+	bool bCanVariableBeDropped = false;
+	if (InVariableProperty)
 	{
-		// Check if the top level graph has the same name as the function, if they do not then the variable cannot be placed in the graph
-		if(FBlueprintEditorUtils::GetTopLevelGraph(&InGraph)->GetFName() != Outer->GetFName())
+		UObject* Outer = InVariableProperty->GetOuter();
+
+		// Only allow variables to be placed within the same blueprint (otherwise the self context on the dropped node will be invalid)
+		bCanVariableBeDropped = IsFromBlueprint(FBlueprintEditorUtils::FindBlueprintForGraph(&InGraph));
+
+		// Local variables have some special conditions for being allowed to be placed
+		if (bCanVariableBeDropped && Outer->IsA(UFunction::StaticClass()))
 		{
-			bCanVariableBeDropped = false;
+			// Check if the top level graph has the same name as the function, if they do not then the variable cannot be placed in the graph
+			if (FBlueprintEditorUtils::GetTopLevelGraph(&InGraph)->GetFName() != Outer->GetFName())
+			{
+				bCanVariableBeDropped = false;
+			}
 		}
 	}
 	return bCanVariableBeDropped;

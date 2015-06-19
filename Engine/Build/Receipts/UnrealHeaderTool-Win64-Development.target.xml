@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="UnrealHeaderTool" />
+    <Property Name="Platform" Value="Win64" />
+    <Property Name="Configuration" Value="Development" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool.exe" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool.pdb" Type="SymbolFile" />
+    <BuildProduct Path="$(EngineDir)\Plugins\ScriptGeneratorPlugin\Binaries\Win64\UnrealHeaderTool-ScriptGeneratorPlugin.dll" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\ScriptGeneratorPlugin\Binaries\Win64\UnrealHeaderTool-ScriptGeneratorPlugin.pdb" Type="SymbolFile" />
+    <BuildProduct Path="$(EngineDir)\Plugins\ScriptGeneratorPlugin\Intermediate\Build\Win64\UnrealHeaderTool\Development\UnrealHeaderTool-ScriptGeneratorPlugin.lib" Type="ImportLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-Core.dll" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-Core.pdb" Type="SymbolFile" />
+    <BuildProduct Path="$(EngineDir)\Intermediate\Build\Win64\UnrealHeaderTool\Development\UnrealHeaderTool-Core.lib" Type="ImportLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-CoreUObject.dll" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-CoreUObject.pdb" Type="SymbolFile" />
+    <BuildProduct Path="$(EngineDir)\Intermediate\Build\Win64\UnrealHeaderTool\Development\UnrealHeaderTool-CoreUObject.lib" Type="ImportLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-Projects.dll" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-Projects.pdb" Type="SymbolFile" />
+    <BuildProduct Path="$(EngineDir)\Intermediate\Build\Win64\UnrealHeaderTool\Development\UnrealHeaderTool-Projects.lib" Type="ImportLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-Json.dll" Type="DynamicLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win64\UnrealHeaderTool-Json.pdb" Type="SymbolFile" />
+    <BuildProduct Path="$(EngineDir)\Intermediate\Build\Win64\UnrealHeaderTool\Development\UnrealHeaderTool-Json.lib" Type="ImportLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies>
+    <RuntimeDependency Path="$(EngineDir)/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/icudt53.dll" />
+    <RuntimeDependency Path="$(EngineDir)/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/icuuc53.dll" />
+    <RuntimeDependency Path="$(EngineDir)/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/icuin53.dll" />
+    <RuntimeDependency Path="$(EngineDir)/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/icule53.dll" />
+    <RuntimeDependency Path="$(EngineDir)/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/iculx53.dll" />
+    <RuntimeDependency Path="$(EngineDir)/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/icuio53.dll" />
+  </RuntimeDependencies>
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

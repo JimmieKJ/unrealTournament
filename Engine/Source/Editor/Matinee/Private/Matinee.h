@@ -69,18 +69,18 @@ public:
 	void NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged );
 
 	// FCurveEdNotifyInterface
-	virtual void PreEditCurve(TArray<UObject*> CurvesAboutToChange);
-	virtual void PostEditCurve();
-	virtual void MovedKey();
-	virtual void DesireUndo();
-	virtual void DesireRedo();
+	virtual void PreEditCurve(TArray<UObject*> CurvesAboutToChange) override;
+	virtual void PostEditCurve() override;
+	virtual void MovedKey() override;
+	virtual void DesireUndo() override;
+	virtual void DesireRedo() override;
 
 	/**
 	 * FCurveEdNotifyInterface: Called by the Curve Editor when a Curve Label is clicked on
 	 *
 	 * @param	CurveObject	The curve object whose label was clicked on
 	 */
-	void OnCurveLabelClicked( UObject* CurveObject );
+	void OnCurveLabelClicked( UObject* CurveObject ) override;
 
 	/** FGCObject interface */
 	void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -403,7 +403,17 @@ public:
 	 * Updates the checked-menu item for baking transforms
 	 */
 	bool IsBakeTransformsToggled();
+	
+	/**
+	 * Called when the user toggles the ability to export with current hierarchy
+	 */
+	void OnToggleKeepHierarchy();
 
+	/**
+	 * Updates the checked-menu item for baking transforms
+	 */
+	bool IsKeepHierarchyToggled();
+	
 	/** Called when the 'Export Sound Cue Info' command is issued */
 	void OnExportSoundCueInfoCommand();
 	
@@ -560,42 +570,42 @@ public:
 	/**
 	 * @return	The number of the selected groups.
 	 */
-	int32 GetSelectedGroupCount() const;
+	int32 GetSelectedGroupCount() const override;
 
 	/**
 	 * @return	The number of selected tracks. 
 	 */
-	int32 GetSelectedTrackCount() const;
+	int32 GetSelectedTrackCount() const override;
 
 	/**
 	 * @return	A modifiable iterator that can iterate through all group entries, whether selected or not. 
 	 */
-	FGroupIterator GetGroupIterator()				{ return FGroupIterator(IData->InterpGroups); }
+	FGroupIterator GetGroupIterator() { return FGroupIterator(IData->InterpGroups); }
 
 	/**
 	 * @return	A non-modifiable iterator that can iterate through all group entries, whether selected or not. 
 	 */
-	FGroupConstIterator GetGroupIterator() const	{ return FGroupConstIterator(IData->InterpGroups); }
+	FGroupConstIterator GetGroupIterator() const { return FGroupConstIterator(IData->InterpGroups); }
 	
 	/**
 	 * @return	A modifiable iterator that can iteator over all selected interp groups.
 	 */
-	FSelectedGroupIterator GetSelectedGroupIterator()				{ return FSelectedGroupIterator(IData->InterpGroups); }
+	FSelectedGroupIterator GetSelectedGroupIterator() override { return FSelectedGroupIterator(IData->InterpGroups); }
 
 	/**
 	 * @return	A non-modifiable iterator that can iteator over all selected interp groups.
 	 */
-	FSelectedGroupConstIterator GetSelectedGroupIterator() const	{ return FSelectedGroupConstIterator(IData->InterpGroups); }
+	FSelectedGroupConstIterator GetSelectedGroupIterator() const override { return FSelectedGroupConstIterator(IData->InterpGroups); }
 
 	/**
 	 * @return	A modifiable iterator that can iterate over all selected interp tracks.
 	 */
-	FSelectedTrackIterator GetSelectedTrackIterator()				{ return FSelectedTrackIterator(IData->InterpGroups); }
+	FSelectedTrackIterator GetSelectedTrackIterator() override { return FSelectedTrackIterator(IData->InterpGroups); }
 
 	/**
 	 * @return	A non-modifiable iterator that can iterate over all selected interp tracks.
 	 */
-	FSelectedTrackConstIterator GetSelectedTrackIterator() const	{ return FSelectedTrackConstIterator(IData->InterpGroups); }
+	FSelectedTrackConstIterator GetSelectedTrackIterator() const override { return FSelectedTrackConstIterator(IData->InterpGroups); }
 
 	/**
 	 * @return	A modifiable iterator that can iterator over the selected interp tracks of the given template class.
@@ -1123,6 +1133,7 @@ public:
 	/** If true, the editor is modifying a CameraAnim, and functionality is tweaked appropriately */
 	bool	bEditingCameraAnim;
 
+	bool bInvertPan;
 	// Static list of all InterpTrack subclasses.
 	static TArray<UClass*>	InterpTrackClasses;
 	static bool			bInterpTrackClassesInitialized;
@@ -1200,13 +1211,13 @@ public:
 	 * Increments or decrements the currently selected recording menu item
 	 * @param bInNext - true if going forward in the menu system, false if going backward
 	 */
-	void ChangeRecordingMenu(const bool bInNext);
+	void ChangeRecordingMenu(const bool bInNext) override;
 
 	/**
 	 * Increases or decreases the recording menu value
 	 * @param bInIncrease - true if increasing the value, false if decreasing the value
 	 */
-	void ChangeRecordingMenuValue(FEditorViewportClient* InClient, const bool bInIncrease);
+	void ChangeRecordingMenuValue(FEditorViewportClient* InClient, const bool bInIncrease) override;
 
 	/**
 	 * Resets the recording menu value to the default

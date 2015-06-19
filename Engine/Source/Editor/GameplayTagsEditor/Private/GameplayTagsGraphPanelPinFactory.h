@@ -16,6 +16,10 @@ class FGameplayTagsGraphPanelPinFactory: public FGraphPanelPinFactory
 		{
 			return SNew(SGameplayTagGraphPin, InPin);
 		}
+		if (InPin->PinType.PinCategory == K2Schema->PC_Struct && InPin->PinType.PinSubCategoryObject == FGameplayTagContainer::StaticStruct())
+		{
+			return SNew(SGameplayTagContainerGraphPin, InPin);
+		}
 		if (InPin->PinType.PinCategory == K2Schema->PC_String && InPin->PinType.PinSubCategory == TEXT("LiteralGameplayTagContainer"))
 		{
 			return SNew(SGameplayTagContainerGraphPin, InPin);

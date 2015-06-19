@@ -2,6 +2,8 @@
 
 #include "Paper2DEditorPrivatePCH.h"
 #include "CanvasItem.h"
+#include "PaperFlipbookThumbnailRenderer.h"
+#include "PaperFlipbook.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UPaperFlipbookThumbnailRenderer

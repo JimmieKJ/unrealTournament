@@ -492,9 +492,9 @@ public:
 	 * @return Time of day.
 	 * @see FromUnixTimestamp
 	 */
-	CORE_API int32 ToUnixTimestamp() const
+	CORE_API int64 ToUnixTimestamp() const
 	{
-		return static_cast<int32>((Ticks - FDateTime(1970, 1, 1).Ticks) / ETimespan::TicksPerSecond);
+		return (Ticks - FDateTime(1970, 1, 1).Ticks) / ETimespan::TicksPerSecond;
 	}
 
 public:
@@ -537,9 +537,9 @@ public:
 	 * @return Gregorian date and time.
 	 * @see ToUnixTimestamp
 	 */
-	static FDateTime FromUnixTimestamp( int32 UnixTime )
+	static FDateTime FromUnixTimestamp( int64 UnixTime )
 	{
-		return FDateTime(1970, 1, 1) + FTimespan(static_cast<int64>(UnixTime) * ETimespan::TicksPerSecond);
+		return FDateTime(1970, 1, 1) + FTimespan(UnixTime * ETimespan::TicksPerSecond);
 	}
 
 	/**

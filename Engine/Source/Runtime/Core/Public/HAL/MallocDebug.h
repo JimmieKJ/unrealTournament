@@ -55,8 +55,7 @@ public:
 	virtual void* Malloc( SIZE_T Size, uint32 Alignment ) override
 	{
 		check(Alignment == DEFAULT_ALIGNMENT && "Alignment currently unsupported in this allocator");
-		FMemDebug* Ptr = nullptr;
-		Ptr = (FMemDebug*)malloc( AllocatorOverhead + Size );
+		FMemDebug* Ptr = (FMemDebug*)malloc( AllocatorOverhead + Size );
 		check(Ptr);
 		uint8* AlignedPtr = Align( (uint8*) Ptr + sizeof(FMemDebug) + sizeof(FMemDebug*) + sizeof(int32), ALLOCATION_ALIGNMENT );
 		Ptr->RefCount = 1;

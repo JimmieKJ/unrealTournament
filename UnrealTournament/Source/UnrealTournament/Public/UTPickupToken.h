@@ -12,6 +12,8 @@ class UNREALTOURNAMENT_API AUTPickupToken : public AActor
 
 #if WITH_EDITOR
 	virtual void PostActorCreated() override;
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
+	virtual void CheckForErrors() override;
 #endif
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = Pickup)

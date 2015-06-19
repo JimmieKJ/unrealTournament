@@ -5,7 +5,6 @@
 #include "SPackagesDialog.h"
 #include "Editor/UnrealEd/Public/PackageTools.h"
 #include "AssetToolsModule.h"
-#include "ISourceControlModule.h"
 
 #define LOCTEXT_NAMESPACE "SPackagesDialog"
 
@@ -15,6 +14,7 @@ namespace SPackagesDialogDefs
 	const FName ColumnID_IconLabel( "Icon" );
 	const FName ColumnID_FileLabel( "File" );
 	const FName ColumnID_TypeLabel( "Type" );
+	const FName ColumnID_CheckedOutByLabel( "CheckedOutBy" );
 
 	const float CheckBoxColumnWidth = 23.0f;
 	const float IconColumnWidth = 21.0f;
@@ -23,8 +23,7 @@ namespace SPackagesDialogDefs
 
 UObject* FPackageItem::GetPackageObject() const
 {
-	const bool bIsLegacyOrMapPackage = !PackageTools::IsSingleAssetPackage(EntryName);
-	if ( !bIsLegacyOrMapPackage && !EntryName.StartsWith(TEXT("/Temp/Untitled")) )
+	if ( !EntryName.StartsWith(TEXT("/Temp/Untitled")) )
 	{
 		// Get the object which belongs in this package (there has to be a quicker function than GetObjectsInPackages!)
 		TArray<UPackage*> Packages;
@@ -71,6 +70,8 @@ void SPackagesDialog::Construct(const FArguments& InArgs)
 	bReadOnly = InArgs._ReadOnly.Get();
 	bAllowSourceControlConnection = InArgs._AllowSourceControlConnection.Get();
 	Message = InArgs._Message;
+	Warning = InArgs._Warning;
+	OnSourceControlStateChanged = InArgs._OnSourceControlStateChanged;
 	SortByColumn = SPackagesDialogDefs::ColumnID_FileLabel;
 	SortMode = EColumnSortMode::Ascending;
 
@@ -133,6 +134,17 @@ void SPackagesDialog::Construct(const FArguments& InArgs)
 		.FillWidth( 2.0f )
 		);
 
+	if (bAllowSourceControlConnection)
+	{
+		HeaderRowWidget->AddColumn(
+			SHeaderRow::Column(SPackagesDialogDefs::ColumnID_CheckedOutByLabel)
+			.DefaultLabel(LOCTEXT("CheckedOutByColumnLabel", "Checked Out By"))
+			.SortMode(this, &SPackagesDialog::GetColumnSortMode, SPackagesDialogDefs::ColumnID_CheckedOutByLabel)
+			.OnSort(this, &SPackagesDialog::OnColumnSortModeChanged)
+			.FillWidth(4.0f)
+			);
+	}
+
 	this->ChildSlot
 	[
 		SNew(SBorder)
@@ -141,13 +153,17 @@ void SPackagesDialog::Construct(const FArguments& InArgs)
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot() .Padding(10) .AutoHeight()
 			[
-				SNew( SHorizontalBox )
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
 					SNew( STextBlock )
 					.Text( this, &SPackagesDialog::GetMessage )
+				.AutoWrapText( true )
 				]
+			+SVerticalBox::Slot() .Padding(FMargin(10, 0, 10, 10)) .AutoHeight()
+			[
+				SNew( STextBlock )
+				.Text( this, &SPackagesDialog::GetWarning )
+				.ColorAndOpacity( FLinearColor::Yellow )
+				.AutoWrapText( true )
+				.Visibility( this, &SPackagesDialog::GetWarningVisibility )
 			]
 			+SVerticalBox::Slot()  .FillHeight(0.8)
 			[
@@ -165,6 +181,14 @@ void SPackagesDialog::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+}
+
+/**
+ * Removes all checkbox items from the dialog
+ */
+void SPackagesDialog::RemoveAll()
+{
+	Items.Reset();
 }
 
 /**
@@ -211,6 +235,16 @@ void SPackagesDialog::AddButton(TSharedPtr<FPackageButton> Button)
 void SPackagesDialog::SetMessage(const FText& InMessage)
 {
 	Message = InMessage;
+}
+
+/**
+* Sets the warning message of the widget
+*
+* @param	InMessage	The string that the warning message should be set to
+*/
+void SPackagesDialog::SetWarning(const FText& InWarning)
+{
+	Warning = InWarning;
 }
 
 /**
@@ -370,6 +404,7 @@ TSharedRef<SWidget> SPackagesDialog::GenerateWidgetForItemAndColumn( TSharedPtr<
 			[
 				SNew(SImage)
 				.Image( IconBrush )
+				.ToolTipText(FText::FromString(Item->GetToolTip()))
 				.IsEnabled(!Item->IsDisabled())
 			];
 	}
@@ -381,6 +416,7 @@ TSharedRef<SWidget> SPackagesDialog::GenerateWidgetForItemAndColumn( TSharedPtr<
 			[
 				SNew(STextBlock)
 				.Text(FText::FromString(PackageName))
+				.ToolTipText(FText::FromString(PackageName))
 				.IsEnabled(!Item->IsDisabled())
 			];
 	}
@@ -392,6 +428,24 @@ TSharedRef<SWidget> SPackagesDialog::GenerateWidgetForItemAndColumn( TSharedPtr<
 			[
 				SNew(STextBlock)
 				.Text(FText::FromString(PackageType))
+				.ToolTipText(FText::FromString(PackageType))
+				.IsEnabled(!Item->IsDisabled())
+				.ColorAndOpacity(PackageColor)
+			];
+	}
+	else if (ColumnID == SPackagesDialogDefs::ColumnID_CheckedOutByLabel)
+	{
+		check(bAllowSourceControlConnection);
+
+		FString CheckedOutByString = Item->GetCheckedOutByString();
+
+		ItemContentWidget = SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(RowPadding)
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(CheckedOutByString))
+				.ToolTipText(FText::FromString(CheckedOutByString))
 				.IsEnabled(!Item->IsDisabled())
 				.ColorAndOpacity(PackageColor)
 			];
@@ -544,6 +598,7 @@ EVisibility SPackagesDialog::GetConnectToSourceControlVisibility() const
 FReply SPackagesDialog::OnConnectToSourceControlClicked() const
 {
 	ISourceControlModule::Get().ShowLoginDialog(FSourceControlLoginClosed(), ELoginWindowMode::Modal);
+	OnSourceControlStateChanged.ExecuteIfBound();
 	return FReply::Handled();
 }
 
@@ -588,6 +643,16 @@ void SPackagesDialog::Reset()
 FText SPackagesDialog::GetMessage() const
 {
 	return Message;
+}
+
+FText SPackagesDialog::GetWarning() const
+{
+	return Warning;
+}
+
+EVisibility SPackagesDialog::GetWarningVisibility() const
+{
+	return (Warning.IsEmpty()) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 EColumnSortMode::Type SPackagesDialog::GetColumnSortMode( const FName ColumnId ) const
@@ -655,6 +720,19 @@ void SPackagesDialog::SortTree()
 		{
 			Items.Sort([](const TSharedPtr<FPackageItem>& A, const TSharedPtr<FPackageItem>& B) {
 				return A->GetIconName() >= B->GetIconName(); } );
+		}
+	}
+	else if (SortByColumn == SPackagesDialogDefs::ColumnID_CheckedOutByLabel)
+	{
+		if (SortMode == EColumnSortMode::Ascending)
+		{
+			Items.Sort([](const TSharedPtr<FPackageItem>& A, const TSharedPtr<FPackageItem>& B) {
+				return A->GetCheckedOutByString() < B->GetCheckedOutByString(); });
+		}
+		else if (SortMode == EColumnSortMode::Descending)
+		{
+			Items.Sort([](const TSharedPtr<FPackageItem>& A, const TSharedPtr<FPackageItem>& B) {
+				return A->GetCheckedOutByString() >= B->GetCheckedOutByString(); });
 		}
 	}
 }

@@ -65,7 +65,7 @@ void UMaterialExpressionLandscapeLayerSample::GetCaption(TArray<FString>& OutCap
 }
 
 
-void UMaterialExpressionLandscapeLayerSample::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+void UMaterialExpressionLandscapeLayerSample::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 {
 	if (!OutParameterNames.Contains(ParameterName))
 	{

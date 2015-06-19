@@ -59,13 +59,6 @@ public:
 		ReferenceViewer->SetGraphRootPackageNames(GraphRootPackageNames);
 	}
 
-	virtual TSharedRef<SWidget> CreateReferenceViewer(const TArray<FName>& GraphRootPackageNames) override
-	{
-		TSharedRef<SReferenceViewer> ReferenceViewer = SNew(SReferenceViewer);
-		ReferenceViewer->SetGraphRootPackageNames(GraphRootPackageNames);
-		return ReferenceViewer;
-	}
-
 private:
 	TSharedRef<SDockTab> SpawnReferenceViewerTab( const FSpawnTabArgs& SpawnTabArgs )
 	{

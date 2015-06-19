@@ -6,7 +6,7 @@
 UTutorialStateSettings::UTutorialStateSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
+	bDismissedAllTutorials = false;
 }
 
 void UTutorialStateSettings::PostInitProperties()
@@ -99,12 +99,27 @@ void UTutorialStateSettings::DismissTutorial(UEditorTutorial* InTutorial, bool b
 
 bool UTutorialStateSettings::IsTutorialDismissed(UEditorTutorial* InTutorial) const
 {
+	if (GetMutableDefault<UTutorialStateSettings>()->AreAllTutorialsDismissed())
+	{
+		return true;
+	}
+
 	const FTutorialProgress* FoundProgress = ProgressMap.Find(InTutorial);
 	if (FoundProgress != nullptr)
 	{
 		return FoundProgress->bUserDismissed || FoundProgress->bUserDismissedThisSession;
 	}
 	return false;
+}
+
+void UTutorialStateSettings::DismissAllTutorials()
+{
+	bDismissedAllTutorials = true;
+}
+
+bool UTutorialStateSettings::AreAllTutorialsDismissed()
+{
+	return bDismissedAllTutorials;
 }
 
 void UTutorialStateSettings::SaveProgress()
@@ -123,6 +138,7 @@ void UTutorialStateSettings::ClearProgress()
 {
 	ProgressMap.Empty();
 	TutorialsProgress.Empty();
+	bDismissedAllTutorials = false;
 
 	SaveConfig();
 }

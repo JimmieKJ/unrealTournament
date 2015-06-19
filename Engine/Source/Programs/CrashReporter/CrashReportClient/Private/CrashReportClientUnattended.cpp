@@ -4,7 +4,7 @@
 #include "CrashReportClientUnattended.h"
 
 FCrashReportClientUnattended::FCrashReportClientUnattended(const FPlatformErrorReport& ErrorReport)
-	: Uploader(GServerIP)
+	: Uploader( FCrashReportClientConfig::Get().GetReceiverAddress() )
 {
 	// Prevent uploader waiting for a diagnosis file
 	Uploader.LocalDiagnosisSkipped();	

@@ -81,7 +81,6 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeEndedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpreeBroken01.A_UI_EnemySpreeBroken01'"));
 		OtherSpreeEndedSound = OtherSpreeEndedSoundFinder.Object;
 
-		Importance = 0.8f;
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
@@ -95,9 +94,9 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
 		{
-			if (PC != NULL && PC->RewardAnnouncer != NULL)
+			if (PC != NULL && PC->Announcer != NULL)
 			{
-				PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 			}
 		}
 		else if (PC != NULL)

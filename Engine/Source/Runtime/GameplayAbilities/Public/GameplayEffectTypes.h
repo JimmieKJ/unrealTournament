@@ -18,19 +18,18 @@
 
 class UAbilitySystemComponent;
 class UGameplayEffect;
+class UGameplayAbility;
 
 struct FGameplayEffectSpec;
 struct FGameplayEffectModCallbackData;
 
-FString EGameplayModOpToString(int32 Type);
+GAMEPLAYABILITIES_API FString EGameplayModOpToString(int32 Type);
 
-FString EGameplayModToString(int32 Type);
+GAMEPLAYABILITIES_API FString EGameplayModToString(int32 Type);
 
-FString EGameplayModEffectToString(int32 Type);
+GAMEPLAYABILITIES_API FString EGameplayModEffectToString(int32 Type);
 
-FString EGameplayEffectCopyPolicyToString(int32 Type);
-
-FString EGameplayEffectStackingPolicyToString(int32 Type);
+GAMEPLAYABILITIES_API FString EGameplayCueEventToString(int32 Type);
 
 UENUM(BlueprintType)
 namespace EGameplayModOp
@@ -50,44 +49,50 @@ namespace EGameplayModOp
 	};
 }
 
-/**
- * Tells us how to handle copying gameplay effect when it is applied.
- *	Default means to use context - e.g, OutgoingGE is are always snapshots, IncomingGE is always Link
- *	AlwaysSnapshot vs AlwaysLink let mods themselves override
- */
-UENUM(BlueprintType)
-namespace EGameplayEffectCopyPolicy
+namespace GameplayEffectUtilities
 {
-	enum Type
-	{
-		Default = 0			UMETA(DisplayName="Default"),
-		AlwaysSnapshot		UMETA(DisplayName="AlwaysSnapshot"),
-		AlwaysLink			UMETA(DisplayName="AlwaysLink")
-	};
+	/**
+	 * Helper function to retrieve the modifier bias based upon modifier operation
+	 * 
+	 * @param ModOp	Modifier operation to retrieve the modifier bias for
+	 * 
+	 * @return Modifier bias for the specified operation
+	 */
+	GAMEPLAYABILITIES_API float GetModifierBiasByModifierOp(EGameplayModOp::Type ModOp);
+
+	/**
+	 * Helper function to compute the stacked modifier magnitude from a base magnitude, given a stack count and modifier operation
+	 * 
+	 * @param BaseComputedMagnitude	Base magnitude to compute from
+	 * @param StackCount			Stack count to use for the calculation
+	 * @param ModOp					Modifier operation to use
+	 * 
+	 * @return Computed modifier magnitude with stack count factored in
+	 */
+	GAMEPLAYABILITIES_API float ComputeStackedModifierMagnitude(float BaseComputedMagnitude, int32 StackCount, EGameplayModOp::Type ModOp);
 }
 
-UENUM(BlueprintType)
-namespace EGameplayEffectStackingPolicy
-{
-	enum Type
-	{
-		Unlimited = 0		UMETA(DisplayName = "NoRule"),
-		Highest				UMETA(DisplayName = "Strongest"),
-		Lowest				UMETA(DisplayName = "Weakest"),
-		Replaces			UMETA(DisplayName = "MostRecent"),
-		Callback			UMETA(DisplayName = "Custom"),
-
-		// This must always be at the end
-		Max					UMETA(DisplayName = "Invalid")
-	};
-}
 
 /** Enumeration for options of where to capture gameplay attributes from for gameplay effects */
 UENUM()
 enum class EGameplayEffectAttributeCaptureSource : uint8
 {
-	Source,	// Source (caster) of the gameplay effect
-	Target	// Target (recipient) of the gameplay effect
+	// Source (caster) of the gameplay effect
+	Source,	
+	// Target (recipient) of the gameplay effect
+	Target	
+};
+
+/** Enumeration for ways a single GameplayEffect asset can stack */
+UENUM()
+enum class EGameplayEffectStackingType : uint8
+{
+	// No stacking. Multiple applications of this GameplayEffect are treated as separate instances.
+	None,
+	// Each caster has its own stack
+	AggregateBySource,
+	// Each target has its own stack
+	AggregateByTarget,
 };
 
 /**
@@ -235,7 +240,11 @@ struct GAMEPLAYABILITIES_API FGameplayEffectAttributeCaptureDefinition
 	 */
 	friend uint32 GetTypeHash(const FGameplayEffectAttributeCaptureDefinition& CaptureDef)
 	{
-		return FCrc::MemCrc32(&CaptureDef, sizeof(FGameplayEffectAttributeCaptureDefinition));
+		uint32 Hash = 0;
+		Hash = HashCombine(Hash, GetTypeHash(CaptureDef.AttributeToCapture));
+		Hash = HashCombine(Hash, GetTypeHash(static_cast<uint8>(CaptureDef.AttributeSource)));
+		Hash = HashCombine(Hash, GetTypeHash(CaptureDef.bSnapshot));
+		return Hash;
 	}
 
 	FString ToSimpleString() const;
@@ -252,17 +261,12 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayEffectContext()
-		: Instigator(NULL)
-		, EffectCauser(NULL)
-		, InstigatorAbilitySystemComponent(NULL)
-		, bHasWorldOrigin(false)
+		: bHasWorldOrigin(false)
 	{
 	}
 
 	FGameplayEffectContext(AActor* InInstigator, AActor* InEffectCauser)
-		: Instigator(NULL)
-		, EffectCauser(NULL)
-		, InstigatorAbilitySystemComponent(NULL)
+		: bHasWorldOrigin(false)
 	{
 		AddInstigator(InInstigator, InEffectCauser);
 	}
@@ -272,7 +276,7 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 	}
 
 	/** Returns the list of gameplay tags applicable to this effect, defaults to the owner's tags */
-	virtual void GetOwnedGameplayTags(OUT FGameplayTagContainer &TagContainer) const;
+	virtual void GetOwnedGameplayTags(OUT FGameplayTagContainer& ActorTagContainer, OUT FGameplayTagContainer& SpecTagContainer) const;
 
 	/** Sets the instigator and effect causer. Instigator is who owns the ability that spawned this, EffectCauser is the actor that is the physical source of the effect, such as a weapon. They can be the same. */
 	virtual void AddInstigator(class AActor *InInstigator, class AActor *InEffectCauser);
@@ -286,7 +290,7 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 	/** Returns the ability system component of the instigator of this effect */
 	virtual UAbilitySystemComponent* GetInstigatorAbilitySystemComponent() const
 	{
-		return InstigatorAbilitySystemComponent;
+		return InstigatorAbilitySystemComponent.Get();
 	}
 
 	/** Returns the physical actor tied to the application of this effect */
@@ -304,7 +308,19 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 	/** Returns the ability system component of the instigator that started the whole chain */
 	virtual UAbilitySystemComponent* GetOriginalInstigatorAbilitySystemComponent() const
 	{
-		return InstigatorAbilitySystemComponent;
+		return InstigatorAbilitySystemComponent.Get();
+	}
+
+	/** Sets the object this effect was created from. */
+	virtual void AddSourceObject(const UObject* NewSourceObject)
+	{
+		SourceObject = NewSourceObject;
+	}
+
+	/** Returns the object this effect was created from. */
+	virtual const UObject* GetSourceObject() const
+	{
+		return SourceObject.Get();
 	}
 
 	virtual void AddActors(TArray<TWeakObjectPtr<AActor>> InActor, bool bReset = false);
@@ -366,6 +382,7 @@ struct GAMEPLAYABILITIES_API FGameplayEffectContext
 	virtual bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 protected:
+	// The object pointers here have to be weak because contexts aren't necessarily tracked by GC in all cases
 
 	/** Instigator actor, the actor that owns the ability system component */
 	UPROPERTY()
@@ -375,9 +392,13 @@ protected:
 	UPROPERTY()
 	TWeakObjectPtr<AActor> EffectCauser;
 
+	/** Object this effect was created from, can be an actor or static object. Useful to bind an effect to a gameplay object */
+	UPROPERTY()
+	TWeakObjectPtr<const UObject> SourceObject;
+
 	/** The ability system component that's bound to instigator */
 	UPROPERTY(NotReplicated)
-	UAbilitySystemComponent* InstigatorAbilitySystemComponent;
+	TWeakObjectPtr<UAbilitySystemComponent> InstigatorAbilitySystemComponent;
 
 	UPROPERTY()
 	TArray<TWeakObjectPtr<AActor>> Actors;
@@ -447,11 +468,11 @@ struct FGameplayEffectContextHandle
 	}
 
 	/** Returns the list of gameplay tags applicable to this effect, defaults to the owner's tags */
-	void GetOwnedGameplayTags(OUT FGameplayTagContainer &TagContainer) const
+	void GetOwnedGameplayTags(OUT FGameplayTagContainer& ActorTagContainer, OUT FGameplayTagContainer& SpecTagContainer) const
 	{
 		if (IsValid())
 		{
-			Data->GetOwnedGameplayTags(TagContainer);
+			Data->GetOwnedGameplayTags(ActorTagContainer, SpecTagContainer);
 		}
 	}
 
@@ -510,6 +531,25 @@ struct FGameplayEffectContextHandle
 		if (IsValid())
 		{
 			return Data->GetOriginalInstigatorAbilitySystemComponent();
+		}
+		return NULL;
+	}
+
+	/** Sets the object this effect was created from. */
+	void AddSourceObject(const UObject* NewSourceObject)
+	{
+		if (IsValid())
+		{
+			Data->AddSourceObject(NewSourceObject);
+		}
+	}
+
+	/** Returns the object this effect was created from. */
+	const UObject* GetSourceObject() const
+	{
+		if (IsValid())
+		{
+			return Data->GetSourceObject();
 		}
 		return NULL;
 	}
@@ -645,7 +685,13 @@ struct FGameplayCueParameters
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Magnitude of source gameplay effect, normalzed from 0-1. Use this for "how strong is the gameplay effet" (0=min, 1=,max) */
+	FGameplayCueParameters()
+	: NormalizedMagnitude(0.0f)
+	, RawMagnitude(0.0f)
+	, MatchedTagName(NAME_None)
+	{}
+
+	/** Magnitude of source gameplay effect, normalzed from 0-1. Use this for "how strong is the gameplay effect" (0=min, 1=,max) */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	float NormalizedMagnitude;
 
@@ -653,14 +699,25 @@ struct FGameplayCueParameters
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	float RawMagnitude;
 
-	UPROPERTY()
+	/** Effect context, contains information about hit reslt, etc */
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FGameplayEffectContextHandle EffectContext;
 
+	/** The tag name that matched this specific gameplay cue handler */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FName MatchedTagName;
 
+	/** The original tag of the gameplay cue */
 	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
 	FGameplayTag OriginalTag;
+
+	/** The aggregated source tags taken from the effect spec */
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
+	FGameplayTagContainer AggregatedSourceTags;
+
+	/** The aggregated target tags taken from the effect spec */
+	UPROPERTY(BlueprintReadWrite, Category=GameplayCue)
+	FGameplayTagContainer AggregatedTargetTags;
 };
 
 UENUM(BlueprintType)
@@ -694,7 +751,7 @@ DECLARE_DELEGATE_RetVal_OneParam(FOnGameplayEffectTagCountChanged&, FRegisterGam
  * while simultaneously tracking the count of parent tags as well. Events/delegates are fired whenever the tag counts
  * of any tag (explicit or parent) are modified.
  */
-struct FGameplayTagCountContainer
+struct GAMEPLAYABILITIES_API FGameplayTagCountContainer
 {
 	// Constructor
 	FGameplayTagCountContainer()
@@ -772,6 +829,9 @@ private:
 	/** Map of tag to active count of that tag */
 	TMap<FGameplayTag, int32> GameplayTagCountMap;
 
+	/** Map of tag to explicit count of that tag. Cannot share with above map because it's not safe to merge explicit and generic counts */
+	TMap<FGameplayTag, int32> ExplicitTagCountMap;
+
 	/** Delegate fired whenever any tag's count changes to or away from zero */
 	FOnGameplayEffectTagCountChanged OnAnyTagChangeDelegate;
 
@@ -786,16 +846,16 @@ private:
 
 /** Encapsulate require and ignore tags */
 USTRUCT(BlueprintType)
-struct FGameplayTagRequirements
+struct GAMEPLAYABILITIES_API FGameplayTagRequirements
 {
 	GENERATED_USTRUCT_BODY()
 
 	/** All of these tags must be present */
-	UPROPERTY(EditDefaultsOnly, Category = GameplayModifier)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayModifier)
 	FGameplayTagContainer RequireTags;
 
 	/** None of these tags may be present */
-	UPROPERTY(EditDefaultsOnly, Category = GameplayModifier)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayModifier)
 	FGameplayTagContainer IgnoreTags;
 
 	bool	RequirementsMet(const FGameplayTagContainer& Container) const;
@@ -813,13 +873,49 @@ struct GAMEPLAYABILITIES_API FTagContainerAggregator
 
 	FTagContainerAggregator() : CacheIsValid(false) {}
 
+	FTagContainerAggregator(FTagContainerAggregator&& Other)
+		: CapturedActorTags(MoveTemp(Other.CapturedActorTags))
+		, CapturedSpecTags(MoveTemp(Other.CapturedSpecTags))
+		, ScopedTags(MoveTemp(Other.ScopedTags))
+		, CachedAggregator(MoveTemp(Other.CachedAggregator))
+		, CacheIsValid(Other.CacheIsValid)
+	{
+	}
+
+	FTagContainerAggregator(const FTagContainerAggregator& Other)
+		: CapturedActorTags(Other.CapturedActorTags)
+		, CapturedSpecTags(Other.CapturedSpecTags)
+		, ScopedTags(Other.ScopedTags)
+		, CachedAggregator(Other.CachedAggregator)
+		, CacheIsValid(Other.CacheIsValid)
+	{
+	}
+
+	FTagContainerAggregator& operator=(FTagContainerAggregator&& Other)
+	{
+		CapturedActorTags = MoveTemp(Other.CapturedActorTags);
+		CapturedSpecTags = MoveTemp(Other.CapturedSpecTags);
+		ScopedTags = MoveTemp(Other.ScopedTags);
+		CachedAggregator = MoveTemp(Other.CachedAggregator);
+		CacheIsValid = Other.CacheIsValid;
+		return *this;
+	}
+
+	FTagContainerAggregator& operator=(const FTagContainerAggregator& Other)
+	{
+		CapturedActorTags = Other.CapturedActorTags;
+		CapturedSpecTags = Other.CapturedSpecTags;
+		ScopedTags = Other.ScopedTags;
+		CachedAggregator = Other.CachedAggregator;
+		CacheIsValid = Other.CacheIsValid;
+		return *this;
+	}
+
 	FGameplayTagContainer& GetActorTags();
 	const FGameplayTagContainer& GetActorTags() const;
 
 	FGameplayTagContainer& GetSpecTags();
 	const FGameplayTagContainer& GetSpecTags() const;
-
-
 
 	const FGameplayTagContainer* GetAggregatedTags() const;
 
@@ -845,12 +941,8 @@ struct GAMEPLAYABILITIES_API FGameplayEffectSpecHandle
 {
 	GENERATED_USTRUCT_BODY()
 
-	FGameplayEffectSpecHandle() { }
-	FGameplayEffectSpecHandle(FGameplayEffectSpec* DataPtr)
-		: Data(DataPtr)
-	{
-
-	}
+	FGameplayEffectSpecHandle();
+	FGameplayEffectSpecHandle(FGameplayEffectSpec* DataPtr);
 
 	TSharedPtr<FGameplayEffectSpec>	Data;
 

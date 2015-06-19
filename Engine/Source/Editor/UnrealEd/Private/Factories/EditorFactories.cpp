@@ -13,6 +13,7 @@
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundNodeModulator.h"
 #include "Factories.h"
+#include "NormalMapIdentification.h"
 #include "SoundDefinitions.h"
 #include "PhysicsPublic.h"
 #include "BlueprintUtilities.h"
@@ -42,7 +43,7 @@
 #include "EnumEditorUtils.h"
 #include "StructureEditorUtils.h"
 
-#include "Foliage/InstancedFoliageActor.h"
+#include "InstancedFoliageActor.h"
 
 #include "Particles/ParticleSystem.h"
 
@@ -137,7 +138,7 @@ UObject* UTexture2DFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InPar
 		return nullptr;
 	}
 
-	UTexture2D* Object = CastChecked<UTexture2D>(StaticConstructObject(InClass,InParent,InName,Flags) );
+	UTexture2D* Object = NewObject<UTexture2D>(InParent, InClass, InName, Flags);
 
 	Object->Source.Init2DWithMipChain(Width, Height, TSF_BGRA8);
 
@@ -148,7 +149,7 @@ UObject* UTexture2DFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InPar
 		Object->Source.GetMipData( TexturePixels, 0 );
 
 		uint8* DestData = Object->Source.LockMip(0);
-		FMemory::MemSet(DestData, TexturePixels.Num() * sizeof( uint8 ) );
+		FMemory::Memset(DestData, TexturePixels.Num() * sizeof( uint8 ), 255 );
 		Object->Source.UnlockMip(0);
 
 		Object->PostEditChange();
@@ -170,7 +171,7 @@ UMaterialInstanceConstantFactoryNew::UMaterialInstanceConstantFactoryNew(const F
 
 UObject* UMaterialInstanceConstantFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	UMaterialInstanceConstant* MIC = CastChecked<UMaterialInstanceConstant>(StaticConstructObject(Class,InParent,Name,Flags));
+	auto MIC = NewObject<UMaterialInstanceConstant>(InParent, Class, Name, Flags);
 	
 	if ( MIC )
 	{
@@ -200,12 +201,12 @@ UMaterialFactoryNew::UMaterialFactoryNew(const FObjectInitializer& ObjectInitial
 
 UObject* UMaterialFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	UMaterial* NewMaterial = ConstructObject<UMaterial>(Class, InParent, Name, Flags);
+	UMaterial* NewMaterial = NewObject<UMaterial>(InParent, Class, Name, Flags);
 
 	if ( InitialTexture != nullptr )
 	{
 		// An initial texture was specified, add it and assign it to the BaseColor
-		UMaterialExpressionTextureSample* Expression = ConstructObject<UMaterialExpressionTextureSample>( UMaterialExpressionTextureSample::StaticClass(), NewMaterial );
+		UMaterialExpressionTextureSample* Expression = NewObject<UMaterialExpressionTextureSample>(NewMaterial);
 		NewMaterial->Expressions.Add( Expression );
 
 		NewMaterial->BaseColor.Expression = Expression;
@@ -242,7 +243,7 @@ UMaterialFunctionFactoryNew::UMaterialFunctionFactoryNew(const FObjectInitialize
 
 UObject* UMaterialFunctionFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return StaticConstructObject(Class,InParent,Name,Flags);
+	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
 
@@ -260,7 +261,7 @@ UMaterialParameterCollectionFactoryNew::UMaterialParameterCollectionFactoryNew(c
 
 UObject* UMaterialParameterCollectionFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return StaticConstructObject(Class,InParent,Name,Flags);
+	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
 /*------------------------------------------------------------------------------
@@ -635,7 +636,7 @@ UObject* ULevelFactory::FactoryCreateText
 
 									// Place the group in the map so we can find it later.
 									NewGroups.Add( GroupName, SpawnedGroupActor);
-									GEditor->SetActorLabelUnique(SpawnedGroupActor, GroupName);
+									FActorLabelUtilities::SetActorLabelUnique(SpawnedGroupActor, GroupName);
 								}
 
 								// If we're copying a sub-group, add add duplicated group to original parent
@@ -837,7 +838,7 @@ UObject* ULevelFactory::FactoryCreateText
 			if ( Actor->ShouldImport(PropText, bIsMoveToStreamingLevel) )
 			{
 				Actor->PreEditChange(nullptr);
-				ImportObjectProperties( (uint8*)Actor, **PropText, Actor->GetClass(), Actor, Actor, Warn, 0 );
+				ImportObjectProperties( (uint8*)Actor, **PropText, Actor->GetClass(), Actor, Actor, Warn, 0, INDEX_NONE, NULL, &NewActorsFNames );
 				bActorChanged = true;
 
 				GEditor->SelectActor( Actor, true, false, true );
@@ -1126,7 +1127,7 @@ UObject* UPackageFactory::FactoryCreateText( UClass* Class, UObject* InParent, F
 					}
 					check(ParentPkg);
 
-					UPackage* NewPackage = Cast<UPackage>(StaticConstructObject(UPackage::StaticClass(), ParentPkg, NewPackageName, RF_NoFlags, Archetype));
+					auto NewPackage = NewObject<UPackage>(ParentPkg, NewPackageName, RF_NoFlags, Archetype);
 					check(NewPackage);
 					NewPackage->SetFlags(RF_Standalone|RF_Public);
 					MapPackages.Add(NewPackageName.ToString(), NewPackage);
@@ -1202,7 +1203,7 @@ UObject* UPolysFactory::FactoryCreateText
 	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
 
 	// Create polys.	
-	UPolys* Polys = Context ? CastChecked<UPolys>(Context) : NewNamedObject<UPolys>(InParent, Name, Flags);
+	UPolys* Polys = Context ? CastChecked<UPolys>(Context) : NewObject<UPolys>(InParent, Name, Flags);
 
 	// Eat up if present.
 	GetBEGIN( &Buffer, TEXT("POLYLIST") );
@@ -1474,7 +1475,7 @@ UObject* UModelFactory::FactoryCreateText
 	FEditorDelegates::OnAssetPreImport.Broadcast(this, Class, InParent, Name, Type);
 
 	ABrush* TempOwner = (ABrush*)Context;
-	UModel* Model = NewNamedObject<UModel>(InParent, Name, Flags);
+	UModel* Model = NewObject<UModel>(InParent, Name, Flags);
 	Model->Initialize(TempOwner, true);
 
 	const TCHAR* StrPtr;
@@ -1560,7 +1561,7 @@ void CreateSoundCue( USoundWave* Sound, UObject* InParent, EObjectFlags Flags, b
 	FString SoundCueName = FString::Printf( TEXT( "%s_Cue" ), *Sound->GetName() );
 
 	// Create sound cue and wave player
-	USoundCue* SoundCue = ConstructObject<USoundCue>( USoundCue::StaticClass(), InParent, *SoundCueName, Flags );
+	USoundCue* SoundCue = NewObject<USoundCue>(InParent, *SoundCueName, Flags);
 	USoundNodeWavePlayer* WavePlayer = SoundCue->ConstructSoundNode<USoundNodeWavePlayer>(); 
 
 	int32 NodeIndex = ( int32 )bIncludeAttenuationNode + ( int32 )bIncludeModulatorNode + ( int32 )bIncludeLoopingNode;
@@ -1615,7 +1616,7 @@ UReverbEffectFactory::UReverbEffectFactory(const FObjectInitializer& ObjectIniti
 
 UObject* UReverbEffectFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	UReverbEffect* ReverbEffect = ConstructObject<UReverbEffect>( UReverbEffect::StaticClass(), InParent, InName, Flags );
+	UReverbEffect* ReverbEffect = NewObject<UReverbEffect>(InParent, InName, Flags);
 
 	return ReverbEffect;
 }
@@ -1694,23 +1695,19 @@ UObject* USoundFactory::FactoryCreateBinary
 
 		// TODO - Audio Threading. This needs to be sent to the audio device and wait on stopping the sounds
 		TArray<UAudioComponent*> ComponentsToRestart;
-		FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
-		if (AudioDevice && ExistingSound)
+		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+		if (AudioDeviceManager && ExistingSound)
 		{
-			AudioDevice->StopSoundsUsingResource(ExistingSound, ComponentsToRestart);
+			AudioDeviceManager->StopSoundsUsingResource(ExistingSound, ComponentsToRestart);
 		}
 
 		bool bUseExistingSettings = bSoundFactorySuppressImportOverwriteDialog;
 
 		if( ExistingSound && !bSoundFactorySuppressImportOverwriteDialog && !GIsAutomationTesting )
 		{
-			// Prompt the user for what to do if a 'To All' response wasn't already given.
-			if( OverwriteYesOrNoToAllState != EAppReturnType::YesAll && OverwriteYesOrNoToAllState != EAppReturnType::NoAll )
-			{
-				OverwriteYesOrNoToAllState = FMessageDialog::Open( EAppMsgType::YesNoYesAllNoAllCancel, FText::Format(
-						NSLOCTEXT("UnrealEd", "ImportedSoundAlreadyExists_F", "You are about to import '{0}' over an existing sound. Would you like to overwrite the existing settings?\n\nYes or Yes to All: Overwrite the existing settings.\nNo or No to All: Preserve the existing settings.\nCancel: Abort the operation." ),
-						FText::FromName(Name) ) );
-			}
+			DisplayOverwriteOptionsDialog(FText::Format(
+				NSLOCTEXT("SoundFactory", "ImportOverwriteWarning", "You are about to import '{0}' over an existing sound."),
+				FText::FromName(Name)));
 
 			switch( OverwriteYesOrNoToAllState )
 			{
@@ -1775,7 +1772,7 @@ UObject* USoundFactory::FactoryCreateBinary
 
 		// Use pre-existing sound if it exists and we want to keep settings,
 		// otherwise create new sound and import raw data.
-		USoundWave* Sound = (bUseExistingSettings && ExistingSound) ? ExistingSound : NewNamedObject<USoundWave>(InParent, Name, Flags);
+		USoundWave* Sound = (bUseExistingSettings && ExistingSound) ? ExistingSound : NewObject<USoundWave>(InParent, Name, Flags);
 		
 		if (bUseExistingSettings && ExistingSound)
 		{
@@ -1858,7 +1855,7 @@ UDialogueVoiceFactory::UDialogueVoiceFactory(const FObjectInitializer& ObjectIni
 
 UObject* UDialogueVoiceFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return StaticConstructObject(Class,InParent,Name,Flags);
+	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1875,7 +1872,7 @@ UDialogueWaveFactory::UDialogueWaveFactory(const FObjectInitializer& ObjectIniti
 
 UObject* UDialogueWaveFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return StaticConstructObject(Class,InParent,Name,Flags);
+	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2082,7 +2079,7 @@ UObject* USoundSurroundFactory::FactoryCreateBinary
 
 			if (Sound == nullptr)
 			{
-				Sound = NewNamedObject<USoundWave>(InParent, BaseName, Flags);
+				Sound = NewObject<USoundWave>(InParent, BaseName, Flags);
 			}
 		}
 
@@ -2393,7 +2390,7 @@ USoundCueFactoryNew::USoundCueFactoryNew(const FObjectInitializer& ObjectInitial
 
 UObject* USoundCueFactoryNew::FactoryCreateNew( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	USoundCue* SoundCue = ConstructObject<USoundCue>( USoundCue::StaticClass(), InParent, Name, Flags );
+	USoundCue* SoundCue = NewObject<USoundCue>(InParent, Name, Flags);
 
 	if (InitialSoundWave)
 	{
@@ -2424,7 +2421,7 @@ USoundMixFactory::USoundMixFactory(const FObjectInitializer& ObjectInitializer)
 
 UObject* USoundMixFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	USoundMix* Mix = ConstructObject<USoundMix>( USoundMix::StaticClass(), InParent, InName, Flags );
+	USoundMix* Mix = NewObject<USoundMix>(InParent, InName, Flags);
 
 	return Mix;
 }
@@ -2445,12 +2442,13 @@ USoundClassFactory::USoundClassFactory(const FObjectInitializer& ObjectInitializ
 
 UObject* USoundClassFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	USoundClass* SoundClass = ConstructObject<USoundClass>( USoundClass::StaticClass(), InParent, InName, Flags );
+	USoundClass* SoundClass = NewObject<USoundClass>(InParent, InName, Flags);
 	
-	FAudioDevice* AudioDevice = GEngine ? GEngine->GetAudioDevice() : nullptr;
-	if (AudioDevice)
+
+	class FAudioDeviceManager* AudioDeviceManager = GEngine ? GEngine->GetAudioDeviceManager() : nullptr;
+	if (AudioDeviceManager)
 	{
-		AudioDevice->InitSoundClasses();
+		AudioDeviceManager->InitSoundClasses();
 	}
 
 	return( SoundClass );
@@ -2471,7 +2469,7 @@ USoundAttenuationFactory::USoundAttenuationFactory(const FObjectInitializer& Obj
 
 UObject* USoundAttenuationFactory::FactoryCreateNew( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	return ConstructObject<USoundAttenuation>( USoundAttenuation::StaticClass(), InParent, Name, Flags );
+	return NewObject<USoundAttenuation>(InParent, Name, Flags);
 }
 
 /*------------------------------------------------------------------------------
@@ -2488,7 +2486,7 @@ UParticleSystemFactoryNew::UParticleSystemFactoryNew(const FObjectInitializer& O
 
 UObject* UParticleSystemFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return StaticConstructObject(Class,InParent,Name,Flags);
+	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
 /*------------------------------------------------------------------------------
@@ -2505,7 +2503,7 @@ UPhysicalMaterialFactoryNew::UPhysicalMaterialFactoryNew(const FObjectInitialize
 
 UObject* UPhysicalMaterialFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return StaticConstructObject(Class,InParent,Name,Flags);
+	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
 /*------------------------------------------------------------------------------
@@ -2522,7 +2520,7 @@ UInterpDataFactoryNew::UInterpDataFactoryNew(const FObjectInitializer& ObjectIni
 
 UObject* UInterpDataFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	return StaticConstructObject(Class,InParent,Name,Flags);
+	return NewObject<UObject>(InParent, Class, Name, Flags);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2546,7 +2544,7 @@ UTextureRenderTargetFactoryNew::UTextureRenderTargetFactoryNew(const FObjectInit
 UObject* UTextureRenderTargetFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
 	// create the new object
-	UTextureRenderTarget2D* Result = CastChecked<UTextureRenderTarget2D>( StaticConstructObject(Class,InParent,Name,Flags) );
+	UTextureRenderTarget2D* Result = NewObject<UTextureRenderTarget2D>(InParent, Class, Name, Flags);
 	// initialize the resource
 	Result->InitAutoFormat( Width, Height );
 	return( Result );
@@ -2572,7 +2570,7 @@ UTextureRenderTargetCubeFactoryNew::UTextureRenderTargetCubeFactoryNew(const FOb
 UObject* UTextureRenderTargetCubeFactoryNew::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
 	// create the new object
-	UTextureRenderTargetCube* Result = CastChecked<UTextureRenderTargetCube>(StaticConstructObject(Class, InParent, Name, Flags));
+	UTextureRenderTargetCube* Result = NewObject<UTextureRenderTargetCube>(InParent, Class, Name, Flags);
 
 	// initialize the resource
 	Result->InitAutoFormat(Width);
@@ -3289,7 +3287,6 @@ UTexture2D* DecompressTGA(
 }
 
 bool UTextureFactory::bSuppressImportOverwriteDialog = false;
-bool UTextureFactory::bSuppressImportResolutionWarnings = false;
 
 UTextureFactory::UTextureFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -3337,11 +3334,6 @@ UTextureCube* UTextureFactory::CreateTextureCube( UObject* InParent, FName Name,
 void UTextureFactory::SuppressImportOverwriteDialog()
 {
 	bSuppressImportOverwriteDialog = true;
-}
-
-void UTextureFactory::SuppressImportResolutionWarningDialog()
-{
-	bSuppressImportResolutionWarnings = true;
 }
 
 /**
@@ -4305,12 +4297,9 @@ UObject* UTextureFactory::FactoryCreateBinary
 
 	if(ExistingTexture && !bSuppressImportOverwriteDialog)
 	{
-		// Prompt the user for what to do if a 'To All' response wasn't already given.
-		if( OverwriteYesOrNoToAllState != EAppReturnType::YesAll && OverwriteYesOrNoToAllState != EAppReturnType::NoAll )
-		{
-			OverwriteYesOrNoToAllState = FMessageDialog::Open(EAppMsgType::YesNoYesAllNoAllCancel,
-				NSLOCTEXT("UnrealEd", "ImportedTextureAlreadyExists_F", "The specified texture already exists and will be overwritten.  Do you want to keep the existing texture's settings?" ) );
-		}
+		DisplayOverwriteOptionsDialog(FText::Format(
+			NSLOCTEXT("TextureFactory", "ImportOverwriteWarning", "You are about to import '{0}' over an existing texture."),
+			FText::FromName(Name)));
 
 		switch( OverwriteYesOrNoToAllState )
 		{
@@ -4318,15 +4307,15 @@ UObject* UTextureFactory::FactoryCreateBinary
 		case EAppReturnType::Yes:
 		case EAppReturnType::YesAll:
 			{
-				// Preserve existing settings
-				bUsingExistingSettings = true;
+				// Overwrite existing settings
+				bUsingExistingSettings = false;
 				break;
 			}
 		case EAppReturnType::No:
 		case EAppReturnType::NoAll:
 			{
-				// Overwrite existing settings
-				bUsingExistingSettings = false;
+				// Preserve existing settings
+				bUsingExistingSettings = true;
 				break;
 			}
 		case EAppReturnType::Cancel:
@@ -4503,7 +4492,10 @@ UObject* UTextureFactory::FactoryCreateBinary
 		Texture2D->bHasBeenPaintedInEditor = false;
 	}
 
-	FEditorDelegates::OnAssetPostImport.Broadcast( this, Texture );
+	// Automatically detect if the texture is a normal map and configure its properties accordingly
+	NormalMapIdentification::HandleAssetPostImport(this, Texture);
+
+	FEditorDelegates::OnAssetPostImport.Broadcast(this, Texture);
 
 	// Invalidate any materials using the newly imported texture. (occurs if you import over an existing texture)
 	Texture->PostEditChange();
@@ -4524,7 +4516,7 @@ UObject* UTextureFactory::FactoryCreateBinary
 		FAssetRegistryModule::AssetCreated(Material);
 
 		// Create a texture reference for the texture we just imported and hook it up to the diffuse channel
-		UMaterialExpression* Expression = ConstructObject<UMaterialExpression>( UMaterialExpressionTextureSample::StaticClass(), Material );
+		UMaterialExpression* Expression = NewObject<UMaterialExpression>(Material, UMaterialExpressionTextureSample::StaticClass());
 		Material->Expressions.Add( Expression );
 		TArray<FExpressionOutput> Outputs;
 
@@ -4655,30 +4647,6 @@ bool UTextureFactory::IsImportResolutionValid(int32 Width, int32 Height, bool bA
 		Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString() );
 		bValid = false;
 	}
-
-	// If we are allowed to warn about NPT textures and the texture is not a power of two, display a warning.
-	if( bAllowOneTimeWarningMessages && !bSuppressImportResolutionWarnings && bAllowNonPowerOfTwo && !bIsPowerOfTwo && bValid )
-	{
-		bAllowOneTimeWarningMessages = false;
-
-		FText MessageText;
-		if (GetCurrentFilename().IsEmpty())
-		{
-			MessageText = NSLOCTEXT("UnrealEd", "Warning_NPTTexture", "The texture you are importing is not a power of two.  Non power of two textures are never streamed and have no mipmaps. Proceed?");
-		}
-		else
-		{
-			MessageText = FText::Format(NSLOCTEXT("UnrealEd", "Warning_NPTTexture_Filename", "{0} is not a power of two.  Non power of two textures are never streamed and have no mipmaps. Proceed?"), FText::FromString(FPaths::GetCleanFilename(GetCurrentFilename())));
-		}
-
-		if( EAppReturnType::Yes != FMessageDialog::Open( EAppMsgType::YesNo, MessageText ) )
-		{
-			bValid = false;
-		}
-	}
-
-	// Reset the suppression so that future imports can still warn
-	bSuppressImportResolutionWarnings = false;
 	
 	return bValid;
 }
@@ -4769,9 +4737,21 @@ bool UTextureExporterBMP::ExportBinary( UObject* Object, const TCHAR* Type, FArc
 {
 	UTexture2D* Texture = CastChecked<UTexture2D>( Object );
 
-	if( !Texture->Source.IsValid() || Texture->Source.GetFormat() != TSF_BGRA8 )
+	if( !Texture->Source.IsValid() || ( Texture->Source.GetFormat() != TSF_BGRA8 && Texture->Source.GetFormat() != TSF_RGBA16 ) )
 	{
 		return false;
+	}
+
+	const bool bIsRGBA16 = Texture->Source.GetFormat() == TSF_RGBA16;
+	const int32 SourceBytesPerPixel = bIsRGBA16 ? 8 : 4;
+
+	if (bIsRGBA16)
+	{
+		FMessageLog ExportWarning("EditorErrors");
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("Name"), FText::FromString(Texture->GetName()));
+		ExportWarning.Warning(FText::Format(LOCTEXT("BitDepthWarning", "{Name}: Texture is RGBA16 and cannot be represented at such high bit depth in .bmp. Color will be scaled to RGBA8."), Arguments));
+		ExportWarning.Open(EMessageSeverity::Warning);
 	}
 
 	int32 SizeX = Texture->Source.GetSizeX();
@@ -4786,9 +4766,9 @@ bool UTextureExporterBMP::ExportBinary( UObject* Object, const TCHAR* Type, FArc
 	bmf.bfType      = 'B' + (256*(int32)'M');
 	bmf.bfReserved1 = 0;
 	bmf.bfReserved2 = 0;
-	int32 biSizeImage	= SizeX * SizeY * 3;
+	int32 biSizeImage = SizeX * SizeY * 3;
 	bmf.bfOffBits   = sizeof(FBitmapFileHeader) + sizeof(FBitmapInfoHeader);
-	bmhdr.biBitCount= 24;
+	bmhdr.biBitCount = 24;
 
 	bmf.bfSize		= bmf.bfOffBits + biSizeImage;
 	Ar << bmf;
@@ -4810,13 +4790,23 @@ bool UTextureExporterBMP::ExportBinary( UObject* Object, const TCHAR* Type, FArc
 	// Upside-down scanlines.
 	for( int32 i=SizeY-1; i>=0; i-- )
 	{
-		uint8* ScreenPtr = &RawData[i*SizeX*4];
+		uint8* ScreenPtr = &RawData[i*SizeX*SourceBytesPerPixel];
 		for( int32 j=SizeX; j>0; j-- )
 		{
-			Ar << *ScreenPtr++;
-			Ar << *ScreenPtr++;
-			Ar << *ScreenPtr++;
-			ScreenPtr++;
+			if (bIsRGBA16)
+			{
+				Ar << ScreenPtr[1];
+				Ar << ScreenPtr[3];
+				Ar << ScreenPtr[5];
+				ScreenPtr += 8;
+			}
+			else
+			{
+				Ar << ScreenPtr[0];
+				Ar << ScreenPtr[1];
+				Ar << ScreenPtr[2];
+				ScreenPtr += 4;
+			}
 		}
 	}
 	return true;
@@ -5130,10 +5120,23 @@ bool UTextureExporterTGA::ExportBinary( UObject* Object, const TCHAR* Type, FArc
 {
 	UTexture2D* Texture = CastChecked<UTexture2D>( Object );
 
-	if( !Texture->Source.IsValid() || Texture->Source.GetFormat() != TSF_BGRA8 )
+	if (!Texture->Source.IsValid() || (Texture->Source.GetFormat() != TSF_BGRA8 && Texture->Source.GetFormat() != TSF_RGBA16))
 	{
 		return false;
 	}
+
+	const bool bIsRGBA16 = Texture->Source.GetFormat() == TSF_RGBA16;
+
+	if (bIsRGBA16)
+	{
+		FMessageLog ExportWarning("EditorErrors");
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("Name"), FText::FromString(Texture->GetName()));
+		ExportWarning.Warning(FText::Format(LOCTEXT("BitDepthWarning", "{Name}: Texture is RGBA16 and cannot be represented at such high bit depth in .tga. Color will be scaled to RGBA8."), Arguments));
+		ExportWarning.Open(EMessageSeverity::Warning);
+	}
+
+	const int32 BytesPerPixel = bIsRGBA16 ? 8 : 4;
 
 	int32 SizeX = Texture->Source.GetSizeX();
 	int32 SizeY = Texture->Source.GetSizeY();
@@ -5148,13 +5151,14 @@ bool UTextureExporterTGA::ExportBinary( UObject* Object, const TCHAR* Type, FArc
 		// If the texture isn't compressed with no alpha scan the texture to see if the alpha values are all 255 which means we can skip exporting it.
 		// This is a relatively slow process but we are just exporting textures 
 		bExportWithAlpha = false;
+		const int32 AlphaOffset = bIsRGBA16 ? 7 : 3;
 		for( int32 Y = SizeY - 1; Y >= 0; --Y )
 		{
-			uint8* Color = &RawData[Y * SizeX * 4];
+			uint8* Color = &RawData[Y * SizeX * BytesPerPixel];
 			for( int32 X = SizeX; X > 0; --X )
 			{
 				// Skip color info
-				Color+=3;
+				Color += AlphaOffset;
 				// Get Alpha value then increment the pointer past it for the next pixel
 				uint8 Alpha = *Color++;
 				if( Alpha != 255 )
@@ -5183,7 +5187,7 @@ bool UTextureExporterTGA::ExportBinary( UObject* Object, const TCHAR* Type, FArc
 	TGA.Width = OriginalWidth;
 	Ar.Serialize( &TGA, sizeof(TGA) );
 
-	if( bExportWithAlpha )
+	if( bExportWithAlpha && !bIsRGBA16)
 	{
 		for( int32 Y=0;Y < OriginalHeight;Y++ )
 		{
@@ -5196,14 +5200,28 @@ bool UTextureExporterTGA::ExportBinary( UObject* Object, const TCHAR* Type, FArc
 		// Serialize each pixel
 		for( int32 Y = OriginalHeight - 1; Y >= 0; --Y )
 		{
-			uint8* Color = &RawData[Y * OriginalWidth * 4];
+			uint8* Color = &RawData[Y * OriginalWidth * BytesPerPixel];
 			for( int32 X = OriginalWidth; X > 0; --X )
 			{
-				Ar << *Color++;
-				Ar << *Color++;
-				Ar << *Color++;
-				// Skip alpha channel since we are exporting with no alpha
-				Color++;
+				if (bIsRGBA16)
+				{
+					Ar << Color[1];
+					Ar << Color[3];
+					Ar << Color[5];
+					if (bExportWithAlpha)
+					{
+						Ar << Color[7];
+					}
+					Color += 8;
+				}
+				else
+				{
+					Ar << *Color++;
+					Ar << *Color++;
+					Ar << *Color++;
+					// Skip alpha channel since we are exporting with no alpha
+					Color++;
+				}
 			}
 		}
 	}
@@ -5231,7 +5249,7 @@ UFontFactory::UFontFactory(const FObjectInitializer& ObjectInitializer)
 
 UObject* UFontFactory::FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags InFlags, UObject* InContext, FFeedbackContext* InWarn)
 {
-	UFont* const Font = ConstructObject<UFont>(InClass, InParent, InName, InFlags);
+	UFont* const Font = NewObject<UFont>(InParent, InClass, InName, InFlags);
 	if(Font)
 	{
 		Font->FontCacheType = EFontCacheType::Runtime;
@@ -5258,7 +5276,7 @@ UObject* UFontFileImportFactory::FactoryCreateBinary(UClass* InClass, UObject* I
 {
 	FEditorDelegates::OnAssetPreImport.Broadcast(this, InClass, InParent, InName, InType);
 
-	UFont* const Font = ConstructObject<UFont>(InClass, InParent, InName, InFlags);
+	UFont* const Font = NewObject<UFont>(InParent, InClass, InName, InFlags);
 	if(Font)
 	{
 		Font->FontCacheType = EFontCacheType::Runtime;
@@ -5337,16 +5355,18 @@ void FCustomizableTextObjectFactory::ProcessBuffer(UObject* InParent, EObjectFla
 				FParse::Value( Str, TEXT("NAME="), ObjName );
 
 				// Setup archetype
+				UObject* ObjArchetype = nullptr;
 				FString ObjArchetypeName;
-				FParse::Value( Str, TEXT("ARCHETYPE="), ObjArchetypeName );
-				UObject* ObjArchetype;
-				ObjArchetype = LoadObject<UObject>(nullptr, *ObjArchetypeName, nullptr, LOAD_None, nullptr);
+				if (FParse::Value(Str, TEXT("ARCHETYPE="), ObjArchetypeName))
+				{
+					ObjArchetype = LoadObject<UObject>(nullptr, *ObjArchetypeName, nullptr, LOAD_None, nullptr);
+				}
 
 				// Make sure this name is not used by anything else. Will rename other stuff if necessary
 				ClearObjectNameUsage(InParent, ObjName);
 
 				// Spawn the object and reset it's archetype
-				UObject* CreatedObject = ConstructObject<UObject>( ObjClass, InParent, ObjName, Flags, ObjArchetype, !!InParent, &InstanceGraph );
+				UObject* CreatedObject = NewObject<UObject>(InParent, ObjClass, ObjName, Flags, ObjArchetype, !!InParent, &InstanceGraph);
 
 				// Get property text for the new object.
 				FString PropText, PropLine;
@@ -5490,7 +5510,7 @@ UTextureCube* UReimportTextureFactory::CreateTextureCube( UObject* InParent, FNa
 bool UReimportTextureFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
 {	
 	UTexture* pTex = Cast<UTexture>(Obj);
-	if(pTex)
+	if( pTex && !pTex->IsA<UTextureRenderTarget>() )
 	{
 		OutFilenames.Add(FReimportManager::ResolveImportFilename(pTex->SourceFilePath, pTex));
 		return true;
@@ -5652,7 +5672,7 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 
 	UFbxStaticMeshImportData* ImportData = Cast<UFbxStaticMeshImportData>(Mesh->AssetImportData);
 	
-	UFbxImportUI* ReimportUI = ConstructObject<UFbxImportUI>(UFbxImportUI::StaticClass());
+	UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
 	ReimportUI->MeshTypeToImport = FBXIT_StaticMesh;
 	ReimportUI->bOverrideFullName = false;
 	ReimportUI->bCombineMeshes = true;
@@ -5833,7 +5853,7 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 
 	if( !ImportUI )
 	{
-		ImportUI = ConstructObject<UFbxImportUI>( UFbxImportUI::StaticClass(), this, NAME_None, RF_Public );
+		ImportUI = NewObject<UFbxImportUI>(this, NAME_None, RF_Public);
 	}
 
 	UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
@@ -5842,7 +5862,7 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 	UFbxSkeletalMeshImportData* ImportData = Cast<UFbxSkeletalMeshImportData>(SkeletalMesh->AssetImportData);
 	
 	// Prepare the import options
-	UFbxImportUI* ReimportUI = ConstructObject<UFbxImportUI>(UFbxImportUI::StaticClass());
+	UFbxImportUI* ReimportUI = NewObject<UFbxImportUI>();
 	ReimportUI->MeshTypeToImport = FBXIT_SkeletalMesh;
 	ReimportUI->bOverrideFullName = false;
 	ReimportUI->Skeleton = SkeletalMesh->Skeleton;
@@ -5924,6 +5944,12 @@ EReimportResult::Type UReimportFbxSkeletalMeshFactory::Reimport( UObject* Obj )
 		FFbxImporter->ReleaseScene(); 
 
 		CleanUp();
+
+		// Reimporting can have dangerous effects if the mesh is still in the transaction buffer.  Reset the transaction buffer if this is the case
+		if( GEditor->IsObjectInTransactionBuffer( SkeletalMesh ) )
+		{
+			GEditor->ResetTransaction( LOCTEXT("ReimportSkeletalMeshTransactionReset", "Reimporting a skeletal mesh which was in the undo buffer") );
+		}
 
 		return bSuccess ? EReimportResult::Succeeded : EReimportResult::Failed;
 	}
@@ -6475,7 +6501,7 @@ UObject* UCurveFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName
 	UCurveBase* NewCurve = nullptr;
 	if(CurveClass != nullptr)
 	{
-		NewCurve = CastChecked<UCurveBase>(StaticConstructObject(CurveClass,InParent,Name,Flags));		
+		NewCurve = NewObject<UCurveBase>(InParent, CurveClass, Name, Flags);
 	}
 
 	return NewCurve;
@@ -6558,7 +6584,7 @@ UObject* UCurveImportFactory::FactoryCreateText( UClass* InClass, UObject* InPar
 		// make the curve object and set up the keys
 		if (FloatKeys.Num() > 0)
 		{
-			UCurveFloat* NewCurve = CastChecked<UCurveFloat>(StaticConstructObject(UCurveFloat::StaticClass(),InParent,InName,Flags));
+			UCurveFloat* NewCurve = NewObject<UCurveFloat>(InParent,InName,Flags);
 
 			if (NewCurve)
 			{
@@ -6596,7 +6622,7 @@ UObjectLibraryFactory::UObjectLibraryFactory(const FObjectInitializer& ObjectIni
 
 UObject* UObjectLibraryFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	return CastChecked<UObjectLibrary>(StaticConstructObject(Class,InParent,Name,Flags));
+	return NewObject<UObjectLibrary>(InParent, Class, Name, Flags);
 }
 
 /*------------------------------------------------------------------------------
@@ -6645,13 +6671,13 @@ UObject* UDataAssetFactory::FactoryCreateNew(UClass* Class, UObject* InParent, F
 {
 	if (DataAssetClass != nullptr)
 	{
-		return CastChecked<UDataAsset>(StaticConstructObject(DataAssetClass, InParent, Name, Flags | RF_Transactional));
+		return NewObject<UDataAsset>(InParent, DataAssetClass, Name, Flags | RF_Transactional);
 	}
 	else
 	{
 		// if we have no data asset class, use the passed-in class instead
 		check(Class->IsChildOf(UDataAsset::StaticClass()));
-		return CastChecked<UDataAsset>(StaticConstructObject(Class, InParent, Name, Flags));
+		return NewObject<UDataAsset>(InParent, Class, Name, Flags);
 	}
 }
 
@@ -6781,7 +6807,7 @@ void UReimportDestructibleMeshFactory::SetReimportPaths( UObject* Obj, const TAr
 		if ( DestructibleMesh->AssetImportData == nullptr )
 		{
 			// @todo AssetImportData make an apex destructible import data class
-			DestructibleMesh->AssetImportData = ConstructObject<UAssetImportData>(UAssetImportData::StaticClass(), DestructibleMesh);
+			DestructibleMesh->AssetImportData = NewObject<UAssetImportData>(DestructibleMesh);
 		}
 
 		DestructibleMesh->AssetImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(NewReimportPaths[0], DestructibleMesh);
@@ -6801,7 +6827,7 @@ EReimportResult::Type UReimportDestructibleMeshFactory::Reimport( UObject* Obj )
 	if ( DestructibleMesh->AssetImportData == nullptr )
 	{
 		// @todo AssetImportData make an apex destructible import data class
-		DestructibleMesh->AssetImportData = ConstructObject<UAssetImportData>(UAssetImportData::StaticClass(), DestructibleMesh);
+		DestructibleMesh->AssetImportData = NewObject<UAssetImportData>(DestructibleMesh);
 	}
 
 	const FString Filename = FReimportManager::ResolveImportFilename(DestructibleMesh->AssetImportData->SourceFilePath, DestructibleMesh);
@@ -6925,7 +6951,7 @@ UObject* UBlendSpaceFactoryNew::FactoryCreateNew(UClass* Class,UObject* InParent
 {
 	if (TargetSkeleton)
 	{
-		UBlendSpace * BlendSpace = Cast<UBlendSpace>(StaticConstructObject(Class,InParent,Name,Flags));
+		UBlendSpace * BlendSpace = NewObject<UBlendSpace>(InParent, Class, Name, Flags);
 
 		BlendSpace->SetSkeleton(TargetSkeleton);
 
@@ -6995,7 +7021,7 @@ UObject* UBlendSpaceFactory1D::FactoryCreateNew(UClass* Class,UObject* InParent,
 {
 	if (TargetSkeleton)
 	{
-		UBlendSpace1D * BlendSpace = Cast<UBlendSpace1D>(StaticConstructObject(Class,InParent,Name,Flags));
+		UBlendSpace1D * BlendSpace = NewObject<UBlendSpace1D>(InParent, Class, Name, Flags);
 
 		BlendSpace->SetSkeleton(TargetSkeleton);
 
@@ -7025,7 +7051,7 @@ UObject* UAimOffsetBlendSpaceFactoryNew::FactoryCreateNew(UClass* Class,UObject*
 {
 	if (TargetSkeleton)
 	{
-		UAimOffsetBlendSpace * BlendSpace = Cast<UAimOffsetBlendSpace>(StaticConstructObject(Class,InParent,Name,Flags));
+		UAimOffsetBlendSpace * BlendSpace = NewObject<UAimOffsetBlendSpace>(InParent, Class, Name, Flags);
 
 		BlendSpace->SetSkeleton(TargetSkeleton);
 
@@ -7049,7 +7075,7 @@ UObject* UAimOffsetBlendSpaceFactory1D::FactoryCreateNew(UClass* Class,UObject* 
 {
 	if (TargetSkeleton)
 	{
-		UAimOffsetBlendSpace1D * BlendSpace = Cast<UAimOffsetBlendSpace1D>(StaticConstructObject(Class,InParent,Name,Flags));
+		UAimOffsetBlendSpace1D * BlendSpace = NewObject<UAimOffsetBlendSpace1D>(InParent, Class, Name, Flags);
 
 		BlendSpace->SetSkeleton(TargetSkeleton);
 
@@ -7120,7 +7146,7 @@ UForceFeedbackEffectFactory::UForceFeedbackEffectFactory(const FObjectInitialize
 
 UObject* UForceFeedbackEffectFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	return ConstructObject<UForceFeedbackEffect>( UForceFeedbackEffect::StaticClass(), InParent, InName, Flags );
+	return NewObject<UForceFeedbackEffect>(InParent, InName, Flags);
 }
 
 /*-----------------------------------------------------------------------------
@@ -7138,7 +7164,7 @@ USubsurfaceProfileFactory::USubsurfaceProfileFactory(const FObjectInitializer& O
 
 UObject* USubsurfaceProfileFactory::FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	return ConstructObject<USubsurfaceProfile>(USubsurfaceProfile::StaticClass(), InParent, InName, Flags);
+	return NewObject<USubsurfaceProfile>(InParent, InName, Flags);
 }
 
 /*-----------------------------------------------------------------------------
@@ -7157,7 +7183,7 @@ UTouchInterfaceFactory::UTouchInterfaceFactory(const FObjectInitializer& ObjectI
 
 UObject* UTouchInterfaceFactory::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	return ConstructObject<UTouchInterface>( UTouchInterface::StaticClass(), InParent, InName, Flags );
+	return NewObject<UTouchInterface>(InParent, InName, Flags);
 }
 
 /*------------------------------------------------------------------------------
@@ -7188,8 +7214,8 @@ uint32 UCameraAnimFactory::GetMenuCategories() const
 
 UObject* UCameraAnimFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	UCameraAnim* NewCamAnim = CastChecked<UCameraAnim>(StaticConstructObject(Class,InParent,Name,Flags));
-	NewCamAnim->CameraInterpGroup = ConstructObject<UInterpGroupCamera>(UInterpGroupCamera::StaticClass(), NewCamAnim);
+	UCameraAnim* NewCamAnim = NewObject<UCameraAnim>(InParent, Class, Name, Flags);
+	NewCamAnim->CameraInterpGroup = NewObject<UInterpGroupCamera>(NewCamAnim);
 	NewCamAnim->CameraInterpGroup->GroupName = Name;
 	return NewCamAnim;
 }
@@ -7216,15 +7242,15 @@ bool UDataTableFactory::ConfigureProperties()
 	public:
 		FDataTableFactoryUI() : ResultStruct(NULL) {}
 
-		TSharedRef<SWidget> MakeRowStructItemWidget(class UScriptStruct* Struct) const
+		TSharedRef<SWidget> MakeRowStructItemWidget(class UScriptStruct* InStruct) const
 		{
-			return SNew(STextBlock).Text(Struct ? Struct->GetDisplayNameText() : FText::GetEmpty());
+			return SNew(STextBlock).Text(InStruct ? InStruct->GetDisplayNameText() : FText::GetEmpty());
 		}
 
 		FText GetSelectedRowOptionText() const
 		{
-			UScriptStruct* Struct = RowStructCombo.IsValid() ? RowStructCombo->GetSelectedItem() : NULL;
-			return Struct ? Struct->GetDisplayNameText() : FText::GetEmpty();
+			UScriptStruct* RowStruct = RowStructCombo.IsValid() ? RowStructCombo->GetSelectedItem() : NULL;
+			return RowStruct ? RowStruct->GetDisplayNameText() : FText::GetEmpty();
 		}
 
 		FReply OnCreate()
@@ -7328,7 +7354,7 @@ UObject* UDataTableFactory::FactoryCreateNew(UClass* Class, UObject* InParent, F
 	if (Struct && ensure(UDataTable::StaticClass() == Class))
 	{
 		ensure(0 != (RF_Public & Flags));
-		DataTable = NewNamedObject<UDataTable>(InParent, Name, Flags);
+		DataTable = NewObject<UDataTable>(InParent, Name, Flags);
 		if (DataTable)
 		{
 			DataTable->RowStruct = Struct;

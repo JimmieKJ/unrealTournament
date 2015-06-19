@@ -29,7 +29,7 @@ private:
 	 *
 	 * Whenever possible, LeafWidgets should avoid dealing with layout properties. See TextBlock for an example.
 	 */
-	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const = 0;
+	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override = 0;
 	
 	/**
 	 * Overwritten from SWidget.
@@ -38,16 +38,16 @@ private:
 	 * take child widgets into account as LeafWidgets have none by definition. For example, the TextBlock widget simply
 	 * measures the area necessary to display its text with the given font and font size.
 	 */
-	virtual FVector2D ComputeDesiredSize( ) const = 0;
+	virtual FVector2D ComputeDesiredSize(float) const override = 0;
 	
 	/**
 	 * Overwritten from SWidget.
 	 *
 	 * Leaf widgets never have children.
 	 */
-	virtual FChildren* GetChildren( );
+	virtual FChildren* GetChildren() override;
 
-	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const;
+	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 
 private:
 

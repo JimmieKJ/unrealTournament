@@ -2,7 +2,38 @@
 
 #pragma once
 
+#include "Visibility.h"
 #include "SlateRenderTransform.h"
+#include "NavigationReply.h"
+#include "SlateColor.h"
+#include "WidgetActiveTimerDelegate.h"
+#include "DeclarativeSyntaxSupport.h"
+
+class ISlateMetaData;
+class FActiveTimerHandle;
+class FPaintArgs;
+class FSlateRect;
+class FSlateWindowElementList;
+class FWidgetStyle;
+class FWeakWidgetPath;
+class FWidgetPath;
+class FDragDropEvent;
+class FSlotBase;
+class FArrangedChildren;
+class FChildren;
+class FArrangedWidget;
+struct FSlateBrush;
+struct FGeometry;
+struct FFocusEvent;
+struct FKeyboardFocusEvent;
+struct FCharacterEvent;
+struct FKeyEvent;
+struct FControllerEvent;
+struct FAnalogInputEvent;
+struct FPointerEvent;
+struct FMotionEvent;
+struct FVirtualPointerPosition;
+struct FNavigationEvent;
 
 enum class EPopupMethod : uint8;
 
@@ -35,6 +66,7 @@ public:
 	}
 };
 
+class IToolTip;
 
 /**
  * Abstract base class for Slate widgets.
@@ -63,6 +95,8 @@ class SLATECORE_API SWidget
 	: public FSlateControlledConstruction,
 	  public TSharedFromThis<SWidget>		// Enables 'this->AsShared()'
 {
+	friend struct FCurveSequence;
+
 public:
 	
 	/**
@@ -117,7 +151,7 @@ public:
 	int32 Paint(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const { return 0; }
 
 	/**
-	 * Ticks this widget.  Override in derived classes, but always call the parent implementation.
+	 * Ticks this widget with Geometry.  Override in derived classes, but always call the parent implementation.
 	 *
 	 * @param  AllottedGeometry The space allotted for this widget
 	 * @param  InCurrentTime  Current absolute real time
@@ -145,9 +179,6 @@ public:
 	 */
 	virtual FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent);
 
-	DEPRECATED(4.6, "SWidget::OnKeyboardFocusReceived() is deprecated, implement SWidget::OnFocusReceived() instead.")
-	virtual FReply OnKeyboardFocusReceived(const FGeometry& MyGeometry, const FKeyboardFocusEvent& InFocusEvent);
-
 	/**
 	 * Called when this widget loses focus.  This event does not bubble.
 	 *
@@ -155,14 +186,8 @@ public:
 	 */
 	virtual void OnFocusLost(const FFocusEvent& InFocusEvent);
 
-	DEPRECATED(4.6, "SWidget::OnKeyboardFocusLost() is deprecated, implement SWidget::OnFocusLost() instead.")
-	virtual void OnKeyboardFocusLost(const FKeyboardFocusEvent& InFocusEvent);
-
 	/** Called whenever a focus path is changing on all the widgets within the old and new focus paths */
 	virtual void OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath);
-
-	DEPRECATED(4.6, "SWidget::OnKeyboardFocusChanging() is deprecated, implement SWidget::OnFocusChanging() instead.")
-	virtual void OnKeyboardFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath);
 
 	/**
 	 * Called after a character is entered while this widget has keyboard focus
@@ -441,7 +466,7 @@ public:
 	 */
 	virtual TOptional<EPopupMethod> OnQueryPopupMethod() const;
 
-	virtual TSharedPtr<struct FVirtualPointerPosition> TranslateMouseCoordinateFor3DChild(const TSharedRef<SWidget>& ChildWidget, const FGeometry& MyGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate) const;
+	virtual TSharedPtr<FVirtualPointerPosition> TranslateMouseCoordinateFor3DChild(const TSharedRef<SWidget>& ChildWidget, const FGeometry& MyGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate) const;
 	
 	/**
 	 * All the pointer (mouse, touch, stylus, etc.) events from this frame have been routed.
@@ -476,21 +501,25 @@ public:
 	// LAYOUT
 	//
 
-	/**
-	 * Applies styles as it descends through the widget hierarchy.
-	 * Gathers desired sizes on the way up.
-	 * i.e. Caches the desired size of all of this widget's children recursively, then caches desired size for itself.
-	 */
+	public:
+	
+	/** DEPRECATED version of SlatePrepass that assumes no scaling beyond AppScale*/
 	void SlatePrepass();
 
+	/**
+	 * Descends to leafmost widgets in the hierarchy and gathers desired sizes on the way up.
+	 * i.e. Caches the desired size of all of this widget's children recursively, then caches desired size for itself.
+	 */
+	void SlatePrepass(float LayoutScaleMultiplier);
+
 	/** @return the DesiredSize that was computed the last time CacheDesiredSize() was called. */
-	const FVector2D& GetDesiredSize() const;
+	public:  const FVector2D& GetDesiredSize() const;
 
 	/**
 	 * The system calls this method. It performs a breadth-first traversal of every visible widget and asks
 	 * each widget to cache how big it needs to be in order to present all of its content.
 	 */
-	protected: virtual void CacheDesiredSize();
+	protected: virtual void CacheDesiredSize(float);
 	
 	/**
 	 * Explicitly set the desired size. This is highly advanced functionality that is meant
@@ -507,11 +536,16 @@ public:
 	 * widget is simulating a bouncing ball, you should just return a reasonable size; e.g. 160x160. Let the programmer set up a reasonable
 	 * rule of resizing the bouncy ball simulation.
 	 *
+	 * @param  LayoutScaleMultiplier    This parameter is safe to ignore for almost all widgets; only really affects text measuring.
+	 *
 	 * @return The desired size.
 	 */
-	private: virtual FVector2D ComputeDesiredSize() const = 0;
+	private: virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const = 0;
 
 	public:
+
+	/** What is the Child's scale relative to this widget. */
+	virtual float GetRelativeLayoutScale( const FSlotBase& Child ) const;
 
 	/**
 	 * Non-virtual entry point for arrange children. ensures common work is executed before calling the virtual
@@ -633,10 +667,7 @@ public:
 	}
 
 	/** @return is this widget visible, hidden or collapsed */
-	EVisibility GetVisibility() const
-	{
-		return Visibility.Get();
-	}
+	EVisibility GetVisibility() const;
 
 	/** @param InVisibility  should this widget be */
 	virtual void SetVisibility( TAttribute<EVisibility> InVisibility )
@@ -673,6 +704,7 @@ public:
 	 *
 	 * @param InToolTipText  the text that should appear in the tool tip
 	 */
+	DEPRECATED(4.8, "Passing text to Slate as FString is deprecated, please use FText instead (likely via a LOCTEXT).")
 	void SetToolTipText( const TAttribute<FString>& InToolTipText );
 
 	void SetToolTipText(const TAttribute<FText>& ToolTipText);
@@ -754,14 +786,11 @@ public:
 	/** @return The widget's type as an FName ID */
 	FName GetType() const;
 
-	/** @return A String of the widget's code location in readable format */
+	/** @return A String of the widget's code location in readable format "BaseFileName(LineNumber)" */
 	virtual FString GetReadableLocation() const;
 
-	/** @return A String of the widget's code location */
-	virtual FString GetCreatedInFile() const;
-
-	/** @return The line number of the widgets location */
-	virtual int32 GetCreatedInLineNumber() const;
+	/** @return An FName of the widget's code location (full path with number == line number of the file) */
+	FName GetCreatedInLocation() const;
 
 	/** @return The name this widget was tagged with */
 	virtual FName GetTag() const;
@@ -812,6 +841,9 @@ protected:
 	/** @return The index of the child that the mouse is currently hovering */
 	static int32 FindChildUnderMouse( const FArrangedChildren& Children, const FPointerEvent& MouseEvent );
 
+	/** @return The index of the child that is under the specified position */
+	static int32 FindChildUnderPosition(const FArrangedChildren& Children, const FVector2D& ArrangedSpacePosition);
+
 	/** 
 	 * Determines if this widget should be enabled.
 	 * 
@@ -858,16 +890,53 @@ private:
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const = 0;
 
 protected:
-	
+	/**
+	 * Registers an "active timer" delegate that will execute at some regular interval. TickFunction will not be called until the specified interval has elapsed once.
+	 * A widget can register as many delegates as it needs. Be careful when registering to avoid duplicate active timers.
+	 * 
+	 * An active timer can be UnRegistered in one of three ways:
+	 *   1. Call UnRegisterActiveTimer using the active timer handle that is returned here.
+	 *   2. Have your delegate return EActiveTimerReturnType::Stop.
+	 *   3. Destroying the widget
+	 * 
+	 * Active Timers
+	 * --------------
+	 * Slate may go to sleep when there is no user interaction for some time to save power.
+	 * However, some UI elements may need to "drive" the UI even when the user is not providing any input
+	 * (ie, animations, viewport rendering, async polling, etc). A widget notifies Slate of this by
+	 * registering an "Active Timer" that is executed at a specified frequency to drive the UI.
+	 * In this way, slate can go to sleep when there is no input and no active timer needs to fire.
+	 * When any active timer needs to fire, all of Slate will do a Tick and Paint pass.
+	 * 
+	 * @param Period The time period to wait between each execution of the timer. Pass zero to fire the timer once per frame.
+	 *                      If an interval is missed, the delegate is NOT called more than once.
+	 * @param TimerFunction The active timer delegate to call every Period seconds.
+	 * @return An active timer handle that can be used to UnRegister later.
+	 */
+	TSharedRef<FActiveTimerHandle> RegisterActiveTimer( float TickPeriod, FWidgetActiveTimerDelegate TickFunction );
+
+	/**
+	 * Unregisters an active timer handle. This is optional, as the delegate can UnRegister itself by returning EActiveTimerReturnType::Stop.
+	 */
+	void UnRegisterActiveTimer( const TSharedRef<FActiveTimerHandle>& ActiveTimerHandle );
+
+private:
+
+	/** Iterates over the active timer handles on the widget and executes them if their interval has elapsed. */
+	void ExecuteActiveTimers(double CurrentTime, float DeltaTime);
+
+	/** The list of active timer handles for this widget. */
+	TArray<TSharedRef<FActiveTimerHandle>> ActiveTimers;
+
+protected:
+	/** Dtor ensures that active timer handles are UnRegistered with the SlateApplication. */
+	~SWidget();
+
 	//	DEBUG INFORMATION
 	// @todo Slate: Should compile out in final release builds?
 	FName TypeOfWidget;
-	/** Full file path in which this widget was created */
-	FName CreatedInFileFullPath;
-	/** Filename in which this widget was created */
-	FName CreatedInFile;
-	/** Line number on which this widget was created */
-	int32 CreatedOnLine;
+	/** Full file path (and line) in which this widget was created */
+	FName CreatedInLocation;
 
 	/** Tag for this widget */
 	FName Tag;

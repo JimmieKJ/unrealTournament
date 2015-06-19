@@ -28,31 +28,43 @@ void FLatentActionManager::AddNewAction(UObject* InActionObject, int32 UUID, FPe
 
 void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObject)
 {
-	ObjectsToRemove.Add(InObject);
+	auto ObjectActionList = GetActionListForObject(InObject);
+	if (ObjectActionList)
+	{
+		auto ActionToRemoveListPtr = ActionsToRemoveMap.FindOrAdd(InObject);
+		if (!ActionToRemoveListPtr.IsValid())
+		{
+			ActionToRemoveListPtr = MakeShareable(new TArray<FUuidAndAction>());
+		}
+
+		for (FActionList::TConstIterator It(*ObjectActionList); It; ++It)
+		{
+			ActionToRemoveListPtr->Add(*It);
+		}
+	}
 }
 
 void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTime)
 {
-	if (ObjectsToRemove.Num())
+	for (FActionsForObject::TIterator It(ActionsToRemoveMap); It; ++It)
 	{
-		for (const auto Key : ObjectsToRemove)
+		auto ActionList = GetActionListForObject(InObject);
+		auto ActionToRemoveListPtr = It.Value();
+		if (ActionToRemoveListPtr.IsValid() && ActionList)
 		{
-			FActionList* const ObjectActionList = GetActionListForObject(InObject);
-			if (ObjectActionList)
+			for (auto PendingActionToKill : *ActionToRemoveListPtr)
 			{
-				for (TMultiMap<int32, FPendingLatentAction*>::TConstIterator It(*ObjectActionList); It; ++It)
+				const int32 RemovedNum = ActionList->RemoveSingle(PendingActionToKill.Key, PendingActionToKill.Value);
+				auto Action = PendingActionToKill.Value;
+				if (RemovedNum && Action)
 				{
-					FPendingLatentAction* Action = It.Value();
 					Action->NotifyActionAborted();
 					delete Action;
 				}
-				ObjectActionList->Empty();
-
-				ObjectToActionListMap.Remove(Key); //TODO: we should be able to obtain an Iterator from Map::Find function. "Iterator.RemoveCurrent();" should be called here.
 			}
 		}
-		ObjectsToRemove.Empty();
 	}
+	ActionsToRemoveMap.Empty();
 
 	//@TODO: K2: Very inefficient code right now
 	if (InObject != NULL)

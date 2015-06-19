@@ -45,13 +45,15 @@ void FAnimNode_Fabrik::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, 
 
 	// Gather all bone indices between root and tip.
 	TArray<int32> BoneIndices;
-	int32 BoneIndex = TipBone.BoneIndex;
-	do 
 	{
+		int32 BoneIndex = TipBone.BoneIndex;
+		do 
+		{
+			BoneIndices.Insert(BoneIndex, 0);
+			BoneIndex = RequiredBones.GetParentBoneIndex(BoneIndex);
+		} while (BoneIndex != RootIndex);
 		BoneIndices.Insert(BoneIndex, 0);
-		BoneIndex = RequiredBones.GetParentBoneIndex(BoneIndex);
-	} while (BoneIndex != RootIndex);
-	BoneIndices.Insert(BoneIndex, 0);
+	}
 
 	// Maximum length of skeleton segment at full extension
 	float MaximumReach = 0;

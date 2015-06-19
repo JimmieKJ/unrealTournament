@@ -6,6 +6,7 @@
 #include "AnimSequence.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SkinnedMeshComponent.h"
+#include "AnimStateMachineTypes.h"
 #include "AnimInstance.generated.h"
 
 struct FAnimMontageInstance;
@@ -21,8 +22,14 @@ class UWorld;
 struct FTransform;
 class FDebugDisplayInfo;
 
+DECLARE_DELEGATE_OneParam(FOnMontageStarted, UAnimMontage*)
 DECLARE_DELEGATE_TwoParams(FOnMontageEnded, UAnimMontage*, bool /*bInterrupted*/)
 DECLARE_DELEGATE_TwoParams(FOnMontageBlendingOutStarted, UAnimMontage*, bool /*bInterrupted*/)
+
+/**
+* Delegate for when Montage is started
+*/
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMontageStartedMCDelegate, UAnimMontage*, Montage);
 
 /**
 * Delegate for when Montage is completed, whether interrupted or finished
@@ -39,6 +46,12 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMontageEndedMCDelegate, UAnimMon
 * bInterrupted = true if it was not property finished
 */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMontageBlendingOutStartedMCDelegate, UAnimMontage*, Montage, bool, bInterrupted);
+
+/** Delegate that native code can hook to to provide additional transition logic */
+DECLARE_DELEGATE_RetVal(bool, FCanTakeTransition);
+
+/** Delegate that native code can hook into to handle state entry/exit */
+DECLARE_DELEGATE_ThreeParams(FOnGraphStateChanged, const struct FAnimNode_StateMachine& /*Machine*/, int32 /*PrevStateIndex*/, int32 /*NextStateIndex*/);
 
 /** Enum for controlling which reference frame a controller is applied in. */
 UENUM()
@@ -226,20 +239,127 @@ struct FSlotEvaluationPose
 	/** Pose */
 	UPROPERTY()
 	FA2Pose Pose;
-
-	/** Pointer to Montage Instance */
-	FAnimMontageInstance * MontageInstance;
 	
 	FSlotEvaluationPose()
 	{
 	}
 
-	FSlotEvaluationPose(FAnimMontageInstance * InMontageInstance, float InWeight, EAdditiveAnimationType InAdditiveType)
+	FSlotEvaluationPose(float InWeight, EAdditiveAnimationType InAdditiveType)
 		: AdditiveType(InAdditiveType)
 		, Weight(InWeight)
-		, MontageInstance(InMontageInstance)
 	{
 	}
+};
+
+/** Helper struct to store a Queued Montage BlendingOut event. */
+struct FQueuedMontageBlendingOutEvent
+{
+	class UAnimMontage* Montage;
+	bool bInterrupted;
+	FOnMontageBlendingOutStarted Delegate;
+
+	FQueuedMontageBlendingOutEvent()
+		: Montage(NULL)
+		, bInterrupted(false)
+	{}
+
+	FQueuedMontageBlendingOutEvent(class UAnimMontage* InMontage, bool InbInterrupted, FOnMontageBlendingOutStarted InDelegate)
+		: Montage(InMontage)
+		, bInterrupted(InbInterrupted)
+		, Delegate(InDelegate)
+	{}
+};
+
+/** Helper struct to store a Queued Montage Ended event. */
+struct FQueuedMontageEndedEvent
+{
+	class UAnimMontage* Montage;
+	bool bInterrupted;
+	FOnMontageEnded Delegate;
+
+	FQueuedMontageEndedEvent()
+		: Montage(NULL)
+		, bInterrupted(false)
+	{}
+
+	FQueuedMontageEndedEvent(class UAnimMontage* InMontage, bool InbInterrupted, FOnMontageEnded InDelegate)
+		: Montage(InMontage)
+		, bInterrupted(InbInterrupted)
+		, Delegate(InDelegate)
+	{}
+};
+
+/** Binding allowing native transition rule evaluation */
+struct FNativeTransitionBinding
+{
+	/** State machine to bind to */
+	FName MachineName;
+
+	/** Previous state the transition comes from */
+	FName PreviousStateName;
+
+	/** Next state the transition goes to */
+	FName NextStateName;
+
+	/** Delegate to use when checking transition */
+	FCanTakeTransition NativeTransitionDelegate;
+
+	FNativeTransitionBinding(const FName& InMachineName, const FName& InPreviousStateName, const FName& InNextStateName, const FCanTakeTransition& InNativeTransitionDelegate)
+		: MachineName(InMachineName)
+		, PreviousStateName(InPreviousStateName)
+		, NextStateName(InNextStateName)
+		, NativeTransitionDelegate(InNativeTransitionDelegate)
+	{
+	}
+};
+
+/** Binding allowing native notification of state changes */
+struct FNativeStateBinding
+{
+	/** State machine to bind to */
+	FName MachineName;
+
+	/** State to bind to */
+	FName StateName;
+
+	/** Delegate to use when checking transition */
+	FOnGraphStateChanged NativeStateDelegate;
+
+	FNativeStateBinding(const FName& InMachineName, const FName& InStateName, const FOnGraphStateChanged& InNativeStateDelegate)
+		: MachineName(InMachineName)
+		, StateName(InStateName)
+		, NativeStateDelegate(InNativeStateDelegate)
+	{
+	}
+};
+
+/** Tracks state of active slot nodes in the graph */
+struct FMontageActiveSlotTracker
+{
+	//Weighting of root motion from this montage
+	float RootMotionWeight;
+
+	//Is the montage slot part of the active graph this tick
+	bool  bIsRelevantThisTick;
+
+	//Was the motnage slot part of the active graph last tick
+	bool  bWasRelevantOnPreviousTick;
+
+	FMontageActiveSlotTracker() : RootMotionWeight(0.f), bIsRelevantThisTick(false), bWasRelevantOnPreviousTick(false) {}
+};
+
+struct FMontageEvaluationState
+{
+	FMontageEvaluationState(UAnimMontage* InMontage, float InWeight, float InPosition) : Montage(InMontage), MontageWeight(InWeight), MontagePosition(InPosition) {}
+
+	// The montage to evaluate
+	UAnimMontage* Montage;
+
+	// The weight to use for this montage
+	float MontageWeight;
+
+	// The position to evaluate this montage at
+	float MontagePosition;
 };
 
 UCLASS(transient, Blueprintable, hideCategories=AnimInstance, BlueprintType)
@@ -303,11 +423,12 @@ public:
 	void SlotEvaluatePose(FName SlotNodeName, const struct FA2Pose & SourcePose, struct FA2Pose & BlendedPose, float SlotNodeWeight);
 
 	// slot node run-time functions
-	void RegisterSlotNode(FName SlotNodeName);
+	void ReinitializeSlotNodes();
+	void RegisterSlotNodeWithAnimInstance(FName SlotNodeName);
 	void UpdateSlotNodeWeight(FName SlotNodeName, float Weight);
 	// if it doesn't tick, it will keep old weight, so we'll have to clear it in the beginning of tick
 	void ClearSlotNodeWeights();
-	bool IsActiveSlotNode(FName SlotNodeName) const;
+	bool IsSlotNodeRelevantForNotifies(FName SlotNodeName) const;
 
 	// Allow slot nodes to store off their root motion weight during ticking
 	void UpdateSlotRootMotionWeight(FName SlotNodeName, float Weight);
@@ -333,11 +454,11 @@ public:
 
 	/** Executed when the Animation is initialized */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void BlueprintInitializeAnimation();
+	void BlueprintInitializeAnimation();
 
 	/** Executed when the Animation is updated */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void BlueprintUpdateAnimation(float DeltaTimeX);
+	void BlueprintUpdateAnimation(float DeltaTimeX);
 
 	bool CanTransitionSignature() const;
 	
@@ -349,13 +470,18 @@ public:
 	********************************************************************************************* */
 public:
 
+	/** DEPRECATED. Use PlaySlotAnimationAsDynamicMontage instead, it returns the UAnimMontage created instead of time, allowing more control */
 	/** Play normal animation asset on the slot node. You can only play one asset (whether montage or animsequence) at a time. */
-	UFUNCTION(BlueprintCallable, Category="Animation")
-	float PlaySlotAnimation(UAnimSequenceBase* Asset, FName SlotNodeName, float BlendInTime = 0.25f, float BlendOutTime = 0.25f, float InPlayRate = 1.f);
+	UFUNCTION(BlueprintCallable, Category="Animation", Meta = (DeprecatedFunction, DeprecationMessage = "Use PlaySlotAnimationAsDynamicMontage instead"))
+	float PlaySlotAnimation(UAnimSequenceBase* Asset, FName SlotNodeName, float BlendInTime = 0.25f, float BlendOutTime = 0.25f, float InPlayRate = 1.f, int32 LoopCount = 1);
 
-	/** Stops currently playing slot animation */
+	/** Play normal animation asset on the slot node by creating a dynamic UAnimMontage. You can only play one asset (whether montage or animsequence) at a time per SlotGroup. */
 	UFUNCTION(BlueprintCallable, Category="Animation")
-	void StopSlotAnimation(float InBlendOutTime = 0.25f);
+	UAnimMontage* PlaySlotAnimationAsDynamicMontage(UAnimSequenceBase* Asset, FName SlotNodeName, float BlendInTime = 0.25f, float BlendOutTime = 0.25f, float InPlayRate = 1.f, int32 LoopCount = 1, float BlendOutTriggerTime = -1.f);
+
+	/** Stops currently playing slot animation slot or all*/
+	UFUNCTION(BlueprintCallable, Category="Animation")
+	void StopSlotAnimation(float InBlendOutTime = 0.25f, FName SlotNodeName = NAME_None);
 
 	/** Return true if it's playing the slot animation */
 	UFUNCTION(BlueprintCallable, Category="Animation")
@@ -372,6 +498,10 @@ public:
 	/** Stops the animation montage. If reference is NULL, it will stop ALL active montages. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
 	void Montage_Stop(float InBlendOutTime, UAnimMontage * Montage = NULL);
+
+	/** Pauses the animation montage. If reference is NULL, it will stop ALL active montages. */
+	UFUNCTION(BlueprintCallable, Category = "Animation")
+	void Montage_Pause(UAnimMontage * Montage = NULL);
 
 	/** Makes a montage jump to a named section. If Montage reference is NULL, it will do that to all active montages. */
 	UFUNCTION(BlueprintCallable, Category="Animation")
@@ -414,6 +544,10 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnMontageBlendingOutStartedMCDelegate OnMontageBlendingOut;
 	
+	/** Called when a montage has started */
+	UPROPERTY(BlueprintAssignable)
+	FOnMontageStartedMCDelegate OnMontageStarted;
+
 	/** Called when a montage has ended, whether interrupted or finished*/
 	UPROPERTY(BlueprintAssignable)
 	FOnMontageEndedMCDelegate OnMontageEnded;
@@ -439,6 +573,10 @@ public:
 	/** return true if Montage is not currently active. (not valid or blending out) */
 	bool Montage_GetIsStopped(UAnimMontage* Montage);
 
+	/** Get the current blend time of the Montage.
+	If Montage reference is NULL, it will return the current blend time on the first active Montage found. */
+	float Montage_GetBlendTime(UAnimMontage* Montage);
+
 	/** Get PlayRate for Montage.
 	If Montage reference is NULL, PlayRate for any Active Montage will be returned.
 	If Montage is not playing, 0 is returned. */
@@ -463,6 +601,9 @@ public:
 	*/
 	TArray<struct FAnimMontageInstance*> MontageInstances;
 
+	// Cached data for montage evaluation, save us having to access MontageInstances from slot nodes as that isn't thread safe
+	TArray<FMontageEvaluationState> MontageEvaluationData;
+
 	void OnMontageInstanceStopped(FAnimMontageInstance & StoppedMontageInstance);
 
 protected:
@@ -481,8 +622,36 @@ protected:
 	virtual void Montage_Advance(float DeltaSeconds);
 
 public:
+	/** Queue a Montage BlendingOut Event to be triggered. */
+	void QueueMontageBlendingOutEvent(const FQueuedMontageBlendingOutEvent& MontageBlendingOutEvent);
+
+	/** Queue a Montage Ended Event to be triggered. */
+	void QueueMontageEndedEvent(const FQueuedMontageEndedEvent& MontageEndedEvent);
+
+private:
+	/** True when Montages are being ticked, and Montage Events should be queued. 
+	 * When Montage are being ticked, we queue AnimNotifies and Events. We trigger notifies first, then Montage events. */
+	UPROPERTY(Transient)
+	bool bQueueMontageEvents;
+
+	/** Trigger queued Montage events. */
+	void TriggerQueuedMontageEvents();
+
+	/** Queued Montage BlendingOut events. */
+	TArray<FQueuedMontageBlendingOutEvent> QueuedMontageBlendingOutEvents;
+
+	/** Queued Montage Ended Events */
+	TArray<FQueuedMontageEndedEvent> QueuedMontageEndedEvents;
+
+	/** Trigger a Montage BlendingOut event */
+	void TriggerMontageBlendingOutEvent(const FQueuedMontageBlendingOutEvent& MontageBlendingOutEvent);
+
+	/** Trigger a Montage Ended event */
+	void TriggerMontageEndedEvent(const FQueuedMontageEndedEvent& MontageEndedEvent);
+
+public:
 	/** Returns the value of a named curve. */
-	UFUNCTION(BlueprintPure, Category="Animation", meta=(BlueprintProtected = "true"))
+	UFUNCTION(BlueprintPure, Category="Animation")
 	float GetCurveValue(FName CurveName);
 
 	/** Returns the length (in seconds) of an animation AnimAsset. */
@@ -542,10 +711,12 @@ public:
 
 public:
 	// Begin UObject Interface
-	virtual void Serialize(FArchive& Ar);
+	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End UObject Interface
 
+	// Updates the montage data used for evaluation based on the current playing montages
+	void UpdateMontageEvaluationData();
 
 	//@TODO: Better comments
 	virtual void EvaluateAnimation(struct FPoseContext& Output);
@@ -553,6 +724,7 @@ public:
 
 	void InitializeAnimation();
 	void UpdateAnimation(float DeltaSeconds);
+	void UninitializeAnimation();
 
 	// Native initialization override point
 	virtual void NativeInitializeAnimation();
@@ -564,6 +736,25 @@ public:
 	// @return true if this function is implemented, false otherwise.
 	// Note: the node graph will not be evaluated if this function returns true
 	virtual bool NativeEvaluateAnimation(FPoseContext& Output);
+
+	// Sets up a native transition delegate between states with PrevStateName and NextStateName, in the state machine with name MachineName.
+	// Note that a transition already has to exist for this to succeed
+	void AddNativeTransitionBinding(const FName& MachineName, const FName& PrevStateName, const FName& NextStateName, const FCanTakeTransition& NativeTransitionDelegate);
+
+	// Check for whether a native rule is bound to the specified transition
+	bool HasNativeTransitionBinding(const FName& MachineName, const FName& PrevStateName, const FName& NextStateName, FName& OutBindingName);
+
+	// Sets up a native state entry delegate from state with StateName, in the state machine with name MachineName.
+	void AddNativeStateEntryBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeEnteredDelegate);
+	
+	// Check for whether a native entry delegate is bound to the specified state
+	bool HasNativeStateEntryBinding(const FName& MachineName, const FName& StateName, FName& OutBindingName);
+
+	// Sets up a native state exit delegate from state with StateName, in the state machine with name MachineName.
+	void AddNativeStateExitBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeExitedDelegate);
+
+	// Check for whether a native exit delegate is bound to the specified state
+	bool HasNativeStateExitBinding(const FName& MachineName, const FName& StateName, FName& OutBindingName);
 
 	// Debug output for this anim instance 
 	void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos);
@@ -590,10 +781,7 @@ public:
 	/** Material parameters that we had been changing and now need to clear */
 	TArray<FName> MaterialParamatersToClear;
 
-	TMap<FName, float> ActiveSlotWeights;
 
-	// Mapping from slot name to weighting for that root motion
-	TMap<FName, float> ActiveSlotRootMotionWeights;
 
 #if WITH_EDITORONLY_DATA
 	// Maximum playback position ever reached (only used when debugging in Persona)
@@ -602,6 +790,25 @@ public:
 	// Current scrubbing playback position (only used when debugging in Persona)
 	double CurrentLifeTimerScrubPosition;
 #endif
+
+public:
+	int16 GetSlotNodeInitializationCounter() const { return SlotNodeInitializationCounter; }
+	int16 GetGraphTraversalCounter() const { return GraphTraversalCounter; }
+
+	/** Increment traversal counter every time the graph is about to be traversed, to ensure every node is only touched once. */
+	void IncrementGraphTraversalCounter();
+
+private:
+	/** Counter so we register Slot nodes just once per Initialization pass 
+	 * State can trigger initialization later, and we don't want to register these nodes multiple times. */
+	UPROPERTY(Transient)
+	int16 SlotNodeInitializationCounter;
+
+	/** Counter incremented every time the graph is about to be traversed, to ensure every node is only touched once. */
+	UPROPERTY(Transient)
+	int16 GraphTraversalCounter;
+
+	TMap<FName, FMontageActiveSlotTracker> SlotWeightTracker;
 
 public:
 	/** 
@@ -614,12 +821,6 @@ public:
 	UPROPERTY(Transient)
 	bool bBoneCachesInvalidated;
 
-	/** Increment Context Counter, used by SavedCachePose to traverse tree once. */
-	void IncrementContextCounter();
-
-	/** Get current Context Counter, used by SavedCachePose to traverse tree once. */
-	int16 GetContextCounter() const;
-
 	// @todo document
 	inline USkeletalMeshComponent* GetSkelMeshComponent() const { return CastChecked<USkeletalMeshComponent>(GetOuter()); }
 
@@ -627,6 +828,12 @@ public:
 
 	/** Add anim notifier **/
 	void AddAnimNotifies(const TArray<const FAnimNotifyEvent*>& NewNotifies, const float InstanceWeight);
+
+	/** Should the notifies current filtering mode stop it from triggering */
+	bool PassesFiltering(const FAnimNotifyEvent* Notify) const;
+
+	/** Work out whether this notify should be triggered based on its chance of triggering value */
+	bool PassesChanceOfTriggering(const FAnimNotifyEvent* Event) const;
 
 	/** Queues an Anim Notify from the shared list on our generated class */
 	void AddAnimNotifyFromGeneratedClass(int32 NotifyIndex);
@@ -656,7 +863,7 @@ public:
 	FAnimMontageInstance * GetRootMotionMontageInstance() const;
 
 	/** Get current accumulated root motion, removing it from the AnimInstance in the process */
-	FRootMotionMovementParams ConsumeExtractedRootMotion();
+	FRootMotionMovementParams ConsumeExtractedRootMotion(float Alpha);
 
 private:
 	/** Active Root Motion Montage Instance, if any. */
@@ -664,5 +871,19 @@ private:
 
 	// Root motion extracted from animation since the last time ConsumeExtractedRootMotion was called
 	FRootMotionMovementParams ExtractedRootMotion;
+
+	// Native bindings
+private:
+	/** Bind any native delegates that we have set up */
+	void BindNativeDelegates();
+
+	/** Native transition rules */
+	TArray<FNativeTransitionBinding> NativeTransitionBindings;
+
+	/** Native state entry bindings */
+	TArray<FNativeStateBinding> NativeStateEntryBindings;
+
+	/** Native state exit bindings */
+	TArray<FNativeStateBinding> NativeStateExitBindings;
 };
 

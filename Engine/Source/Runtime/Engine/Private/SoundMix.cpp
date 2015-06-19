@@ -28,10 +28,10 @@ void USoundMix::BeginDestroy()
 {
 	if (!GExitPurge && GEngine)
 	{
-		FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
-		if( AudioDevice )
+		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+		if (AudioDeviceManager)
 		{
-			AudioDevice->RemoveSoundMix(this);
+			AudioDeviceManager->RemoveSoundMix(this);
 		}
 	}
 

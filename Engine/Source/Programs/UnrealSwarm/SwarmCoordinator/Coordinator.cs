@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Text;
 using SwarmCoordinatorInterface;
+using SwarmCommonUtils;
 
 namespace SwarmCoordinator
 {
@@ -127,29 +128,7 @@ namespace SwarmCoordinator
 				UpdatedInfo.Configuration["IPAddress"] = IPAddress.Loopback;
 				bool IPAddressUpdateSuccess = false;
 
-				if( UpdatedInfo.Name == Environment.MachineName )
-				{
-#if !__MonoCS__ // @todo Mac
-					// If it's this machine, do a simple lookup
-					ManagementObjectSearcher ObjectSearcher = new ManagementObjectSearcher( "SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = 'TRUE'" );
-					ManagementObjectCollection ObjectCollection = ObjectSearcher.Get();
-					foreach( ManagementObject NextObject in ObjectCollection )
-					{
-						// Get the first IP addresses of the first IPEnabled network adapter
-						string[] AddressList = ( string[] )NextObject["IPAddress"];
-						if( AddressList.Length > 0 )
-						{
-							UpdatedInfo.Configuration["IPAddress"] = IPAddress.Parse( AddressList[0] );
-							IPAddressUpdateSuccess = true;
-							break;
-						}
-					}
-#else
-					UpdatedInfo.Configuration["IPAddress"] = "192.168.0.203"; //.2.9";
-					IPAddressUpdateSuccess = true;
-#endif
-				}
-				else
+				if( UpdatedInfo.Name != Environment.MachineName )
 				{
 					try
 					{
@@ -343,19 +322,27 @@ namespace SwarmCoordinator
 				return null;
 			}
 
+			AgentInfo RequestingAgent;
+			IPAddress MyAddressFromRequestingAgentPOV;
+
 			// If the requestor is Blocked, ignore the request
-			if( RequestedConfiguration.ContainsKey( "RequestingAgentName" ) )
+			if (!RequestedConfiguration.ContainsKey("RequestingAgentName"))
 			{
-				// If the requesting agent is not an approved state, block this request
-				string RequestingAgentName = RequestedConfiguration["RequestingAgentName"] as string;
-				if( ( Agents.ContainsKey( RequestingAgentName ) ) &&
-					( ( Agents[RequestingAgentName].State != AgentState.Available ) &&
-					  ( Agents[RequestingAgentName].State != AgentState.Working ) &&
-					  ( Agents[RequestingAgentName].State != AgentState.Busy ) ) )
-				{
-					return null;
-				}
+				return null;
 			}
+
+			// If the requesting agent is not an approved state, block this request
+			string RequestingAgentName = RequestedConfiguration["RequestingAgentName"] as string;
+			if ((Agents.TryGetValue(RequestingAgentName, out RequestingAgent) &&
+				((RequestingAgent.State != AgentState.Available) &&
+					(RequestingAgent.State != AgentState.Working) &&
+					(RequestingAgent.State != AgentState.Busy))))
+			{
+				return null;
+			}
+
+			var BestInt = NetworkUtils.GetBestInterface(RequestingAgent.Configuration["IPAddress"] as IPAddress);
+			MyAddressFromRequestingAgentPOV = NetworkUtils.GetInterfaceIPv4Address(BestInt);
 
 			// Extract the requested configuration
 			Version RequestedVersion = RequestedConfiguration["Version"] as Version;
@@ -390,23 +377,30 @@ namespace SwarmCoordinator
 					// If all conditions are met, we match
 					if( VersionMatch && StateMatch && GroupMatch )
 					{
-						AliveAgents.Add( Agent );
+						if (MyAddressFromRequestingAgentPOV != IPAddress.Loopback &&
+							(Agent.Configuration["IPAddress"] as IPAddress).Equals(IPAddress.Loopback))
+						{
+							var NewAgentInfo = ObjectUtils.Duplicate(Agent);
+
+							NewAgentInfo.Configuration["IPAddress"] = MyAddressFromRequestingAgentPOV;
+
+							AliveAgents.Add(NewAgentInfo);
+						}
+						else
+						{
+							AliveAgents.Add(Agent);
+						}
 					}
 				}
 
 				// If the requesting agent is asking for assignment, do it now that we have the right set
 				bool ValidRequestForAssignment = false;
-				string RequestingAgentName = "";
 				if( RequestedConfiguration.ContainsKey( "RequestAssignmentFor" ) )
 				{
 					// If the requesting agent is not an approved state, block this request
-					RequestingAgentName = RequestedConfiguration["RequestAssignmentFor"] as string;
-					if( Agents.ContainsKey( RequestingAgentName ) )
-					{
-						ValidRequestForAssignment = ( Agents[RequestingAgentName].State == AgentState.Available ) ||
-													( Agents[RequestingAgentName].State == AgentState.Working ) ||
-													( Agents[RequestingAgentName].State == AgentState.Busy );
-					}
+					ValidRequestForAssignment = (RequestingAgent.State == AgentState.Available) ||
+												(RequestingAgent.State == AgentState.Working) ||
+												(RequestingAgent.State == AgentState.Busy);
 				}
 
 				if( ValidRequestForAssignment )
@@ -420,7 +414,7 @@ namespace SwarmCoordinator
 					{
 						if( Agent.State == AgentState.Available )
 						{
-							Agent.Configuration["AssignedTo"] = RequestingAgentName;
+							Agent.Configuration["AssignedTo"] = RequestingAgent.Name;
 							Agent.Configuration["AssignedTime"] = DateTime.UtcNow;
 							NewlyAssignedCount++;
 						}
@@ -476,7 +470,7 @@ namespace SwarmCoordinator
 							LargestBin.RemoveAt( ReassignedAgentIndex );
 
 							// Reassigned and adjust the counts
-							ReassignedAgent.Configuration["AssignedTo"] = RequestingAgentName;
+							ReassignedAgent.Configuration["AssignedTo"] = RequestingAgent.Name;
 							ReassignedAgent.Configuration["AssignedTime"] = DateTime.UtcNow;
 							AlreadyAssignedCount--;
 							NewlyAssignedCount++;

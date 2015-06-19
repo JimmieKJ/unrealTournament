@@ -9,6 +9,7 @@
 #include "MovieScene.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneDirectorTrack.h"
+#include "Sequencer.h"
 
 /** How many pixels near the mouse has to be before snapping occurs */
 const float PixelSnapWidth = 10.f;
@@ -29,6 +30,7 @@ void FSequencerDragOperation::EndTransaction()
 	{
 		GEditor->EndTransaction();
 	}
+	Sequencer.UpdateRuntimeInstances();
 }
 
 TRange<float> FSequencerDragOperation::GetSectionBoundaries(UMovieSceneSection* Section, TSharedPtr<FTrackNode> SequencerNode) const
@@ -133,8 +135,9 @@ TOptional<float> FSequencerDragOperation::SnapToTimes(float InitialTime, const T
 }
 
 
-FResizeSection::FResizeSection( UMovieSceneSection& InSection, bool bInDraggingByEnd )
-	: Section( &InSection )
+FResizeSection::FResizeSection( FSequencer& Sequencer, UMovieSceneSection& InSection, bool bInDraggingByEnd )
+	: FSequencerDragOperation( Sequencer )
+	, Section( &InSection )
 	, bDraggingByEnd( bInDraggingByEnd )
 {
 }
@@ -165,10 +168,10 @@ void FResizeSection::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& L
 		TRange<float> SectionBoundaries = GetSectionBoundaries(Section.Get(), SequencerNode);
 		
 		// Snapping
-		if ( SnapSettings->GetIsSnapEnabled() )
+		if ( Settings->GetIsSnapEnabled() )
 		{
 			bool bSnappedToSection = false;
-			if ( SnapSettings->GetSnapSectionsToSections() )
+			if ( Settings->GetSnapSectionTimesToSections() )
 		{
 			TArray<float> TimesToSnapTo;
 			GetSectionSnapTimes(TimesToSnapTo, Section.Get(), SequencerNode, bIsDilating);
@@ -182,9 +185,9 @@ void FResizeSection::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& L
 				}
 			}
 
-			if ( bSnappedToSection == false && SnapSettings->GetSnapSectionsToInterval() )
+			if ( bSnappedToSection == false && Settings->GetSnapSectionTimesToInterval() )
 			{
-				NewTime = SnapSettings->SnapToInterval(NewTime);
+				NewTime = Settings->SnapTimeToInterval(NewTime);
 			}
 		}
 
@@ -225,8 +228,9 @@ void FResizeSection::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& L
 	}
 }
 
-FMoveSection::FMoveSection( UMovieSceneSection& InSection )
-	: Section( &InSection )
+FMoveSection::FMoveSection( FSequencer& Sequencer, UMovieSceneSection& InSection )
+	: FSequencerDragOperation( Sequencer )
+	, Section( &InSection )
 	, DragOffset(ForceInit)
 {
 }
@@ -243,10 +247,7 @@ void FMoveSection::OnBeginDrag(const FVector2D& LocalMousePos, TSharedPtr<FTrack
 
 void FMoveSection::OnEndDrag(TSharedPtr<FTrackNode> SequencerNode)
 {
-	if( GEditor->IsTransactionActive() )
-	{
-		GEditor->EndTransaction();
-	}
+	EndTransaction();
 
 	if (Section.IsValid())
 	{
@@ -271,10 +272,10 @@ void FMoveSection::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& Loc
 		
 		float DeltaTime = DistanceMoved;
 		
-		if ( SnapSettings->GetIsSnapEnabled() )
+		if ( Settings->GetIsSnapEnabled() )
 		{
 			bool bSnappedToSection = false;
-			if ( SnapSettings->GetSnapSectionsToSections() )
+			if ( Settings->GetSnapSectionTimesToSections() )
 		{
 			TArray<float> TimesToSnapTo;
 			GetSectionSnapTimes(TimesToSnapTo, Section.Get(), SequencerNode, true);
@@ -292,10 +293,10 @@ void FMoveSection::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& Loc
 			}
 		}
 
-			if ( bSnappedToSection == false && SnapSettings->GetSnapSectionsToInterval() )
+			if ( bSnappedToSection == false && Settings->GetSnapSectionTimesToInterval() )
 			{
 				float NewStartTime = DistanceMoved + Section->GetStartTime();
-				DeltaTime = SnapSettings->SnapToInterval( NewStartTime ) - Section->GetStartTime();
+				DeltaTime = Settings->SnapTimeToInterval( NewStartTime ) - Section->GetStartTime();
 			}
 		}
 
@@ -385,15 +386,14 @@ bool FMoveSection::IsSectionAtNewLocationValid(UMovieSceneSection* InSection, in
 
 void FMoveKeys::OnBeginDrag(const FVector2D& LocalMousePos, TSharedPtr<FTrackNode> SequencerNode)
 {
-	check( SelectedKeys.Num() > 0 )
+	check( SelectedKeys->Num() > 0 )
 
 	// Begin an editor transaction and mark the section as transactional so it's state will be saved
 	GEditor->BeginTransaction( NSLOCTEXT("Sequencer", "MoveKeysTransaction", "Move Keys") );
 
 	TSet<UMovieSceneSection*> ModifiedSections;
-	for( auto It = SelectedKeys.CreateIterator(); It; ++It )
+	for( FSelectedKey SelectedKey : *SelectedKeys )
 	{
-		FSelectedKey& SelectedKey = *It;
 		UMovieSceneSection* OwningSection = SelectedKey.Section;
 
 		// Only modify sections once
@@ -412,10 +412,7 @@ void FMoveKeys::OnBeginDrag(const FVector2D& LocalMousePos, TSharedPtr<FTrackNod
 
 void FMoveKeys::OnEndDrag(TSharedPtr<FTrackNode> SequencerNode)
 {
-	if( GEditor->IsTransactionActive() )
-	{
-		GEditor->EndTransaction();
-	}
+	EndTransaction();
 }
 
 void FMoveKeys::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& LocalMousePos, const FTimeToPixel& TimeToPixelConverter, TSharedPtr<FTrackNode> SequencerNode )
@@ -429,22 +426,21 @@ void FMoveKeys::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& LocalM
 	{
 		float TimeDelta = DistanceMoved;
 		// Snapping
-		if ( SnapSettings->GetIsSnapEnabled() )
+		if ( Settings->GetIsSnapEnabled() )
 		{
 			bool bSnappedToKeyTime = false;
-			if ( SnapSettings->GetSnapKeysToKeys() )
+			if ( Settings->GetSnapKeyTimesToKeys() )
 			{
-			TArray<float> OutSnapTimes;
-			GetKeySnapTimes(OutSnapTimes, SequencerNode);
+				TArray<float> OutSnapTimes;
+				GetKeySnapTimes(OutSnapTimes, SequencerNode);
 
-			TArray<float> InitialTimes;
-			for (TSet<FSelectedKey>::TConstIterator It(SelectedKeys); It; ++It)
-			{
-				const FSelectedKey& SelectedKey = *It;
-				InitialTimes.Add(SelectedKey.KeyArea->GetKeyTime(SelectedKey.KeyHandle.GetValue()) + DistanceMoved);
-			}
-			float OutInitialTime = 0.f;
-			float OutSnapTime = 0.f;
+				TArray<float> InitialTimes;
+				for ( FSelectedKey SelectedKey : *SelectedKeys )
+				{
+					InitialTimes.Add(SelectedKey.KeyArea->GetKeyTime(SelectedKey.KeyHandle.GetValue()) + DistanceMoved);
+				}
+				float OutInitialTime = 0.f;
+				float OutSnapTime = 0.f;
 				if ( SnapToTimes( InitialTimes, OutSnapTimes, TimeToPixelConverter, OutInitialTime, OutSnapTime ) )
 				{
 					bSnappedToKeyTime = true;
@@ -452,16 +448,14 @@ void FMoveKeys::OnDrag( const FPointerEvent& MouseEvent, const FVector2D& LocalM
 				}
 			}
 
-			if ( bSnappedToKeyTime == false && SnapSettings->GetSnapKeysToInterval() )
+			if ( bSnappedToKeyTime == false && Settings->GetSnapKeyTimesToInterval() )
 			{
-				TimeDelta = SnapSettings->SnapToInterval( MouseTime ) - SelectedKeyTime;
+				TimeDelta = Settings->SnapTimeToInterval( MouseTime ) - SelectedKeyTime;
 			}
 		}
 
-		for( auto It = SelectedKeys.CreateIterator(); It; ++It )
+		for( FSelectedKey SelectedKey : *SelectedKeys )
 		{
-			FSelectedKey& SelectedKey = *It;
-
 			UMovieSceneSection* Section = SelectedKey.Section;
 
 			TSharedPtr<IKeyArea>& KeyArea = SelectedKey.KeyArea;
@@ -505,9 +499,8 @@ void FMoveKeys::GetKeySnapTimes(TArray<float>& OutSnapTimes, TSharedPtr<FTrackNo
 			{
 				FKeyHandle KeyHandle = KeyHandles[KeyIndex];
 				bool bKeyIsSnappable = true;
-				for (TSet<FSelectedKey>::TConstIterator It(SelectedKeys); It; ++It)
+				for ( FSelectedKey SelectedKey : *SelectedKeys )
 				{
-					const FSelectedKey& SelectedKey = *It;
 					if (SelectedKey.KeyArea == KeyArea && SelectedKey.KeyHandle.GetValue() == KeyHandle)
 					{
 						bKeyIsSnappable = false;

@@ -7,6 +7,22 @@
 #include "CorePrivatePCH.h"
 #include "Serialization/AsyncIOSystemBase.h"
 
+DECLARE_STATS_GROUP_VERBOSE(TEXT("AsyncIOSystem"),STATGROUP_AsyncIO_Verbose, STATCAT_Advanced);
+
+DECLARE_CYCLE_STAT( TEXT( "Platform read time" ), STAT_AsyncIO_PlatformReadTime, STATGROUP_AsyncIO );
+
+DECLARE_DWORD_ACCUMULATOR_STAT( TEXT( "Fulfilled read count" ), STAT_AsyncIO_FulfilledReadCount, STATGROUP_AsyncIO );
+DECLARE_DWORD_ACCUMULATOR_STAT( TEXT( "Canceled read count" ), STAT_AsyncIO_CanceledReadCount, STATGROUP_AsyncIO );
+
+DECLARE_MEMORY_STAT( TEXT( "Fulfilled read size" ), STAT_AsyncIO_FulfilledReadSize, STATGROUP_AsyncIO );
+DECLARE_MEMORY_STAT( TEXT( "Canceled read size" ), STAT_AsyncIO_CanceledReadSize, STATGROUP_AsyncIO );
+DECLARE_MEMORY_STAT( TEXT( "Outstanding read size" ), STAT_AsyncIO_OutstandingReadSize, STATGROUP_AsyncIO );
+
+DECLARE_DWORD_ACCUMULATOR_STAT( TEXT( "Outstanding read count" ), STAT_AsyncIO_OutstandingReadCount, STATGROUP_AsyncIO );
+DECLARE_FLOAT_ACCUMULATOR_STAT( TEXT( "Uncompressor wait time" ), STAT_AsyncIO_UncompressorWaitTime, STATGROUP_AsyncIO );
+
+DECLARE_FLOAT_COUNTER_STAT( TEXT( "Bandwidth (MByte/ sec)" ), STAT_AsyncIO_Bandwidth, STATGROUP_AsyncIO );
+
 /*-----------------------------------------------------------------------------
 	FAsyncIOSystemBase implementation.
 -----------------------------------------------------------------------------*/
@@ -28,8 +44,10 @@ uint64 FAsyncIOSystemBase::QueueIORequest(
 	FThreadSafeCounter* Counter,
 	EAsyncIOPriority Priority )
 {
-	FScopeLock ScopeLock( CriticalSection );
-	check( Offset != INDEX_NONE );
+	check(Offset != INDEX_NONE);
+	check(Dest != nullptr || Size == 0);
+
+	FScopeLock ScopeLock(CriticalSection);
 
 	// Create an IO request containing passed in information.
 	FAsyncIORequest IORequest;
@@ -104,12 +122,12 @@ void FAsyncIOSystemBase::LogIORequest(const FString& Message, const FAsyncIORequ
 	FPlatformMisc::LowLevelOutputDebugString(*OutputStr);
 }
 
-bool FAsyncIOSystemBase::InternalRead( IFileHandle* FileHandle, int64 Offset, int64 Size, void* Dest )
+void FAsyncIOSystemBase::InternalRead( IFileHandle* FileHandle, int64 Offset, int64 Size, void* Dest )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FAsyncIOSystemBase::InternalRead"), STAT_AsyncIOSystemBase_InternalRead, STATGROUP_AsyncIO_Verbose);
+
 	FScopeLock ScopeLock( ExclusiveReadCriticalSection );
 
-	bool bRetVal = false;
-	
 	STAT(double ReadTime = 0);
 	{	
 		SCOPE_SECONDS_COUNTER(ReadTime);
@@ -121,8 +139,6 @@ bool FAsyncIOSystemBase::InternalRead( IFileHandle* FileHandle, int64 Offset, in
 	// though we only really care about throttling requested bandwidth as it's not very accurate
 	// to begin with.
 	STAT(ConstrainBandwidth(Size, ReadTime));
-
-	return bRetVal;
 }
 
 bool FAsyncIOSystemBase::PlatformReadDoNotCallDirectly( IFileHandle* FileHandle, int64 Offset, int64 Size, void* Dest )
@@ -182,6 +198,8 @@ int64 FAsyncIOSystemBase::PlatformMinimumReadSize()
 
 void FAsyncIOSystemBase::FulfillCompressedRead( const FAsyncIORequest& IORequest, IFileHandle* FileHandle )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FAsyncIOSystemBase::FulfillCompressedRead"), STAT_AsyncIOSystemBase_FulfillCompressedRead, STATGROUP_AsyncIO_Verbose);
+
 	if (GbLogAsyncLoading == true)
 	{
 		LogIORequest(TEXT("FulfillCompressedRead"), IORequest);
@@ -508,7 +526,7 @@ bool FAsyncIOSystemBase::Init()
 {
 	CriticalSection				= new FCriticalSection();
 	ExclusiveReadCriticalSection= new FCriticalSection();
-	OutstandingRequestsEvent	= FPlatformProcess::CreateSynchEvent();
+	OutstandingRequestsEvent	= FPlatformProcess::GetSynchEventFromPool();
 	RequestIndex				= 1;
 	MinPriority					= AIOP_MIN;
 	IsRunning.Increment();
@@ -556,7 +574,8 @@ void FAsyncIOSystemBase::Exit()
 {
 	FlushHandles();
 	delete CriticalSection;
-	delete OutstandingRequestsEvent;
+	FPlatformProcess::ReturnSynchEventToPool(OutstandingRequestsEvent);
+	OutstandingRequestsEvent = nullptr;
 }
 
 void FAsyncIOSystemBase::Stop()
@@ -711,6 +730,8 @@ void FAsyncIOSystemBase::TickSingleThreaded()
 
 void FAsyncIOSystemBase::BlockTillAllRequestsFinished()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FAsyncIOSystemBase::BlockTillAllRequestsFinished"), STAT_FAsyncIOSystemBase_BlockTillAllRequestsFinished, STATGROUP_AsyncIO_Verbose);
+
 	// Block till all requests are fulfilled.
 	while( true ) 
 	{
@@ -728,7 +749,7 @@ void FAsyncIOSystemBase::BlockTillAllRequestsFinished()
 			SHUTDOWN_IF_EXIT_REQUESTED;
 
 			//@todo streaming: this should be replaced by waiting for an event.
-			FPlatformProcess::Sleep( 0.001f );
+			FPlatformProcess::SleepNoStats( 0.001f );
 		}
 	}
 }

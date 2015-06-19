@@ -15,7 +15,7 @@ class UMaterialInstanceDynamic : public UMaterialInstance
 	ENGINE_API void SetScalarParameterValue(FName ParameterName, float Value);
 
 	/** Get the current scalar (float) parameter value from an MID */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "GetScalarParameterValue", Keywords = "GetFloatParameterValue"), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "GetScalarParameterValue", Keywords = "GetFloatParameterValue"), Category="Rendering|Material")
 	float K2_GetScalarParameterValue(FName ParameterName);
 
 	/** Set an MID texture parameter value */
@@ -23,7 +23,7 @@ class UMaterialInstanceDynamic : public UMaterialInstance
 	ENGINE_API void SetTextureParameterValue(FName ParameterName, class UTexture* Value);
 
 	/** Get the current MID texture parameter value */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "GetTextureParameterValue"), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "GetTextureParameterValue"), Category="Rendering|Material")
 	class UTexture* K2_GetTextureParameterValue(FName ParameterName);
 
 	/** Set an MID vector parameter value */
@@ -31,17 +31,17 @@ class UMaterialInstanceDynamic : public UMaterialInstance
 	ENGINE_API void SetVectorParameterValue(FName ParameterName, FLinearColor Value);
 
 	/** Get the current MID vector parameter value */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "GetVectorParameterValue", Keywords = "GetColorParameterValue"), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "GetVectorParameterValue", Keywords = "GetColorParameterValue"), Category="Rendering|Material")
 	FLinearColor K2_GetVectorParameterValue(FName ParameterName);
 	
 	/**
 	 * Interpolates the scalar and vector parameters of this material instance based on two other material instances, and an alpha blending factor
 	 */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "InterpolateMaterialInstanceParameters"), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "InterpolateMaterialInstanceParameters"), Category="Rendering|Material")
 	void K2_InterpolateMaterialInstanceParams(UMaterialInstance* MaterialA, UMaterialInstance* MaterialB, float Alpha);
 
 	/** Copies over parameters given a material interface */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "CopyMaterialInstanceParameters"), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "CopyMaterialInstanceParameters"), Category="Rendering|Material")
 	void K2_CopyMaterialInstanceParameters(UMaterialInterface* SourceMaterialToCopyFrom);
 
 	/**
@@ -64,7 +64,7 @@ class UMaterialInstanceDynamic : public UMaterialInstance
 	 * Copy parameter values from another material instance. This will copy only
 	 * parameters explicitly overridden in that material instance!!
 	 */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "CopyParameterOverrides"), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "CopyParameterOverrides"), Category="Rendering|Material")
 	ENGINE_API void CopyParameterOverrides(UMaterialInstance* MaterialInstance);
 
 };

@@ -29,28 +29,33 @@ struct FFixedZoomLevelsContainer : public FZoomLevelsContainer
 		// Initialize zoom levels if not done already
 		if ( ZoomLevels.Num() == 0 )
 		{
-			ZoomLevels.Reserve(21);
-			ZoomLevels.Add(FZoomLevelEntry(0.150f, LOCTEXT("ZoomLevel", "-10"), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.175f, LOCTEXT("ZoomLevel", "-9"), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.200f, LOCTEXT("ZoomLevel", "-8"), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.225f, LOCTEXT("ZoomLevel", "-7"), EGraphRenderingLOD::LowDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.250f, LOCTEXT("ZoomLevel", "-6"), EGraphRenderingLOD::LowDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.375f, LOCTEXT("ZoomLevel", "-5"), EGraphRenderingLOD::MediumDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.500f, LOCTEXT("ZoomLevel", "-4"), EGraphRenderingLOD::MediumDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.675f, LOCTEXT("ZoomLevel", "-3"), EGraphRenderingLOD::MediumDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.750f, LOCTEXT("ZoomLevel", "-2"), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.875f, LOCTEXT("ZoomLevel", "-1"), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.000f, LOCTEXT("ZoomLevel", "1:1"), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.250f, LOCTEXT("ZoomLevel", "+1"), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.500f, LOCTEXT("ZoomLevel", "+2"), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.750f, LOCTEXT("ZoomLevel", "+3"), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(2.000f, LOCTEXT("ZoomLevel", "+4"), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(2.250f, LOCTEXT("ZoomLevel", "+5"), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(2.500f, LOCTEXT("ZoomLevel", "+6"), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(2.750f, LOCTEXT("ZoomLevel", "+7"), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(3.000f, LOCTEXT("ZoomLevel", "+8"), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(3.250f, LOCTEXT("ZoomLevel", "+9"), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(3.500f, LOCTEXT("ZoomLevel", "+10"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Reserve(26);
+			ZoomLevels.Add(FZoomLevelEntry(0.150f, FText::FromString("-10"), EGraphRenderingLOD::LowestDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.175f, FText::FromString("-9"), EGraphRenderingLOD::LowestDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.200f, FText::FromString("-8"), EGraphRenderingLOD::LowestDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.225f, FText::FromString("-7"), EGraphRenderingLOD::LowDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.250f, FText::FromString("-6"), EGraphRenderingLOD::LowDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.375f, FText::FromString("-5"), EGraphRenderingLOD::MediumDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.500f, FText::FromString("-4"), EGraphRenderingLOD::MediumDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.675f, FText::FromString("-3"), EGraphRenderingLOD::MediumDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.750f, FText::FromString("-2"), EGraphRenderingLOD::DefaultDetail));
+			ZoomLevels.Add(FZoomLevelEntry(0.875f, FText::FromString("-1"), EGraphRenderingLOD::DefaultDetail));
+			ZoomLevels.Add(FZoomLevelEntry(1.000f, FText::FromString("1:1"), EGraphRenderingLOD::DefaultDetail));
+			ZoomLevels.Add(FZoomLevelEntry(1.250f, FText::FromString("+1"), EGraphRenderingLOD::DefaultDetail));
+			ZoomLevels.Add(FZoomLevelEntry(1.500f, FText::FromString("+2"), EGraphRenderingLOD::DefaultDetail));
+			ZoomLevels.Add(FZoomLevelEntry(1.750f, FText::FromString("+3"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(2.000f, FText::FromString("+4"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(2.250f, FText::FromString("+5"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(2.500f, FText::FromString("+6"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(2.750f, FText::FromString("+7"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(3.000f, FText::FromString("+8"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(3.250f, FText::FromString("+9"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(3.500f, FText::FromString("+10"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(4.000f, FText::FromString("+11"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(5.000f, FText::FromString("+12"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(6.000f, FText::FromString("+13"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(7.000f, FText::FromString("+14"), EGraphRenderingLOD::FullyZoomedIn));
+			ZoomLevels.Add(FZoomLevelEntry(8.000f, FText::FromString("+15"), EGraphRenderingLOD::FullyZoomedIn));
 		}
 	}
 
@@ -119,12 +124,11 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 	ViewOffset = FVector2D::ZeroVector;
 
 	ZoomLevelFade = FCurveSequence(0.0f, 1.0f);
-	ZoomLevelFade.Play();
+	ZoomLevelFade.Play( this->AsShared() );
 
 	ZoomLevelGraphFade = FCurveSequence(0.0f, 0.5f);
-	ZoomLevelGraphFade.Play();
+	ZoomLevelGraphFade.Play( this->AsShared() );
 
-	bDeferredZoomingToFit = false;
 	bDeferredZoomToExtents = false;
 
 	bAllowContinousZoomInterpolation = false;
@@ -136,6 +140,7 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 	ZoomTargetBottomRight = FVector2D::ZeroVector;
 
 	ZoomToFitPadding = FVector2D(100, 100);
+	TotalGestureMagnify = 0.0f;
 
 	ChildSlot
 	[
@@ -143,41 +148,43 @@ void SDesignSurface::Construct(const FArguments& InArgs)
 	];
 }
 
-void SDesignSurface::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType SDesignSurface::HandleZoomToFit( double InCurrentTime, float InDeltaTime )
 {
-	FSlateRect Bounds = ComputeAreaBounds();
+	const FVector2D DesiredViewCenter = ( ZoomTargetTopLeft + ZoomTargetBottomRight ) * 0.5f;
+	const bool bDoneScrolling = ScrollToLocation(CachedGeometry, DesiredViewCenter, bTeleportInsteadOfScrollingWhenZoomingToFit ? 1000.0f : InDeltaTime);
+	const bool bDoneZooming = ZoomToLocation(CachedGeometry.Size, ZoomTargetBottomRight - ZoomTargetTopLeft, bDoneScrolling);
 
+	if (bDoneZooming && bDoneScrolling)
+	{
+		// One final push to make sure we're centered in the end
+		ViewOffset = DesiredViewCenter - ( 0.5f * CachedGeometry.Scale * CachedGeometry.Size / GetZoomAmount() );
+
+		ZoomTargetTopLeft = FVector2D::ZeroVector;
+		ZoomTargetBottomRight = FVector2D::ZeroVector;
+
+		return EActiveTimerReturnType::Stop;
+	}
+	
+	return EActiveTimerReturnType::Continue;
+}
+
+void SDesignSurface::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	CachedGeometry = AllottedGeometry;
+	
 	// Zoom to extents
+	FSlateRect Bounds = ComputeAreaBounds();
 	if ( bDeferredZoomToExtents )
 	{
 		bDeferredZoomToExtents = false;
-		//ZoomPadding = NodePanelDefs::DefaultZoomPadding;
 		ZoomTargetTopLeft = FVector2D(Bounds.Left, Bounds.Top);
 		ZoomTargetBottomRight = FVector2D(Bounds.Right, Bounds.Bottom);
-		//bDeferredZoomToSelection = false;
-		bDeferredZoomingToFit = true;
-	}
 
-	if ( bDeferredZoomingToFit )
-	{
-		const FVector2D DesiredViewCenter = ( ZoomTargetTopLeft + ZoomTargetBottomRight ) * 0.5f;
-		const bool bDoneScrolling = ScrollToLocation(AllottedGeometry, DesiredViewCenter, bTeleportInsteadOfScrollingWhenZoomingToFit ? 1000.0f : InDeltaTime);
-		bool bDoneZooming = ZoomToLocation(AllottedGeometry.Size, ZoomTargetBottomRight - ZoomTargetTopLeft, bDoneScrolling);
-
-		if ( bDoneZooming && bDoneScrolling )
+		if (!ActiveTimerHandle.IsValid())
 		{
-			// One final push to make sure we centered in the end
-			ViewOffset = DesiredViewCenter - ( 0.5f * AllottedGeometry.Scale * AllottedGeometry.Size / GetZoomAmount() );
-			// Reset ZoomPadding
-			//ZoomPadding = NodePanelDefs::DefaultZoomPadding;
-			ZoomTargetTopLeft = FVector2D::ZeroVector;
-			ZoomTargetBottomRight = FVector2D::ZeroVector;
-
-			bDeferredZoomingToFit = false;
+			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SDesignSurface::HandleZoomToFit));
 		}
 	}
-	
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 int32 SDesignSurface::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
@@ -249,6 +256,38 @@ FReply SDesignSurface::OnMouseWheel(const FGeometry& MyGeometry, const FPointerE
 	return FReply::Handled();
 }
 
+FReply SDesignSurface::OnTouchGesture(const FGeometry& MyGeometry, const FPointerEvent& GestureEvent)
+{
+	const EGestureEvent::Type GestureType = GestureEvent.GetGestureType();
+	const FVector2D& GestureDelta = GestureEvent.GetGestureDelta();
+	if ( GestureType == EGestureEvent::Magnify )
+	{
+		TotalGestureMagnify += GestureDelta.X;
+		if ( FMath::Abs(TotalGestureMagnify) > 0.07f )
+		{
+			// We want to zoom into this point; i.e. keep it the same fraction offset into the panel
+			const FVector2D WidgetSpaceCursorPos = MyGeometry.AbsoluteToLocal(GestureEvent.GetScreenSpacePosition());
+			const int32 ZoomLevelDelta = TotalGestureMagnify > 0.0f ? 1 : -1;
+			ChangeZoomLevel(ZoomLevelDelta, WidgetSpaceCursorPos, !bRequireControlToOverZoom || GestureEvent.IsControlDown());
+			TotalGestureMagnify = 0.0f;
+		}
+		return FReply::Handled();
+	}
+	else if ( GestureType == EGestureEvent::Scroll )
+	{
+		this->bIsPanning = true;
+		ViewOffset -= GestureDelta / GetZoomAmount();
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
+}
+
+FReply SDesignSurface::OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent)
+{
+	TotalGestureMagnify = 0.0f;
+	return FReply::Unhandled();
+}
+
 inline float FancyMod(float Value, float Size)
 {
 	return ( ( Value >= 0 ) ? 0.0f : Size ) + FMath::Fmod(Value, Size);
@@ -297,7 +336,7 @@ void SDesignSurface::ChangeZoomLevel(int32 ZoomLevelDelta, const FVector2D& Widg
 		PostChangedZoom();
 
 		// Note: This happens even when maxed out at a stop; so the user sees the animation and knows that they're at max zoom in/out
-		ZoomLevelFade.Play();
+		ZoomLevelFade.Play( this->AsShared() );
 
 		// Re-center the screen so that it feels like zooming around the cursor.
 		{
@@ -376,7 +415,7 @@ bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, con
 			// Animate to it
 			PreviousZoomLevel = ZoomLevel;
 			ZoomLevel = FMath::Clamp(DesiredZoom, 0, NumZoomLevels - 1);
-			ZoomLevelGraphFade.Play();
+			ZoomLevelGraphFade.Play(this->AsShared());
 			return false;
 		}
 		else
@@ -386,7 +425,7 @@ bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, con
 			{
 				// Zooming out; do it instantly
 				ZoomLevel = PreviousZoomLevel = DesiredZoom;
-				ZoomLevelFade.Play();
+				ZoomLevelFade.Play(this->AsShared());
 			}
 			else
 			{
@@ -394,7 +433,7 @@ bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, con
 				if ( bDoneScrolling )
 				{
 					ZoomLevel = PreviousZoomLevel = DesiredZoom;
-					ZoomLevelFade.Play();
+					ZoomLevelFade.Play(this->AsShared());
 				}
 			}
 		}
@@ -407,9 +446,8 @@ bool SDesignSurface::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, con
 
 void SDesignSurface::ZoomToFit(bool bInstantZoom)
 {
-	bDeferredZoomingToFit = true;
-	bDeferredZoomToExtents = true;
 	bTeleportInsteadOfScrollingWhenZoomingToFit = bInstantZoom;
+	bDeferredZoomToExtents = true;
 }
 
 FText SDesignSurface::GetZoomText() const

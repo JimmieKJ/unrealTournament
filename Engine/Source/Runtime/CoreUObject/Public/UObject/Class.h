@@ -8,6 +8,15 @@
 
 #include "ObjectBase.h"
 
+// 1 = old behavior
+// 2 = new behavior
+// 3 = old behavior with checks against the new behavior
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	#define UCLASS_FAST_ISA_IMPL 3
+#else
+	#define UCLASS_FAST_ISA_IMPL 2
+#endif
+
 /*-----------------------------------------------------------------------------
 	Mirrors of mirror structures in Object.h. These are used by generated code 
 	to facilitate correct offsets and alignments for structures containing these '
@@ -114,6 +123,26 @@ class COREUOBJECT_API UField : public UObject
 
 	/** Find the metadata value associated with the key */
 	const FString& GetMetaData(const FName& Key) const;
+
+	/**
+	 * Find the metadata value associated with the key and localization namespace and key
+	 *
+	 * @param Key						The key to lookup in the metadata
+	 * @param LocalizationNamespace		Namespace to lookup in the localization manager
+	 * @param LocalizationKey			Key to lookup in the localization manager
+	 * @return							Localized metadata if available, defaults to whatever is provided via GetMetaData
+	 */
+	const FText GetMetaDataText(const TCHAR* MetaDataKey, const FString LocalizationNamespace = FString(), const FString LocalizationKey = FString()) const;
+
+	/**
+	 * Find the metadata value associated with the key and localization namespace and key
+	 *
+	 * @param Key						The key to lookup in the metadata
+	 * @param LocalizationNamespace		Namespace to lookup in the localization manager
+	 * @param LocalizationKey			Key to lookup in the localization manager
+	 * @return							Localized metadata if available, defaults to whatever is provided via GetMetaData
+	 */
+	const FText GetMetaDataText(const FName& MetaDataKey, const FString LocalizationNamespace = FString(), const FString LocalizationKey = FString()) const;
 
 	/**
 	 * Sets the metadata value associated with the key
@@ -231,13 +260,15 @@ class COREUOBJECT_API UStruct : public UField
 	// Variables.
 protected:
 	friend COREUOBJECT_API UClass* Z_Construct_UClass_UStruct();
+private:
 	UStruct* SuperStruct;
 public:
 	UField* Children;
 	int32 PropertiesSize;
-	TArray<uint8> Script;
 
 	int32 MinAlignment;
+	
+	TArray<uint8> Script;
 
 	/** In memory only: Linked list of properties from most-derived to base **/
 	UProperty* PropertyLink;
@@ -258,6 +289,7 @@ public:
 public:
 	// Constructors.
 	UStruct( EStaticConstructor, int32 InSize, EObjectFlags InFlags );
+	explicit UStruct(UStruct* InSuperStruct, SIZE_T ParamsSize = 0, SIZE_T Alignment = 0);
 	explicit UStruct(const FObjectInitializer& ObjectInitializer, UStruct* InSuperStruct, SIZE_T ParamsSize = 0, SIZE_T Alignment = 0 );
 
 	// UObject interface.
@@ -291,7 +323,7 @@ public:
 	//
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties);
 
-	virtual void SerializeBin( FArchive& Ar, void* Data, int32 MaxReadBytes ) const;
+	virtual void SerializeBin( FArchive& Ar, void* Data ) const;
 
 	/**
 	 * Serializes the class properties that reside in Data if they differ from the corresponding values in DefaultData
@@ -385,6 +417,11 @@ public:
 	 */
 	virtual void SetSuperStruct(UStruct* NewSuperStruct);
 
+	/**
+	 * Serializes the SuperStruct pointer.
+	 */
+	virtual void SerializeSuperStruct(FArchive& Ar);
+
 	void LinkChild(UField* Child)
 	{
 		Child->Next = Children;
@@ -416,7 +453,7 @@ enum EStructFlags
 	
 	STRUCT_HasInstancedReference= 0x00000004,
 
-	// Unused entry				= 0x00000008,
+	STRUCT_NoExport				= 0x00000008,
 
 	/** Indicates that this struct should always be serialized as a single unit */
 	STRUCT_Atomic				= 0x00000010,
@@ -490,7 +527,6 @@ struct TStructOpsTypeTraitsBase
 		WithNetSerializer              = false, // struct has a NetSerialize function for serializing its state to an FArchive used for network replication.
 		WithNetDeltaSerializer         = false, // struct has a NetDeltaSerialize function for serializing differences in state from a previous NetSerialize operation.
 		WithSerializeFromMismatchedTag = false, // struct has a SerializeFromMismatchedTag function for converting from other property tags.
-		WithMessageHandling            = false, // struct can be located by the message bus system for marshalling and unmarshalling.
 	};
 };
 
@@ -821,8 +857,6 @@ public:
 		**/
 		virtual bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar, void *Data) = 0;
 
-		virtual bool HasMessageHandling() = 0;
-
 	private:
 		/** sizeof() of the structure **/
 		const int32 Size;
@@ -958,10 +992,6 @@ public:
 			check(TTraits::WithSerializeFromMismatchedTag); // don't call this if we have indicated it is not allowed
 			return SerializeFromMismatchedTagOrNot(Tag, Ar, (CPPSTRUCT*)Data);
 		}
-		virtual bool HasMessageHandling() override
-		{
-			return TTraits::WithMessageHandling;
-		}
 	};
 
 	/** Template for noexport classes to autoregister before main starts **/
@@ -980,7 +1010,7 @@ public:
 
 	COREUOBJECT_API UScriptStruct( EStaticConstructor, int32 InSize, EObjectFlags InFlags );
 	COREUOBJECT_API explicit UScriptStruct(const FObjectInitializer& ObjectInitializer, UScriptStruct* InSuperStruct, ICppStructOps* InCppStructOps = NULL, EStructFlags InStructFlags = STRUCT_NoFlags, SIZE_T ExplicitSize = 0, SIZE_T ExplicitAlignment = 0);
-	COREUOBJECT_API explicit UScriptStruct(const FObjectInitializer& ObjectInitializer);
+	COREUOBJECT_API explicit UScriptStruct(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 public:
 	EStructFlags StructFlags;
@@ -991,12 +1021,12 @@ public:
 #endif
 
 private:
-	/** Holds the Cpp ctors and dtors, sizeof, etc. Is not owned by this and is not released. **/
-	ICppStructOps* CppStructOps;
 	/** true if these cpp ops are not for me, but rather this is an incomplete cpp ops from my base class. **/
 	bool bCppStructOpsFromBaseClass;
 	/** true if we have performed PrepareCppStructOps **/
 	bool bPrepareCppStructOpsCompleted;
+	/** Holds the Cpp ctors and dtors, sizeof, etc. Is not owned by this and is not released. **/
+	ICppStructOps* CppStructOps;
 public:
 
 	// UObject Interface
@@ -1072,7 +1102,7 @@ public:
 	 * @param	PortFlags	Comparison flags
 	 * @return true if the structs are identical
 	 */
-	bool CompareScriptStruct(const void* A, const void* B, uint32 PortFlags) const;
+	COREUOBJECT_API bool CompareScriptStruct(const void* A, const void* B, uint32 PortFlags) const;
 
 	/**
 	 * Copy a struct over an existing struct
@@ -1093,6 +1123,8 @@ public:
 	void ClearScriptStruct(void* Dest, int32 ArrayDim = 1) const;
 
 	virtual COREUOBJECT_API void RecursivelyPreload();
+
+	virtual COREUOBJECT_API FGuid GetCustomGuid() const;
 };
 
 class FStructOnScope
@@ -1103,16 +1135,21 @@ protected:
 
 	FStructOnScope() : SampleStructMemory(NULL) {}
 
-public:
-	FStructOnScope(const UStruct* InScriptStruct)
-		: ScriptStruct(InScriptStruct)
-		, SampleStructMemory(NULL)
+	void Initialize()
 	{
 		if (ScriptStruct.IsValid())
 		{
 			SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStruct->GetStructureSize());
 			ScriptStruct.Get()->InitializeStruct(SampleStructMemory);
 		}
+	}
+
+public:
+	FStructOnScope(const UStruct* InScriptStruct)
+		: ScriptStruct(InScriptStruct)
+		, SampleStructMemory(NULL)
+	{
+		Initialize();
 	}
 
 	virtual uint8* GetStructMemory() { return SampleStructMemory; }
@@ -1176,6 +1213,14 @@ public:
 	/** pointer to first local struct property in this UFunction that contains defaults */
 	UProperty* FirstPropertyToInit;
 
+#if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
+	// The event graph this function calls in to (persistent)
+	UFunction* EventGraphFunction;
+
+	// The state offset inside of the event graph (persistent)
+	int32 EventGraphCallOffset;
+#endif
+
 private:
 	Native Func;
 
@@ -1211,6 +1256,7 @@ public:
 
 	// Constructors.
 	explicit UFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0 );
+	explicit UFunction(UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
 
 	void InitializeDerivedMembers();
 
@@ -1227,8 +1273,9 @@ public:
 	// UFunction interface.
 	UFunction* GetSuperFunction() const
 	{
-		checkSlow(!SuperStruct||SuperStruct->IsA<UFunction>());
-		return (UFunction*)SuperStruct;
+		UStruct* Result = GetSuperStruct();
+		checkSlow(!Result || Result->IsA<UFunction>());
+		return (UFunction*)Result;
 	}
 
 	UProperty* GetReturnProperty() const;
@@ -1263,7 +1310,7 @@ public:
 	FORCEINLINE static uint64 GetDefaultIgnoredSignatureCompatibilityFlags()
 	{
 		//@TODO: UCREMOVAL: CPF_ConstParm added as a hack to get blueprints compiling with a const DamageType parameter.
-		const uint64 IgnoreFlags = CPF_PersistentInstance | CPF_ExportObject | CPF_InstancedReference | CPF_ContainsInstancedReference | CPF_ComputedFlags | CPF_ConstParm;
+		const uint64 IgnoreFlags = CPF_PersistentInstance | CPF_ExportObject | CPF_InstancedReference | CPF_ContainsInstancedReference | CPF_ComputedFlags | CPF_ConstParm | CPF_HasGetValueTypeHash | CPF_UObjectWrapper;
 		return IgnoreFlags;
 	}
 
@@ -1289,6 +1336,15 @@ public:
 	 * @return	true if function signatures are compatible.
 	 */
 	bool IsSignatureCompatibleWith(const UFunction* OtherFunction, uint64 IgnoreFlags) const;
+};
+
+class COREUOBJECT_API UDelegateFunction : public UFunction
+{
+	DECLARE_CASTED_CLASS_INTRINSIC(UDelegateFunction, UFunction, 0, CoreUObject, CASTCLASS_UDelegateFunction)
+	DECLARE_WITHIN(UObject)
+public:
+	explicit UDelegateFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
+	explicit UDelegateFunction(UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
 };
 
 /*-----------------------------------------------------------------------------
@@ -1471,7 +1527,7 @@ public:
 
 			// Strip the namespace from the name.
 			FString EnumName(Names[InIndex].ToString());
-			int32 ScopeIndex = EnumName.Find(TEXT("::"));
+			int32 ScopeIndex = EnumName.Find(TEXT("::"), ESearchCase::CaseSensitive);
 			if (ScopeIndex != INDEX_NONE)
 			{
 				return EnumName.Mid(ScopeIndex + 2);
@@ -1665,6 +1721,24 @@ private:
 		UE_CLOG(!EnumClass, LogClass, Fatal, TEXT("Couldn't find enum '%s'"), EnumPath);
 		return EnumClass->GetEnumText(Value);
 	}
+
+	/**
+	 *
+	 * Renames enum values to use duplicated enum name instead of base one, e.g.:
+	 * 
+	 * MyEnum::MyVal
+	 * MyEnum::MyEnum_MAX
+	 * 
+	 * becomes
+	 * 
+	 * MyDuplicatedEnum::MyVal
+	 * MyDuplicatedEnum::MyDuplicatedEnum_MAX
+	 * 
+	 **/
+	void RenameNamesAfterDuplication();
+
+	/** Gets name of enum "this" is duplicate of. If we're not duplicating, just returns "this" name. */
+	FString GetBaseEnumNameOnDuplication() const;
 };
 
 /*-----------------------------------------------------------------------------
@@ -1719,30 +1793,73 @@ namespace EIncludeSuperFlag
 	};
 }
 
+
+#if UCLASS_FAST_ISA_IMPL & 2
+
+	class FFastIndexingClassTreeRegistrar
+	{
+	public:
+		FFastIndexingClassTreeRegistrar();
+		FFastIndexingClassTreeRegistrar(const FFastIndexingClassTreeRegistrar&);
+		~FFastIndexingClassTreeRegistrar();
+
+	private:
+		friend class UClass;
+		friend class UObjectBaseUtility;
+		friend class FFastIndexingClassTree;
+
+		bool IsAUsingFastTree(const FFastIndexingClassTreeRegistrar& Parent) const
+		{
+			return ClassTreeIndex - Parent.ClassTreeIndex <= Parent.ClassTreeNumChildren;
+		}
+
+		FFastIndexingClassTreeRegistrar& operator=(const FFastIndexingClassTreeRegistrar&);
+
+		uint32 ClassTreeIndex;
+		uint32 ClassTreeNumChildren;
+	};
+
+#endif
+
+
 /**
  * An object class.
  */
 class COREUOBJECT_API UClass : public UStruct
+#if UCLASS_FAST_ISA_IMPL & 2
+	, private FFastIndexingClassTreeRegistrar
+#endif
 {
 	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UClass,UStruct,0,CoreUObject,CASTCLASS_UClass,NO_API)
 	DECLARE_WITHIN(UPackage)
 
 public:
-
+#if UCLASS_FAST_ISA_IMPL & 2
+	friend class FFastIndexingClassTree;
+#endif
 	friend class FRestoreClassInfo;
 
-	void(*ClassConstructor)(const FObjectInitializer&);
+	typedef void		(*ClassConstructorType)				(const FObjectInitializer&);
+#if WITH_HOT_RELOAD_CTORS
+	typedef UObject*	(*ClassVTableHelperCtorCallerType)	(FVTableHelper& Helper);
+#endif // WITH_HOT_RELOAD_CTORS
+	typedef void		(*ClassAddReferencedObjectsType)	(UObject*, class FReferenceCollector&);
+
+	ClassConstructorType ClassConstructor;
+#if WITH_HOT_RELOAD_CTORS
+	ClassVTableHelperCtorCallerType ClassVTableHelperCtorCaller;
+#endif // WITH_HOT_RELOAD_CTORS
 	/** Pointer to a static AddReferencedObjects method. */
-	void(*ClassAddReferencedObjects)(UObject*, class FReferenceCollector&);
+	ClassAddReferencedObjectsType ClassAddReferencedObjects;
+
+	// Class pseudo-unique counter; used to accelerate unique instance name generation
+	int32 ClassUnique;
 
 	// Class flags; See EClassFlags for more information
 	uint32 ClassFlags;
 
 	// Cast flags used to accelerate dynamic_cast<T*> on objects of this type for common T
 	EClassCastFlags ClassCastFlags;
-
-	// Class pseudo-unique counter; used to accelerate unique instance name generation
-	int32 ClassUnique;
 
 	// The required type for the outer of instances of this class.
 	UClass* ClassWithin;
@@ -1760,6 +1877,9 @@ public:
 
 	//
 	FName ClassConfigName;
+
+	// Used to check if the class was cooked or not.
+	bool bCooked;
 
 	// List of replication records
 	TArray<FRepRecord> ClassReps;
@@ -1798,9 +1918,6 @@ public:
 	// The class default object; used for delta serialization and object initialization
 	UObject* ClassDefaultObject;
 
-	// Used to check if the class was cooked or not.
-	bool bCooked;
-
 private:
 	/** Map of all functions by name contained in this state */
 	TMap<FName, UFunction*> FuncMap;
@@ -1832,11 +1949,14 @@ public:
 
 public:
 	// Constructors
-	UClass(const FObjectInitializer& ObjectInitializer);
+	UClass(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	explicit UClass(const FObjectInitializer& ObjectInitializer, UClass* InSuperClass);
 	UClass( EStaticConstructor, FName InName, uint32 InSize, uint32 InClassFlags, EClassCastFlags InClassCastFlags,
-		const TCHAR* InClassConfigName, EObjectFlags InFlags, void(*InClassConstructor)(const FObjectInitializer&),
-		void(*InClassAddReferencedObjects)(UObject*, class FReferenceCollector&));
+		const TCHAR* InClassConfigName, EObjectFlags InFlags, ClassConstructorType InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+		ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+		ClassAddReferencedObjectsType InClassAddReferencedObjects);
 
 #if WITH_HOT_RELOAD
 	/**
@@ -1854,8 +1974,11 @@ public:
 		uint32			InClassFlags,
 		EClassCastFlags	InClassCastFlags,
 		const TCHAR*    InConfigName,
-		void			(*InClassConstructor)(const FObjectInitializer&),
-		void			(*InAddReferencedObjects)(UObject*, class FReferenceCollector&),
+		ClassConstructorType InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+		ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+		ClassAddReferencedObjectsType InClassAddReferencedObjects,
 		class UClass* TClass_Super_StaticClass,
 		class UClass* TClass_WithinClass_StaticClass
 		);
@@ -1873,7 +1996,6 @@ public:
 	bool ReplaceNativeFunction(FName InName, Native InPointer, bool bAddToFunctionRemapTable);
 #endif
 
-#if WITH_EDITOR
 	/**
 	 * If there are potentially multiple versions of this class (e.g. blueprint generated classes), this function will return the authoritative version, which should be used for references
 	 *
@@ -1883,7 +2005,6 @@ public:
 	{
 		return this;
 	}
-#endif
 
 	/**
 	 * Add a native function to the internal native function table
@@ -1896,6 +2017,12 @@ public:
 	void AddFunctionToFunctionMap(UFunction* NewFunction)
 	{
 		FuncMap.Add(NewFunction->GetFName(), NewFunction);
+	}
+
+	// Remove a function from the function map
+	void RemoveFunctionFromFunctionMap(UFunction* Function)
+	{
+		FuncMap.Remove(Function->GetFName());
 	}
 
 	UFunction* FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper = EIncludeSuperFlag::IncludeSuper) const;
@@ -1923,6 +2050,7 @@ public:
 	// UStruct interface.
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 	virtual void SetSuperStruct(UStruct* NewSuperStruct) override;
+	virtual void SerializeSuperStruct(FArchive& Ar) override;
 	// End of UStruct interface.
 	
 	/**
@@ -1937,7 +2065,7 @@ public:
 
 	UClass* GetSuperClass() const
 	{
-		return (UClass*)SuperStruct;
+		return (UClass*)GetSuperStruct();
 	}
 
 	/** Feedback context for default property import **/
@@ -2198,7 +2326,14 @@ public:
 	 */
 	virtual void GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut) {}
 
+	virtual UObject* GetArchetypeForCDO() const;
 private:
+	#if UCLASS_FAST_ISA_IMPL & 2
+		// For UObjectBaseUtility
+		friend class UObjectBaseUtility;
+		using FFastIndexingClassTreeRegistrar::IsAUsingFastTree;
+	#endif
+
 	// This signature intentionally hides the method declared in UObjectBaseUtility to make it private.
 	// Call IsChildOf instead; Hidden because calling IsA on a class almost always indicates an error where the caller should use IsChildOf.
 	bool IsA(const UClass* Parent) const
@@ -2237,6 +2372,17 @@ void InternalConstructor( const FObjectInitializer& X )
 	T::__DefaultConstructor(X);
 }
 
+#if WITH_HOT_RELOAD_CTORS
+/**
+ * Helper template to call the vtable ctor caller for a class
+ */
+template<class T>
+UObject* InternalVTableHelperCtorCaller(FVTableHelper& Helper)
+{
+	return T::__VTableCtorCaller(Helper);
+}
+#endif // WITH_HOT_RELOAD_CTORS
+
 COREUOBJECT_API void InitializePrivateStaticClass(
 	class UClass* TClass_Super_StaticClass,
 	class UClass* TClass_PrivateStaticClass,
@@ -2272,7 +2418,10 @@ void GetPrivateStaticClassBody( const TCHAR* PackageName, const TCHAR* Name, UCl
 				TClass::StaticClassFlags,
 				TClass::StaticClassCastFlags(),
 				TClass::StaticConfigName(),
-				(void(*)(const FObjectInitializer&))InternalConstructor<TClass>,
+				(UClass::ClassConstructorType)InternalConstructor<TClass>,
+#if WITH_HOT_RELOAD_CTORS
+				(UClass::ClassVTableHelperCtorCallerType)InternalVTableHelperCtorCaller<TClass>,
+#endif // WITH_HOT_RELOAD_CTORS
 				&TClass::AddReferencedObjects,
 				TClass::Super::StaticClass(),
 				TClass::WithinClass::StaticClass()
@@ -2300,7 +2449,10 @@ void GetPrivateStaticClassBody( const TCHAR* PackageName, const TCHAR* Name, UCl
 		TClass::StaticClassCastFlags(),
 		TClass::StaticConfigName(),
 		EObjectFlags(RF_Public | RF_Standalone | RF_Transient | RF_Native | RF_RootSet),
-		(void(*)(const FObjectInitializer&))InternalConstructor<TClass>,
+		(UClass::ClassConstructorType)InternalConstructor<TClass>,
+#if WITH_HOT_RELOAD_CTORS
+		(UClass::ClassVTableHelperCtorCallerType)InternalVTableHelperCtorCaller<TClass>,
+#endif // WITH_HOT_RELOAD_CTORS
 		&TClass::AddReferencedObjects
 		);
 	check(ReturnClass);
@@ -2342,8 +2494,9 @@ public:
 	 * Sets the DestinationRoot for this instancing graph.
 	 *
 	 * @param	DestinationSubobjectRoot	the top-level object that is being created
+	 * @param	InSourceRoot	Archetype of DestinationSubobjectRoot
 	 */
-	void SetDestinationRoot( class UObject* DestinationSubobjectRoot );
+	void SetDestinationRoot( class UObject* DestinationSubobjectRoot, class UObject* InSourceRoot = nullptr );
 
 	/**
 	 * Finds the destination object instance corresponding to the specified source object.
@@ -2371,17 +2524,19 @@ public:
 
 	/**
 	 * Adds a partially built object instance to the map(s) of source objects to their instances.
-	 * @param	ObjectInstance			Object that was just allocated, but has not been constructed yet
+	 * @param	ObjectInstance  Object that was just allocated, but has not been constructed yet
+	 * @param	InArchetype     Archetype of ObjectInstance
 	 */
-	void AddNewObject(class UObject* ObjectInstance);
+	void AddNewObject(class UObject* ObjectInstance, class UObject* InArchetype = nullptr);
 
 	/**
 	 * Adds an object instance to the map of source objects to their instances.  If there is already a mapping for this object, it will be replaced
 	 * and the value corresponding to ObjectInstance's archetype will now point to ObjectInstance.
 	 *
-	 * @param	ObjectInstance	the object that should be added as the corresopnding instance for ObjectSource
+	 * @param	ObjectInstance  the object that should be added as the corresopnding instance for ObjectSource
+	 * @param	InArchetype     Archetype of ObjectInstance
 	 */
-	void AddNewInstance(class UObject* ObjectInstance);
+	void AddNewInstance(class UObject* ObjectInstance, class UObject* InArchetype = nullptr);
 
 	/**
 	 * Retrieves a list of objects that have the specified Outer
@@ -2558,11 +2713,12 @@ FORCEINLINE bool UObject::Implements() const
  * @return	a pointer of type T to a new object of the specified class
  */
 template< class T >
+DEPRECATED(4.8, "ConstructObject is deprecated. Use NewObject instead")
 T* ConstructObject(UClass* Class, UObject* Outer, FName Name, EObjectFlags SetFlags, UObject* Template, bool bCopyTransientsFromClassDefaults, struct FObjectInstancingGraph* InstanceGraph )
 {
 	checkf(Class, TEXT("ConstructObject called with a NULL class object"));
 	checkSlow(Class->IsChildOf(T::StaticClass()));
-	return (T*)StaticConstructObject(Class, Outer, Name, SetFlags, Template, bCopyTransientsFromClassDefaults, InstanceGraph);
+	return (T*)StaticConstructObject_Internal(Class, Outer, Name, SetFlags, Template, bCopyTransientsFromClassDefaults, InstanceGraph);
 }
 
 /**
@@ -2599,3 +2755,13 @@ inline T* GetMutableDefault(UClass *Class)
 	checkSlow(Class->GetDefaultObject()->IsA(T::StaticClass()));
 	return (T*)Class->GetDefaultObject();
 }
+
+struct FStructUtils
+{
+	static bool ArePropertiesTheSame(const UProperty* A, const UProperty* B, bool bCheckPropertiesNames);
+
+	// does structures have exactly the same memory layout
+	COREUOBJECT_API static bool TheSameLayout(const UStruct* StructA, const UStruct* StructB, bool bCheckPropertiesNames = false);
+};
+
+COREUOBJECT_API UScriptStruct* GetBaseStructure(const TCHAR* Name);

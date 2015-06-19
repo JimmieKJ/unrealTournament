@@ -199,7 +199,7 @@ float AddAngleToRoughness( float Angle, float Roughness )
 // @param Scalar clamped in 0..1 range
 // @param Mask 0..1
 // @return 8bit in range 0..1
-float Encode71(float Scalar, int Mask)
+float Encode71(float Scalar, uint Mask)
 {
 	return
 		127.0f / 255.0f * saturate(Scalar) +
@@ -210,16 +210,11 @@ float Encode71(float Scalar, int Mask)
 // @param Scalar 0..1
 // @param Mask 0..1
 // @return 7bit in 0.1
-float Decode71(float Scalar, out int Mask)
+float Decode71(float Scalar, out uint Mask)
 {
-	Mask = (int)(Scalar > 0.5f);
+	Mask = (uint)(Scalar > 0.5f);
 
 	return (Scalar - 0.5f * Mask) * 2.0f;
-}
-
-uint DecodeShadingModelId(float InPackedChannel)
-{
-	return (uint)( InPackedChannel * 255.999 );
 }
 
 #define SHADINGMODELID_UNLIT				0
@@ -230,6 +225,16 @@ uint DecodeShadingModelId(float InPackedChannel)
 #define SHADINGMODELID_SUBSURFACE_PROFILE	5
 #define SHADINGMODELID_TWOSIDED_FOLIAGE		6
 #define SHADINGMODELID_NUM					7
+
+float EncodeShadingModelId(uint ShadingModelId)
+{
+	return (ShadingModelId + .5f) / (float)SHADINGMODELID_NUM;
+}
+
+uint DecodeShadingModelId(float InPackedChannel)
+{
+	return (uint)( InPackedChannel * SHADINGMODELID_NUM );
+}
 
 bool IsSubsurfaceModel(int ShadingModel)
 {
@@ -268,16 +273,20 @@ struct FGBufferData
 	// 0..1 ambient occlusion  e.g.SSAO, wet surface mask, skylight mask, ...
 	float GBufferAO;
 	// 0..255 
-	int ShadingModelID;
+	uint ShadingModelID;
 	// 0..1 decal receiver mask
 	uint DecalMask;
 	// 0..1
 	uint HasDistanceFieldRepresentation; 
+	// 0..1
+	uint HasHeightfieldRepresentation; 
 	// in world units
 	float CustomDepth;
 	// in unreal units (linear), can be used to reconstruct world position,
 	// only valid when decoding the GBuffer as the value gets reconstructed from the Z buffer
 	float Depth;
+	// Velocity for motion blur (only used when WRITES_VELOCITY_TO_GBUFFER is enabled)
+	float4 Velocity;
 };
 
 
@@ -316,13 +325,15 @@ void EncodeGBuffer(
 	out float4 OutGBufferC,
 	out float4 OutGBufferD,
 	out float4 OutGBufferE,
+	out float4 OutGBufferVelocity,
 	float QuantizationBias = 0		// -0.5 to 0.5 random float. Used to bias quantization.
 	)
 {
 	OutGBufferA.rgb = EncodeNormal( GBuffer.WorldNormal );
 
 	// compress in 2 bits
-	uint PackedAlpha = GBuffer.DecalMask * 2 + (GBuffer.HasDistanceFieldRepresentation);
+	// Note: distance field lighting dependencies (normal, representation bits) packed for minimal texture fetches
+	uint PackedAlpha = GBuffer.HasHeightfieldRepresentation * 2 + (GBuffer.HasDistanceFieldRepresentation);
 	OutGBufferA.a = PackedAlpha * (1.0 / 3.0);
 
 	if (GBuffer.ShadingModelID == SHADINGMODELID_UNLIT)
@@ -338,15 +349,25 @@ void EncodeGBuffer(
 		OutGBufferB.b = GBuffer.Roughness;
 		OutGBufferC.rgb = EncodeBaseColor(GBuffer.BaseColor);
 
+#if ALLOW_STATIC_LIGHTING
 		// No space for AO. Multiply IndirectIrradiance by AO instead of storing.
 		OutGBufferC.a = EncodeIndirectIrradiance(GBuffer.IndirectIrradiance * GBuffer.GBufferAO) + QuantizationBias * (1.0 / 255.0);
-		OutGBufferB.a = GBuffer.ShadingModelID * (1.0 / 255.0);
+#else
+		OutGBufferC.a = GBuffer.GBufferAO;
+#endif
+		OutGBufferB.a = Encode71(EncodeShadingModelId(GBuffer.ShadingModelID), GBuffer.DecalMask);
 
 		OutGBufferD.r = GBuffer.Opacity;
 		OutGBufferD.gba = GBuffer.CustomData;
 	}
 
 	OutGBufferE = GBuffer.PrecomputedShadowFactors;
+
+#if WRITES_VELOCITY_TO_GBUFFER
+	OutGBufferVelocity = GBuffer.Velocity;
+#else
+	OutGBufferVelocity = 0;
+#endif
 }
 
 /** Populates FGBufferData */
@@ -356,6 +377,7 @@ FGBufferData DecodeGBufferData(
 	float4 InGBufferC,
 	float4 InGBufferD,
 	float4 InGBufferE,
+	float4 InGBufferVelocity,
 	float CustomNativeDepth,
 	float SceneDepth,
 	bool bGetNormalizedNormal)
@@ -370,9 +392,10 @@ FGBufferData DecodeGBufferData(
 	}
 
 	uint PackedAlpha = (uint)( InGBufferA.a * 3.999 );
-	GBuffer.DecalMask = PackedAlpha & 2;
+	GBuffer.HasHeightfieldRepresentation = (PackedAlpha & 2) != 0;
 	GBuffer.HasDistanceFieldRepresentation = PackedAlpha & 1;
-	GBuffer.ShadingModelID = DecodeShadingModelId(InGBufferB.a);
+	GBuffer.DecalMask = 0;
+	GBuffer.ShadingModelID = DecodeShadingModelId(Decode71(InGBufferB.a, GBuffer.DecalMask));
 	
 	GBuffer.BaseColor = DecodeBaseColor(InGBufferC.rgb);
 	GBuffer.Metallic = InGBufferB.r;
@@ -381,8 +404,13 @@ FGBufferData DecodeGBufferData(
 	
 	GBuffer.Roughness = InGBufferB.b;
 	GBuffer.CustomData = InGBufferD.gba;
+#if ALLOW_STATIC_LIGHTING
 	GBuffer.GBufferAO = 1;
 	GBuffer.IndirectIrradiance = DecodeIndirectIrradiance(InGBufferC.a);
+#else
+	GBuffer.GBufferAO = InGBufferC.a;
+	GBuffer.IndirectIrradiance = 1;
+#endif
 	GBuffer.PrecomputedShadowFactors = InGBufferE;
 	GBuffer.CustomDepth = ConvertFromDeviceZ(CustomNativeDepth);
 	GBuffer.Depth = SceneDepth;
@@ -392,15 +420,16 @@ FGBufferData DecodeGBufferData(
 		GBuffer.DiffuseColor = GBuffer.BaseColor - GBuffer.BaseColor * GBuffer.Metallic;
 		GBuffer.SpecularColor = lerp( 0.08 * GBuffer.Specular.xxx, GBuffer.BaseColor, GBuffer.Metallic );
 
-		// todo: COMPILE_SHADERS_FOR_DEVELOPMENT is unfinished feature, using XBOXONE_PROFILE as workaround
-		#if COMPILE_SHADERS_FOR_DEVELOPMENT == 1 && !XBOXONE_PROFILE && !ES31_AEP_PROFILE
+		#if USE_DEVELOPMENT_SHADERS
 		{
 			// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
 			GBuffer.DiffuseColor = GBuffer.DiffuseColor * View.DiffuseOverrideParameter.www + View.DiffuseOverrideParameter.xyz;
 			GBuffer.SpecularColor = GBuffer.SpecularColor * View.SpecularOverrideParameter.w + View.SpecularOverrideParameter.xyz;
 		}
-		#endif //COMPILE_SHADERS_FOR_DEVELOPMENT == 1
+		#endif //USE_DEVELOPMENT_SHADERS
 	}
+
+	GBuffer.Velocity = InGBufferVelocity;
 
 	return GBuffer;
 }
@@ -526,9 +555,15 @@ SamplerState CustomDepthTextureSampler;
 			float4 GBufferE = 1;
 		#endif
 
+		#if WRITES_VELOCITY_TO_GBUFFER
+			float4 GBufferVelocity = GBuffers.GBufferVelocityTextureNonMS.Load(int3(PixelPos, 0));
+		#else
+			float4 GBufferVelocity = 0;
+		#endif
+
 		float SceneDepth = CalcSceneDepth(PixelPos);
 
-		return DecodeGBufferData(GBufferA, GBufferB, GBufferC, GBufferD, GBufferE, CustomNativeDepth, SceneDepth, bGetNormalizedNormal);
+		return DecodeGBufferData(GBufferA, GBufferB, GBufferC, GBufferD, GBufferE, GBufferVelocity, CustomNativeDepth, SceneDepth, bGetNormalizedNormal);
 	}
 
 	FDBufferData GetDBufferData(uint2 PixelPos)
@@ -594,18 +629,24 @@ FGBufferData GetGBufferData(float2 UV, bool bGetNormalizedNormal = true)
 	#else
 		float4 GBufferE = 1;
 	#endif
+
+	#if WRITES_VELOCITY_TO_GBUFFER
+		float4 GBufferVelocity = Texture2DSampleLevel(GBuffers.GBufferVelocityTexture, GBuffers.GBufferVelocityTextureSampler, UV, 0);
+	#else
+		float4 GBufferVelocity = 0;
+	#endif
 #endif
 
 	float SceneDepth = CalcSceneDepth(UV);
 	
-	return DecodeGBufferData(GBufferA, GBufferB, GBufferC, GBufferD, GBufferE, CustomNativeDepth, SceneDepth, bGetNormalizedNormal);
+	return DecodeGBufferData(GBufferA, GBufferB, GBufferC, GBufferD, GBufferE, GBufferVelocity, CustomNativeDepth, SceneDepth, bGetNormalizedNormal);
 }
 
 // Minimal path for just the lighting model, used to branch around unlit pixels (skybox)
 uint GetShadingModelId(float2 UV)
 {
-	float4 GBufferB = Texture2DSampleLevel(GBuffers.GBufferBTexture, GBuffers.GBufferBTextureSampler, UV, 0);
-	return DecodeShadingModelId(GBufferB.a);
+	bool Unused;
+	return DecodeShadingModelId(Decode71(Texture2DSampleLevel(GBuffers.GBufferBTexture, GBuffers.GBufferBTextureSampler, UV, 0).a, Unused));
 }
 
 // @param UV - UV space in the DBuffer textures (BufferSize resolution)
@@ -657,7 +698,13 @@ FScreenSpaceData GetScreenSpaceData(float2 UV, bool bGetNormalizedNormal = true)
 		float DeviceZ = SceneDepthSurface.Load(IntUV, SampleIndex);
 		float SceneDepth = ConvertFromDeviceZ(DeviceZ);
 
-		return DecodeGBufferData(GBufferA, GBufferB, GBufferC, GBufferD, GBufferE, CustomNativeDepth, SceneDepth, bGetNormalizedNormal);
+	#if WRITES_VELOCITY_TO_GBUFFER
+		float4 GBufferVelocity = GBuffers.GBufferVelocityTextureMS.Load(IntUV, SampleIndex);
+	#else
+		float4 GBufferVelocity = 0;
+	#endif
+
+		return DecodeGBufferData(GBufferA, GBufferB, GBufferC, GBufferD, GBufferE, GBufferVelocity, CustomNativeDepth, SceneDepth, bGetNormalizedNormal);
 	}
 
 	FGBufferData GetGBufferDataMS(float2 UV, uint SampleIndex, bool bGetNormalizedNormal = true)

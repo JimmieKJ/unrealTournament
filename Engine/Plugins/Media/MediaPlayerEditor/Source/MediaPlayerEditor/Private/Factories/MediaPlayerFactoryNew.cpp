@@ -20,7 +20,7 @@ UMediaPlayerFactoryNew::UMediaPlayerFactoryNew( const FObjectInitializer& Object
 
 UObject* UMediaPlayerFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	return CastChecked<UMediaPlayer>(StaticConstructObject(InClass, InParent, InName, Flags));
+	return NewObject<UMediaPlayer>(InParent, InClass, InName, Flags);
 }
 
 

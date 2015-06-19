@@ -17,6 +17,7 @@
 #include "K2Node_CallDataTableFunction.h"
 #include "K2Node_CallArrayFunction.h"
 #include "K2Node_VariableGet.h"
+#include "BlueprintEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintFunctionNodeSpawner"
 
@@ -95,9 +96,9 @@ static bool BlueprintFunctionNodeSpawnerImpl::BindFunctionNode(UK2Node_CallFunct
 		}
 		else if (AActor* BoundActor = Cast<AActor>(BoundObject))
 		{
-			auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool /*bIsTemplateNode*/, AActor* ActorInst)
+			auto PostSpawnSetupLambda = [](UEdGraphNode* InNewNode, bool /*bIsTemplateNode*/, AActor* ActorInst)
 			{
-				UK2Node_Literal* ActorRefNode = CastChecked<UK2Node_Literal>(NewNode);
+				UK2Node_Literal* ActorRefNode = CastChecked<UK2Node_Literal>(InNewNode);
 				ActorRefNode->SetObjectRef(ActorInst);
 			};
 			UBlueprintNodeSpawner::FCustomizeNodeDelegate PostSpawnDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(PostSpawnSetupLambda, BoundActor);
@@ -139,7 +140,6 @@ static FVector2D BlueprintFunctionNodeSpawnerImpl::CalculateBindingPosition(UEdG
 	float const EstimatedVarNodeWidth = 224.0f;
 	FVector2D AttachingNodePos;
 	AttachingNodePos.X = InputNode->NodePosX - EstimatedVarNodeWidth;
-	AttachingNodePos.Y = InputNode->NodePosY;
 
 	float const EstimatedVarNodeHeight = 48.0f;
 	float const EstimatedFuncNodeHeight = UEdGraphSchema_K2::EstimateNodeHeight(InputNode);
@@ -182,7 +182,7 @@ UBlueprintFunctionNodeSpawner* UBlueprintFunctionNodeSpawner::Create(UFunction c
 	check(Function != nullptr);
 
 	bool const bIsPure = Function->HasAllFunctionFlags(FUNC_BlueprintPure);
-	bool const bHasArrayPointerParms = Function->HasMetaData(TEXT("ArrayParm"));
+	bool const bHasArrayPointerParms = Function->HasMetaData(FBlueprintMetadata::MD_ArrayParam);
 	bool const bIsCommutativeAssociativeBinaryOp = Function->HasMetaData(FBlueprintMetadata::MD_CommutativeAssociativeBinaryOperator);
 	bool const bIsMaterialParamCollectionFunc = Function->HasMetaData(FBlueprintMetadata::MD_MaterialParameterCollectionFunction);
 	bool const bIsDataTableFunc = Function->HasMetaData(FBlueprintMetadata::MD_DataTablePin);
@@ -242,11 +242,16 @@ UBlueprintFunctionNodeSpawner* UBlueprintFunctionNodeSpawner::Create(TSubclassOf
 	//--------------------------------------
 
 	FBlueprintActionUiSpec& MenuSignature = NodeSpawner->DefaultMenuSignature;
-	MenuSignature.MenuName = FText::FromString( UK2Node_CallFunction::GetUserFacingFunctionName(Function) );
+	MenuSignature.MenuName = UK2Node_CallFunction::GetUserFacingFunctionName(Function);
 	MenuSignature.Category = FText::FromString( UK2Node_CallFunction::GetDefaultCategoryForFunction(Function, TEXT("")) );
 	MenuSignature.Tooltip  = FText::FromString( UK2Node_CallFunction::GetDefaultTooltipForFunction(Function) );
-	// add at least one character, so that PrimeDefaultMenuSignature() doesn't attempt to query the template node
-	MenuSignature.Keywords = UK2Node_CallFunction::GetKeywordsForFunction(Function).AppendChar(TEXT(' '));
+	// add at least one character, so that PrimeDefaultUiSpec() doesn't attempt to query the template node
+	MenuSignature.Keywords = UK2Node_CallFunction::GetKeywordsForFunction(Function);
+	if (MenuSignature.Keywords.IsEmpty())
+	{
+		MenuSignature.Keywords = FText::FromString(TEXT(" "));
+	}
+
 	MenuSignature.IconName = UK2Node_CallFunction::GetPaletteIconForFunction(Function, MenuSignature.IconTint);
 
 	if (MenuSignature.Category.IsEmpty())
@@ -392,10 +397,16 @@ UEdGraphNode* UBlueprintFunctionNodeSpawner::Invoke(UEdGraph* ParentGraph, FBind
 	FCustomizeNodeDelegate PostSpawnSetupDelegate = FCustomizeNodeDelegate::CreateStatic(PostSpawnSetupLambda, GetFunction(), SetNodeFieldDelegate, CustomizeNodeDelegate);
 
 	UClass* SpawnClass = NodeClass;
-	if ((Bindings.Num() == 1) && (*Bindings.CreateConstIterator())->IsA<UObjectProperty>())
+
+	const UBlueprintEditorSettings* BPSettings = GetDefault<UBlueprintEditorSettings>();
+	bool const bIsTemplateNode = FBlueprintNodeTemplateCache::IsTemplateOuter(ParentGraph);
+
+	bool const bSpawnCallOnMember = (Bindings.Num() == 1) && (*Bindings.CreateConstIterator())->IsA<UObjectProperty>();
+	if (bSpawnCallOnMember && (bIsTemplateNode || BPSettings->bCompactCallOnMemberNodes))
 	{
 		SpawnClass = UK2Node_CallFunctionOnMember::StaticClass();
 	}
+
 	// if this spawner was set up to spawn a bound node, reset this so the 
 	// bound nodes get positioned properly
 	BlueprintFunctionNodeSpawnerImpl::BindingOffset = FVector2D::ZeroVector;
@@ -416,6 +427,13 @@ bool UBlueprintFunctionNodeSpawner::IsBindingCompatible(UObject const* BindingCa
 {
 	UFunction const* Function = GetFunction();
 	checkSlow(Function != nullptr);
+
+	if ( !ensureMsgf(!FBlueprintNodeSpawnerUtils::IsStaleFieldAction(this), 
+			TEXT("Invalid BlueprintFunctionNodeSpawner (for %s). Was the action database properly updated when this class was compiled?"), 
+			*Function->GetOwnerClass()->GetName()) )
+	{
+		return false;
+	}
 
 	bool const bNodeTypeMatches = (NodeClass == UK2Node_CallFunction::StaticClass());
 	bool bClassOwnerMatches = false;

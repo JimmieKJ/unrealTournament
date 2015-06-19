@@ -21,6 +21,9 @@
 #include "GameFramework/OnlineSession.h"
 #include "GameFramework/PlayerInput.h"
 #include "GameFramework/GameMode.h"
+#include "GameFramework/PlayerState.h"
+
+#include "GameDelegates.h"
 
 DEFINE_LOG_CATEGORY(LogPlayerManagement);
 
@@ -135,11 +138,22 @@ void FLocalPlayerContext::SetPlayerController( const APlayerController* InPlayer
 	LocalPlayer = CastChecked<ULocalPlayer>(InPlayerController->Player);
 }
 
+bool FLocalPlayerContext::IsFromLocalPlayer(const AActor* ActorToTest) const
+{
+	return (ActorToTest != nullptr) &&
+		IsValid() &&
+		(ActorToTest == GetPlayerController() ||
+		ActorToTest == GetPlayerState() ||
+		ActorToTest == GetPawn());
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 // ULocalPlayer
 
 ULocalPlayer::ULocalPlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, SlateOperations( FReply::Unhandled() )
 {
 	PendingLevelPlayerControllerClass = APlayerController::StaticClass();
 }
@@ -174,7 +188,7 @@ void ULocalPlayer::InitOnlineSession()
 	if (OnlineSession == NULL)
 	{
 		UClass* SpawnClass = GetOnlineSessionClass();
-		OnlineSession = ConstructObject<UOnlineSession>(SpawnClass, this);
+		OnlineSession = NewObject<UOnlineSession>(this, SpawnClass);
 		if (OnlineSession)
 		{
 			UWorld* World = GetWorld();
@@ -252,7 +266,9 @@ bool ULocalPlayer::SpawnPlayActor(const FString& URL,FString& OutError, UWorld* 
 		// replaces this fake player controller with the real replicated one from the server
 		//
 
-		PlayerController = CastChecked<APlayerController>(InWorld->SpawnActor(PCClass));
+		FActorSpawnParameters SpawnInfo;
+		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save player controllers into a map
+		PlayerController = CastChecked<APlayerController>(InWorld->SpawnActor<APlayerController>(PCClass, SpawnInfo));
 		const int32 PlayerIndex = GEngine->GetGamePlayers(InWorld).Find(this);
 		PlayerController->NetPlayerIndex = PlayerIndex;
 	}
@@ -644,7 +660,7 @@ void ULocalPlayer::GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass
     // allow HMDs to override fov
     if ((StereoPass != eSSP_FULL) && GEngine->HMDDevice.IsValid() && GEngine->IsStereoscopic3D())
     {
-		float HFOV, VFOV;
+		float HFOV = OutViewInfo.FOV, VFOV = OutViewInfo.FOV;
         GEngine->HMDDevice->GetFieldOfView(HFOV, VFOV);
         if (VFOV > 0 && HFOV > 0)
         {
@@ -697,7 +713,7 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		// Apply screen fade effect to screen.
 		if (PlayerController->PlayerCameraManager->bEnableFading)
 		{
-			ViewInitOptions.OverlayColor = PlayerController->PlayerCameraManager->FadeColor.ReinterpretAsLinear();
+			ViewInitOptions.OverlayColor = PlayerController->PlayerCameraManager->FadeColor;
 			ViewInitOptions.OverlayColor.A = FMath::Clamp(PlayerController->PlayerCameraManager->FadeAmount,0.0f,1.0f);
 		}
 
@@ -715,7 +731,7 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		ViewInitOptions.bInCameraCut = PlayerController->PlayerCameraManager->bGameCameraCutThisFrame;
 	}
 	
-	check( PlayerController->GetWorld() );
+	check(PlayerController && PlayerController->GetWorld());
 
 	// Fill out the rest of the view init options
 	ViewInitOptions.ViewFamily = ViewFamily;
@@ -728,6 +744,7 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 	ViewInitOptions.WorldToMetersScale = PlayerController->GetWorldSettings()->WorldToMeters;
 	ViewInitOptions.CursorPos = Viewport->HasMouseCapture() ? FIntPoint(-1, -1) : FIntPoint(Viewport->GetMouseX(), Viewport->GetMouseY());
 	ViewInitOptions.bOriginOffsetThisFrame = PlayerController->GetWorld()->bOriginOffsetThisFrame;
+	ViewInitOptions.bUseFieldOfViewForLOD = ViewInfo.bUseFieldOfViewForLOD;
 	PlayerController->BuildHiddenComponentList(OutViewLocation, /*out*/ ViewInitOptions.HiddenPrimitives);
 
 	FSceneView* const View = new FSceneView(ViewInitOptions);
@@ -744,7 +761,7 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		View->StartFinalPostprocessSettings(OutViewLocation);
 
 		// CameraAnim override
-		if (PlayerController && PlayerController->PlayerCameraManager)
+		if (PlayerController->PlayerCameraManager)
 		{
 			TArray<FPostProcessSettings> const* CameraAnimPPSettings;
 			TArray<float> const* CameraAnimPPBlendWeights;
@@ -805,7 +822,7 @@ bool ULocalPlayer::GetPixelBoundingBox(const FBox& ActorBox, FVector2D& OutLower
 		};
 
 		// create the view projection matrix
-		const FMatrix ViewProjectionMatrix = ProjectionData.ViewMatrix * ProjectionData.ProjectionMatrix;
+		const FMatrix ViewProjectionMatrix = ProjectionData.ComputeViewProjectionMatrix();
 
 		int SuccessCount = 0;
 		OutLowerLeft = FVector2D(FLT_MAX, FLT_MAX);
@@ -865,7 +882,7 @@ bool ULocalPlayer::GetPixelPoint(const FVector& InPoint, FVector2D& OutPoint, co
 		}
 
 		// create the view projection matrix
-		const FMatrix ViewProjectionMatrix = ProjectionData.ViewMatrix * ProjectionData.ProjectionMatrix;
+		const FMatrix ViewProjectionMatrix = ProjectionData.ComputeViewProjectionMatrix();
 
 		//@TODO: CAMERA: Validate this code!
 		// grab the point in screen space
@@ -936,7 +953,7 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
 
 	// If stereo rendering is enabled, update the size and offset appropriately for this pass
 	const bool bNeedStereo = (StereoPass != eSSP_FULL) && GEngine->IsStereoscopic3D();
-	if( bNeedStereo )
+	if (bNeedStereo)
 	{
 		GEngine->StereoRenderingDevice->AdjustViewRect(StereoPass, X, Y, SizeX, SizeY);
 	}
@@ -951,104 +968,17 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
     }
 
 	// Create the view matrix
-	ProjectionData.ViewMatrix = FTranslationMatrix(-StereoViewLocation);
-	ProjectionData.ViewMatrix = ProjectionData.ViewMatrix * FInverseRotationMatrix(ViewInfo.Rotation);
-	ProjectionData.ViewMatrix = ProjectionData.ViewMatrix * FMatrix(
+	ProjectionData.ViewOrigin = StereoViewLocation;
+	ProjectionData.ViewRotationMatrix = FInverseRotationMatrix(ViewInfo.Rotation) * FMatrix(
 		FPlane(0,	0,	1,	0),
 		FPlane(1,	0,	0,	0),
 		FPlane(0,	1,	0,	0),
 		FPlane(0,	0,	0,	1));
 
-	if( !bNeedStereo )
+	if (!bNeedStereo)
 	{
 		// Create the projection matrix (and possibly constrain the view rectangle)
-		if (ViewInfo.bConstrainAspectRatio)
-		{			
-			// Enforce a particular aspect ratio for the render of the scene. 
-			// Results in black bars at top/bottom etc.
-			ProjectionData.SetConstrainedViewRectangle(ViewportClient->Viewport->CalculateViewExtents(ViewInfo.AspectRatio, UnconstrainedRectangle));
-	
-			if (ViewInfo.ProjectionMode == ECameraProjectionMode::Orthographic)
-			{
-				const float YScale = 1.0f / ViewInfo.AspectRatio;
-	
-				const float OrthoWidth = ViewInfo.OrthoWidth / 2.0f;
-				const float OrthoHeight = ViewInfo.OrthoWidth / 2.0f * YScale;
-				const float NearPlane = ProjectionData.ViewMatrix.GetOrigin().Z;
-				const float FarPlane = NearPlane - 2.0f*WORLD_MAX;
-				const float InverseRange = 1.0f / (FarPlane - NearPlane);
-				const float ZScale = -2.0f * InverseRange;
-				const float ZOffset = -(FarPlane + NearPlane) * InverseRange;
-
-				ProjectionData.ProjectionMatrix = FReversedZOrthoMatrix(
-					OrthoWidth,
-					OrthoHeight,
-					ZScale,
-					ZOffset
-					);
-			}
-			else
-			{
-				// Avoid divide by zero in the projection matrix calculation by clamping FOV
-				ProjectionData.ProjectionMatrix = FReversedZPerspectiveMatrix( 
-					FMath::Max(0.001f, ViewInfo.FOV) * (float)PI / 360.0f,
-					ViewInfo.AspectRatio,
-					1.0f,
-					GNearClippingPlane );
-			}
-		}
-		else 
-		{
-			// Avoid divide by zero in the projection matrix calculation by clamping FOV
-			float MatrixFOV = FMath::Max(0.001f, ViewInfo.FOV) * (float)PI / 360.0f;
-			float XAxisMultiplier;
-			float YAxisMultiplier;
-
-			// if x is bigger, and we're respecting x or major axis, AND mobile isn't forcing us to be Y axis aligned
-			if (((SizeX > SizeY) && (AspectRatioAxisConstraint == AspectRatio_MajorAxisFOV)) || (AspectRatioAxisConstraint == AspectRatio_MaintainXFOV) || (ViewInfo.ProjectionMode == ECameraProjectionMode::Orthographic))
-			{
-				//if the viewport is wider than it is tall
-				XAxisMultiplier = 1.0f;
-				YAxisMultiplier = SizeX / (float)SizeY;
-			}
-			else
-			{
-				//if the viewport is taller than it is wide
-				XAxisMultiplier = SizeY / (float)SizeX;
-				YAxisMultiplier = 1.0f;
-			}
-	
-			if (ViewInfo.ProjectionMode == ECameraProjectionMode::Orthographic)
-			{
-				const float NearPlane = ProjectionData.ViewMatrix.GetOrigin().Z;
-				const float FarPlane = NearPlane - 2.0f*WORLD_MAX;
-	
-				const float OrthoWidth = ViewInfo.OrthoWidth / 2.0f * XAxisMultiplier;
-				const float OrthoHeight = (ViewInfo.OrthoWidth / 2.0f) / YAxisMultiplier;
-	
-				const float InverseRange = 1.0f / (FarPlane - NearPlane);
-				const float ZScale = -2.0f * InverseRange;
-				const float ZOffset = -(FarPlane + NearPlane) * InverseRange;
-
-				ProjectionData.ProjectionMatrix = FReversedZOrthoMatrix(
-					OrthoWidth, 
-					OrthoHeight,
-					ZScale,
-					ZOffset
-					);		
-			}
-			else
-			{
-				ProjectionData.ProjectionMatrix = FReversedZPerspectiveMatrix(
-					MatrixFOV,
-					MatrixFOV,
-					XAxisMultiplier,
-					YAxisMultiplier,
-					GNearClippingPlane,
-					GNearClippingPlane
-					);
-			}
-		}
+		FMinimalViewInfo::CalculateProjectionMatrixGivenView(ViewInfo, AspectRatioAxisConstraint, ViewportClient->Viewport, /*inout*/ ProjectionData);
 	}
 	else
 	{
@@ -1099,6 +1029,9 @@ bool ULocalPlayer::HandleExitCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 	{
 		ViewportClient->CloseRequested(ViewportClient->Viewport);
 	}
+
+	FGameDelegates::Get().GetExitCommandDelegate().Broadcast();
+
 	return true;
 }
 
@@ -1391,7 +1324,7 @@ bool ULocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 		int32 NewLineIndex;
 		if (CmdString.FindChar(TEXT(';'),NewLineIndex))
 		{
-			CmdString.ParseIntoArray(&Lines,TEXT(";"),true);
+			CmdString.ParseIntoArray(Lines,TEXT(";"),true);
 		}
 		else
 		{
@@ -1401,7 +1334,7 @@ bool ULocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 		for (int32 LineIndex = 0; LineIndex < Lines.Num(); ++LineIndex)
 		{
 			TArray<FString> Args;
-			Lines[LineIndex].ParseIntoArrayWS(&Args);
+			Lines[LineIndex].ParseIntoArrayWS(Args);
 			FLockedViewState::Get().LockView(this,Args);
 		}
 		if (Lines.Num() > 1)

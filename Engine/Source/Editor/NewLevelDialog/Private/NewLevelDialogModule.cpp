@@ -16,20 +16,20 @@ public:
 	SLATE_BEGIN_ARGS(STexture2DView) {}
 	SLATE_END_ARGS()
 
-	void Construct( const FArguments& InArgs, UTexture2D* InTexture )
+	void Construct( const FArguments& InArgs, UTexture2D* InTexture2D )
 	{
-		Size = FIntPoint(InTexture->GetSizeX(), InTexture->GetSizeY());
+		Size = FIntPoint(InTexture2D->GetSizeX(), InTexture2D->GetSizeY());
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			UpdateSTexture2DView,
 			STexture2DView*,TextureView,this,
-			UTexture2D*,Texture,InTexture,
+			UTexture2D*,Texture,InTexture2D,
 			{
 				TextureView->ShaderResource = ((FTexture2DResource*)(Texture->Resource))->GetTexture2DRHI();
 			});
 	}
 
-	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
+	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override
 	{
 		bool bEnableGammaCorrection = true;
 		bool bAllowBlending = false;
@@ -39,18 +39,18 @@ public:
 		return LayerId;
 	}
 
-	virtual FVector2D ComputeDesiredSize() const
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		return FVector2D(Size.X, Size.Y);
 	}
 
-	virtual FIntPoint GetSize() const { return Size; }
-	virtual class FSlateShaderResource* GetViewportRenderTargetTexture() const { return ShaderResource ? (FSlateShaderResource*)this : NULL; }
+	virtual FIntPoint GetSize() const override { return Size; }
+	virtual class FSlateShaderResource* GetViewportRenderTargetTexture() const override { return ShaderResource ? (FSlateShaderResource*)this : NULL; }
 	virtual bool RequiresVsync() const override { return false; }
 
 	// FSlateShaderResource implementation.
-	virtual uint32 GetWidth() const { return Size.X; }
-	virtual uint32 GetHeight() const { return Size.Y; }
+	virtual uint32 GetWidth() const override { return Size.X; }
+	virtual uint32 GetHeight() const override { return Size.Y; }
 private:
 	FIntPoint Size;
 };

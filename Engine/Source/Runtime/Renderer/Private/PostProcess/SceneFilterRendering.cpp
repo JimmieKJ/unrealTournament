@@ -19,7 +19,7 @@ public:
 	void InitRHI() override
 	{
 		TResourceArray<FFilterVertex, VERTEXBUFFER_ALIGNMENT> Vertices;
-		Vertices.Init(6);
+		Vertices.SetNumUninitialized(6);
 
 		Vertices[0].Position = FVector4(1,  1,	0,	1);
 		Vertices[0].UV = FVector2D(1,	1);

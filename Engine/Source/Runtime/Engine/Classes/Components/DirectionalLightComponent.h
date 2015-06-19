@@ -10,7 +10,7 @@
 /**
  * A light component that has parallel rays. Will provide a uniform lighting across any affected surface (eg. The Sun). This will affect all objects in the defined light-mass importance volume.
  */
-UCLASS(ClassGroup=Lights, hidecategories=(Object, LightProfiles), editinlinenew, meta=(BlueprintSpawnableComponent), MinimalAPI)
+UCLASS(Blueprintable, ClassGroup=Lights, hidecategories=(Object, LightProfiles), editinlinenew, meta=(BlueprintSpawnableComponent), MinimalAPI)
 class UDirectionalLightComponent : public ULightComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -64,7 +64,7 @@ class UDirectionalLightComponent : public ULightComponent
 	 * Controls whether the cascades are distributed closer to the camera (larger exponent) or further from the camera (smaller exponent).
 	 * An exponent of 1 means that cascade transitions will happen at a distance proportional to their resolution.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "1", UIMax = "4"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "1", UIMax = "4", DisplayName = "Distribution Exponent"))
 	float CascadeDistributionExponent;
 
 	/** 
@@ -76,14 +76,14 @@ class UDirectionalLightComponent : public ULightComponent
 	 * Ideal values are the smallest possible which still hide the transition.
 	 * An increased fade region size causes an increase in shadow rendering cost.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "0", UIMax = "0.3"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "0", UIMax = "0.3", DisplayName = "Transition Fraction"))
 	float CascadeTransitionFraction;
 
 	/** 
 	 * Controls the size of the fade out region at the far extent of the dynamic shadow's influence.  
 	 * This is specified as a fraction of DynamicShadowDistance. 
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "0", UIMax = "1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "0", UIMax = "1.0", DisplayName = "Distance Fadeout Fraction"))
 	float ShadowDistanceFadeoutFraction;
 
 	/** 
@@ -92,8 +92,18 @@ class UDirectionalLightComponent : public ULightComponent
 	 * If DynamicShadowDistanceStationaryLight is large (currently > 8000), this will be forced off.
 	 * Disabling this can reduce shadowing cost significantly with many movable objects.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=CascadedShadowMaps)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=CascadedShadowMaps, DisplayName = "Inset Shadows For Movable Objects")
 	uint32 bUseInsetShadowsForMovableObjects : 1;
+
+	/** 0: no DistantShadowCascades, otherwise the count of cascades between WholeSceneDynamicShadowRadius and DistantShadowDistance that are covered by distant shadow cascades. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "0", UIMax = "4"), DisplayName = "Far Shadow Cascade Count")
+	int32 FarShadowCascadeCount;
+
+	/** 
+	 * Distance at which the far shadow cascade should end.  Far shadows will cover the range between 'Dynamic Shadow Distance' and this distance. 
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=CascadedShadowMaps, meta=(UIMin = "0", UIMax = "800000"), DisplayName = "Far Shadow Distance")
+	float FarShadowDistance;
 
 	/** 
 	 * Distance at which the ray traced shadow cascade should end.  Distance field shadows will cover the range between 'Dynamic Shadow Distance' this distance. 
@@ -109,7 +119,7 @@ class UDirectionalLightComponent : public ULightComponent
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(ShowOnlyInnerProperties))
 	struct FLightmassDirectionalLightSettings LightmassSettings;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(DisplayName = "Atmosphere Sun Light"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Light, meta=(DisplayName = "Atmosphere Sun Light"))
 	uint32 bUsedAsAtmosphereSunLight : 1;
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
@@ -140,8 +150,8 @@ class UDirectionalLightComponent : public ULightComponent
 	void SetLightShaftOverrideDirection(FVector NewValue);
 
 	// ULightComponent interface.
-	virtual FVector4 GetLightPosition() const;
-	virtual ELightComponentType GetLightType() const;
+	virtual FVector4 GetLightPosition() const override;
+	virtual ELightComponentType GetLightType() const override;
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 	virtual bool IsUsedAsAtmosphereSunLight() const override
 	{

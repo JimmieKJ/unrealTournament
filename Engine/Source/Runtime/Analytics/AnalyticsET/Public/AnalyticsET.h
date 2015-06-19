@@ -74,7 +74,7 @@ public:
 	 * Creates the analytics provider given a configuration delegate.
 	 * The keys required exactly match the field names in the Config object. 
 	 */
-	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const;
+	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const override;
 	
 	/** 
 	 * Construct an analytics provider directly from a config object.

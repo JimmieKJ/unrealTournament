@@ -39,22 +39,7 @@ FString FHTML5HttpRequest::GetURL()
 void FHTML5HttpRequest::SetURL(const FString& InURL)
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::SetURL() - %s"), *InURL);
-
-	URL = InURL.Replace(TEXT("%"), TEXT("%25"));
-	URL = URL.Replace(TEXT(" "), TEXT("%20"));
-	URL = URL.Replace(TEXT("\""), TEXT("%22"));
-	URL = URL.Replace(TEXT("<"), TEXT("%3C"));
-	URL = URL.Replace(TEXT(">"), TEXT("%3E"));
-
-	URL = URL.Replace(TEXT("["), TEXT("%5B"));
-	URL = URL.Replace(TEXT("]"), TEXT("%5D"));
-	URL = URL.Replace(TEXT("\\"), TEXT("%5C"));
-	URL = URL.Replace(TEXT("^"), TEXT("%5E"));
-
-	URL = URL.Replace(TEXT("`"), TEXT("%60"));
-	URL = URL.Replace(TEXT("{"), TEXT("%7B"));
-	URL = URL.Replace(TEXT("}"), TEXT("%7D"));
-	URL = URL.Replace(TEXT("|"), TEXT("%7C"));
+	URL = InURL; 
 }
 
 
@@ -64,7 +49,7 @@ FString FHTML5HttpRequest::GetURLParameter(const FString& ParameterName)
 
 	TArray<FString> StringElements;
 
-	int32 NumElems = URL.ParseIntoArray(&StringElements, TEXT("&"), true);
+	int32 NumElems = URL.ParseIntoArray(StringElements, TEXT("&"), true);
 	check(NumElems == StringElements.Num());
 
 	FString ParamValDelimiter(TEXT("="));
@@ -239,7 +224,18 @@ void FHTML5HttpRequest::StaticErrorCallback(void* arg, int httpStatusCode, const
 }
 
 void FHTML5HttpRequest::ErrorCallback(void* arg, int httpStatusCode, const char* httpStatusText) {
-	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::ErrorDataCallback()"));
+ 	UE_LOG(LogHttp, Verbose, TEXT("FHTML5HttpRequest::ErrorDataCallback() HttpStatusCode: %d"), httpStatusCode);
+
+	check(Response.IsValid());
+
+	if (Response.IsValid())
+	{
+		Response->Payload.Empty();
+		Response->TotalBytesRead = 0;
+		Response->HttpCode = httpStatusCode;
+		MarkAsCompleted();
+	}
+
 }
 
 void FHTML5HttpRequest::StaticProgressCallback(void* arg, int Loaded, int Total) {
@@ -257,12 +253,12 @@ void FHTML5HttpRequest::ProgressCallback(void* arg, int Loaded, int Total) {
 		if (Response.IsValid())
 		{
 			Response->TotalBytesRead = Loaded;
-			OnRequestProgress().ExecuteIfBound(SharedThis(this), Response->TotalBytesRead);
+			OnRequestProgress().ExecuteIfBound(SharedThis(this), 0, Response->TotalBytesRead);
 		}
 	}
 	else {
 		BytesSent = Loaded;
-		OnRequestProgress().ExecuteIfBound(SharedThis(this), BytesSent);
+		OnRequestProgress().ExecuteIfBound(SharedThis(this), BytesSent, 0);
 	}
 
 	UE_LOG(LogHttp, Verbose, TEXT("Loaded: %d, Total: %d"), Loaded, Total);
@@ -295,11 +291,11 @@ bool FHTML5HttpRequest::StartRequest()
 		return false;
 	}
 
-	// set up headers
-	if (GetHeader("User-Agent").IsEmpty())
-	{
-		SetHeader(TEXT("User-Agent"), FString::Printf(TEXT("game=%s, engine=UE4, version=%s"), FApp::GetGameName(), *GEngineVersion.ToString()));
-	}
+
+	//"User-Agent" && "Content-Length" are automatically set by the browser xhr request. We can't do much.
+
+	// make a fake header, so server has some idea this is UE
+    SetHeader(TEXT("X-UnrealEngine-Agent"), FString::Printf(TEXT("game=%s, engine=UE4, version=%s"), FApp::GetGameName(), *GEngineVersion.ToString()));
 
 	// Add "Pragma: no-cache" to mimic WinInet behavior
 	if (GetHeader("Pragma").IsEmpty())
@@ -308,11 +304,10 @@ bool FHTML5HttpRequest::StartRequest()
 	}
 
 	TArray<FString> AllHeaders = GetAllHeaders();
-	const int32 NumAllHeaders = AllHeaders.Num();
 
-	//TODO: Add headers into UE_MakeHTTPDataRequest
-
-
+	// Create a String which emscripten can understand. 
+	FString RequestHeaders = FString::Join(AllHeaders, TEXT("%"));
+	
 	// set up verb (note that Verb is expected to be uppercase only)
 	if (Verb == TEXT("POST"))
 	{
@@ -321,7 +316,7 @@ bool FHTML5HttpRequest::StartRequest()
 		check(!GetHeader("Content-Type").IsEmpty() || IsURLEncoded(RequestPayload));
 
 #if PLATFORM_HTML5_BROWSER
-		UE_MakeHTTPDataRequest(this, TCHAR_TO_ANSI(*URL), "POST", (char*)RequestPayload.GetData(), 0, StaticReceiveCallback, StaticErrorCallback, StaticProgressCallback);
+		UE_MakeHTTPDataRequest(this, TCHAR_TO_ANSI(*URL), "POST", (char*)RequestPayload.GetData(), RequestPayload.Num(),TCHAR_TO_ANSI(*RequestHeaders), 0, StaticReceiveCallback, StaticErrorCallback, StaticProgressCallback);
 #else
 		return false;
 #endif
@@ -340,7 +335,7 @@ bool FHTML5HttpRequest::StartRequest()
 	else if (Verb == TEXT("GET"))
 	{
 #if PLATFORM_HTML5_BROWSER
-		UE_MakeHTTPDataRequest(this, TCHAR_TO_ANSI(*URL), "GET", NULL, 1, StaticReceiveCallback, StaticErrorCallback, StaticProgressCallback);
+		UE_MakeHTTPDataRequest(this, TCHAR_TO_ANSI(*URL), "GET", NULL, 0,TCHAR_TO_ANSI(*RequestHeaders), 1, StaticReceiveCallback, StaticErrorCallback, StaticProgressCallback);
 #else
 		return false;
 #endif
@@ -514,6 +509,11 @@ void FHTML5HttpRequest::Tick(float DeltaSeconds)
 		// finish it off since it is timeout
 		FinishedRequest();
 	}
+}
+
+float FHTML5HttpRequest::GetElapsedTime()
+{
+	return ElapsedTime;
 }
 
 

@@ -6,14 +6,15 @@
 
 #pragma once
 
+#include "Engine/TextureLODSettings.h"
 #include "DeviceProfile.generated.h"
 
 
 DECLARE_DELEGATE(FOnCVarsUpdated);
 
 
-UCLASS(config=DeviceProfiles, perobjectconfig, Blueprintable)
-class ENGINE_API UDeviceProfile : public UObject
+UCLASS(config=DeviceProfiles, perObjectConfig)
+class ENGINE_API UDeviceProfile : public UTextureLODSettings
 {
 	GENERATED_UCLASS_BODY()
 
@@ -54,6 +55,11 @@ public:
 		return CVarsUpdatedDelegate;
 	}
 
+public:
+	/** 
+	 * Access to the device profiles Texture LOD Settings
+	 */
+	UTextureLODSettings* GetTextureLODSettings() const;
 
 private:
 
@@ -61,6 +67,10 @@ private:
 	FOnCVarsUpdated CVarsUpdatedDelegate;
 
 public:
+
+	// Begin UObject interface
+	virtual void PostInitProperties() override;
+	// End UObject interface
 
 #if WITH_EDITOR
 	// Begin UObject interface

@@ -16,7 +16,7 @@ class LOGVISUALIZER_API AVisualLoggerRenderingActor : public AActor
 public:
 	GENERATED_UCLASS_BODY()
 
-	void OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEntryItem& EntryItem, TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface);
+	void OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEntryItem& EntryItem);
 	void ObjectSelectionChanged(TSharedPtr<class STimeline> TimeLine);
 
 private:

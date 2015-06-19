@@ -98,7 +98,7 @@ protected:
 	 * @param	bSavePackage	[in]	indicates whether the package is currently going to be saved
 	 *							[out]	set to true to resave the package
 	 */
-	virtual bool PerformPreloadOperations( ULinkerLoad* PackageLinker, bool& bSavePackage );
+	virtual bool PerformPreloadOperations( FLinkerLoad* PackageLinker, bool& bSavePackage );
 
 	/**
 	 * Allows the commandlet to perform any additional operations on the object before it is resaved.

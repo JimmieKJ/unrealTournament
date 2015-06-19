@@ -17,15 +17,6 @@ struct FEngineServicePing
 	GENERATED_USTRUCT_BODY()
 };
 
-template<>
-struct TStructOpsTypeTraits<FEngineServicePing> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message for responding to a request to discover engine instances on the network.
@@ -64,15 +55,6 @@ struct FEngineServicePong
 	float WorldTimeSeconds;
 };
 
-template<>
-struct TStructOpsTypeTraits<FEngineServicePong> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /* Authorization messages
  *****************************************************************************/
@@ -94,15 +76,6 @@ struct FEngineServiceAuthDeny
 	FString UserToDeny;
 };
 
-template<>
-struct TStructOpsTypeTraits<FEngineServiceAuthDeny> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message for granting service access to a remote user.
@@ -120,15 +93,6 @@ struct FEngineServiceAuthGrant
 	UPROPERTY()
 	FString UserToGrant;
 
-};
-
-template<>
-struct TStructOpsTypeTraits<FEngineServiceAuthGrant> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -165,15 +129,6 @@ struct FEngineServiceExecuteCommand
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FEngineServiceExecuteCommand> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message for terminating the engine.
@@ -198,15 +153,6 @@ struct FEngineServiceTerminate
 	FEngineServiceTerminate( const FString& InUserName )
 		: UserName(InUserName)
 	{ }
-};
-
-template<>
-struct TStructOpsTypeTraits<FEngineServiceTerminate> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -241,13 +187,4 @@ struct FEngineServiceNotification
 		: Text(InText)
 		, TimeSeconds(InTimeSeconds)
 	{ }
-};
-
-template<>
-struct TStructOpsTypeTraits<FEngineServiceNotification> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };

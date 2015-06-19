@@ -93,9 +93,9 @@ void SDocumentationToolTip::AddDocumentation(TSharedPtr< SVerticalBox > Vertical
 {
 	if ( !DocumentationLink.IsEmpty() )
 	{
-		IsDisplayingDocumentationLink = GEditor->EditorUserSettings->bDisplayDocumentationLink;
+		IsDisplayingDocumentationLink = GetDefault<UEditorPerProjectUserSettings>()->bDisplayDocumentationLink;
 
-		if ( GEditor->EditorUserSettings->bDisplayDocumentationLink )
+		if ( IsDisplayingDocumentationLink )
 		{
 			FString OptionalExcerptName;
 			if ( !ExcerptName.IsEmpty() )
@@ -143,7 +143,7 @@ void SDocumentationToolTip::AddDocumentation(TSharedPtr< SVerticalBox > Vertical
 		}
 		else
 		{
-			if ( GEditor->EditorUserSettings->bDisplayDocumentationLink && FSlateApplication::Get().SupportsSourceAccess() )
+			if ( IsDisplayingDocumentationLink && FSlateApplication::Get().SupportsSourceAccess() )
 			{
 				FString DocPath = FDocumentationLink::ToSourcePath( DocumentationLink, FInternationalization::Get().GetCurrentCulture() );
 				if ( !FPaths::FileExists(DocPath) )
@@ -308,7 +308,7 @@ void SDocumentationToolTip::ConstructFullTipContent()
 				];
 			}
 
-			if ( GEditor->EditorUserSettings->bDisplayDocumentationLink && FSlateApplication::Get().SupportsSourceAccess() )
+			if ( GetDefault<UEditorPerProjectUserSettings>()->bDisplayDocumentationLink && FSlateApplication::Get().SupportsSourceAccess() )
 			{
 				struct Local
 				{
@@ -357,7 +357,7 @@ FReply SDocumentationToolTip::ReloadDocumentation()
 void SDocumentationToolTip::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	const FModifierKeysState ModifierKeys = FSlateApplication::Get().GetModifierKeys();
-	const bool NeedsUpdate = IsDisplayingDocumentationLink != GEditor->EditorUserSettings->bDisplayDocumentationLink;
+	const bool NeedsUpdate = IsDisplayingDocumentationLink != GetDefault<UEditorPerProjectUserSettings>()->bDisplayDocumentationLink;
 
 	if ( !IsShowingFullTip && ModifierKeys.IsAltDown() && ModifierKeys.IsControlDown() )
 	{
@@ -365,7 +365,7 @@ void SDocumentationToolTip::Tick( const FGeometry& AllottedGeometry, const doubl
 		{
 			ConstructFullTipContent();
 		}
-		else if ( GEditor->EditorUserSettings->bDisplayDocumentationLink )
+		else if ( GetDefault<UEditorPerProjectUserSettings>()->bDisplayDocumentationLink )
 		{
 			ReloadDocumentation();
 		}
@@ -391,7 +391,7 @@ void SDocumentationToolTip::Tick( const FGeometry& AllottedGeometry, const doubl
 		if ( NeedsUpdate )
 		{
 			ReloadDocumentation();
-			IsDisplayingDocumentationLink = GEditor->EditorUserSettings->bDisplayDocumentationLink;
+			IsDisplayingDocumentationLink = GetDefault<UEditorPerProjectUserSettings>()->bDisplayDocumentationLink;
 		}
 
 		WidgetContent->SetContent( SimpleTipContent.ToSharedRef() );

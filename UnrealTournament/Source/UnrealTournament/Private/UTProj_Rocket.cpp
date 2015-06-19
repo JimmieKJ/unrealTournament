@@ -54,7 +54,7 @@ void AUTProj_Rocket::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
-	bool bPossibleAirRocket = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.2f));
+	bool bPossibleAirRocket = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f));
 
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 	if (bPossibleAirRocket && HitCharacter && (HitCharacter->Health <= 0))
@@ -63,12 +63,14 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
 		if (PC != NULL)
 		{
-			PC->SendPersonalMessage(AirRocketRewardClass);
 			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+			int32 AirRoxCount = 0;
 			if (PS)
 			{
 				PS->ModifyStatsValue(NAME_AirRox, 1);
+				AirRoxCount = PS->GetStatsValue(NAME_AirRox);
 			}
+			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount);
 		}
 	}
 }

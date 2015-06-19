@@ -130,6 +130,17 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	UPROPERTY()
 	int32 PreviousLODLevel;
 
+	/** Whether to override the MinLOD setting of the static mesh asset with the MinLOD of this component. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD)
+	bool bOverrideMinLOD;
+
+	/** 
+	 * Specifies the smallest LOD that will be used for this component.  
+	 * This is ignored if ForcedLodModel is enabled.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD, meta=(editcondition = "bOverrideMinLOD"))
+	int32 MinLOD;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, ReplicatedUsing=OnRep_StaticMesh)
 	class UStaticMesh* StaticMesh;
 
@@ -170,8 +181,9 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	 * Allows adjusting the desired streaming distance of streaming textures that uses UV 0.
 	 * 1.0 is the default, whereas a higher value makes the textures stream in sooner from far away.
 	 * A lower value (0.0-1.0) makes the textures stream in later (you have to be closer).
+	 * Value can be < 0 (from legcay content, or code changes)
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=TextureStreaming, meta=(ToolTip="Allows adjusting the desired resolution of streaming textures that uses UV 0.  1.0 is the default, whereas a higher value increases the streamed-in resolution."))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=TextureStreaming, meta=(ClampMin = 0, ToolTip="Allows adjusting the desired resolution of streaming textures that uses UV 0.  1.0 is the default, whereas a higher value increases the streamed-in resolution."))
 	float StreamingDistanceMultiplier;
 
 	/** Subdivision step size for static vertex lighting.				*/
@@ -204,6 +216,9 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	/** Change the StaticMesh used by this instance. */
 	UFUNCTION(BlueprintCallable, Category="Components|StaticMesh")
 	virtual bool SetStaticMesh(class UStaticMesh* NewMesh);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|LOD")
+	void SetForcedLodModel(int32 NewForcedLodModel);
 
 	/** 
 	 * Get Local bounds
@@ -242,7 +257,6 @@ public:
 		// return IsCollisionEnabled() && (StaticMesh != NULL);
 		return false;
 	}
-	virtual TArray<FName> GetAllSocketNames() const override;
 	// End USceneComponent Interface
 
 	// Begin UActorComponent interface.
@@ -286,16 +300,17 @@ public:
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
 	virtual UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
 
-	virtual bool DoCustomNavigableGeometryExport(struct FNavigableGeometryExport* GeomExport) const;
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 #if WITH_EDITOR
 	virtual bool ComponentIsTouchingSelectionBox(const FBox& InSelBBox, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;
 	virtual bool ComponentIsTouchingSelectionFrustum(const FConvexVolume& InSelBBox, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const override;
 #endif
 	// End UPrimitiveComponent interface.
 
-	// Begin UMeshComponent interface
-	virtual TArray<class UMaterialInterface*> GetMaterials() const override;
-	// End UMeshComponent interface
+	// Begin INavRelevantInterface interface.
+	virtual bool IsNavigationRelevant() const override;
+	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
+	// End INavRelevantInterface interface.
 	/**
 	 *	Returns true if the component uses texture lightmaps
 	 *
@@ -430,12 +445,6 @@ public:
 	 * @return UStaticMeshSocket of named socket on the static mesh component. None if not found.
 	 */
 	class UStaticMeshSocket const* GetSocketByName( FName InSocketName ) const;
-
-	/**
-	 * Returns true if component is attached to the static mesh.
-	 * @return	true if Component is attached to StaticMesh.
-	 */
-	bool IsComponentAttached( FName SocketName = NAME_None );
 
 	/** Returns the wireframe color to use for this component. */
 	FColor GetWireframeColor() const;

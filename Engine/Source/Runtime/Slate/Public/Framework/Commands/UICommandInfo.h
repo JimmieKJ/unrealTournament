@@ -4,7 +4,7 @@
 
 #include "Layout/Visibility.h"
 #include "Misc/Attribute.h"
-#include "Framework/Commands/InputGesture.h"
+#include "Framework/Commands/InputChord.h"
 #include "Textures/SlateIcon.h"
 
 
@@ -40,7 +40,9 @@ class SLATE_API FUICommandInfoDecl
 
 public:
 
-	FUICommandInfoDecl& DefaultGesture( const FInputGesture& InDefaultGesture );
+	DEPRECATED(4.8, "Use DefaultChord instead of DefaultGesture")
+	FUICommandInfoDecl& DefaultGesture( const FInputChord& InDefaultGesture );
+	FUICommandInfoDecl& DefaultChord( const FInputChord& InDefaultChord );
 	FUICommandInfoDecl& UserInterfaceType( EUserInterfaceActionType::Type InType );
 	FUICommandInfoDecl& Icon( const FSlateIcon& InIcon );
 	FUICommandInfoDecl& Description( const FText& InDesc );
@@ -157,29 +159,32 @@ public:
 	 * @param InBindingContext The name of the binding context to use.
 	 */
 	FUICommandInfo( const FName InBindingContext )
-		: ActiveGesture( new FInputGesture )
-		, DefaultGesture( EKeys::Invalid, EModifierKey::None )
+		: ActiveChord( new FInputChord )
+		, DefaultChord( EKeys::Invalid, EModifierKey::None )
 		, BindingContext( InBindingContext )
 		, UserInterfaceType( EUserInterfaceActionType::Button )
 	{ }
 
 	/**
-	 * Returns the friendly, localized string name of the gesture that is required to perform the command
+	 * Returns the friendly, localized string name of the chord that is required to perform the command
 	 *
-	 * @param	bAllGestures	If true a comma separated string with all secondary active gestures will be returned.  Otherwise just the main gesture string is returned
-	 * @return	Localized friendly text for the gesture
+	 * @return	Localized friendly text for the chord
 	 */
 	const FText GetInputText() const;
 
 	/**
-	 * @return	Returns the active gesture for this command
+	 * @return	Returns the active chord for this command
 	 */
-	const TSharedRef<const FInputGesture> GetActiveGesture() const { return ActiveGesture; }
+	DEPRECATED(4.8, "Use GetActiveChord instead of GetActiveGesture")
+	const TSharedRef<const FInputChord> GetActiveGesture() const { return GetActiveChord(); }
+	const TSharedRef<const FInputChord> GetActiveChord() const { return ActiveChord; }
 
-	const FInputGesture& GetDefaultGesture() const { return DefaultGesture; }
+	DEPRECATED(4.8, "Use GetDefaultChord instead of GetDefaultGesture")
+	const FInputChord& GetDefaultGesture() const { return GetDefaultChord(); }
+	const FInputChord& GetDefaultChord() const { return DefaultChord; }
 
 	/** Utility function to make an FUICommandInfo */
-	static void MakeCommandInfo( const TSharedRef<class FBindingContext>& InContext, TSharedPtr< FUICommandInfo >& OutCommand, const FName InCommandName, const FText& InCommandLabel, const FText& InCommandDesc, const FSlateIcon& InIcon, const EUserInterfaceActionType::Type InUserInterfaceType, const FInputGesture& InDefaultGesture );
+	static void MakeCommandInfo( const TSharedRef<class FBindingContext>& InContext, TSharedPtr< FUICommandInfo >& OutCommand, const FName InCommandName, const FText& InCommandLabel, const FText& InCommandDesc, const FSlateIcon& InIcon, const EUserInterfaceActionType::Type InUserInterfaceType, const FInputChord& InDefaultChord );
 
 	/** @return The display label for this command */
 	const FText& GetLabel() const { return Label; }
@@ -199,11 +204,15 @@ public:
 	/** @return The name of the context where the command is valid */
 	FName GetBindingContext() const { return BindingContext; }
 
-	/** Sets the new active gesture for this command */
-	void SetActiveGesture( const FInputGesture& NewGesture );
+	/** Sets the new active chord for this command */
+	DEPRECATED(4.8, "Use SetActiveChord instead of SetActiveGesture")
+	void SetActiveGesture( const FInputChord& NewGesture ) { SetActiveChord(NewGesture); }
+	void SetActiveChord( const FInputChord& NewChord );
 
-	/** Removes the active gesture from this command */
-	void RemoveActiveGesture();
+	/** Removes the active chord from this command */
+	DEPRECATED(4.8, "Use RemoveActiveChord instead of RemoveActiveGesture")
+	void RemoveActiveGesture() { RemoveActiveChord(); }
+	void RemoveActiveChord();
 
 	/** 
 	 * Makes a tooltip for this command.
@@ -215,7 +224,7 @@ public:
 private:
 
 	/** Input command that executes this action */
-	TSharedRef<FInputGesture> ActiveGesture;
+	TSharedRef<FInputChord> ActiveChord;
 
 	/** Default display name of the command */
 	FText Label;
@@ -223,8 +232,8 @@ private:
 	/** Localized help text for this command */
 	FText Description;
 
-	/** The default input gesture for this command (can be invalid) */
-	FInputGesture DefaultGesture;
+	/** The default input chord for this command (can be invalid) */
+	FInputChord DefaultChord;
 
 	/** Brush name for icon to use in tool bars and menu items to represent this command */
 	FSlateIcon Icon;

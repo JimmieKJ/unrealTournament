@@ -7,8 +7,8 @@
 #include "SGraphNodeSpawnActor.h"
 #include "KismetPins/SGraphPinObject.h"
 #include "NodeFactory.h"
-#include "Editor/ClassViewer/Public/ClassViewerModule.h"
-#include "Editor/ClassViewer/Public/ClassViewerFilter.h"
+#include "ClassViewerModule.h"
+#include "ClassViewerFilter.h"
 
 #define LOCTEXT_NAMESPACE "SGraphNodeSpawnActor"
 

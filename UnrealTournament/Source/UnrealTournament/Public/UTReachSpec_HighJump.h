@@ -12,7 +12,7 @@
 #include "UTReachSpec_HighJump.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTReachSpec_HighJump : public UUTReachSpec
+class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 {
 	GENERATED_UCLASS_BODY()
 
@@ -20,17 +20,26 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 	: Super(ObjectInitializer)
 	{
 		PathColor = FLinearColor(0.5f, 0.0f, 0.8f);
+		DodgeJumpZMult = 1.0f;
 	}
 
 	/** jump Z velocity required to reach the endpoint */
 	UPROPERTY()
 	float RequiredJumpZ;
+	/** if capable of dodge jump, can get easier jump of RequiredJumpZ * DodgeJumpZMult */
+	UPROPERTY()
+	float DodgeJumpZMult;
 	/** gravity at the time the path was generated (so we can adjust for lowgrav) */
 	UPROPERTY()
 	float OriginalGravityZ;
 	/** physics volume that contains the current gravity (if NULL, world gravity) */
 	UPROPERTY()
 	TWeakObjectPtr<APhysicsVolume> GravityVolume;
+	/** if true, AI should jump from poly center of the edge poly (StartEdgePoly of the owning FUTPathLink) instead of moving to the very edge of the walkable surface
+	 * (generally used for jumps from open space up to a ledge or outcropping)
+	 */
+	UPROPERTY()
+	bool bJumpFromEdgePolyCenter;
 
 	/** cached result for translocator toss check */
 	UPROPERTY(transient)
@@ -50,10 +59,14 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			// Repeatable: what we can do by default
 			if (RepeatableJumpZ != NULL)
 			{
-				*RepeatableJumpZ = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->GetCharacterMovement()->JumpZVelocity;
-				if (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->bAllowJumpMultijumps && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount > 0)
+				const UUTCharacterMovement* DefaultMovement = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement;
+				*RepeatableJumpZ = DefaultMovement->JumpZVelocity;
+				if (DefaultMovement->bAllowJumpMultijumps && DefaultMovement->MaxMultiJumpCount > 0)
 				{
-					*RepeatableJumpZ += UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MultiJumpImpulse * (UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement->MaxMultiJumpCount);
+					for (int32 i = 0; i < DefaultMovement->MaxMultiJumpCount; i++)
+					{
+						*RepeatableJumpZ = (*RepeatableJumpZ) * ((*RepeatableJumpZ) / ((*RepeatableJumpZ) + DefaultMovement->MultiJumpImpulse)) + DefaultMovement->MultiJumpImpulse;
+					}
 				}
 			}
 
@@ -61,7 +74,10 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			float BestJumpZ = UTC->GetCharacterMovement()->JumpZVelocity;
 			if (UTC->UTCharacterMovement->bAllowJumpMultijumps && UTC->UTCharacterMovement->MaxMultiJumpCount > 0)
 			{
-				BestJumpZ += UTC->UTCharacterMovement->MultiJumpImpulse * (UTC->UTCharacterMovement->MaxMultiJumpCount);
+				for (int32 i = 0; i < UTC->UTCharacterMovement->MaxMultiJumpCount; i++)
+				{
+					BestJumpZ = BestJumpZ * (BestJumpZ / (BestJumpZ + UTC->UTCharacterMovement->MultiJumpImpulse)) + UTC->UTCharacterMovement->MultiJumpImpulse;
+				}
 			}
 			return BestJumpZ;
 		}
@@ -95,7 +111,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 		{
 			AdjustedRequiredJumpZ -= (0.6f * RequiredJumpZ * (1.0f - GravityZ / OriginalGravityZ));
 		}
-		return AdjustedRequiredJumpZ * 1.05f; // little bit of leeway to avoid broken close calls
+		return AdjustedRequiredJumpZ;
 	}
 
 	/** returns if specified projectile can reach from JumpStart to JumpEnd */
@@ -171,7 +187,6 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 					const FVector JumpEnd = NavMesh->GetPolyCenter(OwnerLink.EndPoly);
 					const FVector JumpStart = NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly);
 					int32 JumpDist = FMath::TruncToInt((JumpEnd - JumpStart).Size());
-					// TODO: hardcoded numbers based on default translocator
 					if (B->AllowTranslocator() && CheckTranslocatorArc(JumpStart, JumpEnd, B->TransDiscTemplate, (GravityVolume != NULL) ? GravityVolume->GetGravityZ() : Asker->GetWorld()->GetGravityZ()))
 					{
 						// the higher we need to throw the disc for a lower Z change, the more time the throw will take; adjust distance for that
@@ -179,7 +194,13 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 					}
 					else if (B->AllowImpactJump())
 					{
-						BestJumpZ += B->ImpactJumpZ;
+						if (B->GetUTChar() != NULL && B->GetUTChar()->UTCharacterMovement->DodgeImpulseHorizontal > B->GetUTChar()->UTCharacterMovement->MaxWalkSpeed)
+						{
+							AdjustedRequiredJumpZ *= DodgeJumpZMult;
+						}
+						const float SpecialJumpZ = BestJumpZ - RepeatableJumpZ;
+						const float BaseImpactJumpZ = RepeatableJumpZ + B->ImpactJumpZ;
+						BestJumpZ = BaseImpactJumpZ * (BaseImpactJumpZ / (BaseImpactJumpZ + SpecialJumpZ)) + SpecialJumpZ;
 						if (BestJumpZ >= AdjustedRequiredJumpZ)
 						{
 							return DefaultCost + 5000; // TODO: reduce cost if in a rush or have high health?
@@ -198,7 +219,7 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 		}
 	}
 
-	virtual bool WaitForMove(APawn* Asker, const FComponentBasedPosition& MovePos) const override
+	virtual bool WaitForMove(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const override
 	{
 		if (Asker == NULL)
 		{
@@ -210,6 +231,31 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 			float BestJumpZ = CalcAvailableSimpleJumpZ(Asker);
 			if (BestJumpZ >= AdjustedRequiredJumpZ)
 			{
+				if ((MovePos.Get() - Target.GetLocation(Asker)).IsNearlyZero() && (Asker->GetVelocity().IsZero() || (Asker->GetVelocity().GetSafeNormal2D() | (MovePos.Get() - Asker->GetActorLocation()).GetSafeNormal2D()) > 0.9f))
+				{
+					bool bJumpBeforeEdge = bJumpFromEdgePolyCenter;
+					if (!bJumpBeforeEdge && Asker->GetActorLocation().Z < MovePos.Get().Z)
+					{
+						// check for bot ending up on a further poly when expecting a ledge or wall; this can happen when it's a small obstruction and the string pulling got around it
+						AUTRecastNavMesh* NavData = GetUTNavData(Asker->GetWorld());
+						if (NavData->RaycastWithZCheck(Asker->GetNavAgentLocation(), Target.GetLocation(NULL)))
+						{
+							NavNodeRef CurrentPoly = NavData->FindNearestPoly(Asker->GetNavAgentLocation(), Asker->GetSimpleCollisionCylinderExtent());
+							if (CurrentPoly != OwnerLink.StartEdgePoly && (MovePos.Get() - NavData->GetPolyCenter(CurrentPoly)).Size() < (MovePos.Get() - NavData->GetPolyCenter(OwnerLink.StartEdgePoly)).Size() * 0.9f)
+							{
+								bJumpBeforeEdge = true;
+							}
+						}
+					}
+					if (bJumpBeforeEdge)
+					{
+						ACharacter* C = Cast<ACharacter>(Asker);
+						if (C != NULL && C->GetCharacterMovement() != NULL)
+						{
+							C->GetCharacterMovement()->DoJump(false);
+						}
+					}
+				}
 				return false; // use standard jump moves
 			}
 			else
@@ -267,6 +313,22 @@ class UUTReachSpec_HighJump : public UUTReachSpec
 				B->SwitchToBestWeapon();
 			}
 		}
-		return OwnerLink.GetJumpMovePoints(StartLoc, Asker, AgentProps, Target, FullRoute, NavMesh, MovePoints);
+		if (bJumpFromEdgePolyCenter)
+		{
+			TArray<NavNodeRef> PolyRoute;
+			if (NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(NavMesh->GetPolySurfaceCenter(OwnerLink.StartEdgePoly), OwnerLink.StartEdgePoly), PolyRoute, false) && PolyRoute.Num() > 0 && NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints))
+			{
+				MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
+				return true;
+			}
+			else
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return OwnerLink.GetJumpMovePoints(StartLoc, Asker, AgentProps, Target, FullRoute, NavMesh, MovePoints);
+		}
 	}
 };

@@ -162,7 +162,7 @@ TOptional<NumericType> FIntervalStructCustomization<NumericType>::OnGetValue(TWe
 	auto ValueSharedPtr = ValueWeakPtr.Pin();
 
 	NumericType Value;
-	if (ensure(ValueSharedPtr->GetValue(Value) == FPropertyAccess::Success))
+	if (ValueSharedPtr->GetValue(Value) == FPropertyAccess::Success)
 	{
 		return TOptional<NumericType>(Value);
 	}

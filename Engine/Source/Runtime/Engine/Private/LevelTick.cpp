@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Collision.h"
 #include "PhysicsPublic.h"
+#include "IHeadMountedDisplay.h"
 
 #include "ParticleDefinitions.h"
 //#include "SoundDefinitions.h"
@@ -36,8 +37,6 @@ bool GLogDetailedDumpStats = true;
 
 
 // DECLARE_CYCLE_STAT is the reverse of what will be displayed in the game's stat game
-DEFINE_STAT(STAT_CharacterMovementAuthority);
-DEFINE_STAT(STAT_CharacterMovementSimulated)
 
 DEFINE_STAT(STAT_AsyncWorkWaitTime);
 DEFINE_STAT(STAT_PhysicsTime);
@@ -51,6 +50,7 @@ DEFINE_STAT(STAT_TeleportToTime);
 DEFINE_STAT(STAT_MoveComponentTime);
 DEFINE_STAT(STAT_UpdateOverlaps);
 DEFINE_STAT(STAT_UpdatePhysicsVolume);
+DEFINE_STAT(STAT_EndScopedMovementUpdate);
 
 DEFINE_STAT(STAT_PostTickComponentLW);
 DEFINE_STAT(STAT_PostTickComponentRecreate);
@@ -60,6 +60,7 @@ DEFINE_STAT(STAT_PostTickComponentUpdateWait);
 DEFINE_STAT(STAT_TickTime);
 DEFINE_STAT(STAT_WorldTickTime);
 DEFINE_STAT(STAT_UpdateCameraTime);
+DEFINE_STAT(STAT_CharacterMovement);
 
 DEFINE_STAT(STAT_VolumeStreamingTickTime);
 DEFINE_STAT(STAT_VolumeStreamingChecks);
@@ -701,22 +702,76 @@ static TAutoConsoleVariable<int32> CVarAllowAsyncRenderThreadUpdates(
 	0,
 	TEXT("Used to control async renderthread updates."));
 
-void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(class UActorComponent* Component, bool bForceGameThread)
-{
-	check(!bPostTickComponentUpdate); // can't call this while we are doing the updates
-	if (!bForceGameThread)
-	{
-		bool bAllowConcurrentUpdates = !!CVarAllowAsyncRenderThreadUpdates.GetValueOnGameThread();
-		bForceGameThread = !bAllowConcurrentUpdates;
-	}
+static TAutoConsoleVariable<int32> CVarCollectGarbageEveryFrame(
+	TEXT("CollectGarbageEveryFrame"),
+	0,
+	TEXT("Used to debug garbage collection...Collects garbage every frame if the value is > 0."));
 
-	if (bForceGameThread)
+namespace EComponentMarkedForEndOfFrameUpdateState
+{
+	enum Type
 	{
-		ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Add(Component);
+		Unmarked,
+		Marked,
+		MarkedForGameThread,
+	};
+}
+
+// Utility struct to allow world direct access to UActorComponent::MarkedForEndOfFrameUpdateState without friending all of UActorComponent
+struct FMarkComponentEndOfFrameUpdateState
+{
+	friend class UWorld;
+
+private:
+	FORCEINLINE static void Set(UActorComponent* Component, const EComponentMarkedForEndOfFrameUpdateState::Type UpdateState)
+	{
+		checkSlow(UpdateState < 4); // Only 2 bits are allocated to store this value
+		Component->MarkedForEndOfFrameUpdateState = UpdateState;
+	}
+};
+
+void UWorld::UpdateActorComponentEndOfFrameUpdateState(UActorComponent* Component) const
+{
+	if (ComponentsThatNeedEndOfFrameUpdate.Contains(Component))
+	{
+		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Marked);
+	}
+	else if (ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Contains(Component))
+	{
+		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
 	}
 	else
 	{
-		ComponentsThatNeedEndOfFrameUpdate.Add(Component);
+		FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+	}
+}
+
+void UWorld::MarkActorComponentForNeededEndOfFrameUpdate(UActorComponent* Component, bool bForceGameThread)
+{
+	check(!bPostTickComponentUpdate); // can't call this while we are doing the updates
+	if (Component->GetMarkedForEndOfFrameUpdateState() != EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread)
+	{
+		if (!bForceGameThread)
+		{
+			bool bAllowConcurrentUpdates = !!CVarAllowAsyncRenderThreadUpdates.GetValueOnGameThread();
+			bForceGameThread = !bAllowConcurrentUpdates;
+		}
+
+		if (bForceGameThread)
+		{
+			// In this case we need to remove it from the other list
+			if (Component->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::Marked)
+			{
+				ComponentsThatNeedEndOfFrameUpdate.RemoveSwap(Component);
+			}
+			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Add(Component);
+			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::MarkedForGameThread);
+		}
+		else if (Component->GetMarkedForEndOfFrameUpdateState() != EComponentMarkedForEndOfFrameUpdateState::Marked)
+		{
+			ComponentsThatNeedEndOfFrameUpdate.Add(Component);
+			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Marked);
+		}
 	}
 }
 
@@ -732,31 +787,25 @@ void UWorld::SendAllEndOfFrameUpdates(FGraphEventArray* OutCompletion)
 	if (!OutCompletion)
 	{
 		// this is a viewer or something, just do everything on the gamethread
-		for (TSet<TWeakObjectPtr<UActorComponent> >::TIterator It(ComponentsThatNeedEndOfFrameUpdate); It; ++It)
-		{
-			ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Add(*It);
-		}
+		ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Append(ComponentsThatNeedEndOfFrameUpdate);
 		ComponentsThatNeedEndOfFrameUpdate.Empty(ComponentsThatNeedEndOfFrameUpdate.Num());
-	}
-	else
-	{
-		// remove any gamethread updates from the async update list
-		for (TSet<TWeakObjectPtr<UActorComponent> >::TIterator It(ComponentsThatNeedEndOfFrameUpdate_OnGameThread); It; ++It)
-		{
-			ComponentsThatNeedEndOfFrameUpdate.Remove(*It);
-		}
 	}
 
 	// Game thread updates need to happen before we go wide on the other threads.
 	// These updates are things that have said that they are NOT SAFE to run concurrently.
-	for (TSet<TWeakObjectPtr<UActorComponent> >::TIterator It(ComponentsThatNeedEndOfFrameUpdate_OnGameThread); It; ++It)
+	for (TArray<TWeakObjectPtr<UActorComponent> >::TIterator It(ComponentsThatNeedEndOfFrameUpdate_OnGameThread); It; ++It)
 	{
 		UActorComponent* Component = It->Get();
-		if (Component && !Component->IsPendingKill() && Component->IsRegistered() && !Component->IsTemplate())
+		if (Component)
 		{
-			FScopeCycleCounterUObject ComponentScope(Component);
-			FScopeCycleCounterUObject AdditionalScope(STATS ? Component->AdditionalStatObject() : NULL);
-			Component->DoDeferredRenderUpdates_Concurrent();
+			checkSlow(Component->GetMarkedForEndOfFrameUpdateState() != EComponentMarkedForEndOfFrameUpdateState::Unmarked);
+			if ( !Component->IsPendingKill() && Component->IsRegistered() && !Component->IsTemplate())
+			{
+				FScopeCycleCounterUObject ComponentScope(Component);
+				FScopeCycleCounterUObject AdditionalScope(STATS ? Component->AdditionalStatObject() : NULL);
+				Component->DoDeferredRenderUpdates_Concurrent();
+			}
+			FMarkComponentEndOfFrameUpdateState::Set(Component, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
 		}
 	}
 
@@ -809,21 +858,26 @@ void UWorld::SendAllEndOfFrameUpdates(FGraphEventArray* OutCompletion)
 			//@todo optimization, this loop could be done on another thread
 			// First get the async transform and render data updates underway
 			FTaskArray* Array = NULL;
-			for (TSet<TWeakObjectPtr<UActorComponent> >::TIterator It(ComponentsThatNeedEndOfFrameUpdate); It; ++It)
+			for (TArray<TWeakObjectPtr<UActorComponent> >::TIterator It(ComponentsThatNeedEndOfFrameUpdate); It; ++It)
 			{
 				UActorComponent* NextComponent = It->Get();
-				if (NextComponent && !NextComponent->IsPendingKill() && NextComponent->IsRegistered() && !NextComponent->IsTemplate())
+				if (NextComponent)
 				{
-					if (!Array)
+					checkSlow(NextComponent->GetMarkedForEndOfFrameUpdateState() == EComponentMarkedForEndOfFrameUpdateState::Marked);
+					if (!NextComponent->IsPendingKill() && NextComponent->IsRegistered() && !NextComponent->IsTemplate())
 					{
-						Array = new FTaskArray;
+						if (!Array)
+						{
+							Array = new FTaskArray;
+						}
+						Array->Add(NextComponent);
+						if (Array->Num() == NUM_COMPONENTS_PER_TASK)
+						{
+							new (*OutCompletion) FGraphEventRef(TGraphTask<FDoRenderthreadUpdatesTask>::CreateTask(NULL, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(Array)); 
+							Array = NULL; // Array belongs to the task
+						}
 					}
-					Array->Add(NextComponent);
-					if (Array->Num() == NUM_COMPONENTS_PER_TASK)
-					{
-						new (*OutCompletion) FGraphEventRef(TGraphTask<FDoRenderthreadUpdatesTask>::CreateTask(NULL, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(Array)); 
-						Array = NULL; // Array belongs to the task
-					}
+					FMarkComponentEndOfFrameUpdateState::Set(NextComponent, EComponentMarkedForEndOfFrameUpdateState::Unmarked);
 				}
 			}
 			if (Array) // partial array if we had one
@@ -832,11 +886,12 @@ void UWorld::SendAllEndOfFrameUpdates(FGraphEventArray* OutCompletion)
 				Array = NULL; // Array belongs to the task
 			}
 		}
+		ComponentsThatNeedEndOfFrameUpdate.Empty(ComponentsThatNeedEndOfFrameUpdate.Num());
 	}
 
-	bPostTickComponentUpdate = false;
-	ComponentsThatNeedEndOfFrameUpdate.Empty(ComponentsThatNeedEndOfFrameUpdate.Num());
 	ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Empty(ComponentsThatNeedEndOfFrameUpdate_OnGameThread.Num());
+
+	bPostTickComponentUpdate = false;
 }
 
 
@@ -916,39 +971,39 @@ static class FFileProfileWrapperExec: private FSelfRegisteringExec
 					FString EventName;
 					switch( FileOpStat->Type )
 					{
-						case FProfiledFileStatsOp::Tell:
+						case FProfiledFileStatsOp::EOpType::Tell:
 							EventName = TEXT("Tell"); break;
-						case FProfiledFileStatsOp::Seek:
+						case FProfiledFileStatsOp::EOpType::Seek:
 							EventName = TEXT("Seek"); break;
-						case FProfiledFileStatsOp::Read:
+						case FProfiledFileStatsOp::EOpType::Read:
 							EventName = FString::Printf( TEXT("Read (%lld)"), FileOpStat->Bytes ); break;
-						case FProfiledFileStatsOp::Write:
+						case FProfiledFileStatsOp::EOpType::Write:
 							EventName = FString::Printf( TEXT("Write (%lld)"), FileOpStat->Bytes ); break;
-						case FProfiledFileStatsOp::Size:
+						case FProfiledFileStatsOp::EOpType::Size:
 							EventName = TEXT("Size"); break;
-						case FProfiledFileStatsOp::OpenRead:
+						case FProfiledFileStatsOp::EOpType::OpenRead:
 							EventName = TEXT("OpenRead"); break;
-						case FProfiledFileStatsOp::OpenWrite:
+						case FProfiledFileStatsOp::EOpType::OpenWrite:
 							EventName = TEXT("OpenWrite"); break;
-						case FProfiledFileStatsOp::Exists:
+						case FProfiledFileStatsOp::EOpType::Exists:
 							EventName = TEXT("Exists"); break;
-						case FProfiledFileStatsOp::Delete:
+						case FProfiledFileStatsOp::EOpType::Delete:
 							EventName = TEXT("Delete"); break;
-						case FProfiledFileStatsOp::Move:
+						case FProfiledFileStatsOp::EOpType::Move:
 							EventName = TEXT("Move"); break;
-						case FProfiledFileStatsOp::IsReadOnly:
+						case FProfiledFileStatsOp::EOpType::IsReadOnly:
 							EventName = TEXT("IsReadOnly"); break;
-						case FProfiledFileStatsOp::SetReadOnly:
+						case FProfiledFileStatsOp::EOpType::SetReadOnly:
 							EventName = TEXT("SetReadOnly"); break;
-						case FProfiledFileStatsOp::GetTimeStamp:
+						case FProfiledFileStatsOp::EOpType::GetTimeStamp:
 							EventName = TEXT("GetTimeStamp"); break;
-						case FProfiledFileStatsOp::SetTimeStamp:
+						case FProfiledFileStatsOp::EOpType::SetTimeStamp:
 							EventName = TEXT("SetTimeStamp"); break;
-						case FProfiledFileStatsOp::Create:
+						case FProfiledFileStatsOp::EOpType::Create:
 							EventName = TEXT("Create"); break;
-						case FProfiledFileStatsOp::Copy:
+						case FProfiledFileStatsOp::EOpType::Copy:
 							EventName = TEXT("Copy"); break;
-						case FProfiledFileStatsOp::Iterate:
+						case FProfiledFileStatsOp::EOpType::Iterate:
 							EventName = TEXT("Iterate"); break;
 						default:
 							EventName = TEXT("Unknown"); break;
@@ -986,6 +1041,13 @@ public:
 extern bool GCollisionAnalyzerIsRecording;
 #endif // ENABLE_COLLISION_ANALYZER
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+static TAutoConsoleVariable<int32> CVarStressTestGCWhileStreaming(
+	TEXT("t.StressTestGC"),
+	0,
+	TEXT("If set to 1, the engine will attempt to trigger GC each frame while async loading."));
+#endif
+
 /**
  * Update the level after a variable amount of time, DeltaSeconds, has passed.
  * All child actors are ticked after their owners have been ticked.
@@ -1002,6 +1064,11 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 #endif
 
 	SCOPE_CYCLE_COUNTER(STAT_WorldTickTime);
+
+	if (GEngine->HMDDevice.IsValid())
+	{
+		GEngine->HMDDevice->OnStartGameFrame();
+	}
 
 #if ENABLE_COLLISION_ANALYZER
 	// Tick collision analyzer (only if level is really ticking)
@@ -1152,8 +1219,8 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 
 		if (TickType != LEVELTICK_TimeOnly && !bIsPaused)
 		{
-			STAT(FScopeCycleCounter Context(TimerManager->GetStatId());)
-			TimerManager->Tick(DeltaSeconds);
+			STAT(FScopeCycleCounter Context(GetTimerManager().GetStatId());)
+			GetTimerManager().Tick(DeltaSeconds);
 		}
 
 		for( int32 i=0; i<FTickableGameObject::TickableObjects.Num(); i++ )
@@ -1279,12 +1346,22 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 	bInTick = false;
 	Mark.Pop();
 
-	if ( FullPurgeTriggered )
+	
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (CVarStressTestGCWhileStreaming.GetValueOnGameThread() && IsAsyncLoading())
 	{
-		CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS, true );
-		CleanupActors();
-		FullPurgeTriggered = false;
-		TimeSinceLastPendingKillPurge = 0.0f;
+		TryCollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true);
+	}
+	else 
+#endif
+	if (FullPurgeTriggered)
+	{
+		if (TryCollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, true))
+		{
+			CleanupActors();
+			FullPurgeTriggered = false;
+			TimeSinceLastPendingKillPurge = 0.0f;
+		}
 	}
 	else if( HasBegunPlay() )
 	{
@@ -1312,6 +1389,11 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 			SCOPE_CYCLE_COUNTER(STAT_GCSweepTime);
 			IncrementalPurgeGarbage( true );
 		}
+	}
+
+	if (CVarCollectGarbageEveryFrame.GetValueOnGameThread() > 0)
+	{
+		ForceGarbageCollection(true);
 	}
 
 	// players only request from last frame
@@ -1367,6 +1449,11 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 
 	// Dump the viewpoints with which we were rendered last frame. They will be updated when the world is next rendered.
 	ViewLocationsRenderedLastFrame.Reset();
+
+	if (GEngine->HMDDevice.IsValid())
+	{
+		GEngine->HMDDevice->OnEndGameFrame();
+	}
 }
 
 /**
@@ -1387,12 +1474,13 @@ void UWorld::PerformGarbageCollectionAndCleanupActors()
 	if( !IsAsyncLoading() )
 	{
 		// Perform housekeeping.
-		CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS, false );
+		if (TryCollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS, false))
+		{
+			CleanupActors();
 
-		CleanupActors();
-
-		// Reset counter.
-		TimeSinceLastPendingKillPurge = 0;
+			// Reset counter.
+			TimeSinceLastPendingKillPurge = 0;
+		}
 	}
 }
 

@@ -65,6 +65,7 @@ public:
 	TMap<int32, TSharedPtr<INetDeltaBaseState> >	RecentCustomDeltaState;		// Stores dynamic properties such as TArray which can't fit in the Recent buffer
 
 	TArray< int32 >									LifetimeCustomDeltaProperties;
+	TArray< ELifetimeCondition >					LifetimeCustomDeltaPropertyConditions;
 
 	uint32											bLastUpdateEmpty	: 1;	// True if last update (ReplicateActor) produced no replicated properties
 	uint32											bOpenAckCalled		: 1;
@@ -72,8 +73,10 @@ public:
 	UNetConnection *								Connection;					// Connection this replicator was created on
 	class UActorChannel	*							OwningChannel;
 
-	TArray< UProperty *,TInlineAllocator< 32 > >	RepNotifies;
-	TMap< UProperty *, TArray<uint8> >				RepNotifyMetaData;
+	TMap< int32, UStructProperty* >					UnmappedCustomProperties;
+
+	TArray< UProperty*,TInlineAllocator< 32 > >		RepNotifies;
+	TMap< UProperty*, TArray<uint8> >				RepNotifyMetaData;
 
 	TSharedPtr< FRepLayout >						RepLayout;
 	FRepState *										RepState;
@@ -108,10 +111,12 @@ public:
 	void	Serialize(FArchive& Ar);
 
 	/** Writes dirty properties to bunch */
-	void	ReplicateCustomDeltaProperties( FOutBunch & Bunch, int32& LastIndex, bool & bContentBlockWritten );
+	void	ReplicateCustomDeltaProperties( FOutBunch & Bunch, FReplicationFlags RepFlags, bool & bContentBlockWritten );
 	bool	ReplicateProperties( FOutBunch & Bunch, FReplicationFlags RepFlags );
 	void	PostSendBunch(FPacketIdRange & PacketRange, uint8 bReliable);
 	
+	const FFieldNetCache* ReadField( const FClassNetCache* ClassCache, FInBunch& Bunch ) const;
+
 	bool	ReceivedBunch( FInBunch & Bunch, const FReplicationFlags& RepFlags, bool & bOutHasUnmapped );
 	void	PostReceivedBunch();
 
@@ -124,6 +129,8 @@ public:
 	bool ReadyForDormancy(bool debug=false);
 
 	void StartBecomingDormant();
+
+	void CallRepNotifies();
 
 	void UpdateUnmappedObjects( bool & bOutHasMoreUnmapped );
 

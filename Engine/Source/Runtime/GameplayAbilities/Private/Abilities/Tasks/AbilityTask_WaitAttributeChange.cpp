@@ -11,20 +11,22 @@
 UAbilityTask_WaitAttributeChange::UAbilityTask_WaitAttributeChange(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bTriggerOnce = false;
 }
 
-UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttributeChange(UObject* WorldContextObject, FGameplayAttribute InAttribute, FGameplayTag InWithTag, FGameplayTag InWithoutTag)
+UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttributeChange(UObject* WorldContextObject, FGameplayAttribute InAttribute, FGameplayTag InWithTag, FGameplayTag InWithoutTag, bool TriggerOnce)
 {
 	auto MyObj = NewTask<UAbilityTask_WaitAttributeChange>(WorldContextObject);
 	MyObj->WithTag = InWithTag;
 	MyObj->WithoutTag = InWithoutTag;
 	MyObj->Attribute = InAttribute;
 	MyObj->ComparisonType = EWaitAttributeChangeComparison::None;
+	MyObj->bTriggerOnce = TriggerOnce;
 
 	return MyObj;
 }
 
-UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttributeChangeWithComparison(UObject* WorldContextObject, FGameplayAttribute InAttribute, FGameplayTag InWithTag, FGameplayTag InWithoutTag, TEnumAsByte<EWaitAttributeChangeComparison::Type> InComparisonType, float InComparisonValue)
+UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttributeChangeWithComparison(UObject* WorldContextObject, FGameplayAttribute InAttribute, FGameplayTag InWithTag, FGameplayTag InWithoutTag, TEnumAsByte<EWaitAttributeChangeComparison::Type> InComparisonType, float InComparisonValue, bool TriggerOnce)
 {
 	auto MyObj = NewTask<UAbilityTask_WaitAttributeChange>(WorldContextObject);
 	MyObj->WithTag = InWithTag;
@@ -32,6 +34,7 @@ UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttri
 	MyObj->Attribute = InAttribute;
 	MyObj->ComparisonType = InComparisonType;
 	MyObj->ComparisonValue = InComparisonValue;
+	MyObj->bTriggerOnce = TriggerOnce;
 
 	return MyObj;
 }
@@ -92,7 +95,10 @@ void UAbilityTask_WaitAttributeChange::OnAttributeChange(float NewValue, const F
 	if (PassedComparison)
 	{
 		OnChange.Broadcast();
-		EndTask();
+		if (bTriggerOnce)
+		{
+			EndTask();
+		}
 	}
 }
 

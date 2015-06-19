@@ -109,14 +109,10 @@ public:
 	/** Loads any settings to config that should be persistent between editor sessions */
 	void LoadSettings(const FString& IniFilename, const FString& IniSection, const FString& SettingsString);
 
-	// SWidget implementation
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
 	/** Populates the tree with all folders that are not filtered out */
 	void Populate();
 
 private:
-
 	/** Sort the root items into the correct order */
 	void SortRootItems();
 
@@ -231,8 +227,13 @@ private:
 	/** Delegate called when an editor setting is changed */
 	void HandleSettingChanged(FName PropertyName);
 
-private:
+	/** One-off active timer to focus the widget post-construct */
+	EActiveTimerReturnType SetFocusPostConstruct(double InCurrentTime, float InDeltaTime);
 
+	/** One-off active timer to repopulate the path view */
+	EActiveTimerReturnType TriggerRepopulate(double InCurrentTime, float InDeltaTime);
+
+private:
 	/** A helper class to manage PreventTreeItemChangedDelegateCount by incrementing it when constructed (on the stack) and decrementing when destroyed */
 	class FScopedPreventTreeItemChangedDelegate
 	{
@@ -286,15 +287,9 @@ private:
 	/** If > 0, the selection or expansion changed delegate will not be called. Used to update the tree from an external source or in certain bulk operations. */
 	int32 PreventTreeItemChangedDelegateCount;
 
-	/** Next tick will focus the filter box. This is used to manage initial focus for popup menus. */
-	bool bPendingFocusNextFrame;
-
 	/** If false, the context menu will not open when right clicking an item in the tree */
 	bool bAllowContextMenu;
 
 	/** If false, the classes folder will not be added to the tree automatically */
 	bool bAllowClassesFolder;
-
-	/** True if we should repopulate the next opportunity we get.  We use this to allow a lazy refresh, for performance reasons. */
-	bool bNeedsRepopulate;
 };

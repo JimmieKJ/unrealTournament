@@ -112,7 +112,6 @@ bool FBuildPatchDownloader::Init()
 
 uint32 FBuildPatchDownloader::Run()
 {
-	FString ErrorString;
 	SetRunning( true );
 	SetInited( true );
 
@@ -230,7 +229,7 @@ uint32 FBuildPatchDownloader::Run()
 					InFlightDownloads.Remove( InFlightKey );
 				}
 			}
-			else if (MeanChunkTime.IsReliable() && InFlightJob.RetryCount.GetValue() == 0)
+			else if (bIsChunkData && MeanChunkTime.IsReliable() && InFlightJob.RetryCount.GetValue() == 0)
 			{
 				// If still on first try, cancel any chunk taking longer than the mean time plus 4x standard deviation. In statistical terms, that's 1 in 15,787 chance of being
 				// a download time that appears in the normal distribution. So we are guessing that this chunk would be an abnormally delayed one.
@@ -304,14 +303,14 @@ uint32 FBuildPatchDownloader::Run()
 				FileDataArray.Reset();
 				FileDataArray.AddUninitialized( FileSize );
 				int64 BytesRead = 0;
-				while ( BytesRead < FileSize )
+				while ( BytesRead < FileSize && !FBuildPatchInstallError::HasFatalError() )
 				{
 					const int64 ReadLen = FMath::Min<int64>( BytesPerCall, FileSize - BytesRead );
 					Reader->Serialize( FileDataArray.GetData() + BytesRead, ReadLen );
 					BytesRead += ReadLen;
 					OnDownloadProgress( NextGuid, BytesRead );
 				}
-				bSuccess = Reader->Close();
+				bSuccess = Reader->Close() && !FBuildPatchInstallError::HasFatalError();
 				delete Reader;
 			}
 			OnDownloadComplete( NextGuid, DownloadUrl, FileDataArray, bSuccess, INDEX_NONE );
@@ -464,7 +463,7 @@ bool FBuildPatchDownloader::ShouldBeRunning()
 	return bWaitingForJobs || GetNumChunksLeft() > 0;
 }
 
-void FBuildPatchDownloader::HttpRequestProgress( FHttpRequestPtr Request, int32 BytesSoFar )
+void FBuildPatchDownloader::HttpRequestProgress( FHttpRequestPtr Request, int32 BytesSent, int32 BytesReceived )
 {
 #if EXTRA_DOWNLOAD_LOGGING
 	GWarn->Logf(TEXT("BuildPatchDownloader: Request %p Bytes: %d"), Request.Get(), BytesSoFar);
@@ -473,12 +472,14 @@ void FBuildPatchDownloader::HttpRequestProgress( FHttpRequestPtr Request, int32 
 	{
 		FGuid DataGUID;
 		FBuildPatchUtils::GetGUIDFromFilename( Request->GetURL(), DataGUID );
-		OnDownloadProgress( DataGUID, BytesSoFar );
+		OnDownloadProgress( DataGUID, BytesReceived );
 	}
 }
 
 void FBuildPatchDownloader::HttpRequestComplete( FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded )
 {
+	// track the request if we want CDN analytics.
+	FBuildPatchAnalytics::TrackRequest(Request);
 	if ( !FBuildPatchInstallError::HasFatalError() )
 	{
 		FGuid DataGUID;

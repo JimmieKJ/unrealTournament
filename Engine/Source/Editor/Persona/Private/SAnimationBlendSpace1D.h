@@ -120,7 +120,7 @@ public:
 	 *
 	 * @return The desired size.
 	 */
-	FVector2D ComputeDesiredSize() const override;
+	FVector2D ComputeDesiredSize(float) const override;
 
 	virtual void ResampleData() override;
 

@@ -87,7 +87,7 @@ void UThumbnailManager::InitializeRenderTypeArray(TArray<FThumbnailRenderingInfo
 			UClass* RenderClass = LoadObject<UClass>(nullptr, *RenderInfo.RendererClassName, nullptr, LOAD_None, nullptr);
 			if (RenderClass != nullptr)
 			{
-				RenderInfo.Renderer = ConstructObject<UThumbnailRenderer>(RenderClass);
+				RenderInfo.Renderer = NewObject<UThumbnailRenderer>(GetTransientPackage(), RenderClass);
 			}
 		}
 
@@ -185,7 +185,7 @@ void UThumbnailManager::RegisterCustomRenderer(UClass* Class, TSubclassOf<UThumb
 	FThumbnailRenderingInfo& Info = *(new (RenderableThumbnailTypes) FThumbnailRenderingInfo());
 	Info.ClassNeedingThumbnailName = NewClassPathName;
 	Info.ClassNeedingThumbnail = Class;
-	Info.Renderer = ConstructObject<UThumbnailRenderer>(RendererClass);
+	Info.Renderer = NewObject<UThumbnailRenderer>(GetTransientPackage(), RendererClass);
 	Info.RendererClassName = RendererClass->GetPathName();
 
 	bMapNeedsUpdate = true;
@@ -225,14 +225,14 @@ UThumbnailManager& UThumbnailManager::Get()
 			if (Class != nullptr)
 			{
 				// Create an instance of this class
-				ThumbnailManagerSingleton = ConstructObject<UThumbnailManager>(Class);
+				ThumbnailManagerSingleton = NewObject<UThumbnailManager>(GetTransientPackage(), Class);
 			}
 		}
 
 		// If the class couldn't be loaded or is the wrong type, fallback to the default
 		if (ThumbnailManagerSingleton == nullptr)
 		{
-			ThumbnailManagerSingleton = ConstructObject<UThumbnailManager>(UThumbnailManager::StaticClass());
+			ThumbnailManagerSingleton = NewObject<UThumbnailManager>();
 		}
 
 		// Keep the singleton alive
@@ -252,38 +252,7 @@ void UThumbnailManager::SetupCheckerboardTexture()
 		return;
 	}
 
-	const FColor ColorOne = FColor(128, 128, 128);
-	const FColor ColorTwo = FColor(64, 64, 64);
-	const int32 CheckerSize = 32;
-	const int32 HalfPixelNum = CheckerSize >> 1;
-
-	// Create the texture
-	CheckerboardTexture = UTexture2D::CreateTransient(CheckerSize, CheckerSize, PF_B8G8R8A8);
-
-	// Lock the checkerboard texture so it can be modified
-	FColor* MipData = static_cast<FColor*>(CheckerboardTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
-
-	// Fill in the colors in a checkerboard pattern
-	for (int32 RowNum = 0; RowNum < CheckerSize; ++RowNum)
-	{
-		for (int32 ColNum = 0; ColNum < CheckerSize; ++ColNum)
-		{
-			FColor& CurColor = MipData[(ColNum + (RowNum * CheckerSize))];
-
-			if (ColNum < HalfPixelNum)
-			{
-				CurColor = (RowNum < HalfPixelNum)? ColorOne: ColorTwo;
-			}
-			else
-			{
-				CurColor = (RowNum < HalfPixelNum)? ColorTwo: ColorOne;
-			}
-		}
-	}
-
-	// Unlock the texture
-	CheckerboardTexture->PlatformData->Mips[0].BulkData.Unlock();
-	CheckerboardTexture->UpdateResource();
+	CheckerboardTexture = FImageUtils::CreateCheckerboardTexture(FColor(128, 128, 128), FColor(64, 64, 64), 32);
 }
 
 bool UThumbnailManager::CaptureProjectThumbnail(FViewport* Viewport, const FString& OutputFilename, bool bUseSCCIfPossible)

@@ -4,7 +4,7 @@
 	ALAudioDevice.h: Unreal OpenAL audio interface object.
 =============================================================================*/
 
-#pragma  once 
+#pragma  once
 
 /*------------------------------------------------------------------------------------
 	Dependencies, helpers & forward declarations.
@@ -25,7 +25,7 @@ class FALAudioDevice;
 #include "AL/alc.h"
 #if SUPPORTS_PRAGMA_PACK
 #pragma pack (pop)
-#endif 
+#endif
 
 DECLARE_LOG_CATEGORY_EXTERN(LogALAudio, Log, All);
 
@@ -36,21 +36,21 @@ DECLARE_LOG_CATEGORY_EXTERN(LogALAudio, Log, All);
 /**
  * OpenAL implementation of FSoundBuffer, containing the wave data and format information.
  */
-class FALSoundBuffer : public FSoundBuffer 
+class FALSoundBuffer : public FSoundBuffer
 {
 public:
-	/** 
+	/**
 	 * Constructor
 	 *
 	 * @param AudioDevice	audio device this sound buffer is going to be attached to.
 	 */
 	FALSoundBuffer( FALAudioDevice* AudioDevice );
-	
+
 	/**
-	 * Destructor 
-	 * 
+	 * Destructor
+	 *
 	 * Frees wave data and detaches itself from audio device.
- 	 */
+	 */
 	~FALSoundBuffer( void );
 
 	/**
@@ -69,22 +69,20 @@ public:
 	 * @param AudioDevice	audio device to attach created buffer to
 	 * @return FIOSAudioSoundBuffer pointer if buffer creation succeeded, NULL otherwise
 	 */
-	static FALSoundBuffer* CreateNativeBuffer(FALAudioDevice* AudioDevice, USoundWave* InWave);
+	static void CreateNativeBuffer(FALAudioDevice* AudioDevice, USoundWave* InWave, FALSoundBuffer* &Buffer);
 
 	/**
 	 * Returns the size of this buffer in bytes.
 	 *
 	 * @return Size in bytes
 	 */
-	int GetSize( void ) 
-	{ 
-		return( BufferSize ); 
+	int GetSize( void )
+	{
+		return( BufferSize );
 	}
 
-	/** Audio device this buffer is attached to */
-	FALAudioDevice*			AudioDevice;
-	/** Array of buffer ids used to reference the data stored in AL. */
-	ALuint					BufferIds[2];
+	/** Buffer id used to reference the data stored in AL. */
+	ALuint					BufferId;
 	/** Format of the data internal to OpenAL */
 	ALuint					InternalFormat;
 
@@ -111,7 +109,7 @@ public:
 		Buffer( NULL )
 	{}
 
-	/** 
+	/**
 	 * Destructor
 	 */
 	~FALSoundSource( void );
@@ -126,17 +124,17 @@ public:
 
 	/**
 	 * Updates the source specific parameter like e.g. volume and pitch based on the associated
-	 * wave instance.	
+	 * wave instance.
 	 */
 	virtual void Update( void );
 
 	/**
-	 * Plays the current wave instance.	
+	 * Plays the current wave instance.
 	 */
 	virtual void Play( void );
 
 	/**
-	 * Stops the current wave instance and detaches it from the source.	
+	 * Stops the current wave instance and detaches it from the source.
 	 */
 	virtual void Stop( void );
 
@@ -148,22 +146,22 @@ public:
 	/**
 	 * Queries the status of the currently associated wave instance.
 	 *
-	 * @return	TRUE if the wave instance/ source has finished playback and FALSE if it is 
+	 * @return	TRUE if the wave instance/ source has finished playback and FALSE if it is
 	 *			currently playing or paused.
 	 */
 	virtual bool IsFinished( void );
 
-	/** 
+	/**
 	 * Access function for the source id
 	 */
 	ALuint GetSourceId( void ) const { return( SourceId ); }
 
-	/** 
+	/**
 	 * Returns TRUE if an OpenAL source has finished playing
 	 */
 	bool IsSourceFinished( void );
 
-	/** 
+	/**
 	 * Handle dequeuing and requeuing of a single buffer
 	 */
 	void HandleQueuedBuffer( void );
@@ -175,6 +173,9 @@ protected:
 	FALSoundBuffer*		Buffer;
 
 	friend class FALAudioDevice;
+
+	/** Convenience function to avoid casting in multiple places */
+	FORCEINLINE FALAudioDevice * GetALDevice();
 };
 
 /**
@@ -182,9 +183,10 @@ protected:
  */
 class FALAudioDevice : public FAudioDevice
 {
-public: 
-	FALAudioDevice() {} 
-	virtual ~FALAudioDevice() {} 
+public:
+	FALAudioDevice();
+
+	virtual ~FALAudioDevice() {}
 
 	virtual FName GetRuntimeFormat(USoundWave* SoundWave) override
 	{
@@ -194,7 +196,7 @@ public:
 
 	/** Starts up any platform specific hardware/APIs */
 	virtual bool InitializeHardware() override;
- 
+
 	/**
 	 * Tears down audio device by stopping all sounds, removing all buffers,  destroying all sources, ... Called by both Destroy and ShutdownAfterError
 	 * to perform the actual tear down.
@@ -213,20 +215,22 @@ public:
 
 	virtual class ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) override;
 
-	void FindProcs( bool AllowExt );
-
 	// Error checking.
 	bool alError( const TCHAR* Text, bool Log = true );
 
+	/**
+	 * Makes sure correct context is set.
+	 *
+	 * @param CallSiteIdentifier identifies the call site for debugging/error reporting purposes
+	 */
+	void MakeCurrent(const TCHAR * CallSiteIdentifier = nullptr);
+
 protected:
 
-	virtual FSoundSource* CreateSoundSource() override; 
+	virtual FSoundSource* CreateSoundSource() override;
+
 	/** Returns the enum for the internal format for playing a sound with this number of channels. */
 	ALuint GetInternalFormat( int NumChannels );
-
-	// Dynamic binding.
-	void FindProc( void*& ProcAddress, char* Name, char* SupportName, bool& Supports, bool AllowExt );
-	bool FindExt( const TCHAR* Name );
 
 
 	// Variables.
@@ -234,9 +238,10 @@ protected:
 	// AL specific
 
 	/** Device/context used to play back sounds (static so it can be initialized early) */
-	static ALCdevice*							HardwareDevice;
-	static ALCcontext*							SoundContext;
+	ALCdevice*									HardwareDevice;
+	ALCcontext*									SoundContext;
 	void*										DLLHandle;
+
 	/** Formats for multichannel sounds */
 	ALenum										Surround40Format;
 	ALenum										Surround51Format;
@@ -246,3 +251,7 @@ protected:
 	friend class FALSoundBuffer;
 };
 
+FORCEINLINE FALAudioDevice * FALSoundSource::GetALDevice()
+{
+	return static_cast<FALAudioDevice *>(AudioDevice);
+}

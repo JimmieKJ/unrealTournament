@@ -37,7 +37,6 @@ APlayerCameraManager::APlayerCameraManager(const FObjectInitializer& ObjectIniti
 	ViewYawMax = 359.999f;
 	ViewRollMin = -89.99f;
 	ViewRollMax = 89.99f;
-	CameraShakeCamModClass = UCameraModifier_CameraShake::StaticClass();
 	bUseClientSideCameraUpdates = true;
 	CameraStyle = NAME_Default;
 	bCanBeDamaged = false;
@@ -45,8 +44,11 @@ APlayerCameraManager::APlayerCameraManager(const FObjectInitializer& ObjectIniti
 	bFollowHmdOrientation = false;
 
 	// create dummy transform component
-	TransformComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("TransformComponent0"));
+	TransformComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TransformComponent0"));
 	RootComponent = TransformComponent;
+
+	// support camerashakes by default
+	DefaultModifiers.Add(UCameraModifier_CameraShake::StaticClass());
 }
 
 APlayerController* APlayerCameraManager::GetOwningPlayerController() const
@@ -199,6 +201,8 @@ bool APlayerCameraManager::ShouldTickIfViewportsOnly() const
 
 void APlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV)
 {
+	ClearCachedPPBlends();
+
 	// Loop through each camera modifier
 	for (int32 ModifierIdx = 0; ModifierIdx < ModifierList.Num(); ++ModifierIdx)
 	{
@@ -208,14 +212,12 @@ void APlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewInf
 			// If ModifyCamera returns true, exit loop
 			// Allows high priority things to dictate if they are
 			// the last modifier to be applied
-			if (ModifierList[ModifierIdx]->ModifyCamera(this, DeltaTime, InOutPOV))
+			if (ModifierList[ModifierIdx]->ModifyCamera(DeltaTime, InOutPOV))
 			{
 				break;
 			}
 		}
 	}
-
-	ClearCachedPPBlends();
 
 	// Now apply CameraAnims
 	// these essentially behave as the highest-pri modifier.
@@ -278,15 +280,17 @@ void APlayerCameraManager::GetCachedPostProcessBlends(TArray<FPostProcessSetting
 
 void APlayerCameraManager::ApplyAnimToCamera(ACameraActor const* AnimatedCamActor, UCameraAnimInst const* AnimInst, FMinimalViewInfo& InOutPOV)
 {
+	if (AnimInst->CamAnim->bRelativeToInitialTransform)
+	{
+		// move animated cam actor to initial-relative position
+		FTransform const AnimatedCamToWorld = AnimatedCamActor->GetTransform();
+		FTransform const AnimatedCamToInitialCam = AnimatedCamToWorld * AnimInst->InitialCamToWorld.Inverse();
+		ACameraActor* const MutableCamActor = const_cast<ACameraActor*>(AnimatedCamActor);
+		MutableCamActor->SetActorTransform(AnimatedCamToInitialCam);
+	}
+
 	float const Scale = AnimInst->CurrentBlendWeight;
-
 	FRotationMatrix const CameraToWorld(InOutPOV.Rotation);
-
-	// move animated cam actor to initial-relative position
-	FTransform const AnimatedCamToWorld = AnimatedCamActor->GetTransform();
-	FTransform const AnimatedCamToInitialCam = AnimatedCamToWorld * AnimInst->InitialCamToWorld.Inverse();
-	ACameraActor* const MutableCamActor = const_cast<ACameraActor*>(AnimatedCamActor);
-	MutableCamActor->SetActorTransform(AnimatedCamToInitialCam);		// set it back because that's what the code below expects
 
 	if (AnimInst->PlaySpace == ECameraAnimPlaySpace::CameraLocal)
 	{
@@ -481,7 +485,9 @@ void APlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime
 	OutVT.POV.FOV = DefaultFOV;
 	OutVT.POV.OrthoWidth = DefaultOrthoWidth;
 	OutVT.POV.bConstrainAspectRatio = false;
+	OutVT.POV.bUseFieldOfViewForLOD = true;
 	OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+	OutVT.POV.PostProcessSettings.SetBaseValues();
 	OutVT.POV.PostProcessBlendWeight = 1.0f;
 
 
@@ -526,7 +532,7 @@ void APlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime
 //			APawn* TPawn = Cast<APawn>(OutVT.Target);
 // 			if ((TPawn != NULL) && (TPawn->Mesh != NULL))
 // 			{
-// 				Loc += FRotationMatrix(OutVT.Target->GetActorRotation()).TransformVector(TPawn->Mesh->RelativeLocation - GetDefault<APawn>(TPawn->GetClass())->Mesh->RelativeLocation);
+// 				Loc += FQuatRotationMatrix(OutVT.Target->GetActorQuat()).TransformVector(TPawn->Mesh->RelativeLocation - GetDefault<APawn>(TPawn->GetClass())->Mesh->RelativeLocation);
 // 			}
 
 			//OutVT.Target.GetActorEyesViewPoint(Loc, Rot);
@@ -540,7 +546,7 @@ void APlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTime
 			BoxParams.AddIgnoredActor(OutVT.Target);
 			FHitResult Result;
 
-			GetWorld()->SweepSingle(Result, Loc, Pos, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
+			GetWorld()->SweepSingleByChannel(Result, Loc, Pos, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
 			OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
 			OutVT.POV.Rotation = Rotator;
 
@@ -593,36 +599,155 @@ void APlayerCameraManager::UpdateCameraLensEffects(const FTViewTarget& OutVT)
 	}
 }
 
-
 void APlayerCameraManager::ApplyAudioFade()
 {
-	if (GEngine && GEngine->GetAudioDevice() )
+	if (GEngine)
 	{
-		GEngine->GetAudioDevice()->TransientMasterVolume = 1.0 - FadeAmount;
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			if (FAudioDevice* AudioDevice = World->GetAudioDevice())
+			{
+				AudioDevice->TransientMasterVolume = 1.0f - FadeAmount;
+			}
+		}
 	}
 }
 
-UCameraModifier* APlayerCameraManager::CreateCameraModifier(TSubclassOf<UCameraModifier> ModifierClass)
+void APlayerCameraManager::StopAudioFade()
 {
-	UCameraModifier* NewMod = Cast<UCameraModifier>(StaticConstructObject(ModifierClass, this));
-	NewMod->Init(this);
-	return NewMod;
+	if (GEngine)
+	{
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			if (FAudioDevice* AudioDevice = World->GetAudioDevice())
+			{
+				AudioDevice->TransientMasterVolume = 1.0f;
+			}
+		}
+	}
 }
+
+UCameraModifier* APlayerCameraManager::AddNewCameraModifier(TSubclassOf<UCameraModifier> ModifierClass)
+{
+	UCameraModifier* const NewMod = NewObject<UCameraModifier>(this, ModifierClass);
+	if (NewMod)
+	{
+		if (AddCameraModifierToList(NewMod) == true)
+		{
+			return NewMod;
+		}
+	}
+	
+	return nullptr;
+}
+
+UCameraModifier* APlayerCameraManager::FindCameraModifierByClass(TSubclassOf<UCameraModifier> ModifierClass)
+{
+	for (UCameraModifier* Mod : ModifierList)
+	{
+		if (Mod->GetClass() == ModifierClass)
+		{
+			return Mod;
+		}
+	}
+
+	return nullptr;
+}
+
+
+bool APlayerCameraManager::AddCameraModifierToList(UCameraModifier* NewModifier)
+{
+	if (NewModifier)
+	{
+		// Look through current modifier list and find slot for this priority
+		int32 BestIdx = 0;
+		for (int32 ModifierIdx = 0; ModifierIdx < ModifierList.Num(); ModifierIdx++)
+		{
+			UCameraModifier* const M = ModifierList[ModifierIdx];
+			if (M)
+			{
+				if (M == NewModifier)
+				{
+					// already in list, just bail
+					return false;
+				}
+
+				// If priority of current index has passed or equaled ours - we have the insert location
+				if (NewModifier->Priority <= M->Priority)
+				{
+					// Disallow addition of exclusive modifier if priority is already occupied
+					if (NewModifier->bExclusive && NewModifier->Priority == M->Priority)
+					{
+						return false;
+					}
+
+					break;
+				}
+			}
+
+			// Update best index
+			BestIdx = ModifierIdx;
+		}
+
+		// Insert self into best index
+		ModifierList.InsertUninitialized(BestIdx, 1);
+		ModifierList[BestIdx] = NewModifier;
+
+		// Save camera
+		NewModifier->AddedToCamera(this);
+		return true;
+	}
+
+	return false;
+}
+
+bool APlayerCameraManager::RemoveCameraModifier(UCameraModifier* ModifierToRemove)
+{
+	if (ModifierToRemove)
+	{
+		// Loop through each modifier in camera
+		for (int32 ModifierIdx = 0; ModifierIdx < ModifierList.Num(); ModifierIdx++)
+		{
+			// If we found ourselves, remove ourselves from the list and return
+			if (ModifierList[ModifierIdx] == ModifierToRemove)
+			{
+				ModifierList.RemoveAt(ModifierIdx, 1);
+				return true;
+			}
+		}
+	}
+
+	// Didn't find it in the list, nothing removed
+	return false;
+}
+
 
 void APlayerCameraManager::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
- 	// Setup camera modifiers
- 	if( (CameraShakeCamMod == NULL) && (CameraShakeCamModClass != NULL) )
- 	{
- 		CameraShakeCamMod = Cast<UCameraModifier_CameraShake>(CreateCameraModifier(CameraShakeCamModClass));
- 	}
+ 	// Setup default camera modifiers
+	if (DefaultModifiers.Num() > 0)
+	{
+		for (auto ModifierClass : DefaultModifiers)
+		{
+			UCameraModifier* const NewMod = AddNewCameraModifier(ModifierClass);
+		
+			// cache ref to camera shake if this is it
+			UCameraModifier_CameraShake* const ShakeMod = Cast<UCameraModifier_CameraShake>(NewMod);
+			if (ShakeMod)
+			{
+				CachedCameraShakeMod = ShakeMod;
+			}
+		}
+	}
 
-	// create CameraAnimInsts in pool
+ 	// create CameraAnimInsts in pool
 	for (int32 Idx=0; Idx<MAX_ACTIVE_CAMERA_ANIMS; ++Idx)
 	{
-		AnimInstPool[Idx] = Cast<UCameraAnimInst>(StaticConstructObject(UCameraAnimInst::StaticClass(), this));
+		AnimInstPool[Idx] = NewObject<UCameraAnimInst>(this);
 
 		// add everything to the free list initially
 		FreeAnims.Add(AnimInstPool[Idx]);
@@ -633,6 +758,7 @@ void APlayerCameraManager::PostInitializeComponents()
 	SpawnInfo.Owner = this;
 	SpawnInfo.Instigator = Instigator;
 	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save these temp actors into a map
 	AnimCameraActor = GetWorld()->SpawnActor<ACameraActor>(SpawnInfo);
 }
 
@@ -646,8 +772,6 @@ void APlayerCameraManager::Destroyed()
 	}
 	Super::Destroyed();
 }
-
-
 
 void APlayerCameraManager::InitializeFor(APlayerController* PC)
 {
@@ -667,18 +791,17 @@ void APlayerCameraManager::InitializeFor(APlayerController* PC)
 
 float APlayerCameraManager::GetFOVAngle() const
 {
-	return bLockedFOV ? LockedFOV : CameraCache.POV.FOV;
+	return (LockedFOV > 0.f) ? LockedFOV : CameraCache.POV.FOV;
 }
 
 void APlayerCameraManager::SetFOV(float NewFOV)
 {
-	bLockedFOV = true;
 	LockedFOV = NewFOV;
 }
 
 void APlayerCameraManager::UnlockFOV()
 {
-	bLockedFOV = false;
+	LockedFOV = 0.f;
 }
 
 bool APlayerCameraManager::IsOrthographic() const
@@ -688,18 +811,17 @@ bool APlayerCameraManager::IsOrthographic() const
 
 float APlayerCameraManager::GetOrthoWidth() const
 {
-	return bLockedOrthoWidth ? LockedOrthoWidth : DefaultOrthoWidth;
+	return (LockedOrthoWidth > 0.f) ? LockedOrthoWidth : DefaultOrthoWidth;
 }
 
 void APlayerCameraManager::SetOrthoWidth(float OrthoWidth)
 {
-	bLockedOrthoWidth = true;
 	LockedOrthoWidth = OrthoWidth;
 }
 
 void APlayerCameraManager::UnlockOrthoWidth()
 {
-	bLockedOrthoWidth = false;
+	LockedOrthoWidth = 0.f;
 }
 
 void APlayerCameraManager::GetCameraViewPoint(FVector& OutCamLoc, FRotator& OutCamRot) const
@@ -849,21 +971,26 @@ void APlayerCameraManager::DoUpdateCamera(float DeltaTime)
 	// Cache results
 	FillCameraCache(NewPOV);
 
-	if (bEnableFading && FadeTimeRemaining > 0.0f)
+	if (bEnableFading)
 	{
-		FadeTimeRemaining = FMath::Max(FadeTimeRemaining - DeltaTime, 0.0f);
-		if (FadeTime > 0.0f)
+		if (bAutoAnimateFade)
 		{
-			FadeAmount = FadeAlpha.X + ((1.f - FadeTimeRemaining/FadeTime) * (FadeAlpha.Y - FadeAlpha.X));
+			FadeTimeRemaining = FMath::Max(FadeTimeRemaining - DeltaTime, 0.0f);
+			if (FadeTime > 0.0f)
+			{
+				FadeAmount = FadeAlpha.X + ((1.f - FadeTimeRemaining / FadeTime) * (FadeAlpha.Y - FadeAlpha.X));
+			}
+
+			if ((bHoldFadeWhenFinished == false) && (FadeTimeRemaining <= 0.f))
+			{
+				// done
+				StopCameraFade();
+			}
 		}
 
 		if (bFadeAudio)
 		{
 			ApplyAudioFade();
-			if (FadeAmount == 0)
-			{
-				bFadeAudio = false;
-			}
 		}
 	}
 }
@@ -954,14 +1081,14 @@ void APlayerCameraManager::DisplayDebug(class UCanvas* Canvas, const FDebugDispl
 	Canvas->SetDrawColor(255,255,255);
 
 	UFont* RenderFont = GEngine->GetSmallFont();
-	Canvas->DrawText(RenderFont, FString::Printf(TEXT("   Camera Style:%s main ViewTarget:%s"), *CameraStyle.ToString(), *ViewTarget.Target->GetName()), 4.0f, YPos );
+	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("   Camera Style:%s main ViewTarget:%s"), *CameraStyle.ToString(), *ViewTarget.Target->GetName()), 4.0f, YPos );
 	YPos += YL;
 
 	//@TODO: Print out more information
-	Canvas->DrawText(RenderFont, FString::Printf(TEXT("   CamLoc:%s CamRot:%s FOV:%f"), *CameraCache.POV.Location.ToCompactString(), *CameraCache.POV.Rotation.ToCompactString(), CameraCache.POV.FOV), 4.0f, YPos );
+	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("   CamLoc:%s CamRot:%s FOV:%f"), *CameraCache.POV.Location.ToCompactString(), *CameraCache.POV.Rotation.ToCompactString(), CameraCache.POV.FOV), 4.0f, YPos );
 	YPos += YL;
 
-	Canvas->DrawText(RenderFont, FString::Printf(TEXT("   AspectRatio: %1.3f"), CameraCache.POV.AspectRatio), 4.0f, YPos );
+	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("   AspectRatio: %1.3f"), CameraCache.POV.AspectRatio), 4.0f, YPos );
 	YPos += YL;
 }
 
@@ -1016,6 +1143,7 @@ AEmitterCameraLensEffectBase* APlayerCameraManager::AddCameraLensEffect(TSubclas
 			SpawnInfo.Owner = PCOwner->GetViewTarget();
 			SpawnInfo.Instigator = Instigator;
 			SpawnInfo.bNoCollisionFail = true;
+			SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save these into a map
 			LensEffect = GetWorld()->SpawnActor<AEmitterCameraLensEffectBase>(LensEffectEmitterClass, SpawnInfo);
 			if (LensEffect != NULL)
 			{
@@ -1056,30 +1184,46 @@ void APlayerCameraManager::ClearCameraLensEffects()
  *  Camera Shakes
  *  ------------------------------------------------------------ */
 
-
-
-void APlayerCameraManager::PlayCameraShake(TSubclassOf<UCameraShake> Shake, float Scale, ECameraAnimPlaySpace::Type PlaySpace, FRotator UserPlaySpaceRot)
+UCameraShake* APlayerCameraManager::PlayCameraShake(TSubclassOf<UCameraShake> ShakeClass, float Scale, ECameraAnimPlaySpace::Type PlaySpace, FRotator UserPlaySpaceRot)
 {
-	if (Shake != NULL)
+	if (ShakeClass && CachedCameraShakeMod && (Scale > 0.0f) )
 	{
-		CameraShakeCamMod->AddCameraShake(Shake, Scale, PlaySpace, UserPlaySpaceRot);
+		return CachedCameraShakeMod->AddCameraShake(ShakeClass, Scale, PlaySpace, UserPlaySpaceRot);
 	}
-}
 
-void APlayerCameraManager::StopCameraShake(TSubclassOf<class UCameraShake> Shake)
-{
-	if (Shake != NULL)
-	{
-		CameraShakeCamMod->RemoveCameraShake(Shake);
-	}
+	return nullptr;
 }
 
 
-float APlayerCameraManager::CalcRadialShakeScale(APlayerCameraManager* Cam, FVector Epicenter, float InnerRadius, float OuterRadius, float Falloff)
+void APlayerCameraManager::StopCameraShake(UCameraShake* ShakeInst)
+{
+	if (ShakeInst && CachedCameraShakeMod)
+	{
+		CachedCameraShakeMod->RemoveCameraShake(ShakeInst);
+	}
+}
+
+void APlayerCameraManager::StopAllInstancesOfCameraShake(TSubclassOf<class UCameraShake> ShakeClass)
+{
+	if (ShakeClass && CachedCameraShakeMod)
+	{
+		CachedCameraShakeMod->RemoveAllCameraShakesOfClass(ShakeClass);
+	}
+}
+
+void APlayerCameraManager::StopAllCameraShakes()
+{
+	if (CachedCameraShakeMod)
+	{
+		CachedCameraShakeMod->RemoveAllCameraShakes();
+	}
+}
+
+float APlayerCameraManager::CalcRadialShakeScale(APlayerCameraManager* Camera, FVector Epicenter, float InnerRadius, float OuterRadius, float Falloff)
 {
 	// using camera location so stuff like spectator cameras get shakes applied sensibly as well
 	// need to ensure server has reasonably accurate camera position
-	FVector POVLoc = Cam->GetActorLocation();
+	FVector POVLoc = Camera->GetActorLocation();
 
 	if (InnerRadius < OuterRadius)
 	{
@@ -1119,11 +1263,48 @@ void APlayerCameraManager::PlayWorldCameraShake(UWorld* InWorld, TSubclassOf<cla
 	}
 }
 
-void APlayerCameraManager::ClearAllCameraShakes()
+
+/** ------------------------------------------------------------
+ *  Camera fades
+ *  ------------------------------------------------------------ */
+
+void APlayerCameraManager::StartCameraFade(float FromAlpha, float ToAlpha, float InFadeTime, FLinearColor InFadeColor, bool bInFadeAudio, bool bInHoldWhenFinished)
 {
-	CameraShakeCamMod->RemoveAllCameraShakes();
-//	StopAllCameraAnims(true);
+	bEnableFading = true;
+
+	FadeColor = InFadeColor;
+	FadeAlpha = FVector2D(FromAlpha, ToAlpha);
+	FadeTime = InFadeTime;
+	FadeTimeRemaining = InFadeTime;
+	bFadeAudio = bInFadeAudio;
+
+	bAutoAnimateFade = true;
+	bHoldFadeWhenFinished = bInHoldWhenFinished;
 }
+
+void APlayerCameraManager::StopCameraFade()
+{
+	if (bEnableFading == true)
+	{
+		// Make sure FadeAmount finishes at the desired value
+		FadeAmount = FadeAlpha.Y;
+		bEnableFading = false;
+		StopAudioFade();
+	}
+}
+
+void APlayerCameraManager::SetManualCameraFade(float InFadeAmount, FLinearColor Color, bool bInFadeAudio)
+{
+	bEnableFading = true;
+	FadeColor = Color;
+	FadeAmount = InFadeAmount;
+	bFadeAudio = bInFadeAudio;
+
+	bAutoAnimateFade = false;
+	StopAudioFade();
+	FadeTimeRemaining = 0.0f;
+}
+
 
 //////////////////////////////////////////////////////////////////////////
 // FTViewTarget
@@ -1208,7 +1389,7 @@ void FTViewTarget::CheckViewTarget(APlayerController* OwningController)
 					}
 					else
 					{
-						Target = PlayerState; // this will cause it to update to the next Pawn possessed by the player being viewed
+						PlayerState = NULL;
 					}
 				}
 				else

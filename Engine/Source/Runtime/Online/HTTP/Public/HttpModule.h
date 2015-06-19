@@ -134,6 +134,38 @@ public:
 		return bEnableHttp;
 	}
 
+	/**
+	 * toggle null http implementation
+	 */
+	inline void ToggleNullHttp(bool bEnabled)
+	{
+		bUseNullHttp = bEnabled;
+	}
+
+	/**
+	 * @return true if null http is being used
+	 */
+	inline bool IsNullHttpEnabled() const
+	{
+		return bUseNullHttp;
+	}
+
+	/**
+	 * @return min delay time for each http request
+	 */
+	inline float GetHttpDelayTime() const
+	{
+		return HttpDelayTime;
+	}
+
+	/**
+	 * Set the min delay time for each http request
+	 */
+	inline void SetHttpDelayTime(float InHttpDelayTime)
+	{
+		HttpDelayTime = InHttpDelayTime;
+	}
+
 private:
 
 	// IModuleInterface
@@ -161,12 +193,16 @@ private:
 	float HttpReceiveTimeout;
 	/** timeout in seconds to send a request on the connection. -1 for system defaults */
 	float HttpSendTimeout;
+	/** total time to delay the request */
+	float HttpDelayTime;
 	/** Max number of simultaneous connections to a specific server */
 	int32 HttpMaxConnectionsPerServer;
 	/** Max buffer size for individual http reads */
 	int32 MaxReadBufferSize;
 	/** toggles http requests */
 	bool bEnableHttp;
+	/** toggles null (mock) http requests */
+	bool bUseNullHttp;
 	/** singleton for the module while loaded and available */
 	static FHttpModule* Singleton;
 };

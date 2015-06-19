@@ -30,7 +30,7 @@ UEnum* FEnumEditorUtils::CreateUserDefinedEnum(UObject* InParent, FName EnumName
 {
 	ensure(0 != (RF_Public & Flags));
 
-	UEnum* Enum = NewNamedObject<UUserDefinedEnum>(InParent, EnumName, Flags);
+	UEnum* Enum = NewObject<UUserDefinedEnum>(InParent, EnumName, Flags);
 
 	if (NULL != Enum)
 	{

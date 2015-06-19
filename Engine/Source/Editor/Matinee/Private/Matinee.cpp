@@ -131,15 +131,18 @@ void FMatinee::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManag
 
 	TabManager->RegisterTabSpawner(MatineeRecordingViewportName, FOnSpawnTab::CreateRaw(this, &FMatinee::SpawnRecordingViewport))
 		.SetDisplayName(NSLOCTEXT("Matinee", "RecordingViewport", "Matinee Recorder"))
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Matinee.Tabs.RecordingViewport"));
 
 	TabManager->RegisterTabSpawner(MatineeCurveEdName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineeCurveEdName))
 		.SetDisplayName(NSLOCTEXT("Matinee", "CurveEditorTitle", "Curve Editor"))
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Matinee.Tabs.CurveEditor"));
 
 	TabManager->RegisterTabSpawner(MatineeTrackWindowName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineeTrackWindowName))
 		.SetDisplayName(NSLOCTEXT("Matinee", "TrackViewEditorTitle", "Tracks"))
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Matinee.Tabs.Tracks"));
 
 
 	TabManager->RegisterTabSpawner( MatineePropertyWindowName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineePropertyWindowName) )
@@ -353,7 +356,7 @@ void FMatinee::OnToggleAspectRatioBars()
 			bool bEnabled = !AreAspectRatioBarsEnabled();
 			GCurrentLevelEditingViewportClient->SetShowAspectRatioBarDisplay(bEnabled);
 
-			GConfig->SetBool(TEXT("Matinee"), TEXT("AspectRatioBars"), bEnabled, GEditorUserSettingsIni);
+			GConfig->SetBool(TEXT("Matinee"), TEXT("AspectRatioBars"), bEnabled, GEditorPerProjectIni);
 		}
 	}
 }
@@ -367,7 +370,7 @@ void FMatinee::OnToggleSafeFrames()
 			bool bEnabled = !IsSafeFrameDisplayEnabled();
 			GCurrentLevelEditingViewportClient->SetShowSafeFrameBoxDisplay(bEnabled);
 
-			GConfig->SetBool(TEXT("Matinee"), TEXT("SafeFrames"), bEnabled, GEditorUserSettingsIni);
+			GConfig->SetBool(TEXT("Matinee"), TEXT("SafeFrames"), bEnabled, GEditorPerProjectIni);
 		}
 	}
 }
@@ -375,7 +378,7 @@ void FMatinee::OnToggleSafeFrames()
 bool FMatinee::AreAspectRatioBarsEnabled() const
 {
 	bool bEnabled = false;
-	if ( !GConfig->GetBool(TEXT("Matinee"), TEXT("AspectRatioBars"), bEnabled, GEditorUserSettingsIni) )
+	if ( !GConfig->GetBool(TEXT("Matinee"), TEXT("AspectRatioBars"), bEnabled, GEditorPerProjectIni) )
 	{
 		// We enable them by default
 		return true;
@@ -387,7 +390,7 @@ bool FMatinee::AreAspectRatioBarsEnabled() const
 bool FMatinee::IsSafeFrameDisplayEnabled() const
 {
 	bool bEnabled = false;
-	if ( !GConfig->GetBool(TEXT("Matinee"), TEXT("SafeFrames"), bEnabled, GEditorUserSettingsIni) )
+	if ( !GConfig->GetBool(TEXT("Matinee"), TEXT("SafeFrames"), bEnabled, GEditorPerProjectIni) )
 	{
 		// We not enabled by default
 		return false;
@@ -400,7 +403,7 @@ void FMatinee::BuildCurveEditor()
 {
 	if(!IData->CurveEdSetup)
 	{
-		IData->CurveEdSetup = ConstructObject<UInterpCurveEdSetup>( UInterpCurveEdSetup::StaticClass(), IData, NAME_None );
+		IData->CurveEdSetup = NewObject<UInterpCurveEdSetup>(IData, NAME_None);
 	}
 
 	// Create graph editor to work on MatineeData's CurveEd setup.
@@ -454,40 +457,43 @@ void FMatinee::InitMatinee(const EToolkitMode::Type Mode, const TSharedPtr< clas
 
 	// 3D tracks should be visible by default
 	bHide3DTrackView = false;
-	GConfig->GetBool( TEXT("Matinee"), TEXT("Hide3DTracks"), bHide3DTrackView, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("Hide3DTracks"), bHide3DTrackView, GEditorPerProjectIni );
 
 	// Zoom to scrub position defaults to off.  We want zoom to cursor position by default.
 	bZoomToScrubPos = false;
-	GConfig->GetBool( TEXT("Matinee"), TEXT("ZoomToScrubPos"), bZoomToScrubPos, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("ZoomToScrubPos"), bZoomToScrubPos, GEditorPerProjectIni );
 
 	// Setup 'viewport frame stats' preference
 	bViewportFrameStatsEnabled = true;
-	GConfig->GetBool( TEXT("Matinee"), TEXT("ViewportFrameStats"), bViewportFrameStatsEnabled, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("ViewportFrameStats"), bViewportFrameStatsEnabled, GEditorPerProjectIni );
 
 	// Get the editing grid size from user settings
 	EditingGridSize = 1;
-	GConfig->GetInt( TEXT("Matinee"), TEXT("EditingGridSize"), EditingGridSize, GEditorUserSettingsIni );
+	GConfig->GetInt( TEXT("Matinee"), TEXT("EditingGridSize"), EditingGridSize, GEditorPerProjectIni );
 
 	// Look to see if the crosshair should be enabled
 	// Disabled by default
 	bEditingCrosshairEnabled = false;
-	GConfig->GetBool( TEXT("Matinee"), TEXT("EditingCrosshair"), bEditingCrosshairEnabled, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("EditingCrosshair"), bEditingCrosshairEnabled, GEditorPerProjectIni );
 
 	// Look to see if the editing grid should be enabled
 	bEditingGridEnabled = false;
-	GConfig->GetBool( TEXT("Matinee"), TEXT("EnableEditingGrid"), bEditingGridEnabled, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("EnableEditingGrid"), bEditingGridEnabled, GEditorPerProjectIni );
 
 	// Setup "allow keyframe bar selection" preference
-	GConfig->GetBool( TEXT("Matinee"), TEXT("AllowKeyframeBarSelection"), bAllowKeyframeBarSelection, GEditorUserSettingsIni ); 
+	GConfig->GetBool( TEXT("Matinee"), TEXT("AllowKeyframeBarSelection"), bAllowKeyframeBarSelection, GEditorPerProjectIni ); 
 
 	// Setup "allow keyframe text selection" preference
-	GConfig->GetBool( TEXT("Matinee"), TEXT("AllowKeyframeTextSelection"), bAllowKeyframeTextSelection, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("AllowKeyframeTextSelection"), bAllowKeyframeTextSelection, GEditorPerProjectIni );
+
+	bInvertPan = true;
+	GConfig->GetBool( TEXT("Matinee"), TEXT("InterpEdPanInvert"), bInvertPan, GEditorPerProjectIni );
 
 	// Setup "lock camera pitch" preference
 	GetLockCameraPitchFromConfig();
 
 	// Create options object.
-	Opt = ConstructObject<UMatineeOptions>( UMatineeOptions::StaticClass(), GetTransientPackage(), NAME_None, RF_Transactional );
+	Opt = NewObject<UMatineeOptions>(GetTransientPackage(), NAME_None, RF_Transactional);
 	check(Opt);
 
 	// Swap out regular UTransactor for our special one
@@ -873,23 +879,23 @@ void FMatinee::InitMatinee(const EToolkitMode::Type Mode, const TSharedPtr< clas
 	// Restore the director timeline setting
 	if ( DirectorTrackWindow.IsValid() && DirectorTrackWindow->InterpEdVC.IsValid() )
 	{
-		GConfig->GetBool(TEXT("Matinee"), TEXT("DirectorTimelineEnabled"), DirectorTrackWindow->InterpEdVC->bWantTimeline, GEditorUserSettingsIni);
+		GConfig->GetBool(TEXT("Matinee"), TEXT("DirectorTimelineEnabled"), DirectorTrackWindow->InterpEdVC->bWantTimeline, GEditorPerProjectIni);
 	}
 
 	// Load fixed time step setting
-	GConfig->GetBool( TEXT("Matinee"), TEXT("FixedTimeStepPlayback"), bFixedTimeStepPlayback, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("FixedTimeStepPlayback"), bFixedTimeStepPlayback, GEditorPerProjectIni );
 
 	// Load 'prefer frame numbers' setting
-	GConfig->GetBool( TEXT("Matinee"), TEXT("PreferFrameNumbers"), bPreferFrameNumbers, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("PreferFrameNumbers"), bPreferFrameNumbers, GEditorPerProjectIni );
 
 	// Load 'show time cursor pos for all keys' setting
-	GConfig->GetBool( TEXT("Matinee"), TEXT("ShowTimeCursorPosForAllKeys"), bShowTimeCursorPosForAllKeys, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("ShowTimeCursorPosForAllKeys"), bShowTimeCursorPosForAllKeys, GEditorPerProjectIni );
 
 	// Restore selected snap mode from INI.
-	GConfig->GetBool( TEXT("Matinee"), TEXT("SnapEnabled"), bSnapEnabled, GEditorUserSettingsIni );
-	GConfig->GetBool( TEXT("Matinee"), TEXT("SnapTimeToFrames"), bSnapTimeToFrames, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("SnapEnabled"), bSnapEnabled, GEditorPerProjectIni );
+	GConfig->GetBool( TEXT("Matinee"), TEXT("SnapTimeToFrames"), bSnapTimeToFrames, GEditorPerProjectIni );
 	int32 SelectedSnapMode = 3; // default 0.5 sec
-	GConfig->GetInt(TEXT("Matinee"), TEXT("SelectedSnapMode"), SelectedSnapMode, GEditorUserSettingsIni );
+	GConfig->GetInt(TEXT("Matinee"), TEXT("SelectedSnapMode"), SelectedSnapMode, GEditorPerProjectIni );
 
 	//OnChangeSnapSize(SelectedSnapMode);
 	SnapCombo->SetSelectedItem(SnapComboStrings[SelectedSnapMode]);
@@ -908,7 +914,7 @@ void FMatinee::InitMatinee(const EToolkitMode::Type Mode, const TSharedPtr< clas
 	{
 		// NOTE: InitialInterpMode now has a '2' suffix after a version bump to change the default
 		int32 DesiredInitialInterpMode = ( int32 )InitialInterpMode;
-		GConfig->GetInt( TEXT( "Matinee" ), TEXT( "InitialInterpMode2" ), DesiredInitialInterpMode, GEditorUserSettingsIni );
+		GConfig->GetInt( TEXT( "Matinee" ), TEXT( "InitialInterpMode2" ), DesiredInitialInterpMode, GEditorPerProjectIni );
 		InitialInterpModeComboBox->SetSelectedItem( InitialInterpModeStrings[DesiredInitialInterpMode] );
 	}
 
@@ -1071,6 +1077,11 @@ void FMatinee::BindCommands()
 		FExecuteAction::CreateSP(this, &FMatinee::OnToggleBakeTransforms),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &FMatinee::IsBakeTransformsToggled)
+		);
+	ToolkitCommands->MapAction(Commands.FileExportKeepHierarchy,
+		FExecuteAction::CreateSP(this, &FMatinee::OnToggleKeepHierarchy),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FMatinee::IsKeepHierarchyToggled)
 		);
 	
 	ToolkitCommands->MapAction( Commands.DeleteSelectedKeys, FExecuteAction::CreateSP(this, &FMatinee::OnDeleteSelectedKeys) );
@@ -1866,48 +1877,48 @@ const double FMatinee::GetRecordingEndTime (void) const
 /** Save record settings for next run */
 void FMatinee::SaveRecordingSettings(const FCameraControllerConfig& InCameraConfig)
 {
-	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("Mode"), RecordMode, GEditorUserSettingsIni);
+	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("Mode"), RecordMode, GEditorPerProjectIni);
 
-	GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("TranslationSpeed"), InCameraConfig.TranslationMultiplier, GEditorUserSettingsIni);
-	GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("RotationSpeed"), InCameraConfig.RotationMultiplier, GEditorUserSettingsIni);
-	GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomSpeed"), InCameraConfig.ZoomMultiplier, GEditorUserSettingsIni);
+	GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("TranslationSpeed"), InCameraConfig.TranslationMultiplier, GEditorPerProjectIni);
+	GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("RotationSpeed"), InCameraConfig.RotationMultiplier, GEditorPerProjectIni);
+	GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomSpeed"), InCameraConfig.ZoomMultiplier, GEditorPerProjectIni);
 
-	GConfig->SetBool(TEXT("InterpEd.Recording"), TEXT("InvertX"), InCameraConfig.bInvertX, GEditorUserSettingsIni);
-	GConfig->SetBool(TEXT("InterpEd.Recording"), TEXT("InvertY"), InCameraConfig.bInvertY, GEditorUserSettingsIni);
+	GConfig->SetBool(TEXT("InterpEd.Recording"), TEXT("InvertX"), InCameraConfig.bInvertX, GEditorPerProjectIni);
+	GConfig->SetBool(TEXT("InterpEd.Recording"), TEXT("InvertY"), InCameraConfig.bInvertY, GEditorPerProjectIni);
 	
-	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("RollSamples"), RecordRollSmoothingSamples, GEditorUserSettingsIni);
-	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("PitchSamples"), RecordPitchSmoothingSamples, GEditorUserSettingsIni);
+	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("RollSamples"), RecordRollSmoothingSamples, GEditorPerProjectIni);
+	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("PitchSamples"), RecordPitchSmoothingSamples, GEditorPerProjectIni);
 
-	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("CameraMovement"), RecordCameraMovementScheme, GEditorUserSettingsIni);
+	GConfig->SetInt(TEXT("InterpEd.Recording"), TEXT("CameraMovement"), RecordCameraMovementScheme, GEditorPerProjectIni);
 
 	FLevelEditorViewportClient* LevelVC = GetRecordingViewport();
 	if (LevelVC)
 	{
-		GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomDistance"), LevelVC->ViewFOV, GEditorUserSettingsIni);
+		GConfig->SetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomDistance"), LevelVC->ViewFOV, GEditorPerProjectIni);
 	}
 }
 
 /** Load record settings for next run */
 void FMatinee::LoadRecordingSettings(FCameraControllerConfig& InCameraConfig)
 {
-	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("Mode"), RecordMode, GEditorUserSettingsIni);
+	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("Mode"), RecordMode, GEditorPerProjectIni);
 
-	GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("TranslationSpeed"), InCameraConfig.TranslationMultiplier, GEditorUserSettingsIni);
-	GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("RotationSpeed"), InCameraConfig.RotationMultiplier, GEditorUserSettingsIni);
-	GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomSpeed"), InCameraConfig.ZoomMultiplier, GEditorUserSettingsIni);
+	GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("TranslationSpeed"), InCameraConfig.TranslationMultiplier, GEditorPerProjectIni);
+	GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("RotationSpeed"), InCameraConfig.RotationMultiplier, GEditorPerProjectIni);
+	GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomSpeed"), InCameraConfig.ZoomMultiplier, GEditorPerProjectIni);
 
-	GConfig->GetBool(TEXT("InterpEd.Recording"), TEXT("InvertX"), InCameraConfig.bInvertX, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("InterpEd.Recording"), TEXT("InvertY"), InCameraConfig.bInvertY, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("InterpEd.Recording"), TEXT("InvertX"), InCameraConfig.bInvertX, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("InterpEd.Recording"), TEXT("InvertY"), InCameraConfig.bInvertY, GEditorPerProjectIni);
 
-	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("RollSamples"), RecordRollSmoothingSamples, GEditorUserSettingsIni);
-	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("PitchSamples"), RecordPitchSmoothingSamples, GEditorUserSettingsIni);
+	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("RollSamples"), RecordRollSmoothingSamples, GEditorPerProjectIni);
+	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("PitchSamples"), RecordPitchSmoothingSamples, GEditorPerProjectIni);
 
-	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("CameraMovement"), RecordCameraMovementScheme, GEditorUserSettingsIni);
+	GConfig->GetInt(TEXT("InterpEd.Recording"), TEXT("CameraMovement"), RecordCameraMovementScheme, GEditorPerProjectIni);
 
 	FLevelEditorViewportClient* LevelVC = GetRecordingViewport();
 	if (LevelVC)
 	{
-		GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomDistance"), LevelVC->ViewFOV, GEditorUserSettingsIni);
+		GConfig->GetFloat(TEXT("InterpEd.Recording"), TEXT("ZoomDistance"), LevelVC->ViewFOV, GEditorPerProjectIni);
 	}
 }
 

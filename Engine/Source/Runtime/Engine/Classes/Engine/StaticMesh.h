@@ -320,6 +320,10 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	bool bRequiresLODDistanceConversion : 1;
 #endif // #if WITH_EDITORONLY_DATA
 
+	/** Minimum LOD to use for rendering.  This is the default setting for the mesh and can be overridden by component settings. */
+	UPROPERTY()
+	int32 MinLOD;
+
 	/** Materials used by this static mesh. Individual sections index in to this array. */
 	UPROPERTY()
 	TArray<UMaterialInterface*> Materials;
@@ -353,8 +357,9 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	/**
 	 * Allows artists to adjust the distance where textures using UV 0 are streamed in/out.
 	 * 1.0 is the default, whereas a higher value increases the streamed-in resolution.
+	 * Value can be < 0 (from legcay content, or code changes)
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=StaticMesh)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=StaticMesh, meta=(ClampMin = 0))
 	float StreamingDistanceMultiplier;
 
 	/** Bias multiplier for Light Propagation Volume lighting */
@@ -371,10 +376,6 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	FString HighResSourceMeshName;
 
 #if WITH_EDITORONLY_DATA
-	/** Default settings when using this mesh for instanced foliage */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Instanced, Category=StaticMesh)
-	UFoliageType_InstancedStaticMesh* FoliageDefaultSettings;
-
 	/** Importing data and options used for this mesh */
 	UPROPERTY(VisibleAnywhere, Instanced, Category=ImportSettings)
 	class UAssetImportData* AssetImportData;
@@ -438,12 +439,13 @@ public:
 	/**
 	 * Default constructor
 	 */
-	ENGINE_API UStaticMesh(const FObjectInitializer& ObjectInitializer);
+	ENGINE_API UStaticMesh(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	// Begin UObject interface.
 #if WITH_EDITOR
 	ENGINE_API virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	ENGINE_API virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const override;
 #endif // WITH_EDITOR
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostLoad() override;
@@ -459,7 +461,7 @@ public:
 	 * Rebuilds renderable data for this static mesh.
 	 * @param bSilent - If true will not popup a progress dialog.
 	 */
-	ENGINE_API void Build(bool bSilent = false);
+	ENGINE_API void Build(bool bSilent = false, TArray<FText>* OutErrors = nullptr);
 
 	/**
 	 * Initialize the static mesh's render resources.
@@ -472,7 +474,7 @@ public:
 	ENGINE_API virtual void ReleaseResources();
 
 	/**
-	 * Returns the scale dependent texture factor used by the texture streaming code.
+	 * Returns the scale dependent texture factor used by the texture streaLODg code.
 	 *
 	 * @param RequestedUVIndex UVIndex to look at
 	 * @return scale dependent texture factor
@@ -490,7 +492,7 @@ public:
 	ENGINE_API int32 GetNumLODs() const;
 
 	/**
-	 * Returns the number of LODs used by the mesh.
+	 * Returns true if the mesh has data that can be rendered.
 	 */
 	ENGINE_API bool HasValidRenderData() const;
 
@@ -608,6 +610,8 @@ public:
 	 * Retrieves the localized display names of all LOD groups.
 	 */
 	ENGINE_API static void GetLODGroupsDisplayNames(TArray<FText>& OutLODGroupsDisplayNames);
+
+	ENGINE_API void GenerateLodsInPackage();
 
 private:
 	/**

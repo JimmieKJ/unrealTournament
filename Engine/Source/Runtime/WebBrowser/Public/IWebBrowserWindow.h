@@ -2,16 +2,27 @@
 
 #pragma once
 
-// Forward Declarations
+
 struct FGeometry;
 struct FKeyEvent;
 struct FCharacterEvent;
 struct FPointerEvent;
 class FSlateShaderResource;
 
-DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
 
-DECLARE_MULTICAST_DELEGATE_OneParam( FOnTitleChangedDelegate, FString );
+enum class EWebBrowserDocumentState
+{
+	Completed,
+	Error,
+	Loading,
+	NoDocument
+};
+
+DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
+DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
+DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowseDelegate, FString, bool);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
 
 /**
  * Interface for dealing with a Web Browser window
@@ -19,12 +30,28 @@ DECLARE_MULTICAST_DELEGATE_OneParam( FOnTitleChangedDelegate, FString );
 class IWebBrowserWindow
 {
 public:
+
+	/**
+	 * Load the specified URL
+	 *
+	 * @param NewURL New URL to load
+	 */
+	virtual void LoadURL(FString NewURL) = 0;
+
+	/**
+	 * Load a string as data to create a web page
+	 *
+	 * @param Contents String to load
+	 * @param DummyURL Dummy URL for the page
+	 */
+	virtual void LoadString(FString Contents, FString DummyURL) = 0;
+
 	/**
 	 * Set the desired size of the web browser viewport
 	 * 
 	 * @param WindowSize Desired viewport size
 	 */
-	virtual void SetViewportSize(FVector2D WindowSize) = 0;
+	virtual void SetViewportSize(FIntPoint WindowSize) = 0;
 
 	/**
 	 * Gets interface to the texture representation of the browser
@@ -48,10 +75,20 @@ public:
 	 */
 	virtual bool IsClosing() const = 0;
 
+	/** Gets the loading state of the current document. */
+	virtual EWebBrowserDocumentState GetDocumentLoadingState() const = 0;
+
 	/**
 	 * Gets the current title of the Browser page
 	 */
 	virtual FString GetTitle() const = 0;
+
+	/**
+	 * Gets the currently loaded URL.
+	 *
+	 * @return The URL, or empty string if no document is loaded.
+	 */
+	virtual FString GetUrl() const = 0;
 
 	/**
 	 * Notify the browser that a key has been pressed
@@ -119,9 +156,7 @@ public:
 	 */
 	virtual void OnFocus(bool SetFocus) = 0;
 
-	/**
-	 * Called when Capture lost
-	 */
+	/** Called when Capture lost */
 	virtual void OnCaptureLost() = 0;
 
 	/**
@@ -129,9 +164,7 @@ public:
 	 */
 	virtual bool CanGoBack() const = 0;
 
-	/**
-	 * Navigate backwards.
-	 */
+	/** Navigate backwards. */
 	virtual void GoBack() = 0;
 
 	/**
@@ -139,9 +172,7 @@ public:
 	 */
 	virtual bool CanGoForward() const = 0;
 
-	/**
-	 * Navigate forwards.
-	 */
+	/** Navigate forwards. */
 	virtual void GoForward() = 0;
 
 	/**
@@ -149,49 +180,49 @@ public:
 	 */
 	virtual bool IsLoading() const = 0;
 
-	/**
-	 * Reload the current page.
-	 */
+	/** Reload the current page. */
 	virtual void Reload() = 0;
 
-	/**
-	 * Stop loading the page.
-	 */
+	/** Stop loading the page. */
 	virtual void StopLoad() = 0;
-
-	/**
-	 * Accesses a delegate to allow callbacks when a browser title changes
-	 *
-	 * @return A multicast delegate that you can register with
-	 */
-	FOnTitleChangedDelegate& OnTitleChanged() {return OnTitleChangedDelegate;}
 
 	virtual void ExecuteJavascript(const FString&) = 0;
 
-protected:
-
-	/**
-	 * Virtual Destructor
-	 */
-	virtual ~IWebBrowserWindow() {};
-
-	/** Delegate for broadcasting title changes */
-	FOnTitleChangedDelegate OnTitleChangedDelegate;
-
 public:
-    /** A delegate that is invoked when JS code sends a query to the front end. The result delegate can either be executed immediately or saved and executed later (multiple times if the boolean persistent argument is true). 
-     * The arguments are an integer error code (0 for success) and a reply string. If you need pass more complex data to the JS code, you will have to pack the data in some way (such as JSON encoding it). */
-    DECLARE_DELEGATE_RetVal_FourParams(bool, FONJSQueryReceived, int64, FString, bool, FJSQueryResultDelegate)
-    virtual FONJSQueryReceived& OnJSQueryReceived() = 0;
 
-    /** A delegate that is invoked when an outstanding query is canceled. Implement this if you are saving delegates passed to OnQueryReceived. */
-    DECLARE_DELEGATE_OneParam(FONJSQueryCanceled, int64)
-    virtual FONJSQueryCanceled& OnJSQueryCanceled() = 0;	
+	/** A delegate that is invoked when the loading state of a document changed. */
+	DECLARE_EVENT_OneParam(IWebBrowserWindow, FOnDocumentStateChanged, EWebBrowserDocumentState /*NewState*/);
+	virtual FOnDocumentStateChanged& OnDocumentStateChanged() = 0;
 
-    DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, FString, bool)
-    virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
+	/** A delegate to allow callbacks when a browser title changes. */
+	DECLARE_EVENT_OneParam(IWebBrowserWindow, FOnTitleChanged, FString /*NewTitle*/);
+	virtual FOnTitleChanged& OnTitleChanged() = 0;
+
+	/** A delegate to allow callbacks when a frame url changes. */
+	DECLARE_EVENT_OneParam(IWebBrowserWindow, FOnUrlChanged, FString /*NewUrl*/);
+	virtual FOnUrlChanged& OnUrlChanged() = 0;
+
+	/** A delegate that is invoked when the off-screen window has been repainted and requires an update. */
+	DECLARE_EVENT(IWebBrowserWindow, FOnNeedsRedraw)
+	virtual FOnNeedsRedraw& OnNeedsRedraw() = 0;
+
+	/** A delegate that is invoked when JS code sends a query to the front end. The result delegate can either be executed immediately or saved and executed later (multiple times if the boolean persistent argument is true).
+	 * The arguments are an integer error code (0 for success) and a reply string. If you need pass more complex data to the JS code, you will have to pack the data in some way (such as JSON encoding it). */
+	DECLARE_DELEGATE_RetVal_FourParams(bool, FONJSQueryReceived, int64, FString, bool, FJSQueryResultDelegate)
+	virtual FONJSQueryReceived& OnJSQueryReceived() = 0;
+
+	/** A delegate that is invoked when an outstanding query is canceled. Implement this if you are saving delegates passed to OnQueryReceived. */
+	DECLARE_DELEGATE_OneParam(FONJSQueryCanceled, int64)
+	virtual FONJSQueryCanceled& OnJSQueryCanceled() = 0;
+
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, FString, bool)
+	virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
 
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopup, FString, FString)
 	virtual FOnBeforePopup& OnBeforePopup() = 0;
 
+protected:
+
+	/** Virtual Destructor. */
+	virtual ~IWebBrowserWindow() { };
 };

@@ -1,5 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-// ..
+// .
 
 #include "MetalShaderFormat.h"
 #include "Core.h"
@@ -7,7 +7,11 @@
 #include "hlslcc_private.h"
 #include "MetalBackend.h"
 #include "compiler.h"
+
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "glsl_parser_extras.h"
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+
 #include "hash_table.h"
 #include "ir_rvalue_visitor.h"
 #include "PackUniformBuffers.h"
@@ -20,8 +24,8 @@
 #define _strdup strdup
 #endif
 
-#define GROUP_MEMORY_BARRIER					"GroupMemoryBarrier"
-#define GROUP_MEMORY_BARRIER_WITH_GROUP_SYNC	"GroupMemoryBarrierWithGroupSync"
+#define GROUP_MEMORY_BARRIER						"GroupMemoryBarrier"
+#define GROUP_MEMORY_BARRIER_WITH_GROUP_SYNC		"GroupMemoryBarrierWithGroupSync"
 #define DEVICE_MEMORY_BARRIER					"DeviceMemoryBarrier"
 #define DEVICE_MEMORY_BARRIER_WITH_GROUP_SYNC	"DeviceMemoryBarrierWithGroupSync"
 #define ALL_MEMORY_BARRIER						"AllMemoryBarrier"
@@ -451,9 +455,32 @@ protected:
 			const char *name = (const char *) hash_table_find(this->printable_names, var);
 			if (name == NULL)
 			{
-				bool is_global = (scope_depth == 0 && var->mode != ir_var_temporary);
-				const char *prefix = is_global ? "g" : "t";
-				int var_id = is_global ? global_id++ : temp_id++;
+				bool bIsGlobal = (scope_depth == 0 && var->mode != ir_var_temporary);
+				const char* prefix = "g";
+				if (!bIsGlobal)
+				{
+					if (var->type->is_matrix())
+					{
+						prefix = "m";
+					}
+					else if (var->type->is_vector())
+					{
+						prefix = "v";
+					}
+					else
+					{
+						switch (var->type->base_type)
+						{
+						case GLSL_TYPE_BOOL: prefix = "b"; break;
+						case GLSL_TYPE_UINT: prefix = "u"; break;
+						case GLSL_TYPE_INT: prefix = "i"; break;
+						case GLSL_TYPE_HALF: prefix = "h"; break;
+						case GLSL_TYPE_FLOAT: prefix = "f"; break;
+						default: prefix = "t"; break;
+						}
+					}
+				}
+				int var_id = bIsGlobal ? global_id++ : temp_id++;
 				name = ralloc_asprintf(mem_ctx, "%s%d", prefix, var_id);
 				hash_table_insert(this->printable_names, (void *)name, var);
 			}
@@ -538,14 +565,44 @@ protected:
 		}
 		else
 		{
-			check(t->HlslName);
-			if (bUsePacked && t->is_vector() && t->vector_elements < 4)
+			if (t->base_type == GLSL_TYPE_SAMPLER)
 			{
-				ralloc_asprintf_append(buffer, "packed_%s", t->HlslName);
+				bool bDone = false;
+				if (t->sampler_dimensionality == GLSL_SAMPLER_DIM_2D && t->sampler_array)
+				{
+					ralloc_asprintf_append(buffer, t->sampler_shadow ? "depth2d_array" : "texture2d_array");
+					bDone = true;
+				}
+				else if (t->HlslName)
+				{
+					if (!strcmp(t->HlslName, "texture2d") && t->sampler_shadow)
+					{
+						ralloc_asprintf_append(buffer, "depth2d");
+						bDone = true;
+					}
+					else if (!strcmp(t->HlslName, "texturecube") && t->sampler_shadow)
+					{
+						ralloc_asprintf_append(buffer, "depthcube");
+						bDone = true;
+					}
+				}
+
+				if (!bDone)
+				{
+					ralloc_asprintf_append(buffer, "%s", t->HlslName ? t->HlslName : "UnsupportedSamplerType");
+				}
 			}
 			else
 			{
-				ralloc_asprintf_append(buffer, "%s", t->HlslName);
+				check(t->HlslName);
+				if (bUsePacked && t->is_vector() && t->vector_elements < 4)
+				{
+					ralloc_asprintf_append(buffer, "packed_%s", t->HlslName);
+				}
+				else
+				{
+					ralloc_asprintf_append(buffer, "%s", t->HlslName);
+				}
 			}
 		}
 	}
@@ -651,17 +708,43 @@ protected:
 				// Buffer
 				int BufferIndex = Buffers.GetIndex(var);
 				check(BufferIndex >= 0);
-				ralloc_asprintf_append(
-					buffer,
-					"device "
-					);
-				print_type_pre(PtrType->inner_type);
-				ralloc_asprintf_append(buffer, " *%s", unique_name(var));
-				print_type_post(PtrType->inner_type);
-				ralloc_asprintf_append(
-					buffer,
-					" [[ buffer(%d) ]]", BufferIndex
-					);
+				if (var->type->sampler_buffer)
+				{
+					ralloc_asprintf_append(
+						buffer,
+						"device "
+						);
+					print_type_pre(PtrType->inner_type);
+					ralloc_asprintf_append(buffer, " *%s", unique_name(var));
+					print_type_post(PtrType->inner_type);
+					ralloc_asprintf_append(
+						buffer,
+						" [[ buffer(%d) ]]", BufferIndex
+						);
+				}
+				else
+				{
+					check(PtrType->inner_type->is_numeric());
+					auto* Found = strstr(PtrType->name, "image");
+					check(Found);
+					Found += 5;	//strlen("image")
+					char Temp[16];
+					char* TempPtr = Temp;
+					do
+					{
+						*TempPtr++ = tolower(*Found);
+						++Found;
+					}
+					while (*Found);
+					*TempPtr = 0;
+					ralloc_asprintf_append(buffer, "texture%s<", Temp);
+					print_type_pre(PtrType->inner_type);
+					ralloc_asprintf_append(buffer, ", access::write> %s", unique_name(var));
+					ralloc_asprintf_append(
+						buffer,
+						" [[ buffer(%d) ]]", BufferIndex
+						);
+				}
 			}
 			else
 			{
@@ -706,15 +789,12 @@ protected:
 							if (SamplerStateFound != ParseState->TextureToSamplerMap.end())
 							{
 								auto& SamplerStates = SamplerStateFound->second;
-								if (SamplerStates.size() == 1)
+								for (auto& SamplerState : SamplerStates)
 								{
+									int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(SamplerState, true);
 									ralloc_asprintf_append(
 										buffer,
-										"sampler s%d [[ sampler(%d) ]], ", Entry->offset, Entry->offset);
-								}
-								else
-								{
-									check(SamplerStates.empty());
+										"sampler s%d [[ sampler(%d) ]], ",  SamplerStateIndex, SamplerStateIndex);
 								}
 							}
 
@@ -1007,6 +1087,17 @@ protected:
 				ralloc_asprintf_append(buffer, MetalExpressionTable[op][i+1]);
 			}
 		}
+		else if (numOps == 2 && (op == ir_binop_max || op == ir_binop_min) && expr->type->is_integer())
+		{
+			// Convert fmax/fmin to max/min when dealing with integers
+			auto* OpString = MetalExpressionTable[op][0];
+			check(OpString[0] == 'f');
+			ralloc_asprintf_append(buffer, OpString + 1);
+			expr->operands[0]->accept(this);
+			ralloc_asprintf_append(buffer, MetalExpressionTable[op][1]);
+			expr->operands[1]->accept(this);
+			ralloc_asprintf_append(buffer, MetalExpressionTable[op][2]);
+		}
 		else if (numOps < 4)
 		{
 			ralloc_asprintf_append(buffer, MetalExpressionTable[op][0]);
@@ -1025,14 +1116,28 @@ protected:
 		tex->sampler->accept(this);
 		if (tex->op == ir_tex || tex->op == ir_txl || tex->op == ir_txb)
 		{
-			ralloc_asprintf_append(buffer, ".sample(");
+			ralloc_asprintf_append(buffer, tex->shadow_comparitor ? ".sample_compare(" : ".sample(");
 			auto* Texture = tex->sampler->variable_referenced();
 			check(Texture);
 			auto* Entry = ParseState->FindPackedSamplerEntry(Texture->name);
-			ralloc_asprintf_append(buffer, "s%d, ", Entry->offset);
-			tex->coordinate->accept(this);
+			int32 SamplerStateIndex = Buffers.GetUniqueSamplerStateIndex(tex->SamplerStateName, false);
+			check(SamplerStateIndex != INDEX_NONE);
+			ralloc_asprintf_append(buffer, "s%d, ", SamplerStateIndex);
+			if (tex->sampler->type->sampler_array)
+			{
+				// Need to split the coordinate
+				ralloc_asprintf_append(buffer, "(");
+				tex->coordinate->accept(this);
+				ralloc_asprintf_append(buffer, ").x%s, (uint)(", tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_2D ? "y" : "");
+				tex->coordinate->accept(this);
+				ralloc_asprintf_append(buffer, ").%s", tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_2D ? "z" : "y");
+			}
+			else
+			{
+				tex->coordinate->accept(this);
+			}
 
-			if (tex->op == ir_txl)
+			if (tex->op == ir_txl && !tex->shadow_comparitor)
 			{
 				ralloc_asprintf_append(buffer, ", level(");
 				tex->lod_info.lod->accept(this);
@@ -1043,6 +1148,12 @@ protected:
 				ralloc_asprintf_append(buffer, ", bias(");
 				tex->lod_info.lod->accept(this);
 				ralloc_asprintf_append(buffer, ")");
+			}
+
+			if (tex->shadow_comparitor)
+			{
+				ralloc_asprintf_append(buffer, ", ");
+				tex->shadow_comparitor->accept(this);
 			}
 
 			if (tex->offset)
@@ -1225,21 +1336,42 @@ protected:
 
 		if ( deref->op == ir_image_access)
 		{
-			if ( src == NULL )
+			bool bIsRWTexture = !deref->image->type->sampler_buffer;
+			if (src == nullptr)
 			{
 				deref->image->accept(this);
-				ralloc_asprintf_append( buffer, "[" );
-				deref->image_index->accept(this);
-				ralloc_asprintf_append(buffer, "]"/*.%s, swizzle[dst_elements - 1]*/);
+				if (bIsRWTexture)
+				{
+					ralloc_asprintf_append(buffer, ".read(");
+					deref->image_index->accept(this);
+					ralloc_asprintf_append(buffer, ")");
+				}
+				else
+				{
+					ralloc_asprintf_append(buffer, "[");
+					deref->image_index->accept(this);
+					ralloc_asprintf_append(buffer, "]"/*.%s, swizzle[dst_elements - 1]*/);
+				}
 			}
 			else
 			{
 				deref->image->accept(this);
-				ralloc_asprintf_append( buffer, "[" );
-				deref->image_index->accept(this);
-				ralloc_asprintf_append( buffer, "] = " );
-				src->accept(this);
-				ralloc_asprintf_append(buffer, ""/*".%s", expand[src_elements - 1]*/);
+				if (bIsRWTexture)
+				{
+					ralloc_asprintf_append(buffer, ".write(");
+					src->accept(this);
+					ralloc_asprintf_append(buffer, ",");
+					deref->image_index->accept(this);
+					ralloc_asprintf_append(buffer, ")");
+				}
+				else
+				{
+					ralloc_asprintf_append( buffer, "[" );
+					deref->image_index->accept(this);
+					ralloc_asprintf_append( buffer, "] = " );
+					src->accept(this);
+					ralloc_asprintf_append(buffer, ""/*".%s", expand[src_elements - 1]*/);
+				}
 			}
 		}
 		else if ( deref->op == ir_image_dimensions)
@@ -1500,7 +1632,7 @@ protected:
 
 		if (!strcmp(call->callee_name(), "packHalf2x16"))
 		{
-			ralloc_asprintf_append(buffer, "pack_float_to_snorm2x16(");
+			ralloc_asprintf_append(buffer, "as_type<uint>(half2(");
 		}
 		else
 		{
@@ -1518,6 +1650,11 @@ protected:
 			bPrintComma = true;
 		}
 		ralloc_asprintf_append(buffer, ")");
+
+		if (!strcmp(call->callee_name(), "packHalf2x16"))
+		{
+			ralloc_asprintf_append(buffer, ")");			
+		}
 	}
 
 	virtual void visit(ir_return *ret) override
@@ -2065,41 +2202,28 @@ protected:
 		}
 	}
 
-	bool PrintPackedUniforms(bool bPrintArrayType, char ArrayType, _mesa_glsl_parse_state::TUniformList& Uniforms, bool bFlattenUniformBuffers, bool NeedsComma)
-		{
+	void PrintImages(_mesa_glsl_parse_state::TUniformList& Uniforms)
+	{
 		bool bPrintHeader = true;
+		bool bNeedsComma = false;
 		for (_mesa_glsl_parse_state::TUniformList::iterator Iter = Uniforms.begin(); Iter != Uniforms.end(); ++Iter)
 		{
 			glsl_packed_uniform& Uniform = *Iter;
-			if (!bFlattenUniformBuffers || Uniform.CB_PackedSampler.empty())
-			{
-				if (bPrintArrayType && bPrintHeader)
-				{
-					ralloc_asprintf_append(buffer, "%s%c[",
-						NeedsComma ? "," : "",
-						ArrayType);
-					bPrintHeader = false;
-					NeedsComma = false;
-				}
-				ralloc_asprintf_append(
-					buffer,
-					"%s%s(%u:%u)",
-					NeedsComma ? "," : "",
-					Uniform.Name.c_str(),
-					Uniform.offset,
-					Uniform.num_components
-					);
-				NeedsComma = true;
-				}
-			}
-
-		if (bPrintArrayType && !bPrintHeader)
-			{
-			ralloc_asprintf_append(buffer, "]");
-			}
-
-		return NeedsComma;
+			ANSICHAR Name[32];
+			FCStringAnsi::Sprintf(Name, "%si%d", glsl_variable_tag_from_parser_target(Frequency), Uniform.offset);
+			int32 Offset = Buffers.GetIndex(Name);
+			check(Offset != -1);
+			ralloc_asprintf_append(
+				buffer,
+				"%s%s(%u:%u)",
+				bNeedsComma ? "," : "",
+				Uniform.Name.c_str(),
+				Offset,
+				Uniform.num_components
+				);
+			bNeedsComma = true;
 		}
+	}
 
 	void PrintPackedGlobals(_mesa_glsl_parse_state* State)
 	{
@@ -2392,13 +2516,7 @@ protected:
 			if (!state->GlobalPackedArraysMap[EArrayType_Image].empty())
 			{
 				ralloc_asprintf_append(buffer, "// @UAVs: ");
-				PrintPackedUniforms(
-					false,
-					EArrayType_Image,
-					state->GlobalPackedArraysMap[EArrayType_Image],
-					false,
-					false
-					);
+				PrintImages(state->GlobalPackedArraysMap[EArrayType_Image]);
 				ralloc_asprintf_append(buffer, "\n");
 			}
 		}
@@ -2422,6 +2540,16 @@ protected:
 				print_extern_vars(state, &image_variables);
 				ralloc_asprintf_append(buffer, "\n");
 			}
+		}
+
+		if (Buffers.UniqueSamplerStates.Num() > 0)
+		{
+			ralloc_asprintf_append(buffer, "// @SamplerStates: ");
+			for (int32 Index = 0; Index < Buffers.UniqueSamplerStates.Num(); ++Index)
+			{
+				ralloc_asprintf_append(buffer, "%s%d:%s", Index > 0 ? "," : "", Index, Buffers.UniqueSamplerStates[Index].c_str());
+			}
+			ralloc_asprintf_append(buffer, "\n");
 		}
 
 		if (Frequency == compute_shader)

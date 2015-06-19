@@ -34,6 +34,7 @@ struct CORE_API FIOSPlatformProcess : public FGenericPlatformProcess
 	static void SetRealTimeMode();
 	static void SetupGameOrRenderThread(bool bIsRenderThread);
 	static void SetThreadAffinityMask(uint64 AffinityMask);
+	static const TCHAR* ExecutableName(bool bRemoveExtension = true);
 };
 
 typedef FIOSPlatformProcess FPlatformProcess;

@@ -101,9 +101,12 @@ public:
 				FMemory::Memcpy(CopyOut, UncompressedBuffer+CopyOffset, CopyLength);
 			}
 		}
-		static const TCHAR *Name()
+
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FPakUncompressTask");
+			// TODO: This is called too early in engine startup.
+			return TStatId();
+			//RETURN_QUICK_DECLARE_CYCLE_STAT(FPakUncompressTask, STATGROUP_ThreadPoolAsyncTasks);
 		}
 	};
 
@@ -594,7 +597,7 @@ void FPakPlatformFile::GetPakFolders(const TCHAR* CmdLine, TArray<FString>& OutP
 	if (FParse::Value(CmdLine, TEXT("-pakdir="), PakDirs))
 	{
 		TArray<FString> CmdLineFolders;
-		PakDirs.ParseIntoArray(&CmdLineFolders, TEXT("*"), true);
+		PakDirs.ParseIntoArray(CmdLineFolders, TEXT("*"), true);
 		OutPakFolders.Append(CmdLineFolders);
 	}
 #endif
@@ -655,7 +658,7 @@ bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 	FString CmdLinePaksToLoad;
 	if (FParse::Value(CmdLine, TEXT("-paklist="), CmdLinePaksToLoad))
 	{
-		CmdLinePaksToLoad.ParseIntoArray(&PaksToLoad, TEXT("+"), true);
+		CmdLinePaksToLoad.ParseIntoArray(PaksToLoad, TEXT("+"), true);
 	}
 #endif
 
@@ -722,6 +725,11 @@ bool FPakPlatformFile::Mount(const TCHAR* InPakFilename, uint32 PakOrder, const 
 			if (InPath != NULL)
 			{
 				Pak->SetMountPoint(InPath);
+			}
+			FString PakFilename = InPakFilename;
+			if ( PakFilename.EndsWith(TEXT("_P.pak")) )
+			{
+				PakOrder += 100;
 			}
 			{
 				// Add new pak file
@@ -804,7 +812,7 @@ bool FPakPlatformFile::HandleUnmountPakDelegate(const FString& PakFilePath)
 	return Unmount(*PakFilePath);
 }
 
-IFileHandle* FPakPlatformFile::OpenRead(const TCHAR* Filename)
+IFileHandle* FPakPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 	IFileHandle* Result = NULL;
 	FPakFile* PakFile = NULL;

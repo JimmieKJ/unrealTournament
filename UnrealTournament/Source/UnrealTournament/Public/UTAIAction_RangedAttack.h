@@ -6,8 +6,8 @@
 
 #include "UTAIAction_RangedAttack.generated.h"
 
-UCLASS(MinimalAPI)
-class UUTAIAction_RangedAttack : public UUTAIAction
+UCLASS()
+class UNREALTOURNAMENT_API UUTAIAction_RangedAttack : public UUTAIAction
 {
 	GENERATED_UCLASS_BODY()
 

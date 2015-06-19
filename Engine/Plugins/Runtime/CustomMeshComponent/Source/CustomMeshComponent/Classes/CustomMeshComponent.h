@@ -29,6 +29,14 @@ class CUSTOMMESHCOMPONENT_API UCustomMeshComponent : public UMeshComponent
 	UFUNCTION(BlueprintCallable, Category="Components|CustomMesh")
 	bool SetCustomMeshTriangles(const TArray<FCustomMeshTriangle>& Triangles);
 
+	/** Add to the geometry to use on this triangle mesh.  This may cause an allocation.  Use SetCustomMeshTriangles() instead when possible to reduce allocations. */
+	UFUNCTION(BlueprintCallable, Category = "Components|CustomMesh")
+	void AddCustomMeshTriangles(const TArray<FCustomMeshTriangle>& Triangles);
+
+	/** Removes all geometry from this triangle mesh.  Does not deallocate memory, allowing new geometry to reuse the existing allocation. */
+	UFUNCTION(BlueprintCallable, Category = "Components|CustomMesh")
+	void ClearCustomMeshTriangles();
+
 private:
 
 	// Begin UPrimitiveComponent interface.

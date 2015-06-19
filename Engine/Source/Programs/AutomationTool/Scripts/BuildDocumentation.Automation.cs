@@ -26,6 +26,11 @@ class ToolsForDocumentationNode : GUBP.CompileNode
         return StaticGetFullName(HostPlatform);
     }
 
+	public override int CISFrequencyQuantumShift(GUBP bp)
+	{
+		return base.CISFrequencyQuantumShift(bp) + 3;
+	}
+
 	public override UE4Build.BuildAgenda GetAgenda(GUBP bp)
     {
         var Agenda = new UE4Build.BuildAgenda();
@@ -51,7 +56,7 @@ class DocumentationNode : GUBP.GUBPNode
 	protected void ExecuteApiDocTool(string Arguments, string LogName)
 	{
 		string ApiDocToolPath = Path.Combine(CommandUtils.CmdEnv.LocalRoot, "Engine/Source/Programs/UnrealDocTool/APIDocTool/APIDocTool/bin/x64/Release/APIDocTool.exe");
-		string ApiToolCommandLine = Arguments + " -enginedir=\"" + Path.Combine(CommandUtils.CmdEnv.LocalRoot, "Engine") + "\"";
+		string ApiToolCommandLine = Arguments + " -enginedir=\"" + Path.Combine(CommandUtils.CmdEnv.LocalRoot, "Engine") + "\"" + (CommandUtils.IsBuildMachine? " -buildmachine" : "");
 		CommandUtils.RunAndLog(CommandUtils.CmdEnv, ApiDocToolPath, ApiToolCommandLine, LogName);
 	}
 

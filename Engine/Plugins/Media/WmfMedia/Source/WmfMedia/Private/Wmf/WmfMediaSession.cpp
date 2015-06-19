@@ -12,7 +12,6 @@ FWmfMediaSession::FWmfMediaSession( const FTimespan& InDuration, const TComPtr<I
 	, ChangeRequested(false)
 	, CurrentRate(0.0f)
 	, Duration(InDuration)
-	, LastError(S_OK)
 	, Looping(false)
 	, RefCount(0)
 	, RequestedPosition(FTimespan::MinValue())
@@ -194,8 +193,11 @@ STDMETHODIMP FWmfMediaSession::Invoke( IMFAsyncResult* AsyncResult )
 
 	MediaEventType EventType = MEUnknown;
 	
-	if (SUCCEEDED(Event->GetType(&EventType)))
+	if (FAILED(Event->GetType(&EventType)))
 	{
+		return S_OK;
+	}
+
 		HRESULT EventResult;
 		Event->GetStatus(&EventResult);
 
@@ -208,13 +210,23 @@ STDMETHODIMP FWmfMediaSession::Invoke( IMFAsyncResult* AsyncResult )
 			}
 			else if (EventType == MEError)
 			{
-				LastError = EventResult;
+				ErrorEvent.Broadcast(EventResult);
+				UpdateState(EMediaStates::Error);
 			}
 			else
 			{
 				if (EventType == MEEndOfPresentation)
 				{
-					if (!Looping)
+					if (Looping)
+					{
+						if (CurrentRate < 0.0f)
+						{
+							RequestedPosition = Duration;
+						}
+
+						UpdateState(EMediaStates::Paused);
+					}
+					else
 					{
 						RequestedState = EMediaStates::Stopped;
 						MediaSession->Stop();
@@ -226,12 +238,7 @@ STDMETHODIMP FWmfMediaSession::Invoke( IMFAsyncResult* AsyncResult )
 				}
 				else if (EventType == MESessionEnded)
 				{
-					if (Looping && (CurrentRate < 0.0f))
-					{
-						RequestedPosition = Duration;
-					}
-
-					UpdateState(EMediaStates::Stopped);
+					// do nothing
 				}
 				else if (EventType == MESessionPaused)
 				{
@@ -282,7 +289,6 @@ STDMETHODIMP FWmfMediaSession::Invoke( IMFAsyncResult* AsyncResult )
 				}
 			}
 		}
-	}
 	
 	return S_OK;
 }
@@ -338,7 +344,6 @@ bool FWmfMediaSession::ChangeState()
 
 			return true;
 		}
-
 
 		// close session
 		if ((RequestedState == EMediaStates::Closed) || (RequestedState == EMediaStates::Error))
@@ -463,6 +468,12 @@ void FWmfMediaSession::UpdateState( EMediaStates CompletedState )
 	if (CompletedState == RequestedState)
 	{
 		StateChangePending = false;
+
+		if (RequestedState == EMediaStates::Stopped)
+		{
+			CurrentRate = 0.0f;
+			RequestedRate = 0.0f;
+		}
 	}
 	else
 	{

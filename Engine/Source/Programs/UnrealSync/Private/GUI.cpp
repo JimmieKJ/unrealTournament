@@ -12,6 +12,274 @@
 #include "SWidgetSwitcher.h"
 #include "SDockTab.h"
 #include "SlateFwd.h"
+#include "SThrobber.h"
+#include "SMultiLineEditableTextBox.h"
+#include "BaseTextLayoutMarshaller.h"
+
+/**
+ * Syncing log.
+ */
+class SSyncLog : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SSyncLog) {}
+	SLATE_END_ARGS()
+
+	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+	void Construct(const FArguments& InArgs)
+	{
+		MessagesTextMarshaller = MakeShareable(new FMarshaller());
+		MessagesTextBox = SNew(SMultiLineEditableTextBox)
+			.IsReadOnly(true)
+			.AlwaysShowScrollbars(true)
+			.Marshaller(MessagesTextMarshaller);
+
+		Clear();
+
+		ChildSlot
+			[
+				MessagesTextBox.ToSharedRef()
+			];
+	}
+	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+	/**
+	 * Adding messages to the log.
+	 *
+	 * @param Message Message to add.
+	 */
+	void AddMessage(const FString& Message)
+	{
+		MessagesTextMarshaller->AddMessage(Message);
+		MessagesTextBox->ScrollTo(FTextLocation(NumberOfLines++));
+	}
+
+	/**
+	 * Clear the log.
+	 */	
+	void Clear()
+	{
+		NumberOfLines = 0;
+		MessagesTextBox->ScrollTo(FTextLocation(0));
+		
+		MessagesTextMarshaller->Clear();
+		MessagesTextBox->Refresh();
+	}
+
+private:
+	/**
+	 * Messages marshaller.
+	 */
+	class FMarshaller : public FBaseTextLayoutMarshaller
+	{
+	public:
+		void AddMessage(const FString& Message)
+		{
+			auto NormalText = FTextBlockStyle()
+				.SetFont("Fonts/Roboto-Regular", 10)
+				.SetColorAndOpacity(FSlateColor::UseForeground())
+				.SetShadowOffset(FVector2D::ZeroVector)
+				.SetShadowColorAndOpacity(FLinearColor::Black);
+
+			TSharedRef<FString> LineText = MakeShareable(new FString(Message));
+
+			TArray<TSharedRef<IRun>> Runs;
+			Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, NormalText));
+
+			if (Layout->IsEmpty())
+			{
+				Layout->ClearLines();
+			}
+
+			Layout->AddLine(LineText, Runs);
+		}
+
+		/**
+		 * Clears messages from the text box.
+		 */
+		void Clear()
+		{
+			MakeDirty();
+		}
+
+	private:
+		// FBaseTextLayoutMarshaller missing virtuals.
+		virtual void SetText(const FString& SourceString, FTextLayout& TargetTextLayout)
+		{
+			// Get text layout.
+			Layout = &TargetTextLayout;
+		}
+
+		virtual void GetText(FString& TargetString, const FTextLayout& SourceTextLayout)
+		{
+			SourceTextLayout.GetAsText(TargetString);
+		}
+
+		FTextLayout* Layout;
+	};
+
+	/** Converts the array of messages into something the text box understands */
+	TSharedPtr<FMarshaller> MessagesTextMarshaller;
+
+	/** The editable text showing all log messages */
+	TSharedPtr<SMultiLineEditableTextBox> MessagesTextBox;
+
+	/** Number of currently logged lines. */
+	int32 NumberOfLines = 0;
+};
+
+/**
+ * Performs a dialog when running editor is detected.
+ */
+class SEditorRunningDlg : public SCompoundWidget
+{
+public:
+	enum class EResponse
+	{
+		ForceSync,
+		Retry,
+		Cancel
+	};
+
+	SLATE_BEGIN_ARGS(SEditorRunningDlg)	{}
+		SLATE_ATTRIBUTE(TSharedPtr<SWindow>, ParentWindow)
+		SLATE_ATTRIBUTE(FText, Message)
+		SLATE_ATTRIBUTE(float, WrapMessageAt)
+	SLATE_END_ARGS()
+
+	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+	void Construct(const FArguments& InArgs)
+	{
+		ParentWindow = InArgs._ParentWindow.Get();
+		ParentWindow->SetWidgetToFocusOnActivate(SharedThis(this));
+
+		Response = EResponse::Retry;
+
+		FSlateFontInfo MessageFont(FCoreStyle::Get().GetFontStyle("StandardDialog.LargeFont"));
+
+		this->ChildSlot
+			[
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+				[
+					SNew(SVerticalBox)
+
+					+ SVerticalBox::Slot()
+					.HAlign(HAlign_Fill)
+					.VAlign(VAlign_Fill)
+					.FillHeight(1.0f)
+					.MaxHeight(550)
+					.Padding(12.0f)
+					[
+						SNew(SScrollBox)
+
+						+ SScrollBox::Slot()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("UE4EditorInstanceDetectedDialog", "UE4Editor detected currently running on the system. Please close it before proceeding."))
+							.Font(MessageFont)
+							.WrapTextAt(InArgs._WrapMessageAt)
+						]
+					]
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f)
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							+ SHorizontalBox::Slot()
+								.AutoWidth()
+								.HAlign(HAlign_Right)
+								.VAlign(VAlign_Bottom)
+								.Padding(2.f)
+								[
+									SNew(SUniformGridPanel)
+									.SlotPadding(FCoreStyle::Get().GetMargin("StandardDialog.SlotPadding"))
+									.MinDesiredSlotWidth(FCoreStyle::Get().GetFloat("StandardDialog.MinDesiredSlotWidth"))
+									.MinDesiredSlotHeight(FCoreStyle::Get().GetFloat("StandardDialog.MinDesiredSlotHeight"))
+									+ SUniformGridPanel::Slot(0, 0)
+									[
+										SNew(SButton)
+										.Text(LOCTEXT("CancelSync", "Cancel sync"))
+										.OnClicked(this, &SEditorRunningDlg::HandleButtonClicked, EResponse::Cancel)
+										.ContentPadding(FCoreStyle::Get().GetMargin("StandardDialog.ContentPadding"))
+										.HAlign(HAlign_Center)
+									]
+									+ SUniformGridPanel::Slot(1, 0)
+									[
+										SNew(SButton)
+										.Text(LOCTEXT("RetryEditorRunning", "Retry if editor is running"))
+										.OnClicked(this, &SEditorRunningDlg::HandleButtonClicked, EResponse::Retry)
+										.ContentPadding(FCoreStyle::Get().GetMargin("StandardDialog.ContentPadding"))
+										.HAlign(HAlign_Center)
+									]
+									+ SUniformGridPanel::Slot(2, 0)
+									[
+										SNew(SButton)
+										.Text(LOCTEXT("ForceSync", "Force sync"))
+										.OnClicked(this, &SEditorRunningDlg::HandleButtonClicked, EResponse::ForceSync)
+										.ContentPadding(FCoreStyle::Get().GetMargin("StandardDialog.ContentPadding"))
+										.HAlign(HAlign_Center)
+									]
+								]
+						]
+				]
+			];
+	}
+	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+	/**
+	 * Shows modal dialog window and gets it's response.
+	 */
+	static EResponse ShowAndGetResponse()
+	{
+		TSharedPtr<SWindow> OutWindow = SNew(SWindow)
+			.Title(LOCTEXT("UE4EditorInstanceDetected", "UE4Editor instance detected!"))
+			.SizingRule(ESizingRule::Autosized)
+			.AutoCenter(EAutoCenter::PreferredWorkArea)
+			.SupportsMinimize(false).SupportsMaximize(false);
+
+		TSharedPtr<SEditorRunningDlg> OutDialog = SNew(SEditorRunningDlg)
+			.ParentWindow(OutWindow)
+			.WrapMessageAt(512.0f);
+
+		OutWindow->SetContent(OutDialog.ToSharedRef());
+
+		FSlateApplication::Get().AddModalWindow(OutWindow.ToSharedRef(), FGlobalTabmanager::Get()->GetRootWindow());
+
+		return OutDialog->GetResponse();
+	}
+
+private:
+	/**
+	 * Gets response from this dialog widget.
+	 *
+	 * @returns Response.
+	 */
+	EResponse GetResponse() const
+	{
+		return Response;
+	}
+
+	/**
+	 * Handles button click on any dialog button.
+	 */
+	FReply HandleButtonClicked(EResponse Response)
+	{
+		this->Response = Response;
+
+		ParentWindow->RequestDestroyWindow();
+
+		return FReply::Handled();
+	}
+
+	/** Parent window pointer */
+	TSharedPtr<SWindow> ParentWindow;
+
+	/** Saved response */
+	EResponse Response;
+};
 
 /**
  * Simple text combo box widget.
@@ -51,6 +319,7 @@ public:
 	 */
 	void Add(const FString& Value)
 	{
+		CurrentOption = 0;
 		OptionsSource.Add(MakeShareable(new FString(Value)));
 	}
 
@@ -79,6 +348,7 @@ public:
 	 */
 	void Clear()
 	{
+		CurrentOption = -1;
 		OptionsSource.Empty();
 	}
 
@@ -155,7 +425,7 @@ public:
 		 * @param Name Name of the item.
 		 * @param Content Content widget to store by this item.
 		 */
-		FItem(SRadioContentSelection& Parent, int32 Id, const FString& Name, TSharedRef<SWidget> Content)
+		FItem(SRadioContentSelection& Parent, int32 Id, FText Name, TSharedRef<SWidget> Content)
 			: Parent(Parent), Id(Id), Name(Name), Content(Content)
 		{
 
@@ -172,29 +442,20 @@ public:
 				+ SVerticalBox::Slot().AutoHeight()
 				[
 					SNew(SCheckBox)
+					.Style(FCoreStyle::Get(), "RadioButton")
 					.OnCheckStateChanged(this, &FItem::OnCheckStateChange)
 					.IsChecked(this, &FItem::IsCheckboxChecked)
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(GetName()))
+						.Text(Name)
 					]
 				]
-			+ SVerticalBox::Slot().VAlign(VAlign_Fill)
+				+ SVerticalBox::Slot().VAlign(VAlign_Fill).Padding(19.0f, 2.0f, 2.0f, 2.0f)
 				[
 					GetContent()
 				];
 		}
 
-		/**
-		 * Gets this item name.
-		 *
-		 * @returns Item name.
-		 */
-		const FString& GetName() const
-		{
-			return Name;
-		}
-		
 		/**
 		 * Gets this item content widget.
 		 *
@@ -257,7 +518,7 @@ public:
 		/* Item id. */
 		int32 Id;
 		/* Item name. */
-		FString Name;
+		FText Name;
 
 		/* Outer item widget. */
 		TSharedPtr<SWidget> WholeItemWidget;
@@ -292,7 +553,7 @@ public:
 	 * @param Name Name of the widget in this selection.
 	 * @param Content The widget itself.
 	 */
-	void Add(const FString& Name, TSharedRef<SWidget> Content)
+	void Add(FText Name, TSharedRef<SWidget> Content)
 	{
 		TSharedRef<FItem> Item = MakeShareable(new FItem(*this, Items.Num(), Name, Content));
 		Item->Init();
@@ -493,7 +754,7 @@ class SPickLabel : public SCompoundWidget, public ILabelNameProvider
 {
 public:
 	SLATE_BEGIN_ARGS(SPickLabel) {}
-		SLATE_ATTRIBUTE(FString, Title)
+		SLATE_ATTRIBUTE(FText, Title)
 	SLATE_END_ARGS()
 
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -510,9 +771,9 @@ public:
 					SNew(STextBlock).Text(InArgs._Title)
 				]
 				+ SHorizontalBox::Slot().HAlign(HAlign_Fill)
-					[
-						LabelsCombo.ToSharedRef()
-					]
+				[
+					LabelsCombo.ToSharedRef()
+				]
 			];
 	}
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -711,178 +972,115 @@ private:
 };
 
 /**
- * Creates Slate page to show error and close app.
- *
- * @param ErrorMsg Error message to display.
- *
- * @returns Created widget.
- */
-TSharedRef<SWidget> CreateErrorPage(const FString& ErrorMsg)
-{
-	/**
-	 * Embedded class to enclose closing button functionality.
-	 */
-	class CloseButtonHandler
-	{
-	public:
-		/**
-		 * Function that is called on when Close button is clicked.
-		 * It tells the app to close.
-		 *
-		 * @returns Tells that this event was handled.
-		 */
-		static FReply OnCloseButtonClick()
-		{
-			FPlatformMisc::RequestExit(false);
-
-			return FReply::Handled();
-		}
-	};
-
-	return
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot().HAlign(HAlign_Center).VAlign(VAlign_Center)
-		[
-			SNew(STextBlock).Text(FText::FromString(*ErrorMsg))
-		]
-		+ SVerticalBox::Slot().AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			+ SHorizontalBox::Slot().AutoWidth()
-			[
-				SNew(SButton)
-				.OnClicked_Static(&CloseButtonHandler::OnCloseButtonClick)
-				[
-					SNew(STextBlock).Text(FText::FromString("Close"))
-				]
-			]
-		];
-}
-
-/**
- * Tries to update original UnrealSync at given location.
- *
- * @param Location of original UnrealSync.
- *
- * @returns False on failure. True otherwise.
- */
-bool UpdateOriginalUS(const FString& OriginalUSPath)
-{
-	FString Output;
-	return FP4Env::RunP4Output(TEXT("sync ") + OriginalUSPath, Output);
-}
-
-/**
- * Runs detached UnrealSync process and passes given parameters in command line.
- *
- * @param USPath UnrealSync executable path.
- * @param bDoNotRunFromCopy Should UnrealSync be called with -DoNotRunFromCopy flag?
- * @param bDoNotUpdateOnStartUp Should UnrealSync be called with -DoNotUpdateOnStartUp flag?
- * @param bPassP4Env Pass P4 environment parameters to UnrealSync?
- *
- * @returns True if succeeded. False otherwise. Notice that this says of
- *			success of launching procedure not launched process, cause
- *			its detached.
- */
-bool RunDetachedUS(const FString& USPath, bool bDoNotRunFromCopy, bool bDoNotUpdateOnStartUp, bool bPassP4Env)
-{
-	FString CommandLine = FString()
-		+ (bDoNotRunFromCopy ? TEXT("-DoNotRunFromCopy ") : TEXT(""))
-		+ (bDoNotUpdateOnStartUp ? TEXT("-DoNotUpdateOnStartUp ") : TEXT(""))
-		+ (bPassP4Env ? *FP4Env::Get().GetCommandLine()	: TEXT(""));
-
-	return RunProcess(USPath, CommandLine);
-}
-
-/**
- * This function copies file from From to To location and deletes
- * if To exists.
- *
- * @param To Location to which copy the file.
- * @param From Location from which copy the file.
- *
- * @returns True if succeeded. False otherwise.
- */
-bool DeleteIfExistsAndCopyFile(const FString& To, const FString& From)
-{
-	auto& PlatformPhysical = IPlatformFile::GetPlatformPhysical();
-
-	if (PlatformPhysical.FileExists(*To) && !PlatformPhysical.DeleteFile(*To))
-	{
-		return false;
-	}
-
-	return PlatformPhysical.CopyFile(*To, *From);
-}
-
-/**
  * Main tab widget.
  */
 class SMainTabWidget : public SCompoundWidget
 {
+	/**
+	 * External threads requests dispatcher.
+	 */
+	class FExternalThreadsDispatcher : public TSharedFromThis<FExternalThreadsDispatcher, ESPMode::ThreadSafe>
+	{
+	public:
+		/** Delegate that represents rendering thread request. */
+		DECLARE_DELEGATE(FRenderingThreadRequest);
+
+		/**
+		 * Executes all pending requests.
+		 *
+		 * Some Slate methods are restricted for either game or Slate rendering
+		 * thread. If external thread tries to execute them assert raises, which is
+		 * telling that it's unsafe.
+		 *
+		 * This method executes all pending requests on Slate thread, so you can
+		 * use those to execute some restricted methods.
+		 */
+		EActiveTimerReturnType ExecuteRequests(double CurrentTime, float DeltaTime)
+		{
+			FScopeLock Lock(&RequestsMutex);
+			for (int32 ReqId = 0; ReqId < Requests.Num(); ++ReqId)
+			{
+				Requests[ReqId].Execute();
+			}
+
+			Requests.Empty(4);
+
+			return EActiveTimerReturnType::Continue;
+		}
+
+		/**
+		 * Adds delegate to pending requests list.
+		 */
+		void AddRenderingThreadRequest(FRenderingThreadRequest Request)
+		{
+			FScopeLock Lock(&RequestsMutex);
+			Requests.Add(MoveTemp(Request));
+		}
+
+	private:
+		/** Mutex for pending requests list. */
+		FCriticalSection RequestsMutex;
+
+		/** Pending requests list. */
+		TArray<FRenderingThreadRequest> Requests;
+	};
+
 public:
-	SLATE_BEGIN_ARGS(SMainTabWidget){}
+	SMainTabWidget()
+		: ExternalThreadsDispatcher(MakeShareable(new FExternalThreadsDispatcher()))
+	{}
+
+	SLATE_BEGIN_ARGS(SMainTabWidget) {}
 	SLATE_END_ARGS()
 
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	void Construct(const FArguments& InArgs)
 	{
-		FString ErrorMsg;
-		if (DoInitialTasks(ErrorMsg))
-		{
-			FPlatformMisc::RequestExit(false);
-			return;
-		}
-
-		if (!ErrorMsg.IsEmpty())
-		{
-			this->ChildSlot
-				[
-					CreateErrorPage(ErrorMsg)
-				];
-			return;
-		}
-
 		RadioSelection = SNew(SRadioContentSelection);
 
-		AddToRadioSelection("Sync to the latest promoted", SNew(SLatestPromoted));
-		AddToRadioSelection("Sync to chosen promoted label", SNew(SPickPromoted).Title("Pick promoted label: "));
-		AddToRadioSelection("Sync to chosen promotable label since last promoted", SNew(SPickPromotable).Title("Pick promotable label: "));
-		AddToRadioSelection("Sync to any chosen label", SNew(SPickAny).Title("Pick label: "));
+		AddToRadioSelection(LOCTEXT("SyncToLatestPromoted", "Sync to the latest promoted"), SNew(SLatestPromoted));
+		AddToRadioSelection(LOCTEXT("SyncToChosenPromoted", "Sync to chosen promoted label"), SNew(SPickPromoted).Title(LOCTEXT("PickPromotedLabel", "Pick promoted label: ")));
+		AddToRadioSelection(LOCTEXT("SyncToChosenPromotable", "Sync to chosen promotable label since last promoted"), SNew(SPickPromotable).Title(LOCTEXT("PickPromotableLabel", "Pick promotable label: ")));
+		AddToRadioSelection(LOCTEXT("SyncToAnyChosen", "Sync to any chosen label"), SNew(SPickAny).Title(LOCTEXT("PickLabel", "Pick label: ")));
 
 		PickGameWidget = SNew(SPickGameWidget)
 			.OnGamePicked(this, &SMainTabWidget::OnCurrentGameChanged);
 
 		ArtistSyncCheckBox = SNew(SCheckBox)
 			[
-				SNew(STextBlock).Text(FText::FromString("Artist sync?"))
+				SNew(STextBlock).Text(LOCTEXT("ArtistSync", "Artist sync?"))
 			];
 
-		// Checked by default.
-		ArtistSyncCheckBox->ToggleCheckedState();
+		if (!FUnrealSync::IsDebugParameterSet())
+		{
+			// Checked by default.
+			ArtistSyncCheckBox->ToggleCheckedState();
+		}
 
 		PreviewSyncCheckBox = SNew(SCheckBox)
 			[
-				SNew(STextBlock).Text(FText::FromString("Preview sync?"))
+				SNew(STextBlock).Text(LOCTEXT("PreviewSync", "Preview sync?"))
+			];
+
+		AutoClobberSyncCheckBox = SNew(SCheckBox)
+			[
+				SNew(STextBlock).Text(LOCTEXT("AutoClobberSync", "Auto-clobber sync?"))
 			];
 
 		GoBackButton = SNew(SButton)
 			.IsEnabled(false)
 			.OnClicked(this, &SMainTabWidget::OnGoBackButtonClick)
 			[
-				SNew(STextBlock).Text(FText::FromString("Go back"))
+				SNew(STextBlock).Text(LOCTEXT("GoBack", "Go back"))
 			];
 
-		LogListView = SNew(SListView<TSharedPtr<FString> >)
-			.ListItemsSource(&LogLines)
-			.OnGenerateRow(this, &SMainTabWidget::GenerateLogItem);
+		TSharedPtr<SVerticalBox> MainBox;
 		
 		Switcher = SNew(SWidgetSwitcher)
 			+ SWidgetSwitcher::Slot()
 			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot().AutoHeight()
+				SAssignNew(MainBox, SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight().Padding(5.0f)
 				[
 					PickGameWidget.ToSharedRef()
 				]
@@ -904,6 +1102,14 @@ public:
 						]
 					]
 					+ SHorizontalBox::Slot().HAlign(HAlign_Fill)
+					+ SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Top).Padding(0.0f, 0.0f, 10.0f, 0.0f)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						[
+							AutoClobberSyncCheckBox.ToSharedRef()
+						]
+					]
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
 						SNew(SVerticalBox)
@@ -912,11 +1118,11 @@ public:
 							ArtistSyncCheckBox.ToSharedRef()
 						]
 						+ SVerticalBox::Slot()
-							[
-								PreviewSyncCheckBox.ToSharedRef()
-							]
+						[
+							PreviewSyncCheckBox.ToSharedRef()
+						]
 					]
-					+ SHorizontalBox::Slot().AutoWidth().Padding(FMargin(30, 0, 0, 0))
+					+ SHorizontalBox::Slot().AutoWidth().Padding(30, 0, 0, 0)
 						[
 							SNew(SButton).HAlign(HAlign_Right)
 							.OnClicked(this, &SMainTabWidget::OnSync)
@@ -926,6 +1132,15 @@ public:
 								SNew(STextBlock).Text(FText::FromString("Sync!"))
 							]
 						]
+					+ SHorizontalBox::Slot().AutoWidth()
+						[
+							SNew(SButton).HAlign(HAlign_Right)
+							.OnClicked(this, &SMainTabWidget::RunUE4)
+							.VAlign(VAlign_Center)
+							[
+								SNew(STextBlock).Text(FText::FromString("Run UE4"))
+							]
+						]
 				]
 			]
 			+ SWidgetSwitcher::Slot()
@@ -933,12 +1148,24 @@ public:
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
 				[
-					LogListView->AsWidget()
+					SAssignNew(Log, SSyncLog)
 				]
 				+ SVerticalBox::Slot().AutoHeight()
 				[
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
+					[
+						SAssignNew(Throbber, SThrobber)
+						.Animate(SThrobber::VerticalAndOpacity).NumPieces(5)
+					]
+					+ SHorizontalBox::Slot().AutoWidth()
+					[
+						SAssignNew(CancelButton, SButton)
+						.OnClicked(this, &SMainTabWidget::OnCancelButtonClick)
+						[
+							SNew(STextBlock).Text(FText::FromString("Cancel"))
+						]
+					]
 					+ SHorizontalBox::Slot().AutoWidth()
 					[
 						GoBackButton.ToSharedRef()
@@ -951,8 +1178,26 @@ public:
 				Switcher.ToSharedRef()
 			];
 
+		if (FUnrealSync::IsDebugParameterSet())
+		{
+			MainBox->InsertSlot(2).AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					[
+						SNew(STextBlock).Text(LOCTEXT("OverrideSyncStepSpec", "Override sync step specification"))
+					]
+					+ SHorizontalBox::Slot()
+					[
+						SNew(SEditableTextBox).OnTextCommitted(this, &SMainTabWidget::OnOverrideSyncStepText)
+					]
+				];
+		}
+
 		FUnrealSync::RegisterOnDataReset(FUnrealSync::FOnDataReset::CreateRaw(this, &SMainTabWidget::DataReset));
 		FUnrealSync::RegisterOnDataLoaded(FUnrealSync::FOnDataLoaded::CreateRaw(this, &SMainTabWidget::DataLoaded));
+
+		RegisterActiveTimer(0.5f, FWidgetActiveTimerDelegate::CreateThreadSafeSP(&ExternalThreadsDispatcher.Get(), &FExternalThreadsDispatcher::ExecuteRequests));
 
 		OnReloadLabels();
 	}
@@ -964,76 +1209,29 @@ public:
 	virtual ~SMainTabWidget()
 	{
 		FUnrealSync::TerminateLoadingProcess();
+		FUnrealSync::TerminateSyncingProcess();
 	}
 
 private:
 	/**
-	 * This method does some initial task:
-	 * - initializes P4
-	 * - updates UnrealSync (to do this it has to copy itself to remote location and run from there)
-	 *
-	 * @param ErrorMsg Out parameter to output error message if happened.
-	 *
-	 * @returns True if application should stop building GUI and exit. False otherwise.
+	 * Queues adding lines to the log for execution on Slate rendering thread.
 	 */
-	bool DoInitialTasks(FString& ErrorMsg)
+	void ExternalThreadAddLinesToLog(TSharedPtr<TArray<TSharedPtr<FString> > > Lines)
 	{
-		bool bDoNotUpdateOnStartUp = FParse::Param(FCommandLine::Get(), TEXT("DoNotUpdateOnStartUp"));
-		bool bDoNotRunFromCopy = FParse::Param(FCommandLine::Get(), TEXT("DoNotRunFromCopy"));
+		ExternalThreadsDispatcher->AddRenderingThreadRequest(FExternalThreadsDispatcher::FRenderingThreadRequest::CreateRaw(this, &SMainTabWidget::AddLinesToLog, Lines));
+	}
 
-		if (!FP4Env::Init(FCommandLine::Get()))
+	/**
+	 * Adds lines to the log.
+	 *
+	 * @param Lines Lines to add.
+	 */
+	void AddLinesToLog(TSharedPtr<TArray<TSharedPtr<FString> > > Lines)
+	{
+		for (const auto& Line : *Lines)
 		{
-			ErrorMsg = TEXT("P4 environment detection failed.");
-			return false;
+			Log->AddMessage(*Line.Get());
 		}
-
-		FString CommonExecutablePath =
-			FPaths::ConvertRelativePathToFull(
-			FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), TEXT("Win64"),
-#if !UE_BUILD_DEBUG
-				TEXT("UnrealSync")
-#else
-				TEXT("UnrealSync-Win64-Debug")
-#endif
-			));
-
-		FString OriginalExecutablePath = CommonExecutablePath + TEXT(".exe");
-		FString TemporaryExecutablePath = CommonExecutablePath + TEXT(".Temporary.exe");
-
-		if (!bDoNotRunFromCopy)
-		{
-			if (!DeleteIfExistsAndCopyFile(*TemporaryExecutablePath, *OriginalExecutablePath))
-			{
-				ErrorMsg = TEXT("Copying UnrealSync to temp location failed.");
-				return false;
-			}
-
-			if (!RunDetachedUS(TemporaryExecutablePath, true, bDoNotUpdateOnStartUp, true))
-			{
-				ErrorMsg = TEXT("Running remote UnrealSync failed.");
-				return false;
-			}
-
-			return true;
-		}
-
-		if (!bDoNotUpdateOnStartUp)
-		{
-			if (!UpdateOriginalUS(OriginalExecutablePath))
-			{
-				ErrorMsg = TEXT("UnrealSync update failed.");
-				return false;
-			}
-			if (!RunDetachedUS(OriginalExecutablePath, false, true, true))
-			{
-				ErrorMsg = TEXT("Running UnrealSync failed.");
-				return false;
-			}
-
-			return true;
-		}
-
-		return false;
 	}
 
 	/**
@@ -1073,6 +1271,17 @@ private:
 	}
 
 	/**
+	 * Performs a procedure that needs to be done when GoBack button is clicked.
+	 * It tells the app to go back to the beginning.
+	 */
+	void GoBack()
+	{
+		Switcher->SetActiveWidgetIndex(0);
+		Log->Clear();
+		OnReloadLabels();
+	}
+
+	/**
 	 * Function that is called on when go back button is clicked.
 	 * It tells the app to go back to the beginning.
 	 *
@@ -1080,10 +1289,23 @@ private:
 	 */
 	FReply OnGoBackButtonClick()
 	{
-		Switcher->SetActiveWidgetIndex(0);
-		LogLines.Empty();
-		LogListView->RequestListRefresh();
-		OnReloadLabels();
+		GoBack();
+
+		return FReply::Handled();
+	}
+
+	/**
+	 * Function that is called on when cancel button is clicked.
+	 * It tells the app to cancel the sync and go back to the beginning.
+	 *
+	 * @returns Tells that this event was handled.
+	 */
+	FReply OnCancelButtonClick()
+	{
+		FUnrealSync::TerminateLoadingProcess();
+		FUnrealSync::TerminateSyncingProcess();
+
+		ExternalThreadsDispatcher->AddRenderingThreadRequest(FExternalThreadsDispatcher::FRenderingThreadRequest::CreateRaw(this, &SMainTabWidget::GoBack));
 
 		return FReply::Handled();
 	}
@@ -1122,6 +1344,22 @@ private:
 	}
 
 	/**
+	 * Executes UE4Editor.exe for current branch.
+	 */
+	FReply RunUE4()
+	{
+#if PLATFORM_WINDOWS
+		auto ProcessPath = FPaths::Combine(*FPaths::GetPath(FPlatformProcess::GetApplicationName(FPlatformProcess::GetCurrentProcessId())), TEXT("UE4Editor.exe"));
+#else
+		// Needs to be implemented on other platforms.
+#endif
+
+		RunProcess(ProcessPath);
+
+		return FReply::Handled();
+	}
+
+	/**
 	 * Sync button click function. Gets all widget data, constructs command
 	 * line and launches syncing.
 	 *
@@ -1129,15 +1367,25 @@ private:
 	 */
 	FReply OnSync()
 	{
-		auto bArtist = ArtistSyncCheckBox->IsChecked();
-		auto bPreview = PreviewSyncCheckBox->IsChecked();
+		if (CheckIfEditorIsRunning())
+		{
+			return FReply::Handled();
+		}
+
+		FSyncSettings Settings(
+			ArtistSyncCheckBox->IsChecked(),
+			PreviewSyncCheckBox->IsChecked(),
+			AutoClobberSyncCheckBox->IsChecked(),
+			OverrideSyncStep);
 
 		Switcher->SetActiveWidgetIndex(1);
-		FUnrealSync::LaunchSync(bArtist, bPreview, GetCurrentSyncCmdLineProvider(),
+		FUnrealSync::LaunchSync(MoveTemp(Settings), GetCurrentSyncCmdLineProvider(),
 			FUnrealSync::FOnSyncFinished::CreateRaw(this, &SMainTabWidget::SyncingFinished),
 			FUnrealSync::FOnSyncProgress::CreateRaw(this, &SMainTabWidget::SyncingProgress));
 
 		GoBackButton->SetEnabled(false);
+		CancelButton->SetEnabled(true);
+		Throbber->SetAnimate(SThrobber::EAnimation::VerticalAndOpacity);
 
 		return FReply::Handled();
 	}
@@ -1163,15 +1411,16 @@ private:
 		FString Line;
 		FString Rest;
 
+		TSharedPtr<TArray<TSharedPtr<FString> > > Lines = MakeShareable(new TArray<TSharedPtr<FString> >());
+
 		while (Buffer.Split("\n", &Line, &Rest))
 		{
-			LogLines.Add(MakeShareable(new FString(Line)));
+			Lines->Add(MakeShareable(new FString(Line)));
 
 			Buffer = Rest;
 		}
 
-		LogListView->RequestListRefresh();
-		LogListView->RequestScrollIntoView(LogLines.Last());
+		ExternalThreadAddLinesToLog(Lines);
 
 		return true;
 	}
@@ -1183,6 +1432,8 @@ private:
 	 */
 	void SyncingFinished(bool bSuccess)
 	{
+		Throbber->SetAnimate(SThrobber::EAnimation::None);
+		CancelButton->SetEnabled(false);
 		GoBackButton->SetEnabled(true);
 	}
 
@@ -1239,17 +1490,80 @@ private:
 	}
 
 	/**
+	 * Happens when someone edits the override sync step text box.
+	 */
+	void OnOverrideSyncStepText(const FText& CommittedText, ETextCommit::Type Type);
+
+	/**
 	 * Method to add command line provider/widget to correct arrays.
 	 *
 	 * @param Name Name of the radio selection widget item.
 	 * @param Widget Widget to add.
 	 */
 	template <typename TWidgetType>
-	void AddToRadioSelection(const FString& Name, TSharedRef<TWidgetType> Widget)
+	void AddToRadioSelection(FText Name, TSharedRef<TWidgetType> Widget)
 	{
 		RadioSelection->Add(Name, Widget);
 		SyncCommandLineProviders.Add(Widget);
 	}
+
+	/**
+	 * Checks if the editor is currently running on the system and asks user to
+	 * close it.
+	 *
+	 * @returns False if editor is not opened or user forced to continue.
+	 *          Otherwise true.
+	 */
+	bool CheckIfEditorIsRunning()
+	{
+		auto Response = SEditorRunningDlg::EResponse::Retry;
+		bool bEditorIsRunning = false;
+			 
+		while (Response == SEditorRunningDlg::EResponse::Retry && ((bEditorIsRunning = CheckForEditorProcess()) == true))
+		{
+			Response = SEditorRunningDlg::ShowAndGetResponse();
+		}
+
+		return bEditorIsRunning && Response != SEditorRunningDlg::EResponse::ForceSync;
+	}
+
+	/**
+	 * Checks if the editor is currently running on the system.
+	 *
+	 * @returns False if editor is not opened. Otherwise true.
+	 */
+	bool CheckForEditorProcess()
+	{
+		for (const auto& PossibleExecutablePath : GetPossibleExecutablePaths())
+		{
+			if (IsRunningProcess(PossibleExecutablePath))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+#if PLATFORM_WINDOWS
+	/**
+	 * Returns possible colliding UE4Editor executables.
+	 *
+	 * @returns Array of possible executables.
+	 */
+	static TArray<FString> GetPossibleExecutablePaths()
+	{
+		FString BasePath = FPaths::GetPath(FPlatformProcess::GetApplicationName(FPlatformProcess::GetCurrentProcessId()));
+
+		TArray<FString> Out;
+
+		Out.Add(FPaths::Combine(*BasePath, TEXT("UE4Editor.exe")));
+		Out.Add(FPaths::Combine(*BasePath, TEXT("UE4Editor-Win32-Debug.exe")));
+		Out.Add(FPaths::Combine(*BasePath, TEXT("UE4Editor-Win64-Debug.exe")));
+
+		return Out;
+	}
+#endif
 
 	/* Main widget switcher. */
 	TSharedPtr<SWidgetSwitcher> Switcher;
@@ -1263,17 +1577,33 @@ private:
 	TSharedPtr<SCheckBox> ArtistSyncCheckBox;
 	/* Check box to tell if this should be a preview sync. */
 	TSharedPtr<SCheckBox> PreviewSyncCheckBox;
+	/* Check box to tell if this should be a auto-clobber sync. */
+	TSharedPtr<SCheckBox> AutoClobberSyncCheckBox;
 
-	/* Report log. */
-	TArray<TSharedPtr<FString> > LogLines;
-	/* Log list view. */
-	TSharedPtr<SListView<TSharedPtr<FString> > > LogListView;
+	/* External thread requests dispatcher. */
+	TSharedRef<FExternalThreadsDispatcher, ESPMode::ThreadSafe> ExternalThreadsDispatcher;
+
+	/* Syncing log. */
+	TSharedPtr<SSyncLog> Log;
+
 	/* Go back button reference. */
 	TSharedPtr<SButton> GoBackButton;
+	/* Cancel button reference. */
+	TSharedPtr<SButton> CancelButton;
+	/* Throbber to indicate work-in-progress. */
+	TSharedPtr<SThrobber> Throbber;
 
 	/* Array of sync command line providers. */
 	TArray<TSharedRef<ILabelNameProvider> > SyncCommandLineProviders;
+
+	/* Override sync step value. */
+	FString OverrideSyncStep;
 };
+
+void SMainTabWidget::OnOverrideSyncStepText(const FText& CommittedText, ETextCommit::Type Type)
+{
+	OverrideSyncStep = CommittedText.ToString();
+}
 
 /**
  * Creates and returns main tab.
@@ -1287,46 +1617,69 @@ TSharedRef<SDockTab> GetMainTab(const FSpawnTabArgs& Args)
 	TSharedRef<SDockTab> MainTab =
 		SNew(SDockTab)
 		.TabRole(ETabRole::MajorTab)
-		.Label(FText::FromString("UnrealSync"))
+		.Label(FText::FromString("Syncing"))
 		.ToolTipText(FText::FromString("Sync Unreal Engine tool."));
 
 	MainTab->SetContent(
 		SNew(SMainTabWidget)
 		);
 
+	FGlobalTabmanager::Get()->SetActiveTab(MainTab);
+
 	return MainTab;
 }
 
 /**
- * Initializes and starts GUI.
+ * Creates and returns P4 settings tab.
  *
- * @param CommandLine Command line passed to the program.
+ * @param Args Args used to spawn tab.
+ *
+ * @returns P4 settings UnrealSync tab.
  */
-void InitGUI(const TCHAR* CommandLine)
+TSharedRef<SDockTab> GetP4EnvTab(const FSpawnTabArgs& Args)
 {
-	// start up the main loop
-	GEngineLoop.PreInit(CommandLine);
+	TSharedRef<SDockTab> P4EnvTab =
+		SNew(SDockTab)
+		.TabRole(ETabRole::MajorTab)
+		.Label(FText::FromString("Perforce Settings"))
+		.ToolTipText(FText::FromString("Perforce settings."));
 
+	P4EnvTab->SetContent(
+		SNew(SP4EnvTabWidget)
+		);
+
+	return P4EnvTab;
+}
+
+void InitGUI(const TCHAR* CommandLine, bool bP4EnvTabOnly)
+{
 	// crank up a normal Slate application using the platform's standalone renderer
 	FSlateApplication::InitializeAsStandaloneApplication(GetStandardStandaloneRenderer());
 
 	// set the application name
 	FGlobalTabmanager::Get()->SetApplicationTitle(NSLOCTEXT("UnrealSync", "AppTitle", "Unreal Sync"));
 
-	FGlobalTabmanager::Get()->RegisterTabSpawner("MainTab", FOnSpawnTab::CreateStatic(&GetMainTab));
+	auto TabStack = FTabManager::NewStack();
+
+	if (!bP4EnvTabOnly)
+	{
+		TabStack->AddTab("MainTab", ETabState::OpenedTab);
+		FGlobalTabmanager::Get()->RegisterTabSpawner("MainTab", FOnSpawnTab::CreateStatic(&GetMainTab));
+		TabStack->SetForegroundTab(FTabId("MainTab"));
+	}
+
+	FGlobalTabmanager::Get()->RegisterTabSpawner("P4EnvTab", FOnSpawnTab::CreateStatic(&GetP4EnvTab));
+	TabStack->AddTab("P4EnvTab", ETabState::OpenedTab);
 
 	TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout("UnrealSyncLayout")
 		->AddArea(
 			FTabManager::NewArea(720, 370)
 			->SetWindow(FVector2D(420, 10), false)
-			->Split(
-				FTabManager::NewStack()
-				->AddTab("MainTab", ETabState::OpenedTab)
-			)
+			->Split(TabStack)
 		);
 
 	FGlobalTabmanager::Get()->RestoreFrom(Layout, TSharedPtr<SWindow>());
-
+	
 	// loop while the server does the rest
 	while (!GIsRequestingExit)
 	{

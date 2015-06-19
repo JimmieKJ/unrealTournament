@@ -388,4 +388,9 @@ bool ralloc_vasprintf_append(char **str, const char *fmt, va_list args);
 /// @}
 
 
+template <typename T>
+void ralloc_cpp_destructor(void *ptr)
+{
+	((T*)ptr)->~T();
+}
 #endif

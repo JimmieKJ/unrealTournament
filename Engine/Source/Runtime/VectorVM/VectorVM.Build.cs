@@ -6,6 +6,19 @@ public class VectorVM : ModuleRules
 {
 	public VectorVM(TargetInfo Target)
 	{
-		PrivateDependencyModuleNames.Add("Core");
-	}
+		PrivateDependencyModuleNames.AddRange(
+            new string[] {
+                "Core",
+                "Engine"
+            }
+        );
+
+        PrivateIncludePaths.AddRange(
+            new string[] {
+                "Runtime/Engine/Classes/Curves"
+            }
+        );
+
+
+    }
 }

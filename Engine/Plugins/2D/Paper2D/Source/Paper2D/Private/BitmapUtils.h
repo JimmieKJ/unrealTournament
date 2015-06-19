@@ -149,10 +149,23 @@ struct FBitmap : public FAlphaBitmap
 	// Detects all valid rects in this bitmap
 	void ExtractRects(TArray<FIntRect>& OutRects)
 	{
+		FScopedSlowTask SlowTask(Height + Height/4, NSLOCTEXT("Paper2D", "Paper2D_AnalyzingTextureForSprites", "Scanning Texture For Sprites"));
+		SlowTask.MakeDialog(false);
+
+		SlowTask.EnterProgressFrame(Height/4);
 		FBitmap MaskBitmap(Width, Height);
+
+		const int32 ProgressReportInterval = 16;
+		int32 NextProgressReportLine = ProgressReportInterval;
 
 		for (int Y = 0; Y < Height; ++Y)
 		{
+			if (Y == NextProgressReportLine)
+			{
+				NextProgressReportLine += ProgressReportInterval;
+				SlowTask.EnterProgressFrame(ProgressReportInterval);
+			}
+
 			for (int X = 0; X < Width; ++X)
 			{
 				if (MaskBitmap.GetPixel(X, Y) == 0 && GetPixel(X, Y) != 0)

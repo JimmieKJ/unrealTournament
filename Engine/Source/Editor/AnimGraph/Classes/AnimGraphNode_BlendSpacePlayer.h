@@ -24,7 +24,6 @@ class UAnimGraphNode_BlendSpacePlayer : public UAnimGraphNode_BlendSpaceBase
 	// End of UEdGraphNode interface
 
 	// UAnimGraphNode_Base interface
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual void ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog) override;
 	virtual void BakeDataDuringCompilation(class FCompilerResultsLog& MessageLog) override;
 	virtual bool DoesSupportTimeForTransitionGetter() const override;

@@ -56,10 +56,10 @@ public:
 	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	virtual bool IsAssetEditor() const override;
 	virtual const TArray< UObject* >* GetObjectsCurrentlyBeingEdited() const override;
-	virtual FName GetToolkitFName() const = 0;					// Must implement in derived class!
-	virtual FText GetBaseToolkitName() const = 0;				// Must implement in derived class!
+	virtual FName GetToolkitFName() const override = 0;				// Must implement in derived class!
+	virtual FText GetBaseToolkitName() const override = 0;			// Must implement in derived class!
 	virtual FText GetToolkitName() const override;		
-	virtual FString GetWorldCentricTabPrefix() const = 0;		// Must implement in derived class!
+	virtual FString GetWorldCentricTabPrefix() const override = 0;	// Must implement in derived class!
 	virtual class FEdMode* GetEditorMode() const override;
 
 	/** IAssetEditorInstance interface */
@@ -68,6 +68,8 @@ public:
 	virtual bool CloseWindow() override;
 	virtual bool IsPrimaryEditor() const override { return true; };
 	virtual void InvokeTab(const struct FTabId& TabId) override;
+	virtual TSharedPtr<class FTabManager> GetAssociatedTabManager() override;
+	virtual double GetLastActivationTime() override;
 
 	/**
 	 * Fills in the supplied menu with commands for working with this asset file
@@ -229,6 +231,12 @@ private:
 
 	/** If true ViewReferences_Execute can be called, also caches ViewableObjects */
 	bool CanViewReferences();
+
+	/** Called when "View Size Map" is called for this asset */
+	void ViewSizeMap_Execute();
+
+	/** If true ViewSizeMap_Execute can be called, also caches ViewableObjects */
+	bool CanViewSizeMap();
 
 protected:
 

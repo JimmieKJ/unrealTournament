@@ -75,7 +75,7 @@ class UInterpTrackParticleReplay : public UInterpTrack
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
 	virtual bool AllowStaticActors() override { return true; }
-	virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params );
+	virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params ) override;
 	// End UInterpTrack interface.
 
 	// Begin FInterpEdInputInterface Interface

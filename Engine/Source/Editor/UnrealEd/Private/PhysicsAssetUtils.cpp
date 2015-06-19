@@ -20,6 +20,8 @@ void FPhysAssetCreateParams::Initialize()
 	bWalkPastSmall = true;
 	bBodyForAll = false;
 	AngularConstraintMode = ACM_Limited;
+	HullAccuracy = 0.5;
+	MaxHullVerts = 16;
 }
 
 namespace FPhysicsAssetUtils
@@ -393,16 +395,23 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 
 	FVector BoxCenter(0,0,0), BoxExtent(0,0,0);
 
+	FBox TransformedBox = BoneBox;
 	if( BoneBox.IsValid )
+	{
+		// make sure to apply scale to the box size
+		FMatrix BoneMatrix = skelMesh->GetComposedRefPoseMatrix(BoneIndex);
+		TransformedBox = BoneBox.TransformBy(FTransform(BoneMatrix));
 		BoneBox.GetCenterAndExtents(BoxCenter, BoxExtent);
+	}
 
-	float MinRad = BoxExtent.GetMin();
+	float MinRad = TransformedBox.GetExtent().GetMin();
 	float MinAllowedSize = MinPrimSize;
 
 	// If the primitive is going to be too small - just use some default numbers and let the user tweak.
 	if( MinRad < MinAllowedSize )
 	{
-		BoxExtent = FVector(DefaultPrimSize, DefaultPrimSize, DefaultPrimSize);
+		// change min allowed size to be min, not DefaultPrimSize
+		BoxExtent = FVector(MinAllowedSize, MinAllowedSize, MinAllowedSize);
 	}
 
 	FVector BoneOrigin = ElementTransform.TransformPosition( BoxCenter );
@@ -504,7 +513,7 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 			bs->RemoveSimpleCollision();
 #endif
 			// Create the convex hull from the data we got from the skeletal mesh
-			DecomposeMeshToHulls( bs, Verts, Indices, Params.MaxHullCount, Params.MaxHullVerts );
+			DecomposeMeshToHulls( bs, Verts, Indices, Params.HullAccuracy, Params.MaxHullVerts );
 		}
 		else
 		{
@@ -677,7 +686,7 @@ int32 CreateNewConstraint(UPhysicsAsset* PhysAsset, FName InConstraintName, UPhy
 		return ConstraintIndex;
 	}
 
-	UPhysicsConstraintTemplate* NewConstraintSetup = ConstructObject<UPhysicsConstraintTemplate>( UPhysicsConstraintTemplate::StaticClass(), PhysAsset, NAME_None, RF_Transactional );
+	UPhysicsConstraintTemplate* NewConstraintSetup = NewObject<UPhysicsConstraintTemplate>(PhysAsset, NAME_None, RF_Transactional);
 	if(InConstraintSetup)
 	{
 		NewConstraintSetup->DefaultInstance.CopyConstraintParamsFrom( &InConstraintSetup->DefaultInstance );
@@ -706,7 +715,7 @@ int32 CreateNewBody(UPhysicsAsset* PhysAsset, FName InBodyName)
 		return BodyIndex; // if we already have one for this name - just return that.
 	}
 
-	UBodySetup* NewBodySetup = ConstructObject<UBodySetup>( UBodySetup::StaticClass(), PhysAsset, NAME_None, RF_Transactional );
+	UBodySetup* NewBodySetup = NewObject<UBodySetup>(PhysAsset, NAME_None, RF_Transactional);
 	// make default to be use complex as simple 
 	NewBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
 	// newly created bodies default to simulating

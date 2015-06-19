@@ -28,7 +28,7 @@ ASpotLight::ASpotLight(const FObjectInitializer& ObjectInitializer)
 	RootComponent = SpotLightComponent;
 
 #if WITH_EDITORONLY_DATA
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ArrowComponent0"));
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent0"));
 	if (ArrowComponent)
 	{
 		ArrowComponent->ArrowColor = GetLightColor();

@@ -21,7 +21,7 @@ public:
 
 public:
 	/** The text content for this editable text box widget */
-	UPROPERTY(EditDefaultsOnly, Category=Content)
+	UPROPERTY(EditAnywhere, Category=Content)
 	FText Text;
 
 	/** A bindable delegate to allow logic to drive the text of the widget */
@@ -31,7 +31,7 @@ public:
 public:
 
 	/** Hint text that appears when there is no text in the text box */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Content)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Content)
 	FText HintText;
 
 	/** A bindable delegate to allow logic to drive the hint text of the widget */
@@ -63,43 +63,43 @@ public:
 	USlateBrushAsset* CaretImage_DEPRECATED;
 
 	/** Font color and opacity (overrides Style) */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	FSlateFontInfo Font;
 
 	/** Text color and opacity (overrides Style) */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	FSlateColor ColorAndOpacity;
 
 	/** Sets whether this text box can actually be modified interactively by the user */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	bool IsReadOnly;
 
 	/** Sets whether this text box is for storing a password */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	bool IsPassword;
 
 	/** Minimum width that a text block should be */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	float MinimumDesiredWidth;
 
-	/** Workaround as we loose focus when the auto completion closes. */
-	UPROPERTY(EditDefaultsOnly, Category=Behavior, AdvancedDisplay)
+	/** Workaround as we lose focus when the auto completion closes. */
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	bool IsCaretMovedWhenGainFocus;
 
 	/** Whether to select all text when the user clicks to give focus on the widget */
-	UPROPERTY(EditDefaultsOnly, Category=Behavior, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	bool SelectAllTextWhenFocused;
 
 	/** Whether to allow the user to back out of changes when they press the escape key */
-	UPROPERTY(EditDefaultsOnly, Category=Behavior, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	bool RevertTextOnEscape;
 
 	/** Whether to clear keyboard focus when pressing enter to commit changes */
-	UPROPERTY(EditDefaultsOnly, Category=Behavior, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	bool ClearKeyboardFocusOnCommit;
 
 	/** Whether to select all text when pressing enter to commit changes */
-	UPROPERTY(EditDefaultsOnly, Category=Behavior, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	bool SelectAllTextOnCommit;
 
 public:
@@ -116,7 +116,7 @@ public:
 	 * Gets the widget text
 	 * @return The widget text
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Widget", meta=(FriendlyName="GetText (Editable Text)"))
+	UFUNCTION(BlueprintCallable, Category = "Widget", meta=(DisplayName="GetText (Editable Text)"))
 	FText GetText() const;
 
 	/**
@@ -124,7 +124,7 @@ public:
 	 * Warning: This will wipe any binding created for the Text property!
 	 * @param InText The text to assign to the widget
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Widget", meta=(FriendlyName="SetText (Editable Text)"))
+	UFUNCTION(BlueprintCallable, Category = "Widget", meta=(DisplayName="SetText (Editable Text)"))
 	void SetText(FText InText);
 
 	UFUNCTION(BlueprintCallable, Category = "Widget")

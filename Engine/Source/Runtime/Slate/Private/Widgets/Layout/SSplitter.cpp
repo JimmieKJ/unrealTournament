@@ -197,7 +197,7 @@ int32 SSplitter::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 				NormalHandleBrush,
 				MyClippingRect,
 				ShouldBeEnabled( bParentEnabled ),
-				InWidgetStyle.GetColorAndOpacityTint()
+				InWidgetStyle.GetColorAndOpacityTint() * NormalHandleBrush->TintColor.GetSpecifiedColor()
 			);
 		}
 		else
@@ -209,7 +209,7 @@ int32 SSplitter::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 				&Style->HandleHighlightBrush,
 				MyClippingRect,
 				ShouldBeEnabled( bParentEnabled ),
-				InWidgetStyle.GetColorAndOpacityTint()
+				InWidgetStyle.GetColorAndOpacityTint() * Style->HandleHighlightBrush.TintColor.GetSpecifiedColor()
 			);	
 		}
 	}
@@ -262,7 +262,7 @@ static FVector2D ComputeDesiredSizeForSplitter( const float PhysicalSplitterHand
 * A Panel's desired size in the space required to arrange of its children on the screen while respecting all of
 * the children's desired sizes and any layout-related options specified by the user. See StackPanel for an example.
 */
-FVector2D SSplitter::ComputeDesiredSize() const
+FVector2D SSplitter::ComputeDesiredSize( float ) const
 {
 	FVector2D MyDesiredSize = (Orientation == Orient_Horizontal)
 		? ComputeDesiredSizeForSplitter<Orient_Horizontal>( PhysicalSplitterHandleSize, Children )
@@ -732,7 +732,7 @@ void SSplitter2x2::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrang
 
 
 
-FVector2D SSplitter2x2::ComputeDesiredSize() const
+FVector2D SSplitter2x2::ComputeDesiredSize( float ) const
 {
 	return FVector2D(100,100);
 }
@@ -861,7 +861,15 @@ void SSplitter2x2::ResizeChildren( const FGeometry& MyGeometry, const TArray<FLa
 		// Resize X and Y independently as they have different rules for X and Y
 		NewSizeTL.X = TopLeftSize.X + Delta.X;
 		NewSizeBL.X = BotLeftSize.X + Delta.X;
+
+		//workaround PS4 compiler crash.
+#if PLATFORM_PS4
+		volatile float workaround = 0.0f;
+		NewSizeTR.X = TopRightSize.X - Delta.X + workaround;
+#else
 		NewSizeTR.X = TopRightSize.X - Delta.X;
+#endif
+
 		NewSizeBR.X = BotRightSize.X - Delta.X;
 
 

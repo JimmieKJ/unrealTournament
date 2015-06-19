@@ -48,7 +48,7 @@ public:
 protected:
 
 	/** Overridden from SWidget: Called when a key is pressed down */
-	FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
+	FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override
 	{
 		if( InKeyEvent.GetKey() == EKeys::Escape && Mode == ELayerBrowserMode::LayerContents )
 		{

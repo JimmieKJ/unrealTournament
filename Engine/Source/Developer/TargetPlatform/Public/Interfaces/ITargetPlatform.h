@@ -50,6 +50,9 @@ enum class ETargetPlatformFeatures
 
 	/** Vertex Shader Texture Sampling. */
 	VertexShaderTextureSampling,
+
+	/** Should use compressed cooked packages */
+	ShouldUseCompressedCookedPackages, 
 };
 
 
@@ -230,13 +233,6 @@ public:
 	virtual bool IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const = 0;
 
 	/**
-	 * Returns the maximum bones the platform supports.
-	 *
-	 * @return the maximum bones the platform supports.
-	 */
-	virtual uint32 MaxGpuSkinBones() const = 0;
-
-	/**
 	 * Checks whether this platform requires cooked data (typically console platforms).
 	 *
 	 * @return true if this platform requires cooked data, false otherwise.
@@ -321,7 +317,12 @@ public:
 	 *
 	 * @return A texture LOD settings structure.
 	 */
-	virtual const struct FTextureLODSettings& GetTextureLODSettings() const = 0;
+	virtual const class UTextureLODSettings& GetTextureLODSettings() const = 0;
+
+	/**
+	* Register Basic LOD Settings for this platform
+	*/
+	virtual void RegisterTextureLODSettings(const class UTextureLODSettings* InTextureLODSettings) = 0;
 
 	/**
 	 * Gets the static mesh LOD settings used by this platform.
@@ -371,6 +372,11 @@ public:
 	 * Whether or not to send all lower-case filepaths when connecting over a fileserver connection. 
 	 */
 	virtual bool SendLowerCaseFilePaths() const = 0;
+
+	/**
+	* Project settings to check to determine if a build should occurr
+	*/
+	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const = 0;
 
 public:
 

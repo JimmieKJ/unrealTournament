@@ -2,6 +2,7 @@
 
 #include "Paper2DPrivatePCH.h"
 #include "PaperFlipbookSceneProxy.h"
+#include "PaperFlipbookComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperFlipbookSceneProxy

@@ -4,6 +4,7 @@
 
 UEnvironmentQueryGraphNode_Root::UEnvironmentQueryGraphNode_Root(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	bIsReadOnly = true;
 }
 
 void UEnvironmentQueryGraphNode_Root::AllocateDefaultPins()
@@ -13,5 +14,5 @@ void UEnvironmentQueryGraphNode_Root::AllocateDefaultPins()
 
 FText UEnvironmentQueryGraphNode_Root::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return NSLOCTEXT("EnvironmentQueryGraphNode_Root", "Root", "ROOT");
+	return NSLOCTEXT("EnvironmentQueryEditor", "Root", "ROOT");
 }

@@ -43,7 +43,7 @@ void FGeomBase::Select( bool InSelect )
 	GetParentObject()->DirtySelectionOrder();
 }
 
-FGeomObject* FGeomBase::GetParentObject()
+FGeomObjectPtr FGeomBase::GetParentObject()
 {
 	check( GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_Geometry) );
 	check( ParentObjectIndex > INDEX_NONE );
@@ -52,7 +52,7 @@ FGeomObject* FGeomBase::GetParentObject()
 	return mode->GetGeomObject( ParentObjectIndex );
 }
 
-const FGeomObject* FGeomBase::GetParentObject() const
+const FGeomObjectPtr FGeomBase::GetParentObject() const
 {
 	check( GLevelEditorModeTools().IsModeActive(FBuiltinEditorModes::EM_Geometry) );
 	check( ParentObjectIndex > INDEX_NONE );
@@ -221,8 +221,8 @@ FVector FGeomPoly::GetMidPoint() const
 
 FPoly* FGeomPoly::GetActualPoly()
 {
-	FGeomObject* Parent = GetParentObject();
-	check( Parent );
+	FGeomObjectPtr Parent = GetParentObject();
+	check( Parent.IsValid() );
 	ABrush* Brush = Parent->GetActualBrush();
 	check( Brush );
 
@@ -351,7 +351,7 @@ int32 FGeomObject::GetObjectIndex()
 
 	for( FEdModeGeometry::TGeomObjectIterator Itor( mode->GeomObjectItor() ) ; Itor ; ++Itor )
 	{
-		if( *Itor == this )
+		if( (*Itor).Get() == this )
 		{
 			return Itor.GetIndex();
 		}

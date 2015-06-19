@@ -18,7 +18,6 @@ public:
 	virtual bool LoadModulesForProject( const ELoadingPhase::Type LoadingPhase ) override;
 	virtual bool CheckModuleCompatibility( TArray<FString>& OutIncompatibleModules ) override;
 	virtual const FString& GetAutoLoadProjectFileName() override;
-	virtual bool GenerateNewProjectFile(const FString& NewProjectFilename, const TArray<FString>& ModuleNames, const FString& EngineIdentifier, FText& OutFailReason) override;
 	virtual bool SignSampleProject(const FString& FilePath, const FString& Category, FText& OutFailReason) override;
 	virtual bool QueryStatusForProject(const FString& FilePath, FProjectStatus& OutProjectStatus) const override;
 	virtual bool QueryStatusForCurrentProject(FProjectStatus& OutProjectStatus) const override;
@@ -29,23 +28,19 @@ public:
 	virtual FOnTargetPlatformsForCurrentProjectChangedEvent& OnTargetPlatformsForCurrentProjectChanged() override { return OnTargetPlatformsForCurrentProjectChangedEvent; }
 	virtual void GetEnabledPlugins(TArray<FString>& OutPluginNames) const override;
 	virtual bool IsNonDefaultPluginEnabled() const override;
-	virtual bool SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason) override;
-	virtual bool IsRestartRequired() const override;
+	virtual bool SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason, const FString& MarketplaceURL) override;
 
 private:
 	static void QueryStatusForProjectImpl(const FProjectDescriptor& Project, const FString& FilePath, FProjectStatus& OutProjectStatus);
 
 	/** Gets the list of plugins enabled by default, excluding the project overrides */
-	static void GetDefaultEnabledPlugins(TArray<FString>& PluginNames);
+	static void GetDefaultEnabledPlugins(TArray<FString>& PluginNames, bool bIncludeInstalledPlugins);
 
 	/** The project that is currently loaded in the editor */
 	TSharedPtr< FProjectDescriptor > CurrentProject;
 
 	/** Delegate called when the target platforms for the current project are changed */
 	FOnTargetPlatformsForCurrentProjectChangedEvent OnTargetPlatformsForCurrentProjectChangedEvent;
-
-	/** Whether we need to restart in order to reflect change to the current project */
-	bool bRestartRequired;
 };
 
 

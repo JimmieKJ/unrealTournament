@@ -15,6 +15,8 @@ public class AndroidPlatform : Platform
 {
 	private const int DeployMaxParallelCommands = 6;
 
+    private const string TargetAndroidLocation = "obb/";
+
 	public AndroidPlatform()
 		: base(UnrealTargetPlatform.Android)
 	{
@@ -75,7 +77,7 @@ public class AndroidPlatform : Platform
 		if (PackageVersion.Length > 0)
 		{
 			int IntVersion = int.Parse(PackageVersion);
-			PackageVersion = IntVersion.ToString("00000");
+			PackageVersion = IntVersion.ToString("0");
 		}
 
 		string ObbName = string.Format("main.{0}.{1}.obb", PackageVersion, PackageName);
@@ -90,7 +92,7 @@ public class AndroidPlatform : Platform
 	{
         string ObbName = GetFinalObbName(ApkName);
         string PackageName = GetPackageInfo(ApkName, false);
-		return "obb/" + PackageName + "/" + Path.GetFileName(ObbName);
+        return TargetAndroidLocation + PackageName + "/" + Path.GetFileName(ObbName);
 	}
 
     private static string GetStorageQueryCommand()
@@ -109,80 +111,6 @@ public class AndroidPlatform : Platform
 	{
 		return Path.Combine(Path.GetDirectoryName(ApkName), "Install_" + Params.ShortProjectName + "_" + Params.ClientConfigsToBuild[0].ToString() + Architecture + GPUArchitecture + (Utils.IsRunningOnMono ? ".command" : ".bat"));
 	}
-
-//     public static Dictionary<string, string> SetupEnv(string ProjectPath)
-//     {
-//         if(configCacheIni == null)
-//         {
-//             CommandUtils.LogWarning(Path.GetDirectoryName(ProjectPath));
-//             configCacheIni = new UnrealBuildTool.ConfigCacheIni("Engine", Path.GetDirectoryName(ProjectPath));
-// 
-//             string[] EnvVarNames = {"ANDROID_HOME", "NDKHOME", "ANT_HOME"};
-// 
-//             string path;
-//             if(configCacheIni.GetPath("/Script/AndroidPlatformEditor.AndroidSDKSettings", "SDKPath", out path))
-//             {
-//                 AndroidEnv.Add("ANDROID_HOME", path);
-//             }
-//             else // if we fail then try and get it from the real environment
-//             {
-//                 AndroidEnv.Add("ANDROID_HOME", Environment.GetEnvironmentVariable("ANDROID_HOME"));
-//             }
-// 
-//             if (configCacheIni.GetPath("/Script/AndroidPlatformEditor.AndroidSDKSettings", "NDKPath", out path))
-//             {
-//                 AndroidEnv.Add("NDKHOME", path);
-//             }
-//             else // if we fail then try and get it from the real environment
-//             {
-//                 AndroidEnv.Add("NDKHOME", Environment.GetEnvironmentVariable("NDKHOME"));
-//             }
-// 
-//             if (configCacheIni.GetPath("/Script/AndroidPlatformEditor.AndroidSDKSettings", "ANTPath", out path))
-//             {
-//                 AndroidEnv.Add("ANT_HOME", path);
-//             }
-//             else // if we fail then try and get it from the real environment
-//             {
-//                 AndroidEnv.Add("ANT_HOME", Environment.GetEnvironmentVariable("ANT_HOME"));
-//             }
-// 
-//             // If we are on Mono and we are still missing a key then go and find it from the .bash_profile
-//             if (Utils.IsRunningOnMono && EnvVarNames.All( s => AndroidEnv.ContainsKey(s)))
-//             {
-//                 string BashProfilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), ".bash_profile");
-//                 if (File.Exists(BashProfilePath))
-//                 {
-//                     string[] BashProfileContents = File.ReadAllLines(BashProfilePath);
-//                     foreach (string Line in BashProfileContents)
-//                     {
-//                         foreach (var key in EnvVarNames)
-//                         {
-//                             if (AndroidEnv.ContainsKey(key))
-//                             {
-//                                 continue;
-//                             }
-//                             
-//                             if (Line.StartsWith("export " + key + "="))
-//                             {
-//                                 string PathVar = Line.Split('=')[1].Replace("\"", "");
-//                                 AndroidEnv.Add(key, PathVar);
-//                             }
-//                         }
-//                     }
-//                 }                    
-//             }
-// 
-//             // Set for the process
-//             foreach(var kvp in AndroidEnv)
-//             {
-//                 Environment.SetEnvironmentVariable(kvp.Key, kvp.Value);
-//             }
-// 
-//         }
-// 
-//         return AndroidEnv;
-//     }
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
@@ -236,12 +164,13 @@ public class AndroidPlatform : Platform
 				string ApkName = GetFinalApkName(Params, SC.StageExecutables[0], true, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "");
 				if (!SC.IsCodeBasedProject)
 				{
-					string UE4GameApkName = GetFinalApkName(Params, SC.StageExecutables[0], false, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "");
-					if (FileExists_NoExceptions(UE4GameApkName) == false)
+					string UE4SOName = GetFinalApkName(Params, SC.StageExecutables[0], false, bMakeSeparateApks ? Architecture : "", bMakeSeparateApks ? GPUArchitecture : "");
+                    UE4SOName = UE4SOName.Replace(".apk", ".so");
+                    if (FileExists_NoExceptions(UE4SOName) == false)
 					{
-						Log("Failed to find game apk " + UE4GameApkName);
+                        Log("Failed to find game .so " + UE4SOName);
 						AutomationTool.ErrorReporter.Error("Stage Failed.", (int)AutomationTool.ErrorCodes.Error_MissingExecutable);
-						throw new AutomationException("Could not find apk {0}. You may need to build the UE4 project with your target configuration and platform.", UE4GameApkName);
+                        throw new AutomationException("Could not find .so {0}. You may need to build the UE4 project with your target configuration and platform.", UE4SOName);
 					}
 				}
 				
@@ -288,9 +217,9 @@ public class AndroidPlatform : Platform
 						"if [ $? -eq 0 ]; then",
 						"\techo",
 						"\techo Removing old data. Failures here are usually fine - indicating the files were not on the device.",
-						"\t$ADB $DEVICE shell 'rm -r $EXTERNAL_STORAGE/" + Params.ShortProjectName + "'",
+                        "\t$ADB $DEVICE shell 'rm -r $EXTERNAL_STORAGE/UE4Game/" + Params.ShortProjectName + "'",
 						"\t$ADB $DEVICE shell 'rm -r $EXTERNAL_STORAGE/UE4Game/UE4CommandLine.txt" + "'",
-						"\t$ADB $DEVICE shell 'rm -r $EXTERNAL_STORAGE/obb/" + PackageName + "'",
+						"\t$ADB $DEVICE shell 'rm -r $EXTERNAL_STORAGE/" + TargetAndroidLocation + PackageName + "'",
 						bPackageDataInsideApk ? "" : "\techo",
 						bPackageDataInsideApk ? "" : "\techo Installing new data. Failures here indicate storage problems \\(missing SD card or bad permissions\\) and are fatal.",
 						bPackageDataInsideApk ? "" : "\tSTORAGE=$(echo \"`$ADB $DEVICE shell 'echo $EXTERNAL_STORAGE'`\" | cat -v | tr -d '^M')",
@@ -329,9 +258,9 @@ public class AndroidPlatform : Platform
 						"@echo Installing existing application. Failures here indicate a problem with the device (connection or storage permissions) and are fatal.",
 						"%ADB% %DEVICE% install " + Path.GetFileName(ApkName),
 						"@if \"%ERRORLEVEL%\" NEQ \"0\" goto Error",
-						"%ADB% %DEVICE% shell rm -r %STORAGE%/" + Params.ShortProjectName,
+                        "%ADB% %DEVICE% shell rm -r %STORAGE%/UE4Game/" + Params.ShortProjectName,
 						"%ADB% %DEVICE% shell rm -r %STORAGE%/UE4Game/UE4CommandLine.txt", // we need to delete the commandline in UE4Game or it will mess up loading
-						"%ADB% %DEVICE% shell rm -r %STORAGE%/obb/" + PackageName,
+						"%ADB% %DEVICE% shell rm -r %STORAGE%/" + TargetAndroidLocation + PackageName,
 						bPackageDataInsideApk ? "" : "@echo.",
 						bPackageDataInsideApk ? "" : "@echo Installing new data. Failures here indicate storage problems (missing SD card or bad permissions) and are fatal.",
 						bPackageDataInsideApk ? "" : "%ADB% %DEVICE% push " + Path.GetFileName(ObbName) + " %STORAGE%/" + DeviceObbName,
@@ -505,6 +434,47 @@ public class AndroidPlatform : Platform
 	}
 	*/
 
+	public override bool RetrieveDeployedManifests(ProjectParams Params, DeploymentContext SC, out List<string> UFSManifests, out List<string> NonUFSManifests)
+	{
+		UFSManifests = null;
+		NonUFSManifests = null;
+
+		// Query the storage path from the device
+		string DeviceStorageQueryCommand = GetStorageQueryCommand();
+		ProcessResult StorageResult = RunAdbCommand(Params, DeviceStorageQueryCommand, null, ERunOptions.AppMustExist);
+		String StorageLocation = StorageResult.Output.Trim();
+		string RemoteDir = StorageLocation + "/UE4Game/" + Params.ShortProjectName;
+
+		// Note: appends the device name to make the filename unique; these files will be deleted later during delta manifest generation
+
+		// Try retrieving the UFS files manifest files from the device
+		string UFSManifestFileName = CombinePaths(SC.StageDirectory, DeploymentContext.UFSDeployedManifestFileName + "_" + Params.Device);
+		ProcessResult UFSResult = RunAdbCommand(Params, " pull " + RemoteDir + "/" + DeploymentContext.UFSDeployedManifestFileName + " \"" + UFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		if (!UFSResult.Output.Contains("bytes"))
+		{
+			return false;
+		}
+
+		// Try retrieving the non UFS files manifest files from the device
+		string NonUFSManifestFileName = CombinePaths(SC.StageDirectory, DeploymentContext.NonUFSDeployedManifestFileName + "_" + Params.Device);
+		ProcessResult NonUFSResult = RunAdbCommand(Params, " pull " + RemoteDir + "/" + DeploymentContext.NonUFSDeployedManifestFileName + " \"" + NonUFSManifestFileName + "\"", null, ERunOptions.AppMustExist);
+		if (!NonUFSResult.Output.Contains("bytes"))
+		{
+			// Did not retrieve both so delete one we did retrieve
+			File.Delete(UFSManifestFileName);
+
+			return false;
+		}
+
+		// Return the manifest files
+		UFSManifests = new List<string>();
+		UFSManifests.Add(UFSManifestFileName);
+		NonUFSManifests = new List<string>();
+		NonUFSManifests.Add(NonUFSManifestFileName);
+
+		return true;
+	}
+
 	internal class LongestFirst : IComparer<string>
 	{
 		public int Compare(string a, string b)
@@ -533,120 +503,205 @@ public class AndroidPlatform : Platform
 		// now we can use the apk to get more info
 		string PackageName = GetPackageInfo(ApkName, false);
 
-		// try uninstalling an old app with the same identifier.
-		int SuccessCode = 0;
-		string UninstallCommandline = "uninstall " + PackageName;
-		RunAndLogAdbCommand(Params, UninstallCommandline, out SuccessCode);
+		// Setup the OBB name and add the storage path (queried from the device) to it
+		string DeviceStorageQueryCommand = GetStorageQueryCommand();
+		ProcessResult Result = RunAdbCommand(Params, DeviceStorageQueryCommand, null, ERunOptions.AppMustExist);
+		String StorageLocation = Result.Output.Trim();
+		string DeviceObbName = StorageLocation + "/" + GetDeviceObbName(ApkName);
+		string RemoteDir = StorageLocation + "/UE4Game/" + Params.ShortProjectName;
 
-		// install the apk
-		string InstallCommandline = "install \"" + ApkName + "\"";
-		string InstallOutput = RunAndLogAdbCommand(Params, InstallCommandline, out SuccessCode);
-		int FailureIndex = InstallOutput.IndexOf("Failure"); 
-
-		// adb install doesn't always return an error code on failure, and instead prints "Failure", followed by an error code.
-		if (SuccessCode != 0 || FailureIndex != -1)
+		// determine if APK out of date
+		string APKLastUpdateTime = new FileInfo(ApkName).LastWriteTime.ToString();
+		bool bNeedAPKInstall = true;
+		if (Params.IterativeDeploy)
 		{
-			string ErrorMessage = String.Format("Installation of apk '{0}' failed", ApkName);
-			if (FailureIndex != -1)
+			// Check for apk installed with this package name on the device
+			ProcessResult InstalledResult = RunAdbCommand(Params, "shell pm list packages " + PackageName, null, ERunOptions.AppMustExist);
+			if (InstalledResult.Output.Contains(PackageName))
 			{
-				string FailureString = InstallOutput.Substring(FailureIndex + 7).Trim();
-				if (FailureString != "")
+				// See if apk is up to date on device
+				InstalledResult = RunAdbCommand(Params, "shell cat " + RemoteDir + "/APKFileStamp.txt", null, ERunOptions.AppMustExist);
+				if (InstalledResult.Output.StartsWith("APK: "))
 				{
-					ErrorMessage += ": " + FailureString;
+					if (InstalledResult.Output.Substring(5).Trim() == APKLastUpdateTime)
+						bNeedAPKInstall = false;
+
+					// Stop the previously running copy (uninstall/install did this before)
+					InstalledResult = RunAdbCommand(Params, "shell am force-stop " + PackageName, null, ERunOptions.AppMustExist);
+					if (InstalledResult.Output.Contains("Error"))
+					{
+						// force-stop not supported (Android < 3.0) so check if package is actually running
+						// Note: cannot use grep here since it may not be installed on device
+						InstalledResult = RunAdbCommand(Params, "shell ps", null, ERunOptions.AppMustExist);
+						if (InstalledResult.Output.Contains(PackageName))
+						{
+							// it is actually running so use the slow way to kill it (uninstall and reinstall)
+							bNeedAPKInstall = true;
+						}
+
+					}
 				}
 			}
-
-			ErrorReporter.Error(ErrorMessage, (int)ErrorCodes.Error_AppInstallFailed);
-			throw new AutomationException(ErrorMessage);
 		}
-		
+
+		// install new APK if needed
+		if (bNeedAPKInstall)
+		{
+			// try uninstalling an old app with the same identifier.
+			int SuccessCode = 0;
+			string UninstallCommandline = "uninstall " + PackageName;
+			RunAndLogAdbCommand(Params, UninstallCommandline, out SuccessCode);
+
+			// install the apk
+			string InstallCommandline = "install \"" + ApkName + "\"";
+			string InstallOutput = RunAndLogAdbCommand(Params, InstallCommandline, out SuccessCode);
+			int FailureIndex = InstallOutput.IndexOf("Failure"); 
+
+			// adb install doesn't always return an error code on failure, and instead prints "Failure", followed by an error code.
+			if (SuccessCode != 0 || FailureIndex != -1)
+			{
+				string ErrorMessage = String.Format("Installation of apk '{0}' failed", ApkName);
+				if (FailureIndex != -1)
+				{
+					string FailureString = InstallOutput.Substring(FailureIndex + 7).Trim();
+					if (FailureString != "")
+					{
+						ErrorMessage += ": " + FailureString;
+					}
+				}
+
+				ErrorReporter.Error(ErrorMessage, (int)ErrorCodes.Error_AppInstallFailed);
+				throw new AutomationException(ErrorMessage);
+			}
+		}
+ 
 		// update the ue4commandline.txt
 		// update and deploy ue4commandline.txt
 		// always delete the existing commandline text file, so it doesn't reuse an old one
 		string IntermediateCmdLineFile = CombinePaths(SC.StageDirectory, "UE4CommandLine.txt");
 		Project.WriteStageCommandline(IntermediateCmdLineFile, Params, SC);
 
-        // Setup the OBB name and add the storage path (queried from the device) to it
-        string DeviceStorageQueryCommand = GetStorageQueryCommand();
-		ProcessResult Result = RunAdbCommand(Params, DeviceStorageQueryCommand, null, ERunOptions.AppMustExist);
-        String StorageLocation = Result.Output.Trim();
-        string DeviceObbName = StorageLocation + "/" + GetDeviceObbName(ApkName);
-
 		// copy files to device if we were staging
 		if (SC.Stage)
 		{
 			// cache some strings
 			string BaseCommandline = "push";
-			string RemoteDir = StorageLocation + "/" /*+ Params.ProjectDirPrefix + "/"*/ + Params.ShortProjectName;
-            string UE4GameRemoteDir = StorageLocation + "/" /*+ Params.ProjectDirPrefix + "/"*/ + Params.ShortProjectName;
 
-			// make sure device is at a clean state
-			RunAdbCommand(Params, "shell rm -r " + RemoteDir);
-			RunAdbCommand(Params, "shell rm -r " + UE4GameRemoteDir);
+            HashSet<string> EntriesToDeploy = new HashSet<string>();
 
-			// Copy UFS files..
-			string[] Files = Directory.GetFiles(SC.StageDirectory, "*", SearchOption.AllDirectories);
-			System.Array.Sort(Files);
-
-			// Find all the files we exclude from copying. And include
-			// the directories we need to individually copy.
-			HashSet<string> ExcludedFiles = new HashSet<string>();
-			SortedSet<string> IndividualCopyDirectories
-				= new SortedSet<string>((IComparer<string>)new LongestFirst());
-			foreach (string Filename in Files)
+			if (Params.IterativeDeploy)
 			{
-				bool Exclude = false;
-				// Don't push the apk, we install it
-				Exclude |= Path.GetExtension(Filename).Equals(".apk", StringComparison.InvariantCultureIgnoreCase);
-				// For excluded files we add the parent dirs to our
-				// tracking of stuff to individually copy.
-				if (Exclude)
+				// always send UE4CommandLine.txt (it was written above after delta checks applied)
+				EntriesToDeploy.Add(IntermediateCmdLineFile);
+
+				// Add non UFS files if any to deploy
+				String NonUFSManifestPath = SC.GetNonUFSDeploymentDeltaPath();
+				if (File.Exists(NonUFSManifestPath))
 				{
-					ExcludedFiles.Add(Filename);
-					// We include all directories up to the stage root in having
-					// to individually copy the files.
-					for (string FileDirectory = Path.GetDirectoryName(Filename);
-						!FileDirectory.Equals(SC.StageDirectory);
-						FileDirectory = Path.GetDirectoryName(FileDirectory))
+					string NonUFSFiles = File.ReadAllText(NonUFSManifestPath);
+					foreach (string Filename in NonUFSFiles.Split('\n'))
 					{
-						if (!IndividualCopyDirectories.Contains(FileDirectory))
+						if (!string.IsNullOrEmpty(Filename) && !string.IsNullOrWhiteSpace(Filename))
 						{
-							IndividualCopyDirectories.Add(FileDirectory);
+							EntriesToDeploy.Add(CombinePaths(SC.StageDirectory, Filename.Trim()));
 						}
 					}
-					if (!IndividualCopyDirectories.Contains(SC.StageDirectory))
-					{
-						IndividualCopyDirectories.Add(SC.StageDirectory);
-					}
 				}
-			}
 
-			// The directories are sorted above in "deepest" first. We can
-			// therefore start copying those individual dirs which will
-			// recreate the tree. As the subtrees will get copied at each
-			// possible individual level.
-			HashSet<string> EntriesToDeploy = new HashSet<string>();
-			foreach (string DirectoryName in IndividualCopyDirectories)
-			{
-				string[] Entries
-					= Directory.GetFileSystemEntries(DirectoryName, "*", SearchOption.TopDirectoryOnly);
-				foreach (string Entry in Entries)
+				// Add UFS files if any to deploy
+				String UFSManifestPath = SC.GetUFSDeploymentDeltaPath();
+				if (File.Exists(UFSManifestPath))
 				{
-					// We avoid excluded files and the individual copy dirs
-					// (the individual copy dirs will get handled as we iterate).
-					if (ExcludedFiles.Contains(Entry) || IndividualCopyDirectories.Contains(Entry))
+					string UFSFiles = File.ReadAllText(UFSManifestPath);
+					foreach (string Filename in UFSFiles.Split('\n'))
 					{
-						continue;
-					}
-					else
-					{
-						EntriesToDeploy.Add(Entry);
+						if (!string.IsNullOrEmpty(Filename) && !string.IsNullOrWhiteSpace(Filename))
+						{
+							EntriesToDeploy.Add(CombinePaths(SC.StageDirectory, Filename.Trim()));
+						}
 					}
 				}
+
+				// For now, if too many files may be better to just push them all
+				if (EntriesToDeploy.Count > 500)
+				{
+					// make sure device is at a clean state
+					RunAdbCommand(Params, "shell rm -r " + RemoteDir);
+
+					EntriesToDeploy.Clear();
+					EntriesToDeploy.TrimExcess();
+					EntriesToDeploy.Add(SC.StageDirectory);
+				}
 			}
-			if (EntriesToDeploy.Count == 0)
+			else
 			{
-				EntriesToDeploy.Add(SC.StageDirectory);
+				// make sure device is at a clean state
+				RunAdbCommand(Params, "shell rm -r " + RemoteDir);
+
+				// Copy UFS files..
+				string[] Files = Directory.GetFiles(SC.StageDirectory, "*", SearchOption.AllDirectories);
+				System.Array.Sort(Files);
+
+				// Find all the files we exclude from copying. And include
+				// the directories we need to individually copy.
+				HashSet<string> ExcludedFiles = new HashSet<string>();
+				SortedSet<string> IndividualCopyDirectories
+					= new SortedSet<string>((IComparer<string>)new LongestFirst());
+				foreach (string Filename in Files)
+				{
+					bool Exclude = false;
+					// Don't push the apk, we install it
+					Exclude |= Path.GetExtension(Filename).Equals(".apk", StringComparison.InvariantCultureIgnoreCase);
+					// For excluded files we add the parent dirs to our
+					// tracking of stuff to individually copy.
+					if (Exclude)
+					{
+						ExcludedFiles.Add(Filename);
+						// We include all directories up to the stage root in having
+						// to individually copy the files.
+						for (string FileDirectory = Path.GetDirectoryName(Filename);
+							!FileDirectory.Equals(SC.StageDirectory);
+							FileDirectory = Path.GetDirectoryName(FileDirectory))
+						{
+							if (!IndividualCopyDirectories.Contains(FileDirectory))
+							{
+								IndividualCopyDirectories.Add(FileDirectory);
+							}
+						}
+						if (!IndividualCopyDirectories.Contains(SC.StageDirectory))
+						{
+							IndividualCopyDirectories.Add(SC.StageDirectory);
+						}
+					}
+				}
+
+				// The directories are sorted above in "deepest" first. We can
+				// therefore start copying those individual dirs which will
+				// recreate the tree. As the subtrees will get copied at each
+				// possible individual level.
+				foreach (string DirectoryName in IndividualCopyDirectories)
+				{
+					string[] Entries
+						= Directory.GetFileSystemEntries(DirectoryName, "*", SearchOption.TopDirectoryOnly);
+					foreach (string Entry in Entries)
+					{
+						// We avoid excluded files and the individual copy dirs
+						// (the individual copy dirs will get handled as we iterate).
+						if (ExcludedFiles.Contains(Entry) || IndividualCopyDirectories.Contains(Entry))
+						{
+							continue;
+						}
+						else
+						{
+							EntriesToDeploy.Add(Entry);
+						}
+					}
+				}
+
+				if (EntriesToDeploy.Count == 0)
+				{
+					EntriesToDeploy.Add(SC.StageDirectory);
+				}
 			}
 
 			// We now have a minimal set of file & dir entries we need
@@ -670,7 +725,7 @@ public class AndroidPlatform : Platform
 				{
 					while (DeployCommands.Count > DeployMaxParallelCommands / 2)
 					{
-						Thread.Sleep(10);
+						Thread.Sleep(1);
 						DeployCommands.RemoveWhere(
 							delegate(ProcessResult r)
 							{
@@ -704,7 +759,6 @@ public class AndroidPlatform : Platform
 		{
 			// cache some strings
 			string BaseCommandline = "push";
-            string RemoteDir = StorageLocation + "/" /*+ Params.ProjectDirPrefix + "/"*/ + Params.ShortProjectName;
 
 			string FinalRemoteDir = RemoteDir;
 			/*
@@ -719,7 +773,14 @@ public class AndroidPlatform : Platform
 			string Commandline = string.Format("{0} \"{1}\" \"{2}\"", BaseCommandline, IntermediateCmdLineFile, RemoteFilename);
 			RunAdbCommand(Params, Commandline);
 		}
-	}
+    
+        // write new timestamp for APK (do it here since RemoteDir will now exist)
+        if (bNeedAPKInstall)
+        {
+            int SuccessCode = 0;
+            RunAndLogAdbCommand(Params, "shell \"echo 'APK: " + APKLastUpdateTime + "' > " + RemoteDir + "/APKFileStamp.txt\"", out SuccessCode);
+        }
+    }
 
 	/** Internal usage for GetPackageName */
 	private static string PackageLine = null;
@@ -818,9 +879,9 @@ public class AndroidPlatform : Platform
 				DeviceArch = "-armv7";
 			}
 			// go from 64 to 32-bit
-			else if (DeviceArch == "-x86_64")
+			else if (DeviceArch == "-x64")
 			{
-				if (Array.IndexOf(AppArchitectures, "-x86") == -1)
+				if (Array.IndexOf(AppArchitectures, "-x86") != -1)
 				{
 					DeviceArch = "-x86";
 				}
@@ -841,12 +902,17 @@ public class AndroidPlatform : Platform
 			{
 				DeviceArch = "-armv7";
 			}
+            else
+            {
+                // future-proof by dropping back to armv7 for unknown
+                DeviceArch = "-armv7";
+            }
 		}
 
 		// if after the fallbacks, we still don't have it, we can't continue
 		if (Array.IndexOf(AppArchitectures, DeviceArch) == -1)
 		{
-            string ErrorString = String.Format("Unable to run because you don't have an apk that is usable on {0}", Params.Device);
+			string ErrorString = String.Format("Unable to run because you don't have an apk that is usable on {0}. Looked for {1}", Params.Device, DeviceArch);
             ErrorReporter.Error(ErrorString, (int)ErrorCodes.Error_NoApkSuitableForArchitecture);
             throw new AutomationException(ErrorString);
 		}
@@ -869,7 +935,7 @@ public class AndroidPlatform : Platform
 		ProcessResult ExtensionsResult = RunAdbCommand(Params, "shell dumpsys SurfaceFlinger", null, ERunOptions.AppMustExist);
 		string Extensions = ExtensionsResult.Output.Trim();
 
-		// look for AEP support
+		// look for AEP support (on device and in project)
 		if (Extensions.Contains("GL_ANDROID_extension_pack_es31a") && Extensions.Contains("GL_EXT_color_buffer_half_float"))
 		{
 			if (AppGPUArchitectures.Contains("-es31"))

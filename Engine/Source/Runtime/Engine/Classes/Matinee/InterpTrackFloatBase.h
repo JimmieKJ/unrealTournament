@@ -4,8 +4,8 @@
 #include "Matinee/InterpTrack.h"
 #include "InterpTrackFloatBase.generated.h"
 
-UCLASS(abstract, MinimalAPI)
-class UInterpTrackFloatBase : public UInterpTrack
+UCLASS(abstract)
+class ENGINE_API UInterpTrackFloatBase : public UInterpTrack
 {
 	GENERATED_UCLASS_BODY()
 	
@@ -20,7 +20,7 @@ class UInterpTrackFloatBase : public UInterpTrack
 
 	// Begin UObject interface.
 #if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent);
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	// End UObject interface.
 

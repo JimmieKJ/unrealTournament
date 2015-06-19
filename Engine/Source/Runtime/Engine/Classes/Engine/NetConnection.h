@@ -122,9 +122,9 @@ class UNetConnection : public UPlayer
 	UPROPERTY()
 	TArray<class AActor*> SentTemporaries;
 
-	/** @todo document */
+	/** The actor that is currently being viewed/controlled by the owning controller */
 	UPROPERTY()
-	class AActor* Viewer;
+	class AActor* ViewTarget;
 
 	/** Reference to controlling actor (usually PlayerController) */
 	UPROPERTY()
@@ -137,10 +137,34 @@ class UNetConnection : public UPlayer
 	uint32 InternalAck:1;					// Internally ack all packets, for 100% reliable connections.
 
 	struct FURL			URL;				// URL of the other side.
+
+	// Track each type of bit used per-packet for bandwidth profiling
+
+	/** Number of bits used for the packet id in the current packet. */
+	int NumPacketIdBits;
+
+	/** Number of bits used for bunches in the current packet. */
+	int NumBunchBits;
+
+	/** Number of bits used for acks in the current packet. */
+	int NumAckBits;
+
+	/** Number of bits used for padding in the current packet. */
+	int NumPaddingBits;
+
+	/** Sets all of the bit-tracking variables to zero. */
+	void ResetPacketBitCounts();
+
+	/** What type of data is being written */
+	enum class EWriteBitsDataType
+	{
+		Unknown,
+		Bunch,
+		Ack
+	};
+
 public:
 	// Constants.
-	enum{ MAX_PROTOCOL_VERSION = 1     };	// Maximum protocol version supported.
-	enum{ MIN_PROTOCOL_VERSION = 1     };	// Minimum protocol version supported.
 	enum{ MAX_CHANNELS         = 10240 };	// Maximum channels. TODO: This needs to differ per game somehow but cannot with shared executable
 
 	// Connection information.
@@ -155,7 +179,6 @@ public:
 	TSharedPtr<class FUniqueNetId> PlayerId;
 
 	// Negotiated parameters.
-	int32			ProtocolVersion;		// Protocol version we're communicating with (<=PROTOCOL_VERSION).
 	int32			PacketOverhead;			// Bytes overhead per packet sent.
 	FString			Challenge;				// Server-generated challenge.
 	FString			ClientResponse;			// Client-generated response.
@@ -307,7 +330,7 @@ public:
 	static class UNetConnection* GNetConnectionBeingCleanedUp;
 
 	// Constructors and destructors.
-	ENGINE_API UNetConnection(const FObjectInitializer& ObjectInitializer);
+	ENGINE_API UNetConnection(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	// Begin UObject interface.
 
@@ -466,15 +489,20 @@ public:
 	 * @param SizeInBits Number of bits to append
 	 * @param ExtraBits (optional) Second set of bits to be appended to the send buffer that need to send with the first set of bits
 	 * @param ExtraSizeInBits (optional) Number of secondary bits to append
+	 * @param TypeOfBits (optional) The type of data being written, for profiling and bandwidth tracking purposes
 	 */
 	int32 WriteBitsToSendBuffer( 
 		const uint8 *	Bits, 
 		const int32		SizeInBits, 
 		const uint8 *	ExtraBits = NULL, 
-		const int32		ExtraSizeInBits = 0 );
+		const int32		ExtraSizeInBits = 0,
+		EWriteBitsDataType DataType =  EWriteBitsDataType::Unknown);
 
 	/** Returns number of bits left in current packet that can be used without causing a flush.  */
 	int64 GetFreeSendBufferBits();
+
+	/** Pops the LastStart bits off of the send buffer, used for merging bunches */
+	void PopLastStart();
 
 	/** 
 	 * returns whether the client has initialized the level required for the given object

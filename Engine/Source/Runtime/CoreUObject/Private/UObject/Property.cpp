@@ -200,16 +200,6 @@ struct TStructOpsTypeTraits<FGuid> : public TStructOpsTypeTraitsBase
 IMPLEMENT_STRUCT(Guid);
 
 template<>
-struct TStructOpsTypeTraits<FNetworkGUID> : public TStructOpsTypeTraitsBase
-{
-	enum 
-	{
-		WithNetSerializer = true,
-	};
-};
-IMPLEMENT_STRUCT(NetworkGUID);
-
-template<>
 struct TStructOpsTypeTraits<FTransform> : public TStructOpsTypeTraitsBase
 {
 };
@@ -345,20 +335,35 @@ UProperty::UProperty(const FObjectInitializer& ObjectInitializer)
 , ArrayDim(1)
 {
 }
+
+UProperty::UProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+	: UField(FObjectInitializer::Get())
+	, ArrayDim(1)
+	, PropertyFlags(InFlags)
+	, Offset_Internal(InOffset)
+{
+	Init();
+}
+
 UProperty::UProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 : UField(ObjectInitializer)	
 , ArrayDim(1)
 , PropertyFlags(InFlags)
 , Offset_Internal(InOffset)
 {
+	Init();
+}
+
+void UProperty::Init()
+{
 	// properties created in C++ should always be marked RF_Transient so that when the package containing
 	// this property is saved, it doesn't try to save this UProperty into the ExportMap
-	SetFlags(RF_Transient|RF_Native);
+	SetFlags(RF_Transient | RF_Native);
 #if !WITH_EDITORONLY_DATA
 	//@todo.COOKER/PACKAGER: Until we have a cooker/packager step, this can fire when WITH_EDITORONLY_DATA is not defined!
-//	checkSlow(!HasAnyPropertyFlags(CPF_EditorOnly));
+	//	checkSlow(!HasAnyPropertyFlags(CPF_EditorOnly));
 #endif // WITH_EDITORONLY_DATA
-	checkSlow(GetOuterUField()->HasAllFlags(RF_Native|RF_Transient));
+	checkSlow(GetOuterUField()->HasAllFlags(RF_Native | RF_Transient));
 
 	GetOuterUField()->AddCppProperty(this);
 }
@@ -420,35 +425,27 @@ void UProperty::InitializeValueInternal( void* Dest ) const
  */
 bool UProperty::ValidateImportFlags( uint32 PortFlags, FOutputDevice* ErrorHandler ) const
 {
-	bool bResult = true;
-
 	// PPF_RestrictImportTypes is set when importing defaultproperties; it indicates that
 	// we should not allow config/localized properties to be imported here
-	if ( (PortFlags&PPF_RestrictImportTypes) != 0 &&
-		(PropertyFlags&(CPF_Localized|CPF_Config)) != 0 )
+	if ((PortFlags & PPF_RestrictImportTypes) && (PropertyFlags & CPF_Config))
 	{
-		FString PropertyType = (PropertyFlags&CPF_Config) != 0
-			? (PropertyFlags&CPF_Localized) != 0
-				? TEXT("config/localized")
-				: TEXT("config")
-			: TEXT("localized");
-
+		FString PropertyType = (PropertyFlags & CPF_Config) ? TEXT("config") : TEXT("localized");
 
 		FString ErrorMsg = FString::Printf(TEXT("Import failed for '%s': property is %s (Check to see if the property is listed in the DefaultProperties.  It should only be listed in the specific .ini/.int file)"), *GetName(), *PropertyType);
 
-		if( ErrorHandler != NULL )
+		if (ErrorHandler)
 		{
-			ErrorHandler->Logf( *ErrorMsg );
+			ErrorHandler->Logf(*ErrorMsg);
 		}
 		else
 		{
-			UE_LOG(LogProperty, Warning, TEXT("%s"), *ErrorMsg );
+			UE_LOG(LogProperty, Warning, TEXT("%s"), *ErrorMsg);
 		}
 
-		bResult = false;
+		return false;
 	}
 
-	return bResult;
+	return true;
 }
 
 FString UProperty::GetNameCPP() const
@@ -587,10 +584,6 @@ bool UProperty::ExportText_Direct
 	UObject*	ExportRootScope
 	) const
 {
-	if ( (PortFlags&PPF_LocalizedOnly) != 0 && !IsLocalized() )
-	{
-		return false;
-	}
 	if( Data==Delta || !Identical(Data,Delta,PortFlags) )
 	{
 		ExportTextItem
@@ -626,7 +619,7 @@ bool UProperty::ShouldSerializeValue( FArchive& Ar ) const
 		||	((PropertyFlags & CPF_NonPIEDuplicateTransient) && !(Ar.GetPortFlags() & PPF_DuplicateForPIE) && (Ar.GetPortFlags() & PPF_Duplicate))
 		||  (Ar.IsFilterEditorOnly() && IsEditorOnlyProperty())
 		||	((PropertyFlags & CPF_NonTransactional) && Ar.IsTransacting())
-		||	((PropertyFlags & CPF_Deprecated) && (Ar.IsSaving() || Ar.IsTransacting() || Ar.WantBinaryPropertySerialization()));
+		||	((PropertyFlags & CPF_Deprecated) && !Ar.HasAllPortFlags(PPF_UseDeprecatedProperties) && (Ar.IsSaving() || Ar.IsTransacting() || Ar.WantBinaryPropertySerialization()));
 
 	return !Skip;
 }
@@ -637,16 +630,8 @@ bool UProperty::ShouldSerializeValue( FArchive& Ar ) const
 //
 bool UProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData ) const
 {
-	SerializeItem( Ar, Data, 0, NULL );
+	SerializeItem( Ar, Data, NULL );
 	return 1;
-}
-
-//
-// Return whether the property should be exported to localization files.
-//
-bool UProperty::IsLocalized() const
-{
-	return (PropertyFlags & CPF_Localized) != 0;
 }
 
 //
@@ -701,6 +686,11 @@ int32 UProperty::SetupOffset()
 {
 	Offset_Internal = Align((GetOuter()->GetClass()->ClassCastFlags & CASTCLASS_UStruct) ? ((UStruct*)GetOuter())->GetPropertiesSize() : 0, GetMinAlignment());
 	return Offset_Internal + GetSize();
+}
+
+void UProperty::SetOffset_Internal(int32 NewOffset)
+{
+	Offset_Internal = NewOffset;
 }
 
 bool UProperty::SameType(const UProperty* Other) const
@@ -794,7 +784,7 @@ static const int32 ReadArrayIndex(UStruct* ObjectStruct, const TCHAR*& Str, FOut
  * This normally only happens for empty strings or empty dynamic arrays, and the alternative
  * is for strings and dynamic arrays to always export blank delimiters, such as Array=() or String="", 
  * but this tends to cause problems with inherited property values being overwritten, especially in the localization 
- * import/export code, or when a property has both CPF_Localized & CPF_Config flags
+ * import/export code
 
  * The safest way is to interpret blank delimiters as an indication that the current value should be overwritten with an empty
  * value, while the lack of any value or delimiter as an indication to not import this property, thereby preventing any current
@@ -927,7 +917,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 					if (ImportError.Len() > 0)
 					{
 						TArray<FString> ImportErrors;
-						ImportError.ParseIntoArray(&ImportErrors, LINE_TERMINATOR, true);
+						ImportError.ParseIntoArray(ImportErrors, LINE_TERMINATOR, true);
 
 						for ( int32 ErrorIndex = 0; ErrorIndex < ImportErrors.Num(); ErrorIndex++ )
 						{
@@ -1130,7 +1120,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 					if (ImportError.Len() > 0)
 					{
 						TArray<FString> ImportErrors;
-						ImportError.ParseIntoArray(&ImportErrors,LINE_TERMINATOR,true);
+						ImportError.ParseIntoArray(ImportErrors,LINE_TERMINATOR,true);
 
 						for ( int32 ErrorIndex = 0; ErrorIndex < ImportErrors.Num(); ErrorIndex++ )
 						{
@@ -1162,7 +1152,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 					if (ImportError.Len() > 0)
 					{
 						TArray<FString> ImportErrors;
-						ImportError.ParseIntoArray(&ImportErrors, LINE_TERMINATOR, true);
+						ImportError.ParseIntoArray(ImportErrors, LINE_TERMINATOR, true);
 
 						for ( int32 ErrorIndex = 0; ErrorIndex < ImportErrors.Num(); ErrorIndex++ )
 						{
@@ -1184,6 +1174,17 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 	}
 	return Str;
 }
+
+/**
+ * Returns the hash value for an element of this property.
+ */
+uint32 UProperty::GetValueTypeHash(const void* Src) const
+{
+	check(PropertyFlags & CPF_HasGetValueTypeHash); // make sure the type is hashable
+	check(Src);
+	return GetValueTypeHashInternal(Src);
+}
+
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UProperty, UField,
 	{

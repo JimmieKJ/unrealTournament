@@ -17,6 +17,7 @@ JavaVM* GJavaVM;
 static IVirtualKeyboardEntry *VirtualKeyboardWidget = NULL;
 
 extern FString GFilePathBase;
+extern FString GExternalFilePath;
 extern FString GFontPathBase;
 extern bool GOBBinAPK;
 
@@ -51,6 +52,7 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_IsMusicActive = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsMusicActive", "()Z", bIsOptional);
 	AndroidThunkJava_KeepScreenOn = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_KeepScreenOn", "(Z)V", bIsOptional);
 	AndroidThunkJava_InitHMDs = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_InitHMDs", "()V", bIsOptional);
+	AndroidThunkJava_IsGearVRApplication = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsGearVRApplication", "()Z", bIsOptional);
 
 
 	// the rest are optional
@@ -156,6 +158,7 @@ jmethodID FJavaWrapper::AndroidThunkJava_Vibrate;
 jmethodID FJavaWrapper::AndroidThunkJava_IsMusicActive;
 jmethodID FJavaWrapper::AndroidThunkJava_KeepScreenOn;
 jmethodID FJavaWrapper::AndroidThunkJava_InitHMDs;
+jmethodID FJavaWrapper::AndroidThunkJava_IsGearVRApplication;
 
 jclass FJavaWrapper::GoogleServicesClassID;
 jobject FJavaWrapper::GoogleServicesThis;
@@ -215,6 +218,18 @@ void AndroidThunkCpp_InitHMDs()
 	{
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_InitHMDs);
 	}
+}
+
+// Check to see if this application is packaged for GearVR
+bool AndroidThunkCpp_IsGearVRApplication()
+{
+	bool bIsGearVRApplication = false;
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		bIsGearVRApplication = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_IsGearVRApplication);
+	}
+
+	return bIsGearVRApplication;
 }
 
 void AndroidThunkCpp_ShowConsoleWindow()
@@ -553,6 +568,20 @@ extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetGlobalActivity(JNIE
 		// Next we check to see if the OBB file is in the APK
 		jmethodID isOBBInAPKMethod = jenv->GetStaticMethodID(FJavaWrapper::GameActivityClassID, "isOBBInAPK", "()Z");
 		GOBBinAPK = (bool)jenv->CallStaticBooleanMethod(FJavaWrapper::GameActivityClassID, isOBBInAPKMethod, nullptr);
+
+		// Cache path to external files directory
+		jclass ContextClass = jenv->FindClass("android/content/Context");
+		jmethodID getExternalFilesDir = jenv->GetMethodID(ContextClass, "getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;");
+		jobject externalFilesDirPath = jenv->CallObjectMethod(FJavaWrapper::GameActivityThis, getExternalFilesDir, nullptr);
+		jmethodID getFilePath = jenv->GetMethodID(jenv->FindClass("java/io/File"), "getPath", "()Ljava/lang/String;");
+		jstring externalFilesPathString = (jstring)jenv->CallObjectMethod(externalFilesDirPath, getFilePath, nullptr);
+		const char *nativeExternalFilesPathString = jenv->GetStringUTFChars(externalFilesPathString, 0);
+		// Copy that somewhere safe 
+		GExternalFilePath = FString(nativeExternalFilesPathString);
+
+		// then release...
+		jenv->ReleaseStringUTFChars(externalFilesPathString, nativeExternalFilesPathString);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("ExternalFilePath found as '%s'\n"), *GExternalFilePath);
 	}
 }
 

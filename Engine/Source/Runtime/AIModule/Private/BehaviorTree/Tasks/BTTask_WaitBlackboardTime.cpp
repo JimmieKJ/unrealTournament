@@ -9,7 +9,7 @@ UBTTask_WaitBlackboardTime::UBTTask_WaitBlackboardTime(const FObjectInitializer&
 {
 	NodeName = "Wait Blackboard Time";
 
-	BlackboardKey.AddFloatFilter(this);
+	BlackboardKey.AddFloatFilter(this, GET_MEMBER_NAME_CHECKED(UBTTask_WaitBlackboardTime, BlackboardKey));
 }
 
 void UBTTask_WaitBlackboardTime::InitializeFromAsset(UBehaviorTree& Asset)

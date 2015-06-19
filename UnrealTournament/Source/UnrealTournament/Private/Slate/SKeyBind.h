@@ -146,7 +146,7 @@ protected:
 		return SButton::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 	}
 
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		return FVector2D(200.0f, 46.0f);
 	}

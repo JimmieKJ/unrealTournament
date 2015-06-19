@@ -62,6 +62,8 @@ class SANDBOXFILE_API FSandboxPlatformFile : public IPlatformFile
 	FString			RelativeRootDirectory;
 	/** Absolute path to root directory. Cached for faster access */
 	FString			AbsoluteRootDirectory;
+	/** Absolute path to game directory. Cached for faster access */
+	FString			AbsoluteGameDirectory;
 	/** Access to any file (in unreal standard form) matching this is not allowed */
 	TArray<FString>		FileExclusionWildcards;
 	/** Access to any directory (in unreal standard form) matching this is not allowed */
@@ -211,11 +213,14 @@ public:
 		return SandboxDirectory;
 	}
 
-	/** Returns absolute game directory */
+	/** Returns absolute root directory */
 	const FString& GetAbsoluteRootDirectory() const
 	{
 		return AbsoluteRootDirectory;
 	}
+
+	/** Returns absolute path to game directory (without the game directory itself) */
+	const FString& GetAbsolutePathToGameDirectory();
 
 	/** 
 	 * Add exclusion. These files and / or directories pretend not to exist so that they cannot be accessed at all (except in the sandbox) 
@@ -372,9 +377,9 @@ public:
 		return Result;
 	}
 
-	virtual IFileHandle*	OpenRead(const TCHAR* Filename) override
+	virtual IFileHandle*	OpenRead(const TCHAR* Filename, bool bAllowWrite = false) override
 	{
-		IFileHandle* Result = LowerLevel->OpenRead( *ConvertToSandboxPath( Filename ) );
+		IFileHandle* Result = LowerLevel->OpenRead( *ConvertToSandboxPath(Filename), bAllowWrite );
 		if( !Result  && OkForInnerAccess(Filename) )
 		{
 			Result = LowerLevel->OpenRead( Filename );
@@ -434,7 +439,15 @@ public:
 				VisitedSandboxFiles.Add( *LocalFilename );
 				// Now convert the sandbox path back to engine path because the sandbox folder should not be exposed
 				// to the engine and remain transparent.
-				LocalFilename = LocalFilename.Replace( *SandboxFile.GetSandboxDirectory(), *SandboxFile.GetAbsoluteRootDirectory(), ESearchCase::IgnoreCase );
+				LocalFilename = LocalFilename.Mid(SandboxFile.GetSandboxDirectory().Len());
+				if (LocalFilename.StartsWith(TEXT("Engine/")))
+				{
+					LocalFilename = SandboxFile.GetAbsoluteRootDirectory() / LocalFilename;
+				}
+				else
+				{
+					LocalFilename = SandboxFile.GetAbsolutePathToGameDirectory() / LocalFilename;
+				}
 			}
 			else
 			{

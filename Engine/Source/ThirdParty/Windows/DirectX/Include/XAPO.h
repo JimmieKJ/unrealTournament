@@ -84,8 +84,8 @@
 #include "comdecl.h" // for DEFINE_IID
 
 // XAPO interface IDs
-DEFINE_IID(IXAPO,           A90BC001, E897, E897, 55, E4, 9E, 47, 00, 00, 00, 00);
-DEFINE_IID(IXAPOParameters, A90BC001, E897, E897, 55, E4, 9E, 47, 00, 00, 00, 01);
+DEFINE_IID(IXAPO,A90BC001,E897,E897,55,E4,9E,47,00,00,00,00);
+DEFINE_IID(IXAPOParameters,A90BC001,E897,E897,55,E4,9E,47,00,00,00,01);
 
 
 #if !defined(GUID_DEFS_ONLY) // ignore rest if only GUID definitions requested

@@ -29,7 +29,6 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		AnnouncementNames.Add(TEXT("UltraKill"));
 		AnnouncementNames.Add(TEXT("MonsterKill"));
 
-		Importance = 0.9f;
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
@@ -46,14 +45,9 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		return 3.f;
 	}
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
+	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override
 	{
-		Super::ClientReceive(ClientData);
-		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->RewardAnnouncer != NULL)
-		{
-			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
-		}
+		return true;
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{

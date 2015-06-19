@@ -37,7 +37,7 @@ public:
 	}
 
 	/** Returns set of curves to edit. Must not release the curves while being edited. */
-	virtual TArray<FRichCurveEditInfoConst> GetCurves() const
+	virtual TArray<FRichCurveEditInfoConst> GetCurves() const override
 	{
 		TArray<FRichCurveEditInfoConst> Curves;
 		FFloatCurve * FloatCurveData = (FFloatCurve*)(CurveData);
@@ -47,7 +47,7 @@ public:
 	}
 
 	/** Returns set of curves to query. Must not release the curves while being edited. */
-	virtual TArray<FRichCurveEditInfo> GetCurves()
+	virtual TArray<FRichCurveEditInfo> GetCurves() override
 	{
 		TArray<FRichCurveEditInfo> Curves;
 		FFloatCurve * FloatCurveData = (FFloatCurve*)(CurveData);
@@ -56,18 +56,8 @@ public:
 		return Curves;
 	}
 
-	virtual UObject* GetOwner()
-	{
-		if (BaseSequence.IsValid())
-		{
-			return BaseSequence.Get();
-		}
-
-		return NULL;
-	}
-
 	/** Called to modify the owner of the curve */
-	virtual void ModifyOwner()
+	virtual void ModifyOwner() override
 	{
 		if (BaseSequence.IsValid())
 		{
@@ -76,7 +66,7 @@ public:
 	}
 
 	/** Called to make curve owner transactional */
-	virtual void MakeTransactional()
+	virtual void MakeTransactional() override
 	{
 		if (BaseSequence.IsValid())
 		{
@@ -102,7 +92,7 @@ public:
 		return FText::GetEmpty();
 	}
 
-	virtual void OnCurveChanged() override
+	virtual void OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos) override
 	{
 	}
 
@@ -527,6 +517,17 @@ void SAnimCurvePanel::Construct(const FArguments& InArgs)
 						SNew( SComboButton )
 						.ContentPadding(FMargin(2.0f))
 						.OnGetMenuContent(this, &SAnimCurvePanel::GenerateCurveList)
+					]
+
+					+SHorizontalBox::Slot()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Center)
+					.Padding(5,0)
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Font(FEditorStyle::GetFontStyle("CurveEd.InfoFont"))
+						.Text(FText::FromString(FString::Printf(TEXT(" Total Number : %d "), Sequence->RawCurveData.FloatCurves.Num())))
 					]
 
 					+SHorizontalBox::Slot()
@@ -1104,8 +1105,6 @@ void SAnimCurvePanel::CreateNewMetadataEntryClicked()
 		SlateApp.GetCursorPos(),
 		FPopupTransitionEffect::TypeInPopup
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SAnimCurvePanel::CreateNewMetadataEntry(const FText& CommittedText, ETextCommit::Type CommitType)
@@ -1141,8 +1140,6 @@ void SAnimCurvePanel::CreateNewCurveClicked()
 		SlateApp.GetCursorPos(),
 		FPopupTransitionEffect::TypeInPopup
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 TSharedRef<SWidget> SAnimCurvePanel::CreateCurveContextMenu(FFloatCurve* Curve) const

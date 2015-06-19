@@ -96,6 +96,9 @@ struct FShadowMapAllocation
 			// TODO: We currently only support one LOD of static lighting in foliage
 			// Need to create per-LOD instance data to fix that
 			Component->PerInstanceSMData[InstanceIndex].ShadowmapUVBias = ShadowMap->GetCoordinateBias();
+
+			Component->ReleasePerInstanceRenderData();
+			Component->MarkRenderStateDirty();
 		}
 	}
 };
@@ -968,9 +971,9 @@ void FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture,
 
 						for (int32 NeighborIndex = 0; NeighborIndex < ARRAY_COUNT(Neighbors); NeighborIndex++)
 						{
-							if (DestY + Neighbors[NeighborIndex].Y >= 0 
+							if (static_cast<int32>(DestY) + Neighbors[NeighborIndex].Y >= 0 
 								&& DestY + Neighbors[NeighborIndex].Y < MipSizeY
-								&& DestX + Neighbors[NeighborIndex].X >= 0 
+								&& static_cast<int32>(DestX) + Neighbors[NeighborIndex].X >= 0
 								&& DestX + Neighbors[NeighborIndex].X < MipSizeX)
 							{
 								const FFourDistanceFieldSamples& FourNeighborSamples = MipData[MipIndex][(DestY + Neighbors[NeighborIndex].Y) * MipSizeX + DestX + Neighbors[NeighborIndex].X];
@@ -978,9 +981,9 @@ void FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture,
 
 								if (NeighborSample.Coverage > 0)
 								{
-									if (DestY + Neighbors[NeighborIndex].Y * 2 >= 0 
+									if (static_cast<int32>(DestY) + Neighbors[NeighborIndex].Y * 2 >= 0
 										&& DestY + Neighbors[NeighborIndex].Y * 2 < MipSizeY
-										&& DestX + Neighbors[NeighborIndex].X * 2 >= 0 
+										&& static_cast<int32>(DestX) + Neighbors[NeighborIndex].X * 2 >= 0
 										&& DestX + Neighbors[NeighborIndex].X * 2 < MipSizeX)
 									{
 										// Lookup the second neighbor in the first neighbor's direction
@@ -1028,27 +1031,48 @@ FArchive& operator<<(FArchive& Ar,FShadowMap*& R)
 {
 	uint32 ShadowMapType = FShadowMap::SMT_None;
 
-	if (Ar.IsSaving() && R != NULL && R->GetShadowMap2D())
+	if (Ar.IsSaving())
 	{
-		ShadowMapType = FShadowMap::SMT_2D;
+		if (R != nullptr)
+		{
+			if (R->GetShadowMap2D())
+			{
+				ShadowMapType = FShadowMap::SMT_2D;
+			}
+		}
 	}
 
 	Ar << ShadowMapType;
 
-	if (Ar.IsLoading() && ShadowMapType == FShadowMap::SMT_2D)
+	if (Ar.IsLoading())
 	{
-		R = new FShadowMap2D();
+		// explicitly don't call "delete R;",
+		// we expect the calling code to handle that
+		switch (ShadowMapType)
+		{
+		case FShadowMap::SMT_None:
+			R = nullptr;
+			break;
+		case FShadowMap::SMT_2D:
+			R = new FShadowMap2D();
+			break;
+		default:
+			check(0);
+		}
 	}
 
-	if (R != NULL)
+	if (R != nullptr)
 	{
 		R->Serialize(Ar);
-		
-		// Dump old lightmaps
-		if( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_COMBINED_LIGHTMAP_TEXTURES )
+
+		if (Ar.IsLoading())
 		{
-			delete R;
-			R = NULL;
+			// Dump old Shadowmaps
+			if (Ar.UE4Ver() < VER_UE4_COMBINED_LIGHTMAP_TEXTURES)
+			{
+				delete R; // safe because if we're loading we new'd this above
+				R = nullptr;
+			}
 		}
 	}
 

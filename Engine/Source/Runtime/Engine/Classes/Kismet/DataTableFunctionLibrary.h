@@ -20,8 +20,8 @@ namespace EEvaluateCurveTableResult
     };
 }
 
-UCLASS(MinimalAPI)
-class UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
+UCLASS()
+class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
@@ -35,7 +35,7 @@ class UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
     UFUNCTION(BlueprintCallable, CustomThunk, Category = "DataTable", meta=(CustomStructureParam = "OutRow", BlueprintInternalUseOnly="true"))
     static bool GetDataTableRowFromName(UDataTable* Table, FName RowName, FTableRowBase& OutRow);
     
-	ENGINE_API static bool Generic_GetDataTableRowFromName(UDataTable* Table, FName RowName, void* OutRowPtr);
+	static bool Generic_GetDataTableRowFromName(UDataTable* Table, FName RowName, void* OutRowPtr);
 
     /** Based on UDataTableFunctionLibrary::GetDataTableRow */
     DECLARE_FUNCTION(execGetDataTableRowFromName)
@@ -48,6 +48,6 @@ class UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
         
         P_FINISH;
         
-		*(bool*)Result = Generic_GetDataTableRowFromName(Table, RowName, OutRowPtr);
+		*(bool*)RESULT_PARAM = Generic_GetDataTableRowFromName(Table, RowName, OutRowPtr);
     }
 };

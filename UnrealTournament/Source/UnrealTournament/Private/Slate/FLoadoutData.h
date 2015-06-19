@@ -18,7 +18,7 @@ public:
 			{
 				FString ImageName = DefaultObject->GetName() + TEXT("_Img");
 
-				Image = MakeShareable(new FSlateDynamicImageBrush(DefaultObject->MenuGraphic, FVector2D(256.0,128.0),FName(*ImageName)));
+				Image = MakeShareable(new FSlateDynamicImageBrush(DefaultObject->MenuGraphic, FVector2D(256.0,128.0),NAME_None));
 			}
 		}
 	};

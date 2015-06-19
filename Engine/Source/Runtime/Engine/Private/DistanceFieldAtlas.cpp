@@ -23,7 +23,21 @@ FDistanceFieldVolumeTextureAtlas::FDistanceFieldVolumeTextureAtlas(EPixelFormat 
 	Generation = 0;
 	Format = InFormat;
 }
- 
+
+FString FDistanceFieldVolumeTextureAtlas::GetSizeString() const
+{
+	if (VolumeTextureRHI)
+	{
+		const int32 FormatSize = GPixelFormats[Format].BlockBytes;
+		float MemorySize = VolumeTextureRHI->GetSizeX() * VolumeTextureRHI->GetSizeY() * VolumeTextureRHI->GetSizeZ() * FormatSize / 1024.0f / 1024.0f;
+		return FString::Printf(TEXT("Allocated %ux%ux%u distance field atlas = %.1fMb"), VolumeTextureRHI->GetSizeX(), VolumeTextureRHI->GetSizeY(), VolumeTextureRHI->GetSizeZ(), MemorySize);
+	}
+	else
+	{
+		return TEXT("");
+	}
+}
+
 void FDistanceFieldVolumeTextureAtlas::AddAllocation(FDistanceFieldVolumeTexture* Texture)
 {
 	PendingAllocations.AddUnique(Texture);
@@ -115,9 +129,7 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 				TexCreate_ShaderResource,
 				CreateInfo);
 
-			const int32 FormatSize = GPixelFormats[Format].BlockBytes;
-			float MemorySize = VolumeTextureRHI->GetSizeX() * VolumeTextureRHI->GetSizeY() * VolumeTextureRHI->GetSizeZ() * FormatSize / 1024.0f / 1024.0f;
-			UE_LOG(LogStaticMesh,Log,TEXT("Allocated %ux%ux%u distance field atlas = %.1fMb"), VolumeTextureRHI->GetSizeX(), VolumeTextureRHI->GetSizeY(), VolumeTextureRHI->GetSizeZ(), MemorySize);
+			UE_LOG(LogStaticMesh,Log,TEXT("Allocated %s"), *GetSizeString());
 		}
 
 		for (int32 AllocationIndex = 0; AllocationIndex < PendingAllocations.Num(); AllocationIndex++)
@@ -144,9 +156,9 @@ void FDistanceFieldVolumeTextureAtlas::UpdateAllocations()
 
 		CurrentAllocations.Append(PendingAllocations);
 		PendingAllocations.Empty();
-	}
+	}	
 }
-
+	
 void FDistanceFieldVolumeTexture::Initialize()
 {
 	if (IsValidDistanceFieldVolume())
@@ -193,7 +205,7 @@ FDistanceFieldAsyncQueue* GDistanceFieldAsyncQueue = NULL;
 
 #if WITH_EDITORONLY_DATA
 
-void FDistanceFieldVolumeData::CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh)
+void FDistanceFieldVolumeData::CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh, UStaticMesh* GenerateSource, float DistanceFieldResolutionScale, bool bGenerateDistanceFieldAsIfTwoSided)
 {
 	TArray<uint8> DerivedData;
 
@@ -207,6 +219,9 @@ void FDistanceFieldVolumeData::CacheDerivedData(const FString& InDDCKey, UStatic
 		FAsyncDistanceFieldTask* NewTask = new FAsyncDistanceFieldTask;
 		NewTask->DDCKey = InDDCKey;
 		NewTask->StaticMesh = Mesh;
+		NewTask->GenerateSource = GenerateSource;
+		NewTask->DistanceFieldResolutionScale = DistanceFieldResolutionScale;
+		NewTask->bGenerateDistanceFieldAsIfTwoSided = bGenerateDistanceFieldAsIfTwoSided;
 		NewTask->GeneratedVolumeData = new FDistanceFieldVolumeData();
 
 		for (int32 MaterialIndex = 0; MaterialIndex < Mesh->Materials.Num(); MaterialIndex++)
@@ -367,18 +382,67 @@ void FDistanceFieldAsyncQueue::AddTask(FAsyncDistanceFieldTask* Task)
 #endif
 }
 
+void FDistanceFieldAsyncQueue::BlockUntilBuildComplete(UStaticMesh* StaticMesh, bool bWarnIfBlocked)
+{
+	bool bReferenced = false;
+	bool bHadToBlock = false;
+	double StartTime = 0;
+
+	do 
+	{
+		ProcessAsyncTasks();
+
+		bReferenced = false;
+
+		for (int TaskIndex = 0; TaskIndex < ReferencedTasks.Num(); TaskIndex++)
+		{
+			bReferenced = bReferenced || ReferencedTasks[TaskIndex]->StaticMesh == StaticMesh;
+			bReferenced = bReferenced || ReferencedTasks[TaskIndex]->GenerateSource == StaticMesh;
+		}
+
+		if (bReferenced)
+		{
+			if (!bHadToBlock)
+			{
+				StartTime = FPlatformTime::Seconds();
+			}
+
+			bHadToBlock = true;
+			FPlatformProcess::Sleep(.01f);
+		}
+	} 
+	while (bReferenced);
+
+	if (bHadToBlock && bWarnIfBlocked)
+	{
+		UE_LOG(LogStaticMesh, Warning, TEXT("Main thread blocked for %.3fs for async distance field build of %s to complete!  This can happen if the mesh is rebuilt excessively."),
+			(float)(FPlatformTime::Seconds() - StartTime), 
+			*StaticMesh->GetName());
+	}
+}
+
+void FDistanceFieldAsyncQueue::BlockUntilAllBuildsComplete()
+{
+	do 
+	{
+		ProcessAsyncTasks();
+		FPlatformProcess::Sleep(.01f);
+	} 
+	while (GetNumOutstandingTasks() > 0);
+}
+
 void FDistanceFieldAsyncQueue::Build(FAsyncDistanceFieldTask* Task, FQueuedThreadPool& ThreadPool)
 {
 #if WITH_EDITOR
-	const FStaticMeshLODResources& LODModel = Task->StaticMesh->RenderData->LODResources[0];
+	const FStaticMeshLODResources& LODModel = Task->GenerateSource->RenderData->LODResources[0];
 
 	MeshUtilities->GenerateSignedDistanceFieldVolumeData(
 		LODModel,
 		ThreadPool,
 		Task->MaterialBlendModes,
-		Task->StaticMesh->RenderData->Bounds,
-		Task->StaticMesh->SourceModels[0].BuildSettings.DistanceFieldResolutionScale,
-		Task->StaticMesh->SourceModels[0].BuildSettings.bGenerateDistanceFieldAsIfTwoSided,
+		Task->GenerateSource->RenderData->Bounds,
+		Task->DistanceFieldResolutionScale,
+		Task->bGenerateDistanceFieldAsIfTwoSided,
 		*Task->GeneratedVolumeData);
 
 	CompletedTasks.Push(Task);
@@ -391,6 +455,7 @@ void FDistanceFieldAsyncQueue::AddReferencedObjects(FReferenceCollector& Collect
 	{
 		// Make sure none of the UObjects referenced by the async tasks are GC'ed during the task
 		Collector.AddReferencedObject(ReferencedTasks[TaskIndex]->StaticMesh);
+		Collector.AddReferencedObject(ReferencedTasks[TaskIndex]->GenerateSource);
 	}
 }
 

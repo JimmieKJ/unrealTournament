@@ -104,7 +104,7 @@ void FAnimNode_Trail::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, c
 
 		if (bActorSpaceFakeVel && SkelComp->GetOwner())
 		{
-			const FTransform BoneToWorld(SkelComp->GetOwner()->GetActorRotation(), SkelComp->GetOwner()->GetActorLocation());
+			const FTransform BoneToWorld(SkelComp->GetOwner()->GetActorQuat(), SkelComp->GetOwner()->GetActorLocation());
 			FakeMovement = BoneToWorld.TransformVector(FakeMovement);
 		}
 

@@ -2,7 +2,6 @@
 
 #include "AssetToolsPrivatePCH.h"
 #include "AssetToolsModule.h"
-#include "Editor/UnrealEd/Public/Dialogs/DlgSoundWaveOptions.h"
 #include "Editor/SoundCueEditor/Public/SoundCueEditorModule.h"
 #include "SoundDefinitions.h"
 #include "Sound/SoundCue.h"
@@ -83,7 +82,7 @@ void FAssetTypeActions_SoundCue::ExecuteConsolidateAttenuation(TArray<TWeakObjec
 		TArray<UObject*> ObjectsToSync;
 
 		FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
-		USoundAttenuationFactory* Factory = ConstructObject<USoundAttenuationFactory>(USoundAttenuationFactory::StaticClass());
+		USoundAttenuationFactory* Factory = NewObject<USoundAttenuationFactory>();
 
 		for (auto UnmatchedIt = UnmatchedAttenuations.CreateConstIterator(); UnmatchedIt; ++UnmatchedIt)
 		{

@@ -104,7 +104,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << DeferredParameters << DepthOfFieldParams << VisualizeColors;
@@ -342,7 +342,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << DeferredParameters << DepthOfFieldParams;
@@ -508,7 +508,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << TileCountAndSize << KernelSize << DepthOfFieldParams << DepthOfFieldThresholds << DeferredParameters;
@@ -593,7 +593,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << LensTexture << LensTextureSampler;
@@ -646,7 +646,7 @@ void FRCPassPostProcessBokehDOF::SetShaderTempl(const FRenderingCompositePassCon
 	static FGlobalBoundShaderState BoundShaderState;
 	
 
-	SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+	SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GEmptyVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
 
 	VertexShader->SetParameters(Context, TileCount, TileSize, PixelKernelSize, LeftTop);
 	PixelShader->SetParameters(Context, PixelKernelSize);

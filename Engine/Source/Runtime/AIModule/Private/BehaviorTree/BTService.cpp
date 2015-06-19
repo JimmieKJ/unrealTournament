@@ -8,6 +8,8 @@ UBTService::UBTService(const FObjectInitializer& ObjectInitializer) : Super(Obje
 	bNotifyTick = true;
 	bNotifyOnSearch = true;
 	bTickIntervals = true;
+	bCallTickOnSearchStart = false;
+	bRestartTimerOnEachActivation = false;
 
 	Interval = 0.5f;
 	RandomDeviation = 0.1f;
@@ -15,24 +17,42 @@ UBTService::UBTService(const FObjectInitializer& ObjectInitializer) : Super(Obje
 
 void UBTService::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-	const float NextTickTime = FMath::FRandRange(FMath::Max(0.0f, Interval - RandomDeviation), (Interval + RandomDeviation));
-	SetNextTickTime(NodeMemory, NextTickTime);
+	ScheduleNextTick(NodeMemory);
 }
 
 void UBTService::OnSearchStart(FBehaviorTreeSearchData& SearchData)
 {
-	uint8* NodeMemory = GetNodeMemory<uint8>(SearchData);
-	TickNode(SearchData.OwnerComp, NodeMemory, 0.0f);
+	// empty in base class
 }
 
 void UBTService::NotifyParentActivation(FBehaviorTreeSearchData& SearchData)
 {
-	if (bNotifyOnSearch)
+	if (bNotifyOnSearch || bNotifyTick)
 	{
 		UBTNode* NodeOb = bCreateNodeInstance ? GetNodeInstance(SearchData) : this;
 		if (NodeOb)
 		{
-			((UBTService*)NodeOb)->OnSearchStart(SearchData);
+			UBTService* ServiceNodeOb = (UBTService*)NodeOb;
+			uint8* NodeMemory = GetNodeMemory<uint8>(SearchData);
+
+			if (bNotifyTick)
+			{
+				const float RemainingTime = bRestartTimerOnEachActivation ? 0.0f : GetNextTickRemainingTime(NodeMemory);
+				if (RemainingTime <= 0.0f)
+				{
+					ServiceNodeOb->ScheduleNextTick(NodeMemory);
+				}
+			}
+
+			if (bNotifyOnSearch)
+			{
+				ServiceNodeOb->OnSearchStart(SearchData);
+			}
+
+			if (bCallTickOnSearchStart)
+			{
+				ServiceNodeOb->TickNode(SearchData.OwnerComp, NodeMemory, 0.0f);
+			}
 		}
 	}
 }
@@ -64,3 +84,9 @@ FName UBTService::GetNodeIconName() const
 }
 
 #endif // WITH_EDITOR
+
+void UBTService::ScheduleNextTick(uint8* NodeMemory)
+{
+	const float NextTickTime = FMath::FRandRange(FMath::Max(0.0f, Interval - RandomDeviation), (Interval + RandomDeviation));
+	SetNextTickTime(NodeMemory, NextTickTime);
+}

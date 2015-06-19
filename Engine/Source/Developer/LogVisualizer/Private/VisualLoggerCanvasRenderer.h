@@ -3,8 +3,7 @@
 
 struct FVisualLoggerCanvasRenderer
 {
-	FVisualLoggerCanvasRenderer(TSharedPtr<IVisualLoggerInterface> InVisualLoggerInterface) 
-		: VisualLoggerInterface(InVisualLoggerInterface) 
+	FVisualLoggerCanvasRenderer() 
 	{}
 
 	void DrawOnCanvas(class UCanvas* Canvas, class APlayerController*);
@@ -16,7 +15,6 @@ protected:
 
 private:
 	FVisualLogEntry SelectedEntry;
-	TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface;
 	TMap<FString, TArray<FString> > UsedGraphCategories;
 	TWeakPtr<class STimeline> CurrentTimeLine;
 };

@@ -1,12 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-/*=============================================================================================
-	GenericPlatformSurvey.h: Generic platform hardware-survey classes
-==============================================================================================*/
-
 #pragma once
+
 #include "HAL/Platform.h"
+
 
 // time and amount of work that was measured
 struct FTimeSample
@@ -23,6 +20,7 @@ struct FTimeSample
 	float NormalizedTime;
 };
 
+
 struct FSynthBenchmarkStat
 {
 	FSynthBenchmarkStat()
@@ -32,8 +30,7 @@ struct FSynthBenchmarkStat
 		, IndexNormalizedTime(-1)
 		, ValueType(0)
 		, Confidence(0)
-	{
-	}
+	{ }
 
 	// @param InDesc descriptions
 	FSynthBenchmarkStat(const TCHAR* InDesc, float InIndexNormalizedTime, const TCHAR* InValueType)
@@ -93,6 +90,7 @@ struct FSynthBenchmarkStat
 	}
 
 private:
+
 	// 0 if not valid
 	const TCHAR *Desc;
 	// -1 if not defined, in seconds, useful to see if a test did run too long (some slower GPUs might timeout)
@@ -106,6 +104,7 @@ private:
 	// 0..100, 100: fully confident
 	float Confidence;
 };
+
 
 struct FSynthBenchmarkResults 
 {
@@ -157,6 +156,7 @@ struct FSynthBenchmarkResults
 	}
 };
 
+
 struct FHardwareDisplay	
 {
 	static const uint32 MaxStringLength = 260;
@@ -168,6 +168,7 @@ struct FHardwareDisplay
 	uint32 GPUDedicatedMemoryMB;
 	TCHAR GPUDriverVersion[MaxStringLength];
 };
+
 
 struct FHardwareSurveyResults
 {
@@ -211,6 +212,7 @@ struct FHardwareSurveyResults
 	FSynthBenchmarkResults SynthBenchmark;
 };
 
+
 /**
 * Generic implementation for most platforms, these tend to be unused and unimplemented
 **/
@@ -222,9 +224,8 @@ struct CORE_API FGenericPlatformSurvey
 	 *
 	 * @param OutResults	The struct that receives the results if available.
 	 * @param bWait			If true, the function won't return until the results are available or the survey fails. Defaults to false.
-	 *
 	 * @return				True if the results were available, false otherwise.
-	 **/
+	 */
 	static bool GetSurveyResults( FHardwareSurveyResults& OutResults, bool bWait = false )
 	{
 		return false;

@@ -6,7 +6,7 @@
 
 #if !UE_SERVER
 
-class SUWSocialSettingsDialog: public SUWDialog
+class UNREALTOURNAMENT_API SUWSocialSettingsDialog : public SUWDialog
 {
 public:
 	SLATE_BEGIN_ARGS(SUWSocialSettingsDialog)

@@ -72,7 +72,7 @@ private:
 		const FString& DisplayNameText = Cell->GetValueAsString();
 
 		TArray< FString > DisplayNamePieces;
-		DisplayNameText.ParseIntoArray( /*OUT*/ &DisplayNamePieces, TEXT("->"), true /*Cull Empty*/);
+		DisplayNameText.ParseIntoArray(DisplayNamePieces, TEXT("->"), true);
 
 		for (int Index = 0; Index < DisplayNamePieces.Num(); Index++)
 		{

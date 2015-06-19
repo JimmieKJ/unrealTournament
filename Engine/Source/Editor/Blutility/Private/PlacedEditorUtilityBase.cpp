@@ -2,6 +2,7 @@
 
 #include "BlutilityPrivatePCH.h"
 #include "PlacedEditorUtilityBase.h"
+#include "Engine/Selection.h"
 
 /////////////////////////////////////////////////////
 // APlacedEditorUtilityBase

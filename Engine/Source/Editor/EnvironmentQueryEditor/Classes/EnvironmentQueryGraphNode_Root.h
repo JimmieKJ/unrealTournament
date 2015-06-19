@@ -8,6 +8,6 @@ class UEnvironmentQueryGraphNode_Root : public UEnvironmentQueryGraphNode
 	GENERATED_UCLASS_BODY()
 
 	virtual void AllocateDefaultPins() override;
-	virtual bool CanUserDeleteNode() const override { return false; }
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
+	virtual bool HasErrors() const override { return false; }
 };

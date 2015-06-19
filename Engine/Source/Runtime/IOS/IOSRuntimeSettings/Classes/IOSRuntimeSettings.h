@@ -84,6 +84,54 @@ struct TStructOpsTypeTraits<FIOSBuildResourceFilePath> : public TStructOpsTypeTr
 
 
 /**
+ *	IOS Build resource file struct, used to serialize Directorys to the configs for use in the build system,
+ */
+USTRUCT()
+struct FIOSBuildResourceDirectory
+{
+	GENERATED_USTRUCT_BODY()
+
+	/**
+	 * Custom export item used to serialize FIOSBuildResourceDirectory types as only a filename, no garland.
+	 */
+	bool ExportTextItem(FString& ValueStr, FIOSBuildResourceDirectory const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
+	{
+		ValueStr += Path;
+		return true;
+	}
+
+	/**
+	 * Custom import item used to parse ini entries straight into the filename.
+	 */
+	bool ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText)
+	{
+		Path = Buffer;
+		return true;
+	}
+
+	/**
+	* The path to the file.
+	*/
+	UPROPERTY(EditAnywhere, Category = Directory)
+	FString Path;
+};
+
+/**
+*	Setup our resource Directory to make it easier to parse in UBT
+*/
+template<>
+struct TStructOpsTypeTraits<FIOSBuildResourceDirectory> : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithExportTextItem = true,
+		WithImportTextItem = true,
+	};
+};
+
+
+
+/**
  * Implements the settings for the iOS target platform.
  */
 UCLASS(config=Engine, defaultconfig)
@@ -93,7 +141,7 @@ public:
 	GENERATED_UCLASS_BODY()
 
 	// Should Game Center support (iOS Online Subsystem) be enabled?
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Online, meta = (ConfigHierarchyEditable))
 	uint32 bEnableGameCenterSupport : 1;
 	
 	// Whether or not to add support for Metal API (requires IOS8 and A7 processors).
@@ -133,23 +181,27 @@ public:
 	bool bShipForArmV7S;
 	
 	// The name or ip address of the remote mac which will be used to build IOS
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build")
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (ConfigHierarchyEditable))
 	FString RemoteServerName;
 
 	// Enable the use of RSync for remote builds on a mac
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (DisplayName = "Use RSync for IOS build"))
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (DisplayName = "Use RSync for building IOS", ConfigHierarchyEditable))
 	bool bUseRSync;
 
 	// The mac users name which matches the SSH Private Key, for remote builds using RSync.
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (EditCondition = "bUseRSync", DisplayName = "User for RSync enabled builds."))
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (EditCondition = "bUseRSync", DisplayName = "Username on Remote Server.", ConfigHierarchyEditable))
 	FString RSyncUsername;
 
-	// The path of the ssh permissions key to be used when connecting to the remote server.
-	UPROPERTY(VisibleAnywhere, Category = "Build", meta = (DisplayName = "Existing SSH permissions file"))
+	// The install directory of DeltaCopy.
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (EditCondition = "bUseRSync", ConfigHierarchyEditable))
+	FIOSBuildResourceDirectory DeltaCopyInstallPath;
+
+	// The existing location of an SSH Key found by UE4.
+	UPROPERTY(VisibleAnywhere, Category = "Build", meta = (DisplayName = "Found Existing SSH permissions file"))
 	FString SSHPrivateKeyLocation;
 
 	// The path of the ssh permissions key to be used when connecting to the remote server.
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (EditCondition = "bUseRSync", DisplayName = "Override existing SSH permissions file"))
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", meta = (EditCondition = "bUseRSync", DisplayName = "Override existing SSH permissions file", ConfigHierarchyEditable))
 	FIOSBuildResourceFilePath SSHPrivateKeyOverridePath;
 
 	// Supports default portrait orientation. Landscape will not be supported.
@@ -185,7 +237,7 @@ public:
 	FString VersionInfo;
     
     /** Set the maximum frame rate to save on power consumption */
-    UPROPERTY(GlobalConfig, EditAnywhere, Category = PowerUsage)
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = PowerUsage, meta = (ConfigHierarchyEditable))
     TEnumAsByte<EPowerUsageFrameRateLock> FrameRateLock;
 
 	// Minimum iOS version this game supports

@@ -30,6 +30,8 @@ public:
 		, _RevertTextOnEscape( false )
 		, _ClearKeyboardFocusOnCommit( true )
 		, _AlwaysShowScrollbars( false )
+		, _HScrollBar()
+		, _VScrollBar()
 		, _WrapTextAt(0.0f)
 		, _AutoWrapText(false)
 		, _SelectAllTextOnCommit( false )
@@ -109,6 +111,12 @@ public:
 		/** Called whenever the text is committed.  This happens when the user presses enter or the text box loses focus. */
 		SLATE_EVENT( FOnTextCommitted, OnTextCommitted )
 
+		/** Called whenever the horizontal scrollbar is moved by the user */
+		SLATE_EVENT( FOnUserScrolled, OnHScrollBarUserScrolled )
+
+		/** Called whenever the vertical scrollbar is moved by the user */
+		SLATE_EVENT( FOnUserScrolled, OnVScrollBarUserScrolled )
+
 		/** Called when the cursor is moved within the text area */
 		SLATE_EVENT( SMultiLineEditableText::FOnCursorMoved, OnCursorMoved )
 
@@ -167,6 +175,13 @@ public:
 	 * @param  InNewText  The new text string
 	 */
 	void SetText( const TAttribute< FText >& InNewText );
+
+	/**
+	 * Sets the text that appears when there is no text in the text box
+	 *
+	 * @param  InHintText The hint text string
+	 */
+	void SetHintText( const TAttribute< FText >& InHintText );
 
 	/**
 	 * If InError is a non-empty string the TextBox will the ErrorReporting provided during construction

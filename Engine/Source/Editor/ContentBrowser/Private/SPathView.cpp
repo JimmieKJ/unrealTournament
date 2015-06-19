@@ -37,15 +37,17 @@ SPathView::~SPathView()
 
 void SPathView::Construct( const FArguments& InArgs )
 {
-	bNeedsRepopulate = true;
-
 	OnPathSelected = InArgs._OnPathSelected;
 	bAllowContextMenu = InArgs._AllowContextMenu;
 	OnGetFolderContextMenu = InArgs._OnGetFolderContextMenu;
 	OnGetPathContextMenuExtender = InArgs._OnGetPathContextMenuExtender;
-	bPendingFocusNextFrame = InArgs._FocusSearchBoxWhenOpened;
 	bAllowClassesFolder = InArgs._AllowClassesFolder;
 	PreventTreeItemChangedDelegateCount = 0;
+
+	if ( InArgs._FocusSearchBoxWhenOpened )
+	{
+		RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SPathView::SetFocusPostConstruct ) );
+	}
 
 	// Listen for when view settings are changed
 	UContentBrowserSettings::OnSettingChanged().AddSP(this, &SPathView::HandleSettingChanged);
@@ -176,7 +178,7 @@ void SPathView::SetSelectedPaths(const TArray<FString>& Paths)
 		const FString& Path = Paths[PathIdx];
 
 		TArray<FString> PathItemList;
-		Path.ParseIntoArray(&PathItemList, TEXT("/"), /*InCullEmpty=*/true);
+		Path.ParseIntoArray(PathItemList, TEXT("/"), /*InCullEmpty=*/true);
 
 		if ( PathItemList.Num() )
 		{
@@ -281,7 +283,7 @@ TSharedPtr<FTreeItem> SPathView::AddPath(const FString& Path, bool bUserNamed)
 	}
 
 	TArray<FString> PathItemList;
-	Path.ParseIntoArray(&PathItemList, TEXT("/"), /*InCullEmpty=*/true);
+	Path.ParseIntoArray(PathItemList, TEXT("/"), /*InCullEmpty=*/true);
 
 	if ( PathItemList.Num() )
 	{
@@ -339,6 +341,11 @@ TSharedPtr<FTreeItem> SPathView::AddPath(const FString& Path, bool bUserNamed)
 						TreeViewPtr->SetItemSelection(ChildItem, true);
 						TreeViewPtr->RequestScrollIntoView(ChildItem);
 					}
+				}
+				else
+				{
+					//If the child item does exist, ensure its folder path is correct (may differ when renaming parent folder)
+					ChildItem->FolderPath = CurrentItem->FolderPath + "/" + PathItemName;
 				}
 
 				CurrentItem = ChildItem;
@@ -577,7 +584,7 @@ void SPathView::LoadSettings(const FString& IniFilename, const FString& IniSecti
 	TArray<FString> NewSelectedPaths;
 	if ( GConfig->GetString(*IniSection, *(SettingsString + TEXT(".SelectedPaths")), SelectedPathsString, IniFilename) )
 	{
-		SelectedPathsString.ParseIntoArray(&NewSelectedPaths, TEXT(","), /*bCullEmpty*/true);
+		SelectedPathsString.ParseIntoArray(NewSelectedPaths, TEXT(","), /*bCullEmpty*/true);
 	}
 
 	if ( NewSelectedPaths.Num() > 0 )
@@ -631,22 +638,19 @@ void SPathView::LoadSettings(const FString& IniFilename, const FString& IniSecti
 	}
 }
 
-void SPathView::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SPathView::SetFocusPostConstruct( double InCurrentTime, float InDeltaTime )
 {
-	if ( bPendingFocusNextFrame )
-	{
-		FWidgetPath WidgetToFocusPath;
-		FSlateApplication::Get().GeneratePathToWidgetUnchecked( SearchBoxPtr.ToSharedRef(), WidgetToFocusPath );
-		FSlateApplication::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
-		bPendingFocusNextFrame = false;
-	}
+	FWidgetPath WidgetToFocusPath;
+	FSlateApplication::Get().GeneratePathToWidgetUnchecked( SearchBoxPtr.ToSharedRef(), WidgetToFocusPath );
+	FSlateApplication::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
 
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	return EActiveTimerReturnType::Stop;
+}
 
-	if( bNeedsRepopulate )
-	{
-		Populate();
-	}
+EActiveTimerReturnType SPathView::TriggerRepopulate(double InCurrentTime, float InDeltaTime)
+{
+	Populate();
+	return EActiveTimerReturnType::Stop;
 }
 
 TSharedPtr<SWidget> SPathView::MakePathViewContextMenu()
@@ -678,7 +682,7 @@ bool SPathView::ExplicitlyAddPathToSelection(const FString& Path)
 	}
 
 	TArray<FString> PathItemList;
-	Path.ParseIntoArray(&PathItemList, TEXT("/"), /*InCullEmpty=*/true);
+	Path.ParseIntoArray(PathItemList, TEXT("/"), /*InCullEmpty=*/true);
 
 	if ( PathItemList.Num() )
 	{
@@ -997,8 +1001,6 @@ void SPathView::Populate()
 	}
 
 	SortRootItems();
-
-	bNeedsRepopulate = false;
 }
 
 void SPathView::SortRootItems()
@@ -1385,15 +1387,13 @@ void SPathView::OnAssetRegistrySearchCompleted()
 void SPathView::OnContentPathMountedOrDismounted( const FString& AssetPath, const FString& FilesystemPath )
 {
 	// A new content path has appeared, so we should refresh out root set of paths
-	bNeedsRepopulate = true;
+	RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SPathView::TriggerRepopulate));
 }
 
 void SPathView::OnClassHierarchyUpdated()
 {
 	// The class hierarchy has changed in some way, so we need to refresh our set of paths
-	bNeedsRepopulate = true;
-	// @todo 4.7 MERGE: This change should NOT be merged back to main.  This code is relying on a feature that we did not merge to the 4.7 branch.
-	// RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SPathView::TriggerRepopulate));
+	RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SPathView::TriggerRepopulate));
 }
 
 void SPathView::HandleSettingChanged(FName PropertyName)
@@ -1410,7 +1410,12 @@ void SPathView::HandleSettingChanged(FName PropertyName)
 		if (!bDisplayDev || !bDisplayEngine || !bDisplayPlugins)
 		{
 			const FString OldSelectedPath = GetSelectedPath();
-			if ((!bDisplayDev && ContentBrowserUtils::IsDevelopersFolder(OldSelectedPath)) || (!bDisplayEngine && ContentBrowserUtils::IsEngineFolder(OldSelectedPath)) || (!bDisplayPlugins && ContentBrowserUtils::IsPluginFolder(OldSelectedPath)))
+			const ContentBrowserUtils::ECBFolderCategory OldFolderCategory = ContentBrowserUtils::GetFolderCategory(OldSelectedPath);
+
+			if ((!bDisplayDev && OldFolderCategory == ContentBrowserUtils::ECBFolderCategory::DeveloperContent) || 
+				(!bDisplayEngine && (OldFolderCategory == ContentBrowserUtils::ECBFolderCategory::EngineContent || OldFolderCategory == ContentBrowserUtils::ECBFolderCategory::EngineClasses)) || 
+				(!bDisplayPlugins && (OldFolderCategory == ContentBrowserUtils::ECBFolderCategory::PluginContent || OldFolderCategory == ContentBrowserUtils::ECBFolderCategory::PluginClasses))
+				)
 			{
 				// Set the folder back to the root, and refresh the contents
 				TSharedPtr<FTreeItem> GameRoot = FindItemRecursive(TEXT("/Game"));
@@ -1432,7 +1437,12 @@ void SPathView::HandleSettingChanged(FName PropertyName)
 		if (bDisplayDev || bDisplayEngine || bDisplayPlugins)
 		{
 			const FString NewSelectedPath = GetSelectedPath();
-			if ((bDisplayDev && ContentBrowserUtils::IsDevelopersFolder(NewSelectedPath)) || (bDisplayEngine && ContentBrowserUtils::IsEngineFolder(NewSelectedPath)) || (bDisplayPlugins && ContentBrowserUtils::IsPluginFolder(NewSelectedPath)))
+			const ContentBrowserUtils::ECBFolderCategory NewFolderCategory = ContentBrowserUtils::GetFolderCategory(NewSelectedPath);
+
+			if ((bDisplayDev && NewFolderCategory == ContentBrowserUtils::ECBFolderCategory::DeveloperContent) || 
+				(bDisplayEngine && (NewFolderCategory == ContentBrowserUtils::ECBFolderCategory::EngineContent || NewFolderCategory == ContentBrowserUtils::ECBFolderCategory::EngineClasses)) || 
+				(bDisplayPlugins && (NewFolderCategory == ContentBrowserUtils::ECBFolderCategory::PluginContent || NewFolderCategory == ContentBrowserUtils::ECBFolderCategory::PluginClasses))
+				)
 			{
 				// Refresh the contents
 				OnPathSelected.ExecuteIfBound(NewSelectedPath);

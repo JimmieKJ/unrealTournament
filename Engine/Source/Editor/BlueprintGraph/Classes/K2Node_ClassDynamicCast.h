@@ -18,6 +18,8 @@ class UK2Node_ClassDynamicCast : public UK2Node_DynamicCast
 
 	// UK2Node interface
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
+	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override { return UK2Node::IsConnectionDisallowed(MyPin, OtherPin, OutReason); }
+	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override { UK2Node::NotifyPinConnectionListChanged(Pin); }
 	// End of UK2Node interface
 
 	// UK2Node_DynamicCast interface

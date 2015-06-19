@@ -12,8 +12,24 @@ class FAnalyticsProviderApsalar :
 	/** Tracks whether we need to start the session or restart it */
 	bool bHasSessionStarted;
 
-public:
+	/** Singleton for analytics */
+	static TSharedPtr<IAnalyticsProvider> Provider;
 	FAnalyticsProviderApsalar(const FString Key, const FString Secret, const int32 SendInterval, const int32 MaxBufferSize, const bool bWantsManualRevenueReporting);
+
+public:
+	static TSharedPtr<IAnalyticsProvider> Create(const FString Key, const FString Secret, const int32 SendInterval, const int32 MaxBufferSize, const bool bWantsManualRevenueReporting)
+	{
+		if (!Provider.IsValid())
+		{
+			Provider = TSharedPtr<IAnalyticsProvider>(new FAnalyticsProviderApsalar(Key, Secret, SendInterval, MaxBufferSize, bWantsManualRevenueReporting));
+		}
+		return Provider;
+	}
+	static void Destroy()
+	{
+		Provider.Reset();
+	}
+
 	virtual ~FAnalyticsProviderApsalar();
 
 	virtual bool StartSession(const TArray<FAnalyticsEventAttribute>& Attributes) override;

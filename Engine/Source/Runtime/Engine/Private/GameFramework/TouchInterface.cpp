@@ -33,8 +33,8 @@ void UTouchInterface::Activate(TSharedPtr<SVirtualJoystick> VirtualJoystick)
 			FTouchInputControl Control = Controls[ControlIndex];
 			SVirtualJoystick::FControlInfo* SlateControl = new(SlateControls)SVirtualJoystick::FControlInfo;
 
-			SlateControl->Image1 = FCoreStyle::GetDynamicImageBrush("Engine.Joystick.Image1", Control.Image1, Control.Image1->GetFName());
-			SlateControl->Image2 = FCoreStyle::GetDynamicImageBrush("Engine.Joystick.Image2", Control.Image2, Control.Image2->GetFName());
+			SlateControl->Image1 = (Control.Image1 ? FCoreStyle::GetDynamicImageBrush("Engine.Joystick.Image1", Control.Image1, Control.Image1->GetFName()) : nullptr);
+			SlateControl->Image2 = (Control.Image2 ? FCoreStyle::GetDynamicImageBrush("Engine.Joystick.Image2", Control.Image2, Control.Image2->GetFName()) : nullptr);
 			SlateControl->Center = Control.Center;
 			SlateControl->VisualSize = Control.VisualSize;
 			SlateControl->ThumbSize = Control.ThumbSize;

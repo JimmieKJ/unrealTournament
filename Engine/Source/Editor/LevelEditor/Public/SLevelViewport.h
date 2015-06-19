@@ -7,7 +7,8 @@
 #include "Editor/UnrealEd/Public/SEditorViewport.h"
 
 class SActorPreview;
-	
+class SGameLayerManager;
+
 /**
  * Encapsulates an SViewport and an SLevelViewportToolBar
  */
@@ -49,7 +50,7 @@ public:
 	/**
 	 * @return true if the viewport is visible. false otherwise                  
 	 */
-	virtual bool IsVisible() const;
+	virtual bool IsVisible() const override;
 
 	/** @return true if this viewport is in a foregrounded tab */
 	bool IsInForegroundTab() const;
@@ -142,7 +143,7 @@ public:
 	 * 
 	 * @param NewSelection	List of objects that are now selected
 	 */
-	void OnActorSelectionChanged( const TArray<UObject*>& NewSelection );
+	void OnActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh=false);
 
 	/**
 	 * Called when game view should be toggled
@@ -195,7 +196,7 @@ public:
 	/**
 	 * Toggles enabling the exact camera view when locking a viewport to a camera
 	 */
-	void ToggleLockedCameraView();
+	void ToggleActorPilotCameraView();
 
 	/**
 	 * Check whether locked camera view is enabled
@@ -613,9 +614,9 @@ private:
 
 	/** Resets view flags when a new level is created or opened */
 	void ResetNewLevelViewFlags();
-private:
-	/** Returns the DPI scaler that should be used for game UI in the viewport */
-	float GetGameViewportDPIScale() const;
+
+	/** Gets the active scene viewport for the game */
+	const FSceneViewport* GetGameSceneViewport() const;
 
 private:
 	/** Tab which this viewport is located in */
@@ -626,6 +627,8 @@ private:
 
 	/** Viewport overlay widget exposed to game systems when running play-in-editor */
 	TSharedPtr<SOverlay> PIEViewportOverlayWidget;
+
+	TSharedPtr<SGameLayerManager> GameLayerManager;
 
 	/** Viewport horizontal box used internally for drawing actor previews on top of the level viewport */
 	TSharedPtr<SHorizontalBox> ActorPreviewHorizontalBox;

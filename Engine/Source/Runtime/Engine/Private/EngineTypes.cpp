@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 
 UEngineBaseTypes::UEngineBaseTypes(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -140,15 +141,37 @@ USceneComponent* FComponentReference::GetComponent(AActor* OwningActor) const
 				if(ObjProp != NULL)
 				{
 					// .. and return the component that is there
-					Result = Cast<UPrimitiveComponent>(ObjProp->GetObjectPropertyValue_InContainer(SearchActor));
+					Result = Cast<USceneComponent>(ObjProp->GetObjectPropertyValue_InContainer(SearchActor));
 				}
 			}
 			else
 			{
-				Result = Cast<UPrimitiveComponent>(SearchActor->GetRootComponent());
+				Result = Cast<USceneComponent>(SearchActor->GetRootComponent());
 			}
 		}
 	}
 
 	return Result;
 }
+
+FString FHitResult::ToString() const
+{
+	return FString::Printf(TEXT("bBlockingHit:%s bStartPenetrating:%s Time:%f Location:%s ImpactPoint:%s Normal:%s ImpactNormal:%s TraceStart:%s TraceEnd:%s PenetrationDepth:%f Item:%d PhysMaterial:%s Actor:%s Component:%s BoneName:%s FaceIndex:%d"),
+		bBlockingHit == true ? TEXT("True") : TEXT("False"),
+		bStartPenetrating == true ? TEXT("True") : TEXT("False"),
+		Time,
+		*Location.ToString(),
+		*ImpactPoint.ToString(),
+		*Normal.ToString(),
+		*ImpactNormal.ToString(),
+		*TraceStart.ToString(),
+		*TraceEnd.ToString(),
+		PenetrationDepth,
+		Item,
+		PhysMaterial.IsValid() ? *PhysMaterial->GetName() : TEXT("None"),
+		Actor.IsValid() ? *Actor->GetName() : TEXT("None"),
+		Component.IsValid() ? *Component->GetName() : TEXT("None"),
+		BoneName.IsValid() ? *BoneName.ToString() : TEXT("None"),
+		FaceIndex);
+}
+

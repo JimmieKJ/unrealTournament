@@ -72,6 +72,12 @@ void FFeaturePackContentSourceProvider::OnFeaturePackDirectoryChanged( const TAr
 	RefreshFeaturePacks();
 }
 
+/** Sorting function sort keys. */
+struct FFeaturePackCompareSortKey
+{
+	FORCEINLINE bool operator()( TSharedRef<IContentSource> const& A, TSharedRef<IContentSource> const& B) const { return A->GetSortKey() < B->GetSortKey(); }
+};
+
 void FFeaturePackContentSourceProvider::RefreshFeaturePacks()
 {
 	ContentSources.Empty();
@@ -89,6 +95,7 @@ void FFeaturePackContentSourceProvider::RefreshFeaturePacks()
 			}
 		}
 	}
+	ContentSources.Sort(FFeaturePackCompareSortKey());
 	OnContentSourcesChanged.ExecuteIfBound();
 }
 

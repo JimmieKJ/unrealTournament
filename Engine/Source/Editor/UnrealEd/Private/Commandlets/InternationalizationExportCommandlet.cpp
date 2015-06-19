@@ -470,7 +470,7 @@ bool FPortableObjectHeader::FromLocPOEntry( const TSharedRef<const FPortableObje
 
 	// The POEntry would store header info inside the MsgStr[0]
 	TArray<FString> HeaderLinesToProcess;
-	LocEntry->MsgStr[0].ReplaceEscapedCharWithChar().ParseIntoArray( &HeaderLinesToProcess, NewLineDelimiter, true );
+	LocEntry->MsgStr[0].ReplaceEscapedCharWithChar().ParseIntoArray( HeaderLinesToProcess, NewLineDelimiter, true );
 
 	for( const FString& PotentialHeaderEntry : HeaderLinesToProcess )
 	{
@@ -569,7 +569,7 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 	FString ParseString = InStr.Replace(TEXT("\r\n"), NewLineDelimiter);
 
 	TArray<FString> LinesToProcess;
-	ParseString.ParseIntoArray( &LinesToProcess, NewLineDelimiter, false );
+	ParseString.ParseIntoArray( LinesToProcess, NewLineDelimiter, false );
 
 	TSharedRef<FPortableObjectEntry> ProcessedEntry = MakeShareable( new FPortableObjectEntry );
 	bool bHasMsgId = false;
@@ -658,10 +658,13 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 				bSuccess = false;
 				break;
 			}
-			for( uint32 NextLineIdx = LineIdx + 1; NextLineIdx < NumFileLines && LinesToProcess[NextLineIdx].Trim().TrimTrailing().StartsWith(TEXT("\"")); ++LineIdx )
+			for( uint32 NextLineIdx = LineIdx + 1; NextLineIdx < NumFileLines && LinesToProcess[NextLineIdx].Trim().TrimTrailing().StartsWith(TEXT("\"")); ++NextLineIdx)
 			{
-				const FString& NextLine = 
-				RawMsgCtxt += FindDelimitedString(Line, TEXT("\""), TEXT("\""), RawMsgCtxt);
+				FString Tmp;
+				if (FindDelimitedString(Line, TEXT("\""), TEXT("\""), Tmp))
+				{
+					RawMsgCtxt += Tmp;
+				}
 			}
 
 			// If the following line contains more info for this element we continue to parse it out
@@ -932,7 +935,7 @@ void FPortableObjectEntry::AddExtractedComment( const FString& InComment )
 
 	//// Extracted comments can contain multiple references in a single line so we parse those out.
 	//TArray<FString> CommentsToProcess;
-	//InComment.ParseIntoArray( &CommentsToProcess, TEXT(" "), true );
+	//InComment.ParseIntoArray( CommentsToProcess, TEXT(" "), true );
 	//for( const FString& ExtractedComment : CommentsToProcess )
 	//{
 	//	ExtractedComments.AddUnique( ExtractedComment );
@@ -948,7 +951,7 @@ void FPortableObjectEntry::AddReference( const FString& InReference )
 	
 	//// Reference comments can contain multiple references in a single line so we parse those out.
 	//TArray<FString> ReferencesToProcess;
-	//InReference.ParseIntoArray( &ReferencesToProcess, TEXT(" "), true );
+	//InReference.ParseIntoArray( ReferencesToProcess, TEXT(" "), true );
 	//for( const FString& Reference : ReferencesToProcess )
 	//{
 	//	ReferenceComments.AddUnique( Reference );
@@ -1039,7 +1042,7 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 {
 	// Get manifest name.
 	FString ManifestName;
-	if( !GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, ConfigPath ) )
+	if( !GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, ConfigPath ) )
 	{
 		UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("No manifest name specified.") );
 		return false;
@@ -1047,7 +1050,7 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 
 	// Get archive name.
 	FString ArchiveName;
-	if( !( GetConfigString(* SectionName, TEXT("ArchiveName"), ArchiveName, ConfigPath ) ) )
+	if( !( GetStringFromConfig(* SectionName, TEXT("ArchiveName"), ArchiveName, ConfigPath ) ) )
 	{
 		UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("No archive name specified."));
 		return false;
@@ -1055,7 +1058,7 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 
 	// Get culture directory setting, default to true if not specified (used to allow picking of export directory with windows file dialog from Translation Editor)
 	bool bUseCultureDirectory = true;
-	if (!(GetConfigBool(*SectionName, TEXT("bUseCultureDirectory"), bUseCultureDirectory, ConfigPath)))
+	if (!(GetBoolFromConfig(*SectionName, TEXT("bUseCultureDirectory"), bUseCultureDirectory, ConfigPath)))
 	{
 		bUseCultureDirectory = true;
 	}
@@ -1139,8 +1142,8 @@ bool UInternationalizationExportCommandlet::DoExport( const FString& SourcePath,
 								PoEntry->MsgStr.Add( ConditionedArchiveTranslation );
 
 								FString PORefString = ConvertSrcLocationToPORef( ContextIter->SourceLocation );
-								PoEntry->AddReference( PORefString ); // The appropriate comment type.
-								PoEntry->AddExtractedComment( PORefString ); // Added to extracted comments to workaround what seems to be an issue with OneSky.
+								PoEntry->AddReference( PORefString ); // Source location.
+								PoEntry->AddExtractedComment( ContextIter->Key ); // "Notes from Programmer" in the form of the Key.
 								PortableObj.AddEntry( PoEntry );
 							}
 						}
@@ -1187,7 +1190,7 @@ bool UInternationalizationExportCommandlet::DoImport(const FString& SourcePath, 
 {
 	// Get manifest name.
 	FString ManifestName;
-	if( !GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, ConfigPath ) )
+	if( !GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, ConfigPath ) )
 	{
 		UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("No manifest name specified.") );
 		return false;
@@ -1195,7 +1198,7 @@ bool UInternationalizationExportCommandlet::DoImport(const FString& SourcePath, 
 
 	// Get archive name.
 	FString ArchiveName;
-	if( !( GetConfigString(* SectionName, TEXT("ArchiveName"), ArchiveName, ConfigPath ) ) )
+	if( !( GetStringFromConfig(* SectionName, TEXT("ArchiveName"), ArchiveName, ConfigPath ) ) )
 	{
 		UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("No archive name specified."));
 		return false;
@@ -1203,7 +1206,7 @@ bool UInternationalizationExportCommandlet::DoImport(const FString& SourcePath, 
 
 	// Get culture directory setting, default to true if not specified (used to allow picking of import directory with file open dialog from Translation Editor)
 	bool bUseCultureDirectory = true;
-	if (!(GetConfigBool(*SectionName, TEXT("bUseCultureDirectory"), bUseCultureDirectory, ConfigPath)))
+	if (!(GetBoolFromConfig(*SectionName, TEXT("bUseCultureDirectory"), bUseCultureDirectory, ConfigPath)))
 	{
 		bUseCultureDirectory = true;
 	}
@@ -1355,52 +1358,28 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 
 
 	FString SourcePath; // Source path to the root folder that manifest/archive files live in.
-	if( !GetConfigString( *SectionName, TEXT("SourcePath"), SourcePath, ConfigPath ) )
+	if( !GetPathFromConfig( *SectionName, TEXT("SourcePath"), SourcePath, ConfigPath ) )
 	{
 		UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("No source path specified.") );
 		return -1;
 	}
 
-	if (FPaths::IsRelative(SourcePath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			SourcePath = FPaths::Combine( *( FPaths::GameDir() ), *SourcePath );
-		}
-		else
-		{
-			SourcePath = FPaths::Combine( *( FPaths::EngineDir() ), *SourcePath );
-		}
-	}
-
 	FString DestinationPath; // Destination path that we will write files to.
-	if( !GetConfigString( *SectionName, TEXT("DestinationPath"), DestinationPath, ConfigPath ) )
+	if( !GetPathFromConfig( *SectionName, TEXT("DestinationPath"), DestinationPath, ConfigPath ) )
 	{
 		UE_LOG( LogInternationalizationExportCommandlet, Error, TEXT("No destination path specified.") );
 		return -1;
 	}
 
-	if (FPaths::IsRelative(DestinationPath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::GameDir() ), *DestinationPath );
-		}
-		else
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::EngineDir() ), *DestinationPath );
-		}
-	}
-
 	FString Filename; // Name of the file to read or write from
-	if (!GetConfigString(*SectionName, TEXT("PortableObjectName"), Filename, ConfigPath))
+	if (!GetStringFromConfig(*SectionName, TEXT("PortableObjectName"), Filename, ConfigPath))
 	{
 		UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("No portable object name specified."));
 		return -1;
 	}
 
 	// Get cultures to generate.
-	if( GetConfigArray(*SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, ConfigPath) == 0 )
+	if( GetStringArrayFromConfig(*SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, ConfigPath) == 0 )
 	{
 		UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("No cultures specified for generation."));
 		return -1;
@@ -1410,8 +1389,8 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 	bool bDoExport = false;
 	bool bDoImport = false;
 
-	GetConfigBool( *SectionName, TEXT("bExportLoc"), bDoExport, ConfigPath );
-	GetConfigBool( *SectionName, TEXT("bImportLoc"), bDoImport, ConfigPath );
+	GetBoolFromConfig( *SectionName, TEXT("bImportLoc"), bDoImport, ConfigPath );
+	GetBoolFromConfig( *SectionName, TEXT("bExportLoc"), bDoExport, ConfigPath );
 	
 	if( !bDoImport && !bDoExport )
 	{
@@ -1419,20 +1398,20 @@ int32 UInternationalizationExportCommandlet::Main( const FString& Params )
 		return -1;
 	}
 
-	if( bDoExport )
-	{
-		if (!DoExport(SourcePath, DestinationPath, Filename))
-		{
-			UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Failed to export localization files."));
-			return -1;
-		}
-	}
-
 	if( bDoImport )
 	{
 		if (!DoImport(SourcePath, DestinationPath, Filename))
 		{
 			UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Failed to import localization files."));
+			return -1;
+		}
+	}
+
+	if( bDoExport )
+	{
+		if (!DoExport(SourcePath, DestinationPath, Filename))
+		{
+			UE_LOG(LogInternationalizationExportCommandlet, Error, TEXT("Failed to export localization files."));
 			return -1;
 		}
 	}

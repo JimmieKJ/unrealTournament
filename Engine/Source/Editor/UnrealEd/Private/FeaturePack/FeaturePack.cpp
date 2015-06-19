@@ -8,7 +8,6 @@
 #include "LevelEditor.h"
 #include "Toolkits/AssetEditorManager.h"
 
-
 DEFINE_LOG_CATEGORY_STATIC(LogFeaturePack, Log, All);
 
 FFeaturePack::FFeaturePack()
@@ -40,7 +39,7 @@ void FFeaturePack::ParsePacks()
 	{
 		PackData EachPackData;
 		TArray<FString> PackEntries;
-		PacksToAdd[iPackEntry].ParseIntoArray(&PackEntries, TEXT(","), true);
+		PacksToAdd[iPackEntry].ParseIntoArray(PackEntries, TEXT(","), true);
 		FString PackSource;
 		FString PackName;
 		// Parse the pack name and source
@@ -70,7 +69,7 @@ void FFeaturePack::ParsePacks()
 			TArray<FString> EachImport;
 			FString FullPath = FPaths::FeaturePackDir() + EachPackData.PackSource;
 			EachImport.Add(FullPath);
-			EachPackData.ImportedObjects = AssetToolsModule.Get().ImportAssets(EachImport, EachPackData.PackName, nullptr, false);
+			EachPackData.ImportedObjects = AssetToolsModule.Get().ImportAssets(EachImport, TEXT("/Game"), nullptr, false);
 						
 			if (EachPackData.ImportedObjects.Num() == 0)
 			{			

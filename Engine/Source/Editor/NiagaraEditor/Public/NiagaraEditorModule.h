@@ -27,8 +27,8 @@ public:
 	virtual TSharedRef<INiagaraEffectEditor> CreateNiagaraEffectEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, class UNiagaraEffect* Effect);
 
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and toolbars */
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
-	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() {return ToolBarExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override {return MenuExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() override {return ToolBarExtensibilityManager;}
 
 	/** Niagara Editor app identifier string */
 	static const FName NiagaraEditorAppIdentifier;

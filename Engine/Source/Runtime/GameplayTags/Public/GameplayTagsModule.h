@@ -46,10 +46,10 @@ public:
 	 * 
 	 * @return Gameplay tag associated with the specified name. Will be marked invalid if tag not found
 	 */
-	static FGameplayTag RequestGameplayTag(FName InTagName)
+	static FGameplayTag RequestGameplayTag(FName InTagName, bool ErrorIfNotFound=true)
 	{
 		IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
-		return GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(InTagName);
+		return GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(InTagName, ErrorIfNotFound);
 	}
 };
 

@@ -4,12 +4,16 @@
 
 
 typedef TMap<FName, TSharedPtr<FUICommandInfo>> FCommandInfoMap;
-typedef TMap<FInputGesture, FName> FGestureMap;
+typedef TMap<FInputChord, FName> FChordMap;
+DEPRECATED(4.8, "Use FChordMap instead of FGestureMap")
+typedef FChordMap FGestureMap;
 
 
-/** Delegate for alerting subscribers the input manager records a user-defined gesture */
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnUserDefinedGestureChanged, const FUICommandInfo& );
+/** Delegate for alerting subscribers the input manager records a user-defined chord */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnUserDefinedChordChanged, const FUICommandInfo& );
 
+DEPRECATED(4.8, "Use FOnUserDefinedChordChanged instead of FOnUserDefinedGestureChanged")
+typedef FOnUserDefinedChordChanged FOnUserDefinedGestureChanged;
 
 /**
  * Manager responsible for creating and processing input bindings.                  
@@ -47,29 +51,31 @@ public:
 	 * @param InBindingContext		The context where the command is valid
 	 * @param InUserInterfaceAction	The user interface action to create the input command from
 	 *								Will automatically bind the user interface action to the command specified 
-	 *								by the action so when the command's gesture is pressed, the action is executed
+	 *								by the action so when the command's chord is pressed, the action is executed
 	 */
 	void CreateInputCommand( const TSharedRef<FBindingContext>& InBindingContext, TSharedRef<FUICommandInfo> InUICommandInfo );
 
 	/**
-	 * Returns a command info that is has the same active gesture as the provided gesture and is in the same binding context or parent context
+	 * Returns a command info that is has the same active chord as the provided chord and is in the same binding context or parent context
 	 *
 	 * @param	InBindingContext		The context in which the command is valid
-	 * @param	InGesture				The gesture to match against commands
-	 * @param	bCheckDefault			Whether or not to check the default gesture.  Will check the active gesture if false
-	 * @return	A pointer to the command info which has the InGesture as its active gesture or null if one cannot be found
+	 * @param	InChord					The chord to match against commands
+	 * @param	bCheckDefault			Whether or not to check the default chord.  Will check the active chord if false
+	 * @return	A pointer to the command info which has the InChord as its active chord or null if one cannot be found
 	 */
-	const TSharedPtr<FUICommandInfo> GetCommandInfoFromInputGesture( const FName InBindingContext, const FInputGesture& InGesture, bool bCheckDefault ) const;
+	DEPRECATED(4.8, "Use GetCommandInfoFromInputChord instead of GetCommandInfoFromInputGesture")
+	const TSharedPtr<FUICommandInfo> GetCommandInfoFromInputGesture( const FName InBindingContext, const FInputChord& InGesture, bool bCheckDefault ) const;
+	const TSharedPtr<FUICommandInfo> GetCommandInfoFromInputChord( const FName InBindingContext, const FInputChord& InChord, bool bCheckDefault ) const;
 
 	/** 
-	 * Finds the command in the provided context which uses the provided input gesture
+	 * Finds the command in the provided context which uses the provided input chord
 	 * 
 	 * @param InBindingContext	The binding context name
-	 * @param InGesture			The gesture to check against when looking for commands
-	 * @param bCheckDefault		Whether or not to check the default gesture of commands instead of active gestures
-	 * @param OutActiveGestureIndex	The index into the commands active gesture array where the passed in gesture was matched.  INDEX_NONE if bCheckDefault is true or nothing was found.
+	 * @param InChord			The chord to check against when looking for commands
+	 * @param bCheckDefault		Whether or not to check the default chord of commands instead of active chords
+	 * @param OutActiveChordIndex	The index into the commands active chord array where the passed in chord was matched.  INDEX_NONE if bCheckDefault is true or nothing was found.
 	 */
-	const TSharedPtr<FUICommandInfo> FindCommandInContext( const FName InBindingContext, const FInputGesture& InGesture, bool bCheckDefault ) const;
+	const TSharedPtr<FUICommandInfo> FindCommandInContext( const FName InBindingContext, const FInputChord& InChord, bool bCheckDefault ) const;
 
 	/** 
 	 * Finds the command in the provided context which has the provided name 
@@ -80,21 +86,25 @@ public:
 	const TSharedPtr<FUICommandInfo> FindCommandInContext( const FName InBindingContext, const FName CommandName ) const;
 
 	/**
-	 * Called when the active gesture is changed on a command
+	 * Called when the active chord is changed on a command
 	 *
-	 * @param CommandInfo	The command that had the active gesture changed. 
+	 * @param CommandInfo	The command that had the active chord changed. 
 	 */
-	virtual void NotifyActiveGestureChanged( const FUICommandInfo& CommandInfo );
+	DEPRECATED(4.8, "Use NotifyActiveChordChanged instead of NotifyActiveGestureChanged")
+	void NotifyActiveGestureChanged( const FUICommandInfo& CommandInfo );
+	virtual void NotifyActiveChordChanged( const FUICommandInfo& CommandInfo );
 	
 	/**
-	 * Saves the user defined gestures to a json file
+	 * Saves the user defined chords to a json file
 	 */
 	void SaveInputBindings();
 
 	/**
-	 * Removes any user defined gestures
+	 * Removes any user defined chords
 	 */
-	void RemoveUserDefinedGestures();
+	DEPRECATED(4.8, "Use RemoveUserDefinedChords instead of RemoveUserDefinedGestures")
+	void RemoveUserDefinedGestures() { RemoveUserDefinedChords(); }
+	void RemoveUserDefinedChords();
 
 	/**
 	 * Returns all known command infos for a given binding context
@@ -104,27 +114,37 @@ public:
 	 */
 	void GetCommandInfosFromContext( const FName InBindingContext, TArray< TSharedPtr<FUICommandInfo> >& OutCommandInfos ) const;
 
-	/** Registers a delegate to be called when a user-defined gesture is edited */
-	FDelegateHandle RegisterUserDefinedGestureChanged(const FOnUserDefinedGestureChanged::FDelegate& Delegate)
+	/** Registers a delegate to be called when a user-defined chord is edited */
+	DEPRECATED(4.8, "Use RegisterUserDefinedChordChanged instead of RegisterUserDefinedGestureChanged")
+	FDelegateHandle RegisterUserDefinedGestureChanged(const FOnUserDefinedChordChanged::FDelegate& Delegate)
 	{
-		return OnUserDefinedGestureChanged.Add(Delegate);
+		return RegisterUserDefinedChordChanged(Delegate);
+	}
+	FDelegateHandle RegisterUserDefinedChordChanged(const FOnUserDefinedChordChanged::FDelegate& Delegate)
+	{
+		return OnUserDefinedChordChanged.Add(Delegate);
 	}
 
-	/** Unregisters a delegate to be called when a user-defined gesture is edited */
-	DELEGATE_DEPRECATED("This UnregisterUserDefinedGestureChanged overload is deprecated - please remove delegates using the FDelegateHandle returned by the RegisterUserDefinedGestureChanged function.")
-	void UnregisterUserDefinedGestureChanged(const FOnUserDefinedGestureChanged::FDelegate& Delegate)
+	/** Unregisters a delegate to be called when a user-defined chord is edited */
+	DELEGATE_DEPRECATED("This UnregisterUserDefinedGestureChanged overload is deprecated - please remove delegates using the FDelegateHandle returned by the RegisterUserDefinedChordChanged function.")
+	void UnregisterUserDefinedGestureChanged(const FOnUserDefinedChordChanged::FDelegate& Delegate)
 	{
 		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
-		OnUserDefinedGestureChanged.Remove(Delegate);
+		OnUserDefinedChordChanged.Remove(Delegate);
 
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	}
 
-	/** Unregisters a delegate to be called when a user-defined gesture is edited */
+	/** Unregisters a delegate to be called when a user-defined chord is edited */
+	DEPRECATED(4.8, "Use RegisterUserDefinedChordChanged instead of RegisterUserDefinedGestureChanged")
 	void UnregisterUserDefinedGestureChanged(FDelegateHandle DelegateHandle)
 	{
-		OnUserDefinedGestureChanged.Remove(DelegateHandle);
+		UnregisterUserDefinedChordChanged(DelegateHandle);
+	}
+	void UnregisterUserDefinedChordChanged(FDelegateHandle DelegateHandle)
+	{
+		OnUserDefinedChordChanged.Remove(DelegateHandle);
 	}
 
 private:
@@ -135,17 +155,17 @@ private:
 	FInputBindingManager() { }
 
 	/**
-	 * Gets the user defined gesture (if any) from the provided command name
+	 * Gets the user defined chord (if any) from the provided command name
 	 * 
 	 * @param InBindingContext	The context in which the command is active
-	 * @param InCommandName		The name of the command to get the gesture from
+	 * @param InCommandName		The name of the command to get the chord from
 	 */
-	bool GetUserDefinedGesture( const FName InBindingContext, const FName InCommandName, FInputGesture& OutUserDefinedGesture );
+	bool GetUserDefinedChord( const FName InBindingContext, const FName InCommandName, FInputChord& OutUserDefinedChord );
 
 	/**
-	 *	Checks a binding context for duplicate gestures 
+	 *	Checks a binding context for duplicate chords 
 	 */
-	void CheckForDuplicateDefaultGestures( const FBindingContext& InBindingContext, TSharedPtr<FUICommandInfo> InCommandInfo ) const;
+	void CheckForDuplicateDefaultChords( const FBindingContext& InBindingContext, TSharedPtr<FUICommandInfo> InCommandInfo ) const;
 
 	/**
 	 * Recursively finds all child contexts of the provided binding context.  
@@ -162,8 +182,8 @@ private:
 		/** A list of commands associated with the context */
 		FCommandInfoMap CommandInfoMap;
 
-		/** Gesture to command info map */
-		FGestureMap GestureToCommandInfoMap;
+		/** Chord to command info map */
+		FChordMap ChordToCommandInfoMap;
 
 		/** The binding context for this entry*/
 		TSharedPtr< FBindingContext > BindingContext;
@@ -175,9 +195,9 @@ private:
 	/** A mapping of contexts to their child contexts */
 	TMultiMap< FName, FName > ParentToChildMap;
 
-	/** User defined gesture overrides for commands */
-	TSharedPtr< class FUserDefinedGestures > UserDefinedGestures;
+	/** User defined chord overrides for commands */
+	TSharedPtr< class FUserDefinedChords > UserDefinedChords;
 
-	/** Delegate called when a user-defined gesture is edited */
-	FOnUserDefinedGestureChanged OnUserDefinedGestureChanged;
+	/** Delegate called when a user-defined chord is edited */
+	FOnUserDefinedChordChanged OnUserDefinedChordChanged;
 };

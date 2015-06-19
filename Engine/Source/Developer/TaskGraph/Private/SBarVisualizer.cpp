@@ -1,12 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateBasics.h"
-#include "EditorStyle.h"
 #include "TaskGraphInterfaces.h"
 #include "VisualizerEvents.h"
 #include "SGraphBar.h"
 #include "SBarVisualizer.h"
 #include "STimeline.h"
+#include "TaskGraphStyle.h"
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SBarVisualizer::Construct( const FArguments& InArgs )
@@ -43,8 +43,8 @@ void SBarVisualizer::Construct( const FArguments& InArgs )
 		ViewMenuBuilder.AddMenuEntry( NSLOCTEXT("SBarVisualizer", "Flat", "Flat"), FText(), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::Check );
 	}
 
-	const FSlateBrush* HomeButtonBrush = FEditorStyle::GetBrush( "TaskGraph.Home" );
-	const FSlateBrush* ToParentButtonBrush = FEditorStyle::GetBrush( "TaskGraph.ToParent" );
+	const FSlateBrush* HomeButtonBrush = FTaskGraphStyle::Get()->GetBrush( "TaskGraph.Home" );
+	const FSlateBrush* ToParentButtonBrush = FTaskGraphStyle::Get()->GetBrush( "TaskGraph.ToParent" );
 
 	this->ChildSlot
 	[
@@ -52,14 +52,14 @@ void SBarVisualizer::Construct( const FArguments& InArgs )
 		+SVerticalBox::Slot().AutoHeight() .Padding( 2 ) .VAlign( VAlign_Fill )
 		[
 			SNew( SBorder )
-			.BorderImage( FEditorStyle::GetBrush("StatsHeader") )
-			.ForegroundColor( FEditorStyle::GetSlateColor("DefaultForeground") )
+			.BorderImage( FTaskGraphStyle::Get()->GetBrush("StatsHeader") )
+			.ForegroundColor( FTaskGraphStyle::Get()->GetSlateColor("DefaultForeground") )
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot().AutoWidth() .Padding( 2 ) .HAlign( HAlign_Left )
 				[
 					SNew(SButton)
-					.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
+					.ButtonStyle( FCoreStyle::Get(), "NoBorder" )
 					.ForegroundColor( FSlateColor::UseForeground() )
 					.ContentPadding(FMargin(0))
 					.Visibility( this, &SBarVisualizer::GetToParentButtonVisibility )
@@ -72,7 +72,7 @@ void SBarVisualizer::Construct( const FArguments& InArgs )
 				+SHorizontalBox::Slot().AutoWidth().Padding( 2 ).HAlign( HAlign_Left )
 				[
 					SNew(SButton)
-					.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
+					.ButtonStyle( FCoreStyle::Get(), "NoBorder" )
 					.HAlign(HAlign_Center)
 					.VAlign(VAlign_Center)
 					.ForegroundColor( FSlateColor::UseForeground() )
@@ -94,12 +94,12 @@ void SBarVisualizer::Construct( const FArguments& InArgs )
 					SNew( SComboButton )
 					//.ToolTipText(NSLOCTEXT("PropertyEditor", "ResetToDefaultToolTip", "Reset to Default").ToString())
 					.HasDownArrow( false )
-					.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
+					.ButtonStyle( FCoreStyle::Get(), "NoBorder" )
 					.ContentPadding(0)
 					.ButtonContent()
 					[
 						SNew(SImage)
-						.Image( FEditorStyle::GetBrush("EditorViewportToolBar.MenuDropdown") )
+						.Image( FTaskGraphStyle::Get()->GetBrush("TaskGraph.MenuDropdown") )
 					]
 					.MenuContent()
 					[
@@ -116,7 +116,7 @@ void SBarVisualizer::Construct( const FArguments& InArgs )
 				// List of thread graphs
 				SAssignNew( BarGraphsList, SListView< TSharedPtr< FVisualizerEvent > > )
 				// List view items are this tall
-				.ItemHeight( 50 )
+				.ItemHeight( 24 )
 				// Tell the list view where to get its source data
 				.ListItemsSource( &ProfileDataView )
 				// When the list view needs to generate a widget for some data item, use this method
@@ -378,19 +378,19 @@ TSharedRef<ITableRow> SBarVisualizer::OnGenerateWidgetForList( TSharedPtr<FVisua
 			.AutoWidth()
 			[
 				SNew(SButton)
-				.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
+				.ButtonStyle( FCoreStyle::Get(), "NoBorder" )
 				.ForegroundColor( FSlateColor::UseForeground() )
 				.ContentPadding(FMargin(0))
 				.OnClicked( this, &SBarVisualizer::ExpandBar, InItem )
 				[
 					SNew(SBorder) 
-					.BorderImage( FEditorStyle::GetBrush("NoBorder") )
+					.BorderImage( FCoreStyle::Get().GetBrush("NoBorder") )
 					.HAlign(HAlign_Center)
 					.VAlign(VAlign_Center)
 					.Padding(0)						
 					[
 						SNew(SImage)
-						.Image( FEditorStyle::GetBrush( "TreeArrow_Collapsed" ) )
+						.Image( FCoreStyle::Get().GetBrush( "TreeArrow_Collapsed" ) )
 					]
 				]
 			]
@@ -409,7 +409,7 @@ TSharedRef<ITableRow> SBarVisualizer::OnGenerateWidgetForList( TSharedPtr<FVisua
 		[
 			SNew( SBorder )
 			.Padding(0)
-			.BorderImage( FEditorStyle::GetBrush("NoBorder") )
+			.BorderImage( FCoreStyle::Get().GetBrush("NoBorder") )
 			// Handle right-click event for context menu
 			.OnMouseButtonDown( this, &SBarVisualizer::OnBarRightClicked, InItem )
 			[

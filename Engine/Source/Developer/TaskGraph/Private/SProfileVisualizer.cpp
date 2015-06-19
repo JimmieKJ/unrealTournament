@@ -1,51 +1,69 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateBasics.h"
-#include "EditorStyle.h"
+#include "TaskGraphStyle.h"
 #include "SProfileVisualizer.h"
 #include "TaskGraphInterfaces.h"
 #include "STaskGraph.h"
 #include "SGraphBar.h"
 #include "SBarVisualizer.h"
 #include "SEventsTree.h"
-
 	
 void SProfileVisualizer::Construct( const FArguments& InArgs )
 {
 	ProfileData = InArgs._ProfileData;
 	ProfilerType = InArgs._ProfilerType;
+	HeaderMessageText = InArgs._HeaderMessageText;
+	HeaderMessageTextColor = InArgs._HeaderMessageTextColor;
 
-	const FSlateBrush* ContentAreaBrush = FEditorStyle::GetBrush( "Docking.Tab", ".ContentAreaBrush" );
-
+	const FSlateBrush* ContentAreaBrush = FTaskGraphStyle::Get()->GetBrush("TaskGraph.ContentAreaBrush");
 	ChildSlot
 	[
-		SAssignNew( MainSplitter, SSplitter )
-		.Orientation( Orient_Vertical )
-		+ SSplitter::Slot()
-		.Value(1.0f)
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
 		[
-			SNew( SBorder )
-			.Visibility( EVisibility::Visible )
-			.BorderImage( ContentAreaBrush )
+			SNew(SBorder)
+			.Visibility(EVisibility::Visible)
+			.BorderImage(ContentAreaBrush)
 			[
-				SAssignNew( BarVisualizer, SBarVisualizer )
-				.ProfileData( ProfileData )
-				.OnBarGraphSelectionChanged( this, &SProfileVisualizer::RouteBarGraphSelectionChanged )
-				.OnBarGraphExpansionChanged( this, &SProfileVisualizer::RouteBarGraphExpansionChanged )
-				.OnBarEventSelectionChanged( this, &SProfileVisualizer::RouteBarEventSelectionChanged )
-				.OnBarGraphContextMenu( this, &SProfileVisualizer::OnBarGraphContextMenu )
+				SNew(STextBlock)
+				.Visibility( HeaderMessageText.IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible )
+				.Text(HeaderMessageText)
+				.ColorAndOpacity(HeaderMessageTextColor)
+				.AutoWrapText(true)
 			]
 		]
-		+ SSplitter::Slot()
-		.Value(1.0f)
+		+ SVerticalBox::Slot()
 		[
-			SNew( SBorder )
-			.Visibility( EVisibility::Visible )
-			.BorderImage( ContentAreaBrush )
+			SAssignNew( MainSplitter, SSplitter )
+			.Orientation( Orient_Vertical )
+			+ SSplitter::Slot()
+			.Value(1.0f)
 			[
-				SAssignNew( EventsTree, SEventsTree )
-				.ProfileData( ProfileData )
-				.OnEventSelectionChanged( this, &SProfileVisualizer::RouteEventSelectionChanged )
+				SNew( SBorder )
+				.Visibility( EVisibility::Visible )
+				.BorderImage( ContentAreaBrush )
+				[
+					SAssignNew( BarVisualizer, SBarVisualizer )
+					.ProfileData( ProfileData )
+					.OnBarGraphSelectionChanged( this, &SProfileVisualizer::RouteBarGraphSelectionChanged )
+					.OnBarGraphExpansionChanged( this, &SProfileVisualizer::RouteBarGraphExpansionChanged )
+					.OnBarEventSelectionChanged( this, &SProfileVisualizer::RouteBarEventSelectionChanged )
+					.OnBarGraphContextMenu( this, &SProfileVisualizer::OnBarGraphContextMenu )
+				]
+			]
+			+ SSplitter::Slot()
+			.Value(1.0f)
+			[
+				SNew( SBorder )
+				.Visibility( EVisibility::Visible )
+				.BorderImage( ContentAreaBrush )
+				[
+					SAssignNew( EventsTree, SEventsTree )
+					.ProfileData( ProfileData )
+					.OnEventSelectionChanged( this, &SProfileVisualizer::RouteEventSelectionChanged )
+				]
 			]
 		]
 	];

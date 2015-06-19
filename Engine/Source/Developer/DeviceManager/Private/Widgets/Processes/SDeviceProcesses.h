@@ -31,12 +31,6 @@ public:
 	 */
 	void Construct( const FArguments& InArgs, const FDeviceManagerModelRef& InModel );
 
-public:
-
-	// SCompoundWidget overrides
-
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
 protected:
 
 	/**
@@ -45,6 +39,8 @@ protected:
 	void ReloadProcessList( bool FullyReload );
 
 private:
+	// Periodically refreshes the process list
+	EActiveTimerReturnType UpdateProcessList( double InCurrentTime, float InDeltaTime );
 
 	// Callback for getting the text of the message overlay.
 	FText HandleMessageOverlayText( ) const;
@@ -77,7 +73,7 @@ private:
 	FReply HandleTerminateProcessButtonClicked( );
 
 private:
-
+	
 	// Holds the time at which the process list was last refreshed.
 	FDateTime LastProcessListRefreshTime;
 

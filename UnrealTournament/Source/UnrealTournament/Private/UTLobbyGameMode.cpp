@@ -68,18 +68,14 @@ void AUTLobbyGameMode::InitGameState()
 	UTLobbyGameState = Cast<AUTLobbyGameState>(GameState);
 	if (UTLobbyGameState != NULL)
 	{
+		UTLobbyGameState->HubGuid = ServerInstanceGUID;
+
 		// Setupo the beacons to listen for updates from Game Server Instances
 		UTLobbyGameState->SetupLobbyBeacons();
 
-		// If there are auto-launch
-		if (AutoLaunchGameMode != TEXT("") && AutoLaunchMap != TEXT(""))
-		{
-			UTLobbyGameState->CreateAutoMatch(AutoLaunchGameMode, AutoLaunchGameOptions, AutoLaunchMap);
-		}
-
 		// Break the MOTD up in to strings to be sent to clients when they login.
 		FString Converted = UTLobbyGameState->ServerMOTD.Replace( TEXT("\\n"), TEXT("\n"));
-		Converted.ParseIntoArray(&ParsedMOTD,TEXT("\n"),true);
+		Converted.ParseIntoArray(ParsedMOTD,TEXT("\n"),true);
 	}
 	else
 	{
@@ -95,15 +91,6 @@ void AUTLobbyGameMode::InitGameState()
 
 void AUTLobbyGameMode::StartMatch()
 {
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->StartMatch();
-		}
-	}
-
 	SetMatchState(MatchState::InProgress);
 }
 
@@ -234,7 +221,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 
 		// Set my initial presence....
-		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false, false);
+		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false);
 	}
 
 }
@@ -303,36 +290,32 @@ void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
-int32 AUTLobbyGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions)
+int32 AUTLobbyGameMode::GetInstanceData(TArray<FGuid>& InstanceIDs)
 {
+	InstanceIDs.Empty();
 	if (UTLobbyGameState)
 	{
 		for (int32 i=0;i<UTLobbyGameState->GameInstances.Num(); i++)
 		{
 			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
 
-			if (MatchInfo && MatchInfo->CurrentState == ELobbyMatchState::InProgress && (MatchInfo->bDedicatedMatch || MatchInfo->PlayersInMatchInstance.Num() >0))
+			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
 			{
-				if (MatchInfo->PlayersInMatchInstance.Num() > 0)
-				{
-					HostNames.Add( FString::Printf(TEXT("%s=%s"), *MatchInfo->PlayersInMatchInstance[0].PlayerName, *MatchInfo->PlayersInMatchInstance[0].PlayerID.ToString()));
-				}
-				else
-				{
-					HostNames.Add(TEXT("None"));
-				}
-
-				Descriptions.Add(MatchInfo->MatchBadge);
+				InstanceIDs.Add(MatchInfo->UniqueMatchID);
 			}
 		}
 
-		if (HostNames.Num() == Descriptions.Num() && HostNames.Num() != 0)
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num();i++)
 		{
-			return HostNames.Num();
-		}
+			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->AvailableMatches[i];
 
+			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
+			{
+				InstanceIDs.Add(MatchInfo->UniqueMatchID);
+			}
+		}
 	}
-	return 0;
+	return InstanceIDs.Num();
 }
 
 int32 AUTLobbyGameMode::GetNumPlayers()
@@ -381,4 +364,10 @@ void AUTLobbyGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerContr
 {
 	PlayerState->Destroy();
 	return;
+}
+
+bool AUTLobbyGameMode::IsHandlingReplays()
+{
+	// No replays for HUB
+	return false;
 }

@@ -2,6 +2,7 @@
 #include "AbilitySystemPrivatePCH.h"
 
 DEFINE_LOG_CATEGORY(LogAbilitySystem);
+DEFINE_LOG_CATEGORY(VLogAbilitySystem);
 
 AbilitySystemLogScope::~AbilitySystemLogScope()
 {
@@ -24,11 +25,11 @@ AbilitySystemLog * GetInstance()
 
 FString AbilitySystemLog::Log(ELogVerbosity::Type Verbosity, FString Log)
 {
-	AbilitySystemLog * Instance = GetInstance();
-
 #if !NO_LOGGING
 	if (!LogAbilitySystem.IsSuppressed(Verbosity))
 	{
+		AbilitySystemLog * Instance = GetInstance();
+
 		for (int32 idx=0; idx < Instance->ScopeStack.Num(); ++idx)
 		{
 			AbilitySystemLogScope *Scope = Instance->ScopeStack[idx];
@@ -46,12 +47,13 @@ FString AbilitySystemLog::Log(ELogVerbosity::Type Verbosity, FString Log)
 				UE_LOG(LogAbilitySystem, Log, TEXT("%s<%s>"), *IndentStrX, *Scope->ScopeName);
 			}
 		}
+
+		FString IndentStr = FString::Printf(TEXT("%*s"), Instance->Indent, TEXT(""));
+		return IndentStr + Log;
 	}
 #endif
-
-	FString IndentStr = FString::Printf(TEXT("%*s"), Instance->Indent, TEXT(""));
 	
-	return IndentStr + Log;
+	return Log;
 }
 
 void AbilitySystemLog::PushScope(AbilitySystemLogScope * Scope)

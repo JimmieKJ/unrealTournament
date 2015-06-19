@@ -36,7 +36,6 @@ class UAnimationGraphSchema : public UEdGraphSchema_K2
 	FName DefaultEvaluationHandlerName;
 
 	// Begin UEdGraphSchema interface.
-	virtual void GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual FLinearColor GetPinTypeColor(const FEdGraphPinType& PinType) const override;
 	virtual EGraphType GetGraphType(const UEdGraph* TestEdGraph) const override;
 	virtual void CreateDefaultNodesForGraph(UEdGraph& Graph) const override;
@@ -51,7 +50,8 @@ class UAnimationGraphSchema : public UEdGraphSchema_K2
 	virtual void GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, FMenuBuilder* MenuBuilder, bool bIsDebugging) const override;
 	virtual FText GetPinDisplayName(const UEdGraphPin* Pin) const override;
 	virtual bool CanDuplicateGraph(UEdGraph* InSourceGraph) const override {	return false; }
-	virtual bool DoesSupportEventDispatcher() const	override {	return false; }
+	virtual bool DoesSupportEventDispatcher() const	override { return false; }
+	virtual bool ShouldAlwaysPurgeOnModification() const override { return true; }
 	// End UEdGraphSchema interface.
 
 	// Begin UEdGraphSchema_K2 interface
@@ -66,9 +66,6 @@ class UAnimationGraphSchema : public UEdGraphSchema_K2
 
 	/** Update the specified node to a new asset */
 	static void UpdateNodeWithAsset(class UK2Node* K2Node, UAnimationAsset* Asset);
-
-	// @todo document
-	void GetStateMachineMenuItems(FGraphContextMenuBuilder& ContextMenuBuilder) const;
 
 	// @todo document
 	ANIMGRAPH_API static bool IsPosePin(const FEdGraphPinType& PinType);

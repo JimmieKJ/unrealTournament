@@ -7,6 +7,8 @@
 
 #define LOCTEXT_NAMESPACE "ConstraintInstance"
 
+const bool bIsAccelerationDrive = true;
+
 /** Handy macro for setting BIT of VAR based on the bool CONDITION */
 #define SET_DRIVE_PARAM(VAR, CONDITION, BIT)   (VAR) = (CONDITION) ? ((VAR) | (BIT)) : ((VAR) & ~(BIT))
 
@@ -23,47 +25,116 @@ static TAutoConsoleVariable<float> CVarConstraintStiffnessScale(
 	TEXT("The multiplier of constraint stiffness in simulation. Default: 100000"),
 	ECVF_ReadOnly);
 
+float RevolutionsToRads(const float Revolutions)
+{
+	return Revolutions * 2.f * PI;
+}
+
+FVector RevolutionsToRads(const FVector Revolutions)
+{
+	return Revolutions * 2.f * PI;
+}
 
 #if WITH_PHYSX
 /** Util for setting soft limit params */
-static void SetSoftLimitParams(PxJointLimitParameters* PLimit, bool bSoft, float Spring, float Damping)
+void SetSoftLimitParams_AssumesLocked(PxJointLimitParameters* PLimit, bool bSoft, float Spring, float Damping)
 {
 	if(bSoft)
 	{
-		PLimit->stiffness = Spring;
-		PLimit->damping = Damping;
+		PLimit->stiffness = Spring * CVarConstraintStiffnessScale.GetValueOnGameThread();
+		PLimit->damping = Damping * CVarConstraintDampingScale.GetValueOnGameThread();
 	}
 }
 
+/** Util for converting from UE motion enum to physx motion enum */
+PxD6Motion::Enum U2PLinearMotion(ELinearConstraintMotion InMotion)
+{
+	switch (InMotion)
+	{
+		case ELinearConstraintMotion::LCM_Free: return PxD6Motion::eFREE;
+		case ELinearConstraintMotion::LCM_Limited: return PxD6Motion::eLIMITED;
+		case ELinearConstraintMotion::LCM_Locked: return PxD6Motion::eLOCKED;
+		default: check(0);	//unsupported motion type
+	}
+	
+	return PxD6Motion::eFREE;
+}
+
+/** Util for converting from UE motion enum to physx motion enum */
+PxD6Motion::Enum U2PAngularMotion(EAngularConstraintMotion InMotion)
+{
+	switch (InMotion)
+	{
+		case EAngularConstraintMotion::ACM_Free: return PxD6Motion::eFREE;
+		case EAngularConstraintMotion::ACM_Limited: return PxD6Motion::eLIMITED;
+		case EAngularConstraintMotion::ACM_Locked: return PxD6Motion::eLOCKED;
+		default: check(0);	//unsupported motion type
+	}
+	
+	return PxD6Motion::eFREE;
+}
+
 /** Util for setting linear movement for an axis */
-static void SetLinearMovement(PxD6Joint* PD6Joint, PxD6Axis::Enum PAxis, uint8 Motion, bool bLockLimitSize)
+template <PxD6Axis::Enum PAxis>
+void SetLinearMovement_AssumesLocked(PxD6Joint* PD6Joint, ELinearConstraintMotion Motion, bool bLockLimitSize)
 {
 	if(Motion == LCM_Locked || (Motion == LCM_Limited && bLockLimitSize))
 	{
 		PD6Joint->setMotion(PAxis, PxD6Motion::eLOCKED);
-	}
-	else if(Motion == LCM_Limited)
+	}else
 	{
-		PD6Joint->setMotion(PAxis, PxD6Motion::eLIMITED);
+		PD6Joint->setMotion(PAxis, U2PLinearMotion(Motion));
 	}
-	else
+}
+
+physx::PxD6Joint* FConstraintInstance::GetUnbrokenJoint_AssumesLocked() const
+{
+	return (ConstraintData && !(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN)) ? ConstraintData : nullptr;
+}
+
+bool FConstraintInstance::ExecuteOnUnbrokenJointReadOnly(TFunctionRef<void(const physx::PxD6Joint*)> Func) const
+{
+	if(ConstraintData)
 	{
-		PD6Joint->setMotion(PAxis, PxD6Motion::eFREE);
+		SCOPED_SCENE_READ_LOCK(ConstraintData->getScene());
+
+		if(!(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+		{
+			Func(ConstraintData);
+			return true;
+		}
 	}
+
+	return false;
+}
+
+bool FConstraintInstance::ExecuteOnUnbrokenJointReadWrite(TFunctionRef<void(physx::PxD6Joint*)> Func) const
+{
+	if (ConstraintData)
+	{
+		SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
+
+		if (!(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+		{
+			Func(ConstraintData);
+			return true;
+		}
+	}
+
+	return false;
 }
 #endif //WITH_PHYSX
 
 void FConstraintInstance::UpdateLinearLimit()
 {
 #if WITH_PHYSX
-	PxD6Joint* Joint = ConstraintData;
-	if (Joint && !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		bool bLockLimitSize = (LinearLimitSize < RB_MinSizeToLockDOF);
 
-		SetLinearMovement(Joint, PxD6Axis::eX, LinearXMotion, bLockLimitSize);
-		SetLinearMovement(Joint, PxD6Axis::eY, LinearYMotion, bLockLimitSize);
-		SetLinearMovement(Joint, PxD6Axis::eZ, LinearZMotion, bLockLimitSize);
+		SetLinearMovement_AssumesLocked<PxD6Axis::eX>(Joint, LinearXMotion, bLockLimitSize);
+		SetLinearMovement_AssumesLocked<PxD6Axis::eY>(Joint, LinearYMotion, bLockLimitSize);
+		SetLinearMovement_AssumesLocked<PxD6Axis::eZ>(Joint, LinearZMotion, bLockLimitSize);
 
 		// If any DOF is locked/limited, set up the joint limit
 		if (LinearXMotion != LCM_Free || LinearYMotion != LCM_Free || LinearZMotion != LCM_Free)
@@ -71,18 +142,19 @@ void FConstraintInstance::UpdateLinearLimit()
 			// If limit drops below RB_MinSizeToLockDOF, just pass RB_MinSizeToLockDOF to physics - that axis will be locked anyway, and PhysX dislikes 0 here
 			float LinearLimit = FMath::Max<float>(LinearLimitSize, RB_MinSizeToLockDOF);
 			PxJointLinearLimit PLinearLimit(GPhysXSDK->getTolerancesScale(), LinearLimit, 0.05f * GPhysXSDK->getTolerancesScale().length);
-			SetSoftLimitParams(&PLinearLimit, bLinearLimitSoft, LinearLimitStiffness*AverageMass*CVarConstraintStiffnessScale.GetValueOnGameThread(), LinearLimitDamping*AverageMass*CVarConstraintDampingScale.GetValueOnGameThread());
+			SetSoftLimitParams_AssumesLocked(&PLinearLimit, bLinearLimitSoft, LinearLimitStiffness*AverageMass, LinearLimitDamping*AverageMass);
 			Joint->setLinearLimit(PLinearLimit);
 		}
-	}
+	});
 #endif
 }
+
+
 
 void FConstraintInstance::UpdateAngularLimit()
 {
 #if WITH_PHYSX
-	PxD6Joint* Joint = ConstraintData;
-	if (Joint && !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		/////////////// TWIST LIMIT
 		PxD6Motion::Enum TwistMotion = PxD6Motion::eFREE;
@@ -90,9 +162,9 @@ void FConstraintInstance::UpdateAngularLimit()
 		{
 			TwistMotion = PxD6Motion::eLIMITED;
 			// If angle drops below RB_MinAngleToLockDOF, just pass RB_MinAngleToLockDOF to physics - that axis will be locked anyway, and PhysX dislikes 0 here
-			float TwistLimitRad = TwistLimitAngle * (PI / 180.0f);
-			PxJointAngularLimitPair PTwistLimitPair(-TwistLimitRad, TwistLimitRad, 1.f * (PI / 180.0f));
-			SetSoftLimitParams(&PTwistLimitPair, bTwistLimitSoft, TwistLimitStiffness*AverageMass*CVarConstraintStiffnessScale.GetValueOnGameThread(), TwistLimitDamping*AverageMass*CVarConstraintDampingScale.GetValueOnGameThread());
+			float TwistLimitRad = FMath::DegreesToRadians(TwistLimitAngle);
+			PxJointAngularLimitPair PTwistLimitPair(-TwistLimitRad, TwistLimitRad, FMath::DegreesToRadians(1.f));
+			SetSoftLimitParams_AssumesLocked(&PTwistLimitPair, bTwistLimitSoft, TwistLimitStiffness*AverageMass, TwistLimitDamping*AverageMass);
 			Joint->setTwistLimit(PTwistLimitPair);
 		}
 		else if (AngularTwistMotion == ACM_Locked)
@@ -102,43 +174,47 @@ void FConstraintInstance::UpdateAngularLimit()
 		Joint->setMotion(PxD6Axis::eTWIST, TwistMotion);
 
 		/////////////// SWING1 LIMIT
-		PxD6Motion::Enum Swing1Motion = PxD6Motion::eFREE;
-		PxD6Motion::Enum Swing2Motion = PxD6Motion::eFREE;
-
-		if (AngularSwing1Motion == ACM_Limited)
-		{
-			Swing1Motion = PxD6Motion::eLIMITED;
-		}
-		else if (AngularSwing1Motion == ACM_Locked)
-		{
-			Swing1Motion = PxD6Motion::eLOCKED;
-		}
-
-		/////////////// SWING2 LIMIT
-		if (AngularSwing2Motion == ACM_Limited)
-		{
-			Swing2Motion = PxD6Motion::eLIMITED;
-		}
-		else if (AngularSwing2Motion == ACM_Locked)
-		{
-			Swing2Motion = PxD6Motion::eLOCKED;
-		}
+		const PxD6Motion::Enum Swing1Motion = U2PAngularMotion(AngularSwing1Motion);
+		const PxD6Motion::Enum Swing2Motion = U2PAngularMotion(AngularSwing2Motion);
 
 		if (AngularSwing1Motion == ACM_Limited || AngularSwing2Motion == ACM_Limited)
 		{
 			//Clamp the limit value to valid range which PhysX won't ignore, both value have to be clamped even there is only one degree limit in constraint
-			float Limit1Rad = FMath::ClampAngle(Swing1LimitAngle, KINDA_SMALL_NUMBER, 179.9999f) * (PI / 180.0f);
-			float Limit2Rad = FMath::ClampAngle(Swing2LimitAngle, KINDA_SMALL_NUMBER, 179.9999f) * (PI / 180.0f);
-			PxJointLimitCone PSwingLimitCone(Limit2Rad, Limit1Rad, 1.f * (PI / 180.0f));
-			SetSoftLimitParams(&PSwingLimitCone, bSwingLimitSoft, SwingLimitStiffness*AverageMass*CVarConstraintStiffnessScale.GetValueOnGameThread(), SwingLimitDamping*AverageMass*CVarConstraintDampingScale.GetValueOnGameThread());
+			float Limit1Rad = FMath::DegreesToRadians(FMath::ClampAngle(Swing1LimitAngle, KINDA_SMALL_NUMBER, 179.9999f));
+			float Limit2Rad = FMath::DegreesToRadians(FMath::ClampAngle(Swing2LimitAngle, KINDA_SMALL_NUMBER, 179.9999f));
+			PxJointLimitCone PSwingLimitCone(Limit2Rad, Limit1Rad, FMath::DegreesToRadians(1.f));
+			SetSoftLimitParams_AssumesLocked(&PSwingLimitCone, bSwingLimitSoft, SwingLimitStiffness*AverageMass, SwingLimitDamping*AverageMass);
 			Joint->setSwingLimit(PSwingLimitCone);
 		}
 
 		Joint->setMotion(PxD6Axis::eSWING2, Swing1Motion);
 		Joint->setMotion(PxD6Axis::eSWING1, Swing2Motion);
-	}
+	});
 #endif
 	
+}
+
+void FConstraintInstance::UpdateBreakable()
+{
+	const float LinearBreakForce = bLinearBreakable ? LinearBreakThreshold : PX_MAX_REAL;
+	const float AngularBreakForce = bAngularBreakable ? AngularBreakThreshold : PX_MAX_REAL;
+
+#if WITH_PHYSX
+	ConstraintData->setBreakForce(LinearBreakForce, AngularBreakForce);
+#endif
+}
+
+void FConstraintInstance::UpdateDriveTarget()
+{
+#if WITH_PHYSX
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+	{
+		FQuat OrientationTargetQuat(AngularOrientationTarget);
+
+		Joint->setDrivePosition(PxTransform(U2PVector(LinearPositionTarget), U2PQuat(OrientationTargetQuat)));
+		Joint->setDriveVelocity(U2PVector(LinearVelocityTarget), U2PVector(RevolutionsToRads(AngularVelocityTarget)));
+	});
+#endif
 }
 
 /** Constructor **/
@@ -202,8 +278,7 @@ void FConstraintInstance::SetDisableCollision(bool InDisableCollision)
 {
 	bDisableCollision = InDisableCollision;
 #if WITH_PHYSX
-	PxD6Joint* Joint = ConstraintData;
-	if (Joint && !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		PxConstraintFlags Flags = Joint->getConstraintFlags();
 		if (bDisableCollision)
@@ -216,53 +291,14 @@ void FConstraintInstance::SetDisableCollision(bool InDisableCollision)
 		}
 
 		Joint->setConstraintFlags(Flags);
-	}
+	});
 #endif
 }
 
-/** 
- *	Create physics engine constraint.
- */
-void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* Body1, FBodyInstance* Body2, float Scale)
-{
-	OwnerComponent = Owner;
-
 #if WITH_PHYSX
-	PhysxUserData = FPhysxUserData(this);
-
-	// if there's already a constraint, get rid of it first
-	if (ConstraintData != NULL)
-	{
-		TermConstraint();
-	}
-
-	PxRigidActor* PActor1 = Body1 ? Body1->GetPxRigidActor() : NULL;
-	PxRigidActor* PActor2 = Body2 ? Body2->GetPxRigidActor() : NULL;
-
-	// Do not create joint unless you have two actors
-	// Do not create joint unless one of the actors is dynamic
-	if ((!PActor1 || !PActor1->isRigidBody()) && (!PActor2 || !PActor2->isRigidBody()))
-	{
-		return;
-	}
-
-	// Need to worry about the case where one is static and one is dynamic, and make sure the static scene is used which matches the dynamic scene
-	if(PActor1 != NULL && PActor2 != NULL)
-	{
-		if (PActor1->isRigidStatic() && PActor2->isRigidBody())
-		{
-			const uint32 SceneType = Body2->RigidActorSync != NULL ? PST_Sync : PST_Async;
-			PActor1 = Body1->GetPxRigidActor(SceneType);
-		}
-		else
-		if (PActor2->isRigidStatic() && PActor1->isRigidBody())
-		{
-			const uint32 SceneType = Body1->RigidActorSync != NULL ? PST_Sync : PST_Async;
-			PActor2 = Body2->GetPxRigidActor(SceneType);
-		}
-	}
-
-	AverageMass = 0;
+float ComputeAverageMass_AssumesLocked(const PxRigidActor* PActor1, const PxRigidActor* PActor2)
+{
+	float AverageMass = 0;
 	{
 		float TotalMass = 0;
 		int NumDynamic = 0;
@@ -283,26 +319,71 @@ void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* 
 		AverageMass = TotalMass / NumDynamic;
 	}
 
+	return AverageMass;
+}
 
-	// record if actors are asleep before creating joint, so we can sleep them afterwards if so (creating joint wakes them)
-	const bool bActor1Asleep = (PActor1 == NULL || !PActor1->isRigidDynamic() || PActor1->isRigidDynamic()->isSleeping());
-	const bool bActor2Asleep = (PActor2 == NULL || !PActor2->isRigidDynamic() || PActor2->isRigidDynamic()->isSleeping());
+/** Finds the common scene and appropriate actors for the passed in body instances. Makes sure to do this without requiring a scene lock*/
+PxScene* GetPScene_LockFree(const FBodyInstance* Body1, const FBodyInstance* Body2)
+{
+	const int32 SceneIndex1 = Body1 ? Body1->GetSceneIndex() : -1;
+	const int32 SceneIndex2 = Body2 ? Body2->GetSceneIndex() : -1;
+	PxScene* PScene = nullptr;
 
-	// make sure actors are in same scene
-	PxScene* PScene1 = (PActor1 != NULL) ? PActor1->getScene() : NULL;
-	PxScene* PScene2 = (PActor2 != NULL) ? PActor2->getScene() : NULL;
-
-	// make sure actors are in same scene
-	if(PScene1 && PScene2 && PScene1 != PScene2)
+	//now we check if the two actors are valid
+	if(SceneIndex1 == -1 && SceneIndex2 == -1)
 	{
-		UE_LOG(LogPhysics, Log,  TEXT("Attempting to create a joint between actors in two different scenes.  No joint created.") );
-		return;
+		UE_LOG(LogPhysics, Log, TEXT("Attempting to create a joint between two null actors.  No joint created."));
+	}
+	else if(SceneIndex1 >= 0 && SceneIndex2 >= 0 && SceneIndex1 != SceneIndex2)
+	{
+		UE_LOG(LogPhysics, Log, TEXT("Attempting to create a joint between two actors in different scenes.  No joint created."));
+	}
+	else
+	{
+		PScene = GetPhysXSceneFromIndex(SceneIndex1);
 	}
 
-	PxScene* PScene = PScene1 ? PScene1 : PScene2;
-	check(PScene);
+	return PScene;
+}
 
-	ConstraintData = NULL;
+/*various logical checks to find the correct physx actor. Returns true if found valid actors that can be constrained*/
+bool GetPActors_AssumesLocked(const FBodyInstance* Body1, const FBodyInstance* Body2, PxRigidActor** PActor1Out, PxRigidActor** PActor2Out)
+{
+	PxRigidActor* PActor1 = Body1 ? Body1->GetPxRigidActor_AssumesLocked() : NULL;
+	PxRigidActor* PActor2 = Body2 ? Body2->GetPxRigidActor_AssumesLocked() : NULL;
+
+	// Do not create joint unless you have two actors
+	// Do not create joint unless one of the actors is dynamic
+	if ((!PActor1 || !PActor1->isRigidBody()) && (!PActor2 || !PActor2->isRigidBody()))
+	{
+		UE_LOG(LogPhysics, Log, TEXT("Attempting to create a joint between actors that are static.  No joint created."));
+		return false;
+	}
+
+	// Need to worry about the case where one is static and one is dynamic, and make sure the static scene is used which matches the dynamic scene
+	if (PActor1 != NULL && PActor2 != NULL)
+	{
+		if (PActor1->isRigidStatic() && PActor2->isRigidBody())
+		{
+			const uint32 SceneType = Body2->RigidActorSync != NULL ? PST_Sync : PST_Async;
+			PActor1 = Body1->GetPxRigidActor_AssumesLocked(SceneType);
+		}
+		else
+		if (PActor2->isRigidStatic() && PActor1->isRigidBody())
+		{
+			const uint32 SceneType = Body1->RigidActorSync != NULL ? PST_Sync : PST_Async;
+			PActor2 = Body2->GetPxRigidActor_AssumesLocked(SceneType);
+		}
+	}
+
+	*PActor1Out = PActor1;
+	*PActor2Out = PActor2;
+	return true;
+}
+
+bool FConstraintInstance::CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene, const float Scale)
+{
+	ConstraintData = nullptr;
 
 	FTransform Local1 = GetRefFrame(EConstraintFrame::Frame1);
 	Local1.ScaleTranslation(FVector(Scale));
@@ -317,10 +398,10 @@ void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* 
 	// Because PhysX keeps limits/axes locked in the first body reference frame, whereas Unreal keeps them in the second body reference frame, we have to flip the bodies here.
 	PxD6Joint* PD6Joint = PxD6JointCreate(*GPhysXSDK, PActor2, U2PTransform(Local2), PActor1, U2PTransform(Local1));
 
-	if(PD6Joint == NULL)
+	if (PD6Joint == nullptr)
 	{
 		UE_LOG(LogPhysics, Log, TEXT("URB_ConstraintInstance::InitConstraint - Invalid 6DOF joint (%s)"), *JointName.ToString());
-		return;
+		return false;
 	}
 
 	///////// POINTERS
@@ -328,134 +409,125 @@ void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* 
 
 	// Remember reference to scene index.
 	FPhysScene* RBScene = FPhysxUserData::Get<FPhysScene>(PScene->userData);
-	if(RBScene->GetPhysXScene(PST_Sync) == PScene)
+	if (RBScene->GetPhysXScene(PST_Sync) == PScene)
 	{
 		SceneIndex = RBScene->PhysXSceneIndex[PST_Sync];
 	}
 	else
-	if(RBScene->GetPhysXScene(PST_Async) == PScene)
+	if (RBScene->GetPhysXScene(PST_Async) == PScene)
 	{
 		SceneIndex = RBScene->PhysXSceneIndex[PST_Async];
 	}
 	else
 	{
-		UE_LOG(LogPhysics, Log,  TEXT("URB_ConstraintInstance::InitConstraint: PxScene has inconsistent FPhysScene userData.  No joint created.") );
-		return;
+		UE_LOG(LogPhysics, Log, TEXT("URB_ConstraintInstance::InitConstraint: PxScene has inconsistent FPhysScene userData.  No joint created."));
+		return false;
 	}
 
 	ConstraintData = PD6Joint;
+	return true;
+}
 
-	///////// FLAGS/PROJECTION
-
+void FConstraintInstance::UpdateConstraintFlags_AssumesLocked()
+{
 	PxConstraintFlags Flags = PxConstraintFlags();
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Flags |= PxConstraintFlag::eVISUALIZATION;
 #endif
 
-	if(!bDisableCollision)
+	if (!bDisableCollision)
 	{
 		Flags |= PxConstraintFlag::eCOLLISION_ENABLED;
 	}
 
-	if( bEnableProjection )
+	if (bEnableProjection)
 	{
 		Flags |= PxConstraintFlag::ePROJECTION;
 
-		PD6Joint->setProjectionLinearTolerance(ProjectionLinearTolerance); 
-		PD6Joint->setProjectionAngularTolerance(ProjectionAngularTolerance * ((float)PI/180.0f)); 
+		ConstraintData->setProjectionLinearTolerance(ProjectionLinearTolerance);
+		ConstraintData->setProjectionAngularTolerance(FMath::DegreesToRadians(ProjectionAngularTolerance));
 	}
 
-	PD6Joint->setConstraintFlags(Flags);
+	ConstraintData->setConstraintFlags(Flags);
+}
 
-	/////////////// ANUGULAR LIMIT
-	UpdateAngularLimit();
 
-	/////////////// LINEAR LIMIT
-	UpdateLinearLimit();
+void FConstraintInstance::UpdateAverageMass_AssumesLocked(const PxRigidActor* PActor1, const PxRigidActor* PActor2)
+{
+	AverageMass = ComputeAverageMass_AssumesLocked(PActor1, PActor2);
+}
 
-	///////// BREAKABLE
-	float LinearBreakForce = PX_MAX_REAL;
-	float AngularBreakForce = PX_MAX_REAL;
-	if (bLinearBreakable)
-	{
-		LinearBreakForce = LinearBreakThreshold;
-	}
+void EnsureSleepingActorsStaySleeping_AssumesLocked(PxRigidActor* PActor1, PxRigidActor* PActor2)
+{
+	// record if actors are asleep before creating joint, so we can sleep them afterwards if so (creating joint wakes them)
+	const bool bActor1Asleep = (PActor1 == nullptr || !PActor1->isRigidDynamic() || PActor1->isRigidDynamic()->isSleeping());
+	const bool bActor2Asleep = (PActor2 == nullptr || !PActor2->isRigidDynamic() || PActor2->isRigidDynamic()->isSleeping());
 
-	if (bAngularBreakable)
-	{
-		AngularBreakForce = AngularBreakThreshold;
-	}
-
-	PD6Joint->setBreakForce(LinearBreakForce, AngularBreakForce);
-
-	///////// DRIVE
-	const PxReal LinearForceLimit = LinearDriveForceLimit > 0.0f ? LinearDriveForceLimit : PX_MAX_F32;
-	const PxReal AngularForceLimit = AngularDriveForceLimit > 0.0f ? AngularDriveForceLimit : PX_MAX_F32;
-	const bool bAccelerationDrive = true;
-
-	// Set up the linear drives
-	if ( bLinearPositionDrive || bLinearVelocityDrive )
-	{
-		// X-Axis linear drive
-		float DriveSpring = bLinearXPositionDrive ? LinearDriveSpring : 0.0f;
-		float DriveDamping = (bLinearVelocityDrive && FMath::Abs(LinearVelocityTarget.X) > 0.0f) ? LinearDriveDamping : 0.0f;
-
-		PD6Joint->setDrive(PxD6Drive::eX, PxD6JointDrive(DriveSpring, DriveDamping, LinearForceLimit, bAccelerationDrive));
-
-		// Y-Axis linear drive
-		DriveSpring = bLinearYPositionDrive ? LinearDriveSpring : 0.0f;
-		DriveDamping = (bLinearVelocityDrive && FMath::Abs(LinearVelocityTarget.Y) > 0.0f) ? LinearDriveDamping : 0.0f;
-
-		PD6Joint->setDrive(PxD6Drive::eY, PxD6JointDrive(DriveSpring, DriveDamping, LinearForceLimit, bAccelerationDrive));
-
-		// Z-Axis linear drive
-		DriveSpring = bLinearZPositionDrive ? LinearDriveSpring : 0.0f;
-		DriveDamping = (bLinearVelocityDrive && FMath::Abs(LinearVelocityTarget.Z) > 0.0f) ? LinearDriveDamping : 0.0f;
-
-		PD6Joint->setDrive(PxD6Drive::eZ, PxD6JointDrive(DriveSpring, DriveDamping, LinearForceLimit, bAccelerationDrive));
-
-		// Warn the user if he specified a drive for an axis that has no DOF
-		if (LinearXMotion == LCM_Locked )
-		{
-			UE_LOG(LogPhysics, Warning,  TEXT("Attempting to create a linear joint drive for an locked axis.") );
-		}
-	}
-
-	if ( bAngularOrientationDrive || bAngularVelocityDrive )
-	{
-		float DriveSpring = bAngularOrientationDrive ? AngularDriveSpring : 0.0f;
-		float DriveDamping = bAngularVelocityDrive  ? AngularDriveDamping : 0.0f;
-
-		if (AngularDriveMode == EAngularDriveMode::SLERP)
-		{
-			PD6Joint->setDrive(PxD6Drive::eSLERP, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bAccelerationDrive));
-		}
-		else
-		{
-			PD6Joint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bAccelerationDrive));
-			PD6Joint->setDrive(PxD6Drive::eSWING, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bAccelerationDrive));
-		}
-	}
-
-	FQuat OrientationTargetQuat(AngularOrientationTarget);
-
-	PD6Joint->setDrivePosition(PxTransform(U2PVector(LinearPositionTarget), U2PQuat(OrientationTargetQuat)));
-	PD6Joint->setDriveVelocity(U2PVector(LinearVelocityTarget), U2PVector(AngularVelocityTarget * 2 * PI));
-	
 	// creation of joints wakes up rigid bodies, so we put them to sleep again if both were initially asleep
-	if(bActor1Asleep && bActor2Asleep)
+	if (bActor1Asleep && bActor2Asleep)
 	{
-		if ( PActor1 != NULL && IsRigidBodyNonKinematic(PActor1->isRigidDynamic()))
+		if (PActor1 && IsRigidBodyNonKinematic_AssumesLocked(PActor1->isRigidDynamic()))
 		{
 			PActor1->isRigidDynamic()->putToSleep();
 		}
 
-		if (PActor2 != NULL && IsRigidBodyNonKinematic(PActor2->isRigidDynamic()))
+		if (PActor2 && IsRigidBodyNonKinematic_AssumesLocked(PActor2->isRigidDynamic()))
 		{
 			PActor2->isRigidDynamic()->putToSleep();
 		}
 	}
+}
+
+#endif
+
+/** 
+ *	Create physics engine constraint.
+ */
+void FConstraintInstance::InitConstraint(USceneComponent* Owner, FBodyInstance* Body1, FBodyInstance* Body2, float Scale)
+{
+	OwnerComponent = Owner;
+
+#if WITH_PHYSX
+	PhysxUserData = FPhysxUserData(this);
+
+	// if there's already a constraint, get rid of it first
+	if (ConstraintData)
+	{
+		TermConstraint();
+	}
+
+	PxRigidActor* PActor1 = nullptr;
+	PxRigidActor* PActor2 = nullptr;
+	PxScene* PScene = GetPScene_LockFree(Body1, Body2);
+	SCOPED_SCENE_WRITE_LOCK(PScene);
+
+	const bool bValidConstraintSetup = PScene && GetPActors_AssumesLocked(Body1, Body2, &PActor1, &PActor2) && CreatePxJoint_AssumesLocked(PActor1, PActor2, PScene, Scale);
+	if (!bValidConstraintSetup)
+	{
+		return;
+	}
+
+
+	// update mass
+	UpdateAverageMass_AssumesLocked(PActor1, PActor2);
+	
+	//flags and projection settings
+	UpdateConstraintFlags_AssumesLocked();
+	
+	//limits
+	UpdateAngularLimit();
+	UpdateLinearLimit();
+
+	//breakable
+	UpdateBreakable();
+	
+	//motors
+	SetLinearDriveParams(LinearDriveSpring, LinearDriveDamping, LinearDriveForceLimit);
+	SetAngularDriveParams(AngularDriveSpring, AngularDriveDamping, AngularDriveForceLimit);
+	UpdateDriveTarget();
+	
+	EnsureSleepingActorsStaySleeping_AssumesLocked(PActor1, PActor2);
 #endif // WITH_PHYSX
 
 }
@@ -469,20 +541,20 @@ void FConstraintInstance::TermConstraint()
 	}
 
 	// use correct scene
-	PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
-	if(PScene != NULL)
+	if(PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex))
 	{
+		SCOPED_SCENE_WRITE_LOCK(PScene);
 		ConstraintData->release();
 	}
 
-	ConstraintData = NULL;
+	ConstraintData = nullptr;
 #endif
 }
 
 bool FConstraintInstance::IsTerminated() const
 {
 #if WITH_PHYSX
-	return (ConstraintData == NULL);
+	return (ConstraintData == nullptr);
 #else 
 	return true;
 #endif //WITH_PHYSX
@@ -491,7 +563,7 @@ bool FConstraintInstance::IsTerminated() const
 bool FConstraintInstance::IsValidConstraintInstance() const
 {
 #if WITH_PHYSX
-	return ConstraintData != NULL;
+	return ConstraintData != nullptr;
 #else
 	return false;
 #endif // WITH_PHYSX
@@ -571,11 +643,11 @@ void FConstraintInstance::SetRefFrame(EConstraintFrame::Type Frame, const FTrans
 	}
 
 #if WITH_PHYSX
-	if (ConstraintData && !(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
-	PxTransform PxRefFrame = U2PTransform(RefFrame);
-	ConstraintData->setLocalPose(PxFrame, PxRefFrame);
-	}
+		PxTransform PxRefFrame = U2PTransform(RefFrame);
+		Joint->setLocalPose(PxFrame, PxRefFrame);
+	});
 #endif
 
 }
@@ -596,12 +668,12 @@ void FConstraintInstance::SetRefPosition(EConstraintFrame::Type Frame, const FVe
 	}
 
 #if WITH_PHYSX
-	if (ConstraintData && !(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		PxTransform PxRefFrame = ConstraintData->getLocalPose(PxFrame);
 		PxRefFrame.p = U2PVector(RefPosition);
-		ConstraintData->setLocalPose(PxFrame, PxRefFrame);
-	}
+		Joint->setLocalPose(PxFrame, PxRefFrame);
+	});
 #endif
 }
 
@@ -626,12 +698,12 @@ void FConstraintInstance::SetRefOrientation(EConstraintFrame::Type Frame, const 
 	}
 	
 #if WITH_PHYSX
-	if (ConstraintData && !(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		FTransform URefTransform = FTransform(PriAxis1, SecAxis, PriAxis ^ SecAxis, RefPos);
 		PxTransform PxRefFrame = U2PTransform(URefTransform);
-		ConstraintData->setLocalPose(PxFrame, PxRefFrame);
-		}
+		Joint->setLocalPose(PxFrame, PxRefFrame);
+	});
 #endif
 }
 
@@ -673,25 +745,18 @@ FVector FConstraintInstance::GetConstraintLocation()
 
 void FConstraintInstance::GetConstraintForce(FVector& OutLinearForce, FVector& OutAngularForce)
 {
+	OutLinearForce = FVector::ZeroVector;
+	OutAngularForce = FVector::ZeroVector;
 #if WITH_PHYSX
-	if (ConstraintData && !(ConstraintData->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadOnly([&] (const PxD6Joint* Joint)
 	{
 		PxVec3 PxOutLinearForce;
 		PxVec3 PxOutAngularForce;
-		ConstraintData->getConstraint()->getForce(PxOutLinearForce, PxOutAngularForce);
+		Joint->getConstraint()->getForce(PxOutLinearForce, PxOutAngularForce);
 
 		OutLinearForce = P2UVector(PxOutLinearForce);
 		OutAngularForce = P2UVector(PxOutAngularForce);
-	}
-	else
-	{
-		OutLinearForce = FVector::ZeroVector;
-		OutAngularForce = FVector::ZeroVector;
-	}
-
-#else
-	OutLinearForce = FVector::ZeroVector;
-	OutAngularForce = FVector::ZeroVector;
+	});
 #endif
 }
 
@@ -701,9 +766,7 @@ void FConstraintInstance::GetConstraintForce(FVector& OutLinearForce, FVector& O
 void FConstraintInstance::SetLinearPositionDrive(bool bEnableXDrive, bool bEnableYDrive, bool bEnableZDrive)
 {
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	
-	if (Joint && !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		// Get the current drives
 		PxD6JointDrive CurrentDriveX = Joint->getDrive(PxD6Drive::eX);
@@ -717,7 +780,7 @@ void FConstraintInstance::SetLinearPositionDrive(bool bEnableXDrive, bool bEnabl
 		Joint->setDrive(PxD6Drive::eX, CurrentDriveX);
 		Joint->setDrive(PxD6Drive::eY, CurrentDriveY);
 		Joint->setDrive(PxD6Drive::eZ, CurrentDriveZ);
-	}
+	});
 #endif
 
 	bLinearXPositionDrive = bEnableXDrive;
@@ -753,30 +816,28 @@ void FConstraintInstance::SetLinearVelocityDrive(bool bEnableXDrive, bool bEnabl
 	bLinearVelocityDrive = bEnableXDrive || bEnableYDrive || bEnableZDrive;
 }
 
-
 /** Function for turning angular position drive on and off. */
 void FConstraintInstance::SetAngularPositionDrive(bool bEnableSwingDrive, bool bEnableTwistDrive)
 {
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint &&  !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		// Get the current drives
 		PxD6JointDrive CurrentDriveSwing = Joint->getDrive(PxD6Drive::eSWING);
 		PxD6JointDrive CurrentDriveTwist = Joint->getDrive(PxD6Drive::eTWIST);
 		PxD6JointDrive CurrentDriveSlerp = Joint->getDrive(PxD6Drive::eSLERP);
+		const bool bSlerp = AngularDriveMode == EAngularDriveMode::SLERP;
 
-
-		CurrentDriveSwing.stiffness = bEnableSwingDrive ? AngularDriveSpring : 0.0f;
-		CurrentDriveTwist.stiffness = bEnableTwistDrive ? AngularDriveSpring : 0.0f;
-		CurrentDriveSlerp.stiffness = (bEnableSwingDrive && bEnableTwistDrive) ? AngularDriveSpring : 0.0f;
+		CurrentDriveSwing.stiffness = !bSlerp && bEnableSwingDrive ? AngularDriveSpring : 0.0f;
+		CurrentDriveTwist.stiffness = !bSlerp && bEnableTwistDrive ? AngularDriveSpring : 0.0f;
+		CurrentDriveSlerp.stiffness = bSlerp  && (bEnableSwingDrive || bEnableTwistDrive) ? AngularDriveSpring : 0.0f;
 
 		Joint->setDrive(PxD6Drive::eSWING, CurrentDriveSwing);
 		Joint->setDrive(PxD6Drive::eTWIST, CurrentDriveTwist);
 		Joint->setDrive(PxD6Drive::eSLERP, CurrentDriveSlerp);
 		
 		bAngularOrientationDrive = bEnableSwingDrive || bEnableTwistDrive;
-	}
+	});
 #endif
 }
 
@@ -791,10 +852,11 @@ void FConstraintInstance::SetAngularVelocityDrive(bool bEnableSwingDrive, bool b
 		PxD6JointDrive CurrentDriveSwing = Joint->getDrive(PxD6Drive::eSWING);
 		PxD6JointDrive CurrentDriveTwist = Joint->getDrive(PxD6Drive::eTWIST);
 		PxD6JointDrive CurrentDriveSlerp = Joint->getDrive(PxD6Drive::eSLERP);
+		const bool bSlerp = AngularDriveMode == EAngularDriveMode::SLERP;
 
-		CurrentDriveSwing.damping = bEnableSwingDrive ? AngularDriveDamping : 0.0f;
-		CurrentDriveTwist.damping = bEnableTwistDrive ? AngularDriveDamping : 0.0f;
-		CurrentDriveSlerp.damping = (bEnableSwingDrive && bEnableTwistDrive) ? AngularDriveDamping : 0.0f;
+		CurrentDriveSwing.damping = !bSlerp && bEnableSwingDrive ? AngularDriveDamping : 0.0f;
+		CurrentDriveTwist.damping = !bSlerp && bEnableTwistDrive ? AngularDriveDamping : 0.0f;
+		CurrentDriveSlerp.damping = bSlerp  && (bEnableSwingDrive && bEnableTwistDrive) ? AngularDriveDamping : 0.0f;
 
 		Joint->setDrive(PxD6Drive::eSWING, CurrentDriveSwing);
 		Joint->setDrive(PxD6Drive::eTWIST, CurrentDriveTwist);
@@ -815,8 +877,7 @@ void FConstraintInstance::SetLinearPositionTarget(const FVector& InPosTarget)
 	}
 
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint)
+	if (PxD6Joint* Joint = ConstraintData)
 	{
 		PxVec3 Pos = U2PVector(InPosTarget);
 		Joint->setDrivePosition(PxTransform(Pos, Joint->getDrivePosition().q));
@@ -836,8 +897,7 @@ void FConstraintInstance::SetLinearVelocityTarget(const FVector& InVelTarget)
 	}
 
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint)
+	if (PxD6Joint* Joint = ConstraintData)
 	{
 		PxVec3 CurrentLinearVel, CurrentAngVel;
 		Joint->getDriveVelocity(CurrentLinearVel, CurrentAngVel);
@@ -849,23 +909,30 @@ void FConstraintInstance::SetLinearVelocityTarget(const FVector& InVelTarget)
 	LinearVelocityTarget = InVelTarget;
 }
 
-/** Function for setting angular motor parameters. */
+/** Function for setting linear motor parameters. */
 void FConstraintInstance::SetLinearDriveParams(float InSpring, float InDamping, float InForceLimit)
 {
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint &&  !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	if (bLinearPositionDrive || bLinearVelocityDrive)
 	{
-		float LinearForceLimit = InForceLimit;
+		ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+		{
+			// X-Axis linear drive
+			const float DriveSpringX = bLinearPositionDrive && bLinearXPositionDrive ? InSpring : 0.0f;
+			const float DriveDampingX = (bLinearVelocityDrive && LinearVelocityTarget.X != 0.f) ? InDamping : 0.0f;
+			const float LinearForceLimit = InForceLimit > 0.f ? InForceLimit : PX_MAX_F32;
+			Joint->setDrive(PxD6Drive::eX, PxD6JointDrive(DriveSpringX, DriveDampingX, LinearForceLimit, bIsAccelerationDrive));
 
-		PxD6JointDrive NewJointDrive(InSpring, InDamping, LinearForceLimit > 0.f ? LinearForceLimit : PX_MAX_F32, Joint->getDrive(PxD6Drive::eX).flags);
-		Joint->setDrive(PxD6Drive::eX, NewJointDrive);
+			// Y-Axis linear drive
+			const float DriveSpringY = bLinearPositionDrive && bLinearYPositionDrive ? InSpring : 0.0f;
+			const float DriveDampingY = (bLinearVelocityDrive && LinearVelocityTarget.Y != 0.f) ? InDamping : 0.0f;
+			Joint->setDrive(PxD6Drive::eY, PxD6JointDrive(DriveSpringY, DriveDampingY, LinearForceLimit, bIsAccelerationDrive));
 
-		NewJointDrive.flags = Joint->getDrive(PxD6Drive::eY).flags;
-		Joint->setDrive(PxD6Drive::eY, NewJointDrive);
-
-		NewJointDrive.flags = Joint->getDrive(PxD6Drive::eZ).flags;
-		Joint->setDrive(PxD6Drive::eZ, NewJointDrive);
+			// Z-Axis linear drive
+			const float DriveSpringZ = bLinearPositionDrive && bLinearZPositionDrive ? InSpring : 0.0f;
+			const float DriveDampingZ = (bLinearVelocityDrive && LinearVelocityTarget.Z != 0.f) ? InDamping : 0.0f;
+			Joint->setDrive(PxD6Drive::eZ, PxD6JointDrive(DriveSpringZ, DriveDampingZ, LinearForceLimit, bIsAccelerationDrive));
+		});
 	}
 #endif
 
@@ -886,8 +953,7 @@ void FConstraintInstance::SetAngularOrientationTarget(const FQuat& InPosTarget)
 	}
 	
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint)
+	if (PxD6Joint* Joint = ConstraintData)
 	{
 		PxQuat Quat = U2PQuat(InPosTarget);
 		Joint->setDrivePosition(PxTransform(Joint->getDrivePosition().p, Quat));
@@ -901,8 +967,7 @@ float FConstraintInstance::GetCurrentSwing1() const
 {
 	float Swing1 = 0.f;
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint)
+	if (PxD6Joint* Joint = ConstraintData)
 	{
 		Swing1 = Joint->getSwingZAngle();
 	}
@@ -915,8 +980,7 @@ float FConstraintInstance::GetCurrentSwing2() const
 {
 	float Swing2 = 0.f;
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint)
+	if (PxD6Joint* Joint = ConstraintData)
 	{
 		Swing2 = Joint->getSwingYAngle();
 	}
@@ -929,8 +993,7 @@ float FConstraintInstance::GetCurrentTwist() const
 {
 	float Twist = 0.f;
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint)
+	if (PxD6Joint* Joint = ConstraintData)
 	{
 		Twist = Joint->getTwist();
 	}
@@ -950,13 +1013,12 @@ void FConstraintInstance::SetAngularVelocityTarget(const FVector& InVelTarget)
 	}
 
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint)
+	if (PxD6Joint* Joint = ConstraintData)
 	{
 		PxVec3 CurrentLinearVel, CurrentAngVel;
 		Joint->getDriveVelocity(CurrentLinearVel, CurrentAngVel);
 
-		PxVec3 AngVel = U2PVector(InVelTarget * 2 * (float)PI); // Convert from revs per second to radians
+		PxVec3 AngVel = U2PVector(RevolutionsToRads(InVelTarget));
 		Joint->setDriveVelocity(CurrentLinearVel, AngVel);
 	}
 #endif
@@ -968,20 +1030,27 @@ void FConstraintInstance::SetAngularVelocityTarget(const FVector& InVelTarget)
 void FConstraintInstance::SetAngularDriveParams(float InSpring, float InDamping, float InForceLimit)
 {
 #if WITH_PHYSX
-	
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint &&  !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	if (bAngularOrientationDrive || bAngularVelocityDrive)
 	{
-		float AngularForceLimit = InForceLimit;
+		ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
+		{
+			const float AngularForceLimit = InForceLimit > 0.0f ? InForceLimit : PX_MAX_F32;
+			const float DriveSpring = bAngularOrientationDrive ? InSpring : 0.0f;
+			const float DriveDamping = bAngularVelocityDrive ? InDamping : 0.0f;
 
-		PxD6JointDrive NewJointDrive(InSpring, InDamping, AngularForceLimit > 0.f ? AngularForceLimit : PX_MAX_F32, Joint->getDrive(PxD6Drive::eSWING).flags);
-		Joint->setDrive(PxD6Drive::eSWING, NewJointDrive);
-
-		NewJointDrive.flags = Joint->getDrive(PxD6Drive::eTWIST).flags;
-		Joint->setDrive(PxD6Drive::eTWIST, NewJointDrive);
-
-		NewJointDrive.flags = Joint->getDrive(PxD6Drive::eSLERP).flags;
-		Joint->setDrive(PxD6Drive::eSLERP, NewJointDrive);
+			if (AngularDriveMode == EAngularDriveMode::SLERP)
+			{
+				Joint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive());
+				Joint->setDrive(PxD6Drive::eSWING, PxD6JointDrive());
+				Joint->setDrive(PxD6Drive::eSLERP, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive));
+			}
+			else
+			{
+				Joint->setDrive(PxD6Drive::eTWIST, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive));
+				Joint->setDrive(PxD6Drive::eSWING, PxD6JointDrive(DriveSpring, DriveDamping, AngularForceLimit, bIsAccelerationDrive));
+				Joint->setDrive(PxD6Drive::eSLERP, PxD6JointDrive());
+			}
+		});
 	}
 #endif
 
@@ -990,17 +1059,11 @@ void FConstraintInstance::SetAngularDriveParams(float InSpring, float InDamping,
 	AngularDriveForceLimit = InForceLimit;
 }
 
-
-
-
-
-
 /** Scale Angular Limit Constraints (as defined in RB_ConstraintSetup) */
 void FConstraintInstance::SetAngularDOFLimitScale(float InSwing1LimitScale, float InSwing2LimitScale, float InTwistLimitScale)
 {
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint &&  !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		if ( AngularSwing1Motion == ACM_Limited || AngularSwing2Motion == ACM_Limited )
 		{
@@ -1046,7 +1109,7 @@ void FConstraintInstance::SetAngularDOFLimitScale(float InSwing1LimitScale, floa
 			Joint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLOCKED);
 		}
 		
-	}
+	});
 #endif
 }
 
@@ -1054,12 +1117,11 @@ void FConstraintInstance::SetAngularDOFLimitScale(float InSwing1LimitScale, floa
 void FConstraintInstance::SetLinearLimitSize(float NewLimitSize)
 {
 #if WITH_PHYSX
-	PxD6Joint* Joint = (PxD6Joint*)ConstraintData;
-	if (Joint &&  !(Joint->getConstraintFlags()&PxConstraintFlag::eBROKEN))
+	ExecuteOnUnbrokenJointReadWrite([&] (PxD6Joint* Joint)
 	{
 		PxReal LimitContractDistance =  1.f * (PI/180.0f);
 		Joint->setLinearLimit(PxJointLinearLimit(GPhysXSDK->getTolerancesScale(), NewLimitSize, LimitContractDistance * GPhysXSDK->getTolerancesScale().length)); // LOC_MOD33 need to scale the contactDistance if not using its default value
-	}
+	});
 #endif
 }
 
@@ -1274,6 +1336,20 @@ FConstraintInstance * FConstraintInstance::Alloc()
 	void* Memory = FMemory::Malloc(sizeof(FConstraintInstance));
 	FMemory::Memzero(Memory, sizeof(FConstraintInstance));
 	return new (Memory)FConstraintInstance();
+}
+
+void FConstraintInstance::EnableProjection()
+{
+	SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
+	ConstraintData->setProjectionLinearTolerance(ProjectionLinearTolerance);
+	ConstraintData->setProjectionAngularTolerance(ProjectionAngularTolerance);
+	ConstraintData->setConstraintFlag(PxConstraintFlag::ePROJECTION, true);
+}
+
+void FConstraintInstance::DisableProjection()
+{
+	SCOPED_SCENE_WRITE_LOCK(ConstraintData->getScene());
+	ConstraintData->setConstraintFlag(PxConstraintFlag::ePROJECTION, false);
 }
 
 #undef LOCTEXT_NAMESPACE

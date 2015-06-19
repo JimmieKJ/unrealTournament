@@ -28,7 +28,7 @@ public:
 	void Construct( const FArguments& InArgs );
 
 	// SWidget interface
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End of SWidget interface
 
 	// Return true if the watched file can be modified (as of the last update)
@@ -37,7 +37,7 @@ public:
 	// Force an update on the next tick
 	void Invalidate()
 	{
-		DefaultConfigCheckOutTimer = 1.0f;
+		LastDefaultConfigCheckOutTime = 0.f;
 	}
 
 private:
@@ -86,5 +86,5 @@ private:
 	bool DefaultConfigQueryInProgress;
 
 	// Holds a timer for checking whether the section's configuration file needs to be checked out.
-	float DefaultConfigCheckOutTimer;
+	double LastDefaultConfigCheckOutTime;
 };

@@ -300,6 +300,13 @@ public:
 	ENGINE_API bool AddSlotGroupName(const FName& InNewGroupName);
 	ENGINE_API FName GetSlotGroupName(const FName& InSlotName) const;
 
+	// Edits/removes slot group data
+	// WARNING: Does not verify that the names aren't used anywhere - if it isn't checked
+	// by the caller the names will be recreated when referencing assets load again.
+	ENGINE_API void RemoveSlotName(const FName& InSlotName);
+	ENGINE_API void RemoveSlotGroup(const FName& InSlotName);
+	ENGINE_API void RenameSlotName(const FName& OldName, const FName& NewName);
+
 #if WITH_EDITORONLY_DATA
 private:
 	/** The default skeletal mesh to use when previewing this skeleton */
@@ -574,8 +581,6 @@ public:
 		return BoneTree[BoneTreeIdx].TranslationRetargetingMode;
 	}
 
-	ENGINE_API FString GetRetargetingModeString(const EBoneTranslationRetargetingMode::Type & RetargetingMode) const;
-	
 	/** 
 	 * Rebuild Look up between SkelMesh to BoneTree - this should only get called when SkelMesh is re-imported or so, where the mapping may be no longer valid
 	 *
@@ -589,6 +594,8 @@ public:
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void PostInitProperties() override;
 	virtual void Serialize(FArchive& Ar) override;
+
+	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
 	/** 
 	 * Create RefLocalPoses from InSkelMesh
@@ -666,11 +673,11 @@ public:
 
 	// Asset registry information for animation notifies
 	static const FName AnimNotifyTag;
-	static const TCHAR AnimNotifyTagDelimiter;
+	static const FString AnimNotifyTagDelimiter;
 
 	// Asset registry information for animation curves
 	ENGINE_API static const FName CurveTag;
-	ENGINE_API static const TCHAR CurveTagDelimiter;
+	ENGINE_API static const FString CurveTagDelimiter;
 
 	// rig Configs
 	ENGINE_API static const FName RigTag;

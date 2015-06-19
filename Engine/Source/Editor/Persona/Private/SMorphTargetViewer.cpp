@@ -13,6 +13,7 @@
 
 static const FName ColumnId_MorphTargetNameLabel( "MorphTargetName" );
 static const FName ColumnID_MorphTargetWeightLabel( "Weight" );
+static const FName ColumnID_MorphTargetEditLabel( "Edit" );
 static const FName ColumnID_MorphTargetVertCountLabel( "NumberOfVerts" );
 
 const float MaxMorphWeight = 5.f;
@@ -57,14 +58,25 @@ private:
 	*
 	*/
 	void OnMorphTargetWeightChanged( float NewWeight );
+	/**
+	* Called when the user types the value and enters
+	*
+	* @param NewWeight - The new number the SSpinBox is set to
+	*
+	*/
+	void OnMorphTargetWeightValueCommitted( float NewWeight, ETextCommit::Type CommitType);
 
+	/** Auto fill check call back functions */
+	void OnMorphTargetAutoFillChecked(ECheckBoxState InState);
+	ECheckBoxState IsMorphTargetAutoFillChangedChecked() const;
+	
 	/**
 	* Returns the weight of this morph target
 	*
 	* @return SearchText - The new number the SSpinBox is set to
 	*
 	*/
-	float GetWeight() const { return Item->Weight; }
+	float GetWeight() const;
 
 	/* The SMorphTargetViewer that we push the morph target weights into */
 	SMorphTargetViewer* MorphTargetViewer;
@@ -126,6 +138,23 @@ TSharedRef< SWidget > SMorphTargetListRow::GenerateWidgetForColumn( const FName&
 				.MaxValue(MaxMorphWeight)
 				.Value( this, &SMorphTargetListRow::GetWeight )
 				.OnValueChanged( this, &SMorphTargetListRow::OnMorphTargetWeightChanged )
+				.OnValueCommitted( this, &SMorphTargetListRow::OnMorphTargetWeightValueCommitted )
+			];
+	}
+	else if ( ColumnName == ColumnID_MorphTargetEditLabel )
+	{
+		return
+			SNew(SVerticalBox)
+
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0.0f, 1.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SCheckBox)
+				.OnCheckStateChanged(this, &SMorphTargetListRow::OnMorphTargetAutoFillChecked)
+				.IsChecked(this, &SMorphTargetListRow::IsMorphTargetAutoFillChangedChecked)
 			];
 	}
 	else
@@ -152,18 +181,41 @@ TSharedRef< SWidget > SMorphTargetListRow::GenerateWidgetForColumn( const FName&
 	}
 }
 
+void SMorphTargetListRow::OnMorphTargetAutoFillChecked(ECheckBoxState InState)
+{
+	Item->bAutoFillData = InState == ECheckBoxState::Checked;
+
+	if (Item->bAutoFillData)
+	{
+		// clear value so that it can be filled up
+		MorphTargetViewer->AddMorphTargetOverride(Item->Name, 0.f, true);
+	}
+}
+
+ECheckBoxState SMorphTargetListRow::IsMorphTargetAutoFillChangedChecked() const
+{
+	return (Item->bAutoFillData)? ECheckBoxState::Checked: ECheckBoxState::Unchecked;
+}
+
 void SMorphTargetListRow::OnMorphTargetWeightChanged( float NewWeight )
 {
 	// First change this item...
-	float Delta = NewWeight - Item->Weight;
+	// the delta feature is a bit confusing when debugging morphtargets, and you're not sure why it's changing, so I'm disabling it for now. 
+	// I think in practice, you want each morph target to move independentaly. It is very unlikely you'd like to move multiple things together. 
+#if 0 
+	float Delta = NewWeight - GetWeight();
+#endif
 	Item->Weight = NewWeight;
-	MorphTargetViewer->AddMorphTargetOverride( Item->Name, Item->Weight );
+	Item->bAutoFillData = false;
+
+	MorphTargetViewer->AddMorphTargetOverride( Item->Name, Item->Weight, false );
 
 	if (PersonaPtr.IsValid())
 	{
 		PersonaPtr.Pin()->RefreshViewport();
 	}
 
+#if 0 
 	TArray< TSharedPtr< FDisplayedMorphTargetInfo > > SelectedRows = MorphTargetListView->GetSelectedItems();
 
 	// ...then any selected rows need changing by the same delta
@@ -174,11 +226,63 @@ void SMorphTargetListRow::OnMorphTargetWeightChanged( float NewWeight )
 		if ( RowItem != Item ) // Don't do "this" row again if it's selected
 		{
 			RowItem->Weight = FMath::Clamp(RowItem->Weight + Delta, -MaxMorphWeight, MaxMorphWeight);
-			MorphTargetViewer->AddMorphTargetOverride( RowItem->Name, RowItem->Weight );
+			RowItem->bAutoFillData = false;
+			MorphTargetViewer->AddMorphTargetOverride( RowItem->Name, RowItem->Weight, false );
+		}
+	}
+#endif
+}
+
+void SMorphTargetListRow::OnMorphTargetWeightValueCommitted( float NewWeight, ETextCommit::Type CommitType)
+{
+	if (CommitType == ETextCommit::OnEnter || CommitType == ETextCommit::OnUserMovedFocus)
+	{
+		float NewValidWeight = FMath::Clamp(NewWeight, -MaxMorphWeight, MaxMorphWeight);
+		Item->Weight = NewValidWeight;
+		Item->bAutoFillData = false;
+
+		MorphTargetViewer->AddMorphTargetOverride(Item->Name, Item->Weight, false);
+
+		TArray< TSharedPtr< FDisplayedMorphTargetInfo > > SelectedRows = MorphTargetListView->GetSelectedItems();
+
+		// ...then any selected rows need changing by the same delta
+		for(auto ItemIt = SelectedRows.CreateIterator(); ItemIt; ++ItemIt)
+		{
+			TSharedPtr< FDisplayedMorphTargetInfo > RowItem = (*ItemIt);
+
+			if(RowItem != Item) // Don't do "this" row again if it's selected
+			{
+				RowItem->Weight = NewValidWeight;
+				RowItem->bAutoFillData = false;
+				MorphTargetViewer->AddMorphTargetOverride(RowItem->Name, RowItem->Weight, false);
+			}
+		}
+
+		if(PersonaPtr.IsValid())
+		{
+			PersonaPtr.Pin()->RefreshViewport();
 		}
 	}
 }
 
+float SMorphTargetListRow::GetWeight() const 
+{ 
+	if (PersonaPtr.IsValid() && Item->bAutoFillData)
+	{
+		USkeletalMeshComponent* SkelComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
+		if ( SkelComp && SkelComp->AnimScriptInstance )
+		{
+			// make sure if they have value that's not same as saved value
+			float* CurrentValue = SkelComp->AnimScriptInstance->MorphTargetCurves.Find(Item->Name);
+			if (CurrentValue && *CurrentValue != 0.f)
+			{
+				return *CurrentValue;
+			}
+		}
+	}
+
+	return Item->Weight; 
+}
 //////////////////////////////////////////////////////////////////////////
 // SMorphTargetViewer
 
@@ -239,6 +343,9 @@ void SMorphTargetViewer::Construct(const FArguments& InArgs)
 
 				+ SHeaderRow::Column( ColumnID_MorphTargetWeightLabel )
 				.DefaultLabel( LOCTEXT( "MorphTargetWeightLabel", "Weight" ) )
+
+				+ SHeaderRow::Column(ColumnID_MorphTargetEditLabel)
+				.DefaultLabel(LOCTEXT("MorphTargetEditLabel", "Auto"))
 
 				+ SHeaderRow::Column( ColumnID_MorphTargetVertCountLabel )
 				.DefaultLabel( LOCTEXT("MorphTargetVertCountLabel", "Vert Count") )
@@ -335,7 +442,7 @@ void SMorphTargetViewer::CreateMorphTargetList( const FString& SearchText )
 	MorphTargetListView->RequestListRefresh();
 }
 
-void SMorphTargetViewer::AddMorphTargetOverride( FName& Name, float Weight )
+void SMorphTargetViewer::AddMorphTargetOverride( FName& Name, float Weight, bool bRemoveZeroWeight )
 {
 	if ( PersonaPtr.IsValid() )
 	{
@@ -343,7 +450,7 @@ void SMorphTargetViewer::AddMorphTargetOverride( FName& Name, float Weight )
 
 		if ( Mesh )
 		{
-			Mesh->SetMorphTarget( Name, Weight );
+			Mesh->SetMorphTarget( Name, Weight, bRemoveZeroWeight );
 		}
 	}
 }
@@ -371,7 +478,7 @@ void SMorphTargetViewer::OnDeleteMorphTargets()
 			MorphTarget->Modify();
 
 			//Clean up override usage
-			AddMorphTargetOverride(SelectedRows[RowIndex]->Name, 0.0f);
+			AddMorphTargetOverride(SelectedRows[RowIndex]->Name, 0.0f, true);
 
 			SkeletalMesh->UnregisterMorphTarget(MorphTarget);
 		}

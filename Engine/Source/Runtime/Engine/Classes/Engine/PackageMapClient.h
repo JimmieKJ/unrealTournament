@@ -27,7 +27,7 @@
 class FNetGuidCacheObject
 {
 public:
-	FNetGuidCacheObject() : ReadOnlyTimestamp( 0 ), bNoLoad( 0 ), bIgnoreWhenMissing( 0 ), bIsPending( 0 ), bIsBroken( 0 )
+	FNetGuidCacheObject() : NetworkChecksum( 0 ), PackageChecksum( 0 ), ReadOnlyTimestamp( 0 ), bNoLoad( 0 ), bIgnoreWhenMissing( 0 ), bIsPending( 0 ), bIsBroken( 0 )
 	{
 	}
 
@@ -36,7 +36,8 @@ public:
 	// These fields are set when this guid is static
 	FNetworkGUID				OuterGUID;
 	FName						PathName;
-	FGuid						PackageGuid;				// If this is a package, this is the guid to expect
+	uint32						NetworkChecksum;			// Network checksum saved, used to determine backwards compatible
+	uint32						PackageChecksum;			// If this is a package, this is the guid to expect
 
 	double						ReadOnlyTimestamp;			// Time in second when we should start timing out after going read only
 
@@ -60,7 +61,7 @@ public:
 	void			RegisterNetGUID_Internal( const FNetworkGUID& NetGUID, const FNetGuidCacheObject& CacheObject );
 	void			RegisterNetGUID_Server( const FNetworkGUID& NetGUID, const UObject* Object );
 	void			RegisterNetGUID_Client( const FNetworkGUID& NetGUID, const UObject* Object );
-	void			RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const FGuid& PackageGuid, const bool bNoLoad, const bool bIgnoreWhenMissing );
+	void			RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const uint32 PackageChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
 	UObject *		GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const bool bIgnoreMustBeMapped );
 	bool			ShouldIgnoreWhenMissing( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDRegistered( const FNetworkGUID& NetGUID ) const;
@@ -68,8 +69,14 @@ public:
 	bool			IsGUIDBroken( const FNetworkGUID& NetGUID, const bool bMustBeRegistered ) const;
 	FString			FullNetGUIDPath( const FNetworkGUID& NetGUID ) const;
 	void			GenerateFullNetGUIDPath_r( const FNetworkGUID& NetGUID, FString& FullPath ) const;
+	void			SetIgnorePackageMismatchOverride( const bool bInIgnorePackageMismatchOverride ) { bIgnorePackageMismatchOverride = bInIgnorePackageMismatchOverride; }
+	bool			ShouldIgnorePackageMismatch() const;
+	uint32			GetClassNetworkChecksum( const UClass* Class );
+	uint32			GetNetworkChecksum( const UObject* Obj );
+	void			SetShouldUseNetworkChecksum( const bool bInUseNetworkChecksum );
+	bool			ShouldUseNetworkChecksum() const;
 
-	void			AsyncPackageCallback( const FName& PackageName, UPackage * Package );
+	void			AsyncPackageCallback(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result);
 	
 	TMap< FNetworkGUID, FNetGuidCacheObject >		ObjectLookup;
 	TMap< TWeakObjectPtr< UObject >, FNetworkGUID >	NetGUIDLookup;
@@ -81,6 +88,9 @@ public:
 
 	TMap< FName, FNetworkGUID >						PendingAsyncPackages;
 
+	bool											bUseNetworkChecksum;
+	bool											bIgnorePackageMismatchOverride;
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// History for debugging entries in the guid cache
 	TMap<FNetworkGUID, FString>						History;
@@ -88,12 +98,12 @@ public:
 };
 
 UCLASS(transient)
-class UPackageMapClient : public UPackageMap
+class ENGINE_API UPackageMapClient : public UPackageMap
 {
 public:
 	GENERATED_BODY()
 
-	UPackageMapClient(const FObjectInitializer & ObjectInitializer);
+	UPackageMapClient(const FObjectInitializer & ObjectInitializer = FObjectInitializer::Get());
 
 	void Initialize(UNetConnection * InConnection, TSharedPtr<FNetGUIDCache> InNetGUIDCache)
 	{

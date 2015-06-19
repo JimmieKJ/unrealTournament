@@ -15,7 +15,6 @@ namespace SceneOutliner
 	struct ITreeItem;
 	struct FActorTreeItem;
 	struct FWorldTreeItem;
-	struct FLevelBlueprintTreeItem;
 	struct FFolderTreeItem;
 
 	struct ITreeItemVisitor;

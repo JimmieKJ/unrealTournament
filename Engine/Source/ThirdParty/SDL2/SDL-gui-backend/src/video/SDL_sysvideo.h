@@ -86,6 +86,8 @@ struct SDL_Window
 
     SDL_DisplayMode fullscreen_mode;
 
+    float opacity;
+
     float brightness;
     Uint16 *gamma;
     Uint16 *saved_gamma;        /* (just offset into gamma) */
@@ -93,7 +95,9 @@ struct SDL_Window
     SDL_Surface *surface;
     SDL_bool surface_valid;
 
+    SDL_bool is_hiding;
     SDL_bool is_destroying;
+    SDL_bool is_dropping;       /* drag/drop in progress, expecting SDL_SendDropComplete(). */
 
     SDL_WindowShaper *shaper;
 
@@ -170,6 +174,11 @@ struct SDL_VideoDevice
     int (*GetDisplayBounds) (_THIS, SDL_VideoDisplay * display, SDL_Rect * rect);
 
     /*
+     * Get the usable bounds of a display (bounds minus menubar or whatever)
+     */
+    int (*GetDisplayUsableBounds) (_THIS, SDL_VideoDisplay * display, SDL_Rect * rect);
+
+    /*
      * Get a list of the available display modes for a display.
      */
     void (*GetDisplayModes) (_THIS, SDL_VideoDisplay * display);
@@ -194,16 +203,10 @@ struct SDL_VideoDevice
     void (*SetWindowSize) (_THIS, SDL_Window * window);
     void (*SetWindowMinimumSize) (_THIS, SDL_Window * window);
     void (*SetWindowMaximumSize) (_THIS, SDL_Window * window);
-    /* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-    int (*GetWindowBordersSize) (_THIS, SDL_Window * window, SDL_Rect * borders);
+    int (*GetWindowBordersSize) (_THIS, SDL_Window * window, int *top, int *left, int *bottom, int *right);
     int (*SetWindowOpacity) (_THIS, SDL_Window * window, float opacity);
-    int (*GetWindowOpacity) (_THIS, SDL_Window * window, float * out_opacity);
-    int (*SetWindowInputState) (_THIS, SDL_Window * window, SDL_bool enable);
-    int (*SetWindowActive) (_THIS, SDL_Window * window);
-    int (*SetWindowModalFor) (_THIS, SDL_Window * modal_window, SDL_Window * parent_window); 
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-    /* EG END */
+    int (*SetWindowModalFor) (_THIS, SDL_Window * modal_window, SDL_Window * parent_window);
+    int (*SetWindowInputFocus) (_THIS, SDL_Window * window);
     void (*ShowWindow) (_THIS, SDL_Window * window);
     void (*HideWindow) (_THIS, SDL_Window * window);
     void (*RaiseWindow) (_THIS, SDL_Window * window);
@@ -283,6 +286,7 @@ struct SDL_VideoDevice
     int num_displays;
     SDL_VideoDisplay *displays;
     SDL_Window *windows;
+    SDL_Window *grabbed_window;
     Uint8 window_magic;
     Uint32 next_object_id;
     char * clipboard_text;
@@ -312,6 +316,7 @@ struct SDL_VideoDevice
         int flags;
         int profile_mask;
         int share_with_current_context;
+        int release_behavior;
         int framebuffer_srgb_capable;
         int retained_backing;
         int driver_loaded;
@@ -396,6 +401,15 @@ extern VideoBootStrap DUMMY_bootstrap;
 #endif
 #if SDL_VIDEO_DRIVER_WAYLAND
 extern VideoBootStrap Wayland_bootstrap;
+#endif
+#if SDL_VIDEO_DRIVER_NACL
+extern VideoBootStrap NACL_bootstrap;
+#endif
+#if SDL_VIDEO_DRIVER_VIVANTE
+extern VideoBootStrap VIVANTE_bootstrap;
+#endif
+#if SDL_VIDEO_DRIVER_EMSCRIPTEN
+extern VideoBootStrap Emscripten_bootstrap;
 #endif
 
 extern SDL_VideoDevice *SDL_GetVideoDevice(void);

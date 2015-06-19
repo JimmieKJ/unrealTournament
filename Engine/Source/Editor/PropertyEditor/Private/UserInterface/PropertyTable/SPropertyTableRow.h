@@ -38,7 +38,7 @@ public:
 		SMultiColumnTableRow< TSharedRef< class IPropertyTableRow > >::Construct( FSuperRowType::FArguments().Style( FEditorStyle::Get(), "PropertyTable.TableRow" ), InOwnerTableView );
 	}
 
-	FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+	FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		PreviousCurrentCell = Row->GetTable()->GetCurrentCell();
 		Row->GetTable()->SetCurrentCell( NULL );
@@ -46,7 +46,7 @@ public:
 		return FReply::Unhandled();
 	}
 
-	FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+	FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		FReply Reply = FReply::Unhandled();
 
@@ -126,7 +126,7 @@ public:
 		return Reply;
 	}
 
-	FReply OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+	FReply OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		FReply Reply = FReply::Unhandled();
 		const TSharedRef< IPropertyTable > Table = Row->GetTable();
@@ -151,10 +151,9 @@ public:
 		return Reply;
 	}
 
-	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
 		Row->Tick();
-		SPropertyTableRowBase::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 	}
 
 

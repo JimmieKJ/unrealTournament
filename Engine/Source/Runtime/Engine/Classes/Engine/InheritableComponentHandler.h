@@ -65,7 +65,9 @@ private:
 	bool IsRecordNecessary(const FComponentOverrideRecord& Record) const;
 
 public:
+
 	UActorComponent* CreateOverridenComponentTemplate(FComponentKey Key);
+	void RemoveOverridenComponentTemplate(FComponentKey Key);
 	void UpdateOwnerClass(UBlueprintGeneratedClass* OwnerClass);
 	void ValidateTemplates();
 	bool IsValid() const;
@@ -90,6 +92,11 @@ public:
 #endif
 
 public:
+
+	// Begin UObject interface
+	virtual void PostLoad() override;
+	// End UObject interface
+
 	void PreloadAllTempates();
 	void PreloadAll();
 

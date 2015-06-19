@@ -8,16 +8,18 @@
  * This is the drag/drop class used for UMG, all UMG drag drop operations utilize this operation.
  * It supports moving a UObject payload and using a UWidget decorator.
  */
-class FUMGDragDropOp : public FDragDropOperation, public FGCObject
+class FUMGDragDropOp : public FGameDragDropOperation, public FGCObject
 {
 public:
-	DRAG_DROP_OPERATOR_TYPE(FUMGDragDropOp, FDragDropOperation)
+	DRAG_DROP_OPERATOR_TYPE(FUMGDragDropOp, FGameDragDropOperation)
 	
-	static TSharedRef<FUMGDragDropOp> New(UDragDropOperation* Operation, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfNode, TSharedPtr<SObjectWidget> SourceUserWidget);
+	static TSharedRef<FUMGDragDropOp> New(UDragDropOperation* Operation, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfNode, float DPIScale, TSharedPtr<SObjectWidget> SourceUserWidget);
 
 	FUMGDragDropOp();
 
+	// Begin FGCObject
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	// End FGCObject
 
 	virtual void OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent ) override;
 
@@ -26,6 +28,9 @@ public:
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override;
 
 	UDragDropOperation* GetOperation() const { return DragOperation; }
+
+protected:
+	virtual void Construct() override;
 
 private:
 

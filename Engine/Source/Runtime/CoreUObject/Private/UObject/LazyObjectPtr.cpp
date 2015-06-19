@@ -51,7 +51,7 @@ void FUniqueObjectGuid::FromString(const FString& From)
 {
 	TArray<FString> Split;
 	Split.Empty(4);
-	if( From.ParseIntoArray( &Split, TEXT("-"), false ) == 4 )
+	if( From.ParseIntoArray( Split, TEXT("-"), false ) == 4 )
 	{
 		Guid.A=FParse::HexNumber(*Split[0]);
 		Guid.B=FParse::HexNumber(*Split[1]);
@@ -67,6 +67,7 @@ void FUniqueObjectGuid::FromString(const FString& From)
 FUniqueObjectGuid FUniqueObjectGuid::GetOrCreateIDForObject(const class UObject *Object)
 {
 	check(Object);
+	checkSlow(IsInGameThread());
 	FUniqueObjectGuid ObjectGuid(Object);
 	if (!ObjectGuid.IsValid())
 	{
@@ -77,7 +78,7 @@ FUniqueObjectGuid FUniqueObjectGuid::GetOrCreateIDForObject(const class UObject 
 	return ObjectGuid;
 }
 
-int32 FUniqueObjectGuid::CurrentAnnotationTag = 1;
+FThreadSafeCounter FUniqueObjectGuid::CurrentAnnotationTag(1);
 
 
 /*-----------------------------------------------------------------------------------------------------------

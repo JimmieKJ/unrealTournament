@@ -118,6 +118,23 @@ public:
 	UFUNCTION(exec)
 	void ShowDebugToggleSubCategory(FName Category);
 
+	/** Toggles 'ShowDebug' from showing debug info between reticle target actor (of subclass <DesiredClass>) and camera view target */
+	UFUNCTION(exec)
+	void ShowDebugForReticleTargetToggle(TSubclassOf<AActor> DesiredClass);
+
+private:
+	/** if true show debug info for 'ShowDebugTargetActor', otherwise for Camera Viewtarget */
+	static bool bShowDebugForReticleTarget;
+
+	/** Class filter for selecting 'ShowDebugTargetActor' when 'bShowDebugForReticleTarget' is true. */
+	UPROPERTY(Transient)
+	TSubclassOf<AActor> ShowDebugTargetDesiredClass;
+
+	/** Show Debug Actor used if 'bShowDebugForReticleTarget' is true, only updated if trace from reticle hit a new Actor of class 'ShowDebugTargetDesiredClass'*/
+	UPROPERTY(Transient)
+	AActor* ShowDebugTargetActor;
+
+public:
 	/**
 	 * Add debug text for a specific actor to be displayed via DrawDebugTextList().  If the debug text is invalid then it will
 	 * attempt to remove any previous entries via RemoveDebugText().
@@ -154,23 +171,31 @@ public:
 
 	/** Hook to allow blueprints to do custom HUD drawing. @see bSuppressNativeHUD to control HUD drawing in base class. */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
-	virtual void ReceiveDrawHUD(int32 SizeX, int32 SizeY);
+	void ReceiveDrawHUD(int32 SizeX, int32 SizeY);
 
 	/** Called when a hit box is clicked on. Provides the name associated with that box. */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
-	virtual void ReceiveHitBoxClick(const FName BoxName);
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, meta=(DisplayName = "HitBoxClicked"))
+	void ReceiveHitBoxClick(const FName BoxName);
+	/** Native handler, called when a hit box is clicked on. Provides the name associated with that box. */
+	virtual void NotifyHitBoxClick(FName BoxName);
 
 	/** Called when a hit box is unclicked. Provides the name associated with that box. */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
-	virtual void ReceiveHitBoxRelease(const FName BoxName);
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, meta=(DisplayName = "HitBoxReleased"))
+	void ReceiveHitBoxRelease(const FName BoxName);
+	/** Native handler, called when a hit box is unclicked. Provides the name associated with that box. */
+	virtual void NotifyHitBoxRelease(FName BoxName);
 
 	/** Called when a hit box is moused over. */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
-	virtual void ReceiveHitBoxBeginCursorOver(const FName BoxName);
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, meta=(DisplayName = "HitBoxBeginCursorOver"))
+	void ReceiveHitBoxBeginCursorOver(const FName BoxName);
+	/** Native handler, called when a hit box is moused over. */
+	virtual void NotifyHitBoxBeginCursorOver(FName BoxName);
 
 	/** Called when a hit box no longer has the mouse over it. */
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
-	virtual void ReceiveHitBoxEndCursorOver(const FName BoxName);
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic, meta=(DisplayName = "HitBoxEndCursorOver"))
+	void ReceiveHitBoxEndCursorOver(const FName BoxName);
+	/** Native handler, called when a hit box no longer has the mouse over it. */
+	virtual void NotifyHitBoxEndCursorOver(FName BoxName);
 
 	//=============================================================================
 	// Kismet API for simple HUD drawing.
@@ -285,6 +310,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	void DrawMaterialSimple(UMaterialInterface* Material, float ScreenX, float ScreenY, float ScreenW, float ScreenH, float Scale=1.f, bool bScalePosition=false);
 
+	UFUNCTION(BlueprintCallable, Category = HUD)
+	void DrawMaterialTriangle(UMaterialInterface* Material, FVector2D V0_Pos, FVector2D V1_Pos, FVector2D V2_Pos, FVector2D V0_UV, FVector2D V1_UV, FVector2D V2_UV, FLinearColor V0_Color = FLinearColor::White, FLinearColor V1_Color = FLinearColor::White, FLinearColor V2_Color = FLinearColor::White);
+	
 	/** Transforms a 3D world-space vector into 2D screen coordinates */
 	UFUNCTION(BlueprintCallable, Category = HUD)
 	FVector Project(FVector Location) const;
@@ -298,8 +326,8 @@ public:
 	 *
 	 * Sample usage:
 	 *
-	 *       TArray<AStaticMeshActor*> ActorsInSelectionRect;
-	 * 		Canvas->GetActorsInSelectionRectangle<AStaticMeshActor>(FirstPoint,SecondPoint,ActorsInSelectionRect);
+	 *      TArray<AStaticMeshActor*> ActorsInSelectionRect;
+	 * 		GetActorsInSelectionRectangle<AStaticMeshActor>(FirstPoint,SecondPoint,ActorsInSelectionRect);
 	 *
 	 *
 	 * @param FirstPoint					The first point, or anchor of the marquee box. Where the dragging of the marquee started in screen space.

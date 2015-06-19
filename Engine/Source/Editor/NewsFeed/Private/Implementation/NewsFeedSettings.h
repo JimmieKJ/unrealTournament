@@ -25,7 +25,7 @@ enum ENewsFeedSource
 /**
  * Holds the settings for the news feed.
  */
-UCLASS(config=EditorGameAgnostic)
+UCLASS(config=EditorSettings)
 class UNewsFeedSettings
 	: public UObject
 {

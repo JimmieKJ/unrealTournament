@@ -33,6 +33,9 @@ private:
 	/** Updates the selected tag*/
 	void OnTagChanged();
 
+	/** Updates the selected tag*/
+	void OnPropertyValueChanged();
+
 	/** Build Editable Container */
 	void BuildEditableContainerList();
 

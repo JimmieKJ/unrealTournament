@@ -13,7 +13,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringChargedRocket>(TEXT("FiringState1")))
 {
 	ClassicGroup = 8;
-	BringUpTime = 0.5f;
+	BringUpTime = 0.41f;
 
 	NumLoadedRockets = 0;
 	MaxLoadedRockets = 3;
@@ -295,7 +295,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		{
 			FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
 			FHitResult Hit;
-			if (GetWorld()->LineTraceSingle(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, true, UTOwner)))
+			if (GetWorld()->LineTraceSingleByChannel(Hit, SpawnLocation, AdjustedSpawnLoc, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_None, true, UTOwner)))
 			{
 				SpawnLocation = Hit.Location - (AdjustedSpawnLoc - SpawnLocation).GetSafeNormal();
 			}
@@ -458,6 +458,12 @@ void AUTWeap_RocketLauncher::StateChanged()
 	else
 	{
 		GetWorldTimerManager().ClearTimer(UpdateLockHandle);
+	}
+
+	//Clear loaded rockets and hide the HUD text when inactive
+	if (CurrentState == InactiveState)
+	{
+		ClearLoadedRockets();
 	}
 }
 
@@ -776,7 +782,7 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 				BestFireMode = (!B->LostContact(1.5f) && B->WeaponProficiencyCheck() && FMath::FRand() < 0.5f) ? 0 : 1;
 			}
 
-			if (!PredicitiveTargetLoc.IsZero() && !GetWorld()->LineTraceTest(UTOwner->GetActorLocation(), PredicitiveTargetLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("PredictiveRocket")), false, UTOwner), WorldResponseParams))
+			if (!PredicitiveTargetLoc.IsZero() && !GetWorld()->LineTraceTestByChannel(UTOwner->GetActorLocation(), PredicitiveTargetLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("PredictiveRocket")), false, UTOwner), WorldResponseParams))
 			{
 				OptimalTargetLoc = PredicitiveTargetLoc;
 				return true;

@@ -25,7 +25,7 @@ public:
 		ViewFlagIndex = uint32(FEngineShowFlags::FindIndexByName(*ViewFlagName));
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
@@ -105,7 +105,7 @@ void UVisualLoggerRenderingComponent::DestroyRenderState_Concurrent()
 AVisualLoggerRenderingActor::AVisualLoggerRenderingActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	RenderingComponent = ConstructObject<UVisualLoggerRenderingComponent>(UVisualLoggerRenderingComponent::StaticClass(), this);
+	RenderingComponent = CreateDefaultSubobject<UVisualLoggerRenderingComponent>(TEXT("RenderingComponent"));
 }
 
 void AVisualLoggerRenderingActor::AddDebugRendering()
@@ -116,6 +116,9 @@ void AVisualLoggerRenderingActor::AddDebugRendering()
 		const FVector BoxExtent(100, 100, 100);
 		const FBox Box(FVector(128), FVector(300));
 		Boxes.Add(FDebugRenderSceneProxy::FDebugBox(Box, FColor::Red));
+		FTransform Trans;
+		Trans.SetRotation(FQuat::MakeFromEuler(FVector(0.1, 0.2, 1.2)));
+		Boxes.Add(FDebugRenderSceneProxy::FDebugBox(Box, FColor::Red, Trans));
 	}
 	{
 		const FVector Orgin = FVector(400,0,128);
@@ -165,6 +168,7 @@ void AVisualLoggerRenderingActor::ObjectSelectionChanged(TSharedPtr<class STimel
 		Texts.Reset();
 		Cylinders.Reset();
 		Capsles.Reset();
+		LogEntriesPath.Reset();
 		MarkComponentsRenderStateDirty();
 		return;
 	}
@@ -180,7 +184,7 @@ void AVisualLoggerRenderingActor::ObjectSelectionChanged(TSharedPtr<class STimel
 	}
 }
 
-void AVisualLoggerRenderingActor::OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEntryItem& EntryItem, TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface)
+void AVisualLoggerRenderingActor::OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEntryItem& EntryItem)
 {
 	const FVisualLogEntry* Entry = &EntryItem.Entry;
 	const FVisualLogShapeElement* ElementToDraw = Entry->ElementsToDraw.GetData();
@@ -199,11 +203,13 @@ void AVisualLoggerRenderingActor::OnItemSelectionChanged(const FVisualLogDevice:
 	AddDebugRendering();
 #endif
 
-	const float Length = 100;
-	const FVector DirectionNorm = FVector(0, 0, 1).GetSafeNormal();
-	FVector YAxis, ZAxis;
-	DirectionNorm.FindBestAxisVectors(YAxis, ZAxis);
-	Cones.Add(FDebugRenderSceneProxy::FCone(FScaleMatrix(FVector(Length)) * FMatrix(DirectionNorm, YAxis, ZAxis, Entry->Location), 5, 5, FColor::Red));
+	{
+		const float Length = 100;
+		const FVector DirectionNorm = FVector(0, 0, 1).GetSafeNormal();
+		FVector YAxis, ZAxis;
+		DirectionNorm.FindBestAxisVectors(YAxis, ZAxis);
+		Cones.Add(FDebugRenderSceneProxy::FCone(FScaleMatrix(FVector(Length)) * FMatrix(DirectionNorm, YAxis, ZAxis, Entry->Location), 5, 5, FColor::Red));
+	}
 
 	if (LogEntriesPath.Num())
 	{
@@ -225,7 +231,7 @@ void AVisualLoggerRenderingActor::OnItemSelectionChanged(const FVisualLogDevice:
 	for (const auto CurrentData : Entry->DataBlocks)
 	{
 		const FName TagName = CurrentData.TagName;
-		const bool bIsValidByFilter = VisualLoggerInterface->IsValidCategory(CurrentData.Category.ToString(), ELogVerbosity::All) && VisualLoggerInterface->IsValidCategory(CurrentData.TagName.ToString(), ELogVerbosity::All);
+		const bool bIsValidByFilter = FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentData.Category.ToString(), ELogVerbosity::All) && FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentData.TagName.ToString(), ELogVerbosity::All);
 		FVisualLogExtensionInterface* Extension = FVisualLogger::Get().GetExtensionForTag(TagName);
 		if (!Extension)
 		{
@@ -244,7 +250,7 @@ void AVisualLoggerRenderingActor::OnItemSelectionChanged(const FVisualLogDevice:
 
 	for (int32 ElementIndex = 0; ElementIndex < ElementsCount; ++ElementIndex, ++ElementToDraw)
 	{
-		if (VisualLoggerInterface.IsValid() && !VisualLoggerInterface->IsValidCategory(ElementToDraw->Category.ToString(), ElementToDraw->Verbosity))
+		if (!FCategoryFiltersManager::Get().MatchCategoryFilters(ElementToDraw->Category.ToString(), ElementToDraw->Verbosity))
 		{
 			continue;
 		}
@@ -353,8 +359,8 @@ void AVisualLoggerRenderingActor::OnItemSelectionChanged(const FVisualLogDevice:
 			const FVector* BoxExtent = ElementToDraw->Points.GetData();
 			for (int32 Index = 0; Index + 1 < ElementToDraw->Points.Num(); Index += 2, BoxExtent += 2)
 			{
-				const FBox Box(*BoxExtent, *(BoxExtent + 1));
-				Boxes.Add(FDebugRenderSceneProxy::FDebugBox(Box, Color));
+				const FBox Box = FBox(*BoxExtent, *(BoxExtent + 1));
+				Boxes.Add(FDebugRenderSceneProxy::FDebugBox(Box, Color, FTransform(ElementToDraw->TransformationMatrix)));
 
 				if (bDrawLabel)
 				{

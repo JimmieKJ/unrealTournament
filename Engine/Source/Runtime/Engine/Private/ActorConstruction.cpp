@@ -5,6 +5,7 @@
 #include "LatentActions.h"
 #include "ComponentInstanceDataCache.h"
 #include "Engine/LevelScriptActor.h"
+#include "Engine/CullDistanceVolume.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -16,110 +17,13 @@
 DEFINE_LOG_CATEGORY(LogBlueprintUserMessages);
 
 //////////////////////////////////////////////////////////////////////////
-// Local Types
-
-namespace
-{
-	/** Tracks info for components instanced during UCS execution */
-	struct FUCSComponentInfo
-	{
-		EComponentMobility::Type Mobility;
-		TWeakObjectPtr<UActorComponent> ComponentPtr;
-
-		FUCSComponentInfo(UActorComponent* InComponent)
-			: ComponentPtr(InComponent)
-		{
-			ensure(!InComponent || !InComponent->IsPendingKill());
-			USceneComponent* SceneComponent = Cast<USceneComponent>(InComponent);
-			if(SceneComponent != nullptr)
-			{
-				// Save original mobility
-				Mobility = SceneComponent->Mobility;
-
-				// Temporarily set to 'movable' to allow changes during UCS
-				SceneComponent->Mobility = EComponentMobility::Movable;
-			}
-		}
-	};
-
-	/** Helper class to manage components instanced during UCS execution */
-	class FUCSComponentManager
-	{
-		/** Map of actors and any components created during UCS */
-		TMap<const AActor*, TArray<FUCSComponentInfo> > UCSComponentsMap;
-
-	public:
-		/** Called before UCS execution has started for the given Actor */
-		void PreProcessComponents(const AActor* InActor)
-		{
-			TInlineComponentArray<UActorComponent*> ActorComponents;
-			InActor->GetComponents(ActorComponents);
-			for (auto CompIt = ActorComponents.CreateConstIterator(); CompIt; ++CompIt)
-			{
-				AddComponent(InActor, *CompIt);
-			}
-		}
-
-		/** Add a component instance for the given Actor */
-		void AddComponent(const AActor* InActor, UActorComponent* InComponent)
-		{
-			TArray<FUCSComponentInfo>& UCSComponentsList = UCSComponentsMap.FindOrAdd(InActor);
-			UCSComponentsList.Add(FUCSComponentInfo(InComponent));
-		}
-
-		/** Called after UCS execution has finished for the given Actor */
-		void PostProcessComponents(const AActor* InActor)
-		{
-			TArray<FUCSComponentInfo> UCSComponentsList;
-			const bool bFound = UCSComponentsMap.RemoveAndCopyValue(InActor, UCSComponentsList);
-			if (bFound)
-			{
-				for (int32 ComponentIndex = 0; ComponentIndex < UCSComponentsList.Num(); ++ComponentIndex)
-				{
-					const FUCSComponentInfo& UCSComponentInfo = UCSComponentsList[ComponentIndex];
-
-					USceneComponent* SceneComponent = Cast<USceneComponent>(UCSComponentInfo.ComponentPtr.Get());
-					if(SceneComponent != nullptr)
-					{
-						// Restore original mobility after UCS execution
-						SceneComponent->Mobility = UCSComponentInfo.Mobility;
-
-						// A parent component can't be more mobile than its children, so we check for that here and adjust as needed.
-						if(SceneComponent->AttachParent != nullptr && SceneComponent->AttachParent->Mobility > SceneComponent->Mobility)
-						{
-							if(SceneComponent->IsA<UStaticMeshComponent>())
-							{
-								// SMCs can't be stationary, so always set them (and any children) to be movable
-								SceneComponent->SetMobility(EComponentMobility::Movable);
-							}
-							else
-							{
-								// Set the new component (and any children) to be at least as mobile as its parent
-								SceneComponent->SetMobility(SceneComponent->AttachParent->Mobility);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/** Gets the FUCSComponentManager singleton. */
-		static FUCSComponentManager& Get()
-		{
-			static FUCSComponentManager Singleton;
-			return Singleton;
-		}
-	};
-}
-
-//////////////////////////////////////////////////////////////////////////
 // AActor Blueprint Stuff
 
 static TArray<FRandomStream*> FindRandomStreams(AActor* InActor)
 {
 	check(InActor);
 	TArray<FRandomStream*> OutStreams;
-	UScriptStruct* RandomStreamStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("RandomStream"));
+	UScriptStruct* RandomStreamStruct = GetBaseStructure(TEXT("RandomStream"));
 	for( TFieldIterator<UStructProperty> It(InActor->GetClass()) ; It ; ++It )
 	{
 		UStructProperty* StructProp = *It;
@@ -160,16 +64,21 @@ void AActor::ResetPropertiesForConstruction()
 		UStructProperty* StructProp = Cast<UStructProperty>(Prop);
 		UClass* PropClass = CastChecked<UClass>(Prop->GetOuter()); // get the class that added this property
 
+		bool const bCanEditInstanceValue = !Prop->HasAnyPropertyFlags(CPF_DisableEditOnInstance) &&
+			Prop->HasAnyPropertyFlags(CPF_Edit);
+		bool const bCanBeSetInBlueprints = Prop->HasAnyPropertyFlags(CPF_BlueprintVisible) && 
+			!Prop->HasAnyPropertyFlags(CPF_BlueprintReadOnly);
+
 		// First see if it is a random stream, if so reset before running construction script
 		if( (StructProp != NULL) && (StructProp->Struct != NULL) && (StructProp->Struct->GetFName() == RandomStreamName) )
 		{
 			FRandomStream* StreamPtr =  StructProp->ContainerPtrToValuePtr<FRandomStream>(this);
 			StreamPtr->Reset();
 		}
-		// If it is a blueprint added variable that is not editable per-instance, reset to default before running construction script
+		// If it is a blueprint exposed variable that is not editable per-instance, reset to default before running construction script
 		else if( !bIsLevelScriptActor 
-				&& Prop->HasAnyPropertyFlags(CPF_DisableEditOnInstance)
-				&& PropClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint) 
+				&& !bCanEditInstanceValue
+				&& bCanBeSetInBlueprints
 				&& !Prop->IsA(UDelegateProperty::StaticClass()) 
 				&& !Prop->IsA(UMulticastDelegateProperty::StaticClass()) )
 		{
@@ -184,9 +93,23 @@ void AActor::DestroyConstructedComponents()
 	// Remove all existing components
 	TInlineComponentArray<UActorComponent*> PreviouslyAttachedComponents;
 	GetComponents(PreviouslyAttachedComponents);
-	for (int32 i = 0; i < PreviouslyAttachedComponents.Num(); i++)
+
+	// We need the hierarchy to be torn down in attachment order, so do a quick sort
+	PreviouslyAttachedComponents.Remove(nullptr);
+	PreviouslyAttachedComponents.Sort([](UActorComponent& A, UActorComponent& B)
 	{
-		UActorComponent* Component = PreviouslyAttachedComponents[i];
+		if (USceneComponent* BSC = Cast<USceneComponent>(&B))
+		{
+			if (BSC->AttachParent == &A)
+			{
+				return false;
+			}
+		}
+		return true;
+	});
+
+	for (UActorComponent* Component : PreviouslyAttachedComponents)
+	{
 		if (Component)
 		{
 			bool bDestroyComponent = false;
@@ -228,6 +151,8 @@ void AActor::DestroyConstructedComponents()
 
 void AActor::RerunConstructionScripts()
 {
+	checkf(!HasAnyFlags(RF_ClassDefaultObject), TEXT("RerunConstructionScripts should never be called on a CDO as it can mutate the transient data on the CDO which then propagates to instances!"));
+
 	FEditorScriptExecutionGuard ScriptGuard;
 	// don't allow (re)running construction scripts on dying actors
 	bool bAllowReconstruction = !IsPendingKill() && !HasAnyFlags(RF_BeginDestroyed|RF_FinishDestroyed);
@@ -538,6 +463,19 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 				ProcessUserConstructionScript();
 			}
 
+			// Since re-run construction scripts will never be run and we want to keep dynamic spawning fast, don't spend time
+			// determining the UCS modified properties in game worlds
+			if (!GetWorld()->IsGameWorld())
+			{
+				for (UActorComponent* Component : GetComponents())
+				{
+					if (Component)
+					{
+						Component->DetermineUCSModifiedProperties();
+					}
+				}
+			}
+
 			// Bind any delegates on components			
 			((UBlueprintGeneratedClass*)GetClass())->BindDynamicDelegates(this); // We have a BP stack, we must have a UBlueprintGeneratedClass...
 
@@ -568,23 +506,39 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 		}
 	}
 
+	GetWorld()->UpdateCullDistanceVolumes(this);
+
 	// Now run virtual notification
 	OnConstruction(Transform);
 }
 
 void AActor::ProcessUserConstructionScript()
 {
-	// Process components that may have already been instanced before UCS execution.
-	FUCSComponentManager& UCSComponentManager = FUCSComponentManager::Get();
-	UCSComponentManager.PreProcessComponents(this);
-
 	// Set a flag that this actor is currently running UserConstructionScript.
 	bRunningUserConstructionScript = true;
 	UserConstructionScript();
 	bRunningUserConstructionScript = false;
 
-	// Perform any post processing on this Actor's components after UCS execution.
-	UCSComponentManager.PostProcessComponents(this);
+	// Validate component mobility after UCS execution
+	TInlineComponentArray<USceneComponent*> SceneComponents;
+	GetComponents(SceneComponents);
+	for (auto SceneComponent : SceneComponents)
+	{
+		// A parent component can't be more mobile than its children, so we check for that here and adjust as needed.
+		if(SceneComponent != RootComponent && SceneComponent->AttachParent != nullptr && SceneComponent->AttachParent->Mobility > SceneComponent->Mobility)
+		{
+			if(SceneComponent->IsA<UStaticMeshComponent>())
+			{
+				// SMCs can't be stationary, so always set them (and any children) to be movable
+				SceneComponent->SetMobility(EComponentMobility::Movable);
+			}
+			else
+			{
+				// Set the new component (and any children) to be at least as mobile as its parent
+				SceneComponent->SetMobility(SceneComponent->AttachParent->Mobility);
+			}
+		}
+	}
 }
 
 void AActor::FinishAndRegisterComponent(UActorComponent* Component)
@@ -630,7 +584,6 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 
 		// Note we aren't copying the the RF_ArchetypeObject flag. Also note the result is non-transactional by default.
 		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, *InName, RF_AllFlags & ~(RF_ArchetypeObject|RF_Transactional|RF_WasLoaded|RF_Public|RF_InheritableComponentTemplate) );
-		//NewActorComp = ConstructObject<UActorComponent>(Template->GetClass(), this, *InName, RF_NoFlags, Template);
 
 		NewActorComp->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 
@@ -654,12 +607,13 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 		BlueprintGeneratedClass = Cast<UBlueprintGeneratedClass>(BlueprintGeneratedClass->GetSuperClass());
 	}
 
+	bool bIsSceneComponent = false;
 	UActorComponent* NewActorComp = CreateComponentFromTemplate(Template);
 	if(NewActorComp != nullptr)
 	{
 		// Call function to notify component it has been created
 		NewActorComp->OnComponentCreated();
-
+		
 		// The user has the option of doing attachment manually where they have complete control or via the automatic rule
 		// that the first component added becomes the root component, with subsequent components attached to the root.
 		USceneComponent* NewSceneComp = Cast<USceneComponent>(NewActorComp);
@@ -678,16 +632,21 @@ UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment
 			}
 
 			NewSceneComp->SetRelativeTransform(RelativeTransform);
+
+			bIsSceneComponent = true;
 		}
 
 		// Register component, which will create physics/rendering state, now component is in correct position
 		NewActorComp->RegisterComponent();
 
-		// Keep track of the new component during UCS execution. This also does a temporary mobility swap during UCS execution in order to allow dynamic data to be changed within that context.
-		// Note: This should only be done AFTER registration.
-		if(bRunningUserConstructionScript)
+		UWorld* World = GetWorld();
+		if (!bRunningUserConstructionScript && World && bIsSceneComponent)
 		{
-			FUCSComponentManager::Get().AddComponent(this, NewActorComp);
+			UPrimitiveComponent* NewPrimitiveComponent = Cast<UPrimitiveComponent>(NewActorComp);
+			if (NewPrimitiveComponent && ACullDistanceVolume::CanBeAffectedByVolumes(NewPrimitiveComponent))
+			{
+				World->UpdateCullDistanceVolumes(this, NewPrimitiveComponent);
+			}
 		}
 	}
 

@@ -14,9 +14,7 @@ class TEnumAsByte
 public:
 	typedef TEnum EnumType;
 
-	/**
-	 * Default Constructor (no initialization).
-	 */
+	/** Default Constructor (no initialization). */
 	FORCEINLINE TEnumAsByte() { }
 
 	/**

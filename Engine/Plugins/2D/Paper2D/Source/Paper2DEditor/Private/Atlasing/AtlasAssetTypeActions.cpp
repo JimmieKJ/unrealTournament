@@ -4,11 +4,17 @@
 
 #include "AtlasAssetTypeActions.h"
 #include "AssetData.h"
+#include "PaperSpriteAtlas.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
 //////////////////////////////////////////////////////////////////////////
 // FAtlasAssetTypeActions
+
+FAtlasAssetTypeActions::FAtlasAssetTypeActions(EAssetTypeCategories::Type InAssetCategory)
+	: MyAssetCategory(InAssetCategory)
+{
+}
 
 FText FAtlasAssetTypeActions::GetName() const
 {
@@ -33,7 +39,7 @@ void FAtlasAssetTypeActions::OpenAssetEditor(const TArray<UObject*>& InObjects, 
 
 uint32 FAtlasAssetTypeActions::GetCategories()
 {
-	return EAssetTypeCategories::Misc;
+	return MyAssetCategory;
 }
 
 FText FAtlasAssetTypeActions::GetAssetDescription(const FAssetData& AssetData) const

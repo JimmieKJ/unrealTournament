@@ -21,5 +21,18 @@ public class NetworkFile : ModuleRules
 				}
 				);
 		}
+
+        if (Target.Platform == UnrealTargetPlatform.HTML5)
+        { 
+            Definitions.Add("ENABLE_HTTP_FOR_NFS=1");
+            if (Target.Architecture == "-win32")
+            {
+                PrivateDependencyModuleNames.Add("HTML5Win32");
+            }
+            else
+            {
+                PrivateDependencyModuleNames.Add("HTML5JS");
+            }
+        }
 	}
 }

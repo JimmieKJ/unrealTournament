@@ -63,6 +63,9 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent):
 {
 	check(RenderData);
 
+	const int32 EffectiveMinLOD = InComponent->bOverrideMinLOD ? InComponent->MinLOD : InComponent->StaticMesh->MinLOD;
+	ClampedMinLOD = FMath::Clamp(EffectiveMinLOD, 0, RenderData->LODResources.Num() - 1);
+
 	WireframeColor = InComponent->GetWireframeColor();
 	LevelColor = FLinearColor(1,1,1);
 	PropertyColor = FLinearColor(1,1,1);
@@ -141,6 +144,12 @@ void UStaticMeshComponent::SetLODDataCount( const uint32 MinSize, const uint32 M
 	check(MaxSize <= MAX_STATIC_MESH_LODS);
 	if (MaxSize < (uint32)LODData.Num())
 	{
+		// FStaticMeshComponentLODInfo can't be deleted directly as it has rendering resources
+		for (int32 Index = MaxSize; Index < LODData.Num(); Index++)
+		{
+			LODData[Index].ReleaseOverrideVertexColorsAndBlock();
+		}
+
 		// call destructors
 		LODData.RemoveAt(MaxSize, LODData.Num() - MaxSize);
 	}
@@ -464,7 +473,7 @@ void FStaticMeshSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PD
 		} 
 		else //no LOD is being forced, submit them all with appropriate cull distances
 		{
-			for(int32 LODIndex = 0; LODIndex < NumLODs; LODIndex++)
+			for(int32 LODIndex = ClampedMinLOD; LODIndex < NumLODs; LODIndex++)
 			{
 				const FStaticMeshLODResources& LODModel = RenderData->LODResources[LODIndex];
 				float ScreenSize = GetScreenSize(LODIndex);
@@ -705,33 +714,35 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 										Collector.RegisterOneFrameMaterialProxy(VertexColorVisualizationMaterialInstance);
 										MeshElement.MaterialRenderProxy = VertexColorVisualizationMaterialInstance;
 									}
-									else if( bDrawComplexWireframeCollision || (bInCollisionView && bDrawComplexCollision && AllowDebugViewmodes()) )
+									else if (AllowDebugViewmodes() && (bDrawComplexWireframeCollision || (bInCollisionView && bDrawComplexCollision)))
 									{
 										if (LODModel.Sections[SectionIndex].bEnableCollision)
 										{
 											UMaterial* MaterialToUse = (bDrawComplexWireframeCollision) ? GEngine->WireframeMaterial : GEngine->ShadedLevelColorationUnlitMaterial;
 
-											// Override the mesh's material with our material that draws the collision color
-											auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
-												MaterialToUse->GetRenderProxy(bProxyIsSelected, IsHovered()),
-												WireframeColor
-												);
-
-											Collector.RegisterOneFrameMaterialProxy(CollisionMaterialInstance);
-
-											// If drawing the complex collision in wireframe, we do that in _addition_ to the normal mesh
-											if(bDrawComplexWireframeCollision)
+											if (MaterialToUse)
 											{
-												FMeshBatch& CollisionElement = Collector.AllocateMesh();
-												GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, IsHovered(), CollisionElement);
-												CollisionElement.MaterialRenderProxy = CollisionMaterialInstance;
-												Collector.AddMesh(ViewIndex, CollisionElement);
-												INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, CollisionElement.GetNumPrimitives());
-											}
-											// Otherwise just change material on existing mesh
-											else
-											{
-												MeshElement.MaterialRenderProxy = CollisionMaterialInstance;
+												// Override the mesh's material with our material that draws the collision color
+												auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
+													MaterialToUse->GetRenderProxy(bProxyIsSelected, IsHovered()),
+													WireframeColor
+													);
+												Collector.RegisterOneFrameMaterialProxy(CollisionMaterialInstance);
+
+												// If drawing the complex collision in wireframe, we do that in _addition_ to the normal mesh
+												if(bDrawComplexWireframeCollision)
+												{
+													FMeshBatch& CollisionElement = Collector.AllocateMesh();
+													GetMeshElement(LODIndex, BatchIndex, SectionIndex, SDPG_World, bSectionIsSelected, IsHovered(), CollisionElement);
+													CollisionElement.MaterialRenderProxy = CollisionMaterialInstance;
+													Collector.AddMesh(ViewIndex, CollisionElement);
+													INC_DWORD_STAT_BY(STAT_StaticMeshTriangles, CollisionElement.GetNumPrimitives());
+												}
+												// Otherwise just change material on existing mesh
+												else
+												{
+													MeshElement.MaterialRenderProxy = CollisionMaterialInstance;
+												}
 											}
 										}
 										else
@@ -848,7 +859,7 @@ void FStaticMeshSceneProxy::OnTransformChanged()
 
 bool FStaticMeshSceneProxy::CanBeOccluded() const
 {
-	return !MaterialRelevance.bDisableDepthTest;
+	return !MaterialRelevance.bDisableDepthTest && !ShouldRenderCustomDepth();
 }
 
 FPrimitiveViewRelevance FStaticMeshSceneProxy::GetViewRelevance(const FSceneView* View)
@@ -931,7 +942,7 @@ void FStaticMeshSceneProxy::GetLightRelevance(const FLightSceneProxy* LightScene
 					bLightMapped = false;
 				}
 
-				if (InteractionType != LIT_Dynamic && InteractionType != LIT_CachedSignedDistanceFieldShadowMap2D)
+				if (InteractionType != LIT_Dynamic)
 				{
 					bDynamic = false;
 				}
@@ -972,6 +983,17 @@ void FStaticMeshSceneProxy::GetDistancefieldAtlasData(FBox& LocalVolumeBounds, F
 	}
 }
 
+void FStaticMeshSceneProxy::GetDistanceFieldInstanceInfo(int32& NumInstances, float& BoundsSurfaceArea) const
+{
+	NumInstances = DistanceFieldData ? 1 : 0;
+	const FVector AxisScales = GetLocalToWorld().GetScaleVector();
+	const FVector BoxDimensions = RenderData->Bounds.BoxExtent * AxisScales * 2;
+
+	BoundsSurfaceArea = 2 * BoxDimensions.X * BoxDimensions.Y
+		+ 2 * BoxDimensions.Z * BoxDimensions.Y
+		+ 2 * BoxDimensions.X * BoxDimensions.Z;
+}
+
 bool FStaticMeshSceneProxy::HasDistanceFieldRepresentation() const
 {
 	return CastsDynamicShadow() && AffectsDistanceFieldLighting() && DistanceFieldData && DistanceFieldData->VolumeTexture.IsValidDistanceFieldVolume();
@@ -986,7 +1008,7 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 {
 	const auto FeatureLevel = InComponent->GetWorld()->FeatureLevel;
 
-	FStaticMeshRenderData* RenderData = InComponent->StaticMesh->RenderData;
+	FStaticMeshRenderData* MeshRenderData = InComponent->StaticMesh->RenderData;
 	if(LODIndex < InComponent->LODData.Num())
 	{
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = InComponent->LODData[LODIndex];
@@ -999,7 +1021,7 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 		// Initialize this LOD's overridden vertex colors, if it has any
 		if( ComponentLODInfo.OverrideVertexColors )
 		{
-			FStaticMeshLODResources& LODRenderData = RenderData->LODResources[LODIndex];
+			FStaticMeshLODResources& LODRenderData = MeshRenderData->LODResources[LODIndex];
 			
 			// the instance should point to the loaded data to avoid copy and memory waste
 			OverrideColorVertexBuffer = ComponentLODInfo.OverrideVertexColors;
@@ -1014,7 +1036,7 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 		}
 	}
 
-	if (RenderData->bLODsShareStaticLighting && InComponent->LODData.IsValidIndex(0))
+	if (MeshRenderData->bLODsShareStaticLighting && InComponent->LODData.IsValidIndex(0))
 	{
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = InComponent->LODData[0];
 		LightMap = ComponentLODInfo.LightMap;
@@ -1024,8 +1046,8 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 	bool bHasStaticLighting = LightMap != NULL || ShadowMap != NULL;
 
 	// Gather the materials applied to the LOD.
-	Sections.Empty(RenderData->LODResources[LODIndex].Sections.Num());
-	FStaticMeshLODResources& LODModel = RenderData->LODResources[LODIndex];
+	Sections.Empty(MeshRenderData->LODResources[LODIndex].Sections.Num());
+	FStaticMeshLODResources& LODModel = MeshRenderData->LODResources[LODIndex];
 	for(int32 SectionIndex = 0;SectionIndex < LODModel.Sections.Num();SectionIndex++)
 	{
 		const FStaticMeshSection& Section = LODModel.Sections[SectionIndex];
@@ -1069,9 +1091,19 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 		FMaterialResource const* MaterialResource = const_cast<UMaterialInterface const*>(SectionInfo.Material)->GetMaterial_Concurrent(RecursionGuard)->GetMaterialResource(FeatureLevel);
 		if(MaterialResource)
 		{
-			if (MaterialResource->MaterialModifiesMeshPosition_GameThread())
+			if (IsInGameThread())
 			{
-				bUsesMeshModifyingMaterials = true;
+				if (MaterialResource->MaterialModifiesMeshPosition_GameThread())
+				{
+					bUsesMeshModifyingMaterials = true;
+				}
+			}
+			else
+			{
+				if (MaterialResource->MaterialModifiesMeshPosition_RenderThread())
+				{
+					bUsesMeshModifyingMaterials = true;
+				}
 			}
 		}
 	}
@@ -1164,7 +1196,7 @@ int32 FStaticMeshSceneProxy::GetLOD(const FSceneView* View) const
 #endif
 
 	const FBoxSphereBounds& Bounds = GetBounds();
-	return ComputeStaticMeshLOD(RenderData, Bounds.Origin, Bounds.SphereRadius, *View);
+	return ComputeStaticMeshLOD(RenderData, Bounds.Origin, Bounds.SphereRadius, *View, ClampedMinLOD);
 }
 
 FPrimitiveSceneProxy* UStaticMeshComponent::CreateSceneProxy()

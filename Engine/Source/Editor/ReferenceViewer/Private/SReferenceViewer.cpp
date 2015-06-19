@@ -8,8 +8,10 @@
 #include "ReferenceViewerActions.h"
 #include "EditorWidgets.h"
 #include "GlobalEditorCommonCommands.h"
+#include "ISizeMapModule.h"
 
 #include "Editor/UnrealEd/Public/ObjectTools.h"
+#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "ReferenceViewer"
 
@@ -34,12 +36,13 @@ void SReferenceViewer::Construct( const FArguments& InArgs )
 	HistoryManager.SetOnUpdateHistoryData(FOnUpdateHistoryData::CreateSP(this, &SReferenceViewer::OnUpdateHistoryData));
 
 	// Create the graph
-	GraphObj = ConstructObject<UEdGraph_ReferenceViewer>(UEdGraph_ReferenceViewer::StaticClass());
+	GraphObj = NewObject<UEdGraph_ReferenceViewer>();
 	GraphObj->Schema = UReferenceViewerSchema::StaticClass();
 	GraphObj->AddToRoot();
 
 	SGraphEditor::FGraphEditorEvents GraphEvents;
 	GraphEvents.OnNodeDoubleClicked = FSingleNodeEvent::CreateSP(this, &SReferenceViewer::OnNodeDoubleClicked);
+	GraphEvents.OnCreateActionMenu = SGraphEditor::FOnCreateActionMenu::CreateSP(this, &SReferenceViewer::OnCreateGraphActionMenu);
 
 	// Create the graph editor
 	GraphEditorPtr = SNew(SGraphEditor)
@@ -253,21 +256,17 @@ void SReferenceViewer::SetGraphRootPackageNames(const TArray<FName>& NewGraphRoo
 	HistoryManager.AddHistoryData();
 }
 
-void SReferenceViewer::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
-{
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-	if ( GraphObj && GraphObj->GetAssetThumbnailPool().IsValid() )
-	{
-		GraphObj->GetAssetThumbnailPool()->Tick(InDeltaTime);
-	}
-}
-
 void SReferenceViewer::OnNodeDoubleClicked(UEdGraphNode* Node)
 {
 	TSet<UObject*> Nodes;
 	Nodes.Add(Node);
 	ReCenterGraphOnNodes( Nodes );
+}
+
+FActionMenuContent SReferenceViewer::OnCreateGraphActionMenu(UEdGraph* InGraph, const FVector2D& InNodePosition, const TArray<UEdGraphPin*>& InDraggedPins, bool bAutoExpand, SGraphEditor::FActionMenuClosed InOnMenuClosed)
+{
+	// no context menu when not over a node
+	return FActionMenuContent();
 }
 
 bool SReferenceViewer::IsBackEnabled() const
@@ -477,9 +476,7 @@ void SReferenceViewer::RegisterActions()
 	ReferenceViewerActions->MapAction(
 		FReferenceViewerActions::Get().OpenSelectedInAssetEditor,
 		FExecuteAction::CreateSP(this, &SReferenceViewer::OpenSelectedInAssetEditor),
-		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected),
-		FIsActionChecked(),
-		FIsActionButtonVisible::CreateSP(this, &SReferenceViewer::IsSingleSelectedItemValidObject));
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
 
 	ReferenceViewerActions->MapAction(
 		FReferenceViewerActions::Get().ReCenterGraph,
@@ -511,6 +508,11 @@ void SReferenceViewer::RegisterActions()
 		FExecuteAction::CreateSP(this, &SReferenceViewer::MakeCollectionWithReferencedAssets, ECollectionShareType::CST_Shared),
 		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasExactlyOneNodeSelected));
 	
+	ReferenceViewerActions->MapAction(
+		FReferenceViewerActions::Get().ShowSizeMap,
+		FExecuteAction::CreateSP(this, &SReferenceViewer::ShowSizeMap),
+		FCanExecuteAction::CreateSP(this, &SReferenceViewer::HasAtLeastOneNodeSelected));
+
 	ReferenceViewerActions->MapAction(
 		FReferenceViewerActions::Get().ShowReferenceTree,
 		FExecuteAction::CreateSP(this, &SReferenceViewer::ShowReferenceTree),
@@ -585,6 +587,26 @@ void SReferenceViewer::MakeCollectionWithReferencedAssets(ECollectionShareType::
 	{
 		FString DefaultName = FText::Format(NSLOCTEXT("UnrealEd", "Resources", "{0}_Resources"), FText::FromString( SelectedObject->GetPathName())).ToString();
 		ObjectTools::ShowReferencedObjs(SelectedObject, DefaultName, ShareType);
+	}
+}
+
+void SReferenceViewer::ShowSizeMap()
+{
+	TArray<FName> SelectedAssetPackageNames;
+
+	TSet<UObject*> SelectedNodes = GraphEditorPtr->GetSelectedNodes();
+	if ( ensure(SelectedNodes.Num()) == 1 )
+	{
+		UEdGraphNode_Reference* ReferenceNode = Cast<UEdGraphNode_Reference>(SelectedNodes.Array()[0]);
+		if ( ReferenceNode )
+		{
+			SelectedAssetPackageNames.AddUnique( ReferenceNode->GetPackageName() );
+		}
+	}
+
+	if( SelectedAssetPackageNames.Num() > 0 )
+	{
+		ISizeMapModule::Get().InvokeSizeMapTab( SelectedAssetPackageNames );
 	}
 }
 
@@ -674,14 +696,13 @@ bool SReferenceViewer::HasExactlyOneNodeSelected() const
 	return false;
 }
 
-bool SReferenceViewer::IsSingleSelectedItemValidObject() const
+bool SReferenceViewer::HasAtLeastOneNodeSelected() const
 {
-	UObject* SelectedObject = GetObjectFromSingleSelectedNode();
-
-	if ( SelectedObject )
+	if ( GraphEditorPtr.IsValid() )
 	{
-		return true;
+		return GraphEditorPtr->GetSelectedNodes().Num() > 0;
 	}
+	
 	return false;
 }
 

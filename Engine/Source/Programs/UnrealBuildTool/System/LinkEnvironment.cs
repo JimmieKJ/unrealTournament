@@ -84,8 +84,9 @@ namespace UnrealBuildTool
 		/** True if this is a console application that's being build */
 		public bool bIsBuildingConsoleApplication = false;
 
-		/** If bIsBuildingConsoleApplication is false and this is true, additional console app exe will be built. */
-		public bool bBuildAdditionalConsoleApplication = true;
+		/** This setting is replaced by UEBuildBinaryConfiguration.bBuildAdditionalConsoleApp. */
+		[Obsolete("This setting is replaced by UEBuildBinaryConfiguration.bBuildAdditionalConsoleApp. It is explicitly set to true for editor targets, and defaults to false otherwise.")]
+		public bool bBuildAdditionalConsoleApplication { set { } }
 
 		/** If set, overrides the program entry function on Windows platform.  This is used by the base UE4
 		    program so we can link in either command-line mode or windowed mode without having to recompile the Launch module. */
@@ -133,30 +134,19 @@ namespace UnrealBuildTool
 			bIsBuildingLibrary = InCopyEnvironment.bIsBuildingLibrary;
 			bIsBuildingDLL = InCopyEnvironment.bIsBuildingDLL;
 			bIsBuildingConsoleApplication = InCopyEnvironment.bIsBuildingConsoleApplication;
-			bBuildAdditionalConsoleApplication = InCopyEnvironment.bBuildAdditionalConsoleApplication;
 			WindowsEntryPointOverride = InCopyEnvironment.WindowsEntryPointOverride;
 			bIsCrossReferenced = InCopyEnvironment.bIsCrossReferenced;
 			bHasExports = InCopyEnvironment.bHasExports;
 			bIsBuildingDotNetAssembly = InCopyEnvironment.bIsBuildingDotNetAssembly;
-		}
-
-		/** Whether this configuration is suitable to produce additional console app. */
-		public bool CanProduceAdditionalConsoleApp
-		{
-			get
-			{
-				return Target.Platform == CPPTargetPlatform.Win64 &&
-						bIsBuildingConsoleApplication == false &&
-						bBuildAdditionalConsoleApplication == true &&
-						bIsBuildingDLL == false &&
-						(Target.Configuration == CPPTargetConfiguration.Debug || Target.Configuration == CPPTargetConfiguration.Development);
-			}
 		}
 	}
 
 	/** Encapsulates the environment that is used to link object files. */
 	public class LinkEnvironment
 	{
+		/** Whether we're linking in monolithic mode. Determines if linking should produce import library file. Relevant only for VC++, clang stores imports in shared library. */
+		public bool bShouldCompileMonolithic = false;
+
 		/** A list of the object files to be linked. */
 		public List<FileItem> InputFiles = new List<FileItem>();
 

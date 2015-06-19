@@ -19,96 +19,83 @@ UCameraModifier::UCameraModifier(const FObjectInitializer& ObjectInitializer)
 	Priority = 127;
 }
 
-bool UCameraModifier::ModifyCamera(class APlayerCameraManager* Camera, float DeltaTime, FMinimalViewInfo& InOutPOV)
+bool UCameraModifier::ModifyCamera(float DeltaTime, FMinimalViewInfo& InOutPOV)
 {
+	// Update the alpha
+	UpdateAlpha(DeltaTime);
+
+	// let BP do what it wants
+	BlueprintModifyCamera(DeltaTime, InOutPOV.Location, InOutPOV.Rotation, InOutPOV.FOV, InOutPOV.Location, InOutPOV.Rotation, InOutPOV.FOV);
+
+	if (CameraOwner)
+	{
+		// note: pushing these through the cached PP blend system in the camera to get
+		// proper layered blending, rather than letting subsequent mods stomp over each other in the 
+		// InOutPOV struct.
+		float PPBlendWeight = 0.f;
+		FPostProcessSettings PPSettings;
+		BlueprintModifyPostProcess(DeltaTime, PPBlendWeight, PPSettings);
+		if (PPBlendWeight > 0.f)
+		{
+			CameraOwner->AddCachedPPBlend(PPSettings, PPBlendWeight);
+		}
+	}
+
 	// If pending disable and fully alpha'd out, truly disable this modifier
-	if (bPendingDisable && (Alpha <= 0.0f))
+	if (bPendingDisable && (Alpha <= 0.f))
 	{
 		DisableModifier(true);
 	}
 
+	// allow subsequent modifiers to update
 	return false;
 }
 
-float UCameraModifier::GetTargetAlpha(class APlayerCameraManager* Camera)
+float UCameraModifier::GetTargetAlpha()
 {
-	if( bPendingDisable )
-	{
-		return 0.0f;
-	}
-	return 1.0f;		
+	return bPendingDisable ? 0.0f : 1.f;
 }
 
-void UCameraModifier::UpdateAlpha(class APlayerCameraManager* Camera, float DeltaTime)
+void UCameraModifier::UpdateAlpha(float DeltaTime)
 {
-	float Time;
-
-	TargetAlpha = GetTargetAlpha( Camera );
-
-	// Alpha out
-	if( TargetAlpha == 0.f )
-	{
-		Time = AlphaOutTime;
-	}
-	else
-	{
-		// Otherwise, alpha in
-		Time = AlphaInTime;
-	}
+	float const TargetAlpha = GetTargetAlpha();
+	float const BlendTime = (TargetAlpha == 0.f) ? AlphaOutTime : AlphaInTime;
 
 	// interpolate!
-	if( Time <= 0.f )
+	if (BlendTime <= 0.f)
 	{
 		Alpha = TargetAlpha;
 	}
-	else if( Alpha > TargetAlpha )
+	else if (BlendTime > TargetAlpha)
 	{
-		Alpha = FMath::Max<float>( Alpha - DeltaTime/Time, TargetAlpha );
+		Alpha = FMath::Max<float>(Alpha - DeltaTime / BlendTime, TargetAlpha);
 	}
 	else
 	{
-		Alpha = FMath::Min<float>( Alpha + DeltaTime/Time, TargetAlpha );
+		Alpha = FMath::Min<float>(Alpha + DeltaTime / BlendTime, TargetAlpha);
 	}
 }
-
 
 bool UCameraModifier::IsDisabled() const
 {
 	return bDisabled;
 }
 
-void UCameraModifier::Init( APlayerCameraManager* Camera ) 
+AActor* UCameraModifier::GetViewTarget() const
 {
-	AddCameraModifier( Camera );
+	return CameraOwner ? CameraOwner->GetViewTarget() : nullptr;
+}
+
+
+void UCameraModifier::AddedToCamera( APlayerCameraManager* Camera ) 
+{
+	CameraOwner = Camera;
 }
 
 UWorld* UCameraModifier::GetWorld() const
 {
-	UWorld* World = NULL;
-	if( CameraOwner )
-	{
-		World = CameraOwner->GetWorld();
-	}
-	return World;
+	return CameraOwner ? CameraOwner->GetWorld() : nullptr;
 }
-
-bool UCameraModifier::RemoveCameraModifier( APlayerCameraManager* Camera )
-{
-	// Loop through each modifier in camera
-	for( int32 ModifierIdx = 0; ModifierIdx < Camera->ModifierList.Num(); ModifierIdx++ )
-	{
-		// If we found ourselves, remove ourselves from the list and return
-		if( Camera->ModifierList[ModifierIdx] == this )
-		{
-			Camera->ModifierList.RemoveAt(ModifierIdx, 1);
-			return true;
-		}
-	}
-
-	// Didn't find ourselves in the list
-	return false;
-}
-
 
 void UCameraModifier::DisableModifier(bool bImmediate)
 {
@@ -147,79 +134,3 @@ bool UCameraModifier::ProcessViewRotation( AActor* ViewTarget, float DeltaTime, 
 	return false;
 }
 
-bool UCameraModifier::AddCameraModifier( APlayerCameraManager* Camera )
-{
-	// Make sure we don't already have this modifier in the list
-	for( int32 ModifierIdx = 0; ModifierIdx < Camera->ModifierList.Num(); ModifierIdx++ )
-	{
-		if ( Camera->ModifierList[ModifierIdx] == this )
-		{
-			return false;
-		}
-	}
-
-	// Make sure we don't already have a modifier of this type
-	for( int32 ModifierIdx = 0; ModifierIdx < Camera->ModifierList.Num(); ModifierIdx++ )
-	{
-		if ( Camera->ModifierList[ModifierIdx]->GetClass() == GetClass() )
-		{
-			UE_LOG(LogCamera, Log, TEXT("AddCameraModifier found existing Modifier in list, replacing with new one %s"), *GetName());
-
-			// hack replace old by new (delete??)
-			Camera->ModifierList[ModifierIdx] = this;
-
-			// Save camera
-			CameraOwner = Camera;
-
-			return true;
-		}
-	}
-
-	// Look through current modifier list and find slot for this priority
-	int32 BestIdx = 0;
-
-	for( int32 ModifierIdx = 0; ModifierIdx < Camera->ModifierList.Num(); ModifierIdx++ )
-	{
-		UCameraModifier* Modifier = Camera->ModifierList[ModifierIdx];
-		if( Modifier == NULL ) {
-			continue;
-		}
-
-		// If priority of current index has passed or equaled ours - we have the insert location
-		if( Priority <= Modifier->Priority )
-		{
-			// Disallow addition of exclusive modifier if priority is already occupied
-			if( bExclusive && Priority == Modifier->Priority )
-			{
-				return false;
-			}
-
-			break;
-		}
-
-		// Update best index
-		BestIdx++;
-	}
-
-	// Insert self into best index
-	Camera->ModifierList.InsertUninitialized( BestIdx, 1 );
-	Camera->ModifierList[BestIdx] = this;
-
-	// Save camera
-	CameraOwner = Camera;
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	//debug
-	if( bDebug )
-	{
-		UE_LOG(LogCamera, Log,  TEXT("AddModifier %i %s"), BestIdx, *GetName() );
-		for( int32 ModifierIdx = 0; ModifierIdx < Camera->ModifierList.Num(); ModifierIdx++ )
-		{
-			UE_LOG(LogCamera, Log,  TEXT("%s Idx %i Pri %i"), *Camera->ModifierList[ModifierIdx]->GetName(), ModifierIdx, Camera->ModifierList[ModifierIdx]->Priority);
-		}
-		UE_LOG(LogCamera, Log,  TEXT("****************") );
-	}
-#endif
-
-	return true;
-}

@@ -118,7 +118,7 @@ bool FApp::IsInstalled()
 
 bool FApp::IsEngineInstalled()
 {
-	static bool bIsInstalledEngine = IsInstalled() || (FRocketSupport::IsRocket() ? !FParse::Param(FCommandLine::Get(), TEXT("EngineNotInstalled")) : FParse::Param(FCommandLine::Get(), TEXT("EngineInstalled")));
+	static bool bIsInstalledEngine = IsInstalled() || (FRocketSupport::IsRocket() ? !FParse::Param(FCommandLine::Get(), TEXT("NotInstalledEngine")) : FParse::Param(FCommandLine::Get(), TEXT("InstalledEngine")));
 	return bIsInstalledEngine;
 }
 

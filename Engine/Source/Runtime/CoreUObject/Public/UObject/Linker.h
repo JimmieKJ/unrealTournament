@@ -1,22 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Linker.h: Unreal object linker.
-=============================================================================*/
-
 #pragma once
 
 #include "ObjectBase.h"
 #include "EngineVersion.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogLinker, Log, All);
 
-/** Map of packages to their open linkers **/ 
-extern TMap<class UPackage*, class ULinkerLoad*>		GObjLoaders;
-/** Map of packages to their open linkers which have not yet been finalized (during async loading) **/
-extern TMap<class UPackage*, class ULinkerLoad*>		GObjPendingLoaders;
-/** List of loaders that have new imports **/
-extern TSet<class ULinkerLoad*>							GObjLoadersWithNewImports;
+DECLARE_LOG_CATEGORY_EXTERN(LogLinker, Log, All);
 
 /**
  * Wrapper for index into a ULnker's ImportMap or ExportMap.
@@ -123,7 +113,7 @@ public:
 
 /**
  * Base class for UObject resource types.  FObjectResources are used to store UObjects on disk
- * via ULinker's ImportMap (for resources contained in other packages) and ExportMap (for resources
+ * via FLinker's ImportMap (for resources contained in other packages) and ExportMap (for resources
  * contained within the same package)
  */
 struct FObjectResource
@@ -197,21 +187,21 @@ struct FObjectExport : public FObjectResource
 	int32         	SerialSize;
 
 	/**
-	 * The location (into the ULinker's underlying file reader archive) of the beginning of the
+	 * The location (into the FLinker's underlying file reader archive) of the beginning of the
 	 * data for this export's UObject.  Used for verification only.
 	 * Serialized
 	 */
 	int32         	SerialOffset;
 
 	/**
-	 * The location (into the ULinker's underlying file reader archive) of the beginning of the
+	 * The location (into the FLinker's underlying file reader archive) of the beginning of the
 	 * portion of this export's data that is serialized using script serialization.
 	 * Transient
 	 */
 	int32				ScriptSerializationStartOffset;
 
 	/**
-	 * The location (into the ULinker's underlying file reader archive) of the end of the
+	 * The location (into the FLinker's underlying file reader archive) of the end of the
 	 * portion of this export's data that is serialized using script serialization.
 	 * Transient
 	 */
@@ -224,7 +214,7 @@ struct FObjectExport : public FObjectResource
 	UObject*		Object;
 
 	/**
-	 * The index into the ULinker's ExportMap for the next export in the linker's export hash table.
+	 * The index into the FLinker's ExportMap for the next export in the linker's export hash table.
 	 * Transient
 	 */
 	int32				HashNext;
@@ -310,7 +300,7 @@ struct FObjectImport : public FObjectResource
 	 * The linker that contains the original FObjectExport resource associated with this import.
 	 * Transient
 	 */
-	ULinkerLoad*	SourceLinker;
+	FLinkerLoad*	SourceLinker;
 
 	/**
 	 * Index into SourceLinker's ExportMap for the export associated with this import's UObject.
@@ -550,7 +540,7 @@ private:
 
 public:
 	/**
-	 * Total size of all information that needs to be read in to create a ULinkerLoad. This includes
+	 * Total size of all information that needs to be read in to create a FLinkerLoad. This includes
 	 * the package file summary, name table and import & export maps.
 	 */
 	int32		TotalHeaderSize;
@@ -626,9 +616,14 @@ public:
 	TArray<FGenerationInfo> Generations;
 
 	/**
-	 * Engine version this package was saved with.
+	 * Engine version this package was saved with. For hotfix releases and engine versions which maintain strict binary compatibility with another version, this may differ from CompatibleWithEngineVersion.
 	 */
-	FEngineVersion EngineVersion;
+	FEngineVersion SavedByEngineVersion;
+
+	/**
+	 * Engine version this package is compatible with. See SavedByEngineVersion.
+	 */
+	FEngineVersion CompatibleWithEngineVersion;
 
 	/**
 	 * Flags used to compress the file on save and uncompress on load.
@@ -913,16 +908,29 @@ struct TLinkerNameMapKeyFuncs : TDefaultMapKeyFuncs<FName, ValueType, false>
 
 
 /*----------------------------------------------------------------------------
-	ULinker.
+	FLinker.
 ----------------------------------------------------------------------------*/
+namespace ELinkerType
+{
+	enum Type
+	{
+		None,
+		Load,
+		Save
+	};
+}
 
 /**
  * Manages the data associated with an Unreal package.  Acts as the bridge between
  * the file on disk and the UPackage object in memory for all Unreal package types.
  */
-class ULinker : public UObject, public FLinkerTables
+class FLinker : public FLinkerTables
 {
-	DECLARE_CLASS_INTRINSIC(ULinker,UObject,CLASS_Transient,CoreUObject)
+private:	
+
+	ELinkerType::Type LinkerType;
+
+public:
 
 	/** The top-level UPackage object for the package associated with this linker */
 	UPackage*				LinkerRoot;
@@ -946,15 +954,22 @@ class ULinker : public UObject, public FLinkerTables
 	class FSHA1*			ScriptSHA;
 
 	/** Constructor. */
-	ULinker(const FObjectInitializer& ObjectInitializer, UPackage* InRoot, const TCHAR* InFilename );
+	FLinker(ELinkerType::Type InType, UPackage* InRoot, const TCHAR* InFilename);
+
+	virtual ~FLinker();
+
+	FORCEINLINE ELinkerType::Type GetType() const
+	{
+		return LinkerType;
+	}
+
 	/**
 	 * I/O function
-	 * 
+	*
 	 * @param	Ar	the archive to read/write into
 	 */
-	void Serialize( FArchive& Ar );
-	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-
+	void Serialize(FArchive& Ar);
+	void AddReferencedObjects(FReferenceCollector& Collector);
 	/**
 	 * Return the path name of the UObject represented by the specified import. 
 	 * (can be used with StaticFindObject)
@@ -1125,9 +1140,6 @@ class ULinker : public UObject, public FLinkerTables
 	 */
 	void GetScriptSHAKey(uint8* OutKey);
 
-	// UObject interface.
-	virtual void BeginDestroy() override;
-
 	/**
 	 * Test and object against the load flag filters
 	 *
@@ -1161,7 +1173,7 @@ class ULinker : public UObject, public FLinkerTables
 };
 
 /*----------------------------------------------------------------------------
-	ULinkerLoad.
+	FLinkerLoad.
 ----------------------------------------------------------------------------*/
 
 /**
@@ -1170,7 +1182,7 @@ class ULinker : public UObject, public FLinkerTables
 struct FDependencyRef
 {
 	/** The Linker the export lives in */
-	ULinkerLoad* Linker;
+	FLinkerLoad* Linker;
 
 	/** Index into Linker's ExportMap for this object */
 	int32 ExportIndex;
@@ -1195,10 +1207,8 @@ struct FDependencyRef
 /**
  * Handles loading Unreal package files, including reading UObject data from disk.
  */
-class ULinkerLoad : public ULinker, public FArchiveUObject
+class FLinkerLoad : public FLinker, public FArchiveUObject
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(ULinkerLoad,ULinker,CLASS_Transient|0,CoreUObject,CASTCLASS_None,COREUOBJECT_API)
-
 	// Friends.
 	friend class UObject;
 	friend class UPackageMap;
@@ -1228,6 +1238,17 @@ class ULinkerLoad : public ULinker, public FArchiveUObject
 
 	// Variables.
 public:
+
+	/** Initialize everything related to linkers */
+	static void InitLinkers();
+
+	FORCEINLINE static ELinkerType::Type StaticType()
+	{
+		return ELinkerType::Load;
+	}
+
+	virtual ~FLinkerLoad();
+
 	/** Flags determining loading behavior.																					*/
 	uint32					LoadFlags;
 	/** Indicates whether the imports for this loader have been verified													*/
@@ -1268,6 +1289,9 @@ public:
 		}
 	};
 	static TMap<FName, FSubobjectRedirect> SubobjectNameRedirects;	
+
+	/* Makes sure active redirects map has been initialized */
+	static bool bActiveRedirectsMapInitialized;
 
 	/** 
 	 * Utility functions to query the object name redirects list for previous names for a class
@@ -1326,6 +1350,9 @@ private:
 	/** Used for ActiveClassRedirects functionality */
 	bool					bFixupExportMapDone;
 
+	/** Id of the thread that created this linker. This is to guard against using this linker on other threads than the one it was created on **/
+	int32					OwnerThread;
+
 	/**
 	 * Helper struct to keep track of background file reads
 	 */
@@ -1373,14 +1400,11 @@ private:
 	/** Test whether we should report progress or not */
 	FORCEINLINE bool ShouldReportProgress() const
 	{
-		return !GIsAsyncLoading && ( LoadFlags & ( LOAD_Quiet | LOAD_SeekFree ) ) == 0;
+		return !IsAsyncLoading() && ( LoadFlags & ( LOAD_Quiet | LOAD_SeekFree ) ) == 0;
 	}
 #endif 
 
 public:
-	
-	/** Destructor */
-	~ULinkerLoad();
 
 	/**
 	 * Initialize the static variables
@@ -1388,9 +1412,9 @@ public:
 	COREUOBJECT_API static void StaticInit(UClass* InUTexture2DStaticClass);
 
 	/**
-	 * Add redirects to ULinkerLoad static map
+	 * Add redirects to FLinkerLoad static map
 	 */
-	COREUOBJECT_API static void CreateActiveRedirectsMap(const FString& GEngineIniName);
+	static void CreateActiveRedirectsMap(const FString& GEngineIniName);
 
 	/**
 	 * Locates the class adjusted index and its package adjusted index for a given class name in the import map
@@ -1420,31 +1444,37 @@ public:
 	 *
 	 * @return true if initialized, false if pending.
 	 */
-	bool HasFinishedInitialization() const
+	FORCEINLINE bool HasFinishedInitialization() const
 	{
         return bHasFinishedInitialization;
 	}
 
-	/**
-	 * If this archive is a ULinkerLoad or ULinkerSave, returns a pointer to the ULinker portion.
-	 */
-	virtual ULinker* GetLinker() { return this; }
+	/** Returns ID of the thread that created this linker */
+	FORCEINLINE int32 GetOwnerThreadId() const
+	{
+		return OwnerThread;
+	}
 
 	/**
-	 * Creates and returns a ULinkerLoad object.
+	 * If this archive is a FLinkerLoad or FLinkerSave, returns a pointer to the FLinker portion.
+	 */
+	virtual FLinker* GetLinker() override { return this; }
+
+	/**
+	 * Creates and returns a FLinkerLoad object.
 	 *
 	 * @param	Parent		Parent object to load into, can be NULL (most likely case)
 	 * @param	Filename	Name of file on disk to load
 	 * @param	LoadFlags	Load flags determining behavior
 	 *
-	 * @return	new ULinkerLoad object for Parent/ Filename
+	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static ULinkerLoad* CreateLinker( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags );
+	COREUOBJECT_API static FLinkerLoad* CreateLinker( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags );
 
 	void Verify();
 
 	COREUOBJECT_API FName GetExportClassPackage( int32 i );
-	virtual FString GetArchiveName() const;
+	virtual FString GetArchiveName() const override;
 
 	/**
 	 * Recursively gathers the dependencies of a given export (the recursive chain of imports
@@ -1517,7 +1547,7 @@ public:
 	 * When this function exits, Object is guaranteed to contain the data stored that was stored on disk.
 	 *
 	 * @param	Object	The object to load data for.  If the data for this object isn't stored in this
-	 *					ULinkerLoad, routes the call to the appropriate linker.  Data serialization is 
+	 *					FLinkerLoad, routes the call to the appropriate linker.  Data serialization is 
 	 *					skipped if the object has already been loaded (as indicated by the RF_NeedLoad flag
 	 *					not set for the object), so safe to call on objects that have already been loaded.
 	 *					Note that this function assumes that Object has already been initialized against
@@ -1525,7 +1555,7 @@ public:
 	 *					If Object is a UClass and the class default object has already been created, calls
 	 *					Preload for the class default object as well.
 	 */
-	void Preload( UObject* Object );
+	void Preload( UObject* Object ) override;
 
 	/**
 	 * Before loading a persistent object from disk, this function can be used to discover
@@ -1566,17 +1596,17 @@ public:
 	/**
 	 * Called when an object begins serializing property data using script serialization.
 	 */
-	virtual void MarkScriptSerializationStart( const UObject* Obj );
+	virtual void MarkScriptSerializationStart( const UObject* Obj ) override;
 
 	/**
 	 * Called when an object stops serializing property data using script serialization.
 	 */
-	virtual void MarkScriptSerializationEnd( const UObject* Obj );
+	virtual void MarkScriptSerializationEnd( const UObject* Obj ) override;
 
 	/**
 	 * Looks for an existing linker for the given package, without trying to make one if it doesn't exist
 	 */
-	COREUOBJECT_API static ULinkerLoad* FindExistingLinkerForPackage(UPackage* Package);
+	COREUOBJECT_API static FLinkerLoad* FindExistingLinkerForPackage(UPackage* Package);
 
 	/**
 	 * Replaces OldObject's entry in its linker with NewObject, so that all subsequent loads of OldObject will return NewObject.
@@ -1645,7 +1675,7 @@ private:
 	bool IsImportNative(const int32 ImportIndex) const;
 
 	/**
-	 * Attempts to lookup and return the corresponding ULinkerLoad object for 
+	 * Attempts to lookup and return the corresponding FLinkerLoad object for 
 	 * the specified import WITHOUT invoking  a load, or continuing to load 
 	 * the import package (will only return one if it has already been 
 	 * created... could still be in the process of loading).
@@ -1653,14 +1683,11 @@ private:
 	 * @param  ImportIndex    Specifies the import that you would like a linker for.
 	 * @return The imports associated linker (null if it hasn't been created yet).
 	 */
-	ULinkerLoad* FindExistingLinkerForImport(int32 ImportIndex) const;
+	FLinkerLoad* FindExistingLinkerForImport(int32 ImportIndex) const;
 
 	UObject* IndexToObject( FPackageIndex Index );
 
 	void DetachExport( int32 i );
-
-	// UObject interface.
-	virtual void BeginDestroy() override;
 
 	// FArchive interface.
 	/**
@@ -1678,7 +1705,7 @@ private:
 	 * @param	PrecacheSize	Number of bytes to precache
 	 * @return	false if precache operation is still pending, true otherwise
 	 */
-	virtual bool Precache( int64 PrecacheOffset, int64 PrecacheSize );
+	virtual bool Precache( int64 PrecacheOffset, int64 PrecacheSize ) override;
 	
 #if WITH_EDITOR
 	/**
@@ -1687,40 +1714,42 @@ private:
 	 * @param	Owner		UObject owning the bulk data
 	 * @param	BulkData	Bulk data object to associate
 	 */
-	virtual void AttachBulkData( UObject* Owner, FUntypedBulkData* BulkData );
+	virtual void AttachBulkData(UObject* Owner, FUntypedBulkData* BulkData) override;
 	/**
 	 * Detaches the passed in bulk data object from the linker.
 	 *
 	 * @param	BulkData	Bulk data object to detach
 	 * @param	bEnsureBulkDataIsLoaded	Whether to ensure that the bulk data is loaded before detaching
 	 */
-	virtual void DetachBulkData( FUntypedBulkData* BulkData, bool bEnsureBulkDataIsLoaded );
+	virtual void DetachBulkData(FUntypedBulkData* BulkData, bool bEnsureBulkDataIsLoaded) override;
 	/**
 	 * Detaches all attached bulk  data objects.
 	 *
 	 * @param	bEnsureBulkDataIsLoaded	Whether to ensure that the bulk data is loaded before detaching
 	 */
-	virtual void DetachAllBulkData( bool bEnsureBulkDataIsLoaded );
-#endif // WITH_EDITOR
+#endif
+	void DetachAllBulkData(bool bEnsureBulkDataIsLoaded);
 public:
 	/**
 	 * Detaches linker from bulk data/ exports and removes itself from array of loaders.
 	 *
 	 * @param	bEnsureAllBulkDataIsLoaded	Whether to load all bulk data first before detaching.
 	 */
-	virtual void Detach( bool bEnsureAllBulkDataIsLoaded );
+	void LoadAndDetachAllBulkData();
+
 private:
 
-	void Seek( int64 InPos );
-	int64 Tell();
-	int64 TotalSize();
+	void Detach();
+	void Seek( int64 InPos ) override;
+	int64 Tell() override;
+	int64 TotalSize() override;
 	// this fixes the warning : 'ULinkerSave::Serialize' hides overloaded virtual function
-	using ULinker::Serialize;
-	void Serialize( void* V, int64 Length );
-	virtual FArchive& operator<<( UObject*& Object );
-	virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr);
-	virtual FArchive& operator<<( FAssetPtr& AssetPtr);
-	virtual FArchive& operator<<( FName& Name );
+	using FLinker::Serialize;
+	virtual void Serialize( void* V, int64 Length ) override;
+	virtual FArchive& operator<<( UObject*& Object ) override;
+	virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr) override;
+	virtual FArchive& operator<<( FAssetPtr& AssetPtr) override;
+	virtual FArchive& operator<<( FName& Name ) override;
 
 	/**
 	 * Safely verify that an import in the ImportMap points to a good object. This decides whether or not
@@ -1735,20 +1764,20 @@ private:
 	bool VerifyImportInner(const int32 ImportIndex, FString& WarningSuffix);
 
 	//
-	// ULinkerLoad creation helpers BEGIN
+	// FLinkerLoad creation helpers BEGIN
 	//
 
 	/**
-	 * Creates a ULinkerLoad object for async creation. Tick has to be called manually till it returns
+	 * Creates a FLinkerLoad object for async creation. Tick has to be called manually till it returns
 	 * true in which case the returned linker object has finished the async creation process.
 	 *
 	 * @param	Parent		Parent object to load into, can be NULL (most likely case)
 	 * @param	Filename	Name of file on disk to load
 	 * @param	LoadFlags	Load flags determining behavior
 	 *
-	 * @return	new ULinkerLoad object for Parent/ Filename
+	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static ULinkerLoad* CreateLinkerAsync( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags );
+	COREUOBJECT_API static FLinkerLoad* CreateLinkerAsync( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags );
 
 	/**
 	 * Ticks an in-flight linker and spends InTimeLimit seconds on creation. This is a soft time limit used
@@ -1769,7 +1798,7 @@ private:
 	 * @param	Filename	Name of file on disk to load
 	 * @param	LoadFlags	Load flags determining behavior
 	 */
-	ULinkerLoad( const FObjectInitializer& ObjectInitializer, UPackage* InParent, const TCHAR* InFilename, uint32 InLoadFlags );
+	FLinkerLoad(UPackage* InParent, const TCHAR* InFilename, uint32 InLoadFlags);
 
 	/**
 	 * Returns whether the time limit allotted has been exceeded, if enabled.
@@ -1891,7 +1920,7 @@ private:
 	 * @param  ReferencingClass	The (Blueprint) class that was loading, while we deferred dependencies (now referencing the placeholder).
 	 * @return The number of placeholder references replaced (could be none, if this was recursively resolved).
 	 */
-	int32 ResolveDependencyPlaceholder(UClass* Placeholder, UClass* ReferencingClass = nullptr);
+	int32 ResolveDependencyPlaceholder(class FLinkerPlaceholderBase* Placeholder, UClass* ReferencingClass = nullptr);
 
 	/**
 	 * Query method to help catch recursive behavior. When this returns true, a 
@@ -1983,7 +2012,7 @@ public:
 	 * to make sure this placeholder is completely resolved before continuing on 
 	 * to the next.
 	 */
-	UClass* ResolvingDeferredPlaceholder;
+	class FLinkerPlaceholderBase* ResolvingDeferredPlaceholder;
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 
@@ -2005,20 +2034,27 @@ public:
 	ELinkerStatus FinalizeCreation();
 
 	//
-	// ULinkerLoad creation helpers END
+	// FLinkerLoad creation helpers END
 	//
 };
 
 /*----------------------------------------------------------------------------
-	ULinkerSave.
+	FLinkerSave.
 ----------------------------------------------------------------------------*/
 
 /**
  * Handles saving Unreal package files.
  */
-class ULinkerSave : public ULinker, public FArchiveUObject
+class FLinkerSave : public FLinker, public FArchiveUObject
 {
-	DECLARE_CLASS_INTRINSIC(ULinkerSave,ULinker,CLASS_Transient|0,CoreUObject);
+public:
+
+	FORCEINLINE static ELinkerType::Type StaticType()
+	{
+		return ELinkerType::Save;
+	}
+
+	virtual ~FLinkerSave();
 
 	// Variables.
 	/** The archive that actually writes the data to disk. */
@@ -2037,6 +2073,8 @@ class ULinkerSave : public ULinker, public FArchiveUObject
 		int64 BulkDataOffsetInFilePos;
 		/** Offset to the location where the payload size is stored */
 		int64 BulkDataSizeOnDiskPos;
+		/** Bulk data flags at the time of serialization */
+		uint32 BulkDataFlags;
 		/** The bulkdata */
 		FUntypedBulkData* BulkData;
 	};
@@ -2046,10 +2084,9 @@ class ULinkerSave : public ULinker, public FArchiveUObject
 	COREUOBJECT_API static TMap<FString, TArray<uint8> > PackagesToScriptSHAMap;
 
 	/** Constructor */
-	ULinkerSave( const FObjectInitializer& ObjectInitializer, UPackage* InParent, const TCHAR* InFilename, bool bForceByteSwapping, bool bInSaveUnversioned = false );
+	FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForceByteSwapping, bool bInSaveUnversioned = false );
 	/** Constructor for memory writer */
-	ULinkerSave( const FObjectInitializer& ObjectInitializer, UPackage* InParent, bool bForceByteSwapping, bool bInSaveUnversioned = false );
-	void BeginDestroy();
+	FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSaveUnversioned = false );
 
 	/** Returns the appropriate name index for the source name, or 0 if not found in NameIndices */
 	int32 MapName(const FName& Name) const;
@@ -2064,14 +2101,14 @@ class ULinkerSave : public ULinker, public FArchiveUObject
 	FArchive& operator<<( FAssetPtr& AssetPtr );
 
 	/**
-	 * If this archive is a ULinkerLoad or ULinkerSave, returns a pointer to the ULinker portion.
+	 * If this archive is a FLinkerLoad or FLinkerSave, returns a pointer to the FLinker portion.
 	 */
-	virtual ULinker* GetLinker() { return this; }
+	virtual FLinker* GetLinker() { return this; }
 
 	void Seek( int64 InPos );
 	int64 Tell();
-	// this fixes the warning : 'ULinkerSave::Serialize' hides overloaded virtual function
-	using ULinker::Serialize;
+	// this fixes the warning : 'FLinkerSave::Serialize' hides overloaded virtual function
+	using FLinker::Serialize;
 	void Serialize( void* V, int64 Length );
 
 	/**
@@ -2085,6 +2122,19 @@ class ULinkerSave : public ULinker, public FArchiveUObject
 	void ThisRequiresLocalizationGather();
 };
 
+template<typename T> 
+FORCEINLINE T* Cast(FLinker* Src)
+{
+	return Src && T::StaticType() == Src->GetType() ? (T*)Src : nullptr;
+}
+
+template<typename T>
+FORCEINLINE T* CastChecked(FLinker* Src)
+{
+	T* LinkerCastResult = Src && T::StaticType() == Src->GetType() ? (T*)Src : nullptr;
+	check(LinkerCastResult);
+	return LinkerCastResult;
+}
 
 /*-----------------------------------------------------------------------------
 	Lazy loading.
@@ -2126,7 +2176,7 @@ COREUOBJECT_API void ResetLoaders( UObject* InOuter );
  */
 void DissociateImportsAndForcedExports();
 
-COREUOBJECT_API ULinkerLoad* GetPackageLinker( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid );
+COREUOBJECT_API FLinkerLoad* GetPackageLinker( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid );
 
 /**
  * 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "Internationalization/InternationalizationArchive.h"
@@ -299,7 +299,7 @@ bool UInternationalizationConditioningCommandlet::ProcessManifest( const FString
 {
 	FString ManifestName = TEXT("Manifest.txt");
 
-	GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath );
+	GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath );
 
 	// Build info about the primary language
 	TArray<FString> PrimaryFilenames;
@@ -387,10 +387,10 @@ bool UInternationalizationConditioningCommandlet::ProcessArchive( const FString&
 	TArray<FString> TargetCultures;
 	bool bAppendToExistingArchive = true;
 
-	GetConfigString( *SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath );
-	GetConfigArray( *SectionName, TEXT("ProcessLanguage"), LanguagesToProcess, GatherTextConfigPath );
-	GetConfigArray( *SectionName, TEXT("TargetCulture"), TargetCultures, GatherTextConfigPath );
-	GetConfigBool( *SectionName, TEXT("bAppendToExistingArchive"), bAppendToExistingArchive, GatherTextConfigPath );
+	GetStringFromConfig( *SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath );
+	GetStringArrayFromConfig( *SectionName, TEXT("ProcessLanguage"), LanguagesToProcess, GatherTextConfigPath );
+	GetStringArrayFromConfig( *SectionName, TEXT("TargetCulture"), TargetCultures, GatherTextConfigPath );
+	GetBoolFromConfig( *SectionName, TEXT("bAppendToExistingArchive"), bAppendToExistingArchive, GatherTextConfigPath );
 
 	// Build info about the primary language
 	TArray<FString> PrimaryFilenames;
@@ -585,13 +585,13 @@ int32 UInternationalizationConditioningCommandlet::Main( const FString& Params )
 	bool bGenerateManifestFromLocIni = false;
 	
 	// Get the common settings from config
-	GetConfigString( *SectionName, TEXT("SourcePath"), SourcePath, GatherTextConfigPath );
-	GetConfigString( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath );
-	GetConfigString( *SectionName, TEXT("PrimaryLanguage"), PrimaryLangExt, GatherTextConfigPath );
-	GetConfigArray( *SectionName, TEXT("ProcessLanguage"), LanguagesToProcess, GatherTextConfigPath );
+	GetStringFromConfig( *SectionName, TEXT("SourcePath"), SourcePath, GatherTextConfigPath );
+	GetStringFromConfig( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath );
+	GetStringFromConfig( *SectionName, TEXT("PrimaryLanguage"), PrimaryLangExt, GatherTextConfigPath );
+	GetStringArrayFromConfig( *SectionName, TEXT("ProcessLanguage"), LanguagesToProcess, GatherTextConfigPath );
 
-	GetConfigBool( *SectionName, TEXT("bGenerateManifestFromLocIni"), bGenerateManifestFromLocIni, GatherTextConfigPath );
-	GetConfigBool( *SectionName, TEXT("bGenerateArchiveFromLocIni"), bGenerateArchiveFromLocIni, GatherTextConfigPath );
+	GetBoolFromConfig( *SectionName, TEXT("bGenerateManifestFromLocIni"), bGenerateManifestFromLocIni, GatherTextConfigPath );
+	GetBoolFromConfig( *SectionName, TEXT("bGenerateArchiveFromLocIni"), bGenerateArchiveFromLocIni, GatherTextConfigPath );
 
 	// Load legacy localization files.
 	LoadLegacyLocalizationFiles(SourcePath, PrimaryLangExt, LanguagesToProcess);

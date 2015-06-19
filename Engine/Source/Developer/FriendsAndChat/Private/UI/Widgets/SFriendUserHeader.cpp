@@ -2,7 +2,7 @@
 
 #include "FriendsAndChatPrivatePCH.h"
 #include "SFriendUserHeader.h"
-#include "FriendsUserViewModel.h"
+#include "IUserInfo.h"
 #include "SFriendsToolTip.h"
 
 #define LOCTEXT_NAMESPACE "SFriendUserHeader"
@@ -11,7 +11,7 @@ class SFriendUserHeaderImpl : public SFriendUserHeader
 {
 public:
 
-	void Construct(const FArguments& InArgs, const TSharedRef<FFriendsUserViewModel>& InViewModel)
+	void Construct(const FArguments& InArgs, const TSharedRef<const IUserInfo>& InViewModel)
 	{
 		FriendStyle = *InArgs._FriendStyle;
 		this->ViewModel = InViewModel;
@@ -45,10 +45,11 @@ public:
 			]
 			+ SHorizontalBox::Slot()
 			.VAlign(VAlign_Center)
-			.Padding(18, 0)
+			.Padding(10, 0, 10, 2)
 			[
 				SNew(STextBlock)
-				.Font(FriendStyle.FriendsFontStyleBoldLarge)
+				.Visibility(InArgs._ShowFriendName ? EVisibility::Visible : EVisibility::Collapsed)
+				.Font(FriendStyle.FriendsFontStyleUserLarge)
 				.ColorAndOpacity(FriendStyle.DefaultFontColor)
 				.Text(this, &SFriendUserHeaderImpl::GetDisplayName)
 			]
@@ -101,12 +102,12 @@ private:
 
 	FText GetDisplayName() const
 	{
-		return FText::FromString(ViewModel->GetUserNickname());
+		return FText::FromString(ViewModel->GetName());
 	}
 
 private:
 
-	TSharedPtr<FFriendsUserViewModel> ViewModel;
+	TSharedPtr<const IUserInfo> ViewModel;
 
 	/** Holds the style to use when making the widget. */
 	FFriendsAndChatStyle FriendStyle;

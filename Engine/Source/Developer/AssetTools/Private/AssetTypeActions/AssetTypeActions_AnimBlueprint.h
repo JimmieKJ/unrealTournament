@@ -14,6 +14,9 @@ public:
 	virtual uint32 GetCategories() override { return EAssetTypeCategories::Animation; }
 	virtual class UThumbnailInfo* GetThumbnailInfo(UObject* Asset) const override;
 
+	// FAssetTypeActions_Blueprint interface
+	virtual UFactory* GetFactoryForBlueprintType(UBlueprint* InBlueprint) const override;
+
 private:
 
 	/** Handler to fill the retarget submenu */

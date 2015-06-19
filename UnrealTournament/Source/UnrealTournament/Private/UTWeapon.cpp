@@ -37,7 +37,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	Ammo = 20;
 	MaxAmmo = 50;
 
-	BringUpTime = 0.41f;
+	BringUpTime = 0.37f;
 	PutDownTime = 0.3f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;
@@ -145,6 +145,23 @@ void AUTWeapon::BeginPlay()
 	Super::BeginPlay();
 
 	InstanceMuzzleFlashArray(this, MuzzleFlash);
+	// sanity check some settings
+	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
+	{
+		if (MuzzleFlash[i] != NULL)
+		{
+			if (RootComponent == NULL && MuzzleFlash[i]->IsRegistered())
+			{
+				MuzzleFlash[i]->DeactivateSystem();
+				MuzzleFlash[i]->KillParticlesForced();
+				MuzzleFlash[i]->UnregisterComponent(); // SCS components were registered without our permission
+				MuzzleFlash[i]->bWasActive = false;
+			}
+			MuzzleFlash[i]->bAutoActivate = false;
+			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
+			MuzzleFlash[i]->SetOnlyOwnerSee(false); // we handle this in AUTPlayerController::UpdateHiddenComponents() instead
+		}
+	}
 
 	// might have already been activated if at startup, see ClientGivenTo_Internal()
 	if (CurrentState == NULL)
@@ -471,15 +488,6 @@ void AUTWeapon::AttachToOwner_Implementation()
 		DetachFromHolster();
 	}
 
-	// sanity check some settings
-	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
-	{
-		if (MuzzleFlash[i] != NULL)
-		{
-			MuzzleFlash[i]->bAutoActivate = false;
-			MuzzleFlash[i]->SetOnlyOwnerSee(false); // we handle this in AUTPlayerController::UpdateHiddenComponents() instead
-		}
-	}
 	// attach
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
@@ -575,7 +583,18 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 	}
 	else
 	{
-		AUTPlayerController* Viewer = (UTOwner != NULL) ? UTOwner->GetLocalViewer() : NULL;
+		AUTPlayerController* Viewer = NULL;
+		if (UTOwner != NULL)
+		{
+			if (Role == ROLE_Authority)
+			{
+				Viewer = Cast<AUTPlayerController>(UTOwner->Controller);
+			}
+			if (Viewer == NULL)
+			{
+				Viewer = UTOwner->GetLocalViewer();
+			}
+		}
 		return (Viewer != NULL) ? Viewer->GetWeaponHand() : HAND_Right;
 	}
 }
@@ -692,7 +711,7 @@ FHitResult AUTWeapon::GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc
 	// trace for precise hit location and hit normal
 	FHitResult Hit;
 	FVector TargetToGun = (StartLoc - TargetLoc).GetSafeNormal();
-	if (Shooter->GetWorld()->LineTraceSingle(Hit, TargetLoc + TargetToGun * 10.0f, TargetLoc - TargetToGun * 10.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("ImpactEffect")), true, Shooter)))
+	if (Shooter->GetWorld()->LineTraceSingleByChannel(Hit, TargetLoc + TargetToGun * 10.0f, TargetLoc - TargetToGun * 10.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("ImpactEffect")), true, Shooter)))
 	{
 		return Hit;
 	}
@@ -956,17 +975,9 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 			{
 				Collider = FCollisionShape::MakeSphere(0.0f);
 			}
-			{
-				FHitResult Hit;
-				if (UTOwner->GetCapsuleComponent()->SweepComponent(Hit, FinalLoc, BaseLoc, Collider, false))
-				{
-					// owner capsule could be flush against the wall so we need to push the projectile partially into the capsule to make sure we don't start penetrating wall
-					BaseLoc = Hit.Location + (BaseLoc - FinalLoc).GetSafeNormal() * Collider.GetExtent().X * 0.5f;
-				}
-			}
 			FCollisionQueryParams Params(FName(TEXT("WeaponStartLoc")), false, UTOwner);
 			FHitResult Hit;
-			if (GetWorld()->SweepSingle(Hit, BaseLoc, FinalLoc, FQuat::Identity, COLLISION_TRACE_WEAPON, Collider, Params))
+			if (GetWorld()->SweepSingleByChannel(Hit, BaseLoc, FinalLoc, FQuat::Identity, COLLISION_TRACE_WEAPON, Collider, Params))
 			{
 				FinalLoc = Hit.Location - (FinalLoc - BaseLoc).GetSafeNormal();
 			}
@@ -1044,7 +1055,7 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 {
 	bool bRewindPlayers = ((PredictionTime > 0.f) && (Role == ROLE_Authority));
 	ECollisionChannel TraceChannel = bRewindPlayers ? COLLISION_TRACE_WEAPONNOCHARACTER : COLLISION_TRACE_WEAPON;
-	if (!GetWorld()->LineTraceSingle(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), true, UTOwner)))
+	if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), true, UTOwner)))
 	{
 		Hit.Location = EndTrace;
 	}
@@ -1310,6 +1321,10 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 				// server ticks projectile to match with when client actually fired
 				NewProjectile->ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
 				NewProjectile->SetForwardTicked(true);
+				if (NewProjectile->GetLifeSpan() > 0.f)
+				{
+					NewProjectile->SetLifeSpan(FMath::Max(0.001f, NewProjectile->GetLifeSpan() - CatchupTickDelta));
+				}
 			}
 			else
 			{
@@ -1499,12 +1514,12 @@ void AUTWeapon::Destroyed()
 
 bool AUTWeapon::CanFireAgain()
 {
-	return (GetUTOwner() && (GetUTOwner()->GetPendingWeapon() == NULL) && GetUTOwner()->IsPendingFire(GetCurrentFireMode()) && HasAmmo(GetCurrentFireMode()));
+	return (GetUTOwner() && (GetUTOwner()->GetPendingWeapon() == NULL) && HasAmmo(GetCurrentFireMode()));
 }
 
 bool AUTWeapon::HandleContinuedFiring()
 {
-	if (!CanFireAgain())
+	if (!CanFireAgain() || !GetUTOwner()->IsPendingFire(GetCurrentFireMode()))
 	{
 		GotoActiveState();
 		return false;
@@ -1549,7 +1564,7 @@ bool AUTWeapon::ShouldDrawFFIndicator(APlayerController* Viewer, AUTPlayerState 
 		FRotator CameraRot;
 		Viewer->GetPlayerViewPoint(CameraLoc, CameraRot);
 		FHitResult Hit;
-		GetWorld()->LineTraceSingle(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CrosshairFriendIndicator")), true, UTOwner));
+		GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("CrosshairFriendIndicator")), true, UTOwner));
 		if (Hit.Actor != NULL)
 		{
 			AUTCharacter* Char = Cast<AUTCharacter>(Hit.Actor.Get());
@@ -1867,7 +1882,7 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 		const FVector StartLoc = GetFireStartLoc();
 		FCollisionQueryParams Params(FName(TEXT("CanAttack")), false, Instigator);
 		Params.AddIgnoredActor(Target);
-		bVisible = !GetWorld()->LineTraceTest(StartLoc, TargetLoc, COLLISION_TRACE_WEAPON, Params);
+		bVisible = !GetWorld()->LineTraceTestByChannel(StartLoc, TargetLoc, COLLISION_TRACE_WEAPON, Params);
 	}
 	if (bVisible)
 	{
@@ -1928,4 +1943,18 @@ int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
 		}
 	}
 	return DeathCount;
+}
+
+// TEMP for testing 1p offsets
+void AUTWeapon::TestWeaponLoc(float X, float Y, float Z)
+{
+	Mesh->SetRelativeLocation(FVector(X, Y, Z));
+}
+void AUTWeapon::TestWeaponRot(float Pitch, float Yaw, float Roll)
+{
+	Mesh->SetRelativeRotation(FRotator(Pitch, Yaw, Roll));
+}
+void AUTWeapon::TestWeaponScale(float X, float Y, float Z)
+{
+	Mesh->SetRelativeScale3D(FVector(X, Y, Z));
 }

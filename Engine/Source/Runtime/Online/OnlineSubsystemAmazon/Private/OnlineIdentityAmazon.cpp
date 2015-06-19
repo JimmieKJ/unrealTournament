@@ -135,7 +135,7 @@ bool FOnlineIdentityAmazon::ParseLoginResults(const FString& Results,FUserOnline
 	// The format is var=val,var=val,,
 	// First split the string into a list of var=val entries
 	TArray<FString> Fields;
-	Results.ParseIntoArray(&Fields, TEXT(","), true);
+	Results.ParseIntoArray(Fields, TEXT(","), true);
 	// Loop through the fields, setting the proper account field with the data
 	for (int Index = 0; Index < Fields.Num(); Index++)
 	{

@@ -223,142 +223,6 @@ FORCEINLINE FArchive& operator<<(FArchive& Ar, FStatMetaData& Data)
 	return Ar;
 }
 
-
-/**
- * Profiler file type
- */
-namespace EProfilerFileType
-{
-	enum Type
-	{
-		PFT_Binary,
-		PFT_CSV,
-	};
-}
-
-/**
- * Profiler file header
- */
-struct FProfilerDataHeader
-{
-	/** Magice value to determine it is a profiler file */
-	uint32 Magic;
-
-	/** Current version of the file */
-	uint32 Version;
-
-	/** Session id the file was generated from */
-	FGuid SessionId;
-
-	/** Instance id the file was generated from */
-	FGuid InstanceId;
-
-	/** Total amount of capture data.  Note: this is different from the file size */
-	int64 TotalCaptureData;
-};
-
-FORCEINLINE FArchive& operator<<(FArchive& Ar, FProfilerDataHeader& Data)
-{
-	Ar << Data.Magic;
-	Ar << Data.Version;
-	Ar << Data.SessionId;
-	Ar << Data.InstanceId;
-	Ar << Data.TotalCaptureData;
-
-	return Ar;
-}
-
-#if STATS
-FORCEINLINE FArchive& operator<<(FArchive& Ar, FStatNameAndInfo& NameAndInfo)
-{
-	if (Ar.IsLoading())
-	{
-		int32 Index = 0;
-		Ar << Index;
-		int32 Number = 0;
-		Ar << Number;
-		FName TheFName;
-		FString Name;
-		Ar << Name;
-		TheFName = FName(*Name);
-		Number &= ~ (EStatMetaFlags::SendingFName << (EStatMetaFlags::Shift + EStatAllFields::StartShift));
-		NameAndInfo = FStatNameAndInfo(TheFName, false);
-		NameAndInfo.SetNumberDirect(Number);
-	}
-	else
-	{
-		FName RawName = NameAndInfo.GetRawName();
-		int32 Index = RawName.GetComparisonIndex();
-		Ar << Index;
-		int32 Number = NameAndInfo.GetRawNumber();
-		Number |= EStatMetaFlags::SendingFName << (EStatMetaFlags::Shift + EStatAllFields::StartShift);
-		Ar << Number;
-		FString Name = RawName.ToString();
-		Ar << Name;
-	}
-
-	return Ar;
-}
-
-FORCEINLINE FArchive& operator<<(FArchive& Ar, FStatMessage& Data)
-{
-	Ar << Data.NameAndInfo;
-
-	if (Ar.IsLoading())
-	{
-		Data.Clear();
-		switch (Data.NameAndInfo.GetField<EStatDataType>())
-		{
-		case EStatDataType::ST_int64:
-			{
-				int64 Payload = 0;
-				Ar << Payload;
-				Data.GetValue_int64() = Payload;
-			}
-			break;
-		case EStatDataType::ST_double:
-			{
-				double Payload = 0;
-				Ar << Payload;
-				Data.GetValue_double() = Payload;
-			}
-			break;
-		case EStatDataType::ST_FName:
-			FStatNameAndInfo Payload;
-			Ar << Payload;
-			Data.GetValue_FName() = Payload.GetRawName();
-			break;
-		}
-
-	}
-	else
-	{
-		switch (Data.NameAndInfo.GetField<EStatDataType>())
-		{
-		case EStatDataType::ST_int64:
-			{
-				int64 Payload = Data.GetValue_int64();
-				Ar << Payload;
-			}
-			break;
-		case EStatDataType::ST_double:
-			{
-				double Payload = Data.GetValue_double();
-				Ar << Payload;
-			}
-			break;
-		case EStatDataType::ST_FName:
-			FStatNameAndInfo Payload(Data.GetValue_FName(), false);
-			Ar << Payload;
-			break;
-		}
-	}
-
-	return Ar;
-}
-#endif
-
-
 /**
  * Profiler service request type
  */
@@ -366,8 +230,6 @@ namespace EProfilerRequestType
 {
 	enum Type
 	{
-		/** Metadata request. */
-		PRT_MetaData,
 		/** Send last captured file. */
 		PRT_SendLastCapturedFile,
 	};
@@ -473,66 +335,11 @@ class IProfilerServiceManager
 {
 public:
 
-	/**
-	 * Sends profiler cycle counter to registered clients.
-	 *
-	 * @param Data The profiler data to be sent.
-	 */
-	virtual void SendData(FProfilerCycleCounter& Data) = 0;
-
-	/**
-	 * Sends profiler float accumulator to registered clients.
-	 *
-	 * @param Data The profiler data to be sent.
-	 */
-	virtual void SendData(FProfilerFloatAccumulator& Data) = 0;
-
-	/**
-	 * Sends profiler count accumulator to registered clients.
-	 *
-	 * @param Data The profiler data to be sent.
-	 */
-	virtual void SendData(FProfilerCountAccumulator& Data) = 0;
-
-	/**
-	 * Sends profiler cycle graph to registered clients.
-	 *
-	 * @param Data The profiler data to be sent.
-	 */
-	virtual void SendData(FProfilerCycleGraph& Data) = 0;
-
-	/**
-	 * Determines if we are capturing data for clients.
-	 */
-	virtual bool IsCapturing() const = 0;
-
 	/** Starts a file capture. */
 	virtual void StartCapture() = 0;
 
 	/** Stops a file capture. */
 	virtual void StopCapture() = 0;
-
-	/** Updates the meta data. */
-	virtual void UpdateMetaData() = 0;
-
-	/** Starts a new frame of data and sends the previous if it exists. */
-	virtual void StartFrame(uint32 FrameNumber, double FrameStart) = 0;
-
-	/**
-	 * Gets the description for the given stat id.
-	 *
-	 * @param StatId IDd of the statistic description to retrieve.
-	 * @return the FStatMetaData struct with the description.
-	 */
-	virtual FStatMetaData& GetStatMetaData() = 0;
-
-	/**
-	 * Retrieves the profiler data delegate
-	 *
-	 * @return profiler data delegate
-	 */
-	virtual FProfilerDataDelegate& OnProfilerData() = 0;
-
 public:
 
 	/** Virtual destructor. */

@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
 
 #include "Core.h"
@@ -9,7 +8,9 @@
 #include "UnrealTemplate.h"
 #include "ArchiveBase.h"
 
+
 DECLARE_LOG_CATEGORY_EXTERN(LogUnion, Log, All);
+
 
 /** Used to disambiguate methods that are overloaded for all possible subtypes of a TUnion where the subtypes may not be distinct. */
 template<uint32>
@@ -17,6 +18,7 @@ struct TDisambiguater
 {
 	TDisambiguater() {}
 };
+
 
 class FNull
 {
@@ -38,6 +40,7 @@ public:
 	}
 };
 
+
 /**
  * Represents a type which is the union of several other types; i.e. it can have a value whose type is of any the union's subtypes.
  * This differs from C union types by being type-safe, and supporting non-trivial data types as subtypes.
@@ -50,47 +53,47 @@ public:
 
 	/** Default constructor. */
 	TUnion()
-	:	CurrentSubtypeIndex(-1)
-	{}
+		: CurrentSubtypeIndex(-1)
+	{ }
 
 	/** Initialization constructor. */
 	explicit TUnion(typename TCallTraits<TypeA>::ParamType InValue, TDisambiguater<0> Disambiguater = TDisambiguater<0>())
-	:	CurrentSubtypeIndex(-1)
+		: CurrentSubtypeIndex(-1)
 	{
 		SetSubtype<TypeA>(InValue);
 	}
 	
 	/** Initialization constructor. */
 	explicit TUnion(typename TCallTraits<TypeB>::ParamType InValue, TDisambiguater<1> Disambiguater = TDisambiguater<1>())
-	:	CurrentSubtypeIndex(-1)
+		: CurrentSubtypeIndex(-1)
 	{
 		SetSubtype<TypeB>(InValue);
 	}
 	
 	/** Initialization constructor. */
 	explicit TUnion(typename TCallTraits<TypeC>::ParamType InValue, TDisambiguater<2> Disambiguater = TDisambiguater<2>())
-	:	CurrentSubtypeIndex(-1)
+		: CurrentSubtypeIndex(-1)
 	{
 		SetSubtype<TypeC>(InValue);
 	}
 	
 	/** Initialization constructor. */
 	explicit TUnion(typename TCallTraits<TypeD>::ParamType InValue, TDisambiguater<3> Disambiguater = TDisambiguater<3>())
-	:	CurrentSubtypeIndex(-1)
+		: CurrentSubtypeIndex(-1)
 	{
 		SetSubtype<TypeD>(InValue);
 	}
 	
 	/** Initialization constructor. */
 	explicit TUnion(typename TCallTraits<TypeE>::ParamType InValue, TDisambiguater<4> Disambiguater = TDisambiguater<4>())
-	:	CurrentSubtypeIndex(-1)
+		: CurrentSubtypeIndex(-1)
 	{
 		SetSubtype<TypeE>(InValue);
 	}
 	
 	/** Initialization constructor. */
 	explicit TUnion(typename TCallTraits<TypeF>::ParamType InValue, TDisambiguater<5> Disambiguater = TDisambiguater<5>())
-	:	CurrentSubtypeIndex(-1)
+		: CurrentSubtypeIndex(-1)
 	{
 		SetSubtype<TypeF>(InValue);
 	}
@@ -371,4 +374,3 @@ private:
 		UE_LOG(LogUnion, Fatal, TEXT("Unrecognized TUnion subtype"));
 	}
 };
-

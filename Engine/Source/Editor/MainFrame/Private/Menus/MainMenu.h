@@ -85,6 +85,15 @@ private:
 	}
 
 	/**
+	* Opens the experimental localization dashboard.
+	* Remove this when it is no longer experimental.
+	*/
+	static void OpenLocalizationDashboard()
+	{
+		FModuleManager::LoadModuleChecked<ILocalizationDashboardModule>("LocalizationDashboard").Show();
+	}
+
+	/**
 	* Opens the experimental blutility shelf tab.
 	* Remove this when it is no longer experimental.
 	*/
@@ -101,5 +110,14 @@ private:
 	{
 		FModuleManager::Get().LoadModuleChecked<IModuleInterface>("LogVisualizer");
 		FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("VisualLogger")));
+	}
+
+	/**
+	* Opens the merge actors tab.
+	* Remove this when it is no longer experimental.
+	*/
+	static void OpenMergeActors()
+	{
+		FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("MergeActorsApp")));
 	}
 };

@@ -177,7 +177,7 @@ void UKismetArrayLibrary::GenericArray_Resize(void* TargetArray, const UArrayPro
 	}
 }
 
-int32 UKismetArrayLibrary::GenericArray_Length(void* TargetArray, const UArrayProperty* ArrayProp)
+int32 UKismetArrayLibrary::GenericArray_Length(const void* TargetArray, const UArrayProperty* ArrayProp)
 {
 	if( TargetArray )
 	{
@@ -189,7 +189,7 @@ int32 UKismetArrayLibrary::GenericArray_Length(void* TargetArray, const UArrayPr
 	return 0;
 }
 
-int32 UKismetArrayLibrary::GenericArray_LastIndex(void* TargetArray, const UArrayProperty* ArrayProp)
+int32 UKismetArrayLibrary::GenericArray_LastIndex(const void* TargetArray, const UArrayProperty* ArrayProp)
 {
 	if( TargetArray )
 	{
@@ -245,7 +245,7 @@ void UKismetArrayLibrary::GenericArray_Set(void* TargetArray, const UArrayProper
 	}
 }
 
-int32 UKismetArrayLibrary::GenericArray_Find(void* TargetArray, const UArrayProperty* ArrayProperty, const void* ItemToFind)
+int32 UKismetArrayLibrary::GenericArray_Find(const void* TargetArray, const UArrayProperty* ArrayProperty, const void* ItemToFind)
 {
 	int32 ResultIndex = INDEX_NONE;
 

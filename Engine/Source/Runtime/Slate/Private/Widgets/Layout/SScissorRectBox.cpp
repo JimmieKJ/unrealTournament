@@ -16,7 +16,7 @@ void SScissorRectBox::Construct(const FArguments& InArgs)
 }
 
 
-FVector2D SScissorRectBox::ComputeDesiredSize() const
+FVector2D SScissorRectBox::ComputeDesiredSize( float ) const
 {
 	EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 

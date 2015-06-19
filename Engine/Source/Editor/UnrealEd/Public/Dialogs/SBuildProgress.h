@@ -36,6 +36,8 @@ public:
 		BUILDTYPE_Lighting,
 		/** Paths are being built. */
 		BUILDTYPE_Paths,
+		/** LODs are being built */
+		BUILDTYPE_LODs, 
 	};
 
 	/** The various issues that can occur. */

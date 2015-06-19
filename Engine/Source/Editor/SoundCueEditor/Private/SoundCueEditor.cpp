@@ -18,6 +18,7 @@
 #include "SSoundCuePalette.h"
 #include "SDockTab.h"
 #include "GenericCommands.h"
+#include "Sound/SoundCue.h"
 
 #define LOCTEXT_NAMESPACE "SoundCueEditor"
 
@@ -59,6 +60,13 @@ void FSoundCueEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>&
 
 FSoundCueEditor::~FSoundCueEditor()
 {
+	// Stop any playing sound cues when the cue editor closes
+	UAudioComponent* PreviewComp = GEditor->GetPreviewAudioComponent();
+	if (PreviewComp && PreviewComp->IsPlaying())
+	{
+		Stop();
+	}
+
 	GEditor->UnregisterForUndo( this );
 }
 

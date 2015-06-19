@@ -5,7 +5,7 @@
 #include "ModuleInterface.h"
 
 /** The maximum index for a material in a mesh */
-#define MAX_MESH_MATERIAL_INDEX 64
+#define MAX_MESH_MATERIAL_INDEX 256
 
 /**
  * Mesh reduction interface.
@@ -68,38 +68,6 @@ public:
 		) = 0;
 };
 
-/**
- * Mesh merging settings
- */
-struct FMeshMergingSettings
-{
-	/** Whether to generate lightmap UVs for a merged mesh*/
-	bool bGenerateLightMapUV;
-	
-	/** Target UV channel in a merged mesh for a lightmap */
-	int32 TargetLightMapUVChannel;
-
-	/** Target lightmap resolution */
-	int32 TargetLightMapResolution;
-		
-	/** Whether we should import vertex colors into merged mesh */
-	bool bImportVertexColors;
-	
-	/** Whether merged mesh should have pivot at world origin, or at first merged component otherwise */
-	bool bPivotPointAtZero;
-		
-	/** Default settings. */
-	FMeshMergingSettings()
-		: bGenerateLightMapUV(false)
-		, TargetLightMapUVChannel(1)
-		, TargetLightMapResolution(256)
-		, bImportVertexColors(false)
-		, bPivotPointAtZero(false)
-	{
-	}
-};
-
-
 
 /**
  * Mesh reduction module interface.
@@ -131,6 +99,16 @@ public:
 	virtual bool BuildStaticMesh(
 		class FStaticMeshRenderData& OutRenderData,
 		TArray<struct FStaticMeshSourceModel>& SourceModels,
+		const class FStaticMeshLODGroup& LODGroup
+		) = 0;
+
+	/**
+	 * Builds a static mesh using the provided source models and the LOD groups settings, and replaces
+	 * the RawMeshes with the reduced meshes. Does not modify renderable data.
+	 * @returns true if the meshes were built successfully.
+	 */
+	virtual bool GenerateStaticMeshLODs(
+		TArray<struct FStaticMeshSourceModel>& Models,
 		const class FStaticMeshLODGroup& LODGroup
 		) = 0;
 
@@ -202,16 +180,22 @@ public:
 	 *
 	 * @param SourceActors				List of actors to merge
 	 * @param InSettings				Settings to use
-	 * @param PackageName				Destination package name for a generated assets
+	 * @param InOuter					Outer if required
+	 * @param InBasePackageName			Destination package name for a generated assets. Used if Outer is null. 
+	 * @param UseLOD					-1 if you'd like to build for all LODs. If you specify, that LOD mesh for source meshes will be used to merge the mesh
+	 *									This is used by hierarchical building LODs
 	 * @param OutAssetsToSync			Merged mesh assets
 	 * @param OutMergedActorLocation	World position of merged mesh
 	 */
 	virtual void MergeActors(
 		const TArray<AActor*>& SourceActors,
 		const FMeshMergingSettings& InSettings,
-		const FString& PackageName, 
+		UPackage* InOuter,
+		const FString& InBasePackageName,
+		int32 UseLOD, // does not build all LODs but only use this LOD to create base mesh
 		TArray<UObject*>& OutAssetsToSync, 
-		FVector& OutMergedActorLocation) const = 0;
+		FVector& OutMergedActorLocation, 
+		bool bSilent=false) const = 0;
 	
 	/**
 	 *	Merges list of actors into single proxy mesh

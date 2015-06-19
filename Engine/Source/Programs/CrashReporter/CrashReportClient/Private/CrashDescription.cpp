@@ -22,6 +22,16 @@ FCrashDescription::FCrashDescription() :
 	InitializeIDs();
 }
 
+/** Unescapes a specified XML string, naive implementation. */
+FString UnescapeXMLString( const FString& Text )
+{
+	
+	return Text
+		.Replace( TEXT( "&amp;" ), TEXT( "&" ) )
+		.Replace( TEXT( "&quot;" ), TEXT( "\"" ) )
+		.Replace( TEXT( "&lt;" ), TEXT( "<" ) )
+		.Replace( TEXT( "&gt;" ), TEXT( ">" ) );
+}
 
 FCrashDescription::FCrashDescription( FString WERXMLFilepath ) :
 	// WER XML files are forced to be in the first version
@@ -78,24 +88,24 @@ FCrashDescription::FCrashDescription( FString WERXMLFilepath ) :
 				EngineVersionComponents++;
 			}
 
-			/*const FXmlNode* Parameter8Node = ProblemSignaturesNode->FindChildNode( TEXT( "Parameter8" ) );
+			const FXmlNode* Parameter8Node = ProblemSignaturesNode->FindChildNode( TEXT( "Parameter8" ) );
 			if( Parameter8Node )
 			{
 				const FString Parameter8Value = Parameter8Node->GetContent();
 
 				TArray<FString> ParsedParameters8;
-				Parameter8Value.ParseIntoArray( &ParsedParameters8, TEXT( "!" ), false );
+				Parameter8Value.ParseIntoArray( ParsedParameters8, TEXT( "!" ), false );
 
 				if( ParsedParameters8.Num() > 1 )
 				{
-					CommandLine = ParsedParameters8[1];
+					CommandLine = UnescapeXMLString( ParsedParameters8[1] );
 				}
 
 				if( ParsedParameters8.Num() > 2 )
 				{
 					ErrorMessage.Add( ParsedParameters8[2] );
 				}
-			}*/
+			}
 
 			const FXmlNode* Parameter9Node = ProblemSignaturesNode->FindChildNode( TEXT( "Parameter9" ) );
 			if( Parameter9Node )
@@ -103,7 +113,7 @@ FCrashDescription::FCrashDescription( FString WERXMLFilepath ) :
 				const FString Parameter9Value = Parameter9Node->GetContent();
 
 				TArray<FString> ParsedParameters9;
-				Parameter9Value.ParseIntoArray( &ParsedParameters9, TEXT( "!" ), false );
+				Parameter9Value.ParseIntoArray( ParsedParameters9, TEXT( "!" ), false );
 
 				if( ParsedParameters9.Num() > 0 )
 				{
@@ -119,10 +129,10 @@ FCrashDescription::FCrashDescription( FString WERXMLFilepath ) :
 
 				if( ParsedParameters9.Num() > 1 )
 				{
-					const FString BaseDir = ParsedParameters9[1];
+					const FString BaseDirectory = ParsedParameters9[1];
 
 					TArray<FString> SubDirs;
-					BaseDir.ParseIntoArray( &SubDirs, TEXT( "/" ), true );
+					BaseDirectory.ParseIntoArray( SubDirs, TEXT( "/" ), true );
 					const int SubDirsNum = SubDirs.Num();
 					const FString PlatformName = SubDirsNum > 0 ? SubDirs[SubDirsNum - 1] : TEXT("");
 					if( Product.Len() > 0 )
@@ -178,7 +188,7 @@ void FCrashDescription::InitializeEngineVersion()
 	uint16 Patch = 0;
 
 	TArray<FString> ParsedBuildVersion;
-	BuildVersion.ParseIntoArray( &ParsedBuildVersion, TEXT( "." ), false );
+	BuildVersion.ParseIntoArray( ParsedBuildVersion, TEXT( "." ), false );
 
 	if( ParsedBuildVersion.Num() >= 3 )
 	{
@@ -205,13 +215,9 @@ void FCrashDescription::InitializeIDs()
 	// The Epic ID can be looked up from this ID.
 	EpicAccountId = FPlatformMisc::GetEpicAccountId();
 
-	// Get the user name only for non-UE4 releases.
-	if( !FRocketSupport::IsRocket() )
-	{
-		// Remove periods from internal user names to match AutoReporter user names
-		// The name prefix is read by CrashRepository.AddNewCrash in the website code
-		UserName = FString( FPlatformProcess::UserName() ).Replace( TEXT( "." ), TEXT( "" ) );
-	}
+	// Remove periods from user names to match AutoReporter user names
+	// The name prefix is read by CrashRepository.AddNewCrash in the website code
+	UserName = FString( FPlatformProcess::UserName() ).Replace( TEXT( "." ), TEXT( "" ) );
 }
 
 void FCrashDescription::SendAnalytics()

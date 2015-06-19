@@ -7,5 +7,6 @@
 #include "ModuleManager.h"
 #include "Engine.h"
 #include "OnlineSubsystemUtils.h"
+#include "FileManagerGeneric.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogHTTPChunkInstaller, Log, All);

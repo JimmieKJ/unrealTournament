@@ -9,7 +9,7 @@
 /**
  * Implements the miscellaneous Editor settings.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class UNREALED_API UEditorMiscSettings
 	: public UObject
 {

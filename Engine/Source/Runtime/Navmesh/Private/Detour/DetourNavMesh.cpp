@@ -734,6 +734,7 @@ dtNavMesh::dtNavMesh() :
 	m_polyBits(0)
 {
 	memset(&m_params, 0, sizeof(dtNavMeshParams));
+	memset(m_areaCostOrder, 0, sizeof(m_areaCostOrder));
 	m_orig[0] = 0;
 	m_orig[1] = 0;
 	m_orig[2] = 0;
@@ -1068,12 +1069,15 @@ void dtNavMesh::connectExtOffMeshLinks(dtMeshTile* tile, dtMeshTile* target, int
 		
 		const dtLink& targetLink = getLink(target, targetPoly->firstLink);
 		const dtPolyRef targetLandPoly = targetLink.ref;
-		const float ext[3] = { targetCon->rad, target->header->walkableClimb, targetCon->rad };
-		
+		const float ext[3] = { targetCon->rad, targetCon->height, targetCon->rad };
+
 		// Find polygon to connect to.
 		const float* p = &targetCon->pos[3];
 		float nearestPt[3];
-		dtPolyRef ref = findNearestPolyInTile(tile, p, ext, nearestPt, true);
+		dtPolyRef ref = targetCon->getSnapToCheapestArea() ?
+			findCheapestNearPolyInTile(tile, p, ext, nearestPt) :
+			findNearestPolyInTile(tile, p, ext, nearestPt, true);
+
 		if (!ref)
 			continue;
 		// findNearestPoly may return too optimistic results, further check to make sure. 
@@ -1182,12 +1186,14 @@ void dtNavMesh::baseOffMeshLinks(dtMeshTile* tile)
 		dtOffMeshConnection* con = &tile->offMeshCons[i];
 		dtPoly* poly = &tile->polys[con->poly];
 	
-		const float ext[3] = { con->rad, tile->header->walkableClimb, con->rad };
+		const float ext[3] = { con->rad, con->height, con->rad };
 		
 		// Find polygon to connect to.
 		const float* p = &con->pos[0]; // First vertex
 		float nearestPt[3];
-		dtPolyRef ref = findNearestPolyInTile(tile, p, ext, nearestPt, true);
+		dtPolyRef ref = con->getSnapToCheapestArea() ? 
+			findCheapestNearPolyInTile(tile, p, ext, nearestPt) :
+			findNearestPolyInTile(tile, p, ext, nearestPt, true);
 		if (!ref) continue;
 		// findNearestPoly may return too optimistic results, further check to make sure. 
 		if (dtSqr(nearestPt[0]-p[0])+dtSqr(nearestPt[2]-p[2]) > dtSqr(con->rad))
@@ -1406,6 +1412,60 @@ dtPolyRef dtNavMesh::findNearestPolyInTile(const dtMeshTile* tile,
 		nearest = 0;
 	}
 	
+	return nearest;
+}
+
+dtPolyRef dtNavMesh::findCheapestNearPolyInTile(const dtMeshTile* tile, const float* center,
+												const float* extents, float* nearestPt) const
+{
+	float bmin[3], bmax[3];
+	dtVsub(bmin, center, extents);
+	dtVadd(bmax, center, extents);
+
+	// Get nearby polygons from proximity grid.
+	dtPolyRef polys[128];
+	const bool bExcludeUnwalkable = true;
+	int polyCount = queryPolygonsInTile(tile, bmin, bmax, polys, 128, bExcludeUnwalkable);
+
+	// Find nearest polygon amongst the nearby polygons.
+	dtPolyRef nearest = 0;
+	float nearestDistanceSqr = FLT_MAX;
+	unsigned char cheapestAreaCostOrder = 0xff;
+	for (int i = 0; i < polyCount; ++i)
+	{
+		dtPolyRef ref = polys[i];
+		
+		const int polyIdx = decodePolyIdPoly(ref);
+		dtPoly* poly = &tile->polys[polyIdx];
+		const unsigned char polyAreaCostOrder = m_areaCostOrder[poly->getArea()];
+		if (polyAreaCostOrder < cheapestAreaCostOrder)
+		{
+			cheapestAreaCostOrder = polyAreaCostOrder;
+			nearestDistanceSqr = FLT_MAX;
+			nearest = 0;
+		}
+
+		if (polyAreaCostOrder == cheapestAreaCostOrder)
+		{
+			float closestPtPoly[3];
+			closestPointOnPolyInTile(tile, polyIdx, center, closestPtPoly);
+			float d = dtVdistSqr(center, closestPtPoly);
+			if (d < nearestDistanceSqr)
+			{
+				if (nearestPt)
+					dtVcopy(nearestPt, closestPtPoly);
+				nearestDistanceSqr = d;
+				nearest = ref;
+			}
+		}
+	}
+
+	// Verify if the point is actually within requested height, caller is performing 2D check anyway (radius)
+	if (dtAbs(nearestPt[1] - center[1]) > extents[1])
+	{
+		nearest = 0;
+	}
+
 	return nearest;
 }
 
@@ -2406,5 +2466,10 @@ void dtNavMesh::applyWorldOffset(const float* offset)
 			}
 		}
 	}
+}
+
+void dtNavMesh::applyAreaCostOrder(unsigned char* costOrder)
+{
+	memcpy(m_areaCostOrder, costOrder, sizeof(m_areaCostOrder));
 }
 //@UE4 END

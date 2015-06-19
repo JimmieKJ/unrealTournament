@@ -169,8 +169,11 @@ public:
 	/** Finds the base directory for a given module name. Does not rely on symbols; finds matching .build.cs files. */
 	UNREALED_API static bool FindModulePath( const FString& ModuleName, FString &OutModulePath );
 
-	/** Finds the path to a given class. Does not rely on symbols; finds matching .build.cs files. */
+	/** Finds the path to a given class header. Does not rely on symbols; finds matching .build.cs files. */
 	UNREALED_API static bool FindClassHeaderPath( const UField *Field, FString &OutClassHeaderPath );
+
+	/** Finds the path to a given class source. Does not rely on symbols; finds matching .build.cs files. */
+	UNREALED_API static bool FindClassSourcePath( const UField *Field, FString &OutClassSourcePath );
 
 	/** Opens a single source file */
 	UNREALED_API static bool OpenSourceFile( const FString& AbsoluteSourcePath, int32 LineNumber = 0, int32 ColumnNumber = 0 );
@@ -197,6 +200,14 @@ public:
 
 	/** Call this to access the multi-cast delegate that you can register a callback with */
 	UNREALED_API static FOnNewModuleAdded& AccessOnNewModuleAdded();
+
+private:
+
+	/** Critical section for locking access to the source file database. */
+	static FCriticalSection CriticalSection;
+
+	/** Source file database instance. */
+	static FSourceFileDatabase Instance;
 };
 
 

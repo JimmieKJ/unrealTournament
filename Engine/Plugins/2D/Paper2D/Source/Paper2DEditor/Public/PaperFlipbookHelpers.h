@@ -2,6 +2,8 @@
 
 #pragma once
 
+class UPaperSprite;
+
 //////////////////////////////////////////////////////////////////////////
 // FPaperFlipbookHelpers
 
@@ -19,6 +21,10 @@ public:
 	static void ExtractFlipbooksFromSprites(TMap<FString, TArray<UPaperSprite*> >& OutSpriteFlipbookMap, const TArray<UPaperSprite*>& Sprites, const TArray<FString>& SpriteNames);
 
 private:
+
+	static FString GetCleanerSpriteName(const FString& Name);
+	static bool ExtractSpriteNumber(const FString& String, FString& BareString, int32& Number);
+
 	FPaperFlipbookHelpers() {}
 };
 

@@ -11,6 +11,8 @@ class UNREALTOURNAMENT_API UUTConsole : public UConsole
 
 	virtual void FakeGotoState(FName NextStateName);
 
+	void ClearReopenMenus() { bReopenMenus = false; }
+
 private:
 	bool bReopenMenus;
 

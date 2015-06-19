@@ -509,7 +509,7 @@ bool FContentBrowserSingleton::IsLocked(const FName& InstanceName) const
 
 	// Fallback to getting the locked state from the config instead
 	bool bIsLocked = false;
-	GConfig->GetBool(*SContentBrowser::SettingsIniSection, *(InstanceName.ToString() + TEXT(".Locked")), bIsLocked, GEditorUserSettingsIni);
+	GConfig->GetBool(*SContentBrowser::SettingsIniSection, *(InstanceName.ToString() + TEXT(".Locked")), bIsLocked, GEditorPerProjectIni);
 	return bIsLocked;
 }
 

@@ -323,7 +323,7 @@ public:
 #endif
 	};
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
 	{
 		FPrimitiveViewRelevance Result;
 #if WITH_EDITOR
@@ -335,7 +335,7 @@ public:
 		return Result;
 	}
 
-	virtual uint32 GetMemoryFootprint( void ) const { return( sizeof( *this ) + GetAllocatedSize() ); }
+	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	uint32 GetAllocatedSize( void ) const { return( FPrimitiveSceneProxy::GetAllocatedSize() ); }
 };
 
@@ -385,7 +385,7 @@ ALandscapeGizmoActor::ALandscapeGizmoActor(const FObjectInitializer& ObjectIniti
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
-	SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 	if (!IsRunningCommandlet() && (SpriteComponent != nullptr))
 	{
 		// Structure to hold one-time initialization
@@ -412,7 +412,7 @@ ALandscapeGizmoActor::ALandscapeGizmoActor(const FObjectInitializer& ObjectIniti
 	}
 #endif
 
-	USceneComponent* SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("RootComponent0"));
+	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent0"));
 	RootComponent = SceneComponent;
 	RootComponent->Mobility = EComponentMobility::Static;
 
@@ -481,7 +481,7 @@ ALandscapeGizmoActiveActor::ALandscapeGizmoActiveActor(const FObjectInitializer&
 	}
 #endif // WITH_EDITORONLY_DATA
 
-	ULandscapeGizmoRenderComponent* LandscapeGizmoRenderComponent = ObjectInitializer.CreateDefaultSubobject<ULandscapeGizmoRenderComponent>(this, TEXT("GizmoRendererComponent0"));
+	ULandscapeGizmoRenderComponent* LandscapeGizmoRenderComponent = CreateDefaultSubobject<ULandscapeGizmoRenderComponent>(TEXT("GizmoRendererComponent0"));
 	LandscapeGizmoRenderComponent->SetCollisionProfileName(UCollisionProfile::BlockAllDynamic_ProfileName);
 
 	RootComponent = LandscapeGizmoRenderComponent;
@@ -640,7 +640,8 @@ void ALandscapeGizmoActiveActor::SetTargetLandscape(ULandscapeInfo* LandscapeInf
 		TargetLandscapeInfo = LandscapeInfo;
 	}
 
-	if (TargetLandscapeInfo && TargetLandscapeInfo != PrevInfo)
+	// if there's no copied data, try to move somewhere useful
+	if (TargetLandscapeInfo && TargetLandscapeInfo != PrevInfo && DataType == LGT_None)
 	{
 		MarginZ = TargetLandscapeInfo->DrawScale.Z * 3;
 		Width = Height = TargetLandscapeInfo->DrawScale.X * (TargetLandscapeInfo->ComponentSizeQuads+1);
@@ -827,8 +828,8 @@ void ALandscapeGizmoActiveActor::SampleData(int32 SizeX, int32 SizeY)
 		{
 			for (int32 X = 0; X < TexSizeX; ++X)
 			{
-				float TexX = X * SizeX / TexSizeX;
-				float TexY = Y * SizeY / TexSizeY;
+				float TexX = static_cast<float>(X) * SizeX / TexSizeX;
+				float TexY = static_cast<float>(Y) * SizeY / TexSizeY;
 				int32 LX = FMath::FloorToInt(TexX);
 				int32 LY = FMath::FloorToInt(TexY);
 

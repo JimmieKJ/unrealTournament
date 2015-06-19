@@ -24,39 +24,38 @@ FLevelViewportCommands::~FLevelViewportCommands()
 PRAGMA_DISABLE_OPTIMIZATION
 void FLevelViewportCommands::RegisterCommands()
 {
-	UI_COMMAND( ToggleMaximize, "Maximize Viewport", "Toggles the Maximize state of the current viewport", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ToggleGameView, "Game View", "Toggles game view.  Game view shows the scene as it appears in game", EUserInterfaceActionType::ToggleButton, FInputGesture( EKeys::G ) );
-	UI_COMMAND( ToggleImmersive, "Immersive Mode", "Switches this viewport between immersive mode and regular mode", EUserInterfaceActionType::ToggleButton, FInputGesture( EKeys::F11 ) );
-	UI_COMMAND( ToggleLockedCameraView, "Camera View", "Toggles showing the exact camera view when locking this viewport to a camera", EUserInterfaceActionType::ToggleButton, FInputGesture( EModifierKey::Control | EModifierKey::Shift, EKeys::C ) );
+	UI_COMMAND( ToggleMaximize, "Maximize Viewport", "Toggles the Maximize state of the current viewport", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ToggleGameView, "Game View", "Toggles game view.  Game view shows the scene as it appears in game", EUserInterfaceActionType::ToggleButton, FInputChord( EKeys::G ) );
+	UI_COMMAND( ToggleImmersive, "Immersive Mode", "Switches this viewport between immersive mode and regular mode", EUserInterfaceActionType::ToggleButton, FInputChord( EKeys::F11 ) );
 
-	UI_COMMAND( CreateCamera, "Create Camera Here", "Creates a new camera actor at the current location of this viewport's camera", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( HighResScreenshot, "High Resolution Screenshot...", "Opens the control panel for high resolution screenshots", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( CreateCamera, "Create Camera Here", "Creates a new camera actor at the current location of this viewport's camera", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( HighResScreenshot, "High Resolution Screenshot...", "Opens the control panel for high resolution screenshots", EUserInterfaceActionType::Button, FInputChord() );
 	
-	UI_COMMAND( UseDefaultShowFlags, "Use Defaults", "Resets all show flags to default", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( UseDefaultShowFlags, "Use Defaults", "Resets all show flags to default", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( ActorUnlock, "Unlock from Actor", "Unlock the viewport's position and orientation from the locked actor.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ActorLockSelected, "Lock Selected Actor", "Lock the viewport's position and orientation to the selected actor.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ActorUnlockSelected, "Unlock Selected Actor", "Unlock the viewport's position and orientation from the selected actor.", EUserInterfaceActionType::Check, FInputGesture() );
+	UI_COMMAND( PilotSelectedActor, "Pilot Selected Actor", "Move the selected actor around using the viewport controls, and bind the viewport to the actor's location and orientation.", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Control | EModifierKey::Shift, EKeys::P ) );
+	UI_COMMAND( EjectActorPilot, "Eject from Actor Pilot", "Stop piloting an actor with the current viewport. Unlocks the viewport's position and orientation from the actor the viewport is currently piloting.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ToggleActorPilotCameraView, "Actor Pilot Camera View", "Toggles showing the exact camera view when using the viewport to pilot a camera", EUserInterfaceActionType::ToggleButton, FInputChord( EModifierKey::Control | EModifierKey::Shift, EKeys::C ) );
 
-	UI_COMMAND( ViewportConfig_OnePane, "Layout One Pane", "Changes the viewport arrangement to one pane", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_TwoPanesH, "Layout Two Panes (horizontal)", "Changes the viewport arrangement to two panes, side-by-side", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_TwoPanesV, "Layout Two Panes (vertical)", "Changes the viewport arrangement to two panes, one above the other", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_ThreePanesLeft, "Layout Three Panes (one left, two right)", "Changes the viewport arrangement to three panes, one on the left, two on the right", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_ThreePanesRight, "Layout Three Panes (one right, two left)", "Changes the viewport arrangement to three panes, one on the right, two on the left", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_ThreePanesTop, "Layout Three Panes (one top, two bottom)", "Changes the viewport arrangement to three panes, one on the top, two on the bottom", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_ThreePanesBottom, "Layout Three Panes (one bottom, two top)", "Changes the viewport arrangement to three panes, one on the bottom, two on the top", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_FourPanesLeft, "Layout Four Panes (one left, three right)", "Changes the viewport arrangement to four panes, one on the left, three on the right", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_FourPanesRight, "Layout Four Panes (one right, three left)", "Changes the viewport arrangement to four panes, one on the right, three on the left", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_FourPanesTop, "Layout Four Panes (one top, three bottom)", "Changes the viewport arrangement to four panes, one on the top, three on the bottom", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_FourPanesBottom, "Layout Four Panes (one bottom, three top)", "Changes the viewport arrangement to four panes, one on the bottom, three on the top", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ViewportConfig_FourPanes2x2, "Layout Four Panes (2x2)", "Changes the viewport arrangement to four panes, in a 2x2 grid", EUserInterfaceActionType::ToggleButton, FInputGesture() );
+	UI_COMMAND( ViewportConfig_OnePane, "Layout One Pane", "Changes the viewport arrangement to one pane", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_TwoPanesH, "Layout Two Panes (horizontal)", "Changes the viewport arrangement to two panes, side-by-side", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_TwoPanesV, "Layout Two Panes (vertical)", "Changes the viewport arrangement to two panes, one above the other", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_ThreePanesLeft, "Layout Three Panes (one left, two right)", "Changes the viewport arrangement to three panes, one on the left, two on the right", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_ThreePanesRight, "Layout Three Panes (one right, two left)", "Changes the viewport arrangement to three panes, one on the right, two on the left", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_ThreePanesTop, "Layout Three Panes (one top, two bottom)", "Changes the viewport arrangement to three panes, one on the top, two on the bottom", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_ThreePanesBottom, "Layout Three Panes (one bottom, two top)", "Changes the viewport arrangement to three panes, one on the bottom, two on the top", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_FourPanesLeft, "Layout Four Panes (one left, three right)", "Changes the viewport arrangement to four panes, one on the left, three on the right", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_FourPanesRight, "Layout Four Panes (one right, three left)", "Changes the viewport arrangement to four panes, one on the right, three on the left", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_FourPanesTop, "Layout Four Panes (one top, three bottom)", "Changes the viewport arrangement to four panes, one on the top, three on the bottom", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_FourPanesBottom, "Layout Four Panes (one bottom, three top)", "Changes the viewport arrangement to four panes, one on the bottom, three on the top", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ViewportConfig_FourPanes2x2, "Layout Four Panes (2x2)", "Changes the viewport arrangement to four panes, in a 2x2 grid", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
-	UI_COMMAND( ApplyMaterialToActor, "Apply Material", "Attempts to apply a dropped material to this object", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( ApplyMaterialToActor, "Apply Material", "Attempts to apply a dropped material to this object", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( AllowMatineePreview, "Allow Matinee Preview", "If enabled, allows matinee to be previewed in this viewport", EUserInterfaceActionType::ToggleButton, FInputGesture() );
+	UI_COMMAND( AllowMatineePreview, "Allow Matinee Preview", "If enabled, allows matinee to be previewed in this viewport", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
-	UI_COMMAND( FindInLevelScriptBlueprint, "Find In Level Script", "Finds references of a selected actor in the level script blueprint", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Control, EKeys::K) );
-	UI_COMMAND( AdvancedSettings, "Advanced Settings...", "Opens the advanced viewport settings", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND( FindInLevelScriptBlueprint, "Find In Level Script", "Finds references of a selected actor in the level script blueprint", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::K) );
+	UI_COMMAND( AdvancedSettings, "Advanced Settings...", "Opens the advanced viewport settings", EUserInterfaceActionType::Button, FInputChord());
 
 	// Generate a command for each buffer visualization mode
 	{
@@ -80,7 +79,7 @@ void FLevelViewportCommands::RegisterCommands()
 				const FText MaterialNameText = FText::FromString( InMaterialName );
 				Record.Command = FUICommandInfoDecl( Parent, ViewportCommandName, MaterialNameText, MaterialNameText )
 					.UserInterfaceType( EUserInterfaceActionType::RadioButton )
-					.DefaultGesture( FInputGesture() );
+					.DefaultChord( FInputChord() );
 			}
 		};
 
@@ -91,7 +90,7 @@ void FLevelViewportCommands::RegisterCommands()
 		OverviewRecord.Name = NAME_None;
 		OverviewRecord.Command = FUICommandInfoDecl( this->AsShared(), ViewportCommandName, LOCTEXT("BufferVisualization", "Overview"), LOCTEXT("BufferVisualization", "Overview") )
 			.UserInterfaceType( EUserInterfaceActionType::RadioButton )
-			.DefaultGesture( FInputGesture() );
+			.DefaultChord( FInputChord() );
 
 		FMaterialIterator It(this->AsShared(), BufferVisualizationModeCommands);
 		GetBufferVisualizationData().IterateOverAvailableMaterials(It);
@@ -123,7 +122,7 @@ void FLevelViewportCommands::RegisterCommands()
 		TSharedPtr<FUICommandInfo> ShowFlagCommand 
 			= FUICommandInfoDecl( this->AsShared(), SFData.ShowFlagName, LocalizedName, ShowFlagDesc )
 			.UserInterfaceType( EUserInterfaceActionType::ToggleButton )
-			.DefaultGesture( SFData.InputGesture )
+			.DefaultChord( SFData.InputChord )
 			.Icon(SFData.Group == EShowFlagGroup::SFG_Normal ?
 						FSlateIcon(FEditorStyle::GetStyleSetName(), FEditorStyle::Join( GetContextName(), TCHAR_TO_ANSI( *FString::Printf( TEXT(".%s"), *SFData.ShowFlagName.ToString() ) ) ) ) :
 						FSlateIcon());
@@ -133,8 +132,8 @@ void FLevelViewportCommands::RegisterCommands()
 
 	// Generate a command for each volume class
 	{
-		UI_COMMAND( ShowAllVolumes, "Show All Volumes", "Shows all volumes", EUserInterfaceActionType::Button, FInputGesture() );
-		UI_COMMAND( HideAllVolumes, "Hide All Volumes", "Hides all volumes", EUserInterfaceActionType::Button, FInputGesture() );
+		UI_COMMAND( ShowAllVolumes, "Show All Volumes", "Shows all volumes", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND( HideAllVolumes, "Hide All Volumes", "Hides all volumes", EUserInterfaceActionType::Button, FInputChord() );
 
 		TArray< UClass* > VolumeClasses;
 		UUnrealEdEngine::GetSortedVolumeClasses(&VolumeClasses);
@@ -162,14 +161,14 @@ void FLevelViewportCommands::RegisterCommands()
 
 	// Generate a command for show/hide all layers
 	{
-		UI_COMMAND( ShowAllLayers, "Show All Layers", "Shows all layers", EUserInterfaceActionType::Button, FInputGesture() );
-		UI_COMMAND( HideAllLayers, "Hide All Layers", "Hides all layers", EUserInterfaceActionType::Button, FInputGesture() );
+		UI_COMMAND( ShowAllLayers, "Show All Layers", "Shows all layers", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND( HideAllLayers, "Hide All Layers", "Hides all layers", EUserInterfaceActionType::Button, FInputChord() );
 	}
 
 	// Generate a command for each sprite category
 	{
-		UI_COMMAND( ShowAllSprites, "Show All Sprites", "Shows all sprites", EUserInterfaceActionType::Button, FInputGesture() );
-		UI_COMMAND( HideAllSprites, "Hide All Sprites", "Hides all sprites", EUserInterfaceActionType::Button, FInputGesture() );
+		UI_COMMAND( ShowAllSprites, "Show All Sprites", "Shows all sprites", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND( HideAllSprites, "Hide All Sprites", "Hides all sprites", EUserInterfaceActionType::Button, FInputChord() );
 
 		// get all the known layers
 		// Get a fresh list as GUnrealEd->SortedSpriteInfo may not yet be built.
@@ -197,7 +196,7 @@ void FLevelViewportCommands::RegisterCommands()
 
 	// Generate a command for each Stat category
 	{
-		UI_COMMAND(HideAllStats, "Hide All Stats", "Hides all Stats", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(HideAllStats, "Hide All Stats", "Hides all Stats", EUserInterfaceActionType::Button, FInputChord());
 
 		// Bind a listener here for any additional stat commands that get registered later.
 		UEngine::NewStatDelegate.AddRaw(this, &FLevelViewportCommands::HandleNewStat);
@@ -229,7 +228,7 @@ void FLevelViewportCommands::RegisterCommands()
 			FText::Format( NSLOCTEXT("LevelEditorCommands", "JumpToBookmark", "Jump to Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ), //Localized label
 			FText::Format( NSLOCTEXT("LevelEditorCommands", "JumpToBookmark_ToolTip", "Moves the viewport to the location and orientation stored at bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) )//Localized tooltip
 			.UserInterfaceType( EUserInterfaceActionType::Button ) //interface type
-			.DefaultGesture( FInputGesture( NumberKeyNames.IsValidIndex( BookmarkIndex ) ? NumberKeyNames[BookmarkIndex] : EKeys::Invalid ) ); //default gesture
+			.DefaultChord( FInputChord( NumberKeyNames.IsValidIndex( BookmarkIndex ) ? NumberKeyNames[BookmarkIndex] : EKeys::Invalid ) ); //default chord
 
 		JumpToBookmarkCommands.Add( JumpToBookmark );
 
@@ -240,7 +239,7 @@ void FLevelViewportCommands::RegisterCommands()
 			FText::Format( NSLOCTEXT("LevelEditorCommands", "SetBookmark", "Set Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ), //Localized label
 			FText::Format( NSLOCTEXT("LevelEditorCommands", "SetBookmark_ToolTip", "Stores the viewports location and orientation in bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) )//Localized tooltip
 			.UserInterfaceType( EUserInterfaceActionType::Button ) //interface type
-			.DefaultGesture( FInputGesture( EModifierKey::Control, NumberKeyNames.IsValidIndex( BookmarkIndex ) ? NumberKeyNames[BookmarkIndex] : EKeys::Invalid ) ); //default gesture
+			.DefaultChord( FInputChord( EModifierKey::Control, NumberKeyNames.IsValidIndex( BookmarkIndex ) ? NumberKeyNames[BookmarkIndex] : EKeys::Invalid ) ); //default chord
 
 		SetBookmarkCommands.Add( SetBookmark );
 
@@ -251,14 +250,14 @@ void FLevelViewportCommands::RegisterCommands()
 			FText::Format( NSLOCTEXT("LevelEditorCommands", "ClearBookmark", "Clear Bookmark {0}"), FText::AsNumber( BookmarkIndex ) ), //Localized label
 			FText::Format( NSLOCTEXT("LevelEditorCommands", "ClearBookmark_ToolTip", "Clears the viewports location and orientation in bookmark {0}"), FText::AsNumber( BookmarkIndex ) ) )//Localized tooltip
 			.UserInterfaceType( EUserInterfaceActionType::Button ) //interface type
-			.DefaultGesture( FInputGesture() ); //default gesture 
+			.DefaultChord( FInputChord() ); //default chord 
 
 		ClearBookmarkCommands.Add( ClearBookMark );
 	}
-	UI_COMMAND( ClearAllBookMarks, "Clear All Bookmarks", "Clears all the bookmarks", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( ClearAllBookMarks, "Clear All Bookmarks", "Clears all the bookmarks", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( EnablePreviewMesh, "Hold To Enable Preview Mesh", "When held down a preview mesh appears under the cursor", EUserInterfaceActionType::Button, FInputGesture(EKeys::Backslash) );
-	UI_COMMAND( CyclePreviewMesh, "Cycles Preview Mesh", "Cycles available preview meshes", EUserInterfaceActionType::Button, FInputGesture( EModifierKey::Shift, EKeys::Backslash ) );
+	UI_COMMAND( EnablePreviewMesh, "Hold To Enable Preview Mesh", "When held down a preview mesh appears under the cursor", EUserInterfaceActionType::Button, FInputChord(EKeys::Backslash) );
+	UI_COMMAND( CyclePreviewMesh, "Cycles Preview Mesh", "Cycles available preview meshes", EUserInterfaceActionType::Button, FInputChord( EModifierKey::Shift, EKeys::Backslash ) );
 
 }
 

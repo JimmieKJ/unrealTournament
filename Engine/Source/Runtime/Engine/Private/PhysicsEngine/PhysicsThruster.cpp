@@ -36,12 +36,12 @@ void UPhysicsThrusterComponent::TickComponent(float DeltaTime, enum ELevelTick T
 APhysicsThruster::APhysicsThruster(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ThrusterComponent = ObjectInitializer.CreateDefaultSubobject<UPhysicsThrusterComponent>(this, TEXT("Thruster0"));
+	ThrusterComponent = CreateDefaultSubobject<UPhysicsThrusterComponent>(TEXT("Thruster0"));
 	RootComponent = ThrusterComponent;
 
 #if WITH_EDITORONLY_DATA
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ArrowComponent0"));
-	SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent0"));
+	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 
 	if (!IsRunningCommandlet())
 	{

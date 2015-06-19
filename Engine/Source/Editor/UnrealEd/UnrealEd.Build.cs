@@ -39,11 +39,13 @@ public class UnrealEd : ModuleRules
 				"ImageWrapper",
 				"MainFrame",
 				"MaterialEditor",
+                "MergeActors",
 				"MeshUtilities",
 				"Messaging",
 				"NiagaraEditor",
 				"PlacementMode",
 				"Settings",
+				"SettingsEditor",
 				"SoundClassEditor",
 				"ViewportSnapping",
 				"SourceCodeAccess",
@@ -51,7 +53,9 @@ public class UnrealEd : ModuleRules
                 "IntroTutorials",
                 "SuperSearch",
 				"OutputLog",
-				"Landscape"
+				"Landscape",
+                "Niagara",
+				"SizeMap",
 			}
 		);
 
@@ -61,6 +65,7 @@ public class UnrealEd : ModuleRules
 				"BspMode",
 				"Core",
 				"CoreUObject",
+				"DirectoryWatcher",
 				"Documentation",
 				"Engine",
 				"Json",
@@ -74,6 +79,9 @@ public class UnrealEd : ModuleRules
                 "AIModule",
 				"BlueprintGraph",
                 "Http",
+				"UnrealAudio",
+                "Niagara",
+                "VectorVM",
 			}
 		);
 
@@ -86,7 +94,6 @@ public class UnrealEd : ModuleRules
 				"OnlineSubsystem",
 				"OnlineBlueprintSupport",
 				"DesktopPlatform",
-				"DirectoryWatcher",
 				"EditorStyle",
 				"EngineSettings",
 				"InputCore",
@@ -119,6 +126,10 @@ public class UnrealEd : ModuleRules
                 "JsonUtilities",
 				"Landscape",
 				"HeadMountedDisplay",
+				"MeshPaint",
+                "Foliage",
+                "VectorVM",
+				"TreeMap",
 			}
 		);
 
@@ -156,7 +167,6 @@ public class UnrealEd : ModuleRules
 				"DeviceManager",
 				"SettingsEditor",
 				"SessionFrontend",
-				"TaskBrowser",
 				"Sequencer",
 				"SoundClassEditor",
 				"GeometryMode",
@@ -170,10 +180,10 @@ public class UnrealEd : ModuleRules
 				"DesktopPlatform",
 				"WorkspaceMenuStructure",
 				"BspMode",
-				"MeshPaint",
 				"PlacementMode",
 				"NiagaraEditor",
 				"MeshUtilities",
+                "MergeActors",
 				"GameProjectGeneration",
 				"ProjectSettingsViewer",
 				"ProjectTargetPlatformEditor",
@@ -191,6 +201,8 @@ public class UnrealEd : ModuleRules
 				"EditorLiveStreaming",
 				"HotReload",
                 "IOSPlatformEditor",
+				"HTML5PlatformEditor",
+				"SizeMap",
 			}
 		);
 
@@ -217,6 +229,8 @@ public class UnrealEd : ModuleRules
              	"CollectionManager",
 				"BlueprintGraph",
 				"NiagaraEditor",
+                "Niagara",
+                "VectorVM",
 			}
 			);
 
@@ -224,6 +238,7 @@ public class UnrealEd : ModuleRules
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
 			PublicDependencyModuleNames.Add("XAudio2");
+			PublicDependencyModuleNames.Add("UnrealAudioXAudio2");
 
 			AddThirdPartyPrivateStaticDependencies(Target, 
 				"UEOgg",
@@ -235,25 +250,24 @@ public class UnrealEd : ModuleRules
 			
 		}
 
+		if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicDependencyModuleNames.Add("UnrealAudioCoreAudio");
+		}
+
         if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
             PublicDependencyModuleNames.Add("HTML5Audio");
         }
 
-		AddThirdPartyPrivateStaticDependencies(Target, 
-			"HACD",
+		AddThirdPartyPrivateStaticDependencies(Target,
+            "HACD",
+            "VHACD",
 			"FBX",
 			"FreeType2"
 		);
 
 		SetupModulePhysXAPEXSupport(Target);
-
-		if ((UEBuildConfiguration.bCompileSimplygon == true) &&
-			(Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees") == true) &&
-			(Directory.Exists(UEBuildConfiguration.UEThirdPartySourceDirectory + "NotForLicensees/Simplygon") == true))
-		{
-			AddThirdPartyPrivateStaticDependencies(Target, "Simplygon");
-		}
 
 		if (UEBuildConfiguration.bCompileRecast)
 		{

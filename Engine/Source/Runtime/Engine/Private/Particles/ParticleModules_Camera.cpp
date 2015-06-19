@@ -38,7 +38,7 @@ void UParticleModuleCameraOffset::InitializeDefaults()
 {
 	if (!CameraOffset.Distribution)
 	{
-		UDistributionFloatConstant* DistributionCameraOffset = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionCameraOffset")); 
+		UDistributionFloatConstant* DistributionCameraOffset = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionCameraOffset"));
 		DistributionCameraOffset->Constant = 1.0f;
 		CameraOffset.Distribution = DistributionCameraOffset; 
 	}
@@ -66,15 +66,12 @@ void UParticleModuleCameraOffset::Spawn(FParticleEmitterInstance* Owner, int32 O
 	check(Owner && Owner->Component)
 	float ScaleFactor = 1.0f;
 
-	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
-	if (LODLevel->RequiredModule->bUseLocalSpace == false)
+	UParticleLODLevel* LODLevel = Owner ? Owner->SpriteTemplate->GetCurrentLODLevel(Owner) : NULL;
+	if (LODLevel && LODLevel->RequiredModule->bUseLocalSpace == false)
 	{
-		if (Owner != NULL)
+		if (Owner != NULL && Owner->Component != NULL)
 		{
-			if (Owner->Component != NULL)
-			{
-				ScaleFactor = Owner->Component->ComponentToWorld.GetMaximumAxisScale();
-			}
+			ScaleFactor = Owner->Component->ComponentToWorld.GetMaximumAxisScale();
 		}
 	}
 	SPAWN_INIT;

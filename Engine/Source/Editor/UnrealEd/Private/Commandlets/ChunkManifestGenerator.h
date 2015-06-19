@@ -2,6 +2,9 @@
 
 #pragma once
 
+class UChunkDependencyInfo;
+struct FChunkDependencyTreeNode;
+
 /**
  * Helper class for generating streaming install manifests
  */
@@ -33,6 +36,8 @@ class FChunkManifestGenerator
 	TArray<FChunkPackageSet*>		FinalChunkManifests;
 	/** Lookup table of used package names used when searching references. */
 	TSet<FName>						InspectedNames;
+	/** */
+	UChunkDependencyInfo*			DependencyInfo;
 
 	struct FReferencePair
 	{
@@ -158,6 +163,23 @@ class FChunkManifestGenerator
 	}
 
 	/**
+	* Returns an array of chunks IDs for a package that have been assigned in the editor.
+	*/
+	FORCEINLINE TArray<int32> GetAssetRegistryChunkAssignments(const FName& PackageFName)
+	{
+		//get the objects in this package
+		TArray<int32> RegistryChunkIDs;
+		for ( const auto& AssetData : AssetRegistryData )
+		{
+			if ( AssetData.PackageName == PackageFName ) 
+			{
+				RegistryChunkIDs.Append( AssetData.ChunkIDs );
+			}
+		}
+		return RegistryChunkIDs;
+	}
+
+	/**
 	 * Deletes the temporary packaging directory for the specified platform.
 	 */
 	bool CleanTempPackagingDirectory(const FString& Platform) const;
@@ -195,6 +217,16 @@ class FChunkManifestGenerator
 	*/
 	FString			GetShortestReferenceChain(FName PackageName, int32 ChunkID);
 
+	/**
+	* 
+	*/
+	void			ResolveChunkDependencyGraph(const FChunkDependencyTreeNode& Node, FChunkPackageSet BaseAssetSet);
+
+	/**
+	* Helper function to verify Chunk asset assigment is valid.
+	*/
+	bool			CheckChunkAssetsAreNotInChild(const FChunkDependencyTreeNode& Node);
+
 public:
 
 	/**
@@ -221,6 +253,7 @@ public:
 	 * @param the SandboxPlatformFile used during cook
 	 */
 	void AddPackageToChunkManifest(UPackage* Package, const FString& SandboxFilename, const FString& LastLoadedMapName, FSandboxPlatformFile* SandboxFile);
+	void AddPackageToChunkManifest(const FName& PackageFName, const FString& PackagePathName, const FString& SandboxFilename, const FString& LastLoadedMapName, FSandboxPlatformFile* InSandboxFile);
 	
 
 	/**
@@ -237,6 +270,15 @@ public:
 	 * @param Package Package which was loaded 
 	 */
 	void OnLastPackageLoaded( UPackage* Package );
+
+
+	/**
+	 * Collects all the packages loaded 
+	 * Does the same as other overload of OnLastPackageLoaded except takes in the name of the package as a fname 
+	 * 
+	 * @param Package name
+	 */
+	void OnLastPackageLoaded( const FName& PackageName );
 
 	/**
 	 * The cooker is about to load a new package from the list, reset AssetsLoadedWithLastPackage
@@ -258,8 +300,16 @@ public:
 	/**
 	* Saves generated asset registry data for each platform.
 	*/
-	bool SaveAssetRegistry(const FString& SandboxPath, const TArray<FName>* IgnorePackageList = nullptr);
+	bool SaveAssetRegistry(const FString& SandboxPath);
 
+
+	/**
+	 * Loads asset registry data and incorporates it into the current asset registry data
+	 * 
+	 * @param the SandboxPath to load teh asset registry from
+	 * @param PackagesToLoadMask is used to mask out any packages which we don't want to incorporate into the internal asset registry when we load
+	 */
+	bool LoadAssetRegistry(const FString& SandboxPath, const TSet<FName>* PackagesToLoadMask = nullptr);
 
 	/**
 	 * Saves cooked package and asset information about all the cooked packages and assets contained within for stats purposes

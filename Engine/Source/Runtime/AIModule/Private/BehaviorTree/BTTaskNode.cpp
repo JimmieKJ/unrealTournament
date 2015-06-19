@@ -7,6 +7,7 @@ UBTTaskNode::UBTTaskNode(const FObjectInitializer& ObjectInitializer) : Super(Ob
 {
 	NodeName = "UnknownTask";
 	bNotifyTick = false;
+	bNotifyTaskFinished = false;
 }
 
 EBTNodeResult::Type UBTTaskNode::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -43,16 +44,42 @@ void UBTTaskNode::WrappedTickTask(UBehaviorTreeComponent& OwnerComp, uint8* Node
 	}
 }
 
+void UBTTaskNode::WrappedOnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) const
+{
+	if (bNotifyTaskFinished)
+	{
+		const UBTNode* NodeOb = bCreateNodeInstance ? GetNodeInstance(OwnerComp, NodeMemory) : this;
+		if (NodeOb)
+		{
+			((UBTTaskNode*)NodeOb)->OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
+		}
+	}
+}
+
 void UBTTaskNode::ReceivedMessage(UBrainComponent* BrainComp, const FAIMessage& Message)
 {
-	UBehaviorTreeComponent* OwnerComp = (UBehaviorTreeComponent*)BrainComp;
-	uint16 InstanceIdx = OwnerComp->FindInstanceContainingNode(this);
-	uint8* NodeMemory = GetNodeMemory<uint8>(OwnerComp->InstanceStack[InstanceIdx]);
-
-	OnMessage(*OwnerComp, NodeMemory, Message.MessageName, Message.RequestID, Message.Status == FAIMessage::Success);
+	UBehaviorTreeComponent* OwnerComp = static_cast<UBehaviorTreeComponent*>(BrainComp);
+	check(OwnerComp);
+	
+	const uint16 InstanceIdx = OwnerComp->FindInstanceContainingNode(this);
+	if (OwnerComp->InstanceStack.IsValidIndex(InstanceIdx))
+	{
+		uint8* NodeMemory = GetNodeMemory<uint8>(OwnerComp->InstanceStack[InstanceIdx]);
+		OnMessage(*OwnerComp, NodeMemory, Message.MessageName, Message.RequestID, Message.Status == FAIMessage::Success);
+	}
+	else
+	{
+		UE_VLOG(OwnerComp->GetOwner(), LogBehaviorTree, Warning, TEXT("UBTTaskNode::ReceivedMessage called while %s node no longer in active BT")
+			, *GetNodeName());
+	}
 }
 
 void UBTTaskNode::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
+{
+	// empty in base class
+}
+
+void UBTTaskNode::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
 {
 	// empty in base class
 }
@@ -129,6 +156,13 @@ void UBTTaskNode::WrappedTickTask(UBehaviorTreeComponent* OwnerComp, uint8* Node
 		WrappedTickTask(*OwnerComp, NodeMemory, DeltaSeconds);
 	}
 }
+void UBTTaskNode::WrappedOnTaskFinished(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) const
+{
+	if (OwnerComp)
+	{
+		WrappedOnTaskFinished(*OwnerComp, NodeMemory, TaskResult);
+	}
+}
 void UBTTaskNode::FinishLatentTask(UBehaviorTreeComponent* OwnerComp, EBTNodeResult::Type TaskResult) const
 {
 	if (OwnerComp)
@@ -171,6 +205,13 @@ void UBTTaskNode::OnMessage(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory
 	if (OwnerComp)
 	{
 		OnMessage(*OwnerComp, NodeMemory, Message, RequestID, bSuccess);
+	}
+}
+void UBTTaskNode::OnTaskFinished(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
+{
+	if (OwnerComp)
+	{
+		OnTaskFinished(*OwnerComp, NodeMemory, TaskResult);
 	}
 }
 void UBTTaskNode::WaitForMessage(UBehaviorTreeComponent* OwnerComp, FName MessageType) const

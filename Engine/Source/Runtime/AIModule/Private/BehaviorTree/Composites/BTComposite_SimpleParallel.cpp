@@ -20,6 +20,7 @@ int32 UBTComposite_SimpleParallel::GetNextChildHandler(FBehaviorTreeSearchData& 
 	{
 		NextChildIdx = EBTParallelChild::MainTask;
 		MyMemory->MainTaskResult = EBTNodeResult::Failed;
+		MyMemory->bRepeatMainTask = false;
 	}
 	else if ((MyMemory->bMainTaskIsActive || MyMemory->bForceBackgroundTree) && !SearchData.OwnerComp.IsRestartPending())
 	{
@@ -28,7 +29,20 @@ int32 UBTComposite_SimpleParallel::GetNextChildHandler(FBehaviorTreeSearchData& 
 		NextChildIdx = EBTParallelChild::BackgroundTree;
 		MyMemory->bForceBackgroundTree = false;
 	}
+	else if (MyMemory->bRepeatMainTask)
+	{
+		UE_VLOG(SearchData.OwnerComp.GetOwner(), LogBehaviorTree, Verbose, TEXT("Repeating main task of %s"), *UBehaviorTreeTypes::DescribeNodeHelper(this));
+		NextChildIdx = EBTParallelChild::MainTask;
+		MyMemory->bRepeatMainTask = false;
+	}
 
+	if ((PrevChild == NextChildIdx) && (MyMemory->LastSearchId == SearchData.SearchId))
+	{
+		// retrying the same branch again within the same search - possible infinite loop
+		SearchData.bPostponeSearch = true;
+	}
+
+	MyMemory->LastSearchId = SearchData.SearchId;
 	return NextChildIdx;
 }
 
@@ -37,6 +51,8 @@ void UBTComposite_SimpleParallel::NotifyChildExecution(UBehaviorTreeComponent& O
 	FBTParallelMemory* MyMemory = (FBTParallelMemory*)NodeMemory;
 	if (ChildIdx == EBTParallelChild::MainTask)
 	{
+		MyMemory->MainTaskResult = NodeResult;
+
 		if (NodeResult == EBTNodeResult::InProgress)
 		{
 			EBTTaskStatus::Type Status = OwnerComp.GetTaskStatus(Children[EBTParallelChild::MainTask].ChildTask);
@@ -53,13 +69,12 @@ void UBTComposite_SimpleParallel::NotifyChildExecution(UBehaviorTreeComponent& O
 		}
 		else if (MyMemory->bMainTaskIsActive)
 		{
-			MyMemory->MainTaskResult = NodeResult;
 			MyMemory->bMainTaskIsActive = false;
 
 			const int32 MyInstanceIdx = OwnerComp.FindInstanceContainingNode(this);
 
 			OwnerComp.UnregisterParallelTask(Children[EBTParallelChild::MainTask].ChildTask, MyInstanceIdx);
-			if (NodeResult != EBTNodeResult::Aborted)
+			if (NodeResult != EBTNodeResult::Aborted && !MyMemory->bRepeatMainTask)
 			{
 				// check if subtree should be aborted when task finished with success/failed result
 				if (FinishMode == EBTParallelMode::AbortBackground)
@@ -104,12 +119,12 @@ void UBTComposite_SimpleParallel::NotifyNodeDeactivation(FBehaviorTreeSearchData
 	const FBTNodeIndex LastBackgroundIndex(ActiveInstanceIdx, GetLastExecutionIndex());
 	SearchData.OwnerComp.UnregisterAuxNodesUpTo(FirstBackgroundIndex);
 
-	// remove all pending updates "AddForLowerPri" from background tree 
+	// remove all pending updates "Add" from background tree 
 	// it doesn't make sense for decorators to reactivate themselves there
 	for (int32 Idx = SearchData.PendingUpdates.Num() - 1; Idx >= 0; Idx--)
 	{
 		const FBehaviorTreeSearchUpdate& UpdateInfo = SearchData.PendingUpdates[Idx];
-		if (UpdateInfo.Mode == EBTNodeUpdateMode::AddForLowerPri)
+		if (UpdateInfo.Mode == EBTNodeUpdateMode::Add)
 		{
 			const uint16 UpdateNodeIdx = UpdateInfo.AuxNode ? UpdateInfo.AuxNode->GetExecutionIndex() : UpdateInfo.TaskNode->GetExecutionIndex();
 			const FBTNodeIndex UpdateIdx(UpdateInfo.InstanceIndex, UpdateNodeIdx);
@@ -132,6 +147,19 @@ uint16 UBTComposite_SimpleParallel::GetInstanceMemorySize() const
 bool UBTComposite_SimpleParallel::CanPushSubtree(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, int32 ChildIdx) const
 {
 	return (ChildIdx != EBTParallelChild::MainTask);
+}
+
+void UBTComposite_SimpleParallel::SetChildOverride(FBehaviorTreeSearchData& SearchData, int8 Index) const
+{
+	// store information about repeating main task and use it when possible
+	// ignore changes to other child indices = background tree, as it's already being auto repeated
+	if (Index == EBTParallelChild::MainTask)
+	{
+		FBTParallelMemory* MyMemory = GetNodeMemory<FBTParallelMemory>(SearchData);
+		MyMemory->bRepeatMainTask = true;
+
+		UE_VLOG(SearchData.OwnerComp.GetOwner(), LogBehaviorTree, Log, TEXT("Main task of %s will be repeated."), *UBehaviorTreeTypes::DescribeNodeHelper(this));
+	}
 }
 
 FString UBTComposite_SimpleParallel::DescribeFinishMode(EBTParallelMode::Type Mode)

@@ -10,66 +10,39 @@
 #include "HAL/Platform.h"
 #include "Linux/LinuxSystemIncludes.h"
 
-/** Wrapper around Linux pid_t. */
-struct FProcHandle : public TProcHandle<pid_t, -1>
+/** Wrapper around Linux pid_t. Should not be copyable as changes in the process state won't be properly propagated to all copies. */
+struct FProcState
 {
-	typedef TProcHandle<pid_t, -1> Parent;
-
 	/** Default constructor. */
-	FORCEINLINE FProcHandle()
-		:	TProcHandle()
-		,	bIsRunning( false )
-		,	bHasBeenWaitedFor( false )
-		,	ReturnCode( -1 )
+	FORCEINLINE FProcState()
+		:	ProcessId(0)
+		,	bIsRunning(false)
+		,	bHasBeenWaitedFor(false)
+		,	ReturnCode(-1)
+		,	bFireAndForget(false)
 	{
 	}
 
 	/** Initialization constructor. */
-	FORCEINLINE explicit FProcHandle( HandleType Other )
-		:	TProcHandle( Other )
-		,	bIsRunning( true )	// assume it is
-		,	bHasBeenWaitedFor( false )
-		,	ReturnCode( -1 )
+	explicit FProcState(pid_t InProcessId, bool bInFireAndForget);
+
+	/** Destructor. */
+	~FProcState();
+
+	/** Getter for process id */
+	FORCEINLINE pid_t GetProcessId() const
 	{
+		return ProcessId;
 	}
 
-	/** Copy constructor. */
-	FORCEINLINE FProcHandle( const FProcHandle& Other )
-		:	TProcHandle( Other )
-		,	bIsRunning( Other.bIsRunning )	// assume it is
-		,	bHasBeenWaitedFor( Other.bHasBeenWaitedFor )
-		,	ReturnCode( Other.ReturnCode )
-	{
-	}
-
-	/** Assignment operator. */
-	FORCEINLINE FProcHandle& operator=( const FProcHandle& Other )
-	{
-		Parent::operator=( Other );
-
-		if( this != &Other )
-		{
-			bIsRunning = Other.bIsRunning;
-			bHasBeenWaitedFor = Other.bHasBeenWaitedFor;
-			ReturnCode = Other.ReturnCode;
-		}
-
-		return *this;
-	}
-
-
-protected:	// the below is not a public API!
-
-	friend struct FLinuxPlatformProcess;
-
-	/** 
+	/**
 	 * Returns whether this process is running.
 	 *
 	 * @return true if running
 	 */
 	bool	IsRunning();
 
-	/** 
+	/**
 	 * Returns child's return code (only valid to call if not running)
 	 *
 	 * @param ReturnCode set to return code if not NULL (use the value only if method returned true)
@@ -78,13 +51,40 @@ protected:	// the below is not a public API!
 	 */
 	bool	GetReturnCode(int32* ReturnCodePtr);
 
-	/** 
+	/**
 	 * Waits for the process to end.
 	 * Has a side effect (stores child's return code).
 	 */
 	void	Wait();
 
+protected:  // the below is not a public API!
+
+	// FProcState should not be copyable since it breeds problems (e.g. one copy could have wait()ed, but another would not know it)
+
+	/** Copy constructor - should not be publicly accessible */
+	FORCEINLINE FProcState(const FProcState& Other)
+		:	ProcessId(Other.ProcessId)
+		,	bIsRunning(Other.bIsRunning)  // assume it is
+		,	bHasBeenWaitedFor(Other.bHasBeenWaitedFor)
+		,	ReturnCode(Other.ReturnCode)
+		,	bFireAndForget(Other.bFireAndForget)
+	{
+		checkf(false, TEXT("FProcState should not be copied"));
+	}
+
+	/** Assignment operator - should not be publicly accessible */
+	FORCEINLINE FProcState& operator=(const FProcState& Other)
+	{
+		checkf(false, TEXT("FProcState should not be copied"));
+		return *this;
+	}
+
+	friend struct FLinuxPlatformProcess;
+
 	// -------------------------
+
+	/** Process id */
+	pid_t	ProcessId;
 
 	/** Whether the process has finished or not (cached) */
 	bool	bIsRunning;
@@ -94,6 +94,57 @@ protected:	// the below is not a public API!
 
 	/** Return code of the process (if negative, means that process did not finish gracefully but was killed/crashed*/
 	int32	ReturnCode;
+
+	/** Whether this child is fire-and-forget */
+	bool	bFireAndForget;
+};
+
+/** FProcHandle can be copied (and thus passed by value). */
+struct FProcHandle
+{
+	FProcState * 		ProcInfo;
+
+	FProcHandle()
+	:	ProcInfo(nullptr)
+	{
+	}
+
+	FProcHandle(FProcState * InHandle)
+	:	ProcInfo(InHandle)
+	{
+	}
+
+	/** Accessors. */
+	FORCEINLINE pid_t Get() const
+	{
+		return ProcInfo ? ProcInfo->GetProcessId() : -1;
+	}
+
+	/** Resets the handle to invalid */
+	FORCEINLINE void Reset()
+	{
+		ProcInfo = nullptr;
+	}
+
+	/** Checks the validity of handle */
+	FORCEINLINE bool IsValid() const
+	{
+		return ProcInfo != nullptr;
+	}
+
+	/**
+	 * (Deprecated. Handles created with FPlatformProcess::CreateProc() should be closed with FPlatformProcess::CloseProc())
+	 * Closes handle and frees this resource to the operating system.
+	 * @return true, if this handle was valid before closing it
+	 */
+	DEPRECATED(4.8, "FProcHandle::Close() is redundant - handles created with FPlatformProcess::CreateProc() should be closed with FPlatformProcess::CloseProc().")
+	bool Close();
+
+	// the below is not part of FProcHandle API and is specific to Linux implementation
+	FORCEINLINE FProcState * GetProcessInfo() const
+	{
+		return ProcInfo;
+	}
 };
 
 /** Wrapper around Linux file descriptors */
@@ -160,6 +211,7 @@ struct CORE_API FLinuxPlatformProcess : public FGenericPlatformProcess
 	static FProcHandle CreateProc(const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite);
 	static bool IsProcRunning( FProcHandle & ProcessHandle );
 	static void WaitForProc( FProcHandle & ProcessHandle );
+	static void CloseProc( FProcHandle & ProcessHandle );
 	static void TerminateProc( FProcHandle & ProcessHandle, bool KillTree = false );
 	static uint32 GetCurrentProcessId();
 	static bool GetProcReturnCode( FProcHandle & ProcHandle, int32* ReturnCode );
@@ -173,3 +225,13 @@ struct CORE_API FLinuxPlatformProcess : public FGenericPlatformProcess
 };
 
 typedef FLinuxPlatformProcess FPlatformProcess;
+
+inline bool FProcHandle::Close()
+{
+	if (IsValid())
+	{
+		FPlatformProcess::CloseProc(*this);
+		return true;
+	}
+	return false;
+}

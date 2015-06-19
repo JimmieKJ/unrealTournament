@@ -16,5 +16,5 @@ class UMockAI_BT : public UMockAI
 	TArray<int32> ExpectedResult;
 
 	bool IsRunning() const;
-	bool RunBT(UBehaviorTree& BTAsset, EBTExecutionMode::Type RunType = EBTExecutionMode::SingleRun);
+	void RunBT(UBehaviorTree& BTAsset, EBTExecutionMode::Type RunType = EBTExecutionMode::SingleRun);
 };

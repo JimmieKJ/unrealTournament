@@ -4,8 +4,8 @@
 #include "SkeletalMeshComponentDetails.h"
 #include "PropertyCustomizationHelpers.h"
 #include "AssetData.h"
-#include "Editor/ClassViewer/Public/ClassViewerModule.h"
-#include "Editor/ClassViewer/Public/ClassViewerFilter.h"
+#include "ClassViewerModule.h"
+#include "ClassViewerFilter.h"
 #include "Engine/Selection.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
 

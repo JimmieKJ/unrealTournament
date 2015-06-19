@@ -68,9 +68,6 @@ public:
 	/** Toggles immersive mode in the viewport */
 	TSharedPtr< FUICommandInfo > ToggleImmersive;
 
-	/** Toggles showing the exact camera view when locking a viewport to a camera */
-	TSharedPtr< FUICommandInfo > ToggleLockedCameraView;
-
 	/** Toggles maximize mode in the viewport */
 	TSharedPtr< FUICommandInfo > ToggleMaximize;
 
@@ -144,10 +141,12 @@ public:
 	TArray< TSharedPtr< FUICommandInfo > > ClearBookmarkCommands;
 	TSharedPtr< FUICommandInfo > ClearAllBookMarks;
 
-	/** Actor locking commands */
-	TSharedPtr< FUICommandInfo > ActorUnlock;
-	TSharedPtr< FUICommandInfo > ActorLockSelected;
-	TSharedPtr< FUICommandInfo > ActorUnlockSelected;
+	/** Actor pilot commands */
+	TSharedPtr< FUICommandInfo > EjectActorPilot;
+	TSharedPtr< FUICommandInfo > PilotSelectedActor;
+
+	/** Toggles showing the exact camera view when locking a viewport to a camera */
+	TSharedPtr< FUICommandInfo > ToggleActorPilotCameraView;
 
 	/** Viewport pane configurations */
 	TSharedPtr< FUICommandInfo > ViewportConfig_OnePane;

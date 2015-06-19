@@ -63,3 +63,50 @@ FSphere FSphere::TransformBy(const FTransform& M) const
 
 	return Result;
 }
+
+float FSphere::GetVolume() const
+{
+	return 1.25f * PI * FMath::Pow(W, 3);
+}
+
+FSphere& FSphere::operator+=(const FSphere &Other)
+{
+	if (W == 0.f)
+	{
+		*this = Other;
+	}
+	else if (IsInside(Other))
+	{
+		*this = Other;
+	}
+	else if (Other.IsInside(*this))
+	{
+		// no change		
+	}
+	else
+	{
+		FSphere NewSphere;
+
+		FVector DirToOther = Other.Center - Center;
+		FVector UnitDirToOther = DirToOther;
+		UnitDirToOther.Normalize();
+
+		float NewRadius = (DirToOther.Size() + Other.W + W) * 0.5f;
+
+		// find end point
+		FVector End1 = Other.Center + UnitDirToOther*Other.W;
+		FVector End2 = Center - UnitDirToOther*W;
+		FVector NewCenter = (End1 + End2)*0.5f;
+
+		NewSphere.Center = NewCenter; 
+		NewSphere.W = NewRadius;
+
+		// make sure both are inside afterwards
+		check (Other.IsInside(NewSphere, 1.f));
+		check (IsInside(NewSphere, 1.f));
+
+		*this = NewSphere;
+	}
+
+	return *this;
+}

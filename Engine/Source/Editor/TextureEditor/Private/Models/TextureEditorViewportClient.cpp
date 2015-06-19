@@ -6,6 +6,7 @@
 #include "Engine/TextureCube.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/TextureRenderTargetCube.h"
+#include "ImageUtils.h"
 
 
 /* FTextureEditorViewportClient structors
@@ -161,36 +162,10 @@ void FTextureEditorViewportClient::AddReferencedObjects(FReferenceCollector& Col
 
 void FTextureEditorViewportClient::ModifyCheckerboardTextureColors()
 {
-	const UTextureEditorSettings& Settings = *GetDefault<UTextureEditorSettings>();
-	const int32 HalfPixelNum = Settings.CheckerSize >> 1;
-
 	DestroyCheckerboardTexture();
-	SetupCheckerboardTexture();
 
-	// Lock the checkerboard texture so it can be modified
-	FColor* MipData = static_cast<FColor*>(CheckerboardTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
-
-	// Fill in the colors in a checkerboard pattern
-	for (int32 RowNum = 0; RowNum < Settings.CheckerSize; ++RowNum)
-	{
-		for (int32 ColNum = 0; ColNum < Settings.CheckerSize; ++ColNum)
-		{
-			FColor& CurColor = MipData[(ColNum + (RowNum * Settings.CheckerSize))];
-
-			if (ColNum < HalfPixelNum)
-			{
-				CurColor = (RowNum < HalfPixelNum)? Settings.CheckerColorOne: Settings.CheckerColorTwo;
-			}
-			else
-			{
-				CurColor = (RowNum < HalfPixelNum)? Settings.CheckerColorTwo: Settings.CheckerColorOne;
-			}
-		}
-	}
-
-	// Unlock the texture
-	CheckerboardTexture->PlatformData->Mips[0].BulkData.Unlock();
-	CheckerboardTexture->UpdateResource();
+	const UTextureEditorSettings& Settings = *GetDefault<UTextureEditorSettings>();
+	CheckerboardTexture = FImageUtils::CreateCheckerboardTexture(Settings.CheckerColorOne, Settings.CheckerColorTwo, Settings.CheckerSize);
 }
 
 
@@ -310,17 +285,6 @@ FVector2D FTextureEditorViewportClient::GetViewportScrollBarPositions() const
 
 	return Positions;
 }
-
-
-void FTextureEditorViewportClient::SetupCheckerboardTexture()
-{
-	if (!CheckerboardTexture)
-	{
-		const UTextureEditorSettings& Settings = *GetDefault<UTextureEditorSettings>();
-		CheckerboardTexture = UTexture2D::CreateTransient(Settings.CheckerSize, Settings.CheckerSize, PF_B8G8R8A8);
-	}
-}
-
 
 void FTextureEditorViewportClient::DestroyCheckerboardTexture()
 {

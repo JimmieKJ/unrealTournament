@@ -495,9 +495,9 @@ FORCEINLINE bool FRotator::IsZero() const
 
 FORCEINLINE bool FRotator::Equals(const FRotator &R, float Tolerance) const
 {
-	return (FMath::Abs(NormalizeAxis(Pitch - R.Pitch)) < Tolerance) 
-		&& (FMath::Abs(NormalizeAxis(Yaw - R.Yaw)) < Tolerance) 
-		&& (FMath::Abs(NormalizeAxis(Roll - R.Roll)) < Tolerance);
+	return (FMath::Abs(NormalizeAxis(Pitch - R.Pitch)) <= Tolerance) 
+		&& (FMath::Abs(NormalizeAxis(Yaw - R.Yaw)) <= Tolerance) 
+		&& (FMath::Abs(NormalizeAxis(Roll - R.Roll)) <= Tolerance);
 }
 
 
@@ -605,9 +605,15 @@ FORCEINLINE FRotator FRotator::GetDenormalized() const
 
 FORCEINLINE void FRotator::Normalize()
 {
-	Yaw = NormalizeAxis(Yaw);
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	VectorRegister VRotator = VectorLoadFloat3_W0(this);
+	VRotator = VectorNormalizeRotator(VRotator);
+	VectorStoreFloat3(VRotator, this);
+#else
 	Pitch = NormalizeAxis(Pitch);
+	Yaw = NormalizeAxis(Yaw);
 	Roll = NormalizeAxis(Roll);
+#endif
 }
 
 FORCEINLINE FString FRotator::ToString() const

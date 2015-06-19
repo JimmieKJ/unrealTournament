@@ -10,8 +10,7 @@ class ONLINEBLUEPRINTSUPPORT_API UK2Node_LatentOnlineCall : public UK2Node_BaseA
 {
 	GENERATED_UCLASS_BODY()
 	
-	// UEdGraphNode interface
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
+	// UK2Node interface
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	// End of UEdGraphNode interface
+	// End of UK2Node interface
 };

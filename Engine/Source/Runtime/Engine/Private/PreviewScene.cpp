@@ -36,21 +36,28 @@ FPreviewScene::FPreviewScene(FPreviewScene::ConstructionValues CVS)
 
 	GetScene()->UpdateDynamicSkyLight(FLinearColor::White * CVS.SkyBrightness, FLinearColor::Black);
 
-	DirectionalLight = ConstructObject<UDirectionalLightComponent>(UDirectionalLightComponent::StaticClass());
+	DirectionalLight = NewObject<UDirectionalLightComponent>(GetTransientPackage());
 	DirectionalLight->Intensity = CVS.LightBrightness;
 	DirectionalLight->LightColor = FColor::White;
 	AddComponent(DirectionalLight, FTransform(CVS.LightRotation));
 
-	LineBatcher = ConstructObject<ULineBatchComponent>(ULineBatchComponent::StaticClass());
+	LineBatcher = NewObject<ULineBatchComponent>(GetTransientPackage());
 	AddComponent(LineBatcher, FTransform::Identity);
 }
 
 FPreviewScene::~FPreviewScene()
 {
 	// Stop any audio components playing in this scene
-	if( GEngine && GEngine->GetAudioDevice() )
+	if (GEngine)
 	{
-		GEngine->GetAudioDevice()->Flush( GetWorld(), false );
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			if (FAudioDevice* AudioDevice = World->GetAudioDevice())
+			{
+				AudioDevice->Flush(GetWorld(), false);
+			}
+		}
 	}
 
 	// Remove all the attached components
@@ -183,7 +190,7 @@ void FPreviewScene::SetSkyBrightness(float SkyBrightness)
 void FPreviewScene::LoadSettings(const TCHAR* Section)
 {
 	FRotator LightDir;
-	if ( GConfig->GetRotator( Section, TEXT("LightDir"), LightDir, GEditorUserSettingsIni ) )
+	if ( GConfig->GetRotator( Section, TEXT("LightDir"), LightDir, GEditorPerProjectIni ) )
 	{
 		SetLightDirection( LightDir );
 	}
@@ -191,5 +198,5 @@ void FPreviewScene::LoadSettings(const TCHAR* Section)
 
 void FPreviewScene::SaveSettings(const TCHAR* Section)
 {
-	GConfig->SetRotator( Section, TEXT("LightDir"), GetLightDirection(), GEditorUserSettingsIni );
+	GConfig->SetRotator( Section, TEXT("LightDir"), GetLightDirection(), GEditorPerProjectIni );
 }

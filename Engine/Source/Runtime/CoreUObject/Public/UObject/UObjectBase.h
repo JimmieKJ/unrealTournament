@@ -7,11 +7,6 @@
 #ifndef __UOBJECTBASE_H__
 #define __UOBJECTBASE_H__
 
-/**
- * The UObject FNames can be stored outside of the UObject proper. @todo this needs to be evaluated later.
- */
-#define EXTERNAL_OBJECT_NAMES (0)   
-
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("STAT_UObjectsStatGroupTester"), STAT_UObjectsStatGroupTester, STATGROUP_UObjects, COREUOBJECT_API);
 
 class COREUOBJECT_API UObjectBase
@@ -153,11 +148,10 @@ protected:
 	/**
 	 * Set the object flags directly
 	 *
-	 * @return Flags for this object
 	 **/
 	FORCEINLINE void SetFlagsTo( EObjectFlags NewFlags )
 	{
-		checkfSlow((NewFlags & ~RF_AllFlags) == 0, TEXT("%s flagged as 0x%x but is trying to set flags to RF_AllFlags"), *GetFName().ToString(), ObjectFlags);
+		checkfSlow((NewFlags & ~RF_AllFlags) == 0, TEXT("%s flagged as 0x%x but is trying to set flags to RF_AllFlags"), *GetFName().ToString(), (int)ObjectFlags);
 		ObjectFlags = NewFlags;
 	}
 public:
@@ -170,6 +164,40 @@ public:
 	{
 		checkfSlow((ObjectFlags & ~RF_AllFlags) == 0, TEXT("%s flagged as RF_AllFlags"), *GetFName().ToString());
 		return ObjectFlags;
+	}
+
+	/**
+	 *	Atomically adds the specified flags.
+	 *	Do not use unless you know what you are doing.
+	 *	Designed to be used only by parallel GC and UObject loading thread.
+	 */
+	FORCENOINLINE void AtomicallySetFlags( EObjectFlags FlagsToAdd )
+	{
+		int32 OldFlags = 0;
+		int32 NewFlags = 0;
+		do 
+		{
+			OldFlags = ObjectFlags;
+			NewFlags = OldFlags | FlagsToAdd;
+		}
+		while( FPlatformAtomics::InterlockedCompareExchange( (int32*)&ObjectFlags, NewFlags, OldFlags) != OldFlags );
+	}
+
+	/**
+	 *	Atomically clears the specified flags.
+	 *	Do not use unless you know what you are doing.
+	 *	Designed to be used only by parallel GC and UObject loading thread.
+	 */
+	FORCENOINLINE void AtomicallyClearFlags( EObjectFlags FlagsToClear )
+	{
+		int32 OldFlags = 0;
+		int32 NewFlags = 0;
+		do 
+		{
+			OldFlags = ObjectFlags;
+			NewFlags = OldFlags & ~FlagsToClear;
+		}
+		while( FPlatformAtomics::InterlockedCompareExchange( (int32*)&ObjectFlags, NewFlags, OldFlags) != OldFlags );
 	}
 
 	/**
@@ -194,6 +222,7 @@ public:
 				bIChangedIt = true;
 				break;
 			}
+			// Remove later.
 			checkSlow(OldValue == (StartValue & ~int32(RF_Unreachable)));
 		}
 		return bIChangedIt;
@@ -211,10 +240,8 @@ private:
 	/** Class the object belongs to. */
 	UClass*							Class;
 
-#if !EXTERNAL_OBJECT_NAMES
 	/** Name of this object */
 	FName							Name;
-#endif
 
 	/** Object this object resides in. */
 	UObject*						Outer;
@@ -256,7 +283,7 @@ struct FFieldCompiledInInfo
 	FFieldCompiledInInfo(SIZE_T InClassSize, uint32 InCrc)
 		: Size(InClassSize)
 		, Crc(InCrc)
-		, OldClass(NULL)
+		, OldClass(nullptr)
 		, bHasChanged(false)
 	{
 	}
@@ -350,6 +377,11 @@ COREUOBJECT_API bool AnyNewlyLoadedUObjects();
 
 /** Must be called after a module has been loaded that contains UObject classes */
 COREUOBJECT_API void ProcessNewlyLoadedUObjects();
+
+#if WITH_HOT_RELOAD
+/** Map of duplicated CDOs for reinstancing during hot-reload purposes. */
+COREUOBJECT_API TMap<UClass*, UObject*>& GetDuplicatedCDOMap();
+#endif // WITH_HOT_RELOAD
 
 /**
  * Final phase of UObject initialization. all auto register objects are added to the main data structures.

@@ -59,18 +59,41 @@ void STextComboPopup::Construct( const FArguments& InArgs )
 	StringCombo->RefreshOptions();
 
 	StringCombo->SetSelectedItem(SelectedItem);
+
+	if (InArgs._AutoFocus)
+	{
+		RegisterActiveTimer(0.016f, FWidgetActiveTimerDelegate::CreateSP(this, &STextComboPopup::TickAutoFocus));
+	}
+}
+
+EActiveTimerReturnType STextComboPopup::TickAutoFocus(double InCurrentTime, float InDeltaTime)
+{
+	TSharedPtr<SWindow> OwnerWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+	if (!OwnerWindow.IsValid())
+	{
+		return EActiveTimerReturnType::Stop;
+	}
+	else if (FSlateApplication::Get().HasFocusedDescendants(OwnerWindow.ToSharedRef()))
+	{
+		FocusDefaultWidget();
+		return EActiveTimerReturnType::Stop;
+	}
+
+	return EActiveTimerReturnType::Continue;
 }
 
 TSharedRef<SWidget> STextComboPopup::MakeItemWidget( TSharedPtr<FString> StringItem ) 
 {
+	// todo: jdale - should this be using FText natively?
 	check( StringItem.IsValid() );
 	return	SNew(STextBlock)
-		.Text(*StringItem);
+		.Text(FText::FromString(*StringItem));
 }
 
-FString STextComboPopup::GetSelectedItem() const
+FText STextComboPopup::GetSelectedItem() const
 {
-	return *SelectedItem;
+	// todo: jdale - should this be using FText natively?
+	return FText::FromString(*SelectedItem);
 }
 
 void STextComboPopup::OnSelectionChanged (TSharedPtr<FString> Selection, ESelectInfo::Type SelectInfo)

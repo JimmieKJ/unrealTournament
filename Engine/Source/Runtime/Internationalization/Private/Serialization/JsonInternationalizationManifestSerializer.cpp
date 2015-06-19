@@ -338,7 +338,7 @@ void FJsonInternationalizationManifestSerializer::GenerateStructuredData( TShare
 		TArray< FString > NamespaceTokens;
 
 		// Tokenize the namespace by using '.' as a delimiter
-		int32 NamespaceTokenCount = UnstructuredManifestEntry->Namespace.ParseIntoArray( &NamespaceTokens, *NAMESPACE_DELIMITER, true );
+		int32 NamespaceTokenCount = UnstructuredManifestEntry->Namespace.ParseIntoArray( NamespaceTokens, *NAMESPACE_DELIMITER, true );
 
 		TSharedPtr< FStructuredEntry > StructuredManifestEntry = RootElement;
 		//Loop through all the namespace tokens and find the appropriate structured entry, if it does not exist add it.  At the end StructuredManifestEntry

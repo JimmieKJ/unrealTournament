@@ -29,6 +29,9 @@
 
 #define MAX_LENGTH_ID 40
 
+// Durango does not support registry retrieval for this info
+#if U_PLATFORM != U_PF_DURANGO
+
 /* The layout of the Tzi value in the registry */
 typedef struct
 {
@@ -192,6 +195,8 @@ static LONG getSTDName(const char *winid, char *regStdName, int32_t length) {
     return result;
 }
 
+#endif // U_PLATFORM != U_PF_DURANGO
+
 /*
   This code attempts to detect the Windows time zone, as set in the
   Windows Date and Time control panel.  It attempts to work on
@@ -250,30 +255,41 @@ uprv_detectWindowsTimeZone() {
     UResourceBundle* bundle = NULL;
     char* icuid = NULL;
     char apiStdName[MAX_LENGTH_ID];
+#if U_PLATFORM != U_PF_DURANGO
     char regStdName[MAX_LENGTH_ID];
+#endif // U_PLATFORM != U_PF_DURANGO
     char tmpid[MAX_LENGTH_ID];
     int32_t len;
     int id;
     int errorCode;
+#if U_PLATFORM == U_PF_DURANGO
+    wchar_t ISOcodeW[3]; /* 2 letter iso code */
+#endif
     char ISOcode[3]; /* 2 letter iso code */
 
     LONG result;
+#if U_PLATFORM != U_PF_DURANGO
     TZI tziKey;
     TZI tziReg;
+#endif // U_PLATFORM != U_PF_DURANGO
     TIME_ZONE_INFORMATION apiTZI;
 
     /* Obtain TIME_ZONE_INFORMATION from the API, and then convert it
        to TZI.  We could also interrogate the registry directly; we do
        this below if needed. */
     uprv_memset(&apiTZI, 0, sizeof(apiTZI));
+#if U_PLATFORM != U_PF_DURANGO
     uprv_memset(&tziKey, 0, sizeof(tziKey));
     uprv_memset(&tziReg, 0, sizeof(tziReg));
+#endif // U_PLATFORM != U_PF_DURANGO
     GetTimeZoneInformation(&apiTZI);
+#if U_PLATFORM != U_PF_DURANGO
     tziKey.bias = apiTZI.Bias;
     uprv_memcpy((char *)&tziKey.standardDate, (char*)&apiTZI.StandardDate,
            sizeof(apiTZI.StandardDate));
     uprv_memcpy((char *)&tziKey.daylightDate, (char*)&apiTZI.DaylightDate,
            sizeof(apiTZI.DaylightDate));
+#endif // U_PLATFORM != U_PF_DURANGO
 
     /* Convert the wchar_t* standard name to char* */
     uprv_memset(apiStdName, 0, sizeof(apiStdName));
@@ -282,7 +298,12 @@ uprv_detectWindowsTimeZone() {
     tmpid[0] = 0;
 
     id = GetUserGeoID(GEOCLASS_NATION);
-    errorCode = GetGeoInfo(id,GEO_ISO2,ISOcode,3,0);
+#if U_PLATFORM == U_PF_DURANGO
+	errorCode = GetGeoInfoW(id,GEO_ISO2,ISOcodeW,3,0);
+	wcstombs(ISOcode, ISOcodeW, 3);
+#else
+    errorCode = GetGeoInfoA(id,GEO_ISO2,ISOcode,3,0);
+#endif
 
     bundle = ures_openDirect(NULL, "windowsZones", &status);
     ures_getByKey(bundle, "mapTimezones", bundle, &status);
@@ -296,16 +317,24 @@ uprv_detectWindowsTimeZone() {
             break;
         }
         winid = ures_getKey(winTZ);
+#if U_PLATFORM != U_PF_DURANGO
         result = getTZI(winid, &tziReg);
 
-        if (result == ERROR_SUCCESS) {
+        if (result == ERROR_SUCCESS)
+#endif // U_PLATFORM != U_PF_DURANGO
+		{
+#if U_PLATFORM != U_PF_DURANGO
             /* Windows alters the DaylightBias in some situations.
                Using the bias and the rules suffices, so overwrite
                these unreliable fields. */
             tziKey.standardBias = tziReg.standardBias;
             tziKey.daylightBias = tziReg.daylightBias;
+#endif // U_PLATFORM != U_PF_DURANGO
 
-            if (uprv_memcmp((char *)&tziKey, (char*)&tziReg, sizeof(tziKey)) == 0) {
+#if U_PLATFORM != U_PF_DURANGO
+            if (uprv_memcmp((char *)&tziKey, (char*)&tziReg, sizeof(tziKey)) == 0)
+#endif // U_PLATFORM != U_PF_DURANGO
+			{
                 const UChar* icuTZ = NULL;
                 if (errorCode != 0) {
                     icuTZ = ures_getStringByKey(winTZ, ISOcode, &len, &status);
@@ -316,6 +345,7 @@ uprv_detectWindowsTimeZone() {
                     icuTZ = ures_getStringByKey(winTZ, "001", &len, &status);
                 }
 
+#if U_PLATFORM != U_PF_DURANGO
                 if (U_SUCCESS(status)) {
                     /* Get the standard name from the registry key to compare with
                        the one from Windows API call. */
@@ -323,9 +353,12 @@ uprv_detectWindowsTimeZone() {
                     result = getSTDName(winid, regStdName, sizeof(regStdName));
                     if (result == ERROR_SUCCESS) {
                         if (uprv_strcmp(apiStdName, regStdName) == 0) {
+#endif // U_PLATFORM != U_PF_DURANGO
                             idFound = TRUE;
+#if U_PLATFORM != U_PF_DURANGO
                         }
                     }
+#endif // U_PLATFORM != U_PF_DURANGO
 
                     /* tmpid buffer holds the ICU timezone ID corresponding to the timezone ID from Windows.
                      * If none is found, tmpid buffer will contain a fallback ID (i.e. the time zone ID matching
@@ -339,7 +372,9 @@ uprv_detectWindowsTimeZone() {
                         }
                         tmpid[index]='\0';
                     }
+#if U_PLATFORM != U_PF_DURANGO
                 }
+#endif // U_PLATFORM != U_PF_DURANGO
             }
         }
         ures_close(winTZ);

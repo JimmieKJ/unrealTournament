@@ -8,6 +8,7 @@
 #include "ContentBrowserModule.h"
 #include "LandscapeProxy.h"
 #include "SNumericEntryBox.h"
+#include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -170,18 +171,11 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 				+SUniformGridPanel::Slot(1, 4)
 				.VAlign(VAlign_Center)
 				[
-					SAssignNew(LandscapeMaterialComboButton, SComboButton)
-					.VAlign(EVerticalAlignment::VAlign_Center)
-					.ComboButtonStyle(FEditorStyle::Get(), "ToolbarComboButton")
-					.ForegroundColor(FLinearColor::White)
-					.ContentPadding(3)
-					.MenuPlacement(EMenuPlacement::MenuPlacement_BelowAnchor)
-					.OnGetMenuContent(this, &STiledLandcapeImportDlg::CreateLandscapeMaterialPicker)
-					.ButtonContent()
-					[
-						SNew( STextBlock )
-						.Text(this, &STiledLandcapeImportDlg::GetLandscapeMaterialName)
-					]
+					SNew(SObjectPropertyEntryBox)
+					.AllowedClass(UMaterialInterface::StaticClass())
+					.ObjectPath(this, &STiledLandcapeImportDlg::GetLandscapeMaterialPath)
+					.OnObjectChanged(this, &STiledLandcapeImportDlg::OnLandscapeMaterialChanged)
+					.AllowClear(true)
 				]
 			]
 
@@ -243,36 +237,6 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 
 	GenerateAllPossibleTileConfigurations();
 	SetPossibleConfigurationsForFileSize(0);
-}
-
-TSharedRef<SWidget> STiledLandcapeImportDlg::CreateLandscapeMaterialPicker()
-{
-	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-
-	FAssetPickerConfig AssetPickerConfig;
-	AssetPickerConfig.Filter.bRecursiveClasses = true;
-	AssetPickerConfig.Filter.ClassNames.Add(UMaterial::StaticClass()->GetFName());
-	AssetPickerConfig.Filter.ClassNames.Add(UMaterialInstance::StaticClass()->GetFName());
-	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &STiledLandcapeImportDlg::OnLandscapeMaterialChanged);
-	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
-	AssetPickerConfig.bAllowNullSelection = true;
-	
-	return SNew(SBox)
-		.WidthOverride(250)
-		.HeightOverride(300)
-		[
-			ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
-		];
-}
-
-FText STiledLandcapeImportDlg::GetLandscapeMaterialName() const
-{
-	if (ImportSettings.LandscapeMaterial.IsValid())
-	{
-		return FText::FromString(ImportSettings.LandscapeMaterial->GetName());
-	}
-
-	return LOCTEXT("TiledLandscapeImport_NoLandscapeMaterialText", "None");
 }
 
 TSharedRef<SWidget> STiledLandcapeImportDlg::HandleTileConfigurationComboBoxGenarateWidget(TSharedPtr<FTileImportConfiguration> InItem) const
@@ -588,10 +552,14 @@ FReply STiledLandcapeImportDlg::OnClickedCancel()
 	return FReply::Handled();	
 }
 
+FString STiledLandcapeImportDlg::GetLandscapeMaterialPath() const
+{
+	return ImportSettings.LandscapeMaterial.IsValid() ? ImportSettings.LandscapeMaterial->GetPathName() : FString("");
+}
+
 void STiledLandcapeImportDlg::OnLandscapeMaterialChanged(const FAssetData& AssetData)
 {
 	ImportSettings.LandscapeMaterial = Cast<UMaterialInterface>(AssetData.GetAsset());
-	LandscapeMaterialComboButton->SetIsOpen(false);
 
 	// pull landscape layers from a chosen material
 	UpdateLandscapeLayerList();

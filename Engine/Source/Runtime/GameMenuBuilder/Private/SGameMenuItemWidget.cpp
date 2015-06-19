@@ -63,7 +63,7 @@ void SGameMenuItemWidget::Construct(const FArguments& InArgs)
 					SNew(STextBlock)
 					.TextStyle(FGameMenuBuilderStyle::Get(), "GameMenuStyle.MenuTextStyle")
 					.ColorAndOpacity(this,&SGameMenuItemWidget::GetButtonTextColor)
-					.Text(FString("<"))
+					.Text(FText::FromString(TEXT("<")))
 				]
 			]
 			+SHorizontalBox::Slot()
@@ -87,7 +87,7 @@ void SGameMenuItemWidget::Construct(const FArguments& InArgs)
 					SNew(STextBlock)
 					.TextStyle(FGameMenuBuilderStyle::Get(), "GameMenuStyle.MenuTextStyle")
 					.ColorAndOpacity(this,&SGameMenuItemWidget::GetButtonTextColor)
-					.Text(FString(">"))
+					.Text(FText::FromString(TEXT(">")))
 				]
 			]
 		]
@@ -181,4 +181,24 @@ FReply SGameMenuItemWidget::OnMouseMove(const FGeometry& MyGeometry, const FPoin
 void SGameMenuItemWidget::SetMenuItemActive(bool bIsMenuItemActive)
 {
 	this->bIsActiveMenuItem = bIsMenuItemActive;
+}
+
+void SGameMenuItemWidget::SetMenuOwner(TWeakObjectPtr<class APlayerController> InPCOwner)
+{
+	PCOwner = InPCOwner;
+}
+
+void SGameMenuItemWidget::SetMenuStyle(const FGameMenuStyle* InMenuStyle)
+{
+	MenuStyle = InMenuStyle;
+}
+
+void SGameMenuItemWidget::SetClickedDelegate(FOnClicked InOnClicked)
+{
+	OnClicked = InOnClicked;
+}
+
+void SGameMenuItemWidget::SetArrowPressedDelegate(FOnArrowPressed InOnArrowPressed)
+{
+	OnArrowPressed = InOnArrowPressed;
 }

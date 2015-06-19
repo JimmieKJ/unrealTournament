@@ -8,5 +8,10 @@
 #pragma once
 #include "GenericPlatform/GenericPlatformOutputDevices.h"
 
+struct CORE_API FHTML5PlatformOutputDevices : FGenericPlatformOutputDevices 
+{
+	static FOutputDevice*				GetLog();
+};
+
 // generic version
-typedef FGenericPlatformOutputDevices FPlatformOutputDevices;
+typedef FHTML5PlatformOutputDevices FPlatformOutputDevices;

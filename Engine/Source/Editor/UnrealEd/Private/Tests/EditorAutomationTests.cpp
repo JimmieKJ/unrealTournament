@@ -115,7 +115,7 @@ void TakeLatentAutomationScreenshot(struct WindowScreenshotParameters Screenshot
  * in the Content Browser (does not allow for specific settings to be made per import factory). Cannot be run in a commandlet
  * as it executes code that routes through Slate UI.
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FGenericImportAssetsAutomationTest, "Editor.Import", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_NonNullRHI) )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FGenericImportAssetsAutomationTest, "System.Editor.Import", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_NonNullRHI) )
 
 /** 
  * Requests a enumeration of all sample assets to import
@@ -194,7 +194,7 @@ bool FGenericImportAssetsAutomationTest::RunTest(const FString& Parameters)
  * FJsonAutomationTest
  * Simple unit test that runs Json's in-built test cases
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FJsonAutomationTest, "Engine.FileSystem.JSON", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST( FJsonAutomationTest, "System.Engine.FileSystem.JSON", EAutomationTestFlags::ATF_SmokeTest)
 
 typedef TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > FCondensedJsonStringWriterFactory;
 typedef TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > FCondensedJsonStringWriter;
@@ -273,6 +273,185 @@ bool FJsonAutomationTest::RunTest(const FString& Parameters)
 		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
 		check( FJsonSerializer::Serialize( Array, Writer ) );
 		check( InputString == OutputString );
+	}
+
+	// Object Array Case
+	{
+		const FString InputString =
+			TEXT("[")
+			TEXT(	"{")
+			TEXT(		"\"Value\":\"Some String1\"")
+			TEXT(	"},")
+			TEXT(	"{")
+			TEXT(		"\"Value\":\"Some String2\"")
+			TEXT(	"},")
+			TEXT(	"{")
+			TEXT(		"\"Value\":\"Some String3\"")
+			TEXT(	"}")
+			TEXT("]");
+
+		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
+
+		TArray< TSharedPtr<FJsonValue> > Array;
+		check(FJsonSerializer::Deserialize(Reader, Array));
+		check(Array.Num() == 3);
+		check(Array[0].IsValid());
+		check(Array[1].IsValid());
+		check(Array[2].IsValid());
+
+		TSharedPtr< FJsonObject > Object = Array[0]->AsObject();
+		check(Object.IsValid());
+		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String1"));
+
+		Object = Array[1]->AsObject();
+		check(Object.IsValid());
+		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String2"));
+
+		Object = Array[2]->AsObject();
+		check(Object.IsValid());
+		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String3"));
+
+		FString OutputString;
+		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
+		check(FJsonSerializer::Serialize(Array, Writer));
+		check(InputString == OutputString);
+	}
+
+	// Number Array Case
+	{
+		const FString InputString =
+			TEXT("[")
+			TEXT("10,")
+			TEXT("20,")
+			TEXT("30,")
+			TEXT("40")
+			TEXT("]");
+
+		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
+
+		TArray< TSharedPtr<FJsonValue> > Array;
+		check(FJsonSerializer::Deserialize(Reader, Array));
+		check(Array.Num() == 4);
+		check(Array[0].IsValid());
+		check(Array[1].IsValid());
+		check(Array[2].IsValid());
+		check(Array[3].IsValid());
+
+		double Number = Array[0]->AsNumber();
+		check(Number == 10);
+
+		Number = Array[1]->AsNumber();
+		check(Number == 20);
+
+		Number = Array[2]->AsNumber();
+		check(Number == 30);
+
+		Number = Array[3]->AsNumber();
+		check(Number == 40);
+
+		FString OutputString;
+		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
+		check(FJsonSerializer::Serialize(Array, Writer));
+		check(InputString == OutputString);
+	}
+
+	// String Array Case
+	{
+		const FString InputString =
+			TEXT("[")
+			TEXT("\"Some String1\",")
+			TEXT("\"Some String2\",")
+			TEXT("\"Some String3\",")
+			TEXT("\"Some String4\"")
+			TEXT("]");
+
+		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
+
+		TArray< TSharedPtr<FJsonValue> > Array;
+		check(FJsonSerializer::Deserialize(Reader, Array));
+		check(Array.Num() == 4);
+		check(Array[0].IsValid());
+		check(Array[1].IsValid());
+		check(Array[2].IsValid());
+		check(Array[3].IsValid());
+
+		FString Text = Array[0]->AsString();
+		check(Text == TEXT("Some String1"));
+
+		Text = Array[1]->AsString();
+		check(Text == TEXT("Some String2"));
+
+		Text = Array[2]->AsString();
+		check(Text == TEXT("Some String3"));
+
+		Text = Array[3]->AsString();
+		check(Text == TEXT("Some String4"));
+
+		FString OutputString;
+		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
+		check(FJsonSerializer::Serialize(Array, Writer));
+		check(InputString == OutputString);
+	}
+
+	// Complex Array Case
+	{
+		const FString InputString =
+			TEXT("[")
+			TEXT(	"\"Some String1\",")
+			TEXT(	"10,")
+			TEXT(	"{")
+			TEXT(		"\"Value\":\"Some String3\"")
+			TEXT(	"},")
+			TEXT(	"[")
+			TEXT(		"\"Some String4\",")
+			TEXT(		"\"Some String5\"")
+			TEXT(	"],")
+			TEXT(	"true,")
+			TEXT(	"null")
+			TEXT("]");
+
+		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
+
+		TArray< TSharedPtr<FJsonValue> > Array;
+		check(FJsonSerializer::Deserialize(Reader, Array));
+		check(Array.Num() == 6);
+		check(Array[0].IsValid());
+		check(Array[1].IsValid());
+		check(Array[2].IsValid());
+		check(Array[3].IsValid());
+		check(Array[4].IsValid());
+		check(Array[5].IsValid());
+
+		FString Text = Array[0]->AsString();
+		check(Text == TEXT("Some String1"));
+
+		double Number = Array[1]->AsNumber();
+		check(Number == 10);
+
+		TSharedPtr< FJsonObject > Object = Array[2]->AsObject();
+		check(Object.IsValid());
+		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String3"));
+
+		const TArray<TSharedPtr< FJsonValue >>& InnerArray = Array[3]->AsArray();
+		check(InnerArray.Num() == 2);
+		check(Array[0].IsValid());
+		check(Array[1].IsValid());
+
+		Text = InnerArray[0]->AsString();
+		check(Text == TEXT("Some String4"));
+
+		Text = InnerArray[1]->AsString();
+		check(Text == TEXT("Some String5"));
+
+		bool Boolean = Array[4]->AsBool();
+		check(Boolean == true);
+
+		check(Array[5]->IsNull() == true);
+
+		FString OutputString;
+		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
+		check(FJsonSerializer::Serialize(Array, Writer));
+		check(InputString == OutputString);
 	}
 
 	// String Test
@@ -687,7 +866,7 @@ bool FJsonAutomationTest::RunTest(const FString& Parameters)
  * Pie Test
  * Verification PIE works
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FPIETest, "Maps.PIE", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST( FPIETest, "System.Maps.PIE", EAutomationTestFlags::ATF_Editor )
 
 /** 
  * Execute the loading of one map to verify PIE works
@@ -718,7 +897,7 @@ bool FPIETest::RunTest(const FString& Parameters)
  * LoadAllMaps
  * Verification automation test to make sure loading all maps succeed without crashing
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FLoadAllMapsInEditorTest, "Maps.Load All In Editor", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FLoadAllMapsInEditorTest, "Project.Maps.Load All In Editor", EAutomationTestFlags::ATF_Editor )
 
 /** 
  * Requests a enumeration of all maps to be loaded
@@ -738,8 +917,11 @@ void FLoadAllMapsInEditorTest::GetTests(TArray<FString>& OutBeautifiedNames, TAr
 		{
 			if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
 			{
-				OutBeautifiedNames.Add(FPaths::GetBaseFilename(Filename));
-				OutTestCommands.Add(Filename);
+				if (!Filename.Contains(TEXT("/Engine/")))
+				{
+					OutBeautifiedNames.Add(FPaths::GetBaseFilename(Filename));
+					OutTestCommands.Add(Filename);
+				}
 			}
 		}
 	}
@@ -822,7 +1004,7 @@ bool FLoadAllMapsInEditorTest::RunTest(const FString& Parameters)
 /**
  * Reinitialize all RHI resources
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FReinitializeRHIResources, "Engine.Rendering.Reinit Resources", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FReinitializeRHIResources, "System.Engine.Rendering.Reinit Resources", EAutomationTestFlags::ATF_Editor);
 
 bool FReinitializeRHIResources::RunTest(const FString& Parameters)
 {
@@ -835,7 +1017,7 @@ bool FReinitializeRHIResources::RunTest(const FString& Parameters)
 /**
  * QA BSP Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBSPValidation, "QA.BSP Validation", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBSPValidation, "System.QA.BSP Validation", EAutomationTestFlags::ATF_Editor);
 
 bool FBSPValidation::RunTest(const FString& Parameters)
 {
@@ -984,7 +1166,7 @@ bool FBSPValidation::RunTest(const FString& Parameters)
 /**
  * QA Static Mesh Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshValidation, "QA.Mesh Factory Validation", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshValidation, "System.QA.Mesh Factory Validation", EAutomationTestFlags::ATF_Editor);
 
 bool FStaticMeshValidation::RunTest(const FString& Parameters)
 {
@@ -1060,7 +1242,7 @@ bool FStaticMeshValidation::RunTest(const FString& Parameters)
 /**
  * QA Convert Meshes Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConvertToValidation, "QA.Convert Meshes", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConvertToValidation, "System.QA.Convert Meshes", EAutomationTestFlags::ATF_Editor);
 
 //gather all brushes that exist now
 void ConvertTestFindAllBrushes(TArray<ABrush*> &PreviousBrushes)
@@ -1134,6 +1316,9 @@ bool FConvertToValidation::RunTest(const FString& Parameters)
 
 	//BSP TO BLOCKING VOLUME
 	{
+		// Note: Rebuilding BSP requires a transaction.
+		FScopedTransaction Transaction(NSLOCTEXT("EditorAutomation", "ConvertBSPToBlocking", "Convert BSP to Blocking Volume"));
+
 		TArray<ABrush*> PreviousBrushes;
 		ConvertTestFindAllBrushes(PreviousBrushes);
 
@@ -1158,6 +1343,9 @@ bool FConvertToValidation::RunTest(const FString& Parameters)
 		GEditor->GetSelectedActors()->Select( NewBrush );	
 		GEditor->ConvertSelectedBrushesToVolumes( ABlockingVolume::StaticClass() );
 		GEditor->RebuildAlteredBSP();
+
+		// During automation we do not actually care about creating a transaction for the user to undo.  
+		Transaction.Cancel();
 	}
 
 	//convert to static mesh
@@ -1278,7 +1466,7 @@ bool FCleanupConvertToValidation::Update()
 /**
  * QA Static Mesh Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshPlacement, "QA.Static Mesh Placement", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshPlacement, "System.QA.Static Mesh Placement", EAutomationTestFlags::ATF_Editor);
 
 bool FStaticMeshPlacement::RunTest(const FString& Parameters)
 {
@@ -1332,7 +1520,7 @@ bool FStaticMeshPlacement::RunTest(const FString& Parameters)
 /**
  * QA Light Placement Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLightPlacement, "QA.Point Light Placement", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLightPlacement, "System.QA.Point Light Placement", EAutomationTestFlags::ATF_Editor);
 
 bool FLightPlacement::RunTest(const FString& Parameters)
 {
@@ -1431,7 +1619,7 @@ bool FLightPlacement::RunTest(const FString& Parameters)
  * Unit test to find all timelines in blueprints and list the events that can trigger them.
  * Timelines implicitly tick and are usually used for cosmetic events, so they can cause performance problems on dedicated servers.
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FTraceAllTimelinesAutomationTest, "Performance Audits.Find Timelines On Server", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FTraceAllTimelinesAutomationTest, "Project.Performance Audits.Find Timelines On Server", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 /** 
  * Requests an enumeration of all blueprints to be loaded
@@ -1792,7 +1980,7 @@ bool FTraceAllTimelinesAutomationTest::RunTest(const FString& BlueprintName)
 			for (int32 EventIndex = 0; EventIndex < AllEventNodes.Num(); ++EventIndex)
 			{
 				UK2Node_Event* Event = AllEventNodes[EventIndex];
-				UFunction* Function = FindField<UFunction>(Event->EventSignatureClass, Event->EventSignatureName);
+				UFunction* Function = Event->FindEventSignatureFunction();
 
 				const bool bIsCosmeticEvent = (Function && Function->HasAllFunctionFlags(FUNC_BlueprintCosmetic)) || Event->IsCosmeticTickEvent();
 				const bool bIsCosmeticChain = UncheckedEventNodes.Contains(Event);
@@ -1822,176 +2010,41 @@ bool FTraceAllTimelinesAutomationTest::RunTest(const FString& BlueprintName)
 	return bPassed;
 }
 
-/** Static Mesh UV test specific data */
-namespace StaticMeshUVTest
+
+/**
+* Tool to look for overlapping UV's in static meshes.
+*/
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FStaticMeshUVCheck, "Project.Tools.Static Mesh.Static Mesh UVs Check", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser));
+
+void FStaticMeshUVCheck::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
-	/** States the test can be in */
-	namespace EStaticMeshUVTestState
-	{
-		enum Type
-		{
-			Ready,
-			WaitingForPackage,
-			PackageLoaded
-		};
-	}
-
-	class FUVTestHelper : public TSharedFromThis<FUVTestHelper>
-	{
-	public:
-
-		/** Constructor */
-		FUVTestHelper(FAutomationTestBase* BaseTest) :
-			CurrentState(EStaticMeshUVTestState::Ready),
-			CurrentPackage(NULL),
-			LoadedPackageCount(0),
-			CurrentTest(BaseTest)
-		{
-			FPackageName::FindPackagesInDirectory(ContentPackages, *FPaths::EngineContentDir());
-			FPackageName::FindPackagesInDirectory(ContentPackages, *FPaths::GameContentDir());
-		}
-
-		/**
-		 * Update the static mesh UV test
-		 * @return true if the test is complete
-		 */
-		bool Update()
-		{
-			bool bTestDone = false;
-			switch(CurrentState)
-			{
-			case EStaticMeshUVTestState::Ready:
-				LoadNextPackage();
-				break;
-			case EStaticMeshUVTestState::PackageLoaded:
-				bTestDone = ProcessCurrentPackage();
-				break;
-			case EStaticMeshUVTestState::WaitingForPackage:
-			default:
-				break;
-			}
-
-			if( bTestDone )
-			{
-				CollectGarbage(RF_Native);
-			}
-			return bTestDone;
-		}
-
-	private:
-
-		/** 
-		 * Callback when a package has finished loading
-		 */
-		void PackageLoadCallback(const FName& PackageName, UPackage* LoadedPackage)
-		{
-			CurrentPackage = LoadedPackage;
-			CurrentState = EStaticMeshUVTestState::PackageLoaded;
-			ContentPackages.RemoveAt(0);
-		}
-
-		/** 
-		 * Loads the next package into memory
-		 */
-		void LoadNextPackage()
-		{
-			CurrentTest->SetSuppressLogs(true);
-			const FString PackageName = ContentPackages[0];
-			CurrentPackage =  FindPackage(NULL, *PackageName);
-			if( CurrentPackage )
-			{
-				//Already loaded, check for static meshes
-				CurrentState = EStaticMeshUVTestState::PackageLoaded;
-				ContentPackages.RemoveAt(0);
-			}
-			else
-			{
-				LoadPackageAsync(PackageName,FLoadPackageAsyncDelegate::CreateSP(this, &FUVTestHelper::PackageLoadCallback));
-				CurrentState = EStaticMeshUVTestState::WaitingForPackage;
-			}
-		}
-
-		/** 
-		 * Performs the UV test on any static meshes in the current package
-		 */
-		bool ProcessCurrentPackage()
-		{
-			LoadedPackageCount++;
-			CurrentTest->SetSuppressLogs(false);
-
-			for (FObjectIterator ObjIt; ObjIt; ++ObjIt)
-			{
-				UObject* Object = *ObjIt;
-				if (Object != NULL)
-				{
-					//Call CheckLightMapUVs on all static meshes in this package
-					if( Object->IsA(UStaticMesh::StaticClass()) && Object->IsIn(CurrentPackage) )
-					{
-						UStaticMesh::CheckLightMapUVs((UStaticMesh*)Object,MissingUVMessages,BadUVMessages,ValidUVMessages,true);
-					}
-				}
-			}
-
-			if( ( (LoadedPackageCount % 10) == 0 ) )
-			{
-				CollectGarbage(RF_Native);
-			}
-
-			CurrentState = EStaticMeshUVTestState::Ready;
-
-			//We are done when we are out of packages to process
-			return ContentPackages.Num() == 0;
-		}
-
-		// List of packages to test
-		TArray<FString> ContentPackages;
-		// The state of the current test (Ready, WaitingForPackage, PackageLoaded) 
-		EStaticMeshUVTestState::Type CurrentState;
-		// The current package we are checking for static meshes
-		UPackage* CurrentPackage;
-		// How many packages we have loaded
-		uint32 LoadedPackageCount;
-		// Pointer to the current test
-		FAutomationTestBase* CurrentTest;
-
-		// Missing UV messages
-		TArray<FString> MissingUVMessages;
-		// Bas UV messages
-		TArray<FString> BadUVMessages;
-		// Valid UV messages
-		TArray<FString> ValidUVMessages;
-	};
+	//This grabs each Static Mesh in the Game/Content
+	FEditorAutomationTestUtilities::CollectGameContentTestsByClass(UStaticMesh::StaticClass(), true, OutBeautifiedNames, OutTestCommands);
 }
 
-/**
- * Latent command wrapper for the static mesh UV test
- */
-DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FPerformUVTestCommand, TSharedPtr<StaticMeshUVTest::FUVTestHelper>, TestInfo);
-
-bool FPerformUVTestCommand::Update()
+bool FStaticMeshUVCheck::RunTest(const FString& Parameters)
 {
-	return TestInfo->Update();
-}
+	UObject* Object = StaticLoadObject(UObject::StaticClass(), NULL, *Parameters);
 
-/**
- * StaticMeshUVsTest
- */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshUVsTest, "Tools.Static Mesh.Static Mesh UVs Check", EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser)
+	// Missing UV messages
+	TArray<FString> MissingUVMessages;
+	// Bas UV messages
+	TArray<FString> BadUVMessages;
+	// Valid UV messages
+	TArray<FString> ValidUVMessages;
 
-/**
- * Find all static meshes and check the lightmap UVs
- */
-bool FStaticMeshUVsTest::RunTest(const FString& Parameters)
-{
-	TSharedPtr<StaticMeshUVTest::FUVTestHelper> TestHelper = MakeShareable(new StaticMeshUVTest::FUVTestHelper(this));
-	ADD_LATENT_AUTOMATION_COMMAND(FPerformUVTestCommand(TestHelper));
+	UStaticMesh::CheckLightMapUVs((UStaticMesh*)Object, MissingUVMessages, BadUVMessages, ValidUVMessages, true);
+
+	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
 	return true;
 }
+
 
 /**
 * Launches a map onto a specified device after making a change to it.
 */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FLaunchOnTest, "Editor.Launch On Test", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FLaunchOnTest, "Project.Editor.Launch On Test", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FLaunchOnTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const
 {
@@ -2110,3 +2163,4 @@ bool FLaunchOnTest::RunTest(const FString& Parameters)
 
 	return true;
 }
+

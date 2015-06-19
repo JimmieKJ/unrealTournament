@@ -1,20 +1,17 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
-// GameEngine: The game subsystem.
-//=============================================================================
-
 #pragma once
 
 #include "Engine/Engine.h"
-
 #include "GameEngine.generated.h"
+
 
 /**
  * Engine that manages core systems that enable a game.
  */
 UCLASS(config=Engine, transient)
-class ENGINE_API UGameEngine : public UEngine
+class ENGINE_API UGameEngine
+	: public UEngine
 {
 	GENERATED_UCLASS_BODY()
 
@@ -30,6 +27,7 @@ class ENGINE_API UGameEngine : public UEngine
 	UGameInstance* GameInstance;
 
 public:
+
 	/** The game viewport window */
 	TWeakPtr<class SWindow> GameViewportWindow;
 	/** The primary scene viewport */
@@ -83,34 +81,40 @@ public:
 	 * Redraws all viewports.
 	 * @param	bShouldPresent	Whether we want this frame to be presented
 	 */
-	virtual void RedrawViewports( bool bShouldPresent = true );
+	virtual void RedrawViewports( bool bShouldPresent = true ) override;
 
-	// Begin UObject interface.
+public:
+
+	// UObject interface
+
 	virtual void FinishDestroy() override;
-	// End UObject interface.
 
-	// Begin UEngine interface.
+public:
+
+	// UEngine interface
+
 	virtual void Init(class IEngineLoop* InEngineLoop) override;
 	virtual void PreExit() override;
 	virtual void Tick( float DeltaSeconds, bool bIdleMode ) override;
 	virtual float GetMaxTickRate( float DeltaTime, bool bAllowFrameRateSmoothing = true ) const override;
 	virtual void ProcessToggleFreezeCommand( UWorld* InWorld ) override;
 	virtual void ProcessToggleFreezeStreamingCommand( UWorld* InWorld ) override;
-	// End UEngine interface.
 
-	// Begin FExec Interface
+public:
+
+	// FExec interface
+
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog ) override;
-	// End FExec Interface
 
-	/** 
-	 * Exec command handlers
-	 */
+public:
 
+	// Exec command handlers
 	bool HandleCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleExitCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleMinimizeCommand( const TCHAR *Cmd, FOutputDevice &Ar );
 	bool HandleGetMaxTickRateCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleCancelCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
+
 #if !UE_BUILD_SHIPPING
 	bool HandleApplyUserSettingsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif // !UE_BUILD_SHIPPING
@@ -122,14 +126,13 @@ public:
 	virtual void PostLoadMap();
 
 	/** Returns the GameViewport widget */
-	virtual TSharedPtr<SViewport> GetGameViewportWidget() const
+	virtual TSharedPtr<SViewport> GetGameViewportWidget() const override
 	{
 		return GameViewportWidget;
 	}
 
 	/** Loads engine startup modules that the game needs to run.  This will also be called when the editor starts up. */
 	static void LoadRuntimeEngineStartupModules();
-
 
 	/**
 	 * This is a global, parameterless function used by the online subsystem modules.
@@ -139,10 +142,11 @@ public:
 	UWorld* GetGameWorld();
 
 protected:
-	float GetGameViewportDPIScale(UGameViewportClient* GameViewportClient) const;
+
+	const FSceneViewport* GetGameSceneViewport(UGameViewportClient* ViewportClient) const;
 
 private:
+
 	virtual void HandleNetworkFailure_NotifyGameInstance(UWorld* World, UNetDriver* NetDriver, ENetworkFailure::Type FailureType) override;
 	virtual void HandleTravelFailure_NotifyGameInstance(UWorld* World, ETravelFailure::Type FailureType) override;
 };
-

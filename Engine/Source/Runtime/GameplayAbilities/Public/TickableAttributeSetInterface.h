@@ -5,7 +5,7 @@
 #include "TickableAttributeSetInterface.generated.h"
 
 /** Interface for actors which can be "spotted" by a player */
-UINTERFACE()
+UINTERFACE(MinimalAPI, meta = (CannotImplementInterfaceInBlueprint))
 class UTickableAttributeSetInterface : public UInterface
 {
 	GENERATED_UINTERFACE_BODY()

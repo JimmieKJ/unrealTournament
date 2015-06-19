@@ -5,6 +5,23 @@
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Toolkits/AssetEditorManager.h"
 
+class SSpriteEditorViewport;
+class SSpriteList;
+
+//////////////////////////////////////////////////////////////////////////
+// 
+
+namespace ESpriteEditorMode
+{
+	enum Type
+	{
+		ViewMode,
+		EditSourceRegionMode,
+		EditCollisionMode,
+		EditRenderingGeomMode
+	};
+}
+
 //////////////////////////////////////////////////////////////////////////
 // FSpriteEditor
 
@@ -23,6 +40,8 @@ public:
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
 	virtual FString GetWorldCentricTabPrefix() const override;
 	virtual FString GetDocumentationLink() const override;
+	virtual void OnToolkitHostingStarted(const TSharedRef<class IToolkit>& Toolkit) override;
+	virtual void OnToolkitHostingFinished(const TSharedRef<class IToolkit>& Toolkit) override;
 	// End of FAssetEditorToolkit
 
 	// FSerializableObject interface
@@ -36,9 +55,13 @@ public:
 
 	UPaperSprite* GetSpriteBeingEdited() const { return SpriteBeingEdited; }
 	void SetSpriteBeingEdited(UPaperSprite* NewSprite);
+
+	ESpriteEditorMode::Type GetCurrentMode() const;
+
 protected:
 	UPaperSprite* SpriteBeingEdited;
-	TSharedPtr<class SSpriteEditorViewport> ViewportPtr;
+	TSharedPtr<SSpriteEditorViewport> ViewportPtr;
+	TSharedPtr<SSpriteList> SpriteListPtr;
 
 protected:
 	void BindCommands();
@@ -50,4 +73,6 @@ protected:
 	TSharedRef<SDockTab> SpawnTab_SpriteList(const FSpawnTabArgs& Args);
 
 	void CreateModeToolbarWidgets(FToolBarBuilder& ToolbarBuilder);
+
+	FText GetCurrentModeCornerText() const;
 };

@@ -8,21 +8,16 @@
  OpenGL static variables.
  ------------------------------------------------------------------------------*/
 
-bool GIsEmulatingTimestamp = false; // @todo: Now crashing on Nvidia cards, but not on AMD...
-static int32 GNVDelayEmulatingTimeStamp = 60;
-static FAutoConsoleVariableRef CVarNVDelayEmulatingTimeStamp(
-	  TEXT("r.Mac.Nvidia.DelayEmulatingTimeStamp"),
-	  GNVDelayEmulatingTimeStamp,
-	  TEXT("The number of frames to defer emulating GL_TIMESTAMP on Nvidia cards under Mac OS X to avoid crashes on startup, set to 0 to disable. (Default: 60)"),
-	  ECVF_RenderThreadSafe
-	  );
+bool GIsEmulatingTimestamp = false;
+static const uint32 GMacQueryNameCacheSize = 32 * OPENGL_NAME_CACHE_SIZE;
 
 /*------------------------------------------------------------------------------
  OpenGL query emulation.
  ------------------------------------------------------------------------------*/
 
-FMacOpenGLTimer::FMacOpenGLTimer(FPlatformOpenGLContext* InContext)
+FMacOpenGLTimer::FMacOpenGLTimer(FPlatformOpenGLContext* InContext, FMacOpenGLQueryEmu* InEmu)
 : Context(InContext)
+, Emu(InEmu)
 , Name(0)
 , Result(0)
 , Accumulated(0)
@@ -31,10 +26,19 @@ FMacOpenGLTimer::FMacOpenGLTimer(FPlatformOpenGLContext* InContext)
 , Running(false)
 {
 	check(Context);
-	if (!IsRHIDeviceNVIDIA() || GFrameNumberRenderThread > GNVDelayEmulatingTimeStamp)
+	check(Emu);
+	
+	if(!Emu->FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Num())
 	{
-		glGenQueries(1, &Name);
+		if(IsRHIDeviceNVIDIA())
+		{
+			glFinish();
+		}
+		
+		Emu->FreeQueries.FindOrAdd(GL_TIME_ELAPSED).AddUninitialized(GMacQueryNameCacheSize);
+		glGenQueries(GMacQueryNameCacheSize, Emu->FreeQueries.FindOrAdd(GL_TIME_ELAPSED).GetData());
 	}
+	Name = Emu->FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Pop();
 }
 
 FMacOpenGLTimer::~FMacOpenGLTimer()
@@ -43,7 +47,8 @@ FMacOpenGLTimer::~FMacOpenGLTimer()
 	Next.Reset();
 	if (Name)
 	{
-		glDeleteQueries(1, &Name);
+		Emu->FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Push(Name);
+		Name = 0;
 	}
 }
 
@@ -51,10 +56,7 @@ void FMacOpenGLTimer::Begin(void)
 {
 	if(!Running)
 	{
-		if (!IsRHIDeviceNVIDIA() || GFrameNumberRenderThread > GNVDelayEmulatingTimeStamp)
-		{
-			glBeginQuery(GL_TIME_ELAPSED, Name);
-		}
+		glBeginQuery(GL_TIME_ELAPSED, Name);
 		Running = true;
 	}
 }
@@ -64,10 +66,7 @@ void FMacOpenGLTimer::End(void)
 	if(Running)
 	{
 		Running = false;
-		if (!IsRHIDeviceNVIDIA() || GFrameNumberRenderThread > GNVDelayEmulatingTimeStamp)
-		{
-			glEndQuery(GL_TIME_ELAPSED);
-		}
+		glEndQuery(GL_TIME_ELAPSED);
 	}
 }
 
@@ -90,14 +89,7 @@ int32 FMacOpenGLTimer::GetResultAvailable(void)
 	check(!Running);
 	if(!Available)
 	{
-		if (!IsRHIDeviceNVIDIA() || GFrameNumberRenderThread > GNVDelayEmulatingTimeStamp)
-		{
-			glGetQueryObjectuiv(Name, GL_QUERY_RESULT_AVAILABLE, &Available);
-		}
-		else
-		{
-			Available = true;
-		}
+		glGetQueryObjectuiv(Name, GL_QUERY_RESULT_AVAILABLE, &Available);
 	}
 	return Available;
 }
@@ -107,14 +99,7 @@ void FMacOpenGLTimer::CacheResult(void)
 	check(!Running);
 	if(!Cached)
 	{
-		if (!IsRHIDeviceNVIDIA() || GFrameNumberRenderThread > GNVDelayEmulatingTimeStamp)
-		{
-			glGetQueryObjectui64v(Name, GL_QUERY_RESULT, &Result);
-		}
-		else
-		{
-			Result = 0;
-		}
+		glGetQueryObjectui64v(Name, GL_QUERY_RESULT, &Result);
 		
 		if(Previous.IsValid())
 		{
@@ -130,16 +115,18 @@ void FMacOpenGLTimer::CacheResult(void)
 	}
 }
 
-FMacOpenGLQuery::FMacOpenGLQuery(FPlatformOpenGLContext* InContext)
+FMacOpenGLQuery::FMacOpenGLQuery(FPlatformOpenGLContext* InContext, FMacOpenGLQueryEmu* InEmu)
 	: Name(0)
 	, Target(0)
 	, Context(InContext)
+	, Emu(InEmu)
 	, Result(0)
 	, Available(0)
 	, Running(0)
 	, Cached(false)
 {
 	check(Context);
+	check(Emu);
 }
 
 FMacOpenGLQuery::~FMacOpenGLQuery()
@@ -150,7 +137,21 @@ FMacOpenGLQuery::~FMacOpenGLQuery()
 	}
 	if(Name)
 	{
-		glDeleteQueries(1, &Name);
+		switch(Target)
+		{
+			case GL_TIMESTAMP:
+			case GL_TIME_ELAPSED:
+			{
+				Emu->FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Push(Name);
+				break;
+			}
+			default:
+			{
+				Emu->FreeQueries.FindOrAdd(Target).Push(Name);
+				break;
+			}
+		}
+		Name = 0;
 	}
 }
 
@@ -170,7 +171,7 @@ void FMacOpenGLQuery::Begin(GLenum InTarget)
 			case GL_TIMESTAMP:
 			{
 				// There can be a lot of timestamps, clear emulated queries out to avoid problems.
-				for( auto It : Context->EmulatedQueries->Queries )
+				for( auto It : Emu->Queries )
 				{
 					if(It.IsValid() && It->Running == false && (It->Target == GL_TIMESTAMP || It->Target == GL_TIME_ELAPSED))
 					{
@@ -185,36 +186,46 @@ void FMacOpenGLQuery::Begin(GLenum InTarget)
 					}
 				}
 				
-				check(Context->EmulatedQueries->LastTimer.IsValid());
-				Context->EmulatedQueries->LastTimer->End();
-				Start = Context->EmulatedQueries->LastTimer;
+				check(Emu->LastTimer.IsValid());
+				Emu->LastTimer->End();
+				Start = Emu->LastTimer;
 				
-				TSharedPtr<FMacOpenGLTimer, ESPMode::Fast> Current(new FMacOpenGLTimer(Context));
+				TSharedPtr<FMacOpenGLTimer, ESPMode::Fast> Current(new FMacOpenGLTimer(Context, Emu));
 				Current->Previous = Start;
 				Start->Next = Current;
 				Current->Begin();
-				Context->EmulatedQueries->LastTimer = Current;
+				Emu->LastTimer = Current;
 				
 				break;
 			}
 			case GL_TIME_ELAPSED:
 			{
-				check(Context->EmulatedQueries->LastTimer.IsValid());
-				Context->EmulatedQueries->LastTimer->End();
+				check(Emu->LastTimer.IsValid());
+				Emu->LastTimer->End();
 				
-				Start = TSharedPtr<FMacOpenGLTimer, ESPMode::Fast>(new FMacOpenGLTimer(Context));
-				Start->Previous = Context->EmulatedQueries->LastTimer;
-				Context->EmulatedQueries->LastTimer->Next = Start;
+				Start = TSharedPtr<FMacOpenGLTimer, ESPMode::Fast>(new FMacOpenGLTimer(Context, Emu));
+				Start->Previous = Emu->LastTimer;
+				Emu->LastTimer->Next = Start;
 				Start->Begin();
 				
-				Context->EmulatedQueries->LastTimer = Start;
+				Emu->LastTimer = Start;
 				break;
 			}
 			default:
 			{
 				if(!Name)
 				{
-					glGenQueries(1, &Name);
+					if(!Emu->FreeQueries.FindOrAdd(Target).Num())
+					{
+						if(IsRHIDeviceNVIDIA())
+						{
+							glFinish();
+						}
+						
+						Emu->FreeQueries.FindOrAdd(Target).AddUninitialized(GMacQueryNameCacheSize);
+						glGenQueries(GMacQueryNameCacheSize, Emu->FreeQueries.FindOrAdd(Target).GetData());
+					}
+					Name = Emu->FreeQueries.FindOrAdd(Target).Pop();
 				}
 				glBeginQuery(Target, Name);
 				break;
@@ -228,13 +239,13 @@ void FMacOpenGLQuery::End()
 	Running = false;
 	if(Target == GL_TIME_ELAPSED)
 	{
-		Finish = Context->EmulatedQueries->LastTimer;
-		TSharedPtr<FMacOpenGLTimer, ESPMode::Fast> Current(new FMacOpenGLTimer(Context));
+		Finish = Emu->LastTimer;
+		TSharedPtr<FMacOpenGLTimer, ESPMode::Fast> Current(new FMacOpenGLTimer(Context, Emu));
 		Current->Previous = Finish;
 		Finish->Next = Current;
 		Finish->End();
 		Current->Begin();
-		Context->EmulatedQueries->LastTimer = Current;
+		Emu->LastTimer = Current;
 		
 		if (Start == Finish)
 		{
@@ -300,22 +311,81 @@ FMacOpenGLQueryEmu::FMacOpenGLQueryEmu(FPlatformOpenGLContext* InContext)
 	
 	// Only use the timestamp emulation in a non-shipping build - end-users shouldn't care about this profiling feature.
 #if (!UE_BUILD_SHIPPING)
-	// Opt-in since it crashes Nvidia cards at the moment
-	GIsEmulatingTimestamp = FParse::Param(FCommandLine::Get(), TEXT("EnableMacGPUTimestamp"));
+	GIsEmulatingTimestamp = !FParse::Param(FCommandLine::Get(), TEXT("DisableMacGPUTimestamp"));
 #endif
 	
 	if ( GIsEmulatingTimestamp )
 	{
-		LastTimer = TSharedPtr<FMacOpenGLTimer, ESPMode::Fast>(new FMacOpenGLTimer(InContext));
+		FreeQueries.FindOrAdd(GL_TIME_ELAPSED).AddUninitialized(GMacQueryNameCacheSize);
+		glGenQueries(GMacQueryNameCacheSize, FreeQueries.FindOrAdd(GL_TIME_ELAPSED).GetData());
+		
+		FreeQueries.FindOrAdd(GL_SAMPLES_PASSED).AddUninitialized(GMacQueryNameCacheSize);
+		glGenQueries(GMacQueryNameCacheSize, FreeQueries.FindOrAdd(GL_SAMPLES_PASSED).GetData());
+		
+		float red = 0;
+		float green = 0;
+		float blue = 0;
+		
+		glClearColor(1.0, 0.5, 0.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		
+		for(uint32 i = 0; i < FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Num(); i++)
+		{
+			GLuint Query = FreeQueries.FindOrAdd(GL_TIME_ELAPSED)[i];
+			glBeginQuery(GL_TIME_ELAPSED, Query);
+			
+			red = (1.0f / (i + 1.0f));
+			green = (1.0f / (i + 2.0f));
+			blue = (1.0f / (i + 3.0f));
+			glClearColor(red, green, blue, 1.0);
+			glClear(GL_COLOR_BUFFER_BIT);
+			
+			glEndQuery(GL_TIME_ELAPSED);
+		}
+		for(uint32 i = 0; i < FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Num(); i++)
+		{
+			GLuint64 Result;
+			GLuint Query = FreeQueries.FindOrAdd(GL_TIME_ELAPSED)[i];
+			glGetQueryObjectui64v(Query, GL_QUERY_RESULT, &Result);
+		}
+		
+		glClearColor(0.0, 0.0, 0.0, 1.0);
+		glClear(GL_COLOR_BUFFER_BIT);
+		
+		glDeleteQueries(FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Num(), FreeQueries.FindOrAdd(GL_TIME_ELAPSED).GetData());
+		FreeQueries.FindOrAdd(GL_TIME_ELAPSED).Empty();
+		
+		FreeQueries.FindOrAdd(GL_TIME_ELAPSED).AddUninitialized(GMacQueryNameCacheSize);
+		glGenQueries(GMacQueryNameCacheSize, FreeQueries.FindOrAdd(GL_TIME_ELAPSED).GetData());
+		
+		LastTimer = TSharedPtr<FMacOpenGLTimer, ESPMode::Fast>(new FMacOpenGLTimer(InContext, this));
 		LastTimer->Begin();
 	}
 }
 
 FMacOpenGLQueryEmu::~FMacOpenGLQueryEmu()
 {
-	if ( GIsEmulatingTimestamp && LastTimer.IsValid() )
+	if ( GIsEmulatingTimestamp )
 	{
-		LastTimer->End();
+		if( LastTimer.IsValid() )
+		{
+			LastTimer->End();
+			LastTimer = nullptr;
+		}
+			
+		Queries.Empty();
+		RunningQueries.Empty();
+		
+		if(IsRHIDeviceNVIDIA())
+		{
+			glFinish();
+		}
+		
+		for (auto Pair : FreeQueries)
+		{
+			glDeleteQueries(Pair.Value.Num(), Pair.Value.GetData());
+		}
+		FreeQueries.Empty();
 	}
 }
 	
@@ -339,7 +409,7 @@ GLuint FMacOpenGLQueryEmu::CreateQuery(void)
 	GLuint Result = 0;
 	if ( Queries.Num() < UINT_MAX )
 	{
-		TSharedPtr<FMacOpenGLQuery, ESPMode::Fast> Query(new FMacOpenGLQuery(PlatformContext));
+		TSharedPtr<FMacOpenGLQuery, ESPMode::Fast> Query(new FMacOpenGLQuery(PlatformContext, this));
 		for(int32 Index = 0; Index < Queries.Num(); ++Index)
 		{
 			if(!Queries[Index].IsValid())

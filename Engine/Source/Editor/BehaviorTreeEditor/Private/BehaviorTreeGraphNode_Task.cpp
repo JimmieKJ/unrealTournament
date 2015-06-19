@@ -20,7 +20,10 @@ FText UBehaviorTreeGraphNode_Task::GetNodeTitle(ENodeTitleType::Type TitleType) 
 	}
 	else if (!ClassData.GetClassName().IsEmpty())
 	{
-		return NSLOCTEXT("BehaviorTreeGraphNode", "UnknownNodeClass", "Can't load class!");
+		FString StoredClassName = ClassData.GetClassName();
+		StoredClassName.RemoveFromEnd(TEXT("_C"));
+
+		return FText::Format(NSLOCTEXT("AIGraph", "NodeClassError", "Class {0} not found, make sure it's saved!"), FText::FromString(StoredClassName));
 	}
 
 	return Super::GetNodeTitle(TitleType);

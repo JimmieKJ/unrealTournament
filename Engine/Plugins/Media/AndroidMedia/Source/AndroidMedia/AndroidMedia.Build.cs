@@ -9,13 +9,11 @@ namespace UnrealBuildTool.Rules
             DynamicallyLoadedModuleNames.AddRange(
                 new string[] {
                     "Media",
-                    "Settings",
 				});
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
 					"Core",
-				    "CoreUObject",
 				    "Engine",
                     "RenderCore",
 				});
@@ -23,7 +21,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
                     "Media",
-					"Settings",
 				});
 
 			PrivateIncludePaths.AddRange(

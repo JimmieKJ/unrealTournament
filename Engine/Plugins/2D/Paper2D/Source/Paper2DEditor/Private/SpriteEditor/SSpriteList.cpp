@@ -5,6 +5,7 @@
 #include "AssetRegistryModule.h"
 #include "ContentBrowserModule.h"
 #include "SpriteEditor.h"
+#include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SSpriteList
@@ -31,6 +32,7 @@ void SSpriteList::RebuildWidget(UTexture2D* NewTextureFilter)
 
 	Config.ThumbnailScale = 0.0f;
 	Config.InitialAssetViewType = EAssetViewType::Tile;
+	Config.SyncToAssetsDelegates.Add(&SyncToAssetsDelegate);
 
 	if (NewTextureFilter != nullptr)
 	{
@@ -59,7 +61,7 @@ void SSpriteList::RebuildWidget(UTexture2D* NewTextureFilter)
 	];
 }
 
-void SSpriteList::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SSpriteList::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	TSharedPtr<FSpriteEditor> SpriteEditor = SpriteEditorPtr.Pin();
 	if (SpriteEditor.IsValid())
@@ -72,8 +74,6 @@ void SSpriteList::Tick(const FGeometry& AllottedGeometry, const double InCurrent
 			RebuildWidget(CurrentTexture);
 		}
 	}
-
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 void SSpriteList::OnSpriteSelected(const FAssetData& AssetData)
@@ -95,4 +95,17 @@ void SSpriteList::OnSpriteDoubleClicked(const FAssetData& AssetData)
 bool SSpriteList::CanShowColumnForAssetRegistryTag(FName AssetType, FName TagName) const
 {
 	return !AssetRegistryTagsToIgnore.Contains(TagName);
+}
+
+void SSpriteList::SelectAsset(UObject* Asset)
+{
+	FAssetData AssetData(Asset);
+
+	if (AssetData.IsValid())
+	{
+		TArray<FAssetData> AssetsToSelect;
+		AssetsToSelect.Add(AssetData);
+
+		SyncToAssetsDelegate.Execute(AssetsToSelect);
+	}
 }

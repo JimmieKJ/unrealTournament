@@ -203,12 +203,12 @@ FD3D11BoundShaderState::FD3D11BoundShaderState(
 {
 	INC_DWORD_STAT(STAT_D3D11NumBoundShaderState);
 
-	DYNAMIC_CAST_D3D11RESOURCE(VertexDeclaration,InVertexDeclaration);
-	DYNAMIC_CAST_D3D11RESOURCE(VertexShader,InVertexShader);
-	DYNAMIC_CAST_D3D11RESOURCE(PixelShader,InPixelShader);
-	DYNAMIC_CAST_D3D11RESOURCE(HullShader,InHullShader);
-	DYNAMIC_CAST_D3D11RESOURCE(DomainShader,InDomainShader);
-	DYNAMIC_CAST_D3D11RESOURCE(GeometryShader,InGeometryShader);
+	FD3D11VertexDeclaration* InVertexDeclaration = FD3D11DynamicRHI::ResourceCast(InVertexDeclarationRHI);
+	FD3D11VertexShader* InVertexShader = FD3D11DynamicRHI::ResourceCast(InVertexShaderRHI);
+	FD3D11PixelShader* InPixelShader = FD3D11DynamicRHI::ResourceCast(InPixelShaderRHI);
+	FD3D11HullShader* InHullShader = FD3D11DynamicRHI::ResourceCast(InHullShaderRHI);
+	FD3D11DomainShader* InDomainShader = FD3D11DynamicRHI::ResourceCast(InDomainShaderRHI);
+	FD3D11GeometryShader* InGeometryShader = FD3D11DynamicRHI::ResourceCast(InGeometryShaderRHI);
 
 	// Create an input layout for this combination of vertex declaration and vertex shader.
 	D3D11_INPUT_ELEMENT_DESC NullInputElement;
@@ -264,6 +264,8 @@ FBoundShaderStateRHIRef FD3D11DynamicRHI::RHICreateBoundShaderState(
 	FGeometryShaderRHIParamRef GeometryShaderRHI
 	)
 {
+	check(IsInRenderingThread());
+
 	SCOPE_CYCLE_COUNTER(STAT_D3D11CreateBoundShaderStateTime);
 
 	checkf(GIsRHIInitialized && Direct3DDeviceIMContext,(TEXT("Bound shader state RHI resource was created without initializing Direct3D first")));

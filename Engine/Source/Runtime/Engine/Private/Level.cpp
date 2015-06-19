@@ -26,7 +26,6 @@ Level.cpp: Level-related functions
 #include "LevelUtils.h"
 #include "TargetPlatform.h"
 #include "ContentStreaming.h"
-#include "Foliage/InstancedFoliageActor.h"
 #include "Engine/NavigationObjectBase.h"
 #include "Engine/ShadowMapTexture2D.h"
 #include "Components/ModelComponent.h"
@@ -60,7 +59,7 @@ void FPrecomputedVisibilityHandler::UpdateVisibilityStats(bool bAllocating) cons
 		}
 	}
 	else
-	{
+	{ //-V523, disabling identical branch warning because PVS-Studio does not understate the stat system in all configurations:
 		DEC_DWORD_STAT_BY(STAT_PrecomputedVisibilityMemory, PrecomputedVisibilityCellBuckets.GetAllocatedSize());
 		for (int32 BucketIndex = 0; BucketIndex < PrecomputedVisibilityCellBuckets.Num(); BucketIndex++)
 		{
@@ -163,30 +162,43 @@ FArchive& operator<<( FArchive& Ar, FPrecomputedVolumeDistanceField& D )
 }
 
 FLevelSimplificationDetails::FLevelSimplificationDetails()
- : DetailsPercentage(70.f)
+ : bCreatePackagePerAsset(true)
+ , DetailsPercentage(70.f)
+ , bGenerateMeshNormalMap(true)
+ , bGenerateMeshMetallicMap(false)
+ , bGenerateMeshRoughnessMap(false)
+ , bGenerateMeshSpecularMap(false)
+ , bOverrideLandscapeExportLOD(false)
  , LandscapeExportLOD(7)
  , bGenerateLandscapeNormalMap(true)
  , bGenerateLandscapeMetallicMap(false)
  , bGenerateLandscapeRoughnessMap(false)
  , bGenerateLandscapeSpecularMap(false)
  , bBakeFoliageToLandscape(false)
+ , bBakeGrassToLandscape(false)
 {
 }
 
 bool FLevelSimplificationDetails::operator == (const FLevelSimplificationDetails& Other) const
 {
 	return
-		DetailsPercentage == Other.DetailsPercentage &&
 		bCreatePackagePerAsset == Other.bCreatePackagePerAsset &&
+		DetailsPercentage == Other.DetailsPercentage &&
+		bGenerateMeshNormalMap == Other.bGenerateMeshNormalMap &&
+		bGenerateMeshMetallicMap == Other.bGenerateMeshMetallicMap &&
+		bGenerateMeshRoughnessMap == Other.bGenerateMeshRoughnessMap &&
+		bGenerateMeshSpecularMap == Other.bGenerateMeshSpecularMap &&
+		bOverrideLandscapeExportLOD == Other.bOverrideLandscapeExportLOD &&
 		LandscapeExportLOD == Other.LandscapeExportLOD &&
 		bGenerateLandscapeNormalMap == Other.bGenerateLandscapeNormalMap &&
 		bGenerateLandscapeMetallicMap == Other.bGenerateLandscapeMetallicMap &&
 		bGenerateLandscapeRoughnessMap == Other.bGenerateLandscapeRoughnessMap &&
 		bGenerateLandscapeSpecularMap == Other.bGenerateLandscapeSpecularMap &&
-		bBakeFoliageToLandscape == Other.bBakeFoliageToLandscape;
+		bBakeFoliageToLandscape == Other.bBakeFoliageToLandscape &&
+		bBakeGrassToLandscape == Other.bBakeGrassToLandscape;
 }
 
-TMap<FName, UWorld*> ULevel::StreamedLevelsOwningWorld;
+TMap<FName, TWeakObjectPtr<UWorld> > ULevel::StreamedLevelsOwningWorld;
 
 ULevel::ULevel( const FObjectInitializer& ObjectInitializer )
 	:	UObject( ObjectInitializer )
@@ -250,34 +262,10 @@ void ULevel::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 	Super::AddReferencedObjects( This, Collector );
 }
 
-// Compatibility classes
-struct FOldGuidPair
-{
-public:
-	FGuid	Guid;
-	uint32	RefId;
-
-	friend FArchive& operator<<( FArchive& Ar, FOldGuidPair& GP )
-	{
-		Ar << GP.Guid << GP.RefId;
-		return Ar;
-	}
-};
-
-struct FLegacyCoverIndexPair
-{
-	TLazyObjectPtr<class ACoverLink> CoverRef;
-	uint8	SlotIdx;
-
-	friend FArchive& operator<<( FArchive& Ar, struct FLegacyCoverIndexPair& IP )
-	{
-		Ar << IP.CoverRef << IP.SlotIdx;
-		return Ar;
-	}
-};
-
 void ULevel::Serialize( FArchive& Ar )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("ULevel::Serialize"), STAT_Level_Serialize, STATGROUP_LoadTime);
+
 	Super::Serialize( Ar );
 
 	Ar << Actors;
@@ -442,16 +430,16 @@ void ULevel::SortActorList()
 	// Replace with sorted list.
 	Actors.AssignButKeepOwner(NewActors);
 
-	// Don't use sorted optimization outside of gameplay so we can safely shuffle around actors e.g. in the Editor
-	// without there being a chance to break code using dynamic/ net relevant actor iterators.
-	if (!OwningWorld->IsGameWorld())
-	{
-		iFirstNetRelevantActor = 0;
-	}
-
 	// Add all network actors to the owning world
 	if ( OwningWorld != NULL )
 	{
+		// Don't use sorted optimization outside of gameplay so we can safely shuffle around actors e.g. in the Editor
+		// without there being a chance to break code using dynamic/ net relevant actor iterators.
+		if (!OwningWorld->IsGameWorld())
+		{
+			iFirstNetRelevantActor = 0;
+		}
+
 		for ( int32 i = iFirstNetRelevantActor; i < Actors.Num(); i++ )
 		{
 			if ( Actors[ i ] != NULL )
@@ -509,7 +497,7 @@ void ULevel::PostLoad()
 
 	// Ensure that the level is pointed to the owning world.  For streamed levels, this will be the world of the P map
 	// they are streamed in to which we cached when the package loading was invoked
-	OwningWorld = ULevel::StreamedLevelsOwningWorld.FindRef(GetOutermost()->GetFName());
+	OwningWorld = ULevel::StreamedLevelsOwningWorld.FindRef(GetOutermost()->GetFName()).Get();
 	if (OwningWorld == NULL)
 	{
 		OwningWorld = CastChecked<UWorld>(GetOuter());
@@ -548,6 +536,13 @@ void ULevel::PostLoad()
 		UWorld* OuterWorld = Cast<UWorld>(GetOuter());
 		if (LevelScriptBlueprint && OuterWorld && LevelScriptBlueprint->GetFName() != OuterWorld->GetFName())
 		{
+			// The level blueprint must be named the same as the level/world.
+			// If there is already something there with that name, rename it to something else.
+			if (UObject* ExistingObject = StaticFindObject(nullptr, LevelScriptBlueprint->GetOuter(), *OuterWorld->GetName()))
+			{
+				ExistingObject->Rename(nullptr, nullptr, REN_DoNotDirty | REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional);
+			}
+
 			// Use LevelScriptBlueprint->GetOuter() instead of NULL to make sure the generated top level objects are moved appropriately
 			LevelScriptBlueprint->Rename(*OuterWorld->GetName(), LevelScriptBlueprint->GetOuter(), REN_DoNotDirty | REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional | REN_SkipGeneratedClasses);
 		}
@@ -714,6 +709,9 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 		bool bAllComponentsRegistered = true;
 		if (Actor)
 		{
+#if PERF_TRACK_DETAILED_ASYNC_STATS
+			FScopeCycleCounterUObject ContextScope(Actor);
+#endif
 			bAllComponentsRegistered = Actor->IncrementalRegisterComponents(NumComponentsToUpdate);
 		}
 
@@ -737,6 +735,9 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 		CurrentActorIndexForUpdateComponents	= 0;
 		bAreComponentsCurrentlyRegistered		= true;
 		
+#if PERF_TRACK_DETAILED_ASYNC_STATS
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_IncrementalUpdateComponents_RerunConstructionScripts);
+#endif
 		if (bRerunConstructionScripts && !IsTemplate() && !GIsUCCMakeStandaloneHeaderGenerator)
 		{
 			// Don't rerun construction scripts until after all actors' components have been registered.  This
@@ -746,6 +747,9 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 			{
 				if (Actor)
 				{
+#if PERF_TRACK_DETAILED_ASYNC_STATS
+					FScopeCycleCounterUObject ContextScope(Actor);
+#endif
 					Actor->RerunConstructionScripts();
 				}
 			}
@@ -808,7 +812,7 @@ void ULevel::CreateModelComponents()
 					Key.Z				= FMath::FloorToInt(NodeBounds.GetCenter().Z / MODEL_GRID_SIZE_Z);
 				}
 
-				Key.MaskedPolyFlags = Surf.PolyFlags & PF_ModelComponentMask;
+				Key.MaskedPolyFlags = 0;
 
 				// Find an existing node list for the grid cell.
 				TArray<uint16>* ComponentNodes = ModelComponentMap.Find(Key);
@@ -1104,13 +1108,19 @@ void ULevel::PostEditUndo()
 		}
 	}
 
-	if (LevelBoundsActor.IsValid())
-	{
-		LevelBoundsActor.Get()->OnLevelBoundsDirtied();
-	}
+	MarkLevelBoundsDirty();
 }
 #endif // WITH_EDITOR
 
+void ULevel::MarkLevelBoundsDirty()
+{
+#if WITH_EDITOR
+	if (LevelBoundsActor.IsValid())
+	{
+		LevelBoundsActor->MarkLevelBoundsDirty();
+	}
+#endif// WITH_EDITOR
+}
 
 void ULevel::InvalidateModelGeometry()
 {
@@ -1269,16 +1279,14 @@ void ULevel::BuildStreamingData(UTexture2D* UpdateSpecificTextureOnly/*=NULL*/)
 			if ( !bIsClassDefaultObject && Primitive->IsRegistered() )
 			{
 				const AActor* const Owner				= Primitive->GetOwner();
-				const bool bIsFoliage					= Owner && Owner->IsA(AInstancedFoliageActor::StaticClass()) && Primitive->IsA(UInstancedStaticMeshComponent::StaticClass()); 
 				const bool bIsStatic					= Owner == NULL 
 															|| Primitive->Mobility == EComponentMobility::Static 
-															|| Primitive->Mobility == EComponentMobility::Stationary
-															|| bIsFoliage; // treat Foliage components as static, regardless of mobility settings
+															|| Primitive->Mobility == EComponentMobility::Stationary;
 
 				TArray<FStreamingTexturePrimitiveInfo> PrimitiveStreamingTextures;
 
 				// Ask the primitive to enumerate the streaming textures it uses.
-				Primitive->GetStreamingTextureInfo(PrimitiveStreamingTextures);
+				Primitive->GetStreamingTextureInfoWithNULLRemoval(PrimitiveStreamingTextures);
 
 				for(int32 TextureIndex = 0;TextureIndex < PrimitiveStreamingTextures.Num();TextureIndex++)
 				{
@@ -1493,7 +1501,7 @@ void ULevel::InitializeNetworkActors()
 		if( Actor )
 		{
 			// Kill off actors that aren't interesting to the client.
-			if( !Actor->bActorInitialized && !Actor->bActorSeamlessTraveled )
+			if( !Actor->IsActorInitialized() && !Actor->bActorSeamlessTraveled )
 			{
 				// Add to startup list
 				if (Actor->bNetLoadOnClient)
@@ -1532,11 +1540,6 @@ void ULevel::InitializeRenderingResources()
 		if( !PrecomputedLightVolume->IsAddedToScene() )
 		{
 			PrecomputedLightVolume->AddToScene(OwningWorld->Scene);
-
-			if (OwningWorld->Scene)
-			{
-				OwningWorld->Scene->OnLevelAddedToWorld(GetOutermost()->GetFName());
-			}
 		}
 	}
 }
@@ -1552,15 +1555,11 @@ void ULevel::ReleaseRenderingResources()
 void ULevel::RouteActorInitialize()
 {
 	// Send PreInitializeComponents and collect volumes.
-	for( int32 ActorIndex=0; ActorIndex<Actors.Num(); ActorIndex++ )
+	for( AActor* const Actor : Actors )
 	{
-		AActor* const Actor = Actors[ActorIndex];
-		if( Actor )
+		if( Actor && !Actor->IsActorInitialized() )
 		{
-			if( !Actor->bActorInitialized )
-			{
-				Actor->PreInitializeComponents();
-			}
+			Actor->PreInitializeComponents();
 		}
 	}
 
@@ -1568,18 +1567,17 @@ void ULevel::RouteActorInitialize()
 	TArray<AActor *> ActorsToBeginPlay;
 
 	// Send InitializeComponents on components and PostInitializeComponents.
-	for( int32 ActorIndex=0; ActorIndex<Actors.Num(); ActorIndex++ )
+	for( AActor* const Actor : Actors )
 	{
-		AActor* Actor = Actors[ActorIndex];
 		if( Actor )
 		{
-			if( !Actor->bActorInitialized )
+			if( !Actor->IsActorInitialized() )
 			{
 				// Call Initialize on Components.
 				Actor->InitializeComponents();
 
 				Actor->PostInitializeComponents(); // should set Actor->bActorInitialized = true
-				if (!Actor->bActorInitialized && !Actor->IsPendingKill())
+				if (!Actor->IsActorInitialized() && !Actor->IsPendingKill())
 				{
 					UE_LOG(LogActor, Fatal, TEXT("%s failed to route PostInitializeComponents.  Please call Super::PostInitializeComponents() in your <className>::PostInitializeComponents() function. "), *Actor->GetFullName() );
 				}
@@ -1648,12 +1646,21 @@ ULevelScriptBlueprint* ULevel::GetLevelScriptBlueprint(bool bDontCreate)
 	const FString LevelScriptName = ULevelScriptBlueprint::CreateLevelScriptNameFromLevel(this);
 	if( !LevelScriptBlueprint && !bDontCreate)
 	{
+		// The level blueprint must be named the same as the level/world.
+		// If there is already something there with that name, rename it to something else.
+		if (UObject* ExistingObject = StaticFindObject(nullptr, this, *LevelScriptName))
+		{
+			ExistingObject->Rename(nullptr, nullptr, REN_DoNotDirty | REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional);
+		}
+
 		// If no blueprint is found, create one. 
 		LevelScriptBlueprint = Cast<ULevelScriptBlueprint>(FKismetEditorUtilities::CreateBlueprint(GEngine->LevelScriptActorClass, this, FName(*LevelScriptName), BPTYPE_LevelScript, ULevelScriptBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass()));
 
 		// LevelScript blueprints should not be standalone
 		LevelScriptBlueprint->ClearFlags(RF_Standalone);
 		ULevel::LevelDirtiedEvent.Broadcast();
+		// Refresh level script actions
+		FWorldDelegates::RefreshLevelScriptActions.Broadcast(OwningWorld);
 	}
 
 	// Ensure that friendly name is always up-to-date
@@ -1685,11 +1692,11 @@ void ULevel::OnLevelScriptBlueprintChanged(ULevelScriptBlueprint* InBlueprint)
 		FActorSpawnParameters SpawnInfo;
 		SpawnInfo.OverrideLevel = this;
 		LevelScriptActor = OwningWorld->SpawnActor<ALevelScriptActor>( SpawnClass, SpawnInfo );
-		LevelScriptActor->ClearFlags(RF_Transactional);
-		check(LevelScriptActor->GetOuter() == this);
 
 		if( LevelScriptActor )
 		{
+			LevelScriptActor->ClearFlags(RF_Transactional);
+			check(LevelScriptActor->GetOuter() == this);
 			// Finally, fixup all the bound events to point to their new LSA
 			FBlueprintEditorUtils::FixLevelScriptActorBindings(LevelScriptActor, InBlueprint);
 		}		
@@ -1767,8 +1774,11 @@ bool ULevel::IsCurrentLevel() const
 
 void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 {
-	if (bTextureStreamingBuilt)
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_ApplyWorldOffset);
+
+	if (bTextureStreamingBuilt && !InWorldOffset.IsZero())
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_ApplyWorldOffset_TextureStreaming);
 		// Update texture streaming data to account for the move
 		for (TMap< UTexture2D*, TArray<FStreamableTextureInstance> >::TIterator It(TextureToInstancesMap); It; ++It)
 		{
@@ -1778,52 +1788,71 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 				TextureInfo[i].BoundingSphere.Center+= InWorldOffset;
 			}
 		}
-		
-		// Re-add level data to a manager
-		IStreamingManager::Get().AddPreparedLevel( this );
+
+		// Re-add level data to a manager, in case level is visible it this point
+		if (bIsVisible)
+		{
+			IStreamingManager::Get().AddPreparedLevel( this );
+		}
 	}
 
 	// Move precomputed light samples
-	if (PrecomputedLightVolume)
+	if (PrecomputedLightVolume && !InWorldOffset.IsZero())
 	{
-		if (!PrecomputedLightVolume->IsAddedToScene())
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_ApplyWorldOffset_PrecomputedLightVolume);
+		// Shift light volume only if it's going to be used
+		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
+		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
+		if (bAllowStaticLighting) 
 		{
-			PrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
-		}
-		// At world origin rebasing all registered volumes will be moved during FScene shifting
-		// Otherwise we need to send a command to move just this volume
-		else if (!bWorldShift) 
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
- 				ApplyWorldOffset_PLV,
- 				FPrecomputedLightVolume*, InPrecomputedLightVolume, PrecomputedLightVolume,
- 				FVector, InWorldOffset, InWorldOffset,
- 			{
-				InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
- 			});
+			if (!PrecomputedLightVolume->IsAddedToScene())
+			{
+				PrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
+			}
+			// At world origin rebasing all registered volumes will be moved during FScene shifting
+			// Otherwise we need to send a command to move just this volume
+			else if (!bWorldShift) 
+			{
+				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+ 					ApplyWorldOffset_PLV,
+ 					FPrecomputedLightVolume*, InPrecomputedLightVolume, PrecomputedLightVolume,
+ 					FVector, InWorldOffset, InWorldOffset,
+ 				{
+					InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
+ 				});
+			}
 		}
 	}
 
-	// Iterate over all actors in the level and move them
-	for (int32 ActorIndex = 0; ActorIndex < Actors.Num(); ActorIndex++)
 	{
-		AActor* Actor = Actors[ActorIndex];
-		if (Actor)
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_ApplyWorldOffset_Actors);
+		// Iterate over all actors in the level and move them
+		for (int32 ActorIndex = 0; ActorIndex < Actors.Num(); ActorIndex++)
 		{
-			FVector Offset = (bWorldShift && Actor->bIgnoresOriginShifting) ? FVector::ZeroVector : InWorldOffset;
-						
-			if (!Actor->IsA(ANavigationData::StaticClass())) // Navigation data will be moved in NavigationSystem
+			AActor* Actor = Actors[ActorIndex];
+			if (Actor)
 			{
-				Actor->ApplyWorldOffset(Offset, bWorldShift);
+				FVector Offset = (bWorldShift && Actor->bIgnoresOriginShifting) ? FVector::ZeroVector : InWorldOffset;
+
+				if (!Actor->IsA(ANavigationData::StaticClass())) // Navigation data will be moved in NavigationSystem
+				{
+					FScopeCycleCounterUObject Context(Actor);
+					Actor->ApplyWorldOffset(Offset, bWorldShift);
+				}
 			}
 		}
 	}
 	
-	// Move model geometry
-	for (int32 CompIdx = 0; CompIdx < ModelComponents.Num(); ++CompIdx)
 	{
-		ModelComponents[CompIdx]->ApplyWorldOffset(InWorldOffset, bWorldShift);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_ApplyWorldOffset_Model);
+		// Move model geometry
+		for (int32 CompIdx = 0; CompIdx < ModelComponents.Num(); ++CompIdx)
+		{
+			ModelComponents[CompIdx]->ApplyWorldOffset(InWorldOffset, bWorldShift);
+		}
 	}
+
+	FWorldDelegates::PostApplyLevelOffset.Broadcast(this, OwningWorld, InWorldOffset, bWorldShift);
 }
 
 void ULevel::RegisterActorForAutoReceiveInput(AActor* Actor, const int32 PlayerIndex)

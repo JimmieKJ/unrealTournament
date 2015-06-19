@@ -10,25 +10,26 @@
 /*------------------------------------------------------------------------------------
 	FALSoundBuffer.
 ------------------------------------------------------------------------------------*/
-/** 
+/**
  * Constructor
  *
  * @param AudioDevice	audio device this sound buffer is going to be attached to.
  */
 FALSoundBuffer::FALSoundBuffer( FALAudioDevice* InAudioDevice )
+	: FSoundBuffer(InAudioDevice),
+	  BufferId(0)
 {
-	AudioDevice	= InAudioDevice;
 }
 
 /**
- * Destructor 
- * 
+ * Destructor
+ *
  * Frees wave data and detaches itself from audio device.
  */
 FALSoundBuffer::~FALSoundBuffer( void )
 {
 	// Delete AL buffers.
-	alDeleteBuffers( 1, BufferIds );
+	alDeleteBuffers(1, &BufferId);
 }
 
 /**
@@ -48,6 +49,9 @@ FALSoundBuffer* FALSoundBuffer::Init(FALAudioDevice* AudioDevice, USoundWave* In
 		return nullptr;
 	}
 
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+	check(AudioDeviceManager != nullptr);
+
 	FALSoundBuffer *Buffer = nullptr;
 
 	switch (static_cast<EDecompressionType>(InWave->DecompressionType))
@@ -62,12 +66,12 @@ FALSoundBuffer* FALSoundBuffer::Init(FALAudioDevice* AudioDevice, USoundWave* In
 	case DTYPE_Native:
 		if (InWave->ResourceID)
 		{
-			Buffer = static_cast<FALSoundBuffer*>(AudioDevice->WaveBufferMap.FindRef(InWave->ResourceID));
+			Buffer = static_cast<FALSoundBuffer*>(AudioDeviceManager->WaveBufferMap.FindRef(InWave->ResourceID));
 		}
 
-		if (!Buffer)
+		if (!Buffer || !Buffer->BufferId)
 		{
-			Buffer = CreateNativeBuffer(AudioDevice, InWave);
+			CreateNativeBuffer(AudioDevice, InWave, Buffer);
 		}
 		break;
 
@@ -81,7 +85,7 @@ FALSoundBuffer* FALSoundBuffer::Init(FALAudioDevice* AudioDevice, USoundWave* In
 	case DTYPE_RealTime:
 	default:
 		// Invalid will be set if the wave cannot be played
-		UE_LOG(LogALAudio, Warning, TEXT("ALSoundBuffer wave '%s' has an invalid decompression type %d."), 
+		UE_LOG(LogALAudio, Warning, TEXT("ALSoundBuffer wave '%s' has an invalid decompression type %d."),
 			*InWave->GetName(), static_cast<EDecompressionType>(InWave->DecompressionType));
 		break;
 	}
@@ -95,111 +99,95 @@ FALSoundBuffer* FALSoundBuffer::Init(FALAudioDevice* AudioDevice, USoundWave* In
 	return Buffer;
 }
 
-FALSoundBuffer* FALSoundBuffer::CreateNativeBuffer( FALAudioDevice* AudioDevice, USoundWave* Wave)
+void FALSoundBuffer::CreateNativeBuffer(FALAudioDevice* AudioDevice, USoundWave* Wave, FALSoundBuffer* &Buffer)
 {
-	SCOPE_CYCLE_COUNTER( STAT_AudioResourceCreationTime );
-
-	// Check to see if thread has finished decompressing on the other thread
-	if (Wave->AudioDecompressor)
+	// Check if Buffer already exists
+	if (Buffer)
 	{
-		Wave->AudioDecompressor->EnsureCompletion();
-
-		// Remove the decompressor
-		delete Wave->AudioDecompressor;
-		Wave->AudioDecompressor = nullptr;
+		// Assign the new AudioDevice
+		Buffer->AudioDevice = AudioDevice;
 	}
-
-	// Can't create a buffer without any source data
-	if (Wave == nullptr)
+	else
 	{
-		return nullptr;
-	}
+		SCOPE_CYCLE_COUNTER( STAT_AudioResourceCreationTime );
 
-	if (Wave->NumChannels == 0)
-	{
-		UE_LOG(LogALAudio, Warning, TEXT("ALSoundBuffer: cannot create buffer for wave '%s' with 0 channels"),
-			*Wave->GetName());
-		return nullptr;
-	}
+		// Check to see if thread has finished decompressing on the other thread
+		if (Wave->AudioDecompressor)
+		{
+			Wave->AudioDecompressor->EnsureCompletion();
 
-	FWaveModInfo WaveInfo;
-	Wave->InitAudioResource(AudioDevice->GetRuntimeFormat(Wave));
-	FALSoundBuffer* Buffer = nullptr;
-	
-	// Find the existing buffer if any
-	if (Wave->ResourceID)
-	{
-		Buffer = static_cast<FALSoundBuffer*>(AudioDevice->WaveBufferMap.FindRef( Wave->ResourceID ));
-	}
+			// Remove the decompressor
+			delete Wave->AudioDecompressor;
+			Wave->AudioDecompressor = nullptr;
+		}
 
-	if (Buffer == nullptr)
-	{
+		Wave->InitAudioResource(AudioDevice->GetRuntimeFormat(Wave));
+
 		// Create new buffer.
 		Buffer = new FALSoundBuffer(AudioDevice);
-
-		alGenBuffers(1, Buffer->BufferIds);
-
-		AudioDevice->alError(TEXT("RegisterSound"));
-
-		AudioDevice->TrackResource(Wave, Buffer);
 
 		Buffer->InternalFormat = AudioDevice->GetInternalFormat(Wave->NumChannels);
 		Buffer->NumChannels = Wave->NumChannels;
 		Buffer->SampleRate = Wave->SampleRate;
 
-		if (Wave->RawPCMData)
-		{
-			// upload it
-			Buffer->BufferSize = Wave->RawPCMDataSize;
-			alBufferData(Buffer->BufferIds[0], Buffer->InternalFormat, Wave->RawPCMData, Wave->RawPCMDataSize, Buffer->SampleRate);
-
-			// Free up the data if necessary
-			if (Wave->bDynamicResource)
-			{
-				FMemory::Free( Wave->RawPCMData );
-				Wave->RawPCMData = nullptr;
-				Wave->bDynamicResource = false;
-			}
-		}
-		else
-		{
-			// get the raw data
-			uint8* SoundData = reinterpret_cast<uint8*>(Wave->RawData.Lock(LOCK_READ_ONLY));
-			// it's (possibly) a pointer to a wave file, so skip over the header
-			int SoundDataSize = Wave->RawData.GetBulkDataSize();
-
-			// is there a wave header?
-			FWaveModInfo WaveInfo;
-			if (WaveInfo.ReadWaveInfo(SoundData, SoundDataSize))
-			{
-				// if so, modify the location and size of the sound data based on header
-				SoundData = WaveInfo.SampleDataStart;
-				SoundDataSize = WaveInfo.SampleDataSize;
-			}
-			// let the Buffer know the final size
-			Buffer->BufferSize = SoundDataSize;
-
-			// upload it
-			alBufferData( Buffer->BufferIds[0], Buffer->InternalFormat, SoundData, Buffer->BufferSize, Buffer->SampleRate );
-			// unload it
-			Wave->RawData.Unlock();
-		}
-
-		if (AudioDevice->alError(TEXT( "RegisterSound (buffer data)")) || (Buffer->BufferSize == 0))
-		{
-			Buffer->InternalFormat = 0;
-		}
-
-		if (Buffer->InternalFormat == 0)
-		{
-			UE_LOG(LogAudio, Log,TEXT( "Audio: sound format not supported for '%s' (%d)" ), *Wave->GetName(), Wave->NumChannels);
-			UE_LOG(LogALAudio, Warning, TEXT("ALSoundBuffer: sound format not supported for wave '%s'"),
-				*Wave->GetName());
-
-			delete Buffer;
-			Buffer = nullptr;
-		}
+		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+		check(AudioDeviceManager != nullptr);
+		AudioDeviceManager->TrackResource(Wave, Buffer);
 	}
 
-	return Buffer;
+	// Generate the new OpenAL buffer
+	alGenBuffers(1, &Buffer->BufferId);
+	AudioDevice->alError(TEXT("RegisterSound"));
+
+	if (Wave->RawPCMData)
+	{
+		// upload it
+		Buffer->BufferSize = Wave->RawPCMDataSize;
+		alBufferData(Buffer->BufferId, Buffer->InternalFormat, Wave->RawPCMData, Wave->RawPCMDataSize, Buffer->SampleRate);
+
+		// Free up the data if necessary
+		if (Wave->bDynamicResource)
+		{
+			FMemory::Free( Wave->RawPCMData );
+			Wave->RawPCMData = nullptr;
+			Wave->bDynamicResource = false;
+		}
+	}
+	else
+	{
+		// get the raw data
+		uint8* SoundData = reinterpret_cast<uint8*>(Wave->RawData.Lock(LOCK_READ_ONLY));
+		// it's (possibly) a pointer to a wave file, so skip over the header
+		int SoundDataSize = Wave->RawData.GetBulkDataSize();
+
+		// is there a wave header?
+		FWaveModInfo WaveInfo;
+		if (WaveInfo.ReadWaveInfo(SoundData, SoundDataSize))
+		{
+			// if so, modify the location and size of the sound data based on header
+			SoundData = WaveInfo.SampleDataStart;
+			SoundDataSize = WaveInfo.SampleDataSize;
+		}
+		// let the Buffer know the final size
+		Buffer->BufferSize = SoundDataSize;
+
+		// upload it
+		alBufferData( Buffer->BufferId, Buffer->InternalFormat, SoundData, Buffer->BufferSize, Buffer->SampleRate );
+		// unload it
+		Wave->RawData.Unlock();
+	}
+
+	if (AudioDevice->alError(TEXT( "RegisterSound (buffer data)")) || (Buffer->BufferSize == 0))
+	{
+		Buffer->InternalFormat = 0;
+	}
+
+	if (Buffer->InternalFormat == 0)
+	{
+		UE_LOG(LogAudio, Log,TEXT( "Audio: sound format not supported for '%s' (%d)" ), *Wave->GetName(), Wave->NumChannels);
+		UE_LOG(LogALAudio, Warning, TEXT("ALSoundBuffer: sound format not supported for wave '%s'"), *Wave->GetName());
+
+		delete Buffer;
+		Buffer = nullptr;
+	}
 }

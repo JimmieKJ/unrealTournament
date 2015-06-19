@@ -39,6 +39,8 @@ class UAbilityTask_MoveToLocation : public UAbilityTask
 	/** Tick function for this task, if bTickingTask == true */
 	virtual void TickTask(float DeltaTime) override;
 
+	virtual void OnDestroy(bool AbilityIsEnding) override;
+
 protected:
 
 	bool bIsFinished;

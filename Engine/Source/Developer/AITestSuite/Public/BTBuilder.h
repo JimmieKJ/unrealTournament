@@ -12,6 +12,7 @@
 
 #include "BehaviorTree/TestBTTask_Log.h"
 #include "BehaviorTree/TestBTTask_SetFlag.h"
+#include "BehaviorTree/TestBTTask_LatentWithFlags.h"
 #include "BehaviorTree/TestBTDecorator_DelayedAbort.h"
 
 struct FBTBuilder
@@ -153,6 +154,24 @@ struct FBTBuilder
 		UObjectProperty* SubtreeProp = FindField<UObjectProperty>(UBTTask_RunBehavior::StaticClass(), TEXT("BehaviorAsset"));
 		uint8* SubtreePropData = SubtreeProp->ContainerPtrToValuePtr<uint8>(TaskNode);
 		SubtreeProp->SetObjectPropertyValue(SubtreePropData, TreeAsset);
+
+		const int32 ChildIdx = ParentNode.Children.AddZeroed(1);
+		ParentNode.Children[ChildIdx].ChildTask = TaskNode;
+	}
+
+	static void AddTaskLatentFlags(UBTCompositeNode& ParentNode, EBTNodeResult::Type NodeResult,
+		int32 ExecuteHalfTicks, FName ExecuteKeyName, int32 ExecuteLogStart, int32 ExecuteLogFinish,
+		int32 AbortHalfTicks = 0, FName AbortKeyName = NAME_None, int32 AbortLogStart = 0, int32 AbortLogFinish = 0)
+	{
+		UTestBTTask_LatentWithFlags* TaskNode = NewObject<UTestBTTask_LatentWithFlags>(ParentNode.GetTreeAsset());
+		TaskNode->ExecuteTicks = ExecuteHalfTicks;
+		TaskNode->KeyNameExecute = ExecuteKeyName;
+		TaskNode->LogIndexExecuteStart = ExecuteLogStart;
+		TaskNode->LogIndexExecuteFinish = ExecuteLogFinish;
+		TaskNode->AbortTicks = AbortHalfTicks;
+		TaskNode->KeyNameAbort = AbortKeyName;
+		TaskNode->LogIndexAbortStart = AbortLogStart;
+		TaskNode->LogIndexAbortFinish = AbortLogFinish;
 
 		const int32 ChildIdx = ParentNode.Children.AddZeroed(1);
 		ParentNode.Children[ChildIdx].ChildTask = TaskNode;

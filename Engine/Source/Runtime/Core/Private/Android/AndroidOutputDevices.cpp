@@ -62,11 +62,14 @@ void FOutputDeviceAndroidError::HandleError()
 
 	if (NewCallCount != 1)
 	{
+		UE_LOG(LogAndroid, Error, TEXT("HandleError re-entered."));
 		return;
 	}
+	
+	GIsGuarded = 0;
+	GIsRunning = 0;
+	GIsCriticalError = 1;
+	GLogConsole = NULL;
 
-	GIsGuarded			= 0;
-	GIsRunning			= 0;
-	GIsCriticalError	= 1;
-	GLogConsole			= NULL;
+	GLog->Flush();
 }

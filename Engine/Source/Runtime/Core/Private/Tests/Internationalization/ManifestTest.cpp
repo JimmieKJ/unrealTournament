@@ -15,7 +15,7 @@ int32 CountManifestEntries( const FInternationalizationManifest& Manifest )
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLocContextTest, "Core.Misc.Internationalization Context", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLocContextTest, "System.Core.Misc.Internationalization Context", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FLocContextTest::RunTest( const FString& Parameters )
 {
@@ -200,7 +200,7 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLocItemTest, "Core.Misc.Internationalization LocItem", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLocItemTest, "System.Core.Misc.Internationalization LocItem", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FLocItemTest::RunTest( const FString& Parameters )
 {
@@ -354,7 +354,7 @@ bool FLocItemTest::RunTest( const FString& Parameters )
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FManifestTest, "Core.Misc.Internationalization Manifest", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FManifestTest, "System.Core.Misc.Internationalization Manifest", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FManifestTest::RunTest( const FString& Parameters )
 {

@@ -23,7 +23,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bShipForArmV7 = true;
 	bShipForArm64 = true;
 	bShipForArmV7S = false;
-	bUseRSync = false;
+	bUseRSync = true;
 	AdditionalPlistData = TEXT("");
 }
 
@@ -63,8 +63,12 @@ void UIOSRuntimeSettings::PostInitProperties()
 	// We can have a look for potential keys
 	if (!RemoteServerName.IsEmpty() && !RSyncUsername.IsEmpty())
 	{
+		SSHPrivateKeyLocation = TEXT("");
+
 		const FString DefaultKeyFilename = TEXT("RemoteToolChainPrivate.key");
 		const FString RelativeFilePathLocation = FPaths::Combine(TEXT("SSHKeys"), *RemoteServerName, *RSyncUsername, *DefaultKeyFilename);
+		TCHAR Path[4096];
+		FPlatformMisc::GetEnvironmentVariable(TEXT("APPDATA"), Path, ARRAY_COUNT(Path));
 
 		TArray<FString> PossibleKeyLocations;
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::GameDir(), TEXT("Build"), TEXT("NotForLicensees"), *RelativeFilePathLocation));
@@ -73,6 +77,7 @@ void UIOSRuntimeSettings::PostInitProperties()
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), TEXT("NotForLicensees"), *RelativeFilePathLocation));
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), TEXT("NoRedist"), *RelativeFilePathLocation));
 		PossibleKeyLocations.Add(FPaths::Combine(*FPaths::EngineDir(), TEXT("Build"), *RelativeFilePathLocation));
+		PossibleKeyLocations.Add(FPaths::Combine(Path, TEXT("Unreal Engine"), TEXT("UnrealBuildTool"), *RelativeFilePathLocation));
 
 		// Find a potential path that we will use if the user hasn't overridden.
 		// For information purposes only

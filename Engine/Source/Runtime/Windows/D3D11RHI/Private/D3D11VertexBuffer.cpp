@@ -89,7 +89,7 @@ void* FD3D11DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 {
 	check(Size > 0);
 
-	DYNAMIC_CAST_D3D11RESOURCE(VertexBuffer,VertexBuffer);
+	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 	
 	// If this resource is bound to the device, unbind it
 	ConditionalClearShaderResource(VertexBuffer);
@@ -159,7 +159,7 @@ void* FD3D11DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 
 void FD3D11DynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(VertexBuffer,VertexBuffer);
+	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	// Determine whether the vertex buffer is dynamic or not.
 	D3D11_BUFFER_DESC Desc;
@@ -202,8 +202,8 @@ void FD3D11DynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBuff
 
 void FD3D11DynamicRHI::RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBufferRHI,FVertexBufferRHIParamRef DestBufferRHI)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(VertexBuffer,SourceBuffer);
-	DYNAMIC_CAST_D3D11RESOURCE(VertexBuffer,DestBuffer);
+	FD3D11VertexBuffer* SourceBuffer = ResourceCast(SourceBufferRHI);
+	FD3D11VertexBuffer* DestBuffer = ResourceCast(DestBufferRHI);
 
 	D3D11_BUFFER_DESC SourceBufferDesc;
 	SourceBuffer->Resource->GetDesc(&SourceBufferDesc);

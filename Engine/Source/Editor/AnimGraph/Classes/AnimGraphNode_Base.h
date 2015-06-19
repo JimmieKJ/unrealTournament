@@ -111,7 +111,6 @@ class UAnimGraphNode_Base : public UK2Node
 	virtual bool CanPlaceBreakpoints() const override { return false; }
 	ANIMGRAPH_API virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	ANIMGRAPH_API virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const override;
-	ANIMGRAPH_API virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	ANIMGRAPH_API virtual void GetNodeAttributes(TArray<TKeyValuePair<FString, FString>>& OutNodeAttributes) const override;
 	ANIMGRAPH_API virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	ANIMGRAPH_API virtual FText GetMenuCategory() const override;
@@ -197,9 +196,6 @@ protected:
 
 	//
 	virtual ANIMGRAPH_API void GetPinAssociatedProperty(const UScriptStruct* NodeType, UEdGraphPin* InputPin, UProperty*& OutProperty, int32& OutIndex);
-
-	// Creates a default menu entry
-	ANIMGRAPH_API TSharedPtr<FEdGraphSchemaAction_K2NewNode> CreateDefaultMenuEntry(FGraphContextMenuBuilder& ContextMenuBuilder) const;
 
 	// Allocates or reallocates pins
 	ANIMGRAPH_API void InternalPinCreation(TArray<UEdGraphPin*>* OldPins);

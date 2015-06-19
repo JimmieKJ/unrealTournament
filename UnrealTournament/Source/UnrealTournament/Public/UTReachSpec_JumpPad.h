@@ -8,7 +8,7 @@
 #include "UTReachSpec_JumpPad.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTReachSpec_JumpPad : public UUTReachSpec
+class UNREALTOURNAMENT_API UUTReachSpec_JumpPad : public UUTReachSpec
 {
 	GENERATED_UCLASS_BODY()
 

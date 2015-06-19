@@ -42,7 +42,7 @@ int32 UFileServerCommandlet::Main( const FString& Params )
 #if PLATFORM_WINDOWS// Windows only
 	// Used by the .com wrapper to notify that the Ctrl-C handler was triggered.
 	// This shared event is checked each tick so that the log file can be cleanly flushed.
-	FEvent* ComWrapperShutdownEvent = FPlatformProcess::CreateSynchEvent(true);
+	FEvent* ComWrapperShutdownEvent = FPlatformProcess::GetSynchEventFromPool(true);
 #endif
 
 	// parse instance identifier
@@ -150,7 +150,8 @@ int32 UFileServerCommandlet::Main( const FString& Params )
 
 	//@todo abstract properly or delete 
 #if PLATFORM_WINDOWS
-	delete ComWrapperShutdownEvent;
+	FPlatformProcess::ReturnSynchEventToPool(ComWrapperShutdownEvent);
+	ComWrapperShutdownEvent = nullptr;
 #endif
 
 	GIsRunning = false;

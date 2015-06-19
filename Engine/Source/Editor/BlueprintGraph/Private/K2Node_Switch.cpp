@@ -316,10 +316,10 @@ FNodeHandlingFunctor* UK2Node_Switch::CreateNodeHandler(FKismetCompilerContext& 
 FText UK2Node_Switch::GetMenuCategory() const
 {
 	static FNodeTextCache CachedCategory;
-	if (CachedCategory.IsOutOfDate())
+	if (CachedCategory.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedCategory = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::FlowControl, LOCTEXT("ActionMenuCategory", "Switch"));
+		CachedCategory.SetCachedText(FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::FlowControl, LOCTEXT("ActionMenuCategory", "Switch")), this);
 	}
 	return CachedCategory;
 }

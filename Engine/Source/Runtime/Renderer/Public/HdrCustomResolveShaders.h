@@ -16,7 +16,7 @@ public:
 	{
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		return bShaderHasOutdatedParameters;
@@ -39,7 +39,7 @@ public:
 		Tex.Bind(Initializer.ParameterMap, TEXT("Tex"), SPF_Mandatory);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << Tex;
@@ -78,7 +78,7 @@ public:
 		Tex.Bind(Initializer.ParameterMap, TEXT("Tex"), SPF_Mandatory);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << Tex;
@@ -118,7 +118,7 @@ public:
 		Tex.Bind(Initializer.ParameterMap, TEXT("Tex"), SPF_Mandatory);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << Tex;

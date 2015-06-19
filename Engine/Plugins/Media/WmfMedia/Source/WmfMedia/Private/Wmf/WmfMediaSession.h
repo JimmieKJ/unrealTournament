@@ -56,6 +56,10 @@ public:
 	 */
 	FWmfMediaSession( const FTimespan& InDuration, const TComPtr<IMFTopology>& InTopology );
 
+	virtual ~FWmfMediaSession()
+	{
+	}
+
 public:
 
 	/**
@@ -66,17 +70,6 @@ public:
 	DWORD GetCapabilities() const
 	{
 		return Capabilities;
-	}
-
-	/**
-	 * Gets the result code of the last error.
-	 *
-	 * @return Error result code.
-	 * @see GetSessionState
-	 */
-	HRESULT GetLastError() const
-	{
-		return LastError;
 	}
 
 	/**
@@ -100,7 +93,6 @@ public:
 	 * Gets the state of this session.
 	 *
 	 * @return Media session state.
-	 * @see GetLastError
 	 */
 	EMediaStates GetState() const
 	{
@@ -181,6 +173,15 @@ public:
 
 public:
 
+	/** Gets an event delegate that is invoked when an error occured. */
+	DECLARE_EVENT_OneParam(FWmfMediaSession, FOnError, HRESULT /*Error*/)
+	FOnError& OnError()
+	{
+		return ErrorEvent;
+	}
+
+public:
+
 	// IMFAsyncCallback interface
 
 	STDMETHODIMP_(ULONG) AddRef();
@@ -238,9 +239,6 @@ private:
 	/** The media session that handles all playback. */
 	TComPtr<IMFMediaSession> MediaSession;
 
-	/** Caches the last error result code (0 = no error). */
-	HRESULT LastError;
-
 	/** Whether playback should loop to the beginning. */
 	bool Looping;
 
@@ -267,6 +265,11 @@ private:
 
 	/** Whether a state change is currently in progress. */
 	bool StateChangePending;
+
+private:
+
+	/** Holds an event delegate that is invoked when an error occured. */
+	FOnError ErrorEvent;
 };
 
 

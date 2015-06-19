@@ -7,6 +7,8 @@ public class SimplygonMeshReduction : ModuleRules
 {
 	public SimplygonMeshReduction(TargetInfo Target)
 	{
+		BinariesSubFolder = "NotForLicensees";
+
 		PublicIncludePaths.Add("Developer/SimplygonMeshReduction/Public");
 		PrivateDependencyModuleNames.Add("Core");
 		PrivateDependencyModuleNames.Add("CoreUObject");

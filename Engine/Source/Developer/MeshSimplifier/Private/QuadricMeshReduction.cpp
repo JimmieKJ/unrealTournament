@@ -123,7 +123,7 @@ public:
 		float& OutMaxDeviation,
 		const FRawMesh& InMesh,
 		const FMeshReductionSettings& InSettings
-		)
+		) override
 	{
 #if 0
 		TMap<int32,int32> FinalVerts;
@@ -302,10 +302,12 @@ public:
 
 		uint32* Indexes = new uint32[ NumIndexes ];
 
-		for( uint32 i = 0; i < NumIndexes; i++ )
+#if 0
+		for (uint32 i = 0; i < NumIndexes; i++)
 		{
 			 Indexes[i] = InMesh.WedgeIndices[i];
 		}
+#endif
 
 		const uint32 NumAttributes = ( sizeof( TVertSimp<1> ) - sizeof( FVector ) ) / sizeof(float);
 		TMeshSimplifier< TVertSimp<1>, NumAttributes >* MeshSimp = new TMeshSimplifier< TVertSimp<1>, NumAttributes >( Verts, NumVerts, Indexes, NumIndexes );
@@ -347,12 +349,12 @@ public:
 		int32 LODIndex,
 		const FSkeletalMeshOptimizationSettings& Settings,
 		bool bCalcLODDistance
-		)
+		) override
 	{
 		return false;
 	}
 
-	virtual bool IsSupported() const
+	virtual bool IsSupported() const override
 	{
 		return true;
 	}

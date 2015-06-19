@@ -61,11 +61,12 @@ void ULevelThumbnailRenderer::GetView(ULevel* Level, FSceneViewFamily* ViewFamil
 		ViewInitOptions.ViewFamily = ViewFamily;
 
 		const FVector ViewPoint = LevelBox.GetCenter();
-		ViewInitOptions.ViewMatrix = FMatrix(
+		ViewInitOptions.ViewOrigin = FVector(ViewPoint.X, ViewPoint.Y, 0);
+		ViewInitOptions.ViewRotationMatrix = FMatrix(
 			FPlane(1,				0,				0,		0),
 			FPlane(0,				-1,				0,		0),
 			FPlane(0,				0,				-1,		0),
-			FPlane(-ViewPoint.X,	ViewPoint.Y,	0,		1));
+			FPlane(0,				0,				0,		1));
 
 		const float ZOffset = WORLD_MAX;
 		ViewInitOptions.ProjectionMatrix =  FReversedZOrthoMatrix(

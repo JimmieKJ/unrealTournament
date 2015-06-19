@@ -86,6 +86,24 @@ public:
 	}
 };
 
+/** Information about a heightfield gathered by the renderer for heightfield lighting. */
+class FHeightfieldComponentDescription
+{
+public:
+	FVector4 HeightfieldScaleBias;
+	FVector4 MinMaxUV;
+	FMatrix LocalToWorld;
+	FVector2D LightingAtlasLocation;
+	FIntRect HeightfieldRect;
+
+	int32 NumSubsections;
+	FVector4 SubsectionScaleAndBias;
+
+	FHeightfieldComponentDescription(const FMatrix& InLocalToWorld) :
+		LocalToWorld(InLocalToWorld)
+	{}
+};
+
 namespace EDrawDynamicFlags
 {
 	enum Type
@@ -169,6 +187,24 @@ public:
 	 */
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, class FMeshElementCollector& Collector) const {}
 
+	/** 
+	 * Gets the boxes for sub occlusion queries
+	 * @param View - the view the occlusion results are for
+	 * @return pointer to the boxes, must remain valid until the queries are built
+	 */
+	virtual const TArray<FBoxSphereBounds>* GetOcclusionQueries(const FSceneView* View) const 
+	{
+		return nullptr;
+	}
+
+	/** 
+	 * Gives the primitive the results of sub-occlusion-queries
+	 * @param View - the view the occlusion results are for
+	 * @param Results - visibility results, allocated from the scene allocator, so valid until the end of the frame
+	 * @param NumResults - number of visibility bools
+	 */
+	virtual void AcceptOcclusionResults(const FSceneView* View, const bool* Results, int32 NumResults) {}
+
 	/**
 	 * Determines the relevance of this primitive's elements to the given view.
 	 * Called in the rendering thread.
@@ -205,11 +241,15 @@ public:
 		bMeshWasPlane = false;
 	}
 
-	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, FVector4& OutHeightfieldScaleBias, FVector4& OutMinMaxUV)
+	virtual void GetDistanceFieldInstanceInfo(int32& NumInstances, float& BoundsSurfaceArea) const
+	{
+		NumInstances = 0;
+		BoundsSurfaceArea = 0;
+	}
+
+	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, UTexture2D*& OutDiffuseColorTexture, FHeightfieldComponentDescription& OutDescription)
 	{
 		OutHeightmapTexture = NULL;
-		OutHeightfieldScaleBias = FVector4(0, 0, 0, 0);
-		OutMinMaxUV = FVector4(0, 0, 0, 0);
 	}
 
 	/**
@@ -243,11 +283,26 @@ public:
 	virtual void OnActorPositionChanged() {}
 
 	/**
+	 * Called to notify the proxy that the level has been fully added to
+	 * the world and the primitive will now be rendered.
+	 * Only called if bNeedsLevelAddedToWorldNotification is set to true.
+	 */
+	virtual void OnLevelAddedToWorld() {}
+
+	/**
 	* @return true if the proxy can be culled when occluded by other primitives
 	*/
 	virtual bool CanBeOccluded() const
 	{
 		return true;
+	}
+
+	/**
+	* @return true if the proxy has custom occlusion queries
+	*/
+	virtual bool HasSubprimitiveOcclusionQueries() const
+	{
+		return false;
 	}
 
 	virtual bool ShowInBSPSplitViewmode() const
@@ -342,6 +397,9 @@ public:
 	inline bool CastsShadowAsTwoSided() const { return bCastShadowAsTwoSided; }
 	inline bool CastsSelfShadowOnly() const { return bSelfShadowOnly; }
 	inline bool CastsInsetShadow() const { return bCastInsetShadow; }
+	inline bool CastsCinematicShadow() const { return bCastCinematicShadow; }
+	inline bool CastsFarShadow() const { return bCastFarShadow; }
+	inline bool LightAsIfStatic() const { return bLightAsIfStatic; }
 	inline bool LightAttachmentsAsGroup() const { return bLightAttachmentsAsGroup; }
 	inline bool StaticElementsAlwaysUseProxyPrimitiveUniformBuffer() const { return bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer; }
 	inline bool ShouldUseAsOccluder() const { return bUseAsOccluder; }
@@ -358,8 +416,14 @@ public:
 	inline bool SupportsDistanceFieldRepresentation() const { return bSupportsDistanceFieldRepresentation; }
 	inline bool SupportsHeightfieldRepresentation() const { return bSupportsHeightfieldRepresentation; }
 	inline bool TreatAsBackgroundForOcclusion() const { return bTreatAsBackgroundForOcclusion; }
+	inline bool NeedsLevelAddedToWorldNotification() const { return bNeedsLevelAddedToWorldNotification; }
+	inline bool IsComponentLevelVisible() const { return bIsComponentLevelVisible; }
+
 #if WITH_EDITOR
 	inline int32 GetNumUncachedStaticLightingInteractions() { return NumUncachedStaticLightingInteractions; }
+
+	void SetHierarchicalLOD_GameThread(const int32 InLODLevel);
+	void SetHierarchicalLOD_RenderThread(const int32 InLODLevel);
 #endif
 
 	inline FLinearColor GetWireframeColor() const { return WireframeColor; }
@@ -525,6 +589,21 @@ protected:
 	uint32 bCastInsetShadow : 1;
 
 	/** 
+	 * Whether this component should create a per-object shadow that gives higher effective shadow resolution. 
+	 * Useful for cinematic character shadowing. Assumed to be enabled if bSelfShadowOnly is enabled.
+	 */
+	uint32 bCastCinematicShadow : 1;
+
+	/* When enabled, the component will be rendering into the distant shadow cascades (only for directional lights). */
+	uint32 bCastFarShadow : 1;
+
+	/** 
+	 * This has to be known by the rendering thread to avoid marking lighting dirty when new interactions are created,
+	 * Which happens when a movable mesh with bLightAsIfStatic moves into the influence of a light it was not baked against.
+	 */
+	uint32 bLightAsIfStatic : 1;
+
+	/** 
 	 * Whether to light this component and any attachments as a group.  This only has effect on the root component of an attachment tree.
 	 * When enabled, attached component shadowing settings like bCastInsetShadow, bCastVolumetricTranslucentShadow, etc, will be ignored.
 	 * This is useful for improving performance when multiple movable components are attached together.
@@ -548,6 +627,9 @@ protected:
 
 	/** Whether the primitive implements GetHeightfieldRepresentation() */
 	uint32 bSupportsHeightfieldRepresentation : 1;
+
+	/** Whether this primitive requires notification when its level is added to the world and made visible for the first time. */
+	uint32 bNeedsLevelAddedToWorldNotification : 1;
 
 private:
 
@@ -646,6 +728,9 @@ private:
 	*/
 	int32 NumUncachedStaticLightingInteractions;
 	friend class FLightPrimitiveInteraction;
+
+	/** this is used if world setting has EnableHierarchical LOD true */
+	int32 HierarchicalLODOverride;
 #endif
 
 	/** Updates the proxy's actor position, called from the game thread. */

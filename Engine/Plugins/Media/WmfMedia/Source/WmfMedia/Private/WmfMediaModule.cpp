@@ -66,20 +66,20 @@ public:
 		}
 
 		// initialize supported media formats
-		SupportedFormats.Add(TEXT("3g2"), LOCTEXT("Format3g2", "3G2 Multimedia Stream"));
-		SupportedFormats.Add(TEXT("3gp"), LOCTEXT("Format3gp", "3GP Video Stream"));
-		SupportedFormats.Add(TEXT("3gp2"), LOCTEXT("Format3gp2", "3GPP2 Multimedia File"));
-		SupportedFormats.Add(TEXT("3gpp"), LOCTEXT("Format3gpp", "3GPP Multimedia File"));
-		SupportedFormats.Add(TEXT("aac"), LOCTEXT("FormatAac", "MPEG-2 Advanced Audio Coding File"));
-		SupportedFormats.Add(TEXT("adts"), LOCTEXT("FormatAdts", "Audio Data Transport Stream"));
-		SupportedFormats.Add(TEXT("asf"), LOCTEXT("FormatAsf", "ASF Media File"));
-		SupportedFormats.Add(TEXT("avi"), LOCTEXT("FormatAvi", "Audio Video Interleave File"));
-		SupportedFormats.Add(TEXT("m4v"), LOCTEXT("FormatM4v", "Apple MPEG-4 Video"));
-		SupportedFormats.Add(TEXT("mov"), LOCTEXT("FormatMov", "Apple QuickTime Movie"));
-		SupportedFormats.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
-		SupportedFormats.Add(TEXT("sami"), LOCTEXT("FormatSami", "Synchronized Accessible Media Interchange (SAMI) File"));
-		SupportedFormats.Add(TEXT("smi"), LOCTEXT("FormatSmi", "Synchronized Multimedia Integration (SMIL) File"));
-		SupportedFormats.Add(TEXT("wmv"), LOCTEXT("FormatWmv", "Windows Media Video"));
+		SupportedFileTypes.Add(TEXT("3g2"), LOCTEXT("Format3g2", "3G2 Multimedia Stream"));
+		SupportedFileTypes.Add(TEXT("3gp"), LOCTEXT("Format3gp", "3GP Video Stream"));
+		SupportedFileTypes.Add(TEXT("3gp2"), LOCTEXT("Format3gp2", "3GPP2 Multimedia File"));
+		SupportedFileTypes.Add(TEXT("3gpp"), LOCTEXT("Format3gpp", "3GPP Multimedia File"));
+		SupportedFileTypes.Add(TEXT("aac"), LOCTEXT("FormatAac", "MPEG-2 Advanced Audio Coding File"));
+		SupportedFileTypes.Add(TEXT("adts"), LOCTEXT("FormatAdts", "Audio Data Transport Stream"));
+		SupportedFileTypes.Add(TEXT("asf"), LOCTEXT("FormatAsf", "ASF Media File"));
+		SupportedFileTypes.Add(TEXT("avi"), LOCTEXT("FormatAvi", "Audio Video Interleave File"));
+		SupportedFileTypes.Add(TEXT("m4v"), LOCTEXT("FormatM4v", "Apple MPEG-4 Video"));
+		SupportedFileTypes.Add(TEXT("mov"), LOCTEXT("FormatMov", "Apple QuickTime Movie"));
+		SupportedFileTypes.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
+		SupportedFileTypes.Add(TEXT("sami"), LOCTEXT("FormatSami", "Synchronized Accessible Media Interchange (SAMI) File"));
+		SupportedFileTypes.Add(TEXT("smi"), LOCTEXT("FormatSmi", "Synchronized Multimedia Integration (SMIL) File"));
+		SupportedFileTypes.Add(TEXT("wmv"), LOCTEXT("FormatWmv", "Windows Media Video"));
 
 		// register factory
 		MediaModule->RegisterPlayerFactory(*this);
@@ -122,9 +122,14 @@ public:
 		return nullptr;
 	}
 
-	virtual const FMediaFormats& GetSupportedFormats() const override
+	virtual const FMediaFileTypes& GetSupportedFileTypes() const override
 	{
-		return SupportedFormats;
+		return SupportedFileTypes;
+	}
+
+	virtual bool SupportsUrl(const FString& Url) const override
+	{
+		return SupportedFileTypes.Contains(FPaths::GetExtension(Url));
 	}
 
 protected:
@@ -172,8 +177,8 @@ private:
 	/** Whether the module has been initialized. */
 	bool Initialized;
 
-	/** The collection of supported media formats. */
-	FMediaFormats SupportedFormats;
+	/** The collection of supported media file types. */
+	FMediaFileTypes SupportedFileTypes;
 };
 
 

@@ -90,7 +90,7 @@ public:
 private:
 	/** DefaultPawn movement component */
 	UPROPERTY(Category = Pawn, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UFloatingPawnMovement* MovementComponent;
+	UPawnMovementComponent* MovementComponent;
 
 public:
 	/** Name of the CollisionComponent. */

@@ -21,18 +21,43 @@ public:
 	TWeakObjectPtr<AUTLobbyPlayerState> PlayerState;
 	TSharedPtr<SWidget> Button;
 	TSharedPtr<SUTComboButton> ComboButton;
-	TSharedPtr<SImage> ReadyImage;
+	TSharedPtr<STextBlock> StatusText;
 
-	FMatchPlayerData(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState, TSharedPtr<SWidget> inButton, TSharedPtr<SUTComboButton> inComboButton, TSharedPtr<SImage> inReadyImage )
+	// Cached values to look for changes.
+	uint8 TeamNum;
+	bool bReadyToPlay;
+
+	FMatchPlayerData(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState)
 		: PlayerState(inPlayerState)
-		, Button(inButton)
-		, ComboButton(inComboButton)
-		, ReadyImage(inReadyImage)
-	{}
-
-	static TSharedRef<FMatchPlayerData> Make(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState, TSharedPtr<SWidget> inButton, TSharedPtr<SUTComboButton> inComboButton, TSharedPtr<SImage> inReadyImage)
+		, Button(nullptr)
+		, ComboButton(nullptr)
+		, StatusText(nullptr)
 	{
-		return MakeShareable( new FMatchPlayerData(inPlayerState, inButton, inComboButton, inReadyImage));
+		if (inPlayerState.IsValid())
+		{
+			TeamNum = inPlayerState->DesiredTeamNum;
+			bReadyToPlay = inPlayerState->bReadyToPlay;
+		}
+		else
+		{
+			TeamNum = 0;
+			bReadyToPlay = false;
+		}
+	}
+
+	bool NeedsStatusRefresh()
+	{
+		if (PlayerState.IsValid())
+		{
+			return (PlayerState->bReadyToPlay != bReadyToPlay);
+		}
+
+		return false;
+	}
+
+	static TSharedRef<FMatchPlayerData> Make(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState)
+	{
+		return MakeShareable( new FMatchPlayerData(inPlayerState));
 	}
 };
 
@@ -91,7 +116,7 @@ protected:
 	float BlinkyTimer;
 	int32 Dots;
 
-	TSharedPtr<STextBlock> StatusText;
+	TSharedPtr<STextBlock> StatusTextBlock;
 	FText GetStatusText() const;
 
 	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;
@@ -102,7 +127,7 @@ protected:
 
 	// Screenshots..	
 	/** bushes used for the map list */
-	TArray<FSlateDynamicImageBrush*> MaplistScreenshots;
+	FSlateDynamicImageBrush* MapScreenshot;
 
 	FText GetMatchRulesTitle() const;
 	FText GetMatchRulesDescription() const;
@@ -125,6 +150,9 @@ protected:
 
 	FReply CancelDownloadClicked();
 	EVisibility CancelButtonVisible() const;
+
+	// If true, we are waiting on a map to download so we can accquie a map
+	bool bWaitingOnMapDownload;
 
 };
 

@@ -15,7 +15,7 @@ protected:
 	FAINoiseEvent Event;
 
 public:
-	UAISenseEvent_Hearing(const FObjectInitializer& ObjectInitializer);
+	UAISenseEvent_Hearing(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual FAISenseID GetSenseID() const override;
 	
 	FORCEINLINE FAINoiseEvent GetNoiseEvent()

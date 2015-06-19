@@ -41,7 +41,7 @@ protected:
 
 	virtual void RunTest(FEnvQueryInstance& QueryInstance) const override;
 
-	virtual FString GetDescriptionTitle() const override;
+	virtual FText GetDescriptionTitle() const override;
 	virtual FText GetDescriptionDetails() const override;
 
 	/** helper function: gather directions from context pairs */

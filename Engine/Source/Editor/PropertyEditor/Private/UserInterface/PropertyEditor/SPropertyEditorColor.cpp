@@ -109,7 +109,7 @@ FReply SPropertyEditorColor::ColorBlock_OnMouseButtonDown(const FGeometry& MyGeo
 	const UProperty* Property = PropertyEditor->GetProperty();
 	check(Property);
 
-	bool bRefreshOnlyOnOk = Property->GetOwnerClass()->IsChildOf(UMaterialExpressionConstant3Vector::StaticClass());
+	bool bRefreshOnlyOnOk = Property->GetOwnerClass() && Property->GetOwnerClass()->IsChildOf(UMaterialExpressionConstant3Vector::StaticClass());
 	//@todo Slate Property window: This should probably be controlled via metadata and then the actual alpha channel property hidden if its not used.
 	const bool bUseAlpha = !(Property->GetOwnerClass() && (Property->GetOwnerClass()->IsChildOf(ULightComponent::StaticClass()) || bRefreshOnlyOnOk));
 	

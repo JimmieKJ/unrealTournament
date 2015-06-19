@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_MODULE_DESTRUCTIBLE_H
 #define NX_MODULE_DESTRUCTIBLE_H
@@ -77,24 +61,6 @@ class NxDestructibleChunkDesc;
 class NxDestructibleActorDesc;
 class NxDestructibleActorJointDesc;
 
-#if (APEX_USE_GRB) || defined(DOXYGEN)
-struct NxDestructibleGrbStats
-{
-	physx::PxU32 numPairs;
-	physx::PxU32 numActors;
-	physx::PxU32 numConvexes;
-	physx::PxU32 numContacts;
-
-	NxDestructibleGrbStats():
-		numPairs(0),
-		numActors(0),
-		numConvexes(0),
-		numContacts(0)
-	{
-	}
-};
-#endif // #if APEX_USE_GRB
-
 /**
 	Flags returned by an NxUserChunkReport
 */
@@ -108,23 +74,32 @@ struct NxApexChunkFlag
 		/** The chunk has environmental support, so will remain kinematic until fractured */
 		EXTERNALLY_SUPPORTED			=	1 << 1,
 
+		/** Only true if EXTERNALLY_SUPPORTED is true.  In addition, this means that it gained support via static geometry overlap. */
+		WORLD_SUPPORTED					=	1 << 2,
+
 		/** The chunk has been fractured */
-		FRACTURED						=	1 << 2,
+		FRACTURED						=	1 << 3,
 
 		/** The chunk has been destroyed because the NxActor FIFO was full */
-		DESTROYED_FIFO_FULL				=	1 << 3,
+		DESTROYED_FIFO_FULL				=	1 << 4,
 
 		/** The chunk has been destroyed because it has exceeded the maximum debris lifetime */
-		DESTROYED_TIMED_OUT				=	1 << 4,
+		DESTROYED_TIMED_OUT				=	1 << 5,
 
 		/** The chunk has been destroyed because it has exceeded the maximum debris distance */
-		DESTROYED_EXCEEDED_MAX_DISTANCE	=	1 << 5,
+		DESTROYED_EXCEEDED_MAX_DISTANCE	=	1 << 6,
 
 		/** The destroyed chunk has generated crumble particles */
-		DESTROYED_CRUMBLED				=	1 << 6,
+		DESTROYED_CRUMBLED				=	1 << 7,
 
 		/** The destroyed chunk has moved beyond the destructible actor's valid bounds. */
-		DESTROYED_LEFT_VALID_BOUNDS		=	1 << 7
+		DESTROYED_LEFT_VALID_BOUNDS		=	1 << 8,
+
+		/** The destroyed chunk has moved beyond the user-defined bounding box. */
+		DESTROYED_LEFT_USER_BOUNDS		=	1 << 9,
+
+		/** The destroyed chunk has moved into the user-defined bounding box. */
+		DESTROYED_ENTERED_USER_BOUNDS	=	1 << 10
 	};
 };
 
@@ -289,6 +264,14 @@ public:
 		to the function.
 	*/
 	virtual void	onStateChangeNotify(const NxApexChunkStateEventData& visibilityEvent) = 0;
+
+	/**
+		Called when an NxDestructibleActor contains no visible chunks.  If the user returns true,
+		APEX will release the destructible actor.  If the user returns false, they should not
+		release the destructible actor from within the callback, and instead must wait until
+		the completion of NxApexScene::fetchResults().
+	*/
+	virtual bool	releaseOnNoChunksVisible(const NxDestructibleActor* destructible) = 0;
 
 protected:
 	virtual			~NxUserChunkReport() {}
@@ -511,6 +494,40 @@ struct NxApexChunkTransformUnit
     physx::PxQuat	chunkOrientation;
 };
 
+
+/** Flags for NxDestructibleActor::raycast() */
+struct NxDestructibleActorRaycastFlags
+{
+	enum Enum
+	{
+		NoChunks =		(0),
+		StaticChunks =	(1 << 0),
+		DynamicChunks =	(1 << 1),
+
+		AllChunks =					StaticChunks | DynamicChunks,
+
+		SegmentIntersect =	(1 << 2),	// Do not consider intersect times > 1
+
+		ForceAccurateRaycastsOn =	(1 << 3),
+		ForceAccurateRaycastsOff =	(1 << 4),
+	};
+};
+
+
+/** Enum to control when callbacks are fired. */
+struct NxDestructibleCallbackSchedule
+{
+	enum Enum
+	{
+		Disabled =		(0),
+		BeforeTick,		// Called by the simulation thread
+		FetchResults,	// Called by an application thread
+
+		Count
+	};
+};
+
+
 /**
 	Descriptor used to create the Destructible APEX module.
 */
@@ -619,7 +636,7 @@ public:
 
 		Default = false.
 	*/
-	virtual void							setChunkReportSendChunkStateEvents(bool chunkReportSendChunkStateEvents) = 0;
+	virtual void							scheduleChunkStateEventCallback(NxDestructibleCallbackSchedule::Enum chunkStateEventCallbackSchedule) = 0;
 
 	/**
 		Sets the user chunk crumble particle buffer callback. See NxUserChunkParticleReport.
@@ -724,85 +741,6 @@ public:
     */
 	virtual bool                            setSyncParams(NxUserDestructibleSyncHandler<NxApexDamageEventHeader> * userDamageEventHandler, NxUserDestructibleSyncHandler<NxApexFractureEventHeader> * userFractureEventHandler, NxUserDestructibleSyncHandler<NxApexChunkTransformHeader> * userChunkMotionHandler) = 0;
 
-#if (NX_SDK_VERSION_MAJOR == 2) || defined(DOXYGEN)
-	/**
-		PhysX SDK 2.8.X only.
-		Create a rigid body for the apex scene, guaranteed to have two-way interaction with destructible chunks.
-		If using GRBs, the rigid body will be a GRB.  Note: only a subset of the NxActor interface is implemented.
-	*/
-	virtual	NxActor*						createTwoWayRb(const NxActorDesc& desc, NxApexScene& apexScene) = 0;
-
-	/**
-		PhysX SDK 2.8.X only.
-		Release a rigid body created by createTwoWayRb.  If the NxActor was not created by createTwoWayRb, this function returns
-		false and nothing is done.  Note: all NxActors created by createTwoWayRb, which have not been released by releaseTwoRayRb,
-		will be released when this module is released.
-		Returns true if successful.
-	*/
-	virtual bool							releaseTwoWayRb(NxActor& actor) = 0;
-#else
-
-	/**
-		Create a rigid body for the apex scene, guaranteed to have two-way interaction with destructible chunks.
-		If using GRBs, the rigid body will be a GRB.  Note: only a subset of the NxActor interface is implemented.
-	*/
-	virtual physx::PxRigidDynamic *			createTwoWayRb(const physx::PxTransform & transform, NxApexScene& apexScene) = 0;
-	
-	/**
-		Add a rigid body for the apex scene, guaranteed to have two-way interaction with destructible chunks.
-		If using GRBs, the rigid body will be a GRB.  Note: only a subset of the NxActor interface is implemented.
-	*/
-
-	virtual physx::PxRigidDynamic *			addTwoWayRb(physx::PxRigidDynamic * actorExternal, NxApexScene& apexScene) = 0;
-	
-	/**
-		Release a rigid body created by createTwoWayRb.  If the NxActor was not created by createTwoWayRb, this function returns
-		false and nothing is done.  Note: all NxActors created by createTwoWayRb, which have not been released by releaseTwoRayRb,
-		will be released when this module is released.
-		Returns true if successful.
-	*/
-
-	virtual bool							releaseTwoWayRb(physx::PxRigidDynamic& actor) = 0;
-#endif
-
-#if APEX_USE_GRB || defined (DOXYGEN)
-	/**
-		The following functions are for GPU rigid body settings
-	*/
-
-	/**
-		The grid size to use for the triangle mesh acceleration structure.
-
-		The GPU collision detection system uses a uniform grid to accelerate static triangle mesh collision. The meshCellSize controls
-		the size of the cells in the uniform grid. When static triangle meshes are created, they are voxelized into the uniform grid.
-		If meshCellSize is set too low then each triangle will intersect with too many grid cells, reducing performance. 
-		If the value is set too high then each grid cell will contain too many triangles, reducing performance. Dynamic shapes (such
-		as the dynamic convex debris created by APEX destruction) do not use the uniform grid structure, so they should provide good
-		performance at any size.
-	*/
-	virtual void							setGrbMeshCellSize(float cellSize) = 0;
-
-	/**
-		The maximum linear acceleration which a GRB will be given.  This may also be set in the gpuRigidBodySettings parameters
-		in NxModuleDestructible::init(params).
-	*/
-	virtual void							setGrbMaxLinAcceleration(float maxLinAcceleration) = 0;
-
-	/**
-		Enable or disable GRB simulation in the given NxApexScene.
-		This module also allows GRB simulation to be controlled after scene creation using the NxMo
-	*/
-	virtual void							setGrbSimulationEnabled(NxApexScene& apexScene, bool enabled) = 0;
-
-	/**
-		Query the state of GRB simulation in the given NxApexScene.
-		Note: even if GRB simulation is attempted to be enabled using the NxApexSceneDesc or the setGrbSimulationEnabled call,
-		above, GRBs will only be enabled if a valid GPU device ordinal is set using the gpuRigidBodySettings.gpuDeviceOrdinal
-		in the NxModuleDestructible::init(params) function.  This function returns true if both of these conditions are met.
-	*/
-	virtual bool							isGrbSimulationEnabled(const NxApexScene& apexScene) const = 0;
-#endif
-
 	/** The following functions control the use of legacy behavior. */
 
 	/** 
@@ -853,6 +791,41 @@ public:
 		simulate call, and cleared.
 	*/
 	virtual void							invalidateBounds(const physx::PxBounds3* bounds, physx::PxU32 boundsCount, NxApexScene& apexScene) = 0;
+
+	/**
+		When applyDamage, or damage from impact, is processed, a rayCast call is used internally to find a more accurate damage position.
+		This allows the user to specify the rayCast behavior.  If no flags are set, no raycasting is done.  Raycasting will be peformed against
+		static or dynamic chunks, or both, depending on the value of flags.  The flags are defined by NxDestructibleActorRaycastFlags::Enum.
+
+		The default flag used is NxDestructibleActorRaycastFlags::StaticChunks, since static-only raycasts are faster than ones that include
+		dynamic chunks.
+
+		Note: only the flags NxDestructibleActorRaycastFlags::NoChunks, StaticChunks, and DynamicChunks are considered.
+	*/
+	virtual void							setDamageApplicationRaycastFlags(physx::NxDestructibleActorRaycastFlags::Enum flags, NxApexScene& apexScene) = 0;
+
+#if NX_SDK_VERSION_MAJOR == 3
+	/**
+		In PhysX 3.x, scaling of collision shapes can be done in the shape, not the cooked hull data.  As a consequence, each collision hull only needs to be cooked
+		once.  By default, this hull is not scaled from the original data.  But if the user desires, the hull can be scaled before cooking.  That scale will be removed from
+		the NxDestructibleActor's scale before being applied to the shape using the hull.  So ideally, this user-set cooking scale does nothing.  Numerically, however,
+		it may have an effect, so we leave it as an option.
+
+		The input scale must be positive in all components.  If not, the cooking scale will not be set, and the function returns false.  Otherwise, the scale is set and
+		the function returns true.
+	*/
+	virtual bool							setChunkCollisionHullCookingScale(const physx::PxVec3& scale) = 0;
+
+	/**
+		Retrieves the cooking scale used for PhysX3 collision hulls, which can be set by setChunkCollisionHullCookingScale.
+	*/
+	virtual physx::PxVec3					getChunkCollisionHullCookingScale() const = 0;
+#endif	// NX_SDK_VERSION_MAJOR == 3
+
+	/**
+		\brief Get reference to FractureTools object.
+	*/
+	virtual class NxFractureTools*			getFractureTools() const = 0;
 
 protected:
 	virtual									~NxModuleDestructible() {}

@@ -18,8 +18,8 @@ public:
 	FRCPassPostProcessSubsurfaceVisualize();
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual void Process(FRenderingCompositePassContext& Context) override;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 	virtual void Release() override { delete this; }
 };
 
@@ -30,8 +30,8 @@ class FRCPassPostProcessSubsurfaceExtractSpecular : public TRenderingCompositePa
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual void Process(FRenderingCompositePassContext& Context) override;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 	virtual void Release() override { delete this; }
 };
 
@@ -46,8 +46,8 @@ public:
 	FRCPassPostProcessSubsurfaceSetup(FViewInfo& View);
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual void Process(FRenderingCompositePassContext& Context) override;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 	virtual void Release() override { delete this; }
 
 	FIntRect ViewRect;
@@ -67,9 +67,9 @@ public:
 
 	// interface FRenderingCompositePass ---------
 
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
 	// 0:horizontal/1:vertical
@@ -86,7 +86,7 @@ class FRCPassPostProcessSubsurfaceRecombine : public TRenderingCompositePassBase
 public:
 	// interface FRenderingCompositePass ---------
 
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };

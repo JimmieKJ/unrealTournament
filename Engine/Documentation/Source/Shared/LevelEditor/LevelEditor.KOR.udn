@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2308326
+﻿INTSourceChangelist:2438071
 Availability:NoPublish
 Title: 레벨 에디터 동작
 Crumbs:
@@ -49,7 +49,7 @@ Gameplay/Framework/Controller/PlayerController
 [/EXCERPT:OpenPlayerControllerBlueprint]
 
 [EXCERPT:CreateClassBlueprint]
-보통 그냥 블루프린트라 줄여 부르는 클래스 블루프린트(Class Blueprint)는, 콘텐츠 제작자가 기존 게임플레이 클래스 위에 기능을 쉽게 추가시킬 수 있도록 해 주는 애셋입니다. 블루프린트는 코드 입력 방식이 아닌, 언리얼 에디터 안에서 비주얼 방식으로 제작되며, 콘텐츠 패키지에 애셋으로 저장됩니다. 근본적으로는 새로운 클래스 또는 액터 유형을 정의하는 것으로, 이를 맵에 인스턴스로 배치하면 다른 액터 유형과 마찬가지로 작동합니다.
+보통 그냥 블루프린트라 줄여 부르는 Blueprint Class (블루프린트 클래스)는, 콘텐츠 제작자가 기존 게임플레이 클래스 위에 기능을 쉽게 추가시킬 수 있도록 해 주는 애셋입니다. 블루프린트는 코드 입력 방식이 아닌, 언리얼 에디터 안에서 비주얼 방식으로 제작되며, 콘텐츠 패키지에 애셋으로 저장됩니다. 근본적으로는 새로운 클래스 또는 액터 유형을 정의하는 것으로, 이를 맵에 인스턴스로 배치하면 다른 액터 유형과 마찬가지로 작동합니다.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Types/ClassBlueprint
 [/VAR]
@@ -65,8 +65,8 @@ Engine/UI/LevelEditor/Details
 [/EXCERPT:DetailsTab]
 
 [EXCERPT:SceneOutlinerTab]
-###씬 아웃라이너
-씬 아웃라이너 패널에는 씬 안에 있는 모든 액터가 계층구조식 트리 뷰로 표시됩니다. 액터는 씬 아웃라이너에서 바로 선택 및 변경 가능합니다. '정보' 드롭다운 메뉴로 레벨, 레이어, ID 이름이 표시되는 열을 추가할 수도 있습니다.
+###월드 아웃라이너
+월드 아웃라이너 패널에는 씬 안에 있는 모든 액터가 계층구조식 트리 뷰로 표시됩니다. 액터는 월드 아웃라이너에서 바로 선택 및 변경 가능합니다. '정보' 드롭다운 메뉴로 레벨, 레이어, ID 이름이 표시되는 열을 추가할 수도 있습니다.
 
 [VAR:ToolTipFullLink]
 Engine/UI/LevelEditor/SceneOutliner
@@ -90,7 +90,7 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 [/EXCERPT:KeepSimulationChanges]
 
 [EXCERPT:PushToBlueprintDefaults]
-레벨에 선택된 액터에 가해진 프로퍼티 변경사항이 이 클래스에 대한 블루프린트 디폴트에도 적용되어, 한 인스턴스의 세팅 조정 내용을 앞으로의 모든 인스턴스에도 적용시킬 수 있습니다.
+레벨에 선택된 액터에 가해진 프로퍼티 변경사항이 이 클래스에 대한 클래스 디폴트에도 적용되어, 한 인스턴스의 세팅 조정 내용을 앞으로의 모든 인스턴스에도 적용시킬 수 있습니다.
 [/EXCERPT:PushToBlueprintDefaults]
 
 [EXCERPT:ResetToBlueprintDefaults]

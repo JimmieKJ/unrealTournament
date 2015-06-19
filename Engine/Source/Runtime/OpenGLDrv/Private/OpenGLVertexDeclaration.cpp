@@ -80,6 +80,11 @@ struct FOpenGLVertexDeclarationKey
 						SetupGLElement(GLElement, GL_SHORT, 4, false, true);
 					}
 					break;
+				case VET_Short4N:		SetupGLElement(GLElement, GL_SHORT,			4,			true,	true); break;
+				case VET_UShort2:		SetupGLElement(GLElement, GL_UNSIGNED_SHORT, 2, false, false); break;
+				case VET_UShort4:		SetupGLElement(GLElement, GL_UNSIGNED_SHORT, 4, false, false); break;
+				case VET_UShort2N:		SetupGLElement(GLElement, GL_UNSIGNED_SHORT, 2, true, true); break;
+				case VET_UShort4N:		SetupGLElement(GLElement, GL_UNSIGNED_SHORT, 4, true, true); break;
 				default: UE_LOG(LogRHI, Fatal,TEXT("Unknown RHI vertex element type %u"),(uint8)InElements[ElementIndex].Type);
 			};
 			VertexElements.Add(GLElement);
@@ -132,7 +137,7 @@ FVertexDeclarationRHIRef FOpenGLDynamicRHI::RHICreateVertexDeclaration(const FVe
 	if (VertexDeclarationRefPtr == NULL)
 	{
 		// Create and add to the cache if it doesn't exist.
-		VertexDeclarationRefPtr = &GOpenGLVertexDeclarationCache.Add(Key, new FOpenGLVertexDeclaration(Key.VertexElements));	
+		VertexDeclarationRefPtr = &GOpenGLVertexDeclarationCache.Add(Key,new FOpenGLVertexDeclaration(Key.VertexElements));
 		
 		check(VertexDeclarationRefPtr);
 		check(IsValidRef(*VertexDeclarationRefPtr));

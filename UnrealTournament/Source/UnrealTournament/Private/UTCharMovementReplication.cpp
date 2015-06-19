@@ -76,7 +76,6 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);
 
-	bIsEmoting = (Flags & FSavedMove_Character::FLAG_Custom_2) != 0;
 
 	int32 DodgeFlags = (Flags >> 2) & 7;
 	bPressedDodgeForward = (DodgeFlags == 1);
@@ -84,18 +83,19 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bPressedDodgeLeft = (DodgeFlags == 3);
 	bPressedDodgeRight = (DodgeFlags == 4);
 	bIsSprinting = (DodgeFlags == 5);
-	bIsDodgeRolling = (DodgeFlags == 6);
+	bIsFloorSliding = (DodgeFlags == 6);
 	bPressedSlide = (DodgeFlags == 7);
-	bool bOldWillDodgeRoll = bWantsSlideRoll;
-	bWantsSlideRoll = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
+	bool bOldWillFloorSlide = bWantsFloorSlide;
+	bWantsWallSlide = ((Flags & FSavedMove_Character::FLAG_Custom_2) != 0);
+	bWantsFloorSlide = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
 	bShotSpawned = ((Flags & FSavedMove_Character::FLAG_Custom_3) != 0);
-	if (!bOldWillDodgeRoll && bWantsSlideRoll)
+	if (!bOldWillFloorSlide && bWantsFloorSlide)
 	{
-		DodgeRollTapTime = GetCurrentMovementTime();
+		FloorSlideTapTime = GetCurrentMovementTime();
 	}
 	if (Cast<AUTCharacter>(CharacterOwner))
 	{
-		Cast<AUTCharacter>(CharacterOwner)->bRepDodgeRolling = bIsDodgeRolling;
+		Cast<AUTCharacter>(CharacterOwner)->bRepFloorSliding = bIsFloorSliding;
 	}
 }
 
@@ -122,19 +122,55 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 	}
 
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-	if (ClientData && ClientData->bSmoothNetUpdates)
+	if (ClientData && ClientData->bSmoothNetUpdates && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
 	{
-		// faster interpolation if stopped
-		float SmoothTime = Velocity.IsZero() ? 0.5f*ClientData->SmoothNetUpdateTime : ClientData->SmoothNetUpdateTime;
-
-		// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
-		if ((DeltaSeconds < SmoothTime) && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
+		if (ClientData->bUseLinearSmoothing)
 		{
-			ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
+			ClientData->CurrentSmoothTime += DeltaSeconds;
+
+			if (ClientData->LastCorrectionDelta < SMALL_NUMBER || ClientData->CurrentSmoothTime >= ClientData->LastCorrectionDelta)
+			{
+				// This is either:
+				//	1. The very first update
+				//	2. Time between updates was really small
+				//  3. We've arrived at the target position
+				ClientData->MeshTranslationOffset	= FVector::ZeroVector;
+				ClientData->MeshRotationOffset		= FQuat::Identity;
+			}
+			else
+			{
+				// Linearly interpolate between correction updates
+				const float LerpPercent	= ClientData->CurrentSmoothTime / ClientData->LastCorrectionDelta;
+
+				ClientData->MeshTranslationOffset	= FMath::Lerp(ClientData->OriginalMeshTranslationOffset, FVector::ZeroVector, LerpPercent);
+				ClientData->MeshRotationOffset		= FQuat::Slerp(ClientData->OriginalMeshRotationOffset, FQuat::Identity, LerpPercent);
+			}
 		}
 		else
 		{
-			ClientData->MeshTranslationOffset = FVector::ZeroVector;
+			// faster interpolation if stopped
+			float SmoothTime = Velocity.IsZero() ? 0.5f*ClientData->SmoothNetUpdateTime : ClientData->SmoothNetUpdateTime;
+
+			// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
+			if (DeltaSeconds < SmoothTime)
+			{
+				ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
+			}
+			else
+			{
+				ClientData->MeshTranslationOffset = FVector::ZeroVector;
+			}
+
+			// Smooth rotation
+			if (DeltaSeconds < ClientData->SmoothNetUpdateRotationTime)
+			{
+				// Slowly decay rotation offset
+				ClientData->MeshRotationOffset = FQuat::Slerp(ClientData->MeshRotationOffset, FQuat::Identity, DeltaSeconds / ClientData->SmoothNetUpdateRotationTime);
+			}
+			else
+			{
+				ClientData->MeshRotationOffset = FQuat::Identity;
+			}
 		}
 
 		if (IsMovingOnGround())
@@ -143,11 +179,9 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 			ClientData->MeshTranslationOffset.Z = 0.f;
 		}
 
-		if (CharacterOwner->GetMesh())
-		{
-			const FVector NewRelTranslation = CharacterOwner->ActorToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset + CharacterOwner->GetBaseTranslationOffset());
-			CharacterOwner->GetMesh()->SetRelativeLocation(NewRelTranslation);
-		}
+		const FVector NewRelTranslation = UpdatedComponent->GetComponentToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset) + CharacterOwner->GetBaseTranslationOffset();
+		const FQuat NewRelRotation = ClientData->MeshRotationOffset * CharacterOwner->GetBaseRotationOffset();
+		CharacterOwner->GetMesh()->SetRelativeLocationAndRotation(NewRelTranslation, NewRelRotation);
 		//DrawDebugSphere(GetWorld(), CharacterOwner->GetActorLocation(), 30.f, 8, FColor::Yellow);
 	}
 }
@@ -167,7 +201,8 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 	}
 
 	// Save important values that might get affected by the replay.
-	const bool bRealWantsSlideRoll = bWantsSlideRoll;
+	const bool bRealWantsFloorSlide = bWantsFloorSlide;
+	const bool bRealWantsWallSlide = bWantsWallSlide;
 
 	// revert to old values and let replays update them
 	if (ClientData->SavedMoves.Num() > 0)
@@ -180,7 +215,8 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 	bool bResult = Super::ClientUpdatePositionAfterServerUpdate();
 
 	// Restore saved values.
-	bWantsSlideRoll = bRealWantsSlideRoll;
+	bWantsFloorSlide = bRealWantsFloorSlide;
+	bWantsWallSlide = bRealWantsWallSlide;
 
 	return bResult;
 }
@@ -192,8 +228,7 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 		return;
 	}
 
-	bool bWasFalling = (MovementMode == MOVE_Falling);
-	FVector RealVelocity = Velocity; // Remove if we start using actual acceleration.  Used now to keep our forced clientside decel from affecting animation
+	FVector RealVelocity = Velocity; // Used now to keep our forced clientside decel from affecting animation
 
 	float RemainingTime = DeltaSeconds;
 	while (RemainingTime > 0.001f)
@@ -205,40 +240,107 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 			DeltaTime = FMath::Min(0.5f*RemainingTime, MaxSimulationTimeStep);
 		}
 		RemainingTime -= DeltaTime;
+
+		if (MovementMode == MOVE_Walking)
+		{
+			// update simulated velocity for walking (falling done in simulatemovement_internal)
+			bIsSprinting = (RealVelocity.SizeSquared() > 1.01f * FMath::Square(MaxWalkSpeed));
+
+			const float MaxAccel = GetMaxAcceleration();
+			float MaxSpeed = GetMaxSpeed();
+
+			// Apply braking or deceleration
+			const bool bZeroAcceleration = Acceleration.IsZero();
+			const bool bVelocityOverMax = IsExceedingMaxSpeed(MaxSpeed);
+
+			// Only apply braking if there is no acceleration, or we are over our max speed and need to slow down to it.
+			if (bZeroAcceleration || bVelocityOverMax)
+			{
+				const FVector OldVelocity = Velocity;
+				ApplyVelocityBraking(DeltaSeconds, GroundFriction, BrakingDecelerationWalking);
+
+				// Don't allow braking to lower us below max speed if we started above it.
+				if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
+				{
+					Velocity = OldVelocity.GetSafeNormal() * MaxSpeed;
+				}
+			}
+			else if (!bZeroAcceleration)
+			{
+				// Friction affects our ability to change direction. This is only done for input acceleration, not path following.
+				const FVector AccelDir = Acceleration.GetSafeNormal();
+				const float VelSize = Velocity.Size();
+				Velocity = Velocity - (Velocity - AccelDir * VelSize) * FMath::Min(DeltaTime * GroundFriction, 1.f);
+			}
+
+			// Apply acceleration
+			const float NewMaxSpeed = (IsExceedingMaxSpeed(MaxSpeed)) ? Velocity.Size() : MaxSpeed;
+			Velocity += Acceleration * DeltaTime;
+			if (Velocity.Size() > NewMaxSpeed)
+			{
+				Velocity = NewMaxSpeed * Velocity.GetSafeNormal();
+			}
+			//UE_LOG(UT, Warning, TEXT("New simulated velocity %f %f"), Velocity.X, Velocity.Y);
+		}
+		bool bWasFalling = (MovementMode == MOVE_Falling);
 		SimulateMovement_Internal(DeltaTime);
 
-		if (CharacterOwner->Role == ROLE_SimulatedProxy)
+		if (MovementMode != MOVE_Falling)
 		{
-			// update velocity with replicated acceleration - handle falling also
-			// For now, pretend 0 accel if walking on ground
-			if (MovementMode != MOVE_Falling)
-			{
-				LastCheckedAgainstWall = 0.f;
-			}
-			if (MovementMode == MOVE_Walking)
-			{
-				bIsAgainstWall = false;
-				float Speed = Velocity.Size();
-				if (bWasFalling && (Speed > MaxWalkSpeed))
-				{
-					if (Speed > SprintSpeed)
-					{
-						SimulatedVelocity = DodgeLandingSpeedFactor * Velocity.GetSafeNormal2D();
-					}
-					else
-					{
-						SimulatedVelocity = MaxWalkSpeed * Velocity.GetSafeNormal2D();
-					}
-				}
-				else if (Speed > 0.5f * MaxWalkSpeed)
-				{
-					SimulatedVelocity *= (1.f - 2.f*DeltaTime);
-				}
-			}
-			// @TODO FIXMESTEVE - need to update falling velocity after simulate also
+			LastCheckedAgainstWall = 0.f;
 		}
+		if (MovementMode == MOVE_Walking)
+		{
+			bIsAgainstWall = false;
+			float Speed = Velocity.Size2D();
+			if (bWasFalling && (Speed > MaxWalkSpeed))
+			{
+				if (bIsFloorSliding)
+				{
+					Velocity = FMath::Min(Speed, SprintSpeed) * Velocity.GetSafeNormal2D();
+				}
+				else if (Speed > SprintSpeed)
+				{
+					Velocity = DodgeLandingSpeedFactor * Velocity.GetSafeNormal2D();
+				}
+				else
+				{
+					Velocity = MaxWalkSpeed * Velocity.GetSafeNormal2D();
+				}
+			}
+		}
+		SimulatedVelocity = Velocity;
+		// save three values - linear velocity with no accel, accel before, accel after.  Log error when get position update from server
 	}
 	Velocity = RealVelocity;
+}
+
+void UUTCharacterMovement::SetReplicatedAcceleration(FRotator MovementRotation, uint8 CompressedAccel)
+{
+	MovementRotation.Pitch = 0.f;
+	FVector CurrentDir = MovementRotation.Vector();
+	FVector SideDir = (CurrentDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
+
+	FVector AccelDir(0.f);
+	if (CompressedAccel & 1)
+	{
+		AccelDir += CurrentDir;
+	}
+	else if (CompressedAccel & 2)
+	{
+		AccelDir -= CurrentDir;
+	}
+	if (CompressedAccel & 4)
+	{
+		AccelDir += SideDir;
+	}
+	else if (CompressedAccel & 8)
+	{
+		AccelDir -= SideDir;
+	}
+	bIsSprinting = ((MovementMode == MOVE_Walking) && (Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed)));
+	Acceleration = GetMaxAcceleration() * AccelDir.GetSafeNormal();
+	//UE_LOG(UT, Warning, TEXT("New replcated velocity %f %f acceleration %f %f"), Velocity.X, Velocity.Y, Acceleration.X, Acceleration.Y);
 }
 
 // Waiting on update of UCharacterMovementComponent::CharacterMovement(), overriding for now
@@ -301,10 +403,11 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 			return;
 		}
 
-		Acceleration = Velocity.GetSafeNormal();	// Not currently used for simulated movement
 		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
 
 		MaybeUpdateBasedMovement(DeltaSeconds);
+
+		//DrawDebugLine(GetWorld(), CharacterOwner->GetActorLocation(), CharacterOwner->GetActorLocation() + 0.2f*Acceleration, FLinearColor::Green);
 
 		// simulated pawns predict location
 		OldVelocity = Velocity;
@@ -417,7 +520,7 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 		InitCollisionParams(CapsuleQuery, ResponseParam);
 		const FVector PawnLocation = CharacterOwner->GetActorLocation();
 		const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
-		const bool bHit = GetWorld()->SweepSingle(Hit, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+		const bool bHit = GetWorld()->SweepSingleByChannel(Hit, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 		bIsAgainstWall = bHit;
 		if (bHit)
 		{
@@ -564,7 +667,7 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
 {
 	// don't delay if just spawned shot or dodged 
-	return (NewMove.IsValid() && ((FSavedMove_UTCharacter*)(NewMove.Get()))->NeedsRotationSent());
+	return !NewMove.IsValid() || !((FSavedMove_UTCharacter*)(NewMove.Get()))->NeedsRotationSent();
 }
 
 bool FSavedMove_UTCharacter::NeedsRotationSent() const
@@ -1091,6 +1194,10 @@ bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, AChara
 	{
 		return false;
 	}
+	if (bSavedWantsWallSlide != ((FSavedMove_UTCharacter*)&NewMove)->bSavedWantsWallSlide)
+	{
+		return false;
+	}
 	if (bSavedWantsSlide != ((FSavedMove_UTCharacter*)&NewMove)->bSavedWantsSlide)
 	{
 		return false;
@@ -1148,17 +1255,14 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	{
 		Result |= (6 << 2);
 	}
-
+	if (bSavedWantsWallSlide)
+	{
+		Result |= FLAG_Custom_2;
+	}
 	if (bSavedWantsSlide)
 	{
 		Result |= FLAG_Custom_1;
 	}
-
-	if (bSavedIsEmoting)
-	{
-		Result |= FLAG_Custom_2;
-	}
-
 	if (bShotSpawned)
 	{
 		Result |= FLAG_Custom_3;
@@ -1176,13 +1280,13 @@ void FSavedMove_UTCharacter::Clear()
 	bPressedDodgeRight = false;
 	bSavedIsSprinting = false;
 	bSavedIsRolling = false;
+	bSavedWantsWallSlide = false;
 	bSavedWantsSlide = false;
-	bSavedIsEmoting = false;
 	SavedMultiJumpCount = 0;
 	SavedWallDodgeCount = 0;
 	SavedSprintStartTime = 0.f;
 	SavedDodgeResetTime = 0.f;
-	SavedDodgeRollEndTime = 0.f;
+	SavedFloorSlideEndTime = 0.f;
 	bSavedJumpAssisted = false;
 	bSavedIsDodging = false;
 	bPressedSlide = false;
@@ -1200,14 +1304,14 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeLeft = UTCharMov->bPressedDodgeLeft;
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
-		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
-		bSavedWantsSlide = UTCharMov->WantsSlideRoll();
-		bSavedIsEmoting = UTCharMov->bIsEmoting;
+		bSavedIsRolling = UTCharMov->bIsFloorSliding;
+		bSavedWantsWallSlide = UTCharMov->WantsWallSlide();
+		bSavedWantsSlide = UTCharMov->WantsFloorSlide();
 		SavedMultiJumpCount = UTCharMov->CurrentMultiJumpCount;
 		SavedWallDodgeCount = UTCharMov->CurrentWallDodgeCount;
 		SavedSprintStartTime = UTCharMov->SprintStartTime;
 		SavedDodgeResetTime = UTCharMov->DodgeResetTime;
-		SavedDodgeRollEndTime = UTCharMov->DodgeRollEndTime;
+		SavedFloorSlideEndTime = UTCharMov->FloorSlideEndTime;
 		bSavedJumpAssisted = UTCharMov->bJumpAssisted;
 		bSavedIsDodging = UTCharMov->bIsDodging;
 		bPressedSlide = UTCharMov->bPressedSlide;
@@ -1233,7 +1337,7 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			UTCharMov->CurrentWallDodgeCount = SavedWallDodgeCount;
 			UTCharMov->SprintStartTime = SavedSprintStartTime;
 			UTCharMov->DodgeResetTime = SavedDodgeResetTime;
-			UTCharMov->DodgeRollEndTime = SavedDodgeRollEndTime;
+			UTCharMov->FloorSlideEndTime = SavedFloorSlideEndTime;
 			UTCharMov->bJumpAssisted = bSavedJumpAssisted;
 			UTCharMov->bIsDodging = bSavedIsDodging;
 			//UE_LOG(UT, Warning, TEXT("First move %f bIsDodging %d"), TimeStamp, UTCharMov->bIsDodging);
@@ -1258,9 +1362,9 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			{
 			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeResetTime, UTCharMov->DodgeResetTime);
 			}
-			if (SavedDodgeRollEndTime != UTCharMov->DodgeRollEndTime)
+			if (SavedFloorSlideEndTime != UTCharMov->FloorSlideEndTime)
 			{
-			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeRollEndTime, UTCharMov->DodgeRollEndTime);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedFloorSlideEndTime, UTCharMov->FloorSlideEndTime);
 			}
 			if (SavedWallDodgeCount != UTCharMov->CurrentWallDodgeCount)
 			{
@@ -1281,7 +1385,7 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			SavedWallDodgeCount = UTCharMov->CurrentWallDodgeCount;
 			SavedSprintStartTime = UTCharMov->SprintStartTime;
 			SavedDodgeResetTime = UTCharMov->DodgeResetTime;
-			SavedDodgeRollEndTime = UTCharMov->DodgeRollEndTime;
+			SavedFloorSlideEndTime = UTCharMov->FloorSlideEndTime;
 			bSavedJumpAssisted = UTCharMov->bJumpAssisted;
 			bSavedIsDodging = UTCharMov->bIsDodging;
 		}
@@ -1309,7 +1413,7 @@ FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() 
 	if (!ClientPredictionData)
 	{
 		UUTCharacterMovement* MutableThis = const_cast<UUTCharacterMovement*>(this);
-		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_UTChar();
+		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_UTChar(*this);
 		MutableThis->ClientPredictionData->MaxSmoothNetUpdateDist = 92.f; // 2X character capsule radius
 		MutableThis->ClientPredictionData->NoSmoothNetUpdateDist = 140.f;
 	}

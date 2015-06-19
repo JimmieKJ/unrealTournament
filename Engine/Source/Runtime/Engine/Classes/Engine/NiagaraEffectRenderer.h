@@ -9,7 +9,7 @@ NiagaraEffectRenderer.h: Base class for Niagara render modules
 #include "ParticleHelper.h"
 #include "ParticleVertexFactory.h"
 #include "ParticleBeamTrailVertexFactory.h"
-#include "Components/NiagaraComponent.h"
+#include "NiagaraComponent.h"
 #include "NiagaraEffectRendererProperties.h"
 #include "NiagaraSpriteRendererProperties.h"
 #include "NiagaraRibbonRendererProperties.h"
@@ -62,6 +62,10 @@ public:
 
 	virtual bool HasDynamicData() = 0;
 
+	virtual bool SetMaterialUsage() = 0;
+
+	virtual const TArray<FNiagaraVariableInfo>& GetRequiredAttributes() = 0;
+
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View, FNiagaraSceneProxy *SceneProxy)
 	{
 		FPrimitiveViewRelevance Result;
@@ -84,7 +88,7 @@ public:
 	void SetMaterial(UMaterial *InMaterial, ERHIFeatureLevel::Type FeatureLevel)
 	{
 		Material = InMaterial;
-		if (!Material)
+		if (!Material || !SetMaterialUsage())
 		{
 			Material = UMaterial::GetDefaultMaterial(MD_Surface);
 		}
@@ -97,7 +101,7 @@ public:
 	virtual UClass *GetPropertiesClass() = 0;
 
 	float GetCPUTimeMS() { return CPUTimeMS; }
-
+	FBox GetBounds()	{ return CachedBounds;  }
 protected:
 	mutable float CPUTimeMS;
 
@@ -107,6 +111,7 @@ protected:
 	}
 
 	UMaterial* Material;
+	FBox CachedBounds;
 
 private:
 	FMaterialRelevance MaterialRelevance;
@@ -118,7 +123,7 @@ private:
 /**
 * NiagaraEffectRendererSprites renders an FNiagaraSimulation as sprite particles
 */
-class NiagaraEffectRendererSprites : public NiagaraEffectRenderer
+class ENGINE_API NiagaraEffectRendererSprites : public NiagaraEffectRenderer
 {
 public:	
 
@@ -135,16 +140,18 @@ public:
 	virtual void CreateRenderThreadResources() override;
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const override;
-
+	virtual bool SetMaterialUsage() override;
 	/** Update render data buffer from attributes */
 	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraEmitterParticleData &Data) override;
 
 	virtual void SetDynamicData_RenderThread(FNiagaraDynamicDataBase* NewDynamicData) override;
-	int GetDynamicDataSize();
-	bool HasDynamicData();
+	int GetDynamicDataSize() override;
+	bool HasDynamicData() override;
 
 	UClass *GetPropertiesClass() override { return UNiagaraSpriteRendererProperties::StaticClass(); }
-	
+
+	virtual const TArray<FNiagaraVariableInfo>& GetRequiredAttributes() override;
+
 private:
 	UNiagaraSpriteRendererProperties *Properties;
 	struct FNiagaraDynamicDataSprites *DynamicDataRender;
@@ -160,7 +167,7 @@ private:
 * NiagaraEffectRendererRibbon renders an FNiagaraSimulation as a ribbon connecting all particles
 * in order by particle age.
 */
-class NiagaraEffectRendererRibbon : public NiagaraEffectRenderer
+class ENGINE_API NiagaraEffectRendererRibbon : public NiagaraEffectRenderer
 {
 public:
 	NiagaraEffectRendererRibbon(ERHIFeatureLevel::Type FeatureLevel, UNiagaraEffectRendererProperties *Props);
@@ -175,8 +182,10 @@ public:
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const override;
 
+	virtual bool SetMaterialUsage() override;
+
 	/** Update render data buffer from attributes */
-	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraEmitterParticleData &Data);
+	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraEmitterParticleData &Data) override;
 
 	void AddRibbonVert(TArray<FParticleBeamTrailVertex>& RenderData, FVector ParticlePos, const FNiagaraEmitterParticleData &Data, FVector2D UV1,
 		const FVector4 &Color, const FVector4 &Age, const FVector4 &Rotation)
@@ -199,8 +208,10 @@ public:
 
 
 	virtual void SetDynamicData_RenderThread(FNiagaraDynamicDataBase* NewDynamicData) override;
-	int GetDynamicDataSize();
-	bool HasDynamicData();
+	int GetDynamicDataSize() override;
+	bool HasDynamicData() override;
+
+	virtual const TArray<FNiagaraVariableInfo>& GetRequiredAttributes() override;
 
 	UClass *GetPropertiesClass() override { return UNiagaraRibbonRendererProperties::StaticClass(); }
 

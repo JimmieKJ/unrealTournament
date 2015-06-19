@@ -3,6 +3,7 @@
 #pragma once
 
 #include "HAL/Platform.h"
+#include "HAL/PlatformMisc.h"
 #include "Misc/Build.h"
 
 
@@ -15,21 +16,27 @@
 // "verify" expressions are always evaluated, but only cause an error if enabled.
 //
 
+#if !UE_BUILD_SHIPPING
+#define _DebugBreakAndPromptForRemote() \
+	if (!FPlatformMisc::IsDebuggerPresent()) { FPlatformMisc::PromptForRemoteDebugging(false); } FPlatformMisc::DebugBreak();
+#else
+	#define _DebugBreakAndPromptForRemote()
+#endif // !UE_BUILD_SHIPPING
 #if DO_CHECK
 	#define checkCode( Code )		do { Code } while ( false );
-	#define verify(expr)			{ if(!(expr)) { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(expr); } }
-	#define check(expr)				{ if(!(expr)) { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(expr); } }
+	#define verify(expr)			{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(expr); } }
+	#define check(expr)				{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(expr); } }
 	
 	/**
 	 * verifyf, checkf: Same as verify, check but with printf style additional parameters
 	 * Read about __VA_ARGS__ (variadic macros) on http://gcc.gnu.org/onlinedocs/gcc-3.4.4/cpp.pdf.
 	 */
-	#define verifyf(expr, ...)				{ if(!(expr)) { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( #expr, __FILE__, __LINE__, ##__VA_ARGS__ ); CA_ASSUME(expr); } }
-	#define checkf(expr, ...)				{ if(!(expr)) { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( #expr, __FILE__, __LINE__, ##__VA_ARGS__ ); CA_ASSUME(expr); } }
+	#define verifyf(expr, format,  ...)		{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__, format, ##__VA_ARGS__); CA_ASSUME(expr); } }
+	#define checkf(expr, format,  ...)		{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__, format, ##__VA_ARGS__); CA_ASSUME(expr); } }
 	/**
 	 * Denotes code paths that should never be reached.
 	 */
-	#define checkNoEntry()       { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( "Enclosing block should never be called", __FILE__, __LINE__ ); }
+	#define checkNoEntry()       { FDebug::LogAssertFailedMessage( "Enclosing block should never be called", __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed("Enclosing block should never be called", __FILE__, __LINE__ ); }
 
 	/**
 	 * Denotes code paths that should not be executed more than once.
@@ -54,17 +61,17 @@
 	                            checkf( RecursionCounter##__LINE__ == 0, TEXT("Enclosing block was entered recursively") );  \
 	                            const FRecursionScopeMarker ScopeMarker##__LINE__( RecursionCounter##__LINE__ )
 
-	#define unimplemented()       { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( "Unimplemented function called", __FILE__, __LINE__ ); }
+	#define unimplemented()       { FDebug::LogAssertFailedMessage( "Unimplemented function called", __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed("Unimplemented function called", __FILE__, __LINE__); }
 
 #else
 	#define checkCode(...)
-	#define check(...)
-	#define checkf(...)
+	#define check(expr)
+	#define checkf(expr, format, ...)
 	#define checkNoEntry()
 	#define checkNoReentry()
 	#define checkNoRecursion()
 	#define verify(expr)				{ if(!(expr)){} }
-	#define verifyf(expr, ...)			{ if(!(expr)){} }
+	#define verifyf(expr, format, ...)	{ if(!(expr)){} }
 	#define unimplemented()
 #endif
 
@@ -72,12 +79,12 @@
 // Check for development only.
 //
 #if DO_GUARD_SLOW
-	#define checkSlow(expr, ...)	{ if(!(expr)) { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ ); CA_ASSUME(expr); } }
-	#define checkfSlow(expr, ...)	{ if(!(expr)) { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( #expr, __FILE__, __LINE__, __VA_ARGS__ ); CA_ASSUME(expr); } }
-	#define verifySlow(expr)		{ if(!(expr)) { FPlatformMisc::DebugBreak(); FDebug::AssertFailed( #expr, __FILE__, __LINE__ );} }
+	#define checkSlow(expr)					{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__); CA_ASSUME(expr); } }
+	#define checkfSlow(expr, format, ...)	{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed( #expr, __FILE__, __LINE__, format, ##__VA_ARGS__ ); CA_ASSUME(expr); } }
+	#define verifySlow(expr)				{ if(!(expr)) { FDebug::LogAssertFailedMessage( #expr, __FILE__, __LINE__ ); _DebugBreakAndPromptForRemote(); FDebug::AssertFailed(#expr, __FILE__, __LINE__); } }
 #else
-	#define checkSlow(...)
-	#define checkfSlow(...)
+	#define checkSlow(expr)
+	#define checkfSlow(expr, format, ...)
 	#define verifySlow(expr)  if(expr){}
 #endif
 
@@ -106,22 +113,42 @@
 
 #if DO_CHECK && !USING_CODE_ANALYSIS // The Visual Studio 2013 analyzer doesn't understand these complex conditionals
 
-	#define ensure( InExpression ) \
-		FDebug::EnsureNotFalse( ( ( InExpression ) != 0 ), #InExpression, __FILE__, __LINE__ )
+	namespace UE4Asserts_Private
+	{
+		// This is used by ensureOnce to generate a bool per instance
+		// by passing a lambda which will uniquely instantiate the template.
+		template <typename Type>
+		bool TrueOnFirstCallOnly(const Type&)
+		{
+			static bool bValue = true;
+			bool Result = bValue;
+			bValue = false;
+			return Result;
+		}
 
-	#define ensureMsg( InExpression, InMsg ) \
-		(((InExpression) == 0) ? FDebug::EnsureNotFalse(false, #InExpression, __FILE__, __LINE__, InMsg ) : true)
+		FORCEINLINE bool OptionallyDebugBreakAndPromptForRemoteReturningFalse(bool bBreak)
+		{
+			if (bBreak)
+			{
+				FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse();
+			}
+			return false;
+		}
+	}
 
-	#define ensureMsgf( InExpression, ... ) \
-		(((InExpression) == 0) ? (FPlatformMisc::DebugBreakReturningFalse() || FDebug::EnsureNotFalseFormatted(false, #InExpression, __FILE__, __LINE__, ##__VA_ARGS__ )) : true)
+	#define ensure(         InExpression                ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, TEXT("")               ) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse())
+	#define ensureMsg(      InExpression, InMsg         ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InMsg                  ) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse())
+	#define ensureMsgf(     InExpression, InFormat, ... ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse())
+	#define ensureOnce(     InExpression                ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, TEXT("")               ) || UE4Asserts_Private::OptionallyDebugBreakAndPromptForRemoteReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{})))
+	#define ensureOnceMsgf( InExpression, InFormat, ... ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || UE4Asserts_Private::OptionallyDebugBreakAndPromptForRemoteReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{})))
 
 #else	// DO_CHECK
 
-	#define ensure( InExpression ) ( ( InExpression ) != 0 )
-
-	#define ensureMsg( InExpression, InMsg ) ( ( InExpression ) != 0 )
-
-	#define ensureMsgf( InExpression, ... ) ( ( InExpression ) != 0 )
+	#define ensure(         InExpression                ) ((InExpression) != 0)
+	#define ensureMsg(      InExpression, InMsg         ) ((InExpression) != 0)
+	#define ensureMsgf(     InExpression, InFormat, ... ) ((InExpression) != 0)
+	#define ensureOnce(     InExpression                ) ((InExpression) != 0)
+	#define ensureOnceMsgf( InExpression, InFormat, ... ) ((InExpression) != 0)
 
 #endif	// DO_CHECK
 
@@ -178,8 +205,9 @@ struct FTCharArrayTester
 #define LowLevelFatalError(Format, ...) \
 	{ \
 		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
-		FPlatformMisc::DebugBreak(); \
 		FError::LowLevelFatal(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
+		_DebugBreakAndPromptForRemote(); \
+		FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
 	}
 
 
@@ -205,8 +233,9 @@ struct FTCharArrayTester
 		static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
 		if (ELogVerbosity::Verbosity == ELogVerbosity::Fatal) \
 		{ \
-			FPlatformMisc::DebugBreak(); \
 			FError::LowLevelFatal(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
+			_DebugBreakAndPromptForRemote(); \
+			FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
 		} \
 	}
 	// Conditional logging (fatal errors only).
@@ -217,8 +246,9 @@ struct FTCharArrayTester
 		{ \
 			if (Condition) \
 			{ \
-				FPlatformMisc::DebugBreak(); \
 				FError::LowLevelFatal(__FILE__, __LINE__, Format, ##__VA_ARGS__); \
+				_DebugBreakAndPromptForRemote(); \
+				FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
 			} \
 		} \
 	}
@@ -277,14 +307,16 @@ struct FTCharArrayTester
 			{ \
 				if (!CategoryName.IsSuppressed(ELogVerbosity::Verbosity)) \
 				{ \
+					FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 					if (ELogVerbosity::Verbosity == ELogVerbosity::Fatal) \
 					{\
-						FPlatformMisc::DebugBreak();\
+						_DebugBreakAndPromptForRemote(); \
+						FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
 					}\
-					FMsg::Logf(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 				} \
 			} \
 		}
+
 		// Conditional logging. Will only log if Condition is met.
 		#define UE_CLOG(Condition, CategoryName, Verbosity, Format, ...) \
 		{ \
@@ -296,11 +328,12 @@ struct FTCharArrayTester
 				{ \
 					if (Condition) \
 					{ \
+						FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 						if (ELogVerbosity::Verbosity == ELogVerbosity::Fatal) \
 						{\
-							FPlatformMisc::DebugBreak();\
+							_DebugBreakAndPromptForRemote(); \
+							FDebug::AssertFailed("", __FILE__, __LINE__, Format, ##__VA_ARGS__); \
 						}\
-						FMsg::Logf(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, Format, ##__VA_ARGS__); \
 					} \
 				} \
 			} \

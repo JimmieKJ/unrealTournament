@@ -16,13 +16,18 @@ void Main(
 	float4 InstanceHitProxyId : HIT_PROXY_ID,
 #endif
 	float4 PixelPosition	: TEXCOORD6,
-	in float4 SvPosition	: SV_Position,
-	OPTIONAL_IsFrontFace,
-	out float4 OutColor		: SV_Target0
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition	: SV_Position,
+	OPTIONAL_IsFrontFace
+	OPTIONAL_OutDepth
+	,out float4 OutColor		: SV_Target0
 	)
 {
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, PixelPosition);
 	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, PixelPosition);
+
+	#if OUTPUT_PIXEL_DEPTH_OFFSET
+		ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, OutDepth);
+	#endif
 
 	GetMaterialCoverageAndClipping(MaterialParameters);
 

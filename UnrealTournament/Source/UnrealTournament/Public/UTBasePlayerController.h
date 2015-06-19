@@ -4,6 +4,8 @@
 
 #include "UTBasePlayerController.generated.h"
 
+class UUTGameViewportClient;
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
 {
@@ -62,9 +64,15 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 
 public:
 	/**
-	 *	User a GUID to find a server via the MCP and connect to it.
+	 *	User a GUID to find a server via the MCP and connect to it.  NOTE.. DesiredTeam = 0, 1, 255 or -1 for don't set the team
 	 **/
-	virtual void ConnectToServerViaGUID(FString ServerGUID, bool bSpectate=false, bool bFindLastMatch=false);
+	virtual void ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate=false, bool bFindLastMatch=false);
+
+	/**
+	 *	Used by the hub system to cancel a pending connect if the player is downloading content.  Used for aborting.
+	 **/
+
+	virtual void CancelConnectViaGUID();
 
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReturnToLobby();
@@ -74,7 +82,7 @@ public:
 
 	// Allows the game to cause the client to set it's presence.
 	UFUNCTION(Client, reliable)
-	virtual void ClientSetPresence(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bIsInstance);
+	virtual void ClientSetPresence(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientGenericInitialization();
@@ -104,10 +112,16 @@ protected:
 	bool GUIDJoinWantsToSpectate;
 	int32 GUIDJoinAttemptCount;
 	bool GUIDJoinWantsToFindMatch;
+	int32 GUIDJoinDesiredTeam;
 
+	void StartGUIDJoin();
 	void AttemptGUIDJoin();
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnCancelGUIDFindSessionComplete(bool bWasSuccessful);
+
+	FContentDownloadComplete OnDownloadComleteDelgate;
+	FDelegateHandle OnDownloadCompleteDelegateHandle;
+	virtual void OnDownloadComplete(class UUTGameViewportClient* ViewportClient, ERedirectStatus::Type RedirectStatus, const FString& PackageName);
 
 public:
 	UFUNCTION(Exec)

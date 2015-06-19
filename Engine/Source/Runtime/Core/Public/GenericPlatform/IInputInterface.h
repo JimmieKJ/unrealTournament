@@ -1,7 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "HAL/Platform.h"
+
 
 // General identifiers for potential force feedback channels. These will be mapped according to the
 // platform specific implementation.
@@ -16,6 +18,7 @@ enum class FForceFeedbackChannelType
 	RIGHT_SMALL
 };
 
+
 struct FForceFeedbackValues
 {
 	float LeftLarge;
@@ -28,15 +31,19 @@ struct FForceFeedbackValues
 		, LeftSmall(0.f)
 		, RightLarge(0.f)
 		, RightSmall(0.f)
-	{
-	}
+	{ }
 };
 
-// Abstract interface for the input interface.
+
+/**
+ * Interface for the input interface.
+ */
 class IInputInterface
 {
 public:
-	virtual ~IInputInterface() {};
+
+	/** Virtual destructor. */
+	virtual ~IInputInterface() { };
 
 	/**
 	* Sets the strength/speed of the given channel for the given controller id.
@@ -66,4 +73,3 @@ public:
 	 */
 	virtual void SetLightColor(int32 ControllerId, FColor Color) = 0;
 };
-

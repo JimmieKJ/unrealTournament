@@ -74,23 +74,6 @@ class USCS_Node : public UObject
 	virtual void PostLoad() override;
 	// End UObject Interface
 
-	/** 
-	 * Create a list of existing names used in this function. 
-	 *
-	 * @param	CurrentNames		Array to populate with the names
-	 *
-	 */
-	ENGINE_API void GenerateListOfExistingNames( TArray<FName>& CurrentNames ) const;
-
-	/** 
-	 * Create a new unique name for a component. 
-	 *
-	 * @param	CurrentNames		List of current names used in the blueprint
-	 * @param	DesiredName			Optional desired name to use; if NAME_None, a default name will be generated based on the component type.
-	 *
-	 */	 
-	FName GenerateNewComponentName( TArray<FName>& CurrentNames, FName DesiredName = NAME_None ) const;
-
 	/** The scene component constructed for component editing in the SCS editor */
 	class USceneComponent* EditorComponentInstance;
 

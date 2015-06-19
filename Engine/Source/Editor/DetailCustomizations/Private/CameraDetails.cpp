@@ -37,56 +37,67 @@ void FCameraDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 	// Organize the properties
 	CameraCategory.AddProperty(ProjectionModeProperty);
 
+	// Perspective-specific properties
 	IDetailPropertyRow& FieldOfViewRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, FieldOfView)));
-		FieldOfViewRow.Visibility( TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP( this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Perspective ) ) );
+	FieldOfViewRow.Visibility( TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP( this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Perspective ) ) );
+
+	// Orthographic-specific properties
+	TAttribute<EVisibility> OrthographicVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Orthographic));
 
 	IDetailPropertyRow& OrthoWidthRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoWidth)));
-		OrthoWidthRow.Visibility( TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP( this, &FCameraDetails::ProjectionModeMatches, ProjectionModeProperty, ECameraProjectionMode::Orthographic ) ) );
+	OrthoWidthRow.Visibility(OrthographicVisibility);
 
-		CameraCategory.AddProperty( bConstrainAspectRatioProperty );
-		IDetailPropertyRow& AspectRatioRow = CameraCategory.AddProperty(AspectRatioProperty);
+	IDetailPropertyRow& OrthoNearClipPlaneRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoNearClipPlane)));
+	OrthoNearClipPlaneRow.Visibility(OrthographicVisibility);
 
-		// Provide the special aspect ratio row
-		AspectRatioRow.CustomWidget()
-			.NameContent()
-			[
-				AspectRatioProperty->CreatePropertyNameWidget()
-			]
+	IDetailPropertyRow& OrthoFarClipPlaneRow = CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, OrthoFarClipPlane)));
+	OrthoFarClipPlaneRow.Visibility(OrthographicVisibility);
+
+	// Aspect ratio
+	CameraCategory.AddProperty( bConstrainAspectRatioProperty );
+	IDetailPropertyRow& AspectRatioRow = CameraCategory.AddProperty(AspectRatioProperty);
+
+	// Provide the special aspect ratio row
+	AspectRatioRow.CustomWidget()
+		.NameContent()
+		[
+			AspectRatioProperty->CreatePropertyNameWidget()
+		]
 		.ValueContent()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.Padding(0.0f, 2.0f, 5.0f, 2.0f)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.Padding(0.0f, 2.0f, 5.0f, 2.0f)
+				SNew(SNumericEntryBox<float>)
+				.AllowSpin(true)
+				.Value(this, &FCameraDetails::GetAspectRatio)
+				.Font(FontStyle)
+				.MinValue(MinAspectRatio)
+				.MaxValue(MaxAspectRatio)
+				.MinSliderValue(LowestCommonAspectRatio)
+				.MaxSliderValue(HighestCommonAspectRatio)
+				.OnValueChanged(this, &FCameraDetails::OnAspectRatioSpinnerChanged)
+				.ToolTipText(LOCTEXT("AspectFloatTooltip", "Aspect Ratio (Width/Height)"))
+			]
+			+SHorizontalBox::Slot()
 				[
-					SNew(SNumericEntryBox<float>)
-					.AllowSpin(true)
-					.Value(this, &FCameraDetails::GetAspectRatio)
-					.Font(FontStyle)
-					.MinValue(MinAspectRatio)
-					.MaxValue(MaxAspectRatio)
-					.MinSliderValue(LowestCommonAspectRatio)
-					.MaxSliderValue(HighestCommonAspectRatio)
-					.OnValueChanged(this, &FCameraDetails::OnAspectRatioSpinnerChanged)
-					.ToolTipText(LOCTEXT("AspectFloatTooltip", "Aspect Ratio (Width/Height)"))
-				]
-				+SHorizontalBox::Slot()
+					SNew(SComboButton)
+					.OnGetMenuContent( this, &FCameraDetails::OnGetComboContent )
+					.ContentPadding(0.0f)
+					.ButtonStyle( FEditorStyle::Get(), "ToggleButton" )
+					.ForegroundColor(FSlateColor::UseForeground())
+					.VAlign(VAlign_Center)
+					.ButtonContent()
 					[
-						SNew(SComboButton)
-						.OnGetMenuContent( this, &FCameraDetails::OnGetComboContent )
-						.ContentPadding(0.0f)
-						.ButtonStyle( FEditorStyle::Get(), "ToggleButton" )
-						.ForegroundColor(FSlateColor::UseForeground())
-						.VAlign(VAlign_Center)
-						.ButtonContent()
-						[
-							SAssignNew(AspectTextBox, SEditableTextBox)
-							.HintText( LOCTEXT("AspectTextHint", "width x height") )
-							.ToolTipText( LOCTEXT("AspectTextTooltip", "Enter a ratio in the form \'width x height\' or \'width:height\'") )
-							.Font(FontStyle)
-							.OnTextCommitted(this, &FCameraDetails::OnCommitAspectRatioText)
-						]
+						SAssignNew(AspectTextBox, SEditableTextBox)
+						.HintText( LOCTEXT("AspectTextHint", "width x height") )
+						.ToolTipText( LOCTEXT("AspectTextTooltip", "Enter a ratio in the form \'width x height\' or \'width:height\'") )
+						.Font(FontStyle)
+						.OnTextCommitted(this, &FCameraDetails::OnCommitAspectRatioText)
 					]
-			];
+				]
+		];
 
 	CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, bUsePawnControlRotation)));
 	CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, PostProcessBlendWeight)));

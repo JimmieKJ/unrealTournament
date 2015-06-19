@@ -30,7 +30,7 @@ public:
 	const FEditorElement* GetEditorElement(int32 XIndex, int32 YIndex) const;
 
 	/** return true if all sample data is additive **/
-	virtual bool IsValidAdditive() const;
+	virtual bool IsValidAdditive() const override;
 
 	/** 
 	 * Get Grid Samples from BlendInput, From Input, it will return the 4 points of the grid that this input belongs to. 

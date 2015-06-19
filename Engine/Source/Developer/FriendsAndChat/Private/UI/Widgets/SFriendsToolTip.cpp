@@ -8,6 +8,7 @@ void SFriendsToolTip::Construct(const FArguments& InArgs)
 	FriendStyle = *InArgs._FriendStyle;
 	SToolTip::Construct(SToolTip::FArguments()
 		.BorderImage(FStyleDefaults::GetNoBrush())
+		.TextMargin(0)
 		[
 			SNew(SBorder)
 			.BorderImage(&FriendStyle.ChatContainerBackground)

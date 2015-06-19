@@ -44,6 +44,7 @@ void UReferenceViewerSchema::GetContextMenuActions(const UEdGraph* CurrentGraph,
 							FNewMenuDelegate::CreateUObject(this, &UReferenceViewerSchema::GetMakeCollectionWithReferencedAssetsSubMenu )
 							);
 
+	MenuBuilder->AddMenuEntry(FReferenceViewerActions::Get().ShowSizeMap);
 	MenuBuilder->AddMenuEntry(FReferenceViewerActions::Get().ShowReferenceTree);
 }
 

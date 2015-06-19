@@ -18,7 +18,7 @@ private:
 
 FDisjointSet::FDisjointSet( const uint32 Size )
 {
-	Parents.Init( Size );
+	Parents.SetNumUninitialized( Size );
 	for( uint32 i = 0; i < Size; i++ )
 	{
 		Parents[i] = i;

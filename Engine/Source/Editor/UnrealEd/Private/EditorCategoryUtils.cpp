@@ -279,7 +279,7 @@ FString FEditorCategoryUtils::GetCategoryDisplayString(FString const& Unsanitize
 	} while (KeyIndex != INDEX_NONE);
 
 	DisplayString = FName::NameToDisplayString(DisplayString, /*bIsBool =*/false);
-	DisplayString.ReplaceInline(TEXT("| "), TEXT("|"));
+	DisplayString.ReplaceInline(TEXT("| "), TEXT("|"), ESearchCase::CaseSensitive);
 
 	return DisplayString;
 }
@@ -294,7 +294,7 @@ void FEditorCategoryUtils::GetClassHideCategories(UClass const* Class, TArray<FS
 	{
 		FString const& HideCategories = Class->GetMetaData(ClassHideCategoriesMetaKey);
 
-		HideCategories.ParseIntoArray(&CategoriesOut, TEXT(" "), /*InCullEmpty =*/true);
+		HideCategories.ParseIntoArray(CategoriesOut, TEXT(" "), /*InCullEmpty =*/true);
 		
 		for (FString& Category : CategoriesOut)
 		{
@@ -312,7 +312,7 @@ void  FEditorCategoryUtils::GetClassShowCategories(UClass const* Class, TArray<F
 	if (Class->HasMetaData(ClassShowCategoriesMetaKey))
 	{
 		FString const& ShowCategories = Class->GetMetaData(ClassShowCategoriesMetaKey);
-		ShowCategories.ParseIntoArray(&CategoriesOut, TEXT(" "), /*InCullEmpty =*/true);
+		ShowCategories.ParseIntoArray(CategoriesOut, TEXT(" "), /*InCullEmpty =*/true);
 
 		for (FString& Category : CategoriesOut)
 		{
@@ -357,7 +357,7 @@ bool FEditorCategoryUtils::IsCategoryHiddenFromClass(UClass const* Class, FStrin
 		else // see if the category's root is hidden
 		{
 			TArray<FString> SubCategoryList;
-			DisplayCategory.ParseIntoArray(&SubCategoryList, TEXT("|"), /*InCullEmpty =*/true);
+			DisplayCategory.ParseIntoArray(SubCategoryList, TEXT("|"), /*InCullEmpty =*/true);
 
 			FString FullSubCategoryPath;
 			for (FString const& SubCategory : SubCategoryList)

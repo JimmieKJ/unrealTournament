@@ -192,7 +192,7 @@ public:
 
 	int64 GetAllocatedSize() const
 	{
-		return ThreadTimesMS.GetAllocatedSize() + Root ? Root->GetAllocatedSize() : 0;
+		return ThreadTimesMS.GetAllocatedSize() + ( Root ? Root->GetAllocatedSize() : 0 );
 	}
 
 	/** Frees most of the memory allocated by this profiler frame. */

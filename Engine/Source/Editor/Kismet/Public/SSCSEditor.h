@@ -296,9 +296,9 @@ public:
 	// FSCSEditorTreeNode interface
 	virtual FName GetVariableName() const override;
 	virtual FString GetDisplayString() const override;
-	virtual bool CanRename() const { return !IsInherited() && !IsDefaultSceneRoot(); }
-	virtual bool CanDelete() const { return !IsInherited() && !IsDefaultSceneRoot(); }
-	virtual bool CanReparent() const { return !IsInherited() && !IsDefaultSceneRoot() && IsSceneComponent(); }
+	virtual bool CanRename() const override { return !IsInherited() && !IsDefaultSceneRoot(); }
+	virtual bool CanDelete() const override { return !IsInherited() && !IsDefaultSceneRoot(); }
+	virtual bool CanReparent() const override { return !IsInherited() && !IsDefaultSceneRoot() && IsSceneComponent(); }
 	// End of FSCSEditorTreeNode interface
 };
 
@@ -324,7 +324,7 @@ public:
 	virtual bool IsInherited() const override { return true; }
 	virtual bool IsUserInstanced() const override { return false; }
 	virtual bool IsDefaultSceneRoot() const override;
-	virtual bool CanEditDefaults() const { return IsNative(); }
+	virtual bool CanEditDefaults() const override;
 	//virtual FName GetVariableName() const override;
 	//virtual FString GetDisplayString() const override;
 	virtual FText GetDisplayName() const override;
@@ -357,7 +357,7 @@ public:
 	virtual bool IsInstanced() const override { return true; }
 	virtual bool IsUserInstanced() const override { return true; }
 	virtual bool IsDefaultSceneRoot() const override;
-	virtual bool CanEditDefaults() const { return true; }
+	virtual bool CanEditDefaults() const override { return true; }
 	virtual FName GetVariableName() const override { return NAME_None; }
 	virtual FString GetDisplayString() const override;
 	virtual FText GetDisplayName() const override;
@@ -482,10 +482,6 @@ public:
 
 	// SWidget interface
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual FReply OnDragDetected( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual void OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
-	virtual void OnDragLeave( const FDragDropEvent& DragDropEvent ) override;
-	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
 	// End of SWidget interface
 
 	/** Get the blueprint we are editing */
@@ -522,6 +518,13 @@ private:
 
 	/** Creates a tooltip for this row */
 	TSharedRef<SToolTip> CreateToolTipWidget() const;
+
+	/** Drag-drop handlers */
+	void HandleOnDragEnter(const FDragDropEvent& DragDropEvent);
+	void HandleOnDragLeave(const FDragDropEvent& DragDropEvent);
+	FReply HandleOnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
+	TOptional<EItemDropZone> HandleOnCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone, FSCSEditorTreeNodePtrType TargetItem);
+	FReply HandleOnAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone, FSCSEditorTreeNodePtrType TargetItem);
 
 	/** Handler for attaching a single node to this node */
 	void OnAttachToDropAction(FSCSEditorTreeNodePtrType DroppedNodePtr)
@@ -668,11 +671,10 @@ public:
 	/** Object construction - mostly defers to the base STreeView */
 	void Construct( const FArguments& InArgs );
 
-	/** Handler for drag over operations */
-	FReply OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent );
-
-	/** Handler for drop operations */
-	FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent );
+	// SWidget interface
+	virtual FReply OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
+	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
+	// End SWidget interface
 
 private:
 	/** Pointer to the SSCSEditor that owns this widget */
@@ -716,7 +718,6 @@ public:
 		{}
 
 		SLATE_ARGUMENT(EComponentEditorMode::Type, EditorMode)
-		SLATE_ARGUMENT(TSharedPtr<FExtender>, ActorMenuExtender)
 		SLATE_ATTRIBUTE(class AActor*, ActorContext)
 		SLATE_ATTRIBUTE(class AActor*, PreviewActor)
 		SLATE_ATTRIBUTE(bool, AllowEditing)
@@ -840,6 +841,14 @@ public:
 
 	/** Select the given tree node */
 	void SelectNode(FSCSEditorTreeNodePtrType InNodeToSelect, bool IsCntrlDown);
+
+	/**
+	 * Set the expansion state of a node
+	 *
+	 * @param InNodeToChange	The node to be expanded/collapsed
+	 * @param bIsExpanded		True to expand the node, false to collapse it
+	 */
+	void SetNodeExpansionState(FSCSEditorTreeNodePtrType InNodeToChange, const bool bIsExpanded);
 
 	/**
 	 * Highlight a tree node and, optionally, a property with in it
@@ -1068,4 +1077,6 @@ private:
 	/** Gate to prevent changing the selection while selection change is being broadcast. */
 	bool bUpdatingSelection;
 
+	/** true if we've added the separator between the scene and behavior components to the root nodes */
+	bool bHasAddedSceneAndBehaviorComponentSeparator;
 };

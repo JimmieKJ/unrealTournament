@@ -5,7 +5,7 @@
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_GetInputAxisKeyValue.generated.h"
 
-UCLASS(MinimalAPI)
+UCLASS(MinimalAPI, meta=(Keywords = "Get"))
 class UK2Node_GetInputAxisKeyValue : public UK2Node_CallFunction
 {
 	GENERATED_UCLASS_BODY()
@@ -36,7 +36,6 @@ class UK2Node_GetInputAxisKeyValue : public UK2Node_CallFunction
 	virtual void RegisterDynamicBinding(UDynamicBlueprintBinding* BindingObject) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
-	virtual FString GetKeywords() const override;
 	virtual FBlueprintNodeSignature GetSignature() const override;
 	// End UK2Node interface
 	

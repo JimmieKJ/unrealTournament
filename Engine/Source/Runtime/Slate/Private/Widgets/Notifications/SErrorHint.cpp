@@ -29,7 +29,7 @@ void SErrorHint::SetError( const FText& InErrorText )
 {
 	if ( ErrorText.IsEmpty() && !InErrorText.IsEmpty() )
 	{
-		ExpandAnimation.Play();
+		ExpandAnimation.Play( this->AsShared() );
 	}
 
 	ErrorText = InErrorText;

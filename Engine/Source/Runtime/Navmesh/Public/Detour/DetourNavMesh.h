@@ -103,6 +103,7 @@ static const unsigned int DT_NULL_LINK = 0xffffffff;
 static const unsigned char DT_OFFMESH_CON_BIDIR = 0x01;
 static const unsigned char DT_OFFMESH_CON_POINT = 0x02;
 static const unsigned char DT_OFFMESH_CON_SEGMENT = 0x04;
+static const unsigned char DT_OFFMESH_CON_CHEAPAREA = 0x08;
 
 /// The maximum number of user defined area ids.
 /// @ingroup detour
@@ -246,6 +247,9 @@ struct dtOffMeshSegmentConnection
 	/// The radius of the endpoints. [Limit: >= 0]
 	float rad;
 
+	/// The snap height of endpoints (less than 0 = use step height)
+	float height;
+
 	/// The id of the offmesh connection. (User assigned when the navigation mesh is built.)
 	unsigned int userId;	
 	
@@ -278,6 +282,9 @@ struct dtOffMeshConnection
 	/// The radius of the endpoints. [Limit: >= 0]
 	float rad;		
 
+	/// The snap height of endpoints (less than 0 = use step height)
+	float height;
+
 	/// The id of the offmesh connection. (User assigned when the navigation mesh is built.)
 	unsigned int userId;
 
@@ -293,11 +300,15 @@ struct dtOffMeshConnection
 	/// Sets link flags
 	inline void setFlags(unsigned char conFlags)
 	{
-		flags = ((conFlags & DT_OFFMESH_CON_BIDIR) ? 0x80 : 0); 
+		flags = ((conFlags & DT_OFFMESH_CON_BIDIR) ? 0x80 : 0) |
+			((conFlags & DT_OFFMESH_CON_CHEAPAREA) ? 0x40 : 0);
 	}
 
 	/// Gets the link direction
 	inline bool getBiDirectional() const { return (flags & 0x80) != 0; }
+
+	/// Gets the link snap mode
+	inline bool getSnapToCheapestArea() const { return (flags & 0x40) != 0; }
 };
 
 /// Cluster of polys
@@ -729,8 +740,11 @@ public:
 
 	inline bool isEmpty() const
 	{
+		// has no tile grid set up
 		return (m_tileWidth > 0 && m_tileHeight > 0) == false;
 	}
+
+	void applyAreaCostOrder(unsigned char* costOrder);
 	//@UE4 END
 	
 private:
@@ -785,6 +799,8 @@ private:
 	/// Find nearest polygon within a tile.
 	dtPolyRef findNearestPolyInTile(const dtMeshTile* tile, const float* center,
 									const float* extents, float* nearestPt, bool bExcludeUnwalkable = false) const;
+	dtPolyRef findCheapestNearPolyInTile(const dtMeshTile* tile, const float* center,
+										 const float* extents, float* nearestPt) const;
 	/// Returns closest point on polygon.
 	void closestPointOnPolyInTile(const dtMeshTile* tile, unsigned int ip,
 								  const float* pos, float* closest) const;
@@ -795,6 +811,8 @@ private:
 	int m_maxTiles;						///< Max number of tiles.
 	int m_tileLutSize;					///< Tile hash lookup size (must be pot).
 	int m_tileLutMask;					///< Tile hash lookup mask.
+
+	unsigned char m_areaCostOrder[DT_MAX_AREAS];
 
 	dtMeshTile** m_posLookup;			///< Tile hash lookup.
 	dtMeshTile* m_nextFree;				///< Freelist of tiles.

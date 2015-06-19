@@ -65,6 +65,12 @@ public:
 	FReply Submit();
 
 	/**
+	* Respond to the user pressing Submit and Restart
+	* @return Whether the request was handled
+	*/
+	FReply SubmitAndRestart();
+
+	/**
 	 * Respond to the user requesting the callstack to be copied to the clipboard
 	 * @return Whether the request was handled
 	 */

@@ -340,7 +340,7 @@ public:
 	 *
 	 * @return	a pointer to the linker for this object, or NULL if this object has no linker
 	 */
-	ULinkerLoad* GetLinker() const;
+	class FLinkerLoad* GetLinker() const;
 	/**
 	 * Returns this object's LinkerIndex.
 	 *

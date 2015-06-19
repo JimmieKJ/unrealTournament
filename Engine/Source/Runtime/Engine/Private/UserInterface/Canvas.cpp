@@ -9,6 +9,7 @@
 #include "Engine/Font.h"
 #include "EngineFontServices.h"
 #include "TileRendering.h"
+#include "TriangleRendering.h"
 #include "RHIStaticStates.h"
 #include "BreakIterator.h"
 
@@ -23,8 +24,10 @@ DEFINE_STAT(STAT_Canvas_FlushTime);
 DEFINE_STAT(STAT_Canvas_DrawTextureTileTime);
 DEFINE_STAT(STAT_Canvas_DrawMaterialTileTime);
 DEFINE_STAT(STAT_Canvas_DrawStringTime);
+DEFINE_STAT(STAT_Canvas_WordWrappingTime);
 DEFINE_STAT(STAT_Canvas_GetBatchElementsTime);
 DEFINE_STAT(STAT_Canvas_AddTileRenderTime);
+DEFINE_STAT(STAT_Canvas_AddTriangleRenderTime);
 DEFINE_STAT(STAT_Canvas_NumBatchesCreated);
 
 FCanvasWordWrapper::FCanvasWordWrapper()
@@ -35,21 +38,25 @@ FCanvasWordWrapper::FCanvasWordWrapper()
 
 void FCanvasWordWrapper::Execute(const TCHAR* const InString, const FTextSizingParameters& InParameters, TArray<FWrappedStringElement>& OutStrings, FWrappedLineData* const OutWrappedLineData)
 {
-	FWrappingState WrappingState(InString, FCString::Strlen(InString), InParameters, OutStrings, OutWrappedLineData);
+	SCOPE_CYCLE_COUNTER(STAT_Canvas_WordWrappingTime);
 
+	FWrappingState WrappingState(InString, FCString::Strlen(InString), InParameters, OutStrings, OutWrappedLineData);
 	if (WrappingState.WrappedLineData)
 	{
 		WrappingState.WrappedLineData->Empty();
 	}
 
-	GraphemeBreakIterator->SetString(WrappingState.String, WrappingState.StringLength);
-	LineBreakIterator->SetString(WrappingState.String, WrappingState.StringLength);
+	if (WrappingState.StringLength > 0)
+	{
+		GraphemeBreakIterator->SetString(WrappingState.String, WrappingState.StringLength);
+		LineBreakIterator->SetString(WrappingState.String, WrappingState.StringLength);
 
-	for(int32 i = 0; i < WrappingState.StringLength; ++i) // Sanity check: Doesn't seem valid to have more lines than code units.
-	{	
-		if( !ProcessLine(WrappingState) )
-		{
-			break;
+		for(int32 i = 0; i < WrappingState.StringLength; ++i) // Sanity check: Doesn't seem valid to have more lines than code units.
+		{	
+			if( !ProcessLine(WrappingState) )
+			{
+				break;
+			}
 		}
 	}
 }
@@ -211,6 +218,7 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget, FHitProxyConsumer* InHitProxyCon
 ,	CurrentWorldTime(0)
 ,	CurrentDeltaWorldTime(0)
 ,	FeatureLevel(InFeatureLevel)
+,	StereoDepth(150)
 {
 	Construct();
 
@@ -232,6 +240,7 @@ FCanvas::FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyCons
 ,	CurrentWorldTime(InWorldTime)
 ,	CurrentDeltaWorldTime(InWorldDeltaTime)
 ,	FeatureLevel(InFeatureLevel)
+,	StereoDepth(150)
 {
 	Construct();
 }
@@ -240,6 +249,9 @@ void FCanvas::Construct()
 {
 	check(RenderTarget);
 
+	CachedOrthoProjection[0] = CachedOrthoProjection[1] = FMatrix::Identity;
+	CachedRTWidth = CachedRTHeight = CachedDrawDepth = -1;
+	bStereoRendering = false;
 	bScaledToRenderTarget = false;
 	bAllowsToSwitchVerticalAxis = true;
 
@@ -324,14 +336,28 @@ FMatrix FCanvas::CalcProjectionMatrix(uint32 ViewSizeX, uint32 ViewSizeY, float 
 	// convert FOV to randians
 	float FOVRad = fFOV * (float)PI / 360.0f;
 	// project based on the FOV and near plane given
-	return AdjustProjectionMatrixForRHI(
-		FReversedZPerspectiveMatrix(
-			FOVRad,
-			ViewSizeX,
-			ViewSizeY,
-			NearPlane
-			)
-		);
+	if ((int32)ERHIZBuffer::IsInverted != 0)
+	{
+		return AdjustProjectionMatrixForRHI(
+			FReversedZPerspectiveMatrix(
+				FOVRad,
+				ViewSizeX,
+				ViewSizeY,
+				NearPlane
+				)
+			);
+	}
+	else
+	{
+		return AdjustProjectionMatrixForRHI(
+			FPerspectiveMatrix(
+				FOVRad,
+				ViewSizeX,
+				ViewSizeY,
+				NearPlane
+				)
+			);
+	}
 }
 
 bool FCanvasBatchedElementRenderItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, const FCanvas* Canvas)
@@ -425,8 +451,6 @@ bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas)
 			BatchedDrawCommand,
 			FBatchedDrawParameters,Parameters,DrawParameters,
 		{
-			SCOPED_DRAW_EVENT(RHICmdList, CanvasBatchedElements);
-
 			// draw batched items
 			Parameters.RenderData->BatchedElements.Draw(
 				RHICmdList,
@@ -452,157 +476,7 @@ bool FCanvasBatchedElementRenderItem::Render_GameThread(const FCanvas* Canvas)
 }
 
 
-bool FCanvasTileRendererItem::Render_RenderThread(FRHICommandListImmediate& RHICmdList, const FCanvas* Canvas)
-{
-	float CurrentRealTime = 0.f;
-	float CurrentWorldTime = 0.f;
-	float DeltaWorldTime = 0.f;
 
-	if (!bFreezeTime)
-	{
-		CurrentRealTime = Canvas->GetCurrentRealTime();
-		CurrentWorldTime = Canvas->GetCurrentWorldTime();
-		DeltaWorldTime = Canvas->GetCurrentDeltaWorldTime();
-	}
-	
-	checkSlow(Data);
-	// current render target set for the canvas
-	const FRenderTarget* CanvasRenderTarget = Canvas->GetRenderTarget();
-	FSceneViewFamily* ViewFamily = new FSceneViewFamily( FSceneViewFamily::ConstructionValues(
-		CanvasRenderTarget,
-		NULL,
-		FEngineShowFlags(ESFIM_Game))
-		.SetWorldTimes( CurrentWorldTime, DeltaWorldTime, CurrentRealTime )
-		.SetGammaCorrection( CanvasRenderTarget->GetDisplayGamma() ) );
-
-	FIntRect ViewRect(FIntPoint(0, 0), CanvasRenderTarget->GetSizeXY());
-
-	// make a temporary view
-	FSceneViewInitOptions ViewInitOptions;
-	ViewInitOptions.ViewFamily = ViewFamily;
-	ViewInitOptions.SetViewRectangle(ViewRect);
-	ViewInitOptions.ViewMatrix = FMatrix::Identity;
-	ViewInitOptions.ProjectionMatrix = Data->Transform.GetMatrix();
-	ViewInitOptions.BackgroundColor = FLinearColor::Black;
-	ViewInitOptions.OverlayColor = FLinearColor::White;
-
-	bool bNeedsToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(Canvas->GetShaderPlatform()) && !Canvas->GetAllowSwitchVerticalAxis();
-
-	FSceneView* View = new FSceneView(ViewInitOptions);
-
-	for( int32 TileIdx=0; TileIdx < Data->Tiles.Num(); TileIdx++ )
-	{
-		const FRenderData::FTileInst& Tile = Data->Tiles[TileIdx];
-		FTileRenderer::DrawTile(
-			RHICmdList, 
-			*View, 
-			Data->MaterialRenderProxy, 
-			bNeedsToSwitchVerticalAxis,
-			Tile.X, Tile.Y, Tile.SizeX, Tile.SizeY, 
-			Tile.U, Tile.V, Tile.SizeU, Tile.SizeV,
-			Canvas->IsHitTesting(), Tile.HitProxyId,
-			Tile.InColor
-			);
-	}
-	
-	delete View->Family;
-	delete View;
-	if( Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender )
-	{
-		delete Data;
-	}
-	if( Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender )
-	{
-		Data = NULL;
-	}
-	return true;
-}
-
-bool FCanvasTileRendererItem::Render_GameThread(const FCanvas* Canvas)
-{
-	float CurrentRealTime = 0.f;
-	float CurrentWorldTime = 0.f;
-	float DeltaWorldTime = 0.f;
-
-	if (!bFreezeTime)
-	{
-		CurrentRealTime = Canvas->GetCurrentRealTime();
-		CurrentWorldTime = Canvas->GetCurrentWorldTime();
-		DeltaWorldTime = Canvas->GetCurrentDeltaWorldTime();
-	}
-
-	checkSlow(Data);
-	// current render target set for the canvas
-	const FRenderTarget* CanvasRenderTarget = Canvas->GetRenderTarget();
-	FSceneViewFamily* ViewFamily = new FSceneViewFamily(FSceneViewFamily::ConstructionValues(
-		CanvasRenderTarget,
-		NULL,
-		FEngineShowFlags(ESFIM_Game))
-		.SetWorldTimes(CurrentWorldTime, DeltaWorldTime, CurrentRealTime)
-		.SetGammaCorrection(CanvasRenderTarget->GetDisplayGamma()));
-
-	FIntRect ViewRect(FIntPoint(0, 0), CanvasRenderTarget->GetSizeXY());
-
-	// make a temporary view
-	FSceneViewInitOptions ViewInitOptions;
-	ViewInitOptions.ViewFamily = ViewFamily;
-	ViewInitOptions.SetViewRectangle(ViewRect);
-	ViewInitOptions.ViewMatrix = FMatrix::Identity;
-	ViewInitOptions.ProjectionMatrix = Data->Transform.GetMatrix();
-	ViewInitOptions.BackgroundColor = FLinearColor::Black;
-	ViewInitOptions.OverlayColor = FLinearColor::White;
-
-	FSceneView* View = new FSceneView(ViewInitOptions);
-
-	bool bNeedsToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(Canvas->GetShaderPlatform()) && !Canvas->GetAllowSwitchVerticalAxis();
-	struct FDrawTileParameters
-	{
-		FSceneView* View;
-		FRenderData* RenderData;
-		uint32 bIsHitTesting : 1;
-		uint32 bNeedsToSwitchVerticalAxis : 1;
-		uint32 AllowedCanvasModes;
-	};
-	FDrawTileParameters DrawTileParameters =
-	{
-		View,
-		Data,
-		Canvas->IsHitTesting(),
-		bNeedsToSwitchVerticalAxis,
-		Canvas->GetAllowedModes()
-	};
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		DrawTileCommand,
-		FDrawTileParameters, Parameters, DrawTileParameters,
-	{
-		SCOPED_DRAW_EVENT(RHICmdList, CanvasDrawTile);
-		for (int32 TileIdx = 0; TileIdx < Parameters.RenderData->Tiles.Num(); TileIdx++)
-		{
-			const FRenderData::FTileInst& Tile = Parameters.RenderData->Tiles[TileIdx];
-			FTileRenderer::DrawTile(
-				RHICmdList,
-				*Parameters.View,
-				Parameters.RenderData->MaterialRenderProxy,
-				Parameters.bNeedsToSwitchVerticalAxis,
-				Tile.X, Tile.Y, Tile.SizeX, Tile.SizeY,
-				Tile.U, Tile.V, Tile.SizeU, Tile.SizeV,
-				Parameters.bIsHitTesting, Tile.HitProxyId,
-				Tile.InColor);
-		}
-
-		delete Parameters.View->Family;
-		delete Parameters.View;
-		if (Parameters.AllowedCanvasModes & FCanvas::Allow_DeleteOnRender)
-		{
-			delete Parameters.RenderData;
-		}
-	});
-	if (Canvas->GetAllowedModes() & FCanvas::Allow_DeleteOnRender)
-	{
-		Data = NULL;
-	}
-	return true;
-}
 
 FCanvas::FCanvasSortElement& FCanvas::GetSortElement(int32 DepthSortKey)
 {
@@ -696,6 +570,36 @@ void FCanvas::AddTileRenderItem(float X, float Y, float SizeX, float SizeY, floa
 	}
 	// add the quad to the tile render batch
 	RenderBatch->AddTile( X,Y,SizeX,SizeY,U,V,SizeU,SizeV,HitProxyId,InColor);
+}
+
+void FCanvas::AddTriangleRenderItem(const FCanvasUVTri& Tri, const FMaterialRenderProxy* MaterialRenderProxy, FHitProxyId HitProxyId, bool bFreezeTime)
+{
+	SCOPE_CYCLE_COUNTER(STAT_Canvas_AddTriangleRenderTime);
+	
+	// get sort element based on the current sort key from top of sort key stack
+	FCanvasSortElement& SortElement = FCanvas::GetSortElement(TopDepthSortKey());
+	// find a batch to use 
+	FCanvasTriangleRendererItem* RenderBatch = NULL;
+
+	// get the current transform entry from top of transform stack
+	const FTransformEntry& TopTransformEntry = TransformStack.Top();
+	
+	// try to use the current top entry in the render batch array
+	if (SortElement.RenderBatchArray.Num() > 0)
+	{
+		checkSlow(SortElement.RenderBatchArray.Last());
+		RenderBatch = SortElement.RenderBatchArray.Last()->GetCanvasTriangleRendererItem();
+	}
+	// if a matching entry for this batch doesn't exist then allocate a new entry
+	if (RenderBatch == nullptr || !RenderBatch->IsMatch(MaterialRenderProxy, TopTransformEntry))
+	{
+		INC_DWORD_STAT(STAT_Canvas_NumBatchesCreated);
+	
+		RenderBatch = new FCanvasTriangleRendererItem(MaterialRenderProxy, TopTransformEntry, bFreezeTime);
+		SortElement.RenderBatchArray.Add(RenderBatch);
+	}
+	// add the triangle to the triangle render batch
+	RenderBatch->AddTriangle(Tri, HitProxyId);
 }
 
 FCanvas::~FCanvas()
@@ -1162,7 +1066,7 @@ void UCanvas::MeasureStringInternal( FTextSizingParameters& Parameters, const TC
 			float CharSpacing = DefaultCharIncrement;
 			if ( pPrevPos )
 			{
-				CharSpacing += Parameters.DrawFont->GetCharKerning( *pPrevPos, Ch );
+				CharSpacing += Parameters.DrawFont->GetCharKerning( *pPrevPos, Ch ) * ScaleX;
 			}
 
 			CharWidth *= ScaleX;
@@ -1189,7 +1093,8 @@ void UCanvas::MeasureStringInternal( FTextSizingParameters& Parameters, const TC
 				if( CharIndexFormat == ELastCharacterIndexFormat::CharacterAtOffset )
 				{
 					// Round our test toward the character's center position
-					if( StopAfterHorizontalOffset < Parameters.DrawXL - CharWidth / 2 )
+					const float TotalCharWidth = CharWidth + Parameters.DrawFont->GetCharHorizontalOffset(Ch);
+					if( StopAfterHorizontalOffset < Parameters.DrawXL - TotalCharWidth / 2 )
 					{
 						// We've reached the stopping point, so bail
 						break;
@@ -1383,17 +1288,29 @@ void UCanvas::PopSafeZoneTransform()
 
 void UCanvas::UpdateSafeZoneData()
 {
-	if (FSlateApplication::IsInitialized())
+	if(GEngine && GEngine->IsStereoscopic3D())
+	{
+		FVector2D SafeRegionPercentage = GEngine->StereoRenderingDevice->GetTextSafeRegionBounds();
+
+		CachedDisplayWidth = UnsafeSizeX;
+		CachedDisplayHeight = UnsafeSizeY;
+
+		SafeZonePadX = (CachedDisplayWidth - (CachedDisplayWidth * SafeRegionPercentage.X))/2.f;
+		SafeZonePadY = CachedDisplayHeight - (CachedDisplayHeight * SafeRegionPercentage.Y)/2.f;
+	}
+	else if(FSlateApplication::IsInitialized())
 	{
 		FDisplayMetrics DisplayMetrics;
+
 		FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
-	
+
 		SafeZonePadX = FMath::CeilToInt(DisplayMetrics.TitleSafePaddingSize.X);
 		SafeZonePadY = FMath::CeilToInt(DisplayMetrics.TitleSafePaddingSize.Y);
 
 		CachedDisplayWidth = DisplayMetrics.PrimaryDisplayWidth;
 		CachedDisplayHeight = DisplayMetrics.PrimaryDisplayHeight;
 	}
+
 }
 
 void UCanvas::UpdateAllCanvasSafeZoneData()
@@ -1402,6 +1319,12 @@ void UCanvas::UpdateAllCanvasSafeZoneData()
 	{
 		It->UpdateSafeZoneData();
 	}
+}
+
+
+void UCanvas::SetStereoDepth(uint32 depth)
+{
+	Canvas->SetStereoDepth(depth);
 }
 
 void UCanvas::Update()
@@ -1839,12 +1762,101 @@ void UCanvas::DrawItem( class FCanvasItem& Item, float X, float Y )
 	Canvas->DrawItem( Item, X, Y  );
 }
 
+bool FCanvas::GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2])
+{
+	bool rv = false;
+	if (bStereoRendering)
+	{
+		rv = true;
+		const int32 RTWidth = RenderTarget->GetSizeXY().X;
+		const int32 RTHeight = RenderTarget->GetSizeXY().Y;
+		if (RTWidth != CachedRTWidth || RTHeight != CachedRTHeight || InDrawDepth != CachedDrawDepth)
+		{
+			rv = false;
+			if (GEngine && GEngine->StereoRenderingDevice.IsValid())
+			{
+				GEngine->StereoRenderingDevice->GetOrthoProjection(RTWidth, RTHeight, InDrawDepth, CachedOrthoProjection);
+				CachedRTWidth = RTWidth;
+				CachedRTHeight= RTHeight;
+				CachedDrawDepth=InDrawDepth;
+				rv = true;
+			}
+		}
+		OutOrthoProjection[0] = CachedOrthoProjection[0];
+		OutOrthoProjection[1] = CachedOrthoProjection[1];
+	}
+	return rv;
+}
+
+void FCanvas::DrawItem(FCanvasItem& Item)
+{
+	const uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
+	FMatrix OrthoProjection[2];
+	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
+	{
+		//left eye
+		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
+		Item.Draw(this);
+		PopTransform();
+		//right eye
+		PushRelativeTransform(OrthoProjection[1]);
+		Item.Draw(this);
+		PopTransform();
+	}
+	else
+	{
+		Item.Draw(this);
+	}
+}
+
+void FCanvas::DrawItem(FCanvasItem& Item, const FVector2D& InPosition)
+{
+	uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
+	FMatrix OrthoProjection[2];
+	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
+	{
+		//left eye
+		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
+		Item.Draw(this, InPosition);
+		PopTransform();
+		//right eye
+		PushRelativeTransform(OrthoProjection[1]);
+		Item.Draw(this , InPosition);
+		PopTransform();
+	}
+	else
+	{
+		Item.Draw(this , InPosition);
+	}
+}
+
+void FCanvas::DrawItem(FCanvasItem& Item, float X, float Y)
+{
+	uint32 DrawDepth = Item.StereoDepth ? Item.StereoDepth : StereoDepth;
+	FMatrix OrthoProjection[2];
+	if (GetOrthoProjectionMatrices(DrawDepth, OrthoProjection))
+	{
+		//left eye
+		PushRelativeTransform(OrthoProjection[0]); //apply projection matrix
+		Item.Draw(this, X, Y);
+		PopTransform();
+		//right eye
+		PushRelativeTransform(OrthoProjection[1]);
+		Item.Draw(this, X, Y);
+		PopTransform();
+	}
+	else
+	{
+		Item.Draw(this, X, Y);
+	}
+}
+
 void UCanvas::SetView(FSceneView* InView)
 {
 	SceneView = InView;
 	if (InView)
 	{
-		if (GEngine->StereoRenderingDevice.IsValid() && InView->StereoPass != eSSP_FULL && HmdOrientation != FQuat::Identity)
+		if (GEngine->StereoRenderingDevice.IsValid() && InView->StereoPass != eSSP_FULL)
 		{
 			GEngine->StereoRenderingDevice->InitCanvasFromView(InView, this);
 		}
@@ -1863,7 +1875,7 @@ TWeakObjectPtr<class UReporterGraph> UCanvas::GetReporterGraph()
 {
 	if (!ReporterGraph)
 	{
-		ReporterGraph = Cast<UReporterGraph>(StaticConstructObject(UReporterGraph::StaticClass(), this));
+		ReporterGraph = NewObject<UReporterGraph>(this);
 	}
 
 	return ReporterGraph;
@@ -1951,6 +1963,17 @@ void UCanvas::K2_DrawTriangle(UTexture* RenderTexture, TArray<FCanvasUVTri> Tria
 	if (Triangles.Num() > 0)
 	{
 		FCanvasTriangleItem TriangleItem(FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector, (RenderTexture) ? RenderTexture->Resource : GWhiteTexture);
+		TriangleItem.TriangleList = Triangles;
+		DrawItem(TriangleItem);
+	}
+}
+
+void UCanvas::K2_DrawMaterialTriangle(UMaterialInterface* RenderMaterial, TArray<FCanvasUVTri> Triangles)
+{
+	if (RenderMaterial && Triangles.Num() > 0)
+	{
+		FCanvasTriangleItem TriangleItem(FVector2D::ZeroVector, FVector2D::ZeroVector, FVector2D::ZeroVector, NULL);
+		TriangleItem.MaterialRenderProxy = RenderMaterial->GetRenderProxy(0);
 		TriangleItem.TriangleList = Triangles;
 		DrawItem(TriangleItem);
 	}

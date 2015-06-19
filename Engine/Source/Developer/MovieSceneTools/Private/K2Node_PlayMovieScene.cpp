@@ -85,12 +85,12 @@ FText UK2Node_PlayMovieScene::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	// @TODO: don't know enough about this node type to comfortably assert that
 	//        the MovieScene won't change after the node has spawned... until
 	//        then, we'll leave this optimization off
-	else //if (CachedNodeTitle.IsOutOfDate())
+	else //if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("SceneName"), FText::FromString(MovieScene->GetName()));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(NSLOCTEXT("PlayMovieSceneNode", "NodeTitle", "Play Movie Scene: {SceneName}"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("PlayMovieSceneNode", "NodeTitle", "Play Movie Scene: {SceneName}"), Args), this);
 	}
 	return CachedNodeTitle;
 }
@@ -191,7 +191,7 @@ void UK2Node_PlayMovieScene::CreateBindingsIfNeeded()
 
 		// The new MovieSceneBindings object will be stored as an "inner" of this object
 		UObject* MovieSceneBindingsOuter = this;
-		UMovieSceneBindings* NewMovieSceneBindings = ConstructObject< UMovieSceneBindings >( UMovieSceneBindings::StaticClass(), MovieSceneBindingsOuter );
+		UMovieSceneBindings* NewMovieSceneBindings = NewObject<UMovieSceneBindings>(MovieSceneBindingsOuter);
 		check( NewMovieSceneBindings != NULL );
 
 		MovieSceneBindings = NewMovieSceneBindings;
@@ -284,7 +284,7 @@ void UK2Node_PlayMovieScene::CreatePinForBoundObject( FMovieSceneBoundObject& Bo
 				if( Possessable.GetGuid() == BoundObject.GetPossessableGuid() )
 				{
 					// Found a name for this possessable
-					PinFriendlyName = Possessable.GetDisplayName();
+					PinFriendlyName = FText::FromString(Possessable.GetName());
 					break;
 				}
 			}

@@ -63,10 +63,13 @@ private:
 	EVisibility GetInternationalizationRestartRowVisibility() const;
 
 	/** Delegate called when the the checked state of whether or not field names should be localized has changed. */
-	void ShoudLoadLocalizedFieldNamesCheckChanged(ECheckBoxState CheckState);
+	void ShouldLoadLocalizedFieldNamesCheckChanged(ECheckBoxState CheckState);
 
 	/** Write to config now the Editor is shutting down (all packages are saved) */
 	void HandleShutdownPostPackagesSaved();
+
+	/** Delegate called when the the checked state of whether or not nodes and pins in graph editors should be localized has changed. */
+	void ShouldShowNodesAndPinsUnlocalized(ECheckBoxState CheckState);
 
 private:
 	TWeakObjectPtr<UInternationalizationSettingsModel> Model;

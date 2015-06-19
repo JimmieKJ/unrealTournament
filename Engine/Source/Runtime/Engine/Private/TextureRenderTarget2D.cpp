@@ -158,8 +158,7 @@ UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FSt
 	}
 
 	// create the 2d texture
-	Result = CastChecked<UTexture2D>(
-		StaticConstructObject(UTexture2D::StaticClass(), Outer, FName(*NewTexName), ObjectFlags));
+	Result = NewObject<UTexture2D>(Outer, FName(*NewTexName), ObjectFlags);
 	// init to the same size as the 2d texture
 	Result->Source.Init(SizeX, SizeY, 1, 1, TextureFormat);
 
@@ -338,7 +337,7 @@ void FTextureRenderTarget2DResource::InitDynamicRHI()
 	// Create the sampler state RHI resource.
 	FSamplerStateInitializerRHI SamplerStateInitializer
 	(
-		GSystemSettings.TextureLODSettings.GetSamplerFilter( Owner ),
+		(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter( Owner ),
 		Owner->AddressX == TA_Wrap ? AM_Wrap : (Owner->AddressX == TA_Clamp ? AM_Clamp : AM_Mirror),
 		Owner->AddressY == TA_Wrap ? AM_Wrap : (Owner->AddressY == TA_Clamp ? AM_Clamp : AM_Mirror),
 		AM_Wrap

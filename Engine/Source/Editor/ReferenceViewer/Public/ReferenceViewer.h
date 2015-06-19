@@ -36,8 +36,5 @@ public:
 
 	/** Invokes a major tab with a reference viewer within it */
 	virtual void InvokeReferenceViewerTab(const TArray<FName>& GraphRootPackageNames) = 0;
-
-	/** Creates the ReferenceViewer widget */
-	virtual TSharedRef<class SWidget> CreateReferenceViewer(const TArray<FName>& GraphRootPackageNames) = 0;
 };
 

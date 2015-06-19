@@ -253,9 +253,10 @@ void FMacPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResults 
 	}
 
 	// OS info
-	NSDictionary* SystemVersion = [NSDictionary dictionaryWithContentsOfFile: @"/System/Library/CoreServices/SystemVersion.plist"];
-	WriteFStringToResults(OutResults.OSVersion, TEXT("Mac OS X"));
-	FPlatformString::CFStringToTCHAR((CFStringRef)[SystemVersion objectForKey: @"ProductVersion"], OutResults.OSSubVersion);
+	FString OSXVersion, OSXBuild;
+	FMacPlatformMisc::GetOSVersions(OSXVersion, OSXBuild);
+	WriteFStringToResults(OutResults.OSVersion, FString(TEXT("Mac OS X ")) + OSXVersion);
+	WriteFStringToResults(OutResults.OSSubVersion, OSXBuild);
 	OutResults.OSBits = FPlatformMisc::Is64bitOperatingSystem() ? 64 : 32;
 
 	// OS language

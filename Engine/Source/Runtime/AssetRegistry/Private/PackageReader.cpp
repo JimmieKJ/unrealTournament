@@ -89,8 +89,10 @@ bool FPackageReader::OpenPackageFile(const FString& InPackageFilename)
 	//make sure the filereader gets the correct version number (it defaults to latest version)
 	SetUE4Ver(PackageFileSummary.GetFileVersionUE4());
 	SetLicenseeUE4Ver(PackageFileSummary.GetFileVersionLicenseeUE4());
+	SetEngineVer(PackageFileSummary.SavedByEngineVersion);
 	Loader->SetUE4Ver(PackageFileSummary.GetFileVersionUE4());
 	Loader->SetLicenseeUE4Ver(PackageFileSummary.GetFileVersionLicenseeUE4());
+	Loader->SetEngineVer(PackageFileSummary.SavedByEngineVersion);
 
 	const FCustomVersionContainer& PackageFileSummaryVersions = PackageFileSummary.GetCustomVersionContainer();
 	SetCustomVersions(PackageFileSummaryVersions);
@@ -169,7 +171,7 @@ bool FPackageReader::ReadAssetRegistryData (TArray<FBackgroundAssetData*>& Asset
 		FString GroupNames;
 		FString AssetName;
 
-		if ( ObjectPath.Contains(TEXT(".")))
+		if ( ObjectPath.Contains(TEXT("."), ESearchCase::CaseSensitive))
 		{
 			ObjectPath.Split(TEXT("."), &GroupNames, &AssetName, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 		}
@@ -234,7 +236,7 @@ bool FPackageReader::ReadAssetDataFromThumbnailCache(TArray<FBackgroundAssetData
 		FString GroupNames;
 		FString AssetName;
 
-		if ( ObjectPathWithoutPackageName.Contains(TEXT(".")) )
+		if ( ObjectPathWithoutPackageName.Contains(TEXT("."), ESearchCase::CaseSensitive) )
 		{
 			ObjectPathWithoutPackageName.Split(TEXT("."), &GroupNames, &AssetName, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 		}

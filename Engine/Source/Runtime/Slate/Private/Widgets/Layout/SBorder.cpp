@@ -2,8 +2,6 @@
 
 #include "SlatePrivatePCH.h"
  
-DECLARE_CYCLE_STAT( TEXT("OnPaint SBorder"), STAT_SlateOnPaint_SBorder, STATGROUP_Slate );
-
 SBorder::SBorder()
 	: BorderImage( FCoreStyle::Get().GetBrush( "Border" ) )
 	, BorderBackgroundColor( FLinearColor::White )
@@ -69,28 +67,23 @@ void SBorder::ClearContent()
 int32 SBorder::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	bool bEnabled = false;
-	{
-#if SLATE_HD_STATS
-		SCOPE_CYCLE_COUNTER( STAT_SlateOnPaint_SBorder );
-#endif
-		const FSlateBrush* BrushResource = BorderImage.Get();
+	const FSlateBrush* BrushResource = BorderImage.Get();
 		
-		bEnabled = ShouldBeEnabled( bParentEnabled );
-		bool bShowDisabledEffect = ShowDisabledEffect.Get();
-		ESlateDrawEffect::Type DrawEffects = bShowDisabledEffect && !bEnabled ? ESlateDrawEffect::DisabledEffect : ESlateDrawEffect::None;
+	bEnabled = ShouldBeEnabled( bParentEnabled );
+	bool bShowDisabledEffect = ShowDisabledEffect.Get();
+	ESlateDrawEffect::Type DrawEffects = bShowDisabledEffect && !bEnabled ? ESlateDrawEffect::DisabledEffect : ESlateDrawEffect::None;
 
-		if ( BrushResource && BrushResource->DrawAs != ESlateBrushDrawType::NoDrawType )
-		{
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId,
-				AllottedGeometry.ToPaintGeometry(),
-				BrushResource,
-				MyClippingRect,
-				DrawEffects,
-				BrushResource->GetTint( InWidgetStyle ) * InWidgetStyle.GetColorAndOpacityTint() * BorderBackgroundColor.Get().GetColor( InWidgetStyle )
-			);
-		}
+	if ( BrushResource && BrushResource->DrawAs != ESlateBrushDrawType::NoDrawType )
+	{
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			AllottedGeometry.ToPaintGeometry(),
+			BrushResource,
+			MyClippingRect,
+			DrawEffects,
+			BrushResource->GetTint( InWidgetStyle ) * InWidgetStyle.GetColorAndOpacityTint() * BorderBackgroundColor.Get().GetColor( InWidgetStyle )
+		);
 	}
 
 	FWidgetStyle CompoundedWidgetStyle = FWidgetStyle(InWidgetStyle)
@@ -190,9 +183,9 @@ FReply SBorder::OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPo
 	return FReply::Unhandled();
 }
 
-FVector2D SBorder::ComputeDesiredSize() const
+FVector2D SBorder::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
-	return DesiredSizeScale.Get() * SCompoundWidget::ComputeDesiredSize();
+	return DesiredSizeScale.Get() * SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier);
 }
 
 void SBorder::SetBorderBackgroundColor(const TAttribute<FSlateColor>& InColorAndOpacity)

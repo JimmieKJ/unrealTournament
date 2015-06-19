@@ -182,7 +182,7 @@ FArchive& operator<<( FArchive& Ar, FTextureAllocations& TextureAllocations )
 		// Are we cooking a package?
 		if ( Ar.IsSaving() && !Ar.IsTransacting() )
 		{
-			ULinker* Linker = Ar.GetLinker();
+			FLinker* Linker = Ar.GetLinker();
 
 			// Do we need to build the texture allocation data?
 			if ( TextureAllocations.TextureTypes.Num() == 0 )
@@ -213,7 +213,7 @@ FArchive& operator<<( FArchive& Ar, FTextureAllocations& TextureAllocations )
 			else if ( Ar.GetLinker() )
 			{
 				NumSummaryTextures = 0;
-				ULinker* Linker = Ar.GetLinker();
+				FLinker* Linker = Ar.GetLinker();
 				for ( int32 TypeIndex=0; TypeIndex < TextureAllocations.TextureTypes.Num(); ++TypeIndex )
 				{
 					FTextureAllocations::FTextureType& TextureType = TextureAllocations.TextureTypes( TypeIndex );

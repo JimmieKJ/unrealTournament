@@ -49,6 +49,8 @@ FName FFbxErrors::StaticMesh_UVSetLayoutProblem(TEXT("StaticMesh_UVSetLayoutProb
 
 FName FFbxErrors::StaticMesh_NoTriangles(TEXT("StaticMesh_NoTriangles"));
 
+FName FFbxErrors::StaticMesh_BuildError(TEXT("StaticMesh_BuildError"));
+
 /** SkeletalMesh **/
 FName FFbxErrors::SkeletalMesh_DifferentRoots(TEXT("SkeletalMesh_DifferentRoot"));
 

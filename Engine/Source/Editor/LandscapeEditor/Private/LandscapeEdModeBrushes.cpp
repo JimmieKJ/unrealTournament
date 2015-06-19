@@ -12,6 +12,7 @@
 
 #include "LevelUtils.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "EngineUtils.h"
 
 // 
 // FLandscapeBrush
@@ -79,7 +80,7 @@ public:
 	{
 		for (TSet<ULandscapeComponent*>::TIterator It(BrushMaterialComponents); It; ++It)
 		{
-			if ((*It)->EditToolRenderData != nullptr)
+			if ((*It) != nullptr && (*It)->EditToolRenderData != nullptr)
 			{
 				(*It)->EditToolRenderData->Update(nullptr);
 			}
@@ -102,7 +103,7 @@ public:
 		ULandscapeInfo* LandscapeInfo = EdMode->CurrentToolTarget.LandscapeInfo.Get();
 		ALandscapeProxy* Proxy = LandscapeInfo->GetLandscapeProxy();
 
-		const float ScaleXY = LandscapeInfo->DrawScale.X;
+		const float ScaleXY = FMath::Abs(LandscapeInfo->DrawScale.X);
 		const float TotalRadius = EdMode->UISettings->BrushRadius / ScaleXY;
 		const float Radius = (1.0f - EdMode->UISettings->BrushFalloff) * TotalRadius;
 		const float Falloff = EdMode->UISettings->BrushFalloff * TotalRadius;
@@ -125,11 +126,19 @@ public:
 		TSet<ULandscapeComponent*> RemovedComponents = BrushMaterialComponents.Difference(NewComponents);
 		for (ULandscapeComponent* RemovedComponent : RemovedComponents)
 		{
-			BrushMaterialFreeInstances.Push(BrushMaterialInstanceMap.FindAndRemoveChecked(RemovedComponent));
-
-			if (ensure(RemovedComponent->EditToolRenderData != nullptr))
+			if (RemovedComponent == nullptr)
 			{
-				RemovedComponent->EditToolRenderData->Update(nullptr);
+				// can occur if a component was removed by a user tool
+				BrushMaterialInstanceMap.Remove(nullptr);
+			}
+			else
+			{
+				BrushMaterialFreeInstances.Push(BrushMaterialInstanceMap.FindAndRemoveChecked(RemovedComponent));
+
+				if (ensure(RemovedComponent->EditToolRenderData != nullptr))
+				{
+					RemovedComponent->EditToolRenderData->Update(nullptr);
+				}
 			}
 		}
 
@@ -208,7 +217,7 @@ public:
 	virtual FLandscapeBrushData ApplyBrush(const TArray<FLandscapeToolMousePosition>& InMousePositions) override
 	{
 		ULandscapeInfo* LandscapeInfo = EdMode->CurrentToolTarget.LandscapeInfo.Get();
-		const float ScaleXY = LandscapeInfo->DrawScale.X;
+		const float ScaleXY = FMath::Abs(LandscapeInfo->DrawScale.X);
 		const float TotalRadius = EdMode->UISettings->BrushRadius / ScaleXY;
 		const float Radius = (1.0f - EdMode->UISettings->BrushFalloff) * TotalRadius;
 		const float Falloff = EdMode->UISettings->BrushFalloff * TotalRadius;
@@ -336,6 +345,7 @@ public:
 	// FGCObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
+		Collector.AddReferencedObjects(BrushMaterialComponents);
 		Collector.AddReferencedObject(BrushMaterial);
 	}
 
@@ -345,7 +355,7 @@ public:
 	{
 		for (TSet<ULandscapeComponent*>::TIterator It(BrushMaterialComponents); It; ++It)
 		{
-			if ((*It)->EditToolRenderData != nullptr)
+			if ((*It) != nullptr && (*It)->EditToolRenderData != nullptr)
 			{
 				(*It)->EditToolRenderData->Update(nullptr);
 			}
@@ -413,7 +423,7 @@ public:
 		TSet<ULandscapeComponent*> RemovedComponents = BrushMaterialComponents.Difference(NewComponents);
 		for (ULandscapeComponent* RemovedComponent : RemovedComponents)
 		{
-			if (RemovedComponent->EditToolRenderData != nullptr)
+			if (RemovedComponent != nullptr && RemovedComponent->EditToolRenderData != nullptr)
 			{
 				RemovedComponent->EditToolRenderData->Update(nullptr);
 			}
@@ -530,6 +540,7 @@ public:
 	// FGCObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
+		Collector.AddReferencedObjects(BrushMaterialComponents);
 		Collector.AddReferencedObject(BrushMaterial);
 	}
 
@@ -550,7 +561,7 @@ public:
 	{
 		for (TSet<ULandscapeComponent*>::TIterator It(BrushMaterialComponents); It; ++It)
 		{
-			if ((*It)->EditToolRenderData != nullptr)
+			if ((*It) != nullptr && (*It)->EditToolRenderData != nullptr)
 			{
 				(*It)->EditToolRenderData->Update(nullptr);
 			}
@@ -569,7 +580,7 @@ public:
 				ULandscapeInfo* LandscapeInfo = Gizmo->TargetLandscapeInfo;
 				if (LandscapeInfo && LandscapeInfo->GetLandscapeProxy())
 				{
-					float ScaleXY = LandscapeInfo->DrawScale.X;
+					float ScaleXY = FMath::Abs(LandscapeInfo->DrawScale.X);
 					FMatrix LToW = LandscapeInfo->GetLandscapeProxy()->LandscapeActorToWorld().ToMatrixWithScale();
 					FMatrix WToL = LToW.InverseFast();
 
@@ -618,7 +629,7 @@ public:
 					TSet<ULandscapeComponent*> RemovedComponents = BrushMaterialComponents.Difference(NewComponents);
 					for (ULandscapeComponent* RemovedComponent : RemovedComponents)
 					{
-						if (RemovedComponent->EditToolRenderData != nullptr)
+						if (RemovedComponent != nullptr && RemovedComponent->EditToolRenderData != nullptr)
 						{
 							RemovedComponent->EditToolRenderData->UpdateGizmo(nullptr);
 						}
@@ -672,7 +683,7 @@ public:
 		}
 
 		Gizmo->TargetLandscapeInfo = LandscapeInfo;
-		float ScaleXY = LandscapeInfo->DrawScale.X;
+		float ScaleXY = FMath::Abs(LandscapeInfo->DrawScale.X);
 
 		// Get extent for all components
 		FIntRect Bounds;
@@ -789,7 +800,7 @@ public:
 class FLandscapeBrushDummy : public FLandscapeBrush
 {
 public:
-	const TCHAR* GetBrushName() { return TEXT("None"); }
+	const TCHAR* GetBrushName() override { return TEXT("None"); }
 	virtual FText GetDisplayName() override { return NSLOCTEXT("UnrealEd", "LandscapeMode_Brush_None", "None"); };
 
 	FEdModeLandscape* EdMode;
@@ -996,7 +1007,7 @@ public:
 	virtual FLandscapeBrushData ApplyBrush(const TArray<FLandscapeToolMousePosition>& MousePositions) override
 	{
 		ULandscapeInfo* LandscapeInfo = EdMode->CurrentToolTarget.LandscapeInfo.Get();
-		const float ScaleXY = LandscapeInfo->DrawScale.X;
+		const float ScaleXY = FMath::Abs(LandscapeInfo->DrawScale.X);
 		const float TotalRadius = EdMode->UISettings->BrushRadius / ScaleXY;
 		const float Radius = (1.0f - EdMode->UISettings->BrushFalloff) * TotalRadius;
 		const float Falloff = EdMode->UISettings->BrushFalloff * TotalRadius;
@@ -1028,14 +1039,39 @@ public:
 
 			for (int32 X = Bounds.Min.X; X < Bounds.Max.X; X++)
 			{
+				float Angle;
+				FVector2D Scale;
+				FVector2D Bias;
+				if (EdMode->UISettings->bUseWorldSpacePatternBrush)
+				{
+					FVector2D LocalOrigin = -FVector2D(LandscapeInfo->GetLandscapeProxy()->LandscapeActorToWorld().InverseTransformPosition(FVector(EdMode->UISettings->WorldSpacePatternBrushSettings.Origin, 0.0f)));
+					const FVector2D LocalScale = FVector2D(
+						ScaleXY / (EdMode->UISettings->WorldSpacePatternBrushSettings.RepeatSize * ((float)SizeX / SizeY)),
+						ScaleXY / (EdMode->UISettings->WorldSpacePatternBrushSettings.RepeatSize));
+					LocalOrigin *= LocalScale;
+					Angle = -EdMode->UISettings->WorldSpacePatternBrushSettings.Rotation;
+					if (EdMode->UISettings->WorldSpacePatternBrushSettings.bCenterTextureOnOrigin)
+					{
+						LocalOrigin += FVector2D(0.5f, 0.5f).GetRotated(-Angle);
+					}
+					Scale = FVector2D(SizeX, SizeY) * LocalScale;
+					Bias = FVector2D(SizeX, SizeY) * LocalOrigin;
+				}
+				else
+				{
+					Scale.X = 1.0f / EdMode->UISettings->AlphaBrushScale;
+					Scale.Y = 1.0f / EdMode->UISettings->AlphaBrushScale;
+					Bias.X = SizeX * EdMode->UISettings->AlphaBrushPanU;
+					Bias.Y = SizeY * EdMode->UISettings->AlphaBrushPanV;
+					Angle = EdMode->UISettings->AlphaBrushRotation;
+				}
+
 				// Find alphamap sample location
-				float SampleX = (float)X / EdMode->UISettings->AlphaBrushScale + (float)SizeX * EdMode->UISettings->AlphaBrushPanU;
-				float SampleY = (float)Y / EdMode->UISettings->AlphaBrushScale + (float)SizeY * EdMode->UISettings->AlphaBrushPanV;
+				FVector2D SamplePos = FVector2D(X, Y) * Scale + Bias;
+				SamplePos = SamplePos.GetRotated(Angle);
 
-				float Angle = PI * EdMode->UISettings->AlphaBrushRotation / 180.0f;
-
-				float ModSampleX = FMath::Fmod(SampleX * FMath::Cos(Angle) - SampleY * FMath::Sin(Angle), (float)SizeX);
-				float ModSampleY = FMath::Fmod(SampleY * FMath::Cos(Angle) + SampleX * FMath::Sin(Angle), (float)SizeY);
+				float ModSampleX = FMath::Fmod(SamplePos.X, (float)SizeX);
+				float ModSampleY = FMath::Fmod(SamplePos.Y, (float)SizeY);
 
 				if (ModSampleX < 0.0f)
 				{
@@ -1081,19 +1117,43 @@ public:
 		ALandscapeProxy* Proxy = EdMode->CurrentToolTarget.LandscapeInfo.IsValid() ? EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy() : nullptr;
 		if (Proxy)
 		{
-			const float ScaleXY = EdMode->CurrentToolTarget.LandscapeInfo->DrawScale.X;
+			const float ScaleXY = FMath::Abs(EdMode->CurrentToolTarget.LandscapeInfo->DrawScale.X);
 			int32 SizeX = EdMode->UISettings->AlphaTextureSizeX;
 			int32 SizeY = EdMode->UISettings->AlphaTextureSizeY;
 
-			FLinearColor AlphaScaleBias(
-				1.0f / (EdMode->UISettings->AlphaBrushScale * SizeX),
-				1.0f / (EdMode->UISettings->AlphaBrushScale * SizeY),
-				EdMode->UISettings->AlphaBrushPanU,
-				EdMode->UISettings->AlphaBrushPanV
-				);
+			FLinearColor AlphaScaleBias;
+			float Angle;
+			if (EdMode->UISettings->bUseWorldSpacePatternBrush)
+			{
+				FVector2D LocalOrigin = -FVector2D(Proxy->LandscapeActorToWorld().InverseTransformPosition(FVector(EdMode->UISettings->WorldSpacePatternBrushSettings.Origin, 0.0f)));
+				const FVector2D Scale = FVector2D(
+					ScaleXY / (EdMode->UISettings->WorldSpacePatternBrushSettings.RepeatSize * ((float)SizeX / SizeY)),
+					ScaleXY / (EdMode->UISettings->WorldSpacePatternBrushSettings.RepeatSize));
+				LocalOrigin *= Scale;
+				Angle = -EdMode->UISettings->WorldSpacePatternBrushSettings.Rotation;
+				if (EdMode->UISettings->WorldSpacePatternBrushSettings.bCenterTextureOnOrigin)
+				{
+					LocalOrigin += FVector2D(0.5f, 0.5f).GetRotated(-Angle);
+				}
+				AlphaScaleBias = FLinearColor(
+					Scale.X,
+					Scale.Y,
+					LocalOrigin.X,
+					LocalOrigin.Y);
+			}
+			else
+			{
+				AlphaScaleBias = FLinearColor(
+					1.0f / (EdMode->UISettings->AlphaBrushScale * SizeX),
+					1.0f / (EdMode->UISettings->AlphaBrushScale * SizeY),
+					EdMode->UISettings->AlphaBrushPanU,
+					EdMode->UISettings->AlphaBrushPanV);
+				Angle = EdMode->UISettings->AlphaBrushRotation;
+			}
+			Angle = FMath::DegreesToRadians(Angle);
 
-			float Angle = FMath::DegreesToRadians(EdMode->UISettings->AlphaBrushRotation);
-			FLinearColor LandscapeLocation(Proxy->GetActorLocation().X, Proxy->GetActorLocation().Y, Proxy->GetActorLocation().Z, Angle);
+			FVector LandscapeLocation = Proxy->LandscapeActorToWorld().GetTranslation();
+			FLinearColor LandscapeLocationParam(LandscapeLocation.X, LandscapeLocation.Y, LandscapeLocation.Z, Angle);
 
 			int32 Channel = EdMode->UISettings->AlphaTextureChannel;
 			FLinearColor AlphaTextureMask(Channel == 0 ? 1 : 0, Channel == 1 ? 1 : 0, Channel == 2 ? 1 : 0, Channel == 3 ? 1 : 0);
@@ -1102,7 +1162,7 @@ public:
 			{
 				UMaterialInstanceDynamic* const MaterialInstance = BrushMaterialInstancePair.Value;
 				MaterialInstance->SetVectorParameterValue(FName(TEXT("AlphaScaleBias")),    AlphaScaleBias);
-				MaterialInstance->SetVectorParameterValue(FName(TEXT("LandscapeLocation")), LandscapeLocation);
+				MaterialInstance->SetVectorParameterValue(FName(TEXT("LandscapeLocation")), LandscapeLocationParam);
 				MaterialInstance->SetVectorParameterValue(FName(TEXT("AlphaTextureMask")),  AlphaTextureMask);
 				MaterialInstance->SetTextureParameterValue(FName(TEXT("AlphaTexture")),     EdMode->UISettings->AlphaTexture);
 			}
@@ -1151,7 +1211,7 @@ public:
 		}
 		else
 		{
-			float ScaleXY = LandscapeInfo->DrawScale.X;
+			float ScaleXY = FMath::Abs(LandscapeInfo->DrawScale.X);
 			float Radius = EdMode->UISettings->BrushRadius / ScaleXY;
 			int32 SizeX = EdMode->UISettings->AlphaTextureSizeX;
 			int32 SizeY = EdMode->UISettings->AlphaTextureSizeY;
@@ -1255,7 +1315,7 @@ public:
 		ULandscapeInfo* LandscapeInfo = EdMode->CurrentToolTarget.LandscapeInfo.Get();
 		if (LandscapeInfo)
 		{
-			float ScaleXY = LandscapeInfo->DrawScale.X;
+			float ScaleXY = FMath::Abs(LandscapeInfo->DrawScale.X);
 			int32 SizeX = EdMode->UISettings->AlphaTextureSizeX;
 			int32 SizeY = EdMode->UISettings->AlphaTextureSizeY;
 			float Radius = EdMode->UISettings->BrushRadius / ScaleXY;

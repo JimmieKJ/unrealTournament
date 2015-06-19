@@ -4,6 +4,7 @@
 
 #include "ComponentAssetBroker.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PaperSpriteComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteAssetBroker

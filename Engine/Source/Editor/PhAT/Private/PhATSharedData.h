@@ -139,9 +139,6 @@ private:
 
 	void EnableSimulation(bool bEnableSimulation);
 
-	/** Hides the transform widget if the simulation is running, else restores it to its previous mode before simulation */
-	void UpdateTransformWidgetVisibilityForSimulationMode(bool bEnableSimulation);
-
 	void CopyConstraintProperties(UPhysicsConstraintTemplate * FromConstraintSetup, UPhysicsConstraintTemplate * ToConstraintSetup);
 
 public:
@@ -243,8 +240,6 @@ public:
 
 	/** Various mode flags */
 	EPhATEditingMode EditingMode;
-	FWidget::EWidgetMode WidgetMode;
-	ECoordSystem MovementSpace;
 	
 	/** We have a different set of view setting per editing mode */
 	EPhATRenderMode BodyEdit_MeshViewMode;
@@ -270,6 +265,4 @@ public:
 	FVector LastClickDirection;
 #endif
 	FIntPoint LastClickPos;
-private:
-	FWidget::EWidgetMode WidgetModeBeforeSimulation;
 };

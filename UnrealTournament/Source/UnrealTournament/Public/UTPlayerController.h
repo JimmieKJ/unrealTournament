@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTBasePlayerController.h"
+#include "UTPickupWeapon.h"
 #include "UTPlayerController.generated.h"
 
 // range user is allowed to configure FOV angle
@@ -47,26 +48,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual AUTCharacter* GetUTCharacter();
 
+	UPROPERTY(ReplicatedUsing = OnRep_HUDClass)
+	TSubclassOf<class AHUD> HUDClass;
+
+	UFUNCTION()
+	virtual void OnRep_HUDClass();
+
 	UPROPERTY()
 	class AUTHUD* MyUTHUD;
 
-	// the announcer types are split as we use different voices for the two types;
-	// this allows them independent queues with limited talking over each other, which is better than the long queues that can sometimes happen
-	// more configurability for mods and such doesn't hurt either
-
 	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
-	FStringClassReference RewardAnnouncerPath;
+	FStringClassReference AnnouncerPath;
 
-	/** announcer for reward announcements (multikill, etc) - only set on client */
+	/** announcer for reward and staus messages - only set on client */
 	UPROPERTY(BlueprintReadWrite, Category = Announcer)
-	class UUTAnnouncer* RewardAnnouncer;
-
-	UPROPERTY(Config, BlueprintReadWrite, Category = Announcer)
-	FStringClassReference StatusAnnouncerPath;
-
-	/** announcer for status announcements (red flag taken, etc) - only set on client */
-	UPROPERTY(BlueprintReadWrite, Category = Announcer)
-	class UUTAnnouncer* StatusAnnouncer;
+	class UUTAnnouncer* Announcer;
 	
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	USoundBase* ChatMsgSound;
@@ -101,7 +97,7 @@ public:
 	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
 	 */
 	UFUNCTION(client, unreliable)
-	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
+	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
 
 	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override
 	{
@@ -125,11 +121,18 @@ public:
 	UFUNCTION(server, unreliable, withvalidation)
 	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector HitLocation, AActor* DamageCauser, float TimeStamp);
 
-	inline void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
+	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
-		// insert new pickups at the beginning so the order should be newest->oldest
-		// this makes iteration and removal faster when deciding whether the pickup is still hidden in the per-frame code
-		RecentWeaponPickups.Insert(NewPickup, 0);
+		// clear out any dead entries for destroyed pickups
+		for (TSet< TWeakObjectPtr<AUTPickupWeapon> >::TIterator It(RecentWeaponPickups); It; ++It)
+		{
+			if (!It->IsValid())
+			{
+				It.RemoveCurrent();
+			}
+		}
+
+		RecentWeaponPickups.Add(NewPickup);
 	}
 
 	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
@@ -141,10 +144,7 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
-
-	UFUNCTION(client, reliable)
-	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
-	
+		
 	/** Attempts to restart this player, generally called from the client upon respawn request. */
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
@@ -188,10 +188,14 @@ public:
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
+	virtual void ViewSelf(FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
 	/** Update rotation to be good view of current viewtarget.  UnBlockedPct is how much of the camera offset trace needs to be unblocked. */
 	UFUNCTION()
-	virtual void FindGoodView(bool bIsUpdate);
+		virtual void FindGoodView(const FVector& TargetLoc, bool bIsUpdate);
+
+	UPROPERTY()
+		float LastGoalYaw;
 
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
@@ -214,11 +218,15 @@ public:
 	UFUNCTION(unreliable, server, WithValidation)
 	void ServerViewPlayerState(APlayerState* PS);
 
+	virtual void ViewPlayerState(APlayerState* PS);
+
 	UFUNCTION(exec)
 	virtual void ViewClosestVisiblePlayer();
 
 	UFUNCTION(exec)
 	virtual void ViewProjectile();
+
+	virtual void ServerViewProjectileShim();
 
 	UFUNCTION(exec)
 	virtual void ViewFlag(uint8 Index);
@@ -234,7 +242,7 @@ public:
 
 	/** Returns updated rotation for third person camera view. */
 	UFUNCTION()
-		virtual FRotator GetSpectatingRotation(float DeltaTime);
+		virtual FRotator GetSpectatingRotation(const FVector& ViewLoc, float DeltaTime);
 
 	UFUNCTION(exec)
 	virtual void ToggleTacCom();
@@ -270,13 +278,13 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamageType);
+	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, FVector_NetQuantize RelHitLocation);
 
 	/** notification that we successfully hit HitPawn
 	 * note that HitPawn may be NULL if it is not currently relevant to the client
 	 */
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyCausedHit(APawn* HitPawn, int32 Damage);
+	void ClientNotifyCausedHit(APawn* HitPawn, uint8 Damage);
 
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)
@@ -307,34 +315,30 @@ public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapAfterJump;
 
-	/** If true, tapping crouch will cause a slide. */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-	bool bTapCrouchToSlide;
-
 	/** Toggles bSingleTapWallDodge */
 	UFUNCTION(exec)
 	virtual void ToggleSingleTap();
-
-	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-	bool bAutoSlide;
-
-	/** Toggles whether need to hold shift down or not to slide along walls. */
-	UFUNCTION(exec)
-	virtual void ToggleAutoSlide();
-
-	/** Handles propagating autoslide changes to UTCharacterMovement and to server */
-	virtual	void SetAutoSlide(bool bNewAutoSlide);
-
-	/** Replicate autoslide setting to server */
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetAutoSlide(bool bNewAutoSlide);
 
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Camera)
 	int32 StylizedPPIndex;
 
 	UFUNCTION(exec)
 	virtual void SetStylizedPP(int32 NewPP);
+
+	UFUNCTION(exec)
+	virtual void DemoRestart();
+
+	UFUNCTION(exec)
+	virtual void DemoSeek(float DeltaSeconds);
+
+	UFUNCTION(exec)
+	virtual void DemoGoToLive();
+
+	UFUNCTION(exec)
+	virtual void DemoPause();
+
+	UFUNCTION(exec)
+	virtual void DemoTimeDilation(float DeltaAmount);
 
 	/** whether player wants behindview when spectating */
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
@@ -414,6 +418,8 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPawn(APawn* PawnToView);
 
+	virtual void ViewPawn(APawn* PawnToView);
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPlaceholderAtLocation(FVector Location);
 
@@ -421,7 +427,10 @@ public:
 		USoundBase* SelectSound;
 	
 	UFUNCTION()
-		virtual void PlayMenuSelectSound();
+	virtual void PlayMenuSelectSound();
+
+	UFUNCTION(exec)
+	void ClearTokens();
 
 	//-----------------------------------------------
 	// Perceived latency reduction
@@ -502,6 +511,11 @@ public:
 	UFUNCTION()
 	void OnRep_CastingViewIndex();
 
+	UFUNCTION(exec)
+	virtual void StartCastingGuide();
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerStartCastingGuide();
+
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);
 
@@ -525,8 +539,7 @@ protected:
 	AActor* FinalViewTarget;
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
-	UPROPERTY()
-	TArray<class AUTPickupWeapon*> RecentWeaponPickups;
+	TSet< TWeakObjectPtr<AUTPickupWeapon> > RecentWeaponPickups;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)
@@ -600,8 +613,8 @@ protected:
 	bool bIsHoldingDodge;
 
 	/** True if player is holding modifier to slide/roll */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	bool bIsHoldingSlideRoll;
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	bool bIsHoldingFloorSlide;
 
 	/** requests a change team; default is to switch to any other team than current */
 	UFUNCTION(exec)
@@ -672,16 +685,8 @@ protected:
 	/** called to set the jump flag from input */
 	virtual void Jump();
 
-	/** Max held time for slide from crouch tap */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
-	float CrouchSlideTapInterval;
-
-	/** max world time to release crouch tap to slide, set from CrouchSlideTapInterval */
-	UPROPERTY(BlueprintReadOnly, Category = Dodging)
-	float SlideTapThresholdTime;
-
-	/** Call to set movement slide flag from input. */
-	virtual void Slide();
+	/** called when jump is released. */
+	virtual void JumpRelease();
 
 	virtual void Crouch();
 	virtual void UnCrouch();
@@ -707,8 +712,6 @@ protected:
 	virtual void PerformSingleTapDodge();
 	void HoldDodge();
 	void ReleaseDodge();
-	void HoldRollSlide();
-	void ReleaseRollSlide();
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();
@@ -770,39 +773,61 @@ public:
 
 	/** Playerstate whose details are currently being displayed on scoreboard. */
 	UPROPERTY()
-		AUTPlayerState* CurrentlyViewedScorePS;
+	AUTPlayerState* CurrentlyViewedScorePS;
 
 	UPROPERTY()
-		int32 TeamStatsUpdateTeam;
+	int32 TeamStatsUpdateTeam;
 
 	UPROPERTY()
-		int32 TeamStatsUpdateIndex;
+	int32 TeamStatsUpdateIndex;
 
 	UPROPERTY()
-		float LastTeamStatsUpdateStartTime;
+	float LastTeamStatsUpdateStartTime;
 
 	UPROPERTY()
-		int32 StatsUpdateIndex;
+	int32 StatsUpdateIndex;
 
 	UPROPERTY()
-		float LastScoreStatsUpdateStartTime;
+	float LastScoreStatsUpdateStartTime;
 
 	UPROPERTY()
-		uint8 CurrentlyViewedStatsTab;
+	uint8 CurrentlyViewedStatsTab;
 
 	UFUNCTION()
-		virtual void SetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
+	virtual void SetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
 
 	UFUNCTION(server, unreliable, withvalidation)
-		virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
+	virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
 
 	UFUNCTION(client, unreliable)
-		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
+		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, uint8 StatsPage, uint8 StatsIndex, float NewValue);
 
 	UFUNCTION(client, unreliable)
-		virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
+	virtual void ClientUpdateTeamStats(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue);
 
 	virtual void AdvanceStatsPage(int32 Increment);
+
+	int32 DilationIndex;
+
+	UFUNCTION(client, reliable)
+	virtual void ClientShowMapVote();
+
+	UFUNCTION(client, reliable)
+	virtual void ClientHideMapVote();
+
+	UFUNCTION(exec)
+	virtual void TestVote()
+	{
+		ClientShowMapVote();
+	}
+
+	virtual void ShowMenu()
+	{
+		Super::ShowMenu();
+		OnStopFire();
+		OnStopAltFire();
+	}
+
 };
 
 

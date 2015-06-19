@@ -59,8 +59,8 @@ static void WaitAndResumeRendering()
 		FPlatformProcess::Sleep( 0.001f ); //@todo this should be a more principled wait
 	}
     
-    // set the thread back to real time mode
-    FPlatformProcess::SetRealTimeMode();
+	// set the thread back to real time mode
+	FPlatformProcess::SetRealTimeMode();
 }
 
 /**
@@ -69,6 +69,10 @@ static void WaitAndResumeRendering()
  */
 FSuspendRenderingThread::FSuspendRenderingThread( bool bInRecreateThread )
 {
+	// Suspend async loading thread so that it doesn't start queueing render commands 
+	// while the render thread is suspended.
+	SuspendAsyncLoading();
+
 	bRecreateThread = bInRecreateThread;
 	bUseRenderingThread = GUseThreadedRendering;
 	bWasRenderingThreadRunning = GIsThreadedRendering;
@@ -108,6 +112,7 @@ FSuspendRenderingThread::FSuspendRenderingThread( bool bInRecreateThread )
 				}
 				else
 				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_FSuspendRenderingThread);
 					FTaskGraphInterface::Get().WaitUntilTaskCompletes(CompleteHandle, ENamedThreads::GameThread);
 				}
 				check(GIsRenderingThreadSuspended);
@@ -168,6 +173,7 @@ FSuspendRenderingThread::~FSuspendRenderingThread()
 		// Resume the render thread again. 
 		FPlatformAtomics::InterlockedDecrement( &GIsRenderingThreadSuspended );
 	}
+	ResumeAsyncLoading();
 }
 
 
@@ -215,7 +221,6 @@ uint32 GRenderThreadTime = 0;
 
 
 
-#if PLATFORM_SUPPORTS_RHI_THREAD
 /** The RHI thread runnable object. */
 class FRHIThread : public FRunnable
 {
@@ -244,14 +249,11 @@ public:
 	void Start()
 	{
 		Thread = FRunnableThread::Create(this, TEXT("RHIThread"), 512 * 1024, TPri_Normal, 
-			//FPlatformAffinity::GetRHIThreadMask()
-			0xFFFFFFFFFFFFFFFF
+			FPlatformAffinity::GetRHIThreadMask()
 			);
 		check(Thread);
 	}
 };
-
-#endif
 
 /** The rendering thread main loop */
 void RenderingThreadMain( FEvent* TaskGraphBoundSyncEvent )
@@ -284,10 +286,6 @@ void RenderingThreadMain( FEvent* TaskGraphBoundSyncEvent )
 	ENamedThreads::RenderThread = ENamedThreads::GameThread;
 	ENamedThreads::RenderThread_Local = ENamedThreads::GameThread_Local;
 	FPlatformMisc::MemoryBarrier();
-
-#if STATS
-	FThreadStats::ExplicitFlush();
-#endif
 }
 
 /**
@@ -341,14 +339,20 @@ public:
 	 */
 	FEvent* TaskGraphBoundSyncEvent;
 
-	FRenderingThread() : FRunnable()
+	FRenderingThread()
 	{
-		TaskGraphBoundSyncEvent	= FPlatformProcess::CreateSynchEvent(true);
+		TaskGraphBoundSyncEvent	= FPlatformProcess::GetSynchEventFromPool(true);
 		RHIFlushResources();
 	}
 
+	virtual ~FRenderingThread()
+	{
+		FPlatformProcess::ReturnSynchEventToPool(TaskGraphBoundSyncEvent);
+		TaskGraphBoundSyncEvent = nullptr;
+	}
+
 	// FRunnable interface.
-	virtual bool Init(void) 
+	virtual bool Init(void) override
 	{ 
 		GRenderThreadId = FPlatformTLS::GetCurrentThreadId();
 
@@ -358,7 +362,7 @@ public:
 		return true; 
 	}
 
-	virtual void Exit(void) 
+	virtual void Exit(void) override
 	{
 		// Release rendering context ownership on the current thread
 		RHIReleaseThreadOwnership();
@@ -366,11 +370,7 @@ public:
 		GRenderThreadId = 0;
 	}
 
-	virtual void Stop(void)
-	{
-	}
-
-	virtual uint32 Run(void)
+	virtual uint32 Run(void) override
 	{
 		FPlatformProcess::SetupGameOrRenderThread(true);
 
@@ -403,10 +403,6 @@ public:
 		{
 			RenderingThreadMain( TaskGraphBoundSyncEvent );
 		}
-#if STATS
-		FThreadStats::ExplicitFlush();
-		FThreadStats::Shutdown();
-#endif
 		return 0;
 	}
 };
@@ -516,7 +512,6 @@ void StartRenderingThread()
 	check(!GIsThreadedRendering && GUseThreadedRendering);
 
 	check(!GRHIThread)
-#if PLATFORM_SUPPORTS_RHI_THREAD
 	if (GUseRHIThread)
 	{
 		if (!FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::RHIThread))
@@ -526,12 +521,12 @@ void StartRenderingThread()
 		DECLARE_CYCLE_STAT(TEXT("Wait For RHIThread"), STAT_WaitForRHIThread, STATGROUP_TaskGraphTasks);
 
 		FGraphEventRef CompletionEvent = TGraphTask<FNullGraphTask>::CreateTask(NULL, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(GET_STATID(STAT_WaitForRHIThread), ENamedThreads::RHIThread);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_StartRenderingThread);
 		FTaskGraphInterface::Get().WaitUntilTaskCompletes(CompletionEvent, ENamedThreads::GameThread_Local);
 		GRHIThread = FRHIThread::Get().Thread;
 		check(GRHIThread);
 		GRHICommandList.LatchBypass();
 	}
-#endif
 
 	// Turn on the threaded rendering flag.
 	GIsThreadedRendering = true;
@@ -594,16 +589,14 @@ void StopRenderingThread()
 		// The rendering thread may have already been stopped during the call to GFlushStreamingFunc or FlushRenderingCommands.
 		if ( GIsThreadedRendering )
 		{
-#if PLATFORM_SUPPORTS_RHI_THREAD
 			if (GRHIThread)
 			{
 				DECLARE_CYCLE_STAT(TEXT("Wait For RHIThread Finish"), STAT_WaitForRHIThreadFinish, STATGROUP_TaskGraphTasks);
 				FGraphEventRef FlushTask = TGraphTask<FNullGraphTask>::CreateTask(NULL, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(GET_STATID(STAT_WaitForRHIThreadFinish), ENamedThreads::RHIThread);
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_StopRenderingThread_RHIThread);
 				FTaskGraphInterface::Get().WaitUntilTaskCompletes(FlushTask, ENamedThreads::GameThread_Local);
 				GRHIThread = nullptr;
 			}
-#endif
-
 
 			check( GRenderingThread );
 			check(!GIsRenderingThreadSuspended);
@@ -625,6 +618,7 @@ void StopRenderingThread()
 				}
 				else
 				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_StopRenderingThread);
 					FTaskGraphInterface::Get().WaitUntilTaskCompletes(QuitTask, ENamedThreads::GameThread_Local);
 				}
 			}
@@ -709,7 +703,7 @@ bool FRenderCommandFence::IsFenceComplete() const
 	{
 		return true;
 	}
-	check(IsInGameThread());
+	check(IsInGameThread() || IsInAsyncLoadingThread());
 	CheckRenderingThreadHealth();
 	if (!CompletionEvent.GetReference() || CompletionEvent->IsComplete())
 	{
@@ -744,8 +738,7 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 		SCOPE_CYCLE_COUNTER(STAT_GameIdleTime);
 		{
 			static int32 NumRecursiveCalls = 0;
-			static TArray<FEvent*> EventPool;
-			
+		
 			// Check for recursion. It's not completely safe but because we pump messages while 
 			// blocked it is expected.
 			NumRecursiveCalls++;
@@ -759,15 +752,7 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 			}
 
 			// Grab an event from the pool and fire off a task to trigger it.
-			FEvent* Event = NULL;
-			if (EventPool.Num() > 0)
-			{
-				Event = EventPool.Pop();
-			}
-			else
-			{
-				Event = FPlatformProcess::CreateSynchEvent();
-			}
+			FEvent* Event = FPlatformProcess::GetSynchEventFromPool();
 			FTaskGraphInterface::Get().TriggerEventWhenTaskCompletes(Event, Task, ENamedThreads::GameThread);
 
 			// Check rendering thread health needs to be called from time to
@@ -781,7 +766,7 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 				CheckRenderingThreadHealth();
 				if (bEmptyGameThreadTasks)
 				{
-					// process gamehtread tasks if there are any
+					// process gamethread tasks if there are any
 					FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 				}
 				bDone = Event->Wait(WaitTime);
@@ -789,7 +774,8 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 			while (!bDone);
 
 			// Return the event to the pool and decrement the recursion counter.
-			EventPool.Push(Event);
+			FPlatformProcess::ReturnSynchEventToPool(Event);
+			Event = nullptr;
 			NumRecursiveCalls--;
 		}
 	}
@@ -807,6 +793,7 @@ void FRenderCommandFence::Wait(bool bProcessGameThreadTasks) const
 		// windows needs to pump messages
 		if (bProcessGameThreadTasks)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_FRenderCommandFence_Wait);
 			FTaskGraphInterface::Get().WaitUntilTaskCompletes(CompletionEvent, ENamedThreads::GameThread);
 		}
 #endif
@@ -907,6 +894,8 @@ FPendingCleanupObjects::FPendingCleanupObjects()
 
 FPendingCleanupObjects::~FPendingCleanupObjects()
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FPendingCleanupObjects_Destruct);
+
 	for(int32 ObjectIndex = 0;ObjectIndex < CleanupArray.Num();ObjectIndex++)
 	{
 		CleanupArray[ObjectIndex]->FinishCleanup();

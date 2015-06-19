@@ -34,6 +34,11 @@ class ENGINE_API UAISystemBase : public UObject
 	 */
 	virtual void CleanupWorld(bool bSessionEnded = true, bool bCleanupResources = true, UWorld* NewWorld = NULL) PURE_VIRTUAL(UAISystemBase::CleanupWorld, );
 
+	/** 
+	 *	Called by UWorld::BeginPlay to indicate the gameplay has started
+	 */
+	virtual void StartPlay();
+
 private:
 	UPROPERTY(globalconfig, noclear, meta = (MetaClass = "AISystem", DisplayName = "AISystem Class"))
 	FStringClassReference AISystemClassName;

@@ -100,7 +100,7 @@ void UCurveTable::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 }
 #endif
 
-FString UCurveTable::GetTableAsString()
+FString UCurveTable::GetTableAsString() const
 {
 	FString Result;
 
@@ -150,6 +150,56 @@ FString UCurveTable::GetTableAsString()
 	{
 		Result += FString(TEXT("No data in row curve!\n"));
 	}
+	return Result;
+}
+
+FString UCurveTable::GetTableAsCSV() const
+{
+	FString Result;
+
+	if(RowMap.Num() > 0)
+	{
+		TArray<FName> Names;
+		TArray<FRichCurve*> Curves;
+		
+		// get the row names and curves they represent
+		RowMap.GenerateKeyArray(Names);
+		RowMap.GenerateValueArray(Curves);
+
+		// Determine the curve with the longest set of data, for headers
+		int32 LongestCurveIndex = 0;
+		for (int32 CurvesIdx = 1; CurvesIdx < Curves.Num(); CurvesIdx++)
+		{
+			if(Curves[CurvesIdx]->GetNumKeys() > Curves[LongestCurveIndex]->GetNumKeys())
+			{
+				LongestCurveIndex = CurvesIdx;
+			}
+		}
+
+		// First row, column titles, taken from the longest curve
+		Result += TEXT("---");
+		for (auto It(Curves[LongestCurveIndex]->GetKeyIterator()); It; ++It)
+		{
+			Result += FString::Printf(TEXT(",%f"), It->Time);
+		}
+		Result += TEXT("\n");
+
+		// display all the curves
+		for (int32 CurvesIdx = 0; CurvesIdx < Curves.Num(); CurvesIdx++)
+		{
+			// show name of curve
+			Result += Names[CurvesIdx].ToString();
+
+			// show data of curve
+			for (auto It(Curves[CurvesIdx]->GetKeyIterator()); It; ++It)
+			{
+				Result += FString::Printf(TEXT(",%f"), It->Value);
+			}
+
+			Result += TEXT("\n");
+		}
+	}
+
 	return Result;
 }
 
@@ -304,6 +354,96 @@ TArray<FString> UCurveTable::CreateTableFromCSVString(const FString& InString, E
 		for(int32 ColumnIdx = 0; ColumnIdx < XValues.Num(); ColumnIdx++)
 		{
 			FKeyHandle KeyHandle = NewCurve->AddKey(XValues[ColumnIdx], YValues[ColumnIdx]);
+			NewCurve->SetKeyInterpMode(KeyHandle, InterpMode);
+		}
+
+		RowMap.Add(RowName, NewCurve);
+	}
+
+	Modify(true);
+	return OutProblems;
+}
+
+TArray<FString> UCurveTable::CreateTableFromJSONString(const FString& InString, ERichCurveInterpMode InterpMode)
+{
+	// Array used to store problems about table creation
+	TArray<FString> OutProblems;
+
+	if (InString.IsEmpty())
+	{
+		OutProblems.Add(TEXT("Input data is empty."));
+		return OutProblems;
+	}
+
+	TArray< TSharedPtr<FJsonValue> > ParsedTableRows;
+	{
+		const TSharedRef< TJsonReader<TCHAR> > JsonReader = TJsonReaderFactory<TCHAR>::Create(InString);
+		if (!FJsonSerializer::Deserialize(JsonReader, ParsedTableRows) || ParsedTableRows.Num() == 0)
+		{
+			OutProblems.Add(FString::Printf(TEXT("Failed to parse the JSON data. Error: %s"), *JsonReader->GetErrorMessage()));
+			return OutProblems;
+		}
+	}
+
+	// Empty existing data
+	EmptyTable();
+
+	// Iterate over rows
+	for (int32 RowIdx = 0; RowIdx < ParsedTableRows.Num(); ++RowIdx)
+	{
+		const TSharedPtr<FJsonValue>& ParsedTableRowValue = ParsedTableRows[RowIdx];
+		TSharedPtr<FJsonObject> ParsedTableRowObject = ParsedTableRowValue->AsObject();
+		if (!ParsedTableRowObject.IsValid())
+		{
+			OutProblems.Add(FString::Printf(TEXT("Row '%d' is not a valid JSON object."), RowIdx));
+			continue;
+		}
+
+		// Get row name
+		static const FString RowNameJsonKey = TEXT("Name");
+		const FName RowName = MakeValidName(ParsedTableRowObject->GetStringField(RowNameJsonKey));
+
+		// Check its not 'none'
+		if (RowName == NAME_None)
+		{
+			OutProblems.Add(FString::Printf(TEXT("Row '%d' missing a name."), RowIdx));
+			continue;
+		}
+
+		// Check its not a duplicate
+		if (RowMap.Find(RowName) != NULL)
+		{
+			OutProblems.Add(FString::Printf(TEXT("Duplicate row name '%s'."), *RowName.ToString()));
+			continue;
+		}
+
+		// Add a key for each entry in this row
+		FRichCurve* NewCurve = new FRichCurve();
+		for (const auto& ParsedTableRowEntry : ParsedTableRowObject->Values)
+		{
+			// Skip the name entry
+			if (ParsedTableRowEntry.Key == RowNameJsonKey)
+			{
+				continue;
+			}
+
+			// Make sure we have a valid float key
+			float EntryKey = 0.0f;
+			if (!LexicalConversion::TryParseString(EntryKey, *ParsedTableRowEntry.Key))
+			{
+				OutProblems.Add(FString::Printf(TEXT("Key '%s' on row '%s' is not a float and cannot be parsed."), *ParsedTableRowEntry.Key, *RowName.ToString()));
+				continue;
+			}
+
+			// Make sure we have a valid float value
+			double EntryValue = 0.0;
+			if (!ParsedTableRowEntry.Value->TryGetNumber(EntryValue))
+			{
+				OutProblems.Add(FString::Printf(TEXT("Entry '%s' on row '%s' is not a float and cannot be parsed."), *ParsedTableRowEntry.Key, *RowName.ToString()));
+				continue;
+			}
+
+			FKeyHandle KeyHandle = NewCurve->AddKey(EntryKey, static_cast<float>(EntryValue));
 			NewCurve->SetKeyInterpMode(KeyHandle, InterpMode);
 		}
 

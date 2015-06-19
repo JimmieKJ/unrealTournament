@@ -60,8 +60,6 @@ TSharedRef<SWidget> SSourceControlPicker::OnGetMenuContent() const
 {
 	FSourceControlModule& SourceControlModule = FSourceControlModule::Get();
 
-	SourceControlModule.RefreshSourceControlProviders();
-
 	FMenuBuilder MenuBuilder(true, NULL);
 
 	// Get the provider names first so that we can sort them for the UI

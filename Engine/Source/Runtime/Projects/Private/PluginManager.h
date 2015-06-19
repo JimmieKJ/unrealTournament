@@ -5,24 +5,9 @@
 #include "PluginDescriptor.h"
 
 /**
- * Enum for where a plugin is loaded from
- */
-struct EPluginLoadedFrom
-{
-	enum Type
-	{
-		/** Plugin is built-in to the engine */
-		Engine,
-
-		/** Project-specific plugin, stored within a game project directory */
-		GameProject
-	};
-};
-
-/**
  * Instance of a plugin in memory
  */
-class FPluginInstance
+class FPlugin : public IPlugin
 {
 public:
 	/** The name of the plugin */
@@ -35,7 +20,7 @@ public:
 	FPluginDescriptor Descriptor;
 
 	/** Where does this plugin live? */
-	EPluginLoadedFrom::Type LoadedFrom;
+	EPluginLoadedFrom LoadedFrom;
 
 	/** True if the plugin is marked as enabled */
 	bool bEnabled;
@@ -43,7 +28,24 @@ public:
 	/**
 	 * FPlugin constructor
 	 */
-	FPluginInstance(const FString &FileName, const FPluginDescriptor& InDescriptor, EPluginLoadedFrom::Type InLoadedFrom);
+	FPlugin(const FString &FileName, const FPluginDescriptor& InDescriptor, EPluginLoadedFrom InLoadedFrom);
+
+	/**
+	 * Destructor.
+	 */
+	virtual ~FPlugin();
+
+	/* IPluginInfo interface */
+	virtual FString GetName() const override;
+	virtual FString GetDescriptorFileName() const override;
+	virtual FString GetBaseDir() const override;
+	virtual FString GetContentDir() const override;
+	virtual FString GetMountedAssetPath() const override;
+	virtual bool IsEnabled() const override;
+	virtual bool CanContainContent() const override;
+	virtual EPluginLoadedFrom GetLoadedFrom() const override;
+	virtual const FPluginDescriptor& GetDescriptor() const override;
+	virtual bool UpdateDescriptor(const FPluginDescriptor& NewDescriptor, FText& OutFailReason) override;
 };
 
 /**
@@ -59,12 +61,15 @@ public:
 	~FPluginManager();
 
 	/** IPluginManager interface */
+	virtual void RefreshPluginsList();
 	virtual bool LoadModulesForEnabledPlugins( const ELoadingPhase::Type LoadingPhase ) override;
 	virtual void SetRegisterMountPointDelegate( const FRegisterMountPointDelegate& Delegate ) override;
 	virtual bool AreRequiredPluginsAvailable() override;
 	virtual bool CheckModuleCompatibility( TArray<FString>& OutIncompatibleModules ) override;
+	virtual TSharedPtr<IPlugin> FindPlugin(const FString& Name) override;
+	virtual TArray<TSharedRef<IPlugin>> GetEnabledPlugins() override;
+	virtual TArray<TSharedRef<IPlugin>> GetDiscoveredPlugins() override;
 	virtual TArray< FPluginStatus > QueryStatusForAllPlugins() const override;
-	virtual const TArray< FPluginContentFolder >& GetPluginContentFolders() const override;
 
 private:
 
@@ -72,18 +77,24 @@ private:
 	    This is called when the plugin manager singleton is first accessed. */
 	void DiscoverAllPlugins();
 
+	/** Reads all the plugin descriptors */
+	static void ReadAllPlugins(TArray<TSharedRef<FPlugin>>& Plugins);
+
+	/** Reads all the plugin descriptors from disk */
+	static void ReadPluginsInDirectory(const FString& PluginsDirectory, const EPluginLoadedFrom LoadedFrom, TArray<TSharedRef<FPlugin>>& Plugins);
+
+	/** Finds all the plugin descriptors underneath a given directory */
+	static void FindPluginsInDirectory(const FString& PluginsDirectory, TArray<FString>& FileNames);
+
 	/** Sets the bPluginEnabled flag on all plugins found from DiscoverAllPlugins that are enabled in config */
 	bool ConfigureEnabledPlugins();
 
 	/** Gets the instance of a given plugin */
-	TSharedPtr<FPluginInstance> FindPluginInstance(const FString& Name);
+	TSharedPtr<FPlugin> FindPluginInstance(const FString& Name);
 
 private:
 	/** All of the plugins that we know about */
-	TArray< TSharedRef< FPluginInstance > > AllPlugins;
-
-	/** All the plugin content folders */
-	TArray<FPluginContentFolder> ContentFolders;
+	TArray< TSharedRef< FPlugin > > AllPlugins;
 
 	/** Delegate for mounting content paths.  Bound by FPackageName code in CoreUObject, so that we can access
 	    content path mounting functionality from Core. */

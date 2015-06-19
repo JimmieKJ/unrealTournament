@@ -178,6 +178,15 @@ void AUTTeamInfo::RemoveFromTeam(AController* C)
 	}
 }
 
+void AUTTeamInfo::RemoveSquad(AUTSquadAI* DeadSquad)
+{
+	if (DeadSquad != NULL && Squads.Contains(DeadSquad))
+	{
+		Squads.Remove(DeadSquad);
+		DeadSquad->Destroy();
+	}
+}
+
 void AUTTeamInfo::ReceivedTeamIndex()
 {
 	if (!bFromPreviousLevel && TeamIndex != 255)

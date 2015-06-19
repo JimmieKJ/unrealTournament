@@ -11,20 +11,20 @@ UDataTableFunctionLibrary::UDataTableFunctionLibrary(const FObjectInitializer& O
 
 void UDataTableFunctionLibrary::EvaluateCurveTableRow(UCurveTable* CurveTable, FName RowName, float InXY, TEnumAsByte<EEvaluateCurveTableResult::Type>& OutResult, float& OutXY)
 {
-    FCurveTableRowHandle Handle;
-    Handle.CurveTable = CurveTable;
-    Handle.RowName = RowName;
-    
+	FCurveTableRowHandle Handle;
+	Handle.CurveTable = CurveTable;
+	Handle.RowName = RowName;
+	
 	bool found = Handle.Eval(InXY, &OutXY);
-    
-    if (found)
-    {
-        OutResult = EEvaluateCurveTableResult::RowFound;
-    }
-    else
-    {
-        OutResult = EEvaluateCurveTableResult::RowNotFound;
-    }
+	
+	if (found)
+	{
+	    OutResult = EEvaluateCurveTableResult::RowFound;
+	}
+	else
+	{
+	    OutResult = EEvaluateCurveTableResult::RowNotFound;
+	}
 }
 
 bool UDataTableFunctionLibrary::Generic_GetDataTableRowFromName(UDataTable* Table, FName RowName, void* OutRowPtr)
@@ -54,7 +54,7 @@ bool UDataTableFunctionLibrary::GetDataTableRowFromName(UDataTable* Table, FName
 {
 	// We should never hit this!  stubs to avoid NoExport on the class.
 	check(0);
-    return false;
+	return false;
 }
 
 void UDataTableFunctionLibrary::GetDataTableRowNames(UDataTable* Table, TArray<FName>& OutRowNames)

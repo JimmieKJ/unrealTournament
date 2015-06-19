@@ -195,7 +195,7 @@ FORCEINLINE void RelocateItems(void* Dest, const ElementType* Source, int32 Coun
  * @param	Count		The number of elements to move.
  */
 template <typename ElementType>
-FORCEINLINE typename TEnableIf<TTypeTraits<ElementType>::NeedsMoveConstructor>::Type MoveConstructItems(void* Dest, ElementType* Source, int32 Count)
+FORCEINLINE typename TEnableIf<TTypeTraits<ElementType>::NeedsMoveConstructor>::Type MoveConstructItems(void* Dest, const ElementType* Source, int32 Count)
 {
 	while (Count)
 	{
@@ -220,7 +220,7 @@ FORCEINLINE typename TEnableIf<!TTypeTraits<ElementType>::NeedsMoveConstructor>:
  * @param	Count		The number of elements to move assign.
  */
 template <typename ElementType>
-FORCEINLINE typename TEnableIf<TTypeTraits<ElementType>::NeedsMoveAssignment>::Type MoveAssignItems(ElementType* Dest, ElementType* Source, int32 Count)
+FORCEINLINE typename TEnableIf<TTypeTraits<ElementType>::NeedsMoveAssignment>::Type MoveAssignItems(ElementType* Dest, const ElementType* Source, int32 Count)
 {
 	while (Count)
 	{

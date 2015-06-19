@@ -355,8 +355,7 @@ bool FApplePlatformFile::MoveFile(const TCHAR* To, const TCHAR* From)
 bool FApplePlatformFile::SetReadOnly(const TCHAR* Filename, bool bNewReadOnlyValue)
 {
 	struct stat FileInfo;
-	ANSICHAR FixedFilePath[MAX_PATH] = { 0 };
-	if (Stat(Filename, &FileInfo, FixedFilePath, MAX_PATH) != -1)
+	if (Stat(Filename, &FileInfo) == 0)
 	{
 		if (bNewReadOnlyValue)
 		{
@@ -366,7 +365,7 @@ bool FApplePlatformFile::SetReadOnly(const TCHAR* Filename, bool bNewReadOnlyVal
 		{
 			FileInfo.st_mode |= S_IWUSR;
 		}
-		return chmod(*FixedFilePath ? FixedFilePath : TCHAR_TO_UTF8(*NormalizeFilename(Filename)), FileInfo.st_mode);
+		return chmod(TCHAR_TO_UTF8(*NormalizeFilename(Filename)), FileInfo.st_mode) == 0;
 	}
 	return false;
 }
@@ -391,8 +390,7 @@ void FApplePlatformFile::SetTimeStamp(const TCHAR* Filename, const FDateTime Dat
 {
 	// get file times
 	struct stat FileInfo;
-	ANSICHAR FixedFilePath[MAX_PATH] = { 0 };
-	if (Stat(Filename, &FileInfo, FixedFilePath, MAX_PATH) != -1)
+	if (Stat(Filename, &FileInfo) == 0)
 	{
 		return;
 	}
@@ -401,7 +399,7 @@ void FApplePlatformFile::SetTimeStamp(const TCHAR* Filename, const FDateTime Dat
 	struct utimbuf Times;
 	Times.actime = FileInfo.st_atime;
 	Times.modtime = (DateTime - MacEpoch).GetTotalSeconds();
-	utime(*FixedFilePath ? FixedFilePath : TCHAR_TO_UTF8(*NormalizeFilename(Filename)), &Times);
+	utime(TCHAR_TO_UTF8(*NormalizeFilename(Filename)), &Times);
 }
 FDateTime FApplePlatformFile::GetAccessTimeStamp(const TCHAR* Filename)
 {
@@ -422,7 +420,7 @@ FString FApplePlatformFile::GetFilenameOnDisk(const TCHAR* Filename)
 	return Filename;
 }
 
-IFileHandle* FApplePlatformFile::OpenRead(const TCHAR* Filename)
+IFileHandle* FApplePlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 	int32 Handle = open(TCHAR_TO_UTF8(*NormalizeFilename(Filename)), O_RDONLY);
 	if (Handle != -1)
@@ -491,7 +489,7 @@ bool FApplePlatformFile::CreateDirectory(const TCHAR* Directory)
 }
 bool FApplePlatformFile::DeleteDirectory(const TCHAR* Directory)
 {
-	return rmdir(TCHAR_TO_UTF8(*NormalizeFilename(Directory)));
+	return rmdir(TCHAR_TO_UTF8(*NormalizeFilename(Directory))) == 0;
 }
 bool FApplePlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor)
 {
@@ -530,7 +528,22 @@ bool FApplePlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisi
 	}
 }
 
-int32 FApplePlatformFile::Stat(const TCHAR* Filename, struct stat* OutFileInfo, ANSICHAR* OutFixedPath, SIZE_T FixedPathSize)
+bool FApplePlatformFile::CopyFile(const TCHAR* To, const TCHAR* From)
+{
+	bool Result = IPlatformFile::CopyFile(To, From);
+	if (Result)
+	{
+		struct stat FileInfo;
+		if (Stat(From, &FileInfo) == 0)
+		{
+			FileInfo.st_mode |= S_IWUSR;
+			chmod(TCHAR_TO_UTF8(*NormalizeFilename(To)), FileInfo.st_mode);
+		}
+	}
+	return Result;
+}
+
+int32 FApplePlatformFile::Stat(const TCHAR* Filename, struct stat* OutFileInfo)
 {
 	return stat(TCHAR_TO_UTF8(*NormalizeFilename(Filename)), OutFileInfo);
 }

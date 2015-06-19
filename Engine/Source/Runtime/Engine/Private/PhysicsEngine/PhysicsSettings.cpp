@@ -13,9 +13,13 @@ UPhysicsSettings::UPhysicsSettings(const FObjectInitializer& ObjectInitializer)
 	, RagdollAggregateThreshold(4)
 	, TriangleMeshTriangleMinAreaThreshold(5.0f)
 	, bEnableAsyncScene(false)
+	, bEnableShapeSharing(false)
+	, bEnablePCM(false)
+	, bWarnMissingLocks(true)
 	, bEnable2DPhysics(false)
+	, LockedAxis_DEPRECATED(ESettingsLockedAxis::Invalid)
+	, BounceThresholdVelocity(200.f)
 	, bSimulateSkeletalMeshOnDedicatedServer(true)
-	, bEnableKinematicContacts(true)
 	, MaxPhysicsDeltaTime(1.f / 30.f)
 	, bSubstepping(false)
 	, bSubsteppingAsync(false)
@@ -25,6 +29,7 @@ UPhysicsSettings::UPhysicsSettings(const FObjectInitializer& ObjectInitializer)
 	, AsyncSceneSmoothingFactor(0.99f)
 	, InitialAverageFrameRate(1.f / 60.f)
 {
+	SectionName = TEXT("Physics");
 }
 
 void UPhysicsSettings::PostInitProperties()
@@ -33,6 +38,33 @@ void UPhysicsSettings::PostInitProperties()
 #if WITH_EDITOR
 	LoadSurfaceType();
 #endif
+
+	if (LockedAxis_DEPRECATED == static_cast<ESettingsLockedAxis::Type>(-1))
+	{
+		LockedAxis_DEPRECATED = ESettingsLockedAxis::Invalid;
+	}
+
+	if (LockedAxis_DEPRECATED != ESettingsLockedAxis::Invalid)
+	{
+		if (LockedAxis_DEPRECATED == ESettingsLockedAxis::None)
+		{
+			DefaultDegreesOfFreedom = ESettingsDOF::Full3D;
+		}
+		else if (LockedAxis_DEPRECATED == ESettingsLockedAxis::X)
+		{
+			DefaultDegreesOfFreedom = ESettingsDOF::YZPlane;
+		}
+		else if (LockedAxis_DEPRECATED == ESettingsLockedAxis::Y)
+		{
+			DefaultDegreesOfFreedom = ESettingsDOF::XZPlane;
+		}
+		else if (LockedAxis_DEPRECATED == ESettingsLockedAxis::Z)
+		{
+			DefaultDegreesOfFreedom = ESettingsDOF::XYPlane;
+		}
+
+		LockedAxis_DEPRECATED = ESettingsLockedAxis::Invalid;
+	}
 }
 
 #if WITH_EDITOR
@@ -56,11 +88,11 @@ void UPhysicsSettings::PostEditChangeProperty(struct FPropertyChangedEvent& Prop
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	const FName PropertyName = PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None;
-	if (PropertyName == GET_MEMBER_NAME_CHECKED(UPhysicsSettings, FrictionCombineMode))
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UPhysicsSettings, FrictionCombineMode) || PropertyName == GET_MEMBER_NAME_CHECKED(UPhysicsSettings, RestitutionCombineMode))
 	{
 		UPhysicalMaterial::RebuildPhysicalMaterials();
 	}
-	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UPhysicsSettings, LockedAxis))
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UPhysicsSettings, DefaultDegreesOfFreedom))
 	{
 		UMovementComponent::PhysicsLockedAxisSettingChanged();
 	}

@@ -3,8 +3,3 @@
 #include "SlatePrivatePCH.h"
 
 
-UScrollBoxWidgetStyle::UScrollBoxWidgetStyle( const FObjectInitializer& ObjectInitializer )
-	: Super(ObjectInitializer)
-{
-	
-}

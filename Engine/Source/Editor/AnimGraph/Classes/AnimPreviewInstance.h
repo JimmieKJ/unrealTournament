@@ -24,7 +24,7 @@ enum EMontagePreviewType
  * Used by Preview in AnimGraph, Playing single animation in Kismet2 and etc
  */
 
-UCLASS(transient, noteditinlinenew)
+UCLASS(transient, NotBlueprintable, noteditinlinenew)
 class ANIMGRAPH_API UAnimPreviewInstance : public UAnimSingleNodeInstance
 {
 	GENERATED_UCLASS_BODY()

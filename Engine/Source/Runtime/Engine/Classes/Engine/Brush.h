@@ -1,14 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
-// The brush class.
-//=============================================================================
-
 #pragma once
+
 #include "Model.h"
 #include "Level.h"
 #include "GameFramework/Actor.h"
 #include "Brush.generated.h"
+
 
 //-----------------------------------------------------------------------------
 // Variables.
@@ -42,6 +40,7 @@ enum EBrushType
 	Brush_MAX,
 };
 
+
 // Selection information for geometry mode
 USTRUCT()
 struct FGeomSelection
@@ -62,9 +61,7 @@ struct FGeomSelection
 		: Type(0)
 		, Index(0)
 		, SelectionIndex(0)
-	{
-	}
-
+	{ }
 
 	friend ENGINE_API FArchive& operator<<(FArchive& Ar,FGeomSelection& MyGeomSelection)
 	{
@@ -72,8 +69,10 @@ struct FGeomSelection
 	}
 };
 
+
 UCLASS(hidecategories=(Object, Collision, Display, Rendering, Physics, Input, Blueprint), showcategories=("Input|MouseInput", "Input|TouchInput"), NotBlueprintable, ConversionRoot)
-class ENGINE_API ABrush : public AActor
+class ENGINE_API ABrush
+	: public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -137,60 +136,79 @@ public:
 	}
 #endif
 
+public:
 	
-	// Begin UObject interface.
+	// UObject interface.
+
 	virtual void PostLoad() override;
+
 #if WITH_EDITOR
 	virtual void PostEditMove(bool bFinished) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
+
 	virtual bool Modify(bool bAlwaysMarkDirty = false) override;
 
 	virtual bool NeedsLoadForClient() const override
 	{ 
 		return !IsNotForClientOrServer(); 
 	}
+
 	virtual bool NeedsLoadForServer() const override
 	{ 
 		return !IsNotForClientOrServer(); 
 	}
-	// End UObject interface.
 
+public:
 	
-	// Begin AActor interface
+	// AActor interface
 	virtual void Destroyed() override;
 	virtual void PostRegisterAllComponents() override;
-	
 	virtual bool IsLevelBoundsRelevant() const override;
 
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
-
 	virtual void SetIsTemporarilyHiddenInEditor( bool bIsHidden ) override;
 
-	// End AActor interface
+public:
 
 	virtual void InitPosRotScale();
 	virtual void CopyPosRotScaleFrom( ABrush* Other );
 
-private: 
+private:
+
 	/** An array to keep track of all the levels that need rebuilding. This is checked via NeedsRebuild() in the editor tick and triggers a csg rebuild. */
 	static TArray< TWeakObjectPtr< ULevel > > LevelsToRebuild;
 
 	/** Delegate called when PostRegisterAllComponents is called for a Brush */
 	static FOnBrushRegistered OnBrushRegistered;
+
 public:
+
 	/**
 	 * Called to see if any of the levels need rebuilding
 	 *
 	 * @param	OutLevels if specified, provides a copy of the levels array
 	 * @return	true if the csg needs to be rebuilt on the next editor tick.	
 	 */
-	static bool NeedsRebuild(TArray< TWeakObjectPtr< ULevel > >* OutLevels = NULL){if(OutLevels){*OutLevels = LevelsToRebuild;} return(LevelsToRebuild.Num() > 0);}
+	static bool NeedsRebuild(TArray< TWeakObjectPtr< ULevel > >* OutLevels = nullptr)
+	{
+		if (OutLevels)
+		{
+			*OutLevels = LevelsToRebuild;
+		}
+		
+		return(LevelsToRebuild.Num() > 0);
+	}
+
 	/**
 	 * Called upon finishing the csg rebuild to clear the rebuild bool.
 	 */
-	static void OnRebuildDone(){LevelsToRebuild.Empty();}
+	static void OnRebuildDone()
+	{
+		LevelsToRebuild.Empty();
+	}
+
 	/**
 	 * Called to make not of the level that needs rebuilding
 	 *
@@ -198,7 +216,7 @@ public:
 	 */
 	static void SetNeedRebuild(ULevel* InLevel){if(InLevel){LevelsToRebuild.AddUnique(InLevel);}}
 #else
-	static bool NeedsRebuild(TArray< TWeakObjectPtr< ULevel > >* OutLevels = NULL){return false;}
+	static bool NeedsRebuild(TArray< TWeakObjectPtr< ULevel > >* OutLevels = nullptr){return false;}
 	static void OnRebuildDone(){}
 	static void SetNeedRebuild(ULevel* InLevel){}
 #endif//WITH_EDITOR
@@ -222,7 +240,6 @@ public:
 
 	/** Figures out the best color to use for this brushes wireframe drawing.	*/
 	virtual FColor GetWireColor() const;
-
 
 	/**
 	 * Return if true if this brush is not used for gameplay (i.e. builder brush)
@@ -255,6 +272,3 @@ public:
 	/** Returns BrushComponent subobject **/
 	class UBrushComponent* GetBrushComponent() const;
 };
-
-
-

@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -188,6 +171,13 @@ struct PxConstraintVisualizationFlag
 
 struct PxConstraintInvMassScale
 {
+//= ATTENTION! =====================================================================================
+// Changing the data layout of this class breaks the binary serialization format.  See comments for 
+// PX_BINARY_SERIAL_VERSION.  If a modification is required, please adjust the getBinaryMetaData 
+// function.  If the modification is made on a custom branch, please change PX_BINARY_SERIAL_VERSION
+// accordingly.
+//==================================================================================================
+
 	PxReal linear0;		//!< multiplier for inverse mass of body0
 	PxReal angular0;	//!< multiplier for inverse MoI of body0
 	PxReal linear1;		//!< multiplier for inverse mass of body1
@@ -199,22 +189,21 @@ struct PxConstraintInvMassScale
 This function is called by the constraint solver framework. The function must be reentrant, since it may be called simultaneously
 from multiple threads, and should access only the arguments passed into it, since on PS3 this function may execute on SPU. 
 
-Developers writing custom constraints are encouraged to read the implementation code in PhysXExtensions.
+Developers writing custom constraints are encouraged to read the documentation in the user guide and the implementation code in PhysXExtensions.
 
 \param[out] constraints an array of solver constraint rows to be filled in
-\param[out] body0WorldOffset the origin point at which the constraint is resolved. This value does not affect how constraints are solved, but the 
-force and torque reported for the constraint are resolved at this point
+\param[out] bodyAWorldOffset the origin point (offset from the position vector of bodyA) at which the constraint is resolved. This value does not affect how constraints are solved, only the constraint force reported. 
 \param[in] maxConstraints the size of the constraint buffer. At most this many constraints rows may be written
 \param[out] invMassScale the inverse mass and inertia scales for the constraint
 \param[in] constantBlock the constant data block
-\param[in] bodyAToWorld The world transform of the first constrained body (the identity if the body is NULL)
-\param[in] bodyBToWorld The world transform of the second constrained body (the identity if the body is NULL)
+\param[in] bodyAToWorld The world transform of the first constrained body (the identity transform if the first actor is static, or if a NULL actor pointer was provided for it)
+\param[in] bodyBToWorld The world transform of the second constrained body (the identity transform if the second actor is static, or if a NULL actor pointer was provided for it)
 
 \return the number of constraint rows written.
 */
 
 typedef PxU32 (*PxConstraintSolverPrep)(Px1DConstraint* constraints,
-										PxVec3& body0WorldOffset,
+										PxVec3& bodyAWorldOffset,
 										PxU32 maxConstraints,
 										PxConstraintInvMassScale& invMassScale,
 										const void* constantBlock,

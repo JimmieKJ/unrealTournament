@@ -48,7 +48,7 @@ void UParticleModuleVectorFieldScale::PostInitProperties()
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		UDistributionFloatConstant* DistributionVectorFieldScale = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScale"));
+		UDistributionFloatConstant* DistributionVectorFieldScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScale"));
 		DistributionVectorFieldScale->Constant = 1.0f;
 		VectorFieldScale = DistributionVectorFieldScale;
 	}
@@ -89,7 +89,7 @@ void UParticleModuleVectorFieldScaleOverLife::PostInitProperties()
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		UDistributionFloatConstant* DistributionVectorFieldScaleOverLife = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScaleOverLife"));
+		UDistributionFloatConstant* DistributionVectorFieldScaleOverLife = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVectorFieldScaleOverLife"));
 		DistributionVectorFieldScaleOverLife->Constant = 1.0f;
 		VectorFieldScaleOverLife = DistributionVectorFieldScaleOverLife;
 	}

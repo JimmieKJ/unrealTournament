@@ -13,9 +13,16 @@ class AIMODULE_API UEnvQueryItemType_Point : public UEnvQueryItemType_VectorBase
 
 	static FVector GetValue(const uint8* RawData);
 	static void SetValue(uint8* RawData, const FVector& Value);
+	static FNavLocation GetNavValue(const uint8* RawData);
+	static void SetNavValue(uint8* RawData, const FNavLocation& Value);
 
 	static void SetContextHelper(FEnvQueryContextData& ContextData, const FVector& SinglePoint);
 	static void SetContextHelper(FEnvQueryContextData& ContextData, const TArray<FVector>& MultiplePoints);
 
 	virtual FVector GetItemLocation(const uint8* RawData) const override;
+	virtual FNavLocation GetItemNavLocation(const uint8* RawData) const;
 };
+
+// a specialization to support saving locations with navigation data already gathered
+template<>
+void FEnvQueryInstance::AddItemData<UEnvQueryItemType_Point, FNavLocation>(FNavLocation ItemValue);

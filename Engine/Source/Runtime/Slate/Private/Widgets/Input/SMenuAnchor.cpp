@@ -24,7 +24,10 @@ static FVector2D GetMenuOffsetForPlacement(const FGeometry& AllottedGeometry, EM
 			return FVector2D(AllottedGeometry.GetLocalSize().X, 0.0f);
 			break;
 		case MenuPlacement_AboveAnchor:
-			return FVector2D(0.0f, -AllottedGeometry.GetLocalSize().Y - PopupSizeLocalSpace.Y);
+			return FVector2D(0.0f, -PopupSizeLocalSpace.Y);
+			break;
+		case MenuPlacement_CenteredAboveAnchor:
+			return FVector2D(-((PopupSizeLocalSpace.X / 2) - (AllottedGeometry.GetLocalSize().X / 2)), -PopupSizeLocalSpace.Y);
 			break;
 		case MenuPlacement_MenuLeft:
 			return FVector2D(-AllottedGeometry.GetLocalSize().X - PopupSizeLocalSpace.X, 0.0f);
@@ -113,7 +116,7 @@ void SMenuAnchor::Tick( const FGeometry& AllottedGeometry, const double InCurren
 
 		// We made a window for showing the popup.
 		// Update the window's position!
-		if( PopupWindow->IsMorphing() )
+		if (false /*PopupWindow->IsMorphing()*/ )
 		{
 			if( NewShape != PopupWindow->GetMorphTargetShape() )
 			{
@@ -174,7 +177,7 @@ void SMenuAnchor::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrange
 	}
 }
 
-FVector2D SMenuAnchor::ComputeDesiredSize() const
+FVector2D SMenuAnchor::ComputeDesiredSize( float ) const
 {
 	return Children[0].GetWidget()->GetDesiredSize();
 }
@@ -251,7 +254,7 @@ void SMenuAnchor::OnClickedOutsidePopup()
 	if (IsOpen())
 	{
 		bDismissedThisTick = true;
-		SetIsOpen(false);	
+		SetIsOpen(false);
 	}
 }
 
@@ -306,9 +309,12 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 	{
 		if ( InIsOpen )
 		{
-			TSharedPtr< SWidget > MenuContentPtr = OnGetMenuContent.IsBound() ? OnGetMenuContent.Execute() : MenuContent;
+			if ( OnGetMenuContent.IsBound() )
+			{
+				SetMenuContent(OnGetMenuContent.Execute());
+			}
 
-			if ( MenuContentPtr.IsValid() )
+			if ( MenuContent.IsValid() )
 			{
 				// OPEN POPUP
 				if ( OnMenuOpenChanged.IsBound() )
@@ -316,29 +322,25 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 					OnMenuOpenChanged.Execute(true);
 				}
 
-				// This can be called at any time so we use the push menu override that explicitly allows us to specify our parent
-
 				// Figure out where the menu anchor is on the screen, so we can set the initial position of our pop-up window
-				SlatePrepass();
-
+				// This can be called at any time so we use the push menu override that explicitly allows us to specify our parent
 				// NOTE: Careful, GeneratePathToWidget can be reentrant in that it can call visibility delegates and such
 				FWidgetPath MyWidgetPath;
 				FSlateApplication::Get().GeneratePathToWidgetUnchecked(AsShared(), MyWidgetPath);
-				if (ensure(MyWidgetPath.IsValid()))
+				if (MyWidgetPath.IsValid())
 				{
 					const FGeometry& MyGeometry = MyWidgetPath.Widgets.Last().Geometry;
+					const float LayoutScaleMultiplier = MyGeometry.GetAccumulatedLayoutTransform().GetScale();
 
-					// @todo Slate: This code does not properly propagate the layout scale of the widget we are creating the popup for.
-					// The popup instead has a scale of one, but a computed size as if the contents were scaled. This code should ideally
-					// wrap the contents with an SFxWidget that applies the necessary layout scale. This is a very rare case right now.
+					SlatePrepass(LayoutScaleMultiplier);
 
 					// Figure out how big the content widget is so we can set the window's initial size properly
-					TSharedRef< SWidget > MenuContentRef = MenuContentPtr.ToSharedRef();
-					MenuContentRef->SlatePrepass();
+					TSharedRef< SWidget > MenuContentRef = MenuContent.ToSharedRef();
+					MenuContentRef->SlatePrepass(LayoutScaleMultiplier);
 
 					// Combo-boxes never size down smaller than the widget that spawned them, but all
 					// other pop-up menus are currently auto-sized
-					const FVector2D DesiredContentSize = MenuContentRef->GetDesiredSize();  // @todo: This is ignoring any window border size!
+					const FVector2D DesiredContentSize = MenuContentRef->GetDesiredSize();  // @todo slate: This is ignoring any window border size!
 					const EMenuPlacement PlacementMode = Placement.Get();
 
 					const FVector2D NewPosition = MyGeometry.AbsolutePosition;
@@ -401,7 +403,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 			{
 				// Window reuse case; remove child widget.
 				Children[1].DetachWidget();
-				FSlateApplication::Get().GetPopupSupport().UnregisterClickNotification(OnClickedOutsidePopupDelegateHandle);
+				FSlateApplication::Get().GetPopupSupport().UnregisterClickNotification( OnClickedOutsidePopupDelegateHandle );
 			}
 			else
 			{

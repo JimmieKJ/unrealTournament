@@ -133,15 +133,16 @@ FText UK2Node_VariableSet::GetPropertyTooltip(UProperty const* VariableProperty)
 	FFormatNamedArguments Args;
 
 	bool const bHasLocalRepNotify = K2Node_VariableSetImpl::PropertyHasLocalRepNotify(VariableProperty);
-	if (bHasLocalRepNotify)
-	{
-		Args.Add(TEXT("ReplicationNotifyName"), FText::FromName(VariableProperty->RepNotifyFunc));
-		TextFormat = LOCTEXT("SetVariableWithRepNotify_Tooltip", "Set the value of variable {VarName} and call {ReplicationNotifyName}");
-	}
 
 	FName VarName = NAME_None;
 	if (VariableProperty != nullptr)
 	{
+		if (bHasLocalRepNotify)
+		{
+			Args.Add(TEXT("ReplicationNotifyName"), FText::FromName(VariableProperty->RepNotifyFunc));
+			TextFormat = LOCTEXT("SetVariableWithRepNotify_Tooltip", "Set the value of variable {VarName} and call {ReplicationNotifyName}");
+		}
+
 		VarName = VariableProperty->GetFName();
 
 		UClass* SourceClass = VariableProperty->GetOwnerClass();
@@ -216,61 +217,21 @@ FText UK2Node_VariableSet::GetBlueprintVarTooltip(FBPVariableDescription const& 
 
 FText UK2Node_VariableSet::GetTooltipText() const
 {
-	// @TODO: The variable name mutates as the user makes changes to the 
-	//        underlying property, so until we can catch all those cases, we're
-	//        going to leave this optimization off
-	//if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		if (UProperty* Property = GetPropertyForVariable())
 		{
-			CachedTooltip = GetPropertyTooltip(Property);
+			CachedTooltip.SetCachedText(GetPropertyTooltip(Property), this);
 		}
 		else if (FBPVariableDescription const* VarDesc = GetBlueprintVarDescription())
 		{
-			CachedTooltip = GetBlueprintVarTooltip(*VarDesc);
+			CachedTooltip.SetCachedText(GetBlueprintVarTooltip(*VarDesc), this);
 		}
 		else
 		{
-			CachedTooltip = K2Node_VariableSetImpl::GetBaseTooltip(GetVarName());
+			CachedTooltip.SetCachedText(K2Node_VariableSetImpl::GetBaseTooltip(GetVarName()), this);
 		}
 	}
-	return CachedTooltip;
-
-	
-
-	FFormatNamedArguments Args;
-	Args.Add( TEXT( "VarName" ), FText::FromString( GetVarNameString() ));
-	Args.Add( TEXT( "ReplicationCall" ), FText::GetEmpty());
-	Args.Add( TEXT( "ReplicationNotifyName" ), FText::GetEmpty());
-	Args.Add( TEXT( "TextPartition" ), FText::GetEmpty());
-	Args.Add( TEXT( "MetaData" ), FText::GetEmpty());
-		
-	if(	HasLocalRepNotify() )
-	{
-		Args.Add( TEXT( "ReplicationCall" ), NSLOCTEXT( "K2Node", "VariableSet_ReplicationCall", " and call " ));
-		Args.Add( TEXT( "ReplicationNotifyName" ), FText::FromString( GetRepNotifyName().ToString() ));
-	}
-	if(  UProperty* Property = GetPropertyForVariable() )
-	{
-		// discover if the variable property is a non blueprint user variable
-		UClass* SourceClass = Property->GetOwnerClass();
-		if( SourceClass && SourceClass->ClassGeneratedBy == NULL )
-		{
-			const FString MetaData = Property->GetToolTipText().ToString();
-
-			if( !MetaData.IsEmpty() )
-			{
-				// See if the property associated with this editor has a tooltip
-				FText PropertyMetaData = FText::FromString( *MetaData );
-				FString TooltipName = FString::Printf( TEXT("%s.tooltip"), *(Property->GetName()));
-				FText::FindText( *(Property->GetFullGroupName(true)), *TooltipName, PropertyMetaData );
-				Args.Add( TEXT( "TextPartition" ), FText::FromString( "\n" ));
-				Args.Add( TEXT( "MetaData" ), PropertyMetaData );
-			}
-		}
-	}
-	// FText::Format() is slow, so we cache this to save on performance
-	CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "SetValueOfVariable", "Set the value of variable {VarName}{ReplicationCall}{ReplicationNotifyName}{TextPartition}{MetaData}"), Args);
 	return CachedTooltip;
 }
 
@@ -299,7 +260,7 @@ FText UK2Node_VariableSet::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	// @TODO: The variable name mutates as the user makes changes to the 
 	//        underlying property, so until we can catch all those cases, we're
 	//        going to leave this optimization off
-	else //if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("PinName"), FText::FromString(InputPinName));
@@ -307,11 +268,11 @@ FText UK2Node_VariableSet::GetNodeTitle(ENodeTitleType::Type TitleType) const
 		// FText::Format() is slow, so we cache this to save on performance
 		if (HasLocalRepNotify())
 		{
-			CachedNodeTitle = FText::Format(NSLOCTEXT("K2Node", "SetWithNotifyPinName", "Set with Notify {PinName}"), Args);
+			CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "SetWithNotifyPinName", "Set with Notify {PinName}"), Args), this);
 		}
 		else
 		{
-			CachedNodeTitle = FText::Format(NSLOCTEXT("K2Node", "SetPinName", "Set {PinName}"), Args);
+			CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "SetPinName", "Set {PinName}"), Args), this);
 		}
 	}
 	return CachedNodeTitle;

@@ -436,6 +436,35 @@ void UBlueprint::PostLoad()
 {
 	Super::PostLoad();
 
+	// Can't use TGuardValue here as bIsRegeneratingOnLoad is a bitfield
+	struct FScopedRegeneratingOnLoad
+	{
+		UBlueprint& Blueprint;
+		bool bPreviousValue;
+		FScopedRegeneratingOnLoad(UBlueprint& InBlueprint)
+			: Blueprint(InBlueprint)
+			, bPreviousValue(InBlueprint.bIsRegeneratingOnLoad)
+		{
+			// if the blueprint's package is still in the midst of loading, then
+			// bIsRegeneratingOnLoad needs to be set to prevent UObject renames
+			// from resetting loaders
+			Blueprint.bIsRegeneratingOnLoad = true;
+			if (UPackage* Package = Blueprint.GetOutermost())
+			{
+				// checking (Package->LinkerLoad != nullptr) ensures this 
+				// doesn't get set when duplicating blueprints (which also calls 
+				// PostLoad), and checking RF_WasLoaded makes sure we only 
+				// forcefully set bIsRegeneratingOnLoad for blueprints that need 
+				// it (ones still actively loading)
+				Blueprint.bIsRegeneratingOnLoad = bPreviousValue || ((Package->LinkerLoad != nullptr) && !Package->HasAnyFlags(RF_WasLoaded));
+			}
+		}
+		~FScopedRegeneratingOnLoad()
+		{
+			Blueprint.bIsRegeneratingOnLoad = bPreviousValue;
+		}
+	} GuardIsRegeneratingOnLoad(*this);
+
 	// Mark the blueprint as in error if there has been a major version bump
 	if (BlueprintSystemVersion < UBlueprint::GetCurrentBlueprintSystemVersion())
 	{
@@ -598,7 +627,11 @@ void UBlueprint::SetObjectBeingDebugged(UObject* NewObject)
 	if ((NewObject != NULL) && !GCompilingBlueprint && BlueprintType != BPTYPE_MacroLibrary)
 	{
 		// You can only debug instances of this!
-		if (!ensure(NewObject->IsA(this->GeneratedClass)))
+		if (!ensureMsgf(
+				NewObject->IsA(this->GeneratedClass), 
+				TEXT("Type mismatch: Expected %s, Found %s"), 
+				this->GeneratedClass ? *(this->GeneratedClass->GetName()) : TEXT("NULL"), 
+				NewObject->GetClass() ? *(this->GetClass()->GetName()) : TEXT("NULL")))
 		{
 			NewObject = NULL;
 		}
@@ -708,11 +741,14 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	}
 	OutTags.Add( FAssetRegistryTag("ClassFlags", FString::FromInt(ClassFlagsTagged), FAssetRegistryTag::TT_Hidden) );
 
-	OutTags.Add( FAssetRegistryTag( "IsDataOnly",
-		FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
-		FAssetRegistryTag::TT_Alphabetical ) );
+	if ( ParentClass )
+	{
+		OutTags.Add( FAssetRegistryTag( "IsDataOnly",
+			FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
+			FAssetRegistryTag::TT_Alphabetical ) );
 
-	OutTags.Add( FAssetRegistryTag("FiB", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+		OutTags.Add( FAssetRegistryTag("FiB", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+	}
 }
 
 FString UBlueprint::GetFriendlyName() const
@@ -1031,6 +1067,13 @@ void UBlueprint::GetAllGraphs(TArray<UEdGraph*>& Graphs) const
 		Graph->GetAllChildrenGraphs(Graphs);
 	}
 
+	for (int32 i = 0; i < DelegateSignatureGraphs.Num(); ++i)
+	{
+		UEdGraph* Graph = DelegateSignatureGraphs[i];
+		Graphs.Add(Graph);
+		Graph->GetAllChildrenGraphs(Graphs);
+	}
+
 	for (int32 BPIdx=0; BPIdx<ImplementedInterfaces.Num(); BPIdx++)
 	{
 		const FBPInterfaceDescription& InterfaceDesc = ImplementedInterfaces[BPIdx];
@@ -1119,35 +1162,39 @@ bool UBlueprint::ChangeOwnerOfTemplates()
 		for( auto CompIt = ComponentTemplates.CreateIterator(); CompIt; ++CompIt )
 		{
 			UActorComponent* Component = (*CompIt);
-			check(Component);
-			if(Component->GetOuter() == this)
+			if (Component)
 			{
-				const bool bRenamed = Component->Rename(*Component->GetName(), BPGClass, REN_ForceNoResetLoaders|REN_DoNotDirty);
-				ensure(bRenamed);
-				bIsStillStale |= !bRenamed;
-				bMigratedOwner = true;
-			}
-			if (auto TimelineComponent = Cast<UTimelineComponent>(Component))
-			{
-				TimelineComponent->GetAllCurves(Curves);
+				if (Component->GetOuter() == this)
+				{
+					const bool bRenamed = Component->Rename(*Component->GetName(), BPGClass, REN_ForceNoResetLoaders | REN_DoNotDirty);
+					ensure(bRenamed);
+					bIsStillStale |= !bRenamed;
+					bMigratedOwner = true;
+				}
+				if (auto TimelineComponent = Cast<UTimelineComponent>(Component))
+				{
+					TimelineComponent->GetAllCurves(Curves);
+				}
 			}
 		}
 
 		for( auto CompIt = Timelines.CreateIterator(); CompIt; ++CompIt )
 		{
 			UTimelineTemplate* Template = (*CompIt);
-			check(Template);
-			if(Template->GetOuter() == this)
+			if (Template)
 			{
-				const FString OldTemplateName = Template->GetName();
-				ensure(!OldTemplateName.EndsWith(TEXT("_Template")));
-				const bool bRenamed = Template->Rename(*UTimelineTemplate::TimelineVariableNameToTemplateName(Template->GetFName()), BPGClass, REN_ForceNoResetLoaders|REN_DoNotDirty);
-				ensure(bRenamed);
-				bIsStillStale |= !bRenamed;
-				ensure(OldTemplateName == UTimelineTemplate::TimelineTemplateNameToVariableName(Template->GetFName()));
-				bMigratedOwner = true;
+				if(Template->GetOuter() == this)
+				{
+					const FString OldTemplateName = Template->GetName();
+					ensure(!OldTemplateName.EndsWith(TEXT("_Template")));
+					const bool bRenamed = Template->Rename(*UTimelineTemplate::TimelineVariableNameToTemplateName(Template->GetFName()), BPGClass, REN_ForceNoResetLoaders|REN_DoNotDirty);
+					ensure(bRenamed);
+					bIsStillStale |= !bRenamed;
+					ensure(OldTemplateName == UTimelineTemplate::TimelineTemplateNameToVariableName(Template->GetFName()));
+					bMigratedOwner = true;
+				}
+				Template->GetAllCurves(Curves);
 			}
-			Template->GetAllCurves(Curves);
 		}
 		for (auto Curve : Curves)
 		{

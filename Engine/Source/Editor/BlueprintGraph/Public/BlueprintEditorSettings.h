@@ -13,7 +13,7 @@ enum ESaveOnCompile
 	SoC_Always UMETA(DisplayName = "Always"),
 };
  
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class BLUEPRINTGRAPH_API UBlueprintEditorSettings
 	:	public UObject
 {
@@ -31,9 +31,9 @@ public:
 
 // Workflow Settings
 public:
-	/** If enabled, will use the blueprint's (or output pin's) class to narrow down context menu results. */
-	UPROPERTY(EditAnywhere, config, Category=Workflow, meta=(DisplayName="Context Menu: Use Target Context"))
-	bool bUseTargetContextForNodeMenu;
+	/** If enabled, we'll save off your chosen target setting based off of the context (allowing you to have different preferences based off what you're operating on). */
+	UPROPERTY(EditAnywhere, config, Category=Workflow, meta=(DisplayName="Context Menu: Divide Context Target Preferences"))
+	bool bSplitContextTargetSettings;
 
 	/** If enabled, then ALL component functions are exposed to the context menu (when the contextual target is a component owner). Ignores "ExposeFunctionCategories" metadata for components. */
 	UPROPERTY(EditAnywhere, config, Category=Workflow, meta=(DisplayName="Context Menu: Expose All Sub-Component Functions"))
@@ -43,6 +43,10 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Workflow, meta=(DisplayName="Context Menu: Show Favorites Section"))
 	bool bShowContextualFavorites;
 
+	/** If enabled, then call-on-member actions will be spawned as a single node (instead of a GetMember + FunctionCall node). */
+	UPROPERTY(EditAnywhere, config, Category=Workflow)
+	bool bCompactCallOnMemberNodes;
+
 	/** If enabled, then your Blueprint favorites will be uncategorized, leaving you with less nested categories to sort through. */
 	UPROPERTY(EditAnywhere, config, Category=Workflow)
 	bool bFlattenFavoritesMenus;
@@ -51,9 +55,9 @@ public:
 	UPROPERTY(EditAnywhere, config, AdvancedDisplay, Category=Experimental, meta=(DisplayName="Default to Using Pure Cast Nodes"))
 	bool bFavorPureCastNodes;
 
-	/** If set, then the new refactored menu system will be replaced with the old (legacy) system (as a fallback, in case the new system has unforeseen problems)*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=Workflow)
-	bool bForceLegacyMenuingSystem;
+	/** If enabled, then you'll be able to directly connect arbitrary object pins together (a pure cast node will be injected automatically). */
+	UPROPERTY(EditAnywhere, config, Category=Workflow)
+	bool bAutoCastObjectConnections;
 
 	/** If true will show the viewport tab when simulate is clicked. */
 	UPROPERTY(EditAnywhere, config, Category=Workflow)
@@ -67,6 +71,13 @@ public:
 	UPROPERTY(config)
 	bool bShowEmptySections;
 
+	/** If set will spawn default nodes in new Blueprints */
+	UPROPERTY(EditAnywhere, config, Category=Workflow)
+	bool bSpawnDefaultBlueprintNodes;
+
+	/** If set will exclude components added in a Blueprint class Construction Script from the component details view */
+	UPROPERTY(EditAnywhere, config, Category=Workflow)
+	bool bHideConstructionScriptComponentsInDetailsView;
 // Compiler Settings
 public:
 	/** Determines when to save Blueprints post-compile */

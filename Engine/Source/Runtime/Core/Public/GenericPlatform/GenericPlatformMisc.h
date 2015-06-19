@@ -1,13 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-/*=============================================================================================
-	GenericPlatformMisc.h: Generic platform misc classes, mostly implemented with ANSI C++
-==============================================================================================*/
-
 #pragma once
+
 #include "Containers/ContainersFwd.h"
 #include "HAL/Platform.h"
+
 
 struct FGenericCrashContext;
 struct FGenericMemoryWarningContext;
@@ -28,42 +25,29 @@ namespace EBuildConfigurations
 	 */
 	enum Type
 	{
-		/**
-		 * Unknown build configuration.
-		 */
+		/** Unknown build configuration. */
 		Unknown,
 
-		/**
-		 * Debug build.
-		 */
+		/** Debug build. */
 		Debug,
 
-		/**
-		 * DebugGame build.
-		 */
+		/** DebugGame build. */
 		DebugGame,
 
-		/**
-		 * Development build.
-		 */
+		/** Development build. */
 		Development,
 
-		/**
-		 * Shipping build.
-		 */
+		/** Shipping build. */
 		Shipping,
 
-		/**
-		 * Test build.
-		 */
+		/** Test build. */
 		Test
 	};
 
 	/**
 	 * Returns the string representation of the specified EBuildConfiguration value.
 	 *
-	 * @param Configuration - The string to get the EBuildConfiguration::Type for.
-	 *
+	 * @param Configuration The string to get the EBuildConfiguration::Type for.
 	 * @return An EBuildConfiguration::Type value.
 	 */
 	CORE_API EBuildConfigurations::Type FromString( const FString& Configuration );
@@ -71,8 +55,7 @@ namespace EBuildConfigurations
 	/**
 	 * Returns the string representation of the specified EBuildConfiguration value.
 	 *
-	 * @param Configuration - The value to get the string for.
-	 *
+	 * @param Configuration The value to get the string for.
 	 * @return The string representation.
 	 */
 	CORE_API const TCHAR* ToString( EBuildConfigurations::Type Configuration );
@@ -80,8 +63,7 @@ namespace EBuildConfigurations
 	/**
 	 * Returns the localized text representation of the specified EBuildConfiguration value.
 	 *
-	 * @param Configuration - The value to get the text for.
-	 *
+	 * @param Configuration The value to get the text for.
 	 * @return The localized Build configuration text
 	 */
 	CORE_API FText ToText( EBuildConfigurations::Type Configuration );
@@ -95,32 +77,23 @@ namespace EBuildTargets
 	 */
 	enum Type
 	{
-		/**
-		 * Unknown build target.
-		 */
+		/** Unknown build target. */
 		Unknown,
 
-		/**
-		 * Editor target.
-		 */
+		/** Editor target. */
 		Editor,
 
-		/**
-		 * Game target.
-		 */
+		/** Game target. */
 		Game,
 
-		/**
-		 * Server target.
-		 */
+		/** Server target. */
 		Server
 	};
 
 	/**
 	 * Returns the string representation of the specified EBuildTarget value.
 	 *
-	 * @param Target - The string to get the EBuildTarget::Type for.
-	 *
+	 * @param Target The string to get the EBuildTarget::Type for.
 	 * @return An EBuildTarget::Type value.
 	 */
 	CORE_API EBuildTargets::Type FromString( const FString& Target );
@@ -128,12 +101,27 @@ namespace EBuildTargets
 	/**
 	 * Returns the string representation of the specified EBuildTarget value.
 	 *
-	 * @param Target - The value to get the string for.
-	 *
+	 * @param Target The value to get the string for.
 	 * @return The string representation.
 	 */
 	CORE_API const TCHAR* ToString( EBuildTargets::Type Target );
 }
+
+
+/**
+ * Enumerates the modes a convertible laptop can be in.
+ */
+enum class EConvertibleLaptopMode
+{
+	/** Not a convertible laptop. */
+	NotSupported,
+
+	/** Laptop arranged as a laptop. */
+	Laptop,
+
+	/** Laptop arranged as a tablet. */
+	Tablet
+};
 
 
 namespace EErrorReportMode
@@ -192,6 +180,7 @@ namespace EAppReturnType
 	};
 }
 
+
 /**
 * Generic implementation for most platforms
 **/
@@ -201,20 +190,13 @@ struct CORE_API FGenericPlatformMisc
 	 * Called during appInit() after cmd line setup
 	 */
 	static void PlatformPreInit();
-	static void PlatformInit()
-	{
-	}
-	static void PlatformPostInit(bool ShowSplashScreen = false)
-	{
-	}
+	static void PlatformInit() { }
+	static void PlatformPostInit(bool ShowSplashScreen = false) { }
 
 	/**
-	* Called during AppExit(). Log, Config still exist at this point, but not much else does.
-	*/
-	static void PlatformTearDown()
-	{
-	}
-
+	 * Called during AppExit(). Log, Config still exist at this point, but not much else does.
+	 */
+	static void PlatformTearDown() { }
 	static GenericApplication* CreateApplication();
 
 	static void* GetHardwareWindow()
@@ -222,21 +204,14 @@ struct CORE_API FGenericPlatformMisc
 		return nullptr;
 	}
 
-	/**
-	 * Set/restore the Console Interrupt (Control-C, Control-Break, Close) handler
-	 */
-	static void SetGracefulTerminationHandler()
-	{
-	}
+	/** Set/restore the Console Interrupt (Control-C, Control-Break, Close) handler. */
+	static void SetGracefulTerminationHandler() { }
 
 	/**
 	 * Installs handler for the unexpected (due to error) termination of the program,
 	 * including, but not limited to, crashes.
-	 *
 	 */
-	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context))
-	{
-	}
+	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context)) { }
 
 	/**
 	 * Retrieve a environment variable from the system
@@ -250,13 +225,13 @@ struct CORE_API FGenericPlatformMisc
 		*Result = 0;
 	}
 
-	
+
 	/**
-	* Sets an environment variable to the local process's environment
-	*
-	* @param VariableName The name of the variable (ie "Path")
-	* @param Value The string to set the variable to.	
-	*/
+	 * Sets an environment variable to the local process's environment
+	 *
+	 * @param VariableName The name of the variable (ie "Path")
+	 * @param Value The string to set the variable to.	
+	 */
 	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
 
 	/**
@@ -292,6 +267,7 @@ struct CORE_API FGenericPlatformMisc
 	 */
 	static FString GetUniqueDeviceId();
 
+	// @TODO yrx 2015-02-24 Remove
 	/** Submits a crash report to a central server (release builds only) */
 	static void SubmitErrorReport( const TCHAR* InErrorHist, EErrorReportMode::Type InMode );
 
@@ -371,7 +347,7 @@ struct CORE_API FGenericPlatformMisc
 	static void SetMemoryWarningHandler(void (* Handler)(const FGenericMemoryWarningContext& Context))
 	{
 	}
-	
+
 	/**
 	 *	Pumps Windows messages.
 	 *	@param bFromMainLoop if true, this is from the main loop, otherwise we are spinning waiting for the render thread
@@ -407,18 +383,18 @@ struct CORE_API FGenericPlatformMisc
 	}
 
 protected:
+
 	/**
 	* Retrieves some standard key code mappings (usually called by a subclass's GetCharKeyMap)
-	 *
-	 * @param OutKeyMap Key map to add to.
-	 * @param bMapUppercaseKeys If true, will map A, B, C, etc to EKeys::A, EKeys::B, EKeys::C
-	 * @param bMapLowercaseKeys If true, will map a, b, c, etc to EKeys::A, EKeys::B, EKeys::C
-	 */
+	*
+	* @param OutKeyMap Key map to add to.
+	* @param bMapUppercaseKeys If true, will map A, B, C, etc to EKeys::A, EKeys::B, EKeys::C
+	* @param bMapLowercaseKeys If true, will map a, b, c, etc to EKeys::A, EKeys::B, EKeys::C
+	*/
 	static uint32 GetStandardPrintableKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings, bool bMapUppercaseKeys, bool bMapLowercaseKeys);
 
-
-
 public:
+
 	/**
 	 * Platform specific function for adding a named event that can be viewed in PIX
 	 */
@@ -437,18 +413,6 @@ public:
 	{
 	}
 
-	/**
-	 * Rebuild the commandline if needed
-	 *
-	 * @param NewCommandLine The commandline to fill out
-	 *
-	 * @return true if NewCommandLine should be pushed to FCommandLine
-	 */
-	FORCEINLINE static bool ResetCommandLine(TCHAR NewCommandLine[16384])
-	{
-		return 0;
-	}
-
 	/** 
 	 *	Set the value for the given section and key in the platform specific key->value store
 	 *  Note: The key->value store is user-specific, but may be used to share data between different applications for the same user
@@ -457,7 +421,6 @@ public:
 	 *	@param	InSectionName		The section that this key->value pair is placed within (can contain / separators, eg UserDetails/AccountInfo)
 	 *	@param	InKeyName			The name of the key to set the value for
 	 *	@param	InValue				The value to set
-	 *
 	 *	@return	bool				true if the value was set correctly, false if not
 	 */
 	static bool SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue);
@@ -470,12 +433,11 @@ public:
 	 *	@param	InSectionName		The section that this key->value pair is placed within (can contain / separators, eg UserDetails/AccountInfo)
 	 *	@param	InKeyName			The name of the key to get the value for
 	 *	@param	OutValue			The value found
-	 *
 	 *	@return	bool				true if the entry was found (and OutValue contains the result), false if not
 	 */
 	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
 
-	 /** Sends a message to a remote tool, and debugger consoles */
+	/** Sends a message to a remote tool, and debugger consoles */
 	static void LowLevelOutputDebugString(const TCHAR *Message);
 	static void VARARGS LowLevelOutputDebugStringf(const TCHAR *Format, ... );
 
@@ -486,10 +448,7 @@ public:
 	static void LocalPrint( const TCHAR* Str );
 
 
-	/**
-	 * Request application to minimize (goto background)
-	 *
-	 **/
+	/** Request application to minimize (goto background). **/
 	static void RequestMinimize();
 
 	/**
@@ -511,6 +470,7 @@ public:
 
 	/** Copies text to the operating system clipboard. */
 	static void ClipboardCopy(const TCHAR* Str);
+
 	/** Pastes in text from the operating system clipboard. */
 	static void ClipboardPaste(class FString& Dest);
 
@@ -519,12 +479,11 @@ public:
 
 	/** 
 	 * Show a message box if possible, otherwise print a message and return the default
-	 * @param MsgType - what sort of options are provided
-	 * @param Text - specific message
-	 * @param Caption - string indicating the title of the message box
+	 * @param MsgType What sort of options are provided
+	 * @param Text Specific message
+	 * @param Caption String indicating the title of the message box
 	 * @return Very strange convention...not really EAppReturnType, see implementation
-
-	**/
+	 */
 	static EAppReturnType::Type MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption );
 
 	/**
@@ -540,6 +499,7 @@ public:
 		Disable,
 		Enable
 	};
+
 	/**
 	 * Disables screensaver (if platform supports such an API)
 	 *
@@ -572,7 +532,8 @@ public:
 
 	/**
 	 * Checks structure of the path against platform formatting requirements
-	 * return - true if path is formatted validly
+	 *
+	 * return true if path is formatted validly
 	 */
 	static bool IsValidAbsolutePathFormat(const FString& Path)
 	{
@@ -588,12 +549,13 @@ public:
 	}
 
 	/**
-	* @return platform specific path separator.
-	*/
+	 * @return platform specific path separator.
+	 */
 	static const TCHAR* GetDefaultPathSeparator();
 
 	/**
 	 * Checks if platform wants to allow a rendering thread on current device (note: does not imply it will, only if okay given other criteria met)
+	 *
 	 * @return true if allowed, false if shouldn't use a separate rendering thread
 	 */
 	static bool AllowRenderThread()
@@ -652,6 +614,7 @@ public:
 	static void LoadPreInitModules()
 	{
 	}
+
 	/**
 	 * Load the platform-specific startup modules
 	 */
@@ -681,7 +644,6 @@ public:
 	 * @param ComandType OS hint as to the type of command 
 	 * @param Command the command to execute
 	 * @param CommandLine the commands to pass to the executable
-	 *
 	 * @return whether the command was successful or not
 	 */
 	static bool OsExecute(const TCHAR* CommandType, const TCHAR* Command, const TCHAR* CommandLine = NULL)
@@ -723,7 +685,6 @@ public:
 	 *  @param	InWorld		World context
 	 *	@param	Cmd			The command to execute
 	 *	@param	Out			The output device to utilize
-	 *
 	 *	@return	bool		true if command was processed, false if not
 	 */
 	static bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
@@ -739,7 +700,6 @@ public:
 	 *
 	 * @param	InScreenPos		The screen coords to sample for current pixel color
 	 * @param	InGamma			Optional gamma correction to apply to the screen color
-	 *
 	 * @return					The color of the pixel displayed at the chosen location
 	 */
 	static struct FLinearColor GetScreenPixelColor(const struct FVector2D& InScreenPos, float InGamma = 1.0f);
@@ -795,6 +755,20 @@ public:
 		return PLATFORM_HAS_TOUCH_MAIN_SCREEN;
 	}
 
+	/*
+	 * Returns whether the volume buttons are handled by the system
+	 */
+	static bool GetVolumeButtonsHandledBySystem()
+	{
+		return true;
+	}
+
+	/*
+	 * Set whether the volume buttons are handled by the system
+	 */
+	static void SetVolumeButtonsHandledBySystem(bool enabled)
+	{}
+
 	/** @return Memory representing a true type or open type font provided by the platform as a default font for unreal to consume; empty array if the default font failed to load. */
 	static TArray<uint8> GetSystemFontBytes();
 	/**
@@ -843,10 +817,23 @@ public:
 	 */
 	static FString GetOperatingSystemId();
 
+	/**
+	 * Gets the current mode of convertible laptops, i.e. Laptop or Tablet.
+	 *
+	 * @return The laptop mode, or Unknown if not known, or NotSupported if not a convertible laptop.
+	 */
+	static EConvertibleLaptopMode GetConvertibleLaptopMode();
+
 	/** 
 	 * Get a string description of the mode the engine was running in.
 	 */
 	static const TCHAR* GetEngineMode();
+
+	/**
+	* Execute plaform dependent pre load map actions
+	*/
+	static const void PreLoadMap(FString&, FString&, void*)
+	{}
 
 #if !UE_BUILD_SHIPPING
 protected:
@@ -856,4 +843,3 @@ protected:
 	static bool bPromptForRemoteDebugOnEnsure;
 #endif	//#if !UE_BUILD_SHIPPING
 };
-

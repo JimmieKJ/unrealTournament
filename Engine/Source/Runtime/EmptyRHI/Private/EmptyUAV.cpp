@@ -13,7 +13,7 @@ FEmptyShaderResourceView::~FEmptyShaderResourceView()
 
 FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(StructuredBuffer,StructuredBuffer);
+	FEmptyStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
 	// create the UAV buffer to point to the structured buffer's memory
 	FEmptyUnorderedAccessView* UAV = new FEmptyUnorderedAccessView;
@@ -35,7 +35,7 @@ FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FTextu
 
 FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBufferRHI, uint8 Format)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer, VertexBuffer);
+	FEmptyVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	// create the UAV buffer to point to the structured buffer's memory
 	FEmptyUnorderedAccessView* UAV = new FEmptyUnorderedAccessView;
@@ -46,7 +46,7 @@ FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FVerte
 
 FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(StructuredBuffer, StructuredBuffer);
+	FEmptyStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
 	FEmptyShaderResourceView* SRV = new FEmptyShaderResourceView;
 	return SRV;
@@ -54,7 +54,7 @@ FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FStructu
 
 FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint8 Format)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer, VertexBuffer);
+	FEmptyVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	FEmptyShaderResourceView* SRV = new FEmptyShaderResourceView;
 	SRV->SourceVertexBuffer = VertexBuffer;
@@ -77,7 +77,7 @@ FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FTexture
 
 void FEmptyDynamicRHI::RHIClearUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UnorderedAccessView, UnorderedAccessView);
+	FEmptyUnorderedAccessView* UnorderedAccessView = ResourceCast(UnorderedAccessViewRHI);
 
 }
 

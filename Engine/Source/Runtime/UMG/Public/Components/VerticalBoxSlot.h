@@ -15,33 +15,33 @@ class UMG_API UVerticalBoxSlot : public UPanelSlot
 public:
 	
 	/** The padding area between the slot and the content it contains. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Vertical Box Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Vertical Box Slot")
 	FMargin Padding;
 
 	/** How much space this slot should occupy in the direction of the panel. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Vertical Box Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Vertical Box Slot")
 	FSlateChildSize Size;
 
 	/** The alignment of the object horizontally. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Vertical Box Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Vertical Box Slot")
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
 
 	/** The alignment of the object vertically. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Vertical Box Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Vertical Box Slot")
 	TEnumAsByte<EVerticalAlignment> VerticalAlignment;
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Vertical Box Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Vertical Box Slot")
 	void SetPadding(FMargin InPadding);
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Vertical Box Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Vertical Box Slot")
 	void SetSize(FSlateChildSize InSize);
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Vertical Box Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Vertical Box Slot")
 	void SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlignment);
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Vertical Box Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Vertical Box Slot")
 	void SetVerticalAlignment(EVerticalAlignment InVerticalAlignment);
 
 public:

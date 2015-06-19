@@ -100,7 +100,7 @@ static void WriteSteamAppIdToDisk(int32 SteamAppId)
 
 			// Close the file
 			delete AppIdFile;
-			AppIdFile = NULL;
+			AppIdFile = nullptr;
 		}
 	}
 }
@@ -164,6 +164,16 @@ IOnlineFriendsPtr FOnlineSubsystemSteam::GetFriendsInterface() const
 	return FriendInterface;
 }
 
+IOnlineGroupsPtr FOnlineSubsystemSteam::GetGroupsInterface() const
+{
+	return nullptr;
+}
+
+IOnlinePartyPtr FOnlineSubsystemSteam::GetPartyInterface() const
+{
+	return nullptr;
+}
+
 IOnlineSharedCloudPtr FOnlineSubsystemSteam::GetSharedCloudInterface() const
 {
 	return SharedCloudInterface;
@@ -172,6 +182,11 @@ IOnlineSharedCloudPtr FOnlineSubsystemSteam::GetSharedCloudInterface() const
 IOnlineUserCloudPtr FOnlineSubsystemSteam::GetUserCloudInterface() const
 {
 	return UserCloudInterface;
+}
+
+IOnlineUserCloudPtr FOnlineSubsystemSteam::GetUserCloudInterface(const FString& Key) const
+{
+	return nullptr;
 }
 
 IOnlineLeaderboardsPtr FOnlineSubsystemSteam::GetLeaderboardsInterface() const
@@ -191,7 +206,7 @@ IOnlineExternalUIPtr FOnlineSubsystemSteam::GetExternalUIInterface() const
 
 IOnlineTimePtr FOnlineSubsystemSteam::GetTimeInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineIdentityPtr FOnlineSubsystemSteam::GetIdentityInterface() const
@@ -199,29 +214,24 @@ IOnlineIdentityPtr FOnlineSubsystemSteam::GetIdentityInterface() const
 	return IdentityInterface;
 }
 
-IOnlinePartyPtr FOnlineSubsystemSteam::GetPartyInterface() const
-{
-	return NULL;
-}
-
 IOnlineTitleFilePtr FOnlineSubsystemSteam::GetTitleFileInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineEntitlementsPtr FOnlineSubsystemSteam::GetEntitlementsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineStorePtr FOnlineSubsystemSteam::GetStoreInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineEventsPtr FOnlineSubsystemSteam::GetEventsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineAchievementsPtr FOnlineSubsystemSteam::GetAchievementsInterface() const
@@ -231,27 +241,32 @@ IOnlineAchievementsPtr FOnlineSubsystemSteam::GetAchievementsInterface() const
 
 IOnlineSharingPtr FOnlineSubsystemSteam::GetSharingInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineUserPtr FOnlineSubsystemSteam::GetUserInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineMessagePtr FOnlineSubsystemSteam::GetMessageInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlinePresencePtr FOnlineSubsystemSteam::GetPresenceInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineChatPtr FOnlineSubsystemSteam::GetChatInterface() const
 {
-	return NULL;
+	return nullptr;
+}
+
+IOnlineTurnBasedPtr FOnlineSubsystemSteam::GetTurnBasedInterface() const
+{
+    return nullptr;
 }
 
 void FOnlineSubsystemSteam::QueueAsyncTask(FOnlineAsyncTask* AsyncTask)
@@ -268,6 +283,11 @@ void FOnlineSubsystemSteam::QueueAsyncOutgoingItem(FOnlineAsyncItem* AsyncItem)
 
 bool FOnlineSubsystemSteam::Tick(float DeltaTime)
 {
+	if (!FOnlineSubsystemImpl::Tick(DeltaTime))
+	{
+		return false;
+	}
+
 	if (OnlineAsyncTaskThreadRunnable)
 	{
 		OnlineAsyncTaskThreadRunnable->GameTick();
@@ -325,7 +345,7 @@ bool FOnlineSubsystemSteam::Init()
 			VoiceInterface = MakeShareable(new FOnlineVoiceSteam(this));
 			if (!VoiceInterface->Init())
 			{
-				VoiceInterface = NULL;
+				VoiceInterface = nullptr;
 			}
 			ExternalUIInterface = MakeShareable(new FOnlineExternalUISteam(this));
 			AchievementsInterface = MakeShareable(new FOnlineAchievementsSteam(this));
@@ -359,20 +379,20 @@ bool FOnlineSubsystemSteam::Shutdown()
 	{
 		// Destroy the online async task thread
 		delete OnlineAsyncTaskThread;
-		OnlineAsyncTaskThread = NULL;
+		OnlineAsyncTaskThread = nullptr;
 	}
 
 	if (OnlineAsyncTaskThreadRunnable)
 	{
 		delete OnlineAsyncTaskThreadRunnable;
-		OnlineAsyncTaskThreadRunnable = NULL;
+		OnlineAsyncTaskThreadRunnable = nullptr;
 	}
 	
 	#define DESTRUCT_INTERFACE(Interface) \
 	if (Interface.IsValid()) \
 	{ \
 		ensure(Interface.IsUnique()); \
-		Interface = NULL; \
+		Interface = nullptr; \
 	}
 
 	// Destruct the interfaces
@@ -449,7 +469,7 @@ bool FOnlineSubsystemSteam::InitSteamworksClient(bool bRelaunchInSteam, int32 St
 
 		// Test all the Steam interfaces
 #define GET_STEAMWORKS_INTERFACE(Interface) \
-		if (Interface() == NULL) \
+		if (Interface() == nullptr) \
 		{ \
 			UE_LOG_ONLINE(Warning, TEXT("Steamworks: %s() failed!"), TEXT(#Interface)); \
 			bSteamworksClientInitialized = false; \
@@ -560,7 +580,7 @@ bool FOnlineSubsystemSteam::InitSteamworksServer()
 	{
 		// Test all the Steam interfaces
 		#define GET_STEAMWORKS_INTERFACE(Interface) \
-		if (Interface() == NULL) \
+		if (Interface() == nullptr) \
 		{ \
 			UE_LOG_ONLINE(Warning, TEXT("Steamworks: %s() failed!"), TEXT(#Interface)); \
 			bSteamworksGameServerInitialized = false; \
@@ -575,7 +595,7 @@ bool FOnlineSubsystemSteam::InitSteamworksServer()
 		#undef GET_STEAMWORKS_INTERFACE
 	}
 
-	if (SteamGameServerUtils() != NULL)
+	if (SteamGameServerUtils() != nullptr)
 	{
 		SteamAppID = SteamGameServerUtils()->GetAppID();
 		SteamGameServerUtils()->SetWarningMessageHook(SteamworksWarningMessageHook);
@@ -589,7 +609,7 @@ void FOnlineSubsystemSteam::ShutdownSteamworks()
 {
 	if (bSteamworksGameServerInitialized)
 	{
-		if (SteamGameServer() != NULL)
+		if (SteamGameServer() != nullptr)
 		{
 			// Since SteamSDK 1.17, LogOff is required to stop the game server advertising after exit; ensure we don't miss this at shutdown
 			if (SteamGameServer()->BLoggedOn())
@@ -600,7 +620,7 @@ void FOnlineSubsystemSteam::ShutdownSteamworks()
 			SteamGameServer_Shutdown();
 			if (SessionInterface.IsValid())
 			{
-				SessionInterface->GameServerSteamId = NULL;
+				SessionInterface->GameServerSteamId = nullptr;
 				SessionInterface->bSteamworksGameServerConnected = false;
 			}	
 		}

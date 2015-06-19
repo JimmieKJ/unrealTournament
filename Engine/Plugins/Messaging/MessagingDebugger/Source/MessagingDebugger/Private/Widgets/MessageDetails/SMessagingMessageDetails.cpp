@@ -107,10 +107,14 @@ void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessa
 
 								+ SHeaderRow::Column("Recipient")
 									.DefaultLabel(LOCTEXT("DispatchStateListRecipientColumnHeader", "Recipient Endpoint"))
-									.FillWidth(0.75f)
+									.FillWidth(0.5f)
 
 								+ SHeaderRow::Column("DispatchType")
 									.DefaultLabel(LOCTEXT("DispatchStateListDispatchTypeColumnHeader", "Dispatch Type"))
+									.FillWidth(0.25f)
+
+								+ SHeaderRow::Column("RecipientThread")
+									.DefaultLabel(LOCTEXT("DispatchStateListRecipientThreadColumnHeader", "Recipient Thread"))
 									.FillWidth(0.25f)
 
 								+ SHeaderRow::Column("DispatchLatency")
@@ -204,6 +208,10 @@ FText SMessagingMessageDetails::HandleSenderThreadText() const
 			return LOCTEXT("AnyThread", "AnyThread");
 			break;
 
+		case ENamedThreads::RHIThread:
+			return LOCTEXT("RHIThread", "RHIThread");
+			break;
+
 		case ENamedThreads::GameThread:
 			return LOCTEXT("GameThread", "GameThread");
 			break;
@@ -211,6 +219,24 @@ FText SMessagingMessageDetails::HandleSenderThreadText() const
 		case ENamedThreads::ActualRenderingThread:
 			return LOCTEXT("ActualRenderingThread", "ActualRenderingThread");
 			break;
+
+		case ENamedThreads::GameThread_Local:
+			return LOCTEXT("GameThread_Local", "GameThread_Local");
+			break;
+
+		case ENamedThreads::ActualRenderingThread_Local:
+			return LOCTEXT("ActualRenderingThread_Local", "ActualRenderingThread_Local");
+			break;
+
+#if STATS
+		case ENamedThreads::StatsThread:
+			return LOCTEXT("StatsThread", "StatsThread");
+			break;
+
+		case ENamedThreads::StatsThread_Local:
+			return LOCTEXT("StatsThread_Local", "StatsThread_Local");
+			break;
+#endif
 
 		default:
 			return LOCTEXT("UnknownThread", "Unknown");

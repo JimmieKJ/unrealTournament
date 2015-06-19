@@ -23,10 +23,6 @@ UEnvQueryTest::UEnvQueryTest(const FObjectInitializer& ObjectInitializer) : Supe
 	ScoringFactor.DefaultValue = 1.0f;
 
 	bWorkOnFloatValues = true;
-
-	// keep deprecated properties initialized
-	BoolFilter.Value = true;
-	Weight.Value = 1.0f;
 }
 
 void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
@@ -182,47 +178,16 @@ AActor* UEnvQueryTest::GetItemActor(FEnvQueryInstance& QueryInstance, int32 Item
 		NULL;
 }
 
-FString UEnvQueryTest::GetDescriptionTitle() const
-{
-	return UEnvQueryTypes::GetShortTypeName(this).ToString();
-}
-
-FText UEnvQueryTest::GetDescriptionDetails() const
-{
-	return FText::GetEmpty();
-}
-
 void UEnvQueryTest::PostLoad()
 {
 	Super::PostLoad();
-
-	if (VerNum < EnvQueryTestVersion::DataProviders)
-	{
-		BoolFilter.Convert(this, BoolValue);
-		FloatFilterMin.Convert(this, FloatValueMin);
-		FloatFilterMax.Convert(this, FloatValueMax);
-		ScoreClampingMin.Convert(this, ScoreClampMin);
-		ScoreClampingMax.Convert(this, ScoreClampMax);
-		Weight.Convert(this, ScoringFactor);
-	}
-
-	UpdateTestVersion();
+	UpdateNodeVersion();
 }
 
-void UEnvQueryTest::UpdateTestVersion()
+void UEnvQueryTest::UpdateNodeVersion()
 {
 	VerNum = EnvQueryTestVersion::Latest;
 }
-
-#if WITH_EDITOR && USE_EQS_DEBUGGER
-void UEnvQueryTest::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) 
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-#if USE_EQS_DEBUGGER
-	UEnvQueryManager::NotifyAssetUpdate(NULL);
-#endif
-}
-#endif //WITH_EDITOR && USE_EQS_DEBUGGER
 
 FText UEnvQueryTest::DescribeFloatTestParams() const
 {
@@ -322,6 +287,7 @@ FText UEnvQueryTest::DescribeBoolTestParams(const FString& ConditionDesc) const
 void UEnvQueryTest::SetWorkOnFloatValues(bool bWorkOnFloats)
 {
 	bWorkOnFloatValues = bWorkOnFloats;
+
 	// Make sure FilterType is set to a valid value.
 	if (bWorkOnFloats)
 	{
@@ -329,6 +295,8 @@ void UEnvQueryTest::SetWorkOnFloatValues(bool bWorkOnFloats)
 		{
 			FilterType = EEnvTestFilterType::Range;
 		}
+
+		ScoringEquation = EEnvTestScoreEquation::Linear;
 	}
 	else
 	{
@@ -340,6 +308,102 @@ void UEnvQueryTest::SetWorkOnFloatValues(bool bWorkOnFloats)
 		// Scoring MUST be Constant for boolean tests.
 		ScoringEquation = EEnvTestScoreEquation::Constant;
 	}
+
+	UpdatePreviewData();
+}
+
+#if WITH_EDITOR
+void UEnvQueryTest::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property)
+	{
+		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, TestPurpose) ||
+			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, FilterType) ||
+			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ClampMaxType) ||
+			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ClampMinType) ||
+			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ScoringEquation) ||
+			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ScoringFactor))
+		{
+			UpdatePreviewData();
+		}
+	}
+}
+#endif
+
+void UEnvQueryTest::UpdatePreviewData()
+{
+#if WITH_EDITORONLY_DATA && WITH_EDITOR
+	const int32 MaxSamples = 11;
+	static float SamplesLinear[MaxSamples] = { 0.0f };
+	static float SamplesSquare[MaxSamples] = { 0.0f };
+	static float SamplesConstant[MaxSamples] = { 0.0f };
+	static bool bSamplesInitialized = false;
+
+	if (!bSamplesInitialized)
+	{
+		bSamplesInitialized = true;
+
+		for (int32 Idx = 0; Idx < MaxSamples; Idx++)
+		{
+			const float XValue = 1.0f * Idx / (MaxSamples - 1);
+			SamplesLinear[Idx] = XValue;
+			SamplesSquare[Idx] = XValue * XValue;
+			SamplesConstant[Idx] = 0.5f;				// just for looks on preview, not the actual value
+		}
+	}
+
+	const float* AllSamples[] = { SamplesLinear, SamplesSquare, SamplesLinear, SamplesConstant };
+
+	int32 EquationType = (ScoringEquation >= ARRAY_COUNT(AllSamples)) ? EEnvTestScoreEquation::Constant : (EEnvTestScoreEquation::Type)ScoringEquation;
+	if (TestPurpose == EEnvTestPurpose::Filter)
+	{
+		// pure filtering won't apply any scoring, draw flat line
+		EquationType = EEnvTestScoreEquation::Constant;
+	}
+
+	const float* SamplesArray = AllSamples[EquationType];
+	bool bInversed = ScoringFactor.GetValue() < 0.0f;
+	if (EquationType == EEnvTestScoreEquation::InverseLinear)
+	{
+		bInversed = !bInversed;
+	}
+
+	for (int32 Idx = 0; Idx < MaxSamples; Idx++)
+	{
+		PreviewData.Samples[Idx] = bInversed ? (1.0f - SamplesArray[Idx]) : SamplesArray[Idx];
+	}
+
+	PreviewData.bShowClampMin = (ClampMinType != EEnvQueryTestClamping::None);
+	PreviewData.bShowClampMax = (ClampMaxType != EEnvQueryTestClamping::None);
+	const bool bCanFilter = (TestPurpose != EEnvTestPurpose::Score);
+	PreviewData.bShowFilterHigh = ((FilterType == EEnvTestFilterType::Maximum) || (FilterType == EEnvTestFilterType::Range)) && bCanFilter;
+	PreviewData.bShowFilterLow = ((FilterType == EEnvTestFilterType::Minimum) || (FilterType == EEnvTestFilterType::Range)) && bCanFilter;
+
+	PreviewData.FilterLow = 0.2f;
+	PreviewData.FilterHigh = 0.8f;
+	PreviewData.ClampMin = (ClampMinType == EEnvQueryTestClamping::FilterThreshold) ? PreviewData.FilterLow : 0.3f;
+	PreviewData.ClampMax = (ClampMaxType == EEnvQueryTestClamping::FilterThreshold) ? PreviewData.FilterHigh : 0.7f;
+
+	if (PreviewData.bShowClampMin)
+	{
+		const int32 FixedIdx = FMath::TruncToInt(PreviewData.ClampMin * 10.0f);
+		for (int32 Idx = 0; Idx < FixedIdx; Idx++)
+		{
+			PreviewData.Samples[Idx] = PreviewData.Samples[FixedIdx];
+		}
+	}
+
+	if (PreviewData.bShowClampMax)
+	{
+		const int32 FixedIdx = FMath::TruncToInt(PreviewData.ClampMax * 10.0f) + 1;
+		for (int32 Idx = FixedIdx + 1; Idx < MaxSamples; Idx++)
+		{
+			PreviewData.Samples[Idx] = PreviewData.Samples[FixedIdx];
+		}
+	}
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE

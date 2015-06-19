@@ -39,6 +39,7 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 		FText OvertimeMessage;
 
 	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
+	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
 
@@ -48,6 +49,8 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual bool UseMegaFont(int32 MessageIndex) const override;
 	virtual float GetScaleInSize(int32 MessageIndex) const override;
+	virtual float GetAnnouncementPriority(int32 Switch) const override;
+
 };
 
 

@@ -95,7 +95,7 @@ void UK2Node_Composite::PostPasteNode()
 			if(UK2Node_Event* Event = Cast<UK2Node_Event>(Node))
 			{
 				UBlueprint* BP = FBlueprintEditorUtils::FindBlueprintForGraphChecked(BoundGraph);
-				if(FBlueprintEditorUtils::FindOverrideForFunction(BP, Event->EventSignatureClass, Event->EventSignatureName))
+				if(FBlueprintEditorUtils::FindOverrideForFunction(BP, Event->EventReference.GetMemberParentClass(Event->GetBlueprintClassFromNode()), Event->EventReference.GetMemberName()))
 				{
 					FBlueprintEditorUtils::RemoveNode(BP, Node, true);
 					NodeIndex--;
@@ -173,12 +173,12 @@ FText UK2Node_Composite::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		return FText::FromString(BoundGraph->GetName());
 	}
-	else if (CachedNodeTitle.IsOutOfDate()) // TitleType == ENodeTitleType::FullTitle
+	else if (CachedNodeTitle.IsOutOfDate(this)) // TitleType == ENodeTitleType::FullTitle
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("BoundGraphName"), (BoundGraph) ? FText::FromString(BoundGraph->GetName()) : LOCTEXT("InvalidGraph", "Invalid Graph"));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LOCTEXT("Collapsed_Name", "{BoundGraphName}\nCollapsed Graph"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("Collapsed_Name", "{BoundGraphName}\nCollapsed Graph"), Args), this);
 	}
 	return CachedNodeTitle;
 }

@@ -258,30 +258,27 @@ void FSurvey::EvaluateBranches()
 		TSharedPtr< FSurvey > OldBranchSurvey = Pages[NextPageIndex]->GetBranchSurvey();
 		if( OldBranchSurvey.IsValid() && (!NewBranch.IsValid() || (NewBranch->GetBranchSurvey() != OldBranchSurvey)) )
 		{
-			if( OldBranchSurvey.IsValid() )
+			// Mark the branch as not completed.
+			OldBranchSurvey->SetBranchUsed( false );
+
+			// Remove the branch survey pages from the survey.
+			struct FRemovePred
 			{
-				// Mark the branch as not completed.
-				OldBranchSurvey->SetBranchUsed( false );
-
-				// Remove the branch survey pages from the survey.
-				struct FRemovePred
+				FRemovePred( TSharedPtr< FSurvey > InOldBranchSurvey )
+					: Pages(InOldBranchSurvey->GetPages())
 				{
-					FRemovePred( TSharedPtr< FSurvey > InOldBranchSurvey )
-						: Pages(InOldBranchSurvey->GetPages())
-					{
-					}
-					bool operator()( const TSharedPtr<FSurveyPage>& InPage ) const
-					{
-						return Pages.Contains( InPage.ToSharedRef() );
-					}
-				private:
-					const TArray< TSharedRef< FSurveyPage > >& Pages;
-				};
-				Pages.RemoveAll( FRemovePred(OldBranchSurvey) );
+				}
+				bool operator()( const TSharedPtr<FSurveyPage>& InPage ) const
+				{
+					return Pages.Contains( InPage.ToSharedRef() );
+				}
+			private:
+				const TArray< TSharedRef< FSurveyPage > >& Pages;
+			};
+			Pages.RemoveAll( FRemovePred(OldBranchSurvey) );
 
-				// remove the branch points for any of the branch survey answers.
-				OldBranchSurvey->UpdateAllBranchPoints( false );
-			}
+			// remove the branch points for any of the branch survey answers.
+			OldBranchSurvey->UpdateAllBranchPoints( false );
 		}
 
 	}
@@ -333,10 +330,7 @@ void FSurvey::OnPageBack()
 		TSharedPtr< FSurvey > BranchSurvey = Pages[CurrentPageIndex-1]->GetBranchSurvey();
 		if( BranchSurvey.IsValid() )
 		{
-			if( BranchSurvey.IsValid() )
-			{
-				BranchSurvey->UpdateAllBranchPoints( false );
-			}
+			BranchSurvey->UpdateAllBranchPoints( false );
 		}
 		else
 		{

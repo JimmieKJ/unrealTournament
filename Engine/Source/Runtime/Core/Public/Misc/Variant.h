@@ -71,6 +71,7 @@ template<typename T> struct TVariantTraits
 	static int32 GetType()
 	{
 		static_assert(!sizeof(T), "Variant trait must be specialized for this type.");
+		return EVariantTypes::Empty;
 	}
 };
 

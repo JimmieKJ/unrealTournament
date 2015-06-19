@@ -19,7 +19,7 @@ bool FIPv4SubnetMask::Parse( const FString& MaskString, FIPv4SubnetMask& OutMask
 {
 	TArray<FString> Tokens;
 
-	if (MaskString.ParseIntoArray(&Tokens, TEXT("."), false) == 4)
+	if (MaskString.ParseIntoArray(Tokens, TEXT("."), false) == 4)
 	{
 		OutMask.Bytes[0] = FCString::Atoi(*Tokens[3]);
 		OutMask.Bytes[1] = FCString::Atoi(*Tokens[2]);

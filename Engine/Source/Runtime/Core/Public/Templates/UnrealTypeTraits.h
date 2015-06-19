@@ -598,3 +598,9 @@ class THasMemberFunction_##MemberName																			\
 public:																											\
 	enum { Value = sizeof(MemberTest<T>(nullptr)) == sizeof(char) };											\
 };
+
+template <typename T>
+struct TIsEnum
+{
+	enum { Value = IS_ENUM(T) };
+};

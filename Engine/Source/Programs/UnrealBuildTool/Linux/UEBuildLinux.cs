@@ -327,10 +327,12 @@ namespace UnrealBuildTool
                     InModule.AddDynamicallyLoadedModule("LinuxTargetPlatform");
                     InModule.AddDynamicallyLoadedModule("LinuxNoEditorTargetPlatform");
                     InModule.AddDynamicallyLoadedModule("LinuxServerTargetPlatform");
+					InModule.AddDynamicallyLoadedModule("DesktopTargetPlatform");
                 }
 
                 if (bBuildShaderFormats)
                 {
+					// InModule.AddDynamicallyLoadedModule("ShaderFormatD3D");
                     InModule.AddDynamicallyLoadedModule("ShaderFormatOpenGL");
                 }
             }
@@ -347,6 +349,11 @@ namespace UnrealBuildTool
             InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("LINUX=1");
 
             InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
+
+            if (GetActiveArchitecture().StartsWith("arm"))
+            {
+                InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
+            }
 
             // link with Linux libraries.
             InBuildTarget.GlobalLinkEnvironment.Config.AdditionalLibraries.Add("pthread");

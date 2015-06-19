@@ -5,7 +5,7 @@
 #include "UTDmgType_BlockedTelefrag.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTDmgType_BlockedTelefrag : public UUTDamageType
+class UNREALTOURNAMENT_API UUTDmgType_BlockedTelefrag : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 

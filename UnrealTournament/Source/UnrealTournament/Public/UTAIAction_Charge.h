@@ -6,8 +6,8 @@
 
 #include "UTAIAction_Charge.generated.h"
 
-UCLASS(MinimalAPI, CustomConstructor)
-class UUTAIAction_Charge : public UUTAIAction_WaitForMove
+UCLASS(CustomConstructor)
+class UNREALTOURNAMENT_API UUTAIAction_Charge : public UUTAIAction_WaitForMove
 {
 	GENERATED_UCLASS_BODY()
 

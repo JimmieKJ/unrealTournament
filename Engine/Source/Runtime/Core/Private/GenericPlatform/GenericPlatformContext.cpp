@@ -94,17 +94,11 @@ void FGenericCrashContext::SerializeContentToBuffer()
 	AddCrashProperty( TEXT( "LanguageLCID" ), FInternationalization::Get().GetCurrentCulture()->GetLCID() );
 	AddCrashProperty( TEXT( "DefaultLocale" ), *DefaultLocale );
 
-	AddCrashProperty( TEXT( "IsUE4Release" ), (int32)FRocketSupport::IsRocket() );
+	AddCrashProperty( TEXT( "IsUE4Release" ), (int32)FApp::IsEngineInstalled() );
 
-	// Get the user name only for non-UE4 releases.
-	if( !FRocketSupport::IsRocket() )
-	{
-		// Remove periods from internal user names to match AutoReporter user names
-		// The name prefix is read by CrashRepository.AddNewCrash in the website code
-
-		AddCrashProperty( TEXT( "UserName" ), *UserName.Replace( TEXT( "." ), TEXT( "" ) ) );
-	}
-
+	// Remove periods from user names to match AutoReporter user names
+	// The name prefix is read by CrashRepository.AddNewCrash in the website code
+	AddCrashProperty( TEXT( "UserName" ), *UserName.Replace( TEXT( "." ), TEXT( "" ) ) );
 
 	AddCrashProperty( TEXT( "BaseDir" ), *BaseDir );
 	AddCrashProperty( TEXT( "RootDir" ), *RootDir );
@@ -239,4 +233,17 @@ void FGenericCrashContext::EndSection( const TCHAR* SectionName )
 	CommonBuffer += SectionName;
 	CommonBuffer += TEXT( ">" );
 	CommonBuffer += LINE_TERMINATOR;
+}
+
+
+FProgramCounterSymbolInfoEx::FProgramCounterSymbolInfoEx( FString InModuleName, FString InFunctionName, FString InFilename, uint32 InLineNumber, uint64 InSymbolDisplacement, uint64 InOffsetInModule, uint64 InProgramCounter ) :
+	ModuleName( InModuleName ),
+	FunctionName( InFunctionName ),
+	Filename( InFilename ),
+	LineNumber( InLineNumber ),
+	SymbolDisplacement( InSymbolDisplacement ),
+	OffsetInModule( InOffsetInModule ),
+	ProgramCounter( InProgramCounter )
+{
+
 }

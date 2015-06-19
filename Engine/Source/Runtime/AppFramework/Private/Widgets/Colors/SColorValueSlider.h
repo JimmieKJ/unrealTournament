@@ -132,7 +132,7 @@ public:
 		return FReply::Handled();
 	}
 
-	virtual FVector2D ComputeDesiredSize() const
+	virtual FVector2D ComputeDesiredSize(float) const
 	{
 		return SelectorImage->ImageSize * 2.f;
 	}

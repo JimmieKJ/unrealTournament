@@ -34,10 +34,6 @@ UAnimNotifyState_Trail::UAnimNotifyState_Trail(const FObjectInitializer& ObjectI
 #endif // WITH_EDITORONLY_DATA
 }
 
-void UAnimNotifyState_Trail::AnimNotifyEventChanged(class USkeletalMeshComponent* MeshComp, class UAnimSequenceBase* Animation, FAnimNotifyEvent * OwnerEvent)
-{
-}
-
 void UAnimNotifyState_Trail::NotifyBegin(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation, float TotalDuration)
 {
 	bool bError = ValidateInput(MeshComp);
@@ -98,7 +94,7 @@ void UAnimNotifyState_Trail::NotifyBegin(class USkeletalMeshComponent * MeshComp
 	if (!bFoundExistingTrail && !bError)
 	{
 		//Spawn a new component from PSTemplate. This notify is made the outer so that the component can be identified later.
-		UParticleSystemComponent* NewParticleComp = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), MeshComp);
+		UParticleSystemComponent* NewParticleComp = NewObject<UParticleSystemComponent>(MeshComp);
 		NewParticleComp->bAutoDestroy = true;
 		NewParticleComp->SecondsBeforeInactive = 0.0f;
 		NewParticleComp->bAutoActivate = false;

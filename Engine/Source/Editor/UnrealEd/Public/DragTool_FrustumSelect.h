@@ -13,7 +13,7 @@ class UNREALED_API FDragTool_ActorFrustumSelect : public FDragTool
 {
 public:
 	explicit FDragTool_ActorFrustumSelect(FLevelEditorViewportClient* InLevelViewportClient)
-		: FDragTool()
+		: FDragTool(InLevelViewportClient->GetModeTools())
 		, LevelViewportClient( InLevelViewportClient )
 	{}
 
@@ -22,7 +22,7 @@ public:
 	 *
 	 * @param	InDelta		A delta of mouse movement.
 	 */
-	virtual void AddDelta( const FVector& InDelta );
+	virtual void AddDelta( const FVector& InDelta ) override;
 
 	/**
 	 * Starts a mouse drag behavior.  The start location is snapped to the editor constraints if bUseSnapping is true.
@@ -35,8 +35,8 @@ public:
 	/**
 	 * Ends a mouse drag behavior (the user has let go of the mouse button).
 	 */
-	virtual void EndDrag();
-	virtual void Render(const FSceneView* View,FCanvas* Canvas);
+	virtual void EndDrag() override;
+	virtual void Render(const FSceneView* View,FCanvas* Canvas) override;
 
 private:
 	/** 

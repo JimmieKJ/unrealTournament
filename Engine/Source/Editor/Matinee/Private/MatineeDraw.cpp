@@ -1438,8 +1438,7 @@ void FMatineeViewportClient::CreatePushPropertiesOntoGraphButton( FCanvas* Canva
 		Track->IsA(UInterpTrackFloatBase::StaticClass()) ||
 		Track->IsA(UInterpTrackVectorBase::StaticClass()) || 
 		Track->IsA(UInterpTrackMove::StaticClass()) || 
-		Track->IsA(UInterpTrackLinearColorBase::StaticClass()) ||
-		Track->IsA(UInterpTrackVectorBase::StaticClass())
+		Track->IsA(UInterpTrackLinearColorBase::StaticClass())
 	)
 	{
 		UTexture2D* GraphTex = NULL;

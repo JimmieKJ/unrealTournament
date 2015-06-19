@@ -2,9 +2,13 @@
 
 #pragma once
 
+#include "LightMap.h"
+#include "ShadowMap.h"
+
 #include "SceneTypes.h"
 #include "StaticLighting.h"
 #include "Components/PrimitiveComponent.h"
+#include "LandscapeGrassType.h"
 
 #include "LandscapeComponent.generated.h"
 
@@ -81,10 +85,14 @@ struct FWeightmapLayerAllocationInfo
 	UPROPERTY()
 	uint8 WeightmapTextureChannel;
 
+	/** Only relevant in non-editor builds, this indicates which channel in the data array is this layer...must be > 1 to be valid, the first two are height **/
+	UPROPERTY()
+	uint8 GrassMapChannelIndex;
 
 	FWeightmapLayerAllocationInfo()
 		: WeightmapTextureIndex(0)
 		, WeightmapTextureChannel(0)
+		, GrassMapChannelIndex(0)
 	{
 	}
 
@@ -93,10 +101,41 @@ struct FWeightmapLayerAllocationInfo
 		:	LayerInfo(InLayerInfo)
 		,	WeightmapTextureIndex(255)	// Indicates an invalid allocation
 		,	WeightmapTextureChannel(255)
+		,	GrassMapChannelIndex(0) // Indicates an invalid allocation
 	{
 	}
 	
 	FName GetLayerName() const;
+};
+
+struct FLandscapeComponentGrassData
+{
+	FGuid MaterialStateId;
+	TArray<uint16> HeightData;
+	TMap<ULandscapeGrassType*, TArray<uint8>> WeightData;
+
+	FLandscapeComponentGrassData() {}
+
+	FLandscapeComponentGrassData(FGuid& InMaterialStateId)
+	: MaterialStateId(InMaterialStateId)
+	{}
+
+	bool HasData()
+	{
+		return HeightData.Num() > 0;
+	}
+
+	SIZE_T GetAllocatedSize() const
+	{
+		SIZE_T WeightSize = 0; 
+		for (auto It = WeightData.CreateConstIterator(); It; ++It)
+		{
+			WeightSize += It.Value().GetAllocatedSize();
+		}
+		return sizeof(*this) + HeightData.GetAllocatedSize() + WeightData.GetAllocatedSize() + WeightSize;
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FLandscapeComponentGrassData& Data);
 };
 
 UCLASS(hidecategories=(Display, Attachment, Physics, Debug, Collision, Movement, Rendering, PrimitiveComponent, Object, Transform), showcategories=("Rendering|Material"), MinimalAPI)
@@ -112,7 +151,7 @@ class ULandscapeComponent : public UPrimitiveComponent
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category=LandscapeComponent)
 	int32 SectionBaseY;
 
-	/** Total number of quads for this component */
+	/** Total number of quads for this component, has to be >0 */
 	UPROPERTY()
 	int32 ComponentSizeQuads;
 
@@ -127,7 +166,7 @@ class ULandscapeComponent : public UPrimitiveComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LandscapeComponent)
 	class UMaterialInterface* OverrideMaterial;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LandscapeComponent)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LandscapeComponent, AdvancedDisplay)
 	class UMaterialInterface* OverrideHoleMaterial;
 
 	UPROPERTY(TextExportTransient)
@@ -205,6 +244,14 @@ public:
 	UPROPERTY()
 	FGuid StateId;
 
+	/** The Material Guid that used when baking, to detect material recompilations */
+	UPROPERTY()
+	FGuid BakedTextureMaterialGuid;
+
+	/** Pre-baked Base Color texture for use by distance field GI */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = BakedTextures)
+	UTexture2D* GIBakedBaseColorTexture;
+
 #if WITH_EDITORONLY_DATA
 	/** LOD level Bias to use when lighting buidling via lightmass, -1 Means automatic LOD calculation based on ForcedLOD + LODBias */
 	UPROPERTY(EditAnywhere, Category=LandscapeComponent)
@@ -216,28 +263,36 @@ public:
 	/** Pointer to data shared with the render thread, used by the editor tools */
 	struct FLandscapeEditToolRenderData* EditToolRenderData;
 
-	/** Runtime-generated editor data for ES2 emulation */
+	/** Hash of source for ES2 generated data. Used for mobile preview to determine if we need to re-generate ES2 pixel data. */
 	UPROPERTY(Transient, DuplicateTransient)
-	UTexture2D* MobileNormalmapTexture;
-
-	/** Runtime-generated editor data for ES2 emulation */
-	UPROPERTY(Transient, DuplicateTransient)
-	UMaterialInterface* MobileMaterialInterface;
+	FGuid MobilePixelDataSourceHash;
 #endif
 
 	/** For ES2 */
 	UPROPERTY()
 	uint8 MobileBlendableLayerMask;
 
+	/** Material interface used for ES2. Serialized only when cooking or loading cooked builds. */
+	UPROPERTY(Transient, DuplicateTransient)
+	UMaterialInterface* MobileMaterialInterface;
+
+	/** Generated weight/normal map texture used for ES2. Serialized only when cooking or loading cooked builds. */
+	UPROPERTY(Transient, DuplicateTransient)
+	UTexture2D* MobileWeightNormalmapTexture;
+
 public:
 	/** Platform Data where don't support texture sampling in vertex buffer */
 	FLandscapeComponentDerivedData PlatformData;
+
+	/** Grass data for generation **/
+	TSharedRef<FLandscapeComponentGrassData, ESPMode::ThreadSafe> GrassData;
 
 	virtual ~ULandscapeComponent();
 
 	// Begin UObject interface.	
 	virtual void PostInitProperties() override;	
 	virtual void Serialize(FArchive& Ar) override;
+	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	virtual void BeginDestroy() override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
@@ -292,11 +347,27 @@ public:
 	void ReplaceLayer(ULandscapeLayerInfoObject* FromLayerInfo, ULandscapeLayerInfoObject* ToLayerInfo, struct FLandscapeEditDataInterface* LandscapeEdit);
 	
 	void GeneratePlatformVertexData();
-	UMaterialInstance* GeneratePlatformPixelData(TArray<class UTexture2D*>& WeightmapTextures, bool bIsCooking);
+	void GeneratePlatformPixelData(bool bIsCooking);
+
+	/** Creates and destroys cooked grass data stored in the map */
+	void RenderGrassMap();
+	void RemoveGrassMap();
+
+	/* Could a grassmap currently be generated, disregarding whether our textures are streamed in? */
+	bool CanRenderGrassMap() const;
+
+	/* Are the textures we need to render a grassmap currently streamed in? */
+	bool AreTexturesStreamedForGrassMapRender() const;
+
+	/* Is the grassmap data outdated, eg by a material */
+	bool IsGrassMapOutdated() const;
+
+	/* Serialize all hashes/guids that record the current state of this component */
+	void SerializeStateHashes(FArchive& Ar);
 #endif
 
 	/** @todo document */
-	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly);
+	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
 
 
 	/** Get the landscape actor associated with this component. */
@@ -441,7 +512,7 @@ public:
 	/**
 	 * Generate a key for this component's layer allocations to use with MaterialInstanceConstantMap.
 	 */
-	FString GetLayerAllocationKey(bool bMobile = false) const;
+	FString GetLayerAllocationKey(UMaterialInterface* LandscapeMaterial, bool bMobile = false) const;
 
 	/** @todo document */
 	void GetLayerDebugColorKey(int32& R, int32& G, int32& B) const;
@@ -450,10 +521,10 @@ public:
 	void RemoveInvalidWeightmaps();
 
 	/** @todo document */
-	virtual void ExportCustomProperties(FOutputDevice& Out, uint32 Indent);
+	virtual void ExportCustomProperties(FOutputDevice& Out, uint32 Indent) override;
 
 	/** @todo document */
-	virtual void ImportCustomProperties(const TCHAR* SourceText, FFeedbackContext* Warn);
+	virtual void ImportCustomProperties(const TCHAR* SourceText, FFeedbackContext* Warn) override;
 
 	/** @todo document */
 	LANDSCAPE_API void InitHeightmapData(TArray<FColor>& Heights, bool bUpdateCollision);

@@ -22,7 +22,7 @@ bool UBehaviorTreeFactory::CanCreateNew() const
 UObject* UBehaviorTreeFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
 	check(Class->IsChildOf(UBehaviorTree::StaticClass()));
-	return ConstructObject<UBehaviorTree>(Class, InParent, Name, Flags);;
+	return NewObject<UBehaviorTree>(InParent, Class, Name, Flags);;
 }
 
 #undef LOCTEXT_NAMESPACE

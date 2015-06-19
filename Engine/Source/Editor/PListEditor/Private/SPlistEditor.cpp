@@ -11,12 +11,6 @@
 #include "SNotificationList.h"
 #define LOCTEXT_NAMESPACE "PListEditor"
 
-/** Ticks any internals of the widget as necessary. */
-void SPListEditorPanel::Tick( const FGeometry& /*AllottedGeometry*/, const double /*InCurrentTime*/, const float /*InDeltaTime*/ )
-{
-	PerformDisplayNotifications();
-}
-
 /** Constructs the main widget for the editor */
 void SPListEditorPanel::Construct( const FArguments& InArgs )
 {
@@ -2076,41 +2070,47 @@ void SPListEditorPanel::OnPopupTextChosen(const FString& ChosenText)
 	FSlateApplication::Get().DismissAllMenus();
 }
 
-/** Helper method to display queued notifications */
-void SPListEditorPanel::PerformDisplayNotifications()
+EActiveTimerReturnType SPListEditorPanel::DisplayDeferredNotifications( double InCurrentTime, float InDeltaTime )
 {
-	if(FramesToSkip == 0)
-		return;
-
-	if(--FramesToSkip == 0)
+	if ( --FramesToSkip == 0 )
 	{
-		for(int32 i = 0; i < QueuedNotifications.Num(); ++i)
+		for ( int32 i = 0; i < QueuedNotifications.Num(); ++i )
 		{
-			if(QueuedNotifications[i].NotificationType() == NTF_Normal)
+			if ( QueuedNotifications[i].NotificationType() == NTF_Normal )
 			{
-				NotificationListPtr->AddNotification( FNotificationInfo(QueuedNotifications[i].Notification()) );
+				NotificationListPtr->AddNotification( FNotificationInfo( QueuedNotifications[i].Notification() ) );
 			}
-			else if(QueuedNotifications[i].NotificationType() == NTF_Success)
+			else if ( QueuedNotifications[i].NotificationType() == NTF_Success )
 			{
-				FNotificationInfo info(QueuedNotifications[i].Notification());
-				TWeakPtr<SNotificationItem> PendingProgressPtr = NotificationListPtr->AddNotification(info);
-				PendingProgressPtr.Pin()->SetCompletionState(SNotificationItem::CS_Success);
+				FNotificationInfo info( QueuedNotifications[i].Notification() );
+				TWeakPtr<SNotificationItem> PendingProgressPtr = NotificationListPtr->AddNotification( info );
+				PendingProgressPtr.Pin()->SetCompletionState( SNotificationItem::CS_Success );
 			}
 			else // if(QueuedNotifications[i].NotificationType() == NTF_Failed)
 			{
-				FNotificationInfo info(QueuedNotifications[i].Notification());
-				TWeakPtr<SNotificationItem> PendingProgressPtr = NotificationListPtr->AddNotification(info);
-				PendingProgressPtr.Pin()->SetCompletionState(SNotificationItem::CS_Fail);
+				FNotificationInfo info( QueuedNotifications[i].Notification() );
+				TWeakPtr<SNotificationItem> PendingProgressPtr = NotificationListPtr->AddNotification( info );
+				PendingProgressPtr.Pin()->SetCompletionState( SNotificationItem::CS_Fail );
 			}
 		}
 
 		QueuedNotifications.Empty();
+
+		return EActiveTimerReturnType::Stop;
 	}
+
+	return EActiveTimerReturnType::Continue;
 }
 
 /** Helper function to display notifications in the current tab */
 void SPListEditorPanel::DisplayNotification(const FText& ToDisplay, const ENTF_Types NotificationType)
 {
+	// Register the active timer if it isn't already
+	if ( FramesToSkip == 0 )
+	{
+		RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SPListEditorPanel::DisplayDeferredNotifications ) );
+	}
+
 	QueuedNotifications.Add( FQueuedNotification( ToDisplay, NotificationType ) );
 	FramesToSkip = 15; // Hack to get notifications to always show full animations (would break if displaying >1 notification within 'FramesToSkip' frames)
 }

@@ -483,8 +483,6 @@ class TestTempStorage : BuildCommand
 	{
 		Log("TestTempStorage********");
 
-		Log("Resolved Ocean to {0}", ResolveSharedBuildDirectory("Ocean"));
-
 		DeleteLocalTempStorageManifests(CmdEnv);
 		DeleteSharedTempStorageManifests(CmdEnv, "Test");
 		if (TempStorageExists(CmdEnv, "Test"))

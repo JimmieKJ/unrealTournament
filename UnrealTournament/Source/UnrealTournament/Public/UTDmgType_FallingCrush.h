@@ -5,7 +5,7 @@
 #include "UTDmgType_FallingCrush.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTDmgType_FallingCrush : public UUTDamageType
+class UNREALTOURNAMENT_API UUTDmgType_FallingCrush : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 

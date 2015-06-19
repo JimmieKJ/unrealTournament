@@ -71,12 +71,6 @@ void FAsyncImageCompress::DoWork()
 }
 
 
-const TCHAR* FAsyncImageCompress::Name()
-{
-	return TEXT("FAsyncImageCompress");
-}
-
-
 FString FCrashVideoCapture::CaptureVideoPath;
 
 

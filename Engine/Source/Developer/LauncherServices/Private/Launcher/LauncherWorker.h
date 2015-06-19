@@ -54,27 +54,27 @@ public:
 
 	virtual int32 GetTasks( TArray<ILauncherTaskPtr>& OutTasks ) const override;
 
-	virtual FOutputMessageReceivedDelegate& OnOutputReceived()
+	virtual FOutputMessageReceivedDelegate& OnOutputReceived() override
 	{
 		return OutputMessageReceived;
 	}
 
-	virtual FOnStageStartedDelegate& OnStageStarted()
+	virtual FOnStageStartedDelegate& OnStageStarted() override
 	{
 		return StageStarted;
 	}
 
-	virtual FOnStageCompletedDelegate& OnStageCompleted()
+	virtual FOnStageCompletedDelegate& OnStageCompleted() override
 	{
 		return StageCompleted;
 	}
 
-	virtual FOnLaunchCompletedDelegate& OnCompleted()
+	virtual FOnLaunchCompletedDelegate& OnCompleted() override
 	{
 		return LaunchCompleted;
 	}
 
-	virtual FOnLaunchCanceledDelegate& OnCanceled()
+	virtual FOnLaunchCanceledDelegate& OnCanceled() override
 	{
 		return LaunchCanceled;
 	}

@@ -109,4 +109,5 @@ private:
 	FConflictTracker ConflictTracker;
 
 	bool bFixBroken;
+	bool ShouldGatherBlueprintPinNames;
 };

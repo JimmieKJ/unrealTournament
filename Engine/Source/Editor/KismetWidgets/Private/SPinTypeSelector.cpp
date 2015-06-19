@@ -311,7 +311,7 @@ void SPinTypeSelector::OnFilterTextChanged(const FText& NewText)
 	SearchText = NewText;
 	FilteredTypeTreeRoot.Empty();
 
-	GetChildrenMatchingSearch(NewText.ToString(), TypeTreeRoot, FilteredTypeTreeRoot);
+	GetChildrenMatchingSearch(FName::NameToDisplayString(NewText.ToString(), false), TypeTreeRoot, FilteredTypeTreeRoot);
 	TypeTreeView->RequestTreeRefresh();
 
 	// Select the first non-category item

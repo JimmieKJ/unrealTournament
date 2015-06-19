@@ -11,10 +11,10 @@ void SFxWidget::Construct( const FArguments& InArgs )
 	VisualOffset = InArgs._VisualOffset;
 	bIgnoreClipping = InArgs._IgnoreClipping;
 	ColorAndOpacity = InArgs._ColorAndOpacity;
-
+	
 	this->ChildSlot
-	.HAlign(HAlign_Center)
-	.VAlign(VAlign_Center)
+	.HAlign(InArgs._HAlign)
+	.VAlign(InArgs._VAlign)
 	[
 		InArgs._Content.Widget
 	];
@@ -90,7 +90,7 @@ int32 SFxWidget::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 
 }
 
-FVector2D SFxWidget::ComputeDesiredSize() const
+FVector2D SFxWidget::ComputeDesiredSize( float ) const
 {
 	// Layout scale affects out desired size.
 	return TransformVector(LayoutScale.Get(), ChildSlot.GetWidget()->GetDesiredSize());

@@ -12,15 +12,6 @@ struct FSwarmPingMessage
 	GENERATED_USTRUCT_BODY()
 };
 
-template<>
-struct TStructOpsTypeTraits<FSwarmPingMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FSwarmPongMessage
@@ -42,15 +33,6 @@ struct FSwarmPongMessage
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FSwarmPongMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FSwarmInfoMessage
@@ -66,15 +48,6 @@ struct FSwarmInfoMessage
 		:	TextMessage(InTextMessage)
 	{
 	}
-};
-
-template<>
-struct TStructOpsTypeTraits<FSwarmInfoMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -111,15 +84,6 @@ struct FSwarmAlertMessage
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FSwarmAlertMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FSwarmTimingMessage
@@ -142,15 +106,6 @@ struct FSwarmTimingMessage
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FSwarmTimingMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FSwarmTaskRequestMessage
@@ -158,15 +113,6 @@ struct FSwarmTaskRequestMessage
 	GENERATED_USTRUCT_BODY()
 
 	FSwarmTaskRequestMessage() {}
-};
-
-template<>
-struct TStructOpsTypeTraits<FSwarmTaskRequestMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -178,15 +124,6 @@ struct FSwarmTaskRequestReleaseMessage
 	FSwarmTaskRequestReleaseMessage() {}
 };
 
-template<>
-struct TStructOpsTypeTraits<FSwarmTaskRequestReleaseMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FSwarmTaskRequestReservationMessage
@@ -194,15 +131,6 @@ struct FSwarmTaskRequestReservationMessage
 	GENERATED_USTRUCT_BODY()
 
 	FSwarmTaskRequestReservationMessage() {}
-};
-
-template<>
-struct TStructOpsTypeTraits<FSwarmTaskRequestReservationMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -237,15 +165,6 @@ struct FSwarmTaskRequestSpecificationMessage
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FSwarmTaskRequestSpecificationMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FSwarmJobStateMessage
@@ -276,15 +195,6 @@ struct FSwarmJobStateMessage
 		,	RunningTime(InRunningTime)
 	{
 	}
-};
-
-template<>
-struct TStructOpsTypeTraits<FSwarmJobStateMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -319,15 +229,6 @@ struct FSwarmTaskStateMessage
 	}
 };
 
-template<>
-struct TStructOpsTypeTraits<FSwarmTaskStateMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FSwarmQuitMessage
@@ -335,13 +236,4 @@ struct FSwarmQuitMessage
 	GENERATED_USTRUCT_BODY()
 
 	FSwarmQuitMessage() {}
-};
-
-template<>
-struct TStructOpsTypeTraits<FSwarmQuitMessage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };

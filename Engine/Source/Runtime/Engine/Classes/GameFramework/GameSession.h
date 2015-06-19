@@ -191,6 +191,27 @@ private:
 	// Hidden functions that don't make sense to use on this class.
 	HIDE_ACTOR_TRANSFORM_FUNCTIONS();
 
+	/**
+	 * Delegate called when StartSession has completed
+	 *
+	 * @param InSessionName name of session involved
+	 * @param bWasSuccessful true if the call was successful, false otherwise
+	 */
+	virtual void OnStartSessionComplete(FName InSessionName, bool bWasSuccessful);
+
+	/**
+	 * Delegate called when EndSession has completed
+	 *
+	 * @param InSessionName name of session involved
+	 * @param bWasSuccessful true if the call was successful, false otherwise
+	 */
+	virtual void OnEndSessionComplete(FName InSessionName, bool bWasSuccessful);
+
+	/** Handle to outstanding start session call */
+	FDelegateHandle StartSessionCompleteHandle;
+	/** Handle to outstanding end session call */
+	FDelegateHandle EndSessionCompleteHandle;
+
 	FDelegateHandle OnLoginCompleteDelegateHandle;
 };
 

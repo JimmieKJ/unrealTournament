@@ -22,11 +22,22 @@ public class ProjectTargetPlatformEditor : ModuleRules
 				"InputCore",
 				"EditorStyle",
 				"TargetPlatform",
-				"GameProjectGeneration",
 				"DesktopPlatform",
 				"Settings",
 				"UnrealEd",
 				"Projects",
+			}
+		);
+
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"GameProjectGeneration",
+			}
+		);
+
+		DynamicallyLoadedModuleNames.AddRange(
+			new string[] {
+				"GameProjectGeneration",
 			}
 		);
 

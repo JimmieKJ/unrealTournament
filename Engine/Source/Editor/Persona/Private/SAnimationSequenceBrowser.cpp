@@ -31,9 +31,9 @@ public:
 	virtual FText GetToolTipText() const override { return LOCTEXT("FFrontendFilter_AdditiveAnimAssetsToolTip", "Show only animations that are additive."); }
 
 	// IFilter implementation
-	virtual bool PassesFilter( AssetFilterType InItem ) const override
+	virtual bool PassesFilter(FAssetFilterType InItem) const override
 	{
-		FString TagValue = InItem.TagsAndValues.FindRef("AdditiveAnimType");
+		const FString TagValue = InItem.TagsAndValues.FindRef(GET_MEMBER_NAME_CHECKED(UAnimSequence, AdditiveAnimType));
 		return !TagValue.IsEmpty() && !TagValue.Equals(TEXT("AAT_None"));
 	}
 };
@@ -401,6 +401,10 @@ void SAnimationSequenceBrowser::Construct(const FArguments& InArgs)
 	CurrentAssetHistoryIndex = INDEX_NONE;
 	bTriedToCacheOrginalAsset = false;
 
+	bIsActiveTimerRegistered = false;
+	bToolTipVisualizedThisFrame = false;
+	bToolTipClosedThisFrame = false;
+
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
 	CreateAssetTooltipResources();
@@ -438,6 +442,7 @@ void SAnimationSequenceBrowser::Construct(const FArguments& InArgs)
 	
 	Config.OnGetCustomAssetToolTip = FOnGetCustomAssetToolTip::CreateSP(this, &SAnimationSequenceBrowser::CreateCustomAssetToolTip);
 	Config.OnVisualizeAssetToolTip = FOnVisualizeAssetToolTip::CreateSP(this, &SAnimationSequenceBrowser::OnVisualizeAssetToolTip);
+	Config.OnAssetToolTipClosing = FOnAssetToolTipClosing::CreateSP( this, &SAnimationSequenceBrowser::OnAssetToolTipClosing );
 
 	TSharedRef< SMenuAnchor > BackMenuAnchorPtr = SNew(SMenuAnchor)
 		.Placement(MenuPlacement_BelowAnchor)
@@ -854,7 +859,7 @@ void SAnimationSequenceBrowser::CreateAssetTooltipResources()
 
 	ViewportClient = MakeShareable(new FAnimationAssetViewportClient(PreviewScene));
 	SceneViewport = MakeShareable(new FSceneViewport(ViewportClient.Get(), ViewportWidget));
-	PreviewComponent = ConstructObject<UDebugSkelMeshComponent>(UDebugSkelMeshComponent::StaticClass());
+	PreviewComponent = NewObject<UDebugSkelMeshComponent>();
 
 	// Client options
 	ViewportClient->ViewportType = LVT_Perspective;
@@ -889,13 +894,11 @@ bool SAnimationSequenceBrowser::OnVisualizeAssetToolTip(const TSharedPtr<SWidget
 	// Resolve the asset
 	USkeletalMesh* MeshToUse = nullptr;
 	UClass* AssetClass = FindObject<UClass>(ANY_PACKAGE, *AssetData.AssetClass.ToString());
-	if(AssetClass->IsChildOf(UAnimationAsset::StaticClass()))
+	if(AssetClass->IsChildOf(UAnimationAsset::StaticClass()) && AssetData.GetAsset())
 	{
 		// Set up the viewport to show the asset. Catching the visualize allows us to use
 		// one viewport between all of the assets in the sequence browser.
 		UAnimationAsset* Asset = StaticCast<UAnimationAsset*>(AssetData.GetAsset());
-		check(Asset);
-
 		USkeleton* Skeleton = Asset->GetSkeleton();
 		
 		MeshToUse = Skeleton->GetAssetPreviewMesh(Asset);
@@ -907,7 +910,7 @@ bool SAnimationSequenceBrowser::OnVisualizeAssetToolTip(const TSharedPtr<SWidget
 				PreviewComponent->SetSkeletalMesh(MeshToUse);
 			}
 
-			PreviewComponent->EnablePreview(true, Asset, NULL);
+			PreviewComponent->EnablePreview(true, Asset, nullptr);
 			PreviewComponent->PreviewInstance->PlayAnim(true);
 
 			float HalfFov = FMath::DegreesToRadians(ViewportClient->ViewFOV) / 2.0f;
@@ -917,6 +920,14 @@ bool SAnimationSequenceBrowser::OnVisualizeAssetToolTip(const TSharedPtr<SWidget
 			ViewportClient->SetViewLocationForOrbiting(FVector(0.0f, 0.0f, MeshToUse->Bounds.BoxExtent.Z / 2.0f), TargetDist);
 
 			ViewportWidget->SetVisibility(EVisibility::Visible);
+			
+			// Update the preview as long as the tooltip is visible
+			if ( !bIsActiveTimerRegistered )
+			{
+				bIsActiveTimerRegistered = true;
+				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SAnimationSequenceBrowser::UpdateTootipPreview));
+			}
+			bToolTipVisualizedThisFrame = true;
 		}
 		else
 		{
@@ -927,6 +938,15 @@ bool SAnimationSequenceBrowser::OnVisualizeAssetToolTip(const TSharedPtr<SWidget
 	// We return false here as we aren't visualizing the tooltip - just detecting when it is about to be shown.
 	// We still want slate to draw it.
 	return false;
+}
+
+void SAnimationSequenceBrowser::OnAssetToolTipClosing()
+{
+	// Make sure that the tooltip isn't about to preview another animation
+	if (!bToolTipVisualizedThisFrame)
+	{
+		ViewportWidget->SetVisibility(EVisibility::Hidden);
+	}
 }
 
 void SAnimationSequenceBrowser::CleanupPreviewSceneComponent(USceneComponent* Component)
@@ -943,15 +963,21 @@ void SAnimationSequenceBrowser::CleanupPreviewSceneComponent(USceneComponent* Co
 	}
 }
 
-void SAnimationSequenceBrowser::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType SAnimationSequenceBrowser::UpdateTootipPreview( double InCurrentTime, float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-	if(PreviewComponent && ViewportWidget->GetVisibility() == EVisibility::Visible)
+	bToolTipVisualizedThisFrame = false;
+	if ( PreviewComponent && IsToolTipPreviewVisible() )
 	{
 		// Tick the world to update preview viewport for tooltips
-		PreviewComponent->GetScene()->GetWorld()->Tick(LEVELTICK_All, InDeltaTime);
+		PreviewComponent->GetScene()->GetWorld()->Tick( LEVELTICK_All, InDeltaTime );
 	}
+	else
+	{
+		bIsActiveTimerRegistered = false;
+		return EActiveTimerReturnType::Stop;
+	}
+
+	return EActiveTimerReturnType::Continue;
 }
 
 bool SAnimationSequenceBrowser::IsToolTipPreviewVisible()

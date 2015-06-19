@@ -24,7 +24,7 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 	BaseEyeHeight = 0.0f;
 	bCollideWhenPlacing = false;
 
-	CollisionComponent = ObjectInitializer.CreateDefaultSubobject<USphereComponent>(this, ADefaultPawn::CollisionComponentName);
+	CollisionComponent = CreateDefaultSubobject<USphereComponent>(ADefaultPawn::CollisionComponentName);
 	CollisionComponent->InitSphereRadius(35.0f);
 
 	static FName CollisionProfileName(TEXT("Pawn"));
@@ -33,10 +33,11 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 	CollisionComponent->CanCharacterStepUpOn = ECB_No;
 	CollisionComponent->bShouldUpdatePhysicsVolume = true;
 	CollisionComponent->bCanEverAffectNavigation = false;
+	CollisionComponent->bDynamicObstacle = true;
 
 	RootComponent = CollisionComponent;
 
-	MovementComponent = ObjectInitializer.CreateDefaultSubobject<UFloatingPawnMovement>(this, ADefaultPawn::MovementComponentName);
+	MovementComponent = CreateDefaultSubobject<UPawnMovementComponent, UFloatingPawnMovement>(ADefaultPawn::MovementComponentName);
 	MovementComponent->UpdatedComponent = CollisionComponent;
 
 	// Structure to hold one-time initialization
@@ -49,7 +50,7 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 
 	static FConstructorStatics ConstructorStatics;
 
-	MeshComponent = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, ADefaultPawn::MeshComponentName);
+	MeshComponent = CreateOptionalDefaultSubobject<UStaticMeshComponent>(ADefaultPawn::MeshComponentName);
 	if (MeshComponent)
 	{
 		MeshComponent->SetStaticMesh(ConstructorStatics.SphereMesh.Object);
@@ -137,7 +138,10 @@ void ADefaultPawn::SetupPlayerInputComponent(UInputComponent* InputComponent)
 
 void ADefaultPawn::UpdateNavigationRelevance()
 {
-	CollisionComponent->SetCanEverAffectNavigation(bCanAffectNavigationGeneration);
+	if (CollisionComponent)
+	{
+		CollisionComponent->SetCanEverAffectNavigation(bCanAffectNavigationGeneration);
+	}
 }
 
 void ADefaultPawn::MoveRight(float Val)

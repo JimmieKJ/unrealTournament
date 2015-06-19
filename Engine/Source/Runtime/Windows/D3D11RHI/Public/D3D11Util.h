@@ -13,7 +13,7 @@
  * @param	Filename - The filename of the source file containing Code.
  * @param	Line - The line number of Code within Filename.
  */
-extern void VerifyD3D11Result(HRESULT Result,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line, ID3D11Device* Device);
+extern D3D11RHI_API void VerifyD3D11Result(HRESULT Result,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line, ID3D11Device* Device);
 
 /**
 * Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
@@ -22,7 +22,7 @@ extern void VerifyD3D11Result(HRESULT Result,const ANSICHAR* Code,const ANSICHAR
 * @param	Filename - The filename of the source file containing Code.
 * @param	Line - The line number of Code within Filename.	
 */
-extern void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line,
+extern D3D11RHI_API void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line,
 										 uint32 SizeX,uint32 SizeY,uint32 SizeZ,uint8 D3DFormat,uint32 NumMips,uint32 Flags);
 
 /**
@@ -35,7 +35,7 @@ extern void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Cod
 /**
  * Checks that a COM object has the expected number of references.
  */
-extern void VerifyComRefCount(IUnknown* Object,int32 ExpectedRefs,const TCHAR* Code,const TCHAR* Filename,int32 Line);
+extern D3D11RHI_API void VerifyComRefCount(IUnknown* Object,int32 ExpectedRefs,const TCHAR* Code,const TCHAR* Filename,int32 Line);
 #define checkComRefCount(Obj,ExpectedRefs) VerifyComRefCount(Obj,ExpectedRefs,TEXT(#Obj),TEXT(__FILE__),__LINE__)
 
 /** Returns a string for the provided DXGI format. */

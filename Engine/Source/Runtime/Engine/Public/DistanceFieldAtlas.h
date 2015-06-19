@@ -10,7 +10,7 @@
 #include "GCObject.h"
 
 // DDC key for distance field data, must be changed when modifying the generation code or data format
-#define DISTANCEFIELD_DERIVEDDATA_VER TEXT("7768798763B445A9543C94442EA899D")
+#define DISTANCEFIELD_DERIVEDDATA_VER TEXT("7768798764B445A9543C94442EA899D")
 
 /** Represents a distance field volume texture for a single UStaticMesh. */
 class FDistanceFieldVolumeTexture
@@ -70,6 +70,8 @@ public:
 	int32 GetSizeX() const { return VolumeTextureRHI->GetSizeX(); }
 	int32 GetSizeY() const { return VolumeTextureRHI->GetSizeY(); }
 	int32 GetSizeZ() const { return VolumeTextureRHI->GetSizeZ(); }
+
+	ENGINE_API FString GetSizeString() const;
 
 	/** Add an allocation to the atlas. */
 	void AddAllocation(FDistanceFieldVolumeTexture* Texture);
@@ -148,7 +150,7 @@ public:
 
 #if WITH_EDITORONLY_DATA
 
-	void CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh);
+	void CacheDerivedData(const FString& InDDCKey, UStaticMesh* Mesh, UStaticMesh* GenerateSource, float DistanceFieldResolutionScale, bool bGenerateDistanceFieldAsIfTwoSided);
 
 #endif
 
@@ -166,6 +168,9 @@ class FAsyncDistanceFieldTask
 public:
 	TArray<EBlendMode> MaterialBlendModes;
 	UStaticMesh* StaticMesh;
+	UStaticMesh* GenerateSource;
+	float DistanceFieldResolutionScale;
+	bool bGenerateDistanceFieldAsIfTwoSided;
 	FString DDCKey;
 	FDistanceFieldVolumeData* GeneratedVolumeData;
 };
@@ -181,6 +186,12 @@ public:
 
 	/** Adds a new build task. */
 	ENGINE_API void AddTask(FAsyncDistanceFieldTask* Task);
+
+	/** Blocks the main thread until the async build of the specified mesh is complete. */
+	ENGINE_API void BlockUntilBuildComplete(UStaticMesh* StaticMesh, bool bWarnIfBlocked);
+
+	/** Blocks the main thread until all async builds complete. */
+	ENGINE_API void BlockUntilAllBuildsComplete();
 
 	/** Called once per frame, fetches completed tasks and applies them to the scene. */
 	ENGINE_API void ProcessAsyncTasks();

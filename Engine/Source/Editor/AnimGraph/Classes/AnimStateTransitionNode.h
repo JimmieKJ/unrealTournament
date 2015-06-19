@@ -17,7 +17,7 @@ class UAnimStateTransitionNode : public UAnimStateNodeBase
 	UPROPERTY()
 	class UEdGraph* BoundGraph;
 
-	// The animation graph for this transition if it uses custom blending (reutrning a pose)
+	// The animation graph for this transition if it uses custom blending (returning a pose)
 	UPROPERTY()
 	class UEdGraph* CustomTransitionGraph;
 
@@ -33,6 +33,10 @@ class UAnimStateTransitionNode : public UAnimStateNodeBase
 	// The type of blending to use in the crossfade
 	UPROPERTY(EditAnywhere, Config, Category=Transition)
 	TEnumAsByte<ETransitionBlendMode::Type> CrossfadeMode;
+
+	// Try setting the rule automatically based on the player node remaining time and the CrossfadeDuration, ignoring the internal time
+	UPROPERTY(EditAnywhere, Category=Transition)
+	bool bAutomaticRuleBasedOnSequencePlayerInState;
 
 	// What transition logic to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Transition)
@@ -91,7 +95,7 @@ class UAnimStateTransitionNode : public UAnimStateNodeBase
 	virtual FText GetTooltipText() const override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual void PinConnectionListChanged(UEdGraphPin* Pin) override;
-	virtual bool CanDuplicateNode() const { return true; }
+	virtual bool CanDuplicateNode() const override { return true; }
 	virtual void PrepareForCopying() override;
 	virtual void PostPasteNode() override;
 	virtual void PostPlacedNewNode() override;
@@ -106,7 +110,7 @@ class UAnimStateTransitionNode : public UAnimStateNodeBase
 	// End UAnimStateNodeBase interface
 
 	// @return the name of this state
-	ANIMGRAPH_API FString GetStateName() const;
+	ANIMGRAPH_API FString GetStateName() const override;
 
 	ANIMGRAPH_API UAnimStateNodeBase* GetPreviousState() const;
 	ANIMGRAPH_API UAnimStateNodeBase* GetNextState() const;

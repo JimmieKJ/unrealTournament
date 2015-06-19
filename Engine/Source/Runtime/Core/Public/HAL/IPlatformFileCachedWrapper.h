@@ -227,7 +227,7 @@ public:
 		LowerLevel = Inner;
 		return !!LowerLevel;
 	}
-	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const
+	virtual bool ShouldBeUsed(IPlatformFile* Inner, const TCHAR* CmdLine) const override
 	{
 		return FPlatformProperties::RequiresCookedData();
 	}
@@ -280,9 +280,9 @@ public:
 	{
 		return LowerLevel->GetFilenameOnDisk(Filename);
 	}
-	virtual IFileHandle*	OpenRead(const TCHAR* Filename) override
+	virtual IFileHandle*	OpenRead(const TCHAR* Filename, bool bAllowWrite) override
 	{
-		IFileHandle* InnerHandle=LowerLevel->OpenRead(Filename);
+		IFileHandle* InnerHandle=LowerLevel->OpenRead(Filename, bAllowWrite);
 		if (!InnerHandle)
 		{
 			return nullptr;

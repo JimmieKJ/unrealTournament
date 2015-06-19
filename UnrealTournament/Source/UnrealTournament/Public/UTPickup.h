@@ -52,8 +52,6 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	/** if set, pickup begins play with its respawn time active */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
 	uint32 bDelayedSpawn : 1;
-	/** whether to display TimerSprite/TimerText on the pickup while it is respawning */
-	uint32 bDisplayRespawnTimer : 1;
 	/** one-shot particle effect played when the pickup is taken */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	UParticleSystem* TakenParticles;
@@ -85,6 +83,10 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	// Holds the PRI of the last player to pick this item up.  Used to give a controlling bonus to score
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	AUTPlayerState* LastPickedUpBy;
+
+	/** icon for drawing time remaining on the HUD. AUTPickupInventory use their InventoryClasses HUDIcon*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
+	FCanvasIcon HUDIcon;
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -165,9 +167,12 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	 */
 	virtual float GetRespawnTimeOffset(APawn* Asker) const;
 
+	/**Enables overriding the auto teamside for this pickup*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup, meta = (PinHiddenByDefault))
+	bool bOverride_TeamSide;
 	/** For spectator slide out - show which side this pickup is on when there are multiple. */
-	UPROPERTY(BlueprintReadWrite, Category = Pickup)
-		uint8 TeamSide;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup, meta = (editcondition = bOverride_TeamSide))
+	uint8 TeamSide;
 
 protected:
 	/** last time pickup respawned, used by GetRespawnTimeOffset() */

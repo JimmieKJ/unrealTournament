@@ -30,9 +30,9 @@ struct FWidgetTransform
 	
 
 	FWidgetTransform()
-		: Translation(0, 0)
-		, Scale(1, 1)
-		, Shear(0, 0)
+		: Translation(FVector2D::ZeroVector)
+		, Scale(FVector2D::UnitVector)
+		, Shear(FVector2D::ZeroVector)
 		, Angle(0)
 	{
 	}
@@ -47,11 +47,9 @@ struct FWidgetTransform
 
 	bool IsIdentity() const
 	{
-		return
-			Scale == FVector2D::ZeroVector
-			&& Shear == FVector2D::ZeroVector
-			&& Angle == 0.0f
-			&& Translation == FVector2D::ZeroVector;
+		const static FWidgetTransform Identity;
+
+		return Identity == *this;
 	}
 
 	bool operator==( const FWidgetTransform &Other ) const

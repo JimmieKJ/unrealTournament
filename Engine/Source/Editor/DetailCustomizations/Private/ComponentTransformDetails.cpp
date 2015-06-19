@@ -10,6 +10,9 @@
 #include "ScopedTransaction.h"
 #include "IPropertyUtilities.h"
 
+#include "UnitConversion.h"
+#include "NumericUnitTypeInterface.inl"
+
 #define LOCTEXT_NAMESPACE "FComponentTransformDetails"
 
 class FScopedSwitchWorldForObject
@@ -55,14 +58,15 @@ static USceneComponent* GetSceneComponentFromDetailsObject(UObject* InObject)
 }
 
 FComponentTransformDetails::FComponentTransformDetails( const TArray< TWeakObjectPtr<UObject> >& InSelectedObjects, const FSelectedActorInfo& InSelectedActorInfo, IDetailLayoutBuilder& DetailBuilder )
-	: SelectedActorInfo( InSelectedActorInfo )
+	: TNumericUnitTypeInterface(EUnit::Centimeters)
+	, SelectedActorInfo( InSelectedActorInfo )
 	, SelectedObjects( InSelectedObjects )
 	, NotifyHook( DetailBuilder.GetPropertyUtilities()->GetNotifyHook() )
 	, bPreserveScaleRatio( false )
 	, bEditingRotationInUI( false )
 	, HiddenFieldMask( 0 )
 {
-	GConfig->GetBool(TEXT("SelectionDetails"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("SelectionDetails"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorPerProjectIni);
 
 }
 
@@ -353,6 +357,12 @@ void FComponentTransformDetails::GenerateChildContent( IDetailChildrenBuilder& C
 	// Location
 	if(!bHideLocationField)
 	{
+		TSharedPtr<INumericTypeInterface<float>> TypeInterface;
+		if( FUnitConversion::Settings().ShouldDisplayUnits() )
+		{
+			TypeInterface = SharedThis(this);
+		}
+
 		ChildrenBuilder.AddChildContent( LOCTEXT("LocationFilter", "Location") )
 		.CopyAction( CreateCopyAction( ETransformField::Location ) )
 		.PasteAction( CreatePasteAction( ETransformField::Location ) )
@@ -381,6 +391,7 @@ void FComponentTransformDetails::GenerateChildContent( IDetailChildrenBuilder& C
 				.OnYCommitted( this, &FComponentTransformDetails::OnSetLocation, 1 )
 				.OnZCommitted( this, &FComponentTransformDetails::OnSetLocation, 2 )
 				.Font( FontInfo )
+				.TypeInterface( TypeInterface )
 			]
 			+SHorizontalBox::Slot()
 			.AutoWidth()
@@ -411,6 +422,12 @@ void FComponentTransformDetails::GenerateChildContent( IDetailChildrenBuilder& C
 	// Rotation
 	if(!bHideRotationField)
 	{
+		TSharedPtr<INumericTypeInterface<float>> TypeInterface;
+		if( FUnitConversion::Settings().ShouldDisplayUnits() )
+		{
+			TypeInterface = MakeShareable( new TNumericUnitTypeInterface<float>(EUnit::Degrees) );
+		}
+
 		ChildrenBuilder.AddChildContent( LOCTEXT("RotationFilter", "Rotation") )
 		.CopyAction( CreateCopyAction(ETransformField::Rotation) )
 		.PasteAction( CreatePasteAction(ETransformField::Rotation) )
@@ -444,6 +461,7 @@ void FComponentTransformDetails::GenerateChildContent( IDetailChildrenBuilder& C
 				.OnRollCommitted( this, &FComponentTransformDetails::OnRotationCommitted, 0 )
 				.OnPitchCommitted( this, &FComponentTransformDetails::OnRotationCommitted, 1 )
 				.OnYawCommitted( this, &FComponentTransformDetails::OnRotationCommitted, 2 )
+				.TypeInterface(TypeInterface)
 				.Font( FontInfo )
 			]
 			+SHorizontalBox::Slot()
@@ -548,6 +566,29 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void FComponentTransformDetails::Tick( float DeltaTime ) 
 {
 	CacheTransform();
+	if (!FixedDisplayUnits.IsSet())
+	{
+		CacheCommonLocationUnits();
+	}
+}
+
+void FComponentTransformDetails::CacheCommonLocationUnits()
+{
+	float LargestValue = 0.f;
+	if (CachedLocation.X.IsSet() && CachedLocation.X.GetValue() > LargestValue)
+	{
+		LargestValue = CachedLocation.X.GetValue();
+	}
+	if (CachedLocation.Y.IsSet() && CachedLocation.Y.GetValue() > LargestValue)
+	{
+		LargestValue = CachedLocation.Y.GetValue();
+	}
+	if (CachedLocation.Z.IsSet() && CachedLocation.Z.GetValue() > LargestValue)
+	{
+		LargestValue = CachedLocation.Z.GetValue();
+	}
+
+	SetupFixedDisplay(LargestValue);
 }
 
 bool FComponentTransformDetails::GetIsEnabled() const
@@ -568,7 +609,7 @@ ECheckBoxState FComponentTransformDetails::IsPreserveScaleRatioChecked() const
 void FComponentTransformDetails::OnPreserveScaleRatioToggled( ECheckBoxState NewState )
 {
 	bPreserveScaleRatio = (NewState == ECheckBoxState::Checked) ? true : false;
-	GConfig->SetBool(TEXT("SelectionDetails"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorUserSettingsIni);
+	GConfig->SetBool(TEXT("SelectionDetails"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorPerProjectIni);
 }
 
 FText FComponentTransformDetails::GetLocationText() const
@@ -1372,7 +1413,7 @@ void FComponentTransformDetails::ScaleObject( float NewValue, int32 Axis, bool b
 
 					if (!bPreserveScaleRatio)
 					{
-						UStruct* VectorStruct = FindObjectChecked<UStruct>(UObject::StaticClass(), TEXT("Vector"), false);
+						UStruct* VectorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass()->GetOutermost(), TEXT("Vector"), false);
 
 						UProperty* VectorValueProperty = NULL;
 						switch( Axis )

@@ -91,6 +91,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Management" />
     <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
@@ -101,6 +102,8 @@
         <Compile Include="XboxOne\XboxOneToolChain.cs" />
         <Compile Include="XboxOne\XboxOneDeploy.cs" />
         <Compile Include="XboxOne\XboxOneProjectGenerator.cs" />
+        <Compile Include="XboxOne\XboxOneResourceGenerator.cs" />
+        <Compile Include="XboxOne\XboxOneManifestGenerator.cs" />
       </ItemGroup>
     </When>
   </Choose>
@@ -110,6 +113,7 @@
         <Compile Include="PS4\PS4ProjectGenerator.cs" />
         <Compile Include="PS4\PS4ToolChain.cs" />
         <Compile Include="PS4\UEBuildPS4.cs" />
+        <Compile Include="PS4\UEDeployPS4.cs" />
       </ItemGroup>
     </When>
   </Choose>
@@ -122,26 +126,18 @@
       </ItemGroup>
     </When>
   </Choose>
-  <Choose>
-    <When Condition="Exists('Mac\UEBuildMac.cs')">
-      <ItemGroup>
-        <Compile Include="Mac\MacToolChain.cs" />
-        <Compile Include="Mac\UEBuildMac.cs" />
-        <Compile Include="Mac\MacProjectGenerator.cs" />
-        <Compile Include="Mac\UEDeployMac.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="Exists('Android\UEBuildAndroid.cs')">
-      <ItemGroup>
-        <Compile Include="Android\UEBuildAndroid.cs" />
-        <Compile Include="Android\UEDeployAndroid.cs" />
-        <Compile Include="Android\AndroidToolChain.cs" />
-        <Compile Include="Android\AndroidProjectGenerator.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
+  <ItemGroup>
+    <Compile Include="Mac\MacToolChain.cs" />
+    <Compile Include="Mac\UEBuildMac.cs" />
+    <Compile Include="Mac\MacProjectGenerator.cs" />
+    <Compile Include="Mac\UEDeployMac.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Android\UEBuildAndroid.cs" />
+    <Compile Include="Android\UEDeployAndroid.cs" />
+    <Compile Include="Android\AndroidToolChain.cs" />
+    <Compile Include="Android\AndroidProjectGenerator.cs" />
+  </ItemGroup>
   <Choose>
     <When Condition="Exists('WinRT\UEBuildWinRT.cs')">
       <ItemGroup>
@@ -152,35 +148,23 @@
       </ItemGroup>
     </When>
   </Choose>
-  <Choose>
-    <When Condition="Exists('IOS\UEBuildIOS.cs')">
-      <ItemGroup>
-        <Compile Include="IOS\IOSProjectGenerator.cs" />
-        <Compile Include="IOS\IOSToolChain.cs" />
-        <Compile Include="IOS\UEBuildIOS.cs" />
-        <Compile Include="IOS\UEDeployIOS.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="Exists('HTML5\UEBuildHTML5.cs')">
-      <ItemGroup>
-        <Compile Include="HTML5\HTML5ProjectGenerator.cs" />
-        <Compile Include="HTML5\HTML5ToolChain.cs" />
-        <Compile Include="HTML5\UEBuildHTML5.cs" />
-        <Compile Include="HTML5\HTML5SDKInfo.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="Exists('Linux\UEBuildLinux.cs')">
-      <ItemGroup>
-        <Compile Include="Linux\LinuxProjectGenerator.cs" />
-        <Compile Include="Linux\LinuxToolChain.cs" />
-        <Compile Include="Linux\UEBuildLinux.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
+  <ItemGroup>
+    <Compile Include="IOS\IOSProjectGenerator.cs" />
+    <Compile Include="IOS\IOSToolChain.cs" />
+    <Compile Include="IOS\UEBuildIOS.cs" />
+    <Compile Include="IOS\UEDeployIOS.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="HTML5\HTML5ProjectGenerator.cs" />
+    <Compile Include="HTML5\HTML5ToolChain.cs" />
+    <Compile Include="HTML5\UEBuildHTML5.cs" />
+    <Compile Include="HTML5\HTML5SDKInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Linux\LinuxProjectGenerator.cs" />
+    <Compile Include="Linux\LinuxToolChain.cs" />
+    <Compile Include="Linux\UEBuildLinux.cs" />
+  </ItemGroup>
   <Choose>
     <When Condition="Exists('System\NotForLicensees\TelemetryProviderET.cs')">
       <ItemGroup>
@@ -222,9 +206,14 @@
     <Compile Include="System\BuildException.cs" />
     <Compile Include="Configuration\BuildConfiguration.cs" />
     <Compile Include="System\BuildHostPlatform.cs" />
+    <Compile Include="System\BuildReceipt.cs" />
     <Compile Include="System\FlatCPPIncludeDepencencyCache.cs" />
     <Compile Include="System\Distcc.cs" />
+    <Compile Include="System\KDevelopGenerator.cs" />
     <Compile Include="System\CMakefileGenerator.cs" />
+    <Compile Include="System\ModuleDescriptor.cs" />
+    <Compile Include="System\PluginDescriptor.cs" />
+    <Compile Include="System\ProjectDescriptor.cs" />
     <Compile Include="System\QMakefileGenerator.cs" />
     <Compile Include="System\ModuleProcessingException.cs" />
     <Compile Include="System\MakefileGenerator.cs" />
@@ -267,6 +256,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Configuration\EngineConfiguration.cs" />
+    <Compile Include="Utilities\JsonObject.cs" />
     <Compile Include="Utilities\XmlConfigLoader.cs" />
     <Compile Include="Windows\UEBuildWindows.cs" />
     <Compile Include="Windows\VCEnvironment.cs" />
@@ -302,6 +292,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EnvVarsToXML\EnvVarsToXML\EnvVarsToXML.csproj">
+      <Project>{66e423eb-ffa3-4ce4-bca3-75bdb6a8318d}</Project>
+      <Name>EnvVarsToXML</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

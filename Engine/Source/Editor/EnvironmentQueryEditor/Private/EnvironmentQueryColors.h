@@ -10,6 +10,7 @@ namespace EnvironmentQueryColors
 		const FLinearColor Generator(0.1f, 0.1f, 0.1f);
 		const FLinearColor Test(0.0f, 0.07f, 0.4f);
 		const FLinearColor TestInactive(0.1f, 0.1f, 0.1f);
+		const FLinearColor Error(1.0f, 0.0f, 0.0f);
 	}
 
 	namespace NodeBorder

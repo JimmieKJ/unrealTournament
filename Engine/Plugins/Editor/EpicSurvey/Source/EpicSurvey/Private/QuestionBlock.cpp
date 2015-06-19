@@ -356,11 +356,11 @@ EContentInitializationState::Type FQuestionBlock::GetInitializationState()
 {
 	if ( InitializationState == EContentInitializationState::Working )
 	{
-		bool AllSuccessful = true;
+		//	bool AllSuccessful = true;
 	
 		//Insert other dependencies here
 
-		if ( InitializationState == EContentInitializationState::Working && AllSuccessful )
+		if ( true /* AllSuccessful */)
 		{
 			InitializationState = EContentInitializationState::Success;
 		}

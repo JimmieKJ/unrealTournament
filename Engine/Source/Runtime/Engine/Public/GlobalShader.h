@@ -52,9 +52,10 @@ public:
 		ConstructSerializedType InConstructSerializedRef,
 		ConstructCompiledType InConstructCompiledRef,
 		ModifyCompilationEnvironmentType InModifyCompilationEnvironmentRef,
-		ShouldCacheType InShouldCacheRef
+		ShouldCacheType InShouldCacheRef,
+		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
-		FShaderType(InName,InSourceFilename,InFunctionName,InFrequency,InConstructSerializedRef),
+		FShaderType(InName,InSourceFilename,InFunctionName,InFrequency,InConstructSerializedRef,InGetStreamOutElementsRef),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCacheRef(InShouldCacheRef),
 		ModifyCompilationEnvironmentRef(InModifyCompilationEnvironmentRef)
@@ -217,6 +218,11 @@ extern ENGINE_API void FinishRecompileGlobalShaders();
 
 /** Called by the shader compiler to process completed global shader jobs. */
 extern void ProcessCompiledGlobalShaders(const TArray<FShaderCompileJob*>& CompilationResults);
+
+extern ENGINE_API FString GetGlobalShaderMapDDCKey();
+
+extern ENGINE_API FString GetMaterialShaderMapDDCKey();
+
 
 /** 
  * Recompiles global shaders

@@ -154,14 +154,14 @@ FText UK2Node_InputKey::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	if (bControl || bAlt || bShift || bCommand)
 	{
-		if (CachedNodeTitle.IsOutOfDate())
+		if (CachedNodeTitle.IsOutOfDate(this))
 		{
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("ModifierKey"), GetModifierText());
 			Args.Add(TEXT("Key"), GetKeyText());
 			
 			// FText::Format() is slow, so we cache this to save on performance
-			CachedNodeTitle = FText::Format(NSLOCTEXT("K2Node", "InputKey_Name_WithModifiers", "{ModifierKey} {Key}"), Args);
+			CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "InputKey_Name_WithModifiers", "{ModifierKey} {Key}"), Args), this);
 		}
 		return CachedNodeTitle;
 	}
@@ -173,7 +173,7 @@ FText UK2Node_InputKey::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 FText UK2Node_InputKey::GetTooltipText() const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		FText ModifierText = GetModifierText();
 		FText KeyText = GetKeyText();
@@ -181,11 +181,11 @@ FText UK2Node_InputKey::GetTooltipText() const
 		// FText::Format() is slow, so we cache this to save on performance
 		if (!ModifierText.IsEmpty())
 		{
-			CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "InputKey_Tooltip_Modifiers", "Events for when the {0} key is pressed or released while {1} is also held."), KeyText, ModifierText);
+			CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "InputKey_Tooltip_Modifiers", "Events for when the {0} key is pressed or released while {1} is also held."), KeyText, ModifierText), this);
 		}
 		else
 		{
-			CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "InputKey_Tooltip", "Events for when the {0} key is pressed or released."), KeyText);
+			CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "InputKey_Tooltip", "Events for when the {0} key is pressed or released."), KeyText), this);
 		}
 	}
 	return CachedTooltip;
@@ -193,18 +193,7 @@ FText UK2Node_InputKey::GetTooltipText() const
 
 FName UK2Node_InputKey::GetPaletteIcon(FLinearColor& OutColor) const
 {
-	if (InputKey.IsMouseButton())
-	{
-		return TEXT("GraphEditor.MouseEvent_16x");
-	}
-	else if (InputKey.IsGamepadKey())
-	{
-		return TEXT("GraphEditor.PadEvent_16x");
-	}
-	else
-	{
-		return TEXT("GraphEditor.KeyEvent_16x");
-	}
+	return EKeys::GetMenuCategoryPaletteIcon(InputKey.GetMenuCategory());
 }
 
 bool UK2Node_InputKey::IsCompatibleWithGraph(UEdGraph const* Graph) const
@@ -268,8 +257,7 @@ void UK2Node_InputKey::CreateInputKeyEvent(FKismetCompilerContext& CompilerConte
 		InputKeyEvent->bExecuteWhenPaused = bExecuteWhenPaused;
 		InputKeyEvent->bOverrideParentBinding = bOverrideParentBinding;
 		InputKeyEvent->InputKeyEvent = KeyEvent;
-		InputKeyEvent->EventSignatureName = TEXT("InputActionHandlerDynamicSignature__DelegateSignature");
-		InputKeyEvent->EventSignatureClass = UInputComponent::StaticClass();
+		InputKeyEvent->EventReference.SetExternalDelegateMember(FName(TEXT("InputActionHandlerDynamicSignature__DelegateSignature")));
 		InputKeyEvent->bInternalEvent = true;
 		InputKeyEvent->AllocateDefaultPins();
 
@@ -335,40 +323,18 @@ void UK2Node_InputKey::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionR
 
 FText UK2Node_InputKey::GetMenuCategory() const
 {
-	enum EAxisKeyCategory
-	{
-		GamepadKeyCategory,
-		MouseButtonCategory,
-		KeyEventCategory,
-		AxisKeyCategory_MAX,
-	};
-	static FNodeTextCache CachedCategories[AxisKeyCategory_MAX];
+	static TMap<FName, FNodeTextCache> CachedCategories;
 
-	FText SubCategory;
-	EAxisKeyCategory CategoryIndex = AxisKeyCategory_MAX;
+	const FName KeyCategory = InputKey.GetMenuCategory();
+	const FText SubCategoryDisplayName = FText::Format(LOCTEXT("EventsCategory", "{0} Events"), EKeys::GetMenuCategoryDisplayName(KeyCategory));
+	FNodeTextCache& NodeTextCache = CachedCategories.FindOrAdd(KeyCategory);
 
-	if (InputKey.IsGamepadKey())
-	{
-		SubCategory = LOCTEXT("GamepadCategory", "Gamepad Events");
-		CategoryIndex = GamepadKeyCategory;
-	}
-	else if (InputKey.IsMouseButton())
-	{
-		SubCategory = LOCTEXT("MouseCategory", "Mouse Events");
-		CategoryIndex = MouseButtonCategory;
-	}
-	else
-	{
-		SubCategory = LOCTEXT("KeyEventsCategory", "Key Events");
-		CategoryIndex = KeyEventCategory;
-	}
-
-	if (CachedCategories[CategoryIndex].IsOutOfDate())
+	if (NodeTextCache.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedCategories[CategoryIndex] = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Input, SubCategory);
+		NodeTextCache.SetCachedText(FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Input, SubCategoryDisplayName), this);
 	}
-	return CachedCategories[CategoryIndex];
+	return NodeTextCache;
 }
 
 FBlueprintNodeSignature UK2Node_InputKey::GetSignature() const

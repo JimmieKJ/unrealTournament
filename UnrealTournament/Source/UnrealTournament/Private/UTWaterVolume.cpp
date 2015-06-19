@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTWaterVolume.h"
 #include "UTPainVolume.h"
+#include "UTCarriedObject.h"
 
 AUTWaterVolume::AUTWaterVolume(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -88,16 +89,15 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		else if (EntrySound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
+			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(Other);
+			if (Flag)
+			{
+				Flag->EnteredPainVolume(this);
+			}
 		}
 		if (bPainCausing && bEntryPain && Other->bCanBeDamaged)
 		{
 			CausePainTo(Other);
-		}
-
-		// Start timer if none is active
-		if (!GetWorldTimerManager().IsTimerActive(PainTimerHandle))
-		{
-			GetWorldTimerManager().SetTimer(PainTimerHandle, this, &AUTPainVolume::PainTimer, PainInterval, true);
 		}
 	}
 }
@@ -134,13 +134,13 @@ void AUTPainVolume::PainTimer()
 				CausePainTo(A);
 			}
 		}
-
-		// Stop timer if nothing is overlapping us
-		if (TouchingActors.Num() == 0)
-		{
-			GetWorldTimerManager().ClearTimer(PainTimerHandle);
-		}
 	}
+}
+
+void AUTPainVolume::BeginPlay()
+{
+	GetWorldTimerManager().SetTimer(PainTimerHandle, this, &AUTPainVolume::PainTimer, PainInterval, true);
+	Super::BeginPlay();
 }
 
 

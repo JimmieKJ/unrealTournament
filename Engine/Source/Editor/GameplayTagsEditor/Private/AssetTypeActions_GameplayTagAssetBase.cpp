@@ -61,7 +61,7 @@ void FAssetTypeActions_GameplayTagAssetBase::OpenGameplayTagEditor(TArray<UObjec
 		AssetName = FText::Format( LOCTEXT("AssetTypeActions_GameplayTagAssetBaseMultipleAssets", "{0} Assets"), FText::AsNumber( NumAssets ) );
 		Title = FText::Format( LOCTEXT("AssetTypeActions_GameplayTagAssetBaseEditorTitle", "Tag Editor: Owned Gameplay Tags: {0}"), AssetName );
 	}
-	else if (NumAssets > 0 && EditableContainers[0].TagContainerOwner)
+	else if (NumAssets > 0 && EditableContainers[0].TagContainerOwner.IsValid())
 	{
 		AssetName = FText::FromString( EditableContainers[0].TagContainerOwner->GetName() );
 		Title = FText::Format( LOCTEXT("AssetTypeActions_GameplayTagAssetBaseEditorTitle", "Tag Editor: Owned Gameplay Tags: {0}"), AssetName );

@@ -179,7 +179,7 @@ struct UNREALTOURNAMENT_API FSingleEndpointEval : public FUTNodeEvaluator
 struct UNREALTOURNAMENT_API FSingleEndpointEvalWeighted : public FSingleEndpointEval
 {
 	/** map of additional node costs to bias the path taken to the target */
-	TMap< TWeakObjectPtr<UUTPathNode>, uint32 > ExtraCosts;
+	TMap< TWeakObjectPtr<const UUTPathNode>, uint32 > ExtraCosts;
 
 	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance)
 	{
@@ -371,6 +371,11 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	 */
 	int32 CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPoly);
 
+	/** returns if the given distance is traversable only by jumping and/or falling
+	* note: returns false if walk reachable; use Raycast() to check that
+	*/
+	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
+
 	/** trace test potential jump arcs for obstructions (does not walk test, align to edge, etc; see OnlyJumpReachable()) */
 	virtual bool JumpTraceTest(FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, FCollisionShape ScoutShape, float XYSpeed, float GravityZ, float BaseJumpZ, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
 
@@ -404,6 +409,9 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	 * if bOnlyWalkable is false, includes the far side of edges that require additional movement (jump, teleport, special move, etc)
 	 */
 	virtual void FindAdjacentPolys(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, bool bOnlyWalkable, TArray<NavNodeRef>& Polys) const;
+
+	/** returns whether the given point is valid for jump testing (as source, destination or both) */
+	virtual bool IsValidJumpPoint(const FVector& TestPolyCenter) const;
 protected:
 	/** graph of path nodes overlaying the mesh */
 	UPROPERTY()
@@ -426,15 +434,7 @@ protected:
 
 	virtual void DeletePaths();
 
-	/** returns if the given distance is traversable only by jumping and/or falling
-	 * note: returns false if walk reachable; use Raycast() to check that
-	 */
-	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
-
 	const class dtQueryFilter* GetDefaultDetourFilter() const;
-
-	/** returns whether the given point is valid for jump testing (as source, destination or both) */
-	virtual bool IsValidJumpPoint(const FVector& TestPolyCenter) const;
 
 	// hide base functionality we don't want being used
 	// if you are UT aware you should use the UT functions that use the node graph with more robust traversal options
@@ -552,13 +552,14 @@ private:
 protected:
 	/** building special links (jumps, translocator, etc) are done over time when rebuilding while editing; this is the current node or INDEX_NONE if done/not started */
 	int32 SpecialLinkBuildNodeIndex;
+	int32 SpecialLinkBuildPass;
+
 public:
 	/** builds the navigation nodes overlaying the navmesh data */
 	virtual void BuildNodeNetwork();
 	/** builds nonstandard (jumping, teleporting, etc) links between nodes */
 	virtual void BuildSpecialLinks(int32 NumToProcess);
 
-	virtual void TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void PreSave() override;
 

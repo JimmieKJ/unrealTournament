@@ -12,7 +12,7 @@
 
 #include "Core.h"
 #include "ModuleManager.h"
-#include "MacPlatformProperties.h"
+#include "Runtime/Core/Public/Mac/MacPlatformProperties.h"
 
 #if WITH_ENGINE
 	#include "Engine.h"

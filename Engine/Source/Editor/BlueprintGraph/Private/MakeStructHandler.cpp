@@ -107,10 +107,7 @@ void FKCHandler_MakeStruct::Compile(FKismetFunctionContext& Context, UEdGraphNod
 			DstTerm->AssociatedVarProperty = BoundProperty;
 			DstTerm->Context = OutputStructTerm;
 
-			FBlueprintCompiledStatement& Statement = Context.AppendStatementForNode(Node);
-			Statement.Type = KCST_Assignment;
-			Statement.LHS = DstTerm;
-			Statement.RHS.Add(SrcTerm);
+			FKismetCompilerUtilities::CreateObjectAssignmentStatement(Context, Node, SrcTerm, DstTerm);
 		}
 	}
 	if (!Node->IsNodePure())

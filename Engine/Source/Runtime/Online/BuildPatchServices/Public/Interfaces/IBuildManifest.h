@@ -6,9 +6,6 @@
 	App, and also the interface to creating and reading custom fields.
 =============================================================================*/
 
-#ifndef __IBuildManifest_h__
-#define __IBuildManifest_h__
-
 #pragma once
 
 typedef TSharedPtr< class IManifestField, ESPMode::ThreadSafe > IManifestFieldPtr;
@@ -31,19 +28,19 @@ public:
 	 * Get the fields value as an FString.
 	 * @return	The string value.
 	 */
-	virtual const FString AsString() const = 0;
+	virtual FString AsString() const = 0;
 	
 	/**
 	 * Get the fields value as a double.
 	 * @return	The double value.
 	 */
-	virtual const double AsDouble() const = 0;
+	virtual double AsDouble() const = 0;
 	
 	/**
 	 * Get the fields value as an int.
 	 * @return	The int value.
 	 */
-	virtual const int64 AsInteger() const = 0;
+	virtual int64 AsInteger() const = 0;
 };
 
 /**
@@ -61,7 +58,7 @@ public:
 	 * Get the App ID that this manifest belongs to
 	 * @return		the app ID
 	 */
-	virtual const uint32& GetAppID() const = 0;
+	virtual uint32 GetAppID() const = 0;
 	
 	/**
 	 * Get the name of the App that this manifest belongs to
@@ -109,13 +106,13 @@ public:
 	 * Get the size of this download, assuming fresh install
 	 * @return		the total download size in bytes
 	 */
-	virtual const int64 GetDownloadSize() const = 0;
+	virtual int64 GetDownloadSize() const = 0;
 
 	/**
 	 * Get the size of this build
 	 * @return		the build size in bytes
 	 */
-	virtual const int64 GetBuildSize() const = 0;
+	virtual int64 GetBuildSize() const = 0;
 
 	/**
 	 * Gets a list of files that were installed with the Old Manifest, but no longer required by this Manifest.
@@ -168,5 +165,3 @@ public:
 	 */
 	virtual IBuildManifestRef Duplicate() const = 0;
 };
-
-#endif // __IBuildManifest_h__

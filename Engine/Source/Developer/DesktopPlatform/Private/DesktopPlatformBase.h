@@ -23,9 +23,11 @@ public:
 
 	virtual bool GetDefaultEngineIdentifier(FString &OutIdentifier) override;
 	virtual bool GetDefaultEngineRootDir(FString &OutRootDir) override;
-	virtual bool IsPreferredEngineIdentifier(const FString &Identifier, const FString &OtherIdentifier);
+	virtual FString GetEngineSavedConfigDirectory(const FString& Identifier) override;
+	virtual bool IsPreferredEngineIdentifier(const FString &Identifier, const FString &OtherIdentifier) override;
 
 	virtual bool IsStockEngineRelease(const FString &Identifier) override;
+	virtual bool TryParseStockEngineVersion(const FString& Identifier, FEngineVersion& OutVersion) override;
 	virtual bool IsSourceDistribution(const FString &RootDir) override;
 	virtual bool IsPerforceBuild(const FString &RootDir) override;
 	virtual bool IsValidRootDirectory(const FString &RootDir) override;
@@ -38,6 +40,7 @@ public:
 	virtual bool CleanGameProject(const FString& ProjectDir, FString& OutFailPath, FFeedbackContext* Warn) override;
 	virtual bool CompileGameProject(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn) override;
 	virtual bool GenerateProjectFiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn) override;
+	virtual bool InvalidateMakefiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn) override;
 	virtual bool IsUnrealBuildToolAvailable() override;
 	virtual bool InvokeUnrealBuildToolSync(const FString& InCmdLineParams, FOutputDevice &Ar, bool bSkipBuildUBT, int32& OutReturnCode, FString& OutProcOutput) override;
 	virtual FProcHandle InvokeUnrealBuildToolAsync(const FString& InCmdLineParams, FOutputDevice &Ar, void*& OutReadPipe, void*& OutWritePipe, bool bSkipBuildUBT = false) override;

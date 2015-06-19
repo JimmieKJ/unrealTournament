@@ -11,10 +11,16 @@
 #include "HTML5JavaScriptFx.h"
 #endif 
 
+#include "trace.h"
+
 #include "unicode/locid.h"
 #include "GenericPlatformContext.h"
 #include <SDL.h>
 #include <ctime>
+
+#include "MapPakDownloaderModule.h"
+#include "MapPakDownloader.h"
+
 
 void FHTML5Misc::PlatformInit()
 {
@@ -138,6 +144,10 @@ extern "C"
 	// callback from javascript. 
 	void on_fatal(const char* msg, const char* error)
 	{
+#ifdef __EMSCRIPTEN_TRACING__
+		emscripten_log(EM_LOG_CONSOLE, "Fatal Error: Closing trace!");
+		emscripten_trace_close();
+#endif
 		// !!JM todo: pass msg & error to a crash context? Must be copied?
 		if (GHTML5CrashHandler)
 		{
@@ -151,4 +161,15 @@ extern "C"
 void FHTML5Misc::SetCrashHandler(void(* CrashHandler)(const FGenericCrashContext& Context))
 {
 	GHTML5CrashHandler = CrashHandler;
+}
+
+const void FHTML5Misc::PreLoadMap(FString& Map, FString& LastMap, void* DynData)
+{
+	static TSharedPtr<FMapPakDownloader> Downloader = FModuleManager::GetModulePtr<IMapPakDownloaderModule>("MapPakDownloader")->GetDownloader();
+	Downloader->Cache(Map, LastMap, DynData);
+}
+
+void FHTML5Misc::PlatformPostInit(bool ShowSplashScreen /*= false*/)
+{
+	FModuleManager::Get().LoadModule("MapPakDownloader");
 }

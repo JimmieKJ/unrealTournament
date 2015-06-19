@@ -290,7 +290,7 @@ bool SLandscapeEditor::GetIsPropertyVisible(const FPropertyAndParent& PropertyAn
 			const FName CurrentToolName = LandscapeEdMode->CurrentTool->GetToolName();
 
 			TArray<FString> ShowForTools;
-			Property.GetMetaData("ShowForTools").ParseIntoArray(&ShowForTools, TEXT(","), true);
+			Property.GetMetaData("ShowForTools").ParseIntoArray(ShowForTools, TEXT(","), true);
 			if (!ShowForTools.Contains(CurrentToolName.ToString()))
 			{
 				return false;
@@ -302,7 +302,7 @@ bool SLandscapeEditor::GetIsPropertyVisible(const FPropertyAndParent& PropertyAn
 			// const FName CurrentBrushName = LandscapeEdMode->CurrentBrush->GetBrushName();
 
 			TArray<FString> ShowForBrushes;
-			Property.GetMetaData("ShowForBrushes").ParseIntoArray(&ShowForBrushes, TEXT(","), true);
+			Property.GetMetaData("ShowForBrushes").ParseIntoArray(ShowForBrushes, TEXT(","), true);
 			if (!ShowForBrushes.Contains(CurrentBrushSetName.ToString()))
 				//&& !ShowForBrushes.Contains(CurrentBrushName.ToString())
 			{
@@ -314,7 +314,7 @@ bool SLandscapeEditor::GetIsPropertyVisible(const FPropertyAndParent& PropertyAn
 			static const TCHAR* TargetTypeNames[] = { TEXT("Heightmap"), TEXT("Weightmap"), TEXT("Visibility") };
 
 			TArray<FString> ShowForTargetTypes;
-			Property.GetMetaData("ShowForTargetTypes").ParseIntoArray(&ShowForTargetTypes, TEXT(","), true);
+			Property.GetMetaData("ShowForTargetTypes").ParseIntoArray(ShowForTargetTypes, TEXT(","), true);
 
 			const ELandscapeToolTargetType::Type CurrentTargetType = LandscapeEdMode->CurrentToolTarget.TargetType;
 			if (CurrentTargetType == ELandscapeToolTargetType::Invalid ||

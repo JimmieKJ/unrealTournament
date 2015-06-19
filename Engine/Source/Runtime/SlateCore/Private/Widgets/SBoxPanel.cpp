@@ -233,7 +233,7 @@ static FVector2D ComputeDesiredSizeForBox( const TPanelChildren<SBoxPanel::FSlot
  *
  * @return The desired size.
  */
-FVector2D SBoxPanel::ComputeDesiredSize() const
+FVector2D SBoxPanel::ComputeDesiredSize( float ) const
 {
 	return (Orientation == Orient_Horizontal)
 		? ComputeDesiredSizeForBox<Orient_Horizontal>(this->Children)

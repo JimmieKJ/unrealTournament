@@ -37,7 +37,7 @@ public:
 
 	void Construct( const FArguments& InArgs, const TSharedRef<FTabManager>& InTabManager, const TSharedRef<FTabManager::FArea>& PersistentNode );
 
-	virtual Type GetNodeType() const
+	virtual Type GetNodeType() const override
 	{
 		return SDockingNode::DockArea;
 	}

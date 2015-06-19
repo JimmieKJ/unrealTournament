@@ -122,12 +122,6 @@ int32 FAnimationSection::OnPaintSection( const FGeometry& AllottedGeometry, cons
 	return LayerId+3;
 }
 
-void FAnimationSection::Tick( const FGeometry& AllottedGeometry, const FGeometry& ParentGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-}
-
-
-
 FAnimationTrackEditor::FAnimationTrackEditor( TSharedRef<ISequencer> InSequencer )
 	: FMovieSceneTrackEditor( InSequencer ) 
 {

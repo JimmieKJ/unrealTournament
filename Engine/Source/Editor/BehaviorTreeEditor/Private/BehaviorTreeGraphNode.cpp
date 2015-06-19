@@ -2,7 +2,7 @@
 
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "ScopedTransaction.h"
-#include "SGraphEditorActionMenu_BehaviorTree.h"
+#include "SGraphEditorActionMenuAI.h"
 #include "BlueprintNodeHelpers.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "AssetData.h"
@@ -10,11 +10,10 @@
 #include "BehaviorTree/Services/BTService_BlueprintBase.h"
 #include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
 
-#define LOCTEXT_NAMESPACE "BehaviorTreeGraphNode"
+#define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
 UBehaviorTreeGraphNode::UBehaviorTreeGraphNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	NodeInstance = NULL;
 	bHighlightInAbortRange0 = false;
 	bHighlightInAbortRange1 = false;
 	bHighlightInSearchRange0 = false;
@@ -44,161 +43,52 @@ void UBehaviorTreeGraphNode::AllocateDefaultPins()
 	CreatePin(EGPD_Output, UBehaviorTreeEditorTypes::PinCategory_MultipleNodes, TEXT(""), NULL, false, false, TEXT("Out"));
 }
 
-void UBehaviorTreeGraphNode::PostPlacedNewNode()
+void UBehaviorTreeGraphNode::InitializeInstance()
 {
-	UClass* NodeClass = ClassData.GetClass(true);
-	if (NodeClass)
+	UBTNode* BTNode = Cast<UBTNode>(NodeInstance);
+	UBehaviorTree* BTAsset = BTNode ? Cast<UBehaviorTree>(BTNode->GetOuter()) : nullptr;
+	if (BTNode && BTAsset)
 	{
-		UBehaviorTree* BT = Cast<UBehaviorTree>(GetBehaviorTreeGraph()->GetOuter());
-		if (BT)
-		{
-			NodeInstance = ConstructObject<UBTNode>(NodeClass, BT);
-
-			UBTNode* BTNode = (UBTNode*)NodeInstance;
-			BTNode->SetFlags(RF_Transactional);
-			BTNode->InitializeFromAsset(*BT);
-			BTNode->InitializeNode(NULL, MAX_uint16, 0, 0);
-		}
+		BTNode->InitializeFromAsset(*BTAsset);
+		BTNode->InitializeNode(NULL, MAX_uint16, 0, 0);
 	}
 }
 
-bool UBehaviorTreeGraphNode::CanDuplicateNode() const
+FText UBehaviorTreeGraphNode::GetDescription() const
 {
-	return bInjectedNode ? false : Super::CanDuplicateNode();
-}
-
-bool UBehaviorTreeGraphNode::CanUserDeleteNode() const
-{
-	return bInjectedNode ? false : Super::CanUserDeleteNode();
-}
-
-void UBehaviorTreeGraphNode::PrepareForCopying()
-{
-	if (NodeInstance)
+	const UBTNode* BTNode = Cast<const UBTNode>(NodeInstance);
+	if (BTNode)
 	{
-		// Temporarily take ownership of the node instance, so that it is not deleted when cutting
-		NodeInstance->Rename(NULL, this, REN_DontCreateRedirectors | REN_DoNotDirty );
-	}
-}
-#if WITH_EDITOR
-
-void UBehaviorTreeGraphNode::PostEditImport()
-{
-	ResetNodeOwner();
-
-	if (NodeInstance)
-	{
-		UBehaviorTree* BT = Cast<UBehaviorTree>(GetBehaviorTreeGraph()->GetOuter());
-		if (BT)
-		{
-			UBTNode* BTNode = (UBTNode*)NodeInstance;
-			BTNode->InitializeFromAsset(*BT);
-			BTNode->InitializeNode(NULL, MAX_uint16, 0, 0);
-		}
-	}
-}
-
-void UBehaviorTreeGraphNode::PostEditUndo()
-{
-	ResetNodeOwner();
-}
-
-#endif
-
-void UBehaviorTreeGraphNode::PostCopyNode()
-{
-	ResetNodeOwner();
-}
-
-void UBehaviorTreeGraphNode::ResetNodeOwner()
-{
-	if (NodeInstance)
-	{
-		UBehaviorTree* BT = Cast<UBehaviorTree>(GetBehaviorTreeGraph()->GetOuter());
-		NodeInstance->Rename(NULL, BT, REN_DontCreateRedirectors | REN_DoNotDirty);
-		NodeInstance->ClearFlags(RF_Transient);
-
-		// also reset decorators and services
-		for(auto& Decorator : Decorators)
-		{
-			if(Decorator->NodeInstance != nullptr)
-			{
-				Decorator->NodeInstance->Rename(NULL, BT, REN_DontCreateRedirectors | REN_DoNotDirty);
-				Decorator->NodeInstance->ClearFlags(RF_Transient);
-			}
-		}
-
-		for(auto& Service : Services)
-		{
-			if(Service->NodeInstance != nullptr)
-			{
-				Service->NodeInstance->Rename(NULL, BT, REN_DontCreateRedirectors | REN_DoNotDirty);
-				Service->NodeInstance->ClearFlags(RF_Transient);
-			}
-		}
-	}
-}
-
-FString	UBehaviorTreeGraphNode::GetDescription() const
-{
-	if (const UBTNode* Node = Cast<UBTNode>(NodeInstance))
-	{
-		return Node->GetStaticDescription();
+		return FText::FromString(BTNode->GetStaticDescription());
 	}
 
-	FString StoredClassName = ClassData.GetClassName();
-	StoredClassName.RemoveFromEnd(TEXT("_C"));
-
-	return FString::Printf(TEXT("%s: %s"), *StoredClassName,
-		*LOCTEXT("NodeClassError", "Class not found, make sure it's saved!").ToString());
+	return Super::GetDescription();
 }
 
 FText UBehaviorTreeGraphNode::GetTooltipText() const
 {
 	FText TooltipDesc;
 
-	if(!NodeInstance)
+	if (NodeInstance)
 	{
-		TooltipDesc = LOCTEXT("NodeClassError", "Class not found, make sure it's saved!");
-	}
-	else
-	{
-		if(bHasObserverError)
+		if (bHasObserverError)
 		{
 			TooltipDesc = LOCTEXT("ObserverError", "Observer has invalid abort setting!");
 		}
-		else if(DebuggerRuntimeDescription.Len() > 0)
+		else if (DebuggerRuntimeDescription.Len() > 0)
 		{
 			TooltipDesc = FText::FromString(DebuggerRuntimeDescription);
 		}
-		else if(ErrorMessage.Len() > 0)
-		{
-			TooltipDesc = FText::FromString(ErrorMessage);
-		}
-		else
-		{
-			if( NodeInstance->GetClass()->IsChildOf(UBTDecorator_BlueprintBase::StaticClass()) ||
-				NodeInstance->GetClass()->IsChildOf(UBTService_BlueprintBase::StaticClass()) ||
-				NodeInstance->GetClass()->IsChildOf(UBTTask_BlueprintBase::StaticClass()) )
-			{
-				FAssetData AssetData(NodeInstance->GetClass()->ClassGeneratedBy);
-				const FString* Description = AssetData.TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint, BlueprintDescription));
+	}
 
-				if (Description && !Description->IsEmpty())
-				{
-					TooltipDesc = FText::FromString(Description->Replace(TEXT("\\n"), TEXT("\n")));
-				}
-			}
-			else
-			{
-				TooltipDesc = NodeInstance->GetClass()->GetToolTipText();
-			}	
-		}
+	if (TooltipDesc.IsEmpty())
+	{
+		TooltipDesc = Super::GetTooltipText();
 	}
 
 	if (bInjectedNode)
 	{
-		FText const InjectedDesc = !TooltipDesc.IsEmpty() ? TooltipDesc : FText::FromString(GetDescription());
+		FText const InjectedDesc = !TooltipDesc.IsEmpty() ? TooltipDesc : GetDescription();
 		// @TODO: FText::Format() is slow... consider caching this tooltip like 
 		//        we do for a lot of the BP nodes now (unfamiliar with this 
 		//        node's purpose, so hesitant to muck with this at this time).
@@ -208,159 +98,19 @@ FText UBehaviorTreeGraphNode::GetTooltipText() const
 	return TooltipDesc;
 }
 
-UEdGraphPin* UBehaviorTreeGraphNode::GetInputPin(int32 InputIndex) const
-{
-	check(InputIndex >= 0);
-
-	for (int32 PinIndex = 0, FoundInputs = 0; PinIndex < Pins.Num(); PinIndex++)
-	{
-		if (Pins[PinIndex]->Direction == EGPD_Input)
-		{
-			if (InputIndex == FoundInputs)
-			{
-				return Pins[PinIndex];
-			}
-			else
-			{
-				FoundInputs++;
-			}
-		}
-	}
-
-	return NULL;
-}
-
-UEdGraphPin* UBehaviorTreeGraphNode::GetOutputPin(int32 InputIndex) const
-{
-	check(InputIndex >= 0);
-
-	for (int32 PinIndex = 0, FoundInputs = 0; PinIndex < Pins.Num(); PinIndex++)
-	{
-		if (Pins[PinIndex]->Direction == EGPD_Output)
-		{
-			if (InputIndex == FoundInputs)
-			{
-				return Pins[PinIndex];
-			}
-			else
-			{
-				FoundInputs++;
-			}
-		}
-	}
-
-	return NULL;
-}
-
-void UBehaviorTreeGraphNode::AutowireNewNode(UEdGraphPin* FromPin)
-{
-	Super::AutowireNewNode(FromPin);
-
-	if (FromPin != nullptr)
-	{
-		UEdGraphPin* OutputPin = GetOutputPin();
-
-		if (GetSchema()->TryCreateConnection(FromPin, GetInputPin()))
-		{
-			FromPin->GetOwningNode()->NodeConnectionListChanged();
-		}
-		else if(OutputPin != nullptr && GetSchema()->TryCreateConnection(OutputPin, FromPin))
-		{
-			NodeConnectionListChanged();
-		}
-	}
-}
-
-
 UBehaviorTreeGraph* UBehaviorTreeGraphNode::GetBehaviorTreeGraph()
 {
 	return CastChecked<UBehaviorTreeGraph>(GetGraph());
 }
-
-void UBehaviorTreeGraphNode::NodeConnectionListChanged()
-{
-	GetBehaviorTreeGraph()->UpdateAsset(UBehaviorTreeGraph::SkipDebuggerFlags);
-}
-
 
 bool UBehaviorTreeGraphNode::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const
 {
 	return DesiredSchema->GetClass()->IsChildOf(UEdGraphSchema_BehaviorTree::StaticClass());
 }
 
-void UBehaviorTreeGraphNode::DiffProperties(UStruct* Struct, void* DataA, void* DataB, FDiffResults& Results, FDiffSingleResult& Diff)
+void UBehaviorTreeGraphNode::OnSubNodeAdded(UAIGraphNode* NodeTemplate)
 {
-	for (TFieldIterator<UProperty> PropertyIt(Struct, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
-	{
-		UProperty* Prop = *PropertyIt;
- 		// skip properties we cant see
-		if (!Prop->HasAnyPropertyFlags(CPF_Edit|CPF_BlueprintVisible) ||
-			Prop->HasAnyPropertyFlags(CPF_Transient) ||
-			Prop->HasAnyPropertyFlags(CPF_DisableEditOnInstance) ||
-			Prop->IsA(UFunction::StaticClass()) ||
-			Prop->IsA(UDelegateProperty::StaticClass()) ||
-			Prop->IsA(UMulticastDelegateProperty::StaticClass()))
-		{
-			continue;
-		}
-		
-		FString ValueStringA = BlueprintNodeHelpers::DescribeProperty(Prop, Prop->ContainerPtrToValuePtr<uint8>(DataA));
-		FString ValueStringB  = BlueprintNodeHelpers::DescribeProperty(Prop, Prop->ContainerPtrToValuePtr<uint8>(DataB));
-
-		if ( ValueStringA != ValueStringB )
-		{
-			if(Results)
-			{
-				Diff.DisplayString = FText::Format(LOCTEXT("DIF_NodePropertyFmt", "Property Changed: {0} "), FText::FromString(Prop->GetName()));
-				Results.Add(Diff);
-			}
-		}
-	}
-}
-
-void UBehaviorTreeGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Results)
-{
-	FDiffSingleResult Diff;
-	Diff.Diff = EDiffType::NODE_PROPERTY;
-	Diff.Node1 = this;
-	Diff.Node2 = OtherNode;
-	Diff.ToolTip = LOCTEXT("DIF_NodePropertyToolTip", "A Property of the node has changed");
-	Diff.DisplayColor = FLinearColor(0.25f,0.71f,0.85f);
-	
-	UBehaviorTreeGraphNode* ThisBehaviorTreeNode = Cast<UBehaviorTreeGraphNode>(this);
-	UBehaviorTreeGraphNode* OtherBehaviorTreeNode = Cast<UBehaviorTreeGraphNode>(OtherNode);
-	if(ThisBehaviorTreeNode && OtherBehaviorTreeNode)
-	{
-		DiffProperties( ThisBehaviorTreeNode->GetClass(), ThisBehaviorTreeNode, OtherBehaviorTreeNode, Results, Diff );
-
-		UBTNode* ThisNodeInstance = Cast<UBTNode>(ThisBehaviorTreeNode->NodeInstance);
-	    UBTNode* OtherNodeInstance = Cast<UBTNode>(OtherBehaviorTreeNode->NodeInstance);
-	    if(ThisNodeInstance && OtherNodeInstance)
-	    {
-		    DiffProperties( ThisNodeInstance->GetClass(), ThisNodeInstance, OtherNodeInstance, Results, Diff );
-		}
-	}
-}
-
-void UBehaviorTreeGraphNode::AddSubNode(UBehaviorTreeGraphNode* NodeTemplate, class UEdGraph* ParentGraph)
-{
-	const FScopedTransaction Transaction(LOCTEXT("AddNode", "Add Node"));
-	ParentGraph->Modify();
-	Modify();
-
-	NodeTemplate->SetFlags(RF_Transactional);
-
-	// set outer to be the graph so it doesn't go away
-	NodeTemplate->Rename(NULL, ParentGraph, REN_NonTransactional);
-	NodeTemplate->ParentNode = this;
-
-	NodeTemplate->CreateNewGuid();
-	NodeTemplate->PostPlacedNewNode();
-	NodeTemplate->AllocateDefaultPins();
-	NodeTemplate->AutowireNewNode(NULL);
-
-	NodeTemplate->NodePosX = 0;
-	NodeTemplate->NodePosY = 0;
+	UBehaviorTreeGraphNode* BTGraphNode = Cast<UBehaviorTreeGraphNode>(NodeTemplate);
 
 	if (Cast<UBehaviorTreeGraphNode_CompositeDecorator>(NodeTemplate) || Cast<UBehaviorTreeGraphNode_Decorator>(NodeTemplate))
 	{
@@ -369,7 +119,7 @@ void UBehaviorTreeGraphNode::AddSubNode(UBehaviorTreeGraphNode* NodeTemplate, cl
 		{
 			if (Decorators[Idx]->bInjectedNode)
 			{
-				Decorators.Insert(NodeTemplate, Idx);
+				Decorators.Insert(BTGraphNode, Idx);
 				bAppend = false;
 				break;
 			}
@@ -377,43 +127,104 @@ void UBehaviorTreeGraphNode::AddSubNode(UBehaviorTreeGraphNode* NodeTemplate, cl
 
 		if (bAppend)
 		{
-			Decorators.Add(NodeTemplate);
+			Decorators.Add(BTGraphNode);
 		}
 	} 
 	else
 	{
-		Services.Add(NodeTemplate);
+		Services.Add(BTGraphNode);
 	}
-
-	ParentGraph->NotifyGraphChanged();
-	GetBehaviorTreeGraph()->UpdateAsset(UBehaviorTreeGraph::SkipDebuggerFlags);
 }
 
-
-FString GetShortTypeNameHelper(const UObject* Ob)
+void UBehaviorTreeGraphNode::OnSubNodeRemoved(UAIGraphNode* SubNode)
 {
-	if (Ob->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
+	const int32 DecoratorIdx = Decorators.IndexOfByKey(SubNode);
+	const int32 ServiceIdx = Services.IndexOfByKey(SubNode);
+
+	if (DecoratorIdx >= 0)
 	{
-		return Ob->GetClass()->GetName().LeftChop(2);
+		Decorators.RemoveAt(DecoratorIdx);
 	}
 
-	FString TypeDesc = Ob->GetClass()->GetName();
-	const int32 ShortNameIdx = TypeDesc.Find(TEXT("_"));
-	if (ShortNameIdx != INDEX_NONE)
+	if (ServiceIdx >= 0)
 	{
-		TypeDesc = TypeDesc.Mid(ShortNameIdx + 1);
+		Services.RemoveAt(ServiceIdx);
+	}
+}
+
+void UBehaviorTreeGraphNode::RemoveAllSubNodes()
+{
+	Super::RemoveAllSubNodes();
+
+	Decorators.Reset();
+	Services.Reset();
+}
+
+int32 UBehaviorTreeGraphNode::FindSubNodeDropIndex(UAIGraphNode* SubNode) const
+{
+	const int32 SubIdx = SubNodes.IndexOfByKey(SubNode) + 1;
+	const int32 DecoratorIdx = Decorators.IndexOfByKey(SubNode) + 1;
+	const int32 ServiceIdx = Services.IndexOfByKey(SubNode) + 1;
+
+	const int32 CombinedIdx = (SubIdx & 0xff) | ((DecoratorIdx & 0xff) << 8) | ((ServiceIdx & 0xff) << 16);
+	return CombinedIdx;
+}
+
+void UBehaviorTreeGraphNode::InsertSubNodeAt(UAIGraphNode* SubNode, int32 DropIndex)
+{
+	const int32 SubIdx = (DropIndex & 0xff) - 1;
+	const int32 DecoratorIdx = ((DropIndex >> 8) & 0xff) - 1;
+	const int32 ServiceIdx = ((DropIndex >> 16) & 0xff) - 1;
+
+	if (SubIdx >= 0)
+	{
+		SubNodes.Insert(SubNode, SubIdx);
+	}
+	else
+	{
+		SubNodes.Add(SubNode);
 	}
 
-	return TypeDesc;
+	UBehaviorTreeGraphNode* TypedNode = Cast<UBehaviorTreeGraphNode>(SubNode);
+	const bool bIsDecorator = (Cast<UBTDecorator>(SubNode->NodeInstance) != nullptr) || (Cast<UBehaviorTreeGraphNode_CompositeDecorator>(SubNode) != nullptr);
+	const bool bIsService = Cast<UBTService>(SubNode->NodeInstance) != nullptr;
+
+	if (TypedNode)
+	{
+		if (bIsDecorator)
+		{
+			if (DecoratorIdx >= 0)
+			{
+				Decorators.Insert(TypedNode, DecoratorIdx);
+			}
+			else
+			{
+				Decorators.Add(TypedNode);
+			}
+
+		}
+
+		if (bIsService)
+		{
+			if (ServiceIdx >= 0)
+			{
+				Services.Insert(TypedNode, ServiceIdx);
+			}
+			else
+			{
+				Services.Add(TypedNode);
+			}
+		}
+	}
 }
 
 void UBehaviorTreeGraphNode::CreateAddDecoratorSubMenu(class FMenuBuilder& MenuBuilder, UEdGraph* Graph) const
 {
-	TSharedRef<SGraphEditorActionMenu_BehaviorTree> Menu =	
-		SNew(SGraphEditorActionMenu_BehaviorTree)
+	TSharedRef<SGraphEditorActionMenuAI> Menu =	
+		SNew(SGraphEditorActionMenuAI)
 		.GraphObj( Graph )
 		.GraphNode((UBehaviorTreeGraphNode*)this)
-		.SubNodeType(ESubNode::Decorator)
+		.SubNodeFlags(ESubNode::Decorator)
 		.AutoExpandActionMenu(true);
 
 	MenuBuilder.AddWidget(Menu,FText(),true);
@@ -421,11 +232,11 @@ void UBehaviorTreeGraphNode::CreateAddDecoratorSubMenu(class FMenuBuilder& MenuB
 
 void UBehaviorTreeGraphNode::CreateAddServiceSubMenu(class FMenuBuilder& MenuBuilder, UEdGraph* Graph) const
 {
-	TSharedRef<SGraphEditorActionMenu_BehaviorTree> Menu =	
-		SNew(SGraphEditorActionMenu_BehaviorTree)
+	TSharedRef<SGraphEditorActionMenuAI> Menu =	
+		SNew(SGraphEditorActionMenuAI)
 		.GraphObj( Graph )
 		.GraphNode((UBehaviorTreeGraphNode*)this)
-		.SubNodeType(ESubNode::Service)
+		.SubNodeFlags(ESubNode::Service)
 		.AutoExpandActionMenu(true);
 
 	MenuBuilder.AddWidget(Menu,FText(),true);
@@ -445,17 +256,6 @@ void UBehaviorTreeGraphNode::AddContextMenuActionsServices(const FGraphNodeConte
 		LOCTEXT("AddService", "Add Service..." ),
 		LOCTEXT("AddServiceTooltip", "Adds new service as a subnode" ),
 		FNewMenuDelegate::CreateUObject( this, &UBehaviorTreeGraphNode::CreateAddServiceSubMenu,(UEdGraph*)Context.Graph));
-}
-
-void UBehaviorTreeGraphNode::DestroyNode()
-{
-	if (ParentNode)
-	{
-		ParentNode->Modify();
-		ParentNode->Decorators.Remove(this);
-		ParentNode->Services.Remove(this);
-	}
-	UEdGraphNode::DestroyNode();
 }
 
 void UBehaviorTreeGraphNode::ClearDebuggerState()
@@ -481,35 +281,9 @@ FName UBehaviorTreeGraphNode::GetNameIcon() const
 	return BTNodeInstance != nullptr ? BTNodeInstance->GetNodeIconName() : FName("BTEditor.Graph.BTNode.Icon");
 }
 
-bool UBehaviorTreeGraphNode::UsesBlueprint() const
-{
-	UBTNode* BTNodeInstance = Cast<UBTNode>(NodeInstance);
-	return BTNodeInstance != nullptr ? BTNodeInstance->UsesBlueprint() : false;
-}
-
-bool UBehaviorTreeGraphNode::RefreshNodeClass()
-{
-	bool bUpdated = false;
-	if (NodeInstance == NULL)
-	{
-		if (FClassBrowseHelper::IsClassKnown(ClassData))
-		{
-			PostPlacedNewNode();
-			bUpdated = (NodeInstance != NULL);
-		}
-		else
-		{
-			FClassBrowseHelper::AddUnknownClass(ClassData);
-		}
-	}
-
-	return bUpdated;
-}
-
 bool UBehaviorTreeGraphNode::HasErrors() const
 {
-	return bHasObserverError || ErrorMessage.Len() > 0 || NodeInstance == NULL;
+	return bHasObserverError || Super::HasErrors();
 }
-
 
 #undef LOCTEXT_NAMESPACE

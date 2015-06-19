@@ -3,6 +3,7 @@
 #include "CorePrivatePCH.h"
 #include "IOSView.h"
 #include "IOSAppDelegate.h"
+#include "IOSApplication.h"
 #include "IOS/IOSInputInterface.h"
 
 #include <OpenGLES/ES2/gl.h>
@@ -129,7 +130,7 @@ id<MTLDevice> GMetalDevice = nil;
 		SwapCount = 0;
 
 		FMemory::Memzero(AllTouches, sizeof(AllTouches));
-
+		[self setAutoresizingMask: UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
 		bIsInitialized = false;
 	}
 	return self;
@@ -216,6 +217,7 @@ id<MTLDevice> GMetalDevice = nil;
 			check(glGetError() == 0);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, OnScreenColorRenderBuffer);
 			check(glGetError() == 0);
+			check(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
 #if USE_DETAILED_IPHONE_MEM_TRACKING
 			//This value is used to allow the engine to track gl allocated memory see GetIPhoneOpenGLBackBufferSize
@@ -229,6 +231,44 @@ id<MTLDevice> GMetalDevice = nil;
 		bIsInitialized = true;
 	}    
 	return true;
+}
+
+/**
+ * If view is resized, update the frame buffer so it is the same size as the display area.
+ */
+- (void)layoutSubviews
+{
+	UIDeviceOrientation orientation = [[UIDevice currentDevice] orientation];
+	FIOSApplication::OrientationChanged(orientation);
+}
+
+-(void)UpdateRenderWidth:(uint32)Width andHeight:(uint32)Height
+{
+#if HAS_METAL
+	if (bIsUsingMetal)
+	{
+		if (MetalDevice != nil)
+		{
+			// grab the MetalLayer and typecast it to match what's in layerClass
+			CAMetalLayer* MetalLayer = (CAMetalLayer*)self.layer;
+			CGSize drawableSize = CGSizeMake(Width, Height);
+			check( drawableSize.width == (self.bounds.size.width * self.contentScaleFactor) && drawableSize.height == (self.bounds.size.height * self.contentScaleFactor));
+
+			MetalLayer.drawableSize = drawableSize;
+		}
+		return;
+	}
+#endif
+
+	// Allocate color buffer based on the current layer size
+	glBindRenderbuffer(GL_RENDERBUFFER, OnScreenColorRenderBuffer);
+	check(glGetError() == 0);
+	[Context renderbufferStorage:GL_RENDERBUFFER fromDrawable:(CAEAGLLayer*)self.layer];
+	glBindFramebuffer(GL_FRAMEBUFFER, ResolveFrameBuffer);
+	check(glGetError() == 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, OnScreenColorRenderBuffer);
+	check(glGetError() == 0);
+	check(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 }
 
 #if HAS_METAL
@@ -249,6 +289,7 @@ id<MTLDevice> GMetalDevice = nil;
 			if(ResolveFrameBuffer)
 			{
 				glDeleteFramebuffers(1, &ResolveFrameBuffer);
+				ResolveFrameBuffer = 0;
 			}
 			if(OnScreenColorRenderBuffer)
 			{

@@ -1,0 +1,14 @@
+﻿#loc UE4DocJpn Initial translation against INTSourceChangelist:2246990
+Availability:NoPublish
+Title:ATriggerVolume
+Crumbs:
+Description:TriggerVolume クラスの概要
+
+[EXCERPT:ATriggerVolume]
+
+Trigger Volume は、プレイヤーや他のオブジェクトがイベントに出入りしたときにイベントを生じる手段として使用されます。
+
+[VAR:ToolTipFullLink]
+Engine/Actors/Volumes#Volume Types
+[/VAR]
+[/EXCERPT:ATriggerVolume]

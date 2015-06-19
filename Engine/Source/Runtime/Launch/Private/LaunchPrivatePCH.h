@@ -12,7 +12,6 @@
 #if WITH_ENGINE
 	#include "Engine.h"
 	#include "Messaging.h"
-	#include "SessionServices.h"
 	#include "SlateBasics.h"
 
 	#include "MallocProfilerEx.h"

@@ -10,9 +10,12 @@ struct FSimpleMemberReference
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Class that this member is defined in. */
+	/** 
+	 * Most often the Class that this member is defined in. Could be a UPackage 
+	 * if it is a native delegate signature function (declared globally).
+	 */
 	UPROPERTY()
-	TSubclassOf<class UObject> MemberParentClass;
+	UObject* MemberParent;
 
 	/** Name of the member */
 	UPROPERTY()
@@ -22,6 +25,8 @@ struct FSimpleMemberReference
 	UPROPERTY()
 	FGuid MemberGuid;
 
+	FSimpleMemberReference() : MemberParent(nullptr) {}
+
 	void Reset()
 	{
 		operator=(FSimpleMemberReference());
@@ -29,15 +34,21 @@ struct FSimpleMemberReference
 
 	bool operator==(const FSimpleMemberReference& Other) const
 	{
-		return (MemberParentClass == Other.MemberParentClass)
+		return (MemberParent == Other.MemberParent)
 			&& (MemberName == Other.MemberName)
 			&& (MemberGuid == Other.MemberGuid);
+	}
+
+	/* For backwards compatibility (when MemberParent used to exclusively be a class) */
+	UClass* GetMemberParentClass() const
+	{
+		return Cast<UClass>(MemberParent);
 	}
 };
 
 FORCEINLINE FArchive& operator<<(FArchive& Ar, FSimpleMemberReference& Data)
 {
-	Ar << Data.MemberParentClass;
+	Ar << Data.MemberParent;
 	Ar << Data.MemberName;
 	Ar << Data.MemberGuid;
 	return Ar;

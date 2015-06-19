@@ -6,121 +6,128 @@
 
 // FOnlineSubsystemFacebook
 
-
 IOnlineSessionPtr FOnlineSubsystemFacebook::GetSessionInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineFriendsPtr FOnlineSubsystemFacebook::GetFriendsInterface() const
 {
 	return FacebookFriends;
 }
 
+IOnlinePartyPtr FOnlineSubsystemFacebook::GetPartyInterface() const
+{
+	return nullptr;
+}
+
+IOnlineGroupsPtr FOnlineSubsystemFacebook::GetGroupsInterface() const
+{
+	return nullptr;
+}
 
 IOnlineSharedCloudPtr FOnlineSubsystemFacebook::GetSharedCloudInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineUserCloudPtr FOnlineSubsystemFacebook::GetUserCloudInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
+IOnlineUserCloudPtr FOnlineSubsystemFacebook::GetUserCloudInterface(const FString& Key) const
+{
+	return nullptr;
+}
 
 IOnlineLeaderboardsPtr FOnlineSubsystemFacebook::GetLeaderboardsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineVoicePtr FOnlineSubsystemFacebook::GetVoiceInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineExternalUIPtr FOnlineSubsystemFacebook::GetExternalUIInterface() const	
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineTimePtr FOnlineSubsystemFacebook::GetTimeInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineIdentityPtr FOnlineSubsystemFacebook::GetIdentityInterface() const
 {
 	return FacebookIdentity;
 }
 
-
 IOnlineTitleFilePtr FOnlineSubsystemFacebook::GetTitleFileInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineEntitlementsPtr FOnlineSubsystemFacebook::GetEntitlementsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineStorePtr FOnlineSubsystemFacebook::GetStoreInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineEventsPtr FOnlineSubsystemFacebook::GetEventsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineAchievementsPtr FOnlineSubsystemFacebook::GetAchievementsInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineSharingPtr FOnlineSubsystemFacebook::GetSharingInterface() const
 {
-	return NULL;
+	return nullptr;
 }
-
 
 IOnlineUserPtr FOnlineSubsystemFacebook::GetUserInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlineMessagePtr FOnlineSubsystemFacebook::GetMessageInterface() const
 {
-	return NULL;
+	return nullptr;
 }
 
 IOnlinePresencePtr FOnlineSubsystemFacebook::GetPresenceInterface() const
 {
-	return NULL;
-}
-
-IOnlinePartyPtr FOnlineSubsystemFacebook::GetPartyInterface() const
-{
-	return NULL;
+	return nullptr;
 }
 
 IOnlineChatPtr FOnlineSubsystemFacebook::GetChatInterface() const
 {
-	return NULL;
+	return nullptr;
+}
+
+IOnlineTurnBasedPtr FOnlineSubsystemFacebook::GetTurnBasedInterface() const
+{
+    return nullptr;
 }
 
 bool FOnlineSubsystemFacebook::Tick(float DeltaTime)
 {
+	if (!FOnlineSubsystemImpl::Tick(DeltaTime))
+	{
+		return false;
+	}
+
 	if (FacebookIdentity.IsValid())
 	{		
 		FacebookIdentity->Tick(DeltaTime);
@@ -139,8 +146,8 @@ bool FOnlineSubsystemFacebook::Shutdown()
 {
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
 	
-	FacebookIdentity = NULL;
-	FacebookFriends = NULL;
+	FacebookIdentity = nullptr;
+	FacebookFriends = nullptr;
 	return true;
 }
 
@@ -169,7 +176,7 @@ bool FOnlineSubsystemFacebook::IsEnabled()
 }
 
 FOnlineSubsystemFacebook::FOnlineSubsystemFacebook() 
-	: FacebookIdentity(NULL)
+	: FacebookIdentity(nullptr)
 {
 
 }

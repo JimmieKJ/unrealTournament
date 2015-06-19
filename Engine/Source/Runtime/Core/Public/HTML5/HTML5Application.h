@@ -37,4 +37,7 @@ private:
 	TSharedRef< class FGenericWindow > ApplicationWindow;
 
 	int32 WarmUpTicks; 
+
+	int32 WindowWidth;
+	int32 WindowHeight;
 };

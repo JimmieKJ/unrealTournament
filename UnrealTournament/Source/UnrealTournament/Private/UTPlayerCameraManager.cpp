@@ -13,6 +13,10 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	EndGameFreeCamDistance = 55.0f;
 	FlagBaseFreeCamOffset = FVector(0, 0, 90);
 	bUseClientSideCameraUpdates = false;
+	
+	PrimaryActorTick.bTickEvenWhenPaused = true;
+	ViewPitchMin = -89.0f;
+	ViewPitchMax = 89.0f;
 
 	DefaultPPSettings.SetBaseValues();
 	DefaultPPSettings.bOverride_AmbientCubemapIntensity = true;
@@ -94,6 +98,8 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	LastThirdPersonCameraLoc = FVector::ZeroVector;
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 	bAllowSpecCameraControl = false;
+	CurrentCameraRoll = 0.f;
+	WallSlideCameraRoll = 15.f;
 }
 
 // @TODO FIXMESTEVE SPLIT OUT true spectator controls
@@ -236,7 +242,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(DeltaTime);
+		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (Cast<AUTProjectile>(OutVT.Target) && !OutVT.Target->IsPendingKillPending())
 		{
 			Rotator = OutVT.Target->GetVelocity().Rotation();
@@ -258,6 +264,19 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	{
 		LastThirdPersonCameraLoc = FVector::ZeroVector;
 		Super::UpdateViewTarget(OutVT, DeltaTime);
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
+		if (UTCharacter)
+		{
+			float DesiredRoll = 0.f;
+			if (UTCharacter->bApplyWallSlide)
+			{
+				FVector Cross = UTCharacter->GetActorRotation().Vector() ^ FVector(0.f, 0.f, 1.f);
+				DesiredRoll = -1.f * (Cross.GetSafeNormal() | UTCharacter->UTCharacterMovement->WallSlideNormal) * WallSlideCameraRoll;
+			}
+			float AdjustRate = FMath::Min(1.f, 10.f*DeltaTime);
+			CurrentCameraRoll = (1.f - AdjustRate) * CurrentCameraRoll + AdjustRate*DesiredRoll;
+			OutVT.POV.Rotation.Roll = CurrentCameraRoll;
+		}
 	}
 
 	CameraStyle = SavedCameraStyle;
@@ -284,7 +303,7 @@ void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* Target
 			BoxParams.AddIgnoredActor(Flag->AttachmentReplication.AttachParent);
 		}
 	}
-	GetWorld()->SweepSingle(OutHit, Start, End, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
+	GetWorld()->SweepSingleByChannel(OutHit, Start, End, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
 }
 
 void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV)

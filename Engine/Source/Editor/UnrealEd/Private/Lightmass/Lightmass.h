@@ -21,6 +21,9 @@
 #include "Lightmass/LightmassCharacterIndirectDetailVolume.h"
 #include "GameFramework/WorldSettings.h"
 
+// Forward declarations
+class FLandscapeStaticLightingMesh;
+
 /** Forward declarations of Lightmass types */
 namespace Lightmass
 {
@@ -29,6 +32,16 @@ namespace Lightmass
 	struct FMaterialData;
 	struct FMaterialElementData;
 }
+
+struct FLightmassMaterialExportSettings
+{
+	const FStaticLightingMesh* UnwrapMesh;
+
+	friend bool operator ==(const FLightmassMaterialExportSettings& lhs, const FLightmassMaterialExportSettings& rhs)
+	{
+		return lhs.UnwrapMesh == rhs.UnwrapMesh;
+	}
+};
 
 /** Lightmass Exporter class */
 class FLightmassExporter
@@ -83,7 +96,9 @@ public:
 		CharacterIndirectDetailVolumes.Add(InDetailVolume->GetComponentsBoundingBox(true));
 	}
 
-	void AddMaterial(UMaterialInterface* InMaterialInterface);
+	// if provided, InStaticLightingMesh is used to UV unwrap the material into the static lighting textures
+	void AddMaterial(UMaterialInterface* InMaterialInterface, const FStaticLightingMesh* InStaticLightingMesh = nullptr);
+
 	void AddLight(ULightComponentBase* Light);
 
 	const FStaticLightingMapping* FindMappingByGuid(FGuid FindGuid) const;
@@ -94,7 +109,6 @@ public:
 	TArray<FGuid> VisibilityBucketGuids;
 
 private:
-
 	void WriteToChannel( FLightmassStatistics& Stats, FGuid& DebugMappingGuid );
 	bool WriteToMaterialChannel(FLightmassStatistics& Stats);
 
@@ -120,7 +134,7 @@ private:
 	 */
 	void BuildMaterialMap(UMaterialInterface* Material);
 	void BlockOnShaderCompilation();
-	void ExportMaterial(UMaterialInterface* Material);
+	void ExportMaterial(UMaterialInterface* Material, const FLightmassMaterialExportSettings& ExportSettings);
 
 	void WriteMeshInstances( int32 Channel );
 	void WriteLandscapeInstances( int32 Channel );
@@ -197,11 +211,12 @@ private:
 	TArray<const class UStaticMesh*> StaticMeshes;
 
 	// Landscape
-	TArray<const class FLandscapeStaticLightingMesh*> LandscapeLightingMeshes;
-	TArray<class FLandscapeStaticLightingTextureMapping*> LandscapeTextureMappings;
+	TArray<const FLandscapeStaticLightingMesh*> LandscapeLightingMeshes;
+	TArray<FLandscapeStaticLightingTextureMapping*> LandscapeTextureMappings;
 
 	// materials
-	TArray<class UMaterialInterface*> Materials;
+	TArray<UMaterialInterface*> Materials;
+	TMap<UMaterialInterface*, FLightmassMaterialExportSettings> MaterialExportSettings;
 	TMap<UMaterialInterface*, FMaterialExportDataEntry> MaterialExportData;
 
 	/** Exporting progress bar maximum value. */

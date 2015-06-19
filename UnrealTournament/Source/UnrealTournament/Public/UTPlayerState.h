@@ -10,6 +10,7 @@
 #include "UTHat.h"
 #include "UTEyewear.h"
 #include "UTTaunt.h"
+#include "Http.h"
 #include "UTPlayerState.generated.h"
 
 USTRUCT(BlueprintType)
@@ -43,6 +44,8 @@ struct FTempBanInfo
 	}
 
 };
+
+class AUTReplicatedMapVoteInfo;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
@@ -229,7 +232,7 @@ public:
 	UFUNCTION()
 	void OnWeaponSpreeDamage();
 
-	virtual void AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<class UUTDamageType> UTDamage);
+	virtual void AnnounceWeaponSpree(TSubclassOf<class UUTDamageType> UTDamage);
 
 	UFUNCTION()
 	void OnDeathsReceived();
@@ -348,6 +351,7 @@ public:
 	virtual void ValidateEntitlements();
 
 	void WriteStatsToCloud();
+	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	virtual int32 GetSkillRating(FName SkillStatName);
@@ -476,6 +480,10 @@ public:
 
 	UPROPERTY(Replicated)
 	uint8 KickPercent;
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void RegisterVote(AUTReplicatedMapVoteInfo* VoteInfo);
+
 };
 
 

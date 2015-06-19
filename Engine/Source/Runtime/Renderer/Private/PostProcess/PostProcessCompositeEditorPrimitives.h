@@ -13,9 +13,9 @@ public:
 	FRCPassPostProcessCompositeEditorPrimitives(bool bInDeferredBasePass) : bDeferredBasePass(bInDeferredBasePass) {}
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
 	/**

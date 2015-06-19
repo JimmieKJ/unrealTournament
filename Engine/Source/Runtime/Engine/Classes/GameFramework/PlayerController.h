@@ -16,6 +16,7 @@
 
 
 class FPrimitiveComponentId;
+struct FCollisionQueryParams;
 
 /** Default delegate that provides an implementation for those that don't have special needs other than a toggle */
 DECLARE_DELEGATE_RetVal(bool, FCanUnpause);
@@ -206,6 +207,14 @@ class ENGINE_API APlayerController : public AController
 	UPROPERTY()
 	float LastSpectatorStateSynchTime;
 
+	/** Last location synced on the server for a spectator. */
+	UPROPERTY(Transient)
+	FVector LastSpectatorSyncLocation;
+
+	/** Last rotation synced on the server for a spectator. */
+	UPROPERTY(Transient)
+	FRotator LastSpectatorSyncRotation;
+
 	/** Cap set by server on bandwidth from client to server in bytes/sec (only has impact if >=2600) */
 	UPROPERTY()
 	int32 ClientCap;
@@ -236,8 +245,17 @@ class ENGINE_API APlayerController : public AController
 	/** Whether this controller is using streaming volumes.  **/
 	uint32 bIsUsingStreamingVolumes:1;
 
-	/** Only valid in Spectating state. True if PlayerController is currently waiting for the match to start */
+	/** True if PlayerController is currently waiting for the match to start or to respawn. Only valid in Spectating state. */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=PlayerController)
 	uint32 bPlayerIsWaiting:1;
+
+	/** Indicate that the Spectator is waiting to join/respawn. */
+	UFUNCTION(server, reliable, WithValidation, Category=PlayerController)
+	void ServerSetSpectatorWaiting(bool bWaiting);
+
+	/** Indicate that the Spectator is waiting to join/respawn. */
+	UFUNCTION(client, reliable, Category=PlayerController)
+	void ClientSetSpectatorWaiting(bool bWaiting);
 
 	/** index identifying players using the same base connection (splitscreen clients)
 	 * Used by netcode to match replicated PlayerControllers to the correct splitscreen viewport and child connection
@@ -312,6 +330,9 @@ class ENGINE_API APlayerController : public AController
 	/** Trace channel currently being used for determining what world object was clicked on. */
 	UPROPERTY(BlueprintReadWrite, Category=MouseInterface)
 	TEnumAsByte<ECollisionChannel> CurrentClickTraceChannel;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MouseInterface, meta=(DisplayName="Trace Distance"))
+	float HitResultTraceDistance;
 
 	FForceFeedbackValues ForceFeedbackValues;
 
@@ -413,6 +434,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void ResetIgnoreInputFlags();
 
+	bool GetHitResultAtScreenPosition(const FVector2D ScreenPosition, const ECollisionChannel TraceChannel, const FCollisionQueryParams& CollisionQueryParams, FHitResult& HitResult) const;
 	bool GetHitResultAtScreenPosition(const FVector2D ScreenPosition, const ECollisionChannel TraceChannel, bool bTraceComplex, FHitResult& HitResult) const;
 	bool GetHitResultAtScreenPosition(const FVector2D ScreenPosition, const ETraceTypeQuery TraceChannel, bool bTraceComplex, FHitResult& HitResult) const;
 	bool GetHitResultAtScreenPosition(const FVector2D ScreenPosition, const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, FHitResult& HitResult) const;
@@ -436,18 +458,18 @@ public:
 	bool GetHitResultUnderFingerForObjects(ETouchIndex::Type FingerIndex, const  TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, FHitResult& HitResult) const;
 
 	/** Convert current mouse 2D position to World Space 3D position and direction. Returns false if unable to determine value. **/
-	UFUNCTION(BlueprintCallable, Category="Game|Player", meta=(FriendlyName="ConvertMouseLocationToWorldSpace"))
+	UFUNCTION(BlueprintCallable, Category="Game|Player", meta=(DisplayName="ConvertMouseLocationToWorldSpace"))
 	bool DeprojectMousePositionToWorld(FVector& WorldLocation, FVector& WorldDirection) const;
 
 	/** Convert current mouse 2D position to World Space 3D position and direction. Returns false if unable to determine value. **/
-	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = (FriendlyName = "ConvertScreenLocationToWorldSpace"))
+	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = (DisplayName = "ConvertScreenLocationToWorldSpace"))
 	bool DeprojectScreenPositionToWorld(float ScreenX, float ScreenY, FVector& WorldLocation, FVector& WorldDirection) const;
 
 	/**
 	 * Convert a World Space 3D position into a 2D Screen Space position.
 	 * @return true if the world coordinate was successfully projected to the screen.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = ( FriendlyName = "ConvertWorldLocationToScreenLocation" ))
+	UFUNCTION(BlueprintCallable, Category = "Game|Player", meta = ( DisplayName = "ConvertWorldLocationToScreenLocation" ))
 	bool ProjectWorldLocationToScreen(FVector WorldLocation, FVector2D& ScreenLocation) const;
 	
 	/**
@@ -508,14 +530,11 @@ public:
 	UFUNCTION(Reliable, Client)
 	virtual void ClientEnableNetworkVoice(bool bEnable);
 
-	/** Enable voice chat transmission	 */
+	/** Enable voice chat transmission */
 	void StartTalking();
 
-	/** Disable voice chat transmission	 */
+	/** Disable voice chat transmission */
 	void StopTalking();
-
-	/** Is this player talking? */
-	bool IsTalking();
 
 	/** 
 	 * Toggle voice chat on and off
@@ -797,7 +816,7 @@ public:
 	void ClientStopCameraAnim(class UCameraAnim* AnimToStop);
 
 	/** Stop camera shake on client.  */
-	UFUNCTION(unreliable, client, BlueprintCallable, Category="Game|Feedback")
+	UFUNCTION(reliable, client, BlueprintCallable, Category="Game|Feedback")
 	void ClientStopCameraShake(TSubclassOf<class UCameraShake> Shake);
 
 	/** 
@@ -814,7 +833,7 @@ public:
 	 * @param	ForceFeedbackEffect		If set only patterns from that effect will be stopped
 	 * @param	Tag						If not none only the pattern with this tag will be stopped
 	 */
-	UFUNCTION(unreliable, client, BlueprintCallable, Category="Game|Feedback")
+	UFUNCTION(reliable, client, BlueprintCallable, Category="Game|Feedback")
 	void ClientStopForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag);
 
 	/** 
@@ -874,6 +893,14 @@ public:
 	UFUNCTION(Reliable, Client)
 	void ClientWasKicked(const FText& KickReason);
 
+	/** Notify client that the session is starting */
+	UFUNCTION(Reliable, Client)
+	void ClientStartOnlineSession();
+
+	/** Notify client that the session is about to start */
+	UFUNCTION(Reliable, Client)
+	void ClientEndOnlineSession();
+
 	/** Assign Pawn to player, but avoid calling ClientRestart if we have already accepted this pawn */
 	UFUNCTION(Reliable, Client)
 	void ClientRetryClientRestart(class APawn* NewPawn);
@@ -912,9 +939,9 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayer();
 
-	/** When spectating, pings the server to make sure spectating should continue. */
+	/** When spectating, updates spectator location/rotation and pings the server to make sure spectating should continue. */
 	UFUNCTION(unreliable, server, WithValidation)
-	void ServerSetSpectatorLocation(FVector NewLoc);
+	void ServerSetSpectatorLocation(FVector NewLoc, FRotator NewRot);
 
 	/** Calls ServerSetSpectatorLocation but throttles it to reduce bandwidth and only calls it when necessary. */
 	void SafeServerUpdateSpectatorState();
@@ -1037,11 +1064,6 @@ public:
 	/** Setup an input mode. */
 	virtual void SetInputMode(const FInputModeDataBase& InData);
 
-protected:
-
-	/** Utility function for Input Mode functions. */
-	void SetFocusAndLocking(TSharedPtr<SWidget> InWidgetToFocus, bool bLockMouseToViewport, TSharedPtr<class SViewport> InViewportWidget);
-
 public:
 	/**
 	 * Change Camera mode
@@ -1087,9 +1109,6 @@ protected:
 private:
 	/* Whether the PlayerController's input handling is enabled. */
 	uint32 bInputEnabled:1;
-
-	/** Whether the PlayerController's voice chat is enabled. */
-	uint32 bSpeaking:1;
 
 protected:
 
@@ -1154,7 +1173,7 @@ public:
 	virtual void GetActorEyesViewPoint(FVector& Location, FRotator& Rotation) const override;
 	virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult) override;
 	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
-	virtual bool IsNetRelevantFor(const APlayerController* RealViewer, const AActor* Viewer, const FVector& SrcLocation) const override;
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 	virtual void FellOutOfWorld(const class UDamageType& dmgType) override;
 	virtual void Reset() override;
 	virtual void Possess(APawn* aPawn) override;
@@ -1165,9 +1184,10 @@ public:
 	virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
 	virtual void OnSerializeNewActor(class FOutBunch& OutBunch) override;
 	virtual void OnNetCleanup(class UNetConnection* Connection) override;
-	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, APlayerController* Viewer, UActorChannel* InChannel, float Time, bool bLowBandwidth) override;
+	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth) override;
+	virtual const AActor* GetNetOwner() const override;
 	virtual class UPlayer* GetNetOwningPlayer() override;
-	virtual class UNetConnection* GetNetConnection() override;
+	virtual class UNetConnection* GetNetConnection() const override;
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual void PostInitializeComponents() override;
 	virtual void EnableInput(class APlayerController* PlayerController) override;
@@ -1418,6 +1438,12 @@ public:
 	 */
 	virtual void AutoManageActiveCameraTarget(AActor* SuggestedTarget);
 
+	/**
+	 * Notify from server that Visual Logger is recording, to show that information on client about possible performance issues 
+	 */
+	UFUNCTION(Reliable, Client)
+	void OnServerStartedVisualLogger(bool bIsLogging);
+
 protected:
 
 	virtual ACameraActor* GetAutoActivateCameraForPlayer() const;
@@ -1512,9 +1538,18 @@ public:
 	 */
 	virtual void SendClientAdjustment();
 
+	/**
+	 * Designate this player controller as local (public for GameMode to use, not expected to be called anywhere else)
+	 */
+	void SetAsLocalPlayerController() { bIsLocalPlayerController = true; }
+
 private:
 	/** Used to delay calling ClientRestart() again when it hasn't been appropriately acknowledged. */
 	float		LastRetryPlayerTime;
+
+	/** Set during SpawnActor once and never again to indicate the intent of this controller instance (SERVER ONLY) */
+	UPROPERTY()
+	bool		bIsLocalPlayerController;
 
 public:
 	/** Counter for this players seamless travels (used along with the below value, to restrict ServerNotifyLoadedWorld) */
@@ -1525,6 +1560,4 @@ public:
 	UPROPERTY()
 	uint16		LastCompletedSeamlessTravelCount;
 
-	/** FReply used to defer some slate operations. */
-	TSharedPtr<class FReply> SlateOperations;
 };

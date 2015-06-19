@@ -18,6 +18,7 @@ class USceneCaptureComponentCube : public USceneCaptureComponent
 
 public:
 	// Begin UActorComponent Interface
+	virtual void OnRegister() override;
 	virtual void SendRenderTransform_Concurrent() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	// End UActorComponent Interface
@@ -29,6 +30,7 @@ public:
 	// End UObject Interface
 
 	/** Render the scene to the texture */
+	UFUNCTION(BlueprintCallable,Category = "Rendering|SceneCapture")
 	void UpdateContent();
 
 	ENGINE_API static void UpdateDeferredCaptures(FSceneInterface* Scene);

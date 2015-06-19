@@ -17,11 +17,11 @@ class FPhATEdPreviewViewportClient : public FEditorViewportClient
 {
 public:
 	/** Constructor */
-	FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhAT, TSharedPtr<FPhATSharedData> Data);
+	FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhAT, TSharedPtr<FPhATSharedData> Data, const TSharedRef<SPhATPreviewViewport>& InPhATPreviewViewport);
 	~FPhATEdPreviewViewportClient();
 
 	/** FEditorViewportClient interface */
-	virtual void DrawCanvas( FViewport& InViewport, FSceneView& View, FCanvas& Canvas );
+	virtual void DrawCanvas( FViewport& InViewport, FSceneView& View, FCanvas& Canvas ) override;
 	virtual void Draw(const FSceneView* View, FPrimitiveDrawInterface* PDI) override;
 	virtual bool InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.0f, bool bGamepad = false) override;
 	virtual bool InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples = 1, bool bGamepad = false) override;
@@ -30,9 +30,9 @@ public:
 	virtual void TrackingStarted( const struct FInputEventState& InInputState, bool bIsDragging, bool bNudge ) override;
 	virtual void TrackingStopped() override;
 	virtual FWidget::EWidgetMode GetWidgetMode() const override;
-	virtual FVector GetWidgetLocation() const;
-	virtual FMatrix GetWidgetCoordSystem() const;
-	virtual ECoordSystem GetWidgetCoordSystemSpace() const;
+	virtual FVector GetWidgetLocation() const override;
+	virtual FMatrix GetWidgetCoordSystem() const override;
+	virtual ECoordSystem GetWidgetCoordSystemSpace() const override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual FSceneInterface* GetScene() const override;
 	virtual FLinearColor GetBackgroundColor() const override;

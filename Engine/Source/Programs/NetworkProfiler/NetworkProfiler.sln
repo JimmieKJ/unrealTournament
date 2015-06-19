@@ -1,15 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.31101.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetworkProfiler", "NetworkProfiler\NetworkProfiler.csproj", "{FA9F5DA8-9E4C-4310-88D9-CE99D045504E}"
 EndProject
 Global
-	GlobalSection(SourceCodeControl) = preSolution
-		SccNumberOfProjects = 2
-		SccLocalPath0 = .
-		SccProjectUniqueName1 = NetworkProfiler\\NetworkProfiler.csproj
-		SccLocalPath1 = NetworkProfiler
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Development|Any CPU = Development|Any CPU

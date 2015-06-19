@@ -78,7 +78,7 @@ public:
 		SetShaderValue(RHICmdList, GetPixelShader(), NumSamples, FaceResolution * FaceResolution * 6);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << CubeFace;
@@ -157,7 +157,7 @@ public:
 		SetShaderValue(RHICmdList, GetPixelShader(), Sample23, Sample23Value);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << CubeFace;
@@ -216,7 +216,7 @@ public:
 			SourceTextureValue);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << SourceMipIndex;

@@ -4,8 +4,7 @@
 ImageUtils.h: Image utility functions.
 =============================================================================*/
 
-#ifndef __IMAGEUTILS_H__
-#define __IMAGEUTILS_H__
+#pragma once
 
 /**
  *	Parameters used for creating a Texture2D frmo a simple color buffer.
@@ -23,6 +22,9 @@ struct FCreateTexture2DParameters
 
 	/** If texture should be set as SRGB */
 	bool						bSRGB;
+
+	/* The Guid hash to use part of the texture source's DDC key */
+	FGuid						SourceGuidHash;
 
 	FCreateTexture2DParameters()
 		:	bUseAlpha(false),
@@ -89,7 +91,14 @@ public:
 	 *
 	 */
 	ENGINE_API static void CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArray<FColor> &SrcData, TArray<uint8> &DstData );
+
+	/**
+	 * Creates a new UTexture2D with a checkerboard pattern.
+	 *
+	 * @param ColorOne		The color of half of the squares.
+	 * @param ColorTwo		The color of the other half of the squares.
+	 * @param CheckerSize	The size in pixels of each checker square.
+	 *
+	 */
+	ENGINE_API static UTexture2D* CreateCheckerboardTexture(FColor ColorOne = FColor(64, 64, 64), FColor ColorTwo = FColor(128, 128, 128), int32 CheckerSize = 32);
 };
-
-#endif
-

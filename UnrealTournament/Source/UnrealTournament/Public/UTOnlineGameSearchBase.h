@@ -2,7 +2,7 @@
 
 #pragma once
 
-class FUTOnlineGameSearchBase : public FOnlineSessionSearch
+class UNREALTOURNAMENT_API FUTOnlineGameSearchBase : public FOnlineSessionSearch
 {
 public:
 	FUTOnlineGameSearchBase(bool bSearchForLANGames);

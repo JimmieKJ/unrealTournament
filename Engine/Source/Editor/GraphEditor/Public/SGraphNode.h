@@ -33,7 +33,7 @@ public:
 	void Construct(const FArguments& InArgs, UEdGraphNode* InNode);
 
 	// SWidget interface
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End of SWidget interface
 
 	/** Returns the main title for the node */
@@ -41,7 +41,7 @@ public:
 
 protected:
 	UEdGraphNode* GraphNode;
-	FText CachedTitle;
+	FNodeTextCache NodeTitleCache;
 	FName ExtraLineStyle;
 
 	/** The cached head title to return */
@@ -91,7 +91,7 @@ public:
 	void SetIsEditable(TAttribute<bool> InIsEditable);
 
 	/** Returns if widget is editable, additionally considers if the owning graph is read only */
-	bool IsNodeEditable() const;
+	virtual bool IsNodeEditable() const;
 
 	/** Set event when node is double clicked */
 	void SetDoubleClickEvent(FSingleNodeEvent InDoubleClickEvent);
@@ -177,6 +177,8 @@ public:
 	void SetTextCommittedEvent(FOnNodeTextCommitted InDelegate);
 	/** Set event when the user generates a warning tooltip because a connection was invalid */
 	void SetDisallowedPinConnectionEvent(SGraphEditor::FOnDisallowedPinConnection InOnDisallowedPinConnection);
+	/** called to replace this nodes comment text */
+	void OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo);
 	/** returns true if a rename is pending on this node */
 	bool IsRenamePending() const { return bRenameIsPending; }
 

@@ -113,19 +113,11 @@ struct ENGINE_API FScreenshotRequest
 	/**
 	 * Requests a new screenshot with a specific filename
 	 *
-	 * @param InFilename	The filename to use
-	 * @param bInShowUI		Whether or not to show Slate UI
+	 * @param InFilename			The filename to use
+	 * @param bInShowUI				Whether or not to show Slate UI
+	 * @param bAddFilenameSuffix	Whether an auto-generated unique suffix should be added to the supplied filename
 	 */
-	static void RequestScreenshot( const FString& InFilename, bool bInShowUI );
-
-	/**
-	 * Requests a new screenshot.  This method will auto-generate a filename via the format "Screenshot{0}.{1} where {0} is an incremented coutner
-	 * and {1} is an optional extension (defaulting to .bmp)
-	 *
-	 * @param bInShowUI		Whether or not to show Slate UI
-	 * @param InExtension	Which file extension to use
-	 */
-	static void RequestScreenshot( bool bInShowUI, const FString& InExtension = FString(TEXT("bmp") ) );
+	static void RequestScreenshot( const FString& InFilename, bool bInShowUI, bool bAddFilenameSuffix );
 
 	/**
 	 * Resets a screenshot request
@@ -428,7 +420,7 @@ public:
 	ENGINE_API virtual void SetViewportClient( FViewportClient* InViewportClient );
 
 	// FRenderTarget interface.
-	virtual FIntPoint GetSizeXY() const { return FIntPoint(SizeX, SizeY); }
+	virtual FIntPoint GetSizeXY() const override { return FIntPoint(SizeX, SizeY); }
 
 	// Accessors.
 	FViewportClient* GetClient() const { return ViewportClient; }
@@ -450,12 +442,12 @@ public:
 	/**
 	 * Handles freezing/unfreezing of rendering
 	 */
-	ENGINE_API virtual void ProcessToggleFreezeCommand();
+	ENGINE_API virtual void ProcessToggleFreezeCommand() override;
 
 	/**
 	 * Returns if there is a command to freeze
 	 */
-	ENGINE_API virtual bool HasToggleFreezeCommand();
+	ENGINE_API virtual bool HasToggleFreezeCommand() override;
 
 	/**
 	* Accessors for RHI resources
@@ -512,6 +504,9 @@ public:
 	/** Should return true, if stereo rendering is allowed in this viewport */
 	virtual bool IsStereoRenderingAllowed() const { return false; }
 
+	/** Returns dimensions of RenderTarget texture. Can be called on a game thread. */
+	virtual FIntPoint GetRenderTargetTextureSizeXY() const { return GetSizeXY(); }
+
 protected:
 
 	/** The viewport's client. */
@@ -551,10 +546,10 @@ protected:
 		void Invalidate();
 
 		// FHitProxyConsumer interface.
-		virtual void AddHitProxy(HHitProxy* HitProxy);
+		virtual void AddHitProxy(HHitProxy* HitProxy) override;
 
 		// FRenderTarget interface.
-		virtual FIntPoint GetSizeXY() const { return FIntPoint(SizeX, SizeY); }
+		virtual FIntPoint GetSizeXY() const override { return FIntPoint(SizeX, SizeY); }
 
 		/** FGCObject interface */
 		virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -645,7 +640,9 @@ namespace EMouseCaptureMode
 		/** Capture the mouse permanently when the viewport is clicked */
 		CapturePermanently,
 		/** Capture the mouse during a mouse down, releases on mouse up */
-		CaptureDuringMouseDown
+		CaptureDuringMouseDown,
+		/** Capture only when the right mouse button is down, not any of the other mouse buttons */
+		CaptureDuringRightMouseDown,
 	};
 }
 
@@ -883,7 +880,7 @@ public:
 	/**
 	 * Check whether a specific stat is enabled for this viewport
 	 */
-	virtual bool IsStatEnabled(const TCHAR* InName) const { return false; }
+	virtual bool IsStatEnabled(const FString& InName) const { return false; }
 
 	/**
 	 * Get the sound stat flags enabled for this viewport
@@ -960,26 +957,26 @@ public:
 		check( IsInRenderingThread() );
 	}
 
-	virtual void*	GetWindow() { return 0; }
-	virtual void	MoveWindow(int32 NewPosX, int32 NewPosY, int32 NewSizeX, int32 NewSizeY) {}
-	virtual void	Destroy() {}
-	virtual bool SetUserFocus(bool bFocus) { return false; }
-	virtual bool	KeyState(FKey Key) const { return false; }
-	virtual int32	GetMouseX() const { return 0; }
-	virtual int32	GetMouseY() const { return 0; }
-	virtual void	GetMousePos( FIntPoint& MousePosition, const bool bLocalPosition = true) { MousePosition = FIntPoint(0, 0); }
-	virtual void	SetMouse(int32 x, int32 y) { }
-	virtual void	ProcessInput( float DeltaTime ) { }
+	virtual void*	GetWindow() override { return 0; }
+	virtual void	MoveWindow(int32 NewPosX, int32 NewPosY, int32 NewSizeX, int32 NewSizeY) override {}
+	virtual void	Destroy() override {}
+	virtual bool SetUserFocus(bool bFocus) override { return false; }
+	virtual bool	KeyState(FKey Key) const override { return false; }
+	virtual int32	GetMouseX() const override { return 0; }
+	virtual int32	GetMouseY() const override { return 0; }
+	virtual void	GetMousePos( FIntPoint& MousePosition, const bool bLocalPosition = true) override { MousePosition = FIntPoint(0, 0); }
+	virtual void	SetMouse(int32 x, int32 y) override { }
+	virtual void	ProcessInput( float DeltaTime ) override { }
 	virtual FVector2D VirtualDesktopPixelToViewport(FIntPoint VirtualDesktopPointPx) const override { return FVector2D::ZeroVector; }
 	virtual FIntPoint ViewportToVirtualDesktopPixel(FVector2D ViewportCoordinate) const override { return FIntPoint::ZeroValue; }
-	virtual void InvalidateDisplay() { }
-	virtual void DeferInvalidateHitProxy() { }
-	virtual FViewportFrame* GetViewportFrame() { return 0; }
-	virtual FCanvas* GetDebugCanvas() { return DebugCanvas; }
+	virtual void InvalidateDisplay() override { }
+	virtual void DeferInvalidateHitProxy() override { }
+	virtual FViewportFrame* GetViewportFrame() override { return 0; }
+	virtual FCanvas* GetDebugCanvas() override { return DebugCanvas; }
 	// End FViewport interface
 
 	// Begin FRenderResource interface
-	virtual void InitDynamicRHI()
+	virtual void InitDynamicRHI() override
 	{
 		FTexture2DRHIRef ShaderResourceTextureRHI;
 
@@ -992,7 +989,7 @@ public:
 	virtual void ReleaseRHI() override{}
 	virtual void InitResource() override{ FViewport::InitResource(); }
 	virtual void ReleaseResource() override { FViewport::ReleaseResource(); }
-	virtual FString GetFriendlyName() const { return FString(TEXT("FDummyViewport"));}
+	virtual FString GetFriendlyName() const override { return FString(TEXT("FDummyViewport"));}
 	// End FRenderResource interface
 private:
 	FCanvas* DebugCanvas;

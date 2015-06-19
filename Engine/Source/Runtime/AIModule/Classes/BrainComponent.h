@@ -133,6 +133,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Logic")
 	virtual void StopLogic(const FString& Reason);
 
+	/** AI logic won't be needed anymore, stop all activity and run cleanup */
+	virtual void Cleanup() {}
+
 protected:
 	virtual void PauseLogic(const FString& Reason) {}
 	/** MUST be called by child implementations!
@@ -158,7 +161,7 @@ public:
 	
 	/** BEGIN UActorComponent overrides */
 	virtual void InitializeComponent() override;
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction);
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void OnRegister() override;
 	/** END UActorComponent overrides */
 

@@ -592,7 +592,6 @@ bool FRepLayout::ReplicateProperties(
 	UActorChannel *				OwningChannel,
 	FOutBunch &					Writer, 
 	const FReplicationFlags &	RepFlags,
-	int32 &						LastIndex, 
 	bool &						bContentBlockWritten ) const
 {
 	SCOPE_CYCLE_COUNTER( STAT_NetReplicateDynamicPropTime );
@@ -750,10 +749,10 @@ bool FRepLayout::ReplicateProperties(
 #endif
 
 		// For RepLayout properties, we hijack the first non custom property, and use that to identify these properties
-		WritePropertyHeader( (UObject*)Data, ObjectClass, OwningChannel, Parents[FirstNonCustomParent].Property, Writer, 0, LastIndex, bContentBlockWritten );
+		WritePropertyHeader( (UObject*)Data, ObjectClass, OwningChannel, Parents[FirstNonCustomParent].Property, Writer, 0, bContentBlockWritten );
 
 		// Send the final merged change list
-		SendProperties( RepState, RepFlags, Data, ObjectClass, OwningChannel, Writer, Changed, LastIndex, bContentBlockWritten );
+		SendProperties( RepState, RepFlags, Data, ObjectClass, OwningChannel, Writer, Changed, bContentBlockWritten );
 
 #ifdef ENABLE_SUPER_CHECKSUMS
 		Writer.WriteBit( bIsAllAcked ? 1 : 0 );
@@ -927,6 +926,8 @@ bool FRepLayout::ReadyForDormancy( FRepState * RepState ) const
 
 static FORCEINLINE void WritePropertyHandle( FNetBitWriter & Writer, uint16 Handle, bool bDoChecksum )
 {
+	const int NumStartingBits = Writer.GetNumBits();
+
 	uint32 LocalHandle = Handle;
 	Writer.SerializeIntPacked( LocalHandle );
 
@@ -936,6 +937,8 @@ static FORCEINLINE void WritePropertyHandle( FNetBitWriter & Writer, uint16 Hand
 		SerializeGenericChecksum( Writer );
 	}
 #endif
+
+	NETWORK_PROFILER(GNetworkProfiler.TrackWritePropertyHandle( Writer.GetNumBits() - NumStartingBits ));
 }
 
 static bool ShouldSendProperty( FRepWriterState & WriterState, const uint16 Handle )
@@ -1000,6 +1003,22 @@ void FRepLayout::SendProperties_DynamicArray_r(
 	WriterState.CurrentChanged++;
 
 	WritePropertyHandle( WriterState.Writer, 0, WriterState.bDoChecksum );		// Signify end of dynamic array
+}
+
+void FRepLayout::SerializeObjectReplicatedProperties(UObject* Object, FArchive & Ar) const
+{
+	for (int32 i = 0; i < Parents.Num(); i++)
+	{
+        UStructProperty* StructProperty = Cast<UStructProperty>(Parents[i].Property);
+        UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Parents[i].Property);
+
+		// We're only able to easily serialize non-object/struct properties, so just do those.
+		if (ObjectProperty == nullptr && StructProperty == nullptr)
+		{
+			bool bHasUnmapped = false;
+			SerializeProperties_r(Ar, NULL, Parents[i].CmdStart, Parents[i].CmdEnd, (uint8*)Object, bHasUnmapped);
+		}
+	}
 }
 
 uint16 FRepLayout::SendProperties_r( 
@@ -1078,14 +1097,14 @@ void FRepLayout::WritePropertyHeader(
 	UActorChannel *		OwningChannel,
 	UProperty *			Property, 
 	FOutBunch &			Bunch, 
-	int32				ArrayIndex, 
-	int32 &				LastArrayIndex, 
+	uint32				ArrayIndex, 
 	bool &				bContentBlockWritten ) const
 {
 	UNetConnection * Connection = OwningChannel->Connection;
 
 	// Get class network info cache.
-	FClassNetCache * ClassCache = Connection->Driver->NetCache->GetClassNetCache( ObjectClass );
+	const FClassNetCache* ClassCache = Connection->Driver->NetCache->GetClassNetCache( ObjectClass );
+
 	check( ClassCache );
 
 	if ( !bContentBlockWritten )
@@ -1094,31 +1113,34 @@ void FRepLayout::WritePropertyHeader(
 		bContentBlockWritten = true;
 	}
 
+	const int NumStartingBits = Bunch.GetNumBits();
+
 	// Get the network friend property index to replicate
-	// Swap Role/RemoteRole while we're at it
-	FFieldNetCache * FieldCache
-		=	Property->GetFName() == NAME_Role
-		?	ClassCache->GetFromField( Connection->Driver->RemoteRoleProperty )
-		:	Property->GetFName() == NAME_RemoteRole
-		?	ClassCache->GetFromField( Connection->Driver->RoleProperty )
-		:	ClassCache->GetFromField( Property );
+	const FFieldNetCache * FieldCache = ClassCache->GetFromField( Property );
 
 	checkSlow( FieldCache );
 
 	// Send property name and optional array index.
 	check( FieldCache->FieldNetIndex <= ClassCache->GetMaxIndex() );
 
-	Bunch.WriteIntWrapped( FieldCache->FieldNetIndex, ClassCache->GetMaxIndex() + 1 );
+	if ( Connection->InternalAck )
+	{
+		uint32 Checksum = FieldCache->FieldChecksum;
+		Bunch << Checksum;
+	}
+	else
+	{
+		Bunch.WriteIntWrapped( FieldCache->FieldNetIndex, ClassCache->GetMaxIndex() + 1 );
+	}
 
 	NET_CHECKSUM( Bunch );
 
 	if ( Property->ArrayDim != 1 )
 	{
-		// Serialize index as delta from previous index to increase chance we'll only use 1 byte
-		uint32 idx = static_cast<uint32>( ArrayIndex - LastArrayIndex );
-		Bunch.SerializeIntPacked(idx);
-		LastArrayIndex = ArrayIndex;
+		Bunch.SerializeIntPacked( ArrayIndex );
 	}
+
+	NETWORK_PROFILER(GNetworkProfiler.TrackWritePropertyHeader(Property, Bunch.GetNumBits() - NumStartingBits));
 }
 
 void FRepLayout::SendProperties( 
@@ -1129,7 +1151,6 @@ void FRepLayout::SendProperties(
 	UActorChannel	*			OwningChannel,
 	FOutBunch &					Writer, 
 	TArray< uint16 > &			Changed, 
-	int32 &						LastIndex, 
 	bool &						bContentBlockWritten ) const
 {
 #ifdef ENABLE_PROPERTY_CHECKSUMS
@@ -2125,6 +2146,12 @@ int32 FRepLayout::InitFromProperty_r( UProperty * Property, int32 Offset, int32 
 		{
 			FORCEINLINE bool operator()( UProperty & A, UProperty & B ) const
 			{
+				// Ensure stable sort
+				if ( A.GetOffset_ForGC() == B.GetOffset_ForGC() )
+				{
+					return A.GetName() < B.GetName();
+				}
+
 				return A.GetOffset_ForGC() < B.GetOffset_ForGC();
 			}
 		};
@@ -2467,7 +2494,7 @@ void FRepLayout::ReceivePropertiesForRPC( UObject* Object, UFunction * Function,
 		if ( Parents[i].ArrayIndex == 0 && ( Parents[i].Property->PropertyFlags & CPF_ZeroConstructor ) == 0 )
 		{
 			// If this property needs to be constructed, make sure we do that
-			Parents[i].Property->InitializeValue( (uint8*)Data + Cmds[ Parents[i].CmdStart ].Offset );
+			Parents[i].Property->InitializeValue((uint8*)Data + Parents[i].Property->GetOffset_ForUFunction());
 		}
 
 		if ( Cast<UBoolProperty>( Parents[i].Property ) || Reader.ReadBit() )
@@ -2644,9 +2671,10 @@ void FRepLayout::DestructProperties( FRepState * RepState ) const
 	RepState->StaticBuffer.Empty();
 }
 
-void FRepLayout::GetLifetimeCustomDeltaProperties( TArray< int32 > & OutCustom )
+void FRepLayout::GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, TArray< ELifetimeCondition >	& OutConditions)
 {
 	OutCustom.Empty();
+	OutConditions.Empty();
 
 	for ( int32 i = 0; i < Parents.Num(); i++ )
 	{
@@ -2654,7 +2682,8 @@ void FRepLayout::GetLifetimeCustomDeltaProperties( TArray< int32 > & OutCustom )
 		{
 			check( Parents[i].Property->RepIndex + Parents[i].ArrayIndex == i );
 
-			OutCustom.AddUnique( i );
+			OutCustom.Add(i);
+			OutConditions.Add(Parents[i].Condition);
 		}
 	}
 }

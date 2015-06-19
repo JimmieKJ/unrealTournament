@@ -105,6 +105,14 @@ bool FHighResScreenshotConfig::MergeMaskIntoAlpha(TArray<FColor>& InBitmap)
 
 		bWritten = true;
 	}
+	else
+	{
+		// Ensure that all pixels' alpha is set to 255
+		for (auto& Color : InBitmap)
+		{
+			Color.A = 255;
+		}
+	}
 
 	return bWritten;
 }

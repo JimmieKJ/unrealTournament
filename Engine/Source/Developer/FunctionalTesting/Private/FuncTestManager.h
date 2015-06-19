@@ -21,7 +21,7 @@ public:
 
 	virtual class UFunctionalTestingManager* GetCurrentScript() override { return TestScript.Get(); }
 
-	virtual void SetLooping(const bool bLoop);
+	virtual void SetLooping(const bool bLoop) override;
 
 protected:
 

@@ -6,16 +6,19 @@
 
 #pragma once
 
+#include "AsyncPackage.h"
+
+#define PERF_TRACK_DETAILED_ASYNC_STATS (0)
 /**
  * Structure containing intermediate data required for async loading of all imports and exports of a
- * ULinkerLoad.
+ * FLinkerLoad.
  */
-struct FAsyncPackage : public FGCObject
+struct FAsyncPackage
 {
 	/**
 	 * Constructor
 	 */
-	FAsyncPackage(const FName& InPackageName, const FGuid* InPackageGuid, FName InPackageType, const FName& InPackageNameToLoad);
+	FAsyncPackage(const FAsyncPackageDesc& InDesc);
 
 	/**
 	 * Ticks the async loading code.
@@ -31,7 +34,10 @@ struct FAsyncPackage : public FGCObject
 	/**
 	 * @return Estimated load completion percentage.
 	 */
-	float GetLoadPercentage() const;
+	FORCEINLINE float GetLoadPercentage() const
+	{
+		return LoadPercentage;
+	}
 
 	/**
 	 * @return Time load begun. This is NOT the time the load was requested in the case of other pending requests.
@@ -48,7 +54,7 @@ struct FAsyncPackage : public FGCObject
 	 */
 	FORCEINLINE const FName& GetPackageName() const
 	{
-		return PackageName;
+		return Desc.Name;
 	}
 
 	/**
@@ -56,69 +62,69 @@ struct FAsyncPackage : public FGCObject
 	 */
 	const FName &GetPackageType() const
 	{
-		return PackageType;
+		return Desc.Type;
 	}
 
-	void AddCompletionCallback(const FLoadPackageAsyncDelegate& Callback)
-	{
-		// This is to ensure that there is no one trying to subscribe to a already loaded package
-		check(!bLoadHasFinished && !bLoadHasFailed);
-		
-		CompletionCallbacks.Add(Callback);
-	}
-
-	/**
-	 * Serialize the linke for garbage collection.
-	 * 
-	 * @param Ar The archive to serialize with
-	 */
-	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override
-	{
-		Collector.AddReferencedObject( Linker );
-	}
-
-	/**
-	 *	Sets the flags and PIE ID for the package
-	 */
-	void SetPackageData(uint32 InPackageFlags, int32 InPIEInstanceID)
-	{
-		PackageFlags = InPackageFlags;
-#if WITH_EDITOR
-		PIEInstanceID = InPIEInstanceID;
-#endif
-	}
+	void AddCompletionCallback(const FLoadPackageAsyncDelegate& Callback, bool bInternal);
 
 	/** Gets the number of references to this package from other packages in the dependency tree. */
 	FORCEINLINE int32 GetDependencyRefCount() const
 	{
-		return DependencyRefCount;
+		return DependencyRefCount.GetValue();
 	}
 
 	/** Returns true if the package has finished loading. */
-	FORCEINLINE int32 HasFinishedLoading() const
+	FORCEINLINE bool HasFinishedLoading() const
 	{
 		return bLoadHasFinished;
 	}
 
+	/** Returns package loading priority. */
+	FORCEINLINE uint32 GetPriority() const
+	{
+		return Desc.Priority;
+	}
+
+	/** Returns true if loading has failed */
+	FORCEINLINE bool HasLoadFailed() const
+	{
+		return bLoadHasFailed;
+	}
+
+	/**
+	* Cancel loading this package.
+	*/
+	void Cancel();
+
 private:
-	/** Name of the UPackage to create.																	*/
-	FName						PackageName;
-	/** Name of the package to load.																	*/
-	FName						PackageNameToLoad;
-	/** GUID of the package to load, or the zeroed invalid GUID for "don't care" */
-	FGuid						PackageGuid;
-	/** An abstract type name associated with this package, for tagging use								*/
-	FName						PackageType;
+
+	struct FCompletionCallback
+	{
+		bool bIsInternal;
+		FLoadPackageAsyncDelegate Callback;
+
+		FCompletionCallback()
+		{
+		}
+		FCompletionCallback(bool bInInternal, FLoadPackageAsyncDelegate InCallback)
+			: bIsInternal(bInInternal)
+			, Callback(InCallback)
+		{
+		}
+	};
+
+	/** Basic information associated with this package */
+	FAsyncPackageDesc Desc;
 	/** Linker which is going to have its exports and imports loaded									*/
-	ULinkerLoad*				Linker;
+	FLinkerLoad*				Linker;
 	/** Call backs called when we finished loading this package											*/
-	TArray<FLoadPackageAsyncDelegate>	CompletionCallbacks;
+	TArray<FCompletionCallback>	CompletionCallbacks;
 	/** Pending Import packages - we wait until all of them have been fully loaded. */
 	TArray<FAsyncPackage*> PendingImportedPackages;
 	/** Referenced imports - list of packages we need until we finish loading this package. */
 	TArray<FAsyncPackage*> ReferencedImports;
 	/** Number of references to this package from other packages in the dependency tree. */
-	int32							DependencyRefCount;
+	FThreadSafeCounter	DependencyRefCount;
 	/** Current index into linkers import table used to spread creation over several frames				*/
 	int32							LoadImportIndex;
 	/** Current index into linkers import table used to spread creation over several frames				*/
@@ -129,6 +135,8 @@ private:
 	static int32					PreLoadIndex;
 	/** Current index into GObjLoaded array used to spread routing PostLoad over several frames			*/
 	static int32					PostLoadIndex;
+	/** Current index into DeferredPostLoadObjects array used to spread routing PostLoad over several frames			*/
+	int32						DeferredPostLoadIndex;
 	/** Currently used time limit for this tick.														*/
 	float						TimeLimit;
 	/** Whether we are using a time limit for this tick.												*/
@@ -151,14 +159,12 @@ private:
 	double						LoadStartTime;
 	/** Estimated load percentage.																		*/
 	float						LoadPercentage;
-	/** The flags that should be applied to the package */
-	uint32						PackageFlags;
-#if WITH_EDITOR
-	/** Editor only: PIE instance ID this package belongs to, INDEX_NONE otherwise */
-	int32						PIEInstanceID;
-#endif
-
-
+	/** Objects to be post loaded on the game thread */
+	TArray<UObject*> DeferredPostLoadObjects;
+	/** Objects to be finalized on the game thread */
+	TArray<UObject*> DeferredFinalizeObjects;
+	/** Cached async loading thread object this package was created by */
+	class FAsyncLoadingThread& AsyncLoadingThread;
 public:
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 	/** Number of times Tick function has been called.													*/
@@ -198,12 +204,16 @@ public:
 	/** Total time spent in FinishObjects.																*/
 	double						FinishObjectsTime;
 
-	/** Map of each class of object loaded to the total time spent calling CreateExport on those objects */
-	TMap<const UClass*,FMapTimeEntry>		CreateExportTimePerClass;
-	/** Map of each class of object loaded to the total time spent calling PostLoad on those objects */
-	TMap<const UClass*,FMapTimeEntry>		PostLoadTimePerClass;
-
 #endif
+
+	void CallCompletionCallbacks(bool bInternalOnly, EAsyncLoadingResult::Type LoadingResult);
+
+	/**
+	* Route PostLoad to deferred objects.
+	*
+	* @return true if we finished calling PostLoad on all loaded objects and no new ones were created, false otherwise
+	*/
+	EAsyncPackageState::Type PostLoadDeferredObjects(double InTickStartTime, bool bUseTimeLimit, float& InOutTimeLimit);
 
 private:
 	/**
@@ -282,11 +292,12 @@ private:
 	 *
 	 * @return true
 	 */
-	EAsyncPackageState::Type FinishObjects();
+	EAsyncPackageState::Type FinishObjects();	
+
 	/**
 	 * Function called when pending import package has been loaded.
 	 */
-	void ImportFullyLoadedCallback(const FName& PackageName, UPackage* LoadedPackage);
+	void ImportFullyLoadedCallback(const FName& PackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
 	/**
 	 * Adds dependency tree to the list if packages to wait for until their linkers have been created.
 	 *
@@ -309,6 +320,11 @@ private:
 	 * Removes references to any imported packages.
 	 */
 	void FreeReferencedImports();
+
+	/**
+	* Updates load percentage stat
+	*/
+	void UpdateLoadPercentage();
 
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 	/** Add this time taken for object of class Class to have CreateExport called, to the stats we track. */

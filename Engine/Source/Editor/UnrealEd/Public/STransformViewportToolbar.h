@@ -49,22 +49,26 @@ private:
 	/** Grid snap label callbacks */
 	FText GetLocationGridLabel() const;
 	FText GetRotationGridLabel() const;
+	FText GetLayer2DLabel() const;
 	FText GetScaleGridLabel() const;
 
 	/** GridSnap menu construction callbacks */
 	TSharedRef<SWidget> FillLocationGridSnapMenu();
 	TSharedRef<SWidget> FillRotationGridSnapMenu();
+	TSharedRef<SWidget> FillLayer2DSnapMenu();
 	TSharedRef<SWidget> FillScaleGridSnapMenu();
 
 	/** Grid snap setting callbacks */
 	static void SetGridSize( int32 InIndex );
 	static void SetRotationGridSize( int32 InIndex, ERotationGridMode InGridMode );
 	static void SetScaleGridSize( int32 InIndex );
+	static void SetLayer2D(int32 Layer2DIndex);
 
 	/** Grid snap is checked callbacks for the menu values */
 	static bool IsGridSizeChecked( int32 GridSizeIndex );
 	static bool IsRotationGridSizeChecked( int32 GridSizeIndex, ERotationGridMode GridMode );
 	static bool IsScaleGridSizeChecked( int32 GridSizeIndex );
+	static bool IsLayer2DSelected(int32 Later2DIndex);
 
 	/** Callbacks for preserving non-uniform scaling when snapping */
 	static void TogglePreserveNonUniformScale();
@@ -80,11 +84,15 @@ private:
 	/** Grid Snap checked state callbacks */
 	ECheckBoxState IsLocationGridSnapChecked() const;
 	ECheckBoxState IsRotationGridSnapChecked() const;
+	ECheckBoxState IsLayer2DSnapChecked() const;
 	ECheckBoxState IsScaleGridSnapChecked() const;
+
+	EVisibility IsLayer2DSnapVisible() const;
 
 	/** Grid snap toggle handlers */
 	void HandleToggleLocationGridSnap(ECheckBoxState InState);
 	void HandleToggleRotationGridSnap(ECheckBoxState InState);
+	void HandleToggleLayer2DSnap(ECheckBoxState InState);
 	void HandleToggleScaleGridSnap(ECheckBoxState InState);
 
 private:

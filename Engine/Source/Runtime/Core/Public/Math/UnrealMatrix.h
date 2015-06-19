@@ -262,8 +262,8 @@ inline FMatrix FMatrix::InverseFast() const
 		GetScaledAxis( EAxis::Y ).IsNearlyZero(SMALL_NUMBER) && 
 		GetScaledAxis( EAxis::Z ).IsNearlyZero(SMALL_NUMBER) ) 
 	{
-		UE_LOG(LogUnrealMath, Error, TEXT("FMatrix::Inverse(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
-		ensureMsgf(false, TEXT("FMatrix::Inverse(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
+		UE_LOG(LogUnrealMath, Error, TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
+		ensureMsg(false, TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
 	}
 #endif
 	FMatrix Result;

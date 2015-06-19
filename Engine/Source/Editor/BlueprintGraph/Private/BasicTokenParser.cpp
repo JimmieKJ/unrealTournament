@@ -110,6 +110,12 @@ void FBasicToken::SetConstString(TCHAR* InString, int32 MaxLength)
 }
 
 //------------------------------------------------------------------------------
+void FBasicToken::SetGuid(TCHAR* InString, int32 MaxLength)
+{
+	SetConstString(InString, MaxLength);
+	TokenType = TOKEN_Guid;
+}
+//------------------------------------------------------------------------------
 FString FBasicToken::GetConstantValue() const
 {
 	if (TokenType == TOKEN_Const)
@@ -243,7 +249,32 @@ bool FBasicTokenParser::GetToken(FBasicToken& Token, bool bNoConsts/* = false*/)
 	}
 	Token.StartPos		= PrevPos;
 	Token.StartLine		= PrevLine;
-	if( (c>='A' && c<='Z') || (c>='a' && c<='z') || (c=='_') )
+	if( c=='{' )
+	{
+		// Alphanumeric token.
+		int32 Length=0;
+		Token.Identifier[Length++] = c;
+		do
+		{
+			if( Length >= NAME_SIZE )
+			{
+				Length = ((int32)NAME_SIZE) - 1;
+				Token.Identifier[Length]=0; // need this for the error description
+
+				FText ErrorDesc = FText::Format(LOCTEXT("IdTooLong", "Identifer ({0}...) exceeds maximum length of {1}"), FText::FromString(Token.Identifier), FText::AsNumber((int32)NAME_SIZE));
+				SetError(FErrorState::ParseError, ErrorDesc);
+
+				break;
+			}
+			c = GetChar();
+			Token.Identifier[Length++] = c;
+		} while( c!='}' );
+
+		Token.Identifier[Length]=0;
+		Token.SetGuid(Token.Identifier);
+		return IsValid();
+	}
+	else if( (c>='A' && c<='Z') || (c>='a' && c<='z') || (c=='_') )
 	{
 		// Alphanumeric token.
 		int32 Length=0;

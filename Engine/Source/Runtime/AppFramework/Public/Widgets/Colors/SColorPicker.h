@@ -220,13 +220,10 @@ protected:
 	 */
 	TSharedRef<SWidget> MakeColorPreviewBox() const;
 
-protected:	
-
-	// SWidget interface
-
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
 private:
+
+	// Callback for the active timer to animate the color post-construct
+	EActiveTimerReturnType AnimatePostConstruct( double InCurrentTime, float InDeltaTime );
 
 	// Callback for getting the end color of a color spin box gradient.
 	FLinearColor GetGradientEndColor( EColorPickerChannels Channel ) const;

@@ -205,6 +205,122 @@ namespace AutomationTool
 		public string Path;
 	}
 
+	public class P4Spec
+	{
+		public List<KeyValuePair<string, string>> Sections;
+
+		/// <summary>
+		/// Default constructor.
+		/// </summary>
+		public P4Spec()
+		{
+			Sections = new List<KeyValuePair<string,string>>();
+		}
+
+		/// <summary>
+		/// Gets the current value of a field with the given name 
+		/// </summary>
+		/// <param name="Name">Name of the field to search for</param>
+		/// <returns>The value of the field, or null if it does not exist</returns>
+		public string GetField(string Name)
+		{
+			int Idx = Sections.FindIndex(x => x.Key == Name);
+			return (Idx == -1)? null : Sections[Idx].Value;
+		}
+
+		/// <summary>
+		/// Sets the value of an existing field, or adds a new one with the given name
+		/// </summary>
+		/// <param name="Name">Name of the field to set</param>
+		/// <param name="Value">New value of the field</param>
+		public void SetField(string Name, string Value)
+		{
+			int Idx = Sections.FindIndex(x => x.Key == Name);
+			if(Idx == -1)
+			{
+				Sections.Add(new KeyValuePair<string,string>(Name, Value));
+			}
+			else
+			{
+				Sections[Idx] = new KeyValuePair<string,string>(Name, Value);
+			}
+		}
+
+		/// <summary>
+		/// Parses a spec (clientspec, branchspec, changespec) from an array of lines
+		/// </summary>
+		/// <param name="Lines">Text split into separate lines</param>
+		/// <returns>Array of section names and values</returns>
+		public static P4Spec FromString(string Text)
+		{
+			P4Spec Spec = new P4Spec();
+
+			string[] Lines = Text.Split('\n');
+			for(int LineIdx = 0; LineIdx < Lines.Length; LineIdx++)
+			{
+				if(Lines[LineIdx].EndsWith("\r"))
+				{
+					Lines[LineIdx] = Lines[LineIdx].Substring(0, Lines[LineIdx].Length - 1);
+				}
+				if(!String.IsNullOrWhiteSpace(Lines[LineIdx]) && !Lines[LineIdx].StartsWith("#"))
+				{
+					// Read the section name
+					int SeparatorIdx = Lines[LineIdx].IndexOf(':');
+					if(SeparatorIdx == -1 || !Char.IsLetter(Lines[LineIdx][0]))
+					{
+						throw new P4Exception("Invalid spec format at line {0}: \"{1}\"", LineIdx, Lines[LineIdx]);
+					}
+
+					// Get the section name
+					string SectionName = Lines[LineIdx].Substring(0, SeparatorIdx);
+
+					// Parse the section value
+					StringBuilder Value = new StringBuilder(Lines[LineIdx].Substring(SeparatorIdx + 1));
+					for(; LineIdx + 1 < Lines.Length; LineIdx++)
+					{
+						if(Lines[LineIdx + 1].Length == 0)
+						{
+							Value.AppendLine();
+						}
+						else if(Lines[LineIdx + 1][0] == '\t')
+						{
+							Value.AppendLine(Lines[LineIdx + 1].Substring(1));
+						}
+						else
+						{
+							break;
+						}
+					}
+					Spec.Sections.Add(new KeyValuePair<string,string>(SectionName, Value.ToString().TrimEnd()));
+				}
+			}
+
+			return Spec;
+		}
+
+		/// <summary>
+		/// Formats a P4 specification as a block of text
+		/// </summary>
+		/// <returns></returns>
+		public override string ToString()
+		{
+			StringBuilder Result = new StringBuilder();
+			foreach(KeyValuePair<string, string> Section in Sections)
+			{
+				if(Section.Value.Contains('\n'))
+				{
+					Result.AppendLine(Section.Key + ":\n\t" + Section.Value.Replace("\n", "\n\t"));
+				}
+				else
+				{
+					Result.AppendLine(Section.Key + ":\t" + Section.Value);
+				}
+				Result.AppendLine();
+			}
+			return Result.ToString();
+		}
+	}
+
 	public partial class CommandUtils
 	{
 		#region Environment Setup
@@ -928,6 +1044,12 @@ namespace AutomationTool
 							throw new AutomationException("Was expecting 'Affected files' to appear after the summary output from P4, but there were no more lines to read");
 						}
 
+						// If the summary ends with an empty newline, it doesn't seem to be prefixed with a tab
+						while (LineIndex < Lines.Length && Lines[LineIndex].Length == 0)
+						{
+							LineIndex++;
+						}
+
 						Line = Lines[ LineIndex ];
 
 						string MatchAffectedFiles = "Affected files";
@@ -1017,10 +1139,10 @@ namespace AutomationTool
 		/// <param name="FromCL">Changelist to unshelve.</param>
 		/// <param name="ToCL">Changelist where the checked out files should be added.</param>
 		/// <param name="CommandLine">Commandline for the command.</param>
-		public void Unshelve(int FromCL, int ToCL, string CommandLine = "")
+		public void Unshelve(int FromCL, int ToCL, string CommandLine = "", bool SpewIsVerbose = false)
 		{
 			CheckP4Enabled();
-			LogP4("unshelve " + String.Format("-s {0} ", FromCL) + String.Format("-c {0} ", ToCL) + CommandLine);
+			LogP4("unshelve " + String.Format("-s {0} ", FromCL) + String.Format("-c {0} ", ToCL) + CommandLine, SpewIsVerbose: SpewIsVerbose);
 		}
 
         /// <summary>
@@ -1034,6 +1156,23 @@ namespace AutomationTool
             CheckP4Enabled();
             LogP4("shelve " + String.Format("-r -c {0} ", FromCL) + CommandLine, AllowSpew: AllowSpew);
         }
+
+		/// <summary>
+        /// Deletes shelved files from a changelist
+		/// </summary>
+        /// <param name="FromCL">Changelist to unshelve.</param>
+        /// <param name="CommandLine">Commandline for the command.</param>
+        public void DeleteShelvedFiles(int FromCL, bool AllowSpew = true)
+        {
+            CheckP4Enabled();
+
+			string Output;
+            if (!LogP4Output(out Output, String.Format("shelve -d -c {0}", FromCL), AllowSpew: AllowSpew) && !Output.StartsWith("No shelved files in changelist to delete."))
+			{
+				throw new P4Exception("Couldn't unshelve files: {0}", Output);
+			}
+        }
+
 		/// <summary>
 		/// Invokes p4 edit command.
 		/// </summary>
@@ -1165,10 +1304,10 @@ namespace AutomationTool
 		/// Reverts all files from the specified changelist.
 		/// </summary>
 		/// <param name="CL">Changelist to revert.</param>
-		public void RevertAll(int CL)
+		public void RevertAll(int CL, bool SpewIsVerbose = false)
 		{
 			CheckP4Enabled();
-			LogP4("revert " + String.Format("-c {0} //...", CL));
+			LogP4("revert " + String.Format("-c {0} //...", CL), SpewIsVerbose: SpewIsVerbose);
 		}
 
 		/// <summary>
@@ -1200,7 +1339,14 @@ namespace AutomationTool
 				{
 					throw new P4Exception("Change {0} was not pending.", CL);
 				}
-
+                bool isClPending = false;
+                if (ChangeFiles(CL, out isClPending, false).Count == 0)
+                {
+                    CommandUtils.Log(TraceEventType.Information, "No edits left to commit after brutal submit resolve. Assuming another build committed same changes already and exiting as success.");
+                    DeleteChange(CL);
+                    // No changes to submit, no need to retry.
+                    return;
+                }
 				string CmdOutput;
 				if (!LogP4Output(out CmdOutput, String.Format("submit -c {0}", CL)))
 				{
@@ -1235,6 +1381,7 @@ namespace AutomationTool
                     if (AnyIssue)
                     {
                         string Work = CmdOutput;
+                        HashSet<string> AlreadyDone = new HashSet<string>();
                         while (Work.Length > 0)
                         {
                             string SlashSlashStr = "//";
@@ -1256,8 +1403,12 @@ namespace AutomationTool
                             if (MinMatch > Work.Length)
                             {
                                 break;
-                            }
+                            }                            
                             string File = Work.Substring(0, MinMatch).Trim();
+                            if (AlreadyDone.Contains(File))
+                            {
+                                continue;
+                            }
                             if (File.IndexOf(SlashSlashStr) != File.LastIndexOf(SlashSlashStr))
                             {
                                 // this is some other line about the same line, we ignore it, removing the first // so we advance
@@ -1266,21 +1417,12 @@ namespace AutomationTool
                             else
                             {
                                 Work = Work.Substring(MinMatch);
-
 								CommandUtils.Log(TraceEventType.Information, "Brutal 'resolve' on {0} to force submit.\n", File);
-
 								Revert(CL, "-k " + CommandUtils.MakePathSafeToUseWithCommandLine(File));  // revert the file without overwriting the local one
 								Sync("-f -k " + CommandUtils.MakePathSafeToUseWithCommandLine(File + "#head"), false); // sync the file without overwriting local one
 								ReconcileNoDeletes(CL, CommandUtils.MakePathSafeToUseWithCommandLine(File));  // re-check out, if it changed, or add
                                 DidSomething = true;
-								bool isClPending = false;
-								if (ChangeFiles(CL, out isClPending).Count == 0)
-								{
-									CommandUtils.Log(TraceEventType.Information, "No edits left to commit after brutal submit resolve. Assuming another build committed same changes already and exiting as success.");
-									DeleteChange(CL);
-									// No changes to submit, no need to retry.
-									return;
-								}
+                                AlreadyDone.Add(File);															
                             }
                         }
                     }
@@ -1379,21 +1521,59 @@ namespace AutomationTool
 			return CL;
 		}
 
+
+		/// <summary>
+		/// Updates a changelist with the given fields
+		/// </summary>
+		/// <param name="CL"></param>
+		/// <param name="NewOwner"></param>
+		/// <param name="NewDescription"></param>
+		/// <param name="SpewIsVerbose"></param>
+		public void UpdateChange(int CL, string NewOwner, string NewDescription, bool SpewIsVerbose = false)
+		{
+			CheckP4Enabled();
+
+			string CmdOutput;
+			if(!LogP4Output(out CmdOutput, String.Format("change -o {0}", CL), SpewIsVerbose: SpewIsVerbose))
+			{
+				throw new P4Exception("Couldn't describe changelist {0}", CL);
+			}
+
+			P4Spec Spec = P4Spec.FromString(CmdOutput);
+			if(NewOwner != null)
+			{
+				Spec.SetField("Client", NewOwner);
+			}
+			if(NewDescription != null)
+			{
+				Spec.SetField("Description", NewDescription);
+			}
+
+			if(!LogP4Output(out CmdOutput, "change -i", Input: Spec.ToString(), SpewIsVerbose: SpewIsVerbose))
+			{
+				throw new P4Exception("Failed to update spec for changelist {0}", CL);
+			}
+			if(!CmdOutput.TrimEnd().EndsWith(String.Format("Change {0} updated.", CL)))
+			{
+				throw new P4Exception("Unexpected output from p4 change -i: {0}", CmdOutput);
+			}
+		}
+
 		/// <summary>
 		/// Deletes the specified changelist.
 		/// </summary>
 		/// <param name="CL">Changelist to delete.</param>
 		/// <param name="RevertFiles">Indicates whether files in that changelist should be reverted.</param>
-		public void DeleteChange(int CL, bool RevertFiles = true)
+		public void DeleteChange(int CL, bool RevertFiles = true, bool SpewIsVerbose = false, bool AllowSpew = true)
 		{
 			CheckP4Enabled();
 			if (RevertFiles)
 			{
-				RevertAll(CL);
+				RevertAll(CL, SpewIsVerbose: SpewIsVerbose);
 			}
 
 			string CmdOutput;
-			if (LogP4Output(out CmdOutput, String.Format("change -d {0}", CL)))
+			if (LogP4Output(out CmdOutput, String.Format("change -d {0}", CL), SpewIsVerbose: SpewIsVerbose, AllowSpew: AllowSpew))
 			{
 				string EndStr = " deleted.";
 				string ChangeStr = "Change ";
@@ -1437,11 +1617,11 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="CL">Changelist to get the specification from.</param>
 		/// <returns>Specification of the changelist.</returns>
-		public string ChangeOutput(int CL)
+		public string ChangeOutput(int CL, bool AllowSpew = true)
 		{
 			CheckP4Enabled();
 			string CmdOutput;
-			if (LogP4Output(out CmdOutput, String.Format("change -o {0}", CL)))
+			if (LogP4Output(out CmdOutput, String.Format("change -o {0}", CL), AllowSpew: AllowSpew))
 			{
 				return CmdOutput;
 			}
@@ -1454,10 +1634,10 @@ namespace AutomationTool
 		/// <param name="CL">Changelist id.</param>
 		/// <param name="Pending">Whether it is a pending changelist.</param>
 		/// <returns>Returns whether the changelist exists.</returns>
-		public bool ChangeExists(int CL, out bool Pending)
+		public bool ChangeExists(int CL, out bool Pending, bool AllowSpew = true)
 		{
 			CheckP4Enabled();
-			string CmdOutput = ChangeOutput(CL);
+			string CmdOutput = ChangeOutput(CL, AllowSpew);
 			Pending = false;
 			if (CmdOutput.Length > 0)
 			{
@@ -1497,14 +1677,14 @@ namespace AutomationTool
 		/// <param name="CL">Changelist to get the files from.</param>
 		/// <param name="Pending">Whether the changelist is a pending one.</param>
 		/// <returns>List of the files contained in the changelist.</returns>
-		public List<string> ChangeFiles(int CL, out bool Pending)
+		public List<string> ChangeFiles(int CL, out bool Pending, bool AllowSpew = true)
 		{
 			CheckP4Enabled();
 			var Result = new List<string>();
 
-			if (ChangeExists(CL, out Pending))
+			if (ChangeExists(CL, out Pending, AllowSpew))
 			{
-				string CmdOutput = ChangeOutput(CL);
+				string CmdOutput = ChangeOutput(CL, AllowSpew);
 				if (CmdOutput.Length > 0)
 				{
 
@@ -1705,6 +1885,31 @@ namespace AutomationTool
 				}
 			}
 			return false;
+		}
+
+		/// <summary>
+		/// Reads a label spec
+		/// </summary>
+		/// <param name="Name">Label name</param>
+		/// <param name="AllowSpew">Whether to allow log spew</param>
+		public P4Spec ReadLabelSpec(string Name, bool AllowSpew = true)
+		{
+			string LabelSpec;
+			if(!LogP4Output(out LabelSpec, "label -o " + Name, AllowSpew: AllowSpew))
+			{
+				throw new P4Exception("Couldn't describe existing label '{0}', output was:\n", Name, LabelSpec);
+			}
+			return P4Spec.FromString(LabelSpec);
+		}
+
+		/// <summary>
+		/// Updates a label with a new spec
+		/// </summary>
+		/// <param name="Spec">Label specification</param>
+		/// <param name="AllowSpew">Whether to allow log spew</param>
+		public void UpdateLabelSpec(P4Spec Spec, bool AllowSpew = true)
+		{
+			LogP4("label -i", Input: Spec.ToString(), AllowSpew: AllowSpew);
 		}
 
 		/// <summary>
@@ -2024,7 +2229,7 @@ namespace AutomationTool
 		{
 			CheckP4Enabled();
 			string Output;
-			string Command = "fstat " + Filename;
+			string Command = "fstat " + CommandUtils.MakePathSafeToUseWithCommandLine(Filename);
 			if (!LogP4Output(out Output, Command))
 			{
 				throw new P4Exception("p4.exe {0} failed.", Command);
@@ -2090,7 +2295,7 @@ namespace AutomationTool
 			{
 				var CmdLine = String.Format("{0} -c {1} -t {2} {3}",
 					(Stat.Action != P4Action.None) ? "reopen" : "open",
-					Changelist, FileAttributesToString(Attributes | Stat.Attributes), Filename);
+					Changelist, FileAttributesToString(Attributes | Stat.Attributes), CommandUtils.MakePathSafeToUseWithCommandLine(Filename));
 				LogP4(CmdLine);
 			}
 		}

@@ -18,6 +18,16 @@ enum EFileInteraction
 	FI_Export
 };
 
+namespace EAutosaveContentPackagesResult
+{
+	enum Type
+	{
+		Success,
+		NothingToDo,
+		Failure
+	};
+}
+
 /**
  * For saving map files through the main editor frame.
  */
@@ -143,6 +153,18 @@ public:
 	static bool AutosaveContentPackages(const FString& AbsoluteAutosaveDir, const int32 AutosaveIndex, const bool bForceIfNotInList, const TSet< TWeakObjectPtr<UPackage> >& DirtyPackagesForAutoSave);
 
 	/**
+	 * Saves all asset packages to the specified directory.
+	 *
+	 * @param	AbsoluteAutosaveDir			Autosave directory.
+	 * @param	AutosaveIndex				Integer prepended to autosave filenames.
+	 * @param	bForceIfNotInList			Should the save be forced if the package is dirty, but not in DirtyPackagesForAutoSave?
+	 * @param	DirtyPackagesForAutoSave	A set of packages that are considered by the auto-save system to be dirty, you should check this to see if a package needs saving
+	 *
+	 * @return	Success if saved at least one faile. NothingToDo if there was nothing to save. Failure on at least one auto-save failure.
+	 */
+	static EAutosaveContentPackagesResult::Type AutosaveContentPackagesEx(const FString& AbsoluteAutosaveDir, const int32 AutosaveIndex, const bool bForceIfNotInList, const TSet< TWeakObjectPtr<UPackage> >& DirtyPackagesForAutoSave);
+
+	/**
 	 * Looks at all currently loaded packages and saves them if their "bDirty" flag is set, optionally prompting the user to select which packages to save)
 	 * 
 	 * @param	bPromptUserToSave			true if we should prompt the user to save dirty packages we found. false to assume all dirty packages should be saved.  Regardless of this setting the user will be prompted for checkout(if needed) unless bFastSave is set
@@ -150,10 +172,11 @@ public:
 	 * @param	bSaveContentPackages		true if we should save content packages. 
 	 * @param	bFastSave					true if we should do a fast save. (I.E dont prompt the user to save, dont prompt for checkout, and only save packages that are currently writable).  Note: Still prompts for SaveAs if a package needs a filename
 	 * @param	bNotifyNoPackagesSaved		true if a notification should be displayed when no packages need to be saved.
+	 * @param	bCanBeDeclined				true if the user prompt should contain a "Don't Save" button in addition to "Cancel", which won't result in a failure return code.
 	 * @param	bOutPackagesNeededSaving	when not NULL, will be set to true if there was any work to be done, and false otherwise.
 	 * @return								true on success, false on fail.
 	 */
-	UNREALED_API static bool SaveDirtyPackages(const bool bPromptUserToSave, const bool bSaveMapPackages, const bool bSaveContentPackages, const bool bFastSave = false, const bool bNotifyNoPackagesSaved = false, bool* bOutPackagesNeededSaving = NULL);
+	UNREALED_API static bool SaveDirtyPackages(const bool bPromptUserToSave, const bool bSaveMapPackages, const bool bSaveContentPackages, const bool bFastSave = false, const bool bNotifyNoPackagesSaved = false, const bool bCanBeDeclined = true, bool* bOutPackagesNeededSaving = NULL);
 
 	/**
 	* Looks at all currently loaded packages and saves them if their "bDirty" flag is set and they include specified clasees, optionally prompting the user to select which packages to save)
@@ -162,9 +185,10 @@ public:
 	* @param	bPromptUserToSave			true if we should prompt the user to save dirty packages we found. false to assume all dirty packages should be saved.  Regardless of this setting the user will be prompted for checkout(if needed) unless bFastSave is set
 	* @param	bFastSave					true if we should do a fast save. (I.E dont prompt the user to save, dont prompt for checkout, and only save packages that are currently writable).  Note: Still prompts for SaveAs if a package needs a filename
 	* @param	bNotifyNoPackagesSaved		true if a notification should be displayed when no packages need to be saved.
+	* @param	bCanBeDeclined				true if the user prompt should contain a "Don't Save" button in addition to "Cancel", which won't result in a failure return code.
 	* @return								true on success, false on fail.
 	*/
-	UNREALED_API static bool SaveDirtyContentPackages(TArray<UClass*>& SaveContentClasses, const bool bPromptUserToSave, const bool bFastSave = false, const bool bNotifyNoPackagesSaved = false);
+	UNREALED_API static bool SaveDirtyContentPackages(TArray<UClass*>& SaveContentClasses, const bool bPromptUserToSave, const bool bFastSave = false, const bool bNotifyNoPackagesSaved = false, const bool bCanBeDeclined = true);
 
 	/**
 	 * Appends array with all currently dirty world packages.
@@ -210,6 +234,7 @@ public:
 	 * @param		bPromptToSave				If true the user will be prompted with a list of packages to save, otherwise all passed in packages are saved
 	 * @param		OutFailedPackages			[out] If specified, will be filled in with all of the packages that failed to save successfully
 	 * @param		bAlreadyCheckedOut			If true, the user will not be prompted with the source control dialog
+	 * @param		bCanBeDeclined				If true, offer a "Don't Save" option in addition to "Cancel", which will not result in a cancellation return code.
 	 *
 	 * @return		An enum value signifying success, failure, user declined, or cancellation. If any packages at all failed to save during execution, the return code will be 
 	 *				failure, even if other packages successfully saved. If the user cancels at any point during any prompt, the return code will be cancellation, even though it
@@ -217,7 +242,7 @@ public:
 	 *				Save" option on the dialog, the return code will indicate the user has declined out of the prompt. This way calling code can distinguish between a decline and a cancel
 	 *				and then proceed as planned, or abort its operation accordingly.
 	 */
-	UNREALED_API static EPromptReturnCode PromptForCheckoutAndSave( const TArray<UPackage*>& PackagesToSave, bool bCheckDirty, bool bPromptToSave, TArray<UPackage*>* OutFailedPackages = NULL, bool bAlreadyCheckedOut = false );
+	UNREALED_API static EPromptReturnCode PromptForCheckoutAndSave( const TArray<UPackage*>& PackagesToSave, bool bCheckDirty, bool bPromptToSave, TArray<UPackage*>* OutFailedPackages = NULL, bool bAlreadyCheckedOut = false, bool bCanBeDeclined = true );
 
 	////////////////////////////////////////////////////////////////////////////
 	// Import/Export

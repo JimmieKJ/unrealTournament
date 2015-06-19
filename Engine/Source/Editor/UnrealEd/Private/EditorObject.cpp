@@ -9,11 +9,12 @@
 #include "BSPOps.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 
-#include "Foliage/InstancedFoliageActor.h"
-#include "Foliage/FoliageType.h"
+#include "InstancedFoliageActor.h"
+#include "FoliageType.h"
 #include "InstancedFoliage.h"
 #include "Components/BrushComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/Polys.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorObject, Log, All);
 
@@ -96,10 +97,73 @@ void UEditorEngine::RenameObject(UObject* Object,UObject* NewOuter,const TCHAR* 
 	Object->MarkPackageDirty();
 }
 
+
+static void RemapProperty(UProperty* Property, int32 Index, const TMap<FName, AActor*>& ActorRemapper, uint8* DestData)
+{
+	if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property))
+	{
+		// If there's a concrete index, use that, otherwise iterate all array members (for the case that this property is inside a struct, or there is exactly one element)
+		const int32 Num = (Index == INDEX_NONE) ? ObjectProperty->ArrayDim : 1;
+		const int32 StartIndex = (Index == INDEX_NONE) ? 0 : Index;
+		for (int32 Count = 0; Count < Num; Count++)
+		{
+			uint8* PropertyAddr = ObjectProperty->ContainerPtrToValuePtr<uint8>(DestData, StartIndex + Count);
+			UObject* Object = ObjectProperty->GetObjectPropertyValue(PropertyAddr);
+			if (Object)
+			{
+				AActor* const* RemappedObject = ActorRemapper.Find(Object->GetFName());
+				if (RemappedObject)
+				{
+					ObjectProperty->SetObjectPropertyValue(PropertyAddr, *RemappedObject);
+				}
+			}
+
+		}
+	}
+	else if (UArrayProperty* ArrayProperty = Cast<UArrayProperty>(Property))
+	{
+		FScriptArrayHelper ArrayHelper(ArrayProperty, ArrayProperty->ContainerPtrToValuePtr<void>(DestData));
+		if (Index != INDEX_NONE)
+		{
+			RemapProperty(ArrayProperty->Inner, INDEX_NONE, ActorRemapper, ArrayHelper.GetRawPtr(Index));
+		}
+		else
+		{
+			for (int32 ArrayIndex = 0; ArrayIndex < ArrayHelper.Num(); ArrayIndex++)
+			{
+				RemapProperty(ArrayProperty->Inner, INDEX_NONE, ActorRemapper, ArrayHelper.GetRawPtr(ArrayIndex));
+			}
+		}
+	}
+	else if (UStructProperty* StructProperty = Cast<UStructProperty>(Property))
+	{
+		if (Index != INDEX_NONE)
+		{
+			// If a concrete index was given, remap just that
+			for (TFieldIterator<UProperty> It(StructProperty->Struct); It; ++It)
+			{
+				RemapProperty(*It, INDEX_NONE, ActorRemapper, StructProperty->ContainerPtrToValuePtr<uint8>(DestData, Index));
+			}
+		}
+		else
+		{
+			// If no concrete index was given, either the ArrayDim is 1 (i.e. not a static array), or the struct is within
+			// a deeper structure (an array or another struct) and we cannot know which element was changed, so iterate through all elements.
+			for (int32 Count = 0; Count < StructProperty->ArrayDim; Count++)
+			{
+				for (TFieldIterator<UProperty> It(StructProperty->Struct); It; ++It)
+				{
+					RemapProperty(*It, INDEX_NONE, ActorRemapper, StructProperty->ContainerPtrToValuePtr<uint8>(DestData, Count));
+				}
+			}
+		}
+	}
+}
+
+
 //
 //	ImportProperties
 //
-
 
 /**
  * Parse and import text as property values for the object specified.  This function should never be called directly - use ImportObjectProperties instead.
@@ -123,8 +187,9 @@ static const TCHAR* ImportProperties(
 	UObject*					SubobjectRoot,
 	UObject*					SubobjectOuter,
 	FFeedbackContext*			Warn,
-	int32							Depth,
-	FObjectInstancingGraph&		InstanceGraph
+	int32						Depth,
+	FObjectInstancingGraph&		InstanceGraph,
+	const TMap<FName, AActor*>* ActorRemapper
 	)
 {
 	check(!GIsUCCMakeStandaloneHeaderGenerator);
@@ -221,14 +286,16 @@ static const TCHAR* ImportProperties(
 			TCHAR BrushName[NAME_SIZE];
 			if( FParse::Value( Str, TEXT("Name="), BrushName, NAME_SIZE ) )
 			{
-				// If a brush with this name already exists in the
-				// level, rename the existing one.  This is necessary
-				// because we can't rename the brush we're importing without
-				// losing our ability to associate it with the actor properties
-				// that reference it.
+				// If an initialized brush with this name already exists in the level, rename the existing one.
+				// It is deemed to be initialized if it has a non-zero poly count.
+				// If it is uninitialized, the existing object will have been created by a forward reference in the import text,
+				// and it will now be redefined.  This relies on the behavior that NewObject<> will return an existing pointer
+				// if an object with the same name and outer is passed.
 				UModel* ExistingBrush = FindObject<UModel>( SubobjectRoot, BrushName );
-				if( ExistingBrush )
+				if (ExistingBrush && ExistingBrush->Polys && ExistingBrush->Polys->Element.Num() > 0)
+				{
 					ExistingBrush->Rename();
+				}
 
 				// Create model.
 				UModelFactory* ModelFactory = NewObject<UModelFactory>();
@@ -238,63 +305,54 @@ static const TCHAR* ImportProperties(
 		}
 		else if (GetBEGIN(&Str, TEXT("Foliage")))
 		{
-			UStaticMesh* StaticMesh;
+			UFoliageType* SourceFoliageType;
 			FName ComponentName;
 			if (SubobjectRoot &&
-				ParseObject<UStaticMesh>(Str, TEXT("StaticMesh="), StaticMesh, ANY_PACKAGE) &&
+				ParseObject<UFoliageType>(Str, TEXT("FoliageType="), SourceFoliageType, ANY_PACKAGE) &&
 				FParse::Value(Str, TEXT("Component="), ComponentName) )
 			{
 				UPrimitiveComponent* ActorComponent = FindObjectFast<UPrimitiveComponent>(SubobjectRoot, ComponentName);
 
-				if (ActorComponent)
+				if (ActorComponent && ActorComponent->GetComponentLevel())
 				{
-					ULevel* ComponentLevel = CastChecked<ULevel>(SubobjectRoot->GetOuter());
-					if (ComponentLevel->IsCurrentLevel())
+					AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(ActorComponent->GetComponentLevel(), true);
+
+					FFoliageMeshInfo* MeshInfo = nullptr;
+					UFoliageType* FoliageType = IFA->AddFoliageType(SourceFoliageType, &MeshInfo);
+
+					const TCHAR* StrPtr;
+					FString TextLine;
+					while (MeshInfo && FParse::Line(&SourceText, TextLine))
 					{
-						AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForCurrentLevel(ComponentLevel->OwningWorld);
-
-						const TCHAR* StrPtr;
-						FString TextLine;
-						while (FParse::Line(&SourceText, TextLine))
+						StrPtr = *TextLine;
+						if (GetEND(&StrPtr, TEXT("Foliage")))
 						{
-							StrPtr = *TextLine;
-							if (GetEND(&StrPtr, TEXT("Foliage")))
-							{
-								break;
-							}
-
-							// Parse the instance properties
-							FFoliageInstance Instance;
-							FString Temp;
-							if (FParse::Value(StrPtr, TEXT("Location="), Temp, false))
-							{
-								GetFVECTOR(*Temp, Instance.Location);
-							}
-							if (FParse::Value(StrPtr, TEXT("Rotation="), Temp, false))
-							{
-								GetFROTATOR(*Temp, Instance.Rotation, 1);
-							}
-							if (FParse::Value(StrPtr, TEXT("PreAlignRotation="), Temp, false))
-							{
-								GetFROTATOR(*Temp, Instance.PreAlignRotation, 1);
-							}
-							if (FParse::Value(StrPtr, TEXT("DrawScale3D="), Temp, false))
-							{
-								GetFVECTOR(*Temp, Instance.DrawScale3D);
-							}
-							FParse::Value(StrPtr, TEXT("Flags="), Instance.Flags);
-
-							Instance.Base = ActorComponent;
-
-							// Add the instance
-							FFoliageMeshInfo* MeshInfo;
-							UFoliageType* Type = IFA->GetSettingsForMesh(StaticMesh, &MeshInfo);
-							if (Type == NULL)
-							{
-								MeshInfo = IFA->AddMesh(StaticMesh, &Type);
-							}
-							MeshInfo->AddInstance(IFA, Type, Instance);
+							break;
 						}
+
+						// Parse the instance properties
+						FFoliageInstance Instance;
+						FString Temp;
+						if (FParse::Value(StrPtr, TEXT("Location="), Temp, false))
+						{
+							GetFVECTOR(*Temp, Instance.Location);
+						}
+						if (FParse::Value(StrPtr, TEXT("Rotation="), Temp, false))
+						{
+							GetFROTATOR(*Temp, Instance.Rotation, 1);
+						}
+						if (FParse::Value(StrPtr, TEXT("PreAlignRotation="), Temp, false))
+						{
+							GetFROTATOR(*Temp, Instance.PreAlignRotation, 1);
+						}
+						if (FParse::Value(StrPtr, TEXT("DrawScale3D="), Temp, false))
+						{
+							GetFVECTOR(*Temp, Instance.DrawScale3D);
+						}
+						FParse::Value(StrPtr, TEXT("Flags="), Instance.Flags);
+
+						// Add the instance
+						MeshInfo->AddInstance(IFA, FoliageType, Instance, ActorComponent);
 					}
 				}
 			}
@@ -369,7 +427,7 @@ static const TCHAR* ImportProperties(
 			{
 				// since we're redefining an object in the same text block, only need to import properties again
 				SourceText = ImportObjectProperties( (uint8*)BaseTemplate, SourceText, TemplateClass, SubobjectRoot, BaseTemplate,
-													Warn, Depth + 1, ContextSupplier ? ContextSupplier->CurrentLine : 0, &InstanceGraph );
+													Warn, Depth + 1, ContextSupplier ? ContextSupplier->CurrentLine : 0, &InstanceGraph, ActorRemapper );
 			}
 			else 
 			{
@@ -475,9 +533,9 @@ static const TCHAR* ImportProperties(
 
 				if (!ComponentTemplate)
 				{
-					ComponentTemplate = ConstructObject<UObject>(
-						TemplateClass,
+					ComponentTemplate = NewObject<UObject>(
 						SubobjectOuter,
+						TemplateClass,
 						TemplateName,
 						NewFlags,
 						Archetype,
@@ -526,7 +584,8 @@ static const TCHAR* ImportProperties(
 					Warn, 
 					Depth+1,
 					ContextSupplier ? ContextSupplier->CurrentLine : 0,
-					&InstanceGraph
+					&InstanceGraph,
+					ActorRemapper
 					);
 			}
 		}
@@ -552,8 +611,16 @@ static const TCHAR* ImportProperties(
 		}
 	}
 
+	if (ActorRemapper)
+	{
+		for (const auto& DefinedProperty : DefinedProperties)
+		{
+			RemapProperty(DefinedProperty.Property, DefinedProperty.Index, *ActorRemapper, DestData);
+		}
+	}
+
 	// Prepare brush.
-	if( ImportedBrush && ObjectStruct->IsChildOf(ABrush::StaticClass()) )
+	if( ImportedBrush && ObjectStruct->IsChildOf<ABrush>() && !ObjectStruct->IsChildOf<AVolume>() )
 	{
 		check(GIsEditor);
 		ABrush* Actor = (ABrush*)DestData;
@@ -594,7 +661,7 @@ const TCHAR* ImportObjectProperties( FImportObjectParams& InParams )
 			Supplier.ClassName = InParams.ObjectStruct->GetOwnerClass() ? InParams.ObjectStruct->GetOwnerClass()->GetName() : FName(NAME_None).ToString();
 			Supplier.CurrentLine = InParams.LineNumber; 
 
-			ContextSupplier = &Supplier;
+			ContextSupplier = &Supplier; //-V506
 		}
 		else
 		{
@@ -634,7 +701,8 @@ const TCHAR* ImportObjectProperties( FImportObjectParams& InParams )
 			InParams.SubobjectOuter,
 			InParams.Warn,
 			InParams.Depth,
-			InstanceGraph
+			InstanceGraph,
+			InParams.ActorRemapper
 			);
 
 	if ( InParams.SubobjectOuter != NULL )
@@ -711,7 +779,8 @@ const TCHAR* ImportObjectProperties(
 	FFeedbackContext*	Warn,
 	int32					Depth,
 	int32					LineNumber,
-	FObjectInstancingGraph* InInstanceGraph
+	FObjectInstancingGraph* InInstanceGraph,
+	const TMap<FName, AActor*>* ActorRemapper
 	)
 {
 	FImportObjectParams Params;
@@ -725,6 +794,7 @@ const TCHAR* ImportObjectProperties(
 		Params.Depth = Depth;
 		Params.LineNumber = LineNumber;
 		Params.InInstanceGraph = InInstanceGraph;
+		Params.ActorRemapper = ActorRemapper;
 
 		// This implementation always calls PreEditChange/PostEditChange
 		Params.bShouldCallEditChange = true;

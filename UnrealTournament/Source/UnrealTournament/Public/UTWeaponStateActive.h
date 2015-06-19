@@ -15,4 +15,5 @@ class UNREALTOURNAMENT_API UUTWeaponStateActive : public UUTWeaponState
 
 	virtual void BeginState(const UUTWeaponState* PrevState) override;
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
+	virtual bool WillSpawnShot(float DeltaTime) override;
 };

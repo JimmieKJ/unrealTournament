@@ -290,7 +290,7 @@ public:
 		return Filename;
 	}
 
-	virtual IFileHandle* OpenRead(const TCHAR* Filename) override
+	virtual IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite /*= false*/) override
 	{
 		FString fn = NormalizeFilename(Filename);
 		int32 Handle = open(TCHAR_TO_UTF8(*fn), O_RDONLY | O_BINARY);
@@ -298,6 +298,7 @@ public:
 		{
 			return new FFileHandleHTML5(Handle);
 		}
+
 #if PLATFORM_HTML5_WIN32
 		int err = errno;
 		UE_LOG(LogTemp, Display, TEXT("OpenRead: %s failed, errno %d"), (*fn), err);
@@ -351,8 +352,7 @@ public:
 #if PLATFORM_HTML5_WIN32
 		return _mkdir(TCHAR_TO_ANSI(*NormalizeFilename(Directory))) || (errno == EEXIST);
 #else 
-        // @todo 
-        return false;  
+		return mkdir(TCHAR_TO_ANSI(*NormalizeFilename(Directory)), S_IRWXG) || (errno == EEXIST);
 #endif 
 	}
 

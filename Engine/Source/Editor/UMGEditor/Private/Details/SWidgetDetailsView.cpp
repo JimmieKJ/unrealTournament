@@ -11,7 +11,7 @@
 #include "DetailWidgetExtensionHandler.h"
 #include "EditorClassUtils.h"
 
-#include "Customizations/DetailCustomizations.h"
+#include "Customizations/UMGDetailCustomizations.h"
 #include "Customizations/SlateBrushCustomization.h"
 #include "Customizations/SlateFontInfoCustomization.h"
 
@@ -38,7 +38,16 @@ void SWidgetDetailsView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetB
 	FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 
 	FNotifyHook* NotifyHook = this;
-	FDetailsViewArgs DetailsViewArgs( /*bUpdateFromSelection=*/ false, /*bLockable=*/ false, /*bAllowSearch=*/ true, FDetailsViewArgs::HideNameArea, /*bHideSelectionTip=*/ true, /*InNotifyHook=*/ NotifyHook, /*InSearchInitialKeyFocus=*/ false, /*InViewIdentifier=*/ NAME_None);
+	FDetailsViewArgs DetailsViewArgs(
+		/*bUpdateFromSelection=*/ false,
+		/*bLockable=*/ false,
+		/*bAllowSearch=*/ true,
+		FDetailsViewArgs::HideNameArea,
+		/*bHideSelectionTip=*/ true,
+		/*InNotifyHook=*/ NotifyHook,
+		/*InSearchInitialKeyFocus=*/ false,
+		/*InViewIdentifier=*/ NAME_None);
+	DetailsViewArgs.DefaultsOnlyVisibility = FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Automatic;
 
 	PropertyView = EditModule.CreateDetailView(DetailsViewArgs);
 
@@ -116,13 +125,11 @@ void SWidgetDetailsView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetB
 			.AutoWidth()
 			[
 				SNew(SCheckBox)
-				//.Style(FEditorStyle::Get(), "ToggleButtonCheckbox")
 				.IsChecked(this, &SWidgetDetailsView::GetIsVariable)
 				.OnCheckStateChanged(this, &SWidgetDetailsView::HandleIsVariableChanged)
 				.Padding(FMargin(3,1,3,1))
 				[
 					SNew(STextBlock)
-					//.Font(FEditorStyle::GetFontStyle("BoldFont"))
 					.Text(LOCTEXT("IsVariable", "Is Variable"))
 				]
 			]
@@ -202,9 +209,11 @@ void SWidgetDetailsView::OnEditorSelectionChanging()
 
 void SWidgetDetailsView::OnEditorSelectionChanged()
 {
+	// Clear selection in the property view.
 	SelectedObjects.Empty();
 	PropertyView->SetObjects(SelectedObjects);
 
+	// Add any selected widgets to the list of pending selected objects.
 	TSet< FWidgetReference > SelectedWidgets = BlueprintEditor.Pin()->GetSelectedWidgets();
 	if ( SelectedWidgets.Num() > 0 )
 	{
@@ -214,6 +223,7 @@ void SWidgetDetailsView::OnEditorSelectionChanged()
 		}
 	}
 
+	// Add any selected objects (non-widgets) to the pending selected objects.
 	TSet< TWeakObjectPtr<UObject> > Selection = BlueprintEditor.Pin()->GetSelectedObjects();
 	for ( TWeakObjectPtr<UObject> Selected : Selection )
 	{
@@ -223,6 +233,7 @@ void SWidgetDetailsView::OnEditorSelectionChanged()
 		}
 	}
 
+	// If only 1 valid selected object exists, update the class link to point to the right class.
 	if ( SelectedObjects.Num() == 1 && SelectedObjects[0].IsValid() )
 	{
 		ClassLinkArea->SetContent(FEditorClassUtils::GetSourceLink(SelectedObjects[0]->GetClass(), TWeakObjectPtr<UObject>()));
@@ -232,6 +243,12 @@ void SWidgetDetailsView::OnEditorSelectionChanged()
 		ClassLinkArea->SetContent(SNullWidget::NullWidget);
 	}
 
+	//if ( IsWidgetCDOSelected() )
+	//{
+	//	//PropertyView->Defau
+	//}
+
+	// Update the preview view to look at the current selection set.
 	const bool bForceRefresh = false;
 	PropertyView->SetObjects(SelectedObjects, bForceRefresh);
 }
@@ -252,32 +269,28 @@ void SWidgetDetailsView::ClearFocusIfOwned()
 	}
 }
 
-EVisibility SWidgetDetailsView::GetNameAreaVisibility() const
+bool SWidgetDetailsView::IsWidgetCDOSelected() const
 {
 	if ( SelectedObjects.Num() == 1 )
 	{
 		UWidget* Widget = Cast<UWidget>(SelectedObjects[0].Get());
 		if ( Widget && !Widget->HasAnyFlags(RF_ClassDefaultObject) )
 		{
-			return EVisibility::Visible;
+			return true;
 		}
 	}
-	
-	return EVisibility::Collapsed;
+
+	return false;
+}
+
+EVisibility SWidgetDetailsView::GetNameAreaVisibility() const
+{
+	return IsWidgetCDOSelected() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SWidgetDetailsView::GetCategoryAreaVisibility() const
 {
-	if ( SelectedObjects.Num() == 1 )
-	{
-		UUserWidget* Widget = Cast<UUserWidget>(SelectedObjects[0].Get());
-		if ( Widget && Widget->HasAnyFlags(RF_ClassDefaultObject) )
-		{
-			return EVisibility::Visible;
-		}
-	}
-
-	return EVisibility::Collapsed;
+	return IsWidgetCDOSelected() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 void SWidgetDetailsView::HandleCategoryTextCommitted(const FText& Text, ETextCommit::Type CommitType)
@@ -289,8 +302,12 @@ void SWidgetDetailsView::HandleCategoryTextCommitted(const FText& Text, ETextCom
 			UUserWidget* WidgetCDO = Widget->GetClass()->GetDefaultObject<UUserWidget>();
 			WidgetCDO->PaletteCategory = Text;
 
+			// Set the new category on the widget blueprint as well so that it's available when the blueprint isn't loaded.
+			UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
+			Blueprint->PaletteCategory = Text.ToString();
+
 			// Immediately force a rebuild so that all palettes update to show it in a new category.
-			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BlueprintEditor.Pin()->GetBlueprintObj());
+			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 		}
 	}
 }
@@ -362,44 +379,13 @@ bool SWidgetDetailsView::HandleVerifyNameTextChanged(const FText& InText, FText&
 {
 	if ( SelectedObjects.Num() == 1 )
 	{
-		FString NewName = InText.ToString();
-
-		if (NewName.IsEmpty())
-		{
-			OutErrorMessage = LOCTEXT("EmptyWidgetName", "Empty Widget Name");
-			return false;
-		}
-
 		UWidget* PreviewWidget = Cast<UWidget>(SelectedObjects[0].Get());
+		
+		TSharedRef<class FWidgetBlueprintEditor> BlueprintEditorRef = BlueprintEditor.Pin().ToSharedRef();
 
-		UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
-		UWidget* TemplateWidget = Blueprint->WidgetTree->FindWidget( FName(*NewName) );
+		FWidgetReference WidgetRef = BlueprintEditorRef->GetReferenceFromPreview(PreviewWidget);
 
-		bool bIsSameWidget = false;
-		if ( TemplateWidget != NULL )
-		{
-			if ( BlueprintEditor.Pin()->GetReferenceFromTemplate( TemplateWidget ).GetPreview() != PreviewWidget )
-			{
-				OutErrorMessage = LOCTEXT("ExistingWidgetName", "Existing Widget Name");
-				return false;
-			}
-			else
-			{
-				bIsSameWidget = true;
-			}
-		}
-
-		FKismetNameValidator Validator(Blueprint);
-
-		const bool bUniqueNameForVariable = ( EValidatorResult::Ok == Validator.IsValid(NewName) );
-
-		if ( !bUniqueNameForVariable && !bIsSameWidget )
-		{
-			OutErrorMessage = LOCTEXT("ExistingVariableName", "Existing Variable Name");
-			return false;
-		}
-
-		return true;
+		return FWidgetBlueprintEditorUtils::VerifyWidgetRename(BlueprintEditorRef, WidgetRef, InText, OutErrorMessage);
 	}
 	else
 	{

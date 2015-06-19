@@ -1,10 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "MeshBatch.h"
 #include "BlueprintGeneratedClass.generated.h"
 
+
 class UEdGraphPin;
+
 
 USTRUCT()
 struct FNodeToCodeAssociation
@@ -17,8 +20,8 @@ public:
 	int32 Offset;
 public:
 	FNodeToCodeAssociation()
-	: Node(NULL)
-	, Scope(NULL)
+	: Node(nullptr)
+	, Scope(nullptr)
 	, Offset(0)
 	{
 	}
@@ -30,6 +33,7 @@ public:
 	{
 	}
 };
+
 
 USTRUCT()
 struct FDebuggingInfoForSingleFunction
@@ -55,6 +59,7 @@ public:
 	}
 };
 
+
 USTRUCT()
 struct FPointerToUberGraphFrame
 {
@@ -64,7 +69,7 @@ public:
 	uint8* RawPointer;
 
 	FPointerToUberGraphFrame() 
-		: RawPointer(NULL)
+		: RawPointer(nullptr)
 	{}
 
 	~FPointerToUberGraphFrame()
@@ -72,6 +77,7 @@ public:
 		check(!RawPointer);
 	}
 };
+
 
 template<>
 struct TStructOpsTypeTraits<FPointerToUberGraphFrame> : public TStructOpsTypeTraitsBase
@@ -82,6 +88,7 @@ struct TStructOpsTypeTraits<FPointerToUberGraphFrame> : public TStructOpsTypeTra
 		WithCopy = false,
 	};
 };
+
 
 //////////////////////////////////////////////////////////////////////////
 // TSimpleRingBuffer
@@ -158,16 +165,6 @@ private:
 	int32 WriteIndex;
 };
 
-struct FStructUtils
-{
-private:
-	static bool ArePropertiesTheSame(const UProperty* A, const UProperty* B, bool bCheckPropertiesNames);
-
-public:
-	// does structures have exactly the same memory layout
-	ENGINE_API static bool TheSameLayout(const UStruct* StructA, const UStruct* StructB, bool bCheckPropertiesNames = false);
-};
-
 USTRUCT()
 struct ENGINE_API FBlueprintDebugData
 {
@@ -199,15 +196,8 @@ protected:
 	TMap<TWeakObjectPtr<UObject>, UProperty*> DebugPinToPropertyMap;
 
 public:
-	void Clear()
-	{
-		DebugNodeLineNumbers.Empty();
-		DebugNodeIndexLookup.Empty();
-		DebugNodesAllocatedUniqueIDsMap.Empty();
-		DebugPinToPropertyMap.Empty();
-	}
 
-	// Returns the UEdGraphNode associated with the UUID, or NULL if there isn't one.
+	// Returns the UEdGraphNode associated with the UUID, or nullptr if there isn't one.
 	UEdGraphNode* FindNodeFromUUID(int32 UUID) const
 	{
 		if (const TWeakObjectPtr<UEdGraphNode>* pParentNode = DebugNodesAllocatedUniqueIDsMap.Find(UUID))
@@ -215,7 +205,7 @@ public:
 			return pParentNode->Get();
 		}
 	
-		return NULL;
+		return nullptr;
 	}
 
 	bool IsValid() const
@@ -223,16 +213,16 @@ public:
 		return DebugNodeLineNumbers.Num() > 0;
 	}
 
-	// Finds the UEdGraphNode associated with the code location Function+CodeOffset, or NULL if there isn't one
+	// Finds the UEdGraphNode associated with the code location Function+CodeOffset, or nullptr if there isn't one
 	UEdGraphNode* FindSourceNodeFromCodeLocation(UFunction* Function, int32 CodeOffset, bool bAllowImpreciseHit) const
 	{
 		if (const FDebuggingInfoForSingleFunction* pFuncInfo = PerFunctionLineNumbers.Find(Function))
 		{
 			UEdGraphNode* Result = pFuncInfo->LineNumberToSourceNodeMap.FindRef(CodeOffset).Get();
 
-			if ((Result == NULL) && bAllowImpreciseHit)
+			if ((Result == nullptr) && bAllowImpreciseHit)
 			{
-				for (int32 TrialOffset = CodeOffset + 1; (Result == NULL) && (TrialOffset < Function->Script.Num()); ++TrialOffset)
+				for (int32 TrialOffset = CodeOffset + 1; (Result == nullptr) && (TrialOffset < Function->Script.Num()); ++TrialOffset)
 				{
 					Result = pFuncInfo->LineNumberToSourceNodeMap.FindRef(TrialOffset).Get();
 				}
@@ -241,10 +231,10 @@ public:
 			return Result;
 		}
 
-		return NULL;
+		return nullptr;
 	}
 
-	// Finds the macro source node associated with the code location Function+CodeOffset, or NULL if there isn't one
+	// Finds the macro source node associated with the code location Function+CodeOffset, or nullptr if there isn't one
 	UEdGraphNode* FindMacroSourceNodeFromCodeLocation(UFunction* Function, int32 CodeOffset) const
 	{
 		if (const FDebuggingInfoForSingleFunction* pFuncInfo = PerFunctionLineNumbers.Find(Function))
@@ -252,7 +242,7 @@ public:
 			return pFuncInfo->LineNumberToMacroSourceNodeMap.FindRef(CodeOffset).Get();
 		}
 
-		return NULL;
+		return nullptr;
 	}
 
 	// Finds the macro instance node(s) associated with the code location Function+CodeOffset. The returned set can be empty.
@@ -274,7 +264,7 @@ public:
 		}
 	}
 
-	// Finds the macro source node associated with the code location Function+CodeOffset, or NULL if there isn't one
+	// Finds the macro source node associated with the code location Function+CodeOffset, or nullptr if there isn't one
 	UEdGraphPin* FindExecPinFromCodeLocation(UFunction* Function, int32 CodeOffset) const
 	{
 		if (const FDebuggingInfoForSingleFunction* pFuncInfo = PerFunctionLineNumbers.Find(Function))
@@ -282,7 +272,7 @@ public:
 			return pFuncInfo->LineNumberToPinMap.FindRef(CodeOffset).Get();
 		}
 
-		return NULL;
+		return nullptr;
 	}
 
 	// Finds the breakpoint injection site(s) in bytecode if any were associated with the given node
@@ -304,7 +294,7 @@ public:
 	UProperty* FindClassPropertyForPin(const UEdGraphPin* Pin) const
 	{
 		UProperty* PropertyPtr = DebugPinToPropertyMap.FindRef(Pin);
-		if ((PropertyPtr == NULL) && (Pin->Direction == EGPD_Input) && (Pin->LinkedTo.Num() > 0))
+		if ((PropertyPtr == nullptr) && (Pin->Direction == EGPD_Input) && (Pin->LinkedTo.Num() > 0))
 		{
 			// Try checking the other side of the connection
 			PropertyPtr = DebugPinToPropertyMap.FindRef(Pin->LinkedTo[0]);
@@ -361,7 +351,7 @@ public:
 		DebugNodesAllocatedUniqueIDsMap.Add(UUID, TrueSourceNode);
 	}
 
-	// Returns the object that caused the specified property to be created (can return NULL if the association is unknown)
+	// Returns the object that caused the specified property to be created (can return nullptr if the association is unknown)
 	UObject* FindObjectThatCreatedProperty(class UProperty* AssociatedProperty) const
 	{
 		if (const TWeakObjectPtr<UObject>* pValue = DebugPinToPropertyMap.FindKey(AssociatedProperty))
@@ -370,7 +360,7 @@ public:
 		}
 		else
 		{
-			return NULL;
+			return nullptr;
 		}
 	}
 
@@ -384,28 +374,19 @@ public:
 			}
 		}
 	}
-
-	/**
-	 * Retrieves the most recently executed node (created to help pinpoint 
-	 * runtime errors).
-	 * 
-	 * @returns The most recently executed node (NULL if there is not one).
-	 */
-	UEdGraphNode* GetLastExecutedNode()
-	{
-		UEdGraphNode* LastExecutedNode = NULL;
-		if (IsValid())
-		{
-			TWeakObjectPtr<UEdGraphNode> NodePtr = DebugNodeLineNumbers.Top().Node;
-			if (NodePtr.IsValid())
-			{
-
-				LastExecutedNode = NodePtr.Get();
-			}
-		}
-		return LastExecutedNode;
-	}
 #endif
+};
+
+USTRUCT()
+struct ENGINE_API FEventGraphFastCallPair
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	UFunction* FunctionToPatch;
+
+	UPROPERTY()
+	int32 EventGraphCallOffset;
 };
 
 UCLASS()
@@ -444,6 +425,16 @@ public:
 	UPROPERTY()
 	UFunction* UberGraphFunction;
 
+	// This is a list of event graph call function nodes that are simple (no argument) thunks into the event graph (typically used for animation delegates, etc...)
+	// It is a deprecated list only used for backwards compatibility prior to VER_UE4_SERIALIZE_BLUEPRINT_EVENTGRAPH_FASTCALLS_IN_UFUNCTION.
+	UPROPERTY()
+	TArray<FEventGraphFastCallPair> FastCallPairs_DEPRECATED;
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(Transient)
+	UObject* OverridenArchetypeForCDO;
+#endif //WITH_EDITOR
+
 	/** 
 	 * Gets an array of all BPGeneratedClasses (including InClass as 0th element) parents of given generated class 
 	 *
@@ -471,6 +462,7 @@ public:
 #if WITH_EDITOR
 	virtual UClass* GetAuthoritativeClass() override;
 	virtual void ConditionalRecompileClass(TArray<UObject*>* ObjLoaded) override;
+	virtual UObject* GetArchetypeForCDO() const override;
 #endif //WITH_EDITOR
 	virtual bool IsFunctionImplementedInBlueprint(FName InFunctionName) const override;
 	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
@@ -488,8 +480,6 @@ public:
 	static FName GetUberGraphFrameName();
 	static bool UsePersistentUberGraphFrame();
 
-	static bool CompileSkeletonClassesInheritSkeletonClasses();
-
 #if WITH_EDITORONLY_DATA
 	FBlueprintDebugData DebugData;
 
@@ -503,6 +493,9 @@ public:
 	/** Bind functions on supplied actor to delegates */
 	void BindDynamicDelegates(UObject* InInstance) const;
 
+	/** Unbind functions on supplied actor from delegates tied to a specific property */
+	void UnbindDynamicDelegatesForProperty(UObject* InInstance, const UObjectProperty* InObjectProperty);
+	
 	// Finds the desired dynamic binding object for this blueprint generated class
 	UDynamicBlueprintBinding* GetDynamicBindingObject(UClass* Class) const;
 

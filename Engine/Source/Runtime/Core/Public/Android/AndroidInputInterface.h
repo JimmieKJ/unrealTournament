@@ -7,9 +7,9 @@
 #include "IInputInterface.h"
 #include "IForceFeedbackSystem.h"
 
-#if __ANDROID_API__ <= 18
+#if __ANDROID_API__ < 13
 
-// Joystick functions and constants only available API level 19 and above
+// Joystick functions and constants only available API level 13 and above
 // Definitions are provided to allow compiling against lower API levels, but
 // still using the features when available.
 
@@ -52,7 +52,7 @@ enum
 	AMOTION_EVENT_AXIS_GENERIC_9 = 40,
 	AMOTION_EVENT_AXIS_GENERIC_10 = 41,
 	AMOTION_EVENT_AXIS_GENERIC_11 = 42,
-	AMOTION_EVENT_AXIS_GENERIC_12 = 43,
+	AMOTION_EVENT_AXIS_GENERIC_12 = 43, 
 	AMOTION_EVENT_AXIS_GENERIC_13 = 44,
 	AMOTION_EVENT_AXIS_GENERIC_14 = 45,
 	AMOTION_EVENT_AXIS_GENERIC_15 = 46,
@@ -67,7 +67,7 @@ enum
 	AINPUT_SOURCE_GAMEPAD = 0x00000400 | AINPUT_SOURCE_CLASS_BUTTON,
 	AINPUT_SOURCE_JOYSTICK = 0x01000000 | AINPUT_SOURCE_CLASS_JOYSTICK,
 };
-#endif // __ANDROID_API__ <= 9
+#endif // __ANDROID_API__ < 13
 
 
 enum TouchType
@@ -86,7 +86,7 @@ struct TouchInput
 };
 
 #define MAX_NUM_CONTROLLERS					1  // Only one for now
-#define MAX_NUM_CONTROLLER_BUTTONS			17
+#define MAX_NUM_CONTROLLER_BUTTONS			20
 #define MAX_DEFERRED_MESSAGE_QUEUE_SIZE		128
 
 struct FAndroidControllerData

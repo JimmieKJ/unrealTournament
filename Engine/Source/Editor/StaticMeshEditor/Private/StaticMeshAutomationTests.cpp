@@ -156,7 +156,7 @@ namespace EditorViewButtonHelper
 /**
  * Static mesh editor test
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FStaticMeshEditorTest, "Editor.Content.Static Mesh Editor Test", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST( FStaticMeshEditorTest, "System.Editor.Content.Static Mesh Editor Test", EAutomationTestFlags::ATF_Editor )
 
 /**
  * Take screenshots of the SME window with each of the toolbar buttons toggled separately
@@ -180,17 +180,22 @@ bool FStaticMeshEditorTest::RunTest(const FString& Parameters)
 		LOAD_None,
 		NULL);
 	FAssetEditorManager::Get().OpenEditorForAsset(EditorMesh);
-	WindowParameters.CurrentWindow = FSlateApplication::Get().GetActiveTopLevelWindow();
 
-	//Check that we have the right window (Tutorial may have opened on top of the editor)
-	if( WindowParameters.CurrentWindow->GetTitle().ToString() != LoadedObjectType )
 	{
-		//Close the tutorial
-		WindowParameters.CurrentWindow->RequestDestroyWindow();
+		TArray<TSharedRef<SWindow>> AllWindows;
+		FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
 
-		//Bring the asset editor to the front
-		FAssetEditorManager::Get().FindEditorForAsset(EditorMesh,false);
-		WindowParameters.CurrentWindow = FSlateApplication::Get().GetActiveTopLevelWindow();
+		const FText ExpectedTitle = FText::FromString(LoadedObjectType);
+		if (auto* Window = AllWindows.FindByPredicate([&](const TSharedRef<SWindow>& In) { return In->GetTitle().EqualTo(ExpectedTitle); }))
+		{
+			WindowParameters.CurrentWindow = *Window;
+		}
+	}
+
+	if (!WindowParameters.CurrentWindow.IsValid())
+	{
+		AddError(TEXT("Could not find static mesh editor window"));
+		return false;
 	}
 
 	//Grab the last opened Viewport (aka the asset manager)

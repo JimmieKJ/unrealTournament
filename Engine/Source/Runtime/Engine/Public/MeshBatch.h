@@ -18,6 +18,8 @@ struct FMeshBatchElement
 	TUniformBufferRef<FPrimitiveUniformShaderParameters> PrimitiveUniformBuffer;
 
 	const FIndexBuffer* IndexBuffer;
+
+	/** Instance runs, where number of runs is specified by NumInstances.  Run structure is [StartInstanceIndex, EndInstanceIndex]. */
 	uint32* InstanceRuns;
 	const void* UserData;
 	/** 
@@ -27,6 +29,8 @@ struct FMeshBatchElement
 	const void* DynamicIndexData;
 	uint32 FirstIndex;
 	uint32 NumPrimitives;
+
+	/** Number of instances to draw.  If InstanceRuns is valid, this is actually the number of runs in InstanceRuns. */
 	uint32 NumInstances;
 	uint32 MinVertexIndex;
 	uint32 MaxVertexIndex;

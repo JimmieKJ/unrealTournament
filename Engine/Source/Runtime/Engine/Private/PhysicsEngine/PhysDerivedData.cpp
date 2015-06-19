@@ -43,12 +43,17 @@ void FDerivedDataPhysXCooker::InitCooker()
 #endif
 }
 
+DECLARE_CYCLE_STAT(TEXT("PhysX Cooking"), STAT_PhysXCooking, STATGROUP_Physics);
+
+
 bool FDerivedDataPhysXCooker::Build( TArray<uint8>& OutData )
 {
+	SCOPE_CYCLE_COUNTER(STAT_PhysXCooking);
+
 	check(Cooker != NULL);
 
 	FMemoryWriter Ar( OutData );
-	uint8 bLittleEndian = PLATFORM_LITTLE_ENDIAN;
+	uint8 bLittleEndian = PLATFORM_LITTLE_ENDIAN;	//TODO: We should pass the target platform into this function and write it. Then swap the endian on the writer so the reader doesn't have to do it at runtime
 	int32 NumConvexElementsCooked = 0;
 	int32 NumMirroredElementsCooked = 0;
 	uint8 bTriMeshCooked = false;
@@ -59,6 +64,8 @@ bool FDerivedDataPhysXCooker::Build( TArray<uint8>& OutData )
 	Ar << NumMirroredElementsCooked;
 	Ar << bTriMeshCooked;
 	Ar << bMirroredTriMeshCooked;
+
+	//TODO: we must save an id with convex and tri meshes for serialization. We must save this here and patch it up at runtime somehow
 
 	// Cook convex meshes, but only if we are not forcing complex collision to be used as simple collision as well
 	if( BodySetup && BodySetup->CollisionTraceFlag != CTF_UseComplexAsSimple && BodySetup->AggGeom.ConvexElems.Num() > 0 )
@@ -209,5 +216,44 @@ bool FDerivedDataPhysXCooker::BuildTriMesh( TArray<uint8>& OutData, bool bInMirr
 
 	return bResult;
 }
+
+FDerivedDataPhysXBinarySerializer::FDerivedDataPhysXBinarySerializer(FName InFormat, const TArray<FBodyInstance*>& InBodies, const TArray<class UBodySetup*>& InBodySetups, const TArray<class UPhysicalMaterial*>& InPhysicalMaterials, const FGuid& InGuid)
+: Bodies(InBodies)
+, BodySetups(InBodySetups)
+, PhysicalMaterials(InPhysicalMaterials)
+, Format(InFormat)
+, DataGuid(InGuid)
+{
+	InitSerializer();
+}
+
+bool FDerivedDataPhysXBinarySerializer::Build(TArray<uint8>& OutData)
+{
+	FMemoryWriter Ar(OutData);
+	
+	//do not serialize anything before the physx data. This is important because physx requires specific alignment. For that to work the physx data must come first in the archive
+	SerializeRigidActors(OutData);
+	
+	// Whatever got cached return true. We want to cache 'failure' too.
+	return true;
+}
+
+void FDerivedDataPhysXBinarySerializer::SerializeRigidActors(TArray<uint8>& OutData)
+{
+	Serializer->SerializeActors(Format, Bodies, BodySetups, PhysicalMaterials, OutData);
+}
+
+void FDerivedDataPhysXBinarySerializer::InitSerializer()
+{
+#if WITH_EDITOR
+	// static here as an optimization
+	static ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
+	if (TPM)
+	{
+		Serializer = TPM->FindPhysXFormat(Format);
+	}
+#endif
+}
+
 
 #endif	//WITH_PHYSX && WITH_EDITOR

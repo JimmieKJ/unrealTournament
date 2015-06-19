@@ -3,41 +3,28 @@
 #pragma once
 
 #include "ModuleDescriptor.h"
+#include "PluginDescriptor.h"
+
+/**
+ * Enum for where a plugin is loaded from
+ */
+enum class EPluginLoadedFrom
+{
+	/** Plugin is built-in to the engine */
+	Engine,
+
+	/** Project-specific plugin, stored within a game project directory */
+	GameProject
+};
 
 
 /**
  * Simple data structure that is filled when querying information about plug-ins.
  */
-class FPluginStatus
+struct FPluginStatus
 {
-public:
-
 	/** The name of this plug-in. */
 	FString Name;
-
-	/** Friendly name for the plug-in. */
-	FString FriendlyName;
-
-	/** Internal version number (not user displayed, but valid for comparisons). */
-	int32 Version;
-
-	/** Friendly version name. */
-	FString VersionName;
-
-	/** Description of the plug-in. */
-	FString Description;
-
-	/** Created by name. */
-	FString CreatedBy;
-
-	/** Created by URL string. */
-	FString CreatedByURL;
-
-	/** Category path (dot-separated list of categories). */
-	FString CategoryPath;
-
-	/** Documentation URL string. */
-	FString DocsURL;
 
 	/** Path to plug-in directory on disk. */
 	FString PluginDirectory;
@@ -45,41 +32,95 @@ public:
 	/** True if plug-in is currently enabled. */
 	bool bIsEnabled;
 
-	/** True if plug-in is enabled by default in all projects. */
-	bool bIsEnabledByDefault;
+	/** Where the plugin was loaded from */
+	EPluginLoadedFrom LoadedFrom;
 
-	/** True if the plug-in is a 'built-in' engine plug-in. */
-	bool bIsBuiltIn;
-
-	/** Full path to the 128x128 thumbnail icon file name (or an empty string if no icon is available). */
-	FString Icon128FilePath;
-
-	/** Marks the plug-in as beta in the UI. */
-	bool bIsBetaVersion;
-
-	/** Whether the plug-in has a content folder. */
-	bool bHasContentFolder;
-
-	/** List of all modules associated with this plugin */
-	TArray<FModuleDescriptor> Modules;
+	/** The plugin descriptor */
+	FPluginDescriptor Descriptor;
 };
 
 
 /**
- * Structure holding information about a plug-in content folder.
+ * Information about an enabled plugin.
  */
-struct FPluginContentFolder
+class IPlugin
 {
-	/** Name of the plug-in */
-	FString Name;
+public:
+	/* Virtual destructor */
+	virtual ~IPlugin(){}
 
-	/** Virtual root path for asset paths */
-	FString RootPath;
+	/**
+	 * Gets the plugin name.
+	 *
+	 * @return Name of the plugin.
+	 */
+	virtual FString GetName() const = 0;
 
-	/** Content path on disk */
-	FString ContentPath;
+	/**
+	 * Get a path to the plugin's descriptor
+	 *
+	 * @return Path to the plugin's descriptor.
+	 */
+	virtual FString GetDescriptorFileName() const = 0;
+
+	/**
+	 * Get a path to the plugin's directory.
+	 *
+	 * @return Path to the plugin's base directory.
+	 */
+	virtual FString GetBaseDir() const = 0;
+
+	/**
+	 * Get a path to the plugin's content directory.
+	 *
+	 * @return Path to the plugin's content directory.
+	 */
+	virtual FString GetContentDir() const = 0;
+
+	/**
+	 * Get the virtual root path for assets.
+	 *
+	 * @return The mounted root path for assets in this plugin's content folder; typically /PluginName/.
+	 */
+	virtual FString GetMountedAssetPath() const = 0;
+
+	/**
+	 * Determines if the plugin is enabled.
+	 *
+	 * @return True if the plugin is currently enabled.
+	 */
+	virtual bool IsEnabled() const = 0;
+
+	/**
+	 * Determines if the plugin can contain content.
+	 *
+	 * @return True if the plugin can contain content.
+	 */
+	virtual bool CanContainContent() const = 0;
+
+	/**
+	 * Returns the plugin's location
+	 *
+	 * @return Where the plugin was loaded from
+	 */
+	virtual EPluginLoadedFrom GetLoadedFrom() const = 0;
+
+	/**
+	 * Gets the plugin's descriptor
+	 *
+	 * @return Reference to the plugin's descriptor
+	 */
+	virtual const FPluginDescriptor& GetDescriptor() const = 0;
+
+	/**
+	 * Updates the plugin's descriptor
+	 *
+	 * @param NewDescriptor The new plugin descriptor
+	 * @param OutFailReason The error message if the plugin's descriptor could not be updated
+	 * @return True if the descriptor was updated, false otherwise. 
+	 */ 
+	virtual bool UpdateDescriptor(const FPluginDescriptor& NewDescriptor, FText& OutFailReason) = 0;
 };
-
 
 /**
  * PluginManager manages available code and content extensions (both loaded and not loaded).
@@ -87,6 +128,11 @@ struct FPluginContentFolder
 class IPluginManager
 {
 public:
+
+	/** 
+	 * Updates the list of plugins.
+	 */
+	virtual void RefreshPluginsList() = 0;
 
 	/**
 	 * Loads all plug-ins
@@ -123,18 +169,32 @@ public:
 	virtual bool CheckModuleCompatibility( TArray<FString>& OutIncompatibleModules ) = 0;
 
 	/**
+	 * Finds information for an enabled plugin.
+	 *
+	 * @return	 Pointer to the plugin's information, or nullptr.
+	 */
+	virtual TSharedPtr<IPlugin> FindPlugin(const FString& Name) = 0;
+
+	/**
+	 * Gets an array of all the enabled plugins.
+	 *
+	 * @return	Array of the enabled plugins.
+	 */
+	virtual TArray<TSharedRef<IPlugin>> GetEnabledPlugins() = 0;
+
+	/**
+	 * Gets an array of all the discovered plugins.
+	 *
+	 * @return	Array of the discovered plugins.
+	 */
+	virtual TArray<TSharedRef<IPlugin>> GetDiscoveredPlugins() = 0;
+
+	/**
 	 * Gets status about all currently known plug-ins.
 	 *
 	 * @return	 Array of plug-in status objects.
 	 */
 	virtual TArray<FPluginStatus> QueryStatusForAllPlugins() const = 0;
-
-	/**
-	 * Gets a list of plug-in content folders.
-	 *
-	 * @return	 Array of plug-in content folders.
-	 */
-	virtual const TArray<FPluginContentFolder>& GetPluginContentFolders() const = 0;
 
 public:
 

@@ -206,7 +206,7 @@ public:
 	/**
 	 * Pushes the rendering of the specified window to the specified render target
 	 */
-	virtual void SetWindowRenderTarget(const SWindow& Window, FTexture2DRHIParamRef RT) {}
+	virtual void SetWindowRenderTarget(const SWindow& Window, class IViewportRenderTargetProvider* Provider) {}
 
 	/**
 	 * Create an updatable texture that can receive new data dynamically

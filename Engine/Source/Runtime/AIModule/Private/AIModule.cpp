@@ -4,6 +4,7 @@
 #if WITH_EDITOR && ENABLE_VISUAL_LOG
 #	include "VisualLoggerExtension.h"
 #endif
+#include "AIModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAIModule, Log, All);
 
@@ -54,5 +55,5 @@ UAISystemBase* FAIModule::CreateAISystemInstance(UWorld* World)
 	UE_LOG(LogAIModule, Log, TEXT("Creating AISystem for world %s"), *GetNameSafe(World));
 	
 	TSubclassOf<UAISystemBase> AISystemClass = LoadClass<UAISystemBase>(NULL, *UAISystem::GetAISystemClassName().ToString(), NULL, LOAD_None, NULL);
-	return ConstructObject<UAISystemBase>(AISystemClass, World);
+	return NewObject<UAISystemBase>(World, AISystemClass);
 }

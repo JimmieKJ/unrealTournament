@@ -122,7 +122,7 @@ void FNavGraphSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>
 					{
 						// push line off start and end so that the line color doesn't cover up the poly point color (if enabled)
 						const FVector PathOffset = (Link.EndLocation - Link.StartLocation).GetSafeNormal() * (PolyPointSize * 0.5f);
-						PDI->DrawLine(Link.StartLocation + PolyPointOffset + PathOffset, Link.EndLocation + PolyPointOffset - PathOffset, Link.PathColor, 0, 5.0f);
+						PDI->DrawLine(Link.StartLocation + PolyPointOffset + PathOffset + FVector(0.0f, 0.0f, 25.0f), Link.EndLocation + PolyPointOffset - PathOffset, Link.PathColor, 0, 5.0f);
 					}
 				}
 				if (bDrawPolyEdges)

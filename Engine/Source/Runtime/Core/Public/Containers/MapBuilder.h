@@ -14,10 +14,8 @@ template<typename KeyType, typename ValueType, typename SetAllocator = FDefaultS
 {
 public:
 
-	/**
-	 * Default constructor.
-	 */
-	TMapBuilder( ) { }
+	/** Default constructor. */
+	TMapBuilder() { }
 
 	/**
 	 * Creates and initializes a new map builder from another map.
@@ -64,7 +62,7 @@ public:
 	 *
 	 * @return A new map.
 	 */
-	TMap<KeyType, ValueType, SetAllocator> Build( )
+	TMap<KeyType, ValueType, SetAllocator> Build()
 	{
 		return Map;
 	}
@@ -74,13 +72,13 @@ public:
 	 *
 	 * @return A new map.
 	 */
-	operator TMap<KeyType, ValueType, SetAllocator>( )
+	operator TMap<KeyType, ValueType, SetAllocator>()
 	{
 		return Build();
 	}
 
 private:
 
-	// Holds the map being built.
+	/** Holds the map being built. */
 	TMap<KeyType, ValueType, SetAllocator> Map;
 };

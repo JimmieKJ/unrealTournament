@@ -6,7 +6,7 @@
 #include "SourceControlHelpers.h"
 #include "Runtime/Core/Public/Features/IModularFeature.h"
 
-#define SOURCE_CONTROL_WITH_SLATE			!PLATFORM_LINUX
+#define SOURCE_CONTROL_WITH_SLATE			(!(PLATFORM_LINUX && IS_PROGRAM))
 
 /**
  * Hint for how to execute the operation. Note that asynchronous operations require
@@ -158,6 +158,11 @@ public:
 	{
 		return GetState(SourceControlHelpers::PackageFilename(InPackage), InStateCacheUsage);
 	}
+
+	/**
+	 * Get all cached source control state objects for which the supplied predicate returns true
+	 */
+	virtual TArray<FSourceControlStateRef> GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const = 0;
 
 	/**
 	 * Register a delegate to be called when source control state(s) change

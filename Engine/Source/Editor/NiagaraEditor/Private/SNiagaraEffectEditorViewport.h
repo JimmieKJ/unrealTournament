@@ -21,7 +21,8 @@ public:
 	
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 	
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+
 	void RefreshViewport();
 	
 	void SetPreviewEffect(FNiagaraEffectInstance* InEffect);
@@ -60,7 +61,7 @@ private:
 	TWeakPtr<SDockTab> ParentTab;
 	
 	
-	bool IsVisible() const;
+	bool IsVisible() const override;
 	
 	/** Pointer back to the material editor tool that owns us */
 	//TWeakPtr<INiagaraEffectEditor> EffectEditorPtr;

@@ -11,6 +11,7 @@
 #include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_WeaponBar.h"
+#include "UTHUDWidget_SpectatorSlideOut.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
 #include "Json.h"
@@ -270,7 +271,7 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 {
 	if (NewWidgetClass == NULL) return NULL;
 
-	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass,GetTransientPackage());
+	UUTHUDWidget* Widget = NewObject<UUTHUDWidget>(GetTransientPackage(), NewWidgetClass);
 	HudWidgets.Add(Widget);
 
 	// If this widget is a messaging widget, then track it
@@ -290,6 +291,15 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	{
 		SpectatorMessageWidget = Cast<UUTHUDWidget_Spectator>(Widget);
 	}
+	if (Cast<UUTHUDWidget_ReplayTimeSlider>(Widget))
+	{
+		ReplayTimeSliderWidget = Cast<UUTHUDWidget_ReplayTimeSlider>(Widget);
+	}
+	if (Cast<UUTHUDWidget_SpectatorSlideOut>(Widget))
+	{
+		SpectatorSlideOutWidget = Cast<UUTHUDWidget_SpectatorSlideOut>(Widget);
+	}
+
 	return Widget;
 }
 
@@ -500,7 +510,7 @@ void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, floa
 	DrawString(FText::AsNumber(Number, &Opts), X, Y, bRightAlign ? ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
 }
 
-void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire)
+void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire)
 {
 	// Calculate the rotation 	
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
@@ -573,10 +583,6 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 	{
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
 	}
-	else
-	{
-		// TODO: team damage - draw "don't do that!" indicator? but need to make sure enemy hitconfirms have priority
-	}
 }
 
 FLinearColor AUTHUD::GetBaseHUDColor()
@@ -627,16 +633,13 @@ void AUTHUD::CalcStanding()
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
-
 		// Build the leaderboard.
 		for (int32 i=0;i<GameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
-			if (PS != NULL && !PS->bIsSpectator)
+			if (PS != NULL && !PS->bIsSpectator && !PS->bOnlySpectator)
 			{
-
 				// Sort in to the leaderboard
-
 				int32 Index = -1;
 				for (int32 j=0;j<Leaderboard.Num();j++)
 				{
@@ -661,7 +664,6 @@ void AUTHUD::CalcStanding()
 		NumActualPlayers = Leaderboard.Num();
 
 		// Find my index in it.
-
 		CurrentPlayerStanding = 1;
 		int32 MyIndex = Leaderboard.Find(MyPS);
 		if (MyIndex >= 0)
@@ -690,7 +692,6 @@ void AUTHUD::CalcStanding()
 			Leaderboard.Remove(MyPS);
 			Leaderboard.Insert(MyPS,0);
 		}
-
 	}
 }
 

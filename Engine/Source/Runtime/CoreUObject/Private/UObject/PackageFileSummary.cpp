@@ -10,7 +10,22 @@ FPackageFileSummary::FPackageFileSummary()
 
 FArchive& operator<<( FArchive& Ar, FPackageFileSummary& Sum )
 {
-	Ar << Sum.Tag;
+	bool bCanStartSerializing = true;
+	int64 ArchiveSize = 0;
+	if (Ar.IsLoading())
+	{
+		// Sanity checks before we even start serializing the archive
+		ArchiveSize = Ar.TotalSize();
+		const int64 MinimumPackageSize = 32; // That should get us safely to Sum.TotalHeaderSize
+		bCanStartSerializing = ArchiveSize >= MinimumPackageSize;
+		UE_CLOG(!bCanStartSerializing, LogLinker, Warning,
+			TEXT("Failed to read package file summary, the file \"%s\" is too small (%lld bytes, expected at least %lld bytes)"),
+			*Ar.GetArchiveName(), ArchiveSize, MinimumPackageSize);
+	}
+	if (bCanStartSerializing)
+	{
+		Ar << Sum.Tag;
+	}
 	// only keep loading if we match the magic
 	if( Sum.Tag == PACKAGE_FILE_TAG || Sum.Tag == PACKAGE_FILE_TAG_SWAPPED )
 	{
@@ -105,6 +120,15 @@ FArchive& operator<<( FArchive& Ar, FPackageFileSummary& Sum )
 		Ar << Sum.TotalHeaderSize;
 		Ar << Sum.FolderName;
 		Ar << Sum.PackageFlags;
+
+#if WITH_EDITOR
+		if (Ar.IsLoading())
+		{
+			// This flag should never be saved and its reused, so we need to make sure it hasn't been loaded.
+			Sum.PackageFlags &= ~PKG_NewlyCreated;
+		}
+#endif // WITH_EDITOR
+
 		if( Sum.PackageFlags & PKG_FilterEditorOnly )
 		{
 			Ar.SetFilterEditorOnly(true);
@@ -147,7 +171,7 @@ FArchive& operator<<( FArchive& Ar, FPackageFileSummary& Sum )
 			}
 			else
 			{
-				Ar << Sum.EngineVersion;
+				Ar << Sum.SavedByEngineVersion;
 			}
 		}
 		else
@@ -157,7 +181,27 @@ FArchive& operator<<( FArchive& Ar, FPackageFileSummary& Sum )
 
 			if(Ar.IsLoading() && EngineChangelist != 0)
 			{
-				Sum.EngineVersion.Set(4, 0, 0, EngineChangelist, TEXT(""));
+				Sum.SavedByEngineVersion.Set(4, 0, 0, EngineChangelist, TEXT(""));
+			}
+		}
+
+		if (Sum.GetFileVersionUE4() >= VER_UE4_PACKAGE_SUMMARY_HAS_COMPATIBLE_ENGINE_VERSION )
+		{
+			if(Ar.IsCooking() || (Ar.IsSaving() && !GEngineVersion.IsPromotedBuild()))
+			{
+				FEngineVersion EmptyEngineVersion;
+				Ar << EmptyEngineVersion;
+			}
+			else
+			{
+				Ar << Sum.CompatibleWithEngineVersion;
+			}
+		}
+		else
+		{
+			if (Ar.IsLoading())
+			{
+				Sum.CompatibleWithEngineVersion = Sum.SavedByEngineVersion;
 			}
 		}
 

@@ -73,7 +73,7 @@ namespace SourceControlHelpers
 	SOURCECONTROL_API extern void RevertUnchangedFiles( ISourceControlProvider& InProvider, const TArray<FString>& InFiles );
 
 	/**
-	 * Helper function to annotate a file
+	 * Helper function to annotate a file using a label
 	 * @param	InProvider	The provider to use
 	 * @param	InLabel		The label to use to retrieve the file
 	 * @param	InFile		The file to annotate
@@ -81,6 +81,16 @@ namespace SourceControlHelpers
 	 * @returns true if successful
 	 */
 	SOURCECONTROL_API extern bool AnnotateFile( ISourceControlProvider& InProvider, const FString& InLabel, const FString& InFile, TArray<FAnnotationLine>& OutLines );
+
+	/**
+	 * Helper function to annotate a file using a changelist/checkin identifier
+	 * @param	InProvider				The provider to use
+	 * @param	InCheckInIdentifier		The changelist/check identifier to use to retrieve the file
+	 * @param	InFile					The file to annotate
+	 * @param	OutLines				Output array of annotated lines
+	 * @returns true if successful
+	 */
+	SOURCECONTROL_API extern bool AnnotateFile( ISourceControlProvider& InProvider, int32 InCheckInIdentifier, const FString& InFile, TArray<FAnnotationLine>& OutLines );
 
 	/**
 	 * Helper function to check out a file

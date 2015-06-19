@@ -85,12 +85,15 @@ void FReloadObjectArc::SerializeObject( UObject* Obj )
 			// set this to prevent recursion in serialization
 			if ( IsLoading() )
 			{
-				// InitProperties will call CopyCompleteValue for any instanced object properties, so disable object instancing
-				// because we probably already have an object that will be copied over that value; for any instanced object properties which
-				// did not have a value when we were saving object data, we'll call InstanceSubobjects to instance those.  Also disable component
-				// instancing as this object may not have the correct values for its component properties until its serialized, which result in
-				// possibly creating lots of unnecessary components that will be thrown away anyway
-				InstanceGraph->EnableSubobjectInstancing(false);
+				if (InstanceGraph != NULL)
+				{
+					// InitProperties will call CopyCompleteValue for any instanced object properties, so disable object instancing
+					// because we probably already have an object that will be copied over that value; for any instanced object properties which
+					// did not have a value when we were saving object data, we'll call InstanceSubobjects to instance those.  Also disable component
+					// instancing as this object may not have the correct values for its component properties until its serialized, which result in
+					// possibly creating lots of unnecessary components that will be thrown away anyway
+					InstanceGraph->EnableSubobjectInstancing(false);
+				}
 				if ( Obj->GetClass() != UPackage::StaticClass() )
 				{
 					Obj->ReinitializeProperties(NULL, InstanceGraph);

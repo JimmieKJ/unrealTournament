@@ -10,7 +10,8 @@
 UCLASS(BlueprintType, hidecategories=Object, MinimalAPI)
 class UButtonWidgetStyle : public USlateWidgetStyleContainerBase
 {
-	GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
 
 public:
 	/** The actual data describing the button's appearance. */

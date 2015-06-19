@@ -11,19 +11,30 @@ UBlackboardKeyType_Enum::UBlackboardKeyType_Enum(const FObjectInitializer& Objec
 	SupportedOp = EBlackboardKeyOperation::Arithmetic;
 }
 
-uint8 UBlackboardKeyType_Enum::GetValue(const uint8* RawData)
+uint8 UBlackboardKeyType_Enum::GetValue(const UBlackboardKeyType_Enum* KeyOb, const uint8* RawData)
 {
 	return GetValueFromMemory<uint8>(RawData);
 }
 
-bool UBlackboardKeyType_Enum::SetValue(uint8* RawData, uint8 Value)
+bool UBlackboardKeyType_Enum::SetValue(UBlackboardKeyType_Enum* KeyOb, uint8* RawData, uint8 Value)
 {
 	return SetValueInMemory<uint8>(RawData, Value);
 }
 
-FString UBlackboardKeyType_Enum::DescribeValue(const uint8* RawData) const
+EBlackboardCompare::Type UBlackboardKeyType_Enum::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return EnumType ? EnumType->GetEnumText(GetValue(RawData)).ToString() : FString("UNKNOWN!");
+	const uint8 MyValue = GetValue(this, MemoryBlock);
+	const uint8 OtherValue = GetValue((UBlackboardKeyType_Enum*)OtherKeyOb, OtherMemoryBlock);
+
+	return (MyValue > OtherValue) ? EBlackboardCompare::Greater :
+		(MyValue < OtherValue) ? EBlackboardCompare::Less :
+		EBlackboardCompare::Equal;
+}
+
+FString UBlackboardKeyType_Enum::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
+{
+	return EnumType ? EnumType->GetEnumText(GetValue(this, RawData)).ToString() : FString("UNKNOWN!");
 }
 
 FString UBlackboardKeyType_Enum::DescribeSelf() const
@@ -37,15 +48,9 @@ bool UBlackboardKeyType_Enum::IsAllowedByFilter(UBlackboardKeyType* FilterOb) co
 	return (FilterEnum && FilterEnum->EnumType == EnumType);
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Enum::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+bool UBlackboardKeyType_Enum::TestArithmeticOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const
 {
-	const int8 Diff = GetValueFromMemory<uint8>(MemoryBlockA) - GetValueFromMemory<uint8>(MemoryBlockB);
-	return Diff > 0 ? EBlackboardCompare::Greater : (Diff < 0 ? EBlackboardCompare::Less : EBlackboardCompare::Equal);
-}
-
-bool UBlackboardKeyType_Enum::TestArithmeticOperation(const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const
-{
-	const uint8 Value = GetValue(MemoryBlock);
+	const uint8 Value = GetValue(this, MemoryBlock);
 	switch (Op)
 	{
 	case EArithmeticKeyOperation::Equal:			return (Value == OtherIntValue);
@@ -64,3 +69,18 @@ FString UBlackboardKeyType_Enum::DescribeArithmeticParam(int32 IntValue, float F
 {
 	return EnumType ? EnumType->GetEnumText(IntValue).ToString() : FString("UNKNOWN!");
 }
+
+#if WITH_EDITOR
+void UBlackboardKeyType_Enum::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property &&
+		PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UBlackboardKeyType_Enum, EnumName))
+	{
+		EnumType = FindObject<UEnum>(ANY_PACKAGE, *EnumName, true);
+	}
+
+	bIsEnumNameValid = EnumType && !EnumName.IsEmpty();
+}
+#endif

@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -326,15 +309,6 @@ class PxControllerFilters
 */
 class PxControllerDesc
 {
-protected:
-
-	PxControllerShapeType::Enum type;		//!< The type of the controller. This gets set by the derived class' ctor, the user should not have to change it.
-
-	/**
-	\brief constructor sets to default.
-	*/
-	PX_INLINE										PxControllerDesc(PxControllerShapeType::Enum);
-	PX_INLINE virtual								~PxControllerDesc();
 public:
 	//*********************************************************************
 	// DEPRECATED MEMBERS:
@@ -370,7 +344,7 @@ public:
 
 	@see PxControllerType PxCapsuleControllerDesc PxBoxControllerDesc
 	*/
-	PX_INLINE			PxControllerShapeType::Enum		getType()		const	{ return type;		}
+	PX_INLINE			PxControllerShapeType::Enum		getType()		const	{ return mType;		}
 
 	/**
 	\brief The position of the character
@@ -481,7 +455,7 @@ public:
 	PxF32						density;
 
 	/**
-	\brief Scale coeff for underlying kinematic actor
+	\brief Scale coefficient for underlying kinematic actor
 
 	The CCT creates a PhysX's kinematic actor under the hood. This controls its scale factor.
 	This should be a number a bit smaller than 1.0.
@@ -555,9 +529,30 @@ public:
 	<b>Default:</b> NULL
 	*/
 	void*						userData;
+
+protected:
+	const PxControllerShapeType::Enum mType;		//!< The type of the controller. This gets set by the derived class' ctor, the user should not have to change it.
+
+	/**
+	\brief constructor sets to default.
+	*/
+	PX_INLINE										PxControllerDesc(PxControllerShapeType::Enum);
+	PX_INLINE virtual								~PxControllerDesc();
+
+	/**
+	\brief copy constructor.
+	*/
+	PX_INLINE										PxControllerDesc(const PxControllerDesc&);
+
+	/**
+	\brief assignment operator.
+	*/
+	PX_INLINE PxControllerDesc&						operator=(const PxControllerDesc&);
+
+	PX_INLINE void									copy(const PxControllerDesc&);
 };
 
-PX_INLINE PxControllerDesc::PxControllerDesc(PxControllerShapeType::Enum t) : type(t)
+PX_INLINE PxControllerDesc::PxControllerDesc(PxControllerShapeType::Enum t) : mType(t)
 {
 	upDirection			= PxVec3(0.0f, 1.0f, 0.0f);
 	slopeLimit			= 0.707f;
@@ -579,14 +574,47 @@ PX_INLINE PxControllerDesc::PxControllerDesc(PxControllerShapeType::Enum t) : ty
 	maxJumpHeight		= 0.0f;
 }
 
+PX_INLINE PxControllerDesc::PxControllerDesc(const PxControllerDesc& other) : mType(other.mType)
+{
+	copy(other);
+}
+
+PX_INLINE PxControllerDesc& PxControllerDesc::operator=(const PxControllerDesc& other)
+{
+	copy(other);
+	return *this;
+}
+
+PX_INLINE void PxControllerDesc::copy(const PxControllerDesc& other)
+{
+	upDirection			= other.upDirection;
+	slopeLimit			= other.slopeLimit;
+	contactOffset		= other.contactOffset;
+	stepOffset			= other.stepOffset;
+	density				= other.density;
+	scaleCoeff			= other.scaleCoeff;
+	volumeGrowth		= other.volumeGrowth;
+	reportCallback		= other.reportCallback;
+	callback			= other.callback;
+	behaviorCallback	= other.behaviorCallback;
+	userData			= other.userData;
+	nonWalkableMode		= other.nonWalkableMode;
+	position.x			= other.position.x;
+	position.y			= other.position.y;
+	position.z			= other.position.z;
+	material			= other.material;
+	invisibleWallHeight	= other.invisibleWallHeight;
+	maxJumpHeight		= other.maxJumpHeight;
+}
+
 PX_INLINE PxControllerDesc::~PxControllerDesc()
 {
 }
 
 PX_INLINE bool PxControllerDesc::isValid() const
 {
-	if(		type!=PxControllerShapeType::eBOX
-		&&	type!=PxControllerShapeType::eCAPSULE)
+	if(		mType!=PxControllerShapeType::eBOX
+		&&	mType!=PxControllerShapeType::eCAPSULE)
 		return false;
 	if(scaleCoeff<0.0f)		return false;
 	if(volumeGrowth<1.0f)	return false;
@@ -612,10 +640,6 @@ PX_INLINE bool PxControllerDesc::isValid() const
 */
 class PxController
 {
-protected:
-	PX_INLINE							PxController()					{}
-	virtual								~PxController()					{}
-
 public:
 	//*********************************************************************
 	// DEPRECATED FUNCTIONS:
@@ -891,6 +915,10 @@ public:
 	\param[in] height Desired controller's height
 	*/
 	virtual		void					resize(PxReal height)	= 0;
+
+protected:
+	PX_INLINE							PxController()					{}
+	virtual								~PxController()					{}
 };
 
 #ifndef PX_DOXYGEN

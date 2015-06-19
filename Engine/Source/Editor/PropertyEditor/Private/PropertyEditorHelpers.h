@@ -25,6 +25,7 @@ namespace EPropertyButton
 		Clear,
 		Use,
 		NewBlueprint,
+		EditConfigHierarchy,
 	};
 }
 

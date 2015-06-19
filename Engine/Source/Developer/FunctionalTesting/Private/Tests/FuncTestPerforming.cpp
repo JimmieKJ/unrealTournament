@@ -6,7 +6,9 @@
 #include "Editor/EditorEngine.h"
 #include "EngineUtils.h"
 #include "Editor/UnrealEd/Classes/Editor/EditorEngine.h"
+#include "Editor/UnrealEd/Public/Editor.h"
 #include "Editor/UnrealEd/Public/FileHelpers.h"
+#include "AssetRegistryModule.h"
 
 extern UNREALED_API class UEditorEngine* GEditor;
 #endif // WITH_EDITOR
@@ -106,7 +108,7 @@ bool FStartFTestsOnMap::Update()
  */
 
 // create test base class
-IMPLEMENT_COMPLEX_AUTOMATION_TEST_PRIVATE(FFunctionalTestingMapsBase, "Maps.Functional Testing", (EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_Editor))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST_PRIVATE(FFunctionalTestingMapsBase, "Project.Maps.Functional Testing", (EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_Editor))
 // implement specific class with non-standard overrides
 class FFunctionalTestingMaps : public FFunctionalTestingMapsBase
 {
@@ -139,41 +141,72 @@ namespace
  */
 void FFunctionalTestingMapsBase::GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const
 {
-	TArray<FString> FileList;
-#if WITH_EDITOR
-	FEditorFileUtils::FindAllPackageFiles(FileList);
-#else
-	// Look directly on disk. Very slow!
-	{
-		TArray<FString> RootContentPaths;
-		FPackageName::QueryRootContentPaths( RootContentPaths );
-		for( TArray<FString>::TConstIterator RootPathIt( RootContentPaths ); RootPathIt; ++RootPathIt )
-		{
-			const FString& RootPath = *RootPathIt;
-			const FString& ContentFolder = FPackageName::LongPackageNameToFilename( RootPath );
-			FileList.Add( ContentFolder );
-		}
-	}
-#endif
+	//Setting the Asset Registry
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
-	// Iterate over all files, adding the ones with the map extension..
-	for( int32 FileIndex = 0; FileIndex< FileList.Num(); FileIndex++ )
-	{
-		const FString& Filename = FileList[FileIndex];
+	//Variable setups
+	TArray<FAssetData> ObjectList;
+	FARFilter AssetFilter;
 
-		const FString BaseFilename = FPaths::GetBaseFilename(Filename);
-		// Disregard filenames that don't have the map extension if we're in MAPSONLY mode.
-		if ( FPaths::GetExtension(Filename, true) == FPackageName::GetMapPackageExtension() 
-			&& BaseFilename.Find(TEXT("FTEST_")) == 0) 
+	//Generating the list of assets.
+	//This list is being filtered by the game folder and class type.  The results are placed into the ObjectList variable.
+	AssetFilter.ClassNames.Add(UWorld::StaticClass()->GetFName());
+
+	//removed path as a filter as it causes two large lists to be sorted.  Filtering on "game" directory on iteration
+	//AssetFilter.PackagePaths.Add("/Game");
+	AssetFilter.bRecursiveClasses = false;
+	AssetFilter.bRecursivePaths = true;
+	AssetRegistryModule.Get().GetAssets(AssetFilter, ObjectList);
+
+	//Loop through the list of assets, make their path full and a string, then add them to the test.
+	for (auto ObjIter = ObjectList.CreateConstIterator(); ObjIter; ++ObjIter)
+	{
+		const FAssetData& Asset = *ObjIter;
+		FString Filename = Asset.ObjectPath.ToString();
+
+		if (Filename.StartsWith("/Game"))
 		{
-			if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+			//convert to full paths
+			Filename = FPackageName::LongPackageNameToFilename(Filename);
+
+			const FString BaseFilename = FPaths::GetBaseFilename(Filename);
+			// Disregard filenames that don't have the map extension if we're in MAPSONLY mode.
+			if (BaseFilename.Find(TEXT("FTEST_")) == 0)
 			{
-				OutBeautifiedNames.Add(BaseFilename);
-				OutTestCommands.Add(Filename);
+				if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+				{
+					OutBeautifiedNames.Add(BaseFilename);
+					OutTestCommands.Add(Filename);
+				}
 			}
 		}
 	}
 }
+
+#if WITH_EDITOR
+struct FFailedGameStartHandler
+{
+	bool bCanProceed;
+
+	FFailedGameStartHandler()
+	{
+		bCanProceed = true;
+		FEditorDelegates::EndPIE.AddRaw(this, &FFailedGameStartHandler::OnEndPIE);
+	}
+
+	~FFailedGameStartHandler()
+	{
+		FEditorDelegates::EndPIE.RemoveAll(this);
+	}
+
+	bool CanProceed() const { return bCanProceed; }
+
+	void OnEndPIE(const bool bInSimulateInEditor)
+	{
+		bCanProceed = false;
+	}
+};
+#endif // WITH_EDITOR
 
 /** 
  * Execute the loading of each map and performance captures
@@ -190,6 +223,8 @@ bool FFunctionalTestingMapsBase::RunTest(const FString& Parameters)
 	SetSuppressLogs(true);
 	ExecutionInfo.Clear();
 	UFunctionalTestingManager::SetAutomationExecutionInfo(&ExecutionInfo);
+	
+	bool bCanProceed = true;
 
 #if WITH_EDITOR
 	if (GIsEditor)
@@ -197,7 +232,12 @@ bool FFunctionalTestingMapsBase::RunTest(const FString& Parameters)
 		bool bLoadAsTemplate = false;
 		bool bShowProgress = false;
 		FEditorFileUtils::LoadMap(MapName, bLoadAsTemplate, bShowProgress);
+
+		// special precaution needs to be taken while triggering PIE since it can
+		// fail if there are BP compilation issues
+		FFailedGameStartHandler FailHandler;
 		EditorEngine->PlayInEditor(GWorld, /*bInSimulateInEditor=*/false);
+		bCanProceed = FailHandler.CanProceed();
 	}
 	else
 #endif // WITH_EDITOR
@@ -207,9 +247,16 @@ bool FFunctionalTestingMapsBase::RunTest(const FString& Parameters)
 
 		GEngine->Exec(GEngine->GetWorldContexts()[0].World(), *FString::Printf(TEXT("Open %s"), *MapName));
 	}
-	ADD_LATENT_AUTOMATION_COMMAND(FStartFTestsOnMap());
 
-	return true;
+	if (bCanProceed)
+	{
+		ADD_LATENT_AUTOMATION_COMMAND(FStartFTestsOnMap());
+		return true;
+	}
+
+	SetSuppressLogs(false);
+	UE_LOG(LogFunctionalTesting, Error, TEXT("Failed to start the %s map (possibly due to BP compilation issues)"), *MapName);
+	return false;
 }
 
 #undef LOCTEXT_NAMESPACE

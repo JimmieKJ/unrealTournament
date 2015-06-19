@@ -2,6 +2,7 @@
 
 #include "AIModulePrivate.h"
 #include "Actions/PawnActionsComponent.h"
+#include "Actions/PawnAction_Sequence.h"
 
 //----------------------------------------------------------------------//
 // helpers
@@ -161,6 +162,22 @@ UPawnActionsComponent::UPawnActionsComponent(const FObjectInitializer& ObjectIni
 	ActionStacks.AddZeroed(EAIRequestPriority::MAX);
 }
 
+void UPawnActionsComponent::OnUnregister()
+{
+	Super::OnUnregister();
+
+	// call for every regular priority 
+	for (int32 PriorityIndex = 0; PriorityIndex < EAIRequestPriority::MAX; ++PriorityIndex)
+	{
+		UPawnAction* Action = ActionStacks[PriorityIndex].GetTop();
+		while (Action)
+		{
+			Action->Abort(EAIForceParam::Force);
+			Action = Action->ParentAction;
+		}
+	}
+}
+
 void UPawnActionsComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -190,8 +207,13 @@ void UPawnActionsComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 			switch (Event.EventType)
 			{
 			case EPawnActionEventType::InstantAbort:
-				Event.Action->Abort(EAIForceParam::Force);
-				ActionStacks[Event.Priority].PopAction(*Event.Action);
+				// can result in adding new ActionEvents (from child actions) and reallocating data in ActionEvents array
+				// because of it, we need to operate on copy instead of reference to memory address
+				{
+					FPawnActionEvent EventCopy(Event);
+					EventCopy.Action->Abort(EAIForceParam::Force);
+					ActionStacks[EventCopy.Priority].PopAction(*EventCopy.Action);
+				}
 				break;
 			case EPawnActionEventType::FinishedAborting:
 			case EPawnActionEventType::FinishedExecution:
@@ -221,6 +243,42 @@ void UPawnActionsComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 	{
 		SetComponentTickEnabled(false);
 	}
+}
+
+bool UPawnActionsComponent::HasActiveActionOfType(EAIRequestPriority::Type Priority, TSubclassOf<UPawnAction> PawnActionClass) const
+{
+	TArray<UPawnAction*> ActionsToTest;
+	ActionsToTest.Add(GetActiveAction(Priority));
+
+	while (ActionsToTest.Num() > 0)
+	{
+		UPawnAction* ActiveActionIter = ActionsToTest[0];
+
+		if (ActiveActionIter)
+		{
+			if (ActiveActionIter->GetClass()->IsChildOf(*PawnActionClass))
+			{
+				return true;
+			}	
+			else
+			{
+				UPawnAction_Sequence* PawnActionSequence = Cast<UPawnAction_Sequence>(ActiveActionIter);
+
+				if (PawnActionSequence)
+				{
+					for (int32 PawnActionSequenceCount = 0; PawnActionSequenceCount < PawnActionSequence->ActionSequence.Num(); ++PawnActionSequenceCount)
+					{
+						ActionsToTest.Add(PawnActionSequence->ActionSequence[PawnActionSequenceCount]);
+					}
+				}
+			}
+		}
+
+		ActionsToTest.RemoveAt(0);
+	}
+
+	// Didn't find one.
+	return false;
 }
 
 void UPawnActionsComponent::UpdateCurrentAction()
@@ -272,6 +330,11 @@ void UPawnActionsComponent::UpdateCurrentAction()
 		if (CurrentAction == NULL)
 		{
 			UpdateAILogicLock();
+		}
+		else if (CurrentAction->IsFinished())
+		{
+			UE_VLOG(ControlledPawn, LogPawnAction, Warning, TEXT("Re-running same action"));
+			CurrentAction->Activate();
 		}
 		else
 		{ 
@@ -402,7 +465,7 @@ bool UPawnActionsComponent::K2_PushAction(UPawnAction* NewAction, EAIRequestPrio
 
 bool UPawnActionsComponent::PushAction(UPawnAction& NewAction, EAIRequestPriority::Type Priority, UObject* Instigator)
 {
-	if (NewAction.HasBeenStarted() == false)
+	if (NewAction.HasBeenStarted() == false || NewAction.IsFinished() == true)
 	{
 		NewAction.ExecutionPriority = Priority;
 		NewAction.SetOwnerComponent(this);

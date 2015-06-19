@@ -26,9 +26,6 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	/** Enable function editing */
-	void BeginEditing();
-
 	/** Refresh the toolbar */
 	void Refresh();
 
@@ -38,9 +35,6 @@ protected:
 
 	/** Edited graph */
 	UEdGraph* EdGraphObj;
-
-	/** If we are editing the function */
-	bool bEditingFunction;
 
 	/** Pointer to the function editor widget */
 	TWeakPtr<class SFunctionEditor>	FuncEditorPtr;

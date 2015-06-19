@@ -31,8 +31,13 @@ class UNREALTOURNAMENT_API AUTBaseGameMode : public AGameMode
 	GENERATED_UCLASS_BODY()
 
 public:
+	//Password required to join as a player
 	UPROPERTY(GlobalConfig)
 	FString ServerPassword;
+
+	//Password required to join as a spectator
+	UPROPERTY(GlobalConfig)
+	FString SpectatePassword;
 
 	uint32 bRequirePassword:1;
 
@@ -75,7 +80,7 @@ public:
 	virtual FName GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination);
 
 	// Returns the # of instances controlled by this game mode and fills out the HostNames and Descriptions arrays.  
-	virtual int32 GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions);
+	virtual int32 GetInstanceData(TArray<FGuid>& InstanceIDs);
 
 	// Returns the # of players in this game.  By Default returns NumPlayers but can be overrride in children (like the HUBs)
 	virtual int32 GetNumPlayers();

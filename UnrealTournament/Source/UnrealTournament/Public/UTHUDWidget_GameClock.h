@@ -26,13 +26,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture Skull;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture DivideSlash;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture ClockBackground;
-
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text PlayerScoreText;

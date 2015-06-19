@@ -37,7 +37,7 @@ namespace MeshPaintRendering
 			TransformParameter.Bind( Initializer.ParameterMap, TEXT( "c_Transform" ) );
 		}
 
-		virtual bool Serialize( FArchive& Ar )
+		virtual bool Serialize( FArchive& Ar ) override
 		{
 			bool bShaderHasOutdatedParameters = FGlobalShader::Serialize( Ar );
 			Ar << TransformParameter;
@@ -89,7 +89,7 @@ namespace MeshPaintRendering
 			GammaParameter.Bind( Initializer.ParameterMap, TEXT( "c_Gamma" ) );
 		}
 
-		virtual bool Serialize(FArchive& Ar)
+		virtual bool Serialize(FArchive& Ar) override
 		{
 			bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 			Ar << CloneTextureParameter;
@@ -200,7 +200,7 @@ namespace MeshPaintRendering
 			TransformParameter.Bind( Initializer.ParameterMap, TEXT( "c_Transform" ) );
 		}
 
-		virtual bool Serialize( FArchive& Ar )
+		virtual bool Serialize( FArchive& Ar ) override
 		{
 			bool bShaderHasOutdatedParameters = FShader::Serialize( Ar );
 			Ar << TransformParameter;
@@ -252,7 +252,7 @@ namespace MeshPaintRendering
 			GammaParameter.Bind( Initializer.ParameterMap, TEXT( "Gamma" ) );
 		}
 
-		virtual bool Serialize(FArchive& Ar)
+		virtual bool Serialize(FArchive& Ar) override
 		{
 			bool bShaderHasOutdatedParameters = FShader::Serialize(Ar);
 			Ar << Texture0Parameter;

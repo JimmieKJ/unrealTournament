@@ -3,7 +3,6 @@
 
 #include "TAttributeProperty.h"
 #include "UTServerBeaconLobbyClient.h"
-#include "UTBotConfig.h"
 #include "UTReplicatedLoadoutInfo.h"
 #include "UTGameMode.generated.h"
 
@@ -14,6 +13,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
 	extern UNREALTOURNAMENT_API const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
+	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
 }
 
 USTRUCT()
@@ -57,7 +57,7 @@ struct FSelectedBot
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString BotName;
+	FStringAssetReference BotAsset;
 	/** team to place them on - note that 255 is valid even for team games (placed on any team) */
 	UPROPERTY()
 	uint8 Team;
@@ -65,8 +65,8 @@ struct FSelectedBot
 	FSelectedBot()
 		: Team(255)
 	{}
-	FSelectedBot(const FString& InName, uint8 InTeam)
-		: BotName(InName), Team(InTeam)
+	FSelectedBot(const FStringAssetReference& InAssetPath, uint8 InTeam)
+		: BotAsset(InAssetPath), Team(InTeam)
 	{}
 };
 
@@ -133,7 +133,7 @@ public:
 	UPROPERTY()
 	bool bStartedCountDown;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	bool bFirstBloodOccurred;
 
 	/** if set, this setting overrides the number of players that are needed to start a hub instance
@@ -181,7 +181,7 @@ public:
 	float EndTime;
 
 	/** whether weapon stay is active */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category = "Game")
 	bool bWeaponStayActive;
 
 	/** Which actor in the game should all other actors focus on after the game is over */
@@ -249,6 +249,8 @@ public:
 	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
 	TSubclassOf<class AHUD> CastingGuideHUDClass;
 
+	virtual void SwitchToCastingGuide(AUTPlayerController* NewCaster);
+
 	/** first mutator; mutators are a linked list */
 	UPROPERTY(BlueprintReadOnly, Category = Mutator)
 	class AUTMutator* BaseMutator;
@@ -262,11 +264,15 @@ public:
 		}
 	}
 
+	/** class used for AI bots */
+	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
+	TSubclassOf<class AUTBot> BotClass;
+
 	UPROPERTY(Config)
 	TArray<FSelectedBot> SelectedBots;
-	/** bot configuration (skill ratings, etc) to use */
-	UPROPERTY(Transient)
-	UUTBotConfig* BotConfig;
+
+	/** cached list of UTBotCharacter assets from the asset registry, so we don't need to query the registry every time we add a bot */
+	TArray<FAssetData> BotAssets;
 
 	/** type of SquadAI that contains game specific AI logic for this gametype */
 	UPROPERTY(EditDefaultsOnly, Category = AI)
@@ -320,11 +326,15 @@ public:
 	virtual bool CheckScore(AUTPlayerState* Scorer);
 	virtual void FindAndMarkHighScorer();
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
+
+	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
+
 	virtual void StartMatch();
 	virtual void EndMatch();
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	virtual void PlayEndOfMatchMessage();
+
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void DiscardInventory(APawn* Other, AController* Killer = NULL);
 
@@ -367,6 +377,7 @@ public:
 
 	virtual void ShowFinalScoreboard();
 	virtual void TravelToNextMap();
+	virtual void StopReplayRecording();
 
 	virtual void RecreateLobbyBeacon();
 	virtual void DefaultTimer();
@@ -390,12 +401,16 @@ protected:
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
 	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
+	virtual class AUTBot* AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum = 255);
 	/** check for adding/removing bots to satisfy BotFillCount */
 	virtual void CheckBotCount();
 	/** returns whether we should allow removing the given bot to satisfy the desired player/bot count settings
 	 * generally used to defer destruction of bots that currently are important to the current game state, like flag carriers
 	 */
 	virtual bool AllowRemovingBot(AUTBot* B);
+
+	/** give bot a unique name based on the possible names in the given BotData */
+	virtual void SetUniqueBotName(AUTBot* B, const class UUTBotCharacter* BotData);
 public:
 	/** adds a bot to the game, ignoring game settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
@@ -519,10 +534,6 @@ public:
 	 **/
 	void NotifyLobbyGameIsReady();
 
-	// How long before a lobby instance times out waiting for players to join and the match to begin.  This is to keep lobby instance servers from sitting around forever.
-	UPROPERTY(Config)
-	float LobbyInitialTimeoutTime;
-
 	UPROPERTY(Config)
 	bool bDisableCloudStats;
 
@@ -536,6 +547,14 @@ public:
 	bool bDedicatedInstance;
 
 protected:
+
+	// The Address of the Hub this game wants to connect to.
+	UPROPERTY(Config)
+	FString HubAddress;
+
+	UPROPERTY(Config)
+	FString HubKey;
+
 	// A Beacon for communicating back to the lobby
 	UPROPERTY(transient)
 	AUTServerBeaconLobbyClient* LobbyBeacon;
@@ -579,6 +598,21 @@ public:
 	bool PlayerCanAltRestart( APlayerController* Player );
 
 	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
+
+	// Called from the Beacon, it makes this server become a dedicated instance
+	virtual void BecomeDedicatedInstance(FGuid HubGuid);
+
+	FString GetMapPrefix()
+	{
+		return MapPrefix;
+	}
+
+	UPROPERTY(Config)
+	int32 MapVoteTime;
+
+	virtual void HandleMapVote();
+	virtual void CullMapVotes();
+	virtual void TallyMapVotes();
 
 };
 

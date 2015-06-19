@@ -68,7 +68,7 @@ class BLUTILITY_API UGlobalEditorUtilityBase : public UObject
 	///////////////////////////
 
 	UFUNCTION(BlueprintPure, Category="Development|Editor")
-	UEditorUserSettings* GetEditorUserSettings();
+	UEditorPerProjectUserSettings* GetEditorUserSettings();
 
 	// Remove all actors from the selection set
 	UFUNCTION(BlueprintCallable, Category="Development|Editor")

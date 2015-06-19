@@ -6,6 +6,15 @@
 #import <AVFoundation/AVAudioSession.h>
 #import <GameKit/GKGameCenterViewController.h>
 
+class CORE_API FIOSCoreDelegates
+{
+public:
+	// Broadcast when this application is opened from an external source.
+	DECLARE_MULTICAST_DELEGATE_FourParams(FOnOpenURL, UIApplication*, NSURL*, NSString*, id);
+	static FOnOpenURL OnOpenURL;
+	
+};
+
 @class FIOSView;
 @class IOSViewController;
 @class SlateOpenGLESViewController;
@@ -60,6 +69,9 @@ UITextFieldDelegate>
 #if !UE_BUILD_SHIPPING
 	/** Properties for managing the console */
 	@property (nonatomic, retain) UIAlertView*		ConsoleAlert;
+#ifdef __IPHONE_8_0
+	@property (nonatomic, assign) UIAlertController* ConsoleAlertController;
+#endif
 	@property (nonatomic, retain) NSMutableArray*	ConsoleHistoryValues;
 	@property (nonatomic, assign) int				ConsoleHistoryValuesIndex;
 #endif
@@ -73,6 +85,10 @@ UITextFieldDelegate>
 
 /** True if we need to reset the idle timer */
 @property (readonly) bool bResetIdleTimer;
+
+/** initial launch options */
+@property(retain) NSDictionary* launchOptions;
+
 /**
  * @return the single app delegate object
  */

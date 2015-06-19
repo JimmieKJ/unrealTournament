@@ -178,7 +178,8 @@ protected:
 	
 	// Private constructor to prevent construction of invalid FSlateColors
 	FSlateColor( ESlateColorStylingMode::Type InColorUseRule )
-		: ColorUseRule(InColorUseRule)
+		: SpecifiedColor(FLinearColor(1.0f, 0.0f, 1.0f))
+		, ColorUseRule(InColorUseRule)
 		, LinkedSpecifiedColor()
 	{ }
 

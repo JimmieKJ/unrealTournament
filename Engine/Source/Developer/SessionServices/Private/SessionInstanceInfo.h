@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "ISessionInstanceInfo.h"
+
+
+class ISessionInfo;
+struct FSessionLogMessage;
+
 
 /**
  * Implements a class to maintain all info related to a game instance in a session
@@ -22,14 +28,7 @@ public:
 	 * @param InOwner The session that owns this instance.
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionInstanceInfo( const FGuid& InInstanceId, const ISessionInfoRef& InOwner, const IMessageBusRef& InMessageBus )
-		: EngineVersion(0)
-		, InstanceId(InInstanceId)
-		, Owner(InOwner)
-	{
-		MessageEndpoint = FMessageEndpoint::Builder("FSessionInstanceInfo", InMessageBus)
-			.Handling<FSessionServiceLog>(this, &FSessionInstanceInfo::HandleSessionLogMessage);
-	}
+	FSessionInstanceInfo( const FGuid& InInstanceId, const TSharedRef<ISessionInfo>& InOwner, const IMessageBusRef& InMessageBus );
 
 public:
 
@@ -39,20 +38,7 @@ public:
 	 * @param Message The message containing engine information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context )
-	{
-		if (Message.InstanceId != InstanceId)
-		{
-			return;
-		}
-
-		CurrentLevel = Message.CurrentLevel;
-		EngineAddress = Context->GetSender();
-		EngineVersion = Message.EngineVersion;
-		HasBegunPlay = Message.HasBegunPlay;
-		WorldTimeSeconds = Message.WorldTimeSeconds;
-		InstanceType = Message.InstanceType;
-	}
+	void UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context );
 
 	/**
 	 * Updates this instance info with the data in the specified message.
@@ -60,51 +46,25 @@ public:
 	 * @param Message The message containing instance information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context )
-	{
-		if (Message.InstanceId != InstanceId)
-		{
-			return;
-		}
-
-		if (MessageEndpoint.IsValid() && (ApplicationAddress != Context->GetSender()))
-		{
-			MessageEndpoint->Send(new FSessionServiceLogSubscribe(), Context->GetSender());
-		}
-
-		ApplicationAddress = Context->GetSender();
-		BuildDate = Message.BuildDate;
-		DeviceName = Message.DeviceName;
-		InstanceName = Message.InstanceName;
-		IsConsoleBuild = Message.IsConsoleBuild;
-		PlatformName = Message.PlatformName;
-
-		LastUpdateTime = FDateTime::UtcNow();
-	}
+	void UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context );
 
 public:	
 
 	// IGameInstanceInfo interface
 
-	virtual void ExecuteCommand( const FString& CommandString )
-	{
-		if (MessageEndpoint.IsValid() && EngineAddress.IsValid())
-		{
-			MessageEndpoint->Send(new FEngineServiceExecuteCommand(CommandString, FPlatformProcess::UserName(true)), EngineAddress);
-		}
-	}
+	virtual void ExecuteCommand( const FString& CommandString ) override;
 
-	virtual const FString GetBuildDate() const override
+	virtual const FString& GetBuildDate() const override
 	{
 		return BuildDate;
 	}
 
-	virtual const FString GetCurrentLevel() const override
+	virtual const FString& GetCurrentLevel() const override
 	{
 		return CurrentLevel;
 	}
 
-	virtual const FString GetDeviceName() const override
+	virtual const FString& GetDeviceName() const override
 	{
 		return DeviceName;
 	}
@@ -114,32 +74,32 @@ public:
 		return EngineVersion;
 	}
 
-	virtual const FGuid GetInstanceId() const override
+	virtual const FGuid& GetInstanceId() const override
 	{
 		return InstanceId;
 	}
 
-	virtual const FString GetInstanceName() const override
+	virtual const FString& GetInstanceName() const override
 	{
 		return InstanceName;
 	}
 
-	virtual const FString GetInstanceType() const override
+	virtual const FString& GetInstanceType() const override
 	{
 		return InstanceType;
 	}
 
-	virtual FDateTime GetLastUpdateTime() override
+	virtual const FDateTime& GetLastUpdateTime() const override
 	{
 		return LastUpdateTime;
 	}
 
-	virtual const TArray<FSessionLogMessagePtr>& GetLog() override
+	virtual const TArray<TSharedPtr<FSessionLogMessage>>& GetLog() override
 	{
 		return LogMessages;
 	}
 
-	virtual ISessionInfoPtr GetOwnerSession() override
+	virtual TSharedPtr<ISessionInfo> GetOwnerSession() override
 	{
 		return Owner.Pin();
 	}
@@ -159,9 +119,10 @@ public:
 		return IsConsoleBuild;
 	}
 
-	virtual FOnSessionInstanceLogReceived& OnLogReceived() override
+	DECLARE_DERIVED_EVENT(FSessionInstanceInfo, ISessionInstanceInfo::FLogReceivedEvent, FLogReceivedEvent);
+	virtual FLogReceivedEvent& OnLogReceived() override
 	{
-		return LogReceivedDelegate;
+		return LogReceivedEvent;
 	}
 
 	virtual bool PlayHasBegun() const override
@@ -169,33 +130,12 @@ public:
 		return HasBegunPlay;
 	}
 
-	virtual void Terminate() override
-	{
-		if (MessageEndpoint.IsValid() && EngineAddress.IsValid())
-		{
-			MessageEndpoint->Send(new FEngineServiceTerminate(FPlatformProcess::UserName(true)), EngineAddress);
-		}
-	}
+	virtual void Terminate() override;
 
 private:
 
-	// Handles FSessionServiceLog messages.
-	void HandleSessionLogMessage( const FSessionServiceLog& Message, const IMessageContextRef& Context )
-	{
-		FSessionLogMessageRef LogMessage = MakeShareable(
-			new FSessionLogMessage(
-				InstanceId,
-				InstanceName,
-				Message.TimeSeconds,
-				Message.Data,
-				(ELogVerbosity::Type)Message.Verbosity,
-				Message.Category
-			)
-		);
-
-		LogMessages.Add(LogMessage);
-		LogReceivedDelegate.Broadcast(AsShared(), LogMessage);
-	}
+	/** Handles FSessionServiceLog messages. */
+	void HandleSessionLogMessage( const FSessionServiceLog& Message, const IMessageContextRef& Context );
 
 private:
 
@@ -236,7 +176,7 @@ private:
 	FDateTime LastUpdateTime;
 
 	/** Holds the collection of received log messages. */
-	TArray<FSessionLogMessagePtr> LogMessages;
+	TArray<TSharedPtr<FSessionLogMessage>> LogMessages;
 
 	/** Holds the message endpoint. */
 	FMessageEndpointPtr MessageEndpoint;
@@ -252,6 +192,6 @@ private:
 
 private:
 
-	/** Holds a delegate to be invoked when a log message was received from the remote session. */
-	FOnSessionInstanceLogReceived LogReceivedDelegate;
+	/** Holds an event delegate that is executed when a log message was received from the remote session. */
+	FLogReceivedEvent LogReceivedEvent;
 };

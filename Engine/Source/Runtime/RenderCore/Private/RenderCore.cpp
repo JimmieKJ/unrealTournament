@@ -208,16 +208,18 @@ TLinkedList<FUniformBufferStruct*>*& FUniformBufferStruct::GetStructList()
 	return GUniformStructList;
 }
 
+TMap<FName, FUniformBufferStruct*>& FUniformBufferStruct::GetNameStructMap()
+{
+	static 	TMap<FName, FUniformBufferStruct*> GlobalNameStructMap;
+	return GlobalNameStructMap;
+}
+
+
 FUniformBufferStruct* FindUniformBufferStructByName(const TCHAR* StructName)
 {
-	for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
-	{
-		if (!FCString::Stricmp(StructIt->GetStructTypeName(), StructName))
-		{
-			return *StructIt;
-		}
-	}
-	return NULL;
+	FName FindByName(StructName, FNAME_Find);
+	FUniformBufferStruct* FoundStruct = FUniformBufferStruct::GetNameStructMap().FindRef(FindByName);
+	return FoundStruct;
 }
 
 // Can be optimized to avoid the virtual function call but it's compiled out for final release anyway

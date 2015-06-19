@@ -5,12 +5,19 @@
 #include "WeakObjectPtrTemplates.h"
 
 
+class UObject;
+
+
 /**
  * Script delegate base class.
  */
 template <typename TWeakPtr = FWeakObjectPtr>
 class TScriptDelegate
 {
+	// Although templated, the parameter is not intended to be anything other than the default,
+	// and is only a template for module organization reasons.
+	static_assert(TAreTypesEqual<TWeakPtr, FWeakObjectPtr>::Value, "TWeakPtr should not be overridden");
+
 public:
 
 	/** Default constructor. */
@@ -43,7 +50,7 @@ public:
 	 * @param InObject The object to call the function on.
 	 * @param InFunctionName The name of the function to call.
 	 */
-	void BindUFunction( class UObject* InObject, const FName& InFunctionName )
+	void BindUFunction( UObject* InObject, const FName& InFunctionName )
 	{
 		Object = InObject;
 		FunctionName = InFunctionName;
@@ -67,6 +74,16 @@ public:
 	inline bool IsBoundToObject(void const* InUserObject) const
 	{
 		return InUserObject && (InUserObject == GetUObject());
+	}
+
+	/** 
+	 * Checks to see if this delegate is bound to the given user object, even if the object is unreachable.
+	 *
+	 * @return	True if this delegate is bound to InUserObject, false otherwise.
+	 */
+	bool IsBoundToObjectEvenIfUnreachable(void const* InUserObject) const
+	{
+		return InUserObject && InUserObject == GetUObjectEvenIfUnreachable();
 	}
 
 	/** 
@@ -140,7 +157,7 @@ public:
 	 *
 	 * @return	The object
 	 */
-	class UObject* GetUObject()
+	UObject* GetUObject()
 	{
 		// Downcast UObjectBase to UObject
 		return static_cast< UObject* >( Object.Get() );
@@ -151,10 +168,32 @@ public:
 	 *
 	 * @return	The object
 	 */
-	const class UObject* GetUObject() const
+	const UObject* GetUObject() const
 	{
 		// Downcast UObjectBase to UObject
 		return static_cast< const UObject* >( Object.Get() );
+	}
+
+	/** 
+	 * Gets the object bound to this delegate, even if the object is unreachable
+	 *
+	 * @return	The object
+	 */
+	UObject* GetUObjectEvenIfUnreachable()
+	{
+		// Downcast UObjectBase to UObject
+		return static_cast< UObject* >( Object.GetEvenIfUnreachable() );
+	}
+
+	/**
+	 * Gets the object bound to this delegate (const), even if the object is unreachable
+	 *
+	 * @return	The object
+	 */
+	const UObject* GetUObjectEvenIfUnreachable() const
+	{
+		// Downcast UObjectBase to UObject
+		return static_cast< const UObject* >( Object.GetEvenIfUnreachable() );
 	}
 
 	/**
@@ -244,8 +283,21 @@ public:
 	 */
 	bool Contains( const TScriptDelegate<TWeakPtr>& InDelegate ) const
 	{
-		// Add the delegate
 		return InvocationList.Contains( InDelegate );
+	}
+
+	/**
+	 * Checks whether a function delegate is already a member of this multi-cast delegate's invocation list
+	 *
+	 * @param	InObject		Object of the delegate to check
+	 * @param	InFunctionName	Function name of the delegate to check
+	 * @return	True if the delegate is already in the list.
+	 */
+	bool Contains( const UObject* InObject, FName InFunctionName ) const
+	{
+		return InvocationList.ContainsByPredicate( [=]( const TScriptDelegate<TWeakPtr>& Delegate ){
+			return Delegate.GetFunctionName() == InFunctionName && Delegate.IsBoundToObjectEvenIfUnreachable(InObject);
+		} );
 	}
 
 	/**
@@ -287,6 +339,22 @@ public:
 	{
 		// Remove the delegate
 		RemoveInternal( InDelegate );
+
+		// Check for any delegates that may have expired
+		CompactInvocationList();
+	}
+
+	/**
+	 * Removes a function from this multi-cast delegate's invocation list (performance is O(N)).  Note that the
+	 * order of the delegates may not be preserved!
+	 *
+	 * @param	InObject		Object of the delegate to remove
+	 * @param	InFunctionName	Function name of the delegate to remove
+	 */
+	void Remove( const UObject* InObject, FName InFunctionName )
+	{
+		// Remove the delegate
+		RemoveInternal( InObject, InFunctionName );
 
 		// Check for any delegates that may have expired
 		CompactInvocationList();
@@ -404,7 +472,7 @@ public:
 	 * need call this function in normal circumstances.
  	 * @return	List of objects bound to this delegate
 	*/
-	TArray< class UObject* > GetAllObjects()
+	TArray< UObject* > GetAllObjects()
 	{
 		TArray< UObject* > OutputList;
 		for( typename FInvocationList::TIterator CurDelegate( InvocationList ); CurDelegate; ++CurDelegate )
@@ -458,30 +526,34 @@ protected:
 	*/
 	void RemoveInternal( const TScriptDelegate<TWeakPtr>& InDelegate ) const
 	{
-		const int32 NumFunctions = InvocationList.Num();
-		for( int32 CurFunctionIndex = 0; CurFunctionIndex < NumFunctions; ++CurFunctionIndex )
-		{
-			if( InvocationList[ CurFunctionIndex ] == InDelegate )
-			{
-				InvocationList.RemoveAtSwap( CurFunctionIndex );
+		InvocationList.RemoveSingleSwap(InDelegate);
+	}
 
-				// No need to continue, as we never allow the same delegate to be bound twice
-					break;
-			}
+	/**
+	 * Removes a function from this multi-cast delegate's invocation list (performance is O(N)).  Note that the
+	 * order of the delegates may not be preserved!
+	 *
+	 * @param	InObject		Object of the delegate to remove
+	 * @param	InFunctionName	Function name of the delegate to remove
+	*/
+	void RemoveInternal( const UObject* InObject, FName InFunctionName ) const
+	{
+		int32 FoundDelegate = InvocationList.IndexOfByPredicate([=](const TScriptDelegate<TWeakPtr>& Delegate) {
+			return Delegate.GetFunctionName() == InFunctionName && Delegate.IsBoundToObjectEvenIfUnreachable(InObject);
+		});
+
+		if (FoundDelegate != INDEX_NONE)
+		{
+			InvocationList.RemoveAtSwap(FoundDelegate, 1, false);
 		}
 	}
 
 	/** Cleans up any delegates in our invocation list that have expired (performance is O(N)) */
 	void CompactInvocationList() const
 	{
-		for( int32 CurFunctionIndex = 0; CurFunctionIndex < InvocationList.Num(); ++CurFunctionIndex )
-		{
-			if( InvocationList[ CurFunctionIndex ].IsCompactable() )
-			{
-				// Remove it, and decrement loop counter so that we don't skip over an element
-				InvocationList.RemoveAtSwap( CurFunctionIndex-- );
-			}
-		}
+		InvocationList.RemoveAllSwap([](const TScriptDelegate<TWeakPtr>& Delegate){
+			return Delegate.IsCompactable();
+		});
 	}
 
 protected:

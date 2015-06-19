@@ -38,7 +38,7 @@
 #define DEFAULT_OGL_ES_PVR "/opt/vc/lib/libGLES_CM.so"
 #define DEFAULT_OGL_ES "/opt/vc/lib/libGLESv1_CM.so"
 
-#elif SDL_VIDEO_DRIVER_ANDROID
+#elif SDL_VIDEO_DRIVER_ANDROID || SDL_VIDEO_DRIVER_VIVANTE
 /* Android */
 #define DEFAULT_EGL "libEGL.so"
 #define DEFAULT_OGL_ES2 "libGLESv2.so"
@@ -62,13 +62,46 @@
 #endif /* SDL_VIDEO_DRIVER_RPI */
 
 #define LOAD_FUNC(NAME) \
-*((void**)&_this->egl_data->NAME) = SDL_LoadFunction(_this->egl_data->dll_handle, #NAME); \
+_this->egl_data->NAME = SDL_LoadFunction(_this->egl_data->dll_handle, #NAME); \
 if (!_this->egl_data->NAME) \
 { \
     return SDL_SetError("Could not retrieve EGL function " #NAME); \
 }
     
 /* EGL implementation of SDL OpenGL ES support */
+#ifdef EGL_KHR_create_context        
+static int SDL_EGL_HasExtension(_THIS, const char *ext)
+{
+    int i;
+    int len = 0;
+    int ext_len;
+    const char *exts;
+    const char *ext_word;
+
+    ext_len = SDL_strlen(ext);
+    exts = _this->egl_data->eglQueryString(_this->egl_data->egl_display, EGL_EXTENSIONS);
+
+    if(exts) {
+        ext_word = exts;
+
+        for(i = 0; exts[i] != 0; i++) {
+            if(exts[i] == ' ') {
+                if(ext_len == len && !SDL_strncmp(ext_word, ext, len)) {
+                    return 1;
+                }
+
+                len = 0;
+                ext_word = &exts[i + 1];
+            }
+            else {
+                len++;
+            }
+        }
+    }
+
+    return 0;
+}
+#endif /* EGL_KHR_create_context */
 
 void *
 SDL_EGL_GetProcAddress(_THIS, const char *proc)
@@ -189,7 +222,7 @@ SDL_EGL_LoadLibrary(_THIS, const char *egl_path, NativeDisplayType native_displa
         dll_handle = SDL_LoadObject(egl_path);
     }   
     /* Try loading a EGL symbol, if it does not work try the default library paths */
-    if (SDL_LoadFunction(dll_handle, "eglChooseConfig") == NULL) {
+    if (dll_handle == NULL || SDL_LoadFunction(dll_handle, "eglChooseConfig") == NULL) {
         if (dll_handle != NULL) {
             SDL_UnloadObject(dll_handle);
         }
@@ -198,7 +231,10 @@ SDL_EGL_LoadLibrary(_THIS, const char *egl_path, NativeDisplayType native_displa
             path = DEFAULT_EGL;
         }
         dll_handle = SDL_LoadObject(path);
-        if (dll_handle == NULL) {
+        if (dll_handle == NULL || SDL_LoadFunction(dll_handle, "eglChooseConfig") == NULL) {
+            if (dll_handle != NULL) {
+                SDL_UnloadObject(dll_handle);
+            }
             return SDL_SetError("Could not load EGL library");
         }
         SDL_ClearError();
@@ -223,6 +259,7 @@ SDL_EGL_LoadLibrary(_THIS, const char *egl_path, NativeDisplayType native_displa
     LOAD_FUNC(eglWaitNative);
     LOAD_FUNC(eglWaitGL);
     LOAD_FUNC(eglBindAPI);
+    LOAD_FUNC(eglQueryString);
     
 #if !defined(__WINRT__)
     _this->egl_data->egl_display = _this->egl_data->eglGetDisplay(native_display);
@@ -235,8 +272,6 @@ SDL_EGL_LoadLibrary(_THIS, const char *egl_path, NativeDisplayType native_displa
     }
 #endif
 
-    _this->egl_data->dll_handle = dll_handle;
-    _this->egl_data->egl_dll_handle = egl_dll_handle;
     _this->gl_config.driver_loaded = 1;
 
     if (path) {
@@ -364,6 +399,10 @@ SDL_EGL_CreateContext(_THIS, EGLSurface egl_surface)
     EGLint context_attrib_list[] = {
         EGL_CONTEXT_CLIENT_VERSION,
         1,
+        EGL_NONE,
+        EGL_NONE,
+        EGL_NONE,
+        EGL_NONE,
         EGL_NONE
     };
     
@@ -391,9 +430,33 @@ SDL_EGL_CreateContext(_THIS, EGLSurface egl_surface)
     }
     else {
         _this->egl_data->eglBindAPI(EGL_OPENGL_API);
+#ifdef EGL_KHR_create_context        
+        if(SDL_EGL_HasExtension(_this, "EGL_KHR_create_context")) {
+            context_attrib_list[0] = EGL_CONTEXT_MAJOR_VERSION_KHR;
+            context_attrib_list[1] = _this->gl_config.major_version;
+            context_attrib_list[2] = EGL_CONTEXT_MINOR_VERSION_KHR;
+            context_attrib_list[3] = _this->gl_config.minor_version;
+            context_attrib_list[4] = EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR;
+            switch(_this->gl_config.profile_mask) {
+            case SDL_GL_CONTEXT_PROFILE_COMPATIBILITY:
+                context_attrib_list[5] = EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT_KHR;
+                break;
+
+            case SDL_GL_CONTEXT_PROFILE_CORE:
+            default:
+                context_attrib_list[5] = EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR;
+                break;
+            }
+        }
+        else {
+            context_attrib_list[0] = EGL_NONE;
+        }
+#else /* EGL_KHR_create_context */
+        context_attrib_list[0] = EGL_NONE;
+#endif /* EGL_KHR_create_context */
         egl_context = _this->egl_data->eglCreateContext(_this->egl_data->egl_display,
                                           _this->egl_data->egl_config,
-                                          share_context, NULL);
+                                          share_context, context_attrib_list);
     }
     
     if (egl_context == EGL_NO_CONTEXT) {
@@ -494,6 +557,20 @@ SDL_EGL_CreateSurface(_THIS, NativeWindowType nw)
     if (SDL_EGL_ChooseConfig(_this) != 0) {
         return EGL_NO_SURFACE;
     }
+    
+#if __ANDROID__
+    {
+        /* Android docs recommend doing this!
+         * Ref: http://developer.android.com/reference/android/app/NativeActivity.html 
+         */
+        EGLint format;
+        _this->egl_data->eglGetConfigAttrib(_this->egl_data->egl_display,
+                                            _this->egl_data->egl_config, 
+                                            EGL_NATIVE_VISUAL_ID, &format);
+
+        ANativeWindow_setBuffersGeometry(nw, 0, 0, format);
+    }
+#endif    
     
     return _this->egl_data->eglCreateWindowSurface(
             _this->egl_data->egl_display,

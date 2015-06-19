@@ -6,7 +6,7 @@
 #include "UTMutator_WeaponArena.generated.h"
 
 UCLASS(Blueprintable, Meta = (ChildCanTick), Config = Game)
-class AUTMutator_WeaponArena : public AUTMutator
+class UNREALTOURNAMENT_API AUTMutator_WeaponArena : public AUTMutator
 {
 	GENERATED_UCLASS_BODY()
 
@@ -25,4 +25,6 @@ class AUTMutator_WeaponArena : public AUTMutator
 	virtual void BeginPlay() override;
 	void ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn) override;
 	bool CheckRelevance_Implementation(AActor* Other) override;
+	void GetGameURLOptions_Implementation(TArray<FString>& OptionsList) override;
+	void Init_Implementation(const FString& Options) override;
 };

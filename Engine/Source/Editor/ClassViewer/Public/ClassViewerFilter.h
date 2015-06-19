@@ -30,7 +30,7 @@ namespace EFilterReturn
 {
 	enum Type{ Failed = 0, Passed, NoItems };
 }
-class FClassViewerFilterFuncs
+class CLASSVIEWER_API FClassViewerFilterFuncs
 {
 public:
 

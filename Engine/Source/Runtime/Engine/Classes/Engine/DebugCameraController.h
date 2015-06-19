@@ -1,18 +1,20 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/**
- * Camera controller that allows you to fly around a level mostly unrestricted by normal movement rules.
- * 
- * To turn it on, please press Alt+C or both (left and right) analogs on xbox pad, or use the "ToggleDebugCamera" console command.
- * 
- * Check the debug camera bindings in DefaultPawn.cpp for the camera controls.
- */
-
 #pragma once
+
 #include "DebugCameraController.generated.h"
 
+
+/**
+* Camera controller that allows you to fly around a level mostly unrestricted by normal movement rules.
+*
+* To turn it on, please press Alt+C or both (left and right) analogs on XBox pad,
+* or use the "ToggleDebugCamera" console command. Check the debug camera bindings
+* in DefaultPawn.cpp for the camera controls.
+*/
 UCLASS(config=Game, hidedropdown)
-class ENGINE_API ADebugCameraController : public APlayerController
+class ENGINE_API ADebugCameraController
+	: public APlayerController
 {
 	GENERATED_UCLASS_BODY()
 
@@ -27,7 +29,6 @@ class ENGINE_API ADebugCameraController : public APlayerController
 	/** @todo document */
 	UPROPERTY()
 	class UDrawFrustumComponent* DrawFrustum;
-
 	
 	/** @todo document */
 	UFUNCTION(exec)
@@ -36,7 +37,7 @@ class ENGINE_API ADebugCameraController : public APlayerController
 	/** Selects the object the camera is aiming at. */
 	void SelectTargetedObject();
 
-	/** Called when the user pressed the unselect key, just before the selected actor is cleared. */
+	/** Called when the user pressed the deselect key, just before the selected actor is cleared. */
 	void Unselect();
 
 	/** @todo document */
@@ -60,8 +61,8 @@ class ENGINE_API ADebugCameraController : public APlayerController
 	 */
 	virtual void ToggleFreezeRendering();
 
-
 public:
+
 	/** @todo document */
 	class AActor* SelectedActor;
 
@@ -93,12 +94,12 @@ protected:
 	virtual void SetupInputComponent() override;
 
 public:
+
 	/** Function called on activation debug camera controller */
 	void OnActivate(class APlayerController* OriginalPC);
 
 	/** Function called on deactivation debug camera controller */
 	void OnDeactivate(class APlayerController* RestoredPC);
-
 
 	/**
 	 * Builds a list of components that are hidden based upon gameplay
@@ -106,17 +107,21 @@ public:
 	 * @param ViewLocation the view point to hide/unhide from
 	 * @param HiddenComponents the list to add to/remove from
 	 */
-	virtual void UpdateHiddenComponents(const FVector& ViewLocation,TSet<FPrimitiveComponentId>& HiddenComponents);
+	virtual void UpdateHiddenComponents(const FVector& ViewLocation,TSet<FPrimitiveComponentId>& HiddenComponents) override;
 
+public:
 
-	// Begin APlayerController Interface
+	// APlayerController Interface
+
 	virtual void PostInitializeComponents() override;
 	virtual FString ConsoleCommand(const FString& Command, bool bWriteToLog = true) override;
 	virtual void AddCheats(bool bForce) override;
 	virtual void EndSpectatingState() override;
-	// End APlayerController Interface
+	/** Custom spawn to spawn a default SpectatorPawn, to use as a spectator and initialize it. By default it is spawned at the PC's current location and rotation. */
+	virtual ASpectatorPawn* SpawnSpectatorPawn() override;
 
 protected:
+
 	/**
 	 * Called when an actor has been selected with the primary key (e.g. left mouse button).
 	 * @param Hit	Info struct for the selection point.
@@ -126,6 +131,7 @@ protected:
 	virtual void SetSpectatorPawn(class ASpectatorPawn* NewSpectatorPawn) override;
 
 private:
+
 	/** The normalized screen location when a drag starts */
 	FVector2D LastTouchDragLocation;
 
@@ -133,6 +139,3 @@ private:
 	void OnTouchEnd(ETouchIndex::Type FingerIndex, FVector Location);
 	void OnFingerMove(ETouchIndex::Type FingerIndex, FVector Location);
 };
-
-
-

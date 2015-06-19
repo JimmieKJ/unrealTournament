@@ -144,34 +144,6 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 			MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().SaveAllLevels );
 		}
 
-		static void FillFavoriteLevelSubMenu( FMenuBuilder& MenuBuilder, const int32 CurFavoriteIndex )
-		{
-			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>( "MainFrame" );
-			const FMainMRUFavoritesList& RecentsAndFavorites = *MainFrameModule.GetMRUFavoritesList();
-
-			MenuBuilder.BeginSection("FavoritesOptions", LOCTEXT("FavoriteOptionsHeading", "Level Favorite Options") );
-			{
-				TSharedPtr< FUICommandInfo > OpenFavoriteFile = FLevelEditorCommands::Get().OpenFavoriteFileCommands[ CurFavoriteIndex ];
-				const FString CurFavorite = RecentsAndFavorites.GetFavoritesItem( CurFavoriteIndex );
-				const FText CurFavoriteText = FText::FromString( RecentsAndFavorites.GetFavoritesItem( CurFavoriteIndex ) );
-				const FText CurBasename = FText::FromString( FPaths::GetBaseFilename(CurFavorite) );
-				MenuBuilder.AddMenuEntry( 
-					OpenFavoriteFile, 
-					NAME_None, 
-					CurBasename, 
-					FText::Format( LOCTEXT("OpenFavoriteFileToolTip", "Open favorite file: {0}"), CurFavoriteText ) );
-
-				TSharedPtr< FUICommandInfo > RemoveFavoriteFile = FLevelEditorCommands::Get().RemoveFavoriteCommands[ CurFavoriteIndex ];
-				MenuBuilder.AddMenuEntry( 
-					RemoveFavoriteFile, 
-					NAME_None, 
-					FText::Format( LOCTEXT("ToggleFavorite_Remove", "Remove %s from Favorites"), CurBasename ), 
-					FText::Format( LOCTEXT("RemoveFavoriteToolTip", "Remove the level %s from your list of Favorites"), CurFavoriteText )  );
-			}
-			MenuBuilder.EndSection();
-		}
-
-
 		static void FillFileRecentAndFavoriteFileItems( FMenuBuilder& MenuBuilder )
 		{
 			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>( "MainFrame" );
@@ -195,20 +167,19 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 
 			// Favorite files
 			{
+				static const int32 FavoritesToDisplayInMainMenu = 5;
 				const int32 NumFavorites = RecentsAndFavorites.GetNumFavorites();
 
 				MenuBuilder.BeginSection("FileFavorites", LOCTEXT("FavoriteFilesHeading", "Favorites") );
 
 				if( NumFavorites > 0 )
 				{
-					// Our UI only supports displaying a certain number of favorite items
-					const int32 AllowedFavorites = FMath::Min( NumFavorites, FLevelEditorCommands::Get().OpenFavoriteFileCommands.Num() );
-					for( int32 CurFavoriteIndex = 0; CurFavoriteIndex < AllowedFavorites; ++CurFavoriteIndex )
+					// Display the most recent favorites on the main menu
+					const int32 MainMenuFavorites = FMath::Min( NumFavorites, FavoritesToDisplayInMainMenu );
+					for (int32 CurFavoriteIndex = 0; CurFavoriteIndex < MainMenuFavorites; ++CurFavoriteIndex)
 					{
-						TSharedPtr< FUICommandInfo > OpenFavoriteFile = FLevelEditorCommands::Get().OpenFavoriteFileCommands[ CurFavoriteIndex ];
-
 						const FString CurFavorite = FPaths::GetBaseFilename(RecentsAndFavorites.GetFavoritesItem( CurFavoriteIndex ));
-						const bool bNoIndent = true;
+						const bool bNoIndent = false;
 
 						MenuBuilder.AddWidget(
 							SNew(SFavouriteMenuEntry)
@@ -216,6 +187,40 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 								.OnOpenClickedDelegate(FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::OpenFavoriteFile, CurFavoriteIndex))
 								.OnRemoveClickedDelegate(FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::RemoveFavorite, CurFavoriteIndex)), 
 								FText(), bNoIndent );
+					}
+
+					// Any remaining favorites go into a submenu
+					if (NumFavorites > FavoritesToDisplayInMainMenu)
+					{
+						struct Local
+						{
+							static void MakeFavoriteLevelMenu(FMenuBuilder& InMenuBuilder)
+							{
+								const FMainMRUFavoritesList& MRUFavorites = *FModuleManager::LoadModuleChecked<IMainFrameModule>("MainFrame").GetMRUFavoritesList();
+								const int32 NumMRUFavorites = MRUFavorites.GetNumFavorites();
+
+								for (int32 CurFavoriteIndex = FavoritesToDisplayInMainMenu; CurFavoriteIndex < NumMRUFavorites; ++CurFavoriteIndex)
+								{
+									const FString CurFavorite = FPaths::GetBaseFilename(MRUFavorites.GetFavoritesItem(CurFavoriteIndex));
+									const bool bNoIndent = true;
+
+									InMenuBuilder.AddWidget(
+										SNew(SFavouriteMenuEntry)
+										.LabelOverride(FText::FromString(FPaths::GetBaseFilename(CurFavorite)))
+										.OnOpenClickedDelegate(FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::OpenFavoriteFile, CurFavoriteIndex))
+										.OnRemoveClickedDelegate(FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::RemoveFavorite, CurFavoriteIndex)),
+										FText(), bNoIndent);
+								}
+							}
+						};
+
+						MenuBuilder.AddSubMenu(
+							LOCTEXT("MoreFavoriteFilesSubMenu", "More Favorites"),
+							LOCTEXT("MoreFavoriteFilesTooltip", "Select other favorite levels"),
+							FNewMenuDelegate::CreateStatic(&Local::MakeFavoriteLevelMenu),
+							false,
+							FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.FavoriteLevels")
+							);
 					}
 				}
 

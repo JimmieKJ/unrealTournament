@@ -578,10 +578,9 @@ protected:
 SFiltersAndPresets::SFiltersAndPresets()
 	: GroupingMode( EStatGroupingOrSortingMode::GroupName )
 	, SortingMode( EStatGroupingOrSortingMode::StatName )
-	, bUpdateOnNextTick( false )
 	, bExpansionSaved( false )
 {
-	FMemory::MemSet( bStatTypeIsVisible, 1 );
+	FMemory::Memset( bStatTypeIsVisible, 1 );
 }
 
 SFiltersAndPresets::~SFiltersAndPresets()
@@ -762,21 +761,8 @@ void SFiltersAndPresets::Construct( const FArguments& InArgs )
 
 void SFiltersAndPresets::ProfilerManager_OnRequestFilterAndPresetsUpdate()
 {
-	bUpdateOnNextTick = true;
-}
-
-void SFiltersAndPresets::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	if( bUpdateOnNextTick )
-	{
-		for( auto It = FProfilerManager::Get()->GetProfilerInstancesIterator(); It; ++It )
-		{
-			UpdateGroupAndStatTree( It.Value() );
-			break;
-		}
-
-		bUpdateOnNextTick = false;
-	}
+	auto It = FProfilerManager::Get()->GetProfilerInstancesIterator();
+	UpdateGroupAndStatTree(It.Value());
 }
 
 void SFiltersAndPresets::UpdateGroupAndStatTree( const FProfilerSessionPtr InProfilerSession )

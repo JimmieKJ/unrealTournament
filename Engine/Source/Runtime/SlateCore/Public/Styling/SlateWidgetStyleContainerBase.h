@@ -13,7 +13,7 @@ SLATECORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSlateStyle, Log, All);
 UCLASS(hidecategories=Object)
 class SLATECORE_API USlateWidgetStyleContainerBase : public UObject, public ISlateWidgetStyleContainerInterface
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 public:
 

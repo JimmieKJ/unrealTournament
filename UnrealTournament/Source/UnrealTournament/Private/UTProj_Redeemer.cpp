@@ -59,19 +59,21 @@ void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 	}
 }
 
-void AUTProj_Redeemer::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
+float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(EventInstigator);
 	bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
 	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
 	{
-		Detonate(InstigatedBy);
-		RedeemerDenied(InstigatedBy);
+		Detonate(EventInstigator);
+		RedeemerDenied(EventInstigator);
 	}
 	else if ((Role != ROLE_Authority) && bUsingClientSideHits)
 	{
 		UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
 	}
+
+	return Damage;
 }
 
 void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
@@ -120,6 +122,19 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 			Detonate(NULL);
 			return;
 		}
+
+		//Guarantee detonation on projectile collision
+		AUTProjectile* Projectile = Cast<AUTProjectile>(ImpactedActor);
+		if (Projectile != nullptr)
+		{
+			if (Role == ROLE_Authority && Projectile->InstigatorController != nullptr)
+			{
+				RedeemerDenied(Projectile->InstigatorController);
+			}
+			Detonate(Projectile->InstigatorController);
+			return;
+		}
+
 		bExploded = true;
 		
 		if (Role == ROLE_Authority)

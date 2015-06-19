@@ -69,7 +69,6 @@ public:
 	bool RemoveLayer( FName LayerName )
 	{
 		return LayerNames.Remove( LayerName ) > 0;
-		ChangedEvent.Broadcast();
 	}
 
 	/**

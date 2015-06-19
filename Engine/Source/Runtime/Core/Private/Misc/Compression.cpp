@@ -7,6 +7,9 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogCompression, Log, All);
 
+DECLARE_STATS_GROUP( TEXT( "Compression" ), STATGROUP_Compression, STATCAT_Advanced );
+
+
 /**
  * Thread-safe abstract compression routine. Compresses memory from uncompressed buffer and writes it to compressed
  * buffer. Updates CompressedSize with size of compressed data.
@@ -17,11 +20,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogCompression, Log, All);
  * @param	UncompressedSize			Size of uncompressed data in bytes
  * @return true if compression succeeds, false if it fails because CompressedBuffer was too small or other reasons
  */
-DECLARE_CYCLE_STAT(TEXT("Compress Memory ZLIB"),Stat_appCompressMemoryZLIB,STATGROUP_Engine);
-
 static bool appCompressMemoryZLIB( void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize )
 {
-	SCOPE_CYCLE_COUNTER( Stat_appCompressMemoryZLIB );
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "Compress Memory ZLIB" ), STAT_appCompressMemoryZLIB, STATGROUP_Compression );
 
 	// Zlib wants to use unsigned long.
 	unsigned long ZCompressedSize	= CompressedSize;
@@ -30,6 +31,51 @@ static bool appCompressMemoryZLIB( void* CompressedBuffer, int32& CompressedSize
 	bool bOperationSucceeded = compress( (uint8*) CompressedBuffer, &ZCompressedSize, (const uint8*) UncompressedBuffer, ZUncompressedSize ) == Z_OK ? true : false;
 	// Propagate compressed size from intermediate variable back into out variable.
 	CompressedSize = ZCompressedSize;
+	return bOperationSucceeded;
+}
+
+static bool appCompressMemoryGZIP(void* CompressedBuffer, int32& CompressedSize, const void* UncompressedBuffer, int32 UncompressedSize)
+{
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "Compress Memory GZIP" ), STAT_appCompressMemoryGZIP, STATGROUP_Compression );
+
+	z_stream gzipstream;
+	gzipstream.zalloc = Z_NULL;
+	gzipstream.zfree = Z_NULL;
+	gzipstream.opaque = Z_NULL;
+
+	// Setup input buffer
+	gzipstream.next_in = (uint8*)UncompressedBuffer;
+	gzipstream.avail_in = UncompressedSize;
+
+	// Init deflate settings to use GZIP
+	int windowsBits = 15;
+	int GZIP_ENCODING = 16;
+	deflateInit2(
+		&gzipstream,
+		Z_DEFAULT_COMPRESSION,
+		Z_DEFLATED,
+		windowsBits | GZIP_ENCODING,
+		MAX_MEM_LEVEL,
+		Z_DEFAULT_STRATEGY);
+
+	// Setup output buffer
+	const unsigned long GzipHeaderLength = 12;
+	// This is how much memory we may need, however the consumer is allocating memory for us without knowing the required length.
+	//unsigned long CompressedMaxSize = deflateBound(&gzipstream, gzipstream.avail_in) + GzipHeaderLength;
+	gzipstream.next_out = (uint8*)CompressedBuffer;
+	gzipstream.avail_out = UncompressedSize;
+
+	int status = 0;
+	bool bOperationSucceeded = false;
+	while ((status = deflate(&gzipstream, Z_FINISH)) == Z_OK);
+	if (status == Z_STREAM_END)
+	{
+		bOperationSucceeded = true;
+		deflateEnd(&gzipstream);
+	}
+
+	// Propagate compressed size from intermediate variable back into out variable.
+	CompressedSize = gzipstream.total_out;
 	return bOperationSucceeded;
 }
 
@@ -43,18 +89,23 @@ static bool appCompressMemoryZLIB( void* CompressedBuffer, int32& CompressedSize
  * @param	CompressedSize				Size of CompressedBuffer data in bytes
  * @return true if compression succeeds, false if it fails because CompressedBuffer was too small or other reasons
  */
-DECLARE_CYCLE_STAT(TEXT("Uncompress Memory ZLIB"),Stat_appUncompressMemoryZLIB,STATGROUP_Engine);
-
 bool appUncompressMemoryZLIB( void* UncompressedBuffer, int32 UncompressedSize, const void* CompressedBuffer, int32 CompressedSize )
 {
-	SCOPE_CYCLE_COUNTER( Stat_appUncompressMemoryZLIB );
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "Uncompress Memory ZLIB" ), STAT_appUncompressMemoryZLIB, STATGROUP_Compression );
 
 	// Zlib wants to use unsigned long.
 	unsigned long ZCompressedSize	= CompressedSize;
 	unsigned long ZUncompressedSize	= UncompressedSize;
 	
 	// Uncompress data.
-	bool bOperationSucceeded = uncompress( (uint8*) UncompressedBuffer, &ZUncompressedSize, (const uint8*) CompressedBuffer, ZCompressedSize ) == Z_OK ? true : false;
+	const int32 Result = uncompress((uint8*)UncompressedBuffer, &ZUncompressedSize, (const uint8*)CompressedBuffer, ZCompressedSize);
+	
+	// These warnings will be compiled out in shipping.
+	UE_CLOG(Result == Z_MEM_ERROR, LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Error: Z_MEM_ERROR, not enough memory!"));
+	UE_CLOG(Result == Z_BUF_ERROR, LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Error: Z_BUF_ERROR, not enough room in the output buffer!"));
+	UE_CLOG(Result == Z_DATA_ERROR, LogCompression, Warning, TEXT("appUncompressMemoryZLIB failed: Error: Z_DATA_ERROR, input data was corrupted or incomplete!"));
+
+	const bool bOperationSucceeded = (Result == Z_OK);
 
 	// Sanity check to make sure we uncompressed as much data as we expected to.
 	check( UncompressedSize == ZUncompressedSize );
@@ -137,7 +188,7 @@ bool FCompression::CompressMemory( ECompressionFlags Flags, void* CompressedBuff
 	double CompressorStartTime = FPlatformTime::Seconds();
 
 	// make sure a valid compression scheme was provided
-	check(Flags & COMPRESS_ZLIB);
+	check(Flags & COMPRESS_ZLIB || Flags & COMPRESS_GZIP);
 
 	bool bCompressSucceeded = false;
 
@@ -147,6 +198,9 @@ bool FCompression::CompressMemory( ECompressionFlags Flags, void* CompressedBuff
 	{
 		case COMPRESS_ZLIB:
 			bCompressSucceeded = appCompressMemoryZLIB(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize);
+			break;
+		case COMPRESS_GZIP:
+			bCompressSucceeded = appCompressMemoryGZIP(CompressedBuffer, CompressedSize, UncompressedBuffer, UncompressedSize);
 			break;
 		default:
 			UE_LOG(LogCompression, Warning, TEXT("appCompressMemory - This compression type not supported"));
@@ -176,7 +230,7 @@ bool FCompression::CompressMemory( ECompressionFlags Flags, void* CompressedBuff
  * @param	bIsSourcePadded				Whether the source memory is padded with a full cache line at the end
  * @return true if compression succeeds, false if it fails because CompressedBuffer was too small or other reasons
  */
-DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("Uncompressor total time"),STAT_UncompressorTime,STATGROUP_AsyncIO);
+DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("Uncompressor total time"),STAT_UncompressorTime,STATGROUP_Compression);
 
 bool FCompression::UncompressMemory( ECompressionFlags Flags, void* UncompressedBuffer, int32 UncompressedSize, const void* CompressedBuffer, int32 CompressedSize, bool bIsSourcePadded /*= false*/ )
 {
@@ -192,12 +246,38 @@ bool FCompression::UncompressMemory( ECompressionFlags Flags, void* Uncompressed
 	{
 		case COMPRESS_ZLIB:
 			bUncompressSucceeded = appUncompressMemoryZLIB(UncompressedBuffer, UncompressedSize, CompressedBuffer, CompressedSize);
+			if (!bUncompressSucceeded)
+			{
+				// This is only to skip serialization errors caused by asset corruption 
+				// that can be fixed during re-save, should never be disabled by default!
+				static struct FFailOnUncompressErrors
+				{
+					bool Value;
+					FFailOnUncompressErrors()
+						: Value(true) // fail by default
+					{
+						GConfig->GetBool(TEXT("Core.System"), TEXT("FailOnUncompressErrors"), Value, GEngineIni);
+					}
+				} FailOnUncompressErrors;
+				if (!FailOnUncompressErrors.Value)
+				{
+					bUncompressSucceeded = true;
+				}
+				// Always log an error
+				UE_LOG(LogCompression, Error, TEXT("FCompression::UncompressMemory - Failed to uncompress memory (%d/%d), this may indicate the asset is corrupt!"), CompressedSize, UncompressedSize);
+			}
 			break;
 		default:
 			UE_LOG(LogCompression, Warning, TEXT("FCompression::UncompressMemory - This compression type not supported"));
 			bUncompressSucceeded = false;
 	}
-	STAT(if (FThreadStats::IsThreadingReady()) { INC_FLOAT_STAT_BY(STAT_UncompressorTime,(float)(FPlatformTime::Seconds()-UncompressorStartTime))} );
+
+#if	STATS
+	if (FThreadStats::IsThreadingReady())
+	{
+		INC_FLOAT_STAT_BY( STAT_UncompressorTime, (float)(FPlatformTime::Seconds() - UncompressorStartTime) )
+	}
+#endif // STATS
 	
 	return bUncompressSucceeded;
 }

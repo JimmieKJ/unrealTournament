@@ -6,8 +6,7 @@
 
 URuntimeMovieScenePlayer* URuntimeMovieScenePlayer::CreateRuntimeMovieScenePlayer( ULevel* Level, UMovieSceneBindings* MovieSceneBindings )
 {	
-	URuntimeMovieScenePlayer* NewRuntimeMovieScenePlayer = ConstructObject< URuntimeMovieScenePlayer >( 
-		URuntimeMovieScenePlayer::StaticClass(), 
+	URuntimeMovieScenePlayer* NewRuntimeMovieScenePlayer = NewObject<URuntimeMovieScenePlayer>(
 		(UObject*)GetTransientPackage(), 
 		NAME_None, 
 		RF_Transient );

@@ -74,7 +74,7 @@ struct FMovingAverage
 				Samples.Add(AccumulatorAverage);
 			}
 
-			NextSampleIndex = ++NextSampleIndex % SampleSize;
+			NextSampleIndex = (NextSampleIndex + 1) % SampleSize;
 			ensure(NextSampleIndex >= 0 && NextSampleIndex < SampleSize);
 
 			// calculate the average
@@ -175,7 +175,7 @@ private:
 	void Reset();
 
 	/** Update the moving average samplers to match the settings specified in the console variables */
-	void UpdateMovingAverageSamplers(IConsoleVariable* Unused = nullptr);
+	void UpdateMovingAverageSamplers();
 
 	/** Moving average data for the fine and coarse-grained moving averages */
 	FMovingAverage FineMovingAverage, CoarseMovingAverage;
@@ -194,6 +194,9 @@ private:
 
 	/** Whether the notification is allowed to pop up this session */
 	bool bIsNotificationAllowed;
+
+	/** Console variable delegate for checking when the console variables have changed */
+	FConsoleCommandDelegate CVarDelegate;
 
 	FConsoleVariableSinkHandle CVarDelegateHandle;
 };

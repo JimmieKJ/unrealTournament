@@ -98,7 +98,7 @@ USoundClass* FActiveSound::GetSoundClass() const
 	}
 	else if (Sound)
 	{
-		return Sound->SoundClassObject;
+		return Sound->GetSoundClass();
 	}
 
 	return NULL;
@@ -163,7 +163,7 @@ void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveI
 	const FListener& ClosestListener = AudioDevice->Listeners[ ClosestListenerIndex ];
 
 	// Process occlusion before shifting the sounds position
-	if (World.IsValid())
+	if (OcclusionCheckInterval > 0.f)
 	{
 		CheckOcclusion( ClosestListener.Transform.GetTranslation(), ParseParams.Transform.GetTranslation() );
 	}
@@ -178,7 +178,7 @@ void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveI
 	ParseParams.HighFrequencyGain *= HighFrequencyGainMultiplier;
 
 	ParseParams.SoundClass = GetSoundClass();
-	if( ParseParams.SoundClass && ParseParams.SoundClass->Properties.bApplyAmbientVolumes && World.IsValid())
+	if( ParseParams.SoundClass && ParseParams.SoundClass->Properties.bApplyAmbientVolumes)
 	{
 		// Additional inside/outside processing for ambient sounds
 		// If we aren't in a world there is no interior volumes to be handled.
@@ -207,6 +207,14 @@ void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveI
 			AttenuationSettings.ApplyAttenuation(ParseParams.Transform, Listener.Transform.GetTranslation(), ParseParams.Volume, ParseParams.HighFrequencyGain );
 			ParseParams.OmniRadius = AttenuationSettings.OmniRadius;
 			ParseParams.bUseSpatialization = AttenuationSettings.bSpatialize;
+			if (AttenuationSettings.SpatializationAlgorithm == SPATIALIZATION_Default && AudioDevice->IsHRTFEnabledForAll())
+			{
+				ParseParams.SpatializationAlgorithm = SPATIALIZATION_HRTF;
+			}
+			else
+			{
+				ParseParams.SpatializationAlgorithm = AttenuationSettings.SpatializationAlgorithm;
+			}
 		}
 
 		Sound->Parse( AudioDevice, 0, *this, ParseParams, InWaveInstances );
@@ -281,11 +289,12 @@ void FActiveSound::CheckOcclusion( const FVector ListenerLocation, const FVector
 {
 	// @optimization: dont do this if listener and current locations haven't changed much?
 	// also, should this use getaudiotimeseconds?
-	if( OcclusionCheckInterval > 0.0f && World->GetTimeSeconds() - LastOcclusionCheckTime > OcclusionCheckInterval && Sound->GetMaxAudibleDistance() != WORLD_MAX )
+	UWorld* WorldPtr = World.Get();
+	if (WorldPtr->GetTimeSeconds() - LastOcclusionCheckTime > OcclusionCheckInterval && Sound->GetMaxAudibleDistance() != WORLD_MAX )
 	{
-		LastOcclusionCheckTime = World->GetTimeSeconds();
+		LastOcclusionCheckTime = WorldPtr->GetTimeSeconds();
 		static FName NAME_SoundOcclusion = FName(TEXT("SoundOcclusion"));
-		bool bNowOccluded = World->LineTraceTest(SoundLocation, ListenerLocation, ECC_Visibility, FCollisionQueryParams(NAME_SoundOcclusion, true));
+		const bool bNowOccluded = WorldPtr->LineTraceTestByChannel(SoundLocation, ListenerLocation, ECC_Visibility, FCollisionQueryParams(NAME_SoundOcclusion, true));
 		if( bNowOccluded != bOccluded )
 		{
 			bOccluded = bNowOccluded;
@@ -302,12 +311,19 @@ const TCHAR* GetAWaveName(TMap<UPTRINT, struct FWaveInstance*> WaveInstances)
 
 void FActiveSound::HandleInteriorVolumes( const FListener& Listener, FSoundParseParameters& ParseParams )
 {
+	UWorld* WorldPtr = World.Get();
+	if (WorldPtr == nullptr)
+	{
+		return;
+	}
+
 	// Get the settings of the ambient sound
 	FInteriorSettings Ambient;
 	class AAudioVolume* AudioVolume;
-	if (!bGotInteriorSettings || (GIsEditor && !World->IsGameWorld()) || (ParseParams.Transform.GetTranslation() - LastLocation).SizeSquared() > KINDA_SMALL_NUMBER)
+
+	if (!bGotInteriorSettings || (GIsEditor && !WorldPtr->IsGameWorld()) || (ParseParams.Transform.GetTranslation() - LastLocation).SizeSquared() > KINDA_SMALL_NUMBER)
 	{
-		AudioVolume = World->GetAudioSettings(ParseParams.Transform.GetTranslation(), NULL, &Ambient);
+		AudioVolume = WorldPtr->GetAudioSettings(ParseParams.Transform.GetTranslation(), NULL, &Ambient);
 		LastInteriorSettings = Ambient;
 		LastAudioVolume = AudioVolume;
 		bGotInteriorSettings = true;

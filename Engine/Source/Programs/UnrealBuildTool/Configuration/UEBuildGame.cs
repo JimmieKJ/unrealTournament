@@ -10,29 +10,8 @@ namespace UnrealBuildTool
 	[Serializable]
 	public class UEBuildGame : UEBuildTarget
 	{
-		public UEBuildGame(
-			string InGameName, 
-			UnrealTargetPlatform InPlatform, 
-			UnrealTargetConfiguration InConfiguration,
-			TargetRules InRulesObject,
-			List<string> InAdditionalDefinitions, 
-			string InRemoteRoot, 
-			List<OnlyModule> InOnlyModules,
-			bool bInEditorRecompile)
-			// NOTE: If we're building a monolithic binary, then the game and engine code are linked together into one
-			//       program executable, so we want the application name to be the game name.  In the case of a modular
-			//       binary, we use 'UnrealEngine' for our application name
-			: base(
-				InAppName: UEBuildTarget.GetBinaryBaseName(InGameName, InRulesObject, InPlatform, InConfiguration, ""),
-				InGameName:InGameName,
-				InPlatform:InPlatform,
-				InConfiguration:InConfiguration,
-				InRulesObject: InRulesObject, 
-				InAdditionalDefinitions:InAdditionalDefinitions,
-				InRemoteRoot:InRemoteRoot,
-				InOnlyModules:InOnlyModules,
-				bInEditorRecompile: bInEditorRecompile
-			)
+		public UEBuildGame(TargetDescriptor InDesc, TargetRules InRulesObject, string InTargetCsFilename)
+			: base(InDesc, InRulesObject, "UE4", InTargetCsFilename)
 		{
 			if (ShouldCompileMonolithic())
 			{
@@ -46,13 +25,12 @@ namespace UnrealBuildTool
 					{
 						for (int Index = 0; Index < OutputPaths.Length; Index++)
 						{
-							OutputPaths[Index] = OutputPaths[Index].Replace("Engine\\Binaries", InGameName + "\\Binaries");
+							OutputPaths[Index] = OutputPaths[Index].Replace("Engine\\Binaries", InDesc.TargetName + "\\Binaries");
 						}
 					}
 				}
 			}
 		}
-
 
 		//
 		// UEBuildTarget interface.

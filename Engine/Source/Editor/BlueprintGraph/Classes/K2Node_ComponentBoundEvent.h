@@ -17,12 +17,17 @@ class UK2Node_ComponentBoundEvent : public UK2Node_Event
 	UPROPERTY()
 	FName DelegatePropertyName;
 
+	/** Delegate property's owner class that this event is associated with */
+	UPROPERTY()
+	UClass* DelegateOwnerClass;
+
 	/** Name of property in Blueprint class that pointer to component we want to bind to */
 	UPROPERTY()
 	FName ComponentPropertyName;
 
 	// Begin UObject interface
 	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
+	virtual void Serialize(FArchive& Ar) override;
 	// End UObject interface
 
 	// Begin UEdGraphNode interface

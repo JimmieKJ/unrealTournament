@@ -116,12 +116,50 @@ void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 	int2 PixelPos = (int2)(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
 	float2 ViewLocalUV = float2(UVAndScreenPos.z * 0.5f + 0.5f, 0.5f - 0.5f * UVAndScreenPos.w);
 
+	int2 ViewportCenter = (int2)(ViewportRect.xy + ViewportSize.xy / 2);
+
+
 	// background is the scene color
 	float4 SceneColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
 
 //	OutColor = SceneColor;
 	float LuminanceVal = max(SceneColor.r, max(SceneColor.g, SceneColor.b));
 	OutColor = float4(Colorize(ComputeHistogramPositionFromLuminance(LuminanceVal)), 1.0f);
+
+
+	// crosshair
+	{
+		float CrossHairMask = PixelPos.x == ViewportCenter.x || PixelPos.y == ViewportCenter.y;
+		float2 DistAbs = abs(PixelPos - ViewportCenter);
+		float Dist = max(DistAbs.x, DistAbs.y);
+		float DistMask = Dist >= 2 && Dist < 7;
+
+		OutColor.xyz = lerp(OutColor.xyz, float3(1, 1, 1), CrossHairMask * DistMask);
+	}
+
+	// value under crosshair
+	{
+		float3 CenterViewportHDRColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, ViewportCenter * PostprocessInput0Size.zw).rgb;
+		float Value = Luminance(CenterViewportHDRColor);
+
+		int2 Cursor;
+
+		Cursor = ViewportCenter + int2(-35, 7 + 0 * 8);
+		PrintCharacter(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, 10 + 11);	// 'L'
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, Value);
+	
+		Cursor = ViewportCenter + int2(-35, 7 + 1 * 8); 
+		PrintCharacter(PixelPos, OutColor.xyz, float3(1, 0, 0), Cursor, 10 + 17);	// 'R'
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, CenterViewportHDRColor.r);
+
+		Cursor = ViewportCenter + int2(-35, 7 + 2 * 8); 
+		PrintCharacter(PixelPos, OutColor.xyz, float3(0, 1, 0), Cursor, 10 + 6);	// 'G'
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, CenterViewportHDRColor.g);
+
+		Cursor = ViewportCenter + int2(-35, 7 + 3 * 8); 
+		PrintCharacter(PixelPos, OutColor.xyz, float3(0, 0, 1), Cursor, 10 + 1);	// 'B'
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), Cursor, CenterViewportHDRColor.b);
+	}
 
 
 
@@ -179,7 +217,7 @@ void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 	float2 InsetUV = InsetPx / HistogramSize;
 	
 //	const float3 BorderColor = float3(0.5f, 0.5f, 0.5f);
-	const float3 BorderColor = Colorize(InsetUV);
+	const float3 BorderColor = Colorize(InsetUV.x);
 
 	float BorderDistance = ComputeDistanceToRect(PixelPos, HistogramLeftTop, HistogramSize);
 	
@@ -228,7 +266,7 @@ void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 	if(LocalHistogramValue >= 1 - InsetUV.y)
 	{
 		// histogram bars
-		OutColor.xyz = lerp(OutColor.xyz, Colorize(InsetUV), 0.5f);
+		OutColor.xyz = lerp(OutColor.xyz, Colorize(InsetUV.x), 0.5f);
 	}
 
 	{
@@ -251,13 +289,15 @@ void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 		}
 	}
 
+	// eye adaptation
 	{
-		float Value = ComputeHistogramPositionFromLuminance(1.0f / HistogramTexture.Load(int3(0, 1, 0)).x);
+		float EyeApatationValue = ComputeHistogramPositionFromLuminance(1.0f / HistogramTexture.Load(int3(0, 1, 0)).x);
 
-		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), HistogramLeftTop + int2(HistogramSize.x - 7 * 8 - 2, 3), Value);
+		float ValuePx = EyeApatationValue * HistogramSize.x;
 
-		float ValuePx = Value * HistogramSize.x;
-		if(abs(InsetPx.x - ValuePx) < 2)
+		PrintFloat(PixelPos, OutColor.xyz, float3(1, 1, 1), HistogramLeftTop + int2(ValuePx + - 3 * 8 - 3, 1), EyeApatationValue);
+
+		if(abs(InsetPx.x - ValuePx) < 2 && PixelPos.y > HistogramLeftTop.y + 9)
 		{
 			// white line to show the smoothed exposure
 			OutColor = lerp(OutColor, float4(1, 1, 1, 0), 1.0f);

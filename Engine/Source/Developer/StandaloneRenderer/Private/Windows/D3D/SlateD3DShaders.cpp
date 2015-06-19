@@ -73,14 +73,14 @@ void FSlateD3DVS::Create( const FString& Filename, const FString& EntryPoint, co
 	CompileShader( Filename, EntryPoint, ShaderModel, Blob);
 
 	HRESULT Hr = GD3DDevice->CreateVertexShader( Blob->GetBufferPointer(), Blob->GetBufferSize(), NULL, VertexShader.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	Hr = GD3DDevice->CreateInputLayout( VertexLayout, VertexLayoutCount, Blob->GetBufferPointer(), Blob->GetBufferSize(), InputLayout.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	TRefCountPtr<ID3D11ShaderReflection> Reflector;
 	Hr = D3DReflect( Blob->GetBufferPointer(), Blob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)Reflector.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	GetShaderBindings( Reflector, ShaderBindings );
 }
@@ -129,12 +129,12 @@ void FSlateD3DGeometryShader::Create( const FString& Filename, const FString& En
 	CompileShader( Filename, EntryPoint, ShaderModel, Blob);
 
 	HRESULT Hr = GD3DDevice->CreateGeometryShader( Blob->GetBufferPointer(), Blob->GetBufferSize(), NULL, GeometryShader.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 
 	TRefCountPtr<ID3D11ShaderReflection> Reflector;
 	Hr = D3DReflect( Blob->GetBufferPointer(), Blob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)Reflector.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	GetShaderBindings( Reflector, ShaderBindings );
 }
@@ -170,12 +170,12 @@ void FSlateD3DPS::Create( const FString& Filename, const FString& EntryPoint, co
 	CompileShader( Filename, EntryPoint, ShaderModel, Blob);
 
 	HRESULT Hr = GD3DDevice->CreatePixelShader( Blob->GetBufferPointer(), Blob->GetBufferSize(), NULL, PixelShader.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 
 	TRefCountPtr<ID3D11ShaderReflection> Reflector;
 	Hr = D3DReflect( Blob->GetBufferPointer(), Blob->GetBufferSize(), IID_ID3D11ShaderReflection, (void**)Reflector.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	GetShaderBindings( Reflector, ShaderBindings );
 }

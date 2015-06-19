@@ -2,6 +2,7 @@
 
 #pragma once
 #include "Runtime/InputCore/Classes/InputCoreTypes.h"
+#include "InputChord.h"
 #include "InputComponent.generated.h"
 
 
@@ -75,72 +76,6 @@ protected:
 	DynamicDelegateType FuncDynDelegate;
 };
 
-
-/** An Input Chord is a key and the modifier keys that are to be held with it. */
-USTRUCT()
-struct FInputChord
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** The Key is the core of the chord. */
-	UPROPERTY()
-	FKey Key;
-
-	/** Whether the shift key is part of the chord.  */
-	UPROPERTY()
-	uint32 bShift:1;
-
-	/** Whether the control key is part of the chord.  */
-	UPROPERTY()
-	uint32 bCtrl:1;
-
-	/** Whether the alt key is part of the chord.  */
-	UPROPERTY()
-	uint32 bAlt:1;
-
-	/** Whether the command key is part of the chord.  */
-	UPROPERTY()
-	uint32 bCmd:1;
-
-	/** 
-	  * The ways two chords can be related to each other. A chord is considered masking 
-	  * when it has all the same modifier keys as another chord plus more.
-	  */
-	enum ERelationshipType
-	{
-		None,
-		Same,
-		Masked,
-		Masks
-	};
-
-	/** Returns the relationship between this chord and another. */
-	ERelationshipType GetRelationship(const FInputChord& OtherChord) const;
-
-	FInputChord()
-		: bShift(false)
-		, bCtrl(false)
-		, bAlt(false)
-		, bCmd(false)
-	{ }
-
-	FInputChord(const FKey InKey, const bool bInShift, const bool bInCtrl, const bool bInAlt, const bool bInCmd)
-		: Key(InKey)
-		, bShift(bInShift)
-		, bCtrl(bInCtrl)
-		, bAlt(bInAlt)
-		, bCmd(bInCmd)
-	{ }
-
-	bool operator==(const FInputChord& Other) const
-	{
-		return (   Key == Other.Key
-				&& bShift == Other.bShift
-				&& bCtrl == Other.bCtrl
-				&& bAlt == Other.bAlt
-				&& bCmd == Other.bCmd);
-	}
-};
 
 /** Base class for the different binding types. */
 struct FInputBinding

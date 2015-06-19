@@ -117,7 +117,7 @@ private:
 		// separate out each line
 		TArray<FString> DeviceStrings;
 		StdOut = StdOut.Replace(TEXT("\r"), TEXT("\n"));
-		StdOut.ParseIntoArray(&DeviceStrings, TEXT("\n"), true);
+		StdOut.ParseIntoArray(DeviceStrings, TEXT("\n"), true);
 
 		// a list containing all devices found this time, so we can remove anything not in this list
 		TArray<FString> CurrentlyConnectedDevices;
@@ -135,9 +135,13 @@ private:
 			// grab the device serial number
 			int32 TabIndex;
 
-			if (!DeviceString.FindChar(TCHAR(' '), TabIndex))
+			// use either tab or space as separator
+			if (!DeviceString.FindChar(TCHAR('\t'), TabIndex))
 			{
-				continue;
+				if (!DeviceString.FindChar(TCHAR(' '), TabIndex))
+				{
+					continue;
+				}
 			}
 
 			FAndroidDeviceInfo NewDeviceInfo;
@@ -313,6 +317,38 @@ public:
 
 		FString ADBPath;
 		
+#if PLATFORM_MAC
+		if (AndroidDirectory[0] == 0)
+		{
+			// didn't find ANDROID_HOME, so parse the .bash_profile file on MAC
+			FArchive* FileReader = IFileManager::Get().CreateFileReader(*FString([@"~/.bash_profile" stringByExpandingTildeInPath]));
+			if (FileReader)
+			{
+				const int64 FileSize = FileReader->TotalSize();
+				ANSICHAR* AnsiContents = (ANSICHAR*)FMemory::Malloc(FileSize);
+				FileReader->Serialize(AnsiContents, FileSize);
+				FileReader->Close();
+				delete FileReader;
+
+				TArray<FString> Lines;
+				FString(ANSI_TO_TCHAR(AnsiContents)).ParseIntoArrayLines(Lines);
+				FMemory::Free(AnsiContents);
+
+				for (int32 Index = 0; Index < Lines.Num(); Index++)
+				{
+					if (AndroidDirectory[0] == 0 && Lines[Index].StartsWith(TEXT("export ANDROID_HOME=")))
+					{
+						FString Directory;
+						Lines[Index].Split(TEXT("="), NULL, &Directory);
+						Directory = Directory.Replace(TEXT("\""), TEXT(""));
+						FCString::Strcpy(AndroidDirectory, *Directory);
+						setenv("ANDROID_HOME", TCHAR_TO_ANSI(AndroidDirectory), 1);
+					}
+				}
+			}
+		}
+#endif
+
 		if (AndroidDirectory[0] != 0)
 		{
 #if PLATFORM_WINDOWS

@@ -917,9 +917,8 @@ private:
 	{
 		if(LastSelectedRevisionItem.IsValid())
 		{
-			static const FNumberFormattingOptions ChangelistFormatOptions = FNumberFormattingOptions()
-				.SetUseGrouping(false); // don't group the CL# as Perforce doesn't display it that way
-			return FText::AsNumber(LastSelectedRevisionItem.Pin()->ChangelistNumber, &ChangelistFormatOptions);
+			// don't group the CL# as Perforce doesn't display it that way
+			return FText::AsNumber(LastSelectedRevisionItem.Pin()->ChangelistNumber, &FNumberFormattingOptions::DefaultNoGrouping());
 		}
 		return FText::GetEmpty();
 	}

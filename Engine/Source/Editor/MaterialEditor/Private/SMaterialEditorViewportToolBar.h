@@ -1,22 +1,34 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
 
-#ifndef __SLevelViewportToolBar_h__
-#define __SLevelViewportToolBar_h__
+#include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
 
-#include "Editor/UnrealEd/Public/SViewportToolBar.h"
+///////////////////////////////////////////////////////////
+// SMaterialEditorViewportToolBar
 
-/**
- * A material editor viewport toolbar widget that is placed in a viewport
- */
-class SMaterialEditorViewportToolBar : public SViewportToolBar
+// In-viewport toolbar widget used in the material editor
+class SMaterialEditorViewportToolBar : public SCommonEditorViewportToolbarBase
 {
 public:
-	SLATE_BEGIN_ARGS( SMaterialEditorViewportToolBar ){}
-		SLATE_ARGUMENT( TSharedPtr<class SMaterialEditorViewport>, Viewport )
+	SLATE_BEGIN_ARGS(SMaterialEditorViewportToolBar) {}
 	SLATE_END_ARGS()
 
-	void Construct( const FArguments& InArgs );
+	void Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport);
+
+	// SCommonEditorViewportToolbarBase interface
+	virtual TSharedRef<SWidget> GenerateShowMenu() const override;
+	// End of SCommonEditorViewportToolbarBase
 };
 
-#endif
+///////////////////////////////////////////////////////////
+// SMaterialEditorViewportPreviewShapeToolBar
+
+class SMaterialEditorViewportPreviewShapeToolBar : public SViewportToolBar
+{
+public:
+	SLATE_BEGIN_ARGS(SMaterialEditorViewportPreviewShapeToolBar){}
+	SLATE_END_ARGS()
+
+	void Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport);
+};

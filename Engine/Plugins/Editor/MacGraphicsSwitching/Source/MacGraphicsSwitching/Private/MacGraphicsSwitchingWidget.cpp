@@ -133,7 +133,7 @@ void SMacGraphicsSwitchingWidget::OnSelectionChanged(TSharedPtr<FRendererItem> I
 	}
 	else if ( bLiveSwitching )
 	{
-		GConfig->SetInt(TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings"), TEXT("RendererID"), InItem->RendererID, GEditorGameAgnosticIni);
+		GConfig->SetInt(TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings"), TEXT("RendererID"), InItem->RendererID, GEditorSettingsIni);
 	}
 	
 	// Update all the contexts

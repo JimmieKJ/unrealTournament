@@ -52,7 +52,7 @@ struct FAnimationActiveTransitionEntry
 	TArray<FAnimNode_TransitionPoseEvaluator*> PoseEvaluators;
 
 #if WITH_EDITORONLY_DATA
-	TArray<int32> SourceTransitionIndices;
+	TArray<int32, TInlineAllocator<3>> SourceTransitionIndices;
 #endif
 
 
@@ -84,7 +84,7 @@ struct FAnimationPotentialTransition
 	const FBakedStateExitTransition* TransitionRule;
 
 #if WITH_EDITORONLY_DATA
-	TArray<int32> SourceTransitionIndices;
+	TArray<int32, TInlineAllocator<3>> SourceTransitionIndices;
 #endif
 
 public:
@@ -149,6 +149,12 @@ protected:
 	// Used during transitions to make sure we don't double tick a state if it appears multiple times
 	TArray<int32> StatesUpdated;
 
+	// Delegates that native code can hook into to handle state entry
+	TArray<FOnGraphStateChanged> OnGraphStatesEntered;
+
+	// Delegates that native code can hook into to handle state exits
+	TArray<FOnGraphStateChanged> OnGraphStatesExited;
+
 private:
 	// true if it is the first update.
 	bool bFirstUpdate;
@@ -173,6 +179,8 @@ public:
 	// Returns the blend weight of the specified state, as calculated by the last call to Update()
 	float GetStateWeight(int32 StateIndex) const;
 
+	const FBakedAnimationState& GetStateInfo(int32 StateIndex) const;
+	const FAnimationTransitionBetweenStates& GetTransitionInfo(int32 TransIndex) const;
 	
 protected:
 	// Tries to get the instance information for the state machine
@@ -182,8 +190,6 @@ protected:
 	void SetStateInternal(int32 NewStateIndex);
 
 	const FBakedAnimationState& GetStateInfo() const;
-	const FBakedAnimationState& GetStateInfo(int32 StateIndex) const;
-	const FAnimationTransitionBetweenStates& GetTransitionInfo(int32 TransIndex) const;
 	const int32 GetStateIndex(const FBakedAnimationState& StateInfo) const;
 	
 	// finds the highest priority valid transition, information pass via the OutPotentialTransition variable.
@@ -191,7 +197,7 @@ protected:
 	bool FindValidTransition(const FAnimationUpdateContext& Context, 
 							const FBakedAnimationState& StateInfo,
 							/*OUT*/ FAnimationPotentialTransition& OutPotentialTransition,
-							/*OUT*/ TArray<int32>& OutVisitedStateIndices);
+							/*OUT*/ TArray<int32, TInlineAllocator<4>>& OutVisitedStateIndices);
 
 	// Helper function that will update the states associated with a transition
 	void UpdateTransitionStates(const FAnimationUpdateContext& Context, FAnimationActiveTransitionEntry& Transition);
@@ -206,4 +212,7 @@ protected:
 	// transition type evaluation functions
 	void EvaluateTransitionStandardBlend(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, bool bIntermediatePoseIsValid);
 	void EvaluateTransitionCustomBlend(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, bool bIntermediatePoseIsValid);
+
+public:
+	friend class UAnimInstance;
 };

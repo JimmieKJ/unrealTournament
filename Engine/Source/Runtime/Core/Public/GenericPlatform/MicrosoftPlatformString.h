@@ -10,6 +10,7 @@
 **/
 
 #if !USE_SECURE_CRT
+#pragma warning(push)
 #pragma warning(disable : 4996) // 'function' was declared deprecated  (needed for the secure string functions)
 #endif
 
@@ -315,5 +316,5 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 };
 
 #if !USE_SECURE_CRT
-#pragma warning(default : 4996) // 'function' was was declared deprecated  (needed for the secure string functions)
+#pragma warning(pop) // 'function' was was declared deprecated  (needed for the secure string functions)
 #endif

@@ -6,6 +6,7 @@
 #include "NavigationTestingActor.generated.h"
 
 class ANavigationTestingActor;
+class UNavigationInvokerComponent;
 
 struct FNavTestTickHelper : FTickableGameObject
 {
@@ -45,6 +46,13 @@ private_subobject:
 	UPROPERTY()
 	class UNavTestRenderingComponent* EdRenderComp;
 #endif // WITH_EDITORONLY_DATA
+
+	UPROPERTY(EditAnywhere, Category = Navigation, meta=(EditCondition="bActAsNavigationInvoker"))
+	UNavigationInvokerComponent* InvokerComponent;
+
+	UPROPERTY()
+	uint32 bActAsNavigationInvoker : 1;
+
 public:
 
 	/** @todo document */
@@ -130,7 +138,7 @@ public:
 
 #if WITH_RECAST && WITH_EDITORONLY_DATA
 	/** detail data gathered from each step of regular A* algorithm */
-	TArray<struct FRecastDebugPathfindingStep> DebugSteps;
+	TArray<struct FRecastDebugPathfindingData> DebugSteps;
 
 	FNavTestTickHelper* TickHelper;
 #endif

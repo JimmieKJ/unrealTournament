@@ -176,7 +176,7 @@ static UEdGraph* BlueprintNodeTemplateCacheImpl::AddGraph(UBlueprint* BlueprintO
 	UClass* GraphClass = UEdGraph::StaticClass();
 	FName const GraphName = MakeUniqueObjectName(BlueprintOuter, GraphClass, FName(TEXT("TEMPLATE_NODE_OUTER")));
 
-	UEdGraph* NewGraph = ConstructObject<UEdGraph>(GraphClass, BlueprintOuter, GraphName, RF_Transient);
+	UEdGraph* NewGraph = NewObject<UEdGraph>(BlueprintOuter, GraphClass, GraphName, RF_Transient);
 	NewGraph->Schema = SchemaClass;
 
 	MarkGraphForTemplateUse(NewGraph);

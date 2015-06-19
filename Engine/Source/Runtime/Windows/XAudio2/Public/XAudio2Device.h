@@ -16,6 +16,7 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogXAudio2, Log, All);
 
+
 /*------------------------------------------------------------------------------------
 	Dependencies, helpers & forward declarations.
 ------------------------------------------------------------------------------------*/
@@ -126,7 +127,7 @@ class FXAudio2Device : public FAudioDevice
 	/** 
 	 * Check for errors and output a human readable string 
 	 */
-	virtual bool ValidateAPICall(const TCHAR* Function, int32 ErrorCode) override;
+	virtual bool ValidateAPICall(const TCHAR* Function, uint32 ErrorCode) override;
 
 	/**
 	 * Exec handler used to parse console commands.
@@ -171,6 +172,8 @@ protected:
 	friend class FXAudio2EffectsManager;
 
 private:
+	struct FXAudioDeviceProperties* DeviceProperties;
+
 #if PLATFORM_WINDOWS
 	// We need to keep track whether com was successfully initialized so we can clean 
 	// it up during shutdown

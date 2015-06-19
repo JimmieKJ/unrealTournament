@@ -4,7 +4,6 @@
 #include "SBlueprintFavoritesPalette.h"
 #include "Engine.h"
 #include "KismetClasses.h"
-#include "K2ActionMenuBuilder.h"
 #include "BlueprintActionMenuUtils.h"
 #include "BlueprintActionMenuBuilder.h"
 #include "BlueprintActionFilter.h" // for FBlueprintActionContext
@@ -33,13 +32,13 @@ struct SBlueprintFavoritesPaletteUtils
 	 */
 	static void RemoveSelectedFavorites(FPaletteActionGetter ActionGetter)
 	{
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (ActionGetter.IsBound() && (EditorUserSettings.BlueprintFavorites != NULL))
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (ActionGetter.IsBound() && (EditorPerProjectUserSettings->BlueprintFavorites != NULL))
 		{
 			TArray< TSharedPtr<FEdGraphSchemaAction> > SelectedActions;
 			ActionGetter.Execute(SelectedActions);
 
-			EditorUserSettings.BlueprintFavorites->RemoveFavorites(SelectedActions);
+			EditorPerProjectUserSettings->BlueprintFavorites->RemoveFavorites(SelectedActions);
 		}
 	}
 
@@ -49,10 +48,10 @@ struct SBlueprintFavoritesPaletteUtils
 	 */
 	static void ClearPaletteFavorites()
 	{
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (EditorUserSettings.BlueprintFavorites != NULL)
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (EditorPerProjectUserSettings->BlueprintFavorites != NULL)
 		{
-			EditorUserSettings.BlueprintFavorites->ClearAllFavorites();
+			EditorPerProjectUserSettings->BlueprintFavorites->ClearAllFavorites();
 		}
 	}
 
@@ -67,10 +66,10 @@ struct SBlueprintFavoritesPaletteUtils
 	{
 		bool bIsLoaded = false;
 
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (EditorUserSettings.BlueprintFavorites != NULL)
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (EditorPerProjectUserSettings->BlueprintFavorites != NULL)
 		{
-			bIsLoaded = (EditorUserSettings.BlueprintFavorites->GetCurrentProfile() == ProfileName);
+			bIsLoaded = (EditorPerProjectUserSettings->BlueprintFavorites->GetCurrentProfile() == ProfileName);
 		}
 
 		return !bIsLoaded;
@@ -84,10 +83,10 @@ struct SBlueprintFavoritesPaletteUtils
 	 */
 	static void LoadFavoritesProfile(FString ProfileName)
 	{
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (EditorUserSettings.BlueprintFavorites != NULL)
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (EditorPerProjectUserSettings->BlueprintFavorites != NULL)
 		{
-			EditorUserSettings.BlueprintFavorites->LoadProfile(ProfileName);
+			EditorPerProjectUserSettings->BlueprintFavorites->LoadProfile(ProfileName);
 		}
 	}
 
@@ -101,8 +100,8 @@ struct SBlueprintFavoritesPaletteUtils
 	{
 		TArray<FString> AvailableProfiles;
 	
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (EditorUserSettings.BlueprintFavorites != NULL)
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (EditorPerProjectUserSettings->BlueprintFavorites != NULL)
 		{
 			static FString const ProfilesConfigKey("Profiles");
 			GConfig->GetArray(*SBlueprintFavoritesPaletteUtils::ConfigSection, *ProfilesConfigKey, AvailableProfiles, GEditorIni);	
@@ -256,9 +255,9 @@ public:
 	/** Registers context menu commands for the blueprint favorites palette. */
 	virtual void RegisterCommands() override
 	{
-		UI_COMMAND(RemoveSingleFavorite, "Remove from Favorites",          "Removes this item from your favorites list.",                 EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(RemoveSubFavorites,   "Remove Category from Favorites", "Removes all the nodes in this category from your favorites.", EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(ClearFavorites,       "Clear All Favorites",			   "Clears out all of your favorited nodes.",                     EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(RemoveSingleFavorite, "Remove from Favorites",          "Removes this item from your favorites list.",                 EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(RemoveSubFavorites,   "Remove Category from Favorites", "Removes all the nodes in this category from your favorites.", EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(ClearFavorites,       "Clear All Favorites",			   "Clears out all of your favorited nodes.",                     EUserInterfaceActionType::Button, FInputChord());
 	}
 };
 
@@ -269,10 +268,10 @@ public:
 //------------------------------------------------------------------------------
 SBlueprintFavoritesPalette::~SBlueprintFavoritesPalette()
 {
-	UEditorUserSettings& EditorUserSettings = GEditor->AccessEditorUserSettings();
-	if (EditorUserSettings.BlueprintFavorites != NULL)
+	const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+	if (EditorPerProjectUserSettings->BlueprintFavorites != NULL)
 	{
-		EditorUserSettings.BlueprintFavorites->OnFavoritesUpdated.RemoveAll(this);
+		EditorPerProjectUserSettings->BlueprintFavorites->OnFavoritesUpdated.RemoveAll(this);
 	}
 }
 
@@ -291,10 +290,10 @@ void SBlueprintFavoritesPalette::Construct(FArguments const& InArgs, TWeakPtr<FB
 
 	SBlueprintSubPalette::Construct(SuperArgs, InBlueprintEditor);
 
-	UEditorUserSettings& EditorUserSettings = GEditor->AccessEditorUserSettings();
-	if (EditorUserSettings.BlueprintFavorites != NULL)
+	const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+	if (EditorPerProjectUserSettings->BlueprintFavorites != NULL)
 	{
-		EditorUserSettings.BlueprintFavorites->OnFavoritesUpdated.AddSP(this, &SBlueprintFavoritesPalette::RefreshActionsList, true);
+		EditorPerProjectUserSettings->BlueprintFavorites->OnFavoritesUpdated.AddSP(this, &SBlueprintFavoritesPalette::RefreshActionsList, true);
 	}
 }
 

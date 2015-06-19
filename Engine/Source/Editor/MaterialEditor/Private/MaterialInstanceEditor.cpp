@@ -156,7 +156,7 @@ void FMaterialInstanceEditor::InitMaterialInstanceEditor( const EToolkitMode::Ty
 	bShowMobileStats = false;
 
 	// Construct a temp holder for our instance parameters.
-	MaterialEditorInstance = ConstructObject<UMaterialEditorInstanceConstant>(UMaterialEditorInstanceConstant::StaticClass(), GetTransientPackage(), NAME_None, RF_Transactional);
+	MaterialEditorInstance = NewObject<UMaterialEditorInstanceConstant>(GetTransientPackage(), NAME_None, RF_Transactional);
 
 	bool bTempUseOldStyleMICEditorGroups = true;
 	GConfig->GetBool(TEXT("/Script/UnrealEd.EditorEngine"), TEXT("UseOldStyleMICEditorGroups"), bTempUseOldStyleMICEditorGroups, GEngineIni);	
@@ -232,7 +232,7 @@ void FMaterialInstanceEditor::InitMaterialInstanceEditor( const EToolkitMode::Ty
 	{
 		InstanceConstant->PreviewMesh = ThumbnailInfoWithPrim->PreviewMesh;
 	}
-	SetPreviewMesh(*InstanceConstant->PreviewMesh.ToString());
+	SetPreviewAssetByName(*InstanceConstant->PreviewMesh.ToString());
 }
 
 FMaterialInstanceEditor::~FMaterialInstanceEditor()
@@ -273,7 +273,7 @@ void FMaterialInstanceEditor::BindCommands()
 
 	ToolkitCommands->MapAction(
 		FEditorViewportCommands::Get().ToggleRealTime,
-		FExecuteAction::CreateSP( PreviewVC.ToSharedRef(), &SMaterialEditorViewport::ToggleRealtime ),
+		FExecuteAction::CreateSP( PreviewVC.ToSharedRef(), &SMaterialEditorViewport::OnToggleRealtime ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( PreviewVC.ToSharedRef(), &SMaterialEditorViewport::IsRealtime ) );
 
@@ -733,7 +733,7 @@ void FMaterialInstanceEditor::DrawSamplerWarningStrings(FCanvas* Canvas, int32& 
 		{
 			UFont* FontToUse = GEngine->GetTinyFont();
 			const int32 SpacingBetweenLines = 13;
-			UEnum* SamplerTypeEnum = FindObject<UEnum>( NULL, TEXT("/Script/Engine.EngineTypes.EMaterialSamplerType") );
+			UEnum* SamplerTypeEnum = FindObject<UEnum>( NULL, TEXT("/Script/Engine.EMaterialSamplerType") );
 			check( SamplerTypeEnum );
 
 			const int32 GroupCount = MaterialEditorInstance->ParameterGroups.Num();
@@ -810,20 +810,20 @@ void FMaterialInstanceEditor::DrawSamplerWarningStrings(FCanvas* Canvas, int32& 
 	}
 }
 
-bool FMaterialInstanceEditor::SetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh)
+bool FMaterialInstanceEditor::SetPreviewAsset(UObject* InAsset)
 {
 	if (PreviewVC.IsValid())
 	{
-		return PreviewVC->SetPreviewMesh(InStaticMesh, InSkeletalMesh);
+		return PreviewVC->SetPreviewAsset(InAsset);
 	}
 	return false;
 }
 
-bool FMaterialInstanceEditor::SetPreviewMesh(const TCHAR* InMeshName)
+bool FMaterialInstanceEditor::SetPreviewAssetByName(const TCHAR* InAssetName)
 {
 	if (PreviewVC.IsValid())
 	{
-		return PreviewVC->SetPreviewMesh(InMeshName);
+		return PreviewVC->SetPreviewAssetByName(InAssetName);
 	}
 	return false;
 }
@@ -849,10 +849,10 @@ void FMaterialInstanceEditor::SaveSettings()
 		PreviewVC->PreviewScene.SaveSettings(TEXT("MaterialInstanceEditor"));
 	}
 
-	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bShowGrid"), PreviewVC->IsTogglePreviewGridChecked(), GEditorUserSettingsIni);
-	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bDrawGrid"), PreviewVC->IsRealtime(), GEditorUserSettingsIni);
-	GConfig->SetInt(TEXT("MaterialInstanceEditor"), TEXT("PrimType"), PreviewVC->PreviewPrimType, GEditorUserSettingsIni);
-	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bWantsMobileStats"), IsToggleMobileStatsChecked(), GEditorUserSettingsIni);
+	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bShowGrid"), PreviewVC->IsTogglePreviewGridChecked(), GEditorPerProjectIni);
+	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bDrawGrid"), PreviewVC->IsRealtime(), GEditorPerProjectIni);
+	GConfig->SetInt(TEXT("MaterialInstanceEditor"), TEXT("PrimType"), PreviewVC->PreviewPrimType, GEditorPerProjectIni);
+	GConfig->SetBool(TEXT("MaterialInstanceEditor"), TEXT("bWantsMobileStats"), IsToggleMobileStatsChecked(), GEditorPerProjectIni);
 }
 
 void FMaterialInstanceEditor::LoadSettings()
@@ -861,10 +861,10 @@ void FMaterialInstanceEditor::LoadSettings()
 	bool bShowGrid=false;
 	int32 PrimType=static_cast<EThumbnailPrimType>( TPT_Sphere );
 	bool bWantsMobileStats=false;
-	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bShowGrid"), bShowGrid, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bDrawGrid"), bRealtime, GEditorUserSettingsIni);
-	GConfig->GetInt(TEXT("MaterialInstanceEditor"), TEXT("PrimType"), PrimType, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bWantsMobileStats"), bWantsMobileStats, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bShowGrid"), bShowGrid, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bDrawGrid"), bRealtime, GEditorPerProjectIni);
+	GConfig->GetInt(TEXT("MaterialInstanceEditor"), TEXT("PrimType"), PrimType, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("MaterialInstanceEditor"), TEXT("bWantsMobileStats"), bWantsMobileStats, GEditorPerProjectIni);
 
 	if (bWantsMobileStats)
 	{
@@ -879,7 +879,7 @@ void FMaterialInstanceEditor::LoadSettings()
 		}
 		if ( bRealtime )
 		{
-			PreviewVC->ToggleRealtime();
+			PreviewVC->OnToggleRealtime();
 		}
 		PreviewVC->OnSetPreviewPrimitive( static_cast<EThumbnailPrimType>(PrimType) );
 
@@ -934,7 +934,7 @@ UObject* FMaterialInstanceEditor::GetSyncObject()
 	return NULL;
 }
 
-bool FMaterialInstanceEditor::ApproveSetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh)
+bool FMaterialInstanceEditor::ApproveSetPreviewAsset(UObject* InAsset)
 {
 	// Default impl is to always accept.
 	return true;

@@ -6,7 +6,7 @@
 #include "NodeDependingOnEnumInterface.h"
 #include "K2Node_Select.generated.h"
 
-UCLASS(MinimalAPI)
+UCLASS(MinimalAPI, meta=(Keywords = "Ternary If"))
 class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 {
 	GENERATED_UCLASS_BODY()
@@ -38,10 +38,10 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 	// Begin UEdGraphNode interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
-	virtual FString GetKeywords() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void NodeConnectionListChanged() override;
 	virtual void PinTypeChanged(UEdGraphPin* Pin) override;
+	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	virtual void PostPasteNode() override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Select_16x"); }
 	// End UEdGraphNode interface

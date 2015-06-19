@@ -20,7 +20,7 @@ UMediaTextureFactoryNew::UMediaTextureFactoryNew( const FObjectInitializer& Obje
 
 UObject* UMediaTextureFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	UMediaTexture* MediaTexture = ConstructObject<UMediaTexture>(InClass, InParent, InName, Flags);
+	UMediaTexture* MediaTexture = NewObject<UMediaTexture>(InParent, InClass, InName, Flags);
 
 	if ((MediaTexture != nullptr) && (InitialMediaPlayer != nullptr))
 	{

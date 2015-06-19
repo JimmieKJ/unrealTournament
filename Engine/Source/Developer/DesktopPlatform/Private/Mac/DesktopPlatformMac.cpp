@@ -273,7 +273,7 @@ bool FDesktopPlatformMac::OpenDirectoryDialog(const void* ParentWindowHandle, co
 			[Panel setDirectoryURL: DefaultPathURL];
 			CFRelease(DefaultPathCFString);
 
-			bool bSuccess = false;
+			bool bResult = false;
 
 			NSInteger Result = [Panel runModal];
 
@@ -285,12 +285,12 @@ bool FDesktopPlatformMac::OpenDirectoryDialog(const void* ParentWindowHandle, co
 				OutFolderName = FolderPath;
 				FPaths::NormalizeFilename(OutFolderName);
 
-				bSuccess = true;
+				bResult = true;
 			}
 
 			[Panel close];
 
-			return bSuccess;
+			return bResult;
 		});
 	}
 	MacApplication->ResetModifierKeys();
@@ -319,13 +319,13 @@ bool FDesktopPlatformMac::OpenFontDialog(const void* ParentWindowHandle, FString
 			
 			[Panel close];
 
-			bool bSuccess = [AccessoryView result];
+			bool bResult = [AccessoryView result];
 
 			[Panel setAccessoryView: NULL];
 			[AccessoryView release];
 			[[Panel standardWindowButton: NSWindowCloseButton] setEnabled: true];
 
-			if( bSuccess )
+			if( bResult )
 			{
 				NSFont* Font = [Panel panelConvertFont: [NSFont userFontOfSize: 0]];
 
@@ -345,7 +345,7 @@ bool FDesktopPlatformMac::OpenFontDialog(const void* ParentWindowHandle, FString
 				OutFlags = FontFlags;
 			}
 
-			return bSuccess;
+			return bResult;
 		});
 	}
 	
@@ -473,7 +473,7 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 			[Panel setAccessoryView: AccessoryView];
 
 			TArray<FString> FileTypesArray;
-			int32 NumFileTypes = FileTypes.ParseIntoArray(&FileTypesArray, TEXT("|"), true);
+			int32 NumFileTypes = FileTypes.ParseIntoArray(FileTypesArray, TEXT("|"), true);
 
 			NSMutableArray* AllowedFileTypes = [NSMutableArray arrayWithCapacity: NumFileTypes];
 
@@ -489,7 +489,7 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 
 			[AccessoryView AddAllowedFileTypes:AllowedFileTypes];
 
-			bool bSuccess = false;
+			bool bOkPressed = false;
 			NSWindow* FocusWindow = [[NSApplication sharedApplication] keyWindow];
 
 			NSInteger Result = [Panel runModal];
@@ -521,7 +521,7 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 					FPaths::NormalizeFilename(*FilenameIt);
 				}
 
-				bSuccess = true;
+				bOkPressed = true;
 			}
 
 			[Panel close];
@@ -531,7 +531,7 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 				[FocusWindow makeKeyWindow];
 			}
 
-			return bSuccess;
+			return bOkPressed;
 		});
 	}
 	
@@ -561,6 +561,7 @@ bool FDesktopPlatformMac::RegisterEngineInstallation(const FString &RootDir, FSt
 
 void FDesktopPlatformMac::EnumerateEngineInstallations(TMap<FString, FString> &OutInstallations)
 {
+	SCOPED_AUTORELEASE_POOL;
 	EnumerateLauncherEngineInstallations(OutInstallations);
 
 	// Create temp .uproject file to use with LSCopyApplicationURLsForURL

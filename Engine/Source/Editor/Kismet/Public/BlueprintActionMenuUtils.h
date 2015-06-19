@@ -6,6 +6,21 @@
 struct FBlueprintActionMenuBuilder;
 struct FBlueprintActionContext;
 
+UENUM()
+namespace EContextTargetFlags
+{
+	enum Type
+	{
+		TARGET_Blueprint			= 0x00000001 UMETA(DisplayName="This Blueprint", ToolTip="Include functions and variables that belong to this Blueprint."),
+		TARGET_SubComponents		= 0x00000002 UMETA(DisplayName="Components", ToolTip="Include functions that belong to components of this Blueprint and/or the other target classes."),
+		TARGET_NodeTarget			= 0x00000004 UMETA(DisplayName="Node Target", ToolTip="Include functions and variables that belong to the same class that the pin's node does."),
+		TARGET_PinObject			= 0x00000008 UMETA(DisplayName="Pin Type Class", ToolTip="Include functions and variables that belong to this pin type."),
+		TARGET_SiblingPinObjects	= 0x00000010 UMETA(DisplayName="Other Object Outputs", ToolTip="Include functions and variables that belong to any of this node's output types."),
+
+		ContextTargetFlagsEnd UMETA(Hidden), // +1 to the last flag (so we can easily iterate these flags)
+	};
+}
+
 struct FBlueprintActionMenuUtils
 {
 	/**
@@ -25,10 +40,11 @@ struct FBlueprintActionMenuUtils
 	 * filters that're used to construct the menu.
 	 *
 	 * @param  Context				Contains the blueprint/graph/pin that the menu is for.
-	 * @param  SelectedProperties	A set of selected properties to offer contextual menu options for.
+	 * @param  bIsContextSensitive	
+	 * @param  ClassTargetMask		
 	 * @param  MenuOut				The structure that will be populated with context menu items.
 	 */
-	KISMET_API static void MakeContextMenu(FBlueprintActionContext const& Context, bool bIsContextSensitive, FBlueprintActionMenuBuilder& MenuOut);
+	KISMET_API static void MakeContextMenu(FBlueprintActionContext const& Context, bool bIsContextSensitive, uint32 ClassTargetMask, FBlueprintActionMenuBuilder& MenuOut);
 
 	/**
 	 * A centralized utility function for constructing the blueprint favorites

@@ -137,7 +137,7 @@ vec4 GetSplineElementColor()
 	// samples the first and we get white pixels
 	const float HalfPixelOffset = 1.0/32.0;
 	
-	InColor.a *= texture2D(ElementTexture, vec2(Index-HalfPixelOffset,0.0)).x;
+	InColor.a *= smoothstep(0.3, 1.0f, Index);
 	
 	if( InColor.a < 0.05 )
 	{

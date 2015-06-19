@@ -47,12 +47,30 @@ public:
 	/**
 	 * Get the updated telemetry data
 	 */
-	PxVehicleTelemetryData* GetTelemetryData();
+	DEPRECATED(4.8, "Please call GetTelemetryData_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	PxVehicleTelemetryData* GetTelemetryData()
+	{
+		return GetTelemetryData_AssumesLocked();
+	}
+
+	/**
+	 * Get the updated telemetry data
+	 */
+	PxVehicleTelemetryData* GetTelemetryData_AssumesLocked();
 	
 	/**
 	 * Get a vehicle's wheels states, such as isInAir, suspJounce, contactPoints, etc
 	 */
-	PxWheelQueryResult* GetWheelsStates(TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle);
+	DEPRECATED(4.8, "Please call GetWheelsStates_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	PxWheelQueryResult* GetWheelsStates(TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle)
+	{
+		return GetWheelsStates_AssumesLocked(Vehicle);
+	}
+
+	/**
+	 * Get a vehicle's wheels states, such as isInAir, suspJounce, contactPoints, etc
+	 */
+	PxWheelQueryResult* GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle);
 
 	/**
 	 * Update vehicle data before the scene simulates
@@ -62,6 +80,8 @@ public:
 	/**
 	 * Update vehicle tuning and other state such as input */
 	void PreTick( float DeltaTime );
+
+	PxScene* GetScene() const { return Scene; }
 
 private:
 
@@ -110,7 +130,7 @@ private:
 	/**
 	 * Get the gravity for our phys scene
 	 */
-	PxVec3 GetSceneGravity();
+	PxVec3 GetSceneGravity_AssumesLocked();
 
 #if PX_DEBUG_VEHICLE_ON
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2004247
+﻿INTSourceChangelist:2444875
 Title:W
 Crumbs:Shared/Glossary
 Description:
@@ -33,6 +33,21 @@ wire 와이어
 	[/PARAM]
 [/OBJECT]
 
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+World 월드
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_world]
+**World**, 월드에는 로드된 레벨 목록이 들어있습니다. 레벨 스트리밍 및 동적인 액터 스폰(생성)을 처리합니다.
+
+월드와의 직접 상호작용이 필수는 아니지만, 게임 구조 내 구체적인 언급 지점을 제공하는 데는 도움이 됩니다 (즉, 월드를 직접 언급한다고 레벨이나 맵이나 게임에 대해 말하는 것은 아닙니다).
+
+[/EXCERPT:Glossary_world]
+
+	[/PARAM]
+[/OBJECT]
 
 [/EXCERPT:Glossary_W]
 

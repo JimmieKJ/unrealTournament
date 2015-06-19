@@ -47,11 +47,7 @@ public:
 	static const int32 MaxRecentFiles = 10;
 	TArray< TSharedPtr< FUICommandInfo > > OpenRecentFileCommands;
 
-	static const int32 MaxFavoriteFiles = 10;
-	TArray< TSharedPtr< FUICommandInfo > > OpenFavoriteFileCommands;
-
 	TSharedPtr< FUICommandInfo > ToggleFavorite;
-	TArray< TSharedPtr< FUICommandInfo > > RemoveFavoriteCommands;
 
 	/** Import */
 	TSharedPtr< FUICommandInfo > Import;
@@ -74,15 +70,11 @@ public:
 	TSharedPtr< FUICommandInfo > BuildGeometryOnly;
 	TSharedPtr< FUICommandInfo > BuildGeometryOnly_OnlyCurrentLevel;
 	TSharedPtr< FUICommandInfo > BuildPathsOnly;
+	TSharedPtr< FUICommandInfo > BuildLODsOnly;
 	TSharedPtr< FUICommandInfo > LightingQuality_Production;
 	TSharedPtr< FUICommandInfo > LightingQuality_High;
 	TSharedPtr< FUICommandInfo > LightingQuality_Medium;
 	TSharedPtr< FUICommandInfo > LightingQuality_Preview;
-	TSharedPtr< FUICommandInfo > LightingTools_ShowBounds;
-	TSharedPtr< FUICommandInfo > LightingTools_ShowTraces;
-	TSharedPtr< FUICommandInfo > LightingTools_ShowDirectOnly;
-	TSharedPtr< FUICommandInfo > LightingTools_ShowIndirectOnly;
-	TSharedPtr< FUICommandInfo > LightingTools_ShowIndirectSamples;
 	TSharedPtr< FUICommandInfo > LightingDensity_RenderGrayscale;
 	TSharedPtr< FUICommandInfo > LightingResolution_CurrentLevel;
 	TSharedPtr< FUICommandInfo > LightingResolution_SelectedLevels;
@@ -116,6 +108,9 @@ public:
 	/** Snaps the camera to the selected object. */
 	TSharedPtr< FUICommandInfo > SnapCameraToObject;
 
+	/** Snaps the selected actor to the camera. */
+	TSharedPtr< FUICommandInfo > SnapObjectToCamera;
+
 	/** Goes to the source code for the selected actor's class. */
 	TSharedPtr< FUICommandInfo > GoToCodeForActor;
 
@@ -140,6 +135,27 @@ public:
 
 	/** Aligns the actor to the grid at its pivot*/
 	TSharedPtr< FUICommandInfo > AlignOriginToGrid;
+
+	/** Snaps the actor to the 2D layer */
+	TSharedPtr< FUICommandInfo > SnapTo2DLayer;
+
+	/** Moves the selected actors up one 2D layer (changing the active layer at the same time) */
+	TSharedPtr< FUICommandInfo > MoveSelectionUpIn2DLayers;
+
+	/** Moves the selected actors down one 2D layer (changing the active layer at the same time) */
+	TSharedPtr< FUICommandInfo > MoveSelectionDownIn2DLayers;
+
+	/** Moves the selected actors to the top 2D layer (changing the active layer at the same time) */
+	TSharedPtr< FUICommandInfo > MoveSelectionToTop2DLayer;
+
+	/** Moves the selected actors to the bottom 2D layer (changing the active layer at the same time) */
+	TSharedPtr< FUICommandInfo > MoveSelectionToBottom2DLayer;
+
+	/** Changes the active 2D layer to one above the current one */
+	TSharedPtr< FUICommandInfo > Select2DLayerAbove;
+
+	/** Changes the active 2D layer to one below the current one */
+	TSharedPtr< FUICommandInfo > Select2DLayerBelow;
 
 	/** Snaps the actor to the floor*/
 	TSharedPtr< FUICommandInfo > SnapToFloor;
@@ -277,10 +293,6 @@ public:
 	TSharedPtr< FUICommandInfo > LockGroup;
 	/** Unlocks the selected group */
 	TSharedPtr< FUICommandInfo > UnlockGroup;
-	/** Opens a dialog window for creating mesh proxies */
-	TSharedPtr< FUICommandInfo > MergeActors;
-	/** Merge selected actors grouping them by materials */
-	TSharedPtr< FUICommandInfo > MergeActorsByMaterials;
 		
 	/**
 	 * Visibility commands                   
@@ -363,12 +375,6 @@ public:
 
 	/** Selects all subtractive brushes */
 	TSharedPtr< FUICommandInfo > SelectAllSubtractiveBrushes;
-
-	/** Selects all semi-solid brushes */
-	TSharedPtr< FUICommandInfo > SelectAllSemiSolidBrushes;
-
-	/** Selects all non-solid brushes */
-	TSharedPtr< FUICommandInfo > SelectAllNonSolidBrushes;
 
 	/**
 	 * Surface commands                   
@@ -694,18 +700,9 @@ public:
 	static void BuildGeometryOnly_Execute();
 	static void BuildGeometryOnly_OnlyCurrentLevel_Execute();
 	static void BuildPathsOnly_Execute();
+	static void BuildLODsOnly_Execute();
 	static void SetLightingQuality( ELightingBuildQuality NewQuality );
 	static bool IsLightingQualityChecked( ELightingBuildQuality TestQuality );
-	static void SetLightingToolShowBounds();
-	static bool IsLightingToolShowBoundsChecked();
-	static void SetLightingToolShowTraces();
-	static bool IsLightingToolShowTracesChecked();
-	static void SetLightingToolShowDirectOnly();
-	static bool IsLightingToolShowDirectOnlyChecked();
-	static void SetLightingToolShowIndirectOnly();
-	static bool IsLightingToolShowIndirectOnlyChecked();
-	static void SetLightingToolShowIndirectSamples();
-	static bool IsLightingToolShowIndirectSamplesChecked();
 	static float GetLightingDensityIdeal();
 	static void SetLightingDensityIdeal( float Value );
 	static float GetLightingDensityMaximum();
@@ -794,6 +791,12 @@ public:
 
 	/** If true ViewReferences_Execute can be called */
 	static bool CanViewReferences();
+
+	/** Called when the ViewSizeMap command is executed */
+	static void ViewSizeMap_Execute();
+
+	/** If true ViewSizeMap_Execute can be called */
+	static bool CanViewSizeMap();
 
 	/** Called to when "Edit Asset" is clicked */
 	static void EditAsset_Clicked( const EToolkitMode::Type ToolkitMode, TWeakPtr< class SLevelEditor > LevelEditor, bool bAskMultiple );
@@ -967,22 +970,6 @@ public:
 	 * Called when the RemoveActorsFromGroup command is executed
 	 */
 	static void RemoveActorsFromGroup_Clicked();
-
-	/**
-	 * Called when the MergeActors command is executed
-	 */
-	static void MergeActors_Clicked();
-
-	/** @return Returns true if 'Merge Actors' can be used right now */
-	static bool CanExecuteMergeActors();
-
-	/**
-	 * Called when the MergeActorsByMaterials command is executed
-	 */
-	static void MergeActorsByMaterials_Clicked();
-
-	/** @return Returns true if 'Merge Actors y Materials' can be used right now */
-	static bool CanExecuteMergeActorsByMaterials();
 
 	/**
 	 * Called when the location grid snap is toggled off and on
@@ -1169,10 +1156,42 @@ public:
 	 */
 	static void MoveActorToGrid_Clicked( bool InAlign, bool bInPerActor );
 
+	/**
+	* Snaps a selected actor to the camera view.
+	*/
+	static void SnapObjectToView_Clicked();
+
 	/** 
 	 * Moves an actor to another actor.
 	 */
 	static void MoveActorToActor_Clicked( bool InAlign );
+
+	/** 
+	 * Snaps an actor to the currently selected 2D snap layer
+	 */
+	static void SnapTo2DLayer_Clicked();
+
+	/**
+	 * Checks to see if at least a single actor is selected and the 2D editor mode is enabled
+	 *	@return true if it can execute.
+	 */
+	static bool CanSnapTo2DLayer();
+
+	/** 
+	 * Snaps an actor to the currently selected 2D snap layer
+	 */
+	static void MoveSelectionToDifferent2DLayer_Clicked(bool bGoingUp, bool bForceToTopOrBottom);
+
+	/**
+	 * Checks to see if at least a single actor is selected and the 2D editor mode is enabled and there is a layer above/below the current setting
+	 *	@return true if it can execute.
+	 */
+	static bool CanMoveSelectionToDifferent2DLayer(bool bGoingUp);
+
+	/**
+	 * Changes the active 2D snap layer to one a delta above or below the current layer
+	 */
+	static void Select2DLayerDeltaAway_Clicked(int32 Delta);
 
 	/** 
 	 * Snaps an actor to the floor.  Optionally will align with the trace normal.

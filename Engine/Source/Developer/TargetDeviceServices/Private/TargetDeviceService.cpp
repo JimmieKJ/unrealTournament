@@ -401,7 +401,6 @@ void FTargetDeviceService::HandlePingMessage(const FTargetDeviceServicePing& InM
 		Message->Connected = DefaultDevice->IsConnected();
 		Message->Make = TEXT("@todo");
 		Message->Model = TEXT("@todo");
-		Message->OperatingSystemName = DefaultDevice->GetOperatingSystemName();
 		DefaultDevice->GetUserCredentials(Message->DeviceUser, Message->DeviceUserPassword);
 		Message->Shared = Shared;
 		Message->SupportsMultiLaunch = DefaultDevice->SupportsFeature(ETargetDeviceFeatures::MultiLaunch);

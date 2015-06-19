@@ -32,10 +32,6 @@
 #include "LanguageSpec.h"
 #include "IRDump.h"
 
-void _mesa_glsl_release_functions(void)
-{
-}
-
 static ir_variable* make_var(void *ctx, const glsl_type* type, unsigned index, ir_variable_mode mode)
 {
 	return new(ctx)ir_variable(type, ralloc_asprintf(ctx, "arg%u", index), mode);

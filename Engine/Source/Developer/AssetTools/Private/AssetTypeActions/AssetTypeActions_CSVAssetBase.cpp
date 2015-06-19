@@ -4,7 +4,7 @@
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
-void FAssetTypeActions_CSVAssetBase::ExecuteFindExcelFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions)
+void FAssetTypeActions_CSVAssetBase::ExecuteFindSourceFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions)
 {
 	for (TArray<FString>::TConstIterator FilenameIter(Filenames); FilenameIter; ++FilenameIter)
 	{
@@ -24,7 +24,7 @@ void FAssetTypeActions_CSVAssetBase::ExecuteFindExcelFileInExplorer(TArray<FStri
 	}
 }
 
-bool FAssetTypeActions_CSVAssetBase::CanExecuteFindExcelFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions) const
+bool FAssetTypeActions_CSVAssetBase::CanExecuteFindSourceFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions) const
 {
 	// Verify that extensions were provided
 	if (OverrideExtensions.Num() == 0)

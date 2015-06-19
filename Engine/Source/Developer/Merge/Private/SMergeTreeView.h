@@ -22,12 +22,12 @@ public:
 private:
 	void HighlightDifference( FSCSIdentifier VarName, FPropertySoftPath Property );
 
-	FSCSDiff& GetRemoteView();
-	FSCSDiff& GetBaseView();
-	FSCSDiff& GetLocalView();
+	TSharedRef<FSCSDiff>& GetRemoteView();
+	TSharedRef<FSCSDiff>& GetBaseView();
+	TSharedRef<FSCSDiff>& GetLocalView();
 
 	FBlueprintMergeData Data;
-	TArray< FSCSDiff > SCSViews;
+	TArray< TSharedRef<FSCSDiff> > SCSViews;
 
 	FSCSDiffRoot MergeConflicts;
 	int CurrentMergeConflict;

@@ -39,8 +39,11 @@ void UK2Node_CallArrayFunction::AllocateDefaultPins()
 
 void UK2Node_CallArrayFunction::PostReconstructNode()
 {
-	for (UEdGraphPin* Pin : Pins)
+	// cannot use a ranged for here, as PinConnectionListChanged() might end up 
+	// collapsing split pins (subtracting elements from Pins)
+	for (int32 PinIndex = 0; PinIndex < Pins.Num(); ++PinIndex)
 	{
+		UEdGraphPin* Pin = Pins[PinIndex];
 		if (Pin->LinkedTo.Num() > 0)
 		{
 			PinConnectionListChanged(Pin);
@@ -133,14 +136,14 @@ void UK2Node_CallArrayFunction::GetArrayPins(TArray< FArrayPropertyPinCombo >& O
 
 	UFunction* TargetFunction = GetTargetFunction();
 	check(TargetFunction);
-	FString ArrayPointerMetaData = TargetFunction->GetMetaData(TEXT("ArrayParm"));
+	FString ArrayPointerMetaData = TargetFunction->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
 	TArray<FString> ArrayPinComboNames;
-	ArrayPointerMetaData.ParseIntoArray(&ArrayPinComboNames, TEXT(","), true);
+	ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
 
 	for(auto Iter = ArrayPinComboNames.CreateConstIterator(); Iter; ++Iter)
 	{
 		TArray<FString> ArrayPinNames;
-		Iter->ParseIntoArray(&ArrayPinNames, TEXT("|"), true);
+		Iter->ParseIntoArray(ArrayPinNames, TEXT("|"), true);
 
 		FArrayPropertyPinCombo ArrayInfo;
 		ArrayInfo.ArrayPin = FindPin(ArrayPinNames[0]);
@@ -160,14 +163,14 @@ bool UK2Node_CallArrayFunction::IsWildcardProperty(UFunction* InArrayFunction, c
 {
 	if(InArrayFunction && InProperty)
 	{
-		FString ArrayPointerMetaData = InArrayFunction->GetMetaData(TEXT("ArrayParm"));
+		FString ArrayPointerMetaData = InArrayFunction->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
 		TArray<FString> ArrayPinComboNames;
-		ArrayPointerMetaData.ParseIntoArray(&ArrayPinComboNames, TEXT(","), true);
+		ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
 
 		for(auto Iter = ArrayPinComboNames.CreateConstIterator(); Iter; ++Iter)
 		{
 			TArray<FString> ArrayPinNames;
-			Iter->ParseIntoArray(&ArrayPinNames, TEXT("|"), true);
+			Iter->ParseIntoArray(ArrayPinNames, TEXT("|"), true);
 
 			if(ArrayPinNames[0] == InProperty->GetName())
 			{
@@ -185,9 +188,9 @@ void UK2Node_CallArrayFunction::GetArrayTypeDependentPins(TArray<UEdGraphPin*>& 
 	UFunction* TargetFunction = GetTargetFunction();
 	check(TargetFunction);
 
-	const FString DependentPinMetaData = TargetFunction->GetMetaData(TEXT("ArrayTypeDependentParams"));
+	const FString DependentPinMetaData = TargetFunction->GetMetaData(FBlueprintMetadata::MD_ArrayDependentParam);
 	TArray<FString> TypeDependentPinNames;
-	DependentPinMetaData.ParseIntoArray(&TypeDependentPinNames, TEXT(","), true);
+	DependentPinMetaData.ParseIntoArray(TypeDependentPinNames, TEXT(","), true);
 
 	for(TArray<UEdGraphPin*>::TConstIterator it(Pins); it; ++it)
 	{
@@ -204,7 +207,8 @@ void UK2Node_CallArrayFunction::PropagateArrayTypeInfo(const UEdGraphPin* Source
 {
 	if( SourcePin )
 	{
-		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+		const UEdGraphSchema_K2* Schema = CastChecked<UEdGraphSchema_K2>(GetSchema());
+		const FEdGraphPinType& SourcePinType = SourcePin->PinType;
 
 		TArray<UEdGraphPin*> DependentPins;
 		GetArrayTypeDependentPins(DependentPins);
@@ -215,19 +219,31 @@ void UK2Node_CallArrayFunction::PropagateArrayTypeInfo(const UEdGraphPin* Source
 		{
 			if (CurrentPin != SourcePin)
 			{
+				FEdGraphPinType& CurrentPinType = CurrentPin->PinType;
+
+				bool const bHasTypeMismatch = (CurrentPinType.PinCategory != SourcePinType.PinCategory) ||
+					(CurrentPinType.PinSubCategory != SourcePinType.PinSubCategory) ||
+					(CurrentPinType.PinSubCategoryObject != SourcePinType.PinSubCategoryObject);
+
+				if (!bHasTypeMismatch)
+				{
+					continue;
+				}
+
 				if (CurrentPin->SubPins.Num() > 0)
 				{
 					Schema->RecombinePin(CurrentPin->SubPins[0]);
 				}
 
-				CurrentPin->PinType.PinCategory = SourcePin->PinType.PinCategory;
-				CurrentPin->PinType.PinSubCategory = SourcePin->PinType.PinSubCategory;
-				CurrentPin->PinType.PinSubCategoryObject = SourcePin->PinType.PinSubCategoryObject;
+				CurrentPinType.PinCategory          = SourcePinType.PinCategory;
+				CurrentPinType.PinSubCategory       = SourcePinType.PinSubCategory;
+				CurrentPinType.PinSubCategoryObject = SourcePinType.PinSubCategoryObject;
 
 				// Reset default values
-				CurrentPin->DefaultValue = FString();
-				CurrentPin->DefaultTextValue = FText();
-				CurrentPin->DefaultObject = NULL;
+				if (!Schema->IsPinDefaultValid(CurrentPin, CurrentPin->DefaultValue, CurrentPin->DefaultObject, CurrentPin->DefaultTextValue).IsEmpty())
+				{
+					CurrentPin->ResetDefaultValue();
+				}
 
 				// Verify that all previous connections to this pin are still valid with the new type
 				for (TArray<UEdGraphPin*>::TIterator ConnectionIt(CurrentPin->LinkedTo); ConnectionIt; ++ConnectionIt)

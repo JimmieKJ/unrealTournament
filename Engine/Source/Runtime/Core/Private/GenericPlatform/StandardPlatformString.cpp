@@ -122,9 +122,26 @@ static const WIDECHAR* GetFormattedArgument(const FFormatInfo& Info, VA_LIST_REF
 {
 	if (FChar::ToLower(Info.Type) == LITERAL(WIDECHAR, 's'))
 	{
-		const WIDECHAR* String = va_arg(ArgPtr, WIDECHAR*);
-		InOutLength = FCString::Strlen(String);
-		return String ? String : TEXT("(null)");
+		if (Info.HasDynamicWidth)
+		{
+			int32 Width = va_arg(ArgPtr, int32);
+			const WIDECHAR* String = va_arg(ArgPtr, WIDECHAR*);
+			if (String)
+			{
+				InOutLength = swprintf(Formatted, InOutLength, Info.Format, Width, String);
+				return String;
+			}
+			else
+			{
+				return TEXT("(null)");
+			}
+		}
+		else
+		{
+			const WIDECHAR* String = va_arg(ArgPtr, WIDECHAR*);
+			InOutLength = FCString::Strlen(String);
+			return String ? String : TEXT("(null)");
+		}
 	}
 
 	if (FChar::ToLower(Info.Type) == LITERAL(WIDECHAR, 'c'))

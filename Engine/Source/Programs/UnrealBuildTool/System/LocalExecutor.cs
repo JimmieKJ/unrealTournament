@@ -384,7 +384,7 @@ namespace UnrealBuildTool
 				MaxActionsToExecuteInParallel = Math.Min(MaxActionsToExecuteInParallel, MaxActionsAffordedByMemory);
             }
 
-			MaxActionsToExecuteInParallel = Math.Min(MaxActionsToExecuteInParallel, BuildConfiguration.MaxProcessorCount);
+			MaxActionsToExecuteInParallel = Math.Max( 1, Math.Min(MaxActionsToExecuteInParallel, BuildConfiguration.MaxProcessorCount) );
 
             Log.TraceInformation("Performing {0} actions ({1} in parallel)", Actions.Count, MaxActionsToExecuteInParallel);
 

@@ -20,9 +20,9 @@ void FString::TrimToNullTerminator()
 }
 
 
-int32 FString::Find( const TCHAR* SubStr, ESearchCase::Type SearchCase, ESearchDir::Type SearchDir, int32 StartPosition ) const
+int32 FString::Find(const TCHAR* SubStr, ESearchCase::Type SearchCase, ESearchDir::Type SearchDir, int32 StartPosition) const
 {
-	if ( SubStr == NULL )
+	if ( SubStr == nullptr )
 	{
 		return INDEX_NONE;
 	}
@@ -215,7 +215,7 @@ FString FString::TrimQuotes( bool* bQuotesRemoved ) const
 		}
 	}
 
-	if ( bQuotesRemoved != NULL )
+	if ( bQuotesRemoved != nullptr )
 	{
 		*bQuotesRemoved = bQuotesWereRemoved;
 	}
@@ -336,47 +336,24 @@ void FString::AppendInt( int32 InNum )
 	*this += TempNum + TempAt;
 }
 
-/**
- * Converts a string into a boolean value
- *   1, "True", "Yes", GTrue, GYes, and non-zero integers become true
- *   0, "False", "No", GFalse, GNo, and unparsable values become false
- *
- * @param Source the string to parse
- *
- * @return The boolean value
- */
+
 bool FString::ToBool() const
 {
 	return FCString::ToBool(**this);
 }
 
-/**
- * Converts a buffer to a string by hex-ifying the elements
- *
- * @param SrcBuffer the buffer to stringify
- * @param SrcSize the number of bytes to convert
- *
- * @return the blob in string form
- */
 FString FString::FromBlob(const uint8* SrcBuffer,const uint32 SrcSize)
 {
 	FString Result;
+	Result.Reserve( SrcSize * 3 );
 	// Convert and append each byte in the buffer
 	for (uint32 Count = 0; Count < SrcSize; Count++)
 	{
-		Result += FString::Printf(TEXT("%03d"),(uint32)SrcBuffer[Count]);
+		Result += FString::Printf(TEXT("%03d"),(uint8)SrcBuffer[Count]);
 	}
 	return Result;
 }
 
-/**
- * Converts a string into a buffer
- *
- * @param DestBuffer the buffer to fill with the string data
- * @param DestSize the size of the buffer in bytes (must be at least string len / 2)
- *
- * @return true if the conversion happened, false otherwise
- */
 bool FString::ToBlob(const FString& Source,uint8* DestBuffer,const uint32 DestSize)
 {
 	// Make sure the buffer is at least half the size and that the string is an
@@ -387,13 +364,48 @@ bool FString::ToBlob(const FString& Source,uint8* DestBuffer,const uint32 DestSi
 		TCHAR ConvBuffer[4];
 		ConvBuffer[3] = TEXT('\0');
 		int32 WriteIndex = 0;
-		// Walk the string 2 chars at a time
+		// Walk the string 3 chars at a time
 		for (int32 Index = 0; Index < Source.Len(); Index += 3, WriteIndex++)
 		{
 			ConvBuffer[0] = Source[Index];
 			ConvBuffer[1] = Source[Index + 1];
 			ConvBuffer[2] = Source[Index + 2];
 			DestBuffer[WriteIndex] = FCString::Atoi(ConvBuffer);
+		}
+		return true;
+	}
+	return false;
+}
+
+FString FString::FromHexBlob( const uint8* SrcBuffer, const uint32 SrcSize )
+{
+	FString Result;
+	Result.Reserve( SrcSize * 2 );
+	// Convert and append each byte in the buffer
+	for (uint32 Count = 0; Count < SrcSize; Count++)
+	{
+		Result += FString::Printf( TEXT( "%02X" ), (uint8)SrcBuffer[Count] );
+	}
+	return Result;
+}
+
+bool FString::ToHexBlob( const FString& Source, uint8* DestBuffer, const uint32 DestSize )
+{
+	// Make sure the buffer is at least half the size and that the string is an
+	// even number of characters long
+	if (DestSize >= (uint32)(Source.Len() / 2) &&
+		 (Source.Len() % 2) == 0)
+	{
+		TCHAR ConvBuffer[3];
+		ConvBuffer[2] = TEXT( '\0' );
+		int32 WriteIndex = 0;
+		// Walk the string 2 chars at a time
+		TCHAR* End = nullptr;
+		for (int32 Index = 0; Index < Source.Len(); Index += 2, WriteIndex++)
+		{
+			ConvBuffer[0] = Source[Index];
+			ConvBuffer[1] = Source[Index + 1];
+			DestBuffer[WriteIndex] = FCString::Strtoi( ConvBuffer, &End, 16 );
 		}
 		return true;
 	}
@@ -489,39 +501,7 @@ bool FString::IsNumeric() const
 		return 0;
 	}
 
-	TCHAR C = (*this)[0];
-	
-	if( C == '-' || C == '+' || C =='.' || FChar::IsDigit( C ) )
-	{
-		bool HasDot = (C == '.');
-
-		for( int32 i=1; i<Len(); i++ )
-		{
-			C = (*this)[i];
-
-			if( C == '.' )
-			{
-				if( HasDot )
-				{
-					return 0;
-				}
-				else
-				{
-					HasDot = 1;
-				}
-			}
-			else if( !FChar::IsDigit(C) )
-			{
-				return 0;
-			}
-		}
-
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
+	return FCString::IsNumeric(Data.GetData());
 }
 
 /**
@@ -533,12 +513,11 @@ bool FString::IsNumeric() const
  *
  * @return	The number of elements in InArray
  */
-int32 FString::ParseIntoArray( TArray<FString>* InArray, const TCHAR* pchDelim, bool InCullEmpty ) const
+int32 FString::ParseIntoArray( TArray<FString>& OutArray, const TCHAR* pchDelim, bool InCullEmpty ) const
 {
 	// Make sure the delimit string is not null or empty
 	check(pchDelim);
-	check(InArray);
-	InArray->Empty();
+	OutArray.Empty();
 	const TCHAR *Start = Data.GetData();
 	int32 DelimLength = FCString::Strlen(pchDelim);
 	if (Start && DelimLength)
@@ -547,101 +526,17 @@ int32 FString::ParseIntoArray( TArray<FString>* InArray, const TCHAR* pchDelim, 
 		{
 			if (!InCullEmpty || At-Start)
 			{
-				new (*InArray) FString(At-Start,Start);
+				new (OutArray) FString(At-Start,Start);
 			}
 			Start += DelimLength + (At-Start);
 		}
 		if (!InCullEmpty || *Start)
 		{
-			new(*InArray) FString(Start);
+			new(OutArray) FString(Start);
 		}
 
 	}
-	return InArray->Num();
-}
-
-/**
- * Takes a string, and skips over all instances of white space and returns the new string
- *
- * @param	WhiteSpace		An array of white space strings
- * @param	NumWhiteSpaces	The length of the WhiteSpace array
- * @param	S				The input and output string
- */
-static void SkipOver(const TCHAR** WhiteSpace, int32 NumWhiteSpaces, FString& S)
-{
-	bool bStop = false;
-
-	// keep going until we hit non-white space
-	while (!bStop)
-	{
-		// we stop it we don't find any white space
-		bStop = true;
-		// loop over all possible white spaces to search for
-		for (int32 iWS = 0; iWS < NumWhiteSpaces; iWS++)
-		{
-			// get the length (tiny optimization)
-			int32 WSLen = FCString::Strlen(WhiteSpace[iWS]);
-
-			// if we start with this bit of whitespace, chop it off, and keep looking for more whitespace
-			if (FCString::Strnicmp(*S, WhiteSpace[iWS], WSLen) == 0)
-			{
-				// chop it off
-				S = S.Mid(WSLen);
-				// keep looking!
-				bStop = false;
-				break;
-			}
-		}
-	}
-}
-
-/**
- * Splits the input string on the first bit of white space, and returns the initial token
- * (to the left of the white space), and the rest (white space and to the right)
- *
- * @param	WhiteSpace		An array of white space strings
- * @param	NumWhiteSpaces	The length of the WhiteSpace array
- * @param	Token			The first token before any white space
- * @param	S				The input and outputted remainder string
- *
- * @return	Was there a valid token before the end of the string?
- */
-static bool SplitOn( const TCHAR** WhiteSpace, int32 NumWhiteSpaces, FString& Token, FString& S, TCHAR& InCh )
-{
-	// this is the index of the first instance of whitespace
-	int32 SmallestToken = MAX_int32;
-	InCh = TEXT(' ');
-
-	// loop through all possible white spaces
-	for (int32 iWS = 0; iWS < NumWhiteSpaces; iWS++)
-	{
-		// look for the first instance of it
-		int32 NextWS = S.Find(WhiteSpace[iWS]);
-
-		// if shouldn't be at the start of the string, because SkipOver should have been called
-		check(NextWS != 0);
-
-		// if we found this white space, and it is before any other white spaces, remember it
-		if (NextWS > 0 && NextWS < SmallestToken)
-		{
-			SmallestToken = NextWS;
-			InCh = *WhiteSpace[iWS];
-		}
-	}
-
-	// if we found some white space, SmallestToken is pointing to the the first one
-	if (SmallestToken != MAX_int32)
-	{
-		// get the token before the white space
-		Token = S.Left(SmallestToken);
-		// update out string with the remainder
-		S = S.Mid(SmallestToken);
-		// we found a token
-		return true;
-	}
-
-	// we failed to find a token
-	return false;
+	return OutArray.Num();
 }
 
 bool FString::MatchesWildcard(const FString& InWildcard, ESearchCase::Type SearchCase) const
@@ -675,8 +570,8 @@ bool FString::MatchesWildcard(const FString& InWildcard, ESearchCase::Type Searc
 			Wildcard = Wildcard.Left(Suffix + 1);
 			Target = Target.Left(Target.Len() - SuffixString.Len());
 		}
-		int32 PrefixIndexOfStar = Wildcard.Find(TEXT("*")); 
-		int32 PrefixIndexOfQuestion = Wildcard.Find( TEXT("?"));
+		int32 PrefixIndexOfStar = Wildcard.Find(TEXT("*"), ESearchCase::CaseSensitive); 
+		int32 PrefixIndexOfQuestion = Wildcard.Find(TEXT("?"), ESearchCase::CaseSensitive);
 		int32 Prefix = FMath::Min<int32>(PrefixIndexOfStar < 0 ? MAX_int32 : PrefixIndexOfStar, PrefixIndexOfQuestion < 0 ? MAX_int32 : PrefixIndexOfQuestion);
 		check(Prefix >= 0 && Prefix < Wildcard.Len());
 		if (Prefix > 0)
@@ -722,7 +617,7 @@ bool FString::MatchesWildcard(const FString& InWildcard, ESearchCase::Type Searc
 
 
 /** Caution!! this routine is O(N^2) allocations...use it for parsing very short text or not at all */
-int32 FString::ParseIntoArrayWS( TArray<FString>* InArray, const TCHAR* pchExtraDelim ) const
+int32 FString::ParseIntoArrayWS( TArray<FString>& OutArray, const TCHAR* pchExtraDelim, bool InCullEmpty ) const
 {
 	// default array of White Spaces, the last entry can be replaced with the optional pchExtraDelim string
 	// (if you want to split on white space and another character)
@@ -743,91 +638,90 @@ int32 FString::ParseIntoArrayWS( TArray<FString>* InArray, const TCHAR* pchExtra
 		WhiteSpace[NumWhiteSpaces++] = pchExtraDelim;
 	}
 
-	return ParseIntoArray(InArray, WhiteSpace, NumWhiteSpaces);
+	return ParseIntoArray(OutArray, WhiteSpace, NumWhiteSpaces, InCullEmpty);
 }
 
-int32 FString::ParseIntoArrayLines(TArray<FString>* InArray) const
+int32 FString::ParseIntoArrayLines(TArray<FString>& OutArray, bool InCullEmpty) const
 {
 	// default array of LineEndings
 	static const TCHAR* LineEndings[] =
 	{				
+		TEXT("\r\n"),
 		TEXT("\r"),
 		TEXT("\n"),	
 	};
 
 	// start with just the standard line endings
 	int32 NumLineEndings = ARRAY_COUNT(LineEndings);	
-	return ParseIntoArray(InArray, LineEndings, NumLineEndings);
+	return ParseIntoArray(OutArray, LineEndings, NumLineEndings, InCullEmpty);
 }
 
-int32 FString::ParseIntoArray(TArray<FString>* InArray, const TCHAR** DelimArray, int32 NumDelims) const
+int32 FString::ParseIntoArray(TArray<FString>& OutArray, const TCHAR** DelimArray, int32 NumDelims, bool InCullEmpty) const
 {
+	// Make sure the delimit string is not null or empty
 	check(DelimArray);
-	check(InArray);
-	InArray->Empty();
-
-	// this is our temporary workhorse string
-	FString S = *this;
-
-	bool bStop = false;
-	// keep going until we run out of tokens
-	while (!bStop)
+	OutArray.Empty();
+	const TCHAR *Start = Data.GetData();
+	const int32 Length = Len();
+	if (Start)
 	{
-		// skip over any white space at the beginning of the string
-		SkipOver(DelimArray, NumDelims, S);
+		int32 SubstringBeginIndex = 0;
 
-		// find the first token in the string, and if we get one, add it to the output array of tokens
-		FString Token;
-		TCHAR ch;
-		if (SplitOn(DelimArray, NumDelims, Token, S, ch))
+		// Iterate through string.
+		for(int32 i = 0; i < Len();)
 		{
-			if (Token[0] == TEXT('"'))
-			{
-				int32 SaveSz = Token.Len();
+			int32 SubstringEndIndex = INDEX_NONE;
+			int32 DelimiterLength = 0;
 
-				FString Wk = FString::Printf(TEXT("%s%c"), *Token, ch);
-				for (int32 x = 1; x < S.Len(); ++x)
+			// Attempt each delimiter.
+			for(int32 DelimIndex = 0; DelimIndex < NumDelims; ++DelimIndex)
+			{
+				DelimiterLength = FCString::Strlen(DelimArray[DelimIndex]);
+
+				// If we found a delimiter...
+				if (FCString::Strncmp(Start + i, DelimArray[DelimIndex], DelimiterLength) == 0)
 				{
-					if (S[x] == TEXT('"'))
-					{
-						Wk += TEXT("\"");
-						break;
-					}
-					else
-					{
-						Wk = Wk + S.Mid(x, 1);
-					}
+					// Mark the end of the substring.
+					SubstringEndIndex = i;
+					break;
 				}
-
-				Token = Wk;
-
-				int32 DiffSz = Token.Len() - SaveSz;
-				S = S.Mid(DiffSz);
 			}
 
-			// stick it on the end
-			new(*InArray)FString(Token);
-		}
-		else
-		{
-			// if the remaining string is not empty, then we need to add the last token
-			if (S.Len())
+			if (SubstringEndIndex != INDEX_NONE)
 			{
-				new(*InArray)FString(S);
+				const int32 SubstringLength = SubstringEndIndex - SubstringBeginIndex;
+				// If we're not culling empty strings or if we are but the string isn't empty anyways...
+				if(!InCullEmpty || SubstringLength != 0)
+				{
+					// ... add new string from substring beginning up to the beginning of this delimiter.
+					new (OutArray) FString(SubstringEndIndex - SubstringBeginIndex, Start + SubstringBeginIndex);
+				}
+				// Next substring begins at the end of the discovered delimiter.
+				SubstringBeginIndex = SubstringEndIndex + DelimiterLength;
+				i = SubstringBeginIndex;
 			}
+			else
+			{
+				++i;
+			}
+		}
 
-			// and, we're done this crazy ride
-			bStop = true;
+		// Add any remaining characters after the last delimiter.
+		const int32 SubstringLength = Length - SubstringBeginIndex;
+		// If we're not culling empty strings or if we are but the string isn't empty anyways...
+		if(!InCullEmpty || SubstringLength != 0)
+		{
+			// ... add new string from substring beginning up to the beginning of this delimiter.
+			new (OutArray) FString(Start + SubstringBeginIndex);
 		}
 	}
 
-	// simply return the number of elements in the output array
-	return InArray->Num();
+	return OutArray.Num();
 }
 
 FString FString::Replace(const TCHAR* From, const TCHAR* To, ESearchCase::Type SearchCase) const
 {
-	// Previous code used to accidentally accept a NULL replacement string - this is no longer accepted.
+	// Previous code used to accidentally accept a nullptr replacement string - this is no longer accepted.
 	check(To);
 
 	if (IsEmpty() || !From || !*From)
@@ -865,31 +759,31 @@ FString FString::Replace(const TCHAR* From, const TCHAR* To, ESearchCase::Type S
 	return Result;
 }
 
-int32 FString::ReplaceInline( const TCHAR* SearchText, const TCHAR* ReplacementText, ESearchCase::Type SearchCase )
+int32 FString::ReplaceInline(const TCHAR* SearchText, const TCHAR* ReplacementText, ESearchCase::Type SearchCase)
 {
 	int32 ReplacementCount = 0;
 
 	if (Len() > 0
-	&&	SearchText != NULL && *SearchText != 0
-	&&	ReplacementText != NULL && (SearchCase == ESearchCase::IgnoreCase || FCString::Strcmp(SearchText, ReplacementText) != 0) )
+		&& SearchText != nullptr && *SearchText != 0
+		&& ReplacementText != nullptr && (SearchCase == ESearchCase::IgnoreCase || FCString::Strcmp(SearchText, ReplacementText) != 0))
 	{
-		const int32 NumCharsToReplace=FCString::Strlen(SearchText);
-		const int32 NumCharsToInsert=FCString::Strlen(ReplacementText);
+		const int32 NumCharsToReplace = FCString::Strlen(SearchText);
+		const int32 NumCharsToInsert = FCString::Strlen(ReplacementText);
 
-		if ( NumCharsToInsert == NumCharsToReplace )
+		if (NumCharsToInsert == NumCharsToReplace)
 		{
 			TCHAR* Pos = SearchCase == ESearchCase::IgnoreCase ? FCString::Stristr(&(*this)[0], SearchText) : FCString::Strstr(&(*this)[0], SearchText);
-			while ( Pos != NULL )
+			while (Pos != nullptr)
 			{
 				ReplacementCount++;
 
 				// FCString::Strcpy now inserts a terminating zero so can't use that
-				for ( int32 i = 0; i < NumCharsToInsert; i++ )
+				for (int32 i = 0; i < NumCharsToInsert; i++)
 				{
 					Pos[i] = ReplacementText[i];
 				}
 
-				if ( Pos + NumCharsToReplace - **this < Len() )
+				if (Pos + NumCharsToReplace - **this < Len())
 				{
 					Pos = SearchCase == ESearchCase::IgnoreCase ? FCString::Stristr(Pos + NumCharsToReplace, SearchText) : FCString::Strstr(Pos + NumCharsToReplace, SearchText);
 				}
@@ -899,7 +793,7 @@ int32 FString::ReplaceInline( const TCHAR* SearchText, const TCHAR* ReplacementT
 				}
 			}
 		}
-		else if ( Contains(SearchText, SearchCase) )
+		else if (Contains(SearchText, SearchCase))
 		{
 			FString Copy(*this);
 			Empty(Len());
@@ -908,7 +802,7 @@ int32 FString::ReplaceInline( const TCHAR* SearchText, const TCHAR* ReplacementT
 			TCHAR* WritePosition = (TCHAR*)Copy.Data.GetData();
 			// look for From in the remaining string
 			TCHAR* SearchPosition = SearchCase == ESearchCase::IgnoreCase ? FCString::Stristr(WritePosition, SearchText) : FCString::Strstr(WritePosition, SearchText);
-			while ( SearchPosition != NULL )
+			while (SearchPosition != nullptr)
 			{
 				ReplacementCount++;
 
@@ -942,7 +836,7 @@ int32 FString::ReplaceInline( const TCHAR* SearchText, const TCHAR* ReplacementT
  */
 FString FString::ReplaceQuotesWithEscapedQuotes() const
 {
-	if ( Contains(TEXT("\"")) )
+	if (Contains(TEXT("\""), ESearchCase::CaseSensitive))
 	{
 		FString Result;
 
@@ -994,14 +888,14 @@ static const uint32 MaxSupportedEscapeChars = ARRAY_COUNT(CharToEscapeSeqMap);
  *
  * @return	a string with all control characters replaced by the escaped version.
  */
-FString FString::ReplaceCharWithEscapedChar( const TArray<TCHAR>* Chars/*=NULL*/ ) const
+FString FString::ReplaceCharWithEscapedChar( const TArray<TCHAR>* Chars/*=nullptr*/ ) const
 {
-	if ( Len() > 0 && (Chars == NULL || Chars->Num() > 0) )
+	if ( Len() > 0 && (Chars == nullptr || Chars->Num() > 0) )
 	{
 		FString Result(*this);
 		for ( int32 ChIdx = 0; ChIdx < MaxSupportedEscapeChars; ChIdx++ )
 		{
-			if ( Chars == NULL || Chars->Contains(*(CharToEscapeSeqMap[ChIdx][0])) )
+			if ( Chars == nullptr || Chars->Contains(*(CharToEscapeSeqMap[ChIdx][0])) )
 			{
 				// use ReplaceInline as that won't create a copy of the string if the character isn't found
 				Result.ReplaceInline(CharToEscapeSeqMap[ChIdx][0], CharToEscapeSeqMap[ChIdx][1]);
@@ -1016,15 +910,15 @@ FString FString::ReplaceCharWithEscapedChar( const TArray<TCHAR>* Chars/*=NULL*/
  * Removes the escape backslash for all supported characters, replacing the escape and character with the non-escaped version.  (i.e.
  * replaces "\\n" with "\n".  Counterpart to ReplaceCharWithEscapedChar().
  */
-FString FString::ReplaceEscapedCharWithChar( const TArray<TCHAR>* Chars/*=NULL*/ ) const
+FString FString::ReplaceEscapedCharWithChar( const TArray<TCHAR>* Chars/*=nullptr*/ ) const
 {
-	if ( Len() > 0 && (Chars == NULL || Chars->Num() > 0) )
+	if ( Len() > 0 && (Chars == nullptr || Chars->Num() > 0) )
 	{
 		FString Result(*this);
 		// Spin CharToEscapeSeqMap backwards to ensure we're doing the inverse of ReplaceCharWithEscapedChar
 		for ( int32 ChIdx = MaxSupportedEscapeChars - 1; ChIdx >= 0; ChIdx-- )
 		{
-			if ( Chars == NULL || Chars->Contains(*(CharToEscapeSeqMap[ChIdx][0])) )
+			if ( Chars == nullptr || Chars->Contains(*(CharToEscapeSeqMap[ChIdx][0])) )
 			{
 				// use ReplaceInline as that won't create a copy of the string if the character isn't found
 				Result.ReplaceInline( CharToEscapeSeqMap[ChIdx][1], CharToEscapeSeqMap[ChIdx][0] );
@@ -1088,7 +982,7 @@ VARARG_BODY( FString, FString::Printf, const TCHAR*, VARARG_NONE )
 	// If that fails, start allocating regular memory
 	if( Result == -1 )
 	{
-		Buffer = NULL;
+		Buffer = nullptr;
 		while(Result == -1)
 		{
 			BufferSize *= 2;
@@ -1124,9 +1018,18 @@ FArchive& operator<<( FArchive& Ar, FString& A )
 			SaveNum = -SaveNum;
 		}
 
-		// Protect against network packets allocating too much memory
+		// If SaveNum is still less than 0, they must have passed in MIN_INT. Archive is corrupted.
+		if (SaveNum < 0)
+		{
+			Ar.ArIsError = 1;
+			Ar.ArIsCriticalError = 1;
+			UE_LOG(LogNetSerialization, Error, TEXT("Archive is corrupted"));
+			return Ar;
+		}
+
 		auto MaxSerializeSize = Ar.GetMaxSerializeSize();
-		if (MaxSerializeSize > 0 && ( SaveNum > MaxSerializeSize || SaveNum < 0 ))		// If SaveNum is still less than 0, they must have passed in MIN_INT
+		// Protect against network packets allocating too much memory
+		if ((MaxSerializeSize > 0) && (SaveNum > MaxSerializeSize))
 		{
 			Ar.ArIsError         = 1;
 			Ar.ArIsCriticalError = 1;

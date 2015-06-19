@@ -11,12 +11,13 @@ UBTTask_MoveDirectlyToward::UBTTask_MoveDirectlyToward(const FObjectInitializer&
 	, AcceptableRadius(50.f)
 	, bProjectVectorGoalToNavigation(true)
 	, bAllowStrafe(true)
+	, bStopOnOverlap(false)
 {
 	NodeName = "MoveDirectlyToward";
 
 	// accept only actors and vectors
-	BlackboardKey.AddObjectFilter(this, AActor::StaticClass());
-	BlackboardKey.AddVectorFilter(this);
+	BlackboardKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTTask_MoveDirectlyToward, BlackboardKey), AActor::StaticClass());
+	BlackboardKey.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTTask_MoveDirectlyToward, BlackboardKey));
 }
 
 EBTNodeResult::Type UBTTask_MoveDirectlyToward::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -37,14 +38,14 @@ EBTNodeResult::Type UBTTask_MoveDirectlyToward::ExecuteTask(UBehaviorTreeCompone
 			if (TargetActor)
 			{
 				RequestResult = bDisablePathUpdateOnGoalLocationChange ?
-					MyController->MoveToLocation(TargetActor->GetActorLocation(), AcceptableRadius, /*bStopOnOverlap=*/true, /*bUsePathfinding=*/false, /*bProjectDestinationToNavigation=*/bProjectVectorGoalToNavigation, bAllowStrafe) :
-					MyController->MoveToActor(TargetActor, AcceptableRadius, /*bStopOnOverlap=*/true, /*bUsePathfinding=*/false, bAllowStrafe);
+					MyController->MoveToLocation(TargetActor->GetActorLocation(), AcceptableRadius, bStopOnOverlap, /*bUsePathfinding=*/false, /*bProjectDestinationToNavigation=*/bProjectVectorGoalToNavigation, bAllowStrafe) :
+					MyController->MoveToActor(TargetActor, AcceptableRadius, bStopOnOverlap, /*bUsePathfinding=*/false, bAllowStrafe);
 			}
 		}
 		else if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Vector::StaticClass())
 		{
 			const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
-			RequestResult = MyController->MoveToLocation(TargetLocation, AcceptableRadius, /*bStopOnOverlap=*/true, /*bUsePathfinding=*/false, /*bProjectDestinationToNavigation=*/bProjectVectorGoalToNavigation, bAllowStrafe);
+			RequestResult = MyController->MoveToLocation(TargetLocation, AcceptableRadius, bStopOnOverlap, /*bUsePathfinding=*/false, /*bProjectDestinationToNavigation=*/bProjectVectorGoalToNavigation, bAllowStrafe);
 		}
 
 		if (RequestResult == EPathFollowingRequestResult::RequestSuccessful)

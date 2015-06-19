@@ -4,8 +4,10 @@
 
 #include "BlueprintCore.generated.h"
 
+
 UCLASS()
-class ENGINE_API UBlueprintCore : public UObject
+class ENGINE_API UBlueprintCore
+	: public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -23,6 +25,7 @@ class ENGINE_API UBlueprintCore : public UObject
 	bool bLegacyNeedToPurgeSkelRefs;
 
 private:
+
 	/** BackCompat: Whether or not this blueprint's authoritative CDO data has been migrated from the SkeletonGeneratedClass CDO to the GeneratedClass CDO */
 	UPROPERTY()
 	bool bLegacyGeneratedClassIsAuthoritative;
@@ -32,6 +35,7 @@ private:
 	FGuid BlueprintGuid;
 
 public:
+
 	void SetLegacyGeneratedClassIsAuthoritative()
 	{
 		bLegacyGeneratedClassIsAuthoritative = true;
@@ -62,5 +66,4 @@ private:
 	
 	/** Generates a new deterministic guid based on blueprint properties */
 	void GenerateDeterministicGuid();
-
 };

@@ -17,10 +17,10 @@
 #include "TargetPlatform.h"
 #include "TargetPlatformBase.h"
 
+#include "IHTML5TargetPlatformModule.h"
 
 /* Private includes
  *****************************************************************************/
 
-#include "HTML5TargetSettings.h"
 #include "HTML5TargetDevice.h"
 #include "HTML5TargetPlatform.h"

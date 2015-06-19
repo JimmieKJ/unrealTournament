@@ -6,7 +6,7 @@
 /* FMonitoredProcess structors
  *****************************************************************************/
 
-FMonitoredProcess::FMonitoredProcess( const FString& InURL, const FString& InParams, bool InHidden )
+FMonitoredProcess::FMonitoredProcess( const FString& InURL, const FString& InParams, bool InHidden, bool InCreatePipes )
 	: Canceling(false)
 	, EndTime(0)
 	, Hidden(InHidden)
@@ -18,6 +18,8 @@ FMonitoredProcess::FMonitoredProcess( const FString& InURL, const FString& InPar
 	, Thread(nullptr)
 	, URL(InURL)
 	, WritePipe(nullptr)
+	, bCreatePipes(InCreatePipes)
+	, SleepInterval(0.0f)
 { }
 
 
@@ -53,7 +55,7 @@ bool FMonitoredProcess::Launch()
 		return false;
 	}
 
-	if (!FPlatformProcess::CreatePipe(ReadPipe, WritePipe))
+	if (bCreatePipes && !FPlatformProcess::CreatePipe(ReadPipe, WritePipe))
 	{
 		return false;
 	}
@@ -82,7 +84,7 @@ void FMonitoredProcess::ProcessOutput( const FString& Output )
 {
 	TArray<FString> LogLines;
 
-	Output.ParseIntoArray(&LogLines, TEXT("\n"), false);
+	Output.ParseIntoArray(LogLines, TEXT("\n"), false);
 
 	for (int32 LogIndex = 0; LogIndex < LogLines.Num(); ++LogIndex)
 	{
@@ -101,7 +103,7 @@ uint32 FMonitoredProcess::Run()
 	{
 		do
 		{
-			FPlatformProcess::Sleep(0.0);
+			FPlatformProcess::Sleep(SleepInterval);
 
 			ProcessOutput(FPlatformProcess::ReadPipe(ReadPipe));
 

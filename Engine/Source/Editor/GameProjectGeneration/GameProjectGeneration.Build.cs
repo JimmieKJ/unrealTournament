@@ -6,9 +6,13 @@ public class GameProjectGeneration : ModuleRules
 {
     public GameProjectGeneration(TargetInfo Target)
 	{
+        PrivateIncludePaths.AddRange(new string[] { "GameProjectGeneration/Private", "GameProjectGeneration/Public", "GameProjectGeneration/Classes" });
+
+
         PrivateIncludePathModuleNames.AddRange(
             new string[] {
-				"ClassViewer",
+				"AssetRegistry",
+				"ContentBrowser",
                 "DesktopPlatform",
                 "MainFrame",
             }
@@ -18,6 +22,7 @@ public class GameProjectGeneration : ModuleRules
 			new string[] {
 				"Analytics",
                 "AppFramework",
+				"ClassViewer",
 				"Core",
 				"CoreUObject",
 				"Engine",
@@ -33,13 +38,13 @@ public class GameProjectGeneration : ModuleRules
 				"UnrealEd",
 				"DesktopPlatform",
                 "HardwareTargeting",
-                "AssetRegistry"
 			}
 		);
 
         DynamicallyLoadedModuleNames.AddRange(
             new string[] {
-				"ClassViewer",
+				"AssetRegistry",
+				"ContentBrowser",
                 "DesktopPlatform",
                 "Documentation",
                 "MainFrame",

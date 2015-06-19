@@ -53,14 +53,14 @@ bool ACullDistanceVolume::CanBeAffectedByVolumes( UPrimitiveComponent* Primitive
 	if(	Owner
 	// Disregard dynamic actors
 	&& (PrimitiveComponent->Mobility == EComponentMobility::Static)
-	// Disregard prefabs.
-	&& !PrimitiveComponent->IsTemplate()
+	// Require cull distance volume support to be enabled.
+	&&	PrimitiveComponent->bAllowCullDistanceVolume 
 	// Skip primitives that is hidden set as we don't want to cull out brush rendering or other helper objects.
 	&&	PrimitiveComponent->IsVisible()
+	// Disregard prefabs.
+	&& !PrimitiveComponent->IsTemplate()
 	// Only operate on primitives attached to the owners world.			
-	&&	PrimitiveComponent->GetScene() == Owner->GetWorld()->Scene 
-	// Require cull distance volume support to be enabled.
-	&&	PrimitiveComponent->bAllowCullDistanceVolume )
+	&&	PrimitiveComponent->GetScene() == Owner->GetWorld()->Scene)
 	{
 		return true;
 	}

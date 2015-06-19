@@ -2,18 +2,18 @@
 
 #pragma once
 
+
 template <class ContainerType, class ElementType>
 class TLinkedListIterator
 {
 public:
 	explicit TLinkedListIterator(ContainerType* FirstLink)
 		: CurrentLink(FirstLink)
-	{
-	}
+	{ }
 
 	/**
-		* Advances the iterator to the next element.
-		*/
+	 * Advances the iterator to the next element.
+	 */
 	void Next()
 	{
 		checkSlow(CurrentLink);
@@ -53,11 +53,13 @@ public:
 	}
 
 private:
+
 	ContainerType* CurrentLink;
 
 	friend bool operator==(const TLinkedListIterator& Lhs, const TLinkedListIterator& Rhs) { return Lhs.CurrentLink == Rhs.CurrentLink; }
 	friend bool operator!=(const TLinkedListIterator& Lhs, const TLinkedListIterator& Rhs) { return Lhs.CurrentLink != Rhs.CurrentLink; }
 };
+
 
 /**
  * Encapsulates a link in a single linked list with constant access time.
@@ -66,25 +68,29 @@ template <class ElementType>
 class TLinkedList
 {
 public:
+
 	/**
 	 * Used to iterate over the elements of a linked list.
 	 */
 	typedef TLinkedListIterator<TLinkedList,       ElementType> TIterator;
 	typedef TLinkedListIterator<TLinkedList, const ElementType> TConstIterator;
 
-	// Constructors.
+	/** Default constructor (empty list). */
 	TLinkedList()
 		: NextLink(nullptr)
 		, PrevLink(nullptr)
-	{
-	}
+	{ }
 
+	/**
+	 * Creates a new linked list with a single element.
+	 *
+	 * @param InElement The element to add to the list.
+	 */
 	explicit TLinkedList(const ElementType& InElement)
 		: Element (InElement)
 		, NextLink(nullptr)
 		, PrevLink(nullptr)
-	{
-	}
+	{ }
 
 	/**
 	 * Removes this element from the list in constant time.
@@ -102,8 +108,8 @@ public:
 			*PrevLink = NextLink;
 		}
 		// Make it safe to call Unlink again.
-		NextLink = NULL;
-		PrevLink = NULL;
+		NextLink = nullptr;
+		PrevLink = nullptr;
 	}
 
 	/**
@@ -129,7 +135,7 @@ public:
 	 */
 	bool IsLinked()
 	{
-		return PrevLink != NULL;
+		return PrevLink != nullptr;
 	}
 
 	TLinkedList* GetPrevLink() const
@@ -180,10 +186,10 @@ template <class NodeType, class ElementType>
 class TDoubleLinkedListIterator
 {
 public:
+
 	explicit TDoubleLinkedListIterator(NodeType* StartingNode)
 		: CurrentNode(StartingNode)
-	{
-	}
+	{ }
 
 	/** conversion to "bool" returning true if the iterator is valid. */
 	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
@@ -245,6 +251,7 @@ private:
 	friend bool operator!=(const TDoubleLinkedListIterator& Lhs, const TDoubleLinkedListIterator& Rhs) { return Lhs.CurrentNode != Rhs.CurrentNode; }
 };
 
+
 /**
  * Double linked list.
  */
@@ -259,9 +266,8 @@ public:
 
 		/** Constructor */
 		TDoubleLinkedListNode( const ElementType& InValue )
-		: Value(InValue), NextNode(NULL), PrevNode(NULL)
-		{
-		}
+			: Value(InValue), NextNode(nullptr), PrevNode(nullptr)
+		{ }
 
 		const ElementType& GetValue() const
 		{
@@ -300,8 +306,7 @@ public:
 		: HeadNode(nullptr)
 		, TailNode(nullptr)
 		, ListSize(0)
-	{
-	}
+	{ }
 
 	/** Destructor */
 	virtual ~TDoubleLinkedList()
@@ -310,23 +315,24 @@ public:
 	}
 
 	// Adding/Removing methods
+
 	/**
 	 * Add the specified value to the beginning of the list, making that value the new head of the list.
 	 *
 	 * @param	InElement	the value to add to the list.
-	 *
-	 * @return	whether the node was successfully added into the list
+	 * @return	whether the node was successfully added into the list.
+	 * @see GetHead, InsertNode, RemoveNode
 	 */
 	bool AddHead( const ElementType& InElement )
 	{
 		TDoubleLinkedListNode* NewNode = new TDoubleLinkedListNode(InElement);
-		if ( NewNode == NULL )
+		if ( NewNode == nullptr )
 		{
 			return false;
 		}
 
 		// have an existing head node - change the head node to point to this one
-		if ( HeadNode != NULL )
+		if ( HeadNode != nullptr )
 		{
 			NewNode->NextNode = HeadNode;
 			HeadNode->PrevNode = NewNode;
@@ -345,18 +351,18 @@ public:
 	 * Append the specified value to the end of the list
 	 *
 	 * @param	InElement	the value to add to the list.
-	 *
 	 * @return	whether the node was successfully added into the list
+	 * @see GetTail, InsertNode, RemoveNode
 	 */
 	bool AddTail( const ElementType& InElement )
 	{
 		TDoubleLinkedListNode* NewNode = new TDoubleLinkedListNode(InElement);
-		if ( NewNode == NULL )
+		if ( NewNode == nullptr )
 		{
 			return false;
 		}
 
-		if ( TailNode != NULL )
+		if ( TailNode != nullptr )
 		{
 			TailNode->NextNode = NewNode;
 			NewNode->PrevNode = TailNode;
@@ -376,19 +382,19 @@ public:
 	 *
 	 * @param	InElement			the value to insert into the list
 	 * @param	NodeToInsertBefore	the new node will be inserted into the list at the current location of this node
-	 *								if NULL, the new node will become the new head of the list
-	 *
+	 *								if nullptr, the new node will become the new head of the list
 	 * @return	whether the node was successfully added into the list
+	 * @see Empty, RemoveNode
 	 */
-	bool InsertNode( const ElementType& InElement, TDoubleLinkedListNode* NodeToInsertBefore=NULL )
+	bool InsertNode( const ElementType& InElement, TDoubleLinkedListNode* NodeToInsertBefore=nullptr )
 	{
-		if ( NodeToInsertBefore == NULL || NodeToInsertBefore == HeadNode )
+		if ( NodeToInsertBefore == nullptr || NodeToInsertBefore == HeadNode )
 		{
 			return AddHead(InElement);
 		}
 
 		TDoubleLinkedListNode* NewNode = new TDoubleLinkedListNode(InElement);
-		if ( NewNode == NULL )
+		if ( NewNode == nullptr )
 		{
 			return false;
 		}
@@ -404,9 +410,10 @@ public:
 	}
 
 	/**
-	 * Remove the node corresponding to InElement
+	 * Remove the node corresponding to InElement.
 	 *
-	 * @param	InElement	the value to remove from the list
+	 * @param InElement The value to remove from the list.
+	 * @see Empty, InsertNode
 	 */
 	void RemoveNode( const ElementType& InElement )
 	{
@@ -416,10 +423,13 @@ public:
 
 	/**
 	 * Removes the node specified.
+	 *
+	 * @param NodeToRemove The node to remove.
+	 * @see Empty, InsertNode
 	 */
 	void RemoveNode( TDoubleLinkedListNode* NodeToRemove )
 	{
-		if ( NodeToRemove != NULL )
+		if ( NodeToRemove != nullptr )
 		{
 			// if we only have one node, just call Clear() so that we don't have to do lots of extra checks in the code below
 			if ( Num() == 1 )
@@ -432,13 +442,13 @@ public:
 			if ( NodeToRemove == HeadNode )
 			{
 				HeadNode = HeadNode->NextNode;
-				HeadNode->PrevNode = NULL;
+				HeadNode->PrevNode = nullptr;
 			}
 
 			else if ( NodeToRemove == TailNode )
 			{
 				TailNode = TailNode->PrevNode;
-				TailNode->NextNode = NULL;
+				TailNode->NextNode = nullptr;
 			}
 			else
 			{
@@ -447,32 +457,33 @@ public:
 			}
 
 			delete NodeToRemove;
-			NodeToRemove = NULL;
+			NodeToRemove = nullptr;
 			SetListSize(ListSize - 1);
 		}
 	}
 
-	/**
-	 * Removes all nodes from the list.
-	 */
+	/** Removes all nodes from the list. */
 	void Empty()
 	{
 		TDoubleLinkedListNode* pNode;
-		while ( HeadNode != NULL )
+		while ( HeadNode != nullptr )
 		{
 			pNode = HeadNode->NextNode;
 			delete HeadNode;
 			HeadNode = pNode;
 		}
 
-		HeadNode = TailNode = NULL;
+		HeadNode = TailNode = nullptr;
 		SetListSize(0);
 	}
 
 	// Accessors.
 
 	/**
-	 * Returns the node at the head of the list
+	 * Returns the node at the head of the list.
+	 *
+	 * @return Pointer to the first node.
+	 * @see GetTail
 	 */
 	TDoubleLinkedListNode* GetHead() const
 	{
@@ -480,7 +491,10 @@ public:
 	}
 
 	/**
-	 * Returns the node at the end of the list
+	 * Returns the node at the end of the list.
+	 *
+	 * @return Pointer to the last node.
+	 * @see GetHead
 	 */
 	TDoubleLinkedListNode* GetTail() const
 	{
@@ -491,13 +505,12 @@ public:
 	 * Finds the node corresponding to the value specified
 	 *
 	 * @param	InElement	the value to find
-	 *
-	 * @return	a pointer to the node that contains the value specified, or NULL of the value couldn't be found
+	 * @return	a pointer to the node that contains the value specified, or nullptr of the value couldn't be found
 	 */
 	TDoubleLinkedListNode* FindNode( const ElementType& InElement )
 	{
 		TDoubleLinkedListNode* pNode = HeadNode;
-		while ( pNode != NULL )
+		while ( pNode != nullptr )
 		{
 			if ( pNode->GetValue() == InElement )
 			{
@@ -511,7 +524,9 @@ public:
 	}
 
 	/**
-	 * Returns the size of the list.
+	 * Returns the number of items in the list.
+	 *
+	 * @return Item count.
 	 */
 	int32 Num() const
 	{
@@ -562,7 +577,7 @@ public:
 
 	// Constructor.
 
-	TList(const ElementType &InElement, TList<ElementType>* InNext = NULL)
+	TList(const ElementType &InElement, TList<ElementType>* InNext = nullptr)
 	{
 		Element = InElement;
 		Next = InNext;

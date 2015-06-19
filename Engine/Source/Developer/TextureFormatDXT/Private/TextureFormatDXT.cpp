@@ -244,9 +244,9 @@ public:
 		bCompressionResults = Compressor->Compress();
 	}
 
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncNVTTTask");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncNVTTWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
 	/** Retrieve compression results. */

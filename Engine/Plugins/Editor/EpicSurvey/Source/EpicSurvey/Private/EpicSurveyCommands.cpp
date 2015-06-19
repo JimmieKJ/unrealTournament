@@ -17,7 +17,7 @@ FEpicSurveyCommands::FEpicSurveyCommands()
 
 void FEpicSurveyCommands::RegisterCommands()
 {
-	UI_COMMAND( OpenEpicSurvey, "Open Epic Survey...", "Allows you to send feedback to Epic to help improve UE4.", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( OpenEpicSurvey, "Open Epic Survey...", "Allows you to send feedback to Epic to help improve UE4.", EUserInterfaceActionType::Button, FInputChord() );
 }
 
 #undef LOCTEXT_NAMESPACE

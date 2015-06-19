@@ -369,6 +369,14 @@ public:
 	float SizeSquared() const;
 
 	/**
+	 * Rotates around axis (0,0,1)
+	 *
+	 * @param AngleDeg Angle to rotate (in degrees)
+	 * @return Rotated Vector
+	 */
+	FVector2D GetRotated(float AngleDeg) const;
+
+	/**
 	 * Gets a normalized copy of the vector, checking it is safe to do so based on the length.
 	 * Returns zero vector if vector length is too small to safely normalize.
 	 *
@@ -740,6 +748,19 @@ FORCEINLINE float FVector2D::SizeSquared() const
 	return X*X + Y*Y;
 }
 
+FORCEINLINE FVector2D FVector2D::GetRotated(const float AngleDeg) const
+{
+	// Based on FVector::RotateAngleAxis with Axis(0,0,1)
+
+	float S, C;
+	FMath::SinCos(&S, &C, FMath::DegreesToRadians(AngleDeg));
+
+	const float OMC = 1.0f - C;
+
+	return FVector2D(
+		C * X - S * Y,
+		S * X + C * Y);
+}
 
 FORCEINLINE FVector2D FVector2D::GetSafeNormal(float Tolerance) const
 {	

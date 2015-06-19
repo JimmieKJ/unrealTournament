@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "SNotificationList.h"
+
 class SLATE_API INotificationWidget
 {
 public:

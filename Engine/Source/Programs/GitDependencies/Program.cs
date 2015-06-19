@@ -49,7 +49,7 @@ namespace GitDependencies
 
 		class IncomingFile
 		{
-			public string Name;
+			public string[] Names;
 			public string Hash;
 			public long MinPackOffset;
 			public long MaxPackOffset;
@@ -88,19 +88,20 @@ namespace GitDependencies
 		static int Main(string[] Args)
 		{
 			// Build the argument list. Remove any double-hyphens from the start of arguments for conformity with other Epic tools.
-			List<string> ArgsList = new List<string>();
-			foreach (string Arg in Args)
-			{
-				ArgsList.Add(Arg.StartsWith("--")? Arg.Substring(1) : Arg);
-			}
+			List<string> ArgsList = new List<string>(Args);
+			NormalizeArguments(ArgsList);
+
+			// Find the default arguments from the UE4_GITDEPS_ARGS environment variable. These arguments do not cause an error if duplicated or redundant, but can still override defaults.
+			List<string> DefaultArgsList = SplitArguments(System.Environment.GetEnvironmentVariable("UE4_GITDEPS_ARGS"));
+			NormalizeArguments(DefaultArgsList);
 
 			// Parse the parameters
-			int NumThreads = int.Parse(ParseParameter(ArgsList, "-threads=", "4"));
-			int MaxRetries = int.Parse(ParseParameter(ArgsList, "-max-retries=", "4"));
+			int NumThreads = ParseIntParameter(ArgsList, DefaultArgsList, "-threads=", 4);
+			int MaxRetries = ParseIntParameter(ArgsList, DefaultArgsList, "-max-retries=", 4);
 			bool bDryRun = ParseSwitch(ArgsList, "-dry-run");
 			bool bHelp = ParseSwitch(ArgsList, "-help");
-			float CacheSizeMultiplier = float.Parse(ParseParameter(ArgsList, "-cache-size-multiplier=", "2"));
-			int CacheDays = int.Parse(ParseParameter(ArgsList, "-cache-days=", "7"));
+			float CacheSizeMultiplier = ParseFloatParameter(ArgsList, DefaultArgsList, "-cache-size-multiplier=", 2.0f);
+			int CacheDays = ParseIntParameter(ArgsList, DefaultArgsList, "-cache-days=", 7);
 			string RootPath = ParseParameter(ArgsList, "-root=", Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "../../..")));
 
 			// Parse the cache path. A specific path can be set using -catch=<PATH> or the UE4_GITDEPS environment variable, otherwise we look for a parent .git directory
@@ -109,7 +110,7 @@ namespace GitDependencies
 			string CachePath = null;
 			if (!ParseSwitch(ArgsList, "-no-cache"))
 			{
-				string CachePathParam = ParseParameter(ArgsList, "-cache=", System.Environment.GetEnvironmentVariable("UE4_GITDEPS"));
+				string CachePathParam = ParseParameter(ArgsList, DefaultArgsList, "-cache=", System.Environment.GetEnvironmentVariable("UE4_GITDEPS"));
 				if (String.IsNullOrEmpty(CachePathParam))
 				{
 					string CheckPath = Path.GetFullPath(RootPath);
@@ -142,7 +143,7 @@ namespace GitDependencies
 			}
 
 			// Setup network proxy from argument list or environment variable
-			string ProxyUrl = ParseParameter(ArgsList, "-proxy=", null);
+			string ProxyUrl = ParseParameter(ArgsList, DefaultArgsList, "-proxy=", null);
 			if(String.IsNullOrEmpty(ProxyUrl))
 			{
 				ProxyUrl = Environment.GetEnvironmentVariable("HTTP_PROXY");
@@ -159,11 +160,11 @@ namespace GitDependencies
 				UriBuilder ProxyBuilder = new UriBuilder(ProxyUrl);
 				if(String.IsNullOrEmpty(ProxyBuilder.UserName))
 				{
-					ProxyBuilder.UserName = ParseParameter(ArgsList, "-proxy-user=", null);
+					ProxyBuilder.UserName = ParseParameter(ArgsList, DefaultArgsList, "-proxy-user=", null);
 				}
 				if(String.IsNullOrEmpty(ProxyBuilder.Password))
 				{
-					ProxyBuilder.Password = ParseParameter(ArgsList, "-proxy-password=", null);
+					ProxyBuilder.Password = ParseParameter(ArgsList, DefaultArgsList, "-proxy-password=", null);
 				}
 				Proxy = ProxyBuilder.Uri;
 			}
@@ -241,6 +242,8 @@ namespace GitDependencies
 				Log.WriteLine("   Excluded folders: {0}", (ExcludeFolders.Count == 0)? "none" : String.Join(", ", ExcludeFolders));
 				Log.WriteLine("   Proxy server: {0}", (Proxy == null)? "none" : Proxy.ToString());
 				Log.WriteLine("   Download cache: {0}", (CachePath == null)? "disabled" : CachePath);
+				Log.WriteLine();
+				Log.WriteLine("Default arguments can be set through the UE4_GITDEPS_ARGS environment variable.");
 				return 0;
 			}
 
@@ -253,6 +256,49 @@ namespace GitDependencies
 				return 1;
 			}
 			return 0;
+		}
+
+		static void NormalizeArguments(List<string> ArgsList)
+		{
+			for(int Idx = 0; Idx < ArgsList.Count; Idx++)
+			{
+				if(ArgsList[Idx].StartsWith("--"))
+				{
+					ArgsList[Idx] = ArgsList[Idx].Substring(1);
+				}
+			}
+		}
+
+		static List<string> SplitArguments(string Text)
+		{
+			List<string> ArgsList = new List<string>();
+			if(!String.IsNullOrEmpty(Text))
+			{
+				for(int Idx = 0; Idx < Text.Length; Idx++)
+				{
+					if(!Char.IsWhiteSpace(Text[Idx]))
+					{
+						StringBuilder Arg = new StringBuilder();
+						for(bool bInQuotes = false; Idx < Text.Length; Idx++)
+						{
+							if(!bInQuotes && Char.IsWhiteSpace(Text[Idx]))
+							{
+								break;
+							}
+							else if(Text[Idx] == '\"')
+							{
+								bInQuotes ^= true;
+							}
+							else
+							{
+								Arg.Append(Text[Idx]);
+							}
+						}
+						ArgsList.Add(Arg.ToString());
+					}
+				}
+			}
+			return ArgsList;
 		}
 
 		static bool ParseSwitch(List<string> ArgsList, string Name)
@@ -281,6 +327,49 @@ namespace GitDependencies
 				}
 			}
 			return Value;
+		}
+
+		static string ParseParameter(List<string> ArgsList, List<string> DefaultArgsList, string Prefix, string Default)
+		{
+			return ParseParameter(ArgsList, Prefix, ParseParameter(DefaultArgsList, Prefix, Default));
+		}
+
+		static int ParseIntParameter(List<string> ArgsList, string Prefix, int Default)
+		{
+			for(int Idx = 0; Idx < ArgsList.Count; Idx++)
+			{
+				int Value;
+				if(ArgsList[Idx].StartsWith(Prefix, StringComparison.CurrentCultureIgnoreCase) && int.TryParse(ArgsList[Idx].Substring(Prefix.Length), out Value))
+				{
+					ArgsList.RemoveAt(Idx);
+					return Value;
+				}
+			}
+			return Default;
+		}
+
+		static int ParseIntParameter(List<string> ArgsList, List<string> DefaultArgsList, string Prefix, int Default)
+		{
+			return ParseIntParameter(ArgsList, Prefix, ParseIntParameter(DefaultArgsList, Prefix, Default));
+		}
+
+		static float ParseFloatParameter(List<string> ArgsList, string Prefix, float Default)
+		{
+			for(int Idx = 0; Idx < ArgsList.Count; Idx++)
+			{
+				float Value;
+				if(ArgsList[Idx].StartsWith(Prefix, StringComparison.CurrentCultureIgnoreCase) && float.TryParse(ArgsList[Idx].Substring(Prefix.Length), out Value))
+				{
+					ArgsList.RemoveAt(Idx);
+					return Value;
+				}
+			}
+			return Default;
+		}
+
+		static float ParseFloatParameter(List<string> ArgsList, List<string> DefaultArgsList, string Prefix, float Default)
+		{
+			return ParseFloatParameter(ArgsList, Prefix, ParseFloatParameter(DefaultArgsList, Prefix, Default));
 		}
 
 		static IEnumerable<string> ParseParameters(List<string> ArgsList, string Prefix)
@@ -703,9 +792,10 @@ namespace GitDependencies
 
 		static bool IsExcludedFolder(string Name, IEnumerable<string> ExcludeFolders)
 		{
+			string RootedName = "/" + Name;
 			foreach(string ExcludeFolder in ExcludeFolders)
 			{
-				if(Name.IndexOf("/" + ExcludeFolder + "/", StringComparison.CurrentCultureIgnoreCase) != -1)
+				if(RootedName.IndexOf("/" + ExcludeFolder + "/", StringComparison.CurrentCultureIgnoreCase) != -1)
 				{
 					return true;
 				}
@@ -843,15 +933,12 @@ namespace GitDependencies
 			List<IncomingFile> Files = new List<IncomingFile>();
 			foreach(DependencyBlob RequiredBlob in PackToBlobs[RequiredPack.Hash])
 			{
-				foreach(DependencyFile RequiredFile in BlobToFiles[RequiredBlob.Hash])
-				{
-					IncomingFile File = new IncomingFile();
-					File.Name = Path.Combine(RootPath, RequiredFile.Name);
-					File.Hash = RequiredBlob.Hash;
-					File.MinPackOffset = RequiredBlob.PackOffset;
-					File.MaxPackOffset = RequiredBlob.PackOffset + RequiredBlob.Size;
-					Files.Add(File);
-				}
+				IncomingFile File = new IncomingFile();
+				File.Names = BlobToFiles[RequiredBlob.Hash].Select(x => Path.Combine(RootPath, x.Name)).ToArray();
+				File.Hash = RequiredBlob.Hash;
+				File.MinPackOffset = RequiredBlob.PackOffset;
+				File.MaxPackOffset = RequiredBlob.PackOffset + RequiredBlob.Size;
+				Files.Add(File);
 			}
 			return Files.OrderBy(x => x.MinPackOffset).ToArray();
 		}
@@ -859,14 +946,24 @@ namespace GitDependencies
 		static void DownloadWorker(ConcurrentQueue<IncomingPack> DownloadQueue, AsyncDownloadState State, int MaxRetries)
 		{
 			int Retries = 0;
-			while(State.NumFilesRead < State.NumFiles)
+			for(;;)
 			{
 				// Remove the next file from the download queue, or wait before polling again
 				IncomingPack NextPack;
 				if (!DownloadQueue.TryDequeue(out NextPack))
 				{
-					Thread.Sleep(100);
-					continue;
+					Interlocked.Increment(ref State.NumFailingOrIdleDownloads);
+					while(State.NumFilesRead < State.NumFiles && !DownloadQueue.TryDequeue(out NextPack))
+					{
+						Thread.Sleep(100);
+					}
+					Interlocked.Decrement(ref State.NumFailingOrIdleDownloads);
+				}
+
+				// Quit if we exited the loop because we're finished
+				if(NextPack == null)
+				{
+					break;
 				}
 
 				// Try to download the file
@@ -885,7 +982,7 @@ namespace GitDependencies
 
 					// Update the stats
 					Interlocked.Add(ref State.NumBytesTotal, RollbackSize - NextPack.CompressedSize);
-					Interlocked.Add(ref State.NumFilesRead, NextPack.Files.Length);
+					Interlocked.Add(ref State.NumFilesRead, NextPack.Files.Sum(x => x.Names.Length));
 
 					// If we were failing, decrement the number of failing threads
 					if(Retries > MaxRetries)
@@ -1078,8 +1175,8 @@ namespace GitDependencies
 						// Open the stream if it's a new file
 						if(Idx == MaxFileIdx)
 						{
-							Directory.CreateDirectory(Path.GetDirectoryName(CurrentFile.Name));
-							OutputStreams[Idx] = File.Open(CurrentFile.Name + IncomingFileSuffix, FileMode.Create, FileAccess.Write, FileShare.None);
+							Directory.CreateDirectory(Path.GetDirectoryName(CurrentFile.Names[0]));
+							OutputStreams[Idx] = File.Open(CurrentFile.Names[0] + IncomingFileSuffix, FileMode.Create, FileAccess.Write, FileShare.None);
 							OutputStreams[Idx].SetLength(CurrentFile.MaxPackOffset - CurrentFile.MinPackOffset);
 							OutputHashers[Idx] = SHA1.Create();
 							MaxFileIdx++;
@@ -1099,12 +1196,21 @@ namespace GitDependencies
 							string Hash = BitConverter.ToString(OutputHashers[Idx].Hash).ToLower().Replace("-", "");
 							if(Hash != CurrentFile.Hash)
 							{
-								throw new CorruptPackFileException(String.Format("Incorrect hash value of {0}: expected {1}, got {2}", CurrentFile.Name, CurrentFile.Hash, Hash), null);
+								throw new CorruptPackFileException(String.Format("Incorrect hash value of {0}: expected {1}, got {2}", CurrentFile.Names[0], CurrentFile.Hash, Hash), null);
 							}
 						
 							OutputStreams[Idx].Dispose();
-							File.Delete(CurrentFile.Name);
-							File.Move(CurrentFile.Name + IncomingFileSuffix, CurrentFile.Name);
+
+							for(int FileIdx = 1; FileIdx < CurrentFile.Names.Length; FileIdx++)
+							{
+								Directory.CreateDirectory(Path.GetDirectoryName(CurrentFile.Names[FileIdx]));
+								File.Copy(CurrentFile.Names[0] + IncomingFileSuffix, CurrentFile.Names[FileIdx] + IncomingFileSuffix, true);
+								File.Delete(CurrentFile.Names[FileIdx]);
+								File.Move(CurrentFile.Names[FileIdx] + IncomingFileSuffix, CurrentFile.Names[FileIdx]);
+							}
+
+							File.Delete(CurrentFile.Names[0]);
+							File.Move(CurrentFile.Names[0] + IncomingFileSuffix, CurrentFile.Names[0]);
 							MinFileIdx++;
 						}
 					}
@@ -1129,7 +1235,10 @@ namespace GitDependencies
 				for(int Idx = MinFileIdx; Idx < MaxFileIdx; Idx++)
 				{
 					OutputStreams[Idx].Dispose();
-					SafeDeleteFileQuiet(Files[Idx].Name + IncomingFileSuffix);
+					foreach(string Name in Files[Idx].Names)
+					{
+						SafeDeleteFileQuiet(Name + IncomingFileSuffix);
+					}
 				}
 			}
 		}

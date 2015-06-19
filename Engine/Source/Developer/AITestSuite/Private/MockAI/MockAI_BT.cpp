@@ -25,7 +25,7 @@ bool UMockAI_BT::IsRunning() const
 	return BTComp && BTComp->IsRunning() && BTComp->GetRootTree();
 }
 
-bool UMockAI_BT::RunBT(UBehaviorTree& BTAsset, EBTExecutionMode::Type RunType)
+void UMockAI_BT::RunBT(UBehaviorTree& BTAsset, EBTExecutionMode::Type RunType)
 {
 	if (BTAsset.BlackboardAsset)
 	{
@@ -39,5 +39,5 @@ bool UMockAI_BT::RunBT(UBehaviorTree& BTAsset, EBTExecutionMode::Type RunType)
 	BBComp->RegisterComponentWithWorld(World);
 	BTComp->RegisterComponentWithWorld(World);
 
-	return BTComp->StartTree(BTAsset, RunType);
+	BTComp->StartTree(BTAsset, RunType);
 }

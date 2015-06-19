@@ -132,7 +132,7 @@ void FScriptBlueprintCompiler::CreateScriptDefinedFunction(FScriptField& Field)
 	// Create Blueprint Graph which consists of 3 nodes: 'Entry', 'Get Script Context' and 'Call Function'
 	// @todo: once we figure out how to get parameter lists for functions we can add suport for that here
 
-	UEdGraph* ScriptFunctionGraph = NewNamedObject<UEdGraph>(Blueprint, *FString::Printf(TEXT("%s_Graph"), *FunctionName));
+	UEdGraph* ScriptFunctionGraph = NewObject<UEdGraph>(Blueprint, *FString::Printf(TEXT("%s_Graph"), *FunctionName));
 	ScriptFunctionGraph->Schema = UEdGraphSchema_K2::StaticClass();
 	ScriptFunctionGraph->SetFlags(RF_Transient);
 	
@@ -184,7 +184,7 @@ void FScriptBlueprintCompiler::FinishCompilingClass(UClass* Class)
 	if (ContextProperty)
 	{
 		UObject* CDO = Class->GetDefaultObject();
-		UObject* ContextDefaultSubobject = StaticConstructObject(ContextProperty->PropertyClass, CDO, "ScriptContext", RF_DefaultSubObject|RF_Public);
+		UObject* ContextDefaultSubobject = NewObject<UObject>(CDO, ContextProperty->PropertyClass, "ScriptContext", RF_DefaultSubObject | RF_Public);
 		ContextProperty->SetObjectPropertyValue(ContextProperty->ContainerPtrToValuePtr<UObject*>(CDO), ContextDefaultSubobject);
 	}
 }
@@ -219,12 +219,12 @@ void FScriptBlueprintCompiler::SpawnNewClass(const FString& NewClassName)
 
 	if ( NewScriptBlueprintClass == NULL )
 	{
-		NewScriptBlueprintClass = ConstructObject<UScriptBlueprintGeneratedClass>(UScriptBlueprintGeneratedClass::StaticClass(), Blueprint->GetOutermost(), FName(*NewClassName), RF_Public | RF_Transactional);
+		NewScriptBlueprintClass = NewObject<UScriptBlueprintGeneratedClass>(Blueprint->GetOutermost(), FName(*NewClassName), RF_Public | RF_Transactional);
 	}
 	else
 	{
 		// Already existed, but wasn't linked in the Blueprint yet due to load ordering issues
-		FBlueprintCompileReinstancer GeneratedClassReinstancer(NewScriptBlueprintClass);
+		FBlueprintCompileReinstancer::Create(NewScriptBlueprintClass);
 	}
 	NewClass = NewScriptBlueprintClass;
 }

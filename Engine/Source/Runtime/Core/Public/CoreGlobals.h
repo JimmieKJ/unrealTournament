@@ -105,7 +105,6 @@ extern CORE_API bool GIsClient;
 extern CORE_API bool GIsServer;
 extern CORE_API bool GIsCriticalError;
 extern CORE_API bool GIsRunning;
-extern CORE_API bool GIsGarbageCollecting;
 extern CORE_API bool GIsDuplicatingClassForReinstancing;
 
 /**
@@ -145,12 +144,18 @@ extern CORE_API bool GIsHighResScreenshot;
 extern CORE_API uint32 GScreenshotResolutionX;
 extern CORE_API uint32 GScreenshotResolutionY;
 extern CORE_API uint64 GMakeCacheIDIndex;
-extern CORE_API FString GEditorKeyBindingsIni;
+
 extern CORE_API FString GEngineIni;
-extern CORE_API FString GEditorIni;
+
+/** Editor ini file locations - stored per engine version (shared across all projects). Migrated between versions on first run. */
 extern CORE_API FString GEditorLayoutIni;
-extern CORE_API FString GEditorUserSettingsIni;
-extern CORE_API FString GEditorGameAgnosticIni;
+extern CORE_API FString GEditorKeyBindingsIni;
+extern CORE_API FString GEditorSettingsIni;
+
+/** Editor per-project ini files - stored per project. */
+extern CORE_API FString GEditorIni;
+extern CORE_API FString GEditorPerProjectIni;
+
 extern CORE_API FString GCompatIni;
 extern CORE_API FString GLightmassIni;
 extern CORE_API FString GScalabilityIni;
@@ -168,7 +173,13 @@ extern CORE_API const TCHAR* GForeignEngineDir;
 extern CORE_API FExec* GDebugToolExec;
 
 /** Whether we're currently in the async loading code path or not */
-extern CORE_API bool GIsAsyncLoading;
+extern CORE_API bool(*IsAsyncLoading)();
+
+/** Suspends async package loading. */
+extern CORE_API void (*SuspendAsyncLoading)();
+
+/** Resumes async package loading. */
+extern CORE_API void (*ResumeAsyncLoading)();
 
 /** Whether the editor is currently loading a package or not */
 extern CORE_API bool GIsEditorLoadingPackage;
@@ -196,8 +207,10 @@ extern CORE_API FString GSystemStartTime;
 /** Whether we are still in the initial loading process. */
 extern CORE_API bool GIsInitialLoad;
 
-/** true when we are routing ConditionalPostLoad/PostLoad to objects */
-extern CORE_API bool GIsRoutingPostLoad;
+#if WITH_HOT_RELOAD_CTORS
+/** true when we are retrieving VTablePtr from UClass */
+extern CORE_API bool GIsRetrievingVTablePtr;
+#endif // WITH_HOT_RELOAD_CTORS
 
 /** Steadily increasing frame counter. */
 extern CORE_API uint64 GFrameCounter;
@@ -276,3 +289,11 @@ extern CORE_API double GBlueprintCompileTime;
 
 /** Stack names from the VM to be unrolled when we assert */
 extern CORE_API TArray<FScriptTraceStackNode> GScriptStack;
+
+#if WITH_HOT_RELOAD_CTORS
+/**
+ * Ensures that current thread is during retrieval of vtable ptr
+ * of some UClass.
+ */
+CORE_API void EnsureRetrievingVTablePtr();
+#endif // WITH_HOT_RELOAD_CTORS

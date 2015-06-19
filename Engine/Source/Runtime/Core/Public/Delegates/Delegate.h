@@ -280,19 +280,38 @@ class DynamicMulticastDelegateName : public FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(T
 
 
 // Helper macro for calling BindDynamic() on dynamic delegates.  Automatically generates the function name string.
-#define BindDynamic( UserObject, FuncName ) __Internal_BindDynamic( UserObject, FuncName, FString( #FuncName ) )
+#define BindDynamic( UserObject, FuncName ) __Internal_BindDynamic( UserObject, FuncName, TEXT( #FuncName ) )
 
 // Helper macro for calling AddDynamic() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define AddDynamic( UserObject, FuncName ) __Internal_AddDynamic( UserObject, FuncName, FString( #FuncName ) )
+#define AddDynamic( UserObject, FuncName ) __Internal_AddDynamic( UserObject, FuncName, TEXT( #FuncName ) )
 
 // Helper macro for calling AddUniqueDynamic() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define AddUniqueDynamic( UserObject, FuncName ) __Internal_AddUniqueDynamic( UserObject, FuncName, FString( #FuncName ) )
+#define AddUniqueDynamic( UserObject, FuncName ) __Internal_AddUniqueDynamic( UserObject, FuncName, TEXT( #FuncName ) )
 
 // Helper macro for calling RemoveDynamic() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define RemoveDynamic( UserObject, FuncName ) __Internal_RemoveDynamic( UserObject, FuncName, FString( #FuncName ) )
+#define RemoveDynamic( UserObject, FuncName ) __Internal_RemoveDynamic( UserObject, FuncName, TEXT( #FuncName ) )
 
 // Helper macro for calling IsAlreadyBound() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define IsAlreadyBound( UserObject, FuncName ) __Internal_IsAlreadyBound( UserObject, FuncName, FString( #FuncName ) )
+#define IsAlreadyBound( UserObject, FuncName ) __Internal_IsAlreadyBound( UserObject, FuncName, TEXT( #FuncName ) )
+
+
+namespace UE4Delegates_Private
+{
+	/**
+	 * Returns the root function name from a string representing a member function pointer.
+	 * Note: this function only returns a pointer to the substring and doesn't create a new string.
+	 *
+	 * @param  InMacroFunctionName  The string containing the member function name.
+	 * @return A pointer to the substring containing the member function name.
+	 */
+	inline const TCHAR* GetTrimmedMemberFunctionName(const TCHAR* InMacroFunctionName)
+	{
+		// We strip off the class prefix and just return the function name by itself.
+		const TCHAR* Result = FCString::Strrstr( InMacroFunctionName, TEXT( "::" ) );
+		checkf(Result, TEXT("'%s' does not look like a member function"), InMacroFunctionName);
+		return Result + 2;
+	}
+}
 
 
 /*********************************************************************************************************************/

@@ -137,12 +137,12 @@ FText UK2Node_VariableSetRef::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		return NSLOCTEXT("K2Node", "SetRefVarNodeTitle", "Set By-Ref Var");
 	}
-	else if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("PinType"), Schema->TypeToText(TargetPin->PinType));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(NSLOCTEXT("K2Node", "SetRefVarNodeTitle_Typed", "Set {PinType}"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "SetRefVarNodeTitle_Typed", "Set {PinType}"), Args), this);
 	}
 	return CachedNodeTitle;
 }

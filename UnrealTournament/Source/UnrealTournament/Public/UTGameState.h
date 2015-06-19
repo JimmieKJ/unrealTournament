@@ -7,6 +7,7 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
 
 class AUTGameMode;
+class AUTReplicatedMapVoteInfo;
 
 struct FLoadoutInfo;
 
@@ -277,6 +278,10 @@ public:
 	UPROPERTY(Replicated)
 	bool bIsInstanceServer;
 
+	// the GUID of the hub the player should return when they leave.  
+	UPROPERTY(Replicated)
+	FGuid HubGuid;
+
 	// Holds a list of weapons available for loadouts
 	UPROPERTY(Replicated)
 	TArray<AUTReplicatedLoadoutInfo*> AvailableLoadout;
@@ -318,7 +323,7 @@ public:
 	// available local content however, in hubs it will be from data replicated from the server.
 
 	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
-	virtual void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
+	virtual void GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList);
 
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
@@ -328,6 +333,28 @@ public:
 
 	UPROPERTY()
 		TArray<FName> WeaponStats;
+
+	UPROPERTY()
+		TArray<FName> RewardStats;
+
+	UPROPERTY(Replicated)
+	TArray<AUTReplicatedMapVoteInfo*> MapVoteList;
+
+	virtual void CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference);
+	void SortVotes();
+
+	// The # of seconds left for voting for a map.
+	UPROPERTY(Replicated)
+	int32 VoteTimer;
+
+	/** Returns a list of important pickups for this gametype
+	*	Used to gather pickups for the spectator slideout
+	*	For now, do gamytype specific team sorting here
+	*   NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = GameState)
+	bool GetImportantPickups(UPARAM(ref) TArray<class AUTPickup*>& PickupList);
+
 };
 
 

@@ -60,6 +60,7 @@
 #include "CookOnTheSide/CookOnTheFlyServer.h"
 #include "Interfaces/ILauncherProfile.h"
 #include "LightingBuildOptions.h"
+#include "Engine/StaticMeshActor.h"
 
 #define COOK_TIMEOUT 3600
 
@@ -122,7 +123,6 @@ namespace AutomationEditorCommonUtils
 			//If we are a texture factory suppress some warning dialog that we don't want
 			if (ImportFactory->IsA(UTextureFactory::StaticClass()))
 			{
-				UTextureFactory::SuppressImportResolutionWarningDialog();
 				UTextureFactory::SuppressImportOverwriteDialog();
 			}
 
@@ -321,7 +321,7 @@ namespace AutomationEditorCommonUtils
 				}
 
 				TArray<FString> PropertyChain;
-				FactorySettings[i].SettingName.ParseIntoArray(&PropertyChain, TEXT("."), false);
+				FactorySettings[i].SettingName.ParseIntoArray(PropertyChain, TEXT("."), false);
 				ApplyCustomFactorySetting(InFactory, PropertyChain, FactorySettings[i].Value);
 			}
 		}
@@ -421,7 +421,7 @@ namespace AutomationEditorCommonUtils
 		{
 			UE_LOG(LogEditorAutomationTests, VeryVerbose, TEXT("Loading and parsing the data from '%s' into an array."), *InFileLocation);
 			FFileHelper::LoadFileToString(RawData, *InFileLocation);
-			RawData.ParseIntoArray(&OutArray, TEXT(","), false);
+			RawData.ParseIntoArray(OutArray, TEXT(","), false);
 		}
 
 		UE_LOG(LogEditorAutomationTests, Warning, TEXT("Unable to create an array.  '%s' does not exist."), *InFileLocation);
@@ -695,17 +695,20 @@ bool FBuildLightingCommand::Update()
 		return true;
 	}
 
+	UWorld* CurrentWorld = GEditor->GetEditorWorldContext().World();
+	GUnrealEd->Exec(CurrentWorld, TEXT("MAP REBUILD"));
+
 	FLightingBuildOptions LightingBuildOptions;
 
 	// Retrieve settings from ini.
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"), LightingBuildOptions.bOnlyBuildSelected, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"), LightingBuildOptions.bOnlyBuildCurrentLevel, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"), LightingBuildOptions.bOnlyBuildSelectedLevels, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"), LightingBuildOptions.bOnlyBuildVisibility, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), LightingBuildOptions.bUseErrorColoring, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), LightingBuildOptions.bShowLightingBuildInfo, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"), LightingBuildOptions.bOnlyBuildSelected, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"), LightingBuildOptions.bOnlyBuildCurrentLevel, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"), LightingBuildOptions.bOnlyBuildSelectedLevels, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"), LightingBuildOptions.bOnlyBuildVisibility, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), LightingBuildOptions.bUseErrorColoring, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), LightingBuildOptions.bShowLightingBuildInfo, GEditorPerProjectIni);
 	int32 QualityLevel;
-	GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorUserSettingsIni);
+	GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorPerProjectIni);
 	QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
 	LightingBuildOptions.QualityLevel = Quality_Production;
 
@@ -831,7 +834,9 @@ void FEditorAutomationTestUtilities::CollectGameContentTestsByClass(UClass * Cla
 	//Generating the list of assets.
 	//This list is being filtered by the game folder and class type.  The results are placed into the ObjectList variable.
 	AssetFilter.ClassNames.Add(Class->GetFName());
-	AssetFilter.PackagePaths.Add("/Game");
+
+	//removed path as a filter as it causes two large lists to be sorted.  Filtering on "game" directory on iteration
+	//AssetFilter.PackagePaths.Add("/Game");
 	AssetFilter.bRecursiveClasses = bRecursiveClass;
 	AssetFilter.bRecursivePaths = true;
 	AssetRegistryModule.Get().GetAssets(AssetFilter, ObjectList);
@@ -841,13 +846,17 @@ void FEditorAutomationTestUtilities::CollectGameContentTestsByClass(UClass * Cla
 	{
 		const FAssetData& Asset = *ObjIter;
 		FString Filename = Asset.ObjectPath.ToString();
-		//convert to full paths
-		Filename = FPackageName::LongPackageNameToFilename(Filename);
-		if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+
+		if (Filename.StartsWith("/Game"))
 		{
-			FString BeautifiedFilename = Asset.AssetName.ToString();
-			OutBeautifiedNames.Add(BeautifiedFilename);
-			OutTestCommands.Add(Asset.ObjectPath.ToString());
+			//convert to full paths
+			Filename = FPackageName::LongPackageNameToFilename(Filename);
+			if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+			{
+				FString BeautifiedFilename = Asset.AssetName.ToString();
+				OutBeautifiedNames.Add(BeautifiedFilename);
+				OutTestCommands.Add(Asset.ObjectPath.ToString());
+			}
 		}
 	}
 }

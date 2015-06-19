@@ -45,9 +45,13 @@ bool FKDevelopSourceCodeAccessor::OpenSolution()
 		return false;
 	}
 	
-	// FIXME: leaks the process :(
 	FProcHandle Proc = FPlatformProcess::CreateProc(*IDEPath, *Solution, true, false, false, nullptr, 0, nullptr, nullptr);
-	return Proc.IsValid();
+	if (Proc.IsValid())
+	{
+		FPlatformProcess::CloseProc(Proc);
+		return true;
+	}
+	return false;
 }
 
 bool FKDevelopSourceCodeAccessor::CanRunKDevelop(FString& OutPath) const

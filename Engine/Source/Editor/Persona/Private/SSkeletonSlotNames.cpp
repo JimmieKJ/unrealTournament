@@ -12,6 +12,12 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "STextEntryPopup.h"
+#include "Animation/AnimBlueprint.h"
+#include "AnimGraphNode_Slot.h"
+#include "Animation/AnimNode_Slot.h"
+#include "BlueprintEditorUtils.h"
+#include "SSlotNameReferenceWindow.h"
+#include "IMainFrameModule.h"
 
 #define LOCTEXT_NAMESPACE "SkeletonSlotNames"
 
@@ -98,6 +104,7 @@ FSkeletonSlotNamesSummoner::FSkeletonSlotNamesSummoner(TSharedPtr<class FAssetEd
 	: FWorkflowTabFactory(FPersonaTabs::SkeletonSlotNamesID, InHostingApp)
 {
 	TabLabel = LOCTEXT("AnimSlotManagerTabTitle", "Anim Slot Manager");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.Tabs.AnimSlotManager");
 
 	EnableTabPadding();
 	bIsSingleton = true;
@@ -249,10 +256,25 @@ TSharedPtr<SWidget> SSkeletonSlotNames::OnGetContextMenuContent() const
 
 	if (bShowGroupItem)
 	{
+		TSharedPtr<FDisplayedSlotNameInfo> SelectedItemPtr = SelectedItems[0];
 
+		MenuBuilder.BeginSection("SlotManagerSlotGroupActions", LOCTEXT("SlotManagerSlotGroupActions", "Slot Group Actions"));
+		// Delete Slot Group
+		{
+			FDisplayedSlotNameInfo* SlotInfo = SelectedItemPtr.Get();
+
+			FUIAction Action = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonSlotNames::OnDeleteSlotGroup, SlotInfo->Name));
+			Action.CanExecuteAction.BindSP(this, &SSkeletonSlotNames::CanDeleteSlotGroup, SlotInfo->Name);
+			const FText Label = LOCTEXT("AnimSlotManagerContextMenuDeleteSlotGroupLabel", "Delete Slot Group");
+			const FText ToolTip = LOCTEXT("AnimSlotManagerContextMenuDeleteSlotGroupTooltip", "Delete this slot group.");
+			MenuBuilder.AddMenuEntry(Label, ToolTip, FSlateIcon(), Action);
+		}
+		MenuBuilder.EndSection();
 	}
 	else if (bShowSlotItem)
 	{
+		TSharedPtr<FDisplayedSlotNameInfo> SelectedItemPtr = SelectedItems[0];
+
 		MenuBuilder.BeginSection("SlotManagerSlotActions", LOCTEXT("SlotManagerSlotActions", "Slot Actions"));
 		// Set Slot Group
 		{
@@ -260,8 +282,26 @@ TSharedPtr<SWidget> SSkeletonSlotNames::OnGetContextMenuContent() const
 				FText::Format(LOCTEXT("ContextMenuSetSlotGroupLabel", "Set Slot {0} Group to"), FText::FromName(SelectedItems[0].Get()->Name)),
 				FText::Format(LOCTEXT("ContextMenuSetSlotGroupToolTip", "Set Slot {0} Group"), FText::FromName(SelectedItems[0].Get()->Name)),
 				FNewMenuDelegate::CreateRaw(this, &SSkeletonSlotNames::FillSetSlotGroupSubMenu));
-			MenuBuilder.EndSection();
 		}
+		// Rename Slot
+		{
+			FDisplayedSlotNameInfo* SlotInfo = SelectedItemPtr.Get();
+
+			FUIAction Action = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonSlotNames::OnRenameSlot, SlotInfo->Name));
+			const FText Label = LOCTEXT("AnimSlotManagerContextMenuRenameSlotLabel", "Rename Slot");
+			const FText ToolTip = LOCTEXT("AnimSlotManagerContextMenuRenameSlotTooltip", "Rename this slot");
+			MenuBuilder.AddMenuEntry(Label, ToolTip, FSlateIcon(), Action);
+		}
+		// Delete Slot
+		{
+			FDisplayedSlotNameInfo* SlotInfo = SelectedItemPtr.Get();
+
+			FUIAction Action = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonSlotNames::OnDeleteSlot, SlotInfo->Name));
+			const FText Label = LOCTEXT("AnimSlotManagerContextMenuDeleteSlotLabel", "Delete Slot");
+			const FText ToolTip = LOCTEXT("AnimSlotManagerContextMenuDeleteSlotTooltip", "Delete this slot.");
+			MenuBuilder.AddMenuEntry(Label, ToolTip, FSlateIcon(), Action);
+		}
+		MenuBuilder.EndSection();
 	}
 
 	MenuBuilder.BeginSection("SlotManagerGeneralActions", LOCTEXT("SlotManagerGeneralActions", "Slot Manager Actions"));
@@ -364,8 +404,6 @@ void SSkeletonSlotNames::OnAddSlot()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SSkeletonSlotNames::OnAddGroup()
@@ -382,8 +420,6 @@ void SSkeletonSlotNames::OnAddGroup()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SSkeletonSlotNames::AddSlotPopUpOnCommit(const FText & InNewSlotText, ETextCommit::Type CommitInfo)
@@ -442,20 +478,28 @@ void SSkeletonSlotNames::AddGroupPopUpOnCommit(const FText & InNewGroupText, ETe
 	}
 }
 
-// void SSkeletonSlotNames::GetCompatibleAnimBlueprints( TMultiMap<class UAnimBlueprint *, class UAnimGraphNode_Slot *>& OutAssets )
-// {
-// 	// second, go through all animgraphnode_slot
-// 	for(FObjectIterator Iter(UAnimGraphNode_Slot::StaticClass()); Iter; ++Iter)
-// 	{
-// 		// if I find one, add the BP and slot nodes to the list
-// 		UAnimGraphNode_Slot * SlotNode = CastChecked<UAnimGraphNode_Slot>(Iter);
-// 		UAnimBlueprint * AnimBlueprint = Cast<UAnimBlueprint>(SlotNode->GetBlueprint());
-// 		if (AnimBlueprint)
-// 		{
-// 			OutAssets.AddUnique(AnimBlueprint, SlotNode);
-// 		}
-// 	}
-// }
+void SSkeletonSlotNames::GetCompatibleAnimBlueprints( TArray<FAssetData>& OutAssets )
+{
+	//Get the skeleton tag to search for
+	FString SkeletonExportName = FAssetData(TargetSkeleton).GetExportTextName();
+
+	// Load the asset registry module
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	TArray<FAssetData> AssetDataList;
+	AssetRegistryModule.Get().GetAssetsByClass(UAnimBlueprint::StaticClass()->GetFName(), AssetDataList, true);
+
+	OutAssets.Empty(AssetDataList.Num());
+
+	for(FAssetData& Data : AssetDataList)
+	{
+		FString AssetSkeleton = Data.TagsAndValues.FindRef("TargetSkeleton");
+		if(AssetSkeleton == SkeletonExportName)
+		{
+			OutAssets.Add(Data);
+		}
+	}
+}
 
 void SSkeletonSlotNames::RefreshSlotNameListWithFilter()
 {
@@ -518,7 +562,7 @@ void SSkeletonSlotNames::ShowNotifyInDetailsView(FName NotifyName)
 	// we can show the list of montage that are used by this slot node?
 }
 
-void SSkeletonSlotNames::GetCompatibleAnimMontage(TArray<class FAssetData>& OutAssets)
+void SSkeletonSlotNames::GetCompatibleAnimMontages(TArray<class FAssetData>& OutAssets)
 {
 	//Get the skeleton tag to search for
 	FString SkeletonExportName = FAssetData(TargetSkeleton).GetExportTextName();
@@ -575,4 +619,450 @@ void SSkeletonSlotNames::NotifyUser( FNotificationInfo& NotificationInfo )
 		Notification->SetCompletionState( SNotificationItem::CS_Fail );
 	}
 }
+
+void SSkeletonSlotNames::OnDeleteSlot(FName SlotName)
+{
+	TArray<FAssetData> CompatibleMontages;
+	TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> CompatibleSlotNodes;
+	GetMontagesAndNodesUsingSlot(SlotName, CompatibleMontages, CompatibleSlotNodes);
+
+	if(CompatibleMontages.Num() > 0 || CompatibleSlotNodes.Num() > 0)
+	{
+		// We can't delete here - still have references. Give the user a chance to fix.
+		if(!ReferenceWindow.IsValid())
+		{
+			// No existing window
+			SAssignNew(ReferenceWindow, SWindow)
+				.AutoCenter(EAutoCenter::PreferredWorkArea)
+				.SizingRule(ESizingRule::Autosized)
+				.Title(LOCTEXT("ReferenceWindowTitle", "Slot References"));
+
+			ReferenceWindow->SetContent
+				(
+				SNew(SBorder)
+				.Padding(FMargin(3))
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+				[
+					SAssignNew(ReferenceWidget, SSlotNameReferenceWindow)
+					.ReferencingMontages(&CompatibleMontages)
+					.ReferencingNodes(&CompatibleSlotNodes)
+					.SlotName(SlotName.ToString())
+					.OperationText(LOCTEXT("DeleteOperation", "Delete"))
+					.WidgetWindow(ReferenceWindow)
+					.OnRetry(FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryDeleteSlot, SlotName))
+				]
+			);
+
+			TSharedPtr<SWindow> ParentWindow;
+			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+			ParentWindow = MainFrameModule.GetParentWindow();
+			
+			FSlateApplication::Get().AddWindowAsNativeChild(ReferenceWindow.ToSharedRef(), ParentWindow.ToSharedRef());
+			ReferenceWindow->SetOnWindowClosed(FOnWindowClosed::CreateSP(this, &SSkeletonSlotNames::ReferenceWindowClosed));
+		}
+		else
+		{
+			TSharedPtr<SSlotNameReferenceWindow> RefWidgetPinned = ReferenceWidget.Pin();
+			if(RefWidgetPinned.IsValid())
+			{
+				FReferenceWindowInfo WindowInfo;
+				WindowInfo.ReferencingMontages = &CompatibleMontages;
+				WindowInfo.ReferencingNodes = &CompatibleSlotNodes;
+				WindowInfo.ItemText = FText::FromName(SlotName);
+				WindowInfo.OperationText = LOCTEXT("DeleteOperation", "Delete");
+				WindowInfo.RetryDelegate = FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryDeleteSlot, SlotName);
+
+				RefWidgetPinned->UpdateInfo(WindowInfo);
+				ReferenceWindow->BringToFront();
+			}
+		}
+	}
+	else
+	{
+		DeleteSlot(SlotName);
+	}
+}
+
+void SSkeletonSlotNames::DeleteSlot(const FName& SlotName)
+{
+	if(TargetSkeleton->ContainsSlotName(SlotName))
+	{
+		TargetSkeleton->Modify();
+		TargetSkeleton->RemoveSlotName(SlotName);
+		RefreshSlotNameListWithFilter();
+	}
+}
+
+void SSkeletonSlotNames::GetAnimMontagesUsingSlot(FName SlotName, TArray<FAssetData>& OutMontages)
+{
+	TArray<FAssetData> SkeletonCompatibleMontages;
+	GetCompatibleAnimMontages(SkeletonCompatibleMontages);
+
+	for(FAssetData& MontageData : SkeletonCompatibleMontages)
+	{
+		UAnimMontage* Montage = Cast<UAnimMontage>(MontageData.GetAsset());
+
+		check(Montage);
+
+		for(FSlotAnimationTrack& SlotTrack : Montage->SlotAnimTracks)
+		{
+			if(SlotTrack.SlotName == SlotName)
+			{
+				OutMontages.Add(MontageData);
+			}
+		}
+	}
+}
+
+void SSkeletonSlotNames::GetAnimMontagesUsingSlotGroup(FName SlotGroupName, TArray<FAssetData>& OutMontages)
+{
+	if(FAnimSlotGroup* Group = TargetSkeleton->FindAnimSlotGroup(SlotGroupName))
+	{
+		for(FName& SlotName : Group->SlotNames)
+		{
+			GetAnimMontagesUsingSlot(SlotName, OutMontages);
+		}
+	}
+}
+
+void SSkeletonSlotNames::ReferenceWindowClosed(const TSharedRef<SWindow>& Window)
+{
+	ReferenceWindow = nullptr;
+}
+
+void SSkeletonSlotNames::RetryDeleteSlot(FName SlotName)
+{
+	TArray<FAssetData> CompatibleMontages;
+	TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> CompatibleSlotNodes;
+	GetMontagesAndNodesUsingSlot(SlotName, CompatibleMontages, CompatibleSlotNodes);
+	
+	if(CompatibleMontages.Num() > 0 || CompatibleSlotNodes.Num() > 0)
+	{
+		// Still can't delete
+		TSharedPtr<SSlotNameReferenceWindow> PinnedWidget = ReferenceWidget.Pin();
+		if(PinnedWidget.IsValid())
+		{
+			FReferenceWindowInfo WindowInfo;
+			WindowInfo.ReferencingMontages = &CompatibleMontages;
+			WindowInfo.ReferencingNodes = &CompatibleSlotNodes;
+			WindowInfo.ItemText = FText::FromName(SlotName);
+			WindowInfo.OperationText = LOCTEXT("DeleteOperation", "Delete");
+			WindowInfo.RetryDelegate = FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryDeleteSlot, SlotName);
+
+			PinnedWidget->UpdateInfo(WindowInfo);
+			ReferenceWindow->BringToFront();
+		}
+	}
+	else
+	{
+		ReferenceWindow->RequestDestroyWindow();
+		DeleteSlot(SlotName);
+	}
+}
+
+void SSkeletonSlotNames::GetMontagesAndNodesUsingSlot(const FName& SlotName, TArray<FAssetData>& CompatibleMontages, TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> &CompatibleSlotNodes)
+{
+	FScopedSlowTask SlowTask(3, LOCTEXT("AssetReferenceSlowTaskMessage", "Checking for slot references."));
+	SlowTask.MakeDialog();
+
+	TArray<FAssetData> CompatibleBlueprints;
+	SlowTask.EnterProgressFrame(1, LOCTEXT("AssetReferenceTask_Blueprints", "Searching Blueprints"));
+	GetCompatibleAnimBlueprints(CompatibleBlueprints);
+
+	SlowTask.EnterProgressFrame(1, LOCTEXT("AssetReferenceTask_Montages", "Searching Montages"));
+	GetAnimMontagesUsingSlot(SlotName, CompatibleMontages);
+
+	SlowTask.EnterProgressFrame(1, LOCTEXT("AssetReferenceTask_Nodes", "Searching Nodes"));
+	for(FAssetData& Data : CompatibleBlueprints)
+	{
+		TArray<UEdGraph*> BPGraphs;
+		UAnimBlueprint* AnimBP = Cast<UAnimBlueprint>(Data.GetAsset());
+
+		AnimBP->GetAllGraphs(BPGraphs);
+		for(UEdGraph* Graph : BPGraphs)
+		{
+			TArray<UAnimGraphNode_Slot*> SlotNodes;
+			Graph->GetNodesOfClass(SlotNodes);
+
+			for(UAnimGraphNode_Slot* SlotNode : SlotNodes)
+			{
+				if(SlotNode->Node.SlotName == SlotName)
+				{
+					CompatibleSlotNodes.Add(AnimBP, SlotNode);
+				}
+			}
+		}
+	}
+
+	// If we end up loading in any previously unsaved assets they can add names to the list so refresh
+	RefreshSlotNameListWithFilter();
+}
+
+void SSkeletonSlotNames::GetMontagesAndNodesUsingSlotGroup(const FName& SlotGroupName, TArray<FAssetData>& OutMontages, TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> &OutBlueprintSlotMap)
+{
+	if(TargetSkeleton)
+	{
+		if(FAnimSlotGroup* SlotGroup = TargetSkeleton->FindAnimSlotGroup(SlotGroupName))
+		{
+			for(auto& SlotName : SlotGroup->SlotNames)
+			{
+				GetMontagesAndNodesUsingSlot(SlotName, OutMontages, OutBlueprintSlotMap);
+			}
+		}
+	}
+}
+
+void SSkeletonSlotNames::OnRenameSlotPopupCommitted(const FText & InNewSlotText, ETextCommit::Type CommitInfo, FName OldName)
+{
+	if(CommitInfo == ETextCommit::OnEnter)
+	{
+		FName NewName(*InNewSlotText.ToString());
+
+		// Need to dismiss menus early or the slow task in GetMontagesAndNodesUsingSlot will fail to show onscreen
+		FSlateApplication::Get().DismissAllMenus();
+
+		if(TargetSkeleton)
+		{
+			// Make sure the name doesn't already exist
+			if(TargetSkeleton->ContainsSlotName(NewName))
+			{
+				FNotificationInfo Notification(FText::Format(LOCTEXT("ToastRenameFailDesc", "Rename Failed! Slot name {0} already exists in the target skeleton."), FText::FromName(NewName)));
+				Notification.ExpireDuration = 3.0f;
+				Notification.bFireAndForget = true;
+
+				NotifyUser(Notification);
+
+				return;
+			}
+
+			// Validate references
+			TArray<FAssetData> CompatibleMontages;
+			TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> CompatibleSlotNodes;
+			GetMontagesAndNodesUsingSlot(OldName, CompatibleMontages, CompatibleSlotNodes);
+
+			if(CompatibleMontages.Num() > 0 || CompatibleSlotNodes.Num() > 0)
+			{
+				// We can't rename here - still have references. Give the user a chance to fix.
+				if(!ReferenceWindow.IsValid())
+				{
+					// No existing window
+					SAssignNew(ReferenceWindow, SWindow)
+						.AutoCenter(EAutoCenter::PreferredWorkArea)
+						.SizingRule(ESizingRule::Autosized)
+						.Title(LOCTEXT("ReferenceWindowTitle", "Slot References"));
+
+					ReferenceWindow->SetContent
+						(
+						SNew(SBorder)
+						.Padding(FMargin(3))
+						.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+						[
+							SAssignNew(ReferenceWidget, SSlotNameReferenceWindow)
+							.ReferencingMontages(&CompatibleMontages)
+							.ReferencingNodes(&CompatibleSlotNodes)
+							.SlotName(OldName.ToString())
+							.OperationText(LOCTEXT("RenameOperation", "Rename"))
+							.WidgetWindow(ReferenceWindow)
+							.OnRetry(FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryRenameSlot, OldName, NewName))
+						]
+					);
+
+					TSharedPtr<SWindow> ParentWindow;
+					IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+					ParentWindow = MainFrameModule.GetParentWindow();
+
+					FSlateApplication::Get().AddWindowAsNativeChild(ReferenceWindow.ToSharedRef(), ParentWindow.ToSharedRef());
+					ReferenceWindow->SetOnWindowClosed(FOnWindowClosed::CreateSP(this, &SSkeletonSlotNames::ReferenceWindowClosed));
+				}
+				else
+				{
+					TSharedPtr<SSlotNameReferenceWindow> RefWidgetPinned = ReferenceWidget.Pin();
+					if(RefWidgetPinned.IsValid())
+					{
+						FReferenceWindowInfo WindowInfo;
+						WindowInfo.ReferencingMontages = &CompatibleMontages;
+						WindowInfo.ReferencingNodes = &CompatibleSlotNodes;
+						WindowInfo.ItemText = FText::FromName(OldName);
+						WindowInfo.OperationText = LOCTEXT("RenameOperation", "Rename");
+						WindowInfo.RetryDelegate = FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryRenameSlot, OldName, NewName);
+
+						RefWidgetPinned->UpdateInfo(WindowInfo);
+						ReferenceWindow->BringToFront();
+					}
+				}
+			}
+			else
+			{
+				RenameSlot(OldName, NewName);
+			}
+		}
+	}
+}
+
+void SSkeletonSlotNames::OnRenameSlot(FName CurrentName)
+{
+	TSharedRef<STextEntryPopup> TextEntry =
+		SNew(STextEntryPopup)
+		.Label(LOCTEXT("RenameSlotName_AskSlotName", "New Slot Name"))
+		.OnTextCommitted(this, &SSkeletonSlotNames::OnRenameSlotPopupCommitted, CurrentName);
+
+	// Show dialog to enter new track name
+	FSlateApplication::Get().PushMenu(
+		SharedThis(this),
+		TextEntry,
+		FSlateApplication::Get().GetCursorPos(),
+		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
+		);
+}
+
+void SSkeletonSlotNames::RenameSlot(FName CurrentName, FName NewName)
+{
+	if(TargetSkeleton->ContainsSlotName(CurrentName))
+	{
+		TargetSkeleton->Modify();
+		TargetSkeleton->RenameSlotName(CurrentName, NewName);
+		RefreshSlotNameListWithFilter();
+	}
+}
+
+void SSkeletonSlotNames::RetryRenameSlot(FName CurrentName, FName NewName)
+{
+	TArray<FAssetData> CompatibleMontages;
+	TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> CompatibleSlotNodes;
+	GetMontagesAndNodesUsingSlot(CurrentName, CompatibleMontages, CompatibleSlotNodes);
+
+	if(CompatibleMontages.Num() > 0 || CompatibleSlotNodes.Num() > 0)
+	{
+		// Still can't rename
+		TSharedPtr<SSlotNameReferenceWindow> PinnedWidget = ReferenceWidget.Pin();
+		if(PinnedWidget.IsValid())
+		{
+			FReferenceWindowInfo WindowInfo;
+			WindowInfo.ReferencingMontages = &CompatibleMontages;
+			WindowInfo.ReferencingNodes = &CompatibleSlotNodes;
+			WindowInfo.ItemText = FText::FromName(CurrentName);
+			WindowInfo.OperationText = LOCTEXT("DeleteOperation", "Delete");
+			WindowInfo.RetryDelegate = FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryRenameSlot, CurrentName, NewName);
+
+			PinnedWidget->UpdateInfo(WindowInfo);
+			ReferenceWindow->BringToFront();
+		}
+	}
+	else
+	{
+		ReferenceWindow->RequestDestroyWindow();
+		RenameSlot(CurrentName, NewName);
+	}
+}
+
+void SSkeletonSlotNames::OnDeleteSlotGroup(FName GroupName)
+{
+	TArray<FAssetData> CompatibleMontages;
+	TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> CompatibleSlotNodes;
+	GetMontagesAndNodesUsingSlotGroup(GroupName, CompatibleMontages, CompatibleSlotNodes);
+
+	if(CompatibleMontages.Num() > 0 || CompatibleSlotNodes.Num() > 0)
+	{
+		// Can't delete, still referenced
+		// We can't rename here - still have references. Give the user a chance to fix.
+		if(!ReferenceWindow.IsValid())
+		{
+			// No existing window
+			SAssignNew(ReferenceWindow, SWindow)
+				.AutoCenter(EAutoCenter::PreferredWorkArea)
+				.SizingRule(ESizingRule::Autosized)
+				.Title(LOCTEXT("ReferenceWindowTitle", "Slot References"));
+
+			ReferenceWindow->SetContent
+				(
+				SNew(SBorder)
+				.Padding(FMargin(3))
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+				[
+					SAssignNew(ReferenceWidget, SSlotNameReferenceWindow)
+					.ReferencingMontages(&CompatibleMontages)
+					.ReferencingNodes(&CompatibleSlotNodes)
+					.SlotName(GroupName.ToString())
+					.OperationText(LOCTEXT("DeleteGroupOperation", "Delete Group"))
+					.WidgetWindow(ReferenceWindow)
+					.OnRetry(FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryDeleteSlotGroup, GroupName))
+				]
+			);
+
+			TSharedPtr<SWindow> ParentWindow;
+			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+			ParentWindow = MainFrameModule.GetParentWindow();
+
+			FSlateApplication::Get().AddWindowAsNativeChild(ReferenceWindow.ToSharedRef(), ParentWindow.ToSharedRef());
+			ReferenceWindow->SetOnWindowClosed(FOnWindowClosed::CreateSP(this, &SSkeletonSlotNames::ReferenceWindowClosed));
+		}
+		else
+		{
+			TSharedPtr<SSlotNameReferenceWindow> RefWidgetPinned = ReferenceWidget.Pin();
+			if(RefWidgetPinned.IsValid())
+			{
+				FReferenceWindowInfo WindowInfo;
+				WindowInfo.ReferencingMontages = &CompatibleMontages;
+				WindowInfo.ReferencingNodes = &CompatibleSlotNodes;
+				WindowInfo.ItemText = FText::FromName(GroupName);
+				WindowInfo.OperationText = LOCTEXT("DeleteGroupOperation", "Delete Group");
+				WindowInfo.RetryDelegate = FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryDeleteSlotGroup, GroupName);
+
+				RefWidgetPinned->UpdateInfo(WindowInfo);
+				ReferenceWindow->BringToFront();
+			}
+		}
+	}
+	else
+	{
+		DeleteSlotGroup(GroupName);
+	}
+}
+
+void SSkeletonSlotNames::RetryDeleteSlotGroup(FName GroupName)
+{
+	TArray<FAssetData> CompatibleMontages;
+	TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> CompatibleSlotNodes;
+	GetMontagesAndNodesUsingSlotGroup(GroupName, CompatibleMontages, CompatibleSlotNodes);
+
+	if(CompatibleMontages.Num() > 0 || CompatibleSlotNodes.Num() > 0)
+	{
+		// Still can't rename
+		TSharedPtr<SSlotNameReferenceWindow> PinnedWidget = ReferenceWidget.Pin();
+		if(PinnedWidget.IsValid())
+		{
+			FReferenceWindowInfo WindowInfo;
+			WindowInfo.ReferencingMontages = &CompatibleMontages;
+			WindowInfo.ReferencingNodes = &CompatibleSlotNodes;
+			WindowInfo.ItemText = FText::FromName(GroupName);
+			WindowInfo.OperationText = LOCTEXT("DeleteGroupOperation", "Delete Group");
+			WindowInfo.RetryDelegate = FSimpleDelegate::CreateSP(this, &SSkeletonSlotNames::RetryDeleteSlotGroup, GroupName);
+
+			PinnedWidget->UpdateInfo(WindowInfo);
+			ReferenceWindow->BringToFront();
+		}
+	}
+	else
+	{
+		ReferenceWindow->RequestDestroyWindow();
+		DeleteSlotGroup(GroupName);
+	}
+}
+
+bool SSkeletonSlotNames::CanDeleteSlotGroup(FName GroupName)
+{
+	static const FName DefaultGroupName("DefaultGroup");
+	return GroupName != DefaultGroupName;
+}
+
+void SSkeletonSlotNames::DeleteSlotGroup(const FName& GroupName)
+{
+	if(TargetSkeleton && TargetSkeleton->FindAnimSlotGroup(GroupName))
+	{
+		TargetSkeleton->Modify();
+		TargetSkeleton->RemoveSlotGroup(GroupName);
+		RefreshSlotNameListWithFilter();
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

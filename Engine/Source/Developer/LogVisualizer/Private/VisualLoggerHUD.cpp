@@ -44,7 +44,7 @@ void AVisualLoggerHUD::PostRender()
 
 			FCollisionQueryParams TraceParams(NAME_None, true, this);
 			FHitResult Hit;
-			bool bHit = GetWorld()->LineTraceSingle(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
+			bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
 			if( bHit )
 			{
 				TextItem.Text = FText::FromString(FString::Printf(TEXT("Under cursor: '%s'"), *Hit.GetActor()->GetName()));

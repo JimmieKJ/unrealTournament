@@ -24,9 +24,9 @@ FUICommandInfoDecl::FUICommandInfoDecl( const TSharedRef<FBindingContext>& InCon
 	Info->Description = InDesc;
 }
 
-FUICommandInfoDecl& FUICommandInfoDecl::DefaultGesture( const FInputGesture& InDefaultGesture )
+FUICommandInfoDecl& FUICommandInfoDecl::DefaultChord( const FInputChord& InDefaultChord )
 {
-	Info->DefaultGesture = InDefaultGesture;
+	Info->DefaultChord = InDefaultChord;
 	return *this;
 }
 FUICommandInfoDecl& FUICommandInfoDecl::UserInterfaceType( EUserInterfaceActionType::Type InType )
@@ -63,11 +63,11 @@ FUICommandInfoDecl::operator TSharedRef<FUICommandInfo>() const
 
 const FText FUICommandInfo::GetInputText() const
 {	
-	return ActiveGesture->GetInputText();
+	return ActiveChord->GetInputText();
 }
 
 
-void FUICommandInfo::MakeCommandInfo( const TSharedRef<class FBindingContext>& InContext, TSharedPtr< FUICommandInfo >& OutCommand, const FName InCommandName, const FText& InCommandLabel, const FText& InCommandDesc, const FSlateIcon& InIcon, const EUserInterfaceActionType::Type InUserInterfaceType, const FInputGesture& InDefaultGesture )
+void FUICommandInfo::MakeCommandInfo( const TSharedRef<class FBindingContext>& InContext, TSharedPtr< FUICommandInfo >& OutCommand, const FName InCommandName, const FText& InCommandLabel, const FText& InCommandDesc, const FSlateIcon& InIcon, const EUserInterfaceActionType::Type InUserInterfaceType, const FInputChord& InDefaultChord )
 {
 	ensureMsgf( !InCommandLabel.IsEmpty(), TEXT("Command labels cannot be empty") );
 
@@ -77,24 +77,24 @@ void FUICommandInfo::MakeCommandInfo( const TSharedRef<class FBindingContext>& I
 	OutCommand->Description = InCommandDesc;
 	OutCommand->Icon = InIcon;
 	OutCommand->UserInterfaceType = InUserInterfaceType;
-	OutCommand->DefaultGesture = InDefaultGesture;
+	OutCommand->DefaultChord = InDefaultChord;
 	FInputBindingManager::Get().CreateInputCommand( InContext, OutCommand.ToSharedRef() );
 }
 
-void FUICommandInfo::SetActiveGesture( const FInputGesture& NewGesture )
+void FUICommandInfo::SetActiveChord( const FInputChord& NewChord )
 {
-	ActiveGesture->Set( NewGesture );
+	ActiveChord->Set( NewChord );
 
-	// Set the user defined gesture for this command so it can be saved to disk later
-	FInputBindingManager::Get().NotifyActiveGestureChanged( *this );
+	// Set the user defined chord for this command so it can be saved to disk later
+	FInputBindingManager::Get().NotifyActiveChordChanged( *this );
 }
 
-void FUICommandInfo::RemoveActiveGesture()
+void FUICommandInfo::RemoveActiveChord()
 {
-	// Gesture already exists
-	// Reset the other gesture that has the same binding
-	ActiveGesture = MakeShareable( new FInputGesture() );
-	FInputBindingManager::Get().NotifyActiveGestureChanged( *this );
+	// Chord already exists
+	// Reset the other chord that has the same binding
+	ActiveChord = MakeShareable( new FInputChord() );
+	FInputBindingManager::Get().NotifyActiveChordChanged( *this );
 }
 
 TSharedRef<SToolTip> FUICommandInfo::MakeTooltip( const TAttribute<FText>& InText, const TAttribute< EVisibility >& InToolTipVisibility ) const

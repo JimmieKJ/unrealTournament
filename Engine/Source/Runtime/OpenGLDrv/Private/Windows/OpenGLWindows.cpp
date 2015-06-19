@@ -101,11 +101,11 @@ static LRESULT CALLBACK PlatformDummyGLWndproc(HWND hWnd, uint32 Message, WPARAM
 /**
  * Initialize a pixel format descriptor for the given window handle.
  */
-static void PlatformInitPixelFormatForDevice(HDC DeviceContext)
+static void PlatformInitPixelFormatForDevice(HDC DeviceContext, bool bTryIsDummyContext)
 {
 	// Pixel format descriptor for the context.
 	PIXELFORMATDESCRIPTOR PixelFormatDesc;
-	FMemory::MemZero(PixelFormatDesc);
+	FMemory::Memzero(PixelFormatDesc);
 	PixelFormatDesc.nSize		= sizeof(PIXELFORMATDESCRIPTOR);
 	PixelFormatDesc.nVersion	= 1;
 	PixelFormatDesc.dwFlags		= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
@@ -114,6 +114,12 @@ static void PlatformInitPixelFormatForDevice(HDC DeviceContext)
 	PixelFormatDesc.cDepthBits	= 0;
 	PixelFormatDesc.cStencilBits	= 0;
 	PixelFormatDesc.iLayerType	= PFD_MAIN_PLANE;
+
+	static bool bRequestedQuadBufferStereo = FParse::Param(FCommandLine::Get(), TEXT("quad_buffer_stereo"));
+	if (bRequestedQuadBufferStereo && !bTryIsDummyContext)
+	{
+		PixelFormatDesc.dwFlags = PixelFormatDesc.dwFlags | PFD_STEREO;
+	}
 
 	// Set the pixel format and create the context.
 	int32 PixelFormat = ChoosePixelFormat(DeviceContext, &PixelFormatDesc);
@@ -137,7 +143,7 @@ static void PlatformCreateDummyGLWindow(FPlatformOpenGLContext* OutContext)
 		WNDCLASS wc;
 
 		bInitializedWindowClass = true;
-		FMemory::MemZero(wc);
+		FMemory::Memzero(wc);
 		wc.style = CS_OWNDC;
 		wc.lpfnWndProc = PlatformDummyGLWndproc;
 		wc.cbClsExtra = 0;
@@ -166,7 +172,7 @@ static void PlatformCreateDummyGLWindow(FPlatformOpenGLContext* OutContext)
 	// Get the device context.
 	OutContext->DeviceContext = GetDC(OutContext->WindowHandle);
 	check(OutContext->DeviceContext);
-	PlatformInitPixelFormatForDevice(OutContext->DeviceContext);
+	PlatformInitPixelFormatForDevice(OutContext->DeviceContext, true);
 }
 
 /**
@@ -176,7 +182,7 @@ static void PlatformCreateDummyGLWindow(FPlatformOpenGLContext* OutContext)
 static bool PlatformOpenGL3()
 {
 	// OpenGL3 is our default platform for Windows XP
-	return FWindowsPlatformMisc::VerifyWindowsMajorVersion(6) == false || FParse::Param(FCommandLine::Get(),TEXT("opengl")) || FParse::Param(FCommandLine::Get(),TEXT("opengl3"));
+	return FWindowsPlatformMisc::VerifyWindowsVersion(6, 0) == false || FParse::Param(FCommandLine::Get(),TEXT("opengl")) || FParse::Param(FCommandLine::Get(),TEXT("opengl3"));
 }
 static bool PlatformOpenGL4()
 {
@@ -348,7 +354,7 @@ FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Devic
 	Context->bReleaseWindowOnDestroy = false;
 	Context->DeviceContext = GetDC(Context->WindowHandle);
 	check(Context->DeviceContext);
-	PlatformInitPixelFormatForDevice(Context->DeviceContext);
+	PlatformInitPixelFormatForDevice(Context->DeviceContext, false);
 
 	int MajorVersion = 0;
 	int MinorVersion = 0;

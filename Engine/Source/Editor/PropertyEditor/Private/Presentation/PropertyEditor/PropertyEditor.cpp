@@ -13,6 +13,7 @@
 
 #include "EditorClassUtils.h"
 #include "KismetEditorUtilities.h"
+#include "IConfigEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
@@ -229,6 +230,15 @@ void FPropertyEditor::MakeNewBlueprint()
 			FAssetEditorManager::Get().OpenEditorForAsset(Blueprint);
 		}
 	}
+}
+
+void FPropertyEditor::EditConfigHierarchy()
+{
+	UProperty* NodeProperty = PropertyNode->GetProperty();
+
+	IConfigEditorModule& ConfigEditorModule = FModuleManager::LoadModuleChecked<IConfigEditorModule>("ConfigEditor");
+	ConfigEditorModule.CreateHierarchyEditor(NodeProperty);
+	FGlobalTabmanager::Get()->InvokeTab(FName(TEXT("ConfigEditor")));
 }
 
 void FPropertyEditor::InsertItem()

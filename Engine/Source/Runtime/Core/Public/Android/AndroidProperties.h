@@ -43,15 +43,6 @@ struct FAndroidPlatformProperties
 		return UE_GAME;
 	}
 
-	static FORCEINLINE uint32 MaxGpuSkinBones( )
-	{
-#if PLATFORM_ANDROIDES31 || PLATFORM_ANDROIDGL4
-		return 256;
-#else
-		return 20;
-#endif
-	}
-
 	static FORCEINLINE bool RequiresCookedData( )
 	{
 		return true;
@@ -162,6 +153,14 @@ struct FAndroid_ETC2PlatformProperties : public FAndroidPlatformProperties
 	static FORCEINLINE const char* PlatformName()
 	{
 		return "Android_ETC2";
+	}
+};
+
+struct FAndroid_ASTCPlatformProperties : public FAndroidPlatformProperties
+{
+	static FORCEINLINE const char* PlatformName()
+	{
+		return "Android_ASTC";
 	}
 };
 

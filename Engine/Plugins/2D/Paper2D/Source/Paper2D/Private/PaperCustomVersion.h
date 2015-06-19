@@ -46,6 +46,18 @@ struct FPaperCustomVersion
 		// Add source texture size
 		AddSourceTextureSize = 12,
 
+		// Fix incorrect collision geometry generation when sprites were rotated in the source texture
+		FixIncorrectCollisionOnSourceRotatedSprites = 13,
+
+		// Refactor sprite render/collision polygon storage to allow more flexible geometry shapes
+		RefactorPolygonStorageToSupportShapes = 14,
+
+		// Change Tile Set margin and padding to allow non-uniform values (also converts TileWidth/TileHeight into TileSize and makes members private)
+		AllowNonUniformPaddingInTileSets = 15,
+
+		// Fixed the tangent generation for sprites, tile maps, etc... being incorrect for the front face
+		FixTangentGenerationForFrontFace = 16,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

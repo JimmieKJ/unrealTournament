@@ -33,3 +33,9 @@ bool UUTWeaponStateActive::BeginFiringSequence(uint8 FireModeNum, bool bClientFi
 	}
 	return false;
 }
+
+bool UUTWeaponStateActive::WillSpawnShot(float DeltaTime)
+{
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetOuterAUTWeapon()->GetUTOwner()->GetController());
+	return UTPC && UTPC->HasDeferredFireInputs();
+}

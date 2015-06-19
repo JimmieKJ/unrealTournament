@@ -15,7 +15,7 @@ namespace EOrientPositionSelector
 }
 
 UCLASS()
-class UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
+class ENGINE_API UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
@@ -30,11 +30,11 @@ class UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
 	/**
 	 * Switches to/from using HMD and stereo rendering.
 	 *
-	 * @param Enable			(in) 'true' to enable HMD / stereo; 'false' otherwise
+	 * @param bEnable			(in) 'true' to enable HMD / stereo; 'false' otherwise
 	 * @return (Boolean)		True, if the request was successful.
 	 */
-	UFUNCTION(BlueprintPure, Category="Input|HeadMountedDisplay")
-	static bool EnableHMD(bool Enable);
+	UFUNCTION(BlueprintCallable, Category="Input|HeadMountedDisplay")
+	static bool EnableHMD(bool bEnable);
 
 	/**
 	 * Grabs the current orientation and position for the HMD.  If positional tracking is not available, DevicePosition will be a zero vector
@@ -56,7 +56,7 @@ class UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
 	 * This allows an in-game representation of the legal positional tracking range.  All values will be zeroed if the camera is not available or the HMD does not support it.
 	 *
 	 * @param CameraOrigin		(out) Origin, in world-space, of the tracking camera
-	 * @param CameraOrientation (out) Rotation, in world-space, of the tracking camera
+	 * @param CameraRotation	(out) Rotation, in world-space, of the tracking camera
 	 * @param HFOV				(out) Field-of-view, horizontal, in degrees, of the valid tracking zone of the camera
 	 * @param VFOV				(out) Field-of-view, vertical, in degrees, of the valid tracking zone of the camera
 	 * @param CameraDistance	(out) Nominal distance to camera, in world-space
@@ -64,7 +64,7 @@ class UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
 	 * @param FarPlane			(out) Far plane distance of the tracking volume, in world-space
 	 */
 	UFUNCTION(BlueprintPure, Category="Input|HeadMountedDisplay")
-	static void GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraOrientation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float&FarPlane);
+	static void GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraRotation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float&FarPlane);
 
 	/**
 	 * Returns true, if HMD is in low persistence mode. 'false' otherwise.
@@ -75,10 +75,10 @@ class UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
 	/**
 	 * Switches between low and full persistence modes.
 	 *
-	 * @param Enable			(in) 'true' to enable low persistence mode; 'false' otherwise
+	 * @param bEnable			(in) 'true' to enable low persistence mode; 'false' otherwise
 	 */
 	UFUNCTION(BlueprintCallable, Category="Input|HeadMountedDisplay")
-	static void EnableLowPersistenceMode(bool Enable);
+	static void EnableLowPersistenceMode(bool bEnable);
 
 	/** 
 	 * Resets orientation by setting roll and pitch to 0, assuming that current yaw is forward direction and assuming
@@ -94,32 +94,24 @@ class UHeadMountedDisplayFunctionLibrary : public UBlueprintFunctionLibrary
 	 * Sets near and far clipping planes (NCP and FCP) for stereo rendering. Similar to 'stereo ncp= fcp' console command, but NCP and FCP set by this
 	 * call won't be saved in .ini file.
 	 *
-	 * @param NCP				(in) Near clipping plane, in centimeters
-	 * @param FCP				(in) Far clipping plane, in centimeters
+	 * @param Near				(in) Near clipping plane, in centimeters
+	 * @param Far				(in) Far clipping plane, in centimeters
 	 */
 	UFUNCTION(BlueprintCallable, Category="Input|HeadMountedDisplay")
-	static void SetClippingPlanes(float NCP, float FCP);
+	static void SetClippingPlanes(float Near, float Far);
 
-	/**
-	 * Sets 'base rotation' - the rotation that will be subtracted from
-	 * the actual HMD orientation.
-	 * The position offset might be added to current HMD position,
-	 * effectively moving the virtual camera by the specified offset. The addition
-	 * occurs after the HMD orientation and position are applied.
+	/** 
+	 * Sets screen percentage to be used in VR mode.
 	 *
-	 * @param BaseRot			(in) Rotator object with base rotation
-	 * @param PosOffset			(in) the vector to be added to HMD position.
-	 * @param Options			(in) specifies either position, orientation or both should be set.
+	 * @param ScreenPercentage	(in) Specifies the screen percentage to be used in VR mode. Use 0.0f value to reset to default value.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|HeadMountedDisplay")
-	static void SetBaseRotationAndPositionOffset(const FRotator& BaseRot, const FVector& PosOffset, EOrientPositionSelector::Type Options);
+	static void SetScreenPercentage(float ScreenPercentage = 0.0f);
 
-	/**
-	 * Returns current base rotation and position offset.
+	/** 
+	 * Returns screen percentage to be used in VR mode.
 	 *
-	 * @param OutRot			(out) Rotator object with base rotation
-	 * @param OutPosOffset		(out) the vector with previously set position offset.
+	 * @return (float)	The screen percentage to be used in VR mode.
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Input|HeadMountedDisplay")
-	static void GetBaseRotationAndPositionOffset(FRotator& OutRot, FVector& OutPosOffset);
+	UFUNCTION(BlueprintPure, Category = "Input|HeadMountedDisplay")
+	static float GetScreenPercentage();
 };

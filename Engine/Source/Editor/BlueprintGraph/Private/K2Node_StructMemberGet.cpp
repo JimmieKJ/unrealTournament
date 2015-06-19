@@ -71,24 +71,24 @@ void UK2Node_StructMemberGet::AllocatePinsForSingleMemberGet(FName MemberName)
 
 FText UK2Node_StructMemberGet::GetTooltipText() const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("VariableName"), FText::FromString(GetVarNameString()));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(LOCTEXT("K2Node_StructMemberGet_Tooltip", "Get member variables of {VariableName}"), Args);
+		CachedTooltip.SetCachedText(FText::Format(LOCTEXT("K2Node_StructMemberGet_Tooltip", "Get member variables of {VariableName}"), Args), this);
 	}
 	return CachedTooltip;
 }
 
 FText UK2Node_StructMemberGet::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	if (CachedNodeTitle.IsOutOfDate())
+	if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("VariableName"), FText::FromString(GetVarNameString()));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LOCTEXT("GetMembersInVariable", "Get members in {VariableName}"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("GetMembersInVariable", "Get members in {VariableName}"), Args), this);
 	}
 	return CachedNodeTitle;
 }

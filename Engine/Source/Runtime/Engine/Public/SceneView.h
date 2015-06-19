@@ -10,6 +10,7 @@
 #include "SceneInterface.h"
 #include "SceneTypes.h"
 #include "ShaderParameters.h"
+#include "RendererInterface.h"
 
 class FSceneViewStateInterface;
 class FViewUniformShaderParameters;
@@ -19,7 +20,11 @@ class FSceneViewFamily;
 // Projection data for a FSceneView
 struct FSceneViewProjectionData
 {
-	FMatrix ViewMatrix;
+	/** The view origin. */
+	FVector ViewOrigin;
+
+	/** Rotation matrix transforming from world space to view space. */
+	FMatrix ViewRotationMatrix;
 
 	/** UE4 projection matrix projects such that clip space Z=1 is the near plane, and Z=0 is the infinite far plane. */
 	FMatrix ProjectionMatrix;
@@ -53,6 +58,11 @@ public:
 
 	const FIntRect& GetViewRect() const { return ViewRect; }
 	const FIntRect& GetConstrainedViewRect() const { return ConstrainedViewRect; }
+
+	FMatrix ComputeViewProjectionMatrix() const
+	{
+		return FTranslationMatrix(-ViewOrigin) * ViewRotationMatrix * ProjectionMatrix;
+	}
 };
 
 // Construction parameters for a FSceneView
@@ -89,6 +99,9 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 	// Whether world origin was rebased this frame?
 	bool bOriginOffsetThisFrame;
 
+	// Whether to use FOV when computing mesh LOD.
+	bool bUseFieldOfViewForLOD;
+
 #if WITH_EDITOR
 	// default to 0'th view index, which is a bitfield of 1
 	uint64 EditorViewBitflag;
@@ -115,6 +128,7 @@ struct FSceneViewInitOptions : public FSceneViewProjectionData
 		, OverrideFarClippingPlaneDistance(-1.0f)
 		, bInCameraCut(false)
 		, bOriginOffsetThisFrame(false)
+		, bUseFieldOfViewForLOD(true)
 #if WITH_EDITOR
 		, EditorViewBitflag(1)
 		, OverrideLODViewOrigin(ForceInitToZero)
@@ -140,12 +154,15 @@ struct FViewMatrices
 		PreShadowTranslation = FVector::ZeroVector;
 		PreViewTranslation = FVector::ZeroVector;
 		ViewOrigin = FVector::ZeroVector;
+		TemporalAASample = FVector2D::ZeroVector;
 	}
 
 	/** ViewToClip : UE4 projection matrix projects such that clip space Z=1 is the near plane, and Z=0 is the infinite far plane. */
 	FMatrix		ProjMatrix;
 	// WorldToView..
 	FMatrix		ViewMatrix;
+	/** WorldToView with PreViewTranslation. */
+	FMatrix		TranslatedViewMatrix;
 	/** The view-projection transform, starting from world-space points translated by -ViewOrigin. */
 	FMatrix		TranslatedViewProjectionMatrix;
 	/** The inverse view-projection transform, ending with world-space points translated by -ViewOrigin. */
@@ -153,13 +170,14 @@ struct FViewMatrices
 	/** During GetDynamicMeshElements this will be the correct cull volume for shadow stuff */
 	const FConvexVolume* GetDynamicMeshElementsShadowCullFrustum;
 	/** If the above is non-null, a translation that is applied to world-space before transforming by one of the shadow matrices. */
-	FVector PreShadowTranslation;
+	FVector		PreShadowTranslation;
 	/** The translation to apply to the world before TranslatedViewProjectionMatrix. Usually it is -ViewOrigin but with rereflections this can differ */
 	FVector		PreViewTranslation;
 	/** To support ortho and other modes this is redundant, in world space */
 	FVector		ViewOrigin;
 	/** Scale applied by the projection matrix in X and Y. */
-	FVector2D ProjectionScale;
+	FVector2D	ProjectionScale;
+	FVector2D	TemporalAASample;
 	/**
 	 * Scale factor to use when computing the size of a sphere in pixels.
 	 * 
@@ -208,7 +226,46 @@ struct FViewMatrices
 	{
 		return GetInvProjMatrix() * GetInvViewMatrix();
 	}
+
+	FVector2D GetFieldOfViewPerAxis() const
+	{
+		const FMatrix ClipToView = GetInvProjMatrix();
+
+		FVector VCenter = FVector(ClipToView.TransformPosition(FVector(0.0, 0.0, 0.0)));
+		FVector VUp = FVector(ClipToView.TransformPosition(FVector(0.0, 1.0, 0.0)));
+		FVector VRight = FVector(ClipToView.TransformPosition(FVector(1.0, 0.0, 0.0)));
+
+		VCenter.Normalize();
+		VUp.Normalize();
+		VRight.Normalize();
+
+		return FVector2D(FMath::Acos(VCenter | VRight), FMath::Acos(VCenter | VUp));
+	}
 };
+
+#include "ShaderParameters.h"
+
+/** 
+ * Current limit of the dynamic branching forward lighting code path (see r.ForwardLighting)
+ */
+static const int32 GMaxNumForwardLights = 32;
+
+/** 
+ * Data used to pass light properties and some other parameters down to the dynamic forward lighting code path.
+ * todo: Fix static size (to be more efficient and to not limit the feature)
+ */
+BEGIN_UNIFORM_BUFFER_STRUCT(FForwardLightData,ENGINE_API)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,LightCount)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,TileSize)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,TileCountX)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,InvTileSize)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumForwardLights])
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumForwardLights])
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndMinRoughness,[GMaxNumForwardLights])
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndDir,[GMaxNumForwardLights])
+END_UNIFORM_BUFFER_STRUCT(FForwardLightData)
+
+//////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -252,6 +309,8 @@ BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters,ENGINE
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,SpecularOverrideParameter, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,NormalOverrideParameter, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector2D,RoughnessOverrideParameter, EShaderPrecisionModifier::Half)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, PrevFrameGameTime)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, PrevFrameRealTime)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,PreViewTranslation)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,OutOfBoundsMask, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,ViewOriginDelta)
@@ -262,6 +321,7 @@ BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters,ENGINE
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,RealTime)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,Random)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,FrameNumber)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,CameraCut, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,UseLightmaps, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,UnlitViewmodeMask, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FLinearColor,DirectionalLightColor, EShaderPrecisionModifier::Half)
@@ -334,6 +394,9 @@ public:
 	/** The uniform buffer for the view's parameters.  This is only initialized in the rendering thread's copies of the FSceneView. */
 	TUniformBufferRef<FViewUniformShaderParameters> UniformBuffer;
 
+	/** uniform buffer with the lights for forward lighting/shading */
+	TUniformBufferRef<FForwardLightData> ForwardLightData;
+
 	/** The actor which is being viewed from. */
 	const AActor* ViewActor;
 
@@ -352,11 +415,11 @@ public:
 	/** Maximum number of shadow cascades to render with. */
 	int32 MaxShadowCascades;
 
-    FViewMatrices ViewMatrices;
+	FViewMatrices ViewMatrices;
 
-    /** Variables used to determine the view matrix */
-    FVector		ViewLocation;
-    FRotator	ViewRotation;
+	/** Variables used to determine the view matrix */
+	FVector		ViewLocation;
+	FRotator	ViewRotation;
 	FQuat		BaseHmdOrientation;
 	FVector		BaseHmdLocation;
 	float		WorldToMetersScale;
@@ -374,6 +437,12 @@ public:
 
 	/** For stereoscopic rendering, whether or not this is a full pass, or a left / right eye pass */
 	EStereoscopicPass StereoPass;
+
+	/** Whether this view should render the first instance only of any meshes using instancing. */
+	bool bRenderFirstInstanceOnly;
+
+	// Whether to use FOV when computing mesh LOD.
+	bool bUseFieldOfViewForLOD;
 
 	/** Current buffer visualization mode */
 	FName CurrentBufferVisualizationMode;
@@ -583,6 +652,11 @@ public:
 	 */
 	float GetTemporalLODTransition() const;
 
+	/** 
+	 * returns a unique key for the view state if one exists, otherwise returns zero
+	 */
+	uint32 GetViewKey() const;
+
 	/** Allow things like HMD displays to update the view matrix at the last minute, to minimize perceived latency */
 	void UpdateViewMatrix();
 
@@ -748,6 +822,9 @@ public:
 	/** if true then results of scene rendering are copied/resolved to the RenderTarget. */
 	bool bResolveScene;
 
+	/** from GetWorld->IsPaused() */
+	bool bWorldIsPaused;
+
 	/** Gamma correction used when rendering this family. Default is 1.0 */
 	float GammaCorrection;
 	
@@ -755,11 +832,14 @@ public:
 	FExposureSettings ExposureSettings;
 
     /** Extensions that can modify view parameters on the render thread. */
-    TArray<class ISceneViewExtension*> ViewExtensions;
+    TArray<TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> > ViewExtensions;
 
 #if WITH_EDITOR
 	// Override the LOD of landscape in this viewport
 	int8 LandscapeLODOverride;
+
+	// Override the LOD of landscape in this viewport
+	int8 HierarchicalLODOverride;
 
 	/** Indicates whether, of not, the base attachment volume should be drawn. */
 	bool bDrawBaseInfo;

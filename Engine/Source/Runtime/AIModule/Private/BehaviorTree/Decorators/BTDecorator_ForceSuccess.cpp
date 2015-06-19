@@ -16,6 +16,7 @@ UBTDecorator_ForceSuccess::UBTDecorator_ForceSuccess(const FObjectInitializer& O
 void UBTDecorator_ForceSuccess::OnNodeProcessed(FBehaviorTreeSearchData& SearchData, EBTNodeResult::Type& NodeResult)
 {
 	NodeResult = EBTNodeResult::Succeeded;
+	BT_SEARCHLOG(SearchData, Log, TEXT("Forcing Success: %s"), *UBehaviorTreeTypes::DescribeNodeHelper(this));
 }
 
 #if WITH_EDITOR

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources
+    xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://schemas.android.com/apk/res-auto"
+    xsi:noNamespaceSchemaLocation="../../../../../../i18n/hack/fbtstrings.xsd"
+    >
+
+<string
+      name="swipe_to_browse"
+      project="vr-lib"
+      description="This is a tooltip that tells the user they can swipe on the touchpad to browse through folders. It is accompanied by arrows indicated the direction to swipe."
+      >Swipe to Browse</string>
+  
+  <string
+      name="out_of_memory"
+      project="vr-lib"
+      description="This is a warning message that informs the user to free up some memory in order to run the app"
+      >To use Oculus 360 Photos, please free up at least %1$sKB of device storage on your phone.</string>
+</resources>

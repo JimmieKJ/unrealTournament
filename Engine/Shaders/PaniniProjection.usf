@@ -1,0 +1,90 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	PaniniProjection.usf: Panini implementation for the node material function
+	and upsample post processing pass
+=============================================================================*/
+  
+#pragma once
+
+/*
+* Reproject a ray direction into the panini view's plan.
+*	Source: http://tksharpless.net/vedutismo/Pannini/panini.pdf
+*
+* Panini frame:
+*                                        |
+*                                        |   /
+*                                      M | /
+*                                        +
+*                                      / |
+*                        ->          /   |
+*                        z         /     |
+*        - + - - - - - - < - - - + - - - + - - + - - - - - - -
+*          D                     O       |A
+*                                        |
+*                                        |
+*                                (panini view plan)
+*
+*		O: origine of the frame
+*		A: origin of the panini view plane (0.0, 0.0, -1.0)
+*		D: panini projection center (0.0, 0.0, d)
+*		OM: the direction of the ray.
+*
+* @param OM - The direction of the ray in the panini frame. The z component is implicitely -1.0f.
+* @param d - The panini projection center's distance form the panini frame's origin.
+*		0.0f: Panini projection doesn't change anything, it will return PaniniDirection.
+*		1.0f: Panini
+*		@assert d>=0
+* @param s - The panini projection hard vertical compression fade (lerp). Works with any number in the real domain.
+*		0.0f: No vertical compression
+*		1.0f: Hard vertical compression
+* @return - Returns the position (x, y) of the panini projection in the panini view plane at z=-1.0f in the panini frame
+*/
+float2 PaniniProjection(float2 OM, float d, float s)
+{
+	float PaniniDirectionXZInvLength = 1.0f / sqrt(1.0f + OM.x * OM.x);
+	float SinPhi = OM.x * PaniniDirectionXZInvLength;
+	float TanTheta = OM.y * PaniniDirectionXZInvLength;
+	float CosPhi = sqrt(1.0f - SinPhi * SinPhi);
+	float S = (d + 1.0f) / (d + CosPhi);
+
+	return S * float2(SinPhi, lerp(TanTheta, TanTheta / CosPhi, s));
+}
+
+float2 GetHalfFOVPerAxis()
+{
+	// TODO: should be computed on the CPU side
+	float3 VCenter = normalize(mul(float4(0.0, 0.0, 0.0, 1.0), View.ClipToView)).xyz;
+	float3 VUp = normalize(mul(float4(0.0, 1.0, 0.0, 1.0), View.ClipToView)).xyz;
+	float3 VRight = normalize(mul(float4(1.0, 0.0, 0.0, 1.0), View.ClipToView)).xyz;
+
+	return float2(acos(dot(VCenter, VRight)), acos(dot(VCenter, VUp)));
+}
+
+/*
+* Utility to do the projection 
+*
+*/
+float2 ScreenPosPaniniProjection(float2 ScreenPos, float d, float s)
+{
+	float2 HalfFOV = GetHalfFOVPerAxis();
+	float2 ScreenPosToPaniniFactor = float2(tan(HalfFOV.x), tan(HalfFOV.y));
+
+	// Compute the pixel ray direction into the Panini frame
+	// PaniniDirection.z is implicitly 1.0f
+	float2 PaniniDirection = ScreenPos * ScreenPosToPaniniFactor;
+	float2 PaniniPosition = PaniniProjection(PaniniDirection, d, s);
+
+	// Return the new position back in the screen space frame
+	return PaniniPosition / ScreenPosToPaniniFactor;
+}
+
+// Panini material function node returning a not translated world position according to the panini projection.
+float3 CalcPaniniWorldPosition(float3 InWorldPosition, float d, float s, float PostScale)
+{
+	float4 InClipPosition = mul(float4(InWorldPosition + View.PreViewTranslation, 1.0), View.TranslatedWorldToClip);
+	float2 InScreenPos = InClipPosition.xy / InClipPosition.w;
+	float2 OutScreenPos = ScreenPosPaniniProjection(InScreenPos, d, s) * PostScale;
+	float4 OutClipPosition = float4(OutScreenPos.xy * InClipPosition.w, InClipPosition.z, InClipPosition.w);
+	return mul(OutClipPosition, View.ClipToTranslatedWorld).xyz - View.PreViewTranslation;
+}

@@ -109,7 +109,6 @@ bool					GIsServer						= false;					/* Whether engine was launched as a server,
 bool					GIsCriticalError				= false;					/* An appError() has occured */
 bool					GIsGuarded						= false;					/* Whether execution is happening within main()/WinMain()'s try/catch handler */
 bool					GIsRunning						= false;					/* Whether execution is happening within MainLoop() */
-bool					GIsGarbageCollecting			= false;					/* Whether we are inside garbage collection */
 bool					GIsDuplicatingClassForReinstancing = false;					/* Whether we are currently using SDO on a UClass or CDO for live reinstancing */
 /** This specifies whether the engine was launched as a build machine process								*/
 bool					GIsBuildMachine					= false;
@@ -129,11 +128,16 @@ uint32					GScreenshotResolutionY			= 0;						/* Y Resolution for high res shots
 uint64					GMakeCacheIDIndex				= 0;						/* Cache ID */
 
 FString				GEngineIni;													/* Engine ini filename */
+
+/** Editor ini file locations - stored per engine version (shared across all projects). Migrated between versions on first run. */
 FString				GEditorIni;													/* Editor ini filename */
 FString				GEditorKeyBindingsIni;										/* Editor Key Bindings ini file */
 FString				GEditorLayoutIni;											/* Editor UI Layout ini filename */
-FString				GEditorUserSettingsIni;										/* Editor User Settings ini filename */
-FString				GEditorGameAgnosticIni;										/* Editor Settings (shared between games) ini filename */
+FString				GEditorSettingsIni;											/* Editor Settings ini filename */
+
+/** Editor per-project ini files - stored per project. */
+FString				GEditorPerProjectIni;										/* Editor User Settings ini filename */
+
 FString				GCompatIni;
 FString				GLightmassIni;												/* Lightmass settings ini filename */
 FString				GScalabilityIni;											/* Scalability settings ini filename */
@@ -141,7 +145,7 @@ FString				GInputIni;													/* Input ini filename */
 FString				GGameIni;													/* Game ini filename */
 FString				GGameUserSettingsIni;										/* User Game Settings ini filename */
 
-float					GNearClippingPlane				= 10.0f;					/* Near clipping plane */
+float					GNearClippingPlane				= 10.0f;				/* Near clipping plane */
 
 bool					GExitPurge						= false;
 
@@ -162,10 +166,22 @@ TCHAR					GInternalGameName[64];
 IMPLEMENT_FOREIGN_ENGINE_DIR()
 #endif
 
+/** A function that does nothing. Allows for a default behavior for callback function pointers. */
+static void appNoop()
+{
+}
+
 /** Exec handler for game debugging tool, allowing commands like "editactor", ...							*/
 FExec*					GDebugToolExec					= NULL;
 /** Whether we're currently in the async loading codepath or not											*/
-bool					GIsAsyncLoading					= false;
+static bool IsAsyncLoadingCoreInternal()
+{
+	// No Async loading in Core
+	return false;
+}
+bool (*IsAsyncLoading)() = &IsAsyncLoadingCoreInternal;
+void (*SuspendAsyncLoading)() = &appNoop;
+void (*ResumeAsyncLoading)() = &appNoop;
 /** Whether the editor is currently loading a package or not												*/
 bool					GIsEditorLoadingPackage				= false;
 /** Whether GWorld points to the play in editor world														*/
@@ -182,8 +198,6 @@ double					GStartTime						= FPlatformTime::InitTiming();
 FString					GSystemStartTime;
 /** Whether we are still in the initial loading proces.														*/
 bool					GIsInitialLoad					= true;
-/** true when we are routing ConditionalPostLoad/PostLoad to objects										*/
-bool					GIsRoutingPostLoad				= false;
 /** Steadily increasing frame counter.																		*/
 uint64					GFrameCounter					= 0;
 /** Incremented once per frame before the scene is being rendered. In split screen mode this is incremented once for all views (not for each view). */
@@ -207,11 +221,6 @@ uint32					GRenderThreadId					= 0;
 uint32					GSlateLoadingThreadId			= 0;
 /** Has GGameThreadId been set yet?																			*/
 bool					GIsGameThreadIdInitialized		= false;
-
-/** A function that does nothing. Allows for a default behavior for callback function pointers. */
-static void appNoop()
-{
-}
 
 /** Helper function to flush resource streaming.															*/
 void					(*GFlushStreamingFunc)(void)	  = &appNoop;
@@ -249,24 +258,17 @@ DEFINE_STAT(STAT_AnimationMemory);
 DEFINE_STAT(STAT_PrecomputedVisibilityMemory);
 DEFINE_STAT(STAT_PrecomputedShadowDepthMapMemory);
 DEFINE_STAT(STAT_PrecomputedLightVolumeMemory);
-DEFINE_STAT(STAT_StaticMeshTotalMemory);
 DEFINE_STAT(STAT_SkeletalMeshVertexMemory);
 DEFINE_STAT(STAT_SkeletalMeshIndexMemory);
 DEFINE_STAT(STAT_SkeletalMeshMotionBlurSkinningMemory);
 DEFINE_STAT(STAT_VertexShaderMemory);
 DEFINE_STAT(STAT_PixelShaderMemory);
 DEFINE_STAT(STAT_NavigationMemory);
+DEFINE_STAT(STAT_PhysSceneReadLock);
+DEFINE_STAT(STAT_PhysSceneWriteLock);
 
 DEFINE_STAT(STAT_ReflectionCaptureTextureMemory);
 DEFINE_STAT(STAT_ReflectionCaptureMemory);
-
-DEFINE_STAT(STAT_StaticMeshTotalMemory2);
-DEFINE_STAT(STAT_StaticMeshVertexMemory);
-DEFINE_STAT(STAT_ResourceVertexColorMemory);
-DEFINE_STAT(STAT_InstVertexColorMemory);
-DEFINE_STAT(STAT_StaticMeshIndexMemory);
-
-
 
 /** Threading stats objects */
 
@@ -294,18 +296,6 @@ DEFINE_STAT(STAT_PumpMessages);
 
 DEFINE_STAT(STAT_CPUTimePct);
 DEFINE_STAT(STAT_CPUTimePctRelative);
-
-DEFINE_STAT(STAT_AsyncIO_FulfilledReadCount);
-DEFINE_STAT(STAT_AsyncIO_FulfilledReadSize);
-DEFINE_STAT(STAT_AsyncIO_CanceledReadCount);
-DEFINE_STAT(STAT_AsyncIO_CanceledReadSize);
-DEFINE_STAT(STAT_AsyncIO_OutstandingReadCount);
-DEFINE_STAT(STAT_AsyncIO_OutstandingReadSize);
-DEFINE_STAT(STAT_AsyncIO_UncompressorWaitTime);
-DEFINE_STAT(STAT_AsyncIO_MainThreadBlockTime);
-DEFINE_STAT(STAT_AsyncIO_AsyncPackagePrecacheWaitTime);
-DEFINE_STAT(STAT_AsyncIO_Bandwidth);
-DEFINE_STAT(STAT_AsyncIO_PlatformReadTime);
 
 DEFINE_LOG_CATEGORY(LogHAL);
 DEFINE_LOG_CATEGORY(LogMac);

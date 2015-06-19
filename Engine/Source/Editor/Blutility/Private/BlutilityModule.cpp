@@ -74,6 +74,17 @@ public:
 		}
 	}
 
+	virtual bool IsBlutility( const UBlueprint* Blueprint ) const override
+	{
+		const UClass* BPClass = Blueprint ? Blueprint->GetClass() : nullptr;
+
+		if( BPClass && BPClass->IsChildOf( UEditorUtilityBlueprint::StaticClass() ))
+		{
+			return true;
+		}
+		return false;
+	}
+
 protected:
 	static TSharedRef<SDockTab> SpawnBlutilityShelfTab(const FSpawnTabArgs& Args)
 	{

@@ -78,6 +78,20 @@ enum EPlayNetMode
 };
 
 
+UENUM()
+enum EPlayOnBuildMode
+{
+	/** Always build */
+	PlayOnBuild_Always UMETA(DisplayName="Always Build"),
+
+	/** Never build. */
+	PlayOnBuild_Never UMETA(DisplayName="Never Build"),
+
+	/** Build based on project type */
+	PlayOnBuild_Default UMETA(DisplayName="Only Build Code Projects"),
+};
+
+
 /**
  * Holds information about a screen resolution to be used for playing.
  */
@@ -109,7 +123,7 @@ public:
 /**
  * Implements the Editor's play settings.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class UNREALED_API ULevelEditorPlaySettings
 	: public UObject
 {
@@ -151,6 +165,9 @@ public:
 	UPROPERTY(config)
 	uint32 bOnlyLoadVisibleLevelsInPIE:1;
 
+	UPROPERTY(config, EditAnywhere, Category = PlayInEditor, meta = (DisplayName="Stream Sub-Levels during Play in Editor", ToolTip = "Prefer to stream sub-levels from the disk instead of duplicating editor sub-levels"))
+	uint32 bPreferToStreamLevelsInPIE:1;
+
 public:
 
 	/** The width of the new view port window in pixels (0 = use the desktop's screen resolution). */
@@ -187,6 +204,12 @@ public:
 	UPROPERTY(config , EditAnywhere, Category=PlayInStandaloneGame, AdvancedDisplay)
 	FString AdditionalLaunchParameters;
 
+public:
+
+	/** The width of the new view port window in pixels (0 = use the desktop's screen resolution). */
+	UPROPERTY(config, EditAnywhere, Category = PlayOnDevice)
+	TEnumAsByte<EPlayOnBuildMode> BuildGameBeforeLaunch;
+
 private:
 
 	/** NetMode to use for Play In Editor. */
@@ -218,6 +241,16 @@ private:
 	 */
 	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
 	bool RouteGamepadToSecondWindow;
+
+	/** 
+	* If checked, a separate audio device is created for every player. 
+	
+	* If unchecked, a separate audio device is created for only the first two players and uses the main audio device for more than 2 players.
+	*
+	* Enabling this will allow rendering accurate audio from every player's perspective but will use more CPU. Keep this disabled on lower-perf machines.
+	*/
+	UPROPERTY(config, EditAnywhere, Category = MultiplayerOptions, meta=(EditCondition = "EnableSound"))
+	bool CreateAudioDeviceForEveryPlayer;
 
 	/** Height to use when spawning additional windows. */
 	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
@@ -266,7 +299,8 @@ public:
 	bool IsClientWindowSizeActive() const { return ((PlayNetMode == PIE_Standalone && RunUnderOneProcess) ? false : (PlayNumberOfClients >= 2)); }
 	bool GetClientWindowSize( FIntPoint &OutClientWindowSize ) const { OutClientWindowSize = FIntPoint(ClientWindowWidth, ClientWindowHeight); return IsClientWindowSizeActive(); }
 	EVisibility GetClientWindowSizeVisibility() const { return (RunUnderOneProcess ? EVisibility::Hidden : EVisibility::Visible); }
-	
+	bool IsCreateAudioDeviceForEveryPlayer() const { return CreateAudioDeviceForEveryPlayer; }
+
 public:
 
 	/** The last used height for multiple instance windows (in pixels). */
@@ -324,4 +358,11 @@ public:
 	/** Collection of common screen resolutions on television screens. */
 	UPROPERTY(config)
 	TArray<FPlayScreenResolution> TelevisionScreenResolutions;
+
+protected:
+
+	// UObject overrides
+
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
 };

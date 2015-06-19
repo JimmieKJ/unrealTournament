@@ -27,7 +27,8 @@ namespace EGameplayAbilityInputBinds
 		Ability5				UMETA(DisplayName = "Ability5 (R)"),
 		Ability6				UMETA(DisplayName = "Ability6 (Shift)"),
 		Ability7				UMETA(DisplayName = "Ability7 (Space)"),
-		Ability8				UMETA(DisplayName = "Ability7 (B)"),
+		Ability8				UMETA(DisplayName = "Ability8 (B)"),
+		Ability9				UMETA(DisplayName = "Ability9 (T)"),
 	};
 }
 

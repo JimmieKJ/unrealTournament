@@ -268,7 +268,11 @@ void FPhysXVehicleManager::Update( float DeltaTime )
 	}
 
 	// Suspension raycasts
-	PxVehicleSuspensionRaycasts( WheelRaycastBatchQuery, PVehicles.Num(), PVehicles.GetData(), WheelQueryResults.Num(), WheelQueryResults.GetData() );
+	{
+		SCOPED_SCENE_READ_LOCK(Scene);
+		PxVehicleSuspensionRaycasts( WheelRaycastBatchQuery, PVehicles.Num(), PVehicles.GetData(), WheelQueryResults.Num(), WheelQueryResults.GetData() );
+	}
+	
 
 	// Tick vehicles
 	for ( int32 i = Vehicles.Num() - 1; i >= 0; --i )
@@ -304,10 +308,11 @@ void FPhysXVehicleManager::PreTick( float DeltaTime )
 
 void FPhysXVehicleManager::UpdateVehicles( float DeltaTime )
 {
-	PxVehicleUpdates( DeltaTime, GetSceneGravity(), *SurfaceTirePairs, PVehicles.Num(), PVehicles.GetData(), PVehiclesWheelsStates.GetData());
+	SCOPED_SCENE_WRITE_LOCK(Scene);
+	PxVehicleUpdates( DeltaTime, GetSceneGravity_AssumesLocked(), *SurfaceTirePairs, PVehicles.Num(), PVehicles.GetData(), PVehiclesWheelsStates.GetData());
 }
 
-PxVec3 FPhysXVehicleManager::GetSceneGravity()
+PxVec3 FPhysXVehicleManager::GetSceneGravity_AssumesLocked()
 {
 	return Scene->getGravity();
 }
@@ -356,6 +361,7 @@ void FPhysXVehicleManager::SetRecordTelemetry( TWeakObjectPtr<UWheeledVehicleMov
 void FPhysXVehicleManager::SetupTelemetryData()
 {
 	// set up telemetry for 4 wheels
+	SCOPED_SCENE_WRITE_LOCK(Scene);
 	if(TelemetryData4W == NULL)
 	{
 		float Empty[] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
@@ -370,26 +376,25 @@ void FPhysXVehicleManager::UpdateVehiclesWithTelemetry( float DeltaTime )
 	check(TelemetryVehicle);
 	check(PVehicles.Find(TelemetryVehicle) == 0);
 
-	PxVehicleTelemetryData* TelemetryData = GetTelemetryData();
-
-	if ( TelemetryData )
+	SCOPED_SCENE_WRITE_LOCK(Scene);
+	if ( PxVehicleTelemetryData* TelemetryData = GetTelemetryData_AssumesLocked() )
 	{
-		PxVehicleUpdateSingleVehicleAndStoreTelemetryData( DeltaTime, GetSceneGravity(), *SurfaceTirePairs, TelemetryVehicle, PVehiclesWheelsStates.GetData(), *TelemetryData );
+		PxVehicleUpdateSingleVehicleAndStoreTelemetryData( DeltaTime, GetSceneGravity_AssumesLocked(), *SurfaceTirePairs, TelemetryVehicle, PVehiclesWheelsStates.GetData(), *TelemetryData );
 
 		if ( PVehicles.Num() > 1 )
 		{
-			PxVehicleUpdates( DeltaTime, GetSceneGravity(), *SurfaceTirePairs, PVehicles.Num() - 1, &PVehicles[1], &PVehiclesWheelsStates[1] );
+			PxVehicleUpdates( DeltaTime, GetSceneGravity_AssumesLocked(), *SurfaceTirePairs, PVehicles.Num() - 1, &PVehicles[1], &PVehiclesWheelsStates[1] );
 		}
 	}
 	else
 	{
 		UE_LOG( LogPhysics, Warning, TEXT("Cannot record telemetry for vehicle, it does not have 4 wheels") );
 
-		PxVehicleUpdates( DeltaTime, GetSceneGravity(), *SurfaceTirePairs, PVehicles.Num(), PVehicles.GetData(), PVehiclesWheelsStates.GetData() );
+		PxVehicleUpdates( DeltaTime, GetSceneGravity_AssumesLocked(), *SurfaceTirePairs, PVehicles.Num(), PVehicles.GetData(), PVehiclesWheelsStates.GetData() );
 	}
 }
 
-PxVehicleTelemetryData* FPhysXVehicleManager::GetTelemetryData()
+PxVehicleTelemetryData* FPhysXVehicleManager::GetTelemetryData_AssumesLocked()
 {
 	if ( TelemetryVehicle )
 	{
@@ -404,7 +409,7 @@ PxVehicleTelemetryData* FPhysXVehicleManager::GetTelemetryData()
 
 #endif //PX_DEBUG_VEHICLE_ON
 
-PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates(TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle)
+PxWheelQueryResult* FPhysXVehicleManager::GetWheelsStates_AssumesLocked(TWeakObjectPtr<class UWheeledVehicleMovementComponent> Vehicle)
 {
 	int32 Index = Vehicles.Find(Vehicle);
 

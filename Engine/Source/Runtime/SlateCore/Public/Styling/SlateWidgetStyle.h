@@ -4,6 +4,7 @@
 
 #include "SlateWidgetStyle.generated.h"
 
+struct FSlateBrush;
 
 /**
  * Base structure for widget styles.

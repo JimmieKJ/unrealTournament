@@ -37,7 +37,7 @@ static TAutoConsoleVariable<float> CVarSSSScale(
 	TEXT("<1: scale scatter radius down (for testing)\n")
 	TEXT(" 1: use given radius form the Subsurface scattering asset (default)\n")
 	TEXT(">1: scale scatter radius up (for testing)"),
-	ECVF_RenderThreadSafe);
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static bool IsAmbientCubemapPassRequired(FPostprocessContext& Context)
 {
@@ -135,7 +135,7 @@ static void AddPostProcessingAmbientCubemap(FPostprocessContext& Context, FRende
 }
 
 // @param Levels 0..4, how many different resolution levels we want to render
-static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FPostprocessContext& Context, uint32 Levels)
+static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FRHICommandListImmediate& RHICmdList, FPostprocessContext& Context, uint32 Levels)
 {
 	check(Levels >= 0 && Levels <= 4);
 
@@ -163,6 +163,8 @@ static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FPostproce
 		AmbientOcclusionInMip3->SetInput(ePId_Input1, FRenderingCompositeOutputRef(AmbientOcclusionInMip2, ePId_Output0));
 	}
 
+	FRenderingCompositePass* HZBInput = Context.Graph.RegisterPass( new FRCPassPostProcessInput( const_cast< FViewInfo& >( Context.View ).HZB ) );
+
 	// upsample from lower resolution
 
 	if(Levels >= 4)
@@ -170,6 +172,7 @@ static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FPostproce
 		AmbientOcclusionPassMip3 = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessAmbientOcclusion());
 		AmbientOcclusionPassMip3->SetInput(ePId_Input0, AmbientOcclusionInMip3);
 		AmbientOcclusionPassMip3->SetInput(ePId_Input1, AmbientOcclusionInMip3);
+		AmbientOcclusionPassMip3->SetInput(ePId_Input3, HZBInput);
 	}
 
 	if(Levels >= 3)
@@ -178,6 +181,7 @@ static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FPostproce
 		AmbientOcclusionPassMip2->SetInput(ePId_Input0, AmbientOcclusionInMip2);
 		AmbientOcclusionPassMip2->SetInput(ePId_Input1, AmbientOcclusionInMip2);
 		AmbientOcclusionPassMip2->SetInput(ePId_Input2, AmbientOcclusionPassMip3);
+		AmbientOcclusionPassMip2->SetInput(ePId_Input3, HZBInput);
 	}
 
 	if(Levels >= 2)
@@ -186,6 +190,7 @@ static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FPostproce
 		AmbientOcclusionPassMip1->SetInput(ePId_Input0, AmbientOcclusionInMip1);
 		AmbientOcclusionPassMip1->SetInput(ePId_Input1, AmbientOcclusionInMip1);
 		AmbientOcclusionPassMip1->SetInput(ePId_Input2, AmbientOcclusionPassMip2);
+		AmbientOcclusionPassMip1->SetInput(ePId_Input3, HZBInput);
 	}
 
 	FRenderingCompositePass* GBufferA = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(GSceneRenderTargets.GBufferA));
@@ -196,6 +201,7 @@ static FRenderingCompositeOutputRef AddPostProcessingAmbientOcclusion(FPostproce
 	AmbientOcclusionPassMip0->SetInput(ePId_Input0, GBufferA);
 	AmbientOcclusionPassMip0->SetInput(ePId_Input1, AmbientOcclusionInMip1);
 	AmbientOcclusionPassMip0->SetInput(ePId_Input2, AmbientOcclusionPassMip1);
+	AmbientOcclusionPassMip0->SetInput(ePId_Input3, HZBInput);
 
 	// to make sure this pass is processed as well (before), needed to make process decals before computing AO
 	AmbientOcclusionInMip1->AddDependency(Context.FinalOutput);
@@ -245,7 +251,9 @@ void FCompositionLighting::ProcessBeforeBasePass(FRHICommandListImmediate& RHICm
 		// Add the passes we want to add to the graph (commenting a line means the pass is not inserted into the graph) ----------
 
 		// decals are before AmbientOcclusion so the decal can output a normal that AO is affected by
-		if(Context.View.Family->EngineShowFlags.Decals && IsDBufferEnabled()) 
+		if (Context.View.Family->EngineShowFlags.Decals &&
+			!Context.View.Family->EngineShowFlags.ShaderComplexity &&
+			IsDBufferEnabled()) 
 		{
 			AddDeferredDecalsBeforeBasePass(Context);
 		}
@@ -275,6 +283,7 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, GSceneRenderTargets.GBufferC);
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, GSceneRenderTargets.GBufferD);
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, GSceneRenderTargets.GBufferE);
+	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, GSceneRenderTargets.GBufferVelocity);
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, GSceneRenderTargets.ScreenSpaceAO);
 	
 	// so that the passes can register themselves to the graph
@@ -297,7 +306,7 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 
 		if(uint32 Levels = ComputeAmbientOcclusionPassCount(Context))
 		{
-			AmbientOcclusion = AddPostProcessingAmbientOcclusion(Context, Levels);
+			AmbientOcclusion = AddPostProcessingAmbientOcclusion(RHICmdList, Context, Levels);
 		}
 
 		if(IsAmbientCubemapPassRequired(Context))
@@ -350,7 +359,8 @@ void FCompositionLighting::ProcessLighting(FRHICommandListImmediate& RHICmdList,
 
 			bool bSimpleDynamicLighting = IsSimpleDynamicLightingEnabled();
 
-			if (View.bScreenSpaceSubsurfacePassNeeded && Radius > 0 && !bSimpleDynamicLighting && View.Family->EngineShowFlags.SubsurfaceScattering && 
+			bool bScreenSpaceSubsurfacePassNeeded = (View.ShadingModelMaskInView & (1 << MSM_SubsurfaceProfile)) != 0;
+			if (bScreenSpaceSubsurfacePassNeeded && Radius > 0 && !bSimpleDynamicLighting && View.Family->EngineShowFlags.SubsurfaceScattering &&
 				//@todo-rco: Remove this when we fix the cross-compiler
 				!IsOpenGLPlatform(View.GetShaderPlatform()))
 			{

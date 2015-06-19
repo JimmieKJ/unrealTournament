@@ -6,6 +6,16 @@
 
 class SNotificationItem;
 
+namespace ECloseNotification
+{
+	enum Type
+	{
+		Success,
+		Postponed,
+		Failed
+	};
+}
+
 /** A class to handle the creation, destruction, and restoration of auto-saved packages */
 class FPackageAutoSaver : public IPackageAutoSaver
 {
@@ -84,6 +94,9 @@ private:
 
 	/** Closes the auto-save warning notification if open, with an appropriate message based on whether it was successful */
 	void CloseAutoSaveNotification(const bool Success);
+
+	/** Closes the auto-save warning notification if open, with an appropriate message based on type */
+	void CloseAutoSaveNotification(ECloseNotification::Type Type);
 
 	/** Used as a callback for auto-save warning buttons, called when auto-save is forced early */
 	void OnAutoSaveSave();

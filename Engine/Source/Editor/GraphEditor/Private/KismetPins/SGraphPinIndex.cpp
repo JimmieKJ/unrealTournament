@@ -31,10 +31,13 @@ FEdGraphPinType SGraphPinIndex::OnGetPinType() const
 
 void SGraphPinIndex::OnTypeChanged(const FEdGraphPinType& PinType)
 {
-	GraphPinObj->PinType = PinType;
-	// Let the node know that one of its' pins had their pin type changed
-	if (GraphPinObj && GraphPinObj->GetOwningNode())
+	if (GraphPinObj)
 	{
-		GraphPinObj->GetOwningNode()->PinTypeChanged(GraphPinObj);
+		GraphPinObj->PinType = PinType;
+		// Let the node know that one of its' pins had their pin type changed
+		if (GraphPinObj->GetOwningNode())
+		{
+			GraphPinObj->GetOwningNode()->PinTypeChanged(GraphPinObj);
+		}
 	}
 }

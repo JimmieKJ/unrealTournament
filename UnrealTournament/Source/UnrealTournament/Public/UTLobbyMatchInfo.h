@@ -25,13 +25,16 @@ struct FPlayerListInfo
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyPlayerState> LocalPlayerState;
 
+	UPROPERTY()
+	bool bIsSpectator;
+
 	// The current name of this player
 	UPROPERTY()
 	FString PlayerName;
 
 	// The current score for this player
 	UPROPERTY()
-	float PlayerScore;
+	int32 PlayerScore;
 	
 	FPlayerListInfo() {};
 
@@ -44,6 +47,14 @@ struct FPlayerListInfo
 			PlayerName = inPlayerState->PlayerName;
 			PlayerScore = 0;
 		}
+	}
+
+	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator)
+		: PlayerID(inPlayerID)
+		, PlayerName(inPlayerName)
+		, PlayerScore(inPlayerScore)
+		, bIsSpectator(inbIsSpectator)
+	{
 	}
 
 };
@@ -91,14 +102,14 @@ public:
 	UPROPERTY(Replicated)
 	FString MatchBadge;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_InitialMap)
 	FString InitialMap;
 
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MapList)
-	TArray<FString> MapList;
+	// This will be looked up when the inital map is set.
+	TSharedPtr<FMapListItem> InitialMapInfo;
 
-	// Set by OnRep_MapList
-	bool bMapListChanged;
+	// Set by OnRep_InitialMap
+	bool bMapChanged;
 
 	// The current ruleset the governs this match
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_CurrentRuleset)
@@ -183,12 +194,6 @@ public:
 	virtual void GameInstanceReady(FGuid inGameInstanceGUID);
 
 	/**
-	 *	returns true if this player belongs in this match.  When a player joins a lobby server,
-	 *  the server will see if that player belongs in any of the active matches.
-	 **/
-	bool WasInMatchInstance(AUTLobbyPlayerState* PlayerState);
-
-	/**
 	 *	Removes the player from 
 	 **/
 	void RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState);
@@ -206,6 +211,13 @@ public:
 	// This will be true if this match is a dedicated match and shouldn't ever go down
 	UPROPERTY(Replicated)
 	bool bDedicatedMatch;
+
+	// The Key used to associated this match with a dedicated instance
+	FString AccessKey;
+
+	// The name for this server
+	UPROPERTY(Replicated)
+	FString DedicatedServerName;
 
 	FText GetDebugInfo();
 
@@ -244,7 +256,7 @@ protected:
 	virtual void OnRep_Update();
 
 	UFUNCTION()
-	virtual void OnRep_MapList();
+	virtual void OnRep_InitialMap();
 
 	// This match info is done.  Kill it.
 	void RecycleMatchInfo();
@@ -261,24 +273,31 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchIsReadyForPlayers();
 
-	FString GetMapList();
-
 	// Returns true if the match has room for a new player to join it
 	bool MatchHasRoom() { return true; }
 
-	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const TArray<FString>& NewMapList);
+	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetRules(const FString& RulesetTag, const TArray<FString>& NewMapList, int32 NewBotSkillLevel);
+	virtual void ServerSetRules(const FString& RulesetTag, const FString& StartingMap, int32 NewBotSkillLevel);
 
 	virtual void SetMatchStats(FString Update);
 
 	bool GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount);
+	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount);
 
 	bool IsBanned(FUniqueNetIdRepl Who);
+	TSharedPtr<FMapListItem> GetMapInformation(FString MapPackage);
+
+	void LoadInitialMapInfo();
+
+public:
+	// Unique for each match on this hub.  This will be used to lookup data regarding a given instance.
+	FGuid UniqueMatchID;
+
+	int32 NumPlayersInMatch();
 
 };
 

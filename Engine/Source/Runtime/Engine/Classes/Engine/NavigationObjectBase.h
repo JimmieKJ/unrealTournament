@@ -56,8 +56,8 @@ public:
 	class APhysicsVolume* GetNavPhysicsVolume();
 
 	// INavAgentInterface start
-	virtual FVector GetNavAgentLocation() const { return GetActorLocation(); }
-	virtual void GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const;
+	virtual FVector GetNavAgentLocation() const override { return GetActorLocation(); }
+	virtual void GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
 	// INavAgentInterface end
 
 public:

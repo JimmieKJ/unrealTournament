@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTTeamScoreboard.h"
 #include "StatNames.h"
+#include "UTDemoRecSpectator.h"
 
 UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -68,7 +69,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 						DrawOffset += CellHeight;
 					}
 				} 
-				else if (Team == 0)
+				else if (Team == 0 && Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr)
 				{
 					NumSpectators++;
 				}
@@ -171,17 +172,15 @@ void UUTTeamScoreboard::DrawClockTeamStatsLine(FText StatsName, FName StatsID, f
 AUTPlayerState* UUTTeamScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 {
 	TArray<AUTPlayerState*> MemberPS;
-	AUTTeamInfo* Team = UTGameState->Teams[TeamNum];
-	TArray<AController*> Members = Team->GetTeamMembers();
-
-	for (int32 i = 0; i < Members.Num(); i++)
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
-		AUTPlayerState* PS = Members[i] ? Cast<AUTPlayerState>(Members[i]->PlayerState) : NULL;
-		if (PS)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && (PS->GetTeamNum() == TeamNum))
 		{
 			MemberPS.Add(PS);
 		}
 	}
+
 	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
 	{
 		return A.Kills > B.Kills;
@@ -192,13 +191,10 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 AUTPlayerState* UUTTeamScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 {
 	TArray<AUTPlayerState*> MemberPS;
-	AUTTeamInfo* Team = UTGameState->Teams[TeamNum];
-	TArray<AController*> Members = Team->GetTeamMembers();
-
-	for (int32 i = 0; i < Members.Num(); i++)
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
-		AUTPlayerState* PS = Members[i] ? Cast<AUTPlayerState>(Members[i]->PlayerState) : NULL;
-		if (PS)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && (PS->GetTeamNum() == TeamNum))
 		{
 			MemberPS.Add(PS);
 		}

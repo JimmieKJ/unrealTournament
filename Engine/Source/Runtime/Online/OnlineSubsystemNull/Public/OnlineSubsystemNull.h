@@ -21,8 +21,7 @@ typedef TSharedPtr<class FOnlineAchievementsNull, ESPMode::ThreadSafe> FOnlineAc
  *	OnlineSubsystemNull - Implementation of the online subsystem for Null services
  */
 class ONLINESUBSYSTEMNULL_API FOnlineSubsystemNull : 
-	public FOnlineSubsystemImpl,
-	public FTickerObjectBase
+	public FOnlineSubsystemImpl
 {
 
 public:
@@ -35,15 +34,17 @@ public:
 
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
 	virtual IOnlineFriendsPtr GetFriendsInterface() const override;
+	virtual IOnlinePartyPtr GetPartyInterface() const override;
+	virtual IOnlineGroupsPtr GetGroupsInterface() const override;
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const override;
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
+	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const override;
 	virtual IOnlineEntitlementsPtr GetEntitlementsInterface() const override;
 	virtual IOnlineLeaderboardsPtr GetLeaderboardsInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const override;
 	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;	
 	virtual IOnlineTimePtr GetTimeInterface() const override;
 	virtual IOnlineIdentityPtr GetIdentityInterface() const override;
-	virtual IOnlinePartyPtr GetPartyInterface() const override;
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
 	virtual IOnlineStorePtr GetStoreInterface() const override;
 	virtual IOnlineEventsPtr GetEventsInterface() const override;
@@ -53,7 +54,8 @@ public:
 	virtual IOnlineMessagePtr GetMessageInterface() const override;
 	virtual IOnlinePresencePtr GetPresenceInterface() const override;
 	virtual IOnlineChatPtr GetChatInterface() const override;
-
+    virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override;
+	
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;

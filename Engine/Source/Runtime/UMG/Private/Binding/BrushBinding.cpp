@@ -30,6 +30,8 @@ bool UBrushBinding::IsSupportedSource(UProperty* Property) const
 
 FSlateBrush UBrushBinding::GetValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
 		if ( bConversion.Get(EConversion::None) == EConversion::None )

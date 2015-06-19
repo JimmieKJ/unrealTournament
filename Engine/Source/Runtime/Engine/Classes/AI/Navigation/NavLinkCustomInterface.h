@@ -42,6 +42,9 @@ class ENGINE_API INavLinkCustomInterface
 	 */
 	virtual uint32 GetLinkId() const { return 0; }
 
+	/** Get object owner of navigation link, used for creating containers with multiple links */
+	virtual UObject* GetLinkOwner() const;
+
 	/** Check if link allows path finding
 	 *  Querier is usually an AIController trying to find path
 	 */

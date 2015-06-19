@@ -39,6 +39,7 @@
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/EnvQueryGenerator.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_ActorBase.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType.h"
 #include "Actions/PawnAction.h"
 #include "Actions/PawnActionsComponent.h"
@@ -49,6 +50,7 @@
 #include "BehaviorTree/Tasks/BTTask_BlackboardBase.h"
 #include "BehaviorTree/Decorators/BTDecorator_BlackboardBase.h"
 #include "BehaviorTree/Services/BTService_BlackboardBase.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"

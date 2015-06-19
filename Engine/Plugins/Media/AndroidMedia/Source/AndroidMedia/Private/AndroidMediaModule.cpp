@@ -1,10 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidMediaPCH.h"
-
 #include "AndroidMediaPlayer.h"
+#include "IMediaModule.h"
+#include "IMediaPlayerFactory.h"
+
 
 #define LOCTEXT_NAMESPACE "FAndroidMediaModule"
+
 
 class FAndroidMediaModule
 	: public IModuleInterface
@@ -21,9 +24,9 @@ public:
 			IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
 			if (nullptr != MediaModule)
 			{
-				SupportedFormats.Add(TEXT("3gpp"), LOCTEXT("Format3gpp", "3GPP Multimedia File"));
-				SupportedFormats.Add(TEXT("aac"), LOCTEXT("FormatAac", "MPEG-2 Advanced Audio Coding File"));
-				SupportedFormats.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
+				SupportedFileTypes.Add(TEXT("3gpp"), LOCTEXT("Format3gpp", "3GPP Multimedia File"));
+				SupportedFileTypes.Add(TEXT("aac"), LOCTEXT("FormatAac", "MPEG-2 Advanced Audio Coding File"));
+				SupportedFileTypes.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
 				MediaModule->RegisterPlayerFactory(*this);
 			}
 		}
@@ -55,15 +58,20 @@ public:
 		}
 	}
 
-	virtual const FMediaFormats& GetSupportedFormats() const override
+	virtual const FMediaFileTypes& GetSupportedFileTypes() const override
 	{
-		return SupportedFormats;
+		return SupportedFileTypes;
+	}
+
+	virtual bool SupportsUrl(const FString& Url) const override
+	{
+		return SupportedFileTypes.Contains(FPaths::GetExtension(Url));
 	}
 
 private:
 
-	// The collection of supported media formats.
-	FMediaFormats SupportedFormats;
+	// The collection of supported media file types.
+	FMediaFileTypes SupportedFileTypes;
 
 	bool IsSupported()
 	{

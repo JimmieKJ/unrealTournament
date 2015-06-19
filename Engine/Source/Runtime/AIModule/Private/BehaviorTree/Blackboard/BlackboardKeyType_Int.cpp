@@ -11,30 +11,35 @@ UBlackboardKeyType_Int::UBlackboardKeyType_Int(const FObjectInitializer& ObjectI
 	SupportedOp = EBlackboardKeyOperation::Arithmetic;
 }
 
-int32 UBlackboardKeyType_Int::GetValue(const uint8* RawData)
+int32 UBlackboardKeyType_Int::GetValue(const UBlackboardKeyType_Int* KeyOb, const uint8* RawData)
 {
 	return GetValueFromMemory<int32>(RawData);
 }
 
-bool UBlackboardKeyType_Int::SetValue(uint8* RawData, int32 Value)
+bool UBlackboardKeyType_Int::SetValue(UBlackboardKeyType_Int* KeyOb, uint8* RawData, int32 Value)
 {
 	return SetValueInMemory<int32>(RawData, Value);
 }
 
-FString UBlackboardKeyType_Int::DescribeValue(const uint8* RawData) const
+EBlackboardCompare::Type UBlackboardKeyType_Int::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return FString::Printf(TEXT("%d"), GetValue(RawData));
+	const int32 MyValue = GetValue(this, MemoryBlock);
+	const int32 OtherValue = GetValue((UBlackboardKeyType_Int*)OtherKeyOb, OtherMemoryBlock);
+
+	return (MyValue > OtherValue) ? EBlackboardCompare::Greater :
+		(MyValue < OtherValue) ? EBlackboardCompare::Less :
+		EBlackboardCompare::Equal;
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Int::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+FString UBlackboardKeyType_Int::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
 {
-	const int32 Diff = GetValueFromMemory<int32>(MemoryBlockA) - GetValueFromMemory<int32>(MemoryBlockB);
-	return Diff > 0 ? EBlackboardCompare::Greater : (Diff < 0 ? EBlackboardCompare::Less : EBlackboardCompare::Equal);
+	return FString::Printf(TEXT("%d"), GetValue(this, RawData));
 }
 
-bool UBlackboardKeyType_Int::TestArithmeticOperation(const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const
+bool UBlackboardKeyType_Int::TestArithmeticOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const
 {
-	const int32 Value = GetValue(MemoryBlock);
+	const int32 Value = GetValue(this, MemoryBlock);
 	switch (Op)
 	{
 	case EArithmeticKeyOperation::Equal:			return (Value == OtherIntValue);

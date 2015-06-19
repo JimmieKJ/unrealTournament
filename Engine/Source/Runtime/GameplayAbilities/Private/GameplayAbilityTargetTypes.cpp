@@ -9,57 +9,39 @@
 
 TArray<FActiveGameplayEffectHandle> FGameplayAbilityTargetData::ApplyGameplayEffect(const UGameplayEffect* GameplayEffect, const FGameplayEffectContextHandle& InEffectContext, float Level, FPredictionKey PredictionKey)
 {
-	// Clone the effect context per target to avoid modifying original context
-	FGameplayEffectContextHandle EffectContext = InEffectContext.Duplicate();
-	
-	FGameplayEffectSpec	SpecToApply(GameplayEffect, EffectContext, Level);
-	
-	AddTargetDataToContext(EffectContext, false);
+	// Make a temp spec and call the spec function. This ends up cloning the spec per target
+	FGameplayEffectSpec	TempSpecToApply(GameplayEffect, InEffectContext, Level);
 
-	TArray<TWeakObjectPtr<AActor> > Actors = GetActors();
-	TArray<FActiveGameplayEffectHandle>	AppliedHandles;
-	AppliedHandles.Reserve(Actors.Num());
-
-	for (TWeakObjectPtr<AActor> TargetActor : Actors)
-	{
-		if (TargetActor.IsValid())
-		{
-			UAbilitySystemComponent* TargetComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor.Get());
-			if (TargetComponent && EffectContext.GetInstigatorAbilitySystemComponent())
-			{
-				AppliedHandles.Add(EffectContext.GetInstigatorAbilitySystemComponent()->ApplyGameplayEffectSpecToTarget(SpecToApply, TargetComponent, PredictionKey));
-			}
-		}
-	}
-
-	return AppliedHandles;
+	return ApplyGameplayEffectSpec(TempSpecToApply, PredictionKey);
 }
 
-TArray<FActiveGameplayEffectHandle> FGameplayAbilityTargetData::ApplyGameplayEffectSpec(FGameplayEffectSpec& Spec, FPredictionKey PredictionKey)
+TArray<FActiveGameplayEffectHandle> FGameplayAbilityTargetData::ApplyGameplayEffectSpec(const FGameplayEffectSpec& InSpec, FPredictionKey PredictionKey)
 {
 	TArray<FActiveGameplayEffectHandle>	AppliedHandles;
 
-	if (!ensure(Spec.GetContext().IsValid()))
+	if (!ensure(InSpec.GetContext().IsValid() && InSpec.GetContext().GetInstigatorAbilitySystemComponent()))
 	{
 		return AppliedHandles;
 	}
 
-	FGameplayEffectContextHandle EffectContext = Spec.GetContext();
-	AddTargetDataToContext(EffectContext, false);
-
 	TArray<TWeakObjectPtr<AActor> > Actors = GetActors();
 	
 	AppliedHandles.Reserve(Actors.Num());
 
 	for (TWeakObjectPtr<AActor> TargetActor : Actors)
 	{
-		if (TargetActor.IsValid())
+		UAbilitySystemComponent* TargetComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor.Get());
+
+		if (TargetComponent)
 		{
-			UAbilitySystemComponent* TargetComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor.Get());
-			if (TargetComponent && EffectContext.GetInstigatorAbilitySystemComponent())
-			{
-				AppliedHandles.Add(EffectContext.GetInstigatorAbilitySystemComponent()->ApplyGameplayEffectSpecToTarget(Spec, TargetComponent, PredictionKey));
-			}
+			// We have to make a new effect spec and context here, because otherwise the targeting info gets accumulated and things take damage multiple times
+			FGameplayEffectSpec	SpecToApply(InSpec);
+			FGameplayEffectContextHandle EffectContext = SpecToApply.GetContext().Duplicate();
+			SpecToApply.SetContext(EffectContext);
+
+			AddTargetDataToContext(EffectContext, false);
+
+			AppliedHandles.Add(EffectContext.GetInstigatorAbilitySystemComponent()->ApplyGameplayEffectSpecToTarget(SpecToApply, TargetComponent, PredictionKey));
 		}
 	}
 

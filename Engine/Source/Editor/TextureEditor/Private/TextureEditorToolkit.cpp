@@ -10,10 +10,11 @@
 #include "Engine/TextureRenderTargetCube.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/Texture2D.h"
-#include "SystemSettings.h"
+#include "DeviceProfiles/DeviceProfile.h"
 #include "Engine/LightMapTexture2D.h"
 #include "Engine/ShadowMapTexture2D.h"
 #include "Engine/Texture2DDynamic.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 
 #define LOCTEXT_NAMESPACE "FTextureEditorToolkit"
 
@@ -94,7 +95,22 @@ void FTextureEditorToolkit::InitTextureEditor( const EToolkitMode::Type Mode, co
 	bIsGreenChannel = true;
 	bIsBlueChannel = true;
 	bIsAlphaChannel = false;
-	bIsSaturation = false;
+
+	switch (Texture->CompressionSettings)
+	{
+	default:
+		bIsAlphaChannel = !Texture->CompressionNoAlpha;
+		break;
+	case TC_Normalmap:
+	case TC_Grayscale:
+	case TC_Displacementmap:
+	case TC_VectorDisplacementmap:
+	case TC_DistanceFieldFont:
+		bIsAlphaChannel = false;
+		break;
+	}
+
+	bIsDesaturation = false;
 
 	PreviewEffectiveTextureWidth = 0;
 	PreviewEffectiveTextureHeight = 0;
@@ -265,8 +281,8 @@ ESimpleElementBlendMode FTextureEditorToolkit::GetColourChannelBlendMode( ) cons
 	
 	// If we only have one color channel active, enable color desaturation by default
 	const int32 NumColorChannelsActive = (bIsRedChannel ? 1 : 0) + (bIsGreenChannel ? 1 : 0) + (bIsBlueChannel ? 1 : 0);
-	const bool bIsSaturationLocal = bIsSaturation ? true : (NumColorChannelsActive==1);
-	Result += bIsSaturationLocal ? (1 << 4) : 0;
+	const bool bIsDesaturationLocal = bIsDesaturation ? true : (NumColorChannelsActive==1);
+	Result += bIsDesaturationLocal ? (1 << 4) : 0;
 
 	return (ESimpleElementBlendMode)Result;
 }
@@ -332,15 +348,25 @@ void FTextureEditorToolkit::PopulateQuickInfo( )
 		ImportedHeight = Texture->GetSurfaceHeight();
 	}
 
+	const uint32 ActualWidth = (Texture->GetSurfaceWidth() > 0) ? (uint32)Texture->GetSurfaceWidth() : ImportedWidth;
+	const uint32 ActualHeight = (Texture->GetSurfaceHeight() > 0) ? (uint32)Texture->GetSurfaceHeight() : ImportedHeight;
+
 	// In game max bias and dimensions
 	uint32 MaxInGameWidth, MaxInGameHeight;
-	int32 MipLevel = GSystemSettings.TextureLODSettings.CalculateLODBias(Texture);
+	int32 MipLevel = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->CalculateLODBias(Texture);
 	CalculateEffectiveTextureDimensions(MipLevel, MaxInGameWidth, MaxInGameHeight);
 
 	// Editor bias and dimensions (takes user specified mip setting into account)
 	Texture->UpdateCachedLODBias(!GetUseSpecifiedMip());
 	MipLevel = FMath::Max(GetMipLevel(), Texture->GetCachedLODBias());
 	CalculateEffectiveTextureDimensions(MipLevel, PreviewEffectiveTextureWidth, PreviewEffectiveTextureHeight);
+
+	// Texture asset size
+	const uint32 Size = (Texture->GetResourceSize(EResourceSizeMode::Exclusive) + 512) / 1024;
+
+	FNumberFormattingOptions SizeOptions;
+	SizeOptions.UseGrouping = false;
+	SizeOptions.MaximumFractionalDigits = 0;
 
 	// Cubes are previewed as unwrapped 2D textures.
 	// These have 2x the width of a cube face.
@@ -350,11 +376,12 @@ void FTextureEditorToolkit::PopulateQuickInfo( )
 	Options.UseGrouping = false;
 
 	ImportedText->SetText(FText::Format( NSLOCTEXT("TextureEditor", "QuickInfo_Imported", "Imported: {0}x{1}"), FText::AsNumber(ImportedWidth, &Options), FText::AsNumber(ImportedHeight, &Options)));
-	CurrentText->SetText(FText::Format( NSLOCTEXT("TextureEditor", "QuickInfo_Displayed", "Displayed: {0}x{1}"), FText::AsNumber(FMath::Max((uint32)1, ImportedWidth >> MipLevel), &Options ), FText::AsNumber(FMath::Max((uint32)1, ImportedHeight>> MipLevel), &Options)));
+	CurrentText->SetText(FText::Format( NSLOCTEXT("TextureEditor", "QuickInfo_Displayed", "Displayed: {0}x{1}"), FText::AsNumber(FMath::Max((uint32)1, ActualWidth >> MipLevel), &Options ), FText::AsNumber(FMath::Max((uint32)1, ActualHeight >> MipLevel), &Options)));
 	MaxInGameText->SetText(FText::Format( NSLOCTEXT("TextureEditor", "QuickInfo_MaxInGame", "Max In-Game: {0}x{1}"), FText::AsNumber(MaxInGameWidth, &Options), FText::AsNumber(MaxInGameHeight, &Options)));
-	MethodText->SetText(FText::Format( NSLOCTEXT("TextureEditor", "QuickInfo_Method", "Method: {0}"), Texture->NeverStream ? NSLOCTEXT("TextureEditor", "QuickInfo_MethodNotStreamed", "Not Streamed") : NSLOCTEXT("TextureEditor", "QuickInfo_MethodStreamed", "Streamed")));
+	SizeText->SetText(FText::Format(NSLOCTEXT("TextureEditor", "QuickInfo_ResourceSize", "Resource Size: {0} Kb"), FText::AsNumber(Size, &SizeOptions)));
+	MethodText->SetText(FText::Format(NSLOCTEXT("TextureEditor", "QuickInfo_Method", "Method: {0}"), Texture->NeverStream ? NSLOCTEXT("TextureEditor", "QuickInfo_MethodNotStreamed", "Not Streamed") : NSLOCTEXT("TextureEditor", "QuickInfo_MethodStreamed", "Streamed")));
 	LODBiasText->SetText(FText::Format(NSLOCTEXT("TextureEditor", "QuickInfo_LODBias", "Combined LOD Bias: {0}"), FText::AsNumber(Texture->GetCachedLODBias())));
-	
+
 	int32 TextureFormatIndex = PF_MAX;
 	
 	if (Texture2D)
@@ -374,6 +401,26 @@ void FTextureEditorToolkit::PopulateQuickInfo( )
 	{
 		FormatText->SetText(FText::Format(NSLOCTEXT("TextureEditor", "QuickInfo_Format", "Format: {0}"), FText::FromString(GPixelFormats[TextureFormatIndex].Name)));
 	}
+
+	int32 NumMips = 1;
+	if (Texture2D)
+	{
+		NumMips = Texture2D->GetNumMips();
+	}
+	else if (TextureCube)
+	{
+		NumMips = TextureCube->GetNumMips();
+	}
+
+	NumMipsText->SetText(FText::Format(NSLOCTEXT("TextureEditor", "QuickInfo_NumMips", "Number of Mips: {0}"), FText::AsNumber(NumMips)));
+
+	if (Texture2D)
+	{
+		HasAlphaChannelText->SetText(FText::Format(NSLOCTEXT("TextureEditor", "QuickInfo_HasAlphaChannel", "Has Alpha Channel: {0}"),
+			Texture2D->HasAlphaChannel() ? NSLOCTEXT("TextureEditor", "True", "True") : NSLOCTEXT("TextureEditor", "False", "False")));
+	}
+
+	HasAlphaChannelText->SetVisibility(Texture2D ? EVisibility::Visible : EVisibility::Collapsed);
 }
 
 
@@ -487,10 +534,10 @@ void FTextureEditorToolkit::BindCommands( )
 		FIsActionChecked::CreateSP(this, &FTextureEditorToolkit::HandleAlphaChannelActionIsChecked));
 
 	ToolkitCommands->MapAction(
-		Commands.Saturation,
-		FExecuteAction::CreateSP(this, &FTextureEditorToolkit::HandleSaturationChannelActionExecute),
+		Commands.Desaturation,
+		FExecuteAction::CreateSP(this, &FTextureEditorToolkit::HandleDesaturationChannelActionExecute),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP(this, &FTextureEditorToolkit::HandleSaturationChannelActionIsChecked));
+		FIsActionChecked::CreateSP(this, &FTextureEditorToolkit::HandleDesaturationChannelActionIsChecked));
 
 	ToolkitCommands->MapAction(
 		Commands.FitToViewport,
@@ -554,7 +601,7 @@ TSharedRef<SWidget> FTextureEditorToolkit::BuildTexturePropertiesWidget( )
 void FTextureEditorToolkit::CalculateEffectiveTextureDimensions( int32 LODBias, uint32& EffectiveTextureWidth, uint32& EffectiveTextureHeight )
 {
 	//Calculate in-game max resolution and store in EffectiveTextureWidth, EffectiveTextureHeight
-	GSystemSettings.TextureLODSettings.ComputeInGameMaxResolution(LODBias, *Texture, (uint32 &)EffectiveTextureWidth, (uint32 &)EffectiveTextureHeight);
+	UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->ComputeInGameMaxResolution(LODBias, *Texture, (uint32 &)EffectiveTextureWidth, (uint32 &)EffectiveTextureHeight);
 }
 
 
@@ -565,85 +612,109 @@ void FTextureEditorToolkit::CreateInternalWidgets( )
 	TextureProperties = SNew(SVerticalBox)
 
 	+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(2.0f)
+	.AutoHeight()
+	.Padding(2.0f)
+	[
+		SNew(SBorder)
 		[
-			SNew(SBorder)
-				[
-					SNew(SHorizontalBox)
+			SNew(SHorizontalBox)
 
-					+ SHorizontalBox::Slot()
-						.FillWidth(0.5f)
-						[
-							SNew(SVerticalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.5f)
+			[
+				SNew(SVerticalBox)
 
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.VAlign(VAlign_Center)
-								.Padding(4.0f)
-								[
-									SAssignNew(ImportedText, STextBlock)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.VAlign(VAlign_Center)
-								.Padding(4.0f)
-								[
-									SAssignNew(CurrentText, STextBlock)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.VAlign(VAlign_Center)
-								.Padding(4.0f)
-								[
-									SAssignNew(MaxInGameText, STextBlock)
-								]
-						]
-
-					+ SHorizontalBox::Slot()
-						.FillWidth(0.5f)
-						[
-							SNew(SVerticalBox)
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.VAlign(VAlign_Center)
-								.Padding(4.0f)
-								[
-									SAssignNew(MethodText, STextBlock)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.VAlign(VAlign_Center)
-								.Padding(4.0f)
-								[
-									SAssignNew(FormatText, STextBlock)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.VAlign(VAlign_Center)
-								.Padding(4.0f)
-								[
-									SAssignNew(LODBiasText, STextBlock)
-								]
-						]
-				]
-		]
-
-	+ SVerticalBox::Slot()
-		.FillHeight(1.0f)
-		.Padding(2.0f)
-		[
-			SNew(SBorder)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
 				.Padding(4.0f)
 				[
-					BuildTexturePropertiesWidget()
+					SAssignNew(ImportedText, STextBlock)
 				]
-		];
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(CurrentText, STextBlock)
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(MaxInGameText, STextBlock)
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(SizeText, STextBlock)
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(HasAlphaChannelText, STextBlock)
+				]
+			]
+
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.5f)
+			[
+				SNew(SVerticalBox)
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(MethodText, STextBlock)
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(FormatText, STextBlock)
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(LODBiasText, STextBlock)
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				[
+					SAssignNew(NumMipsText, STextBlock)
+				]
+			]
+		]
+	]
+
+	+ SVerticalBox::Slot()
+	.FillHeight(1.0f)
+	.Padding(2.0f)
+	[
+		SNew(SBorder)
+		.Padding(4.0f)
+		[
+			BuildTexturePropertiesWidget()
+		]
+	];
 }
 
 
@@ -1049,15 +1120,15 @@ void FTextureEditorToolkit::HandleReimportManagerPreReimport( UObject* InObject 
 }
 
 
-void FTextureEditorToolkit::HandleSaturationChannelActionExecute( )
+void FTextureEditorToolkit::HandleDesaturationChannelActionExecute( )
 {
-	bIsSaturation = !bIsSaturation;
+	bIsDesaturation = !bIsDesaturation;
 }
 
 
-bool FTextureEditorToolkit::HandleSaturationChannelActionIsChecked( ) const
+bool FTextureEditorToolkit::HandleDesaturationChannelActionIsChecked( ) const
 {
-	return bIsSaturation;
+	return bIsDesaturation;
 }
 
 

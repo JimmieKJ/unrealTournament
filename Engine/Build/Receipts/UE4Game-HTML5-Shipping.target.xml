@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="UE4Game" />
+    <Property Name="Platform" Value="HTML5" />
+    <Property Name="Configuration" Value="Shipping" />
+    <Property Name="Precompile" Value="True" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4Game-HTML5-Shipping.js" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4Game-HTML5-Shipping.js.mem" Type="RequiredResource" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4Game-HTML5-Shipping.js.symbols" Type="RequiredResource" />
+    <BuildProduct Path="$(EngineDir)\Plugins\2D\Paper2D\Binaries\HTML5\UE4-Paper2D-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\CharacterAI\Binaries\HTML5\UE4-CharacterAI-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\HTML5Networking\Binaries\HTML5\UE4-HTML5Networking-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\SimpleHMD\Binaries\HTML5\UE4-SimpleHMD-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\StructBox\Binaries\HTML5\UE4-StructBox-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\Analytics\AnalyticsBlueprintLibrary\Binaries\HTML5\UE4-AnalyticsBlueprintLibrary-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\Analytics\AnalyticsMulticast\Binaries\HTML5\UE4-AnalyticsMulticast-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\Analytics\FileLogging\Binaries\HTML5\UE4-FileLogging-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CableComponent\Binaries\HTML5\UE4-CableComponent-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\ExampleDeviceProfileSelector\Binaries\HTML5\UE4-ExampleDeviceProfileSelector-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\ScriptPlugin\Binaries\HTML5\UE4-ScriptPlugin-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Launch-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Core-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-HTML5JS-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-MapPakDownloader-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-CoreUObject-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Projects-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Json-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Engine-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-AppFramework-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-InputCore-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-SlateReflector-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Slate-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-SlateCore-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Networking-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Sockets-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-SandboxFile-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Landscape-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-RenderCore-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-RHI-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-NullDrv-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-OpenGLDrv-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-ShaderCore-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-UtilityShaders-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-ImageWrapper-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Renderer-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-HeadMountedDisplay-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Foliage-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-UMG-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-MovieSceneCore-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-HTTP-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-SlateRHIRenderer-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Niagara-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-VectorVM-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Internationalization-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Navmesh-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Messaging-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-AssetRegistry-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-EngineMessages-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-EngineSettings-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-SynthBenchmark-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-AIModule-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-GameplayTags-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-DatabaseSupport-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-MovieSceneCoreTypes-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-StreamingPauseRendering-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-MoviePlayer-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Analytics-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-AnalyticsET-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-NetworkReplayStreaming-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-NullNetworkReplayStreaming-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-HttpNetworkReplayStreaming-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-OnlineSubsystem-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-ImageCore-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-OnlineSubsystemUtils-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Voice-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Advertising-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-CrashTracker-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-GameLiveStreaming-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-MediaAssets-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Media-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-PakFile-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-Serialization-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-HTML5Audio-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-SessionServices-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-SessionMessages-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-InputDevice-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-GameMenuBuilder-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-GameplayAbilities-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-XmlParser-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-UE4Game-HTML5-Shipping.bc" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Binaries\HTML5\UE4-OnlineSubsystemNull-HTML5-Shipping.bc" Type="StaticLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

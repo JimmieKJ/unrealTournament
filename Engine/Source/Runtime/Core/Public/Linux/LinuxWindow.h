@@ -9,6 +9,8 @@
 #include "SDL.h"
 
 DECLARE_LOG_CATEGORY_EXTERN( LogLinuxWindow, Log, All );
+DECLARE_LOG_CATEGORY_EXTERN( LogLinuxWindowType, Log, All );
+DECLARE_LOG_CATEGORY_EXTERN( LogLinuxWindowEvent, Log, All );
 
 typedef SDL_Window*		SDL_HWindow;
 
@@ -38,8 +40,41 @@ public:
 
 	void Initialize( class FLinuxApplication* const Application, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FLinuxWindow >& InParent, const bool bShowImmediately );
 
-
+	/** TODO: describe */
 	bool IsRegularWindow() const;
+
+	/** TODO: describe */
+	bool IsPopupMenuWindow() const;
+
+	/** TODO: describe */
+	bool IsTooltipWindow() const;
+
+	/** TODO: describe */
+	bool IsNotificationWindow() const;
+	
+	/** TODO: describe */
+	bool IsTopLevelWindow() const;
+
+	/** TODO: describe */
+	bool IsDialogWindow() const;
+
+	/** TODO: describe */
+	bool IsDragAndDropWindow() const;
+	
+	/** TODO: describe */
+	bool IsUtilityWindow() const;
+
+	/** TODO: describe */
+	bool IsActivateWhenFirstShown() const;
+
+	/** TODO: describe */
+	const TSharedPtr< FLinuxWindow >& GetParent() const;
+
+	/** Internal ID using for debugging */
+	uint32 GetID() const;
+
+	/** Debugging function - dumps window info to log */
+	void LogInfo();
 
 	/**	Sets the window region to specified dimensions */
 	void AdjustWindowRegion( int32 Width, int32 Height );
@@ -123,33 +158,33 @@ public:
 	/** @return	Gives the native window a chance to adjust our stored window size before we cache it off */
 	virtual void AdjustCachedSize( FVector2D& Size ) const override;
 
-
-#if 0
 	/**
-	 * Slate Win32Windows implement the IDropTarget and IUnknown OLE interfaces.
+	 * Sets the state if the pointer entered/left the window.
+	 * 
+	 * @param PointerEnteredWindow If the pointer entered the window set 'true' else 'false'.
 	 */
+	void OnPointerEnteredWindow(bool PointerEnteredWindow);
 
-	/** IUnknown : attempt to get a reference to this instance as a pointer  */
-	HRESULT STDCALL QueryInterface( REFIID iid, void ** ppvObject ) override;
+	/**
+	 * Is the pointer currently inside the window?
+	 * 
+	 * @return Returns 'true' if the pointer is inside the window else 'false'.
+	 */
+	bool IsPointerInsideWindow() const;
 
-	/** IUnknown : Invoked by OLE when a new reference to this instance */
-	ULONG STDCALL AddRef( void ) override;
+	/**
+	 * Returns window border sizes (frame extents).
+	 * 
+	 * @param BorderWidth - width of a vertical border (left side)
+	 * @param BorderHeight - height of a horizontal border (from the top)
+	 */
+	void GetNativeBordersSize(int32& OutLeftBorderWidth, int32& OutTopBorderHeight) const;
 
-	/** IUnknown : Invoked by OLE when a reference to this instance is released */
-	ULONG STDCALL Release( void ) override;
-
-	/** IDropTarget : Invoked by OLE when someone drag data our window initially */
-	virtual HRESULT STDCALL DragEnter( __RPC__in_opt IDataObject *DataObjectPointer, ::DWORD KeyState, POINTL CursorPosition, __RPC__inout ::DWORD *CursorEffect) override;
-
-	/** IDropTarget : Invoked by OLE when someone drag data over our window */
-	virtual HRESULT STDCALL DragOver( ::DWORD KeyState, POINTL CursorPosition, __RPC__inout ::DWORD *CursorEffect) override;
-
-	/** IDropTarget : Invoked by OLE when someone drag data and it exits our window or hits ESC to cancel the drag and drop. */
-	virtual HRESULT STDCALL DragLeave( void ) override;
-
-	/** IDropTarget : Invoked by OLE when someone drag data our window initially */
-	virtual HRESULT STDCALL Drop( __RPC__in_opt IDataObject *DataObjectPointer, ::DWORD KeyState, POINTL CursorPosition, __RPC__inout ::DWORD *CursorEffect) override;
-#endif
+	/**
+	 *  Caches window properties that are too expensive to query all the time.
+	 *  (e.g. border sizes)
+	 */
+	void CacheNativeProperties();
 
 private:
 
@@ -159,10 +194,6 @@ private:
 	FLinuxWindow();
 
 	void UpdateVisibility();
-
-	/** Creates an HRGN for the window's current region.  Remember to delete this when you're done with it using
-	   ::DeleteObject, unless you're passing it to SetWindowRgn(), which will absorb the reference itself. */
-//	HRGN MakeWindowRegionObject() const;
 
 private:
 
@@ -189,8 +220,52 @@ private:
 	int32 VirtualWidth;
 	int32 VirtualHeight;
 
-	bool bIsVisible : 1;
+	/** TODO: describe */
+	bool bIsVisible;
+
+	/** TODO: describe */
 	bool bWasFullscreen;
 
+	/** TODO: describe */
+	bool bIsPopupWindow;
+
+	/** TODO: describe */
+	bool bIsTooltipWindow;
+
+	/** TODO: describe */
+	bool bIsConsoleWindow;
+
+	/** TODO: describe */
+	bool bIsDialogWindow;
+
+	/** TODO: describe */
+	bool bIsNotificationWindow;
+
+	/** TODO: describe */
+	bool bIsTopLevelWindow;
+
+	/** TODO: describe */
+	bool bIsDragAndDropWindow;
+
+	/** TODO: describe */
+	bool bIsUtilityWindow;
+
+	/** Whether the is inside this window */
+	bool bIsPointerInsideWindow;
+
+	/** SDL ID (for debugging purposes) */
+	uint32 WindowSDLID;
+
+	/** Parent window as given by Slate */
+	TSharedPtr< FLinuxWindow > ParentWindow;
 	static SDL_HitTestResult HitTest( SDL_Window *SDLwin, const SDL_Point *point, void *data );
+
+	/** Cached width of the left border */
+	int32 LeftBorderWidth;
+
+	/** Cached height of the top border */
+	int32 TopBorderHeight;
+
+	/** Whether native properties cache is valid */
+	bool bValidNativePropertiesCache;
 };

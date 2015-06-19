@@ -105,7 +105,6 @@ namespace AutomationTool
 		public static CommandLineArg Preprocess = new CommandLineArg("-Preprocess");
 		public static CommandLineArg NoCompile = new CommandLineArg("-NoCompile");
 		public static CommandLineArg NoCompileEditor = new CommandLineArg("-NoCompileEditor");
-		public static CommandLineArg NoCodeProject = new CommandLineArg("-NoCodeProject");
 		public static CommandLineArg Help = new CommandLineArg("-Help");
 		public static CommandLineArg List = new CommandLineArg("-List");
 		public static CommandLineArg Rocket = new CommandLineArg("-Rocket");
@@ -113,7 +112,7 @@ namespace AutomationTool
 		public static CommandLineArg Installed = new CommandLineArg("-Installed");
 		public static CommandLineArg UTF8Output = new CommandLineArg("-UTF8Output");
 		public static CommandLineArg NoAutoSDK = new CommandLineArg("-NoAutoSDK");
-
+		public static CommandLineArg IgnoreJunk = new CommandLineArg("-ignorejunk");
 		/// <summary>
 		/// Force initialize static members by calling this.
 		/// </summary>
@@ -140,6 +139,7 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 	[Help("submit", "Allows UAT command to submit changes")]
 	[Help("nosubmit", "Prevents any submit attempts")]
 	[Help("nokill", "Does not kill any spawned processes on exit")]
+	[Help("ignorejunk", "Prevents UBT from cleaning junk files")]
 	static class Automation
 	{
 		#region Command line parsing

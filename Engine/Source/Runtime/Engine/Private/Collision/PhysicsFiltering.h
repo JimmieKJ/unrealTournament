@@ -16,7 +16,8 @@ enum EPhysXFilterDataFlags
 	EPDF_ComplexCollision	=	0x0002,
 	EPDF_CCD				=	0x0004,
 	EPDF_ContactNotify		=	0x0008,
-	EPDF_StaticShape		=	0x0010
+	EPDF_StaticShape		=	0x0010,
+	EPDF_ModifyContacts		=   0x0020
 };
 
 struct FPhysicsFilterBuilder
@@ -86,12 +87,14 @@ inline void CreateShapeFilterData(
 	PxFilterData& OutSimData,
 	bool bEnableCCD,
 	bool bEnableContactNotify,
-	bool bStaticShape)
+	bool bStaticShape,
+	bool bModifyContacts = false)
 {
 	FPhysicsFilterBuilder Builder((ECollisionChannel)MyChannel, ResponseToChannels);
 	Builder.ConditionalSetFlags(EPDF_CCD, bEnableCCD);
 	Builder.ConditionalSetFlags(EPDF_ContactNotify, bEnableContactNotify);
 	Builder.ConditionalSetFlags(EPDF_StaticShape, bStaticShape);
+	Builder.ConditionalSetFlags(EPDF_ModifyContacts, bModifyContacts);
 
 	OutQueryData.setToDefault();
 	OutSimData.setToDefault();

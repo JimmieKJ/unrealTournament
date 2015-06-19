@@ -19,9 +19,9 @@ class FRCPassPostProcessMotionBlurSetup : public TRenderingCompositePassBase<3, 
 public:
 	// interface FRenderingCompositePass ---------
 
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 
@@ -37,9 +37,9 @@ public:
 	FRCPassPostProcessMotionBlur(uint32 InQuality);
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 	// 1:low, 2:medium, 3:high, 4: very high
 	uint32 Quality;
@@ -53,9 +53,9 @@ class FRCPassPostProcessMotionBlurRecombine : public TRenderingCompositePassBase
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 
@@ -67,7 +67,72 @@ class FRCPassPostProcessVisualizeMotionBlur : public TRenderingCompositePassBase
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
+};
+
+
+// Find max velocity per 16x16 tile
+// derives from TRenderingCompositePassBase<InputCount, OutputCount>
+class FRCPassPostProcessVelocityFlatten : public TRenderingCompositePassBase<2, 2>
+{
+public:
+	// interface FRenderingCompositePass ---------
+	virtual void Process(FRenderingCompositePassContext& Context) override;
+	virtual void Release() override { delete this; }
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
+
+	// -------------------------------------------
+
+	static const uint32 TileSizeX = 16;
+	static const uint32 TileSizeY = 16;
+	
+	static const uint32 ThreadGroupSizeX = TileSizeX / 2;
+	static const uint32 ThreadGroupSizeY = TileSizeY / 2;
+
+	static FIntPoint ComputeThreadGroupCount(FIntPoint PixelExtent);
+};
+
+
+// derives from TRenderingCompositePassBase<InputCount, OutputCount>
+class FRCPassPostProcessVelocityScatter : public TRenderingCompositePassBase<1, 1>
+{
+public:
+	// interface FRenderingCompositePass ---------
+	virtual void Process(FRenderingCompositePassContext& Context) override;
+	virtual void Release() override { delete this; }
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
+};
+
+// derives from TRenderingCompositePassBase<InputCount, OutputCount>
+class FRCPassPostProcessVelocityDilate : public TRenderingCompositePassBase<1, 1>
+{
+public:
+	// interface FRenderingCompositePass ---------
+	virtual void Process(FRenderingCompositePassContext& Context) override;
+	virtual void Release() override { delete this; }
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
+};
+
+
+// input half res scene with depth, velocity, output half res motion blurred version
+// ePId_Input0: Full Res Scene Color
+// ePId_Input1: Full Res Scene Depth
+// ePId_Input2: Velocity
+// ePId_Input3: Max tile velocity
+// derives from TRenderingCompositePassBase<InputCount, OutputCount> 
+class FRCPassPostProcessMotionBlurNew : public TRenderingCompositePassBase<4, 1>
+{
+public:
+	// @param InQuality 0xffffffff to visualize, 0:off(no shader is used), 1:low, 2:medium, 3:high, 4:very high
+	FRCPassPostProcessMotionBlurNew(uint32 InQuality);
+
+	// interface FRenderingCompositePass ---------
+	virtual void Process(FRenderingCompositePassContext& Context) override;
+	virtual void Release() override { delete this; }
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
+
+	// 1:low, 2:medium, 3:high, 4: very high
+	uint32 Quality;
 };

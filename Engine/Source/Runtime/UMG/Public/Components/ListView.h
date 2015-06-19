@@ -7,7 +7,7 @@
 /**
  * Allows thousands of items to be displayed in a list.  Generates widgets dynamically for each item.
  */
-UCLASS(Experimental, ClassGroup=UserInterface)
+UCLASS(Experimental)
 class UMG_API UListView : public UTableViewBase
 {
 	GENERATED_UCLASS_BODY()
@@ -15,7 +15,7 @@ class UMG_API UListView : public UTableViewBase
 public:
 
 	/** The height of each widget */
-	UPROPERTY(EditDefaultsOnly, Category=Content)
+	UPROPERTY(EditAnywhere, Category=Content)
 	float ItemHeight;
 
 	/** The list of items to generate widgets for */
@@ -23,11 +23,11 @@ public:
 	TArray<UObject*> Items;
 
 	/** The selection method for the list */
-	UPROPERTY(EditDefaultsOnly, Category=Content)
+	UPROPERTY(EditAnywhere, Category=Content)
 	TEnumAsByte<ESelectionMode::Type> SelectionMode;
 
 	/** Called when a widget needs to be generated */
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FOnGenerateRowUObject OnGenerateRowEvent;
 
 #if WITH_EDITOR

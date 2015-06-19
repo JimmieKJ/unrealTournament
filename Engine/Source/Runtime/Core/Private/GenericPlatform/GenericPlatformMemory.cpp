@@ -10,18 +10,17 @@ DEFINE_STAT(MCR_Physical);
 DEFINE_STAT(MCR_GPU);
 DEFINE_STAT(MCR_TexturePool);
 
-// Must match values in the MemoryProfiler2.FMemoryAllocationStatsV4
-DECLARE_MEMORY_STAT(TEXT("Total Physical"),		STAT_TotalPhysical,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Total Virtual"),		STAT_TotalVirtual,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Page Size"),			STAT_PageSize,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Total Physical GB"),	STAT_TotalPhysicalGB,STATGROUP_MemoryPlatform);
+DEFINE_STAT(STAT_TotalPhysical);
+DEFINE_STAT(STAT_TotalVirtual);
+DEFINE_STAT(STAT_PageSize);
+DEFINE_STAT(STAT_TotalPhysicalGB);
 
-DECLARE_MEMORY_STAT(TEXT("Available Physical"),	STAT_AvailablePhysical,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Available Virtual"),	STAT_AvailableVirtual,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Used Physical"),		STAT_UsedPhysical,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Peak Used Physical"),	STAT_PeakUsedPhysical,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Used Virtual"),		STAT_UsedVirtual,STATGROUP_MemoryPlatform);
-DECLARE_MEMORY_STAT(TEXT("Peak Used Virtual"),	STAT_PeakUsedVirtual,STATGROUP_MemoryPlatform);
+DEFINE_STAT(STAT_AvailablePhysical);
+DEFINE_STAT(STAT_AvailableVirtual);
+DEFINE_STAT(STAT_UsedPhysical);
+DEFINE_STAT(STAT_PeakUsedPhysical);
+DEFINE_STAT(STAT_UsedVirtual);
+DEFINE_STAT(STAT_PeakUsedVirtual);
 
 FGenericPlatformMemoryStats::FGenericPlatformMemoryStats()
 	: FGenericPlatformMemoryConstants( FPlatformMemory::GetConstants() )
@@ -71,16 +70,16 @@ void FGenericPlatformMemory::GetStatsForMallocProfiler( FGenericMemoryStats& out
 	FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
 
 	// Base common stats for all platforms.
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_TotalPhysical ), Stats.TotalPhysical );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_TotalVirtual ), Stats.TotalVirtual );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_PageSize ), Stats.PageSize );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_TotalPhysicalGB ), (SIZE_T)Stats.TotalPhysicalGB );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_AvailablePhysical ), Stats.AvailablePhysical );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_AvailableVirtual ), Stats.AvailableVirtual );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_UsedPhysical ), Stats.UsedPhysical );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_PeakUsedPhysical ), Stats.PeakUsedPhysical );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_UsedVirtual ), Stats.UsedVirtual );
-	out_Stats.Add( GET_STATDESCRIPTION( STAT_PeakUsedVirtual ), Stats.PeakUsedVirtual );
+	out_Stats.Add(TEXT("Total Physical"), Stats.TotalPhysical );
+	out_Stats.Add(TEXT("Total Virtual"), Stats.TotalVirtual );
+	out_Stats.Add(TEXT("Page Size"), Stats.PageSize );
+	out_Stats.Add(TEXT("Total Physical GB"), (SIZE_T)Stats.TotalPhysicalGB );
+	out_Stats.Add(TEXT("Available Physical"), Stats.AvailablePhysical );
+	out_Stats.Add(TEXT("Available Virtual"), Stats.AvailableVirtual );
+	out_Stats.Add(TEXT("Used Physical"), Stats.UsedPhysical );
+	out_Stats.Add(TEXT("Peak Used Physical"), Stats.PeakUsedPhysical );
+	out_Stats.Add(TEXT("Used Virtual"), Stats.UsedVirtual );
+	out_Stats.Add(TEXT("Peak Used Virtual"), Stats.PeakUsedVirtual );
 #endif // STATS
 }
 

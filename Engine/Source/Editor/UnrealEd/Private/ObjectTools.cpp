@@ -33,6 +33,15 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "Layers/ILayers.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/SimpleConstructionScript.h"
+#include "Engine/LevelStreaming.h"
+#include "GameFramework/WorldSettings.h"
+#include "CanvasTypes.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/UserDefinedStruct.h"
+#include "ShaderCompiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogObjectTools, Log, All);
 
@@ -572,6 +581,9 @@ namespace ObjectTools
 			}
 		}
 
+		// Reset linker loaders to remove the possibility that any references to 'ObjectsToReplace' exist in the loaders (these can't get picked up by the replace archives)
+		ResetLoaders(nullptr);
+
 		TMap<UObject*, int32> ObjToNumRefsMap;
 		if( ObjectToReplaceWith != NULL )
 		{
@@ -818,7 +830,7 @@ namespace ObjectTools
 
 					// Create a redirector with a unique name
 					// It will have the same name as the object that was consolidated after the garbage collect
-					UObjectRedirector* Redirector = Cast<UObjectRedirector>( StaticConstructObject( UObjectRedirector::StaticClass(), CurObjOuter, NAME_None, RF_Standalone | RF_Public ) );
+					UObjectRedirector* Redirector = NewObject<UObjectRedirector>(CurObjOuter, NAME_None, RF_Standalone | RF_Public);
 					check( Redirector );
 
 					// Set the redirector to redirect to the object to consolidate to
@@ -828,17 +840,16 @@ namespace ObjectTools
 					RedirectorToObjectNameMap.Add(Redirector, CurObjName);
 
 					// If consolidating blueprints, make sure redirectors are created for the consolidated blueprint class and CDO
-					UBlueprint* BlueprintToConsolidate = Cast<UBlueprint>(CurObjToConsolidate);
 					if ( BlueprintToConsolidateTo != NULL && BlueprintToConsolidate != NULL )
 					{
 						// One redirector for the class
-						UObjectRedirector* ClassRedirector = Cast<UObjectRedirector>( StaticConstructObject( UObjectRedirector::StaticClass(), CurObjOuter, NAME_None, RF_Standalone | RF_Public ) );
+						UObjectRedirector* ClassRedirector = NewObject<UObjectRedirector>(CurObjOuter, NAME_None, RF_Standalone | RF_Public);
 						check( ClassRedirector );
 						ClassRedirector->DestinationObject = BlueprintToConsolidateTo->GeneratedClass;
 						RedirectorToObjectNameMap.Add(ClassRedirector, BlueprintToConsolidate->GeneratedClass->GetFName());
 
 						// One redirector for the CDO
-						UObjectRedirector* CDORedirector = Cast<UObjectRedirector>( StaticConstructObject( UObjectRedirector::StaticClass(), CurObjOuter, NAME_None, RF_Standalone | RF_Public ) );
+						UObjectRedirector* CDORedirector = NewObject<UObjectRedirector>(CurObjOuter, NAME_None, RF_Standalone | RF_Public);
 						check( CDORedirector );
 						CDORedirector->DestinationObject = BlueprintToConsolidateTo->GeneratedClass->GetDefaultObject();
 						RedirectorToObjectNameMap.Add(CDORedirector, BlueprintToConsolidate->GeneratedClass->GetDefaultObject()->GetFName());
@@ -1285,11 +1296,7 @@ namespace ObjectTools
 			UPackage* Package = PackagesToDelete[PackageIdx];
 
 			FString PackageFilename;
-			if( FPackageName::DoesPackageExist( Package->GetName(), NULL, &PackageFilename ) )
-			{
-				PackagesToDelete.RemoveAt(PackageIdx);
-			}
-			else
+			if( !FPackageName::DoesPackageExist( Package->GetName(), NULL, &PackageFilename ) )
 			{
 				// Could not determine filename for package so we can not delete
 				PackagesToDelete.RemoveAt(PackageIdx);
@@ -1899,7 +1906,10 @@ namespace ObjectTools
 
 					// Destroy the Actor instance. This is similar to edactDeleteSelected(), but we don't request user confirmation here.
 					GEditor->Layers->DisassociateActorFromLayers( CurActor );
-					GEditor->GetEditorWorldContext().World()->EditorDestroyActor( CurActor, false );
+					if( CurActor->GetWorld() )
+					{
+						CurActor->GetWorld()->EditorDestroyActor( CurActor, false );
+					}
 
 					bNeedsGarbageCollection = true;
 				}
@@ -1944,14 +1954,18 @@ namespace ObjectTools
 									UBlueprint* ChildBlueprint = Cast<UBlueprint>(ChildClass->ClassGeneratedBy);
 									if(ChildBlueprint != nullptr)
 									{
-										ChildBlueprint->Modify();
-										ChildBlueprint->ParentClass = BlueprintObject->ParentClass;
+										// Do not reparent and recompile a Blueprint that is going to be deleted.
+										if (ObjectsToDelete.Find(ChildBlueprint) == INDEX_NONE)
+										{
+											ChildBlueprint->Modify();
+											ChildBlueprint->ParentClass = BlueprintObject->ParentClass;
 
-										// Recompile the child blueprint to fix up the generated class
-										FKismetEditorUtilities::CompileBlueprint(ChildBlueprint, false, true);
+											// Recompile the child blueprint to fix up the generated class
+											FKismetEditorUtilities::CompileBlueprint(ChildBlueprint, false, true);
 
-										// Defer garbage collection until after we're done processing the list of objects
-										bNeedsGarbageCollection = true;
+											// Defer garbage collection until after we're done processing the list of objects
+											bNeedsGarbageCollection = true;
+										}
 									}
 								}
 							}
@@ -2439,8 +2453,7 @@ namespace ObjectTools
 				// Used in the IsValidObjectName checks below
 				FText Reason;
 
-				if( (ExistingPackage && InOutPackagesUserRefusedToFullyLoad.Contains(ExistingPackage)) ||
-					!PackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "Rename", "Rename") ) )
+				if( ExistingPackage && ( InOutPackagesUserRefusedToFullyLoad.Contains(ExistingPackage) || !PackageTools::HandleFullyLoadingPackages( TopLevelPackages, NSLOCTEXT("UnrealEd", "Rename", "Rename") ) ) )
 				{
 					// HandleFullyLoadingPackages should never return false for empty input.
 					check( ExistingPackage );
@@ -2721,7 +2734,7 @@ namespace ObjectTools
 
 			// Parse the format into its extension and description parts
 			TArray<FString> FormatComponents;
-			CurFormat.ParseIntoArray( &FormatComponents, TEXT(";"), false );
+			CurFormat.ParseIntoArray( FormatComponents, TEXT(";"), false );
 
 			for ( int32 ComponentIndex = 0; ComponentIndex < FormatComponents.Num(); ComponentIndex += 2 )
 			{
@@ -2887,13 +2900,15 @@ namespace ObjectTools
 	 */
 	void AssembleListOfExporters(TArray<UExporter*>& OutExporters)
 	{
+		auto TransientPackage = GetTransientPackage();
+
 		// @todo DB: Assemble this set once.
 		OutExporters.Empty();
 		for( TObjectIterator<UClass> It ; It ; ++It )
 		{
 			if( It->IsChildOf(UExporter::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract) )
 			{
-				UExporter* Exporter = ConstructObject<UExporter>( *It );
+				UExporter* Exporter = NewObject<UExporter>(TransientPackage, *It);
 				OutExporters.Add( Exporter );		
 			}
 		}
@@ -3418,27 +3433,6 @@ namespace ObjectTools
 		return bIsPlaceable && !bIsAbstractOrDeprecated && !bIsSkeletonClass;
 	}
 
-	bool AreObjectsValidForReplace(const TArray<UObject*>& InProposedObjects)
-	{
-		if (InProposedObjects.Num() > 0)
-		{
-			// Make sure we don't have any blueprinted components
-			for (TArray<UObject*>::TConstIterator ProposedObjIter(InProposedObjects); ProposedObjIter; ++ProposedObjIter)
-			{
-				UObject* CurProposedObj = *ProposedObjIter;
-				check(CurProposedObj);
-				
-				const UBlueprint* BlueprintObject = Cast<UBlueprint>(CurProposedObj);
-				if (BlueprintObject && BlueprintObject->GeneratedClass->IsChildOf(UActorComponent::StaticClass()))
-				{
-					return false;
-				}
-			}
-		}
-		// If we haven't found any classes we deem illegal just make sure they are all the same type.
-		return AreObjectsOfEquivalantType(InProposedObjects);
-	}
-
 	bool AreObjectsOfEquivalantType( const TArray<UObject*>& InProposedObjects )
 	{
 		if ( InProposedObjects.Num() > 0 )
@@ -3458,6 +3452,14 @@ namespace ObjectTools
 				check( CurProposedObj );
 
 				const UClass* CurProposedClass = CurProposedObj->GetClass();
+
+				if (ComparisonClass->IsChildOf(UBlueprint::StaticClass()) && CurProposedClass->IsChildOf(UBlueprint::StaticClass()))
+				{
+					if (*CastChecked<UBlueprint>(ComparisonObject)->ParentClass != *CastChecked<UBlueprint>(CurProposedObj)->ParentClass)
+					{
+						return false;
+					}
+				}
 
 				if ( !AreClassesInterchangeable( ComparisonClass, CurProposedClass ) )
 				{
@@ -3556,6 +3558,10 @@ namespace ThumbnailTools
 		FThumbnailRenderingInfo* RenderInfo =
 			GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject );
 
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->ProcessAsyncResults(false, true);
+		}
 		// Wait for all textures to be streamed in before we render the thumbnail
 		// @todo CB: This helps but doesn't result in 100%-streamed-in resources every time! :(
 		if( InFlushMode == EThumbnailTextureFlushMode::AlwaysFlush )

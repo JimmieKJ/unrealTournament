@@ -1,12 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ChunkedArray.h: Chunked array definition.
-=============================================================================*/
-
 #pragma once
 
 #include "Array.h"
+
 
 /** An array that uses multiple allocations to avoid allocation failure due to fragmentation. */
 template<typename ElementType, uint32 TargetBytesPerChunk = 16384 >
@@ -28,8 +25,6 @@ public:
 			new(Chunks) FChunk;
 		}
 	}
-
-#if PLATFORM_COMPILER_HAS_RVALUE_REFERENCES
 
 private:
 	template <typename ArrayType>
@@ -61,8 +56,6 @@ public:
 
 		return *this;
 	}
-
-#endif
 
 #if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
 
@@ -123,6 +116,19 @@ public:
 	}
 
 	/**
+	* Tests if index is valid, i.e. greater than zero and less than number of
+	* elements in array.
+	*
+	* @param Index Index to test.
+	*
+	* @returns True if index is valid. False otherwise.
+	*/
+	FORCEINLINE bool IsValidIndex(int32 Index) const
+	{
+		return Index >= 0 && Index < NumElements;
+	}
+
+	/**
 	 * Adds a new item to the end of the chunked array.
 	 *
 	 * @param Item	The item to add
@@ -147,6 +153,18 @@ public:
 			for( const auto& It : Other )
 			{
 				AddElement(It);
+			}
+		}
+		return *this; 
+	}
+
+	FORCEINLINE TChunkedArray& operator+=(const TChunkedArray& Other) 
+	{ 
+		if( (UPTRINT*)this != (UPTRINT*)&Other )
+		{
+			for( int32 Index = 0; Index < Other.Num(); ++Index )
+			{
+				AddElement(Other[Index]);
 			}
 		}
 		return *this; 
@@ -196,6 +214,7 @@ public:
 	}
 
 protected:
+
 	friend struct TContainerTraits<TChunkedArray<ElementType, TargetBytesPerChunk>>;
 
 	enum { NumElementsPerChunk = TargetBytesPerChunk / sizeof(ElementType) };
@@ -215,30 +234,17 @@ protected:
 	int32 NumElements;
 };
 
+
 template <typename ElementType, uint32 TargetBytesPerChunk>
 struct TContainerTraits<TChunkedArray<ElementType, TargetBytesPerChunk> > : public TContainerTraitsBase<TChunkedArray<ElementType, TargetBytesPerChunk> >
 {
-	enum { MoveWillEmptyContainer =
-		PLATFORM_COMPILER_HAS_RVALUE_REFERENCES &&
-		TContainerTraits<typename TChunkedArray<ElementType, TargetBytesPerChunk>::ChunksType>::MoveWillEmptyContainer };
+	enum { MoveWillEmptyContainer = TContainerTraits<typename TChunkedArray<ElementType, TargetBytesPerChunk>::ChunksType>::MoveWillEmptyContainer };
 };
+
 
 template <typename T,uint32 TargetBytesPerChunk> void* operator new( size_t Size, TChunkedArray<T,TargetBytesPerChunk>& ChunkedArray )
 {
 	check(Size == sizeof(T));
 	const int32 Index = ChunkedArray.Add(1);
 	return &ChunkedArray(Index);
-}
-
-/**
- * A specialization of the exchange macro that avoids reallocating when
- * exchanging two arrays.
- *
- * @param FirstArrayToExchange First array to exchange.
- * @param SecondArrayToExchange Second array to exchange.
- */
-template <typename T, uint32 TargetBytesPerChunk>
-inline void Exchange(TChunkedArray<T,TargetBytesPerChunk>& FirstArrayToExchange, TChunkedArray<T,TargetBytesPerChunk>& SecondArrayToExchange)
-{
-	FMemory::Memswap(&FirstArrayToExchange, &SecondArrayToExchange, sizeof(TChunkedArray<T,TargetBytesPerChunk>));
 }

@@ -11,6 +11,7 @@
 #include "ISourceControlModule.h"
 #include "MessageLog.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -52,7 +53,7 @@ void FAssetTypeActions_Blueprint::GetActions( const TArray<UObject*>& InObjects,
 		TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
 
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("Blueprint_NewDerivedBlueprint", "Create Blueprint based on this"),
+			LOCTEXT("Blueprint_NewDerivedBlueprint", "Create Child Blueprint Class"),
 			DynamicTooltipAttribute,
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.CreateClassBlueprint"),
 			FUIAction(
@@ -121,6 +122,13 @@ bool FAssetTypeActions_Blueprint::CanCreateNewDerivedBlueprint() const
 	return true;
 }
 
+UFactory* FAssetTypeActions_Blueprint::GetFactoryForBlueprintType(UBlueprint* InBlueprint) const
+{
+	UBlueprintFactory* BlueprintFactory = NewObject<UBlueprintFactory>();
+	BlueprintFactory->ParentClass = InBlueprint->GeneratedClass;
+	return BlueprintFactory;
+}
+
 void FAssetTypeActions_Blueprint::ExecuteEditDefaults(TArray<TWeakObjectPtr<UBlueprint>> Objects)
 {
 	TArray< UBlueprint* > Blueprints;
@@ -134,7 +142,7 @@ void FAssetTypeActions_Blueprint::ExecuteEditDefaults(TArray<TWeakObjectPtr<UBlu
 		if ( Object )
 		{
 			// If the blueprint is valid, allow it to be added to the list, otherwise log the error.
-			if (Object && Object->SkeletonGeneratedClass && Object->GeneratedClass )
+			if ( Object->SkeletonGeneratedClass && Object->GeneratedClass )
 			{
 				Blueprints.Add(Object);
 			}
@@ -175,26 +183,12 @@ void FAssetTypeActions_Blueprint::ExecuteNewDerivedBlueprint(TWeakObjectPtr<UBlu
 		FString Name;
 		FString PackageName;
 		CreateUniqueAssetName(Object->GetOutermost()->GetName(), TEXT("_Child"), PackageName, Name);
+		const FString PackagePath = FPackageName::GetLongPackagePath(PackageName);
 
-		UPackage* Package = CreatePackage(NULL, *PackageName);
-		if (ensure(Package))
-		{
-			// Create and init a new Blueprint
-			UBlueprint* NewBP = FKismetEditorUtilities::CreateBlueprint(TargetParentClass, Package, FName(*Name), BPTYPE_Normal, TargetParentBP->GetClass(), UBlueprintGeneratedClass::StaticClass());
-			if (NewBP)
-			{
-				// Notify the asset registry
-				FAssetRegistryModule::AssetCreated(NewBP);
+		UFactory* Factory = GetFactoryForBlueprintType(TargetParentBP);
 
-				// the editor should be opened AFTER being added to the asset 
-				// registry (some systems could queue off of the asset registry 
-				// add event, and already having that blueprint open can be odd)
-				FAssetEditorManager::Get().OpenEditorForAsset(NewBP);
-
-				// Mark the package dirty...
-				Package->MarkPackageDirty();
-			}
-		}
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+		ContentBrowserModule.Get().CreateNewAsset(Name, PackagePath, TargetParentBP->GetClass(), Factory);
 	}
 }
 
@@ -206,7 +200,7 @@ FText FAssetTypeActions_Blueprint::GetNewDerivedBlueprintTooltip(TWeakObjectPtr<
 	}
 	else
 	{
-		return LOCTEXT("Blueprint_NewDerivedBlueprintTooltip", "Creates a blueprint based on the selected blueprint.");
+		return LOCTEXT("Blueprint_NewDerivedBlueprintTooltip", "Creates a Child Blueprint Class based on the current Blueprint, allowing you to create variants easily.");
 	}
 }
 
@@ -273,7 +267,7 @@ UThumbnailInfo* FAssetTypeActions_Blueprint::GetThumbnailInfo(UObject* Asset) co
 	UThumbnailInfo* ThumbnailInfo = Blueprint->ThumbnailInfo;
 	if ( ThumbnailInfo == NULL )
 	{
-		ThumbnailInfo = ConstructObject<USceneThumbnailInfo>(USceneThumbnailInfo::StaticClass(), Blueprint);
+		ThumbnailInfo = NewObject<USceneThumbnailInfo>(Blueprint);
 		Blueprint->ThumbnailInfo = ThumbnailInfo;
 	}
 

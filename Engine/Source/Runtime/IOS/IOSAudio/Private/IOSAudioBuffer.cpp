@@ -18,7 +18,7 @@
  ------------------------------------------------------------------------------------*/
 
 FIOSAudioSoundBuffer::FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, ESoundFormat InSoundFormat):
-	FSoundBuffer(),
+	FSoundBuffer(InAudioDevice),
 	SoundFormat(InSoundFormat),
 	SampleData(NULL),
 	SampleRate(0),
@@ -101,7 +101,10 @@ FIOSAudioSoundBuffer* FIOSAudioSoundBuffer::CreateNativeBuffer(FIOSAudioDevice* 
 	Buffer->SampleData = static_cast<int16*>(FMemory::Malloc(Buffer->BufferSize));
 	FMemory::Memcpy(Buffer->SampleData, WaveInfo.SampleDataStart, Buffer->BufferSize);
 	
-	IOSAudioDevice->TrackResource(InWave, Buffer);
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+	check(AudioDeviceManager != nullptr);
+
+	AudioDeviceManager->TrackResource(InWave, Buffer);
 	InWave->RemoveAudioResource();
 
 	return Buffer;
@@ -114,6 +117,8 @@ FIOSAudioSoundBuffer* FIOSAudioSoundBuffer::Init(FIOSAudioDevice* IOSAudioDevice
 	{
 		return NULL;
 	}
+
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
 
 	FIOSAudioSoundBuffer *Buffer = NULL;
 
@@ -129,7 +134,7 @@ FIOSAudioSoundBuffer* FIOSAudioSoundBuffer::Init(FIOSAudioDevice* IOSAudioDevice
 		case DTYPE_Native:
 			if (InWave->ResourceID)
 			{
-				Buffer = static_cast<FIOSAudioSoundBuffer*>(IOSAudioDevice->WaveBufferMap.FindRef(InWave->ResourceID));
+				Buffer = static_cast<FIOSAudioSoundBuffer*>(AudioDeviceManager->WaveBufferMap.FindRef(InWave->ResourceID));
 			}
 
 			if (!Buffer)

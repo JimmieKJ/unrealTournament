@@ -120,18 +120,6 @@ public:
 	virtual const FString& GetAutoLoadProjectFileName() = 0;
 
 	/**
-	 * Generates a new project file and saves it to disk at the specified location
-	 * 
-	 * @param NewProjectFilename	The filename of the file to be written out
-	 * @param StartupModuleNames	The list of modules to be loaded at startup
-	 * @param EngineIdentifier		Identifier of the engine that the project should be associated with
-	 * @param OutFailReason			When returning false, this provides a display reason why the file could not be created.
-	 *
-	 * @return true when the file was successfully written
-	 */
-	virtual bool GenerateNewProjectFile(const FString& NewProjectFilename, const TArray<FString>& StartupModuleNames, const FString& EngineIdentifier, FText& OutFailReason) = 0;
-
-	/**
 	 * Sets the project's EpicSampleNameHash (based on its filename) and category, then saves the file to disk.
 	 * This marks the project as a sample and fixes its filename so that
 	 * it isn't mistaken for a sample if a copy of the file is made.
@@ -210,14 +198,8 @@ public:
 	 * @param	PluginName		Name of the plugin
 	 * @param	bEnabled		Whether to enable or disable the plugin
 	 * @param	OutFailReason	On failure, gives an error message
+	 * @param	MarketplaceURL	Marketplace URL to open if the user does not have this plugin installed
 	 * @return	True if the plugin has been marked as enabled, and the project descriptor has been saved.
 	 */
-	virtual bool SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason) = 0;
-
-	/**
-	 * Returns whether a restart is required to reflect changes to the project.
-	 * 
-	 * @return	True if the application needs to be restarted.
-	 */
-	virtual bool IsRestartRequired() const = 0;
+	virtual bool SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason, const FString& MarketplaceURL = TEXT("")) = 0;
 };

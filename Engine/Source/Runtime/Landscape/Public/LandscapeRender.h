@@ -10,8 +10,10 @@ LandscapeRender.h: New terrain rendering
 
 #include "LandscapeComponent.h"
 #include "LandscapeProxy.h"
+#include "LandscapeMeshProxyComponent.h"
 
 #include "PrimitiveSceneProxy.h"
+#include "StaticMeshResources.h"
 
 #include "LightMap.h"
 #include "MeshBatch.h"
@@ -19,8 +21,6 @@ LandscapeRender.h: New terrain rendering
 
 // This defines the number of border blocks to surround terrain by when generating lightmaps
 #define TERRAIN_PATCH_EXPAND_SCALAR	1
-
-#define LANDSCAPE_NEIGHBOR_NUM	4
 
 #define LANDSCAPE_LOD_LEVELS 8
 #define LANDSCAPE_MAX_SUBSECTION_NUM 2
@@ -113,13 +113,13 @@ public:
 	* Bind shader constants by name
 	* @param	ParameterMap - mapping of named shader constants to indices
 	*/
-	virtual void Bind(const FShaderParameterMap& ParameterMap);
+	virtual void Bind(const FShaderParameterMap& ParameterMap) override;
 
 	/**
 	* Serialize shader params to an archive
 	* @param	Ar - archive to serialize to
 	*/
-	virtual void Serialize(FArchive& Ar);
+	virtual void Serialize(FArchive& Ar) override;
 
 	/**
 	* Set any shader data specific to this vertex factory
@@ -228,13 +228,17 @@ struct FLandscapeVertex
 //
 class FLandscapeVertexBuffer : public FVertexBuffer
 {
+	ERHIFeatureLevel::Type FeatureLevel;
+	int32 NumVertices;
 	int32 SubsectionSizeVerts;
 	int32 NumSubsections;
 public:
 
 	/** Constructor. */
-	FLandscapeVertexBuffer(int32 InSubsectionSizeVerts, int32 InNumSubsections)
-		: SubsectionSizeVerts(InSubsectionSizeVerts)
+	FLandscapeVertexBuffer(ERHIFeatureLevel::Type InFeatureLevel, int32 InNumVertices, int32 InSubsectionSizeVerts, int32 InNumSubsections)
+		: FeatureLevel(InFeatureLevel)
+		, NumVertices(InNumVertices)
+		, SubsectionSizeVerts(InSubsectionSizeVerts)
 		, NumSubsections(InNumSubsections)
 	{
 		InitResource();
@@ -279,6 +283,7 @@ public:
 		int32 MaxIndexFull;
 	};
 
+	int32 NumVertices;
 	int32 SharedBuffersKey;
 	int32 NumIndexBuffers;
 	int32 SubsectionSizeVerts;
@@ -290,11 +295,14 @@ public:
 	FLandscapeIndexRanges* IndexRanges;
 	FLandscapeSharedAdjacencyIndexBuffer* AdjacencyIndexBuffers;
 	bool bUse32BitIndices;
+	FIndexBuffer* GrassIndexBuffer;
 
 	FLandscapeSharedBuffers(int32 SharedBuffersKey, int32 SubsectionSizeQuads, int32 NumSubsections, ERHIFeatureLevel::Type InFeatureLevel, bool bRequiresAdjacencyInformation);
 
 	template <typename INDEX_TYPE>
 	void CreateIndexBuffers(ERHIFeatureLevel::Type InFeatureLevel, bool bRequiresAdjacencyInformation);
+	template <typename INDEX_TYPE>
+	void CreateGrassIndexBuffer();
 
 	virtual ~FLandscapeSharedBuffers();
 };
@@ -348,12 +356,12 @@ struct FLandscapeEditToolRenderData
 };
 
 //
-// FLandscapeComponentSceneProxy
+// FLandscapeNeighborInfo
 //
-class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy
+class FLandscapeNeighborInfo
 {
-	friend class FLandscapeSharedBuffers;
-
+	bool bRegistered;
+protected:
 	// Key to uniquely identify the landscape to find the correct render proxy map
 	class FLandscapeKey
 	{
@@ -361,13 +369,13 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy
 		const FGuid Guid;
 	public:
 		FLandscapeKey(const UWorld* InWorld, const FGuid& InGuid)
-		: World(InWorld)
-		, Guid(InGuid)
+			: World(InWorld)
+			, Guid(InGuid)
 		{}
 
-		friend inline uint32 GetTypeHash(const FLandscapeKey& LandscapeKey)
+		friend inline uint32 GetTypeHash(const FLandscapeKey& InLandscapeKey)
 		{
-			return HashCombine(GetTypeHash(LandscapeKey.World), GetTypeHash(LandscapeKey.Guid));
+			return HashCombine(GetTypeHash(InLandscapeKey.World), GetTypeHash(InLandscapeKey.Guid));
 		}
 
 		friend bool operator==(const FLandscapeKey& A, const FLandscapeKey& B)
@@ -375,6 +383,73 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy
 			return A.World == B.World && A.Guid == B.Guid;
 		}
 	};
+
+	// Map of currently registered landscape proxies, used to register with our neighbors
+	static TMap<FLandscapeKey, TMap<FIntPoint, const FLandscapeNeighborInfo*> > SharedSceneProxyMap;
+
+	// For neighbor lookup
+	FLandscapeKey			LandscapeKey;
+	FIntPoint				ComponentBase;
+
+	// Pointer to our neighbor's scene proxies in NWES order (nullptr if there is currently no neighbor)
+	mutable const FLandscapeNeighborInfo* Neighbors[4];
+
+	
+	// Data we need to be able to access about our neighbor
+	UTexture2D*				HeightmapTexture; // PC : Heightmap, Mobile : Weightmap
+	int8					ForcedLOD;
+	int8					LODBias;
+
+	friend class FLandscapeComponentSceneProxy;
+
+public:
+	FLandscapeNeighborInfo(const UWorld* InWorld, const FGuid& InGuid, const FIntPoint& InComponentBase, UTexture2D* InHeightmapTexture, int8 InForcedLOD, int8 InLODBias)
+	: bRegistered(false)
+	, LandscapeKey(InWorld, InGuid)
+	, ComponentBase(InComponentBase)
+	, HeightmapTexture(InHeightmapTexture)
+	, ForcedLOD(InForcedLOD)
+	, LODBias(InLODBias)
+	{
+		//       -Y       
+		//    - - 0 - -   
+		//    |       |   
+		// -X 1   P   2 +X
+		//    |       |   
+		//    - - 3 - -   
+		//       +Y       
+
+		Neighbors[0] = nullptr;
+		Neighbors[1] = nullptr;
+		Neighbors[2] = nullptr;
+		Neighbors[3] = nullptr;
+	}
+
+	void RegisterNeighbors();
+	void UnregisterNeighbors();
+};
+
+//
+// FLandscapeMeshProxySceneProxy
+//
+class FLandscapeMeshProxySceneProxy : public FStaticMeshSceneProxy
+{
+	TArray<FLandscapeNeighborInfo> ProxyNeighborInfos;
+public:
+	FLandscapeMeshProxySceneProxy(UStaticMeshComponent* InComponent, const FGuid& InGuid, const TArray<FIntPoint>& InProxyComponentBases, int8 InProxyLOD);
+	virtual ~FLandscapeMeshProxySceneProxy();
+	virtual void CreateRenderThreadResources() override;
+	virtual void OnLevelAddedToWorld() override;
+};
+
+
+//
+// FLandscapeComponentSceneProxy
+//
+class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy, public FLandscapeNeighborInfo
+{
+	friend class FLandscapeSharedBuffers;
+
 
 	class FLandscapeLCI final : public FLightCacheInterface
 	{
@@ -411,22 +486,38 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy
 	};
 
 protected:
-	FLandscapeKey				LandscapeKey;
-	bool						bAddedToSceneProxyMap;
-	int8						MaxLOD;
-	int8						NumSubsections;
-	int16						SubsectionSizeQuads;
-	int16						SubsectionSizeVerts;
-	int16						ComponentSizeQuads;	// Size of component in quads
-	int16						ComponentSizeVerts;
+	int8						MaxLOD;		// Maximum LOD level, user override possible
+	int32						FirstLOD;	// First LOD we have batch elements for
+	int32						LastLOD;	// Last LOD we have batch elements for
+
+	/** 
+	 * Number of subsections within the component in each dimension, this can be 1 or 2.  
+	 * Subsections exist to improve the speed at which LOD transitions can take place over distance. 
+	 */
+	int32						NumSubsections;
+	/** Number of unique heights in the subsection. */
+	int32						SubsectionSizeQuads;
+	/** Number of heightmap heights in the subsection.  This includes the duplicate row at the end. */
+	int32						SubsectionSizeVerts;
+	/** Size of the component in unique heights. */
+	int32						ComponentSizeQuads;	
+	/** 
+	 * ComponentSizeQuads + 1.  
+	 * Note: in the case of multiple subsections, this is not very useful, as there will be an internal duplicate row of heights in addition to the row at the end.
+	 */
+	int32						ComponentSizeVerts; 
 	uint8						StaticLightingLOD;
 	float						StaticLightingResolution;
+	/** Address of the component within the parent Landscape in unique height texels. */
 	FIntPoint					SectionBase;
-	FIntPoint					ComponentBase;
 	FMatrix						LocalToWorldNoScaling;
 
 	// Storage for static draw list batch params
 	TArray<FLandscapeBatchElementParams> StaticBatchParamArray;
+
+	// Precomputed grass rendering MeshBatch
+	FMeshBatch					GrassMeshBatch;
+	FLandscapeBatchElementParams GrassBatchParams;
 
 	// Precomputed values
 	float					LODDistance;
@@ -436,10 +527,8 @@ protected:
 	float WeightmapSubsectionOffset;
 	TArray<UTexture2D*> WeightmapTextures;
 	int8 NumWeightmapLayerAllocations;
-
 	UTexture2D* NormalmapTexture; // PC : Heightmap, Mobile : Weightmap
-
-	UTexture2D* HeightmapTexture; // PC : Heightmap, Mobile : Weightmap
+	UTexture2D* BaseColorForGITexture;
 	FVector4 HeightmapScaleBias;
 	float HeightmapSubsectionOffsetU;
 	float HeightmapSubsectionOffsetV;
@@ -459,21 +548,12 @@ protected:
 	static TMap<uint32, FLandscapeSharedBuffers*> SharedBuffersMap;
 	static TMap<uint32, FLandscapeSharedAdjacencyIndexBuffer*> SharedAdjacencyIndexBufferMap;
 
-	// Map of currently registered landscape proxies, used to register with our neighbors
-	static TMap<FLandscapeKey, TMap<FIntPoint, const FLandscapeComponentSceneProxy*> > SharedSceneProxyMap;
-
 	FLandscapeEditToolRenderData* EditToolRenderData;
 
 	// FLightCacheInterface
 	TUniquePtr<FLandscapeLCI> ComponentLightInfo;
 
 	const ULandscapeComponent* LandscapeComponent;
-
-	int8					ForcedLOD;
-	int8					LODBias;
-
-	// Pointer to our neighbor's scene proxies in NWES order (nullptr if there is currently no neighbor)
-	mutable const FLandscapeComponentSceneProxy* Neighbors[4];
 
 	ELandscapeLODFalloff::Type LODFalloff;
 
@@ -497,7 +577,8 @@ public:
 	virtual void GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const override;
 	virtual void OnTransformChanged() override;
 	virtual void CreateRenderThreadResources() override;
-
+	virtual void OnLevelAddedToWorld() override;
+	
 	friend class ULandscapeComponent;
 	friend class FLandscapeVertexFactoryVertexShaderParameters;
 	friend class FLandscapeXYOffsetVertexFactoryVertexShaderParameters;
@@ -511,19 +592,13 @@ public:
 	int32 CalcLODForSubsection(const FSceneView& View, int32 SubX, int32 SubY, const FVector2D& CameraLocalPos) const;
 	void CalcLODParamsForSubsection(const FSceneView& View, const FVector2D& CameraLocalPos, int32 SubX, int32 SubY, int32 BatchLOD, float& OutfLOD, FVector4& OutNeighborLODs) const;
 	uint64 GetStaticBatchElementVisibility(const FSceneView& View, const FMeshBatch* Batch) const;
+	const FMeshBatch& GetGrassMeshBatch() const { return GrassMeshBatch; }
+
 
 	// FLandcapeSceneProxy
 	void ChangeLODDistanceFactor_RenderThread(float InLODDistanceFactor);
 
-	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, FVector4& OutHeightfieldScaleBias, FVector4& OutMinMaxUV) override
-	{
-		OutHeightmapTexture = HeightmapTexture;
-		OutHeightfieldScaleBias = HeightmapScaleBias;
-		// Section base is in terms of quads, convert into texels
-		int32 TexelsSectionBaseX = SectionBase.X / SubsectionSizeQuads * SubsectionSizeVerts;
-		int32 TexelsSectionBaseY = SectionBase.Y / SubsectionSizeQuads * SubsectionSizeVerts;
-		OutMinMaxUV = FVector4(TexelsSectionBaseX * HeightmapScaleBias.X, TexelsSectionBaseY * HeightmapScaleBias.Y, (TexelsSectionBaseX + SubsectionSizeVerts - 1) * HeightmapScaleBias.X, (TexelsSectionBaseY + SubsectionSizeVerts - 1) * HeightmapScaleBias.Y);
-	}
+	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, UTexture2D*& OutDiffuseColorTexture, FHeightfieldComponentDescription& OutDescription) override;
 };
 
 class FLandscapeDebugMaterialRenderProxy : public FMaterialRenderProxy
@@ -698,52 +773,3 @@ public:
 		}
 	}
 };
-
-namespace
-{
-	// LightmapRes: Multiplier of lightmap size relative to landscape size
-	// X: (Output) PatchExpandCountX (at Lighting LOD)
-	// Y: (Output) PatchExpandCountY (at Lighting LOD)
-	// ComponentSize: Component size in patches (at LOD 0)
-	// LigtmapSize: Size desired for lightmap (texels)
-	// DesiredSize: (Output) Recommended lightmap size (texels)
-	// return: LightMapRatio
-	static float GetTerrainExpandPatchCount(float LightMapRes, int32& X, int32& Y, int32 ComponentSize, int32 LightmapSize, int32& DesiredSize, uint32 LightingLOD)
-	{
-		if (LightMapRes <= 0) return 0.f;
-
-		// Assuming DXT_1 compression at the moment...
-		int32 PixelPaddingX = GPixelFormats[PF_DXT1].BlockSizeX;
-		int32 PixelPaddingY = GPixelFormats[PF_DXT1].BlockSizeY;
-		int32 PatchExpandCountX = (LightMapRes >= 1.f) ? (PixelPaddingX) / LightMapRes : (PixelPaddingX);
-		int32 PatchExpandCountY = (LightMapRes >= 1.f) ? (PixelPaddingY) / LightMapRes : (PixelPaddingY);
-
-		X = FMath::Max<int32>(1, PatchExpandCountX >> LightingLOD);
-		Y = FMath::Max<int32>(1, PatchExpandCountY >> LightingLOD);
-
-		DesiredSize = (LightMapRes >= 1.f) ? FMath::Min<int32>((int32)((ComponentSize + 1) * LightMapRes), 4096) : FMath::Min<int32>((int32)((LightmapSize)* LightMapRes), 4096);
-		int32 CurrentSize = (LightMapRes >= 1.f) ? FMath::Min<int32>((int32)((2 * (X << LightingLOD) + ComponentSize + 1) * LightMapRes), 4096) : FMath::Min<int32>((int32)((2 * (X << LightingLOD) + LightmapSize) * LightMapRes), 4096);
-
-		// Find proper Lightmap Size
-		if (CurrentSize > DesiredSize)
-		{
-			// Find maximum bit
-			int32 PriorSize = DesiredSize;
-			while (DesiredSize > 0)
-			{
-				PriorSize = DesiredSize;
-				DesiredSize = DesiredSize & ~(DesiredSize & ~(DesiredSize - 1));
-			}
-
-			DesiredSize = PriorSize << 1; // next bigger size
-			if (CurrentSize * CurrentSize <= ((PriorSize * PriorSize) << 1))
-			{
-				DesiredSize = PriorSize;
-			}
-		}
-
-		int32 DestSize = (float)DesiredSize / CurrentSize * (ComponentSize*LightMapRes);
-		float LightMapRatio = (float)DestSize / (ComponentSize*LightMapRes) * CurrentSize / DesiredSize;
-		return LightMapRatio;
-	}
-}

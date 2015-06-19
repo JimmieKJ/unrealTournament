@@ -73,6 +73,9 @@ public:
 	/** Called when our parent window is restored (which will in turn cause us to become restored). */
 	void OnParentWindowRestored();
 
+	/** Called by the owning application when the level of transparency support has changed */
+	void OnTransparencySupportChanged(EWindowTransparency NewTransparency);
+
 public:
 
 	// FGenericWindow interface

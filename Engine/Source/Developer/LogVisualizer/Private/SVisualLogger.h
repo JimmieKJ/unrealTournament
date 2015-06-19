@@ -37,22 +37,30 @@ public:
 public:
 	class FVisualLoggerDevice : public FVisualLogDevice
 	{
+		friend class SVisualLogger;
 	public:
 		FVisualLoggerDevice(SVisualLogger* Owner);
 		virtual ~FVisualLoggerDevice();
-		virtual void Serialize(const class UObject* LogOwner, FName OwnerName, const FVisualLogEntry& LogEntry) override;
+		virtual void Serialize(const class UObject* LogOwner, FName OwnerName, FName OwnerClassName, const FVisualLogEntry& LogEntry) override;
 
 	protected:
+		void SerLastWorld(class UWorld* InWorld) { LastWorld = InWorld; }
+
 		SVisualLogger* Owner;
+		TWeakObjectPtr<class UWorld>	LastWorld;
 	};
 	friend class FVisualLogDevice;
 
 	TSharedRef<SDockTab> HandleTabManagerSpawnTab(const FSpawnTabArgs& Args, FName TabIdentifier) const;
+	void FillFileMenu(FMenuBuilder& MenuBuilder, const TSharedPtr<FTabManager> TabManager);
 	static void FillWindowMenu(FMenuBuilder& MenuBuilder, const TSharedPtr<FTabManager> TabManager);
+	void FillLoadPresetMenu(FMenuBuilder& Builder);
+
+	void GetTimelines(TArray<TSharedPtr<class STimeline> >&, bool bOnlySelectedOnes = false);
 
 	/** Callback for for when the owner tab's visual state is being persisted. */
 	void HandleMajorTabPersistVisualState();
-	void OnTabLosed();
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
 	void OnNewLogEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	void CollectNewCategories(const FVisualLogDevice::FVisualLogEntryItem& Entry);
@@ -60,6 +68,7 @@ public:
 	void OnFiltersChanged();
 	void OnObjectSelectionChanged(TSharedPtr<class STimeline> TimeLine);
 	void OnFiltersSearchChanged(const FText& Filter);
+	void OnLogLineSelectionChanged(TSharedPtr<struct FLogEntryItem> SelectedItem, int64 UserData, FName TagName);
 
 	bool HandleStartRecordingCommandCanExecute() const;
 	void HandleStartRecordingCommandExecute();
@@ -89,6 +98,15 @@ public:
 
 	TSharedPtr<SVisualLoggerFilters> GetVisualLoggerFilters() { return VisualLoggerFilters; }
 	void HandleTabManagerPersistLayout(const TSharedRef<FTabManager::FLayout>& LayoutToSave);
+
+	void SetFiltersPreset(const struct FFiltersPreset& Preset);
+	void OnNewWorld(UWorld* NewWorld);
+	void ResetData();
+
+protected:
+	void OnMoveCursorLeftCommand();
+	void OnMoveCursorRightCommand();
+
 protected:
 	// Holds the list of UI commands.
 	TSharedRef<FUICommandList> CommandList;
@@ -101,11 +119,16 @@ protected:
 
 	TWeakObjectPtr<class AVisualLoggerCameraController> CameraController;
 	TSharedPtr<struct FVisualLoggerCanvasRenderer> VisualLoggerCanvasRenderer;
-	TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface;
+
 	mutable TSharedPtr<SVisualLoggerFilters> VisualLoggerFilters;
 	mutable TSharedPtr<SVisualLoggerView> MainView;
 	mutable TSharedPtr<SVisualLoggerLogsList> LogsList;
 	mutable TSharedPtr<SVisualLoggerStatusView> StatusView;
+
+	bool bPausedLogger;
+	TArray<FVisualLogDevice::FVisualLogEntryItem> OnPauseCacheForEntries;
+
+	bool bGotHistogramData;
 
 	FDelegateHandle DrawOnCanvasDelegateHandle;
 };

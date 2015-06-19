@@ -14,36 +14,6 @@ class FRunnableThreadWinRT : public FRunnableThread
 	HANDLE Thread;
 
 	/**
-	 * The runnable object to execute on this thread
-	 */
-	FRunnable* Runnable;
-
-	/** 
-	 * Sync event to make sure that Init() has been completed before allowing the main thread to continue
-	 */
-	FEvent* ThreadInitSyncEvent;
-
-	/**
-	 * The priority to run the thread at
-	 */
-	EThreadPriority ThreadPriority;
-
-	/**
-	 * The Affinity to run the thread with
-	 */
-	uint64 ThreadAffintyMask;
-
-	/**
-	* ID set during thread creation
-	*/
-	uint32 ThreadID;
-
-	/**
-	 * Holds the name of the thread.
-	 */
-	FString ThreadName;
-
-	/**
 	 * Helper function to set thread names, visible by the debugger.
 	 * @param ThreadID		Thread ID for the thread who's name is going to be set
 	 * @param ThreadName	Name to set
@@ -126,11 +96,7 @@ class FRunnableThreadWinRT : public FRunnableThread
 
 public:
 	FRunnableThreadWinRT()
-		: Thread(NULL)
-		, Runnable(NULL)
-		, ThreadInitSyncEvent(NULL)
-		, ThreadPriority(TPri_Normal)
-		, ThreadID(NULL)
+		: Thread(nullptr)
 	{
 	}
 
@@ -141,7 +107,6 @@ public:
 		{
 			Kill(true);
 		}
-		FRunnableThread::GetThreadRegistry().Remove(ThreadID);
 	}
 	
 	virtual void SetThreadPriority(EThreadPriority NewPriority) override
@@ -224,10 +189,10 @@ protected:
 	{
 		check(InRunnable);
 		Runnable = InRunnable;
-		ThreadAffintyMask = InThreadAffinityMask;
+		ThreadAffinityMask = InThreadAffinityMask;
 
 		// Create a sync event to guarantee the Init() function is called first
-		ThreadInitSyncEvent	= FPlatformProcess::CreateSynchEvent(true);
+		ThreadInitSyncEvent	= FPlatformProcess::GetSynchEventFromPool(true);
 
 		// Create the new thread
 		Thread = ThreadEmulation::CreateThread(NULL,InStackSize,_ThreadProc,this,0,(::DWORD *)&ThreadID);
@@ -248,8 +213,8 @@ protected:
 		}
 
 		// Cleanup the sync event
-		delete ThreadInitSyncEvent;
-		ThreadInitSyncEvent = NULL;
+		FPlatformProcess::ReturnSynchEventToPool(ThreadInitSyncEvent);
+		ThreadInitSyncEvent = nullptr;
 		return Thread != NULL;
 	}
 };

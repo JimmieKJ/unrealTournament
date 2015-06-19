@@ -8,6 +8,7 @@ public class UE4GameTarget : TargetRules
 	public UE4GameTarget( TargetInfo Target )
 	{
 		Type = TargetType.Game;
+
 		// Output to Engine/Binaries/<PLATFORM> even if built as monolithic
 		bOutputToEngineBinaries = true;
 	}
@@ -29,46 +30,6 @@ public class UE4GameTarget : TargetRules
 		{
 			OutExtraModuleNames.Add("OnlineSubsystemNull");
 		}
-
-
-		if (UnrealBuildTool.UnrealBuildTool.BuildingRocket())
-		{
-			OutExtraModuleNames.Add("GameMenuBuilder");
-
-			if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
-			{
-				OutExtraModuleNames.Add("OnlineSubsystemNull");
-				OutExtraModuleNames.Add("OnlineSubsystemAmazon");
-				if (UEBuildConfiguration.bCompileSteamOSS == true)
-				{
-					OutExtraModuleNames.Add("OnlineSubsystemSteam");
-				}
-				OutExtraModuleNames.Add("OnlineSubsystemFacebook");
-			}
-			else if (Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
-			{
-				OutExtraModuleNames.Add("OnlineSubsystemNull");
-				if (UEBuildConfiguration.bCompileSteamOSS == true)
-				{
-					OutExtraModuleNames.Add("OnlineSubsystemSteam");
-				}
-			}
-			else if (Target.Platform == UnrealTargetPlatform.IOS)
-			{
-				OutExtraModuleNames.Add("OnlineSubsystemFacebook");
-				OutExtraModuleNames.Add("OnlineSubsystemIOS");
-				OutExtraModuleNames.Add("IOSAdvertising");
-			}
-			else if (Target.Platform == UnrealTargetPlatform.Android)
-			{
-				// @todo android: Add Android online subsystem
-				OutExtraModuleNames.Add("AndroidAdvertising");
-			}
-			else if (Target.Platform == UnrealTargetPlatform.HTML5)
-			{
-				OutExtraModuleNames.Add("OnlineSubsystemNull");
-			}
-		}
 	}
 
 	public override void SetupGlobalEnvironment(
@@ -77,24 +38,6 @@ public class UE4GameTarget : TargetRules
 		ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
 		)
 	{
-		if( UnrealBuildTool.UnrealBuildTool.BuildingRocket() )
-		{
-			UEBuildConfiguration.bCompileLeanAndMeanUE = true;
-
-			// Don't need editor or editor only data
-			UEBuildConfiguration.bBuildEditor = false;
-			UEBuildConfiguration.bBuildWithEditorOnlyData = false;
-
-			UEBuildConfiguration.bCompileAgainstEngine = true;
-
-			// no exports, so no need to verify that a .lib and .exp file was emitted by the linker.
-			OutLinkEnvironmentConfiguration.bHasExports = false;
-		}
-		else
-		{
-			// Tag it as a UE4Game build
-			OutCPPEnvironmentConfiguration.Definitions.Add("UE4GAME=1");
-		}
         if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
 			// to make World Explorers as small as possible we excluded some items from the engine.
@@ -108,6 +51,59 @@ public class UE4GameTarget : TargetRules
 			UEBuildConfiguration.bCompileForSize = true;*/
 		}
 	}
+
+	public override bool ShouldUseSharedBuildEnvironment(TargetInfo Target)
+	{
+		return true;
+	}
+
+	public override void GetModulesToPrecompile(TargetInfo Target, List<string> ModuleNames)
+	{
+		// Add all the precompiled modules for this target
+		ModuleNames.Add("Launch");
+		ModuleNames.Add("InputDevice");
+		ModuleNames.Add("GameMenuBuilder");
+		ModuleNames.Add("GameplayAbilities");
+		ModuleNames.Add("XmlParser");
+		ModuleNames.Add("UE4Game");
+		ModuleNames.Add("AITestSuite");
+		ModuleNames.Add("GameplayDebugger");
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			ModuleNames.Add("OnlineSubsystemNull");
+			ModuleNames.Add("OnlineSubsystemAmazon");
+			if (UEBuildConfiguration.bCompileSteamOSS == true)
+			{
+				ModuleNames.Add("OnlineSubsystemSteam");
+			}
+			ModuleNames.Add("OnlineSubsystemFacebook");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			ModuleNames.Add("OnlineSubsystemNull");
+			if (UEBuildConfiguration.bCompileSteamOSS == true)
+			{
+				ModuleNames.Add("OnlineSubsystemSteam");
+			}
+		}
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		{
+			ModuleNames.Add("OnlineSubsystemFacebook");
+			ModuleNames.Add("OnlineSubsystemIOS");
+			ModuleNames.Add("IOSAdvertising");
+			ModuleNames.Add("MetalRHI");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			// @todo android: Add Android online subsystem
+			ModuleNames.Add("AndroidAdvertising");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.HTML5)
+		{
+			ModuleNames.Add("OnlineSubsystemNull");
+		}
+	}
+
 	public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
     {
 		List<UnrealTargetPlatform> Platforms = null;
@@ -136,6 +132,27 @@ public class UE4GameTarget : TargetRules
     public override List<UnrealTargetConfiguration> GUBP_GetConfigs_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
     {
         return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Development, UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test };
+    }
+    public override List<UnrealTargetConfiguration> GUBP_GetConfigsForPrecompiledBuilds_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
+    {
+		List<UnrealTargetConfiguration> Platforms = new List<UnrealTargetConfiguration>();
+		if(HostPlatform == UnrealTargetPlatform.Mac)
+		{
+			if(Platform == UnrealTargetPlatform.Mac || Platform == UnrealTargetPlatform.IOS)
+			{
+				Platforms.Add(UnrealTargetConfiguration.Development);
+				Platforms.Add(UnrealTargetConfiguration.Shipping);
+			}
+		}
+		else if(HostPlatform == UnrealTargetPlatform.Win64)
+		{
+			if(Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64 || Platform == UnrealTargetPlatform.Android || Platform == UnrealTargetPlatform.HTML5)
+			{
+				Platforms.Add(UnrealTargetConfiguration.Development);
+				Platforms.Add(UnrealTargetConfiguration.Shipping);
+			}
+		}
+		return Platforms;
     }
 	public override bool GUBP_BuildWindowsXPMonolithics()
 	{

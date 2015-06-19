@@ -31,13 +31,13 @@ public:
 	}
 
 #if WITH_ENGINE
-	virtual void GetReflectionCaptureFormats( TArray<FName>& OutFormats ) const
+	virtual void GetReflectionCaptureFormats( TArray<FName>& OutFormats ) const override
 	{
 		OutFormats.Add(FName(TEXT("FullHDR")));
 	}
 
 #ifdef TEXTURERESOURCE_H_INCLUDED // defined in TextureResource.h, this way we know if UTexture is available, needed for Clang
-	FName GetDefaultTextureFormatName( const UTexture* Texture, const FConfigFile& EngineSettings ) const
+	FName GetDefaultTextureFormatName( const UTexture* Texture, const FConfigFile& EngineSettings, bool bSupportDX11TextureFormats ) const
 	{
 		FName TextureFormatName = NAME_None;
 
@@ -155,13 +155,27 @@ public:
 		{
 				TextureFormatName = NameBGRA8;
 		}
+
+		// fallback to non-DX11 formats if one was chosen, but we can't use it
+		if (!bSupportDX11TextureFormats)
+		{
+			if (TextureFormatName == NameBC6H)
+			{
+				TextureFormatName = NameRGBA16F;
+			}
+			else if (TextureFormatName == NameBC7)
+			{
+				TextureFormatName = NameAutoDXT;
+			}
+		}
+
 #endif //WITH_EDITOR
 
 		return TextureFormatName;
 	}
 #else //TEXTURERESOURCE_H_INCLUDED
 
-	FName GetDefaultTextureFormatName( const UTexture* Texture, const FConfigFile& EngineSettings ) const
+	FName GetDefaultTextureFormatName( const UTexture* Texture, const FConfigFile& EngineSettings, bool bSupportDX11TextureFormats ) const
 	{
 		return NAME_None;
 	}
@@ -212,6 +226,11 @@ public:
 	virtual bool SendLowerCaseFilePaths() const override
 	{
 		return false;
+	}
+
+	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const override
+	{
+		// do nothing in the base class
 	}
 
 protected:
@@ -333,15 +352,17 @@ public:
 
 		case ETargetPlatformFeatures::VertexShaderTextureSampling:
 			return TPlatformProperties::SupportsVertexShaderTextureSampling();
+
+		case ETargetPlatformFeatures::SdkConnectDisconnect:
+		case ETargetPlatformFeatures::UserCredentials:
+			break;
+		case ETargetPlatformFeatures::ShouldUseCompressedCookedPackages:
+			return false;
 		}
 
 		return false;
 	}
 	
-	virtual uint32 MaxGpuSkinBones() const override
-	{
-		return TPlatformProperties::MaxGpuSkinBones();
-	}
 
 #if WITH_ENGINE
 	virtual FName GetPhysicsFormat( class UBodySetup* Body ) const override

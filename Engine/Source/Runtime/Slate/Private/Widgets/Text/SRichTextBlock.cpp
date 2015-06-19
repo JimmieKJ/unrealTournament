@@ -4,8 +4,6 @@
 
 #if WITH_FANCY_TEXT
 
-DECLARE_CYCLE_STAT( TEXT("OnPaint SRichTextBlock"), STAT_SlateOnPaint_SRichTextBlock, STATGROUP_Slate );
-
 #include "TextLayoutEngine.h"
 #include "TextBlockLayout.h"
 #include "IRichTextMarkupParser.h"
@@ -43,15 +41,13 @@ void SRichTextBlock::Construct( const FArguments& InArgs )
 
 int32 SRichTextBlock::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	SCOPE_CYCLE_COUNTER( STAT_SlateOnPaint_SRichTextBlock );
-
 	// OnPaint will also update the text layout cache if required
 	LayerId = TextLayoutCache->OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
 
 	return LayerId;
 }
 
-FVector2D SRichTextBlock::ComputeDesiredSize() const
+FVector2D SRichTextBlock::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
 	// todo: jdale - The scale needs to be passed to ComputeDesiredSize
 	//const float Scale = CachedScale;
@@ -59,7 +55,7 @@ FVector2D SRichTextBlock::ComputeDesiredSize() const
 	// ComputeDesiredSize will also update the text layout cache if required
 	const FVector2D TextSize = TextLayoutCache->ComputeDesiredSize(
 		FTextBlockLayout::FWidgetArgs(BoundText, HighlightText, WrapTextAt, AutoWrapText, Margin, LineHeightPercentage, Justification), 
-		/*Scale, */TextStyle
+		LayoutScaleMultiplier, TextStyle
 		);
 
 	return TextSize;

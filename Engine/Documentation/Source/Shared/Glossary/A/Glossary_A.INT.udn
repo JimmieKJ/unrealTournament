@@ -10,9 +10,14 @@ Availability:Public
 Actor
 	[/PARAM]
 	[PARAM:Definition]
+<!--
+**Actors** are the most important concept in Unreal Engine 4. Your game will be filled with them, as every interactive entity in your game is an Actor. They usually contain one or more components, can be placed in a **Level** or **Spawned** in during gameplay, and support network replication for multiplayer games.
+-->
 
 [EXCERPT:Glossary_Actor]
-An **Actor** is any object that can be placed into a level. Technically, a generic class that contains 3D transform data such as translation, rotation, and scale. All placeable objects extend from this class. Examples include Static Mesh Actors, Camera Actors, and Light Actors.
+An **Actor** is any object that can be placed into a level. Actors are a generic Class that supports 3D transformations such as translation, rotation, and scale. Actors can be created (spawned) and destroyed through gameplay code (C++ or Blueprints). In C++, `AActor` is the base class of all Actors. 
+
+There are several different types of Actors, some examples include: StaticMeshActor, CameraActor, and PlayerStartActor. 
 [/EXCERPT:Glossary_Actor]
 
 	[/PARAM]
@@ -28,6 +33,19 @@ AI
 [EXCERPT:Glossary_AI]
 **AI**, or Artificial intelligence, is behavior controlled by a set of programmed instructions, instead of by human input.  For example, non-player characters (NPCs) are controlled with AI.
 [/EXCERPT:Glossary_AI]
+
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+AIController
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_AIController]
+Just as the PlayerController possesses a Pawn as a representation of the player in a game, an **AIController** possesses a Pawn to represent a non-player character (NPC) in a game. By default, Pawns and Characters will end up with a base AIController unless they are specifically possessed by a PlayerController or told not to create an AIController for themselves.
+[/EXCERPT:Glossary_AIController]
 
 	[/PARAM]
 [/OBJECT]

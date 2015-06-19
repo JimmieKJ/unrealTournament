@@ -25,8 +25,8 @@ public:
 
 protected:
 	/** FTickableEditorObject interface */
-	virtual void Tick(float DeltaTime);
-	virtual bool IsTickable() const
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override
 	{
 		return true;
 	}

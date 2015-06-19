@@ -154,7 +154,7 @@ bool FUdpMessageTunnelConnection::ReceivePayloads()
 		int32 BytesRead = 0;
 			
 		FArrayReader PayloadSizeData = FArrayReader(true);
-		PayloadSizeData.Init(sizeof(uint16));
+		PayloadSizeData.SetNumUninitialized(sizeof(uint16));
 			
 		// ... read it from the stream without removing it...
 		if (!Socket->Recv(PayloadSizeData.GetData(), sizeof(uint16), BytesRead, ESocketReceiveFlags::Peek))
@@ -181,7 +181,7 @@ bool FUdpMessageTunnelConnection::ReceivePayloads()
 
 			// ... receive the payload
 			FArrayReaderPtr Payload = MakeShareable(new FArrayReader(true));
-			Payload->Init(PayloadSize);
+			Payload->SetNumUninitialized(PayloadSize);
 
 			if (!Socket->Recv(Payload->GetData(), Payload->Num(), BytesRead))
 			{

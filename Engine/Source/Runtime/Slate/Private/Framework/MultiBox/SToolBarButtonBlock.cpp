@@ -109,7 +109,7 @@ void SToolBarButtonBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, con
 		{
 			TSharedPtr<const FUICommandInfo> CommandPtr = Command.Pin();
 
-			if( CommandPtr.IsValid() && CommandPtr->GetActiveGesture()->IsValidGesture() )
+			if( CommandPtr.IsValid() && CommandPtr->GetActiveChord()->IsValidChord() )
 			{
 				FFormatNamedArguments Args;
 				Args.Add( TEXT("ToolTipDescription"), ToolTip.Get() );

@@ -2,9 +2,8 @@
 
 #include "BlueprintEditorPrivatePCH.h"
 #include "SBlueprintLibraryPalette.h"
-#include "Editor/ClassViewer/Public/ClassViewerModule.h" // for FClassViewerInitializationOptions
-#include "Editor/ClassViewer/Public/ClassViewerFilter.h" // for FClassViewerFilterFuncs
-#include "K2ActionMenuBuilder.h"
+#include "ClassViewerModule.h" // for FClassViewerInitializationOptions
+#include "ClassViewerFilter.h" // for FClassViewerFilterFuncs
 #include "BlueprintPaletteFavorites.h"
 #include "BlueprintActionFilter.h"
 #include "BlueprintActionMenuBuilder.h"
@@ -33,13 +32,13 @@ struct SBlueprintLibraryPaletteUtils
 	 */
 	static void AddSelectedToFavorites(FPaletteActionGetter ActionGetter)
 	{
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (ActionGetter.IsBound() && (EditorUserSettings.BlueprintFavorites != NULL))
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (ActionGetter.IsBound() && (EditorPerProjectUserSettings->BlueprintFavorites != NULL))
 		{
 			TArray< TSharedPtr<FEdGraphSchemaAction> > SelectedActions;
 			ActionGetter.Execute(SelectedActions);
 
-			EditorUserSettings.BlueprintFavorites->AddFavorites(SelectedActions);
+			EditorPerProjectUserSettings->BlueprintFavorites->AddFavorites(SelectedActions);
 		}
 	}
 
@@ -51,13 +50,13 @@ struct SBlueprintLibraryPaletteUtils
 	 */
 	static void RemoveSelectedFavorites(FPaletteActionGetter ActionGetter)
 	{
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (ActionGetter.IsBound() && (EditorUserSettings.BlueprintFavorites != NULL))
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (ActionGetter.IsBound() && (EditorPerProjectUserSettings->BlueprintFavorites != NULL))
 		{
 			TArray< TSharedPtr<FEdGraphSchemaAction> > SelectedActions;
 			ActionGetter.Execute(SelectedActions);
 
-			EditorUserSettings.BlueprintFavorites->RemoveFavorites(SelectedActions);
+			EditorPerProjectUserSettings->BlueprintFavorites->RemoveFavorites(SelectedActions);
 		}
 	}
 
@@ -73,15 +72,15 @@ struct SBlueprintLibraryPaletteUtils
 	{
 		bool bCanAnyBeFavorited = false;
 
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (ActionGetter.IsBound() && (EditorUserSettings.BlueprintFavorites != NULL))
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (ActionGetter.IsBound() && (EditorPerProjectUserSettings->BlueprintFavorites != NULL))
 		{
 			TArray< TSharedPtr<FEdGraphSchemaAction> > SelectedActions;
 			ActionGetter.Execute(SelectedActions);
 
 			for (TSharedPtr<FEdGraphSchemaAction> Action : SelectedActions)
 			{
-				if (EditorUserSettings.BlueprintFavorites->CanBeFavorited(Action) && !EditorUserSettings.BlueprintFavorites->IsFavorited(Action))
+				if (EditorPerProjectUserSettings->BlueprintFavorites->CanBeFavorited(Action) && !EditorPerProjectUserSettings->BlueprintFavorites->IsFavorited(Action))
 				{
 					bCanAnyBeFavorited = true;
 					break;
@@ -103,15 +102,15 @@ struct SBlueprintLibraryPaletteUtils
 	{
 		bool bCanAnyBeRemoved = false;
 
-		UEditorUserSettings const& EditorUserSettings = GEditor->AccessEditorUserSettings();
-		if (ActionGetter.IsBound() && (EditorUserSettings.BlueprintFavorites != NULL))
+		const UEditorPerProjectUserSettings* EditorPerProjectUserSettings = GetDefault<UEditorPerProjectUserSettings>();
+		if (ActionGetter.IsBound() && (EditorPerProjectUserSettings->BlueprintFavorites != NULL))
 		{
 			TArray< TSharedPtr<FEdGraphSchemaAction> > SelectedActions;
 			ActionGetter.Execute(SelectedActions);
 
 			for (TSharedPtr<FEdGraphSchemaAction> Action : SelectedActions)
 			{
-				if (EditorUserSettings.BlueprintFavorites->IsFavorited(Action))
+				if (EditorPerProjectUserSettings->BlueprintFavorites->IsFavorited(Action))
 				{
 					bCanAnyBeRemoved = true;
 					break;
@@ -151,10 +150,10 @@ public:
 	/** Registers context menu commands for the blueprint library palette. */
 	virtual void RegisterCommands() override
 	{
-		UI_COMMAND(AddSingleFavorite,    "Add to Favorites",               "Adds this item to your favorites list.",                      EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(AddSubFavorites,      "Add Category to Favorites",      "Adds all the nodes in this category to your favorites.",      EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(RemoveSingleFavorite, "Remove from Favorites",          "Removes this item from your favorites list.",                 EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(RemoveSubFavorites,   "Remove Category from Favorites", "Removes all the nodes in this category from your favorites.", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(AddSingleFavorite,    "Add to Favorites",               "Adds this item to your favorites list.",                      EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(AddSubFavorites,      "Add Category to Favorites",      "Adds all the nodes in this category to your favorites.",      EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(RemoveSingleFavorite, "Remove from Favorites",          "Removes this item from your favorites list.",                 EUserInterfaceActionType::Button, FInputChord());
+		UI_COMMAND(RemoveSubFavorites,   "Remove Category from Favorites", "Removes all the nodes in this category from your favorites.", EUserInterfaceActionType::Button, FInputChord());
 	}
 };
 /*******************************************************************************

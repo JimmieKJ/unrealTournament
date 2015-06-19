@@ -483,17 +483,18 @@ static int RenderString (GLuint tex_idx)
 		// store rendered text as texture
 		glBindTexture(GL_TEXTURE_2D, tex_idx);
 		
+		bool bIsBGR = GSplashScreenImage->format->Rmask > GSplashScreenImage->format->Bmask;
 		if (SplashBPP == 3)
 		{
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
 				GSplashScreenImage->w, GSplashScreenImage->h,
-				0, GL_RGB, GL_UNSIGNED_BYTE, ScratchSpace);
+				0, bIsBGR ? GL_BGR : GL_RGB, GL_UNSIGNED_BYTE, ScratchSpace);
 		}
 		else
 		{
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
 				GSplashScreenImage->w, GSplashScreenImage->h,
-				0, GL_RGBA, GL_UNSIGNED_BYTE, ScratchSpace);			
+				0, bIsBGR ? GL_BGRA : GL_RGBA, GL_UNSIGNED_BYTE, ScratchSpace);			
 		}
 	}
 
@@ -654,17 +655,18 @@ static int StartSplashScreenThread(void *ptr)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	// load splash image as texture in opengl
+	bool bIsBGR = GSplashScreenImage->format->Rmask > GSplashScreenImage->format->Bmask;
 	if (GSplashScreenImage->format->BytesPerPixel == 3)
 	{
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
 			GSplashScreenImage->w, GSplashScreenImage->h,
-			0, GL_RGB, GL_UNSIGNED_BYTE, GSplashScreenImage->pixels);
+			0, bIsBGR ? GL_BGR : GL_RGB, GL_UNSIGNED_BYTE, GSplashScreenImage->pixels);
 	}
 	else if (GSplashScreenImage->format->BytesPerPixel == 4)
 	{
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
 			GSplashScreenImage->w, GSplashScreenImage->h,
-			0, GL_RGBA, GL_UNSIGNED_BYTE, GSplashScreenImage->pixels);		
+			0, bIsBGR ? GL_BGRA : GL_RGBA, GL_UNSIGNED_BYTE, GSplashScreenImage->pixels);		
 	}
 	else
 	{
@@ -904,7 +906,6 @@ void FLinuxPlatformSplash::Show( )
 
 		// Set version info
 		{
-			const FText GameName = FText::FromString( FApp::GetGameName() );
 			const FText Version = FText::FromString( GEngineVersion.ToString( FEngineBuildSettings::IsPerforceBuild() ? EVersionComponent::Branch : EVersionComponent::Patch ) );
 
 			FText VersionInfo;

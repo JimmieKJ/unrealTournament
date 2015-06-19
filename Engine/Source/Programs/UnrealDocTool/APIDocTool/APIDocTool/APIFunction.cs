@@ -382,7 +382,7 @@ namespace APIDocTool
 			ParseSeeAlso(Node, SeeAlso);
 
 			string RealKeyName = (Entity.Parent != null) ? (Entity.Parent.Name + "::" + Entity.Name) : Entity.Name;
-			SnippetText = APISnippets.LoadSnippetTextForFunction(RealKeyName);
+			SnippetText = APISnippets.LoadSnippetTextForSymbol(RealKeyName);
 
 			// Get the modifiers
 			IsVirtual = Node.Attributes.GetNamedItem("virt").InnerText == "virtual";

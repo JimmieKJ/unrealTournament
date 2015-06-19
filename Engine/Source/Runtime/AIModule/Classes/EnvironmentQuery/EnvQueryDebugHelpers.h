@@ -75,7 +75,7 @@ namespace EQSDebug
 	};
 }
 
-FORCEINLINE
+inline
 FArchive& operator<<(FArchive& Ar, FDebugRenderSceneProxy::FSphere& Data)
 {
 	Ar << Data.Radius;
@@ -84,7 +84,7 @@ FArchive& operator<<(FArchive& Ar, FDebugRenderSceneProxy::FSphere& Data)
 	return Ar;
 }
 
-FORCEINLINE
+inline
 FArchive& operator<<(FArchive& Ar, FDebugRenderSceneProxy::FText3d& Data)
 {
 	Ar << Data.Text;
@@ -93,7 +93,7 @@ FArchive& operator<<(FArchive& Ar, FDebugRenderSceneProxy::FText3d& Data)
 	return Ar;
 }
 
-FORCEINLINE
+inline
 FArchive& operator<<(FArchive& Ar, EQSDebug::FItemData& Data)
 {
 	Ar << Data.Desc;
@@ -104,7 +104,7 @@ FArchive& operator<<(FArchive& Ar, EQSDebug::FItemData& Data)
 	return Ar;
 }
 
-FORCEINLINE
+inline
 FArchive& operator<<(FArchive& Ar, EQSDebug::FTestData& Data)
 {
 	Ar << Data.ShortName;
@@ -112,7 +112,7 @@ FArchive& operator<<(FArchive& Ar, EQSDebug::FTestData& Data)
 	return Ar;
 }
 
-FORCEINLINE
+inline
 FArchive& operator<<(FArchive& Ar, EQSDebug::FDebugHelper& Data)
 {
 	Ar << Data.Location;
@@ -122,7 +122,7 @@ FArchive& operator<<(FArchive& Ar, EQSDebug::FDebugHelper& Data)
 	return Ar;
 }
 
-FORCEINLINE
+inline
 FArchive& operator<<(FArchive& Ar, EQSDebug::FQueryData& Data)
 {
 	Ar << Data.Items;
@@ -167,11 +167,11 @@ private:
 };
 
 #if ENABLE_VISUAL_LOG && USE_EQS_DEBUGGER
-FORCEINLINE void UEnvQueryDebugHelpers::LogQuery(FEnvQueryInstance& Query, const FLogCategoryBase& Category, ELogVerbosity::Type Verbosity)
+inline void UEnvQueryDebugHelpers::LogQuery(FEnvQueryInstance& Query, const FLogCategoryBase& Category, ELogVerbosity::Type Verbosity)
 {
-	UWorld *World = NULL;
-	FVisualLogEntry *CurrentEntry = NULL;
-	if (CheckVisualLogInputInternal(Query.Owner.Get(), Category, Verbosity, &World, &CurrentEntry) == false)
+	UWorld *World = nullptr;
+	FVisualLogEntry *CurrentEntry = nullptr;
+	if (FVisualLogger::CheckVisualLogInputInternal(Query.Owner.Get(), Category, Verbosity, &World, &CurrentEntry) == false)
 	{
 		return;
 	}

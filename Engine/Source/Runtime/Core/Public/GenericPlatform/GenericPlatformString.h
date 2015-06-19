@@ -1,18 +1,14 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-/*=============================================================================================
-	GenericPlatformString.h: Generic platform string classes, mostly implemented with ANSI C++
-==============================================================================================*/
-
 #pragma once
+
 #include "HAL/Platform.h"
 #include "Templates/EnableIf.h"
 
+
 /**
  * Generic string implementation for most platforms
- *
- **/
+ */
 struct FGenericPlatformString
 {
 	/**
@@ -166,7 +162,6 @@ struct FGenericPlatformString
 		return Dest;
 	}
 
-
 	/**
 	 * Returns the required buffer length for the [Src, Src+SrcSize) string when converted to the DestChar encoding.
 	 * The Src range should contain a null terminator if a null terminator is required in the output.
@@ -203,6 +198,7 @@ private:
 	template <typename DestEncoding, typename SourceEncoding>
 	static CORE_API void LogBogusChars(const SourceEncoding* Src, int32 SrcSize);
 };
+
 
 /**
  * Specialization of IsValidChar for ANSICHARs.

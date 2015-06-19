@@ -9,7 +9,9 @@ namespace EPartyReservationResult
 {
 	enum Type
 	{
-		// Pending request due to async operation
+		// Empty state
+		NoResult,
+		// Pending request due to async operation, server will contact client shortly
 		RequestPending,
 		// An unknown error happened
 		GeneralError,
@@ -41,52 +43,83 @@ namespace EPartyReservationResult
 	{
 		switch (SessionType)
 		{
-		case RequestPending:
+			case NoResult:
+			{
+				return TEXT("No outstanding request");
+			}
+			case RequestPending:
 			{
 				return TEXT("Pending Request");
 			}
-		case GeneralError:
+			case GeneralError:
 			{
 				return TEXT("General Error");
 			}
-		case PartyLimitReached:
+			case PartyLimitReached:
 			{
 				return TEXT("Party Limit Reached");
 			}
-		case IncorrectPlayerCount:
+			case IncorrectPlayerCount:
 			{
 				return TEXT("Incorrect Player Count");
 			}
-		case RequestTimedOut:
+			case RequestTimedOut:
 			{
 				return TEXT("Request Timed Out");
 			}
-		case ReservationDuplicate:
+			case ReservationDuplicate:
 			{
 				return TEXT("Reservation Duplicate");
 			}
-		case ReservationNotFound:
+			case ReservationNotFound:
 			{
 				return TEXT("Reservation Not Found");
 			}
-		case ReservationAccepted:
+			case ReservationAccepted:
 			{
 				return TEXT("Reservation Accepted");
 			}
-		case ReservationDenied:
+			case ReservationDenied:
 			{
 				return TEXT("Reservation Denied");
 			}
-		case ReservationDenied_Banned:
+			case ReservationDenied_Banned:
 			{
 				return TEXT("Reservation Banned");
 			}
-		case ReservationRequestCanceled:
+			case ReservationRequestCanceled:
 			{
 				return TEXT("Request Canceled");
 			}
 		}
 		return TEXT("");
+	}
+
+	inline FText GetDisplayString(EPartyReservationResult::Type Response)
+	{
+		switch (Response)
+		{
+		case EPartyReservationResult::IncorrectPlayerCount:
+		case EPartyReservationResult::PartyLimitReached:
+			return NSLOCTEXT("EPartyReservationResult", "FullGame", "Game full");
+		case EPartyReservationResult::RequestTimedOut:
+			return NSLOCTEXT("EPartyReservationResult", "NoResponse", "No response");
+		case EPartyReservationResult::ReservationDenied:
+			return NSLOCTEXT("EPartyReservationResult", "DeniedResponse", "Not accepting connections");
+		case EPartyReservationResult::ReservationDenied_Banned:
+			return NSLOCTEXT("EPartyReservationResult", "BannedResponse", "Player Banned");
+		case EPartyReservationResult::GeneralError:
+			return NSLOCTEXT("EPartyReservationResult", "GeneralError", "Unknown Error");
+		case EPartyReservationResult::ReservationNotFound:
+			return NSLOCTEXT("EPartyReservationResult", "ReservationNotFound", "No Reservation");
+		case EPartyReservationResult::ReservationAccepted:
+			return NSLOCTEXT("EPartyReservationResult", "Accepted", "Accepted");
+		case EPartyReservationResult::ReservationDuplicate:
+			return NSLOCTEXT("EPartyReservationResult", "DuplicateReservation", "Duplicate reservation detected");
+		case EPartyReservationResult::NoResult:
+		default:
+			return FText::GetEmpty();
+		}
 	}
 }
 
@@ -117,7 +150,7 @@ struct FPlayerReservation
 
 /** A whole party reservation */
 USTRUCT()
-struct FPartyReservation
+struct ONLINESUBSYSTEMUTILS_API FPartyReservation
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -132,6 +165,9 @@ struct FPartyReservation
 	/** All party members (including party leader) in the reservation */
 	UPROPERTY(Transient)
 	TArray<FPlayerReservation> PartyMembers;
+
+	/** Is this data well formed */
+	bool IsValid() const;
 };
 
 /**
@@ -273,6 +309,14 @@ class ONLINESUBSYSTEMUTILS_API UPartyBeaconState : public UObject
 	 * @return The number of player per team
 	 */
 	virtual int32 GetMaxPlayersPerTeam() const { return NumPlayersPerTeam; }
+
+	/**
+	 * Determine the maximum team size that can be accommodated based
+	 * on the current reservation slots occupied.
+	 *
+	 * @return maximum team size that is currently available
+	 */
+	virtual int32 GetMaxAvailableTeamSize() const;
 
 	/**
 	 * Get the number of current players on a given team.

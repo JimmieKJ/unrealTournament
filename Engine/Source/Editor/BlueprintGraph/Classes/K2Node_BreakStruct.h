@@ -10,8 +10,21 @@ class UK2Node_BreakStruct : public UK2Node_StructMemberGet
 {
 	GENERATED_UCLASS_BODY()
 
-	static bool CanBeBroken(const UScriptStruct* Struct);
-	static bool CanCreatePinForProperty(const UProperty* Property);
+	/** 
+	 * Returns false if:
+	 *   1. The Struct has a 'native break' method
+	 * Returns true if:
+	 *   1. The Struct is tagged as BlueprintType
+	 *   or
+	 *   2. The Struct has any property that is tagged as CPF_BlueprintVisible
+	 *   or
+	 *   3. The Struct has any property that is tagged as CPF_Edit and bIncludeEditAnywhere is true
+	 *
+	 * When constructing the context menu we do not allow the presence of the EditAnywhere flag to result in
+	 * a creation of a break node, although we could do so in the future. There are legacy break nodes that
+	 * rely on expansion of structs that neither have BlueprintVisible properties nor are tagged as BlueprintType
+	 */
+	static bool CanBeBroken(const UScriptStruct* Struct, bool bIncludeEditAnywhere = true);
 
 	// Begin UEdGraphNode interface
 	virtual void AllocateDefaultPins() override;

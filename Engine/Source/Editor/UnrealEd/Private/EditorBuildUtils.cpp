@@ -184,14 +184,14 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 	if ( Id == EBuildOptions::BuildLighting )
 	{
 		// Retrieve settings from ini.
-		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"),		LightingBuildOptions.bOnlyBuildSelected,			GEditorUserSettingsIni );
-		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"),	LightingBuildOptions.bOnlyBuildCurrentLevel,		GEditorUserSettingsIni );
-		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"),LightingBuildOptions.bOnlyBuildSelectedLevels,	GEditorUserSettingsIni );
-		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"),	LightingBuildOptions.bOnlyBuildVisibility,		GEditorUserSettingsIni );
-		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"),		LightingBuildOptions.bUseErrorColoring,			GEditorUserSettingsIni );
-		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"),	LightingBuildOptions.bShowLightingBuildInfo,		GEditorUserSettingsIni );
+		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"),		LightingBuildOptions.bOnlyBuildSelected,			GEditorPerProjectIni );
+		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"),	LightingBuildOptions.bOnlyBuildCurrentLevel,		GEditorPerProjectIni );
+		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"),LightingBuildOptions.bOnlyBuildSelectedLevels,	GEditorPerProjectIni );
+		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"),	LightingBuildOptions.bOnlyBuildVisibility,		GEditorPerProjectIni );
+		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"),		LightingBuildOptions.bUseErrorColoring,			GEditorPerProjectIni );
+		GConfig->GetBool( TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"),	LightingBuildOptions.bShowLightingBuildInfo,		GEditorPerProjectIni );
 		int32 QualityLevel;
-		GConfig->GetInt(  TEXT("LightingBuildOptions"), TEXT("QualityLevel"),			QualityLevel,						GEditorUserSettingsIni );
+		GConfig->GetInt(  TEXT("LightingBuildOptions"), TEXT("QualityLevel"),			QualityLevel,						GEditorPerProjectIni );
 		QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
 		LightingBuildOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
 	}
@@ -213,6 +213,9 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 	case EBuildOptions::BuildAIPaths:
 	case EBuildOptions::BuildSelectedAIPaths:
 		BuildType = SBuildProgressWidget::BUILDTYPE_Paths;
+		break;
+	case EBuildOptions::BuildHierarchicalLOD:
+		BuildType = SBuildProgressWidget::BUILDTYPE_LODs;
 		break;
 	default:
 		BuildType = SBuildProgressWidget::BUILDTYPE_Unknown;	
@@ -269,6 +272,10 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 				// We can't set the busy cursor for all windows, because lighting
 				// needs a cursor for the lighting options dialog.
 				const FScopedBusyCursor BusyCursor;
+
+				// BSP export to lightmass relies on current BSP state
+				GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
+
 				GUnrealEd->BuildLighting( LightingBuildOptions );
 				bShouldMapCheck = false;
 			}
@@ -292,6 +299,23 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 			break;
 		}
 
+	case EBuildOptions::BuildHierarchicalLOD:
+		{
+			bDoBuild = GEditor->WarnAboutHiddenLevels( InWorld, false );
+			if ( bDoBuild )
+			{
+				GEditor->ResetTransaction( NSLOCTEXT("UnrealEd", "RebuildLOD", "Rebuilding HierarchicalLOD") );
+
+				// We can't set the busy cursor for all windows, because lighting
+				// needs a cursor for the lighting options dialog.
+				const FScopedBusyCursor BusyCursor;
+
+				TriggerHierarchicalLODBuilder(InWorld, Id);
+			}
+
+			break;
+		}
+
 	case EBuildOptions::BuildAll:
 	case EBuildOptions::BuildAllSubmit:
 		{
@@ -304,6 +328,11 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 				const FScopedBusyCursor BusyCursor;
 
 				GUnrealEd->Exec( InWorld, TEXT("MAP REBUILD ALLVISIBLE") );
+
+ 				{
+ 					BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_LODs);
+					TriggerHierarchicalLODBuilder(InWorld, Id);
+ 				}
 
 				{
 					BuildProgressWidget.Pin()->SetBuildType(SBuildProgressWidget::BUILDTYPE_Paths);
@@ -330,7 +359,7 @@ bool FEditorBuildUtils::EditorBuild( UWorld* InWorld, EBuildOptions::Type Id, co
 					}
 					else
 					{
-						GConfig->GetInt( TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorUserSettingsIni);
+						GConfig->GetInt( TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorPerProjectIni);
 						QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
 					}
 					LightingOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
@@ -770,4 +799,9 @@ void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, EBuildOptions:
 	}
 }
 
+void FEditorBuildUtils::TriggerHierarchicalLODBuilder(UWorld* InWorld, EBuildOptions::Type Id)
+{
+	// Invoke HLOD generator
+	InWorld->HierarchicalLODBuilder.Build();
+}
 #undef LOCTEXT_NAMESPACE

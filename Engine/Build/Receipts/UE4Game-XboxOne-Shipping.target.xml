@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="UE4Game" />
+    <Property Name="Platform" Value="XboxOne" />
+    <Property Name="Configuration" Value="Shipping" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\XboxOne\UE4Game-XboxOne-Shipping.exe" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Binaries\XboxOne\UE4Game-XboxOne-Shipping.pdb" Type="SymbolFile" />
+    <BuildProduct Path="$(EngineDir)\Plugins\2D\Paper2D\Binaries\XboxOne\UE4Game-Paper2D-XboxOne-Shipping.lib" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\CharacterAI\Binaries\XboxOne\UE4Game-CharacterAI-XboxOne-Shipping.lib" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Messaging\UdpMessaging\Binaries\XboxOne\UE4Game-UdpMessaging-XboxOne-Shipping.lib" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CableComponent\Binaries\XboxOne\UE4Game-CableComponent-XboxOne-Shipping.lib" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CustomMeshComponent\Binaries\XboxOne\UE4Game-CustomMeshComponent-XboxOne-Shipping.lib" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\ExampleDeviceProfileSelector\Binaries\XboxOne\UE4Game-ExampleDeviceProfileSelector-XboxOne-Shipping.lib" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\XboxOne\XboxOneMoviePlayer\Binaries\XboxOne\UE4Game-XboxOneMoviePlayer-XboxOne-Shipping.lib" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Slate\SlateRemote\Binaries\XboxOne\UE4Game-SlateRemote-XboxOne-Shipping.lib" Type="StaticLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+</BuildReceipt>

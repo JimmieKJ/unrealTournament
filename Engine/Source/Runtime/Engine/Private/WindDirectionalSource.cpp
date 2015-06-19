@@ -7,11 +7,11 @@
 AWindDirectionalSource::AWindDirectionalSource(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Component = ObjectInitializer.CreateDefaultSubobject<UWindDirectionalSourceComponent>(this, TEXT("WindDirectionalSourceComponent0"));
+	Component = CreateDefaultSubobject<UWindDirectionalSourceComponent>(TEXT("WindDirectionalSourceComponent0"));
 	RootComponent = Component;
 
 #if WITH_EDITORONLY_DATA
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ArrowComponent0"));
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent0"));
 
 	if (!IsRunningCommandlet())
 	{
@@ -53,8 +53,32 @@ AWindDirectionalSource::AWindDirectionalSource(const FObjectInitializer& ObjectI
 #endif // WITH_EDITORONLY_DATA
 }
 
+void FWindSourceSceneProxy::FWindData::PrepareForAccumulate()
+{
+	FMemory::Memset(this, 0, sizeof(FWindData));
+}
 
-bool FWindSourceSceneProxy::GetWindParameters(const FVector& EvaluatePosition, FVector4& WindDirectionAndSpeed, float& Weight) const 
+void FWindSourceSceneProxy::FWindData::AddWeighted(const FWindData& InWindData, float Weight)
+{	
+	Speed += InWindData.Speed * Weight;
+	MinGustAmt += InWindData.MinGustAmt * Weight;
+	MaxGustAmt += InWindData.MaxGustAmt * Weight;
+	Direction += InWindData.Direction * Weight;
+}
+
+void FWindSourceSceneProxy::FWindData::NormalizeByTotalWeight(float TotalWeight)
+{
+	if (TotalWeight > 0.0f)
+	{
+		Speed /= TotalWeight;
+		MinGustAmt /= TotalWeight;
+		MaxGustAmt /= TotalWeight;
+		Direction /= TotalWeight;
+		Direction.Normalize();
+	}
+}
+
+bool FWindSourceSceneProxy::GetWindParameters(const FVector& EvaluatePosition, FWindData& WindData, float& Weight) const
 { 
 	if (bIsPointSource)
 	{
@@ -63,31 +87,43 @@ bool FWindSourceSceneProxy::GetWindParameters(const FVector& EvaluatePosition, F
 		{
 			// Mimic Engine point light attenuation with a FalloffExponent of 1
 			const float RadialFalloff = FMath::Max(1.0f - ((EvaluatePosition - Position) / Radius).SizeSquared(), 0.0f);
-			WindDirectionAndSpeed = FVector4((EvaluatePosition - Position) / Distance * Strength * RadialFalloff, Speed); 
+			//WindDirectionAndSpeed = FVector4((EvaluatePosition - Position) / Distance * Strength * RadialFalloff, Speed); 
+
+			WindData.Direction = (EvaluatePosition - Position) / Distance;
+			WindData.Speed = Speed * RadialFalloff;
+			WindData.MinGustAmt = MinGustAmt * RadialFalloff;
+			WindData.MaxGustAmt = MaxGustAmt * RadialFalloff;
+
 			Weight = Distance / Radius * Strength;
 			return true;
 		}
 		Weight = 0.f;
-		WindDirectionAndSpeed = FVector4(0,0,0,0);
+		WindData = FWindData();
 		return false;
 	}
 
-	Weight = Strength;
-	WindDirectionAndSpeed = FVector4(Direction * Strength, Speed); 
+	Weight				= Strength;
+	WindData.Direction	= Direction;
+	WindData.Speed		= Speed;
+	WindData.MinGustAmt = MinGustAmt;
+	WindData.MaxGustAmt = MaxGustAmt;	
 	return true;
 }
 
-bool FWindSourceSceneProxy::GetDirectionalWindParameters(FVector4& WindDirectionAndSpeed, float& Weight) const 
+bool FWindSourceSceneProxy::GetDirectionalWindParameters(FWindData& WindData, float& Weight) const
 { 
 	if (bIsPointSource)
 	{
 		Weight = 0.f;
-		WindDirectionAndSpeed = FVector4(0,0,0,0);
+		WindData = FWindData();
 		return false;
 	}
 
-	Weight = Strength;
-	WindDirectionAndSpeed = FVector4(Direction * Strength, Speed); 
+	Weight				= Strength;
+	WindData.Direction	= Direction;
+	WindData.Speed		= Speed;
+	WindData.MinGustAmt = MinGustAmt;
+	WindData.MaxGustAmt = MaxGustAmt;
 	return true;
 }
 
@@ -102,8 +138,11 @@ void FWindSourceSceneProxy::ApplyWorldOffset(FVector InOffset)
 UWindDirectionalSourceComponent::UWindDirectionalSourceComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Strength = 1.0f;
-	Speed = 1.0f;
+	Strength = 0.1f;
+	Speed = 0.1f;
+	MinGustAmount = 0.1f;
+	MaxGustAmount = 0.2f;
+
 	// wind will be activated automatically by default
 	bAutoActivate = true;
 }
@@ -132,7 +171,9 @@ FWindSourceSceneProxy* UWindDirectionalSourceComponent::CreateSceneProxy() const
 	return new FWindSourceSceneProxy(
 		ComponentToWorld.GetUnitAxis( EAxis::X ),
 		Strength,
-		Speed
+		Speed,
+		MinGustAmount,
+		MaxGustAmount
 		);
 }
 

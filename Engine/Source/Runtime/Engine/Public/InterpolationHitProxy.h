@@ -19,7 +19,7 @@ struct HInterpEdInputInterface : public HHitProxy
 	HInterpEdInputInterface(FInterpEdInputInterface* InObject, const FInterpEdInputData &InData): HHitProxy(HPP_UI), ClickedObject(InObject), InputData(InData) {}
 
 	/** @return Returns a mouse cursor from the input interface. */
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return ClickedObject->GetMouseCursor(InputData);
 	}
@@ -43,7 +43,7 @@ struct HInterpTrackKeypointProxy : public HHitProxy
 		KeyIndex(InKeyIndex)
 	{}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -68,7 +68,7 @@ struct HInterpTrackSubGroupKeypointProxy : public HHitProxy
 		GroupIndex(InGroupIndex)
 	{}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -91,7 +91,7 @@ struct HInterpTrackKeyHandleProxy : public HHitProxy
 		bArriving(bInArriving)
 	{}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}

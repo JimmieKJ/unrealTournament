@@ -42,6 +42,10 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	int32 OvertimeDuration;
 
+	/**Holds the amount of time to give a flag carrier who has the flag out going in to half-time*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
+	int32 AdvantageDuration;
+
 	UFUNCTION(exec)
 		void CheatScore();
 
@@ -90,8 +94,8 @@ protected:
 	// Look to see if the team that had advantage still has it
 	virtual bool CheckAdvantage();
 
-	// Holds the amount of time to give a flag carrier who has the flag out going in to half-time
-	int32 AdvantageGraceTime;
+	
+	int32 RemainingAdvantageTime;
 
 	virtual void EndOfHalf();
 

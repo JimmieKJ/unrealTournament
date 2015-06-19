@@ -11,7 +11,7 @@ APlayerStart::APlayerStart(const FObjectInitializer& ObjectInitializer)
 	GetCapsuleComponent()->InitCapsuleSize(46.0f, 92.0f);
 
 #if WITH_EDITORONLY_DATA
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("Arrow"));
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("Arrow"));
 
 	if (!IsRunningCommandlet())
 	{

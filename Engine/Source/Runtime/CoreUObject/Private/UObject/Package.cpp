@@ -26,10 +26,12 @@ void UPackage::PostInitProperties()
 	Super::PostInitProperties();
 	if ( !HasAnyFlags(RF_ClassDefaultObject) )
 	{
-		bDirty = 0;
+		bDirty = false;
 	}
 
 	MetaData = NULL;
+	LinkerPackageVersion = GPackageFileUE4Version;
+	LinkerLicenseeVersion = GPackageFileLicenseeUE4Version;
 
 #if WITH_EDITOR
 	PIEInstanceID = INDEX_NONE;
@@ -113,7 +115,7 @@ UMetaData* UPackage::GetMetaData()
 		// If MetaData is NULL then it wasn't loaded by linker, so we have to create it.
 		if(MetaData == NULL)
 		{
-			MetaData = ConstructObject<UMetaData>(UMetaData::StaticClass(), this, NAME_PackageMetaData, RF_Standalone | RF_LoadCompleted);
+			MetaData = NewObject<UMetaData>(this, NAME_PackageMetaData, RF_Standalone | RF_LoadCompleted);
 		}
 	}
 
@@ -159,11 +161,6 @@ void UPackage::TagSubobjects(EObjectFlags NewFlags)
 	{
 		MetaData->SetFlags(NewFlags);
 	}
-
-	if (GetLinker())
-	{
-		GetLinker()->SetFlags(NewFlags);
-	}
 }
 
 /**
@@ -191,6 +188,17 @@ bool UPackage::IsFullyLoaded()
 	return bHasBeenFullyLoaded;
 }
 
+void UPackage::BeginDestroy()
+{
+	// Detach linker if still attached
+	if (LinkerLoad)
+	{
+		delete LinkerLoad;
+		LinkerLoad = nullptr;
+	}
+
+	Super::BeginDestroy();
+}
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UPackage, UObject,
 	{

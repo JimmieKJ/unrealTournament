@@ -68,6 +68,9 @@ public:
 	/** Filename on disk */
 	FString LocalFilename;
 
+	/** File Id with which our local revision diverged from the remote revision */
+	FString PendingMergeBaseFileHash;
+
 	/** State of the working copy */
 	EWorkingCopyState::Type WorkingCopyState;
 

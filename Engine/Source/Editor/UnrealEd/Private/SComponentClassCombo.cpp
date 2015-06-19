@@ -55,7 +55,7 @@ void SComponentClassCombo::Construct(const FArguments& InArgs)
 			SNew(STextBlock)
 			.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 			.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
-			.Text(FString(TEXT("\xf067")) /*fa-plus*/)
+			.Text(FText::FromString(FString(TEXT("\xf067"))) /*fa-plus*/)
 		]
 		+ SHorizontalBox::Slot()
 		.VAlign(VAlign_Center)
@@ -335,7 +335,7 @@ TSharedRef<ITableRow> SComponentClassCombo::GenerateAddComponentRow( FComponentC
 		
 		return
 			SNew( SComboRow< TSharedPtr<FString> >, OwnerTable )
-			.ToolTip( FEditorClassUtils::GetTooltip(Entry->GetComponentClass()) )
+			.ToolTip( GetComponentToolTip(Entry) )
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
@@ -350,7 +350,7 @@ TSharedRef<ITableRow> SComponentClassCombo::GenerateAddComponentRow( FComponentC
 				.AutoWidth()
 				[
 					SNew(SImage)
-					.Image( FClassIconFinder::FindIconForClass( Entry->GetIconOverrideBrushName() == NAME_None ? Entry->GetComponentClass() : nullptr, Entry->GetIconOverrideBrushName() ) )
+					.Image( FClassIconFinder::FindIconForClass( Entry->GetIconOverrideBrushName() == NAME_None ? Entry->GetIconClass() : nullptr, Entry->GetIconOverrideBrushName() ) )
 				]
 				+SHorizontalBox::Slot()
 				.AutoWidth()
@@ -469,6 +469,31 @@ FString SComponentClassCombo::GetSanitizedComponentName(FComponentClassComboEntr
 		DisplayName = Entry->GetClassName();
 	}
 	return FName::NameToDisplayString(DisplayName, false);
+}
+
+TSharedRef<SToolTip> SComponentClassCombo::GetComponentToolTip(FComponentClassComboEntryPtr Entry) const
+{
+	// Special handling for the "New..." options
+	if (Entry->GetComponentCreateAction() == EComponentCreateAction::CreateNewCPPClass)
+	{
+		return SNew(SToolTip)
+			.Text(LOCTEXT("NewCPPComponentToolTip", "Create a custom actor component using C++"));
+	}
+	else if (Entry->GetComponentCreateAction() == EComponentCreateAction::CreateNewBlueprintClass)
+	{
+		return SNew(SToolTip)
+			.Text(LOCTEXT("NewBlueprintComponentToolTip", "Create a custom actor component using Blueprints"));
+	}
+	
+	// Handle components which have a currently loaded class
+	if (const UClass* ComponentClass = Entry->GetComponentClass())
+	{
+		return FEditorClassUtils::GetTooltip(ComponentClass);
+	}
+
+	// Fallback for components that don't currently have a loaded class
+	return SNew(SToolTip)
+		.Text(FText::FromString(Entry->GetClassName()));
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -17,7 +17,7 @@ Here is such an Idle state seen from the State Machine.
 
 ![](State.png)
 
-When double-clicked, here's the simple graph found within that Idle state.
+When double-clicked, here is the simple graph found within that Idle state.
 
 ![](IdleStateInside.png)
 
@@ -96,5 +96,5 @@ After processing your animation in the AnimGraph, wire the final animation pose 
 
 [EXCERPT:UAnimGraphNode_StateMachine]
 
-A state machine is a collection of states, transitions and conduits. The machine will change state based upon the rules defined in the state transitions. Each state is conceptually a self contained AnimGraph and can output an animation pose. This can then be further manipulated in the AnimGraph that contains the state machine.
+A state machine is a collection of states, transitions, and conduits. The machine will change state based upon the rules defined in the state transitions. Each state is conceptually a self contained AnimGraph and can output an animation pose. This can then be further manipulated in the AnimGraph that contains the state machine.
 [/EXCERPT:UAnimGraphNode_StateMachine]

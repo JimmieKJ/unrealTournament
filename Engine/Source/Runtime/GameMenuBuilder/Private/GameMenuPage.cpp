@@ -32,7 +32,7 @@ bool FGameMenuPage::InitialiseRootMenu(APlayerController* InPCOwner, const FStri
 	}	
 
 	TArray<FString> SplitString;
-	InStyleName.ParseIntoArray(&SplitString, TEXT("/"), true);
+	InStyleName.ParseIntoArray(SplitString, TEXT("/"), true);
 	FString StylePath = InStyleName.Replace(*SplitString[SplitString.Num() - 1],TEXT(""));
 	StylePath.RemoveFromEnd("/");
 	FGameMenuBuilderStyle::Initialize(StylePath);

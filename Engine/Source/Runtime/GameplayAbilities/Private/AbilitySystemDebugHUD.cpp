@@ -49,8 +49,12 @@ void AAbilitySystemDebugHUD::DrawDebugHUD(UCanvas* InCanvas, APlayerController* 
 	}
 
 	UPlayer * LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
-	PC = LocalPlayer->PlayerController;	
+	if (!LocalPlayer)
+	{
+		return;
+	}
 
+	PC = LocalPlayer->PlayerController;	
 	if (!PC)
 	{
 		return;
@@ -113,7 +117,7 @@ void AAbilitySystemDebugHUD::DrawDebugAbilitySystemComponent(UAbilitySystemCompo
 
 		Y+= 25;
 		// Draw Active GameplayEffect
-		for (FActiveGameplayEffect &Effect : Component->ActiveGameplayEffects.GameplayEffects)
+		for (FActiveGameplayEffect& Effect : &Component->ActiveGameplayEffects)
 		{
 			String = FString::Printf(TEXT("%s. [%d, %d] %.2f"), *Effect.Spec.ToSimpleString(), Effect.PredictionKey.Current, Effect.PredictionKey.Base, Effect.GetTimeRemaining(GameWorldTime));
 			DrawWithBackground(Font, String, Color, EAlignHorizontal::Left, X, EAlignVertical::Top, Y);	

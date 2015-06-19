@@ -7,12 +7,14 @@
 FGameplayEffectCustomExecutionParameters::FGameplayEffectCustomExecutionParameters()
 	: OwningSpec(nullptr)
 	, TargetAbilitySystemComponent(nullptr)
+	, PassedInTags(FGameplayTagContainer())
 {
 }
 
-FGameplayEffectCustomExecutionParameters::FGameplayEffectCustomExecutionParameters(FGameplayEffectSpec& InOwningSpec, const TArray<FGameplayEffectExecutionScopedModifierInfo>& InScopedMods, UAbilitySystemComponent* InTargetAbilityComponent)
+FGameplayEffectCustomExecutionParameters::FGameplayEffectCustomExecutionParameters(FGameplayEffectSpec& InOwningSpec, const TArray<FGameplayEffectExecutionScopedModifierInfo>& InScopedMods, UAbilitySystemComponent* InTargetAbilityComponent, const FGameplayTagContainer& InPassedInTags)
 	: OwningSpec(&InOwningSpec)
 	, TargetAbilitySystemComponent(InTargetAbilityComponent)
+	, PassedInTags(InPassedInTags)
 {
 	check(InOwningSpec.Def);
 
@@ -35,7 +37,7 @@ FGameplayEffectCustomExecutionParameters::FGameplayEffectCustomExecutionParamete
 		float ModEvalValue = 0.f;
 		if (ScopedAggregator && CurScopedMod.ModifierMagnitude.AttemptCalculateMagnitude(InOwningSpec, ModEvalValue))
 		{
-			ScopedAggregator->AddMod(ModEvalValue, CurScopedMod.ModifierOp, &CurScopedMod.SourceTags, &CurScopedMod.TargetTags, false, ModifierHandle);
+			ScopedAggregator->AddAggregatorMod(ModEvalValue, CurScopedMod.ModifierOp, &CurScopedMod.SourceTags, &CurScopedMod.TargetTags, false, ModifierHandle);
 		}
 		else
 		{
@@ -50,22 +52,20 @@ const FGameplayEffectSpec& FGameplayEffectCustomExecutionParameters::GetOwningSp
 	return *OwningSpec;
 }
 
-FGameplayEffectSpec& FGameplayEffectCustomExecutionParameters::GetOwningSpec()
-{
-	check(OwningSpec);
-	return *OwningSpec;
-}
-
-
 UAbilitySystemComponent* FGameplayEffectCustomExecutionParameters::GetTargetAbilitySystemComponent() const
 {
 	return TargetAbilitySystemComponent.Get();
 }
 
-UAbilitySystemComponent* FGameplayEffectCustomExecutionParameters::GetSourcebilitySystemComponent() const
+UAbilitySystemComponent* FGameplayEffectCustomExecutionParameters::GetSourceAbilitySystemComponent() const
 {
 	check(OwningSpec);
 	return OwningSpec->GetContext().GetInstigatorAbilitySystemComponent();
+}
+
+const FGameplayTagContainer& FGameplayEffectCustomExecutionParameters::GetPassedInTags() const
+{
+	return PassedInTags;
 }
 
 bool FGameplayEffectCustomExecutionParameters::AttemptCalculateCapturedAttributeMagnitude(const FGameplayEffectAttributeCaptureDefinition& InCaptureDef, const FAggregatorEvaluateParameters& InEvalParams, OUT float& OutMagnitude) const
@@ -178,9 +178,62 @@ bool FGameplayEffectCustomExecutionParameters::AttemptGetCapturedAttributeAggreg
 	return false;
 }
 
+FGameplayEffectCustomExecutionOutput::FGameplayEffectCustomExecutionOutput()
+	: bTriggerConditionalGameplayEffects(false)
+	, bHandledStackCountManually(false)
+	, bHandledGameplayCuesManually(false)
+{
+}
+
+void FGameplayEffectCustomExecutionOutput::MarkStackCountHandledManually()
+{
+	bHandledStackCountManually = true;
+}
+
+bool FGameplayEffectCustomExecutionOutput::IsStackCountHandledManually() const
+{
+	return bHandledStackCountManually;
+}
+
+bool FGameplayEffectCustomExecutionOutput::AreGameplayCuesHandledManually() const
+{
+	return bHandledGameplayCuesManually;
+}
+
+void FGameplayEffectCustomExecutionOutput::MarkConditionalGameplayEffectsToTrigger()
+{
+	bTriggerConditionalGameplayEffects = true;
+}
+
+void FGameplayEffectCustomExecutionOutput::MarkGameplayCuesHandledManually()
+{
+	bHandledGameplayCuesManually = true;
+}
+
+bool FGameplayEffectCustomExecutionOutput::ShouldTriggerConditionalGameplayEffects() const
+{
+	return bTriggerConditionalGameplayEffects;
+}
+
+void FGameplayEffectCustomExecutionOutput::AddOutputModifier(const FGameplayModifierEvaluatedData& InOutputMod)
+{
+	OutputModifiers.Add(InOutputMod);
+}
+
+const TArray<FGameplayModifierEvaluatedData>& FGameplayEffectCustomExecutionOutput::GetOutputModifiers() const
+{
+	return OutputModifiers;
+}
+
+void FGameplayEffectCustomExecutionOutput::GetOutputModifiers(OUT TArray<FGameplayModifierEvaluatedData>& OutOutputModifiers) const
+{
+	OutOutputModifiers.Append(OutputModifiers);
+}
+
 UGameplayEffectExecutionCalculation::UGameplayEffectExecutionCalculation(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bRequiresPassedInTags = false;
 }
 
 #if WITH_EDITORONLY_DATA
@@ -197,8 +250,13 @@ void UGameplayEffectExecutionCalculation::GetValidScopedModifierAttributeCapture
 		}
 	}
 }
+
+bool UGameplayEffectExecutionCalculation::DoesRequirePassedInTags() const
+{
+	return bRequiresPassedInTags;
+}
 #endif // #if WITH_EDITORONLY_DATA
 
-void UGameplayEffectExecutionCalculation::Execute_Implementation(FGameplayEffectCustomExecutionParameters& ExecutionParams, OUT TArray<FGameplayModifierEvaluatedData>& OutAdditionalModifiers) const
+void UGameplayEffectExecutionCalculation::Execute_Implementation(const FGameplayEffectCustomExecutionParameters& ExecutionParams, OUT FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const
 {
 }

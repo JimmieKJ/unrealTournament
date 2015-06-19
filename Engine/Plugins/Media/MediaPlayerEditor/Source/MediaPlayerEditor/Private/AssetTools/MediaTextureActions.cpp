@@ -126,7 +126,7 @@ void FMediaTextureActions::ExecuteCreateMaterial( TArray<TWeakObjectPtr<UTexture
 			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
 
 			// Create the factory used to generate the asset
-			UMaterialFactoryNew* Factory = ConstructObject<UMaterialFactoryNew>(UMaterialFactoryNew::StaticClass());
+			UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
 			Factory->InitialTexture = Object;
 
 			ContentBrowserSingleton.CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), UMaterial::StaticClass(), Factory);
@@ -147,7 +147,7 @@ void FMediaTextureActions::ExecuteCreateMaterial( TArray<TWeakObjectPtr<UTexture
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 				// Create the factory used to generate the asset
-				UMaterialFactoryNew* Factory = ConstructObject<UMaterialFactoryNew>(UMaterialFactoryNew::StaticClass());
+				UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
 				Factory->InitialTexture = Object;
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");

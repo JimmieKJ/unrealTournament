@@ -82,12 +82,12 @@ void FMediaPlayerEditorViewport::ReleaseResources()
 			FMediaPlayerEditorTexture*, EditorTextureParam, EditorTexture,
 			FSlateTexture2DRHIRef*, SlateTextureParam, SlateTexture,
 			{
-			EditorTextureParam->Unregister();
-			delete EditorTextureParam;
+				EditorTextureParam->Unregister();
+				delete EditorTextureParam;
 
-			SlateTextureParam->ReleaseResource();
-			delete SlateTextureParam;
-		}
+				SlateTextureParam->ReleaseResource();
+				delete SlateTextureParam;
+			}
 		);
 
 		EditorTexture = nullptr;

@@ -67,10 +67,10 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	AUTPlayerState* TopAttacker;
 
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
-		AUTPlayerState* TopDefender;
+	AUTPlayerState* TopDefender;
 
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = Team)
-		AUTPlayerState* TopSupporter;
+	AUTPlayerState* TopSupporter;
 
 	/** Timer to update replicated team leaders. */
 	virtual void UpdateTeamLeaders();
@@ -115,6 +115,9 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	 * @return if a squad matching the requirements was found or created
 	 */
 	virtual bool AssignToSquad(AController* C, FName Orders, AController* Leader = NULL);
+
+	/** removes a squad; any assigned members are properly removed */
+	virtual void RemoveSquad(class AUTSquadAI* DeadSquad);
 
 	/** assign default squad for this player
 	 * this method should always assign a valid Squad

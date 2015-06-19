@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <Properties>
+    <Property Name="TargetName" Value="DsymExporter" />
+    <Property Name="Platform" Value="Mac" />
+    <Property Name="Configuration" Value="Development" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)/Binaries/Mac/DsymExporter" Type="Executable" />
+  </BuildProducts>
+  <RuntimeDependencies />
+  <bRequireDependenciesToExist>true</bRequireDependenciesToExist>
+</BuildReceipt>

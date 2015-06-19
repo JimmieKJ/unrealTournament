@@ -7,6 +7,7 @@
 #include "UTWeap_RocketLauncher.h"
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
+#include "UTGameViewportClient.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -164,10 +165,10 @@ uint8 AUTBasePlayerController::GetTeamNum() const
 
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 {
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer != NULL && LocalPlayer->LastLobbyServerGUID != TEXT(""))
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && GameState->HubGuid.IsValid())
 	{
-		ConnectToServerViaGUID(LocalPlayer->LastLobbyServerGUID, false, true);
+		ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
 	}
 	else
 	{
@@ -175,13 +176,31 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	}
 }
 
-void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bSpectate, bool bFindLastMatch)
+void AUTBasePlayerController::CancelConnectViaGUID()
+{
+		GUIDJoinWantsToSpectate = false;
+		GUIDJoinWantsToFindMatch = false;
+		GUIDJoin_CurrentGUID = TEXT("");
+		GUIDJoinAttemptCount = 0;
+		GUIDSessionSearchSettings.Reset();
+		
+		if (OnDownloadCompleteDelegateHandle.IsValid())
+		{
+			UUTGameViewportClient* ViewportClient = Cast<UUTGameViewportClient>(Cast<ULocalPlayer>(Player)->ViewportClient);
+			if (ViewportClient && ViewportClient->IsDownloadInProgress())
+			{
+				ViewportClient->RemoveContentDownloadCompleteDelegate(OnDownloadCompleteDelegateHandle);
+			}
+		}
+}
+
+void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate, bool bFindLastMatch)
 {
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
 	{
 
-		UE_LOG(UT,Log,TEXT("Attempting to Connect to Server Via GUID: %s"), *ServerGUID);
+		UE_LOG(UT,Verbose,TEXT("Attempting to Connect to Server Via GUID: %s"), *ServerGUID);
 
 		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
@@ -190,6 +209,36 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bS
 		GUIDJoin_CurrentGUID = ServerGUID;
 		GUIDJoinAttemptCount = 0;
 		GUIDSessionSearchSettings.Reset();
+		GUIDJoinDesiredTeam = DesiredTeam;
+		
+		// Check to make sure we are not downloading content.  If we are.. stall until it's completed.
+
+		UUTGameViewportClient* ViewportClient = Cast<UUTGameViewportClient>(Cast<ULocalPlayer>(Player)->ViewportClient);
+		if (ViewportClient && ViewportClient->IsDownloadInProgress())
+		{
+			OnDownloadCompleteDelegateHandle = ViewportClient->RegisterContentDownloadCompleteDelegate(FContentDownloadComplete::FDelegate::CreateUObject(this, &AUTBasePlayerController::OnDownloadComplete));
+		}
+		else
+		{
+			StartGUIDJoin();
+		}
+	}
+}
+
+void AUTBasePlayerController::OnDownloadComplete(class UUTGameViewportClient* ViewportClient, ERedirectStatus::Type RedirectStatus, const FString& PackageName)
+{
+	if (ViewportClient && !ViewportClient->IsDownloadInProgress())
+	{
+		StartGUIDJoin();
+	}
+}
+
+void AUTBasePlayerController::StartGUIDJoin()
+{
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
+	{
+		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
 		OnCancelGUIDFindSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnCancelGUIDFindSessionComplete);
 		OnCancelGUIDFindSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnCancelFindSessionsCompleteDelegate_Handle(OnCancelGUIDFindSessionCompleteDelegate);
@@ -265,7 +314,7 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 				if (LP)
 				{
-					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, NAME_None, GUIDJoinWantsToFindMatch))
+					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, NAME_None, GUIDJoinWantsToFindMatch,GUIDJoinDesiredTeam))
 					{
 						LP->HideMenu();
 					}
@@ -290,16 +339,16 @@ void AUTBasePlayerController::ClientReturnedToMenus()
 	if (LP)
 	{
 		LP->LeaveSession();	
-		LP->UpdatePresence(TEXT("In Menus"), false, false, false, false, false);
+		LP->UpdatePresence(TEXT("In Menus"), false, false, false, false);
 	}
 }
 
-void AUTBasePlayerController::ClientSetPresence_Implementation(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bIsInstance)
+void AUTBasePlayerController::ClientSetPresence_Implementation(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		LP->UpdatePresence(NewPresenceString, bAllowInvites, bAllowJoinInProgress, bAllowJoinViaPresence, bAllowJoinViaPresenceFriendsOnly, bIsInstance);
+		LP->UpdatePresence(NewPresenceString, bAllowInvites, bAllowJoinInProgress, bAllowJoinViaPresence, bAllowJoinViaPresenceFriendsOnly);
 	}
 }
 

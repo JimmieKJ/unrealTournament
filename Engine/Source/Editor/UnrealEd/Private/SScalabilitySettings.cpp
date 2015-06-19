@@ -3,6 +3,8 @@
 #include "UnrealEd.h"
 #include "SScalabilitySettings.h"
 
+#include "Settings/EditorSettings.h"
+
 #define LOCTEXT_NAMESPACE "EngineScalabiltySettings"
 
 ECheckBoxState SScalabilitySettings::IsGroupQualityLevelSelected(const TCHAR* InGroupName, int32 InQualityLevel) const
@@ -31,7 +33,7 @@ void SScalabilitySettings::OnGroupQualityLevelChanged(ECheckBoxState NewState, c
 	else if (FCString::Strcmp(InGroupName, TEXT("EffectsQuality")) == 0) CachedQualityLevels.EffectsQuality = InQualityLevel;
 
 	Scalability::SetQualityLevels(CachedQualityLevels);
-	Scalability::SaveState(GEditorGameAgnosticIni);
+	Scalability::SaveState(GEditorSettingsIni);
 	GEditor->RedrawAllViewports();
 }
 
@@ -40,7 +42,7 @@ void SScalabilitySettings::OnResolutionScaleChanged(float InValue)
 	CachedQualityLevels.ResolutionQuality = (int32)(FMath::Lerp(Scalability::MinResolutionScale, Scalability::MaxResolutionScale, InValue));
 
 	Scalability::SetQualityLevels(CachedQualityLevels);
-	Scalability::SaveState(GEditorGameAgnosticIni);
+	Scalability::SaveState(GEditorSettingsIni);
 	GEditor->RedrawAllViewports();
 }
 
@@ -96,17 +98,18 @@ FReply SScalabilitySettings::OnHeaderClicked(int32 InQualityLevel)
 {
 	CachedQualityLevels.SetFromSingleQualityLevel(InQualityLevel);
 	Scalability::SetQualityLevels(CachedQualityLevels);
-	Scalability::SaveState(GEditorGameAgnosticIni);
+	Scalability::SaveState(GEditorSettingsIni);
 	GEditor->RedrawAllViewports();
 	return FReply::Handled();
 }
 
 FReply SScalabilitySettings::OnAutoClicked()
 {
-	GEditor->AccessGameAgnosticSettings().AutoApplyScalabilityBenchmark();
-	GEditor->AccessGameAgnosticSettings().LoadScalabilityBenchmark();
+	auto* Settings = GetMutableDefault<UEditorSettings>();
+	Settings->AutoApplyScalabilityBenchmark();
+	Settings->LoadScalabilityBenchmark();
 
-	CachedQualityLevels = GEditor->GetGameAgnosticSettings().EngineBenchmarkResult;
+	CachedQualityLevels = Settings->EngineBenchmarkResult;
 
 	GEditor->RedrawAllViewports();
 	return FReply::Handled();
@@ -124,7 +127,7 @@ SGridPanel::FSlot& SScalabilitySettings::MakeGridSlot(int32 InCol, int32 InRow, 
 
 ECheckBoxState SScalabilitySettings::IsMonitoringPerformance() const
 {
-	const bool bMonitorEditorPerformance = GEditor->GetEditorUserSettings().bMonitorEditorPerformance;
+	const bool bMonitorEditorPerformance = GetDefault<UEditorPerProjectUserSettings>()->bMonitorEditorPerformance;
 	return bMonitorEditorPerformance ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
@@ -132,10 +135,10 @@ void SScalabilitySettings::OnMonitorPerformanceChanged(ECheckBoxState NewState)
 {
 	const bool bNewEnabledState = ( NewState == ECheckBoxState::Checked );
 
-	auto& Settings = GEditor->AccessEditorUserSettings();
-	Settings.bMonitorEditorPerformance = bNewEnabledState;
-	Settings.PostEditChange();
-	Settings.SaveConfig();
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+	Settings->bMonitorEditorPerformance = bNewEnabledState;
+	Settings->PostEditChange();
+	Settings->SaveConfig();
 }
 
 void SScalabilitySettings::Construct( const FArguments& InArgs )

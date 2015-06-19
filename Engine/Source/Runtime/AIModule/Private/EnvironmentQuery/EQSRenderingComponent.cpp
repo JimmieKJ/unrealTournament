@@ -10,7 +10,7 @@ static const int32 EQSMaxItemsDrawn = 10000;
 
 namespace FEQSRenderingHelper
 {
-	FVector ExtractLocation(TSubclassOf<UEnvQueryItemType> ItemType, TArray<uint8> RawData, const TArray<FEnvQueryItem>& Items, int32 Index)
+	FVector ExtractLocation(TSubclassOf<UEnvQueryItemType> ItemType, const TArray<uint8>& RawData, const TArray<FEnvQueryItem>& Items, int32 Index)
 	{
 		if (Items.IsValidIndex(Index) &&
 			ItemType->IsChildOf(UEnvQueryItemType_VectorBase::StaticClass()))
@@ -27,11 +27,10 @@ namespace FEQSRenderingHelper
 //----------------------------------------------------------------------//
 const FVector FEQSSceneProxy::ItemDrawRadius(30,30,30);
 
-FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& InViewFlagName, bool bInDrawOnlyWhenSelected) 
+FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& InViewFlagName) 
 	: FDebugRenderSceneProxy(InComponent)
 	, ActorOwner(NULL)
 	, QueryDataSource(NULL)
-	, bDrawOnlyWhenSelected(bInDrawOnlyWhenSelected)
 {
 	DrawType = SolidAndWireMeshes;
 	TextWithoutShadowDistance = 1500;
@@ -44,6 +43,10 @@ FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FSt
 	}
 
 	ActorOwner = InComponent ? InComponent->GetOwner() : NULL;
+
+	const UEQSRenderingComponent* MyRenderComp = Cast<const UEQSRenderingComponent>(InComponent);
+	bDrawOnlyWhenSelected = MyRenderComp && MyRenderComp->bDrawOnlyWhenSelected;
+
 	QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(ActorOwner);
 	if (QueryDataSource == NULL)
 	{
@@ -60,11 +63,10 @@ FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FSt
 #endif
 }
 
-FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& InViewFlagName, bool bInDrawOnlyWhenSelected, const TArray<FSphere>& InSpheres, const TArray<FText3d>& InTexts)
+FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& InViewFlagName, const TArray<FSphere>& InSpheres, const TArray<FText3d>& InTexts)
 	: FDebugRenderSceneProxy(InComponent)
 	, ActorOwner(NULL)
 	, QueryDataSource(NULL)
-	, bDrawOnlyWhenSelected(bInDrawOnlyWhenSelected)
 {
 	DrawType = SolidAndWireMeshes;
 	TextWithoutShadowDistance = 1500;
@@ -78,6 +80,9 @@ FEQSSceneProxy::FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FSt
 	{
 		return;
 	}
+
+	const UEQSRenderingComponent* MyRenderComp = Cast<const UEQSRenderingComponent>(InComponent);
+	bDrawOnlyWhenSelected = MyRenderComp && MyRenderComp->bDrawOnlyWhenSelected;
 
 	ActorOwner = InComponent ? InComponent->GetOwner() : NULL;
 	QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(ActorOwner);
@@ -112,7 +117,9 @@ void FEQSSceneProxy::CollectEQSData(const UPrimitiveComponent* InComponent, cons
 	const FEnvQueryResult* ResultItems = QueryDataSource->GetQueryResult();
 	const FEnvQueryInstance* QueryInstance = QueryDataSource->GetQueryInstance();
 
-	FEQSSceneProxy::CollectEQSData(ResultItems, QueryInstance, Spheres, Texts, QueryDataSource->GetShouldDrawFailedItems(), DebugItems);
+	FEQSSceneProxy::CollectEQSData(ResultItems, QueryInstance,
+		QueryDataSource->GetHighlightRangePct(), QueryDataSource->GetShouldDrawFailedItems(),
+		Spheres, Texts, DebugItems);
 
 	if (ActorOwner && Spheres.Num() > EQSMaxItemsDrawn)
 	{
@@ -123,7 +130,7 @@ void FEQSSceneProxy::CollectEQSData(const UPrimitiveComponent* InComponent, cons
 	}
 }
 
-void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FEnvQueryInstance* QueryInstance, TArray<FSphere>& Spheres, TArray<FText3d>& Texts, bool ShouldDrawFailedItems, TArray<EQSDebug::FDebugHelper>& DebugItems)
+void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FEnvQueryInstance* QueryInstance, float HighlightRangePct, bool ShouldDrawFailedItems, TArray<FSphere>& Spheres, TArray<FText3d>& Texts, TArray<EQSDebug::FDebugHelper>& DebugItems)
 {
 	if (ResultItems == NULL)
 	{
@@ -139,7 +146,9 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 
 	// using "mid-results" requires manual normalization
 	const bool bUseMidResults = QueryInstance && (QueryInstance->Items.Num() < QueryInstance->DebugData.DebugItems.Num());
-	const TArray<FEnvQueryItem>& Items = bUseMidResults ? QueryInstance->DebugData.DebugItems : ResultItems->Items;
+	// no point in checking if QueryInstance != null since bUseMidResults == true guarantees that, PVS-Studio doesn't
+	// understand that invariant though, and we need to disable V595:
+	const TArray<FEnvQueryItem>& Items = bUseMidResults ? QueryInstance->DebugData.DebugItems : ResultItems->Items; //-V595
 	const TArray<uint8>& RawData = bUseMidResults ? QueryInstance->DebugData.RawData : ResultItems->RawData;
 	const int32 ItemCountLimit = FMath::Clamp(Items.Num(), 0, EQSMaxItemsDrawn);
 	const bool bNoTestsPerformed = QueryInstance != NULL && QueryInstance->CurrentTest <= 0;
@@ -148,7 +157,7 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 
 	float MinScore = 0.f;
 	float MaxScore = -BIG_NUMBER;
-	if (bUseMidResults)
+	if (bUseMidResults || HighlightRangePct < 1.0f)
 	{
 		const FEnvQueryItem* ItemInfo = Items.GetData();
 		for (int32 ItemIndex = 0; ItemIndex < Items.Num(); ItemIndex++, ItemInfo++)
@@ -160,7 +169,9 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 			}
 		}
 	}
+	
 	const float ScoreNormalizer = bUseMidResults && (MaxScore != MinScore) ? 1.f / (MaxScore - MinScore) : 1.f;
+	const float HighlightThreshold = (HighlightRangePct < 1.0f) ? (MaxScore * HighlightRangePct) : FLT_MAX;
 
 	if (bSingleItemResult == false)
 	{
@@ -169,12 +180,14 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 			if (Items[ItemIndex].IsValid())
 			{
 				const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score * ScoreNormalizer;
+				const bool bLowRadius = (HighlightThreshold < FLT_MAX) && (bNoTestsPerformed || (Items[ItemIndex].Score < HighlightThreshold));
+				const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 				const FVector Loc = FEQSRenderingHelper::ExtractLocation(ResultItems->ItemType, RawData, Items, ItemIndex);
-				Spheres.Add(FSphere(ItemDrawRadius.X, Loc, bNoTestsPerformed == false 
+				Spheres.Add(FSphere(Radius, Loc, bNoTestsPerformed == false
 					? FLinearColor(FColor::MakeRedToGreenColorFromScalar(Score)) 
 					: FLinearColor(0.2, 1.0, 1.0, 1)));
 
-				DebugItems.Add(EQSDebug::FDebugHelper(Loc, ItemDrawRadius.X));
+				DebugItems.Add(EQSDebug::FDebugHelper(Loc, Radius));
 
 				const FString Label = bNoTestsPerformed ? TEXT("") : FString::Printf(TEXT("%.2f"), Score);
 				Texts.Add(FText3d(Label, Loc, FLinearColor::White));
@@ -186,10 +199,12 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 		if (Items[0].IsValid())
 		{
 			const float Score = Items[0].Score * ScoreNormalizer;
+			const bool bLowRadius = false;
+			const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 			const FVector Loc = FEQSRenderingHelper::ExtractLocation(ResultItems->ItemType, RawData, Items, 0);
-			Spheres.Add(FSphere(ItemDrawRadius.X, Loc, FLinearColor(0.0, 1.0, 0.12, 1)));
+			Spheres.Add(FSphere(Radius, Loc, FLinearColor(0.0, 1.0, 0.12, 1)));
 
-			DebugItems.Add(EQSDebug::FDebugHelper(Loc, ItemDrawRadius.X));
+			DebugItems.Add(EQSDebug::FDebugHelper(Loc, Radius));
 
 			const FString Label = FString::Printf(TEXT("Winner %.2f"), Score);
 			Texts.Add(FText3d(Label, Loc, FLinearColor::White));
@@ -200,10 +215,12 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 			if (Items[ItemIndex].IsValid())
 			{
 				const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score * ScoreNormalizer;
+				const bool bLowRadius = (HighlightThreshold < FLT_MAX) && (bNoTestsPerformed || (Items[ItemIndex].Score < HighlightThreshold));
+				const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 				const FVector Loc = FEQSRenderingHelper::ExtractLocation(ResultItems->ItemType, RawData, Items, ItemIndex);
-				Spheres.Add(FSphere(ItemDrawRadius.X, Loc, FLinearColor(0.0, 0.2, 0.025, 1)));
+				Spheres.Add(FSphere(Radius, Loc, FLinearColor(0.0, 0.2, 0.025, 1)));
 
-				DebugItems.Add(EQSDebug::FDebugHelper(Loc, ItemDrawRadius.X));
+				DebugItems.Add(EQSDebug::FDebugHelper(Loc, Radius));
 				
 				const FString Label = bNoTestsPerformed ? TEXT("") : FString::Printf(TEXT("%.2f"), Score);
 				Texts.Add(FText3d(Label, Loc, FLinearColor::White));
@@ -227,10 +244,12 @@ void FEQSSceneProxy::CollectEQSData(const FEnvQueryResult* ResultItems, const FE
 			}
 
 			const float Score = bNoTestsPerformed ? 1 : Items[ItemIndex].Score * ScoreNormalizer;
+			const bool bLowRadius = (HighlightThreshold < FLT_MAX) && (bNoTestsPerformed || (Items[ItemIndex].Score < HighlightThreshold));
+			const float Radius = ItemDrawRadius.X * (bLowRadius ? 0.2f : 1.0f);
 			const FVector Loc = FEQSRenderingHelper::ExtractLocation(QueryInstance->ItemType, InstanceDebugData.RawData, DebugQueryItems, ItemIndex);
-			Spheres.Add(FSphere(ItemDrawRadius.X, Loc, FLinearColor(0.0, 0.0, 0.6, 0.6)));
+			Spheres.Add(FSphere(Radius, Loc, FLinearColor(0.0, 0.0, 0.6, 0.6)));
 
-			auto& DebugHelper = DebugItems[DebugItems.Add(EQSDebug::FDebugHelper(Loc, ItemDrawRadius.X))];
+			auto& DebugHelper = DebugItems[DebugItems.Add(EQSDebug::FDebugHelper(Loc, Radius))];
 			DebugHelper.AdditionalInformation = Details[ItemIndex].FailedDescription;
 			if (Details[ItemIndex].FailedTestIndex != INDEX_NONE)
 			{
@@ -291,10 +310,10 @@ FPrimitiveSceneProxy* UEQSRenderingComponent::CreateSceneProxy()
 #if  USE_EQS_DEBUGGER || ENABLE_VISUAL_LOG
 	if (DebugData.SolidSpheres.Num() > 0 || DebugData.Texts.Num() > 0)
 	{
-		return new FEQSSceneProxy(this, DrawFlagName, bDrawOnlyWhenSelected, DebugData.SolidSpheres, DebugData.Texts);
+		return new FEQSSceneProxy(this, DrawFlagName, DebugData.SolidSpheres, DebugData.Texts);
 	}
 #endif
-	return new FEQSSceneProxy(this, DrawFlagName, bDrawOnlyWhenSelected);
+	return new FEQSSceneProxy(this, DrawFlagName);
 }
 
 FBoxSphereBounds UEQSRenderingComponent::CalcBounds(const FTransform& LocalToWorld) const

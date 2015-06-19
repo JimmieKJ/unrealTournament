@@ -45,30 +45,52 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 			}
 			else
 			{
+				bool bCancelThisAnnouncement = false;
+				int32 InsertIndex = -1;
+				float AnnouncementPriority = MessageClass.GetDefaultObject()->GetAnnouncementPriority(Switch);
 				// see if we should cancel any existing announcements
 				for (int32 i = QueuedAnnouncements.Num() - 1; i >= 0; i--)
 				{
+					if (AnnouncementPriority > QueuedAnnouncements[i].MessageClass.GetDefaultObject()->GetAnnouncementPriority(Switch))
+					{
+						InsertIndex = i;
+					}
 					if (MessageClass.GetDefaultObject()->InterruptAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
 					{
 						QueuedAnnouncements.RemoveAt(i);
 					}
-				}
-				// add to the end
-				QueuedAnnouncements.Add(NewAnnouncement);
-
-				// play now if nothing in progress
-				if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle))
-				{
-					if (CurrentAnnouncement.MessageClass == NULL)
+					else if (MessageClass.GetDefaultObject()->CancelByAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
 					{
-						float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementDelay(Switch);
-						if (Delay > 0.f)
+						bCancelThisAnnouncement = true;
+					}
+				}
+
+				if (!bCancelThisAnnouncement)
+				{
+					// add to the end
+					if (InsertIndex > 0)
+					{
+						QueuedAnnouncements.Insert(NewAnnouncement, InsertIndex);
+					}
+					else
+					{
+						QueuedAnnouncements.Add(NewAnnouncement);
+					}
+
+					// play now if nothing in progress
+					if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle))
+					{
+						if (CurrentAnnouncement.MessageClass == NULL)
 						{
-							GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
-						}
-						else
-						{
-							PlayNextAnnouncement();
+							float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementDelay(Switch);
+							if (Delay > 0.f)
+							{
+								GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
+							}
+							else
+							{
+								PlayNextAnnouncement();
+							}
 						}
 					}
 				}
@@ -103,7 +125,7 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		if (SoundName != NAME_None)
 		{
 			USoundBase* Audio = NULL;
-			USoundBase** CachePtr = CachedAudio.Find(SoundName);
+			USoundBase** CachePtr = Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement ? StatusCachedAudio.Find(SoundName) : RewardCachedAudio.Find(SoundName);
 			// note that we store a NULL in the map for sounds known to not exist
 			if (CachePtr == NULL || (*CachePtr) != NULL)
 			{
@@ -113,27 +135,45 @@ void UUTAnnouncer::PlayNextAnnouncement()
 				}
 				if (Audio == NULL)
 				{
-					for (int32 i = 0; i < AudioList.Num(); i++)
+					if (Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement)
 					{
-						if (AudioList[i].SoundName == SoundName)
+						for (int32 i = 0; i < StatusAudioList.Num(); i++)
 						{
-							Audio = AudioList[i].Sound;
-							break;
+							if (StatusAudioList[i].SoundName == SoundName)
+							{
+								Audio = StatusAudioList[i].Sound;
+								break;
+							}
+						}
+					}
+					else
+					{
+						for (int32 i = 0; i < RewardAudioList.Num(); i++)
+						{
+							if (RewardAudioList[i].SoundName == SoundName)
+							{
+								Audio = RewardAudioList[i].Sound;
+								break;
+							}
 						}
 					}
 					if (Audio == NULL)
 					{
-						// make sure path ends with trailing slash
-						if (!AudioPath.EndsWith(TEXT("/")))
-						{
-							AudioPath += TEXT("/");
-						}
-						Audio = LoadObject<USoundBase>(NULL, *(AudioPath + AudioNamePrefix + SoundName.ToString() + TEXT(".") + AudioNamePrefix + SoundName.ToString()), NULL, LOAD_NoWarn | LOAD_Quiet);
+						FString NewAudioPath = Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement ? StatusAudioPath : RewardAudioPath;
+						FString NewAudioNamePrefix = Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement ? StatusAudioNamePrefix : RewardAudioNamePrefix;
+						Audio = LoadAudio(NewAudioPath, NewAudioNamePrefix, SoundName);
 					}
 				}
 				if (CachePtr == NULL)
 				{
-					CachedAudio.Add(SoundName, Audio);
+					if (Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement)
+					{
+						StatusCachedAudio.Add(SoundName, Audio);
+					}
+					else
+					{
+						RewardCachedAudio.Add(SoundName, Audio);
+					}
 				}
 				if (Audio != NULL)
 				{
@@ -153,31 +193,60 @@ void UUTAnnouncer::PlayNextAnnouncement()
 
 void UUTAnnouncer::PrecacheAnnouncement(FName SoundName)
 {
-	if (SoundName != NAME_None && CachedAudio.Find(SoundName) == NULL)
+	if (SoundName != NAME_None && StatusCachedAudio.Find(SoundName) == NULL)
 	{
 		USoundBase* Audio = NULL;
-		for (int32 i = 0; i < AudioList.Num(); i++)
+		for (int32 i = 0; i < StatusAudioList.Num(); i++)
 		{
-			if (AudioList[i].SoundName == SoundName)
+			if (StatusAudioList[i].SoundName == SoundName)
 			{
-				Audio = AudioList[i].Sound;
+				Audio = StatusAudioList[i].Sound;
 				break;
 			}
 		}
 		if (Audio == NULL)
 		{
-			// make sure path ends with trailing slash
-			if (!AudioPath.EndsWith(TEXT("/")))
+			Audio = LoadAudio(StatusAudioPath, StatusAudioNamePrefix, SoundName);
+		}
+		if (Audio != NULL)
+		{
+			StatusCachedAudio.Add(SoundName, Audio);
+		}
+	}
+	if (SoundName != NAME_None && RewardCachedAudio.Find(SoundName) == NULL)
+	{
+		USoundBase* Audio = NULL;
+		for (int32 i = 0; i < RewardAudioList.Num(); i++)
+		{
+			if (RewardAudioList[i].SoundName == SoundName)
 			{
-				AudioPath += TEXT("/");
-			}
-			// manually check that the file exists to avoid spurious log warnings (the loading code seems to be ignoring LOAD_NoWarn | LOAD_Quiet)
-			FString PackageName = AudioPath + AudioNamePrefix + SoundName.ToString();
-			if (FPackageName::DoesPackageExist(PackageName))
-			{
-				Audio = LoadObject<USoundBase>(NULL, *(PackageName + TEXT(".") + AudioNamePrefix + SoundName.ToString()), NULL, LOAD_NoWarn | LOAD_Quiet);
+				Audio = RewardAudioList[i].Sound;
+				break;
 			}
 		}
-		CachedAudio.Add(SoundName, Audio);
+		if (Audio == NULL)
+		{
+			Audio = LoadAudio(RewardAudioPath, RewardAudioNamePrefix, SoundName);
+		}
+		if (Audio != NULL)
+		{
+			RewardCachedAudio.Add(SoundName, Audio);
+		}
 	}
+}
+
+USoundBase* UUTAnnouncer::LoadAudio(FString NewAudioPath, FString NewAudioNamePrefix, FName SoundName)
+{
+	// make sure path ends with trailing slash
+	if (!NewAudioPath.EndsWith(TEXT("/")))
+	{
+		NewAudioPath += TEXT("/");
+	}
+	// manually check that the file exists to avoid spurious log warnings (the loading code seems to be ignoring LOAD_NoWarn | LOAD_Quiet)
+	FString PackageName = NewAudioPath + NewAudioNamePrefix + SoundName.ToString();
+	if (FPackageName::DoesPackageExist(PackageName))
+	{
+		return LoadObject<USoundBase>(NULL, *(PackageName + TEXT(".") + NewAudioNamePrefix + SoundName.ToString()), NULL, LOAD_NoWarn | LOAD_Quiet);
+	}
+	return NULL;
 }

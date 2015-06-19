@@ -34,7 +34,7 @@ public:
 	virtual void Refresh() override;
 
 	DECLARE_DERIVED_EVENT( FPropertyTableRow, IPropertyTableRow::FRefreshed, FRefreshed );
-	virtual FRefreshed* OnRefresh() { return &Refreshed; }
+	virtual FRefreshed* OnRefresh() override { return &Refreshed; }
 
 
 private:

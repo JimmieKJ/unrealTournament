@@ -3,6 +3,10 @@
 #include "CustomMeshComponentPluginPrivatePCH.h"
 #include "CustomMeshComponent.h"
 #include "DynamicMeshBuilder.h"
+#include "MaterialShared.h"
+#include "EngineGlobals.h"
+#include "LocalVertexFactory.h"
+#include "Engine/Engine.h"
 
 /** Vertex Buffer */
 class FCustomMeshVertexBuffer : public FVertexBuffer 
@@ -191,7 +195,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
@@ -206,7 +210,7 @@ public:
 		return !MaterialRelevance.bDisableDepthTest;
 	}
 
-	virtual uint32 GetMemoryFootprint( void ) const { return( sizeof( *this ) + GetAllocatedSize() ); }
+	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 
 	uint32 GetAllocatedSize( void ) const { return( FPrimitiveSceneProxy::GetAllocatedSize() ); }
 
@@ -233,10 +237,27 @@ UCustomMeshComponent::UCustomMeshComponent( const FObjectInitializer& ObjectInit
 bool UCustomMeshComponent::SetCustomMeshTriangles(const TArray<FCustomMeshTriangle>& Triangles)
 {
 	CustomMeshTris = Triangles;
+
 	// Need to recreate scene proxy to send it over
 	MarkRenderStateDirty();
 
 	return true;
+}
+
+void UCustomMeshComponent::AddCustomMeshTriangles(const TArray<FCustomMeshTriangle>& Triangles)
+{
+	CustomMeshTris.Append(Triangles);
+
+	// Need to recreate scene proxy to send it over
+	MarkRenderStateDirty();
+}
+
+void  UCustomMeshComponent::ClearCustomMeshTriangles()
+{
+	CustomMeshTris.Reset();
+
+	// Need to recreate scene proxy to send it over
+	MarkRenderStateDirty();
 }
 
 

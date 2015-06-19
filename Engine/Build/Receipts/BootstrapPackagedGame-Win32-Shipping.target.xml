@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\Win32\BootstrapPackagedGame-Win32-Shipping.exe" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Binaries\Win32\BootstrapPackagedGame-Win32-Shipping.pdb" Type="SymbolFile" />
+  </BuildProducts>
+  <RuntimeDependencies />
+</BuildReceipt>

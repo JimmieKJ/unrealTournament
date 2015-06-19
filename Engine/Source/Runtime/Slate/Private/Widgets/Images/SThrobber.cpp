@@ -28,7 +28,7 @@ void SThrobber::ConstructPieces()
 	{
 		ThrobberCurve.Add(AnimCurves.AddCurve(PieceIndex*0.05f, 1.5f));
 	}
-	AnimCurves.Play();
+	AnimCurves.Play(this->AsShared(), true);
 
 	HBox->ClearChildren();
 	for (int32 PieceIndex = 0; PieceIndex < NumPieces; ++PieceIndex)
@@ -73,7 +73,7 @@ void SThrobber::SetAnimate(EAnimation InAnimate)
 
 FVector2D SThrobber::GetPieceScale(int32 PieceIndex) const
 {
-	const float Value = FMath::Sin( 2 * PI * ThrobberCurve[PieceIndex].GetLerpLooping());
+	const float Value = FMath::Sin( 2 * PI * ThrobberCurve[PieceIndex].GetLerp());
 	
 	const bool bAnimateHorizontally = ((0 != (Animate & Horizontal)));
 	const bool bAnimateVertically = (0 != (Animate & Vertical));
@@ -89,7 +89,7 @@ FLinearColor SThrobber::GetPieceColor(int32 PieceIndex) const
 	const bool bAnimateOpacity = (0 != (Animate & Opacity));
 	if (bAnimateOpacity)
 	{
-		const float Value = FMath::Sin( 2 * PI * ThrobberCurve[PieceIndex].GetLerpLooping());
+		const float Value = FMath::Sin( 2 * PI * ThrobberCurve[PieceIndex].GetLerp());
 		return FLinearColor(1.0f,1.0f,1.0f, Value);
 	}
 	else
@@ -134,7 +134,7 @@ void SCircularThrobber::ConstructSequence()
 {
 	Sequence = FCurveSequence();
 	Curve = Sequence.AddCurve(0.f, Period);
-	Sequence.Play();
+	Sequence.Play(this->AsShared(), true);
 }
 
 int32 SCircularThrobber::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
@@ -142,7 +142,7 @@ int32 SCircularThrobber::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 	const FColor FinalColorAndOpacity( InWidgetStyle.GetColorAndOpacityTint() * PieceImage->GetTint( InWidgetStyle ) );
 	const FVector2D LocalOffset = (AllottedGeometry.Size - PieceImage->ImageSize) * 0.5f;
 	const float DeltaAngle = NumPieces > 0 ? 2 * PI / NumPieces : 0;
-	const float Phase = Curve.GetLerpLooping() * 2 * PI;
+	const float Phase = Curve.GetLerp() * 2 * PI;
 
 	for (int32 PieceIdx = 0; PieceIdx < NumPieces; ++PieceIdx)
 	{
@@ -158,7 +158,7 @@ int32 SCircularThrobber::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 	return LayerId;
 }
 
-FVector2D SCircularThrobber::ComputeDesiredSize() const
+FVector2D SCircularThrobber::ComputeDesiredSize( float ) const
 {
 	return FVector2D(Radius, Radius) * 2;
 }

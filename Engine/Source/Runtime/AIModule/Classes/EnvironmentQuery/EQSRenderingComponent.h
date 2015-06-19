@@ -13,8 +13,8 @@ struct FEnvQueryInstance;
 class AIMODULE_API FEQSSceneProxy : public FDebugRenderSceneProxy
 {
 public:
-	FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& ViewFlagName = TEXT("DebugAI"), bool bDrawOnlyWhenSelected = true);
-	FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& ViewFlagName, bool bDrawOnlyWhenSelected, const TArray<FSphere>& Spheres, const TArray<FText3d>& Texts);
+	FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& ViewFlagName = TEXT("DebugAI"));
+	FEQSSceneProxy(const UPrimitiveComponent* InComponent, const FString& ViewFlagName, const TArray<FSphere>& Spheres, const TArray<FText3d>& Texts);
 
 	virtual void DrawDebugLabels(UCanvas* Canvas, APlayerController*) override;
 	
@@ -22,14 +22,14 @@ public:
 
 #if  USE_EQS_DEBUGGER 
 	static void CollectEQSData(const UPrimitiveComponent* InComponent, const IEQSQueryResultSourceInterface* QueryDataSource, TArray<FSphere>& Spheres, TArray<FText3d>& Texts, TArray<EQSDebug::FDebugHelper>& DebugItems);
-	static void CollectEQSData(const FEnvQueryResult* ResultItems, const FEnvQueryInstance* QueryInstance, TArray<FSphere>& Spheres, TArray<FText3d>& Texts, bool ShouldDrawFailedItems, TArray<EQSDebug::FDebugHelper>& DebugItems);
+	static void CollectEQSData(const FEnvQueryResult* ResultItems, const FEnvQueryInstance* QueryInstance, float HighlightRangePct, bool ShouldDrawFailedItems, TArray<FSphere>& Spheres, TArray<FText3d>& Texts, TArray<EQSDebug::FDebugHelper>& DebugItems);
 #endif
 private:
 	FEnvQueryResult QueryResult;	
 	// can be 0
 	AActor* ActorOwner;
 	const IEQSQueryResultSourceInterface* QueryDataSource;
-	bool bDrawOnlyWhenSelected;
+	uint32 bDrawOnlyWhenSelected : 1;
 
 	static const FVector ItemDrawRadius;
 
@@ -42,7 +42,7 @@ class AIMODULE_API UEQSRenderingComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 	FString DrawFlagName;
-	bool bDrawOnlyWhenSelected;
+	uint32 bDrawOnlyWhenSelected : 1;
 
 #if  USE_EQS_DEBUGGER || ENABLE_VISUAL_LOG
 	EQSDebug::FQueryData DebugData;

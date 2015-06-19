@@ -11,13 +11,15 @@ UBTTask_MoveTo::UBTTask_MoveTo(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, AcceptableRadius(50.f)
 	, bAllowStrafe(false)
+	, bAllowPartialPath(true)
+	, bStopOnOverlap(true)
 {
 	NodeName = "Move To";
 	bNotifyTick = true;
 
 	// accept only actors and vectors
-	BlackboardKey.AddObjectFilter(this, AActor::StaticClass());
-	BlackboardKey.AddVectorFilter(this);
+	BlackboardKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTTask_MoveTo, BlackboardKey), AActor::StaticClass());
+	BlackboardKey.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTTask_MoveTo, BlackboardKey));
 }
 
 EBTNodeResult::Type UBTTask_MoveTo::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -51,6 +53,13 @@ EBTNodeResult::Type UBTTask_MoveTo::PerformMoveTask(UBehaviorTreeComponent& Owne
 	if (MyController && MyBlackboard)
 	{
 		EPathFollowingRequestResult::Type RequestResult = EPathFollowingRequestResult::Failed;
+		
+		FAIMoveRequest MoveReq;
+		MoveReq.SetNavigationFilter(FilterClass);
+		MoveReq.SetAllowPartialPath(bAllowPartialPath);
+		MoveReq.SetAcceptanceRadius(AcceptableRadius);
+		MoveReq.SetCanStrafe(bAllowStrafe);
+		MoveReq.SetStopOnOverlap(bStopOnOverlap);
 
 		if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Object::StaticClass())
 		{
@@ -58,7 +67,9 @@ EBTNodeResult::Type UBTTask_MoveTo::PerformMoveTask(UBehaviorTreeComponent& Owne
 			AActor* TargetActor = Cast<AActor>(KeyValue);
 			if (TargetActor)
 			{
-				RequestResult = MyController->MoveToActor(TargetActor, AcceptableRadius, true, true, bAllowStrafe, FilterClass);
+				MoveReq.SetGoalActor(TargetActor);
+
+				RequestResult = MyController->MoveTo(MoveReq);
 			}
 			else
 			{
@@ -68,7 +79,9 @@ EBTNodeResult::Type UBTTask_MoveTo::PerformMoveTask(UBehaviorTreeComponent& Owne
 		else if (BlackboardKey.SelectedKeyType == UBlackboardKeyType_Vector::StaticClass())
 		{
 			const FVector TargetLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
-			RequestResult = MyController->MoveToLocation(TargetLocation, AcceptableRadius, true, true, false, bAllowStrafe, FilterClass);
+			MoveReq.SetGoalLocation(TargetLocation);
+
+			RequestResult = MyController->MoveTo(MoveReq);
 		}
 
 		if (RequestResult == EPathFollowingRequestResult::RequestSuccessful)

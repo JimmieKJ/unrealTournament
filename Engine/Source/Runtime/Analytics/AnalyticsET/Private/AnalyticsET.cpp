@@ -157,13 +157,15 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 	, bShouldCacheEvents(!FParse::Param(FCommandLine::Get(), TEXT("ANALYTICSDISABLECACHING")))
 	, FlushEventsCountdown(MaxCachedElapsedTime)
 {
-	UE_LOG(LogAnalytics, Verbose, TEXT("Initializing ET Analytics provider"));
+	// if we are not caching events, we are operating in debug mode. Turn on super-verbose analytics logging
+	if (!bShouldCacheEvents)
+	{
+		UE_SET_LOG_VERBOSITY(LogAnalytics, VeryVerbose);
+	}
 
 	APIKey = ConfigValues.APIKeyET;
-	if (APIKey.IsEmpty())
-	{
-		UE_LOG(LogAnalytics, Warning, TEXT("AnalyticsET missing APIKey. No uploads will be processed."));
-	}
+	UE_LOG(LogAnalytics, Verbose, TEXT("[%s] Initializing ET Analytics provider"), *APIKey);
+
 	// allow the APIServer value to be empty and use defaults.
 	APIServer = ConfigValues.APIServerET.IsEmpty() 
 		? FAnalyticsET::Config::GetDefaultAPIServer()
@@ -185,10 +187,10 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 		? GEngineVersion.ToString() 
 		: ConfigAppVersion.Replace(TEXT("%VERSION%"), *GEngineVersion.ToString(), ESearchCase::CaseSensitive);
 
-	UE_LOG(LogAnalytics, Log, TEXT("ET APIKey = %s. APIServer = %s. AppVersion = %s"), *APIKey, *APIServer, *AppVersion);
+	UE_LOG(LogAnalytics, Log, TEXT("[%s] APIServer = %s. AppVersion = %s"), *APIKey, *APIServer, *AppVersion);
 	if (UseDataRouter)
 	{
-		UE_LOG(LogAnalytics, Log, TEXT("ET APIKey = %s. DataRouterUploadURL = %s. AppVersion = %s"), *APIKey, *DataRouterUploadURL, *AppVersion);
+		UE_LOG(LogAnalytics, Log, TEXT("[%s] DataRouterUploadURL = %s. AppVersion = %s"), *APIKey, *DataRouterUploadURL, *AppVersion);
 	}
 
 	// cache the build type string
@@ -216,6 +218,8 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 
 bool FAnalyticsProviderET::Tick(float DeltaSeconds)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnalyticsProviderET_Tick);
+
 	if (CachedEvents.Num() > 0)
 	{
 		// Countdown to flush
@@ -232,7 +236,7 @@ bool FAnalyticsProviderET::Tick(float DeltaSeconds)
 
 FAnalyticsProviderET::~FAnalyticsProviderET()
 {
-	UE_LOG(LogAnalytics, Verbose, TEXT("Destroying ET Analytics provider"));
+	UE_LOG(LogAnalytics, Verbose, TEXT("[%s] Destroying ET Analytics provider"), *APIKey);
 	EndSession();
 }
 
@@ -242,7 +246,7 @@ FAnalyticsProviderET::~FAnalyticsProviderET()
  */
 bool FAnalyticsProviderET::StartSession(const TArray<FAnalyticsEventAttribute>& Attributes)
 {
-	UE_LOG(LogAnalytics, Log, TEXT("AnalyticsET::StartSession [%s]"),*APIKey);
+	UE_LOG(LogAnalytics, Log, TEXT("[%s] AnalyticsET::StartSession"),*APIKey);
 
 	// end/flush previous session before staring new one
 	if (bSessionInProgress)
@@ -330,30 +334,27 @@ void FAnalyticsProviderET::FlushEvents()
 		JsonWriter->WriteObjectEnd();
 		JsonWriter->Close();
 
-		// when we are not caching events, assume we are debugging and always log analytics payloads.
-		if (bShouldCacheEvents)
-		{
-			UE_LOG(LogAnalytics, Verbose, TEXT("AnalyticsET Payload:%s"), *Payload);
-		}
-		else
-		{
-			UE_LOG(LogAnalytics, Log, TEXT("AnalyticsET Payload:%s"), *Payload);
-		}
+		FString URLPath = FString::Printf(TEXT("CollectData.1?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s"),
+			*FGenericPlatformHttp::UrlEncode(SessionID),
+			*FGenericPlatformHttp::UrlEncode(APIKey),
+			*FGenericPlatformHttp::UrlEncode(AppVersion),
+			*FGenericPlatformHttp::UrlEncode(UserID));
+
+		// Recreate the URLPath for logging because we do not want to escape the parameters when logging.
+		// We cannot simply UrlEncode the entire Path after logging it because UrlEncode(Params) != UrlEncode(Param1) & UrlEncode(Param2) ...
+		UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] AnalyticsET URL:CollectData.1?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s. Payload:%s"), 
+			*APIKey, 
+			*SessionID,
+			*APIKey,
+			*AppVersion,
+			*UserID,
+			*Payload);
 
 		// Create/send Http request for an event
 		TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 		HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json; charset=utf-8"));
 
-		HttpRequest->SetURL(
-			FString::Printf(TEXT("%sCollectData.1?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s&IsEditor=%s"),
-			*APIServer, 
-			*FGenericPlatformHttp::UrlEncode(SessionID),
-			*FGenericPlatformHttp::UrlEncode(APIKey), 
-			*FGenericPlatformHttp::UrlEncode(AppVersion),
-			*FGenericPlatformHttp::UrlEncode(UserID),
-			*FGenericPlatformHttp::UrlEncode(FString::FromInt(GIsEditor))
-		));
-
+		HttpRequest->SetURL(APIServer + URLPath);
 		HttpRequest->SetVerb(TEXT("POST"));
 		HttpRequest->SetContentAsString(Payload);
 		HttpRequest->OnProcessRequestComplete().BindRaw(this, &FAnalyticsProviderET::EventRequestComplete);
@@ -366,7 +367,7 @@ void FAnalyticsProviderET::FlushEvents()
 			// NOTE - This branch is temp, and we will eventually use the DataRouter path exclusively
 
 			// Create/send Http request for an event
-			TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
+			HttpRequest = FHttpModule::Get().CreateRequest();
 			HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json; charset=utf-8"));
 
 			// TODO need agent here??
@@ -397,12 +398,12 @@ void FAnalyticsProviderET::SetUserID(const FString& InUserID)
 	// command-line specified user ID overrides all attempts to reset it.
 	if (!FParse::Value(FCommandLine::Get(), TEXT("ANALYTICSUSERID="), UserID, false))
 	{
-		UE_LOG(LogAnalytics, Log, TEXT("SetUserId %s"), *InUserID);
+		UE_LOG(LogAnalytics, Log, TEXT("[%s] SetUserId %s"), *APIKey, *InUserID);
 		UserID = InUserID;
 	}
 	else if (UserID != InUserID)
 	{
-		UE_LOG(LogAnalytics, Log, TEXT("Overriding SetUserId %s with cmdline UserId of %s."), *InUserID, *UserID);
+		UE_LOG(LogAnalytics, Log, TEXT("[%s] Overriding SetUserId %s with cmdline UserId of %s."), *APIKey, *InUserID, *UserID);
 	}
 }
 
@@ -421,7 +422,7 @@ bool FAnalyticsProviderET::SetSessionID(const FString& InSessionID)
 	if (bSessionInProgress)
 	{
 		SessionID = InSessionID;
-		UE_LOG(LogAnalytics, Log, TEXT("AnalyticsET: Forcing SessionID to %s."), *SessionID);
+		UE_LOG(LogAnalytics, Log, TEXT("[%s] Forcing SessionID to %s."), *APIKey, *SessionID);
 		return true;
 	}
 	return false;
@@ -446,11 +447,11 @@ void FAnalyticsProviderET::EventRequestComplete(FHttpRequestPtr HttpRequest, FHt
 {
 	if (bSucceeded && HttpResponse.IsValid())
 	{
-		UE_LOG(LogAnalytics, VeryVerbose, TEXT("ET response for [%s]. Code: %d. Payload: %s"), *HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *HttpResponse->GetContentAsString());
+		UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] ET response for [%s]. Code: %d. Payload: %s"), *APIKey, *HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *HttpResponse->GetContentAsString());
 	}
 	else
 	{
-		UE_LOG(LogAnalytics, VeryVerbose, TEXT("ET response for [%s]. No response"), *HttpRequest->GetURL());
+		UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] ET response for [%s]. No response"), *APIKey, *HttpRequest->GetURL());
 	}
 }
 
@@ -458,10 +459,10 @@ void FAnalyticsProviderET::EventRequestCompleteDataRouter(FHttpRequestPtr HttpRe
 {
 	if (bSucceeded && HttpResponse.IsValid())
 	{
-		UE_LOG(LogAnalytics, VeryVerbose, TEXT("ET (DataRouter) response for [%s]. Code: %d. Payload: %s"), *HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *HttpResponse->GetContentAsString());
+		UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] ET (DataRouter) response for [%s]. Code: %d. Payload: %s"), *APIKey, *HttpRequest->GetURL(), HttpResponse->GetResponseCode(), *HttpResponse->GetContentAsString());
 	}
 	else
 	{
-		UE_LOG(LogAnalytics, VeryVerbose, TEXT("ET (DataRouter) response for [%s]. No response"), *HttpRequest->GetURL());
+		UE_LOG(LogAnalytics, VeryVerbose, TEXT("[%s] ET (DataRouter) response for [%s]. No response"), *APIKey, *HttpRequest->GetURL());
 	}
 }

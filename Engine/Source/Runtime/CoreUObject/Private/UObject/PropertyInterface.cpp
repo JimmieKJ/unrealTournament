@@ -12,7 +12,7 @@ void UInterfaceProperty::BeginDestroy()
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(InterfaceClass))
 	{
-		PlaceholderClass->RemovePropertyReference(this);
+		PlaceholderClass->RemoveReferencingProperty(this);
 	}
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
@@ -101,7 +101,7 @@ bool UInterfaceProperty::Identical( const void* A, const void* B, uint32 PortFla
 	return (InterfaceA->GetObject() == InterfaceB->GetObject() && InterfaceA->GetInterface() == InterfaceB->GetInterface());
 }
 
-void UInterfaceProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UInterfaceProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	FScriptInterface* InterfaceValue = (FScriptInterface*)Value;
 
@@ -249,7 +249,7 @@ void UInterfaceProperty::SetInterfaceClass(UClass* NewInterfaceClass)
 
 	if (ULinkerPlaceholderClass* OldPlaceholderClass = Cast<ULinkerPlaceholderClass>(InterfaceClass))
 	{
-		OldPlaceholderClass->RemovePropertyReference(this);
+		OldPlaceholderClass->RemoveReferencingProperty(this);
 	}
 	InterfaceClass = NewInterfaceClass;
 }

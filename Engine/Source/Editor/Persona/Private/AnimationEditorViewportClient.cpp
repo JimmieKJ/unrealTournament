@@ -2,7 +2,7 @@
 
 #include "PersonaPrivatePCH.h"
 
-#include "PreviewScene.h"
+#include "AnimationEditorPreviewScene.h"
 #include "SAnimationEditorViewport.h"
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "SAnimViewportToolBar.h"
@@ -28,6 +28,7 @@
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "Components/WindDirectionalSourceComponent.h"
 #include "Engine/StaticMesh.h"
+#include "SAnimationEditorViewport.h"
 
 namespace {
 	// Value from UE3
@@ -78,8 +79,8 @@ IMPLEMENT_HIT_PROXY( HPersonaBoneProxy, HHitProxy );
 /////////////////////////////////////////////////////////////////////////
 // FAnimationViewportClient
 
-FAnimationViewportClient::FAnimationViewportClient( FPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr )
-	: FEditorViewportClient(nullptr, &InPreviewScene)
+FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr, const TSharedRef<SAnimationEditorViewport>& InAnimationEditorViewport)
+	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InAnimationEditorViewport))
 	, PersonaPtr( InPersonaPtr )
 	, bManipulating(false)
 	, bInTransaction(false)
@@ -117,65 +118,10 @@ FAnimationViewportClient::FAnimationViewportClient( FPreviewScene& InPreviewScen
 		SetRealtime(false,true); // We are PIE, don't start in realtime mode
 	}
 
-	// set light options 
-	PreviewScene->DirectionalLight->SetRelativeLocation(FVector(-1024.f, 1024.f, 2048.f));
-	PreviewScene->DirectionalLight->SetRelativeScale3D(FVector(15.f));
-	PreviewScene->DirectionalLight->Mobility = EComponentMobility::Stationary;
-	PreviewScene->DirectionalLight->DynamicShadowDistanceStationaryLight = 3000.f;
-	PreviewScene->DirectionalLight->bPrecomputedLightingIsValid = false;
-	PreviewScene->SetLightBrightness(4.f);
-	//InPreviewScene->SetSkyBrightness(0.5f);
-	PreviewScene->DirectionalLight->InvalidateLightingCache();
-	PreviewScene->DirectionalLight->RecreateRenderState_Concurrent();
-
-	// A background sky sphere
-	EditorSkyComp = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
-	UStaticMesh * StaticMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/MapTemplates/Sky/SM_SkySphere.SM_SkySphere"), NULL, LOAD_None, NULL);
-	check (StaticMesh);
-	EditorSkyComp->SetStaticMesh( StaticMesh );
-	UMaterial* SkyMaterial= LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorMaterials/PersonaSky.PersonaSky"), NULL, LOAD_None, NULL);
-	check (SkyMaterial);
-	EditorSkyComp->SetMaterial(0, SkyMaterial);
-	const float SkySphereScale = 1000.f;
-	const FTransform SkyTransform(FRotator(0,0,0), FVector(0,0,0), FVector(SkySphereScale));
-	PreviewScene->AddComponent(EditorSkyComp, SkyTransform);
-
-	// now add height fog component
-
-	EditorHeightFogComponent = ConstructObject<UExponentialHeightFogComponent>(UExponentialHeightFogComponent::StaticClass());
-	
-	EditorHeightFogComponent->FogDensity=0.00075f;
-	EditorHeightFogComponent->FogInscatteringColor=FLinearColor(3.f,4.f,6.f,0.f)*0.3f;
-	EditorHeightFogComponent->DirectionalInscatteringExponent=16.f;
-	EditorHeightFogComponent->DirectionalInscatteringColor=FLinearColor(1.1f,0.9f,0.538427f,0.f);
-	EditorHeightFogComponent->FogHeightFalloff=0.01f;
-	EditorHeightFogComponent->StartDistance=15000.f;
-	const FTransform FogTransform(FRotator(0,0,0), FVector(3824.f,34248.f,50000.f), FVector(80.f));
-	PreviewScene->AddComponent(EditorHeightFogComponent, FogTransform);
-
-	// add capture component for reflection
- 	USphereReflectionCaptureComponent* CaptureComponent = ConstructObject<USphereReflectionCaptureComponent>(USphereReflectionCaptureComponent::StaticClass());
- 
- 	const FTransform CaptureTransform(FRotator(0,0,0), FVector(0.f,0.f,100.f), FVector(1.f));
- 	PreviewScene->AddComponent(CaptureComponent, CaptureTransform);
-	CaptureComponent->SetCaptureIsDirty();
-	CaptureComponent->UpdateReflectionCaptureContents(PreviewScene->GetWorld());
-
-	// now add floor
- 	UStaticMesh* FloorMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/PhAT_FloorBox.PhAT_FloorBox"), NULL, LOAD_None, NULL);
- 	check(FloorMesh);
- 	EditorFloorComp = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
- 	EditorFloorComp->SetStaticMesh( FloorMesh );
- 	PreviewScene->AddComponent(EditorFloorComp, FTransform::Identity);
- 	EditorFloorComp->SetRelativeScale3D(FVector(3.f, 3.f, 1.f));
-	UMaterial* Material= LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorMaterials/PersonaFloorMat.PersonaFloorMat"), NULL, LOAD_None, NULL);
-	check(Material);
-	EditorFloorComp->SetMaterial( 0, Material );
-
 	// set visibility
-	EditorSkyComp->SetVisibility(ConfigOption->bShowSky);
-	EditorHeightFogComponent->SetVisibility(ConfigOption->bShowSky);
- 	EditorFloorComp->SetVisibility(ConfigOption->bShowFloor);
+	GetAnimPreviewScene()->EditorSkyComp->SetVisibility(ConfigOption->bShowSky);
+	GetAnimPreviewScene()->EditorHeightFogComponent->SetVisibility(ConfigOption->bShowSky);
+	GetAnimPreviewScene()->EditorFloorComp->SetVisibility(ConfigOption->bShowFloor);
 
 	ViewFOV = FMath::Clamp<float>(ConfigOption->ViewFOV, FOVMin, FOVMax);
 
@@ -193,6 +139,8 @@ FAnimationViewportClient::FAnimationViewportClient( FPreviewScene& InPreviewScen
 	bDrawUVs = false;
 	UVChannelToDraw = 0;
 
+	bAutoAlignFloor = true;
+
 	// Set audio mute option
 	UWorld* World = PreviewScene->GetWorld();
 	if(World)
@@ -203,20 +151,6 @@ FAnimationViewportClient::FAnimationViewportClient( FPreviewScene& InPreviewScen
 
 FAnimationViewportClient::~FAnimationViewportClient()
 {
-	if (PersonaPtr.IsValid())
-	{
-		if (EditorFloorComp)
-		{
-			PreviewScene->RemoveComponent(EditorFloorComp);
-			EditorFloorComp = NULL;
-		}
-
-		if (EditorSkyComp)
-		{
-			PreviewScene->RemoveComponent(EditorSkyComp);
-			EditorSkyComp = NULL;
-		}
-	}
 }
 
 FLinearColor FAnimationViewportClient::GetBackgroundColor() const
@@ -294,36 +228,47 @@ bool FAnimationViewportClient::IsShowingGrid() const
 
 void FAnimationViewportClient::OnToggleShowFloor()
 {
-	if (EditorFloorComp)
+	if (GetAnimPreviewScene()->EditorFloorComp)
 	{
-		EditorFloorComp->SetVisibility(!EditorFloorComp->bVisible);
+		GetAnimPreviewScene()->EditorFloorComp->SetVisibility(!GetAnimPreviewScene()->EditorFloorComp->bVisible);
 		Invalidate();
 	}
 
-	ConfigOption->SetShowFloor(EditorFloorComp->bVisible);
+	ConfigOption->SetShowFloor(GetAnimPreviewScene()->EditorFloorComp->bVisible);
 }
 
 bool FAnimationViewportClient::IsShowingFloor() const
 {
-	return (EditorFloorComp)? EditorFloorComp->bVisible : false;
+	return (GetAnimPreviewScene()->EditorFloorComp) ? GetAnimPreviewScene()->EditorFloorComp->bVisible : false;
+}
+
+void FAnimationViewportClient::OnToggleAutoAlignFloor()
+{
+	bAutoAlignFloor = !bAutoAlignFloor;
+	UpdateCameraSetup();
+}
+
+bool FAnimationViewportClient::IsAutoAlignFloor() const
+{
+	return bAutoAlignFloor;
 }
 
 void FAnimationViewportClient::OnToggleShowSky()
 {
-	if (EditorSkyComp)
+	if (GetAnimPreviewScene()->EditorSkyComp)
 	{
-		bool bNewVisibility = !EditorSkyComp->bVisible;
-		EditorSkyComp->SetVisibility(bNewVisibility);
-		EditorHeightFogComponent->SetVisibility(bNewVisibility);
+		bool bNewVisibility = !GetAnimPreviewScene()->EditorSkyComp->bVisible;
+		GetAnimPreviewScene()->EditorSkyComp->SetVisibility(bNewVisibility);
+		GetAnimPreviewScene()->EditorHeightFogComponent->SetVisibility(bNewVisibility);
 		Invalidate();
 	}
 
-	ConfigOption->SetShowSky(EditorSkyComp->bVisible);
+	ConfigOption->SetShowSky(GetAnimPreviewScene()->EditorSkyComp->bVisible);
 }
 
 bool FAnimationViewportClient::IsShowingSky() const
 {
-	return (EditorSkyComp)? EditorSkyComp->bVisible : false;
+	return (GetAnimPreviewScene()->EditorSkyComp) ? GetAnimPreviewScene()->EditorSkyComp->bVisible : false;
 }
 
 void FAnimationViewportClient::OnToggleMuteAudio()
@@ -416,7 +361,7 @@ void FAnimationViewportClient::Draw(const FSceneView* View, FPrimitiveDrawInterf
 		}
 		if ( PreviewSkelMeshComp->bDisplayRawAnimation )
 		{
-			DrawMeshBonesCompressedAnimation(PreviewSkelMeshComp.Get(), PDI);
+			DrawMeshBonesUncompressedAnimation(PreviewSkelMeshComp.Get(), PDI);
 		}
 		if ( PreviewSkelMeshComp->NonRetargetedSpaceBases.Num() > 0 )
 		{
@@ -796,7 +741,7 @@ void FAnimationViewportClient::Tick(float DeltaSeconds)
 	if (PreviewComp)
 	{
 		// Handle updating the preview component to represent the effects of root motion	
-		FBoxSphereBounds Bounds = EditorFloorComp->CalcBounds(EditorFloorComp->GetRelativeTransform());
+		FBoxSphereBounds Bounds = GetAnimPreviewScene()->EditorFloorComp->CalcBounds(GetAnimPreviewScene()->EditorFloorComp->GetRelativeTransform());
 		PreviewComp->ConsumeRootMotion(Bounds.GetBox().Min, Bounds.GetBox().Max);
 	}	
 
@@ -860,6 +805,7 @@ void FAnimationViewportClient::ShowBoneNames( FCanvas* Canvas, FSceneView* View 
 				const FName BoneName = PreviewSkelMeshComp->SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex);
 				const FString BoneString = FString::Printf( TEXT("%d: %s"), BoneIndex, *BoneName.ToString() );
 				FCanvasTextItem TextItem( FVector2D( XPos, YPos), FText::FromString( BoneString ), GEngine->GetSmallFont(), BoneColor );
+				TextItem.EnableShadow(FLinearColor::Black);
 				Canvas->DrawItem( TextItem );
 			}
 		}
@@ -1581,12 +1527,13 @@ FMatrix FAnimationViewportClient::GetWidgetCoordSystem() const
 		{
 			FName BoneName = SelectedSkelControlAnimGraph->FindSelectedBone();
 			int32 BoneIndex = PreviewSkelMeshComp->GetBoneIndex(BoneName);
+			if (BoneIndex != INDEX_NONE)
+			{
 			FTransform BoneMatrix = PreviewSkelMeshComp->GetBoneTransform(BoneIndex);
-
 			return BoneMatrix.ToMatrixNoScale().RemoveTranslation();
 		}
-		else
-		if ( PreviewSkelMeshComp->BonesOfInterest.Num() > 0 )
+		}
+		else if ( PreviewSkelMeshComp->BonesOfInterest.Num() > 0 )
 		{
 			int32 BoneIndex = PreviewSkelMeshComp->BonesOfInterest.Last();
 
@@ -1765,11 +1712,11 @@ void FAnimationViewportClient::DrawBonesFromTransforms(TArray<FTransform>& Trans
 	}
 }
 
-void FAnimationViewportClient::DrawMeshBonesCompressedAnimation(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const
+void FAnimationViewportClient::DrawMeshBonesUncompressedAnimation(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const
 {
 	if ( MeshComponent && MeshComponent->SkeletalMesh )
 	{
-		DrawBonesFromTransforms(MeshComponent->CompressedSpaceBases, MeshComponent, PDI, FColor(255, 127, 39, 255), FColor(255, 127, 39, 255));
+		DrawBonesFromTransforms(MeshComponent->UncompressedSpaceBases, MeshComponent, PDI, FColor(255, 127, 39, 255), FColor(255, 127, 39, 255));
 	}
 }
 
@@ -2109,9 +2056,14 @@ void FAnimationViewportClient::UpdateCameraSetup()
 		// Move the floor to the bottom of the bounding box of the mesh, rather than on the origin
 		FVector Bottom = PreviewSkelMeshComp->Bounds.GetBoxExtrema(0);
 
-		if ( EditorFloorComp )
+		if (GetAnimPreviewScene()->EditorFloorComp)
 		{
-			EditorFloorComp->SetWorldTransform( FTransform( FQuat::Identity, FVector( 0.0f, 0.0f, Bottom.Z + GetFloorOffset() ), FVector( 3.0f, 3.0f, 1.0f ) ) );
+			FVector FloorPos(0.f, 0.f, 0.f);
+			if (bAutoAlignFloor)
+			{
+				FloorPos.Z = GetFloorOffset() + Bottom.Z;
+			}
+			GetAnimPreviewScene()->EditorFloorComp->SetWorldTransform(FTransform(FQuat::Identity, FloorPos, FVector(3.0f, 3.0f, 1.0f)));
 		}
 	}
 }
@@ -2360,6 +2312,11 @@ bool FAnimationViewportClient::IsDetailedMeshStats() const
 int32 FAnimationViewportClient::GetShowMeshStats() const
 {
 	return ConfigOption->ShowMeshStats;
+}
+
+FAnimationEditorPreviewScene* FAnimationViewportClient::GetAnimPreviewScene() const
+{
+	return static_cast<FAnimationEditorPreviewScene*>(PreviewScene);
 }
 
 #undef LOCTEXT_NAMESPACE

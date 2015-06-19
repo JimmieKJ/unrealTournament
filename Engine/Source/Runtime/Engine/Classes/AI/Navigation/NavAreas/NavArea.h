@@ -13,10 +13,12 @@ class ENGINE_API UNavArea : public UObject
 	UPROPERTY(EditAnywhere, Category=NavArea, config, meta=(ClampMin = "0.0"))
 	float DefaultCost;
 
+protected:
 	/** entering cost */
 	UPROPERTY(EditAnywhere, Category=NavArea, config, meta=(ClampMin = "0.0"))
 	float FixedAreaEnteringCost;
 
+public:
 	/** area color in navigation view */
 	UPROPERTY(EditAnywhere, Category=NavArea, config)
 	FColor DrawColor;
@@ -72,6 +74,9 @@ class ENGINE_API UNavArea : public UObject
 	FORCEINLINE bool HasFlags(uint16 InFlags) const { return (InFlags & AreaFlags) != 0; }
 
 	FORCEINLINE bool IsSupportingAgent(int32 AgentIndex) const { return (AgentIndex >= 0 && AgentIndex < 16) ? !!(SupportedAgentsBits & (1 << AgentIndex)) : false; }
+
+	/** Get the fixed area entering cost. */
+	virtual float GetFixedAreaEnteringCost() { return FixedAreaEnteringCost; }
 
 	/** Retrieved color declared for AreaDefinitionClass */
 	static FColor GetColor(UClass* AreaDefinitionClass);

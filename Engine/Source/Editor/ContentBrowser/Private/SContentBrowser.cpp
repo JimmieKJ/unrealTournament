@@ -64,7 +64,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 	PathContextMenu->SetOnRenameFolderRequested(FPathContextMenu::FOnRenameFolderRequested::CreateSP(this, &SContentBrowser::OnRenameFolderRequested));
 	PathContextMenu->SetOnFolderDeleted(FPathContextMenu::FOnFolderDeleted::CreateSP(this, &SContentBrowser::OnOpenedFolderDeleted));
 
-	FrontendFilters = MakeShareable(new AssetFilterCollectionType());
+	FrontendFilters = MakeShareable(new FAssetFilterCollectionType());
 	TextFilter = MakeShareable( new FFrontendFilter_Text() );
 
 	static const FName DefaultForegroundName("DefaultForeground");
@@ -129,7 +129,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 									SNew(STextBlock)
 									.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 									.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
-									.Text(FString(TEXT("\xf15b")) /*fa-file*/)
+									.Text(FText::FromString(FString(TEXT("\xf15b"))) /*fa-file*/)
 								]
 
 								// New Text
@@ -152,7 +152,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 									SNew(STextBlock)
 									.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 									.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
-									.Text(FString(TEXT("\xf0d7")) /*fa-caret-down*/)
+									.Text(FText::FromString(FString(TEXT("\xf0d7"))) /*fa-caret-down*/)
 								]
 							]
 						]
@@ -182,7 +182,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 									SNew(STextBlock)
 									.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 									.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
-									.Text(FString(TEXT("\xf019")) /*fa-download*/)
+									.Text(FText::FromString(FString(TEXT("\xf019"))) /*fa-download*/)
 								]
 
 								// Import Text
@@ -221,7 +221,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 									SNew(STextBlock)
 									.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 									.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
-									.Text(FString(TEXT("\xf0c7")) /*fa-floppy-o*/)
+									.Text(FText::FromString(FString(TEXT("\xf0c7"))) /*fa-floppy-o*/)
 								]
 
 								// Save All Text
@@ -271,7 +271,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 								SNew(STextBlock)
 								.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 								.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
-								.Text(FString(TEXT("\xf060")) /*fa-arrow-left*/)
+								.Text(FText::FromString(FString(TEXT("\xf060"))) /*fa-arrow-left*/)
 							]
 						]
 					]
@@ -298,7 +298,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 								SNew(STextBlock)
 								.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 								.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
-								.Text(FString(TEXT("\xf061")) /*fa-arrow-right*/)
+								.Text(FText::FromString(FString(TEXT("\xf061"))) /*fa-arrow-right*/)
 							]
 						]
 					]
@@ -330,7 +330,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 							SNew(STextBlock)
 							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
-							.Text(FString(TEXT("\xf07c")) /*fa-folder-open*/)
+							.Text(FText::FromString(FString(TEXT("\xf07c"))) /*fa-folder-open*/)
 						]
 					]
 
@@ -523,7 +523,7 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 									SNew(STextBlock)
 									.TextStyle(FEditorStyle::Get(), "ContentBrowser.Filters.Text")
 									.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
-									.Text(FString(TEXT("\xf0b0")) /*fa-filter*/)
+									.Text(FText::FromString(FString(TEXT("\xf0b0"))) /*fa-filter*/)
 								]
 
 								+ SHorizontalBox::Slot()
@@ -626,13 +626,21 @@ void SContentBrowser::Construct( const FArguments& InArgs, const FName& InInstan
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	AssetRegistryModule.Get().OnPathRemoved().AddSP(this, &SContentBrowser::HandlePathRemoved);
 
+	// We want to be able to search the feature packs in the super search so we need the module loaded 
+	IAddContentDialogModule& AddContentDialogModule = FModuleManager::LoadModuleChecked<IAddContentDialogModule>("AddContentDialog");
+
+	const TWeakPtr<SContentBrowser> WeakThis = SharedThis(this);
+
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>( TEXT("ContentBrowser") );
 	ContentBrowserModule.GetAllAssetViewViewMenuExtenders().Add( 
-		FContentBrowserMenuExtender::CreateLambda( [&]()
+		FContentBrowserMenuExtender::CreateLambda( [=]()
 		{
-			TSharedRef<FExtender> Extender = MakeShareable( new FExtender );
+			TSharedRef<FExtender> Extender = MakeShareable(new FExtender);
+			if( WeakThis.IsValid() )
+			{
+				Extender->AddMenuExtension(FName("Folders"), EExtensionHook::After, nullptr, FMenuExtensionDelegate::CreateSP(WeakThis.Pin().ToSharedRef(), &SContentBrowser::ExtendAssetViewMenu));
+			}
 
-			Extender->AddMenuExtension( FName("Folders"), EExtensionHook::After, nullptr, FMenuExtensionDelegate::CreateSP( this, &SContentBrowser::ExtendAssetViewMenu ) );
 			return Extender;
 		})
 	);
@@ -686,7 +694,8 @@ void SContentBrowser::ExtendAssetViewMenu( FMenuBuilder& MenuBuilder )
 
 void SContentBrowser::ToggleShowCollections()
 {
-	return GetMutableDefault<UContentBrowserSettings>()->SetDisplayCollections(!GetDefault<UContentBrowserSettings>()->GetDisplayCollections());
+	GetMutableDefault<UContentBrowserSettings>()->SetDisplayCollections(!GetDefault<UContentBrowserSettings>()->GetDisplayCollections());
+	GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
 }
 
 bool SContentBrowser::IsShowingCollections() const
@@ -754,7 +763,7 @@ void SContentBrowser::ImportAsset( const FString& InPath )
 	}
 }
 
-void SContentBrowser::SyncToAssets( const TArray<FAssetData>& AssetDataList, const bool bAllowImplicitSync )
+void SContentBrowser::SyncToAssets( const TArray<FAssetData>& AssetDataList, const bool bAllowImplicitSync, const bool bDisableFiltersThatHideAssets )
 {
 	// Check to see if any of the assets require certain folders to be visible
 	const UContentBrowserSettings* tmp = GetDefault<UContentBrowserSettings>();
@@ -809,8 +818,11 @@ void SContentBrowser::SyncToAssets( const TArray<FAssetData>& AssetDataList, con
 		}
 	}
 
-	// Disable the filter categories
-	FilterListPtr->DisableFiltersThatHideAssets(AssetDataList);
+	if ( bDisableFiltersThatHideAssets )
+	{
+		// Disable the filter categories
+		FilterListPtr->DisableFiltersThatHideAssets(AssetDataList);
+	}
 
 	// Disable the filter search (reset the filter, then clear the search text)
 	// Note: we have to remove the filter immediately, we can't wait for OnSearchBoxChanged to hit
@@ -886,26 +898,26 @@ void SContentBrowser::SaveSettings() const
 {
 	const FString& SettingsString = InstanceName.ToString();
 
-	GConfig->SetBool(*SettingsIniSection, *(SettingsString + TEXT(".SourcesExpanded")), bSourcesViewExpanded, GEditorUserSettingsIni);
-	GConfig->SetBool(*SettingsIniSection, *(SettingsString + TEXT(".Locked")), bIsLocked, GEditorUserSettingsIni);
+	GConfig->SetBool(*SettingsIniSection, *(SettingsString + TEXT(".SourcesExpanded")), bSourcesViewExpanded, GEditorPerProjectIni);
+	GConfig->SetBool(*SettingsIniSection, *(SettingsString + TEXT(".Locked")), bIsLocked, GEditorPerProjectIni);
 
 	for(int32 SlotIndex = 0; SlotIndex < PathAssetSplitterPtr->GetChildren()->Num(); SlotIndex++)
 	{
 		float SplitterSize = PathAssetSplitterPtr->SlotAt(SlotIndex).SizeValue.Get();
-		GConfig->SetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".VerticalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorUserSettingsIni);
+		GConfig->SetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".VerticalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorPerProjectIni);
 	}
 	
 	for(int32 SlotIndex = 0; SlotIndex < PathCollectionSplitterPtr->GetChildren()->Num(); SlotIndex++)
 	{
 		float SplitterSize = PathCollectionSplitterPtr->SlotAt(SlotIndex).SizeValue.Get();
-		GConfig->SetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".HorizontalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorUserSettingsIni);
+		GConfig->SetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".HorizontalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorPerProjectIni);
 	}
 
 	// Save all our data using the settings string as a key in the user settings ini
-	FilterListPtr->SaveSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
-	PathViewPtr->SaveSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
-	CollectionViewPtr->SaveSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
-	AssetViewPtr->SaveSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
+	FilterListPtr->SaveSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
+	PathViewPtr->SaveSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
+	CollectionViewPtr->SaveSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
+	AssetViewPtr->SaveSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
 }
 
 const FName SContentBrowser::GetInstanceName() const
@@ -1000,16 +1012,16 @@ void SContentBrowser::LoadSettings(const FName& InInstanceName)
 	// Test to see if we should load legacy settings from a previous instance name
 	// First make sure there aren't any existing settings with the given instance name
 	bool TestBool;
-	if ( !GConfig->GetBool(*SettingsIniSection, *(SettingsString + TEXT(".SourcesExpanded")), TestBool, GEditorUserSettingsIni) )
+	if ( !GConfig->GetBool(*SettingsIniSection, *(SettingsString + TEXT(".SourcesExpanded")), TestBool, GEditorPerProjectIni) )
 	{
 		// If there were not any settings and we are Content Browser 1, see if we have any settings under the legacy name "LevelEditorContentBrowser"
-		if ( InInstanceName.ToString() == TEXT("ContentBrowserTab1") && GConfig->GetBool(*SettingsIniSection, TEXT("LevelEditorContentBrowser.SourcesExpanded"), TestBool, GEditorUserSettingsIni) )
+		if ( InInstanceName.ToString() == TEXT("ContentBrowserTab1") && GConfig->GetBool(*SettingsIniSection, TEXT("LevelEditorContentBrowser.SourcesExpanded"), TestBool, GEditorPerProjectIni) )
 		{
 			// We have found some legacy settings with the old ID, use them. These settings will be saved out to the new id later
 			SettingsString = TEXT("LevelEditorContentBrowser");
 		}
 		// else see if we are Content Browser 2, and see if we have any settings under the legacy name "MajorContentBrowserTab"
-		else if ( InInstanceName.ToString() == TEXT("ContentBrowserTab2") && GConfig->GetBool(*SettingsIniSection, TEXT("MajorContentBrowserTab.SourcesExpanded"), TestBool, GEditorUserSettingsIni) )
+		else if ( InInstanceName.ToString() == TEXT("ContentBrowserTab2") && GConfig->GetBool(*SettingsIniSection, TEXT("MajorContentBrowserTab.SourcesExpanded"), TestBool, GEditorPerProjectIni) )
 		{
 			// We have found some legacy settings with the old ID, use them. These settings will be saved out to the new id later
 			SettingsString = TEXT("MajorContentBrowserTab");
@@ -1017,34 +1029,34 @@ void SContentBrowser::LoadSettings(const FName& InInstanceName)
 	}
 
 	// Now that we have determined the appropriate settings string, actually load the settings
-	GConfig->GetBool(*SettingsIniSection, *(SettingsString + TEXT(".SourcesExpanded")), bSourcesViewExpanded, GEditorUserSettingsIni);
-	GConfig->GetBool(*SettingsIniSection, *(SettingsString + TEXT(".Locked")), bIsLocked, GEditorUserSettingsIni);
+	GConfig->GetBool(*SettingsIniSection, *(SettingsString + TEXT(".SourcesExpanded")), bSourcesViewExpanded, GEditorPerProjectIni);
+	GConfig->GetBool(*SettingsIniSection, *(SettingsString + TEXT(".Locked")), bIsLocked, GEditorPerProjectIni);
 
 	for(int32 SlotIndex = 0; SlotIndex < PathAssetSplitterPtr->GetChildren()->Num(); SlotIndex++)
 	{
 		float SplitterSize = PathAssetSplitterPtr->SlotAt(SlotIndex).SizeValue.Get();
-		GConfig->GetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".VerticalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorUserSettingsIni);
+		GConfig->GetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".VerticalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorPerProjectIni);
 		PathAssetSplitterPtr->SlotAt(SlotIndex).SizeValue = SplitterSize;
 	}
 	
 	for(int32 SlotIndex = 0; SlotIndex < PathCollectionSplitterPtr->GetChildren()->Num(); SlotIndex++)
 	{
 		float SplitterSize = PathCollectionSplitterPtr->SlotAt(SlotIndex).SizeValue.Get();
-		GConfig->GetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".HorizontalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorUserSettingsIni);
+		GConfig->GetFloat(*SettingsIniSection, *(SettingsString + FString::Printf(TEXT(".HorizontalSplitter.SlotSize%d"), SlotIndex)), SplitterSize, GEditorPerProjectIni);
 		PathCollectionSplitterPtr->SlotAt(SlotIndex).SizeValue = SplitterSize;
 	}
 
 	// Save all our data using the settings string as a key in the user settings ini
-	FilterListPtr->LoadSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
-	PathViewPtr->LoadSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
-	CollectionViewPtr->LoadSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
-	AssetViewPtr->LoadSettings(GEditorUserSettingsIni, SettingsIniSection, SettingsString);
+	FilterListPtr->LoadSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
+	PathViewPtr->LoadSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
+	CollectionViewPtr->LoadSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
+	AssetViewPtr->LoadSettings(GEditorPerProjectIni, SettingsIniSection, SettingsString);
 }
 
 void SContentBrowser::SourcesChanged(const TArray<FString>& SelectedPaths, const TArray<FCollectionNameType>& SelectedCollections)
 {
 	FString NewSource = SelectedPaths.Num() > 0 ? SelectedPaths[0] : (SelectedCollections.Num() > 0 ? SelectedCollections[0].Name.ToString() : TEXT("None"));
-	UE_LOG(LogContentBrowser, Verbose, TEXT("The content browser source was changed by the sources view to '%s'"), *NewSource);
+	UE_LOG(LogContentBrowser, VeryVerbose, TEXT("The content browser source was changed by the sources view to '%s'"), *NewSource);
 
 	FSourcesData SourcesData;
 	for (int32 PathIdx = 0; PathIdx < SelectedPaths.Num(); ++PathIdx)
@@ -1183,7 +1195,7 @@ void SContentBrowser::NewAssetRequested(const FString& SelectedPath, TWeakObject
 {
 	if ( ensure(SelectedPath.Len() > 0) && ensure(FactoryClass.IsValid()) )
 	{
-		UFactory* NewFactory = ConstructObject<UFactory>( FactoryClass.Get() );
+		UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), FactoryClass.Get());
 		FEditorDelegates::OnConfigureNewAssetProperties.Broadcast(NewFactory);
 		if ( NewFactory->ConfigureProperties() )
 		{
@@ -1901,7 +1913,7 @@ void SContentBrowser::UpdatePath()
 	if ( SourcesData.PackagePaths.Num() > 0 )
 	{
 		TArray<FString> Crumbs;
-		SourcesData.PackagePaths[0].ToString().ParseIntoArray(&Crumbs, TEXT("/"), true);
+		SourcesData.PackagePaths[0].ToString().ParseIntoArray(Crumbs, TEXT("/"), true);
 
 		FString CrumbPath = TEXT("/");
 		for ( auto CrumbIt = Crumbs.CreateConstIterator(); CrumbIt; ++CrumbIt )
@@ -1982,7 +1994,9 @@ void SContentBrowser::OnAssetRenameCommitted(const TArray<FAssetData>& Assets)
 	// After a rename is committed we allow an implicit sync so as not to
 	// disorientate the user if they are looking at a parent folder
 
-	SyncToAssets(Assets, /*bAllowImplicitSync*/true);
+	const bool bAllowImplicitSync = true;
+	const bool bDisableFiltersThatHideAssets = false;
+	SyncToAssets(Assets, bAllowImplicitSync, bDisableFiltersThatHideAssets);
 }
 
 void SContentBrowser::OnFindInAssetTreeRequested(const TArray<FAssetData>& AssetsToFind)

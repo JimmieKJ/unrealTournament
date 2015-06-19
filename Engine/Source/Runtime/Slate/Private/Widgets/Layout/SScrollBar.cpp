@@ -169,7 +169,7 @@ public:
 	 *
 	 * @return The desired size.
 	 */
-	virtual FVector2D ComputeDesiredSize() const
+	virtual FVector2D ComputeDesiredSize(float) const
 	{
 		if ( Orientation == Orient_Horizontal )
 		{

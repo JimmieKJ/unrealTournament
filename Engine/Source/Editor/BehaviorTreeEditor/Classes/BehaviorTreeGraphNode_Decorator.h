@@ -11,6 +11,4 @@ class UBehaviorTreeGraphNode_Decorator : public UBehaviorTreeGraphNode
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void AllocateDefaultPins() override;
 	void CollectDecoratorData(TArray<class UBTDecorator*>& NodeInstances, TArray<struct FBTDecoratorLogic>& Operations) const;
-
-	virtual bool IsSubNode() const override;
 };

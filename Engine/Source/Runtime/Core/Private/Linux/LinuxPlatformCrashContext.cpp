@@ -597,7 +597,7 @@ void GenerateWindowsErrorReport(const FString & WERPath)
 		WriteLine(ReportFile, TEXT("\t<ProblemSignatures>"));
 		WriteLine(ReportFile, TEXT("\t\t<EventType>APPCRASH</EventType>"));
 		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter0>UE4-%s</Parameter0>"), FApp::GetGameName()));
-		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter1>%d.%d.%d.0</Parameter1>"), ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION));
+		WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<Parameter1>%d.%d.%d</Parameter1>"), ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION));
 		WriteLine(ReportFile, TEXT("\t\t<Parameter2>0</Parameter2>"));													// FIXME: supply valid?
 		WriteLine(ReportFile, TEXT("\t\t<Parameter3>Unknown Fault Module</Parameter3>"));										// FIXME: supply valid?
 		WriteLine(ReportFile, TEXT("\t\t<Parameter4>0.0.0.0</Parameter4>"));													// FIXME: supply valid?
@@ -679,8 +679,7 @@ void DLLEXPORT GenerateCrashInfoAndLaunchReporter(const FLinuxCrashContext & Con
 #if !IS_PROGRAM
 
 	// create a crash-specific directory
-	FString CrashInfoFolder = FString::Printf(TEXT("crashinfo-%s-pid-%d-%s-%s"), FApp::GetGameName(), getpid(), 
-		*FDateTime::Now().ToString(), *FGuid::NewGuid().ToString());
+	FString CrashInfoFolder = FString::Printf(TEXT("crashinfo-%s-pid-%d-%s"), FApp::GetGameName(), getpid(), *FGuid::NewGuid().ToString());
 	FString CrashInfoAbsolute = FPaths::ConvertRelativePathToFull(CrashInfoFolder);
 	if (IFileManager::Get().MakeDirectory(*CrashInfoFolder))
 	{

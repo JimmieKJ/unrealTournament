@@ -8,6 +8,7 @@
 #define __ShadowRendering_H__
 
 #include "ShaderParameterUtils.h"
+#include "SceneCore.h"
 
 // Forward declarations.
 class FProjectedShadowInfo;
@@ -491,22 +492,7 @@ public:
 class FProjectedShadowInfo : public FRefCountedObject
 {
 public:
-
-	friend class FShadowDepthVS;
-	//	friend class FShadowDepthPS;
-	template <bool bRenderingReflectiveShadowMaps> friend class TShadowDepthBasePS;
-
-	friend class FShadowProjectionVS;
-	friend class FShadowProjectionPS;
-	friend class FShadowDepthDrawingPolicyFactory;
-
 	typedef TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> PrimitiveArrayType;
-
-	const FLightSceneInfo* const LightSceneInfo;
-	const FLightSceneInfoCompact LightSceneInfoCompact;
-
-	/** Parent primitive of the shadow group that created this shadow, if not a bWholeSceneShadow. */
-	const FPrimitiveSceneInfo* const ParentSceneInfo;
 
 	/** The main view this shadow must be rendered in, or NULL for a view independent shadow. */
 	FViewInfo* DependentView;
@@ -562,12 +548,6 @@ public:
 	/** Fade Alpha per view. */
 	TArray<float, TInlineAllocator<2> > FadeAlphas;
 
-	/** 
-	 * Index of the split if this is a whole scene shadow from a directional light, 
-	 * Or index of the direction if this is a whole scene shadow from a point light, otherwise INDEX_NONE. 
-	 */
-	int32 SplitIndex;
-
 	/** Whether the shadow has been allocated in the shadow depth buffer, and its X and Y properties have been initialized. */
 	uint32 bAllocated : 1;
 
@@ -586,13 +566,11 @@ public:
 	/** Whether the shadow is in the preshadow cache and its depths are up to date. */
 	uint32 bDepthsCached : 1;
 
+	// redundant to LightSceneInfo->Proxy->GetLightType() == LightType_Directional, could be made ELightComponentType LightType
 	uint32 bDirectionalLight : 1;
 
 	/** Whether this shadow affects the whole scene or only a group of objects. */
 	uint32 bWholeSceneShadow : 1;
-
-	/** Whether the shadow is a point light shadow that renders all faces of a cubemap in one pass. */
-	uint32 bOnePassPointLightShadow : 1;
 
 	/** Whether the shadow needs to render reflective shadow maps. */ 
 	uint32 bReflectiveShadowmap : 1; 
@@ -606,11 +584,6 @@ public:
 	/** To not cast a shadow on the ground outside the object and having higher quality (useful for first person weapon). */
 	uint32 bSelfShadowOnly : 1;
 
-	/** Whether the shadow is a directional light cascade that should be computed by ray tracing mesh distance fields. */
-	uint32 bRayTracedDistanceFieldShadow : 1;
-
-	uint32 bValidTransform : 1;
-
 	TBitArray<SceneRenderingBitArrayAllocator> StaticMeshWholeSceneShadowDepthMap;
 	TArray<uint64,SceneRenderingAllocator> StaticMeshWholeSceneShadowBatchVisibility;
 
@@ -620,38 +593,17 @@ public:
 	/** Frustums for each cubemap face, used for object culling one pass point light shadows. */
 	TArray<FConvexVolume> OnePassShadowFrustums;
 
-private:
-
-	/** dynamic shadow casting elements */
-	PrimitiveArrayType SubjectPrimitives;
-	/** For preshadows, this contains the receiver primitives to mask the projection to. */
-	PrimitiveArrayType ReceiverPrimitives;
-	/** Subject primitives with translucent relevance. */
-	PrimitiveArrayType SubjectTranslucentPrimitives;
-
-	/** Static shadow casting elements. */
-	TArray<FShadowStaticMeshElement,SceneRenderingAllocator> SubjectMeshElements;
-
-	/** Dynamic mesh elements for subject primitives. */
-	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectMeshElements;
-	/** Dynamic mesh elements for receiver primitives. */
-	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicReceiverMeshElements;
-	/** Dynamic mesh elements for translucent subject primitives. */
-	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectTranslucentMeshElements;
-
-	/**
-	 * Bias during in shadowmap rendering, stored redundantly for better performance 
-	 * Set by UpdateShaderDepthBias(), get with GetShaderDepthBias(), -1 if not set
-	 */
-	float ShaderDepthBias;
-
 public:
 
+	// default constructor
+	FProjectedShadowInfo();
+
 	/**
-	 * Initialization constructor for a per-object shadow. e.g. translucent particle system
+	 * for a per-object shadow. e.g. translucent particle system or a dynamic object in a precomputed shadow situation
 	 * @param InParentSceneInfo must not be 0
+	 * @return success, if false the shadow project is invalid and the projection should nto be created
 	 */
-	FProjectedShadowInfo(
+	bool SetupPerObjectProjection(
 		FLightSceneInfo* InLightSceneInfo,
 		const FPrimitiveSceneInfo* InParentSceneInfo,
 		const FPerObjectProjectedShadowInitializer& Initializer,
@@ -659,12 +611,11 @@ public:
 		uint32 InResolutionX,
 		uint32 MaxShadowResolutionY,
 		float InMaxScreenPercent,
-		const TArray<float, TInlineAllocator<2> >& InFadeAlphas,
 		bool bInTranslucentShadow
 		);
 
-	/** Initialization constructor for a whole-scene shadow. */
-	FProjectedShadowInfo(
+	/** for a whole-scene shadow. */
+	void SetupWholeSceneProjection(
 		FLightSceneInfo* InLightSceneInfo,
 		FViewInfo* InDependentView,
 		const FWholeSceneProjectedShadowInitializer& Initializer,
@@ -683,7 +634,7 @@ public:
 	/** Set state for depth rendering */
 	void SetStateForDepth(FRHICommandList& RHICmdList);
 
-	void ClearDepth(FRHICommandList& RHICmdList, class FDeferredShadingSceneRenderer* SceneRenderer);
+	void ClearDepth(FRHICommandList& RHICmdList, class FDeferredShadingSceneRenderer* SceneRenderer, bool bPerformClear);
 
 	/** Renders shadow maps for translucent primitives. */
 	void RenderTranslucencyDepths(FRHICommandList& RHICmdList, class FDeferredShadingSceneRenderer* SceneRenderer);
@@ -753,7 +704,7 @@ public:
 
 	inline bool IsWholeSceneDirectionalShadow() const 
 	{ 
-		return bWholeSceneShadow && SplitIndex >= 0 && LightSceneInfo->Proxy->GetLightType() == LightType_Directional; 
+		return bWholeSceneShadow && CascadeSettings.ShadowSplitIndex >= 0 && bDirectionalLight; 
 	}
 
 	inline bool IsWholeScenePointLightShadow() const
@@ -764,7 +715,48 @@ public:
 	/** Sorts SubjectMeshElements based on state so that rendering the static elements will set as little state as possible. */
 	void SortSubjectMeshElements();
 
+	// 0 if Setup...() wasn't called yet
+	const FLightSceneInfo & GetLightSceneInfo() const { return *LightSceneInfo; }
+	const FLightSceneInfoCompact& GetLightSceneInfoCompact() const { return LightSceneInfoCompact; }
+	/**
+	 * Parent primitive of the shadow group that created this shadow, if not a bWholeSceneShadow.
+	 * 0 if Setup...() wasn't called yet
+	 */	
+	const FPrimitiveSceneInfo* GetParentSceneInfo() const { return ParentSceneInfo; }
+
 private:
+	// 0 if Setup...() wasn't called yet
+	const FLightSceneInfo* LightSceneInfo;
+	FLightSceneInfoCompact LightSceneInfoCompact;
+
+	/**
+	 * Parent primitive of the shadow group that created this shadow, if not a bWholeSceneShadow.
+	 * 0 if Setup...() wasn't called yet or for whole scene shadows
+	 */	
+	const FPrimitiveSceneInfo* ParentSceneInfo;
+
+	/** dynamic shadow casting elements */
+	PrimitiveArrayType SubjectPrimitives;
+	/** For preshadows, this contains the receiver primitives to mask the projection to. */
+	PrimitiveArrayType ReceiverPrimitives;
+	/** Subject primitives with translucent relevance. */
+	PrimitiveArrayType SubjectTranslucentPrimitives;
+
+	/** Static shadow casting elements. */
+	TArray<FShadowStaticMeshElement,SceneRenderingAllocator> SubjectMeshElements;
+
+	/** Dynamic mesh elements for subject primitives. */
+	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectMeshElements;
+	/** Dynamic mesh elements for receiver primitives. */
+	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicReceiverMeshElements;
+	/** Dynamic mesh elements for translucent subject primitives. */
+	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator> DynamicSubjectTranslucentMeshElements;
+
+	/**
+	 * Bias during in shadowmap rendering, stored redundantly for better performance 
+	 * Set by UpdateShaderDepthBias(), get with GetShaderDepthBias(), -1 if not set
+	 */
+	float ShaderDepthBias;
 
 	/**
 	* Renders the shadow subject depth, to a particular hacked view
@@ -791,6 +783,12 @@ private:
 		PrimitiveArrayType& PrimitiveArray, 
 		TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& OutDynamicMeshElements, 
 		TArray<const FSceneView*>& ReusedViewsArray);
+
+	friend class FShadowDepthVS;
+	template <bool bRenderingReflectiveShadowMaps> friend class TShadowDepthBasePS;
+	friend class FShadowProjectionVS;
+	friend class FShadowProjectionPS;
+	friend class FShadowDepthDrawingPolicyFactory;
 };
 
 /** Shader parameters for rendering the depth of a mesh for shadowing. */
@@ -932,7 +930,7 @@ public:
 		OutEnvironment.SetDefine(TEXT("USE_TRANSFORM"), (uint32)1);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo, int32 ShadowSplitIndex = INDEX_NONE);
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FProjectedShadowInfo* ShadowInfo);
 
 	// Begin FShader interface
 	virtual bool Serialize(FArchive& Ar) override
@@ -1172,19 +1170,21 @@ public:
 		const FProjectedShadowInfo* ShadowInfo
 		) override
 	{
+		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
+
 		FShadowProjectionPixelShaderInterface::SetParameters(RHICmdList, ViewIndex,View,ShadowInfo);
 
 		ProjectionParameters.Set(RHICmdList, this, View, ShadowInfo);
 
-		SetShaderValue(RHICmdList, GetPixelShader(), ShadowFadeFraction, ShadowInfo->FadeAlphas[ViewIndex] );
-		SetShaderValue(RHICmdList, GetPixelShader(), ShadowSharpen, ShadowInfo->LightSceneInfo->Proxy->GetShadowSharpen() * 7.0f + 1.0f );
+		SetShaderValue(RHICmdList, ShaderRHI, ShadowFadeFraction, ShadowInfo->FadeAlphas[ViewIndex] );
+		SetShaderValue(RHICmdList, ShaderRHI, ShadowSharpen, ShadowInfo->GetLightSceneInfo().Proxy->GetShadowSharpen() * 7.0f + 1.0f );
 	}
 
 	/**
 	 * Serialize the parameters for this shader
 	 * @param Ar - archive to serialize to
 	 */
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FShadowProjectionPixelShaderInterface::Serialize(Ar);
 		Ar << ProjectionParameters;
@@ -1292,7 +1292,7 @@ public:
 	 * Serialize the parameters for this shader
 	 * @param Ar - archive to serialize to
 	 */
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = TShadowProjectionPS<Quality>::Serialize(Ar);
 		Ar << TranslucencyProjectionParameters;
@@ -1414,14 +1414,16 @@ public:
 		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
 		OnePassShadowParameters.Set(RHICmdList, ShaderRHI, ShadowInfo);
 
-		SetShaderValue(RHICmdList, ShaderRHI, LightPosition, FVector4(ShadowInfo->LightSceneInfo->Proxy->GetPosition(), 1.0f / ShadowInfo->LightSceneInfo->Proxy->GetRadius()));
+		const FLightSceneProxy& LightProxy = *(ShadowInfo->GetLightSceneInfo().Proxy);
+
+		SetShaderValue(RHICmdList, ShaderRHI, LightPosition, FVector4(LightProxy.GetPosition(), 1.0f / LightProxy.GetRadius()));
 
 		SetShaderValue(RHICmdList, ShaderRHI, ShadowFadeFraction, ShadowInfo->FadeAlphas[ViewIndex]);
-		SetShaderValue(RHICmdList, ShaderRHI, ShadowSharpen, ShadowInfo->LightSceneInfo->Proxy->GetShadowSharpen() * 7.0f + 1.0f);
+		SetShaderValue(RHICmdList, ShaderRHI, ShadowSharpen, LightProxy.GetShadowSharpen() * 7.0f + 1.0f);
 		SetShaderValue(RHICmdList, ShaderRHI, PointLightDepthBiasParameters, FVector2D(ShadowInfo->GetShaderDepthBias(), 0.0f));
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << DeferredParameters;
@@ -1441,6 +1443,19 @@ private:
 	FShaderParameter ShadowSharpen;
 	FShaderParameter PointLightDepthBiasParameters;
 
+};
+
+/** A transform the remaps depth and potentially projects onto some plane. */
+struct FShadowProjectionMatrix: FMatrix
+{
+	FShadowProjectionMatrix(float MinZ,float MaxZ,const FVector4& WAxis):
+		FMatrix(
+		FPlane(1,	0,	0,													WAxis.X),
+		FPlane(0,	1,	0,													WAxis.Y),
+		FPlane(0,	0,	(WAxis.Z * MaxZ + WAxis.W) / (MaxZ - MinZ),			WAxis.Z),
+		FPlane(0,	0,	-MinZ * (WAxis.Z * MaxZ + WAxis.W) / (MaxZ - MinZ),	WAxis.W)
+		)
+	{}
 };
 
 #endif

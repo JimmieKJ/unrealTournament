@@ -179,7 +179,7 @@ public:
 		return SButton::OnMouseMove( MyGeometry, MouseEvent );
 	}
 
-	FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
+	FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override
 	{
 		// Escape key when in dropper mode
 		if (InKeyEvent.GetKey() == EKeys::Escape &&

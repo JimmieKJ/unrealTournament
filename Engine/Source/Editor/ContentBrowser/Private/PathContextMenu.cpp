@@ -7,6 +7,7 @@
 #include "SourceControlWindows.h"
 #include "ContentBrowserModule.h"
 #include "ReferenceViewer.h"
+#include "ISizeMapModule.h"
 #include "AssetToolsModule.h"
 #include "Editor/UnrealEd/Public/PackageTools.h"
 #include "SColorPicker.h"
@@ -126,7 +127,7 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 					NAME_None,
 					EUserInterfaceActionType::Button,
 					false,
-					FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.PathActions.NewAsset" )
+					FSlateIcon()
 					);
 			}
 
@@ -183,7 +184,7 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 					LOCTEXT("SetColorTooltip", "Sets the color this folder should appear as."),
 					FNewMenuDelegate::CreateRaw( this, &FPathContextMenu::MakeSetColorSubMenu ),
 					false,
-					FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.PathActions.SetColor" )
+					FSlateIcon()
 					);
 			}
 			else
@@ -192,7 +193,7 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 				MenuBuilder.AddMenuEntry(
 					LOCTEXT("SetColor", "Set Color"),
 					LOCTEXT("SetColorTooltip", "Sets the color this folder should appear as."),
-					FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.PathActions.SetColor"),
+					FSlateIcon(),
 					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecutePickColor ) )
 					);
 			}			
@@ -208,7 +209,7 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 				MenuBuilder.AddMenuEntry(
 					LOCTEXT("SaveFolder", "Save All"),
 					LOCTEXT("SaveFolderTooltip", "Saves all modified assets in this folder."),
-					FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.SaveAll"),
+					FSlateIcon(),
 					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSaveFolder ) )
 					);
     
@@ -216,7 +217,7 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 				MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete, NAME_None,
 					LOCTEXT("DeleteFolder", "Delete"),
 					LOCTEXT("DeleteFolderTooltip", "Removes this folder and all assets it contains."),
-					FSlateIcon( FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Delete" )
+					FSlateIcon()
 					);
 
 				// Reference Viewer
@@ -227,6 +228,14 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteReferenceViewer ) )
 					);
     
+				// Size Map
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("SizeMap", "Size Map..."),
+					LOCTEXT("SizeMapOnFolderTooltip", "Shows an interactive map of the approximate memory used by the assets in this folder and everything they reference."),
+					FSlateIcon(),
+					FUIAction( FExecuteAction::CreateSP( this, &FPathContextMenu::ExecuteSizeMap ) )
+					);
+
 				// Fix Up Redirectors in Folder
 				MenuBuilder.AddMenuEntry(
 					LOCTEXT("FixUpRedirectorsInFolder", "Fix Up Redirectors in Folder"),
@@ -247,10 +256,7 @@ void FPathContextMenu::MakePathViewContextMenu(FMenuBuilder& MenuBuilder)
 				}
 			}
 			MenuBuilder.EndSection();
-		}
 
-		if(bHasAssetPaths)
-		{
 			// Source control section //
 			MenuBuilder.BeginSection("PathContextSourceControl", LOCTEXT("AssetTreeSCCMenuHeading", "Source Control") );
 
@@ -658,6 +664,23 @@ void FPathContextMenu::ExecuteReferenceViewer()
 	}
 }
 
+void FPathContextMenu::ExecuteSizeMap()
+{
+	TArray<FString> PackageNamesAsStrings;
+	GetPackageNamesInSelectedPaths(PackageNamesAsStrings);
+
+	TArray<FName> PackageNames;
+	for ( auto PackageNameIt = PackageNamesAsStrings.CreateConstIterator(); PackageNameIt; ++PackageNameIt )
+	{
+		PackageNames.Add(**PackageNameIt);
+	}
+
+	if ( PackageNames.Num() > 0 )
+	{
+		ISizeMapModule::Get().InvokeSizeMapTab(PackageNames);
+	}
+}
+
 void FPathContextMenu::ExecuteFixUpRedirectorsInFolder()
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -684,7 +707,9 @@ void FPathContextMenu::ExecuteFixUpRedirectorsInFolder()
 		}
 
 		TArray<UObject*> Objects;
-		if (ContentBrowserUtils::LoadAssetsIfNeeded(ObjectPaths, Objects))
+		const bool bAllowedToPromptToLoadAssets = true;
+		const bool bLoadRedirects = true;
+		if (ContentBrowserUtils::LoadAssetsIfNeeded(ObjectPaths, Objects, bAllowedToPromptToLoadAssets, bLoadRedirects))
 		{
 			// Transform Objects array to ObjectRedirectors array
 			TArray<UObjectRedirector*> Redirectors;
@@ -825,7 +850,14 @@ void FPathContextMenu::ExecuteSCCCheckIn()
 	const bool bShouldProceed = ( UserResponse == FEditorFileUtils::EPromptReturnCode::PR_Success || UserResponse == FEditorFileUtils::EPromptReturnCode::PR_Declined );
 	if ( bShouldProceed )
 	{
-		FSourceControlWindows::PromptForCheckin(PackageNames);
+		TArray<FString> PendingDeletePaths;
+		for (const auto& Path : SelectedPaths)
+		{
+			PendingDeletePaths.Add(FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(Path + TEXT("/"))));
+		}
+
+		const bool bUseSourceControlStateCache = false;
+		FSourceControlWindows::PromptForCheckin(bUseSourceControlStateCache, PackageNames, PendingDeletePaths);
 	}
 	else
 	{

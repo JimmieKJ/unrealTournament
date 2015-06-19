@@ -56,6 +56,11 @@ namespace SceneOutliner
 		/** Called to drop the specified objects on this item. Only called if ValidateDrop() allows. */
 		virtual void OnDrop(FDragDropPayload& DraggedObjects, UWorld& World, const FDragValidationInfo& ValidationInfo, TSharedRef<SWidget> DroppedOnWidget) override;
 
+	private:
+
+		/** Create a new folder at the root of this world */
+		void CreateFolder(TWeakPtr<SSceneOutliner> WeakOutliner);
+		
 	public:
 
 		/** Open the world settings for the contained world */

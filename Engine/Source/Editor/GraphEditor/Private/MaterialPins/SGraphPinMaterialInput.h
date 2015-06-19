@@ -15,7 +15,4 @@ protected:
 	virtual FSlateColor GetPinColor() const override;
 	// End SGraphPin interface
 
-private:
-	/** Cached Pin Color */
-	FSlateColor CachedPinColor;
 };

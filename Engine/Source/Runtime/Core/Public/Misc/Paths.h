@@ -8,12 +8,12 @@
  */
 class CORE_API FPaths
 {
+public:
+
 	/**
 	 * Should the "saved" directory structures be rooted in the user dir or relative to the "engine/game" 
 	 */
 	static bool ShouldSaveToUserDir();
-
-public:
 
 	/** 
 	 * Returns the base directory of the "core" engine that can be shared across
@@ -261,6 +261,11 @@ public:
 	static FString GameAgnosticSavedDir();
 
 	/**
+	 * @return The directory where engine source code files are kept
+	 */
+	static FString EngineSourceDir();
+
+	/**
 	 * @return The directory where game source code files are kept
 	 */
 	static FString GameSourceDir();
@@ -323,6 +328,16 @@ public:
 
 	/** Convert all / and \ to TEXT("/") */
 	static void NormalizeFilename(FString& InPath);
+
+	/**
+	 * Checks if two paths are the same.
+	 *
+	 * @param PathA First path to check.
+	 * @param PathB Second path to check.
+	 *
+	 * @returns True if both paths are the same. False otherwise.
+	 */
+	static bool IsSamePath(const FString& PathA, const FString& PathB);
 
 	/** Normalize all / and \ to TEXT("/") and remove any trailing TEXT("/") if the character before that is not a TEXT("/") or a colon */
 	static void NormalizeDirectoryName(FString& InPath);

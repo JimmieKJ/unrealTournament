@@ -4,13 +4,13 @@
 
 #include "IBehaviorTreeEditor.h"
 #include "Toolkits/AssetEditorToolkit.h"
-#include "EditorUndoClient.h"
+#include "AIGraphEditor.h"
 
 class UBehaviorTree;
 class UBlackboardData;
 struct FBlackboardEntry;
 
-class FBehaviorTreeEditor : public IBehaviorTreeEditor, public FEditorUndoClient, public FNotifyHook
+class FBehaviorTreeEditor : public IBehaviorTreeEditor, public FAIGraphEditor, public FNotifyHook
 {
 public:
 	FBehaviorTreeEditor();
@@ -38,8 +38,8 @@ public:
 	// End IBehaviorTreeEditor interface
 
 	// Begin FEditorUndoClient Interface
-	virtual void	PostUndo(bool bSuccess) override;
-	virtual void	PostRedo(bool bSuccess) override;
+	virtual void PostUndo(bool bSuccess) override;
+	virtual void PostRedo(bool bSuccess) override;
 	// End of FEditorUndoClient
 
 	// Begin FNotifyHook Interface
@@ -49,7 +49,6 @@ public:
 	// Delegates
 	void OnNodeDoubleClicked(class UEdGraphNode* Node);
 	void OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor);
-	FGraphPanelSelectionSet GetSelectedNodes() const;
 
 	void OnAddInputPin();
 	bool CanAddInputPin() const;
@@ -66,32 +65,16 @@ public:
 	bool CanAddBreakpoint() const;
 	void OnRemoveBreakpoint();
 	bool CanRemoveBreakpoint() const;
-	
-	void SelectAllNodes();
-	bool CanSelectAllNodes() const;
-	void DeleteSelectedNodes();
-	bool CanDeleteNodes() const;
-	void DeleteSelectedDuplicatableNodes();
-	void CutSelectedNodes();
-	bool CanCutNodes() const;
-	void CopySelectedNodes();
-	bool CanCopyNodes() const;
-	void PasteNodes();
-	void PasteNodesHere(const FVector2D& Location);
-	bool CanPasteNodes() const;
-	void DuplicateNodes();
-	bool CanDuplicateNodes() const;
 
 	void SearchTree();
 	bool CanSearchTree() const;
 
 	void JumpToNode(const UEdGraphNode* Node);
 
-	bool IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const;
 	bool IsPropertyEditable() const;
 	void OnPackageSaved(const FString& PackageFileName, UObject* Outer);
 	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
-	void OnClassListUpdated();
+	virtual void OnClassListUpdated() override;
 
 	void UpdateToolbar();
 	bool IsDebuggerReady() const;
@@ -266,7 +249,7 @@ private:
 	void BindDebuggerToolbarCommands();
 
 	/** Called when the selection changes in the GraphEditor */
-	void OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection);
+	virtual void OnSelectedNodesChanged(const TSet<class UObject*>& NewSelection) override;
 
 	/** prepare range of nodes that can be aborted by this decorator */
 	void GetAbortModePreview(const class UBehaviorTreeGraphNode_CompositeDecorator* Node, struct FAbortDrawHelper& Mode0, struct FAbortDrawHelper& Mode1);
@@ -286,14 +269,10 @@ private:
 	/* The Blackboard Data being edited */
 	UBlackboardData* BlackboardData;
 
-	TWeakPtr<SGraphEditor> FocusedGraphEdPtr;
 	TWeakObjectPtr<class UBehaviorTreeGraphNode_CompositeDecorator> FocusedGraphOwner;
 
 	/** Property View */
 	TSharedPtr<class IDetailsView> DetailsView;
-
-	/** The command list for this editor */
-	TSharedPtr<FUICommandList> GraphEditorCommands;
 
 	TSharedPtr<class FBehaviorTreeDebugger> Debugger;
 
@@ -305,6 +284,10 @@ private:
 	uint32 bForceDisablePropertyEdit : 1;
 	uint32 bSelectedNodeIsInjected : 1;
 	uint32 SelectedNodesCount;
+
+	uint32 bHasMultipleTaskBP : 1;
+	uint32 bHasMultipleDecoratorBP : 1;
+	uint32 bHasMultipleServiceBP : 1;
 
 	TSharedPtr<class FBehaviorTreeEditorToolbar> ToolbarBuilder;
 
@@ -325,9 +308,6 @@ private:
 
 	/** Handle to the registered OnPackageSave delegate */
 	FDelegateHandle OnPackageSavedDelegateHandle;
-
-	/** Handle to the registered OnClassListUpdated delegate */
-	FDelegateHandle OnClassListUpdatedDelegateHandle;
 
 public:
 	/** Modes in mode switcher */

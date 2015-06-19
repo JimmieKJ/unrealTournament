@@ -43,6 +43,7 @@ ENGINE_API const FName UCollisionProfile::DefaultProjectile_ProfileName = FName(
 UCollisionProfile::UCollisionProfile(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	SectionName = TEXT("Collision");
 }
 
 UCollisionProfile* UCollisionProfile::Get()

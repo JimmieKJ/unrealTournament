@@ -18,6 +18,8 @@
 #include "K2Node_ComponentBoundEvent.h"
 #include "CanvasPanel.h"
 #include "WidgetSlotPair.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -64,6 +66,54 @@ public:
 	// Instance->OldSlotMetaData that didn't survive the journey because it wasn't copied.
 	TMap<FName, UWidgetSlotPair*> MissingSlotData;
 };
+
+bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlueprintEditor> BlueprintEditor, FWidgetReference Widget, const FText& NewName, FText& OutErrorMessage)
+{
+	if (NewName.IsEmptyOrWhitespace())
+	{
+		OutErrorMessage = LOCTEXT("EmptyWidgetName", "Empty Widget Name");
+		return false;
+	}
+
+	const FString& NewNameString = NewName.ToString();
+
+	if (NewNameString.Len() >= NAME_SIZE)
+	{
+		OutErrorMessage = LOCTEXT("WidgetNameTooLong", "Widget Name is Too Long");
+		return false;
+	}
+
+	const FName NewFName(*NewNameString);
+	
+	UWidgetBlueprint* Blueprint = BlueprintEditor->GetWidgetBlueprintObj();
+	UWidget* ExistingTemplate = Blueprint->WidgetTree->FindWidget(NewFName);
+
+	bool bIsSameWidget = false;
+	if (ExistingTemplate != nullptr)
+	{
+		if (Widget.GetTemplate() != ExistingTemplate)
+		{
+			OutErrorMessage = LOCTEXT("ExistingWidgetName", "Existing Widget Name");
+			return false;
+		}
+		else
+		{
+			bIsSameWidget = true;
+		}
+	}
+
+	FKismetNameValidator Validator(Blueprint);
+
+	const bool bUniqueNameForVariable = (EValidatorResult::Ok == Validator.IsValid(NewFName));
+
+	if (!bUniqueNameForVariable && !bIsSameWidget)
+	{
+		OutErrorMessage = LOCTEXT("ExistingVariableName", "Existing Variable Name");
+		return false;
+	}
+
+	return true;
+}
 
 bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, const FName& OldName, const FName& NewName)
 {
@@ -255,7 +305,7 @@ void FWidgetBlueprintEditorUtils::DeleteWidgets(UWidgetBlueprint* BP, TSet<FWidg
 
 			// Rename all child widgets as well, to the transient package so that they don't conflict with future widgets sharing the same name.
 			TArray<UWidget*> ChildWidgets;
-			BP->WidgetTree->GetChildWidgets(WidgetTemplate, ChildWidgets);
+			UWidgetTree::GetChildWidgets(WidgetTemplate, ChildWidgets);
 			for ( UWidget* Widget : ChildWidgets )
 			{
 				Widget->Rename(nullptr, nullptr);
@@ -313,17 +363,16 @@ void FWidgetBlueprintEditorUtils::BuildWrapWithMenu(FMenuBuilder& Menu, UWidgetB
 			UClass* WidgetClass = *ClassIt;
 			if ( FWidgetBlueprintEditorUtils::IsUsableWidgetClass(WidgetClass) )
 			{
-				if ( WidgetClass->IsChildOf(UPanelWidget::StaticClass()) && WidgetClass->HasAnyClassFlags(CLASS_Abstract) == false )
+				if ( WidgetClass->IsChildOf(UPanelWidget::StaticClass()) )
 				{
 					Menu.AddMenuEntry(
 						WidgetClass->GetDisplayNameText(),
 						FText::GetEmpty(),
 						FSlateIcon(),
 						FUIAction(
-						FExecuteAction::CreateStatic(&FWidgetBlueprintEditorUtils::WrapWidgets, BP, Widgets, WidgetClass),
-						FCanExecuteAction()
-						)
-						);
+							FExecuteAction::CreateStatic(&FWidgetBlueprintEditorUtils::WrapWidgets, BP, Widgets, WidgetClass),
+							FCanExecuteAction()
+						));
 				}
 			}
 		}
@@ -337,22 +386,35 @@ void FWidgetBlueprintEditorUtils::WrapWidgets(UWidgetBlueprint* BP, TSet<FWidget
 
 	TSharedPtr<FWidgetTemplateClass> Template = MakeShareable(new FWidgetTemplateClass(WidgetClass));
 
-	UPanelWidget* NewWrapperWidget = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
+	// Old Parent -> New Parent Map
+	TMap<UPanelWidget*, UPanelWidget*> OldParentToNewParent;
 
 	for ( FWidgetReference& Item : Widgets )
 	{
 		int32 OutIndex;
 		UPanelWidget* CurrentParent = BP->WidgetTree->FindWidgetParent(Item.GetTemplate(), OutIndex);
-		if ( CurrentParent )
-		{
-			CurrentParent->Modify();
-			CurrentParent->ReplaceChildAt(OutIndex, NewWrapperWidget);
-		}
-		else if ( Item.GetTemplate() == BP->WidgetTree->RootWidget )
-		{
-			BP->WidgetTree->Modify();
 
-			BP->WidgetTree->RootWidget = NewWrapperWidget;
+		// If the widget doesn't currently have a parent, and isn't the root, ignore it.
+		if ( CurrentParent == nullptr && Item.GetTemplate() != BP->WidgetTree->RootWidget )
+		{
+			continue;
+		}
+
+		UPanelWidget*& NewWrapperWidget = OldParentToNewParent.FindOrAdd(CurrentParent);
+		if ( NewWrapperWidget == nullptr || !NewWrapperWidget->CanAddMoreChildren() )
+		{
+			NewWrapperWidget = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
+
+			if ( CurrentParent )
+			{
+				CurrentParent->Modify();
+				CurrentParent->ReplaceChildAt(OutIndex, NewWrapperWidget);
+			}
+			else // Root Widget
+			{
+				BP->WidgetTree->Modify();
+				BP->WidgetTree->RootWidget = NewWrapperWidget;
+			}
 		}
 
 		NewWrapperWidget->AddChild(Item.GetTemplate());
@@ -370,7 +432,7 @@ void FWidgetBlueprintEditorUtils::BuildReplaceWithMenu(FMenuBuilder& Menu, UWidg
 			UClass* WidgetClass = *ClassIt;
 			if ( FWidgetBlueprintEditorUtils::IsUsableWidgetClass(WidgetClass) )
 			{
-				if ( WidgetClass->IsChildOf(UPanelWidget::StaticClass()) && WidgetClass->HasAnyClassFlags(CLASS_Abstract) == false )
+				if ( WidgetClass->IsChildOf(UPanelWidget::StaticClass()) )
 				{
 					// Only allow replacement with panels that accept multiple children
 					if ( WidgetClass->GetDefaultObject<UPanelWidget>()->CanHaveMultipleChildren() )
@@ -380,10 +442,9 @@ void FWidgetBlueprintEditorUtils::BuildReplaceWithMenu(FMenuBuilder& Menu, UWidg
 							FText::GetEmpty(),
 							FSlateIcon(),
 							FUIAction(
-							FExecuteAction::CreateStatic(&FWidgetBlueprintEditorUtils::ReplaceWidgets, BP, Widgets, WidgetClass),
-							FCanExecuteAction()
-							)
-							);
+								FExecuteAction::CreateStatic(&FWidgetBlueprintEditorUtils::ReplaceWidgets, BP, Widgets, WidgetClass),
+								FCanExecuteAction()
+							));
 					}
 				}
 			}
@@ -398,12 +459,12 @@ void FWidgetBlueprintEditorUtils::ReplaceWidgets(UWidgetBlueprint* BP, TSet<FWid
 
 	TSharedPtr<FWidgetTemplateClass> Template = MakeShareable(new FWidgetTemplateClass(WidgetClass));
 
-	UPanelWidget* NewReplacementWidget = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
-
 	for ( FWidgetReference& Item : Widgets )
 	{
 		if ( UPanelWidget* ExistingPanel = Cast<UPanelWidget>(Item.GetTemplate()) )
 		{
+			UPanelWidget* NewReplacementWidget = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
+
 			ExistingPanel->Modify();
 
 			if ( UPanelWidget* CurrentParent = ExistingPanel->GetParent() )
@@ -442,7 +503,7 @@ void FWidgetBlueprintEditorUtils::CutWidgets(UWidgetBlueprint* BP, TSet<FWidgetR
 
 void FWidgetBlueprintEditorUtils::CopyWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets)
 {
-	TSet<UWidget*> CopyableWidets;
+	TArray<UWidget*> CopyableWidets;
 	for ( const FWidgetReference& Widget : Widgets )
 	{
 		UWidget* ParentWidget = Widget.GetTemplate();
@@ -450,11 +511,13 @@ void FWidgetBlueprintEditorUtils::CopyWidgets(UWidgetBlueprint* BP, TSet<FWidget
 
 		// When copying a widget users expect all sub widgets to be copied as well, so we need to ensure that
 		// we gather all the child widgets and copy them as well.
-		UWidget::GatherAllChildren(ParentWidget, CopyableWidets);
+		UWidgetTree::GetChildWidgets(ParentWidget, CopyableWidets);
 	}
 
+	TSet<UWidget*> CopyableWidetsSet(CopyableWidets);
+
 	FString ExportedText;
-	FWidgetBlueprintEditorUtils::ExportWidgetsToText(CopyableWidets, /*out*/ ExportedText);
+	FWidgetBlueprintEditorUtils::ExportWidgetsToText(CopyableWidetsSet, /*out*/ ExportedText);
 	FPlatformMisc::ClipboardCopy(*ExportedText);
 }
 
@@ -476,6 +539,21 @@ void FWidgetBlueprintEditorUtils::ExportWidgetsToText(TSet<UWidget*> WidgetsToEx
 		LastOuter = ThisOuter;
 
 		UExporter::ExportToOutputDevice(&Context, Widget, nullptr, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, ThisOuter);
+
+		// Check to see if this widget was content of another widget holding it in a named slot.
+		if ( Widget->GetParent() == nullptr )
+		{
+			for ( UWidget* ExportableWidget : WidgetsToExport )
+			{
+				if ( INamedSlotInterface* NamedSlotContainer = Cast<INamedSlotInterface>(ExportableWidget) )
+				{
+					if ( NamedSlotContainer->ContainsContent(Widget) )
+					{
+						continue;
+					}
+				}
+			}
+		}
 
 		if ( Widget->GetParent() == nullptr || !WidgetsToExport.Contains(Widget->GetParent()) )
 		{
@@ -554,10 +632,10 @@ void FWidgetBlueprintEditorUtils::PasteWidgets(TSharedRef<FWidgetBlueprintEditor
 		{
 			if ( ParentWidget->GetChildrenCount() > 0 || RootPasteWidgets.Num() > 1 )
 			{
-				UCanvasPanel* PasteContainer = BP->WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass());
-				//TODO UMG The new container could be tiny, unless filling the space.
-				UPanelSlot* Slot = ParentWidget->AddChild(PasteContainer);
-				ParentWidget = PasteContainer;
+				FNotificationInfo Info(LOCTEXT("NotEnoughSlots", "Can't paste contents, not enough available slots in target widget."));
+				FSlateNotificationManager::Get().AddNotification(Info);
+
+				return;
 			}
 		}
 
@@ -618,7 +696,7 @@ void FWidgetBlueprintEditorUtils::ImportWidgetsFromText(UWidgetBlueprint* BP, co
 {
 	// We create our own transient package here so that we can deserialize the data in isolation and ensure unreferenced
 	// objects not part of the deserialization set are unresolved.
-	UPackage* TempPackage = ConstructObject<UPackage>(UPackage::StaticClass(), nullptr, TEXT("/Engine/UMG/Editor/Transient"), RF_Transient);
+	UPackage* TempPackage = NewObject<UPackage>(nullptr, TEXT("/Engine/UMG/Editor/Transient"), RF_Transient);
 	TempPackage->AddToRoot();
 
 	// Turn the text buffer into objects
@@ -692,6 +770,10 @@ void FWidgetBlueprintEditorUtils::ImportPropertiesFromText(UObject* Object, cons
 		{
 			if ( UProperty* Property = FindField<UProperty>(Object->GetClass(), Entry.Key) )
 			{
+				FEditPropertyChain PropertyChain;
+				PropertyChain.AddHead(Property);
+				Object->PreEditChange(PropertyChain);
+
 				Property->ImportText(*Entry.Value, Property->ContainerPtrToValuePtr<uint8>(Object), 0, Object);
 
 				FPropertyChangedEvent ChangedEvent(Property);

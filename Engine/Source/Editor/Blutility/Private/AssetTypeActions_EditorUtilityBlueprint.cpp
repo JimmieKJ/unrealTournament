@@ -10,6 +10,7 @@
 #include "AssetToolsModule.h"
 #include "GlobalBlutilityDialog.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "ContentBrowserModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -88,7 +89,7 @@ void FAssetTypeActions_EditorUtilityBlueprint::GetActions(const TArray<UObject*>
 		TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
 
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("Blutility_NewDerivedBlueprint", "Create Blueprint based on this"),
+			LOCTEXT("Blueprint_NewDerivedBlueprint", "Create Child Blueprint Class"),
 			DynamicTooltipAttribute,
 			FSlateIcon(),
 			FUIAction(
@@ -179,22 +180,13 @@ void FAssetTypeActions_EditorUtilityBlueprint::ExecuteNewDerivedBlueprint(TWeakO
 		FString Name;
 		FString PackageName;
 		CreateUniqueAssetName(Object->GetOutermost()->GetName(), TEXT("_Child"), PackageName, Name);
+		const FString PackagePath = FPackageName::GetLongPackagePath(PackageName);
 
-		UPackage* Package = CreatePackage(NULL, *PackageName);
-		if (ensure(Package))
-		{
-			// Create and init a new Blueprint
-			if (UBlueprint* NewBP = FKismetEditorUtilities::CreateBlueprint(TargetClass, Package, FName(*Name), BPTYPE_Normal, UEditorUtilityBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass()))
-			{
-				FAssetEditorManager::Get().OpenEditorForAsset(NewBP);
+		UEditorUtilityBlueprintFactory* BlueprintFactory = NewObject<UEditorUtilityBlueprintFactory>();
+		BlueprintFactory->ParentClass = TargetClass;
 
-				// Notify the asset registry
-				FAssetRegistryModule::AssetCreated(NewBP);
-
-				// Mark the package dirty...
-				Package->MarkPackageDirty();
-			}
-		}
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+		ContentBrowserModule.Get().CreateNewAsset(Name, PackagePath, UEditorUtilityBlueprint::StaticClass(), BlueprintFactory);
 	}
 }
 
@@ -206,7 +198,7 @@ FText FAssetTypeActions_EditorUtilityBlueprint::GetNewDerivedBlueprintTooltip(TW
 	}
 	else
 	{
-		return LOCTEXT("Blutility_NewDerivedBlueprintTooltip", "Creates a blueprint based on the selected blueprint.");
+		return LOCTEXT("Blutility_NewDerivedBlueprintTooltip", "Creates a Child Blueprint Class based on the current Blueprint, allowing you to create variants easily.");
 	}
 }
 

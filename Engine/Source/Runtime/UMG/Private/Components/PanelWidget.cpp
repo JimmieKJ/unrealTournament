@@ -63,6 +63,15 @@ int32 UPanelWidget::GetChildIndex(UWidget* Content) const
 	return -1;
 }
 
+bool UPanelWidget::HasChild(UWidget* Content) const
+{
+	if ( !Content )
+	{
+		return false;
+	}
+	return ( Content->GetParent() == this );
+}
+
 bool UPanelWidget::RemoveChildAt(int32 Index)
 {
 	if ( Index < 0 || Index >= Slots.Num() )
@@ -103,7 +112,7 @@ UPanelSlot* UPanelWidget::AddChild(UWidget* Content)
 
 	Content->RemoveFromParent();
 
-	UPanelSlot* Slot = ConstructObject<UPanelSlot>(GetSlotClass(), this);
+	UPanelSlot* Slot = NewObject<UPanelSlot>(this, GetSlotClass());
 	Slot->SetFlags(RF_Transactional);
 	Slot->Content = Content;
 	Slot->Parent = this;

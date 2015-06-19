@@ -4,11 +4,13 @@
 
 #include "ScopedTransaction.h"
 #include "SFlipbookTimeline.h"
+#include "PaperFlipbook.h"
 
 namespace FFlipbookUIConstants
 {
 	const float HandleWidth = 12.0f;
 	const float FrameHeight = 48;
+	const float HeightBeforeFrames = 16;
 	const FMargin FramePadding(0.0f, 7.0f, 0.0f, 7.0f);
 };
 
@@ -23,16 +25,16 @@ public:
 	float WidgetWidth;
 	FPaperFlipbookKeyFrame KeyFrameData;
 	int32 SourceFrameIndex;
+	FText BodyText;
 	TWeakObjectPtr<UPaperFlipbook> SourceFlipbook;
 	FScopedTransaction Transaction;
 
+	// FDragDropOperation interface
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override;
-
 	virtual void OnDragged(const class FDragDropEvent& DragDropEvent) override;
-
 	virtual void Construct() override;
-
 	virtual void OnDrop(bool bDropWasHandled, const FPointerEvent& MouseEvent) override;
+	// End of FDragDropOperation interface
 
 	void AppendToFlipbook(UPaperFlipbook* DestinationFlipbook);
 
@@ -66,28 +68,40 @@ public:
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, int32 InFrameIndex, TSharedPtr<const FUICommandList> InCommandList);
+	void Construct(const FArguments& InArgs, int32 InFrameIndex, TSharedPtr<FUICommandList> InCommandList);
 
+	// SWidget interface
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-
 	virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	// End of SWidget interface
 
-	FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
-
+protected:
 	FReply KeyframeOnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
+	FText GetKeyframeAssetName() const;
+	FText GetKeyframeText() const;
 	FText GetKeyframeTooltip() const;
 
 	TSharedRef<SWidget> GenerateContextMenu();
 
 	FOptionalSize GetFrameWidth() const;
 
+	void OpenSpritePickerMenu(class FMenuBuilder& MenuBuilder);
+	void OnAssetSelected(const class FAssetData& AssetData);
+	void CloseMenu();
+	void ShowInContentBrowser();
+	void EditKeyFrame();
+
+	// Can return null
+	const struct FPaperFlipbookKeyFrame* GetKeyFrameData() const;
+
 protected:
 	int32 FrameIndex;
 	TAttribute<float> SlateUnitsPerFrame;
 	TAttribute<class UPaperFlipbook*> FlipbookBeingEdited;
 	FOnFlipbookKeyframeSelectionChanged OnSelectionChanged;
-	TSharedPtr<const FUICommandList> CommandList;
+	TSharedPtr<FUICommandList> CommandList;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -107,21 +121,8 @@ public:
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, TSharedPtr<const FUICommandList> InCommandList);
+	void Construct(const FArguments& InArgs, TSharedPtr<FUICommandList> InCommandList);
 
-	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
-	{
-		SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-		UPaperFlipbook* Flipbook = FlipbookBeingEdited.Get();
-		int32 NewNumKeyframes = (Flipbook != nullptr) ? Flipbook->GetNumKeyFrames() : 0;
-		if (NewNumKeyframes != NumKeyframesFromLastRebuild)
-		{
-			Rebuild();
-		}
-	}
-
-private:
 	void Rebuild();
 
 private:
@@ -130,9 +131,8 @@ private:
 
 	TSharedPtr<SHorizontalBox> MainBoxPtr;
 
-	int32 NumKeyframesFromLastRebuild;
 	float HandleWidth;
 
 	FOnFlipbookKeyframeSelectionChanged OnSelectionChanged;
-	TSharedPtr<const FUICommandList> CommandList;
+	TSharedPtr<FUICommandList> CommandList;
 };

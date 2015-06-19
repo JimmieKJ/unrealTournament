@@ -94,7 +94,7 @@ public:
 
 	virtual const bool IsChatHidden() override
 	{
-		return ChatViewModel->GetFilteredChatList().Num() == 0 || (bInGame && GetOverrideColorSet());
+		return ChatViewModel->GetMessages().Num() == 0 || (bInGame && GetOverrideColorSet());
 	}
 
 	virtual TSharedPtr<class FChatViewModel> GetChatViewModel() const override
@@ -127,13 +127,12 @@ public:
 
 	virtual bool SendMessage(const FText NewMessage) override
 	{
-		bool bSuccess = false;
-		if(!NewMessage.IsEmpty())
+		bool bSuccess = true;
+		if(!NewMessage.IsEmptyOrWhitespace())
 		{
 			if(ChatViewModel->GetChatChannel() == EChatMessageType::Party)
 			{
 				OnNetworkMessageSentEvent().Broadcast(NewMessage.ToString());
-				bSuccess = true;
 				FFriendsAndChatManager::Get()->GetAnalytics().RecordChannelChat(TEXT("Party"));
 			}
 			else
@@ -141,9 +140,10 @@ public:
 				bSuccess = ChatViewModel->SendMessage(NewMessage);
 			}
 		}
-		else if(bInGame && GetEntryBarVisibility() == EVisibility::Visible)
+
+		if(bInGame)
 		{
-			SetEntryBarVisibility(EVisibility::Collapsed);
+			SetEntryBarVisibility(EVisibility::Hidden);
 		}
 
 		// Callback to let some UI know to stay active
@@ -201,8 +201,8 @@ private:
 		OnChatListUpdated().Broadcast();
 	}
 
-	FChatDisplayOptionsViewModelImpl(const TSharedRef<FChatViewModel>& ChatViewModel)
-		: ChatViewModel(ChatViewModel)
+	FChatDisplayOptionsViewModelImpl(const TSharedRef<FChatViewModel>& InChatViewModel)
+		: ChatViewModel(InChatViewModel)
 		, bUseOverrideColor(false)
 		, bInGame(false)
 		, bAllowGlobalChat(true)

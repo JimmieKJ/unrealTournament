@@ -16,6 +16,7 @@
 #include "MaterialUniformExpressions.h"
 #include "Developer/TargetPlatform/Public/TargetPlatform.h"
 #include "ComponentReregisterContext.h"
+#include "ComponentRecreateRenderStateContext.h"
 #include "EngineModule.h"
 #include "Engine/Font.h"
 
@@ -180,6 +181,8 @@ int32 FMaterialAttributesInput::CompileWithDefault(class FMaterialCompiler* Comp
 		}
 	}
 
+	SetConnectedProperty(Property, Ret != INDEX_NONE);
+
 	if( Ret == INDEX_NONE )
 	{
 		Ret = GetDefaultExpressionForMaterialProperty(Compiler, Property);
@@ -211,6 +214,7 @@ EMaterialValueType GetMaterialPropertyType(EMaterialProperty Property)
 	case MP_AmbientOcclusion: return MCT_Float;
 	case MP_Refraction: return MCT_Float;
 	case MP_MaterialAttributes: return MCT_MaterialAttributes;
+	case MP_PixelDepthOffset: return MCT_Float;
 	};
 
 	if (Property >= MP_CustomizedUVs0 && Property <= MP_CustomizedUVs7)
@@ -302,6 +306,15 @@ bool FMaterial::IsCompilationFinished()
 	return true;
 }
 
+bool FMaterial::HasValidGameThreadShaderMap()
+{
+	if(!GameThreadShaderMap || !GameThreadShaderMap->IsCompilationFinalized())
+	{
+		return false;
+	}
+	return true;
+}
+
 void FMaterial::CancelCompilation()
 {
 	TArray<int32> ShaderMapIdsToCancel;
@@ -335,6 +348,8 @@ const TArray<TRefCountPtr<FMaterialUniformExpressionTexture> >& FMaterial::GetUn
 		// If we are accessing uniform texture expressions on the game thread, use results from a shader map whose compile is in flight that matches this material
 		// This allows querying what textures a material uses even when it is being asynchronously compiled
 		ShaderMapToUse = GetGameThreadShaderMap() ? GetGameThreadShaderMap() : FMaterialShaderMap::GetShaderMapBeingCompiled(this);
+
+		checkf(!ShaderMapToUse || ShaderMapToUse->GetNumRefs() > 0, TEXT("NumRefs %i, GameThreadShaderMap 0x%08x"), ShaderMapToUse->GetNumRefs(), GetGameThreadShaderMap());
 	}
 	else 
 	{
@@ -509,7 +524,7 @@ bool FMaterial::MaterialMayModifyMeshPosition() const
 {
 	// Conservative estimate when called before material translation has occurred. 
 	// This function is only intended for use in deciding whether or not shader permutations are required.
-	return HasVertexPositionOffsetConnected() || HasMaterialAttributesConnected() || GetTessellationMode() != MTM_NoTessellation;
+	return HasVertexPositionOffsetConnected() || HasPixelDepthOffsetConnected() || HasMaterialAttributesConnected() || GetTessellationMode() != MTM_NoTessellation;
 }
 
 FMaterialShaderMap* FMaterial::GetRenderingThreadShaderMap() const 
@@ -629,11 +644,11 @@ void FMaterial::SerializeInlineShaderMap(FArchive& Ar)
 				//@todo - don't cook it in the first place
 				if (FApp::CanEverRender())
 				{
-				GameThreadShaderMap = RenderingThreadShaderMap = LoadedShaderMap;
+					GameThreadShaderMap = RenderingThreadShaderMap = LoadedShaderMap;
+				}
 			}
 		}
 	}
-}
 }
 
 void FMaterialResource::LegacySerialize(FArchive& Ar)
@@ -686,12 +701,14 @@ bool FMaterialResource::ShouldInjectEmissiveIntoLPV() const { return Material->b
 bool FMaterialResource::ShouldGenerateSphericalParticleNormals() const { return Material->bGenerateSphericalParticleNormals; }
 bool FMaterialResource::ShouldDisableDepthTest() const { return Material->bDisableDepthTest; }
 bool FMaterialResource::ShouldEnableResponsiveAA() const { return Material->bEnableResponsiveAA; }
+bool FMaterialResource::ShouldDoSSR() const { return Material->bScreenSpaceReflections; }
 bool FMaterialResource::IsWireframe() const { return Material->Wireframe; }
 bool FMaterialResource::IsLightFunction() const { return Material->MaterialDomain == MD_LightFunction; }
 bool FMaterialResource::IsUsedWithEditorCompositing() const { return Material->bUsedWithEditorCompositing; }
 bool FMaterialResource::IsUsedWithDeferredDecal() const { return Material->MaterialDomain == MD_DeferredDecal; }
 bool FMaterialResource::IsSpecialEngineMaterial() const { return Material->bUsedAsSpecialEngineMaterial; }
 bool FMaterialResource::HasVertexPositionOffsetConnected() const { return !Material->bUseMaterialAttributes && Material->WorldPositionOffset.Expression != NULL; }
+bool FMaterialResource::HasPixelDepthOffsetConnected() const { return !Material->bUseMaterialAttributes && Material->PixelDepthOffset.Expression != NULL; }
 bool FMaterialResource::HasMaterialAttributesConnected() const { return Material->bUseMaterialAttributes && Material->MaterialAttributes.Expression != NULL; }
 FString FMaterialResource::GetBaseMaterialPathName() const { return Material->GetPathName(); }
 
@@ -780,9 +797,16 @@ bool FMaterialResource::IsFullyRough() const
 	return Material->bFullyRough;
 }
 
+bool FMaterialResource::OutputsVelocityOnBasePass() const
+{
+	return Material->bOutputVelocityOnBasePass;
+}
+
 bool FMaterialResource::IsNonmetal() const
 {
-	return !Material->Metallic.IsConnected() && !Material->Specular.IsConnected();
+	return !Material->bUseMaterialAttributes ?
+			(!Material->Metallic.IsConnected() && !Material->Specular.IsConnected()) :
+			!(Material->MaterialAttributes.IsConnected(MP_Specular) || Material->MaterialAttributes.IsConnected(MP_Metallic));
 }
 
 bool FMaterialResource::UseLmDirectionality() const
@@ -837,6 +861,7 @@ float FMaterialResource::GetTranslucentBackscatteringExponent() const { return M
 FLinearColor FMaterialResource::GetTranslucentMultipleScatteringExtinction() const { return Material->TranslucentMultipleScatteringExtinction; }
 float FMaterialResource::GetTranslucentShadowStartOffset() const { return Material->TranslucentShadowStartOffset; }
 float FMaterialResource::GetRefractionDepthBiasValue() const { return Material->RefractionDepthBias; }
+float FMaterialResource::GetMaxDisplacement() const { return Material->MaxDisplacement; }
 bool FMaterialResource::UseTranslucencyVertexFog() const {return Material->bUseTranslucencyVertexFog;}
 FString FMaterialResource::GetFriendlyName() const { return *GetNameSafe(Material); }
 
@@ -1172,6 +1197,7 @@ void FMaterial::SetupMaterialEnvironment(
 	OutEnvironment.SetDefine(TEXT("MATERIAL_NONMETAL"), IsNonmetal() ? TEXT("1") : TEXT("0"));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_USE_LM_DIRECTIONALITY"), UseLmDirectionality() ? TEXT("1") : TEXT("0"));
 	OutEnvironment.SetDefine(TEXT("MATERIAL_INJECT_EMISSIVE_INTO_LPV"), ShouldInjectEmissiveIntoLPV() ? TEXT("1") : TEXT("0"));
+	OutEnvironment.SetDefine(TEXT("MATERIAL_SSR"), ShouldDoSSR() ? TEXT("1") : TEXT("0"));
 
 	{
 		auto DecalBlendMode = (EDecalBlendMode)GetDecalBlendMode();
@@ -1204,6 +1230,8 @@ void FMaterial::SetupMaterialEnvironment(
 		case TLM_VolumetricNonDirectional: OutEnvironment.SetDefine(TEXT("TRANSLUCENCY_LIGHTING_VOLUMETRIC_NONDIRECTIONAL"),TEXT("1")); break;
 		case TLM_VolumetricDirectional: OutEnvironment.SetDefine(TEXT("TRANSLUCENCY_LIGHTING_VOLUMETRIC_DIRECTIONAL"),TEXT("1")); break;
 		case TLM_Surface: OutEnvironment.SetDefine(TEXT("TRANSLUCENCY_LIGHTING_SURFACE"),TEXT("1")); break;
+		case TLM_SurfacePerPixelLighting: OutEnvironment.SetDefine(TEXT("TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL"),TEXT("1")); break;
+
 		default: 
 			UE_LOG(LogMaterial, Warning, TEXT("Unknown lighting mode: %u"),(int32)GetTranslucencyLightingMode());
 			OutEnvironment.SetDefine(TEXT("TRANSLUCENCY_LIGHTING_VOLUMETRIC_NONDIRECTIONAL"),TEXT("1")); break;
@@ -1672,43 +1700,6 @@ bool FLightingDensityMaterialRenderProxy::GetVectorValue(const FName ParameterNa
 }
 
 /*-----------------------------------------------------------------------------
-	FFontMaterialRenderProxy
------------------------------------------------------------------------------*/
-
-const class FMaterial* FFontMaterialRenderProxy::GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const
-{
-	return Parent->GetMaterial(InFeatureLevel);
-}
-
-bool FFontMaterialRenderProxy::GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
-{
-	return Parent->GetVectorValue(ParameterName, OutValue, Context);
-}
-
-bool FFontMaterialRenderProxy::GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const
-{
-	return Parent->GetScalarValue(ParameterName, OutValue, Context);
-}
-
-bool FFontMaterialRenderProxy::GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const
-{
-	// find the matching font parameter
-	if( ParameterName == FontParamName &&
-		Font->Textures.IsValidIndex(FontPage) )
-	{
-		// use the texture page from the font specified for the parameter
-		UTexture2D* Texture = Font->Textures[FontPage];
-		if( Texture && Texture->Resource )
-		{
-			*OutValue = Texture;
-			return true;
-		}		
-	}
-	// try parent if not valid parameter
-	return Parent->GetTextureValue(ParameterName,OutValue,Context);
-}
-
-/*-----------------------------------------------------------------------------
 	FOverrideSelectionColorMaterialRenderProxy
 -----------------------------------------------------------------------------*/
 
@@ -1864,7 +1855,7 @@ void FMaterial::GetReferencedTexturesHash(FSHAHash& OutHash) const
  * @param OutHighlightMap - source code highlight list
  * @return - true on Success
  */
-bool FMaterial::GetMaterialExpressionSource( FString& OutSource, TMap<FMaterialExpressionKey,int32> OutExpressionCodeMap[][SF_NumFrequencies] )
+bool FMaterial::GetMaterialExpressionSource( FString& OutSource )
 {
 #if WITH_EDITORONLY_DATA
 	class FViewSourceMaterialTranslator : public FHLSLMaterialTranslator
@@ -1873,14 +1864,6 @@ bool FMaterial::GetMaterialExpressionSource( FString& OutSource, TMap<FMaterialE
 		FViewSourceMaterialTranslator(FMaterial* InMaterial,FMaterialCompilationOutput& InMaterialCompilationOutput,const FStaticParameterSet& StaticParameters,EShaderPlatform InPlatform,EMaterialQualityLevel::Type InQualityLevel,ERHIFeatureLevel::Type InFeatureLevel)
 		:	FHLSLMaterialTranslator(InMaterial,InMaterialCompilationOutput,StaticParameters,InPlatform,InQualityLevel,InFeatureLevel)
 		{}
-
-		void GetExpressionCodeMap(TMap<FMaterialExpressionKey,int32> OutExpressionCodeMap[][SF_NumFrequencies])
-		{
-			for (int32 PropertyIndex = 0; PropertyIndex < MP_MAX; PropertyIndex++)
-			{
-				OutExpressionCodeMap[PropertyIndex][GetMaterialPropertyShaderFrequency((EMaterialProperty)PropertyIndex)] = FunctionStack.Last().ExpressionCodeMap[PropertyIndex][GetMaterialPropertyShaderFrequency((EMaterialProperty)PropertyIndex)];
-			}
-		}
 	};
 
 	FMaterialCompilationOutput TempOutput;
@@ -1891,9 +1874,6 @@ bool FMaterial::GetMaterialExpressionSource( FString& OutSource, TMap<FMaterialE
 	{
 		// Generate the HLSL
 		OutSource = MaterialTranslator.GetMaterialShaderCode();
-
-		// Save the Expression Code map.
-		MaterialTranslator.GetExpressionCodeMap(OutExpressionCodeMap);
 	}
 	return bSuccess;
 #else
@@ -1952,10 +1932,16 @@ void FMaterial::RestoreEditorLoadedMaterialShadersFromMemory(const TMap<FMateria
 FMaterialUpdateContext::FMaterialUpdateContext(uint32 Options, EShaderPlatform InShaderPlatform)
 {
 	bool bReregisterComponents = (Options & EOptions::ReregisterComponents) != 0;
+	bool bRecreateRenderStates = (Options & EOptions::RecreateRenderStates) != 0;
+
 	bSyncWithRenderingThread = (Options & EOptions::SyncWithRenderingThread) != 0;
 	if (bReregisterComponents)
 	{
 		ComponentReregisterContext = new FGlobalComponentReregisterContext();
+	}
+	else if (bRecreateRenderStates)
+	{
+		ComponentRecreateRenderStateContext = new FGlobalComponentRecreateRenderStateContext();
 	}
 	if (bSyncWithRenderingThread)
 	{
@@ -2007,7 +1993,7 @@ FMaterialUpdateContext::~FMaterialUpdateContext()
 	TArray<const FMaterial*> MaterialResourcesToUpdate;
 	TArray<UMaterialInstance*> InstancesToUpdate;
 
-	bool bUpdateStaticDrawLists = ComponentReregisterContext == NULL;
+	bool bUpdateStaticDrawLists = !ComponentReregisterContext.IsValid() && !ComponentRecreateRenderStateContext.IsValid();
 
 	// If static draw lists must be updated, gather material resources from all updated materials.
 	if (bUpdateStaticDrawLists)
@@ -2095,11 +2081,13 @@ FMaterialUpdateContext::~FMaterialUpdateContext()
 		// safe, e.g. while a component is being registered.
 		GetRendererModule().UpdateStaticDrawListsForMaterials(MaterialResourcesToUpdate);
 	}
-	else
+	else if (ComponentReregisterContext.IsValid())
 	{
-		// We must be reregistering components in which case static draw lists will be recreated.
-		check(ComponentReregisterContext != NULL);
 		ComponentReregisterContext.Reset();
+	}
+	else if (ComponentRecreateRenderStateContext.IsValid())
+	{
+		ComponentRecreateRenderStateContext.Reset();
 	}
 
 	double EndTime = FPlatformTime::Seconds();
@@ -2150,6 +2138,11 @@ EMaterialProperty GetMaterialPropertyFromInputOutputIndex(int32 Index)
 		return MP_MaterialAttributes;
 	}
 
+	if (Index == UVEnd + 2)
+	{
+		return MP_PixelDepthOffset;
+	}
+
 	return MP_MAX;
 }
 
@@ -2178,9 +2171,17 @@ int32 GetInputOutputIndexFromMaterialProperty(EMaterialProperty Property)
 	case MP_MaterialAttributes: UE_LOG(LogMaterial, Fatal, TEXT("We should never need the IO index of the MaterialAttriubtes property."));
 	};
 
+	const int32 UVStart = 16;
+	const int32 UVEnd = UVStart + MP_CustomizedUVs7 - MP_CustomizedUVs0;
+
 	if (Property >= MP_CustomizedUVs0 && Property <= MP_CustomizedUVs7)
 	{
-		return 16 + Property - MP_CustomizedUVs0;
+		return UVStart + Property - MP_CustomizedUVs0;
+	}
+
+	if (Property == MP_PixelDepthOffset)
+	{
+		return UVEnd + 2;
 	}
 
 	return -1;
@@ -2199,6 +2200,7 @@ int32 GetDefaultExpressionForMaterialProperty(FMaterialCompiler* Compiler, EMate
 		case MP_ClearCoat:				return Compiler->Constant(1.0f);
 		case MP_ClearCoatRoughness:		return Compiler->Constant(0.1f);
 		case MP_AmbientOcclusion:		return Compiler->Constant(1.0f);
+		case MP_PixelDepthOffset:		return Compiler->Constant(0.0f);
 
 		case MP_EmissiveColor:			return Compiler->Constant3(0, 0, 0);
 		case MP_DiffuseColor:			return Compiler->Constant3(0, 0, 0);
@@ -2224,6 +2226,8 @@ int32 GetDefaultExpressionForMaterialProperty(FMaterialCompiler* Compiler, EMate
 				// The user did not customize this UV, pass through the vertex texture coordinates
 				return Compiler->TextureCoordinate(TextureCoordinateIndex, false, false);
 			}
+		case MP_MaterialAttributes:
+			break;
 	}
 
 	check(0);
@@ -2250,6 +2254,7 @@ FString GetNameOfMaterialProperty(EMaterialProperty Property)
 	case MP_ClearCoatRoughness:		return TEXT("ClearCoatRoughness");
 	case MP_AmbientOcclusion:		return TEXT("AmbientOcclusion");
 	case MP_Refraction:				return TEXT("Refraction");
+	case MP_PixelDepthOffset:		return TEXT("PixelDepthOffset");
 	};
 
 	if (Property >= MP_CustomizedUVs0 && Property <= MP_CustomizedUVs7)

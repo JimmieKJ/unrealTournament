@@ -16,7 +16,7 @@ public:
 
 private:
 	/* Create the hotkey display widget */
-	TSharedRef<SWidget> CreateHotkeyDisplayWidget(const FSlateFontInfo& NameFont, const TSharedPtr<const FInputGesture> HotkeyGesture);
+	TSharedRef<SWidget> CreateHotkeyDisplayWidget(const FSlateFontInfo& NameFont, const TSharedPtr<const FInputChord> HotkeyChord);
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -49,6 +49,8 @@ protected:
 
 	/** Callback from the Asset Registry when an asset is renamed. */
 	void RenameAssetFromRegistry(const FAssetData& InAddedAssetData, const FString& InNewName);
+
+	void RefreshAssetInRegistry(const FAssetData& InAddedAssetData);
 
 protected:
 	/** Pointer back to the material editor that owns us */

@@ -9,7 +9,6 @@ class STimeline : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(STimeline){}
-		SLATE_ATTRIBUTE(TSharedPtr<IVisualLoggerInterface>, VisualLoggerInterface)
 		SLATE_EVENT(FOnItemSelectionChanged, OnItemSelectionChanged)
 		SLATE_EVENT(FOnGetContent, OnGetMenuContent)
 	SLATE_END_ARGS();
@@ -33,22 +32,28 @@ public:
 	void UpdateVisibility();
 	void UpdateVisibilityForItems();
 
-	void AddEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry) { Entries.Add(Entry); }
+	void AddEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	const TArray<FVisualLogDevice::FVisualLogEntryItem>& GetEntries() { return Entries; }
 	FName GetName() { return Name; }
+	FName GetOwnerClassName() { return OwnerClassName; }
 	void HandleLogVisualizerSettingChanged(FName Name);
+	void UpdateVisibilityForEntry(FVisualLogDevice::FVisualLogEntryItem& Entry, const FString& SearchString, bool SearchInsideLogs);
+	TSharedPtr<class STimelinesContainer> GetOwner() { return Owner; }
+
+	void Goto(float ScrubPosition);
+	void GotoNextItem();
+	void GotoPreviousItem();
 
 protected:
 	TArray<FVisualLogDevice::FVisualLogEntryItem> Entries;
 	TArray<const FVisualLogDevice::FVisualLogEntryItem*> HiddenEntries;
 	TSharedPtr<class STimelinesContainer> Owner;
 	TSharedPtr<class STimelineBar> TimelineBar;
-	TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface;
 	TSharedPtr<SMenuAnchor> PopupAnchor;
 
 	FName Name;
+	FName OwnerClassName;
 	FString SearchFilter;
-	FString QuickSearchStrng;
 
 	/** Delegate to execute to get the menu content of this timeline */
 	FOnGetContent OnGetMenuContent;

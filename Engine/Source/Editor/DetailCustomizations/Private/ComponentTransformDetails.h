@@ -16,7 +16,7 @@ namespace ETransformField
 /**
  * Manages the Transform section of a details view                    
  */
-class FComponentTransformDetails : public TSharedFromThis<FComponentTransformDetails>, public IDetailCustomNodeBuilder
+class FComponentTransformDetails : public TSharedFromThis<FComponentTransformDetails>, public IDetailCustomNodeBuilder, public TNumericUnitTypeInterface<float>
 {
 public:
 	FComponentTransformDetails( const TArray< TWeakObjectPtr<UObject> >& InSelectedObjects, const FSelectedActorInfo& InSelectedActorInfo, IDetailLayoutBuilder& DetailBuilder );
@@ -62,7 +62,7 @@ private:
 	/**
 	 * Sets the selected object(s) rotation (relative)
 	 *
-	 * @param CommitInfo	Whether or not this was committed from pressing enter or loosing focus
+	 * @param CommitInfo	Whether or not this was committed from pressing enter or losing focus
 	 * @param Axis			The axis of rotation which changed.  0 = Roll, 1 = Pitch, 2 = Yaw
 	 * @param NewValue		The new rotation value for the axis
 	 */
@@ -263,6 +263,9 @@ private:
 		// unset means multiple differing values, so show "Reset to Default" in that case
 		return CachedScale.IsSet() && CachedScale.X.GetValue() == 1.0f && CachedScale.Y.GetValue() == 1.0f && CachedScale.Z.GetValue() == 1.0f ? EVisibility::Hidden : EVisibility::Visible;
 	}
+
+	/** Cache a single unit to display all location comonents in */
+	void CacheCommonLocationUnits();
 
 private:
 	/** A vector where it may optionally be unset */

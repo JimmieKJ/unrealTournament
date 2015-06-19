@@ -51,7 +51,7 @@ public:
 	/** Initialization constructor. */
 	FAsyncStreamDerivedMipWorker(
 		const FString& InDerivedDataKey,
-		void* InDestMipData,
+		void** InDestMipDataPointer,
 		int32 InMipSize,
 		FThreadSafeCounter* InThreadSafeCounter
 		);
@@ -61,12 +61,9 @@ public:
 	 */
 	void DoWork();
 
-	/**
-	 * Name of the async task.
-	 */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncStreamDerivedMipTask");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncStreamDerivedMipWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
 	/**
@@ -81,7 +78,7 @@ private:
 	/** Key for retrieving mip data from the derived data cache. */
 	FString DerivedDataKey;
 	/** The location to which the mip data should be copied. */
-	void* DestMipData;
+	void** DestMipDataPointer;
 	/** The size of the mip in bytes. */
 	int32 ExpectedMipSize;
 	/** true if the mip data was not present in the derived data cache. */
@@ -130,13 +127,13 @@ public:
 		check(Args.ThreadSafeCounter);
 	}
 
-	static const TCHAR* Name()
-	{
-		return TEXT("FCreateTextureTask");
-	}
-
 	/** Creates the texture. */
 	void DoWork();
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FCreateTextureTask, STATGROUP_ThreadPoolAsyncTasks);
+	}
 
 private:
 	/** Task arguments. */
@@ -230,10 +227,10 @@ public:
 	virtual void ReleaseRHI() override;
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const;
+	virtual uint32 GetSizeX() const override;
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const;
+	virtual uint32 GetSizeY() const override;
 
 	/**
 	 * Called from the game thread to kick off a change in ResidentMips after modifying RequestedMips.
@@ -283,7 +280,7 @@ public:
 	 */
 	bool TryReallocate( int32 OldMipCount, int32 NewMipCount );
 
-	virtual FString GetFriendlyName() const;
+	virtual FString GetFriendlyName() const override;
 
 	//Returns the raw data for a particular mip level
 	void* GetRawMipData( uint32 MipIndex);
@@ -398,10 +395,10 @@ public:
 	ENGINE_API FTexture2DDynamicResource(class UTexture2DDynamic* InOwner);
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const;
+	virtual uint32 GetSizeX() const override;
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const;
+	virtual uint32 GetSizeY() const override;
 
 	/** Called when the resource is initialized. This is only called by the rendering thread. */
 	ENGINE_API virtual void InitRHI() override;
@@ -503,13 +500,13 @@ public:
 	virtual void InitRHI() override;
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return SizeX;
 	}
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const
+	virtual uint32 GetSizeY() const override
 	{
 		return SizeY;
 	}
@@ -666,7 +663,7 @@ public:
 	/** 
 	 * 2D texture RT resource interface 
 	 */
-	virtual class FTextureRenderTarget2DResource* GetTextureRenderTarget2DResource()
+	virtual class FTextureRenderTarget2DResource* GetTextureRenderTarget2DResource() override
 	{
 		return this;
 	}
@@ -677,7 +674,7 @@ public:
 	 * @param MaxSizeX max allowed width
 	 * @param MaxSizeY max allowed height
 	 */
-	virtual void ClampSize(int32 SizeX,int32 SizeY);
+	virtual void ClampSize(int32 SizeX,int32 SizeY) override;
 	
 	// FRenderResource interface.
 
@@ -700,14 +697,14 @@ public:
 	// FDeferredClearResource interface
 
 	// FRenderTarget interface.
-	virtual FIntPoint GetSizeXY() const;
+	virtual FIntPoint GetSizeXY() const override;
 
 	/** 
 	 * Render target resource should be sampled in linear color space
 	 *
 	 * @return display gamma expected for rendering to this render target 
 	 */
-	virtual float GetDisplayGamma() const;
+	virtual float GetDisplayGamma() const override;
 
 	/** 
 	 * @return TextureRHI for rendering 
@@ -778,7 +775,7 @@ public:
 	/**
 	 * @return dimensions of the target
 	 */
-	virtual FIntPoint GetSizeXY() const;
+	virtual FIntPoint GetSizeXY() const override;
 
 	/** 
 	 * @return TextureRHI for rendering 
@@ -790,7 +787,7 @@ public:
 	*
 	* @return display gamma expected for rendering to this render target 
 	*/
-	float GetDisplayGamma() const;
+	float GetDisplayGamma() const override;
 
 	/**
 	* Copy the texels of a single face of the cube into an array.

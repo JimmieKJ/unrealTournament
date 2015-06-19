@@ -97,7 +97,7 @@ typedef TUniformBufferRef<FParticleSpriteUniformParameters> FParticleSpriteUnifo
 /**
  * Vertex factory for rendering particle sprites.
  */
-class FParticleSpriteVertexFactory : public FParticleVertexFactoryBase
+class ENGINE_API FParticleSpriteVertexFactory : public FParticleVertexFactoryBase
 {
 	DECLARE_VERTEX_FACTORY_TYPE(FParticleSpriteVertexFactory);
 

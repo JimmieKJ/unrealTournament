@@ -1,11 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================================
-	GenericPlatformSplash.h: Generic platform splash screen...does nothing
-==============================================================================================*/
-
 #pragma once
+
 #include "HAL/Platform.h"
+
 
 /**
  * SplashTextType defines the types of text on the splash screen
@@ -33,23 +31,17 @@ namespace SplashTextType
 	};
 }
 
+
 /**
-* Generic implementation for most platforms
-**/
+ * Generic implementation for most platforms
+ */
 struct CORE_API FGenericPlatformSplash
 {
-	/**
-	* Show the splash screen
-	*/
-	FORCEINLINE static void Show()
-	{
-	}
-	/**
-	* Hide the splash screen
-	*/
-	FORCEINLINE static void Hide()
-	{
-	}
+	/** Show the splash screen. */
+	FORCEINLINE static void Show() { }
+
+	/** Hide the splash screen. */
+	FORCEINLINE static void Hide() { }
 
 	/**
 	 * Sets the text displayed on the splash screen (for startup/loading progress)
@@ -69,5 +61,4 @@ struct CORE_API FGenericPlatformSplash
 	{
 		return true;
 	}
-
 };

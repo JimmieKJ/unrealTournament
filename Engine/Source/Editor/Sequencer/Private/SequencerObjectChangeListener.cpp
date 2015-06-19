@@ -30,7 +30,10 @@ void FSequencerObjectChangeListener::OnPropertyChanged( const TArray<UObject*>& 
 	
 	for( UObject* Object : ChangedObjects )
 	{
-		bIsKeyable |= IsTypeKeyable( *Object->GetClass(), PropertyHandle );
+		if( Object )
+		{
+			bIsKeyable |= IsTypeKeyable( *Object->GetClass(), PropertyHandle );
+		}
 	}
 
 	if( bIsKeyable )

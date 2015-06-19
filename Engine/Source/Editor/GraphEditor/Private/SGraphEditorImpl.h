@@ -51,9 +51,6 @@ private:
 
 	UEdGraphPin* GraphPinForMenu;
 
-	/** Do we need to refresh next tick? */
-	bool bNeedsRefresh;
-
 	/** Info on the appearance */
 	TAttribute<FGraphAppearanceInfo> Appearance;
 
@@ -108,7 +105,7 @@ public:
 
 	FActionMenuContent GraphEd_OnGetContextMenuFor(const FGraphContextMenuArguments& SpawnInfo);
 
-	void GraphEd_OnPanelUpdated();
+	//void GraphEd_OnPanelUpdated();
 
 	// SWidget interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
@@ -133,7 +130,7 @@ public:
 	virtual UEdGraphPin* GetGraphPinForMenu() override;
 	virtual void ZoomToFit(bool bOnlySelection) override;
 	virtual bool GetBoundsForSelectedNodes( class FSlateRect& Rect, float Padding) override;
-	virtual void NotifyGraphChanged();
+	virtual void NotifyGraphChanged() override;
 	virtual TSharedPtr<SWidget> GetTitleBar() const override;
 	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount) override;
 	virtual void GetViewLocation(FVector2D& Location, float& ZoomAmount) override;
@@ -157,7 +154,11 @@ protected:
 	// SGraphEditor interface
 	virtual void OnGraphChanged( const FEdGraphEditAction& InAction ) override;
 	// End of SGraphEditorInterface
+
 private:
+	/** One-off active timer to ensure the graph is refreshes as needed */
+	EActiveTimerReturnType TriggerRefresh( double InCurrentTime, float InDeltaTime );
+
 	FText GetZoomText() const;
 
 	FSlateColor GetZoomTextColorAndOpacity() const;
@@ -165,5 +166,8 @@ private:
 	bool IsGraphEditable() const;
 
 	bool IsLocked() const;
+
+private:
+	bool bIsActiveTimerRegistered;
 };
 

@@ -90,4 +90,6 @@ public:
 
 	//Looping sound is always using firemode 0 the first run; not sure if bug
 	virtual void ToggleZoomInSound(bool bNowOn);
+
+	virtual bool WillSpawnShot(float DeltaTime) override;
 };

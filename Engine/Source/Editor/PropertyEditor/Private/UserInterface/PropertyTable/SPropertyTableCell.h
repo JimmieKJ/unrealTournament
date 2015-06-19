@@ -36,8 +36,6 @@ class SPropertyTableCell : public SCompoundWidget
 
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
 
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 
 
@@ -63,6 +61,8 @@ private:
 
 	void OnCellValueChanged( UObject* Object, FPropertyChangedEvent& PropertyChangedEvent );
 
+	/** One-off active timer to trigger entering the editing mode */
+	EActiveTimerReturnType TriggerEnterEditingMode(double InCurrentTime, float InDeltaTime);
 
 private:
 

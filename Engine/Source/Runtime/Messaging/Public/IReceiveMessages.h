@@ -3,7 +3,6 @@
 #pragma once
 
 
-// forward declarations
 class IMessageContext;
 
 
@@ -11,11 +10,11 @@ class IMessageContext;
  * Interface for message recipients.
  *
  * Classes that implement this interface are able to receive messages from a message bus. A message recipient will receive
- * a call to its ReceiveMessage() method for each message that was sent directly to it (@see IMessageBus.Send) and for each
- * published message that it subscribed to (@see IMessageBus.Publish).
+ * a call to its ReceiveMessage() method for each message that was sent directly to it (see IMessageBus.Send) and for each
+ * published message that it subscribed to (see IMessageBus.Publish).
  *
  * This interface provides a rather low-level mechanism for receiving messages. Instead of implementing it, Most users will
- * want to use an instance of @see FMessageEndpoint, which provides a much more convenient way of sending and receiving messages.
+ * want to use an instance of see FMessageEndpoint, which provides a much more convenient way of sending and receiving messages.
  *
  * @see FMessageEndpoint, IMessageBus, ISendMessages
  */

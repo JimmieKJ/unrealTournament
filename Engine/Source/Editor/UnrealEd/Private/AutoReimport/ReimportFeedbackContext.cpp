@@ -39,7 +39,7 @@ class SWidgetStack : public SVerticalBox
 		return Size;
 	}
 
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		const float Lerp = SizeCurve.GetLerp();
 		FVector2D DesiredSize = ComputeTotalSize() * Lerp + StartSizeOffset * (1.f-Lerp);
@@ -48,7 +48,7 @@ class SWidgetStack : public SVerticalBox
 		return DesiredSize;
 	}
 
-	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
+	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override
 	{
 		if (Children.Num() == 0)
 		{
@@ -108,7 +108,7 @@ class SWidgetStack : public SVerticalBox
 
 			if (!SlideCurve.IsPlaying())
 			{
-				SlideCurve.Play();
+				SlideCurve.Play(AsShared());
 			}
 		}
 
@@ -119,12 +119,12 @@ class SWidgetStack : public SVerticalBox
 
 			if (!SizeCurve.IsPlaying())
 			{
-				SizeCurve.Play();
+				SizeCurve.Play(AsShared());
 			}
 		}
 	}
 	
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
 	{
 		if (!SlideCurve.IsPlaying())
 		{
@@ -137,8 +137,7 @@ class SWidgetStack : public SVerticalBox
 			const float Alpha = 1.f - SlideCurve.GetLerp();
 			float PositionSoFar = AllottedGeometry.GetLocalSize().Y + Alpha * StartSlideOffset;
 
-			int32 Index = 0;
-			for (; PositionSoFar > 0 && Index < NumSlots(); ++Index)
+			for (int32 Index = 0; PositionSoFar > 0 && Index < NumSlots(); ++Index)
 			{
 				const SBoxPanel::FSlot& CurChild = Children[Index];
 				const EVisibility ChildVisibility = CurChild.GetWidget()->GetVisibility();
@@ -189,7 +188,7 @@ class SWidgetStack : public SVerticalBox
 		void FadeIn(float Time)
 		{
 			OpacityCurve = FCurveSequence(0.f, Time, ECurveEaseFunction::QuadOut);
-			OpacityCurve.Play();
+			OpacityCurve.Play(AsShared());
 		}
 
 		virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
@@ -289,7 +288,8 @@ void SReimportFeedback::Construct(const FArguments& InArgs, FText InMainText)
 }
 
 FReimportFeedbackContext::FReimportFeedbackContext()
-	: MessageLog("AssetReimport")
+	: bSuppressSlowTaskMessages(false)
+	, MessageLog("AssetReimport")
 {}
 
 void FReimportFeedbackContext::Initialize(TSharedRef<SReimportFeedback> Widget)
@@ -332,7 +332,7 @@ void FReimportFeedbackContext::StartSlowTask(const FText& Task, bool bShowCancel
 {
 	FFeedbackContext::StartSlowTask(Task, bShowCancelButton);
 
-	if (!Task.IsEmpty())
+	if (!bSuppressSlowTaskMessages && !Task.IsEmpty())
 	{
 		NotificationContent->Add(SNew(STextBlock).Text(Task));
 	}

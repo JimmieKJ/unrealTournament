@@ -20,11 +20,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	/** If true, this is a Game Status Announcement */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	uint32 bIsStatusAnnouncement : 1;
-	
-	// How much weight should be given to this message.  The MessageWidget will
-	// use this number to determine how important the message is. Range is 0-1.
-	UPROPERTY(EditDefaultsOnly, Category = Message)
-	float Importance;			
 
 	// If true, don't add to normal queue.  
 	UPROPERTY(EditDefaultsOnly, Category = Message)
@@ -60,6 +55,8 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	virtual float GetAnnouncementDelay(int32 Switch);
 
+	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const;
+
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
 
 	UFUNCTION(BlueprintImplementableEvent)
@@ -94,6 +91,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent)
 	bool InterruptAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
 
+	/** return whether this announcement should be cancelled by the passed in announcement */
+	UFUNCTION(BlueprintNativeEvent)
+		bool CancelByAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
+
 	/** called when the UTAnnouncer plays the announcement sound - can be used to e.g. display HUD text at the same time */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnAnnouncementPlayed(int32 Switch, const UObject* OptionalObject) const;
@@ -111,6 +112,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	FText Blueprint_GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const;
 
 	virtual float GetLifeTime(int32 Switch) const;
+
+	/** Range of 0 to 1, affects where announcement is inserted into pending announcements queue. */
+	virtual float GetAnnouncementPriority(int32 Switch) const;
 
 	/**	Give Blueprints a way to override the lifetime for this message */
 	UFUNCTION(BlueprintNativeEvent)

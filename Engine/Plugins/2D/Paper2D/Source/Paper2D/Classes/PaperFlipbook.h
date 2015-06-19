@@ -50,7 +50,7 @@ class PAPER2D_API UPaperFlipbook : public UObject
 
 protected:
 	// The nominal frame rate to play this flipbook animation back at
-	UPROPERTY(Category=Sprite, EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(Category=Sprite, EditAnywhere, BlueprintReadOnly, meta=(ClampMin=0, ClampMax=1000))
 	float FramesPerSecond;
 
 	// The set of key frames for this flipbook animation (each one has a duration and a sprite to display)
@@ -100,20 +100,16 @@ public:
 	// Returns the number of key frames
 	UFUNCTION(BlueprintCallable, Category="Sprite")
 	int32 GetNumKeyFrames() const
-#if CPP
 	{
 		return KeyFrames.Num();
 	}
-#endif
 
 	// Is the specified Index within the valid range of key frames?
 	UFUNCTION(BlueprintCallable, Category="Sprite")
 	bool IsValidKeyFrameIndex(int32 Index) const
-#if CPP
 	{
 		return KeyFrames.IsValidIndex(Index);
 	}
-#endif
 
 	// Returns the key frame at the specified index, make sure the index is valid before use
 	const FPaperFlipbookKeyFrame& GetKeyFrameChecked(int32 Index) const
@@ -140,9 +136,9 @@ public:
 	void InvalidateCachedData();
 
 	// UObject interface
-#if WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
+#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	// End of UObject interface

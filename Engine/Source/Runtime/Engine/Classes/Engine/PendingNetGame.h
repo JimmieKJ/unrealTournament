@@ -99,7 +99,7 @@ public:
 	void Initialize(const FURL& InURL);
 
 	// Constructor.
-	UPendingNetGame( const FObjectInitializer& ObjectInitializer );
+	UPendingNetGame(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	void	InitNetDriver();
 

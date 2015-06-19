@@ -6,20 +6,9 @@
 #if UE_ENABLE_ICU
 #include "ICUBreakIterator.h"
 
-class FICULineBreakIterator : public FICUBreakIterator
-{
-public:
-	FICULineBreakIterator();
-};
-
-FICULineBreakIterator::FICULineBreakIterator()
-	: FICUBreakIterator(FICUBreakIteratorManager::Get().CreateLineBreakIterator())
-{
-}
-
 TSharedRef<IBreakIterator> FBreakIterator::CreateLineBreakIterator()
 {
-	return MakeShareable(new FICULineBreakIterator());
+	return MakeShareable(new FICUBreakIterator(FICUBreakIteratorManager::Get().CreateLineBreakIterator()));
 }
 
 #endif

@@ -31,11 +31,11 @@ public:
 	virtual FDateTime GetAccessTimeStamp(const TCHAR* Filename) override;
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) override;
 
-	virtual IFileHandle* OpenRead(const TCHAR* Filename) override;
+	virtual IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false) override;
 	virtual IFileHandle* OpenWrite(const TCHAR* Filename, bool bAppend = false, bool bAllowRead = false) override;
 	virtual bool DirectoryExists(const TCHAR* Directory) override;
 	virtual bool CreateDirectory(const TCHAR* Directory) override;
 	virtual bool DeleteDirectory(const TCHAR* Directory) override;
 	bool CreateDirectoriesFromPath(const TCHAR* Path);
-	bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor);
+	bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor) override;
 };

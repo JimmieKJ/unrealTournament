@@ -136,6 +136,7 @@ public:
 		, _SnappingEnabled(false)
 		, _TimelineLength(5.0f)
 		, _DesiredSize(FVector2D::ZeroVector)
+		, _ShowCurveToolTips(false)
 		, _DrawCurve(true)
 		, _HideUI(true)
 		, _AllowZoomOutput(true)
@@ -145,6 +146,10 @@ public:
 		, _ShowZoomButtons(true)
 		, _XAxisName()
 		, _YAxisName()
+		, _ShowInputGridNumbers(true)
+		, _ShowOutputGridNumbers(true)
+		, _ShowCurveSelector(true)
+		, _GridColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.3f))
 		{}
 
 		SLATE_ATTRIBUTE( float, ViewMinInput )
@@ -155,9 +160,10 @@ public:
 		SLATE_ATTRIBUTE( float, ViewMaxOutput )
 		SLATE_ATTRIBUTE( float, InputSnap )
 		SLATE_ATTRIBUTE( float, OutputSnap )
-		SLATE_ARGUMENT( bool, SnappingEnabled )
+		SLATE_ATTRIBUTE( bool, SnappingEnabled )
 		SLATE_ATTRIBUTE( float, TimelineLength )
 		SLATE_ATTRIBUTE( FVector2D, DesiredSize )
+		SLATE_ATTRIBUTE( bool, ShowCurveToolTips )
 		SLATE_ARGUMENT( bool, DrawCurve )
 		SLATE_ARGUMENT( bool, HideUI )
 		SLATE_ARGUMENT( bool, AllowZoomOutput )
@@ -167,6 +173,10 @@ public:
 		SLATE_ARGUMENT( bool, ShowZoomButtons )
 		SLATE_ARGUMENT( TOptional<FString>, XAxisName )
 		SLATE_ARGUMENT( TOptional<FString>, YAxisName )
+		SLATE_ARGUMENT( bool, ShowInputGridNumbers )
+		SLATE_ARGUMENT( bool, ShowOutputGridNumbers )
+		SLATE_ARGUMENT( bool, ShowCurveSelector )
+		SLATE_ARGUMENT( FLinearColor, GridColor )
 		SLATE_EVENT( FOnSetInputViewRange, OnSetInputViewRange )
 		SLATE_EVENT( FOnSetOutputViewRange, OnSetOutputViewRange )
 		SLATE_EVENT( FSimpleDelegate, OnCreateAsset )
@@ -205,7 +215,7 @@ public:
 	 *
 	 * @param Ar The archive to serialize with
 	 */
-	UNREALED_API virtual void AddReferencedObjects( FReferenceCollector& Collector );
+	UNREALED_API virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 
 	/** Gets a list of the commands handled by this control */
 	UNREALED_API TSharedPtr<FUICommandList> GetCommands();
@@ -334,7 +344,7 @@ private:
 	void OnEndSliderMovement(float NewValue);
 
 	EVisibility GetCurveAreaVisibility() const;
-	EVisibility GetControlVisibility() const;
+	EVisibility GetCurveSelectorVisibility() const;
 	EVisibility GetEditVisibility() const;
 	EVisibility GetColorGradientVisibility() const;
 	EVisibility GetZoomButtonVisibility() const;
@@ -357,7 +367,7 @@ private:
 	FSimpleDelegate OnCreateAsset;
 
 	// SWidget interface
-	UNREALED_API virtual FVector2D ComputeDesiredSize() const override;
+	UNREALED_API virtual FVector2D ComputeDesiredSize(float) const override;
 
 	/** Paint a curve */
 	void PaintCurve(TSharedPtr<FCurveViewModel> CurveViewModel, const FGeometry &AllottedGeometry, FTrackScaleInfo &ScaleInfo, FSlateWindowElementList &OutDrawElements, 
@@ -461,6 +471,14 @@ private:
 
 	void RemoveCurveKeysFromSelection(TSharedPtr<FCurveViewModel> CurveViewModel);
 
+	FText GetCurveToolTipNameText() const;
+	FText GetCurveToolTipInputText() const;
+	FText GetCurveToolTipOutputText() const;
+
+	void UpdateCurveToolTip( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
+
+	TSharedPtr<FCurveViewModel> GetViewModelForCurve(FRichCurve* InCurve);
+
 protected:
 
 	/** Set Default output values when range is too small **/
@@ -470,7 +488,7 @@ protected:
 	
 	// SWidget interface
 	UNREALED_API virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, 
-		FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const ;
+		FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 
 	/** Update view range */
 	UNREALED_API void SetInputMinMax(float NewMin, float NewMax);
@@ -497,6 +515,11 @@ private:
 	bool				bAllowZoomOutput;
 	/** If we always show the color curves or allow the user to toggle this */
 	bool				bAlwaysDisplayColorCurves;
+
+	/** Whether or not to draw the numbers for the input grid. */
+	bool bDrawInputGridNumbers;
+	/** Whether or not to draw the numbers for the output grid. */
+	bool bDrawOutputGridNumbers;
 
 	/** Array of selected keys*/
 	TArray<FSelectedCurveKey> SelectedKeys;
@@ -560,7 +583,10 @@ protected:
 	TAttribute<float> OutputSnap;
 
 	/** Whether or not snapping is enabled. */
-	bool bSnappingEnabled;
+	TAttribute<bool> bSnappingEnabled;
+
+	/** Whether or not to show tool tips for curves. */
+	TAttribute<bool> bShowCurveToolTips;
 
 	/** True if you want the curve editor to fit to zoom **/
 	bool				bZoomToFitVertical;
@@ -573,6 +599,9 @@ protected:
 
 	/** True if the internal zoom buttons should be visible. */
 	bool bShowZoomButtons;
+
+	/** Whether or not to show the curve selector widgets. */
+	bool bShowCurveSelector;
 
 	/** The location of mouse during the last OnMouseButtonDown callback in widget local coordinates. */
 	FVector2D MouseDownLocation;
@@ -592,7 +621,26 @@ protected:
 	/** A map of selected key handle to their starting locations at the beginning of a drag operation. */
 	TMap<FKeyHandle, FVector2D> PreDragKeyLocations;
 
+	/** The text to display for the input axis. */
+	FText InputAxisName;
+	/** The text to display for the output axis. */
+	FText OutputAxisName;
+
+	/** The view models for the curves. */
 	TArray<TSharedPtr<FCurveViewModel>> CurveViewModels;
+
+	/** The tooltip control for the curves. */
+	TSharedPtr<SToolTip> CurveToolTip;
+
+	/** The text for the name portion of the tooltip. */
+	FText CurveToolTipNameText;
+	/** The text for the input portion of the tooltip. */
+	FText CurveToolTipInputText;
+	/** The text for the output portion of the tooltip. */
+	FText CurveToolTipOutputText;
+
+	/** The color used to draw the grid lines. */
+	FLinearColor GridColor;
 };
 
 #endif // __SCurveEditor_h__

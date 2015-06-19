@@ -17,9 +17,21 @@
 #endif
 
 // Whether to track PhysX memory allocations
-#ifndef PHYSX_MEMORY_STATS
-#define PHYSX_MEMORY_STATS		0
+#ifndef PHYSX_MEMORY_VALIDATION
+#define PHYSX_MEMORY_VALIDATION		0
 #endif
+
+// Whether to track PhysX memory allocations
+#ifndef PHYSX_MEMORY_STATS
+#define PHYSX_MEMORY_STATS		0 || PHYSX_MEMORY_VALIDATION
+#endif
+
+// binary serialization requires 128 byte alignment
+#ifndef PHYSX_SERIALIZATION_ALIGNMENT
+#define PHYSX_SERIALIZATION_ALIGNMENT 128
+#endif
+
+#define PHYSX_MEMORY_STAT_ONLY (0)
 
 #if USE_SCENE_LOCK
 
@@ -31,6 +43,7 @@ public:
 	FPhysXSceneReadLock(PxScene* PInScene)
 		: PScene(PInScene)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_PhysSceneReadLock);
 		if(PScene)
 		{
 			PScene->lockRead();
@@ -56,6 +69,7 @@ public:
 	FPhysXSceneWriteLock(PxScene* PInScene)
 		: PScene(PInScene)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_PhysSceneWriteLock);
 		if(PScene)
 		{
 			PScene->lockWrite();
@@ -74,15 +88,13 @@ private:
 	PxScene* PScene;
 };
 
-#define SCOPED_SCENE_TOKENPASTE_INNER(x,y) x##y
-#define SCOPED_SCENE_TOKENPASTE(x,y) SCOPED_SCENE_TOKENPASTE_INNER(x,y)
-#define SCOPED_SCENE_READ_LOCK( _scene ) FPhysXSceneReadLock SCOPED_SCENE_TOKENPASTE(_rlock,__LINE__)(_scene)
-#define SCOPED_SCENE_WRITE_LOCK( _scene ) FPhysXSceneWriteLock SCOPED_SCENE_TOKENPASTE(_wlock,__LINE__)(_scene)
+#define SCOPED_SCENE_READ_LOCK( _scene ) FPhysXSceneReadLock PREPROCESSOR_JOIN(_rlock,__LINE__)(_scene)
+#define SCOPED_SCENE_WRITE_LOCK( _scene ) FPhysXSceneWriteLock PREPROCESSOR_JOIN(_wlock,__LINE__)(_scene)
 
-#define SCENE_LOCK_READ( _scene ) if((_scene) != NULL) { (_scene)->lockRead(); }
-#define SCENE_UNLOCK_READ( _scene ) if((_scene) != NULL) { (_scene)->unlockRead(); }
-#define SCENE_LOCK_WRITE( _scene ) if((_scene) != NULL) { (_scene)->lockWrite(); }
-#define SCENE_UNLOCK_WRITE( _scene ) if((_scene) != NULL) { (_scene)->unlockWrite(); }
+#define SCENE_LOCK_READ( _scene )		{ SCOPE_CYCLE_COUNTER(STAT_PhysSceneReadLock); if((_scene) != NULL) { (_scene)->lockRead(); } }
+#define SCENE_UNLOCK_READ( _scene )		{ if((_scene) != NULL) { (_scene)->unlockRead(); } }
+#define SCENE_LOCK_WRITE( _scene )		{ SCOPE_CYCLE_COUNTER(STAT_PhysSceneWriteLock); if((_scene) != NULL) { (_scene)->lockWrite(); } }
+#define SCENE_UNLOCK_WRITE( _scene )	{ if((_scene) != NULL) { (_scene)->unlockWrite(); } }
 #else
 #define SCOPED_SCENE_READ_LOCK_INDEXED( _scene, _index )
 #define SCOPED_SCENE_READ_LOCK( _scene )
@@ -93,6 +105,183 @@ private:
 #define SCENE_LOCK_WRITE( _scene )
 #define SCENE_UNLOCK_WRITE( _scene )
 #endif
+
+/** Get a pointer to the PxScene from an SceneIndex (will be NULL if scene already shut down) */
+PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex);
+
+#if WITH_APEX
+/** Get a pointer to the NxApexScene from an SceneIndex (will be NULL if scene already shut down) */
+NxApexScene* GetApexSceneFromIndex(int32 InSceneIndex);
+#endif
+
+template <bool NeedsLock>
+struct FPhysXSupport
+{
+	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda.
+	 *  If SceneType < 0, the Sync actor is used, otherwise the async.
+	 *  Note: The lambda is only executed if the physx actor requested is non-null.
+	 *  returns true if the requested actor is non-null
+	 */
+	template <typename LambdaType>
+	static bool ExecuteOnPxRigidActorReadOnly(const FBodyInstance* BI, const LambdaType& Func, int32 SceneType = -1)
+	{
+		if (const PxRigidActor* PRigidActor = BI->GetPxRigidActor_AssumesLocked(SceneType))
+		{
+			const int32 SceneIndex = (PRigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
+			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
+			if (NeedsLock)
+			{
+				SCENE_LOCK_READ(PScene);
+			}
+
+			Func(PRigidActor);
+
+			if (NeedsLock)
+			{
+				SCENE_UNLOCK_READ(PScene);
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+
+	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda.
+	 *  Note: The lambda is only executed if the physx actor is a non-null RigidBody
+	 *  returns true if found a non-null RigidBody
+	 */
+	template <typename LambdaType>
+	static bool ExecuteOnPxRigidBodyReadOnly(const FBodyInstance* BI, const LambdaType& Func)
+	{
+		bool bSuccess = false;
+		if (const physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
+		{
+			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
+			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
+			if (NeedsLock)
+			{
+				SCENE_LOCK_READ(PScene);
+			}
+
+			if (const physx::PxRigidBody* PRigidBody = RigidActor->isRigidBody())
+			{
+				Func(PRigidBody);
+				bSuccess = true;
+			}
+
+			if (NeedsLock)
+			{
+				SCENE_UNLOCK_READ(PScene);
+			}
+		}
+
+		return bSuccess;
+	}
+
+	/** Obtains the appropriate PhysX scene lock for WRITING and executes the passed in lambda.
+	 *  Note: The lambda is only executed if the physx actor is a non-null RigidBody
+	 *  returns true if found a non-null RigidBody.
+	 */
+	template <typename LambdaType>
+	static bool ExecuteOnPxRigidBodyReadWrite(const FBodyInstance* BI, const LambdaType& Func)
+	{
+		bool bSuccess = false;
+		if (physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
+		{
+			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
+			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
+			if(NeedsLock)
+			{
+				SCENE_LOCK_WRITE(PScene);
+			}
+			
+			if (physx::PxRigidBody* PRigidBody = RigidActor->isRigidBody())
+			{
+				Func(PRigidBody);
+				bSuccess = true;
+			}
+
+			if(NeedsLock)
+			{
+				SCENE_UNLOCK_WRITE(PScene);
+			}
+		}
+
+		return bSuccess;
+	}
+
+	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda.
+	 *  Note: The lambda is only executed if the physx actor is a non-null RigidDynamic
+	 *  returns true if found a non-null RigidDynamic.
+	 */
+	template <typename LambdaType>
+	static bool ExecuteOnPxRigidDynamicReadOnly(const FBodyInstance* BI, const LambdaType& Func)
+	{
+		bool bSuccess = false;
+		if (physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
+		{
+			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
+			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
+			if (NeedsLock)
+			{
+				SCENE_LOCK_READ(PScene);
+			}
+
+			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->isRigidDynamic())
+			{
+				Func(PRigidDynamic);
+				bSuccess = true;
+			}
+
+			if (NeedsLock)
+			{
+				SCENE_UNLOCK_READ(PScene);
+			}
+		}
+
+		return bSuccess;
+	}
+
+	/** Obtains the appropriate PhysX scene lock for WRITING and executes the passed in lambda.
+	 *  Note: The lambda is only executed if the physx actor is a non-null RigidDynamic
+	 *  returns true if found a non-null RigidDynamic.
+	 */
+	template <typename LambdaType>
+	static bool ExecuteOnPxRigidDynamicReadWrite(const FBodyInstance* BI, const LambdaType& Func)
+	{
+		bool bSuccess = false;
+		if (physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
+		{
+			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
+			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
+			if (NeedsLock)
+			{
+				SCENE_LOCK_WRITE(PScene);
+			}
+
+			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->isRigidDynamic())
+			{
+				Func(PRigidDynamic);
+				bSuccess = true;
+			}
+
+			if (NeedsLock)
+			{
+				SCENE_UNLOCK_WRITE(PScene);
+			}
+		}
+
+		return bSuccess;
+	}
+};
+
+// Utility functions for obtaining locks and executing lambda. This indirection is needed for vs2012 but should be inlined
+template <typename LambdaType> bool ExecuteOnPxRigidActorReadOnly(const FBodyInstance* BI, const LambdaType& Func, int32 SceneType = -1){ return FPhysXSupport<true>::ExecuteOnPxRigidActorReadOnly(BI, Func, SceneType); }
+template <typename LambdaType> bool ExecuteOnPxRigidBodyReadOnly(const FBodyInstance* BI, const LambdaType& Func) { return FPhysXSupport<true>::ExecuteOnPxRigidBodyReadOnly(BI, Func); }
+template <typename LambdaType> bool ExecuteOnPxRigidBodyReadWrite(const FBodyInstance* BI, const LambdaType& Func){ return FPhysXSupport<true>::ExecuteOnPxRigidBodyReadWrite(BI, Func); }
+template <typename LambdaType> bool ExecuteOnPxRigidDynamicReadOnly(const FBodyInstance* BI, const LambdaType& Func){ return FPhysXSupport<true>::ExecuteOnPxRigidDynamicReadOnly(BI, Func); }
+template <typename LambdaType> bool ExecuteOnPxRigidDynamicReadWrite(const FBodyInstance* BI, const LambdaType& Func){ return FPhysXSupport<true>::ExecuteOnPxRigidDynamicReadWrite(BI, Func); }
 
 //////// BASIC TYPE CONVERSION
 
@@ -147,26 +336,38 @@ const bool bGlobalCCD = true;
 
 /////// UTILS
 
-/** Get a pointer to the PxScene from an SceneIndex (will be NULL if scene already shut down) */
-PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex);
-
-#if WITH_APEX
-/** Get a pointer to the NxApexScene from an SceneIndex (will be NULL if scene already shut down) */
-NxApexScene* GetApexSceneFromIndex(int32 InSceneIndex);
-#endif
-
 
 /** Perform any deferred cleanup of resources (GPhysXPendingKillConvex etc) */
 void DeferredPhysResourceCleanup();
 
 /** Calculates correct impulse at the body's center of mass and adds the impulse to the body. */
-ENGINE_API void AddRadialImpulseToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange);
+ENGINE_API void AddRadialImpulseToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange);
+
+
+/** Calculates correct impulse at the body's center of mass and adds the impulse to the body. */
+DEPRECATED(4.8, "Please call AddRadialImpulseToPxRigidBody_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+inline void AddRadialImpulseToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange)
+{
+	AddRadialImpulseToPxRigidBody_AssumesLocked(PRigidBody, Origin, Radius, Strength, Falloff, bVelChange);
+}
+
+ENGINE_API void AddRadialForceToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bAccelChange);
 
 /** Calculates correct force at the body's center of mass and adds force to the body. */
-ENGINE_API void AddRadialForceToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff);
+DEPRECATED(4.8, "Please call AddRadialImpulseToPxRigidBody_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+inline void AddRadialForceToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bAccelChange)
+{
+	AddRadialForceToPxRigidBody_AssumesLocked(PRigidBody, Origin, Radius, Strength, Falloff, bAccelChange);
+}
+
+bool IsRigidBodyNonKinematic_AssumesLocked(const PxRigidBody* PRigidBody);
 
 /** Util to see if a PxRigidActor is non-kinematic */
-bool IsRigidBodyNonKinematic(PxRigidBody* PRigidBody);
+DEPRECATED(4.8, "Please call IsRigidBodyNonKinematic_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+inline bool IsRigidBodyNonKinematic(PxRigidBody* PRigidBody)
+{
+	return IsRigidBodyNonKinematic_AssumesLocked(PRigidBody);
+}
 
 
 /////// GLOBAL POINTERS
@@ -234,6 +435,8 @@ private:
 	PxCollection* SharedObjects;
 
 };
+
+ENGINE_API PxCollection* MakePhysXCollection(const TArray<UPhysicalMaterial*>& PhysicalMaterials, const TArray<UBodySetup*>& BodySetups, uint64 BaseId);
 
 /** Utility wrapper for a uint8 TArray for loading into PhysX. */
 class FPhysXInputStream : public PxInputStream
@@ -305,15 +508,78 @@ class FPhysXAllocator : public PxAllocatorCallback
 		FPhysXAllocationHeader(	FName InAllocationTypeName, size_t InAllocationSize )
 		:	AllocationTypeName(InAllocationTypeName)
 		,	AllocationSize(InAllocationSize)
-		{}
+		{
+			static_assert(sizeof(FPhysXAllocationHeader) == 32, "FPhysXAllocationHeader size must be 32 bytes.");
+			MagicPadding();
+		}
+
+		void MagicPadding()
+		{
+			for (uint8 ByteCount = 0; ByteCount < sizeof(Padding); ++ByteCount)
+			{
+				Padding[ByteCount] = 'A' + ByteCount % 4;
+			}
+		}
+
+		bool operator==(const FPhysXAllocationHeader& OtherHeader) const
+		{
+			bool bHeaderSame = AllocationTypeName == OtherHeader.AllocationTypeName && AllocationSize == OtherHeader.AllocationSize;
+			for (uint8 ByteCount = 0; ByteCount < sizeof(Padding); ++ByteCount)
+			{
+				bHeaderSame &= Padding[ByteCount] == OtherHeader.Padding[ByteCount];
+			}
+
+			return bHeaderSame;
+		}
 
 		FName AllocationTypeName;
 		size_t	AllocationSize;
+		uint8 Padding[8];	//physx needs 16 byte alignment. Additionally we fill padding with a pattern to see if there's any memory stomps
+
+		void Validate() const
+		{
+			bool bValid = true;
+			for (uint8 ByteCount = 0; ByteCount < sizeof(Padding); ++ByteCount)
+			{
+				bValid &= Padding[ByteCount] == 'A' + ByteCount % 4;
+			}
+
+			check(bValid);
+
+			FPhysXAllocationHeader* AllocationFooter = (FPhysXAllocationHeader*) (((uint8*)this) + sizeof(FPhysXAllocationHeader)+AllocationSize);
+			check(*AllocationFooter == *this);
+		}
 	};
 	
 #endif
 
 public:
+
+#if PHYSX_MEMORY_VALIDATION
+
+	/** Iterates over all allocations and checks that they the headers and footers are valid */
+	void ValidateHeaders()
+	{
+		check(IsInGameThread());
+		FPhysXAllocationHeader* TmpHeader = nullptr;
+		while(NewHeaders.Dequeue(TmpHeader))
+		{
+			AllocatedHeaders.Add(TmpHeader);
+		}
+
+		while (OldHeaders.Dequeue(TmpHeader))
+		{
+			AllocatedHeaders.Remove(TmpHeader);
+		}
+
+		FScopeLock Lock(&ValidationCS);	//this is needed in case another thread is freeing the header
+		for (FPhysXAllocationHeader* Header : AllocatedHeaders)
+		{
+			Header->Validate();
+		}
+	}
+#endif
+
 	FPhysXAllocator()
 	{}
 
@@ -323,20 +589,23 @@ public:
 	virtual void* allocate(size_t size, const char* typeName, const char* filename, int line) override
 	{
 #if PHYSX_MEMORY_STATS
-		static_assert(sizeof(FPhysXAllocationHeader) <= 16, "FPhysXAllocationHeader size must be less than 16 bytes.");
-
 		INC_DWORD_STAT_BY(STAT_MemoryPhysXTotalAllocationSize, size);
+
 
 		FString AllocationString = FString::Printf(TEXT("%s %s:%d"), ANSI_TO_TCHAR(typeName), ANSI_TO_TCHAR(filename), line);
 		FName AllocationName(*AllocationString);
 
 		// Assign header
-		FPhysXAllocationHeader* AllocationHeader = (FPhysXAllocationHeader*)FMemory::Malloc(size + 16, 16);
+		FPhysXAllocationHeader* AllocationHeader = (FPhysXAllocationHeader*)FMemory::Malloc(size + sizeof(FPhysXAllocationHeader) * 2, 16);
 		AllocationHeader->AllocationTypeName = AllocationName;
 		AllocationHeader->AllocationSize = size;
+		AllocationHeader->MagicPadding();
+		FPhysXAllocationHeader* AllocationFooter = (FPhysXAllocationHeader*) (((uint8*)AllocationHeader) + size + sizeof(FPhysXAllocationHeader));
+		AllocationFooter->AllocationTypeName = AllocationName;
+		AllocationFooter->AllocationSize = size;
+		AllocationFooter->MagicPadding();
 
-		// Assign map to track by type
-		size_t* TotalByType = AllocationsByType.Find(AllocationName);
+		size_t* TotalByType = AllocationsByType.Find(AllocationName);	//TODO: this is not thread safe!
 		if( TotalByType )
 		{
 			*TotalByType += size;
@@ -346,9 +615,17 @@ public:
 			AllocationsByType.Add(AllocationName, size);
 		}
 
-		return (uint8*)AllocationHeader + 16;
+#if PHYSX_MEMORY_VALIDATION
+		NewHeaders.Enqueue(AllocationHeader);
+#endif
+
+		return (uint8*)AllocationHeader + sizeof(FPhysXAllocationHeader);
 #else
-		return FMemory::Malloc(size, 16);
+		void* ptr = FMemory::Malloc(size, 16);
+		#if PHYSX_MEMORY_STAT_ONLY
+			INC_DWORD_STAT_BY(STAT_MemoryPhysXTotalAllocationSize, FMemory::GetAllocSize(ptr));
+		#endif
+		return ptr;
 #endif
 	}
 	 
@@ -357,13 +634,22 @@ public:
 #if PHYSX_MEMORY_STATS
 		if( ptr )
 		{
-			FPhysXAllocationHeader* AllocationHeader = (FPhysXAllocationHeader*)((uint8*)ptr - 16);
+			FPhysXAllocationHeader* AllocationHeader = (FPhysXAllocationHeader*)((uint8*)ptr - sizeof(FPhysXAllocationHeader));
+#if PHYSX_MEMORY_VALIDATION
+			AllocationHeader->Validate();
+			OldHeaders.Enqueue(AllocationHeader);
+			FScopeLock Lock(&ValidationCS);	//this is needed in case we are in the middle of validating the headers
+#endif
+
 			DEC_DWORD_STAT_BY(STAT_MemoryPhysXTotalAllocationSize, AllocationHeader->AllocationSize);
 			size_t* TotalByType = AllocationsByType.Find(AllocationHeader->AllocationTypeName);
 			*TotalByType -= AllocationHeader->AllocationSize;
 			FMemory::Free(AllocationHeader);
 		}
 #else
+		#if PHYSX_MEMORY_STAT_ONLY
+			DEC_DWORD_STAT_BY(STAT_MemoryPhysXTotalAllocationSize, FMemory::GetAllocSize(ptr));
+		#endif
 		FMemory::Free(ptr);
 #endif
 	}
@@ -386,6 +672,17 @@ public:
 			Ar->Logf(TEXT("%-10d %s"), It.Value(), *It.Key().ToString());
 		}
 	}
+#endif
+
+#if PHYSX_MEMORY_VALIDATION
+private:
+	FCriticalSection ValidationCS;
+	TSet<FPhysXAllocationHeader*> AllocatedHeaders;
+
+	//Since this needs to be thread safe we can't add to the allocated headers set until we're on the game thread
+	TQueue<FPhysXAllocationHeader*, EQueueMode::Mpsc> NewHeaders;
+	TQueue<FPhysXAllocationHeader*, EQueueMode::Mpsc> OldHeaders;
+
 #endif
 };
 
@@ -587,6 +884,7 @@ public:
 
 	virtual void	onDamageNotify(const NxApexDamageEventReportData& damageEvent) override;
 	virtual void	onStateChangeNotify(const NxApexChunkStateEventData& visibilityEvent) override;
+	virtual bool	releaseOnNoChunksVisible(const NxDestructibleActor* destructible) override;
 };
 extern FApexChunkReport GApexChunkReport;
 #endif // #if WITH_APEX
@@ -624,3 +922,35 @@ ENGINE_API SIZE_T GetPhysxObjectSize(PxBase* Obj, const PxCollection* SharedColl
 
 
 #include "../Collision/PhysicsFiltering.h"
+
+/** Helper struct holding physics body filter data during initialisation */
+struct FShapeFilterData
+{
+	PxFilterData SimFilter;
+	PxFilterData QuerySimpleFilter;
+	PxFilterData QueryComplexFilter;
+};
+
+/** Helper object to hold initialisation data for shapes */
+struct FShapeData
+{
+	FShapeData()
+		: SyncShapeFlags(0)
+		, AsyncShapeFlags(0)
+		, SimpleShapeFlags(0)
+		, ComplexShapeFlags(0)
+		, SyncBodyFlags(0)
+		, AsyncBodyFlags(0)
+	{
+
+	}
+
+	TEnumAsByte<ECollisionEnabled::Type> CollisionEnabled;
+	FShapeFilterData FilterData;
+	PxShapeFlags SyncShapeFlags;
+	PxShapeFlags AsyncShapeFlags;
+	PxShapeFlags SimpleShapeFlags;
+	PxShapeFlags ComplexShapeFlags;
+	PxRigidBodyFlags SyncBodyFlags;
+	PxRigidBodyFlags AsyncBodyFlags;
+};

@@ -10,7 +10,7 @@ class AActor;
 
 namespace EVisLogTags
 {
-	const FString TAG_EQS = TEXT("EQS");
+	const FString TAG_EQS = TEXT("LogEQS");
 }
 
 #if ENABLE_VISUAL_LOG

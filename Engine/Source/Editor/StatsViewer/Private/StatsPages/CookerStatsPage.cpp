@@ -49,7 +49,7 @@ void FCookerStatsPage::Generate( TArray<TWeakObjectPtr<UObject>>& OutObjects ) c
 
 				if (OriginalFileName.EndsWith(TEXT(".uasset")) || OriginalFileName.EndsWith(TEXT(".umap")))
 				{
-					UCookerStats* Entry = ConstructObject<UCookerStats>(UCookerStats::StaticClass());
+					UCookerStats* Entry = NewObject<UCookerStats>();
 					Entry->AddToRoot();
 					Entry->Path = FilenameOrDirectory;
 					Entry->SizeAfter = (int32)IFileManager::Get().FileSize(FilenameOrDirectory) / 1024.0f;
@@ -102,7 +102,7 @@ void FCookerStatsPage::GenerateTotals( const TArray<TWeakObjectPtr<UObject>>& In
 		return;
 	}
 
-	UCookerStats* TotalEntry = ConstructObject<UCookerStats>(UCookerStats::StaticClass());
+	UCookerStats* TotalEntry = NewObject<UCookerStats>();
 	{
 		for (auto It = InObjects.CreateConstIterator(); It; ++It)
 		{

@@ -97,8 +97,10 @@ public:
 public:
 	/** The derived data for this texture on this platform. */
 	FTexturePlatformData *PlatformData;
+#if WITH_EDITOR
 	/* cooked platform data for this texture */
 	TMap<FString, FTexturePlatformData*> CookedPlatformData;
+#endif
 	/**
 	 * Thread-safe counter indicating the texture streaming state. The definitions below are mirrored in Texture.h.
 	 *
@@ -133,9 +135,9 @@ public:
 	// Begin UObject interface.
 	virtual void Serialize(FArchive& Ar) override;	
 #if WITH_EDITOR
-	virtual void CookerWillNeverCookAgain() override;
 	virtual void PostLinkerChange() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void WillNeverCacheCookedPlatformDataAgain() override;
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual void PostLoad() override;
@@ -152,7 +154,9 @@ public:
 	virtual void UpdateResource() override;
 	virtual float GetAverageBrightness(bool bIgnoreTrueBlack, bool bUseGrayscale) override;
 	virtual FTexturePlatformData** GetRunningPlatformData() override { return &PlatformData; }
+#if WITH_EDITOR
 	virtual TMap<FString,FTexturePlatformData*>* GetCookedPlatformData() override { return &CookedPlatformData; }
+#endif
 	// End UTexture interface.
 
 	/** Trivial accessors. */
@@ -295,7 +299,7 @@ public:
 	/**
 	 * Waits until all streaming requests for this texture has been fully processed.
 	 */
-	virtual void WaitForStreaming();
+	virtual void WaitForStreaming() override;
 	
 	/**
 	 * Updates the streaming status of the texture and performs finalization when appropriate. The function returns
@@ -304,7 +308,7 @@ public:
 	 * @param bWaitForMipFading	Whether to wait for Mip Fading to complete before finalizing.
 	 * @return					true if there are requests in flight, false otherwise
 	 */
-	virtual bool UpdateStreamingStatus( bool bWaitForMipFading = false );
+	virtual bool UpdateStreamingStatus( bool bWaitForMipFading = false ) override;
 
 	/**
 	 * Tries to cancel a pending mip change request. Requests cannot be canceled if they are in the
@@ -387,7 +391,7 @@ public:
 
 	/** Called after an editor or undo operation is formed on texture
 	*/
-	virtual void PostEditUndo();
+	virtual void PostEditUndo() override;
 
 #endif // WITH_EDITOR
 
@@ -407,13 +411,13 @@ public:
 	/**
 	 * Gets the X size of the texture, in pixels
 	 */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "GetSizeX"), Category="Rendering|Texture")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "GetSizeX"), Category="Rendering|Texture")
 	int32 Blueprint_GetSizeX() const;
 
 	/**
 	 * Gets the Y size of the texture, in pixels
 	 */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "GetSizeY"), Category="Rendering|Texture")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "GetSizeY"), Category="Rendering|Texture")
 	int32 Blueprint_GetSizeY() const;
 
 	/**

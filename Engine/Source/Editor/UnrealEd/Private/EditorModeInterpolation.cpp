@@ -220,20 +220,26 @@ bool FModeTool_InterpEdit::MouseMove(FEditorViewportClient* ViewportClient,FView
 
 bool FModeTool_InterpEdit::InputAxis(FEditorViewportClient* InViewportClient, FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime)
 {
-	if ( InViewportClient->GetCurrentWidgetAxis() == EAxisList::None )
+	if ( InViewportClient->GetCurrentWidgetAxis() == EAxisList::None && !InViewportClient->Viewport->KeyState(EKeys::MiddleMouseButton) )
 	{
 		// We need to set up a widget axis here to prevent our drag operation being co-opted by box/frustum selection
 		ELevelViewportType ViewportType = InViewportClient->ViewportType;
 		switch(ViewportType)
 		{
 		case LVT_OrthoXY:
+		case LVT_OrthoNegativeXY:
 			InViewportClient->SetCurrentWidgetAxis(EAxisList::XY);
 			break;
 		case LVT_OrthoXZ:
+		case LVT_OrthoNegativeXZ:
 			InViewportClient->SetCurrentWidgetAxis(EAxisList::XZ);
 			break;
 		case LVT_OrthoYZ:
+		case LVT_OrthoNegativeYZ:
 			InViewportClient->SetCurrentWidgetAxis(EAxisList::YZ);
+			break;
+		case LVT_OrthoFreelook:
+		case LVT_Perspective:
 			break;
 		}
 	}

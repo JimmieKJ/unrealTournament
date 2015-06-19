@@ -2,17 +2,26 @@
 
 #pragma once
 
-#include "WorkflowCentricApplication.h"
+#include "Toolkits/AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "SPaperEditorViewport.h"
+
+class STileSetSelectorViewport;
+class SSingleTileEditorViewport;
+class FSingleTileEditorViewportClient;
 
 //////////////////////////////////////////////////////////////////////////
 // FTileSetEditor
 
-class FTileSetEditor : public FWorkflowCentricApplication, public FGCObject
+class FTileSetEditor : public FAssetEditorToolkit, public FGCObject
 {
 public:
+	FTileSetEditor();
+	~FTileSetEditor();
+
 	// IToolkit interface
 	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
+	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
 	// End of IToolkit interface
 
 	// FAssetEditorToolkit
@@ -21,6 +30,9 @@ public:
 	virtual FText GetToolkitName() const override;
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
 	virtual FString GetWorldCentricTabPrefix() const override;
+	virtual FString GetDocumentationLink() const override;
+	virtual void OnToolkitHostingStarted(const TSharedRef<class IToolkit>& Toolkit) override;
+	virtual void OnToolkitHostingFinished(const TSharedRef<class IToolkit>& Toolkit) override;
 	// End of FAssetEditorToolkit
 
 	// FSerializableObject interface
@@ -31,37 +43,39 @@ public:
 	void InitTileSetEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, class UPaperTileSet* InitTileSet);
 
 	UPaperTileSet* GetTileSetBeingEdited() const { return TileSetBeingEdited; }
+
+	TSharedPtr<FSingleTileEditorViewportClient> GetSingleTileEditor() const { return TileEditorViewportClient; }
+
+protected:
+	TSharedRef<class SDockTab> SpawnTab_TextureView(const FSpawnTabArgs& Args);
+	TSharedRef<class SDockTab> SpawnTab_Details(const FSpawnTabArgs& Args);
+	TSharedRef<class SDockTab> SpawnTab_SingleTileEditor(const FSpawnTabArgs& Args);
+
+	void BindCommands();
+	void ExtendMenu();
+	void ExtendToolbar();
+
+	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
+
+	void CreateLayouts();
+	void ToggleActiveLayout();
+
+	TSharedRef<FTabManager::FLayout> GetDesiredLayout() const;
 protected:
 	UPaperTileSet* TileSetBeingEdited;
-};
 
-//////////////////////////////////////////////////////////////////////////
-// STileSetSelectorViewport
+	TSharedPtr<STileSetSelectorViewport> TileSetViewport;
+	TSharedPtr<SSingleTileEditorViewport> TileEditorViewport;
+	TSharedPtr<FSingleTileEditorViewportClient> TileEditorViewportClient;
 
-class STileSetSelectorViewport : public SPaperEditorViewport
-{
-public:
-	SLATE_BEGIN_ARGS(STileSetSelectorViewport) {}
-	SLATE_END_ARGS()
+	FDelegateHandle OnPropertyChangedHandle;
 
-	~STileSetSelectorViewport();
+	// Should we use the default layout or the alternate (single tile editor) layout?
+	bool bUseAlternateLayout;
 
-	void Construct(const FArguments& InArgs, UPaperTileSet* InTileSet, class FEdModeTileMap* InTileMapEditor);
+	// Layout with the tile selector large and on the left
+	TSharedPtr<FTabManager::FLayout> TileSelectorPreferredLayout;
 
-	void ChangeTileSet(UPaperTileSet* InTileSet);
-protected:
-	// SPaperEditorViewport interface
-	virtual FText GetTitleText() const override;
-	// End of SPaperEditorViewport interface
-
-private:
-	void OnSelectionChanged(FMarqueeOperation Marquee, bool bIsPreview);
-	void RefreshSelectionRectangle();
-
-private:
-	TWeakObjectPtr<class UPaperTileSet> TileSetPtr;
-	TSharedPtr<class FTileSetEditorViewportClient> TypedViewportClient;
-	class FEdModeTileMap* TileMapEditor;
-	FIntPoint SelectionTopLeft;
-	FIntPoint SelectionDimensions;
+	// Layout with the single tile editor large and on the left
+	TSharedPtr<FTabManager::FLayout> SingleTileEditorPreferredLayout;
 };

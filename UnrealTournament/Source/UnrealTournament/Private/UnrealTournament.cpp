@@ -99,7 +99,7 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
 	FComponentQueryParams Params(NAME_PhysicsVolumeTrace, NULL);
 
-	World->OverlapMulti(Hits, TestLoc, FQuat::Identity, ECC_Pawn, Shape, Params);
+	World->OverlapMultiByChannel(Hits, TestLoc, FQuat::Identity, ECC_Pawn, Shape, Params);
 
 	for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
 	{
@@ -112,6 +112,12 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	}
 
 	return NewVolume;
+}
+
+float GetLocationGravityZ(UWorld* World, const FVector& TestLoc, const FCollisionShape& Shape)
+{
+	APhysicsVolume* Volume = FindPhysicsVolume(World, TestLoc, Shape);
+	return (Volume != NULL) ? Volume->GetGravityZ() : World->GetDefaultGravityZ();
 }
 
 static TMap<FName, FString> HackedEntitlementTable = []()
@@ -207,6 +213,16 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	FPackageName::QueryRootContentPaths(RootPaths);
 
 #if WITH_EDITOR
+	// HACK: workaround for terrible registry performance when scanning; limit search paths to improve perf a bit
+	RootPaths.Remove(TEXT("/Engine/"));
+	RootPaths.Remove(TEXT("/Game/"));
+	RootPaths.Remove(TEXT("/Paper2D/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Maps/"));
+	RootPaths.Add(TEXT("/Game/Maps/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Blueprints/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Pickups/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Weapons/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -216,7 +232,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	{
 		ARFilter.ClassNames.Add(BaseClass->GetFName());
 		// Add any old names to the list in case things haven't been resaved
-		TArray<FName> OldNames = ULinkerLoad::FindPreviousNamesForClass(BaseClass->GetPathName(), false);
+		TArray<FName> OldNames = FLinkerLoad::FindPreviousNamesForClass(BaseClass->GetPathName(), false);
 		ARFilter.ClassNames.Append(OldNames);
 	}
 	ARFilter.bRecursivePaths = true;
@@ -247,6 +263,17 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	FPackageName::QueryRootContentPaths(RootPaths);
 
 #if WITH_EDITOR
+	// HACK: workaround for terrible registry performance when scanning; limit search paths to improve perf a bit
+	RootPaths.Remove(TEXT("/Engine/"));
+	RootPaths.Remove(TEXT("/Game/"));
+	RootPaths.Remove(TEXT("/Paper2D/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Maps/"));
+	RootPaths.Add(TEXT("/Game/Maps/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Blueprints/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Pickups/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Weapons/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/PK/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif

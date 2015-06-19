@@ -814,8 +814,8 @@ FLinearColor UUTHUDWidget::ApplyHUDColor(FLinearColor DrawColor)
 
 void UUTHUDWidget::RenderObj_Texture(FHUDRenderObject_Texture& TextureObject, FVector2D DrawOffset)
 {
-	FVector2D RenderSize = FVector2D(TextureObject.GetWidth(), TextureObject.GetHeight());
-	RenderObj_TextureAt(TextureObject, (TextureObject.Position.X + DrawOffset.X), (TextureObject.Position.Y + DrawOffset.Y), RenderSize.X, RenderSize.Y);
+	FVector2D NewRenderSize = FVector2D(TextureObject.GetWidth(), TextureObject.GetHeight());
+	RenderObj_TextureAt(TextureObject, (TextureObject.Position.X + DrawOffset.X), (TextureObject.Position.Y + DrawOffset.Y), NewRenderSize.X, NewRenderSize.Y);
 }
 
 void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, float X, float Y, float Width, float Height)
@@ -839,7 +839,7 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 		}
 	}
 
-	float Opacity = UTHUDOwner->HUDWidgetOpacity * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->HUDWidgetSlateOpacity : 1.0f); 
+	float NewOpacity = UTHUDOwner->HUDWidgetOpacity * (TextureObject.bIsBorderElement ? UTHUDOwner->HUDWidgetBorderOpacity : 1.0f) * (TextureObject.bIsSlateElement ? UTHUDOwner->HUDWidgetSlateOpacity : 1.0f); 
 
 	DrawTexture(TextureObject.Atlas, 
 						X, 
@@ -847,7 +847,7 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 						Width, 
 						Height,
 						TextureObject.UVs.U, TextureObject.UVs.V, TextureObject.UVs.UL, TextureObject.UVs.VL,
-						TextureObject.RenderOpacity * Opacity,
+						TextureObject.RenderOpacity * NewOpacity,
 						RenderColor, 
 						TextureObject.RenderOffset, 
 						TextureObject.Rotation, 

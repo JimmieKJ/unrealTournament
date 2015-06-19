@@ -80,7 +80,7 @@ Mobility
 [EXCERPT:Glossary_Mobility]
 **Mobility** is a property of Static Mesh and Light Actors. The Mobility property, which is set in the **Details** panel, determines whether an Actor can move during gameplay. In addition, for Light Actors, the Mobility property determines the types of light and shadows cast.  Mobility property settings include Static, Stationary (Light Actors only), and Movable.
 
-In the World Outliner, an Actor's Mobility setting is indicated by a small colored dot on the left: orange for Movable, yellow for Stationary, none for Static. 
+In the World Outliner, an Actor's Mobility setting is indicated by a small colored dot on the left: orange for Movable, yellow for Stationary, none for Static.
 
 Actors with a Movable setting have the most versatility but the highest performance hit; Actors with a Static setting have the least versatility but the lowest performance hit.
 [/EXCERPT:Glossary_Mobility]

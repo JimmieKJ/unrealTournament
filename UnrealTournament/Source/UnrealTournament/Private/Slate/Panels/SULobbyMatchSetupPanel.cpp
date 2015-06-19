@@ -22,6 +22,7 @@
 void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 {
 	BlinkyTimer = 0.0f;
+	bWaitingOnMapDownload = false;
 	Dots=0;
 
 	bIsHost = InArgs._bIsHost;
@@ -117,7 +118,7 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 					+SHorizontalBox::Slot()
 					.Padding(5.0,0.0,5.0,0.0)
 					[
-						SAssignNew(StatusText,STextBlock)
+						SAssignNew(StatusTextBlock, STextBlock)
 						.Text(this, &SULobbyMatchSetupPanel::GetStatusText )
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					]
@@ -165,12 +166,32 @@ void SULobbyMatchSetupPanel::Tick( const FGeometry& AllottedGeometry, const doub
 {
 	if ( MatchInfo.IsValid())
 	{
-
 		if (MatchInfo->CurrentRuleset.IsValid())
 		{
-			if (MatchInfo->bMapListChanged)
+			if (MatchInfo->bMapChanged && !bWaitingOnMapDownload)
 			{
-				BuildMapList();
+				// Look to see if the MapInfo is valid.  If it's not, then trigger a content get.
+				if (MatchInfo->InitialMapInfo.IsValid())
+				{
+					BuildMapList();
+				}
+				else
+				{
+					bWaitingOnMapDownload = true;
+					TArray<FString> Content;
+					Content.Add(MatchInfo->InitialMap);
+					PlayerOwner->AccquireContent(Content);
+				}
+			}
+
+			else if (bWaitingOnMapDownload && !PlayerOwner->IsDownloadInProgress())
+			{
+				MatchInfo->LoadInitialMapInfo();	
+				if (MatchInfo->InitialMapInfo.IsValid())
+				{
+					bWaitingOnMapDownload = false;
+					BuildMapList();
+				}
 			}
 		}
 		else
@@ -244,7 +265,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(NSLOCTEXT("SULobbySetup", "LimitSkill", "Limit Rank").ToString())
+				.Text(NSLOCTEXT("SULobbySetup", "LimitSkill", "Limit Rank"))
 			]
 		];
 
@@ -262,7 +283,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(NSLOCTEXT("SULobbySetup", "AllowSpectators", "Allow Spectating").ToString())
+				.Text(NSLOCTEXT("SULobbySetup", "AllowSpectators", "Allow Spectating"))
 			]
 		];
 
@@ -280,7 +301,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress").ToString())
+				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress"))
 			]
 		];
 	}
@@ -333,18 +354,24 @@ void SULobbyMatchSetupPanel::BuildGameRulesPanel()
 				[
 					SNew(SBox)
 					.WidthOverride(700)
+					.HeightOverride(370)
 					[
-						SNew(SVerticalBox)
-
-						+SVerticalBox::Slot()
-						.FillHeight(1.0)
+						SNew(SScrollBox)
+						.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
+						+ SScrollBox::Slot()
 						[
-							SNew(SRichTextBlock)
-							.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesText")
-							.Justification(ETextJustify::Left)
-							.DecoratorStyleSet( &SUWindowsStyle::Get() )
-							.AutoWrapText( true )
-							.Text(this, &SULobbyMatchSetupPanel::GetMatchRulesDescription)
+							SNew(SVerticalBox)
+
+							+SVerticalBox::Slot()
+							.FillHeight(1.0)
+							[
+								SNew(SRichTextBlock)
+								.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesText")
+								.Justification(ETextJustify::Left)
+								.DecoratorStyleSet( &SUWindowsStyle::Get() )
+								.AutoWrapText( true )
+								.Text(this, &SULobbyMatchSetupPanel::GetMatchRulesDescription)
+							]
 						]
 					]
 				]
@@ -448,9 +475,12 @@ void SULobbyMatchSetupPanel::RankCeilingChanged(ECheckBoxState NewState)
 
 void SULobbyMatchSetupPanel::BuildPlayerList(float DeltaTime)
 {
-	if (PlayerListBox.IsValid() && MatchInfo.IsValid())
+	if (PlayerListBox.IsValid() && MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
 	{
-		FString MenuOptions = TEXT("Kick,Ban");
+		FString MenuOptions = MatchInfo->CurrentRuleset->bTeamGame ? TEXT("Change Team,Spectate,Kick,Ban") : TEXT("Spectate,Kick,Ban");
+
+		bool bRequiresFullRefresh = false;
+		bool bRequiresStatusRefresh = false;
 
 		// Find any players who are no longer in the match list.
 		for (int32 i=0; i < PlayerData.Num(); i++)
@@ -459,137 +489,253 @@ void SULobbyMatchSetupPanel::BuildPlayerList(float DeltaTime)
 			{
 				int32 Idx = (PlayerData[i]->PlayerState.IsValid()) ? MatchInfo->Players.Find( PlayerData[i]->PlayerState.Get() ) : INDEX_NONE;
 				if (Idx == INDEX_NONE )
-				
 				{
-					// Not found, remove this one.
-					PlayerListBox->RemoveSlot(PlayerData[i]->Button.ToSharedRef());
-					PlayerData.RemoveAt(i);
-					i--;
+					bRequiresFullRefresh = true;
+					break;
 				}
 			}
 		}
 
-		// Find any players who are no longer in the match list.
+		// Look for new players to the match
 		for (int32 i=0; i < MatchInfo->Players.Num(); i++)
 		{
-			if (MatchInfo->Players[i].IsValid())
+			int32 PlayerIndex = INDEX_NONE;
+			for (int32 j=0; j < PlayerData.Num(); j++)
 			{
-				bool bFound = false;
-				for (int32 j=0; j<PlayerData.Num(); j++)
+				if (PlayerData[j]->PlayerState.IsValid() && PlayerData[j]->PlayerState.Get() == MatchInfo->Players[i].Get())
 				{
-					if (MatchInfo->Players[i] == PlayerData[j]->PlayerState.Get())
+					PlayerIndex = j;
+					break;
+				}
+			}
+
+			if (PlayerIndex == INDEX_NONE)
+			{
+				bRequiresFullRefresh = true;
+				break;
+			}
+			else
+			{
+				// This player already exists, look to see if their team or status has changed
+				if (PlayerIndex < PlayerData.Num() && PlayerData[PlayerIndex]->PlayerState.IsValid())
+				{
+					// If the team has changed, we have to rebuild the whole list
+					if (PlayerData[PlayerIndex]->TeamNum != PlayerData[PlayerIndex]->PlayerState->DesiredTeamNum)
 					{
-						bFound = true;
+						bRequiresFullRefresh = true;
 						break;
 					}
+					if (PlayerData[PlayerIndex]->NeedsStatusRefresh())
+					{
+						bRequiresStatusRefresh = true;
+					}
 				}
-				
-				bool bNeedsSubMenu = bIsHost && MatchInfo->Players[i]->UniqueId != MatchInfo->OwnerId;
-
-				if (!bFound)
+				else
 				{
-					TSharedPtr<SWidget> Button;
-					TSharedPtr<SUTComboButton> ComboButton;
-					TSharedPtr<SImage> ReadyImage;
+					// We should never get here.  But if we do figure something went wrong and
+					// rebuild the whole list.
+					bRequiresFullRefresh = true;
+					break;
+				}
+			}
+		}
 
-					PlayerListBox->AddSlot()
+		if (bRequiresFullRefresh)
+		{
+			// First, build the player list and sort it by teams
+
+			PlayerData.Empty();
+
+			for (int32 i=0; i < MatchInfo->Players.Num(); i++)
+			{
+				if (MatchInfo->Players[i].IsValid())
+				{
+					int32 InsertIndex = 0;
+					uint8 TeamNum = MatchInfo->Players[i]->DesiredTeamNum;
+					while (InsertIndex < PlayerData.Num() && PlayerData[InsertIndex]->TeamNum <= TeamNum)
+					{
+						InsertIndex++;
+					}
+					PlayerData.Insert( FMatchPlayerData::Make(MatchInfo->Players[i]), InsertIndex );
+				}
+			}
+
+			// Now build the actual list elements
+
+			PlayerListBox->ClearChildren();
+			for (int32 i=0; i < PlayerData.Num(); i++)
+			{
+				TSharedPtr<SWidget> Button;
+				TSharedPtr<SUTComboButton> ComboButton;
+				TSharedPtr<STextBlock> StatusText;
+
+				FString SubMenu = TEXT("");
+
+				if (bIsHost)
+				{
+					if ( PlayerData[i]->PlayerState->UniqueId != MatchInfo->OwnerId )
+					{
+						SubMenu = MenuOptions;
+					}
+					else if (MatchInfo->CurrentRuleset->bTeamGame)
+					{
+						SubMenu = TEXT("Change Team");
+					}
+				}
+
+				static FName NAME_RedImage = FName(TEXT("UT.TeamBrush.Red"));
+				static FName NAME_BlueImage = FName(TEXT("UT.TeamBrush.Blue"));
+				static FName NAME_SpecImage = FName(TEXT("UT.TeamBrush.Spectator"));
+
+				FName TeamImage;
+				uint8 TeamNum = PlayerData[i]->PlayerState->DesiredTeamNum;
+				switch (TeamNum)
+				{
+					case 0 : TeamImage = NAME_RedImage; break;
+					case 1 : TeamImage = NAME_BlueImage; break;
+					default: TeamImage = NAME_SpecImage; break;
+				}
+
+				PlayerListBox->AddSlot()
+				[
+					SAssignNew(Button, SBox)
+					.WidthOverride(125)
+					.HeightOverride(160)
 					[
-						SAssignNew(Button, SBox)
-						.WidthOverride(125)
-						.HeightOverride(160)
+						SAssignNew(ComboButton, SUTComboButton)
+						.ButtonStyle(SUWindowsStyle::Get(),"UWindows.Lobby.MatchBar.Button")
+						.MenuButtonStyle(SUWindowsStyle::Get(),"UT.ContextMenu.Button")
+						.MenuButtonTextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
+						.HasDownArrow(false)
+						.OnButtonSubMenuSelect(this, &SULobbyMatchSetupPanel::OnSubMenuSelect)
+						.bRightClickOpensMenu(true)
+						.MenuPlacement(MenuPlacement_MenuRight)
+						.DefaultMenuItems(SubMenu)
+						.ButtonContent()
 						[
-							SAssignNew(ComboButton, SUTComboButton)
-							.ButtonStyle(SUWindowsStyle::Get(),"UWindows.Lobby.MatchBar.Button")
-							.MenuButtonStyle(SUWindowsStyle::Get(),"UT.ContextMenu.Button")
-							.MenuButtonTextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
-							.HasDownArrow(false)
-							.OnButtonSubMenuSelect(this, &SULobbyMatchSetupPanel::OnSubMenuSelect)
-							.bRightClickOpensMenu(true)
-							.MenuPlacement(MenuPlacement_MenuRight)
-							.DefaultMenuItems(bNeedsSubMenu ? MenuOptions : TEXT(""))
-							.ButtonContent()
-							[
-								SNew(SVerticalBox)
+							SNew(SVerticalBox)
 
-								// The player's Image - TODO: We need a way to download the portrait of a given player 
-								+SVerticalBox::Slot()
-								.AutoHeight()
-								.Padding(0.0,5.0,0.0,0.0)
-								.HAlign(HAlign_Center)
+							// The player's Image - TODO: We need a way to download the portrait of a given player 
+							+SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(0.0,5.0,0.0,0.0)
+							.HAlign(HAlign_Center)
+							[
+								SNew(SBox)
+								.WidthOverride(102)
+								.HeightOverride(128)							
 								[
-									SNew(SBox)
-									.WidthOverride(102)
-									.HeightOverride(128)							
+									SNew(SOverlay)
+									+SOverlay::Slot()
+									[
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("Testing.TestPortrait"))
+									]
+									+SOverlay::Slot()
 									[
 										SNew(SOverlay)
+
+										// The Team Color background
 										+SOverlay::Slot()
 										[
-											SNew(SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("Testing.TestPortrait"))
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot().AutoHeight()
+											[
+												SNew(SHorizontalBox)
+												+SHorizontalBox::Slot().AutoWidth()
+												[
+													SNew(SBox).WidthOverride(102).HeightOverride(24)
+													[
+														SNew(SImage)
+														.Image(SUWindowsStyle::Get().GetBrush(TeamImage))
+													]
+												]
+											]
 										]
 										+SOverlay::Slot()
-										[
-											SAssignNew(ReadyImage, SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("UWindows.Match.ReadyImage"))
-											.Visibility(EVisibility::Hidden)
-										]
-										+SOverlay::Slot()
-										.VAlign(VAlign_Bottom)
-										.HAlign(HAlign_Right)
 										[
 											SNew(SHorizontalBox)
-											+SHorizontalBox::Slot()
-											.AutoWidth()
+											+SHorizontalBox::Slot().HAlign(HAlign_Center)
 											[
-												SNew(SVerticalBox)
-												+SVerticalBox::Slot()
-												.AutoHeight()
-												[
-													BuildELOBadgeForPlayer(MatchInfo->Players[i])
-												]
+												SAssignNew(StatusText, STextBlock)
+												.TextStyle(SUWindowsStyle::Get(), "UT.Hub.MapsText")
+											]
+										]
+
+									]
+									+SOverlay::Slot()
+									.VAlign(VAlign_Bottom)
+									.HAlign(HAlign_Right)
+									[
+										SNew(SHorizontalBox)
+										+SHorizontalBox::Slot()
+										.AutoWidth()
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot()
+											.AutoHeight()
+											[
+												BuildELOBadgeForPlayer(MatchInfo->Players[i])
 											]
 										]
 									]
 								]
-								+SVerticalBox::Slot()
-								.Padding(0.0,0.0,0.0,5.0)
-								.AutoHeight()
-								.HAlign(HAlign_Center)
-								[
-									SNew(STextBlock)
-									.Text(MatchInfo->Players[i]->PlayerName)
-									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.SmallButton.TextStyle")
-								]
-
 							]
+							+SVerticalBox::Slot()
+							.Padding(0.0,0.0,0.0,5.0)
+							.AutoHeight()
+							.HAlign(HAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(FText::FromString(PlayerData[i]->PlayerState->PlayerName))
+								.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.SmallButton.TextStyle")
+							]
+
 						]
-					];
+					]
+				];
 
-					PlayerData.Add( FMatchPlayerData::Make(MatchInfo->Players[i],Button, ComboButton, ReadyImage));
-				}
+				PlayerData[i]->Button = Button;
+				PlayerData[i]->ComboButton = ComboButton;
+				PlayerData[i]->StatusText = StatusText;
 			}
-		}
-	}
 
-	for (int32 i=0; i< PlayerData.Num(); i++)
-	{
-		if (PlayerData[i].IsValid())
+		}
+
+		if (bRequiresStatusRefresh || bRequiresFullRefresh)
 		{
-
-			AUTLobbyPlayerState* PS = PlayerData[i].Get()->PlayerState.Get();	
-			if (PS)
+			for (int32 i=0; i< PlayerData.Num(); i++)
 			{
-				PlayerData[i].Get()->ComboButton->SetButtonStyle( !PS->bReadyToPlay ? &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.PlayerButton") : &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.ReadyPlayerButton") );
-				PlayerData[i].Get()->ReadyImage->SetVisibility( PS->bReadyToPlay ? EVisibility::Visible : EVisibility::Hidden);
-				if (PS->UniqueId == MatchInfo->OwnerId)
+				if (PlayerData[i].IsValid())
 				{
-					PlayerData[i].Get()->ReadyImage->SetVisibility( EVisibility::Visible);
-					PlayerData[i].Get()->ReadyImage->SetImage(SUWindowsStyle::Get().GetBrush("UWindows.Match.HostImage"));
+					AUTLobbyPlayerState* PS = PlayerData[i].Get()->PlayerState.Get();	
+					if (PS)
+					{
+						PlayerData[i].Get()->ComboButton->SetButtonStyle( !PS->bReadyToPlay ? &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.PlayerButton") : &SUWindowsStyle::Get().GetWidgetStyle<FButtonStyle>("UWindows.Match.ReadyPlayerButton") );
+
+						if (PS->UniqueId == MatchInfo->OwnerId)
+						{
+							PlayerData[i]->StatusText->SetText(NSLOCTEXT("SULobbyMatchSetupPanel","Host","Host"));
+						}
+						else
+						{
+							if (PS->bReadyToPlay)
+							{
+								PlayerData[i]->StatusText->SetText(NSLOCTEXT("SULobbyMatchSetupPanel","Ready","Ready"));
+							}
+							else
+							{
+								PlayerData[i]->StatusText->SetText(NSLOCTEXT("SULobbyMatchSetupPanel","NotReady","Not Ready"));
+							}
+						
+						}
+
+						PlayerData[i]->bReadyToPlay = PS->bReadyToPlay;
+					}
 				}
 			}
 		}
 	}
-
 }
 
 TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildELOBadgeForPlayer(TWeakObjectPtr<AUTPlayerState> PlayerState)
@@ -597,7 +743,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildELOBadgeForPlayer(TWeakObjectPt
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	if (PlayerOwner.IsValid() && MatchInfo.IsValid())
+	if (PlayerOwner.IsValid() && MatchInfo.IsValid() && PlayerState.IsValid())
 	{
 		UUTLocalPlayer::GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
 	}
@@ -692,6 +838,9 @@ void SULobbyMatchSetupPanel::OnRulesetUpdated()
 		{
 			PlayerOwner->AccquireContent(RequiredContent);		
 		}
+
+		PlayerData.Empty();
+		BuildPlayerList(0);
 	}
 }
 
@@ -725,88 +874,56 @@ FText SULobbyMatchSetupPanel::GetMatchRulesDescription() const
 
 void SULobbyMatchSetupPanel::BuildMapList()
 {
-
 	if (MapListPanel.IsValid() && MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
 	{
-		MatchInfo->bMapListChanged = false;
-
 		MapListPanel->ClearChildren();
-		MaplistScreenshots.Empty();
 
 		MapListPanel->AddSlot().AutoHeight().HAlign(HAlign_Left)
 		[
 			SNew(STextBlock)
-			.Text(FText::FromString(TEXT("[Map Play List]")))
+			.Text(NSLOCTEXT("SULobbyMatchSetupPanel", "StartingMap","Starting Map..."))
 			.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
 			.ColorAndOpacity(FLinearColor::White)
 		];
 
-		TSharedPtr<SGridPanel> Grid;
-		MapListPanel->AddSlot().FillHeight(1.0)
+		MapListPanel->AddSlot().AutoHeight().HAlign(HAlign_Left)
 		[
-			SAssignNew(Grid, SGridPanel)
+			SNew(STextBlock)
+			.Text(FText::FromString(MatchInfo->InitialMapInfo->Title))
+			.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesTitle")
+			.ColorAndOpacity(FLinearColor::White)
 		];
 
-		for (int32 i = 0 ; i < MatchInfo->MapList.Num(); i++)
+
+		if (MatchInfo->InitialMapInfo->Screenshot != TEXT(""))
 		{
-			FSlateDynamicImageBrush* Screenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot")));
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MatchInfo->MapList[i]);
-			FString Title = MatchInfo->MapList[i];
-			FString ToolTip;
-			if (Summary != NULL)
-			{
-				*Screenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
-				if (!Summary->Title.IsEmpty())
-				{
-					Title = Summary->Title;
-				}
-				ToolTip = FString::Printf(TEXT("%s\n\nAuthor: %s\nDesc: %s"), *Title, *Summary->Author, *Summary->Description.ToString());
-			}
-			else
-			{
-				*Screenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
-			}	
+			UTexture2D* MapImage = LoadObject<UTexture2D>(nullptr, *MatchInfo->InitialMapInfo->Screenshot);
+			MapScreenshot = new FSlateDynamicImageBrush(MapImage, FVector2D(256.0, 128.0), NAME_None);
 
-			MaplistScreenshots.Add(Screenshot);
+		}
+		else
+		{
+			MapScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), NAME_None);
+		}
 
-			int32 Row = i / 3;
-			int32 Col = i % 3;			 
-
-			Grid->AddSlot(Col, Row).Padding(5.0,5.0,5.0,5.0)
+		MapListPanel->AddSlot().AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
 			[
 				SNew(SBox)
-				.WidthOverride(256)
-				.HeightOverride(158)							
+				.HeightOverride(256)
+				.WidthOverride(512)
 				[
-					SNew(SButton)
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							SNew(SBox)
-							.WidthOverride(256)
-							.HeightOverride(128)							
-							[
-								SNew(SImage)
-								.Image(Screenshot)
-								.ToolTip(SUTUtils::CreateTooltip(FText::FromString(ToolTip)))
-							]
-
-						]
-						+SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
-						.AutoHeight()
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(Title))
-							.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
-							.ColorAndOpacity(FLinearColor::Black)
-						]
-					]
+					SNew(SImage)
+					.Image(MapScreenshot)
 				]
-			];
-		}
+			]
+		];
+
+		MatchInfo->bMapChanged = false;
+
 	}
 }
 
@@ -834,35 +951,30 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 		{
 			FString GameMode;
 			FString StartingMap;
+			FString Description;
 			TArray<FString> GameOptions;
 
 			int32 DesiredPlayerCount = 0;
-			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, GameOptions, DesiredPlayerCount);
-			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, GameOptions, SetupDialog->BotSkillLevel, DesiredPlayerCount);
+			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount);
+			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, Description, GameOptions, SetupDialog->BotSkillLevel, DesiredPlayerCount);
 		}
 
 		else if (SetupDialog->SelectedRuleset.IsValid())
 		{
-			TArray<FString> MapList;
-			for (int32 i=0; i< SetupDialog->MapPlayList.Num(); i++ )
-			{
-				if (SetupDialog->MapPlayList[i].bSelected)
-				{
-					MapList.Add(SetupDialog->MapPlayList[i].MapName);
-				}
-			}
-			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, MapList, SetupDialog->BotSkillLevel);
+			FString StartingMap = SetupDialog->GetSelectedMap();
+			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, StartingMap, SetupDialog->BotSkillLevel);
 		}
 
 		// NOTE: The dialog closes itself... :)
 	}
 	else if (ButtonPressed == UTDIALOG_BUTTON_CANCEL)
 	{
-		if (bIsHost && !MatchInfo->CurrentRuleset.IsValid() && PlayerData.Num() > 0)	
+		if (bIsHost && !MatchInfo->CurrentRuleset.IsValid())	
 		{
-			if (PlayerData[0].IsValid() && PlayerData[0]->PlayerState.IsValid())
+			AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			if (PlayerState)
 			{
-				PlayerData[0].Get()->PlayerState->ServerDestroyOrLeaveMatch();
+				PlayerState->ServerDestroyOrLeaveMatch();
 			}
 		}
 	}

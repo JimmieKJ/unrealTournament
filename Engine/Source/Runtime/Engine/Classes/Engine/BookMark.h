@@ -1,14 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/* epic ===============================================
-* class BookMark
-*
-* A camera position the current level.
- */
-
 #pragma once
+
 #include "BookMark.generated.h"
 
+
+/**
+ * A camera position the current level.
+ */
 UCLASS(hidecategories=Object, MinimalAPI)
 class UBookMark : public UObject
 {
@@ -25,6 +24,4 @@ class UBookMark : public UObject
 	/** Array of levels that are hidden */
 	UPROPERTY(EditAnywhere, Category=BookMark)
 	TArray<FString> HiddenLevels;
-
 };
-

@@ -12,14 +12,21 @@ class GRAPHEDITOR_API SCommentBubble : public SCompoundWidget
 		, _AllowPinning( false )
 		, _EnableTitleBarBubble( false )
 		, _EnableBubbleCtrls( false )
+		, _InvertLODCulling( false )
 		, _GraphLOD( EGraphRenderingLOD::DefaultDetail )
 	{}
 
 		/** the GraphNode this bubble should interact with */
 		SLATE_ARGUMENT( UEdGraphNode*, GraphNode )
 
+		/** Attribute to determine the visibility buttons check state */
+		SLATE_ATTRIBUTE( ECheckBoxState, ToggleButtonCheck )
+
 		/** The comment text for the bubble */
 		SLATE_ATTRIBUTE( FString, Text )
+
+		/** Called when the comment text is committed */
+		SLATE_EVENT( FOnTextCommitted, OnTextCommitted )
 
 		/** The comment hint text for the bubble */
 		SLATE_ATTRIBUTE( FText, HintText )
@@ -35,6 +42,9 @@ class GRAPHEDITOR_API SCommentBubble : public SCompoundWidget
 
 		/** Enable the controls within the bubble */
 		SLATE_ARGUMENT( bool, EnableBubbleCtrls )
+
+		/** Invert LOD culling */
+		SLATE_ARGUMENT( bool, InvertLODCulling )
 
 		/** The current level of detail */
 		SLATE_ATTRIBUTE( EGraphRenderingLOD::Type, GraphLOD )
@@ -60,6 +70,9 @@ class GRAPHEDITOR_API SCommentBubble : public SCompoundWidget
 	/** Returns the offset from the SNode center slot */
 	FVector2D GetOffset() const;
 
+	/** Returns the offset to the arrow center accounting for zoom on either the comment bubble or the title bar button based on current state */
+	float GetArrowCenterOffset() const;
+
 	/** Returns the bubble size */
 	FVector2D GetSize() const;
 
@@ -79,9 +92,6 @@ class GRAPHEDITOR_API SCommentBubble : public SCompoundWidget
 	void UpdateBubble();
 
 protected:
-
-	/** Returns the current comment text, converting from FString into FText */
-	FText GetCommentText() const;
 
 	/** Returns the current scale button tooltip */
 	FText GetScaleButtonTooltip() const;
@@ -105,10 +115,19 @@ protected:
 	FSlateColor GetTextForegroundColor() const;
 
 	/** Returns the foreground color for the text and buttons, taking into account the bubble color */
-	FSlateColor GetForegroundColor() const { return ForegroundColor; }
+	FSlateColor GetForegroundColor() const override { return ForegroundColor; }
 
 	/** Called when the comment text is committed */
 	void OnCommentTextCommitted( const FText& NewText, ETextCommit::Type CommitInfo );
+
+	/** Returns bubble toggle check state */
+	ECheckBoxState GetToggleButtonCheck() const;
+
+	/** Returns pinned check state */
+	ECheckBoxState GetPinnedButtonCheck() const;
+
+	/** Called to determine if the comment bubble is readonly */
+	bool IsReadOnly() const;
 
 protected:
 
@@ -121,15 +140,15 @@ protected:
 	TAttribute<FSlateColor> ColorAndOpacity;
 	/** Attribute to query node comment */
 	TAttribute<FString> CommentAttribute;
-	/** Attribute to query node pinned state */
-	TAttribute<bool> PinnedState;
-	/** Attribute to query node visibility state */
-	TAttribute<bool> VisibilityState;
 	/** Attribute to query current LOD */
 	TAttribute<EGraphRenderingLOD::Type> GraphLOD;
 	/** Hint Text */
 	TAttribute<FText> HintText;
+	/** Toggle button checked state  */
+	TAttribute<ECheckBoxState> ToggleButtonCheck;
 
+	/** Optional delegate to call when the comment text is committed */
+	FOnTextCommitted OnTextCommittedDelegate;
 	/** Delegate to determine if the graph node is currently hovered */
 	FIsGraphNodeHovered IsGraphNodeHovered;
 
@@ -139,12 +158,15 @@ protected:
 	bool bAllowPinning;
 	/** Allow in bubble controls */
 	bool bEnableBubbleCtrls;
+	/** Invert the LOD culling behavior, used by comment nodes */
+	bool bInvertLODCulling;
 	/** Enable the title bar bubble toggle */
 	bool bEnableTitleBarBubble;
 	/** Used to Control hover fade up/down for widgets */
 	float OpacityValue;
 	/** Cached comment */
-	mutable FString CachedComment;
-	/** Cached FText version of the comment */
-	mutable FText CachedCommentText;
+	FString CachedComment;
+	/** Cached FText comment */
+	FText CachedCommentText;
+
 };

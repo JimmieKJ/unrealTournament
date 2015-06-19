@@ -11,28 +11,32 @@ UBlackboardKeyType_Bool::UBlackboardKeyType_Bool(const FObjectInitializer& Objec
 	SupportedOp = EBlackboardKeyOperation::Basic;
 }
 
-bool UBlackboardKeyType_Bool::GetValue(const uint8* RawData)
+bool UBlackboardKeyType_Bool::GetValue(const UBlackboardKeyType_Bool* KeyOb, const uint8* RawData)
 {
 	return GetValueFromMemory<uint8>(RawData) != 0;
 }
 
-bool UBlackboardKeyType_Bool::SetValue(uint8* RawData, bool bValue)
+bool UBlackboardKeyType_Bool::SetValue(UBlackboardKeyType_Bool* KeyOb, uint8* RawData, bool bValue)
 {
 	return SetValueInMemory<uint8>(RawData, bValue);
 }
 
-FString UBlackboardKeyType_Bool::DescribeValue(const uint8* RawData) const
+EBlackboardCompare::Type UBlackboardKeyType_Bool::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return GetValue(RawData) ? TEXT("true") : TEXT("false");
+	const bool MyValue = GetValue(this, MemoryBlock);
+	const bool OtherValue = GetValue((UBlackboardKeyType_Bool*)OtherKeyOb, OtherMemoryBlock);
+
+	return (MyValue == OtherValue) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Bool::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+FString UBlackboardKeyType_Bool::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
 {
-	return GetValueFromMemory<uint8>(MemoryBlockA) == GetValueFromMemory<uint8>(MemoryBlockB) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
+	return GetValue(this, RawData) ? TEXT("true") : TEXT("false");
 }
 
-bool UBlackboardKeyType_Bool::TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
+bool UBlackboardKeyType_Bool::TestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
 {
-	const bool Value = GetValue(MemoryBlock);
+	const bool Value = GetValue(this, MemoryBlock);
 	return (Op == EBasicKeyOperation::Set) ? Value : !Value;
 }

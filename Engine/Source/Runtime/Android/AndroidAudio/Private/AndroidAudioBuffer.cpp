@@ -15,8 +15,8 @@
  *
  * @param AudioDevice	audio device this sound buffer is going to be attached to.
  */
-FSLESSoundBuffer::FSLESSoundBuffer( FSLESAudioDevice* InAudioDevice ) :
-	AudioDevice(InAudioDevice),
+FSLESSoundBuffer::FSLESSoundBuffer( FSLESAudioDevice* InAudioDevice )
+:	FSoundBuffer(InAudioDevice),
 	AudioData(NULL),
 	DecompressionState( NULL ),
 	Format(SoundFormat_Invalid)
@@ -117,8 +117,11 @@ FSLESSoundBuffer* FSLESSoundBuffer::CreateNativeBuffer( FSLESAudioDevice* AudioD
 
 	// Create new buffer.
 	Buffer = new FSLESSoundBuffer( AudioDevice );
-		
-	AudioDevice->TrackResource(InWave, Buffer);
+	
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+	check(AudioDeviceManager != nullptr);
+
+	AudioDeviceManager->TrackResource(InWave, Buffer);
 
 	Buffer->NumChannels		= InWave->NumChannels;
 	Buffer->SampleRate		= InWave->SampleRate;
@@ -184,6 +187,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::Init(  FSLESAudioDevice* AudioDevice ,USound
 		return( NULL );
 	}
 	
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
 	FSLESSoundBuffer* Buffer = NULL;
 	
 	EDecompressionType DecompressionType = InWave->DecompressionType;
@@ -205,7 +209,7 @@ FSLESSoundBuffer* FSLESSoundBuffer::Init(  FSLESAudioDevice* AudioDevice ,USound
 		// Upload entire wav
 		if( InWave->ResourceID )
 		{
-			Buffer = static_cast<FSLESSoundBuffer*>(AudioDevice->WaveBufferMap.FindRef( InWave->ResourceID ));
+			Buffer = static_cast<FSLESSoundBuffer*>(AudioDeviceManager->WaveBufferMap.FindRef(InWave->ResourceID));
 		}
 
 		if( Buffer == NULL )

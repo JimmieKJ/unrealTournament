@@ -44,7 +44,7 @@ void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const
 			TraceParams.AddIgnoredActor(this);
 			TraceParams.AddIgnoredActor(ImpactedActor);
 			FHitResult Hit;
-			if (GetWorld()->LineTraceSingle(Hit, SpawnPos, HitLocation, ECC_Visibility, TraceParams))
+			if (GetWorld()->LineTraceSingleByChannel(Hit, SpawnPos, HitLocation, ECC_Visibility, TraceParams))
 			{
 				SpawnPos = Hit.Location;
 			}

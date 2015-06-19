@@ -45,6 +45,7 @@
 *.pak
 *.bmp
 *.obj
+*.pdb
 **/*.framework/**
 
 # Engine binaries

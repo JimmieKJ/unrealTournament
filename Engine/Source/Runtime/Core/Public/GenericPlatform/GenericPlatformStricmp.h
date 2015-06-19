@@ -1,10 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "HAL/Platform.h"
 #include "Misc/Char.h"
 #include "Templates/EnableIf.h"
 #include "Templates/UnrealTypeTraits.h"
+
 
 /**
  * This trait tells if given CharTypeA is comparison compatible with CharTypeB, i.e.
@@ -31,7 +33,6 @@ private:
 	 *
 	 * @param String1 First string to compare.
 	 * @param String2 Second string to compare.
-	 *
 	 * @returns Zero if both strings are equal. Greater than zero if first
 	 *          string is greater than the second one. Less than zero
 	 *          otherwise.
@@ -90,7 +91,6 @@ public:
 	 *
 	 * @param String1 First string to compare.
 	 * @param String2 Second string to compare.
-	 *
 	 * @returns Zero if both strings are equal. Greater than zero if first
 	 *          string is greater than the second one. Less than zero
 	 *          otherwise.

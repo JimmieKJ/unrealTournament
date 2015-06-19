@@ -48,7 +48,7 @@ FVertexBufferRHIRef FEmptyDynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 
 
 void* FEmptyDynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Offset, uint32 Size, EResourceLockMode LockMode)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer,VertexBuffer);
+	FEmptyVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	// default to vertex buffer memory
 	return (uint8*)VertexBuffer->Lock(LockMode, Size) + Offset;
@@ -56,7 +56,7 @@ void* FEmptyDynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 
 void FEmptyDynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer,VertexBuffer);
+	FEmptyVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	VertexBuffer->Unlock();
 }

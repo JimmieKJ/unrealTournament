@@ -16,9 +16,11 @@
 #define NAVMESHVER_DYNAMIC_LINKS		7
 #define NAVMESHVER_64BIT				9
 #define NAVMESHVER_CLUSTER_SIMPLIFIED	10
+#define NAVMESHVER_OFFMESH_HEIGHT_BUG	11
+#define NAVMESHVER_LANDSCAPE_HEIGHT		13
 
-#define NAVMESHVER_LATEST				NAVMESHVER_CLUSTER_SIMPLIFIED
-#define NAVMESHVER_MIN_COMPATIBLE		NAVMESHVER_CLUSTER_SIMPLIFIED
+#define NAVMESHVER_LATEST				NAVMESHVER_LANDSCAPE_HEIGHT
+#define NAVMESHVER_MIN_COMPATIBLE		NAVMESHVER_LANDSCAPE_HEIGHT
 
 #define RECAST_MAX_SEARCH_NODES		2048
 
@@ -109,16 +111,11 @@ struct ENGINE_API FNavMeshPath : public FNavigationPath
 	void Reset();
 
 	/** get cost of path, starting from next poly in corridor */
-	virtual float GetCostFromNode(NavNodeRef PathNode) const { return GetCostFromIndex(PathCorridor.Find(PathNode) + 1); }
+	virtual float GetCostFromNode(NavNodeRef PathNode) const override { return GetCostFromIndex(PathCorridor.Find(PathNode) + 1); }
 
 	/** get cost of path, starting from given point */
-	virtual float GetCostFromIndex(int32 PathPointIndex) const
+	virtual float GetCostFromIndex(int32 PathPointIndex) const override
 	{
-		if (PathPointIndex >= PathCorridorCost.Num() - 1)
-		{
-			return 0.f;
-		}
-
 		float TotalCost = 0.f;
 		const float* Cost = PathCorridorCost.GetData();
 		for (int32 PolyIndex = PathPointIndex; PolyIndex < PathCorridorCost.Num(); ++PolyIndex, ++Cost)
@@ -137,20 +134,20 @@ struct ENGINE_API FNavMeshPath : public FNavigationPath
 	FORCEINLINE int32 GetNodeRefIndex(const NavNodeRef NodeRef) const { return PathCorridor.Find(NodeRef); }
 
 	/** check if path (all polys in corridor) contains given node */
-	virtual bool ContainsNode(NavNodeRef NodeRef) const { return PathCorridor.Contains(NodeRef); }
+	virtual bool ContainsNode(NavNodeRef NodeRef) const override { return PathCorridor.Contains(NodeRef); }
 
-	virtual bool ContainsCustomLink(uint32 UniqueLinkId) const { return CustomLinkIds.Contains(UniqueLinkId); }
-	virtual bool ContainsAnyCustomLink() const { return CustomLinkIds.Num() > 0; }
+	virtual bool ContainsCustomLink(uint32 UniqueLinkId) const override { return CustomLinkIds.Contains(UniqueLinkId); }
+	virtual bool ContainsAnyCustomLink() const override { return CustomLinkIds.Num() > 0; }
 
 	bool IsPathSegmentANavLink(const int32 PathSegmentStartIndex) const;
 
-	virtual bool DoesIntersectBox(const FBox& Box, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL) const override;
-	virtual bool DoesIntersectBox(const FBox& Box, const FVector& AgentLocation, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL) const override;
+	virtual bool DoesIntersectBox(const FBox& Box, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL, FVector* AgentExtent = NULL) const override;
+	virtual bool DoesIntersectBox(const FBox& Box, const FVector& AgentLocation, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL, FVector* AgentExtent = NULL) const override;
 	/** retrieves normalized direction vector to given path segment. If path is not string pulled navigation corridor is being used */
 	virtual FVector GetSegmentDirection(uint32 SegmentEndIndex) const override;
 
 private:
-	bool DoesPathIntersectBoxImplementation(const FBox& Box, const FVector& StartLocation, uint32 StartingIndex, int32* IntersectingSegmentIndex) const;
+	bool DoesPathIntersectBoxImplementation(const FBox& Box, const FVector& StartLocation, uint32 StartingIndex, int32* IntersectingSegmentIndex, FVector* AgentExtent) const;
 public:
 
 #if ENABLE_VISUAL_LOG
@@ -223,6 +220,7 @@ struct FRecastDebugPathfindingNode
 	NavNodeRef ParentRef;
 	float Cost;
 	float TotalCost;
+	float Length;
 	uint32 bOpenSet : 1;
 	uint32 bOffMeshLink : 1;
 	uint32 bModified : 1;
@@ -230,16 +228,35 @@ struct FRecastDebugPathfindingNode
 	FVector NodePos;
 	TArray<FVector> Verts;
 
+	FRecastDebugPathfindingNode() : PolyRef(0), ParentRef(0) {}
+	FRecastDebugPathfindingNode(NavNodeRef InPolyRef) : PolyRef(InPolyRef), ParentRef(0) {}
+
+	FORCEINLINE bool operator==(const NavNodeRef& OtherPolyRef) const { return PolyRef == OtherPolyRef; }
 	FORCEINLINE bool operator==(const FRecastDebugPathfindingNode& Other) const { return PolyRef == Other.PolyRef; }
 	FORCEINLINE friend uint32 GetTypeHash(const FRecastDebugPathfindingNode& Other) { return Other.PolyRef; }
 
 	FORCEINLINE float GetHeuristicCost() const { return TotalCost - Cost; }
 };
 
-struct FRecastDebugPathfindingStep
+namespace ERecastDebugPathfindingFlags
+{
+	enum Type
+	{
+		Basic = 0x0,
+		BestNode = 0x1,
+		Vertices = 0x2,
+		PathLength = 0x4
+	};
+}
+
+struct FRecastDebugPathfindingData
 {
 	TSet<FRecastDebugPathfindingNode> Nodes;
 	FSetElementId BestNode;
+	uint8 Flags;
+
+	FRecastDebugPathfindingData() : Flags(ERecastDebugPathfindingFlags::Basic) {}
+	FRecastDebugPathfindingData(ERecastDebugPathfindingFlags::Type InFlags) : Flags(InFlags) {}
 };
 
 struct FRecastDebugGeometry
@@ -260,6 +277,7 @@ struct FRecastDebugGeometry
 		uint8	Direction;
 		uint8	ValidEnds;
 		float	Radius;
+		float	Height;
 		FColor	Color;
 	};
 
@@ -362,7 +380,7 @@ struct FNavMeshTileData
 		return NavData->RawNavData;
 	}
 
-	FORCEINLINE const uint8* GetDataSafe() const
+	FORCEINLINE uint8* GetDataSafe()
 	{
 		return NavData.IsValid() ? NavData->RawNavData : NULL;
 	}
@@ -375,6 +393,9 @@ struct FNavMeshTileData
 	FORCEINLINE bool IsValid() const { return NavData.IsValid() && GetData() != nullptr && DataSize > 0; }
 
 	uint8* Release();
+
+	// Duplicate shared state so we will have own copy of the data
+	void MakeUnique();
 };
 
 DECLARE_MULTICAST_DELEGATE(FOnNavMeshUpdate);
@@ -402,7 +423,7 @@ class ENGINE_API ARecastNavMesh : public ANavigationData
 	uint32 bDrawTriangleEdges:1;
 
 	/** should we draw edges of every poly (i.e. not only border-edges)  */
-	UPROPERTY(EditAnywhere, Category=Display)
+	UPROPERTY(EditAnywhere, Category=Display, config)
 	uint32 bDrawPolyEdges:1;
 
 	/** should we draw border-edges */
@@ -477,10 +498,10 @@ class ENGINE_API ARecastNavMesh : public ANavigationData
 	float CellHeight;
 
 	/** Radius of smallest agent to traverse this navmesh */
-	UPROPERTY(EditAnywhere, Category=Generation, config, meta=(ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category = Generation, config, meta = (ClampMin = "0.0"))
 	float AgentRadius;
 
-	UPROPERTY(EditAnywhere, Category=Generation, config, meta=(ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category = Generation, config, meta = (ClampMin = "0.0"))
 	float AgentHeight;
 
 	/** Size of the tallest agent that will path with this navmesh. */
@@ -491,20 +512,39 @@ class ENGINE_API ARecastNavMesh : public ANavigationData
 	UPROPERTY(EditAnywhere, Category=Generation, config, meta=(ClampMin = "0.0", ClampMax = "89.0", UIMin = "0.0", UIMax = "89.0" ))
 	float AgentMaxSlope;
 
-	UPROPERTY(EditAnywhere, Category=Generation, config, meta=(ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category = Generation, config, meta = (ClampMin = "0.0"))
 	float AgentMaxStepHeight;
 
 	/* The minimum dimension of area. Areas smaller than this will be discarded */
 	UPROPERTY(EditAnywhere, Category=Generation, config, meta=(ClampMin = "0.0"))
 	float MinRegionArea;
 
-	/* The size limit of regions to be merged with bigger regions */
+	/* The size limit of regions to be merged with bigger regions (watershed partitioning only) */
 	UPROPERTY(EditAnywhere, Category=Generation, config, meta=(ClampMin = "0.0"))
 	float MergeRegionSize;
 
 	/** How much navigable shapes can get simplified - the higher the value the more freedom */
 	UPROPERTY(EditAnywhere, Category = Generation, config, meta = (ClampMin = "0.0"))
 	float MaxSimplificationError;
+
+	UPROPERTY(EditAnywhere, Category = Generation, config, meta = (ClampMin = "0", UIMin = "0"), AdvancedDisplay)
+	int32 MaxSimultaneousTileGenerationJobsCount;
+
+	/** Absolute hard limit to number of navmesh tiles. Be very, very careful while modifying it while
+	 *	having big maps with navmesh. A single, empty tile takes 176 bytes and empty tiles are
+	 *	allocated up front (subject to change, but that's where it's at now)
+	 *	@note TileNumberHardLimit is always rounded up to the closest power of 2 */
+	UPROPERTY(EditAnywhere, Category = Generation, config, meta = (ClampMin = "1", UIMin = "1"), AdvancedDisplay)
+	int32 TileNumberHardLimit;
+
+	UPROPERTY(VisibleAnywhere, Category = Generation, AdvancedDisplay)
+	int32 PolyRefTileBits;
+
+	UPROPERTY(VisibleAnywhere, Category = Generation, AdvancedDisplay)
+	int32 PolyRefNavPolyBits;
+
+	UPROPERTY(VisibleAnywhere, Category = Generation, AdvancedDisplay)
+	int32 PolyRefSaltBits;
 
 	/** navmesh draw distance in game (always visible in editor) */
 	UPROPERTY(config)
@@ -552,6 +592,9 @@ class ENGINE_API ARecastNavMesh : public ANavigationData
 	UPROPERTY(EditAnywhere, Category = Generation, config, AdvancedDisplay)
 	uint32 bMarkLowHeightAreas : 1;
 
+	UPROPERTY(EditAnywhere, Category = Generation, config, AdvancedDisplay)
+	uint32 bDoFullyAsyncNavDataGathering : 1;
+	
 	/** TODO: switch to disable new code from OffsetFromCorners if necessary - remove it later */
 	UPROPERTY(config)
 	uint32 bUseBetterOffsetsFromCorners : 1;
@@ -568,7 +611,7 @@ private:
 	/** indicates how often we will sort navigation tiles to mach players position */
 	UPROPERTY(config)
 	float TileSetUpdateInterval;
-
+	
 	/** contains last available dtPoly's flag bit set (8th bit at the moment of writing) */
 	static FNavPolyFlags NavLinkFlag;
 
@@ -595,20 +638,25 @@ public:
 			, HitTime(FLT_MAX)
 			, HitNormal(0.f)
 		{
-			FMemory::MemZero(CorridorPolys);
-			FMemory::MemZero(CorridorCost);
+			FMemory::Memzero(CorridorPolys);
+			FMemory::Memzero(CorridorCost);
 		}
 
 		FORCEINLINE int32 GetMaxCorridorSize() const { return MAX_PATH_CORRIDOR_POLYS; }
 		FORCEINLINE bool HasHit() const { return HitTime != FLT_MAX; }
+		FORCEINLINE NavNodeRef GetLastNodeRef() const { return CorridorPolysCount > 0 ? CorridorPolys[CorridorPolysCount] : INVALID_NAVNODEREF; }
 	};
 
 	//----------------------------------------------------------------------//
 	// Recast runtime params
 	//----------------------------------------------------------------------//
 	/** Euclidean distance heuristic scale used while pathfinding */
-	UPROPERTY(EditAnywhere, Category=Pathfinding, config, meta=(ClampMin = "0.1"))
+	UPROPERTY(EditAnywhere, Category = Query, config, meta = (ClampMin = "0.1"))
 	float HeuristicScale;
+
+	/** Value added to each search height to compensate for error between navmesh polys and walkable geometry  */
+	UPROPERTY(EditAnywhere, Category = Query, config, meta = (ClampMin = "0.0"))
+	float VerticalDeviationFromGroundCompensation;
 
 	/** broadcast for navmesh updates */
 	FOnNavMeshUpdate OnNavMeshUpdate;
@@ -650,7 +698,8 @@ public:
 
 	// Begin ANavigationData Interface
 	virtual FNavLocation GetRandomPoint(TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const override;
-	virtual bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const override;
+	virtual bool GetRandomReachablePointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const override;
+	virtual bool GetRandomPointInNavigableRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const override;
 
 	virtual bool ProjectPoint(const FVector& Point, FNavLocation& OutLocation, const FVector& Extent, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const override;
 	
@@ -660,6 +709,7 @@ public:
 	virtual ENavigationQueryResult::Type CalcPathCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathCost, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const override;
 	virtual ENavigationQueryResult::Type CalcPathLength(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, TSharedPtr<const FNavigationQueryFilter> QueryFilter = NULL, const UObject* Querier = NULL) const override;
 	virtual ENavigationQueryResult::Type CalcPathLengthAndCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, float& OutPathCost, TSharedPtr<const FNavigationQueryFilter> QueryFilter = NULL, const UObject* Querier = NULL) const override;
+	virtual bool DoesNodeContainLocation(NavNodeRef NodeRef, const FVector& WorldSpaceLocation) const override;
 
 	virtual UPrimitiveComponent* ConstructRenderingComponent() override;
 	/** Returns bounding box for the navmesh. */
@@ -667,13 +717,16 @@ public:
 	/** Called on world origin changes **/
 	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
 
-	virtual void OnStreamingLevelAdded(ULevel* InLevel) override;
-	virtual void OnStreamingLevelRemoved(ULevel* InLevel) override;
+	virtual void OnStreamingLevelAdded(ULevel* InLevel, UWorld* InWorld) override;
+	virtual void OnStreamingLevelRemoved(ULevel* InLevel, UWorld* InWorld) override;
 	// End ANavigationData Interface
 
 protected:
 	/** Serialization helper. */
-	void SerializeRecastNavMesh(FArchive& Ar, FPImplRecastNavMesh*& NavMesh);
+	void SerializeRecastNavMesh(FArchive& Ar, FPImplRecastNavMesh*& NavMesh, int32 NavMeshVersion);
+
+	TArray<FIntPoint>& GetActiveTiles(); 
+	virtual void RestrictBuildingToActiveTiles(bool InRestrictBuildingToActiveTiles) override;
 
 public:
 	/** Whether NavMesh should adjust his tile pool size when NavBounds are changed */
@@ -697,6 +750,15 @@ public:
 	/** Retrieves number of tiles in this navmesh */
 	int32 GetNavMeshTilesCount() const;
 
+	/**  */
+	void RemoveTileCacheLayers(int32 TileX, int32 TileY);
+	
+	/**  */
+	void AddTileCacheLayers(int32 TileX, int32 TileY, const TArray<FNavMeshTileData>& Layers);
+	
+	/**  */
+	TArray<FNavMeshTileData> GetTileCacheLayers(int32 TileX, int32 TileY) const;
+	
 	void GetEdgesForPathCorridor(const TArray<NavNodeRef>* PathCorridor, TArray<struct FNavigationPortalEdge>* PathCorridorEdges) const;
 
 	// @todo docuement
@@ -744,10 +806,11 @@ public:
 	//----------------------------------------------------------------------//
 	// Utilities
 	//----------------------------------------------------------------------//
+	virtual void OnNavAreaChanged() override;
 	virtual void OnNavAreaAdded(const UClass* NavAreaClass, int32 AgentIndex) override;
 	virtual int32 GetNewAreaID(const UClass* AreaClass) const override;
 	virtual int32 GetMaxSupportedAreas() const override { return RECAST_MAX_AREAS; }
-	
+
 	/** Get forbidden area flags from default query filter */
 	uint16 GetDefaultForbiddenFlags() const;
 	/** Change forbidden area flags in default query filter */
@@ -755,6 +818,9 @@ public:
 
 	/** Area sort function */
 	virtual void SortAreasForGenerator(TArray<FRecastAreaNavModifierElement>& Areas) const;
+
+	int32 GetMaxSimultaneousTileGenerationJobsCount() const { return MaxSimultaneousTileGenerationJobsCount; }
+	void SetMaxSimultaneousTileGenerationJobsCount(int32 NewJobsCountLimit);
 
 	//----------------------------------------------------------------------//
 	// Custom navigation links
@@ -824,7 +890,8 @@ public:
 	 *	@NOTE query is not using string-pulled path distance (for performance reasons),
 	 *		it measured distance between middles of portal edges, do you might want to 
 	 *		add an extra margin to PathingDistance */
-	bool GetPolysWithinPathingDistance(FVector const& StartLoc, const float PathingDistance, TArray<NavNodeRef>& FoundPolys, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const;
+	bool GetPolysWithinPathingDistance(FVector const& StartLoc, const float PathingDistance, TArray<NavNodeRef>& FoundPolys,
+		TSharedPtr<const FNavigationQueryFilter> Filter = nullptr, const UObject* Querier = nullptr, FRecastDebugPathfindingData* DebugData = nullptr) const;
 
 	/** Filters nav polys in PolyRefs with Filter */
 	bool FilterPolys(TArray<NavNodeRef>& PolyRefs, const FRecastQueryFilter* Filter, const UObject* Querier = NULL) const;
@@ -853,20 +920,36 @@ public:
 	/** @return true is specified segment is fully on navmesh (respecting the optional filter) */
 	bool IsSegmentOnNavmesh(const FVector& SegmentStart, const FVector& SegmentEnd, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const;
 
+	/** Check if poly is a custom link */
+	bool IsCustomLink(NavNodeRef PolyRef) const;
+
 	/** finds stringpulled path from given corridor */
 	bool FindStraightPath(const FVector& StartLoc, const FVector& EndLoc, const TArray<NavNodeRef>& PathCorridor, TArray<FNavPathPoint>& PathPoints, TArray<uint32>* CustomLinks = NULL) const;
 
 	/** Runs A* pathfinding on navmesh and collect data for every step */
-	int32 DebugPathfinding(const FPathFindingQuery& Query, TArray<FRecastDebugPathfindingStep>& Steps);
+	int32 DebugPathfinding(const FPathFindingQuery& Query, TArray<FRecastDebugPathfindingData>& Steps);
 
 	static const FRecastQueryFilter* GetNamedFilter(ERecastNamedFilter::Type FilterType);
 	FORCEINLINE static FNavPolyFlags GetNavLinkFlag() { return NavLinkFlag; }
 	
 	virtual bool NeedsRebuild() const override;
 	virtual bool SupportsRuntimeGeneration() const override;
-	virtual void ConstructGenerator() override;
+	virtual bool SupportsStreaming() const override;
+	virtual void ConditionalConstructGenerator() override;
+	bool ShouldGatherDataOnGameThread() const { return bDoFullyAsyncNavDataGathering == false; }
+	int32 GetTileNumberHardLimit() const { return TileNumberHardLimit; }
+
+	void UpdateActiveTiles(const TArray<FNavigationInvokerRaw>& InvokerLocations);
+	void RemoveTiles(const TArray<FIntPoint>& Tiles);
+	void RebuildTile(const TArray<FIntPoint>& Tiles);
 
 protected:
+
+	void UpdatePolyRefBitsPreview();
+
+	/** Returns query extent including adjustments for voxelization error compensation */
+	FVector GetModifiedQueryExtent(const FVector& QueryExtent) const;
+
 	// @todo docuement
 	UPrimitiveComponent* ConstructRenderingComponentImpl();
 

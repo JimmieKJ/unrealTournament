@@ -3,11 +3,11 @@
 #include "ProfilerServicePrivatePCH.h"
 
 #include "StatsData.h"
+#include "StatsFile.h"
 #include "SecureHash.h"
 
 
-DEFINE_LOG_CATEGORY_STATIC(LogProfile, Log, All);
-
+DEFINE_LOG_CATEGORY_STATIC( LogProfilerService, Log, All );
 
 /** 
  * Thread used to read, prepare and send files through the message bus.
@@ -26,7 +26,7 @@ public:
 	/** Default constructor. */
 	FFileTransferRunnable( FMessageEndpointPtr& InMessageEndpoint )
 		: Runnable( nullptr )
-		, WorkEvent( FPlatformProcess::CreateSynchEvent( true ) )
+		, WorkEvent( FPlatformProcess::GetSynchEventFromPool( true ) )
 		, MessageEndpoint( InMessageEndpoint )
 		, StopTaskCounter( 0 )
 	{
@@ -50,10 +50,11 @@ public:
 			FReaderAndAddress& ReaderAndAddress = It.Value();
 			DeleteFileReader( ReaderAndAddress );
 
-			UE_LOG(LogProfile, Log, TEXT( "File service-client sending aborted (srv): %s" ), *It.Key() );
+			UE_LOG( LogProfilerService, Log, TEXT( "File service-client sending aborted (srv): %s" ), *It.Key() );
 		}
 
-		delete WorkEvent;
+		FPlatformProcess::ReturnSynchEventToPool( WorkEvent );
+		WorkEvent = nullptr;
 	}
 
 	// Begin FRunnable interface.
@@ -129,19 +130,19 @@ public:
 		const FString PathName = FPaths::ProfilingDir() + TEXT("UnrealStats/");
 		FString StatFilepath = PathName + StatFilename;
 
-		UE_LOG(LogProfile, Log, TEXT( "Opening stats file for service-client sending: %s" ), *StatFilepath );
+		UE_LOG( LogProfilerService, Log, TEXT( "Opening stats file for service-client sending: %s" ), *StatFilepath );
 
 		const int64 FileSize = IFileManager::Get().FileSize(*StatFilepath);
 		if( FileSize < 4 )
 		{
-			UE_LOG(LogProfile, Error, TEXT( "Could not open: %s" ), *StatFilepath );
+			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilepath );
 			return;
 		}
 
 		FArchive* FileReader = IFileManager::Get().CreateFileReader(*StatFilepath);
 		if( !FileReader )
 		{
-			UE_LOG(LogProfile, Error, TEXT( "Could not open: %s" ), *StatFilepath );
+			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilepath );
 			return;
 		}
 
@@ -210,7 +211,7 @@ public:
 		FReaderAndAddress ReaderAndAddress = ActiveTransfers.FindAndRemoveChecked( Filename );
 		DeleteFileReader( ReaderAndAddress );
 
-		UE_LOG(LogProfile, Log, TEXT( "File service-client sent successfully : %s" ), *Filename );
+		UE_LOG( LogProfilerService, Log, TEXT( "File service-client sent successfully : %s" ), *Filename );
 	}
 
 	/** Aborts file sending to the specified client, probably client disconnected or exited. */
@@ -223,7 +224,7 @@ public:
 			FReaderAndAddress& ReaderAndAddress = It.Value();
 			if( ReaderAndAddress.Value == Recipient )
 			{
-				UE_LOG(LogProfile, Log, TEXT( "File service-client sending aborted (cl): %s" ), *It.Key() );
+				UE_LOG( LogProfilerService, Log, TEXT( "File service-client sending aborted (cl): %s" ), *It.Key() );
 				FReaderAndAddress ActiveReaderAndAddress = ActiveTransfers.FindAndRemoveChecked( It.Key() );
 				DeleteFileReader( ActiveReaderAndAddress );
 			}
@@ -304,69 +305,43 @@ protected:
 	TMap<FString,FReaderAndAddress> ActiveTransfers;
 };
 
+void FProfilerServiceManager::HandleServiceFileChunkMessage( const FProfilerServiceFileChunk& Message, const IMessageContextRef& Context )
+{
+	FMemoryReader Reader( Message.Header );
+	FProfilerFileChunkHeader Header;
+	Reader << Header;
+	Header.Validate();
+
+	if (Header.ChunkType == EProfilerFileChunkType::SendChunk)
+	{
+		// Send this file chunk again.
+		FileTransferRunnable->EnqueueFileChunkToSend( new FProfilerServiceFileChunk( Message, FProfilerServiceFileChunk::FNullTag() ), true );
+	}
+	else if (Header.ChunkType == EProfilerFileChunkType::FinalizeFile)
+	{
+		// Finalize file.
+		FileTransferRunnable->FinalizeFileSending( Message.Filename );
+	}
+}
+
+
 /* FProfilerServiceManager structors
  *****************************************************************************/
 
 FProfilerServiceManager::FProfilerServiceManager()
+	: FileTransferRunnable( nullptr )
+	, MetadataSize( 0 )
 {
-	MetaData.SecondsPerCycle = FPlatformTime::GetSecondsPerCycle();
-	NewMetaData.SecondsPerCycle = FPlatformTime::GetSecondsPerCycle();
 	PingDelegate = FTickerDelegate::CreateRaw(this, &FProfilerServiceManager::HandlePing);
-	DataFrame.Frame = 0;
 }
-
-
-FProfilerServiceManager::~FProfilerServiceManager()
-{}
-
 
 /* IProfilerServiceManager interface
  *****************************************************************************/
 
-void FProfilerServiceManager::SendData(FProfilerCycleCounter& Data)
-{
-	// add the data to the data frame
-	DataFrame.CycleCounters.FindOrAdd(Data.ThreadId).Add(Data);
-}
-
-
-void FProfilerServiceManager::SendData(FProfilerFloatAccumulator& Data)
-{
-	// add the data to the data frame
-	DataFrame.FloatAccumulators.Add(Data);
-}
-
-
-void FProfilerServiceManager::SendData(FProfilerCountAccumulator& Data)
-{
-	// add the data to the data frame
-	DataFrame.CountAccumulators.Add(Data);
-}
-
-
-void FProfilerServiceManager::SendData(FProfilerCycleGraph& Data)
-{
-	// add the data to the data frame
-	DataFrame.CycleGraphs.FindOrAdd(Data.ThreadId) = Data;
-}
-
 void FProfilerServiceManager::StartCapture()
 {
 #if STATS
-	// fire off the equivalent of the stat startfile command
-	if (!Archive.IsValid())
-	{
-		// @TODO yrx 2014-06-05 Needs to be done on the stats thread via the task graph task.
-		FString Filename = CreateProfileFilename( FStatConstants::StatsFileExtension, true );
-		LastStatsFilename = FApp::GetInstanceName() + TEXT("_") + Filename;
-		TSharedPtr<FStatsWriteFile, ESPMode::ThreadSafe> ArchivePtr = MakeShareable(new FStatsWriteFile());
-		Archive = ArchivePtr;
-		Archive->Start( LastStatsFilename, false );
-		if (!Archive->IsValid())
-		{
-			Archive = nullptr;
-		}
-	}
+	DirectStatsCommand(TEXT("stat startfile"));
 #endif
 }
 
@@ -374,79 +349,10 @@ void FProfilerServiceManager::StartCapture()
 void FProfilerServiceManager::StopCapture()
 {
 #if STATS
-	if (Archive.IsValid())
-	{
-		Archive->Stop();
-	}
-	Archive = nullptr;
+	DirectStatsCommand(TEXT("stat stopfile"),true);
+	// Not thread-safe, but in this case it is ok, because we are waiting for completion.
+	LastStatsFilename = FCommandStatsFile::Get().LastFileSaved;
 #endif
-}
-
-void FProfilerServiceManager::UpdateMetaData()
-{
-	// @TODO yrx 2014-04-13 Obsolete, remove later.
-	// update the thread descriptions only if there has been a change
-	int32 OldCount = FRunnableThread::GetThreadRegistry().GetThreadCount();
-	if (FRunnableThread::GetThreadRegistry().IsUpdated())
-	{
-		FRunnableThread::GetThreadRegistry().Lock();
-		for( auto Iter = FRunnableThread::GetThreadRegistry().CreateConstIterator(); Iter; ++Iter)
-		{
-			if (!MetaData.ThreadDescriptions.Contains(Iter.Key()))
-			{
-				MetaData.ThreadDescriptions.Add(Iter.Key(), Iter.Value()->GetThreadName());
-				NewMetaData.ThreadDescriptions.Add(Iter.Key(), Iter.Value()->GetThreadName());
-			}
-		}
-		FRunnableThread::GetThreadRegistry().ClearUpdated();
-		FRunnableThread::GetThreadRegistry().Unlock();
-	}
-
-	if (MessageEndpoint.IsValid() && PreviewClients.Num() > 0 && (NewMetaData.GroupDescriptions.Num() > 0 || NewMetaData.StatDescriptions.Num() > 0 || NewMetaData.ThreadDescriptions.Num() > 0))
-	{
-		FArrayWriter ArrayWriter(true);
-		ArrayWriter << NewMetaData;
-		MessageEndpoint->Send(new FProfilerServiceMetaData(InstanceId, ArrayWriter), PreviewClients);
-	}
-
-	NewMetaData.GroupDescriptions.Reset();
-	NewMetaData.StatDescriptions.Reset();
-	NewMetaData.ThreadDescriptions.Reset();
-}
-
-
-void FProfilerServiceManager::SendMetaData(const FMessageAddress& client)
-{
-	if (MessageEndpoint.IsValid())
-	{
-		FArrayWriter ArrayWriter(true);
-		ArrayWriter << MetaData;
-		MessageEndpoint->Send(new FProfilerServiceMetaData(InstanceId, ArrayWriter), client);
-	}
-}
-
-void FProfilerServiceManager::StartFrame(uint32 FrameNumber, double FrameStart)
-{
-	// send data to the clients
-	if (DataFrame.Frame > 0)
-	{
-		if (MessageEndpoint.IsValid() && PreviewClients.Num() > 0)
-		{
-			FArrayWriter ArrayWriter(true);
-			ArrayWriter << DataFrame;
-			MessageEndpoint->Send(new FProfilerServiceData(InstanceId, ArrayWriter), PreviewClients );
-		}
-
-		ProfilerDataDelegate.Broadcast(FGuid(), DataFrame);
-	}
-
-	// update the data frame
-	DataFrame.CycleCounters.Reset();
-	DataFrame.CycleGraphs.Reset();
-	DataFrame.CountAccumulators.Reset();
-	DataFrame.FloatAccumulators.Reset();
-	DataFrame.Frame = FrameNumber;
-	DataFrame.FrameStart = FrameStart;
 }
 
 /* FProfilerServiceManager implementation
@@ -474,28 +380,12 @@ void FProfilerServiceManager::Init()
 		MessageEndpoint->Subscribe<FProfilerServiceUnsubscribe>();
 	}
 
-#if STATS
-	// check to see if we need to capture, specified from the command line
-	Archive = nullptr;
-#endif
-	if (FParse::Param(FCommandLine::Get(), TEXT("StartCapture")))
-	{
-		StartCapture();
-	}
-
 	FileTransferRunnable = new FFileTransferRunnable( MessageEndpoint );
 }
 
 
 void FProfilerServiceManager::Shutdown()
 {
-#if STATS
-	if (Archive.IsValid())
-	{
-		Archive = nullptr;
-	}
-#endif
-
 	delete FileTransferRunnable;
 	FileTransferRunnable = nullptr;
 
@@ -515,12 +405,31 @@ IProfilerServiceManagerPtr FProfilerServiceManager::CreateSharedServiceManager()
 	return ProfilerServiceManager;
 }
 
+void FProfilerServiceManager::AddNewFrameHandleStatsThread()
+{
+#if	STATS
+	const FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
+	NewFrameDelegateHandle = Stats.NewFrameDelegate.AddRaw( this, &FProfilerServiceManager::HandleNewFrame );
+	StatsMasterEnableAdd();
+	MetadataSize = 0;
+#endif // STATS
+}
+
+void FProfilerServiceManager::RemoveNewFrameHandleStatsThread()
+{
+#if	STATS
+	const FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
+	Stats.NewFrameDelegate.Remove( NewFrameDelegateHandle );
+	StatsMasterEnableSubtract();
+	MetadataSize = 0;
+#endif // STATS
+}
+
 void FProfilerServiceManager::SetPreviewState( const FMessageAddress& ClientAddress, const bool bRequestedPreviewState )
 {
 #if STATS
-	const FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
 	FClientData* Client = ClientData.Find( ClientAddress );
-	if( Client )
+	if (MessageEndpoint.IsValid() && Client)
 	{
 		const bool bIsPreviewing = Client->Preview;
 
@@ -528,35 +437,41 @@ void FProfilerServiceManager::SetPreviewState( const FMessageAddress& ClientAddr
 		{
 			if( bRequestedPreviewState )
 			{
-				// enable stat capture
+				// Enable stat capture.
 				if (PreviewClients.Num() == 0)
 				{
-					HandleNewFrameDelegateHandle = Stats.NewFrameDelegate.AddRaw( this, &FProfilerServiceManager::HandleNewFrame );
-					StatsMasterEnableAdd();
+					FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+					(
+						FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerServiceManager::AddNewFrameHandleStatsThread ),
+						TStatId(), nullptr,
+						FPlatformProcess::SupportsMultithreading() ? ENamedThreads::StatsThread : ENamedThreads::GameThread
+					);
 				}
 				PreviewClients.Add(ClientAddress);
 				Client->Preview = true;
-				if (MessageEndpoint.IsValid())
-				{
-					Client->CurrentFrame = Stats.CurrentGameFrame;
-					MessageEndpoint->Send( new FProfilerServicePreviewAck( InstanceId, Stats.CurrentGameFrame ), ClientAddress );
-				}
-				SendMetaData(ClientAddress);
+
+				MessageEndpoint->Send( new FProfilerServicePreviewAck( InstanceId ), ClientAddress );
 			}
 			else
 			{
 				PreviewClients.Remove(ClientAddress);
 				Client->Preview = false;
 
-				// stop the ping messages if we have no clients
+				// Disable stat capture.
 				if (PreviewClients.Num() == 0)
 				{
-					// disable stat capture
-					Stats.NewFrameDelegate.Remove( HandleNewFrameDelegateHandle );
-					StatsMasterEnableAdd();
-				}
+					FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+					(
+						FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerServiceManager::RemoveNewFrameHandleStatsThread ),
+						TStatId(), nullptr,
+						FPlatformProcess::SupportsMultithreading() ? ENamedThreads::StatsThread : ENamedThreads::GameThread
+					);
+					
+				}	
 			}
 		}
+
+		UE_LOG( LogProfilerService, Verbose, TEXT( "SetPreviewState: %i, InstanceId: %s, ClientAddress: %s" ), (int32)bRequestedPreviewState, *InstanceId.ToString(), *ClientAddress.ToString() );
 	}
 #endif
 }
@@ -577,23 +492,16 @@ bool FProfilerServiceManager::HandlePing( float DeltaTime )
 		{
 			Iter.Value().Active = false;
 			Clients.Add(Iter.Key());
+			UE_LOG( LogProfilerService, Verbose, TEXT( "Ping Active 0: %s, InstanceId: %s, ClientAddress: %s" ), *Iter.Key().ToString(), *InstanceId.ToString(), *ClientAddress.ToString() );
 		}
 		else
 		{
-			if (PreviewClients.Contains(ClientAddress))
-			{
-				PreviewClients.Remove(ClientAddress);	
-			}
+			UE_LOG( LogProfilerService, Verbose, TEXT( "Ping Remove: %s, InstanceId: %s, ClientAddress: %s" ), *Iter.Key().ToString(), *InstanceId.ToString(), *ClientAddress.ToString() );
+			SetPreviewState( ClientAddress, false );
+
 			Iter.RemoveCurrent();
 			FileTransferRunnable->AbortFileSending( ClientAddress );
 		}
-	}
-
-	if (PreviewClients.Num() == 0)
-	{
-		// disable stat capture
-		FStatsThreadState::GetLocalState().NewFrameDelegate.Remove(HandleNewFrameDelegateHandle);
-		StatsMasterEnableAdd();
 	}
 
 	// send the ping message
@@ -601,8 +509,9 @@ bool FProfilerServiceManager::HandlePing( float DeltaTime )
 	{
 		MessageEndpoint->Send(new FProfilerServicePing(), Clients);
 	}
-#endif
 	return (ClientData.Num() > 0);
+#endif
+	return false;
 }
 
 
@@ -610,17 +519,18 @@ void FProfilerServiceManager::HandleServiceCaptureMessage( const FProfilerServic
 {
 #if STATS
 	const bool bRequestedCaptureState = Message.bRequestedCaptureState;
-	const bool bIsCapturing = Archive.IsValid();
+	const bool bIsCapturing = FCommandStatsFile::Get().IsStatFileActive();
 
 	if( bRequestedCaptureState != bIsCapturing )
 	{
-		if( bRequestedCaptureState && !Archive.IsValid() )
+		if( bRequestedCaptureState && !bIsCapturing )
 		{
-			UE_LOG(LogProfile, Log, TEXT("StartCapture") );
+			UE_LOG( LogProfilerService, Verbose, TEXT( "StartCapture, InstanceId: %s, GetSender: %s" ), *InstanceId.ToString(), *Context->GetSender().ToString() );
 			StartCapture();
 		}
-		else if( !bRequestedCaptureState && Archive.IsValid() )
+		else if( !bRequestedCaptureState && bIsCapturing )
 		{
+			UE_LOG( LogProfilerService, Verbose, TEXT( "StopCapture, InstanceId: %s, GetSender: %s" ), *InstanceId.ToString(), *Context->GetSender().ToString() );
 			StopCapture();
 		}
 	}
@@ -630,12 +540,15 @@ void FProfilerServiceManager::HandleServiceCaptureMessage( const FProfilerServic
 
 void FProfilerServiceManager::HandleServicePongMessage( const FProfilerServicePong& Message, const IMessageContextRef& Context )
 {
+#if STATS
 	FClientData* Data = ClientData.Find(Context->GetSender());
 	
 	if (Data != nullptr)
 	{
 		Data->Active = true;
+		UE_LOG( LogProfilerService, Verbose, TEXT( "Pong InstanceId: %s, GetSender: %s" ), *InstanceId.ToString(), *Context->GetSender().ToString() );
 	}
+#endif
 }
 
 
@@ -647,11 +560,7 @@ void FProfilerServiceManager::HandleServicePreviewMessage( const FProfilerServic
 
 void FProfilerServiceManager::HandleServiceRequestMessage( const FProfilerServiceRequest& Message, const IMessageContextRef& Context )
 {
-	if (Message.Request == EProfilerRequestType::PRT_MetaData)
-	{
-		SendMetaData(Context->GetSender());
-	}
-	else if( Message.Request == EProfilerRequestType::PRT_SendLastCapturedFile )
+	if( Message.Request == EProfilerRequestType::PRT_SendLastCapturedFile )
 	{
 		if( LastStatsFilename.IsEmpty() == false )
 		{
@@ -661,51 +570,32 @@ void FProfilerServiceManager::HandleServiceRequestMessage( const FProfilerServic
 	}
 }
 
-void FProfilerServiceManager::HandleServiceFileChunkMessage( const FProfilerServiceFileChunk& Message, const IMessageContextRef& Context )
-{
-	FMemoryReader Reader(Message.Header);
-	FProfilerFileChunkHeader Header;
-	Reader << Header;
-	Header.Validate();
 
-	if( Header.ChunkType == EProfilerFileChunkType::SendChunk )
-	{
-		// Send this file chunk again.
-		FileTransferRunnable->EnqueueFileChunkToSend( new FProfilerServiceFileChunk(Message,FProfilerServiceFileChunk::FNullTag()), true );
-	}
-	else if( Header.ChunkType == EProfilerFileChunkType::FinalizeFile )
-	{
-		// Finalize file.
-		FileTransferRunnable->FinalizeFileSending( Message.Filename );
-	}
-}
 
 void FProfilerServiceManager::HandleServiceSubscribeMessage( const FProfilerServiceSubscribe& Message, const IMessageContextRef& Context )
 {
 #if STATS
-	const FMessageAddress& MsgAddress = Context->GetSender();
-	if( Message.SessionId == SessionId && Message.InstanceId == InstanceId && !ClientData.Contains( MsgAddress ) )
+	const FMessageAddress& SenderAddress = Context->GetSender();
+	if( MessageEndpoint.IsValid() && Message.SessionId == SessionId && Message.InstanceId == InstanceId && !ClientData.Contains( SenderAddress ) )
 	{
-		UE_LOG(LogProfile, Log, TEXT("Added a client" ));
+		UE_LOG( LogProfilerService, Log, TEXT( "Subscribe Session: %s, Instance: %s" ), *SessionId.ToString(), *InstanceId.ToString() );
 
 		FClientData Data;
 		Data.Active = true;
 		Data.Preview = false;
-		Data.StatsWriteFile.WriteHeader( false );
+		//Data.StatsWriteFile.WriteHeader();
 
-		// add to the client list
-		ClientData.Add( MsgAddress, Data );
-		// send authorized and stat descriptions
-		const TArray<uint8>& OutData = ClientData.Find( MsgAddress )->StatsWriteFile.GetOutData();
-		MessageEndpoint->Send( new FProfilerServiceAuthorize2( SessionId, InstanceId, OutData ), MsgAddress );
+		// Add to the client list.
+		ClientData.Add( SenderAddress, Data );
 
-		const FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
-		ClientData.Find( MsgAddress )->MetadataSize = Stats.ShortNameToLongName.Num();
+		// Send authorized and stat descriptions.
+		const TArray<uint8> OutData;// = ClientData.Find( SenderAddress )->StatsWriteFile.GetOutData();
+		MessageEndpoint->Send( new FProfilerServiceAuthorize( SessionId, InstanceId, OutData ), SenderAddress );
 
-		// initiate the ping callback
+		// Initiate the ping callback
 		if (ClientData.Num() == 1)
 		{
-			PingDelegateHandle = FTicker::GetCoreTicker().AddTicker(PingDelegate, 15.0f);
+			PingDelegateHandle = FTicker::GetCoreTicker().AddTicker(PingDelegate, 5.0f);
 		}
 	}
 #endif
@@ -714,10 +604,11 @@ void FProfilerServiceManager::HandleServiceSubscribeMessage( const FProfilerServ
 
 void FProfilerServiceManager::HandleServiceUnsubscribeMessage( const FProfilerServiceUnsubscribe& Message, const IMessageContextRef& Context )
 {
+#if	STATS
 	const FMessageAddress SenderAddress = Context->GetSender();
 	if (Message.SessionId == SessionId && Message.InstanceId == InstanceId)
 	{
-		UE_LOG(LogProfile, Log, TEXT("Removed a client"));
+		UE_LOG( LogProfilerService, Log, TEXT( "Unsubscribe Session: %s, Instance: %s" ), *SessionId.ToString(), *InstanceId.ToString() );
 
 		// clear out any previews
 		while (PreviewClients.Num() > 0)
@@ -735,39 +626,84 @@ void FProfilerServiceManager::HandleServiceUnsubscribeMessage( const FProfilerSe
 			FTicker::GetCoreTicker().RemoveTicker(PingDelegateHandle);
 		}
 	}
+#endif // STATS
 }
 
 void FProfilerServiceManager::HandleNewFrame(int64 Frame)
 {
+	// Called from the stats thread.
 #if STATS
-	// package it up and send to the clients
-	if (MessageEndpoint.IsValid())
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FProfilerServiceManager::HandleNewFrame" ), STAT_FProfilerServiceManager_HandleNewFrame, STATGROUP_Profiler );
+	
+	const FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
+	const int32 CurrentMetadataSize = Stats.ShortNameToLongName.Num();
+
+	bool bNeedFullMetadata = false;
+	if (MetadataSize < CurrentMetadataSize)
 	{
-		const FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
-		const int32 CurrentMetadataSize = Stats.ShortNameToLongName.Num();
-
-		// update preview clients with the current data
-		for (auto It = PreviewClients.CreateConstIterator(); It; ++It)
-		{
-			FClientData& Client = *ClientData.Find(*It);
-
-			while(Client.CurrentFrame < Frame)
-			{
-				Client.CurrentFrame++;
-				Client.StatsWriteFile.ResetData();
-
-				bool bNeedFullMetadata = false;
-				if( Client.MetadataSize < CurrentMetadataSize )
-				{
-					// Write the whole metadata.
-					bNeedFullMetadata = true;
-					Client.MetadataSize = CurrentMetadataSize;
-				}
-
-				Client.StatsWriteFile.WriteFrame( Client.CurrentFrame, bNeedFullMetadata );
-				MessageEndpoint->Send( new FProfilerServiceData2( InstanceId, Client.CurrentFrame, Client.StatsWriteFile.GetOutData() ), PreviewClients );
-			}
-		}
+		// Write the whole metadata.
+		bNeedFullMetadata = true;
+		MetadataSize = CurrentMetadataSize;
 	}
+
+	// Write frame.
+	FStatsWriteFile StatsWriteFile;
+	StatsWriteFile.WriteFrame( Frame, bNeedFullMetadata );
+
+	// Task graph
+	TArray<uint8>* DataToTask = new TArray<uint8>( MoveTemp( StatsWriteFile.GetOutData() ) );
+
+	// Compression and encoding is done on the task graph
+	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+	(
+		FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerServiceManager::CompressDataAndSendToGame, DataToTask, Frame ),
+		TStatId()
+	);
 #endif
 }
+
+#if STATS
+
+void FProfilerServiceManager::CompressDataAndSendToGame( TArray<uint8>* DataToTask, int64 Frame )
+{
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FProfilerServiceManager::CompressDataAndSendToGame" ), STAT_FProfilerServiceManager_CompressDataAndSendToGame, STATGROUP_Profiler );
+
+	const uint8* UncompressedPtr = DataToTask->GetData();
+	const int32 UncompressedSize = DataToTask->Num();
+
+	TArray<uint8> CompressedBuffer;
+	CompressedBuffer.Reserve( UncompressedSize );
+	int32 CompressedSize = UncompressedSize;
+
+	// We assume that compression cannot fail.
+	const bool bResult = FCompression::CompressMemory( COMPRESS_ZLIB, CompressedBuffer.GetData(), CompressedSize, UncompressedPtr, UncompressedSize );
+	check( bResult );
+
+	// Convert to hex.
+	FString HexData = FString::FromHexBlob( CompressedBuffer.GetData(), CompressedSize );
+
+	// Create a temporary profiler data and prepare all data.
+	FProfilerServiceData2* ToGameThread = new FProfilerServiceData2( InstanceId, Frame, HexData, CompressedSize, UncompressedSize );
+
+	const float CompressionRatio = (float)UncompressedSize / (float)CompressedSize;
+	UE_LOG( LogProfilerService, VeryVerbose, TEXT( "Frame: %i, UncompressedSize: %i/%f, InstanceId: %i" ), ToGameThread->Frame, UncompressedSize, CompressionRatio, *InstanceId.ToString() );
+
+	// Send to the game thread. PreviewClients is not thread-safe, so we cannot send the data here.
+	FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+	(
+		FSimpleDelegateGraphTask::FDelegate::CreateRaw( this, &FProfilerServiceManager::HandleNewFrameGT, ToGameThread ),
+		TStatId(), nullptr, ENamedThreads::GameThread
+	);
+
+	delete DataToTask;
+}
+
+void FProfilerServiceManager::HandleNewFrameGT( FProfilerServiceData2* ToGameThread )
+{
+	if (MessageEndpoint.IsValid())
+	{
+		// Send through the Message Bus.
+		MessageEndpoint->Send( ToGameThread, PreviewClients );
+	}
+}
+#endif

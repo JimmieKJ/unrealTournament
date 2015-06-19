@@ -16,7 +16,7 @@ void AUTWeapAttachment_LinkGun::PlayFiringEffects()
 		if (GS != NULL)
 		{
 			TArray<FOverlapResult> Hits;
-			GetWorld()->OverlapMulti(Hits, UTOwner->FlashLocation, FQuat::Identity, COLLISION_TRACE_WEAPON, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(NAME_None, true, UTOwner));
+			GetWorld()->OverlapMultiByChannel(Hits, UTOwner->FlashLocation, FQuat::Identity, COLLISION_TRACE_WEAPON, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(NAME_None, true, UTOwner));
 			for (const FOverlapResult& TestHit : Hits)
 			{
 				if (TestHit.Actor.Get() != NULL && GS->OnSameTeam(TestHit.Actor.Get(), UTOwner))

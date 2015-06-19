@@ -17,10 +17,6 @@
 
 DEFINE_LOG_CATEGORY(LogALAudio);
 
-ALCdevice* FALAudioDevice::HardwareDevice = NULL;
-ALCcontext*	FALAudioDevice::SoundContext = NULL;
-
-
 class FHTML5AudioDeviceModule : public IAudioDeviceModule
 {
 public:
@@ -36,6 +32,10 @@ IMPLEMENT_MODULE(FHTML5AudioDeviceModule, HTML5Audio );
 /*------------------------------------------------------------------------------------
 	UALAudioDevice constructor and UObject interface.
 ------------------------------------------------------------------------------------*/
+FALAudioDevice::FALAudioDevice()
+	: HardwareDevice(nullptr)
+	, SoundContext(nullptr)
+{}
 
 void FALAudioDevice::TeardownHardware( void )
 {

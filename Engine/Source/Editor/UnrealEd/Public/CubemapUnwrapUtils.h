@@ -53,7 +53,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FMatrix& TransformValue);
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << Transform;
@@ -89,7 +89,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FTexture* Texture, const FMatrix& ColorWeightsValue, float MipLevel, float GammaValue);
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << CubeTexture << CubeTextureSampler << PackedProperties0 << ColorWeights << Gamma;

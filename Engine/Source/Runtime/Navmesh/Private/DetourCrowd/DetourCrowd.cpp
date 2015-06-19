@@ -350,7 +350,6 @@ dtCrowd::dtCrowd() :
 	m_maxPathResult(0),
 	m_maxAgentRadius(0),
 	m_agentStateCheckInterval(1.0f),
-	m_linkRemovalRadius(0),
 	m_velocitySampleCount(0),
 	m_navquery(0),
 	m_raycastSingleArea(0),
@@ -458,6 +457,8 @@ bool dtCrowd::init(const int maxAgents, const float maxAgentRadius, dtNavMesh* n
 	if (dtStatusFailed(m_navquery->init(nav, MAX_COMMON_NODES)))
 		return false;
 	
+	m_sharedBoundary.Initialize();
+
 	return true;
 }
 
@@ -1244,7 +1245,7 @@ void dtCrowd::updateStepPaths(const float dt, dtCrowdAgentDebugInfo*)
 	updateTopologyOptimization(m_activeAgents, m_numActiveAgents, dt);
 }
 
-void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo*)
+void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo* debug)
 {
 	// Register agents to proximity grid.
 	m_grid->clear();
@@ -1256,6 +1257,8 @@ void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo*)
 		m_grid->addItem((unsigned short)i, p[0] - r, p[2] - r, p[0] + r, p[2] + r);
 	}
 
+	m_sharedBoundary.Tick(dt);
+
 	// Get nearby navmesh segments and agents to collide with.
 	for (int i = 0; i < m_numActiveAgents; ++i)
 	{
@@ -1264,6 +1267,18 @@ void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo*)
 			continue;
 
 		m_navquery->updateLinkFilter(ag->params.linkFilter.Get());
+		int sharedDataIdx = -1;
+		if (m_raycastSingleArea)
+		{
+			unsigned char allowedArea = DT_WALKABLE_AREA;
+			m_navquery->getAttachedNavMesh()->getPolyArea(ag->corridor.getFirstPoly(), &allowedArea);
+
+			sharedDataIdx = m_sharedBoundary.CacheData(ag->npos, ag->params.collisionQueryRange, ag->corridor.getFirstPoly(), m_navquery, allowedArea);
+		}
+		else
+		{
+			sharedDataIdx = m_sharedBoundary.CacheData(ag->npos, ag->params.collisionQueryRange, ag->corridor.getFirstPoly(), m_navquery, &m_filters[ag->params.filter]);
+		}
 
 		// Update the collision boundary after certain distance has been passed or
 		// if it has become invalid.
@@ -1272,19 +1287,14 @@ void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo*)
 			!ag->boundary.isValid(m_navquery, &m_filters[ag->params.filter]))
 		{
 			// UE4: force removing segments too close to offmesh links
-			const bool useForcedRemove = m_linkRemovalRadius > 0.0f && ag->ncorners &&
-				(ag->cornerFlags[ag->ncorners - 1] & DT_STRAIGHTPATH_OFFMESH_CONNECTION);
-
-			const float* removePos = useForcedRemove ? &ag->cornerVerts[(ag->ncorners - 1) * 3] : 0;
-			const float removeRadius = m_linkRemovalRadius;
-
-			// UE4: prepare filter containing only current area
-			// boundary update will take all corner polys and include them in local neighborhood
-			unsigned char allowedArea = DT_WALKABLE_AREA;
-			if (m_raycastSingleArea)
+			float linkV0[3] = { 0.0f };
+			float linkV1[3] = { 0.0f };
+			
+			bool bHasOffmeshLink = ag->ncorners && (ag->cornerFlags[ag->ncorners - 1] & DT_STRAIGHTPATH_OFFMESH_CONNECTION);
+			if (bHasOffmeshLink)
 			{
-				m_navquery->getAttachedNavMesh()->getPolyArea(ag->corridor.getFirstPoly(), &allowedArea);
-				m_raycastFilter.setAreaCost(allowedArea, 1.0f);
+				const dtStatus linkStatus = m_navquery->getAttachedNavMesh()->getOffMeshConnectionPolyEndPoints(0, ag->cornerPolys[ag->ncorners - 1], 0, linkV0, linkV1);
+				bHasOffmeshLink = dtStatusSucceed(linkStatus);
 			}
 
 			// UE4: move dir for segment scoring
@@ -1299,13 +1309,10 @@ void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo*)
 			}
 			dtVnormalize(moveDir);
 
-			ag->boundary.update(ag->corridor.getFirstPoly(), ag->npos, ag->params.collisionQueryRange,
-				removePos, removeRadius, useForcedRemove,
-				ag->corridor.getPath(), ag->corridor.getPathCount(),
-				moveDir,
-				m_navquery, m_raycastSingleArea ? &m_raycastFilter : &m_filters[ag->params.filter]);
-
-			m_raycastFilter.setAreaCost(allowedArea, DT_UNWALKABLE_POLY_COST);
+			ag->boundary.update(&m_sharedBoundary, sharedDataIdx, ag->npos, ag->params.collisionQueryRange,
+				bHasOffmeshLink, linkV0, linkV1,
+				ag->corridor.getPath(), m_raycastSingleArea ? ag->corridor.getPathCount() : 0,
+				moveDir, m_navquery, &m_filters[ag->params.filter]);
 		}
 		// Query neighbour agents
 		ag->nneis = getNeighbours(ag->npos, ag->params.height, ag->params.collisionQueryRange,
@@ -1555,8 +1562,8 @@ void dtCrowd::updateStepAvoidance(const float dt, dtCrowdAgentDebugInfo* debug)
 
 			// Sample new safe velocity.
 			const dtObstacleAvoidanceParams* params = &m_obstacleQueryParams[ag->params.obstacleAvoidanceType];
-			const int ns = m_obstacleQuery->sampleVelocity(
-					ag->npos, ag->params.radius, ag->desiredSpeed,
+			const int ns = m_obstacleQuery->sampleVelocity(ag->npos, ag->params.radius,
+					ag->desiredSpeed, ag->params.avoidanceQueryMultiplier,
 					ag->vel, ag->dvel, ag->nvel, params, vod);
 
 			m_velocitySampleCount += ns;
@@ -1723,6 +1730,9 @@ void dtCrowd::updateStepOffMeshAnim(const float dt, dtCrowdAgentDebugInfo*)
 
 void dtCrowd::updateStepOffMeshVelocity(const float dt, dtCrowdAgentDebugInfo*)
 {
+	float DirLink[3];
+	float DirToEnd[3];
+
 	// UE4 version of offmesh anims, updates velocity and checks distance instead of fixed time
 	for (int i = 0; i < m_numActiveAgents; ++i)
 	{
@@ -1735,11 +1745,16 @@ void dtCrowd::updateStepOffMeshVelocity(const float dt, dtCrowdAgentDebugInfo*)
 
 		anim->t += dt;
 		
+		dtVsub(DirLink, anim->endPos, anim->startPos);
+		dtVsub(DirToEnd, anim->endPos, ag->npos);
+		const float dirDot = dtVdot2D(DirLink, DirToEnd);
 		const float dist = dtVdist2DSqr(ag->npos, anim->endPos);
 		const float distThres = dtSqr(5.0f);
 		const float heightDiff = dtAbs(ag->npos[1] - anim->endPos[1]);
 		const float heightThres = ag->params.height * 0.5f;
-		if (dist < distThres && heightDiff < heightThres)
+
+		// check height difference + distance or overshooting 
+		if ((dist < distThres || dirDot < 0.0f) && heightDiff < heightThres)
 		{
 			// Reset animation
 			anim->active = 0;
@@ -1770,11 +1785,6 @@ void dtCrowd::updateStepOffMeshVelocity(const float dt, dtCrowdAgentDebugInfo*)
 void dtCrowd::setAgentCheckInterval(const float t)
 {
 	m_agentStateCheckInterval = t;
-}
-
-void dtCrowd::setOffmeshLinkSegmentRemovalRadius(const float radius)
-{
-	m_linkRemovalRadius = radius;
 }
 
 void dtCrowd::setSingleAreaVisibilityOptimization(bool bEnable)

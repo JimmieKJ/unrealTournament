@@ -40,11 +40,45 @@ struct FBuffers
 {
 	TArray<class ir_instruction*> Buffers;
 
+	// Information about textures & samplers; we need to have unique samplerstate indices, as one they can be used independent of each other
+	TArray<std::string> UniqueSamplerStates;
+
+	int32 GetUniqueSamplerStateIndex(const std::string& Name, bool bAddIfNotFound)
+	{
+		int32 Found = INDEX_NONE;
+		if (UniqueSamplerStates.Find(Name, Found))
+		{
+			return Found;
+		}
+		
+		if (bAddIfNotFound)
+		{
+			UniqueSamplerStates.Add(Name);
+			return UniqueSamplerStates.Num() - 1;
+		}
+
+		return Found;
+	}
+
 	int GetIndex(ir_variable* Var)
 	{
 		for (int i = 0, n = Buffers.Num(); i < n; ++i)
 		{
 			if (Buffers[i] == Var)
+			{
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	int GetIndex(const std::string& Name)
+	{
+		for (int i = 0, n = Buffers.Num(); i < n; ++i)
+		{
+			auto* Var = Buffers[i] ? Buffers[i]->as_variable() : nullptr;
+			if (Var && Var->name && Var->name == Name)
 			{
 				return i;
 			}

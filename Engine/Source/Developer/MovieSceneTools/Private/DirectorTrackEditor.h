@@ -113,9 +113,8 @@ private:
 	/** Where in time this thumbnail is a rendering of */
 	TRange<float> TimeRange;
 
-	/** The fade in curve, so the thumbnails don't just pop in */
-	FCurveSequence ThumbnailFadeAnimation;
-	FCurveHandle ThumbnailFadeCurve;
+	/** The time when the thumbnail started to fade in. */
+	double FadeInStartTime;
 };
 
 

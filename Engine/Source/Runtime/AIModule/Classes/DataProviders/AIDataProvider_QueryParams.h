@@ -18,7 +18,7 @@ class AIMODULE_API UAIDataProvider_QueryParams : public UAIDataProvider
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual void BindData(UObject* Owner, int32 RequestId);
+	virtual void BindData(UObject* Owner, int32 RequestId) override;
 	virtual FString ToString(FName PropName) const override;
 
 	UPROPERTY(EditAnywhere, Category = Provider)

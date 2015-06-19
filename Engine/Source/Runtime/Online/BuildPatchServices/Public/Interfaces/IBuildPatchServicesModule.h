@@ -7,6 +7,7 @@
 #pragma once
 
 class IAnalyticsProvider;
+class FHttpServiceTracker;
 
 /**
  * Delegates that will be accepted and fired of by the implementation
@@ -72,6 +73,17 @@ public:
 	virtual IBuildInstallerPtr StartBuildInstall( IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate ) = 0;
 
 	/**
+	 * Starts an installer thread for the provided manifests, only producing the necessary stage. Useful for handling specific install directory write access requirements yourself.
+	 * The staged files will be in the provided staging directory as StagingDirectory/Install/
+	 * @param	CurrentManifest			The manifest that the current install was generated from (if applicable)
+	 * @param	InstallManifest			The manifest to be installed
+	 * @param	InstallDirectory		The directory to install the App to - this should still be the real install directory. It may be read from for patching.
+	 * @param	OnCompleteDelegate		The delegate to call on completion
+	 * @return		An interface to the created installer. Will be an invalid ptr if error.
+	 */
+	virtual IBuildInstallerPtr StartBuildInstallStageOnly( IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate ) = 0;
+
+	/**
 	 * Sets the directory used for staging intermediate files.
 	 * @param StagingDir	The staging directory
 	 */
@@ -94,6 +106,13 @@ public:
 	 * @param AnalyticsProvider		Shared ptr to an analytics interface to use. If NULL analytics will be disabled.
 	 */
 	virtual void SetAnalyticsProvider( TSharedPtr< IAnalyticsProvider > AnalyticsProvider ) = 0;
+
+	/**
+	 * Set the Http Service Tracker to be used for tracking Http Service responsiveness.
+	 * Will only track HTTP requests, not file requests.
+	 * @param HttpTracker	Shared ptr to an Http service tracker interface to use. If NULL tracking will be disabled.
+	 */
+	virtual void SetHttpTracker( TSharedPtr< FHttpServiceTracker > HttpTracker ) = 0;
 
 	/**
 	 * Registers an installation on this machine. This information is used to gather a list of install locations that can be used as chunk sources.
@@ -133,9 +152,10 @@ public:
 	 * Saves to file, and logs, a full list of cloud dir relative referenced data file paths
 	 * @param   ManifestFilePath     A full file path for the manifest to be loaded
 	 * @param   OutputFile           A full file path where to save the output text
+	 * @param   bIncludeSizes        If true, will include the size (in bytes) with every file output
 	 * @return  true if successful
 	 */
-	virtual bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile) = 0;
+	virtual bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile, const bool bIncludeSizes) = 0;
 
 #endif // WITH_BUILDPATCHGENERATION
 

@@ -472,7 +472,8 @@ void FAssetTypeActions_SkeletalMesh::GetNonDestructibleActions( const TArray<TWe
 	MenuBuilder.AddSubMenu(
 			LOCTEXT("SkeletonSubmenu", "Skeleton"),
 			LOCTEXT("SkeletonSubmenu_ToolTip", "Skeleton related actions"),
-			FNewMenuDelegate::CreateSP(this, &FAssetTypeActions_SkeletalMesh::FillSkeletonMenu, Meshes));
+			FNewMenuDelegate::CreateSP(this, &FAssetTypeActions_SkeletalMesh::FillSkeletonMenu, Meshes)
+			);
 }
 
 void FAssetTypeActions_SkeletalMesh::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )
@@ -495,7 +496,7 @@ void FAssetTypeActions_SkeletalMesh::OpenAssetEditor( const TArray<UObject*>& In
 					FString PackageName;
 					CreateUniqueAssetName(Mesh->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
-					USkeletonFactory* Factory = ConstructObject<USkeletonFactory>(USkeletonFactory::StaticClass());
+					USkeletonFactory* Factory = NewObject<USkeletonFactory>();
 					Factory->TargetSkeletalMesh = Mesh;
 
 					FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
@@ -538,7 +539,7 @@ UThumbnailInfo* FAssetTypeActions_SkeletalMesh::GetThumbnailInfo(UObject* Asset)
 	UThumbnailInfo* ThumbnailInfo = SkeletalMesh->ThumbnailInfo;
 	if ( ThumbnailInfo == NULL )
 	{
-		ThumbnailInfo = ConstructObject<USceneThumbnailInfo>(USceneThumbnailInfo::StaticClass(), SkeletalMesh);
+		ThumbnailInfo = NewObject<USceneThumbnailInfo>(SkeletalMesh);
 		SkeletalMesh->ThumbnailInfo = ThumbnailInfo;
 	}
 
@@ -601,7 +602,7 @@ void FAssetTypeActions_SkeletalMesh::ExecuteNewSkeleton(TArray<TWeakObjectPtr<US
 			FString PackagePath;
 			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
 
-			USkeletonFactory* Factory = ConstructObject<USkeletonFactory>(USkeletonFactory::StaticClass());
+			USkeletonFactory* Factory = NewObject<USkeletonFactory>();
 			Factory->TargetSkeletalMesh = Object;
 
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
@@ -622,7 +623,7 @@ void FAssetTypeActions_SkeletalMesh::ExecuteNewSkeleton(TArray<TWeakObjectPtr<US
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 				// Create the factory used to generate the asset
-				USkeletonFactory* Factory = ConstructObject<USkeletonFactory>(USkeletonFactory::StaticClass());
+				USkeletonFactory* Factory = NewObject<USkeletonFactory>();
 				Factory->TargetSkeletalMesh = Object;
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
@@ -683,7 +684,7 @@ void FAssetTypeActions_SkeletalMesh::FillSkeletonMenu(FMenuBuilder& MenuBuilder,
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("SkeletalMesh_NewSkeleton", "Create Skeleton"),
 		LOCTEXT("SkeletalMesh_NewSkeletonTooltip", "Creates a new skeleton for each of the selected meshes."),
-		FSlateIcon(), //@todo: icon
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "AssetIcons.Skeleton"),
 		FUIAction(
 			FExecuteAction::CreateSP(this, &FAssetTypeActions_SkeletalMesh::ExecuteNewSkeleton, Meshes),
 			FCanExecuteAction()
@@ -693,7 +694,7 @@ void FAssetTypeActions_SkeletalMesh::FillSkeletonMenu(FMenuBuilder& MenuBuilder,
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("SkeletalMesh_AssignSkeleton", "Assign Skeleton"),
 		LOCTEXT("SkeletalMesh_AssignSkeletonTooltip", "Assigns a skeleton to the selected meshes."),
-		FSlateIcon(), //@todo: icon
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.AssignSkeleton"),
 		FUIAction(
 			FExecuteAction::CreateSP(this, &FAssetTypeActions_SkeletalMesh::ExecuteAssignSkeleton, Meshes),
 			FCanExecuteAction()
@@ -703,7 +704,7 @@ void FAssetTypeActions_SkeletalMesh::FillSkeletonMenu(FMenuBuilder& MenuBuilder,
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("SkeletalMesh_FindSkeleton", "Find Skeleton"),
 		LOCTEXT("SkeletalMesh_FindSkeletonTooltip", "Finds the skeleton used by the selected meshes in the content browser."),
-		FSlateIcon(), //@todo: icon
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.AssetActions.FindSkeleton"),
 		FUIAction(
 			FExecuteAction::CreateSP(this, &FAssetTypeActions_SkeletalMesh::ExecuteFindSkeleton, Meshes),
 			FCanExecuteAction()
@@ -736,7 +737,7 @@ void FAssetTypeActions_SkeletalMesh::CreatePhysicsAssetFromMesh(USkeletalMesh* S
 
 	if( bWasOkClicked )
 	{			
-		UPhysicsAsset* NewAsset = ConstructObject<UPhysicsAsset>( UPhysicsAsset::StaticClass(), Package, *Name, RF_Public|RF_Standalone|RF_Transactional );
+		UPhysicsAsset* NewAsset = NewObject<UPhysicsAsset>(Package, *Name, RF_Public | RF_Standalone | RF_Transactional);
 		if(NewAsset)
 		{
 			// Do automatic asset generation.

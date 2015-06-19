@@ -9,7 +9,7 @@
 #pragma once
 #include "MaterialEditorOptions.generated.h"
 
-UCLASS(hidecategories=Object, config=EditorUserSettings)
+UCLASS(hidecategories=Object, config=EditorPerProjectUserSettings)
 class UNREALED_API UMaterialEditorOptions : public UObject
 {
 	GENERATED_UCLASS_BODY()

@@ -9,6 +9,7 @@
 #include "InternationalizationMetadata.h"
 #include "Sound/DialogueWave.h"
 #include "Sound/DialogueVoice.h"
+#include "Engine/DataTable.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGatherTextFromAssetsCommandlet, Log, All);
 
@@ -374,70 +375,19 @@ namespace
 
 		void ProcessProperty(UProperty* const Property, void* const ValueAddress)
 		{
-			// Property is a struct property.
-			UStructProperty* const StructProperty = Cast<UStructProperty>(Property);
-			if(StructProperty)
-			{
-				// Struct property may be a native array of fixed size.
-				for(int32 i = 0; i < Property->ArrayDim; ++i)
-				{
-					uint8* StructureValueAddress = reinterpret_cast<uint8*>(ValueAddress);
-					if(Property->ArrayDim > 1)
-					{
-						StructureValueAddress += StructProperty->Struct->GetStructureSize() * i;
-					}
-
-					// Iterate over all properties of the struct's class.
-					for (TFieldIterator<UProperty>PropIt(StructProperty->Struct, EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); PropIt; ++PropIt)
-					{
-						ProcessProperty( *PropIt, PropIt->ContainerPtrToValuePtr<void>(StructureValueAddress) );
-					}
-				}
-			}
-
-			// Property is an array property.
-			UArrayProperty* const ArrayProperty = Cast<UArrayProperty>(Property);
-			if(ArrayProperty)
-			{
-				for(int32 i = 0; i < Property->ArrayDim; ++i)
-				{
-					void* ArrayValueAddress;
-					if(Property->ArrayDim > 1)
-					{
-						ArrayValueAddress = Property->ContainerPtrToValuePtr<void>(ValueAddress, i);
-					}
-					else
-					{
-						ArrayValueAddress = ValueAddress;
-					}
-
-					// Iterate over all objects of the array.
-					FScriptArrayHelper ScriptArrayHelper(ArrayProperty, ArrayValueAddress);
-					const int32 ElementCount = ScriptArrayHelper.Num();
-					for(int32 j = 0; j < ElementCount; ++j)
-					{
-						ProcessProperty( ArrayProperty->Inner, ScriptArrayHelper.GetRawPtr(j) );
-					}
-				}
-			}
-
-			// Property is a text property.
 			UTextProperty* const TextProperty = Cast<UTextProperty>(Property);
-			if(TextProperty)
+			UArrayProperty* const ArrayProperty = Cast<UArrayProperty>(Property);
+			UStructProperty* const StructProperty = Cast<UStructProperty>(Property);
+
+			// Handles both native, fixed-size arrays and plain old non-array properties.
+			for(int32 i = 0; i < Property->ArrayDim; ++i)
 			{
-				// Text property may be a native array of fixed size.
-				for(int32 i = 0; i < Property->ArrayDim; ++i)
+				void* const ElementValueAddress = reinterpret_cast<uint8*>(ValueAddress) + Property->ElementSize * i;
+
+				// Property is a text property.
+				if (TextProperty)
 				{
-					FText* Text;
-					if(Property->ArrayDim > 1)
-					{
-						uint8* ArrayValueAddress = reinterpret_cast<uint8*>(ValueAddress);
-						Text = reinterpret_cast<FText*>(ArrayValueAddress + Property->ElementSize * i);
-					}
-					else
-					{
-						Text = reinterpret_cast<FText*>(ValueAddress);
-					}
+					FText* Text = reinterpret_cast<FText*>(ElementValueAddress);
 
 					if( FTextInspector::GetFlags(*Text) & ETextFlag::ConvertedProperty )
 					{
@@ -449,6 +399,26 @@ namespace
 					if( Fixed )
 					{
 						ObjectPackage->MarkPackageDirty();
+					}
+				}
+				// Property is a DYNAMIC array property.
+				else if (ArrayProperty)
+				{
+					// Iterate over all objects of the array.
+					FScriptArrayHelper ScriptArrayHelper(ArrayProperty, ElementValueAddress);
+					const int32 ElementCount = ScriptArrayHelper.Num();
+					for(int32 j = 0; j < ElementCount; ++j)
+					{
+						ProcessProperty( ArrayProperty->Inner, ScriptArrayHelper.GetRawPtr(j) );
+					}
+				}
+				// Property is a struct property.
+				else if (StructProperty)
+				{
+					// Iterate over all properties of the struct's class.
+					for (TFieldIterator<UProperty>PropIt(StructProperty->Struct, EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); PropIt; ++PropIt)
+					{
+						ProcessProperty( *PropIt, PropIt->ContainerPtrToValuePtr<void>(ElementValueAddress) );
 					}
 				}
 			}
@@ -505,15 +475,13 @@ namespace
 
 void UGatherTextFromAssetsCommandlet::ProcessPackages( const TArray< UPackage* >& PackagesToProcess )
 {
-	for( int32 i = 0; i < PackagesToProcess.Num(); ++i )
+	for(UPackage* const Package : PackagesToProcess)
 	{
-		UPackage* Package = PackagesToProcess[i];
 		TArray<UObject*> Objects;
 		GetObjectsWithOuter(Package, Objects);
 
-		for( int32 j = 0; j < Objects.Num(); ++j )
+		for(UObject* const Object : Objects)
 		{
-			UObject* Object = Objects[j];
 			if ( Object->IsA( UBlueprint::StaticClass() ) )
 			{
 				UBlueprint* Blueprint = Cast<UBlueprint>( Object );
@@ -582,48 +550,62 @@ void UGatherTextFromAssetsCommandlet::ProcessTextProperty(UTextProperty* InTextP
 {
 	OutFixed = false;
 
+	// Early out of gathering pin friendly names unless requested to gather them.
+	if (Object->IsA(UEdGraphPin::StaticClass()))
+	{
+		UProperty* const PinFriendlyNameProperty = Cast<UTextProperty>(UEdGraphPin::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UEdGraphPin, PinFriendlyName)));
+		const bool IsPinNameProperty = PinFriendlyNameProperty == InTextProp;
+		if (!ShouldGatherBlueprintPinNames && IsPinNameProperty)
+		{
+			return;
+		}
+	}
+
 	FConflictTracker::FEntry NewEntry;
 	NewEntry.ObjectPath = Object->GetPathName();
 	NewEntry.SourceString = Data->GetSourceString();
 	NewEntry.Status = EAssetTextGatherStatus::None;
 
-	TSharedPtr< FString, ESPMode::ThreadSafe > Namespace;
-	TSharedPtr< FString, ESPMode::ThreadSafe > Key;
-	FTextLocalizationManager::Get().FindKeyNamespaceFromDisplayString(Data->DisplayString, Namespace, Key);
+	FString Namespace;
+	FString Key;
+	bool FoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(Data->DisplayString, Namespace, Key);
 
 	// Check if text is localizable and check for missing key. Unlocalizable texts don't need a key.
-	if( ( !Key.IsValid() || Key->IsEmpty() ) && Data->ShouldGatherForLocalization() )
+	if( ( !FoundNamespaceAndKey || Key.IsEmpty() ) && Data->ShouldGatherForLocalization() )
 	{
 		NewEntry.Status = EAssetTextGatherStatus::MissingKey;
 
 		// Fix missing key if allowed.
 		if (bFixBroken)
 		{
-			// Create key if needed.
-			if( !( Key.IsValid() ) )
-			{
-				Key = MakeShareable( new FString() );
-			}
 			// Generate new GUID for key.
-			*(Key) = FGuid::NewGuid().ToString();
+			if (FoundNamespaceAndKey)
+			{
+				FTextLocalizationManager::Get().UpdateDisplayString(Data->DisplayString, *Data->DisplayString, Namespace, FGuid::NewGuid().ToString());
+			}
+			else
+			{
+				FTextLocalizationManager::Get().AddDisplayString(Data->DisplayString, TEXT(""), FGuid::NewGuid().ToString());
+			}
 
 			// Fixed.
+			FoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(Data->DisplayString, Namespace, Key);
 			NewEntry.Status = EAssetTextGatherStatus::MissingKey_Resolved;
 		}
 	}
 
 	// Must have valid key to test for identity conflicts. Even if a text doesn't require localization, if it conflicts, it should be warned about.
-	if( Key.IsValid() && !( Key->IsEmpty() ) )
+	if( FoundNamespaceAndKey && !Key.IsEmpty() )
 	{
 		// Find existing entry from manifest or manifest dependencies.
 		FContext SearchContext;
-		SearchContext.Key = *Key;
-		TSharedPtr< FManifestEntry > ExistingEntry = ManifestInfo->GetManifest()->FindEntryByContext( Namespace.IsValid() ? *Namespace : TEXT(""), SearchContext );
+		SearchContext.Key = Key;
+		TSharedPtr< FManifestEntry > ExistingEntry = ManifestInfo->GetManifest()->FindEntryByContext( Namespace, SearchContext );
 
 		if( !ExistingEntry.IsValid() )
 		{
 			FString FileInfo;
-			ExistingEntry = ManifestInfo->FindDependencyEntrybyContext( Namespace.IsValid() ? *Namespace : TEXT(""), SearchContext, FileInfo );
+			ExistingEntry = ManifestInfo->FindDependencyEntrybyContext( Namespace, SearchContext, FileInfo );
 		}
 
 		// Entry already exists, check for conflict.
@@ -635,9 +617,10 @@ void UGatherTextFromAssetsCommandlet::ProcessTextProperty(UTextProperty* InTextP
 			if (bFixBroken)
 			{
 				// Generate new GUID for key.
-				*(Key) = FGuid::NewGuid().ToString();
+				FTextLocalizationManager::Get().UpdateDisplayString(Data->DisplayString, *Data->DisplayString, Namespace, FGuid::NewGuid().ToString());
 
 				// Fixed.
+				FoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(Data->DisplayString, Namespace, Key);
 				NewEntry.Status = EAssetTextGatherStatus::IdentityConflict_Resolved;
 
 				// Conflict resolved, no existing entry.
@@ -662,11 +645,11 @@ void UGatherTextFromAssetsCommandlet::ProcessTextProperty(UTextProperty* InTextP
 				{
 					UTextProperty* TextProp	=  Cast<UTextProperty>( *(PropIt) );
 					FText* DataCDO = TextProp->ContainerPtrToValuePtr<FText>( CDO );
-					TSharedPtr< FString, ESPMode::ThreadSafe > NamespaceCDO;
-					TSharedPtr< FString, ESPMode::ThreadSafe > KeyCDO;
-					FTextLocalizationManager::Get().FindKeyNamespaceFromDisplayString(DataCDO->DisplayString, NamespaceCDO, KeyCDO);
+					FString NamespaceCDO;
+					FString KeyCDO;
+					const bool FoundCDONamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(DataCDO->DisplayString, NamespaceCDO, KeyCDO);
 
-					if( KeyCDO == Key || ( KeyCDO.Get() && Key.Get() && ( *KeyCDO == *Key ) ) )
+					if( (!FoundCDONamespaceAndKey && !FoundNamespaceAndKey) || (FoundCDONamespaceAndKey && FoundNamespaceAndKey && ( KeyCDO == Key ) ) )
 					{
 						SrcLocation = CDO->GetPathName() + TEXT(".") + TextProp->GetName();
 						break;
@@ -676,16 +659,16 @@ void UGatherTextFromAssetsCommandlet::ProcessTextProperty(UTextProperty* InTextP
 		}
 
 		FContext Context;
-		Context.Key = *Key;
+		Context.Key = Key;
 		Context.SourceLocation = SrcLocation;
 
 		FString EntryDescription = FString::Printf( TEXT("In %s"), *Object->GetFullName());
-		ManifestInfo->AddEntry(EntryDescription, Namespace.Get() ? *Namespace : TEXT(""), NewEntry.SourceString.Get() ? *(NewEntry.SourceString) : TEXT(""), Context );
+		ManifestInfo->AddEntry(EntryDescription, Namespace, NewEntry.SourceString.Get() ? *(NewEntry.SourceString) : TEXT(""), Context );
 	}
 
 	// Add to conflict tracker.
-	FConflictTracker::FKeyTable& KeyTable = ConflictTracker.Namespaces.FindOrAdd( Namespace.IsValid() ? *Namespace : TEXT("") );
-	FConflictTracker::FEntryArray& EntryArray = KeyTable.FindOrAdd( Key.IsValid() ? *Key : TEXT("") );
+	FConflictTracker::FKeyTable& KeyTable = ConflictTracker.Namespaces.FindOrAdd(Namespace);
+	FConflictTracker::FEntryArray& EntryArray = KeyTable.FindOrAdd(Key);
 	EntryArray.Add(NewEntry);
 
 	OutFixed = (NewEntry.Status == EAssetTextGatherStatus::MissingKey_Resolved || NewEntry.Status == EAssetTextGatherStatus::IdentityConflict_Resolved);
@@ -731,90 +714,88 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 
 	//Modules to Preload
 	TArray<FString> ModulesToPreload;
-	GetConfigArray(*SectionName, TEXT("ModulesToPreload"), ModulesToPreload, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("ModulesToPreload"), ModulesToPreload, GatherTextConfigPath);
 
 	for (const FString& ModuleName : ModulesToPreload)
 	{
 		FModuleManager::Get().LoadModule(*ModuleName);
 	}
 
-	//Include paths
-	TArray<FString> IncludePaths;
-	GetConfigArray(*SectionName, TEXT("IncludePaths"), IncludePaths, GatherTextConfigPath);
+	// IncludePathFilters
+	TArray<FString> IncludePathFilters;
+	GetPathArrayFromConfig(*SectionName, TEXT("IncludePathFilters"), IncludePathFilters, GatherTextConfigPath);
 
-	if (IncludePaths.Num() == 0)
+	// IncludePaths (DEPRECATED)
 	{
-		UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("No include paths in section %s"), *SectionName);
+		TArray<FString> IncludePaths;
+		GetPathArrayFromConfig(*SectionName, TEXT("IncludePaths"), IncludePaths, GatherTextConfigPath);
+		if (IncludePaths.Num())
+		{
+			IncludePathFilters.Append(IncludePaths);
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("IncludePaths detected in section %s. IncludePaths is deprecated, please use IncludePathFilters."), *SectionName);
+		}
+	}
+
+	if (IncludePathFilters.Num() == 0)
+	{
+		UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("No include path filters in section %s."), *SectionName);
 		return -1;
 	}
 
-	for (FString& IncludePath : IncludePaths)
+	// ExcludePathFilters
+	TArray<FString> ExcludePathFilters;
+	GetPathArrayFromConfig(*SectionName, TEXT("ExcludePathFilters"), ExcludePathFilters, GatherTextConfigPath);
+
+	// ExcludePaths (DEPRECATED)
 	{
-		FPaths::NormalizeDirectoryName(IncludePath);
-		if (FPaths::IsRelative(IncludePath))
+		TArray<FString> ExcludePaths;
+		GetPathArrayFromConfig(*SectionName, TEXT("ExcludePaths"), ExcludePaths, GatherTextConfigPath);
+		if (ExcludePaths.Num())
 		{
-			if (!FPaths::GameDir().IsEmpty())
-			{
-				IncludePath = FPaths::Combine( *( FPaths::GameDir() ), *IncludePath );
-			}
-			else
-			{
-				IncludePath = FPaths::Combine( *( FPaths::EngineDir() ), *IncludePath );
-			}
-		}
-
-		IncludePath = FPaths::ConvertRelativePathToFull(IncludePath);
-
-		// All paths must ends with "/*"
-		if ( !IncludePath.EndsWith(TEXT("/*")) )
-		{
-			// If it ends in a slash, add the star.
-			if ( IncludePath.EndsWith(TEXT("/")) )
-			{
-				IncludePath.AppendChar(TEXT('*'));
-			}
-			// If it doesn't end in a slash or slash star, just add slash star.
-			else
-			{
-				IncludePath.Append(TEXT("/*"));
-			}
+			ExcludePathFilters.Append(ExcludePaths);
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("ExcludePaths detected in section %s. ExcludePaths is deprecated, please use ExcludePathFilters."), *SectionName);
 		}
 	}
 
-	//Exclude paths
-	TArray<FString> ExcludePaths;
-	GetConfigArray(*SectionName, TEXT("ExcludePaths"), ExcludePaths, GatherTextConfigPath);
+	// PackageNameFilters
+	TArray<FString> PackageFileNameFilters;
+	GetStringArrayFromConfig(*SectionName, TEXT("PackageFileNameFilters"), PackageFileNameFilters, GatherTextConfigPath);
 
-	//package extensions
-	TArray<FString> PackageExts;
-	GetConfigArray(*SectionName, TEXT("PackageExtensions"), PackageExts, GatherTextConfigPath);
-
-	if (PackageExts.Num() == 0)
+	// PackageExtensions (DEPRECATED)
 	{
-		UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("No package extensions specified in section %s, using defaults"), *SectionName);
+		TArray<FString> PackageExtensions;
+		GetStringArrayFromConfig(*SectionName, TEXT("PackageExtensions"), PackageExtensions, GatherTextConfigPath);
+		if (PackageExtensions.Num())
+		{
+			PackageFileNameFilters.Append(PackageExtensions);
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("PackageExtensions detected in section %s. PackageExtensions is deprecated, please use PackageFileNameFilters."), *SectionName);
+		}
+	}
 
-		PackageExts.Add(FString("*") + FPackageName::GetAssetPackageExtension());
-		PackageExts.Add(FString("*") + FPackageName::GetMapPackageExtension());
+	if (PackageFileNameFilters.Num() == 0)
+	{
+		UE_LOG(LogGatherTextFromAssetsCommandlet, Error, TEXT("No package file name filters in section %s."), *SectionName);
+		return -1;
 	}
 
 	//asset class exclude
 	TArray<FString> ExcludeClasses;
-	GetConfigArray(*SectionName, TEXT("ExcludeClasses"), ExcludeClasses, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("ExcludeClasses"), ExcludeClasses, GatherTextConfigPath);
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	AssetRegistryModule.Get().SearchAllAssets( true );
 	FARFilter Filter;
 
-	for(int32 i = 0; i < ExcludeClasses.Num(); i++)
+	for(const auto& ExcludeClass : ExcludeClasses)
 	{
-		UClass* FilterClass = FindObject<UClass>(ANY_PACKAGE, *ExcludeClasses[i]);
+		UClass* FilterClass = FindObject<UClass>(ANY_PACKAGE, *ExcludeClass);
 		if(FilterClass)
 		{
 			Filter.ClassNames.Add( FilterClass->GetFName() );
 		}
 		else
 		{
-			UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Invalid exclude class %s"), *ExcludeClasses[i]);
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Invalid exclude class %s"), *ExcludeClass);
 		}
 	}
 
@@ -829,26 +810,20 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	}
 
 	//Get whether we should fix broken properties that we find.
-	GetConfigBool(*SectionName, TEXT("bFixBroken"), bFixBroken, GatherTextConfigPath);
+	if (!GetBoolFromConfig(*SectionName, TEXT("bFixBroken"), bFixBroken, GatherTextConfigPath))
+	{
+		bFixBroken = false;
+	}
+
+	// Get whether we should gather pin name properties that we find. Typically only useful for the localization of UE4 itself.
+	if (!GetBoolFromConfig(*SectionName, TEXT("ShouldGatherBlueprintPinNames"), ShouldGatherBlueprintPinNames, GatherTextConfigPath))
+	{
+		ShouldGatherBlueprintPinNames = false;
+	}
 
 	// Add any manifest dependencies if they were provided
 	TArray<FString> ManifestDependenciesList;
-	GetConfigArray(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
-	
-	for (FString& ManifestDependency : ManifestDependenciesList)
-	{
-		if (FPaths::IsRelative(ManifestDependency))
-		{
-			if (!FPaths::GameDir().IsEmpty())
-			{
-				ManifestDependency = FPaths::Combine( *( FPaths::GameDir() ), *ManifestDependency );
-			}
-			else
-			{
-				ManifestDependency = FPaths::Combine( *( FPaths::EngineDir() ), *ManifestDependency );
-			}
-		}
-	}
+	GetPathArrayFromConfig(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
 
 	if( !ManifestInfo->AddManifestDependencies( ManifestDependenciesList ) )
 	{
@@ -867,19 +842,19 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	//Fill the list of packages to work from.
 	uint8 PackageFilter = NORMALIZE_DefaultFlags;
 	TArray<FString> Unused;	
-	for ( int32 PackageFilenameWildcardIdx = 0; PackageFilenameWildcardIdx < PackageExts.Num(); PackageFilenameWildcardIdx++ )
+	for ( int32 PackageFilenameWildcardIdx = 0; PackageFilenameWildcardIdx < PackageFileNameFilters.Num(); PackageFilenameWildcardIdx++ )
 	{
-		const bool IsAssetPackage = PackageExts[PackageFilenameWildcardIdx] == ( FString( TEXT("*") )+ FPackageName::GetAssetPackageExtension() );
+		const bool IsAssetPackage = PackageFileNameFilters[PackageFilenameWildcardIdx] == ( FString( TEXT("*") )+ FPackageName::GetAssetPackageExtension() );
 
 		TArray<FString> PackageFiles;
-		if ( !NormalizePackageNames( Unused, PackageFiles, PackageExts[PackageFilenameWildcardIdx], PackageFilter) )
+		if ( !NormalizePackageNames( Unused, PackageFiles, PackageFileNameFilters[PackageFilenameWildcardIdx], PackageFilter) )
 		{
-			UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("No packages found with extension %i: '%s'"), PackageFilenameWildcardIdx, *PackageExts[PackageFilenameWildcardIdx]);
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("No packages found with extension %i: '%s'"), PackageFilenameWildcardIdx, *PackageFileNameFilters[PackageFilenameWildcardIdx]);
 			continue;
 		}
 		else
 		{
-			UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("Found %i packages with extension %i: '%s'"), PackageFiles.Num(), PackageFilenameWildcardIdx, *PackageExts[PackageFilenameWildcardIdx]);
+			UE_LOG(LogGatherTextFromAssetsCommandlet, Display, TEXT("Found %i packages with extension %i: '%s'"), PackageFiles.Num(), PackageFilenameWildcardIdx, *PackageFileNameFilters[PackageFilenameWildcardIdx]);
 		}
 
 		//Run through all the files found and add any that pass the include, exclude and filter constraints to OrderedPackageFilesToLoad
@@ -889,7 +864,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 
 			bool bExclude = false;
 			//Ensure it matches the include paths if there are some.
-			for (FString& IncludePath : IncludePaths)
+			for (FString& IncludePath : IncludePathFilters)
 			{
 				bExclude = true;
 				if( PackageFile.MatchesWildcard(IncludePath) )
@@ -905,9 +880,9 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			}
 
 			//Ensure it does not match the exclude paths if there are some.
-			for( int32 ExcludePathIdx=0; !bExclude && ExcludePathIdx<ExcludePaths.Num() ; ++ExcludePathIdx )
+			for (const FString& ExcludePath : ExcludePathFilters)
 			{
-				if( PackageFile.MatchesWildcard(ExcludePaths[ExcludePathIdx]) )
+				if (PackageFile.MatchesWildcard(ExcludePath))
 				{
 					bExclude = true;
 					PackageFilesInExcludePath.Add(PackageFile);

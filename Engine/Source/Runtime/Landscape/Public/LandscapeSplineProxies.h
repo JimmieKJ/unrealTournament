@@ -13,7 +13,7 @@ struct HLandscapeSplineProxy : public HHitProxy
 		HHitProxy(InPriority)
 	{
 	}
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -68,7 +68,7 @@ struct HLandscapeSplineProxy_Tangent : public HLandscapeSplineProxy
 	}
 	LANDSCAPE_API virtual void Serialize(FArchive& Ar);
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::CardinalCross;
 	}

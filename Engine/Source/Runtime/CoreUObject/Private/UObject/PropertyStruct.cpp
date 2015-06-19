@@ -8,14 +8,14 @@ static inline void PreloadInnerStructMembers(UStructProperty* StructProperty)
 {
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	uint32 PropagatedLoadFlags = 0;
-	if (ULinkerLoad* Linker = StructProperty->GetLinker())
+	if (FLinkerLoad* Linker = StructProperty->GetLinker())
 	{
 		PropagatedLoadFlags |= (Linker->LoadFlags & LOAD_DeferDependencyLoads);
 	}
 
 	if (UScriptStruct* Struct = StructProperty->Struct)
 	{
-		if (ULinkerLoad* StructLinker = Struct->GetLinker())
+		if (FLinkerLoad* StructLinker = Struct->GetLinker())
 		{
 			TGuardValue<uint32> LoadFlagGuard(StructLinker->LoadFlags, StructLinker->LoadFlags | PropagatedLoadFlags);
 			Struct->RecursivelyPreload();
@@ -29,6 +29,13 @@ static inline void PreloadInnerStructMembers(UStructProperty* StructProperty)
 /*-----------------------------------------------------------------------------
 	UStructProperty.
 -----------------------------------------------------------------------------*/
+
+UStructProperty::UStructProperty(ECppProperty, int32 InOffset, uint64 InFlags, UScriptStruct* InStruct)
+	: UProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	, Struct(InStruct)
+{
+	ElementSize = Struct->PropertiesSize;
+}
 
 UStructProperty::UStructProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UScriptStruct* InStruct )
 	:	UProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
@@ -104,15 +111,14 @@ bool UStructProperty::UseBinaryOrNativeSerialization(const FArchive& Ar) const
 	return bUseBinarySerialization || bUseNativeSerialization;
 }
 
-void UStructProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UStructProperty::StaticSerializeItem(FArchive& Ar, void* Value, void const* Defaults, UScriptStruct* Struct, const bool bUseBinarySerialization, const bool bUseNativeSerialization)
 {
-	const bool bUseBinarySerialization = UseBinarySerialization(Ar);
-	const bool bUseNativeSerialization = UseNativeSerialization();
+	check(Struct);
 
 	// Preload struct before serialization tracking to not double count time.
-	if ( bUseBinarySerialization || bUseNativeSerialization)
+	if (bUseBinarySerialization || bUseNativeSerialization)
 	{
-		Ar.Preload( Struct );
+		Ar.Preload(Struct);
 	}
 
 	bool bItemSerialized = false;
@@ -126,21 +132,21 @@ void UStructProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadByt
 
 	if (!bItemSerialized)
 	{
-		if( bUseBinarySerialization )
+		if (bUseBinarySerialization)
 		{
 			// Struct is already preloaded above.
-			if ( !Ar.IsPersistent() && Ar.GetPortFlags() != 0 && !Struct->ShouldSerializeAtomically(Ar) )
+			if (!Ar.IsPersistent() && Ar.GetPortFlags() != 0 && !Struct->ShouldSerializeAtomically(Ar))
 			{
-				Struct->SerializeBinEx( Ar, Value, Defaults, Struct );
+				Struct->SerializeBinEx(Ar, Value, Defaults, Struct);
 			}
 			else
 			{
-				Struct->SerializeBin( Ar, Value, MaxReadBytes );
+				Struct->SerializeBin(Ar, Value);
 			}
 		}
 		else
 		{
-			Struct->SerializeTaggedProperties( Ar, (uint8*)Value, Struct, (uint8*)Defaults );
+			Struct->SerializeTaggedProperties(Ar, (uint8*)Value, Struct, (uint8*)Defaults);
 		}
 	}
 
@@ -151,6 +157,14 @@ void UStructProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadByt
 		check(!Struct->InheritedCppStructOps()); // else should not have STRUCT_PostSerializeNative
 		CppStructOps->PostSerialize(Ar, Value);
 	}
+}
+
+void UStructProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
+{
+	const bool bUseBinarySerialization = UseBinarySerialization(Ar);
+	const bool bUseNativeSerialization = UseNativeSerialization();
+
+	StaticSerializeItem(Ar, Value, Defaults, Struct, bUseBinarySerialization, bUseNativeSerialization);
 }
 
 bool UStructProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData ) const
@@ -442,30 +456,6 @@ void UStructProperty::InstanceSubobjects( void* Data, void const* DefaultData, U
 	for (int32 Index = 0; Index < ArrayDim; Index++)
 	{
 		Struct->InstanceSubobjectTemplates( (uint8*)Data + ElementSize * Index, DefaultData ? (uint8*)DefaultData + ElementSize * Index : NULL, Struct, Owner, InstanceGraph );
-	}
-}
-
-bool UStructProperty::IsLocalized() const
-{
-	// prevent recursion in the case of structs containing dynamic arrays of themselves
-	static TArray<const UStructProperty*> EncounteredStructProps;
-	if (EncounteredStructProps.Contains(this))
-	{
-		return Super::IsLocalized();
-	}
-	else
-	{
-		EncounteredStructProps.Add(this);
-		for ( TFieldIterator<UProperty> It(Struct); It; ++It )
-		{
-			if ( It->IsLocalized() )
-			{
-				EncounteredStructProps.RemoveSingleSwap(this);
-				return true;
-			}
-		}
-		EncounteredStructProps.RemoveSingleSwap(this);
-		return Super::IsLocalized();
 	}
 }
 

@@ -1,0 +1,13 @@
+// Some copyright should be here...
+
+#include "%PLUGIN_NAME%PrivatePCH.h"
+#include "%PLUGIN_NAME%Commands.h"
+
+#define LOCTEXT_NAMESPACE "F%PLUGIN_NAME%Module"
+
+void F%PLUGIN_NAME%Commands::RegisterCommands()
+{
+	UI_COMMAND(PluginAction, "%PLUGIN_BUTTON_LABEL%", "Execute %PLUGIN_NAME% action", EUserInterfaceActionType::Button, FInputGesture());
+}
+
+#undef LOCTEXT_NAMESPACE

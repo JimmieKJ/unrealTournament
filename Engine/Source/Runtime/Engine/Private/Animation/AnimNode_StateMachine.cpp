@@ -4,23 +4,9 @@
 #include "Animation/AnimNode_StateMachine.h"
 #include "Animation/AnimNode_TransitionResult.h"
 #include "Animation/AnimNode_TransitionPoseEvaluator.h"
+#include "Animation/AnimNode_SequencePlayer.h"
 #include "AnimationRuntime.h"
 #include "AnimTree.h"
-
-//////////////////////////////////////////////////////////////////////////
-
-template<typename NodeType> 
-NodeType* GetNodeFromPropertyIndex(UAnimInstance* AnimInstance, const UAnimBlueprintGeneratedClass* AnimBlueprintClass, int32 PropertyIndex)
-{
-	if( PropertyIndex != INDEX_NONE )
-	{
-		UStructProperty* NodeProperty = AnimBlueprintClass->AnimNodeProperties[AnimBlueprintClass->AnimNodeProperties.Num() - 1 - PropertyIndex]; //@TODO: Crazysauce
-		check(NodeProperty->Struct == NodeType::StaticStruct());
-		return NodeProperty->ContainerPtrToValuePtr<NodeType>(AnimInstance);
-	}
-
-	return NULL;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // FAnimationActiveTransitionEntry
@@ -81,13 +67,14 @@ void FAnimationActiveTransitionEntry::InitializeCustomGraphLinks(const FAnimatio
 {
 	if (TransitionRule.CustomResultNodeIndex != INDEX_NONE)
 	{
-		CustomTransitionGraph.LinkID = Context.GetAnimBlueprintClass()->AnimNodeProperties.Num() - 1 - TransitionRule.CustomResultNodeIndex; //@TODO: Crazysauce
+		const UAnimBlueprintGeneratedClass* AnimBlueprintClass = Context.GetAnimBlueprintClass();
+		CustomTransitionGraph.LinkID = AnimBlueprintClass->AnimNodeProperties.Num() - 1 - TransitionRule.CustomResultNodeIndex; //@TODO: Crazysauce
 		FAnimationInitializeContext InitContext(Context.AnimInstance);
 		CustomTransitionGraph.Initialize(InitContext);
 
 		for (int32 Index = 0; Index < TransitionRule.PoseEvaluatorLinks.Num(); ++Index)
 		{
-			FAnimNode_TransitionPoseEvaluator* PoseEvaluator = GetNodeFromPropertyIndex<FAnimNode_TransitionPoseEvaluator>(Context.AnimInstance, Context.GetAnimBlueprintClass(), TransitionRule.PoseEvaluatorLinks[Index]);
+			FAnimNode_TransitionPoseEvaluator* PoseEvaluator = GetNodeFromPropertyIndex<FAnimNode_TransitionPoseEvaluator>(Context.AnimInstance, AnimBlueprintClass, TransitionRule.PoseEvaluatorLinks[Index]);
 			PoseEvaluators.Add(PoseEvaluator);
 		}
 	}
@@ -162,7 +149,7 @@ void FAnimationPotentialTransition::Clear()
 	TargetState = INDEX_NONE;
 	TransitionRule = NULL;
 #if WITH_EDITORONLY_DATA
-	SourceTransitionIndices.Empty();
+	SourceTransitionIndices.Reset();
 #endif
 }
 
@@ -219,8 +206,6 @@ void FAnimNode_StateMachine::Initialize(const FAnimationInitializeContext& Conte
 
 			// initialize first update
 			bFirstUpdate = true;
-			// Fire off any entry notifications the default state has
-			Context.AnimInstance->AddAnimNotifyFromGeneratedClass(GetStateInfo(Machine->InitialState).StartNotify);
 		}
 	}
 }
@@ -278,6 +263,14 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 		{
 			return;
 		}
+		else if(!Machine->States.IsValidIndex(CurrentState))
+		{
+			// Attempting to catch a crash where the state machine has been freed.
+			UE_LOG(LogAnimation, Warning, TEXT("FAnimNode_StateMachine::Update - Invalid current state, please report. Attempting to use state %d in state machine %d"), CurrentState, StateMachineIndexInClass);
+			UE_LOG(LogAnimation, Warning, TEXT("\t\tWhen updating AnimInstance: %s"), *Context.AnimInstance->GetName())
+
+			return;
+		}
 	}
 	else
 	{
@@ -301,7 +294,7 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 
 			// Evaluate possible transitions out of this state
 			//@TODO: Evaluate if a set is better than an array for the probably low N encountered here
-			TArray<int32> VisitedStateIndices;
+			TArray<int32, TInlineAllocator<4>> VisitedStateIndices;
 			FindValidTransition(Context, GetStateInfo(), /*Out*/ PotentialTransition, /*Out*/ VisitedStateIndices);
 		}
 				
@@ -320,8 +313,11 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 			const int32 NextState = PotentialTransition.TargetState;
 
 			// Fire off Notifies for state transition
-			Context.AnimInstance->AddAnimNotifyFromGeneratedClass(GetStateInfo(PreviousState).EndNotify);
-			Context.AnimInstance->AddAnimNotifyFromGeneratedClass(GetStateInfo(NextState).StartNotify);
+			if (!bFirstUpdate)
+			{
+				Context.AnimInstance->AddAnimNotifyFromGeneratedClass(GetStateInfo(PreviousState).EndNotify);
+				Context.AnimInstance->AddAnimNotifyFromGeneratedClass(GetStateInfo(NextState).StartNotify);
+			}
 			
 			// Get the current weight of the next state, which may be non-zero
 			const float ExistingWeightOfNextState = GetStateWeight(NextState);
@@ -335,7 +331,10 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 			NewTransition->SourceTransitionIndices = PotentialTransition.SourceTransitionIndices;
 #endif
 
-			Context.AnimInstance->AddAnimNotifyFromGeneratedClass(NewTransition->StartNotify);
+			if (!bFirstUpdate)
+			{
+				Context.AnimInstance->AddAnimNotifyFromGeneratedClass(NewTransition->StartNotify);
+			}
 			
 			SetState(Context, NextState);
 
@@ -344,11 +343,13 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 	}
 	while (bFoundValidTransition && (TransitionCountThisFrame < MaxTransitionsPerFrame));
 
-	// in the first update, we don't like to transition from entry state
-	// so we throw out any transition data at the first update
 	if (bFirstUpdate)
 	{
-		ActiveTransitionArray.Empty();
+		//Handle enter notify for "first" (after initial transitions) state
+		Context.AnimInstance->AddAnimNotifyFromGeneratedClass(GetStateInfo().StartNotify);
+		// in the first update, we don't like to transition from entry state
+		// so we throw out any transition data at the first update
+		ActiveTransitionArray.Reset();
 		bFirstUpdate = false;
 	}
 
@@ -403,7 +404,7 @@ void FAnimNode_StateMachine::Update(const FAnimationUpdateContext& Context)
 	ElapsedTime += Context.GetDeltaTime();
 }
 
-bool FAnimNode_StateMachine::FindValidTransition(const FAnimationUpdateContext& Context, const FBakedAnimationState& StateInfo, /*out*/ FAnimationPotentialTransition& OutPotentialTransition, /*out*/ TArray<int32>& OutVisitedStateIndices)
+bool FAnimNode_StateMachine::FindValidTransition(const FAnimationUpdateContext& Context, const FBakedAnimationState& StateInfo, /*out*/ FAnimationPotentialTransition& OutPotentialTransition, /*out*/ TArray<int32, TInlineAllocator<4>>& OutVisitedStateIndices)
 {
 	// There is a possibility we'll revisit states connected through conduits,
 	// so we can avoid doing unnecessary work (and infinite loops) by caching off states we have already checked
@@ -414,11 +415,22 @@ bool FAnimNode_StateMachine::FindValidTransition(const FAnimationUpdateContext& 
 	}
 	OutVisitedStateIndices.Add(CheckingStateIndex);
 
+	const UAnimBlueprintGeneratedClass* AnimBlueprintClass = Context.GetAnimBlueprintClass();
+
 	// Conduit 'states' have an additional entry rule which must be true to consider taking any transitions via the conduit
 	//@TODO: It would add flexibility to be able to define this on normal state nodes as well, assuming the dual-graph editing is sorted out
-	if (FAnimNode_TransitionResult* StateEntryRuleNode = GetNodeFromPropertyIndex<FAnimNode_TransitionResult>(Context.AnimInstance, Context.GetAnimBlueprintClass(), StateInfo.EntryRuleNodeIndex))
+	if (FAnimNode_TransitionResult* StateEntryRuleNode = GetNodeFromPropertyIndex<FAnimNode_TransitionResult>(Context.AnimInstance, AnimBlueprintClass, StateInfo.EntryRuleNodeIndex))
 	{
-		StateEntryRuleNode->EvaluateGraphExposedInputs.Execute(Context);
+		if (StateEntryRuleNode->NativeTransitionDelegate.IsBound())
+		{
+			// attempt to evaluate native rule
+			StateEntryRuleNode->bCanEnterTransition = StateEntryRuleNode->NativeTransitionDelegate.Execute();
+		}
+		else
+		{
+			// Execute it and see if we can take this rule
+			StateEntryRuleNode->EvaluateGraphExposedInputs.Execute(Context);
+		}
 
 		// not ok, back out
 		if (!StateEntryRuleNode->bCanEnterTransition)
@@ -436,10 +448,42 @@ bool FAnimNode_StateMachine::FindValidTransition(const FAnimationUpdateContext& 
 			continue;
 		}
 
-		FAnimNode_TransitionResult* ResultNode = GetNodeFromPropertyIndex<FAnimNode_TransitionResult>(Context.AnimInstance, Context.GetAnimBlueprintClass(), TransitionRule.CanTakeDelegateIndex);
+		FAnimNode_TransitionResult* ResultNode = GetNodeFromPropertyIndex<FAnimNode_TransitionResult>(Context.AnimInstance, AnimBlueprintClass, TransitionRule.CanTakeDelegateIndex);
 
-		// Execute it and see if we can take this rule
-		ResultNode->EvaluateGraphExposedInputs.Execute(Context);
+		if (ResultNode->NativeTransitionDelegate.IsBound())
+		{
+			// attempt to evaluate native rule
+			ResultNode->bCanEnterTransition = ResultNode->NativeTransitionDelegate.Execute();
+		}
+		else
+		{
+			bool bStillCallEvaluate = true;
+
+			if (TransitionRule.StateSequencePlayerToQueryIndex != INDEX_NONE)
+			{
+				// Simple automatic rule
+				FAnimNode_SequencePlayer* SequencePlayer = GetNodeFromPropertyIndex<FAnimNode_SequencePlayer>(Context.AnimInstance, AnimBlueprintClass, TransitionRule.StateSequencePlayerToQueryIndex);
+				if ((SequencePlayer != nullptr) && (SequencePlayer->Sequence != nullptr))
+				{
+					const float SequenceLength = SequencePlayer->Sequence->GetMaxCurrentTime();
+					const float PlayerTime = SequencePlayer->InternalTimeAccumulator;
+					const float PlayerTimeLeft = SequenceLength - PlayerTime;
+
+					const FAnimationTransitionBetweenStates& TransitionInfo = GetTransitionInfo(TransitionRule.TransitionIndex);
+
+					ResultNode->bCanEnterTransition = (PlayerTimeLeft <= TransitionInfo.CrossfadeDuration);
+
+					bStillCallEvaluate = false;
+				}
+			}
+
+			if (bStillCallEvaluate)
+			{
+				// Execute it and see if we can take this rule
+				ResultNode->EvaluateGraphExposedInputs.Execute(Context);
+			}
+		}
+
 		if (ResultNode->bCanEnterTransition == TransitionRule.bDesiredTransitionReturnValue)
 		{
 			int32 NextState = GetTransitionInfo(TransitionRule.TransitionIndex).NextState;
@@ -521,7 +565,7 @@ void FAnimNode_StateMachine::Evaluate(FPoseContext& Output)
 {
 	if (FBakedAnimationStateMachine* Machine = GetMachineDescription())
 	{
-		if (Machine->States.Num() == 0)
+		if (Machine->States.Num() == 0 || !Machine->States.IsValidIndex(CurrentState))
 		{
 			FAnimationRuntime::FillWithRefPose(Output.Pose.Bones, Output.AnimInstance->RequiredBones);
 			return;
@@ -739,6 +783,12 @@ void FAnimNode_StateMachine::SetState(const FAnimationBaseContext& Context, int3
 {
 	if (NewStateIndex != CurrentState)
 	{
+		const int32 PrevStateIndex = CurrentState;
+		if(CurrentState != INDEX_NONE && CurrentState < OnGraphStatesExited.Num())
+		{
+			OnGraphStatesExited[CurrentState].ExecuteIfBound(*this, CurrentState, NewStateIndex);
+		}
+
 		// Determine if the new state is active or not
 		const bool bAlreadyActive = GetStateWeight(NewStateIndex) > 0.0f;
 
@@ -753,6 +803,11 @@ void FAnimNode_StateMachine::SetState(const FAnimationBaseContext& Context, int3
 			// Also update BoneCaching.
 			FAnimationCacheBonesContext CacheBoneContext(Context.AnimInstance);
 			StatePoseLinks[NewStateIndex].CacheBones(CacheBoneContext);
+		}
+
+		if(CurrentState != INDEX_NONE && CurrentState < OnGraphStatesEntered.Num())
+		{
+			OnGraphStatesEntered[CurrentState].ExecuteIfBound(*this, PrevStateIndex, CurrentState);
 		}
 	}
 }

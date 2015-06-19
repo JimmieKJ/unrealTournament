@@ -11,7 +11,7 @@
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Name.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_NativeEnum.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Rotator.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_String.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Vector.h"
-#include "BehaviorTree/Blackboard/BlackboardKeyType_Rotator.h"
 #include "BehaviorTree/BlackboardComponent.h"

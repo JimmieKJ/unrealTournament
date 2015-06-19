@@ -38,6 +38,13 @@ void USoundNode::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 }
 #endif //WITH_EDITOR
 
+#if WITH_EDITORONLY_DATA
+USoundCueGraphNode* USoundNode::GetGraphNode() const
+{
+	return CastChecked<USoundCueGraphNode>(GraphNode);
+}
+#endif
+
 UPTRINT USoundNode::GetNodeWaveInstanceHash(const UPTRINT ParentWaveInstanceHash, const USoundNode* ChildNode, const uint32 ChildIndex)
 {
 	checkf(ChildIndex < MAX_ALLOWED_CHILD_NODES, TEXT("Too many children (%d) in SoundCue '%s'"), ChildIndex, *CastChecked<USoundCue>(ChildNode->GetOuter())->GetFullName());
@@ -86,7 +93,7 @@ void USoundNode::InsertChildNode( int32 Index )
 	{
 		ChildNodes.InsertZeroed( Index );
 #if WITH_EDITOR
-		GraphNode->CreateInputPin();
+		GetGraphNode()->CreateInputPin();
 #endif //WITH_EDITORONLY_DATA
 	}
 }

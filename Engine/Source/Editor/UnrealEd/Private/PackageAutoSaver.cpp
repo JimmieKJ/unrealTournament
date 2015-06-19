@@ -7,6 +7,7 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "AutoSaveUtils.h"
+#include "ShaderCompiler.h"
 
 namespace PackageAutoSaverJson
 {
@@ -151,8 +152,9 @@ void FPackageAutoSaver::AttemptAutoSave()
 		const bool bCanAutosave = CanAutoSave();
 		if (bCanAutosave)
 		{
-			// Auto-saving, so close any warning notifications.
-			CloseAutoSaveNotification(true);
+			FScopedSlowTask SlowTask(100.f, NSLOCTEXT("AutoSaveNotify", "PerformingAutoSave_Caption", "Auto-saving out of date packages..."));
+			SlowTask.MakeDialog();
+
 			bAutosaveHandled = true;
 
 			bIsAutoSaving = true;
@@ -168,7 +170,9 @@ void FPackageAutoSaver::AttemptAutoSave()
 			const int32 NewAutoSaveIndex = (AutoSaveIndex + 1) % 10;
 
 			bool bLevelSaved = false;
-			bool bAssetsSaved = false;
+			auto AssetsSaveResults = EAutosaveContentPackagesResult::NothingToDo;
+
+			SlowTask.EnterProgressFrame(50);
 
 			if (LoadingSavingSettings->bAutoSaveMaps)
 			{
@@ -178,15 +182,23 @@ void FPackageAutoSaver::AttemptAutoSave()
 				bLevelSaved = FEditorFileUtils::AutosaveMap(AutoSaveDir, NewAutoSaveIndex, bForceSaveWorlds, DirtyPackagesForAutoSave);
 			}
 
+			SlowTask.EnterProgressFrame(50);
+
 			if (LoadingSavingSettings->bAutoSaveContent && UnrealEdMisc.GetAutosaveState() != FUnrealEdMisc::EAutosaveState::Cancelled)
 			{
 				// If we weren't saving content packages when we last ran an auto-save, we need to forcibly save any that are dirty
 				// as DirtyPackagesForAutoSave gets cleared each time an auto-save is run, so may not be up-to-date for the new settings
 				const bool bForceSaveContentPackages = !bWasAutoSavingContent && LoadingSavingSettings->bAutoSaveContent;
-				bAssetsSaved = FEditorFileUtils::AutosaveContentPackages(AutoSaveDir, NewAutoSaveIndex, bForceSaveContentPackages, DirtyPackagesForAutoSave);
+				AssetsSaveResults = FEditorFileUtils::AutosaveContentPackagesEx(AutoSaveDir, NewAutoSaveIndex, bForceSaveContentPackages, DirtyPackagesForAutoSave);
 			}
 
-			if (bLevelSaved || bAssetsSaved)
+			// Auto-saved, so close any warning notifications.
+			CloseAutoSaveNotification(
+				AssetsSaveResults == EAutosaveContentPackagesResult::Success ?	ECloseNotification::Success	:
+				AssetsSaveResults == EAutosaveContentPackagesResult::Failure ?	ECloseNotification::Failed	:
+																				ECloseNotification::Postponed);
+
+			if (bLevelSaved || AssetsSaveResults == EAutosaveContentPackagesResult::Success)
 			{
 				// If a level was actually saved, update the auto-save index
 				AutoSaveIndex = NewAutoSaveIndex;
@@ -360,14 +372,11 @@ bool FPackageAutoSaver::CanAutoSave() const
 	// Don't allow auto-saving if the auto-save wouldn't save anything
 	const bool bPackagesNeedAutoSave = DoPackagesNeedAutoSave();
 
-	static FName EditableText("SEditableText");
-
 	double LastInteractionTime = FSlateApplication::Get().GetLastUserInteractionTime();
 	
-	const float EditableTextDelay = 15.0f;
-	TSharedPtr<SWidget> KeyboardFocusedWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
+	const float InteractionDelay = 15.0f;
 
-	bool bDidTypeInATextBlockRecently = KeyboardFocusedWidget.IsValid() && KeyboardFocusedWidget->GetType() == EditableText && (FApp::GetCurrentTime() - LastInteractionTime) < EditableTextDelay;
+	bool bDidInteractRecently = (FApp::GetCurrentTime() - LastInteractionTime) < InteractionDelay;
 
 	const bool bAutosaveEnabled	= GetDefault<UEditorLoadingSavingSettings>()->bAutoSaveEnable && bPackagesNeedAutoSave;
 	const bool bSlowTask = GIsSlowTask;
@@ -375,10 +384,11 @@ bool FPackageAutoSaver::CanAutoSave() const
 	const bool bPlayWorldValid = GUnrealEd->PlayWorld != nullptr;
 	const bool bAnyMenusVisible	= FSlateApplication::Get().AnyMenusVisible();
 	const bool bAutomationTesting = GIsAutomationTesting;
-	const bool bIsInteratcting = FSlateApplication::Get().HasAnyMouseCaptor() || GUnrealEd->IsUserInteracting() || bDidTypeInATextBlockRecently;
+	const bool bIsInteracting = FSlateApplication::Get().HasAnyMouseCaptor() || GUnrealEd->IsUserInteracting() || bDidInteractRecently;
 	const bool bHasGameOrProjectLoaded = FApp::HasGameName();
+	const bool bAreShadersCompiling = GShaderCompilingManager->IsCompiling();
 
-	return (bAutosaveEnabled && !bSlowTask && !bInterpEditMode && !bPlayWorldValid && !bAnyMenusVisible && !bAutomationTesting && !bIsInteratcting && !GIsDemoMode && bHasGameOrProjectLoaded);
+	return (bAutosaveEnabled && !bSlowTask && !bInterpEditMode && !bPlayWorldValid && !bAnyMenusVisible && !bAutomationTesting && !bIsInteracting && !GIsDemoMode && bHasGameOrProjectLoaded && !bAreShadersCompiling);
 }
 
 bool FPackageAutoSaver::DoPackagesNeedAutoSave() const
@@ -514,6 +524,11 @@ void FPackageAutoSaver::UpdateAutoSaveNotification()
 
 void FPackageAutoSaver::CloseAutoSaveNotification(const bool Success)
 {
+	CloseAutoSaveNotification(Success ? ECloseNotification::Success : ECloseNotification::Postponed);
+}
+
+void FPackageAutoSaver::CloseAutoSaveNotification(ECloseNotification::Type Type)
+{
 	// If a notification is open close it
 	if(bAutoSaveNotificationLaunched)
 	{
@@ -526,15 +541,20 @@ void FPackageAutoSaver::CloseAutoSaveNotification(const bool Success)
 			FText CloseMessage;
 
 			// Set the test on the notification based on whether it was a successful launch
-			if(Success)
+			if (Type == ECloseNotification::Success)
 			{
 				CloseMessage = NSLOCTEXT("AutoSaveNotify", "AutoSaving", "Saving");
 				CloseState = SNotificationItem::CS_Success;
 			}
-			else
+			else if (Type == ECloseNotification::Postponed)
 			{
 				CloseMessage = NSLOCTEXT("AutoSaveNotify", "AutoSavePostponed", "Autosave postponed");
 				CloseState = SNotificationItem::CS_None; // Set back to none rather than failed, as this is too harsh
+			}
+			else
+			{
+				CloseMessage = NSLOCTEXT("AutoSaveNotify", "AutoSaveFailed", "Auto-save failed. Please check the log for the details.");
+				CloseState = SNotificationItem::CS_Fail;
 			}
 
 			// update notification

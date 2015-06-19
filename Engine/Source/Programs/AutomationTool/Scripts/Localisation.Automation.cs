@@ -20,9 +20,11 @@ class Localise : BuildCommand
         //Export
         if (file != null)
         {
-            ExportFileToDirectory(file, new DirectoryInfo(CmdEnv.LocalRoot + "/Engine/Content/Localization/" + ProjectName), projectGroup.EnabledCultures);
+            ExportFileToDirectory(file, new DirectoryInfo(CmdEnv.LocalRoot + "/Engine/Content/Localization/" + ProjectName), project.EnabledCultures);
         }
     }
+
+    private int OneSkyDownloadedPOChangeList = 0;
 
 	public override void ExecuteBuild()
 	{
@@ -41,12 +43,25 @@ class Localise : BuildCommand
         var oneSkyService = new OneSkyService(OneSkyConfig.ApiKey, OneSkyConfig.ApiSecret);
         var projectGroup = GetProjectGroup(oneSkyService, "Unreal Engine");
 
+        // Create changelist for backed up POs from OneSky.
+        if (P4Enabled)
+        {
+            OneSkyDownloadedPOChangeList = P4.CreateChange(P4Env.Client, "OneSky downloaded PO backup.");
+        }
+
         // Export all text from OneSky
         ExportProjectToDirectory(oneSkyService, projectGroup, "Engine");
         ExportProjectToDirectory(oneSkyService, projectGroup, "Editor");
         ExportProjectToDirectory(oneSkyService, projectGroup, "EditorTutorials");
         ExportProjectToDirectory(oneSkyService, projectGroup, "PropertyNames");
         ExportProjectToDirectory(oneSkyService, projectGroup, "ToolTips");
+
+        // Submit changelist for backed up POs from OneSky.
+        if (P4Enabled)
+        {
+            int SubmittedChangeList;
+            P4.Submit(OneSkyDownloadedPOChangeList, out SubmittedChangeList);
+        }
 
 		// Setup editor arguments for SCC.
 		string EditorArguments = String.Empty;
@@ -128,7 +143,7 @@ class Localise : BuildCommand
 
         if (launcherGroup == null)
         {
-            launcherGroup = new ProjectGroup(GroupName, new CultureInfo("en"));
+            launcherGroup = new ProjectGroup(GroupName, "en");
             oneSkyService.ProjectGroups.Add(launcherGroup);
         }
 
@@ -152,11 +167,11 @@ class Localise : BuildCommand
         return appProject;
     }
 
-    private static void ExportFileToDirectory(UploadedFile file, DirectoryInfo destination, IEnumerable<CultureInfo> cultures)
+    private void ExportFileToDirectory(UploadedFile file, DirectoryInfo destination, IEnumerable<string> cultures)
     {
         foreach (var culture in cultures)
         {
-            var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, OneSky.LocaleCodeHelper.ConvertToLocaleCode(culture.Name)));
+            var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, culture));
             if (!cultureDirectory.Exists)
             {
                 cultureDirectory.Create();
@@ -173,29 +188,32 @@ class Localise : BuildCommand
                     using (Stream fileStream = File.OpenWrite(exportFile.FullName))
                     {
                         memoryStream.CopyTo(fileStream);
-                        Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Locale: " + OneSky.LocaleCodeHelper.ConvertToLocaleCode(culture.Name));
+                        Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Locale: " + culture);
                     }
+                    FileInfo exportFileCopy = new FileInfo(Path.Combine(exportFile.DirectoryName, Path.GetFileNameWithoutExtension(exportFile.Name) + "_FromOneSky" + exportFile.Extension));
+                    // Add/check out backed up POs from OneSky.
+                    if (P4Enabled)
+                    {
+                        UE4Build.AddBuildProductsToChangelist(OneSkyDownloadedPOChangeList, new List<string>() {exportFileCopy.FullName} );
+                    }
+                    File.Copy(exportFile.FullName, exportFileCopy.FullName, true);
                 }
                 else if (exportTranslationState == UploadedFile.ExportTranslationState.NoContent)
                 {
-                    Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Locale: " + OneSky.LocaleCodeHelper.ConvertToLocaleCode(culture.Name) + " has no translations!");
+                    Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Locale: " + culture + " has no translations!");
                 }
                 else
                 {
-                    Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Locale: " + OneSky.LocaleCodeHelper.ConvertToLocaleCode(culture.Name));
+                    Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Locale: " + culture);
                 }
             }
         }
     }
 
-    static void UploadDirectoryToProject(OneSky.Project project, DirectoryInfo directory, string fileExtension)
+    static void UploadFilesToProjectForLocale(OneSky.Project project, string[] files, string localeName)
     {
-        foreach (var file in Directory.GetFiles(directory.FullName, fileExtension, SearchOption.AllDirectories))
+        foreach (var currentFile in files)
         {
-            DirectoryInfo parentDirectory = Directory.GetParent(file);
-            string localeName = parentDirectory.Name;
-            string currentFile = file;
-
             using (var fileStream = File.OpenRead(currentFile))
             {
                 // Read the BOM
@@ -209,17 +227,37 @@ class Localise : BuildCommand
                 }
 
                 Console.WriteLine("Uploading: " + currentFile + " Locale: " + localeName);
-                var uploadedFile = project.Upload(Path.GetFileName(currentFile), fileStream, new CultureInfo(OneSky.LocaleCodeHelper.ConvertFromLocaleCode(localeName))).Result;
-
+                var uploadedFile = project.Upload(Path.GetFileName(currentFile), fileStream, localeName).Result;
+                
                 if (uploadedFile == null)
                 {
                     Console.WriteLine("[FAILED] Uploading: " + currentFile + " Locale: " + localeName);
                 }
                 else
                 {
-                    Console.WriteLine("[SUCCESS] Uploading: " + currentFile + " Locale: " + localeName);
+                    Console.WriteLine("[SUCCESS] Uploading: " + currentFile + " Locale: " + localeName);                    
                 }
             }
+        }
+    }
+
+    static void UploadDirectoryToProject(OneSky.Project project, DirectoryInfo directory, string fileExtension)
+    {
+        DirectoryInfo[] cultureDirectories = directory.GetDirectories("*", SearchOption.TopDirectoryOnly);
+
+        // Upload, synchronously, the base culture POs.
+        DirectoryInfo nativeCultureDirectory = Array.Find(cultureDirectories, d => { return string.Equals(d.Name, project.BaseCultureName, StringComparison.InvariantCultureIgnoreCase); });
+        if (nativeCultureDirectory != null)
+        {
+            string[] files = Directory.GetFiles(nativeCultureDirectory.FullName, fileExtension, SearchOption.AllDirectories);
+            UploadFilesToProjectForLocale(project, files, nativeCultureDirectory.Name);
+        }
+
+        // Upload all other POs asynchronously.
+        foreach (var foreignCultureDirectory in Array.FindAll(cultureDirectories, d => { return d != nativeCultureDirectory; }))
+        {
+            string[] files = Directory.GetFiles(foreignCultureDirectory.FullName, fileExtension, SearchOption.AllDirectories);
+            UploadFilesToProjectForLocale(project, files, foreignCultureDirectory.Name);
         }
     }
 }

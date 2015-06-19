@@ -57,6 +57,13 @@ public:
 	virtual bool ClearFile(const FString& FileName) = 0;
 
 	/**
+	 * Delete cached files on disk
+	 *
+	 * @param bSkipEnumerated if true then only non-enumerated files are deleted
+	 */
+	virtual void DeleteCachedFiles(bool bSkipEnumerated) = 0;
+
+	/**
 	* Requests a list of available files from the network store
 	*
 	* @param Page paging info to use for query

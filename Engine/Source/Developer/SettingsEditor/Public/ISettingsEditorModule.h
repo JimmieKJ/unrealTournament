@@ -24,7 +24,7 @@ public:
 	 *
 	 * @param Model The view model.
 	 * @return The new widget.
-	 * @see CreateCodel
+	 * @see CreateModel
 	 */
 	virtual TSharedRef<SWidget> CreateEditor( const TSharedRef<ISettingsEditorModel>& Model ) = 0;
 
@@ -35,7 +35,19 @@ public:
 	 * @return The controller.
 	 * @see CreateEditor
 	 */
-	virtual ISettingsEditorModelRef CreateModel( const TSharedRef<ISettingsContainer>& SettingsContainer ) = 0;
+	virtual TSharedRef<ISettingsEditorModel> CreateModel( const TSharedRef<ISettingsContainer>& SettingsContainer ) = 0;
+
+	/**
+	 * Called when the settings have been changed such that an application restart is required for them to be fully applied
+	 */
+	virtual void OnApplicationRestartRequired() = 0;
+
+	/**
+	 * Set the delegate that should be called when a setting editor needs to restart the application
+	 *
+	 * @param InRestartApplicationDelegate The new delegate to call
+	 */
+	virtual void SetRestartApplicationCallback( FSimpleDelegate InRestartApplicationDelegate ) = 0;
 
 public:
 

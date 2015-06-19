@@ -29,6 +29,7 @@ public:
 	/** FRunnable interface */
 	virtual bool Init() override;
 	virtual uint32 Run() override;
+	virtual void Stop() override;
 private:
 	/** Hold a handle to our parent sync mechanism which handles all of our threading locks */
 	class FSlateLoadingSynchronizationMechanism* SyncMechanism;
@@ -64,7 +65,6 @@ void FSlateLoadingSynchronizationMechanism::DestroySlateThread()
 
 		MainLoop.BlockUntilUnlocked();
 
-		SlateLoadingThread->Kill();
 		delete SlateLoadingThread;
 		delete SlateRunnableTask;
 		SlateLoadingThread = NULL;
@@ -163,4 +163,10 @@ uint32 FSlateLoadingThreadTask::Run()
 	GSlateLoadingThreadId = 0;
 
 	return 0;
+}
+
+void FSlateLoadingThreadTask::Stop()
+{
+	SyncMechanism->ResetSlateDrawPassEnqueued();
+	SyncMechanism->ResetSlateMainLoopRunning();
 }

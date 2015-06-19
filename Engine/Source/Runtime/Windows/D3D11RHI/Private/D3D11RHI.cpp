@@ -65,11 +65,122 @@ void FD3D11DynamicRHI::ClearState()
 	}
 }
 
+void GetMipAndSliceInfoFromSRV(ID3D11ShaderResourceView* SRV, int32& MipLevel, int32& NumMips, int32& ArraySlice, int32& NumSlices)
+{
+	MipLevel = -1;
+	NumMips = -1;
+	ArraySlice = -1;
+	NumSlices = -1;
+
+	if (SRV)
+	{
+		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
+		SRV->GetDesc(&SRVDesc);
+		switch (SRVDesc.ViewDimension)
+		{			
+			case D3D11_SRV_DIMENSION_TEXTURE1D:
+				MipLevel	= SRVDesc.Texture1D.MostDetailedMip;
+				NumMips		= SRVDesc.Texture1D.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE1DARRAY:
+				MipLevel	= SRVDesc.Texture1DArray.MostDetailedMip;
+				NumMips		= SRVDesc.Texture1DArray.MipLevels;
+				ArraySlice	= SRVDesc.Texture1DArray.FirstArraySlice;
+				NumSlices	= SRVDesc.Texture1DArray.ArraySize;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE2D:
+				MipLevel	= SRVDesc.Texture2D.MostDetailedMip;
+				NumMips		= SRVDesc.Texture2D.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+				MipLevel	= SRVDesc.Texture2DArray.MostDetailedMip;
+				NumMips		= SRVDesc.Texture2DArray.MipLevels;
+				ArraySlice	= SRVDesc.Texture2DArray.FirstArraySlice;
+				NumSlices	= SRVDesc.Texture2DArray.ArraySize;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE2DMS:
+				MipLevel	= 0;
+				NumMips		= 1;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE2DMSARRAY:
+				MipLevel	= 0;
+				NumMips		= 1;
+				ArraySlice	= SRVDesc.Texture2DMSArray.FirstArraySlice;
+				NumSlices	= SRVDesc.Texture2DMSArray.ArraySize;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURE3D:
+				MipLevel	= SRVDesc.Texture3D.MostDetailedMip;
+				NumMips		= SRVDesc.Texture3D.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURECUBE:
+				MipLevel = SRVDesc.TextureCube.MostDetailedMip;
+				NumMips		= SRVDesc.TextureCube.MipLevels;
+				break;
+			case D3D11_SRV_DIMENSION_TEXTURECUBEARRAY:
+				MipLevel	= SRVDesc.TextureCubeArray.MostDetailedMip;
+				NumMips		= SRVDesc.TextureCubeArray.MipLevels;
+				ArraySlice	= SRVDesc.TextureCubeArray.First2DArrayFace;
+				NumSlices	= SRVDesc.TextureCubeArray.NumCubes;
+				break;
+			case D3D11_SRV_DIMENSION_BUFFER:
+			case D3D11_SRV_DIMENSION_BUFFEREX:
+			default:
+				break;
+		}
+	}
+}
+
+void FD3D11DynamicRHI::CheckIfSRVIsResolved(ID3D11ShaderResourceView* SRV)
+{
+#if CHECK_SRV_TRANSITIONS
+	if (GRHIThread || !SRV)
+	{
+		return;
+	}
+
+	static const auto CheckSRVCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.CheckSRVTransitions"));	
+	if (!CheckSRVCVar->GetValueOnRenderThread())
+	{
+		return;
+	}
+
+	ID3D11Resource* SRVResource = nullptr;
+	SRV->GetResource(&SRVResource);
+
+	int32 MipLevel;
+	int32 NumMips;
+	int32 ArraySlice;
+	int32 NumSlices;
+	GetMipAndSliceInfoFromSRV(SRV, MipLevel, NumMips, ArraySlice, NumSlices);
+
+	//d3d uses -1 to mean 'all mips'
+	int32 LastMip = MipLevel + NumMips - 1;
+	int32 LastSlice = ArraySlice + NumSlices - 1;
+
+	TArray<FUnresolvedRTInfo> RTInfoArray;
+	UnresolvedTargets.MultiFind(SRVResource, RTInfoArray);
+
+	for (int32 InfoIndex = 0; InfoIndex < RTInfoArray.Num(); ++InfoIndex)
+	{
+		const FUnresolvedRTInfo& RTInfo = RTInfoArray[InfoIndex];
+		int32 RTLastMip = RTInfo.MipLevel + RTInfo.NumMips - 1;		
+		ensureMsgf((MipLevel == -1 || NumMips == -1) || (LastMip < RTInfo.MipLevel || MipLevel > RTLastMip), TEXT("SRV is set to read mips in range %i to %i.  Target %s is unresolved for mip %i"), MipLevel, LastMip, *RTInfo.ResourceName.ToString(), RTInfo.MipLevel);
+		ensureMsgf(NumMips != -1, TEXT("SRV is set to read all mips.  Target %s is unresolved for mip %i"), *RTInfo.ResourceName.ToString(), RTInfo.MipLevel);
+
+		int32 RTLastSlice = RTInfo.ArraySlice + RTInfo.ArraySize - 1;
+		ensureMsgf((ArraySlice == -1 || LastSlice == -1) || (LastSlice < RTInfo.ArraySlice || ArraySlice > RTLastSlice), TEXT("SRV is set to read slices in range %i to %i.  Target %s is unresolved for mip %i"), ArraySlice, LastSlice, *RTInfo.ResourceName.ToString(), RTInfo.ArraySlice);
+		ensureMsgf(ArraySlice == -1 || NumSlices != -1, TEXT("SRV is set to read all slices.  Target %s is unresolved for slice %i"));
+	}
+	SRVResource->Release();
+#endif
+}
+
 template <EShaderFrequency ShaderFrequency>
 void FD3D11DynamicRHI::InternalSetShaderResourceView(FD3D11BaseShaderResource* Resource, ID3D11ShaderResourceView* SRV, int32 ResourceIndex, FD3D11StateCache::ESRV_Type SrvType)
 {
 	// Check either both are set, or both are null.
 	check((Resource && SRV) || (!Resource && !SRV));
+	CheckIfSRVIsResolved(SRV);
 
 	FD3D11BaseShaderResource*& ResourceSlot = CurrentResourcesBoundAsSRVs[ShaderFrequency][ResourceIndex];
 	int32& MaxResourceIndex = MaxBoundShaderResourcesIndex[ShaderFrequency];
@@ -153,31 +264,6 @@ void FD3D11DynamicRHI::ClearAllShaderResources()
 	ClearAllShaderResourcesForFrequency<SF_Compute>();
 }
 
-class FLongGPUTaskPS : public FGlobalShader
-{
-	DECLARE_SHADER_TYPE(FLongGPUTaskPS,Global);
-public:
-	FLongGPUTaskPS( )	{ }
-	FLongGPUTaskPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		:	FGlobalShader( Initializer )
-	{
-	}
-
-	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
-	{
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		return bShaderHasOutdatedParameters;
-	}
-
-	static bool ShouldCache(EShaderPlatform Platform)
-	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
-	}
-};
-
-IMPLEMENT_SHADER_TYPE(,FLongGPUTaskPS,TEXT("OneColorShader"),TEXT("MainLongGPUTask"),SF_Pixel);
-
 FGlobalBoundShaderState LongGPUTaskBoundShaderState;
 
 void FD3D11DynamicRHI::IssueLongGPUTask()
@@ -202,7 +288,7 @@ void FD3D11DynamicRHI::IssueLongGPUTask()
 		{
 			FD3D11Viewport* Viewport = Viewports[LargestViewportIndex];
 
-			FRHICommandList_RecursiveHazardous RHICmdList;
+			FRHICommandList_RecursiveHazardous RHICmdList(this);
 
 			SetRenderTarget(RHICmdList, Viewport->GetBackBuffer(), FTextureRHIRef());
 			RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One>::GetRHI(), FLinearColor::Black);
@@ -465,73 +551,6 @@ void FD3DGPUProfiler::PopEvent()
 	FGPUProfiler::PopEvent();
 }
 
-int32 FD3DGPUProfiler::RecordEventTimestamp(ID3D11Device* Direct3DDevice, ID3D11DeviceContext* Direct3DDeviceIMContext)
-{
-	check(CurrentGPUProfile);
-
-	D3D11_QUERY_DESC TimestampQueryDesc;
-	TimestampQueryDesc.Query = D3D11_QUERY_TIMESTAMP;
-	TimestampQueryDesc.MiscFlags = 0;
-
-	TRefCountPtr<ID3D11Query> TimestampQuery;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateQuery(&TimestampQueryDesc,TimestampQuery.GetInitReference()));
-
-	Direct3DDeviceIMContext->End(TimestampQuery);
-
-	return CurrentGPUProfile->EventTimestampQueries.Add(TimestampQuery);
-}
-
-bool FD3DGPUProfiler::FinishProfiling(TMap<int32, double>& OutEventIdToTimestampMap, ID3D11DeviceContext* Direct3DDeviceIMContext)
-{
-	bool bSuccess = true;
-
-	check(CurrentGPUProfile);
-
-	// Get the disjoint timestamp query result.
-	CurrentGPUProfile->DisjointQuery.EndTracking();
-	D3D11_QUERY_DATA_TIMESTAMP_DISJOINT DisjointQueryResult = CurrentGPUProfile->DisjointQuery.GetResult();
-	if(DisjointQueryResult.Disjoint)
-	{
-		bSuccess = false;
-	}
-	else
-	{
-		// Read back the timestamp query results.
-		for(int32 EventIndex = 0;EventIndex < CurrentGPUProfile->EventTimestampQueries.Num();++EventIndex)
-		{
-			TRefCountPtr<ID3D11Query> EventTimestampQuery = CurrentGPUProfile->EventTimestampQueries[EventIndex];
-
-			uint64 EventTimestamp;
-			const double StartTime = FPlatformTime::Seconds();
-			HRESULT QueryGetDataResult;
-			while(true)
-			{
-				QueryGetDataResult = Direct3DDeviceIMContext->GetData(EventTimestampQuery,&EventTimestamp,sizeof(EventTimestamp),0);
-				if(QueryGetDataResult == S_FALSE && (FPlatformTime::Seconds() - StartTime) < 0.5)
-				{
-					FPlatformProcess::Sleep(0.005f);
-				}
-				else
-				{
-					break;
-				}
-			}
-			if(QueryGetDataResult != S_OK)
-			{
-				bSuccess = false;
-				break;
-			}
-			else
-			{
-				OutEventIdToTimestampMap.Add(EventIndex,(double)EventTimestamp / (double)DisjointQueryResult.Frequency);
-			}
-		}
-	}
-
-	CurrentGPUProfile.Reset();
-	return bSuccess;
-}
-
 /** Start this frame of per tracking */
 void FD3D11EventNodeFrame::StartFrame()
 {
@@ -598,7 +617,7 @@ void UpdateBufferStats(TRefCountPtr<ID3D11Buffer> Buffer, bool bAllocating)
 		}
 	}
 	else
-	{
+	{ //-V523
 		if (bUniformBuffer)
 		{
 			DEC_MEMORY_STAT_BY(STAT_UniformBufferMemory,Desc.ByteWidth);

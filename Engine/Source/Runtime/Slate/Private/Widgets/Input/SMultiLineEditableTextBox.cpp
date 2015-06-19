@@ -4,6 +4,23 @@
 
 #if WITH_FANCY_TEXT
 
+namespace
+{
+	/**
+     * Helper function to solve some issues with ternary operators inside construction of a widget.
+	 */
+	TSharedRef< SWidget > AsWidgetRef( const TSharedPtr< SWidget >& InWidget )
+	{
+		if ( InWidget.IsValid() )
+		{
+			return InWidget.ToSharedRef();
+		}
+		else
+		{
+			return SNullWidget::NullWidget;
+		}
+	}
+}
 
 /**
  * Construct this widget
@@ -25,7 +42,6 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 	TAttribute<FSlateColor> BackgroundColor = InArgs._BackgroundColor.IsSet() ? InArgs._BackgroundColor : InArgs._Style->BackgroundColor;
 	ReadOnlyForegroundColor = InArgs._ReadOnlyForegroundColor.IsSet() ? InArgs._ReadOnlyForegroundColor : InArgs._Style->ReadOnlyForegroundColor;
 
-	TSharedPtr<SWidget> HScrollBarWidget;
 	TSharedPtr<SScrollBar> HScrollBar = InArgs._HScrollBar;
 	if (!HScrollBar.IsValid())
 	{
@@ -35,15 +51,8 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 			.Orientation(Orient_Horizontal)
 			.AlwaysShowScrollbar(InArgs._AlwaysShowScrollbars)
 			.Thickness(FVector2D(5.0f, 5.0f));
-		HScrollBarWidget = HScrollBar;
 	}
-	else
-	{
-		// User provided an external scrollbar, use a null widget
-		HScrollBarWidget = SNullWidget::NullWidget;
-	}
-
-	TSharedPtr<SWidget> VScrollBarWidget;
+	
 	TSharedPtr<SScrollBar> VScrollBar = InArgs._VScrollBar;
 	if (!VScrollBar.IsValid())
 	{
@@ -53,12 +62,6 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 			.Orientation(Orient_Vertical)
 			.AlwaysShowScrollbar(InArgs._AlwaysShowScrollbars)
 			.Thickness(FVector2D(5.0f, 5.0f));
-		VScrollBarWidget = VScrollBar;
-	}
-	else
-	{
-		// User provided an external scrollbar, use a null widget
-		VScrollBarWidget = SNullWidget::NullWidget;
 	}
 
 	SBorder::Construct( SBorder::FArguments()
@@ -68,7 +71,6 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 		.Padding( Padding )
 		[
 			SAssignNew( Box, SHorizontalBox)
-
 			+SHorizontalBox::Slot()
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
@@ -83,6 +85,7 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 				[
 					SAssignNew( EditableText, SMultiLineEditableText )
 					.Text( InArgs._Text )
+					.HintText( InArgs._HintText )
 					.TextStyle( InArgs._TextStyle )
 					.Marshaller( InArgs._Marshaller )
 					.Font( Font )
@@ -92,28 +95,33 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 					.OnCursorMoved( InArgs._OnCursorMoved )
 					.ContextMenuExtender( InArgs._ContextMenuExtender )
 					.Justification(InArgs._Justification)
+					.RevertTextOnEscape(InArgs._RevertTextOnEscape)
+					.SelectAllTextWhenFocused(InArgs._SelectAllTextWhenFocused)
+					.ClearKeyboardFocusOnCommit(InArgs._ClearKeyboardFocusOnCommit)
 					.LineHeightPercentage(InArgs._LineHeightPercentage)
 					.Margin(InArgs._Margin)
 					.WrapTextAt(InArgs._WrapTextAt)
 					.AutoWrapText(InArgs._AutoWrapText)
 					.HScrollBar(HScrollBar)
 					.VScrollBar(VScrollBar)
+					.OnHScrollBarUserScrolled(InArgs._OnHScrollBarUserScrolled)
+					.OnVScrollBarUserScrolled(InArgs._OnVScrollBarUserScrolled)
 					.ModiferKeyForNewLine(InArgs._ModiferKeyForNewLine)
 				]
 
 				+SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding((InArgs._HScrollBar.IsValid()) ? FMargin(0) : HScrollBarPadding)
+				.Padding(HScrollBarPadding)
 				[
-					HScrollBarWidget.ToSharedRef()
+					AsWidgetRef( HScrollBar )
 				]
 			]
 
 			+SHorizontalBox::Slot()
 			.AutoWidth()
-			.Padding((InArgs._VScrollBar.IsValid()) ? FMargin(0) : VScrollBarPadding)
+			.Padding(VScrollBarPadding)
 			[
-				VScrollBarWidget.ToSharedRef()
+				AsWidgetRef( VScrollBar )
 			]
 		]
 	);
@@ -131,15 +139,14 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 
 }
 
-
-/**
- * Sets the text string currently being edited 
- *
- * @param  InNewText  The new text string
- */
 void SMultiLineEditableTextBox::SetText( const TAttribute< FText >& InNewText )
 {
 	EditableText->SetText( InNewText );
+}
+
+void SMultiLineEditableTextBox::SetHintText( const TAttribute< FText >& InHintText )
+{
+	EditableText->SetHintText( InHintText );
 }
 
 void SMultiLineEditableTextBox::SetError( const FText& InError )

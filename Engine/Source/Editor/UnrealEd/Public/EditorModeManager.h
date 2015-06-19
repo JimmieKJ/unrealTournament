@@ -2,6 +2,9 @@
 
 #pragma once
 
+class USelection;
+class IToolkitHost;
+
 /**
  * A helper class to store the state of the various editor modes.
  */
@@ -241,17 +244,6 @@ public:
 	bool GetShowFriendlyVariableNames() const;
 
 	/**
-	 * Sets Interp Editor inversion of panning on drag
-	 */
-	void SetInterpPanInvert(bool bInInterpPanInverted) { bInterpPanInverted = bInInterpPanInverted; }
-
-	/**
-	 * Gets the current state of the interp editor panning
-	 * @ return - If true, the interp editor left-right panning is inverted
-	 */
-	bool GetInterpPanInvert(void) const { return bInterpPanInverted; }
-
-	/**
 	 * Sets a bookmark in the levelinfo file, allocating it if necessary.
 	 * 
 	 * @param InIndex			Index of the bookmark to set.
@@ -348,30 +340,44 @@ public:
 	/** Is the viewport UI hidden? */
 	bool IsViewportUIHidden() const { return bHideViewportUI; }
 
-	bool PivotShown, Snapping, SnappedActor;
-	FVector CachedLocation, PivotLocation, SnappedLocation, GridBase;
+	bool PivotShown;
+	bool Snapping;
+	bool SnappedActor;
+
+	FVector CachedLocation;
+	FVector PivotLocation;
+	FVector SnappedLocation;
+	FVector GridBase;
 
 	/** The angle for the translate rotate widget */
 	float TranslateRotateXAxisAngle;
+
+	/** The angles for the 2d translate rotate widget */
+	float TranslateRotate2DAngle;
 
 	/** Draws in the top level corner of all FEditorViewportClient windows (can be used to relay info to the user). */
 	FString InfoString;
 
 	/** Sets the host for toolkits created via modes from this mode manager (can only be called once) */
-	void SetToolkitHost(TSharedRef<class IToolkitHost> Host);
+	void SetToolkitHost(TSharedRef<IToolkitHost> Host);
 
 	/** Returns the host for toolkits created via modes from this mode manager */
-	TSharedPtr<class IToolkitHost> GetToolkitHost() const;
+	TSharedPtr<IToolkitHost> GetToolkitHost() const;
 
 	/**
 	 * Returns the set of selected actors.
 	 */
-	virtual class USelection* GetSelectedActors() const;
+	virtual USelection* GetSelectedActors() const;
 
 	/**
 	 * @return the set of selected non-actor objects.
 	 */
-	virtual class USelection* GetSelectedObjects() const;
+	virtual USelection* GetSelectedObjects() const;
+
+	/**
+	 * Returns the set of selected components.
+	 */
+	virtual USelection* GetSelectedComponents() const;
 
 	/**
 	 * Returns the world that is being edited by this mode manager
@@ -405,9 +411,6 @@ protected:
 
 	/** If 1, draw the widget and let the user interact with it. */
 	bool bShowWidget;
-
-	/** If true, panning in the Interp Editor is inverted. If false, panning is normal*/
-	bool bInterpPanInverted;
 
 	/** if true, the viewports will hide all UI overlays */
 	bool bHideViewportUI;

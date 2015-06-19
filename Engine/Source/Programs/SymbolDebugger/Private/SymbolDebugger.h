@@ -23,10 +23,9 @@ public:
 		return AskedToAbortCount.GetValue() > 0;
 	}
 
-	/** @return Queries the name of this task for for external event viewers */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FSymbolDebugger_AsyncInspect");
+		RETURN_QUICK_DECLARE_CYCLE_STAT( FSymbolDebugger_AsyncInspect, STATGROUP_ThreadPoolAsyncTasks );
 	}
 
 	/** The found name */
@@ -87,10 +86,9 @@ public:
 		return AskedToAbortCount.GetValue() > 0;
 	}
 
-	/** @return Queries the name of this task for for external event viewers */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FSymbolDebugger_AsyncSyncFiles");
+		RETURN_QUICK_DECLARE_CYCLE_STAT( FSymbolDebugger_AsyncSyncFiles, STATGROUP_ThreadPoolAsyncTasks );
 	}
 
 	/** 
@@ -135,10 +133,9 @@ public:
 		return AskedToAbortCount.GetValue() > 0;
 	}
 
-	/** @return Queries the name of this task for for external event viewers */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FSymbolDebugger_LaunchDebugger");
+		RETURN_QUICK_DECLARE_CYCLE_STAT( FSymbolDebugger_LaunchDebugger, STATGROUP_ThreadPoolAsyncTasks );
 	}
 
 	/** 
@@ -178,10 +175,9 @@ public:
 		return AskedToAbortCount.GetValue() > 0;
 	}
 
-	/** @return Queries the name of this task for for external event viewers */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FSymbolDebugger_ProcessCrashDump");
+		RETURN_QUICK_DECLARE_CYCLE_STAT( FSymbolDebugger_ProcessCrashDump, STATGROUP_ThreadPoolAsyncTasks );
 	}
 
 	/** The found name */

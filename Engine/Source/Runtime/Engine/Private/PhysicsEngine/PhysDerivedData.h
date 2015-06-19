@@ -86,4 +86,70 @@ private:
 	bool ShouldGenerateNegXTriMeshData();
 };
 
+//////////////////////////////////////////////////////////////////////////
+// PhysX Binary Serialization
+class FDerivedDataPhysXBinarySerializer : public FDerivedDataPluginInterface
+{
+private:
+
+	const TArray<FBodyInstance*>& Bodies;
+	const TArray<class UBodySetup*>& BodySetups;
+	const TArray<class UPhysicalMaterial*>& PhysicalMaterials;
+	FName Format;
+	FGuid DataGuid;
+	const class IPhysXFormat* Serializer;
+	int64 PhysXDataStart;	//important to keep track of this for alignment requirements
+	
+public:
+	FDerivedDataPhysXBinarySerializer(FName InFormat, const TArray<FBodyInstance*>& InBodies, const TArray<class UBodySetup*>& BodySetups, const TArray<class UPhysicalMaterial*>& PhysicalMaterials, const FGuid& InGuid);
+
+	virtual const TCHAR* GetPluginName() const override
+	{
+		return TEXT("PhysXSerializer");
+	}
+
+	virtual const TCHAR* GetVersionString() const override
+	{
+		// This is a version string that mimics the old versioning scheme. If you
+		// want to bump this version, generate a new guid using VS->Tools->Create GUID and
+		// return it here. Ex.
+		return TEXT("EB1DC7A5D72F469B8E0BF5251D90A220");
+	}
+
+	virtual FString GetPluginSpecificCacheKeySuffix() const override
+	{
+		enum { UE_PHYSX_DERIVEDDATA_VER = 3 };
+
+		const uint16 PhysXVersion = ((PX_PHYSICS_VERSION_MAJOR & 0xF) << 12) |
+			((PX_PHYSICS_VERSION_MINOR & 0xF) << 8) |
+			((PX_PHYSICS_VERSION_BUGFIX & 0xF) << 4) |
+			((UE_PHYSX_DERIVEDDATA_VER & 0xF));
+
+		return FString::Printf(TEXT("%s_%s_%hu"),
+			*Format.ToString(),
+			*DataGuid.ToString(),
+			PhysXVersion
+			);
+	}
+
+
+	virtual bool IsBuildThreadsafe() const override
+	{
+		return false;
+	}
+
+	virtual bool Build(TArray<uint8>& OutData) override;
+
+	/** Return true if we can build **/
+	bool CanBuild()
+	{
+		return true;
+	}
+private:
+
+	void SerializeRigidActors(TArray<uint8>& OutData);
+	void InitSerializer();
+
+};
+
 #endif	//WITH_PHYSX && WITH_EDITOR

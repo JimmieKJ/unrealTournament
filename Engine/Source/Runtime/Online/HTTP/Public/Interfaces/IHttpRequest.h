@@ -60,12 +60,13 @@ typedef TSharedPtr<class IHttpResponse,ESPMode::ThreadSafe> FHttpResponsePtr;
 DECLARE_DELEGATE_ThreeParams(FHttpRequestCompleteDelegate, FHttpRequestPtr, FHttpResponsePtr, bool);
 
 /**
- * Delegate called per tick to update an Http request download size progress
+ * Delegate called per tick to update an Http request upload or download size progress
  *
  * @param first parameter - original Http request that started things
- * @param second parameter - the number of bytes downloaded so far.
+ * @param second parameter - the number of bytes sent / uploaded in the request so far.
+ * @param third parameter - the number of bytes received / downloaded in the response so far.
  */
-DECLARE_DELEGATE_TwoParams(FHttpRequestProgressDelegate, FHttpRequestPtr, int32);
+DECLARE_DELEGATE_ThreeParams(FHttpRequestProgressDelegate, FHttpRequestPtr, int32, int32);
 
 /**
  * Interface for Http requests (created using FHttpFactory)
@@ -142,7 +143,7 @@ public:
 	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() = 0;
 
 	/**
-	 * Delegate called to update the request progress. See FHttpRequestProgressDelegate
+	 * Delegate called to update the request/response progress. See FHttpRequestProgressDelegate
 	 */
 	virtual FHttpRequestProgressDelegate& OnRequestProgress() = 0;
 
@@ -171,6 +172,13 @@ public:
 	 * @param DeltaSeconds - seconds since last ticked
 	 */
 	virtual void Tick(float DeltaSeconds) = 0;
+
+	/**
+	 * Gets the time that it took for the server to fully respond to the request.
+	 * 
+	 * @return elapsed time in seconds.
+	 */
+	virtual float GetElapsedTime() = 0;
 
 	/** 
 	 * Destructor for overrides 

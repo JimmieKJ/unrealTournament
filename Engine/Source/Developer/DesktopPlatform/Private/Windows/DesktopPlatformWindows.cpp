@@ -247,7 +247,7 @@ bool FDesktopPlatformWindows::FileDialogShared(bool bSave, const void* ParentWin
 	// It is formatted as follows: Pair1String1|Pair1String2|Pair2String1|Pair2String2
 	// where the second string in the pair is the extension.  To get the clean extensions we only care about the second string in the pair
 	TArray<FString> UnformattedExtensions;
-	FileTypes.ParseIntoArray( &UnformattedExtensions, TEXT("|"), true );
+	FileTypes.ParseIntoArray( UnformattedExtensions, TEXT("|"), true );
 	for( int32 ExtensionIndex = 1; ExtensionIndex < UnformattedExtensions.Num(); ExtensionIndex += 2)
 	{
 		const FString& Extension = UnformattedExtensions[ExtensionIndex];

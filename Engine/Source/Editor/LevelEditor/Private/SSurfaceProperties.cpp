@@ -23,11 +23,36 @@ void SSurfaceProperties::Construct( const FArguments& InArgs )
 	CachedScalingValueU = 1.0f;
 	CachedScalingValueV = 1.0f;
 
+	// Initialize scale fields according to the scale of the first selected surface
+	for (TSelectedSurfaceIterator<> It(GWorld); It; ++It)
+	{
+		FBspSurf* Surf = *It;
+		UModel* Model = It.GetModel();
+
+		const FVector TextureU(Model->Vectors[Surf->vTextureU]);
+		const FVector TextureV(Model->Vectors[Surf->vTextureV]);
+
+		const float TextureUSize = TextureU.Size();
+		const float TextureVSize = TextureV.Size();
+
+		if (!FMath::IsNearlyZero(TextureUSize))
+		{
+			CachedScalingValueU = 1.0f / TextureUSize;
+		}
+
+		if (!FMath::IsNearlyZero(TextureVSize))
+		{
+			CachedScalingValueV = 1.0f / TextureVSize;
+		}
+
+		break;
+	}
+
 	bPreserveScaleRatio = false;
 	bUseRelativeScaling = false;
 
-	GConfig->GetBool(TEXT("SelectionDetails"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("SelectionDetails"), TEXT("UseRelativeScaling"), bUseRelativeScaling, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("SelectionDetails"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("SelectionDetails"), TEXT("UseRelativeScaling"), bUseRelativeScaling, GEditorPerProjectIni);
 
 	static const float ScalingValues[] = { 1.0f / 16, 1.0f / 8, 1.0f / 4, 1.0f / 2, 1, 2, 4, 8, 16 };
 	for(int Idx = 0; Idx < ARRAY_COUNT(ScalingValues); Idx++)
@@ -531,8 +556,7 @@ TSharedRef<SWidget> SSurfaceProperties::ConstructLighting()
 					}
 					if (FoundIndex == INDEX_NONE)
 					{
-						ULightmassPrimitiveSettingsObject* LightmassSettingsObject = 
-							ConstructObject<ULightmassPrimitiveSettingsObject>(ULightmassPrimitiveSettingsObject::StaticClass());
+						ULightmassPrimitiveSettingsObject* LightmassSettingsObject = NewObject<ULightmassPrimitiveSettingsObject>();
 						LightmassSettingsObject->LightmassSettings = TempSettings;
 						ObjArray.Add(LightmassSettingsObject);
 						SelectedLightmassSettingsObjects.Add(LightmassSettingsObject);
@@ -856,7 +880,7 @@ void SSurfaceProperties::OnCustomPanValueCommitted( int32 NewValue, ETextCommit:
 void SSurfaceProperties::OnScaleLabelClicked( )
 {
 	bUseRelativeScaling = !bUseRelativeScaling;
-	GConfig->SetBool(TEXT("SurfaceSelection"), TEXT("UseRelativeScaling"), bUseRelativeScaling, GEditorUserSettingsIni);
+	GConfig->SetBool(TEXT("SurfaceSelection"), TEXT("UseRelativeScaling"), bUseRelativeScaling, GEditorPerProjectIni);
 }
 
 FText SSurfaceProperties::GetScalingLabel() const
@@ -925,7 +949,7 @@ void SSurfaceProperties::OnPreserveScaleRatioToggled( ECheckBoxState NewState )
 {
 	bPreserveScaleRatio = (NewState == ECheckBoxState::Checked) ? true : false;
 	CachedScalingValueV = CachedScalingValueU;
-	GConfig->SetBool(TEXT("SurfaceSelection"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorUserSettingsIni);
+	GConfig->SetBool(TEXT("SurfaceSelection"), TEXT("PreserveScaleRatio"), bPreserveScaleRatio, GEditorPerProjectIni);
 }
 
 void SSurfaceProperties::OnCustomRotateValueCommitted(int32 NewValue, ETextCommit::Type CommitInfo)

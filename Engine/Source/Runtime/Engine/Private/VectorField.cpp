@@ -299,6 +299,13 @@ void UVectorFieldStatic::ReleaseResource()
 void UVectorFieldStatic::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
+
+	// Store bulk data inline for streaming (to prevent PostLoad spikes)
+	if (Ar.IsCooking())
+	{
+		SourceData.SetBulkDataFlags(BULKDATA_ForceInlinePayload | BULKDATA_SingleUse);
+	}
+
 	SourceData.Serialize(Ar,this);
 }
 

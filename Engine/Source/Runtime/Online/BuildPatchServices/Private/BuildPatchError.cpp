@@ -37,7 +37,9 @@ bool FBuildPatchInstallError::IsInstallationCancelled()
 bool FBuildPatchInstallError::IsNoRetryError()
 {
 	FScopeLock ScopeLock( &ThreadLock );
-	return ErrorState == EBuildPatchInstallError::DownloadError || ErrorState == EBuildPatchInstallError::MoveFileToInstall;
+	return ErrorState == EBuildPatchInstallError::DownloadError
+		|| ErrorState == EBuildPatchInstallError::MoveFileToInstall
+		|| ErrorState == EBuildPatchInstallError::InitializationError;
 }
 
 FString FBuildPatchInstallError::GetErrorString()
@@ -63,6 +65,7 @@ const FText& FBuildPatchInstallError::GetErrorText()
 	static const FText ApplicationError( LOCTEXT( "BuildPatchInstallError_ApplicationError", "Patching service could not start." ) );
 	static const FText UserCanceled( LOCTEXT( "BuildPatchInstallError_UserCanceled", "User cancelled." ) );
 	static const FText PrerequisiteError( LOCTEXT( "BuildPatchInstallError_PrerequisiteError", "Prerequisites install failed.") );
+	static const FText InitializationError(LOCTEXT("BuildPatchInstallError_InitializationError", "The installer failed to initialize."));
 	static const FText InvalidOrMax( LOCTEXT( "BuildPatchInstallError_InvalidOrMax", "An unknown error ocurred." ) );
 
 	FScopeLock ScopeLock( &ThreadLock );
@@ -77,6 +80,7 @@ const FText& FBuildPatchInstallError::GetErrorText()
 		case EBuildPatchInstallError::ApplicationError: return ApplicationError;
 		case EBuildPatchInstallError::UserCanceled: return UserCanceled;
 		case EBuildPatchInstallError::PrerequisiteError: return PrerequisiteError;
+		case EBuildPatchInstallError::InitializationError: return InitializationError;
 		default: return InvalidOrMax;
 	}
 }
@@ -115,6 +119,7 @@ const FString& FBuildPatchInstallError::ToString( const EBuildPatchInstallError:
 	static const FString ApplicationError( "EBuildPatchInstallError::ApplicationError" );
 	static const FString UserCanceled( "EBuildPatchInstallError::UserCanceled" );
 	static const FString PrerequisiteError( "EBuildPatchInstallError::PrerequisiteError" );
+	static const FString InitializationError("EBuildPatchInstallError::InitializationError");
 	static const FString InvalidOrMax( "EBuildPatchInstallError::InvalidOrMax" );
 
 	FScopeLock ScopeLock( &ThreadLock );
@@ -128,7 +133,8 @@ const FString& FBuildPatchInstallError::ToString( const EBuildPatchInstallError:
 		case EBuildPatchInstallError::ApplicationClosing: return ApplicationClosing;
 		case EBuildPatchInstallError::ApplicationError: return ApplicationError;
 		case EBuildPatchInstallError::UserCanceled: return UserCanceled;
-		case EBuildPatchInstallError::PrerequisiteError: return PrerequisiteError;	
+		case EBuildPatchInstallError::PrerequisiteError: return PrerequisiteError;
+		case EBuildPatchInstallError::InitializationError: return InitializationError;
 		default: return InvalidOrMax;
 	}
 }

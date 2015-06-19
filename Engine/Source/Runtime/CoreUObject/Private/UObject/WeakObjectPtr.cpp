@@ -149,18 +149,18 @@ public:
 	 * @param Index	index of object that is being deleted
 	 */
 	virtual void NotifyUObjectDeleted(const UObjectBase *Object, int32 Index)
-	{
-		checkSlow(IsInGameThread());
+	{		
 		int32 Block, SubIndex;
 		GetBlock( Index, Block, SubIndex );
 		volatile FSerialNumberBlock** BlockPtr = (volatile FSerialNumberBlock**)&Blocks[Block];
 		FSerialNumberBlock* BlockToUse = (FSerialNumberBlock*)*BlockPtr;
 		if (BlockToUse)
-		{
+		{			
 			volatile int32 *SerialNumberPtr = &BlockToUse->SerialNumbers[SubIndex];
 			int32 SerialNumber = *SerialNumberPtr;
 			if (SerialNumber)
 			{
+				checkSlow(IsInGameThread());
 				*SerialNumberPtr = 0;
 				FPlatformMisc::MemoryBarrier();
 				checkSlow(!*SerialNumberPtr); // nobody should be creating these while we are zeroing them!
@@ -186,7 +186,7 @@ static FSerialNumberManager GSerialNumberManager;
 **/
 void FWeakObjectPtr::Init()
 {
-	GUObjectArray.AddUObjectDeleteListener(&GSerialNumberManager);
+	GetUObjectArray().AddUObjectDeleteListener(&GSerialNumberManager);
 }
 
 /**  
@@ -198,7 +198,7 @@ void FWeakObjectPtr::operator=(const class UObject *Object)
 	if (Object // && UObjectInitialized() we might need this at some point, but it is a speed hit we would prefer to avoid
 		)
 	{
-		ObjectIndex = GUObjectArray.ObjectToIndex((UObjectBase*)Object);
+		ObjectIndex = GetUObjectArray().ObjectToIndex((UObjectBase*)Object);
 		ObjectSerialNumber = GSerialNumberManager.GetAndAllocateSerialNumber(ObjectIndex);
 		checkSlow(SerialNumbersMatch());
 	}
@@ -240,7 +240,7 @@ bool FWeakObjectPtr::IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) cons
 	{
 		return true;
 	}
-	return GUObjectArray.IsValid(ObjectIndex, bEvenIfPendingKill);
+	return GetUObjectArray().IsValid(ObjectIndex, bEvenIfPendingKill);
 }
 
 bool FWeakObjectPtr::IsStale(bool bEvenIfPendingKill, bool bThreadsafeTest) const
@@ -262,15 +262,25 @@ bool FWeakObjectPtr::IsStale(bool bEvenIfPendingKill, bool bThreadsafeTest) cons
 	{
 		return false;
 	}
-	return GUObjectArray.IsStale(ObjectIndex, bEvenIfPendingKill);
+	return GetUObjectArray().IsStale(ObjectIndex, bEvenIfPendingKill);
 }
 
 UObject* FWeakObjectPtr::Get(bool bEvenIfPendingKill) const
 {
-	UObject *Result = NULL;
+	UObject* Result = nullptr;
 	if (IsValid(true))
 	{
-		Result = (UObject*)(GUObjectArray.IndexToObject(GetObjectIndex(), bEvenIfPendingKill));
+		Result = (UObject*)(GetUObjectArray().IndexToObject(GetObjectIndex(), bEvenIfPendingKill));
+	}
+	return Result;
+}
+
+UObject* FWeakObjectPtr::GetEvenIfUnreachable() const
+{
+	UObject* Result = nullptr;
+	if (IsValid(true, true))
+	{
+		Result = static_cast<UObject*>(GetUObjectArray().IndexToObject(GetObjectIndex(), true));
 	}
 	return Result;
 }

@@ -368,7 +368,7 @@ void UUTGameViewportClient::FinalizeViews(FSceneViewFamily* ViewFamily, const TM
 			if (PC != NULL && PC->bCastingGuide)
 			{
 				ViewFamily->EngineShowFlags.PostProcessing = 0;
-				ViewFamily->EngineShowFlags.Atmosphere = 0;
+				ViewFamily->EngineShowFlags.AtmosphericFog = 0;
 				ViewFamily->EngineShowFlags.DynamicShadows = 0;
 				ViewFamily->EngineShowFlags.LightFunctions = 0;
 				ViewFamily->EngineShowFlags.ScreenSpaceReflections = 0;
@@ -477,6 +477,16 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 			if (!InputText.IsEmpty() && FirstPlayer != NULL)
 			{
 				FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
+
+				//add all of the options the client was connecting with
+				for (FString& Option : LastAttemptedURL.Op)
+				{
+					if (!Option.StartsWith(TEXT("password=")))
+					{
+						ReconnectCommand += TEXT("?") + Option;
+					}
+				}
+
 				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 			}
 		}
@@ -484,12 +494,21 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 #endif
 }
 
-void UUTGameViewportClient::ReconnectAfterDownloadingMap()
+void UUTGameViewportClient::ReconnectAfterDownloadingContent()
 {
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 	if (FirstPlayer != nullptr)
 	{
 		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
+		if (LastAttemptedURL.HasOption(TEXT("SpectatorOnly")))
+		{
+			ReconnectCommand += FString(TEXT("?SpectatorOnly=")) + LastAttemptedURL.GetOption(TEXT("SpectatorOnly"), TEXT(""));
+		}
+		if (LastAttemptedURL.HasOption(TEXT("password")))
+		{
+			ReconnectCommand += FString(TEXT("?password=")) + LastAttemptedURL.GetOption(TEXT("password"), TEXT(""));
+		}
+
 		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 	}
 }
@@ -499,7 +518,7 @@ void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, u
 #if !UE_SERVER
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		ReconnectAfterDownloadingMap();
+		ReconnectAfterDownloadingContent();
 	}
 #endif
 }
@@ -531,8 +550,7 @@ void UUTGameViewportClient::VerifyFilesToDownloadAndReconnect()
 			}
 		}
 
-		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+		ReconnectAfterDownloadingContent();
 	}
 #endif
 }
@@ -565,7 +583,7 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 		ReconnectAfterDownloadingMapDelay -= DeltaSeconds;
 		if (ReconnectAfterDownloadingMapDelay <= 0)
 		{
-			ReconnectAfterDownloadingMap();
+			ReconnectAfterDownloadingContent();
 		}
 	}
 
@@ -616,10 +634,11 @@ void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
 					// Failed too early, clean me up
 					ContentDownloadComplete.Broadcast(this, ERedirectStatus::Failed, PendingDownloads[0].FileURL);
 					PendingDownloads.RemoveAt(0);
+					return;
 				}
 				else
 				{
-					HttpRequestProgress(PendingDownloads[0].HttpRequest, 0);
+					HttpRequestProgress(PendingDownloads[0].HttpRequest, 0, 0);
 				}
 			}
 		}
@@ -701,13 +720,13 @@ void UUTGameViewportClient::CancelAllRedirectDownloads()
 	PendingDownloads.Empty();
 }
 
-void UUTGameViewportClient::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes)
+void UUTGameViewportClient::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv)
 {
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	
 	if (FirstPlayer && PendingDownloads.Num() > 0)
 	{
-		float Perc = HttpRequest->GetResponse()->GetContentLength() > 0 ? (NumBytes / HttpRequest->GetResponse()->GetContentLength()) : 0.0f;
-		FirstPlayer->UpdateRedirect(PendingDownloads[0].FileURL, NumBytes, Perc, PendingDownloads.Num());
+		float Perc = HttpRequest->GetResponse()->GetContentLength() > 0 ? (NumBytesRecv / HttpRequest->GetResponse()->GetContentLength()) : 0.0f;
+		FirstPlayer->UpdateRedirect(PendingDownloads[0].FileURL, NumBytesRecv, Perc, PendingDownloads.Num());
 	}
 }
 

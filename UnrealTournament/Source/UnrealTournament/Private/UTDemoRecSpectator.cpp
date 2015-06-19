@@ -6,23 +6,44 @@
 AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
 : Super(OI)
 {
+	bShouldPerformFullTickWhenPaused = true;
+}
+
+void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
+{
+	// we have to redirect back to the Pawn because engine hardcoded FTViewTarget code will reject a PlayerState with NULL owner
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (It->IsValid() && It->Get()->PlayerState == PS)
+		{
+			SetViewTarget(It->Get());
+		}
+	}
+}
+
+void AUTDemoRecSpectator::ViewSelf(FViewTargetTransitionParams TransitionParams)
+{
+	ServerViewSelf_Implementation(TransitionParams);
+}
+
+void AUTDemoRecSpectator::ServerViewProjectileShim()
+{
+	ServerViewProjectile_Implementation();
+}
+
+void AUTDemoRecSpectator::ViewPawn(APawn* PawnToView)
+{
+	ViewPlayerState(PawnToView->PlayerState);
 }
 
 void AUTDemoRecSpectator::ViewAPlayer(int32 dir)
 {
 	BehindView(bSpectateBehindView);
 
-	APlayerState* const PlayerState = GetNextViewablePlayer(dir);
+	APlayerState* const PS = GetNextViewablePlayer(dir);
 	if (PlayerState != NULL)
 	{
-		// we have to redirect back to the Pawn because engine hardcoded FTViewTarget code will reject a PlayerState with NULL owner
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			if (It->IsValid() && It->Get()->PlayerState == PlayerState)
-			{
-				SetViewTarget(It->Get());
-			}
-		}
+		ViewPlayerState(PS);
 	}
 }
 APlayerState* AUTDemoRecSpectator::GetNextViewablePlayer(int32 dir)
@@ -88,8 +109,8 @@ void AUTDemoRecSpectator::ReceivedPlayer()
 		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (Game != NULL)
 		{
-			TSubclassOf<UUTScoreboard> ScoreboardClass = LoadClass<UUTScoreboard>(NULL, *Game->ScoreboardClassName.AssetLongPathname, NULL, LOAD_None, NULL);
-			ClientSetHUDAndScoreboard(Game->HUDClass, ScoreboardClass);
+			HUDClass = Game->HUDClass;
+			OnRep_HUDClass();
 		}
 	}
 }
@@ -108,5 +129,58 @@ bool AUTDemoRecSpectator::CallRemoteFunction(UFunction* Function, void* Paramete
 	else
 	{
 		return false;
+	}
+}
+
+void AUTDemoRecSpectator::ClientTravelInternal_Implementation(const FString& URL, ETravelType TravelType, bool bSeamless, FGuid MapPackageGuid)
+{
+}
+
+void AUTDemoRecSpectator::BeginPlay()
+{
+	Super::BeginPlay();
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->OpenReplayWindow();
+	}
+}
+
+void AUTDemoRecSpectator::OnNetCleanup(class UNetConnection* Connection)
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseReplayWindow();
+	}
+	Super::OnNetCleanup(Connection);
+}
+
+void AUTDemoRecSpectator::ToggleReplayWindow()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->ToggleReplayWindow();
+	}
+}
+
+void AUTDemoRecSpectator::ShowMenu()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseReplayWindow();
+		LocalPlayer->ShowMenu();
+	}
+}
+
+void AUTDemoRecSpectator::HideMenu()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->HideMenu();
+		LocalPlayer->OpenReplayWindow();
 	}
 }

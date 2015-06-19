@@ -8,8 +8,8 @@ UCLASS(Abstract, meta = (ChildCanTick))
 class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
-
-	virtual void ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser) override;
+		
+	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser) override;
 
 	FVector ExplodeHitLocation;
@@ -27,19 +27,19 @@ class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 
 	/** Capsule collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
-		UCapsuleComponent* CapsuleComp;
+	UCapsuleComponent* CapsuleComp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-		TSubclassOf<class AUTImpactEffect> DetonateEffects;
+	TSubclassOf<class AUTImpactEffect> DetonateEffects;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-		FRadialDamageParams DetonateDamageParams;
+	FRadialDamageParams DetonateDamageParams;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-		TSubclassOf<UDamageType> DetonateDamageType;
+	TSubclassOf<UDamageType> DetonateDamageType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Detonate)
-		float DetonateMomentum;
+	float DetonateMomentum;
 
 	/** Replicate to client to play detonate effects client-side. */
 	UPROPERTY(Replicated)

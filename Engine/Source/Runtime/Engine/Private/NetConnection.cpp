@@ -13,6 +13,10 @@
 #include "Engine/PackageMapClient.h"
 #include "GameFramework/GameMode.h"
 
+#if WITH_EDITOR
+#include "UnrealEd.h"
+#endif
+
 /*-----------------------------------------------------------------------------
 	UNetConnection implementation.
 -----------------------------------------------------------------------------*/
@@ -23,12 +27,11 @@ UNetConnection::UNetConnection(const FObjectInitializer& ObjectInitializer)
 :	UPlayer(ObjectInitializer)
 ,	Driver				( NULL )
 ,	PackageMap			( NULL )
-,	Viewer				( NULL )
+,	ViewTarget			( NULL )
 ,   OwningActor			( NULL )
 ,	MaxPacket			( 0 )
 ,	InternalAck			( false )
 ,	State				( USOCK_Invalid )
-,	ProtocolVersion		( MIN_PROTOCOL_VERSION )
 ,	PacketOverhead		( 0 )
 ,	ResponseId			( 0 )
 
@@ -375,8 +378,6 @@ bool UNetConnection::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 void UNetConnection::AssertValid()
 {
 	// Make sure this connection is in a reasonable state.
-	check(ProtocolVersion>=MIN_PROTOCOL_VERSION);
-	check(ProtocolVersion<=MAX_PROTOCOL_VERSION);
 	check(State==USOCK_Closed || State==USOCK_Pending || State==USOCK_Open);
 
 }
@@ -428,6 +429,8 @@ void UNetConnection::InitSendBuffer()
 		// First time initialization needs to allocate the buffer
 		SendBuffer = FBitWriter(MaxPacket * 8);
 	}
+
+	ResetPacketBitCounts();
 
 	ValidateSendBuffer();
 }
@@ -486,6 +489,8 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 			WriteBitsToSendBuffer( NULL, 0 );		// This will force the packet id to be written
 		}
 
+		const int NumBitsPrePadding = SendBuffer.GetNumBits();
+
 		// Make sure packet size is byte-aligned.
 		SendBuffer.WriteBit( 1 );
 		while( SendBuffer.GetNumBits() & 7 )
@@ -494,11 +499,15 @@ void UNetConnection::FlushNet(bool bIgnoreSimulation)
 		}
 		ValidateSendBuffer();
 
+		NumPaddingBits += SendBuffer.GetNumBits() - NumBitsPrePadding;
+
+		NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
+
 		// Send now.
 #if DO_ENABLE_NET_TEST
 		// if the connection is closing/being destroyed/etc we need to send immediately regardless of settings
 		// because we won't be around to send it delayed
-		if (State == USOCK_Closed || GIsGarbageCollecting || bIgnoreSimulation)
+		if (State == USOCK_Closed || IsGarbageCollecting() || bIgnoreSimulation)
 		{
 			// Checked in FlushNet() so each child class doesn't have to implement this
 			if (Driver->IsNetResourceValid())
@@ -638,7 +647,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 	LastReceiveTime = Driver->Time;
 
 	// Check packet ordering.
-	const int32 PacketId = MakeRelative(Reader.ReadInt(MAX_PACKETID),InPacketId,MAX_PACKETID);
+	const int32 PacketId = InternalAck ? InPacketId + 1 : MakeRelative(Reader.ReadInt(MAX_PACKETID),InPacketId,MAX_PACKETID);
 	if( PacketId > InPacketId )
 	{
 		const int32 PacketsLost = PacketId - InPacketId - 1;
@@ -812,8 +821,16 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 
 			if ( Bunch.bReliable )
 			{
-				// If this is a reliable bunch, use the last processed reliable sequence to read the new reliable sequence
-				Bunch.ChSequence = MakeRelative( Reader.ReadInt( MAX_CHSEQUENCE ), InReliable[Bunch.ChIndex], MAX_CHSEQUENCE );
+				if ( InternalAck )
+				{
+					// We can derive the sequence for 100% reliable connections
+					Bunch.ChSequence = InReliable[Bunch.ChIndex] + 1;
+				}
+				else
+				{
+					// If this is a reliable bunch, use the last processed reliable sequence to read the new reliable sequence
+					Bunch.ChSequence = MakeRelative( Reader.ReadInt( MAX_CHSEQUENCE ), InReliable[Bunch.ChIndex], MAX_CHSEQUENCE );
+				}
 			} 
 			else if ( Bunch.bPartial )
 			{
@@ -870,6 +887,12 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 			{
 				UE_LOG(LogNetTraffic, Verbose, TEXT("   Unreliable Bunch, Channel %i: Size %.1f+%.1f"), Bunch.ChIndex, (HeaderPos-IncomingStartPos)/8.f, (Reader.GetPosBits()-HeaderPos)/8.f );
 			}
+
+			if ( Bunch.bOpen )
+			{
+				UE_LOG(LogNetTraffic, Verbose, TEXT("   bOpen Bunch, Channel %i Sequence %i: Size %.1f+%.1f"), Bunch.ChIndex, Bunch.ChSequence, (HeaderPos-IncomingStartPos)/8.f, (Reader.GetPosBits()-HeaderPos)/8.f );
+			}
+
 			if ( Channels[Bunch.ChIndex] == NULL && ( Bunch.ChIndex != 0 || Bunch.ChType != CHTYPE_Control ) )
 			{
 				// Can't handle other channels until control channel exists.
@@ -948,7 +971,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 				}
 
 				// Reliable (either open or later), so create new channel.
-				UE_LOG(LogNetTraffic, Log, TEXT("      Bunch Create %i: ChType %i"), Bunch.ChIndex, Bunch.ChType );
+				UE_LOG(LogNetTraffic, Log, TEXT("      Bunch Create %i: ChType %i, bReliable: %i, bPartial: %i, bPartialInitial: %i, bPartialFinal: %i"), Bunch.ChIndex, Bunch.ChType, (int)Bunch.bReliable, (int)Bunch.bPartial, (int)Bunch.bPartialInitial, (int)Bunch.bPartialFinal );
 				Channel = CreateChannel( (EChannelType)Bunch.ChType, false, Bunch.ChIndex );
 
 				// Notify the server of the new channel.
@@ -993,6 +1016,8 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 
 	ValidateSendBuffer();
 
+	check( !bSkipAck || !InternalAck );		// 100% reliable connections shouldn't be skipping acks
+
 	// Acknowledge the packet.
 	if ( !bSkipAck )
 	{
@@ -1004,7 +1029,8 @@ int32 UNetConnection::WriteBitsToSendBuffer(
 	const uint8 *	Bits, 
 	const int32		SizeInBits, 
 	const uint8 *	ExtraBits, 
-	const int32		ExtraSizeInBits )
+	const int32		ExtraSizeInBits,
+	EWriteBitsDataType DataType)
 {
 	ValidateSendBuffer();
 
@@ -1021,10 +1047,12 @@ int32 UNetConnection::WriteBitsToSendBuffer(
 	LastStart = FBitWriterMark( SendBuffer );
 
 	// If this is the start of the queue, make sure to add the packet id
-	if ( SendBuffer.GetNumBits() == 0 )
+	if ( SendBuffer.GetNumBits() == 0 && !InternalAck )
 	{
 		SendBuffer.WriteIntWrapped( OutPacketId, MAX_PACKETID );
 		ValidateSendBuffer();
+
+		NumPacketIdBits += SendBuffer.GetNumBits();
 	}
 
 	// Add the bits to the queue
@@ -1043,6 +1071,18 @@ int32 UNetConnection::WriteBitsToSendBuffer(
 
 	const int32 RememberedPacketId = OutPacketId;
 
+	switch ( DataType )
+	{
+		case EWriteBitsDataType::Bunch:
+			NumBunchBits += SizeInBits + ExtraSizeInBits;
+			break;
+		case EWriteBitsDataType::Ack:
+			NumAckBits += SizeInBits + ExtraSizeInBits;
+			break;
+		default:
+			break;
+	}
+
 	// Flush now if we are full
 	if ( GetFreeSendBufferBits() == 0 )
 	{
@@ -1059,11 +1099,18 @@ int64 UNetConnection::GetFreeSendBufferBits()
 	// Otherwise, we only need to account for trailer size
 	const int32 ExtraBits = ( SendBuffer.GetNumBits() > 0 ) ? MAX_PACKET_TRAILER_BITS : MAX_PACKET_HEADER_BITS + MAX_PACKET_TRAILER_BITS;
 
-	const int32 NumberOfFreeBits = ( MaxPacket * 8 ) - ( SendBuffer.GetNumBits() + ExtraBits );
+	const int32 NumberOfFreeBits = SendBuffer.GetMaxBits() - ( SendBuffer.GetNumBits() + ExtraBits );
 
 	check( NumberOfFreeBits >= 0 );
 
 	return NumberOfFreeBits;
+}
+
+void UNetConnection::PopLastStart()
+{
+	NumBunchBits -= SendBuffer.GetNumBits() - LastStart.GetNumBits();
+	LastStart.Pop(SendBuffer);
+	NETWORK_PROFILER(GNetworkProfiler.PopSendBunch(this));
 }
 
 void UNetConnection::PurgeAcks()
@@ -1106,7 +1153,9 @@ void UNetConnection::SendAck( int32 AckPacketId, bool FirstTime/*=1*/, bool bHav
 			}
 		}
 
-		WriteBitsToSendBuffer( AckData.GetData(), AckData.GetNumBits() );
+		NETWORK_PROFILER( GNetworkProfiler.TrackSendAck( AckData.GetNumBits() ) );
+
+		WriteBitsToSendBuffer( AckData.GetData(), AckData.GetNumBits(), nullptr, 0, EWriteBitsDataType::Ack );
 
 		AllowMerge = false;
 
@@ -1142,7 +1191,7 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 	Header.WriteBit( Bunch.bHasMustBeMappedGUIDs );
 	Header.WriteBit( Bunch.bPartial );
 
-	if ( Bunch.bReliable )
+	if ( Bunch.bReliable && !InternalAck )
 	{
 		Header.WriteIntWrapped(Bunch.ChSequence, MAX_CHSEQUENCE);
 	}
@@ -1175,8 +1224,10 @@ int32 UNetConnection::SendRawBunch( FOutBunch& Bunch, bool InAllowMerge )
 		UE_LOG(LogNetTraffic, VeryVerbose, TEXT("Sending: %s"), *Bunch.ToString());
 	}
 
+	NETWORK_PROFILER(GNetworkProfiler.PushSendBunch(this, &Bunch, Header.GetNumBits(), Bunch.GetNumBits()));
+
 	// Write the bits to the buffer and remember the packet id used
-	Bunch.PacketId = WriteBitsToSendBuffer( Header.GetData(), Header.GetNumBits(), Bunch.GetData(), Bunch.GetNumBits() );
+	Bunch.PacketId = WriteBitsToSendBuffer( Header.GetData(), Header.GetNumBits(), Bunch.GetData(), Bunch.GetNumBits(), EWriteBitsDataType::Bunch );
 
 	UE_LOG(LogNetTraffic, Verbose, TEXT("UNetConnection::SendRawBunch. ChIndex: %d. Bits: %d. PacketId: %d"), Bunch.ChIndex, Bunch.GetNumBits(), Bunch.PacketId );
 
@@ -1248,7 +1299,7 @@ UChannel* UNetConnection::CreateChannel( EChannelType ChType, bool bOpenedLocall
 	check(Channels[ChIndex]==NULL);
 
 	// Create channel.
-	UChannel* Channel = ConstructObject<UChannel>( UChannel::ChannelClasses[ChType] );
+	UChannel* Channel = NewObject<UChannel>(GetTransientPackage(), UChannel::ChannelClasses[ChType]);
 	Channel->Init( this, ChIndex, bOpenedLocally );
 	Channels[ChIndex] = Channel;
 	OpenChannels.Add(Channel);
@@ -1351,7 +1402,8 @@ void UNetConnection::Tick()
 	}
 	bool bUseTimeout = true;
 #if WITH_EDITOR
-	bUseTimeout = !(Driver->GetWorld() && Driver->GetWorld()->WorldType == EWorldType::PIE);
+	// Do not time out in PIE since the server is local.
+	bUseTimeout = !(GEditor && GEditor->PlayWorld);
 #endif
 	if ( bUseTimeout && Driver->Time - LastReceiveTime > Timeout )
 	{
@@ -1716,6 +1768,15 @@ void UNetConnection::FlushDormancyForObject( UObject* Object )
 		Replicator = &DormantReplicatorMap.Add( Object, TSharedRef<FObjectReplicator>( new FObjectReplicator() ) );
 
 		Replicator->Get().InitWithObject( Object, this, false );		// Init using the objects current state
+
+		// Flush the must be mapped GUIDs, the initialization may add them, but they're phantom and will be remapped when actually sending
+		UPackageMapClient * PackageMapClient = CastChecked< UPackageMapClient >(PackageMap);
+
+		if (PackageMapClient)
+		{
+			TArray< FNetworkGUID >& MustBeMappedGuidsInLastBunch = PackageMapClient->GetMustBeMappedGuidsInLastBunch();
+			MustBeMappedGuidsInLastBunch.Empty();
+		}	
 	}
 }
 
@@ -1830,3 +1891,10 @@ bool UNetConnection::TrackLogsPerSecond()
 	return true;
 }
 
+void UNetConnection::ResetPacketBitCounts()
+{
+	NumPacketIdBits = 0;
+	NumBunchBits = 0;
+	NumAckBits = 0;
+	NumPaddingBits = 0;
+}

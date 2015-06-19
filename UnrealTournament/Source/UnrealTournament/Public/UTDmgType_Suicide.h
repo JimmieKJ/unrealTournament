@@ -5,7 +5,7 @@
 #include "UTDmgType_Suicide.generated.h"
 
 UCLASS()
-class UUTDmgType_Suicide : public UUTDamageType
+class UNREALTOURNAMENT_API UUTDmgType_Suicide : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 };

@@ -4,7 +4,6 @@
 #include "EnginePrivate.h"
 #include "LevelUtils.h"
 #include "EditorSupportDelegates.h"
-#include "Foliage/InstancedFoliageActor.h"
 
 #if WITH_EDITOR
 #include "ScopedTransaction.h"
@@ -385,14 +384,9 @@ void FLevelUtils::ApplyLevelTransform( ULevel* Level, const FTransform& LevelTra
 		{
 			ApplyPostEditMove( Level );						
 		}
-
-		// We need to transform foliage Editor data which is stored in world space
-		AInstancedFoliageActor* FoliageActor = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(Level);
-		if (FoliageActor)
-		{
-			FoliageActor->ApplyLevelTransform(LevelTransform);
-		}
 #endif // WITH_EDITOR
+
+		Level->OnApplyLevelTransform.Broadcast(LevelTransform);
 	}
 }
 

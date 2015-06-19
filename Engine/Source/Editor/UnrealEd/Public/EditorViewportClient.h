@@ -157,6 +157,9 @@ struct FDropQuery
 	FText HintText;
 };
 
+// Forward declare
+class SEditorViewport;
+
 /** 
  * Stores the transformation data for the viewport camera
  */
@@ -205,7 +208,7 @@ public:
 	 * @param InDesiredLocation	The location to transition to
 	 * @param bInstant			If the desired location should be set instantly rather than transitioned to over time
 	 */
-	void TransitionToLocation( const FVector& InDesiredLocation, bool bInstant );
+	void TransitionToLocation( const FVector& InDesiredLocation, TWeakPtr<SWidget> EditorViewportWidget, bool bInstant );
 
 	/**
 	 * Updates any current location transitions
@@ -219,6 +222,9 @@ public:
 	 */
 	FMatrix ComputeOrbitMatrix() const;
 private:
+	/** The time when a transition to the desired location began */
+	//double TransitionStartTime;
+	
 	/** Curve for animating between locations */
 	TSharedPtr<struct FCurveSequence> TransitionCurve;
 	/** Current viewport Position. */
@@ -235,12 +241,14 @@ private:
 	float OrthoZoom;
 };
 
+/** Viewport client for editor viewports. Contains common functionality for camera movement, rendering debug information, etc. */
 class UNREALED_API FEditorViewportClient : public FCommonViewportClient, public FViewElementDrawer, public FGCObject
 {
 public:
 	friend class FMouseDeltaTracker;
 
-	FEditorViewportClient(FEditorModeTools* InModeTools, FPreviewScene* InPreviewScene = nullptr);
+	FEditorViewportClient(FEditorModeTools* InModeTools, FPreviewScene* InPreviewScene = nullptr, const TWeakPtr<SEditorViewport>& InEditorViewportWidget = nullptr);
+
 	virtual ~FEditorViewportClient();
 
 	/**
@@ -248,29 +256,10 @@ public:
 	 *
 	 * @return		The current state of the realtime flag.
 	 */
-	bool ToggleRealtime()
-	{ 
-		SetRealtime(!bIsRealtime);
-		return bIsRealtime;
-	}
+	bool ToggleRealtime();
 
 	/** Sets whether or not the viewport updates in realtime. */
-	void SetRealtime( bool bInRealtime, bool bStoreCurrentValue = false )
-	{ 
-		if( bStoreCurrentValue )
-		{
-			//Cache the Realtime and ShowStats flags
-			bStoredRealtime = bIsRealtime;
-			bStoredShowStats = bShowStats;
-		}
-		
-		bIsRealtime	= bInRealtime;
-
-		if( !bIsRealtime )
-		{
-			SetShowStats(false);
-		}
-	}
+	void SetRealtime(bool bInRealtime, bool bStoreCurrentValue = false);
 
 	/** @return		True if viewport is in realtime mode, false otherwise. */
 	bool IsRealtime() const				
@@ -282,19 +271,7 @@ public:
 	 * Restores realtime setting to stored value. This will only enable realtime and 
 	 * never disable it (unless bAllowDisable is true)
 	 */
-	void RestoreRealtime( const bool bAllowDisable = false )
-	{
-		if( bAllowDisable )
-		{
-			bIsRealtime = bStoredRealtime;
-			bShowStats = bStoredShowStats;
-		}
-		else
-		{
-			bIsRealtime |= bStoredRealtime;
-			bShowStats |= bStoredShowStats;
-		}
-	}
+	void RestoreRealtime(const bool bAllowDisable = false);
 
 
 	// this set ups camera for both orbit and non orbit control
@@ -460,7 +437,7 @@ public:
 	virtual FStatHitchesData* GetStatHitchesData() const override;
 	virtual const TArray<FString>* GetEnabledStats() const override;
 	virtual void SetEnabledStats(const TArray<FString>& InEnabledStats) override;
-	virtual bool IsStatEnabled(const TCHAR* InName) const override;
+	virtual bool IsStatEnabled(const FString& InName) const override;
 
 	/** FGCObject interface */
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -570,6 +547,9 @@ public:
 	 */
 	virtual void DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas);
 
+	// Draws a visualization of the preview light if it was recently moved
+	virtual void DrawPreviewLightVisualization(const FSceneView* View, FPrimitiveDrawInterface* PDI);
+
 	/**
 	 * Render the drag tool in the viewport
 	 */
@@ -635,14 +615,14 @@ public:
 	virtual TSharedPtr<class FDragTool> MakeDragTool( EDragTool::Type DragToolType );
 
 	/** @return true if a drag tool can be used */
-	bool CanUseDragTool() const;
+	virtual bool CanUseDragTool() const;
 
 	/** @return Whether or not to orbit the camera */
-	virtual bool ShouldOrbitCamera() const ;
+	virtual bool ShouldOrbitCamera() const;
 
 	bool IsMovingCamera() const;
 
-	virtual void UpdateLinkedOrthoViewports( bool bInvalidate = false ) {};
+	virtual void UpdateLinkedOrthoViewports( bool bInvalidate = false ) {}
 
 	/**
 	 * @return true to lock the pitch of the viewport camera
@@ -737,10 +717,7 @@ public:
 	 *
 	 * @param	bWantStats	true if stats should be displayed
 	 */
-	void SetShowStats( bool bWantStats )
-	{
-		bShowStats = bWantStats;
-	}
+	void SetShowStats( bool bWantStats );
 	
 	/**
 	 * Sets how the viewport is displayed (lit, wireframe, etc) for the current viewport type
@@ -1008,6 +985,9 @@ public:
 	void OverrideFarClipPlane(const float InFarPlane);
 
 protected:
+	/** Invalidates the viewport widget (if valid) to register its active timer */
+	void InvalidateViewportWidget();
+
 	/** Subclasses may override the near clipping plane. Set to a negative value to disable the override. */
 	void OverrideNearClipPlane(float InNearPlane);
 
@@ -1198,7 +1178,7 @@ private:
 
 	void DrawSafeFrameQuad( FCanvas &Canvas, FVector2D V1, FVector2D V2 );
 	
-	virtual FEngineShowFlags* GetEngineShowFlags() 
+	virtual FEngineShowFlags* GetEngineShowFlags() override
 	{ 
 		return &EngineShowFlags; 
 	}
@@ -1400,6 +1380,9 @@ protected:
 	/** Draw helper for rendering common editor functionality like the grid */
 	FEditorCommonDrawHelper DrawHelper;
 
+	/** The editor viewport widget this client is attached to */
+	TWeakPtr<SEditorViewport> EditorViewportWidget;
+
 	/** The scene used for the viewport. Owned externally */
 	FPreviewScene* PreviewScene;
 
@@ -1408,7 +1391,12 @@ protected:
 	FVector DefaultOrbitLocation;
 	FVector DefaultOrbitZoom;
 	FVector DefaultOrbitLookAt;
-	
+
+protected:
+	// Used for the display of the current preview light after it has been adjusted
+	FVector2D MovingPreviewLightSavedScreenPos;
+	float MovingPreviewLightTimer;
+
 public:
 	/* Default view mode for perspective viewports */
 	static const EViewModeIndex DefaultPerspectiveViewMode;
@@ -1441,6 +1429,9 @@ private:
 
 	/** If true, we are in Game View mode*/
 	bool bInGameViewMode;
+
+	/** If true, the viewport widget should be invalidated on the next tick (needed to ensure thread safety) */
+	bool bShouldInvalidateViewportWidget;
 };
 
 

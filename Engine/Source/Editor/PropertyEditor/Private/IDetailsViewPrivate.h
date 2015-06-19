@@ -77,6 +77,11 @@ public:
 	 */
 	virtual bool IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const = 0;
 
+	/**
+	 * @return True if the property is visible
+	 */
+	virtual bool IsPropertyReadOnly( const struct FPropertyAndParent& PropertyAndParent ) const = 0;
+
 	virtual TSharedPtr<IDetailKeyframeHandler> GetKeyframeHandler() = 0;
 
 	virtual TSharedPtr<IDetailPropertyExtensionHandler> GetExtensionHandler() = 0;

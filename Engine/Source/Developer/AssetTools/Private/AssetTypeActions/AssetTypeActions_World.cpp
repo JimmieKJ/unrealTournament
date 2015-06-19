@@ -35,7 +35,7 @@ UThumbnailInfo* FAssetTypeActions_World::GetThumbnailInfo(UObject* Asset) const
 	UThumbnailInfo* ThumbnailInfo = World->ThumbnailInfo;
 	if (ThumbnailInfo == NULL)
 	{
-		ThumbnailInfo = ConstructObject<UWorldThumbnailInfo>(UWorldThumbnailInfo::StaticClass(), World);
+		ThumbnailInfo = NewObject<UWorldThumbnailInfo>(World);
 		World->ThumbnailInfo = ThumbnailInfo;
 	}
 

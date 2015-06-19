@@ -6,12 +6,14 @@
 #include "STextComboBox.h"
 
 // Add in the constants from the static mesh editor as we need them here too
-const int32 DefaultHullCount = 4;
-const int32 DefaultVertsPerHull = 12;
-const int32 MaxHullCount = 24;
-const int32 MinHullCount = 1;
+const float MaxHullAccuracy = 1.f;
+const float MinHullAccuracy = 0.f;
+const float DefaultHullAccuracy = 0.5f;
+const float HullAccuracyDelta = 0.01f;
+
 const int32 MaxVertsPerHullCount = 32;
 const int32 MinVertsPerHullCount = 6;
+const int32 DefaultVertsPerHull = 16;
 
 void SPhATNewAssetDlg::Construct(const FArguments& InArgs)
 {
@@ -41,7 +43,7 @@ void SPhATNewAssetDlg::Construct(const FArguments& InArgs)
 	// Initialize new body parameters
 	NewBodyData->Initialize();
 
-	NewBodyData->MaxHullCount = DefaultHullCount;
+	NewBodyData->HullAccuracy = DefaultHullAccuracy;
 	NewBodyData->MaxHullVerts = DefaultVertsPerHull;
 
 	this->ChildSlot
@@ -159,22 +161,23 @@ void SPhATNewAssetDlg::Construct(const FArguments& InArgs)
 					.IsChecked(NewBodyData->bBodyForAll ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 					.OnCheckStateChanged(this, &SPhATNewAssetDlg::OnToggleCreateBodyForAllBones)
 				]
-				// Add in the UI options for the max hulls and the max verts on the hulls
+				// Add in the UI options for the accuracy and the max verts on the hulls
 				+SUniformGridPanel::Slot(0, 7)
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
 						.Visibility(this, &SPhATNewAssetDlg::GetHullOptionsVisibility )
-						.Text( NSLOCTEXT("PhAT", "MaxNumHulls_ConvexDecomp", "Max Num Hulls") )
+						.Text( NSLOCTEXT("PhAT", "Accuracy_ConvexDecomp", "Accuracy") )
 					]
 				+SUniformGridPanel::Slot(1, 7)
 					[
-						SAssignNew(MaxHull, SSpinBox<int32>)
+						SAssignNew(HullAccuracy, SSpinBox<float>)
 						.Visibility(this, &SPhATNewAssetDlg::GetHullOptionsVisibility )
-						.MinValue(MinHullCount)
-						.MaxValue(MaxHullCount)
-						.Value( this, &SPhATNewAssetDlg::GetHullCount )
-						.OnValueChanged( this, &SPhATNewAssetDlg::OnHullCountChanged )
+						.MinValue(MinHullAccuracy)
+						.MaxValue(MaxHullAccuracy)
+						.Delta(HullAccuracyDelta)
+						.Value( this, &SPhATNewAssetDlg::GetHullAccuracy )
+						.OnValueChanged( this, &SPhATNewAssetDlg::OnHullAccuracyChanged )
 					]
 				+SUniformGridPanel::Slot(0, 8)
 					.VAlign(VAlign_Center)
@@ -337,9 +340,9 @@ EVisibility SPhATNewAssetDlg::GetHullOptionsVisibility() const
 	return NewBodyData->GeomType == EFG_MultiConvexHull ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-void SPhATNewAssetDlg::OnHullCountChanged(int32 InNewValue)
+void SPhATNewAssetDlg::OnHullAccuracyChanged(float InNewValue)
 {
-	NewBodyData->MaxHullCount = InNewValue;
+	NewBodyData->HullAccuracy = InNewValue;
 }
 
 void SPhATNewAssetDlg::OnVertsPerHullCountChanged(int32 InNewValue)
@@ -347,9 +350,9 @@ void SPhATNewAssetDlg::OnVertsPerHullCountChanged(int32 InNewValue)
 	NewBodyData->MaxHullVerts = InNewValue;
 }
 
-int32 SPhATNewAssetDlg::GetHullCount() const
+float SPhATNewAssetDlg::GetHullAccuracy() const
 {
-	return NewBodyData->MaxHullCount;
+	return NewBodyData->HullAccuracy;
 }
 
 int32 SPhATNewAssetDlg::GetVertsPerHullCount() const

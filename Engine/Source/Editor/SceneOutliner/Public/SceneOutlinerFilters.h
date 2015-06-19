@@ -9,7 +9,6 @@
 #include "FolderTreeItem.h"
 #include "ActorTreeItem.h"
 #include "WorldTreeItem.h"
-#include "LevelBlueprintTreeItem.h"
 
 namespace SceneOutliner
 {
@@ -50,9 +49,6 @@ namespace SceneOutliner
 		
 		/** Overridden in derived types to filter worlds */
 		virtual bool PassesFilter(const UWorld* World) const { return DefaultBehaviour == EDefaultFilterBehaviour::Pass; }
-		
-		/** Overridden in derived types to filter level blueprints */
-		virtual bool PassesFilter(const FLevelBlueprintHandle& LevelBlueprint) const { return DefaultBehaviour == EDefaultFilterBehaviour::Pass; }
 
 		/** Overridden in derived types to filter folders */
 		virtual bool PassesFilter(FName Folder) const { return DefaultBehaviour == EDefaultFilterBehaviour::Pass; }
@@ -86,11 +82,6 @@ namespace SceneOutliner
 			}
 		}
 
-		virtual void Visit(const FLevelBlueprintTreeItem& LevelBlueprintItem) const override
-		{
-			bTransientFilterResult = PassesFilter(LevelBlueprintItem.Handle);
-		}
-
 		virtual void Visit(const FFolderTreeItem& FolderItem) const override
 		{
 			bTransientFilterResult = PassesFilter(FolderItem.Path);
@@ -106,7 +97,6 @@ namespace SceneOutliner
 
 	DECLARE_DELEGATE_RetVal_OneParam( bool, FActorFilterPredicate, const AActor* );
 	DECLARE_DELEGATE_RetVal_OneParam( bool, FWorldFilterPredicate, const UWorld* );
-	DECLARE_DELEGATE_RetVal_OneParam( bool, FLevelBlueprintFilterPredicate, const FLevelBlueprintHandle& );
 	DECLARE_DELEGATE_RetVal_OneParam( bool, FFolderFilterPredicate, FName );
 
 	/** Predicate based filter for the outliner */
@@ -118,8 +108,6 @@ namespace SceneOutliner
 		mutable FWorldFilterPredicate	WorldPred;
 		/** Predicate used to filter Folders */
 		mutable FFolderFilterPredicate	FolderPred;
-		/** Predicate used to filter level blueprints */
-		mutable FLevelBlueprintFilterPredicate LevelBlueprintPred;
 
 		FOutlinerPredicateFilter(FActorFilterPredicate InActorPred, EDefaultFilterBehaviour InDefaultBehaviour, EFailedFilterState InFailedFilterState = EFailedFilterState::NonInteractive)
 			: FOutlinerFilter(InDefaultBehaviour, InFailedFilterState)
@@ -136,11 +124,6 @@ namespace SceneOutliner
 			, FolderPred(InFolderPred)
 		{}
 
-		FOutlinerPredicateFilter(FLevelBlueprintFilterPredicate InLevelBpPred, EDefaultFilterBehaviour InDefaultBehaviour, EFailedFilterState InFailedFilterState = EFailedFilterState::NonInteractive)
-			: FOutlinerFilter(InDefaultBehaviour, InFailedFilterState)
-			, LevelBlueprintPred(InLevelBpPred)
-		{}
-
 		virtual bool PassesFilter(const AActor* Actor) const override
 		{
 			return ActorPred.IsBound() ? ActorPred.Execute(Actor) : DefaultBehaviour == EDefaultFilterBehaviour::Pass;
@@ -149,11 +132,6 @@ namespace SceneOutliner
 		virtual bool PassesFilter(const UWorld* World) const override
 		{
 			return WorldPred.IsBound() ? WorldPred.Execute(World) : DefaultBehaviour == EDefaultFilterBehaviour::Pass;
-		}
-
-		virtual bool PassesFilter(const FLevelBlueprintHandle& Handle) const override
-		{
-			return LevelBlueprintPred.IsBound() ? LevelBlueprintPred.Execute(Handle) : DefaultBehaviour == EDefaultFilterBehaviour::Pass;
 		}
 
 		virtual bool PassesFilter(FName Folder) const override
@@ -174,7 +152,7 @@ namespace SceneOutliner
 		/** Test whether this tree item passes all filters, and set its interactive state according to the filter it failed (if applicable) */
 		bool TestAndSetInteractiveState(ITreeItem& InItem) const
 		{
-			bool bPassed = false;
+			bool bPassed = true;
 
 			// Default to interactive
 			InItem.Flags.bInteractive = true;

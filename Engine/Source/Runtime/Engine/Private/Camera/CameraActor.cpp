@@ -17,7 +17,7 @@ ACameraActor::ACameraActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	// Setup camera defaults
-	CameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("CameraComponent"));
+	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
 	CameraComponent->FieldOfView = 90.0f;
 	CameraComponent->bConstrainAspectRatio = true;
 	CameraComponent->AspectRatio = 1.777778f;

@@ -1,11 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
-
 #include "GenericErrorReport.h"
 #include "XmlFile.h"
 #include "CrashReportUtil.h"
 #include "CrashDescription.h"
+#include "EngineBuildSettings.h"
 
 // ----------------------------------------------------------------
 // Helpers
@@ -76,13 +76,13 @@ bool FGenericErrorReport::SetUserComment(const FText& UserComment, bool bAllowTo
 	FString MachineIDandUserID;
 	// Set global user name ID: will be added to the report
 	extern FCrashDescription& GetCrashDescription();
-	if( FRocketSupport::IsRocket() )
+
+	MachineIDandUserID = FString::Printf( TEXT( "!MachineId:%s!EpicAccountId:%s" ), *GetCrashDescription().MachineId, *GetCrashDescription().EpicAccountId );
+
+	const bool bSendName = FEngineBuildSettings::IsInternalBuild() || FEngineBuildSettings::IsPerforceBuild() || FEngineBuildSettings::IsSourceDistribution();
+	if (bSendName)
 	{
-		MachineIDandUserID = FString::Printf( TEXT( "!MachineId:%s!EpicAccountId:%s" ), *GetCrashDescription().MachineId, *GetCrashDescription().EpicAccountId );
-	}
-	else
-	{
-		MachineIDandUserID = FString::Printf( TEXT( "!MachineId:%s!Name:%s" ), *GetCrashDescription().MachineId, *GetCrashDescription().UserName );
+		MachineIDandUserID += FString::Printf( TEXT( "!Name:%s" ), *GetCrashDescription().UserName );
 	}
 
 	// Add or update a user ID.
@@ -118,12 +118,6 @@ TArray<FString> FGenericErrorReport::GetFilesToUpload() const
 
 	for (const auto& Filename: ReportFilenames)
 	{
-		if (FRocketSupport::IsRocket() && Filename.EndsWith(TEXT(".log")))
-		{
-			// Temporarily side-step privacy concerns by not uploading UE4 release builds' logs
-			continue;
-		}
-
 		FilesToUpload.Push(ReportDirectory / Filename);
 	}
 	return FilesToUpload;
@@ -144,7 +138,7 @@ bool FGenericErrorReport::LoadWindowsReportXmlFile( FString& OutString ) const
 bool FGenericErrorReport::TryReadDiagnosticsFile(FText& OutReportDescription)
 {
 	FString FileContent;
-	if (!FFileHelper::LoadFileToString(FileContent, *(ReportDirectory / GDiagnosticsFilename)))
+	if (!FFileHelper::LoadFileToString(FileContent, *(ReportDirectory / FCrashReportClientConfig::Get().GetDiagnosticsFilename())))
 	{
 		// No diagnostics file
 		return false;
@@ -224,7 +218,18 @@ bool FGenericErrorReport::FindFirstReportFileWithExtension(FString& OutFilename,
 
 FString FGenericErrorReport::FindCrashedAppName() const
 {
-	UE_LOG( LogTemp, Warning, TEXT( "FGenericPlatformMemory::Init not implemented on this platform" ) );
-	return FString( TEXT( "GenericAppName" ) );
+	FString AppPath = FindCrashedAppPath();
+	if (!AppPath.IsEmpty())
+	{
+		return FPaths::GetCleanFilename(AppPath);
+	}
+
+	return AppPath;
+}
+
+FString FGenericErrorReport::FindCrashedAppPath() const
+{
+	UE_LOG( LogTemp, Warning, TEXT( "FGenericErrorReport::FindCrashedAppPath not implemented on this platform" ) );
+	return FString( TEXT( "GenericAppPath" ) );
 }
 

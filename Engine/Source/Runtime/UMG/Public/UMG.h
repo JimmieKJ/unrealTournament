@@ -102,6 +102,8 @@
 #include "ScaleBoxSlot.h"
 #include "ScaleBox.h"
 
+#include "ExpandableArea.h"
+
 #include "Spacer.h"
 #include "MenuAnchor.h"
 #include "ScrollBar.h"

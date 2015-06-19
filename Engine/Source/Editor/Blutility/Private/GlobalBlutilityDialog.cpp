@@ -126,29 +126,11 @@ FLinearColor FGlobalBlutilityDialog::GetWorldCentricTabColorScale() const
 
 void FGlobalBlutilityDialog::CreateInternalWidgets()
 {
-	// Helper for hiding private blueprint variables
-	struct Local
-	{
-		static bool IsPropertyVisible(const FPropertyAndParent& PropertyAndParent)
-		{
-			// For details views in the level editor all properties are the instanced versions
-			if (PropertyAndParent.Property.HasAllPropertyFlags(CPF_DisableEditOnInstance))
-			{
-				return false;
-			}
-			else
-			{
-				return true;
-			}
-		}
-	};
-
 	// Create a details view
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	const FDetailsViewArgs DetailsViewArgs(/*bUpdateFromSelection=*/ false, /*bLockable=*/ false, /*bAllowSearch=*/ false, FDetailsViewArgs::HideNameArea, /*bHideSelectionTip=*/ true);
+	FDetailsViewArgs DetailsViewArgs(/*bUpdateFromSelection=*/ false, /*bLockable=*/ false, /*bAllowSearch=*/ false, FDetailsViewArgs::HideNameArea, /*bHideSelectionTip=*/ true);
+	DetailsViewArgs.DefaultsOnlyVisibility = FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Hide;
 	DetailsView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
-
-	DetailsView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateStatic(&Local::IsPropertyVisible));
 }
 
 void FGlobalBlutilityDialog::UpdatePropertyWindow(const TArray<UObject*>& SelectedObjects)

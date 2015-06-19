@@ -16,12 +16,14 @@
 #include "EngineAnalytics.h"
 #include "STextComboBox.h"
 
-const int32 DefaultHullCount = 4;
-const int32 DefaultVertsPerHull = 12;
-const int32 MaxHullCount = 24;
-const int32 MinHullCount = 1;
+const float MaxHullAccuracy = 1.f;
+const float MinHullAccuracy = 0.f;
+const float DefaultHullAccuracy = 0.5f;
+const float HullAccuracyDelta = 0.01f;
+
 const int32 MaxVertsPerHullCount = 32;
 const int32 MinVertsPerHullCount = 6;
+const int32 DefaultVertsPerHull = 16;
 
 #define LOCTEXT_NAMESPACE "StaticMeshEditor"
 DEFINE_LOG_CATEGORY_STATIC(LogStaticMeshEditorTools,Log,All);
@@ -109,7 +111,7 @@ void SConvexDecomposition::Construct(const FArguments& InArgs)
 {
 	StaticMeshEditorPtr = InArgs._StaticMeshEditorPtr;
 
-	CurrentMaxHullCount = DefaultHullCount;
+	CurrentHullAccuracy = DefaultHullAccuracy;
 	CurrentMaxVertsPerHullCount = DefaultVertsPerHull;
 
 	this->ChildSlot
@@ -125,18 +127,19 @@ void SConvexDecomposition::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text( LOCTEXT("MaxNumHulls_ConvexDecomp", "Max Hulls") )
+				.Text( LOCTEXT("HullAccuracy_ConvexDecomp", "Accuracy") )
 			]
 
 			+SHorizontalBox::Slot()
 			.FillWidth(3.0f)
 			[
-				SAssignNew(MaxHull, SSpinBox<int32>)
-				.MinValue(MinHullCount)
-				.MaxValue(MaxHullCount)
-				.Value( this, &SConvexDecomposition::GetHullCount )
-				.OnValueCommitted( this, &SConvexDecomposition::OnHullCountCommitted )
-				.OnValueChanged( this, &SConvexDecomposition::OnHullCountChanged )
+				SAssignNew(HullAccuracy, SSpinBox<float>)
+				.MinValue(MinHullAccuracy)
+				.MaxValue(MaxHullAccuracy)
+				.Delta(HullAccuracyDelta)
+				.Value( this, &SConvexDecomposition::GetHullAccuracy )
+				.OnValueCommitted( this, &SConvexDecomposition::OnHullAccuracyCommitted )
+				.OnValueChanged( this, &SConvexDecomposition::OnHullAccuracyChanged )
 			]
 		]
 
@@ -230,32 +233,32 @@ SConvexDecomposition::~SConvexDecomposition()
 
 FReply SConvexDecomposition::OnApplyDecomp()
 {
-	StaticMeshEditorPtr.Pin()->DoDecomp(CurrentMaxHullCount, CurrentMaxVertsPerHullCount);
+	StaticMeshEditorPtr.Pin()->DoDecomp(CurrentHullAccuracy, CurrentMaxVertsPerHullCount);
 
 	return FReply::Handled();
 }
 
 FReply SConvexDecomposition::OnDefaults()
 {
-	CurrentMaxHullCount = DefaultHullCount;
+	CurrentHullAccuracy = DefaultHullAccuracy;
 	CurrentMaxVertsPerHullCount = DefaultVertsPerHull;
 
 	return FReply::Handled();
 }
 
-void SConvexDecomposition::OnHullCountCommitted(int32 InNewValue, ETextCommit::Type CommitInfo)
+void SConvexDecomposition::OnHullAccuracyCommitted(float InNewValue, ETextCommit::Type CommitInfo)
 {
-	OnHullCountChanged(InNewValue);
+	OnHullAccuracyChanged(InNewValue);
 }
 
-void SConvexDecomposition::OnHullCountChanged(int32 InNewValue)
+void SConvexDecomposition::OnHullAccuracyChanged(float InNewValue)
 {
-	CurrentMaxHullCount = InNewValue;
+	CurrentHullAccuracy = InNewValue;
 }
 
-int32 SConvexDecomposition::GetHullCount() const
+float SConvexDecomposition::GetHullAccuracy() const
 {
-	return CurrentMaxHullCount;
+	return CurrentHullAccuracy;
 }
 void SConvexDecomposition::OnVertsPerHullCountCommitted(int32 InNewValue,  ETextCommit::Type CommitInfo)
 {
@@ -312,7 +315,15 @@ void FMeshBuildSettingsLayout::GenerateHeaderRowContent( FDetailWidgetRow& NodeR
 	];
 }
 
-TAutoConsoleVariable<int32> GEnableMikkTSpaceCVar(TEXT("r.MikkTSPaceOptional"),0,TEXT("Set to be non-zero to display the option of using MikkTSpace to generate tangents for static meshes. MikkTSpace is the default."),ECVF_Default);
+FString FMeshBuildSettingsLayout::GetCurrentDistanceFieldReplacementMeshPath() const
+{
+	return BuildSettings.DistanceFieldReplacementMesh ? BuildSettings.DistanceFieldReplacementMesh->GetPathName() : FString("");
+}
+
+void FMeshBuildSettingsLayout::OnDistanceFieldReplacementMeshSelected(const FAssetData& AssetData)
+{
+	BuildSettings.DistanceFieldReplacementMesh = Cast<UStaticMesh>(AssetData.GetAsset());
+}
 
 void FMeshBuildSettingsLayout::GenerateChildContent( IDetailChildrenBuilder& ChildrenBuilder )
 {
@@ -349,14 +360,13 @@ void FMeshBuildSettingsLayout::GenerateChildContent( IDetailChildrenBuilder& Chi
 		];
 	}
 
-	if (GEnableMikkTSpaceCVar.GetValueOnAnyThread())
 	{
-		ChildrenBuilder.AddChildContent( LOCTEXT("UseMikkTSpace", "Use MikkTSpace") )
+		ChildrenBuilder.AddChildContent( LOCTEXT("UseMikkTSpace", "Use MikkTSpace Tangent Space") )
 		.NameContent()
 		[
 			SNew(STextBlock)
 			.Font( IDetailLayoutBuilder::GetDetailFont() )
-			.Text(LOCTEXT("UseMikkTSpace", "Use MikkTSpace"))
+			.Text(LOCTEXT("UseMikkTSpace", "Use MikkTSpace Tangent Space"))
 		]
 		.ValueContent()
 		[
@@ -529,6 +539,26 @@ void FMeshBuildSettingsLayout::GenerateChildContent( IDetailChildrenBuilder& Chi
 			SNew(SCheckBox)
 			.IsChecked(this, &FMeshBuildSettingsLayout::ShouldGenerateDistanceFieldAsIfTwoSided)
 			.OnCheckStateChanged(this, &FMeshBuildSettingsLayout::OnGenerateDistanceFieldAsIfTwoSidedChanged)
+		];
+	}
+
+	{
+		TSharedRef<SWidget> PropWidget = SNew(SObjectPropertyEntryBox)
+			.AllowedClass(UStaticMesh::StaticClass())
+			.AllowClear(true)
+			.ObjectPath(this, &FMeshBuildSettingsLayout::GetCurrentDistanceFieldReplacementMeshPath)
+			.OnObjectChanged(this, &FMeshBuildSettingsLayout::OnDistanceFieldReplacementMeshSelected);
+
+		ChildrenBuilder.AddChildContent( LOCTEXT("DistanceFieldReplacementMesh", "Distance Field Replacement Mesh") )
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text(LOCTEXT("DistanceFieldReplacementMesh", "Distance Field Replacement Mesh"))
+		]
+		.ValueContent()
+		[
+			PropWidget
 		];
 	}
 
@@ -1431,7 +1461,8 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 	IDetailCategoryBuilder& LODSettingsCategory =
 		DetailBuilder.EditCategory( "LodSettings", LOCTEXT("LodSettingsCategory", "LOD Settings") );
 
-	
+	int32 LODGroupIndex = LODGroupNames.Find(StaticMesh->LODGroup);
+	check(LODGroupIndex == INDEX_NONE || LODGroupIndex < LODGroupOptions.Num());
 
 	LODSettingsCategory.AddCustomRow( LOCTEXT("LODGroup", "LOD Group") )
 	.NameContent()
@@ -1445,7 +1476,7 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 		SNew(STextComboBox)
 		.ContentPadding(0)
 		.OptionsSource(&LODGroupOptions)
-		.InitiallySelectedItem(LODGroupOptions[LODGroupNames.Find(StaticMesh->LODGroup)])
+		.InitiallySelectedItem(LODGroupOptions[(LODGroupIndex == INDEX_NONE) ? 0 : LODGroupIndex])
 		.OnSelectionChanged(this, &FLevelOfDetailSettingsLayout::OnLODGroupChanged)
 	];
 	
@@ -1464,6 +1495,26 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 			.InitiallySelectedItem(LODNames[0])
 			.OnSelectionChanged(this, &FLevelOfDetailSettingsLayout::OnImportLOD)
 		];
+
+	LODSettingsCategory.AddCustomRow( LOCTEXT("MinLOD", "Minimum LOD") )
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Font( IDetailLayoutBuilder::GetDetailFont() )
+		.Text(LOCTEXT("MinLOD", "Minimum LOD"))
+	]
+	.ValueContent()
+	[
+		SNew(SSpinBox<int32>)
+		.Font( IDetailLayoutBuilder::GetDetailFont() )
+		.Value(this, &FLevelOfDetailSettingsLayout::GetMinLOD)
+		.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnMinLODChanged)
+		.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnMinLODCommitted)
+		.MinValue(0)
+		.MaxValue(MAX_STATIC_MESH_LODS)
+		.ToolTipText(this, &FLevelOfDetailSettingsLayout::GetMinLODTooltip)
+		.IsEnabled(FLevelOfDetailSettingsLayout::GetLODCount() > 1)
+	];
 
 	// Add Number of LODs slider.
 	const int32 MinAllowedLOD = 1;
@@ -1809,18 +1860,14 @@ void FLevelOfDetailSettingsLayout::OnLODGroupChanged(TSharedPtr<FString> NewValu
 			check(Platform);
 			const FStaticMeshLODGroup& GroupSettings = Platform->GetStaticMeshLODSettings().GetLODGroup(NewGroup);
 
-			// Set the number of LODs to the default.
-			LODCount = GroupSettings.GetDefaultNumLODs();
-			if (StaticMesh->SourceModels.Num() > LODCount)
-			{
-				int32 NumToRemove = StaticMesh->SourceModels.Num() - LODCount;
-				StaticMesh->SourceModels.RemoveAt(LODCount, NumToRemove);
-			}
-			while (StaticMesh->SourceModels.Num() < LODCount)
+			// Set the number of LODs to at least the default. If there are already LODs they will be preserved, with default settings of the new LOD group.
+			int32 DefaultLODCount = GroupSettings.GetDefaultNumLODs();
+
+			while (StaticMesh->SourceModels.Num() < DefaultLODCount)
 			{
 				new(StaticMesh->SourceModels) FStaticMeshSourceModel();
 			}
-			check(StaticMesh->SourceModels.Num() == LODCount);
+			LODCount = DefaultLODCount;
 
 			// Set reduction settings to the defaults.
 			for (int32 LODIndex = 0; LODIndex < LODCount; ++LODIndex)
@@ -2018,6 +2065,37 @@ FText FLevelOfDetailSettingsLayout::GetLODCountTooltip() const
 	}
 
 	return LOCTEXT("LODCountTooltip_Disabled", "Auto mesh reduction is unavailable! Please provide a mesh reduction interface such as Simplygon to use this feature or manually import LOD levels.");
+}
+
+int32 FLevelOfDetailSettingsLayout::GetMinLOD() const
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+
+	return StaticMesh->MinLOD;
+}
+
+void FLevelOfDetailSettingsLayout::OnMinLODChanged(int32 NewValue)
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+
+	{
+		FStaticMeshComponentRecreateRenderStateContext ReregisterContext(StaticMesh,false);
+		StaticMesh->MinLOD = FMath::Clamp<int32>(NewValue, 0, MAX_STATIC_MESH_LODS - 1);
+		StaticMesh->Modify();
+	}
+	StaticMeshEditor.RefreshViewport();
+}
+
+void FLevelOfDetailSettingsLayout::OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo)
+{
+	OnMinLODChanged(InValue);
+}
+
+FText FLevelOfDetailSettingsLayout::GetMinLODTooltip() const
+{
+	return LOCTEXT("MinLODTooltip", "The minimum LOD to use for rendering.  This can be overridden in components.");
 }
 
 #undef LOCTEXT_NAMESPACE

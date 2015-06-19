@@ -34,7 +34,7 @@ FORCEINLINE TCacheDirect<T, Size>::TCacheDirect()
 {
 	static_assert((Size & (Size - 1)) == 0, "Size must be power of 2.");
 
-	FMemory::MemSet( Keys, 0xff );
+	FMemory::Memset( Keys, 0xff );
 }
 
 template< typename T, uint32 Size >
@@ -94,10 +94,10 @@ FORCEINLINE TCache4Way<T, size>::TCache4Way()
 {
 	static_assert((Size & (Size - 1)) == 0, "Size must be power of 2.");
 
-	FMemory::MemSet( Keys, 0xff );
+	FMemory::Memset( Keys, 0xff );
 
 	uint8 StartingOrder = (3 << 6) | (2 << 4) | (1 << 2) | 0;
-	FMemory::MemSet( order, StartingOrder );
+	FMemory::Memset( order, StartingOrder );
 }
 
 template< typename T, uint32 size >

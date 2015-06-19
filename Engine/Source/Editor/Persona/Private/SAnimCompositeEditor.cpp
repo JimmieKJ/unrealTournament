@@ -22,7 +22,7 @@ TSharedRef<SWidget> SAnimCompositeEditor::CreateDocumentAnchor()
 
 void SAnimCompositeEditor::Construct(const FArguments& InArgs)
 {
-	bRebuildPanel = false;
+	bIsActiveTimerRegistered = false;
 	PersonaPtr = InArgs._Persona;
 	CompositeObj = InArgs._Composite;
 	check(CompositeObj);
@@ -106,16 +106,16 @@ void SAnimCompositeEditor::RebuildPanel()
 {
 	SortAndUpdateComposite();
 	AnimCompositePanel->Update();
-	bRebuildPanel = false;
 }
 
-void SAnimCompositeEditor::OnCompositeChange(class UObject *EditorAnimBaseObj, bool Rebuild)
+void SAnimCompositeEditor::OnCompositeChange(class UObject *EditorAnimBaseObj, bool bRebuild)
 {
-	if(CompositeObj!=NULL)
+	if ( CompositeObj != nullptr )
 	{
-		if(Rebuild)
+		if(bRebuild && !bIsActiveTimerRegistered)
 		{
-			bRebuildPanel = true;
+			bIsActiveTimerRegistered = true;
+			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SAnimCompositeEditor::TriggerRebuildPanel));
 		} 
 		else
 		{
@@ -128,7 +128,7 @@ void SAnimCompositeEditor::OnCompositeChange(class UObject *EditorAnimBaseObj, b
 
 void SAnimCompositeEditor::CollapseComposite()
 {
-	if (CompositeObj==NULL)
+	if ( CompositeObj == nullptr )
 	{
 		return;
 	}
@@ -140,7 +140,11 @@ void SAnimCompositeEditor::CollapseComposite()
 
 void SAnimCompositeEditor::PostUndo()
 {
-	bRebuildPanel=true;
+	if (!bIsActiveTimerRegistered)
+	{
+		bIsActiveTimerRegistered = true;
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SAnimCompositeEditor::TriggerRebuildPanel));
+	}
 
 	// when undo or redo happens, we still have to recalculate length, so we can't rely on sequence length changes or not
 	if (CompositeObj->SequenceLength)
@@ -154,16 +158,14 @@ void SAnimCompositeEditor::InitDetailsViewEditorObject(UEditorAnimBaseObj* EdObj
 	EdObj->InitFromAnim(CompositeObj, FOnAnimObjectChange::CreateSP( SharedThis(this), &SAnimCompositeEditor::OnCompositeChange ));
 }
 
-void SAnimCompositeEditor::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SAnimCompositeEditor::TriggerRebuildPanel(double InCurrentTime, float InDeltaTime)
 {
 	// we should not update any property related within PostEditChange, 
 	// so this is deferred to Tick, when it needs to rebuild, just mark it and this will update in the next tick
-	if (bRebuildPanel)
-	{
-		RebuildPanel();
-	}
+	RebuildPanel();
 
-	SWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	bIsActiveTimerRegistered = false;
+	return EActiveTimerReturnType::Stop;
 }
 
 float SAnimCompositeEditor::CalculateSequenceLengthOfEditorObject() const
@@ -173,7 +175,7 @@ float SAnimCompositeEditor::CalculateSequenceLengthOfEditorObject() const
 
 void SAnimCompositeEditor::SortAndUpdateComposite()
 {
-	if (CompositeObj == NULL)
+	if (CompositeObj == nullptr)
 	{
 		return;
 	}

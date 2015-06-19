@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -119,6 +102,8 @@ public:
 	/**
 	\brief Releases a PxConstraint instance.
 
+	\note This call does not wake up the connected rigid bodies.
+
 	@see PxPhysics.createConstraint, PxBase.release()
 	*/
 	virtual void				release()														= 0;
@@ -192,7 +177,7 @@ public:
 	@see PxConstraintFlags
 	*/
 
-	virtual void				setFlag(PxConstraintFlag::Enum flag, bool value)						= 0;
+	virtual void				setFlag(PxConstraintFlag::Enum flag, bool value)				= 0;
 
 	/**
 	\brief Retrieve the constraint force most recently applied to maintain this constraint.
@@ -204,6 +189,18 @@ public:
 
 
 	/**
+	\brief whether the constraint is valid. 
+	
+	A constraint is valid if it has at least one dynamic rigid body or articulation link. A constraint that
+	is not valid may not be inserted into a scene, and therefore a static actor to which an invalid constraint
+	is attached may not be inserted into a scene.
+
+	Invalid constraints arise only when an actor to which the constraint is attached has been deleted.
+
+	*/
+	virtual bool				isValid() const													= 0;
+
+	/**
 	\brief Set the break force and torque thresholds for this constraint. 
 	
 	If either the force or torque measured at the constraint exceed these thresholds the constraint will break.
@@ -212,7 +209,8 @@ public:
 	\param[in] angular the angular break threshold
 	*/
 
-	virtual	void				setBreakForce(PxReal linear, PxReal angular)					= 0;
+
+	virtual	void				setBreakForce(PxReal linear, PxReal angular)				= 0;
 
 	/**
 	\brief Retrieve the constraint break force and torque thresholds
@@ -222,6 +220,7 @@ public:
 
 	*/
 	virtual	void				getBreakForce(PxReal& linear, PxReal& angular)		const	= 0;
+
 
 	/**
 	\brief Fetch external owner of the constraint.
@@ -233,7 +232,7 @@ public:
 
 	@see PxConstraintConnector.getExternalReference()
 	*/
-	virtual void*				getExternalReference(PxU32& typeID)								= 0;
+	virtual void*				getExternalReference(PxU32& typeID)							= 0;
 
 	/**
 	\brief Set the constraint functions for this constraint

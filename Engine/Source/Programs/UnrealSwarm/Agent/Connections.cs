@@ -21,6 +21,8 @@ using System.Linq;
 
 using AgentInterface;
 using SwarmCoordinatorInterface;
+using SwarmCommonUtils;
+using System.Net.Sockets;
 
 namespace Agent
 {
@@ -2107,31 +2109,20 @@ namespace Agent
 						AgentInfoUpdate.Configuration["WorkingFor"] = WorkingFor;
 
 #if !__MonoCS__ // @todo Mac
-						// Send our IP address for others to use
-						ManagementObjectSearcher ObjectSearcher = new ManagementObjectSearcher( "SELECT * FROM Win32_NetworkAdapterConfiguration WHERE IPEnabled = 'TRUE'" );
-						ManagementObjectCollection ObjectCollection = ObjectSearcher.Get();
-                        bool bFoundAddress = false;
-                        bool bFoundAddressWithDNS = false;
+						IPAddress[] CoordinatorAddresses = Dns.GetHostAddresses(AgentApplication.Options.CoordinatorRemotingHost);
+						IPAddress[] LocalAddresses = Dns.GetHostAddresses(Dns.GetHostName());
 
-						foreach( ManagementObject NextObject in ObjectCollection )
+						if(CoordinatorAddresses.Any(CoordinatorAddress => IPAddress.IsLoopback(CoordinatorAddress) || LocalAddresses.Contains(CoordinatorAddress)))
 						{
-							// Get the first IP addresses of the first IPEnabled network adapter
-							string[] AddressList = ( string[] )NextObject["IPAddress"];
-                            string DNSDomain = (string)NextObject["DNSDomain"];
+							AgentInfoUpdate.Configuration["IPAddress"] = IPAddress.Loopback;
+						}
+						else
+						{
+							var NetworkInterface = NetworkUtils.GetBestInterface(
+								CoordinatorAddresses.Where(CoordinatorAddress => CoordinatorAddress.AddressFamily == AddressFamily.InterNetwork).First()
+							);
 
-                            // Use the first address in the enumerator, or the first address with a DNS gateway if one exists
-                            // Checking the DNS gateway allows adapters connected to networks to win over adapters earlier in the enumeration that are on a private network, eg connected to console
-                            if (!bFoundAddress || !bFoundAddressWithDNS)
-							{
-                                AgentInfoUpdate.Configuration["IPAddress"] = IPAddress.Parse(AddressList[0]);
-
-                                bFoundAddress = true;
-
-                                if (DNSDomain != null && DNSDomain.Length > 0)
-                                {
-                                    bFoundAddressWithDNS = true;
-                                }
-							}
+							AgentInfoUpdate.Configuration["IPAddress"] = NetworkUtils.GetInterfaceIPv4Address(NetworkInterface);
 						}
 #else
 						AgentInfoUpdate.Configuration["IPAddress"] = "192.168.0.203";//.2.9";

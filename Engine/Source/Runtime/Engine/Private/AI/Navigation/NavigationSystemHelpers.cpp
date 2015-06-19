@@ -46,7 +46,7 @@ namespace NavigationHelper
 
 		FCollisionQueryParams TraceParams(NAME_None, true, Querier);
 		FHitResult Hit;
-		const bool bHit = Querier->GetWorld()->LineTraceSingle(Hit, FallStart, FallStart+FVector(0,0,-FallLimit), TraceParams, FCollisionObjectQueryParams(ECC_WorldStatic));
+		const bool bHit = Querier->GetWorld()->LineTraceSingleByObjectType(Hit, FallStart, FallStart+FVector(0,0,-FallLimit), FCollisionObjectQueryParams(ECC_WorldStatic), TraceParams);
 		if( bHit )
 		{
 			UE_VLOG_LOCATION(Querier, LogNavigation, Log, Hit.Location, 15, FColor::Red, TEXT("%s")

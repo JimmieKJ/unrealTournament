@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTDamageType.h"
-#include "UTRewardMessage.h"
+#include "UTAnnouncer.h"
 
 UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -90,11 +90,6 @@ FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitAc
 
 void UUTDamageType::ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPlayerState* VictimState, APawn* KilledPawn) const
 {
-	AUTPlayerController* PC = KillerState ? Cast<AUTPlayerController>(KillerState->GetOwner()) : NULL;
-	if (PC != NULL && RewardAnnouncementClass)
-	{
-		PC->SendPersonalMessage(RewardAnnouncementClass);
-	}
 }
 
 bool UUTDamageType::ShouldGib_Implementation(AUTCharacter* Victim) const
@@ -116,4 +111,9 @@ void UUTDamageType::PlayDeathEffects_Implementation(AUTCharacter* DyingPawn) con
 
 void UUTDamageType::PlayGibEffects_Implementation(AUTGib* Gib) const
 {
+}
+
+void UUTDamageType::PrecacheAnnouncements(UUTAnnouncer* Announcer) const
+{
+	Announcer->PrecacheAnnouncement(SpreeSoundName);
 }

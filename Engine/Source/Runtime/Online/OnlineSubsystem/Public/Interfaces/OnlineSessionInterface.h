@@ -153,18 +153,6 @@ typedef FOnPingSearchResultsComplete::FDelegate FOnPingSearchResultsCompleteDele
  * to clean up any existing state before accepting the invite. The invite must be
  * accepted by calling JoinSession() after clean up has completed
  *
- * @param LocalUserNum the controller number of the accepting user
- * @param bWasSuccessful the session was found and is joinable, false otherwise
- * @param InviteResult the search/settings for the session we're joining via invite
- */
-typedef FOnSingleSessionResultComplete FOnSessionInviteAccepted;
-typedef FOnSessionInviteAccepted::FDelegate FOnSessionInviteAcceptedDelegate;
-
-/**
- * Called when a user accepts a session invitation. Allows the game code a chance
- * to clean up any existing state before accepting the invite. The invite must be
- * accepted by calling JoinSession() after clean up has completed
- *
  * @param bWasSuccessful true if the async action completed without error, false if there was an error
  * @param ControllerId the controller number of the accepting user
  * @param UserId the user being invited
@@ -179,9 +167,10 @@ typedef FOnSessionUserInviteAccepted::FDelegate FOnSessionUserInviteAcceptedDele
  *
  * @param UserId the user being invited
  * @param FromId the user that sent the invite
+ * @param AppId the id of the client/app user was in when sending hte game invite
  * @param InviteResult the search/settings for the session we're joining via invite
  */
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSessionInviteReceived, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FromId*/, const FOnlineSessionSearchResult& /*InviteResult*/);
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnSessionInviteReceived, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FromId*/, const FString& /*AppId*/, const FOnlineSessionSearchResult& /*InviteResult*/);
 typedef FOnSessionInviteReceived::FDelegate FOnSessionInviteReceivedDelegate;
 
 /**
@@ -213,6 +202,25 @@ DECLARE_DELEGATE_TwoParams(FOnRegisterLocalPlayerCompleteDelegate, const FUnique
  * Delegate fired when local player unregistration has completed
  */
 DECLARE_DELEGATE_TwoParams(FOnUnregisterLocalPlayerCompleteDelegate, const FUniqueNetId&, const bool);	
+
+/** Possible reasons for the service to cause a session failure */
+namespace ESessionFailure
+{
+	enum Type
+	{
+		/** General loss of connection */
+		ServiceConnectionLost
+	};
+}
+
+/**
+ * Delegate fired when an unexpected error occurs that impacts session connectivity or use
+ *
+ * @param PlayerId The player impacted by the failure (may be empty if unknown, or if all players are affected)
+ * @param FailureType What kind of failure occurred 
+ */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSessionFailure, const FUniqueNetId&, ESessionFailure::Type);
+typedef FOnSessionFailure::FDelegate FOnSessionFailureDelegate;
 
 /**
  * Interface definition for the online services session services 
@@ -396,28 +404,15 @@ public:
 	/**
 	 * Begins cloud based matchmaking for a session
 	 *
-	 * @param SearchingPlayerNum the index of the player searching for a match
+	 * @param LocalPlayers the ids of all local players that will participate in the match
 	 * @param SessionName the name of the session to use, usually will be GAME_SESSION_NAME
 	 * @param NewSessionSettings the desired settings to match against or create with when forming new sessions
 	 * @param SearchSettings the desired settings that the matched session will have
 	 *
 	 * @return true if successful searching for sessions, false otherwise
 	 */
-	virtual bool StartMatchmaking(int32 SearchingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings) = 0;
-
-	/**
-	 * Begins cloud based matchmaking for a session
-	 *
-	 * @param SearchingPlayerId the id of the player searching for a match
-	 * @param SessionName the name of the session to use, usually will be GAME_SESSION_NAME
-	 * @param NewSessionSettings the desired settings to match against or create with when forming new sessions
-	 * @param SearchSettings the desired settings that the matched session will have
-	 *
-	 * @return true if successful searching for sessions, false otherwise
-	 */
-	virtual bool StartMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings) = 0;
-
-
+	virtual bool StartMatchmaking(const TArray< TSharedRef<FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings) = 0;
+	
 	/**
 	 * Delegate fired when the cloud matchmaking has completed
 	 *
@@ -476,6 +471,18 @@ public:
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 */
 	DEFINE_ONLINE_DELEGATE_ONE_PARAM(OnFindSessionsComplete, bool);
+
+	/**
+	 * Find a single advertised session by session id
+	 *
+	 * @param SearchingUserId user initiating the request
+	 * @param SessionId session id to search for
+	 * @param FriendId optional id of user to verify in session
+	 * @param CompletionDelegate delegate to call on completion
+	 *
+	 * @return true on success, false otherwise
+	 */
+	virtual bool FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegate) = 0;
 
 	/**
 	 * Cancels the current search in progress if possible for that search type
@@ -618,17 +625,6 @@ public:
 	 * to clean up any existing state before accepting the invite. The invite must be
 	 * accepted by calling JoinSession() after clean up has completed
 	 *
-	 * @param LocalUserNum the controller number of the accepting user
-	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
-	 * @param InviteResult the search/settings for the session we're joining via invite
-	 */
-	DEFINE_ONLINE_PLAYER_DELEGATE_TWO_PARAM(MAX_LOCAL_PLAYERS, OnSessionInviteAccepted, bool, const FOnlineSessionSearchResult&);
-
-	/**
-	 * Called when a user accepts a session invitation. Allows the game code a chance
-	 * to clean up any existing state before accepting the invite. The invite must be
-	 * accepted by calling JoinSession() after clean up has completed
-	 *
 	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
 	 * @param ControllerId the controller number of the accepting user
 	 * @param UserId the user being invited
@@ -642,9 +638,10 @@ public:
 	 *
 	 * @param UserId the user being invited
 	 * @param FromId the user that sent the invite
+	 * @param AppId the id of the client/app user was in when sending hte game invite
 	 * @param InviteResult the search/settings for the session we're joining via invite
 	 */
-	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnSessionInviteReceived, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FromId*/, const FOnlineSessionSearchResult& /*InviteResult*/);
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnSessionInviteReceived, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FromId*/, const FString& /*AppId*/, const FOnlineSessionSearchResult& /*InviteResult*/);
 
 	/**
 	 * Returns the platform specific connection information for joining the match.
@@ -754,6 +751,14 @@ public:
 	 * @param Delegate the delegate executed when the asynchronous operation completes
 	 */
 	virtual void UnregisterLocalPlayer(const FUniqueNetId& PlayerId, FName SessionName, const FOnUnregisterLocalPlayerCompleteDelegate& Delegate) = 0;
+
+	/**
+	 * Delegate fired when an unexpected error occurs that impacts session connectivity or use
+	 *
+	 * @param PlayerId The player impacted by the failure (may be empty if unknown, or if all players are affected)
+	 * @param FailureType What kind of failure occured 
+	 */
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnSessionFailure, const FUniqueNetId&, ESessionFailure::Type);
 
 	/**
 	 * Gets the number of known sessions registered with the interface

@@ -34,7 +34,7 @@ struct TestC : public TestA, TestB
 };
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlatformVerificationTest, "Core.HAL.Platform Verification", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPlatformVerificationTest, "System.Core.HAL.Platform Verification", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FPlatformVerificationTest::RunTest (const FString& Parameters)
 {

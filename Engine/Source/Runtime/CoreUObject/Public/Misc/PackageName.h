@@ -37,9 +37,10 @@ public:
 	 * 
 	 * @param InFilename Filename to convert.
 	 * @param OutPackageName The resulting long package name if the conversion was successful.
+	 * @param OutFailureReason Description of an error if the conversion failed.
 	 * @return Returns true if the supplied filename properly maps to one of the long package roots.
 	 */
-	static bool TryConvertFilenameToLongPackageName(const FString& InFilename, FString& OutPackageName);
+	static bool TryConvertFilenameToLongPackageName(const FString& InFilename, FString& OutPackageName, FString* OutFailureReason = nullptr);
 	/** 
 	 * Converts the supplied filename to long package name.
 	 *  Throws a fatal error if the conversion is not successfull.

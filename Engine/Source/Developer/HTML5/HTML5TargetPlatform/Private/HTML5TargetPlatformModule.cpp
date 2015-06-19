@@ -15,7 +15,7 @@ static ITargetPlatform* Singleton = NULL;
  * Module for the HTML5 target platform.
  */
 class FHTML5TargetPlatformModule
-	: public ITargetPlatformModule
+	: public IHTML5TargetPlatformModule
 {
 public:
 
@@ -51,6 +51,18 @@ public:
 
 	// End ITargetPlatformModule interface
 
+	virtual void RefreshAvailableDevices() override
+	{
+		if (Singleton)
+		{
+			((FHTML5TargetPlatform*)Singleton)->RefreshAvailableDevices();
+		}
+	}
+
+	virtual void GetInstalledSDKVersions(const TCHAR* SDKDirectory, TArray<FHTML5SDKVersionNumber>& OutSDKs) override
+	{
+		FHTML5TargetPlatform::GetInstalledSDKVersions(SDKDirectory, OutSDKs);
+	}
 
 public:
 
@@ -58,39 +70,12 @@ public:
 
 	virtual void StartupModule() override
 	{
-		TargetSettings = ConstructObject<UHTML5TargetSettings>(UHTML5TargetSettings::StaticClass(), GetTransientPackage(), "HTML5TargetSettings", RF_Standalone);
-		TargetSettings->AddToRoot();
 
-		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
-
-		if (SettingsModule != nullptr)
-		{
-			SettingsModule->RegisterSettings("Project", "Platforms", "HTML5",
-				LOCTEXT("TargetSettingsName", "HTML5"),
-				LOCTEXT("TargetSettingsDescription", "HTML5 platform settings description text here"),
-				TargetSettings
-			);
-		}
 	}
 
 	virtual void ShutdownModule() override
 	{
-		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 
-		if (SettingsModule != nullptr)
-		{
-			SettingsModule->UnregisterSettings("Project", "Platforms", "HTML5");
-		}
-
-		if (!GExitPurge)
-		{
-			// If we're in exit purge, this object has already been destroyed
-			TargetSettings->RemoveFromRoot();
-		}
-		else
-		{
-			TargetSettings = NULL;
-		}
 	}
 
 	// End IModuleInterface interface
@@ -98,8 +83,6 @@ public:
 
 private:
 
-	// Holds the target settings.
-	UHTML5TargetSettings* TargetSettings;
 };
 
 

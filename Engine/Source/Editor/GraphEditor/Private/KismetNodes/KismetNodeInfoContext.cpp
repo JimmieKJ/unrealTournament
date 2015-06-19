@@ -3,6 +3,7 @@
 #include "GraphEditorCommon.h"
 #include "KismetNodes/KismetNodeInfoContext.h"
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+#include "Engine/BlueprintGeneratedClass.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FKismetNodeInfoContext

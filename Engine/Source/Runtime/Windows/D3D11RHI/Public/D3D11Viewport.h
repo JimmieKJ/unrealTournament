@@ -32,14 +32,27 @@ private:
 	TRefCountPtr<ID3D11Query> Query;
 };
 
+static DXGI_FORMAT GetRenderTargetFormat(EPixelFormat PixelFormat)
+{
+	DXGI_FORMAT	DXFormat = (DXGI_FORMAT)GPixelFormats[PixelFormat].PlatformFormat;
+	switch(DXFormat)
+	{
+		case DXGI_FORMAT_B8G8R8A8_TYPELESS:		return DXGI_FORMAT_B8G8R8A8_UNORM;
+		case DXGI_FORMAT_BC1_TYPELESS:			return DXGI_FORMAT_BC1_UNORM;
+		case DXGI_FORMAT_BC2_TYPELESS:			return DXGI_FORMAT_BC2_UNORM;
+		case DXGI_FORMAT_BC3_TYPELESS:			return DXGI_FORMAT_BC3_UNORM;
+		case DXGI_FORMAT_R16_TYPELESS:			return DXGI_FORMAT_R16_UNORM;
+		case DXGI_FORMAT_R8G8B8A8_TYPELESS:		return DXGI_FORMAT_R8G8B8A8_UNORM;
+		default: 								return DXFormat;
+	}
+}
+
 class FD3D11Viewport : public FRHIViewport
 {
 public:
 
-	FD3D11Viewport(class FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen);
+	FD3D11Viewport(class FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat);
 	~FD3D11Viewport();
-
-	static int32 GetBackBufferFormat();
 
 	void Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen);
 
@@ -79,6 +92,7 @@ public:
 	{
 		CustomPresent = InCustomPresent;
 	}
+	virtual FRHICustomPresent* GetCustomPresent() const { return CustomPresent; }
 
 	virtual void* GetNativeWindow(void** AddParam = nullptr) const override { return (void*)WindowHandle; }
 
@@ -104,6 +118,7 @@ private:
 	uint32 SizeX;
 	uint32 SizeY;
 	bool bIsFullscreen;
+	EPixelFormat PixelFormat;
 	bool bIsValid;
 	TRefCountPtr<IDXGISwapChain> SwapChain;
 	TRefCountPtr<FD3D11Texture2D> BackBuffer;
@@ -116,3 +131,8 @@ private:
 	DXGI_MODE_DESC SetupDXGI_MODE_DESC() const;
 };
 
+template<>
+struct TD3D11ResourceTraits<FRHIViewport>
+{
+	typedef FD3D11Viewport TConcreteType;
+};

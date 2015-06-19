@@ -4,6 +4,9 @@
 
 #include "EditorObjectsTracker.h"
 #include "IDocumentation.h"
+#include "SSlotNameReferenceWindow.h"
+
+class UAnimGraphNode_Slot;
 
 #define LOCTEXT_NAMESPACE "SkeletonSlotNames"
 /////////////////////////////////////////////////////
@@ -122,6 +125,32 @@ private:
 	void OnAddGroup();
 	void AddGroupPopUpOnCommit(const FText& InNewGroupName, ETextCommit::Type CommitInfo);
 
+	// Delete a slot after checking slot name references and prompting the user to resolve
+	void OnDeleteSlot(FName SlotName);
+	// Delete a slot immediately without checking references. Call only if sure the name is unreferenced as
+	// it will be re-added on next load if it is.
+	void DeleteSlot(const FName& SlotName);
+	// Retry the validation for deleting a slot
+	void RetryDeleteSlot(FName SlotName);
+
+	// Delete a slot group after checking slot name references and prompting the user to resolve
+	void OnDeleteSlotGroup(FName GroupName);
+	// Delete a slot group immediately without checking references.
+	void DeleteSlotGroup(const FName& GroupName);
+	// Retry the validation for deleting a slot group
+	void RetryDeleteSlotGroup(FName GroupName);
+	// Context menu hook for checking whether delete group is enabled
+	bool CanDeleteSlotGroup(FName GroupName);
+
+	// Attempt to rename a slot after a name has been given - validating the new name and old references first
+	void OnRenameSlotPopupCommitted(const FText& InNewSlotText, ETextCommit::Type CommitInfo, FName OldName);
+	// Spawn popup text box for user to enter name
+	void OnRenameSlot(FName CurrentName);
+	// Rename a slot immediately without checking references
+	void RenameSlot(FName CurrentName, FName NewName);
+	// Retry the validation for renaming a slot
+	void RetryRenameSlot(FName CurrentName, FName NewName);
+
 	// Set Slot Group
 	void FillSetSlotGroupSubMenu(FMenuBuilder& MenuBuilder);
 	void ContextMenuOnSetSlot(FName InNewGroupName);
@@ -138,12 +167,25 @@ private:
 	void ShowNotifyInDetailsView( FName NotifyName );
 
 	/** Populates OutAssets with the AnimSequences that match Personas current skeleton */
-	void GetCompatibleAnimMontage( TArray<class FAssetData>& OutAssets );
+	void GetCompatibleAnimMontages( TArray<class FAssetData>& OutAssets );
+	/** Populates OutAssets with the Anim Blueprints that match Personas current skeleton */
+	void GetCompatibleAnimBlueprints( TArray<FAssetData>& OutAssets );
 
-//	void GetCompatibleAnimBlueprints( TMultiMap<class UAnimBlueprint * , class UAnimGraphNode_Slot *>& OutAssets );
+	// Get all montages that have an anim track using the given slot
+	void GetAnimMontagesUsingSlot(FName SlotName, TArray<FAssetData>& OutMontages);
+	// Get all montages that have an anim track using the given slot group
+	void GetAnimMontagesUsingSlotGroup(FName SlotGroupName, TArray<FAssetData>& OutMontages);
+
+	// Get all montages using the given slot name and a map of all blueprints/nodes also using the slot name
+	void GetMontagesAndNodesUsingSlot(const FName& SlotName, TArray<FAssetData>& CompatibleMontages, TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*>& CompatibleSlotNodes);
+	// Get all montages using the given slot group and a map of all blueprints/nodes also using the slot group
+	void GetMontagesAndNodesUsingSlotGroup(const FName& SlotGroupName, TArray<FAssetData>& OutMontages, TMultiMap<UAnimBlueprint*, UAnimGraphNode_Slot*> &OutBlueprintSlotMap);
 
 	/** Utility function to display notifications to the user */
 	void NotifyUser( FNotificationInfo& NotificationInfo );
+
+	// Callback for popup reference window closing
+	void ReferenceWindowClosed(const TSharedRef<SWindow>& Window);
 
 	/** The owning Persona instance */
 	TWeakPtr<class FPersona> PersonaPtr;
@@ -165,6 +207,12 @@ private:
 
 	/** Tracks objects created for displaying in the details panel*/
 	FEditorObjectTracker EditorObjectTracker;
+
+	/** Stores the window we spawn to notify the user that references exist on deletion */
+	TSharedPtr<SWindow> ReferenceWindow;
+
+	/** The actual custom widget inside ReferenceWindow */
+	TWeakPtr<SSlotNameReferenceWindow> ReferenceWidget;
 };
 
 #undef LOCTEXT_NAMESPACE

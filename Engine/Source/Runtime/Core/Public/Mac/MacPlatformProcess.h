@@ -15,16 +15,12 @@ public:
 	/** Default constructor. */
 	FORCEINLINE FProcHandle()
 		: TProcHandle()
-		, IsShellScript( false )
 	{}
 
 	/** Initialization constructor. */
-	FORCEINLINE explicit FProcHandle( HandleType Other, bool InIsShellScript = false )
+	FORCEINLINE explicit FProcHandle( HandleType Other )
 		: TProcHandle( Other )
-		, IsShellScript( InIsShellScript )
 	{}
-
-	bool IsShellScript;
 };
 
 /**
@@ -54,12 +50,14 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	static FProcHandle CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite );
 	static bool IsProcRunning( FProcHandle & ProcessHandle );
 	static void WaitForProc( FProcHandle & ProcessHandle );
+	static void CloseProc( FProcHandle & ProcessHandle );
 	static void TerminateProc( FProcHandle & ProcessHandle, bool KillTree = false );
 	static bool GetProcReturnCode( FProcHandle & ProcHandle, int32* ReturnCode );
 	static bool IsApplicationRunning( const TCHAR* ProcName );
 	static bool IsApplicationRunning( uint32 ProcessId );
 	static FString GetApplicationName( uint32 ProcessId );
 	static bool IsThisApplicationForeground();
+	static bool IsSandboxedApplication();
 	static void LaunchFileInDefaultExternalApplication( const TCHAR* FileName, const TCHAR* Parms = NULL, ELaunchVerb::Type Verb = ELaunchVerb::Open );
 	static void ExploreFolder( const TCHAR* FilePath );
 	static FRunnableThread* CreateRunnableThread();

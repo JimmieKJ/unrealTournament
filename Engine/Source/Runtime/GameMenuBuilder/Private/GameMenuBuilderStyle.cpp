@@ -38,19 +38,22 @@ FName FGameMenuBuilderStyle::GetStyleSetName()
 #define TTF_FONT( RelativePath, ... ) FSlateFontInfo( FPaths::GameContentDir() / "Slate"/ RelativePath + TEXT(".ttf"), __VA_ARGS__ )
 #define OTF_FONT( RelativePath, ... ) FSlateFontInfo( FPaths::GameContentDir() / "Slate"/ RelativePath + TEXT(".otf"), __VA_ARGS__ )
 
+FString FGameMenuBuilderStyle::FontName("Fonts/Roboto-Light");
+int32 FGameMenuBuilderStyle::FontSize = 42;
+
 TSharedRef< FSlateStyleSet > FGameMenuBuilderStyle::Create(const FString StyleName)
 {
-	TSharedRef<FSlateGameResources> StyleRef = FSlateGameResources::New(FGameMenuBuilderStyle::GetStyleSetName(), *StyleName);
+	TSharedRef<FSlateGameResources> StyleRef = FSlateGameResources::New(GetStyleSetName(), *StyleName);
 	
 	FSlateStyleSet& Style = StyleRef.Get();
 
 	// Fonts still need to be specified in code for now
 	Style.Set("GameMenuStyle.MenuTextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("Fonts/Roboto-Light", 42))
+		.SetFont(TTF_FONT(*FontName, FontSize))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 	Style.Set("GameMenuStyle.MenuHeaderTextStyle", FTextBlockStyle()
-		.SetFont(TTF_FONT("Fonts/Roboto-Light", 42))
+		.SetFont(TTF_FONT(*FontName, FontSize))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 

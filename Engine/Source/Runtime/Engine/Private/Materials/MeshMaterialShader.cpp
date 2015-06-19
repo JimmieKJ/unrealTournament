@@ -87,9 +87,11 @@ FShader* FMeshMaterialShaderType::FinishCompileShader(
 	check(CurrentJob.bSucceeded);
 	check(CurrentJob.VFType);
 
+	FShaderType* SpecificType = CurrentJob.ShaderType->LimitShaderResourceToThisType() ? CurrentJob.ShaderType : NULL;
+
 	// Reuse an existing resource with the same key or create a new one based on the compile output
 	// This allows FShaders to share compiled bytecode and RHI shader references
-	FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output);
+	FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output, SpecificType);
 
 	// Find a shader with the same key in memory
 	FShader* Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(MaterialShaderMapHash, CurrentJob.VFType, CurrentJob.ShaderType, CurrentJob.Input.Target));

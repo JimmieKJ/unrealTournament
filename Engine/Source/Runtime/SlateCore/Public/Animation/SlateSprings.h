@@ -128,6 +128,11 @@ public:
 		return Target;
 	}
 
+	/** @return True if the spring is at rest (i.e. at its target position) */
+	bool IsAtRest()
+	{
+		return Target == Position;
+	}
 
 	/**
 	 * Updates the simulation.  Should be called every tick!
@@ -178,7 +183,6 @@ public:
 
 		PreviousTarget = Target;
 	}
-
 
 private:
 

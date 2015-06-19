@@ -31,12 +31,13 @@
 #include "IHeadMountedDisplay.h"
 #include "RendererInterface.h"
 #include "HotReloadInterface.h"
-#include "SDPIScaler.h"
+#include "SGameLayerManager.h"
 #include "Components/SkyLightComponent.h"
 #include "Components/ReflectionCaptureComponent.h"
 #include "Engine/GameEngine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GameFramework/GameMode.h"
+#include "GameDelegates.h"
 
 ENGINE_API bool GDisallowNetworkTravel = false;
 
@@ -66,7 +67,7 @@ EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode)
 {
 	if (FPlatformProperties::SupportsWindowedMode())
 	{
-		if ((WindowMode != EWindowMode::Windowed) && GEngine && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsFullscreenAllowed())
+		if ((WindowMode != EWindowMode::Windowed && WindowMode != EWindowMode::WindowedMirror) && GEngine && GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsFullscreenAllowed())
 		{
 			return EWindowMode::Fullscreen;
 		}
@@ -88,24 +89,33 @@ UGameEngine::UGameEngine(const FObjectInitializer& ObjectInitializer)
 
 void UGameEngine::CreateGameViewportWidget( UGameViewportClient* GameViewportClient )
 {
+	bool bRenderDirectlyToWindow = !GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture && GIsDumpingMovie == 0; 
+	const bool bStereoAllowed = bRenderDirectlyToWindow;
 	TSharedRef<SOverlay> ViewportOverlayWidgetRef = SNew( SOverlay );
+
+	TSharedRef<SGameLayerManager> GameLayerManagerRef = SNew(SGameLayerManager)
+		.SceneViewport_UObject(this, &UGameEngine::GetGameSceneViewport, GameViewportClient)
+		.UseScissor(false)
+		[
+			ViewportOverlayWidgetRef
+		];
+
 	TSharedRef<SViewport> GameViewportWidgetRef = 
 		SNew( SViewport )
 			// Render directly to the window backbuffer unless capturing a movie or getting screenshots
 			// @todo TEMP
-			.RenderDirectlyToWindow( !GEngine->bStartWithMatineeCapture && GIsDumpingMovie == 0 )
-			.EnableStereoRendering(true)
+			.RenderDirectlyToWindow(bRenderDirectlyToWindow)
+			//gamma handled by the scene renderer
+			.EnableGammaCorrection(false)
+			.EnableStereoRendering(bStereoAllowed)
 			[
-				SNew(SDPIScaler)
-				.DPIScale(TAttribute<float>::Create(TAttribute<float>::FGetter::CreateUObject(this, &UGameEngine::GetGameViewportDPIScale, GameViewportClient)))
-				[
-					ViewportOverlayWidgetRef
-				]
+				GameLayerManagerRef
 			];
 
 	GameViewportWidget = GameViewportWidgetRef;
 
 	GameViewportClient->SetViewportOverlayWidget( GameViewportWindow.Pin(), ViewportOverlayWidgetRef );
+	GameViewportClient->SetGameLayerManager(GameLayerManagerRef);
 }
 
 void UGameEngine::CreateGameViewport( UGameViewportClient* GameViewportClient )
@@ -151,11 +161,9 @@ void UGameEngine::CreateGameViewport( UGameViewportClient* GameViewportClient )
 	GameViewport->SetViewportFrame(ViewportFrame);
 }
 
-float UGameEngine::GetGameViewportDPIScale(UGameViewportClient* ViewportClient) const
+const FSceneViewport* UGameEngine::GetGameSceneViewport(UGameViewportClient* ViewportClient) const
 {
-	FVector2D ViewportSize;
-	ViewportClient->GetViewportSize(ViewportSize);
-	return GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+	return ViewportClient->GetGameViewport();
 }
 
 void UGameEngine::ConditionallyOverrideSettings(int32& ResolutionX, int32& ResolutionY, EWindowMode::Type& WindowMode)
@@ -285,7 +293,7 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	const bool bShowImmediately = false;
 
 	FSlateApplication::Get().AddWindow( Window, bShowImmediately );
-
+	
 	// Do not set fullscreen mode here, since it doesn't take 
 	// HMDDevice into account. The window mode will be set properly later
 	// from SwitchGameWindowToUseGameViewport() method (see ResizeWindow call).
@@ -313,14 +321,22 @@ void UGameEngine::SwitchGameWindowToUseGameViewport()
 		{
 			CreateGameViewport( GameViewport );
 		}
-		GameViewportWindow.Pin()->SetContent( GameViewportWidget.ToSharedRef() );
+		
+		TSharedRef<SViewport> GameViewportWidgetRef = GameViewportWidget.ToSharedRef();
+		TSharedPtr<SWindow> GameViewportWindowPtr = GameViewportWindow.Pin();
+		
+		GameViewportWindowPtr->SetContent(GameViewportWidgetRef);
+		GameViewportWindowPtr->SlatePrepass();
+		
 		SceneViewport->ResizeFrame((uint32)GSystemResolution.ResX, (uint32)GSystemResolution.ResY, GSystemResolution.WindowMode, 0, 0);
 
 		// Move the registration of the game viewport to that messages are correctly received.
 		if (!FPlatformProperties::SupportsWindowedMode())
 		{
-			FSlateApplication::Get().RegisterGameViewport( GameViewportWidget.ToSharedRef() );
+			FSlateApplication::Get().RegisterGameViewport(GameViewportWidgetRef);
 		}
+		
+		FSlateApplication::Get().SetAllUserFocusToGameViewport();
 	}
 }
 
@@ -393,6 +409,9 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 	EndStreamingPauseDelegate = NULL;
 
 	bCanBlueprintsTickByDefault = true;
+
+	bUseFixedFrameRate = false;
+	FixedFrameRate = 30.f;
 }
 
 void UGameEngine::Init(IEngineLoop* InEngineLoop)
@@ -422,7 +441,7 @@ void UGameEngine::Init(IEngineLoop* InEngineLoop)
 		FStringClassReference GameInstanceClassName = GetDefault<UGameMapsSettings>()->GameInstanceClass;
 		UClass* GameInstanceClass = (GameInstanceClassName.IsValid() ? LoadObject<UClass>(NULL, *GameInstanceClassName.ToString()) : UGameInstance::StaticClass());
 		
-		GameInstance = ConstructObject<UGameInstance>(GameInstanceClass, this);
+		GameInstance = NewObject<UGameInstance>(this, GameInstanceClass);
 
 		GameInstance->InitializeStandalone();
 	}
@@ -434,7 +453,7 @@ void UGameEngine::Init(IEngineLoop* InEngineLoop)
 	UGameViewportClient* ViewportClient = NULL;
 	if(GIsClient)
 	{
-		ViewportClient = ConstructObject<UGameViewportClient>(GameViewportClientClass,this);
+		ViewportClient = NewObject<UGameViewportClient>(this, GameViewportClientClass);
 		ViewportClient->Init(*GameInstance->GetWorldContext(), GameInstance);
 		GameViewport = ViewportClient;
 		GameInstance->GetWorldContext()->GameViewport = ViewportClient;
@@ -458,6 +477,9 @@ void UGameEngine::Init(IEngineLoop* InEngineLoop)
 		{
 			SwitchGameWindowToUseGameViewport();
 		}
+
+		UGameViewportClient::OnViewportCreated().Broadcast();
+
 		FString Error;
 		if(ViewportClient->SetupInitialLocalPlayer(Error) == NULL)
 		{
@@ -586,6 +608,49 @@ bool UGameEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	{
 		return HandleCancelCommand( Cmd, Ar, InWorld );	
 	}
+	else if ( FParse::Command( &Cmd, TEXT("TOGGLECVAR") ) )
+	{
+		FString CVarName;
+		FParse::Token(Cmd, CVarName, false);
+
+		bool bEnoughParamsSupplied = false;
+		IConsoleVariable * CVar = nullptr;
+
+		if (CVarName.Len() > 0)
+		{
+			CVar = IConsoleManager::Get().FindConsoleVariable(*CVarName);
+		}
+
+		if (CVar)
+		{
+			// values to toggle between
+			FString StringVal1, StringVal2;
+			
+			if (FParse::Token(Cmd, StringVal1, false))
+			{
+				if (FParse::Token(Cmd, StringVal2, false))
+				{
+					bEnoughParamsSupplied = true;
+					FString CurrentValue = CVar->GetString();
+
+					FString Command(FString::Printf(TEXT("%s %s"), *CVarName, (CurrentValue == StringVal1) ? *StringVal2 : *StringVal1));
+					GEngine->Exec(InWorld, *Command);
+				}
+			}
+		}
+		else
+		{
+			Ar.Log(*FString::Printf(TEXT("TOGGLECVAR: cvar '%s' was not found"), *CVarName));
+			bEnoughParamsSupplied = true;	// cannot say anything about the rest of parameters
+		}
+		
+		if (!bEnoughParamsSupplied)
+		{
+			Ar.Log(TEXT("Usage: TOGGLECVAR CVarName Value1 Value2"));
+		}
+
+		return true;
+	}
 #if !UE_BUILD_SHIPPING
 	else if( FParse::Command( &Cmd, TEXT("ApplyUserSettings") ) )
 	{
@@ -631,6 +696,7 @@ bool UGameEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 bool UGameEngine::HandleExitCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	Ar.Log( TEXT("Closing by request") );
+	FGameDelegates::Get().GetExitCommandDelegate().Broadcast();
 	FPlatformMisc::RequestExit( 0 );
 	return true;
 }
@@ -775,6 +841,7 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	if ( GameViewport != NULL )
 	{
 		// Decide whether to drop high detail because of frame rate.
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_SetDropDetail);
 		GameViewport->SetDropDetail(DeltaSeconds);
 	}
 
@@ -798,8 +865,6 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		}
 	}
 
-	bool WorldWasPaused = false;
-
 	for (int32 WorldIdx = 0; WorldIdx < WorldList.Num(); ++WorldIdx)
 	{
 		FWorldContext &Context = WorldList[WorldIdx];
@@ -808,15 +873,17 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			continue;
 		}
 
-		WorldWasPaused |= Context.World()->IsPaused();
-
 		GWorld = Context.World();
 
 		// Tick all travel and Pending NetGames (Seamless, server, client)
-		TickWorldTravel(Context, DeltaSeconds);
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_TickWorldTravel);
+			TickWorldTravel(Context, DeltaSeconds);
+		}
 
 		if (!IsRunningDedicatedServer() && !IsRunningCommandlet())
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_CheckCaptures);
 			// Only update reflection captures in game once all 'always loaded' levels have been loaded
 			// This won't work with actual level streaming though
 			if (Context.World()->AreAlwaysLoadedLevelsLoaded())
@@ -899,12 +966,10 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		}
 
 		// Update Audio. This needs to occur after rendering as the rendering code updates the listener position.
-		if( GetAudioDevice() )
+		if (FAudioDevice* AudioDevice = Context.World()->GetAudioDevice())
 		{
-			GetAudioDevice()->Update( !Context.World()->IsPaused() );
+			AudioDevice->Update(!Context.World()->IsPaused());
 		}
-
-	
 
 		if( GIsClient )
 		{
@@ -912,13 +977,17 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			// Will need to take another look when trying to support multiple worlds.
 
 			// Update resource streaming after viewports have had a chance to update view information. Normal update.
-			IStreamingManager::Get().Tick( DeltaSeconds );
+			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_IStreamingManager);
+				IStreamingManager::Get().Tick( DeltaSeconds );
+			}
 
 			if ( Context.World()->bTriggerPostLoadMap )
 			{
 				Context.World()->bTriggerPostLoadMap = false;
 
 				// Turns off the loading movie (if it was turned on by LoadMap) and other post-load cleanup.
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_IStreamingManager);
 				PostLoadMap();
 			}
 		}
@@ -927,6 +996,7 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		TickCycles=LocalTickCycles;
 
 		// See whether any map changes are pending and we requested them to be committed.
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_ConditionalCommitMapChange);
 		ConditionalCommitMapChange(Context);
 	}
 
@@ -937,19 +1007,9 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 	// Restore original GWorld*. This will go away one day.
 	if (OriginalGWorldContext != NAME_None)
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_GetWorldContextFromHandleChecked);
 		GWorld = GetWorldContextFromHandleChecked(OriginalGWorldContext).World();
 	}
-
-	// tell renderer about GWorld->IsPaused(), before rendering
-	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			SetPaused,
-			bool, bGamePaused, WorldWasPaused,
-		{
-			GRenderingRealtimeClock.SetGamePaused(bGamePaused);
-		});
-	}
-
 
 	// rendering thread commands
 	{
@@ -974,14 +1034,16 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 		FAVIWriter* AVIWriter = FAVIWriter::GetInstance();
 		if (AVIWriter)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_AVIWriter);
 			AVIWriter->Update(DeltaSeconds);
 		}
 
 		// Start the movie capture if needed
-		if (bCheckForMovieCapture && GEngine->bStartWithMatineeCapture && GEngine->MatineeCaptureType == EMatineeCaptureType::AVI && GameViewport->Viewport->GetSizeXY() != FIntPoint::ZeroValue )
+		if (bCheckForMovieCapture && GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture && GEngine->MatineeScreenshotOptions.MatineeCaptureType == EMatineeCaptureType::AVI && GameViewport->Viewport->GetSizeXY() != FIntPoint::ZeroValue )
 		{
 			if (AVIWriter)
 			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_UGameEngine_Tick_StartCapture);
 				AVIWriter->StartCapture(GameViewport->Viewport);
 			}
 			bCheckForMovieCapture = false;

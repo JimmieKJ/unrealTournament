@@ -5,14 +5,21 @@
 //////////////////////////////////////////////////////////////////////////
 // STileLayerList
 
-class STileLayerList : public SCompoundWidget
+class STileLayerList : public SCompoundWidget, public FEditorUndoClient
 {
 public:
 	SLATE_BEGIN_ARGS(STileLayerList) {}
+		SLATE_EVENT(FSimpleDelegate, OnSelectedLayerChanged)
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, UPaperTileMap* TileMap, FNotifyHook* InNotifyHook);
+	void Construct(const FArguments& InArgs, UPaperTileMap* TileMap, FNotifyHook* InNotifyHook, TSharedPtr<class FUICommandList> InCommandList);
 
+	// FEditorUndoClient Interface
+	virtual void PostUndo(bool bSuccess) override;
+	virtual void PostRedo(bool bSuccess) override;
+	// End of FEditorUndoClient
+
+	~STileLayerList();
 protected:
 	typedef TSharedPtr<int32> FMirrorEntry;
 
@@ -24,6 +31,7 @@ protected:
 	TSharedPtr<class FUICommandList> CommandList;
 	TWeakObjectPtr<class UPaperTileMap> TileMapPtr;
 	FNotifyHook* NotifyHook;
+	FSimpleDelegate OnSelectedLayerChanged;
 protected:
 	TSharedRef<ITableRow> OnGenerateLayerListRow(FMirrorEntry Item, const TSharedRef<STableViewBase>& OwnerTable);
 
@@ -34,18 +42,33 @@ protected:
 
 	static FText GenerateDuplicatedLayerName(const FString& InputNameRaw, UPaperTileMap* TileMap);
 
-	class UPaperTileLayer* AddLayer(bool bCollisionLayer, int32 InsertionIndex = INDEX_NONE);
+	class UPaperTileLayer* AddLayer(int32 InsertionIndex = INDEX_NONE);
 
 	// Moves a layer from OldIndex to NewIndex if both are valid, otherwise it does nothing silently
 	void ChangeLayerOrdering(int32 OldIndex, int32 NewIndex);
 
 	void AddNewLayerAbove();
 	void AddNewLayerBelow();
-	void DeleteLayer();
+
+	void CutLayer();
+	void CopyLayer();
+	void PasteLayerAbove();
+	bool CanPasteLayer() const;
+
 	void DuplicateLayer();
+	void DeleteLayer();
+	void RenameLayer();
+
+	void DeleteSelectedLayerWithNoTransaction();
+
 	void MergeLayerDown();
-	void MoveLayerUp();
-	void MoveLayerDown();
+	void MoveLayerUp(bool bForceToTop);
+	void MoveLayerDown(bool bForceToBottom);
+	void SelectLayerAbove(bool bTopmost);
+	void SelectLayerBelow(bool bBottommost);
+
+
+	void SetSelectedLayerIndex(int32 NewIndex);
 
 	int32 GetNumLayers() const;
 	bool CanExecuteActionNeedingLayerAbove() const;

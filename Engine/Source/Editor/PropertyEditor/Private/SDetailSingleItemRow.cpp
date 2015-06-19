@@ -6,6 +6,7 @@
 #include "PropertyEditorHelpers.h"
 #include "IDetailKeyframeHandler.h"
 #include "IDetailPropertyExtensionHandler.h"
+#include "DetailPropertyRow.h"
 
 namespace DetailWidgetConstants
 {
@@ -36,14 +37,14 @@ public:
 		];
 	}
 
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override
 	{
 		const float MinWidthVal = MinWidth.Get().Get(0.0f);
 		const float MaxWidthVal = MaxWidth.Get().Get(0.0f);
 
 		if ( MinWidthVal == 0.0f && MaxWidthVal == 0.0f )
 		{
-			return SCompoundWidget::ComputeDesiredSize();
+			return SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier);
 		}
 		else
 		{
@@ -79,7 +80,22 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 	if( InCustomization->IsValidCustomization() )
 	{
 		FDetailWidgetRow Row = InCustomization->GetWidgetRow();
-			
+		TSharedPtr<FPropertyEditor> PropertyEditor;
+		auto bRequiresEditConfigHierarchy = false;
+		auto PropertyNode = InCustomization->GetPropertyNode();
+		if (PropertyNode.IsValid() && PropertyNode->GetProperty())
+		{
+			auto Prop = PropertyNode->GetProperty();
+			if (Prop->HasAnyPropertyFlags(CPF_GlobalConfig | CPF_Config))
+			{
+				if (Prop->HasMetaData(TEXT("ConfigHierarchyEditable")))
+				{
+					PropertyEditor = InCustomization->PropertyRow->GetPropertyEditor();
+					bRequiresEditConfigHierarchy = true;
+				}
+			}
+		}
+
 		TSharedPtr<SWidget> NameWidget;
 		TSharedPtr<SWidget> ValueWidget;
 	
@@ -110,8 +126,8 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 		if( bHasMultipleColumns )
 		{
 			NameWidget->SetEnabled(IsPropertyEditingEnabled);
-			KeyFrameButton->SetEnabled(IsPropertyEditingEnabled);
-			Widget = 
+			TSharedPtr<SHorizontalBox> HBox;
+			TSharedRef<SSplitter> Splitter = 
 				SNew( SSplitter )
 				.Style( FEditorStyle::Get(), "DetailsView.Splitter" )
 				.PhysicalSplitterHandleSize( 1.0f )
@@ -151,20 +167,38 @@ void SDetailSingleItemRow::Construct( const FArguments& InArgs, FDetailLayoutCus
 				.OnSlotResized( ColumnSizeData.OnWidthChanged )
 				[
 					SNew( SHorizontalBox )
-					.IsEnabled(IsPropertyEditingEnabled)
 					+ SHorizontalBox::Slot()
-					.Padding( DetailWidgetConstants::RightRowPadding )
-					.HAlign( Row.ValueWidget.HorizontalAlignment )
-					.VAlign( Row.ValueWidget.VerticalAlignment )
 					[
-						ValueWidget.ToSharedRef()
+						SAssignNew(HBox, SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(DetailWidgetConstants::RightRowPadding)
+						.HAlign(Row.ValueWidget.HorizontalAlignment)
+						.VAlign(Row.ValueWidget.VerticalAlignment)
+						[
+							SNew(SBox)
+							.IsEnabled(IsPropertyEditingEnabled)
+							[
+								ValueWidget.ToSharedRef()
+							]
+						]
 					]
 				];
+				if (bRequiresEditConfigHierarchy && PropertyEditor.IsValid())
+				{
+					HBox->AddSlot()
+					.AutoWidth()
+					.Padding(0)
+					//.HAlign(HAlign_Right)
+					.VAlign(VAlign_Center)
+					[
+						PropertyCustomizationHelpers::MakeEditConfigHierarchyButton(FSimpleDelegate::CreateSP(PropertyEditor.ToSharedRef(), &FPropertyEditor::EditConfigHierarchy))
+					];
+				}
+				Widget = Splitter;
 		}
 		else
 		{
 			Row.WholeRowWidget.Widget->SetEnabled(IsPropertyEditingEnabled);
-			KeyFrameButton->SetEnabled(IsPropertyEditingEnabled);
 			Widget =
 				SNew( SHorizontalBox )
 				+ SHorizontalBox::Slot()
@@ -316,29 +350,26 @@ TSharedRef<SWidget> SDetailSingleItemRow::CreateExtensionWidget(TSharedRef<SWidg
 	IDetailsViewPrivate& DetailsView = InTreeNode->GetDetailsView();
 	TSharedPtr<IDetailPropertyExtensionHandler> ExtensionHandler = DetailsView.GetExtensionHandler();
 
-	if ( ExtensionHandler.IsValid() )
+	if ( ExtensionHandler.IsValid() && InCustomization.HasPropertyNode() )
 	{
-		if ( InCustomization.HasPropertyNode() && ExtensionHandler.IsValid() )
+		TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle(InCustomization.GetPropertyNode().ToSharedRef(), nullptr, nullptr);
+
+		UClass* ObjectClass = InCustomization.GetPropertyNode()->FindObjectItemParent()->GetObjectBaseClass();
+		if ( ExtensionHandler->IsPropertyExtenable(ObjectClass, *Handle) )
 		{
-			TSharedPtr<IPropertyHandle> Handle = PropertyEditorHelpers::GetPropertyHandle(InCustomization.GetPropertyNode().ToSharedRef(), nullptr, nullptr);
+			ValueWidget = SNew(SHorizontalBox)
 
-			UClass* ObjectClass = InCustomization.GetPropertyNode()->FindObjectItemParent()->GetObjectBaseClass();
-			if ( ExtensionHandler->IsPropertyExtenable(ObjectClass, *Handle) )
-			{
-				ValueWidget = SNew(SHorizontalBox)
-
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					[
-						ValueWidget
-					]
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					ValueWidget
+				]
 					
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						ExtensionHandler->GenerateExtensionWidget(ObjectClass, Handle)
-					];
-			}
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					ExtensionHandler->GenerateExtensionWidget(ObjectClass, Handle)
+				];
 		}
 	}
 
@@ -362,21 +393,24 @@ TSharedRef<SWidget> SDetailSingleItemRow::CreateKeyframeButton( FDetailLayoutCus
 		
 	}
 
-	return 
+	return
 		SNew(SButton)
 		.HAlign(HAlign_Left)
 		.VAlign(VAlign_Center)
 		.ContentPadding(0.0f)
 		.ButtonStyle(FEditorStyle::Get(), "Sequencer.AddKey.Details")
 		.Visibility(SetKeyVisibility)
-		.IsEnabled( this, &SDetailSingleItemRow::IsKeyframeButtonEnabled )
+		.IsEnabled( this, &SDetailSingleItemRow::IsKeyframeButtonEnabled, InTreeNode )
 		.ToolTipText( NSLOCTEXT("PropertyView", "AddKeyframeButton_ToolTip", "Adds a keyframe for this property to the current animation") )
 		.OnClicked( this, &SDetailSingleItemRow::OnAddKeyframeClicked );
 }
 
-bool SDetailSingleItemRow::IsKeyframeButtonEnabled() const
+bool SDetailSingleItemRow::IsKeyframeButtonEnabled(TSharedRef<IDetailTreeNode> InTreeNode) const
 {
-	return KeyframeHandler.IsValid() ? KeyframeHandler.Pin()->IsPropertyKeyingEnabled() : false;
+	return
+		InTreeNode->IsPropertyEditingEnabled().Get() &&
+		KeyframeHandler.IsValid() &&
+		KeyframeHandler.Pin()->IsPropertyKeyingEnabled();
 }
 
 FReply SDetailSingleItemRow::OnAddKeyframeClicked()

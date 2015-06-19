@@ -13,6 +13,8 @@
 #include "Components/BrushComponent.h"
 
 #if WITH_EDITOR
+#include "Editor.h"
+
 /** Define static delegate */
 ABrush::FOnBrushRegistered ABrush::OnBrushRegistered;
 
@@ -23,7 +25,7 @@ TArray< TWeakObjectPtr< ULevel > > ABrush::LevelsToRebuild;
 ABrush::ABrush(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	BrushComponent = ObjectInitializer.CreateDefaultSubobject<UBrushComponent>(this, TEXT("BrushComponent0"));
+	BrushComponent = CreateDefaultSubobject<UBrushComponent>(TEXT("BrushComponent0"));
 	BrushComponent->Mobility = EComponentMobility::Static;
 	BrushComponent->bGenerateOverlapEvents = false;
 	BrushComponent->bCanEverAffectNavigation = false;
@@ -56,10 +58,11 @@ void ABrush::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 		Brush->BuildBound();
 	}
 
-	if(IsStaticBrush())
+	if(IsStaticBrush() && PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive && GUndo)
 	{
-		// Trigger a csg rebuild if we're in the editor.
-		SetNeedRebuild(GetLevel());
+		// BSP can only be rebuilt during a transaction
+		GEditor->RebuildAlteredBSP();
+
 	}
 
 	bool bIsBuilderBrush = FActorEditorUtils::IsABuilderBrush( this );
@@ -133,7 +136,6 @@ void ABrush::SetIsTemporarilyHiddenInEditor( bool bIsHidden )
 
 			if (bAnySurfaceWasFound)
 			{
-				auto* Level = GetLevel();
 				Level->UpdateModelComponents();
 				Level->InvalidateModelSurface();
 			}

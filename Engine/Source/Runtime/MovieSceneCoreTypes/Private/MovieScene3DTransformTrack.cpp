@@ -64,7 +64,7 @@ UMovieScene3DTransformTrack::UMovieScene3DTransformTrack( const FObjectInitializ
 
 UMovieSceneSection* UMovieScene3DTransformTrack::CreateNewSection()
 {
-	return ConstructObject<UMovieSceneSection>( UMovieScene3DTransformSection::StaticClass(), this, NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneSection>(this, UMovieScene3DTransformSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieScene3DTransformTrack::CreateInstance()

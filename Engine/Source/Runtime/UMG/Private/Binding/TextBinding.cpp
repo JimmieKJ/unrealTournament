@@ -37,11 +37,13 @@ void UTextBinding::Bind(UProperty* Property, FScriptDelegate* Delegate)
 
 FText UTextBinding::GetTextValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
 		if ( !bNeedsConversion.Get(false) )
 		{
-			FText TextValue;
+			FText TextValue = FText::GetEmpty();
 			if ( SourcePath.GetValue<FText>(Source, TextValue) )
 			{
 				bNeedsConversion = false;
@@ -65,6 +67,8 @@ FText UTextBinding::GetTextValue() const
 
 FString UTextBinding::GetStringValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
 		if ( !bNeedsConversion.Get(false) )
@@ -79,7 +83,7 @@ FString UTextBinding::GetStringValue() const
 
 		if ( bNeedsConversion.Get(true) )
 		{
-			FText TextValue;
+			FText TextValue = FText::GetEmpty();
 			if ( SourcePath.GetValue<FText>(Source, TextValue) )
 			{
 				bNeedsConversion = true;

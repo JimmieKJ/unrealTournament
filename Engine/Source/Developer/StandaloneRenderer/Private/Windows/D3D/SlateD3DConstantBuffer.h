@@ -20,7 +20,7 @@ public:
 		Desc.StructureByteStride = 0;
 
 		HRESULT Hr = GD3DDevice->CreateBuffer(&Desc, NULL, Buffer.GetInitReference() );
-		check( SUCCEEDED(Hr) );
+		checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 	}
 
 	TRefCountPtr<ID3D11Buffer> GetResource() { return Buffer; }

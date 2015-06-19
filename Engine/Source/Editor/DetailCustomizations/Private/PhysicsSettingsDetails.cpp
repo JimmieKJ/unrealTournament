@@ -82,7 +82,7 @@ void SPhysicalSurfaceListItem::OnTextChanged(const FText& NewText)
 void SPhysicalSurfaceListItem::NewNameEntered(const FText& NewText, ETextCommit::Type CommitInfo)
 {
 	// Don't digest the number if we just clicked away from the pop-up
-	if((CommitInfo == ETextCommit::OnEnter) || (CommitInfo == ETextCommit::OnUserMovedFocus) || (CommitInfo == ETextCommit::OnUserMovedFocus))
+	if((CommitInfo == ETextCommit::OnEnter) || (CommitInfo == ETextCommit::OnUserMovedFocus))
 	{
 		FString NewName = NewText.ToString();
 		if(NewName.Find(TEXT(" "))==INDEX_NONE)

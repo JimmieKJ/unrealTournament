@@ -2,25 +2,8 @@
 
 #pragma once
 
+#include "Developer/AssetTools/Public/IAssetTools.h"
 #include "Developer/Merge/Public/Merge.h" // for FOnMergeResolved
-
-namespace EAssetTypeCategories
-{
-	enum Type
-	{
-		None					= 0,
-		Basic					= 1 << 0,
-		Animation				= 1 << 1,
-		MaterialsAndTextures	= 1 << 2,
-		Sounds					= 1 << 3,
-		Physics					= 1 << 4,
-		UI						= 1 << 5,
-		Misc					= 1 << 6,
-		Gameplay				= 1 << 7,
-		Blueprint				= 1 << 8
-		// Last allowed value is 1 << 31
-	};
-}
 
 namespace EAssetTypeActivationMethod
 {

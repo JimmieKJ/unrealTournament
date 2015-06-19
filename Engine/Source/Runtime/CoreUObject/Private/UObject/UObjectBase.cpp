@@ -47,57 +47,6 @@ struct FPendingRegistrant
 static FPendingRegistrant* GFirstPendingRegistrant = NULL;
 static FPendingRegistrant* GLastPendingRegistrant = NULL;
 
-#if EXTERNAL_OBJECT_NAMES
-
-/**
- * Annotation for FNames
- */
-struct FNameAnnotation
-{
-	/**
-	 * default constructor
-	 * Default constructor must be the default item
-	 */
-	FNameAnnotation() :
-		Name(NAME_None)
-	{
-	}
-	/**
-	 * Determine if this Name is the default...which is NAME_None
-	 * @return true is this is NAME_None
-	 */
-	FORCEINLINE bool IsDefault()
-	{
-		return Name == NAME_None;
-	}
-
-	/**
-	 * Constructor 
-	 * @param InName name to assign
-	 */
-	FNameAnnotation(FName InName) :
-		Name(InName)
-	{
-	}
-
-	/**
-	 * Name for this object
-	 */
-	FName				Name; 
-
-};
-
-template <> struct TIsPODType<FNameAnnotation> { enum { Value = true }; };
-
-
-/**
- * Annotation to relate names to uobjects
- *
- */
-static FUObjectAnnotationDense<FNameAnnotation,false> NameAnnotation;
-
-#endif
-
 /**
  * Constructor used for bootstrapping
  * @param	InClass			possibly NULL, this gives the class of the new object, if known at this time
@@ -141,18 +90,14 @@ UObjectBase::~UObjectBase()
 		// Validate it.
 		check(IsValidLowLevel());
 		LowLevelRename(NAME_None);
-		GUObjectArray.FreeUObjectIndex(this);
+		GetUObjectArray().FreeUObjectIndex(this);
 	}
 }
 
 
 const FName UObjectBase::GetFName() const
 {
-#if EXTERNAL_OBJECT_NAMES
-	return NameAnnotation.GetAnnotation(InternalIndex).Name;
-#else
 	return Name;
-#endif
 }
 
 
@@ -172,18 +117,7 @@ void UObjectBase::CreateStatID() const
 		LongName = GetClass()->GetFName().GetPlainNameString() / LongName;
 	}
 
-	const FName StatName = FName( *LongName );
-	FStartupMessages::Get().AddMetadata( StatName, *LongName, 
-		STAT_GROUP_TO_FStatGroup( STATGROUP_UObjects )::GetGroupName(), 
-		STAT_GROUP_TO_FStatGroup( STATGROUP_UObjects )::GetGroupCategory(), 
-		STAT_GROUP_TO_FStatGroup( STATGROUP_UObjects )::GetDescription(),
-		true, EStatDataType::ST_int64, true );
-
-	StatID = IStatGroupEnableManager::Get().GetHighPerformanceEnableForStat(StatName, 
-		STAT_GROUP_TO_FStatGroup(STATGROUP_UObjects)::GetGroupName(), 
-		STAT_GROUP_TO_FStatGroup(STATGROUP_UObjects)::GetGroupCategory(), 
-		STAT_GROUP_TO_FStatGroup(STATGROUP_UObjects)::DefaultEnable,
-		true, EStatDataType::ST_int64, *LongName, true);
+	StatID = FDynamicStats::CreateStatId<FStatGroup_STATGROUP_UObjects>( LongName );
 }
 #endif
 
@@ -208,7 +142,7 @@ void UObjectBase::DeferredRegister(UClass *UClassStaticClass,const TCHAR* Packag
 	AddObject(FName(InName));
 
 	// Make sure that objects disregarded for GC are part of root set.
-	check(!GUObjectArray.IsDisregardForGC(this) || (GetFlags() & RF_RootSet) );
+	check(!GetUObjectArray().IsDisregardForGC(this) || (GetFlags() & RF_RootSet) );
 }
 
 /**
@@ -218,12 +152,12 @@ void UObjectBase::DeferredRegister(UClass *UClassStaticClass,const TCHAR* Packag
  */
 void UObjectBase::AddObject(FName InName)
 {
-#if EXTERNAL_OBJECT_NAMES
-	NameAnnotation.AddAnnotation(InternalIndex,InName);
-#else
 	Name = InName;
-#endif
-	GUObjectArray.AllocateUObjectIndex(this);
+	if (!IsInGameThread())
+	{
+		ObjectFlags |= RF_Async;
+	}
+	AllocateUObjectIndexForCurrentThread(this);
 	check(InName != NAME_None && InternalIndex >= 0);
 	HashObject(this);
 	check(IsValidLowLevel());
@@ -240,11 +174,7 @@ void UObjectBase::LowLevelRename(FName NewName,UObject *NewOuter)
 	STAT(StatID = TStatId();) // reset the stat id since this thing now has a different name
 	UnhashObject(this);
 	check(InternalIndex >= 0);
-#if EXTERNAL_OBJECT_NAMES
-	NameAnnotation.AddAnnotation(InternalIndex,NewName);
-#else
 	Name = NewName;
-#endif
 	if (NewOuter)
 	{
 		Outer = NewOuter;
@@ -284,7 +214,7 @@ bool UObjectBase::IsValidLowLevel() const
 		UE_LOG(LogUObjectBase, Warning, TEXT("Object is not registered") );
 		return false;
 	}
-	return GUObjectArray.IsValid(this);
+	return GetUObjectArray().IsValid(this);
 }
 
 bool UObjectBase::IsValidLowLevelFast(bool bRecursive /*= true*/) const
@@ -316,20 +246,20 @@ bool UObjectBase::IsValidLowLevelFast(bool bRecursive /*= true*/) const
 		UE_LOG(LogUObjectBase, Error, TEXT("Object flags are invalid or either Class or Outer is misaligned"));
 		return false;
 	}
-	// Avoid infinite recursion so call IsValidLowLevelFast on the class object with bRecirsive = false.
-	if (bRecursive && !Class->IsValidLowLevelFast(false))
-	{
-		UE_LOG(LogUObjectBase, Error, TEXT("Class object failed IsValidLowLevelFast test."));
-		return false;
-	}
 	// These should all be non-NULL (except CDO-alignment check which should be 0)
 	if (Class == NULL || Class->ClassDefaultObject == NULL || ((UPTRINT)Class->ClassDefaultObject & AlignmentCheck) != 0)
 	{
 		UE_LOG(LogUObjectBase, Error, TEXT("Class pointer is invalid or CDO is invalid."));
 		return false;
 	}
+	// Avoid infinite recursion so call IsValidLowLevelFast on the class object with bRecirsive = false.
+	if (bRecursive && !Class->IsValidLowLevelFast(false))
+	{
+		UE_LOG(LogUObjectBase, Error, TEXT("Class object failed IsValidLowLevelFast test."));
+		return false;
+	}
 	// Lightweight versions of index checks.
-	if (!GUObjectArray.IsValidIndex(this) || !Name.IsValidIndexFast())
+	if (!GetUObjectArray().IsValidIndex(this) || !Name.IsValidIndexFast())
 	{
 		UE_LOG(LogUObjectBase, Error, TEXT("Object array index or name index is invalid."));
 		return false;
@@ -593,6 +523,12 @@ static TArray<FFieldCompiledInInfo*>& GetDeferredClassRegistration()
 }
 
 #if WITH_HOT_RELOAD
+TMap<UClass*, UObject*>& GetDuplicatedCDOMap()
+{
+	static TMap<UClass*, UObject*> Map;
+	return Map;
+}
+
 /** Map of deferred class registration info (including size and reflection info) */
 static TMap<FName, FFieldCompiledInInfo*>& GetDeferRegisterClassMap()
 {
@@ -626,7 +562,7 @@ void UClassCompiledInDefer(FFieldCompiledInInfo* ClassInfo, const TCHAR* Name, S
 	const FName CPPClassName(Name);
 #if WITH_HOT_RELOAD
 	// Check for existing classes
-	auto ExistingClassInfo = GetDeferRegisterClassMap().Find(CPPClassName);
+	FFieldCompiledInInfo** ExistingClassInfo = GetDeferRegisterClassMap().Find(CPPClassName);
 	ClassInfo->bHasChanged = !ExistingClassInfo || (*ExistingClassInfo)->Size != ClassInfo->Size || (*ExistingClassInfo)->Crc != ClassInfo->Crc;
 	if (ExistingClassInfo)
 	{
@@ -635,7 +571,7 @@ void UClassCompiledInDefer(FFieldCompiledInInfo* ClassInfo, const TCHAR* Name, S
 
 		// Get the native name
 		FString NameWithoutPrefix(RemoveClassPrefix(Name));
-		auto ExistingClass = FindObjectChecked<UClass>(ANY_PACKAGE, *NameWithoutPrefix);
+		UClass* ExistingClass = FindObjectChecked<UClass>(ANY_PACKAGE, *NameWithoutPrefix);
 
 		if (ClassInfo->bHasChanged)
 		{
@@ -715,6 +651,37 @@ void UClassReplaceHotReloadClasses()
 	}
 	GetHotReloadClasses().Empty();
 }
+
+/**
+ * Creates a cache of cpp-only-changed UClasses' CDOs, which are going to be
+ * used later during BP reinstancing.
+ */
+static void UClassGenerateCDODuplicatesForHotReload()
+{
+	if (!GIsHotReload)
+	{
+		return;
+	}
+
+	for (FObjectIterator It(UClass::StaticClass()); It; ++It)
+	{
+		UClass* Class = (UClass*)*It;
+
+		for (auto* HotReloadedClass : GetHotReloadClasses())
+		{
+			if (!HotReloadedClass->bHasChanged && Class->IsChildOf(HotReloadedClass->OldClass))
+			{
+				GIsDuplicatingClassForReinstancing = true;
+				UObject* DupCDO = (UObject*)StaticDuplicateObject(
+					Class->GetDefaultObject(), GetTransientPackage(),
+					*MakeUniqueObjectName(GetTransientPackage(), Class, TEXT("HOTRELOAD_CDO_DUPLICATE")).ToString()
+					);
+				GIsDuplicatingClassForReinstancing = false;
+				GetDuplicatedCDOMap().Add(Class, DupCDO);
+			}
+		}
+	}
+}
 #endif
 
 /**
@@ -773,10 +740,15 @@ static void UObjectLoadAllCompiledInStructs()
 		TArray<FPendingEnumRegistrant> PendingRegistrants;
 		PendingRegistrants = GetDeferredCompiledInEnumRegistration();
 		GetDeferredCompiledInEnumRegistration().Empty();
+		
 		for (auto& EnumRegistrant : PendingRegistrants)
 		{
 			// Make sure the package exists in case it does not contain any UObjects
 			CreatePackage(NULL, EnumRegistrant.PackageName);
+		}
+
+		for (auto& EnumRegistrant : PendingRegistrants)
+		{
 			EnumRegistrant.RegisterFn();
 		}
 	}
@@ -788,10 +760,15 @@ static void UObjectLoadAllCompiledInStructs()
 		TArray<FPendingStructRegistrant> PendingRegistrants;
 		PendingRegistrants = GetDeferredCompiledInStructRegistration();
 		GetDeferredCompiledInStructRegistration().Empty();
+
 		for (auto& StructRegistrant : PendingRegistrants)
 		{
 			// Make sure the package exists in case it does not contain any UObjects or UEnums
 			CreatePackage(NULL, StructRegistrant.PackageName);
+		}
+
+		for (auto& StructRegistrant : PendingRegistrants)
+		{
 			StructRegistrant.RegisterFn();
 		}
 	}
@@ -805,6 +782,11 @@ bool AnyNewlyLoadedUObjects()
 
 void ProcessNewlyLoadedUObjects()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("ProcessNewlyLoadedUObjects"), STAT_ProcessNewlyLoadedUObjects, STATGROUP_ObjectVerbose);
+
+#if WITH_HOT_RELOAD
+	UClassGenerateCDODuplicatesForHotReload();
+#endif
 	UClassRegisterAllCompiledInClasses();
 
 	while( AnyNewlyLoadedUObjects() )
@@ -845,7 +827,10 @@ void UObjectBaseInit()
 	UE_LOG(LogInit, Log, TEXT("Presizing for %i objects not considered by GC, pre-allocating %i bytes."), MaxObjectsNotConsideredByGC, SizeOfPermanentObjectPool );
 
 	GUObjectAllocator.AllocatePermanentObjectPool(SizeOfPermanentObjectPool);
-	GUObjectArray.AllocatePermanentObjectPool(MaxObjectsNotConsideredByGC);
+	GetUObjectArray().AllocatePermanentObjectPool(MaxObjectsNotConsideredByGC);
+
+	void InitAsyncThread();
+	InitAsyncThread();
 
 	// Note initialized.
 	Internal::GObjInitialized = true;
@@ -858,7 +843,7 @@ void UObjectBaseInit()
  */
 void UObjectBaseShutdown()
 {
-	GUObjectArray.ShutdownUObjectArray();
+	GetUObjectArray().ShutdownUObjectArray();
 	Internal::GObjInitialized = false;
 }
 
@@ -870,11 +855,18 @@ void UObjectBaseShutdown()
  */
 const TCHAR* DebugFName(UObject* Object)
 {
-	// Hardcoded static array. This function is only used inside the debugger so it should be fine to return it.
-	static TCHAR TempName[256];
-	FName Name = Object->GetFName();
-	FCString::Strcpy(TempName,Object ? *FName::SafeString(Name.GetDisplayIndex(), Name.GetNumber()) : TEXT("NULL"));
-	return TempName;
+	if ( Object )
+	{
+		// Hardcoded static array. This function is only used inside the debugger so it should be fine to return it.
+		static TCHAR TempName[256];
+		FName Name = Object->GetFName();
+		FCString::Strcpy(TempName, *FName::SafeString(Name.GetDisplayIndex(), Name.GetNumber()));
+		return TempName;
+	}
+	else
+	{
+		return TEXT("NULL");
+	}
 }
 
 /**

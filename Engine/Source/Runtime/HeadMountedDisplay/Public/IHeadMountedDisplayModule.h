@@ -62,7 +62,7 @@ public:
 	 *
 	 * @return	Interface to the new head tracking device, if we were able to successfully create one
 	 */
-	virtual TSharedPtr< class IHeadMountedDisplay > CreateHeadMountedDisplay() = 0;
+	virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay() = 0;
 
 	/**
 	* Optionally pre-init the HMD module.

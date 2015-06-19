@@ -13,15 +13,17 @@
 #include "Editor/GraphEditor/Public/GraphDiffControl.h"
 #include "BlueprintSupport.h" // for FScopedClassDependencyGather::GetCachedDependencies()
 #include "EdGraphSchema_K2.h"
+#include "EngineUtils.h"
+#include "GameFramework/SaveGame.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintAutomationTests, Log, All);
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintCompileOnLoadTest, "Blueprints.Compile-On-Load", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintInstancesTest, "Blueprints.Instance Test", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintReparentTest, "Blueprints.Reparent", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintRenameAndCloneTest, "Blueprints.Rename And Clone", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser) )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileBlueprintsTest, "Blueprints.Compile Blueprints", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileAnimBlueprintsTest, "Blueprints.Compile Anims", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintCompileOnLoadTest, "Project.Blueprints.Compile-On-Load", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintInstancesTest, "Project.Blueprints.Instance Test", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintReparentTest, "System.Blueprints.Reparent", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintRenameAndCloneTest, "Project.Blueprints.Rename And Clone", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser) )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileBlueprintsTest, "Project.Blueprints.Compile Blueprints", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileAnimBlueprintsTest, "Project.Blueprints.Compile Anims", EAutomationTestFlags::ATF_Editor )
 
 class FBlueprintAutomationTestUtilities
 {
@@ -938,7 +940,7 @@ bool FBlueprintCompileOnLoadTest::RunTest(const FString& BlueprintAssetPath)
 	FName ReconstructedName = MakeUniqueObjectName(TransientPackage, UBlueprint::StaticClass(), BlueprintName);
 	// reconstruct the initial blueprint (using the serialized data from its initial load)
 	EObjectFlags const StandardBlueprintFlags = RF_Public | RF_Standalone | RF_Transactional;
-	InitialBlueprint = ConstructObject<UBlueprint>(UBlueprint::StaticClass(), TransientPackage, ReconstructedName, StandardBlueprintFlags | RF_Transient);
+	InitialBlueprint = NewObject<UBlueprint>(TransientPackage, ReconstructedName, StandardBlueprintFlags | RF_Transient);
 	FObjectReader(InitialBlueprint, InitialLoadData);
 	{
 		TMap<UObject*, UObject*> ClassRedirects;

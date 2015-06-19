@@ -50,7 +50,11 @@ void PerformEditorCompositingDepthTest(float4 SvPosition)
 		float InterpolatedDeviceZ = SvPosition.z;
 
 		// This is for a reversed Z depth buffer.
+#if HAS_INVERTED_Z_BUFFER
 		clip(InterpolatedDeviceZ - SceneDepthDeviceZ);
+#else
+		clip(SceneDepthDeviceZ - InterpolatedDeviceZ);
+#endif
 	}
 }
 

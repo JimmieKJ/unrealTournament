@@ -17,7 +17,7 @@ class UMG_API USpacer : public UWidget
 public:
 
 	/** The size of the spacer */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FVector2D Size;
 
 public:

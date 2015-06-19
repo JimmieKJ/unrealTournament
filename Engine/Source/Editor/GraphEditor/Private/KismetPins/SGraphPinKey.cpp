@@ -6,6 +6,7 @@
 #include "SGraphPinEnum.h"
 #include "SGraphPinKey.h"
 #include "SKeySelector.h"
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
 
 void SGraphPinKey::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {
@@ -39,6 +40,12 @@ FKey SGraphPinKey::GetCurrentKey() const
 
 void SGraphPinKey::OnKeyChanged(TSharedPtr<FKey> InSelectedKey)
 {
-	SelectedKey = *InSelectedKey.Get();
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, SelectedKey.ToString());
+	if(SelectedKey != *InSelectedKey.Get())
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeKeyPinValue", "Change Key Pin Value" ) );
+		GraphPinObj->Modify();
+
+		SelectedKey = *InSelectedKey.Get();
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, SelectedKey.ToString());
+	}
 }

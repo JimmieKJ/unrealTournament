@@ -58,7 +58,7 @@ void UEnvQueryTest_GameplayTags::RunTest(FEnvQueryInstance& QueryInstance) const
 	// loop through all items
 	for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 	{
-		AActor* ItemActor = GetItemActor(QueryInstance, *It);
+		AActor* ItemActor = GetItemActor(QueryInstance, It.GetIndex());
 		IGameplayTagAssetInterface* GameplayTagAssetInterface = Cast<IGameplayTagAssetInterface>(ItemActor);
 		if (GameplayTagAssetInterface != NULL)
 		{
@@ -73,11 +73,6 @@ void UEnvQueryTest_GameplayTags::RunTest(FEnvQueryInstance& QueryInstance) const
 			It.SkipItem();
 		}
 	}
-}
-
-FString UEnvQueryTest_GameplayTags::GetDescriptionTitle() const
-{
-	return Super::GetDescriptionTitle();
 }
 
 FText UEnvQueryTest_GameplayTags::GetDescriptionDetails() const

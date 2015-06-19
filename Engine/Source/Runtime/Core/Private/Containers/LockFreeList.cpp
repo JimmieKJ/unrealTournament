@@ -1,13 +1,14 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #include "CorePrivatePCH.h"
 #include "LockFreeList.h"
+
 
 DEFINE_LOG_CATEGORY(LogLockFreeList);
 
 FThreadSafeCounter FLockFreeListStats::NumOperations;
 FThreadSafeCounter FLockFreeListStats::Cycles;
+
 
 #if USE_LOCKFREELIST_128
 

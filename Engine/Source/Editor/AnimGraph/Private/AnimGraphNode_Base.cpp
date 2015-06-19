@@ -3,7 +3,6 @@
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_Base.h"
-#include "K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 #include "AnimationGraphSchema.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
@@ -216,11 +215,6 @@ FString UAnimGraphNode_Base::GetNodeCategory() const
 	return TEXT("Misc.");
 }
 
-void UAnimGraphNode_Base::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	CreateDefaultMenuEntry(ContextMenuBuilder);
-}
-
 void UAnimGraphNode_Base::GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& OutNodeAttributes ) const
 {
 	OutNodeAttributes.Add( TKeyValuePair<FString, FString>( TEXT( "Type" ), TEXT( "AnimGraphNode" ) ));
@@ -252,28 +246,13 @@ FText UAnimGraphNode_Base::GetMenuCategory() const
 	return FText::FromString(GetNodeCategory());
 }
 
-TSharedPtr<FEdGraphSchemaAction_K2NewNode> UAnimGraphNode_Base::CreateDefaultMenuEntry(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	UAnimGraphNode_Base* TemplateNode = NewObject<UAnimGraphNode_Base>(GetTransientPackage(), GetClass());
-
-	FString Category = TemplateNode->GetNodeCategory();
-	FText MenuDesc = TemplateNode->GetNodeTitle(ENodeTitleType::ListView);
-	FString Tooltip = TemplateNode->GetTooltipText().ToString();
-	FString Keywords = TemplateNode->GetKeywords();
-
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, Category, MenuDesc, Tooltip, 0, Keywords);
-	NodeAction->NodeTemplate = TemplateNode;
-
-	return NodeAction;
-}
-
 void UAnimGraphNode_Base::GetPinAssociatedProperty(const UScriptStruct* NodeType, UEdGraphPin* InputPin, UProperty*& OutProperty, int32& OutIndex)
 {
 	OutProperty = NULL;
 	OutIndex = INDEX_NONE;
 
 	//@TODO: Name-based hackery, avoid the roundtrip and better indicate when it's an array pose pin
-	int32 UnderscoreIndex = InputPin->PinName.Find(TEXT("_"));
+	int32 UnderscoreIndex = InputPin->PinName.Find(TEXT("_"), ESearchCase::CaseSensitive);
 	if (UnderscoreIndex != INDEX_NONE)
 	{
 		FString ArrayName = InputPin->PinName.Left(UnderscoreIndex);
@@ -299,10 +278,10 @@ FPoseLinkMappingRecord UAnimGraphNode_Base::GetLinkIDLocation(const UScriptStruc
 {
 	if (SourcePin->LinkedTo.Num() > 0)
 	{
-		if (UAnimGraphNode_Base* LinkedNode = Cast<UAnimGraphNode_Base>(SourcePin->LinkedTo[0]->GetOwningNode()))
+		if (UAnimGraphNode_Base* LinkedNode = Cast<UAnimGraphNode_Base>(FBlueprintEditorUtils::FindFirstCompilerRelevantNode(SourcePin->LinkedTo[0])))
 		{
 			//@TODO: Name-based hackery, avoid the roundtrip and better indicate when it's an array pose pin
-			int32 UnderscoreIndex = SourcePin->PinName.Find(TEXT("_"));
+			int32 UnderscoreIndex = SourcePin->PinName.Find(TEXT("_"), ESearchCase::CaseSensitive);
 			if (UnderscoreIndex != INDEX_NONE)
 			{
 				FString ArrayName = SourcePin->PinName.Left(UnderscoreIndex);

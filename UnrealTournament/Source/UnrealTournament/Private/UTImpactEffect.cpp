@@ -184,7 +184,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 	{
 		if (NativeCompList[i]->AttachParent == CurrentAttachment && ShouldCreateComponent(NativeCompList[i], NativeCompList[i]->GetFName(), BaseTransform, HitComp, SpawnedBy, InstigatedBy))
 		{
-			USceneComponent* NewComp = ConstructObject<USceneComponent>(NativeCompList[i]->GetClass(), World, NAME_None, RF_NoFlags, NativeCompList[i]);
+			USceneComponent* NewComp = NewObject<USceneComponent>(World, NativeCompList[i]->GetClass(), NAME_None, RF_NoFlags, NativeCompList[i]);
 			NewComp->AttachParent = NULL;
 			NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
@@ -218,7 +218,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 	{
 		if (Cast<USceneComponent>(BPNodes[i]->ComponentTemplate) != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName && ShouldCreateComponent((USceneComponent*)BPNodes[i]->ComponentTemplate, TemplateName, BaseTransform, HitComp, SpawnedBy, InstigatedBy))
 		{
-			USceneComponent* NewComp = ConstructObject<USceneComponent>(BPNodes[i]->ComponentTemplate->GetClass(), World, NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
+			USceneComponent* NewComp = NewObject<USceneComponent>(World, BPNodes[i]->ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
 			NewComp->AttachParent = NULL;
 			NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);

@@ -304,7 +304,7 @@ private:
 	{
 		if (SimpleProfile.IsValid())
 		{
-			switch (SimpleProfile->GetCookMode())
+			switch (SimpleProfile->GetCookMode()) //-V719
 			{
 			case ELauncherProfileCookModes::DoNotCook:
 				return LOCTEXT("CookMode_DoNotCook", "Do not cook");

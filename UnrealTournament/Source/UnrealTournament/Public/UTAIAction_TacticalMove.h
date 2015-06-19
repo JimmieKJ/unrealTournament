@@ -6,8 +6,8 @@
 
 #include "UTAIAction_TacticalMove.generated.h"
 
-UCLASS(MinimalAPI)
-class UUTAIAction_TacticalMove : public UUTAIAction
+UCLASS()
+class UNREALTOURNAMENT_API UUTAIAction_TacticalMove : public UUTAIAction
 {
 	GENERATED_UCLASS_BODY()
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "CorePrivatePCH.h"
 #include "ICUInternationalization.h"
 
@@ -75,8 +75,7 @@ bool FICUInternationalization::Initialize()
 {
 	UErrorCode ICUStatus = U_ZERO_ERROR;
 
-	// Linux needs to have those compiled statically at least until we settle on .so location for deployed/native builds
-#if (IS_PROGRAM || !IS_MONOLITHIC) && !PLATFORM_LINUX
+#if NEEDS_ICU_DLLS
 	LoadDLLs();
 #endif /*IS_PROGRAM || !IS_MONOLITHIC*/
 
@@ -138,12 +137,12 @@ void FICUInternationalization::Terminate()
 	CachedCultures.Empty();
 
 	u_cleanup();
-#if IS_PROGRAM || !IS_MONOLITHIC
+#if NEEDS_ICU_DLLS
 	UnloadDLLs();
 #endif //IS_PROGRAM || !IS_MONOLITHIC
 }
 
-#if (IS_PROGRAM || !IS_MONOLITHIC)
+#if NEEDS_ICU_DLLS
 void FICUInternationalization::LoadDLLs()
 {
 	// The base directory for ICU binaries is consistent on all platforms.
@@ -223,7 +222,7 @@ void FICUInternationalization::UnloadDLLs()
 	}
 	DLLHandles.Reset();
 }
-#endif // IS_PROGRAM || !IS_MONOLITHIC
+#endif // NEEDS_ICU_DLLS
 
 #if STATS
 namespace
@@ -285,7 +284,7 @@ FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, con
 		// Confirm if data for the desired culture exists.
 		if (UResourceBundle* ICUResourceBundle = ures_open(nullptr, StringCast<char>(*CanonicalName).Get(), &ICUStatus))
 		{
-			// Make the culture only if it actually has some form of data and doesn't fallback to default "root" data, unless overriden ot allow it.
+			// Make the culture only if it actually has some form of data and doesn't fallback to default "root" data, unless overidden to allow it.
 			if (ICUStatus != U_USING_DEFAULT_WARNING || AllowDefaultFallback)
 			{
 				FCulturePtr NewCulture = FCulture::Create(CanonicalName);

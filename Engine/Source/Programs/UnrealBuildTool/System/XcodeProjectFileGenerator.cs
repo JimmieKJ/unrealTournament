@@ -476,8 +476,8 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				IUEToolChain Toolchain = UEToolChain.GetPlatformToolChain(CPPTargetPlatform.IOS);
-				Toolchain.SetUpGlobalEnvironment();
+				IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+				BuildPlat.SetUpProjectEnvironment(UnrealTargetPlatform.IOS);
 
 				Contents.Append(
 					"\t\t" + ConfigGuid + " /* " + ConfigName + " */ = {" + ProjectFileGenerator.NewLine +
@@ -490,8 +490,8 @@ namespace UnrealBuildTool
 					"\t\t\t\t\"PRODUCT_NAME[sdk=iphoneos*]\" = \"$(TARGET_NAME)\";" + ProjectFileGenerator.NewLine +
 					"\t\t\t\t\"PRODUCT_NAME[sdk=iphonesimulator*]\" = \"$(TARGET_NAME)-simulator\";" + ProjectFileGenerator.NewLine +
 					"\t\t\t\tMACOSX_DEPLOYMENT_TARGET = 10.9;" + ProjectFileGenerator.NewLine +
-					"\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = " + Toolchain.GetPlatformVersion() + ";" + ProjectFileGenerator.NewLine +
-					"\t\t\t\tTARGETED_DEVICE_FAMILY = \"" + Toolchain.GetPlatformDevices() + "\";" + ProjectFileGenerator.NewLine +
+					"\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = " + BuildPlat.GetRunTimeVersion() + ";" + ProjectFileGenerator.NewLine +
+					"\t\t\t\tTARGETED_DEVICE_FAMILY = \"" + BuildPlat.GetRunTimeDevices() + "\";" + ProjectFileGenerator.NewLine +
 					"\t\t\t\tCONFIGURATION_BUILD_DIR = \"Engine/Binaries/IOS/Payload\";" + ProjectFileGenerator.NewLine +
 					"\t\t\t\tSDKROOT = macosx;" + ProjectFileGenerator.NewLine +
 					"\t\t\t\t\"SDKROOT[arch=x86_64]\" = macosx;" + ProjectFileGenerator.NewLine +
@@ -506,8 +506,8 @@ namespace UnrealBuildTool
 
 		private void AppendIOSBuildConfig(ref StringBuilder Contents, string ConfigName, string ConfigGuid)
 		{
-			IUEToolChain Toolchain = UEToolChain.GetPlatformToolChain(CPPTargetPlatform.IOS);
-			Toolchain.SetUpGlobalEnvironment();
+			IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+			BuildPlat.SetUpProjectEnvironment(UnrealTargetPlatform.IOS);
 
 			Contents.Append(
 				"\t\t" + ConfigGuid + " /* " + ConfigName + " */ = {" + ProjectFileGenerator.NewLine +
@@ -517,8 +517,8 @@ namespace UnrealBuildTool
 				"\t\t\t\t\"PRODUCT_NAME[sdk=iphonesimulator*]\" = \"$(TARGET_NAME)-simulator\";" + ProjectFileGenerator.NewLine +
 				"\t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\";" + ProjectFileGenerator.NewLine +
 				"\t\t\t\tCONFIGURATION_BUILD_DIR = \"Engine/Binaries/IOS/Payload\";" + ProjectFileGenerator.NewLine +
-				"\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = " + Toolchain.GetPlatformVersion() + ";" + ProjectFileGenerator.NewLine +
-				"\t\t\t\tTARGETED_DEVICE_FAMILY = \"" + Toolchain.GetPlatformDevices() + "\";" + ProjectFileGenerator.NewLine +
+				"\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = " + BuildPlat.GetRunTimeVersion() + ";" + ProjectFileGenerator.NewLine +
+				"\t\t\t\tTARGETED_DEVICE_FAMILY = \"" + BuildPlat.GetRunTimeDevices() + "\";" + ProjectFileGenerator.NewLine +
 				"\t\t\t\tSDKROOT = iphoneos;" + ProjectFileGenerator.NewLine +
 				"\t\t\t};" + ProjectFileGenerator.NewLine +
 				"\t\t\tname = " + ConfigName + ";" + ProjectFileGenerator.NewLine +
@@ -527,8 +527,8 @@ namespace UnrealBuildTool
 
 		private void AppendIOSRunConfig(ref StringBuilder Contents, string ConfigName, string ConfigGuid, string TargetName, string EngineRelative, string GamePath, bool bIsUE4Game, bool IsAGame, bool bIsUE4Client)
 		{
-			IUEToolChain Toolchain = UEToolChain.GetPlatformToolChain(CPPTargetPlatform.IOS);
-			Toolchain.SetUpGlobalEnvironment();
+			IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+			BuildPlat.SetUpProjectEnvironment(UnrealTargetPlatform.IOS);
 
 			Contents.Append(
 				"\t\t" + ConfigGuid + " /* " + ConfigName + " */ = {" + ProjectFileGenerator.NewLine +
@@ -538,7 +538,7 @@ namespace UnrealBuildTool
 				"\t\t\t\t\"PRODUCT_NAME[sdk=iphonesimulator*]\" = \"" + TargetName + "-simulator\";" + ProjectFileGenerator.NewLine +
 				"\t\t\t\tCONFIGURATION_BUILD_DIR = \"Engine/Binaries/IOS/Payload\";" + ProjectFileGenerator.NewLine +
 				"\t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\";" + ProjectFileGenerator.NewLine +
-				"\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = " + Toolchain.GetPlatformVersion() + ";" + ProjectFileGenerator.NewLine +
+				"\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = " + BuildPlat.GetRunTimeVersion() + ";" + ProjectFileGenerator.NewLine +
 				"\t\t\t\t\"CODE_SIGN_IDENTITY[sdk=iphoneos*]\" = \"iPhone Developer\";" + ProjectFileGenerator.NewLine);
 
 			string InfoPlistPath = "";
@@ -598,7 +598,7 @@ namespace UnrealBuildTool
 				"\t\t\t\t);" + ProjectFileGenerator.NewLine +
 				"\t\t\t\tINFOPLIST_OUTPUT_FORMAT = xml;" + ProjectFileGenerator.NewLine +
 				"\t\t\t\t\"PROVISIONING_PROFILE[sdk=iphoneos*]\" = \"\";" + ProjectFileGenerator.NewLine +
-				"\t\t\t\tTARGETED_DEVICE_FAMILY = \"" + Toolchain.GetPlatformDevices() + "\";" + ProjectFileGenerator.NewLine +
+				"\t\t\t\tTARGETED_DEVICE_FAMILY = \"" + BuildPlat.GetRunTimeDevices() + "\";" + ProjectFileGenerator.NewLine +
 				"\t\t\t\tSDKROOT = iphoneos;" + ProjectFileGenerator.NewLine +
 				"\t\t\t};" + ProjectFileGenerator.NewLine +
 				"\t\t\tname = " + ConfigName + ";" + ProjectFileGenerator.NewLine +
@@ -988,7 +988,7 @@ namespace UnrealBuildTool
 			if (!bGeneratingRocketProjectFiles)
 			{
 				// Add UnrealBuildTool to the master project
-				string ProjectPath = System.IO.Path.Combine(System.IO.Path.Combine(EngineRelativePath, "Source"), "Programs", "UnrealBuildTool", "UnrealBuildTool_Mono.csproj");
+				string ProjectPath = System.IO.Path.Combine(System.IO.Path.Combine(EngineRelativePath, "Source"), "Programs", "UnrealBuildTool", "UnrealBuildTool.csproj");
 				AddPreGeneratedProject(ref PBXBuildFileSection, ref PBXFileReferenceSection, ref PBXSourcesBuildPhaseSection, ref Groups, ProjectPath);
 			}
 		}
@@ -1065,7 +1065,7 @@ namespace UnrealBuildTool
 				FullPath = Utils.MakePathRelativeTo(FullPath, FullProjectPath);
 				FullPath = FullPath.TrimEnd('/');
 			}
-			if (!IncludeDirectories.Contains(FullPath) && !FullPath.Contains("FortniteGame/")) // @todo: skipping Fortnite header paths to shorten clang command line for building UE4XcodeHelper
+			if ( !IncludeDirectories.Contains(FullPath) )
 			{
 				IncludeDirectories.Add(FullPath);
 			}
@@ -1099,6 +1099,11 @@ namespace UnrealBuildTool
 						{
 							WantProjectFileForTarget = true;
 						}
+					}
+
+					if (bGeneratingRocketProjectFiles && TargetName.EndsWith("Server"))
+					{
+						WantProjectFileForTarget = false;
 					}
 				}
 
@@ -1420,7 +1425,7 @@ namespace UnrealBuildTool
 		private void WriteProject(StringBuilder XcodeProjectFileContent, List<XcodeProjectTarget> ProjectTargets)
 		{
 			// @todo: Windows and Mac should store the project in the same folder
-			string PathBranch = (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac) ? "/Engine/Intermediate/IOS" : "";
+			string PathBranch = (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac) ? (!string.IsNullOrEmpty(UnrealBuildTool.GetUProjectPath()) ? "/Intermediate/IOS" : "/Engine/Intermediate/IOS") : "";
 			var XcodeProjectPath = MasterProjectRelativePath + PathBranch + "/" + MasterProjectName + ".xcodeproj";
 			if (bGeneratingGameProjectFiles && GameProjectName == "UE4Game")
 			{
@@ -1456,7 +1461,7 @@ namespace UnrealBuildTool
 
 		private void WriteWorkspace()
 		{
-			string PathBranch = (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac) ? "/Engine/Intermediate/IOS" : "";
+			string PathBranch = (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac) ? (!string.IsNullOrEmpty(UnrealBuildTool.GetUProjectPath()) ? "/Intermediate/IOS" : "/Engine/Intermediate/IOS") : "";
 			var XcodeProjectPath = MasterProjectRelativePath + PathBranch + "/" + MasterProjectName + ".xcodeproj";
 			if (bGeneratingGameProjectFiles && GameProjectName == "UE4Game")
 			{

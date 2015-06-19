@@ -89,7 +89,9 @@ public class PhysX : ModuleRules
 			Definitions.Add("WITH_VEHICLE=0");
 		}
 
-		string PhysXDir = UEBuildConfiguration.UEThirdPartySourceDirectory + "PhysX/PhysX-3.3/";
+		string PhysXVersion = "PhysX-3.3";
+
+		string PhysXDir = UEBuildConfiguration.UEThirdPartySourceDirectory + "PhysX/" + PhysXVersion + "/";
 
 		string PhysXLibDir = PhysXDir + "lib/";
 
@@ -130,6 +132,13 @@ public class PhysX : ModuleRules
 				"PhysX3Common{0}_x64.dll"
 			};
 
+			string[] RuntimeDependenciesX64 = new string[] {
+				"PhysX3{0}_x64.dll",
+				"PhysX3Gpu{0}_x64.dll",
+				"PhysX3Common{0}_x64.dll",
+				"PhysX3Cooking{0}_x64.dll",
+			};
+
 			foreach (string Lib in StaticLibrariesX64)
 			{
 				PublicAdditionalLibraries.Add(String.Format(Lib, LibrarySuffix));
@@ -139,8 +148,15 @@ public class PhysX : ModuleRules
 			{
 				PublicDelayLoadDLLs.Add(String.Format(DLL, LibrarySuffix));
 			}
-	
             PublicDelayLoadDLLs.Add("nvToolsExt64_1.dll");
+
+			string PhysXBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/{0}/Win64/VS{1}/", PhysXVersion, WindowsPlatform.GetVisualStudioCompilerVersionName());
+			foreach(string DLL in RuntimeDependenciesX64)
+			{
+				RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + String.Format(DLL, LibrarySuffix)));
+			}
+			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "nvToolsExt64_1.dll"));
+			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "PhysXDevice64.dll"));
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32 || (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32"))
 		{
@@ -166,6 +182,13 @@ public class PhysX : ModuleRules
 				"PhysX3Common{0}_x86.dll"
 			};
 
+			string[] RuntimeDependenciesX86 = new string[] {
+				"PhysX3{0}_x86.dll",
+				"PhysX3Gpu{0}_x86.dll",
+				"PhysX3Common{0}_x86.dll",
+				"PhysX3Cooking{0}_x86.dll",
+			};
+
 			foreach (string Lib in StaticLibrariesX86)
 			{
 				PublicAdditionalLibraries.Add(String.Format(Lib, LibrarySuffix));
@@ -175,8 +198,15 @@ public class PhysX : ModuleRules
 			{
 				PublicDelayLoadDLLs.Add(String.Format(DLL, LibrarySuffix));
 			}
-
             PublicDelayLoadDLLs.Add("nvToolsExt32_1.dll");
+
+			string PhysXBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/{0}/Win32/VS{1}/", PhysXVersion, WindowsPlatform.GetVisualStudioCompilerVersionName());
+			foreach(string DLL in RuntimeDependenciesX86)
+			{
+				RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + String.Format(DLL, LibrarySuffix)));
+			}
+			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "nvToolsExt32_1.dll"));
+			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "PhysXDevice.dll"));
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{

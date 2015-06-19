@@ -226,6 +226,34 @@ public:
 	{
 		return (A.Left <= B.Left) && (A.Right >= B.Right) && (A.Top <= B.Top) && (A.Bottom >= B.Bottom);
 	}
+
+	/**
+	* Returns a string of containing the coordinates of the rect
+	*
+	* @return	A string of the rect coordinates 
+	*/
+	FString ToString() const
+	{
+		return FString::Printf(TEXT("Left=%3.3f Top=%3.3f Right=%3.3f Bottom=%3.3f"), Left, Top, Right, Bottom);
+	}
+
+	/**
+	* Returns a string of containing the coordinates of the rect
+	*
+	* @param InSourceString A string containing the values to initialize this rect in format Left=Value Top=Value...
+	*
+	* @return	True if initialized successfully
+	*/
+	bool InitFromString(const FString& InSourceString)
+	{
+		// The initialization is only successful if the values can all be parsed from the string
+		const bool bSuccessful = FParse::Value(*InSourceString, TEXT("Left="), Left) && 
+								FParse::Value(*InSourceString, TEXT("Top="), Top) && 
+								FParse::Value(*InSourceString, TEXT("Right="), Right) && 
+								FParse::Value(*InSourceString, TEXT("Bottom="), Bottom);
+
+		return bSuccessful;
+	}
 };
 
 /**

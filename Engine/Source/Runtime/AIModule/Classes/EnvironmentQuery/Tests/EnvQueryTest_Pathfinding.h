@@ -38,24 +38,13 @@ class UEnvQueryTest_Pathfinding : public UEnvQueryTest
 	UPROPERTY(EditDefaultsOnly, Category=Pathfinding, AdvancedDisplay)
 	FAIDataProviderBoolValue SkipUnreachable;
 
-	/** if set, hierarchical (faster) pathfinding will be used */
-	UPROPERTY(EditDefaultsOnly, Category=Pathfinding, AdvancedDisplay)
-	FAIDataProviderBoolValue UseHierarchicalPathfinding;
-
-	// BEGIN: deprecated properties 
-	UPROPERTY()
-	FEnvBoolParam PathToItem;
-
-	UPROPERTY()
-	FEnvBoolParam DiscardUnreachable;
-
-	UPROPERTY()
-	FEnvBoolParam HierarchicalPathfinding;
-	// END: deprecated properties
+	/** navigation filter to use in pathfinding */
+	UPROPERTY(EditDefaultsOnly, Category=Pathfinding)
+	TSubclassOf<UNavigationQueryFilter> FilterClass;
 
 	virtual void RunTest(FEnvQueryInstance& QueryInstance) const override;
 
-	virtual FString GetDescriptionTitle() const override;
+	virtual FText GetDescriptionTitle() const override;
 	virtual FText GetDescriptionDetails() const override;
 
 #if WITH_EDITOR
@@ -66,15 +55,15 @@ class UEnvQueryTest_Pathfinding : public UEnvQueryTest
 
 protected:
 
-	DECLARE_DELEGATE_RetVal_SixParams(bool, FTestPathSignature, const FVector&, const FVector&, EPathFindingMode::Type, const ANavigationData*, UNavigationSystem*, const UObject*);
-	DECLARE_DELEGATE_RetVal_SixParams(float, FFindPathSignature, const FVector&, const FVector&, EPathFindingMode::Type, const ANavigationData*, UNavigationSystem*, const UObject*);
+	DECLARE_DELEGATE_RetVal_SixParams(bool, FTestPathSignature, const FVector&, const FVector&, EPathFindingMode::Type, const ANavigationData&, UNavigationSystem&, const UObject*);
+	DECLARE_DELEGATE_RetVal_SixParams(float, FFindPathSignature, const FVector&, const FVector&, EPathFindingMode::Type, const ANavigationData&, UNavigationSystem&, const UObject*);
 
-	bool TestPathFrom(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData* NavData, UNavigationSystem* NavSys, const UObject* PathOwner) const;
-	bool TestPathTo(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData* NavData, UNavigationSystem* NavSys, const UObject* PathOwner) const;
-	float FindPathCostFrom(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData* NavData, UNavigationSystem* NavSys, const UObject* PathOwner) const;
-	float FindPathCostTo(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData* NavData, UNavigationSystem* NavSys, const UObject* PathOwner) const;
-	float FindPathLengthFrom(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData* NavData, UNavigationSystem* NavSys, const UObject* PathOwner) const;
-	float FindPathLengthTo(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData* NavData, UNavigationSystem* NavSys, const UObject* PathOwner) const;
+	bool TestPathFrom(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData& NavData, UNavigationSystem& NavSys, const UObject* PathOwner) const;
+	bool TestPathTo(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData& NavData, UNavigationSystem& NavSys, const UObject* PathOwner) const;
+	float FindPathCostFrom(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData& NavData, UNavigationSystem& NavSys, const UObject* PathOwner) const;
+	float FindPathCostTo(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData& NavData, UNavigationSystem& NavSys, const UObject* PathOwner) const;
+	float FindPathLengthFrom(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData& NavData, UNavigationSystem& NavSys, const UObject* PathOwner) const;
+	float FindPathLengthTo(const FVector& ItemPos, const FVector& ContextPos, EPathFindingMode::Type Mode, const ANavigationData& NavData, UNavigationSystem& NavSys, const UObject* PathOwner) const;
 
-	ANavigationData* FindNavigationData(UNavigationSystem* NavSys, UObject* Owner) const;
+	ANavigationData* FindNavigationData(UNavigationSystem& NavSys, UObject* Owner) const;
 };

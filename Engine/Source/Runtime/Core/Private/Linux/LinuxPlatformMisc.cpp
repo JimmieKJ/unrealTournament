@@ -7,6 +7,7 @@
 #include "CorePrivatePCH.h"
 #include "LinuxPlatformMisc.h"
 #include "LinuxApplication.h"
+#include "LinuxPlatformCrashContext.h"
 
 #include <sys/sysinfo.h>
 #include <sched.h>
@@ -22,7 +23,8 @@ namespace PlatformMiscLimits
 {
 	enum
 	{
-		MaxUserHomeDirLength= MAX_PATH + 1
+		MaxUserHomeDirLength= MAX_PATH + 1,
+		MaxOsGuidLength = 32,
 	};
 };
 
@@ -71,7 +73,8 @@ const TCHAR* FLinuxPlatformMisc::RootDir()
 
 void FLinuxPlatformMisc::NormalizePath(FString& InPath)
 {
-	if (InPath.Contains(TEXT("~"), ESearchCase::CaseSensitive))	// case sensitive is quicker, and our substring doesn't care
+	// only expand if path starts with ~, e.g. ~/ should be expanded, /~ should not
+	if (InPath.StartsWith(TEXT("~"), ESearchCase::CaseSensitive))	// case sensitive is quicker, and our substring doesn't care
 	{
 		static bool bHaveHome = false;
 		static TCHAR CachedResult[PlatformMiscLimits::MaxUserHomeDirLength];
@@ -141,6 +144,13 @@ void FLinuxPlatformMisc::PlatformInit()
 	UE_LOG(LogInit, Log, TEXT(" -reuseconn - allow libcurl to reuse HTTP connections (only matters if compiled with libcurl)"));
 	UE_LOG(LogInit, Log, TEXT(" -virtmemkb=NUMBER - sets process virtual memory (address space) limit (overrides VirtualMemoryLimitInKB value from .ini)"));
 
+	UE_LOG(LogInit, Log, TEXT("Setting LC_NUMERIC to en_US"));
+	if (setenv("LC_NUMERIC", "en_US", 1) != 0)
+	{
+		int ErrNo = errno;
+		UE_LOG(LogInit, Warning, TEXT("Unable to setenv(): errno=%d (%s)"), ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
+	}
+
 	// skip for servers and programs, unless they request later
 	if (!UE_SERVER && !IS_PROGRAM)
 	{
@@ -159,12 +169,14 @@ bool FLinuxPlatformMisc::PlatformInitMultimedia()
 	if (!GInitializedSDL)
 	{
 		UE_LOG(LogInit, Log, TEXT("Initializing SDL."));
+
+		SDL_SetHint("SDL_VIDEO_X11_REQUIRE_XRANDR", "1");  // workaround for misbuilt SDL libraries on X11.
 		if (SDL_Init(SDL_INIT_EVERYTHING | SDL_INIT_NOPARACHUTE) != 0)
 		{
 			const char * SDLError = SDL_GetError();
 
 			// do not fail at this point, allow caller handle failure
-			UE_LOG(LogInit, Warning, TEXT("Could not initialize SDL: %s"), SDLError);
+			UE_LOG(LogInit, Warning, TEXT("Could not initialize SDL: %s"), ANSI_TO_TCHAR(SDLError));
 			return false;
 		}
 
@@ -200,6 +212,35 @@ void FLinuxPlatformMisc::PlatformTearDown()
 GenericApplication* FLinuxPlatformMisc::CreateApplication()
 {
 	return FLinuxApplication::CreateLinuxApplication();
+}
+
+void FLinuxPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName, TCHAR* Result, int32 ResultLength)
+{
+	FString VariableName = InVariableName;
+	VariableName.ReplaceInline(TEXT("-"), TEXT("_"));
+	ANSICHAR *AnsiResult = secure_getenv(TCHAR_TO_ANSI(*VariableName));
+	if (AnsiResult)
+	{
+		wcsncpy(Result, ANSI_TO_TCHAR(AnsiResult), ResultLength);
+	}
+	else
+	{
+		*Result = 0;
+	}
+}
+
+void FLinuxPlatformMisc::SetEnvironmentVar(const TCHAR* InVariableName, const TCHAR* Value)
+{
+	FString VariableName = InVariableName;
+	VariableName.ReplaceInline(TEXT("-"), TEXT("_"));
+	if (Value == NULL || Value[0] == TEXT('\0'))
+	{
+		unsetenv(TCHAR_TO_ANSI(*VariableName));
+	}
+	else
+	{
+		setenv(TCHAR_TO_ANSI(*VariableName), TCHAR_TO_ANSI(Value), 1);
+	}
 }
 
 void FLinuxPlatformMisc::PumpMessages( bool bFromMainLoop )
@@ -442,12 +483,14 @@ EAppReturnType::Type FLinuxPlatformMisc::MessageBoxExt(EAppMsgType::Type MsgType
 			break;
 	}
 
+	FTCHARToUTF8 CaptionUTF8(Caption);
+	FTCHARToUTF8 TextUTF8(Text);
 	SDL_MessageBoxData MessageBoxData = 
 	{
 		SDL_MESSAGEBOX_INFORMATION,
 		NULL, // No parent window
-		TCHAR_TO_UTF8(Caption),
-		TCHAR_TO_UTF8(Text),
+		CaptionUTF8.Get(),
+		TextUTF8.Get(),
 		NumberOfButtons,
 		Buttons,
 		NULL // Default color scheme
@@ -659,4 +702,35 @@ bool FLinuxPlatformMisc::HasBeenStartedRemotely()
 	}
 
 	return bResult;
+}
+
+FString FLinuxPlatformMisc::GetOperatingSystemId()
+{
+	static bool bHasCachedResult = false;
+	static FString CachedResult;
+
+	if (!bHasCachedResult)
+	{
+		int OsGuidFile = open("/etc/machine-id", O_RDONLY);
+		if (OsGuidFile != -1)
+		{
+			char Buffer[PlatformMiscLimits::MaxOsGuidLength + 1] = {0};
+			ssize_t ReadBytes = read(OsGuidFile, Buffer, sizeof(Buffer) - 1);
+
+			if (ReadBytes > 0)
+			{
+				CachedResult = ANSI_TO_TCHAR(Buffer);
+			}
+
+			close(OsGuidFile);
+		}
+
+		// old POSIX gethostid() is not useful. It is impossible to have globally unique 32-bit GUIDs and most
+		// systems don't try hard implementing it these days (glibc will return a permuted IP address, often 127.0.0.1)
+		// Due to that, we just ignore that call and consider lack of systemd's /etc/machine-id a failure to obtain the host id.
+
+		bHasCachedResult = true;	// even if we failed to read the real one
+	}
+
+	return CachedResult;
 }

@@ -15,7 +15,6 @@ public class IOSPlatformEditor : ModuleRules
 				"InputCore",
 				"DesktopPlatform",
 				"Engine",
-				"GameProjectGeneration",
 				"MainFrame",
 				"Slate",
 				"SlateCore",
@@ -30,8 +29,15 @@ public class IOSPlatformEditor : ModuleRules
 
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
+				"GameProjectGeneration",
 				"Settings",
 			}
+		);
+
+		DynamicallyLoadedModuleNames.AddRange(
+			new string[] {
+				"GameProjectGeneration",
+				}
 		);
 
         // this is listed above, so it isn't really dynamically loaded, this just marks it as being platform specific.

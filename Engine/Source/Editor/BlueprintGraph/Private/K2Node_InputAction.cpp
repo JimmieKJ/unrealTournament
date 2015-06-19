@@ -52,14 +52,14 @@ FText UK2Node_InputAction::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		return FText::FromName(InputActionName);
 	}
-	else if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("InputActionName"), FText::FromName(InputActionName));
 
 		FText LocFormat = NSLOCTEXT("K2Node", "InputAction_Name", "InputAction {InputActionName}");
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LocFormat, Args);
+		CachedNodeTitle.SetCachedText(FText::Format(LocFormat, Args), this);
 	}
 
 	return CachedNodeTitle;
@@ -67,10 +67,10 @@ FText UK2Node_InputAction::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 FText UK2Node_InputAction::GetTooltipText() const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "InputAction_Tooltip", "Event for when the keys bound to input action {0} are pressed or released."), FText::FromName(InputActionName));
+		CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "InputAction_Tooltip", "Event for when the keys bound to input action {0} are pressed or released."), FText::FromName(InputActionName)), this);
 	}
 	return CachedTooltip;
 }
@@ -118,8 +118,7 @@ void UK2Node_InputAction::CreateInputActionEvent(FKismetCompilerContext& Compile
 		InputActionEvent->bExecuteWhenPaused = bExecuteWhenPaused;
 		InputActionEvent->bOverrideParentBinding = bOverrideParentBinding;
 		InputActionEvent->InputKeyEvent = InputKeyEvent;
-		InputActionEvent->EventSignatureName = TEXT("InputActionHandlerDynamicSignature__DelegateSignature");
-		InputActionEvent->EventSignatureClass = UInputComponent::StaticClass();
+		InputActionEvent->EventReference.SetExternalDelegateMember(FName(TEXT("InputActionHandlerDynamicSignature__DelegateSignature")));
 		InputActionEvent->bInternalEvent = true;
 		InputActionEvent->AllocateDefaultPins();
 
@@ -177,12 +176,12 @@ void UK2Node_InputAction::GetMenuActions(FBlueprintActionDatabaseRegistrar& Acti
 			FEditorDelegates::OnActionAxisMappingsChanged.AddStatic(RefreshClassActions);
 		}
 
-		for (FName const InputActionName : ActionNames)
+		for (FName const ActionName : ActionNames)
 		{
 			UBlueprintNodeSpawner* NodeSpawner = UBlueprintNodeSpawner::Create(GetClass());
 			check(NodeSpawner != nullptr);
 
-			NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeInputNodeLambda, InputActionName);
+			NodeSpawner->CustomizeNodeDelegate = UBlueprintNodeSpawner::FCustomizeNodeDelegate::CreateStatic(CustomizeInputNodeLambda, ActionName);
 			ActionRegistrar.AddBlueprintAction(ActionKey, NodeSpawner);
 		}
 	}
@@ -191,10 +190,10 @@ void UK2Node_InputAction::GetMenuActions(FBlueprintActionDatabaseRegistrar& Acti
 FText UK2Node_InputAction::GetMenuCategory() const
 {
 	static FNodeTextCache CachedCategory;
-	if (CachedCategory.IsOutOfDate())
+	if (CachedCategory.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedCategory = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Input, LOCTEXT("ActionMenuCategory", "Action Events"));
+		CachedCategory.SetCachedText(FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Input, LOCTEXT("ActionMenuCategory", "Action Events")), this);
 	}
 	return CachedCategory;
 }

@@ -169,17 +169,17 @@ Retarget Source Manager allows you to create multiple retarget sources of the an
 If you have different body types of characters who shares the same animation using the skeleton, this is where you can add those sources of the animations. 
 
 For example, if you have 3 body types for one skeleton, small, medium, big, and if your skeleton is made from medium, then all retargeting option will work correctly as far as the animation is made from the medium skeleton. 
-But if you'd like to make an animation for big skeleton, it will treat as medium skeleton when retarget. 
-To fix the issue, you'll have to set up proper retarget source for the animation. 
+But if you would like to make an animation for big skeleton, it will treat as medium skeleton when retarget. 
+To fix the issue, you will have to set up proper retarget source for the animation. 
 You can create retarget source of big skeleton, and set the retarget source of the animation to it, then it will retarget with correct proportion applied. 
 
 You can create retarget source by clicking Add button. Or use context menu to delete or rename. 
 
 2. Set up Rig
 
-If you'd like to retarget the related assets of this skeleton to another skeleton, you need to configure the rig. 
+If you would like to retarget the related assets of this skeleton to another skeleton, you need to configure the rig. 
 
-Please select the rig, you'd like to use, and configure your setup. Select which bone map to which node from the rig. 
+Please select the rig, you would like to use, and configure your setup. Select which bone map to which node from the rig. 
 Once you set this up, you should be able to retarget to another skeleton with the same rig set up. 
 
 3. Manage Retarget Base Pose
@@ -197,8 +197,8 @@ Retarget Source Manager allows you to create multiple retarget sources of the an
 If you have different body types of characters who shares the same animation using the skeleton, this is where you can add those sources of the animations. 
 
 For example, if you have 3 body types for one skeleton, small, medium, big, and if your skeleton is made from medium, then all retargeting option will work correctly as far as the animation is made from the medium skeleton. 
-But if you'd like to make an animation for big skeleton, it will treat as medium skeleton when retarget. 
-To fix the issue, you'll have to set up proper retarget source for the animation. 
+But if you would like to make an animation for big skeleton, it will treat as medium skeleton when retarget. 
+To fix the issue, you will have to set up proper retarget source for the animation. 
 You can create retarget source of big skeleton, and set the retarget source of the animation to it, then it will retarget with correct proportion applied. 
 
 You can create retarget source by clicking Add button. Or use context menu to delete or rename. 
@@ -211,9 +211,9 @@ Engine/Animation/AnimationRetargeting
 
 [EXCERPT:RigSetup]
 
-If you'd like to retarget the related assets of this skeleton to another skeleton, you need to configure the rig. 
+If you would like to retarget the related assets of this skeleton to another skeleton, you need to configure the rig. 
 
-Please select the rig, you'd like to use, and configure your setup. Select which bone map to which node from the rig. 
+Please select the rig you would like to use, and configure your setup. Select which bone map to which node from the rig. 
 Once you set this up, you should be able to retarget to another skeleton with the same rig set up. 
 
 [/EXCERPT:RigSetup]
@@ -291,7 +291,7 @@ Engine/Animation/AnimationRetargeting#howdoesretargetingwork?
 
 [EXCERPT:AdditionalMeshes]
 
-You can add additional body parts which share the same skeleton. Please be careful as these are just for previewing. To change body parts in game mode you should use the master pose component by calling the SetMasterPoseComponent method in SkinnedMeshComponent.
+You can add additional body parts which share the same skeleton. Please be careful as these are just for previewing. To change body parts in game mode, you should use the master pose component by calling the SetMasterPoseComponent method in SkinnedMeshComponent.
 
 [VAR:ToolTipFullLink]
 Engine/Animation/Persona/Modes/Mesh
@@ -324,7 +324,7 @@ This option will convert animation data to new skeleton spaces. This only works 
 
 If original skeleton has T-pose ref pose, the target should also have T-pose to convert it correctly. If the original skeleton has A-pose ref pose, the target also should match A-pose. 
 
-If you turn this off, the animation data won't be converted but copied directly to target skeleton. 
+If you turn this off, the animation data will not be converted but copied directly to target skeleton. 
 
 [/EXCERPT:AnimRemapSkeleton_ConvertSpace]
 

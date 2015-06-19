@@ -61,7 +61,7 @@ UObject* UAnimMontageFactory::FactoryCreateNew(UClass* Class, UObject* InParent,
 {
 	if (TargetSkeleton || SourceAnimation)
 	{
-		UAnimMontage* AnimMontage = ConstructObject<UAnimMontage>(Class,InParent,Name,Flags);
+		UAnimMontage* AnimMontage = NewObject<UAnimMontage>(InParent, Class, Name, Flags);
 
 		if(SourceAnimation)
 		{

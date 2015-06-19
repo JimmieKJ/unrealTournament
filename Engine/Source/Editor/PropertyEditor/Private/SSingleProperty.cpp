@@ -38,7 +38,7 @@ public:
 		}
 	}
 
-	virtual void EnqueueDeferredAction( FSimpleDelegate DeferredAction )
+	virtual void EnqueueDeferredAction( FSimpleDelegate DeferredAction ) override
 	{
 		 // not implemented
 	}
@@ -67,7 +67,7 @@ public:
 		return NULL;
 	}
 
-	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent)
+	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) override
 	{}
 
 	virtual bool DontUpdateValueWhileEditing() const override

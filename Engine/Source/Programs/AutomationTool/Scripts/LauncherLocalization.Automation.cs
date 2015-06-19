@@ -96,7 +96,7 @@ class LauncherLocalization : BuildCommand
 
 		if (launcherGroup == null)
 		{
-			launcherGroup = new ProjectGroup("Launcher", new CultureInfo("en"));
+			launcherGroup = new ProjectGroup("Launcher", "en");
 			oneSkyService.ProjectGroups.Add(launcherGroup);
 		}
 
@@ -120,11 +120,11 @@ class LauncherLocalization : BuildCommand
 		return appProject;
 	}
 
-	private static void ExportFileToDirectory(UploadedFile file, DirectoryInfo destination, IEnumerable<CultureInfo> cultures)
+	private static void ExportFileToDirectory(UploadedFile file, DirectoryInfo destination, IEnumerable<string> cultures)
 	{
 		foreach (var culture in cultures)
 		{
-			var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, culture.Name));
+			var cultureDirectory = new DirectoryInfo(Path.Combine(destination.FullName, culture));
 			if (!cultureDirectory.Exists)
 			{
 				cultureDirectory.Create();
@@ -141,16 +141,16 @@ class LauncherLocalization : BuildCommand
 					using (Stream fileStream = File.OpenWrite(exportFile.FullName))
 					{
 						memoryStream.CopyTo(fileStream);
-						Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Locale: " + culture.Name);
+						Console.WriteLine("[SUCCESS] Exporting: " + exportFile.FullName + " Locale: " + culture);
 					}
 				}
 				else if (exportTranslationState == UploadedFile.ExportTranslationState.NoContent)
 				{
-					Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Locale: " + culture.Name + " has no translations!");
+					Console.WriteLine("[WARNING] Exporting: " + exportFile.FullName + " Locale: " + culture + " has no translations!");
 				}
 				else
 				{
-					Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Locale: " + culture.Name);
+					Console.WriteLine("[FAILED] Exporting: " + exportFile.FullName + " Locale: " + culture);
 				}
 			}
 		}
@@ -177,7 +177,7 @@ class LauncherLocalization : BuildCommand
 				}
 
 				Console.WriteLine("Uploading: " + currentFile + " Locale: " + localeName);
-				var uploadedFile = project.Upload(Path.GetFileName(currentFile), fileStream, new CultureInfo(localeName)).Result;
+				var uploadedFile = project.Upload(Path.GetFileName(currentFile), fileStream, localeName).Result;
 
 				if (uploadedFile == null)
 				{

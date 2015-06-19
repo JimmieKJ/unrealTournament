@@ -157,7 +157,7 @@ int32 SDockingTabWell::OnPaint( const FPaintArgs& Args, const FGeometry& Allotte
 }
 
 
-FVector2D SDockingTabWell::ComputeDesiredSize() const
+FVector2D SDockingTabWell::ComputeDesiredSize( float ) const
 {
 	FVector2D DesiredSizeResult(0,0);
 
@@ -213,7 +213,7 @@ FVector2D SDockingTabWell::ComputeChildSize( const FGeometry& AllottedGeometry )
 	FVector2D MaxTabSize(0,0);
 	if ( FirstTab.IsValid() )
 	{
-		const ETabRole RoleToUse = FirstTab->IsNomadTabWithMajorTabStyle() ? ETabRole::MajorTab : FirstTab->GetTabRole();
+		const ETabRole RoleToUse = FirstTab->GetVisualTabRole();
 		MaxTabSize = FDockingConstants::GetMaxTabSizeFor(RoleToUse);
 	}
 	else

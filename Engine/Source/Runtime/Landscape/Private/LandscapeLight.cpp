@@ -248,10 +248,10 @@ namespace
 								continue;
 							}
 
-							ULandscapeComponent* Neighbor = Info->XYtoComponentMap.FindRef(ComponentBase + FIntPoint(x+xx, y+yy));
-							if (Neighbor)
+							ULandscapeComponent* ComponentNeighbor = Info->XYtoComponentMap.FindRef(ComponentBase + FIntPoint(x+xx, y+yy));
+							if (ComponentNeighbor)
 							{
-								NeighborLOD = FMath::Max(::GetLightingLOD(Neighbor), NeighborLOD);
+								NeighborLOD = FMath::Max(::GetLightingLOD(ComponentNeighbor), NeighborLOD);
 							}
 						}
 					}
@@ -610,13 +610,13 @@ void ULandscapeComponent::GetStaticLightingInfo(FStaticLightingPrimitiveInfo& Ou
 {
 	if( HasStaticLighting() )
 	{
-		float LightMapRes = StaticLightingResolution > 0.f ? StaticLightingResolution : GetLandscapeProxy()->StaticLightingResolution;
-		int32 PatchExpandCountX = 1;
-		int32 PatchExpandCountY = 1;
-		int32 DesiredSize = 1;
-		int32 LightingLOD = GetLandscapeProxy()->StaticLightingLOD;
+		const float LightMapRes = StaticLightingResolution > 0.f ? StaticLightingResolution : GetLandscapeProxy()->StaticLightingResolution;
+		const int32 LightingLOD = GetLandscapeProxy()->StaticLightingLOD;
 
-		float LightMapRatio = ::GetTerrainExpandPatchCount(LightMapRes, PatchExpandCountX, PatchExpandCountY, ComponentSizeQuads, (NumSubsections * (SubsectionSizeQuads+1)), DesiredSize, LightingLOD);
+		int32 PatchExpandCountX = 0;
+		int32 PatchExpandCountY = 0;
+		int32 DesiredSize = 1;
+		const float LightMapRatio = ::GetTerrainExpandPatchCount(LightMapRes, PatchExpandCountX, PatchExpandCountY, ComponentSizeQuads, (NumSubsections * (SubsectionSizeQuads+1)), DesiredSize, LightingLOD);
 
 		int32 SizeX = DesiredSize;
 		int32 SizeY = DesiredSize;

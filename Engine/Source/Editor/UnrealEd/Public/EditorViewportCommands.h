@@ -26,11 +26,20 @@ public:
 	/** Changes the viewport to top view */
 	TSharedPtr< FUICommandInfo > Top;
 
-	/** Changes the viewport to side view */
-	TSharedPtr< FUICommandInfo > Side;
+	/** Changes the viewport to bottom view */
+	TSharedPtr< FUICommandInfo > Bottom;
+
+	/** Changes the viewport to left view */
+	TSharedPtr< FUICommandInfo > Left;
+
+	/** Changes the viewport to right view */
+	TSharedPtr< FUICommandInfo > Right;
 
 	/** Changes the viewport to front view */
 	TSharedPtr< FUICommandInfo > Front;
+
+	/** Changes the viewport to back view */
+	TSharedPtr< FUICommandInfo > Back;
 
 	/** Changes the viewport to wireframe */
 	TSharedPtr< FUICommandInfo > WireframeMode;
@@ -108,6 +117,9 @@ public:
 	/** TranslateRotate Mode */
 	TSharedPtr< FUICommandInfo > TranslateRotateMode;
 
+	/** TranslateRotate Mode */
+	TSharedPtr< FUICommandInfo > TranslateRotate2DMode;
+
 	/** Shrink the level editor transform widget */
 	TSharedPtr< FUICommandInfo > ShrinkTransformWidget;
 
@@ -152,6 +164,8 @@ public:
 	/** Enables or disables snapping to a rotational grid while rotating objects */
 	TSharedPtr< FUICommandInfo > RotationGridSnap;
 
+	/** Enables or disables snapping to a 2D layer */
+	TSharedPtr< FUICommandInfo > Layer2DSnap;
 
 	/** Enables or disables snapping to a scaling grid while scaling objects */
 	TSharedPtr< FUICommandInfo > ScaleGridSnap;

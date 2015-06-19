@@ -64,12 +64,12 @@ DEFINE_LOG_CATEGORY_STATIC(LogOpenGLShaderCompiler, Log, All);
   
 static FORCEINLINE bool IsES2Platform(GLSLVersion Version)
 {
-	return (Version == GLSL_ES2 || Version == GLSL_150_ES2 || Version == GLSL_ES2_WEBGL || Version == GLSL_ES2_IOS); 
+	return (Version == GLSL_ES2 || Version == GLSL_150_ES2 || Version == GLSL_ES2_WEBGL || Version == GLSL_ES2_IOS || Version == GLSL_150_ES2_NOUB); 
 }
 
 static FORCEINLINE bool IsPCES2Platform(GLSLVersion Version)
 {
-	return (Version == GLSL_150_ES2);
+	return (Version == GLSL_150_ES2 || Version == GLSL_150_ES2_NOUB || Version == GLSL_150_ES3_1);
 }
 
 // This function should match OpenGLShaderPlatformSeparable
@@ -78,7 +78,7 @@ static FORCEINLINE bool SupportsSeparateShaderObjects(GLSLVersion Version)
 	// Only desktop shader platforms can use separable shaders for now,
 	// the generated code relies on macros supplied at runtime to determine whether
 	// shaders may be separable and/or linked.
-	return Version == GLSL_150 || Version == GLSL_150_MAC || Version == GLSL_150_ES2 || Version == GLSL_430;
+	return Version == GLSL_150 || Version == GLSL_150_MAC || Version == GLSL_150_ES2 || Version == GLSL_150_ES2_NOUB || Version == GLSL_150_ES3_1 || Version == GLSL_430;
 }
 
 /*------------------------------------------------------------------------------
@@ -126,7 +126,7 @@ static void PlatformInitPixelFormatForDevice(HDC DeviceContext)
 {
 	// Pixel format descriptor for the context.
 	PIXELFORMATDESCRIPTOR PixelFormatDesc;
-	FMemory::MemZero(PixelFormatDesc);
+	FMemory::Memzero(PixelFormatDesc);
 	PixelFormatDesc.nSize		= sizeof(PIXELFORMATDESCRIPTOR);
 	PixelFormatDesc.nVersion	= 1;
 	PixelFormatDesc.dwFlags		= PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
@@ -158,7 +158,7 @@ static void PlatformCreateDummyGLWindow(FPlatformOpenGLContext* OutContext)
 		WNDCLASS wc;
 
 		bInitializedWindowClass = true;
-		FMemory::MemZero(wc);
+		FMemory::Memzero(wc);
 		wc.style = CS_OWNDC;
 		wc.lpfnWndProc = PlatformDummyGLWndproc;
 		wc.cbClsExtra = 0;
@@ -666,6 +666,27 @@ static void BuildShaderOutput(
         }
 	}
 
+	// Generate vertex attribute remapping table.
+	// This is used on devices where GL_MAX_VERTEX_ATTRIBS < 16
+	if (Frequency == SF_Vertex)
+	{
+		uint32 AttributeMask = Header.Bindings.InOutMask;
+		int32 NextAttributeSlot = 0;
+		Header.Bindings.VertexRemappedMask = 0;
+		for (int32 AttributeIndex = 0; AttributeIndex<16; AttributeIndex++, AttributeMask >>= 1)
+		{
+			if (AttributeMask & 0x1)
+			{
+				Header.Bindings.VertexRemappedMask |= (1 << NextAttributeSlot);
+				Header.Bindings.VertexAttributeRemap[AttributeIndex] = NextAttributeSlot++;
+			}
+			else
+			{
+				Header.Bindings.VertexAttributeRemap[AttributeIndex] = -1;
+			}
+		}
+	}
+
 	// Then the list of outputs.
 	if (FCStringAnsi::Strncmp(ShaderSource, OutputsPrefix, OutputsPrefixLen) == 0)
 	{
@@ -857,6 +878,7 @@ static void BuildShaderOutput(
 		verify(Match(ShaderSource, '('));
 		uint16 BufferIndex = ParseNumber(ShaderSource);
 		check(BufferIndex == Header.Bindings.NumUniformBuffers);
+		UsedUniformBufferSlots[BufferIndex] = true;
 		verify(Match(ShaderSource, ')'));
 		ParameterMap.AddParameterAllocation(*BufferName, Header.Bindings.NumUniformBuffers++, 0, 0);
 
@@ -1167,6 +1189,8 @@ static void OpenGLVersionFromGLSLVersion(GLSLVersion InVersion, int& OutMajorVer
 			OutMinorVersion = 3;
 			break;
 		case GLSL_150_ES2:
+		case GLSL_150_ES2_NOUB:
+		case GLSL_150_ES3_1:
 			OutMajorVersion = 3;
 			OutMinorVersion = 2;
 			break;
@@ -1395,7 +1419,7 @@ static void PrecompileShader(FShaderCompilerOutput& ShaderOutput, const FShaderC
 					RawCompileLog.AddZeroed(LogLength);
 					glGetShaderInfoLog(Shader, LogLength, /*OutLength=*/ NULL, RawCompileLog.GetData());
 					CompileLog = ANSI_TO_TCHAR(RawCompileLog.GetData());
-					CompileLog.ParseIntoArray(&LogLines, TEXT("\n"), true);
+					CompileLog.ParseIntoArray(LogLines, TEXT("\n"), true);
 
 					for (int32 Line = 0; Line < LogLines.Num(); ++Line)
 					{
@@ -1495,6 +1519,8 @@ static FString CreateCrossCompilerBatchFile( const FString& ShaderFile, const FS
 	switch (Version)
 	{
 		case GLSL_150:
+		case GLSL_150_ES2:
+		case GLSL_150_ES3_1:
 			VersionSwitch = TEXT(" -gl3 -separateshaders");
 			break;
 
@@ -1502,7 +1528,7 @@ static FString CreateCrossCompilerBatchFile( const FString& ShaderFile, const FS
 			VersionSwitch = TEXT(" -gl3 -mac -separateshaders");
 			break;
 
-		case GLSL_150_ES2:
+		case GLSL_150_ES2_NOUB:
 			VersionSwitch = TEXT(" -gl3 -flattenub -flattenubstruct -separateshaders");
 			break;
 
@@ -1593,8 +1619,16 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			break; 
 
 		case GLSL_150_ES2:
+		case GLSL_150_ES2_NOUB:
 			AdditionalDefines.SetDefine(TEXT("COMPILER_GLSL"), 1);
 			AdditionalDefines.SetDefine(TEXT("ES2_PROFILE"), 1);
+			HlslCompilerTarget = HCT_FeatureLevelSM4;
+			AdditionalDefines.SetDefine(TEXT("row_major"), TEXT(""));
+			break;
+
+		case GLSL_150_ES3_1:
+			AdditionalDefines.SetDefine(TEXT("COMPILER_GLSL"), 1);
+			AdditionalDefines.SetDefine(TEXT("ES3_1_PROFILE"), 1);
 			HlslCompilerTarget = HCT_FeatureLevelSM4;
 			AdditionalDefines.SetDefine(TEXT("row_major"), TEXT(""));
 			break;
@@ -1662,7 +1696,12 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 			CCFlags |= HLSLCC_ApplyCommonSubexpressionElimination;
 		}
 		
-		if(SupportsSeparateShaderObjects(Version))
+		if (Version == GLSL_150_ES2_NOUB)
+		{
+			CCFlags |= HLSLCC_FlattenUniformBuffers | HLSLCC_FlattenUniformBufferStructures;
+		}
+		
+		if (SupportsSeparateShaderObjects(Version))
 		{
 			CCFlags |= HLSLCC_SeparateShaderObjects;
 		}
@@ -1683,18 +1722,19 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 
 		FGlslCodeBackend GlslBackEnd(CCFlags);
 		FGlslLanguageSpec GlslLanguageSpec(IsES2Platform(Version) && !IsPCES2Platform(Version));
-		int32 Result = HlslCrossCompile(
-			TCHAR_TO_ANSI(*Input.SourceFilename),
-			TCHAR_TO_ANSI(*PreprocessedShader),
-			TCHAR_TO_ANSI(*Input.EntryPointName),
-			Frequency,
-			&GlslBackEnd,
-			&GlslLanguageSpec,
-			CCFlags,
-			HlslCompilerTarget,
-			&GlslShaderSource,
-			&ErrorLog
-			);
+
+		int32 Result = 0;
+		FHlslCrossCompilerContext CrossCompilerContext(CCFlags, Frequency, HlslCompilerTarget);
+		if (CrossCompilerContext.Init(TCHAR_TO_ANSI(*Input.SourceFilename), &GlslLanguageSpec))
+		{
+			Result = CrossCompilerContext.Run(
+				TCHAR_TO_ANSI(*PreprocessedShader),
+				TCHAR_TO_ANSI(*Input.EntryPointName),
+				&GlslBackEnd,
+				&GlslShaderSource,
+				&ErrorLog
+				) ? 1 : 0;
+		}
 
 		if (Result != 0)
 		{
@@ -1728,13 +1768,10 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 
 #if VALIDATE_GLSL_WITH_DRIVER
 			PrecompileShader(Output, Input, GlslShaderSource, Version, Frequency);
-			if (Output.bSucceeded == false)
-			{
-			}
 #else // VALIDATE_GLSL_WITH_DRIVER
 			int32 SourceLen = FCStringAnsi::Strlen(GlslShaderSource);
 			Output.Target = Input.Target;
-				BuildShaderOutput(Output, Input, GlslShaderSource, SourceLen, Version);
+			BuildShaderOutput(Output, Input, GlslShaderSource, SourceLen, Version);
 #endif // VALIDATE_GLSL_WITH_DRIVER
 		}
 		else
@@ -1752,7 +1789,7 @@ void CompileShader_Windows_OGL(const FShaderCompilerInput& Input,FShaderCompiler
 
 			FString Tmp = ANSI_TO_TCHAR(ErrorLog);
 			TArray<FString> ErrorLines;
-			Tmp.ParseIntoArray(&ErrorLines, TEXT("\n"), true);
+			Tmp.ParseIntoArray(ErrorLines, TEXT("\n"), true);
 			for (int32 LineIndex = 0; LineIndex < ErrorLines.Num(); ++LineIndex)
 			{
 				const FString& Line = ErrorLines[LineIndex];

@@ -10,6 +10,12 @@
 
 void SUWRedirectDialog::Construct(const FArguments& InArgs)
 {
+	LastETATime = 0.0f;
+	LastDownloadedAmount = 0;
+	SecondsRemaining = 0.0f;
+	NumSamples = 0;
+	CurrentSample = 0;
+
 	OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
 	{
@@ -127,6 +133,13 @@ void SUWRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double In
 		if (HttpRequest.IsValid() && HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
 		{
 			HttpRequest->Tick(InDeltaTime);
+
+			//Update the download speeds and ETA
+			if (LastETATime < InCurrentTime - 1)
+			{
+				LastETATime = InCurrentTime;
+				UpdateETA();
+			}
 		}
 		else if (HttpRequest->GetStatus() == EHttpRequestStatus::Failed)
 		{
@@ -156,19 +169,19 @@ void SUWRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double In
 }
 
 
-void SUWRedirectDialog::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes)
+void SUWRedirectDialog::HttpRequestProgress(FHttpRequestPtr InHttpRequest, int32 NumBytesSent, int32 NumBytesRecv)
 {
-	if (HttpRequest.IsValid())
+	if (InHttpRequest.IsValid())
 	{
-		AssetsTotalSize = HttpRequest->GetResponse()->GetContentLength();
-		AssetsDownloadedAmount = NumBytes;
+		AssetsTotalSize = InHttpRequest->GetResponse()->GetContentLength();
+		AssetsDownloadedAmount = NumBytesRecv;
 	}
 }
 
-void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr InHttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
 {
 	//If the download was successful save it to disk
-	if (bSucceeded && HttpResponse.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
+	if (bSucceeded && InHttpRequest.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
 		if (HttpResponse->GetContent().Num() > 0)
 		{
@@ -255,4 +268,85 @@ void SUWRedirectDialog::CancelDownload()
 	}
 }
 
+FText SUWRedirectDialog::GetProgressFileText() const
+{
+	if (AssetsTotalSize == 0 && SecondsRemaining <= 0.0f)
+	{
+		return NSLOCTEXT("SUWRedirectDialog", "Connecting", "Connecting...");
+	}
+
+	FFormatNamedArguments Args;
+	Args.Add("AssetsDownloadedAmount", BytesToText(AssetsDownloadedAmount));
+	Args.Add("AssetsTotalSize", BytesToText(AssetsTotalSize));
+	Args.Add("DownloadSpeed", BytesToText(GetAverageBytes()));
+	Args.Add("PerSecond", NSLOCTEXT("SUWRedirectDialog", "PerSecond", "/s"));
+	Args.Add("RemainingTime", SecondsToText(SecondsRemaining));
+	return FText::Format(FText::FromString(TEXT("{AssetsDownloadedAmount} / {AssetsTotalSize}             {DownloadSpeed}{PerSecond}             {RemainingTime}")), Args);
+}
+
+FText SUWRedirectDialog::BytesToText(int32 Bytes) const
+{
+	FText Txt = NSLOCTEXT("SUWRedirectDialog", "Byte", "B");
+	int32 Divisor = 1;
+	if (Bytes > 0x40000000)
+	{
+		Txt = NSLOCTEXT("SUWRedirectDialog", "GiB", "GiB");
+		Divisor = 0x40000000;
+	}
+	else if (Bytes > 0x100000)
+	{
+		Txt = NSLOCTEXT("SUWRedirectDialog", "MiB", "MiB");
+		Divisor = 0x100000;
+	}
+	else if (Bytes > 0x400)
+	{
+		Txt = NSLOCTEXT("SUWRedirectDialog", "KiB", "KiB");
+		Divisor = 0x400;
+	}
+
+	FNumberFormattingOptions NumberFormat;
+	NumberFormat.MinimumFractionalDigits = Divisor == 1 ? 0 : 2;
+	NumberFormat.MaximumFractionalDigits = Divisor == 1 ? 0 : 2;
+	return FText::Format(FText::FromString(TEXT("{0} {1}")), FText::AsNumber((float)Bytes / (float)Divisor, &NumberFormat), Txt);
+}
+
+FText SUWRedirectDialog::SecondsToText(float Seconds) const
+{
+	if (Seconds > 0.0f)
+	{
+		FFormatNamedArguments Args;
+		Args.Add("Time", FText::AsTimespan(FTimespan::FromSeconds(Seconds)));
+		return FText::Format(NSLOCTEXT("SUWRedirectDialog", "TimeRemaining", "{Time} remaining"), Args);
+	}
+	return NSLOCTEXT("SUWRedirectDialog", "CalculatingETA", "Calculating ETA...");
+}
+
+void SUWRedirectDialog::UpdateETA()
+{
+	AddSample(AssetsDownloadedAmount - LastDownloadedAmount);
+	LastDownloadedAmount = AssetsDownloadedAmount;
+
+	float Average = GetAverageBytes();
+	SecondsRemaining = (Average > 0.0f) ? (float)(AssetsTotalSize - AssetsDownloadedAmount) / (float)GetAverageBytes() : 0.0f;
+}
+
+void SUWRedirectDialog::AddSample(int32 Sample)
+{
+	ByteSamples[CurrentSample] = Sample;
+	CurrentSample = (CurrentSample < NUM_REDIRECT_SAMPLES - 1) ? CurrentSample + 1 : 0;
+	if (NumSamples < NUM_REDIRECT_SAMPLES)
+	{
+		NumSamples++;
+	}
+}
+
+float SUWRedirectDialog::GetAverageBytes() const
+{
+	int32 Total = 0;
+	for (int32 i = 0; i < NumSamples; i++)
+	{
+		Total += ByteSamples[i];
+	}
+	return (NumSamples > 0) ? (float)Total / (float)NumSamples : 0.0f;
+}
 #endif

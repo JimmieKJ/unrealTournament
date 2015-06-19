@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Procedural Mesh Component",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.8.0",
+	"Description" : "A renderable component and library of utilities for creating and modifying mesh geometry procedurally.",
+	"Category" : "Rendering",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "ProceduralMeshComponent",
+			"Type" : "Runtime",
+			"BlacklistPlatforms" : [ "HTML5" ]
+		}
+	]
+}

@@ -33,8 +33,6 @@ void FMetalDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, F
 	//kick the current command buffer.
 	FMetalManager::Get()->SubmitCommandBufferAndWait();
 
-	DYNAMIC_CAST_METALRESOURCE(Texture2D, Texture);
-	
 	FMetalSurface* Surface = GetMetalSurfaceFromRHITexture(TextureRHI);
 	
 	// verify the input image format (but don't crash)

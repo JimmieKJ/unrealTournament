@@ -27,6 +27,7 @@ struct FMacMenuItemState
 };
 
 static TMap<FMacMenu*, TSharedPtr<TArray<FMacMenuItemState>>> GCachedMenuState;
+static FCriticalSection GCachedMenuStateCS;
 
 @interface FMacMenuItem : NSMenuItem
 @property (assign) TSharedPtr<const FMenuEntryBlock> MenuEntryBlock;
@@ -60,6 +61,7 @@ static TMap<FMacMenu*, TSharedPtr<TArray<FMacMenuItemState>>> GCachedMenuState;
 	self = [super initWithTitle:@""];
 	[self setDelegate:self];
 	self.MenuEntryBlock = Block;
+	FScopeLock Lock(&GCachedMenuStateCS);
 	GCachedMenuState.Add(self, TSharedPtr<TArray<FMacMenuItemState>>(new TArray<FMacMenuItemState>()));
 	return self;
 }
@@ -83,7 +85,17 @@ static TMap<FMacMenu*, TSharedPtr<TArray<FMacMenuItemState>>> GCachedMenuState;
 
 void FSlateMacMenu::UpdateWithMultiBox(const TSharedPtr< FMultiBox > MultiBox)
 {
+	// The dispatch block can't handle TSharedPtr correctly, so we use a small trick to pass MultiBox safely
+	struct FSafeMultiBoxPass
+	{
+		TSharedPtr<FMultiBox> MultiBox;
+	};
+	FSafeMultiBoxPass* SafeMultiBoxPtr = new FSafeMultiBoxPass;
+	SafeMultiBoxPtr->MultiBox = MultiBox;
+
 	MainThreadCall(^{
+		FScopeLock Lock(&GCachedMenuStateCS);
+
 		if (!FPlatformMisc::UpdateCachedMacMenuState)
 		{
 			FPlatformMisc::UpdateCachedMacMenuState = UpdateCachedState;
@@ -99,9 +111,9 @@ void FSlateMacMenu::UpdateWithMultiBox(const TSharedPtr< FMultiBox > MultiBox)
 		}
 		GCachedMenuState.Reset();
 		
-		if( MultiBox.IsValid() )
+		if( SafeMultiBoxPtr->MultiBox.IsValid() )
 		{
-			const TArray<TSharedRef<const FMultiBlock> >& MenuBlocks = MultiBox->GetBlocks();
+			const TArray<TSharedRef<const FMultiBlock> >& MenuBlocks = SafeMultiBoxPtr->MultiBox->GetBlocks();
 
 			for (int32 Index = 0; Index < MenuBlocks.Num(); Index++)
 			{
@@ -123,7 +135,7 @@ void FSlateMacMenu::UpdateWithMultiBox(const TSharedPtr< FMultiBox > MultiBox)
 					[Menu removeAllItems];
 
 					NSMenuItem* MinimizeItem = [[[NSMenuItem alloc] initWithTitle:@"Minimize" action:@selector(miniaturize:) keyEquivalent:@"m"] autorelease];
-					NSMenuItem* ZoomItem = [[[NSMenuItem alloc] initWithTitle:@"Zoom" action:@selector(performZoom:) keyEquivalent:@""] autorelease];
+					NSMenuItem* ZoomItem = [[[NSMenuItem alloc] initWithTitle:@"Zoom" action:@selector(zoom:) keyEquivalent:@""] autorelease];
 					NSMenuItem* CloseItem = [[[NSMenuItem alloc] initWithTitle:@"Close" action:@selector(performClose:) keyEquivalent:@"w"] autorelease];
 					NSMenuItem* BringAllToFrontItem = [[[NSMenuItem alloc] initWithTitle:@"Bring All to Front" action:@selector(arrangeInFront:) keyEquivalent:@""] autorelease];
 
@@ -149,6 +161,8 @@ void FSlateMacMenu::UpdateWithMultiBox(const TSharedPtr< FMultiBox > MultiBox)
 			{
 				[HelpMenu release];
 			}
+
+			delete SafeMultiBoxPtr;
 		}
 
 		FPlatformMisc::bChachedMacMenuStateNeedsUpdate = true;
@@ -158,6 +172,8 @@ void FSlateMacMenu::UpdateWithMultiBox(const TSharedPtr< FMultiBox > MultiBox)
 void FSlateMacMenu::UpdateMenu(FMacMenu* Menu)
 {
 	MainThreadCall(^{
+		FScopeLock Lock(&GCachedMenuStateCS);
+
 		FText WindowLabel = NSLOCTEXT("MainMenu", "WindowMenu", "Window");
 		const bool bIsWindowMenu = (WindowLabel.ToString().Compare(FString([Menu title])) == 0);
 
@@ -285,6 +301,8 @@ void FSlateMacMenu::UpdateCachedState()
 
 	if (bShouldUpdate)
 	{
+		FScopeLock Lock(&GCachedMenuStateCS);
+
 		for (TMap<FMacMenu*, TSharedPtr<TArray<FMacMenuItemState>>>::TIterator It(GCachedMenuState); It; ++It)
 		{
 			FMacMenu* Menu = It.Key();
@@ -425,27 +443,27 @@ NSString* FSlateMacMenu::GetMenuItemKeyEquivalent(const TSharedRef<const class F
 {
 	if (Block->GetAction().IsValid())
 	{
-		const TSharedRef<const FInputGesture>& Gesture = Block->GetAction()->GetActiveGesture();
+		const TSharedRef<const FInputChord>& Chord = Block->GetAction()->GetActiveChord();
 
 		*OutModifiers = 0;
-		if (Gesture->NeedsControl())
+		if (Chord->NeedsControl())
 		{
 			*OutModifiers |= NSControlKeyMask;
 		}
-		if (Gesture->NeedsShift())
+		if (Chord->NeedsShift())
 		{
 			*OutModifiers |= NSShiftKeyMask;
 		}
-		if (Gesture->NeedsAlt())
+		if (Chord->NeedsAlt())
 		{
 			*OutModifiers |= NSAlternateKeyMask;
 		}
-		if (Gesture->NeedsCommand())
+		if (Chord->NeedsCommand())
 		{
 			*OutModifiers |= NSCommandKeyMask;
 		}
 
-		FString KeyString = Gesture->GetKeyText().ToString().ToLower();
+		FString KeyString = Chord->GetKeyText().ToString().ToLower();
 		return KeyString.GetNSString();
 	}
 	return @"";

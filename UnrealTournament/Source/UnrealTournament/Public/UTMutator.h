@@ -134,4 +134,17 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList)
 	{
 	}
+
+	UFUNCTION(BlueprintNativeEvent)
+	void GetGameURLOptions(TArray<FString>& OptionsList);
+
+protected:
+	FString ParseOption( const FString& Options, const FString& InKey );
+	bool HasOption( const FString& Options, const FString& InKey );
+	int32 GetIntOption( const FString& Options, const FString& ParseString, int32 CurrentValue);
+
+	/**
+	 *	Gets a list of game URL options for starting a match in the hub.  
+	 **/
+
 };

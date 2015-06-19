@@ -27,7 +27,10 @@ TArray<FNewClassInfo> FFeaturedClasses::AllNativeClasses()
 	TArray<FNewClassInfo> Array;
 	Array.Add(FNewClassInfo(FNewClassInfo::EClassType::EmptyCpp));
 
-	Array += ActorClasses();
+	AddCommonActorClasses(Array);
+	AddCommonComponentClasses(Array);
+
+	AddExtraActorClasses(Array);
 
 	Array.Add(FNewClassInfo(UBlueprintFunctionLibrary::StaticClass()));
 
@@ -41,9 +44,31 @@ TArray<FNewClassInfo> FFeaturedClasses::AllNativeClasses()
 TArray<FNewClassInfo> FFeaturedClasses::ActorClasses()
 {
 	TArray<FNewClassInfo> Array;
+	AddCommonActorClasses(Array);
+	AddExtraActorClasses(Array);
+	return Array;
+}
+
+/** Get a list of all featured Component class types */
+TArray<FNewClassInfo> FFeaturedClasses::ComponentClasses()
+{
+	TArray<FNewClassInfo> Array;
+	AddCommonComponentClasses(Array);
+	AddExtraComponentClasses(Array);
+	return Array;
+}
+
+/** Append the featured Actor class types that are commonly used */
+void FFeaturedClasses::AddCommonActorClasses(TArray<FNewClassInfo>& Array)
+{
 	Array.Add(FNewClassInfo(ACharacter::StaticClass()));
 	Array.Add(FNewClassInfo(APawn::StaticClass()));
 	Array.Add(FNewClassInfo(AActor::StaticClass()));
+}
+
+/** Append the featured Actor class types that are less commonly used */
+void FFeaturedClasses::AddExtraActorClasses(TArray<FNewClassInfo>& Array)
+{
 	Array.Add(FNewClassInfo(APlayerCameraManager::StaticClass()));
 	Array.Add(FNewClassInfo(APlayerController::StaticClass()));
 	Array.Add(FNewClassInfo(AGameMode::StaticClass()));
@@ -51,18 +76,20 @@ TArray<FNewClassInfo> FFeaturedClasses::ActorClasses()
 	Array.Add(FNewClassInfo(AHUD::StaticClass()));
 	Array.Add(FNewClassInfo(APlayerState::StaticClass()));
 	Array.Add(FNewClassInfo(AGameState::StaticClass()));
-	return Array;
 }
 
-/** Get a list of all featured class types */
-TArray<FNewClassInfo> FFeaturedClasses::ComponentClasses()
+/** Append the featured Component class types that are commonly used */
+void FFeaturedClasses::AddCommonComponentClasses(TArray<FNewClassInfo>& Array)
 {
-	TArray<FNewClassInfo> Array;
 	Array.Add(FNewClassInfo(UActorComponent::StaticClass()));
 	Array.Add(FNewClassInfo(USceneComponent::StaticClass()));
+}
+
+/** Append the featured Component class types that are less commonly used */
+void FFeaturedClasses::AddExtraComponentClasses(TArray<FNewClassInfo>& Array)
+{
 	Array.Add(FNewClassInfo(UStaticMeshComponent::StaticClass()));
 	Array.Add(FNewClassInfo(USkeletalMeshComponent::StaticClass()));
 	Array.Add(FNewClassInfo(UCameraComponent::StaticClass()));
 	Array.Add(FNewClassInfo(UDirectionalLightComponent::StaticClass()));
-	return Array;
 }

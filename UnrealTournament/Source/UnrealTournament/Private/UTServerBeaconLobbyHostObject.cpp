@@ -13,7 +13,7 @@ Super(PCIP)
 
 void AUTServerBeaconLobbyHostObject::ClientConnected(AOnlineBeaconClient* NewClientActor, UNetConnection* ClientConnection)
 {
-	UE_LOG(UT, Log, TEXT("Instance Connected %s from (%s)"),
+	UE_LOG(UT, Verbose, TEXT("Instance Connected %s from (%s)"),
 		NewClientActor ? *NewClientActor->GetName() : TEXT("NULL"),
 		NewClientActor ? *NewClientActor->GetNetConnection()->LowLevelDescribe() : TEXT("NULL"));
 }

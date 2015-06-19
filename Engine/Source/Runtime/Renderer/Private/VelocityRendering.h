@@ -48,6 +48,7 @@ public:
 
 	/** Determines whether this primitive has motionblur velocity to render */
 	static bool HasVelocity(const FViewInfo& View, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
+	static bool HasVelocityOnBasePass(const FViewInfo& View,const FPrimitiveSceneProxy* Proxy, const FPrimitiveSceneInfo* PrimitiveSceneInfo, const FMeshBatch& Mesh, bool& bOutHasTransform, FMatrix& OutTransform);
 
 private:
 	class FVelocityVS* VertexShader;
@@ -80,3 +81,11 @@ int32 GetMotionBlurQualityFromCVar();
 
 /** If this view need motion blur processing */
 bool IsMotionBlurEnabled(const FViewInfo& View);
+
+// Group Velocity Rendering accessors, types, etc.
+struct FVelocityRendering
+{
+	static FPooledRenderTargetDesc GetRenderTargetDesc();
+
+	static bool OutputsToGBuffer();
+};

@@ -19,7 +19,7 @@ public:
 	 * @param	bOnlyGCedObjects	if true, skip all of the permanent objects
 	 */
 	FRawObjectIterator(bool bOnlyGCedObjects = false) :
-		FUObjectArray::TIterator( GUObjectArray, bOnlyGCedObjects )
+		FUObjectArray::TIterator( GetUObjectArray(), bOnlyGCedObjects )
 	{
 	}
 	/**
@@ -59,13 +59,13 @@ public:
 	 * @param	AdditionalExclusionFlags	RF_* flags that should not be included in results
 	 */
 	FObjectIterator( UClass* InClass=UObject::StaticClass(), bool bOnlyGCedObjects = false, EObjectFlags AdditionalExclusionFlags = RF_NoFlags ) :
-		FUObjectArray::TIterator( GUObjectArray, bOnlyGCedObjects ),
+		FUObjectArray::TIterator( GetUObjectArray(), bOnlyGCedObjects ),
 		Class( InClass ),
 		ExclusionFlags(AdditionalExclusionFlags)
 	{
 		// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
 		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_Unreachable);
-		if( !GIsAsyncLoading )
+		if (!IsAsyncLoading())
 		{
 			ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
 		}
@@ -100,7 +100,7 @@ public:
 	{
 		//@warning: behavior is partially mirrored in UnObjGC.cpp. Make sure to adapt code there as well if you make changes below.
 		// verify that the async loading exclusion flag still matches (i.e. we didn't start/stop async loading within the scope of the iterator)
-		checkSlow(GIsAsyncLoading || (ExclusionFlags & RF_AsyncLoading));
+		checkSlow(IsAsyncLoading() || (ExclusionFlags & RF_AsyncLoading));
 
 		while(Advance())
 		{
@@ -277,7 +277,7 @@ public:
 	void operator++()
 	{
 		// verify that the async loading exclusion flag still matches (i.e. we didn't start/stop async loading within the scope of the iterator)
-		checkSlow(GIsAsyncLoading || (ExclusionFlags & RF_AsyncLoading));
+		checkSlow(IsAsyncLoading() || (ExclusionFlags & RF_AsyncLoading));
 		while(Advance())
 		{
 			if (!(*this)->HasAnyFlags(ExclusionFlags))

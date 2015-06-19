@@ -6,7 +6,7 @@
 
 struct FEnvQueryInstance;
 
-UCLASS()	
+UCLASS(meta = (DisplayName = "Points: Circle"))
 class AIMODULE_API UEnvQueryGenerator_OnCircle : public UEnvQueryGenerator_ProjectedPoints
 {
 	GENERATED_UCLASS_BODY()
@@ -41,17 +41,6 @@ class AIMODULE_API UEnvQueryGenerator_OnCircle : public UEnvQueryGenerator_Proje
 	UPROPERTY()
 	uint32 bDefineArc:1;
 
-	// BEGIN: deprecated properties
-	UPROPERTY()
-	FEnvFloatParam Radius;
-
-	UPROPERTY()
-	FEnvFloatParam ItemSpacing;
-
-	UPROPERTY()
-	FEnvFloatParam Angle;
-	// END: deprecated properties
-
 	virtual void PostLoad() override;
 
 	virtual void GenerateItems(FEnvQueryInstance& QueryInstance) const override;
@@ -71,5 +60,5 @@ protected:
 		int32 StepsCount, float AngleStep, FEnvQueryInstance& OutQueryInstance) const;
 
 	virtual void AddItemDataForCircle(uint8* ContextRawData, UEnvQueryItemType* ContextItemType, 
-		const TArray<FVector>& Locations, FEnvQueryInstance& OutQueryInstance) const;
+		const TArray<FNavLocation>& Locations, FEnvQueryInstance& OutQueryInstance) const;
 };

@@ -2,6 +2,7 @@
 
 #pragma once
 
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Data GPU Memory"), STAT_SlateTextureGPUMemory, STATGROUP_SlateMemory, SLATECORE_API);
 
 namespace ESlateShaderResource
 {
@@ -137,3 +138,10 @@ protected:
 	// Holds the resource.
 	ResourceType ShaderResource;
 };
+
+class IViewportRenderTargetProvider
+{
+public:
+	virtual FSlateShaderResource* GetViewportRenderTargetTexture() = 0;
+};
+

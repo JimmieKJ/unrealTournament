@@ -7,6 +7,8 @@
 
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
+#include "Engine/Console.h"
+#include "Runtime/Launch/Resources/Version.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -72,7 +74,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 		}
 	}
 
-	LoadDownloadedAssetRegistries();
+	IndexExpansionContent();
 
 	UniqueAnalyticSessionGuid = FGuid::NewGuid();
 	FUTAnalytics::Initialize();
@@ -143,7 +145,7 @@ bool UUTGameEngine::GetMonitorRefreshRate(int32& MonitorRefreshRate)
 {
 #if PLATFORM_WINDOWS && !UE_SERVER
 	DEVMODE DeviceMode;
-	FMemory::MemZero(DeviceMode);
+	FMemory::Memzero(DeviceMode);
 	DeviceMode.dmSize = sizeof(DEVMODE);
 
 	if (EnumDisplaySettings(NULL, -1, &DeviceMode) != 0)
@@ -158,13 +160,6 @@ bool UUTGameEngine::GetMonitorRefreshRate(int32& MonitorRefreshRate)
 
 bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 {
-	// disallow certain commands in shipping builds
-#if UE_BUILD_SHIPPING
-	if (FParse::Command(&Cmd, TEXT("SHOW")))
-	{
-		return true;
-	}
-#endif
 	if (FParse::Command(&Cmd, TEXT("START")))
 	{
 		FWorldContext &WorldContext = GetWorldContextFromWorldChecked(InWorld);
@@ -210,7 +205,7 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 		if (NewRefreshRate > 0 && NewRefreshRate != CurrentRefreshRate)
 		{
 			DEVMODE NewSettings;
-			FMemory::MemZero(NewSettings);
+			FMemory::Memzero(NewSettings);
 			NewSettings.dmSize = sizeof(NewSettings);
 			NewSettings.dmDisplayFrequency = NewRefreshRate;
 			NewSettings.dmFields = DM_DISPLAYFREQUENCY;
@@ -272,6 +267,12 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 				}
 
 				NewURL.AddOption(*FString::Printf(TEXT("Rank=%i"),UTLocalPlayer->GetBaseELORank()));
+
+				//Hide the console when traveling to a new map
+				if (UTLocalPlayer->ViewportClient != nullptr && UTLocalPlayer->ViewportClient->ViewportConsole != nullptr)
+				{
+					UTLocalPlayer->ViewportClient->ViewportConsole->FakeGotoState(NAME_None);
+				}
 			}
 
 			Context.TravelURL = NewURL.ToString();
@@ -288,6 +289,16 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 
 EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL URL, FString& Error )
 {
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(WorldContext.World(),0));
+	if (UTLocalPlayer)
+	{
+		UUTProfileSettings* ProfileSettings = UTLocalPlayer->GetProfileSettings();
+		if (ProfileSettings && ProfileSettings->bNeedProfileWriteForTokens)
+		{
+			UTLocalPlayer->SaveProfileSettings();
+		}
+	}
+
 #if !UE_SERVER && !UE_EDITOR
 	if (URL.Valid && URL.HasOption(TEXT("downloadfiles")))
 	{
@@ -456,7 +467,7 @@ void UUTGameEngine::UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFr
 	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
 }
 
-void UUTGameEngine::LoadDownloadedAssetRegistries()
+void UUTGameEngine::IndexExpansionContent()
 {
 	// Plugin manager should handle this instead of us, but we're not using plugin-based dlc just yet
 	if (FPlatformProperties::RequiresCookedData())
@@ -509,31 +520,73 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);		
 		for (const auto& PakPath : FoundPaks)
 		{
+			bool bValidPak = false;
+
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
 			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
-				TArray<uint8> Data;
-				if (FFileHelper::LoadFileToArray(Data, *PakPath))
-				{
-					FString MD5 = MD5Sum(Data);
-					LocalContentChecksums.Add(PakFilename, MD5);
-				}
-
-				FArrayReader SerializedAssetData;
-				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);								
 				if (DashPosition != -1)
 				{
 					PakFilename = PakFilename.Left(DashPosition);
-					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+
+					FString VersionFilename = PakFilename + TEXT("-version.txt");
+					FString VersionString;
+					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
-						// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-						AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						VersionString = VersionString.LeftChop(2);
+						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
+
+						if (VersionString == CompiledVersionString)
+						{
+							bValidPak = true;
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s is version %s, but needs to be version %s"), *PakFilename, *VersionString, *CompiledVersionString);
+						}
 					}
 					else
 					{
-						UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						UE_LOG(UT, Warning, TEXT("%s had no version file"), *PakFilename);
 					}
+
+					if (bValidPak)
+					{
+						TArray<uint8> Data;
+						if (FFileHelper::LoadFileToArray(Data, *PakPath))
+						{
+							FString MD5 = MD5Sum(Data);
+							LocalContentChecksums.Add(PakFilename, MD5);
+						}
+
+						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+						FArrayReader SerializedAssetData;
+						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+						{
+							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+							AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						}
+					}
+				}
+			}
+			else
+			{
+				// Assume the stock pak is good
+				bValidPak = true;
+			}
+
+			if (!bValidPak)
+			{
+				// Unmount the pak
+				if (FCoreDelegates::OnUnmountPak.IsBound())
+				{
+					FCoreDelegates::OnUnmountPak.Execute(PakPath);
+					UE_LOG(UT, Warning, TEXT("Unmounted %s"), *PakPath);
 				}
 			}
 		}
@@ -543,24 +596,66 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
+			bool bValidPak = false;
+
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
 			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
-				FArrayReader SerializedAssetData;
 				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 				if (DashPosition != -1)
 				{
 					PakFilename = PakFilename.Left(DashPosition);
-					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+
+					FString VersionFilename = PakFilename + TEXT("-version.txt");
+					FString VersionString;
+					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
-						// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-						AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						VersionString = VersionString.LeftChop(2);
+						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
+
+						if (VersionString == CompiledVersionString)
+						{
+							bValidPak = true;
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s is version %s, but needs to be version %s"), *PakFilename, *VersionString, *CompiledVersionString);
+						}
 					}
 					else
 					{
-						UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						UE_LOG(UT, Warning, TEXT("%s had no version file"), *PakFilename);
 					}
+
+					if (bValidPak)
+					{
+						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+						FArrayReader SerializedAssetData;
+						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+						{
+							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+							AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						}
+					}
+				}
+			}
+			else
+			{
+				// Assume the stock pak is good
+				bValidPak = true;
+			}
+
+			if (!bValidPak)
+			{
+				// Unmount the pak
+				if (FCoreDelegates::OnUnmountPak.IsBound())
+				{
+					FCoreDelegates::OnUnmountPak.Execute(PakPath);
+					UE_LOG(UT, Warning, TEXT("Unmounted %s"), *PakPath);
 				}
 			}
 		}
@@ -723,7 +818,7 @@ UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
 		{
 			// LoadObject() actually forces the whole package to be loaded for some reason so we need to take the long way around
 			BeginLoad();
-			ULinkerLoad* Linker = GetPackageLinker(Pkg, NULL, LOAD_NoWarn | LOAD_Quiet, NULL, NULL);
+			FLinkerLoad* Linker = GetPackageLinker(Pkg, NULL, LOAD_NoWarn | LOAD_Quiet, NULL, NULL);
 			if (Linker != NULL)
 			{
 				//UUTLevelSummary* Summary = Cast<UUTLevelSummary>(Linker->Create(UUTLevelSummary::StaticClass(), FName(TEXT("LevelSummary")), Pkg, LOAD_NoWarn | LOAD_Quiet, false));
@@ -736,7 +831,7 @@ UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
 						FObjectExport& Export = Linker->ExportMap[Index];
 						if (Export.ObjectName == NAME_LevelSummary && Export.ClassIndex == SummaryClassIndex)
 						{
-							Export.Object = StaticConstructObject(UUTLevelSummary::StaticClass(), Linker->LinkerRoot, Export.ObjectName, EObjectFlags(Export.ObjectFlags | RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded));
+							Export.Object = NewObject<UUTLevelSummary>(Linker->LinkerRoot, UUTLevelSummary::StaticClass(), Export.ObjectName, EObjectFlags(Export.ObjectFlags | RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded));
 							Export.Object->SetLinker(Linker, Index);
 							//GObjLoaded.Add(Export.Object);
 							Linker->Preload(Export.Object);

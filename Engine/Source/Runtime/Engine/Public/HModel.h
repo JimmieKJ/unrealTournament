@@ -36,7 +36,7 @@ public:
 		Collector.AddReferencedObject( Component );
 		Collector.AddReferencedObject( Model );
 	}
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}

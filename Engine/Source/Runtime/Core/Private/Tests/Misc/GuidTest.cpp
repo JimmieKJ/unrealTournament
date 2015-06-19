@@ -4,7 +4,7 @@
 #include "AutomationTest.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuidTest, "Core.Misc.Guid", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGuidTest, "System.Core.Misc.Guid", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FGuidTest::RunTest( const FString& Parameters )
 {

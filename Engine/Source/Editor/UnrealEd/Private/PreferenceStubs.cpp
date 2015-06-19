@@ -65,7 +65,7 @@ void UPersonaOptions::SetGridSize( int32 InGridSize )
 	SaveConfig();
 }
 
-void UPersonaOptions::SetViewModeIndex( int32 InViewModeIndex )
+void UPersonaOptions::SetViewModeIndex( EViewModeIndex InViewModeIndex )
 {
 	ViewModeIndex = InViewModeIndex;
 	SaveConfig();

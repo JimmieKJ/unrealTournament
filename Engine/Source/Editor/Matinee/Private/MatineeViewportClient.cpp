@@ -920,7 +920,7 @@ void FMatineeViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 		}
 		else if(bPanning)
 		{
-			const bool bInvertPanning = ModeTools->GetInterpPanInvert();
+			const bool bInvertPanning = InterpEd->IsInvertPanToggled();
 
 			float DeltaTime = (bInvertPanning ? -DeltaX : DeltaX) / InterpEd->PixelsPerSec;
 			InterpEd->ViewStartTime -= DeltaTime;

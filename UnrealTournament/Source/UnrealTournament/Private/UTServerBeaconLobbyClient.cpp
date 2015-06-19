@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTServerBeaconLobbyClient.h"
+#include "Net/UnrealNetwork.h"
 #include "UTLobbyGameState.h"
 
 AUTServerBeaconLobbyClient::AUTServerBeaconLobbyClient(const class FObjectInitializer& PCIP) :
@@ -9,17 +10,43 @@ Super(PCIP)
 {
 }
 
-void AUTServerBeaconLobbyClient::InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID)
+void AUTServerBeaconLobbyClient::InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID, FString AccessKey)
 {
 	InitClient(LobbyURL);
 	GameInstanceID = LobbyInstanceID;
 	GameInstanceGUID = InstanceGUID;
+	HubKey = AccessKey;
+	bDedicatedInstance = !AccessKey.IsEmpty();
 }
 
 void AUTServerBeaconLobbyClient::OnConnected()
 {
-	UE_LOG(UT,Verbose,TEXT("Instance %i [%s] has Connected to the hub"), GameInstanceID, *GameInstanceGUID.ToString());
+	UE_LOG(UT,Verbose,TEXT("Instance %i [%s] has Connected to the hub (%i)"), GameInstanceID, *GameInstanceGUID.ToString(),bDedicatedInstance);
+
+	if (bDedicatedInstance)
+	{
+		UE_LOG(UT,Verbose,TEXT("Becoming a dedicated instances"));
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		Lobby_IsDedicatedInstance(GameInstanceGUID, HubKey, GameState ? GameState->ServerName : TEXT("My Instance"));
+	}
+
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (UTGameMode)
+	{
+		Lobby_PrimeMapList(UTGameMode->GetMapPrefix());
+
+		// Try to notify that we are ready.
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(UTGameMode->GameSession);
+		if (UTGameSession && UTGameSession->bSessionValid)
+		{
+			UTGameMode->NotifyLobbyGameIsReady();
+		}
+
+	}
+
+
 }
+
 void AUTServerBeaconLobbyClient::OnFailure()
 {
 	UE_LOG(UT,Log,TEXT("Instance %i [%s] could not connect to the hub"), GameInstanceID, *GameInstanceGUID.ToString());
@@ -32,10 +59,10 @@ void AUTServerBeaconLobbyClient::UpdateMatch(FString Update)
 	Lobby_UpdateMatch(GameInstanceID, Update);
 }
 
-void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate)
 {
 	UE_LOG(UT,Verbose,TEXT("UpdatePlayer: Instance %i [%s] Player = %s [%s] Score = %i"), GameInstanceID, *GameInstanceGUID.ToString(), *PlayerName, *PlayerID.ToString(),  PlayerScore);
-	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore);
+	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, bLastUpdate);
 }
 
 void AUTServerBeaconLobbyClient::EndGame(FString FinalUpdate)
@@ -64,13 +91,10 @@ void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint
 	if (LobbyGameState)
 	{
 		LobbyGameState->GameInstance_Ready(InstanceID, InstanceGUID);
+		Instance_ReceiveHubID(LobbyGameState->HubGuid);
 	}
-}
 
-void AUTServerBeaconLobbyClient::SetBeaconNetDriverName(FString InBeaconName)
-{
-	BeaconNetDriverName = FName(*InBeaconName);
-	NetDriverName = BeaconNetDriverName;
+
 }
 
 bool AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Validate(uint32 InstanceID, const FString& Update) { return true; }
@@ -85,14 +109,14 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 Instanc
 }
 
 
-bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i"), InstanceID, *PlayerName, *PlayerID.ToString(), PlayerScore);
+	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate =%i"), InstanceID, *PlayerName, *PlayerID.ToString(), PlayerScore, bLastUpdate);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore);
+		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, bLastUpdate);
 	}
 }
 
@@ -152,5 +176,82 @@ void AUTServerBeaconLobbyClient::InstanceNextMap_Implementation(const FString& N
 	if (CurrentGameMode)
 	{
 		CurrentGameMode->InstanceNextMap(NextMap);	
+	}
+}
+
+bool AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Validate(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName)
+{
+	UE_LOG(UT, Verbose, TEXT("Dedicated Instance (%s) requesting authorization with key %s"), *ServerName, *InHubKey);
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		LobbyGameState->AuthorizeDedicatedInstance(this, InstanceGUID, InHubKey, ServerName);
+	}
+}
+
+void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid HubGuid)
+{
+	UE_LOG(UT, Verbose, TEXT("This server has been authorized as a dedicated instance!"));
+	AUTGameMode* CurrentGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (CurrentGameMode)
+	{
+		CurrentGameMode->BecomeDedicatedInstance(HubGuid);
+	}
+}
+
+bool AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Validate(const FString& MapPrefix) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(const FString& MapPrefix)
+{
+	UE_LOG(UT,Verbose, TEXT("Lobby_PrimeMapList - Searching for maps [%s]"),*MapPrefix);
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		// Parse the prefixes 
+		TArray<FString> Prefixes;
+		MapPrefix.ParseIntoArray(Prefixes,TEXT(","), true);
+		
+		// Grab the allowed maps
+		
+		AllowedMaps.Empty();
+		LobbyGameState->GetAvailableMaps(Prefixes, AllowedMaps);
+
+		UE_LOG(UT,Verbose, TEXT("Lobby_PrimeMapList - GameState returned %i maps for %i prefixes"),AllowedMaps.Num(), Prefixes.Num());
+
+		if (AllowedMaps.Num() > 0)
+		{
+			Instance_ReceiveMap(AllowedMaps[0]->PackageName, AllowedMaps[0]->Title, AllowedMaps[0]->Screenshot,0);
+		}
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_ReceiveMap_Implementation(const FString& MapPackageName, const FString& MapTitle, const FString& MapScreenshotReference, int32 Index)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		UTGameState->CreateMapVoteInfo(MapPackageName, MapTitle, MapScreenshotReference);
+	}
+
+	Lobby_SendNextMap(Index);
+}
+
+bool AUTServerBeaconLobbyClient::Lobby_SendNextMap_Validate(int32 LastIndex) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_SendNextMap_Implementation(int32 LastIndex)
+{
+	LastIndex++;
+	if (AllowedMaps.Num() > LastIndex)
+	{
+		Instance_ReceiveMap(AllowedMaps[LastIndex]->PackageName, AllowedMaps[LastIndex]->Title, AllowedMaps[LastIndex]->Screenshot, LastIndex);
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_ReceiveHubID_Implementation(FGuid HubGuid)
+{
+	UE_LOG(UT,Verbose,TEXT("Instance has received Hub GUID: %s"), *HubGuid.ToString());
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		UTGameState->HubGuid = HubGuid;
 	}
 }

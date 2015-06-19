@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "PaperFlipbook.h"
+
 //////////////////////////////////////////////////////////////////////////
 // SFlipbookTrackHandle
 
@@ -97,7 +99,7 @@ public:
 
 				if (!bDragging)
 				{
-					if (FMath::Abs(DistanceDragged) > FSlateApplication::Get().GetDragTriggerDistnace())
+					if (FMath::Abs(DistanceDragged) > FSlateApplication::Get().GetDragTriggerDistance())
 					{
 						const FPaperFlipbookKeyFrame& KeyFrame = Flipbook->GetKeyFrameChecked(KeyFrameIdx);
 						StartingFrameRun = KeyFrame.FrameRun;

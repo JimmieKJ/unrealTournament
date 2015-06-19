@@ -140,7 +140,7 @@ Allows the use of a previously cached pose.
 
 [EXCERPT:UAnimGraphNode_CopyBone]
 
-Copies a transform from one bone to another. This can copy translation, rotation and scale or a combination of all three.
+Copies a transform from one bone to another. This can copy translation, rotation, and scale or a combination of all three.
 
 [/EXCERPT:UAnimGraphNode_CopyBone]
 

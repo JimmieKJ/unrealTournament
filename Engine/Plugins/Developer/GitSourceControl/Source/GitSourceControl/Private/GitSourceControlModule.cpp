@@ -47,11 +47,6 @@ void FGitSourceControlModule::ShutdownModule()
 	IModularFeatures::Get().UnregisterModularFeature("SourceControl", &GitSourceControlProvider);
 }
 
-FGitSourceControlSettings& FGitSourceControlModule::AccessSettings()
-{
-	return GitSourceControlSettings;
-}
-
 void FGitSourceControlModule::SaveSettings()
 {
 	if (FApp::IsUnattended() || IsRunningCommandlet())

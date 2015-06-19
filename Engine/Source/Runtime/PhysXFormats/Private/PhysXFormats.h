@@ -26,6 +26,7 @@
 #include "PxRenderBuffer.h"
 #include "PxExtensionsAPI.h"
 #include "PxVisualDebuggerExt.h"
+#include "PxCollectionExt.h"
 //#include "PxDefaultCpuDispatcher.h"
 
 // vehicle related header files
@@ -71,10 +72,14 @@ public:
 	virtual PxU32 write(const void* Src, PxU32 Count) override
 	{
 		check(Data);
-		check(Src);
-		int32 CurrentNum = (*Data).Num();
-		(*Data).AddUninitialized(Count);
-		FMemory::Memcpy(&(*Data)[CurrentNum], Src, Count);
+		if(Count)	//PhysX serializer can pass us 0 bytes to write
+		{
+			check(Src);
+			int32 CurrentNum = (*Data).Num();
+			(*Data).AddUninitialized(Count);
+			FMemory::Memcpy(&(*Data)[CurrentNum], Src, Count);
+		}
+		
 		return Count;
 	}
 };

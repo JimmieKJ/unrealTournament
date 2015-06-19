@@ -15,18 +15,6 @@
 	<script type="text/javascript">
 		$(document).ready(function ()
 		{
-			$("#EditDescription").click(function ()
-			{
-				$("#CrashDescription").css("display", "none");
-				$("#ShowCrashDescription input").css("display", "block");
-				$("#EditDescription").css("display", "none");
-				$("#SaveDescription").css("display", "inline");
-			});
-
-			$("#SaveDescription").click(function ()
-			{
-				$('#EditCrashDescriptionForm').submit();
-			});
 			// Zebra stripes
 			$("#CrashesTable tr:nth-child(even)").css("background-color", "#C3CAD0");
 			$("#CrashesTable tr:nth-child(odd)").css("background-color", "#eeeeee");
@@ -62,6 +50,7 @@
 </asp:Content>
 
 <asp:Content ID="AboveMainContent" ContentPlaceHolderID="AboveMainContent" runat="server">
+	<div style="clear:both;"><small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small><br /></div>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="MainContent" runat="server">
@@ -80,7 +69,7 @@
 			</select>
 			<input type="submit" name="SetStatusSubmit" value="Set" class="SetButtonGreen" />
 
-			<span id="set-ttp" style="">TTP</span>
+			<span id="set-ttp" style="">JIRA</span>
 			<input name="SetTTP" type="text" id="ttp-text-box" />
 			<input type="submit" name="SetTTPSubmit" value="Set" class="SetButtonGreen" />
 	
@@ -93,48 +82,102 @@
 
 <div id='CrashesShowContainer'>
 	<div id='CrashDataContainer' >
-		<dl style='list-style-type: none; font-weight: bold' >
+		<dl style='list-style-type: none; font-weight: bold;' >
 		<dt>ID</dt>
 			<dd ><%=Html.DisplayFor( m => Model.Bugg.Id )%></dd>
 
-		<dt>Build Version of Latest Crash</dt>
-			<dd><%=Html.DisplayFor( m => Model.Bugg.BuildVersion )%></dd>
+		<%--<dt>Build Version of Latest Crash</dt>
+			<dd><%=Html.DisplayFor( m => Model.Bugg.BuildVersion )%></dd>--%>
+
+		<dt>Affected Build Versions</dt>
+			<dd><%=Model.Bugg.GetAffectedVersions()%></dd>
 			
 		<dt>Time of Latest Crash</dt> 
-			<dd class='even' style='width:8em'><%=Model.Bugg.TimeOfLastCrash%></dd>
+			<dd class='even'><%=Model.Bugg.TimeOfLastCrash%></dd>
 
 		<dt>Time of First Crash</dt>
-			<dd style='width:8em'><%=Model.Bugg.TimeOfFirstCrash%></dd>
+			<dd><%=Model.Bugg.TimeOfFirstCrash%></dd>
+
+		<dt>Bugg life span</dt>
+			<dd><%=Model.Bugg.GetLifeSpan()%></dd>
 
 		<dt>Crash type</dt> 
-			<dd class='even' style='width:8em'><%=Model.Bugg.GetCrashTypeAsString()%></dd>
+			<dd class='even'><%=Model.Bugg.GetCrashTypeAsString()%></dd>
 
 		<dt>Number of Users</dt>
 			<dd class='even'><%=Html.DisplayFor( m => Model.Bugg.NumberOfUsers )%></dd>
 
+		<dt>Number of Unique Machines</dt>
+			<dd class='even'><%=Html.DisplayFor( m => Model.Bugg.NumberOfUniqueMachines )%></dd>
+
 		<dt>Number of Crashes</dt>
 			<dd ><%=Html.DisplayFor( m => Model.Bugg.NumberOfCrashes )%></dd>
 
-		<dt>TTP</dt>
-			<dd class='even'><%=Html.DisplayFor( m => Model.Bugg.TTPID )%></dd>
+		<dt>JIRA</dt>
+
+		<%using( Html.BeginForm( "Show", "Buggs" ) )
+		{	%>
+
+			<%if( string.IsNullOrEmpty( Model.Bugg.TTPID ) )
+			{ %>
+				<dd class='even'>
+					<input type="submit" value="CopyToJira" title="<%=Model.Bugg.ToTooltip()%>" id="id <%=Model.Bugg.Id%>" name="CopyToJira-<%=Model.Bugg.Id%>" class="CopyToJiraStyle" />
+				</dd>
+			<% } else { %>
+				<dd class='even'>
+					<a href="https://jira.ol.epicgames.net/browse/<%=Model.Bugg.TTPID%>" target="_blank"><%=Model.Bugg.TTPID%></a>
+				</dd>
+			<% } %>
+
+		<%} %>
 
 		<dt>Status</dt>
 			<dd ><%=Html.DisplayFor( m => Model.Bugg.Status )%></dd>
 
 		<dt>Fixed Change List</dt>
 			<dd class='even'><%=Html.DisplayFor( m => Model.Bugg.FixedChangeList )%></dd>
-		</dl>
+		
+		<%--JIRA--%>
+		<dt>&nbsp;</dt>
+		<dt style="font-style:italic">*FROM JIRA*</dt>
+
+		<dt style="font-style:italic">Summary</dt>
+			<dd style="max-width: 210px;word-wrap: break-word;font-style:italic;"><small><%=Model.Bugg.JiraSummary%></small></dd>
+
+		<dt style="font-style:italic">Components</dt>
+			<dd style="font-style:italic"><%=Model.Bugg.JiraComponentsText%></dd>
+
+		<dt style="font-style:italic">Resolution</dt>
+			<dd style="font-style:italic"><%=Model.Bugg.JiraResolution%></dd>
+
+		<dt style="font-style:italic">Fix Versions</dt>
+			<dd style="font-style:italic"><%=Model.Bugg.JiraFixVersionsText%></dd>
+
+		<dt style="font-style:italic">Fix CL</dt>
+		<%if( !string.IsNullOrEmpty( Model.Bugg.JiraFixCL ) )
+		{ %>
+			<dd style="background-color:blue;font-style:italic;">
+				<%=Model.Bugg.JiraFixCL%>
+			</dd>
+		<%}
+		else
+		{%>
+			<dd></dd>
+		<%} %>
+
+
+	</dl>
 	</div>
 
 	<div id="CallStackContainer" >
 
-		<% if( !string.IsNullOrEmpty( Model.Bugg.Summary ) ) 
+		<% if( !string.IsNullOrEmpty( Model.Bugg.LatestCrashSummary ) ) 
 			{ %>
 				<div id='ShowErrorMessage'>
 					<br />
 					<h3>Error Message</h3>
 					<div id='ErrorMessage'>
-						<%=Model.Bugg.Summary %>
+						<%=Html.DisplayFor( m => m.Bugg.LatestCrashSummary )%>
 					</div>
 				</div>
 				<br />
@@ -143,7 +186,7 @@
 
 
 		<h3>Call Stack of Most Recent Crash</h3>
-		<div id='RawCallStackContainer' style='display:none' >
+		<div id='RawCallStackContainer' style='display:none;'>
 			<div>
 				<% foreach( CallStackEntry CallStackLine in Model.CallStack.CallStackEntries )
 					{%>
@@ -186,19 +229,9 @@
 		<div id='SourceContextContainer'>
 			<h3>Source Context</h3>
 			<div id='SourceContextDisplay'>
-				<pre><%=Html.DisplayFor( x => Model.Bugg.SourceContext )%></pre>
+				<pre><%=Html.DisplayFor( x => Model.SourceContext )%></pre>
 			</div>
 		</div>
-		<%using( Html.BeginForm( "Show", "Buggs", FormMethod.Post, new { id = "EditCrashDescriptionForm"} ) )
-			{ %>
-			<div id='ShowCrashDescription' class='CrashViewTextBox'>
-				<br />
-				<h3>Description <span class='EditButton' id='EditDescription'>Edit</span> <span class='EditButton' id='SaveDescription'>Save</span></h3>
-				<div id='InputCrashDescription'>
-					<%=Html.TextBox( "Description", Model.Bugg.Description )%> 
-				</div>
-			</div>
-		<%} %>
 
 		<div class='CrashViewTextBoxRight'>
 			<h3>Crashes</h3>
@@ -212,18 +245,18 @@
 					<th style='width: 12em;'><%=Url.TableHeader( "CallStack", "RawCallStack", Model )%></th>
 					<th>Description</th>
 				</tr>
-				<%if( Model.Crashes.ToList() != null )
+				<%if( Model.Crashes != null )
 				{
 					int IterationCount = 0;
-					foreach( Crash CrashInstance in ( IEnumerable )Model.Crashes )
+					foreach( Crash CrashInstance in Model.Crashes )
 					{
 						IterationCount++;%>
 			
-						<tr class='CrashRow <%=CrashInstance.User.UserGroup %>'>
+						<tr class='CrashRow'>
 							<td class="Id"><%=Html.ActionLink( CrashInstance.Id.ToString(), "Show", new { controller = "crashes", id = CrashInstance.Id }, null )%></td>
 							<td class="BuildVersion"><%=CrashInstance.BuildVersion%></td>
 							<td class="TimeOfCrash">
-								<%=CrashInstance.GetTimeOfCrash()[0]%><br />
+								<%=CrashInstance.GetTimeOfCrash()[0]%> &nbsp;
 								<%=CrashInstance.GetTimeOfCrash()[1]%><br />
 								Change: <%= CrashInstance.ChangeListVersion %><br />
 							</td>
@@ -233,12 +266,15 @@
 								<%=CrashInstance.EngineMode %><br />
 								<%=CrashInstance.PlatformName %><br />
 							</td><td class="CallStack" >
+								<%--Display callstack only for the first crash--%>
+								<% if(IterationCount==1)
+								{ %>
 								<div style="clip : auto; ">
 									<div id='<%=CrashInstance.Id %>-TrimmedCallStackBox' class='TrimmedCallStackBox'>
-										<% foreach( CallStackEntry Entry in CrashInstance.GetCallStackEntries( 0, 4 ) )
+										<% foreach( CallStackEntry Entry in Model.CallStack.CallStackEntries.Take(4) )
 										{%>
 											<span class="function-name">
-												<%=Url.CallStackSearchLink( Html.Encode( Entry.GetTrimmedFunctionName( 40 ) ), Model )%>
+												<%=Url.CallStackSearchLink( Html.Encode( Entry.GetTrimmedFunctionName( 60 ) ), Model )%>
 											</span>
 											<br />
 										<%} %>
@@ -246,16 +282,17 @@
 						
 									<a class='FullCallStackTrigger' ><span class='FullCallStackTriggerText'>Full Callstack</span>
 										<div id='<%=CrashInstance.Id %>-FullCallStackBox' class='FullCallStackBox'>
-											<%foreach( CallStackEntry Entry in CrashInstance.GetCallStackEntries( 0, 40 ) )
+											<%foreach( CallStackEntry Entry in Model.CallStack.CallStackEntries.Take( 40 ) )
 												{%>
 												<span class="FunctionName">
-													<%=Html.Encode( Entry.GetTrimmedFunctionName( 60 ) )%>
+													<%=Html.Encode( Entry.GetTrimmedFunctionName( 80 ) )%>
 												</span>
 												<br />
 											<%} %>
 										</div>
 									</a>
 								</div>
+								<%} %>
 							</td>
 							<td class="Description"><span><%=CrashInstance.Description%>&nbsp;</span></td> 
 						</tr>
@@ -265,4 +302,5 @@
 		</div>
 	</div>
 </div>
+
 </asp:Content>

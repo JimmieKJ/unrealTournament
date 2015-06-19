@@ -10,9 +10,29 @@
 
 DECLARE_STATS_GROUP(TEXT("Kismet Reinstancer"), STATGROUP_KismetReinstancer, STATCAT_Advanced);
 
-class UNREALED_API FBlueprintCompileReinstancer
+class FReinstanceFinalizer;
+
+class UNREALED_API FBlueprintCompileReinstancer : public TSharedFromThis<FBlueprintCompileReinstancer>, public FGCObject
 {
+public:
+	/**
+	 * CDO duplicates provider delegate type.
+	 */
+	DECLARE_DELEGATE_RetVal_TwoParams(UObject*, FCDODuplicatesProvider, UClass*, FName);
+
+	/**
+	 * Gets CDO duplicates provider delegate.
+	 */
+	static FCDODuplicatesProvider& GetCDODuplicatesProviderDelegate();
+
 protected:
+
+	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRefresh;
+	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRecompile;
+	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToByteRecompile;
+
+	static UClass* HotReloadedOldClass;
+	static UClass* HotReloadedNewClass;
 
 	/** Reference to the class we're actively reinstancing */
 	UClass* ClassToReinstance;
@@ -48,10 +68,22 @@ protected:
 	TSet<UObject*> ObjectsThatShouldUseOldStuff;
 
 public:
-	virtual ~FBlueprintCompileReinstancer();
+	// FSerializableObject interface
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	// End of FSerializableObject interface
 
-	/** Sets the reinstancer up to work on every object of the specified class */
-	FBlueprintCompileReinstancer(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false);
+	static void OptionallyRefreshNodes(UBlueprint* BP);
+
+	void ListDependentBlueprintsToRefresh(const TArray<UBlueprint*>& DependentBPs);
+	void EnlistDependentBlueprintToRecompile(UBlueprint* BP, bool bBytecodeOnly);
+	void BlueprintWasRecompiled(UBlueprint* BP, bool bBytecodeOnly);
+
+	static TSharedPtr<FBlueprintCompileReinstancer> Create(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false)
+	{
+		return MakeShareable(new FBlueprintCompileReinstancer(InClassToReinstance, bIsBytecodeOnly, bSkipGC));
+	}
+
+	virtual ~FBlueprintCompileReinstancer();
 
 	/** Saves a mapping of field names to their UField equivalents, so we can remap any bytecode that references them later */
 	void SaveClassFieldMapping(UClass* InClassToReinstance);
@@ -60,13 +92,13 @@ public:
 	void GenerateFieldMappings(TMap<UObject*, UObject*>& FieldMapping);
 
 	/** Reinstances all objects in the ObjectReinstancingMap */
-	void ReinstanceObjects(bool bAlwaysReinstance = true);
+	void ReinstanceObjects(bool bForceAlwaysReinstance = false);
 
 	/** Updates references to properties and functions of the class that has in the bytecode of dependent blueprints */
 	void UpdateBytecodeReferences();
 
 	/** Worker function to replace all instances of OldClass with a new instance of NewClass */
-	static void ReplaceInstancesOfClass(UClass* OldClass, UClass* NewClass, UObject* OriginalCDO = NULL, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL);
+	static void ReplaceInstancesOfClass(UClass* OldClass, UClass* NewClass, UObject* OriginalCDO = NULL, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
 
 	/**
 	 * When re-instancing a component, we have to make sure all instance owners' 
@@ -80,7 +112,16 @@ public:
 	/** Verify that all instances of the duplicated class have been replaced and collected */
 	void VerifyReplacement();
 
+	virtual bool IsClassObjectReplaced() const { return false; }
+
+	void FinalizeFastReinstancing(TArray<UObject*>& ObjectsToReplace);
 protected:
+
+	TSharedPtr<FReinstanceFinalizer> ReinstanceInner(bool bForceAlwaysReinstance);
+
+	TSharedPtr<FReinstanceFinalizer> ReinstanceFast();
+
+	void CompileChildren();
 
 	/** Default constructor, can only be used by derived classes */
 	FBlueprintCompileReinstancer()
@@ -89,11 +130,28 @@ protected:
 		, OriginalCDO(NULL)
 		, bHasReinstanced(false)
 		, bSkipGarbageCollection(false)
+		, ClassToReinstanceDefaultValuesCRC(0)
 	{}
+
+	/** Sets the reinstancer up to work on every object of the specified class */
+	FBlueprintCompileReinstancer(UClass* InClassToReinstance, bool bIsBytecodeOnly = false, bool bSkipGC = false);
 
 	/** Reparents the specified blueprint or class to be the duplicated class in order to allow properties to be copied from the previous CDO to the new one */
 	void ReparentChild(UBlueprint* ChildBP);
 	void ReparentChild(UClass* ChildClass);
+
+	/** Determine whether reinstancing actors should preserve the root component of the new actor */
+	virtual bool ShouldPreserveRootComponentOfReinstancedActor() const { return true; }
+
+private:
+	/**
+	 * Gets class CDO duplicate from cache (or creates it if not available or not
+	 * during hot-reload) for given class.
+	 *
+	 * @param Class Class to get (or create) CDO for.
+	 * @param Name The name that CDO has to be renamed with (or created with).
+	 */
+	static UObject* GetClassCDODuplicate(UClass* Class, FName Name);
 };
 
 

@@ -14,20 +14,6 @@ using System.Web.Script.Serialization;
 using EpicGames.MCP.Automation;
 using EpicGames.MCP.Config;
 
-static class UnrealTournamentIEnumerableExtensions
-{
-	/// <summary>
-	/// Generates a string suitable for debugging a list of objects using ToString(). Lists one per line with the prefix string on the first line.
-	/// </summary>
-	/// <param name="prefix">Prefix string to print along with the list of BuildInfos.</param>
-	/// <param name="buildInfos"></param>
-	/// <returns>the resulting debug string</returns>
-	static public string CreateDebugList<T>(this IEnumerable<T> objects, string prefix)
-	{
-		return objects.Aggregate(new StringBuilder(prefix), (sb, obj) => sb.AppendFormat("\n    {0}", obj.ToString())).ToString();
-	}
-}
-
 public class UnrealTournamentBuild
 {
 	// Use old-style UAT version for UnrealTournament
@@ -548,6 +534,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				string SourceFileName = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RequiredFile);
 				string TargetFileName = CommandUtils.CombinePaths(StageDirectory, RequiredFile);
 				CommandUtils.CopyFile(SourceFileName, TargetFileName);
+				if (BuildProducts.Contains(TargetFileName))
+				{
+					throw new AutomationException("Overlapping build product: {0}", TargetFileName);
+				}
 				BuildProducts.Add(TargetFileName);
 			}
 		}
@@ -629,6 +619,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2013/*.dll");
 				Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2013/*.dll");
 				Filter.Include("/Engine/Binaries/ThirdParty/nvTextureTools/Win64/*.dll");
+				Filter.Include("/Engine/Binaries/ThirdParty/Oculus/Audio/Win64/*.dll");
 			}
 			else if(Platform == UnrealTargetPlatform.Mac)
 			{
@@ -642,7 +633,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			Filter.Include("/Engine/Plugins/.../Content/...");
 			Filter.Include("/Engine/Plugins/.../Resources/...");
 
-			// Engine/...
+            // Engine/...
+            Filter.Include("/Engine/Build/Target.cs.template");
 			Filter.Include("/Engine/Build/BatchFiles/...");
 			Filter.Include("/Engine/Config/...");
 			Filter.Include("/Engine/Content/...");
@@ -652,12 +644,13 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			// UnrealTournament/...
 			Filter.Include("/UnrealTournament/*.uproject");
 			Filter.Include("/UnrealTournament/Plugins/...");
-			Filter.Exclude("/UnrealTournament/Plugins/.../Binaries/...");
+            Filter.Exclude("/UnrealTournament/Plugins/.../Binaries/...");
+            Filter.Exclude("/UnrealTournament/Plugins/.../Intermediate/...");
 			Filter.Include("/UnrealTournament/Content/...");
 			Filter.Include("/UnrealTournament/Config/...");
 			Filter.Include("/UnrealTournament/Releases/...");
 
-			RequiredFiles.UnionWith(Filter.ApplyToDirectory(CommandUtils.CmdEnv.LocalRoot));
+			RequiredFiles.UnionWith(Filter.ApplyToDirectory(CommandUtils.CmdEnv.LocalRoot, true));
 		}
 
 		static void RemoveUnusedPlugins(SortedSet<string> RequiredFiles)
@@ -669,6 +662,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../VisualStudioSourceCodeAccess/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../XCodeSourceCodeAccess/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../OculusAudio/...");
 
 			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 		}
@@ -688,6 +682,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				}
 			}
 			ConfidentialFilter.Exclude("Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll");
+            ConfidentialFilter.Exclude(".../NotForLicensees/UE4Editor-OnlineSubsystemMcp.dylib");
+            ConfidentialFilter.Exclude(".../NotForLicensees/UE4Editor-XMPP.dylib");
 
 			RequiredFiles.RemoveWhere(x => ConfidentialFilter.Matches(x));
 		}
@@ -737,7 +733,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			// Generate the DDC
 			string OutputFileName = CommandUtils.CombinePaths(StageDirectory, "Engine", "DerivedDataCache", "Compressed.ddp");
 			CommandUtils.DeleteFile(OutputFileName);
-			CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorExeForCommandlets(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateRocketPak -Map=Example_Map");
+            CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorCommandletExe(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateInstalledEnginePak -Map=Example_Map");
 			RequiredFiles.Add(OutputFileName);
 
 			// Clean up the directory from everything else
@@ -980,10 +976,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             GameProj = InGameProj;
 
-            if (CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
-            {
-                AddDependency(GUBP.VersionFilesNode.StaticGetFullName());
-            }
+			if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
+			{
+				AddDependency(GUBP.VersionFilesNode.StaticGetFullName());
+			}
 
             AddDependency(WaitForUnrealTournamentBuildUserInputNode.StaticGetFullName(GameProj));
         }
@@ -1018,8 +1014,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -SkipCook -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
-            
-            if (CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
+
+			if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
             {
                 SubmitVersionFilesToPerforce();
             }
@@ -1073,7 +1069,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         //if (!bp.BranchOptions.ExcludeNodes.Contains("UnrealTournament"))
         {            
             var GameProj = bp.Branch.FindGame("UnrealTournament");
-            if (GameProj != null && !GUBP.bBuildRocket)
+            if (GameProj != null)
             {
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
 
@@ -1124,6 +1120,17 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 // NOTE: PROMOTION JOB IS ONLY EVER RUN OUT OF UE4-UT, REGARDLESS OF WHICH BRANCH'S BUILD IS BEING PROMOTED
 class UnrealTournament_PromoteBuild : BuildCommand
 {
+	/// <summary>
+	/// Generates a string suitable for debugging a list of objects using ToString(). Lists one per line with the prefix string on the first line.
+	/// </summary>
+	/// <param name="prefix">Prefix string to print along with the list of BuildInfos.</param>
+	/// <param name="buildInfos"></param>
+	/// <returns>the resulting debug string</returns>
+	static public string CreateDebugList<T>(IEnumerable<T> objects, string prefix)
+	{
+		return objects.Aggregate(new StringBuilder(prefix), (sb, obj) => sb.AppendFormat("\n    {0}", obj.ToString())).ToString();
+	}
+
 	public override void ExecuteBuild()
 	{
 		Log("************************* UnrealTournament_PromoteBuild");
@@ -1143,7 +1150,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		var InvalidProducts = Products.Except(AllProducts);
 		if (InvalidProducts.Any())
 		{
-			throw new AutomationException(InvalidProducts.CreateDebugList("The following product names are invalid:"));
+			throw new AutomationException(CreateDebugList(InvalidProducts, "The following product names are invalid:"));
 		}
 		var bShouldPromoteGameClient = Products.Contains("GameClient");
 		var bShouldPromoteEditor = Products.Contains("Editor");
@@ -1858,8 +1865,9 @@ public class MakeUTDLC : BuildCommand
     public string DLCName;
     public string DLCMaps;
     public string AssetRegistry;
+    public string VersionString;
 
-    static public ProjectParams GetParams(BuildCommand Cmd, string DLCName)
+    static public ProjectParams GetParams(BuildCommand Cmd, string DLCName, string AssetRegistry)
     {
         string P4Change = "Unknown";
         string P4Branch = "Unknown";
@@ -1876,6 +1884,7 @@ public class MakeUTDLC : BuildCommand
             Cook: true,
             Stage: true,
             Pak: true,
+            BasedOnReleaseVersion: AssetRegistry,
             StageNonMonolithic: true,
             RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
             StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", DLCName)
@@ -1900,6 +1909,10 @@ public class MakeUTDLC : BuildCommand
 
     public void Stage(DeploymentContext SC, ProjectParams Params)
     {
+        // Create the version.txt
+        string VersionPath = CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", DLCName + "-" + "version.txt");
+        CommandUtils.WriteToFile(VersionPath, VersionString);
+
         // Rename the asset registry file to DLC name
         CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", "AssetRegistry.bin"),
                                 CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", DLCName + "-" + "AssetRegistry.bin"));
@@ -1916,8 +1929,107 @@ public class MakeUTDLC : BuildCommand
                                 CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", DLCName + "-" + SC.CookPlatform + ".pak"));
     }
 
+    public static List<DeploymentContext> CreateDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false)
+    {
+        ParamList<string> ListToProcess = InDedicatedServer && (Params.Cook || Params.CookOnTheFly) ? Params.ServerCookedTargets : Params.ClientCookedTargets;
+        var ConfigsToProcess = InDedicatedServer && (Params.Cook || Params.CookOnTheFly) ? Params.ServerConfigsToBuild : Params.ClientConfigsToBuild;
+
+        List<UnrealTargetPlatform> PlatformsToStage = Params.ClientTargetPlatforms;
+        if (InDedicatedServer && (Params.Cook || Params.CookOnTheFly))
+        {
+            PlatformsToStage = Params.ServerTargetPlatforms;
+        }
+
+        bool prefixArchiveDir = false;
+        if (PlatformsToStage.Contains(UnrealTargetPlatform.Win32) && PlatformsToStage.Contains(UnrealTargetPlatform.Win64))
+        {
+            prefixArchiveDir = true;
+        }
+
+        List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
+        foreach (var StagePlatform in PlatformsToStage)
+        {
+            // Get the platform to get cooked data from, may differ from the stage platform
+            UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
+
+            if (InDedicatedServer && (Params.Cook || Params.CookOnTheFly))
+            {
+                CookedDataPlatform = Params.GetCookedDataPlatformForServerTarget(StagePlatform);
+            }
+
+            List<string> ExecutablesToStage = new List<string>();
+
+            string PlatformName = StagePlatform.ToString();
+            string StageArchitecture = !String.IsNullOrEmpty(Params.SpecifiedArchitecture) ? Params.SpecifiedArchitecture : "";
+            foreach (var Target in ListToProcess)
+            {
+                foreach (var Config in ConfigsToProcess)
+                {
+                    string Exe = Target;
+                    if (Config != UnrealTargetConfiguration.Development)
+                    {
+                        Exe = Target + "-" + PlatformName + "-" + Config.ToString() + StageArchitecture;
+                    }
+                    ExecutablesToStage.Add(Exe);
+                }
+            }
+
+            string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
+            string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
+            if (prefixArchiveDir && (StagePlatform == UnrealTargetPlatform.Win32 || StagePlatform == UnrealTargetPlatform.Win64))
+            {
+                if (Params.Stage)
+                {
+                    StageDirectory = CombinePaths(Params.BaseStageDirectory, StagePlatform.ToString());
+                }
+                if (Params.Archive)
+                {
+                    ArchiveDirectory = CombinePaths(Params.BaseArchiveDirectory, StagePlatform.ToString());
+                }
+            }
+
+            List<BuildReceipt> TargetsToStage = new List<BuildReceipt>();
+
+            //@todo should pull StageExecutables from somewhere else if not cooked
+            var SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
+                StageDirectory,
+                ArchiveDirectory,
+                Params.CookFlavor,
+                Params.GetTargetPlatformInstance(CookedDataPlatform),
+                Params.GetTargetPlatformInstance(StagePlatform),
+                ConfigsToProcess,
+                TargetsToStage,
+                ExecutablesToStage,
+                InDedicatedServer,
+                Params.Cook || Params.CookOnTheFly,
+                Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
+                Params.Stage,
+                Params.CookOnTheFly,
+                Params.Archive,
+                Params.IsProgramTarget,
+                Params.HasDedicatedServerAndClient
+                );
+            Project.LogDeploymentContext(SC);
+
+            // If we're a derived platform make sure we're at the end, otherwise make sure we're at the front
+
+            if (CookedDataPlatform != StagePlatform)
+            {
+                DeploymentContexts.Add(SC);
+            }
+            else
+            {
+                DeploymentContexts.Insert(0, SC);
+            }
+        }
+
+        return DeploymentContexts;
+    }
+
     public override void ExecuteBuild()
     {
+        VersionString = ParseParamValue("Version", "NOVERSION");
+
         DLCName = ParseParamValue("DLCName", "PeteGameMode");
 
         // Maps should be in format -maps=DM-DLCMap1+DM-DLCMap2+DM-DLCMap3
@@ -1926,7 +2038,7 @@ public class MakeUTDLC : BuildCommand
         // Right now all platform asset registries seem to be the exact same, this may change in the future
         AssetRegistry = ParseParamValue("ReleaseVersion", "UTVersion0");
 
-        var Params = GetParams(this, DLCName);
+        var Params = GetParams(this, DLCName, AssetRegistry);
 
         if (ParseParam("build"))
         {
@@ -1936,7 +2048,7 @@ public class MakeUTDLC : BuildCommand
         // Cook dedicated server configs
         if (Params.DedicatedServer)
         {
-            var DeployContextServerList = Project.CreateDeploymentContext(Params, true, true);
+            var DeployContextServerList = CreateDeploymentContext(Params, true, true);
             foreach (var SC in DeployContextServerList)
             {
                 if (!ParseParam("skipcook"))
@@ -1948,7 +2060,7 @@ public class MakeUTDLC : BuildCommand
         }
 
         // Cook client configs
-        var DeployClientContextList = Project.CreateDeploymentContext(Params, false, true);
+        var DeployClientContextList = CreateDeploymentContext(Params, false, true);
         foreach (var SC in DeployClientContextList)
         {
             if (!ParseParam("skipcook"))

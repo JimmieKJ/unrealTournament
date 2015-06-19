@@ -20,7 +20,7 @@ class ULeaderboardQueryCallbackProxy : public UObject
 	FLeaderboardQueryResult OnFailure;
 
 	// Queries a leaderboard for an integer value
-	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", FriendlyName="Read Leaderboard Integer"), Category="Online|Leaderboard")
+	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", DisplayName="Read Leaderboard Integer"), Category="Online|Leaderboard")
 	static ULeaderboardQueryCallbackProxy* CreateProxyObjectForIntQuery(class APlayerController* PlayerController, FName StatName);
 
 public:

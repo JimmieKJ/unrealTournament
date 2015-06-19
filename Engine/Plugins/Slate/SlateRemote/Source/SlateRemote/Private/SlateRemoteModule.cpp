@@ -20,7 +20,7 @@ public:
 
 	// IModuleInterface interface
 
-	virtual void StartupModule( ) override
+	virtual void StartupModule() override
 	{
 		if (!SupportsSlateRemote())
 		{
@@ -51,7 +51,7 @@ public:
 		RestartServices();
 	}
 
-	virtual void ShutdownModule( ) override
+	virtual void ShutdownModule() override
 	{
 		// unregister application events
 		FCoreDelegates::ApplicationHasReactivatedDelegate.RemoveAll(this);
@@ -69,17 +69,15 @@ public:
 		ShutdownRemoteServer();
 	}
 
-	virtual bool SupportsDynamicReloading( ) override
+	virtual bool SupportsDynamicReloading() override
 	{
 		return true;
 	}
 
 protected:
 
-	/**
-	 * Initializes the Slate Remote server with the current settings.
-	 */
-	void InitializeRemoteServer( )
+	/** Initializes the Slate Remote server with the current settings. */
+	void InitializeRemoteServer()
 	{
 		ShutdownRemoteServer();
 
@@ -137,10 +135,8 @@ protected:
 		}
 	}
 
-	/**
-	 * Restarts the services that this modules provides.
-	 */
-	void RestartServices( )
+	/** Restarts the services that this modules provides. */
+	void RestartServices()
 	{
 		const USlateRemoteSettings& Settings = *GetDefault<USlateRemoteSettings>();
 
@@ -157,10 +153,8 @@ protected:
 		}
 	}
 
-	/**
-	 * Shuts down the Slate Remote server.
-	 */
-	void ShutdownRemoteServer( )
+	/** Shuts down the Slate Remote server. */
+	void ShutdownRemoteServer()
 	{
 		RemoteServer.Reset();
 	}
@@ -168,18 +162,10 @@ protected:
 	/**
 	 * Checks whether the Slate Remote server is supported.
 	 *
-	 * @todo gmp: this should be moved into an Engine module, so it can be shared with other transports
-	 *
 	 * @return true if networked transport is supported, false otherwise.
 	 */
-	bool SupportsSlateRemote( ) const
+	bool SupportsSlateRemote() const
 	{
-		// disallow in Shipping and Test configurations
-		if ((FApp::GetBuildConfiguration() == EBuildConfigurations::Shipping) || (FApp::GetBuildConfiguration() == EBuildConfigurations::Test))
-		{
-			return false;
-		}
-
 		// disallow for commandlets
 		if (IsRunningCommandlet())
 		{
@@ -191,20 +177,20 @@ protected:
 
 private:
 
-	// Callback for when an has been reactivated (i.e. return from sleep on iOS).
-	void HandleApplicationHasReactivated( )
+	/** Callback for when an has been reactivated (i.e. return from sleep on iOS). */
+	void HandleApplicationHasReactivated()
 	{
 		RestartServices();
 	}
 
-	// Callback for when the application will be deactivated (i.e. sleep on iOS).
-	void HandleApplicationWillDeactivate( )
+	/** Callback for when the application will be deactivated (i.e. sleep on iOS). */
+	void HandleApplicationWillDeactivate()
 	{
 		ShutdownRemoteServer();
 	}
 
-	// Callback for when the settings were saved.
-	bool HandleSettingsSaved( )
+	/** Callback for when the settings were saved. */
+	bool HandleSettingsSaved()
 	{
 		RestartServices();
 
@@ -213,7 +199,7 @@ private:
 
 private:
 
-	// Holds the Slate Remote server.
+	/** Holds the Slate Remote server. */
 	TSharedPtr<FSlateRemoteServer> RemoteServer;
 };
 

@@ -32,8 +32,8 @@ public:
 
 	/** Begin IStatsViewer interface */
 	virtual void Refresh() override;
-	TSharedPtr< class IPropertyTable > GetPropertyTable();
-	int32 GetObjectSetIndex() const;
+	TSharedPtr< class IPropertyTable > GetPropertyTable() override;
+	int32 GetObjectSetIndex() const override;
 	/** End IStatsViewer interface */
 
 private:

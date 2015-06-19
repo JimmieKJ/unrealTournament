@@ -9,19 +9,24 @@
 #include "VertexFactory.usf"
 
 void Main(
-#if !MATERIALBLENDING_SOLID
+#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants,
 	float4 PixelPosition : TEXCOORD6,
-	in float4 SvPosition : SV_Position,
-	OPTIONAL_IsFrontFace,
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position,
+	OPTIONAL_IsFrontFace
+	OPTIONAL_OutDepth
 #endif
-	out float4 OutColor : SV_Target0
+	,out float4 OutColor : SV_Target0
 	)
 {
-#if !MATERIALBLENDING_SOLID
+#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, PixelPosition);
 	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, PixelPosition);
+
+	#if OUTPUT_PIXEL_DEPTH_OFFSET
+		ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, OutDepth);
+	#endif
 
 	GetMaterialCoverageAndClipping(MaterialParameters);
 #endif

@@ -25,6 +25,8 @@
 #include "UTMultiKillMessage.h"
 #include "UTGameMode.h"
 #include "UTWeap_Translocator.h"
+#include "UTCTFGameMode.h"
+#include "UTCarriedObject.h"
 
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -34,8 +36,38 @@ UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializ
 void UUTCheatManager::Ann(int32 Switch)
 {
 	// play an announcement for testing
-	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCTFRewardMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
-//	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+/*	AUTCTFGameMode* CTF = GetWorld()->GetAuthGameMode<AUTCTFGameMode>();
+	AUTCarriedObject* Flag = CTF->CTFGameState->FlagBases[0]->GetCarriedObject();
+	AUTPlayerState* Holder = Cast<AUTPlayerState>(GetOuterAPlayerController()->PlayerState);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(1, NULL, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	CTF->BroadcastScoreUpdate(Holder, Holder->Team);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(1, NULL, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	CTF->BroadcastScoreUpdate(Holder, Holder->Team);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(1, NULL, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(1, NULL, NULL);
+	Flag->SendGameMessage(4, Holder, NULL);
+	Flag->SendGameMessage(3, Holder, NULL);
+	Flag->SendGameMessage(1, NULL, NULL);*/
+
+	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTSpreeMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);

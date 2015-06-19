@@ -17,6 +17,8 @@ public:
 	, _VisualOffset( FVector2D::ZeroVector )
 	, _IgnoreClipping( true )
 	, _ColorAndOpacity( FLinearColor::White )
+	, _HAlign( HAlign_Center )
+	, _VAlign( VAlign_Center )
 	, _Content()
 	{}
 	/** Scale the visuals of this widget. Geometry is not affected. */
@@ -36,6 +38,12 @@ public:
 
 	/** Multiply the contents of the SFxWidget by this color and opacity when drawing */
 	SLATE_ATTRIBUTE( FLinearColor, ColorAndOpacity )
+
+	/** The horizontal alignment of the child widget */
+	SLATE_ARGUMENT( EHorizontalAlignment, HAlign )
+
+	/** The vertical alignment of the child widget */
+	SLATE_ARGUMENT( EVerticalAlignment, VAlign )
 
 	/** The content that should be modified. */
 	SLATE_DEFAULT_SLOT( FArguments, Content )
@@ -66,7 +74,7 @@ public:
 
 protected:
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 
 	TAttribute<float> RenderScale;

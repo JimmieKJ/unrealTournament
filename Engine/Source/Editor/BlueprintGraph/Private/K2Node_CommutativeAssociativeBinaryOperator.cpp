@@ -136,7 +136,7 @@ void UK2Node_CommutativeAssociativeBinaryOperator::AllocateDefaultPins()
 	}
 	else
 	{
-		const UClass* FunctionParentClass = FunctionReference.GetMemberParentClass(this);
+		const UClass* FunctionParentClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
 		Message_Error(FString::Printf(
 			*LOCTEXT("NoFunction_Error", "CommutativeAssociativeBinaryOperator has no function: '%s' class: '%s'").ToString(), 
 			*FunctionReference.GetMemberName().ToString(),
@@ -179,12 +179,8 @@ void UK2Node_CommutativeAssociativeBinaryOperator::RemoveInputPin(UEdGraphPin* P
 		FScopedTransaction Transaction( LOCTEXT("RemovePinTx", "RemovePin") );
 		Modify();
 
-		int32 PinRemovalIndex = INDEX_NONE;
-		if (Pins.Find(Pin, /*out*/ PinRemovalIndex))
+		if (RemovePin(Pin))
 		{
-			Pins.RemoveAt(PinRemovalIndex);
-			Pin->Modify();
-			Pin->BreakAllPinLinks();
 			--NumAdditionalInputs;
 
 			int32 NameIndex = 0;

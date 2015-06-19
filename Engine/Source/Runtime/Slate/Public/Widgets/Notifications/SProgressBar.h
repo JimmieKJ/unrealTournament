@@ -39,6 +39,7 @@ public:
 		, _BackgroundImage(nullptr)
 		, _FillImage(nullptr)
 		, _MarqueeImage(nullptr)
+		, _RefreshRate(2.0f)
 		{}
 
 		/** Style used for the progress bar */
@@ -65,6 +66,9 @@ public:
 		/** The brush to use as the marquee image */
 		SLATE_ARGUMENT(const FSlateBrush*, MarqueeImage)
 
+		/** Rate at which this widget is ticked when sleeping in seconds */
+		SLATE_ARGUMENT(float, RefreshRate)
+
 	SLATE_END_ARGS()
 
 	/**
@@ -76,7 +80,7 @@ public:
 
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 
-	FVector2D ComputeDesiredSize() const;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	/** See attribute Percent */
 	void SetPercent(TAttribute< TOptional<float> > InPercent);
@@ -103,6 +107,13 @@ public:
 	void SetMarqueeImage(const FSlateBrush* InMarqueeImage);
 	
 private:
+
+	/** Controls the speed at which the widget is ticked when in slate sleep mode */
+	void SetActiveTimerTickRate(float TickRate);
+
+	/** Widgets active tick */
+	EActiveTimerReturnType ActiveTick(double InCurrentTime, float InDeltaTime);
+
 	/** Gets the current background image. */
 	const FSlateBrush* GetBackgroundImage() const;
 	/** Gets the current fill image */
@@ -135,7 +146,16 @@ private:
 	/** Border Padding */
 	TAttribute<FVector2D> BorderPadding;
 
-	/** Curve sequence to drive progress bar animation */
-	FCurveSequence CurveSequence;
+	/** Value to drive progress bar animation */
+	float MarqueeOffset;
+
+	/** Reference to the widgets current active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+
+	/** Rate at which the widget is currently ticked when slate sleep mode is active */
+	float CurrentTickRate;
+
+	/** The slowest that this widget can tick when in slate sleep mode */
+	float MinimumTickRate;
 };
 

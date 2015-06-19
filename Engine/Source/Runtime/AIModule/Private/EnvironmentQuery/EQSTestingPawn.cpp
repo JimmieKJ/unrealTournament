@@ -37,7 +37,7 @@ AEQSTestingPawn::AEQSTestingPawn(const FObjectInitializer& ObjectInitializer)
 	GetCapsuleComponent()->SetCollisionProfileName(CollisionProfileName);
 
 #if WITH_EDITORONLY_DATA
-	EdRenderComp = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UEQSRenderingComponent>(this, TEXT("EQSRender"));
+	EdRenderComp = CreateEditorOnlyDefaultSubobject<UEQSRenderingComponent>(TEXT("EQSRender"));
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
 		UArrowComponent* ArrowComponent = FindComponentByClass<UArrowComponent>();
@@ -47,7 +47,7 @@ AEQSTestingPawn::AEQSTestingPawn(const FObjectInitializer& ObjectInitializer)
 			ArrowComponent->bIsScreenSizeScaled = true;
 		}
 
-		UBillboardComponent* SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+		UBillboardComponent* SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 		if (!IsRunningCommandlet() && (SpriteComponent != nullptr))
 		{
 			struct FConstructorStatics
@@ -86,6 +86,11 @@ AEQSTestingPawn::AEQSTestingPawn(const FObjectInitializer& ObjectInitializer)
 		USelection::SelectObjectEvent.AddStatic(&AEQSTestingPawn::OnEditorSelectionChanged);
 	}
 #endif // WITH_EDITOR
+}
+
+float AEQSTestingPawn::GetHighlightRangePct() const
+{
+	return (HighlightMode == EEnvQueryHightlightMode::Best25Pct) ? 0.75f : (HighlightMode == EEnvQueryHightlightMode::Best5Pct) ? 0.95f : 1.0f;
 }
 
 void AEQSTestingPawn::OnEditorSelectionChanged(UObject* NewSelection)
@@ -184,6 +189,10 @@ void AEQSTestingPawn::MakeOneStep()
 		FEnvQueryRequest QueryRequest(QueryTemplate, this);
 		QueryRequest.SetNamedParams(QueryParams);
 		QueryInstance = EQS->PrepareQueryInstance(QueryRequest, QueryingMode);
+		if (QueryInstance.IsValid())
+		{
+			EQS->RegisterExternalQuery(QueryInstance);
+		}
 	}
 
 	// possible still not valid 
@@ -245,7 +254,6 @@ void AEQSTestingPawn::PostEditChangeProperty( FPropertyChangedEvent& PropertyCha
 	static const FName NAME_QueryTemplate = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, QueryTemplate);
 	static const FName NAME_StepToDebugDraw = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, StepToDebugDraw);
 	static const FName NAME_QueryParams = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, QueryParams);
-	static const FName NAME_DrawFailedItems = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, bDrawFailedItems);
 	static const FName NAME_ShouldBeVisibleInGame = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, bShouldBeVisibleInGame);
 	static const FName NAME_QueryingMode = GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, QueryingMode);
 
@@ -266,7 +274,8 @@ void AEQSTestingPawn::PostEditChangeProperty( FPropertyChangedEvent& PropertyCha
 			StepToDebugDraw  = FMath::Clamp(StepToDebugDraw, 0, StepResults.Num() - 1 );
 			UpdateDrawing();
 		}
-		else if (PropName == NAME_DrawFailedItems)
+		else if (PropName == GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, bDrawFailedItems) ||
+			PropName == GET_MEMBER_NAME_CHECKED(AEQSTestingPawn, HighlightMode))
 		{
 			UpdateDrawing();
 		}

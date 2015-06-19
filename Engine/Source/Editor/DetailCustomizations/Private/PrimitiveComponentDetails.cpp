@@ -12,6 +12,8 @@
 #include "EditorCategoryUtils.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "ComponentMaterialCategory.h"
+#include "SCheckBox.h"
+#include "SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "PrimitiveComponentDetails"
 
@@ -82,36 +84,21 @@ bool FPrimitiveComponentDetails::IsUseAsyncEditable() const
 	return bEnableUseAsyncScene;
 }
 
-EVisibility FPrimitiveComponentDetails::IsCustomLockedAxisSelected() const
+EVisibility FPrimitiveComponentDetails::IsDOFMode(EDOFMode::Type Mode) const
 {
 	bool bVisible = false;
-	if (LockedAxisProperty.IsValid())
+	if (DOFModeProperty.IsValid())
 	{
-		uint8 LockedAxis;
-		if (LockedAxisProperty->GetValue(LockedAxis) == FPropertyAccess::Success)
+		uint8 CurrentMode;
+		if (DOFModeProperty->GetValue(CurrentMode) == FPropertyAccess::Success)
 		{
-			bVisible = static_cast<ELockedAxis::Type>(LockedAxis) == ELockedAxis::Custom;
+			EDOFMode::Type PropertyDOF = FBodyInstance::ResolveDOFMode(static_cast<EDOFMode::Type>(CurrentMode));
+			bVisible = PropertyDOF == Mode;
 		}
 	}
 
 	return bVisible ? EVisibility::Visible : EVisibility::Collapsed;
 }
-
-EVisibility FPrimitiveComponentDetails::IsLockAxisEnabled() const
-{
-	bool bVisible = false;
-	if (LockedAxisProperty.IsValid())
-	{
-		uint8 LockedAxis;
-		if (LockedAxisProperty->GetValue(LockedAxis) == FPropertyAccess::Success)
-		{
-			bVisible = static_cast<ELockedAxis::Type>(LockedAxis) != ELockedAxis::Default;
-		}
-	}
-
-	return bVisible ? EVisibility::Visible : EVisibility::Collapsed;
-}
-
 
 bool FPrimitiveComponentDetails::IsAutoWeldEditable() const
 {
@@ -136,7 +123,7 @@ EVisibility FPrimitiveComponentDetails::IsAutoWeldVisible() const
 {
 	for (int32 i = 0; i < ObjectsCustomized.Num(); ++i)
 	{
-		if (ObjectsCustomized[i].IsValid() && !ObjectsCustomized[i]->IsA(UStaticMeshComponent::StaticClass()))
+		if (ObjectsCustomized[i].IsValid() && !( ObjectsCustomized[i]->IsA(UStaticMeshComponent::StaticClass()) || ObjectsCustomized[i]->IsA(UShapeComponent::StaticClass())))
 		{
 			return EVisibility::Collapsed;
 		}
@@ -158,6 +145,308 @@ EVisibility FPrimitiveComponentDetails::IsMassVisible(bool bOverrideMass) const
 	}
 }
 
+void FPrimitiveComponentDetails::AddPhysicsCategory(IDetailLayoutBuilder& DetailBuilder)
+{
+	if (DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance))->IsValidHandle())
+	{
+		TSharedPtr<IPropertyHandle> BodyInstanceHandler = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance));
+		uint32 NumChildren = 0;
+		BodyInstanceHandler->GetNumChildren(NumChildren);
+
+
+		IDetailCategoryBuilder& PhysicsCategory = DetailBuilder.EditCategory("Physics");
+
+		bool bDisplayMass = true;
+		bool bDisplayMassOverride = true;
+		bool bDisplayConstraints = true;
+
+		for (int32 i = 0; i < ObjectsCustomized.Num(); ++i)
+		{
+			if (ObjectsCustomized[i].IsValid() && ObjectsCustomized[i]->IsA(UDestructibleComponent::StaticClass()))
+			{
+				bDisplayMass = false;
+				bDisplayMassOverride = false;
+				bDisplayConstraints = false;
+			}
+
+			if (ObjectsCustomized[i].IsValid() && ObjectsCustomized[i]->IsA(USkeletalMeshComponent::StaticClass()))
+			{
+				bDisplayMassOverride = false;
+			}
+		}
+
+		bool bConstraintsUIExists = false;
+		bool bMassUIExists = false;
+
+		// add all physics properties now - after adding mass
+		for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
+		{
+			TSharedPtr<IPropertyHandle> ChildProperty = BodyInstanceHandler->GetChildHandle(ChildIndex);
+			FString Category = FObjectEditorUtils::GetCategory(ChildProperty->GetProperty());
+			FName PropName = ChildProperty->GetProperty()->GetFName();
+			if (Category == TEXT("Physics"))
+			{
+				// Only permit modifying bSimulatePhysics when the body has some geometry.
+				if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bSimulatePhysics))
+				{
+					PhysicsCategory.AddProperty(ChildProperty).EditCondition(TAttribute<bool>(this, &FPrimitiveComponentDetails::IsSimulatePhysicsEditable), NULL);
+				}
+				else if (PropName == FName("bUseAsyncScene")) // Can't use GET_MEMBER_NAME_CHECKED because protected
+				{
+					//we only enable bUseAsyncScene if the project uses an AsyncScene
+					PhysicsCategory.AddProperty(ChildProperty).EditCondition(TAttribute<bool>(this, &FPrimitiveComponentDetails::IsUseAsyncEditable), NULL);
+				}
+				else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockXTranslation)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockYTranslation)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockZTranslation)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockXRotation)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockYRotation)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockZRotation)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, DOFMode)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, CustomDOFPlaneNormal)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockTranslation)
+					|| PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockRotation))
+				{
+					// We treat all of these constraint parameters as a big group
+					if (bConstraintsUIExists == false && bDisplayConstraints)
+					{
+						const float XYZPadding = 5.f;
+						bConstraintsUIExists = true;
+						DOFModeProperty = BodyInstanceHandler->GetChildHandle(TEXT("DOFMode"));
+
+						IDetailGroup& ConstraintsGroup = PhysicsCategory.AddGroup(TEXT("ConstraintsGroup"), LOCTEXT("Constraints", "Constraints"));
+
+						ConstraintsGroup.AddWidgetRow()
+						.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FPrimitiveComponentDetails::IsDOFMode, EDOFMode::SixDOF)))
+						.NameContent()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("LockPositionLabel", "Lock Position"))
+							.ToolTipText(LOCTEXT("LockPositionTooltip", "Locks movement along the specified axis"))
+						]
+						.ValueContent()
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.Padding(0.f, 0.f, XYZPadding, 0.f)
+							.AutoWidth()
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									BodyInstanceHandler->GetChildHandle(TEXT("bLockXTranslation"))->CreatePropertyNameWidget()
+								]
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									BodyInstanceHandler->GetChildHandle(TEXT("bLockXTranslation"))->CreatePropertyValueWidget()
+								]
+							]
+
+							+ SHorizontalBox::Slot()
+							.Padding(0.f, 0.f, XYZPadding, 0.f)
+							.AutoWidth()
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									BodyInstanceHandler->GetChildHandle(TEXT("bLockYTranslation"))->CreatePropertyNameWidget()
+								]
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										BodyInstanceHandler->GetChildHandle(TEXT("bLockYTranslation"))->CreatePropertyValueWidget()
+									]
+							]
+
+							+ SHorizontalBox::Slot()
+							.Padding(0.f, 0.f, XYZPadding, 0.f)
+							.AutoWidth()
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									BodyInstanceHandler->GetChildHandle(TEXT("bLockZTranslation"))->CreatePropertyNameWidget()
+								]
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									BodyInstanceHandler->GetChildHandle(TEXT("bLockZTranslation"))->CreatePropertyValueWidget()
+								]
+							]
+						];
+
+						ConstraintsGroup.AddWidgetRow()
+						.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FPrimitiveComponentDetails::IsDOFMode, EDOFMode::SixDOF)))
+						.NameContent()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("LockRotationLabel", "Lock Rotation"))
+							.ToolTipText(LOCTEXT("LockRotationTooltip", "Locks rotation about the specified axis"))
+						]
+						.ValueContent()
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.Padding(0.f, 0.f, XYZPadding, 0.f)
+								.AutoWidth()
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										BodyInstanceHandler->GetChildHandle(TEXT("bLockXRotation"))->CreatePropertyNameWidget()
+									]
+									+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										BodyInstanceHandler->GetChildHandle(TEXT("bLockXRotation"))->CreatePropertyValueWidget()
+									]
+								]
+
+								+ SHorizontalBox::Slot()
+								.Padding(0.f, 0.f, XYZPadding, 0.f)
+								.AutoWidth()
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										BodyInstanceHandler->GetChildHandle(TEXT("bLockYRotation"))->CreatePropertyNameWidget()
+									]
+									+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										BodyInstanceHandler->GetChildHandle(TEXT("bLockYRotation"))->CreatePropertyValueWidget()
+									]
+								]
+
+								+ SHorizontalBox::Slot()
+								.Padding(0.f, 0.f, XYZPadding, 0.f)
+								.AutoWidth()
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										BodyInstanceHandler->GetChildHandle(TEXT("bLockZRotation"))->CreatePropertyNameWidget()
+									]
+									+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										BodyInstanceHandler->GetChildHandle(TEXT("bLockZRotation"))->CreatePropertyValueWidget()
+									]
+								]
+
+							];
+
+						//we only show the custom plane normal if we've selected that mode
+						ConstraintsGroup.AddPropertyRow(BodyInstanceHandler->GetChildHandle(TEXT("CustomDOFPlaneNormal")).ToSharedRef()).Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FPrimitiveComponentDetails::IsDOFMode, EDOFMode::CustomPlane)));
+						ConstraintsGroup.AddPropertyRow(BodyInstanceHandler->GetChildHandle(TEXT("bLockTranslation")).ToSharedRef()).Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FPrimitiveComponentDetails::IsDOFMode, EDOFMode::CustomPlane)));
+						ConstraintsGroup.AddPropertyRow(BodyInstanceHandler->GetChildHandle(TEXT("bLockRotation")).ToSharedRef()).Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FPrimitiveComponentDetails::IsDOFMode, EDOFMode::CustomPlane)));
+						ConstraintsGroup.AddPropertyRow(DOFModeProperty.ToSharedRef());
+					}
+				}
+				else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bAutoWeld))
+				{
+					PhysicsCategory.AddProperty(ChildProperty).Visibility(TAttribute<EVisibility>(this, &FPrimitiveComponentDetails::IsAutoWeldVisible))
+						.EditCondition(TAttribute<bool>(this, &FPrimitiveComponentDetails::IsAutoWeldEditable), NULL);
+				}
+				else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, MassInKg) || PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bOverrideMass))
+				{
+					if (bDisplayMass && bMassUIExists == false)
+					{
+						bMassUIExists = true;
+						TSharedPtr<IPropertyHandle> MassInKGHandle = BodyInstanceHandler->GetChildHandle(TEXT("MassInKg"));
+						TSharedPtr<IPropertyHandle> MassOverrideHandle = BodyInstanceHandler->GetChildHandle(TEXT("bOverrideMass"));
+
+						PhysicsCategory.AddCustomRow(LOCTEXT("Mass", "Mass"), false)
+						.NameContent()
+						[
+							MassInKGHandle->CreatePropertyNameWidget()
+						]
+						.ValueContent()
+						.MinDesiredWidth(125 * 3.f)
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.Padding(0.f, 0.f, 10.f, 0.f)
+								[
+									SNew(SNumericEntryBox<float>)
+									.IsEnabled(false)
+									.Font( IDetailLayoutBuilder::GetDetailFont() )
+									.Value(this, &FPrimitiveComponentDetails::OnGetBodyMass)
+									.Visibility(this, &FPrimitiveComponentDetails::IsMassVisible, false)
+								]
+
+								+ SVerticalBox::Slot()
+								.Padding(0.f, 0.f, 10.f, 0.f)
+								[
+									SNew(SVerticalBox)
+									.Visibility(this, &FPrimitiveComponentDetails::IsMassVisible, true)
+									+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										MassInKGHandle->CreatePropertyValueWidget()
+									]
+								]
+							]
+
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							.VAlign( VAlign_Center )
+							[
+								bDisplayMassOverride ? MassOverrideHandle->CreatePropertyValueWidget() : StaticCastSharedRef<SWidget>(SNew(SSpacer))
+							]
+
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								bDisplayMassOverride ? MassOverrideHandle->CreatePropertyNameWidget() : StaticCastSharedRef<SWidget>(SNew(SSpacer))
+							]
+						];
+					}
+				}
+				else
+				{
+					PhysicsCategory.AddProperty(ChildProperty);
+				}
+			}
+		}
+	}
+}
+
+void FPrimitiveComponentDetails::AddCollisionCategory(IDetailLayoutBuilder& DetailBuilder)
+{
+	if (DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance))->IsValidHandle())
+	{
+		// Collision
+		TSharedPtr<IPropertyHandle> BodyInstanceHandler = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance));
+		uint32 NumChildren = 0;
+		BodyInstanceHandler->GetNumChildren(NumChildren);
+
+		IDetailCategoryBuilder& CollisionCategory = DetailBuilder.EditCategory("Collision");
+
+		// add all collision properties
+		for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
+		{
+			TSharedPtr<IPropertyHandle> ChildProperty = BodyInstanceHandler->GetChildHandle(ChildIndex);
+			FString Category = FObjectEditorUtils::GetCategory(ChildProperty->GetProperty());
+			if (Category == TEXT("Collision"))
+			{
+				CollisionCategory.AddProperty(ChildProperty);
+			}
+		}
+	}
+}
+
 void FPrimitiveComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 {
 	// Get the objects being customized so we can enable/disable editing of 'Simulate Physics'
@@ -175,145 +464,21 @@ void FPrimitiveComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailB
 	TSharedRef<IPropertyHandle> MobilityHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, Mobility), USceneComponent::StaticClass());
 	MobilityHandle->SetToolTipText(LOCTEXT("PrimitiveMobilityTooltip", "Mobility for primitive components controls how they can be modified in game and therefore how they interact with lighting and physics.\n● A movable primitive component can be changed in game, but requires dynamic lighting and shadowing from lights which have a large performance cost.\n● A static primitive component can't be changed in game, but can have its lighting baked, which allows rendering to be very efficient."));
 
-	if ( DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance))->IsValidHandle() )
+
+	if(!HideCategories.Contains("Physics"))
 	{
-		TSharedPtr<IPropertyHandle> BodyInstanceHandler = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, BodyInstance));
-		uint32 NumChildren = 0;
-		BodyInstanceHandler->GetNumChildren(NumChildren);
-
-
-		if (!HideCategories.Contains(TEXT("Physics")))
-		{
-			IDetailCategoryBuilder& PhysicsCategory = DetailBuilder.EditCategory("Physics");
-
-
-
-			bool bDisplayMass = true;
-			bool bDisplayMassOverride = true;
-
-			for (int32 i = 0; i < ObjectsCustomized.Num(); ++i)
-			{
-				if (ObjectsCustomized[i].IsValid() && ObjectsCustomized[i]->IsA(UDestructibleComponent::StaticClass()))
-				{
-					bDisplayMass = false;
-					bDisplayMassOverride = false;
-				}
-
-				if (ObjectsCustomized[i].IsValid() && ObjectsCustomized[i]->IsA(USkeletalMeshComponent::StaticClass()))
-				{
-					bDisplayMassOverride = false;
-				}
-			}
-
-			// add all physics properties now - after adding mass
-			for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
-			{
-				TSharedPtr<IPropertyHandle> ChildProperty = BodyInstanceHandler->GetChildHandle(ChildIndex);
-				FString Category = FObjectEditorUtils::GetCategory(ChildProperty->GetProperty());
-				FName PropName = ChildProperty->GetProperty()->GetFName();
-				if (Category == TEXT("Physics"))
-				{
-					// Only permit modifying bSimulatePhysics when the body has some geometry.
-					if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bSimulatePhysics))
-					{
-						PhysicsCategory.AddProperty(ChildProperty).EditCondition(TAttribute<bool>(this, &FPrimitiveComponentDetails::IsSimulatePhysicsEditable), NULL);
-					}
-					else if (PropName == FName("bUseAsyncScene")) // Can't use GET_MEMBER_NAME_CHECKED because protected
-					{
-						//we only enable bUseAsyncScene if the project uses an AsyncScene
-						PhysicsCategory.AddProperty(ChildProperty).EditCondition(TAttribute<bool>(this, &FPrimitiveComponentDetails::IsUseAsyncEditable), NULL);
-					}
-					else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, LockedAxisMode))
-					{
-						LockedAxisProperty = ChildProperty;
-						PhysicsCategory.AddProperty(ChildProperty);
-					}
-					else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, CustomLockedAxis))
-					{
-						//we only enable bUseAsyncScene if the project uses an AsyncScene
-						PhysicsCategory.AddProperty(ChildProperty).Visibility(TAttribute<EVisibility>(this, &FPrimitiveComponentDetails::IsCustomLockedAxisSelected));
-					}
-					else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockTranslation) || PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockRotation))
-					{
-						// Only show the lock translation/rotation options if some lock axis is selected
-						PhysicsCategory.AddProperty(ChildProperty).Visibility(TAttribute<EVisibility>(this, &FPrimitiveComponentDetails::IsLockAxisEnabled));
-					}
-					else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bAutoWeld))
-					{
-						PhysicsCategory.AddProperty(ChildProperty).Visibility(TAttribute<EVisibility>(this, &FPrimitiveComponentDetails::IsAutoWeldVisible))
-																  .EditCondition(TAttribute<bool>(this, &FPrimitiveComponentDetails::IsAutoWeldEditable), NULL);
-					}
-					else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, bOverrideMass))
-					{
-						if (bDisplayMassOverride)
-						{
-							PhysicsCategory.AddProperty(ChildProperty);
-						}
-					}
-					else if (PropName == GET_MEMBER_NAME_CHECKED(FBodyInstance, MassInKg))
-					{
-						
-						if (bDisplayMass)
-						{
-							PhysicsCategory.AddCustomRow(LOCTEXT("Mass", "Mass"), false)
-								.IsEnabled(TAttribute<bool>(this, &FPrimitiveComponentDetails::IsBodyMassEnabled))
-								.NameContent()
-								[
-									ChildProperty->CreatePropertyNameWidget()
-								]
-							.ValueContent()
-								[
-									SNew(SVerticalBox)
-									+ SVerticalBox::Slot()
-									.AutoHeight()
-									[
-										SNew(SEditableTextBox)
-										.Text(this, &FPrimitiveComponentDetails::OnGetBodyMass)
-										.IsReadOnly(this, &FPrimitiveComponentDetails::IsBodyMassReadOnly)
-										.Font(IDetailLayoutBuilder::GetDetailFont())
-										.Visibility(this, &FPrimitiveComponentDetails::IsMassVisible, false)
-									]
-
-									+ SVerticalBox::Slot()
-									.AutoHeight()
-									[
-										SNew(SVerticalBox)
-										.Visibility(this, &FPrimitiveComponentDetails::IsMassVisible, true)
-										+ SVerticalBox::Slot()
-										.AutoHeight()
-										[
-											ChildProperty->CreatePropertyValueWidget()
-										]
-									]
-									
-								];
-						}
-					}
-					else
-					{
-						PhysicsCategory.AddProperty(ChildProperty);
-					}
-				}
-			}
-		}
-
-		// Collision
-		{
-			IDetailCategoryBuilder& CollisionCategory = DetailBuilder.EditCategory("Collision");
-
-			// add all collision properties
-			for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
-			{
-				TSharedPtr<IPropertyHandle> ChildProperty = BodyInstanceHandler->GetChildHandle(ChildIndex);
-				FString Category = FObjectEditorUtils::GetCategory(ChildProperty->GetProperty());
-				if (Category == TEXT("Collision"))
-				{
-					CollisionCategory.AddProperty(ChildProperty);
-				}
-			}
-		}		
+		AddPhysicsCategory(DetailBuilder);
 	}
 
+	if (!HideCategories.Contains("Collision"))
+	{
+		AddCollisionCategory(DetailBuilder);
+	}
+
+	if(!HideCategories.Contains("Lighting"))
+	{
+		AddLightingCategory(DetailBuilder);
+	}
 
 	AddAdvancedSubCategory( DetailBuilder, "Rendering", "TextureStreaming" );
 	AddAdvancedSubCategory( DetailBuilder, "Rendering", "LOD");
@@ -335,6 +500,12 @@ void FPrimitiveComponentDetails::AddMaterialCategory( IDetailLayoutBuilder& Deta
 	MaterialCategory = MakeShareable(new FComponentMaterialCategory(Components));
 	MaterialCategory->Create(DetailBuilder);
 }
+
+void FPrimitiveComponentDetails::AddLightingCategory(IDetailLayoutBuilder& DetailBuilder)
+{
+	IDetailCategoryBuilder& CollisionCategory = DetailBuilder.EditCategory("Lighting");
+}
+
 void FPrimitiveComponentDetails::AddAdvancedSubCategory( IDetailLayoutBuilder& DetailBuilder, FName MainCategoryName, FName SubCategoryName)
 {
 	TArray<TSharedRef<IPropertyHandle> > SubCategoryProperties;
@@ -365,7 +536,7 @@ void FPrimitiveComponentDetails::AddAdvancedSubCategory( IDetailLayoutBuilder& D
 
 }
 
-FText FPrimitiveComponentDetails::OnGetBodyMass() const
+TOptional<float> FPrimitiveComponentDetails::OnGetBodyMass() const
 {
 	UPrimitiveComponent* Comp = NULL;
 
@@ -379,6 +550,7 @@ FText FPrimitiveComponentDetails::OnGetBodyMass() const
 			Comp = Cast<UPrimitiveComponent>(ObjectIt->Get());
 
 			float CompMass = Comp->CalculateMass();
+			Comp->BodyInstance.MassInKg = CompMass;	//update the component's override mass to be the calculated one
 			if (Mass == 0.0f || FMath::Abs(Mass - CompMass) < 0.1f)
 			{
 				Mass = CompMass;
@@ -393,10 +565,10 @@ FText FPrimitiveComponentDetails::OnGetBodyMass() const
 
 	if (bMultipleValue)
 	{
-		return LOCTEXT("MultipleValues", "Multiple Values");
+		return TOptional<float>();
 	}
 
-	return FText::AsNumber(Mass);
+	return Mass;
 }
 
 bool FPrimitiveComponentDetails::IsBodyMassReadOnly() const

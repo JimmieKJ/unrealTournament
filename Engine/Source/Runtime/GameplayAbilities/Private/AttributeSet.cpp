@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "HAL/OutputDevices.h"
 #include "AbilitySystemGlobals.h"
+#include "VisualLogger.h"
 
 #include "ComponentReregisterContext.h"
 
@@ -18,8 +19,30 @@ void FGameplayAttribute::SetNumericValueChecked(float NewValue, class UAttribute
 {
 	UNumericProperty *NumericProperty = CastChecked<UNumericProperty>(Attribute);
 	void* ValuePtr = NumericProperty->ContainerPtrToValuePtr<void>(Dest);
+	float OldValue = *static_cast<float*>(ValuePtr);
 	Dest->PreAttributeChange(*this, NewValue);
 	NumericProperty->SetFloatingPointPropertyValue(ValuePtr, NewValue);
+
+#if ENABLE_VISUAL_LOG
+	// draw a graph of the changes to the attribute in the visual logger
+	AActor* OwnerActor = Dest->GetOwningAbilitySystemComponent()->OwnerActor;
+	if (OwnerActor)
+	{
+		ABILITY_VLOG_ATTRIBUTE_GRAPH(OwnerActor, Log, GetName(), OldValue, NewValue);
+	}
+#endif
+}
+
+float FGameplayAttribute::GetNumericValue(const UAttributeSet* Src) const
+{
+	const UNumericProperty* const NumericPropertyOrNull = Cast<UNumericProperty>(Attribute);
+	if (!NumericPropertyOrNull)
+	{
+		return 0.f;
+	}
+
+	const void* ValuePtr = NumericPropertyOrNull->ContainerPtrToValuePtr<void>(Src);
+	return NumericPropertyOrNull->GetFloatingPointPropertyValue(ValuePtr);
 }
 
 float FGameplayAttribute::GetNumericValueChecked(const UAttributeSet* Src) const
@@ -130,8 +153,10 @@ float FScalableFloat::GetValueAtLevel(float Level) const
 	{
 		if (FinalCurve == nullptr)
 		{
-			static const FString ContextString = TEXT("FScalableFloat::FinalizeCurveData");
+			static const FString ContextString = TEXT("FScalableFloat::GetValueAtLevel");
 			FinalCurve = Curve.GetCurve(ContextString);
+
+			RegisterOnCurveTablePostReimport();
 		}
 
 		if (FinalCurve != nullptr)
@@ -146,6 +171,58 @@ float FScalableFloat::GetValueAtLevel(float Level) const
 
 	return Value;
 }
+
+void FScalableFloat::SetValue(float NewValue)
+{
+	UnRegisterOnCurveTablePostReimport();
+
+	Value = NewValue;
+	Curve.CurveTable = nullptr;
+	Curve.RowName = NAME_None;
+	FinalCurve = nullptr;
+}
+
+void FScalableFloat::SetScalingValue(float InCoeffecient, FName InRowName, UCurveTable * InTable)
+{
+	UnRegisterOnCurveTablePostReimport();
+
+	Value = InCoeffecient;
+	Curve.RowName = InRowName;
+	Curve.CurveTable = InTable;
+	FinalCurve = nullptr;
+}
+
+void FScalableFloat::RegisterOnCurveTablePostReimport() const
+{
+#if WITH_EDITOR
+	if (!OnCurveTablePostReimportHandle.IsValid())
+	{
+		// Register our interest in knowing when our referenced curve table is changed, so that we can update FinalCurve appropriately
+		OnCurveTablePostReimportHandle = FReimportManager::Instance()->OnPostReimport().AddRaw(this, &FScalableFloat::OnCurveTablePostReimport);
+	}
+#endif // WITH_EDITOR
+}
+
+void FScalableFloat::UnRegisterOnCurveTablePostReimport() const
+{
+#if WITH_EDITOR
+	if (OnCurveTablePostReimportHandle.IsValid())
+	{
+		FReimportManager::Instance()->OnPostReimport().Remove(OnCurveTablePostReimportHandle);
+	}
+#endif // WITH_EDITOR
+}
+
+#if WITH_EDITOR
+void FScalableFloat::OnCurveTablePostReimport(UObject* InObject, bool)
+{
+	if (Curve.CurveTable && Curve.CurveTable == InObject)
+	{
+		// Reset FinalCurve so that GetValueAtLevel will re-cache it the next time it gets called
+		FinalCurve = nullptr;
+	}
+}
+#endif // WITH_EDITOR
 
 bool FGameplayAttribute::operator==(const FGameplayAttribute& Other) const
 {
@@ -342,4 +419,6 @@ void FAttributeSetInitter::InitAttributeSetDefaults(UAbilitySystemComponent* Abi
 			}
 		}		
 	}
+	
+	AbilitySystemComponent->ForceReplication();
 }

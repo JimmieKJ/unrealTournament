@@ -7,6 +7,7 @@
 #include "CoreUObjectPrivate.h"
 #include "Interface.h"
 
+
 /***********************/
 /******** Names ********/
 /***********************/
@@ -138,8 +139,8 @@ void UObjectBaseUtility::MarkPackageDirty() const
 			// It is against policy to dirty a map or package during load in the Editor, to enforce this policy
 			// we explicitly disable the ability to dirty a package or map during load.  Commandlets can still
 			// set the dirty state on load.
-			if( (!GIsEditor || IsRunningCommandlet() || 
-				(GIsEditor && !GIsEditorLoadingPackage && !GIsPlayInEditorWorld)))
+			if( IsRunningCommandlet() || 
+				(GIsEditor && !GIsEditorLoadingPackage && !GIsPlayInEditorWorld))
 			{
 				const bool bIsDirty = Package->IsDirty();
 
@@ -251,14 +252,31 @@ bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
 {
 	UE_CLOG(!SomeBase, LogObj, Fatal, TEXT("IsA(NULL) cannot yield meaningful results"));
 
-	for ( UClass* TempClass=GetClass(); TempClass; TempClass=TempClass->GetSuperClass() )
-	{
-		if ( TempClass == SomeBase )
+	#if UCLASS_FAST_ISA_IMPL & 1
+		bool bOldResult = false;
+		for ( UClass* TempClass=GetClass(); TempClass; TempClass=TempClass->GetSuperClass() )
 		{
-			return true;
+			if ( TempClass == SomeBase )
+			{
+				bOldResult = true;
+				break;
+			}
 		}
-	}
-	return false;
+	#endif
+
+	#if UCLASS_FAST_ISA_IMPL & 2
+		bool bNewResult = GetClass()->IsAUsingFastTree(*SomeBase);
+	#endif
+
+	#if (UCLASS_FAST_ISA_IMPL & 1) && (UCLASS_FAST_ISA_IMPL & 2)
+		ensureOnceMsgf(bOldResult == bNewResult, TEXT("New cast code failed"));
+	#endif
+
+	#if UCLASS_FAST_ISA_IMPL & 1
+		return bOldResult;
+	#else
+		return bNewResult;
+	#endif
 }
 
 

@@ -7,7 +7,7 @@
 #include "UTAfterImageEffect.generated.h"
 
 UCLASS(Blueprintable, NotPlaceable)
-class AUTAfterImageEffect : public AUTWeaponRedirector
+class UNREALTOURNAMENT_API AUTAfterImageEffect : public AUTWeaponRedirector
 {
 	GENERATED_BODY()
 public:

@@ -7,11 +7,6 @@
 DEFINE_LOG_CATEGORY(LogSlateStyle);
 
 
-USlateWidgetStyleContainerBase::USlateWidgetStyleContainerBase( const FObjectInitializer& ObjectInitializer )
-	: Super(ObjectInitializer)
-{ }
-
-
 const struct FSlateWidgetStyle* const USlateWidgetStyleContainerBase::GetStyle() const
 {
 	return nullptr;

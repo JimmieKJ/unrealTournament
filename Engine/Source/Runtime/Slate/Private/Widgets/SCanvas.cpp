@@ -69,6 +69,9 @@ void SCanvas::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChi
 			case HAlign_Right:
 				Offset.X = -Size.X;
 				break;
+			case HAlign_Fill:
+			case HAlign_Left:
+				break;
 			}
 
 			//handle VAlignment
@@ -79,6 +82,9 @@ void SCanvas::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChi
 				break;
 			case VAlign_Center:
 				Offset.Y = -Size.Y / 2.0f;
+				break;
+			case VAlign_Top:
+			case VAlign_Fill:
 				break;
 			}
 
@@ -122,7 +128,7 @@ int32 SCanvas::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 }
 
 
-FVector2D SCanvas::ComputeDesiredSize() const
+FVector2D SCanvas::ComputeDesiredSize( float ) const
 {
 	// Canvas widgets have no desired size -- their size is always determined by their container
 	return FVector2D::ZeroVector;

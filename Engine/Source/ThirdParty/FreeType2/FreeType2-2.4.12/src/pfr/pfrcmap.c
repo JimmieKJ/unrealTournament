@@ -25,7 +25,8 @@
 
 
   FT_CALLBACK_DEF( FT_Error )
-  pfr_cmap_init( PFR_CMap  cmap )
+  pfr_cmap_init( PFR_CMap  cmap,
+                 FT_Pointer init_data )
   {
     FT_Error  error = FT_Err_Ok;
     PFR_Face  face  = (PFR_Face)FT_CMAP_FACE( cmap );
@@ -33,6 +34,8 @@
 
     cmap->num_chars = face->phy_font.num_chars;
     cmap->chars     = face->phy_font.chars;
+
+	FT_UNUSED( init_data );
 
     /* just for safety, check that the character entries are correctly */
     /* sorted in increasing character code order                       */

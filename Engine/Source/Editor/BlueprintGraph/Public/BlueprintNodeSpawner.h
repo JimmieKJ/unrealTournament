@@ -24,9 +24,11 @@ struct FBlueprintActionUiSpec
 	FText   MenuName;
 	FText   Category;
 	FText   Tooltip;
-	FString Keywords;
+	FText	Keywords;
 	FName   IconName;
 	FLinearColor IconTint;
+	FString DocLink;
+	FString DocExcerptTag;
 };
 
 /*******************************************************************************

@@ -44,6 +44,8 @@ struct AIMODULE_API FAIDamageEvent
 	{
 		return DamagedActor != nullptr;
 	}
+
+	IAIPerceptionListenerInterface* GetDamagedActorAsPerceptionListener() const;
 };
 
 UCLASS(ClassGroup=AI)
@@ -57,6 +59,10 @@ class AIMODULE_API UAISense_Damage : public UAISense
 public:		
 	void RegisterEvent(const FAIDamageEvent& Event);	
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent) override;
+
+	/** EventLocation will be reported as Instigator's location at the moment of event happening*/
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception", meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext", AdvancedDisplay="HitLocation"))
+	static void ReportDamageEvent(UObject* WorldContext, AActor* DamagedActor, AActor* Instigator, float DamageAmount, FVector EventLocation, FVector HitLocation);
 
 protected:
 	virtual float Update() override;

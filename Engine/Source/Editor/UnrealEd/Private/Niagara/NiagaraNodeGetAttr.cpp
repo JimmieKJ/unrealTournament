@@ -4,26 +4,26 @@
 #include "INiagaraCompiler.h"
 
 
-UNiagaraNodeGetAttr::UNiagaraNodeGetAttr(const FObjectInitializer& ObjectInitializer)
+UDEPRECATED_NiagaraNodeGetAttr::UDEPRECATED_NiagaraNodeGetAttr(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 }
 
-void UNiagaraNodeGetAttr::AllocateDefaultPins()
+void UDEPRECATED_NiagaraNodeGetAttr::AllocateDefaultPins()
 {
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
 
 	CreatePin(EGPD_Output, Schema->PC_Vector, TEXT(""), NULL, false, false, AttrName.ToString());
 }
 
-FText UNiagaraNodeGetAttr::GetNodeTitle(ENodeTitleType::Type TitleType) const
+FText UDEPRECATED_NiagaraNodeGetAttr::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("Attribute"), FText::FromName(AttrName));
 	return FText::Format(NSLOCTEXT("Niagara", "GetAttribute", "Get {Attribute}"), Args);
 }
 
-FLinearColor UNiagaraNodeGetAttr::GetNodeTitleColor() const
+FLinearColor UDEPRECATED_NiagaraNodeGetAttr::GetNodeTitleColor() const
 {
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
 
@@ -37,8 +37,14 @@ FLinearColor UNiagaraNodeGetAttr::GetNodeTitleColor() const
 	}
 }
 
-void UNiagaraNodeGetAttr::Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNodeResult>& Outputs)
+void UDEPRECATED_NiagaraNodeGetAttr::Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNodeResult>& Outputs)
 {
-	Outputs.Add(FNiagaraNodeResult(Compiler->GetAttribute(AttrName), Pins[0]));
+	check(0);
+	//UE_LOG(LogNiagara, Fatal, TEXT("DEPRECATED_UNiagaraNodeGetAttr is deprecated. All instance of it should have been replaced in UNiagaraGraph::PostLoad()"));
+
+	return;
+
+	//TODO REMOVE THIS NODE ENTIRELY
+	//Outputs.Add(FNiagaraNodeResult(Compiler->GetAttribute(AttrName), Pins[0]));
 }
 

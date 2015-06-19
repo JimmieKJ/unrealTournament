@@ -761,166 +761,173 @@ void SEventGraph::Construct( const FArguments& InArgs )
 
 	ChildSlot
 	[
-		SNew( SVerticalBox )
+		SNew(SSplitter)
+			.Orientation(Orient_Vertical)
 
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew( SBorder )
-			.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
-			.Padding( 2.0f )
+		+ SSplitter::Slot()
+			.Value(0.7f)
 			[
-				SNew( SHorizontalBox )
+				SNew( SVerticalBox )
 
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					GetWidgetForEventGraphTypes()
-				]
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew( SBorder )
+							.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
+							.Padding( 2.0f )
+							[
+								SNew( SHorizontalBox )
 
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew( SSpacer )
-					.Size( FVector2D( 2.0f, 2.0f ) )
-				]
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										GetWidgetForEventGraphTypes()
+									]
 
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					GetWidgetForEventGraphViewModes()
-				]
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										SNew( SSpacer )
+											.Size( FVector2D( 2.0f, 2.0f ) )
+									]
 
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew( SSpacer )
-					.Size( FVector2D( 2.0f, 2.0f ) )
-				]
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										GetWidgetForEventGraphViewModes()
+									]
 
-				+SHorizontalBox::Slot()
-				.FillWidth( 1.0f )
-				[
-					GetWidgetBoxForOptions()
-				]
-			]	
-		]
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										SNew( SSpacer )
+											.Size( FVector2D( 2.0f, 2.0f ) )
+									]
+
+								+ SHorizontalBox::Slot()
+									.FillWidth( 1.0f )
+									[
+										GetWidgetBoxForOptions()
+									]
+							]
+					]
  
-		// Spacer
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew( SSpacer )
-			.Size( FVector2D( 2.0f, 2.0f ) )
-		]
+				// Spacer
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew( SSpacer )
+							.Size( FVector2D( 2.0f, 2.0f ) )
+					]
 
-		// Function details view ( @see VS2012 profiler )
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[		
-			SAssignNew(FunctionDetailsBox,SBox)
-			.HeightOverride( 224.0f )
+				// Function details view ( @see VS2012 profiler )
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					[		
+						SAssignNew(FunctionDetailsBox,SBox)
+							.HeightOverride( 224.0f )
+							[
+								SNew( SBorder )
+									.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
+									.Padding( 2.0f )
+									[
+										SNew( SHorizontalBox )
+
+										// Calling Functions
+										+ SHorizontalBox::Slot()
+											.FillWidth( 1.0f )
+											.Padding( 2.0f )
+											[
+												GetVerticalBoxForFunctionDetails( VerticalBox_TopCalling, LOCTEXT("FunctionDetails_CallingFunctions","Calling Functions") )
+											]
+
+										// ->
+										+ SHorizontalBox::Slot()
+											.AutoWidth()
+											.HAlign( HAlign_Center )
+											.VAlign( VAlign_Top )
+											.Padding( 2.0f )
+											[
+												SNew( SImage )
+													.Image( FEditorStyle::GetBrush("Animation.Forward") )
+											]
+
+										// Current Function
+										+ SHorizontalBox::Slot()
+											.FillWidth( 1.0f )
+											.Padding( 2.0f )
+											[
+												GetVerticalBoxForCurrentFunction()
+											]
+
+										// ->
+										+ SHorizontalBox::Slot()
+											.AutoWidth()
+											.HAlign( HAlign_Center )
+											.VAlign( VAlign_Top )
+											.Padding( 2.0f )
+											[
+												SNew( SImage )
+													.Image( FEditorStyle::GetBrush("Animation.Forward") )
+											]
+
+										// Called Functions
+										+ SHorizontalBox::Slot()
+											.FillWidth( 1.0f )
+											.Padding( 2.0f )
+											[
+												GetVerticalBoxForFunctionDetails( VerticalBox_TopCalled, LOCTEXT("FunctionDetails_CalledFunctions","Called Functions") )
+											]
+									]
+							]
+					]
+			]
+
+		+ SSplitter::Slot()
+			.Value(0.3f)
 			[
 				SNew( SBorder )
-				.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
-				.Padding( 2.0f )
-				[
-					SNew( SHorizontalBox )
-
-					// Calling Functions
-					+SHorizontalBox::Slot()
-					.FillWidth( 1.0f )
-					.Padding( 2.0f )
+					.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
+					.Padding(0.0f)
 					[
-						GetVerticalBoxForFunctionDetails( VerticalBox_TopCalling, LOCTEXT("FunctionDetails_CallingFunctions","Calling Functions") )
-					]
+						SNew(SHorizontalBox)
 
-					// ->
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.HAlign( HAlign_Center )
-					.VAlign( VAlign_Top )
-					.Padding( 2.0f )
-					[
-						SNew( SImage )
-						.Image( FEditorStyle::GetBrush("Animation.Forward") )
-					]
+						+SHorizontalBox::Slot()
+							.FillWidth( 1.0f )
+							[
+								SNew( SHorizontalBox )
 
-					// Current Function
-					+SHorizontalBox::Slot()
-					.FillWidth( 1.0f )
-					.Padding( 2.0f )
-					[
-						GetVerticalBoxForCurrentFunction()
-					]
+								+ SHorizontalBox::Slot()
+									//.Padding( 2.0f )
+									[
+										SAssignNew( TreeView_Base, STreeView< FEventGraphSamplePtr > )
+											.ExternalScrollbar( ExternalScrollbar )
+											.SelectionMode( ESelectionMode::Multi )
+											.TreeItemsSource( &StaticEventArray )
+											.OnGetChildren( this, &SEventGraph::EventGraph_OnGetChildren )
+											.OnGenerateRow( this, &SEventGraph::EventGraph_OnGenerateRow )
+											.OnSelectionChanged( this, &SEventGraph::EventGraph_OnSelectionChanged )
+											.OnContextMenuOpening( FOnContextMenuOpening::CreateSP( this, &SEventGraph::EventGraph_GetMenuContent ) )
+											.ItemHeight( 12 )
+											.HeaderRow
+											(
+												SAssignNew(TreeViewHeaderRow,SHeaderRow)
+													.Visibility(EVisibility::Visible)
+											)
+									]
+							]
 
-					// ->
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.HAlign( HAlign_Center )
-					.VAlign( VAlign_Top )
-					.Padding( 2.0f )
-					[
-						SNew( SImage )
-						.Image( FEditorStyle::GetBrush("Animation.Forward") )
+						+ SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SNew( SBox )
+									.WidthOverride( FOptionalSize( 16 ) )
+									[
+										ExternalScrollbar.ToSharedRef()
+									]
+							]
 					]
-
-					// Called Functions
-					+SHorizontalBox::Slot()
-					.FillWidth( 1.0f )
-					.Padding( 2.0f )
-					[
-						GetVerticalBoxForFunctionDetails( VerticalBox_TopCalled, LOCTEXT("FunctionDetails_CalledFunctions","Called Functions") )
-					]
-				]
 			]
-		]
-
-		+SVerticalBox::Slot()
-		.FillHeight( 1.0f )
-		.Padding(0.0f, 6.0f, 0.0f, 0.0f)
-		[
-			SNew( SBorder )
-			.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
-			.Padding(0.0f)
-			[
-				SNew(SHorizontalBox)
-
-				+SHorizontalBox::Slot()
-				.FillWidth( 1.0f )
-				[
-					SNew( SHorizontalBox )
-					+SHorizontalBox::Slot()
-					//.Padding( 2.0f )
-					[
-						SAssignNew( TreeView_Base, STreeView< FEventGraphSamplePtr > )
-						.ExternalScrollbar( ExternalScrollbar )
-						.SelectionMode( ESelectionMode::Multi )
-						.TreeItemsSource( &StaticEventArray )
-						.OnGetChildren( this, &SEventGraph::EventGraph_OnGetChildren )
-						.OnGenerateRow( this, &SEventGraph::EventGraph_OnGenerateRow )
-						.OnSelectionChanged( this, &SEventGraph::EventGraph_OnSelectionChanged )
-						.OnContextMenuOpening( FOnContextMenuOpening::CreateSP( this, &SEventGraph::EventGraph_GetMenuContent ) )
-						.ItemHeight( 12 )
-						.HeaderRow
-						(
-							SAssignNew(TreeViewHeaderRow,SHeaderRow)
-							.Visibility(EVisibility::Visible)
-						)
-					]
-				]
-
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew( SBox )
-					.WidthOverride( FOptionalSize( 16 ) )
-					[
-						ExternalScrollbar.ToSharedRef()
-					]
-				]
-			]
-		]
 	];
 
 	InitializeAndShowHeaderColumns();
@@ -1493,7 +1500,7 @@ static EEventCompareOps::Type EColumnSortModeToEventCompareOp( const EColumnSort
 
 void SEventGraph::SortEvents()
 {
-	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::SortEvents" ), );
+	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::SortEvents" ), nullptr );
 
 	if( ColumnBeingSorted != NAME_None )
 	{
@@ -2919,7 +2926,7 @@ TSharedRef<SHorizontalBox> SEventGraph::GetContentForEvent( FEventGraphSamplePtr
 
 void SEventGraph::SetNewEventGraphState( const FEventGraphDataRef AverageEventGraph, const FEventGraphDataRef MaximumEventGraph, bool bInitial )
 {
-	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::UpdateEventGraph" ), );
+	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::UpdateEventGraph" ), nullptr );
 
 	// Store current operation.
 	SaveCurrentEventGraphState();
@@ -3193,7 +3200,7 @@ bool SEventGraph::ClearHistory_CanExecute() const
 
 void SEventGraph::FilterOutByProperty_Execute( const FEventGraphSamplePtr EventPtr, const FName PropertyName, const bool bReset )
 {
-	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::FilterOutByProperty_Execute" ), );
+	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::FilterOutByProperty_Execute" ), nullptr );
 
 	// Store current operation.
 	SaveCurrentEventGraphState();
@@ -3217,7 +3224,7 @@ bool SEventGraph::FilterOutByProperty_CanExecute( const FEventGraphSamplePtr Eve
 
 void SEventGraph::CullByProperty_Execute( const FEventGraphSamplePtr EventPtr, const FName PropertyName, const bool bReset )
 {
-	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::CullByProperty_Execute" ), );
+	PROFILER_SCOPE_LOG_TIME( TEXT( "SEventGraph::CullByProperty_Execute" ), nullptr );
 
 	// Store current operation.
 	SaveCurrentEventGraphState();

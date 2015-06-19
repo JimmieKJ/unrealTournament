@@ -820,6 +820,17 @@ public class IOSPlatform : Platform
 			{
 				Directory.Delete (Params.BaseStageDirectory + "/IOS/launch.trace", true);
 			}
+
+			switch (Result.ExitCode)
+			{
+				case 253:
+					ErrorReporter.Error("Launch Failure", (int)ErrorCodes.Error_DeviceNotSetupForDevelopment);
+					break;
+
+				case 255:
+					ErrorReporter.Error("Launch Failure", (int)ErrorCodes.Error_DeviceOSNewerThanSDK);
+					break;
+			}
 		}
 	}
 

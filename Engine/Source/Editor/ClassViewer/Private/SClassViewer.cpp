@@ -16,6 +16,7 @@
 
 #include "AssetRegistryModule.h"
 #include "AssetSelection.h"
+#include "AssetToolsModule.h"
 
 #include "ClassViewerNode.h"
 
@@ -34,6 +35,7 @@
 #include "SSearchBox.h"
 
 #include "SListViewSelectorDropdownMenu.h"
+#include "Engine/BlueprintGeneratedClass.h"
 
 #define LOCTEXT_NAMESPACE "SClassViewer"
 
@@ -450,12 +452,6 @@ namespace ClassViewer
 		/** true if the Class Hierarchy should be populated. */
 		static bool bPopulateClassHierarchy;
 
-		/** The currently selected path */
-		static FString NewBlueprintPath;
-
-		/** The cached filename we will use to create a new Blueprint */
-		static FString NewBlueprintFilename;
-
 		// Pre-declare these functions.
 		static bool CheckIfBlueprintBase( TSharedPtr< FClassViewerNode> InNode );
 		static UBlueprint* GetBlueprint( UClass* InClass );
@@ -574,6 +570,12 @@ namespace ClassViewer
 				ClassHierarchy->PopulateClassHierarchy();
 				GWarn->EndSlowTask();
 			}
+		}
+
+		/** Cleans up the Class Hierarchy */
+		static void DestroyClassHierachy()
+		{
+			ClassHierarchy.Reset();
 		}
 
 		/** Will populate the class hierarchy tree if previously requested. */
@@ -886,7 +888,7 @@ namespace ClassViewer
 		 * @param	InCreationClass			The class to create the blueprint from.
 		 * @param	InParentContent			The content to parent the STextEntryPopup to. 
 		 */
-		static void CreateBlueprint(const FText& InBlueprintName, UClass* InCreationClass)
+		static void CreateBlueprint(const FString& InBlueprintName, UClass* InCreationClass)
 		{
 			if(InCreationClass == NULL || !FKismetEditorUtilities::CanCreateBlueprintOfClass(InCreationClass))
 			{
@@ -895,7 +897,7 @@ namespace ClassViewer
 			}
 
 			// Get the full name of where we want to create the physics asset.
-			FString PackageName = InBlueprintName.ToString();
+			FString PackageName = InBlueprintName;
 
 			// Then find/create it.
 			UPackage* Package = CreatePackage(NULL, *PackageName);
@@ -932,177 +934,49 @@ namespace ClassViewer
 			RefreshAll();
 		}
 
-		struct BlueprintNameEntry
-		{
-			/**
-			* Build the full path label from the path & filename
-			*/
-			static FText MakeFullPathLabel()
-			{
-				FFormatNamedArguments Arguments;
-				Arguments.Add(TEXT("FullPath"), FText::FromString( NewBlueprintPath / NewBlueprintFilename ) );
-				return FText::Format( LOCTEXT( "PickNewBlueprintCreateLabel", "Create {FullPath}" ), Arguments );
-			}
-
-			/**
-			* Called when the create button (menu entry) is clicked
-			*
-			* @param	InBlueprintName			The package name and path for the new blueprint.
-			*/
-			static void CreateBlueprintClicked(UClass* InCreationClass)
-			{
-				if (!CanCreateBlueprint())
-				{
-					FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("PickNewBlueprintInvalidName", "Invalid name for Blueprint."));
-				}
-				else
-				{
-					CreateBlueprint(FText::FromString(NewBlueprintPath / NewBlueprintFilename), InCreationClass);
-				}
-			}
-
-			/**
-			* Called when the blueprint name entry is changed
-			*
-			* @param	InPathName				The file name for the new Blueprint
-			*/
-			static void FilenameChanged(const FText& InFileName)
-			{
-				NewBlueprintFilename = FText::TrimPrecedingAndTrailing(InFileName).ToString();
-			}
-
-			/**
-			* Called when the path selection changes in the PathPicker
-			*
-			* @param	InPathName				The path name for the new Blueprint
-			*/
-			static void PathSelected(const FString& InPathName)
-			{
-				NewBlueprintPath = InPathName;
-			}
-
-			/**
-			* Checks whether we can create a Blueprint with the information the user has input
-			*/
-			static bool CanCreateBlueprint()
-			{
-				return !NewBlueprintFilename.IsEmpty() && FName(*NewBlueprintFilename).IsValidXName(INVALID_OBJECTNAME_CHARACTERS INVALID_LONGPACKAGE_CHARACTERS);
-			}
-
-			/**
-			* Called when the blueprint name entry is committed.
-			*
-			* @param	InBlueprintName			The package name and path for the new blueprint.
-			* @param	CommitInfo				The method of committing.
-			* @param	InCreationClass			The class to create the blueprint from.
-			*/
-			static void CreateBlueprintCommited(const FText& InBlueprintName, ETextCommit::Type CommitInfo, UClass* InCreationClass)
-			{
-				if (CommitInfo == ETextCommit::OnEnter)
-				{
-					NewBlueprintFilename = FText::TrimPrecedingAndTrailing(InBlueprintName).ToString();
-					if (!CanCreateBlueprint())
-					{
-						FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("PickNewBlueprintInvalidName", "Invalid name for Blueprint."));
-					}
-					else
-					{
-						CreateBlueprint(FText::FromString(NewBlueprintPath / NewBlueprintFilename), InCreationClass);
-					}
-				}
-			}
-
-			/**
-			* Make the name entry widget
-			*
-			* @param	InCreationClass			The class to create the blueprint from.
-			*/
-			static TSharedRef<SWidget> MakeBlueprintNameWidget(UClass* InCreationClass)
-			{
-				return SNew(SEditableTextBox)
-					.Text(FText::FromString(NewBlueprintFilename))
-					.SelectAllTextWhenFocused(true)
-					.OnTextCommitted(FOnTextCommitted::CreateStatic(&BlueprintNameEntry::CreateBlueprintCommited, InCreationClass))
-					.OnTextChanged(FOnTextChanged::CreateStatic(&BlueprintNameEntry::FilenameChanged));
-			}
-
-			/**
-			* Make the path entry widget
-			*
-			* @param	InCreationClass			The class to create the blueprint from.
-			*/
-			static TSharedRef<SWidget> MakeBlueprintPathWidget()
-			{
-				FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-
-				FPathPickerConfig PathPickerConfig;
-				PathPickerConfig.DefaultPath = NewBlueprintPath;
-				PathPickerConfig.bFocusSearchBoxWhenOpened = false;
-				PathPickerConfig.OnPathSelected = FOnPathSelected::CreateStatic(&BlueprintNameEntry::PathSelected);
-
-				return SNew(SBox)
-					.WidthOverride(300)
-					.HeightOverride(400)
-					[
-						ContentBrowserModule.Get().CreatePathPicker(PathPickerConfig)
-					];
-			}
-
-			/**
-			* Displays an error message in the menu if we cannot create a blueprint from the 
-			* passed-in class
-			*/
-			static TSharedRef<SWidget> MakeErrorWarningWidget()
-			{
-				return SNew(STextBlock)
-					.Text(LOCTEXT("PickNewBlueprintInvalidClass", "Invalid class to make a Blueprint of"));
-			}
-		};
-
 		/**
-		 * Creates a STextEntryPopup for creating a blueprint from a class.
-		 *
-		 * @param	MenuBuilder				The MenuBuilder to use
-		 * @param	InParentContent			The content to parent the STextEntryPopup to. 
+		 * Creates a SaveAssetDialog for specifying the path for the new blueprint
 		 */
-		static void OpenCreateBlueprintMenu(FMenuBuilder& MenuBuilder, UClass* InCreationClass)
+		static void OpenCreateBlueprintDialog(UClass* InCreationClass)
 		{
-			if(InCreationClass == NULL || !CanCreateBlueprintOfClass_IgnoreDeprecation(InCreationClass))
+			// Determine default path for the Save Asset dialog
+			FString DefaultPath;
+			const FString DefaultDirectory = FEditorDirectories::Get().GetLastDirectory(ELastDirectory::NEW_ASSET);
+			FPackageName::TryConvertFilenameToLongPackageName(DefaultDirectory, DefaultPath);
+
+			if (DefaultPath.IsEmpty())
 			{
-				MenuBuilder.AddWidget( BlueprintNameEntry::MakeErrorWarningWidget(), FText::GetEmpty() );
+				DefaultPath = TEXT("/Game/Blueprints");
 			}
-			else
+
+			// Determine default filename for the Save Asset dialog
+			check(InCreationClass != nullptr);
+			const FString ClassName = InCreationClass->ClassGeneratedBy ? InCreationClass->ClassGeneratedBy->GetName() : InCreationClass->GetName();
+			FString DefaultName = LOCTEXT("PrefixNew", "New").ToString() + ClassName;
+
+			FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+			FString UniquePackageName;
+			FString UniqueAssetName;
+			AssetToolsModule.Get().CreateUniqueAssetName(DefaultPath / DefaultName, TEXT(""), UniquePackageName, UniqueAssetName);
+			DefaultName = FPaths::GetCleanFilename(UniqueAssetName);
+
+			// Initialize SaveAssetDialog config
+			FSaveAssetDialogConfig SaveAssetDialogConfig;
+			SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("CreateBlueprintDialogTitle", "Create Blueprint Class");
+			SaveAssetDialogConfig.DefaultPath = DefaultPath;
+			SaveAssetDialogConfig.DefaultAssetName = DefaultName;
+			SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+			if (!SaveObjectPath.IsEmpty())
 			{
-				// Reset cached filename
-				NewBlueprintPath = TEXT("/Game");
-				if(IFileManager::Get().DirectoryExists(*(FPaths::GameContentDir() / TEXT("Blueprints"))))
-				{
-					NewBlueprintPath /= TEXT("Blueprints");
-				}
-				else
-				{
-					NewBlueprintPath /= TEXT("Unsorted");
-				}
+				const FString PackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+				const FString PackageFilename = FPackageName::LongPackageNameToFilename(PackageName);
+				const FString PackagePath = FPaths::GetPath(PackageFilename);
 
-				NewBlueprintFilename = TEXT("MyBlueprint");
-
-				MenuBuilder.AddMenuEntry(
-					TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic(&BlueprintNameEntry::MakeFullPathLabel)), 
-						LOCTEXT("PickNewBlueprintTooltip_Create", "Create new Blueprint Class"),
-						FSlateIcon(), 
-						FUIAction(
-							FExecuteAction::CreateStatic( &BlueprintNameEntry::CreateBlueprintClicked, InCreationClass ),
-							FCanExecuteAction::CreateStatic( &BlueprintNameEntry::CanCreateBlueprint )
-						)
-					);
-
-				MenuBuilder.BeginSection( NAME_None, LOCTEXT("PickNewBlueprintFilename", "Blueprint Class Filename") );
-				MenuBuilder.AddWidget( BlueprintNameEntry::MakeBlueprintNameWidget(InCreationClass), FText::GetEmpty() );
-				MenuBuilder.EndSection();
-
-				MenuBuilder.BeginSection( NAME_None, LOCTEXT("PickNewBlueprintPath", "Blueprint Class Path") );
-				MenuBuilder.AddWidget( BlueprintNameEntry::MakeBlueprintPathWidget(), FText::GetEmpty() );
-				MenuBuilder.EndSection();
+				CreateBlueprint(PackageName, InCreationClass);
+				FEditorDirectories::Get().SetLastDirectory(ELastDirectory::NEW_ASSET, PackagePath);
 			}
 		}
 
@@ -1120,7 +994,7 @@ namespace ClassViewer
 		}
 
 		/** Returns TRUE if you can derive a Blueprint */
-		bool CanOpenCreateBlueprintMenu(UClass* InCreationClass)
+		bool CanOpenCreateBlueprintDialog(UClass* InCreationClass)
 		{
 			return !InCreationClass->HasAnyClassFlags(CLASS_Deprecated);
 		}
@@ -1262,6 +1136,67 @@ namespace ClassViewer
 		{
 			ClassHierarchy->UpdateClassInNode(InGeneratedClassPackageName, InNewClass, InNewBluePrint );
 		}
+
+		static TSharedRef<SWidget> CreateMenu(UClass* Class, const bool bIsBlueprint, const bool bHasBlueprint)
+		{
+			// Empty list of commands.
+			TSharedPtr< FUICommandList > Commands;
+
+			const bool bShouldCloseWindowAfterMenuSelection = true;	// Set the menu to automatically close when the user commits to a choice
+			FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, Commands);
+			{
+				if (bIsBlueprint)
+				{
+					TAttribute<FText>::FGetter DynamicTooltipGetter;
+					DynamicTooltipGetter.BindStatic(&ClassViewer::Helpers::GetCreateBlueprintTooltip, Class);
+					TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
+
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("ClassViewerMenuCreateBlueprint", "Create Blueprint Class..."),
+						DynamicTooltipAttribute,
+						FSlateIcon(),
+						FUIAction(
+							FExecuteAction::CreateStatic(&ClassViewer::Helpers::OpenCreateBlueprintDialog, Class),
+							FCanExecuteAction::CreateStatic(&ClassViewer::Helpers::CanOpenCreateBlueprintDialog, Class)
+							)
+						);
+				}
+
+				if (bHasBlueprint)
+				{
+					MenuBuilder.BeginSection("ClassViewerDropDownHasBlueprint");
+					{
+						FUIAction Action(FExecuteAction::CreateStatic(&ClassViewer::Helpers::OpenBlueprintTool, ClassViewer::Helpers::GetBlueprint(Class)));
+						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuEditBlueprint", "Edit Blueprint Class..."), LOCTEXT("ClassViewerMenuEditBlueprint_Tooltip", "Open the Blueprint Class in the editor."), FSlateIcon(), Action);
+					}
+					MenuBuilder.EndSection();
+
+					MenuBuilder.BeginSection("ClassViewerDropDownHasBlueprint2");
+					{
+						FUIAction Action(FExecuteAction::CreateStatic(&ClassViewer::Helpers::FindInContentBrowser, ClassViewer::Helpers::GetBlueprint(Class), Class));
+						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuFindContent", "Find in Content Browser..."), LOCTEXT("ClassViewerMenuFindContent_Tooltip", "Find in Content Browser"), FSlateIcon(), Action);
+					}
+					MenuBuilder.EndSection();
+				}
+				else
+				{
+					MenuBuilder.BeginSection("ClassViewerIsCode");
+					{
+						FUIAction Action(FExecuteAction::CreateStatic(&ClassViewer::Helpers::OpenClassHeaderFileInIDE, Class));
+						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuOpenCPlusPlusClass", "Open C++ Header..."), LOCTEXT("ClassViewerMenuOpenCPlusPlusClass_Tooltip", "Open the header file for this class in the IDE."), FSlateIcon(), Action);
+					}
+					{
+						FUIAction Action(FExecuteAction::CreateStatic(&ClassViewer::Helpers::OpenCreateCPlusPlusClassWizard, Class));
+						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuCreateCPlusPlusClass", "Create New C++ Class..."), LOCTEXT("ClassViewerMenuCreateCPlusPlusClass_Tooltip", "Creates a new C++ class using this class as a base."), FSlateIcon(), Action);
+					}
+					MenuBuilder.EndSection();
+				}
+			}
+
+			return MenuBuilder.MakeWidget();
+		}
+
+
 	} // namespace Helpers
 } // namespace ClassViewer
 
@@ -1270,7 +1205,7 @@ namespace ClassViewer
 DECLARE_DELEGATE_OneParam( FOnClassItemDoubleClickDelegate, TSharedPtr<FClassViewerNode> );
 
 /** The item used for visualizing the class in the tree. */
-class SClassItem : public SComboRow< TSharedPtr<FString> >
+class SClassItem : public STableRow< TSharedPtr<FString> >
 {
 public:
 	
@@ -1462,77 +1397,17 @@ private:
 	 */
 	TSharedRef<SWidget> GenerateDropDown()
 	{
-		// Empty list of commands.
-		TSharedPtr< FUICommandList > Commands;
+		if (UClass* Class = AssociatedNode->Class.Get())
+		{
+			bool bIsBlueprint(false);
+			bool bHasBlueprint(false);
 
-		const bool bShouldCloseWindowAfterMenuSelection = true;	// Set the menu to automatically close when the user commits to a choice
-		FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, Commands);
-		{ 
-			if (UClass* Class = AssociatedNode->Class.Get())
-			{
-				bool bIsBlueprint(false);
-				bool bHasBlueprint(false);
-
-				ClassViewer::Helpers::GetClassInfo(Class, bIsBlueprint, bHasBlueprint);
-
-				bHasBlueprint = AssociatedNode->Blueprint.IsValid();
-
-				if (bIsBlueprint)
-				{
-					MenuBuilder.BeginSection("ClassViewerIsBlueprint");
-					{
-						TAttribute<FText>::FGetter DynamicTooltipGetter;
-						DynamicTooltipGetter.BindStatic(&ClassViewer::Helpers::GetCreateBlueprintTooltip, Class);
-						TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
-
-						MenuBuilder.AddSubMenu(
-							LOCTEXT("ClassViewerMenuCreateBlueprint", "Create Blueprint Class"), 
-							DynamicTooltipAttribute, 
-							FNewMenuDelegate::CreateStatic( &ClassViewer::Helpers::OpenCreateBlueprintMenu, Class ),
-							FUIAction(
-								FExecuteAction(),
-								FCanExecuteAction::CreateStatic( &ClassViewer::Helpers::CanOpenCreateBlueprintMenu, Class )
-								),
-							FName(),
-							EUserInterfaceActionType::Button
-							);
-					}
-					MenuBuilder.EndSection();
-				}
-
-				if (bHasBlueprint)
-				{
-					MenuBuilder.BeginSection("ClassViewerDropDownHasBlueprint");
-					{
-						FUIAction Action( FExecuteAction::CreateStatic( &ClassViewer::Helpers::OpenBlueprintTool, ClassViewer::Helpers::GetBlueprint(Class) ) );
-						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuEditBlueprint", "Edit Blueprint Class..."), LOCTEXT("ClassViewerMenuEditBlueprint_Tooltip", "Open the Blueprint Class in the editor."), FSlateIcon(), Action);
-					}
-					MenuBuilder.EndSection();
-
-					MenuBuilder.BeginSection("ClassViewerDropDownHasBlueprint2");
-					{
-						FUIAction Action( FExecuteAction::CreateStatic( &ClassViewer::Helpers::FindInContentBrowser, ClassViewer::Helpers::GetBlueprint(Class), Class ) );
-						MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuFindContent", "Find in Content Browser..."), LOCTEXT("ClassViewerMenuFindContent_Tooltip", "Find in Content Browser"), FSlateIcon(), Action);
-					}
-					MenuBuilder.EndSection();
-				}
-				else
-				{
-					MenuBuilder.BeginSection("ClassViewerIsCode");
-					{
-						FUIAction Action( FExecuteAction::CreateStatic( &ClassViewer::Helpers::OpenClassHeaderFileInIDE, Class ) );
-						MenuBuilder.AddMenuEntry( LOCTEXT("ClassViewerMenuOpenCPlusPlusClass", "Open C++ Header..."), LOCTEXT("ClassViewerMenuOpenCPlusPlusClass_Tooltip", "Open the header file for this class in the IDE."), FSlateIcon(), Action );
-					}
-					{
-						FUIAction Action( FExecuteAction::CreateStatic( &ClassViewer::Helpers::OpenCreateCPlusPlusClassWizard, Class ) );
-						MenuBuilder.AddMenuEntry( LOCTEXT("ClassViewerMenuCreateCPlusPlusClass", "Create New C++ Class..."), LOCTEXT("ClassViewerMenuCreateCPlusPlusClass_Tooltip", "Creates a new C++ class using this class as a base."), FSlateIcon(), Action );
-					}
-					MenuBuilder.EndSection();
-				}
-			}
+			ClassViewer::Helpers::GetClassInfo(Class, bIsBlueprint, bHasBlueprint);
+			bHasBlueprint = AssociatedNode->Blueprint.IsValid();
+			return ClassViewer::Helpers::CreateMenu(Class, bIsBlueprint, bHasBlueprint);
 		}
 
-		return MenuBuilder.MakeWidget();
+		return SNullWidget::NullWidget;
 	}
 
 	/** Returns the text color for the item based on if it is selected or not. */
@@ -2346,9 +2221,6 @@ void SClassViewer::OnClassViewerExpansionChanged(TSharedPtr<FClassViewerNode> It
 
 TSharedPtr< SWidget > SClassViewer::BuildMenuWidget()
 {
-	// Empty list of commands.
-	TSharedPtr< FUICommandList > Commands;
-
 	bool bIsBlueprint;
 	bool bHasBlueprint;
 	TArray< TSharedPtr< FClassViewerNode > > SelectedList;
@@ -2363,12 +2235,10 @@ TSharedPtr< SWidget > SClassViewer::BuildMenuWidget()
 		SelectedList = ClassList->GetSelectedItems();
 	}
 
-	// If there is no selected item, build an empty menu and return.
+	// If there is no selected item, return a null widget.
 	if(SelectedList.Num() == 0)
 	{
-		const bool bShouldCloseWindowAfterMenuSelection = true;	// Set the menu to automatically close when the user commits to a choice
-		FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, Commands);
-		return MenuBuilder.MakeWidget();
+		return SNullWidget::NullWidget;
 	}
 
 	// If it is NOT stale, it has not been set (meaning it was never valid but now is invalid).
@@ -2390,58 +2260,7 @@ TSharedPtr< SWidget > SClassViewer::BuildMenuWidget()
 		bHasBlueprint = true;
 	}
 
-	const bool bShouldCloseWindowAfterMenuSelection = true;	// Set the menu to automatically close when the user commits to a choice
-	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, Commands);
-	{ 
-		if (bIsBlueprint)
-		{
-			TAttribute<FText>::FGetter DynamicTooltipGetter;
-			DynamicTooltipGetter.BindStatic(&ClassViewer::Helpers::GetCreateBlueprintTooltip, RightClickClass);
-			TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
-
-			MenuBuilder.AddSubMenu(
-				LOCTEXT("ClassViewerMenuCreateBlueprint", "Create Blueprint Class"), 
-				DynamicTooltipAttribute, 
-				FNewMenuDelegate::CreateStatic( &ClassViewer::Helpers::OpenCreateBlueprintMenu, RightClickClass ),
-				FUIAction(
-					FExecuteAction(),
-					FCanExecuteAction::CreateStatic( &ClassViewer::Helpers::CanOpenCreateBlueprintMenu, RightClickClass )
-					),
-				FName(),
-				EUserInterfaceActionType::Button
-				);
-		}
-	
-		if(bHasBlueprint)
-		{
-			MenuBuilder.BeginSection("ClassViewerHasBlueprint");
-			{
-				FUIAction Action( FExecuteAction::CreateRaw( this, &SClassViewer::OnOpenBlueprintTool ) );
-				MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuEditBlueprint", "Edit Blueprint Class..."), LOCTEXT("ClassViewerMenuEditBlueprint_Tooltip", "Open the Blueprint Class in the editor."), FSlateIcon(), Action);
-			}
-			MenuBuilder.EndSection();
-
-			MenuBuilder.BeginSection("ClassViewerHasBlueprint2");
-			{
-				FUIAction Action( FExecuteAction::CreateRaw( this, &SClassViewer::FindInContentBrowser ) );
-				MenuBuilder.AddMenuEntry(LOCTEXT("ClassViewerMenuFindContent", "Find in Content Browser..."), LOCTEXT("ClassViewerMenuFindContent_Tooltip", "Find in Content Browser"), FSlateIcon(), Action);
-			}
-			MenuBuilder.EndSection();
-		}
-		else
-		{
-			{
-				FUIAction Action( FExecuteAction::CreateStatic( &ClassViewer::Helpers::OpenClassHeaderFileInIDE, RightClickClass ) );
-				MenuBuilder.AddMenuEntry( LOCTEXT("ClassViewerMenuOpenCPlusPlusClass", "Open C++ Header..."), LOCTEXT("ClassViewerMenuOpenCPlusPlusClass_Tooltip", "Open the header file for this class in the IDE."), FSlateIcon(), Action );
-			}
-			{
-				FUIAction Action( FExecuteAction::CreateStatic( &ClassViewer::Helpers::OpenCreateCPlusPlusClassWizard, RightClickClass ) );
-				MenuBuilder.AddMenuEntry( LOCTEXT("ClassViewerMenuCreateCPlusPlusClass", "Create New C++ Class..."), LOCTEXT("ClassViewerMenuCreateCPlusPlusClass_Tooltip", "Creates a new C++ class using this class as a base."), FSlateIcon(), Action );
-			}
-		}
-	}
-
-	return MenuBuilder.MakeWidget();
+	return ClassViewer::Helpers::CreateMenu(RightClickClass, bIsBlueprint, bHasBlueprint);
 }
 
 TSharedRef< ITableRow > SClassViewer::OnGenerateRowForClassViewer( TSharedPtr<FClassViewerNode> Item, const TSharedRef< STableViewBase >& OwnerTable )
@@ -2557,15 +2376,8 @@ void SClassViewer::OnFilterTextChanged( const FText& InFilterText )
 	{
 		bool bIsWithinQuotedSection = false;
 		FString NewSearchTerm;
-		#if PLATFORM_COMPILER_HAS_RANGED_FOR_LOOP
 		for( auto CurChar : CurrentFilterText )
 		{
-		#else
-		for( auto CurCharIndex = 0; CurCharIndex < CurrentFilterText.Len(); ++CurCharIndex )
-		{
-			const auto CurChar = CurrentFilterText.GetCharArray()[ CurCharIndex ];
-		#endif
-
 			// Keep an eye out for double-quotes.  We want to retain whitespace within a search term if
 			// it has double-quotes around it
 			if( CurChar == TCHAR('\"') )
@@ -2932,9 +2744,14 @@ FReply SClassViewer::OnFocusReceived( const FGeometry& MyGeometry, const FFocusE
 	return FReply::Unhandled();
 }
 
- bool SClassViewer::SupportsKeyboardFocus() const 
+bool SClassViewer::SupportsKeyboardFocus() const 
 {
 	return true;
+}
+
+void SClassViewer::DestroyClassHierarchy()
+{
+	ClassViewer::Helpers::DestroyClassHierachy();
 }
 
 TSharedPtr<FClassViewerNode> SClassViewer::CreateNoneOption()
@@ -2953,9 +2770,7 @@ void SClassViewer::Refresh()
 }
 
 void SClassViewer::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-	
+{	
 	// Will populate the class hierarchy as needed.
 	ClassViewer::Helpers::PopulateClassHierarchy();
 

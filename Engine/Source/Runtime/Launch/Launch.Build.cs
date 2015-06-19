@@ -47,9 +47,19 @@ public class Launch : ModuleRules
 				}
 			);
 
-			if (Target.Platform == UnrealTargetPlatform.Linux)
+			if ((Target.Platform == UnrealTargetPlatform.Win32) ||
+				(Target.Platform == UnrealTargetPlatform.Win64))
 			{
-				PrivateDependencyModuleNames.Add("ALAudio");
+				DynamicallyLoadedModuleNames.Add("D3D11RHI");
+				DynamicallyLoadedModuleNames.Add("XAudio2");
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Mac)
+			{
+				DynamicallyLoadedModuleNames.Add("CoreAudio");
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				DynamicallyLoadedModuleNames.Add("ALAudio");
 			}
 
 			PrivateIncludePathModuleNames.AddRange(
@@ -141,18 +151,6 @@ public class Launch : ModuleRules
 			{
 				DynamicallyLoadedModuleNames.Add("MainFrame");
 			}
-		}
-
-		if ((Target.Platform == UnrealTargetPlatform.Win32) ||
-						(Target.Platform == UnrealTargetPlatform.Win64))
-		{
-			DynamicallyLoadedModuleNames.Add("D3D11RHI");
-			DynamicallyLoadedModuleNames.Add("XAudio2");
-		}
-
-		if (Target.Platform == UnrealTargetPlatform.Mac)
-		{
-			DynamicallyLoadedModuleNames.Add("CoreAudio");
 		}
 
 		if (Target.Platform == UnrealTargetPlatform.IOS)

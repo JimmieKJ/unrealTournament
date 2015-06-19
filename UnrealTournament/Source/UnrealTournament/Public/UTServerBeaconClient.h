@@ -23,6 +23,7 @@ struct FServerBeaconInfo
 
 };
 
+
 class AUTServerBeaconClient;
 DECLARE_DELEGATE_TwoParams(FServerRequestResultsDelegate, AUTServerBeaconClient*, FServerBeaconInfo);
 DECLARE_DELEGATE_OneParam(FServerRequestFailureDelegate, AUTServerBeaconClient*);
@@ -47,9 +48,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	float PingStartTime;
 	float Ping;
-
-	virtual void SetBeaconNetDriverName(FString InBeaconName);
-
+	
 	/** Send a ping RPC to the host */
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void ServerPing();
@@ -68,7 +67,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	virtual void ServerRequestInstances(int32 LastInstanceIndex);
 
 	UFUNCTION(client, reliable)
-	virtual void ClientReceiveInstance(uint32 InstanceCount, uint32 TotalInstances, const FString& InstanceHostName, const FString& InstanceDescription);
+	virtual void ClientReceiveInstance(uint32 InInstanceCount, uint32 TotalInstances, const FString& InstanceRuleIcon, const FString& InstanceDescription);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientReceivedAllInstance(uint32 FinalCount);
@@ -79,8 +78,8 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	FString ServerMOTD;
 
-	TArray<FString> InstanceHostNames;
-	TArray<FString> InstanceDescriptions;
+	TArray<FGuid> InstanceIDs;
+	TArray<FServerInstanceData> InstanceInfo;
 	int32 InstanceCount;
 	
 protected:

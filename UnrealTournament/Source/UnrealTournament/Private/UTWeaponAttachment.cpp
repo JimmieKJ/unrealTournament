@@ -64,6 +64,7 @@ void AUTWeaponAttachment::RegisterAllComponents()
 		if (MuzzleFlash[i] != NULL)
 		{
 			MuzzleFlash[i]->bAutoActivate = false;
+			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
 			MuzzleFlash[i]->SetOwnerNoSee(false);
 		}
 	}
@@ -146,6 +147,52 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		UTOwner->LastWeaponFireTime = GetWorld()->GetTimeSeconds();
 	}
 
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	bool bEffectsRelevant = (WS == NULL || WS->EffectIsRelevant(UTOwner, UTOwner->GetActorLocation(), true, UTOwner->IsLocallyControlled(), 50000.0f, /*2000.0f*/0.0f));
+	if (!bEffectsRelevant && !UTOwner->FlashLocation.IsZero())
+	{
+		// do frustum check versus fire line; can't use simple vis to location because the fire line may be visible while both endpoints are not
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		{
+			if (It->PlayerController != NULL)
+			{
+				FSceneViewProjectionData Projection;
+				if (It->GetProjectionData(It->ViewportClient->Viewport, eSSP_FULL, Projection))
+				{
+					FConvexVolume Frustum;
+					GetViewFrustumBounds(Frustum, Projection.ProjectionMatrix, true);
+					FPoly TestPoly;
+					TestPoly.Init();
+					TestPoly.InsertVertex(0, UTOwner->GetActorLocation());
+					TestPoly.InsertVertex(1, UTOwner->FlashLocation);
+					TestPoly.InsertVertex(2, (UTOwner->GetActorLocation() + UTOwner->FlashLocation) * 0.5f + FVector(0.0f, 0.0f, 1.0f));
+					if (Frustum.ClipPolygon(TestPoly))
+					{
+						bEffectsRelevant = true;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	if (!bEffectsRelevant)
+	{
+		return;
+	}
+
+	// update owner mesh and self so effects are spawned in the correct place
+	if (!Mesh->ShouldUpdateTransform(false))
+	{
+		if (UTOwner->GetMesh() != NULL)
+		{
+			UTOwner->GetMesh()->RefreshBoneTransforms();
+			UTOwner->GetMesh()->UpdateComponentToWorld();
+		}
+		Mesh->RefreshBoneTransforms();
+		Mesh->UpdateComponentToWorld();
+	}
+
 	// muzzle flash
 	if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL && MuzzleFlash[UTOwner->FireMode]->Template != NULL)
 	{
@@ -174,7 +221,7 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		MuzzleFlash[UTOwner->FireMode]->SetVectorParameter(NAME_LocalHitLocation, MuzzleFlash[UTOwner->FireMode]->ComponentToWorld.InverseTransformPosition(UTOwner->FlashLocation));
 	}
 
-	if ((UTOwner->FlashLocation - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime)
+	if (!UTOwner->FlashLocation.IsZero() && ((UTOwner->FlashLocation - LastImpactEffectLocation).Size() >= ImpactEffectSkipDistance || GetWorld()->TimeSeconds - LastImpactEffectTime >= MaxImpactEffectSkipTime))
 	{
 		if (ImpactEffect.IsValidIndex(UTOwner->FireMode) && ImpactEffect[UTOwner->FireMode] != NULL)
 		{
@@ -211,7 +258,7 @@ void AUTWeaponAttachment::PlayBulletWhip()
 					// trace to make sure missed shot isn't on the other side of a wall
 					FCollisionQueryParams Params(FName(TEXT("BulletWhip")), true, UTOwner);
 					Params.AddIgnoredActor(PC->GetPawn());
-					if (!GetWorld()->LineTraceTest(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
+					if (!GetWorld()->LineTraceTestByChannel(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
 					{
 						PC->ClientHearSound(BulletWhip, this, ClosestPt, false, false, false);
 					}

@@ -23,7 +23,8 @@
 #include "MovieSceneShotSection.h"
 #include "CommonMovieSceneTools.h"
 #include "SSearchBox.h"
-#include "SNumericEntryBox.h"
+#include "SNumericDropDown.h"
+#include "EditorWidgetsModule.h"
 
 
 #define LOCTEXT_NAMESPACE "Sequencer"
@@ -46,7 +47,7 @@ public:
 		Sequencer = InSequencer;
 	}
 
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
 		if (Sequencer.Pin()->IsShotFilteringOn())
 		{
@@ -94,7 +95,7 @@ public:
 		return LayerId;
 	}
 
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		return FVector2D(100, 100);
 	}
@@ -143,12 +144,10 @@ private:
 void SSequencer::Construct( const FArguments& InArgs, TSharedRef< class FSequencer > InSequencer )
 {
 	Sequencer = InSequencer;
+	bIsActiveTimerRegistered = false;
 
 	// Create a node tree which contains a tree of movie scene data to display in the sequence
 	SequencerNodeTree = MakeShareable( new FSequencerNodeTree( InSequencer.Get() ) );
-
-	CleanViewEnabled = InArgs._CleanViewEnabled;
-	OnToggleCleanView = InArgs._OnToggleCleanView;
 
 	FSequencerWidgetsModule& SequencerWidgets = FModuleManager::Get().LoadModuleChecked<FSequencerWidgetsModule>( "SequencerWidgets" );
 
@@ -167,6 +166,10 @@ void SSequencer::Construct( const FArguments& InArgs, TSharedRef< class FSequenc
 	bMirrorLabels = true;
 	TSharedRef<ITimeSlider> BottomTimeSlider = SequencerWidgets.CreateTimeSlider( TimeSliderController, bMirrorLabels);
 
+	SAssignNew( TrackArea, SSequencerTrackArea, Sequencer.Pin().ToSharedRef() )
+		.ViewRange( InArgs._ViewRange )
+		.OutlinerFillPercent( this, &SSequencer::GetAnimationOutlinerFillPercentage );
+
 	ChildSlot
 	[
 		SNew(SBorder)
@@ -179,37 +182,15 @@ void SSequencer::Construct( const FArguments& InArgs, TSharedRef< class FSequenc
 			[
 				SNew( SHorizontalBox )
 				+SHorizontalBox::Slot()
-				.Padding( FMargin( 0.0f, 0.0f, 0.0f, 0.0f ) )
-				.FillWidth( TAttribute<float>( this, &SSequencer::GetAnimationOutlinerFillPercentage ) )
-				.VAlign(VAlign_Center)
+				.AutoWidth()
 				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						MakeToolBar()
-					]
-					+SHorizontalBox::Slot()
-					.HAlign(HAlign_Right)
-					.FillWidth(1.f)
-					[
-						// @todo Sequencer - Temp clean view button
-						SNew( SCheckBox )
-						.Visibility( this, &SSequencer::OnGetCleanViewVisibility )
-						.Style(FEditorStyle::Get(), "ToggleButtonCheckbox")
-						.IsChecked( this, &SSequencer::OnGetCleanViewCheckState )
-						.OnCheckStateChanged( this, &SSequencer::OnCleanViewChecked )
-						[
-							SNew( STextBlock )
-							.Text( LOCTEXT("ToggleCleanView", "Clean View") )
-						]
-					]
+					MakeToolBar()
 				]
 				+SHorizontalBox::Slot()
-				.FillWidth(1.0f)
+				.AutoWidth()
 				[
-					SAssignNew(BreadcrumbTrail, SBreadcrumbTrail<FSequencerBreadcrumb>)
-					.OnCrumbClicked(this, &SSequencer::OnCrumbClicked)
+					SNew( SSequencerCurveEditorToolBar, TrackArea->GetCurveEditor()->GetCommands() )
+					.Visibility( this, &SSequencer::GetCurveEditorToolBarVisibility )
 				]
 			]
 			+ SVerticalBox::Slot()
@@ -253,9 +234,7 @@ void SSequencer::Construct( const FArguments& InArgs, TSharedRef< class FSequenc
 				]
 				+ SOverlay::Slot()
 				[
-					SAssignNew( TrackArea, SSequencerTrackArea, Sequencer.Pin().ToSharedRef() )
-					.ViewRange( InArgs._ViewRange )
-					.OutlinerFillPercent( this, &SSequencer::GetAnimationOutlinerFillPercentage )
+					TrackArea.ToSharedRef()
 				]
 				+ SOverlay::Slot()
 				[
@@ -285,8 +264,9 @@ void SSequencer::Construct( const FArguments& InArgs, TSharedRef< class FSequenc
 				SNew( SHorizontalBox )
 				+ SHorizontalBox::Slot()
 				.FillWidth( TAttribute<float>( this, &SSequencer::GetAnimationOutlinerFillPercentage ) )
+				.HAlign(HAlign_Center)
 				[
-					SNew( SSpacer )
+					MakeTransportControls()
 				]
 				+ SHorizontalBox::Slot()
 				.FillWidth(1.0f)
@@ -301,6 +281,23 @@ void SSequencer::Construct( const FArguments& InArgs, TSharedRef< class FSequenc
 					]
 				]
 			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew( SHorizontalBox )
+				+ SHorizontalBox::Slot()
+				.FillWidth( TAttribute<float>( this, &SSequencer::GetAnimationOutlinerFillPercentage ) )
+				[
+					SNew( SSpacer )
+				]
+				+ SHorizontalBox::Slot()
+				.FillWidth( 1.0f )
+				[
+					SAssignNew( BreadcrumbTrail, SBreadcrumbTrail<FSequencerBreadcrumb> )
+					.Visibility(this, &SSequencer::GetBreadcrumbTrailVisibility)
+					.OnCrumbClicked( this, &SSequencer::OnCrumbClicked )
+				]
+			]
 		]
 	];
 
@@ -311,33 +308,75 @@ TSharedRef<SWidget> SSequencer::MakeToolBar()
 {
 	FToolBarBuilder ToolBarBuilder( Sequencer.Pin()->GetCommandBindings(), FMultiBoxCustomization::None, TSharedPtr<FExtender>(), Orient_Horizontal, true);
 	
-	ToolBarBuilder.SetLabelVisibility(EVisibility::Visible);
-	ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleAutoKeyEnabled );
+	ToolBarBuilder.BeginSection("Base Commands");
+	{
+		ToolBarBuilder.SetLabelVisibility(EVisibility::Visible);
+		ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleAutoKeyEnabled );
 
-	ToolBarBuilder.SetLabelVisibility(EVisibility::Collapsed);
-	ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleIsSnapEnabled, NAME_None, TAttribute<FText>( FText::GetEmpty() ) );
-	ToolBarBuilder.AddComboButton(
-		FUIAction(),
-		FOnGetContent::CreateSP( this, &SSequencer::MakeSnapMenu ),
-		LOCTEXT( "SnapOptions", "Options" ),
-		LOCTEXT( "SnapOptionsToolTip", "Snapping Options" ),
-		TAttribute<FSlateIcon>(),
-		true );
-	ToolBarBuilder.AddWidget(
-		SNew( SBox )
-		.VAlign( VAlign_Center )
-		[
-			SNew( SNumericEntryBox<float> )
-			.AllowSpin( true )
-			.MinValue( 0 )
-			.MinSliderValue( 0 )
-			.MaxSliderValue( 1 )
-			.MinDesiredValueWidth( 50 )
-			.Delta( 0.05f )
-			.ToolTipText( LOCTEXT( "SnappingIntervalToolTip", "Snapping interval" ) )
-			.Value( this, &SSequencer::OnGetSnapInterval )
-			.OnValueChanged( this, &SSequencer::OnSnapIntervalChanged ) 
-		] );
+		if ( Sequencer.Pin()->IsLevelEditorSequencer() )
+		{
+			ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleCleanView );
+		}
+	}
+	ToolBarBuilder.EndSection();
+
+	ToolBarBuilder.BeginSection("Snapping");
+	{
+		TArray<SNumericDropDown<float>::FNamedValue> SnapValues;
+		SnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.001f, LOCTEXT( "Snap_OneThousandth", "0.001" ), LOCTEXT( "SnapDescription_OneThousandth", "Set snap to 1/1000th" ) ) );
+		SnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.01f, LOCTEXT( "Snap_OneHundredth", "0.01" ), LOCTEXT( "SnapDescription_OneHundredth", "Set snap to 1/100th" ) ) );
+		SnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.1f, LOCTEXT( "Snap_OneTenth", "0.1" ), LOCTEXT( "SnapDescription_OneTenth", "Set snap to 1/10th" ) ) );
+		SnapValues.Add( SNumericDropDown<float>::FNamedValue( 1.0f, LOCTEXT( "Snap_One", "1" ), LOCTEXT( "SnapDescription_One", "Set snap to 1" ) ) );
+		SnapValues.Add( SNumericDropDown<float>::FNamedValue( 10.0f, LOCTEXT( "Snap_Ten", "10" ), LOCTEXT( "SnapDescription_Ten", "Set snap to 10" ) ) );
+		SnapValues.Add( SNumericDropDown<float>::FNamedValue( 100.0f, LOCTEXT( "Snap_OneHundred", "100" ), LOCTEXT( "SnapDescription_OneHundred", "Set snap to 100" ) ) );
+
+		ToolBarBuilder.SetLabelVisibility( EVisibility::Collapsed );
+		ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleIsSnapEnabled, NAME_None, TAttribute<FText>( FText::GetEmpty() ) );
+		ToolBarBuilder.AddComboButton(
+			FUIAction(),
+			FOnGetContent::CreateSP( this, &SSequencer::MakeSnapMenu ),
+			LOCTEXT( "SnapOptions", "Options" ),
+			LOCTEXT( "SnapOptionsToolTip", "Snapping Options" ),
+			TAttribute<FSlateIcon>(),
+			true );
+		ToolBarBuilder.AddWidget(
+			SNew( SBox )
+			.VAlign( VAlign_Center )
+			[
+				SNew( SNumericDropDown<float> )
+				.DropDownValues( SnapValues )
+				.LabelText( LOCTEXT( "TimeSnapLabel", "Time" ) )
+				.ToolTipText( LOCTEXT( "TimeSnappingIntervalToolTip", "Time snapping interval" ) )
+				.Value( this, &SSequencer::OnGetTimeSnapInterval )
+				.OnValueChanged( this, &SSequencer::OnTimeSnapIntervalChanged )
+			] );
+		ToolBarBuilder.AddWidget(
+			SNew( SBox )
+			.VAlign( VAlign_Center )
+			[
+				SNew( SNumericDropDown<float> )
+				.DropDownValues( SnapValues )
+				.LabelText( LOCTEXT( "ValueSnapLabel", "Value" ) )
+				.ToolTipText( LOCTEXT( "ValueSnappingIntervalToolTip", "Curve value snapping interval" ) )
+				.Value( this, &SSequencer::OnGetValueSnapInterval )
+				.OnValueChanged( this, &SSequencer::OnValueSnapIntervalChanged )
+			] );
+	}
+	ToolBarBuilder.EndSection();
+
+	ToolBarBuilder.BeginSection("Curve Editor");
+	{
+		ToolBarBuilder.SetLabelVisibility( EVisibility::Visible );
+		ToolBarBuilder.AddToolBarButton( FSequencerCommands::Get().ToggleShowCurveEditor );
+		ToolBarBuilder.SetLabelVisibility( EVisibility::Collapsed );
+		ToolBarBuilder.AddComboButton(
+			FUIAction(),
+			FOnGetContent::CreateSP( this, &SSequencer::MakeCurveEditorMenu ),
+			LOCTEXT( "CurveEditorOptions", "Options" ),
+			LOCTEXT( "CurveEditorOptionsToolTip", "Curve Editor Options" ),
+			TAttribute<FSlateIcon>(),
+			true );
+	}
 
 	return ToolBarBuilder.MakeWidget();
 }
@@ -348,15 +387,15 @@ TSharedRef<SWidget> SSequencer::MakeSnapMenu()
 
 	MenuBuilder.BeginSection( "KeySnapping", LOCTEXT( "SnappingMenuKeyHeader", "Key Snapping" ) );
 	{
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapKeysToInterval );
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapKeysToKeys );
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapKeyTimesToInterval );
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapKeyTimesToKeys );
 	}
 	MenuBuilder.EndSection();
 
 	MenuBuilder.BeginSection( "SectionSnapping", LOCTEXT( "SnappingMenuSectionHeader", "Section Snapping" ) );
 	{
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapSectionsToInterval );
-		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapSectionsToSections );
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapSectionTimesToInterval );
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapSectionTimesToSections );
 	}
 	MenuBuilder.EndSection();
 
@@ -366,22 +405,80 @@ TSharedRef<SWidget> SSequencer::MakeSnapMenu()
 	}
 	MenuBuilder.EndSection();
 
+	MenuBuilder.BeginSection( "CurveSnapping", LOCTEXT( "SnappingMenuCurveHeader", "Curve Snapping" ) );
+	{
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleSnapCurveValueToInterval );
+	}
+	MenuBuilder.EndSection();
+
 	return MenuBuilder.MakeWidget();
+}
+
+TSharedRef<SWidget> SSequencer::MakeCurveEditorMenu()
+{
+	FMenuBuilder MenuBuilder( true, Sequencer.Pin()->GetCommandBindings() );
+
+	MenuBuilder.BeginSection( "CurveVisibility", LOCTEXT( "CurveEditorMenuCurveVisibilityHeader", "Curve Visibility" ) );
+	{
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().SetAllCurveVisibility );
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().SetSelectedCurveVisibility );
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().SetAnimatedCurveVisibility );
+	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection( "Options", LOCTEXT( "CurveEditorMenuOptionsHeader", "Editor Options" ) );
+	{
+		MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ToggleShowCurveEditorCurveToolTips );
+	}
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+}
+
+TSharedRef<SWidget> SSequencer::MakeTransportControls()
+{
+	FEditorWidgetsModule& EditorWidgetsModule = FModuleManager::Get().LoadModuleChecked<FEditorWidgetsModule>( "EditorWidgets" );
+	TSharedRef<FSequencer> SequencerPinned = Sequencer.Pin().ToSharedRef();
+
+	FTransportControlArgs TransportControlArgs;
+	TransportControlArgs.OnBackwardEnd.BindSP( SequencerPinned, &FSequencer::OnStepToBeginning );
+	TransportControlArgs.OnBackwardStep.BindSP( SequencerPinned, &FSequencer::OnStepBackward );
+	TransportControlArgs.OnForwardPlay.BindSP( SequencerPinned, &FSequencer::OnPlay );
+	TransportControlArgs.OnForwardStep.BindSP( SequencerPinned, &FSequencer::OnStepForward );
+	TransportControlArgs.OnForwardEnd.BindSP( SequencerPinned, &FSequencer::OnStepToEnd );
+	TransportControlArgs.OnToggleLooping.BindSP( SequencerPinned, &FSequencer::OnToggleLooping );
+	TransportControlArgs.OnGetLooping.BindSP( SequencerPinned, &FSequencer::IsLooping );
+	TransportControlArgs.OnGetPlaybackMode.BindSP( SequencerPinned, &FSequencer::GetPlaybackMode );
+
+	return EditorWidgetsModule.CreateTransportControl( TransportControlArgs );
 }
 
 SSequencer::~SSequencer()
 {
 }
 
-void SSequencer::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+void SSequencer::RegisterActiveTimerForPlayback()
 {
-	Sequencer.Pin()->Tick(InDeltaTime);
-
-	const TArray< TSharedPtr<FMovieSceneTrackEditor> >& TrackEditors = Sequencer.Pin()->GetTrackEditors();
-	for (int32 EditorIndex = 0; EditorIndex < TrackEditors.Num(); ++EditorIndex)
+	if (!bIsActiveTimerRegistered)
 	{
-		TrackEditors[EditorIndex]->Tick(InCurrentTime);
+		bIsActiveTimerRegistered = true;
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SSequencer::EnsureSlateTickDuringPlayback));
 	}
+}
+
+EActiveTimerReturnType SSequencer::EnsureSlateTickDuringPlayback(double InCurrentTime, float InDeltaTime)
+{
+	if (Sequencer.IsValid())
+	{
+		auto PlaybackStatus = Sequencer.Pin()->GetPlaybackStatus();
+		if (PlaybackStatus == EMovieScenePlayerStatus::Playing || PlaybackStatus == EMovieScenePlayerStatus::Recording)
+		{
+			return EActiveTimerReturnType::Continue;
+		}
+	}
+
+	bIsActiveTimerRegistered = false;
+	return EActiveTimerReturnType::Stop;
 }
 
 void SSequencer::UpdateLayoutTree()
@@ -389,7 +486,7 @@ void SSequencer::UpdateLayoutTree()
 	// Update the node tree
 	SequencerNodeTree->Update();
 	
-	TrackArea->Update( *SequencerNodeTree );
+	TrackArea->Update( SequencerNodeTree );
 
 	SequencerNodeTree->UpdateCachedVisibilityBasedOnShotFiltersChanged();
 }
@@ -458,29 +555,24 @@ TSharedRef<SWidget> SSequencer::MakeSectionOverlay( TSharedRef<FSequencerTimeSli
 		];
 }
 
-EVisibility SSequencer::OnGetCleanViewVisibility() const 
+float SSequencer::OnGetTimeSnapInterval() const
 {
-	return Sequencer.Pin()->IsLevelEditorSequencer() ? EVisibility::Visible : EVisibility::Collapsed;
+	return GetDefault<USequencerSettings>()->GetTimeSnapInterval();
 }
 
-ECheckBoxState SSequencer::OnGetCleanViewCheckState() const
+void SSequencer::OnTimeSnapIntervalChanged( float InInterval )
 {
-	return CleanViewEnabled.Get() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	GetMutableDefault<USequencerSettings>()->SetTimeSnapInterval(InInterval);
 }
 
-void SSequencer::OnCleanViewChecked( ECheckBoxState InState ) 
+float SSequencer::OnGetValueSnapInterval() const
 {
-	OnToggleCleanView.ExecuteIfBound( InState == ECheckBoxState::Checked ? true : false );
+	return GetDefault<USequencerSettings>()->GetCurveValueSnapInterval();
 }
 
-TOptional<float> SSequencer::OnGetSnapInterval() const
+void SSequencer::OnValueSnapIntervalChanged( float InInterval )
 {
-	return GetDefault<USequencerSnapSettings>()->GetSnapInterval();
-}
-
-void SSequencer::OnSnapIntervalChanged( float InInterval )
-{
-	GetMutableDefault<USequencerSnapSettings>()->SetSnapInterval(InInterval);
+	GetMutableDefault<USequencerSettings>()->SetCurveValueSnapInterval( InInterval );
 }
 
 
@@ -604,15 +696,15 @@ void SSequencer::OnAssetsDropped( const FAssetDragDropOp& DragDropOp )
 		}
 	}
 
-	const TSet< TSharedRef<const FSequencerDisplayNode> >& SelectedNodes = SequencerNodeTree->GetSelectedNodes();
+	const TSet< TSharedRef<const FSequencerDisplayNode> >* SelectedNodes = Sequencer.Pin()->GetSelection()->GetSelectedOutlinerNodes();
 	FGuid TargetObjectGuid;
 	// if exactly one object node is selected, we have a target object guid
 	TSharedPtr<const FSequencerDisplayNode> DisplayNode;
-	if (SelectedNodes.Num() == 1)
+	if (SelectedNodes->Num() == 1)
 	{
-		for (TSet< TSharedRef<const FSequencerDisplayNode> >::TConstIterator It(SelectedNodes); It; ++It)
+		for (TSharedRef<const FSequencerDisplayNode> SelectedNode : *SelectedNodes )
 		{
-			DisplayNode = *It;
+			DisplayNode = SelectedNode;
 		}
 		if (DisplayNode.IsValid() && DisplayNode->GetType() == ESequencerNode::Object)
 		{
@@ -769,26 +861,33 @@ FText SSequencer::GetShotSectionTitle(UMovieSceneSection* ShotSection) const
 
 void SSequencer::DeleteSelectedNodes()
 {
-	const TSet< TSharedRef<const FSequencerDisplayNode> >& SelectedNodes = SequencerNodeTree->GetSelectedNodes();
+	const TSet< TSharedRef<const FSequencerDisplayNode> >* SelectedNodes = Sequencer.Pin()->GetSelection()->GetSelectedOutlinerNodes();
 
-	if( SelectedNodes.Num() > 0 )
+	if( SelectedNodes->Num() > 0 )
 	{
 		const FScopedTransaction Transaction( LOCTEXT("UndoDeletingObject", "Delete Object from MovieScene") );
 
 		FSequencer& SequencerRef = *Sequencer.Pin();
 
-		for( auto It = SelectedNodes.CreateConstIterator(); It; ++It )
+		for( auto SelectedNode : *SelectedNodes )
 		{
-			TSharedRef<const FSequencerDisplayNode> Node = *It;
-
-			if( Node->IsVisible() )
+			if( SelectedNode->IsVisible() )
 			{
 				// Delete everything in the entire node
-				SequencerRef.OnRequestNodeDeleted( Node );
+				SequencerRef.OnRequestNodeDeleted( SelectedNode );
 			}
-
 		}
 	}
+}
+
+EVisibility SSequencer::GetBreadcrumbTrailVisibility() const
+{
+	return Sequencer.Pin()->IsLevelEditorSequencer() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SSequencer::GetCurveEditorToolBarVisibility() const
+{
+	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 #undef LOCTEXT_NAMESPACE

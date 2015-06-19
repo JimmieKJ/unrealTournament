@@ -37,12 +37,12 @@ public:
 		return FindOrAddContainer(ContainerName)->AddSection(CategoryName, SectionName, DisplayName, Description, CustomWidget);
 	}
 
-	virtual void RegisterViewer( const FName& ContainerName, ISettingsViewer& SettingsViewer )
+	virtual void RegisterViewer( const FName& ContainerName, ISettingsViewer& SettingsViewer ) override
 	{
 		ContainerNamesToViewers.Add(ContainerName, &SettingsViewer);
 	}
 
-	virtual void ShowViewer( const FName& ContainerName, const FName& CategoryName, const FName& SectionName )
+	virtual void ShowViewer( const FName& ContainerName, const FName& CategoryName, const FName& SectionName ) override
 	{
 		ISettingsViewer** Viewer = ContainerNamesToViewers.Find(ContainerName);
 
@@ -52,7 +52,7 @@ public:
 		}
 	}
 
-	virtual void UnregisterViewer( const FName& ContainerName )
+	virtual void UnregisterViewer( const FName& ContainerName ) override
 	{
 		ContainerNamesToViewers.Remove(ContainerName);
 	}
@@ -85,7 +85,9 @@ public:
 		TSharedRef<FSettingsContainer> ProjectSettingsContainer = FindOrAddContainer("Project");
 		ProjectSettingsContainer->Describe(LOCTEXT("ProjectSettingsSubMenuLabel", "Project Settings"), LOCTEXT("ProjectSettingsSubMenuToolTip", "Change the settings of the currently loaded project"), NAME_None);
 		ProjectSettingsContainer->DescribeCategory("Project", LOCTEXT("ProjectProjectCategoryName", "Project"), LOCTEXT("ProjectProjectCategoryDescription", "Project settings description text here"));
+		ProjectSettingsContainer->DescribeCategory("Game", LOCTEXT("ProjectGameCategoryName", "Game"), LOCTEXT("ProjectGameCategoryDescription", "Game settings description text here"));
 		ProjectSettingsContainer->DescribeCategory("Engine", LOCTEXT("ProjectEngineCategoryName", "Engine"), LOCTEXT("ProjectEngineCategoryDescription", "Project settings description text here"));
+		ProjectSettingsContainer->DescribeCategory("Editor", LOCTEXT("ProjectEditorCategoryName", "Editor"), LOCTEXT("ProjectEditorCategoryDescription", "Project settings specific to the editor"));
 		ProjectSettingsContainer->DescribeCategory("Platforms", LOCTEXT("ProjectPlatformsCategoryName", "Platforms"), LOCTEXT("ProjectPlatformsCategoryDescription", "Platform settings description text here"));
 		ProjectSettingsContainer->DescribeCategory("Plugins", LOCTEXT("ProjectPluginsCategoryName", "Plugins"), LOCTEXT("ProjectPluginsCategoryDescription", "Plugins settings description text here"));
 	}

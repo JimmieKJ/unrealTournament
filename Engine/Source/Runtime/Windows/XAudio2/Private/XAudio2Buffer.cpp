@@ -80,7 +80,7 @@ struct FXMAInfo
  * @param AudioDevice	audio device this sound buffer is going to be attached to.
  */
 FXAudio2SoundBuffer::FXAudio2SoundBuffer( FAudioDevice* InAudioDevice, ESoundFormat InSoundFormat )
-:	AudioDevice( InAudioDevice ),
+:	FSoundBuffer(InAudioDevice),
 	SoundFormat( InSoundFormat ),
 	DecompressionState( NULL ),
 	bDynamicResource( false )
@@ -353,7 +353,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XA
 
 	Wave->InitAudioResource(XAudio2Device->GetRuntimeFormat(Wave));
 
-	if( Buffer->DecompressionState->ReadCompressedInfo( Wave->ResourceData, Wave->ResourceSize, &QualityInfo ) )
+	if (Buffer->DecompressionState && Buffer->DecompressionState->ReadCompressedInfo(Wave->ResourceData, Wave->ResourceSize, &QualityInfo))
 	{
 		// Refresh the wave data
 		Wave->SampleRate = QualityInfo.SampleRate;
@@ -412,9 +412,12 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateProceduralBuffer( FXAudio2Device
  */
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreatePreviewBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave, FXAudio2SoundBuffer* Buffer )
 {
-	if( Buffer )
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+	check(AudioDeviceManager != nullptr);
+
+	if (Buffer)
 	{
-		XAudio2Device->FreeBufferResource( Buffer );
+		AudioDeviceManager->FreeBufferResource(Buffer);
 	}
 
 	// Create new buffer.
@@ -431,7 +434,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreatePreviewBuffer( FXAudio2Device* X
 
 	Buffer->InitWaveFormatEx( WAVE_FORMAT_PCM, Wave, true );
 
-	XAudio2Device->TrackResource( Wave, Buffer );
+	AudioDeviceManager->TrackResource(Wave, Buffer);
 
 	return( Buffer );
 }
@@ -467,7 +470,9 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateNativeBuffer( FXAudio2Device* XA
 	// Keep track of associated resource name.
 	Buffer->InitWaveFormatEx( WAVE_FORMAT_PCM, Wave, true );
 
-	XAudio2Device->TrackResource( Wave, Buffer );
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+	check(AudioDeviceManager != nullptr);
+	AudioDeviceManager->TrackResource(Wave, Buffer);
 
 	Wave->RemoveAudioResource();
 
@@ -524,6 +529,8 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::Init( FAudioDevice* AudioDevice, USoun
 		return( NULL );
 	}
 
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+
 	FXAudio2Device* XAudio2Device = ( FXAudio2Device* )AudioDevice;
 	FXAudio2SoundBuffer* Buffer = NULL;
 
@@ -550,7 +557,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::Init( FAudioDevice* AudioDevice, USoun
 		// Find the existing buffer if any
 		if( Wave->ResourceID )
 		{
-			Buffer = (FXAudio2SoundBuffer*)XAudio2Device->WaveBufferMap.FindRef( Wave->ResourceID );
+			Buffer = (FXAudio2SoundBuffer*)AudioDeviceManager->GetSoundBufferForResourceID(Wave->ResourceID);
 		}
 
 		// Override with any new PCM data even if some already exists. 
@@ -576,7 +583,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::Init( FAudioDevice* AudioDevice, USoun
 		// Upload entire wav to XAudio2
 		if( Wave->ResourceID )
 		{
-			Buffer = (FXAudio2SoundBuffer*)XAudio2Device->WaveBufferMap.FindRef( Wave->ResourceID );
+			Buffer = (FXAudio2SoundBuffer*)AudioDeviceManager->GetSoundBufferForResourceID(Wave->ResourceID);
 		}
 
 		if( Buffer == NULL )

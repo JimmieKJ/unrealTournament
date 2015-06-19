@@ -68,7 +68,7 @@ void FWidgetBlueprintCompiler::CreateFunctionList()
 				FEdGraphPinType PinType;
 				K2Schema->ConvertPropertyToPinType(Property, /*out*/ PinType);
 
-				UEdGraphPin* ReturnPin = ReturnNode->CreateUserDefinedPin(TEXT("ReturnValue"), PinType);
+				UEdGraphPin* ReturnPin = ReturnNode->CreateUserDefinedPin(TEXT("ReturnValue"), PinType, EGPD_Input);
 
 				// Auto-connect the pins for entry and exit, so that by default the signature is properly generated
 				UEdGraphPin* EntryNodeExec = K2Schema->FindExecutionPin(*EntryNode, EGPD_Output);
@@ -310,12 +310,12 @@ void FWidgetBlueprintCompiler::SpawnNewClass(const FString& NewClassName)
 
 	if ( NewWidgetBlueprintClass == nullptr )
 	{
-		NewWidgetBlueprintClass = ConstructObject<UWidgetBlueprintGeneratedClass>(UWidgetBlueprintGeneratedClass::StaticClass(), Blueprint->GetOutermost(), FName(*NewClassName), RF_Public | RF_Transactional);
+		NewWidgetBlueprintClass = NewObject<UWidgetBlueprintGeneratedClass>(Blueprint->GetOutermost(), FName(*NewClassName), RF_Public | RF_Transactional);
 	}
 	else
 	{
 		// Already existed, but wasn't linked in the Blueprint yet due to load ordering issues
-		FBlueprintCompileReinstancer GeneratedClassReinstancer(NewWidgetBlueprintClass);
+		FBlueprintCompileReinstancer::Create(NewWidgetBlueprintClass);
 	}
 	NewClass = NewWidgetBlueprintClass;
 }

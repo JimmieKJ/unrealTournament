@@ -38,6 +38,7 @@ void SGraphNodeK2Var::UpdateGraphNode()
 	float HorizontalTitleMargin = 0.0f;
 	float VerticalTitleMargin = 8.0f;
 	FMargin TitleMargin = FMargin(0.0f, 8.0f);
+	FMargin ContentAreaMargin = FMargin(0.0f, 4.0f);
 	EHorizontalAlignment TitleHAlign = HAlign_Center;
 	TSharedPtr<SWidget> TitleWidget;
 
@@ -47,7 +48,6 @@ void SGraphNodeK2Var::UpdateGraphNode()
 		if(SetNode->HasLocalRepNotify())
 		{
 			TitleText = NSLOCTEXT("GraphEditor", "VariableSetWithNotify", "SET w/ Notify");
-			//+ FString::Printf(TEXT("\n(%s)"), *SetNode->GetRepNotifyName().ToString());
 		}
 		else
 		{
@@ -146,7 +146,16 @@ void SGraphNodeK2Var::UpdateGraphNode()
 				]
 			];
 	}
-	else
+	else if (UK2Node_VariableGet* VariableGet = Cast<UK2Node_VariableGet>(GraphNode))
+	{
+		if (!VariableGet->IsNodePure())
+		{
+			TitleText = NSLOCTEXT("GraphEditor", "VariableGet", "GET");
+			ContentAreaMargin.Top += 16;
+		}
+	}
+	
+	if (TitleText.IsEmpty())
 	{
 		TitleWidget = SNullWidget::NullWidget;
 	}
@@ -214,7 +223,7 @@ void SGraphNodeK2Var::UpdateGraphNode()
 				TitleWidget.ToSharedRef()
 			]
 			+ SOverlay::Slot()
-			.Padding( FMargin(0,4) )
+			.Padding( ContentAreaMargin )
 			[
 				// NODE CONTENT AREA
 				SNew(SHorizontalBox)
@@ -274,11 +283,13 @@ void SGraphNodeK2Var::UpdateGraphNode()
 	}
 	// Create comment bubble
 	TSharedPtr<SCommentBubble> CommentBubble;
+	const FSlateColor CommentColor = GetDefault<UGraphEditorSettings>()->DefaultCommentNodeTitleColor;
 
 	SAssignNew( CommentBubble, SCommentBubble )
 	.GraphNode( GraphNode )
 	.Text( this, &SGraphNode::GetNodeComment )
-	.ColorAndOpacity( this, &SGraphNodeK2Var::GetCommentColor )
+	.OnTextCommitted( this, &SGraphNode::OnCommentTextCommitted )
+	.ColorAndOpacity( CommentColor )
 	.AllowPinning( true )
 	.EnableTitleBarBubble( true )
 	.EnableBubbleCtrls( true )

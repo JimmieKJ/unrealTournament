@@ -15,31 +15,26 @@ FJavaAndroidMessageBox::FJavaAndroidMessageBox()
 
 void FJavaAndroidMessageBox::SetCaption(const FString & Text)
 {
-	BindObjectToThread();
 	CallMethod<void>(SetCaptionMethod, GetJString(Text));
 }
 
 void FJavaAndroidMessageBox::SetText(const FString & Text)
 {
-	BindObjectToThread();
 	CallMethod<void>(SetTextMethod, GetJString(Text));
 }
 
 void FJavaAndroidMessageBox::AddButton(const FString & Text)
 {
-	BindObjectToThread();
 	CallMethod<void>(AddButtonMethod, GetJString(Text));
 }
 
 void FJavaAndroidMessageBox::Clear()
 {
-	BindObjectToThread();
 	CallMethod<void>(ClearMethod);
 }
 
 int32 FJavaAndroidMessageBox::Show()
 {
-	BindObjectToThread();
 	return CallMethod<int32>(ShowMethod);
 }
 

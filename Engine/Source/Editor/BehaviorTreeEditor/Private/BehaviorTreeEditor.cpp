@@ -35,6 +35,7 @@
 #include "ContentBrowserModule.h"
 #include "SDockTab.h"
 #include "GenericCommands.h"
+#include "Engine/BlueprintGeneratedClass.h"
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
@@ -45,20 +46,17 @@ const FName FBehaviorTreeEditor::BlackboardMode(TEXT("Blackboard"));
 FBehaviorTreeEditor::FBehaviorTreeEditor() 
 	: IBehaviorTreeEditor()
 {
-	UEditorEngine* Editor = (UEditorEngine*)GEngine;
-	if (Editor != NULL)
-	{
-		Editor->RegisterForUndo(this);
-	}
-
 	// listen for package change events to update injected nodes
 	OnPackageSavedDelegateHandle     = UPackage::PackageSavedEvent.AddRaw(this, &FBehaviorTreeEditor::OnPackageSaved);
-	OnClassListUpdatedDelegateHandle = FClassBrowseHelper::OnPackageListUpdated.AddRaw(this, &FBehaviorTreeEditor::OnClassListUpdated);
 
 	bShowDecoratorRangeLower = false;
 	bShowDecoratorRangeSelf = false;
 	bSelectedNodeIsInjected = false;
 	SelectedNodesCount = 0;
+
+	bHasMultipleTaskBP = false;
+	bHasMultipleDecoratorBP = false;
+	bHasMultipleServiceBP = false;
 
 	BehaviorTree = nullptr;
 	BlackboardData = nullptr;
@@ -68,62 +66,45 @@ FBehaviorTreeEditor::FBehaviorTreeEditor()
 
 FBehaviorTreeEditor::~FBehaviorTreeEditor()
 {
-	UEditorEngine* Editor = (UEditorEngine*)GEngine;
-	if (Editor)
-	{
-		Editor->UnregisterForUndo( this );
-	}
-
 	UPackage::PackageSavedEvent.Remove(OnPackageSavedDelegateHandle);
-	FClassBrowseHelper::OnPackageListUpdated.Remove(OnClassListUpdatedDelegateHandle);
 
 	Debugger.Reset();
 }
 
 void FBehaviorTreeEditor::PostUndo(bool bSuccess)
-{	
+{
 	if (bSuccess)
 	{
-		// Clear selection, to avoid holding refs to nodes that go away
-		TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-		if (CurrentGraphEditor.IsValid())
-		{
-			CurrentGraphEditor->ClearSelectionSet();
-			CurrentGraphEditor->NotifyGraphChanged();
-		}
 		if(BlackboardView.IsValid())
 		{
 			BlackboardView->SetObject(GetBlackboardData());
 		}
+
 		if(BlackboardEditor.IsValid())
 		{
 			BlackboardEditor->SetObject(GetBlackboardData());
 		}
-		FSlateApplication::Get().DismissAllMenus();
 	}
+
+	FAIGraphEditor::PostUndo(bSuccess);
 }
 
 void FBehaviorTreeEditor::PostRedo(bool bSuccess)
 {
 	if (bSuccess)
 	{
-		// Clear selection, to avoid holding refs to nodes that go away
-		TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-		if (CurrentGraphEditor.IsValid())
-		{
-			CurrentGraphEditor->ClearSelectionSet();
-			CurrentGraphEditor->NotifyGraphChanged();
-		}
-		if(BlackboardView.IsValid())
+		if (BlackboardView.IsValid())
 		{
 			BlackboardView->SetObject(GetBlackboardData());
 		}
-		if(BlackboardEditor.IsValid())
+
+		if (BlackboardEditor.IsValid())
 		{
 			BlackboardEditor->SetObject(GetBlackboardData());
 		}
-		FSlateApplication::Get().DismissAllMenus();
 	}
+
+	FAIGraphEditor::PostRedo(bSuccess);
 }
 
 void FBehaviorTreeEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged )
@@ -270,6 +251,7 @@ void FBehaviorTreeEditor::InitBehaviorTreeEditor( const EToolkitMode::Type Mode,
 		SetCurrentMode(BlackboardMode);
 	}
 
+	OnClassListUpdated();
 	RegenerateMenusAndToolbars();
 }
 
@@ -282,23 +264,19 @@ void FBehaviorTreeEditor::RestoreBehaviorTree()
 	{
 		BehaviorTree->BTGraph = FBlueprintEditorUtils::CreateNewGraph(BehaviorTree, TEXT("Behavior Tree"), UBehaviorTreeGraph::StaticClass(), UEdGraphSchema_BehaviorTree::StaticClass());
 		MyGraph = Cast<UBehaviorTreeGraph>(BehaviorTree->BTGraph);
-		check(MyGraph);
 
 		// Initialize the behavior tree graph
 		const UEdGraphSchema* Schema = MyGraph->GetSchema();
 		Schema->CreateDefaultNodesForGraph(*MyGraph);
 
-		MyGraph->SpawnMissingNodes();
+		MyGraph->OnCreated();
 	}
 	else
 	{
-		MyGraph->UpdatePinConnectionTypes();
-		MyGraph->UpdateDeprecatedNodes();
+		MyGraph->OnLoaded();
 	}
 
-	MyGraph->UpdateBlackboardChange();
-	MyGraph->UpdateInjectedNodes();
-	MyGraph->UpdateUnknownNodeClasses();
+	MyGraph->Initialize();
 
 	TSharedRef<FTabPayload_UObject> Payload = FTabPayload_UObject::Make(MyGraph);
 	TSharedPtr<SDockTab> DocumentTab = DocumentManager->OpenDocument(Payload, bNewGraph ? FDocumentTracker::OpenNewDocument : FDocumentTracker::RestorePreviousDocument);
@@ -312,11 +290,11 @@ void FBehaviorTreeEditor::RestoreBehaviorTree()
 	const bool bIncreaseVersionNum = false;
 	if(bNewGraph)
 	{
-		MyGraph->UpdateAsset(UBehaviorTreeGraph::ClearDebuggerFlags, bIncreaseVersionNum);
+		MyGraph->UpdateAsset(UBehaviorTreeGraph::ClearDebuggerFlags | UBehaviorTreeGraph::KeepRebuildCounter);
 	}
 	else
 	{
-		MyGraph->UpdateAsset(UBehaviorTreeGraph::SkipDebuggerFlags, bIncreaseVersionNum);
+		MyGraph->UpdateAsset(UBehaviorTreeGraph::KeepRebuildCounter);
 		RefreshDebugger();
 	}
 
@@ -340,7 +318,12 @@ void FBehaviorTreeEditor::HandleBlackboardEntrySelected(const FBlackboardEntry* 
 {
 	// refresh details view
 	const bool bForceRefresh = true;
-	BlackboardDetailsView->SetObject(GetBlackboardData(), bForceRefresh);
+
+	if (ensure(BlackboardDetailsView.IsValid()))
+	{
+		// the opposite should never happen, we weren't able to internally repro it, but it seems someone was crashing on this line
+		BlackboardDetailsView->SetObject(GetBlackboardData(), bForceRefresh);
+	}
 }
 
 int32 FBehaviorTreeEditor::HandleGetSelectedBlackboardItemIndex(bool& bIsInherited)
@@ -506,38 +489,7 @@ TSharedRef<SGraphEditor> FBehaviorTreeEditor::CreateGraphEditorWidget(UEdGraph* 
 	
 	if (!GraphEditorCommands.IsValid())
 	{
-		GraphEditorCommands = MakeShareable( new FUICommandList );
-
-		// Editing commands
-		GraphEditorCommands->MapAction( FGenericCommands::Get().SelectAll,
-			FExecuteAction::CreateSP( this, &FBehaviorTreeEditor::SelectAllNodes ),
-			FCanExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CanSelectAllNodes )
-			);
-
-		GraphEditorCommands->MapAction( FGenericCommands::Get().Delete,
-			FExecuteAction::CreateSP( this, &FBehaviorTreeEditor::DeleteSelectedNodes ),
-			FCanExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CanDeleteNodes )
-			);
-
-		GraphEditorCommands->MapAction( FGenericCommands::Get().Copy,
-			FExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CopySelectedNodes ),
-			FCanExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CanCopyNodes )
-			);
-
-		GraphEditorCommands->MapAction( FGenericCommands::Get().Cut,
-			FExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CutSelectedNodes ),
-			FCanExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CanCutNodes )
-			);
-
-		GraphEditorCommands->MapAction( FGenericCommands::Get().Paste,
-			FExecuteAction::CreateSP( this, &FBehaviorTreeEditor::PasteNodes ),
-			FCanExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CanPasteNodes )
-			);
-
-		GraphEditorCommands->MapAction( FGenericCommands::Get().Duplicate,
-			FExecuteAction::CreateSP( this, &FBehaviorTreeEditor::DuplicateNodes ),
-			FCanExecuteAction::CreateSP( this, &FBehaviorTreeEditor::CanDuplicateNodes )
-			);
+		CreateCommandList();
 
 		GraphEditorCommands->MapAction( FGraphEditorCommands::Get().RemoveExecutionPin,
 			FExecuteAction::CreateSP( this, &FBehaviorTreeEditor::OnRemoveInputPin ),
@@ -717,7 +669,13 @@ TSharedRef<SWidget> FBehaviorTreeEditor::SpawnBlackboardDetails()
 	FOnGetDetailCustomizationInstance LayoutVariableDetails = FOnGetDetailCustomizationInstance::CreateStatic(&FBlackboardDataDetails::MakeInstance, OnGetSelectedBlackboardItemIndex);
 	BlackboardDetailsView->RegisterInstancedCustomPropertyLayout(UBlackboardData::StaticClass(), LayoutVariableDetails);
 
-	BlackboardDetailsView->SetObject(GetBlackboardData());
+	UBlackboardData* BBData = GetBlackboardData();
+	if (BBData)
+	{
+		BBData->UpdateDeprecatedKeys();
+	}
+
+	BlackboardDetailsView->SetObject(BBData);
 	BlackboardDetailsView->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FBehaviorTreeEditor::CanEditWithDebuggerActive)));
 
 	return BlackboardDetailsView.ToSharedRef();
@@ -954,9 +912,9 @@ void FBehaviorTreeEditor::CreateInternalWidgets()
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
 	FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::HideNameArea, false );
 	DetailsViewArgs.NotifyHook = this;
+	DetailsViewArgs.DefaultsOnlyVisibility = FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Hide;
 	DetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	DetailsView->SetObject( NULL );
-	DetailsView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateSP(this, &FBehaviorTreeEditor::IsPropertyVisible));
 	DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &FBehaviorTreeEditor::IsPropertyEditable));
 	DetailsView->OnFinishedChangingProperties().AddSP(this, &FBehaviorTreeEditor::OnFinishedChangingProperties);
 }
@@ -1109,11 +1067,6 @@ void FBehaviorTreeEditor::BindDebuggerToolbarCommands()
 		FExecuteAction::CreateStatic(&FBehaviorTreeDebugger::StopPlaySession));
 }
 
-bool FBehaviorTreeEditor::IsPropertyVisible( const FPropertyAndParent& PropertyAndParent) const
-{
-	return !PropertyAndParent.Property.HasAnyPropertyFlags(CPF_DisableEditOnInstance);
-}
-
 bool FBehaviorTreeEditor::IsPropertyEditable() const
 {
 	if (FBehaviorTreeDebugger::IsPIESimulating() || bForceDisablePropertyEdit)
@@ -1121,7 +1074,7 @@ bool FBehaviorTreeEditor::IsPropertyEditable() const
 		return false;
 	}
 
-	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	TSharedPtr<SGraphEditor> FocusedGraphEd = UpdateGraphEdPtr.Pin();
 	return FocusedGraphEd.IsValid() && FocusedGraphEd->GetCurrentGraph() && FocusedGraphEd->GetCurrentGraph()->bEditable;
 }
 
@@ -1172,6 +1125,7 @@ void FBehaviorTreeEditor::OnFinishedChangingProperties(const FPropertyChangedEve
 		MyGraph->UpdateInjectedNodes();
 		MyGraph->UpdateAsset(UBehaviorTreeGraph::ClearDebuggerFlags);
 	}
+	BehaviorTree->BTGraph->GetSchema()->ForceVisualizationCacheClear();
 }
 
 void FBehaviorTreeEditor::OnPackageSaved(const FString& PackageFileName, UObject* Outer)
@@ -1189,352 +1143,15 @@ void FBehaviorTreeEditor::OnPackageSaved(const FString& PackageFileName, UObject
 
 void FBehaviorTreeEditor::OnClassListUpdated()
 {
-	UBehaviorTreeGraph* MyGraph = BehaviorTree ? Cast<UBehaviorTreeGraph>(BehaviorTree->BTGraph) : NULL;
-	if (MyGraph)
-	{
-		const bool bUpdated = MyGraph->UpdateUnknownNodeClasses();
-		if (bUpdated)
-		{
-			FGraphPanelSelectionSet CurrentSelection = GetSelectedNodes();
-			OnSelectedNodesChanged(CurrentSelection);
+	FAIGraphEditor::OnClassListUpdated();
 
-			MyGraph->UpdateAsset(UBehaviorTreeGraph::ClearDebuggerFlags);
-		}
-	}
-}
+	const int32 NumTaskBP = FGraphNodeClassHelper::GetObservedBlueprintClassCount(UBTTask_BlueprintBase::StaticClass());
+	const int32 NumDecoratorBP = FGraphNodeClassHelper::GetObservedBlueprintClassCount(UBTDecorator_BlueprintBase::StaticClass());
+	const int32 NumServiceBP = FGraphNodeClassHelper::GetObservedBlueprintClassCount(UBTService_BlueprintBase::StaticClass());
 
-FGraphPanelSelectionSet FBehaviorTreeEditor::GetSelectedNodes() const
-{
-	FGraphPanelSelectionSet CurrentSelection;
-	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
-	if (FocusedGraphEd.IsValid())
-	{
-		CurrentSelection = FocusedGraphEd->GetSelectedNodes();
-	}
-	return CurrentSelection;
-}
-
-void FBehaviorTreeEditor::SelectAllNodes()
-{
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-	if (CurrentGraphEditor.IsValid())
-	{
-		CurrentGraphEditor->SelectAllNodes();
-	}
-}
-
-bool FBehaviorTreeEditor::CanSelectAllNodes() const
-{
-	return true;
-}
-
-void FBehaviorTreeEditor::DeleteSelectedNodes()
-{
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-	if (!CurrentGraphEditor.IsValid())
-	{
-		return;
-	}
-
-	const FScopedTransaction Transaction( FGenericCommands::Get().Delete->GetDescription() );
-	CurrentGraphEditor->GetCurrentGraph()->Modify();
-
-	const FGraphPanelSelectionSet SelectedNodes = CurrentGraphEditor->GetSelectedNodes();
-	CurrentGraphEditor->ClearSelectionSet();
-
-	for (FGraphPanelSelectionSet::TConstIterator NodeIt( SelectedNodes ); NodeIt; ++NodeIt)
-	{
-		if (UEdGraphNode* Node = Cast<UEdGraphNode>(*NodeIt))
-		{
-			if (Node->CanUserDeleteNode())
-			{
-				Node->Modify();
-				Node->DestroyNode();
-			}
-		}
-	}
-}
-
-bool FBehaviorTreeEditor::CanDeleteNodes() const
-{
-	// If any of the nodes can be deleted then we should allow deleting
-	const FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
-	for (FGraphPanelSelectionSet::TConstIterator SelectedIter(SelectedNodes); SelectedIter; ++SelectedIter)
-	{
-		UEdGraphNode* Node = Cast<UEdGraphNode>(*SelectedIter);
-		if (Node && Node->CanUserDeleteNode())
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void FBehaviorTreeEditor::DeleteSelectedDuplicatableNodes()
-{
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-	if (!CurrentGraphEditor.IsValid())
-	{
-		return;
-	}
-
-	const FGraphPanelSelectionSet OldSelectedNodes = CurrentGraphEditor->GetSelectedNodes();
-	CurrentGraphEditor->ClearSelectionSet();
-
-	for (FGraphPanelSelectionSet::TConstIterator SelectedIter(OldSelectedNodes); SelectedIter; ++SelectedIter)
-	{
-		UEdGraphNode* Node = Cast<UEdGraphNode>(*SelectedIter);
-		if (Node && Node->CanDuplicateNode())
-		{
-			CurrentGraphEditor->SetNodeSelection(Node, true);
-		}
-	}
-
-	// Delete the duplicatable nodes
-	DeleteSelectedNodes();
-
-	CurrentGraphEditor->ClearSelectionSet();
-
-	for (FGraphPanelSelectionSet::TConstIterator SelectedIter(OldSelectedNodes); SelectedIter; ++SelectedIter)
-	{
-		if (UEdGraphNode* Node = Cast<UEdGraphNode>(*SelectedIter))
-		{
-			CurrentGraphEditor->SetNodeSelection(Node, true);
-		}
-	}
-}
-
-void FBehaviorTreeEditor::CutSelectedNodes()
-{
-	CopySelectedNodes();
-	DeleteSelectedDuplicatableNodes();
-}
-
-bool FBehaviorTreeEditor::CanCutNodes() const
-{
-	return CanCopyNodes() && CanDeleteNodes();
-}
-
-void FBehaviorTreeEditor::CopySelectedNodes()
-{
-	// Export the selected nodes and place the text on the clipboard
-	FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
-	TArray<UBehaviorTreeGraphNode*> SubNodes;
-
-	FString ExportedText;
-
-	int32 CopySubNodeIndex = 0;
-	for (FGraphPanelSelectionSet::TIterator SelectedIter(SelectedNodes); SelectedIter; ++SelectedIter)
-	{
-		UBehaviorTreeGraphNode* Node = Cast<UBehaviorTreeGraphNode>(*SelectedIter);
-		
-		// skip all manually selected subnodes
-		if (Node == NULL || Node->IsSubNode() || Node->bInjectedNode)
-		{
-			SelectedIter.RemoveCurrent();
-			continue;
-		}
-
-		Node->PrepareForCopying();
-		Node->CopySubNodeIndex = CopySubNodeIndex;
-
-		// append all subnodes for selection
-		for (int32 i = 0; i < Node->Decorators.Num(); i++)
-		{
-			if (!Node->Decorators[i]->bInjectedNode)
-			{
-				Node->Decorators[i]->CopySubNodeIndex = CopySubNodeIndex;
-				SubNodes.Add(Node->Decorators[i]);
-			}
-		}
-
-		for (int32 i = 0; i < Node->Services.Num(); i++)
-		{
-			if (!Node->Services[i]->bInjectedNode)
-			{
-				Node->Services[i]->CopySubNodeIndex = CopySubNodeIndex;
-				SubNodes.Add(Node->Services[i]);
-			}
-		}
-
-		CopySubNodeIndex++;
-	}
-
-	for (int32 i = 0; i < SubNodes.Num(); i++)
-	{
-		SelectedNodes.Add(SubNodes[i]);
-		SubNodes[i]->PrepareForCopying();
-	}
-
-	FEdGraphUtilities::ExportNodesToText(SelectedNodes, ExportedText);
-	FPlatformMisc::ClipboardCopy(*ExportedText);
-
-	for (FGraphPanelSelectionSet::TIterator SelectedIter(SelectedNodes); SelectedIter; ++SelectedIter)
-	{
-		UBehaviorTreeGraphNode* Node = Cast<UBehaviorTreeGraphNode>(*SelectedIter);
-		Node->PostCopyNode();
-	}
-}
-
-bool FBehaviorTreeEditor::CanCopyNodes() const
-{
-	// If any of the nodes can be duplicated then we should allow copying
-	const FGraphPanelSelectionSet SelectedNodes = GetSelectedNodes();
-	for (FGraphPanelSelectionSet::TConstIterator SelectedIter(SelectedNodes); SelectedIter; ++SelectedIter)
-	{
-		UEdGraphNode* Node = Cast<UEdGraphNode>(*SelectedIter);
-		if (Node && Node->CanDuplicateNode())
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void FBehaviorTreeEditor::PasteNodes()
-{
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-	if (CurrentGraphEditor.IsValid())
-	{
-		PasteNodesHere(CurrentGraphEditor->GetPasteLocation());
-	}
-}
-
-void FBehaviorTreeEditor::PasteNodesHere(const FVector2D& Location)
-{
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-	if (!CurrentGraphEditor.IsValid())
-	{
-		return;
-	}
-
-	// Undo/Redo support
-	const FScopedTransaction Transaction( FGenericCommands::Get().Paste->GetDescription() );
-	UBehaviorTreeGraph* BTGraph = Cast<UBehaviorTreeGraph>(CurrentGraphEditor->GetCurrentGraph());
-	BTGraph->Modify();
-	BTGraph->LockUpdates();
-
-	// Clear the selection set (newly pasted stuff will be selected)
-	CurrentGraphEditor->ClearSelectionSet();
-
-	// Grab the text to paste from the clipboard.
-	FString TextToImport;
-	FPlatformMisc::ClipboardPaste(TextToImport);
-
-	// Import the nodes
-	TSet<UEdGraphNode*> PastedNodes;
-	FEdGraphUtilities::ImportNodesFromText(BTGraph, TextToImport, /*out*/ PastedNodes);
-
-	//Average position of nodes so we can move them while still maintaining relative distances to each other
-	FVector2D AvgNodePosition(0.0f,0.0f);
-
-	float NumTopLevelNodes = 0.0f;
-	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
-	{
-		UBehaviorTreeGraphNode* BTNode = Cast<UBehaviorTreeGraphNode>(*It);
-		if (BTNode && !BTNode->IsSubNode())
-		{
-			AvgNodePosition.X += BTNode->NodePosX;
-			AvgNodePosition.Y += BTNode->NodePosY;
-			NumTopLevelNodes += 1.0f;
-		}
-	}
-
-	if (NumTopLevelNodes > 0.0f)
-	{
-		float InvNumNodes = 1.0f/NumTopLevelNodes;
-		AvgNodePosition.X *= InvNumNodes;
-		AvgNodePosition.Y *= InvNumNodes;
-	}
-
-	TMap<int32, UBehaviorTreeGraphNode*> ParentMap;
-	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
-	{
-		UBehaviorTreeGraphNode* BTNode = Cast<UBehaviorTreeGraphNode>(*It);
-		if (BTNode && !BTNode->IsSubNode())
-		{
-			// Select the newly pasted stuff
-			CurrentGraphEditor->SetNodeSelection(BTNode, true);
-
-			BTNode->NodePosX = (BTNode->NodePosX - AvgNodePosition.X) + Location.X ;
-			BTNode->NodePosY = (BTNode->NodePosY - AvgNodePosition.Y) + Location.Y ;
-
-			BTNode->SnapToGrid(16);
-
-			// Give new node a different Guid from the old one
-			BTNode->CreateNewGuid();
-
-			BTNode->Decorators.Reset();
-			BTNode->Services.Reset();
-
-			ParentMap.Add(BTNode->CopySubNodeIndex, BTNode);
-		}
-	}
-
-	for (TSet<UEdGraphNode*>::TIterator It(PastedNodes); It; ++It)
-	{
-		UBehaviorTreeGraphNode* BTNode = Cast<UBehaviorTreeGraphNode>(*It);
-		if (BTNode && BTNode->IsSubNode())
-		{
-			BTNode->NodePosX = 0;
-			BTNode->NodePosY = 0;
-
-			// Give new node a different Guid from the old one
-			BTNode->CreateNewGuid();
-
-			// remove subnode from graph, it will be referenced from parent node
-			BTNode->DestroyNode();
-
-			BTNode->ParentNode = ParentMap.FindRef(BTNode->CopySubNodeIndex);
-			if (BTNode->ParentNode)
-			{
-				const bool bIsService = BTNode->IsA(UBehaviorTreeGraphNode_Service::StaticClass());
-				if (bIsService)
-				{
-					BTNode->ParentNode->Services.Add(BTNode);
-				}
-				else
-				{
-					BTNode->ParentNode->Decorators.Add(BTNode);
-				}
-			}
-		}
-	}
-
-	BTGraph->UnlockUpdates();
-
-	// Update UI
-	CurrentGraphEditor->NotifyGraphChanged();
-
-	BehaviorTree->PostEditChange();
-	BehaviorTree->MarkPackageDirty();
-}
-
-bool FBehaviorTreeEditor::CanPasteNodes() const
-{
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
-	if (!CurrentGraphEditor.IsValid())
-	{
-		return false;
-	}
-
-	FString ClipboardContent;
-	FPlatformMisc::ClipboardPaste(ClipboardContent);
-
-	return FEdGraphUtilities::CanImportNodesFromText(CurrentGraphEditor->GetCurrentGraph(), ClipboardContent);
-}
-
-void FBehaviorTreeEditor::DuplicateNodes()
-{
-	CopySelectedNodes();
-	PasteNodes();
-}
-
-bool FBehaviorTreeEditor::CanDuplicateNodes() const
-{
-	return CanCopyNodes();
+	bHasMultipleTaskBP = NumTaskBP > 1;
+	bHasMultipleDecoratorBP = NumDecoratorBP > 1;
+	bHasMultipleServiceBP = NumServiceBP > 1;
 }
 
 void FBehaviorTreeEditor::OnNodeDoubleClicked(class UEdGraphNode* Node)
@@ -1553,9 +1170,10 @@ void FBehaviorTreeEditor::OnNodeDoubleClicked(class UEdGraphNode* Node)
 				ChildNodeEditor->InitializeDebuggerState(Debugger.Get());
 				
 				int32 FirstInjectedIdx = INDEX_NONE;
-				for (int32 Idx = 0; Idx < MyNode->ParentNode->Decorators.Num(); Idx++)
+				UBehaviorTreeGraphNode* MyParentNode = Cast<UBehaviorTreeGraphNode>(MyNode->ParentNode);
+				for (int32 Idx = 0; Idx < MyParentNode->Decorators.Num(); Idx++)
 				{
-					if (MyNode->ParentNode->Decorators[Idx]->bInjectedNode)
+					if (MyParentNode->Decorators[Idx]->bInjectedNode)
 					{
 						FirstInjectedIdx = Idx;
 						break;
@@ -1564,7 +1182,7 @@ void FBehaviorTreeEditor::OnNodeDoubleClicked(class UEdGraphNode* Node)
 
 				if (FirstInjectedIdx != INDEX_NONE)
 				{
-					const int32 NodeIdx = MyNode->ParentNode->Decorators.IndexOfByKey(MyNode) - FirstInjectedIdx;
+					const int32 NodeIdx = MyParentNode->Decorators.IndexOfByKey(MyNode) - FirstInjectedIdx;
 					UEdGraphNode* OtherNode = ChildNodeEditor->FindInjectedNode(NodeIdx);
 					if (OtherNode)
 					{
@@ -1627,7 +1245,7 @@ void FBehaviorTreeEditor::OnNodeDoubleClicked(class UEdGraphNode* Node)
 void FBehaviorTreeEditor::OnAddInputPin()
 {
 	FGraphPanelSelectionSet CurrentSelection;
-	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	TSharedPtr<SGraphEditor> FocusedGraphEd = UpdateGraphEdPtr.Pin();
 	if (FocusedGraphEd.IsValid())
 	{
 		CurrentSelection = FocusedGraphEd->GetSelectedNodes();
@@ -1677,7 +1295,7 @@ bool FBehaviorTreeEditor::CanAddInputPin() const
 
 void FBehaviorTreeEditor::OnRemoveInputPin()
 {
-	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	TSharedPtr<SGraphEditor> FocusedGraphEd = UpdateGraphEdPtr.Pin();
 	if (FocusedGraphEd.IsValid())
 	{
 		const FScopedTransaction Transaction( LOCTEXT("RemoveInputPin", "Remove Input Pin") );
@@ -1719,7 +1337,7 @@ bool FBehaviorTreeEditor::CanRemoveInputPin() const
 
 void FBehaviorTreeEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGraphEditor)
 {
-	FocusedGraphEdPtr = InGraphEditor;
+	UpdateGraphEdPtr = InGraphEditor;
 	FocusedGraphOwner = Cast<UBehaviorTreeGraphNode_CompositeDecorator>(InGraphEditor->GetCurrentGraph()->GetOuter());
 
 	FGraphPanelSelectionSet CurrentSelection;
@@ -1734,7 +1352,7 @@ void FBehaviorTreeEditor::SaveAsset_Execute()
 		UBehaviorTreeGraph* BTGraph = Cast<UBehaviorTreeGraph>(BehaviorTree->BTGraph);
 		if (BTGraph)
 		{
-			BTGraph->UpdateAsset(UBehaviorTreeGraph::SkipDebuggerFlags);
+			BTGraph->OnSave();
 		}
 	}
 	// save it
@@ -1913,7 +1531,7 @@ void FBehaviorTreeEditor::JumpToNode(const UEdGraphNode* Node)
 
 TWeakPtr<SGraphEditor> FBehaviorTreeEditor::GetFocusedGraphPtr() const
 {
-	return FocusedGraphEdPtr;
+	return UpdateGraphEdPtr;
 }
 
 bool FBehaviorTreeEditor::CanAccessBlackboardMode() const
@@ -1950,7 +1568,7 @@ UEdGraphNode* FBehaviorTreeEditor::FindInjectedNode(int32 Index) const
 
 void FBehaviorTreeEditor::DoubleClickNode(class UEdGraphNode* Node)
 {
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = FocusedGraphEdPtr.Pin();
+	TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin();
 	if (CurrentGraphEditor.IsValid())
 	{
 		CurrentGraphEditor->ClearSelectionSet();
@@ -2140,12 +1758,12 @@ void FBehaviorTreeEditor::CreateNewTask() const
 
 bool FBehaviorTreeEditor::IsNewTaskButtonVisible() const
 {
-	return !FClassBrowseHelper::IsMoreThanOneTaskClassAvailable();
+	return !bHasMultipleTaskBP;
 }
 
 bool FBehaviorTreeEditor::IsNewTaskComboVisible() const
 {
-	return FClassBrowseHelper::IsMoreThanOneTaskClassAvailable();
+	return bHasMultipleTaskBP;
 }
 
 void FBehaviorTreeEditor::CreateNewDecorator() const
@@ -2155,12 +1773,12 @@ void FBehaviorTreeEditor::CreateNewDecorator() const
 
 bool FBehaviorTreeEditor::IsNewDecoratorButtonVisible() const
 {
-	return !FClassBrowseHelper::IsMoreThanOneDecoratorClassAvailable();
+	return !bHasMultipleDecoratorBP;
 }
 
 bool FBehaviorTreeEditor::IsNewDecoratorComboVisible() const
 {
-	return FClassBrowseHelper::IsMoreThanOneDecoratorClassAvailable();
+	return bHasMultipleDecoratorBP;
 }
 
 void FBehaviorTreeEditor::CreateNewService() const
@@ -2170,12 +1788,12 @@ void FBehaviorTreeEditor::CreateNewService() const
 
 bool FBehaviorTreeEditor::IsNewServiceButtonVisible() const
 {
-	return !FClassBrowseHelper::IsMoreThanOneServiceClassAvailable();
+	return !bHasMultipleServiceBP;
 }
 
 bool FBehaviorTreeEditor::IsNewServiceComboVisible() const
 {
-	return FClassBrowseHelper::IsMoreThanOneServiceClassAvailable();
+	return bHasMultipleServiceBP;
 }
 
 void FBehaviorTreeEditor::CreateNewBlackboard()
@@ -2189,7 +1807,7 @@ void FBehaviorTreeEditor::CreateNewBlackboard()
 	FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 	AssetToolsModule.Get().CreateUniqueAssetName(PathNameWithFilename, TEXT(""), PackageName, Name);
 
-	UDataAssetFactory* DataAssetFactory = ConstructObject<UDataAssetFactory>(UDataAssetFactory::StaticClass());
+	UDataAssetFactory* DataAssetFactory = NewObject<UDataAssetFactory>();
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 	ContentBrowserModule.Get().CreateNewAsset(Name, PathName, UBlackboardData::StaticClass(), DataAssetFactory);
 }

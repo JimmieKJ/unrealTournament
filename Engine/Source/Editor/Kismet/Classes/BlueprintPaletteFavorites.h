@@ -85,7 +85,7 @@ private:
 * FBlueprintPaletteFavorites
 *******************************************************************************/
 
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class KISMET_API UBlueprintPaletteFavorites : public UObject
 {
 	GENERATED_UCLASS_BODY()

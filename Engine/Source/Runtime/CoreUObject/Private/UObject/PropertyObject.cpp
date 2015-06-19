@@ -2,6 +2,7 @@
 
 #include "CoreUObjectPrivate.h"
 #include "LinkerPlaceholderExportObject.h"
+#include "LinkerPlaceholderClass.h"
 
 /*-----------------------------------------------------------------------------
 	UObjectProperty.
@@ -23,7 +24,7 @@ FString UObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	return TEXT("OBJECT");
 }
 
-void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	UObject* ObjectValue = GetObjectPropertyValue(Value);
 	Ar << ObjectValue;
@@ -31,10 +32,16 @@ void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadByt
 	UObject* CurrentValue = GetObjectPropertyValue(Value);
 	if (ObjectValue != CurrentValue)
 	{
+		SetObjectPropertyValue(Value, ObjectValue);
+
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 		if (ULinkerPlaceholderExportObject* PlaceholderVal = Cast<ULinkerPlaceholderExportObject>(ObjectValue))
 		{
-			PlaceholderVal->AddReferencingProperty(this);
+			PlaceholderVal->AddReferencingPropertyValue(this, Value);
+		}
+		else if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(ObjectValue))
+		{
+			PlaceholderClass->AddReferencingPropertyValue(this, Value);
 		}
 		// NOTE: we don't remove this from CurrentValue if it is a 
 		//       ULinkerPlaceholderExportObject; this is because this property 
@@ -49,20 +56,12 @@ void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadByt
 		//        to accommodate this (as it depends on finding itself as the set value)
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
-		SetObjectPropertyValue(Value, ObjectValue);
 		CheckValidObject(Value);
 	}
 }
 
 void UObjectProperty::SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const
 {
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	if (ULinkerPlaceholderExportObject* PlaceholderVal = Cast<ULinkerPlaceholderExportObject>(Value))
-	{
-		check(PlaceholderVal->IsReferencedBy(this));
-	}
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-
 	SetPropertyValue(PropertyValueAddress, Value);
 }
 

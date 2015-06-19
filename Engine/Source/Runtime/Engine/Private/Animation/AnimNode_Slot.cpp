@@ -14,7 +14,12 @@ void FAnimNode_Slot::Initialize(const FAnimationInitializeContext& Context)
 	SourceWeight = 0.f;
 	SlotNodeWeight = 0.f;
 
-	Context.AnimInstance->RegisterSlotNode(SlotName);
+	// If this node has not already been registered with the AnimInstance, do it.
+	if ((LastSlotNodeInitializationCounter == INDEX_NONE) || (LastSlotNodeInitializationCounter != Context.AnimInstance->GetSlotNodeInitializationCounter()))
+	{
+		LastSlotNodeInitializationCounter = Context.AnimInstance->GetSlotNodeInitializationCounter();
+		Context.AnimInstance->RegisterSlotNodeWithAnimInstance(SlotName);
+	}
 }
 
 void FAnimNode_Slot::CacheBones(const FAnimationCacheBonesContext& Context) 
@@ -93,5 +98,6 @@ FAnimNode_Slot::FAnimNode_Slot()
 	: SlotName(FAnimSlotGroup::DefaultSlotName)
 	, SourceWeight(0.f)
 	, SlotNodeWeight(0.f)
+	, LastSlotNodeInitializationCounter(INDEX_NONE)
 {
 }

@@ -45,6 +45,8 @@ public:
 	/** Test to see whether the given class would be allowed by this class viewer */
 	virtual bool IsClassAllowed(const UClass* InClass) const;
 
+	/** Destroys the internal Class Hierarchy database */
+	static void DestroyClassHierarchy();
 private:
 	/** Retrieves the children for the input node.
 	 *	@param InParent				The parent node to retrieve the children from.
@@ -57,7 +59,7 @@ private:
 	TSharedRef< ITableRow > OnGenerateRowForClassViewer( TSharedPtr<FClassViewerNode> Item, const TSharedRef< STableViewBase >& OwnerTable );
 
 	/** Invoked when the user attempts to drag an item out of the class browser */
-	FReply OnDragDetected( const FGeometry& Geometry, const FPointerEvent& PointerEvent );
+	FReply OnDragDetected( const FGeometry& Geometry, const FPointerEvent& PointerEvent ) override;
 
 	/** Called by Slate when the filter box changes text. */
 	void OnFilterTextChanged( const FText& InFilterText );

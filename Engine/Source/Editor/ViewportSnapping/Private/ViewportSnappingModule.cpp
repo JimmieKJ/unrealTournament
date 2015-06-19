@@ -43,7 +43,7 @@ public:
 		}
 	}
 
-	virtual void DrawSnappingHelpers(const FSceneView* View, FPrimitiveDrawInterface* PDI)
+	virtual void DrawSnappingHelpers(const FSceneView* View, FPrimitiveDrawInterface* PDI) override
 	{
 		for (auto PolicyIt = PolicyList.CreateConstIterator(); PolicyIt; ++PolicyIt)
 		{
@@ -70,7 +70,7 @@ public:
 		MergedPolicy->PolicyList.Add(NewPolicy);
 	}
 
-	virtual void UnregisterSnappingPolicy(TSharedPtr<ISnappingPolicy> PolicyToRemove)
+	virtual void UnregisterSnappingPolicy(TSharedPtr<ISnappingPolicy> PolicyToRemove) override
 	{
 		MergedPolicy->PolicyList.Remove(PolicyToRemove);
 	}

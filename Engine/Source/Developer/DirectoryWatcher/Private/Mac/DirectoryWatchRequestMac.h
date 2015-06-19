@@ -8,7 +8,7 @@
 class FDirectoryWatchRequestMac
 {
 public:
-	FDirectoryWatchRequestMac();
+	FDirectoryWatchRequestMac(bool bInIncludeDirectoryEvents);
 	virtual ~FDirectoryWatchRequestMac();
 
 	/** Sets up the directory handle and request information */
@@ -35,6 +35,7 @@ private:
 	FSEventStreamRef	EventStream;
 	bool				bRunning;
 	bool				bEndWatchRequestInvoked;
+	bool				bIncludeDirectoryEvents;
 
 	TArray<IDirectoryWatcher::FDirectoryChanged> Delegates;
 	TArray<FFileChangeData> FileChanges;

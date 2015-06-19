@@ -29,7 +29,7 @@ void FStatsConvertCommand::InternalRun()
 
 	// get the list of stats
 	TArray<FString> StatArrayString;
-	if (StatListString.ParseIntoArray(&StatArrayString, TEXT("+"), true) == 0)
+	if (StatListString.ParseIntoArray(StatArrayString, TEXT("+"), true) == 0)
 	{
 		StatArrayString.Add(TEXT("STAT_FrameTime"));
 	}

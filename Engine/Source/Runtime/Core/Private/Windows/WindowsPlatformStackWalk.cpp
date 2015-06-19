@@ -67,7 +67,7 @@ static int32 CaptureStackTraceHelper( uint64 *BackTrace, uint32 MaxDepth, CONTEX
 		ThreadHandle	= GetCurrentThread();
 
 		// Zero out stack frame.
-		FMemory::MemZero( StackFrame64 );
+		FMemory::Memzero( StackFrame64 );
 
 		// Initialize the STACKFRAME structure.
 		StackFrame64.AddrPC.Mode         = AddrModeFlat;
@@ -154,7 +154,7 @@ static bool GMaxCallstackDepthInitialized = false;
 void DetermineMaxCallstackDepth()
 {
 	// Check that we're running on Vista or newer (version 6.0+).
-	if ( FWindowsPlatformMisc::VerifyWindowsMajorVersion(6) )
+	if ( FWindowsPlatformMisc::VerifyWindowsVersion(6, 0) )
 	{
 		GMaxCallstackDepth = MAX_CALLSTACK_DEPTH;
 	}

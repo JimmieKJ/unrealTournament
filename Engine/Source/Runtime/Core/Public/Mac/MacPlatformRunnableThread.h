@@ -30,7 +30,7 @@ private:
 	virtual int GetDefaultStackSize() override
 	{
 		// default is 512 KB, we need more
-		return 2 * 1024 * 1024;
+		return 4 * 1024 * 1024;
 	}
 
 	/**

@@ -4,6 +4,83 @@
 #include "EngineVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "EngineBuildSettings.h"
+#include "ModuleVersion.h"
+
+FEngineVersionBase::FEngineVersionBase()
+: Major(0)
+, Minor(0)
+, Patch(0)
+, Changelist(0)
+{
+}
+
+FEngineVersionBase::FEngineVersionBase(uint16 InMajor, uint16 InMinor, uint16 InPatch, uint32 InChangelist)
+: Major(InMajor)
+, Minor(InMinor)
+, Patch(InPatch)
+, Changelist(InChangelist)
+{
+}
+
+uint32 FEngineVersionBase::GetChangelist() const
+{
+	// Mask to ignore licensee bit
+	return Changelist & (uint32)0x7fffffffU;
+}
+
+bool FEngineVersionBase::IsLicenseeVersion() const
+{
+	// Check for licensee bit
+	return (Changelist & (uint32)0x80000000U) != 0;
+}
+
+bool FEngineVersionBase::IsEmpty() const
+{
+	return Major == 0 && Minor == 0 && Patch == 0;
+}
+
+bool FEngineVersionBase::IsPromotedBuild() const
+{
+	return GetChangelist() != 0;
+}
+
+EVersionComparison FEngineVersionBase::GetNewest(const FEngineVersionBase &First, const FEngineVersionBase &Second, EVersionComponent *OutComponent)
+{
+	EVersionComponent LocalComponent = EVersionComponent::Minor;
+	auto& Component = OutComponent ? *OutComponent : LocalComponent;
+
+	// Compare major versions
+	if (First.GetMajor() != Second.GetMajor())
+	{
+		Component = EVersionComponent::Major;
+		return (First.GetMajor() > Second.GetMajor()) ? EVersionComparison::First : EVersionComparison::Second;
+	}
+
+	// Compare minor versions
+	if (First.GetMinor() != Second.GetMinor())
+	{
+		Component = EVersionComponent::Minor;
+		return (First.GetMinor() > Second.GetMinor()) ? EVersionComparison::First : EVersionComparison::Second;
+	}
+
+	// Compare patch versions
+	if (First.GetPatch() != Second.GetPatch())
+	{
+		Component = EVersionComponent::Patch;
+		return (First.GetPatch() > Second.GetPatch()) ? EVersionComparison::First : EVersionComparison::Second;
+	}
+
+	// Compare changelists (only if they're both from the same vendor, and they're both valid)
+	if (First.IsLicenseeVersion() == Second.IsLicenseeVersion() && First.IsPromotedBuild() && Second.IsPromotedBuild() && First.GetChangelist() != Second.GetChangelist())
+	{
+		Component = EVersionComponent::Changelist;
+		return (First.GetChangelist() > Second.GetChangelist()) ? EVersionComparison::First : EVersionComparison::Second;
+	}
+
+	// Otherwise they're the same
+	return EVersionComparison::Neither;
+}
+
 
 FEngineVersion::FEngineVersion()
 {
@@ -24,64 +101,21 @@ void FEngineVersion::Set(uint16 InMajor, uint16 InMinor, uint16 InPatch, uint32 
 	Branch = InBranch;
 }
 
-uint32 FEngineVersion::GetChangelist() const
-{
-	// Mask to ignore licensee bit
-	return Changelist & (uint32)0x7fffffffU;
-}
-
-bool FEngineVersion::IsLicenseeVersion() const
-{
-	// Check for licensee bit
-	return (Changelist & (uint32)0x80000000U) != 0;
-}
-
 void FEngineVersion::Empty()
 {
 	Set(0, 0, 0, 0, FString());
 }
 
-bool FEngineVersion::IsEmpty() const
-{
-	return Major == 0 && Minor == 0 && Patch == 0;
-}
-
-bool FEngineVersion::IsPromotedBuild() const
-{
-	return GetChangelist() != 0;
-}
-
-bool FEngineVersion::IsCompatibleWith(const FEngineVersion &Other) const
+bool FEngineVersion::IsCompatibleWith(const FEngineVersionBase &Other) const
 {
 	// If this or the other is not a promoted build, always assume compatibility. 
 	if(!IsPromotedBuild() || !Other.IsPromotedBuild())
 	{
 		return true;
 	}
-
-	if (FEngineBuildSettings::IsPerforceBuild() && Other.Branch == FString(TEXT("++depot+UE4-UT-Releases")))
-	{
-		return true;
-	}
-
-	// Otherwise compare the versions
-	EVersionComponent Component;
-	EVersionComparison Comparison = FEngineVersion::GetNewest(*this, Other, &Component);
-
-	// If this engine version is the same or newer, it's definitely compatible
-	if(Comparison == EVersionComparison::Neither || Comparison == EVersionComparison::First)
-	{
-		return true;
-	}
-
-	// Otherwise check if we require a strict version match or just a major/minor version match.
-	if (Component != EVersionComponent::Major && Component != EVersionComponent::Minor && FRocketSupport::IsRocket())
-	{
-		return true;
-	}
 	else
 	{
-		return false;
+		return FEngineVersion::GetNewest(*this, Other, nullptr) != EVersionComparison::Second;
 	}
 }
 
@@ -144,43 +178,6 @@ bool FEngineVersion::Parse(const FString &Text, FEngineVersion &OutVersion)
 	return true;
 }
 
-EVersionComparison FEngineVersion::GetNewest(const FEngineVersion &First, const FEngineVersion &Second, EVersionComponent *OutComponent)
-{
-	EVersionComponent LocalComponent = EVersionComponent::Minor;
-	auto& Component = OutComponent ? *OutComponent : LocalComponent;
-
-	// Compare major versions
-	if(First.Major != Second.Major)
-	{
-		Component = EVersionComponent::Major;
-		return (First.Major > Second.Major)? EVersionComparison::First : EVersionComparison::Second;
-	}
-
-	// Compare minor versions
-	if(First.Minor != Second.Minor)
-	{
-		Component = EVersionComponent::Minor;
-		return (First.Minor > Second.Minor)? EVersionComparison::First : EVersionComparison::Second;
-	}
-
-	// Compare patch versions
-	if(First.Patch != Second.Patch)
-	{
-		Component = EVersionComponent::Patch;
-		return (First.Patch > Second.Patch)? EVersionComparison::First : EVersionComparison::Second;
-	}
-
-	// Compare changelists (only if they're both from the same vendor)
-	if(First.IsLicenseeVersion() == Second.IsLicenseeVersion() && First.GetChangelist() != Second.GetChangelist())
-	{
-		Component = EVersionComponent::Changelist;
-		return (First.GetChangelist() > Second.GetChangelist()) ? EVersionComparison::First : EVersionComparison::Second;
-	}
-
-	// Otherwise they're the same
-	return EVersionComparison::Neither;
-}
-
 void operator<<(FArchive &Ar, FEngineVersion &Version)
 {
 	Ar << Version.Major;
@@ -197,5 +194,9 @@ void operator<<(FArchive &Ar, FEngineVersion &Version)
 
 // Licensee changelists part of the engine version has the top bit set to 1
 #define ENGINE_VERSION_INTERNAL_OR_LICENSEE (BUILT_FROM_CHANGELIST | (ENGINE_IS_LICENSEE_VERSION << 31))
+
 // Global instance of the current engine version
 const FEngineVersion GEngineVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, ENGINE_VERSION_INTERNAL_OR_LICENSEE, BRANCH_NAME);
+
+// Version which this engine maintains strict API and package compatibility with
+const FEngineVersion GCompatibleWithEngineVersion(ENGINE_MAJOR_VERSION, ENGINE_MINOR_VERSION, ENGINE_PATCH_VERSION, (MODULE_API_VERSION | (ENGINE_IS_LICENSEE_VERSION << 31)), BRANCH_NAME);

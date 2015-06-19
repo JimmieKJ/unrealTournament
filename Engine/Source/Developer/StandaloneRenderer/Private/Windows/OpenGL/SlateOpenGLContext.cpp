@@ -26,7 +26,7 @@ static HWND CreateDummyGLWindow()
 		WNDCLASS wc;
 
 		bInitializedWindowClass = true;
-		FMemory::MemZero(wc);
+		FMemory::Memzero(wc);
 		wc.style = CS_OWNDC;
 		wc.lpfnWndProc = DummyGLWndproc;
 		wc.cbClsExtra = 0;

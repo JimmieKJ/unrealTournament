@@ -12,7 +12,7 @@ class UHorizontalBoxSlot;
  * ● Many Children
  * ● Flow Horizontal
  */
-UCLASS(ClassGroup=UserInterface)
+UCLASS()
 class UMG_API UHorizontalBox : public UPanelWidget
 {
 	GENERATED_UCLASS_BODY()

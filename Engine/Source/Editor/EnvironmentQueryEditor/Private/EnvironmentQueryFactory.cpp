@@ -15,7 +15,7 @@ UEnvironmentQueryFactory::UEnvironmentQueryFactory(const FObjectInitializer& Obj
 UObject* UEnvironmentQueryFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
 	check(Class->IsChildOf(UEnvQuery::StaticClass()));
-	return ConstructObject<UEnvQuery>(Class, InParent, Name, Flags);
+	return NewObject<UEnvQuery>(InParent, Class, Name, Flags);
 }
 
 bool UEnvironmentQueryFactory::CanCreateNew() const

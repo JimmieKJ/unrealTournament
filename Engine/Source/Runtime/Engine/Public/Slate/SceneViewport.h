@@ -12,22 +12,22 @@ DECLARE_DELEGATE_OneParam( FOnSceneViewportResize, FVector2D );
 /**
  * A viewport for use with Slate SViewport widgets.
  */
-class ENGINE_API FSceneViewport : public FViewportFrame, public FViewport, public ISlateViewport
+class ENGINE_API FSceneViewport : public FViewportFrame, public FViewport, public ISlateViewport, public IViewportRenderTargetProvider
 {
 public:
 	FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SViewport> InViewportWidget );
 	~FSceneViewport();
 
-	virtual void* GetWindow() { return NULL; }
+	virtual void* GetWindow() override { return NULL; }
 
 	/** FViewport interface */
-	virtual void MoveWindow(int32 NewPosX, int32 NewPosY, int32 NewSizeX, int32 NewSizeY) {}
-	virtual bool HasMouseCapture() const;
-	virtual bool HasFocus() const;
-	virtual bool IsForegroundWindow() const;
-	virtual void CaptureMouse( bool bCapture );
-	virtual void LockMouseToViewport( bool bLock );
-	virtual void ShowCursor( bool bVisible );
+	virtual void MoveWindow(int32 NewPosX, int32 NewPosY, int32 NewSizeX, int32 NewSizeY) override {}
+	virtual bool HasMouseCapture() const override;
+	virtual bool HasFocus() const override;
+	virtual bool IsForegroundWindow() const override;
+	virtual void CaptureMouse( bool bCapture ) override;
+	virtual void LockMouseToViewport( bool bLock ) override;
+	virtual void ShowCursor( bool bVisible ) override;
 	virtual void SetPreCaptureMousePosFromSlateCursor() override;
 	virtual bool IsCursorVisible() const override { return bIsCursorVisible; }
 	virtual void ShowSoftwareCursor( bool bVisible ) override { bIsSoftwareCursorVisible = bVisible; }
@@ -35,6 +35,11 @@ public:
 	virtual bool IsSoftwareCursorVisible() const override { return bIsSoftwareCursorVisible; }
 	virtual FVector2D GetSoftwareCursorPosition() const override { return SoftwareCursorPosition; }
 	virtual FCanvas* GetDebugCanvas() override;
+
+	/** Gets the proper RenderTarget based on the current thread*/
+	virtual const FTexture2DRHIRef& GetRenderTargetTexture() const;
+
+	virtual void SetRenderTargetTextureRenderThread(FTexture2DRHIRef& RT);
 
 	/**
 	 * Captures or uncaptures the joystick
@@ -117,7 +122,7 @@ public:
 	/**
 	 * Ticks the viewport
 	 */
-	virtual void Tick( const FGeometry& AllottedGeometry, double InCurrentTime, float DeltaTime ) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, double InCurrentTime, float InDeltaTime ) override;
 
 	/**
 	 * Performs a resize when in swapping viewports while viewing the play world.
@@ -214,13 +219,18 @@ public:
 	TSharedPtr<SWindow> FindWindow();
 
 	/** Should return true, if stereo rendering is allowed in this viewport */
-	virtual bool IsStereoRenderingAllowed() const;
+	virtual bool IsStereoRenderingAllowed() const override;
+
+	/** Returns dimensions of RenderTarget texture. Can be called on a game thread. */
+	virtual FIntPoint GetRenderTargetTextureSizeXY() const { return (RTTSize.X != 0) ? RTTSize : GetSizeXY(); }
+
+	virtual FSlateShaderResource* GetViewportRenderTargetTexture() override;
 
 private:
 	/**
 	 * Called when this viewport is destroyed
 	 */
-	void Destroy();
+	void Destroy() override;
 
 	// FRenderResource interface.
 	virtual void InitDynamicRHI() override;
@@ -279,6 +289,9 @@ private:
 	 */
 	void ApplyModifierKeys( const FModifierKeysState& InKeysState );
 
+
+	void WindowRenderTargetUpdate(FSlateRenderer* Renderer, SWindow* Window);
+
 private:
 	/** An intermediate reply state that is reset whenever an input event is generated */
 	FReply CurrentReplyState;
@@ -293,9 +306,7 @@ private:
 	/**	The current position of the software cursor */
 	FVector2D SoftwareCursorPosition;
 	/**	Whether the software cursor should be drawn in the viewport */
-	bool bIsSoftwareCursorVisible;
-	/** The render target used by Slate to draw the viewport.  Can be null if this viewport renders directly to the backbuffer */
-	class FSlateRenderTargetRHI* SlateRenderTargetHandle;
+	bool bIsSoftwareCursorVisible;	
 	/** Draws the debug canvas in Slate */
 	TSharedPtr<class FDebugCanvasDrawer, ESPMode::ThreadSafe> DebugCanvasDrawer;
 	/** The Slate viewport widget where this viewport is drawn */
@@ -322,6 +333,23 @@ private:
 	bool bPlayInEditorIsSimulate;
 	/** Whether or not the cursor is hidden when the viewport captures the mouse */
 	bool bCursorHiddenDueToCapture;
+	/** Position the cursor was at when we hid it due to capture, so we can put it back afterwards */
+	FIntPoint MousePosBeforeHiddenDueToCapture;
+	/** Dimensions of RenderTarget texture. */
+	FIntPoint RTTSize;
+
+	/** Reprojection on some HMD RHI's requires ViewportTargets to be buffered */
+	/** The render target used by Slate to draw the viewport.  Can be null if this viewport renders directly to the backbuffer */
+	TArray<class FSlateRenderTargetRHI*> BufferedSlateHandles;
+	TArray<FTexture2DRHIRef> BufferedRenderTargetsRHI;
+	TArray<FTexture2DRHIRef> BufferedShaderResourceTexturesRHI;
+
+	FTexture2DRHIRef RenderTargetTextureRenderThreadRHI;
+	class FSlateRenderTargetRHI* RenderThreadSlateTexture;
+
+	int32 NumBufferedFrames;
+	int32 CurrentBufferedTargetIndex;
+	int32 NextBufferedTargetIndex;
 };
 
 

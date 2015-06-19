@@ -409,7 +409,7 @@ TArray<FSubLevelStatus> GetSubLevelsStatus( UWorld* World )
 
 			// this will not work for flying around :-(
 			static FName NAME_FindLevel = FName(TEXT("FindLevel"), true);			
-			PlayerController->GetWorld()->LineTraceSingle(Hit,PlayerController->GetPawn()->GetActorLocation(), (PlayerController->GetPawn()->GetActorLocation()-FVector(0.f, 0.f, 256.f)), FCollisionQueryParams(NAME_FindLevel, true, PlayerController->GetPawn()), FCollisionObjectQueryParams(ECC_WorldStatic));
+			PlayerController->GetWorld()->LineTraceSingleByObjectType(Hit,PlayerController->GetPawn()->GetActorLocation(), (PlayerController->GetPawn()->GetActorLocation()-FVector(0.f, 0.f, 256.f)), FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(NAME_FindLevel, true, PlayerController->GetPawn()));
 
 			ULevel* LevelPlayerIsIn = NULL;
 

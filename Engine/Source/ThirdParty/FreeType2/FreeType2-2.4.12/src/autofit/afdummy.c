@@ -34,11 +34,13 @@
 
   static FT_Error
   af_dummy_hints_apply( AF_GlyphHints  hints,
-                        FT_Outline*    outline )
+                        FT_Outline*    outline,
+                        AF_ScriptMetrics  metrics
+                      )
   {
     FT_UNUSED( hints );
     FT_UNUSED( outline );
-
+    FT_UNUSED( metrics );
     return FT_Err_Ok;
   }
 

@@ -114,6 +114,7 @@ FSkeletonTreeSummoner::FSkeletonTreeSummoner(TSharedPtr<class FAssetEditorToolki
 	: FWorkflowTabFactory(FPersonaTabs::SkeletonTreeViewID, InHostingApp)
 {
 	TabLabel = LOCTEXT("SkeletonTreeTabTitle", "Skeleton Tree");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.Tabs.SkeletonTree");
 
 	EnableTabPadding();
 	bIsSingleton = true;
@@ -137,6 +138,7 @@ FMorphTargetTabSummoner::FMorphTargetTabSummoner(TSharedPtr<class FAssetEditorTo
 	: FWorkflowTabFactory(FPersonaTabs::MorphTargetsID, InHostingApp)
 {
 	TabLabel = LOCTEXT("MorphTargetTabTitle", "Morph Target Previewer");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.Tabs.MorphTargetPreviewer");
 
 	EnableTabPadding();
 	bIsSingleton = true;
@@ -232,6 +234,7 @@ FRetargetManagerTabSummoner::FRetargetManagerTabSummoner(TSharedPtr<class FAsset
 	: FWorkflowTabFactory(FPersonaTabs::RetargetManagerID, InHostingApp)
 {
 	TabLabel = LOCTEXT("RetargetManagerTabTitle", "Retarget Manager");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.Tabs.RetargetManager");
 
 	EnableTabPadding();
 	bIsSingleton = true;

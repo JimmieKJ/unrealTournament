@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : 1579795,
 	"Description" : "Android Platform Movie Player using Android Media library",
-	"Category" : "Programming Runtime.Plugins",
+	"Category" : "Media Players",
 	"EnabledByDefault" : true,
 	
     "Modules" :

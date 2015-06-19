@@ -44,7 +44,7 @@ TSharedRef<SWidget> SUWPanel::GenerateStringListWidget(TSharedPtr<FString> InIte
 		[
 			SNew(STextBlock)
 			.ColorAndOpacity(FLinearColor::Black)
-			.Text(*InItem.Get())
+			.Text(FText::FromString(*InItem.Get()))
 		];
 }
 

@@ -23,7 +23,7 @@ class UMG_API UCheckBox : public UContentWidget
 
 public:
 	/** Whether the check box is currently in a checked state */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	ECheckBoxState CheckedState;
 
 	/** A bindable delegate for the IsChecked. */
@@ -76,15 +76,15 @@ public:
 	USlateBrushAsset* UndeterminedPressedImage_DEPRECATED;
 
 	/** How the content of the toggle button should align within the given space */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
 
 	/** Spacing between the check box image and its content */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FMargin Padding;
 
 	/** The color of the background border */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateColor BorderBackgroundColor;
 
 public:

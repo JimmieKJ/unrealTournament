@@ -53,7 +53,7 @@ bool FCollection::LoadFromFile(const FString& InFilename, bool InUseSCC)
 	// Normalize line endings and parse into array
 	TArray<FString> FileContents;
 	FullFileContentsString.ReplaceInline(TEXT("\r"), TEXT(""));
-	FullFileContentsString.ParseIntoArray(&FileContents, TEXT("\n"), /*bCullEmpty=*/false);
+	FullFileContentsString.ParseIntoArray(FileContents, TEXT("\n"), /*bCullEmpty=*/false);
 
 	if ( FileContents.Num() == 0 )
 	{

@@ -32,7 +32,7 @@ class UPhyaCollisionHandler : public UPhysicsCollisionHandler
 
 	// Begin UPhysicsCollisionHandler interface
 	virtual void InitCollisionHandler() override;
-	virtual void HandlePhysicsCollisions(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies) override;
+	virtual void HandlePhysicsCollisions_AssumesLocked(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies) override;
 	// End UPhysicsCollisionHandler interface
 
 	void TestImpact();

@@ -88,6 +88,7 @@ bool UCurveLinearColor::IsValidCurve( FRichCurveEditInfo CurveInfo )
 {
 	return CurveInfo.CurveToEdit == &FloatCurves[0] ||
 		CurveInfo.CurveToEdit == &FloatCurves[1] ||
-		CurveInfo.CurveToEdit == &FloatCurves[2];
+		CurveInfo.CurveToEdit == &FloatCurves[2] ||
+		CurveInfo.CurveToEdit == &FloatCurves[3];
 }
 

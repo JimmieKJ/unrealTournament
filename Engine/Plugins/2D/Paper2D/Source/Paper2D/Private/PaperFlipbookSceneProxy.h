@@ -10,5 +10,5 @@
 class FPaperFlipbookSceneProxy : public FPaperRenderSceneProxy
 {
 public:
-	FPaperFlipbookSceneProxy(const UPaperFlipbookComponent* InComponent);
+	FPaperFlipbookSceneProxy(const class UPaperFlipbookComponent* InComponent);
 };

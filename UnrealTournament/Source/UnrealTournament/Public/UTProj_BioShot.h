@@ -387,4 +387,13 @@ class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 	UFUNCTION()
 		virtual void OnWebOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	/** Reward announcement when kill with loaded goo. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
+		TSubclassOf<class UUTRewardMessage> AirSnotRewardClass;
+
+	virtual void DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
+
+	/** used to tell AI to avoid landed, stationary glob */
+	UPROPERTY()
+	class AUTAvoidMarker* FearSpot;
 };

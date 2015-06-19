@@ -1,11 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-LandscapeLight.h: Static lighting for LandscapeComponents
-=============================================================================*/
+  LandscapeLight.h: Static lighting for LandscapeComponents
+  =============================================================================*/
 
-#ifndef _LANDSCAPELIGHT_H
-#define _LANDSCAPELIGHT_H
+#pragma once
 
 #include "StaticLighting.h"
 
@@ -94,4 +93,51 @@ public:
 #endif
 };
 
-#endif // _LANDSCAPELIGHT_H
+namespace
+{
+	// LightmapRes: Multiplier of lightmap size relative to landscape size
+	// X: (Output) PatchExpandCountX (at Lighting LOD)
+	// Y: (Output) PatchExpandCountY (at Lighting LOD)
+	// ComponentSize: Component size in patches (at LOD 0)
+	// LigtmapSize: Size desired for lightmap (texels)
+	// DesiredSize: (Output) Recommended lightmap size (texels)
+	// return: LightMapRatio
+	static float GetTerrainExpandPatchCount(float LightMapRes, int32& X, int32& Y, int32 ComponentSize, int32 LightmapSize, int32& DesiredSize, uint32 LightingLOD)
+	{
+		if (LightMapRes <= 0) return 0.f;
+
+		// Assuming DXT_1 compression at the moment...
+		int32 PixelPaddingX = GPixelFormats[PF_DXT1].BlockSizeX; // "/2" ?
+		int32 PixelPaddingY = GPixelFormats[PF_DXT1].BlockSizeY;
+		int32 PatchExpandCountX = (LightMapRes >= 1.f) ? (PixelPaddingX) / LightMapRes : (PixelPaddingX);
+		int32 PatchExpandCountY = (LightMapRes >= 1.f) ? (PixelPaddingY) / LightMapRes : (PixelPaddingY);
+
+		X = FMath::Max<int32>(1, PatchExpandCountX >> LightingLOD);
+		Y = FMath::Max<int32>(1, PatchExpandCountY >> LightingLOD);
+
+		DesiredSize = (LightMapRes >= 1.f) ? FMath::Min<int32>((int32)((ComponentSize + 1) * LightMapRes), 4096) : FMath::Min<int32>((int32)((LightmapSize)* LightMapRes), 4096);
+		int32 CurrentSize = (LightMapRes >= 1.f) ? FMath::Min<int32>((int32)((2 * (X << LightingLOD) + ComponentSize + 1) * LightMapRes), 4096) : FMath::Min<int32>((int32)((2 * (X << LightingLOD) + LightmapSize) * LightMapRes), 4096);
+
+		// Find proper Lightmap Size
+		if (CurrentSize > DesiredSize)
+		{
+			// Find maximum bit
+			int32 PriorSize = DesiredSize;
+			while (DesiredSize > 0)
+			{
+				PriorSize = DesiredSize;
+				DesiredSize = DesiredSize & ~(DesiredSize & ~(DesiredSize - 1));
+			}
+
+			DesiredSize = PriorSize << 1; // next bigger size
+			if (CurrentSize * CurrentSize <= ((PriorSize * PriorSize) << 1))
+			{
+				DesiredSize = PriorSize;
+			}
+		}
+
+		int32 DestSize = (float)DesiredSize / CurrentSize * (ComponentSize*LightMapRes);
+		float LightMapRatio = (float)DestSize / (ComponentSize*LightMapRes) * CurrentSize / DesiredSize;
+		return LightMapRatio;
+	}
+}

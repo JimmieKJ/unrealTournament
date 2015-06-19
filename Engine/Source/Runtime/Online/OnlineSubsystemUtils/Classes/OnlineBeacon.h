@@ -1,15 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//
-// Basic beacon
-//
 #pragma once
 #include "OnlineBeacon.generated.h"
-
-/** Time client beacon will wait to establish a connection with the beacon host */
-#define BEACON_CONNECTION_INITIAL_TIMEOUT 5.0f
-/** Time client beacon will wait after establishing a connection for packets before giving up */
-#define BEACON_CONNECTION_TIMEOUT 45.0f
 
 ONLINESUBSYSTEMUTILS_API DECLARE_LOG_CATEGORY_EXTERN(LogBeacon, Display, All);
 
@@ -33,6 +25,7 @@ class ONLINESUBSYSTEMUTILS_API AOnlineBeacon : public AActor, public FNetworkNot
 
 	// Begin AActor Interface
 	virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
+	virtual UNetConnection* GetNetConnection() const override { return nullptr; }
 	// End AActor Interface
 
 	// Begin FNetworkNotify Interface
@@ -68,7 +61,7 @@ class ONLINESUBSYSTEMUTILS_API AOnlineBeacon : public AActor, public FNetworkNot
 		if (bPause)
 		{
 			UE_LOG(LogBeacon, Verbose, TEXT("Reservation Beacon Requests Paused."));
-			NetDriver->SetWorld(NULL);
+			NetDriver->SetWorld(nullptr);
 			NetDriver->Notify = this;
 			BeaconState = EBeaconState::DenyRequests;
 		}
@@ -84,40 +77,26 @@ class ONLINESUBSYSTEMUTILS_API AOnlineBeacon : public AActor, public FNetworkNot
 	/** Beacon cleanup and net driver destruction */
 	virtual void DestroyBeacon();
 
-	/**
-	 * Associate this beacon with a network connection
-	 *
-	 * @param NetConnection connection that the beacon will communicate over
-	 */
-	virtual void SetNetConnection(class UNetConnection* NetConnection) 
-	{
-		BeaconConnection = NetConnection;
-	}
-
-	/**
-	 * Get the network connection associated with this beacon
-	 *
-	 * @return net connection used in communication
-	 */
-	virtual UNetConnection* GetNetConnection() override;	
-
 protected:
+
+	/** Time beacon will wait to establish a connection with the beacon host */
+	UPROPERTY(Config)
+	float BeaconConnectionInitialTimeout;
+	/** Time beacon will wait for packets after establishing a connection before giving up */
+	UPROPERTY(Config)
+	float BeaconConnectionTimeout;
+
 	/** Net driver routing network traffic */
 	UPROPERTY()
 	UNetDriver* NetDriver;
-	/** Name of net driver to use for communication */
-	UPROPERTY(Config)
-	FName BeaconNetDriverName;
-	/** Network connection */
-	UPROPERTY()
-	UNetConnection* BeaconConnection;
+
 	/** State of beacon */
 	EBeaconState::Type BeaconState;
 	/** Handle to the registered HandleNetworkFailure delegate */
 	FDelegateHandle HandleNetworkFailureDelegateHandle;
 
 	/** Common initialization for all beacon types */
-	bool InitBase();
+	virtual bool InitBase();
 
 	/** Notification that failure needs to be handled */
 	virtual void OnFailure();

@@ -64,6 +64,7 @@ public:
 	virtual void SummonLevelViewportContextMenu() override;
 	virtual const TArray< TSharedPtr< class IToolkit > >& GetHostedToolkits() const override;
 	virtual TArray< TSharedPtr< ILevelViewport > > GetViewports() const override;
+	virtual TSharedPtr<ILevelViewport> GetActiveViewportInterface() override;
 	virtual TSharedPtr< class FAssetThumbnailPool > GetThumbnailPool() const override;
 	virtual void AppendCommands( const TSharedRef<FUICommandList>& InCommandsToAppend ) override;
 
@@ -117,8 +118,6 @@ public:
 		return true;
 	}
 
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
 	// Tab Management
 	TSharedRef<FTabManager> GetTabManager() const;
 	
@@ -129,7 +128,7 @@ private:
 	
 	TSharedRef<SDockTab> SpawnLevelEditorTab(const FSpawnTabArgs& Args, FName TabIdentifier, FString InitializationPayload);
 	//TSharedRef<SDockTab> SpawnLevelEditorModeTab(const FSpawnTabArgs& Args, FEdMode* EditorMode);
-	TSharedRef<SDockTab> SummonDetailsPanel( FName Identifier, TSharedPtr<FExtender> ActorMenuExtender = nullptr );
+	TSharedRef<SDockTab> SummonDetailsPanel( FName Identifier );
 
 	/**
 	 * Binds UI commands to actions for the level editor                   
@@ -163,7 +162,7 @@ private:
 	 * @param MyGeometry		Information about the size and position of the level editor widget
 	 * @param InKeyEvent	The event which just occurred	
 	 */
-	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent );
+	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 
 	/** Callback for when the property view changes */
 	void OnPropertyObjectArrayChanged(const FString& NewTitle, const TArray< UObject* >& UObjects );
@@ -193,7 +192,7 @@ private:
 	void HandleEditorMapChange( uint32 MapChangeFlags );
 
 	/** Called when actors are selected or unselected */
-	void OnActorSelectionChanged( const TArray<UObject*>& NewSelection );
+	void OnActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh = false);
 private:
 
 	// Tracking the active viewports in this level editor.

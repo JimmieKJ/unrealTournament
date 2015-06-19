@@ -32,6 +32,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "hlslcc.h"
 #if __APPLE__
 #else
 #include <malloc.h>
@@ -416,12 +417,12 @@ unlink_block(ralloc_header *info)
    info->next = NULL;
 }
 
-static void
-unsafe_free(ralloc_header *info)
+static void unsafe_free(ralloc_header *info)
 {
    /* Recursively free any children...don't waste time unlinking them. */
-   ralloc_header *temp;
-   while (info->child != NULL) {
+	ralloc_header *temp;
+	while (info->child != NULL)
+	{
       temp = info->child;
       info->child = temp->next;
       unsafe_free(temp);
@@ -438,8 +439,7 @@ unsafe_free(ralloc_header *info)
 #endif // #if USE_MEM_BLOCKS
 }
 
-void *
-ralloc_parent(const void *ptr)
+void * ralloc_parent(const void *ptr)
 {
    ralloc_header *info;
 
@@ -452,31 +452,30 @@ ralloc_parent(const void *ptr)
 
 static void *autofree_context = NULL;
 
-static void
-autofree(void)
+static void autofree(void)
 {
    ralloc_free(autofree_context);
+   
+   FCRTMemLeakScope Scope(true);
 }
 
-void *
-ralloc_autofree_context(void)
+void * ralloc_autofree_context(void)
 {
-   if (unlikely(autofree_context == NULL)) {
+   if (unlikely(autofree_context == NULL))
+	{
       autofree_context = ralloc_context(NULL);
       atexit(autofree);
    }
    return autofree_context;
 }
 
-void
-ralloc_set_destructor(const void *ptr, void(*destructor)(void *))
+void ralloc_set_destructor(const void *ptr, void(*destructor)(void *))
 {
    ralloc_header *info = get_header(ptr);
    info->destructor = destructor;
 }
 
-char *
-ralloc_strdup(const void *ctx, const char *str)
+char * ralloc_strdup(const void *ctx, const char *str)
 {
    size_t n;
    char *ptr;
@@ -491,8 +490,7 @@ ralloc_strdup(const void *ctx, const char *str)
    return ptr;
 }
 
-char *
-ralloc_strndup(const void *ctx, const char *str, size_t max)
+char * ralloc_strndup(const void *ctx, const char *str, size_t max)
 {
    size_t n;
    char *ptr;

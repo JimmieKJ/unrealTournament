@@ -18,7 +18,7 @@ void SSeparator::Construct( const FArguments& InArgs )
 	Thickness = InArgs._Thickness;
 }
 
-FVector2D SSeparator::ComputeDesiredSize() const
+FVector2D SSeparator::ComputeDesiredSize( float ) const
 {
 	const float Length = 16.0f;
 	return (Orientation == Orient_Horizontal) ? FVector2D(Length, Thickness) : FVector2D(Thickness, Length);

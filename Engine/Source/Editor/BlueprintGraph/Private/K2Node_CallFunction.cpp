@@ -34,7 +34,7 @@ struct FCustomStructureParamHelper
 			FString MetaDataValue = Function->GetMetaData(GetCustomStructureParamName());
 			if (!MetaDataValue.IsEmpty())
 			{
-				MetaDataValue.ParseIntoArray(&OutNames, TEXT(","), true);
+				MetaDataValue.ParseIntoArray(OutNames, TEXT(","), true);
 			}
 		}
 	}
@@ -428,9 +428,9 @@ FString UK2Node_CallFunction::GetDeprecationMessage() const
 }
 
 
-FString UK2Node_CallFunction::GetFunctionContextString() const
+FText UK2Node_CallFunction::GetFunctionContextString() const
 {
-	FString ContextString;
+	FText ContextString;
 
 	// Don't show 'target is' if no target pin!
 	UEdGraphPin* SelfPin = GetDefault<UEdGraphSchema_K2>()->FindSelfPin(*this, EGPD_Input);
@@ -446,7 +446,9 @@ FString UK2Node_CallFunction::GetFunctionContextString() const
 
 		const FText TargetText = FBlueprintEditorUtils::GetFriendlyClassDisplayName(TrueSelfClass);
 
-		ContextString = FText::Format(LOCTEXT("CallFunctionOnDifferentContext", "\nTarget is {0}"), TargetText).ToString();
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("TargetName"), TargetText);
+		ContextString = FText::Format(LOCTEXT("CallFunctionOnDifferentContext", "Target is {TargetName}"), Args);
 	}
 
 	return ContextString;
@@ -455,9 +457,9 @@ FString UK2Node_CallFunction::GetFunctionContextString() const
 
 FText UK2Node_CallFunction::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	FString FunctionName;
-	FString ContextString;
-	FString RPCString;
+	FText FunctionName;
+	FText ContextString;
+	FText RPCString;
 
 	if (UFunction* Function = GetTargetFunction())
 	{
@@ -467,24 +469,40 @@ FText UK2Node_CallFunction::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	}
 	else
 	{
-		FunctionName = FunctionReference.GetMemberName().ToString();
+		FunctionName = FText::FromName(FunctionReference.GetMemberName());
 		if ((GEditor != NULL) && (GetDefault<UEditorStyleSettings>()->bShowFriendlyNames))
 		{
-			FunctionName = FName::NameToDisplayString(FunctionName, false);
+			FunctionName = FText::FromString(FName::NameToDisplayString(FunctionName.ToString(), false));
 		}
 	}
 
 	if(TitleType == ENodeTitleType::FullTitle)
 	{
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("FunctionName"), FText::FromString(FunctionName));
-		Args.Add(TEXT("ContextString"), FText::FromString(ContextString));
-		Args.Add(TEXT("RPCString"), FText::FromString(RPCString));
-		return FText::Format(LOCTEXT("CallFunction_FullTitle", "{FunctionName}{ContextString}{RPCString}"), Args);
+		Args.Add(TEXT("FunctionName"), FunctionName);
+		Args.Add(TEXT("ContextString"), ContextString);
+		Args.Add(TEXT("RPCString"), RPCString);
+
+		if (ContextString.IsEmpty() && RPCString.IsEmpty())
+		{
+			return FText::Format(LOCTEXT("CallFunction_FullTitle", "{FunctionName}"), Args);
+		}
+		else if (ContextString.IsEmpty())
+		{
+			return FText::Format(LOCTEXT("CallFunction_FullTitle_WithRPCString", "{FunctionName}\n{RPCString}"), Args);
+		}
+		else if (RPCString.IsEmpty())
+		{
+			return FText::Format(LOCTEXT("CallFunction_FullTitle_WithContextString", "{FunctionName}\n{ContextString}"), Args);
+		}
+		else
+		{
+			return FText::Format(LOCTEXT("CallFunction_FullTitle_WithContextRPCString", "{FunctionName}\n{ContextString}\n{RPCString}"), Args);
+		}
 	}
 	else
 	{
-		return FText::FromString(FunctionName);
+		return FunctionName;
 	}
 }
 
@@ -518,11 +536,11 @@ void UK2Node_CallFunction::AllocateDefaultPins()
 	// First try remap table
 	if (Function == NULL)
 	{
-		UClass* ParentClass = FunctionReference.GetMemberParentClass(this);
+		UClass* ParentClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
 
 		if (ParentClass != NULL)
 		{
-			if (UFunction* NewFunction = Cast<UFunction>(FindRemappedField(ParentClass, FunctionReference.GetMemberName())))
+			if (UFunction* NewFunction = Cast<UFunction>(FMemberReference::FindRemappedField(ParentClass, FunctionReference.GetMemberName())))
 			{
 				// Found a remapped property, update the node
 				Function = NewFunction;
@@ -543,7 +561,7 @@ void UK2Node_CallFunction::AllocateDefaultPins()
 				Function = FindField<UFunction>(TestClass, FunctionReference.GetMemberName());
 				if (Function != NULL)
 				{
-					UClass* OldClass = FunctionReference.GetMemberParentClass(this);
+					UClass* OldClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
 					Message_Note( FString::Printf(*LOCTEXT("FixedUpFunctionInLibrary", "UK2Node_CallFunction: Fixed up function '%s', originally in '%s', now in library '%s'.").ToString(),
 						*FunctionReference.GetMemberName().ToString(),
 						 (OldClass != NULL) ? *OldClass->GetName() : TEXT("(null)"), *TestClass->GetName()) );
@@ -790,7 +808,7 @@ bool UK2Node_CallFunction::CreatePinsForFunctionCall(const UFunction* Function)
 	ensure(BP);
 	if (BP != nullptr)
 	{
-		const bool bIsFunctionCompatibleWithSelf = !K2Schema->IsStaticFunctionGraph(GetGraph()) && BP->SkeletonGeneratedClass->IsChildOf(FunctionOwnerClass);
+		const bool bIsFunctionCompatibleWithSelf = BP->SkeletonGeneratedClass->IsChildOf(FunctionOwnerClass);
 
 		if (bIsStaticFunc)
 		{
@@ -884,6 +902,8 @@ void UK2Node_CallFunction::PostReconstructNode()
 {
 	Super::PostReconstructNode();
 
+	FCustomStructureParamHelper::UpdateCustomStructurePins(GetTargetFunction(), this);
+
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 	// Fixup self node, may have been overridden from old self node
 	UFunction* Function = GetTargetFunction();
@@ -899,6 +919,11 @@ void UK2Node_CallFunction::PostReconstructNode()
 			if (!BP->SkeletonGeneratedClass->IsChildOf(FunctionOwnerClass))
 			{
 				SelfPin->DefaultObject = FunctionOwnerClass->GetDefaultObject();
+			}
+			else
+			{
+				// In case a non-NULL reference was previously serialized on load, ensure that it's set to NULL here to match what a new node's self pin would be initialized as (see CreatePinsForFunctionCall).
+				SelfPin->DefaultObject = nullptr;
 			}
 		}
 	}
@@ -962,14 +987,14 @@ void UK2Node_CallFunction::PinDefaultValueChanged(UEdGraphPin* Pin)
 
 UFunction* UK2Node_CallFunction::GetTargetFunction() const
 {
-	UFunction* Function = FunctionReference.ResolveMember<UFunction>(this);
+	UFunction* Function = FunctionReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
 	return Function;
 }
 
 UFunction* UK2Node_CallFunction::GetTargetFunctionFromSkeletonClass() const
 {
 	UFunction* TargetFunction = nullptr;
-	UClass* ParentClass = FunctionReference.GetMemberParentClass( this );
+	UClass* ParentClass = FunctionReference.GetMemberParentClass( GetBlueprintClassFromNode() );
 	UBlueprint* OwningBP = ParentClass ? Cast<UBlueprint>( ParentClass->ClassGeneratedBy ) : nullptr;
 	if( UClass* SkeletonClass = OwningBP ? OwningBP->SkeletonGeneratedClass : nullptr )
 	{
@@ -1048,7 +1073,7 @@ bool UK2Node_CallFunction::CanPasteHere(const UEdGraph* TargetGraph) const
 		{
 			TargetFunction = GetTargetFunctionFromSkeletonClass();
 		}
-		bCanPaste = K2Schema->CanFunctionBeUsedInGraph(FBlueprintEditorUtils::FindBlueprintForGraphChecked(TargetGraph)->GeneratedClass, TargetFunction, TargetGraph, AllowedFunctionTypes, false, FFunctionTargetInfo());
+		bCanPaste = K2Schema->CanFunctionBeUsedInGraph(FBlueprintEditorUtils::FindBlueprintForGraphChecked(TargetGraph)->GeneratedClass, TargetFunction, TargetGraph, AllowedFunctionTypes, false);
 	}
 	
 	return bCanPaste;
@@ -1114,7 +1139,7 @@ FText UK2Node_CallFunction::GetTooltipText() const
 	{
 		return FText::Format(LOCTEXT("CallUnknownFunction", "Call unknown function {0}"), FText::FromName(FunctionReference.GetMemberName()));
 	}
-	else if (CachedTooltip.IsOutOfDate())
+	else if (CachedTooltip.IsOutOfDate(this))
 	{
 		FText BaseTooltip = FText::FromString(GetDefaultTooltipForFunction(Function));
 
@@ -1128,7 +1153,7 @@ FText UK2Node_CallFunction::GetTooltipText() const
 				NSLOCTEXT("K2Node", "ServerFunction", "Authority Only. This function will only execute on the server.")
 			);
 			// FText::Format() is slow, so we cache this to save on performance
-			CachedTooltip = FText::Format(LOCTEXT("CallFunction_SubtitledTooltip", "{DefaultTooltip}\n\n{ClientString}"), Args);
+			CachedTooltip.SetCachedText(FText::Format(LOCTEXT("CallFunction_SubtitledTooltip", "{DefaultTooltip}\n\n{ClientString}"), Args), this);
 		}
 		else if (Function->HasAllFunctionFlags(FUNC_BlueprintCosmetic))
 		{
@@ -1137,11 +1162,11 @@ FText UK2Node_CallFunction::GetTooltipText() const
 				NSLOCTEXT("K2Node", "ClientEvent", "Cosmetic. This event is only for cosmetic, non-gameplay actions.")
 			);
 			// FText::Format() is slow, so we cache this to save on performance
-			CachedTooltip = FText::Format(LOCTEXT("CallFunction_SubtitledTooltip", "{DefaultTooltip}\n\n{ClientString}"), Args);
+			CachedTooltip.SetCachedText(FText::Format(LOCTEXT("CallFunction_SubtitledTooltip", "{DefaultTooltip}\n\n{ClientString}"), Args), this);
 		} 
 		else
 		{
-			CachedTooltip = BaseTooltip;
+			CachedTooltip.SetCachedText(BaseTooltip, this);
 		}
 	}
 	return CachedTooltip;
@@ -1152,7 +1177,8 @@ void UK2Node_CallFunction::GeneratePinTooltipFromFunction(UEdGraphPin& Pin, cons
 	// figure what tag we should be parsing for (is this a return-val pin, or a parameter?)
 	FString ParamName;
 	FString TagStr = TEXT("@param");
-	if (Pin.PinName == UEdGraphSchema_K2::PN_ReturnValue)
+	const bool bReturnPin = Pin.PinName == UEdGraphSchema_K2::PN_ReturnValue;
+	if (bReturnPin)
 	{
 		TagStr = TEXT("@return");
 	}
@@ -1177,6 +1203,12 @@ void UK2Node_CallFunction::GeneratePinTooltipFromFunction(UEdGraphPin& Pin, cons
 
 		// advance past the tag
 		CurStrPos += TagStr.Len();
+
+		// handle people having done @returns instead of @return
+		if (bReturnPin && CurStrPos < FullToolTipLen && FunctionToolTipText[CurStrPos] == TEXT('s'))
+		{
+			++CurStrPos;
+		}
 
 		// advance past whitespace
 		while(CurStrPos < FullToolTipLen && FChar::IsWhitespace(FunctionToolTipText[CurStrPos]))
@@ -1253,25 +1285,19 @@ void UK2Node_CallFunction::GeneratePinTooltipFromFunction(UEdGraphPin& Pin, cons
 	GetDefault<UEdGraphSchema_K2>()->ConstructBasicPinTooltip(Pin, FText::FromString(Pin.PinToolTip), Pin.PinToolTip);
 }
 
-FString UK2Node_CallFunction::GetUserFacingFunctionName(const UFunction* Function)
+FText UK2Node_CallFunction::GetUserFacingFunctionName(const UFunction* Function)
 {
-	FString FunctionName = Function->GetMetaData(TEXT("FriendlyName"));
-	
-	if (FunctionName.IsEmpty())
-	{
-		FunctionName = Function->GetName();
-	}
-
-	if( GEditor && GetDefault<UEditorStyleSettings>()->bShowFriendlyNames )
-	{
-		FunctionName = FName::NameToDisplayString(FunctionName, false);
-	}
-	return FunctionName;
+	return Function->GetDisplayNameText();
 }
 
 FString UK2Node_CallFunction::GetDefaultTooltipForFunction(const UFunction* Function)
 {
-	FString Tooltip = Function->GetToolTipText().ToString();
+	FString Tooltip;
+
+	if (Function != NULL)
+	{
+		Tooltip = Function->GetToolTipText().ToString();
+	}
 
 	if (!Tooltip.IsEmpty())
 	{
@@ -1302,7 +1328,7 @@ FString UK2Node_CallFunction::GetDefaultTooltipForFunction(const UFunction* Func
 	}
 	else
 	{
-		return GetUserFacingFunctionName(Function);
+		return GetUserFacingFunctionName(Function).ToString();
 	}
 }
 
@@ -1329,11 +1355,11 @@ FString UK2Node_CallFunction::GetDefaultCategoryForFunction(const UFunction* Fun
 }
 
 
-FString UK2Node_CallFunction::GetKeywordsForFunction(const UFunction* Function)
+FText UK2Node_CallFunction::GetKeywordsForFunction(const UFunction* Function)
 {
 	// If the friendly name and real function name do not match add the real function name friendly name as a keyword.
 	FString Keywords;
-	if( Function->GetName() != GetUserFacingFunctionName(Function) )
+	if( Function->GetName() != GetUserFacingFunctionName(Function).ToString() )
 	{
 		Keywords = Function->GetName();
 	}
@@ -1344,15 +1370,18 @@ FString UK2Node_CallFunction::GetKeywordsForFunction(const UFunction* Function)
 		Keywords += GetCompactNodeTitle(Function);
 	}
 
-	FString MetaKeywords = Function->GetMetaData(FBlueprintMetadata::MD_FunctionKeywords);
+	FText MetadataKeywords = Function->GetMetaDataText(FBlueprintMetadata::MD_FunctionKeywords, TEXT("UObjectKeywords"), Function->GetFullGroupName(false));
+	FText ResultKeywords;
 
-	if (!MetaKeywords.IsEmpty())
+	if (!MetadataKeywords.IsEmpty())
 	{
-		Keywords.AppendChar(TEXT(' '));
-		Keywords += MetaKeywords;
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("Name"), FText::FromString(Keywords));
+		Args.Add(TEXT("MetadataKeywords"), MetadataKeywords);
+		ResultKeywords = FText::Format(FText::FromString("{Name} {MetadataKeywords}"), Args);
 	}
 
-	return Keywords;
+	return ResultKeywords;
 }
 
 void UK2Node_CallFunction::SetFromFunction(const UFunction* Function)
@@ -1363,7 +1392,7 @@ void UK2Node_CallFunction::SetFromFunction(const UFunction* Function)
 		bIsConstFunc = Function->HasAnyFunctionFlags(FUNC_Const);
 		DetermineWantsEnumToExecExpansion(Function);
 
-		FunctionReference.SetFromField<UFunction>(Function, this);
+		FunctionReference.SetFromField<UFunction>(Function, GetBlueprintClassFromNode());
 	}
 }
 
@@ -1383,7 +1412,7 @@ FString UK2Node_CallFunction::GetDocumentationLink() const
 	}
 	else 
 	{
-		ParentClass = FunctionReference.GetMemberParentClass(this);
+		ParentClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
 	}
 	
 	if (ParentClass != NULL)
@@ -1491,7 +1520,7 @@ void UK2Node_CallFunction::GetRedirectPinNames(const UEdGraphPin& Pin, TArray<FS
 		RedirectPinNames.Add(FString::Printf(TEXT("%s.%s"), *FunctionReference.GetMemberName().ToString(), *OldPinName));
 
 		// if there is class, also add an option for class.functionname.param
-		UClass* FunctionClass = FunctionReference.GetMemberParentClass(this);
+		UClass* FunctionClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
 		while (FunctionClass)
 		{
 			RedirectPinNames.Add(FString::Printf(TEXT("%s.%s.%s"), *FunctionClass->GetName(), *FunctionReference.GetMemberName().ToString(), *OldPinName));
@@ -1504,7 +1533,7 @@ bool UK2Node_CallFunction::IsSelfPinCompatibleWithBlueprintContext(UEdGraphPin *
 {
 	check(BlueprintObj);
 
-	UClass* FunctionClass = FunctionReference.GetMemberParentClass(this);
+	UClass* FunctionClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
 
 	bool bIsCompatible = (SelfPin != NULL) ? SelfPin->bHidden : true;
 	if (!bIsCompatible && (BlueprintObj->GeneratedClass != NULL))
@@ -1581,7 +1610,7 @@ void UK2Node_CallFunction::PostDuplicate(bool bDuplicateForPIE)
 	Super::PostDuplicate(bDuplicateForPIE);
 	if (!bDuplicateForPIE && (!this->HasAnyFlags(RF_Transient)))
 	{
-		FunctionReference.InvalidateSelfScope();
+		FunctionReference.InvalidateScope();
 		EnsureFunctionIsInBlueprint();
 	}
 }
@@ -1607,7 +1636,7 @@ void UK2Node_CallFunction::ValidateNodeDuringCompilation(class FCompilerResultsL
 		FString const FunctName = FunctionReference.GetMemberName().ToString();
 
 		FText const WarningFormat = LOCTEXT("FunctionNotFound", "Could not find a function named \"%s\" in '%s'.\nMake sure '%s' has been compiled for @@");
-		MessageLog.Warning(*FString::Printf(*WarningFormat.ToString(), *FunctName, *OwnerName, *OwnerName), this);
+		MessageLog.Error(*FString::Printf(*WarningFormat.ToString(), *FunctName, *OwnerName, *OwnerName), this);
 	}
 	else if (Function->HasMetaData(FBlueprintMetadata::MD_ExpandEnumAsExecs) && bWantsEnumToExecExpansion == false)
 	{
@@ -1700,7 +1729,7 @@ void UK2Node_CallFunction::PostPlacedNewNode()
 	Super::PostPlacedNewNode();
 
 	// Try re-setting the function given our new parent scope, in case it turns an external to an internal, or vis versa
-	FunctionReference.RefreshGivenNewSelfScope<UFunction>(this);
+	FunctionReference.RefreshGivenNewSelfScope<UFunction>(GetBlueprintClassFromNode());
 }
 
 FNodeHandlingFunctor* UK2Node_CallFunction::CreateNodeHandler(FKismetCompilerContext& CompilerContext) const
@@ -1863,14 +1892,14 @@ void UK2Node_CallFunction::ExpandNode(class FKismetCompilerContext& CompilerCont
 			{
 				if ( Pin && bHasAutoCreateRefTerms && AutoCreateRefTermPinNames.Contains(Pin->PinName) )
 				{
-					const bool bHasDefaultValue = !Pin->DefaultValue.IsEmpty() || Pin->DefaultObject || !Pin->DefaultTextValue.IsEmpty();
 					const bool bValidAutoRefPin = Pin->PinType.bIsReference
 						&& !CompilerContext.GetSchema()->IsMetaPin(*Pin)
 						&& ( Pin->Direction == EGPD_Input )
-						&& !Pin->LinkedTo.Num()
-						&& ( Pin->PinType.bIsArray || bHasDefaultValue );
+						&& !Pin->LinkedTo.Num();
 					if ( bValidAutoRefPin )
 					{
+						const bool bHasDefaultValue = !Pin->DefaultValue.IsEmpty() || Pin->DefaultObject || !Pin->DefaultTextValue.IsEmpty();
+
 						//default values can be reset when the pin is connected
 						const auto DefaultValue = Pin->DefaultValue;
 						const auto DefaultObject = Pin->DefaultObject;
@@ -2159,14 +2188,15 @@ FText UK2Node_CallFunction::GetMenuCategory() const
 
 bool UK2Node_CallFunction::HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const
 {
-	const UClass* SourceClass = FunctionReference.GetMemberParentClass(this);
+	UFunction* Function = GetTargetFunction();
+	const UClass* SourceClass = Function ? Function->GetOwnerClass() : nullptr;
 	const UBlueprint* SourceBlueprint = GetBlueprint();
-	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
+	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
 	if (bResult && OptionalOutput)
 	{
-		OptionalOutput->Add(GetTargetFunction());
+		OptionalOutput->AddUnique(Function);
 	}
-	return bResult || Super::HasExternalBlueprintDependencies(OptionalOutput);
+	return Super::HasExternalBlueprintDependencies(OptionalOutput) || bResult;
 }
 
 UEdGraph* UK2Node_CallFunction::GetFunctionGraph(const UEdGraphNode*& OutGraphNode) const
@@ -2174,7 +2204,7 @@ UEdGraph* UK2Node_CallFunction::GetFunctionGraph(const UEdGraphNode*& OutGraphNo
 	OutGraphNode = NULL;
 
 	// Search for the Blueprint owner of the function graph, climbing up through the Blueprint hierarchy
-	UClass* MemberParentClass = FunctionReference.GetMemberParentClass(this);
+	UClass* MemberParentClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
 	if(MemberParentClass != NULL)
 	{
 		UBlueprintGeneratedClass* ParentClass = Cast<UBlueprintGeneratedClass>(MemberParentClass);

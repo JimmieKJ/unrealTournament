@@ -12,11 +12,16 @@
 #include "PhysicsEngine/BodyInstance.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "Components/HierarchicalInstancedStaticMeshComponent.h"
+#include "LandscapeComponent.h"
+#include "LandscapeLayerInfoObject.h"
+#include "LandscapeGrassType.h"
+#include "Tickable.h"
+#include "AI/Navigation/NavigationTypes.h"
 
 #include "LandscapeProxy.generated.h"
 
 class ULandscapeMaterialInstanceConstant;
-class ULandscapeLayerInfoObject;
 class ULandscapeSplinesComponent;
 class ULandscapeHeightfieldCollisionComponent;
 class UMaterialInterface;
@@ -24,6 +29,7 @@ class UTexture2D;
 class ALandscape;
 class ALandscapeProxy;
 class ULandscapeComponent;
+class USplineComponent;
 
 /** Structure storing channel usage for weightmap textures */
 USTRUCT()
@@ -187,10 +193,124 @@ namespace ELandscapeLODFalloff
 	};
 }
 
-UCLASS(NotPlaceable, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Rendering, "Utilities|Transformation"), MinimalAPI)
-class ALandscapeProxy : public AActor
+struct FCachedLandscapeFoliage
+{
+	struct FGrassCompKey
+	{
+		TWeakObjectPtr<ULandscapeComponent> BasedOn;
+		TWeakObjectPtr<ULandscapeGrassType> GrassType;
+		int32 SqrtSubsections;
+		int32 CachedMaxInstancesPerComponent;
+		int32 SubsectionX;
+		int32 SubsectionY;
+		int32 NumVarieties;
+		int32 VarietyIndex;
+
+		FGrassCompKey()
+			: SqrtSubsections(0)
+			, CachedMaxInstancesPerComponent(0)
+			, SubsectionX(0)
+			, SubsectionY(0)
+			, NumVarieties(0)
+			, VarietyIndex(-1)
+		{
+		}
+		inline bool operator==(const FGrassCompKey& Other) const
+		{
+			return 
+				SqrtSubsections == Other.SqrtSubsections &&
+				CachedMaxInstancesPerComponent == Other.CachedMaxInstancesPerComponent &&
+				SubsectionX == Other.SubsectionX &&
+				SubsectionY == Other.SubsectionY &&
+				BasedOn == Other.BasedOn &&
+				GrassType == Other.GrassType &&
+				NumVarieties == Other.NumVarieties &&
+				VarietyIndex == Other.VarietyIndex;
+		}
+
+		friend uint32 GetTypeHash(const FGrassCompKey& Key)
+		{
+			return GetTypeHash(Key.BasedOn) ^ GetTypeHash(Key.GrassType) ^ Key.SqrtSubsections ^ Key.CachedMaxInstancesPerComponent ^ (Key.SubsectionX >> 16) ^ (Key.SubsectionY >> 24) ^ (Key.NumVarieties >> 3) ^ (Key.VarietyIndex >> 13);
+		}
+
+	};
+
+	struct FGrassComp
+	{
+		FGrassCompKey Key;
+		TWeakObjectPtr<UHierarchicalInstancedStaticMeshComponent> Foliage;
+		uint32 LastUsedFrameNumber;
+		double LastUsedTime;
+		bool Pending;
+
+		FGrassComp()
+			: Pending(true)
+		{
+			Touch();
+		}
+		void Touch()
+		{
+			LastUsedFrameNumber = GFrameNumber;
+			LastUsedTime = FPlatformTime::Seconds();
+		}
+	};
+
+	struct FGrassCompKeyFuncs : BaseKeyFuncs<FGrassComp,FGrassCompKey>
+	{
+		static KeyInitType GetSetKey(const FGrassComp& Element)
+		{
+			return Element.Key;
+		}
+
+		static bool Matches(KeyInitType A, KeyInitType B)
+		{
+			return A == B;
+		}
+
+		static uint32 GetKeyHash(KeyInitType Key)
+		{
+			return GetTypeHash(Key);
+		}
+	};
+
+	typedef TSet<FGrassComp, FGrassCompKeyFuncs> TGrassSet;
+	TSet<FGrassComp, FGrassCompKeyFuncs> CachedGrassComps;
+
+	void ClearCache()
+	{
+		CachedGrassComps.Empty();
+	}
+};
+
+class FAsyncGrassTask : public FNonAbandonableTask
+{
+public:
+	struct FAsyncGrassBuilder* Builder;
+	FCachedLandscapeFoliage::FGrassCompKey Key;
+	TWeakObjectPtr<UHierarchicalInstancedStaticMeshComponent> Foliage;
+
+	FAsyncGrassTask(struct FAsyncGrassBuilder* InBuilder, const FCachedLandscapeFoliage::FGrassCompKey& InKey, UHierarchicalInstancedStaticMeshComponent* InFoliage)
+		: Builder(InBuilder)
+		, Key(InKey)
+		, Foliage(InFoliage)
+	{
+	}
+	void DoWork();
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncGrassTask, STATGROUP_ThreadPoolAsyncTasks);
+	}
+
+	~FAsyncGrassTask();
+};
+
+UCLASS(NotPlaceable, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"), MinimalAPI)
+class ALandscapeProxy : public AActor, public FTickableGameObject
 {
 	GENERATED_UCLASS_BODY()
+
+	virtual ~ALandscapeProxy();
 
 	UPROPERTY()
 	ULandscapeSplinesComponent* SplineComponent;
@@ -211,7 +331,7 @@ public:
 	bool bStaticSectionOffset;
 #endif
 
-	/** Max LOD level to use when rendering */
+	/** Max LOD level to use when rendering, -1 means the max available */
 	UPROPERTY(EditAnywhere, Category=LOD)
 	int32 MaxLODLevel;
 
@@ -232,16 +352,17 @@ public:
 	/**
 	 * Allows artists to adjust the distance where textures using UV 0 are streamed in/out.
 	 * 1.0 is the default, whereas a higher value increases the streamed-in resolution.
+	 * Value can be < 0 (from legcay content, or code changes)
 	 */
-	UPROPERTY(EditAnywhere, Category=Landscape, meta=(ClampMin=0))
+	UPROPERTY(EditAnywhere, Category=Landscape)
 	float StreamingDistanceMultiplier;
 
 	/** Combined material used to render the landscape */
 	UPROPERTY(EditAnywhere, Category=Landscape)
 	UMaterialInterface* LandscapeMaterial;
 
-	/** Material used to render landscape components with holes. Should be a BLEND_Masked version of LandscapeMaterial. */
-	UPROPERTY(EditAnywhere, Category=Landscape)
+	/** Material used to render landscape components with holes. If not set, LandscapeMaterial will be used (blend mode will be overridden to Masked if it is set to Opaque) */
+	UPROPERTY(EditAnywhere, Category=Landscape, AdvancedDisplay)
 	UMaterialInterface* LandscapeHoleMaterial;
 
 	UPROPERTY(EditAnywhere, Category=LOD)
@@ -255,6 +376,14 @@ public:
 	UPROPERTY()
 	TArray<ULandscapeHeightfieldCollisionComponent*> CollisionComponents;
 
+	UPROPERTY(transient, duplicatetransient)
+	TArray<UHierarchicalInstancedStaticMeshComponent*> FoliageComponents;
+
+	/** A transient data structure for tracking the grass */
+	FCachedLandscapeFoliage FoliageCache;
+	/** A transient data structure for tracking the grass tasks*/
+	TArray<FAsyncTask<FAsyncGrassTask>* > AsyncFoliageTasks;
+
 	/**
 	 *	The resolution to cache lighting at, in texels/quad in one axis
 	 *  Total resolution would be changed by StaticLightingResolution*StaticLightingResolution
@@ -266,12 +395,16 @@ public:
 	UPROPERTY(EditAnywhere, Category=LandscapeProxy)
 	TLazyObjectPtr<ALandscape> LandscapeActor;
 
-	UPROPERTY(EditAnywhere, Category=Lighting)
+	UPROPERTY(EditAnywhere, Category=Lighting, meta=(DisplayName = "Static Shadow"))
 	uint32 bCastStaticShadow:1;
 
 	/** Whether this primitive should cast dynamic shadows as if it were a two sided material. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Lighting)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Lighting, meta=(DisplayName = "Shadow Two Sided"))
 	uint32 bCastShadowAsTwoSided:1;
+
+	/** Whether this primitive should cast shadows in the far shadow cascades. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Lighting, meta=(DisplayName = "Far Shadow"))
+	uint32 bCastFarShadow:1;
 
 	UPROPERTY()
 	uint32 bIsProxy:1;
@@ -318,13 +451,12 @@ public:
 	UPROPERTY()
 	int32 NumSubsections;    // Number of subsections in X and Y axis
 
-	/** Change the Level of Detail distance factor */
-	UFUNCTION(BlueprintCallable, Category="Rendering")
-	virtual void ChangeLODDistanceFactor(float InLODDistanceFactor);
-
 	/** Hints navigation system whether this landscape will ever be navigated on. true by default, but make sure to set it to false for faraway, background landscapes */
 	UPROPERTY(EditAnywhere, Category=Landscape)
 	uint32 bUsedForNavigation:1;
+
+	UPROPERTY(EditAnywhere, Category = Landscape, AdvancedDisplay)
+	ENavDataGatheringMode NavigationGeometryGatheringMode;
 
 	UPROPERTY(EditAnywhere, Category=LOD)
 	TEnumAsByte<enum ELandscapeLODFalloff::Type> LODFalloff;
@@ -346,11 +478,37 @@ public:
 	/** Map of weightmap usage */
 	TMap<UTexture2D*, struct FLandscapeWeightmapUsage> WeightmapUsageMap;
 
+	// Blueprint functions
+
+	/** Change the Level of Detail distance factor */
+	UFUNCTION(BlueprintCallable, Category = "Rendering")
+	virtual void ChangeLODDistanceFactor(float InLODDistanceFactor);
+
+	// Editor-time blueprint functions
+
+	/** Deform landscape using a given spline
+	 * @param StartWidth - Width of the spline at the start node, in Spline Component local space
+	 * @param EndWidth   - Width of the spline at the end node, in Spline Component local space
+	 * @param StartSideFalloff - Width of the falloff at either side of the spline at the start node, in Spline Component local space
+	 * @param EndSideFalloff - Width of the falloff at either side of the spline at the end node, in Spline Component local space
+	 * @param StartRoll - Roll applied to the spline at the start node, in degrees. 0 is flat
+	 * @param EndRoll - Roll applied to the spline at the end node, in degrees. 0 is flat
+	 * @param NumSubdivisions - Number of triangles to place along the spline when applying it to the landscape. Higher numbers give better results, but setting it too high will be slow and may cause artifacts
+	 * @param bRaiseHeights - Allow the landscape to be raised up to the level of the spline. If both bRaiseHeights and bLowerHeights are false, no height modification of the landscape will be performed
+	 * @param bLowerHeights - Allow the landscape to be lowered down to the level of the spline. If both bRaiseHeights and bLowerHeights are false, no height modification of the landscape will be performed
+	 * @param PaintLayer - LayerInfo to paint, or none to skip painting. The landscape must be configured with the same layer info in one of its layers or this will do nothing!
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Landscape Editor")
+	void EditorApplySpline(USplineComponent* InSplineComponent, float StartWidth = 200, float EndWidth = 200, float StartSideFalloff = 200, float EndSideFalloff = 200, float StartRoll = 0, float EndRoll = 0, int32 NumSubdivisions = 20, bool bRaiseHeights = true, bool bLowerHeights = true, ULandscapeLayerInfoObject* PaintLayer = nullptr);
+
+	// End blueprint functions
+
 	// Begin AActor Interface
 	virtual void UnregisterAllComponents() override;
 	virtual void RegisterAllComponents() override;
 	virtual void RerunConstructionScripts() override {}
 	virtual bool IsLevelBoundsRelevant() const override { return true; }
+
 #if WITH_EDITOR
 	virtual void Destroyed() override;
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
@@ -362,7 +520,57 @@ public:
 #endif	//WITH_EDITOR
 
 	FGuid GetLandscapeGuid() const { return LandscapeGuid; }
+	void SetLandscapeGuid(const FGuid& Guid) { LandscapeGuid = Guid; }
 	virtual ALandscape* GetLandscapeActor();
+
+	/* Per-frame call to update dynamic grass placement and render grassmaps */
+	void TickGrass();
+
+	/** Flush the grass cache */
+	LANDSCAPE_API void FlushGrassComponents(const TSet<ULandscapeComponent*>* OnlyForComponents = nullptr, bool bFlushGrassMaps = true);
+
+	/** 
+		Update Grass 
+		* @param Cameras to use for culling, if empty, then NO culling
+		* @param bForceSync if true, block and finish all work
+	*/
+	LANDSCAPE_API void UpdateGrass(const TArray<FVector>& Cameras, bool bForceSync = false);
+
+	/* Get the list of grass types on this landscape */
+	TArray<ULandscapeGrassType*> GetGrassTypes() const;
+
+	/* Invalidate the precomputed grass and baked texture data for the specified components */
+	LANDSCAPE_API static void InvalidateGeneratedComponentData(const TSet<ULandscapeComponent*>& Components);
+
+#if WITH_EDITOR
+	/** Render grass maps for the specified components */
+	void RenderGrassMaps(const TArray<ULandscapeComponent*>& LandscapeComponents, const TArray<ULandscapeGrassType*>& GrassTypes);
+
+	/** Update any textures baked from the landscape as necessary */
+	void UpdateBakedTextures();
+
+	/** Frame counter to count down to the next time we check to update baked textures, so we don't check every frame */
+	int32 UpdateBakedTexturesCountdown;
+#endif
+
+	// Begin FTickableGameObject interface.
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override 
+	{ 
+		return !HasAnyFlags(RF_ClassDefaultObject); 
+	}
+	virtual bool IsTickableWhenPaused() const override
+	{
+		return !HasAnyFlags(RF_ClassDefaultObject); 
+	}
+	virtual bool IsTickableInEditor() const override
+	{
+		return !HasAnyFlags(RF_ClassDefaultObject); 
+	}
+	virtual TStatId GetStatId() const override
+	{
+		return GetStatID();
+	}
 
 	// Begin UObject interface.
 	virtual void Serialize(FArchive& Ar) override;
@@ -401,7 +609,9 @@ public:
 
 	// Copy properties from parent Landscape actor
 	LANDSCAPE_API void GetSharedProperties(ALandscapeProxy* Landscape);
-
+	// Assign only mismatched properties and mark proxy package dirty
+	LANDSCAPE_API void ConditionalAssignCommonProperties(ALandscape* Landscape);
+	
 	/** Get the LandcapeActor-to-world transform with respect to landscape section offset*/
 	LANDSCAPE_API FTransform LandscapeActorToWorld() const;
 	
@@ -443,7 +653,23 @@ public:
 
 	/** Creates a Texture2D for use by this landscape proxy or one of it's components. If OptionalOverrideOuter is not specified, the level is used. */
 	LANDSCAPE_API UTexture2D* CreateLandscapeTexture(int32 InSizeX, int32 InSizeY, TextureGroup InLODGroup, ETextureSourceFormat InFormat, UObject* OptionalOverrideOuter = nullptr) const;
+
+	/* For the grassmap rendering notification */
+	int32 NumComponentsNeedingGrassMapRender;
+	LANDSCAPE_API static int32 TotalComponentsNeedingGrassMapRender;
+
+	/* To throttle texture streaming when we're trying to render a grassmap */
+	int32 NumTexturesToStreamForVisibleGrassMapRender;
+	LANDSCAPE_API static int32 TotalTexturesToStreamForVisibleGrassMapRender;
+
+	/* For the texture baking notification */
+	int32 NumComponentsNeedingTextureBaking;
+	LANDSCAPE_API static int32 TotalComponentsNeedingTextureBaking;
+
+	/** remove an overlapping component. Called from MapCheck. */
+	LANDSCAPE_API void RemoveOverlappingComponent(ULandscapeComponent* Component);
 #endif
 };
+
 
 

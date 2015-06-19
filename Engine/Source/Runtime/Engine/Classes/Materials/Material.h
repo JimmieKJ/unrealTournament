@@ -325,7 +325,7 @@ class UMaterial : public UMaterialInterface
 	 * Defines how the material reacts on DBuffer decals (Affects look, performance and texture/sample usage).
 	 * Non DBuffer Decals can be disabled on the primitive (e.g. static mesh)
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Material, meta=(DisplayName = "Decal Response"), AssetRegistrySearchable)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Material, meta=(DisplayName = "Decal Response (DBuffer)"), AssetRegistrySearchable)
 	TEnumAsByte<enum EMaterialDecalResponse> MaterialDecalResponse;
 
 private:
@@ -383,6 +383,9 @@ public:
 	UPROPERTY()
 	FMaterialAttributesInput MaterialAttributes;
 
+	UPROPERTY()
+	FScalarMaterialInput PixelDepthOffset;
+
 	/** Indicates that the material should be rendered in the SeparateTranslucency Pass (not affected by DOF, requires bAllowSeparateTranslucency to be set in .ini). */
 	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Separate Translucency"))
 	uint32 bEnableSeparateTranslucency:1;
@@ -394,6 +397,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Responsive AA"))
 	uint32 bEnableResponsiveAA:1;
 
+	/** SSR on translucency */
+	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Screen Space Reflections"))
+	uint32 bScreenSpaceReflections:1;
+
 	/** Indicates that the material should be rendered without backface culling and the normal should be flipped for backfaces. */
 	UPROPERTY(EditAnywhere, Category=Material)
 	uint32 TwoSided:1;
@@ -403,33 +410,33 @@ public:
 	int32 NumCustomizedUVs;
 
 	/** Sets the lighting mode that will be used on this material if it is translucent. */
-	UPROPERTY(EditAnywhere, Category=Translucency)
+	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Lighting Mode"))
 	TEnumAsByte<enum ETranslucencyLightingMode> TranslucencyLightingMode;
 
 	/** 
 	 * Useful for artificially increasing the influence of the normal on the lighting result for translucency.
 	 * A value larger than 1 increases the influence of the normal, a value smaller than 1 makes the lighting more ambient.
 	 */
-	UPROPERTY(EditAnywhere, Category=Translucency)
+	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Directional Lighting Intensity"))
 	float TranslucencyDirectionalLightingIntensity;
 
 	/** Scale used to make translucent shadows more or less opaque than the material's actual opacity. */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing)
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Density Scale"))
 	float TranslucentShadowDensityScale;
 
 	/** 
 	 * Scale used to make translucent self-shadowing more or less opaque than the material's shadow on other objects. 
 	 * This is only used when the object is casting a volumetric translucent shadow.
 	 */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing)
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Density Scale"))
 	float TranslucentSelfShadowDensityScale;
 
 	/** Used to make a second self shadow gradient, to add interesting shading in the shadow of the first. */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing)
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Second Density Scale"))
 	float TranslucentSelfShadowSecondDensityScale;
 
 	/** Controls the strength of the second self shadow gradient. */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing)
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Second Opacity"))
 	float TranslucentSelfShadowSecondOpacity;
 
 	/** 
@@ -437,18 +444,18 @@ public:
 	 * Larger exponents give a less diffuse look (smaller, brighter backscattering highlight).
 	 * This is only used when the object is casting a volumetric translucent shadow from a directional light.
 	 */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing)
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Backscattering Exponent"))
 	float TranslucentBackscatteringExponent;
 
 	/** 
 	 * Colored extinction factor used to approximate multiple scattering in dense volumes. 
 	 * This is only used when the object is casting a volumetric translucent shadow.
 	 */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing)
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Multiple Scattering Extinction"))
 	FLinearColor TranslucentMultipleScatteringExtinction;
 
 	/** Local space distance to bias the translucent shadow.  Positive values move the shadow away from the light. */
-	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing)
+	UPROPERTY(EditAnywhere, Category=TranslucencySelfShadowing, meta=(DisplayName = "Start Offset"))
 	float TranslucentShadowStartOffset;
 
 	/** Whether to draw on top of opaque pixels even if behind them. This only has meaning for translucency. */
@@ -606,9 +613,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Tessellation, meta=(DisplayName = "Adaptive Tessellation"))
 	uint32 bEnableAdaptiveTessellation:1;
 
+	UPROPERTY(EditAnywhere, Category=Tessellation)
+	float MaxDisplacement;
+
 	/** Enables a wireframe view of the mesh the material is applied to.  */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	uint32 Wireframe:1;
+
+	/** Skips outputting velocity during the base pass. */
+	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay, meta=(DisplayName = "Support accurate velocities from Vertex Deformation"))
+	uint32 bOutputVelocityOnBasePass:1;
 
 	UPROPERTY()
 	int32 EditorX;
@@ -715,10 +729,10 @@ private:
 	 * These are always valid and non-null, but only the entries affected by CacheResourceShadersForRendering are actually valid for rendering.
 	 */
 	FMaterialResource* MaterialResources[EMaterialQualityLevel::Num][ERHIFeatureLevel::Num];
-
+#if WITH_EDITOR
 	/** Material resources being cached for cooking. */
 	TMap<const class ITargetPlatform*, TArray<FMaterialResource*>> CachedMaterialResourcesForCooking;
-
+#endif
 	/** Fence used to guarantee that the RT is finished using various resources in this UMaterial before cleanup. */
 	FRenderCommandFence ReleaseFence;
 
@@ -740,7 +754,7 @@ public:
 	ENGINE_API virtual UMaterial* GetMaterial() override;
 	ENGINE_API virtual const UMaterial* GetMaterial() const override;
 	ENGINE_API virtual const UMaterial* GetMaterial_Concurrent(TMicRecursionGuard& RecursionGuard) const override;
-	ENGINE_API virtual bool GetParameterDesc(FName ParameterName, FString& OutDesc) const;
+	ENGINE_API virtual bool GetParameterDesc(FName ParameterName, FString& OutDesc) const override;
 	ENGINE_API virtual bool GetVectorParameterValue(FName ParameterName,FLinearColor& OutValue) const override;
 	ENGINE_API virtual bool GetScalarParameterValue(FName ParameterName,float& OutValue) const override;
 	ENGINE_API virtual bool GetTextureParameterValue(FName ParameterName,class UTexture*& OutValue) const override;
@@ -758,41 +772,42 @@ public:
 	ENGINE_API virtual FMaterialResource* AllocateResource();
 	ENGINE_API virtual FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) override;
 	ENGINE_API virtual const FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) const override;
-	ENGINE_API virtual bool GetStaticSwitchParameterValue(FName ParameterName,bool &OutValue,FGuid &OutExpressionGuid) override;
-	ENGINE_API virtual bool GetStaticComponentMaskParameterValue(FName ParameterName, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid) override;
-	ENGINE_API virtual bool GetTerrainLayerWeightParameterValue(FName ParameterName, int32& OutWeightmapIndex, FGuid &OutExpressionGuid) override;
+	ENGINE_API virtual bool GetStaticSwitchParameterValue(FName ParameterName,bool &OutValue,FGuid &OutExpressionGuid) const override;
+	ENGINE_API virtual bool GetStaticComponentMaskParameterValue(FName ParameterName, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid) const override;
+	ENGINE_API virtual bool GetTerrainLayerWeightParameterValue(FName ParameterName, int32& OutWeightmapIndex, FGuid &OutExpressionGuid) const override;
 	ENGINE_API virtual bool UpdateLightmassTextureTracking() override;
 	ENGINE_API virtual bool GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<UTexture*>& OutTextures, 
 		TArray<FName>* OutTextureParamNames, class FStaticParameterSet* InStaticParameterSet) override;
 	ENGINE_API virtual void RecacheUniformExpressions() const override;
 
-	ENGINE_API virtual float GetOpacityMaskClipValue(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual EBlendMode GetBlendMode(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual EMaterialShadingModel GetShadingModel(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual bool IsTwoSided(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual bool IsMasked(bool bIsGameThread = IsInGameThread()) const;
-	ENGINE_API virtual USubsurfaceProfile* GetSubsurfaceProfile_Internal() const;
+	ENGINE_API virtual float GetOpacityMaskClipValue(bool bIsGameThread = IsInGameThread()) const override;
+	ENGINE_API virtual EBlendMode GetBlendMode(bool bIsGameThread = IsInGameThread()) const override;
+	ENGINE_API virtual EMaterialShadingModel GetShadingModel(bool bIsGameThread = IsInGameThread()) const override;
+	ENGINE_API virtual bool IsTwoSided(bool bIsGameThread = IsInGameThread()) const override;
+	ENGINE_API virtual bool IsMasked(bool bIsGameThread = IsInGameThread()) const override;
+	ENGINE_API virtual USubsurfaceProfile* GetSubsurfaceProfile_Internal() const override;
 
 	ENGINE_API void SetShadingModel(EMaterialShadingModel NewModel) {ShadingModel = NewModel;}
 
 	/** Checks to see if an input property should be active, based on the state of the material */
-	ENGINE_API virtual bool IsPropertyActive(EMaterialProperty InProperty) const;
+	ENGINE_API virtual bool IsPropertyActive(EMaterialProperty InProperty) const override;
 	/** Allows material properties to be compiled with the option of being overridden by the material attributes input. */
-	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, EMaterialProperty Property );
+	ENGINE_API virtual int32 CompilePropertyEx( class FMaterialCompiler* Compiler, EMaterialProperty Property ) override;
 	ENGINE_API virtual void ForceRecompileForRendering() override;
 	// End UMaterialInterface interface.
 
 	// Begin UObject Interface
-	ENGINE_API virtual void PreSave();
-	ENGINE_API virtual void PostInitProperties();	
+	ENGINE_API virtual void PreSave() override;
+	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	ENGINE_API virtual void PostLoad() override;
+#if WITH_EDITOR
 	ENGINE_API virtual void BeginCacheForCookedPlatformData( const ITargetPlatform *TargetPlatform ) override;
 	ENGINE_API virtual bool IsCachedCookedPlatformDataLoaded( const ITargetPlatform* TargetPlatform ) override;
 	ENGINE_API virtual void ClearCachedCookedPlatformData( const ITargetPlatform *TargetPlatform ) override;
 	ENGINE_API virtual void ClearAllCachedCookedPlatformData() override;
-
+#endif
 #if WITH_EDITOR
 	ENGINE_API virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -845,7 +860,7 @@ private:
 	/** Sets up transient properties in MaterialResources. */
 	void UpdateResourceAllocations();
 
-	/** to share code for PostLoad() and PostEditChangeProperty() */
+	/** to share code for PostLoad() and PostEditChangeProperty(), and UMaterialInstance::InitResources(), needs to be refactored */
 	void PropagateDataToMaterialProxy();
 
 public:
@@ -881,11 +896,11 @@ public:
 	 * @return	Returns a array of parameter names used in this material for the specified expression type.
 	 */
 	template<typename ExpressionType>
-	void GetAllParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds)
+	void GetAllParameterNames(TArray<FName>& OutParameterNames, TArray<FGuid>& OutParameterIds) const
 	{
 		for (int32 ExpressionIndex = 0; ExpressionIndex < Expressions.Num(); ExpressionIndex++)
 		{
-			UMaterialExpressionMaterialFunctionCall* FunctionExpression = Cast<UMaterialExpressionMaterialFunctionCall>(Expressions[ExpressionIndex]);
+			const UMaterialExpressionMaterialFunctionCall* FunctionExpression = Cast<const UMaterialExpressionMaterialFunctionCall>(Expressions[ExpressionIndex]);
 
 			if (FunctionExpression)
 			{
@@ -896,7 +911,7 @@ public:
 			}
 			else
 			{
-				ExpressionType* ParameterExpression = Cast<ExpressionType>(Expressions[ExpressionIndex]);
+				const ExpressionType* ParameterExpression = Cast<const ExpressionType>(Expressions[ExpressionIndex]);
 
 				if (ParameterExpression)
 				{
@@ -908,12 +923,12 @@ public:
 		check(OutParameterNames.Num() == OutParameterIds.Num());
 	}
 	
-	ENGINE_API void GetAllVectorParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
-	ENGINE_API void GetAllScalarParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
-	ENGINE_API void GetAllTextureParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
-	ENGINE_API void GetAllFontParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
-	void GetAllStaticSwitchParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
-	void GetAllStaticComponentMaskParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
+	ENGINE_API void GetAllVectorParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
+	ENGINE_API void GetAllScalarParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
+	ENGINE_API void GetAllTextureParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
+	ENGINE_API void GetAllFontParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
+	void GetAllStaticSwitchParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
+	void GetAllStaticComponentMaskParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
 
 	/** Returns the material's decal blend mode, calculated from the DecalBlendMode property and what inputs are connected. */
 	uint32 GetDecalBlendMode() const { return DecalBlendMode; }
@@ -942,6 +957,20 @@ public:
 		}
 
 		return Result;
+	}
+
+	/* Get all expressions of the requested type */
+	template<typename ExpressionType>
+	void GetAllExpressionsOfType(TArray<const ExpressionType*>& OutExpressions) const
+	{
+		for (int32 ExpressionIndex = 0; ExpressionIndex < Expressions.Num(); ExpressionIndex++)
+		{
+			ExpressionType* ExpressionPtr = Cast<ExpressionType>(Expressions[ExpressionIndex]);
+			if (ExpressionPtr)
+			{
+				OutExpressions.Add(ExpressionPtr);
+			}
+		}
 	}
 
 	/** Determines whether each quality level has different nodes by inspecting the material's expressions. */

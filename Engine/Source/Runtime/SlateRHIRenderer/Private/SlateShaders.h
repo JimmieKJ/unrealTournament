@@ -55,14 +55,21 @@ public:
 	 */
 	void SetShaderParameters(FRHICommandList& RHICmdList, const FVector4& ShaderParams );
 
+	/**
+	 * Sets the vertical axis multiplier to use depending on graphics api
+	 */
+	void SetVerticalAxisMultiplier(FRHICommandList& RHICmdList, float InMultiplier);
+
 	/** Serializes the shader data */
-	virtual bool Serialize( FArchive& Ar );
+	virtual bool Serialize( FArchive& Ar ) override;
 
 private:
 	/** ViewProjection parameter used by the shader */
 	FShaderParameter ViewProjection;
 	/** Shader parmeters used by the shader */
 	FShaderParameter VertexShaderParams;
+	/** Parameter used to determine if we need to swtich the vertical axis for opengl */
+	FShaderParameter SwitchVerticalAxisMultiplier;
 };
 
 /** 
@@ -88,9 +95,10 @@ public:
 		TextureParameter.Bind( Initializer.ParameterMap, TEXT("ElementTexture"));
 		TextureParameterSampler.Bind( Initializer.ParameterMap, TEXT("ElementTextureSampler"));
 		ShaderParams.Bind( Initializer.ParameterMap, TEXT("ShaderParams"));
-		DisplayGamma.Bind( Initializer.ParameterMap,TEXT("InvDisplayGamma"));
+		GammaValues.Bind( Initializer.ParameterMap,TEXT("GammaValues"));
 	}
 
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment);
 
 	/**
 	 * Sets the texture used by this shader 
@@ -120,7 +128,9 @@ public:
 	 */
 	void SetDisplayGamma(FRHICommandList& RHICmdList, float InDisplayGamma)
 	{
-		SetShaderValue(RHICmdList, GetPixelShader(),DisplayGamma,InDisplayGamma);
+		FVector2D InGammaValues( 2.2f / InDisplayGamma, 1.0f/InDisplayGamma );
+
+		SetShaderValue(RHICmdList, GetPixelShader(),GammaValues,InGammaValues);
 	}
 
 	virtual bool Serialize( FArchive& Ar )
@@ -130,7 +140,7 @@ public:
 		Ar << TextureParameter;
 		Ar << TextureParameterSampler;
 		Ar << ShaderParams;
-		Ar << DisplayGamma;
+		Ar << GammaValues;
 
 		return bShaderHasOutdatedParameters;
 	}
@@ -139,7 +149,7 @@ private:
 	FShaderResourceParameter TextureParameter;
 	FShaderResourceParameter TextureParameterSampler;
 	FShaderParameter ShaderParams;
-	FShaderParameter DisplayGamma;
+	FShaderParameter GammaValues;
 };
 
 /** 
@@ -168,17 +178,17 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		// Set defines based on what this shader will be used for
-		OutEnvironment.SetDefine( TEXT("SHADER_TYPE"), (uint32)ShaderType );
-		OutEnvironment.SetDefine( TEXT("DRAW_DISABLED_EFFECT"), (uint32)(bDrawDisabledEffect ? 1 : 0) );
-		OutEnvironment.SetDefine( TEXT("USE_TEXTURE_ALPHA"), (uint32)(bUseTextureAlpha ? 1 : 0) );
-		OutEnvironment.SetDefine( TEXT("COLOR_VISION_DEFICIENCY_TYPE"), GSlateShaderColorVisionDeficiencyType );
-		OutEnvironment.SetDefine( TEXT("USE_MATERIALS"), (uint32)0 );
+		OutEnvironment.SetDefine(TEXT("SHADER_TYPE"), (uint32)ShaderType);
+		OutEnvironment.SetDefine(TEXT("DRAW_DISABLED_EFFECT"), (uint32)(bDrawDisabledEffect ? 1 : 0));
+		OutEnvironment.SetDefine(TEXT("USE_TEXTURE_ALPHA"), (uint32)(bUseTextureAlpha ? 1 : 0));
+		OutEnvironment.SetDefine(TEXT("COLOR_VISION_DEFICIENCY_TYPE"), GSlateShaderColorVisionDeficiencyType);
+		OutEnvironment.SetDefine(TEXT("USE_MATERIALS"), (uint32)0);
 
 		FSlateElementPS::ModifyCompilationEnvironment( Platform, OutEnvironment );
 	}
 
 	/** Serializes the shader data */
-	virtual bool Serialize( FArchive& Ar )
+	virtual bool Serialize( FArchive& Ar ) override
 	{
 		return FSlateElementPS::Serialize( Ar );
 	}
@@ -210,7 +220,7 @@ public:
 	}
 
 
-	virtual bool Serialize( FArchive& Ar )
+	virtual bool Serialize( FArchive& Ar ) override
 	{
 		return FSlateElementPS::Serialize( Ar );
 	}

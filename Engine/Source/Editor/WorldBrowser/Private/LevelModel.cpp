@@ -5,9 +5,10 @@
 #include "Toolkits/AssetEditorManager.h"
 #include "LevelModel.h"
 #include "LevelCollectionModel.h"
-#include "LevelBrowserSettings.h"
 #include "Engine/Selection.h"
 #include "Engine/LevelStreaming.h"
+#include "AssetRegistryModule.h"
+#include "GameFramework/WorldSettings.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -23,6 +24,26 @@ FLevelModel::FLevelModel(FLevelCollectionModel& InLevelCollectionModel,
 	, LevelActorsCount(0)
 {
 	SimulationStatus = FSimulationLevelStatus();
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	AssetRegistryModule.Get().OnAssetRenamed().AddRaw(this, &FLevelModel::OnAssetRenamed);
+}
+
+FLevelModel::~FLevelModel()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	AssetRegistryModule.Get().OnAssetRenamed().RemoveAll(this);
+}
+
+void FLevelModel::OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath)
+{
+	const FString CurrentPackage = GetLongPackageName().ToString();
+
+	if (FPackageName::ObjectPathToPackageName(OldObjectPath) == CurrentPackage)
+	{
+		UpdateAsset(AssetData);
+		UpdateDisplayName();
+	}
 }
 
 void FLevelModel::SetLevelSelectionFlag(bool bSelectedFlag)
@@ -354,6 +375,11 @@ void FLevelModel::SetLevelColor(FLinearColor InColor)
 	// Currently not all base classes have the requisite support, so I've not made it pure virtual.
 }
 
+bool FLevelModel::IsVisibleInCompositionView() const
+{
+	return false;
+}
+
 bool FLevelModel::HasKismet() const
 {
 	return (GetLevelObject() != NULL);
@@ -418,14 +444,14 @@ void FLevelModel::OnFilterChanged()
 {
 	FilteredChildren.Empty();
 	
-	for (auto It = AllChildren.CreateConstIterator(); It; ++It)
+	for (const auto& LevelModel : AllChildren)
 	{
-		(*It)->OnFilterChanged();
+		LevelModel->OnFilterChanged();
 
 		// Item will pass filtering regardless of filter settings if it has children that passes filtering
-		if ((*It)->GetChildren().Num() > 0 || LevelCollectionModel.PassesAllFilters(*It))
+		if (LevelModel->GetChildren().Num() > 0 || LevelCollectionModel.PassesAllFilters(*LevelModel))
 		{
-			FilteredChildren.Add(*It);
+			FilteredChildren.Add(LevelModel);
 		}
 	}
 }
@@ -461,7 +487,7 @@ void FLevelModel::AddChild(TSharedPtr<FLevelModel> InChild)
 {
 	AllChildren.AddUnique(InChild);
 
-	if (LevelCollectionModel.PassesAllFilters(InChild))
+	if (LevelCollectionModel.PassesAllFilters(*InChild))
 	{
 		FilteredChildren.Add(InChild);
 	}
@@ -630,6 +656,14 @@ void FLevelModel::SelectActors(bool bSelect, bool bNotify, bool bSelectEvenIfHid
 				continue;
 			}
 			
+			//exclude the world settings and builder brush from actors selected
+			const bool bIsWorldSettings = Actor->IsA(AWorldSettings::StaticClass());
+			const bool bIsBuilderBrush = (Actor->IsA(ABrush::StaticClass()) && FActorEditorUtils::IsABuilderBrush(Actor));
+			if (bIsWorldSettings || bIsBuilderBrush)
+			{
+				continue;
+			}
+
 			bool bNotifyForActor = false;
 			Editor->GetSelectedActors()->Modify();
 			Editor->SelectActor(Actor, bSelect, bNotifyForActor, bSelectEvenIfHidden);
@@ -709,14 +743,14 @@ FString FLevelModel::GetLightmassSizeString() const
 	FString MemorySizeString;
 	ULevel* Level = GetLevelObject();
 
-	if (Level && GetDefault<ULevelBrowserSettings>()->bDisplayLightmassSize)
-	{
-		// Update metrics
-		static const float ByteConversion = 1.0f / 1024.0f;
-		float LightmapSize = Level->LightmapTotalSize * ByteConversion;
-		
-		MemorySizeString += FString::Printf(TEXT( "%.2f" ), LightmapSize);
-	}
+	//if (Level && GetDefault<ULevelBrowserSettings>()->bDisplayLightmassSize)
+	//{
+	//	// Update metrics
+	//	static const float ByteConversion = 1.0f / 1024.0f;
+	//	float LightmapSize = Level->LightmapTotalSize * ByteConversion;
+	//	
+	//	MemorySizeString += FString::Printf(TEXT( "%.2f" ), LightmapSize);
+	//}
 
 	return MemorySizeString;
 }
@@ -726,14 +760,14 @@ FString FLevelModel::GetFileSizeString() const
 	FString MemorySizeString;
 	ULevel* Level = GetLevelObject();
 
-	if (Level && GetDefault<ULevelBrowserSettings>()->bDisplayFileSize)
-	{
-		// Update metrics
-		static const float ByteConversion = 1.0f / 1024.0f;
-		float FileSize = Level->GetOutermost()->GetFileSize() * ByteConversion * ByteConversion;
-		
-		MemorySizeString += FString::Printf(TEXT( "%.2f" ), FileSize);
-	}
+	//if (Level && GetDefault<ULevelBrowserSettings>()->bDisplayFileSize)
+	//{
+	//	// Update metrics
+	//	static const float ByteConversion = 1.0f / 1024.0f;
+	//	float FileSize = Level->GetOutermost()->GetFileSize() * ByteConversion * ByteConversion;
+	//	
+	//	MemorySizeString += FString::Printf(TEXT( "%.2f" ), FileSize);
+	//}
 
 	return MemorySizeString;
 }

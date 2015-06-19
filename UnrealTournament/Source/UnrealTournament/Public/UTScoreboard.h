@@ -92,7 +92,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
 	virtual void AdvancePage(int32 Increment);
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
-	virtual void SetPage(uint32 NewPage);
+	virtual void SetPage(int32 NewPage);
 
 	FTimerHandle OpenScoringPlaysHandle;
 
@@ -113,6 +113,12 @@ public:
 		return InPS ? InPS->PlayerName : "";
 	};
 
+	UPROPERTY()
+		TArray<FText> StatsPageTitles;
+
+	UPROPERTY()
+		TArray<FText> StatsPageFooters;
+
 protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
@@ -123,13 +129,13 @@ protected:
 
 	/** number of 'pages' that can be flipped through on the scoreboard */
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
-	uint32 NumPages;
+	int32 NumPages;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
 	void PageChanged();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
-	uint32 ActualPlayerCount;
+	int32 ActualPlayerCount;
 
 	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir);
 
@@ -153,6 +159,7 @@ protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& DrawY);
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor);
 
 	virtual void DrawServerPanel(float RenderDelta, float YOffset);
 
@@ -206,6 +213,9 @@ protected:
 
 	/** Draw gametype specific stat lines for player score breakdown. */
 	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
+
+	/** Draw reward stat lines for player. */
+	virtual void DrawRewardStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
 
 	//-------------------------------------
 

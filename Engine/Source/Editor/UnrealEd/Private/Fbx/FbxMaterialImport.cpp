@@ -55,7 +55,7 @@ UTexture* UnFbx::FFbxImporter::ImportTexture( FbxFileTexture* FbxTexture, bool b
 	
 	// create an unreal texture asset
 	UTexture* UnrealTexture = NULL;
-	FString Filename1 = ANSI_TO_TCHAR(FbxTexture->GetFileName());
+	FString Filename1 = UTF8_TO_TCHAR(FbxTexture->GetFileName());
 	FString Extension = FPaths::GetExtension(Filename1).ToLower();
 	// name the texture with file name
 	FString TextureName = FPaths::GetBaseFilename(Filename1);
@@ -97,12 +97,12 @@ UTexture* UnFbx::FFbxImporter::ImportTexture( FbxFileTexture* FbxTexture, bool b
 	if ( ! FFileHelper::LoadFileToArray( DataBinary, *Filename ))
 	{
 		// try fbx file base path + relative path
-		FString Filename2 = FileBasePath / ANSI_TO_TCHAR(FbxTexture->GetRelativeFileName());
+		FString Filename2 = FileBasePath / UTF8_TO_TCHAR(FbxTexture->GetRelativeFileName());
 		Filename = Filename2;
 		if ( ! FFileHelper::LoadFileToArray( DataBinary, *Filename ))
 		{
 			// try fbx file base path + texture file name (no path)
-			FString Filename3 = ANSI_TO_TCHAR(FbxTexture->GetRelativeFileName());
+			FString Filename3 = UTF8_TO_TCHAR(FbxTexture->GetRelativeFileName());
 			FString FileOnly = FPaths::GetCleanFilename(Filename3);
 			Filename3 = FileBasePath / FileOnly;
 			Filename = Filename3;
@@ -240,7 +240,7 @@ bool UnFbx::FFbxImporter::CreateAndLinkExpressionForMaterialProperty(
 		int32 LayeredTextureCount = FbxProperty.GetSrcObjectCount<FbxLayeredTexture>();
 		if (LayeredTextureCount>0)
 		{
-			UE_LOG(LogFbxMaterialImport, Warning,TEXT("Layered Textures are not supported (material %s)"),ANSI_TO_TCHAR(FbxMaterial.GetName()));
+			UE_LOG(LogFbxMaterialImport, Warning,TEXT("Layered Textures are not supported (material %s)"),UTF8_TO_TCHAR(FbxMaterial.GetName()));
 		}
 		else
 		{
@@ -260,7 +260,7 @@ bool UnFbx::FFbxImporter::CreateAndLinkExpressionForMaterialProperty(
 						float ScaleV = FbxTexture->GetScaleV();
 
 						// and link it to the material 
-						UMaterialExpressionTextureSample* UnrealTextureExpression = ConstructObject<UMaterialExpressionTextureSample>( UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial );
+						UMaterialExpressionTextureSample* UnrealTextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 						UnrealMaterial->Expressions.Add( UnrealTextureExpression );
 						MaterialInput.Expression = UnrealTextureExpression;
 						UnrealTextureExpression->Texture = UnrealTexture;
@@ -270,12 +270,12 @@ bool UnFbx::FFbxImporter::CreateAndLinkExpressionForMaterialProperty(
 
 						// add/find UVSet and set it to the texture
 						FbxString UVSetName = FbxTexture->UVSet.Get();
-						FString LocalUVSetName = ANSI_TO_TCHAR(UVSetName.Buffer());
+						FString LocalUVSetName = UTF8_TO_TCHAR(UVSetName.Buffer());
 						int32 SetIndex = UVSet.Find(LocalUVSetName);
 						if( (SetIndex != 0 && SetIndex != INDEX_NONE) || ScaleU != 1.0f || ScaleV != 1.0f )
 						{
 							// Create a texture coord node for the texture sample
-							UMaterialExpressionTextureCoordinate* MyCoordExpression = ConstructObject<UMaterialExpressionTextureCoordinate>(UMaterialExpressionTextureCoordinate::StaticClass(), UnrealMaterial);
+							UMaterialExpressionTextureCoordinate* MyCoordExpression = NewObject<UMaterialExpressionTextureCoordinate>(UnrealMaterial);
 							UnrealMaterial->Expressions.Add(MyCoordExpression);
 							MyCoordExpression->CoordinateIndex = (SetIndex >= 0) ? SetIndex : 0;
 							MyCoordExpression->UTiling = ScaleU;
@@ -317,7 +317,7 @@ void UnFbx::FFbxImporter::FixupMaterial( FbxSurfaceMaterial& FbxMaterial, UMater
 	{
 		FbxDouble3 DiffuseColor;
 		
-		UMaterialExpressionVectorParameter* MyColorExpression = ConstructObject<UMaterialExpressionVectorParameter>( UMaterialExpressionVectorParameter::StaticClass(), UnrealMaterial );
+		UMaterialExpressionVectorParameter* MyColorExpression = NewObject<UMaterialExpressionVectorParameter>(UnrealMaterial);
 		UnrealMaterial->Expressions.Add( MyColorExpression );
 		UnrealMaterial->BaseColor.Expression = MyColorExpression;
 
@@ -365,7 +365,7 @@ void UnFbx::FFbxImporter::FixupMaterial( FbxSurfaceMaterial& FbxMaterial, UMater
 
 FString UnFbx::FFbxImporter::GetMaterialFullName(FbxSurfaceMaterial& FbxMaterial)
 {
-	FString MaterialFullName = ANSI_TO_TCHAR(MakeName(FbxMaterial.GetName()));
+	FString MaterialFullName = UTF8_TO_TCHAR(MakeName(FbxMaterial.GetName()));
 
 	if (MaterialFullName.Len() > 6)
 	{

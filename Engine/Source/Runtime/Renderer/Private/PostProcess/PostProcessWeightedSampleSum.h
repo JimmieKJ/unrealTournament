@@ -53,7 +53,7 @@ public:
 	}
 
 	/** Serializer */
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << SampleOffsets;
@@ -113,14 +113,16 @@ public:
 			FLinearColor InAdditiveTintValue = FLinearColor::White);
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
-
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 	// retrieve runtime filter kernel properties.
 	static float GetClampedKernelRadius(ERHIFeatureLevel::Type InFeatureLevel, float KernelRadius);
 	static int GetIntegerKernelRadius(ERHIFeatureLevel::Type InFeatureLevel, float KernelRadius);
+
+	// @param InCrossCenterWeight >=0
+	void SetCrossCenterWeight(float InCrossCenterWeight) { check(InCrossCenterWeight >= 0.0f); CrossCenterWeight = InCrossCenterWeight; }
 
 private:
 	void DrawQuad(FRHICommandListImmediate& RHICmdList, bool bDoFastBlur, FIntRect SrcRect, FIntRect DestRect, bool bRequiresClear, FIntPoint DestSize, FIntPoint SrcSize, FShader* VertexShader) const;
@@ -132,6 +134,9 @@ private:
 	float SizeScale;
 	FLinearColor TintValue;
 	const TCHAR* DebugName;
+	// to give the center sample some special weight (see r.Bloom.Cross), >=0
+	float CrossCenterWeight;
+
 	// @return true: half x resolution for horizontal pass, vertical pass takes that as input, lower quality
 	bool DoFastBlur() const;
 };

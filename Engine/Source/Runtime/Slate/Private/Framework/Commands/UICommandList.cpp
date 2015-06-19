@@ -42,7 +42,9 @@ void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICom
 	check( InUICommandInfo.IsValid() );
 
 	// Check against already mapped actions
-	checkSlow( !UICommandBindingMap.Contains( InUICommandInfo ) );
+#if DO_GUARD_SLOW
+	checkf(!UICommandBindingMap.Contains(InUICommandInfo), TEXT("Command list already contains a command named '%s'"), *InUICommandInfo->GetCommandName().ToString());
+#endif
 
 	ContextsInList.Add( InUICommandInfo->GetBindingContext() );
 	UICommandBindingMap.Add( InUICommandInfo, InUIAction );
@@ -161,9 +163,9 @@ bool FUICommandList::ConditionalProcessCommandBindings( const FKey Key, bool bCt
 {
 	if ( !bRepeat && !FSlateApplication::Get().IsDragDropping() )
 	{
-		FInputGesture CheckGesture( Key, EModifierKey::FromBools(bCtrl, bAlt, bShift, bCmd) );
+		FInputChord CheckChord( Key, EModifierKey::FromBools(bCtrl, bAlt, bShift, bCmd) );
 
-		if( CheckGesture.IsValidGesture() )
+		if( CheckChord.IsValidChord() )
 		{
 			TSet<FName> AllContextsToCheck;
 			GatherContextsForList(AllContextsToCheck);
@@ -172,13 +174,13 @@ bool FUICommandList::ConditionalProcessCommandBindings( const FKey Key, bool bCt
 			{
 				FName Context = *It;
 	
-				// Only active gestures process commands
+				// Only active chords process commands
 				const bool bCheckDefault = false;
 
-				// Check to see if there is any command in the context activated by the gesture
-				TSharedPtr<FUICommandInfo> Command = FInputBindingManager::Get().FindCommandInContext( Context, CheckGesture, bCheckDefault );
+				// Check to see if there is any command in the context activated by the chord
+				TSharedPtr<FUICommandInfo> Command = FInputBindingManager::Get().FindCommandInContext( Context, CheckChord, bCheckDefault );
 
-				if( Command.IsValid() && ensure( *Command->GetActiveGesture() == CheckGesture ) )
+				if( Command.IsValid() && ensure( *Command->GetActiveChord() == CheckChord ) )
 				{
 					// Find the bound action for this command
 					const FUIAction* Action = GetActionForCommand(Command);
@@ -194,7 +196,7 @@ bool FUICommandList::ConditionalProcessCommandBindings( const FKey Key, bool bCt
 						}
 						else
 						{
-							// An action wasn't bound to the command but a gesture was found or an action was found but cant be executed
+							// An action wasn't bound to the command but a chord was found or an action was found but cant be executed
 							return false;
 						}
 					}

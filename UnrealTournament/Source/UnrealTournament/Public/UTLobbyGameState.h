@@ -20,20 +20,14 @@ struct FGameInstanceData
 	UPROPERTY()
 	int32 InstancePort;
 
-	// The connection string to travel clients to.  NOTE: It includes the port in the format xxx.xxx.xxx.xxx:yyyy
-	UPROPERTY()
-	FString ConnectionString;
-
 	FGameInstanceData()
 		: MatchInfo(NULL)
 		, InstancePort(0)
-		, ConnectionString(TEXT(""))
 	{};
 
-	FGameInstanceData(AUTLobbyMatchInfo* inMatchInfo, int32 inInstancePort, FString inConnectionString)
+	FGameInstanceData(AUTLobbyMatchInfo* inMatchInfo, int32 inInstancePort)
 		: MatchInfo(inMatchInfo)
 		, InstancePort(inInstancePort)
-		, ConnectionString(inConnectionString)
 	{};
 
 };
@@ -63,6 +57,10 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	// These additional commandline parameters will be added to all instances that run.
 	UPROPERTY(Config)
 	FString AdditionalInstanceCommandLine;
+
+	// Holds a list of keys used for dedicated instances to connect to this hub.
+	UPROPERTY(Config)
+	TArray<FString> AccessKeys;
 
 	/** maintains a reference to gametypes that have been requested as the UI refs are weak pointers and won't prevent GC on their own */
 	UPROPERTY(Transient)
@@ -142,7 +140,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Called when an instance needs to update a player in a match's info
 	 **/
-	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore);
+	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate);
 
 	/**
 	 *	Called when an instance's game is over.  It this called via GameEnded and doesn't mean any of the
@@ -220,8 +218,16 @@ public:
 	void ClientAssignGameData(FAllowedData Data);
 
 	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
-	virtual void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
+	virtual void GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList);
 
+
+	virtual void AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName);
+
+	AUTLobbyMatchInfo* FindMatch(FGuid MatchID);
+	
+
+protected:
+	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName);
 
 };
 

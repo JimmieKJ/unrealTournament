@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2230202
+﻿INTSourceChangelist:2483419
 Availability:NoPublish
 Title: 애니메이션 노드 참고서
 Crumbs:
@@ -186,6 +186,7 @@ Two Bone IK 는 캐릭터의 림(사지)과 같은 3 조인트 체인에 IK 솔�
 로테이션형 오프셋 블렌드 스페이스를 적용합니다.
 
 [/EXCERPT:UAnimGraphNode_RotationOffsetBlendSpace]
+
 [EXCERPT:UAnimGraphNode_Fabrik]
 
 FaBRIK (Forward and Backward Reaching Inverse Kinematics, 앞뒤로 늘어나는 IK) 알고리즘을 본 체인에 적용하여 엔드 이펙터에 상대적인 본 트랜스폼을 해결합니다.

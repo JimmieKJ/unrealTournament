@@ -59,6 +59,7 @@
 </asp:Content>
 
 <asp:Content ID="AboveMainContent" ContentPlaceHolderID="AboveMainContent" runat="server">
+	<div style="clear:both;"><small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small><br /></div>
 </asp:Content>
 
 <asp:Content ID="MainContent" ContentPlaceHolderID="MainContent" runat="server">
@@ -77,7 +78,7 @@
 			</select>
 			<input type="submit" name="SetStatusSubmit" value="Set" class="SetButtonGreen" />
 
-			<span id="set-ttp" style="">TTP</span>
+			<span id="set-ttp" style="">Bug</span>
 			<input name="SetTTP" type="text" id="ttp-text-box" />
 			<input type="submit" name="SetTTPSubmit" value="Set" class="SetButtonGreen" />
 
@@ -117,7 +118,7 @@
 				<dd class='even'>
 					<%if( !Model.Crash.HasLogFile.HasValue || Model.Crash.HasLogFile.Equals( true ) ) 
 					{ %>
-						<a style='font-size:large; text-decoration:none; vertical-align:middle;' href='<%=Model.Crash.GetLogUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Log</a>
+						<a style='text-decoration:none; vertical-align:middle;' href='<%=Model.Crash.GetLogUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Log</a>
 						<%
 					} %>
 		
@@ -126,7 +127,7 @@
 				<dd>	
 					<%if( !Model.Crash.HasMiniDumpFile.HasValue || Model.Crash.HasMiniDumpFile.Equals( true ) ) 
 					{ %>
-						<a style='font-size:large; text-decoration:none;' href='<%=Model.Crash.GetDumpUrl() %>'><img src="../../Content/Images/Icons/miniDump.png" style="height:20px;border:none;" />&nbsp;MiniDump</a>
+						<a style='text-decoration:none;' href='<%=Model.Crash.GetDumpUrl() %>'><img src="../../Content/Images/Icons/miniDump.png" style="height:20px;border:none;" />&nbsp;MiniDump</a>
 						<%
 					} %>
 				</dd>
@@ -134,7 +135,7 @@
 				<dd>
 					<%if( Model.Crash.HasVideoFile.HasValue && Model.Crash.HasVideoFile.Equals( true ) ) 
 					{ %>
-						<a id="VideoLink" style="font-size:large;text-decoration:none;" href='<%=Model.Crash.GetVideoUrl() %>'><img src="../../Content/Images/Icons/video.png" style="height:20px;border:none;" />&nbsp;Video</a>
+						<a id="VideoLink" style="text-decoration:none;" href='<%=Model.Crash.GetVideoUrl() %>'><img src="../../Content/Images/Icons/video.png" style="height:20px;border:none;" />&nbsp;Video</a>
 						<%
 					} %>
 				</dd>
@@ -142,7 +143,7 @@
 				<dd>
 					<%if( Model.Crash.HasDiagnosticsFile.HasValue && Model.Crash.HasDiagnosticsFile.Equals( true ) ) 
 					{ %>
-						<a id="A1" style="font-size:large;text-decoration:none;" href='<%=Model.Crash.GetDiagnosticsUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Diags</a>
+						<a id="A1" style="text-decoration:none;" href='<%=Model.Crash.GetDiagnosticsUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Diags</a>
 						<%
 					} %>
 				</dd>
@@ -150,7 +151,7 @@
 				<dd>
 					<%if( Model.Crash.HasMetaData.HasValue && Model.Crash.HasMetaData.Equals( true ) ) 
 					{ %>
-						<a id="A2" style="font-size:large;text-decoration:none;" href='<%=Model.Crash.GetMetaDataUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;WERInfo</a>
+						<a id="A2" style="text-decoration:none;" href='<%=Model.Crash.GetMetaDataUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;WERInfo</a>
 						<%
 					} %>
 				</dd>
@@ -161,7 +162,7 @@
 
 			<dt>Time of Crash</dt> 
 				<dd class='even'>
-				<%=Model.Crash.GetTimeOfCrash()[0] %><br />
+				<%=Model.Crash.GetTimeOfCrash()[0] %>
 				<%=Model.Crash.GetTimeOfCrash()[1] %>
 
 			<dt>Crash type</dt> 
@@ -188,10 +189,13 @@
 				<dd ><%=Html.DisplayFor(m => Model.Crash.PlatformName) %></dd>
 
 			<dt>Machine Id</dt> 
-				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.ComputerName) %></dd>
+				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.ComputerName) %></small></dd>
 
 			<dt>Epic Account Id</dt> 
-				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.EpicAccountId) %></dd>
+				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.EpicAccountId) %></small></dd>
+
+			<dt>Allowed to contact</dt> 
+				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.AllowToBeContacted) %></dd>
 
 			<dt>Build Version</dt>
 				<dd ><%=Html.DisplayFor(m => Model.Crash.BuildVersion) %></dd>
@@ -202,8 +206,9 @@
 			<dt>Changelist #</dt>
 				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.ChangeListVersion) %></dd>
 
-			<dt>TTP</dt>
-				<dd ><%=Html.DisplayFor(m => Model.Crash.TTPID) %></dd>
+			<dt>JIRA</dt>
+				<%--<dd ><%=Html.DisplayFor(m => Model.Crash.TTPID) %></dd>--%>
+				<dd><a href="https://jira.ol.epicgames.net/browse/<%=Model.Crash.TTPID%>" target="_blank"><%=Model.Crash.TTPID%></a></dd>
 
 			<dt>Status</dt>
 				<dd ><%=Html.DisplayFor(m => Model.Crash.Status) %></dd>
@@ -220,7 +225,7 @@
 					<br />
 					<h3>Error Message</h3>
 					<div id='ErrorMessage'>
-						<%=Model.Crash.Summary %>
+						<%=Html.DisplayFor( m => m.Crash.Summary )%>
 					</div>
 				</div>
 				<br />
@@ -300,6 +305,4 @@
 		</div>
 	</div>
 </div>
-&nbsp;
-
 </asp:Content>

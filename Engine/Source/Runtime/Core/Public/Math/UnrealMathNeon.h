@@ -224,7 +224,7 @@ FORCEINLINE void VectorStore( VectorRegister Vec, void* Ptr )
  * @param Vec	Vector to store XYZ
  * @param Ptr	Unaligned memory pointer
  */
-FORCEINLINE void VectorStoreFloat3( VectorRegister& Vec, void* Ptr )
+FORCEINLINE void VectorStoreFloat3( const VectorRegister& Vec, void* Ptr )
 {
 	vst1q_lane_f32( ((float32_t *)Ptr) + 0, Vec, 0 );
 	vst1q_lane_f32( ((float32_t *)Ptr) + 1, Vec, 1 );
@@ -324,7 +324,6 @@ FORCEINLINE VectorRegister VectorMultiplyAdd( VectorRegister Vec1, VectorRegiste
 {
 	return vmlaq_f32( Vec3, Vec1, Vec2 );
 }
-
 
 /**
  * Calculates the dot3 product of two vectors and returns a vector with the result in all 4 components.
@@ -585,6 +584,19 @@ FORCEINLINE VectorRegister VectorReciprocalAccurate(const VectorRegister& Vec)
 	// 2 refinement iterations
 	Reciprocal = vmulq_f32(vrecpsq_f32(Vec, Reciprocal), Reciprocal);
 	return vmulq_f32(vrecpsq_f32(Vec, Reciprocal), Reciprocal);
+}
+
+/**
+* Divides two vectors (component-wise) and returns the result.
+*
+* @param Vec1	1st vector
+* @param Vec2	2nd vector
+* @return		VectorRegister( Vec1.x/Vec2.x, Vec1.y/Vec2.y, Vec1.z/Vec2.z, Vec1.w/Vec2.w )
+*/
+FORCEINLINE VectorRegister VectorDivide(VectorRegister Vec1, VectorRegister Vec2)
+{
+	VectorRegister x = VectorReciprocalAccurate(Vec2);
+	return VectorMultiply(Vec1, x);
 }
 
 /**
@@ -979,6 +991,27 @@ FORCEINLINE VectorRegister VectorQuaternionMultiply2( const VectorRegister& Quat
 FORCEINLINE void VectorQuaternionMultiply( void* RESTRICT Result, const void* RESTRICT Quat1, const void* RESTRICT Quat2)
 {
 	*((VectorRegister *)Result) = VectorQuaternionMultiply2(*((const VectorRegister *)Quat1), *((const VectorRegister *)Quat2));
+}
+
+/**
+* Computes the sine and cosine of each component of a Vector.
+*
+* @param VSinAngles	VectorRegister Pointer to where the Sin result should be stored
+* @param VCosAngles	VectorRegister Pointer to where the Cos result should be stored
+* @param VAngles VectorRegister Pointer to the input angles 
+*/
+FORCEINLINE void VectorSinCos(  VectorRegister* VSinAngles, VectorRegister* VCosAngles, const VectorRegister* VAngles )
+{	
+	union { VectorRegister v; float f[4]; } VecSin, VecCos, VecAngles;
+	VecAngles.v = *VAngles;
+
+	FMath::SinCos(&VecSin.f[0], &VecCos.f[0], VecAngles.f[0]);
+	FMath::SinCos(&VecSin.f[1], &VecCos.f[1], VecAngles.f[1]);
+	FMath::SinCos(&VecSin.f[2], &VecCos.f[2], VecAngles.f[2]);
+	FMath::SinCos(&VecSin.f[3], &VecCos.f[3], VecAngles.f[3]);
+
+	*VSinAngles = VecSin.v;
+	*VCosAngles = VecCos.v;
 }
 
 // Returns true if the vector contains a component that is either NAN or +/-infinite.

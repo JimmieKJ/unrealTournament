@@ -5,6 +5,7 @@
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 #include "SBlueprintRevisionMenu.h"
 #include "Editor.h"
+#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "SMergeAssetPickerView"
 

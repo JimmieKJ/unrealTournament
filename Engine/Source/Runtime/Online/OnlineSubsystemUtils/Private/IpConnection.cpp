@@ -133,7 +133,8 @@ void UIpConnection::LowLevelSend( void* Data, int32 Count )
 	CLOCK_CYCLES(Driver->SendCycles);
 	Socket->SendTo((uint8*)Data, Count, BytesSent, *RemoteAddr);
 	UNCLOCK_CYCLES(Driver->SendCycles);
-	NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(),Data,BytesSent,*RemoteAddr));
+	NETWORK_PROFILER(GNetworkProfiler.FlushOutgoingBunches(this));
+	NETWORK_PROFILER(GNetworkProfiler.TrackSocketSendTo(Socket->GetDescription(),Data,BytesSent,NumPacketIdBits,NumBunchBits,NumAckBits,NumPaddingBits,*RemoteAddr));
 }
 
 FString UIpConnection::LowLevelGetRemoteAddress(bool bAppendPort)

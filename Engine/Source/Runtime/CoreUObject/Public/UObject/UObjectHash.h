@@ -83,5 +83,29 @@ void HashObject(class UObjectBase* Object);
  */
 void UnhashObject(class UObjectBase* Object);
 
+/**
+ * Logs out information about the object hash for debug purposes
+ *
+ * @param Ar the archive to write the log data to
+ * @param bShowHashBucketCollisionInfo whether to log each bucket's collision count
+ */
+COREUOBJECT_API void LogHashStatistics(FOutputDevice& Ar, const bool bShowHashBucketCollisionInfo);
+
+/**
+ * Logs out information about the outer object hash for debug purposes
+ *
+ * @param Ar the archive to write the log data to
+ * @param bShowHashBucketCollisionInfo whether to log each bucket's collision count
+ */
+COREUOBJECT_API void LogHashOuterStatistics(FOutputDevice& Ar, const bool bShowHashBucketCollisionInfo);
+
+/**
+ * Adds a uobject to the global array which is used for uobject iteration
+ *
+ * @param	Object Object to allocate an index for
+ */
+void AllocateUObjectIndexForCurrentThread(class UObjectBase* Object);
+
+
 #endif	// __UOBJECTHASH_H__
 

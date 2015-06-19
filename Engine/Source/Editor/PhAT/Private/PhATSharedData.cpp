@@ -23,7 +23,6 @@ FPhATSharedData::FPhATSharedData()
 	, CopiedBodySetup(NULL)
 	, CopiedConstraintTemplate(NULL)
 	, bInsideSelChange(false)
-	, WidgetModeBeforeSimulation(FWidget::WM_None)
 {
 	// Editor variables
 	BodyEdit_MeshViewMode = PRM_Solid;
@@ -38,7 +37,6 @@ FPhATSharedData::FPhATSharedData()
 	Sim_CollisionViewMode = PRM_Wireframe;
 	Sim_ConstraintViewMode = PCV_None;
 
-	MovementSpace = COORD_Local;
 	EditingMode = PEM_BodyEdit;
 
 	bShowCOM = false;
@@ -59,7 +57,7 @@ FPhATSharedData::FPhATSharedData()
 	MouseHandle = NewObject<UPhysicsHandleComponent>();
 
 	// Construct sim options.
-	EditorSimOptions = ConstructObject<UPhATSimOptions>(UPhATSimOptions::StaticClass());
+	EditorSimOptions = NewObject<UPhATSimOptions>(GetTransientPackage(), TEXT("EditorSimOptions"));
 	check(EditorSimOptions);
 
 	EditorSimOptions->HandleLinearDamping = MouseHandle->LinearDamping;
@@ -107,7 +105,7 @@ void FPhATSharedData::Initialize()
 	EditorSkelMesh = PreviewMesh;
 
 	// Create SkeletalMeshComponent for rendering skeletal mesh
-	EditorSkelComp = ConstructObject<UPhATEdSkeletalMeshComponent>(UPhATEdSkeletalMeshComponent::StaticClass());
+	EditorSkelComp = NewObject<UPhATEdSkeletalMeshComponent>();
 	EditorSkelComp->SharedData = this;
 	
 	// first disable collision first to avoid creating physics body
@@ -118,7 +116,7 @@ void FPhATSharedData::Initialize()
 	UStaticMesh* FloorMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/PhAT_FloorBox.PhAT_FloorBox"), NULL, LOAD_None, NULL);
 	check(FloorMesh);
 
-	EditorFloorComp = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+	EditorFloorComp = NewObject<UStaticMeshComponent>();
 	EditorFloorComp->StaticMesh = FloorMesh;
 	EditorFloorComp->SetRelativeScale3D(FVector(4.f));
 
@@ -524,7 +522,7 @@ void FPhATSharedData::SetSelectedBody(const FSelection* Body, bool bGroupSelect 
 		GroupSelectionChangedEvent.Broadcast(Objs);
 	}
 
-	bInsideSelChange = true;
+	//bInsideSelChange = true;
 	//HierarchySelectionChangedEvent.Broadcast();	//TODO: disable for now
 	bInsideSelChange = false;
 
@@ -1164,18 +1162,16 @@ void FPhATSharedData::DeleteBody(int32 DelBodyIndex, bool bRefreshComponent)
 
 		UBodySetup * ParentBody = ParentBodyIndex != INDEX_NONE ? PhysicsAsset->BodySetup[ParentBodyIndex] : NULL;
 
-		for (int32 i = 0; i < Constraints.Num(); ++i)
+		for (const int32 ConstraintIndex : Constraints)
 		{
-			int32 ConstraintIndex = Constraints[i];
 			UPhysicsConstraintTemplate * Constraint = PhysicsAsset->ConstraintSetup[ConstraintIndex];
 			Constraint->Modify();
 
 			if (ParentBody)
 			{
 				//for all constraints that contain a nearest child of this body, create a copy of the constraint between the child and parent
-				for (int32 i = 0; i < NearestBodiesBelow.Num(); ++i)
+				for (const int32 BodyBelowIndex : NearestBodiesBelow)
 				{
-					int32 BodyBelowIndex = NearestBodiesBelow[i];
 					UBodySetup * BodyBelow = PhysicsAsset->BodySetup[BodyBelowIndex];
 
 					if (Constraint->DefaultInstance.ConstraintBone1 == BodyBelow->BoneName)
@@ -1452,19 +1448,6 @@ void FPhATSharedData::ToggleSimulation()
 	bRunningSimulation = !bRunningSimulation;
 }
 
-void FPhATSharedData::UpdateTransformWidgetVisibilityForSimulationMode(bool bEnableSimulation)
-{
-	if ( bEnableSimulation )
-	{
-		WidgetModeBeforeSimulation = WidgetMode;
-		WidgetMode = FWidget::WM_None;
-	}
-	else
-	{
-		WidgetMode = WidgetModeBeforeSimulation;
-	}
-}
-
 void FPhATSharedData::EnableSimulation(bool bEnableSimulation)
 {
 	if (bEnableSimulation)
@@ -1509,10 +1492,6 @@ void FPhATSharedData::EnableSimulation(bool bEnableSimulation)
 		{
 			SetSelectedConstraint(INDEX_NONE, true);
 		}
-	}
-	if( bEnableSimulation != bRunningSimulation )
-	{
-		UpdateTransformWidgetVisibilityForSimulationMode(bEnableSimulation);
 	}
 }
 

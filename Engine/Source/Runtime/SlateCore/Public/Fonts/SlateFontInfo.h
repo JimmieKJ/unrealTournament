@@ -133,6 +133,7 @@ public:
 
 	/**
 	 * Get the composite font pointer associated with this font info (either directly or via a UFont)
+	 * @note This function will return the fallback font if this font info itself does not contain a valid font. If you want to test whether this font info is empty, use HasValidFont
 	 */
 	const FCompositeFont* GetCompositeFont() const;
 

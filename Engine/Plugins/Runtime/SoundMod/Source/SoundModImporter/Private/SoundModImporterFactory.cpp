@@ -45,24 +45,20 @@ UObject* USoundModImporterFactory::FactoryCreateBinary
 
 	// TODO - Audio Threading. This needs to be sent to the audio device and wait on stopping the sounds
 	TArray<UAudioComponent*> ComponentsToRestart;
-	FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
-	if (AudioDevice && ExistingSound)
+	FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+	if (AudioDeviceManager && ExistingSound)
 	{
 		// TODO: Generalize the stop sounds function
-		//AudioDevice->StopSoundsForReimport(ExistingSound, ComponentsToRestart);
+		//AudioDeviceManager->StopSoundsForReimport(ExistingSound, ComponentsToRestart);
 	}
 
 	bool bUseExistingSettings = bSoundModFactorySuppressImportOverwriteDialog;
 
 	if (ExistingSound && !bUseExistingSettings && !GIsAutomationTesting)
 	{
-		// Prompt the user for what to do if a 'To All' response wasn't already given.
-		if (OverwriteYesOrNoToAllState != EAppReturnType::YesAll && OverwriteYesOrNoToAllState != EAppReturnType::NoAll)
-		{
-			OverwriteYesOrNoToAllState = FMessageDialog::Open(EAppMsgType::YesNoYesAllNoAllCancel, FText::Format(
-				NSLOCTEXT("UnrealEd", "ImportedSoundAlreadyExists_F", "You are about to import '{0}' over an existing sound. Would you like to overwrite the existing settings?\n\nYes or Yes to All: Overwrite the existing settings.\nNo or No to All: Preserve the existing settings.\nCancel: Abort the operation."),
-				FText::FromName(Name)));
-		}
+		DisplayOverwriteOptionsDialog(FText::Format(
+			NSLOCTEXT("SoundModImporterFactory", "ImportOverwriteWarning", "You are about to import '{0}' over an existing sound."),
+			FText::FromName(Name)));
 
 		switch (OverwriteYesOrNoToAllState)
 		{
@@ -107,7 +103,7 @@ UObject* USoundModImporterFactory::FactoryCreateBinary
 
 	// Use pre-existing sound if it exists and we want to keep settings,
 	// otherwise create new sound and import raw data.
-	USoundMod* Sound = (bUseExistingSettings && ExistingSound) ? ExistingSound : NewNamedObject<USoundMod>(InParent, Name, Flags);
+	USoundMod* Sound = (bUseExistingSettings && ExistingSound) ? ExistingSound : NewObject<USoundMod>(InParent, Name, Flags);
 
 	Sound->Duration = xmpModuleInfo.seq_data->duration / 1000.f;
 

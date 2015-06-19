@@ -1,10 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
-#include "Json.h"
-#include "CsvParser.h"
 #include "Engine/DataTable.h"
-#include "Engine/UserDefinedStruct.h"
+#include "DataTableUtils.h"
+#include "DataTableCSV.h"
+#include "DataTableJSON.h"
 
 DEFINE_LOG_CATEGORY(LogDataTable);
 
@@ -15,86 +15,6 @@ UDataTable::UDataTable(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 }
-
-/** Util that removes invalid chars and then make an FName */
-FName UDataTable::MakeValidName(const FString& InString)
-{
-	FString InvalidChars(INVALID_NAME_CHARACTERS);
-
-	FString FixedString;
-	TArray<TCHAR>& FixedCharArray = FixedString.GetCharArray();
-
-	// Iterate over input string characters
-	for(int32 CharIdx=0; CharIdx<InString.Len(); CharIdx++)
-	{
-		// See if this char occurs in the InvalidChars string
-		FString Char = InString.Mid( CharIdx, 1 );
-		if( !InvalidChars.Contains(Char) )
-		{
-			// Its ok, add to result
-			FixedCharArray.Add(Char[0]);
-		}
-	}
-	FixedCharArray.Add(0);
-
-	return FName(*FixedString);
-}
-
-/** Util to see if this property is supported in a row struct. */
-bool UDataTable::IsSupportedTableProperty(const UProperty* InProp)
-{
-	return(	InProp->IsA(UIntProperty::StaticClass()) || 
-			InProp->IsA(UFloatProperty::StaticClass()) ||
-			InProp->IsA(UNameProperty::StaticClass()) ||
-			InProp->IsA(UStrProperty::StaticClass()) ||
-			InProp->IsA(UBoolProperty::StaticClass()) ||
-			InProp->IsA(UObjectPropertyBase::StaticClass()) ||
-			InProp->IsA(UStructProperty::StaticClass()) ||
-			InProp->IsA(UByteProperty::StaticClass()) ||
-			InProp->IsA(UTextProperty::StaticClass()));
-}
-
-
-
-/** Util to assign a value (given as a string) to a struct property. */
-FString UDataTable::AssignStringToProperty(const FString& InString, const UProperty* InProp, uint8* InData)
-{
-	FStringOutputDevice ImportError;
-	if(InProp != NULL && IsSupportedTableProperty(InProp))
-	{
-		InProp->ImportText(*InString, InProp->ContainerPtrToValuePtr<uint8>(InData), PPF_None, NULL, &ImportError);
-	}
-
-	FString Error = ImportError;
-	return Error;
-}
-
-/** Util to assign get a property as a string */
-FString UDataTable::GetPropertyValueAsString(const UProperty* InProp, uint8* InData)
-{
-	FString Result(TEXT(""));
-
-	if(InProp != NULL && IsSupportedTableProperty(InProp))
-	{
-		InProp->ExportText_InContainer(0, Result, InData, InData, NULL, PPF_None);
-	}
-
-	return Result;
-}
-
-/** Util to get all property names from a struct */
-TArray<FName> UDataTable::GetStructPropertyNames(UStruct* InStruct)
-{
-	TArray<FName> PropNames;
-	for (TFieldIterator<UProperty> It(InStruct); It; ++It)
-	{
-		PropNames.Add(It->GetFName());
-	}
-	return PropNames;
-}
-
-
-//////////////////////////////////////////////////////////////////////////
 
 void UDataTable::LoadStructData(FArchive& Ar)
 {
@@ -162,6 +82,7 @@ void UDataTable::Serialize( FArchive& Ar )
 
 	if(Ar.IsLoading())
 	{
+		EmptyTable();
 		LoadStructData(Ar);
 	}
 	else if(Ar.IsSaving())
@@ -186,7 +107,7 @@ void UDataTable::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 			{
 				// Serialize all of the properties to make sure they get in the collector
 				FSimpleObjectReferenceCollectorArchive ObjectReferenceCollector( This, Collector );
-				This->RowStruct->SerializeBin(ObjectReferenceCollector, RowData, 0);
+				This->RowStruct->SerializeBin(ObjectReferenceCollector, RowData);
 			}
 		}
 	}
@@ -250,7 +171,7 @@ UProperty* UDataTable::FindTableProperty(const FName& PropertyName) const
 			break;
 		}
 	}
-	if (!IsSupportedTableProperty(Property))
+	if (!DataTableUtils::IsSupportedTableProperty(Property))
 	{
 		Property = NULL;
 	}
@@ -259,15 +180,6 @@ UProperty* UDataTable::FindTableProperty(const FName& PropertyName) const
 }
 
 #if WITH_EDITOR
-
-struct FPropertyDisplayNameHelper
-{
-	static inline FString Get(const UProperty* Prop, const FString& DefaultName)
-	{
-		static const FName DisplayNameKey(TEXT("DisplayName"));
-		return (Prop && Prop->HasMetaData(DisplayNameKey)) ? Prop->GetMetaData(DisplayNameKey) : DefaultName;
-	}
-};
 
 void UDataTable::CleanBeforeStructChange()
 {
@@ -320,7 +232,7 @@ void UDataTable::RestoreAfterStructChange()
 	RowsSerializedWithTags.Empty();
 }
 
-FString UDataTable::GetTableAsString()
+FString UDataTable::GetTableAsString() const
 {
 	FString Result;
 
@@ -347,7 +259,7 @@ FString UDataTable::GetTableAsString()
 		Result += TEXT("\n");
 
 		// Now iterate over rows
-		for ( auto RowIt = RowMap.CreateIterator(); RowIt; ++RowIt )
+		for ( auto RowIt = RowMap.CreateConstIterator(); RowIt; ++RowIt )
 		{
 			FName RowName = RowIt.Key();
 			Result += RowName.ToString();
@@ -356,7 +268,7 @@ FString UDataTable::GetTableAsString()
 			for(int32 PropIdx=0; PropIdx<StructProps.Num(); PropIdx++)
 			{
 				Result += TEXT(",");
-				Result += GetPropertyValueAsString(StructProps[PropIdx], RowData);
+				Result += DataTableUtils::GetPropertyValueAsString(StructProps[PropIdx], RowData);
 			}
 			Result += TEXT("\n");			
 		}
@@ -368,77 +280,34 @@ FString UDataTable::GetTableAsString()
 	return Result;
 }
 
+FString UDataTable::GetTableAsCSV() const
+{
+	FString Result;
+	if (!FDataTableExporterCSV(*this, Result).WriteTable())
+	{
+		Result = TEXT("Missing RowStruct!\n");
+	}
+	return Result;
+}
+
 FString UDataTable::GetTableAsJSON() const
 {
-	// use the pretty print policy since these values are usually getting dumpped for check-in to P4 (or for inspection)
 	FString Result;
-	TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > > JsonWriter = TJsonWriterFactory<TCHAR, TPrettyJsonPrintPolicy<TCHAR> >::Create(&Result);
-	if (!WriteTableAsJSON(JsonWriter))
+	if (!FDataTableExporterJSON(*this, Result).WriteTable())
 	{
-		return TEXT("Missing RowStruct!\n");
+		Result = TEXT("Missing RowStruct!\n");
 	}
-	JsonWriter->Close();
 	return Result;
+}
+
+bool UDataTable::WriteRowAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter, const void* RowData) const
+{
+	return FDataTableExporterJSON(*this, JsonWriter).WriteRow(RowData);
 }
 
 bool UDataTable::WriteTableAsJSON(const TSharedRef< TJsonWriter<TCHAR, TPrettyJsonPrintPolicy<TCHAR> > >& JsonWriter) const
 {
-	if (RowStruct == NULL)
-	{
-		return false;
-	}
-	JsonWriter->WriteArrayStart();
-
-	// First build array of properties
-	TArray<UProperty*> StructProps;
-	for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
-	{
-		UProperty* Prop = *It;
-		check(Prop != NULL);
-		StructProps.Add(Prop);
-	}
-
-	// Iterate over rows
-	for (auto RowIt = RowMap.CreateConstIterator(); RowIt; ++RowIt)
-	{
-		JsonWriter->WriteObjectStart();
-
-		//RowName
-		FName RowName = RowIt.Key();
-		JsonWriter->WriteValue(TEXT("Name"), RowName.ToString());
-
-		//Now the values
-		uint8* RowData = RowIt.Value();
-		for (int32 PropIdx = 0; PropIdx < StructProps.Num(); PropIdx++)
-		{
-			UProperty* BaseProp = StructProps[PropIdx];
-			const void* Data = BaseProp->ContainerPtrToValuePtr<void>(RowData, 0);
-			if (UNumericProperty *NumProp = Cast<UNumericProperty>(StructProps[PropIdx]))
-			{
-				if (NumProp->IsInteger())
-				{
-					JsonWriter->WriteValue(BaseProp->GetName(), NumProp->GetSignedIntPropertyValue(Data));
-				}
-				else
-				{
-					JsonWriter->WriteValue(BaseProp->GetName(), NumProp->GetFloatingPointPropertyValue(Data));
-				}
-			}
-			else if (UBoolProperty* BoolProp = Cast<UBoolProperty>(StructProps[PropIdx]))
-			{
-				JsonWriter->WriteValue(BaseProp->GetName(), BoolProp->GetPropertyValue(Data));
-			}
-			else
-			{
-				FString PropertyValue = GetPropertyValueAsString(BaseProp, RowData);
-				JsonWriter->WriteValue(BaseProp->GetName(), PropertyValue);
-			}
-		}
-		JsonWriter->WriteObjectEnd();
-	}
-
-	JsonWriter->WriteArrayEnd();
-	return true;
+	return FDataTableExporterJSON(*this, JsonWriter).WriteTable();
 }
 
 /** Get array of UProperties that corresponds to columns in the table */
@@ -447,7 +316,7 @@ TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>&
 	TArray<UProperty*> ColumnProps;
 
 	// Get list of all expected properties from the struct
-	TArray<FName> ExpectedPropNames = GetStructPropertyNames(InRowStruct);
+	TArray<FName> ExpectedPropNames = DataTableUtils::GetStructPropertyNames(InRowStruct);
 
 	// Need at least 2 columns, first column is skipped, will contain row names
 	if(Cells.Num() > 1)
@@ -460,10 +329,10 @@ TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>&
 		{
 			const TCHAR* ColumnValue = Cells[ColIdx];
 
-			FName PropName = MakeValidName(ColumnValue);
+			FName PropName = DataTableUtils::MakeValidName(ColumnValue);
 			if(PropName == NAME_None)
 			{
-				OutProblems.Add(FString(TEXT("Missing name for column %d."), ColIdx));
+				OutProblems.Add(FString::Printf(TEXT("Missing name for column %d."), ColIdx));
 			}
 			else
 			{
@@ -471,7 +340,7 @@ TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>&
 
 				for (TFieldIterator<UProperty> It(InRowStruct); It && !ColumnProp; ++It)
 				{
-					const auto DisplayName = FPropertyDisplayNameHelper::Get(*It, FString());
+					const auto DisplayName = DataTableUtils::GetPropertyDisplayName(*It, FString());
 					ColumnProp = (!DisplayName.IsEmpty() && DisplayName == ColumnValue) ? *It : NULL;
 				}
 
@@ -489,7 +358,7 @@ TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>&
 						OutProblems.Add(FString::Printf(TEXT("Duplicate column '%s'."), *ColumnProp->GetName()));
 					}
 					// Check we support this property type
-					else if( !IsSupportedTableProperty(ColumnProp) )
+					else if( !DataTableUtils::IsSupportedTableProperty(ColumnProp) )
 					{
 						OutProblems.Add(FString::Printf(TEXT("Unsupported Property type for struct member '%s'."), *ColumnProp->GetName()));
 					}
@@ -510,7 +379,7 @@ TArray<UProperty*> UDataTable::GetTablePropertyArray(const TArray<const TCHAR*>&
 	for(int32 PropIdx=0; PropIdx < ExpectedPropNames.Num(); PropIdx++)
 	{
 		const UProperty* const ColumnProp = FindField<UProperty>(InRowStruct, ExpectedPropNames[PropIdx]);
-		const FString DisplayName = FPropertyDisplayNameHelper::Get(ColumnProp, ExpectedPropNames[PropIdx].ToString());
+		const FString DisplayName = DataTableUtils::GetPropertyDisplayName(ColumnProp, ExpectedPropNames[PropIdx].ToString());
 		OutProblems.Add(FString::Printf(TEXT("Expected column '%s' not found in input."), *DisplayName));
 	}
 
@@ -522,124 +391,20 @@ TArray<FString> UDataTable::CreateTableFromCSVString(const FString& InString)
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
-	// Check we have a RowStruct specified
-	if(RowStruct == NULL)
-	{
-		OutProblems.Add(FString(TEXT("No RowStruct specified.")));
-		return OutProblems;
-	}
-	if (InString.IsEmpty())
-	{
-		OutProblems.Add(FString(TEXT("Input data is empty.")));
-		return OutProblems;
-	}
+	FDataTableImporterCSV(*this, InString, OutProblems).ReadTable();
 
-	const FCsvParser Parser(InString);
-	const auto& Rows = Parser.GetRows();
-
-	// Must have at least 2 rows (column names + data)
-	if(Rows.Num() <= 1)
-	{
-		OutProblems.Add(FString(TEXT("Too few rows.")));
-		return OutProblems;
-	}
-
-	// Find property for each column
-	TArray<UProperty*> ColumnProps = GetTablePropertyArray(Rows[0], RowStruct, OutProblems);
-
-	// Empty existing data
-	EmptyTable();
-
-	// Iterate over rows
-	for(int32 RowIdx=1; RowIdx<Rows.Num(); RowIdx++)
-	{
-		const TArray<const TCHAR*>& Cells = Rows[RowIdx];
-
-		// Need at least 1 cells (row name)
-		if(Cells.Num() < 1)
-		{
-			OutProblems.Add(FString::Printf(TEXT("Row '%d' has too few cells."), RowIdx));
-			continue;
-		}
-
-		// Need enough columns in the properties!
-		if( ColumnProps.Num() < Cells.Num() )
-		{
-			OutProblems.Add(FString::Printf(TEXT("Row '%d' has more cells than properties, is there a malformed string?"), RowIdx));
-			continue;
-		}
-
-		// Get row name
-		FName RowName = MakeValidName(Cells[0]);
-
-		// Check its not 'none'
-		if(RowName == NAME_None)
-		{
-			OutProblems.Add(FString::Printf(TEXT("Row '%d' missing a name."), RowIdx));
-			continue;
-		}
-
-		// Check its not a duplicate
-		if(RowMap.Find(RowName) != NULL)
-		{
-			OutProblems.Add(FString::Printf(TEXT("Duplicate row name '%s'."), *RowName.ToString()));
-			continue;
-		}
-
-		// Allocate data to store information, using UScriptStruct to know its size
-		uint8* RowData = (uint8*)FMemory::Malloc(RowStruct->PropertiesSize);
-		RowStruct->InitializeStruct(RowData);
-		// And be sure to call DestroyScriptStruct later
-
-#if WITH_EDITOR
-		if (auto UDStruct = Cast<const UUserDefinedStruct>(RowStruct))
-		{
-			UDStruct->InitializeDefaultValue(RowData);
-		}
-#endif // WITH_EDITOR
-
-		// Add to row map
-		RowMap.Add(RowName, RowData);
-
-		// Now iterate over cells (skipping first cell, that was row name)
-		for(int32 CellIdx=1; CellIdx<Cells.Num(); CellIdx++)
-		{
-			// Try and assign string to data using the column property
-			UProperty* ColumnProp = ColumnProps[CellIdx];
-			const FString CellValue = Cells[CellIdx];
-			FString Error = AssignStringToProperty(CellValue, ColumnProp, RowData);
-
-			// If we failed, output a problem string
-			if(Error.Len() > 0)
-			{
-				FString ColumnName = (ColumnProp != NULL) 
-					? FPropertyDisplayNameHelper::Get(ColumnProp, ColumnProp->GetName())
-					: FString(TEXT("NONE"));
-				OutProblems.Add(FString::Printf(TEXT("Problem assigning string '%s' to property '%s' on row '%s' : %s"), *CellValue, *ColumnName, *RowName.ToString(), *Error));
-			}
-		}
-
-		// Problem if we didn't have enough cells on this row
-		if(Cells.Num() < ColumnProps.Num())
-		{
-			OutProblems.Add(FString::Printf(TEXT("Too few cells on row '%s'."), *RowName.ToString()));			
-		}
-	}
-
-	Modify(true);
 	return OutProblems;
 }
 
-
-//NOT READY YET, PLACEHOLDER
 TArray<FString> UDataTable::CreateTableFromJSONString(const FString& InString)
 {
 	// Array used to store problems about table creation
 	TArray<FString> OutProblems;
 
+	FDataTableImporterJSON(*this, InString, OutProblems).ReadTable();
+
 	return OutProblems;
 }
-
 
 TArray<FString> UDataTable::GetColumnTitles() const
 {
@@ -649,7 +414,21 @@ TArray<FString> UDataTable::GetColumnTitles() const
 	{
 		UProperty* Prop = *It;
 		check(Prop != NULL);
-		const FString DisplayName = FPropertyDisplayNameHelper::Get(Prop, Prop->GetName());
+		const FString DisplayName = DataTableUtils::GetPropertyDisplayName(Prop, Prop->GetName());
+		Result.Add(DisplayName);
+	}
+	return Result;
+}
+
+TArray<FString> UDataTable::GetUniqueColumnTitles() const
+{
+	TArray<FString> Result;
+	Result.Add(TEXT("Name"));
+	for (TFieldIterator<UProperty> It(RowStruct); It; ++It)
+	{
+		UProperty* Prop = *It;
+		check(Prop != NULL);
+		const FString DisplayName = Prop->GetName();
 		Result.Add(DisplayName);
 	}
 	return Result;
@@ -680,7 +459,7 @@ TArray< TArray<FString> > UDataTable::GetTableData() const
 		 uint8* RowData = RowIt.Value();
 		 for(int32 PropIdx=0; PropIdx<StructProps.Num(); PropIdx++)
 		 {
-			 RowResult.Add(GetPropertyValueAsString(StructProps[PropIdx], RowData));
+			 RowResult.Add(DataTableUtils::GetPropertyValueAsString(StructProps[PropIdx], RowData));
 		 }
 		 Result.Add(RowResult);
 	 }

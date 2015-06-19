@@ -43,7 +43,14 @@ public:
 		bool bShowComponents;
 		bool bHideFilterArea;
 
-		FShowDetailsOptions(const FText& InForcedTitle = FText::GetEmpty(), bool bInForceRefresh = false)
+		FShowDetailsOptions()
+			:ForcedTitle()
+			,bForceRefresh(false)
+			,bShowComponents(true)
+			,bHideFilterArea(false)
+		{}
+
+		FShowDetailsOptions(const FText& InForcedTitle, bool bInForceRefresh = false)
 			:ForcedTitle(InForcedTitle)
 			,bForceRefresh(bInForceRefresh)
 			,bShowComponents(true)
@@ -142,6 +149,15 @@ protected:
 
 	/** Returns whether the property view be visible */
 	EVisibility GetPropertyViewVisibility() const;
+
+	/** Returns whether the properties in the view should be editable */
+	bool IsPropertyEditingEnabled() const;
+
+	/** Returns whether the warning about an inherited component not being editable should be visible */
+	EVisibility GetInheritedBlueprintComponentWarningVisibility() const;
+
+	/** Opens the parent blueprint when the hyperlink in the warning is clicked */
+	void OnInheritedBlueprintComponentWarningHyperlinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata);
 
 	/**
 	 * Generates a widget that is used to edit the specified object array contextually.  This widget

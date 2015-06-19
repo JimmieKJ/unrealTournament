@@ -121,6 +121,10 @@ UWheeledVehicleMovementComponent::UWheeledVehicleMovementComponent(const FObject
 	AvoidanceConsiderationRadius = 2000.0f;
 	RVOSteeringStep = 0.5f;
 	RVOThrottleStep = 0.25f;
+    
+    ThresholdLongitudinalSpeed = 5.f;
+    LowForwardSpeedSubStepCount = 3;
+    HighForwardSpeedSubStepCount = 1;
 
 #if WITH_VEHICLE
 	// tire load filtering
@@ -181,7 +185,7 @@ void UWheeledVehicleMovementComponent::CreateVehicle()
 			check(UpdatedComponent);
 			if (ensure(UpdatedPrimitive != nullptr))
 			{
-				check(UpdatedPrimitive->GetBodyInstance()->GetPxRigidDynamic());
+				check(UpdatedPrimitive->GetBodyInstance()->IsDynamic());
 				
 				SetupVehicle();
 
@@ -201,68 +205,69 @@ void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 		return;
 	}
 
-	PxRigidDynamic* PVehicleActor = UpdatedPrimitive->GetBodyInstance()->GetPxRigidDynamic();
-
 	static PxMaterial* WheelMaterial = GPhysXSDK->createMaterial(0.0f, 0.0f, 0.0f);
 
-	// Add wheel shapes to actor
-	for ( int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx )
+	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&](PxRigidDynamic* PVehicleActor)
 	{
-		FWheelSetup& WheelSetup = WheelSetups[WheelIdx];
-		UVehicleWheel* Wheel = WheelSetup.WheelClass.GetDefaultObject();
-		check(Wheel);
-
-		const FVector WheelOffset = GetWheelRestingPosition( WheelSetup );
-		const PxTransform PLocalPose = PxTransform( U2PVector( WheelOffset ) );
-		PxShape* PWheelShape = NULL;
-
-		// Prepare shape
-		if (Wheel->bDontCreateShape)
+		// Add wheel shapes to actor
+		for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
 		{
-			continue;
-		}
-		else if (Wheel->CollisionMesh && Wheel->CollisionMesh->BodySetup)
-		{
-			FBoxSphereBounds MeshBounds = Wheel->CollisionMesh->GetBounds();
-			FVector MeshScaleV = FVector(1,1,1);
-			if (Wheel->bAutoAdjustCollisionSize)
+			FWheelSetup& WheelSetup = WheelSetups[WheelIdx];
+			UVehicleWheel* Wheel = WheelSetup.WheelClass.GetDefaultObject();
+			check(Wheel);
+
+			const FVector WheelOffset = GetWheelRestingPosition(WheelSetup);
+			const PxTransform PLocalPose = PxTransform(U2PVector(WheelOffset));
+			PxShape* PWheelShape = NULL;
+
+			// Prepare shape
+			if (Wheel->bDontCreateShape)
 			{
-				MeshScaleV.X = Wheel->ShapeRadius / MeshBounds.BoxExtent.X;
-				MeshScaleV.Y = Wheel->ShapeWidth / MeshBounds.BoxExtent.Y;
-				MeshScaleV.Z = Wheel->ShapeRadius / MeshBounds.BoxExtent.Z;
+				continue;
 			}
-			PxMeshScale MeshScale( U2PVector(UpdatedComponent->RelativeScale3D * MeshScaleV), PxQuat::createIdentity() );
-			if (Wheel->CollisionMesh->BodySetup->TriMesh)
+			else if (Wheel->CollisionMesh && Wheel->CollisionMesh->BodySetup)
 			{
-				PxTriangleMesh* TriMesh = Wheel->CollisionMesh->BodySetup->TriMesh;
+				FBoxSphereBounds MeshBounds = Wheel->CollisionMesh->GetBounds();
+				FVector MeshScaleV = FVector(1, 1, 1);
+				if (Wheel->bAutoAdjustCollisionSize)
+				{
+					MeshScaleV.X = Wheel->ShapeRadius / MeshBounds.BoxExtent.X;
+					MeshScaleV.Y = Wheel->ShapeWidth / MeshBounds.BoxExtent.Y;
+					MeshScaleV.Z = Wheel->ShapeRadius / MeshBounds.BoxExtent.Z;
+				}
+				PxMeshScale MeshScale(U2PVector(UpdatedComponent->RelativeScale3D * MeshScaleV), PxQuat::createIdentity());
+				if (Wheel->CollisionMesh->BodySetup->TriMesh)
+				{
+					PxTriangleMesh* TriMesh = Wheel->CollisionMesh->BodySetup->TriMesh;
 
-				// No eSIMULATION_SHAPE flag for wheels
-				PWheelShape = PVehicleActor->createShape( PxTriangleMeshGeometry(TriMesh, MeshScale), *WheelMaterial, PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eVISUALIZATION );
-				PWheelShape->setLocalPose(PLocalPose);			
+					// No eSIMULATION_SHAPE flag for wheels
+					PWheelShape = PVehicleActor->createShape(PxTriangleMeshGeometry(TriMesh, MeshScale), *WheelMaterial, PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eVISUALIZATION);
+					PWheelShape->setLocalPose(PLocalPose);
+				}
+				else if (Wheel->CollisionMesh->BodySetup->AggGeom.ConvexElems.Num() == 1)
+				{
+					PxConvexMesh* ConvexMesh = Wheel->CollisionMesh->BodySetup->AggGeom.ConvexElems[0].ConvexMesh;
+					PWheelShape = PVehicleActor->createShape(PxConvexMeshGeometry(ConvexMesh, MeshScale), *WheelMaterial, PLocalPose);
+				}
+
+				check(PWheelShape);
 			}
-			else if (Wheel->CollisionMesh->BodySetup->AggGeom.ConvexElems.Num() == 1)
+			else
 			{
-				PxConvexMesh* ConvexMesh = Wheel->CollisionMesh->BodySetup->AggGeom.ConvexElems[0].ConvexMesh;
-				PWheelShape = PVehicleActor->createShape( PxConvexMeshGeometry(ConvexMesh, MeshScale), *WheelMaterial, PLocalPose );
+				PWheelShape = PVehicleActor->createShape(PxSphereGeometry(Wheel->ShapeRadius), *WheelMaterial, PLocalPose);
 			}
 
-			check(PWheelShape);
+			// Init filter data
+			FCollisionResponseContainer CollisionResponse;
+			CollisionResponse.SetAllChannels(ECR_Ignore);
+
+			PxFilterData PWheelQueryFilterData, PDummySimData;
+			CreateShapeFilterData(ECC_Vehicle, UpdatedComponent->GetUniqueID(), CollisionResponse, 0, 0, PWheelQueryFilterData, PDummySimData, false, false, false);
+
+			//// Give suspension raycasts the same group ID as the chassis so that they don't hit each other
+			PWheelShape->setQueryFilterData(PWheelQueryFilterData);
 		}
-		else
-		{
-			PWheelShape = PVehicleActor->createShape( PxSphereGeometry(Wheel->ShapeRadius), *WheelMaterial, PLocalPose );
-		}
-
-		// Init filter data
-		FCollisionResponseContainer CollisionResponse;
-		CollisionResponse.SetAllChannels( ECR_Ignore );
-
-		PxFilterData PWheelQueryFilterData, PDummySimData;
-		CreateShapeFilterData(ECC_Vehicle, UpdatedComponent->GetUniqueID(), CollisionResponse, 0, 0, PWheelQueryFilterData, PDummySimData, false, false, false );
-
-		//// Give suspension raycasts the same group ID as the chassis so that they don't hit each other
-		PWheelShape->setQueryFilterData( PWheelQueryFilterData );
-	}
+	});
 }
 
 void UWheeledVehicleMovementComponent::SetupVehicleMass()
@@ -272,23 +277,23 @@ void UWheeledVehicleMovementComponent::SetupVehicleMass()
 		return;
 	}
 
-	const FBodyInstance& BodyInst = *UpdatedPrimitive->GetBodyInstance();
-	PxRigidDynamic* PVehicleActor = BodyInst.GetPxRigidDynamic();
+	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&](PxRigidDynamic* PVehicleActor)
+	{
+		// Override mass
+		const float MassRatio = Mass > 0.0f ? Mass / PVehicleActor->getMass() : 1.0f;
 
-	// Override mass
-	const float MassRatio = Mass > 0.0f ? Mass / PVehicleActor->getMass() : 1.0f;
+		PxVec3 PInertiaTensor = PVehicleActor->getMassSpaceInertiaTensor();
 
-	PxVec3 PInertiaTensor = PVehicleActor->getMassSpaceInertiaTensor();
+		PInertiaTensor.x *= InertiaTensorScale.X * MassRatio;
+		PInertiaTensor.y *= InertiaTensorScale.Y * MassRatio;
+		PInertiaTensor.z *= InertiaTensorScale.Z * MassRatio;
 
-	PInertiaTensor.x *= InertiaTensorScale.X * MassRatio;
-	PInertiaTensor.y *= InertiaTensorScale.Y * MassRatio;
-	PInertiaTensor.z *= InertiaTensorScale.Z * MassRatio;
+		PVehicleActor->setMassSpaceInertiaTensor(PInertiaTensor);
+		PVehicleActor->setMass(Mass);
 
-	PVehicleActor->setMassSpaceInertiaTensor( PInertiaTensor );
-	PVehicleActor->setMass( Mass );
-
-	const PxVec3 PCOMOffset = U2PVector(GetLocalCOM());
-	PVehicleActor->setCMassLocalPose(PxTransform(PCOMOffset, PxQuat::createIdentity()));
+		const PxVec3 PCOMOffset = U2PVector(GetLocalCOM());
+		PVehicleActor->setCMassLocalPose(PxTransform(PCOMOffset, PxQuat::createIdentity()));
+	});
 }
 
 void UWheeledVehicleMovementComponent::SetupWheels( PxVehicleWheelsSimData* PWheelsSimData )
@@ -298,106 +303,104 @@ void UWheeledVehicleMovementComponent::SetupWheels( PxVehicleWheelsSimData* PWhe
 		return;
 	}
 
-	const FBodyInstance& VehicleBodyInstance = *UpdatedPrimitive->GetBodyInstance();
-	PxRigidDynamic* PVehicleActor = VehicleBodyInstance.GetPxRigidDynamic();
-
-	const PxReal LengthScale = 100.f; // Convert default from m to cm
-
-	// Control substepping
-	PWheelsSimData->setSubStepCount( 5.f * LengthScale, 3, 1 );
-	PWheelsSimData->setMinLongSlipDenominator(4.f * LengthScale); 
-
-	// Prealloc data for the sprung masses
-	PxVec3 WheelOffsets[32];
-	float SprungMasses[32];
-	check(WheelSetups.Num() <= 32);
-
-	// Calculate wheel offsets first, necessary for sprung masses
-	for ( int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx )
+	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&](PxRigidDynamic* PVehicleActor)
 	{
-		WheelOffsets[WheelIdx] = U2PVector( GetWheelRestingPosition( WheelSetups[WheelIdx] ) );
-	}
+		const PxReal LengthScale = 100.f; // Convert default from m to cm
 
-	// Now that we have all the wheel offsets, calculate the sprung masses
-	PxVec3 PLocalCOM = U2PVector(GetLocalCOM());
-	PxVehicleComputeSprungMasses(WheelSetups.Num(), WheelOffsets, PLocalCOM, PVehicleActor->getMass(), 2, SprungMasses);
+		// Control substepping
+		PWheelsSimData->setSubStepCount(ThresholdLongitudinalSpeed * LengthScale, LowForwardSpeedSubStepCount, HighForwardSpeedSubStepCount);
+		PWheelsSimData->setMinLongSlipDenominator(4.f * LengthScale);
 
-	for ( int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx )
-	{
-		UVehicleWheel* Wheel = WheelSetups[WheelIdx].WheelClass.GetDefaultObject();
+		// Prealloc data for the sprung masses
+		PxVec3 WheelOffsets[32];
+		float SprungMasses[32];
+		check(WheelSetups.Num() <= 32);
 
-		// init wheel data
-		PxVehicleWheelData PWheelData;
-		PWheelData.mRadius = Wheel->ShapeRadius;
-		PWheelData.mWidth = Wheel->ShapeWidth;	
-		PWheelData.mMaxSteer = FMath::DegreesToRadians(Wheel->SteerAngle);
-		PWheelData.mMaxBrakeTorque = M2ToCm2(Wheel->MaxBrakeTorque);
-		PWheelData.mMaxHandBrakeTorque = Wheel->bAffectedByHandbrake ? M2ToCm2(Wheel->MaxHandBrakeTorque) : 0.0f;
+		// Calculate wheel offsets first, necessary for sprung masses
+		for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+		{
+			WheelOffsets[WheelIdx] = U2PVector(GetWheelRestingPosition(WheelSetups[WheelIdx]));
+		}
 
-		PWheelData.mDampingRate = M2ToCm2(Wheel->DampingRate);
-		PWheelData.mMass = Wheel->Mass;
-		PWheelData.mMOI = 0.5f * PWheelData.mMass * FMath::Square(PWheelData.mRadius);
-		
-		// init tire data
-		PxVehicleTireData PTireData; 
-		PTireData.mType = Wheel->TireType ? Wheel->TireType->GetTireTypeID() : GEngine->DefaultTireType->GetTireTypeID();
-		//PTireData.mCamberStiffnessPerUnitGravity = 0.0f;
-		PTireData.mLatStiffX = Wheel->LatStiffMaxLoad;
-		PTireData.mLatStiffY = Wheel->LatStiffValue;
-		PTireData.mLongitudinalStiffnessPerUnitGravity = Wheel->LongStiffValue;
+		// Now that we have all the wheel offsets, calculate the sprung masses
+		PxVec3 PLocalCOM = U2PVector(GetLocalCOM());
+		PxVehicleComputeSprungMasses(WheelSetups.Num(), WheelOffsets, PLocalCOM, PVehicleActor->getMass(), 2, SprungMasses);
 
-		// init suspension data
-		PxVehicleSuspensionData PSuspensionData;
-		PSuspensionData.mSprungMass = SprungMasses[WheelIdx];
-		PSuspensionData.mMaxCompression = Wheel->SuspensionMaxRaise;
-		PSuspensionData.mMaxDroop = Wheel->SuspensionMaxDrop;
-		PSuspensionData.mSpringStrength = FMath::Square( Wheel->SuspensionNaturalFrequency ) * PSuspensionData.mSprungMass;
-		PSuspensionData.mSpringDamperRate = Wheel->SuspensionDampingRatio * 2.0f * FMath::Sqrt( PSuspensionData.mSpringStrength * PSuspensionData.mSprungMass );
+		for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+		{
+			UVehicleWheel* Wheel = WheelSetups[WheelIdx].WheelClass.GetDefaultObject();
 
-		// init offsets
-		const PxVec3 PWheelOffset = WheelOffsets[WheelIdx];
+			// init wheel data
+			PxVehicleWheelData PWheelData;
+			PWheelData.mRadius = Wheel->ShapeRadius;
+			PWheelData.mWidth = Wheel->ShapeWidth;
+			PWheelData.mMaxSteer = FMath::DegreesToRadians(Wheel->SteerAngle);
+			PWheelData.mMaxBrakeTorque = M2ToCm2(Wheel->MaxBrakeTorque);
+			PWheelData.mMaxHandBrakeTorque = Wheel->bAffectedByHandbrake ? M2ToCm2(Wheel->MaxHandBrakeTorque) : 0.0f;
 
-		PxVec3 PSuspTravelDirection = PxVec3( 0.0f, 0.0f, -1.0f );
-		PxVec3 PWheelCentreCMOffset = PWheelOffset - PLocalCOM;
-		PxVec3 PSuspForceAppCMOffset = PxVec3(PWheelCentreCMOffset.x, PWheelCentreCMOffset.y, Wheel->SuspensionForceOffset);
-		PxVec3 PTireForceAppCMOffset = PSuspForceAppCMOffset;
+			PWheelData.mDampingRate = M2ToCm2(Wheel->DampingRate);
+			PWheelData.mMass = Wheel->Mass;
+			PWheelData.mMOI = 0.5f * PWheelData.mMass * FMath::Square(PWheelData.mRadius);
 
-		// finalize sim data
-		PWheelsSimData->setWheelData( WheelIdx, PWheelData );
-		PWheelsSimData->setTireData( WheelIdx, PTireData );
-		PWheelsSimData->setSuspensionData( WheelIdx, PSuspensionData );
-		PWheelsSimData->setSuspTravelDirection( WheelIdx, PSuspTravelDirection );
-		PWheelsSimData->setWheelCentreOffset( WheelIdx, PWheelCentreCMOffset );
-		PWheelsSimData->setSuspForceAppPointOffset( WheelIdx, PSuspForceAppCMOffset );
-		PWheelsSimData->setTireForceAppPointOffset( WheelIdx, PTireForceAppCMOffset );
-	}
+			// init tire data
+			PxVehicleTireData PTireData;
+			PTireData.mType = Wheel->TireType ? Wheel->TireType->GetTireTypeID() : GEngine->DefaultTireType->GetTireTypeID();
+			//PTireData.mCamberStiffnessPerUnitGravity = 0.0f;
+			PTireData.mLatStiffX = Wheel->LatStiffMaxLoad;
+			PTireData.mLatStiffY = Wheel->LatStiffValue;
+			PTireData.mLongitudinalStiffnessPerUnitGravity = Wheel->LongStiffValue;
 
-	const int32 NumShapes = PVehicleActor->getNbShapes();
-	const int32 NumChassisShapes = NumShapes - WheelSetups.Num();
-	check( NumChassisShapes >= 1 );
+			// init suspension data
+			PxVehicleSuspensionData PSuspensionData;
+			PSuspensionData.mSprungMass = SprungMasses[WheelIdx];
+			PSuspensionData.mMaxCompression = Wheel->SuspensionMaxRaise;
+			PSuspensionData.mMaxDroop = Wheel->SuspensionMaxDrop;
+			PSuspensionData.mSpringStrength = FMath::Square(Wheel->SuspensionNaturalFrequency) * PSuspensionData.mSprungMass;
+			PSuspensionData.mSpringDamperRate = Wheel->SuspensionDampingRatio * 2.0f * FMath::Sqrt(PSuspensionData.mSpringStrength * PSuspensionData.mSprungMass);
 
-	TArray<PxShape*> Shapes;
-	Shapes.AddZeroed(NumShapes);
+			// init offsets
+			const PxVec3 PWheelOffset = WheelOffsets[WheelIdx];
 
-	PVehicleActor->getShapes( Shapes.GetData(), NumShapes );
+			PxVec3 PSuspTravelDirection = PxVec3(0.0f, 0.0f, -1.0f);
+			PxVec3 PWheelCentreCMOffset = PWheelOffset - PLocalCOM;
+			PxVec3 PSuspForceAppCMOffset = PxVec3(PWheelCentreCMOffset.x, PWheelCentreCMOffset.y, Wheel->SuspensionForceOffset);
+			PxVec3 PTireForceAppCMOffset = PSuspForceAppCMOffset;
 
-	for ( int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx )
-	{
-		const int32 WheelShapeIndex = NumChassisShapes + WheelIdx;
+			// finalize sim data
+			PWheelsSimData->setWheelData(WheelIdx, PWheelData);
+			PWheelsSimData->setTireData(WheelIdx, PTireData);
+			PWheelsSimData->setSuspensionData(WheelIdx, PSuspensionData);
+			PWheelsSimData->setSuspTravelDirection(WheelIdx, PSuspTravelDirection);
+			PWheelsSimData->setWheelCentreOffset(WheelIdx, PWheelCentreCMOffset);
+			PWheelsSimData->setSuspForceAppPointOffset(WheelIdx, PSuspForceAppCMOffset);
+			PWheelsSimData->setTireForceAppPointOffset(WheelIdx, PTireForceAppCMOffset);
+		}
 
-		PWheelsSimData->setWheelShapeMapping( WheelIdx, WheelShapeIndex );
-		PWheelsSimData->setSceneQueryFilterData( WheelIdx, Shapes[WheelShapeIndex]->getQueryFilterData());
-	}
+		const int32 NumShapes = PVehicleActor->getNbShapes();
+		const int32 NumChassisShapes = NumShapes - WheelSetups.Num();
+		check(NumChassisShapes >= 1);
 
-	// tire load filtering
-	PxVehicleTireLoadFilterData PTireLoadFilter;
-	PTireLoadFilter.mMinNormalisedLoad = MinNormalizedTireLoad;
-	PTireLoadFilter.mMinFilteredNormalisedLoad = MinNormalizedTireLoadFiltered;
-	PTireLoadFilter.mMaxNormalisedLoad = MaxNormalizedTireLoad;
-	PTireLoadFilter.mMaxFilteredNormalisedLoad = MaxNormalizedTireLoadFiltered;
-	PWheelsSimData->setTireLoadFilterData(PTireLoadFilter);
+		TArray<PxShape*> Shapes;
+		Shapes.AddZeroed(NumShapes);
 
-	
+		PVehicleActor->getShapes(Shapes.GetData(), NumShapes);
+
+		for (int32 WheelIdx = 0; WheelIdx < WheelSetups.Num(); ++WheelIdx)
+		{
+			const int32 WheelShapeIndex = NumChassisShapes + WheelIdx;
+
+			PWheelsSimData->setWheelShapeMapping(WheelIdx, WheelShapeIndex);
+			PWheelsSimData->setSceneQueryFilterData(WheelIdx, Shapes[WheelShapeIndex]->getQueryFilterData());
+		}
+
+		// tire load filtering
+		PxVehicleTireLoadFilterData PTireLoadFilter;
+		PTireLoadFilter.mMinNormalisedLoad = MinNormalizedTireLoad;
+		PTireLoadFilter.mMinFilteredNormalisedLoad = MinNormalizedTireLoadFiltered;
+		PTireLoadFilter.mMaxNormalisedLoad = MaxNormalizedTireLoad;
+		PTireLoadFilter.mMaxFilteredNormalisedLoad = MaxNormalizedTireLoadFiltered;
+		PWheelsSimData->setTireLoadFilterData(PTireLoadFilter);
+	});
 }
  ////////////////////////////////////////////////////////////////////////////
 //Default tire force shader function.
@@ -549,19 +552,20 @@ FVector UWheeledVehicleMovementComponent::GetWheelRestingPosition( const FWheelS
 
 FVector UWheeledVehicleMovementComponent::GetLocalCOM() const
 {
+	FVector LocalCOM = FVector::ZeroVector;
 	if (UpdatedPrimitive)
 	{
 		if (const FBodyInstance* BodyInst = UpdatedPrimitive->GetBodyInstance())
 		{
-			if (PxRigidDynamic* PVehicleActor = BodyInst->GetPxRigidDynamic())
+			ExecuteOnPxRigidDynamicReadOnly(BodyInst, [&](const PxRigidDynamic* PVehicleActor)
 			{
 				PxTransform PCOMTransform = PVehicleActor->getCMassLocalPose();
-				return P2UVector(PCOMTransform.p);
-			}
+				LocalCOM = P2UVector(PCOMTransform.p);
+			});
 		}
 	}
 
-	return FVector::ZeroVector;
+	return LocalCOM;
 }
 
 USkinnedMeshComponent* UWheeledVehicleMovementComponent::GetMesh()
@@ -621,12 +625,13 @@ void UWheeledVehicleMovementComponent::CreatePhysicsState()
 
 			if ( PVehicle )
 			{
-				PhysScene->GetVehicleManager()->AddVehicle( this );
+				FPhysXVehicleManager* VehicleManager = PhysScene->GetVehicleManager();
+				VehicleManager->AddVehicle( this );
 
 				CreateWheels();
 
 				//LogVehicleSettings( PVehicle );
-
+				SCOPED_SCENE_WRITE_LOCK(VehicleManager->GetScene());
 				PVehicle->getRigidDynamicActor()->wakeUp();
 			}
 		}
@@ -1040,14 +1045,18 @@ void UWheeledVehicleMovementComponent::SetUseAutoGears(bool bUseAuto)
 
 float UWheeledVehicleMovementComponent::GetForwardSpeed() const
 {
+	float ForwardSpeed = 0.f;
 #if WITH_VEHICLE
 	if ( PVehicle )
 	{
-		return PVehicle->computeForwardSpeed();
+		UpdatedPrimitive->GetBodyInstance()->ExecuteOnPhysicsReadOnly([&]
+		{
+			ForwardSpeed = PVehicle->computeForwardSpeed();
+		});
 	}
 #endif
 
-	return 0.0f;
+	return ForwardSpeed;
 }
 
 float UWheeledVehicleMovementComponent::GetEngineRotationSpeed() const
@@ -1205,7 +1214,9 @@ bool UWheeledVehicleMovementComponent::CheckSlipThreshold(float AbsLongSlipThres
 	}
 
 	FPhysXVehicleManager* MyVehicleManager = World->GetPhysicsScene()->GetVehicleManager();
-	PxWheelQueryResult * WheelsStates = MyVehicleManager->GetWheelsStates(this);
+	SCOPED_SCENE_READ_LOCK(MyVehicleManager->GetScene());
+
+	PxWheelQueryResult * WheelsStates = MyVehicleManager->GetWheelsStates_AssumesLocked(this);
 	check(WheelsStates);
 
 	PxReal MaxLongSlip = 0.f;
@@ -1239,7 +1250,9 @@ float UWheeledVehicleMovementComponent::GetMaxSpringForce() const
 	}
 
 	FPhysXVehicleManager* MyVehicleManager = World->GetPhysicsScene()->GetVehicleManager();
-	PxWheelQueryResult * WheelsStates = MyVehicleManager->GetWheelsStates(this);
+	SCOPED_SCENE_READ_LOCK(MyVehicleManager->GetScene());
+
+	PxWheelQueryResult * WheelsStates = MyVehicleManager->GetWheelsStates_AssumesLocked(this);
 	check(WheelsStates);
 
 	PxReal MaxSpringCompression = 0.f;
@@ -1280,7 +1293,8 @@ void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, fl
 
 	}
 
-	PxWheelQueryResult* WheelsStates = MyVehicleManager->GetWheelsStates(this);
+	SCOPED_SCENE_READ_LOCK(MyVehicleManager->GetScene());
+	PxWheelQueryResult* WheelsStates = MyVehicleManager->GetWheelsStates_AssumesLocked(this);
 	check(WheelsStates);
 
 	// draw wheel data
@@ -1321,7 +1335,7 @@ void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, fl
 	}
 
 	// draw wheel graphs
-	PxVehicleTelemetryData* TelemetryData = MyVehicleManager->GetTelemetryData();
+	PxVehicleTelemetryData* TelemetryData = MyVehicleManager->GetTelemetryData_AssumesLocked();
 
 	if ( TelemetryData )
 	{
@@ -1436,9 +1450,10 @@ void UWheeledVehicleMovementComponent::DrawDebugLines()
 	DrawDebugLine(World, P2UVector(T.p), P2UVector(T.p + T.rotate(PxVec3(0, ChassisSize, 0))), FColor::Green);
 	DrawDebugLine(World, P2UVector(T.p), P2UVector(T.p + T.rotate(PxVec3(0, 0, ChassisSize))), FColor::Blue);
 
-	PxVehicleTelemetryData* TelemetryData = MyVehicleManager->GetTelemetryData();
+	SCOPED_SCENE_READ_LOCK(MyVehicleManager->GetScene());
+	PxVehicleTelemetryData* TelemetryData = MyVehicleManager->GetTelemetryData_AssumesLocked();
 	
-	PxWheelQueryResult* WheelsStates = MyVehicleManager->GetWheelsStates(this);
+	PxWheelQueryResult* WheelsStates = MyVehicleManager->GetWheelsStates_AssumesLocked(this);
 	check(WheelsStates);
 
 	for ( uint32 w = 0; w < PNumWheels; ++w )

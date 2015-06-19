@@ -58,6 +58,11 @@ bool FLocalNewsFeedTitleFile::ClearFile( const FString& DLName )
 }
 
 
+void FLocalNewsFeedTitleFile::DeleteCachedFiles(bool bSkipEnumerated)
+{
+	// not implemented
+}
+
 bool FLocalNewsFeedTitleFile::EnumerateFiles(const FPagedQuery& Page)
 {
 	const FString WildCard = FPaths::Combine(*RootDirectory, TEXT("*"));

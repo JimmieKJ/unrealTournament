@@ -40,22 +40,25 @@ struct ENGINE_API FMaterialRelevance
 	uint32 bOpaque : 1;
 
 	UPROPERTY()
-		uint32 bMasked : 1;
+	uint32 bMasked : 1;
 
 	UPROPERTY()
-		uint32 bDistortion : 1;
+	uint32 bDistortion : 1;
 
 	UPROPERTY()
-		uint32 bSeparateTranslucency : 1;
+	uint32 bSeparateTranslucency : 1;
 
 	UPROPERTY()
-		uint32 bNormalTranslucency : 1;
+	uint32 bNormalTranslucency : 1;
 
 	UPROPERTY()
-		uint32 bDisableDepthTest : 1;
+	uint32 bDisableDepthTest : 1;
+	
+	UPROPERTY()
+	uint32 bOutputsVelocityInBasePass : 1;
 
 	UPROPERTY()
-		uint32 bSubsurfaceProfile : 1;
+	uint16 ShadingModelMask;
 
 	/** Default constructor. */
 	FMaterialRelevance()
@@ -64,8 +67,9 @@ struct ENGINE_API FMaterialRelevance
 		, bDistortion(false)
 		, bSeparateTranslucency(false)
 		, bNormalTranslucency(false)
-		, bDisableDepthTest(false)
-		, bSubsurfaceProfile(false)
+		, bDisableDepthTest(false)		
+		, bOutputsVelocityInBasePass(true)
+		, ShadingModelMask(0)
 	{}
 
 	/** Bitwise OR operator.  Sets any relevance bits which are present in either FMaterialRelevance. */
@@ -77,7 +81,8 @@ struct ENGINE_API FMaterialRelevance
 		bSeparateTranslucency |= B.bSeparateTranslucency;
 		bNormalTranslucency |= B.bNormalTranslucency;
 		bDisableDepthTest |= B.bDisableDepthTest;
-		bSubsurfaceProfile |= B.bSubsurfaceProfile;
+		ShadingModelMask |= B.ShadingModelMask;
+		bOutputsVelocityInBasePass |= B.bOutputsVelocityInBasePass;
 		return *this;
 	}
 
@@ -224,7 +229,7 @@ public:
 	// End UObject interface.
 
 	// Begin interface IBlendableInterface
-	ENGINE_API virtual void OverrideBlendableSettings(class FSceneView& View, float Weight) const;
+	ENGINE_API virtual void OverrideBlendableSettings(class FSceneView& View, float Weight) const override;
 	// End interface IBlendableInterface
 
 	/** Walks up parent chain and finds the base Material that this is an instance of. */
@@ -320,7 +325,7 @@ public:
 	* @param	OutValue		Will contain the value of the parameter if successful
 	* @return					True if successful
 	*/
-	virtual bool GetStaticSwitchParameterValue(FName ParameterName,bool &OutValue,FGuid &OutExpressionGuid) 
+	virtual bool GetStaticSwitchParameterValue(FName ParameterName,bool &OutValue,FGuid &OutExpressionGuid) const
 		PURE_VIRTUAL(UMaterialInterface::GetStaticSwitchParameterValue,return false;);
 
 	/**
@@ -330,7 +335,7 @@ public:
 	* @param	R, G, B, A		Will contain the values of the parameter if successful
 	* @return					True if successful
 	*/
-	virtual bool GetStaticComponentMaskParameterValue(FName ParameterName, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid) 
+	virtual bool GetStaticComponentMaskParameterValue(FName ParameterName, bool &R, bool &G, bool &B, bool &A, FGuid &OutExpressionGuid) const
 		PURE_VIRTUAL(UMaterialInterface::GetStaticComponentMaskParameterValue,return false;);
 
 	/**
@@ -340,7 +345,7 @@ public:
 	* @param	OutWeightmapIndex	Will contain the values of the parameter if successful
 	* @return					True if successful
 	*/
-	virtual bool GetTerrainLayerWeightParameterValue(FName ParameterName, int32& OutWeightmapIndex, FGuid &OutExpressionGuid)
+	virtual bool GetTerrainLayerWeightParameterValue(FName ParameterName, int32& OutWeightmapIndex, FGuid &OutExpressionGuid) const
 		PURE_VIRTUAL(UMaterialInterface::GetTerrainLayerWeightParameterValue,return false;);
 
 	/** @return The material's relevance. */
@@ -349,7 +354,7 @@ public:
 	ENGINE_API FMaterialRelevance GetRelevance_Concurrent(ERHIFeatureLevel::Type InFeatureLevel) const;
 private:
 	// might get called from game or render thread
-	ENGINE_API FMaterialRelevance GetRelevance_Internal(const UMaterial* Material, ERHIFeatureLevel::Type InFeatureLevel) const;
+	FMaterialRelevance GetRelevance_Internal(const UMaterial* Material, ERHIFeatureLevel::Type InFeatureLevel) const;
 public:
 
 	int32 GetWidth() const;
@@ -617,4 +622,4 @@ private:
 };
 
 /** Helper function to serialize inline shader maps for the given material resources. */
-extern void SerializeInlineShaderMaps(const TMap<const class ITargetPlatform*,TArray<FMaterialResource*>>& PlatformMaterialResourcesToSave, FArchive& Ar, FMaterialResource* OutMaterialResourcesLoaded[][ERHIFeatureLevel::Num]);
+extern void SerializeInlineShaderMaps(const TMap<const class ITargetPlatform*,TArray<FMaterialResource*>>* PlatformMaterialResourcesToSave, FArchive& Ar, FMaterialResource* OutMaterialResourcesLoaded[][ERHIFeatureLevel::Num]);

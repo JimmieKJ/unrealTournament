@@ -8,19 +8,160 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogCoreNet, Log, All);
 
-DEFINE_STAT(STAT_NetSerializeFast_Array);
+DEFINE_STAT(STAT_NetSerializeFastArray);
+DEFINE_STAT(STAT_NetSerializeFastArray_BuildMap);
 
 /*-----------------------------------------------------------------------------
 	FClassNetCache implementation.
 -----------------------------------------------------------------------------*/
 
 FClassNetCache::FClassNetCache()
-{}
-FClassNetCache::FClassNetCache( UClass* InClass )
-: Class( InClass )
-{}
+{
+}
 
-FClassNetCache * FClassNetCacheMgr::GetClassNetCache( UClass* Class )
+FClassNetCache::FClassNetCache( const UClass* InClass ) : Class( InClass )
+{
+}
+
+void FClassNetCacheMgr::SortProperties( TArray< UProperty* >& Properties ) const
+{
+	// Sort NetProperties so that their ClassReps are sorted by memory offset
+	struct FCompareUFieldOffsets
+	{
+		FORCEINLINE bool operator()( UProperty & A, UProperty & B ) const
+		{
+			// Ensure stable sort
+			if ( A.GetOffset_ForGC() == B.GetOffset_ForGC() )
+			{
+				return A.GetName() < B.GetName();
+			}
+
+			return A.GetOffset_ForGC() < B.GetOffset_ForGC();
+		}
+	};
+
+	Sort( Properties.GetData(), Properties.Num(), FCompareUFieldOffsets() );
+}
+
+uint32 FClassNetCacheMgr::SortedStructFieldsChecksum( const UStruct* Struct, uint32 Checksum ) const
+{
+	// Generate a list that we can sort, to make sure we process these deterministically
+	TArray< UProperty * > Fields;
+
+	for ( TFieldIterator< UProperty > It( Struct ); It; ++It )
+	{
+		if ( It->PropertyFlags & CPF_RepSkip )
+		{
+			continue;
+		}
+
+		Fields.Add( *It );
+	}
+
+	// Sort them
+	SortProperties( Fields );
+
+	// Evolve the checksum on the sorted list
+	for ( auto Field : Fields )
+	{
+		Checksum = GetPropertyChecksum( Field, Checksum );
+	}
+
+	return Checksum;
+}
+
+uint32 FClassNetCacheMgr::GetPropertyChecksum( const UProperty* Property, uint32 Checksum ) const
+{
+	if ( bDebugChecksum )
+	{
+		UE_LOG( LogCoreNet, Warning, TEXT( "%s%s [%s] [%u] [%u]" ), FCString::Spc( 2 * DebugChecksumIndent ), *Property->GetName().ToLower(), *Property->GetClass()->GetName().ToLower(), Property->ArrayDim, Checksum );
+	}
+
+	// Evolve checksum on name
+	Checksum = FCrc::StrCrc32( *Property->GetName().ToLower(), Checksum );
+
+	// Evolve checksum on class name
+	Checksum = FCrc::StrCrc32( *Property->GetClass()->GetName().ToLower(), Checksum );
+
+	// Evolve checksum on array dim (to detect when static arrays change size)
+	// We use a string to be endian agnostic
+	Checksum = FCrc::StrCrc32( *FString::Printf( TEXT( "%u" ), Property->ArrayDim ), Checksum );
+
+	const UArrayProperty* ArrayProperty = Cast< UArrayProperty >( Property );
+
+	// Evolve checksum on array inner
+	if ( ArrayProperty != NULL )
+	{
+		return GetPropertyChecksum( ArrayProperty->Inner, Checksum );
+	}
+
+	const UStructProperty* StructProperty = Cast< UStructProperty >( Property );
+
+	// Evolve checksum on property struct fields
+	if ( StructProperty != NULL )
+	{
+		if ( bDebugChecksum )
+		{
+			UE_LOG( LogCoreNet, Warning, TEXT( "%s [%s] [%u]" ), FCString::Spc( 2 * DebugChecksumIndent ), *StructProperty->Struct->GetName().ToLower(), Checksum );
+		}
+
+		// Evolve checksum on struct name
+		Checksum = FCrc::StrCrc32( *StructProperty->Struct->GetName().ToLower(), Checksum );
+
+		const_cast< FClassNetCacheMgr* >( this )->DebugChecksumIndent++;
+
+		Checksum = SortedStructFieldsChecksum( StructProperty->Struct, Checksum );
+
+		const_cast< FClassNetCacheMgr* >( this )->DebugChecksumIndent--;
+	}
+
+	return Checksum;
+}
+
+uint32 FClassNetCacheMgr::GetFunctionChecksum( const UFunction* Function, uint32 Checksum ) const
+{
+	// Evolve checksum on function name
+	Checksum = FCrc::StrCrc32( *Function->GetName().ToLower(), Checksum );
+
+	// Evolve the checksum on function flags
+	Checksum = FCrc::StrCrc32( *FString::Printf( TEXT( "%u" ), Function->FunctionFlags ), Checksum );
+
+	TArray< UProperty * > Parms;
+
+	for ( TFieldIterator< UProperty > It( Function ); It && ( It->PropertyFlags & ( CPF_Parm | CPF_ReturnParm ) ) == CPF_Parm; ++It )
+	{
+		Parms.Add( *It );
+	}
+
+	// Sort parameters by offset/name
+	SortProperties( Parms );
+
+	// Evolve checksum on sorted function parameters
+	for ( UProperty* Parm : Parms )
+	{
+		Checksum = GetPropertyChecksum( Parm, Checksum );
+	}
+
+	return Checksum;
+}
+
+uint32 FClassNetCacheMgr::GetFieldChecksum( const UField* Field, uint32 Checksum ) const
+{
+	if ( Cast< UProperty >( Field ) != NULL )
+	{
+		return GetPropertyChecksum( (UProperty*)Field, Checksum );
+	}
+	else if ( Cast< UFunction >( Field ) != NULL )
+	{
+		return GetFunctionChecksum( (UFunction*)Field, Checksum );
+	}
+
+	UE_LOG( LogCoreNet, Warning, TEXT( "GetFieldChecksum: Unknown field: %s" ), *Field->GetName() );
+
+	return Checksum;
+}
+
+const FClassNetCache * FClassNetCacheMgr::GetClassNetCache( const UClass* Class )
 {
 	FClassNetCache * Result = ClassFieldIndices.FindRef( Class );
 
@@ -29,28 +170,62 @@ FClassNetCache * FClassNetCacheMgr::GetClassNetCache( UClass* Class )
 		Result					= ClassFieldIndices.Add( Class, new FClassNetCache( Class ) );
 		Result->Super			= NULL;
 		Result->FieldsBase		= 0;
+		Result->ClassChecksum	= 0;
 
 		if ( Class->GetSuperClass() )
 		{
-			Result->Super		= GetClassNetCache(Class->GetSuperClass());
-			Result->FieldsBase	= Result->Super->GetMaxIndex();
+			Result->Super			= GetClassNetCache( Class->GetSuperClass() );
+			Result->FieldsBase		= Result->Super->GetMaxIndex();
+			Result->ClassChecksum	= Result->Super->ClassChecksum;
 		}
 
 		Result->Fields.Empty( Class->NetFields.Num() );
 
+		TArray< UProperty* > Properties;
+
 		for( int32 i = 0; i < Class->NetFields.Num(); i++ )
 		{
-			// Add sandboxed items to net cache.  
+			// Add each net field to cache, and assign index/checksum
 			UField * Field = Class->NetFields[i];
-			int32 ThisIndex	= Result->GetMaxIndex();
-			new ( Result->Fields )FFieldNetCache( Field, ThisIndex );
+
+			UProperty* Property = Cast< UProperty >( Field );
+			
+			if ( Property != NULL )
+			{
+				Properties.Add( Property );
+			}
+
+			// Get individual checksum
+			const uint32 Checksum = GetFieldChecksum( Field, 0 );
+
+			// Get index
+			const int32 ThisIndex = Result->GetMaxIndex();
+
+			// Add to cached fields on this class
+			Result->Fields.Add( FFieldNetCache( Field, ThisIndex, Checksum ) );
 		}
 
 		Result->Fields.Shrink();
 
+		// Add fields to the appropriate hash maps
 		for ( TArray< FFieldNetCache >::TIterator It( Result->Fields ); It; ++It )
 		{
 			Result->FieldMap.Add( It->Field, &*It );
+
+			if ( Result->FieldChecksumMap.Contains( It->FieldChecksum ) )
+			{
+				UE_LOG( LogCoreNet, Error, TEXT ( "Duplicate checksum: %s, %u" ), *It->Field->GetName(), It->FieldChecksum );
+			}
+
+			Result->FieldChecksumMap.Add( It->FieldChecksum, &*It );
+		}
+
+		// Initialize class checksum (just use properties for this)
+		SortProperties( Properties );
+
+		for ( auto Property : Properties )
+		{
+			Result->ClassChecksum = GetPropertyChecksum( Property, Result->ClassChecksum );
 		}
 	}
 	return Result;

@@ -31,4 +31,6 @@ class UGameplayAbilityGraphSchema : public UEdGraphSchema_K2
 	* @return	A pointer to the newly spawned node
 	*/
 	virtual class UK2Node_VariableSet* SpawnVariableSetNode(const FVector2D GraphPosition, class UEdGraph* ParentGraph, FName VariableName, UStruct* Source) const override;
+
+	virtual bool ShouldAlwaysPurgeOnModification() const override { return true; }
 };

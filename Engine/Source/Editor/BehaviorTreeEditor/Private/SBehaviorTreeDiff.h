@@ -54,11 +54,6 @@ private:
 		void OnSelectionChanged( const FGraphPanelSelectionSet& Selection );
 
 		/**
-		 * Delegate to say if a node property should be visible
-		 */
-		bool IsPropertyVisible(const struct FPropertyAndParent& PropertyAndParen) const;
-
-		/**
 		 * Delegate to say if a node property should be editable
 		 */
 		bool IsPropertyEditable();

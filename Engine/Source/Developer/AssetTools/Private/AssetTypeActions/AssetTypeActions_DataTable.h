@@ -16,6 +16,9 @@ public:
 	// End IAssetTypeActions
 
 private:
+	/** Handler for when CSV is selected */
+	void ExecuteExportAsCSV(TArray< TWeakObjectPtr<UObject> > Objects);
+
 	/** Handler for when JSON is selected */
-	void ExecuteJSON(TArray< TWeakObjectPtr<UObject> > Objects);
+	void ExecuteExportAsJSON(TArray< TWeakObjectPtr<UObject> > Objects);
 };

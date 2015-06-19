@@ -366,8 +366,6 @@ void SAnimMontagePanel::OnNewSectionClicked(float DataPosX)
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SAnimMontagePanel::CreateNewSection(const FText& NewSectionName, ETextCommit::Type CommitInfo, float StartTime)

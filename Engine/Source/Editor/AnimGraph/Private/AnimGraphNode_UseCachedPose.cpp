@@ -4,7 +4,6 @@
 
 #include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
-#include "K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 #include "EdGraphUtilities.h"
 #include "AnimGraphNode_SaveCachedPose.h"
 #include "AnimGraphNode_UseCachedPose.h"
@@ -22,8 +21,10 @@ UAnimGraphNode_UseCachedPose::UAnimGraphNode_UseCachedPose(const FObjectInitiali
 {
 }
 
-void UAnimGraphNode_UseCachedPose::ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const
+void UAnimGraphNode_UseCachedPose::EarlyValidation(class FCompilerResultsLog& MessageLog) const
 {
+	Super::EarlyValidation(MessageLog);
+	
 	bool bRefreshSavCachedPoseNode = true;
 
 	// Check to see the current cached node is still valid (and not deleted, by checking pin connections)
@@ -90,29 +91,6 @@ FString UAnimGraphNode_UseCachedPose::GetNodeCategory() const
 {
 	return TEXT("Cached Poses");
 }
-
-void UAnimGraphNode_UseCachedPose::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	//@TODO: Check the type of the from pin to make sure it's a pose
-	if ((ContextMenuBuilder.FromPin == NULL) || (ContextMenuBuilder.FromPin->Direction == EGPD_Input))
-	{
-		// Get a list of all save cached pose nodes
-		TArray<UAnimGraphNode_SaveCachedPose*> CachedPoseNodes;
-		FBlueprintEditorUtils::GetAllNodesOfClass<UAnimGraphNode_SaveCachedPose>(FBlueprintEditorUtils::FindBlueprintForGraphChecked(ContextMenuBuilder.CurrentGraph), /*out*/ CachedPoseNodes);
-
-		// Offer a use node for each of them
-		for (auto NodeIt = CachedPoseNodes.CreateIterator(); NodeIt; ++NodeIt)
-		{
-			UAnimGraphNode_UseCachedPose* UseCachedPose = NewObject<UAnimGraphNode_UseCachedPose>();
-			UseCachedPose->NameOfCache = (*NodeIt)->CacheName;
-			UseCachedPose->SaveCachedPoseNode = *NodeIt;
-
-			TSharedPtr<FEdGraphSchemaAction_K2NewNode> UseCachedPoseAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, GetNodeCategory(), UseCachedPose->GetNodeTitle(ENodeTitleType::ListView), UseCachedPose->GetTooltipText().ToString(), 0, UseCachedPose->GetKeywords());
-			UseCachedPoseAction->NodeTemplate = UseCachedPose;
-		}
-	}
-}
-
 
 void UAnimGraphNode_UseCachedPose::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {

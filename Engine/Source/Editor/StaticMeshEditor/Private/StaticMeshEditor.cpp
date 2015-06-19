@@ -35,6 +35,17 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogStaticMeshEditor, Log, All);
 
+class FStaticMeshStatusMessageContext : public FScopedSlowTask
+{
+public:
+	explicit FStaticMeshStatusMessageContext(const FText& InMessage)
+		: FScopedSlowTask(0, InMessage)
+	{
+		UE_LOG(LogStaticMesh, Log, TEXT("%s"), *InMessage.ToString());
+		MakeDialog();
+	}
+};
+
 const FName FStaticMeshEditor::ViewportTabId( TEXT( "StaticMeshEditor_Viewport" ) );
 const FName FStaticMeshEditor::PropertiesTabId( TEXT( "StaticMeshEditor_Properties" ) );
 const FName FStaticMeshEditor::SocketManagerTabId( TEXT( "StaticMeshEditor_SocketManager" ) );
@@ -60,11 +71,13 @@ void FStaticMeshEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>&
 
 	TabManager->RegisterTabSpawner( SocketManagerTabId, FOnSpawnTab::CreateSP(this, &FStaticMeshEditor::SpawnTab_SocketManager) )
 		.SetDisplayName( LOCTEXT("SocketManagerTab", "Socket Manager") )
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "StaticMeshEditor.Tabs.SocketManager"));
 
 	TabManager->RegisterTabSpawner( CollisionTabId, FOnSpawnTab::CreateSP(this, &FStaticMeshEditor::SpawnTab_Collision) )
 		.SetDisplayName( LOCTEXT("CollisionTab", "Convex Decomposition") )
-		.SetGroup(WorkspaceMenuCategoryRef);
+		.SetGroup(WorkspaceMenuCategoryRef)
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "StaticMeshEditor.Tabs.ConvexDecomposition"));
 }
 
 void FStaticMeshEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
@@ -125,7 +138,7 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 
 	BuildSubTools();
 
-	const TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout( "Standalone_StaticMeshEditor_Layout_v3" )
+	const TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout( "Standalone_StaticMeshEditor_Layout_v4" )
 	->AddArea
 	(
 		FTabManager::NewPrimaryArea() ->SetOrientation(Orient_Vertical)
@@ -138,27 +151,30 @@ void FStaticMeshEditor::InitStaticMeshEditor( const EToolkitMode::Type Mode, con
 		)
 		->Split
 		(
-			FTabManager::NewSplitter() ->SetOrientation(Orient_Horizontal) ->SetSizeCoefficient(0.9f)
+			FTabManager::NewSplitter() ->SetOrientation(Orient_Horizontal)
+			->SetSizeCoefficient(0.9f)
 			->Split
 			(
 				FTabManager::NewStack()
 				->SetSizeCoefficient(0.6f)
-				->AddTab(ViewportTabId, ETabState::OpenedTab) ->SetHideTabWell( true )
+				->AddTab(ViewportTabId, ETabState::OpenedTab)
+				->SetHideTabWell( true )
 			)
 			->Split
 			(
-				FTabManager::NewSplitter() ->SetOrientation(Orient_Vertical) ->SetSizeCoefficient(0.2f)
+				FTabManager::NewSplitter() ->SetOrientation(Orient_Vertical)
+				->SetSizeCoefficient(0.2f)
 				->Split
 				(
 					FTabManager::NewStack()
-					->SetSizeCoefficient(0.5f)
+					->SetSizeCoefficient(0.7f)
 					->AddTab(PropertiesTabId, ETabState::OpenedTab)
 				)
 				->Split
 				(
 					FTabManager::NewStack()
-					->SetSizeCoefficient(0.5f)
-					->AddTab(SocketManagerTabId, ETabState::ClosedTab)
+					->SetSizeCoefficient(0.3f)
+					->AddTab(SocketManagerTabId, ETabState::OpenedTab)
 					->AddTab(CollisionTabId, ETabState::ClosedTab)
 				)
 			)
@@ -211,6 +227,11 @@ void FStaticMeshEditor::ExtendMenu()
 			InMenuBuilder.BeginSection("MeshChange");
 			{
 				InMenuBuilder.AddMenuEntry(FStaticMeshEditorCommands::Get().ChangeMesh);
+				static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StaticMesh.EnableSaveGeneratedLODsInPackage"));
+				if (CVar && CVar->GetValueOnGameThread() != 0)
+				{
+					InMenuBuilder.AddMenuEntry(FStaticMeshEditorCommands::Get().SaveGeneratedLODs);
+				}
 			}
 			InMenuBuilder.EndSection();
 		}
@@ -399,7 +420,8 @@ void FStaticMeshEditor::BindCommands()
 
 	UICommandList->MapAction(
 		Commands.RemoveCollision,
-		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnRemoveCollision));
+		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnRemoveCollision),
+		FCanExecuteAction::CreateSP(this, &FStaticMeshEditor::CanRemoveCollision));
 
 	UICommandList->MapAction(
 		Commands.ConvertBoxesToConvex,
@@ -407,7 +429,8 @@ void FStaticMeshEditor::BindCommands()
 
 	UICommandList->MapAction(
 		Commands.CopyCollisionFromSelectedMesh,
-		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnCopyCollisionFromSelectedStaticMesh));
+		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnCopyCollisionFromSelectedStaticMesh),
+		FCanExecuteAction::CreateSP(this, &FStaticMeshEditor::CanCopyCollisionFromSelectedStaticMesh));
 
 	// Mesh menu
 	UICommandList->MapAction(
@@ -417,7 +440,12 @@ void FStaticMeshEditor::BindCommands()
 
 	UICommandList->MapAction(
 		Commands.ChangeMesh,
-		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnChangeMesh));
+		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnChangeMesh),
+		FCanExecuteAction::CreateSP(this, &FStaticMeshEditor::CanChangeMesh));
+
+	UICommandList->MapAction(
+		Commands.SaveGeneratedLODs,
+		FExecuteAction::CreateSP(this, &FStaticMeshEditor::OnSaveGeneratedLODs));
 
 	// Collision Menu
 	UICommandList->MapAction(
@@ -449,6 +477,7 @@ void FStaticMeshEditor::ExtendToolBar()
 				ToolbarBuilder.AddToolBarButton(FStaticMeshEditorCommands::Get().SetShowNormals);
 				ToolbarBuilder.AddToolBarButton(FStaticMeshEditorCommands::Get().SetShowTangents);
 				ToolbarBuilder.AddToolBarButton(FStaticMeshEditorCommands::Get().SetShowBinormals);
+				ToolbarBuilder.AddToolBarButton(FStaticMeshEditorCommands::Get().SetShowVertices);
 				ToolbarBuilder.AddToolBarButton(FStaticMeshEditorCommands::Get().SetDrawUVs);
 				ToolbarBuilder.AddToolBarButton(FStaticMeshEditorCommands::Get().SetDrawAdditionalData);
 			}
@@ -774,6 +803,9 @@ void FStaticMeshEditor::ScaleSelectedPrims(const FVector& InScale)
 		ModifiedScale = InScale * ((GEditor->GetScaleGridSize() / 100.0f) / GEditor->GetGridSize());
 	}
 
+	//Multiply in estimated size of the mesh so scaling of sphere, box and sphyl is similar speed to other scaling
+	float SimplePrimitiveScaleSpeedFactor = StaticMesh->GetBounds().SphereRadius;
+
 	for (int32 PrimIdx = 0; PrimIdx < SelectedPrims.Num(); PrimIdx++)
 	{
 		const FPrimData& PrimData = SelectedPrims[PrimIdx];
@@ -782,13 +814,13 @@ void FStaticMeshEditor::ScaleSelectedPrims(const FVector& InScale)
 		switch (PrimData.PrimType)
 		{
 		case KPT_Sphere:
-			AggGeom->SphereElems[PrimData.PrimIndex].ScaleElem(InScale, MinPrimSize);
+			AggGeom->SphereElems[PrimData.PrimIndex].ScaleElem(SimplePrimitiveScaleSpeedFactor * ModifiedScale, MinPrimSize);
 			break;
 		case KPT_Box:
-			AggGeom->BoxElems[PrimData.PrimIndex].ScaleElem(InScale, MinPrimSize);
+			AggGeom->BoxElems[PrimData.PrimIndex].ScaleElem(SimplePrimitiveScaleSpeedFactor * ModifiedScale, MinPrimSize);
 			break;
 		case KPT_Sphyl:
-			AggGeom->SphylElems[PrimData.PrimIndex].ScaleElem(InScale, MinPrimSize);
+			AggGeom->SphylElems[PrimData.PrimIndex].ScaleElem(SimplePrimitiveScaleSpeedFactor * ModifiedScale, MinPrimSize);
 			break;
 		case KPT_Convex:
 			AggGeom->ConvexElems[PrimData.PrimIndex].ScaleElem(ModifiedScale, MinPrimSize);
@@ -1249,32 +1281,37 @@ void FStaticMeshEditor::OnCollisionSphyl()
 
 void FStaticMeshEditor::OnRemoveCollision(void)
 {
-	// If we have a collision model for this staticmesh, ask if we want to replace it.
 	UBodySetup* BS = StaticMesh->BodySetup;
-	if (BS != NULL && (BS->AggGeom.GetElementCount() > 0))
-	{
-		int32 ShouldReplace = FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("RemoveCollisionPrompt", "Are you sure you want to remove all the collision meshes?"));
-		if (ShouldReplace == EAppReturnType::Yes)
-		{
-			ClearSelectedPrims();
+	check(BS != NULL && BS->AggGeom.GetElementCount() > 0);
 
-			// Make sure rendering is done - so we are not changing data being used by collision drawing.
-			FlushRenderingCommands();
+	ClearSelectedPrims();
 
-			StaticMesh->BodySetup->RemoveSimpleCollision();
+	// Make sure rendering is done - so we are not changing data being used by collision drawing.
+	FlushRenderingCommands();
 
-			// refresh collision change back to staticmesh components
-			RefreshCollisionChange(StaticMesh);
+	GEditor->BeginTransaction(LOCTEXT("FStaticMeshEditor_RemoveCollision", "Remove Collision"));
+	StaticMesh->BodySetup->Modify();
 
-			// Mark staticmesh as dirty, to help make sure it gets saved.
-			StaticMesh->MarkPackageDirty();
+	StaticMesh->BodySetup->RemoveSimpleCollision();
 
-			// Update views/property windows
-			Viewport->RefreshViewport();
+	GEditor->EndTransaction();
 
-			StaticMesh->bCustomizedCollision = true;	//mark the static mesh for collision customization
-		}
-	}
+	// refresh collision change back to staticmesh components
+	RefreshCollisionChange(StaticMesh);
+
+	// Mark staticmesh as dirty, to help make sure it gets saved.
+	StaticMesh->MarkPackageDirty();
+
+	// Update views/property windows
+	Viewport->RefreshViewport();
+
+	StaticMesh->bCustomizedCollision = true;	//mark the static mesh for collision customization
+}
+
+bool FStaticMeshEditor::CanRemoveCollision()
+{
+	UBodySetup* BS = StaticMesh->BodySetup;
+	return (BS != NULL && BS->AggGeom.GetElementCount() > 0);
 }
 
 /** Util for adding vertex to an array if it is not already present. */
@@ -1406,79 +1443,92 @@ void FStaticMeshEditor::OnConvertBoxToConvexCollision()
 
 void FStaticMeshEditor::OnCopyCollisionFromSelectedStaticMesh()
 {
-	// Find currently selected mesh from content browser
-	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-	TArray<FAssetData> SelectedAssetData;
-	ContentBrowserModule.Get().GetSelectedAssets(SelectedAssetData);
-	UStaticMesh * SelectedMesh = NULL;
-	if ( SelectedAssetData.Num() > 0 )
+	UStaticMesh* SelectedMesh = GetFirstSelectedStaticMeshInContentBrowser();
+	check(SelectedMesh && SelectedMesh != StaticMesh && SelectedMesh->BodySetup != NULL);
+
+	UBodySetup* BodySetup = StaticMesh->BodySetup;
+
+	ClearSelectedPrims();
+
+	// Make sure rendering is done - so we are not changing data being used by collision drawing.
+	FlushRenderingCommands();
+
+	GEditor->BeginTransaction(LOCTEXT("FStaticMeshEditor_CopyCollisionFromSelectedStaticMesh", "Copy Collision from Selected Static Mesh"));
+	BodySetup->Modify();
+
+	// Copy body properties from
+	BodySetup->CopyBodyPropertiesFrom(SelectedMesh->BodySetup);
+
+	// Enable collision, if not already
+	if( !Viewport->GetViewportClient().IsSetShowWireframeCollisionChecked() )
 	{
-		// find the first staticmesh we can find
-		for ( auto AssetIt = SelectedAssetData.CreateConstIterator(); AssetIt; ++AssetIt )
+		Viewport->GetViewportClient().SetShowWireframeCollision();
+	}
+
+	// Invalidate physics data and create new meshes
+	BodySetup->InvalidatePhysicsData();
+	BodySetup->CreatePhysicsMeshes(); 
+
+	GEditor->EndTransaction();
+
+	// Mark static mesh as dirty, to help make sure it gets saved.
+	StaticMesh->MarkPackageDirty();
+
+	// Redraw level editor viewports, in case the asset's collision is visible in a viewport and the viewport isn't set to realtime.
+	// Note: This could be more intelligent and only trigger a redraw if the asset is referenced in the world.
+	GUnrealEd->RedrawLevelEditingViewports();
+
+	// Update views/property windows
+	Viewport->RefreshViewport();
+
+	StaticMesh->bCustomizedCollision = true;	//mark the static mesh for collision customization
+}
+
+bool FStaticMeshEditor::CanCopyCollisionFromSelectedStaticMesh() const
+{
+	bool CanCopy = false;
+
+	TArray<FAssetData> SelectedAssets;
+	GEditor->GetContentBrowserSelections(SelectedAssets);
+	if(SelectedAssets.Num() == 1)
+	{
+		FAssetData& Asset = SelectedAssets[0];
+		if(Asset.GetClass() == UStaticMesh::StaticClass())
 		{
-			const FAssetData& Asset = (*AssetIt);
-			// if staticmesh
-			if ( Asset.GetClass() == UStaticMesh::StaticClass() )
+			UStaticMesh* SelectedMesh = Cast<UStaticMesh>(Asset.GetAsset());
+			if(SelectedMesh && SelectedMesh != StaticMesh && SelectedMesh->BodySetup != NULL)
 			{
-				SelectedMesh = Cast<UStaticMesh>(Asset.GetAsset());
+				CanCopy = true;
 			}
 		}
 	}
 
-	// If we have a collision model for this staticmesh, ask if we want to replace it.
-	if (SelectedMesh && SelectedMesh != StaticMesh && 
-		SelectedMesh->BodySetup != NULL)
+	return CanCopy;
+}
+
+UStaticMesh* FStaticMeshEditor::GetFirstSelectedStaticMeshInContentBrowser() const
+{
+	TArray<FAssetData> SelectedAssets;
+	GEditor->GetContentBrowserSelections(SelectedAssets);
+
+	for(auto& Asset : SelectedAssets)
 	{
-		int32 ShouldReplace = FMessageDialog::Open( EAppMsgType::YesNo, FText::Format( LOCTEXT("CopyCollisionFromMeshPrompt", "Are you sure you want to copy collision from {0}?"), FText::FromString( SelectedMesh->GetName() ) ) );
-		if (ShouldReplace == EAppReturnType::Yes)
+		UStaticMesh* SelectedMesh = Cast<UStaticMesh>(Asset.GetAsset());
+		if(SelectedMesh)
 		{
-			UBodySetup* BodySetup = StaticMesh->BodySetup;
-
-			ClearSelectedPrims();
-
-			// Make sure rendering is done - so we are not changing data being used by collision drawing.
-			FlushRenderingCommands();
-
-			// Copy body properties from
-			BodySetup->CopyBodyPropertiesFrom(SelectedMesh->BodySetup);
-
-			// Enable collision, if not already
-			if( !Viewport->GetViewportClient().IsSetShowWireframeCollisionChecked() )
-			{
-				Viewport->GetViewportClient().SetShowWireframeCollision();
-			}
-
-			// Invalidate physics data and create new meshes
-			BodySetup->InvalidatePhysicsData();
-			BodySetup->CreatePhysicsMeshes(); 
-
-			// Mark static mesh as dirty, to help make sure it gets saved.
-			StaticMesh->MarkPackageDirty();
-
-			// Redraw level editor viewports, in case the asset's collision is visible in a viewport and the viewport isn't set to realtime.
-			// Note: This could be more intelligent and only trigger a redraw if the asset is referenced in the world.
-			GUnrealEd->RedrawLevelEditingViewports();
-
-			// Update views/property windows
-			Viewport->RefreshViewport();
-
-			StaticMesh->bCustomizedCollision = true;	//mark the static mesh for collision customization
+			return SelectedMesh;
 		}
 	}
-	else
-	{
-		FNotificationInfo Info( LOCTEXT("InvalidMeshSelectionCollisionCopyFromPrompt", "Invalid asset to copy collision from. Select valid StaticMesh in Content Browser.") );
-		Info.ExpireDuration = 2.0f;
-		FSlateNotificationManager::Get().AddNotification( Info );
-	}
+
+	return NULL;
 }
 
 void FStaticMeshEditor::SetEditorMesh(UStaticMesh* InStaticMesh)
 {
 	StaticMesh = InStaticMesh;
 
-	//Init stat arrays. A static mesh can have up to three level of details beyond the base mesh.
-	const int32 ArraySize = 4;
+	//Init stat arrays.
+	const int32 ArraySize = MAX_STATIC_MESH_LODS;
 	NumVertices.Empty(ArraySize);
 	NumVertices.AddZeroed(ArraySize);
 	NumTriangles.Empty(ArraySize);
@@ -1537,27 +1587,62 @@ void FStaticMeshEditor::SetEditorMesh(UStaticMesh* InStaticMesh)
 
 void FStaticMeshEditor::OnChangeMesh()
 {
-	FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
-	UStaticMesh* SelectedMesh = GEditor->GetSelectedObjects()->GetTop<UStaticMesh>();
-	if(SelectedMesh && SelectedMesh != StaticMesh)
+	UStaticMesh* SelectedMesh = GetFirstSelectedStaticMeshInContentBrowser();
+	check(SelectedMesh != NULL && SelectedMesh != StaticMesh);
+
+	RemoveEditingObject(StaticMesh);
+	AddEditingObject(SelectedMesh);
+
+	SetEditorMesh(SelectedMesh);
+
+	// Clear selections made on previous mesh
+	ClearSelectedPrims();
+	GetSelectedEdges().Empty();
+
+	if(SocketManager.IsValid())
 	{
-		RemoveEditingObject(StaticMesh);
-		AddEditingObject(SelectedMesh);
-
-		SetEditorMesh(SelectedMesh);
-
-		// Clear selections made on previous mesh
-		ClearSelectedPrims();
-		GetSelectedEdges().Empty();
-
-		if(SocketManager.IsValid())
-		{
-			SocketManager->UpdateStaticMesh();
-		}
+		SocketManager->UpdateStaticMesh();
 	}
 }
 
-void FStaticMeshEditor::DoDecomp(int32 InMaxHullCount, int32 InMaxHullVerts)
+bool FStaticMeshEditor::CanChangeMesh() const
+{
+	bool CanChange = false;
+
+	TArray<FAssetData> SelectedAssets;
+	GEditor->GetContentBrowserSelections(SelectedAssets);
+	if(SelectedAssets.Num() == 1)
+	{
+		FAssetData& Asset = SelectedAssets[0];
+		if(Asset.GetClass() == UStaticMesh::StaticClass())
+		{
+			UStaticMesh* SelectedMesh = Cast<UStaticMesh>(Asset.GetAsset());
+			if(SelectedMesh && SelectedMesh != StaticMesh)
+			{
+				CanChange = true;
+			}
+		}
+	}
+
+	return CanChange;
+}
+
+void FStaticMeshEditor::OnSaveGeneratedLODs()
+{
+	if (StaticMesh)
+	{
+		StaticMesh->GenerateLodsInPackage();
+
+		// Update editor UI as we modified LOD groups
+		auto Selected = StaticMeshDetailsView->GetSelectedObjects();
+		StaticMeshDetailsView->SetObjects(Selected, true);
+
+		// Update screen
+		Viewport->RefreshViewport();
+	}
+}
+
+void FStaticMeshEditor::DoDecomp(float InAccuracy, int32 InMaxHullVerts)
 {
 	// Check we have a selected StaticMesh
 	if(StaticMesh && StaticMesh->RenderData)
@@ -1599,7 +1684,7 @@ void FStaticMeshEditor::DoDecomp(int32 InMaxHullCount, int32 InMaxHullVerts)
 		}
 
 		// Run actual util to do the work
-		DecomposeMeshToHulls(bs, Verts, Indices, InMaxHullCount, InMaxHullVerts);		
+		DecomposeMeshToHulls(bs, Verts, Indices, InAccuracy, InMaxHullVerts);		
 
 		// Enable collision, if not already
 		if( !Viewport->GetViewportClient().IsSetShowWireframeCollisionChecked() )
@@ -1617,47 +1702,6 @@ void FStaticMeshEditor::DoDecomp(int32 InMaxHullCount, int32 InMaxHullVerts)
 		Viewport->RefreshViewport();
 
 		StaticMesh->bCustomizedCollision = true;	//mark the static mesh for collision customization
-	}
-}
-
-void FStaticMeshEditor::OnExportLightmapMesh( bool IsFBX )
-{
-	check(StaticMesh);		//must have a mesh to perform this operation
-
-	TArray <UStaticMesh*> StaticMeshArray;
-	StaticMeshArray.Add(StaticMesh);
-
-	FString Directory;
-	if (PromptUserForDirectory(Directory, *LOCTEXT("StaticMeshEditor_ExportToPromptTitle", "Export to...").ToString(), *FEditorDirectories::Get().GetLastDirectory(ELastDirectory::MESH_IMPORT_EXPORT)))
-	{
-		FEditorDirectories::Get().SetLastDirectory(ELastDirectory::MESH_IMPORT_EXPORT, Directory); // Save path as default for next time.
-
-		bool bAnyErrorOccurred = FbxMeshUtils::ExportAllLightmapModels(StaticMeshArray, Directory, IsFBX);
-		if (bAnyErrorOccurred)
-		{
-			FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("StaticMeshEditor_LightmapExportFailure", "Some static meshes failed to export or provided warnings.  Please check the Log Window for details."));
-		}
-	}
-}
-
-void FStaticMeshEditor::OnImportLightmapMesh( bool IsFBX )
-{
-	check(StaticMesh);		//must have a mesh to perform this operation
-
-	TArray <UStaticMesh*> StaticMeshArray;
-	StaticMeshArray.Add(StaticMesh);
-
-	FString Directory;
-	if (PromptUserForDirectory(Directory, *LOCTEXT("ImportFrom", "Import from...").ToString(), *FEditorDirectories::Get().GetLastDirectory(ELastDirectory::MESH_IMPORT_EXPORT)))
-	{
-		FEditorDirectories::Get().SetLastDirectory(ELastDirectory::MESH_IMPORT_EXPORT, Directory); // Save path as default for next time.
-
-		bool bAnyErrorOccurred = FbxMeshUtils::ImportAllLightmapModels(StaticMeshArray, Directory, IsFBX);
-		if (bAnyErrorOccurred)
-		{
-			FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("StaticMeshEditor_LightmapImportFailure", "Some static meshes failed to import or provided warnings.  Please check the Log Window for details."));
-		}
-		Viewport->RefreshViewport();
 	}
 }
 
@@ -1710,69 +1754,65 @@ void FStaticMeshEditor::DeleteSelectedPrims()
 {
 	if (SelectedPrims.Num() > 0)
 	{
-		//int32 ShouldReplace = FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("RemoveSelectedCollisionPrompt", "Are you sure you want to remove the selected collision meshes?"));
-		//if (ShouldReplace == EAppReturnType::Yes)
+		// Sort the selected prims by PrimIndex so when we're deleting them we don't mess up other prims indicies
+		struct FCompareFPrimDataPrimIndex
 		{
-			// Sort the selected prims by PrimIndex so when we're deleting them we don't mess up other prims indicies
-			struct FCompareFPrimDataPrimIndex
+			FORCEINLINE bool operator()(const FPrimData& A, const FPrimData& B) const
 			{
-				FORCEINLINE bool operator()(const FPrimData& A, const FPrimData& B) const
-				{
-					return A.PrimIndex < B.PrimIndex;
-				}
-			};
-			SelectedPrims.Sort(FCompareFPrimDataPrimIndex());
-
-			check(StaticMesh->BodySetup);
-
-			FKAggregateGeom* AggGeom = &StaticMesh->BodySetup->AggGeom;
-
-			GEditor->BeginTransaction(LOCTEXT("FStaticMeshEditor_DeleteSelectedPrims", "Delete Collision"));
-			StaticMesh->BodySetup->Modify();
-
-			for (int32 PrimIdx = SelectedPrims.Num() - 1; PrimIdx >= 0; PrimIdx--)
-			{
-				const FPrimData& PrimData = SelectedPrims[PrimIdx];
-
-				check(IsPrimValid(PrimData));
-				switch (PrimData.PrimType)
-				{
-				case KPT_Sphere:
-					AggGeom->SphereElems.RemoveAt(PrimData.PrimIndex);
-					break;
-				case KPT_Box:
-					AggGeom->BoxElems.RemoveAt(PrimData.PrimIndex);
-					break;
-				case KPT_Sphyl:
-					AggGeom->SphylElems.RemoveAt(PrimData.PrimIndex);
-					break;
-				case KPT_Convex:
-					AggGeom->ConvexElems.RemoveAt(PrimData.PrimIndex);
-					break;
-				}
+				return A.PrimIndex < B.PrimIndex;
 			}
+		};
+		SelectedPrims.Sort(FCompareFPrimDataPrimIndex());
 
-			GEditor->EndTransaction();
+		check(StaticMesh->BodySetup);
 
-			ClearSelectedPrims();
+		FKAggregateGeom* AggGeom = &StaticMesh->BodySetup->AggGeom;
 
-			// Make sure rendering is done - so we are not changing data being used by collision drawing.
-			FlushRenderingCommands();
+		GEditor->BeginTransaction(LOCTEXT("FStaticMeshEditor_DeleteSelectedPrims", "Delete Collision"));
+		StaticMesh->BodySetup->Modify();
 
-			// Make sure to invalidate cooked data
-			StaticMesh->BodySetup->InvalidatePhysicsData();
+		for (int32 PrimIdx = SelectedPrims.Num() - 1; PrimIdx >= 0; PrimIdx--)
+		{
+			const FPrimData& PrimData = SelectedPrims[PrimIdx];
 
-			// refresh collision change back to staticmesh components
-			RefreshCollisionChange(StaticMesh);
-
-			// Mark staticmesh as dirty, to help make sure it gets saved.
-			StaticMesh->MarkPackageDirty();
-
-			// Update views/property windows
-			Viewport->RefreshViewport();
-
-			StaticMesh->bCustomizedCollision = true;	//mark the static mesh for collision customization
+			check(IsPrimValid(PrimData));
+			switch (PrimData.PrimType)
+			{
+			case KPT_Sphere:
+				AggGeom->SphereElems.RemoveAt(PrimData.PrimIndex);
+				break;
+			case KPT_Box:
+				AggGeom->BoxElems.RemoveAt(PrimData.PrimIndex);
+				break;
+			case KPT_Sphyl:
+				AggGeom->SphylElems.RemoveAt(PrimData.PrimIndex);
+				break;
+			case KPT_Convex:
+				AggGeom->ConvexElems.RemoveAt(PrimData.PrimIndex);
+				break;
+			}
 		}
+
+		GEditor->EndTransaction();
+
+		ClearSelectedPrims();
+
+		// Make sure rendering is done - so we are not changing data being used by collision drawing.
+		FlushRenderingCommands();
+
+		// Make sure to invalidate cooked data
+		StaticMesh->BodySetup->InvalidatePhysicsData();
+
+		// refresh collision change back to staticmesh components
+		RefreshCollisionChange(StaticMesh);
+
+		// Mark staticmesh as dirty, to help make sure it gets saved.
+		StaticMesh->MarkPackageDirty();
+
+		// Update views/property windows
+		Viewport->RefreshViewport();
+
+		StaticMesh->bCustomizedCollision = true;	//mark the static mesh for collision customization
 	}
 }
 

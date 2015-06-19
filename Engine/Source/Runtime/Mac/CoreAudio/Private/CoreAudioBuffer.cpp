@@ -25,8 +25,8 @@
  * @param AudioDevice	audio device this sound buffer is going to be attached to.
  */
 FCoreAudioSoundBuffer::FCoreAudioSoundBuffer( FAudioDevice* InAudioDevice, ESoundFormat InSoundFormat )
-:	AudioDevice( InAudioDevice ),
-	SoundFormat( InSoundFormat ),
+:   FSoundBuffer( InAudioDevice ),
+    SoundFormat( InSoundFormat ),
 	PCMData( NULL ),
 	PCMDataSize( 0 ),
 	DecompressionState( NULL ),
@@ -207,9 +207,12 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateProceduralBuffer( FCoreAudio
  */
 FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreatePreviewBuffer( FCoreAudioDevice* CoreAudioDevice, USoundWave* Wave, FCoreAudioSoundBuffer* Buffer )
 {
-	if( Buffer )
+    FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+    check(AudioDeviceManager != nullptr);
+    
+	if (Buffer)
 	{
-		CoreAudioDevice->FreeBufferResource( Buffer );
+		AudioDeviceManager->FreeBufferResource( Buffer );
 	}
 	
 	// Create new buffer.
@@ -226,7 +229,7 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreatePreviewBuffer( FCoreAudioDev
 	
 	Buffer->InitAudioStreamBasicDescription( kAudioFormatLinearPCM, Wave, true );
 	
-	CoreAudioDevice->TrackResource( Wave, Buffer );
+	AudioDeviceManager->TrackResource( Wave, Buffer );
 	
 	return( Buffer );
 }
@@ -262,7 +265,10 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateNativeBuffer( FCoreAudioDevi
 	// Keep track of associated resource name.
 	Buffer->InitAudioStreamBasicDescription( kAudioFormatLinearPCM, Wave, true );
 	
-	CoreAudioDevice->TrackResource( Wave, Buffer );
+    FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+    check(AudioDeviceManager != nullptr);
+    
+	AudioDeviceManager->TrackResource( Wave, Buffer );
 	
 	Wave->RemoveAudioResource();
 	
@@ -284,6 +290,8 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::Init( FAudioDevice* AudioDevice, U
 		return NULL;
 	}
 
+    FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+    
 	FCoreAudioDevice *CoreAudioDevice = ( FCoreAudioDevice *)AudioDevice;
 	FCoreAudioSoundBuffer *Buffer = NULL;
 
@@ -307,7 +315,7 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::Init( FAudioDevice* AudioDevice, U
 			// Find the existing buffer if any
 			if( Wave->ResourceID )
 			{
-				Buffer = (FCoreAudioSoundBuffer*)CoreAudioDevice->WaveBufferMap.FindRef( Wave->ResourceID );
+				Buffer = (FCoreAudioSoundBuffer*)AudioDeviceManager->WaveBufferMap.FindRef( Wave->ResourceID );
 			}
 			
 			// Override with any new PCM data even if some already exists. 
@@ -332,7 +340,7 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::Init( FAudioDevice* AudioDevice, U
 			// Upload entire wav to CoreAudio
 			if( Wave->ResourceID )
 			{
-				Buffer = (FCoreAudioSoundBuffer*)CoreAudioDevice->WaveBufferMap.FindRef( Wave->ResourceID );
+				Buffer = (FCoreAudioSoundBuffer*)AudioDeviceManager->WaveBufferMap.FindRef( Wave->ResourceID );
 			}
 
 			if( Buffer == NULL )

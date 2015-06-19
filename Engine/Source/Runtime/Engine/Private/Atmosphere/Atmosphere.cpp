@@ -14,11 +14,11 @@
 AAtmosphericFog::AAtmosphericFog(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	AtmosphericFogComponent = ObjectInitializer.CreateDefaultSubobject<UAtmosphericFogComponent>(this, TEXT("AtmosphericFogComponent0"));
+	AtmosphericFogComponent = CreateDefaultSubobject<UAtmosphericFogComponent>(TEXT("AtmosphericFogComponent0"));
 	RootComponent = AtmosphericFogComponent;
 
 #if WITH_EDITORONLY_DATA
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ArrowComponent0"));
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent0"));
 
 	if (!IsRunningCommandlet())
 	{
@@ -189,13 +189,14 @@ public:
 	/** FTickableEditorObject interface */
 	virtual void Tick( float DeltaTime ) override
 	{
-		if( Component && Component->PrecomputeCounter.GetValue() == UAtmosphericFogComponent::EFinishedComputation ) 
+		if( Component && Component->GameThreadServiceRequest.GetValue()) 
 		{
 			Component->UpdatePrecomputedData();
+			Component->GameThreadServiceRequest.Decrement();
 		}              
 	}
 
-	virtual bool IsTickable() const
+	virtual bool IsTickable() const override
 	{
 		return true;
 	}
@@ -213,7 +214,7 @@ static TAutoConsoleVariable<int32> CVarAtmosphereRender(
 	1,
 	TEXT("Defines atmosphere will render or not. Only changed by r.Atmosphere console command.\n")
 	TEXT("Enable/Disable Atmosphere, Load/Unload related data.\n")
-	TEXT(" 0: off\n")
+	TEXT(" 0: off (To save GPU memory)\n")
 	TEXT(" 1: on (default)"));
 
 // On CPU
@@ -226,11 +227,11 @@ void UAtmosphericFogComponent::InitResource()
 		return; // Don't do initialize resource when Atmosphere Render is off
 	}
 
-	if (PrecomputeCounter.GetValue() >= EValid)
+	if (PrecomputeCounter >= EValid)
 	{
 		// A little inefficient for thread-safe
 		if (TransmittanceData.GetElementCount() && TransmittanceResource == NULL)
-	{
+		{
 			TransmittanceResource = new FAtmosphereTextureResource( PrecomputeParams, TransmittanceData, FAtmosphereTextureResource::E_Transmittance ); 
 			BeginInitResource( TransmittanceResource );
 		}
@@ -248,7 +249,7 @@ void UAtmosphericFogComponent::InitResource()
 		}
 	}
 #if WITH_EDITOR
-	else if (!PrecomputeDataHandler)
+	else if (!PrecomputeDataHandler && !IsTemplate())
 	{
 		PrecomputeDataHandler = new FAtmospherePrecomputeDataHandler(this);
 	}
@@ -263,12 +264,18 @@ void UAtmosphericFogComponent::BeginDestroy()
 
 void UAtmosphericFogComponent::ReleaseResource()
 {
+	FSceneInterface* Scene = GetScene();
 	if ( TransmittanceResource != NULL )
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			ReleaseAtmosphericFogTransmittanceTextureCommand,
 			FRenderResource*,TransmittanceResource,TransmittanceResource,
+			FSceneInterface*,Scene,Scene,
 		{
+			if (Scene)
+			{
+				Scene->RemoveAtmosphericFogResource_RenderThread(TransmittanceResource);
+			}
 			TransmittanceResource->ReleaseResource();
 			delete TransmittanceResource;
 		});
@@ -278,10 +285,15 @@ void UAtmosphericFogComponent::ReleaseResource()
 
 	if ( IrradianceResource != NULL )
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			ReleaseAtmosphericFogIrradianceTextureCommand,
 			FRenderResource*,IrradianceResource,IrradianceResource,
+			FSceneInterface*,Scene,Scene,
 		{
+			if (Scene)
+			{
+				Scene->RemoveAtmosphericFogResource_RenderThread(IrradianceResource);
+			}
 			IrradianceResource->ReleaseResource();
 			delete IrradianceResource;
 		});
@@ -291,24 +303,21 @@ void UAtmosphericFogComponent::ReleaseResource()
 
 	if ( InscatterResource != NULL )
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			ReleaseAtmosphericFogInscatterTextureCommand,
 			FRenderResource*,InscatterResource,InscatterResource,
+			FSceneInterface*,Scene,Scene,
 		{
+			if (Scene)
+			{
+				Scene->RemoveAtmosphericFogResource_RenderThread(InscatterResource);
+			}
 			InscatterResource->ReleaseResource();
 			delete InscatterResource;
 		});
 
 		InscatterResource = NULL;
 	}
-
-#if WITH_EDITOR
-	if (PrecomputeDataHandler)
-	{
-		delete PrecomputeDataHandler;
-		PrecomputeDataHandler = NULL;
-	}
-#endif
 }
 
 void UAtmosphericFogComponent::CreateRenderState_Concurrent()
@@ -543,35 +552,42 @@ void UAtmosphericFogComponent::PostInterpChange(UProperty* PropertyThatChanged)
 void UAtmosphericFogComponent::StartPrecompute()
 {
 #if WITH_EDITOR
-	if (GIsEditor)
+	if (GIsEditor && !IsTemplate() && !GUsingNullRHI)
 	{
-		if (GetScene())
+		FSceneInterface* AtmosphericFogScene = GetScene();
+		if (AtmosphericFogScene)
 		{
-			PrecomputeCounter.Reset();
+			PrecomputeCounter = EInvalid;
 
-			if (PrecomputeDataHandler)
+			if (!PrecomputeDataHandler)
 			{
-				delete PrecomputeDataHandler;
-				PrecomputeDataHandler = NULL;
+				PrecomputeDataHandler = new FAtmospherePrecomputeDataHandler(this);
 			}
-			PrecomputeDataHandler = new FAtmospherePrecomputeDataHandler(this);
 
-			FAtmosphericFogSceneInfo* AtmosphericFogSceneInfo = GetScene()->GetAtmosphericFogSceneInfo();
-
-			if (AtmosphericFogSceneInfo)
+			// This is largely redundant, the component will be reattached anyway, thus it will be recomputed.
+			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+				FStartPrecompute,
+				FSceneInterface*, AtmosphericFogScene, AtmosphericFogScene, 
+				UAtmosphericFogComponent*, Component, this,
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-					FStartPrecompute,
-					FAtmosphericFogSceneInfo*, AtmosphericFogSceneInfo, AtmosphericFogSceneInfo, 
-					UAtmosphericFogComponent*, Component, this,
+				FAtmosphericFogSceneInfo* AtmosphericFogSceneInfo = AtmosphericFogScene->GetAtmosphericFogSceneInfo();
+
+				if (AtmosphericFogSceneInfo && AtmosphericFogSceneInfo->Component == Component)
 				{
-					if (AtmosphericFogSceneInfo->Component == Component)
-					{
-						AtmosphericFogSceneInfo->bNeedRecompute = true;
-					}
-				});
-			}
+					AtmosphericFogSceneInfo->bNeedRecompute = true;
+				}
+			});
 		}
+	}
+#endif
+}
+UAtmosphericFogComponent::~UAtmosphericFogComponent()
+{
+#if WITH_EDITOR
+	if (PrecomputeDataHandler)
+	{
+		delete PrecomputeDataHandler;
+		PrecomputeDataHandler = NULL;
 	}
 #endif
 }
@@ -592,12 +608,12 @@ void AAtmosphericFog::PostActorCreated()
 
 void UAtmosphericFogComponent::UpdatePrecomputedData()
 {
-	if (GIsEditor && PrecomputeCounter.GetValue() == EFinishedComputation) 
+	if (GIsEditor) 
 	{
 		// Prevent atmosphere pre-computation texture read/write from rendering thread during this process
 		FlushRenderingCommands();
 		FScene* Scene = GetScene() ? GetScene()->GetRenderScene() : NULL;
-		if (Scene && Scene->AtmosphericFog && this == Scene->AtmosphericFog->Component)
+		if (Scene && Scene->AtmosphericFog && this == Scene->AtmosphericFog->Component && Scene->AtmosphericFog->bPrecomputationFinished && !Scene->AtmosphericFog->bPrecomputationAcceptedByGameThread)
 		{
 			// When the precomputation is done, should save result to final texture for rendering
 			// Need to resolve to actor textures and remove render targets
@@ -641,12 +657,14 @@ void UAtmosphericFogComponent::UpdatePrecomputedData()
 				InscatterData.Unlock();
 				Scene->AtmosphericFog->PrecomputeInscatter.Unlock();
 			}
+			PrecomputeCounter = EValid;
+			FPlatformMisc::MemoryBarrier();
+			Scene->AtmosphericFog->bPrecomputationAcceptedByGameThread = true;
 
 			// Resolve to data...
 			ReleaseResource();
 			// Wait for release...
 			FlushRenderingCommands();
-			PrecomputeCounter.Increment();
 
 			InitResource();
 			FComponentReregisterContext ReregisterContext(this);
@@ -677,19 +695,19 @@ void UAtmosphericFogComponent::Serialize(FArchive& Ar)
 		int32 CounterVal;
 		Ar << CounterVal;
 		// Precomputation was not successful, just ignore it
-		if (CounterVal < EValid)
+		if (CounterVal < EValid || !TransmittanceData.GetElementCount())
 		{
 			CounterVal = EInvalid;
 		}
-		PrecomputeCounter.Set(CounterVal);
+		PrecomputeCounter = CounterVal;
 	}
 	else
 	{
-		int32 CounterVal = PrecomputeCounter.GetValue();
+		int32 CounterVal = PrecomputeCounter;
 		Ar << CounterVal;
 	}
 
-	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_ATMOSPHERIC_FOG_CACHE_DATA && PrecomputeCounter.GetValue() == EValid) 
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_ATMOSPHERIC_FOG_CACHE_DATA && PrecomputeCounter == EValid) 
 	{
 		// InscatterAltitudeSampleNum default value has been changed (32 -> 2)
 		// Recalculate InscatterAltitudeSampleNum based on Inscatter Size
@@ -700,121 +718,6 @@ void UAtmosphericFogComponent::Serialize(FArchive& Ar)
 	}
 }
 
-/** Used to store lightmap data during RerunConstructionScripts */
-class FAtmospherePrecomputeInstanceData : public FSceneComponentInstanceData
-{
-public:
-	FAtmospherePrecomputeInstanceData(const UAtmosphericFogComponent* SourceComponent)
-		: FSceneComponentInstanceData(SourceComponent)
-	{}
-
-	virtual ~FAtmospherePrecomputeInstanceData()
-	{}
-
-	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
-	{
-		FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
-		CastChecked<UAtmosphericFogComponent>(Component)->ApplyComponentInstanceData(this);
-	}
-
-	struct FAtmospherePrecomputeParameters PrecomputeParameter;
-
-	FByteBulkData TransmittanceData;
-	FByteBulkData IrradianceData;
-	FByteBulkData InscatterData;
-};
-
-FName UAtmosphericFogComponent::GetComponentInstanceDataType() const
-{
-	static const FName InstanceDataTypeName(TEXT("AtmospherePrecomputedInstanceData"));
-	return InstanceDataTypeName;
-}
-
-// Backup the precomputed data before re-running Blueprint construction script
-FActorComponentInstanceData* UAtmosphericFogComponent::GetComponentInstanceData() const
-{
-	FActorComponentInstanceData* InstanceData = nullptr;
-
-	if (TransmittanceData.GetElementCount() && IrradianceData.GetElementCount() && InscatterData.GetElementCount() && PrecomputeCounter.GetValue() == EValid)
-	{
-		// Allocate new struct for holding light map data
-		 FAtmospherePrecomputeInstanceData* PrecomputedData = new FAtmospherePrecomputeInstanceData(this);
-		 InstanceData = PrecomputedData;
-
-		// Fill in info
-		PrecomputedData->PrecomputeParameter = PrecomputeParams;
-		{
-			int32 TotalByte = TransmittanceData.GetBulkDataSize();
-			PrecomputedData->TransmittanceData.Lock(LOCK_READ_WRITE);
-			void* OutData = PrecomputedData->TransmittanceData.Realloc(TotalByte);
-			TransmittanceData.GetCopy(&OutData, false);
-			PrecomputedData->TransmittanceData.Unlock();
-		}
-
-		{
-			int32 TotalByte = IrradianceData.GetBulkDataSize();
-			PrecomputedData->IrradianceData.Lock(LOCK_READ_WRITE);
-			void* OutData = PrecomputedData->IrradianceData.Realloc(TotalByte);
-			IrradianceData.GetCopy(&OutData, false);
-			PrecomputedData->IrradianceData.Unlock();
-		}
-
-		{
-			int32 TotalByte = InscatterData.GetBulkDataSize();
-			PrecomputedData->InscatterData.Lock(LOCK_READ_WRITE);
-			void* OutData = PrecomputedData->InscatterData.Realloc(TotalByte);
-			InscatterData.GetCopy(&OutData, false);
-			PrecomputedData->InscatterData.Unlock();
-		}
-	}
-	else
-	{
-		InstanceData = Super::GetComponentInstanceData();
-	}
-
-	return InstanceData;
-}
-
-// Restore the precomputed data after re-running Blueprint construction script
-void UAtmosphericFogComponent::ApplyComponentInstanceData(FAtmospherePrecomputeInstanceData* PrecomputedData)
-{
-	check(PrecomputedData);
-
-	if (PrecomputedData->PrecomputeParameter != GetPrecomputeParameters())
-	{
-		return;
-	}
-
-	FComponentReregisterContext ReregisterContext(this);
-	ReleaseResource();
-
-	{
-		int32 TotalByte = PrecomputedData->TransmittanceData.GetBulkDataSize();
-		TransmittanceData.Lock(LOCK_READ_WRITE);
-		void* OutData = TransmittanceData.Realloc(TotalByte);
-		PrecomputedData->TransmittanceData.GetCopy(&OutData, false);
-		TransmittanceData.Unlock();
-	}
-
-	{
-		int32 TotalByte = PrecomputedData->IrradianceData.GetBulkDataSize();
-		IrradianceData.Lock(LOCK_READ_WRITE);
-		void* OutData = IrradianceData.Realloc(TotalByte);
-		PrecomputedData->IrradianceData.GetCopy(&OutData, false);
-		IrradianceData.Unlock();
-	}
-
-	{
-		int32 TotalByte = PrecomputedData->InscatterData.GetBulkDataSize();
-		InscatterData.Lock(LOCK_READ_WRITE);
-		void* OutData = InscatterData.Realloc(TotalByte);
-		PrecomputedData->InscatterData.GetCopy(&OutData, false);
-		InscatterData.Unlock();
-	}
-
-	PrecomputeCounter.Set(EValid);
-	InitResource();
-}
 
 /**
  * Gets called any time cvars change (on the main thread), we check if r.Atmosphere has changed and update the components.

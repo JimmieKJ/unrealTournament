@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -53,6 +53,8 @@ public class MainFrame : ModuleRules
 				"SuperSearch",
 				"Settings",
 				"SourceCodeAccess",
+                "Toolbox",
+                "LocalizationDashboard",
 			}
 		);
 
@@ -77,7 +79,8 @@ public class MainFrame : ModuleRules
                 "TranslationEditor",
 				"SourceCodeAccess",
 				"EditorLiveStreaming",
-				"HotReload"
+				"HotReload",
+                "LocalizationDashboard"
 			}
 		);
 	}

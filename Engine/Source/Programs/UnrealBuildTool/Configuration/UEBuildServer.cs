@@ -10,29 +10,8 @@ namespace UnrealBuildTool
 	[Serializable]
 	public class UEBuildServer : UEBuildTarget
 	{
-		public UEBuildServer(
-			string InGameName, 
-			UnrealTargetPlatform InPlatform, 
-			UnrealTargetConfiguration InConfiguration,
-			TargetRules InRulesObject,
-			List<string> InAdditionalDefinitions, 
-			string InRemoteRoot, 
-			List<OnlyModule> InOnlyModules,
-			bool bInEditorRecompile)
-			// NOTE: If we're building a monolithic binary, then the game and engine code are linked together into one
-			//       program executable, so we want the application name to be the game name.  In the case of a modular
-			//       binary, we use 'UnrealEngine' for our application name
-			: base(
-				InAppName:UEBuildTarget.GetBinaryBaseName(InGameName, InRulesObject, InPlatform, InConfiguration, "Server"),
-				InGameName:InGameName,
-				InPlatform:InPlatform,
-				InConfiguration:InConfiguration,
-				InRulesObject: InRulesObject, 
-				InAdditionalDefinitions:InAdditionalDefinitions,
-				InRemoteRoot:InRemoteRoot,
-				InOnlyModules:InOnlyModules,
-				bInEditorRecompile: bInEditorRecompile
-			)
+		public UEBuildServer(TargetDescriptor InDesc, TargetRules InRulesObject, string InTargetCsFilename)
+			: base(InDesc, InRulesObject, "UE4Server", InTargetCsFilename)
 		{
 		}
 

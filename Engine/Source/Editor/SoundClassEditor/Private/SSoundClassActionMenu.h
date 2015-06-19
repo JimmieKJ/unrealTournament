@@ -64,7 +64,7 @@ protected:
 
 	TSharedPtr<SGraphActionMenu> GraphActionMenu;
 
-	void OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions );
+	void OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions, ESelectInfo::Type InSelectionType );
 
 	TSharedRef<SWidget> OnCreateWidgetForAction(struct FCreateWidgetForActionData* const InCreateData);
 

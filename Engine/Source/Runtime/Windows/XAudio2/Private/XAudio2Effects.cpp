@@ -328,14 +328,17 @@ bool FXAudio2EffectsManager::CreateEQPremasterVoices()
 		1, EQEffects
 	};
 
+	check(XAudio2Device->DeviceProperties != nullptr); 
+	check(XAudio2Device->DeviceProperties->XAudio2 != nullptr);
+
 	if( !XAudio2Device->ValidateAPICall( TEXT( "CreateSubmixVoice (EQPremaster)" ), 
-		FXAudioDeviceProperties::XAudio2->CreateSubmixVoice( &EQPremasterVoice, SPEAKER_COUNT, SampleRate, 0, STAGE_EQPREMASTER, NULL, &EQEffectChain ) ) )
+		XAudio2Device->DeviceProperties->XAudio2->CreateSubmixVoice(&EQPremasterVoice, SPEAKER_COUNT, SampleRate, 0, STAGE_EQPREMASTER, NULL, &EQEffectChain)))
 	{
 		return( false );
 	}
 
 	if( !XAudio2Device->ValidateAPICall( TEXT( "CreateSubmixVoice (DryPremaster)" ), 
-		FXAudioDeviceProperties::XAudio2->CreateSubmixVoice( &DryPremasterVoice, SPEAKER_COUNT, SampleRate, 0, STAGE_EQPREMASTER, NULL, NULL ) ) )
+		XAudio2Device->DeviceProperties->XAudio2->CreateSubmixVoice(&DryPremasterVoice, SPEAKER_COUNT, SampleRate, 0, STAGE_EQPREMASTER, NULL, NULL)))
 	{
 		return( false );
 	}
@@ -398,7 +401,7 @@ bool FXAudio2EffectsManager::CreateReverbVoice()
 	};
 
 	if( !XAudio2Device->ValidateAPICall( TEXT( "CreateSubmixVoice (Reverb)" ), 
-		FXAudioDeviceProperties::XAudio2->CreateSubmixVoice( &ReverbEffectVoice, 2, SampleRate, 0, STAGE_REVERB, &ReverbSends, &ReverbEffectChain ) ) )
+		XAudio2Device->DeviceProperties->XAudio2->CreateSubmixVoice(&ReverbEffectVoice, 2, SampleRate, 0, STAGE_REVERB, &ReverbSends, &ReverbEffectChain)))
 	{
 		return( false );
 	}
@@ -455,7 +458,7 @@ bool FXAudio2EffectsManager::CreateRadioVoice()
 	// Finally, create the submix voice that holds the radio effect. Sounds (source voices) 
 	// will be piped to this submix voice to receive radio distortion. 
 	if( !XAudio2Device->ValidateAPICall( TEXT( "CreateSubmixVoice (Radio)" ), 
-		FXAudioDeviceProperties::XAudio2->CreateSubmixVoice( &RadioEffectVoice, OutputChannelCount, SampleRate, 0, STAGE_RADIO, NULL, &RadioEffectChain ) ) )
+		XAudio2Device->DeviceProperties->XAudio2->CreateSubmixVoice(&RadioEffectVoice, OutputChannelCount, SampleRate, 0, STAGE_RADIO, NULL, &RadioEffectChain)))
 	{
 		return false;
 	}

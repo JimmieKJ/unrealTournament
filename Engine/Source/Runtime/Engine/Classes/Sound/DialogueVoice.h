@@ -31,6 +31,6 @@ public:
 	virtual FString GetDesc() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 
-	virtual void PostDuplicate(bool bDuplicateForPIE);
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	// End UObject interface. 
 };

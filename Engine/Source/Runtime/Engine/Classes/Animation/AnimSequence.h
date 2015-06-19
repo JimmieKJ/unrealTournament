@@ -27,7 +27,7 @@ enum AnimationCompressionFormat
 	ACF_Fixed32NoW,
 	ACF_Float32NoW,
 	ACF_Identity,
-	ACF_MAX,
+	ACF_MAX UMETA(Hidden),
 };
 
 /**
@@ -553,7 +553,7 @@ public:
 #endif // WITH_EDITOR
 	ENGINE_API virtual void BeginDestroy() override;
 	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
-	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	// End of UObject interface
 
 	// Begin UAnimationAsset interface
@@ -561,13 +561,13 @@ public:
 #if WITH_EDITOR
 	ENGINE_API virtual bool GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences) override;
 	ENGINE_API virtual void ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap) override;
-	ENGINE_API virtual int32 GetNumberOfFrames() override { return NumFrames; }
+	ENGINE_API virtual int32 GetNumberOfFrames() const override { return NumFrames; }
 #endif
 	// End of UAnimationAsset interface
 
 	// Begin UAnimSequenceBase interface
 	ENGINE_API virtual void OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InstanceOwner) const override;
-	ENGINE_API virtual bool HasRootMotion() const { return bEnableRootMotion; }
+	ENGINE_API virtual bool HasRootMotion() const override { return bEnableRootMotion; }
 	// End UAnimSequenceBase interface
 
 	// Extract Root Motion transform from the animation
@@ -712,17 +712,6 @@ public:
 		return TrackToSkeletonMapTable[TrackIndex].BoneTreeIndex; 
 	}
 
-	
-	/**
-	 * Crops the raw anim data either from Start to CurrentTime or CurrentTime to End depending on
-	 * value of bFromStart.  Can't be called against cooked data.
-	 *
-	 * @param	CurrentTime		marker for cropping (either beginning or end)
-	 * @param	bFromStart		whether marker is begin or end marker
-	 * @return					true if the operation was successful.
-	 */
-	ENGINE_API bool CropRawAnimData( float CurrentTime, bool bFromStart );
-
 	/** Clears any data in the AnimSequence, so it can be recycled when importing a new animation with same name over it. */
 	ENGINE_API void RecycleAnimSequence();
 
@@ -789,17 +778,34 @@ public:
 	 * Create Animation Sequence from the given animation
 	 */
 	ENGINE_API bool CreateAnimation(class UAnimSequence * Sequence);
+
 	/**
-	 * Resize Animation to Start/End. If End is bigger, it repeats last frame upto End. 
-	 * @todo implement
+	 * Crops the raw anim data either from Start to CurrentTime or CurrentTime to End depending on
+	 * value of bFromStart.  Can't be called against cooked data.
+	 *
+	 * @param	CurrentTime		marker for cropping (either beginning or end)
+	 * @param	bFromStart		whether marker is begin or end marker
+	 * @return					true if the operation was successful.
 	 */
-	ENGINE_API bool Resize(int32 Start, int32 End);
-#endif
+	ENGINE_API bool CropRawAnimData( float CurrentTime, bool bFromStart );
+
+		
+	/**
+	 * Crops the raw anim data either from Start to CurrentTime or CurrentTime to End depending on
+	 * value of bFromStart.  Can't be called against cooked data.
+	 *
+	 * @param	StartFrame		StartFrame to insert (0-based)
+	 * @param	EndFrame		EndFrame to insert (0-based
+	 * @param	CopyFrame		A frame that we copy from (0-based)
+	 * @return					true if the operation was successful.
+	 */
+	ENGINE_API bool InsertFramesToRawAnimData( int32 StartFrame, int32 EndFrame, int32 CopyFrame);
 
 	/** 
 	 * Add validation check to see if it's being ready to play or not
 	 */
-	virtual bool IsValidToPlay() const;
+	ENGINE_API virtual bool IsValidToPlay() const override;
+#endif
 
 private:
 	/** 
@@ -833,7 +839,6 @@ private:
 	void ResetAnimation();
 	/** Refresh Track Map from Animation Track Names **/
 	void RefreshTrackMapFromAnimTrackNames();
-#endif
 
 	/**
 	 * Utility function that helps to remove track, you can't just remove RawAnimationData
@@ -843,6 +848,10 @@ private:
 	 * Utility function that finds the correct spot to insert track to 
 	 */
 	int32 InsertTrack(const FName& BoneName);
+
+	void ResizeSequence(float NewLength, int32 NewNumFrames);
+
+#endif
 
 	friend class UAnimationAsset;
 };

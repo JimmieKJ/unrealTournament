@@ -275,7 +275,7 @@ bool AUTCTFScoring::WasThreateningFlagCarrier(AUTPlayerState *VictimPS, APawn* K
 			CollisionParams.AddIgnoredActor(FlagCarrier);
 			FVector ViewPoint = KilledPawn->GetActorLocation() + FVector(0.f, 0.f, KilledPawn->BaseEyeHeight);
 			FVector TargetLoc = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, FlagCarrier->BaseEyeHeight);
-			return !GetWorld()->LineTraceTest(ViewPoint, TargetLoc, ECC_Visibility, CollisionParams);
+			return !GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLoc, ECC_Visibility, CollisionParams);
 		}
 	}
 	return false;

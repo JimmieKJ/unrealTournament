@@ -16,6 +16,7 @@ AUTMutator_WeaponArena::AUTMutator_WeaponArena(const FObjectInitializer& ObjectI
 : Super(ObjectInitializer)
 {
 	DisplayName = NSLOCTEXT("Mutator_WeaponArena", "Display Name", "Weapon Arena");
+	GroupNames.Add(FName(TEXT("Arena")));
 	ArenaWeaponPath = "/Game/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.BP_RocketLauncher_C"; // warning: soft ref
 	bAllowTranslocator = true;
 #if !UE_SERVER
@@ -133,5 +134,19 @@ bool AUTMutator_WeaponArena::CheckRelevance_Implementation(AActor* Other)
 				return Super::CheckRelevance_Implementation(Other);
 			}
 		}
+	}
+}
+
+void AUTMutator_WeaponArena::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)
+{
+	OptionsList.Add(FString::Printf(TEXT("ArenaWeaponPath=%s"), *ArenaWeaponPath));
+}
+
+void AUTMutator_WeaponArena::Init_Implementation(const FString& Options)
+{
+	FString NewWeaponPath = ParseOption(Options, TEXT("ArenaWeaponPath"));	
+	if (!NewWeaponPath.IsEmpty())
+	{
+		ArenaWeaponPath = NewWeaponPath;
 	}
 }

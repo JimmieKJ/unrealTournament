@@ -137,3 +137,10 @@ FScriptContextBase* FScriptContextBase::CreateContext(const FString& SourceCode,
 	}
 	return NewContext;
 }
+
+void FScriptContextBase::GetSupportedScriptFileFormats(TArray<FString>& OutFormats)
+{
+#if WITH_LUA
+	OutFormats.Add(TEXT("lua;Script"));
+#endif
+}

@@ -20,6 +20,7 @@ UBTTask_PlayAnimation::UBTTask_PlayAnimation(const FObjectInitializer& ObjectIni
 	bNonBlocking = false;
 
 	TimerDelegate = FTimerDelegate::CreateUObject(this, &UBTTask_PlayAnimation::OnAnimationTimerDone);
+	PreviousAnimationMode = EAnimationMode::AnimationBlueprint;
 }
 
 EBTNodeResult::Type UBTTask_PlayAnimation::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -31,12 +32,25 @@ EBTNodeResult::Type UBTTask_PlayAnimation::ExecuteTask(UBehaviorTreeComponent& O
 	TimerHandle.Invalidate();
 	MyOwnerComp = &OwnerComp;
 
-	if (AnimationToPlay && MyController)
+	if (AnimationToPlay && MyController && MyController->GetPawn())
 	{
+		USkeletalMeshComponent* SkelMesh = nullptr;
 		ACharacter* const MyCharacter = Cast<ACharacter>(MyController->GetPawn());
-		if (MyCharacter && MyCharacter->GetMesh())
+		if (MyCharacter)
 		{
-			MyCharacter->GetMesh()->PlayAnimation(AnimationToPlay, bLooping);
+			SkelMesh = MyCharacter->GetMesh();
+		}
+		else
+		{
+			SkelMesh = MyController->GetPawn()->FindComponentByClass<USkeletalMeshComponent>();
+		}
+
+		if (SkelMesh != nullptr)
+		{
+			PreviousAnimationMode = SkelMesh->GetAnimationMode();
+			CachedSkelMesh = SkelMesh;
+
+			SkelMesh->PlayAnimation(AnimationToPlay, bLooping);
 			const float FinishDelay = AnimationToPlay->GetMaxCurrentTime();
 
 			if (bNonBlocking == false && FinishDelay > 0)
@@ -70,6 +84,8 @@ EBTNodeResult::Type UBTTask_PlayAnimation::AbortTask(UBehaviorTreeComponent& Own
 
 	TimerHandle.Invalidate();
 
+	CleanUp(OwnerComp);
+
 	return EBTNodeResult::Aborted;
 }
 
@@ -84,7 +100,16 @@ void UBTTask_PlayAnimation::OnAnimationTimerDone()
 {
 	if (MyOwnerComp)
 	{
+		CleanUp(*MyOwnerComp);
 		FinishLatentTask(*MyOwnerComp, EBTNodeResult::Succeeded);
+	}
+}
+
+void UBTTask_PlayAnimation::CleanUp(UBehaviorTreeComponent& OwnerComp)
+{
+	if (CachedSkelMesh != nullptr && PreviousAnimationMode == EAnimationMode::AnimationBlueprint)
+	{
+		CachedSkelMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 	}
 }
 

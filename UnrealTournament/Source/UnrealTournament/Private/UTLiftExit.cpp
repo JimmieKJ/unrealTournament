@@ -4,6 +4,8 @@
 #include "UTPathNode.h"
 #include "UTLiftExit.h"
 #include "UTReachSpec_Lift.h"
+#include "MessageLog.h"
+#include "UObjectToken.h"
 
 AUTLiftExit::AUTLiftExit(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -16,7 +18,7 @@ AUTLiftExit::AUTLiftExit(const FObjectInitializer& ObjectInitializer)
 	}
 }
 
-void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, bool bRequireLiftJump, bool bOnlyExitPath, AUTRecastNavMesh* NavData)
+bool AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, bool bRequireLiftJump, bool bOnlyExitPath, AUTRecastNavMesh* NavData)
 {
 	FVector NavExtent = NavData->GetPOIExtent(NULL);
 	NavNodeRef MyPoly = NavData->FindNearestPoly(ExitLoc, NavExtent);
@@ -84,8 +86,22 @@ void AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 						}
 					}
 				}
+
+				return true;
+			}
+			else
+			{
+				return false;
 			}
 		}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+		return false;
 	}
 }
 
@@ -93,6 +109,10 @@ void AUTLiftExit::AddSpecialPaths(UUTPathNode* MyNode, AUTRecastNavMesh* NavData
 {
 	if (MyLift != NULL)
 	{
-		AddLiftPathsShared(GetActorLocation(), MyLift, bLiftJump, bOnlyExit, NavData);
+		if (!AddLiftPathsShared(GetActorLocation(), MyLift, bLiftJump, bOnlyExit, NavData))
+		{
+			FMessageLog(TEXT("MapCheck")).Warning()->AddToken(FUObjectToken::Create(this))->AddToken(FTextToken::Create(NSLOCTEXT("LiftExit", "NoPaths", "Failed to generate lift paths. Check that the LiftExit is in a valid position.")));
+			FMessageLog(TEXT("MapCheck")).Open();
+		}
 	}
 }

@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "UnrealSourceFile.h"
 
 
 struct FManifestModule
@@ -40,6 +41,9 @@ struct FManifestModule
 
 	/** Whether or not to write out headers that have changed */
 	bool SaveExportedHeaders;
+
+	/** Version of generated code. */
+	EGeneratedCodeVersion GeneratedCodeVersion;
 };
 
 

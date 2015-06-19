@@ -9,10 +9,10 @@ UBTDecorator_KeepInCone::UBTDecorator_KeepInCone(const FObjectInitializer& Objec
 	NodeName = "Keep in Cone";
 
 	// accept only actors and vectors
-	ConeOrigin.AddObjectFilter(this, AActor::StaticClass());
-	ConeOrigin.AddVectorFilter(this);
-	Observed.AddObjectFilter(this, AActor::StaticClass());
-	Observed.AddVectorFilter(this);
+	ConeOrigin.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_KeepInCone, ConeOrigin), AActor::StaticClass());
+	ConeOrigin.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_KeepInCone, ConeOrigin));
+	Observed.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_KeepInCone, Observed), AActor::StaticClass());
+	Observed.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_KeepInCone, Observed));
 
 	bNotifyBecomeRelevant = true;
 	bNotifyTick = true;

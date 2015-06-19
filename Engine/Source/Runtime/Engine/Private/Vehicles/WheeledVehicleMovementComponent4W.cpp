@@ -283,11 +283,15 @@ void UWheeledVehicleMovementComponent4W::SetupVehicle()
 	PxVehicleDrive4W* PVehicleDrive4W = PxVehicleDrive4W::allocate(4);
 	check(PVehicleDrive4W);
 
-	PVehicleDrive4W->setup( GPhysXSDK, UpdatedPrimitive->GetBodyInstance()->GetPxRigidDynamic(), *PWheelsSimData, DriveData, 0);
-	PVehicleDrive4W->setToRestState();
+	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&] (PxRigidDynamic* PRigidDynamic)
+	{
+		PVehicleDrive4W->setup( GPhysXSDK, PRigidDynamic, *PWheelsSimData, DriveData, 0);
+		PVehicleDrive4W->setToRestState();
 
-	// cleanup
-	PWheelsSimData->free();
+		// cleanup
+		PWheelsSimData->free();
+	});
+	
 	PWheelsSimData = NULL;
 
 	// cache values
@@ -302,35 +306,38 @@ void UWheeledVehicleMovementComponent4W::UpdateSimulation(float DeltaTime)
 	if (PVehicleDrive == NULL)
 		return;
 
-	PxVehicleDrive4WRawInputData RawInputData;
-	RawInputData.setAnalogAccel(ThrottleInput);
-	RawInputData.setAnalogSteer(SteeringInput);
-	RawInputData.setAnalogBrake(BrakeInput);
-	RawInputData.setAnalogHandbrake(HandbrakeInput);
-	
-	if (!PVehicleDrive->mDriveDynData.getUseAutoGears())
+	UpdatedPrimitive->GetBodyInstance()->ExecuteOnPhysicsReadWrite([&]
 	{
-		RawInputData.setGearUp(bRawGearUpInput);
-		RawInputData.setGearDown(bRawGearDownInput);
-	}
+		PxVehicleDrive4WRawInputData RawInputData;
+		RawInputData.setAnalogAccel(ThrottleInput);
+		RawInputData.setAnalogSteer(SteeringInput);
+		RawInputData.setAnalogBrake(BrakeInput);
+		RawInputData.setAnalogHandbrake(HandbrakeInput);
 
-	// Convert from our curve to PxFixedSizeLookupTable
-	PxFixedSizeLookupTable<8> SpeedSteerLookup;
-	TArray<FRichCurveKey> SteerKeys = SteeringCurve.GetRichCurve()->GetCopyOfKeys();
-	const int32 MaxSteeringSamples = FMath::Min(8, SteerKeys.Num());
-	for (int32 KeyIdx = 0; KeyIdx < MaxSteeringSamples; KeyIdx++)
-	{
-		FRichCurveKey& Key = SteerKeys[KeyIdx];
-		SpeedSteerLookup.addPair(KmHToCmS(Key.Time), FMath::Clamp(Key.Value, 0.f, 1.f));
-	}
+		if (!PVehicleDrive->mDriveDynData.getUseAutoGears())
+		{
+			RawInputData.setGearUp(bRawGearUpInput);
+			RawInputData.setGearDown(bRawGearDownInput);
+		}
 
-	PxVehiclePadSmoothingData SmoothData = {
-		{ ThrottleInputRate.RiseRate, BrakeInputRate.RiseRate, HandbrakeInputRate.RiseRate, SteeringInputRate.RiseRate, SteeringInputRate.RiseRate },
-		{ ThrottleInputRate.FallRate, BrakeInputRate.FallRate, HandbrakeInputRate.FallRate, SteeringInputRate.FallRate, SteeringInputRate.FallRate }
-	};
+		// Convert from our curve to PxFixedSizeLookupTable
+		PxFixedSizeLookupTable<8> SpeedSteerLookup;
+		TArray<FRichCurveKey> SteerKeys = SteeringCurve.GetRichCurve()->GetCopyOfKeys();
+		const int32 MaxSteeringSamples = FMath::Min(8, SteerKeys.Num());
+		for (int32 KeyIdx = 0; KeyIdx < MaxSteeringSamples; KeyIdx++)
+		{
+			FRichCurveKey& Key = SteerKeys[KeyIdx];
+			SpeedSteerLookup.addPair(KmHToCmS(Key.Time), FMath::Clamp(Key.Value, 0.f, 1.f));
+		}
 
-	PxVehicleDrive4W* PVehicleDrive4W = (PxVehicleDrive4W*)PVehicleDrive;
-	PxVehicleDrive4WSmoothAnalogRawInputsAndSetAnalogInputs(SmoothData, SpeedSteerLookup, RawInputData, DeltaTime, false, *PVehicleDrive4W);
+		PxVehiclePadSmoothingData SmoothData = {
+			{ ThrottleInputRate.RiseRate, BrakeInputRate.RiseRate, HandbrakeInputRate.RiseRate, SteeringInputRate.RiseRate, SteeringInputRate.RiseRate },
+			{ ThrottleInputRate.FallRate, BrakeInputRate.FallRate, HandbrakeInputRate.FallRate, SteeringInputRate.FallRate, SteeringInputRate.FallRate }
+		};
+
+		PxVehicleDrive4W* PVehicleDrive4W = (PxVehicleDrive4W*)PVehicleDrive;
+		PxVehicleDrive4WSmoothAnalogRawInputsAndSetAnalogInputs(SmoothData, SpeedSteerLookup, RawInputData, DeltaTime, false, *PVehicleDrive4W);
+	});
 }
 
 #endif // WITH_VEHICLE
@@ -392,7 +399,7 @@ void BackwardsConvertCm2ToM2(float& val, float defaultValue)
 void UWheeledVehicleMovementComponent4W::Serialize(FArchive & Ar)
 {
 	Super::Serialize(Ar);
-#if WITH_PHYSX
+#if WITH_VEHICLE
 	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_VEHICLES_UNIT_CHANGE)
 	{
 		PxVehicleEngineData DefEngineData;

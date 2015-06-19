@@ -16,7 +16,7 @@ ActorFactory.cpp:
 #include "BSPOps.h"
 #include "Matinee/MatineeActor.h"
 #include "Matinee/InterpData.h"
-#include "Engine/InteractiveFoliageActor.h"
+#include "InteractiveFoliageActor.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "Animation/VertexAnim/VertexAnimation.h"
 
@@ -26,8 +26,8 @@ ActorFactory.cpp:
 #include "Particles/ParticleSystem.h"
 #include "Particles/ParticleSystemComponent.h"
 
-#include "Engine/NiagaraActor.h"
-#include "Engine/NiagaraEffect.h"
+#include "NiagaraActor.h"
+#include "NiagaraEffect.h"
 
 #include "VectorField/VectorField.h"
 
@@ -65,6 +65,7 @@ ActorFactory.cpp:
 #include "Components/VectorFieldComponent.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
 #include "Kismet2/ComponentEditorUtils.h"
+#include "Components/BillboardComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogActorFactory, Log, All);
 
@@ -245,7 +246,7 @@ void UActorFactory::PostSpawnActor( UObject* Asset, AActor* NewActor)
 	// Subclasses may implement this to modify the actor after it has been spawned
 	if (Asset)
 	{
-		GEditor->SetActorLabelUnique(NewActor, Asset->GetName());
+		FActorLabelUtilities::SetActorLabelUnique(NewActor, Asset->GetName());
 	}
 }
 
@@ -279,8 +280,9 @@ bool UActorFactoryStaticMesh::CanCreateActorFrom( const FAssetData& AssetData, F
 
 void UActorFactoryStaticMesh::PostSpawnActor( UObject* Asset, AActor* NewActor)
 {
-	UStaticMesh* StaticMesh = CastChecked<UStaticMesh>( Asset );
-	GEditor->SetActorLabelUnique(NewActor, StaticMesh->GetName());
+	Super::PostSpawnActor(Asset, NewActor);
+
+	UStaticMesh* StaticMesh = CastChecked<UStaticMesh>(Asset);
 
 	UE_LOG(LogActorFactory, Log, TEXT("Actor Factory created %s"), *StaticMesh->GetName());
 
@@ -355,9 +357,10 @@ bool UActorFactoryBasicShape::CanCreateActorFrom( const FAssetData& AssetData, F
 
 void UActorFactoryBasicShape::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	// Change properties
 	UStaticMesh* StaticMesh = CastChecked<UStaticMesh>(Asset);
-	GEditor->SetActorLabelUnique(NewActor, StaticMesh->GetName());
 
 	AStaticMeshActor* StaticMeshActor = CastChecked<AStaticMeshActor>(NewActor);
 	UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
@@ -448,12 +451,12 @@ bool UActorFactoryDeferredDecal::CanCreateActorFrom( const FAssetData& AssetData
 
 void UActorFactoryDeferredDecal::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	UMaterialInterface* Material = GetMaterial( Asset );
 
 	if ( Material != NULL )
 	{
-		GEditor->SetActorLabelUnique(NewActor, Material->GetName());
-
 		// Change properties
 		TInlineComponentArray<UDecalComponent*> DecalComponents;
 		NewActor->GetComponents(DecalComponents);
@@ -472,10 +475,6 @@ void UActorFactoryDeferredDecal::PostSpawnActor(UObject* Asset, AActor* NewActor
 
 		// Init Component
 		DecalComponent->RegisterComponent();
-	}
-	else if (Asset)
-	{
-		GEditor->SetActorLabelUnique(NewActor, Asset->GetName());
 	}
 }
 
@@ -549,10 +548,10 @@ bool UActorFactoryEmitter::CanCreateActorFrom( const FAssetData& AssetData, FTex
 
 void UActorFactoryEmitter::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	UParticleSystem* ParticleSystem = CastChecked<UParticleSystem>(Asset);
 	AEmitter* NewEmitter = CastChecked<AEmitter>(NewActor);
-
-	GEditor->SetActorLabelUnique(NewActor, ParticleSystem->GetName());
 
 	// Term Component
 	NewEmitter->GetParticleSystemComponent()->UnregisterComponent();
@@ -625,10 +624,10 @@ bool UActorFactoryNiagara::CanCreateActorFrom(const FAssetData& AssetData, FText
 
 void UActorFactoryNiagara::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	UNiagaraEffect* Effect = CastChecked<UNiagaraEffect>(Asset);
 	ANiagaraActor* NiagaraActor = CastChecked<ANiagaraActor>(NewActor);
-
-	GEditor->SetActorLabelUnique(NewActor, Effect->GetName());
 
 	// Term Component
 	NiagaraActor->GetNiagaraComponent()->UnregisterComponent();
@@ -741,11 +740,12 @@ bool UActorFactoryPhysicsAsset::PreSpawnActor(UObject* Asset, FTransform& InOutL
 
 void UActorFactoryPhysicsAsset::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	UPhysicsAsset* PhysicsAsset = CastChecked<UPhysicsAsset>(Asset);
 	USkeletalMesh* UseSkelMesh = PhysicsAsset->PreviewSkeletalMesh.Get();
 
 	ASkeletalMeshActor* NewSkelActor = CastChecked<ASkeletalMeshActor>(NewActor);
-	GEditor->SetActorLabelUnique(NewActor, PhysicsAsset->GetName());
 
 	// Term Component
 	NewSkelActor->GetSkeletalMeshComponent()->UnregisterComponent();
@@ -937,8 +937,6 @@ void UActorFactoryAnimationAsset::PostSpawnActor( UObject* Asset, AActor* NewAct
 			NewSASComponent->AnimationData.AnimToPlay = AnimationAsset;
 			// set runtime data
 			NewSASComponent->SetAnimation(AnimationAsset);
-
-			GEditor->SetActorLabelUnique(NewActor, AnimationAsset->GetName());
 		}
 		else if( VertexAnimation )
 		{
@@ -947,8 +945,6 @@ void UActorFactoryAnimationAsset::PostSpawnActor( UObject* Asset, AActor* NewAct
 
 			// set runtime data
 			NewSASComponent->SetVertexAnimation(VertexAnimation);
-
-			GEditor->SetActorLabelUnique(NewActor, VertexAnimation->GetName());
 		}
 	}
 }
@@ -1113,7 +1109,7 @@ void UActorFactorySkeletalMesh::PostSpawnActor( UObject* Asset, AActor* NewActor
 	UAnimBlueprint* AnimBlueprint = Cast<UAnimBlueprint>( Asset );
 	ASkeletalMeshActor* NewSMActor = CastChecked<ASkeletalMeshActor>(NewActor);
 
-	GEditor->SetActorLabelUnique(NewActor, SkeletalMesh->GetName());
+	Super::PostSpawnActor(SkeletalMesh, NewActor);
 
 	// Term Component
 	NewSMActor->GetSkeletalMeshComponent()->UnregisterComponent();
@@ -1165,7 +1161,7 @@ UActorFactoryCameraActor::UActorFactoryCameraActor(const FObjectInitializer& Obj
 static UBillboardComponent* CreateEditorOnlyBillboardComponent(AActor* ActorOwner, USceneComponent* AttachParent)
 {
 	// Create a new billboard component to serve as a visualization of the actor until there is another primitive component
-	UBillboardComponent* BillboardComponent = ConstructObject<UBillboardComponent>(UBillboardComponent::StaticClass(), ActorOwner, NAME_None, RF_Transactional);
+	UBillboardComponent* BillboardComponent = NewObject<UBillboardComponent>(ActorOwner, NAME_None, RF_Transactional);
 
 	BillboardComponent->Sprite = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EditorResources/EmptyActor.EmptyActor"));
 	BillboardComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
@@ -1190,18 +1186,17 @@ UActorFactoryEmptyActor::UActorFactoryEmptyActor(const FObjectInitializer& Objec
 
 bool UActorFactoryEmptyActor::CanCreateActorFrom( const FAssetData& AssetData, FText& OutErrorMsg )
 {
-	return GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing ? AssetData.ObjectPath == FName(*AActor::StaticClass()->GetPathName()) : false;
+	return AssetData.ObjectPath == FName(*AActor::StaticClass()->GetPathName());
 }
 
 AActor* UActorFactoryEmptyActor::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
 {
 	AActor* NewActor = nullptr;
-	if(GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing) 
 	{
 		// Spawn a temporary actor for dragging around
 		NewActor = Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
 
-		USceneComponent* RootComponent = ConstructObject<USceneComponent>(USceneComponent::StaticClass(), NewActor, USceneComponent::GetDefaultSceneRootVariableName(), RF_Transactional);
+		USceneComponent* RootComponent = NewObject<USceneComponent>(NewActor, USceneComponent::GetDefaultSceneRootVariableName(), RF_Transactional);
 		RootComponent->Mobility = EComponentMobility::Movable;
 		RootComponent->bVisualizeComponent = true;
 		RootComponent->SetWorldLocationAndRotation(Location, Rotation);
@@ -1229,16 +1224,12 @@ UActorFactoryCharacter::UActorFactoryCharacter(const FObjectInitializer& ObjectI
 
 bool UActorFactoryCharacter::CanCreateActorFrom(const FAssetData& AssetData, FText& OutErrorMsg)
 {
-	return GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing ? AssetData.ObjectPath == FName(*ACharacter::StaticClass()->GetPathName()) : false;
+	return AssetData.ObjectPath == FName(*ACharacter::StaticClass()->GetPathName());
 }
 
 AActor* UActorFactoryCharacter::SpawnActor(UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name)
 {
-	AActor* NewActor = nullptr;
-	if(GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing)
-	{
-			NewActor = Super::SpawnActor( Asset, InLevel, Location, Rotation, ObjectFlags, Name );
-		}
+	AActor* NewActor = Super::SpawnActor( Asset, InLevel, Location, Rotation, ObjectFlags, Name );
 
 	return NewActor;
 }
@@ -1256,17 +1247,12 @@ UActorFactoryPawn::UActorFactoryPawn(const FObjectInitializer& ObjectInitializer
 
 bool UActorFactoryPawn::CanCreateActorFrom(const FAssetData& AssetData, FText& OutErrorMsg)
 {
-	return GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing ? AssetData.ObjectPath == FName(*APawn::StaticClass()->GetPathName()) : false;
+	return AssetData.ObjectPath == FName(*APawn::StaticClass()->GetPathName());
 }
 
 AActor* UActorFactoryPawn::SpawnActor(UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name)
 {
-	AActor* NewActor = nullptr;
-	if(GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing)
-	{
-		NewActor = Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
-	}
-
+	AActor* NewActor = Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name);
 	return NewActor;
 }
 
@@ -1299,12 +1285,13 @@ bool UActorFactoryAmbientSound::CanCreateActorFrom( const FAssetData& AssetData,
 
 void UActorFactoryAmbientSound::PostSpawnActor( UObject* Asset, AActor* NewActor)
 {
-	USoundBase* AmbientSound = Cast<USoundBase>( Asset );
+	Super::PostSpawnActor(Asset, NewActor);
+
+	USoundBase* AmbientSound = Cast<USoundBase>(Asset);
 
 	if ( AmbientSound != NULL )
 	{
 		AAmbientSound* NewSound = CastChecked<AAmbientSound>( NewActor );
-		GEditor->SetActorLabelUnique(NewSound, AmbientSound->GetName());
 		NewSound->GetAudioComponent()->SetSound(AmbientSound);
 	}
 }
@@ -1382,12 +1369,6 @@ bool UActorFactoryClass::PreSpawnActor( UObject* Asset, FTransform& InOutLocatio
 	}
 
 	return false;
-}
-
-void UActorFactoryClass::PostSpawnActor( UObject* Asset, AActor* NewActor)
-{
-	UClass* ActualClass = CastChecked<UClass>(Asset);
-	GEditor->SetActorLabelUnique(NewActor, ActualClass->GetName());
 }
 
 AActor* UActorFactoryClass::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
@@ -1499,12 +1480,6 @@ bool UActorFactoryBlueprint::PreSpawnActor( UObject* Asset, FTransform& InOutLoc
 	return true;
 }
 
-void UActorFactoryBlueprint::PostSpawnActor( UObject* Asset, AActor* NewActor)
-{
-	UBlueprint* Blueprint = CastChecked<UBlueprint>(Asset);
-	GEditor->SetActorLabelUnique(NewActor, Blueprint->GetName());
-}
-
 
 
 /*-----------------------------------------------------------------------------
@@ -1536,18 +1511,19 @@ bool UActorFactoryMatineeActor::CanCreateActorFrom( const FAssetData& AssetData,
 
 void UActorFactoryMatineeActor::PostSpawnActor( UObject* Asset, AActor* NewActor )
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	UInterpData* MatineeData = Cast<UInterpData>( Asset );
 	AMatineeActor* MatineeActor = CastChecked<AMatineeActor>( NewActor );
 
 	if( MatineeData )
 	{
-		GEditor->SetActorLabelUnique(NewActor, MatineeData->GetName());
 		MatineeActor->MatineeData = MatineeData;
 	}
 	else
 	{
 		// if MatineeData isn't set yet, create default one
-		UInterpData * NewMatineeData = ConstructObject<UInterpData>(UInterpData::StaticClass(), NewActor);
+		UInterpData* NewMatineeData = NewObject<UInterpData>(NewActor);
 		MatineeActor->MatineeData = NewMatineeData;
 	}
 }
@@ -1733,10 +1709,10 @@ bool UActorFactoryDestructible::CanCreateActorFrom( const FAssetData& AssetData,
 
 void UActorFactoryDestructible::PostSpawnActor( UObject* Asset, AActor* NewActor )
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	UDestructibleMesh* DestructibleMesh = CastChecked<UDestructibleMesh>( Asset );
 	ADestructibleActor* NewDestructibleActor = CastChecked<ADestructibleActor>(NewActor);
-
-	GEditor->SetActorLabelUnique(NewActor, DestructibleMesh->GetName());
 
 	// Term Component
 	NewDestructibleActor->GetDestructibleComponent()->UnregisterComponent();
@@ -1798,10 +1774,10 @@ bool UActorFactoryVectorFieldVolume::CanCreateActorFrom( const FAssetData& Asset
 
 void UActorFactoryVectorFieldVolume::PostSpawnActor( UObject* Asset, AActor* NewActor )
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	UVectorField* VectorField = CastChecked<UVectorField>(Asset);
 	AVectorFieldVolume* VectorFieldVolumeActor = CastChecked<AVectorFieldVolume>(NewActor);
-
-	GEditor->SetActorLabelUnique(NewActor, VectorField->GetName());
 
 	if ( VectorFieldVolumeActor && VectorFieldVolumeActor->GetVectorFieldComponent() )
 	{
@@ -1822,9 +1798,9 @@ void CreateBrushForVolumeActor( AVolume* NewActor, UBrushBuilder* BrushBuilder )
 		NewActor->PreEditChange(NULL);
 
 		NewActor->PolyFlags = 0;
-		NewActor->Brush = NewNamedObject<UModel>(NewActor, NAME_None, RF_Transactional);
+		NewActor->Brush = NewObject<UModel>(NewActor, NAME_None, RF_Transactional);
 		NewActor->Brush->Initialize(nullptr, true);
-		NewActor->Brush->Polys = NewNamedObject<UPolys>(NewActor->Brush, NAME_None, RF_Transactional);
+		NewActor->Brush->Polys = NewObject<UPolys>(NewActor->Brush, NAME_None, RF_Transactional);
 		NewActor->GetBrushComponent()->Brush = NewActor->Brush;
 		if(BrushBuilder != nullptr)
 		{
@@ -1877,16 +1853,13 @@ bool UActorFactoryBoxVolume::CanCreateActorFrom( const FAssetData& AssetData, FT
 
 void UActorFactoryBoxVolume::PostSpawnActor( UObject* Asset, AActor* NewActor )
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	AVolume* VolumeActor = CastChecked<AVolume>(NewActor);
 	if ( VolumeActor != NULL )
 	{
-		UCubeBuilder* Builder = ConstructObject<UCubeBuilder>( UCubeBuilder::StaticClass() );
+		UCubeBuilder* Builder = NewObject<UCubeBuilder>();
 		CreateBrushForVolumeActor( VolumeActor, Builder );
-
-		if (Asset)
-		{
-			GEditor->SetActorLabelUnique(NewActor, Asset->GetName());
-		}
 	}
 }
 
@@ -1917,18 +1890,15 @@ bool UActorFactorySphereVolume::CanCreateActorFrom( const FAssetData& AssetData,
 
 void UActorFactorySphereVolume::PostSpawnActor( UObject* Asset, AActor* NewActor )
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	AVolume* VolumeActor = CastChecked<AVolume>(NewActor);
 	if ( VolumeActor != NULL )
 	{
-		UTetrahedronBuilder* Builder = ConstructObject<UTetrahedronBuilder>( UTetrahedronBuilder::StaticClass() );
+		UTetrahedronBuilder* Builder = NewObject<UTetrahedronBuilder>();
 		Builder->SphereExtrapolation = 2;
 		Builder->Radius = 192.0f;
 		CreateBrushForVolumeActor( VolumeActor, Builder );
-
-		if (Asset)
-		{
-			GEditor->SetActorLabelUnique(NewActor, Asset->GetName());
-		}
 	}
 }
 
@@ -1958,17 +1928,14 @@ bool UActorFactoryCylinderVolume::CanCreateActorFrom( const FAssetData& AssetDat
 }
 void UActorFactoryCylinderVolume::PostSpawnActor( UObject* Asset, AActor* NewActor )
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	AVolume* VolumeActor = CastChecked<AVolume>(NewActor);
 	if ( VolumeActor != NULL )
 	{
-		UCylinderBuilder* Builder = ConstructObject<UCylinderBuilder>( UCylinderBuilder::StaticClass() );
+		UCylinderBuilder* Builder = NewObject<UCylinderBuilder>();
 		Builder->OuterRadius = 128.0f;
 		CreateBrushForVolumeActor( VolumeActor, Builder );
-
-		if (Asset)
-		{
-			GEditor->SetActorLabelUnique(NewActor, Asset->GetName());
-		}
 	}
 }
 

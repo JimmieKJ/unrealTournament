@@ -15,5 +15,5 @@ class UNREALED_API UFbxTextureImportData : public UFbxAssetImportData
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=ImportSettings, meta=(OBJRestrict="true"))
 	uint32 bInvertNormalMaps:1;
 
-	bool CanEditChange( const UProperty* InProperty ) const;
+	bool CanEditChange( const UProperty* InProperty ) const override;
 };

@@ -6,8 +6,8 @@
 //----------------------------------------------------------------------//
 // 
 //----------------------------------------------------------------------//
-FAITeamStimulusEvent::FAITeamStimulusEvent(AActor* InBroadcaster, AActor* InEnemy, const FVector& InLastKnowLocation, float EventRange, float PassedInfoAge)
-	: LastKnowLocation(InLastKnowLocation), RangeSq(FMath::Square(EventRange)), InformationAge(PassedInfoAge), Broadcaster(InBroadcaster), Enemy(InEnemy)
+FAITeamStimulusEvent::FAITeamStimulusEvent(AActor* InBroadcaster, AActor* InEnemy, const FVector& InLastKnowLocation, float EventRange, float PassedInfoAge, float InStrength)
+	: LastKnowLocation(InLastKnowLocation), RangeSq(FMath::Square(EventRange)), InformationAge(PassedInfoAge), Strength(InStrength), Broadcaster(InBroadcaster), Enemy(InEnemy)
 {
 	CacheBroadcastLocation();
 
@@ -49,7 +49,7 @@ float UAISense_Team::Update()
 				continue;
 			}
 			
-			Listener.RegisterStimulus(Event.Enemy, FAIStimulus(*this, 1.f, Event.LastKnowLocation, Event.GetBroadcastLocation(), FAIStimulus::SensingSucceeded).SetStimulusAge(Event.InformationAge));
+			Listener.RegisterStimulus(Event.Enemy, FAIStimulus(*this, Event.Strength, Event.LastKnowLocation, Event.GetBroadcastLocation(), FAIStimulus::SensingSucceeded).SetStimulusAge(Event.InformationAge));
 		}
 	}
 

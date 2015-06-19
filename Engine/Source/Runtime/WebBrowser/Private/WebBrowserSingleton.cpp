@@ -24,7 +24,7 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	CefMainArgs MainArgs(hInstance);
 #elif PLATFORM_MAC || PLATFORM_LINUX
     //TArray<FString> Args;
-    //int ArgCount = GSavedCommandLine.ParseIntoArray(&Args, TEXT(" "), true);
+    //int ArgCount = GSavedCommandLine.ParseIntoArray(Args, TEXT(" "), true);
     CefMainArgs MainArgs(0, nullptr);
 #endif
 
@@ -56,8 +56,18 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	FString LocalesPath(FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/CEF3/Linux/Resources/locales")));
 #endif
 #if !PLATFORM_MAC // On Mac Chromium ignores custom locales dir. Files need to be stored in Resources folder in the app bundle
+	LocalesPath = FPaths::ConvertRelativePathToFull(LocalesPath);
+	if (!FPaths::DirectoryExists(LocalesPath))
+	{
+		UE_LOG(LogWebBrowser, Error, TEXT("Chromium Locales information not found at: %s."), *LocalesPath);
+	}
 	CefString(&Settings.locales_dir_path) = *LocalesPath;
 #endif
+	ResourcesPath = FPaths::ConvertRelativePathToFull(ResourcesPath);
+	if (!FPaths::DirectoryExists(ResourcesPath))
+	{
+		UE_LOG(LogWebBrowser, Error, TEXT("Chromium Resources information not found at: %s."), *ResourcesPath);
+	}
 	CefString(&Settings.resources_dir_path) = *ResourcesPath;
 
 	// Specify path to sub process exe
@@ -72,6 +82,11 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 #else // @todo Linux
 	FString SubProcessPath(TEXT("UnrealCEFSubProcess"));
 #endif
+	SubProcessPath = FPaths::ConvertRelativePathToFull(SubProcessPath);
+	if (!FPaths::FileExists(SubProcessPath))
+	{
+		UE_LOG(LogWebBrowser, Error, TEXT("UnrealCEFSubProcess.exe not found, check that this program has been built and is placed in: %s."), *SubProcessPath);
+	}
 	CefString(&Settings.browser_subprocess_path) = *SubProcessPath;
 
 	// Initialize CEF.
@@ -99,11 +114,11 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 #endif
 }
 
-TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(void* OSWindowHandle, FString InitialURL, uint32 Width, uint32 Height, bool bUseTransparency)
+TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(void* OSWindowHandle, FString InitialURL, uint32 Width, uint32 Height, bool bUseTransparency, TOptional<FString> ContentsToLoad, bool ShowErrorMessage)
 {
 #if WITH_CEF3
 	// Create new window
-	TSharedPtr<FWebBrowserWindow> NewWindow(new FWebBrowserWindow(FIntPoint(Width, Height)));
+	TSharedPtr<FWebBrowserWindow> NewWindow(new FWebBrowserWindow(FIntPoint(Width, Height), InitialURL, ContentsToLoad, ShowErrorMessage));
 
 	// WebBrowserHandler implements browser-level callbacks.
 	CefRefPtr<FWebBrowserHandler> NewHandler(new FWebBrowserHandler);

@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.4.0",
 	"Description" : "[EARLY ACCESS PREVIEW] Live video broadcasting to Twitch for games and the editor",
-	"Category" : "Live Streaming",
+	"Category" : "Misc",
 	"EnabledByDefault" : false,
 	
 	"Modules" :

@@ -7,8 +7,8 @@
 class UWidget;
 
 /**  */
-UINTERFACE(MinimalAPI, meta=( CannotImplementInterfaceInBlueprint ))
-class UNamedSlotInterface : public UInterface
+UINTERFACE(meta=( CannotImplementInterfaceInBlueprint ))
+class UMG_API UNamedSlotInterface : public UInterface
 {
 	GENERATED_UINTERFACE_BODY()
 };
@@ -25,4 +25,7 @@ class UMG_API INamedSlotInterface
 
 	/**  */
 	virtual void SetContentForSlot(FName SlotName, UWidget* Content) = 0;
+
+	/**  */
+	bool ContainsContent(UWidget* Content) const;
 };

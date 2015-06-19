@@ -84,11 +84,6 @@ FRemoteConfigAsyncIOInfo& FRemoteConfigAsyncWorker::GetIOInfo()
 }
 
 
-const TCHAR* FRemoteConfigAsyncWorker::Name()
-{
-	return TEXT("FRemoteConfigAsyncWorker");
-}
-
 
 bool FRemoteConfigAsyncWorker::CanAbandon()
 {
@@ -448,8 +443,10 @@ bool IsUsingLocalIniFile(const TCHAR* FilenameToLoad, const TCHAR* IniFileName)
 }
 
 /** Contains the logic for processing config files, local or remote */
-void ProcessIniContents(const TCHAR* FilenameToLoad, const TCHAR* IniFileName, FConfigFile* Config, bool bDoEmptyConfig, bool bDoCombine, bool bDoWrite)
+void ProcessIniContents(const TCHAR* FilenameToLoad, const TCHAR* IniFileName, FConfigFile* Config, bool bDoEmptyConfig, bool bDoCombine)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "ProcessIniContents" ), STAT_ProcessIniContents, STATGROUP_LoadTime );
+
 	check(FilenameToLoad);
 	check(IniFileName);
 	check(Config);

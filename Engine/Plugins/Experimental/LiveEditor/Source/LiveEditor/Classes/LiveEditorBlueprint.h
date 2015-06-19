@@ -12,13 +12,13 @@ class ULiveEditorBlueprint : public UObject
 
 public:
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void OnInit();
+	void OnInit();
 
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void OnShutdown();
+	void OnShutdown();
 
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void Tick( float DeltaTime );
+	void Tick( float DeltaTime );
 
 	UFUNCTION(BlueprintCallable, Category="Development|LiveEditor")
 	void SaveCheckpoint( int32 CheckpointID, const TArray<FLiveEditorCheckpointData> &CheckpointData );

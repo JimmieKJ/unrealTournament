@@ -21,6 +21,7 @@ SamplerState BentNormalAOSampler;
 
 float ApplyBentNormalAO;
 float InvSkySpecularOcclusionStrength;
+float MinSkySpecularOcclusion;
 
 float GetDistanceFieldAOSpecularOcclusion(float2 ScreenUV, float3 ReflectionVector, float Roughness, bool bTwoSidedFoliage)
 {
@@ -46,6 +47,7 @@ float GetDistanceFieldAOSpecularOcclusion(float2 ScreenUV, float3 ReflectionVect
 
 			// Can't rely on the direction of the bent normal when close to fully occluded, lerp to shadowed
 			Visibility = lerp(0, Visibility, saturate((UnoccludedAngle - .1f) / .2f));
+			Visibility = lerp(Visibility, 1, MinSkySpecularOcclusion);
 		}
 	}
 

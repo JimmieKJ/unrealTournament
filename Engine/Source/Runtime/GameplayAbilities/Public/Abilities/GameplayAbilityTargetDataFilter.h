@@ -84,7 +84,9 @@ struct GAMEPLAYABILITIES_API FGameplayTargetDataFilterHandle
 	{
 		if (!ActorToBeFiltered)
 		{
-			return false;
+			// If no filter is set, then always return true even if there is no actor.
+			// If there is no actor and there is a filter, then always fail.
+			return (Filter.IsValid() == false);
 		}
 		//Eventually, this might iterate through multiple filters. We'll need to decide how to designate OR versus AND functionality.
 		if (Filter.IsValid())

@@ -2,7 +2,6 @@
 #pragma once
 
 #include "UTPickupInventory.h"
-#include "UTWeapon.h"
 
 #include "UTPickupWeapon.generated.h"
 
@@ -36,6 +35,20 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 		Collision->InitCapsuleSize(72.0f, 75.0f);
 	}
 
+protected:
+	/** copy of mesh displayed when inventory is not available - performs depth testing for GhostMesh
+	 * for normal pickups this is done by changing the main Mesh when taken but that can't be used for weapons with WeaponStay on
+	 * as the meshes need to have per-player visibility settings
+	 */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
+	UMeshComponent* GhostDepthMesh;
+
+public:
+	inline const UMeshComponent* GetGhostDepthMesh() const
+	{
+		return GhostDepthMesh;
+	}
+
 	/** weapon type that can be picked up here */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Weapon)
 	TSubclassOf<AUTWeapon> WeaponType;
@@ -49,6 +62,7 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 	bool IsTaken(APawn* TestPawn);
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetInventoryType(TSubclassOf<AUTInventory> NewType) override;
 	virtual void InventoryTypeUpdated_Implementation() override;
 
@@ -61,7 +75,8 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 	 */
 	void CheckTouching();
 
-	virtual void PlayTakenEffects(bool bReplicate);
+	virtual void SetPickupHidden(bool bNowHidden) override;
+	virtual void PlayTakenEffects(bool bReplicate) override;
 
 	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
 	{

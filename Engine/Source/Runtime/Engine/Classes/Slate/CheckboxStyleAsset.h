@@ -3,7 +3,7 @@
 #pragma once
 
 #include "SlateCore.h"
-#include "CheckBoxStyleAsset.generated.h"
+#include "CheckboxStyleAsset.generated.h"
 
 /**
  * An asset describing a CheckBox's appearance.

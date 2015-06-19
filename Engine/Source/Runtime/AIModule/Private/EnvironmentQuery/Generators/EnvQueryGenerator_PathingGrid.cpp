@@ -1,177 +1,111 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
-#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
-#include "EnvironmentQuery/Contexts/EnvQueryContext_Querier.h"
-#include "EnvironmentQuery/Generators/EnvQueryGenerator_PathingGrid.h"
-#include "AI/Navigation/NavFilters/RecastFilter_UseDefaultArea.h"
 #include "AI/Navigation/RecastNavMesh.h"
+#include "EnvironmentQuery/Generators/EnvQueryGenerator_PathingGrid.h"
 
 #define LOCTEXT_NAMESPACE "EnvQueryGenerator"
 
 UEnvQueryGenerator_PathingGrid::UEnvQueryGenerator_PathingGrid(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	GenerateAround = UEnvQueryContext_Querier::StaticClass();
-	ItemType = UEnvQueryItemType_Point::StaticClass();
-	MaxDistance.DefaultValue = 100.0f;
-	SpaceBetween.DefaultValue = 10.0f;
+	ProjectionData.SetNavmeshOnly();
+	GridSize.DefaultValue = 1000.0f;
+	SpaceBetween.DefaultValue = 100.0f;
 	PathToItem.DefaultValue = true;
-
-	// keep deprecated properties initialized
-	MaxPathDistance.Value = 100.0f;
-	Density.Value = 10.0f;
-	PathFromContext.Value = true;
+	ScanRangeMultiplier.DefaultValue = 1.5f;
 }
 
-void UEnvQueryGenerator_PathingGrid::PostLoad()
-{
-	if (VerNum < EnvQueryGeneratorVersion::DataProviders)
-	{
-		MaxPathDistance.Convert(this, MaxDistance);
-		Density.Convert(this, SpaceBetween);
-		PathFromContext.Convert(this, PathToItem);
-	}
-
-	Super::PostLoad();
-}
-
-void UEnvQueryGenerator_PathingGrid::GenerateItems(FEnvQueryInstance& QueryInstance) const
-{
 #if WITH_RECAST
-	const ARecastNavMesh* NavMesh = FEQSHelpers::FindNavMeshForQuery(QueryInstance);
-	if (NavMesh == NULL) 
+namespace PathGridHelpers
+{
+	static bool HasPath(const FRecastDebugPathfindingData& NodePool, const NavNodeRef& NodeRef)
+	{
+		FRecastDebugPathfindingNode SearchKey(NodeRef);
+		const FRecastDebugPathfindingNode* MyNode = NodePool.Nodes.Find(SearchKey);
+		return MyNode != nullptr;
+	}
+}
+#endif
+
+void UEnvQueryGenerator_PathingGrid::ProjectAndFilterNavPoints(TArray<FNavLocation>& Points, FEnvQueryInstance& QueryInstance) const
+{
+	Super::ProjectAndFilterNavPoints(Points, QueryInstance);
+#if WITH_RECAST
+	UObject* DataOwner = QueryInstance.Owner.Get();
+	PathToItem.BindData(DataOwner, QueryInstance.QueryID);
+	ScanRangeMultiplier.BindData(DataOwner, QueryInstance.QueryID);
+
+	bool bPathToItem = PathToItem.GetValue();
+	float RangeMultiplierValue = ScanRangeMultiplier.GetValue();
+
+	ARecastNavMesh* NavMeshData = const_cast<ARecastNavMesh*>(static_cast<const ARecastNavMesh*>(FEQSHelpers::FindNavigationDataForQuery(QueryInstance)));
+	if (!NavMeshData)
 	{
 		return;
 	}
 
-	UObject* BindOwner = QueryInstance.Owner.Get();
-	MaxDistance.BindData(BindOwner, QueryInstance.QueryID);
-	SpaceBetween.BindData(BindOwner, QueryInstance.QueryID);
-	PathToItem.BindData(BindOwner, QueryInstance.QueryID);
-
-	float PathDistanceValue = MaxDistance.GetValue();
-	float DensityValue = SpaceBetween.GetValue();
-	bool bFromContextValue = PathToItem.GetValue();
-
-	const int32 ItemCount = FPlatformMath::TruncToInt((PathDistanceValue * 2.0f / DensityValue) + 1);
-	const int32 ItemCountHalf = ItemCount / 2;
-
 	TArray<FVector> ContextLocations;
 	QueryInstance.PrepareContext(GenerateAround, ContextLocations);
-	QueryInstance.ReserveItemData(ItemCountHalf * ItemCountHalf * ContextLocations.Num());
 
-	TArray<NavNodeRef> NavNodeRefs;
-	NavMesh->BeginBatchQuery();
-
-	int32 DataOffset = 0;
-	for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
+	TSharedPtr<FNavigationQueryFilter> NavigationFilterOb = (NavigationFilter != nullptr)
+		? UNavigationQueryFilter::GetQueryFilter(*NavMeshData, NavigationFilter)->GetCopy()
+		: NavMeshData->GetDefaultQueryFilter()->GetCopy();
+	NavigationFilterOb->SetBacktrackingEnabled(!bPathToItem);
+	
 	{
-		// find all node refs in pathing distance
-		FBox AllowedBounds;
-		NavNodeRefs.Reset();
-		FindNodeRefsInPathDistance(NavMesh, ContextLocations[ContextIndex], PathDistanceValue, bFromContextValue, NavNodeRefs, AllowedBounds);
+		TArray<NavNodeRef> Polys;
+		TArray<FNavLocation> HitLocations;
+		const FVector ProjectionExtent(ProjectionData.ExtentX, ProjectionData.ExtentX, (ProjectionData.ProjectDown + ProjectionData.ProjectUp) / 2);
 
-		// cast 2D grid on generated node refs
-		for (int32 IndexX = 0; IndexX < ItemCount; ++IndexX)
+		for (int32 ContextIdx = 0; ContextIdx < ContextLocations.Num() && Points.Num(); ContextIdx++)
 		{
-			for (int32 IndexY = 0; IndexY < ItemCount; ++IndexY)
+			float CollectDistanceSq = 0.0f;
+			for (int32 Idx = 0; Idx < Points.Num(); Idx++)
 			{
-				const FVector TestPoint = ContextLocations[ContextIndex] - FVector(DensityValue * (IndexX - ItemCountHalf), DensityValue * (IndexY - ItemCountHalf), 0);
-				if (!AllowedBounds.IsInsideXY(TestPoint))
+				const float TestDistanceSq = FVector::DistSquared(Points[Idx].Location, ContextLocations[ContextIdx]);
+				CollectDistanceSq = FMath::Max(CollectDistanceSq, TestDistanceSq);
+			}
+
+			const float MaxPathDistance = FMath::Sqrt(CollectDistanceSq) * RangeMultiplierValue;
+
+			Polys.Reset();
+
+			FRecastDebugPathfindingData NodePoolData;
+			NodePoolData.Flags = ERecastDebugPathfindingFlags::Basic;
+
+			NavMeshData->GetPolysWithinPathingDistance(ContextLocations[ContextIdx], MaxPathDistance, Polys, NavigationFilterOb, nullptr, &NodePoolData);
+
+			for (int32 Idx = Points.Num() - 1; Idx >= 0; Idx--)
+			{
+				bool bHasPath = PathGridHelpers::HasPath(NodePoolData, Points[Idx].NodeRef);
+				if (!bHasPath && Points[Idx].NodeRef != INVALID_NAVNODEREF)
 				{
-					continue;
+					// try projecting it again, maybe it will match valid poly on different height
+					HitLocations.Reset();
+					FVector TestPt(Points[Idx].Location.X, Points[Idx].Location.Y, ContextLocations[ContextIdx].Z);
+
+					NavMeshData->ProjectPointMulti(TestPt, HitLocations, ProjectionExtent, TestPt.Z - ProjectionData.ProjectDown, TestPt.Z + ProjectionData.ProjectUp, NavigationFilterOb, nullptr);
+					for (int32 HitIdx = 0; HitIdx < HitLocations.Num(); HitIdx++)
+					{
+						const bool bHasPathTest = PathGridHelpers::HasPath(NodePoolData, HitLocations[HitIdx].NodeRef);
+						if (bHasPathTest)
+						{
+							Points[Idx] = HitLocations[HitIdx];
+							Points[Idx].Location.Z += ProjectionData.PostProjectionVerticalOffset;
+							bHasPath = true;
+							break;
+						}
+					}
 				}
 
-				// trace line on navmesh, and process all hits with collected node refs
-				TArray<FNavLocation> Hits;
-				NavMesh->ProjectPointMulti(TestPoint, Hits, FVector::ZeroVector, AllowedBounds.Min.Z, AllowedBounds.Max.Z);
-
-				for (int32 HitIndex = 0; HitIndex < Hits.Num(); HitIndex++)
+				if (!bHasPath)
 				{
-					if (IsNavLocationInPathDistance(NavMesh, Hits[HitIndex], NavNodeRefs))
-					{
-						// store generated point
-						QueryInstance.AddItemData<UEnvQueryItemType_Point>(Hits[HitIndex].Location);
-					}
+					Points.RemoveAt(Idx);
 				}
 			}
 		}
 	}
-
-	NavMesh->FinishBatchQuery();
 #endif // WITH_RECAST
 }
-
-FText UEnvQueryGenerator_PathingGrid::GetDescriptionTitle() const
-{
-	return FText::Format(LOCTEXT("DescriptionGenerateAroundContext", "{0}: generate around {1}"),
-		Super::GetDescriptionTitle(), UEnvQueryTypes::DescribeContext(GenerateAround));
-};
-
-FText UEnvQueryGenerator_PathingGrid::GetDescriptionDetails() const
-{
-	return FText::Format(LOCTEXT("DescriptionDetailsPathingGrid", "max distance: {0}, space between: {1}, path to item: {2}"),
-		FText::FromString(MaxDistance.ToString()), FText::FromString(SpaceBetween.ToString()), FText::FromString(PathToItem.ToString()));
-}
-
-#if WITH_RECAST
-#define ENVQUERY_CLUSTER_SEARCH 0
-
-void UEnvQueryGenerator_PathingGrid::FindNodeRefsInPathDistance(const ARecastNavMesh* NavMesh, const FVector& ContextLocation, float InMaxPathDistance, bool bPathFromContext, TArray<NavNodeRef>& NodeRefs, FBox& NodeRefsBounds) const
-{
-	FBox MyBounds(0);
-
-#if ENVQUERY_CLUSTER_SEARCH
-	const bool bUseBacktracking = !bPathFromContext;
-	NavMesh->GetClustersWithinPathingDistance(ContextLocation, InMaxPathDistance, NodeRefs, bUseBacktracking);
-
-	for (int32 RefIndex = 0; RefIndex < NodeRefs.Num(); RefIndex++)
-	{
-		FBox ClusterBounds;
-		
-		const bool bSuccess = NavMesh->GetClusterBounds(NodeRefs[RefIndex], ClusterBounds);
-		if (bSuccess)
-		{
-			MyBounds += ClusterBounds;
-		}
-	}
-#else
-	TSharedPtr<FNavigationQueryFilter> NavFilterInstance = NavigationFilter != NULL
-		? UNavigationQueryFilter::GetQueryFilter(NavMesh, NavigationFilter)->GetCopy()
-		: NavMesh->GetDefaultQueryFilter()->GetCopy();
-
-	NavFilterInstance->SetBacktrackingEnabled(!bPathFromContext);
-	NavMesh->GetPolysWithinPathingDistance(ContextLocation, InMaxPathDistance, NodeRefs, NavFilterInstance);
-
-	TArray<FVector> PolyVerts;
-	for (int32 RefIndex = 0; RefIndex < NodeRefs.Num(); RefIndex++)
-	{
-		PolyVerts.Reset();
-		
-		const bool bSuccess = NavMesh->GetPolyVerts(NodeRefs[RefIndex], PolyVerts);
-		if (bSuccess)
-		{
-			MyBounds += FBox(PolyVerts);
-		}
-	}
-#endif
-
-	NodeRefsBounds = MyBounds;
-}
-
-bool UEnvQueryGenerator_PathingGrid::IsNavLocationInPathDistance(const ARecastNavMesh* NavMesh,
-		const FNavLocation& NavLocation, const TArray<NavNodeRef>& NodeRefs) const
-{
-#if ENVQUERY_CLUSTER_SEARCH
-	const NavNodeRef ClusterRef = NavMesh->GetClusterRef(NavLocation.NodeRef);
-	return NodeRefs.Contains(ClusterRef);
-#else
-	return NodeRefs.Contains(NavLocation.NodeRef);
-#endif
-}
-
-#undef ENVQUERY_CLUSTER_SEARCH
-
-#endif // WITH_RECAST
 
 #undef LOCTEXT_NAMESPACE

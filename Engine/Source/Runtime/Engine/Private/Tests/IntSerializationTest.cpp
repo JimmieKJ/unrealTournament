@@ -4,7 +4,7 @@
 #include "AutomationTest.h"
 #include "Runtime/Engine/Classes/Engine/IntSerialization.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIntSerializationTest, "Engine.Int Serialization", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FIntSerializationTest, "System.Engine.Int Serialization", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FIntSerializationTest::RunTest (const FString& Parameters)
 {

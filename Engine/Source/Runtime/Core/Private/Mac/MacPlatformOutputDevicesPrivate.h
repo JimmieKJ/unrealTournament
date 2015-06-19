@@ -6,6 +6,9 @@
 
 #pragma once
 
+@interface FMacConsoleWindow : NSWindow<NSWindowDelegate>
+@end
+
 class FOutputDeviceMacError : public FOutputDeviceError
 {
 public:
@@ -37,23 +40,23 @@ class CORE_API FOutputDeviceConsoleMac : public FOutputDeviceConsole
 {
 private:
 	/** Handle to the console log window */
-	NSWindow *ConsoleHandle;
-	
+	FMacConsoleWindow* ConsoleHandle;
+
 	/** Handle to window's content view */
-	NSTextView *TextView;
-	
+	NSTextView* TextView;
+
 	/** Handle to window's scroll view */
-	NSScrollView *ScrollView;
+	NSScrollView* ScrollView;
 
 	/** Handle text color of TextView */
-	NSDictionary *TextViewTextColor;
-	
+	NSDictionary* TextViewTextColor;
+
 	/** Critical section for Serialize() */
 	FCriticalSection CriticalSection;
-	
+
 	/** Number of outstanding dispatched Cocoa tasks */
 	uint64 OutstandingTasks;
-		
+
 	/**
 	 * Saves the console window's position and size to the game .ini
 	 */
@@ -63,7 +66,7 @@ private:
 	 * Creates console window
 	 */
 	void CreateConsole();
-	
+
 	/**
 	 * Destroys console window
 	 */
@@ -73,7 +76,7 @@ private:
 	 *
 	 */
 	void SetDefaultTextColor();
-	
+
 public:
 
 	/** 
@@ -106,4 +109,3 @@ public:
 	 */
 	void Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category );
 };
-

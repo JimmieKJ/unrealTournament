@@ -106,7 +106,10 @@ public:
 	static inline bool IsDigit(CharType Char);
 	static inline bool IsHexDigit(CharType Char);
 	static inline bool IsWhitespace(CharType Char);
-
+	static inline bool IsIdentifier(CharType Char)
+	{
+		return IsAlnum(Char) || IsUnderscore(Char);
+	}
 	static inline bool IsUnderscore(CharType Char)		{ return Char == LITERAL(CharType, '_'); }
 
 public:

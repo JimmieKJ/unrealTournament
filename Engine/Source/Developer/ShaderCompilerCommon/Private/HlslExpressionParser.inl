@@ -118,10 +118,11 @@ namespace CrossCompiler
 
 	enum ETypeFlags
 	{
-		ETF_VOID					= 0x0001,
-		ETF_BUILTIN_NUMERIC			= 0x0002,
-		ETF_SAMPLER_TEXTURE_BUFFER	= 0x0004,
-		ETF_USER_TYPES				= 0x0008,
+		ETF_VOID					= 1 << 0,
+		ETF_BUILTIN_NUMERIC			= 1 << 1,
+		ETF_SAMPLER_TEXTURE_BUFFER	= 1 << 2,
+		ETF_USER_TYPES				= 1 << 3,
+		ETF_ERROR_IF_NOT_USER_TYPE	= 1 << 4,
 	};
 
 	EParseResult ParseGeneralType(const FHlslToken* Token, int32 TypeFlags, FLinearAllocator* Allocator, AST::FTypeSpecifier** OutSpecifier)
@@ -309,7 +310,7 @@ namespace CrossCompiler
 		return EParseResult::NotMatched;
 	}
 
-	EParseResult ParseGeneralType(const FHlslToken* Token, int32 TypeFlags, FSymbolScope* SymbolScope, FLinearAllocator* Allocator, AST::FTypeSpecifier** OutSpecifier)
+	EParseResult ParseGeneralTypeFromToken(const FHlslToken* Token, int32 TypeFlags, FSymbolScope* SymbolScope, FLinearAllocator* Allocator, AST::FTypeSpecifier** OutSpecifier)
 	{
 		if (Token)
 		{
@@ -321,12 +322,19 @@ namespace CrossCompiler
 			if (TypeFlags & ETF_USER_TYPES)
 			{
 				check(SymbolScope);
-				if (Token->Token == EHlslToken::Identifier && FSymbolScope::FindType(SymbolScope, Token->String))
+				if (Token->Token == EHlslToken::Identifier)
 				{
-					auto* Type = new(Allocator) AST::FTypeSpecifier(Allocator, Token->SourceInfo);
-					Type->TypeName = Allocator->Strdup(Token->String);
-					*OutSpecifier = Type;
-					return EParseResult::Matched;
+					if (FSymbolScope::FindType(SymbolScope, Token->String))
+					{
+						auto* Type = new(Allocator)AST::FTypeSpecifier(Allocator, Token->SourceInfo);
+						Type->TypeName = Allocator->Strdup(Token->String);
+						*OutSpecifier = Type;
+						return EParseResult::Matched;
+					}
+					else if (TypeFlags & ETF_ERROR_IF_NOT_USER_TYPE)
+					{
+						return EParseResult::Error;
+					}
 				}
 			}
 
@@ -339,10 +347,17 @@ namespace CrossCompiler
 	EParseResult ParseGeneralType(FHlslScanner& Scanner, int32 TypeFlags, FSymbolScope* SymbolScope, FLinearAllocator* Allocator, AST::FTypeSpecifier** OutSpecifier)
 	{
 		auto* Token = Scanner.PeekToken();
-		if (ParseGeneralType(Token, TypeFlags, SymbolScope, Allocator, OutSpecifier) == EParseResult::Matched)
+		auto Result = ParseGeneralTypeFromToken(Token, TypeFlags, SymbolScope, Allocator, OutSpecifier);
+		if (Result == EParseResult::Matched)
 		{
 			Scanner.Advance();
 			return EParseResult::Matched;
+		}
+
+		if (Result == EParseResult::Error && (TypeFlags & ETF_ERROR_IF_NOT_USER_TYPE))
+		{
+			Scanner.SourceError(*FString::Printf(TEXT("Unknown type '%s'!"), *Token->String));
+			return Result;
 		}
 
 		return EParseResult::NotMatched;
@@ -403,7 +418,7 @@ namespace CrossCompiler
 				const auto* Peek1 = Scanner.PeekToken(1);
 				const auto* Peek2 = Scanner.PeekToken(2);
 				AST::FTypeSpecifier* TypeSpecifier = nullptr;
-				if (Peek1 && ParseGeneralType(Peek1, ETF_BUILTIN_NUMERIC | ETF_USER_TYPES, SymbolScope, Allocator, &TypeSpecifier) == EParseResult::Matched && Peek2 && Peek2->Token == EHlslToken::RightParenthesis)
+				if (Peek1 && ParseGeneralTypeFromToken(Peek1, ETF_BUILTIN_NUMERIC | ETF_USER_TYPES, SymbolScope, Allocator, &TypeSpecifier) == EParseResult::Matched && Peek2 && Peek2->Token == EHlslToken::RightParenthesis)
 				{
 					// Cast
 					Scanner.Advance();

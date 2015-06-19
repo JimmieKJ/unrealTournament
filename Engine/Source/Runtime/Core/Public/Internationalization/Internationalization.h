@@ -23,7 +23,7 @@ public:
 
 	static CORE_API FText ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText( const TCHAR* InTextLiteral, const TCHAR* Namespace, const TCHAR* Key )
 	{
-		return FText( InTextLiteral, Namespace, Key );
+		return FText( InTextLiteral, Namespace, Key, ETextFlag::Immutable );
 	}
 
 	//Set the current culture by name

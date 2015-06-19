@@ -44,7 +44,9 @@ UVehicleWheel::UVehicleWheel(const FObjectInitializer& ObjectInitializer)
 float UVehicleWheel::GetSteerAngle()
 {
 #if WITH_VEHICLE
-	return FMath::RadiansToDegrees( VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager()->GetWheelsStates(VehicleSim)[WheelIndex].steerAngle );
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+	return FMath::RadiansToDegrees( VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex].steerAngle );
 #else
 	return 0.0f;
 #endif // WITH_PHYSX
@@ -53,6 +55,9 @@ float UVehicleWheel::GetSteerAngle()
 float UVehicleWheel::GetRotationAngle()
 {
 #if WITH_VEHICLE
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
 	float RotationAngle = -1.0f * FMath::RadiansToDegrees( VehicleSim->PVehicle->mWheelsDynData.getWheelRotationAngle( WheelIndex ) );
 	check(!FMath::IsNaN(RotationAngle));
 	return RotationAngle;
@@ -64,7 +69,10 @@ float UVehicleWheel::GetRotationAngle()
 float UVehicleWheel::GetSuspensionOffset()
 {
 #if WITH_VEHICLE
-	return VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager()->GetWheelsStates(VehicleSim)[WheelIndex].suspJounce;
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
+	return VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex].suspJounce;
 #else
 	return 0.0f;
 #endif // WITH_PHYSX
@@ -82,6 +90,9 @@ void UVehicleWheel::Init( UWheeledVehicleMovementComponent* InVehicleSim, int32 
 	WheelShape = NULL;
 
 #if WITH_VEHICLE
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
 	const int32 WheelShapeIdx = VehicleSim->PVehicle->mWheelsSimData.getWheelShapeMapping( WheelIndex );
 	check(WheelShapeIdx >= 0);
 
@@ -115,6 +126,9 @@ FVector UVehicleWheel::GetPhysicsLocation()
 #if WITH_VEHICLE
 	if ( WheelShape )
 	{
+		FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+		SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
 		PxVec3 PLocation = VehicleSim->PVehicle->getRigidDynamicActor()->getGlobalPose().transform( WheelShape->getLocalPose() ).p;
 		return P2UVector( PLocation );
 	}
@@ -142,7 +156,10 @@ UPhysicalMaterial* UVehicleWheel::GetContactSurfaceMaterial()
 	UPhysicalMaterial* PhysMaterial = NULL;
 
 #if WITH_VEHICLE
-	const PxMaterial* ContactSurface = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager()->GetWheelsStates(VehicleSim)[WheelIndex].tireSurfaceMaterial;
+	FPhysXVehicleManager* VehicleManager = VehicleSim->GetWorld()->GetPhysicsScene()->GetVehicleManager();
+	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
+
+	const PxMaterial* ContactSurface = VehicleManager->GetWheelsStates_AssumesLocked(VehicleSim)[WheelIndex].tireSurfaceMaterial;
 	if (ContactSurface)
 	{
 		PhysMaterial = FPhysxUserData::Get<UPhysicalMaterial>(ContactSurface->userData);

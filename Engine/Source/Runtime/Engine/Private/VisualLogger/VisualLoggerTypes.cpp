@@ -45,7 +45,7 @@ FVisualLogEntry::FVisualLogEntry(const class AActor* InActor, TArray<TWeakObject
 		TimeStamp = InActor->GetWorld()->TimeSeconds;
 		Location = InActor->GetActorLocation();
 		InActor->GrabDebugSnapshot(this);
-		if (Children != NULL)
+		if (Children != nullptr)
 		{
 			TWeakObjectPtr<UObject>* WeakActorPtr = Children->GetData();
 			for (int32 Index = 0; Index < Children->Num(); ++Index, ++WeakActorPtr)
@@ -72,7 +72,7 @@ FVisualLogEntry::FVisualLogEntry(float InTimeStamp, FVector InLocation, const UO
 	{
 		AsActor->GrabDebugSnapshot(this);
 	}
-	if (Children != NULL)
+	if (Children != nullptr)
 	{
 		TWeakObjectPtr<UObject>* WeakActorPtr = Children->GetData();
 		for (int32 Index = 0; Index < Children->Num(); ++Index, ++WeakActorPtr)
@@ -111,6 +111,11 @@ void FVisualLogEntry::AddText(const FString& TextLine, const FName& CategoryName
 	LogLines.Add(FVisualLogLine(CategoryName, Verbosity, TextLine));
 }
 
+void FVisualLogEntry::AddElement(const FVisualLogShapeElement& Element)
+{
+	ElementsToDraw.Add(Element);
+}
+
 void FVisualLogEntry::AddElement(const TArray<FVector>& Points, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color, const FString& Description, uint16 Thickness)
 {
 	FVisualLogShapeElement Element(Description, Color, Thickness, CategoryName);
@@ -140,7 +145,7 @@ void FVisualLogEntry::AddElement(const FVector& Start, const FVector& End, const
 	ElementsToDraw.Add(Element);
 }
 
-void FVisualLogEntry::AddElement(const FBox& Box, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color, const FString& Description, uint16 Thickness)
+void FVisualLogEntry::AddElement(const FBox& Box, const FMatrix& Matrix, const FName& CategoryName, ELogVerbosity::Type Verbosity, const FColor& Color, const FString& Description, uint16 Thickness)
 {
 	FVisualLogShapeElement Element(Description, Color, Thickness, CategoryName);
 	Element.Points.Reserve(2);
@@ -148,6 +153,7 @@ void FVisualLogEntry::AddElement(const FBox& Box, const FName& CategoryName, ELo
 	Element.Points.Add(Box.Max);
 	Element.Type = EVisualLoggerShapeElement::Box;
 	Element.Verbosity = Verbosity;
+	Element.TransformationMatrix = Matrix;
 	ElementsToDraw.Add(Element);
 }
 
@@ -252,6 +258,13 @@ FArchive& operator<<(FArchive& Ar, FVisualLogShapeElement& Element)
 	FVisualLoggerHelpers::Serialize(Ar, Element.Category);
 	Ar << Element.Description;
 	Ar << Element.Verbosity;
+	const int32 VLogsVer = Ar.CustomVer(EVisualLoggerVersion::GUID);
+
+	if (VLogsVer >= EVisualLoggerVersion::TransformationForShapes)
+	{
+		Ar << Element.TransformationMatrix;
+	}
+
 	Ar << Element.Points;
 	Ar << Element.UniqueId;
 	Ar << Element.Type;
@@ -312,6 +325,28 @@ FArchive& operator<<(FArchive& Ar, FVisualLogStatusCategory& Status)
 	Ar << Status.Category;
 	Ar << Status.Data;
 
+	const int32 VLogsVer = Ar.CustomVer(EVisualLoggerVersion::GUID);
+	if (VLogsVer >= EVisualLoggerVersion::StatusCategoryWithChildren)
+	{
+		int32 NumChildren = Status.Children.Num();
+		Ar << NumChildren;
+		if (Ar.IsLoading())
+		{
+			for (int32 Index = 0; Index < NumChildren; ++Index)
+			{
+				FVisualLogStatusCategory CurrentChild;
+				Ar << CurrentChild;
+				Status.Children.Add(CurrentChild);
+			}
+		}
+		else
+		{
+			for (auto& CurrentChild : Status.Children)
+			{
+				Ar << CurrentChild;
+			}
+		}
+	}
 	return Ar;
 }
 
@@ -337,6 +372,11 @@ FArchive& operator<<(FArchive& Ar, FVisualLogEntry& LogEntry)
 FArchive& operator<<(FArchive& Ar, FVisualLogDevice::FVisualLogEntryItem& FrameCacheItem)
 {
 	FVisualLoggerHelpers::Serialize(Ar, FrameCacheItem.OwnerName);
+	const int32 VLogsVer = Ar.CustomVer(EVisualLoggerVersion::GUID);
+	if (VLogsVer >= EVisualLoggerVersion::AddedOwnerClassName)
+	{
+		FVisualLoggerHelpers::Serialize(Ar, FrameCacheItem.OwnerClassName);
+	}
 	Ar << FrameCacheItem.Entry;
 	return Ar;
 }

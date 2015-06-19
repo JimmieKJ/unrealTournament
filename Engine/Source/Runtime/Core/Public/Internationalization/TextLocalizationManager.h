@@ -5,126 +5,163 @@
 #include "IInternationalizationArchiveSerializer.h"
 #include "IInternationalizationManifestSerializer.h"
 
+typedef TSharedRef<FString, ESPMode::ThreadSafe> FTextDisplayStringRef;
+typedef TSharedPtr<FString, ESPMode::ThreadSafe> FTextDisplayStringPtr;
 
-namespace ELocalizationResourceSource
-{
-	enum Type
-	{
-		ManifestArchive,
-		LocalizationResource
-	};
-}
-
-class FTextLocalizationManager
+/** Singleton class that manages display strings for FText. */
+class CORE_API FTextLocalizationManager
 {
 	friend CORE_API void BeginInitTextLocalization();
 	friend CORE_API void EndInitTextLocalization();
 
 private:
-	struct FLocalizationEntryTracker
+	/** Utility class for loading text localizations from some number of localization resources, tracking conflicts between them. */
+	class FLocalizationEntryTracker
 	{
+	public:
+		/** Data struct for tracking a localization entry from a localization resource. */
 		struct FEntry
 		{
-			FString TableName;
+			FString LocResID;
 			uint32 SourceStringHash;
 			FString LocalizedString;
 		};
 
 		typedef TArray<FEntry> FEntryArray;
-		typedef TMap<FString, FEntryArray> FKeyTable;
-		typedef TMap<FString, FKeyTable> FNamespaceTable;
+		typedef TMap<FString, FEntryArray> FKeysTable;
+		typedef TMap<FString, FKeysTable> FNamespacesTable;
 
-		FNamespaceTable Namespaces;
+		FNamespacesTable Namespaces;
 
-		void ReportCollisions() const;
-		void ReadFromDirectory(const FString& DirectoryPath);
-		bool ReadFromFile(const FString& FilePath);
-		void ReadFromArchive(FArchive& Archive, const FString& Identifier);
+	public:
+		/** Loads all text localizations from all localization resource files in the specified directory. */
+		void LoadFromDirectory(const FString& DirectoryPath);
+		/** Loads all text localizations from the specified localization resource file. */
+		bool LoadFromFile(const FString& FilePath);
+		/** Loads all text localizations from the specified localization resource archive, associating the entries with the specified identifier. */
+		void LoadFromLocalizationResource(FArchive& Archive, const FString& LocResID);
+
+		/** Detects conflicts between loaded localization resources and logs them as warnings. */
+		void DetectAndLogConflicts() const;
 	};
 
-	struct FStringEntry
+	/** Utility class for managing the currently loaded or registered text localizations. */
+	class FDisplayStringLookupTable
 	{
-		bool bIsLocalized;
-		FString TableName;
-		uint32 SourceStringHash;
-		TSharedRef<FString, ESPMode::ThreadSafe> String;
-
-		FStringEntry(const bool InIsLocalized, const FString& InTableName, const uint32 InSourceStringHash, const TSharedRef<FString, ESPMode::ThreadSafe>& InString)
-			:	bIsLocalized(InIsLocalized), TableName(InTableName), SourceStringHash(InSourceStringHash), String(InString)
+	public:
+		/** Data struct for tracking a display string. */
+		struct FDisplayStringEntry
 		{
-		}
+			bool bIsLocalized;
+			FString LocResID;
+			uint32 SourceStringHash;
+			FTextDisplayStringRef DisplayString;
+
+			FDisplayStringEntry(const bool InIsLocalized, const FString& InLocResID, const uint32 InSourceStringHash, const FTextDisplayStringRef& InDisplayString)
+				: bIsLocalized(InIsLocalized)
+				, LocResID(InLocResID)
+				, SourceStringHash(InSourceStringHash)
+				, DisplayString(InDisplayString)
+			{
+			}
+		};
+
+		typedef TMap<FString, FDisplayStringEntry> FKeysTable;
+		typedef TMap<FString, FKeysTable> FNamespacesTable;
+		FNamespacesTable NamespacesTable;
+
+	public:
+		/** Finds the keys table for the specified namespace and the display string entry for the specified namespace and key combination. If not found, the out parameters are set to null. */
+		void Find(const FString& InNamespace, FKeysTable*& OutKeysTableForNamespace, const FString& InKey, FDisplayStringEntry*& OutDisplayStringEntry);
+		/** Finds the keys table for the specified namespace and the display string entry for the specified namespace and key combination. If not found, the out parameters are set to null. */
+		void Find(const FString& InNamespace, const FKeysTable*& OutKeysTableForNamespace, const FString& InKey, const FDisplayStringEntry*& OutDisplayStringEntry) const;
 	};
 
-	struct FTextLookupTable
-	{
-		typedef TMap<FString, FStringEntry> FKeyTable;
-		typedef TMap<FString, FKeyTable> FNamespaceTable;
-		FNamespaceTable NamespaceTable;
-
-		const TSharedRef<FString, ESPMode::ThreadSafe>* GetString(const FString& Namespace, const FString& Key, const uint32 SourceStringHash) const;
-	};
-
-	/** Stores a Namespace and Key, used in reverse lookups from a DisplayString to find the Namespace and Key */
+	/** Simple data structure containing the name of the namespace and key associated with a display string, for use in looking up namespace and key from a display string. */
 	struct FNamespaceKeyEntry
 	{
-		TSharedPtr<FString, ESPMode::ThreadSafe> Namespace;
-		TSharedPtr<FString, ESPMode::ThreadSafe> Key;
+		FString Namespace;
+		FString Key;
 
-		FNamespaceKeyEntry(TSharedPtr<FString, ESPMode::ThreadSafe> InNamespace, TSharedPtr<FString, ESPMode::ThreadSafe> InKey)
+		FNamespaceKeyEntry(const FString& InNamespace, const FString& InKey)
 			: Namespace(InNamespace)
 			, Key(InKey)
 		{}
 	};
+	typedef TMap<FTextDisplayStringPtr, FNamespaceKeyEntry> FNamespaceKeyLookupTable;
 
-public:
-	static CORE_API FTextLocalizationManager& Get();
+private:
+	bool bIsInitialized;
 
-	TSharedPtr<FString, ESPMode::ThreadSafe> FindString( const FString& Namespace, const FString& Key, const FString* const SourceString = nullptr );
-	TSharedRef<FString, ESPMode::ThreadSafe> GetString(const FString& Namespace, const FString& Key, const FString* const SourceString);
-
-	/**
-	 * Using an FText SourceString's, returns the associated Namespace and Key
-	 *
-	 * @param InSourceString		The FText DisplayString
-	 * @param OutNamespace			Returns with the associated Namespace
-	 * @param OutKey				Returns with the associated Key
-	 */
-	void CORE_API FindKeyNamespaceFromDisplayString(TSharedRef<FString, ESPMode::ThreadSafe> InDisplayString, TSharedPtr<FString, ESPMode::ThreadSafe>& OutNamespace, TSharedPtr<FString, ESPMode::ThreadSafe>& OutKey);
-
-	/** Get table name for given Namespace/key */
-	TSharedPtr<FString, ESPMode::ThreadSafe> CORE_API GetTableName(const FString& Namespace, const FString& Key);
-
-	void CORE_API RegenerateResources( const FString& ConfigFilePath, IInternationalizationArchiveSerializer& ArchiveSerializer, IInternationalizationManifestSerializer& ManifestSerializer );
-
-	/** Returns the current culture revision index */
-	int CORE_API GetHeadCultureRevision() const { return HeadCultureRevisionIndex; }
-
-	/** Broadcasts whenever the new translations are available */
-	DECLARE_EVENT(FTextLocalizationManager, FTranslationsChangedEvent)
-	CORE_API FTranslationsChangedEvent&  OnTranslationsChanged() { return TranslationsChangedEvent; }
+	FCriticalSection SynchronizationObject;
+	FDisplayStringLookupTable DisplayStringLookupTable;
+	FNamespaceKeyLookupTable NamespaceKeyLookupTable;
+	int32 TextRevisionCounter;
 
 private:
 	FTextLocalizationManager() 
 		: bIsInitialized(false)
 		, SynchronizationObject()
-		, HeadCultureRevisionIndex(0)
+		, TextRevisionCounter(0)
 	{}
 
-	void LoadResources(const bool ShouldLoadEditor, const bool ShouldLoadGame);
-	void UpdateLiveTable(const TArray<FLocalizationEntryTracker>& LocalizationEntryTrackers, const bool FilterUpdatesByTableName = false);
-	void OnCultureChanged();
+public:
+	/** Singleton accessor */
+	static FTextLocalizationManager& Get();
+
+	/**	Finds and returns the display string with the given namespace and key, if it exists.
+	 *	Additionally, if a source string is specified and the found localized display string was not localized from that source string, null will be returned. */
+	FTextDisplayStringPtr FindDisplayString(const FString& Namespace, const FString& Key, const FString* const SourceString = nullptr);
+
+	/**	Returns a display string with the given namespace and key.
+	 *	If no display string exists, it will be created using the source string or an empty string if no source string is provided.
+	 *	If a display string exists ...
+	 *		... but it was not localized from the specified source string, the display string will be set to the specified source and returned.
+	 *		... and it was localized from the specified source string (or none was provided), the display string will be returned.
+	*/
+	FTextDisplayStringRef GetDisplayString(const FString& Namespace, const FString& Key, const FString* const SourceString);
+
+	/** If an entry exists for the specified namespace and key, returns true and provides the localization resource identifier from which it was loaded. Otherwise, returns false. */
+	bool GetLocResID(const FString& Namespace, const FString& Key, FString& OutLocResId);
+
+	/**	Finds the namespace and key associated with the specified display string.
+	 *	Returns true if found and sets the out parameters. Otherwise, returns false.
+	 */
+	bool FindNamespaceAndKeyFromDisplayString(const FTextDisplayStringRef& InDisplayString, FString& OutNamespace, FString& OutKey);
+	
+	/**	Attempts to register the specified display string, associating it with the specified namespace and key.
+	 *	Returns true if the display string has been or was already associated with the namespace and key.
+	 *	Returns false if the display string was already associated with another namespace and key or the namespace and key are already in use by another display string.
+	 */
+	bool AddDisplayString(const FTextDisplayStringRef& DisplayString, const FString& Namespace, const FString& Key);
+
+	/**
+	 * Updates the underlying value of a display string and associates it with a specified namespace and key, then returns true.
+	 * If the namespace and key are already in use by another display string, no changes occur and false is returned.
+	 */
+	bool UpdateDisplayString(const FTextDisplayStringRef& DisplayString, const FString& Value, const FString& Namespace, const FString& Key);
+
+	/** Loads localizations for the current culture based on a configuration file specifying which manifests and archives to use. Effectively generates a localization resource in memory. */
+	void LoadFromManifestAndArchives(const FString& ConfigFilePath, IInternationalizationArchiveSerializer& ArchiveSerializer, IInternationalizationManifestSerializer& ManifestSerializer);
+
+	/**	Returns the current text revision number. This value can be cached when caching information from the text localization manager.
+	 *	If the revision does not match, cached information may be invalid and should be recached. */
+	int32 GetTextRevision() const { return TextRevisionCounter; }
+
+	/** Event type for immediately reacting to changes in display strings for text. */
+	DECLARE_EVENT(FTextLocalizationManager, FTextRevisionChangedEvent)
+	FTextRevisionChangedEvent OnTextRevisionChangedEvent;
 
 private:
-	bool bIsInitialized;
-	FTextLookupTable LiveTable;
-	
-	/** Table for looking up namespaces and keys using the DisplayString of an FText */
-	TMap< TSharedPtr< FString, ESPMode::ThreadSafe >, FNamespaceKeyEntry > ReverseLiveTable;
+	/** Callback for changes in culture. Loads the new culture's localization resources. */
+	void OnCultureChanged();
 
-	FCriticalSection SynchronizationObject;
+	/** Loads localization resources for the specified culture, optionally loading localization resources that are editor-specific or game-specific. */
+	void LoadLocalizationResourcesForCulture(const FString& CultureName, const bool ShouldLoadEditor, const bool ShouldLoadGame);
 
-	/** The current culture revision, increments every time the culture is changed and allows for FTexts to know when to rebuild under a new culture */
-	int32 HeadCultureRevisionIndex;
+	/** Updates display string entries based on specified localizations and adds new display string entries. */
+	void UpdateFromLocalizations(const TArray<FLocalizationEntryTracker>& LocalizationEntryTrackers);
 
-	FTranslationsChangedEvent TranslationsChangedEvent;
+	/** Dirties the text revision counter by incrementing it, causing a revision mismatch for any information cached before this happens.  */
+	void DirtyTextRevision() { ++TextRevisionCounter; OnTextRevisionChangedEvent.Broadcast(); }
 };

@@ -658,9 +658,11 @@ FShader* FMaterialShaderType::FinishCompileShader(
 {
 	check(CurrentJob.bSucceeded);
 
+	FShaderType* SpecificType = CurrentJob.ShaderType->LimitShaderResourceToThisType() ? CurrentJob.ShaderType : NULL;
+
 	// Reuse an existing resource with the same key or create a new one based on the compile output
 	// This allows FShaders to share compiled bytecode and RHI shader references
-	FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output);
+	FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output, SpecificType);
 
 	// Find a shader with the same key in memory
 	FShader* Shader = CurrentJob.ShaderType->FindShaderById(FShaderId(MaterialShaderMapHash, CurrentJob.VFType, CurrentJob.ShaderType, CurrentJob.Input.Target));
@@ -1467,7 +1469,7 @@ void FMaterialShaderMap::Register(EShaderPlatform InShaderPlatform)
 
 			if (Shader)
 			{
-				Shader->InitializeResource();
+				Shader->BeginInitializeResources();
 			}
 		}
 
@@ -1479,7 +1481,7 @@ void FMaterialShaderMap::Register(EShaderPlatform InShaderPlatform)
 
 				if (Shader)
 				{
-					Shader->InitializeResource();
+					Shader->BeginInitializeResources();
 				}
 			}
 		}
@@ -1503,7 +1505,7 @@ void FMaterialShaderMap::AddRef()
 
 void FMaterialShaderMap::Release()
 {
-	check(NumRefs != 0);
+	check(NumRefs > 0);
 	if(--NumRefs == 0)
 	{
 		if (bRegistered)
@@ -1529,13 +1531,13 @@ FMaterialShaderMap::FMaterialShaderMap() :
 	bCompiledSuccessfully(true),
 	bIsPersistent(true)
 {
-	checkSlow(IsInGameThread());
+	checkSlow(IsInGameThread() || IsAsyncLoading());
 	AllMaterialShaderMaps.Add(this);
 }
 
 FMaterialShaderMap::~FMaterialShaderMap()
 { 
-	checkSlow(IsInGameThread());
+	checkSlow(IsInGameThread() || IsAsyncLoading());
 	check(bDeletedThroughDeferredCleanup);
 	check(!bRegistered);
 	AllMaterialShaderMaps.RemoveSwap(this);

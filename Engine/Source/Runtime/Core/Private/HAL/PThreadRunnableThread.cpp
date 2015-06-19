@@ -18,10 +18,19 @@ uint32 FRunnableThreadPThread::Run()
 	{
 		// Initialization has completed, release the sync event
 		ThreadInitSyncEvent->Trigger();
+
+		// Setup TLS for this thread, used by FTlsAutoCleanup objects.
+		SetTls();
+
 		// Now run the task that needs to be done
 		ExitCode = Runnable->Run();
 		// Allow any allocated resources to be cleaned up
 		Runnable->Exit();
+
+#if STATS
+		FThreadStats::Shutdown();
+#endif
+		FreeTls();
 	}
 	else
 	{
@@ -29,13 +38,8 @@ uint32 FRunnableThreadPThread::Run()
 		ThreadInitSyncEvent->Trigger();
 	}
 
-#if STATS
-	FThreadStats::Shutdown();
-#endif
-
 	// Clean ourselves up without waiting
 	ThreadIsRunning = false;
-
 
 	return ExitCode;
 }

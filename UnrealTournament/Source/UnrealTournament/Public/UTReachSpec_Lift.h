@@ -9,7 +9,7 @@
 #include "UTReachSpec_Lift.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTReachSpec_Lift : public UUTReachSpec
+class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 {
 	GENERATED_UCLASS_BODY()
 
@@ -48,7 +48,7 @@ class UUTReachSpec_Lift : public UUTReachSpec
 		return Lift.IsValid() ? DefaultCost : BLOCKED_PATH_COST;
 	}
 
-	virtual bool WaitForMove(APawn* Asker, const FComponentBasedPosition& MovePos) const override
+	virtual bool WaitForMove(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const override
 	{
 		if (!Lift.IsValid())
 		{
@@ -73,7 +73,7 @@ class UUTReachSpec_Lift : public UUTReachSpec
 				}
 				else
 				{
-					return (Asker->GetActorLocation() - LiftExitLoc).Size2D() < Lift.Get()->GetSimpleCollisionRadius() && FMath::Abs<float>(Asker->GetActorLocation().Z - LiftExitLoc.Z) > Asker->GetSimpleCollisionHalfHeight() * 1.1f;
+					return (Asker->GetActorLocation() - LiftCenter).Size2D() < Lift.Get()->GetSimpleCollisionRadius() && FMath::Abs<float>(Asker->GetActorLocation().Z - LiftExitLoc.Z) > Asker->GetSimpleCollisionHalfHeight() * 1.1f;
 				}
 			}
 			// check if we got off the lift successfully and can now finish the move
@@ -89,6 +89,12 @@ class UUTReachSpec_Lift : public UUTReachSpec
 						Hit.Location.Z - LiftCenter.Z > Asker->GetSimpleCollisionHalfHeight() || (Hit.Location - LiftCenter).Size2D() > 10.0f );
 			}
 		}
+	}
+
+	virtual bool AllowWalkOffLedges(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos) const
+	{
+		// allow jumping onto lift center regardless of path
+		return (MovePos.Base == Lift.Get()->GetEncroachComponent());
 	}
 
 	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
@@ -111,18 +117,37 @@ class UUTReachSpec_Lift : public UUTReachSpec
 			{
 				LiftLoc = Hit.Location;
 			}
-			NavNodeRef LiftPoly = NavMesh->FindNearestPoly(LiftLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f + Lift->GetComponentsBoundingBox().GetExtent().Z)); // extra height because lift is partially in the way
-			if (LiftPoly != INVALID_NAVNODEREF)
+			if (AgentProps.bCanJump)
 			{
+				// we can just jump down to the lift
 				TArray<NavNodeRef> PolyRoute;
-				NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(LiftLoc, LiftPoly), PolyRoute, false);
+				NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly), OwnerLink.StartEdgePoly), PolyRoute, false);
 				NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints);
 			}
+			else
+			{
+				NavNodeRef LiftPoly = NavMesh->FindNearestPoly(LiftLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f + Lift->GetComponentsBoundingBox().GetExtent().Z)); // extra height because lift is partially in the way
+				if (LiftPoly != INVALID_NAVNODEREF)
+				{
+					TArray<NavNodeRef> PolyRoute;
+					NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(LiftLoc, LiftPoly), PolyRoute, false);
+					NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints);
+				}
+			}
 			MovePoints.Add(FComponentBasedPosition(Lift->GetEncroachComponent(), LiftLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f)));
+			if (OwnerLink.ReachFlags & R_JUMP)
+			{
+				MovePoints.Add(FComponentBasedPosition(LiftExitLoc));
+			}
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 		}
 		else
 		{
+			// for lift jumps add exit loc so LD can precisely tune jump characteristics
+			if (OwnerLink.ReachFlags & R_JUMP)
+			{
+				MovePoints.Add(FComponentBasedPosition(LiftExitLoc));
+			}
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 		}
 		return true;

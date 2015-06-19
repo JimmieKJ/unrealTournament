@@ -4,6 +4,7 @@
 #include "FriendViewModel.h"
 #include "FriendsViewModel.h"
 #include "FriendListViewModel.h"
+#include "IFriendList.h"
 
 #define LOCTEXT_NAMESPACE "FriendsAndChat"
 
@@ -57,7 +58,12 @@ public:
 
 	virtual EVisibility GetListVisibility() const override
 	{
-		return FriendsList.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed;
+		return FriendsListContainer->IsFilterSet() || FriendsList.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+
+	virtual void SetListFilter(const FText& CommentText) override
+	{
+		FriendsListContainer->SetListFilter(CommentText);
 	}
 
 	DECLARE_DERIVED_EVENT(FFriendListViewModelImpl , FFriendListViewModel::FFriendsListUpdated, FFriendsListUpdated);
@@ -69,14 +75,7 @@ public:
 private:
 	void Initialize()
 	{
-		if (ListType == EFriendsDisplayLists::GameInviteDisplay)
-		{
-			FFriendsAndChatManager::Get()->OnGameInvitesUpdated().AddSP(this, &FFriendListViewModelImpl::RefreshFriendsList);
-		}
-		else
-		{
-			FFriendsAndChatManager::Get()->OnFriendsListUpdated().AddSP(this, &FFriendListViewModelImpl::RefreshFriendsList);
-		}
+		FriendsListContainer->OnFriendsListUpdated().AddSP(this, &FFriendListViewModelImpl::RefreshFriendsList);
 		RefreshFriendsList();
 	}
 
@@ -87,99 +86,20 @@ private:
 	void RefreshFriendsList()
 	{
 		FriendsList.Empty();
-		TArray< TSharedPtr< IFriendItem > > OnlineFriendsList;
-		TArray< TSharedPtr< IFriendItem > > OfflineFriendsList;
-		TArray< TSharedPtr< IFriendItem > > FriendItemList;
-		OnlineCount = 0;
-
-		if(ListType == EFriendsDisplayLists::GameInviteDisplay)
-		{
-			FFriendsAndChatManager::Get()->GetFilteredGameInviteList(OfflineFriendsList);
-		}
-		else if (ListType == EFriendsDisplayLists::RecentPlayersDisplay)
-		{
-			OfflineFriendsList = FFriendsAndChatManager::Get()->GetRecentPlayerList();
-		}
-		else
-		{
-			FFriendsAndChatManager::Get()->GetFilteredFriendsList( FriendItemList );
-			for( const auto& FriendItem : FriendItemList)
-			{
-				switch (ListType)
-				{
-					case EFriendsDisplayLists::DefaultDisplay :
-					{
-						if(FriendItem->GetInviteStatus() == EInviteStatus::Accepted)
-						{
-							if(FriendItem->IsOnline())
-							{
-								OnlineFriendsList.Add(FriendItem);
-								OnlineCount++;
-							}
-							else
-							{
-								OfflineFriendsList.Add(FriendItem);
-							}
-						}
-					}
-					break;
-					case EFriendsDisplayLists::FriendRequestsDisplay :
-					{
-						if( FriendItem->GetInviteStatus() == EInviteStatus::PendingInbound)
-						{
-							OfflineFriendsList.Add(FriendItem.ToSharedRef());
-						}
-					}
-					break;
-					case EFriendsDisplayLists::OutgoingFriendInvitesDisplay :
-					{
-						if( FriendItem->GetInviteStatus() == EInviteStatus::PendingOutbound)
-						{
-							OfflineFriendsList.Add(FriendItem.ToSharedRef());
-						}
-					}
-					break;
-				}
-			}
-		}
-
-		/** Functor for sorting friends list */
-		struct FCompareGroupByName
-		{
-			FORCEINLINE bool operator()( const TSharedPtr< IFriendItem > A, const TSharedPtr< IFriendItem > B ) const
-			{
-				check( A.IsValid() );
-				check ( B.IsValid() );
-				return ( A->GetName() < B->GetName() );
-			}
-		};
-
-		OnlineFriendsList.Sort(FCompareGroupByName());
-		OfflineFriendsList.Sort(FCompareGroupByName());
-
-		for(const auto& FriendItem : OnlineFriendsList)
-		{
-			FriendsList.Add(FFriendViewModelFactory::Create(FriendItem.ToSharedRef()));
-		}
-		for(const auto& FriendItem : OfflineFriendsList)
-		{
-			FriendsList.Add(FFriendViewModelFactory::Create(FriendItem.ToSharedRef()));
-		}
-
+		OnlineCount = FriendsListContainer->GetFriendList(FriendsList);
 		FriendsListUpdatedEvent.Broadcast();
 	}
 
-	FFriendListViewModelImpl(
-		const TSharedRef<FFriendsViewModel>& FriendsViewModel,
-		EFriendsDisplayLists::Type ListType
-		)
-		: ViewModel(FriendsViewModel)
-		, ListType(ListType)
+	FFriendListViewModelImpl( 
+		TSharedRef<IFriendList> InFriendsListContainer,
+		EFriendsDisplayLists::Type InListType)
+		: FriendsListContainer(InFriendsListContainer)
+		, ListType(InListType)
 	{
 	}
 
 private:
-	const TSharedRef<FFriendsViewModel> ViewModel;
+	TSharedRef<IFriendList> FriendsListContainer;
 	const EFriendsDisplayLists::Type ListType;
 
 	/** Holds the list of friends. */
@@ -191,11 +111,10 @@ private:
 };
 
 TSharedRef< FFriendListViewModel > FFriendListViewModelFactory::Create(
-	const TSharedRef<FFriendsViewModel>& FriendsViewModel,
-	EFriendsDisplayLists::Type ListType
-	)
+	TSharedRef<IFriendList> FriendsListContainer,
+	EFriendsDisplayLists::Type ListType)
 {
-	TSharedRef< FFriendListViewModelImpl > ViewModel(new FFriendListViewModelImpl(FriendsViewModel, ListType));
+	TSharedRef< FFriendListViewModelImpl > ViewModel(new FFriendListViewModelImpl(FriendsListContainer, ListType));
 	ViewModel->Initialize();
 	return ViewModel;
 }

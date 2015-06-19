@@ -29,8 +29,8 @@ public:
 	virtual void ActorSelectionChangeNotify() override;
 	virtual bool IsCompatibleWith(FEditorModeID OtherModeID) const override;
 
-	virtual void Render(const FSceneView* View,FViewport* Viewport,FPrimitiveDrawInterface* PDI);
-	virtual void DrawHUD(FEditorViewportClient* ViewportClient,FViewport* Viewport,const FSceneView* View,FCanvas* Canvas);
+	virtual void Render(const FSceneView* View,FViewport* Viewport,FPrimitiveDrawInterface* PDI) override;
+	virtual void DrawHUD(FEditorViewportClient* ViewportClient,FViewport* Viewport,const FSceneView* View,FCanvas* Canvas) override;
 
 	void CamMoveNotify(FEditorViewportClient* ViewportClient);
 	void InitInterpMode(class AMatineeActor* InMatineeActor);
@@ -56,7 +56,7 @@ public:
 	FModeTool_InterpEdit();
 	~FModeTool_InterpEdit();
 
-	virtual FString GetName() const		{ return TEXT("Interp Edit"); }
+	virtual FString GetName() const override { return TEXT("Interp Edit"); }
 
 	/**
 	 * @return		true if the key was handled by this editor mode tool.

@@ -21,7 +21,7 @@ class UK2Node_PureAssignmentStatement : public UK2Node
 	// End UEdGraphNode interface
 
 	// Begin UK2Node interface
-	virtual bool IsNodePure() const { return true; }
+	virtual bool IsNodePure() const override { return true; }
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }

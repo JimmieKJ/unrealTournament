@@ -9,7 +9,6 @@
 #include "BlueprintEditor.h"
 #include "BlueprintEditorModes.h"
 #include "BlueprintEditorTabs.h"
-#include "Editor/BlueprintGraph/Public/K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 #include "SDockTab.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LiveEditor, Log, All);
@@ -85,24 +84,14 @@ class FLiveEditorNodeInjector : public TSharedFromThis<FLiveEditorNodeInjector>
 public:
 	FLiveEditorNodeInjector() {}
 	void InstallHooks();
-	void AddContextMenuNodes(FBlueprintGraphActionListBuilder &ContextMenuBuilder);
 	void OnBeginPIE(const bool bIsSimulating);
 	void OnEndPIE(const bool bIsSimulating);
 };
 
 void FLiveEditorNodeInjector::InstallHooks()
 {
-	FEditorDelegates::OnBlueprintContextMenuCreated.AddSP( this, &FLiveEditorNodeInjector::AddContextMenuNodes );
 	FEditorDelegates::BeginPIE.AddRaw(this, &FLiveEditorNodeInjector::OnBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FLiveEditorNodeInjector::OnEndPIE);
-}
-
-void FLiveEditorNodeInjector::AddContextMenuNodes(FBlueprintGraphActionListBuilder &ContextMenuBuilder)
-{
-	UK2Node* NodeTemplate = ContextMenuBuilder.CreateTemplateNode<UK2Node_LiveEditObject>();
-	FString FunctionCategory( TEXT("LiveEditor") );
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> Action = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, FunctionCategory, NSLOCTEXT("LiveEditorPlugin", "LiveEditObject", "LiveEdit Object"), NodeTemplate->GetTooltipText().ToString(), 0, NodeTemplate->GetKeywords());
-	Action->NodeTemplate = NodeTemplate;
 }
 
 void FLiveEditorNodeInjector::OnBeginPIE(const bool bIsSimulating)
@@ -206,10 +195,10 @@ void FLiveEditor::InstallHooks()
 	FEdGraphUtilities::RegisterVisualPinFactory(PinFactory);
 
 	ObjectCreationListener = new FLiveEditorObjectCreateListener();
-	GUObjectArray.AddUObjectCreateListener( ObjectCreationListener );
+	GetUObjectArray().AddUObjectCreateListener(ObjectCreationListener);
 
 	ObjectDeletionListener = new FLiveEditorObjectDeleteListener();
-	GUObjectArray.AddUObjectDeleteListener( ObjectDeletionListener );
+	GetUObjectArray().AddUObjectDeleteListener(ObjectDeletionListener);
 
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(LiveEditorModule::LiveEditorApp, FOnSpawnTab::CreateStatic(&SpawnLiveEditorTab))
 		.SetDisplayName(NSLOCTEXT("LiveEditorPlugin", "TabTitle", "Live Editor"))
@@ -223,8 +212,8 @@ void FLiveEditor::RemoveHooks()
 
 	FEdGraphUtilities::UnregisterVisualPinFactory(PinFactory);
 
-	GUObjectArray.RemoveUObjectCreateListener( ObjectCreationListener );
-	GUObjectArray.RemoveUObjectDeleteListener( ObjectDeletionListener );
+	GetUObjectArray().RemoveUObjectCreateListener(ObjectCreationListener);
+	GetUObjectArray().RemoveUObjectDeleteListener(ObjectDeletionListener);
 
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(LiveEditorModule::LiveEditorApp);
 }

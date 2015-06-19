@@ -1,6 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Durango">
+      <Configuration>Debug</Configuration>
+      <Platform>Durango</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|ORBIS">
       <Configuration>Debug</Configuration>
       <Platform>ORBIS</Platform>
@@ -12,6 +16,10 @@
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Durango">
+      <Configuration>Release</Configuration>
+      <Platform>Durango</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|ORBIS">
       <Configuration>Release</Configuration>
@@ -28,6 +36,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{C920062A-0647-4553-A3B2-37C58065664B}</ProjectGuid>
+    <ApplicationEnvironment>title</ApplicationEnvironment>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -48,6 +57,12 @@
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v110</PlatformToolset>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Durango'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
@@ -56,6 +71,12 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v110</PlatformToolset>
@@ -81,6 +102,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Durango'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
@@ -88,6 +112,9 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.CPP.UpgradeFromVC71.props" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -105,10 +132,12 @@
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\x64\Debug\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\x64\Debug\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">true</LinkIncremental>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">true</LinkIncremental>
     <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\x64\Release\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.\x64\Release\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">false</LinkIncremental>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">
@@ -120,6 +149,26 @@
     <OutDir>.\..\..\PS4\lib\</OutDir>
     <TargetExt>.lib</TargetExt>
     <TargetName>sicule</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">
+    <OutDir>.\..\..\XboxOne\lib\</OutDir>
+    <TargetExt>.lib</TargetExt>
+    <TargetName>siculed</TargetName>
+    <ExecutablePath>$(Console_SdkRoot)bin;$(VCInstallDir)bin\x86_amd64;$(VCInstallDir)bin;$(WindowsSDK_ExecutablePath_x86);$(VSInstallDir)Common7\Tools\bin;$(VSInstallDir)Common7\tools;$(VSInstallDir)Common7\ide;$(ProgramFiles)\HTML Help Workshop;$(MSBuildToolsPath32);$(FxCopDir);$(PATH);</ExecutablePath>
+    <IncludePath>$(Console_SdkIncludeRoot);$(WindowsSDK_IncludePath)</IncludePath>
+    <ReferencePath>$(Console_SdkLibPath);$(Console_SdkWindowsMetadataPath)</ReferencePath>
+    <LibraryPath>$(Console_SdkLibPath)</LibraryPath>
+    <LibraryWPath>$(Console_SdkLibPath);$(Console_SdkWindowsMetadataPath)</LibraryWPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">
+    <OutDir>.\..\..\XboxOne\lib\</OutDir>
+    <TargetExt>.lib</TargetExt>
+    <TargetName>sicule</TargetName>
+    <ExecutablePath>$(Console_SdkRoot)bin;$(VCInstallDir)bin\x86_amd64;$(VCInstallDir)bin;$(WindowsSDK_ExecutablePath_x86);$(VSInstallDir)Common7\Tools\bin;$(VSInstallDir)Common7\tools;$(VSInstallDir)Common7\ide;$(ProgramFiles)\HTML Help Workshop;$(MSBuildToolsPath32);$(FxCopDir);$(PATH);</ExecutablePath>
+    <IncludePath>$(Console_SdkIncludeRoot);$(WindowsSDK_IncludePath)</IncludePath>
+    <ReferencePath>$(Console_SdkLibPath);$(Console_SdkWindowsMetadataPath)</ReferencePath>
+    <LibraryPath>$(Console_SdkLibPath)</LibraryPath>
+    <LibraryWPath>$(Console_SdkLibPath);$(Console_SdkWindowsMetadataPath)</LibraryWPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Midl>
@@ -248,6 +297,46 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">
+    <Midl>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <TypeLibraryName>.\..\..\lib64\iculed.tlb</TypeLibraryName>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>..\..\include;..\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>U_STATIC_IMPLEMENTATION;U_ENABLE_DYLOAD=0;U_PLATFORM=U_PF_DURANGO;_LIB;_DEBUG;U_LAYOUT_IMPLEMENTATION;UNISTR_FROM_CHAR_EXPLICIT=explicit;UNISTR_FROM_STRING_EXPLICIT=explicit;U_USING_ICU_NAMESPACE=0;UCONFIG_NO_TRANSLITERATION=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <PrecompiledHeaderOutputFile>.\x64\Debug/layout.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\x64\Debug/</AssemblerListingLocation>
+      <ObjectFileName>.\x64\Debug/</ObjectFileName>
+      <ProgramDataBaseFileName>.\x64\Debug/</ProgramDataBaseFileName>
+      <BrowseInformation>true</BrowseInformation>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <CompileAs>Default</CompileAs>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
+      <AdditionalIncludeDirectories>..\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>..\..\bin64\icule53d.dll</OutputFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>.\..\..\lib64\iculed.pdb</ProgramDatabaseFile>
+      <BaseAddress>0x4ac00000</BaseAddress>
+      <ImportLibrary>..\..\lib64\iculed.lib</ImportLibrary>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">
     <Midl>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -326,6 +415,43 @@
       <BaseAddress>0x4ac00000</BaseAddress>
       <ImportLibrary>..\..\lib64\icule.lib</ImportLibrary>
       <TargetMachine>MachineX64</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <TypeLibraryName>.\..\..\lib64\icule.tlb</TypeLibraryName>
+    </Midl>
+    <ClCompile>
+      <AdditionalIncludeDirectories>..\..\include;..\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>U_STATIC_IMPLEMENTATION;U_ENABLE_DYLOAD=0;U_PLATFORM=U_PF_DURANGO;_LIB;NDEBUG;U_LAYOUT_IMPLEMENTATION;UNISTR_FROM_CHAR_EXPLICIT=explicit;UNISTR_FROM_STRING_EXPLICIT=explicit;U_USING_ICU_NAMESPACE=0;UCONFIG_NO_TRANSLITERATION=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <PrecompiledHeaderOutputFile>.\x64\Release/layout.pch</PrecompiledHeaderOutputFile>
+      <AssemblerListingLocation>.\x64\Release/</AssemblerListingLocation>
+      <ObjectFileName>.\XboxOne\Release/</ObjectFileName>
+      <ProgramDataBaseFileName>.\x64\Release/</ProgramDataBaseFileName>
+      <WarningLevel>Level3</WarningLevel>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <CompileAs>Default</CompileAs>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0409</Culture>
+      <AdditionalIncludeDirectories>..\common;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <OutputFile>..\..\bin64\icule53.dll</OutputFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <ProgramDatabaseFile>.\..\..\lib64\icule.pdb</ProgramDatabaseFile>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <BaseAddress>0x4ac00000</BaseAddress>
+      <ImportLibrary>..\..\lib64\icule.lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">
@@ -504,18 +630,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <ClInclude Include="LayoutTables.h" />
@@ -525,18 +657,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <CustomBuild Include="LEGlyphFilter.h">
@@ -545,18 +683,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <CustomBuild Include="LEGlyphStorage.h">
@@ -565,18 +709,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <CustomBuild Include="LEInsertionList.h">
@@ -585,18 +735,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <CustomBuild Include="LELanguages.h">
@@ -605,18 +761,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <CustomBuild Include="LEScripts.h">
@@ -625,18 +787,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <CustomBuild Include="LESwaps.h">
@@ -645,18 +813,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <CustomBuild Include="LETypes.h">
@@ -665,18 +839,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <ClInclude Include="LigatureSubstitution.h" />
@@ -689,18 +869,24 @@
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "%(FullPath)" ..\..\include\layout
 </Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">copy "%(FullPath)" ..\..\include\layout
+</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">copy "%(FullPath)" ..\..\include\layout
 </Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Durango'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">..\..\include\layout\%(Filename)%(Extension);%(Outputs)</Outputs>
     </CustomBuild>
     <ClInclude Include="LookupProcessor.h" />

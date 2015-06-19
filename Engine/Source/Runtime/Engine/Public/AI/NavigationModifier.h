@@ -6,6 +6,7 @@
 
 class UNavArea;
 class UNavLinkDefinition;
+class UPrimitiveComponent;
 class UBrushComponent;
 
 struct ENGINE_API FNavigationModifier
@@ -67,7 +68,7 @@ struct ENGINE_API FAreaNavModifier : public FNavigationModifier
 	float Cost;
 	float FixedCost;
 
-	FAreaNavModifier() : Cost(0.0f), FixedCost(0.0f), AreaClass(NULL), ReplaceAreaClass(NULL), ShapeType(ENavigationShapeType::Unknown) {}
+	FAreaNavModifier() : Cost(0.0f), FixedCost(0.0f), AreaClass(NULL), ReplaceAreaClass(NULL), ShapeType(ENavigationShapeType::Unknown), bIncludeAgentHeight(false) {}
 	FAreaNavModifier(float Radius, float Height, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
 	FAreaNavModifier(const FVector& Extent, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
 	FAreaNavModifier(const FBox& Box, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> AreaClass);
@@ -238,6 +239,8 @@ struct ENGINE_API FCompositeNavModifier : public FNavigationModifier
 		bAdjustHeight |= Modifiers.HasAgentHeightAdjust();
 	}
 
+	void CreateAreaModifiers(const UPrimitiveComponent* PrimComp, const TSubclassOf<UNavArea> AreaClass);
+
 	FORCEINLINE const TArray<FAreaNavModifier>& GetAreas() const { return Areas; }
 	FORCEINLINE const TArray<FSimpleLinkNavModifier>& GetSimpleLinks() const { return SimpleLinks; }
 	FORCEINLINE const TArray<FCustomLinkNavModifier>& GetCustomLinks() const { return CustomLinks; }
@@ -246,6 +249,8 @@ struct ENGINE_API FCompositeNavModifier : public FNavigationModifier
 	FORCEINLINE bool HasPotentialLinks() const { return bHasPotentialLinks; }
 	FORCEINLINE bool HasAgentHeightAdjust() const { return bAdjustHeight; }
 	FORCEINLINE bool HasAreas() const { return Areas.Num() > 0; }
+
+	FORCEINLINE void ReserveForAdditionalAreas(int32 AdditionalElementsCount) { Areas.Reserve(Areas.Num() + AdditionalElementsCount); }
 
 	void MarkPotentialLinks() { bHasPotentialLinks = true; }
 

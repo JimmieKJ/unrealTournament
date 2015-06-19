@@ -32,12 +32,12 @@ public:
 
 	virtual FSlateFontInfo GetFont() const = 0;
 
-	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent);
-
 	virtual FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	virtual void HandleDragEnter(const FDragDropEvent& DragDropEvent);
 	virtual void HandleDragLeave(const FDragDropEvent& DragDropEvent);
-	virtual FReply HandleDrop(FDragDropEvent const& DragDropEvent);
+
+	virtual TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone);
+	virtual FReply HandleAcceptDrop(FDragDropEvent const& DragDropEvent, EItemDropZone DropZone);
 
 	virtual bool OnVerifyNameTextChanged(const FText& InText, FText& OutErrorMessage);
 
@@ -53,13 +53,20 @@ public:
 	void RefreshSelection();
 	bool ContainsSelection();
 	bool IsSelected() const;
-
+	
+	virtual bool IsHovered() const { return false; }
 	virtual bool IsVisible() const { return true; }
 	virtual bool CanControlVisibility() const { return false; }
 	virtual void SetIsVisible(bool IsVisible) { }
 
 	virtual bool IsExpanded() const { return true; }
 	virtual void SetExpanded(bool bIsExpanded) { }
+
+	virtual bool CanRename() const { return false; }
+	virtual void BeginRename() { }
+
+public:
+	FSimpleDelegate RenameEvent;
 
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) = 0;
@@ -91,19 +98,20 @@ public:
 
 	virtual FSlateFontInfo GetFont() const override;
 
-	virtual void OnSelection();
+	virtual void OnSelection() override;
 
-	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent);
-
-	virtual FReply HandleDrop(FDragDropEvent const& DragDropEvent);
+	virtual TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone) override;
+	virtual FReply HandleAcceptDrop(FDragDropEvent const& DragDropEvent, EItemDropZone DropZone) override;
 
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) override;
-	virtual void UpdateSelection();
+	virtual void UpdateSelection() override;
 
 private:
 
 	TWeakPtr<FWidgetBlueprintEditor> BlueprintEditor;
+
+	FText RootText;
 };
 
 class FNamedSlotModel : public FHierarchyModel
@@ -122,15 +130,15 @@ public:
 
 	virtual FSlateFontInfo GetFont() const override;
 
-	virtual void OnSelection();
+	virtual void OnSelection() override;
 	
-	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
-	virtual FReply HandleDrop(FDragDropEvent const& DragDropEvent) override;
+	virtual TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone) override;
+	virtual FReply HandleAcceptDrop(FDragDropEvent const& DragDropEvent, EItemDropZone DropZone) override;
 	virtual FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) override;
-	virtual void UpdateSelection();
+	virtual void UpdateSelection() override;
 
 private:
 
@@ -158,20 +166,22 @@ public:
 
 	virtual FSlateFontInfo GetFont() const override;
 
-	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone) override;
 
 	virtual FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual void HandleDragLeave(const FDragDropEvent& DragDropEvent) override;
-	virtual FReply HandleDrop(FDragDropEvent const& DragDropEvent) override;
+	virtual FReply HandleAcceptDrop(FDragDropEvent const& DragDropEvent, EItemDropZone DropZone) override;
 
 	virtual bool OnVerifyNameTextChanged(const FText& InText, FText& OutErrorMessage) override;
 
 	virtual void OnNameTextCommited(const FText& InText, ETextCommit::Type CommitInfo) override;
 
-	virtual void OnSelection();
+	virtual void OnSelection() override;
 
 	virtual void OnMouseEnter() override;
 	virtual void OnMouseLeave() override;
+
+	virtual bool IsHovered() const override;
 
 	virtual bool IsVisible() const override
 	{
@@ -208,9 +218,12 @@ public:
 		Item.GetTemplate()->bExpandedInDesigner = bIsExpanded;
 	}
 
+	virtual bool CanRename() const override;
+	virtual void BeginRename() override;
+
 protected:
 	virtual void GetChildren(TArray< TSharedPtr<FHierarchyModel> >& Children) override;
-	virtual void UpdateSelection();
+	virtual void UpdateSelection() override;
 
 private:
 	FWidgetReference Item;
@@ -232,24 +245,32 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, const TSharedRef< STableViewBase >& InOwnerTableView, TSharedPtr<FHierarchyModel> InModel);
+	virtual ~SHierarchyViewItem();
 
 	// Begin SWidget
-	void OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
-	void OnMouseLeave(const FPointerEvent& MouseEvent);
-	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
+	virtual bool IsHovered() const override;
+	virtual void OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual void OnMouseLeave(const FPointerEvent& MouseEvent) override;
 	// End SWidget
 
-private:
+public:
 	FReply HandleDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	void HandleDragEnter(const FDragDropEvent& DragDropEvent);
 	void HandleDragLeave(const FDragDropEvent& DragDropEvent);
-	FReply HandleDrop(FDragDropEvent const& DragDropEvent);
+
+	TOptional<EItemDropZone> HandleCanAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone, TSharedPtr<FHierarchyModel> TargetItem);
+	FReply HandleAcceptDrop(const FDragDropEvent& DragDropEvent, EItemDropZone DropZone, TSharedPtr<FHierarchyModel> TargetItem);
 
 	/** Called when text is being committed to check for validity */
 	bool OnVerifyNameTextChanged(const FText& InText, FText& OutErrorMessage);
 
 	/** Called when text is committed on the node */
 	void OnNameTextCommited(const FText& InText, ETextCommit::Type CommitInfo);
+
+	bool CanRename() const;
+	void BeginRename();
+
+private:
 
 	/** Gets the font to use for the text item, bold for customized named items */
 	FSlateFontInfo GetItemFont() const;
@@ -261,7 +282,12 @@ private:
 	FReply OnToggleVisibility();
 
 	/** Returns a brush representing the visibility item of the widget's visibility button */
-	const FSlateBrush* GetVisibilityBrushForWidget() const;
+	FText GetVisibilityBrushForWidget() const;
+
+private:
+
+	/** Edit box for the name. */
+	TWeakPtr<SInlineEditableTextBlock> EditBox;
 
 	/* The mode that this tree item represents */
 	TSharedPtr<FHierarchyModel> Model;

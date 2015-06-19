@@ -29,19 +29,23 @@ public:
 	USlateWidgetStyleAsset* BarStyle_DEPRECATED;
 
 	/** The orientation of the scrolling and stacking in the box. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Scroll")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Scroll")
 	TEnumAsByte<EOrientation> Orientation;
 
 	/** Visibility */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Scroll")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Scroll")
 	TEnumAsByte<ESlateVisibility> ScrollBarVisibility;
 
+	/**  Enable to always consume mouse wheel event, even when scrolling is not possible */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scroll")
+	TEnumAsByte<EConsumeMouseWheel> ConsumeMouseWheel;
+
 	/**  */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Scroll")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Scroll")
 	FVector2D ScrollbarThickness;
 
 	/**  */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Scroll")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Scroll")
 	bool AlwaysShowScrollbar;
 	
 	//TODO UMG Add SetOrientation
@@ -57,6 +61,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetScrollOffset(float NewScrollOffset);
+	
+	/**
+	 * Gets the scroll offset of the scrollbox in Slate Units.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	float GetScrollOffset() const;
 
 	/** Scrolls the ScrollBox to the top instantly */
 	UFUNCTION(BlueprintCallable, Category="Widget")

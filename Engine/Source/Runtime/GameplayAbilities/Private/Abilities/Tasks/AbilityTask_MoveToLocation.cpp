@@ -108,3 +108,22 @@ void UAbilityTask_MoveToLocation::GetLifetimeReplicatedProps(TArray< FLifetimePr
 	DOREPLIFETIME(UAbilityTask_MoveToLocation, DurationOfMovement);
 	DOREPLIFETIME(UAbilityTask_MoveToLocation, LerpCurve);
 }
+
+void UAbilityTask_MoveToLocation::OnDestroy(bool AbilityIsEnding)
+{
+	AActor* MyActor = GetAvatarActor();
+	if (MyActor)
+	{
+		ACharacter* MyCharacter = Cast<ACharacter>(MyActor);
+		if (MyCharacter)
+		{
+			UCharacterMovementComponent* CharMoveComp = Cast<UCharacterMovementComponent>(MyCharacter->GetMovementComponent());
+			if (CharMoveComp && CharMoveComp->MovementMode == MOVE_Custom)
+			{
+				CharMoveComp->SetMovementMode(MOVE_Falling);
+			}
+		}
+	}
+
+	Super::OnDestroy(AbilityIsEnding);
+}

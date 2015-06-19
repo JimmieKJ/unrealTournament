@@ -38,6 +38,13 @@ namespace EPropertyNodeFlags
 	const Type	IsCustomized					= 1 << 17;	/** true if this node's visual representation has been customized by the editor */
 	
 	const Type	RequiresValidation				= 1 << 18; /** true if this node could unexpectedly change (array changes, editinlinenew changes) */
+
+	const Type	ShouldShowDisableEditOnInstance = 1 << 19; /** true if this node should show child properties marked CPF_DisableEditOnInstance */
+
+	const Type	IsReadOnly						= 1 << 20; /** true if this node is overriden to appear as read-only */
+
+	const Type	SkipChildValidation				= 1 << 21; /** true if this node should skip child validation */
+
 	const Type 	NoFlags							= 0;
 
 };
@@ -173,6 +180,9 @@ struct FPropertyNodeInitParams
 	bool bForceHiddenPropertyVisibility;
 	/** Whether or not to create category nodes (note: this setting is only valid for the root node of a property tree. The setting will propagate to children) */
 	bool bCreateCategoryNodes;
+	/** Whether or not to create nodes for properties marked CPF_DisableEditOnInstance */
+	bool bCreateDisableEditOnInstanceNodes;
+
 	FPropertyNodeInitParams()
 		: ParentNode( NULL )
 		, Property( NULL )
@@ -181,6 +191,7 @@ struct FPropertyNodeInitParams
 		, bAllowChildren( true )
 		, bForceHiddenPropertyVisibility( false )
 		, bCreateCategoryNodes( true )
+		, bCreateDisableEditOnInstanceNodes( true )
 	{}
 };
 

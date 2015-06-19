@@ -53,7 +53,7 @@ public:
 		UnInitialize();
 	}
 
-	virtual const TArray<TSharedRef<FChatItemViewModel> >& GetMessageList() const override
+	virtual const TArray<TSharedRef<FFriendChatMessage> >& GetMessages() const override
 	{
 		return ReceivedMessages;
 	}
@@ -96,7 +96,7 @@ public:
 		return false;
 	}
 
-	virtual bool SendPrivateMessage(TSharedPtr<FUniqueNetId> UserID, const FText UserName, const FText MessageText) override
+	virtual bool SendPrivateMessage(TSharedPtr<FUniqueNetId> UserID, const FText MessageText) override
 	{
 		if (OnlineSub != nullptr &&
 			LoggedInUser.IsValid())
@@ -105,13 +105,16 @@ public:
 			if(ChatInterface.IsValid())
 			{
 				TSharedPtr< FFriendChatMessage > ChatItem = MakeShareable(new FFriendChatMessage());
-				ChatItem->FromName = UserName;
+				ChatItem->FromName = FText::FromString(OnlineSub->GetIdentityInterface()->GetPlayerNickname(*LoggedInUser.Get()));
+				TSharedPtr<IFriendItem> FoundFriend = FFriendsAndChatManager::Get()->FindUser(*UserID.Get());
+				ChatItem->ToName = FText::FromString(*FoundFriend->GetName());
 				ChatItem->Message = MessageText;
 				ChatItem->MessageType = EChatMessageType::Whisper;
-				ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
+				ChatItem->MessageTime = FDateTime::UtcNow();
 				ChatItem->ExpireTime = FDateTime::UtcNow() + FTimespan::FromSeconds(WhisperMessageLifetime);
 				ChatItem->bIsFromSelf = true;
-				ChatItem->SenderId = UserID;
+				ChatItem->SenderId = LoggedInUser;
+				ChatItem->RecipientId = UserID;
 				AddMessage(ChatItem.ToSharedRef());
 				return ChatInterface->SendPrivateChat(*LoggedInUser, *UserID.Get(), MessageText.ToString());
 			}
@@ -125,7 +128,7 @@ public:
 		ChatItem->FromName = FText::FromString("Game");
 		ChatItem->Message = FText::FromString(MsgBody);
 		ChatItem->MessageType = EChatMessageType::Party;
-		ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
+		ChatItem->MessageTime = FDateTime::UtcNow();
 		ChatItem->ExpireTime = FDateTime::UtcNow() + FTimespan::FromSeconds(PartyMessageLifetime);
 		ChatItem->bIsFromSelf = false;
 		PartyMessagesCount++;
@@ -270,7 +273,7 @@ private:
 			}
 			ChatItem->Message = FText::FromString(TEXT("entered room"));
 			ChatItem->MessageType = EChatMessageType::Global;
-			ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
+			ChatItem->MessageTime = FDateTime::UtcNow();
 			ChatItem->ExpireTime = FDateTime::UtcNow() + GlobalMessageLifetime;
 			ChatItem->bIsFromSelf = false;
 			GlobalMessagesCount++;
@@ -292,7 +295,7 @@ private:
 			}
 			ChatItem->Message = FText::FromString(TEXT("left room"));
 			ChatItem->MessageType = EChatMessageType::Global;
-			ChatItem->MessageTimeText = FText::AsTime(FDateTime::UtcNow(), EDateTimeStyle::Short);
+			ChatItem->MessageTime = FDateTime::UtcNow();
 			ChatItem->ExpireTime = FDateTime::UtcNow() + GlobalMessageLifetime;
 			ChatItem->bIsFromSelf = false;
 			GlobalMessagesCount++;
@@ -311,15 +314,11 @@ private:
 		ChatItem->FromName = FText::FromString(*ChatMessage->GetNickname());
 		ChatItem->Message = FText::FromString(*ChatMessage->GetBody());
 		ChatItem->MessageType = EChatMessageType::Global;
-		ChatItem->MessageTimeText = FText::AsTime(ChatMessage->GetTimestamp(), EDateTimeStyle::Short);
+		ChatItem->MessageTime = ChatMessage->GetTimestamp();
 		ChatItem->ExpireTime = ChatMessage->GetTimestamp() + FTimespan::FromSeconds(GlobalMessageLifetime);
-		ChatItem->bIsFromSelf = ChatMessage->GetUserId() == *LoggedInUser;
-		TSharedPtr<IFriendItem> FoundFriend = FFriendsAndChatManager::Get()->FindUser(ChatMessage->GetUserId());
-		if(FoundFriend.IsValid())
-		{
-			ChatItem->SenderId = FoundFriend->GetUniqueID();
-		}
-
+		ChatItem->bIsFromSelf = *ChatMessage->GetUserId() == *LoggedInUser;
+		ChatItem->SenderId = ChatMessage->GetUserId();
+		ChatItem->RecipientId = nullptr;
 		ChatItem->MessageRef = ChatMessage;
 		GlobalMessagesCount++;
 		AddMessage(ChatItem.ToSharedRef());
@@ -334,11 +333,12 @@ private:
 		{
 			ChatItem->FromName = FText::FromString(*FoundFriend->GetName());
 			ChatItem->SenderId = FoundFriend->GetUniqueID();
+			ChatItem->bIsFromSelf = false;
+			ChatItem->RecipientId = LoggedInUser;
 			ChatItem->Message = FText::FromString(*ChatMessage->GetBody());
 			ChatItem->MessageType = EChatMessageType::Whisper;
-			ChatItem->MessageTimeText = FText::AsTime(ChatMessage->GetTimestamp(), EDateTimeStyle::Short);
+			ChatItem->MessageTime = ChatMessage->GetTimestamp();
 			ChatItem->ExpireTime = ChatMessage->GetTimestamp() + FTimespan::FromSeconds(WhisperMessageLifetime);
-			ChatItem->bIsFromSelf = false;
 			ChatItem->MessageRef = ChatMessage;
 			WhisperMessagesCount++;
 			AddMessage(ChatItem.ToSharedRef());
@@ -363,9 +363,9 @@ private:
 		}
 	}
 
-	void AddMessage(TSharedRef< FFriendChatMessage > ChatItem)
+	void AddMessage(TSharedRef< FFriendChatMessage > NewMessage)
 	{
-		TSharedRef<FChatItemViewModel> NewMessage = FChatItemViewModelFactory::Create(ChatItem);
+		//TSharedRef<FChatItemViewModel> NewMessage = FChatItemViewModelFactory::Create(ChatItem);
 		if(ReceivedMessages.Add(NewMessage) > MessageStore)
 		{
 			bool bGlobalTimeFound = false;
@@ -374,15 +374,15 @@ private:
 			FDateTime CurrentTime = FDateTime::UtcNow();
 			for(int32 Index = 0; Index < ReceivedMessages.Num(); Index++)
 			{
-				TSharedRef<FChatItemViewModel> Message = ReceivedMessages[Index];
-				if(Message->GetExpireTime() < CurrentTime)
+				TSharedRef<FFriendChatMessage> Message = ReceivedMessages[Index];
+				if (Message->ExpireTime < CurrentTime)
 				{
 					RemoveMessage(Message);
 					Index--;
 				}
 				else
 				{
-					switch(Message->GetMessageType())
+					switch (Message->MessageType)
 					{
 						case EChatMessageType::Global :
 						{
@@ -434,9 +434,9 @@ private:
 		OnChatMessageRecieved().Broadcast(NewMessage);
 	}
 
-	void RemoveMessage(TSharedRef<FChatItemViewModel> Message)
+	void RemoveMessage(TSharedRef<FFriendChatMessage> Message)
 	{
-		switch(Message->GetMessageType())
+		switch(Message->MessageType)
 		{
 			case EChatMessageType::Global : GlobalMessagesCount--; break;
 			case EChatMessageType::Party : PartyMessagesCount--; break;
@@ -475,7 +475,7 @@ private:
 	TSharedPtr<FUniqueNetId> LoggedInUser;
 	TArray<FString> RoomJoins;
 
-	TArray<TSharedRef<FChatItemViewModel> > ReceivedMessages;
+	TArray<TSharedRef<FFriendChatMessage> > ReceivedMessages;
 
 	int32 GlobalMessagesCount;
 	int32 WhisperMessagesCount;

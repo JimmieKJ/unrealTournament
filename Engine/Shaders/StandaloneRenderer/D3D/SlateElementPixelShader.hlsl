@@ -140,7 +140,7 @@ float4 GetSplineElementColor( VertexOut InVertex )
 	// samples the first and we get white pixels 
 	const float HalfPixelOffset = 1/32.f;
 
-	Color.a *= ElementTexture.Sample(ElementTextureSampler, float2(Index-HalfPixelOffset,0)).x;
+	Color.a *= smoothstep(0.3, 1.0f, Index);
 
 	if( Color.a < 0.05f )
 	{

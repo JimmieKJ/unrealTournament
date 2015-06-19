@@ -23,27 +23,11 @@
 #ifndef _SDL_x11window_h
 #define _SDL_x11window_h
 
-/* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-
-/* In order to cut the latency, dispatch immediately. Considering comment below,
- * proper solution should probably detect whether video mode change is under way
- * and queue focus changes with a delay only for the duration of it.
- */
-#define PENDING_FOCUS_IN_TIME   0
-#define PENDING_FOCUS_OUT_TIME  0
-
-#else
-/* EG END */
 /* We need to queue the focus in/out changes because they may occur during
    video mode changes and we can respond to them by triggering more mode
    changes.
 */
-#define PENDING_FOCUS_IN_TIME   200
-#define PENDING_FOCUS_OUT_TIME  200
-/* EG BEGIN */
-#endif // SDL_WITH_EPIC_EXTENSIONS
-/* EG END */
+#define PENDING_FOCUS_TIME   200
 
 #if SDL_VIDEO_OPENGL_EGL   
 #include <EGL/egl.h>
@@ -81,6 +65,11 @@ typedef struct
 #if SDL_VIDEO_OPENGL_EGL  
     EGLSurface egl_surface;
 #endif
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    SDL_bool initiate_maximize;
+#endif // SDL_WITH_EPIC_EXTENSIONS
+/* EG END */
 } SDL_WindowData;
 
 extern void X11_SetNetWMState(_THIS, Window xwindow, Uint32 flags);
@@ -94,15 +83,10 @@ extern void X11_SetWindowIcon(_THIS, SDL_Window * window, SDL_Surface * icon);
 extern void X11_SetWindowPosition(_THIS, SDL_Window * window);
 extern void X11_SetWindowMinimumSize(_THIS, SDL_Window * window);
 extern void X11_SetWindowMaximumSize(_THIS, SDL_Window * window);
-/* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-extern int X11_GetWindowBordersSize(_THIS, SDL_Window * window, SDL_Rect * borders);
+extern int X11_GetWindowBordersSize(_THIS, SDL_Window * window, int *top, int *left, int *bottom, int *right);
 extern int X11_SetWindowOpacity(_THIS, SDL_Window * window, float opacity);
-extern int X11_SetWindowInputState(_THIS, SDL_Window * window, SDL_bool enable);
-extern int X11_SetWindowActive(_THIS, SDL_Window * window);
 extern int X11_SetWindowModalFor(_THIS, SDL_Window * modal_window, SDL_Window * parent_window);
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG END */
+extern int X11_SetWindowInputFocus(_THIS, SDL_Window * window);
 extern void X11_SetWindowSize(_THIS, SDL_Window * window);
 extern void X11_ShowWindow(_THIS, SDL_Window * window);
 extern void X11_HideWindow(_THIS, SDL_Window * window);

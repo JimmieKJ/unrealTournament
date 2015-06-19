@@ -17,6 +17,5 @@
 #include "ActorTreeItem.h"
 #include "FolderTreeItem.h"
 #include "WorldTreeItem.h"
-#include "LevelBlueprintTreeItem.h"
 
 #include "SceneOutlinerFilters.h"

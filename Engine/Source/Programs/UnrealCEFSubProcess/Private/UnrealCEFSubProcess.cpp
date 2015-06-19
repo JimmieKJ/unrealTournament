@@ -21,7 +21,7 @@ int32 RunCEFSubProcess(const CefMainArgs& MainArgs)
 	CEF3Utils::LoadCEF3Modules();
 
 	// Create an App object for handling various render process events, such as message passing
-	CefRefPtr<CefApp> App(new FUnrealCEFSubProcessApp);
+    CefRefPtr<CefApp> App(new FUnrealCEFSubProcessApp);
 
 	// Execute the sub-process logic. This will block until the sub-process should exit.
 	int32 Result = CefExecuteProcess(MainArgs, App, nullptr);

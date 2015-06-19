@@ -70,8 +70,9 @@ static bool CompressImageUsingQonvert(
 
 	TQonvertImage SrcImg;
 	TQonvertImage DstImg;
-	FMemory::MemZero(SrcImg);
-	FMemory::MemZero(DstImg);
+
+	FMemory::Memzero(SrcImg);
+	FMemory::Memzero(DstImg);
 
 	SrcImg.nWidth    = SizeX;
 	SrcImg.nHeight   = SizeY;

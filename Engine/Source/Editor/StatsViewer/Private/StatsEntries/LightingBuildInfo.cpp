@@ -2,6 +2,7 @@
 
 #include "StatsViewerPrivatePCH.h"
 #include "LightingBuildInfo.h"
+#include "Lightmass/LightmappedSurfaceCollection.h"
 
 ULightingBuildInfo::ULightingBuildInfo(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

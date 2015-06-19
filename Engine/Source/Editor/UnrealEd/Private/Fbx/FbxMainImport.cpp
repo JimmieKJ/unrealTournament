@@ -92,6 +92,7 @@ FBXImportOptions* GetImportOptions( UnFbx::FFbxImporter* FbxImporter, UFbxImport
 		}
 
 		ImportUI->bImportAsSkeletal = ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh;
+		ImportUI->bImportMesh = ImportUI->MeshTypeToImport != FBXIT_Animation;
 		ImportUI->bIsObjImport = bIsObjFormat;
 
 		TSharedPtr<SWindow> ParentWindow;
@@ -243,7 +244,8 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	InOutImportOptions.AnimationRange.X = ImportUI->AnimSequenceImportData->StartFrame;
 	InOutImportOptions.AnimationRange.Y = ImportUI->AnimSequenceImportData->EndFrame;
 	InOutImportOptions.AnimationName = ImportUI->AnimationName;
-	InOutImportOptions.bPreserveLocalTransform = ImportUI->bPreserveLocalTransform;
+	InOutImportOptions.bPreserveLocalTransform = ImportUI->AnimSequenceImportData->bPreserveLocalTransform;
+	InOutImportOptions.bDeleteExistingMorphTargetCurves = ImportUI->AnimSequenceImportData->bDeleteExistingMorphTargetCurves;
 	InOutImportOptions.bImportCustomAttribute = ImportUI->AnimSequenceImportData->bImportCustomAttribute;
 }
 
@@ -292,7 +294,7 @@ FFbxImporter::FFbxImporter()
 	Scene = NULL;
 	
 	ImportOptions = new FBXImportOptions();
-	FMemory::MemZero(*ImportOptions);
+	FMemory::Memzero(*ImportOptions);
 	
 	CurPhase = NOTSTARTED;
 }
@@ -592,6 +594,9 @@ bool FFbxImporter::OpenFile(FString Filename, bool bParseStatistics, bool bForSc
 		return false;
 	}
 
+	GWarn->BeginSlowTask( LOCTEXT("OpeningFile", "Reading File"), true);
+	GWarn->StatusForceUpdate(20, 100, LOCTEXT("OpeningFile", "Reading File"));
+
 	int32 SDKMajor,  SDKMinor,  SDKRevision;
 
 	// Create an importer.
@@ -609,10 +614,12 @@ bool FFbxImporter::OpenFile(FString Filename, bool bParseStatistics, bool bForSc
 	
 	const bool bImportStatus = Importer->Initialize(TCHAR_TO_UTF8(*Filename));
 
+	GWarn->StatusForceUpdate(100, 100, LOCTEXT("OpeningFile", "Reading File"));
+	GWarn->EndSlowTask();
 	if( !bImportStatus )  // Problem with the file to be imported
 	{
 		UE_LOG(LogFbx, Error,TEXT("Call to FbxImporter::Initialize() failed."));
-		UE_LOG(LogFbx, Warning, TEXT("Error returned: %s"), ANSI_TO_TCHAR(Importer->GetStatus().GetErrorString()));
+		UE_LOG(LogFbx, Warning, TEXT("Error returned: %s"), UTF8_TO_TCHAR(Importer->GetStatus().GetErrorString()));
 
 		if (Importer->GetStatus().GetCode() == FbxStatus::eInvalidFileVersion )
 		{
@@ -703,7 +710,7 @@ bool FFbxImporter::ImportFile(FString Filename)
 	}
 	else
 	{
-		ErrorMessage = ANSI_TO_TCHAR(Importer->GetStatus().GetErrorString());
+		ErrorMessage = UTF8_TO_TCHAR(Importer->GetStatus().GetErrorString());
 		AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("FbxSkeletaLMeshimport_FileLoadingFailed", "FBX Scene Loading Failed : '{0}'"), FText::FromString(ErrorMessage))), FFbxErrors::Generic_LoadingSceneFailed);
 		CleanUp();
 		Result = false;
@@ -773,13 +780,13 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type)
 					{
 						TArray<FAnalyticsEventAttribute> Attribs;
 
-						FString OriginalVendor(ANSI_TO_TCHAR(DocInfo->Original_ApplicationVendor.Get().Buffer()));
-						FString OriginalAppName(ANSI_TO_TCHAR(DocInfo->Original_ApplicationName.Get().Buffer()));
-						FString OriginalAppVersion(ANSI_TO_TCHAR(DocInfo->Original_ApplicationVersion.Get().Buffer()));
+						FString OriginalVendor(UTF8_TO_TCHAR(DocInfo->Original_ApplicationVendor.Get().Buffer()));
+						FString OriginalAppName(UTF8_TO_TCHAR(DocInfo->Original_ApplicationName.Get().Buffer()));
+						FString OriginalAppVersion(UTF8_TO_TCHAR(DocInfo->Original_ApplicationVersion.Get().Buffer()));
 
-						FString LastSavedVendor(ANSI_TO_TCHAR(DocInfo->LastSaved_ApplicationVendor.Get().Buffer()));
-						FString LastSavedAppName(ANSI_TO_TCHAR(DocInfo->LastSaved_ApplicationName.Get().Buffer()));
-						FString LastSavedAppVersion(ANSI_TO_TCHAR(DocInfo->LastSaved_ApplicationVersion.Get().Buffer()));
+						FString LastSavedVendor(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationVendor.Get().Buffer()));
+						FString LastSavedAppName(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationName.Get().Buffer()));
+						FString LastSavedAppVersion(UTF8_TO_TCHAR(DocInfo->LastSaved_ApplicationVersion.Get().Buffer()));
 
 						Attribs.Add(FAnalyticsEventAttribute(TEXT("Original Application Vendor"), OriginalVendor));
 						Attribs.Add(FAnalyticsEventAttribute(TEXT("Original Application Name"), OriginalAppName));
@@ -897,11 +904,11 @@ FName FFbxImporter::MakeNameForMesh(FString InName, FbxObject* FbxObject)
 
 		if ( InName == FString("None"))
 		{
-			OutputName = FName( *FString::Printf(TEXT("%s"), ANSI_TO_TCHAR(NewName )) );
+			OutputName = FName( *FString::Printf(TEXT("%s"), UTF8_TO_TCHAR(NewName )) );
 		}
 		else
 		{
-			OutputName = FName( *FString::Printf(TEXT("%s_%s"), *InName,ANSI_TO_TCHAR(NewName)) );
+			OutputName = FName( *FString::Printf(TEXT("%s_%s"), *InName,UTF8_TO_TCHAR(NewName)) );
 		}
 	}
 	
@@ -1342,7 +1349,7 @@ void FFbxImporter::RecursiveFindFbxSkelMesh(FbxNode* Node, TArray< TArray<FbxNod
 				AddTokenizedErrorMessage(
 					FTokenizedMessage::Create(
 						EMessageSeverity::Warning, 
-						FText::Format( LOCTEXT("FBX_NoWeightsOnDeformer", "Ignoring mesh {0} because it but no weights."), FText::FromString( ANSI_TO_TCHAR(SkelMeshNode->GetName()) ) )
+						FText::Format( LOCTEXT("FBX_NoWeightsOnDeformer", "Ignoring mesh {0} because it but no weights."), FText::FromString( UTF8_TO_TCHAR(SkelMeshNode->GetName()) ) )
 					), 
 					FFbxErrors::SkeletalMesh_NoWeightsOnDeformer
 				);
@@ -1515,7 +1522,7 @@ FbxNode* FFbxImporter::FindFBXMeshesByBone(const FName& RootBoneName, bool bExpa
 	FbxNode* SkeletonRoot = NULL;
 
 	// find the FBX skeleton node according to name
-	SkeletonRoot = Scene->FindNodeByName(TCHAR_TO_ANSI(*BoneNameString));
+	SkeletonRoot = Scene->FindNodeByName(TCHAR_TO_UTF8(*BoneNameString));
 
 	// SinceFBX bone names are changed on import, it's possible that the 
 	// bone name in the engine doesn't match that of the one in the FBX file and
@@ -1690,7 +1697,7 @@ FbxNode* FFbxImporter::RetrieveObjectFromName(const TCHAR* ObjectName, FbxNode* 
 		{
 			FbxNode* Node = Root->GetChild(ChildIndex);
 			FbxMesh* FbxMesh = Node->GetMesh();
-			if (FbxMesh && 0 == FCString::Strcmp(ObjectName,ANSI_TO_TCHAR(Node->GetName())))
+			if (FbxMesh && 0 == FCString::Strcmp(ObjectName,UTF8_TO_TCHAR(Node->GetName())))
 			{
 				Result = Node;
 			}

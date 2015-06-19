@@ -66,6 +66,7 @@ public:
 
 	/** If this value is true, warning messages will be shown once for all objects being imported at the same time.  
 		This value will be reset to false each time a new import operation is started. */
+	DEPRECATED(4.8, "bAllowOneTimeWarningMessages is due to be removed in future.")
 	static bool bAllowOneTimeWarningMessages;
 
 	// Begin UObject interface.
@@ -114,6 +115,11 @@ public:
 	 * It needs to be reset each time a new import is started
 	 */
 	static void ResetState();
+
+	/**
+	 * Pop up message to the user asking whether they wish to overwrite existing state or not
+	 */
+	static void DisplayOverwriteOptionsDialog(const FText& Message);
 
 	/** Opens a dialog to configure the factory properties. Return false if user opted out of configuring properties */
 	virtual bool ConfigureProperties() { return true; }

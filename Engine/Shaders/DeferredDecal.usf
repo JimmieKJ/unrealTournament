@@ -10,18 +10,21 @@
 
 #include "Common.usf"
 
+// from screen space position to decal space (for position)
+float4x4 ScreenToDecal;
+// from decal space to world space (for normals)
+float4x4 DecalToWorld;
+
 #if DECAL_PROJECTION
 	#include "Material.usf"
 #endif
 
 #include "DeferredShadingCommon.usf"		// GBufferData
 
-// from screen space position to decal space (for position)
-float4x4 ScreenToDecal;
-// from decal space to world space (for normals)
-float4x4 DecalToWorld;
 // from component to clip space (for decal frustum)
 float4x4 FrustumComponentToClip;
+// only for StencilDecalMaskMain, to get ShaderComplexity for Decals (doesn't look at the DecalMask yet)
+float MaskComparison;
 // fade alpha from screen size fading
 float FadeAlpha;
 
@@ -33,7 +36,7 @@ void StencilDecalMaskMain(
 	FGBufferData InGBufferData = GetGBufferData(Input.UV);
     
 	// Write 1 to the stencil buffer for pixels that are masked out of receiving decals
-	clip(.5f - InGBufferData.DecalMask);
+	clip(MaskComparison - InGBufferData.DecalMask);
 
 	OutColor = 0;
 }
@@ -175,6 +178,7 @@ void MainPS(
 	Data.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
 	Data.DecalMask = 1;
 	Data.HasDistanceFieldRepresentation = 1;
+	Data.HasHeightfieldRepresentation = 1;
 
 	#if DECAL_RENDERSTAGE == 0
 	{
@@ -192,8 +196,9 @@ void MainPS(
 		// static lighting isn't updated by decals so we don't need to update that render target
 		float4 OutTarget4 = 0;
 		float4 OutTarget5 = 0;
+		float4 OutTarget6 = 0;
 
-		EncodeGBuffer(Data, OutTarget1, OutTarget2, OutTarget3, OutTarget4, OutTarget5);
+		EncodeGBuffer(Data, OutTarget1, OutTarget2, OutTarget3, OutTarget4, OutTarget5, OutTarget6);
 
 		#if DECAL_BLEND_MODE == 1
 			// Stain

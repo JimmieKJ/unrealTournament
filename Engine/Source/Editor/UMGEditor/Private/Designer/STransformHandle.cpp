@@ -219,7 +219,10 @@ void STransformHandle::Resize(UCanvasPanelSlot* Slot, const FVector2D& Direction
 		}
 	}
 
-	Slot->SetOffsets(Offsets);
+	FAnchorData NewLayoutData = LayoutData;
+	NewLayoutData.Offsets = Offsets;
+	static const FName LayoutDataName(TEXT("LayoutData"));
+	FObjectEditorUtils::SetPropertyValue<UCanvasPanelSlot, FAnchorData>(Slot, LayoutDataName, NewLayoutData);
 }
 
 FCursorReply STransformHandle::OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) const

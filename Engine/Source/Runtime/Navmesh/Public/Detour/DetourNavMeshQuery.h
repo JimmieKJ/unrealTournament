@@ -490,8 +490,6 @@ public:
 	///  @param[in]		centerPos		The center of the query circle. [(x, y, z)]
 	///  @param[in]		radius			The radius of the query circle.
 	///  @param[in]		filter			The polygon filter to apply to the query.
-	///	 @param[in]		forceIncludePath		UE4: force adding polys excluded by filter if they are part of path
-	///	 @param[in]		forceIncludePathCount	UE4: the number of polys in forceIncludePath
 	///  @param[out]	resultRef		The reference ids of the polygons touched by the circle.
 	///  @param[out]	resultParent	The reference ids of the parent polygons for each result. 
 	///  								Zero if a result polygon has no parent. [opt]
@@ -500,9 +498,14 @@ public:
 	/// @returns The status flags for the query.
 	dtStatus findLocalNeighbourhood(dtPolyRef startRef, const float* centerPos, const float radius,
 									const dtQueryFilter* filter,
-									const dtPolyRef* forceIncludePath, const int forceIncludePathCount,
 									dtPolyRef* resultRef, dtPolyRef* resultParent,
 									int* resultCount, const int maxResult) const;
+
+	/// [UE4] Finds the wall segments in local neighbourhood
+	dtStatus findWallsInNeighbourhood(dtPolyRef startRef, const float* centerPos, const float radius,
+									  const dtQueryFilter* filter, 
+									  dtPolyRef* neiRefs, int* neiCount, const int maxNei,
+									  float* resultWalls, dtPolyRef* resultRefs, int* resultCount, const int maxResult) const;
 
 	/// Moves from the start to the end position constrained to the navigation mesh.
 	///  @param[in]		startRef		The reference id of the start polygon.
@@ -553,8 +556,6 @@ public:
 	/// Returns the segments for the specified polygon, optionally including portals.
 	///  @param[in]		ref				The reference id of the polygon.
 	///  @param[in]		filter			The polygon filter to apply to the query.
-	///	 @param[in]		forceIncludePath		UE4: force accepting polys excluded by filter if they are part of path
-	///	 @param[in]		forceIncludePathCount	UE4: the number of polys in forceIncludePath
 	///  @param[out]	segmentVerts	The segments. [(ax, ay, az, bx, by, bz) * segmentCount]
 	///  @param[out]	segmentRefs		The reference ids of each segment's neighbor polygon. 
 	///  								Or zero if the segment is a wall. [opt] [(parentRef) * @p segmentCount] 
@@ -562,7 +563,6 @@ public:
 	///  @param[in]		maxSegments		The maximum number of segments the result arrays can hold.
 	/// @returns The status flags for the query.
 	dtStatus getPolyWallSegments(dtPolyRef ref, const dtQueryFilter* filter,
-								 const dtPolyRef* forceIncludePath, const int forceIncludePathCount,
 								 float* segmentVerts, dtPolyRef* segmentRefs, int* segmentCount,
 								 const int maxSegments) const;
 
@@ -620,6 +620,13 @@ public:
 	/// @returns The status flags for the query.
 	dtStatus projectedPointOnPoly(dtPolyRef ref, const float* pos, float* projected) const;
 	
+	/// Checks if specified pos is inside given polygon specified by ref
+	///  @param[in]		ref			The reference id of the polygon.
+	///  @param[in]		pos			The position to check. [(x, y, z)]
+	///  @param[out]	result		The result of the check, whether the point is inside (true) or not (false)
+	/// @returns The status flags for the query.
+	dtStatus isPointInsidePoly(dtPolyRef ref, const float* pos, bool& result) const;
+
 	/// Gets the height of the polygon at the provided position using the height detail. (Most accurate.)
 	///  @param[in]		ref			The reference id of the polygon.
 	///  @param[in]		pos			A position within the xz-bounds of the polygon. [(x, y, z)]

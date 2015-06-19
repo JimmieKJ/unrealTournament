@@ -62,13 +62,15 @@ float GetTessellationMultiplier(FPassSpecificVSToDS I)
 	return GetMaterialTessellationMultiplier(MaterialParameters);
 }
 
-// get diameter of a bounding sphere in post projection (scaled by post proj z of origin) in Y.
-float GetPostProjectionSphereExtent( float3 Origin, float Diameter )
+// Flag set if inside frustum
+int3 GetClipFlag( float3 Origin, float Radius )
 {
+	//float3 ClipExpand = Radius * float3( View.ViewToClip[0][0], View.ViewToClip[1][1], View.ViewToClip[2][2] );
+	float4 ClipExpand = mul( float4( Radius, Radius, Radius, 0 ), View.ViewToClip );
 	float4 ClipPos = mul( float4( Origin, 1.0 ), View.TranslatedWorldToClip );
-	// Saturate to prevent NANs/INFs if ClipPos.w is near zero.
-	float ClipY = saturate(abs(Diameter * View.ViewToClip._m11 / ClipPos.w));
-	return ClipY;
+    int3 Clip0 = ClipPos.xyz - ClipExpand.xyz <  ClipPos.w + ClipExpand.w;
+    int3 Clip1 = ClipPos.xyz + ClipExpand.xyz > -ClipPos.w - ClipExpand.w;
+    return Clip0 + 2 * Clip1;
 }
 
 // This is a heuristic that maps a bounding sphere on relevant edges/primitive to post projection space and uses that to scale the tessellation on the edges/primitive.
@@ -81,26 +83,37 @@ float GetPostProjectionSphereExtent( float3 Origin, float Diameter )
 float4 CalculateCompositeTessellationFactors(float3 Control0, float3 Control1, float3 Control2)
 {
 #if USE_ADAPTIVE_TESSELLATION_FACTOR
-	float Edge0 = distance(Control0, Control1);
-	float Edge1 = distance(Control1, Control2);
-	float Edge2 = distance(Control2, Control0);
+#if 1
+	half MaxDisplacement = GetMaterialMaxDisplacement();
 
-	// Average lengths to get an inside factor.
-	float InsideDiameter = (Edge0 + Edge1 + Edge2) / 3;
+	// Frustum cull
+	int3 ClipFlag = 0;
+	ClipFlag  = GetClipFlag( Control0, MaxDisplacement );
+	ClipFlag |= GetClipFlag( Control1, MaxDisplacement );
+	ClipFlag |= GetClipFlag( Control2, MaxDisplacement );
+	if( any( ClipFlag != 3 ) )
+	{
+		return 0;
+	}
+#endif
 
-	// Midpoints.
-	float3 Midpoint0 = (Control0 + Control1) / 2;
-	float3 Midpoint1 = (Control1 + Control2) / 2;
-	float3 Midpoint2 = (Control2 + Control0) / 2;
-	float3 MidpointAll = (Control0 + Control1 + Control2) / 3;
+	float3 Edge0 = ( Control0 - Control1 );
+	float3 Edge1 = ( Control1 - Control2 );
+	float3 Edge2 = ( Control2 - Control0 );
 
+	float3 ToMidpoint0 = 0.5 * ( Control0 + Control1 ) - View.TranslatedViewOrigin.xyz;
+	float3 ToMidpoint1 = 0.5 * ( Control1 + Control2 ) - View.TranslatedViewOrigin.xyz;
+	float3 ToMidpoint2 = 0.5 * ( Control2 + Control0 ) - View.TranslatedViewOrigin.xyz;
+
+	// Use spherical projection instead of planer
 	float4 CompositeFactors = float4(
-		GetPostProjectionSphereExtent( Midpoint1, Edge1 ),
-		GetPostProjectionSphereExtent( Midpoint2, Edge2 ),
-		GetPostProjectionSphereExtent( Midpoint0, Edge0 ),
-		GetPostProjectionSphereExtent( MidpointAll, InsideDiameter ) );
+		sqrt( dot( Edge1, Edge1 ) / dot( ToMidpoint1, ToMidpoint1 ) ),
+		sqrt( dot( Edge2, Edge2 ) / dot( ToMidpoint2, ToMidpoint2 ) ),
+		sqrt( dot( Edge0, Edge0 ) / dot( ToMidpoint0, ToMidpoint0 ) ),
+		1 );
+	CompositeFactors.w = 0.333 * ( CompositeFactors.x + CompositeFactors.y + CompositeFactors.z );
 
-	// The adaptive tessellation factor is 0.5 * ViewSizeY / PixelsPerEdge and CompositeFactors is 2 * PercentageOfScreen.  
+	// The adaptive tessellation factor is 0.5 * View.ViewToClip[1][1] * ViewSizeY / PixelsPerEdge and CompositeFactors is 2 * PercentageOfScreen.  
 	return View.AdaptiveTessellationFactor * CompositeFactors;
 #else
 	return float4( 1.0,1.0,1.0,1.0 );

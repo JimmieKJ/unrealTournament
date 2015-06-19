@@ -166,7 +166,7 @@ class FD3D11BaseShaderResource : public IRefCountedObject
 };
 
 /** Texture base class. */
-class FD3D11TextureBase : public FD3D11BaseShaderResource
+class D3D11RHI_API FD3D11TextureBase : public FD3D11BaseShaderResource
 {
 public:
 
@@ -192,7 +192,7 @@ public:
 		// Set the DSVs for all the access type combinations
 		if ( InDepthStencilViews != nullptr )
 		{
-			for ( uint32 Index=0; Index<DSAT_Count; Index++ )
+			for (uint32 Index = 0; Index < FExclusiveDepthStencil::MaxIndex; Index++)
 			{
 				DepthStencilViews[Index] = InDepthStencilViews[Index];
 				// New Monolithic Graphics drivers have optional "fast calls" replacing various D3d functions
@@ -245,9 +245,9 @@ public:
 		}
 		return 0;
 	}
-	ID3D11DepthStencilView* GetDepthStencilView(EDepthStencilAccessType AccessType) const 
+	ID3D11DepthStencilView* GetDepthStencilView(FExclusiveDepthStencil AccessType) const
 	{ 
-		return DepthStencilViews[AccessType]; 
+		return DepthStencilViews[AccessType.GetIndex()]; 
 	}
 
 	// New Monolithic Graphics drivers have optional "fast calls" replacing various D3d functions
@@ -282,7 +282,7 @@ protected:
 	int32 RTVArraySize;
 
 	/** A depth-stencil targetable view of the texture. */
-	TRefCountPtr<ID3D11DepthStencilView> DepthStencilViews[ DSAT_Count ];
+	TRefCountPtr<ID3D11DepthStencilView> DepthStencilViews[FExclusiveDepthStencil::MaxIndex];
 
 	/** Number of Depth Stencil Views - used for fast call tracking. */
 	uint32	NumDepthStencilViews;
@@ -291,7 +291,7 @@ protected:
 
 /** 2D texture (vanilla, cubemap or 2D array) */
 template<typename BaseResourceType>
-class TD3D11Texture2D : public BaseResourceType, public FD3D11TextureBase
+class D3D11RHI_API TD3D11Texture2D : public BaseResourceType, public FD3D11TextureBase
 {
 public:
 
@@ -478,7 +478,7 @@ public:
 	: FRHITextureCube(InSizeX,InNumMips,InFormat,InFlags)
 	{ check(InNumSamples == 1); }
 	uint32 GetSizeX() const { return GetSize(); }
-	uint32 GetSizeY() const { return GetSize(); }
+	uint32 GetSizeY() const { return GetSize(); } //-V524
 	uint32 GetSizeZ() const { return 0; }
 };
 
@@ -554,8 +554,8 @@ inline FD3D11TextureBase* GetD3D11TextureFromRHITexture(FRHITexture* Texture)
 	}
 }
 
-/** D3D11 occlusion query */
-class FD3D11OcclusionQuery : public FRHIRenderQuery
+/** D3D11 render query */
+class FD3D11RenderQuery : public FRHIRenderQuery
 {
 public:
 
@@ -572,7 +572,7 @@ public:
 	ERenderQueryType QueryType;
 
 	/** Initialization constructor. */
-	FD3D11OcclusionQuery(ID3D11Query* InResource, ERenderQueryType InQueryType):
+	FD3D11RenderQuery(ID3D11Query* InResource, ERenderQueryType InQueryType):
 		Resource(InResource),
 		Result(0),
 		bResultIsCached(false),
@@ -780,3 +780,130 @@ public:
 
 void ReturnPooledTexture2D(int32 MipCount, EPixelFormat PixelFormat, ID3D11Texture2D* InResource);
 void ReleasePooledTextures();
+
+template<class T>
+struct TD3D11ResourceTraits
+{
+};
+template<>
+struct TD3D11ResourceTraits<FRHIVertexDeclaration>
+{
+	typedef FD3D11VertexDeclaration TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIVertexShader>
+{
+	typedef FD3D11VertexShader TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIGeometryShader>
+{
+	typedef FD3D11GeometryShader TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIHullShader>
+{
+	typedef FD3D11HullShader TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIDomainShader>
+{
+	typedef FD3D11DomainShader TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIPixelShader>
+{
+	typedef FD3D11PixelShader TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIComputeShader>
+{
+	typedef FD3D11ComputeShader TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIBoundShaderState>
+{
+	typedef FD3D11BoundShaderState TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHITexture3D>
+{
+	typedef FD3D11Texture3D TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHITexture>
+{
+	typedef FD3D11Texture TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHITexture2D>
+{
+	typedef FD3D11Texture2D TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHITexture2DArray>
+{
+	typedef FD3D11Texture2DArray TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHITextureCube>
+{
+	typedef FD3D11TextureCube TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIRenderQuery>
+{
+	typedef FD3D11RenderQuery TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIUniformBuffer>
+{
+	typedef FD3D11UniformBuffer TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIIndexBuffer>
+{
+	typedef FD3D11IndexBuffer TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIStructuredBuffer>
+{
+	typedef FD3D11StructuredBuffer TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIVertexBuffer>
+{
+	typedef FD3D11VertexBuffer TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIShaderResourceView>
+{
+	typedef FD3D11ShaderResourceView TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIUnorderedAccessView>
+{
+	typedef FD3D11UnorderedAccessView TConcreteType;
+};
+
+template<>
+struct TD3D11ResourceTraits<FRHISamplerState>
+{
+	typedef FD3D11SamplerState TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIRasterizerState>
+{
+	typedef FD3D11RasterizerState TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIDepthStencilState>
+{
+	typedef FD3D11DepthStencilState TConcreteType;
+};
+template<>
+struct TD3D11ResourceTraits<FRHIBlendState>
+{
+	typedef FD3D11BlendState TConcreteType;
+};
+

@@ -207,5 +207,10 @@ bool FTestVoice::Tick(float DeltaTime)
 bool FTestVoice::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	bool bWasHandled = false;
+	if (FParse::Command(&Cmd, TEXT("killtestvoice")))
+	{
+		delete this;
+		bWasHandled = true;
+	}
 	return bWasHandled;
 }

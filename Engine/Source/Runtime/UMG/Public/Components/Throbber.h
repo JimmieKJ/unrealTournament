@@ -10,7 +10,7 @@ class USlateBrushAsset;
 /**
  * A Throbber widget that shows several zooming circles in a row.
  */
-UCLASS(ClassGroup=UserInterface)
+UCLASS()
 class UMG_API UThrobber : public UWidget
 {
 	GENERATED_UCLASS_BODY()
@@ -18,26 +18,26 @@ class UMG_API UThrobber : public UWidget
 public:
 	
 	/** How many pieces there are */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, meta=( ClampMin="1", UIMin="1", UIMax="8" ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, meta=( ClampMin="1", ClampMax="25", UIMin="1", UIMax="25" ))
 	int32 NumberOfPieces;
 
 	/** Should the pieces animate horizontally? */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	bool bAnimateHorizontally;
 
 	/** Should the pieces animate vertically? */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	bool bAnimateVertically;
 
 	/** Should the pieces animate their opacity? */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	bool bAnimateOpacity;
 
 	/** Image to use for each segment of the throbber */
 	UPROPERTY()
 	USlateBrushAsset* PieceImage_DEPRECATED;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateBrush Image;
 
 public:

@@ -169,7 +169,7 @@ void SFindInBT::OnSearchTextCommitted(const FText& Text, ETextCommit::Type Commi
 void SFindInBT::InitiateSearch()
 {
 	TArray<FString> Tokens;
-	SearchValue.ParseIntoArray(&Tokens, TEXT(" "), true);
+	SearchValue.ParseIntoArray(Tokens, TEXT(" "), true);
 
 	for (auto It(ItemsFound.CreateIterator()); It; ++It)
 	{

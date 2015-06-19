@@ -112,6 +112,22 @@ public class APEX : ModuleRules
 
 			PublicAdditionalLibraries.Add(String.Format("APEXFramework{0}_x64.lib", LibrarySuffix));
 			PublicDelayLoadDLLs.Add(String.Format("APEXFramework{0}_x64.dll", LibrarySuffix));
+
+			string[] RuntimeDependenciesX64 =
+			{
+				"APEX_Clothing{0}_x64.dll",
+				"APEX_Destructible{0}_x64.dll",
+				"APEX_Legacy{0}_x64.dll",
+				"APEX_Loader{0}_x64.dll",
+				"APEX_Particles{0}_x64.dll",
+				"ApexFramework{0}_x64.dll",
+			};
+
+			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
+			foreach(string RuntimeDependency in RuntimeDependenciesX64)
+			{
+				RuntimeDependencies.Add(new RuntimeDependency(ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix)));
+			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32)
 		{
@@ -120,6 +136,22 @@ public class APEX : ModuleRules
 
 			PublicAdditionalLibraries.Add(String.Format("APEXFramework{0}_x86.lib", LibrarySuffix));
 			PublicDelayLoadDLLs.Add(String.Format("APEXFramework{0}_x86.dll", LibrarySuffix));
+
+			string[] RuntimeDependenciesX86 =
+			{
+				"APEX_Clothing{0}_x86.dll",
+				"APEX_Destructible{0}_x86.dll",
+				"APEX_Legacy{0}_x86.dll",
+				"APEX_Loader{0}_x86.dll",
+				"APEX_Particles{0}_x86.dll",
+				"ApexFramework{0}_x86.dll",
+			};
+
+			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/APEX-1.3/Win32/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
+			foreach(string RuntimeDependency in RuntimeDependenciesX86)
+			{
+				RuntimeDependencies.Add(new RuntimeDependency(ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix)));
+			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{

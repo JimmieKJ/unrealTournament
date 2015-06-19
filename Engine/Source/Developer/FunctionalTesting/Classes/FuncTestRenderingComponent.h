@@ -11,6 +11,7 @@ class UFuncTestRenderingComponent : public UPrimitiveComponent
 
 	// Begin UPrimitiveComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
+	virtual bool ShouldRecreateProxyOnUpdateTransform() const override { return true; }
 	// End UPrimitiveComponent Interface
 
 	// Begin USceneComponent Interface

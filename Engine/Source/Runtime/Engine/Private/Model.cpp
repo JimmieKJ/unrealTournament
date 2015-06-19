@@ -191,13 +191,31 @@ void UModel::Serialize( FArchive& Ar )
 	}
 
 #if WITH_EDITOR
-	Ar << Polys;
-	LeafHulls.BulkSerialize( Ar );
-	Leaves.BulkSerialize( Ar );
-#else
-	if(Ar.IsLoading())
+	bool bHasEditorOnlyData = !Ar.IsFilterEditorOnly();
+	
+	if ( Ar.UE4Ver() < VER_UE4_REMOVE_UNUSED_UPOLYS_FROM_UMODEL )
 	{
-		UPolys* DummyPolys;
+		bHasEditorOnlyData = true;
+	}
+
+	// if we are cooking then don't save this stuff out
+	if ( bHasEditorOnlyData )
+	{
+		Ar << Polys;
+		LeafHulls.BulkSerialize( Ar );
+		Leaves.BulkSerialize( Ar );
+	}
+#else
+	bool bHasEditorOnlyData = !Ar.IsFilterEditorOnly();
+	
+	if ( Ar.UE4Ver() < VER_UE4_REMOVE_UNUSED_UPOLYS_FROM_UMODEL )
+	{
+		bHasEditorOnlyData = true;
+	}
+
+	if((Ar.IsLoading() || Ar.IsSaving()) && bHasEditorOnlyData)
+	{
+		UPolys* DummyPolys = NULL;
 		Ar << DummyPolys;
 
 		TArray<int32> DummyLeafHulls;
@@ -313,6 +331,17 @@ void UModel::PostLoad()
 			FBspSurf& CurSurf = *SurfIter;
 			CurSurf.bHiddenEdTemporary = ( ( CurSurf.PolyFlags & PF_HiddenEd ) != 0 );
 			CurSurf.bHiddenEdLevel = 0;
+		}
+
+		if (ABrush* Owner = Cast<ABrush>(GetOuter()))
+		{
+#if WITH_EDITOR
+			OwnerLocationWhenLastBuilt = Owner->GetActorLocation();
+			OwnerPrepivotWhenLastBuilt = Owner->GetPrePivot();
+			OwnerScaleWhenLastBuilt = Owner->GetActorScale();
+			OwnerRotationWhenLastBuilt = -Owner->GetActorRotation();
+			bCachedOwnerTransformValid = true;
+#endif
 		}
 	}
 }
@@ -491,7 +520,7 @@ void UModel::EmptyModel( int32 EmptySurfInfo, int32 EmptyPolys )
 #if WITH_EDITOR
 	if( EmptyPolys )
 	{
-		Polys = NewNamedObject<UPolys>(GetOuter(), NAME_None, RF_Transactional);
+		Polys = NewObject<UPolys>(GetOuter(), NAME_None, RF_Transactional);
 	}
 #endif // WITH_EDITOR
 
@@ -510,9 +539,29 @@ UModel::UModel(const FObjectInitializer& ObjectInitializer)
 	, Points(this)
 	, Surfs(this)
 	, VertexBuffer(this)
+#if WITH_EDITOR
+	, bCachedOwnerTransformValid(false)
+#endif
 {
 
 }
+
+#if WITH_HOT_RELOAD_CTORS
+UModel::UModel(FVTableHelper& Helper)
+	: Super(Helper)
+	, Nodes(this)
+	, Verts(this)
+	, Vectors(this)
+	, Points(this)
+	, Surfs(this)
+	, VertexBuffer(this)
+#if WITH_EDITOR
+	, bCachedOwnerTransformValid(false)
+#endif
+{
+
+}
+#endif // WITH_HOT_RELOAD_CTORS
 
 void UModel::Initialize(ABrush* Owner, bool InRootOutside)
 {

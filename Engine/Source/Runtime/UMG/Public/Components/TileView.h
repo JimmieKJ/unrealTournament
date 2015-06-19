@@ -7,7 +7,7 @@
 /**
  * A flow panel that presents the contents as a set of tiles all uniformly sized.
  */
-UCLASS(Experimental, ClassGroup=UserInterface)
+UCLASS(Experimental)
 class UMG_API UTileView : public UTableViewBase
 {
 	GENERATED_UCLASS_BODY()
@@ -15,11 +15,11 @@ class UMG_API UTileView : public UTableViewBase
 public:
 
 	/**  */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	float ItemWidth;
 
 	/**  */
-	UPROPERTY(EditDefaultsOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance)
 	float ItemHeight;
 
 	/**  */
@@ -27,11 +27,11 @@ public:
 	TArray<UObject*> Items;
 
 	/**  */
-	UPROPERTY(EditDefaultsOnly, Category=Content)
+	UPROPERTY(EditAnywhere, Category=Content)
 	TEnumAsByte<ESelectionMode::Type> SelectionMode;
 
 	/**  */
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FOnGenerateRowUObject OnGenerateTileEvent;
 
 public:

@@ -7,6 +7,9 @@
 #include "UTLift.h"
 #include "UTWeap_LinkGun.h"
 #include "UTProjectileMovementComponent.h"
+#include "StatNames.h"
+#include "UTRewardMessage.h"
+#include "UTAvoidMarker.h"
 
 AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -134,6 +137,11 @@ bool AUTProj_BioShot::DisableEmitterLights() const
 void AUTProj_BioShot::Destroyed()
 {
 	Super::Destroyed();
+
+	if (FearSpot != NULL)
+	{
+		FearSpot->Destroy();
+	}
 
 	while (WebLinks.Num() > 0)
 	{
@@ -391,7 +399,7 @@ bool AUTProj_BioShot::CanWebLinkTo(AUTProj_BioShot* LinkedBio)
 		FHitResult Hit;
 		static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
 
-		bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, this));
+		bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation() + 2.f*SurfaceNormal, LinkedBio->GetActorLocation() + 2.f*LinkedBio->SurfaceNormal, COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, this));
 		return (!bBlockingHit || Cast<AUTProj_BioShot>(Hit.Actor.Get()));
 	}
 	return false;
@@ -463,9 +471,9 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 					}
 
 					Linker->LinkedBio = this;
+					return 0.f;
 				}
 			}
-			return 0.f;
 		}
 		if (WebLinks.Num() > 0)
 		{
@@ -490,7 +498,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 				}
 			}
 		}
-		if ((bLanded || TrackedPawn) && !bExploded && (DamageAmount > 15.f))
+		if ((bLanded || TrackedPawn) && !bExploded && (DamageAmount > 12.f))
 		{
 			Explode(GetActorLocation(), SurfaceNormal);
 		}
@@ -614,6 +622,9 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 				bReplicateUTMovement = true;
 				RemainingLife = RestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength;
 				SetGlobStrength(GlobStrength);
+				FActorSpawnParameters Params;
+				Params.Owner = this;
+				FearSpot = GetWorld()->SpawnActor<AUTAvoidMarker>(GetActorLocation(), GetActorRotation(), Params);
 			}
 			else if (BioMesh)
 			{
@@ -759,6 +770,17 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 		{
 			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).GetSafeNormal();
 		}
+
+		if (FearSpot != NULL)
+		{
+			FearSpot->Destroy();
+		}
+		// warn AI of incoming projectile
+		AUTBot* B = Cast<AUTBot>(TrackedPawn->Controller);
+		if (B != NULL)
+		{
+			B->ReceiveProjWarning(this);
+		}
 	}
 }
 
@@ -784,6 +806,12 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			ProjectileMovement->bIsHomingProjectile = false;
 			TrackedPawn = NULL;
 			bLanded = true;
+			if (FearSpot == NULL)
+			{
+				FActorSpawnParameters Params;
+				Params.Owner = this;
+				FearSpot = GetWorld()->SpawnActor<AUTAvoidMarker>(GetActorLocation(), GetActorRotation(), Params);
+			}
 		}
 	}
 	else
@@ -954,6 +982,52 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		}
 	}
 }
+
+void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
+{
+	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
+	bool bPossibleReward = !bLanded && !bCanTrack && HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && (GlobStrength >= MaxRestingGlobStrength) && (Role == ROLE_Authority);
+	bool bPossibleAirSnot = bPossibleReward && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
+	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->ArmorAmount : 0.f;
+	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+	if (bPossibleReward && HitCharacter && (HitCharacter->Health <= 0))
+	{
+		// Air Snot reward
+		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
+		if (PC != NULL)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+			if (PS)
+			{
+				PS->ModifyStatsValue(NAME_AirSnot, 1);
+			}
+			int32 SnotRanking = 0;
+			float SnotSkill = (GetWorld()->GetTimeSeconds() - CreationTime) * 4.f;
+			if (bPossibleAirSnot)
+			{
+				SnotSkill += 2.f;
+			}
+			if (PreHitStack > 100)
+			{
+				SnotSkill += 2.f;
+				if (PreHitStack > 200)
+				{
+					SnotSkill += 2.f;
+					if (PreHitStack > 250)
+					{
+						SnotSkill += 2.f;
+					}
+				}
+			}
+			if (SnotSkill > 4.f)
+			{
+				SnotRanking = (SnotSkill > 6.f) ? 5 : 1;
+			}
+			PC->SendPersonalMessage(AirSnotRewardClass, SnotRanking);
+		}
+	}
+}
+
 
 void AUTProj_BioShot::OnRep_GlobStrength()
 {

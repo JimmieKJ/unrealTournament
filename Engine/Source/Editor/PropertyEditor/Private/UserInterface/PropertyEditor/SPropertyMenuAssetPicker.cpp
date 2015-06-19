@@ -165,7 +165,7 @@ void SPropertyMenuAssetPicker::OnPaste()
 	{
 		UObject* Object = LoadObject<UObject>(NULL, *DestPath);
 		bool PassesAllowedClassesFilter = true;
-		if(AllowedClasses.Num())
+		if (Object && AllowedClasses.Num())
 		{
 			PassesAllowedClassesFilter = false;
 			for(int32 i = 0; i < AllowedClasses.Num(); ++i)

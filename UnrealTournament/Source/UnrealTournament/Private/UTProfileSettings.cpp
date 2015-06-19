@@ -9,6 +9,8 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 {
 	PlayerName = TEXT("Malcolm");
 	bSuppressToastsInGame = false;
+
+	bNeedProfileWriteForTokens = false;
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
@@ -81,7 +83,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
 	bSuppressToastsInGame = ProfilePlayer->bSuppressToastsInGame;
 	PlayerName = ProfilePlayer->GetNickname();
-
+	
 	// Get all settings from the Player Controller
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
 	if (PC == NULL)
@@ -94,8 +96,6 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
 		MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
 		bSingleTapWallDodge = PC->bSingleTapWallDodge;
-		bTapCrouchToSlide = PC->bTapCrouchToSlide;
-		bAutoSlide = PC->bAutoSlide;
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
 		WeaponBob = PC->WeaponBobGlobalScaling;
@@ -177,8 +177,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
-		PC->bTapCrouchToSlide = bTapCrouchToSlide;
-		PC->bAutoSlide = bAutoSlide;
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
 		PC->WeaponBobGlobalScaling = WeaponBob;
@@ -293,6 +291,7 @@ void UUTProfileSettings::TokensCommit()
 	for (auto ID : TempFoundTokenUniqueIDs)
 	{
 		FoundTokenUniqueIDs.AddUnique(ID);
+		bNeedProfileWriteForTokens = true;
 	}
 
 	TempFoundTokenUniqueIDs.Empty();
@@ -301,4 +300,10 @@ void UUTProfileSettings::TokensCommit()
 void UUTProfileSettings::TokensReset()
 {
 	TempFoundTokenUniqueIDs.Empty();
+}
+
+void UUTProfileSettings::TokensClear()
+{
+	TempFoundTokenUniqueIDs.Empty();
+	FoundTokenUniqueIDs.Empty();
 }

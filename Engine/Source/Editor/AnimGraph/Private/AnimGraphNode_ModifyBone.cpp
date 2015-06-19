@@ -19,11 +19,6 @@ FText UAnimGraphNode_ModifyBone::GetControllerDescription() const
 	return LOCTEXT("TransformModifyBone", "Transform (Modify) Bone");
 }
 
-FString UAnimGraphNode_ModifyBone::GetKeywords() const
-{
-	return TEXT("Modify, Transform");
-}
-
 FText UAnimGraphNode_ModifyBone::GetTooltipText() const
 {
 	return LOCTEXT("AnimGraphNode_ModifyBone_Tooltip", "The Transform Bone node alters the transform - i.e. Translation, Rotation, or Scale - of the bone");
@@ -37,7 +32,7 @@ FText UAnimGraphNode_ModifyBone::GetNodeTitle(ENodeTitleType::Type TitleType) co
 	}
 	// @TODO: the bone can be altered in the property editor, so we have to 
 	//        choose to mark this dirty when that happens for this to properly work
-	else //if (!CachedNodeTitles.IsTitleCached(TitleType))
+	else //if (!CachedNodeTitles.IsTitleCached(TitleType, this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("ControllerDescription"), GetControllerDescription());
@@ -46,11 +41,11 @@ FText UAnimGraphNode_ModifyBone::GetNodeTitle(ENodeTitleType::Type TitleType) co
 		// FText::Format() is slow, so we cache this to save on performance
 		if (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle)
 		{
-			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_ModifyBone_ListTitle", "{ControllerDescription} - Bone: {BoneName}"), Args));
+			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_ModifyBone_ListTitle", "{ControllerDescription} - Bone: {BoneName}"), Args), this);
 		}
 		else
 		{
-			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_ModifyBone_Title", "{ControllerDescription}\nBone: {BoneName}"), Args));
+			CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("AnimGraphNode_ModifyBone_Title", "{ControllerDescription}\nBone: {BoneName}"), Args), this);
 		}
 	}
 	return CachedNodeTitles[TitleType];
@@ -109,6 +104,9 @@ EBoneModificationMode UAnimGraphNode_ModifyBone::GetBoneModificationMode(int32 I
 	case FWidget::WM_Scale:
 		return Node.ScaleMode;
 		break;
+	case FWidget::WM_TranslateRotateZ:
+	case FWidget::WM_2D:
+		break;
 	}
 
 	return EBoneModificationMode::BMM_Ignore;
@@ -125,6 +123,9 @@ int32 UAnimGraphNode_ModifyBone::GetNextWidgetMode(int32 InWidgetMode)
 		return FWidget::WM_Scale;
 	case FWidget::WM_Scale:
 		return FWidget::WM_Translate;
+	case FWidget::WM_TranslateRotateZ:
+	case FWidget::WM_2D:
+		break;
 	}
 
 	return (int32)FWidget::WM_None;

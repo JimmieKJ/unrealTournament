@@ -120,7 +120,7 @@ void GetObjectsWithAllMarks(TArray<UObject *>& Results, EObjectMark Marks)
 {
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
 	EObjectFlags ExclusionFlags = RF_Unreachable;
-	if( !GIsAsyncLoading )
+	if (!IsAsyncLoading())
 	{
 		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
 	}
@@ -143,7 +143,7 @@ void GetObjectsWithAnyMarks(TArray<UObject *>& Results, EObjectMark Marks)
 {
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
 	EObjectFlags ExclusionFlags = RF_Unreachable;
-	if( !GIsAsyncLoading )
+	if (!IsAsyncLoading())
 	{
 		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
 	}

@@ -2,8 +2,10 @@
 
 #pragma once
 
-class SWidget;
+#include "SlotBase.h"
+#include "Margin.h"
 
+class SWidget;
 
 /**
  * FChildren is an interface that must be implemented by all child containers.
@@ -22,6 +24,11 @@ public:
 	virtual TSharedRef<SWidget> GetChildAt( int32 Index ) = 0;
 	/** @return const pointer to the Widget at the specified Index. */
 	virtual TSharedRef<const SWidget> GetChildAt( int32 Index ) const = 0;
+
+protected:
+	friend class SWidget;
+	/** @return the const reference to the slot at the specified Index */
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const = 0;
 
 protected:
 	virtual ~FChildren(){}
@@ -53,6 +60,16 @@ public:
 		return TSharedPtr<const SWidget>(nullptr).ToSharedRef();
 	}
 
+private:
+	friend class SWidget;
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override
+	{
+		check(false);
+		static FSlotBase NullSlot;
+		return NullSlot;
+	}
+
+
 };
 
 /**
@@ -64,9 +81,11 @@ class TSupportsOneChildMixin : public FChildren, public TSlotBase<MixedIntoType>
 public:
 	TSupportsOneChildMixin():TSlotBase<MixedIntoType>(){}
 
-	virtual int32 Num() const { return 1; }
-	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
-	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
+	virtual int32 Num() const override { return 1; }
+	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
+	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
+private:
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { check(ChildIndex == 0); return *this; }
 };
 
 /**
@@ -83,10 +102,14 @@ public:
 	{
 	}
 
-	virtual int32 Num() const { return WidgetPtr.IsValid() ? 1 : 0 ; }
-	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
-	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
-	
+	virtual int32 Num() const override { return WidgetPtr.IsValid() ? 1 : 0 ; }
+	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
+	virtual TSharedRef<const SWidget> GetChildAt( int32 ChildIndex ) const override { check(ChildIndex == 0); return WidgetPtr.Pin().ToSharedRef(); }
+
+private:
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { static FSlotBase NullSlot; check(ChildIndex == 0); return NullSlot; }
+
+public:
 	void AttachWidget(const TSharedPtr<SWidget>& InWidget)
 	{
 		WidgetPtr = InWidget;
@@ -180,11 +203,17 @@ public:
 template<typename SlotType>
 class TPanelChildren : public FChildren, private TIndirectArray< SlotType >
 {
+private:
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override
+	{
+		return (*this)[ChildIndex];
+	}
+
 public:
 	TPanelChildren()
 	{
 	}
-
+	
 	virtual int32 Num() const override
 	{
 		return TIndirectArray<SlotType>::Num();
@@ -256,6 +285,14 @@ public:
 template<typename ChildType>
 class TSlotlessChildren : public FChildren, private TArray< TSharedRef<ChildType> >
 {
+private:
+	virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override
+	{
+		// @todo slate : slotless children should be removed altogether; for now they return a fake slot.
+		static FSlotBase NullSlot;
+		return NullSlot;
+	}
+
 public:
 	TSlotlessChildren()
 	{

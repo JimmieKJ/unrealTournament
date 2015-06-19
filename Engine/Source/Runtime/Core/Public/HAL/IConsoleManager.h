@@ -18,13 +18,11 @@
  *   <COMMAND>	 				print the current state of the console variable
  *   <COMMAND> x 				set and print the new state of the console variable
  *
- * The ECVF_Changed flag can be used to detect if the state was changes through the Set() method (float& and int& can change outside of this).
- * 
  * All variables support auto completion. The single line help that can show up there is currently not connected to the help as the help text
  * is expected to be multi line.
  * The former Exec() system can be used to access the console variables.
  * Use console variables only in main thread.
- * The state of console variables is not network synchronized or serialized (load/save). The plan is to allow to set the state in external files (game/platform/engige/local).
+ * The state of console variables is not network synchronized or serialized (load/save). The plan is to allow to set the state in external files (game/platform/engine/local).
  */
 
 /**
@@ -41,18 +39,6 @@ enum EConsoleVariableFlags
 	 * Then they are are hidden in the console and cannot be changed by the user.
 	 */
 	ECVF_Cheat = 0x1,
-	/**
-	 * By default, after creation this flag is not set.
-	 * Whenever the value was changes through the Set functions the flag is set.
-	 * To detect changes:
-	 * if(CVar->TestFlags(ECVF_Changed))
-	 * {
-	 *     CVar->ClearFlags(ECVF_Changed);
-	 *     ... 
-	 * }
-	 * The old value is not stored as this can be easily done by hand and only when needed.
-	 */
-	ECVF_Changed = 0x2,
 	/**
 	 * Console variables cannot be changed by the user (from console).
 	 * Changing from C++ or ini is still possible.
@@ -506,6 +492,13 @@ struct CORE_API IConsoleManager
 	 * @return 0 if the object wasn't found
 	 */
 	virtual IConsoleVariable* FindConsoleVariable(const TCHAR* Name) const = 0;
+
+	/**
+	* Find a console variable or command
+	* @param Name must not be 0
+	* @return 0 if the object wasn't found
+	*/
+	virtual IConsoleObject* FindConsoleObject(const TCHAR* Name) const = 0;
 
 	/**
 	 * Find a typed console variable (faster access to the value, no virtual function call)

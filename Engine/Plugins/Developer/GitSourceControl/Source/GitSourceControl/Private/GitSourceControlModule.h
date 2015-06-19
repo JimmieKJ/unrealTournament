@@ -13,6 +13,7 @@ UE4GitPlugin is a simple Git Source Control Plugin for Unreal Engine
 Written and contributed by Sebastien Rombauts (sebastien.rombauts@gmail.com)
 
 ### Supported features
+- initialize a new Git local repository ('git init') to manage your UE4 Game Project.
 - display status icons to show modified/added/deleted/untracked files
 - show history of a file
 - diff against depot or between previous versions of a file
@@ -21,20 +22,20 @@ Written and contributed by Sebastien Rombauts (sebastien.rombauts@gmail.com)
 - delete a file
 - checkin/commit a file (cannot handle atomically more than 20 files)
 - show current branch name in status text
-- solve a merge conflict
+- merge blueprints to solve a merge or rebase conflict
 
 ### What *cannot* be done presently
-- merge blueprints
-- initialize a new Git local repository ('git init') to manage your UE4 Game Project.
 - tags: implement ISourceControlLabel to manage git tags
 - .uproject file state si not visible in the current Editor
 - Branch is not in the current Editor workflow (but on Epic Roadmap)
 - Pull/Fetch/Push are not in the current Editor workflow
 - Amend a commit is not in the current Editor workflow
 - configure user name & email ('git config user.name' & git config user.email')
-- git-annexe and/or git-media
+- Linux is not supported by the SourceControlProvider (#define SOURCE_CONTROL_WITH_SLATE	!PLATFORM_LINUX)
+- git-annex and/or git-media
 
 ### Known issues:
+- global menu "Submit to source control" leads to many lines of Logs "is outside repository"
 - the Editor does not show deleted files (only when deleted externaly?)
 - the Editor does not show missing files
 - missing localisation for git specific messages
@@ -42,16 +43,12 @@ Written and contributed by Sebastien Rombauts (sebastien.rombauts@gmail.com)
 - displaying states of 'Engine' assets (also needs management of 'out of tree' files)
 - issue #22: A Move/Rename leaves a redirector file behind
 - issue #11: Add the "Resolve" operation introduced in Editor 4.3
-- improve the 'Init' window text, hide it if connection is already done, auto connect
 - reverting an asset does not seem to update content in Editor! Issue in Editor?
-- file history show Revision as signed integer instead of hexadecimal SHA1
-- file history does not report file size
+- renaming a Blueprint in Editor leaves a tracker file, AND modify too much the asset to enable git to track its history through renaming
+- file history show Changelist as signed integer instead of hexadecimal SHA1
 - standard Editor commit dialog ask if user wants to "Keep Files Checked Out" => no use for Git or Mercurial CanCheckOut()==false
-- Windows only (64 bits) -> Mac compiles but needs testing/debugging (Linux source control is not supported by Editor)
 
  */
-
-
 class FGitSourceControlModule : public IModuleInterface
 {
 public:
@@ -60,7 +57,10 @@ public:
 	virtual void ShutdownModule() override;
 
 	/** Access the Git source control settings */
-	FGitSourceControlSettings& AccessSettings();
+	FGitSourceControlSettings& AccessSettings()
+	{
+		return GitSourceControlSettings;
+	}
 
 	/** Save the Git source control settings */
 	void SaveSettings();

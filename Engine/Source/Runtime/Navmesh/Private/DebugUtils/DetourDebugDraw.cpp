@@ -612,7 +612,7 @@ static void debugDrawTileCachePortals(struct duDebugDraw* dd, const dtTileCacheL
 		{
 			const int idx = x+y*w;
 			const int lh = (int)layer.heights[idx];
-			if (lh == 0xff) continue;
+			if (lh == 0xffff) continue;
 			
 			for (int dir = 0; dir < 4; ++dir)
 			{
@@ -662,7 +662,7 @@ void duDebugDrawTileCacheLayerAreas(struct duDebugDraw* dd, const dtTileCacheLay
 		{
 			const int lidx = x+y*w;
 			const int lh = (int)layer.heights[lidx];
-			if (lh == 0xff) continue;
+			if (lh == 0xffff) continue;
 			const unsigned char area = layer.areas[lidx];
 			
 			unsigned int col;
@@ -720,7 +720,7 @@ void duDebugDrawTileCacheLayerDistance(struct duDebugDraw* dd, const dtTileCache
 		{
 			const int lidx = x+y*w;
 			const int lh = (int)layer.heights[lidx];
-			if (lh == 0xff) continue;
+			if (lh == 0xffff) continue;
 
 			const unsigned char cd = (unsigned char)(dfield.data[lidx] * dscale);
 			const unsigned int col = duRGBA(cd,cd,cd,255);
@@ -768,7 +768,7 @@ void duDebugDrawTileCacheLayerRegions(struct duDebugDraw* dd, const dtTileCacheL
 		{
 			const int lidx = x+y*w;
 			const int lh = (int)layer.heights[lidx];
-			if (lh == 0xff) continue;
+			if (lh == 0xffff) continue;
 			const unsigned short reg = layer.regs[lidx];
 			
 			unsigned int col = duLerpCol(color, duIntToCol(reg, 255), 192);

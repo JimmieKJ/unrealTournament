@@ -251,7 +251,12 @@ void FCoreAudioSoundSource::Update( void )
 		return;
 	}
 
-	float Volume = WaveInstance->GetActualVolume();
+	float Volume = 0.0f;
+	
+	if (!AudioDevice->bIsDeviceMuted)
+	{
+		Volume = WaveInstance->GetActualVolume();
+	}
 	
 	if( Buffer->NumChannels < 3 )
 	{

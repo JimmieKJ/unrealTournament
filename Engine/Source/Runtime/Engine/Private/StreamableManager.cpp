@@ -233,9 +233,7 @@ struct FStreamable* FStreamableManager::StreamInternal(FStringAssetReference con
 		}
 
 		Existing->bAsyncLoadRequestOutstanding = true;
-		LoadPackageAsync(Package,
-			FLoadPackageAsyncDelegate::CreateStatic(&AsyncLoadCallbackWrapper, new FCallback(TargetName, this))
-			);
+		LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateStatic(&AsyncLoadCallbackWrapper, new FCallback(TargetName, this)));
 	}
 	return Existing;
 }
@@ -276,6 +274,23 @@ void FStreamableManager::RequestAsyncLoad(const TArray<FStringAssetReference>& T
 		}
 	}
 }
+
+void FStreamableManager::RequestAsyncLoad( const FStringAssetReference& TargetToStream, FStreamableDelegate DelegateToCall )
+{
+	TSharedRef< FStreamableRequest > NewRequest = MakeShareable( new FStreamableRequest() );
+	NewRequest->CompletionDelegate = DelegateToCall;
+
+	if ( FStreamable* Streamable = StreamInternal( TargetToStream ) )
+	{
+		Streamable->AddRelatedRequest( NewRequest );
+
+		if ( Streamable->Target )
+		{
+			CheckCompletedRequests( TargetToStream, Streamable );
+		}
+	}
+}
+
 
 void FStreamableManager::FindInMemory(FStringAssetReference& InOutTargetName, struct FStreamable* Existing)
 {

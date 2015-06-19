@@ -20,9 +20,7 @@ public:
 	 */
 	virtual uint32 GetResourceDataSize() const = 0;
 
-	/**
-	 * Called on non-UMA systems after the RHI has copied the resource data, and no longer needs the CPU's copy.
-	 */
+	/** Called on non-UMA systems after the RHI has copied the resource data, and no longer needs the CPU's copy. */
 	virtual void Discard() = 0;
 
 	/**
@@ -43,19 +41,22 @@ public:
 
 
 /**
- * allows for direct GPU mem allocation for bulk resource types
+ * Allows for direct GPU mem allocation for bulk resource types.
  */
 class FResourceBulkDataInterface
 {
 public:
+
 	/** 
 	 * @return ptr to the resource memory which has been preallocated
 	 */
 	virtual const void* GetResourceBulkData() const = 0;
+
 	/** 
 	 * @return size of resource memory
 	 */
 	virtual uint32 GetResourceBulkDataSize() const = 0;
+
 	/**
 	 * Free memory after it has been used to initialize RHI resource 
 	 */
@@ -64,28 +65,33 @@ public:
 
 
 /**
-* allows for direct GPU mem allocation for texture resource
-*/
+ * Allows for direct GPU mem allocation for texture resource.
+ */
 class FTexture2DResourceMem : public FResourceBulkDataInterface
 {
 public:
+
 	/**
 	 * @param MipIdx index for mip to retrieve
 	 * @return ptr to the offset in bulk memory for the given mip
 	 */
 	virtual void* GetMipData(int32 MipIdx) = 0;
+
 	/**
 	 * @return total number of mips stored in this resource
 	 */
 	virtual int32	GetNumMips() = 0;
+
 	/** 
 	 * @return width of texture stored in this resource
 	 */
 	virtual int32 GetSizeX() = 0;
+
 	/** 
 	 * @return height of texture stored in this resource
 	 */
 	virtual int32 GetSizeY() = 0;
+
 	/**
 	 * @return Whether the resource memory is properly allocated or not.
 	 */
@@ -96,14 +102,10 @@ public:
 	 */
 	virtual bool HasAsyncAllocationCompleted() const = 0;
 
-	/**
-	 * Blocks the calling thread until the allocation has been completed.
-	 */
+	/** Blocks the calling thread until the allocation has been completed. */
 	virtual void FinishAsyncAllocation() = 0;
 
-	/**
-	 * Cancels any async allocation.
-	 */
+	/** Cancels any async allocation. */
 	virtual void CancelAsyncAllocation() = 0;
 
 	virtual ~FTexture2DResourceMem() {}

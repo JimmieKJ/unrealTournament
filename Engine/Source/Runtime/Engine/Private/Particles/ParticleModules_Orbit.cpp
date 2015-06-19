@@ -35,7 +35,7 @@ void UParticleModuleOrbit::InitializeDefaults()
 {
 	if (!OffsetAmount.Distribution)
 	{
-		UDistributionVectorUniform* DistributionOffsetAmount = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionOffsetAmount"));
+		UDistributionVectorUniform* DistributionOffsetAmount = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionOffsetAmount"));
 		DistributionOffsetAmount->Min = FVector(0.0f, 0.0f, 0.0f);
 		DistributionOffsetAmount->Max = FVector(0.0f, 50.0f, 0.0f);
 		OffsetAmount.Distribution = DistributionOffsetAmount;
@@ -43,7 +43,7 @@ void UParticleModuleOrbit::InitializeDefaults()
 
 	if (!RotationAmount.Distribution)
 	{
-		UDistributionVectorUniform* DistributionRotationAmount = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionRotationAmount"));
+		UDistributionVectorUniform* DistributionRotationAmount = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionRotationAmount"));
 		DistributionRotationAmount->Min = FVector(0.0f, 0.0f, 0.0f);
 		DistributionRotationAmount->Max = FVector(1.0f, 1.0f, 1.0f);
 		RotationAmount.Distribution = DistributionRotationAmount;
@@ -51,7 +51,7 @@ void UParticleModuleOrbit::InitializeDefaults()
 
 	if (!RotationRateAmount.Distribution)
 	{
-		UDistributionVectorUniform* DistributionRotationRateAmount = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionRotationRateAmount"));
+		UDistributionVectorUniform* DistributionRotationRateAmount = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionRotationRateAmount"));
 		DistributionRotationRateAmount->Min = FVector(0.0f, 0.0f, 0.0f);
 		DistributionRotationRateAmount->Max = FVector(1.0f, 1.0f, 1.0f);
 		RotationRateAmount.Distribution = DistributionRotationRateAmount;

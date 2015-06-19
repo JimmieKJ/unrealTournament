@@ -15,26 +15,26 @@ class UMG_API UButtonSlot : public UPanelSlot
 public:
 	
 	/** The padding area between the slot and the content it contains. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Button Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Button Slot")
 	FMargin Padding;
 
 	/** The alignment of the object horizontally. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Button Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Button Slot")
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
 
 	/** The alignment of the object vertically. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Button Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Button Slot")
 	TEnumAsByte<EVerticalAlignment> VerticalAlignment;
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Button Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Button Slot")
 	void SetPadding(FMargin InPadding);
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Button Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Button Slot")
 	void SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlignment);
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Button Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Button Slot")
 	void SetVerticalAlignment(EVerticalAlignment InVerticalAlignment);
 
 	// UPanelSlot interface

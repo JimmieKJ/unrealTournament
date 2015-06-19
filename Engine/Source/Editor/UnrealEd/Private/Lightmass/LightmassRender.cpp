@@ -14,6 +14,9 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "Materials/MaterialInstance.h"
 #include "CanvasTypes.h"
+#include "LightmassLandscapeRender.h"
+#include "LandscapeMaterialInstanceConstant.h"
+#include "LandscapeLight.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLightmassRender, Error, All);
 
@@ -197,6 +200,17 @@ public:
 			{
 				FMaterialShaderMapId ResourceId;
 				Resource->GetShaderMapId(GMaxRHIShaderPlatform, ResourceId);
+
+				{
+					TArray<FShaderType*> ShaderTypes;
+					TArray<FVertexFactoryType*> VFTypes;
+					GetDependentShaderAndVFTypes(GMaxRHIShaderPlatform, ShaderTypes, VFTypes);
+
+					// Overwrite the shader map Id's dependencies with ones that came from the FMaterial actually being compiled (this)
+					// This is necessary as we change FMaterial attributes like GetShadingModel(), which factor into the ShouldCache functions that determine dependent shader types
+					ResourceId.SetShaderDependencies(ShaderTypes, VFTypes);
+				}
+
 				// Override with a special usage so we won't re-use the shader map used by the material for rendering
 				ResourceId.Usage = GetShaderMapUsage();
 				CacheShaders(ResourceId, GMaxRHIShaderPlatform, true);
@@ -219,7 +233,7 @@ public:
 	 *
 	 * @return true if the shader should be compiled
 	 */
-	virtual bool ShouldCache(EShaderPlatform Platform, const FShaderType* ShaderType, const FVertexFactoryType* VertexFactoryType) const
+	virtual bool ShouldCache(EShaderPlatform Platform, const FShaderType* ShaderType, const FVertexFactoryType* VertexFactoryType) const override
 	{
 		if (VertexFactoryType == FindVertexFactoryType(FName(TEXT("FLocalVertexFactory"), FNAME_Find)))
 		{
@@ -241,7 +255,7 @@ public:
 
 	////////////////
 	// FMaterialRenderProxy interface.
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type FeatureLevel) const
+	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type FeatureLevel) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
@@ -253,17 +267,17 @@ public:
 		}
 	}
 
-	virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
+	virtual bool GetVectorValue(const FName ParameterName, FLinearColor* OutValue, const FMaterialRenderContext& Context) const override
 	{
 		return MaterialInterface->GetRenderProxy(0)->GetVectorValue(ParameterName, OutValue, Context);
 	}
 
-	virtual bool GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const
+	virtual bool GetScalarValue(const FName ParameterName, float* OutValue, const FMaterialRenderContext& Context) const override
 	{
 		return MaterialInterface->GetRenderProxy(0)->GetScalarValue(ParameterName, OutValue, Context);
 	}
 
-	virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const
+	virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const override
 	{
 		return MaterialInterface->GetRenderProxy(0)->GetTextureValue(ParameterName,OutValue,Context);
 	}
@@ -271,10 +285,10 @@ public:
 	// Material properties.
 
 	/** Entry point for compiling a specific material property.  This must call SetMaterialProperty. */
-	virtual int32 CompilePropertyAndSetMaterialProperty(EMaterialProperty Property, FMaterialCompiler* Compiler, EShaderFrequency OverrideShaderFrequency) const
+	virtual int32 CompilePropertyAndSetMaterialProperty(EMaterialProperty Property, FMaterialCompiler* Compiler, EShaderFrequency OverrideShaderFrequency, bool bUsePreviousFrameTime) const override
 	{
 		// needs to be called in this function!!
-		Compiler->SetMaterialProperty(Property, OverrideShaderFrequency);
+		Compiler->SetMaterialProperty(Property, OverrideShaderFrequency, bUsePreviousFrameTime);
 
 		int32 Ret = CompilePropertyAndSetMaterialPropertyWithoutCast(Property, Compiler);
 
@@ -405,7 +419,7 @@ public:
 		}
 		return MD_Surface;
 	}
-	virtual bool IsTwoSided() const 
+	virtual bool IsTwoSided() const override
 	{
 		if (MaterialInterface)
 		{
@@ -413,7 +427,7 @@ public:
 		}
 		return false;
 	}
-	virtual bool IsLightFunction() const
+	virtual bool IsLightFunction() const override
 	{
 		if (Material)
 		{
@@ -421,11 +435,11 @@ public:
 		}
 		return false;
 	}
-	virtual bool IsUsedWithDeferredDecal() const
+	virtual bool IsUsedWithDeferredDecal() const override
 	{
 		return Material && Material->MaterialDomain == MD_DeferredDecal;
 	}
-	virtual bool IsSpecialEngineMaterial() const
+	virtual bool IsSpecialEngineMaterial() const override
 	{
 		if (Material)
 		{
@@ -433,7 +447,7 @@ public:
 		}
 		return false;
 	}
-	virtual bool IsWireframe() const
+	virtual bool IsWireframe() const override
 	{
 		if (Material)
 		{
@@ -441,16 +455,16 @@ public:
 		}
 		return false;
 	}
-	virtual bool IsMasked() const									{ return false; }
-	virtual enum EBlendMode GetBlendMode() const					{ return BLEND_Opaque; }
-	virtual enum EMaterialShadingModel GetShadingModel() const		{ return MSM_Unlit; }
-	virtual float GetOpacityMaskClipValue() const					{ return 0.5f; }
-	virtual FString GetFriendlyName() const { return FString::Printf(TEXT("FLightmassMaterialRenderer %s"), MaterialInterface ? *MaterialInterface->GetName() : TEXT("NULL")); }
+	virtual bool IsMasked() const override								{ return false; }
+	virtual enum EBlendMode GetBlendMode() const override				{ return BLEND_Opaque; }
+	virtual enum EMaterialShadingModel GetShadingModel() const override	{ return MSM_Unlit; }
+	virtual float GetOpacityMaskClipValue() const override				{ return 0.5f; }
+	virtual FString GetFriendlyName() const override { return FString::Printf(TEXT("FLightmassMaterialRenderer %s"), MaterialInterface ? *MaterialInterface->GetName() : TEXT("NULL")); }
 
 	/**
 	 * Should shaders compiled for this material be saved to disk?
 	 */
-	virtual bool IsPersistent() const { return true; }
+	virtual bool IsPersistent() const override { return true; }
 
 	virtual FGuid GetMaterialId() const override 
 	{ 
@@ -755,33 +769,39 @@ void FLightmassMaterialRenderer::BeginGenerateMaterialData(
 {
 	UMaterial* BaseMaterial = InMaterial->GetMaterial();
 
-	TEnumAsByte<EBlendMode> BlendMode = InMaterial->GetBlendMode();
+	EBlendMode BlendMode = InMaterial->GetBlendMode();
+
+	const bool bIsLandscapeMaterial = InMaterial->IsA<ULandscapeMaterialInstanceConstant>();
 
 	if (BaseMaterial)
 	{
-		check(MaterialExportData.Find(InMaterial) == NULL);
+		check(!MaterialExportData.Contains(InMaterial));
 
 		FMaterialExportDataEntry& MaterialData = MaterialExportData.Add(InMaterial, FMaterialExportDataEntry(ChannelName));
 
-		if (FLightmassMaterialProxy::WillFillData((EBlendMode)(BlendMode), MP_DiffuseColor))
+		if (FLightmassMaterialProxy::WillFillData(BlendMode, MP_DiffuseColor))
 		{
 			MaterialData.DiffuseMaterialProxy = new FLightmassMaterialProxy();
 			MaterialData.DiffuseMaterialProxy->BeginCompiling(InMaterial, MP_DiffuseColor, EMaterialShaderMapUsage::LightmassExportDiffuse);
 		}
 
-		if (FLightmassMaterialProxy::WillFillData((EBlendMode)(BlendMode), MP_EmissiveColor))
+		if (FLightmassMaterialProxy::WillFillData(BlendMode, MP_EmissiveColor))
 		{
 			MaterialData.EmissiveMaterialProxy = new FLightmassMaterialProxy();
 			MaterialData.EmissiveMaterialProxy->BeginCompiling(InMaterial, MP_EmissiveColor, EMaterialShaderMapUsage::LightmassExportEmissive);
 		}
 
-		if (FLightmassMaterialProxy::WillFillData((EBlendMode)(BlendMode), MP_Opacity))
+		if (FLightmassMaterialProxy::WillFillData(BlendMode, MP_Opacity))
 		{
-			MaterialData.OpacityMaterialProxy = new FLightmassMaterialProxy();
-			MaterialData.OpacityMaterialProxy->BeginCompiling(InMaterial, MP_Opacity, EMaterialShaderMapUsage::LightmassExportOpacity);
+			// Landscape opacity is generated from the hole mask, not the material
+			if (!bIsLandscapeMaterial)
+			{
+				MaterialData.OpacityMaterialProxy = new FLightmassMaterialProxy();
+				MaterialData.OpacityMaterialProxy->BeginCompiling(InMaterial, MP_Opacity, EMaterialShaderMapUsage::LightmassExportOpacity);
+			}
 		}
 
-		if (bInWantNormals && FLightmassMaterialProxy::WillFillData((EBlendMode)(BlendMode), MP_Normal))
+		if (bInWantNormals && FLightmassMaterialProxy::WillFillData(BlendMode, MP_Normal))
 		{
 			MaterialData.NormalMaterialProxy = new FLightmassMaterialProxy();
 			MaterialData.NormalMaterialProxy->BeginCompiling(InMaterial, MP_Normal, EMaterialShaderMapUsage::LightmassExportNormal);
@@ -801,12 +821,13 @@ void FLightmassMaterialRenderer::BeginGenerateMaterialData(
  *	@return	bool					true if successful, false if not.
  */
 bool FLightmassMaterialRenderer::GenerateMaterialData(
-	UMaterialInterface& InMaterial, 
-	Lightmass::FMaterialData& OutMaterialData, 
+	UMaterialInterface& InMaterial,
+	const FLightmassMaterialExportSettings& InExportSettings,
+	Lightmass::FMaterialData& OutMaterialData,
 	FMaterialExportDataEntry& MaterialExportEntry,
-	TArray<FFloat16Color>& OutMaterialDiffuse, 
-	TArray<FFloat16Color>& OutMaterialEmissive, 
-	TArray<FFloat16Color>& OutMaterialTransmission, 
+	TArray<FFloat16Color>& OutMaterialDiffuse,
+	TArray<FFloat16Color>& OutMaterialEmissive,
+	TArray<FFloat16Color>& OutMaterialTransmission,
 	TArray<FFloat16Color>& OutMaterialNormal)
 {
 	bool bResult = true;
@@ -834,10 +855,18 @@ bool FLightmassMaterialRenderer::GenerateMaterialData(
 	OutMaterialData.bCastShadowAsMasked = BaseMaterial->GetCastShadowAsMasked() && IsTranslucentBlendMode((EBlendMode)BlendMode);
 	OutMaterialData.OpacityMaskClipValue = InMaterial.GetOpacityMaskClipValue();
 
+	const bool bIsLandscapeMaterial = InMaterial.IsA<ULandscapeMaterialInstanceConstant>();
+
+	// due to landscape using an expanded mesh, we have to mask out the edge data even on opaque components (sigh)
+	if (bIsLandscapeMaterial && OutMaterialData.BlendMode == Lightmass::BLEND_Opaque)
+	{
+		OutMaterialData.BlendMode = Lightmass::BLEND_Masked;
+	}
+
 	// Diffuse
 	if (MaterialExportEntry.DiffuseMaterialProxy)
 	{
-		if (!GenerateMaterialPropertyData(InMaterial, *MaterialExportEntry.DiffuseMaterialProxy, MP_DiffuseColor, OutMaterialData.DiffuseSize, OutMaterialData.DiffuseSize, OutMaterialDiffuse))
+		if (!GenerateMaterialPropertyData(InMaterial, InExportSettings, MaterialExportEntry.DiffuseMaterialProxy, MP_DiffuseColor, OutMaterialData.DiffuseSize, OutMaterialData.DiffuseSize, OutMaterialDiffuse))
 		{
 			UE_LOG(LogLightmassRender, Warning, TEXT("Failed to generate diffuse material samples for %s: %s"),
 				*(InMaterial.GetLightingGuid().ToString()), *(InMaterial.GetPathName()));
@@ -849,7 +878,7 @@ bool FLightmassMaterialRenderer::GenerateMaterialData(
 	// Emissive
 	if (MaterialExportEntry.EmissiveMaterialProxy)
 	{
-		if (!GenerateMaterialPropertyData(InMaterial, *MaterialExportEntry.EmissiveMaterialProxy, MP_EmissiveColor, OutMaterialData.EmissiveSize, OutMaterialData.EmissiveSize, OutMaterialEmissive))
+		if (!GenerateMaterialPropertyData(InMaterial, InExportSettings, MaterialExportEntry.EmissiveMaterialProxy, MP_EmissiveColor, OutMaterialData.EmissiveSize, OutMaterialData.EmissiveSize, OutMaterialEmissive))
 		{
 			UE_LOG(LogLightmassRender, Warning, TEXT("Failed to generate emissive material samples for %s: %s"),
 				*(InMaterial.GetLightingGuid().ToString()), *(InMaterial.GetPathName()));
@@ -859,9 +888,10 @@ bool FLightmassMaterialRenderer::GenerateMaterialData(
 	}
 
 	// Transmission
-	if (MaterialExportEntry.OpacityMaterialProxy)
+	// Landscape opacity is generated from the hole mask, not the material
+	if (MaterialExportEntry.OpacityMaterialProxy || bIsLandscapeMaterial)
 	{
-		if (!GenerateMaterialPropertyData(InMaterial, *MaterialExportEntry.OpacityMaterialProxy, MP_Opacity, OutMaterialData.TransmissionSize, OutMaterialData.TransmissionSize, OutMaterialTransmission))
+		if (!GenerateMaterialPropertyData(InMaterial, InExportSettings, MaterialExportEntry.OpacityMaterialProxy, MP_Opacity, OutMaterialData.TransmissionSize, OutMaterialData.TransmissionSize, OutMaterialTransmission))
 		{
 			UE_LOG(LogLightmassRender, Warning, TEXT("Failed to generate transmissive material samples for %s: %s"),
 				*(InMaterial.GetLightingGuid().ToString()), *(InMaterial.GetPathName()));
@@ -873,7 +903,7 @@ bool FLightmassMaterialRenderer::GenerateMaterialData(
 	// Normal
 	if (MaterialExportEntry.NormalMaterialProxy)
 	{
-		if (!GenerateMaterialPropertyData(InMaterial, *MaterialExportEntry.NormalMaterialProxy, MP_Normal, OutMaterialData.NormalSize, OutMaterialData.NormalSize, OutMaterialNormal))
+		if (!GenerateMaterialPropertyData(InMaterial, InExportSettings, MaterialExportEntry.NormalMaterialProxy, MP_Normal, OutMaterialData.NormalSize, OutMaterialData.NormalSize, OutMaterialNormal))
 		{
 			UE_LOG(LogLightmassRender, Warning, TEXT("Failed to generate normal material samples for %s: %s"),
 				*(InMaterial.GetLightingGuid().ToString()), *(InMaterial.GetPathName()));
@@ -883,6 +913,39 @@ bool FLightmassMaterialRenderer::GenerateMaterialData(
 	}
 
 	return bResult;
+}
+
+void LightmassDebugExportMaterial(UMaterialInterface& InMaterial, EMaterialProperty InMaterialProperty, FFloat16Color* InMaterialSamples, int32 InSizeX, int32 InSizeY)
+{
+	TArray<FColor> OutputBuffer;
+	OutputBuffer.Empty(InSizeX * InSizeY);
+	bool bSRGB = InMaterialProperty != MP_Normal;
+	for (int32 i = 0; i < InSizeX * InSizeY; ++i)
+	{
+		FLinearColor LinearColor(InMaterialSamples[i]);
+		OutputBuffer.Add(LinearColor.ToFColor(bSRGB));
+	}
+
+	// Create screenshot folder if not already present.
+	// Save the contents of the array to a bitmap file.
+	FString TempPath = FPaths::ScreenShotDir();
+	TempPath += TEXT("/Materials");
+	IFileManager::Get().MakeDirectory(*TempPath, true);
+	FString TempName = InMaterial.GetPathName();
+	TempName = TempName.Replace(TEXT("."), TEXT("_"));
+	TempName = TempName.Replace(TEXT(":"), TEXT("_"));
+	FString OutputName = TempPath / TempName;
+	OutputName += TEXT("_");
+	switch (InMaterialProperty)
+	{
+	case MP_DiffuseColor:	OutputName += TEXT("Diffuse");			break;
+	case MP_EmissiveColor:	OutputName += TEXT("Emissive");			break;
+	case MP_SpecularColor:	OutputName += TEXT("Specular");			break;
+	case MP_Normal:			OutputName += TEXT("Normal");			break;
+	case MP_Opacity:		OutputName += TEXT("Transmissive");		break;
+	}
+	OutputName += TEXT(".BMP");
+	FFileHelper::CreateBitmap(*OutputName, InSizeX, InSizeY, OutputBuffer.GetData());
 }
 
 /**
@@ -897,26 +960,51 @@ bool FLightmassMaterialRenderer::GenerateMaterialData(
  *	@return	bool					true if successful, false if not.
  */
 bool FLightmassMaterialRenderer::GenerateMaterialPropertyData(
-	UMaterialInterface& InMaterial, 
-	FLightmassMaterialProxy& MaterialProxy,
-	EMaterialProperty InMaterialProperty, 
-	int32& InOutSizeX, 
-	int32& InOutSizeY, 
+	UMaterialInterface& InMaterial,
+	const FLightmassMaterialExportSettings& InExportSettings,
+	FLightmassMaterialProxy* MaterialProxy,
+	EMaterialProperty InMaterialProperty,
+	int32& InOutSizeX,
+	int32& InOutSizeY,
 	TArray<FFloat16Color>& OutMaterialSamples)
 {
 	bool bResult = true;
 
 	FFloat16Color UniformValue;
-	// Verify that async compiling has completed for this material
-	// If the ShaderMap is NULL that's because it failed to compile, which is ok as the default material will be used for exporting
-	check(!MaterialProxy.GetGameThreadShaderMap() || MaterialProxy.GetGameThreadShaderMap()->IsValidForRendering());
 
-	if (MaterialProxy.WillGenerateUniformData(UniformValue) == false)
+	const bool bIsLandscapeMaterial = InMaterial.IsA<ULandscapeMaterialInstanceConstant>();
+
+	// Landscape opacity needs to be handled specially because it needs to look at the neighbor components
+	// trying to actually use the neighbor materials is all but impossible so we read the data from the hole mask ourself
+	if (bIsLandscapeMaterial && InMaterialProperty == MP_Opacity)
 	{
+		auto* LandscapeMesh = static_cast<const FLandscapeStaticLightingMesh*>(InExportSettings.UnwrapMesh);
+		GetLandscapeOpacityData(LandscapeMesh, InOutSizeX, InOutSizeY, OutMaterialSamples);
+
+		if (GLightmassDebugOptions.bDebugMaterials == true)
+		{
+			LightmassDebugExportMaterial(InMaterial, InMaterialProperty, OutMaterialSamples.GetData(), InOutSizeX, InOutSizeY);
+		}
+	}
+	else if (MaterialProxy->WillGenerateUniformData(UniformValue))
+	{
+		// Single value... fill it in.
+		InOutSizeX = 1;
+		InOutSizeY = 1;
+		OutMaterialSamples.Empty(1);
+		OutMaterialSamples.AddZeroed(1);
+		OutMaterialSamples[0] = UniformValue;
+	}
+	else
+	{
+		// Verify that async compiling has completed for this material
+		// If the ShaderMap is NULL that's because it failed to compile, which is ok as the default material will be used for exporting
+		check(!MaterialProxy->GetGameThreadShaderMap() || MaterialProxy->GetGameThreadShaderMap()->IsValidForRendering());
+
 		//@todo UE4. The format may be determined by the material property...
 		// For example, if Diffuse doesn't need to be F16 it can create a standard RGBA8 target.
 		EPixelFormat Format = PF_FloatRGBA;
-		if (MaterialProxy.GetRenderTargetFormatAndSize(InMaterialProperty, Format, InMaterial.GetExportResolutionScale(), InOutSizeX, InOutSizeY))
+		if (MaterialProxy->GetRenderTargetFormatAndSize(InMaterialProperty, Format, InMaterial.GetExportResolutionScale(), InOutSizeX, InOutSizeY))
 		{
 			if (CreateRenderTarget(Format, InOutSizeX, InOutSizeY) == false)
 			{
@@ -925,79 +1013,52 @@ bool FLightmassMaterialRenderer::GenerateMaterialPropertyData(
 			}
 			else
 			{
-				// At this point, we can't just return false at failure since we have some clean-up to do...
-				Canvas->SetRenderTarget_GameThread(RenderTarget->GameThread_GetRenderTargetResource());
+				if (bIsLandscapeMaterial)
+				{
+					// Landscape needs special handling because it uses multiple UVs, which isn't yet supported by lightmass's regular pipeline
+					auto* LandscapeMesh = static_cast<const FLandscapeStaticLightingMesh*>(InExportSettings.UnwrapMesh);
+					RenderLandscapeMaterialForLightmass(LandscapeMesh, MaterialProxy, RenderTarget->GameThread_GetRenderTargetResource());
+				}
+				else
+				{
+					// At this point, we can't just return false at failure since we have some clean-up to do...
+					Canvas->SetRenderTarget_GameThread(RenderTarget->GameThread_GetRenderTargetResource());
 
-				// Clear the render target to black
-				// This is necessary because the below DrawTile doesn't write to the first column and first row
-				//@todo - figure out and fix DrawTile issues when rendering a full render target quad
-				Canvas->Clear(FLinearColor(0,0,0,0));
-				FCanvasTileItem TileItem( FVector2D( 0.0f, 0.0f ), &MaterialProxy, FVector2D( InOutSizeX, InOutSizeY ) );
-				TileItem.bFreezeTime = true;
-				Canvas->DrawItem( TileItem );
-				Canvas->Flush_GameThread();
-				FlushRenderingCommands();
-				Canvas->SetRenderTarget_GameThread(NULL);
-				FlushRenderingCommands();
+					// Clear the render target to black
+					// This is necessary because the below DrawTile doesn't write to the first column and first row
+					//@todo - figure out and fix DrawTile issues when rendering a full render target quad
+					Canvas->Clear(FLinearColor(0, 0, 0, 0));
+					FCanvasTileItem TileItem(FVector2D(0.0f, 0.0f), MaterialProxy, FVector2D(InOutSizeX, InOutSizeY));
+					TileItem.bFreezeTime = true;
+					Canvas->DrawItem(TileItem);
+					Canvas->Flush_GameThread();
+					FlushRenderingCommands();
+					Canvas->SetRenderTarget_GameThread(NULL);
+					FlushRenderingCommands();
+				}
 
 				// Read in the data
 				//@todo UE4. Check the format! RenderTarget->Format
 				// If we are going to allow non-F16 formats, then the storage will have to be aware of it!
 				if (RenderTarget->GameThread_GetRenderTargetResource()->ReadFloat16Pixels(OutMaterialSamples) == false)
 				{
-					UE_LOG(LogLightmassRender, Warning, TEXT("Failed to read Float16Pixels for 0x%08x property of %s: %s"), 
+					UE_LOG(LogLightmassRender, Warning, TEXT("Failed to read Float16Pixels for 0x%08x property of %s: %s"),
 						(uint32)InMaterialProperty, *(InMaterial.GetLightingGuid().ToString()), *(InMaterial.GetPathName()));
 					bResult = false;
 				}
-				else if (GLightmassDebugOptions.bDebugMaterials == true)
-				{
-					TArray<FColor> OutputBuffer;
-					OutputBuffer.Empty(OutMaterialSamples.Num());
-					bool bSRGB = InMaterialProperty != MP_Normal;
-					for (int32 i = 0; i < OutMaterialSamples.Num(); ++i)
-					{
-						FLinearColor LinearColor(OutMaterialSamples[i]);
-						OutputBuffer.Add(LinearColor.ToFColor(bSRGB));
-					}
 
-					// Create screenshot folder if not already present.
-					// Save the contents of the array to a bitmap file.
-					FString TempPath = FPaths::ScreenShotDir();
-					TempPath += TEXT("/Materials");
-					IFileManager::Get().MakeDirectory(*TempPath, true);
-					FString TempName = InMaterial.GetPathName();
-					TempName = TempName.Replace(TEXT("."), TEXT("_"));
-					TempName = TempName.Replace(TEXT(":"), TEXT("_"));
-					FString OutputName = TempPath / TempName;
-					OutputName += TEXT("_");
-					switch (InMaterialProperty)
-					{
-					case MP_DiffuseColor:	OutputName += TEXT("Diffuse");			break;
-					case MP_EmissiveColor:	OutputName += TEXT("Emissive");			break;
-					case MP_SpecularColor:	OutputName += TEXT("Specular");			break;
-					case MP_Normal:			OutputName += TEXT("Normal");			break;
-					case MP_Opacity:		OutputName += TEXT("Transmissive");		break;
-					}
-					OutputName += TEXT(".BMP");
-					FFileHelper::CreateBitmap(*OutputName,InOutSizeX,InOutSizeY,OutputBuffer.GetData());
+				if (GLightmassDebugOptions.bDebugMaterials == true)
+				{
+					LightmassDebugExportMaterial(InMaterial, InMaterialProperty, OutMaterialSamples.GetData(), InOutSizeX, InOutSizeY);
 				}
 			}
 		}
 		else
 		{
-			UE_LOG(LogLightmassRender, Warning, TEXT("Failed to get render target format and size for 0x%08x property of %s: %s"), 
+			UE_LOG(LogLightmassRender, Warning, TEXT("Failed to get render target format and size for 0x%08x property of %s: %s"),
 				(uint32)InMaterialProperty, *(InMaterial.GetLightingGuid().ToString()), *(InMaterial.GetPathName()));
 			bResult = false;
 		}
-	}
-	else
-	{
-		// Single value... fill it in.
-		InOutSizeX = 1;
-		InOutSizeY = 1; 
-		OutMaterialSamples.Empty(1);
-		OutMaterialSamples.AddZeroed(1);
-		OutMaterialSamples[0] = UniformValue;
 	}
 
 	return bResult;

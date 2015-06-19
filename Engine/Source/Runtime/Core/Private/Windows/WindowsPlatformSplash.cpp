@@ -312,7 +312,7 @@ HBITMAP LoadSplashBitmap()
 		}
 
 		// Extract the image into the HBITMAP    
-		if (SUCCEEDED(hr))
+		if (SUCCEEDED(hr) && ToRenderBitmapSource)
 		{
 			hr = ToRenderBitmapSource->CopyPixels(
 				NULL,

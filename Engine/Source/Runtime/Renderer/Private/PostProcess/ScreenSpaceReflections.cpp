@@ -130,7 +130,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << DeferredParameters << SSRParams;
@@ -256,19 +256,16 @@ FPooledRenderTargetDesc FRCPassPostProcessScreenSpaceReflections::ComputeOutputD
 
 	return Ret;
 }
-void BuildHZB(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
 void ScreenSpaceReflections(FRHICommandListImmediate& RHICmdList, FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& SSROutput)
 {
-	BuildHZB(RHICmdList, View);
-
 	FRenderingCompositePassContext CompositeContext(RHICmdList, View);
 	FPostprocessContext Context( CompositeContext.Graph, View );
 
 	FSceneViewState* ViewState = (FSceneViewState*)Context.View.State;
 
 	FRenderingCompositePass* SceneColorInput = Context.Graph.RegisterPass( new FRCPassPostProcessInput( GSceneRenderTargets.GetSceneColor() ) );
-	FRenderingCompositePass* HZBInput = Context.Graph.RegisterPass( new FRCPassPostProcessInput( ViewState->HZB.Texture ) );
+	FRenderingCompositePass* HZBInput = Context.Graph.RegisterPass( new FRCPassPostProcessInput( View.HZB ) );
 
 	bool bPrevFrame = 0;
 	if( ViewState && ViewState->TemporalAAHistoryRT && !Context.View.bCameraCut )

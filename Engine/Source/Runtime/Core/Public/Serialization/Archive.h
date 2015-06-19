@@ -113,9 +113,9 @@ public:
 	 *
 	 * This is overridden for the specific Archive Types
 	 **/
-	virtual FString GetArchiveName() const { return TEXT("FMemoryWriter"); }
+	virtual FString GetArchiveName() const override { return TEXT("FMemoryWriter"); }
 
-	int64 TotalSize()
+	int64 TotalSize() override
 	{
 		return Bytes.Num();
 	}

@@ -12,8 +12,8 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateZooming>(TEXT("FiringState1")) )
 {
 	ClassicGroup = 9;
-	BringUpTime = 0.54f;
-	PutDownTime = 0.41f;
+	BringUpTime = 0.45f;
+	PutDownTime = 0.4f;
 	StoppedHeadshotScale = 1.8f;
 	SlowHeadshotScale = 1.4f;
 	AimedHeadshotScale = 1.f;

@@ -50,7 +50,7 @@ public:
 	 * 
 	 * @param	Resource		Info about vorbis data
 	 */
-	ENGINE_API virtual bool ReadCompressedInfo( const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, struct FSoundQualityInfo* QualityInfo );
+	ENGINE_API virtual bool ReadCompressedInfo( const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, struct FSoundQualityInfo* QualityInfo ) override;
 
 	/** 
 	 * Decompresses ogg data to raw PCM data. 
@@ -61,26 +61,26 @@ public:
 	 *
 	 * @return	bool		true if the end of the data was reached (for both single shot and looping sounds)
 	 */
-	ENGINE_API virtual bool ReadCompressedData( uint8* Destination, bool bLooping, uint32 BufferSize );
+	ENGINE_API virtual bool ReadCompressedData( uint8* Destination, bool bLooping, uint32 BufferSize ) override;
 
-	ENGINE_API virtual void SeekToTime( const float SeekTime );
+	ENGINE_API virtual void SeekToTime( const float SeekTime ) override;
 
 	/** 
 	 * Decompress an entire ogg data file to a TArray
 	 */
-	ENGINE_API virtual void ExpandFile( uint8* DstBuffer, struct FSoundQualityInfo* QualityInfo );
+	ENGINE_API virtual void ExpandFile( uint8* DstBuffer, struct FSoundQualityInfo* QualityInfo ) override;
 
 	/** 
 	 * Sets ogg to decode to half-rate
 	 * 
 	 * @param	Resource		Info about vorbis data
 	 */
-	ENGINE_API virtual void EnableHalfRate( bool HalfRate );
+	ENGINE_API virtual void EnableHalfRate( bool HalfRate ) override;
 
-	virtual uint32 GetSourceBufferSize() const { return SrcBufferDataSize;}
+	virtual uint32 GetSourceBufferSize() const override { return SrcBufferDataSize; }
 
 	virtual bool UsesVorbisChannelOrdering() const override { return true; }
-	virtual int GetStreamBufferSize() const { return MONO_PCM_BUFFER_SIZE; }
+	virtual int GetStreamBufferSize() const override { return MONO_PCM_BUFFER_SIZE; }
 
 	struct FVorbisFileWrapper* VFWrapper;
 	const uint8*		SrcBufferData;

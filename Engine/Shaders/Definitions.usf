@@ -48,8 +48,8 @@
 #define	MATERIAL_SHADINGMODEL_UNLIT						0
 #endif
 
-#ifndef MESH_MATERIAL_SHADER
-#define	MESH_MATERIAL_SHADER							0
+#ifndef HAS_PRIMITIVE_UNIFORM_BUFFER
+#define	HAS_PRIMITIVE_UNIFORM_BUFFER					0
 #endif
 
 #ifndef OUTPUT_DEPTH_TO_ALPHA
@@ -112,6 +112,10 @@
 #define USING_TESSELLATION								0
 #endif
 
+#ifndef OUTPUT_GBUFFER_VELOCITY
+#define OUTPUT_GBUFFER_VELOCITY									0
+#endif
+
 #define PC_D3D											SM5_PROFILE
 
 #ifndef NEEDS_LIGHTMAP_COORDINATE
@@ -146,6 +150,10 @@
 #define NUM_VF_PACKED_INTERPOLANTS						0
 #endif
 
+#ifndef USE_CLEARCOAT
+#define USE_CLEARCOAT									0
+#endif
+
 #if SM5_PROFILE || COMPILER_SUPPORTS_ATTRIBUTES
 /** Avoids flow control constructs. */
 #define UNROLL											[unroll]
@@ -159,6 +167,8 @@
 #define IFALL											[ifAll]
 /** Executes the conditional part of an if statement when the condition is true for any thread on which the current shader is running. */
 #define IFANY											[ifAny]
+/** Allows a compute shader loop termination condition to be based off of a UAV read. The loop must not contain synchronization intrinsics. */
+#define ALLOW_UAV_CONDITION								[allow_uav_condition]
 #else
 #ifndef UNROLL
 #define UNROLL
@@ -187,4 +197,8 @@
 #define EARLYDEPTHSTENCIL [earlydepthstencil]
 #else
 #define EARLYDEPTHSTENCIL
+#endif
+
+#ifndef HAS_INVERTED_Z_BUFFER
+#define HAS_INVERTED_Z_BUFFER	1
 #endif

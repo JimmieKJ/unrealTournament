@@ -87,14 +87,14 @@ TSharedRef<FSelectedWidgetDragDropOp> FSelectedWidgetDragDropOp::New(TSharedPtr<
 	bool bStayInParent = false;
 	if ( UPanelWidget* PanelTemplate = InWidget.GetTemplate()->GetParent() )
 	{
-		bStayInParent = PanelTemplate->LockToPanelOnDrag();
+		bStayInParent = PanelTemplate->LockToPanelOnDrag() || GetDefault<UWidgetDesignerSettings>()->bLockToPanelOnDragByDefault;
 	}
 
 	TSharedRef<FSelectedWidgetDragDropOp> Operation = MakeShareable(new FSelectedWidgetDragDropOp());
 	Operation->bStayingInParent = bStayInParent;
 	Operation->ParentWidget = Editor->GetReferenceFromTemplate(InWidget.GetTemplate()->GetParent());
-	Operation->DefaultHoverText = FText::FromString( InWidget.GetTemplate()->GetLabel() );
-	Operation->CurrentHoverText = FText::FromString( InWidget.GetTemplate()->GetLabel() );
+	Operation->DefaultHoverText = InWidget.GetTemplate()->GetLabelText();
+	Operation->CurrentHoverText = InWidget.GetTemplate()->GetLabelText();
 	Operation->Construct();
 
 	// Cache the preview and template, it's not safe to query the preview/template while dragging the widget as it no longer
@@ -176,8 +176,14 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 
 	SetStartupResolution();
 
+	CachedPreviewDesiredSize = FVector2D(0, 0);
+
 	ResolutionTextFade = FCurveSequence(0.0f, 1.0f);
-	ResolutionTextFade.Play();
+	ResolutionTextFade.Play(this->AsShared());
+
+	HoveredWidgetOutlineFade = FCurveSequence(0.0f, 0.15f);
+
+	SelectedWidgetContextMenuLocation = FVector2D(0, 0);
 
 	bMovingExistingWidget = false;
 
@@ -221,16 +227,17 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 
 					+ SOverlay::Slot()
 					[
-						SNew(SBox)
-						.WidthOverride(this, &SDesignerView::GetPreviewWidth)
-						.HeightOverride(this, &SDesignerView::GetPreviewHeight)
-						.HAlign(HAlign_Fill)
-						.VAlign(VAlign_Fill)
-						.Visibility(EVisibility::SelfHitTestInvisible)
+						SNew(SBorder)
+						.Padding(FMargin(0))
+						.BorderImage(this, &SDesignerView::GetPreviewBackground)
 						[
-							SAssignNew(PreviewSurface, SDPIScaler)
-							.DPIScale(this, &SDesignerView::GetPreviewDPIScale)
-							.Visibility(EVisibility::SelfHitTestInvisible)
+							SAssignNew(PreviewAreaConstraint, SBox)
+							.WidthOverride(this, &SDesignerView::GetPreviewAreaWidth)
+							.HeightOverride(this, &SDesignerView::GetPreviewAreaHeight)
+							[
+								SAssignNew(PreviewSurface, SDPIScaler)
+								.DPIScale(this, &SDesignerView::GetPreviewDPIScale)
+							]
 						]
 					]
 				]
@@ -293,7 +300,10 @@ void SDesignerView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBluepr
 		]
 	);
 
-	BlueprintEditor.Pin()->OnSelectedWidgetsChanged.AddRaw(this, &SDesignerView::OnEditorSelectionChanged);
+	auto PinnedBlueprintEditor = BlueprintEditor.Pin();
+	PinnedBlueprintEditor->OnSelectedWidgetsChanged.AddRaw(this, &SDesignerView::OnEditorSelectionChanged);
+	PinnedBlueprintEditor->OnHoveredWidgetSet.AddRaw(this, &SDesignerView::OnHoveredWidgetSet);
+	PinnedBlueprintEditor->OnHoveredWidgetCleared.AddRaw(this, &SDesignerView::OnHoveredWidgetCleared);
 
 	ZoomToFit(/*bInstantZoom*/ true);
 }
@@ -334,6 +344,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
+		.VAlign(VAlign_Center)
 		.Padding(6, 2, 0, 0)
 		[
 			SNew(STextBlock)
@@ -352,7 +363,7 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.Padding(5.0f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(SDesignerToolBar)
 			.CommandList(CommandList)
@@ -360,39 +371,59 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.Padding(5.0f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(SButton)
 			.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
 			.ToolTipText(LOCTEXT("ZoomToFit_ToolTip", "Zoom To Fit"))
 			.OnClicked(this, &SDesignerView::HandleZoomToFitClicked)
+			.ContentPadding(1.0f)
 			[
 				SNew(SImage)
 				.Image(FEditorStyle::GetBrush("UMGEditor.ZoomToFit"))
 			]
 		]
-				
+		
+		// Preview Screen Size
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.Padding(5.0f)
+		.VAlign(VAlign_Center)
 		[
 			SNew(SComboButton)
 			.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
 			.ForegroundColor(FLinearColor::Black)
-			.OnGetMenuContent(this, &SDesignerView::GetAspectMenu)
-			.ContentPadding(2.0f)
+			.OnGetMenuContent(this, &SDesignerView::GetResolutionsMenu)
+			.ContentPadding(1.0f)
 			.ButtonContent()
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("PreviewSize", "Preview Size"))
+				.Text(LOCTEXT("ScreenSize", "Screen Size"))
+				.TextStyle(FEditorStyle::Get(), "ViewportMenu.Label")
+			]
+		]
+
+		// Screen Fill Size Rule
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		[
+			SNew(SComboButton)
+			.ButtonStyle(FEditorStyle::Get(), "ViewportMenu.Button")
+			.ForegroundColor(FLinearColor::Black)
+			.OnGetMenuContent(this, &SDesignerView::GetScreenSizingFillMenu)
+			.ContentPadding(1.0f)
+			.ButtonContent()
+			[
+				SNew(STextBlock)
+				.Text(this, &SDesignerView::GetScreenSizingFillText)
 				.TextStyle(FEditorStyle::Get(), "ViewportMenu.Label")
 			]
 		]
 
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.Padding(5.0f)
 		.VAlign(VAlign_Center)
+		.Padding(FMargin(2, 0))
 		[
 			SNew(SNumericEntryBox<int32>)
 			.AllowSpin(true)
@@ -413,8 +444,8 @@ TSharedRef<SWidget> SDesignerView::CreateOverlayUI()
 
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.Padding(5.0f)
 		.VAlign(VAlign_Center)
+		.Padding(FMargin(2, 0))
 		[
 			SNew(SNumericEntryBox<int32>)
 			.AllowSpin(true)
@@ -521,7 +552,10 @@ SDesignerView::~SDesignerView()
 
 	if ( BlueprintEditor.IsValid() )
 	{
-		BlueprintEditor.Pin()->OnSelectedWidgetsChanged.RemoveAll(this);
+		auto PinnedEditor = BlueprintEditor.Pin();
+		PinnedEditor->OnSelectedWidgetsChanged.RemoveAll(this);
+		PinnedEditor->OnHoveredWidgetSet.RemoveAll(this);
+		PinnedEditor->OnHoveredWidgetCleared.RemoveAll(this);
 	}
 
 	if ( GEditor )
@@ -581,21 +615,21 @@ void SDesignerView::SetStartupResolution()
 {
 	// Use previously set resolution (or create new entries using default values)
 	// Width
-	if (!GConfig->GetInt(*ConfigSectionName, TEXT("PreviewWidth"), PreviewWidth, GEditorUserSettingsIni))
+	if (!GConfig->GetInt(*ConfigSectionName, TEXT("PreviewWidth"), PreviewWidth, GEditorPerProjectIni))
 	{
-		GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), DefaultResolutionWidth, GEditorUserSettingsIni);
+		GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), DefaultResolutionWidth, GEditorPerProjectIni);
 		PreviewWidth = DefaultResolutionWidth;
 	}
 	// Height
-	if (!GConfig->GetInt(*ConfigSectionName, TEXT("PreviewHeight"), PreviewHeight, GEditorUserSettingsIni))
+	if (!GConfig->GetInt(*ConfigSectionName, TEXT("PreviewHeight"), PreviewHeight, GEditorPerProjectIni))
 	{
-		GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), DefaultResolutionHeight, GEditorUserSettingsIni);
+		GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), DefaultResolutionHeight, GEditorPerProjectIni);
 		PreviewHeight = DefaultResolutionHeight;
 	}
 	// Aspect Ratio
-	if (!GConfig->GetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), PreviewAspectRatio, GEditorUserSettingsIni))
+	if (!GConfig->GetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), PreviewAspectRatio, GEditorPerProjectIni))
 	{
-		GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *DefaultAspectRatio, GEditorUserSettingsIni);
+		GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *DefaultAspectRatio, GEditorPerProjectIni);
 		PreviewAspectRatio = DefaultAspectRatio;
 	}
 }
@@ -631,30 +665,79 @@ ETransformMode::Type SDesignerView::GetTransformMode() const
 	return TransformMode;
 }
 
-FOptionalSize SDesignerView::GetPreviewWidth() const
+FOptionalSize SDesignerView::GetPreviewAreaWidth() const
 {
-	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
-	{
-		if ( DefaultWidget->bUseDesignTimeSize )
-		{
-			return DefaultWidget->DesignTimeSize.X;
-		}
-	}
+	FVector2D Area, Size;
+	GetPreviewAreaAndSize(Area, Size);
 
-	return (float)PreviewWidth;
+	return Area.X;
 }
 
-FOptionalSize SDesignerView::GetPreviewHeight() const
+FOptionalSize SDesignerView::GetPreviewAreaHeight() const
+{
+	FVector2D Area, Size;
+	GetPreviewAreaAndSize(Area, Size);
+
+	return Area.Y;
+}
+
+FOptionalSize SDesignerView::GetPreviewSizeWidth() const
+{
+	FVector2D Area, Size;
+	GetPreviewAreaAndSize(Area, Size);
+
+	return Size.X;
+}
+
+FOptionalSize SDesignerView::GetPreviewSizeHeight() const
+{
+	FVector2D Area, Size;
+	GetPreviewAreaAndSize(Area, Size);
+
+	return Size.Y;
+}
+
+const FSlateBrush* SDesignerView::GetPreviewBackground() const
 {
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{
-		if ( DefaultWidget->bUseDesignTimeSize )
+		if ( DefaultWidget->PreviewBackground )
 		{
-			return DefaultWidget->DesignTimeSize.Y;
+			BackgroundImage.SetResourceObject(DefaultWidget->PreviewBackground);
+			return &BackgroundImage;
 		}
 	}
 
-	return (float)PreviewHeight;
+	return nullptr;
+}
+
+void SDesignerView::GetPreviewAreaAndSize(FVector2D& Area, FVector2D& Size) const
+{
+	Area = FVector2D(PreviewWidth, PreviewHeight);
+	Size = FVector2D(PreviewWidth, PreviewHeight);
+
+	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
+	{
+		switch ( DefaultWidget->DesignSizeMode )
+		{
+		case EDesignPreviewSizeMode::Custom:
+			Area = DefaultWidget->DesignTimeSize;
+			Size = DefaultWidget->DesignTimeSize;
+			return;
+		case EDesignPreviewSizeMode::CustomOnScreen:
+			Size = DefaultWidget->DesignTimeSize;
+			return;
+		case EDesignPreviewSizeMode::Desired:
+			Area = CachedPreviewDesiredSize;
+			Size = CachedPreviewDesiredSize;
+			return;
+		case EDesignPreviewSizeMode::DesiredOnScreen:
+			Size = CachedPreviewDesiredSize;
+			return;
+		case EDesignPreviewSizeMode::FillScreen:
+			break;
+		}
+	}
 }
 
 float SDesignerView::GetPreviewDPIScale() const
@@ -662,7 +745,8 @@ float SDesignerView::GetPreviewDPIScale() const
 	// If the user is using a custom size then we disable the DPI scaling logic.
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{
-		if ( DefaultWidget->bUseDesignTimeSize )
+		if ( DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Custom || 
+			 DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Desired )
 		{
 			return 1.0f;
 		}
@@ -673,7 +757,7 @@ float SDesignerView::GetPreviewDPIScale() const
 
 FSlateRect SDesignerView::ComputeAreaBounds() const
 {
-	return FSlateRect(0, 0, GetPreviewWidth().Get(), GetPreviewHeight().Get());
+	return FSlateRect(0, 0, GetPreviewAreaWidth().Get(), GetPreviewAreaHeight().Get());
 }
 
 EVisibility SDesignerView::GetInfoBarVisibility() const
@@ -724,9 +808,19 @@ void SDesignerView::OnEditorSelectionChanged()
 	CreateExtensionWidgetsForSelection();
 }
 
+void SDesignerView::OnHoveredWidgetSet(const FWidgetReference& InHoveredWidget)
+{
+	HoveredWidgetOutlineFade.Play(this->AsShared());
+}
+
+void SDesignerView::OnHoveredWidgetCleared()
+{
+	HoveredWidgetOutlineFade.JumpToEnd();
+}
+
 FGeometry SDesignerView::GetDesignerGeometry() const
 {
-	return CachedDesignerGeometry;
+	return CachedGeometry;
 }
 
 void SDesignerView::MarkDesignModifed(bool bRequiresRecompile)
@@ -757,17 +851,17 @@ bool SDesignerView::GetWidgetParentGeometry(const FWidgetReference& Widget, FGeo
 
 bool SDesignerView::GetWidgetGeometry(const FWidgetReference& Widget, FGeometry& Geometry) const
 {
-	if ( const UWidget* PreviewWidget = Widget.GetPreview() )
+	if ( const UWidget* WidgetPreview = Widget.GetPreview() )
 	{
-		return GetWidgetGeometry(PreviewWidget, Geometry);
+		return GetWidgetGeometry(WidgetPreview, Geometry);
 	}
 
 	return false;
 }
 
-bool SDesignerView::GetWidgetGeometry(const UWidget* PreviewWidget, FGeometry& Geometry) const
+bool SDesignerView::GetWidgetGeometry(const UWidget* InPreviewWidget, FGeometry& Geometry) const
 {
-	TSharedPtr<SWidget> CachedPreviewWidget = PreviewWidget->GetCachedWidget();
+	TSharedPtr<SWidget> CachedPreviewWidget = InPreviewWidget->GetCachedWidget();
 	if ( CachedPreviewWidget.IsValid() )
 	{
 		const FArrangedWidget* ArrangedWidget = CachedWidgetGeometry.Find(CachedPreviewWidget.ToSharedRef());
@@ -858,8 +952,8 @@ FVector2D SDesignerView::GetExtensionPosition(TSharedRef<FDesignerSurfaceElement
 
 		if ( GetWidgetGeometry(SelectedWidget, SelectedWidgetGeometry_RelativeToDesigner) && GetWidgetParentGeometry(SelectedWidget, SelectedWidgetParentGeometry_RelativeToDesigner) )
 		{
-			SelectedWidgetGeometry_RelativeToDesigner.AppendTransform(FSlateLayoutTransform(Inverse(CachedDesignerGeometry.AbsolutePosition)));
-			SelectedWidgetParentGeometry_RelativeToDesigner.AppendTransform(FSlateLayoutTransform(Inverse(CachedDesignerGeometry.AbsolutePosition)));
+			SelectedWidgetGeometry_RelativeToDesigner.AppendTransform(FSlateLayoutTransform(Inverse(CachedGeometry.AbsolutePosition)));
+			SelectedWidgetParentGeometry_RelativeToDesigner.AppendTransform(FSlateLayoutTransform(Inverse(CachedGeometry.AbsolutePosition)));
 
 			const FVector2D WidgetPostion_DesignerSpace = SelectedWidgetGeometry_RelativeToDesigner.AbsolutePosition;
 			const FVector2D WidgetSize = SelectedWidgetGeometry_RelativeToDesigner.Size * GetPreviewScale();
@@ -1116,7 +1210,7 @@ FReply SDesignerView::OnMouseMove(const FGeometry& MyGeometry, const FPointerEve
 		return SurfaceHandled;
 	}
 
-	if ( MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) )
+	if ( MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && HasMouseCapture() )
 	{
 		FWidgetReference SelectedWidget = GetSelectedWidget();
 
@@ -1159,11 +1253,17 @@ FReply SDesignerView::OnMouseMove(const FGeometry& MyGeometry, const FPointerEve
 		}
 	}
 	
+
 	// Update the hovered widget under the mouse
+	auto PinnedBlueprintEditor = BlueprintEditor.Pin();
 	FWidgetHitResult HitResult;
 	if ( FindWidgetUnderCursor(MyGeometry, MouseEvent, HitResult) )
 	{
-		BlueprintEditor.Pin()->SetHoveredWidget(HitResult.Widget);
+		PinnedBlueprintEditor->SetHoveredWidget(HitResult.Widget);
+	}
+	else if (PinnedBlueprintEditor->GetHoveredWidget().IsValid())
+	{
+		PinnedBlueprintEditor->ClearHoveredWidget();
 	}
 
 	return FReply::Unhandled();
@@ -1185,7 +1285,7 @@ void SDesignerView::OnMouseLeave(const FPointerEvent& MouseEvent)
 
 FReply SDesignerView::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
-	BlueprintEditor.Pin()->PasteDropLocation = FVector2D(0, 0);
+	BlueprintEditor.Pin()->PasteDropLocation = SelectedWidgetContextMenuLocation;
 
 	if ( BlueprintEditor.Pin()->DesignerCommandList->ProcessCommandBindings(InKeyEvent) )
 	{
@@ -1243,8 +1343,7 @@ int32 SDesignerView::HandleEffectsPainting(const FOnPaintHandlerParams& PaintArg
 	static const FName SelectionOutlineName("UMGEditor.SelectionOutline");
 
 	static const FLinearColor SelectedTint(0, 1, 0);
-	const FLinearColor HoveredTint(0, 0.5, 1, FMath::Clamp(BlueprintEditor.Pin()->GetHoveredWidgetTime() / HoveredAnimationTime, 0.0f, 1.0f)); // Azure = 0x007FFF
-
+	
 	const FSlateBrush* SelectionOutlineBrush = FEditorStyle::Get().GetBrush(SelectionOutlineName);
 	FVector2D SelectionBrushInflationAmount = FVector2D(16, 16) * FVector2D(SelectionOutlineBrush->Margin.Left, SelectionOutlineBrush->Margin.Top) * ( 1.0f / GetPreviewScale() );
 
@@ -1274,12 +1373,14 @@ int32 SDesignerView::HandleEffectsPainting(const FOnPaintHandlerParams& PaintArg
 		}
 	}
 
-	FWidgetReference HoveredWidget = BlueprintEditor.Pin()->GetHoveredWidget();
+	const FWidgetReference& HoveredWidget = BlueprintEditor.Pin()->GetHoveredWidget();
 	TSharedPtr<SWidget> HoveredSlateWidget = HoveredWidget.GetPreviewSlate();
 
 	// Don't draw the hovered effect if it's also the selected widget
 	if ( HoveredSlateWidget.IsValid() && !SelectedWidgets.Contains(HoveredWidget) )
 	{
+		const FLinearColor HoveredTint(0, 0.5, 1, HoveredWidgetOutlineFade.GetLerp()); // Azure = 0x007FFF
+
 		TSharedRef<SWidget> Widget = HoveredSlateWidget.ToSharedRef();
 
 		FArrangedWidget ArrangedWidget(SNullWidget::NullWidget, FGeometry());
@@ -1315,7 +1416,17 @@ void SDesignerView::UpdatePreviewWidget(bool bForceUpdate)
 			NewPreviewSlateWidget->SlatePrepass();
 
 			PreviewSlateWidget = NewPreviewSlateWidget;
-			PreviewSurface->SetContent(NewPreviewSlateWidget);
+
+			// The constraint box for the widget size needs to inside the DPI scaler in order to make sure it too
+			// is sized accurately for the size screen it's on.
+			TSharedRef<SBox> NewPreviewSizeConstraintBox = SAssignNew(PreviewSizeConstraint, SBox)
+				.WidthOverride(this, &SDesignerView::GetPreviewSizeWidth)
+				.HeightOverride(this, &SDesignerView::GetPreviewSizeHeight)
+				[
+					NewPreviewSlateWidget
+				];
+
+			PreviewSurface->SetContent(NewPreviewSizeConstraintBox);
 
 			// Notify all selected widgets that they are selected, because there are new preview objects
 			// state may have been lost so this will recreate it if the widget does something special when
@@ -1345,17 +1456,32 @@ void SDesignerView::UpdatePreviewWidget(bool bForceUpdate)
 	}
 }
 
-void SDesignerView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SDesignerView::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	CachedDesignerGeometry = AllottedGeometry;
+	UUserWidget* DefaultWidget = GetDefaultWidget();
+	if ( DefaultWidget && ( DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::CustomOnScreen || DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::DesiredOnScreen ) )
+	{
+		PreviewAreaConstraint->SetHAlign(HAlign_Left);
+		PreviewAreaConstraint->SetVAlign(VAlign_Top);
+	}
+	else
+	{
+		PreviewAreaConstraint->SetHAlign(HAlign_Fill);
+		PreviewAreaConstraint->SetVAlign(VAlign_Fill);
+	}
+
+	// Tick the parent first to update CachedGeometry
+	SDesignSurface::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
 	const bool bForceUpdate = false;
 	UpdatePreviewWidget(bForceUpdate);
 
 	// Perform an arrange children pass to cache the geometry of all widgets so that we can query it later.
-	CachedWidgetGeometry.Reset();
-	FArrangedWidget WindowWidgetGeometry(PreviewHitTestRoot.ToSharedRef(), AllottedGeometry);
-	PopulateWidgetGeometryCache(WindowWidgetGeometry);
+	{
+		CachedWidgetGeometry.Reset();
+		FArrangedWidget WindowWidgetGeometry(PreviewHitTestRoot.ToSharedRef(), AllottedGeometry);
+		PopulateWidgetGeometryCache(WindowWidgetGeometry);
+	}
 
 	TArray< TFunction<void()> >& QueuedActions = BlueprintEditor.Pin()->GetQueuedDesignerActions();
 	for ( TFunction<void()>& Action : QueuedActions )
@@ -1400,7 +1526,22 @@ void SDesignerView::Tick(const FGeometry& AllottedGeometry, const double InCurre
 		SideRuler->SetCursor(TOptional<FVector2D>());
 	}
 
-	SDesignSurface::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	DefaultWidget = GetDefaultWidget();
+	if (DefaultWidget)
+	{
+		const bool bNeedDesiredSize = 
+			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Desired || 
+			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::DesiredOnScreen;
+
+		if ( bNeedDesiredSize && PreviewWidget )
+		{
+			TSharedPtr<SWidget> CachedWidget = PreviewWidget->GetCachedWidget();
+			if ( CachedWidget.IsValid() )
+			{
+				CachedPreviewDesiredSize = CachedWidget->GetDesiredSize();
+			}
+		}
+	}
 }
 
 FReply SDesignerView::OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -1886,7 +2027,11 @@ EVisibility SDesignerView::GetResolutionTextVisibility() const
 	// If we're using a custom design time size, don't bother showing the resolution
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{
-		if ( DefaultWidget->bUseDesignTimeSize )
+		const bool bScreenlessSizing =
+			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Custom ||
+			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Desired;
+
+		if ( bScreenlessSizing )
 		{
 			return EVisibility::Collapsed;
 		}
@@ -1918,18 +2063,28 @@ void SDesignerView::HandleOnCommonResolutionSelected(int32 Width, int32 Height, 
 	PreviewHeight = Height;
 	PreviewAspectRatio = AspectRatio;
 
-	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), Width, GEditorUserSettingsIni);
-	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), Height, GEditorUserSettingsIni);
-	GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *AspectRatio, GEditorUserSettingsIni);
+	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewWidth"), Width, GEditorPerProjectIni);
+	GConfig->SetInt(*ConfigSectionName, TEXT("PreviewHeight"), Height, GEditorPerProjectIni);
+	GConfig->SetString(*ConfigSectionName, TEXT("PreviewAspectRatio"), *AspectRatio, GEditorPerProjectIni);
 
-	// We're no longer using a custom design time size.
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{
-		DefaultWidget->bUseDesignTimeSize = false;
+		// If we using custom or desired design time sizes and the user picks a screen size, he must
+		// want to also change his visualization to be custom on screen or desired on screen, doesn't
+		// make sense to change it otherwise as it would have no effect.
+		if ( DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Custom )
+		{
+			DefaultWidget->DesignSizeMode = EDesignPreviewSizeMode::CustomOnScreen;
+		}
+		else if ( DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Desired )
+		{
+			DefaultWidget->DesignSizeMode = EDesignPreviewSizeMode::DesiredOnScreen;
+		}
+
 		MarkDesignModifed(/*bRequiresRecompile*/ false);
 	}
 
-	ResolutionTextFade.Play();
+	ResolutionTextFade.Play( this->AsShared() );
 }
 
 bool SDesignerView::HandleIsCommonResolutionSelected(int32 Width, int32 Height) const
@@ -1937,7 +2092,7 @@ bool SDesignerView::HandleIsCommonResolutionSelected(int32 Width, int32 Height) 
 	// If we're using a custom design time size, none of the other resolutions should appear selected, even if they match.
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{
-		if ( DefaultWidget->bUseDesignTimeSize )
+		if ( DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Custom || DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Desired )
 		{
 			return false;
 		}
@@ -1961,25 +2116,6 @@ void SDesignerView::AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const 
 		}
 	}
 	MenuBuilder.EndSection();
-}
-
-bool SDesignerView::HandleIsCustomResolutionSelected() const
-{
-	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
-	{
-		return DefaultWidget->bUseDesignTimeSize;
-	}
-
-	return false;
-}
-
-void SDesignerView::HandleOnCustomResolutionSelected()
-{
-	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
-	{
-		DefaultWidget->bUseDesignTimeSize = true;
-		MarkDesignModifed(/*bRequiresRecompile*/ false);
-	}
 }
 
 TOptional<int32> SDesignerView::GetCustomResolutionWidth() const
@@ -2024,7 +2160,11 @@ EVisibility SDesignerView::GetCustomResolutionEntryVisibility() const
 {
 	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
 	{
-		return DefaultWidget->bUseDesignTimeSize ? EVisibility::Visible : EVisibility::Collapsed;
+		const bool bCustomSizing =
+			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::Custom ||
+			DefaultWidget->DesignSizeMode == EDesignPreviewSizeMode::CustomOnScreen;
+
+		return bCustomSizing ? EVisibility::Visible : EVisibility::Collapsed;
 	}
 
 	return EVisibility::Collapsed;
@@ -2041,19 +2181,12 @@ UUserWidget* SDesignerView::GetDefaultWidget() const
 	return nullptr;
 }
 
-TSharedRef<SWidget> SDesignerView::GetAspectMenu()
+TSharedRef<SWidget> SDesignerView::GetResolutionsMenu()
 {
 	const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
 	FMenuBuilder MenuBuilder(true, nullptr);
 
-	// Add custom option
-	FExecuteAction OnResolutionSelected = FExecuteAction::CreateRaw(this, &SDesignerView::HandleOnCustomResolutionSelected);
-	FIsActionChecked OnIsResolutionSelected = FIsActionChecked::CreateRaw(this, &SDesignerView::HandleIsCustomResolutionSelected);
-	FUIAction Action(OnResolutionSelected, FCanExecuteAction(), OnIsResolutionSelected);
-
-	MenuBuilder.AddMenuEntry(LOCTEXT("Custom", "Custom"), LOCTEXT("Custom", "Custom"), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::Check);
-
-	// Add the normal set of resultion options.
+	// Add the normal set of resolution options.
 	AddScreenResolutionSection(MenuBuilder, PlaySettings->PhoneScreenResolutions, LOCTEXT("CommonPhonesSectionHeader", "Phones"));
 	AddScreenResolutionSection(MenuBuilder, PlaySettings->TabletScreenResolutions, LOCTEXT("CommonTabletsSectionHeader", "Tablets"));
 	AddScreenResolutionSection(MenuBuilder, PlaySettings->LaptopScreenResolutions, LOCTEXT("CommonLaptopsSectionHeader", "Laptops"));
@@ -2061,6 +2194,65 @@ TSharedRef<SWidget> SDesignerView::GetAspectMenu()
 	AddScreenResolutionSection(MenuBuilder, PlaySettings->TelevisionScreenResolutions, LOCTEXT("CommonTelevesionsSectionHeader", "Televisions"));
 
 	return MenuBuilder.MakeWidget();
+}
+
+TSharedRef<SWidget> SDesignerView::GetScreenSizingFillMenu()
+{
+	const ULevelEditorPlaySettings* PlaySettings = GetDefault<ULevelEditorPlaySettings>();
+	FMenuBuilder MenuBuilder(true, nullptr);
+
+	CreateScreenFillEntry(MenuBuilder, EDesignPreviewSizeMode::FillScreen);
+	CreateScreenFillEntry(MenuBuilder, EDesignPreviewSizeMode::Custom);
+	CreateScreenFillEntry(MenuBuilder, EDesignPreviewSizeMode::CustomOnScreen);
+	CreateScreenFillEntry(MenuBuilder, EDesignPreviewSizeMode::Desired);
+	CreateScreenFillEntry(MenuBuilder, EDesignPreviewSizeMode::DesiredOnScreen);
+
+	return MenuBuilder.MakeWidget();
+}
+
+void SDesignerView::CreateScreenFillEntry(FMenuBuilder& MenuBuilder, EDesignPreviewSizeMode SizeMode)
+{
+	const static UEnum* PreviewSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDesignPreviewSizeMode"), true);
+
+	// Add desired size option
+	FUIAction DesiredSizeAction(
+		FExecuteAction::CreateRaw(this, &SDesignerView::OnScreenFillRuleSelected, SizeMode),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateRaw(this, &SDesignerView::GetIsScreenFillRuleSelected, SizeMode));
+
+	FText EntryText = PreviewSizeEnum->GetEnumText((int32)SizeMode);
+	MenuBuilder.AddMenuEntry(EntryText, FText::GetEmpty(), FSlateIcon(), DesiredSizeAction, NAME_None, EUserInterfaceActionType::Check);
+}
+
+FText SDesignerView::GetScreenSizingFillText() const
+{
+	const static UEnum* PreviewSizeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDesignPreviewSizeMode"), true);
+
+	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
+	{
+		return PreviewSizeEnum->GetEnumText((int32)DefaultWidget->DesignSizeMode);
+	}
+
+	return FText::GetEmpty();
+}
+
+bool SDesignerView::GetIsScreenFillRuleSelected(EDesignPreviewSizeMode SizeMode) const
+{
+	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
+	{
+		return DefaultWidget->DesignSizeMode == SizeMode;
+	}
+
+	return false;
+}
+
+void SDesignerView::OnScreenFillRuleSelected(EDesignPreviewSizeMode SizeMode)
+{
+	if ( UUserWidget* DefaultWidget = GetDefaultWidget() )
+	{
+		DefaultWidget->DesignSizeMode = SizeMode;
+		MarkDesignModifed(/*bRequiresRecompile*/ false);
+	}
 }
 
 void SDesignerView::BeginTransaction(const FText& SessionName)

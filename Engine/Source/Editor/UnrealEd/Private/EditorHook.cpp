@@ -39,7 +39,7 @@ void UUnrealEdEngine::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 	}
 }
 
-void UUnrealEdEngine::UpdateFloatingPropertyWindows()
+void UUnrealEdEngine::UpdateFloatingPropertyWindows(bool bForceRefresh)
 {
 	TArray<UObject*> SelectedObjects;
 
@@ -80,13 +80,13 @@ void UUnrealEdEngine::UpdateFloatingPropertyWindows()
 		}
 	}
 
-	UpdateFloatingPropertyWindowsFromActorList( SelectedObjects );
+	UpdateFloatingPropertyWindowsFromActorList(SelectedObjects, bForceRefresh);
 }
 
 
-void UUnrealEdEngine::UpdateFloatingPropertyWindowsFromActorList( const TArray< UObject *>& ActorList )
+void UUnrealEdEngine::UpdateFloatingPropertyWindowsFromActorList(const TArray< UObject *>& ActorList, bool bForceRefresh)
 {
 	FLevelEditorModule& LevelEditor = FModuleManager::LoadModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 
-	LevelEditor.BroadcastActorSelectionChanged( ActorList );
+	LevelEditor.BroadcastActorSelectionChanged(ActorList, bForceRefresh);
 }

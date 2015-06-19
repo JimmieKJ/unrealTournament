@@ -74,11 +74,7 @@ void FKCHandler_VariableSet::InnerAssignment(FKismetFunctionContext& Context, UE
 
 	if ((VariableTerm != NULL) && (ValueTerm != NULL))
 	{
-		FBlueprintCompiledStatement& Statement = Context.AppendStatementForNode(Node);
-
-		Statement.Type = KCST_Assignment;
-		Statement.LHS = *VariableTerm;
-		Statement.RHS.Add(*ValueTerm);
+		FKismetCompilerUtilities::CreateObjectAssignmentStatement(Context, Node, *ValueTerm, *VariableTerm);
 
 		if (!(*VariableTerm)->IsTermWritable())
 		{
@@ -114,7 +110,7 @@ void FKCHandler_VariableSet::InnerAssignment(FKismetFunctionContext& Context, UE
 	}
 }
 
-void FKCHandler_VariableSet::Compile(FKismetFunctionContext& Context, UEdGraphNode* Node)
+void FKCHandler_VariableSet::GenerateAssigments(FKismetFunctionContext& Context, UEdGraphNode* Node)
 {
 	// SubCategory is an object type or "" for the stack frame, default scope is Self
 	// Each input pin is the name of a variable
@@ -136,6 +132,11 @@ void FKCHandler_VariableSet::Compile(FKismetFunctionContext& Context, UEdGraphNo
 			CompilerContext.MessageLog.Error(*FString::Printf(*LOCTEXT("ExpectedOnlyInputPins_Error", "Expected only input pins on @@ but found @@").ToString()), Node, Pin);
 		}
 	}
+}
+
+void FKCHandler_VariableSet::Compile(FKismetFunctionContext& Context, UEdGraphNode* Node)
+{
+	GenerateAssigments(Context, Node);
 
 	// Generate the output impulse from this node
 	GenerateSimpleThenGoto(Context, *Node);

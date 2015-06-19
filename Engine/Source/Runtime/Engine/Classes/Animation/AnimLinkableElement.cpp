@@ -147,7 +147,7 @@ void FAnimLinkableElement::OnChanged(float NewMontageTime)
 
 		SetTime(NewMontageTime);
 	}
-	else if(!(LinkedSequence && !LinkedMontage))
+	else if(!LinkedSequence)
 	{
 		// We have no segment to link to, we need to clear our the segment data
 		// and give ourselves an absolute time

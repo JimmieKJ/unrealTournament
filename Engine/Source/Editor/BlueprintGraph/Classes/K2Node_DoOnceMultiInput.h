@@ -13,7 +13,6 @@ class UK2Node_DoOnceMultiInput : public UK2Node
 	UPROPERTY()
 	int32 NumAdditionalInputs;
 
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 
 	/** Reference to the integer that contains */
@@ -28,7 +27,7 @@ private:
 	const static int32 NumBaseInputs = 1;
 
 	static int32 GetMaxInputPinsNum();
-	static FString GetNameForPin(int32 PinIndex, bool In);
+	static FText GetNameForPin(int32 PinIndex, bool In);
 
 	FEdGraphPinType GetInType() const;
 	FEdGraphPinType GetOutType() const;

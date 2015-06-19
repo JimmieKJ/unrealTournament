@@ -6,8 +6,8 @@
 
 #include "UTAIAction_WaitForLanding.generated.h"
 
-UCLASS(MinimalAPI, CustomConstructor)
-class UUTAIAction_WaitForLanding : public UUTAIAction
+UCLASS(CustomConstructor)
+class UNREALTOURNAMENT_API UUTAIAction_WaitForLanding : public UUTAIAction
 {
 	GENERATED_UCLASS_BODY()
 

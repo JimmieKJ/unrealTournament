@@ -5,7 +5,7 @@
 #include "UTDmgType_Drown.generated.h"
 
 UCLASS(CustomConstructor)
-class UUTDmgType_Drown : public UUTDamageType
+class UNREALTOURNAMENT_API UUTDmgType_Drown : public UUTDamageType
 {
 	GENERATED_UCLASS_BODY()
 

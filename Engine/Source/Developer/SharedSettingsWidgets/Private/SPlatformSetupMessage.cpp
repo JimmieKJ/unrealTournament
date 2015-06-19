@@ -117,10 +117,9 @@ void SPlatformSetupMessage::Construct(const FArguments& InArgs, const FString& I
 	UpdateCache(true);
 }
 
-void SPlatformSetupMessage::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SPlatformSetupMessage::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	UpdateCache(false);
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 int32 SPlatformSetupMessage::GetSetupStateAsInt() const

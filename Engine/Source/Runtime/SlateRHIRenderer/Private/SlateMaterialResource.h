@@ -11,8 +11,8 @@ public:
 	FSlateMaterialResource(UMaterialInterface& InMaterialResource, const FVector2D& InImageSize);
 	~FSlateMaterialResource();
 
-	virtual uint32 GetWidth() const { return Width; }
-	virtual uint32 GetHeight() const { return Height; }
+	virtual uint32 GetWidth() const override { return Width; }
+	virtual uint32 GetHeight() const override { return Height; }
 	virtual ESlateShaderResource::Type GetType() const override { return ESlateShaderResource::Material; }
 
 	void UpdateMaterial(UMaterialInterface& InMaterialResource, const FVector2D& InImageSize);

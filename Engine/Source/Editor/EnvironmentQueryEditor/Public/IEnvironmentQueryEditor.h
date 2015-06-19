@@ -12,8 +12,7 @@ class IEnvironmentQueryEditor : public FAssetEditorToolkit
 
 public:
 
-	// ...
-
+	virtual uint32 GetSelectedNodesCount() const = 0;
 };
 
 

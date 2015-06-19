@@ -64,8 +64,7 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 	TSharedPtr<SVerticalBox> MainBox;
 	TSharedPtr<SUniformGridPanel> ButtonRow;
 
-	// NOTE: leaks at the moment because Slate corrupts memory if you delete brushes
-	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), FName(TEXT("LevelScreenshot")));
+	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), NAME_None);
 
 	ChildSlot
 	.VAlign(VAlign_Fill)
@@ -160,7 +159,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 								[
 									SAssignNew(SelectedGameName, STextBlock)
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-									.Text(InitialSelectedGameClass.GetDefaultObject()->DisplayName.ToString())
+									.Text(InitialSelectedGameClass.GetDefaultObject()->DisplayName)
 									.MinDesiredWidth(200.0f)
 								]
 							]
@@ -203,7 +202,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 									SAssignNew(SelectedMap, STextBlock)
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 									.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-									.Text(NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available").ToString())
+									.Text(NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"))
 									.MinDesiredWidth(200.0f)
 								]
 							]
@@ -328,143 +327,146 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 
 TSharedRef<SWidget> SUWCreateGamePanel::AddMutatorMenu()
 {
-	if (GWorld->GetNetMode() != NM_Client)
-	{
-		return SNew(SBox)
-				.WidthOverride(700)
+	return SNew(SBox)
+		.WidthOverride(700)
+		[
+
+			SNew(SVerticalBox)
+			// Heading
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(FMargin(0, 0, 0, 20))
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
+				.Text(NSLOCTEXT("SUWCreateGamePanel", "Mutators", "Mutators:"))
+			]
+
+			// Mutator enabler
+			+ SVerticalBox::Slot()
+			[
+				SAssignNew(MutatorGrid, SGridPanel)
+				// All mutators
+				+ SGridPanel::Slot(0, 0)
 				[
-
-					SNew(SVerticalBox)
-					// Heading
-					+ SVerticalBox::Slot()
-					.AutoHeight()
-					.Padding(FMargin(0, 0, 0, 20))
+					SNew(SBorder)
 					[
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
-						.Text(NSLOCTEXT("SUWCreateGamePanel", "Mutators", "Mutators:"))
+						SNew(SBorder)
+						.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Dark"))
+						.Padding(FMargin(5))
+						[
+							SAssignNew( AvailableMutators, SListView<UClass*> )
+							.SelectionMode( ESelectionMode::Single )
+							.ListItemsSource( &MutatorListAvailable )
+							.OnGenerateRow( this, &SUWCreateGamePanel::GenerateMutatorListRow )
+						]
 					]
-
-					// Mutator enabler
-					+ SVerticalBox::Slot()
+				]
+				// Mutator switch buttons
+				+ SGridPanel::Slot(1, 0)
+				[
+					SNew(SBox)
+					.VAlign(VAlign_Center)
+					.Padding(FMargin(10, 0, 10, 0))
 					[
-						SAssignNew(MutatorGrid, SGridPanel)
-						// All mutators
-						+ SGridPanel::Slot(0, 0)
-						[
-							SNew(SBorder)
-							[
-								SNew(SBorder)
-								.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Dark"))
-								.Padding(FMargin(5))
-								[
-									SAssignNew( AvailableMutators, SListView<UClass*> )
-									.SelectionMode( ESelectionMode::Single )
-									.ListItemsSource( &MutatorListAvailable )
-									.OnGenerateRow( this, &SUWCreateGamePanel::GenerateMutatorListRow )
-								]
-							]
-						]
-						// Mutator switch buttons
-						+ SGridPanel::Slot(1, 0)
-						[
-							SNew(SBox)
-							.VAlign(VAlign_Center)
-							.Padding(FMargin(10, 0, 10, 0))
-							[
-								SNew(SVerticalBox)
-								// Add button
-								+ SVerticalBox::Slot()
-								.AutoHeight()
-								.Padding(FMargin(0, 0, 0, 10))
-								[
-									SNew(SButton)
-									.HAlign(HAlign_Left)
-									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-									.OnClicked(this, &SUWCreateGamePanel::AddMutator)
-									[
-										SNew(STextBlock)
-										.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
-										.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorAdd", "-->").ToString())
-									]
-								]
-								// Remove Button
-								+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									SNew(SButton)
-									.HAlign(HAlign_Left)
-									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-									.OnClicked(this, &SUWCreateGamePanel::RemoveMutator)
-									[
-										SNew(STextBlock)
-										.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
-										.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorRemove", "<--").ToString())
-									]
-								]
-							]
-						]
-						// Enabled mutators
-						+ SGridPanel::Slot(2, 0)
-						[
-							SNew(SBorder)
-							[
-								SNew(SBorder)
-								.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Dark"))
-								.Padding(FMargin(5))
-								[
-									SAssignNew(EnabledMutators, SListView<UClass*>)
-									.SelectionMode(ESelectionMode::Single)
-									.ListItemsSource(&MutatorListEnabled)
-									.OnGenerateRow(this, &SUWCreateGamePanel::GenerateMutatorListRow)
-								]
-							]
-						]
-						// Configure mutator button
-						+ SGridPanel::Slot(2, 1)
-						.Padding(FMargin(0, 5.0f, 0, 5.0f))
+						SNew(SVerticalBox)
+						// Add button
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(FMargin(0, 0, 0, 10))
 						[
 							SNew(SButton)
-							.HAlign(HAlign_Center)
+							.HAlign(HAlign_Left)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 							.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-							.OnClicked(this, &SUWCreateGamePanel::ConfigureMutator)
+							.OnClicked(this, &SUWCreateGamePanel::AddMutator)
 							[
 								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-								.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureMutator", "Configure Mutator").ToString())
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+								.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorAdd", "-->"))
+							]
+						]
+						// Remove Button
+						+ SVerticalBox::Slot()
+						.AutoHeight()
+						[
+							SNew(SButton)
+							.HAlign(HAlign_Left)
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+							.OnClicked(this, &SUWCreateGamePanel::RemoveMutator)
+							[
+								SNew(STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
+								.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorRemove", "<--"))
 							]
 						]
 					]
-				];
-	
-	}
-
-	return SNew(SCanvas);
+				]
+				// Enabled mutators
+				+ SGridPanel::Slot(2, 0)
+				[
+					SNew(SBorder)
+					[
+						SNew(SBorder)
+						.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Dark"))
+						.Padding(FMargin(5))
+						[
+							SAssignNew(EnabledMutators, SListView<UClass*>)
+							.SelectionMode(ESelectionMode::Single)
+							.ListItemsSource(&MutatorListEnabled)
+							.OnGenerateRow(this, &SUWCreateGamePanel::GenerateMutatorListRow)
+						]
+					]
+				]
+				// Configure mutator button
+				+ SGridPanel::Slot(2, 1)
+				.Padding(FMargin(0, 5.0f, 0, 5.0f))
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+					.OnClicked(this, &SUWCreateGamePanel::ConfigureMutator)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+						.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureMutator", "Configure Mutator"))
+					]
+				]
+			]
+		];
 }
 
 void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
+	if (NewSelection.IsValid())
+	{
+		SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
 
-	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(NewSelection.Get()->PackageName) : NULL;
-	if (Summary != NULL)
-	{
-		int32 OptimalPlayerCount = SelectedGameClass.GetDefaultObject()->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+		int32 OptimalPlayerCount = SelectedGameClass.GetDefaultObject()->bTeamGame ? NewSelection->OptimalTeamPlayerCount : NewSelection->OptimalPlayerCount;
 	
-		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(Summary->Author)));
+		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(NewSelection->Author)));
 		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0}"), FText::AsNumber(OptimalPlayerCount)));
-		MapDesc->SetText(Summary->Description);
-		*LevelScreenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
-	}
-	else
-	{
-		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(TEXT("Unknown"))));
-		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0}"), FText::AsNumber(10)));
-		MapDesc->SetText(FText());
-		*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+		MapDesc->SetText(NewSelection->Description);
+
+		if (NewSelection->Screenshot.IsEmpty())
+		{
+			*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+		}
+		else
+		{
+			LevelShot = LoadObject<UTexture2D>(nullptr, *NewSelection->Screenshot);
+			if (LevelShot)
+			{
+				*LevelScreenshot = FSlateDynamicImageBrush(LevelShot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			}
+			else
+			{
+				*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			}
+			
+		}
 	}
 }
 
@@ -475,7 +477,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName.ToString())
+			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName)
 		];
 }
 
@@ -486,7 +488,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FMapLis
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(InItem.Get()->GetDisplayName())
+			.Text(FText::FromString(InItem.Get()->GetDisplayName()))
 		];
 }
 
@@ -522,7 +524,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 					[
 						SNew(STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-						.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
+						.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo"))
 					]
 				]
 				+ SHorizontalBox::Slot()
@@ -572,7 +574,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 							SNew(STextBlock)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
 							.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-							.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots").ToString())
+							.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots"))
 						]
 					]
 				]
@@ -583,13 +585,15 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		SelectedGameName->SetText(SelectedGameClass.GetDefaultObject()->DisplayName.ToString());
 
 		// generate map list
-		const AUTGameMode* GameDefaults = SelectedGameClass.GetDefaultObject();
+		AUTGameMode* GameDefaults = SelectedGameClass.GetDefaultObject();
 		AllMaps.Empty();
 
 		AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
 		if (GameState)
 		{
-			GameState->GetAvailableMaps(GameDefaults, AllMaps);
+			TArray<FString> PrefixList;
+			PrefixList.Add(GameDefaults->GetMapPrefix());
+			GameState->GetAvailableMaps(PrefixList, AllMaps);
 		}
 
 		AllMaps.Sort([](const TSharedPtr<FMapListItem>& A, const TSharedPtr<FMapListItem>& B)
@@ -652,7 +656,7 @@ TSharedRef<ITableRow> SUWCreateGamePanel::GenerateMutatorListRow(UClass* Mutator
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
-			.Text(MutatorName)
+			.Text(FText::FromString(MutatorName))
 		]; 
 }
 
@@ -661,10 +665,28 @@ FReply SUWCreateGamePanel::AddMutator()
 	TArray<UClass*> Selection = AvailableMutators->GetSelectedItems();
 	if (Selection.Num() > 0 && Selection[0] != NULL)
 	{
-		MutatorListEnabled.Add(Selection[0]);
-		MutatorListAvailable.Remove(Selection[0]);
-		AvailableMutators->RequestListRefresh();
-		EnabledMutators->RequestListRefresh();
+		const AUTMutator* ConflictCDO = NULL;
+		const AUTMutator* NewMutatorCDO = Selection[0]->GetDefaultObject<AUTMutator>();
+		for (UClass* EnabledMut : MutatorListEnabled)
+		{
+			const AUTMutator* EnabledMutCDO = EnabledMut->GetDefaultObject<AUTMutator>();
+			if (EnabledMutCDO->GroupNames.ContainsByPredicate([&](const FName& TestName) { return NewMutatorCDO->GroupNames.Contains(TestName); }))
+			{
+				ConflictCDO = EnabledMutCDO;
+				break;
+			}
+		}
+		if (ConflictCDO != NULL)
+		{
+			GetPlayerOwner()->ShowMessage(NSLOCTEXT("SUWCreateGamePanel", "MutatorConflictTitle", "Mutator Conflict"), FText::Format(NSLOCTEXT("SUWCreateGamePanel", "MutatorConflictText", "The selected mutator conflicts with the already enabled mutator \"{0}\""), ConflictCDO->DisplayName), UTDIALOG_BUTTON_OK);
+		}
+		else
+		{
+			MutatorListEnabled.Add(Selection[0]);
+			MutatorListAvailable.Remove(Selection[0]);
+			AvailableMutators->RequestListRefresh();
+			EnabledMutators->RequestListRefresh();
+		}
 	}
 	return FReply::Handled();
 }
@@ -682,7 +704,7 @@ FReply SUWCreateGamePanel::RemoveMutator()
 }
 FReply SUWCreateGamePanel::ConfigureMutator()
 {
-	if (!MutatorConfigMenu.IsValid() || MutatorConfigMenu->IsInViewport())
+	if (!MutatorConfigMenu.IsValid() || !MutatorConfigMenu->IsInViewport())
 	{
 		TArray<UClass*> Selection = EnabledMutators->GetSelectedItems();
 		if (Selection.Num() > 0 && Selection[0] != NULL)
@@ -708,7 +730,7 @@ FReply SUWCreateGamePanel::ConfigureBots()
 	return FReply::Handled();
 }
 
-void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel)
+void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel)
 {
 	StartingMap = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
 	AUTGameMode* DefaultGameMode = SelectedGameClass->GetDefaultObject<AUTGameMode>();
@@ -721,23 +743,7 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& Start
 
 		GameMode = SelectedGameClass->GetPathName();
 
-		TArray<FString> LastMutators;
-		if (MutatorListEnabled.Num() > 0)
-		{
-			FString MutatorOption = TEXT("");
-			LastMutators.Add(MutatorListEnabled[0]->GetPathName());
-
-			MutatorOption += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
-			for (int32 i = 1; i < MutatorListEnabled.Num(); i++)
-			{
-				MutatorOption += TEXT(",") + MutatorListEnabled[i]->GetPathName();
-				LastMutators.Add(MutatorListEnabled[i]->GetPathName());
-			}
-
-			GameOptions.Add(MutatorOption);
-		}
-
-		GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
+		Description = FString::Printf(TEXT("A custom %s match!\nJoin at your own risk!\n"), *DefaultGameMode->DisplayName.ToString());			
 
 		DefaultGameMode->GetGameURLOptions(GameOptions, DesiredPlayerCount);
 
@@ -752,8 +758,50 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& Start
 			DefaultGameMode->BotFillCount = 0;
 		}
 
+		for (int32 i = 0; i < GameOptions.Num(); i++)
+		{
+			Description += FString::Printf(TEXT("\n%s"), *GameOptions[i]);
+		}
+
+		TArray<FString> LastMutators;
+		if (MutatorListEnabled.Num() > 0)
+		{
+			FString MutatorOption = TEXT("");
+			LastMutators.Add(MutatorListEnabled[0]->GetPathName());
+
+			MutatorOption += FString::Printf(TEXT("?mutator=%s"), *MutatorListEnabled[0]->GetPathName());
+			GetCustomMutatorOptions(MutatorListEnabled[0], Description, GameOptions);
+
+			for (int32 i = 1; i < MutatorListEnabled.Num(); i++)
+			{
+				MutatorOption += TEXT(",") + MutatorListEnabled[i]->GetPathName();
+				GetCustomMutatorOptions(MutatorListEnabled[i], Description, GameOptions);
+				LastMutators.Add(MutatorListEnabled[i]->GetPathName());
+			}
+
+			GameOptions.Add(MutatorOption);
+		}
+
+		GConfig->SetArray(TEXT("CreateGameDialog"), TEXT("LastMutators"), LastMutators, GGameIni);
 		DefaultGameMode->SaveConfig();
+
+		Description = Description.Replace(TEXT("="),TEXT(" = "));
 	}
+}
+
+void SUWCreateGamePanel::GetCustomMutatorOptions(UClass* MutatorClass, FString& Description, TArray<FString>&GameOptions)
+{
+	AUTMutator* DefaultMutator = MutatorClass->GetDefaultObject<AUTMutator>();
+	if (DefaultMutator)
+	{
+		Description += FString::Printf(TEXT("\nMutator=%s"), *DefaultMutator->DisplayName.ToString());
+		DefaultMutator->GetGameURLOptions(GameOptions);
+	}
+}
+
+bool SUWCreateGamePanel::IsReadyToPlay()
+{
+	return SelectedGameClass != nullptr && MapList->GetSelectedItem().IsValid();
 }
 
 #endif

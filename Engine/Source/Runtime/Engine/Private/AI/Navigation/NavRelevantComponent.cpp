@@ -6,13 +6,14 @@
 UNavRelevantComponent::UNavRelevantComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	bNavigationRelevant = true;
+	bAttachToOwnersRoot = true;
 }
 
 void UNavRelevantComponent::OnRegister()
 {
 	Super::OnRegister();
 
-	CalcBounds();
+	CalcAndCacheBounds();
 
 	UNavigationSystem::OnComponentRegistered(this);
 }
@@ -36,15 +37,42 @@ bool UNavRelevantComponent::IsNavigationRelevant() const
 
 void UNavRelevantComponent::UpdateNavigationBounds()
 {
-	CalcBounds();
+	CalcAndCacheBounds();
+}
+
+UObject* UNavRelevantComponent::GetNavigationParent() const
+{
+	if (bAttachToOwnersRoot)
+	{
+		AActor* OwnerActor = GetOwner();
+		return OwnerActor && OwnerActor->GetRootComponent() ? static_cast<UObject*>(OwnerActor->GetRootComponent()) : static_cast<UObject*>(OwnerActor);
+	}
+
+	return nullptr;
 }
 
 void UNavRelevantComponent::CalcBounds()
 {
-	AActor* OwnerActor = GetOwner();
+	CalcAndCacheBounds();
+}
+
+void UNavRelevantComponent::CalcAndCacheBounds() const
+{
+	const AActor* OwnerActor = GetOwner();
 	const FVector MyLocation = OwnerActor ? OwnerActor->GetActorLocation() : FVector::ZeroVector;
 
 	Bounds = FBox::BuildAABB(MyLocation, FVector(100.0f, 100.0f, 100.0f));
+}
+
+void UNavRelevantComponent::ForceNavigationRelevancy(bool bForce)
+{
+	bAttachToOwnersRoot = !bForce;
+	if (bForce)
+	{
+		bNavigationRelevant = true;
+	}
+
+	RefreshNavigationModifiers();
 }
 
 void UNavRelevantComponent::SetNavigationRelevancy(bool bRelevant)

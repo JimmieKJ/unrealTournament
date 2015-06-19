@@ -302,7 +302,7 @@ void FColorVertexBuffer::GetVertexColors( TArray<FColor>& OutColors )
 {
 	if( VertexData != NULL && NumVertices > 0 )
 	{
-		OutColors.Init( NumVertices );
+		OutColors.SetNumUninitialized( NumVertices );
 
 		FMemory::Memcpy( OutColors.GetData(), VertexData->GetDataPointer(), NumVertices * VertexData->GetStride() ) ;
 	}

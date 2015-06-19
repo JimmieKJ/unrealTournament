@@ -27,11 +27,6 @@ void UEnvQueryTest_Random::RunTest(FEnvQueryInstance& QueryInstance) const
 	}
 }
 
-FString UEnvQueryTest_Random::GetDescriptionTitle() const
-{
-	return Super::GetDescriptionTitle();
-}
-
 FText UEnvQueryTest_Random::GetDescriptionDetails() const
 {
 	return DescribeFloatTestParams();

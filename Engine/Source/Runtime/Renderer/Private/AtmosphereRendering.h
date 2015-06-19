@@ -24,7 +24,7 @@ namespace EAtmosphereRenderFlag
 }
 
 /** The properties of a atmospheric fog layer which are used for rendering. */
-class FAtmosphericFogSceneInfo
+class FAtmosphericFogSceneInfo : public FRenderResource
 {
 public:
 	/** The fog component the scene info is for. */
@@ -44,16 +44,22 @@ public:
 	FVector DefaultSunDirection;
 	uint32 RenderFlag;
 	uint32 InscatterAltitudeSampleNum;
+	class FAtmosphereTextureResource* TransmittanceResource;
+	class FAtmosphereTextureResource* IrradianceResource;
+	class FAtmosphereTextureResource* InscatterResource;
+
 
 #if WITH_EDITORONLY_DATA
 	/** Atmosphere pre-computation related data */
 	bool bNeedRecompute;
+	bool bPrecomputationStarted;
+	bool bPrecomputationFinished;
+	bool bPrecomputationAcceptedByGameThread;
 	int32 MaxScatteringOrder;
 	int32 AtmospherePhase;
 	int32 Atmosphere3DTextureIndex;
 	int32 AtmoshpereOrder;
 	class FAtmosphereTextures* AtmosphereTextures;
-	class FThreadSafeCounter& PrecomputeCounter;
 	FByteBulkData PrecomputeTransmittance;
 	FByteBulkData PrecomputeIrradiance;
 	FByteBulkData PrecomputeInscatter;

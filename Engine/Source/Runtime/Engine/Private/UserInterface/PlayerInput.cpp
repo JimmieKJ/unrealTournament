@@ -8,8 +8,6 @@
 #include "GameFramework/PlayerInput.h"
 #include "GameFramework/InputSettings.h"
 
-DEFINE_LOG_CATEGORY(LogInput);
-
 bool bExecutingBindCommand = false;
 
 /** for debug rendering */
@@ -66,8 +64,8 @@ struct FDelegateDispatchDetails
 	{}
 };
 
-UPlayerInput::UPlayerInput(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+UPlayerInput::UPlayerInput()
+	: Super()
 {
 	SetFlags(RF_Transactional);
 	MouseSamplingTotal = +0.0083f;
@@ -169,8 +167,7 @@ bool UPlayerInput::InputKey( FKey Key, EInputEvent Event, float AmountDepressed,
 	const FString Command = GetBind(Key);
 	if(Command.Len())
 	{
-		ExecInputCommands(World, *Command,*GLog);
-		return true;
+		return ExecInputCommands(World, *Command,*GLog);
 	}
 #endif
 
@@ -299,35 +296,57 @@ bool UPlayerInput::InputGesture(const FKey Gesture, const EInputEvent Event, con
 	return true;
 }
 
-float UPlayerInput::GetMouseSensitivity()
+bool UPlayerInput::GetAxisProperties(const FKey AxisKey, FInputAxisProperties& OutAxisProperties)
 {
 	ConditionalInitAxisProperties();
 
-	const FInputAxisProperties* const XAxisProps = AxisProperties.Find(EKeys::MouseX);
-	if (XAxisProps)
+	const FInputAxisProperties* const AxisProps = AxisProperties.Find(AxisKey);
+	if (AxisProps)
 	{
-		return XAxisProps->Sensitivity;
+		OutAxisProperties = *AxisProps;
+		return true;
 	}
-	const FInputAxisProperties* const YAxisProps = AxisProperties.Find(EKeys::MouseY);
-	if (YAxisProps)
+
+	return false;
+}
+
+void UPlayerInput::SetAxisProperties(const FKey AxisKey, const FInputAxisProperties& InAxisProperties)
+{
+	for (FInputAxisConfigEntry& AxisConfigEntry : AxisConfig)
 	{
-		return YAxisProps->Sensitivity;
+		if (AxisConfigEntry.AxisKeyName == AxisKey)
+		{
+			AxisConfigEntry.AxisProperties = InAxisProperties;
+		}
 	}
-	return 1.0f;
+
+	AxisProperties.Empty(AxisProperties.Num());
+}
+
+float UPlayerInput::GetMouseSensitivity()
+{
+	FInputAxisProperties MouseAxisProps;
+	if (GetAxisProperties(EKeys::MouseX, MouseAxisProps) || GetAxisProperties(EKeys::MouseY, MouseAxisProps))
+	{
+		return MouseAxisProps.Sensitivity;
+	}
+
+	return 1.f;
 }
 
 void UPlayerInput::SetMouseSensitivity(const float Sensitivity)
 {
-	for (FInputAxisConfigEntry& AxisConfigEntry : AxisConfig)
+	FInputAxisProperties MouseAxisProps;
+	if (GetAxisProperties(EKeys::MouseX, MouseAxisProps))
 	{
-		const FKey AxisKey = AxisConfigEntry.AxisKeyName;
-		if (AxisKey == EKeys::MouseX || AxisKey == EKeys::MouseY)
-		{
-			AxisConfigEntry.AxisProperties.Sensitivity = Sensitivity;
-		}
+		MouseAxisProps.Sensitivity = Sensitivity;
+		SetAxisProperties(EKeys::MouseX, MouseAxisProps);
 	}
-
-	AxisProperties.Empty();
+	if (GetAxisProperties(EKeys::MouseY, MouseAxisProps))
+	{
+		MouseAxisProps.Sensitivity = Sensitivity;
+		SetAxisProperties(EKeys::MouseY, MouseAxisProps);
+	}
 }
 
 void UPlayerInput::SetMouseSensitivityToDefault()
@@ -338,7 +357,9 @@ void UPlayerInput::SetMouseSensitivityToDefault()
 		const FKey AxisKey = AxisConfigEntry.AxisKeyName;
 		if (AxisKey == EKeys::MouseX)
 		{
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			SetMouseSensitivity(AxisConfigEntry.AxisProperties.Sensitivity);
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			break;
 		}
 	}
@@ -449,7 +470,7 @@ struct FAxisDelegate
 void UPlayerInput::AddActionMapping(const FInputActionKeyMapping& KeyMapping)
 {
 	ActionMappings.AddUnique(KeyMapping);
-	ActionKeyMap.Empty();
+	ActionKeyMap.Empty(ActionKeyMap.Num());
 }
 
 void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
@@ -459,7 +480,7 @@ void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
 		if (ActionMappings[ActionIndex] == KeyMapping)
 		{
 			ActionMappings.RemoveAtSwap(ActionIndex);
-			ActionKeyMap.Empty();
+			ActionKeyMap.Empty(ActionKeyMap.Num());
 			// we don't break because the mapping may have been in the array twice
 		}
 	}
@@ -468,7 +489,7 @@ void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
 void UPlayerInput::AddAxisMapping(const FInputAxisKeyMapping& KeyMapping)
 {
 	AxisMappings.AddUnique(KeyMapping);
-	AxisKeyMap.Empty();
+	AxisKeyMap.Empty(AxisKeyMap.Num());
 }
 
 void UPlayerInput::RemoveAxisMapping(const FInputAxisKeyMapping& InKeyMapping)
@@ -480,7 +501,7 @@ void UPlayerInput::RemoveAxisMapping(const FInputAxisKeyMapping& InKeyMapping)
 			&& KeyMapping.Key == InKeyMapping.Key)
 		{
 			AxisMappings.RemoveAtSwap(AxisIndex);
-			AxisKeyMap.Empty();
+			AxisKeyMap.Empty(AxisKeyMap.Num());
 			// we don't break because the mapping may have been in the array twice
 		}
 	}
@@ -491,7 +512,7 @@ void UPlayerInput::AddEngineDefinedActionMapping(const FInputActionKeyMapping& A
 	EngineDefinedActionMappings.AddUnique(ActionMapping);
 	for (TObjectIterator<UPlayerInput> It; It; ++It)
 	{
-		It->ActionKeyMap.Empty();
+		It->ActionKeyMap.Empty(It->ActionKeyMap.Num());
 	}
 }
 
@@ -500,7 +521,7 @@ void UPlayerInput::AddEngineDefinedAxisMapping(const FInputAxisKeyMapping& AxisM
 	EngineDefinedAxisMappings.AddUnique(AxisMapping);
 	for (TObjectIterator<UPlayerInput> It; It; ++It)
 	{
-		It->AxisKeyMap.Empty();
+		It->AxisKeyMap.Empty(It->AxisKeyMap.Num());
 	}
 }
 
@@ -513,9 +534,9 @@ void UPlayerInput::ForceRebuildingKeyMaps(const bool bRestoreDefaults)
 		ActionMappings = GetDefault<UInputSettings>()->ActionMappings;
 	}
 
-	ActionKeyMap.Empty();
-	AxisKeyMap.Empty();
-	AxisProperties.Empty();
+	ActionKeyMap.Empty(ActionKeyMap.Num());
+	AxisKeyMap.Empty(AxisKeyMap.Num());
+	AxisProperties.Empty(AxisProperties.Num());
 }
 
 void UPlayerInput::ConditionalBuildKeyMappings()
@@ -780,8 +801,7 @@ void UPlayerInput::ProcessInputStack(const TArray<UInputComponent*>& InputCompon
 
 		for (uint8 EventIndex = 0; EventIndex < IE_MAX; ++EventIndex)
 		{
-			KeyState->EventCounts[EventIndex] = KeyState->EventAccumulator[EventIndex];
-			KeyState->EventAccumulator[EventIndex].Empty();
+			KeyState->EventCounts[EventIndex] = MoveTemp(KeyState->EventAccumulator[EventIndex]);
 		}
 
 		if ( (KeyState->SampleCountAccumulator > 0) || (Key == EKeys::MouseX) || (Key == EKeys::MouseY) )
@@ -1203,7 +1223,7 @@ void UPlayerInput::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& 
 	{
 		Canvas->SetDrawColor(255,0,0);
 		UFont* RenderFont = GEngine->GetSmallFont();
-		Canvas->DrawText(RenderFont, FString::Printf(TEXT("INPUT %s"), *GetName()), 4.0f, YPos );
+		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("INPUT %s"), *GetName()), 4.0f, YPos );
 		YPos += YL;
 
 		UWorld* World = GetWorld();
@@ -1224,12 +1244,12 @@ void UPlayerInput::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& 
 					Str += FString::Printf(TEXT(" time: %.2f"), WorldRealTimeSeconds - KeyState->LastUpDownTransitionTime);
 				}
 				Canvas->SetDrawColor(180,255,180);
-				Canvas->DrawText(RenderFont, Str,4.0f, YPos);
+				YL = Canvas->DrawText(RenderFont, Str,4.0f, YPos);
 			}
 			else
 			{
 				Canvas->SetDrawColor(180,180,180);
-				Canvas->DrawText(RenderFont, Str,4.0f, YPos);
+				YL = Canvas->DrawText(RenderFont, Str,4.0f, YPos);
 			}
 			YPos += YL;
 		}
@@ -1237,11 +1257,11 @@ void UPlayerInput::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& 
 		float const DetectedMouseSampleHz = MouseSamples / MouseSamplingTotal;
 
 		Canvas->SetDrawColor(FColor::White);
-		Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseSampleRate: %.2f"), DetectedMouseSampleHz),4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseSampleRate: %.2f"), DetectedMouseSampleHz),4.0f, YPos);
 		YPos += YL;
-		Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseX ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[0], SmoothedMouse[0]),4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseX ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[0], SmoothedMouse[0]),4.0f, YPos);
 		YPos += YL;
-		Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseY ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[1], SmoothedMouse[1]),4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("MouseY ZeroTime: %.2f, Smoothed: %.2f"), ZeroTime[1], SmoothedMouse[1]),4.0f, YPos);
 		YPos += YL;
 
 		if ( (ZeroTime[0] > 2.f && ZeroTime[1] > 2.f) && GetDefault<UInputSettings>()->bEnableMouseSmoothing )
@@ -1530,8 +1550,10 @@ const TArray<FInputActionKeyMapping>& UPlayerInput::GetKeysForAction(const FName
 }
 
 #if !UE_BUILD_SHIPPING
-void UPlayerInput::ExecInputCommands( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
+bool UPlayerInput::ExecInputCommands( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 {
+	bool bResult = false;
+
 	int32 CmdLen = FCString::Strlen(Cmd);
 	TCHAR* Line = (TCHAR*)FMemory::Malloc(sizeof(TCHAR)*(CmdLen+1));
 
@@ -1544,24 +1566,29 @@ void UPlayerInput::ExecInputCommands( UWorld* InWorld, const TCHAR* Cmd, FOutput
 			UPlayer* Player = Actor ? Actor->Player : NULL;
 			if(ProcessConsoleExec(Str,Ar,this))
 			{
+				bResult = true;
 				continue;
 			}
 			else if(Actor && Exec(Actor->GetWorld(), Str,Ar))
 			{
+				bResult = true;
 				continue;
 			}
 			else if(Player && Player->Exec( Actor->GetWorld(), Str,Ar))
 			{
+				bResult = true;
 				continue;
 			}
 		}
 		else
 		{
-			Exec(InWorld, Str,Ar);
+			bResult |= Exec(InWorld, Str,Ar);
 		}
 	}
 
 	FMemory::Free(Line);
+
+	return bResult;
 }
 
 bool UPlayerInput::Exec(UWorld* InWorld, const TCHAR* Str,FOutputDevice& Ar)
@@ -1595,9 +1622,9 @@ bool UPlayerInput::Exec(UWorld* InWorld, const TCHAR* Str,FOutputDevice& Ar)
 				if(DebugExecBindings[BindIndex].Key == Key)
 				{
 					bExecutingBindCommand = true;
-					ExecInputCommands(GetWorld(), *DebugExecBindings[BindIndex].Command,Ar);
+					bool bResult = ExecInputCommands(GetWorld(), *DebugExecBindings[BindIndex].Command,Ar);
 					bExecutingBindCommand = false;
-					return 1;
+					return bResult;
 				}
 			}
 		}

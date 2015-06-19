@@ -8,10 +8,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Web;
-
+using System.Web.UI.MobileControls;
 using Naspinski.IQueryableSearch;
 
 using Tools.CrashReporter.CrashReportCommon;
+using Tools.CrashReporter.CrashReportWebSite.Controllers;
+using System.Web.Mvc;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Models
 {
@@ -22,20 +24,23 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 	/// </summary>
 	public class CrashRepository : IDisposable
 	{
-		private CrashReportDataContext CrashRepositoryDataContext;
+		/// <summary>
+		/// Context
+		/// </summary>
+		public CrashReportDataContext Context;
 
 		/// <summary>
 		/// The default constructor.
 		/// </summary>
 		public CrashRepository()
 		{
-			CrashRepositoryDataContext = new CrashReportDataContext();
+			Context = new CrashReportDataContext();
 		}
 
 		/// <summary> Submits enqueue changes to the database. </summary>
 		public void SubmitChanges()
 		{
-			CrashRepositoryDataContext.SubmitChanges();
+			Context.SubmitChanges();
 		}
 
 		/// <summary>
@@ -53,39 +58,23 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <param name="Disposing">true if the Dispose call is from user code, and not system code.</param>
 		protected virtual void Dispose( bool Disposing )
 		{
-			CrashRepositoryDataContext.Dispose();
+			Context.Dispose();
 		}
 
 		/// <summary>
-		/// Return the list of users belonging to the user group.
+		/// Retrieves a list of distinct UE4 Branches from the CrashRepository
 		/// </summary>
-		/// <param name="UserGroupName">The user group name to interrogate.</param>
-		/// <returns>The list of users in the requested user group.</returns>
-		public List<string> GetUsersForGroup( string UserGroupName )
+		/// <returns></returns>
+		public static List<SelectListItem> GetBranches()
 		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(UserGroupName=" + UserGroupName + ")" ) )
-			{
-				List<string> Users = new List<string>();
-				try
-				{
-					int UserGroupId = FindOrAddUserGroup( UserGroupName );
-					Users =
-					(
-						from UserDetail in CrashRepositoryDataContext.Users
-						where UserDetail.UserGroupId == UserGroupId
-						orderby UserDetail.UserName
-						select UserDetail.UserName
-					).ToList();
-				}
-				catch( Exception Ex )
-				{
-					Debug.WriteLine( "Exception in GetUsersForGroup: " + Ex.ToString() );
-				}
+			CrashReportDataContext Context = new CrashReportDataContext();
 
-				return Users;
-			}
+			var lm = Context.Crashes.Where( n => n.Branch.Contains( "UE4" ) ).Select( n => n.Branch ).Distinct().ToList();
+			var list = lm.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } ).ToList();
+			list.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
+			return list;
 		}
-
+		
 		/// <summary>
 		/// Gets the crash from an id.
 		/// </summary>
@@ -99,7 +88,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				{
 					IQueryable<Crash> Crashes =
 					(
-						from CrashDetail in CrashRepositoryDataContext.Crashes
+						from CrashDetail in Context.Crashes
 						where CrashDetail.Id == Id
 						select CrashDetail
 					);
@@ -115,68 +104,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 
-		/// <summary>
-		/// Sets the status for all crashes in a Bugg.
-		/// </summary>
-		/// <param name="Status">The new status of all crashes.</param>
-		/// <param name="BuggId">The id of the Bugg to update the crashes for.</param>
-		public void SetBuggStatus( string Status, int BuggId )
-		{
-			try
-			{
-				string Query = "UPDATE Crashes SET Status = {0} WHERE Id IN ( SELECT CrashId FROM Buggs_Crashes WHERE BuggId = {1} )";
-				CrashRepositoryDataContext.ExecuteCommand( Query, Status, BuggId );
-
-				Query = "UPDATE Buggs SET Status = {0} WHERE id = {1}";
-				CrashRepositoryDataContext.ExecuteCommand( Query, Status, BuggId );
-			}
-			catch( Exception Ex )
-			{
-				Debug.WriteLine( "Exception in SetBuggStatus: " + Ex.ToString() );
-			}
-		}
-
-		/// <summary>
-		/// Sets the fixed in changelist for all crashes in a Bugg.
-		/// </summary>
-		/// <param name="FixedChangeList">A string representing a revision.</param>
-		/// <param name="BuggId">The id of the Bugg to update the crashes for.</param>
-		public void SetBuggFixedChangeList( string FixedChangeList, int BuggId )
-		{
-			try
-			{
-				string Query = "UPDATE Crashes SET FixedChangeList = {0} WHERE Id IN ( SELECT CrashId FROM Buggs_Crashes WHERE BuggId = {1} )";
-				CrashRepositoryDataContext.ExecuteCommand( Query, FixedChangeList, BuggId );
-
-				Query = "UPDATE Buggs SET FixedChangeList = {0} WHERE id = {1}";
-				CrashRepositoryDataContext.ExecuteCommand( Query, FixedChangeList, BuggId );
-			}
-			catch( Exception Ex )
-			{
-				Debug.WriteLine( "Exception in SetBuggFixedChangeList: " + Ex.ToString() );
-			}
-		}
-
-		/// <summary>
-		/// Sets the TTPID for all crashes in a Bugg.
-		/// </summary>
-		/// <param name="TTPID">A string representing a TTP.</param>
-		/// <param name="BuggId">The id of the Bugg to update the crashes for.</param>
-		public void SetBuggTTPID( string TTPID, int BuggId )
-		{
-			try
-			{
-				string Query = "UPDATE Crashes SET TTPID = {0} WHERE Id IN ( SELECT CrashId FROM Buggs_Crashes WHERE BuggId = {1} )";
-				CrashRepositoryDataContext.ExecuteCommand( Query, TTPID, BuggId );
-
-				Query = "UPDATE Buggs SET TTPID = {0} WHERE id = {1}";
-				CrashRepositoryDataContext.ExecuteCommand( Query, TTPID, BuggId );
-			}
-			catch( Exception Ex )
-			{
-				Debug.WriteLine( "Exception in SetBuggTTPID: " + Ex.ToString() );
-			}
-		}
 
 		/// <summary>
 		/// Sets the UserName and UserGroupName as derived data for a crash.
@@ -189,13 +116,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				try
 				{
 					int UserGroupId = CrashInstance.User.UserGroupId;
-					var Result = CrashRepositoryDataContext.UserGroups.Where( i => i.Id == UserGroupId ).First();
+					var Result = Context.UserGroups.Where( i => i.Id == UserGroupId ).First();
 					CrashInstance.UserGroupName = Result.Name;
-
 				}
 				catch( Exception Ex )
 				{
-					Debug.WriteLine( "Exception in PopulateUserInfo: " + Ex.ToString() );
+					FLogger.Global.WriteException( "PopulateUserInfo: " + Ex.ToString() );
 				}
 			}
 		}
@@ -206,44 +132,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <returns>A container of all known crashes.</returns>
 		public IQueryable<Crash> ListAll()
 		{
-			IQueryable<Crash> Crashes = null;
-			try
-			{
-				Crashes = CrashRepositoryDataContext.Crashes.OrderByDescending( CrashDetail => CrashDetail.TimeOfCrash );
-			}
-			catch( Exception Ex )
-			{
-				Debug.WriteLine( "Exception in ListAll: " + Ex.ToString() );
-			}
-
-			return Crashes;
-		}
-
-		/// <summary>
-		/// Select a slice of crashes from the filtered set.
-		/// </summary>
-		/// <param name="Skip">The number of crashes to skip over.</param>
-		/// <param name="Take">The number of crashes to return.</param>
-		/// <returns>A container with a subset of crashes.</returns>
-		public IQueryable<Crash> List( int Skip, int Take )
-		{
-			IQueryable<Crash> Crashes = null;
-			try
-			{
-				Crashes =
-				(
-					from CrashDetail in CrashRepositoryDataContext.Crashes
-					select CrashDetail
-				).OrderByDescending( CrashDetail => CrashDetail.TimeOfCrash )
-				.Skip( Skip )
-				.Take( Take );
-			}
-			catch( Exception Ex )
-			{
-				Debug.WriteLine( "Exception in List: " + Ex.ToString() );
-			}
-
-			return Crashes;
+			return Context.Crashes.AsQueryable().Where( c => c.Branch != null );
 		}
 
 		/// <summary>
@@ -252,24 +141,39 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <param name="Results">The initial set of results.</param>
 		/// <param name="Query">The query to apply.</param>
 		/// <returns>A set of results filtered by the query.</returns>
-		public IQueryable<Crash> Search( IQueryable<Crash> Results, string Query )
-		{using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(Query=" + Query + ")" ) )
+		public IEnumerable<Crash> Search( IEnumerable<Crash> Results, string Query )
+		{
+			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(Query=" + Query + ")" ) )
 			{
-				IQueryable<Crash> Crashes = null;
+				IEnumerable<Crash> Crashes = null;
+				var IntermediateQueryable = Results.AsQueryable();
 				try
 				{
 					string[] Terms = Query.Split( "-, ;+".ToCharArray(), StringSplitOptions.RemoveEmptyEntries );
-					string TermsToUse = "";
+
+					// Iterate over all crashes. 
+					// Brute force search.
 					foreach( string Term in Terms )
 					{
-						if( !TermsToUse.Contains( Term ) )
-						{
-							TermsToUse = TermsToUse + "+" + Term;
-						}
+						Results = Results.Where( X =>
+
+							( !string.IsNullOrEmpty( X.ChangeListVersion ) ? X.ChangeListVersion.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.PlatformName ) ? X.PlatformName.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.Summary ) ? X.Summary.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.Description ) ? X.Description.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.RawCallStack ) ? X.RawCallStack.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.CommandLine ) ? X.CommandLine.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.ComputerName ) ? X.ComputerName.ToLower().Contains( Term ) : false ) ||
+
+							( !string.IsNullOrEmpty( X.Module ) ? X.Module.ToLower().Contains( Term ) : false ) ||
+
+							( !string.IsNullOrEmpty( X.BaseDir ) ? X.BaseDir.ToLower().Contains( Term ) : false ) ||
+							( !string.IsNullOrEmpty( X.TTPID ) ? X.TTPID.ToLower().Contains( Term ) : false ) 
+						);
 					}
 
-					// Search the results by the search terms using IQueryable search
-					Crashes = (IQueryable<Crash>)Results.Search( TermsToUse.Split( "+".ToCharArray() ) );
+
+					Crashes = Results;
 				}
 				catch( Exception Ex )
 				{
@@ -302,147 +206,56 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() ) )
 			{
 				UsersMapping UniqueUser = null;
-				IQueryable<Crash> Results = null;
+
+				IEnumerable<Crash> Results = null;
 				int Skip = ( FormData.Page - 1 ) * FormData.PageSize;
 				int Take = FormData.PageSize;
 
-				Results = ListAll();
-				Results = FilterByDate( Results, FormData.DateFrom, FormData.DateTo );
+				var ResultsAll = ConstructQuery(FormData);
 
-				// Grab Results 
-				if( !string.IsNullOrEmpty( FormData.SearchQuery ) )
-				{
-					string DecodedQuery = HttpUtility.HtmlDecode( FormData.SearchQuery ).ToLower();
-					using( FScopedLogTimer LogTimer2 = new FScopedLogTimer( "CrashRepository.GetResults.FindUserFromQuery" + "(Query=" + DecodedQuery + ")" ) )
-					{						
-						if( !string.IsNullOrEmpty( DecodedQuery ) )
-						{
-							// Check if we are looking for user name.
-							string[] Params = DecodedQuery.Split( new string[] { "user:" }, StringSplitOptions.None );
-							if( Params.Length == 2 )
-							{
-								/*IQueryable<UsersMapping>*/
-								// Make sure that type of [dbo].[UsersMapping] is the same as [analyticsdb-01.dmz.epicgames.net].[CrashReport].[dbo].[UsersMapping]
-								IEnumerable<UsersMapping> FoundUsers = CrashRepositoryDataContext.ExecuteQuery<UsersMapping>
-								( @"SELECT * FROM [analyticsdb-01.dmz.epicgames.net].[CrashReport].[dbo].[UsersMapping] WHERE lower(UserName) = {0} OR lower(UserEmail) = {0}", Params[1] );
+				// Filter by data and get as enumerable.
+			    Results = FilterByDate(ResultsAll, FormData.DateFrom, FormData.DateTo);
 
-								foreach( UsersMapping TheUser in FoundUsers )
-								{
-									UniqueUser = TheUser;
-									break;
-								}
-								if( UniqueUser != null )
-								{
-									Results = Results.Where( CrashInstance => CrashInstance.EpicAccountId == UniqueUser.EpicAccountId );
-								}
-								else
-								{
-									Results = Results.Where( CrashInstance => CrashInstance.EpicAccountId == "SomeValueThatIsNotPresentInTheDatabase" );
-								}
-							}
-							else
-							{
-								Results = Search( Results, DecodedQuery );
-							}
-						}
-					}
-				}
-
-				// Start Filtering the results
-
-				// Filter by BranchName
-				if( !string.IsNullOrEmpty( FormData.BranchName ) )
-				{
-					if( FormData.BranchName.StartsWith( "-" ) )
-					{
-						Results =
-						(
-							from CrashDetail in Results
-							where !CrashDetail.Branch.Contains( FormData.BranchName.Substring( 1 ) )
-							select CrashDetail
-						);
-					}
-					else
-					{
-						Results =
-						(
-							from CrashDetail in Results
-							where CrashDetail.Branch.Contains( FormData.BranchName )
-							select CrashDetail
-						);
-					}
-				}
-
-				// Filter by GameName
-				if( !string.IsNullOrEmpty( FormData.GameName ) )
-				{
-					if( FormData.GameName.StartsWith( "-" ) )
-					{
-						Results =
-						(
-							from CrashDetail in Results
-							where !CrashDetail.GameName.Contains( FormData.GameName.Substring( 1 ) )
-							select CrashDetail
-						);
-					}
-					else
-					{
-						Results =
-						(
-							from CrashDetail in Results
-							where CrashDetail.GameName.Contains( FormData.GameName )
-							select CrashDetail
-						);
-					}
-				}
-
-				// Filter by Crash Type
-				if( FormData.CrashType != "All" )
-				{
-					switch( FormData.CrashType )
-					{
-						case "Crashes":
-							Results = Results.Where( CrashInstance => CrashInstance.CrashType == 1 );
-							break;
-						case "Assert":
-							Results = Results.Where( CrashInstance => CrashInstance.CrashType == 2 );
-							break;
-						case "Ensure":
-							Results = Results.Where( CrashInstance => CrashInstance.CrashType == 3 );
-							break;
-						case "CrashesAsserts":
-							Results = Results.Where( CrashInstance => CrashInstance.CrashType == 1 || CrashInstance.CrashType == 2 );
-							break;
-					}
-				}
-
-				// Get UserGroup ResultCounts
+			    // Get UserGroup ResultCounts
 				Dictionary<string, int> GroupCounts = GetCountsByGroupFromCrashes( Results );
 
 				// Filter by user group if present
 				int UserGroupId;
 				if( !string.IsNullOrEmpty( FormData.UserGroup ) )
 				{
-					UserGroupId = FindOrAddUserGroup( FormData.UserGroup );
+					UserGroupId = FRepository.Get( this ).FindOrAddGroup( FormData.UserGroup );
 				}
 				else
 				{
 					UserGroupId = 1;
 				}
-				Results =
-				(
-					from CrashDetail in Results
-					from UserDetail in CrashRepositoryDataContext.Users
-					where UserDetail.UserGroupId == UserGroupId &&
-						( CrashDetail.UserNameId == UserDetail.Id || CrashDetail.UserName == UserDetail.UserName )
-					select CrashDetail
-				);
+
+				HashSet<int> UserIdsForGroup = FRepository.Get( this ).GetUserIdsFromUserGroupId( UserGroupId );
+
+				using( FScopedLogTimer LogTimer3 = new FScopedLogTimer( "CrashRepository.Results.Users" ) )
+				{
+					List<Crash> NewResults = new List<Crash>();
+					foreach(Crash Crash in Results)
+					{
+						if( UserIdsForGroup.Contains( Crash.UserNameId.Value ) )
+						{
+							NewResults.Add( Crash );
+						}
+					}
+
+					Results = NewResults;					
+				}
 
 				// Pass in the results and return them sorted properly
 				Results = GetSortedResults( Results, FormData.SortTerm, ( FormData.SortOrder == "Descending" ) );
 
 				// Get the Count for pagination
-				int ResultCount = Results.Count();
+				int ResultCount = 0;
+				using( FScopedLogTimer LogTimer3 = new FScopedLogTimer( "CrashRepository.Results.Users" ) )
+				{
+					ResultCount = Results.Count();
+				}
+				
 
 				// Grab just the results we want to display on this page
 				Results = Results.Skip( Skip ).Take( Take );
@@ -466,6 +279,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					UserGroup = FormData.UserGroup,
 					CrashType = FormData.CrashType,
 					SearchQuery = FormData.SearchQuery,
+					UsernameQuery = FormData.UsernameQuery,
+					EpicIdQuery = FormData.EpicIdQuery,
+					MachineIdQuery = FormData.MachineIdQuery,
+                    DescriptionQuery = FormData.DescriptionQuery,
+                    MessageQuery = FormData.MessageQuery,
+					JiraQuery = FormData.JiraQuery,
 					DateFrom = (long)( FormData.DateFrom - CrashesViewModel.Epoch ).TotalMilliseconds,
 					DateTo = (long)( FormData.DateTo - CrashesViewModel.Epoch ).TotalMilliseconds,
 					BranchName = FormData.BranchName,
@@ -477,155 +296,46 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		}
 
 		/// <summary>
-		/// Gets a container of crash counts per user group for all crashes.
-		/// </summary>
-		/// <returns>A dictionary of user group names, and the count of crashes for each group.</returns>
-		public Dictionary<string, int> GetCountsByGroup()
-		{
-			// @TODO yrx 2014-11-06 Optimize?
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() ) )
-			{
-				Dictionary<string, int> Results = new Dictionary<string, int>();
-
-				try
-				{
-					var GroupCounts =
-					(
-						from UserDetail in CrashRepositoryDataContext.Users
-						join UserGroupDetail in CrashRepositoryDataContext.UserGroups on UserDetail.UserGroupId equals UserGroupDetail.Id
-						group UserDetail by UserGroupDetail.Name into GroupCount
-						select new { Key = GroupCount.Key, Count = GroupCount.Count() }
-					);
-
-					foreach( var GroupCount in GroupCounts )
-					{
-						Results.Add( GroupCount.Key, GroupCount.Count );
-					}
-
-					// Add in all groups, even though there are no crashes associated
-					IEnumerable<string> UserGroups = ( from UserGroupDetail in CrashRepositoryDataContext.UserGroups select UserGroupDetail.Name );
-					foreach( string UserGroupName in UserGroups )
-					{
-						if( !Results.Keys.Contains( UserGroupName ) )
-						{
-							Results[UserGroupName] = 0;
-						}
-					}
-				}
-				catch( Exception Ex )
-				{
-					Debug.WriteLine( "Exception in GetCountsByGroup: " + Ex.ToString() );
-				}
-
-				return Results;
-			}
-		}
-
-		/// <summary>
 		/// Gets a container of crash counts per user group for the set of crashes passed in.
 		/// </summary>
-		/// <param name="Crashes">The set of crashes to tabulate by user group.</param>
+		/// <param name="EnumerableCrashes">The set of crashes to tabulate by user group.</param>
 		/// <returns>A dictionary of user group names, and the count of Buggs for each group.</returns>
-		public Dictionary<string, int> GetCountsByGroupFromCrashes( IQueryable<Crash> Crashes )
+		public Dictionary<string, int> GetCountsByGroupFromCrashes( IEnumerable<Crash> EnumerableCrashes )
 		{
-			// @TODO yrx 2014-11-06 Optimize?
 			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() ) )
 			{
 				Dictionary<string, int> Results = new Dictionary<string, int>();
 
 				try
 				{
-					Results =
-					(
-						from CrashDetail in Crashes
-						from UserDetail in CrashRepositoryDataContext.Users
-						join UserGroupDetail in CrashRepositoryDataContext.UserGroups on UserDetail.UserGroupId equals UserGroupDetail.Id
-						where CrashDetail.UserNameId == UserDetail.Id || CrashDetail.UserName == UserDetail.UserName
-						group CrashDetail by UserGroupDetail.Name into GroupCount
-						select new { Key = GroupCount.Key, Count = GroupCount.Count() }
-					).ToDictionary( x => x.Key, y => y.Count );
+					var UsersIDsAndGroupIDs = Context.Users.Select( User => new { UserId = User.Id, UserGroupId = User.UserGroupId } ).ToList();
+					var UserGroupArray = Context.UserGroups.ToList();
+					UserGroupArray.Sort( ( UG1, UG2 ) => UG1.Name.CompareTo( UG2.Name ) ); 
 
-					// Add in all groups, even though there are no crashes associated
-					IEnumerable<string> UserGroups = ( from UserGroupDetail in CrashRepositoryDataContext.UserGroups select UserGroupDetail.Name );
-					foreach( string UserGroupName in UserGroups )
+					// Initialize all groups to 0.
+					foreach( var UserGroup in UserGroupArray )
 					{
-						if( !Results.Keys.Contains( UserGroupName ) )
-						{
-							Results[UserGroupName] = 0;
-						}
+						Results.Add( UserGroup.Name, 0 );
+					}
+
+					Dictionary<int, string> UserIdToGroupName = new Dictionary<int, string>();
+					foreach( var UserIds in UsersIDsAndGroupIDs )
+					{
+						// Find group name for the user id.
+						string UserGroupName = UserGroupArray.Where( UG => UG.Id == UserIds.UserGroupId ).First().Name;
+						UserIdToGroupName.Add( UserIds.UserId, UserGroupName );
+					}
+
+					List<int> UserIdCrashes = EnumerableCrashes.Select( Crash => Crash.UserNameId.Value ).ToList();
+					foreach( int UserId in UserIdCrashes )
+					{
+						string UserGroupName = UserIdToGroupName[UserId];
+						Results[UserGroupName]++;
 					}
 				}
 				catch( Exception Ex )
 				{
 					Debug.WriteLine( "Exception in GetCountsByGroupFromCrashes: " + Ex.ToString() );
-				}
-
-				return Results;
-			}
-		}
-
-		/// <summary>
-		/// Return a dictionary of crashes per group grouped by week.
-		/// </summary>
-		/// <param name="Crashes">A set of crashes to interrogate.</param>
-		/// <param name="UserGroupId">The id of the user group to interrogate.</param>
-		/// <param name="UndefinedUserGroupId">Id of the undefined user group.</param>
-		/// <returns>A dictionary of week vs. crash count.</returns>
-		public Dictionary<DateTime, int> GetWeeklyCountsByGroup( IQueryable<Crash> Crashes, int UserGroupId, int UndefinedUserGroupId )
-		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(UserGroupId=" + UserGroupId + ")" ) )
-			{
-				Dictionary<DateTime, int> Results = new Dictionary<DateTime, int>();
-
-				try
-				{
-					Results =
-					(
-						from CrashDetail in Crashes
-						join UserDetail in CrashRepositoryDataContext.Users on CrashDetail.UserNameId equals UserDetail.Id
-						where ( UserGroupId < 0 && UserDetail.UserGroupId != UndefinedUserGroupId ) || UserDetail.UserGroupId == UserGroupId
-						group CrashDetail by CrashDetail.TimeOfCrash.Value.AddDays( -(int)CrashDetail.TimeOfCrash.Value.DayOfWeek ).Date into GroupCount
-						orderby GroupCount.Key
-						select new { Count = GroupCount.Count(), Date = GroupCount.Key }
-					).ToDictionary( x => x.Date, y => y.Count );
-				}
-				catch( Exception Ex )
-				{
-					Debug.WriteLine( "Exception in GetWeeklyCountsByGroup: " + Ex.ToString() );
-				}
-
-				return Results;
-			}
-		}
-
-		/// <summary>
-		/// Return a dictionary of crashes per group grouped by day.
-		/// </summary>
-		/// <param name="Crashes">A set of crashes to interrogate.</param>
-		/// <param name="UserGroupId">The id of the user group to interrogate.</param>
-		/// <param name="UndefinedUserGroupId">Id of the undefined user group.</param>
-		/// <returns>A dictionary of day vs. crash count.</returns>
-		public Dictionary<DateTime, int> GetDailyCountsByGroup( IQueryable<Crash> Crashes, int UserGroupId, int UndefinedUserGroupId )
-		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(UserGroupId=" + UserGroupId + ")" ) )
-			{
-				Dictionary<DateTime, int> Results = new Dictionary<DateTime, int>();
-
-				try
-				{
-					Results =
-					(
-						from CrashDetail in Crashes
-						join UserDetail in CrashRepositoryDataContext.Users on CrashDetail.UserNameId equals UserDetail.Id
-						where ( UserGroupId < 0 && UserDetail.UserGroupId != UndefinedUserGroupId ) || UserDetail.UserGroupId == UserGroupId
-						group CrashDetail by CrashDetail.TimeOfCrash.Value.Date into GroupCount
-						orderby GroupCount.Key
-						select new { Count = GroupCount.Count(), Date = GroupCount.Key }
-					).ToDictionary( x => x.Date, y => y.Count );
-				}
-				catch( Exception Ex )
-				{
-					Debug.WriteLine( "Exception in GetDailyCountsByGroup: " + Ex.ToString() );
 				}
 
 				return Results;
@@ -639,24 +349,29 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <param name="DateFrom">The earliest date to filter by.</param>
 		/// <param name="DateTo">The latest date to filter by.</param>
 		/// <returns>The set of crashes between the earliest and latest date.</returns>
-		public IQueryable<Crash> FilterByDate( IQueryable<Crash> Results, DateTime DateFrom, DateTime DateTo )
+		public IEnumerable<Crash> FilterByDate( IQueryable<Crash> Results, DateTime DateFrom, DateTime DateTo )
 		{
-			Results = Results.Where( CrashInstance => CrashInstance.TimeOfCrash >= DateFrom && CrashInstance.TimeOfCrash <= DateTo.AddDays( 1 ) );
-			return Results;
+			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + " SQL" ) )
+			{
+				IQueryable<Crash> CrashesInTimeFrame = Results
+					.Where( MyCrash => MyCrash.TimeOfCrash >= DateFrom && MyCrash.TimeOfCrash <= DateTo.AddDays( 1 ));
+				IEnumerable<Crash> CrashesInTimeFrameEnumerable = CrashesInTimeFrame.ToList();
+				return CrashesInTimeFrameEnumerable;
+			}
 		}
 
 		/// <summary>
-		/// Ordering helper to allow a flag to be passed in for descending
+		/// 
 		/// </summary>
-		/// <typeparam name="TSource">Type of data source</typeparam>
-		/// <typeparam name="TKey">Type of key to search for</typeparam>
-		/// <param name="Query">Query to sort results of</param>
-		/// <param name="Predicate">Predicate to determine order</param>
-		/// <param name="bDescending">Whether results should be listed in descending order</param>
-		/// <returns>The query with ordering applied</returns>
-		public static IQueryable<TSource> OrderBy<TSource, TKey>(IQueryable<TSource> Query, Expression<Func<TSource, TKey>> Predicate, bool bDescending)
+		/// <typeparam name="TKey"></typeparam>
+		/// <param name="Query"></param>
+		/// <param name="Predicate"></param>
+		/// <param name="bDescending"></param>
+		/// <returns></returns>
+		public IEnumerable<Crash> EnumerableOrderBy<TKey>( IEnumerable<Crash> Query, Func<Crash, TKey> Predicate, bool bDescending )
 		{
-			return bDescending ? Query.OrderByDescending(Predicate) : Query.OrderBy(Predicate);
+			var Ordered = bDescending ? Query.OrderByDescending( Predicate ) : Query.OrderBy( Predicate );
+			return Ordered;
 		}
 
 		/// <summary>
@@ -666,69 +381,72 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <param name="SortTerm">The term to sort by. e.g. UserName</param>
 		/// <param name="bSortByDescending">Whether to sort ascending or descending.</param>
 		/// <returns>A sorted set of crashes.</returns>
-		public IQueryable<Crash> GetSortedResults( IQueryable<Crash> Results, string SortTerm, bool bSortByDescending )
+		public IEnumerable<Crash> GetSortedResults( IEnumerable<Crash> Results, string SortTerm, bool bSortByDescending )
 		{
 			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(SortTerm=" + SortTerm + ")" ) )
 			{
 				switch( SortTerm )
 				{
 					case "Id":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.Id, bSortByDescending );
+						//Results = bSortByDescending ? Results.OrderByDescending( CrashInstance => CrashInstance.Id ) : Results.OrderBy( CrashInstance => CrashInstance.Id );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.Id, bSortByDescending );
 						break;
 
 					case "TimeOfCrash":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.TimeOfCrash, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.TimeOfCrash, bSortByDescending );
 						break;
 
 					case "UserName":
 						// Note: only works where user is stored by Id
-						Results = OrderBy( Results.Join( CrashRepositoryDataContext.Users, CrashInstance => CrashInstance.UserNameId, UserInstance => UserInstance.Id,
-														( CrashInstance, UserInstance ) => new { CrashInstance, UserInstance.UserName } ),
-														Joined => Joined.UserName, bSortByDescending ).Select( Joined => Joined.CrashInstance );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.UserName, bSortByDescending );
+
+							//OrderBy( IntermediateQueryable.Join( Context.Users, CrashInstance => CrashInstance.UserNameId, UserInstance => UserInstance.Id,
+							//							( CrashInstance, UserInstance ) => new { CrashInstance, UserInstance.UserName } ),
+							//							Joined => Joined.UserName, bSortByDescending ).Select( Joined => Joined.CrashInstance ).AsEnumerable();
 						break;
 
 					case "RawCallStack":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.RawCallStack, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.RawCallStack, bSortByDescending );
 						break;
 
 					case "GameName":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.GameName, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.GameName, bSortByDescending );
 						break;
 
 					case "EngineMode":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.EngineMode, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.EngineMode, bSortByDescending );
 						break;
 
 					case "FixedChangeList":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.FixedChangeList, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.FixedChangeList, bSortByDescending );
 						break;
 
 					case "TTPID":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.TTPID, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.TTPID, bSortByDescending );
 						break;
 
 					case "Branch":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.Branch, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.Branch, bSortByDescending );
 						break;
 
 					case "ChangeListVersion":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.ChangeListVersion, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.ChangeListVersion, bSortByDescending );
 						break;
 
 					case "ComputerName":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.ComputerName, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.ComputerName, bSortByDescending );
 						break;
 
 					case "PlatformName":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.PlatformName, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.PlatformName, bSortByDescending );
 						break;
 
 					case "Status":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.Status, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.Status, bSortByDescending );
 						break;
 
 					case "Module":
-						Results = OrderBy( Results, CrashInstance => CrashInstance.Module, bSortByDescending );
+						Results = EnumerableOrderBy( Results, CrashInstance => CrashInstance.Module, bSortByDescending );
 						break;
 				}
 
@@ -744,78 +462,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		public CallStackContainer GetCallStack( Crash CrashInstance )
 		{
 			CachedDataService CachedResults = new CachedDataService( HttpContext.Current.Cache, this );
-			return CachedResults.GetCallStack( CrashInstance );
-		}
-
-		/// <summary>
-		/// Sets a user group for a given user.
-		/// </summary>
-		/// <param name="UserName">The user name to update.</param>
-		/// <param name="UserGroupName">The user group to add the user to.</param>
-		public void SetUserGroup( string UserName, string UserGroupName )
-		{
-			try
-			{
-				IQueryable<int> UserGroups = ( from UserGroupDetail in CrashRepositoryDataContext.UserGroups
-											   where UserGroupDetail.Name.ToLower() == UserGroupName.ToLower()
-											   select UserGroupDetail.Id );
-
-				IQueryable<int> UserNames = ( from UserDetail in CrashRepositoryDataContext.Users
-										  where UserDetail.UserName.ToLower() == UserName.ToLower()
-										  select UserDetail.Id );
-
-				if( UserGroups.Count() == 1 && UserNames.Count() == 1 )
-				{
-					string Query = "UPDATE Users SET UserGroupId = {0} WHERE Id = {1}";
-					CrashRepositoryDataContext.ExecuteCommand( Query, UserGroups.First(), UserNames.First() );
-				}
-			}
-			catch( Exception Ex )
-			{
-				Debug.WriteLine( "Exception in AdSetUserGroupdUser: " + Ex.ToString() );
-			}
-		}
-
-		/// <summary>
-		/// Find a user group, or add it if it doesn't exist. Return the id of the user group.
-		/// </summary>
-		/// <param name="UserGroupName">The user group name to find or add.</param>
-		/// <returns>The id of the user group that was found or added.</returns>
-		/// <remarks>All user group interaction is done this way to remove any dependencies on pre-populated tables.</remarks>
-		public int FindOrAddUserGroup( string UserGroupName )
-		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(UserGroupName=" + UserGroupName + ")" ) )
-			{
-				int UserGroupNameId = 0;
-				try
-				{
-					IQueryable<int> UserGroups = ( from UserGroupDetail in CrashRepositoryDataContext.UserGroups
-												   where UserGroupDetail.Name.ToLower() == UserGroupName.ToLower()
-												   select UserGroupDetail.Id );
-
-					// If there is no existing user, add a new one
-					if( UserGroups.Count() == 0 )
-					{
-						UserGroup NewUserGroup = new UserGroup();
-						NewUserGroup.Name = UserGroupName;
-						CrashRepositoryDataContext.UserGroups.InsertOnSubmit( NewUserGroup );
-
-						CrashRepositoryDataContext.SubmitChanges();
-						UserGroupNameId = NewUserGroup.Id;
-					}
-					else
-					{
-						UserGroupNameId = UserGroups.First();
-					}
-				}
-				catch( Exception Ex )
-				{
-					Debug.WriteLine( "Exception in AddUserGroup: " + Ex.ToString() );
-				}
-
-				return UserGroupNameId;
-			}
-		}
+			return CachedResults.GetCallStackFast( CrashInstance );
+		}	
 
 		/// <summary> 
 		/// This string is written to the report in FCrashReportClient's constructor.
@@ -842,26 +490,25 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			NewCrash.ChangeListVersion = NewCrashInfo.BuiltFromCL.ToString();
 			NewCrash.CommandLine = NewCrashInfo.CommandLine;
 			NewCrash.EngineMode = NewCrashInfo.EngineMode;
+			NewCrash.ComputerName = NewCrashInfo.MachineGuid;
 
 			// Valid MachineID and UserName, updated crash from non-UE4 release
-			if( !string.IsNullOrEmpty(NewCrashInfo.MachineGuid) && !string.IsNullOrEmpty(NewCrashInfo.UserName) )
+			if(!string.IsNullOrEmpty(NewCrashInfo.UserName))
 			{
-				NewCrash.ComputerName = NewCrashInfo.MachineGuid;
-				NewCrash.UserNameId = CrashRepositoryDataContext.FindOrAddUser( NewCrashInfo.UserName );
+				NewCrash.UserNameId = FRepository.Get( this ).FindOrAddUser( NewCrashInfo.UserName );
 			}
 			// Valid MachineID and EpicAccountId, updated crash from UE4 release
-			else if( !string.IsNullOrEmpty( NewCrashInfo.MachineGuid ) && !string.IsNullOrEmpty( NewCrashInfo.EpicAccountId ) )
+			else if(!string.IsNullOrEmpty( NewCrashInfo.EpicAccountId ))
 			{
-				NewCrash.ComputerName = NewCrashInfo.MachineGuid;
 				NewCrash.EpicAccountId = NewCrashInfo.EpicAccountId;
-				NewCrash.UserNameId = CrashRepositoryDataContext.FindOrAddUser( UserNameAnonymous );
+				NewCrash.UserNameId = FRepository.Get( this ).FindOrAddUser( UserNameAnonymous );
 			}
 			// Crash from an older version.
 			else
 			{
 				// MachineGuid for older crashes is obsolete, so ignore it.
 				//NewCrash.ComputerName = NewCrashInfo.MachineGuid;
-				NewCrash.UserNameId = CrashRepositoryDataContext.FindOrAddUser
+				NewCrash.UserNameId = FRepository.Get( this ).FindOrAddUser
 				(
 					!string.IsNullOrEmpty( NewCrashInfo.UserName ) ? NewCrashInfo.UserName : UserNameAnonymous
 				);
@@ -901,6 +548,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			NewCrash.HasVideoFile = NewCrashInfo.bHasVideo;
 			NewCrash.HasMetaData = NewCrashInfo.bHasWERData;
 
+			NewCrash.bAllowToBeContacted = NewCrashInfo.bAllowToBeContacted;
+
 			NewCrash.TTPID = "";
 			NewCrash.FixedChangeList = "";
 
@@ -928,131 +577,202 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				Selected			bit				
 				Version				int				
 				AutoReporterID		int				
-				Processed			bit				
-				HasDiagnosticsFile	bit				
+				Processed			bit	-> renamed to AllowToBeContacted			
+				HasDiagnosticsFile	bit	always true		
 				HasNewLogFile		bit				
-				HasMetaData			bit	
+				HasMetaData			bit	always true
 			*/
 			// Set the unused fields to the default values.
-			NewCrash.Title = "";
-			NewCrash.Selected = false;
-			NewCrash.Version = 4;
-			NewCrash.AutoReporterID = 0;
-			NewCrash.Processed = true;
-			//NewCrash.HasDiagnosticsFile = true;
-			NewCrash.HasNewLogFile = false;
+			//NewCrash.Title = "";			removed from dbml
+			//NewCrash.Selected = false;	removed from dbml
+			//NewCrash.Version = 4;			removed from dbml
+			//NewCrash.AutoReporterID = 0;	removed from dbml
+			//NewCrash.HasNewLogFile = false;removed from dbml
+			// 
+			//NewCrash.HasDiagnosticsFile = true;		
 			//NewCrash.HasMetaData = true;
 
 			// Add the crash to the database
-			CrashRepositoryDataContext.Crashes.InsertOnSubmit( NewCrash );
-			CrashRepositoryDataContext.SubmitChanges();
+			Context.Crashes.InsertOnSubmit( NewCrash );
+			SubmitChanges();
 
 			NewID = NewCrash.Id;
 
 			// Build a callstack pattern for crash bucketing
-			CrashRepositoryDataContext.BuildPattern(NewCrash);
+			NewCrash.BuildPattern( Context );
 
 			return NewID;
 		}
-	}
 
-	public partial class CrashReportDataContext
-	{
-		/// <summary>
-		/// Find a user to the database, and add them if they do not exist.
-		/// </summary>
-		/// <param name="UserName">The user name to find or add.</param>
-		/// <param name="UserGroupId">The id of the user group to add the user to.</param>
-		/// <returns>The id of the found or added user.</returns>
-		/// <remarks>All user interaction is done this way to remove any dependencies on pre-populated tables.</remarks>
-		public int FindOrAddUser( string UserName, int UserGroupId = 1 )
+		private IQueryable<Crash> ConstructQuery(FormHelper FormData)
 		{
-			int UserNameId = 0;
-			try
+			var results = ListAll();
+
+			// Grab Results 
+			if (!string.IsNullOrEmpty(FormData.SearchQuery))
 			{
-				IQueryable<int> UserNames = ( from UserDetail in Users
-										  where UserDetail.UserName.ToLower() == UserName.ToLower()
-										  select UserDetail.Id );
-
-				// If there is no existing user, add a new one
-				if( UserNames.Count() == 0 )
+				if (!string.IsNullOrEmpty(FormData.UsernameQuery))
 				{
-					User NewUser = new User();
-					NewUser.UserName = UserName;
-					NewUser.UserGroupId = UserGroupId;
-					Users.InsertOnSubmit( NewUser );
+					//We only use SearchQuery now for CallStack searching - if there's a searchquery value and a Username value, we need to get rid of the 
+					//Username so that we can create a broader search range
+					FormData.UsernameQuery = "";
+				}
+				string DecodedQuery = HttpUtility.HtmlDecode(FormData.SearchQuery).ToLower();
+				using (FScopedLogTimer LogTimer2 = new FScopedLogTimer("CrashRepository.GetResults.FindUserFromQuery" + "(Query=" + DecodedQuery + ")"))
+				{
+					results = results.Where(item => item.RawCallStack.Contains(FormData.SearchQuery));
+				}
+			}
 
-					SubmitChanges();
-					UserNameId = NewUser.Id;
+			// Filter by Crash Type
+			if (FormData.CrashType != "All")
+			{
+				switch (FormData.CrashType)
+				{
+					case "Crashes":
+						results = results.Where(CrashInstance => CrashInstance.CrashType == 1);
+						break;
+					case "Assert":
+						results = results.Where(CrashInstance => CrashInstance.CrashType == 2);
+						break;
+					case "Ensure":
+						results = results.Where(CrashInstance => CrashInstance.CrashType == 3);
+						break;
+					case "CrashesAsserts":
+						results = results.Where(CrashInstance => CrashInstance.CrashType == 1 || CrashInstance.CrashType == 2);
+						break;
+				}
+			}
+
+			if (!string.IsNullOrEmpty(FormData.UsernameQuery))
+			{
+				results =
+					(
+						from CrashDetail in results
+						where CrashDetail.UserName.Equals(FormData.UsernameQuery)
+						select CrashDetail
+						);
+			}
+
+			// Start Filtering the results
+			if (!string.IsNullOrEmpty(FormData.EpicIdQuery))
+			{
+				var DecodedQuery = HttpUtility.HtmlDecode(FormData.EpicIdQuery).ToLower();
+				results =
+						(
+							from CrashDetail in results
+							where CrashDetail.EpicAccountId.Equals(FormData.EpicIdQuery)
+							select CrashDetail
+						);
+			}
+
+			if (!string.IsNullOrEmpty(FormData.MachineIdQuery))
+			{
+				var DecodedQuery = HttpUtility.HtmlDecode(FormData.MachineIdQuery).ToLower();
+				results =
+						(
+							from CrashDetail in results
+							where CrashDetail.ComputerName.Equals(FormData.MachineIdQuery)
+							select CrashDetail
+						);
+			}
+
+			if (!string.IsNullOrEmpty(FormData.JiraQuery))
+			{
+				var DecodedQuery = HttpUtility.HtmlDecode(FormData.JiraQuery).ToLower();
+				results =
+					(
+						from CrashDetail in results
+						where CrashDetail.TTPID.Equals(FormData.JiraQuery)
+						select CrashDetail
+					);
+			}
+			// Filter by BranchName
+			if (!string.IsNullOrEmpty(FormData.BranchName))
+			{
+				if (FormData.BranchName.StartsWith("-"))
+				{
+					results =
+					(
+						from CrashDetail in results
+						where !CrashDetail.Branch.Contains(FormData.BranchName.Substring(1))
+						select CrashDetail
+					);
 				}
 				else
 				{
-					UserNameId = UserNames.First();
+					results =
+					(
+						from CrashDetail in results
+						where CrashDetail.Branch.Equals(FormData.BranchName)
+						select CrashDetail
+					);
 				}
 			}
-			catch( Exception Ex )
+			else
 			{
-				Debug.WriteLine( "Exception in AddUser: " + Ex.ToString() );
+			    results = 
+                    (
+                    from CrashDetail in results
+                    where !CrashDetail.Branch.Equals("UE4-UT-Releases") && !CrashDetail.Branch.Equals("UE4-UT")
+			        select CrashDetail
+                    );
 			}
 
-			return UserNameId;
-		}
-
-		/// <summary>
-		/// Build a callstack pattern for a crash to ease bucketing of crashes into Buggs.
-		/// </summary>
-		/// <param name="CrashInstance">A crash that was recently added to the database.</param>
-		public void BuildPattern( Crash CrashInstance )
-		{
-			List<string> Pattern = new List<string>();
-
-			// Get an array of callstack items
-			CallStackContainer CallStack = new CallStackContainer( CrashInstance );
-			CallStack.bDisplayFunctionNames = true;
-
-			if( CrashInstance.Pattern == null )
+			// Filter by GameName
+			if (!string.IsNullOrEmpty(FormData.GameName))
 			{
-				// Set the module based on the modules in the callstack
-				CrashInstance.Module = CallStack.GetModuleName();
-				try
+				if (FormData.GameName.StartsWith("-"))
 				{
-					foreach( CallStackEntry Entry in CallStack.CallStackEntries )
-					{
-						FunctionCall CurrentFunctionCall = new FunctionCall();
-
-						if( FunctionCalls.Where( f => f.Call == Entry.FunctionName ).Count() > 0 )
-						{
-							CurrentFunctionCall = FunctionCalls.Where( f => f.Call == Entry.FunctionName ).First();
-						}
-						else
-						{
-							CurrentFunctionCall = new FunctionCall();
-							CurrentFunctionCall.Call = Entry.FunctionName;
-							FunctionCalls.InsertOnSubmit( CurrentFunctionCall );
-						}
-
-// 						int Count = Crash_FunctionCalls.Where( c => c.CrashId == CrashInstance.Id && c.FunctionCallId == CurrentFunctionCall.Id ).Count();
-// 						if( Count < 1 )
-// 						{
-// 							Crash_FunctionCall JoinTable = new Crash_FunctionCall();
-// 							JoinTable.Crash = CrashInstance;
-// 							JoinTable.FunctionCall = CurrentFunctionCall;
-// 							Crash_FunctionCalls.InsertOnSubmit( JoinTable );
-// 						}
-
-						SubmitChanges();
-
-						Pattern.Add( CurrentFunctionCall.Id.ToString() );
-					}
-
-					CrashInstance.Pattern = string.Join( "+", Pattern );
-					SubmitChanges();
+					results =
+					(
+						from CrashDetail in results
+						where !CrashDetail.GameName.Contains(FormData.GameName.Substring(1))
+						select CrashDetail
+					);
 				}
-				catch( Exception Ex )
+				else
 				{
-					Debug.WriteLine( "Exception in BuildPattern: " + Ex.ToString() );
+					results =
+					(
+						from CrashDetail in results
+						where CrashDetail.GameName.Contains(FormData.GameName)
+						select CrashDetail
+					);
 				}
 			}
+
+		    if (!string.IsNullOrEmpty(FormData.MessageQuery))
+		    {
+		        results =
+		            (
+		                from CrashDetail in results
+		                where SqlMethods.Like(CrashDetail.Summary, "%" + FormData.MessageQuery + "%")
+		                select CrashDetail
+		                );
+		    }
+
+		    if (!string.IsNullOrEmpty(FormData.DescriptionQuery))
+		    {
+		        results = 
+                    (
+                        from CrashDetail in results
+                        where SqlMethods.Like(CrashDetail.Description, "%" + FormData.DescriptionQuery + "%")
+		                select CrashDetail
+                    );
+		    }
+
+		    if (!string.IsNullOrEmpty(FormData.SearchQuery))
+		    {
+		        results = 
+                    (
+                        from CrashDetail in results
+                        where SqlMethods.Like(CrashDetail.RawCallStack, "%" + FormData.SearchQuery + "%")
+		                select CrashDetail
+                    );
+		    }
+
+			return results;
 		}
 	}
 }

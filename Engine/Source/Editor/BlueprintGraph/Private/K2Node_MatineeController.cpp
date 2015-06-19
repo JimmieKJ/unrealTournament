@@ -13,9 +13,13 @@
 UK2Node_MatineeController::UK2Node_MatineeController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	FMatineeDelegates::Get().OnEventKeyframeAdded.AddUObject(this, &UK2Node_MatineeController::OnEventKeyframeAdded);
-	FMatineeDelegates::Get().OnEventKeyframeRenamed.AddUObject(this, &UK2Node_MatineeController::OnEventKeyframeRenamed);
-	FMatineeDelegates::Get().OnEventKeyframeRemoved.AddUObject(this, &UK2Node_MatineeController::OnEventKeyframeRemoved);
+	if (GetOutermost() != GetTransientPackage())
+	{
+		// Register the delegate ONLY if this isn't the transient package (temp node during compilation)
+		FMatineeDelegates::Get().OnEventKeyframeAdded.AddUObject(this, &UK2Node_MatineeController::OnEventKeyframeAdded);
+		FMatineeDelegates::Get().OnEventKeyframeRenamed.AddUObject(this, &UK2Node_MatineeController::OnEventKeyframeRenamed);
+		FMatineeDelegates::Get().OnEventKeyframeRemoved.AddUObject(this, &UK2Node_MatineeController::OnEventKeyframeRemoved);
+	}
 }
 
 void UK2Node_MatineeController::BeginDestroy()
@@ -113,8 +117,7 @@ void UK2Node_MatineeController::ExpandNode(FKismetCompilerContext& CompilerConte
 				FName EventFuncName = MatineeActor->GetFunctionNameForEvent( FName(*(MatineePin->PinName)) );
 
 				UK2Node_Event* MatineeEventNode = CompilerContext.SpawnIntermediateNode<UK2Node_Event>(this, SourceGraph);
-				MatineeEventNode->EventSignatureName = MatineeEventSig->GetFName();
-				MatineeEventNode->EventSignatureClass = AMatineeActor::StaticClass();
+				MatineeEventNode->EventReference.SetFromField<UFunction>(MatineeEventSig, false);
 				MatineeEventNode->CustomFunctionName = EventFuncName;
 				MatineeEventNode->bInternalEvent = true;
 				MatineeEventNode->AllocateDefaultPins();
@@ -200,13 +203,17 @@ void UK2Node_MatineeController::OnEventKeyframeAdded(const AMatineeActor* InMati
 {
 	if ( MatineeActor == InMatineeActor )
 	{
-		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		// Only add unique event names to the controller node
+		if (!FindPin(InPinName.ToString()))
+		{
+			const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
-		// Add one to the index as we insert "finished" at index 0
-		CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, InPinName.ToString(), false, InIndex + 1);
+			// Add one to the index as we insert "finished" at index 0
+			CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, InPinName.ToString(), false, InIndex + 1);
 
-		// Update and refresh the blueprint
-		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(GetBlueprint());
+			// Update and refresh the blueprint
+			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(GetBlueprint());
+		}
 	}
 }
 
@@ -233,7 +240,7 @@ void UK2Node_MatineeController::OnEventKeyframeRemoved(const AMatineeActor* InMa
 		{
 			if(UEdGraphPin* Pin = FindPin(InPinNames[PinIdx].ToString()))
 			{
-				DiscardPin(Pin);
+				RemovePin(Pin);
 				bNeedsRefresh = true;
 			}
 		}

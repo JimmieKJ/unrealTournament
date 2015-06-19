@@ -39,7 +39,7 @@ protected:
 	UEdGraph* GetHoveredGraph() const;
 
 	/** Constructs the window and widget if applicable */
-	virtual void Construct();
+	virtual void Construct() override;
 
 private:
 

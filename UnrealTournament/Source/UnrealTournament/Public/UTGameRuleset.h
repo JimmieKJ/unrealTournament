@@ -6,7 +6,7 @@
 #include "UTGameRuleset.generated.h"
 
 UCLASS(Config=Rules, perObjectConfig)
-class UUTGameRuleset : public UObject
+class UNREALTOURNAMENT_API UUTGameRuleset : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -32,13 +32,11 @@ public:
 	UPROPERTY(Config)
 	FString Description;
 
-	// Holds a list of maps that can be played in this ruleset.
 	UPROPERTY(Config)
-	TArray<FString> MapPlaylist;
+	TArray<FString> MapPrefixes;
 
-	// Holds the max # of maps in the rotation
 	UPROPERTY(Config)
-	int32 MapPlaylistSize;
+	FString DefaultMap;
 
 	// The number of players needed to start.
 	UPROPERTY(Config)

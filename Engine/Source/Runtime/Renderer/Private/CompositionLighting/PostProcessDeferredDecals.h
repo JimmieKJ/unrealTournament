@@ -17,9 +17,9 @@ public:
 	FRCPassPostProcessDeferredDecals(uint32 InRenderStage);
 
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 private:
 	// 0:before BasePass, 1:before lighting, (later we could add "after lighting" and multiply)

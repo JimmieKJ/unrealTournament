@@ -9,7 +9,6 @@ class STimelinesContainer : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(STimelinesContainer){}
-		SLATE_ATTRIBUTE(TSharedPtr<IVisualLoggerInterface>, VisualLoggerInterface)
 	SLATE_END_ARGS()
 
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -25,12 +24,14 @@ public:
 
 	void OnTimelineSelected(TSharedPtr<class STimelinesBar> Widget);
 	void ChangeSelection(class TSharedPtr<class STimeline>, const FPointerEvent& MouseEvent);
-	virtual bool SupportsKeyboardFocus() const { return true; }
+	virtual bool SupportsKeyboardFocus() const override { return true; }
 
 	void OnNewLogEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	void OnFiltersChanged();
 	void OnSearchChanged(const FText& Filter);
 	void OnFiltersSearchChanged(const FText& Filter);
+
+	void ResetData();
 
 	void GenerateReport();
 
@@ -64,5 +65,5 @@ protected:
 	TArray<TSharedPtr<class STimeline> > TimelineItems;
 	TArray< TSharedPtr<class STimeline> > SelectedNodes;
 	TSharedPtr<SVerticalBox> ContainingBorder;
-	TSharedPtr<IVisualLoggerInterface> VisualLoggerInterface;
+	float CachedMinTime, CachedMaxTime;
 };

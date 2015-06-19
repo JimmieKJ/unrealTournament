@@ -289,6 +289,23 @@ FORCEINLINE VectorRegister VectorMultiplyAdd( const VectorRegister& Vec1, const 
 }
 
 /**
+* Divides two vectors (component-wise) and returns the result.
+*
+* @param Vec1	1st vector
+* @param Vec2	2nd vector
+* @return		VectorRegister( Vec1.x/Vec2.x, Vec1.y/Vec2.y, Vec1.z/Vec2.z, Vec1.w/Vec2.w )
+*/
+FORCEINLINE VectorRegister VectorDivide(const VectorRegister& Vec1, const VectorRegister& Vec2)
+{
+	VectorRegister Vec;
+	Vec.V[0] = Vec1.V[0] / Vec2.V[0];
+	Vec.V[1] = Vec1.V[1] / Vec2.V[1];
+	Vec.V[2] = Vec1.V[2] / Vec2.V[2];
+	Vec.V[3] = Vec1.V[3] / Vec2.V[3];
+	return Vec;
+}
+
+/**
  * Calculates the dot3 product of two vectors and returns a vector with the result in all 4 components.
  * Only really efficient on Xbox 360.
  *
@@ -949,6 +966,28 @@ FORCEINLINE float VectorGetComponent(VectorRegister Vec, uint32 ComponentIndex)
  * Control status bit to round all floating point math results towards zero.
  */
 #define VECTOR_ROUND_TOWARD_ZERO		0
+
+
+/**
+* Computes the sine and cosine of each component of a Vector.
+*
+* @param VSinAngles	VectorRegister Pointer to where the Sin result should be stored
+* @param VCosAngles	VectorRegister Pointer to where the Cos result should be stored
+* @param VAngles VectorRegister Pointer to the input angles 
+*/
+FORCEINLINE void VectorSinCos(  VectorRegister* VSinAngles, VectorRegister* VCosAngles, const VectorRegister* VAngles )
+{	
+	union { VectorRegister v; float f[4]; } VecSin, VecCos, VecAngles;
+	VecAngles.v = *VAngles;
+
+	FMath::SinCos(&VecSin.f[0], &VecCos.f[0], VecAngles.f[0]);
+	FMath::SinCos(&VecSin.f[1], &VecCos.f[1], VecAngles.f[1]);
+	FMath::SinCos(&VecSin.f[2], &VecCos.f[2], VecAngles.f[2]);
+	FMath::SinCos(&VecSin.f[3], &VecCos.f[3], VecAngles.f[3]);
+
+	*VSinAngles = VecSin.v;
+	*VCosAngles = VecCos.v;
+}
 
 // Returns true if the vector contains a component that is either NAN or +/-infinite.
 inline bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)

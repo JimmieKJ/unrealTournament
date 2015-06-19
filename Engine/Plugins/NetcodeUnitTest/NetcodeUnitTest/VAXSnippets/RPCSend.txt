@@ -1,0 +1,13 @@
+Title: RPCSend
+Shortcut: $RPCSend
+Description: Snippet for quickly placing a dynamic-RPC call into unit test code.
+
+Source:
+struct $RPCName$_Params
+{
+	$end$
+};
+
+$RPCName$_Params RPCParams;
+
+SendRPCChecked($TargetObj$, TEXT("$RPCName$"), &RPCParams);

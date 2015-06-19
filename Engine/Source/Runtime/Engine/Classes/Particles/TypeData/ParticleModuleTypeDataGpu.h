@@ -406,6 +406,9 @@ class UParticleModuleTypeDataGpu : public UParticleModuleTypeDataBase
 	UPROPERTY(EditAnywhere, Category=ParticleModuleTypeDataGpu)
 	float CameraMotionBlurAmount;
 
+	/** When true, all existing partilces are cleared when the emitter is initialized. */
+	UPROPERTY(EditAnywhere, Category = ParticleModuleTypeDataGpu)
+	uint32 bClearExistingParticlesOnInit:1;
 
 	// Begin UObject Interface
 	virtual void PostLoad() override;
@@ -414,7 +417,7 @@ class UParticleModuleTypeDataGpu : public UParticleModuleTypeDataBase
 
 	// Begin UParticleModuleTypeDataBase Interface
 	virtual void Build( struct FParticleEmitterBuildInfo& EmitterBuildInfo ) override;
-	virtual bool RequiresBuild() const { return true; }
+	virtual bool RequiresBuild() const override { return true; }
 	virtual FParticleEmitterInstance* CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent) override;
 	// End UParticleModuleTypeDataBase Interface
 };

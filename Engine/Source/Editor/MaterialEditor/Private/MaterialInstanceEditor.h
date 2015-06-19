@@ -42,10 +42,10 @@ public:
 	virtual UMaterialInterface* GetMaterialInterface() const override;
 
 	/** Pre edit change notify for properties. */
-	virtual void NotifyPreChange( UProperty* PropertyAboutToChange );
+	virtual void NotifyPreChange( UProperty* PropertyAboutToChange ) override;
 
 	/** Post edit change notify for properties. */
-	virtual void NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged );
+	virtual void NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged ) override;
 
 	/** Rebuilds the inheritance list for this material instance. */
 	void RebuildInheritanceList();
@@ -56,7 +56,7 @@ public:
 	/**
 	 * Draws messages on the specified viewport and canvas.
 	 */
-	virtual void DrawMessages( FViewport* Viewport, FCanvas* Canvas );
+	virtual void DrawMessages( FViewport* Viewport, FCanvas* Canvas ) override;
 
 	/**
 	 * Draws sampler/texture mismatch warning strings.
@@ -66,8 +66,8 @@ public:
 	void DrawSamplerWarningStrings(FCanvas* Canvas, int32& DrawPositionY);
 
 	/** Passes instructions to the preview viewport */
-	bool SetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh);
-	bool SetPreviewMesh(const TCHAR* InMeshName);
+	bool SetPreviewAsset(UObject* InAsset);
+	bool SetPreviewAssetByName(const TCHAR* InMeshName);
 	void SetPreviewMaterial(UMaterialInterface* InMaterialInterface);
 
 	/** Returns true if hidden parameters should be shown */
@@ -121,8 +121,8 @@ private:
 	/** Builds the toolbar widget for the material editor */
 	void ExtendToolbar();
 
-	/** Allows editor to veto the setting of a preview mesh */
-	virtual bool ApproveSetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh) override;
+	// IMaterialEditor interface
+	virtual bool ApproveSetPreviewAsset(UObject* InAsset) override;
 
 	/**	Spawns the preview tab */
 	TSharedRef<SDockTab> SpawnTab_Preview( const FSpawnTabArgs& Args );

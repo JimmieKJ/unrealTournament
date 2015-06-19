@@ -59,6 +59,13 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 	UPROPERTY(Config)
 		float CurrentActionBonus;
 
+	UPROPERTY()
+		float CurrentCameraRoll;
+
+	/** Camera tilt in degrees when wall sliding */
+	UPROPERTY()
+		float WallSlideCameraRoll;
+
 	/** Sweep to find valid third person camera offset. */
 	virtual void CheckCameraSweep(FHitResult& OutHit, AActor* TargetActor, const FVector& Start, const FVector& End);
 

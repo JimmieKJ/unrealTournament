@@ -97,6 +97,7 @@ void UK2Node_FormatText::PinConnectionListChanged(UEdGraphPin* Pin)
 {
 	const auto FormatPin = GetFormatPin();
 
+	Modify();
 	// Clear all pins.
 	if(Pin == FormatPin && !FormatPin->DefaultTextValue.IsEmpty())
 	{
@@ -108,6 +109,7 @@ void UK2Node_FormatText::PinConnectionListChanged(UEdGraphPin* Pin)
 			UEdGraphPin* CheckPin = *It;
 			if(CheckPin != FormatPin && CheckPin->Direction == EGPD_Input)
 			{
+				CheckPin->Modify();
 				CheckPin->BreakAllPinLinks();
 				Pins.Remove(CheckPin);
 				--It;
@@ -200,7 +202,7 @@ void UK2Node_FormatText::ExpandNode(class FKismetCompilerContext& CompilerContex
 
 	// This is the node that does all the Format work.
 	UK2Node_CallFunction* CallFunction = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
-	CallFunction->SetFromFunction(UKismetTextLibrary::StaticClass()->FindFunctionByName("Format"));
+	CallFunction->SetFromFunction(UKismetTextLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetTextLibrary, Format)));
 	CallFunction->AllocateDefaultPins();
 	CompilerContext.MessageLog.NotifyIntermediateObjectCreation(CallFunction, this);
 

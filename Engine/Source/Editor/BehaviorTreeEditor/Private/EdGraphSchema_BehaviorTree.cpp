@@ -15,14 +15,9 @@
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 #include "GenericCommands.h"
 
-#define LOCTEXT_NAMESPACE "BehaviorTreeSchema"
-#define SNAP_GRID (16) // @todo ensure this is the same as SNodePanel::GetSnapGridSize()
+#define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
-namespace 
-{
-	// Maximum distance a drag can be off a node edge to require 'push off' from node
-	const int32 NodeDistance = 60;
-}
+int32 UEdGraphSchema_BehaviorTree::CurrentCacheRefreshID = 0;
 
 UEdGraphNode* FBehaviorTreeSchemaAction_AutoArrange::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode)
 {
@@ -35,127 +30,8 @@ UEdGraphNode* FBehaviorTreeSchemaAction_AutoArrange::PerformAction(class UEdGrap
 	return NULL;
 }
 
-UEdGraphNode* FBehaviorTreeSchemaAction_NewNode::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode)
-{
-	UEdGraphNode* ResultNode = NULL;
-
-	// If there is a template, we actually use it
-	if (NodeTemplate != NULL)
-	{
-		const FScopedTransaction Transaction(LOCTEXT("AddNode", "Add Node"));
-		ParentGraph->Modify();
-		if (FromPin)
-		{
-			FromPin->Modify();
-		}
-
-		NodeTemplate->SetFlags(RF_Transactional);
-
-		// set outer to be the graph so it doesn't go away
-		NodeTemplate->Rename(NULL, ParentGraph, REN_NonTransactional);
-		ParentGraph->AddNode(NodeTemplate, true);
-
-		NodeTemplate->CreateNewGuid();
-		NodeTemplate->PostPlacedNewNode();
-		NodeTemplate->AllocateDefaultPins();
-		NodeTemplate->AutowireNewNode(FromPin);
-
-		// For input pins, new node will generally overlap node being dragged off
-		// Work out if we want to visually push away from connected node
-		int32 XLocation = Location.X;
-		if (FromPin && FromPin->Direction == EGPD_Input)
-		{
-			UEdGraphNode* PinNode = FromPin->GetOwningNode();
-			const float XDelta = FMath::Abs(PinNode->NodePosX - Location.X);
-
-			if (XDelta < NodeDistance)
-			{
-				// Set location to edge of current node minus the max move distance
-				// to force node to push off from connect node enough to give selection handle
-				XLocation = PinNode->NodePosX - NodeDistance;
-			}
-		}
-
-		NodeTemplate->NodePosX = XLocation;
-		NodeTemplate->NodePosY = Location.Y;
-		NodeTemplate->SnapToGrid(SNAP_GRID);
-
-		ResultNode = NodeTemplate;
-	}
-
-	return ResultNode;
-}
-
-UEdGraphNode* FBehaviorTreeSchemaAction_NewNode::PerformAction(class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode) 
-{
-	UEdGraphNode* ResultNode = NULL;
-	if (FromPins.Num() > 0)
-	{
-		ResultNode = PerformAction(ParentGraph, FromPins[0], Location);
-
-		// Try autowiring the rest of the pins
-		for (int32 Index = 1; Index < FromPins.Num(); ++Index)
-		{
-			ResultNode->AutowireNewNode(FromPins[Index]);
-		}
-	}
-	else
-	{
-		ResultNode = PerformAction(ParentGraph, NULL, Location, bSelectNewNode);
-	}
-
-	return ResultNode;
-}
-
-void FBehaviorTreeSchemaAction_NewNode::AddReferencedObjects( FReferenceCollector& Collector )
-{
-	FEdGraphSchemaAction::AddReferencedObjects( Collector );
-
-	// These don't get saved to disk, but we want to make sure the objects don't get GC'd while the action array is around
-	Collector.AddReferencedObject( NodeTemplate );
-}
-
-
-
-
-UEdGraphNode* FBehaviorTreeSchemaAction_NewSubNode::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode)
-{
-	ParentNode->AddSubNode(NodeTemplate,ParentGraph);
-	return NULL;
-}
-
-UEdGraphNode* FBehaviorTreeSchemaAction_NewSubNode::PerformAction(class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode) 
-{
-	return PerformAction(ParentGraph, NULL, Location, bSelectNewNode);
-}
-
-void FBehaviorTreeSchemaAction_NewSubNode::AddReferencedObjects( FReferenceCollector& Collector )
-{
-	FEdGraphSchemaAction::AddReferencedObjects( Collector );
-
-	// These don't get saved to disk, but we want to make sure the objects don't get GC'd while the action array is around
-	Collector.AddReferencedObject( NodeTemplate );
-}
-//////////////////////////////////////////////////////////////////////////
-
 UEdGraphSchema_BehaviorTree::UEdGraphSchema_BehaviorTree(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-}
-
-TSharedPtr<FBehaviorTreeSchemaAction_NewNode> AddNewNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FString& Category, const FText& MenuDesc, const FString& Tooltip)
-{
-	TSharedPtr<FBehaviorTreeSchemaAction_NewNode> NewAction = TSharedPtr<FBehaviorTreeSchemaAction_NewNode>(new FBehaviorTreeSchemaAction_NewNode(Category, MenuDesc, Tooltip, 0));
-
-	ContextMenuBuilder.AddAction( NewAction );
-
-	return NewAction;
-}
-
-TSharedPtr<FBehaviorTreeSchemaAction_NewSubNode> AddNewSubNodeAction(FGraphActionListBuilderBase& ContextMenuBuilder, const FString& Category, const FText& MenuDesc, const FString& Tooltip)
-{
-	TSharedPtr<FBehaviorTreeSchemaAction_NewSubNode> NewAction = TSharedPtr<FBehaviorTreeSchemaAction_NewSubNode>(new FBehaviorTreeSchemaAction_NewSubNode(Category, MenuDesc, Tooltip, 0));
-	ContextMenuBuilder.AddAction( NewAction );
-	return NewAction;
 }
 
 void UEdGraphSchema_BehaviorTree::CreateDefaultNodesForGraph(UEdGraph& Graph) const
@@ -166,66 +42,35 @@ void UEdGraphSchema_BehaviorTree::CreateDefaultNodesForGraph(UEdGraph& Graph) co
 	SetNodeMetaData(MyNode, FNodeMetadata::DefaultGraphNode);
 }
 
-FString UEdGraphSchema_BehaviorTree::GetShortTypeName(const UObject* Ob) const
+void UEdGraphSchema_BehaviorTree::GetGraphNodeContextActions(FGraphContextMenuBuilder& ContextMenuBuilder, int32 SubNodeFlags) const
 {
-	if (Ob->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint))
-	{
-		return Ob->GetClass()->GetName().LeftChop(2);
-	}
+	Super::GetGraphNodeContextActions(ContextMenuBuilder, SubNodeFlags);
 
-	FString TypeDesc = Ob->GetClass()->GetName();
-	const int32 ShortNameIdx = TypeDesc.Find(TEXT("_"));
-	if (ShortNameIdx != INDEX_NONE)
+	if (SubNodeFlags == ESubNode::Decorator)
 	{
-		TypeDesc = TypeDesc.Mid(ShortNameIdx + 1);
+		const FString& Category = UBehaviorTreeGraphNode_CompositeDecorator::StaticClass()->GetMetaData(TEXT("Category"));
+		UEdGraph* Graph = (UEdGraph*)ContextMenuBuilder.CurrentGraph;
+		UBehaviorTreeGraphNode_CompositeDecorator* OpNode = NewObject<UBehaviorTreeGraphNode_CompositeDecorator>(Graph);
+		TSharedPtr<FAISchemaAction_NewSubNode> AddOpAction = UAIGraphSchema::AddNewSubNodeAction(ContextMenuBuilder, Category, FText::FromString(OpNode->GetNodeTypeDescription()), "");
+		AddOpAction->ParentNode = Cast<UBehaviorTreeGraphNode>(ContextMenuBuilder.SelectedObjects[0]);
+		AddOpAction->NodeTemplate = OpNode;
 	}
-
-	return TypeDesc;
 }
 
-void UEdGraphSchema_BehaviorTree::GetGraphNodeContextActions(FGraphContextMenuBuilder& ContextMenuBuilder, ESubNode::Type SubNodeType) const
+void UEdGraphSchema_BehaviorTree::GetSubNodeClasses(int32 SubNodeFlags, TArray<FGraphNodeClassData>& ClassData, UClass*& GraphNodeClass) const
 {
-	TArray<FClassData> NodeClasses;
-	UEdGraph* Graph = (UEdGraph*)ContextMenuBuilder.CurrentGraph;
+	FBehaviorTreeEditorModule& EditorModule = FModuleManager::GetModuleChecked<FBehaviorTreeEditorModule>(TEXT("BehaviorTreeEditor"));
+	FGraphNodeClassHelper* ClassCache = EditorModule.GetClassCache().Get();
 
-	if (SubNodeType == ESubNode::Decorator)
+	if (SubNodeFlags == ESubNode::Decorator)
 	{
-		FClassBrowseHelper::GatherClasses(UBTDecorator::StaticClass(), NodeClasses);
-
-		{
-			const FString& Category = UBehaviorTreeGraphNode_CompositeDecorator::StaticClass()->GetMetaData(TEXT("Category"));
-			UBehaviorTreeGraphNode_CompositeDecorator* OpNode = NewObject<UBehaviorTreeGraphNode_CompositeDecorator>(Graph);
-			TSharedPtr<FBehaviorTreeSchemaAction_NewSubNode> AddOpAction = AddNewSubNodeAction(ContextMenuBuilder, Category, FText::FromString(OpNode->GetNodeTypeDescription()), "");
-			AddOpAction->ParentNode = Cast<UBehaviorTreeGraphNode>(ContextMenuBuilder.SelectedObjects[0]);
-			AddOpAction->NodeTemplate = OpNode;
-		}
-
-		for (const auto& NodeClass : NodeClasses)
-		{
-			const FText NodeTypeName = FText::FromString(FName::NameToDisplayString(NodeClass.ToString(), false));
-
-			UBehaviorTreeGraphNode* OpNode = NewObject<UBehaviorTreeGraphNode_Decorator>(Graph);
-			OpNode->ClassData = NodeClass;
-
-			TSharedPtr<FBehaviorTreeSchemaAction_NewSubNode> AddOpAction = AddNewSubNodeAction(ContextMenuBuilder, NodeClass.GetCategory(), NodeTypeName, "");
-			AddOpAction->ParentNode = Cast<UBehaviorTreeGraphNode>(ContextMenuBuilder.SelectedObjects[0]);
-			AddOpAction->NodeTemplate = OpNode;
-		}
+		ClassCache->GatherClasses(UBTDecorator::StaticClass(), ClassData);
+		GraphNodeClass = UBehaviorTreeGraphNode_Decorator::StaticClass();
 	}
-	else if (SubNodeType == ESubNode::Service)
+	else
 	{
-		FClassBrowseHelper::GatherClasses(UBTService::StaticClass(), NodeClasses);
-		for (const auto& NodeClass : NodeClasses)
-		{
-			const FText NodeTypeName = FText::FromString(FName::NameToDisplayString(NodeClass.ToString(), false));
-
-			UBehaviorTreeGraphNode* OpNode = NewObject<UBehaviorTreeGraphNode_Service>(Graph);
-			OpNode->ClassData = NodeClass;
-
-			TSharedPtr<FBehaviorTreeSchemaAction_NewSubNode> AddOpAction = AddNewSubNodeAction(ContextMenuBuilder, NodeClass.GetCategory(), NodeTypeName, "");
-			AddOpAction->ParentNode = Cast<UBehaviorTreeGraphNode>(ContextMenuBuilder.SelectedObjects[0]);
-			AddOpAction->NodeTemplate = OpNode;
-		}
+		ClassCache->GatherClasses(UBTService::StaticClass(), ClassData);
+		GraphNodeClass = UBehaviorTreeGraphNode_Service::StaticClass();
 	}
 }
 
@@ -241,25 +86,30 @@ void UEdGraphSchema_BehaviorTree::GetGraphContextActions(FGraphContextMenuBuilde
 	const bool bAllowComposites = bNoParent || !bOnlyTasks || bOnlyComposites;
 	const bool bAllowTasks = bNoParent || !bOnlyComposites || bOnlyTasks;
 
+	FBehaviorTreeEditorModule& EditorModule = FModuleManager::GetModuleChecked<FBehaviorTreeEditorModule>(TEXT("BehaviorTreeEditor"));
+	FGraphNodeClassHelper* ClassCache = EditorModule.GetClassCache().Get();
+
 	if (bAllowComposites)
 	{
 		FCategorizedGraphActionListBuilder CompositesBuilder(TEXT("Composites"));
 
-		TArray<FClassData> NodeClasses;
-		FClassBrowseHelper::GatherClasses(UBTCompositeNode::StaticClass(), NodeClasses);
+		TArray<FGraphNodeClassData> NodeClasses;
+		ClassCache->GatherClasses(UBTCompositeNode::StaticClass(), NodeClasses);
 
 		const FString ParallelClassName = UBTComposite_SimpleParallel::StaticClass()->GetName();
-
 		for (const auto& NodeClass : NodeClasses)
 		{
 			const FText NodeTypeName = FText::FromString(FName::NameToDisplayString(NodeClass.ToString(), false));
 
-			TSharedPtr<FBehaviorTreeSchemaAction_NewNode> AddOpAction = AddNewNodeAction(CompositesBuilder, NodeClass.GetCategory(), NodeTypeName, "");
+			TSharedPtr<FAISchemaAction_NewNode> AddOpAction = UAIGraphSchema::AddNewNodeAction(CompositesBuilder, NodeClass.GetCategory(), NodeTypeName, "");
 
-			UBehaviorTreeGraphNode* OpNode = (NodeClass.GetClassName() == ParallelClassName) ?
-				NewObject<UBehaviorTreeGraphNode_SimpleParallel>(ContextMenuBuilder.OwnerOfTemporaries) :				
-				NewObject<UBehaviorTreeGraphNode_Composite>(ContextMenuBuilder.OwnerOfTemporaries);
+			UClass* GraphNodeClass = UBehaviorTreeGraphNode_Composite::StaticClass();
+			if (NodeClass.GetClassName() == ParallelClassName)
+			{
+				GraphNodeClass = UBehaviorTreeGraphNode_SimpleParallel::StaticClass();
+			}
 
+			UBehaviorTreeGraphNode* OpNode = NewObject<UBehaviorTreeGraphNode>(ContextMenuBuilder.OwnerOfTemporaries, GraphNodeClass);
 			OpNode->ClassData = NodeClass;
 			AddOpAction->NodeTemplate = OpNode;
 		}
@@ -271,22 +121,22 @@ void UEdGraphSchema_BehaviorTree::GetGraphContextActions(FGraphContextMenuBuilde
 	{
 		FCategorizedGraphActionListBuilder TasksBuilder(TEXT("Tasks"));
 
-		TArray<FClassData> NodeClasses;
-		FClassBrowseHelper::GatherClasses(UBTTaskNode::StaticClass(), NodeClasses);
+		TArray<FGraphNodeClassData> NodeClasses;
+		ClassCache->GatherClasses(UBTTaskNode::StaticClass(), NodeClasses);
 
 		for (const auto& NodeClass : NodeClasses)
 		{
 			const FText NodeTypeName = FText::FromString(FName::NameToDisplayString(NodeClass.ToString(), false));
 
-			TSharedPtr<FBehaviorTreeSchemaAction_NewNode> AddOpAction = AddNewNodeAction(TasksBuilder, NodeClass.GetCategory(), NodeTypeName, "");
-			UClass* GraphNodeClass = UBehaviorTreeGraphNode_Task::StaticClass();
+			TSharedPtr<FAISchemaAction_NewNode> AddOpAction = UAIGraphSchema::AddNewNodeAction(TasksBuilder, NodeClass.GetCategory(), NodeTypeName, "");
 			
+			UClass* GraphNodeClass = UBehaviorTreeGraphNode_Task::StaticClass();
 			if (NodeClass.GetClassName() == UBTTask_RunBehavior::StaticClass()->GetName())
 			{
 				GraphNodeClass = UBehaviorTreeGraphNode_SubtreeTask::StaticClass();
 			}
 
-			UBehaviorTreeGraphNode* OpNode = ConstructObject<UBehaviorTreeGraphNode>(GraphNodeClass, ContextMenuBuilder.OwnerOfTemporaries);
+			UBehaviorTreeGraphNode* OpNode = NewObject<UBehaviorTreeGraphNode>(ContextMenuBuilder.OwnerOfTemporaries, GraphNodeClass);
 			OpNode->ClassData = NodeClass;
 			AddOpAction->NodeTemplate = OpNode;
 		}
@@ -296,132 +146,34 @@ void UEdGraphSchema_BehaviorTree::GetGraphContextActions(FGraphContextMenuBuilde
 	
 	if (bNoParent)
 	{
-		TSharedPtr<FBehaviorTreeSchemaAction_AutoArrange> Action = TSharedPtr<FBehaviorTreeSchemaAction_AutoArrange>(new FBehaviorTreeSchemaAction_AutoArrange(FString(), LOCTEXT("AutoArrange", "Auto Arrange"), FString(), 0));
+		TSharedPtr<FBehaviorTreeSchemaAction_AutoArrange> Action = TSharedPtr<FBehaviorTreeSchemaAction_AutoArrange>(
+			new FBehaviorTreeSchemaAction_AutoArrange(FString(), LOCTEXT("AutoArrange", "Auto Arrange"), FString(), 0)
+			);
+
 		ContextMenuBuilder.AddAction(Action);
 	}
 }
 
 void UEdGraphSchema_BehaviorTree::GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, class FMenuBuilder* MenuBuilder, bool bIsDebugging) const
 {
-	if (InGraphPin)
-	{
-		MenuBuilder->BeginSection("BehaviorTreeGraphSchemaPinActions", LOCTEXT("PinActionsMenuHeader", "Pin Actions"));
-		{
-			// Only display the 'Break Links' option if there is a link to break!
-			if (InGraphPin->LinkedTo.Num() > 0)
-			{
-				MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().BreakPinLinks );
-
-				// add sub menu for break link to
-				if(InGraphPin->LinkedTo.Num() > 1)
-				{
-					MenuBuilder->AddSubMenu(
-						LOCTEXT("BreakLinkTo", "Break Link To..." ),
-						LOCTEXT("BreakSpecificLinks", "Break a specific link..." ),
-						FNewMenuDelegate::CreateUObject( (UEdGraphSchema_BehaviorTree*const)this, &UEdGraphSchema_BehaviorTree::GetBreakLinkToSubMenuActions, const_cast<UEdGraphPin*>(InGraphPin)));
-				}
-				else
-				{
-					((UEdGraphSchema_BehaviorTree*const)this)->GetBreakLinkToSubMenuActions(*MenuBuilder, const_cast<UEdGraphPin*>(InGraphPin));
-				}
-			}
-		}
-		MenuBuilder->EndSection();
-	}
-	else if (InGraphNode)
+	if (InGraphNode && !InGraphPin)
 	{
 		const UBehaviorTreeGraphNode* BTGraphNode = Cast<const UBehaviorTreeGraphNode>(InGraphNode);
 		if (BTGraphNode && BTGraphNode->CanPlaceBreakpoints())
 		{
 			MenuBuilder->BeginSection("EdGraphSchemaBreakpoints", LOCTEXT("BreakpointsHeader", "Breakpoints"));
 			{
-				MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().ToggleBreakpoint );
-				MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().AddBreakpoint );
-				MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().RemoveBreakpoint );
-				MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().EnableBreakpoint );
-				MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().DisableBreakpoint );
+				MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().ToggleBreakpoint);
+				MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().AddBreakpoint);
+				MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().RemoveBreakpoint);
+				MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().EnableBreakpoint);
+				MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().DisableBreakpoint);
 			}
 			MenuBuilder->EndSection();
 		}
-
-		MenuBuilder->BeginSection("BehaviorTreeGraphSchemaNodeActions", LOCTEXT("ClassActionsMenuHeader", "Node Actions"));
-		{
-			MenuBuilder->AddMenuEntry( FGenericCommands::Get().Delete );
-			MenuBuilder->AddMenuEntry( FGenericCommands::Get().Cut );
-			MenuBuilder->AddMenuEntry( FGenericCommands::Get().Copy );
-			MenuBuilder->AddMenuEntry( FGenericCommands::Get().Duplicate );
-
-			MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().BreakNodeLinks);
-		}
-		MenuBuilder->EndSection();
 	}
 
 	Super::GetContextMenuActions(CurrentGraph, InGraphNode, InGraphPin, MenuBuilder, bIsDebugging);
-}
-
-void UEdGraphSchema_BehaviorTree::GetBreakLinkToSubMenuActions( class FMenuBuilder& MenuBuilder, UEdGraphPin* InGraphPin )
-{
-	// Make sure we have a unique name for every entry in the list
-	TMap< FString, uint32 > LinkTitleCount;
-
-	// Add all the links we could break from
-	for(TArray<class UEdGraphPin*>::TConstIterator Links(InGraphPin->LinkedTo); Links; ++Links)
-	{
-		UEdGraphPin* Pin = *Links;
-		FString TitleString = Pin->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView).ToString();
-		FText Title = FText::FromString( TitleString );
-		if ( Pin->PinName != TEXT("") )
-		{
-			TitleString = FString::Printf(TEXT("%s (%s)"), *TitleString, *Pin->PinName);
-
-			// Add name of connection if possible
-			FFormatNamedArguments Args;
-			Args.Add( TEXT("NodeTitle"), Title );
-			Args.Add( TEXT("PinName"), Pin->GetDisplayName() );
-			Title = FText::Format( LOCTEXT("BreakDescPin", "{NodeTitle} ({PinName})"), Args );
-		}
-
-		uint32 &Count = LinkTitleCount.FindOrAdd( TitleString );
-
-		FText Description;
-		FFormatNamedArguments Args;
-		Args.Add( TEXT("NodeTitle"), Title );
-		Args.Add( TEXT("NumberOfNodes"), Count );
-
-		if(Count == 0)
-		{
-			Description = FText::Format( LOCTEXT("BreakDesc", "Break link to {NodeTitle}"), Args );
-		}
-		else
-		{
-			Description = FText::Format( LOCTEXT("BreakDescMulti", "Break link to {NodeTitle} ({NumberOfNodes})"), Args );
-		}
-		++Count;
-
-		MenuBuilder.AddMenuEntry( Description, Description, FSlateIcon(), FUIAction(
-			FExecuteAction::CreateUObject(this, &UEdGraphSchema_BehaviorTree::BreakSinglePinLink, const_cast< UEdGraphPin* >(InGraphPin), *Links) ) );
-	}
-}
-
-void UEdGraphSchema_BehaviorTree::BreakNodeLinks(UEdGraphNode& TargetNode) const
-{
-	const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "GraphEd_BreakNodeLinks", "Break Node Links") );
-
-	Super::BreakNodeLinks(TargetNode);
-}
-
-void UEdGraphSchema_BehaviorTree::BreakPinLinks(UEdGraphPin& TargetPin, bool bSendsNodeNotification) const
-{
-	const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "GraphEd_BreakPinLinks", "Break Pin Links") );
-
-	Super::BreakPinLinks(TargetPin, bSendsNodeNotification);
-}
-
-void UEdGraphSchema_BehaviorTree::BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraphPin* TargetPin)
-{
-	const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "GraphEd_BreakSinglePinLink", "Break Pin Link") );
-
-	Super::BreakSinglePinLink(SourcePin, TargetPin);
 }
 
 const FPinConnectionResponse UEdGraphSchema_BehaviorTree::CanCreateConnection(const UEdGraphPin* PinA, const UEdGraphPin* PinB) const
@@ -464,10 +216,6 @@ const FPinConnectionResponse UEdGraphSchema_BehaviorTree::CanCreateConnection(co
 	else if ((PinB->Direction == EGPD_Output) && (PinA->Direction == EGPD_Output))
 	{
 		return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, LOCTEXT("PinErrorOutput", "Can't connect output node to output node"));
-	}
-	else if ((PinA->Direction == EGPD_Input) && (PinB->Direction == EGPD_Output))
-	{
-		return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, LOCTEXT("PinErrorWrongDirection", "Can't connect input node to output node"));
 	}
 
 	class FNodeVisitorCycleChecker
@@ -532,7 +280,7 @@ const FPinConnectionResponse UEdGraphSchema_BehaviorTree::CanCreateConnection(co
 	const bool bPinASingleLink = bPinAIsSingleComposite || bPinAIsSingleTask || bPinAIsSingleNode;
 	const bool bPinBSingleLink = bPinBIsSingleComposite || bPinBIsSingleTask || bPinBIsSingleNode;
 
-	if (PinB->LinkedTo.Num() > 0)
+	if (PinB->Direction == EGPD_Input && PinB->LinkedTo.Num() > 0)
 	{
 		if(bPinASingleLink)
 		{
@@ -541,6 +289,17 @@ const FPinConnectionResponse UEdGraphSchema_BehaviorTree::CanCreateConnection(co
 		else
 		{
 			return FPinConnectionResponse(CONNECT_RESPONSE_BREAK_OTHERS_B, LOCTEXT("PinConnectReplace", "Replace connection"));
+		}
+	}
+	else if (PinA->Direction == EGPD_Input && PinA->LinkedTo.Num() > 0)
+	{
+		if (bPinBSingleLink)
+		{
+			return FPinConnectionResponse(CONNECT_RESPONSE_BREAK_OTHERS_AB, LOCTEXT("PinConnectReplace", "Replace connection"));
+		}
+		else
+		{
+			return FPinConnectionResponse(CONNECT_RESPONSE_BREAK_OTHERS_A, LOCTEXT("PinConnectReplace", "Replace connection"));
 		}
 	}
 
@@ -585,17 +344,19 @@ const FPinConnectionResponse UEdGraphSchema_BehaviorTree::CanMergeNodes(const UE
 
 			if (BTNodeB && BTNodeB->bInjectedNode)
 			{
+				const UBehaviorTreeGraphNode* ParentNodeB = Cast<const UBehaviorTreeGraphNode>(BTNodeB->ParentNode);
+
 				int32 FirstInjectedIdx = INDEX_NONE;
-				for (int32 Idx = 0; Idx < BTNodeB->ParentNode->Decorators.Num(); Idx++)
+				for (int32 Idx = 0; Idx < ParentNodeB->Decorators.Num(); Idx++)
 				{
-					if (BTNodeB->ParentNode->Decorators[Idx]->bInjectedNode)
+					if (ParentNodeB->Decorators[Idx]->bInjectedNode)
 					{
 						FirstInjectedIdx = Idx;
 						break;
 					}
 				}
 
-				int32 NodeIdx = BTNodeB->ParentNode->Decorators.IndexOfByKey(BTNodeB);
+				int32 NodeIdx = ParentNodeB->Decorators.IndexOfByKey(BTNodeB);
 				if (NodeIdx != FirstInjectedIdx)
 				{
 					return FPinConnectionResponse(CONNECT_RESPONSE_DISALLOW, LOCTEXT("MergeInjectedNodeAtEnd", "Decorators must be placed above injected nodes!"));
@@ -629,18 +390,6 @@ FLinearColor UEdGraphSchema_BehaviorTree::GetPinTypeColor(const FEdGraphPinType&
 	return FColor::White;
 }
 
-bool UEdGraphSchema_BehaviorTree::ShouldHidePinDefaultValue(UEdGraphPin* Pin) const
-{
-	check(Pin != NULL);
-
-	if (Pin->bDefaultValueIsIgnored)
-	{
-		return true;
-	}
-
-	return false;
-}
-
 class FConnectionDrawingPolicy* UEdGraphSchema_BehaviorTree::CreateConnectionDrawingPolicy(int32 InBackLayerID, int32 InFrontLayerID, float InZoomFactor, const FSlateRect& InClippingRect, class FSlateWindowElementList& InDrawElements, class UEdGraph* InGraphObj) const
 {
 	return new FBehaviorTreeConnectionDrawingPolicy(InBackLayerID, InFrontLayerID, InZoomFactor, InClippingRect, InDrawElements, InGraphObj);
@@ -666,6 +415,21 @@ int32 UEdGraphSchema_BehaviorTree::GetNodeSelectionCount(const UEdGraph* Graph) 
 	}
 
 	return 0;
+}
+
+bool UEdGraphSchema_BehaviorTree::IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const
+{
+	return CurrentCacheRefreshID != InVisualizationCacheID;
+}
+
+int32 UEdGraphSchema_BehaviorTree::GetCurrentVisualizationCacheID() const
+{
+	return CurrentCacheRefreshID;
+}
+
+void UEdGraphSchema_BehaviorTree::ForceVisualizationCacheClear() const
+{
+	++CurrentCacheRefreshID;
 }
 
 #undef LOCTEXT_NAMESPACE

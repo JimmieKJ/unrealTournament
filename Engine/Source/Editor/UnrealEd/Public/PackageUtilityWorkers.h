@@ -36,7 +36,7 @@ struct FPkgInfoReporter
 	FPkgInfoReporter() 
 	: InfoFlags(PKGINFO_None), bHideOffsets(false), Linker(NULL), PackageCount(0)
 	{}
-	FPkgInfoReporter( uint32 InInfoFlags, bool bInHideOffsets, ULinkerLoad* InLinker=NULL )
+	FPkgInfoReporter( uint32 InInfoFlags, bool bInHideOffsets, FLinkerLoad* InLinker=NULL )
 	: InfoFlags(InInfoFlags), bHideOffsets(bInHideOffsets), Linker(InLinker), PackageCount(0)
 	{}
 	FPkgInfoReporter( const FPkgInfoReporter& Other )
@@ -51,12 +51,12 @@ struct FPkgInfoReporter
 	 *
 	 * @param	InLinker	if specified, changes this reporter's Linker before generating the report.
 	 */
-	virtual void GeneratePackageReport( class ULinkerLoad* InLinker=NULL )=0;
+	virtual void GeneratePackageReport( class FLinkerLoad* InLinker=NULL )=0;
 
 	/**
 	 * Changes the target linker for this reporter.  Useful when generating reports for multiple packages.
 	 */
-	void SetLinker( class ULinkerLoad* NewLinker )
+	void SetLinker( class FLinkerLoad* NewLinker )
 	{
 		Linker = NewLinker;
 	}
@@ -76,7 +76,7 @@ protected:
 	/**
 	 * The linker of the package to generate the report for
 	 */
-	class ULinkerLoad* Linker;
+	class FLinkerLoad* Linker;
 
 	/**
 	 * The number of packages evaluated by this reporter so far.  Must be incremented by child classes.
@@ -86,7 +86,7 @@ protected:
 
 struct FPkgInfoReporter_Log : public FPkgInfoReporter
 {
-	FPkgInfoReporter_Log( uint32 InInfoFlags, bool bInHideOffsets, ULinkerLoad* InLinker=NULL )
+	FPkgInfoReporter_Log( uint32 InInfoFlags, bool bInHideOffsets, FLinkerLoad* InLinker=NULL )
 	: FPkgInfoReporter(InInfoFlags, bInHideOffsets, InLinker)
 	{}
 	FPkgInfoReporter_Log( const FPkgInfoReporter_Log& Other )
@@ -97,7 +97,7 @@ struct FPkgInfoReporter_Log : public FPkgInfoReporter
 	 *
 	 * @param	InLinker	if specified, changes this reporter's Linker before generating the report.
 	 */
-	virtual void GeneratePackageReport( class ULinkerLoad* InLinker=NULL );
+	virtual void GeneratePackageReport( class FLinkerLoad* InLinker=NULL );
 };
 
 #endif

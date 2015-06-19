@@ -22,7 +22,7 @@ Engine/Rendering/Materials/ExpressionReference/Color#desaturation
 
 
 [EXCERPT:UMaterialExpressionConstant]
-The Constant expression outputs a single float value. It is one the most commonly used expressions and can be connected to any input, regardless of the number of channels the input expects. For instance, if you connect a Constant to an input expecting a 3 Vector, the constant value will be used for all 3 elements. When supplying a single number, it can be useful to collapse the node using the small triangle icon in the description area. 
+The Constant expression outputs a single float value. It is one of the most commonly used expressions and can be connected to any input, regardless of the number of channels the input expects. For instance, if you connect a Constant to an input expecting a 3 Vector, the constant value will be used for all 3 elements. When supplying a single number, it can be useful to collapse the node using the small triangle icon in the description area. 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Constant#constant
 [/VAR]
@@ -311,6 +311,14 @@ The CustomTexture expression allows you to refer to a texture in the HLSL code i
 Engine/Rendering/Materials/ExpressionReference/Custom#customtexture
 [/VAR]
 [/EXCERPT:UMaterialExpressionCustomTexture]
+
+[EXCERPT:UMaterialExpressionDecalMipmapLevel]
+The DecalMipmapLevel is used to explitily compute a decal's texture's mipmap level assuming there is no custom uv, to avoid the 2x2 pixel mipmap artefacts on the edges where the decal is project to.
+
+[VAR:ToolTipFullLink]
+Engine/Actors/DecalActor/DecalUserGuide
+[/VAR]
+[/EXCERPT:UMaterialExpressionDecalMipmapLevel]
 
 [EXCERPT:UMaterialExpressionDepthFade]
 The DepthFade expression is used to hide unsightly seams that take place when translucent objects intersect with opaque ones. 
@@ -814,7 +822,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#depthoffieldfunction
 [/EXCERPT:UMaterialExpressionDepthOfFieldFunction]
 
 [EXCERPT:UMaterialExpressionDistance]
-The Distance expression computes the (Euclidian) distance between two points/colors/positions/vectors and outputs the resulting value. This works on one, two, three and four component vectors, but both inputs to the expression must have the same number of channels. 
+The Distance expression computes the (Euclidian) distance between two points/colors/positions/vectors and outputs the resulting value. This works on one, two, three, and four component vectors, but both inputs to the expression must have the same number of channels. 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Utility#distance
@@ -870,7 +878,7 @@ Engine/Rendering/Materials/ExpressionReference/Utility#rotateaboutaxis
 [EXCERPT:UMaterialExpressionAntialiasedTextureMask]
 The AntialiasedTextureMask expression allows you to create a material using a soft (anti-aliased) transition mask. The mask can be used to blend between two complex material properties or to fade out a alpha blended material (works well with SoftMasked). 
 
-Simple specify a texture with the mask specified in one channel (red, green, blue or alpha), set the used channel in the expression and specify the comparison value.
+Simple specify a texture with the mask specified in one channel (red, green, blue, or alpha), set the used channel in the expression and specify the comparison value.
 
 Assuming the channel stores a grayscale value in the range 0=black to 1=white the comparison function defines if the resulting mask should be 0 or 1. This expression is a parameter, allowing the Texture property to be overridden by child MaterialInstances. 
 
@@ -954,7 +962,7 @@ Engine/Rendering/Materials/ExpressionReference/Parameters#staticcomponentmaskpar
 [/EXCERPT:UMaterialExpressionStaticComponentMaskParameter]
 
 [EXCERPT:UMaterialExpressionSpeedTree]
-The SpeedTree node allows you to access and gain SpeedTree wind and smooth LOD transitions. Geometry Type, Wind Type, LOD Type and Bilboard Threshold can be set via the Details panel. 
+The SpeedTree node allows you to access and gain SpeedTree wind and smooth LOD transitions. Geometry Type, Wind Type, LOD Type and Billboard Threshold can be set via the Details panel. 
 
 [VAR:ToolTipFullLink]
 Engine/Content/SpeedTree/ImportingModelsIntoUE4
@@ -962,7 +970,7 @@ Engine/Content/SpeedTree/ImportingModelsIntoUE4
 [/EXCERPT:UMaterialExpressionSpeedTree]
 
 [EXCERPT:UMaterialExpressionSceneTexture]
-Using the SceneTexture material expression you can choose a texture you want to reference in the expression's properties, then using the input and output nodes, you can compute the depth difference of the current pixel to a neighbor pixel (e.g. In = 0,1 to return the delta to the pixel below). 
+Using the SceneTexture material expression, you can choose a texture you want to reference in the expression's properties, then using the input and output nodes, you can compute the depth difference of the current pixel to a neighbor pixel (e.g. In = 0,1 to return the delta to the pixel below). 
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/PostProcessEffects/PostProcessMaterials

@@ -91,16 +91,16 @@ TSharedRef<SWidget> FEditorClassUtils::GetSourceLinkFormatted(const UClass* Clas
 		{
 			static void OnEditBlueprintClicked( TWeakObjectPtr<UBlueprint> InBlueprint, TWeakObjectPtr<UObject> InAsset )
 			{
-				if (UBlueprint* Blueprint = InBlueprint.Get())
+				if (UBlueprint* BlueprintToEdit = InBlueprint.Get())
 				{
 					// Set the object being debugged if given an actor reference (if we don't do this before we edit the object the editor wont know we are debugging something)
 					if (UObject* Asset = InAsset.Get())
 					{
-						check(Asset->GetClass()->ClassGeneratedBy == Blueprint);
-						Blueprint->SetObjectBeingDebugged(Asset);
+						check(Asset->GetClass()->ClassGeneratedBy == BlueprintToEdit);
+						BlueprintToEdit->SetObjectBeingDebugged(Asset);
 					}
 					// Open the blueprint
-					GEditor->EditObject( Blueprint );
+					GEditor->EditObject( BlueprintToEdit );
 				}
 			}
 		};
@@ -131,7 +131,7 @@ TSharedRef<SWidget> FEditorClassUtils::GetSourceLinkFormatted(const UClass* Clas
 				.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
 				.OnNavigate_Static(&Local::OnEditCodeClicked, ClassHeaderPath)
 				.Text(FText::Format(CodeFormat, FText::FromString(FPaths::GetCleanFilename( *ClassHeaderPath ) ) ) )
-				.ToolTipText(NSLOCTEXT("SourceHyperlink", "GoToCode_ToolTip", "Click to open this source file in a text editor"));
+				.ToolTipText(FText::Format(NSLOCTEXT("SourceHyperlink", "GoToCode_ToolTip", "Click to open this source file in {0}"), FSourceCodeNavigation::GetSuggestedSourceCodeIDE()));
 		}
 	}
 

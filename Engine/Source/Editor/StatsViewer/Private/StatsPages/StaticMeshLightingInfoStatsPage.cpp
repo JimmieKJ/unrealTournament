@@ -8,6 +8,7 @@
 #include "BusyCursor.h"
 #include "ScopedTransaction.h"
 #include "STextEntryPopup.h"
+#include "Engine/LevelStreaming.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.StaticMeshLightingInfo"
 
@@ -103,7 +104,7 @@ struct StaticMeshLightingInfoStatsGenerator
 				bTextureMapping, 
 				bHasLightmapTexCoords) )
 		{
-			UStaticMeshLightingInfo* Entry = ConstructObject<UStaticMeshLightingInfo>(UStaticMeshLightingInfo::StaticClass());
+			UStaticMeshLightingInfo* Entry = NewObject<UStaticMeshLightingInfo>();
 			Entry->AddToRoot();
 			OutObjects.Add(Entry);
 
@@ -205,7 +206,7 @@ void FStaticMeshLightingInfoStatsPage::GenerateTotals( const TArray< TWeakObject
 {
 	if(InObjects.Num())
 	{
-		UStaticMeshLightingInfo* TotalEntry = ConstructObject<UStaticMeshLightingInfo>( UStaticMeshLightingInfo::StaticClass() );
+		UStaticMeshLightingInfo* TotalEntry = NewObject<UStaticMeshLightingInfo>();
 
 		for( auto It = InObjects.CreateConstIterator(); It; ++It )
 		{
@@ -502,8 +503,6 @@ void FStaticMeshLightingInfoStatsPage::GetUserSetStaticLightmapResolution(TWeakP
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
 			);
-
-		TextEntry->FocusDefaultWidget();
 	}
 }
 

@@ -26,7 +26,10 @@ struct FCustomKeyBinding
 UCLASS()
 class UNREALTOURNAMENT_API UUTPlayerInput : public UPlayerInput
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+
+public:
+	UUTPlayerInput();
 
 	UPROPERTY(Config)
 	TArray<FCustomKeyBinding> CustomBinds;

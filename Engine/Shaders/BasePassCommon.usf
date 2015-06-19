@@ -13,6 +13,10 @@
 #define NEEDS_BASEPASS_FOGGING			(ENABLE_TRANSLUCENCY_VERTEX_FOG && ((MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ADDITIVE || MATERIALBLENDING_MODULATE) && !MATERIAL_USES_SCENE_COLOR_COPY))
 #define NEEDS_LIGHTMAP					(NEEDS_LIGHTMAP_COORDINATE)
 
+#define WRITES_VELOCITY_TO_GBUFFER		(OUTPUT_GBUFFER_VELOCITY && (MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED))
+// Use an extra interpolator for position
+#define WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR		(WRITES_VELOCITY_TO_GBUFFER && USING_TESSELLATION)
+
 struct FSharedBasePassInterpolants
 {
 	//for texture-lightmapped translucency we can pass the vertex fog in its own interpolator
@@ -26,7 +30,14 @@ struct FSharedBasePassInterpolants
 	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 	float4 PixelPositionExcludingWPO : TEXCOORD9;
 	#endif
+#endif
 
+#if WRITES_VELOCITY_TO_GBUFFER
+	// .xy is clip position, pre divide by w; .w is clip W; .z is 0 or 1 to mask out the velocity output
+	float4 VelocityPrevScreenPosition : VELOCITY_PREV_POS;
+	#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
+		float4 VelocityScreenPosition : VELOCITY_POS;
+	#endif
 #endif
 };
 
@@ -37,17 +48,17 @@ struct FBasePassInterpolantsVSToPS : FSharedBasePassInterpolants
 {
 	float4 PixelPosition	: TEXCOORD8;
 
-#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 	float4 PixelPositionExcludingWPO : TEXCOORD9;
-#endif
+	#endif
 };
 
 /** Interpolants passed from the vertex shader to the domain shader. */
 struct FBasePassInterpolantsVSToDS : FSharedBasePassInterpolants
 {
-#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 	float3 WorldPositionExcludingWPO : TEXCOORD9;
-#endif
+	#endif
 };
 
 #else

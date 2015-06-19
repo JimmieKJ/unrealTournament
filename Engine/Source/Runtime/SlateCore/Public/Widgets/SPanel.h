@@ -22,7 +22,7 @@ public:
 	 * @param AllottedGeometry    The geometry allotted for this widget by its parent.
 	 * @param ArrangedChildren    The array to which to add the WidgetGeometries that represent the arranged children.
 	 */
-	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const = 0;
+	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override = 0;
 
 	/**
 	 * A Panel's desired size in the space required to arrange of its children on the screen while respecting all of
@@ -30,7 +30,7 @@ public:
 	 *
 	 * @return The desired size.
 	 */
-	virtual FVector2D ComputeDesiredSize( ) const = 0;
+	virtual FVector2D ComputeDesiredSize(float) const override = 0;
 
 	/**
 	 * All widgets must provide a way to access their children in a layout-agnostic way.
@@ -39,7 +39,7 @@ public:
 	 * provides layout information about the child it stores. In that case
 	 * GetChildren should simply return the TPanelChildren<Slot>. See StackPanel for an example.
 	 */
-	virtual FChildren* GetChildren( ) = 0;
+	virtual FChildren* GetChildren() override = 0;
 
 public:
 
@@ -47,7 +47,7 @@ public:
 	 * Most panels do not create widgets as part of their implementation, so
 	 * they do not need to implement a Construct()
 	 */
-	void Construct( ) { }
+	void Construct() { }
 
 public:
 

@@ -64,6 +64,7 @@
     <Compile Include="BuildCommonTools.Automation.cs" />
     <Compile Include="BuildCookRun.Automation.cs" />
     <Compile Include="BuildDocumentation.Automation.cs" />
+    <Compile Include="BuildPluginCommand.Automation.cs" />
     <Compile Include="BuildProjectCommand.Automation.cs" />
     <Compile Include="BuildThirdPartyLibs.Automation.cs" />
     <Compile Include="CodeSurgery.Automation.cs" />
@@ -73,8 +74,12 @@
     <Compile Include="FixupRedirects.Automation.cs" />
     <Compile Include="GenerateDSYM.Automation.cs" />
     <Compile Include="GUBP.Automation.cs" />
+    <Compile Include="RocketBuild.Automation.cs" />
     <Compile Include="IPhonePackager.Automation.cs" />
     <Compile Include="LauncherLocalization.Automation.cs" />
+    <Compile Include="ListMobileDevices.Automation.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Localisation.Automation.cs" />
     <Compile Include="MegaXGE.Automation.cs" />
     <Compile Include="PackageCommand.Automation.cs" />

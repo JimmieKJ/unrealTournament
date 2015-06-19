@@ -32,7 +32,7 @@ void SErrorText::SetError( const FText& InErrorText )
 {
 	if ( TextBlock->GetText().IsEmpty() && !InErrorText.IsEmpty() )
 	{
-		ExpandAnimation.Play();
+		ExpandAnimation.Play( this->AsShared() );
 	}
 
 	TextBlock->SetText( InErrorText );

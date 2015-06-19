@@ -25,9 +25,6 @@ void FDeviceProfileDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder
 	TSharedPtr<IPropertyHandle> MeshLODSettingsHandle = DetailBuilder.GetProperty("MeshLODSettings");
 	DetailBuilder.HideProperty(MeshLODSettingsHandle);
 
-	TSharedPtr<IPropertyHandle> TextureLODSettingsHandle = DetailBuilder.GetProperty("TextureLODSettings");
-	DetailBuilder.HideProperty(TextureLODSettingsHandle);
-
 	// Setup the parent profile panel
 	ParentProfileDetails = MakeShareable(new FDeviceProfileParentPropertyDetails(&DetailBuilder));
 	ParentProfileDetails->CreateParentPropertyView();
@@ -35,6 +32,9 @@ void FDeviceProfileDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder
 	// Setup the console variable editor
 	ConsoleVariablesDetails = MakeShareable(new FDeviceProfileConsoleVariablesPropertyDetails(&DetailBuilder));
 	ConsoleVariablesDetails->CreateConsoleVariablesPropertyView();
+
+	TextureLODSettingsDetails = MakeShareable(new FDeviceProfileTextureLODSettingsDetails(&DetailBuilder));
+	TextureLODSettingsDetails->CreateTextureLODSettingsPropertyView();
 }
 
 
@@ -415,7 +415,7 @@ FDeviceProfileParentPropertyDetails::FDeviceProfileParentPropertyDetails(IDetail
 
 void FDeviceProfileParentPropertyDetails::CreateParentPropertyView()
 {
-	UDeviceProfile* ParentProfile = Cast<UDeviceProfile>(ActiveDeviceProfile->Parent);
+	UDeviceProfile* ParentProfile = ActiveDeviceProfile ? Cast<UDeviceProfile>(ActiveDeviceProfile->Parent) : nullptr;
 	while(ParentProfile != nullptr)
 	{
 		ParentProfile->OnCVarsUpdated().BindSP(this, &FDeviceProfileParentPropertyDetails::OnParentPropertyChanged);
@@ -445,7 +445,7 @@ void FDeviceProfileParentPropertyDetails::CreateParentPropertyView()
 	if(ActiveDeviceProfile != nullptr)
 	{
 		TArray<UDeviceProfile*> AllPossibleParents;
-		GEngine->GetDeviceProfileManager()->GetAllPossibleParentProfiles(ActiveDeviceProfile, AllPossibleParents);
+		UDeviceProfileManager::Get().GetAllPossibleParentProfiles(ActiveDeviceProfile, AllPossibleParents);
 
 		for(auto& NextProfile : AllPossibleParents)
 		{
@@ -572,7 +572,6 @@ FDeviceProfileConsoleVariablesPropertyDetails::FDeviceProfileConsoleVariablesPro
 
 void FDeviceProfileConsoleVariablesPropertyDetails::CreateConsoleVariablesPropertyView()
 {
-
 	FSimpleDelegate OnCVarPropertyChangedDelegate = FSimpleDelegate::CreateSP(this, &FDeviceProfileConsoleVariablesPropertyDetails::OnCVarPropertyChanged);
 	CVarsHandle->SetOnPropertyValueChanged(OnCVarPropertyChangedDelegate);
 
@@ -840,6 +839,5 @@ void FDeviceProfileConsoleVariablesPropertyDetails::OnCVarPropertyChanged()
 {
 	DetailBuilder->ForceRefreshDetails();
 }
-
 
 #undef LOCTEXT_NAMESPACE

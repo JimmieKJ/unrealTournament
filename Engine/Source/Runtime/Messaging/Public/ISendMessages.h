@@ -3,7 +3,6 @@
 #pragma once
 
 
-// forward declarations
 class IMessageContext;
 
 
@@ -11,15 +10,15 @@ class IMessageContext;
  * Interface for message senders.
  *
  * Classes that implement this interface are able to send messages on a message bus. Each message sender must be uniquely
- * identifiable with a message address that is returned by the @see ISendMessages.GetSenderAddress method. It is recommended
+ * identifiable with a message address that is returned by the ISendMessages.GetSenderAddress method. It is recommended
  * that implementors of this interface generate a GUID for each instance, which must not change throughout the lifetime of
  * the instance.
  *
- * The sending of messages is accomplished with the @see IMessageBus.Forward, IMessageBus.Publish and IMessageBus.Send methods.
- * In case an error occurs during the sending of a message, the @see ISendMessages.NotifyMessageError method will be called.
+ * The sending of messages is accomplished with the IMessageBus.Forward, IMessageBus.Publish and IMessageBus.Send methods.
+ * In case an error occurs during the sending of a message, the ISendMessages.NotifyMessageError method will be called.
  *
  * This interface provides a rather low-level mechanism for receiving messages. Instead of implementing it, Most users will
- * want to use an instance of @see FMessageEndpoint, which provides a much more convenient way of sending and receiving messages.
+ * want to use an instance of FMessageEndpoint, which provides a much more convenient way of sending and receiving messages.
  *
  * @see FMessageEndpoint, IMessageBus, IReceiveMessages
  */

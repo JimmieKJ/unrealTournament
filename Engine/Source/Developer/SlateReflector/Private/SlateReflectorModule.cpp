@@ -168,7 +168,7 @@ public:
 			.SetMenuType(ETabSpawnerMenuType::Hidden);
 	}
 
-	virtual void UnregisterTabSpawner() 
+	virtual void UnregisterTabSpawner() override
 	{
 		bHasRegisteredTabSpawners = false;
 

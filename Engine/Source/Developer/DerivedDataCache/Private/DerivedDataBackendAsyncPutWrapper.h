@@ -84,12 +84,10 @@ public:
 		FilesInFlight->Remove(CacheKey);
 		FDerivedDataBackend::Get().AddToAsyncCompletionCounter(-1);
 	}
-	/** Give the name for external event viewers
-	* @return	the name to display in external event viewers
-	*/
-	static const TCHAR *Name()
+
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FCachePutAsyncWorker");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FCachePutAsyncWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
 	/** Indicates to the thread pool that this task is abandonable */
@@ -132,7 +130,7 @@ public:
 	}
 
 	/** return true if this cache is writable **/
-	virtual bool IsWritable()
+	virtual bool IsWritable() override
 	{
 		return InnerBackend->IsWritable();
 	}
@@ -143,7 +141,7 @@ public:
 	 * @param	CacheKey	Alphanumeric+underscore key of this cache item
 	 * @return				true if the data probably will be found, this can't be guaranteed because of concurrency in the backends, corruption, etc
 	 */
-	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey)
+	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
 		return (InflightCache && InflightCache->CachedDataProbablyExists(CacheKey)) || InnerBackend->CachedDataProbablyExists(CacheKey);
 	}
@@ -154,7 +152,7 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData)
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
 		if (InflightCache && InflightCache->GetCachedData(CacheKey, OutData))
 		{

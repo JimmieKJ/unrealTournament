@@ -155,7 +155,7 @@ private:
 		}
 	}
 
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		return FVector2D(100,100);
 	}
@@ -185,7 +185,7 @@ void SWindow::Construct(const FArguments& InArgs)
 
 	this->Title = InArgs._Title;
 	this->bDragAnywhere = InArgs._bDragAnywhere;
-	this->bIsTransparent = InArgs._SupportsTransparency;
+	this->TransparencySupport = InArgs._SupportsTransparency.Value;
 	this->Opacity = InArgs._InitialOpacity;
 	this->bInitiallyMaximized = InArgs._IsInitiallyMaximized;
 	this->SizingRule = InArgs._SizingRule;
@@ -193,6 +193,7 @@ void SWindow::Construct(const FArguments& InArgs)
 	this->bFocusWhenFirstShown = InArgs._FocusWhenFirstShown;
 	this->bActivateWhenFirstShown = InArgs._ActivateWhenFirstShown;
 	this->bHasOSWindowBorder = InArgs._UseOSWindowBorder;
+	this->bHasCloseButton = InArgs._HasCloseButton;
 	this->bHasMinimizeButton = InArgs._SupportsMinimize;
 	this->bHasMaximizeButton = InArgs._SupportsMaximize;
 	this->bHasSizingFrame = !InArgs._IsPopupWindow && InArgs._SizingRule == ESizingRule::UserSized;
@@ -310,7 +311,7 @@ TSharedRef<SWindow> SWindow::MakeNotificationWindow()
 		.IsPopupWindow( true )
 		.CreateTitleBar( false )
 		.SizingRule( ESizingRule::Autosized )
-		.SupportsTransparency( true )
+		.SupportsTransparency( EWindowTransparency::PerWindow )
 		.InitialOpacity( 0.0f )
 		.FocusWhenFirstShown( false )
 		.ActivateWhenFirstShown( false );
@@ -329,11 +330,11 @@ TSharedRef<SWindow> SWindow::MakeToolTipWindow()
 	TSharedRef<SWindow> NewWindow = SNew( SWindow )
 		.IsPopupWindow( true )
 		.SizingRule( ESizingRule::Autosized )
+		.SupportsTransparency( EWindowTransparency::PerWindow )
 		.FocusWhenFirstShown( false )
 		.ActivateWhenFirstShown( false );
 	NewWindow->bIsToolTipWindow = true;
 	NewWindow->bIsTopmostWindow = true;
-	NewWindow->bIsTransparent = true;
 	NewWindow->Opacity = 0.0f;
 
 	// NOTE: These sizes are tweaked for SToolTip widgets (text wrap width of around 400 px)
@@ -350,12 +351,12 @@ TSharedRef<SWindow> SWindow::MakeCursorDecorator()
 	TSharedRef<SWindow> NewWindow = SNew( SWindow )
 		.IsPopupWindow( true )
 		.SizingRule( ESizingRule::Autosized )
+		.SupportsTransparency( EWindowTransparency::PerWindow )
 		.FocusWhenFirstShown( false )
 		.ActivateWhenFirstShown( false );
 	NewWindow->bIsToolTipWindow = true;
 	NewWindow->bIsTopmostWindow = true;
 	NewWindow->bIsCursorDecoratorWindow = true;
-	NewWindow->bIsTransparent = true;
 	NewWindow->Opacity = 1.0f;
 
 	return NewWindow;
@@ -528,11 +529,6 @@ void SWindow::Tick( const FGeometry& AllottedGeometry, const double InCurrentTim
 {
 	if( Morpher.bIsActive )
 	{
-		if(Morpher.bIsPendingPlay)
-		{
-			Morpher.Sequence.Play();
-			Morpher.bIsPendingPlay = false;
-		}
 		if ( Morpher.Sequence.IsPlaying() )
 		{
 			const float InterpAlpha = Morpher.Sequence.GetLerp();
@@ -546,7 +542,7 @@ void SWindow::Tick( const FGeometry& AllottedGeometry, const double InCurrentTim
 					this->ReshapeWindow( WindowRect );
 				}
 			}
-			else
+			else // if animating position
 			{
 				const FVector2D StartPosition( Morpher.StartingMorphShape.Left, Morpher.StartingMorphShape.Top );
 				const FVector2D TargetPosition( Morpher.TargetMorphShape.Left, Morpher.TargetMorphShape.Top );
@@ -562,6 +558,7 @@ void SWindow::Tick( const FGeometry& AllottedGeometry, const double InCurrentTim
 		}
 		else
 		{
+			// The animation is complete, so just make sure the target size/position and opacity are reached
 			if( Morpher.bIsAnimatingWindowSize )
 			{
 				if( Morpher.TargetMorphShape != GetRectInScreen() )
@@ -570,7 +567,7 @@ void SWindow::Tick( const FGeometry& AllottedGeometry, const double InCurrentTim
 					this->ReshapeWindow( Morpher.TargetMorphShape );
 				}
 			}
-			else
+			else // if animating position
 			{
 				const FVector2D TargetPosition( Morpher.TargetMorphShape.Left, Morpher.TargetMorphShape.Top );
 				if( TargetPosition != this->GetPositionInScreen() )
@@ -612,8 +609,8 @@ FGeometry SWindow::GetWindowGeometryInWindow() const
 	// FGeometry expects Size in Local space, but our size is stored in screen space (same as window space + screen offset).
 	// So we need to transform Size into the window's local space for FGeometry.
 	FSlateLayoutTransform LocalToWindow = GetLocalToWindowTransform();
-	FVector2D Size = GetViewportSize();
-	return FGeometry::MakeRoot( TransformVector(Inverse(LocalToWindow), Size), LocalToWindow );
+	FVector2D ViewSize = GetViewportSize();
+	return FGeometry::MakeRoot( TransformVector(Inverse(LocalToWindow), ViewSize), LocalToWindow );
 }
 
 FSlateLayoutTransform SWindow::GetLocalToScreenTransform() const
@@ -678,8 +675,8 @@ FVector2D SWindow::GetClientSizeInScreen() const
 
 FSlateRect SWindow::GetClippingRectangleInWindow() const
 {
-	FVector2D Size = GetViewportSize();
-	return FSlateRect( 0, 0, Size.X, Size.Y );
+	FVector2D ViewSize = GetViewportSize();
+	return FSlateRect( 0, 0, ViewSize.X, ViewSize.Y );
 }
 
 
@@ -701,7 +698,7 @@ FMargin SWindow::GetWindowBorderSize( bool bIncTitleBar ) const
 
 		return BorderSize;
 	}
-#if PLATFORM_WINDOWS // || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_LINUX
 	return LayoutBorder;
 #else
 	return FMargin();
@@ -713,7 +710,7 @@ void SWindow::MoveWindowTo( FVector2D NewPosition )
 {
 	if (NativeWindow.IsValid())
 	{
-#if PLATFORM_LINUX
+#if 1//PLATFORM_LINUX
 		// Slate code often expects cached screen position to be accurate immediately after the move.
 		// This expectation is generally invalid (see UE-1308) as there may be a delay before the OS reports it back.
 		// This hack sets the position speculatively, keeping Slate happy while also giving the OS chance to report it
@@ -734,7 +731,7 @@ void SWindow::ReshapeWindow( FVector2D NewPosition, FVector2D NewSize )
 {
 	if (NativeWindow.IsValid())
 	{
-#if PLATFORM_LINUX
+#if 1//PLATFORM_LINUX
 		// Slate code often expects cached screen position to be accurate immediately after the move.
 		// This expectation is generally invalid (see UE-1308) as there may be a delay before the OS reports it back.
 		// This hack sets the position speculatively, keeping Slate happy while also giving the OS chance to report it
@@ -843,9 +840,13 @@ void SWindow::StartMorph()
 {
 	Morpher.StartingOpacity = GetOpacity();
 	Morpher.StartingMorphShape = FSlateRect( this->ScreenPosition.X, this->ScreenPosition.Y, this->ScreenPosition.X + this->Size.X, this->ScreenPosition.Y + this->Size.Y );
-	Morpher.bIsPendingPlay = true;
 	Morpher.bIsActive = true;
 	Morpher.Sequence.JumpToStart();
+
+	if ( !ActiveTimerHandle.IsValid() )
+	{
+		ActiveTimerHandle = RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SWindow::TriggerPlayMorphSequence ) );
+	}
 }
 
 const FSlateBrush* SWindow::GetWindowBackground() const
@@ -1091,7 +1092,7 @@ void SWindow::ShowWindow()
 		// Repositioning the window on show with the new size solves this.
 		if ( SizingRule == ESizingRule::Autosized && AutoCenterRule != EAutoCenter::None )
 		{
-			SlatePrepass();
+			SlatePrepass( FSlateApplicationBase::Get().GetApplicationScale() );
 			ReshapeWindow( InitialDesiredScreenPosition - (GetDesiredSize() * 0.5f), GetDesiredSize() );
 		}
 
@@ -1182,9 +1183,9 @@ float SWindow::GetOpacity() const
 	return Opacity;
 }
 
-bool SWindow::SupportsTransparency() const
+EWindowTransparency SWindow::GetTransparencySupport() const
 {
-	return bIsTransparent;
+	return TransparencySupport;
 }
 
 
@@ -1237,7 +1238,7 @@ bool SWindow::IsTopmostWindow() const
 /** @return true if mouse coordinates is within this window */
 bool SWindow::IsScreenspaceMouseWithin(FVector2D ScreenspaceMouseCoordinate) const
 {
-	const FVector2D LocalMouseCoordinate = GetWindowGeometryInScreen().AbsoluteToLocal(ScreenspaceMouseCoordinate);
+	const FVector2D LocalMouseCoordinate = ScreenspaceMouseCoordinate - GetWindowGeometryInScreen().AbsolutePosition;
 	return NativeWindow->IsPointInWindow(FMath::TruncToInt(LocalMouseCoordinate.X), FMath::TruncToInt(LocalMouseCoordinate.Y));
 }
 
@@ -1245,6 +1246,12 @@ bool SWindow::IsScreenspaceMouseWithin(FVector2D ScreenspaceMouseCoordinate) con
 bool SWindow::HasSizingFrame() const
 {
 	return bHasSizingFrame;
+}
+
+/** @return true if this window has a close button/box on the titlebar area */
+bool SWindow::HasCloseBox() const
+{
+	return bHasCloseButton;
 }
 
 /** @return true if this window has a maximize button/box on the titlebar area */
@@ -1306,6 +1313,34 @@ bool SWindow::OnIsActiveChanged( const FWindowActivateEvent& ActivateEvent )
 	}
 	else
 	{
+		if (SupportsKeyboardFocus())
+		{
+			TArray< TSharedRef<SWindow> > JustThisWindow;
+			JustThisWindow.Add( SharedThis(this) );
+			
+			// If we're becoming active and we were set to restore keyboard focus to a specific widget
+			// after reactivating, then do so now
+			TSharedPtr< SWidget > PinnedWidgetToFocus( WidgetToFocusOnActivate.Pin() );
+			
+			if (PinnedWidgetToFocus.IsValid())
+			{
+				FWidgetPath WidgetToFocusPath;
+				if( FSlateWindowHelper::FindPathToWidget( JustThisWindow, PinnedWidgetToFocus.ToSharedRef(), WidgetToFocusPath ) )
+				{
+					FSlateApplicationBase::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
+				}
+			}
+			else
+			{
+				FWidgetPath WindowWidgetPath;
+				if( FSlateWindowHelper::FindPathToWidget( JustThisWindow, AsShared(), WindowWidgetPath ) )
+				{
+					FWeakWidgetPath WeakWindowPath(WindowWidgetPath);
+					FSlateApplicationBase::Get().SetKeyboardFocus( WeakWindowPath.ToNextFocusedPath(EUINavigation::Next), EFocusCause::SetDirectly );
+				}
+			}
+		}
+
 		OnWindowActivated.ExecuteIfBound();
 	}
 
@@ -1349,58 +1384,11 @@ bool SWindow::SupportsKeyboardFocus() const
 
 FReply SWindow::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent)
 {
-	if (InFocusEvent.GetCause() == EFocusCause::WindowActivate || FSlateApplicationBase::Get().IsExternalUIOpened())
-	{
-		TArray< TSharedRef<SWindow> > JustThisWindow;
-		{
-			JustThisWindow.Add( SharedThis(this) );
-		}
-		
-		// If we're becoming active and we were set to restore keyboard focus to a specific widget
-		// after reactivating, then do so now
-		TSharedPtr< SWidget > PinnedWidgetToFocusOnActivate( WidgetToFocusOnActivate.Pin() );
-		
-		if(PinnedWidgetToFocusOnActivate.IsValid())
-		{
-			FWidgetPath WidgetToFocusPath;
-			if( FSlateWindowHelper::FindPathToWidget( JustThisWindow, PinnedWidgetToFocusOnActivate.ToSharedRef(), WidgetToFocusPath ) )
-			{
-				FSlateApplicationBase::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
-			}
-		}
-		else
-		{
-			FWidgetPath WindowWidgetPath;
-			if( FSlateWindowHelper::FindPathToWidget( JustThisWindow, AsShared(), WindowWidgetPath ) )
-			{
-				FWeakWidgetPath WeakWindowPath(WindowWidgetPath);
-				FSlateApplicationBase::Get().SetKeyboardFocus( WeakWindowPath.ToNextFocusedPath(EUINavigation::Next), EFocusCause::SetDirectly );
-			}
-		}
-	}
-
 	return FReply::Handled();
 }
 
 FReply SWindow::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-#if PLATFORM_SPECIFIC_HACK && PLATFORM_LINUX
-	if (bHasSizingFrame && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
-	{
-		if ((WindowZone == EWindowZone::TopLeftBorder || WindowZone == EWindowZone::BottomRightBorder ||
-			WindowZone == EWindowZone::BottomLeftBorder || WindowZone == EWindowZone::TopRightBorder ||
-			WindowZone == EWindowZone::TopBorder || WindowZone == EWindowZone::BottomBorder ||
-			WindowZone == EWindowZone::LeftBorder || WindowZone == EWindowZone::RightBorder ||
-			WindowZone == EWindowZone::TitleBar)
-			&& MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
-		{
-			MoveResizeZone = WindowZone;
-			MoveResizeStart = MouseEvent.GetScreenSpacePosition();
-			MoveResizeRect = GetRectInScreen();
-			return FReply::Handled().CaptureMouse(SharedThis(this));
-		}
-	}
-#endif
 	if (bDragAnywhere && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
 		MoveResizeZone = WindowZone;
@@ -1439,10 +1427,14 @@ FReply SWindow::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& M
 
 }
 
-FVector2D SWindow::ComputeDesiredSize() const
+FVector2D SWindow::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
-	const float Scale = FSlateApplicationBase::Get().GetApplicationScale();
-	return SCompoundWidget::ComputeDesiredSize() * Scale;
+	return SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier) * LayoutScaleMultiplier;
+}
+
+float SWindow::GetRelativeLayoutScale(const FSlotBase& Child) const
+{
+	return FSlateApplicationBase::Get().GetApplicationScale();
 }
 
 const TArray< TSharedRef<SWindow> >& SWindow::GetChildWindows() const
@@ -1579,12 +1571,7 @@ EWindowZone::Type SWindow::GetCurrentWindowZone(FVector2D LocalMousePosition)
 		if (InZone == EWindowZone::ClientArea)
 		{
 			// Hittest to see if the widget under the mouse should be treated as a title bar (i.e. should move the window)
-			TArray< TSharedRef<SWindow> > ThisWindow;
-			{
-				ThisWindow.Add( SharedThis(this) );
-			}
-
-			FWidgetPath HitTestResults = FSlateApplicationBase::Get().LocateWindowUnderMouse(FSlateApplicationBase::Get().GetCursorPos(), ThisWindow);
+			FWidgetPath HitTestResults = FSlateApplicationBase::Get().GetHitTesting().LocateWidgetInWindow(FSlateApplicationBase::Get().GetCursorPos(), SharedThis(this), false);
 			if( HitTestResults.Widgets.Num() > 0 )
 			{
 				const EWindowZone::Type ZoneOverride = HitTestResults.Widgets.Last().Widget->GetWindowZoneOverride();
@@ -1620,7 +1607,7 @@ SWindow::SWindow()
 	: bDragAnywhere( false )
 	, Opacity( 1.0f )
 	, SizingRule( ESizingRule::UserSized )
-	, bIsTransparent( false )
+	, TransparencySupport( EWindowTransparency::None )
 	, bIsPopupWindow( false )
 	, bIsToolTipWindow( false )
 	, bIsTopmostWindow( false )
@@ -1631,6 +1618,7 @@ SWindow::SWindow()
 	, bFocusWhenFirstShown(true)
 	, bActivateWhenFirstShown(true)
 	, bHasOSWindowBorder( false )
+	, bHasCloseButton( false )
 	, bHasMinimizeButton( false )
 	, bHasMaximizeButton( false )
 	, bHasSizingFrame( false )
@@ -1747,3 +1735,9 @@ EVisibility SWindow::GetWindowContentVisibility() const
 	// in which case the full window overlay content is visible but nothing under it
 	return (bShouldShowWindowContentDuringOverlay == true || !FullWindowOverlayWidget.IsValid()) ? EVisibility::SelfHitTestInvisible : EVisibility::Hidden;
 };
+
+EActiveTimerReturnType SWindow::TriggerPlayMorphSequence( double InCurrentTime, float InDeltaTime )
+{
+	Morpher.Sequence.Play( this->AsShared() );
+	return EActiveTimerReturnType::Stop;
+}

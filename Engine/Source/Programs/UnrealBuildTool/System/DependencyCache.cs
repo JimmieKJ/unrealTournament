@@ -157,7 +157,7 @@ namespace UnrealBuildTool
 			CacheCreateDate = DateTimeOffset.Now;
 			CacheUpdateDate = DateTimeOffset.Now;
 			CachePath = Cache.AbsolutePath;
-			DependencyMap = new Dictionary<string, DependencyInfo>(StringComparer.InvariantCultureIgnoreCase);
+			DependencyMap = new Dictionary<string, DependencyInfo>();
 			bIsDirty = false;
 			CreateFileExistsInfo();
 		}
@@ -216,7 +216,7 @@ namespace UnrealBuildTool
 		{
 			// Check whether File is in cache.
 			DependencyInfo DependencyInfo;
-			if (DependencyMap.TryGetValue(File.AbsolutePath, out DependencyInfo))
+			if (DependencyMap.TryGetValue(File.AbsolutePath.ToLowerInvariant(), out DependencyInfo))
 			{
 				// File is in cache, now check whether last write time is prior to cache creation time.
 				if (File.LastWriteTime < CacheCreateDate)
@@ -293,7 +293,7 @@ namespace UnrealBuildTool
 		/// <param name="AbsolutePath"></param>
 		private void RemoveFileFromCache(string AbsolutePath)
 		{
-			DependencyMap.Remove(AbsolutePath);
+			DependencyMap.Remove(AbsolutePath.ToLowerInvariant());
 			bIsDirty = true;
 		}
 
@@ -306,7 +306,7 @@ namespace UnrealBuildTool
 		 */
 		public void SetDependencyInfo(FileItem File, List<DependencyInclude> DirectDependencies, bool HasUObjects)
 		{
-			DependencyMap[File.AbsolutePath] = new DependencyInfo() { Includes = DirectDependencies, HasUObjects = HasUObjects };
+			DependencyMap[File.AbsolutePath.ToLowerInvariant()] = new DependencyInfo() { Includes = DirectDependencies, HasUObjects = HasUObjects };
 			bIsDirty = true;
 		}
 
@@ -349,7 +349,7 @@ namespace UnrealBuildTool
 		{
 			if (BuildConfiguration.bUseIncludeDependencyResolveCache)
 			{
-				var Includes = DependencyMap[File.AbsolutePath].Includes;
+				var Includes = DependencyMap[File.AbsolutePath.ToLowerInvariant()].Includes;
 				var IncludeToResolve = Includes[DirectlyIncludedFileNameIndex];
 				if (BuildConfiguration.bTestIncludeDependencyResolveCache)
 				{

@@ -4,56 +4,15 @@
 #include "TileSetEditor.h"
 #include "PaperEditorViewportClient.h"
 #include "CanvasTypes.h"
+#include "SEditorViewport.h"
 #include "PreviewScene.h"
-
-//////////////////////////////////////////////////////////////////////////
-// FAssetEditorModeTools
-
-FAssetEditorModeTools::FAssetEditorModeTools()
-	: PreviewScene(nullptr)
-{
-	ActorSet = NewObject<USelection>();
-	ActorSet->SetFlags(RF_Transactional);
-	ActorSet->AddToRoot();
-
-	ObjectSet = NewObject<USelection>();
-	ObjectSet->SetFlags(RF_Transactional);
-	ObjectSet->AddToRoot();
-}
-
-FAssetEditorModeTools::~FAssetEditorModeTools()
-{
-	ActorSet->RemoveFromRoot();
-	ActorSet = nullptr;
-	ObjectSet->RemoveFromRoot();
-	ObjectSet = nullptr;
-}
-
-USelection* FAssetEditorModeTools::GetSelectedActors() const
-{
-	return ActorSet;
-}
-
-USelection* FAssetEditorModeTools::GetSelectedObjects() const
-{
-	return ObjectSet;
-}
-
-UWorld* FAssetEditorModeTools::GetWorld() const
-{
-	return (PreviewScene != nullptr) ? PreviewScene->GetWorld() : GEditor->GetEditorWorldContext().World();
-}
-
-void FAssetEditorModeTools::SetPreviewScene(class FPreviewScene* NewPreviewScene)
-{
-	PreviewScene = NewPreviewScene;
-}
+#include "ImageUtils.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperEditorViewportClient
 
-FPaperEditorViewportClient::FPaperEditorViewportClient()
-	: FEditorViewportClient(new FAssetEditorModeTools())
+FPaperEditorViewportClient::FPaperEditorViewportClient(const TWeakPtr<SEditorViewport>& InEditorViewportWidget)
+	: FEditorViewportClient(new FAssetEditorModeManager(), nullptr, InEditorViewportWidget)
 	, CheckerboardTexture(nullptr)
 {
 	bOwnsModeTools = true;
@@ -89,6 +48,12 @@ FPaperEditorViewportClient::FPaperEditorViewportClient()
 	}
 	SetViewModes(VMI_Lit, VMI_Lit);
 	SetViewportType(NewViewportType);
+
+	bDeferZoomToSprite = true;
+	bDeferZoomToSpriteIsInstant = true;
+
+	// Get the correct general direction of the perspective mode; the distance doesn't matter much as we've queued up a deferred zoom that will calculate a much better distance
+	SetInitialViewTransform(LVT_Perspective, -100.0f * PaperAxisZ, PaperAxisZ.Rotation(), 0.0f);
 }
 
 FPaperEditorViewportClient::~FPaperEditorViewportClient()
@@ -101,9 +66,25 @@ FLinearColor FPaperEditorViewportClient::GetBackgroundColor() const
 	return FLinearColor(0, 0, 127, 0);
 }
 
-void FPaperEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
+void FPaperEditorViewportClient::Tick(float DeltaSeconds)
 {
-	Canvas->Clear(GetBackgroundColor());
+	// Zoom in on the sprite
+	//@TODO: Fix this properly so it doesn't need to be deferred, or wait for the viewport to initialize
+	FIntPoint Size = Viewport->GetSizeXY();
+	if (bDeferZoomToSprite && (Size.X > 0) && (Size.Y > 0))
+	{
+		FBox BoundsToFocus = GetDesiredFocusBounds();
+		if (ViewportType != LVT_Perspective)
+		{
+			TGuardValue<ELevelViewportType> SaveViewportType(ViewportType, LVT_Perspective);
+			FocusViewportOnBox(BoundsToFocus, bDeferZoomToSpriteIsInstant);
+		}
+
+		FocusViewportOnBox(BoundsToFocus, bDeferZoomToSpriteIsInstant);
+		bDeferZoomToSprite = false;
+	}
+
+	FEditorViewportClient::Tick(DeltaSeconds);
 }
 
 void FPaperEditorViewportClient::DrawSelectionRectangles(FViewport* Viewport, FCanvas* Canvas)
@@ -129,6 +110,13 @@ void FPaperEditorViewportClient::AddReferencedObjects(FReferenceCollector& Colle
 	Collector.AddReferencedObject(CheckerboardTexture);
 }
 
+// Called to request a focus on the current selection
+void FPaperEditorViewportClient::RequestFocusOnSelection(bool bInstant)
+{
+	bDeferZoomToSprite = true;
+	bDeferZoomToSpriteIsInstant = bInstant;
+}
+
 void FPaperEditorViewportClient::ModifyCheckerboardTextureColors()
 {
 	const FColor ColorOne = FColor(128, 128, 128);//TextureEditorPtr.Pin()->GetCheckeredBackground_ColorOne();
@@ -141,46 +129,9 @@ void FPaperEditorViewportClient::ModifyCheckerboardTextureColors()
 
 void FPaperEditorViewportClient::SetupCheckerboardTexture(const FColor& ColorOne, const FColor& ColorTwo, int32 CheckerSize)
 {
-// 	GConfig->GetInt(TEXT("TextureProperties"), TEXT("CheckerboardCheckerPixelNum"), CheckerSize, GEditorUserSettingsIni);
-// 	GConfig->GetColor(TEXT("TextureProperties"), TEXT("CheckerboardColorOne"), CheckerColorOne, GEditorUserSettingsIni);
-// 	GConfig->GetColor(TEXT("TextureProperties"), TEXT("CheckerboardColorTwo"), CheckerColorTwo, GEditorUserSettingsIni);
-	
-// 	CheckerColorOne = FColor(128, 128, 128);
-// 	CheckerColorTwo = FColor(64, 64, 64);
-// 	bIsCheckeredBackgroundFill = false;
-// 	CheckerSize = 32;
-	CheckerSize = FMath::RoundUpToPowerOfTwo(CheckerSize);
-	const int32 HalfPixelNum = CheckerSize >> 1;
-
 	if (CheckerboardTexture == nullptr)
 	{
-		// Create the texture
-		CheckerboardTexture = UTexture2D::CreateTransient(CheckerSize, CheckerSize, PF_B8G8R8A8);
-
-		// Lock the checkerboard texture so it can be modified
-		FColor* MipData = static_cast<FColor*>(CheckerboardTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
-
-		// Fill in the colors in a checkerboard pattern
-		for (int32 RowNum = 0; RowNum < CheckerSize; ++RowNum)
-		{
-			for (int32 ColNum = 0; ColNum < CheckerSize; ++ColNum)
-			{
-				FColor& CurColor = MipData[(ColNum + (RowNum * CheckerSize))];
-
-				if (ColNum < HalfPixelNum)
-				{
-					CurColor = (RowNum < HalfPixelNum) ? ColorOne: ColorTwo;
-				}
-				else
-				{
-					CurColor = (RowNum < HalfPixelNum) ? ColorTwo: ColorOne;
-				}
-			}
-		}
-
-		// Unlock the texture
-		CheckerboardTexture->PlatformData->Mips[0].BulkData.Unlock();
-		CheckerboardTexture->UpdateResource();
+		CheckerboardTexture = FImageUtils::CreateCheckerboardTexture(ColorOne, ColorTwo, CheckerSize);
 	}
 }
 

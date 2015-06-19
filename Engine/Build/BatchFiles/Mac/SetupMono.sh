@@ -5,17 +5,18 @@ sh FixMonoFiles.sh
 sh FixDependencyFiles.sh
 
 IS_MONO_INSTALLED=0
-if [ -f "/usr/bin/mono" ]; then
+MONO_VERSION_PATH=`which mono` || true
+if [ ! $MONO_VERSION_PATH == "" ] && [ -f $MONO_VERSION_PATH ]; then
 	# If Mono is installed, check if it's 3.2.6 or higher
 	MONO_VERSION_PREFIX="Mono JIT compiler version "
 	MONO_VERSION_PREFIX_LEN=${#MONO_VERSION_PREFIX}
-	MONO_VERSION=`/usr/bin/mono --version |grep "$MONO_VERSION_PREFIX"`
+	MONO_VERSION=`"${MONO_VERSION_PATH}" --version |grep "$MONO_VERSION_PREFIX"`
 	MONO_VERSION=(`echo ${MONO_VERSION:MONO_VERSION_PREFIX_LEN} |tr '.' ' '`)
 	if [ ${MONO_VERSION[0]} -ge 3 ]; then
 		if [ ${MONO_VERSION[1]} -eq 2 ] && [ ${MONO_VERSION[2]} -ge 6 ]; then
 			IS_MONO_INSTALLED=1
-#		elif [ ${MONO_VERSION[1]} -gt 2 ]; then # @todo: enable this when problems with running on Mono 3.4 are solved
-#			IS_MONO_INSTALLED=1
+		elif [ ${MONO_VERSION[1]} -gt 2 ]; then
+			IS_MONO_INSTALLED=1
 		fi
 	fi
 fi
@@ -28,10 +29,6 @@ if [ $IS_MONO_INSTALLED -eq 0 ]; then
 	export PATH=$UE_MONO_DIR/bin:$PATH
 	export MONO_PATH=$UE_MONO_DIR/lib:$MONO_PATH
 	export LD_LIBRARY_PATH=$UE_MONO_DIR/lib:$LD_LIBRARY_PATH
-
-	if [ ! -f $UE_MONO_DIR/lib/libmsvcrt.dylib ]; then
-		ln -s /usr/lib/libc.dylib $UE_MONO_DIR/lib/libmsvcrt.dylib
-	fi
 fi
 
 cd "$START_DIR"

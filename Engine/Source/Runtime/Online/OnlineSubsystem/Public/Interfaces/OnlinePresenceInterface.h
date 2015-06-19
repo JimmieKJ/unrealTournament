@@ -24,7 +24,7 @@ const FString DefaultSessionIdKey = "SessionId";
 
 namespace EOnlinePresenceState
 {
-	enum Type
+	enum Type : uint8
 	{
 		Online,
 		Offline,
@@ -100,6 +100,7 @@ public:
 		bIsPlayingThisGame = 0;
 		bIsJoinable = 0;
 		bHasVoiceSupport = 0;
+		Status = FOnlineUserPresenceStatus();
 	}
 };
 

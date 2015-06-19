@@ -126,10 +126,10 @@ bool FTimespan::Parse( const FString& TimespanString, FTimespan& OutTimespan )
 
 	bool Negative = TokenString.StartsWith(TEXT("-"));
 
-	TokenString.ReplaceInline(TEXT("-"), TEXT(":"));
+	TokenString.ReplaceInline(TEXT("-"), TEXT(":"), ESearchCase::CaseSensitive);
 
 	TArray<FString> Tokens;
-	TokenString.ParseIntoArray(&Tokens, TEXT(":"), true);
+	TokenString.ParseIntoArray(Tokens, TEXT(":"), true);
 
 	if (Tokens.Num() == 4)
 	{

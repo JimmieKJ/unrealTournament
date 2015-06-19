@@ -39,5 +39,16 @@ public class Kiss_FFT : ModuleRules
 				PublicAdditionalLibraries.Add(Kiss_FFTPath + "/Lib/Mac/Release/libKissFFT.a");
 			}
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			if (Target.IsMonolithic)
+			{
+				PublicAdditionalLibraries.Add(Kiss_FFTPath + "/Lib/Linux/Release/" + Target.Architecture + "/libKissFFT.a");
+			}
+			else
+			{
+				PublicAdditionalLibraries.Add(Kiss_FFTPath + "/Lib/Linux/Release/" + Target.Architecture + "/libKissFFT_fPIC.a");
+			}
+		}
 	}
 }

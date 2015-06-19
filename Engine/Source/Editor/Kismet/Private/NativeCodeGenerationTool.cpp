@@ -6,20 +6,28 @@
 #include "Engine/BlueprintGeneratedClass.h"
 #include "Engine/UserDefinedEnum.h"
 #include "Engine/UserDefinedStruct.h"
+#include "SourceCodeNavigation.h"
+#include "DesktopPlatformModule.h"
 
 #define LOCTEXT_NAMESPACE "NativeCodeGenerationTool"
 
+//
+//	THE CODE SHOULD BE MOVED TO GAMEPROJECTGENERATION
+//
+
+
 struct FGeneratedCodeData
 {
-	FGeneratedCodeData(UBlueprint& Blueprint) : HeaderSource(new FString()), CppSource(new FString())
+	FGeneratedCodeData(UBlueprint& InBlueprint) 
+		: HeaderSource(new FString())
+		, CppSource(new FString())
+		, Blueprint(&InBlueprint)
 	{
 		FName GeneratedClassName, SkeletonClassName;
-		Blueprint.GetBlueprintClassNames(GeneratedClassName, SkeletonClassName);
+		InBlueprint.GetBlueprintClassNames(GeneratedClassName, SkeletonClassName);
 		ClassName = GeneratedClassName.ToString();
 
-		GatherUserDefinedDependencies(Blueprint);
-		
-		FKismetEditorUtilities::GenerateCppCode(&Blueprint, HeaderSource, CppSource);
+		GatherUserDefinedDependencies(InBlueprint);
 	}
 
 	FString TypeDependencies;
@@ -27,8 +35,9 @@ struct FGeneratedCodeData
 	TSharedPtr<FString> CppSource;
 	FString ErrorString;
 	FString ClassName;
+	TWeakObjectPtr<UBlueprint> Blueprint;
 
-	void GatherUserDefinedDependencies(UBlueprint& Blueprint)
+	void GatherUserDefinedDependencies(UBlueprint& InBlueprint)
 	{
 		TArray<UObject*> ReferencedObjects;
 		{
@@ -36,7 +45,7 @@ struct FGeneratedCodeData
 
 			{
 				TArray<UObject*> ObjectsToCheck;
-				GetObjectsWithOuter(Blueprint.GeneratedClass, ObjectsToCheck, true);
+				GetObjectsWithOuter(InBlueprint.GeneratedClass, ObjectsToCheck, true);
 				for (auto Obj : ObjectsToCheck)
 				{
 					if (IsValid(Obj))
@@ -46,7 +55,7 @@ struct FGeneratedCodeData
 				}
 			}
 
-			for (UClass* Class = Blueprint.GeneratedClass->GetSuperClass(); Class && !Class->HasAnyClassFlags(CLASS_Native); Class = Class->GetSuperClass())
+			for (UClass* Class = InBlueprint.GeneratedClass->GetSuperClass(); Class && !Class->HasAnyClassFlags(CLASS_Native); Class = Class->GetSuperClass())
 			{
 				ReferencedObjects.Add(Class);
 			}
@@ -55,7 +64,7 @@ struct FGeneratedCodeData
 		TypeDependencies.Empty();
 		for (auto Obj : ReferencedObjects)
 		{
-			if (IsValid(Obj) && !Obj->IsIn(Blueprint.GeneratedClass) && (Obj != Blueprint.GeneratedClass))
+			if (IsValid(Obj) && !Obj->IsIn(InBlueprint.GeneratedClass) && (Obj != InBlueprint.GeneratedClass))
 			{
 				if (Obj->IsA<UBlueprintGeneratedClass>() || Obj->IsA<UUserDefinedEnum>() || Obj->IsA<UUserDefinedStruct>())
 				{
@@ -74,7 +83,7 @@ struct FGeneratedCodeData
 	static FString DefaultHeaderDir()
 	{
 		auto DefaultSourceDir = FPaths::ConvertRelativePathToFull(FPaths::GameSourceDir());
-		return FPaths::Combine(*DefaultSourceDir, FApp::GetGameName(), TEXT("Classes"));
+		return FPaths::Combine(*DefaultSourceDir, FApp::GetGameName(), TEXT("Public"));
 	}
 
 	static FString DefaultSourceDir()
@@ -95,18 +104,89 @@ struct FGeneratedCodeData
 
 	bool Save(const FString& HeaderDirPath, const FString& CppDirPath)
 	{
-		const bool bHeaderSaved = FFileHelper::SaveStringToFile(*HeaderSource, *FPaths::Combine(*HeaderDirPath, *HeaderFileName()));
+		FScopedSlowTask SlowTask(7, LOCTEXT("GeneratingCppFiles", "Generating C++ files.."));
+		SlowTask.MakeDialog();
+		SlowTask.EnterProgressFrame();
+
+		if (!Blueprint.IsValid())
+		{
+			ErrorString += LOCTEXT("InvalidBlueprint", "Invalid Blueprint\n").ToString();
+			return false;
+		}
+
+		FKismetEditorUtilities::GenerateCppCode(Blueprint.Get(), HeaderSource, CppSource, ClassName);
+
+		SlowTask.EnterProgressFrame();
+
+		bool bProjectHadCodeFiles = false;
+		{
+			TArray<FString> OutProjectCodeFilenames;
+			IFileManager::Get().FindFilesRecursive(OutProjectCodeFilenames, *FPaths::GameSourceDir(), TEXT("*.h"), true, false, false);
+			IFileManager::Get().FindFilesRecursive(OutProjectCodeFilenames, *FPaths::GameSourceDir(), TEXT("*.cpp"), true, false, false);
+			bProjectHadCodeFiles = OutProjectCodeFilenames.Num() > 0;
+		}
+
+		TArray<FString> CreatedFiles;
+
+		const FString NeHeaderFilename = FPaths::Combine(*HeaderDirPath, *HeaderFileName());
+		const bool bHeaderSaved = FFileHelper::SaveStringToFile(*HeaderSource, *NeHeaderFilename);
 		if (!bHeaderSaved)
 		{
 			ErrorString += LOCTEXT("HeaderNotSaved", "Header file wasn't saved. Check log for details.\n").ToString();
 		}
-		const bool bCppSaved = FFileHelper::SaveStringToFile(*CppSource, *FPaths::Combine(*CppDirPath, *SourceFileName()));
+		else
+		{
+			CreatedFiles.Add(NeHeaderFilename);
+		}
+
+		SlowTask.EnterProgressFrame();
+
+		const FString NewCppFilename = FPaths::Combine(*CppDirPath, *SourceFileName());
+		const bool bCppSaved = FFileHelper::SaveStringToFile(*CppSource, *NewCppFilename);
 		if (!bCppSaved)
 		{
 			ErrorString += LOCTEXT("CppNotSaved", "Cpp file wasn't saved. Check log for details.\n").ToString();
 		}
+		else
+		{
+			CreatedFiles.Add(NewCppFilename);
+		}
 
-		return bHeaderSaved && bCppSaved;
+		TArray<FString> CreatedFilesForExternalAppRead;
+		CreatedFilesForExternalAppRead.Reserve(CreatedFiles.Num());
+		for (const FString& CreatedFile : CreatedFiles)
+		{
+			CreatedFilesForExternalAppRead.Add(IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*CreatedFile));
+		}
+
+		SlowTask.EnterProgressFrame();
+
+		bool bGenerateProjectFiles = true;
+		// First see if we can avoid a full generation by adding the new files to an already open project
+		if (bProjectHadCodeFiles && FSourceCodeNavigation::AddSourceFiles(CreatedFilesForExternalAppRead))
+		{
+			// We successfully added the new files to the solution, but we still need to run UBT with -gather to update any UBT makefiles
+			if (FDesktopPlatformModule::Get()->InvalidateMakefiles(FPaths::RootDir(), FPaths::GetProjectFilePath(), GWarn))
+			{
+				// We managed the gather, so we can skip running the full generate
+				bGenerateProjectFiles = false;
+			}
+		}
+
+		SlowTask.EnterProgressFrame();
+
+		bool bProjectFileUpdated = true;
+		if (bGenerateProjectFiles)
+		{
+			// Generate project files if we happen to be using a project file.
+			if (!FDesktopPlatformModule::Get()->GenerateProjectFiles(FPaths::RootDir(), FPaths::GetProjectFilePath(), GWarn))
+			{
+				ErrorString += LOCTEXT("FailedToGenerateProjectFiles", "Failed to generate project files.").ToString();
+				bProjectFileUpdated = false;
+			}
+		}
+
+		return bHeaderSaved && bCppSaved && bProjectFileUpdated;
 	}
 };
 
@@ -235,6 +315,27 @@ private:
 		return IsEditable() ? LOCTEXT("Generate", "Generate") : LOCTEXT("Close", "Close");
 	}
 
+	FText GetClassName() const
+	{
+		return GeneratedCodeData.IsValid() ? FText::FromString(GeneratedCodeData->ClassName) : FText::GetEmpty();
+	}
+
+	void OnClassNameCommited(const FText& NameText, ETextCommit::Type TextCommit)
+	{
+		if (GeneratedCodeData.IsValid())
+		{
+			GeneratedCodeData->ClassName = NameText.ToString();
+			if (HeaderDirectoryBrowser.IsValid())
+			{
+				HeaderDirectoryBrowser->File = GeneratedCodeData->HeaderFileName();
+			}
+			if (SourceDirectoryBrowser.IsValid())
+			{
+				SourceDirectoryBrowser->File = GeneratedCodeData->SourceFileName();
+			}
+		}
+	}
+
 public:
 
 	void Construct(const FArguments& InArgs)
@@ -250,6 +351,22 @@ public:
 			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 			[
 				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.Padding(4.0f)
+				.AutoHeight()
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("ClassName", "Class Name"))
+				]
+				+ SVerticalBox::Slot()
+				.Padding(4.0f)
+				.AutoHeight()
+				[
+					SNew(SEditableTextBox)
+					.Text(this, &SNativeCodeGenerationDialog::GetClassName)
+					.OnTextCommitted(this, &SNativeCodeGenerationDialog::OnClassNameCommited)
+					.IsEnabled(this, &SNativeCodeGenerationDialog::IsEditable)
+				]
 				+ SVerticalBox::Slot()
 				.Padding(4.0f)
 				.AutoHeight()
@@ -348,7 +465,7 @@ void FNativeCodeGenerationTool::Open(UBlueprint& Blueprint, TSharedRef< class FB
 bool FNativeCodeGenerationTool::CanGenerate(const UBlueprint& Blueprint)
 {
 	return (Blueprint.Status == EBlueprintStatus::BS_UpToDate)
-		&& (Blueprint.BlueprintType == EBlueprintType::BPTYPE_Normal)
+		&& (Blueprint.BlueprintType == EBlueprintType::BPTYPE_Normal || Blueprint.BlueprintType == EBlueprintType::BPTYPE_FunctionLibrary)
 		&& (Blueprint.GeneratedClass->GetClass() == UBlueprintGeneratedClass::StaticClass());
 }
 

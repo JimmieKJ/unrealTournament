@@ -15,7 +15,7 @@
 SLevelEditorModeContent::~SLevelEditorModeContent()
 {
 	GLevelEditorModeTools().OnEditorModeChanged().RemoveAll( this );
-	GEditor->AccessEditorUserSettings().OnUserSettingChanged().RemoveAll( this );
+	GetMutableDefault<UEditorPerProjectUserSettings>()->OnUserSettingChanged().RemoveAll( this );
 }
 
 void SLevelEditorModeContent::Construct( const FArguments& InArgs, const TSharedRef< class ILevelEditor >& InOwningLevelEditor, const TSharedRef< class SDockTab >& InOwningDocTab, FEdMode* InEditorMode )
@@ -26,7 +26,7 @@ void SLevelEditorModeContent::Construct( const FArguments& InArgs, const TShared
 
 	InOwningDocTab->SetOnTabClosed( SDockTab::FOnTabClosedCallback::CreateSP(this, &SLevelEditorModeContent::HandleParentClosed ) );
 	GLevelEditorModeTools().OnEditorModeChanged().AddSP( this, &SLevelEditorModeContent::HandleEditorModeChanged );
-	GEditor->AccessEditorUserSettings().OnUserSettingChanged().AddSP( this, &SLevelEditorModeContent::HandleUserSettingsChange );
+	GetMutableDefault<UEditorPerProjectUserSettings>()->OnUserSettingChanged().AddSP( this, &SLevelEditorModeContent::HandleUserSettingsChange );
 
 	ChildSlot
 	[

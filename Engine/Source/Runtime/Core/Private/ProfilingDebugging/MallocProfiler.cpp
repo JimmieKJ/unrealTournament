@@ -1051,7 +1051,7 @@ void FMallocProfilerBufferedFileWriter::Serialize( void* V, int64 Length )
 		}
 
 		FileWriter = IFileManager::Get().CreateFileWriter( *FullFilepath, FILEWRITE_NoFail );
-		checkf( FileWriter );
+		check( FileWriter );
 
 		// Serialize existing buffered data and empty array.
 		FileWriter->Serialize( BufferedData.GetData(), BufferedData.Num() );

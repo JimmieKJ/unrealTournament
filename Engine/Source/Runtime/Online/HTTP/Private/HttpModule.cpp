@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "HttpPrivatePCH.h"
+#include "NullHttp.h"
 #include "HttpTests.h"
 
 DEFINE_LOG_CATEGORY(LogHttp);
@@ -10,8 +11,6 @@ DEFINE_LOG_CATEGORY(LogHttp);
 IMPLEMENT_MODULE(FHttpModule, HTTP);
 
 FHttpModule* FHttpModule::Singleton = NULL;
-
-FCriticalSection FHttpManager::RequestLock;
 
 void FHttpModule::StartupModule()
 {	
@@ -44,6 +43,12 @@ void FHttpModule::StartupModule()
 	
 	bEnableHttp = true;
 	GConfig->GetBool(TEXT("HTTP"), TEXT("bEnableHttp"), bEnableHttp, GEngineIni);
+
+	bUseNullHttp = false;
+	GConfig->GetBool(TEXT("HTTP"), TEXT("bUseNullHttp"), bUseNullHttp, GEngineIni);
+
+	HttpDelayTime = 0;
+	GConfig->GetFloat(TEXT("HTTP"), TEXT("HttpDelayTime"), HttpDelayTime, GEngineIni);
 }
 
 void FHttpModule::ShutdownModule()
@@ -73,7 +78,7 @@ void FHttpModule::ShutdownModule()
 	Singleton = nullptr;
 }
 
-bool FHttpModule::HandleHTTPCommand( const TCHAR* Cmd, FOutputDevice& Ar )
+bool FHttpModule::HandleHTTPCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	if (FParse::Command(&Cmd, TEXT("TEST")))
 	{
@@ -123,92 +128,14 @@ FHttpModule& FHttpModule::Get()
 
 TSharedRef<IHttpRequest> FHttpModule::CreateRequest()
 {
-	// Create the platform specific Http request instance
-	return TSharedRef<IHttpRequest>( FPlatformHttp::ConstructRequest() );
-}
-
-// FHttpManager
-
-FHttpManager::FHttpManager()
-	:	FTickerObjectBase(0.0f)
-	,	DeferredDestroyDelay(10.0f)
-{
-	
-}
-
-FHttpManager::~FHttpManager()
-{
-	
-}
-
-bool FHttpManager::Tick(float DeltaSeconds)
-{
-	FScopeLock ScopeLock(&RequestLock);
-
-	// Tick each active request
-	for (TArray<TSharedRef<class IHttpRequest> >::TIterator It(Requests); It; ++It)
+	if (bUseNullHttp)
 	{
-		TSharedRef<class IHttpRequest> Request = *It;
-		Request->Tick(DeltaSeconds);
+		return TSharedRef<IHttpRequest>(new FNullHttpRequest());
 	}
-	// Tick any pending destroy objects
-	for (int Idx=0; Idx < PendingDestroyRequests.Num(); Idx++)
+	else
 	{
-		FRequestPendingDestroy& Request = PendingDestroyRequests[Idx];
-		Request.TimeLeft -= DeltaSeconds;
-		if (Request.TimeLeft <= 0)
-		{	
-			PendingDestroyRequests.RemoveAt(Idx--);
-		}		
-	}
-	// keep ticking
-	return true;
-}
-
-void FHttpManager::AddRequest(TSharedRef<class IHttpRequest> Request)
-{
-	FScopeLock ScopeLock(&RequestLock);
-
-	Requests.AddUnique(Request);
-}
-
-void FHttpManager::RemoveRequest(TSharedRef<class IHttpRequest> Request)
-{
-	FScopeLock ScopeLock(&RequestLock);
-
-	// Keep track of requests that have been removed to be destroyed later
-	PendingDestroyRequests.AddUnique(FRequestPendingDestroy(DeferredDestroyDelay,Request));
-
-	Requests.RemoveSingle(Request);
-}
-
-bool FHttpManager::IsValidRequest(class IHttpRequest* RequestPtr)
-{
-	FScopeLock ScopeLock(&RequestLock);
-
-	bool bResult = false;
-	for (TArray<TSharedRef<class IHttpRequest> >::TConstIterator It(Requests); It; ++It)
-	{
-		const TSharedRef<class IHttpRequest>& Request = *It;
-
-		if (&Request.Get() == RequestPtr)
-		{
-			bResult = true;
-			break;
-		}
-	}
-	return bResult;
-}
-
-void FHttpManager::DumpRequests(FOutputDevice& Ar)
-{
-	FScopeLock ScopeLock(&RequestLock);
-	
-	Ar.Logf(TEXT("------- (%d) Http Requests"), Requests.Num());
-	for (TArray<TSharedRef<class IHttpRequest> >::TIterator It(Requests); It; ++It)
-	{
-		TSharedRef<class IHttpRequest> Request = *It;
-		Ar.Logf(TEXT("	verb=[%s] url=[%s] status=%s"),
-			*Request->GetVerb(), *Request->GetURL(), EHttpRequestStatus::ToString(Request->GetStatus()));
+		// Create the platform specific Http request instance
+		return TSharedRef<IHttpRequest>(FPlatformHttp::ConstructRequest());
 	}
 }
+

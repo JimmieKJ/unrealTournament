@@ -1,0 +1,22 @@
+// Some copyright should be here...
+
+#pragma once
+
+#include "SlateBasics.h"
+#include "%PLUGIN_NAME%Style.h"
+
+class F%PLUGIN_NAME%Commands : public TCommands<F%PLUGIN_NAME%Commands>
+{
+public:
+
+	F%PLUGIN_NAME%Commands()
+		: TCommands<F%PLUGIN_NAME%Commands>(TEXT("%PLUGIN_NAME%"), NSLOCTEXT("Contexts", "%PLUGIN_NAME%", "%PLUGIN_NAME% Plugin"), NAME_None, F%PLUGIN_NAME%Style::GetStyleSetName())
+	{
+	}
+
+	// TCommands<> interface
+	virtual void RegisterCommands() override;
+
+public:
+	TSharedPtr< FUICommandInfo > OpenPluginWindow;
+};

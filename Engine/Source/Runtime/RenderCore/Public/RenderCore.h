@@ -137,9 +137,8 @@ public:
 	 *	Constructor
 	 **/
 	FTimer()
-	:	CurrentDeltaTime(0.0f)
-	,	CurrentTime(0.0f)
-	,	bGamePaused(false)
+		: CurrentDeltaTime(0.0f)
+		, CurrentTime(0.0f)
 	{
 	}
 
@@ -147,28 +146,18 @@ public:
 	 *	Returns the current time, in seconds.
 	 *	@return Current time, in seconds
 	 */
-	float	GetCurrentTime() const
+	float GetCurrentTime() const
 	{
 		return CurrentTime;
-	}
-
-	bool GetGamePaused() const
-	{
-		return bGamePaused;
 	}
 
 	/**
 	 *	Returns the current delta time.
 	 *	@return Current delta time (number of seconds that passed between the last two tick)
 	 */
-	float	GetCurrentDeltaTime() const
+	float GetCurrentDeltaTime() const
 	{
 		return CurrentDeltaTime;
-	}
-
-	void SetGamePaused(bool bInGamePaused)
-	{
-		bGamePaused = bInGamePaused;
 	}
 
 	/**
@@ -186,8 +175,6 @@ protected:
 	float CurrentDeltaTime;
 	/** Current time, in seconds. */
 	float CurrentTime;
-
-	bool bGamePaused;
 };
 
 /** Whether to pause the global realtime clock for the rendering thread (read and write only on main thread). */

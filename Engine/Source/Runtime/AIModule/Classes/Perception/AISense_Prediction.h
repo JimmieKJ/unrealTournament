@@ -42,6 +42,16 @@ class AIMODULE_API UAISense_Prediction : public UAISense
 public:		
 	void RegisterEvent(const FAIPredictionEvent& Event);	
 
+	/** Asks perception system to supply Requestor with PredictedActor's predicted location in PredictionTime seconds
+	 *	Location is being predicted based on PredicterActor's current location and velocity */
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
+	static void RequestControllerPredictionEvent(AAIController* Requestor, AActor* PredictedActor, float PredictionTime);
+
+	/** Asks perception system to supply Requestor with PredictedActor's predicted location in PredictionTime seconds
+	 *	Location is being predicted based on PredicterActor's current location and velocity */
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
+	static void RequestPawnPredictionEvent(APawn* Requestor, AActor* PredictedActor, float PredictionTime);
+
 protected:
 	virtual float Update() override;
 };

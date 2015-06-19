@@ -47,7 +47,7 @@ public:
 	TSharedPtr<FUICommandInfo> ExportSoundCueInfo;
 	TSharedPtr<FUICommandInfo> ExportAnimInfo;
 	TSharedPtr<FUICommandInfo> FileExportBakeTransforms;
-
+	TSharedPtr<FUICommandInfo> FileExportKeepHierarchy;
 	
 	TSharedPtr<FUICommandInfo> DeleteSelectedKeys;
 	TSharedPtr<FUICommandInfo> DuplicateKeys;

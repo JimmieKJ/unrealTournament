@@ -25,6 +25,7 @@
 #include "AnimGraphNode_StateMachineBase.h"
 #include "AnimGraphNode_StateResult.h"
 #include "AnimGraphNode_SaveCachedPose.h"
+#include "AnimGraphNode_SequencePlayer.h"
 #include "AnimGraphNode_TransitionPoseEvaluator.h"
 #include "AnimGraphNode_TransitionResult.h"
 #include "K2Node_TransitionRuleGetter.h"
@@ -387,6 +388,12 @@ void FAnimBlueprintCompiler::ProcessUseCachedPose(UAnimGraphNode_UseCachedPose* 
 {
 	bool bSuccessful = false;
 
+	// if compiling only skeleton, we don't have to worry about linking save node
+	if (CompileOptions.CompileType == EKismetCompileType::SkeletonOnly)
+	{
+		return;
+	}
+
 	// Link to the saved cached pose
 	if(UseCachedPose->SaveCachedPoseNode.IsValid())
 	{
@@ -586,7 +593,7 @@ int32 FAnimBlueprintCompiler::ExpandGraphAndProcessNodes(UEdGraph* SourceGraph, 
 	check(TargetRootNode);
 
 	// Move the cloned nodes into the consolidated event graph
-	const bool bIsLoading = Blueprint->bIsRegeneratingOnLoad || GIsAsyncLoading;
+	const bool bIsLoading = Blueprint->bIsRegeneratingOnLoad || IsAsyncLoading();
 	ClonedGraph->MoveNodesToAnotherGraph(ConsolidatedEventGraph, bIsLoading);
 
 	// Process any animation nodes
@@ -732,6 +739,9 @@ void FAnimBlueprintCompiler::ProcessStateMachine(UAnimGraphNode_StateMachineBase
 	new (NewAnimBlueprintClass->BakedStateMachines) FBakedAnimationStateMachine();
 	FMachineCreator Oven(MessageLog, StateMachineInstance, MachineIndex, NewAnimBlueprintClass);
 
+	// Map of states that contain a single player node (from state root node index to associated sequence player)
+	TMap<int32, UObject*> SimplePlayerStatesMap;
+
 	// Process all the states/transitions
 	for (auto StateNodeIt = StateMachineInstance->EditorStateMachineGraph->Nodes.CreateIterator(); StateNodeIt; ++StateNodeIt)
 	{
@@ -810,6 +820,18 @@ void FAnimBlueprintCompiler::ProcessStateMachine(UAnimGraphNode_StateMachineBase
 				if (UAnimGraphNode_StateResult* AnimGraphResultNode = CastChecked<UAnimationStateGraph>(StateNode->BoundGraph)->GetResultNode())
 				{
 					BakedState.StateRootNodeIndex = ExpandGraphAndProcessNodes(StateNode->BoundGraph, AnimGraphResultNode);
+
+					// See if the state consists of a single sequence player node, and remember the index if so
+					for (UEdGraphPin* TestPin : AnimGraphResultNode->Pins)
+					{
+						if ((TestPin->Direction == EGPD_Input) && (TestPin->LinkedTo.Num() == 1))
+						{
+							if (UAnimGraphNode_SequencePlayer* SequencePlayer = Cast<UAnimGraphNode_SequencePlayer>(TestPin->LinkedTo[0]->GetOwningNode()))
+							{
+								SimplePlayerStatesMap.Add(BakedState.StateRootNodeIndex, MessageLog.FindSourceObject(SequencePlayer));
+							}
+						}
+					}
 				}
 				else
 				{
@@ -891,7 +913,29 @@ void FAnimBlueprintCompiler::ProcessStateMachine(UAnimGraphNode_StateMachineBase
 				MessageLog.Error(*LOCTEXT("TransitionWithNoResult", "@@ has no result node").ToString(), TransitionNode);
 			}
 
+			// Handle automatic time remaining rules
+			Rule.StateSequencePlayerToQueryIndex = INDEX_NONE;
+			if (TransitionNode->bAutomaticRuleBasedOnSequencePlayerInState)
+			{
+				if (UObject* SourceSequencePlayer = SimplePlayerStatesMap.FindRef(BakedState.StateRootNodeIndex))
+				{
+					//@TODO: This should be easier than it is... (the nodes are cloned so the pointers don't natrually match)
+					for (const auto& Pair : AllocatedAnimNodeIndices)
+					{
+						if (MessageLog.FindSourceObject(Pair.Key) == SourceSequencePlayer)
+						{
+							Rule.StateSequencePlayerToQueryIndex = Pair.Value;
+						}
+					}
+				}
 
+				if (Rule.StateSequencePlayerToQueryIndex == INDEX_NONE)
+				{
+					MessageLog.Error(*LOCTEXT("CantAutomaticallyDefineTransitionRule", "@@ must contain a single sequence player in order to use bAutomaticRuleBasedOnSequencePlayerInState on @@").ToString(), StateNode, TransitionNode);
+				}
+			}
+
+			// Handle custom transition graphs
 			Rule.CustomResultNodeIndex = INDEX_NONE;
 			if (UAnimationCustomTransitionGraph* CustomTransitionGraph = Cast<UAnimationCustomTransitionGraph>(TransitionNode->CustomTransitionGraph))
 			{
@@ -1064,7 +1108,7 @@ void FAnimBlueprintCompiler::MergeUbergraphPagesIn(UEdGraph* Ubergraph)
 			{
 				// Merge all the animation nodes, contents, etc... into the ubergraph
 				UEdGraph* ClonedGraph = FEdGraphUtilities::CloneGraph(SourceGraph, NULL, &MessageLog, true);
-				const bool bIsLoading = Blueprint->bIsRegeneratingOnLoad || GIsAsyncLoading;
+				const bool bIsLoading = Blueprint->bIsRegeneratingOnLoad || IsAsyncLoading();
 				ClonedGraph->MoveNodesToAnotherGraph(ConsolidatedEventGraph, bIsLoading);
 			}
 		}
@@ -1111,12 +1155,12 @@ void FAnimBlueprintCompiler::SpawnNewClass(const FString& NewClassName)
 
 	if (NewAnimBlueprintClass == NULL)
 	{
-		NewAnimBlueprintClass = ConstructObject<UAnimBlueprintGeneratedClass>(UAnimBlueprintGeneratedClass::StaticClass(), Blueprint->GetOutermost(), FName(*NewClassName), RF_Public|RF_Transactional);
+		NewAnimBlueprintClass = NewObject<UAnimBlueprintGeneratedClass>(Blueprint->GetOutermost(), FName(*NewClassName), RF_Public | RF_Transactional);
 	}
 	else
 	{
 		// Already existed, but wasn't linked in the Blueprint yet due to load ordering issues
-		FBlueprintCompileReinstancer GeneratedClassReinstancer(NewAnimBlueprintClass);
+		FBlueprintCompileReinstancer::Create(NewAnimBlueprintClass);
 	}
 	NewClass = NewAnimBlueprintClass;
 }

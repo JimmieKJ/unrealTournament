@@ -24,9 +24,10 @@ UAISystem::UAISystem(const FObjectInitializer& ObjectInitializer) : Super(Object
 	}
 }
 
-UAISystem::~UAISystem()
+void UAISystem::BeginDestroy()
 {
 	CleanupWorld(true, true, NULL);
+	Super::BeginDestroy();
 }
 
 void UAISystem::PostInitProperties()
@@ -49,6 +50,29 @@ void UAISystem::PostInitProperties()
 		{
 			PerceptionSystem = NewObject<UAIPerceptionSystem>(ManagersOuter, PerceptionSystemClass);
 		}
+
+		if (WorldOuter)
+		{
+			FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateUObject(this, &UAISystem::OnActorSpawned);
+			ActorSpawnedDelegateHandle = WorldOuter->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+		}
+	}
+}
+
+void UAISystem::StartPlay()
+{
+	if (PerceptionSystem)
+	{
+		PerceptionSystem->StartPlay();
+	}
+}
+
+void UAISystem::OnActorSpawned(AActor* SpawnedActor)
+{
+	APawn* AsPawn = Cast<APawn>(SpawnedActor);
+	if (AsPawn && PerceptionSystem)
+	{
+		PerceptionSystem->OnNewPawn(*AsPawn);
 	}
 }
 
@@ -64,7 +88,14 @@ void UAISystem::WorldOriginLocationChanged(FIntVector OldOriginLocation, FIntVec
 
 void UAISystem::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* NewWorld)
 {
-
+	if (bCleanupResources)
+	{
+		if (EnvironmentQueryManager)
+		{
+			EnvironmentQueryManager->OnWorldCleanup();
+			EnvironmentQueryManager = nullptr;
+		}
+	}
 }
 
 void UAISystem::AIIgnorePlayers()
@@ -117,13 +148,13 @@ void UAISystem::RunEQS(const FString& QueryName, UObject* Target)
 #endif
 }
 
-UAISystem::FBlackboardDataToComponentsIterator::FBlackboardDataToComponentsIterator(FBlackboardDataToComponentsMap& BlackboardDataToComponentsMap, UBlackboardData* BlackboardAsset)
+UAISystem::FBlackboardDataToComponentsIterator::FBlackboardDataToComponentsIterator(FBlackboardDataToComponentsMap& InBlackboardDataToComponentsMap, UBlackboardData* BlackboardAsset)
 	: CurrentIteratorIndex(0)
 	, Iterators()
 {
 	while (BlackboardAsset)
 	{
-		Iterators.Add(BlackboardDataToComponentsMap.CreateConstKeyIterator(BlackboardAsset));
+		Iterators.Add(InBlackboardDataToComponentsMap.CreateConstKeyIterator(BlackboardAsset));
 		BlackboardAsset = BlackboardAsset->Parent;
 	}
 	TryMoveIteratorToParentBlackboard();

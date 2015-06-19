@@ -57,6 +57,8 @@ struct CORE_API FFbxErrors
 
 	static FName StaticMesh_NoTriangles;
 
+	static FName StaticMesh_BuildError;
+
 	/** SkeletalMesh **/
 	static FName SkeletalMesh_DifferentRoots;
 

@@ -8,6 +8,8 @@
 
 #pragma once
 
+class FHttpServiceTracker;
+
 /**
  * A struct to hold static fatal error flagging
  */
@@ -16,6 +18,9 @@ struct FBuildPatchAnalytics
 private:
 	// The analytics provider interface
 	static TSharedPtr< IAnalyticsProvider > Analytics;
+
+	// The analytics provider interface
+	static TSharedPtr< FHttpServiceTracker > HttpTracker;
 
 	// Avoid spamming download errors
 	static FThreadSafeCounter DownloadErrors;
@@ -89,4 +94,20 @@ public:
 	 * @param ErrorString	The type of error that has occurred
 	 */
 	static void RecordPrereqInstallnError( const FString& Filename, const FString& CommandLine, const int32 ErrorCode, const FString& ErrorString );
+
+	/**
+	 * Set the Http Service Tracker to be used for tracking Http Service responsiveness.
+	 * Will only track HTTP requests, not file requests.
+	 * @param HttpTracker	Shared ptr to an Http service tracker interface to use. If NULL tracking will be disabled.
+	 */
+	static void SetHttpTracker( TSharedPtr< FHttpServiceTracker > HttpTracker );
+
+	/**
+	 * Tracks a specific Http request. Currently there is only one endpoint, CDN.Chunk. 
+	 * In the future we may decide to break up, say, file from chunk downloads, but not now.
+	 * 
+	 * @param const FHttpRequestPtr & Request
+	 */
+	static void TrackRequest( const FHttpRequestPtr& Request );
+
 };

@@ -4,6 +4,7 @@
 #include "UTProjectileMovementComponent.h"
 #include "UTCTFScoring.h"
 #include "Net/UnrealNetwork.h"
+#include "UTPainVolume.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -96,7 +97,7 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-	if (Character != NULL && !GetWorld()->LineTraceTest(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+	if (Character != NULL && !GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 	{
 		TryPickup(Character);
 	}
@@ -166,7 +167,12 @@ void AUTCarriedObject::ChangeState(FName NewCarriedObjectState)
 
 bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 {
-	if (Character->IsRagdoll())
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
+	{
+		return false;
+	}
+	else if (Character->IsRagdoll())
 	{
 		return false;
 	}
@@ -260,9 +266,9 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			for (AUTTeamInfo* Team : GS->Teams)
+			for (AUTTeamInfo* TeamIter : GS->Teams)
 			{
-				Team->NotifyObjectiveEvent(HomeBase, NewHolder->Controller, FName(TEXT("FlagStatusChange")));
+				TeamIter->NotifyObjectiveEvent(HomeBase, NewHolder->Controller, FName(TEXT("FlagStatusChange")));
 			}
 		}
 	}
@@ -300,9 +306,9 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			for (AUTTeamInfo* Team : GS->Teams)
+			for (AUTTeamInfo* TeamIter : GS->Teams)
 			{
-				Team->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
+				TeamIter->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
 			}
 		}
 	}
@@ -377,7 +383,7 @@ void AUTCarriedObject::MoveToHome()
 	}
 }
 
-void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
+void AUTCarriedObject::Score_Implementation(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
 	LastGameMessageTime = GetWorld()->GetTimeSeconds();
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -407,6 +413,24 @@ void AUTCarriedObject::FellOutOfWorld(const UDamageType& dmgType)
 		SetActorLocation(ReplicatedMovement.Location);
 	}
 }
+
+void AUTCarriedObject::EnteredPainVolume(AUTPainVolume* PainVolume)
+{
+	if (Holder)
+	{
+		return;
+	}
+	if (Role == ROLE_Authority)
+	{
+		SendHomeWithNotify();
+	}
+	else
+	{
+		// Force it back to the last replicated location
+		SetActorLocation(ReplicatedMovement.Location);
+	}
+}
+
 
 // workaround for bug in AActor implementation
 void AUTCarriedObject::OnRep_AttachmentReplication()

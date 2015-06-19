@@ -114,7 +114,7 @@ public:
 		return Status == ELauncherTaskStatus::Completed;
 	}
 
-	int32 ReturnCode() const
+	int32 ReturnCode() const override
 	{
 		if (IsChainFinished())
 		{

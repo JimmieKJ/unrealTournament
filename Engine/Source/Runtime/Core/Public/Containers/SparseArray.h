@@ -35,6 +35,8 @@ union TSparseArrayElementOrFreeListLink
 	};
 };
 
+class FScriptSparseArray;
+
 /**
  * A dynamically sized array where element indices aren't necessarily contiguous.  Memory is allocated for all 
  * elements in the array's index range, so it doesn't save memory; but it does allow O(1) element removal that 
@@ -46,6 +48,7 @@ template<typename ElementType,typename Allocator /*= FDefaultSparseArrayAllocato
 class TSparseArray
 {
 	friend struct TContainerTraits<TSparseArray>;
+	friend class  FScriptSparseArray;
 
 public:
 
@@ -461,12 +464,28 @@ public:
 	,	NumFreeIndices(0)
 	{}
 
+	/** Move constructor. */
+	TSparseArray(TSparseArray&& InCopy)
+	{
+		MoveOrCopy(*this, InCopy);
+	}
+
 	/** Copy constructor. */
 	TSparseArray(const TSparseArray& InCopy)
 	:	FirstFreeIndex(-1)
 	,	NumFreeIndices(0)
 	{
 		*this = InCopy;
+	}
+
+	/** Move assignment operator. */
+	TSparseArray& operator=(TSparseArray&& InCopy)
+	{
+		if(this != &InCopy)
+		{
+			MoveOrCopy(*this, InCopy);
+		}
+		return *this;
 	}
 
 	/** Copy assignment operator. */
@@ -511,8 +530,6 @@ public:
 		return *this;
 	}
 
-#if PLATFORM_COMPILER_HAS_RVALUE_REFERENCES
-
 private:
 	template <typename SparseArrayType>
 	FORCEINLINE static typename TEnableIf<TContainerTraits<SparseArrayType>::MoveWillEmptyContainer>::Type MoveOrCopy(SparseArrayType& ToArray, SparseArrayType& FromArray)
@@ -533,23 +550,6 @@ private:
 	}
 
 public:
-	/** Move constructor. */
-	TSparseArray(TSparseArray&& InCopy)
-	{
-		MoveOrCopy(*this, InCopy);
-	}
-
-	/** Move assignment operator. */
-	TSparseArray& operator=(TSparseArray&& InCopy)
-	{
-		if(this != &InCopy)
-		{
-			MoveOrCopy(*this, InCopy);
-		}
-		return *this;
-	}
-#endif
-
 	// Accessors.
 	ElementType& operator[](int32 Index)
 	{
@@ -805,9 +805,186 @@ template<typename ElementType, typename Allocator>
 struct TContainerTraits<TSparseArray<ElementType, Allocator> > : public TContainerTraitsBase<TSparseArray<ElementType, Allocator> >
 {
 	enum { MoveWillEmptyContainer =
-		PLATFORM_COMPILER_HAS_RVALUE_REFERENCES &&
 		TContainerTraits<typename TSparseArray<ElementType, Allocator>::DataType>::MoveWillEmptyContainer &&
 		TContainerTraits<typename TSparseArray<ElementType, Allocator>::AllocationBitArrayType>::MoveWillEmptyContainer };
+};
+
+struct FScriptSparseArrayLayout
+{
+	int32 ElementOffset;
+	int32 Alignment;
+	int32 Size;
+};
+
+// Untyped sparse array type for accessing TSparseArray data, like FScriptArray for TArray.
+// Must have the same memory representation as a TSet.
+class FScriptSparseArray
+{
+public:
+	static FScriptSparseArrayLayout GetScriptLayout(int32 ElementSize, int32 ElementAlignment)
+	{
+		FScriptSparseArrayLayout Result;
+		Result.ElementOffset = 0;
+		Result.Alignment     = FMath::Max(ElementAlignment, (int32)ALIGNOF(FFreeListLink));
+		Result.Size          = FMath::Max(ElementSize,      (int32)sizeof (FFreeListLink));
+
+		return Result;
+	}
+
+	FScriptSparseArray()
+		: FirstFreeIndex(-1)
+		, NumFreeIndices(0)
+	{
+	}
+
+	bool IsValidIndex(int32 Index) const
+	{
+		return AllocationFlags.IsValidIndex(Index) && AllocationFlags[Index];
+	}
+
+	int32 Num() const
+	{
+		return Data.Num() - NumFreeIndices;
+	}
+
+	int32 GetMaxIndex() const
+	{
+		return Data.Num();
+	}
+
+	void* GetData(int32 Index, const FScriptSparseArrayLayout& Layout)
+	{
+		return (uint8*)Data.GetData() + Layout.Size * Index;
+	}
+
+	const void* GetData(int32 Index, const FScriptSparseArrayLayout& Layout) const
+	{
+		return (const uint8*)Data.GetData() + Layout.Size * Index;
+	}
+
+	void Empty(int32 Slack, const FScriptSparseArrayLayout& Layout)
+	{
+		// Free the allocated elements.
+		Data.Empty(Slack, Layout.Size);
+		FirstFreeIndex = -1;
+		NumFreeIndices = 0;
+		AllocationFlags.Empty(Slack);
+	}
+
+	/**
+	 * Adds an uninitialized object to the array.
+	 *
+	 * @return  The index of the added element.
+	 */
+	int32 AddUninitialized(const FScriptSparseArrayLayout& Layout)
+	{
+		int32 Index;
+		if (NumFreeIndices)
+		{
+			// Remove and use the first index from the list of free elements.
+			Index = FirstFreeIndex;
+			FirstFreeIndex = GetFreeListLink(FirstFreeIndex, Layout)->NextFreeIndex;
+			--NumFreeIndices;
+			if(NumFreeIndices)
+			{
+				GetFreeListLink(FirstFreeIndex, Layout)->PrevFreeIndex = -1;
+			}
+		}
+		else
+		{
+			// Add a new element.
+			Index = Data.Add(1, Layout.Size);
+			AllocationFlags.Add(false);
+		}
+
+		AllocationFlags[Index] = true;
+
+		return Index;
+	}
+
+	/** Removes Count elements from the array, starting from Index, without destructing them. */
+	void RemoveAtUninitialized(const FScriptSparseArrayLayout& Layout, int32 Index, int32 Count = 1)
+	{
+		for (; Count; --Count)
+		{
+			check(AllocationFlags[Index]);
+
+			// Mark the element as free and add it to the free element list.
+			if(NumFreeIndices)
+			{
+				GetFreeListLink(FirstFreeIndex, Layout)->PrevFreeIndex = Index;
+			}
+
+			auto* IndexData = GetFreeListLink(Index, Layout);
+			IndexData->PrevFreeIndex = -1;
+			IndexData->NextFreeIndex = NumFreeIndices > 0 ? FirstFreeIndex : INDEX_NONE;
+			FirstFreeIndex = Index;
+			++NumFreeIndices;
+			AllocationFlags[Index] = false;
+
+			++Index;
+		}
+	}
+
+private:
+	FScriptArray    Data;
+	FScriptBitArray AllocationFlags;
+	int32           FirstFreeIndex;
+	int32           NumFreeIndices;
+
+	// This function isn't intended to be called, just to be compiled to validate the correctness of the type.
+	static void CheckConstraints()
+	{
+		typedef FScriptSparseArray  ScriptType;
+		typedef TSparseArray<int32> RealType;
+
+		// Check that the class footprint is the same
+		static_assert(sizeof (ScriptType) == sizeof (RealType), "FScriptSparseArray's size doesn't match TSparseArray");
+		static_assert(ALIGNOF(ScriptType) == ALIGNOF(RealType), "FScriptSparseArray's alignment doesn't match TSparseArray");
+
+		// Check member sizes
+		static_assert(sizeof(DeclVal<ScriptType>().Data)            == sizeof(DeclVal<RealType>().Data),            "FScriptSparseArray's Data member size does not match TSparseArray's");
+		static_assert(sizeof(DeclVal<ScriptType>().AllocationFlags) == sizeof(DeclVal<RealType>().AllocationFlags), "FScriptSparseArray's AllocationFlags member size does not match TSparseArray's");
+		static_assert(sizeof(DeclVal<ScriptType>().FirstFreeIndex)  == sizeof(DeclVal<RealType>().FirstFreeIndex),  "FScriptSparseArray's FirstFreeIndex member size does not match TSparseArray's");
+		static_assert(sizeof(DeclVal<ScriptType>().NumFreeIndices)  == sizeof(DeclVal<RealType>().NumFreeIndices),  "FScriptSparseArray's NumFreeIndices member size does not match TSparseArray's");
+
+		// Check member offsets
+		static_assert(STRUCT_OFFSET(ScriptType, Data)            == STRUCT_OFFSET(RealType, Data),            "FScriptSparseArray's Data member offset does not match TSparseArray's");
+		static_assert(STRUCT_OFFSET(ScriptType, AllocationFlags) == STRUCT_OFFSET(RealType, AllocationFlags), "FScriptSparseArray's AllocationFlags member offset does not match TSparseArray's");
+		static_assert(STRUCT_OFFSET(ScriptType, FirstFreeIndex)  == STRUCT_OFFSET(RealType, FirstFreeIndex),  "FScriptSparseArray's FirstFreeIndex member offset does not match TSparseArray's");
+		static_assert(STRUCT_OFFSET(ScriptType, NumFreeIndices)  == STRUCT_OFFSET(RealType, NumFreeIndices),  "FScriptSparseArray's NumFreeIndices member offset does not match TSparseArray's");
+
+		// Check free index offsets
+		static_assert(STRUCT_OFFSET(ScriptType::FFreeListLink, PrevFreeIndex) == STRUCT_OFFSET(RealType::FElementOrFreeListLink, PrevFreeIndex), "FScriptSparseArray's FFreeListLink's PrevFreeIndex member offset does not match TSparseArray's");
+		static_assert(STRUCT_OFFSET(ScriptType::FFreeListLink, NextFreeIndex) == STRUCT_OFFSET(RealType::FElementOrFreeListLink, NextFreeIndex), "FScriptSparseArray's FFreeListLink's NextFreeIndex member offset does not match TSparseArray's");
+	}
+
+	struct FFreeListLink
+	{
+		/** If the element isn't allocated, this is a link to the previous element in the array's free list. */
+		int32 PrevFreeIndex;
+
+		/** If the element isn't allocated, this is a link to the next element in the array's free list. */
+		int32 NextFreeIndex;
+	};
+
+	/** Accessor for the element or free list data. */
+	FORCEINLINE FFreeListLink* GetFreeListLink(int32 Index, const FScriptSparseArrayLayout& Layout)
+	{
+		return (FFreeListLink*)GetData(Index, Layout);
+	}
+
+public:
+	// These should really be private, because they shouldn't be called, but there's a bunch of code
+	// that needs to be fixed first.
+	FScriptSparseArray(const FScriptSparseArray&) { check(false); }
+	void operator=(const FScriptSparseArray&) { check(false); }
+};
+
+template <>
+struct TIsZeroConstructType<FScriptSparseArray>
+{
+	enum { Value = true };
 };
 
 /**
@@ -818,14 +995,3 @@ inline void* operator new(size_t Size,const FSparseArrayAllocationInfo& Allocati
 	ASSUME(Allocation.Pointer);
 	return Allocation.Pointer;
 }
-
-/** A specialization of the exchange macro that avoids reallocating when exchanging two arrays. */
-template <typename ElementType,typename Allocator>
-inline void Exchange(
-	TSparseArray<ElementType,Allocator>& A,
-	TSparseArray<ElementType,Allocator>& B
-	)
-{
-	FMemory::Memswap( &A, &B, sizeof(A) );
-}
-

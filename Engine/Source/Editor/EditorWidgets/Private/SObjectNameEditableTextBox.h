@@ -26,6 +26,9 @@ protected:
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 
 private:
+	/** Updates whether the highlight spring effect is happening */
+	EActiveTimerReturnType UpdateHighlightSpringState( double InCurrentTime, float InDeltaTime );
+
 	/** Getter for the Text attribute of the editable text inside this widget */
 	FText GetNameText() const;
 
@@ -88,4 +91,7 @@ private:
 
 	/** The text box used to edit object names */ 
 	TSharedPtr< SEditableTextBox > TextBox;
+
+	// Temp flag to trigger a highlight spring update in the passive tick (because that's where the geometry is)
+	bool bUpdateHighlightSpring;
 };

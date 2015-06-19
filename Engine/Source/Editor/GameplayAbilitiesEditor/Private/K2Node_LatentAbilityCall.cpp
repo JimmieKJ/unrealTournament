@@ -48,41 +48,6 @@ bool UK2Node_LatentAbilityCall::IsCompatibleWithGraph(UEdGraph const* TargetGrap
 	return bIsCompatible;
 }
 
-void UK2Node_LatentAbilityCall::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	if (!IsCompatibleWithGraph(ContextMenuBuilder.CurrentGraph))
-	{
-		return;
-	}
-
-	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
-	{
-		UClass* TestClass = *ClassIt;
-		if (TestClass->IsChildOf(UAbilityTask::StaticClass()) && !TestClass->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated))
-		{
-			for (TFieldIterator<UFunction> FuncIt(TestClass, EFieldIteratorFlags::ExcludeSuper); FuncIt; ++FuncIt)
-			{
-				// See if the function is a static factory method for online proxies
-				UFunction* CandidateFunction = *FuncIt;
-
-				UObjectProperty* ReturnProperty = Cast<UObjectProperty>(CandidateFunction->GetReturnProperty());
-				const bool bValidReturnType = (ReturnProperty != nullptr) && (ReturnProperty->PropertyClass != nullptr) && (ReturnProperty->PropertyClass->IsChildOf(UAbilityTask::StaticClass()));
-
-				if (CandidateFunction->HasAllFunctionFlags(FUNC_Static) && bValidReturnType)
-				{
-					// Create a node template for this factory method
-					UK2Node_LatentAbilityCall* NodeTemplate = NewObject<UK2Node_LatentAbilityCall>(ContextMenuBuilder.OwnerOfTemporaries);
-					NodeTemplate->ProxyFactoryFunctionName = CandidateFunction->GetFName();
-					NodeTemplate->ProxyFactoryClass = TestClass;
-					NodeTemplate->ProxyClass = ReturnProperty->PropertyClass;
-
-					CreateDefaultMenuEntry(NodeTemplate, ContextMenuBuilder);
-				}
-			}
-		}
-	}
-}
-
 void UK2Node_LatentAbilityCall::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
 	// these nested loops are combing over the same classes/functions the
@@ -128,12 +93,12 @@ void UK2Node_LatentAbilityCall::GetMenuActions(FBlueprintActionDatabaseRegistrar
 					UK2Node_LatentAbilityCall* AsyncTaskNode = CastChecked<UK2Node_LatentAbilityCall>(NewNode);
 					if (FunctionPtr.IsValid())
 					{
-						UFunction* Function = FunctionPtr.Get();
-						UObjectProperty* ReturnProperty = CastChecked<UObjectProperty>(Function->GetReturnProperty());
+						UFunction* Func = FunctionPtr.Get();
+						UObjectProperty* ReturnProp = CastChecked<UObjectProperty>(Func->GetReturnProperty());
 						
-						AsyncTaskNode->ProxyFactoryFunctionName = Function->GetFName();
-						AsyncTaskNode->ProxyFactoryClass        = Function->GetOuterUClass();
-						AsyncTaskNode->ProxyClass               = ReturnProperty->PropertyClass;
+						AsyncTaskNode->ProxyFactoryFunctionName = Func->GetFName();
+						AsyncTaskNode->ProxyFactoryClass        = Func->GetOuterUClass();
+						AsyncTaskNode->ProxyClass               = ReturnProp->PropertyClass;
 					}
 				};
 				
@@ -234,7 +199,7 @@ void UK2Node_LatentAbilityCall::CreatePinsForClass(UClass* InClass)
 	
 		if (!IgnorePropertyListStr.IsEmpty())
 		{
-			IgnorePropertyListStr.ParseIntoArray(&IgnorePropertyList, TEXT(","), true);
+			IgnorePropertyListStr.ParseIntoArray(IgnorePropertyList, TEXT(","), true);
 		}
 	}
 
@@ -260,7 +225,7 @@ void UK2Node_LatentAbilityCall::CreatePinsForClass(UClass* InClass)
 			const bool bPinGood = (Pin != NULL) && K2Schema->ConvertPropertyToPinType(Property, /*out*/ Pin->PinType);
 			SpawnParmPins.Add(Pin);
 
-			if (ClassDefaultObject && K2Schema->PinDefaultValueIsEditable(*Pin))
+			if (ClassDefaultObject && Pin && K2Schema->PinDefaultValueIsEditable(*Pin))
 			{
 				FString DefaultValueAsString;
 				const bool bDefaultValueSet = FBlueprintEditorUtils::PropertyValueToString(Property, reinterpret_cast<const uint8*>(ClassDefaultObject), DefaultValueAsString);
@@ -346,7 +311,7 @@ bool UK2Node_LatentAbilityCall::ValidateActorSpawning(class FKismetCompilerConte
 	FName ProxyPostpawnArrayFunctionName = *FK2Node_LatentAbilityCallHelper::FinishSpawnArrayFuncName;
 	UFunction* PostSpawnArrayFunction = ProxyFactoryClass->FindFunctionByName(ProxyPostpawnArrayFunctionName);
 
-	bool HasClassParameter = GetClassToSpawn() != nullptr;
+	bool HasClassParameter = GetClassPin() != nullptr;
 	bool HasPreSpawnFunc = PreSpawnFunction != nullptr;
 	bool HasPostSpawnFunc = PostSpawnFunction != nullptr;
 	bool HasPreSpawnArrayFunc = PreSpawnArrayFunction != nullptr;
@@ -566,8 +531,8 @@ void UK2Node_LatentAbilityCall::ExpandNode(class FKismetCompilerContext& Compile
 	bool validatedActorSpawn = ValidateActorSpawning(CompilerContext, false);
 	bool validatedActorArraySpawn = ValidateActorArraySpawning(CompilerContext, false);
 
-	UClass* ClassToSpawn = GetClassToSpawn();
-	if (ClassToSpawn == nullptr)
+	UEdGraphPin* ClassPin = GetClassPin();
+	if (ClassPin == nullptr)
 	{
 		// Nothing special about this task, just call super
 		Super::ExpandNode(CompilerContext, SourceGraph);
@@ -603,7 +568,7 @@ void UK2Node_LatentAbilityCall::ExpandNode(class FKismetCompilerContext& Compile
 			// NEW: if no DestPin, assume it is a Class Spawn PRoperty - not an error
 			if (DestPin)
 			{
-				bIsErrorFree &= DestPin && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
+				bIsErrorFree &= CompilerContext.CopyPinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
 			}
 		}
 	}
@@ -658,7 +623,7 @@ void UK2Node_LatentAbilityCall::ExpandNode(class FKismetCompilerContext& Compile
 		}
 		else
 		{
-			CompilerContext.MessageLog.Error(*LOCTEXT("MissingBeginSpawningActorArrayFunction", "AbilityTask: Proxy is missing BeginSpawningActorArray native function. @@").ToString(), this);
+			CompilerContext.MessageLog.Error(*LOCTEXT("MissingBeginSpawningActorFunction", "AbilityTask: Proxy is missing BeginSpawningActor native function. @@").ToString(), this);
 		}
 		return;
 	}
@@ -695,7 +660,7 @@ void UK2Node_LatentAbilityCall::ExpandNode(class FKismetCompilerContext& Compile
 			UEdGraphPin* DestPin = CallPrespawnProxyObjectNode->FindPin(CurrentPin->PinName);
 			if (DestPin)
 			{
-				bIsErrorFree &= DestPin && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
+				bIsErrorFree &= CompilerContext.CopyPinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
 			}
 		}
 	}		
@@ -728,7 +693,8 @@ void UK2Node_LatentAbilityCall::ExpandNode(class FKismetCompilerContext& Compile
 
 	LastThenPin = BranchNode->GetThenPin();
 
-	if (validatedActorArraySpawn)
+	UClass* ClassToSpawn = GetClassToSpawn();
+	if (validatedActorArraySpawn && ClassToSpawn)
 	{
 		//Branch for main loop control
 		UK2Node_IfThenElse* Branch = CompilerContext.SpawnIntermediateNode<UK2Node_IfThenElse>(this, SourceGraph);
@@ -801,7 +767,7 @@ void UK2Node_LatentAbilityCall::ExpandNode(class FKismetCompilerContext& Compile
 	//  Borrowed heavily from FKismetCompilerUtilities::GenerateAssignmentNodes
 	// -------------------------------------------
 	
-	if (validatedActorSpawn)
+	if (validatedActorSpawn && ClassToSpawn)
 	{
 		bIsErrorFree &= ConnectSpawnProperties(ClassToSpawn, Schema, CompilerContext, SourceGraph, LastThenPin, SpawnedActorReturnPin);
 	}
@@ -831,7 +797,7 @@ void UK2Node_LatentAbilityCall::ExpandNode(class FKismetCompilerContext& Compile
 			UEdGraphPin* DestPin = CallPostSpawnnProxyObjectNode->FindPin(CurrentPin->PinName);
 			if (DestPin)
 			{
-				bIsErrorFree &= DestPin && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
+				bIsErrorFree &= CompilerContext.CopyPinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
 			}
 		}
 	}

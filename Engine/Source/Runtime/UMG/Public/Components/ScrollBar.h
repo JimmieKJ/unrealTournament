@@ -20,15 +20,15 @@ public:
 	USlateWidgetStyleAsset* Style_DEPRECATED;
 
 	/**  */
-	UPROPERTY(EditDefaultsOnly, Category="Behavior")
+	UPROPERTY(EditAnywhere, Category="Behavior")
 	bool bAlwaysShowScrollbar;
 
 	/**  */
-	UPROPERTY(EditDefaultsOnly, Category="Behavior")
+	UPROPERTY(EditAnywhere, Category="Behavior")
 	TEnumAsByte<EOrientation> Orientation;
 
 	/** The thickness of the scrollbar thumb */
-	UPROPERTY(EditDefaultsOnly, Category="Behavior")
+	UPROPERTY(EditAnywhere, Category="Behavior")
 	FVector2D Thickness;
 
 public:

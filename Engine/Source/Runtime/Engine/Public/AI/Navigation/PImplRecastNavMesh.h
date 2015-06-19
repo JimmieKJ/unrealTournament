@@ -16,6 +16,7 @@
 #define RECAST_VERY_SMALL_AGENT_RADIUS 0.0f
 
 class ARecastNavMesh;
+class FRecastNavMeshGenerator;
 class dtNavMesh;
 struct dtMeshTile;
 
@@ -43,7 +44,7 @@ public:
 
 	const dtQueryFilter* GetAsDetourQueryFilter() const { return this; }
 
-	/** note that it results in loosing all area cost setup. Call it before setting anything else */
+	/** note that it results in losing all area cost setup. Call it before setting anything else */
 	void SetIsVirtual(bool bIsVirtual);
 };
 
@@ -72,11 +73,11 @@ public:
 	 * @param Ar - The archive with which to serialize.
 	 * @returns true if serialization was successful.
 	 */
-	void Serialize(FArchive& Ar);
+	void Serialize(FArchive& Ar, int32 NavMeshVersion);
 
 	/** Debug rendering. */
 	void GetDebugGeometry(FRecastDebugGeometry& OutGeometry, int32 TileIndex = INDEX_NONE) const;
-
+	
 	/** Returns bounding box for the whole navmesh. */
 	FBox GetNavMeshBounds() const;
 
@@ -115,13 +116,14 @@ public:
 	void Raycast2D(NavNodeRef StartNode, const FVector& StartLoc, const FVector& EndLoc, const FNavigationQueryFilter& InQueryFilter, const UObject* Owner, ARecastNavMesh::FRaycastResult& RaycastResult) const;
 
 	/** Generates path from given query and collect data for every step of A* algorithm */
-	int32 DebugPathfinding(const FVector& StartLoc, const FVector& EndLoc, const FNavigationQueryFilter& Filter, const UObject* Owner, TArray<FRecastDebugPathfindingStep>& Steps);
+	int32 DebugPathfinding(const FVector& StartLoc, const FVector& EndLoc, const FNavigationQueryFilter& Filter, const UObject* Owner, TArray<FRecastDebugPathfindingData>& Steps);
 
 	/** Returns a random location on the navmesh. */
 	FNavLocation GetRandomPoint(const FNavigationQueryFilter& Filter, const UObject* Owner) const;
 
 	/** Returns a random location on the navmesh within Radius from Origin. 
 	 *	@return false if no valid navigable location available in specified area */
+	DEPRECATED(4.8, "GetRandomPointInRadius is deprecated, please use ANavigationData::GetRandomReachablePointInRadius")
 	bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& OutLocation, const FNavigationQueryFilter& Filter, const UObject* Owner) const;
 
 	/** Returns a random location on the navmesh within cluster */
@@ -140,7 +142,9 @@ public:
 	 *	@NOTE query is not using string-pulled path distance (for performance reasons),
 	 *		it measured distance between middles of portal edges, do you might want to 
 	 *		add an extra margin to PathingDistance */
-	bool GetPolysWithinPathingDistance(FVector const& StartLoc, const float PathingDistance, const FNavigationQueryFilter& Filter, const UObject* Owner, TArray<NavNodeRef>& FoundPolys) const;
+	bool GetPolysWithinPathingDistance(FVector const& StartLoc, const float PathingDistance,
+		const FNavigationQueryFilter& Filter, const UObject* Owner,
+		TArray<NavNodeRef>& FoundPolys, FRecastDebugPathfindingData* DebugData) const;
 
 	//@todo document
 	void GetEdgesForPathCorridor(const TArray<NavNodeRef>* PathCorridor, TArray<FNavigationPortalEdge>* PathCorridorEdges) const;
@@ -175,6 +179,8 @@ public:
 	uint32 GetLinkUserId(NavNodeRef LinkPolyID) const;
 	/** Retrieves start and end point of offmesh link */
 	bool GetLinkEndPoints(NavNodeRef LinkPolyID, FVector& PointA, FVector& PointB) const;
+	/** Check if poly is a custom link */
+	bool IsCustomLink(NavNodeRef PolyRef) const;
 
 	/** Retrieves bounds of cluster. Returns false on error. */
 	bool GetClusterBounds(NavNodeRef ClusterRef, FBox& OutBounds) const;
@@ -185,11 +191,20 @@ public:
 	static uint16 GetFilterForbiddenFlags(const FRecastQueryFilter* Filter);
 	static void SetFilterForbiddenFlags(FRecastQueryFilter* Filter, uint16 ForbiddenFlags);
 
+	void OnAreaCostChanged();
+
 public:
 	dtNavMesh const* GetRecastMesh() const { return DetourNavMesh; };
 	dtNavMesh* GetRecastMesh() { return DetourNavMesh; };
 	void ReleaseDetourNavMesh();
 
+	void RemoveTileCacheLayers(int32 TileX, int32 TileY);
+	void RemoveTileCacheLayer(int32 TileX, int32 TileY, int32 LayerIdx);
+	void AddTileCacheLayers(int32 TileX, int32 TileY, const TArray<FNavMeshTileData>& Layers);
+	void AddTileCacheLayer(int32 TileX, int32 TileY, int32 LayerIdx, const FNavMeshTileData& LayerData);
+	FNavMeshTileData GetTileCacheLayer(int32 TileX, int32 TileY, int32 LayerIdx) const;
+	TArray<FNavMeshTileData> GetTileCacheLayers(int32 TileX, int32 TileY) const;
+	
 	/** Assigns recast generated navmesh to this instance.
 	 *	@param bOwnData if true from now on this FPImplRecastNavMesh instance will be responsible for this piece 
 	 *		of memory
@@ -211,11 +226,17 @@ public:
 	/** Recast's runtime navmesh data that we can query against */
 	dtNavMesh* DetourNavMesh;
 
+	/** Compressed layers data, can be reused for tiles generation */
+	TMap<FIntPoint, TArray<FNavMeshTileData> > CompressedTileCacheLayers;
+
 	/** query used for searching data on game thread */
 	mutable dtNavMeshQuery SharedNavQuery;
 
 	/** Helper function to serialize a single Recast tile. */
-	static void SerializeRecastMeshTile(FArchive& Ar, unsigned char*& TileData, int32& TileDataSize);
+	static void SerializeRecastMeshTile(FArchive& Ar, int32 NavMeshVersion, unsigned char*& TileData, int32& TileDataSize);
+
+	/** Helper function to serialize a Recast tile compressed data. */
+	static void SerializeCompressedTileCacheData(FArchive& Ar, int32 NavMeshVersion, unsigned char*& CompressedData, int32& CompressedDataSize);
 
 	/** Initialize data for pathfinding */
 	bool InitPathfinding(const FVector& UnrealStart, const FVector& UnrealEnd, 
@@ -231,10 +252,13 @@ public:
 		const FVector& RecastStart, FVector& RecastEnd,
 		dtQueryResult& PathResult) const;
 
-	void GetDebugPolyEdges(const dtMeshTile* Tile, bool bInternalEdges, bool bNavMeshEdges, TArray<FVector>& InternalEdgeVerts, TArray<FVector>& NavMeshEdgeVerts) const;
+	void GetDebugPolyEdges(const dtMeshTile& Tile, bool bInternalEdges, bool bNavMeshEdges, TArray<FVector>& InternalEdgeVerts, TArray<FVector>& NavMeshEdgeVerts) const;
 
 	/** workhorse function finding portal edges between corridor polys */
 	void GetEdgesForPathCorridorImpl(const TArray<NavNodeRef>* PathCorridor, TArray<FNavigationPortalEdge>* PathCorridorEdges, const dtNavMeshQuery& NavQuery) const;
+
+protected:
+	int32 GetTilesDebugGeometry(const FRecastNavMeshGenerator* Generator, const dtMeshTile& Tile, int32 VertBase, FRecastDebugGeometry& OutGeometry, int32 TileIdx = INDEX_NONE) const;
 };
 
 #endif	// WITH_RECAST

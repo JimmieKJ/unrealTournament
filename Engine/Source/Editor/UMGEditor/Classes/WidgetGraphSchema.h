@@ -10,6 +10,8 @@ class UWidgetGraphSchema : public UEdGraphSchema_K2
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual bool ShouldAlwaysPurgeOnModification() const override { return true; }
+
 	UPROPERTY()
 	FName NAME_NeverAsPin;
 

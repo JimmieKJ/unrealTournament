@@ -16,6 +16,6 @@ class AIMODULE_API IAIPerceptionListenerInterface
 {
 	GENERATED_IINTERFACE_BODY()
 
-	virtual UAIPerceptionComponent* GetPerceptionComponent() { return NULL; }
+	virtual UAIPerceptionComponent* GetPerceptionComponent() { return nullptr; }
 };
 

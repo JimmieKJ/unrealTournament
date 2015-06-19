@@ -43,7 +43,7 @@ void UEnvQueryDebugHelpers::QueryToDebugData(FEnvQueryInstance& Query, EQSDebug:
 	// step 1: data for rendering component
 	EQSLocalData.Reset();
 
-	FEQSSceneProxy::CollectEQSData(&Query, &Query, EQSLocalData.SolidSpheres, EQSLocalData.Texts, true, EQSLocalData.RenderDebugHelpers);
+	FEQSSceneProxy::CollectEQSData(&Query, &Query, 1.0f, true, EQSLocalData.SolidSpheres, EQSLocalData.Texts, EQSLocalData.RenderDebugHelpers);
 
 	// step 2: detailed scoring data for HUD
 	const int32 MaxDetailedItems = 10;
@@ -88,7 +88,7 @@ void UEnvQueryDebugHelpers::QueryToDebugData(FEnvQueryInstance& Query, EQSDebug:
 		EQSDebug::FTestData TestInfo;
 
 		UEnvQueryTest* TestOb = Query.Options[Query.OptionIndex].Tests[TestIdx];
-		TestInfo.ShortName = TestOb->GetDescriptionTitle();
+		TestInfo.ShortName = TestOb->GetDescriptionTitle().ToString();
 		TestInfo.Detailed = TestOb->GetDescriptionDetails().ToString().Replace(TEXT("\n"), TEXT(", "));
 
 		EQSLocalData.Tests.Add(TestInfo);

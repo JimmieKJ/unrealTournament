@@ -632,6 +632,7 @@ struct SLVNVisitor : public ir_hierarchical_visitor
 	{
 		printf("----------- BB %d\n", BB->id);
 		auto* LVNVisitorList = (TLVNVisitors*)Data;
+		// Deleted looping through map later on
 		auto* Visitor = new SLVNVisitor(CFG->ParseState);
 		VisitRange(Visitor, BB->IRFirst, BB->IRLast);
 		(*LVNVisitorList)[BB] = Visitor;
@@ -647,6 +648,7 @@ struct SCFGCreator
 	static void CreateBasicBlocks(ir_instruction* IRFirst, ir_instruction* IRLast, void* Data)
 	{
 		SCFGCreator* CFGCreator = (SCFGCreator*)Data;
+		// Deleted in ~SCFG()
 		auto* BasicBlock = new SBasicBlock(IRFirst, IRLast);
 		CFGCreator->/*CFG->*/BasicBlocks.push_back(BasicBlock);
 	}
@@ -872,6 +874,13 @@ bool LocalValueNumbering(exec_list* Instructions, _mesa_glsl_parse_state* ParseS
 		auto* BB = it->first;
 		auto* Visitor = it->second;
 		CFG.bChanged |= Visitor->OptimizeRedundantExpressions(BB, LVNVisitors);
+	}
+
+	{
+		for (auto& Pair : LVNVisitors)
+		{
+			delete Pair.second;
+		}
 	}
 
 //IRDump(Instructions);

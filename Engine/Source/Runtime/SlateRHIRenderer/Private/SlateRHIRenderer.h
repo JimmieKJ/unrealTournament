@@ -94,8 +94,8 @@ private:
 		FViewportRHIRef ViewportRHI;
 		/** The depth buffer texture if any */
 		FTexture2DRHIRef DepthStencil;
-		/** The render target texture (if rendering into a texture */
-		FTexture2DRHIRef RenderTargetTexture;
+		
+		//FTexture2DRHIRef RenderTargetTexture;
 		/** The OS Window handle (for recreating the viewport) */
 		void* OSWindow;
 		/** The actual width of the viewport */
@@ -110,6 +110,9 @@ private:
 		bool bRequiresStencilTest;
 		/** Whether or not the viewport is in fullscreen */
 		bool bFullscreen;
+		/** The desired pixel format for this viewport */
+		EPixelFormat PixelFormat;
+		IViewportRenderTargetProvider* RTProvider;
 	
 		/** FRenderResource interface */
 		virtual void InitRHI() override;
@@ -122,7 +125,9 @@ private:
 				DesiredWidth(0),
 				DesiredHeight(0),
 				bRequiresStencilTest(false),
-				bFullscreen(false)
+				bFullscreen(false),
+				PixelFormat(EPixelFormat::PF_Unknown),
+				RTProvider(nullptr)
 		{
 
 		}
@@ -134,6 +139,18 @@ private:
 
 		void ConditionallyUpdateDepthBuffer(bool bInRequiresStencilTest);
 		void RecreateDepthBuffer_RenderThread();
+
+		FTexture2DRHIRef GetRenderTargetTexture() const
+		{
+			if (RTProvider)
+			{
+				FSlateRenderTargetRHI* SlateTarget = (FSlateRenderTargetRHI*)(RTProvider->GetViewportRenderTargetTexture());
+				return SlateTarget->GetTypedResource();
+			}
+			return nullptr;
+		}
+
+	private:		
 	};
 public:
 	FSlateRHIRenderer( TSharedPtr<FSlateRHIResourceManager> InResourceManager, TSharedPtr<FSlateFontCache> InFontCache, TSharedPtr<FSlateFontMeasure> InFontMeasure );
@@ -171,7 +188,7 @@ public:
 	virtual ISlateAtlasProvider* GetTextureAtlasProvider() override;
 
 	/** Draws windows from a FSlateDrawBuffer on the render thread */
-	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, const FSlateRHIRenderer::FViewportInfo& ViewportInfo, const FSlateWindowElementList& WindowElementList, bool bLockToVsync);
+	void DrawWindow_RenderThread(FRHICommandListImmediate& RHICmdList, const FSlateRHIRenderer::FViewportInfo& ViewportInfo, const FSlateWindowElementList& WindowElementList, bool bLockToVsync, bool bClear);
 
 
 	/**
@@ -211,18 +228,18 @@ public:
 
 
 	/** Returns whether shaders that Slate depends on have been compiled. */
-	virtual bool AreShadersInitialized() const;
+	virtual bool AreShadersInitialized() const override;
 
 	/** 
 	 * Removes references to FViewportRHI's.  
 	 * This has to be done explicitly instead of using the FRenderResource mechanism because FViewportRHI's are managed by the game thread.
 	 * This is needed before destroying the RHI device. 
 	 */
-	virtual void InvalidateAllViewports();
+	virtual void InvalidateAllViewports() override;
 
 	virtual void PrepareToTakeScreenshot(const FIntRect& Rect, TArray<FColor>* OutColorData) override;
 
-	virtual void SetWindowRenderTarget(const SWindow& Window, FTexture2DRHIParamRef RT) override;
+	virtual void SetWindowRenderTarget(const SWindow& Window, class IViewportRenderTargetProvider* Provider) override;
 
 private:
 	/** Loads all known textures from Slate styles */

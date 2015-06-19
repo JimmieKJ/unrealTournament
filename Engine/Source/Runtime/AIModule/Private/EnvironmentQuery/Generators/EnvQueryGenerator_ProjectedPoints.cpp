@@ -1,57 +1,50 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
+#include "AI/Navigation/RecastNavMesh.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_Point.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_ProjectedPoints.h"
+#include "EnvironmentQuery/EnvQueryTraceHelpers.h"
 
 UEnvQueryGenerator_ProjectedPoints::UEnvQueryGenerator_ProjectedPoints(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	ProjectionData.SetNavmeshOnly();
 	ProjectionData.bCanProjectDown = true;
 	ProjectionData.bCanDisableTrace = true;
 	ProjectionData.ExtentX = 0.0f;
+
+	ItemType = UEnvQueryItemType_Point::StaticClass();
 }
 
-void UEnvQueryGenerator_ProjectedPoints::ProjectAndFilterNavPoints(TArray<FVector>& Points, const ANavigationData* NavData) const
+void UEnvQueryGenerator_ProjectedPoints::ProjectAndFilterNavPoints(TArray<FNavLocation>& Points, FEnvQueryInstance& QueryInstance) const
 {
-	const FVector VerticalOffset(0, 0, ProjectionData.PostProjectionVerticalOffset);
-
-	if (ProjectionData.TraceMode == EEnvQueryTrace::Navigation && NavData)
+	const ANavigationData* NavData = nullptr;
+	if (ProjectionData.TraceMode != EEnvQueryTrace::None)
 	{
-		TSharedPtr<const FNavigationQueryFilter> NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, ProjectionData.NavigationFilter);	
-		const ARecastNavMesh* NavMesh = Cast<const ARecastNavMesh>(NavData);
-		TArray<FNavigationProjectionWork> Workload;
-		Workload.Reserve(Points.Num());
-
-		if (ProjectionData.ProjectDown == ProjectionData.ProjectUp)
-		{
-			for (const auto& Point : Points)
-			{
-				Workload.Add(FNavigationProjectionWork(Point));
-			}
-		}
-		else
-		{
-			const FVector VerticalOffset = FVector(0, 0, (ProjectionData.ProjectUp - ProjectionData.ProjectDown) / 2);
-			for (const auto& Point : Points)
-			{
-				Workload.Add(FNavigationProjectionWork(Point + VerticalOffset));
-			}
-		}
-
-		const FVector ProjectionExtent(ProjectionData.ExtentX, ProjectionData.ExtentX, (ProjectionData.ProjectDown + ProjectionData.ProjectUp) / 2);
-
-		NavData->BatchProjectPoints(Workload, ProjectionExtent, NavigationFilter);
-
-		for (int32 PointIndex = Workload.Num() - 1; PointIndex >= 0; PointIndex--)
-		{
-			if (Workload[PointIndex].bResult == false)
-			{
-				Points.RemoveAt(PointIndex);
-			}
-			else
-			{
-				Points[PointIndex] = Workload[PointIndex].OutLocation.Location + VerticalOffset;
-			}
-		}
+		NavData = FEQSHelpers::FindNavigationDataForQuery(QueryInstance);
 	}
+
+	if (NavData)
+	{
+		FEQSHelpers::ETraceMode Mode = (ProjectionData.TraceMode == EEnvQueryTrace::Navigation) ? FEQSHelpers::ETraceMode::Discard : FEQSHelpers::ETraceMode::Keep;
+		FEQSHelpers::RunNavProjection(*NavData, ProjectionData, Points, Mode);
+	}
+
+	if (ProjectionData.TraceMode == EEnvQueryTrace::Geometry)
+	{
+		FEQSHelpers::RunPhysProjection(QueryInstance.World, ProjectionData, Points);
+	}
+}
+
+void UEnvQueryGenerator_ProjectedPoints::StoreNavPoints(const TArray<FNavLocation>& Points, FEnvQueryInstance& QueryInstance) const
+{
+	const int32 InitialElementsCount = QueryInstance.Items.Num();
+	QueryInstance.ReserveItemData(InitialElementsCount + Points.Num());
+	for (int32 Idx = 0; Idx < Points.Num(); Idx++)
+	{
+		// store using default function to handle creating new data entry 
+		QueryInstance.AddItemData<UEnvQueryItemType_Point>(Points[Idx]);
+	}
+
+	FEnvQueryOptionInstance& OptionInstance = QueryInstance.Options[QueryInstance.OptionIndex];
+	OptionInstance.bHasNavLocations = (ProjectionData.TraceMode == EEnvQueryTrace::Navigation);
 }

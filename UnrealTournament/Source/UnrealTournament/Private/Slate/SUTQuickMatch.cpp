@@ -116,7 +116,7 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 								.VAlign(VAlign_Center)
 								[
 									SNew(STextBlock)
-									.Text(NSLOCTEXT("QuickMatchg", "CancelText", "ESC to Cancel").ToString())
+									.Text(NSLOCTEXT("QuickMatchg", "CancelText", "ESC to Cancel"))
 									.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 								]
 							]
@@ -291,9 +291,7 @@ void SUTQuickMatch::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 	{
 		FString BeaconIP;
 		OnlineSessionInterface->GetResolvedConnectString(ServerToPing->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
-		FString BeaconNetDriverName = FString::Printf(TEXT("BeaconDriver%s"), *BeaconIP);
-		
-		Beacon->SetBeaconNetDriverName(BeaconNetDriverName);
+
 		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUTQuickMatch::OnServerBeaconResult);
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUTQuickMatch::OnServerBeaconFailure);
 		FURL BeaconURL(nullptr, *BeaconIP, TRAVEL_Absolute);

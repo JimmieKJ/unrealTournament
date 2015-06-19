@@ -3,9 +3,7 @@
 #include "SlatePrivatePCH.h"
 #include "HittestGrid.h"
 
-DECLARE_CYCLE_STAT( TEXT("OnPaint SViewport"), STAT_SlateOnPaint_SViewport, STATGROUP_Slate );
-
-/* SViewport structors
+/* SViewport constructors
  *****************************************************************************/
 
 SViewport::SViewport()
@@ -35,12 +33,25 @@ void SViewport::Construct( const FArguments& InArgs )
 	];
 }
 
+void SViewport::SetActive(bool bActive)
+{
+	if (bActive && !ActiveTimerHandle.IsValid())
+	{
+		ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SViewport::EnsureTick));
+	}
+	else if (!bActive && ActiveTimerHandle.IsValid())
+	{
+		UnRegisterActiveTimer(ActiveTimerHandle.Pin().ToSharedRef());
+	}
+}
+
+EActiveTimerReturnType SViewport::EnsureTick(double InCurrentTime, float InDeltaTime)
+{
+	return EActiveTimerReturnType::Continue;
+}
 
 int32 SViewport::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-#if SLATE_HD_STATS
-	SCOPE_CYCLE_COUNTER( STAT_SlateOnPaint_SViewport );
-#endif
 	bool bEnabled = ShouldBeEnabled( bParentEnabled );
 	bool bShowDisabledEffect = ShowDisabledEffect.Get();
 	ESlateDrawEffect::Type DrawEffects = bShowDisabledEffect && !bEnabled ? ESlateDrawEffect::DisabledEffect : ESlateDrawEffect::None;
@@ -121,7 +132,6 @@ int32 SViewport::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 
 	return Layer;
 }
-
 
 void SViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {

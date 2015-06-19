@@ -10,7 +10,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogDeviceProfileServices, Log, All);
 
 FDeviceProfileServicesUIManager::FDeviceProfileServicesUIManager()
 {
-	GEngine->GetDeviceProfileManager()->OnManagerUpdated().AddRaw(this, &FDeviceProfileServicesUIManager::HandleRefreshUIData);
+	UDeviceProfileManager::Get().OnManagerUpdated().AddRaw(this, &FDeviceProfileServicesUIManager::HandleRefreshUIData);
 	HandleRefreshUIData();
 	CreatePlatformMap();
 }
@@ -38,9 +38,9 @@ const TArray<TSharedPtr<FString> > FDeviceProfileServicesUIManager::GetPlatformL
 
 void FDeviceProfileServicesUIManager::GetProfilesByType( TArray<UDeviceProfile*>& OutDeviceProfiles, const FString& InType )
 {
-	for( int32 Idx = 0; Idx < GEngine->GetDeviceProfileManager()->Profiles.Num(); Idx++ )
+	for( int32 Idx = 0; Idx < UDeviceProfileManager::Get().Profiles.Num(); Idx++ )
 	{
-		UDeviceProfile* CurrentDevice = CastChecked<UDeviceProfile>( GEngine->GetDeviceProfileManager()->Profiles[Idx] );
+		UDeviceProfile* CurrentDevice = CastChecked<UDeviceProfile>( UDeviceProfileManager::Get().Profiles[Idx] );
 		if ( CurrentDevice->DeviceType == InType )
 		{
 			OutDeviceProfiles.Add( CurrentDevice );
@@ -64,9 +64,9 @@ void FDeviceProfileServicesUIManager::HandleRefreshUIData()
 {
 	// Rebuild profile to platform map
 	DeviceToPlatformMap.Empty();
-	for( int32 Idx = 0; Idx < GEngine->GetDeviceProfileManager()->Profiles.Num(); Idx++ )
+	for( int32 Idx = 0; Idx < UDeviceProfileManager::Get().Profiles.Num(); Idx++ )
 	{
-		UDeviceProfile* CurrentDevice = CastChecked<UDeviceProfile>( GEngine->GetDeviceProfileManager()->Profiles[Idx] );
+		UDeviceProfile* CurrentDevice = CastChecked<UDeviceProfile>( UDeviceProfileManager::Get().Profiles[Idx] );
 		DeviceToPlatformMap.Add( CurrentDevice->GetName(), CurrentDevice->DeviceType );
 	}
 }
@@ -102,7 +102,7 @@ void FDeviceProfileServicesUIManager::SetProfile( const FString& DeviceProfileNa
 		// Get the existing items
 		for( int32 ItemIdx = 0 ; ItemIdx < MaxItems; ++ItemIdx )
 		{
-			if ( GConfig->GetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), CurItem, GEditorUserSettingsIni ) )
+			if ( GConfig->GetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), CurItem, GEditorPerProjectIni ) )
 			{
 				CurItems.Add( CurItem );
 			}
@@ -124,14 +124,14 @@ void FDeviceProfileServicesUIManager::SetProfile( const FString& DeviceProfileNa
 		CurItems.Insert( DeviceProfileName, 0 );
 
 		// Clear the ini section
-		GConfig->EmptySection( *INISection, GEditorUserSettingsIni );
+		GConfig->EmptySection( *INISection, GEditorPerProjectIni );
 
 		// Re-write the .ini file
 		for ( int32 ItemIdx = 0; ItemIdx < CurItems.Num(); ++ItemIdx )
 		{
-			GConfig->SetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), *CurItems[ItemIdx], GEditorUserSettingsIni );
+			GConfig->SetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), *CurItems[ItemIdx], GEditorPerProjectIni );
 		}
 
-		GConfig->Flush( false, GEditorUserSettingsIni );
+		GConfig->Flush( false, GEditorPerProjectIni );
 	}
 }

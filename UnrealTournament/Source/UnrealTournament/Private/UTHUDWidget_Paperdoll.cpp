@@ -46,13 +46,7 @@ void UUTHUDWidget_Paperdoll::ProcessArmor()
 	bool bHasChest = false;
 	bool bHasHelmet = false;
 	bool bHasJumpBoots = false;
-	if (UTHUDOwner->UTPlayerOwner->PlayerState && UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator && (UTHUDOwner->GetNetMode() != NM_Standalone))
-	{
-		bHasChest = (UTC->ArmorAmount > 0);
-		bHasThighPads = (UTC->ArmorAmount > 100);
-		PlayerArmor = UTC->ArmorAmount;
-	}
-	else if (UTC != NULL && !UTC->IsDead())
+	if (UTC != NULL && !UTC->IsDead())
 	{
 		for (TInventoryIterator<> It(UTC); It; ++It)
 		{

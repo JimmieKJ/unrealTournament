@@ -36,19 +36,28 @@ bool FHitResult::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSu
 	// Most of the time the vectors are the same values, use that as an optimization
 	bool bImpactPointEqualsLocation = 0, bImpactNormalEqualsNormal = 0;
 
+	// Often times the indexes are invalid, use that as an optimization
+	bool bInvalidItem = 0, bInvalidFaceIndex = 0, bNoPenetrationDepth = 0;
+
 	if (Ar.IsSaving())
 	{
 		bImpactPointEqualsLocation = (ImpactPoint == Location);
 		bImpactNormalEqualsNormal = (ImpactNormal == Normal);
+		bInvalidItem = (Item == INDEX_NONE);
+		bInvalidFaceIndex = (FaceIndex == INDEX_NONE);
+		bNoPenetrationDepth = (PenetrationDepth == 0.0f);
 	}
 
 	// pack bitfield with flags
-	uint8 Flags = (bBlockingHit << 0) | (bStartPenetrating << 1) | (bImpactPointEqualsLocation << 2) | (bImpactNormalEqualsNormal << 3);
-	Ar.SerializeBits(&Flags, 4);
+	uint8 Flags = (bBlockingHit << 0) | (bStartPenetrating << 1) | (bImpactPointEqualsLocation << 2) | (bImpactNormalEqualsNormal << 3) | (bInvalidItem << 4) | (bInvalidFaceIndex << 5) | (bInvalidFaceIndex << 6);
+	Ar.SerializeBits(&Flags, 7); 
 	bBlockingHit = (Flags & (1 << 0)) ? 1 : 0;
 	bStartPenetrating = (Flags & (1 << 1)) ? 1 : 0;
 	bImpactPointEqualsLocation = (Flags & (1 << 2)) ? 1 : 0;
 	bImpactNormalEqualsNormal = (Flags & (1 << 3)) ? 1 : 0;
+	bInvalidItem = (Flags & (1 << 4)) ? 1 : 0;
+	bInvalidFaceIndex = (Flags & (1 << 5)) ? 1 : 0;
+	bNoPenetrationDepth = (Flags & (1 << 6)) ? 1 : 0;
 
 	Ar << Time;
 
@@ -85,13 +94,37 @@ bool FHitResult::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSu
 	TraceEnd.NetSerialize(Ar, Map, bOutSuccessLocal);
 	bOutSuccess &= bOutSuccessLocal;
 
-	Ar << PenetrationDepth;
-	Ar << Item;
+	if (!bNoPenetrationDepth)
+	{
+		Ar << PenetrationDepth;
+	}
+	else if(Ar.IsLoading())
+	{
+		PenetrationDepth = 0.0f;
+	}
+	
+	if (!bInvalidItem)
+	{
+		Ar << Item;
+	}
+	else if (Ar.IsLoading())
+	{
+		Item = INDEX_NONE;
+	}
+
 	Ar << PhysMaterial;
 	Ar << Actor;
-	// Skipping component on purpose
+	Ar << Component;
 	Ar << BoneName;
-	Ar << FaceIndex;
+	if (!bInvalidFaceIndex)
+	{
+		Ar << FaceIndex;
+	}
+	else if (Ar.IsLoading())
+	{
+		FaceIndex = INDEX_NONE;
+	}
+	
 
 	return true;
 }

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2221232
+﻿INTSourceChangelist:2419450
 Availability:NoPublish
 Title:액터 배치하기
 Description:
@@ -134,7 +134,7 @@ Crumbs:
 
 * 파티클 시스템을 레벨에 끌어놓으면 이펙트를 추가할 수 있습니다.
 
-* 대부분의 클래스 블루프린트를 레벨에 끌어놓으면 해당 블루프린트 유형의 인스턴스를 추가할 수 있습니다.
+* 대부분의 블루프린트 클래스를 레벨에 끌어놓으면 해당 블루프린트 유형의 인스턴스를 추가할 수 있습니다.
 
 
 [자세히 알아볼까요?](DOCLINK:Engine/Content/Browser)

@@ -57,6 +57,16 @@ namespace ESizingRule
 	};
 }
 
+/** Proxy structure to handle deprecated construction from bool */
+struct FWindowTransparency
+{
+	DEPRECATED(4.8, "Please specify an EWindowTransparency value instead.")
+	FWindowTransparency(bool bSupportsTransparency) : Value(bSupportsTransparency ? EWindowTransparency::PerWindow : EWindowTransparency::None) {}
+
+	FWindowTransparency(EWindowTransparency In) : Value(In) {}
+	
+	EWindowTransparency Value;
+};
 
 /**
  * SWindow is a platform-agnostic representation of a top-level window.
@@ -73,7 +83,7 @@ public:
 		, _AutoCenter( EAutoCenter::PreferredWorkArea )
 		, _ScreenPosition( FVector2D::ZeroVector )
 		, _ClientSize( FVector2D::ZeroVector )
-		, _SupportsTransparency( false )
+		, _SupportsTransparency( EWindowTransparency::None )
 		, _InitialOpacity( 1.0f )
 		, _IsInitiallyMaximized( false )
 		, _SizingRule( ESizingRule::UserSized )
@@ -81,6 +91,7 @@ public:
 		, _FocusWhenFirstShown( true )
 		, _ActivateWhenFirstShown( true )
 		, _UseOSWindowBorder( false )
+		, _HasCloseButton( true )
 		, _SupportsMaximize( true )
 		, _SupportsMinimize( true )
 		, _CreateTitleBar( true )
@@ -109,7 +120,7 @@ public:
 		SLATE_ARGUMENT( FVector2D, ClientSize )
 
 		/** Should this window support transparency */
-		SLATE_ARGUMENT( bool, SupportsTransparency )
+		SLATE_ARGUMENT( FWindowTransparency, SupportsTransparency )
 
 		/** The initial opacity of the window */
 		SLATE_ARGUMENT( float, InitialOpacity )
@@ -131,6 +142,9 @@ public:
 
 		/** Use the default os look for the border of the window */
 		SLATE_ARGUMENT( bool, UseOSWindowBorder )
+
+		/** Does this window have a close button? */
+		SLATE_ARGUMENT( bool, HasCloseButton )
 
 		/** Can this window be maximized? */
 		SLATE_ARGUMENT( bool, SupportsMaximize )
@@ -484,11 +498,11 @@ public:
 	/** @return the window's current opacity */
 	float GetOpacity() const;
 
-	/** @return true if the window supports transparency */
-	bool SupportsTransparency() const;
+	/** @return the level of transparency supported by this window */
+	EWindowTransparency GetTransparencySupport() const;
 
 	/** @return A String representation of the widget */
-	virtual FString ToString() const;
+	virtual FString ToString() const override;
 
 	/**
 	 * Sets a widget that should become focused when this window is next activated
@@ -548,6 +562,9 @@ public:
 	/** @return true if this is a user-sized window with a thick edge */
 	bool HasSizingFrame() const;
 
+	/** @return true if this window has a close button/box on the titlebar area */
+	bool HasCloseBox() const;
+
 	/** @return true if this window has a maximize button/box on the titlebar area */
 	bool HasMaximizeBox() const;
 
@@ -573,7 +590,7 @@ public:
 	}
 
 	// Events
-	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const;
+	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
 
 	/** The system will call this method to notify the window that it has been places in the foreground or background. */
 	virtual bool OnIsActiveChanged( const FWindowActivateEvent& ActivateEvent );
@@ -596,15 +613,18 @@ public:
 
 	virtual bool SupportsKeyboardFocus() const override;
 
-	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent );
-
+private:
+	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 
 	/** The window's desired size takes into account the ratio between the slate units and the pixel size */
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
+	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
+
+public:
 	/** @return true if this window will be focused when it is first shown */
 	inline bool IsFocusedInitially() const
 	{
@@ -736,8 +756,8 @@ protected:
 	/** How to auto center the window */
 	EAutoCenter::Type AutoCenterRule;
 
-	/** true if the window supports transparency */
-	bool bIsTransparent : 1;
+	/** Transparency setting for this window */
+	EWindowTransparency TransparencySupport;
 
 	/** True if this is a pop up window */
 	bool bIsPopupWindow : 1;
@@ -770,7 +790,10 @@ protected:
 
 	/** True if this window displays the os window border instead of drawing one in slate */
 	bool bHasOSWindowBorder : 1;
-	
+
+	/** True if this window displays an enabled close button on the toolbar area */
+	bool bHasCloseButton : 1;
+
 	/** True if this window displays an enabled minimize button on the toolbar area */
 	bool bHasMinimizeButton : 1;
 
@@ -811,7 +834,6 @@ protected:
 			: StartingMorphShape( FSlateRect(0,0,100,100) )
 			, TargetMorphShape( FSlateRect(0,0,100,100) )
 			, bIsActive(false)
-			, bIsPendingPlay(false)
 			, bIsAnimatingWindowSize(false)
 		{ }
 
@@ -830,9 +852,6 @@ protected:
 
 		/** True if this morph is currently active */
 		bool bIsActive : 1;
-
-		/** True if this morph sequence is pending play (i.e. will start on next Tick) */
-		bool bIsPendingPlay : 1;
 
 		/** True if we're morphing size as well as position.  False if we're just morphing position */
 		bool bIsAnimatingWindowSize : 1;
@@ -924,6 +943,8 @@ private:
 
 private:
 	
+	virtual
+
 	void ConstructWindowInternals( const bool bCreateTitleBar );
 
 	/**
@@ -935,6 +956,12 @@ private:
 	 * @return EVisibility::Visible if the window is flashing. Used to show/hide the white flash in the title area
 	 */
 	EVisibility GetWindowFlashVisibility() const;
+
+	/** One-off active timer to trigger a the morph sequence to play */
+	EActiveTimerReturnType TriggerPlayMorphSequence( double InCurrentTime, float InDeltaTime );
+
+	/** The handle to the active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 };
 
 

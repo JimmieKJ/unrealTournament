@@ -364,6 +364,17 @@ public:
 				Ar << (TCHAR*)*Value;
 				break;
 			}
+		case EOnlineKeyValuePairDataType::Bool:
+			{
+				bool Value;
+				KeyValuePair.GetValue(Value);
+				Ar << (uint8)(Value ? 1 : 0);
+				break;
+			}
+		case EOnlineKeyValuePairDataType::Empty:
+			break;
+		default:
+			checkfSlow(false, TEXT("Unsupported EOnlineKeyValuePairDataType: %d"), Type);
 		}
 		return Ar;
 	}
@@ -738,6 +749,17 @@ public:
 					KeyValuePair.SetValue(Value);
 					break;
 				}
+			case EOnlineKeyValuePairDataType::Bool:
+				{
+					uint8 Value;
+					Ar >> Value;
+					KeyValuePair.SetValue(Value != 0);
+					break;
+				}
+			case EOnlineKeyValuePairDataType::Empty:
+				break;
+			default:
+				checkfSlow(false, TEXT("Unsupported EOnlineKeyValuePairDataType: %d"), Type);
 			}
 		}
 

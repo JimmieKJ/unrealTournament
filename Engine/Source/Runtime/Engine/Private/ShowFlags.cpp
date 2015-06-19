@@ -312,10 +312,15 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 	}
 
 	{
-		// Disable temporal AA when taking a high resolution screenshot
+		// when taking a high resolution screenshot
 		if (GIsHighResScreenshot)
 		{
+			// disabled as it requires multiple frames, AA can be done by downsampling, more control and better masking
 			EngineShowFlags.TemporalAA = 0;
+			// no editor gizmos / selection
+			EngineShowFlags.ModeWidgets = 0;
+			EngineShowFlags.Selection = 0;
+			EngineShowFlags.SelectionOutline = 0;
 		}
 	}
 
@@ -393,10 +398,11 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 			ViewModeIndex == VMI_BrushWireframe ||
 			ViewModeIndex == VMI_Unlit ||
 			ViewModeIndex == VMI_StationaryLightOverlap ||
+			ViewModeIndex == VMI_ShaderComplexity ||
 			ViewModeIndex == VMI_LightmapDensity)
 		{
 			EngineShowFlags.Lighting = 0;
-			EngineShowFlags.Atmosphere = 0;
+			EngineShowFlags.AtmosphericFog = 0;
 		}
 
 		if( ViewModeIndex == VMI_Lit ||

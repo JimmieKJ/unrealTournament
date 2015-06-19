@@ -21,6 +21,16 @@ UPawnAction_Sequence* UPawnAction_Sequence::CreateAction(UWorld& World, TArray<U
 	if (Action)
 	{
 		Action->ActionSequence = ActionSequence;
+
+		for (const UPawnAction* SubAction : ActionSequence)
+		{
+			if (SubAction && SubAction->ShouldPauseMovement())
+			{
+				Action->bShouldPauseMovement = true;
+				break;
+			}
+		}
+
 		Action->SubActionTriggeringPolicy = InSubActionTriggeringPolicy;
 	}
 

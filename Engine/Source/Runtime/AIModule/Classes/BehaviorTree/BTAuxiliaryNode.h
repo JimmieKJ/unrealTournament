@@ -73,6 +73,9 @@ protected:
 	/** sets next tick time */
 	void SetNextTickTime(uint8* NodeMemory, float RemainingTime) const;
 
+	/** gets remaining time for next tick */
+	float GetNextTickRemainingTime(uint8* NodeMemory) const;
+
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//

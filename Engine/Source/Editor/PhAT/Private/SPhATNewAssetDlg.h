@@ -44,9 +44,9 @@ private:
 	void OnToggleCreateBodyForAllBones(ECheckBoxState InCheckboxState);
 	
 	EVisibility GetHullOptionsVisibility() const;
-	void OnHullCountChanged(int32 InNewValue);	
+	void OnHullAccuracyChanged(float InNewValue);	
 	void OnVertsPerHullCountChanged(int32 InNewValue);
-	int32 GetHullCount() const;
+	float GetHullAccuracy() const;
 	int32 GetVertsPerHullCount() const;
 
 	/** returns MinBoneSize for widget **/
@@ -65,6 +65,6 @@ private:
 	TArray< TSharedPtr<FString> > WeightOptions;
 	TArray< TSharedPtr<FString> > AngularConstraintModes;
 
-	TSharedPtr< SSpinBox<int32> > MaxHull;
+	TSharedPtr< SSpinBox<float> > HullAccuracy;
 	TSharedPtr< SSpinBox<int32> > MaxVertsPerHull;
 };

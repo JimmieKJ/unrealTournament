@@ -190,7 +190,7 @@ class ENGINE_API UAudioComponent : public USceneComponent
 
 	/** @return true if this component is currently playing a SoundCue. */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
-	bool IsPlaying();
+	bool IsPlaying() const;
 
 	/** This will allow one to adjust the volume of an AudioComponent on the fly */
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
@@ -205,11 +205,11 @@ class ENGINE_API UAudioComponent : public USceneComponent
 	void SetWaveParameter(FName InName, class USoundWave* InWave);
 
 	/** Set a boolean instance parameter for use in sound cues played by this audio component */
-	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio", meta=(FriendlyName="Set Boolean Parameter"))
+	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio", meta=(DisplayName="Set Boolean Parameter"))
 	void SetBoolParameter(FName InName, bool InBool);
 	
 	/** Set an integer instance parameter for use in sound cues played by this audio component */
-	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio", meta=(FriendlyName="Set Integer Parameter"))
+	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio", meta=(DisplayName="Set Integer Parameter"))
 	void SetIntParameter(FName InName, int32 InInt);
 
 	/** Set a new volume multiplier */
@@ -271,6 +271,8 @@ public:
 	virtual void Activate(bool bReset=false) override;
 	virtual void Deactivate() override;
 	virtual void OnUpdateTransform(bool bSkipPhysicsMove) override;
+	// do nothing! on purpose
+	virtual void UpdateNavigationData() override {}
 	// End USceneComponent Interface
 
 	// Begin ActorComponent interface.
@@ -278,6 +280,7 @@ public:
 	virtual void OnRegister() override;
 #endif
 	virtual void OnUnregister() override;
+	virtual const UObject* AdditionalStatObject() const override;
 	// End ActorComponent interface.
 
 	/** Returns a pointer to the attenuation settings to be used (if any) for this audio component dependent on the SoundAttenuation asset or overrides set. */
@@ -285,6 +288,9 @@ public:
 
 	/** Collects the various attenuation shapes that may be applied to the sound played by the audio component for visualization in the editor or via the in game debug visualization. */
 	void CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, FAttenuationSettings::AttenuationShapeDetails>& ShapeDetailsMap) const;
+
+	/** Returns the active audio device to use for this component based on whether or not the component is playing in a world. */
+	FAudioDevice* GetAudioDevice() const;
 
 private:
 	

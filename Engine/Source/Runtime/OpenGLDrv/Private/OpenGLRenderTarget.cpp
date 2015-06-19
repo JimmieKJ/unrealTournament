@@ -302,49 +302,49 @@ void FOpenGLDynamicRHI::PurgeFramebufferFromCaches( GLuint Framebuffer )
 
 void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
 {
-	if(!SourceTextureRHI || !DestTextureRHI)
+	if (!SourceTextureRHI || !DestTextureRHI)
 	{
-		// no need to do anything (sliently ignored)
+		// no need to do anything (silently ignored)
 		return;
 	}
-
-	VERIFY_GL_SCOPE();
-
-	check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5 || ResolveParams.SourceArrayIndex == 0);
-	check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5 || ResolveParams.DestArrayIndex == 0);
 
 	FOpenGLTextureBase* SourceTexture = GetOpenGLTextureFromRHITexture(SourceTextureRHI);
 	FOpenGLTextureBase* DestTexture = GetOpenGLTextureFromRHITexture(DestTextureRHI);
 
-	const bool bSrcCubemap  = SourceTextureRHI->GetTextureCube() != NULL;
-	const bool bDestCubemap = DestTextureRHI->GetTextureCube() != NULL;
-
-	uint32 DestIndex = ResolveParams.DestArrayIndex * (bDestCubemap ? 6 : 1) + (bDestCubemap ? uint32(ResolveParams.CubeFace) : 0);
-	uint32 SrcIndex  = ResolveParams.SourceArrayIndex * (bSrcCubemap ? 6 : 1) + (bSrcCubemap ? uint32(ResolveParams.CubeFace) : 0);
-
-	uint32 BaseX = 0;
-	uint32 BaseY = 0;
-	uint32 SizeX = 0;
-	uint32 SizeY = 0;
-	if (ResolveParams.Rect.IsValid())
-	{
-		BaseX = ResolveParams.Rect.X1;
-		BaseY = ResolveParams.Rect.Y1;
-		SizeX = ResolveParams.Rect.X2 - ResolveParams.Rect.X1;
-		SizeY = ResolveParams.Rect.Y2 - ResolveParams.Rect.Y1;
-	}
-	else
-	{
-		// Invalid rect mans that the entire source is to be copied
-		SizeX = GetOpenGLTextureSizeXFromRHITexture(SourceTextureRHI);
-		SizeY = GetOpenGLTextureSizeYFromRHITexture(SourceTextureRHI);
-
-		SizeX = FMath::Max<uint32>( 1, SizeX >> ResolveParams.MipIndex);
-		SizeY = FMath::Max<uint32>( 1, SizeY >> ResolveParams.MipIndex);
-	}
-
 	if (SourceTexture != DestTexture && FOpenGL::SupportsBlitFramebuffer())
 	{
+		VERIFY_GL_SCOPE();
+
+		check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5 || ResolveParams.SourceArrayIndex == 0);
+		check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5 || ResolveParams.DestArrayIndex == 0);
+
+		const bool bSrcCubemap  = SourceTextureRHI->GetTextureCube() != NULL;
+		const bool bDestCubemap = DestTextureRHI->GetTextureCube() != NULL;
+
+		uint32 DestIndex = ResolveParams.DestArrayIndex * (bDestCubemap ? 6 : 1) + (bDestCubemap ? uint32(ResolveParams.CubeFace) : 0);
+		uint32 SrcIndex  = ResolveParams.SourceArrayIndex * (bSrcCubemap ? 6 : 1) + (bSrcCubemap ? uint32(ResolveParams.CubeFace) : 0);
+
+		uint32 BaseX = 0;
+		uint32 BaseY = 0;
+		uint32 SizeX = 0;
+		uint32 SizeY = 0;
+		if (ResolveParams.Rect.IsValid())
+		{
+			BaseX = ResolveParams.Rect.X1;
+			BaseY = ResolveParams.Rect.Y1;
+			SizeX = ResolveParams.Rect.X2 - ResolveParams.Rect.X1;
+			SizeY = ResolveParams.Rect.Y2 - ResolveParams.Rect.Y1;
+		}
+		else
+		{
+			// Invalid rect mans that the entire source is to be copied
+			SizeX = GetOpenGLTextureSizeXFromRHITexture(SourceTextureRHI);
+			SizeY = GetOpenGLTextureSizeYFromRHITexture(SourceTextureRHI);
+
+			SizeX = FMath::Max<uint32>(1, SizeX >> ResolveParams.MipIndex);
+			SizeY = FMath::Max<uint32>(1, SizeY >> ResolveParams.MipIndex);
+		}
+
 		GPUProfilingData.RegisterGPUWork();
 		uint32 MipmapLevel = ResolveParams.MipIndex;
 
@@ -432,6 +432,7 @@ void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture
 	}
 	else
 	{
+		// no need to do anything (silently ignored)
 	}
 }
 
@@ -795,9 +796,9 @@ void FOpenGLDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,F
 		FMemory::Memzero(FloatData.GetData(),SizeX * SizeY*sizeof(FLinearColor));
 		glReadPixels(Rect.Min.X, Rect.Min.Y, SizeX, SizeY, GL_RGBA, GL_FLOAT, FloatData.GetData());
 		FLinearColor* FloatDataPtr = FloatData.GetData();
-		for (uint32 Index = 0; Index < SizeX * SizeY; ++Index, ++FloatDataPtr)
+		for (uint32 DataIndex = 0; DataIndex < SizeX * SizeY; ++DataIndex, ++FloatDataPtr)
 		{
-			OutData[Index] = FFloat16Color(*FloatDataPtr);
+			OutData[DataIndex] = FFloat16Color(*FloatDataPtr);
 		}
 	}
 	else

@@ -25,18 +25,21 @@ protected:
 	
 	TSharedRef<SWidget> AddPlayNow();
 
-	bool JSQuery(int64, FString, bool, FJSQueryResultDelegate);
-
 	virtual void CreateDesktop();
 	virtual void SetInitialPanel();
 
 	virtual void BuildLeftMenuBar();
-	
+
+	virtual TSharedRef<SWidget> BuildWatchSubMenu();
 	virtual TSharedRef<SWidget> BuildTutorialSubMenu();
 
 	virtual FReply OnShowGamePanel(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnTutorialClick();
 	virtual FReply OnCloseClicked();
+
+	virtual FReply OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton);
 
 	virtual FReply OnBootCampClick(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnCommunityClick(TSharedPtr<SComboButton> MenuButton);
@@ -57,5 +60,7 @@ protected:
 	virtual void CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 	virtual void StartGame(bool bLanGame);
+
+
 };
 #endif

@@ -307,7 +307,7 @@ bool AUTWeap_ShockRifle::CanAttack_Implementation(AActor* Target, const FVector&
 			bPlanningCombo = false;
 			return false;
 		}
-		else if (bPreferCurrentMode && !PredictiveComboTargetLoc.IsZero() && !GetWorld()->LineTraceTest(GetFireStartLoc(1), PredictiveComboTargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(FName(TEXT("PredictiveCombo")), true, UTOwner)))
+		else if (bPreferCurrentMode && !PredictiveComboTargetLoc.IsZero() && !GetWorld()->LineTraceTestByChannel(GetFireStartLoc(1), PredictiveComboTargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(FName(TEXT("PredictiveCombo")), true, UTOwner)))
 		{
 			OptimalTargetLoc = PredictiveComboTargetLoc;
 			BestFireMode = 1;
@@ -326,7 +326,7 @@ bool AUTWeap_ShockRifle::CanAttack_Implementation(AActor* Target, const FVector&
 				do 
 				{
 					i = (i + 1) % FoundPoints.Num();
-					if (!GetWorld()->LineTraceTest(GetFireStartLoc(1), FoundPoints[i], COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(FName(TEXT("PredictiveCombo")), true, UTOwner)))
+					if (!GetWorld()->LineTraceTestByChannel(GetFireStartLoc(1), FoundPoints[i], COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(FName(TEXT("PredictiveCombo")), true, UTOwner)))
 					{
 						PredictiveComboTargetLoc = FoundPoints[i];
 						break;

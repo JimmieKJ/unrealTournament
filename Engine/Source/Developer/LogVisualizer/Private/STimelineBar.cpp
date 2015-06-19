@@ -43,7 +43,7 @@ FReply STimelineBar::OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const
 {
 	auto &Entries = TimelineOwner.Pin()->GetEntries();
 	SnapScrubPosition(TimeSliderController->GetTimeSliderArgs().ScrubPosition.Get());
-	UWorld* World = VisualLoggerInterface->GetWorld();
+	UWorld* World = FLogVisualizer::Get().GetWorld();
 	if (World && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && Entries.IsValidIndex(CurrentItemIndex))
 	{
 		FVector CurrentLocation = Entries[CurrentItemIndex].Entry.Location;
@@ -88,12 +88,12 @@ FReply STimelineBar::OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const
 				float Radius = BoundingBox.GetExtent().Size();
 
 				FViewportCameraTransform ViewTransform;
-				ViewTransform.TransitionToLocation(Position, true);
+				ViewTransform.TransitionToLocation(Position, SharedThis(this), true);
 
 				float NewOrthoZoom;
 				const float AspectRatio = 1.777777f;
 				uint32 MinAxisSize = (AspectRatio > 1.0f) ? Viewport->GetSizeXY().Y : Viewport->GetSizeXY().X;
-				float Zoom = Radius / (MinAxisSize / 2);
+				float Zoom = Radius / (MinAxisSize / 2.0f);
 
 				NewOrthoZoom = Zoom * (Viewport->GetSizeXY().X*15.0f);
 				NewOrthoZoom = FMath::Clamp<float>(NewOrthoZoom, 250, MAX_FLT);
@@ -107,6 +107,66 @@ FReply STimelineBar::OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const
 	}
 
 	return FReply::Unhandled();
+}
+
+void STimelineBar::GotoNextItem(int32 MoveDistance)
+{
+	int32 NewItemIndex = CurrentItemIndex;
+	auto &Entries = TimelineOwner.Pin()->GetEntries();
+	int32 Index = 0;
+	while (true)
+	{
+		NewItemIndex++;
+		if (Entries.IsValidIndex(NewItemIndex))
+		{
+			auto& CurrentEntryItem = Entries[NewItemIndex];
+			if (TimelineOwner.Pin()->IsEntryHidden(CurrentEntryItem) == false && ++Index == MoveDistance)
+			{
+				break;
+			}
+		}
+		else
+		{
+			NewItemIndex = FMath::Clamp(NewItemIndex, 0, Entries.Num() - 1);
+			break;
+		}
+	}
+
+	if (NewItemIndex != CurrentItemIndex)
+	{
+		float NewTimeStamp = Entries[NewItemIndex].Entry.TimeStamp;
+		SnapScrubPosition(NewItemIndex);
+	}
+}
+
+void STimelineBar::GotoPreviousItem(int32 MoveDistance)
+{
+	int32 NewItemIndex = CurrentItemIndex;
+	auto &Entries = TimelineOwner.Pin()->GetEntries();
+	int32 Index = 0;
+	while (true)
+	{
+		NewItemIndex--;
+		if (Entries.IsValidIndex(NewItemIndex))
+		{
+			auto& CurrentEntryItem = Entries[NewItemIndex];
+			if (TimelineOwner.Pin()->IsEntryHidden(CurrentEntryItem) == false && ++Index == MoveDistance)
+			{
+				break;
+			}
+		}
+		else
+		{
+			NewItemIndex = FMath::Clamp(NewItemIndex, 0, Entries.Num() - 1);
+			break;
+		}
+	}
+
+	if (NewItemIndex != CurrentItemIndex)
+	{
+		float NewTimeStamp = Entries[NewItemIndex].Entry.TimeStamp;
+		SnapScrubPosition(NewItemIndex);
+	}
 }
 
 FReply STimelineBar::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
@@ -135,6 +195,10 @@ FReply STimelineBar::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InK
 					break;
 				}
 			}
+			if (NewItemIndex != CurrentItemIndex)
+			{
+				SnapScrubPosition(NewItemIndex);
+			}
 			ReturnValue = FReply::Handled();
 		}
 		else if (Key == EKeys::End)
@@ -147,53 +211,28 @@ FReply STimelineBar::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InK
 					break;
 				}
 			}
-			ReturnValue = FReply::Handled();
-		}
-		else if (Key == EKeys::Left || Key == EKeys::Right)
-		{
-			int32 Direction = Key == EKeys::Left ? -1 : 1;
-			int32 MoveBy = InKeyEvent.IsLeftControlDown() ? InKeyEvent.IsLeftShiftDown() ? 20 : 10 : 1;
-
-			int32 Index = 0;
-			while (true)
+			if (NewItemIndex != CurrentItemIndex)
 			{
-				NewItemIndex += Direction;
-				if (Entries.IsValidIndex(NewItemIndex))
-				{
-					auto& CurrentEntryItem = Entries[NewItemIndex];
-					if (TimelineOwner.Pin()->IsEntryHidden(CurrentEntryItem) == false && ++Index == MoveBy)
-					{
-						break;
-					}
-				}
-				else
-				{
-					NewItemIndex = FMath::Clamp(NewItemIndex, 0, Entries.Num() - 1);
-					break;
-				}
+				SnapScrubPosition(NewItemIndex);
 			}
 			ReturnValue = FReply::Handled();
 		}
-
-		if (NewItemIndex != CurrentItemIndex)
+		else if (Key == EKeys::Left)
 		{
-			float NewTimeStamp = Entries[NewItemIndex].Entry.TimeStamp;
-			SnapScrubPosition(NewItemIndex);
-			if (NewTimeStamp < LocalViewRange.GetLowerBoundValue())
-			{
-				TimeSliderController->SetTimeRange(NewTimeStamp, NewTimeStamp + RangeSize);
-			}
-			else if (NewTimeStamp > LocalViewRange.GetUpperBoundValue())
-			{
-				TimeSliderController->SetTimeRange(NewTimeStamp - RangeSize, NewTimeStamp);
-			}
+			GotoPreviousItem(InKeyEvent.IsLeftControlDown() ? InKeyEvent.IsLeftShiftDown() ? 20 : 10 : 1);
+			ReturnValue = FReply::Handled();
+		}
+		else if (Key == EKeys::Right)
+		{
+			GotoNextItem(InKeyEvent.IsLeftControlDown() ? InKeyEvent.IsLeftShiftDown() ? 20 : 10 : 1);
+			ReturnValue = FReply::Handled();
 		}
 	}
 
 	return ReturnValue;
 }
 
-uint32 STimelineBar::GetClosestItem(float Time) const
+int32 STimelineBar::GetClosestItem(float Time) const
 {
 	int32 BestItemIndex = INDEX_NONE;
 	float BestDistance = MAX_FLT;
@@ -215,7 +254,9 @@ uint32 STimelineBar::GetClosestItem(float Time) const
 		}
 	}
 
-	if (BestItemIndex != INDEX_NONE)
+	const float CurrentDist = Entries.IsValidIndex(CurrentItemIndex) ? FMath::Abs(Entries[CurrentItemIndex].Entry.TimeStamp - Time) : MAX_FLT;
+
+	if (BestItemIndex != INDEX_NONE && CurrentDist > BestDistance)
 	{
 		return BestItemIndex;
 	}
@@ -233,7 +274,7 @@ void STimelineBar::SnapScrubPosition(float ScrubPosition)
 		if (CurrentItemIndex != BestItemIndex)
 		{
 			CurrentItemIndex = BestItemIndex;
-			VisualLoggerInterface->GetVisualLoggerEvents().OnItemSelectionChanged.ExecuteIfBound(Entries[BestItemIndex]);
+			FLogVisualizer::Get().GetVisualLoggerEvents().OnItemSelectionChanged.ExecuteIfBound(Entries[BestItemIndex]);
 		}
 		TimeSliderController->CommitScrubPosition(CurrentTime, false);
 	}
@@ -248,7 +289,7 @@ void STimelineBar::SnapScrubPosition(int32 NewItemIndex)
 		if (CurrentItemIndex != NewItemIndex)
 		{
 			CurrentItemIndex = NewItemIndex;
-			VisualLoggerInterface->GetVisualLoggerEvents().OnItemSelectionChanged.ExecuteIfBound(Entries[NewItemIndex]);
+			FLogVisualizer::Get().GetVisualLoggerEvents().OnItemSelectionChanged.ExecuteIfBound(Entries[NewItemIndex]);
 		}
 		TimeSliderController->CommitScrubPosition(CurrentTime, false);
 	}
@@ -256,8 +297,6 @@ void STimelineBar::SnapScrubPosition(int32 NewItemIndex)
 
 void STimelineBar::Construct(const FArguments& InArgs, TSharedPtr<FVisualLoggerTimeSliderController> InTimeSliderController, TSharedPtr<STimeline> InTimelineOwner)
 {
-	VisualLoggerInterface = InArgs._VisualLoggerInterface.Get();
-
 	TimeSliderController = InTimeSliderController;
 	TimelineOwner = InTimelineOwner;
 	CurrentItemIndex = INDEX_NONE;
@@ -265,16 +304,15 @@ void STimelineBar::Construct(const FArguments& InArgs, TSharedPtr<FVisualLoggerT
 	TRange<float> LocalViewRange = TimeSliderController->GetTimeSliderArgs().ViewRange.Get();
 }
 
-FVector2D STimelineBar::ComputeDesiredSize() const
+FVector2D STimelineBar::ComputeDesiredSize(float) const
 {
 	return FVector2D(5000.0f, 20.0f);
 }
 
 void STimelineBar::OnSelect()
 {
-	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EFocusCause::Navigation);
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EFocusCause::SetDirectly);
 	CurrentItemIndex = INDEX_NONE;
-	SnapScrubPosition(TimeSliderController->GetTimeSliderArgs().ScrubPosition.Get());
 }
 
 void STimelineBar::OnDeselect()
@@ -357,16 +395,22 @@ int32 STimelineBar::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeo
 			}
 
 			const TArray<FVisualLogLine>& LogLines = CurrentEntry.LogLines;
+			bool bAddedWarning = false;
+			bool bAddedError = false;
 			for (const FVisualLogLine& CurrentLine : LogLines)
 			{
-				if (CurrentLine.Verbosity <= ELogVerbosity::Error)
+				if (CurrentLine.Verbosity <= ELogVerbosity::Error && !bAddedError)
 				{
 					ErrorTimes.AddUnique(CurrentEntry.TimeStamp);
-					break;
+					bAddedError = true;
 				}
-				else if (CurrentLine.Verbosity == ELogVerbosity::Warning)
+				else if (CurrentLine.Verbosity == ELogVerbosity::Warning && !bAddedWarning)
 				{
 					WarningTimes.AddUnique(CurrentEntry.TimeStamp);
+					bAddedWarning = true;
+				}
+				if (bAddedError && bAddedWarning)
+				{
 					break;
 				}
 			}
@@ -433,17 +477,18 @@ int32 STimelineBar::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeo
 			);
 	}
 
-	uint32 BestItemIndex = GetClosestItem(LocalScrubPosition);
+	int32 BestItemIndex = GetClosestItem(LocalScrubPosition);
 
 	if (BestItemIndex != INDEX_NONE && TimelineOwner.Pin()->IsSelected())
 	{
-		auto &Entries = TimelineOwner.Pin()->GetEntries();
+		const auto &BestItemEntry = TimelineOwner.Pin()->GetEntries()[BestItemIndex];
 		if (BestItemIndex != CurrentItemIndex)
 		{
-			VisualLoggerInterface->GetVisualLoggerEvents().OnItemSelectionChanged.ExecuteIfBound(Entries[BestItemIndex]);
+			FLogVisualizer::Get().GetVisualLoggerEvents().OnItemSelectionChanged.ExecuteIfBound(BestItemEntry);
+			CurrentItemIndex = BestItemIndex;
 		}
 
-		float CurrentTime = Entries[BestItemIndex].Entry.TimeStamp;
+		float CurrentTime = BestItemEntry.Entry.TimeStamp;
 		float LinePos = (CurrentTime - LocalViewRange.GetLowerBoundValue()) * PixelsPerInput;
 
 		FSlateDrawElement::MakeBox(

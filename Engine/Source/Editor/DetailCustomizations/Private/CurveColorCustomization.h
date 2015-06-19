@@ -30,14 +30,13 @@ public:
 	/** FCurveOwnerInterface interface */
 	virtual TArray<FRichCurveEditInfoConst> GetCurves() const override;
 	virtual TArray<FRichCurveEditInfo> GetCurves() override;
-	virtual UObject* GetOwner() override;
 	virtual void ModifyOwner() override;
 	virtual void MakeTransactional() override;
-	virtual void OnCurveChanged() override;
+	virtual void OnCurveChanged(const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos) override;
 	virtual bool IsLinearColorCurve() const override { return true; }
 	virtual FLinearColor GetLinearColorValue(float InTime) const override;
 	virtual bool HasAnyAlphaKeys() const override;
-	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo );
+	virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override;
 
 private:
 	/**

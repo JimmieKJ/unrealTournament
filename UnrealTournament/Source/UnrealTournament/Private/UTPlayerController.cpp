@@ -29,6 +29,8 @@
 #include "Engine/GameInstance.h"
 #include "UTSpectatorCamera.h"
 #include "UTHUDWidget_NetInfo.h"
+#include "UTWorldSettings.h"
+#include "Engine/DemoNetDriver.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -49,8 +51,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastTapBackTime = -10.f;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
-	bTapCrouchToSlide = true;
-	CrouchSlideTapInterval = 0.25f;
 	bHasUsedSpectatingBind = false;
 	bAutoCam = true;
 
@@ -65,9 +65,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	LastEmoteTime = 0.0f;
 	EmoteCooldownTime = 0.3f;
-
-	bAutoSlide = false;
-
 	bSpectateBehindView = true;
 	StylizedPPIndex = INDEX_NONE;
 
@@ -79,6 +76,8 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bUseClassicGroups = true;
 
 	CastingGuideViewIndex = INDEX_NONE;
+
+	DilationIndex = 2;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
@@ -127,6 +126,7 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, HUDClass, COND_OwnerOnly);
 }
 
 
@@ -222,35 +222,6 @@ void AUTPlayerController::ToggleSingleTap()
 	bSingleTapWallDodge = !bSingleTapWallDodge;
 }
 
-void AUTPlayerController::ToggleAutoSlide()
-{
-	SetAutoSlide(!bAutoSlide);
-}
-
-void AUTPlayerController::SetAutoSlide(bool bNewAutoSlide)
-{
-	bAutoSlide = bNewAutoSlide;
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->bAutoSlide = bAutoSlide;
-	}
-	if (Role != ROLE_Authority)
-	{
-		ServerSetAutoSlide(bAutoSlide);
-	}
-}
-
-void AUTPlayerController::ServerSetAutoSlide_Implementation(bool bNewAutoSlide)
-{
-	SetAutoSlide(bNewAutoSlide);
-}
-
-bool AUTPlayerController::ServerSetAutoSlide_Validate(bool bNewAutoSlide)
-{
-	return true;
-}
-
 void AUTPlayerController::SetEyeOffsetScaling(float NewScaling)
 {
 	EyeOffsetGlobalScaling = NewScaling;
@@ -283,10 +254,10 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight);
 	InputComponent->BindAxis("MoveUp", this, &AUTPlayerController::MoveUp);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
+	InputComponent->BindAction("Jump", IE_Released, this, &AUTPlayerController::JumpRelease);
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
 	InputComponent->BindAction("ToggleCrouch", IE_Pressed, this, &AUTPlayerController::ToggleCrouch);
-	InputComponent->BindAction("Slide", IE_Pressed, this, &AUTPlayerController::Slide);
 
 	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
@@ -295,8 +266,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SingleTapDodge", IE_Pressed, this, &AUTPlayerController::OnSingleTapDodge);
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
-	InputComponent->BindAction("HoldRollSlide", IE_Pressed, this, &AUTPlayerController::HoldRollSlide);
-	InputComponent->BindAction("HoldRollSlide", IE_Released, this, &AUTPlayerController::ReleaseRollSlide);
 
 	InputComponent->BindAction("TapLeftRelease", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
 	InputComponent->BindAction("TapRightRelease", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
@@ -354,25 +323,17 @@ void AUTPlayerController::InitInputSystem()
 {
 	if (PlayerInput == NULL)
 	{
-		PlayerInput = ConstructObject<UUTPlayerInput>(UUTPlayerInput::StaticClass(), this);
+		PlayerInput = NewObject<UUTPlayerInput>(this, UUTPlayerInput::StaticClass());
 	}
 
 	Super::InitInputSystem();
 
-	if (RewardAnnouncerPath.AssetLongPathname.Len() > 0)
+	if (AnnouncerPath.AssetLongPathname.Len() > 0)
 	{
-		TSubclassOf<UUTAnnouncer> RewardAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *RewardAnnouncerPath.AssetLongPathname, NULL, 0, NULL);
-		if (RewardAnnouncerClass != NULL && RewardAnnouncerClass.GetDefaultObject()->IsRewardAnnouncer())
+		TSubclassOf<UUTAnnouncer> AnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *AnnouncerPath.AssetLongPathname, NULL, 0, NULL);
+		if (AnnouncerClass != NULL)
 		{
-			RewardAnnouncer = NewObject<UUTAnnouncer>(this, RewardAnnouncerClass);
-		}
-	}
-	if (StatusAnnouncerPath.AssetLongPathname.Len() > 0)
-	{
-		TSubclassOf<UUTAnnouncer> StatusAnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *StatusAnnouncerPath.AssetLongPathname, NULL, 0, NULL);
-		if (StatusAnnouncerClass != NULL && StatusAnnouncerClass.GetDefaultObject()->IsStatusAnnouncer())
-		{
-			StatusAnnouncer = NewObject<UUTAnnouncer>(this, StatusAnnouncerClass);
+			Announcer = NewObject<UUTAnnouncer>(this, AnnouncerClass);
 		}
 	}
 }
@@ -431,8 +392,7 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		}
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
-			UTCharacter->UTCharacterMovement->UpdateSlideRoll(bIsHoldingSlideRoll);
-			SetAutoSlide(bAutoSlide);
+			UTCharacter->UTCharacterMovement->UpdateFloorSlide(bIsHoldingFloorSlide);
 		}
 	}
 }
@@ -520,7 +480,7 @@ void AUTPlayerController::FOV(float NewFOV)
 
 void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 {
-	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 1);
+	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 2);
 	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
 }
 
@@ -546,10 +506,12 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		else if (Key.GetFName() == NAME_Up)
 		{
 			AdvanceStatsPage(-1);
+			return true;
 		}
 		else if (Key.GetFName() == NAME_Down)
 		{
 			AdvanceStatsPage(+1);
+			return true;
 		}
 	}
 
@@ -802,6 +764,67 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 	}
 }
 
+void AUTPlayerController::DemoRestart()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		DemoDriver->GotoTimeInSeconds(0);
+	}
+}
+
+void AUTPlayerController::DemoSeek(float DeltaSeconds)
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		DemoDriver->GotoTimeInSeconds(DemoDriver->DemoCurrentTime + DeltaSeconds);
+	}
+}
+
+void AUTPlayerController::DemoGoToLive()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		DemoDriver->JumpToEndOfLiveReplay();
+	}
+}
+
+void AUTPlayerController::DemoPause()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		AWorldSettings* const WorldSettings = GetWorldSettings();
+
+		if (WorldSettings->Pauser == nullptr)
+		{
+			WorldSettings->Pauser = PlayerState;
+		}
+		else
+		{
+			WorldSettings->Pauser = nullptr;
+		}
+	}
+}
+
+void AUTPlayerController::DemoTimeDilation(float DeltaAmount)
+{
+	static float DilationLUT[5] = { 0.1f, 0.5f, 1.0f, 2.0f, 4.0f };
+
+	if ( DeltaAmount > 0 )
+	{
+		DilationIndex = FMath::Clamp( DilationIndex + 1, 0, 4 );
+	}
+	else if ( DeltaAmount < 0 )
+	{
+		DilationIndex = FMath::Clamp( DilationIndex - 1, 0, 4 );
+	}
+
+	GetWorldSettings()->DemoPlayTimeDilation = DilationLUT[DilationIndex];
+}
+
 void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -843,7 +866,7 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 		{
 			bAutoCam = false;
 			BehindView(bSpectateBehindView);
-			ServerViewPlayerState(*PlayerToView);
+			ViewPlayerState(*PlayerToView);
 		}
 	}
 }
@@ -913,8 +936,13 @@ void AUTPlayerController::ViewClosestVisiblePlayer()
 	if (BestChar)
 	{
 		bAutoCam = false;
-		ServerViewPlayerState(BestChar);
+		ViewPlayerState(BestChar);
 	}
+}
+
+void AUTPlayerController::ViewPlayerState(APlayerState* PS)
+{
+	ServerViewPlayerState(PS);
 }
 
 bool AUTPlayerController::ServerViewPlayerState_Validate(APlayerState* PS)
@@ -992,7 +1020,7 @@ void AUTPlayerController::ViewProjectile()
 				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
 					bAutoCam = false;
-					ServerViewPawn(*Iterator);
+					ViewPawn(*Iterator);
 				}
 			}
 		}
@@ -1014,9 +1042,14 @@ void AUTPlayerController::ViewProjectile()
 				}
 			}
 			bAutoCam = false;
-			ServerViewProjectile();
+			ServerViewProjectileShim();
 		}
 	}
+}
+
+void AUTPlayerController::ServerViewProjectileShim()
+{
+	ServerViewProjectile();
 }
 
 bool AUTPlayerController::ServerViewProjectile_Validate()
@@ -1067,7 +1100,7 @@ void AUTPlayerController::OnFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(0, true);
+		new(DeferredFireInputs)FDeferredFireInput(0, true);
 	}
 	else if (IsInState(NAME_Spectating))
 	{
@@ -1089,7 +1122,7 @@ void AUTPlayerController::OnStopFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(0, false);
+		new(DeferredFireInputs)FDeferredFireInput(0, false);
 	}
 }
 
@@ -1097,7 +1130,7 @@ void AUTPlayerController::OnAltFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(1, true);
+		new(DeferredFireInputs)FDeferredFireInput(1, true);
 	}
 	else if ( GetWorld()->GetGameState<AUTGameState>()->HasMatchStarted() && IsInState(NAME_Spectating) )
 	{
@@ -1109,7 +1142,7 @@ void AUTPlayerController::OnAltFire()
 		else
 		{
 			bAutoCam = false;
-			ServerViewSelf();
+			ViewSelf();
 		}
 	}
 	else
@@ -1123,7 +1156,7 @@ void AUTPlayerController::OnStopAltFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(1, false);
+		new(DeferredFireInputs)FDeferredFireInput(1, false);
 	}
 }
 
@@ -1189,40 +1222,36 @@ void AUTPlayerController::LookUpAtRate(float Rate)
 
 void AUTPlayerController::Jump()
 {
-	if (GetCharacter() != NULL)
+	if (UTCharacter)
 	{
-		GetCharacter()->bPressedJump = true;
+		UTCharacter->bPressedJump = true;
+		UTCharacter->UTCharacterMovement->UpdateWallSlide(true);
 	}
 }
 
-void AUTPlayerController::Slide()
+void AUTPlayerController::JumpRelease()
 {
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
+	if (UTCharacter)
 	{
-		MyCharMovement->bPressedSlide = true;
+		UTCharacter->UTCharacterMovement->UpdateWallSlide(false);
 	}
 }
 
 void AUTPlayerController::Crouch()
 {
-	if (GetCharacter() != NULL)
+	bIsHoldingFloorSlide = true;
+	if (UTCharacter)
 	{
-		GetCharacter()->Crouch(false);
+		UTCharacter->Crouch(false);
 	}
-	SlideTapThresholdTime = GetWorld()->GetTimeSeconds() + CrouchSlideTapInterval;
 }
 
 void AUTPlayerController::UnCrouch()
 {
-	if (GetCharacter() != NULL)
+	bIsHoldingFloorSlide = false;
+	if (UTCharacter)
 	{
-		GetCharacter()->UnCrouch(false);
-		if (bTapCrouchToSlide && (GetWorld()->GetTimeSeconds() < SlideTapThresholdTime) && (UTCharacter != NULL))
-		{
-			SlideTapThresholdTime = 0.f;
-			Slide();
-		}
+		UTCharacter->UnCrouch(false);
 	}
 }
 
@@ -1285,11 +1314,17 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 	}
 }
 
-void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded, bool bAmplifyVolume)
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded, bool bAmplifyVolume)
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
-		if (SoundPlayer == this || SoundPlayer == GetViewTarget())
+		bool bHRTFEnabled = false;
+		if (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll())
+		{
+			bHRTFEnabled = true;
+		}
+
+		if (!bHRTFEnabled && (SoundPlayer == this || SoundPlayer == GetViewTarget()))
 		{
 			// no attenuation/spatialization, full volume
 			FActiveSound NewActiveSound;
@@ -1306,10 +1341,9 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.bHasAttenuationSettings = false;
 			NewActiveSound.bAllowSpatialization = false;
 
-			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
-			if (GEngine->GetAudioDevice() != NULL)
+			if (GetWorld()->GetAudioDevice() != NULL)
 			{
-				GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
+				GetWorld()->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
 			}
 		}
 		else
@@ -1399,26 +1433,6 @@ void AUTPlayerController::PerformSingleTapDodge()
 		{
 			MyCharMovement->bPressedDodgeBack = true;
 		}
-	}
-}
-
-void AUTPlayerController::HoldRollSlide()
-{
-	bIsHoldingSlideRoll = true;
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->UpdateSlideRoll(true);
-	}
-}
-
-void AUTPlayerController::ReleaseRollSlide()
-{
-	bIsHoldingSlideRoll = false;
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->UpdateSlideRoll(false);
 	}
 }
 
@@ -1526,27 +1540,49 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 {
 	Super::UpdateHiddenComponents(ViewLocation, HiddenComponents);
 
-	for (int32 i = RecentWeaponPickups.Num() - 1; i >= 0; i--)
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (WS != NULL)
 	{
-		if (RecentWeaponPickups[i] == NULL)
+		for (AUTPickupWeapon* Pickup : WS->WeaponPickups)
 		{
-			RecentWeaponPickups.RemoveAt(i, 1, false);
-		}
-		else if (!RecentWeaponPickups[i]->IsTaken(GetPawn()))
-		{
-			RecentWeaponPickups[i]->PlayRespawnEffects();
-			RecentWeaponPickups.RemoveAt(i, 1, false);
-		}
-		else if (RecentWeaponPickups[i]->GetMesh() != NULL)
-		{
-			HiddenComponents.Add(RecentWeaponPickups[i]->GetMesh()->ComponentId);
+			bool bTaken = !Pickup->State.bActive;
+
+			if (RecentWeaponPickups.Contains(Pickup))
+			{
+				if (Pickup->IsTaken(GetPawn()))
+				{
+					bTaken = true;
+				}
+				else
+				{
+					Pickup->PlayRespawnEffects();
+					RecentWeaponPickups.Remove(Pickup);
+				}
+			}
+			if (bTaken)
+			{
+				if (Pickup->GetMesh() != NULL)
+				{
+					HiddenComponents.Add(Pickup->GetMesh()->ComponentId);
+				}
+			}
+			else
+			{
+				if (Pickup->GetGhostMesh() != NULL)
+				{
+					HiddenComponents.Add(Pickup->GetGhostMesh()->ComponentId);
+				}
+				if (Pickup->GetGhostDepthMesh() != NULL)
+				{
+					HiddenComponents.Add(Pickup->GetGhostDepthMesh()->ComponentId);
+				}
+			}
 		}
 	}
 
 	// hide all components that shouldn't be shown in the current 1P/3P state
 	// with bOwnerNoSee/bOnlyOwnerSee not being propagated to children this method is much easier to maintain
-	// although less efficient
-	// TODO: evaluate performance
+	// although slightly less efficient
 	AUTCharacter* P = Cast<AUTCharacter>(GetViewTarget());
 	if (IsBehindView())
 	{
@@ -1631,15 +1667,11 @@ void AUTPlayerController::ClientToggleScoreboard_Implementation(bool bShow)
 	ToggleScoreboard(bShow);
 }
 
-void AUTPlayerController::ClientSetHUDAndScoreboard_Implementation(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass)
+void AUTPlayerController::OnRep_HUDClass()
 {
 	// First, create the HUD
-	ClientSetHUD_Implementation(NewHUDClass);
+	ClientSetHUD_Implementation(HUDClass);
 	MyUTHUD = Cast<AUTHUD>(MyHUD);
-	if (MyUTHUD != NULL && NewScoreboardClass != NULL)
-	{
-		MyUTHUD->CreateScoreboard(NewScoreboardClass);
-	}
 }
 
 void AUTPlayerController::OnShowScores()
@@ -1703,12 +1735,13 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	{
 		if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 		{
+			UTPlayerState->bPendingTeamSwitch = false;
 			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
 				UTPlayerState->bReadyToPlay = false;
-				UTPlayerState->ForceNetUpdate();
 			}
+			UTPlayerState->ForceNetUpdate();
 		}
 	}
 	else 
@@ -1900,12 +1933,12 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		if (IsLocalController() && bSpectateBehindView && PlayerState && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
 		{
 			// pick good starting rotation
-			FindGoodView(false);
+			FindGoodView(NewViewTarget->GetActorLocation(), false);
 		}
 	}
 }
 
-FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
+FRotator AUTPlayerController::GetSpectatingRotation(const FVector& ViewLoc, float DeltaTime)
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
@@ -1915,7 +1948,7 @@ FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
 			return GetControlRotation();
 		}
 		float OldYaw = FMath::UnwindDegrees(GetControlRotation().Yaw);
-		FindGoodView(true);
+		FindGoodView(ViewLoc, true);
 		FRotator NewRotation = GetControlRotation();
 		float NewYaw = FMath::UnwindDegrees(NewRotation.Yaw);
 		if (FMath::Abs(NewYaw - OldYaw) < 60.f)
@@ -1927,7 +1960,7 @@ FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
 	return GetControlRotation();
 }
 
-void AUTPlayerController::FindGoodView(bool bIsUpdate)
+void AUTPlayerController::FindGoodView(const FVector& TargetLoc, bool bIsUpdate)
 {
 	AActor* TestViewTarget = GetViewTarget();
 	if (!TestViewTarget || !PlayerCameraManager || (TestViewTarget == this) || (TestViewTarget == GetSpectatorPawn()) || Cast<AUTProjectile>(TestViewTarget) || Cast<AUTViewPlaceholder>(TestViewTarget))
@@ -1944,7 +1977,7 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 	float CurrentYaw = BestRot.Yaw;
 
 	// @TODO FIXMESTEVE - if update, work harder to stay close to current view, slowly move back to behind
-	BestRot.Yaw = TestViewTarget->GetActorRotation().Yaw + 15.f;
+	BestRot.Yaw = FMath::UnwindDegrees(TestViewTarget->GetActorRotation().Yaw) + 15.f;
 	if (bIsUpdate)
 	{
 		float DesiredYaw = BestRot.Yaw;
@@ -1958,16 +1991,13 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 		{
 			CurrentYaw -= 360.f;
 		}
-		if (DesiredYaw - CurrentYaw > 30.f)
-		{
-			BestRot.Yaw = CurrentYaw + 15.f + FMath::Clamp(60.f - (DesiredYaw - CurrentYaw), 0.f , 15.f);
-		}
-		else if (CurrentYaw - DesiredYaw > 30.f)
-		{
-			BestRot.Yaw = CurrentYaw - 15.f - FMath::Clamp(60.f - (CurrentYaw - DesiredYaw), 0.f, 15.f);
-		}
 	}
-	float UnBlockedPct = (Cast<APawn>(TestViewTarget) && (PlayerCameraManager->FreeCamDistance > 0.f)) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	bool bGameOver = (GetStateName() == NAME_GameOver);
+	float CameraDistance = bGameOver ? CamMgr->EndGameFreeCamDistance : CamMgr->FreeCamDistance;
+	FVector CameraOffset = bGameOver ? CamMgr->EndGameFreeCamOffset : CamMgr->FreeCamOffset;
+	float UnBlockedPct = (Cast<APawn>(TestViewTarget) && (CameraDistance > 0.f)) ? 96.f / CameraDistance : 1.f;
 
 	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TestViewTarget);
 	if (Flag)
@@ -1978,7 +2008,7 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 		}
 		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
 		{
-			UnBlockedPct = (PlayerCameraManager->FreeCamDistance > 0.f) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
+			UnBlockedPct = (CameraDistance > 0.f) ? 96.f / CameraDistance : 1.f;
 			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
 		}
 	}
@@ -1991,6 +2021,13 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 
 	// look for acceptable view
 	float YawIncrement = 30.f;
+	BestRot.Yaw = int32(BestRot.Yaw / 5.f) * 5.f;
+	BestRot.Yaw = FMath::UnwindDegrees(BestRot.Yaw);
+	if ((FMath::Abs(LastGoalYaw - BestRot.Yaw) < 6.f) || (FMath::Abs(LastGoalYaw - BestRot.Yaw) > 354.f))
+	{
+		// prevent jitter when can't settle on good view
+		BestRot.Yaw = LastGoalYaw;
+	}
 	float OffsetMag = -60.f;
 	float YawOffset = 0.f;
 	bool bFoundGoodView = false;
@@ -1998,12 +2035,10 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 	float BestDist = 0.f;
 	float StartYaw = BestRot.Yaw;
 	int32 IncrementCount = 1;
-	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
 	while (!bFoundGoodView && (IncrementCount < 12) && CamMgr)
 	{
 		BestRot.Yaw = StartYaw + YawOffset;
-		FVector TargetLoc = TestViewTarget->GetActorLocation();
-		FVector Pos = TargetLoc + FRotationMatrix(BestRot).TransformVector(PlayerCameraManager->FreeCamOffset) - BestRot.Vector() * PlayerCameraManager->FreeCamDistance;
+		FVector Pos = TargetLoc + FRotationMatrix(BestRot).TransformVector(CameraOffset) - BestRot.Vector() * CameraDistance;
 		FHitResult Result(1.f);
 		CamMgr->CheckCameraSweep(Result, TestViewTarget, TargetLoc, Pos);
 		float NewDist = (Result.Location - TargetLoc).SizeSquared();
@@ -2023,7 +2058,41 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 	}
 	if (!bFoundGoodView)
 	{
-		BestRot.Yaw = BestView;
+		BestRot.Yaw = CurrentYaw;
+	}
+	LastGoalYaw = BestRot.Yaw;
+	if ((FMath::Abs(CurrentYaw - BestRot.Yaw) > 60.f) && (FMath::Abs(CurrentYaw - BestRot.Yaw) < 300.f))
+	{
+		if (BestRot.Yaw < 0.f)
+		{
+			BestRot.Yaw += 360.f;
+		}
+		if (CurrentYaw < 0.f)
+		{
+			CurrentYaw += 360.f;
+		}
+		if (CurrentYaw > BestRot.Yaw)
+		{
+			if (360.f - CurrentYaw + BestRot.Yaw < CurrentYaw - BestRot.Yaw)
+			{
+				BestRot.Yaw = CurrentYaw + 30.f;
+			}
+			else
+			{
+				BestRot.Yaw = CurrentYaw - 30.f;
+			}
+		}
+		else
+		{
+			if (360.f - BestRot.Yaw + CurrentYaw < BestRot.Yaw - CurrentYaw)
+			{
+				BestRot.Yaw = CurrentYaw - 30.f;
+			}
+			else
+			{
+				BestRot.Yaw = CurrentYaw + 30.f;
+			}
+		}
 	}
 	SetControlRotation(BestRot);
 }
@@ -2046,6 +2115,10 @@ void AUTPlayerController::EndCameraControl()
 	}
 }
 
+void AUTPlayerController::ViewSelf(FViewTargetTransitionParams TransitionParams)
+{
+	ServerViewSelf(TransitionParams);
+}
 
 void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams)
 {
@@ -2209,7 +2282,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 				APawn* Pawn = *Iterator;
 				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
-					ServerViewPawn(*Iterator);
+					ViewPawn(*Iterator);
 				}
 			}
 		}
@@ -2238,7 +2311,7 @@ void AUTPlayerController::Tick(float DeltaTime)
 			{
 				if (TeamStatsUpdateIndex < GS->TeamStats.Num())
 				{
-					ClientUpdateTeamStats(TeamStatsUpdateTeam, GS->TeamStats[TeamStatsUpdateIndex], GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
+					ClientUpdateTeamStats(TeamStatsUpdateTeam, TeamStatsUpdateIndex, GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
 				}
 				TeamStatsUpdateIndex++;
 				if (TeamStatsUpdateIndex >= GS->TeamStats.Num())
@@ -2251,17 +2324,35 @@ void AUTPlayerController::Tick(float DeltaTime)
 			{
 				LastScoreStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
 			}
-			int32 StatArraySize = (CurrentlyViewedStatsTab == 0) ? GS->GameScoreStats.Num() : GS->WeaponStats.Num();
+			int32 StatArraySize = 0;
+			FName StatsName = NAME_None;
+			if (CurrentlyViewedStatsTab == 0)
+			{
+				StatArraySize = GS->GameScoreStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->GameScoreStats[StatsUpdateIndex];
+				}
+			}
+			else if (CurrentlyViewedStatsTab == 1)
+			{
+				StatArraySize = GS->WeaponStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->WeaponStats[StatsUpdateIndex];
+				}
+			}
+			else if (CurrentlyViewedStatsTab == 2)
+			{
+				StatArraySize = GS->RewardStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->RewardStats[StatsUpdateIndex];
+				}
+			}
 			if (StatsUpdateIndex < StatArraySize)
 			{
-				if (CurrentlyViewedStatsTab == 0)
-				{
-					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
-				}
-				else
-				{
-					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->WeaponStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->WeaponStats[StatsUpdateIndex]));
-				}
+				ClientUpdateScoreStats(CurrentlyViewedScorePS, CurrentlyViewedStatsTab, StatsUpdateIndex, CurrentlyViewedScorePS->GetStatsValue(StatsName));
 			}
 			StatsUpdateIndex++;
 			if (StatsUpdateIndex >= StatArraySize)
@@ -2306,7 +2397,7 @@ void AUTPlayerController::ChooseBestCamera()
 
 	if (BestPS && (BestPS != LastSpectatedPlayerState))
 	{
-		ServerViewPlayerState(BestPS);
+		ViewPlayerState(BestPS);
 		BehindView(bSpectateBehindView);
 	}
 }
@@ -2323,19 +2414,21 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 	{
 		RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetViewTarget()->GetActorLocation();
 	}
-	ClientNotifyTakeHit(InstigatedByState, Damage, Momentum, RelHitLocation, DamageEvent.DamageTypeClass);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
+	uint8 RepDamage = FMath::Clamp(Damage, 0, 255);
+	ClientNotifyTakeHit(bFriendlyFire, RepDamage, RelHitLocation);
 }
 
-void AUTPlayerController::ClientNotifyTakeHit_Implementation(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamageType)
+void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, FVector_NetQuantize RelHitLocation)
 {
 	if (MyUTHUD != NULL)
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : GetViewTarget()->GetActorLocation()) + RelHitLocation, Damage, DamageType, InstigatedBy != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedBy, this));
+		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : GetViewTarget()->GetActorLocation()) + RelHitLocation, Damage, bFriendlyFire);
 	}
 }
 
-void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, int32 Damage)
+void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, uint8 Damage)
 {
 	// by default we only show HUD hitconfirms for hits that the player could conceivably see (i.e. target is in LOS)
 	if (HitPawn != NULL && HitPawn->GetRootComponent() != NULL && GetPawn() != NULL && MyUTHUD != NULL)
@@ -2405,8 +2498,16 @@ bool AUTPlayerController::ServerSuicide_Validate()
 void AUTPlayerController::SetWeaponHand(EWeaponHand NewHand)
 {
 	WeaponHand = NewHand;
-	SaveConfig();
-	if (!IsTemplate())
+	AUTCharacter* UTCharTarget = Cast<AUTCharacter>(GetViewTarget());
+	if (UTCharTarget != NULL && UTCharTarget->GetWeapon() != NULL)
+	{
+		UTCharTarget->GetWeapon()->UpdateWeaponHand();
+	}
+	if (IsTemplate() || IsLocalPlayerController())
+	{
+		SaveConfig();
+	}
+	if (!IsTemplate() && Role < ROLE_Authority)
 	{
 		ServerSetWeaponHand(NewHand);
 	}
@@ -2417,12 +2518,7 @@ bool AUTPlayerController::ServerSetWeaponHand_Validate(EWeaponHand NewHand)
 }
 void AUTPlayerController::ServerSetWeaponHand_Implementation(EWeaponHand NewHand)
 {
-	WeaponHand = NewHand;
-	AUTCharacter* UTCharTarget = Cast<AUTCharacter>(GetViewTarget());
-	if (UTCharTarget != NULL && UTCharTarget->GetWeapon() != NULL)
-	{
-		UTCharTarget->GetWeapon()->UpdateWeaponHand();
-	}
+	SetWeaponHand(NewHand);
 }
 
 void AUTPlayerController::Emote(int32 EmoteIndex)
@@ -2475,13 +2571,17 @@ void AUTPlayerController::ReceivedPlayer()
 			}
 		}
 
-		IOnlineIdentityPtr OnlineIdentityInterface = (IOnlineSubsystem::Get() != NULL) ? IOnlineSubsystem::Get()->GetIdentityInterface() : NULL;
-		if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub != nullptr)
 		{
-			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-			if (UserId.IsValid())
+			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
+			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 			{
-				ServerReceiveStatsID(UserId->ToString());
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+				if (UserId.IsValid())
+				{
+					ServerReceiveStatsID(UserId->ToString());
+				}
 			}
 		}
 
@@ -2606,6 +2706,11 @@ void AUTPlayerController::SlowerEmote()
 	{
 		UTCharacter->ServerSlowerEmote();
 	}
+}
+
+void AUTPlayerController::ViewPawn(APawn* PawnToView)
+{
+	ServerViewPawn(PawnToView);
 }
 
 bool AUTPlayerController::ServerViewPawn_Validate(APawn* PawnToView)
@@ -2867,7 +2972,7 @@ void AUTPlayerController::OnRep_CastingGuide()
 			while (LP->GetGameInstance()->GetNumLocalPlayers() < LP->ViewportClient->MaxSplitscreenPlayers)
 			{
 				// partial copy from UGameInstance::CreateLocalPlayer() and ULocalPlayer::SendSplitJoin() as we want to do special join handling
-				ULocalPlayer* NewPlayer = CastChecked<ULocalPlayer>(StaticConstructObject(GEngine->LocalPlayerClass, GEngine));
+				ULocalPlayer* NewPlayer = NewObject<ULocalPlayer>(GEngine, GEngine->LocalPlayerClass);
 				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 255);
 				if (InsertIndex == INDEX_NONE)
 				{
@@ -2893,9 +2998,33 @@ void AUTPlayerController::OnRep_CastingGuide()
 
 void AUTPlayerController::OnRep_CastingViewIndex()
 {
+	bAutoCam = false;
 	if (CastingGuideStartupCommands.IsValidIndex(CastingGuideViewIndex) && !CastingGuideStartupCommands[CastingGuideViewIndex].IsEmpty())
 	{
 		ConsoleCommand(CastingGuideStartupCommands[CastingGuideViewIndex]);
+	}
+}
+
+void AUTPlayerController::StartCastingGuide()
+{
+	if (!bCastingGuide && Role < ROLE_Authority && PlayerState != NULL && PlayerState->bOnlySpectator)
+	{
+		ServerStartCastingGuide();
+	}
+}
+bool AUTPlayerController::ServerStartCastingGuide_Validate()
+{
+	return true;
+}
+void AUTPlayerController::ServerStartCastingGuide_Implementation()
+{
+	if (!bCastingGuide && Role == ROLE_Authority && Cast<UNetConnection>(Player) != NULL && Cast<UChildConnection>(Player) == NULL && PlayerState != NULL && PlayerState->bOnlySpectator)
+	{
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != NULL)
+		{
+			Game->SwitchToCastingGuide(this);
+		}
 	}
 }
 
@@ -3002,7 +3131,7 @@ int32 AUTPlayerController::ParseWeaponBind(FString ActionName)
 	if (ActionName.Left(12).Equals(TEXT("switchweapon"), ESearchCase::IgnoreCase))
 	{
 		TArray<FString> Parsed;
-		ActionName.ParseIntoArray(&Parsed, TEXT(" "),true);
+		ActionName.ParseIntoArray(Parsed, TEXT(" "),true);
 		if (Parsed.Num() == 2)
 		{
 			return FCString::Atoi(*Parsed[1]);
@@ -3169,19 +3298,76 @@ bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewVie
 	return true;
 }
 
-void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* ViewedPS, FName StatsName, float NewValue)
+void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* ViewedPS, uint8 StatsPage, uint8 StatsIndex, float NewValue)
 {
-	if (ViewedPS)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (ViewedPS && GS)
 	{
+		FName StatsName = NAME_None;
+		if (StatsPage == 0)
+		{
+			if (StatsUpdateIndex < GS->GameScoreStats.Num())
+			{
+				StatsName = GS->GameScoreStats[StatsIndex];
+			}
+		}
+		else if (StatsPage == 1)
+		{
+			if (StatsUpdateIndex < GS->WeaponStats.Num())
+			{
+				StatsName = GS->WeaponStats[StatsIndex];
+			}
+		}
+		else if (StatsPage == 2)
+		{
+			if (StatsUpdateIndex < GS->RewardStats.Num())
+			{
+				StatsName = GS->RewardStats[StatsIndex];
+			}
+		}
 		ViewedPS->SetStatsValue(StatsName, NewValue);
 	}
 }
 
-void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, FName StatsName, float NewValue)
+void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && (GS->Teams.Num() > TeamNum) && GS->Teams[TeamNum])
 	{
+		FName StatsName = (GS->TeamStats.Num() < TeamStatsIndex) ? GS->TeamStats[TeamStatsIndex] : NAME_None;
 		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
 	}
+}
+
+void AUTPlayerController::ClientShowMapVote_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (LocalPlayer != NULL && GameState != NULL)
+	{
+		LocalPlayer->OpenMapVote(GameState);
+	}
+}
+void AUTPlayerController::ClientHideMapVote_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseMapVote();
+	}
+}
+
+void AUTPlayerController::ClearTokens()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings != NULL)
+		{
+			Settings->TokensClear();
+		}
+	}
+#endif
 }

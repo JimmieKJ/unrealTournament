@@ -1,7 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-
 #pragma once
 
 /**
@@ -25,6 +23,10 @@ public:
 	 * Foliage Edit Commands
 	 */
 	
+	/** Commands for the foliage brush settings. */
+	TSharedPtr< FUICommandInfo > IncreaseBrushSize;
+	TSharedPtr< FUICommandInfo > DecreaseBrushSize;
+
 	/** Commands for the tools toolbar. */
 	TSharedPtr< FUICommandInfo > SetPaint;
 	TSharedPtr< FUICommandInfo > SetReapplySettings;
@@ -37,6 +39,12 @@ public:
 	TSharedPtr< FUICommandInfo > SetPaintSettings;
 	TSharedPtr< FUICommandInfo > SetClusterSettings;
 
+	/** FoliageType commands */
+	TSharedPtr< FUICommandInfo > RemoveFoliageType;
+	TSharedPtr< FUICommandInfo > ShowFoliageTypeInCB;
+	TSharedPtr< FUICommandInfo > SelectAllInstances;
+	TSharedPtr< FUICommandInfo > DeselectAllInstances;
+	TSharedPtr< FUICommandInfo > SelectInvalidInstances;
 	/**
 	 * Initialize commands
 	 */

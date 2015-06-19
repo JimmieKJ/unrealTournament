@@ -249,10 +249,15 @@ public:
 	ENGINE_API FBatchedElements* GetBatchedElements(EElementType InElementType, FBatchedElementParameters* InBatchedElementParameters=NULL, const FTexture* Texture=NULL, ESimpleElementBlendMode BlendMode=SE_BLEND_MAX,const FDepthFieldGlowInfo& GlowInfo = FDepthFieldGlowInfo());
 	
 	/**
-	* Generates a new FCanvasTileRendererItem for the current sortkey and adds it to the sortelement list of itmes to render
+	* Generates a new FCanvasTileRendererItem for the current sortkey and adds it to the sortelement list of items to render
 	*/
 	ENGINE_API void AddTileRenderItem(float X,float Y,float SizeX,float SizeY,float U,float V,float SizeU,float SizeV,const FMaterialRenderProxy* MaterialRenderProxy,FHitProxyId HitProxyId,bool bFreezeTime,FColor InColor);
 
+	/**
+	* Generates a new FCanvasTriangleRendererItem for the current sortkey and adds it to the sortelement list of items to render
+	*/
+	ENGINE_API void AddTriangleRenderItem(const FCanvasUVTri& Tri, const FMaterialRenderProxy* MaterialRenderProxy, FHitProxyId HitProxyId, bool bFreezeTime);
+	
 	/** 
 	* Sends a message to the rendering thread to draw the batched elements. 
 	* @param RHICmdList - command list to use
@@ -531,11 +536,24 @@ public:
 		return ViewRect;
 	}
 
-	FORCEINLINE void SetScaledToRenderTarget(bool scale = true)
+	FORCEINLINE void SetScaledToRenderTarget(bool bScale = true)
 	{
-		bScaledToRenderTarget = scale;
+		bScaledToRenderTarget = bScale;
 	}
 	FORCEINLINE bool IsScaledToRenderTarget() const { return bScaledToRenderTarget; }
+
+	FORCEINLINE void SetStereoRendering(bool bStereo = true)
+	{
+		bStereoRendering = bStereo;
+	}
+	FORCEINLINE bool IsStereoRendering() const { return bStereoRendering; }
+
+	/** Depth used for orthographic stereo projection. Uses World Units.*/
+	FORCEINLINE void SetStereoDepth(int32 InDepth)
+	{
+		StereoDepth = InDepth;
+	}
+	FORCEINLINE int32 GetStereoDepth() const { return StereoDepth; }
 
 public:
 	/** Private class for handling word wrapping behavior. */
@@ -571,6 +589,18 @@ private:
 	/** Feature level that we are currently rendering with */
 	ERHIFeatureLevel::Type FeatureLevel;
 
+	/** true, if Canvas should be rendered in stereo */
+	bool bStereoRendering;
+
+	/** Depth used for orthographic stereo projection. Uses World Units.*/
+	int32 StereoDepth;
+
+	/** Cached render target size, depth and ortho-projection matrices for stereo rendering */
+	FMatrix CachedOrthoProjection[2];
+	int32 CachedRTWidth, CachedRTHeight, CachedDrawDepth;
+
+	bool GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2]);
+
 	/** 
 	* Shared construction function
 	*/
@@ -598,21 +628,16 @@ public:
 	 *
 	 * @param Item			Item to draw
 	 */
-	FORCEINLINE void DrawItem( FCanvasItem& Item )
-	{
-		Item.Draw( this );
-	}
-	/** 
+	ENGINE_API void DrawItem(FCanvasItem& Item);
+
+	/**
 	 * Draw a CanvasItem at the given coordinates
 	 *
 	 * @param Item			Item to draw
 	 * @param InPosition	Position to draw item
 	 */
-	FORCEINLINE void DrawItem( FCanvasItem& Item, const FVector2D& InPosition )
-	{
-		Item.Draw( this, InPosition );
-	}
-	
+	ENGINE_API void DrawItem(FCanvasItem& Item, const FVector2D& InPosition);
+
 	/** 
 	 * Draw a CanvasItem at the given coordinates
 	 *
@@ -620,10 +645,7 @@ public:
 	 * @param X				X Position to draw item
 	 * @param Y				Y Position to draw item
 	 */
-	FORCEINLINE void DrawItem( FCanvasItem& Item, float X, float Y  )
-	{
-		Item.Draw( this, X, Y );
-	}
+	ENGINE_API void DrawItem(FCanvasItem& Item, float X, float Y);
 
 	/**
 	* Clear the canvas
@@ -738,6 +760,7 @@ public:
 	* @return true if anything rendered
 	*/
 	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, const FCanvas* Canvas) = 0;
+	
 	/**
 	* Renders the canvas item
 	*
@@ -745,18 +768,27 @@ public:
 	* @return true if anything rendered
 	*/
 	virtual bool Render_GameThread(const FCanvas* Canvas) = 0;
+	
 	/**
 	* FCanvasBatchedElementRenderItem instance accessor
 	*
 	* @return FCanvasBatchedElementRenderItem instance
 	*/
 	virtual class FCanvasBatchedElementRenderItem* GetCanvasBatchedElementRenderItem() { return NULL; }
+	
 	/**
 	* FCanvasTileRendererItem instance accessor
 	*
 	* @return FCanvasTileRendererItem instance
 	*/
 	virtual class FCanvasTileRendererItem* GetCanvasTileRendererItem() { return NULL; }
+
+	/**
+	* FCanvasTriangleRendererItem instance accessor
+	*
+	* @return FCanvasTriangleRendererItem instance
+	*/
+	virtual class FCanvasTriangleRendererItem* GetCanvasTriangleRendererItem() { return NULL; }
 };
 
 
@@ -793,7 +825,7 @@ public:
 	*
 	* @return this instance
 	*/
-	virtual class FCanvasBatchedElementRenderItem* GetCanvasBatchedElementRenderItem() 
+	virtual class FCanvasBatchedElementRenderItem* GetCanvasBatchedElementRenderItem() override
 	{ 
 		return this; 
 	}
@@ -807,6 +839,7 @@ public:
 	* @return true if anything rendered
 	*/
 	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, const FCanvas* Canvas) override;
+	
 	/**
 	* Renders the canvas item.
 	* Iterates over all batched elements and draws them with their own transforms
@@ -883,6 +916,7 @@ private:
 		/** info for optional glow effect when using depth field rendering */
 		FDepthFieldGlowInfo GlowInfo;
 	};
+	
 	/**
 	* Render data which is allocated when a new FCanvasBatchedElementRenderItem is added for rendering.
 	* This data is only freed on the rendering thread once the item has finished rendering
@@ -922,7 +956,7 @@ public:
 	*
 	* @return this instance
 	*/
-	virtual class FCanvasTileRendererItem* GetCanvasTileRendererItem() 
+	virtual class FCanvasTileRendererItem* GetCanvasTileRendererItem() override
 	{ 
 		return this; 
 	}
@@ -1012,6 +1046,119 @@ private:
 	* This data is only freed on the rendering thread once the item has finished rendering
 	*/
 	FRenderData* Data;	
+
+	const bool bFreezeTime;
+};
+
+/**
+* Info needed to render a single FTriangleRenderer
+*/
+class FCanvasTriangleRendererItem : public FCanvasBaseRenderItem
+{
+public:
+	/**
+	* Init constructor
+	*/
+	FCanvasTriangleRendererItem(
+		const FMaterialRenderProxy* InMaterialRenderProxy = NULL,
+		const FCanvas::FTransformEntry& InTransform = FCanvas::FTransformEntry(FMatrix::Identity),
+		bool bInFreezeTime = false)
+		// this data is deleted after rendering has completed
+		: Data(new FRenderData(InMaterialRenderProxy, InTransform))
+		, bFreezeTime(bInFreezeTime)
+	{}
+
+	/**
+	* Destructor to delete data in case nothing rendered
+	*/
+	virtual ~FCanvasTriangleRendererItem()
+	{
+		delete Data;
+	}
+
+	/**
+	 * FCanvasTriangleRendererItem instance accessor
+	 *
+	 * @return this instance
+	 */
+	virtual class FCanvasTriangleRendererItem* GetCanvasTriangleRendererItem() override
+	{
+		return this;
+	}
+
+	/**
+	* Renders the canvas item.
+	* Iterates over each triangle to be rendered and draws it with its own transforms
+	*
+	* @param Canvas - canvas currently being rendered
+	* @param RHICmdList - command list to use
+	* @return true if anything rendered
+	*/
+	virtual bool Render_RenderThread(FRHICommandListImmediate& RHICmdList, const FCanvas* Canvas) override;
+
+	/**
+	* Renders the canvas item.
+	* Iterates over each triangle to be rendered and draws it with its own transforms
+	*
+	* @param Canvas - canvas currently being rendered
+	* @return true if anything rendered
+	*/
+	virtual bool Render_GameThread(const FCanvas* Canvas) override;
+
+	/**
+	* Determine if this is a matching set by comparing material,transform. All must match
+	*
+	* @param IInMaterialRenderProxy - material proxy resource for the item being rendered
+	* @param InTransform - the transform for the item being rendered
+	* @return true if the parameters match this render item
+	*/
+	bool IsMatch(const FMaterialRenderProxy* InMaterialRenderProxy, const FCanvas::FTransformEntry& InTransform)
+	{
+		return(Data->MaterialRenderProxy == InMaterialRenderProxy &&
+			Data->Transform.GetMatrixCRC() == InTransform.GetMatrixCRC());
+	};
+
+	/**
+	* Add a new triangle to the render data. These triangles all use the same transform and material proxy
+	*
+	* @param return number of triangles added
+	*/
+	FORCEINLINE int32 AddTriangle(const FCanvasUVTri& Tri, FHitProxyId HitProxyId)
+	{
+		return Data->AddTriangle(Tri, HitProxyId);
+	};
+
+private:
+	class FRenderData
+	{
+	public:
+		FRenderData(
+			const FMaterialRenderProxy* InMaterialRenderProxy = NULL,
+			const FCanvas::FTransformEntry& InTransform = FCanvas::FTransformEntry(FMatrix::Identity))
+			: MaterialRenderProxy(InMaterialRenderProxy)
+			, Transform(InTransform)
+		{}
+		const FMaterialRenderProxy* MaterialRenderProxy;
+		FCanvas::FTransformEntry Transform;
+
+		struct FTriangleInst
+		{
+			FCanvasUVTri Tri;
+			FHitProxyId HitProxyId;
+		};
+		TArray<FTriangleInst> Triangles;
+
+		FORCEINLINE int32 AddTriangle(const FCanvasUVTri& Tri, FHitProxyId HitProxyId)
+		{
+			FTriangleInst NewTri = { Tri, HitProxyId };
+			return Triangles.Add(NewTri);
+		};
+	};
+	/**
+	* Render data which is allocated when a new FCanvasTriangleRendererItem is added for rendering.
+	* This data is only freed on the rendering thread once the item has finished rendering
+	*/
+	FRenderData* Data;
 
 	const bool bFreezeTime;
 };

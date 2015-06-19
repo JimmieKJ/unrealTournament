@@ -16,35 +16,35 @@ class FRCPassPostProcessSSRTemporalAA : public TRenderingCompositePassBase<3, 1>
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 // ePId_Input0: Half Res DOF input (point)
 // ePId_Input1: Previous frame's output (bilinear)
 // ePId_Input2: Previous frame's output (point)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessDOFTemporalAA : public TRenderingCompositePassBase<3, 1>
+class FRCPassPostProcessDOFTemporalAA : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 // ePId_Input0: Half Res DOF input (point)
 // ePId_Input1: Previous frame's output (bilinear)
 // ePId_Input2: Previous frame's output (point)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessDOFTemporalAANear : public TRenderingCompositePassBase<3, 1>
+class FRCPassPostProcessDOFTemporalAANear : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 
@@ -56,9 +56,9 @@ class FRCPassPostProcessLightShaftTemporalAA : public TRenderingCompositePassBas
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
 // ePId_Input0: Full Res Scene color (point)
@@ -70,7 +70,7 @@ class FRCPassPostProcessTemporalAA : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context);
+	virtual void Process(FRenderingCompositePassContext& Context) override;
 	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const;
+	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };

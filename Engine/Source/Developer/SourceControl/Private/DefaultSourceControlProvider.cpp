@@ -45,6 +45,11 @@ ECommandResult::Type FDefaultSourceControlProvider::GetState( const TArray<FStri
 	return ECommandResult::Failed;
 }
 
+TArray<FSourceControlStateRef> FDefaultSourceControlProvider::GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const
+{
+	return TArray<FSourceControlStateRef>();
+}
+
 void FDefaultSourceControlProvider::RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
 {
 

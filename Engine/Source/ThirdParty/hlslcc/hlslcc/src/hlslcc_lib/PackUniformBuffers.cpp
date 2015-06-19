@@ -449,19 +449,17 @@ void RemovePackedUniformBufferReferences(exec_list* Instructions, _mesa_glsl_par
 */
 struct SSortUniformsPredicate
 {
-	_mesa_glsl_parse_state* ParseState;
-	SSortUniformsPredicate(_mesa_glsl_parse_state* InParseState) : ParseState(InParseState)
-	{
-	}
-
 	bool operator()(ir_variable* v1, ir_variable* v2)
 	{
 		const glsl_type* Type1 = v1->type;
 		const glsl_type* Type2 = v2->type;
 
+		const bool bType1Array = Type1->is_array();
+		const bool bType2Array = Type2->is_array();
+
 		// Sort by base type.
-		const glsl_base_type BaseType1 = Type1->is_array() ? Type1->fields.array->base_type : Type1->base_type;
-		const glsl_base_type BaseType2 = Type2->is_array() ? Type2->fields.array->base_type : Type2->base_type;
+		const glsl_base_type BaseType1 = bType1Array ? Type1->fields.array->base_type : Type1->base_type;
+		const glsl_base_type BaseType2 = bType2Array ? Type2->fields.array->base_type : Type2->base_type;
 		if (BaseType1 != BaseType2)
 		{
 			static const unsigned BaseTypeOrder[GLSL_TYPE_MAX] =
@@ -488,9 +486,9 @@ struct SSortUniformsPredicate
 
 		//sort by array first
 		// arrays must be aligned on a vec4 boundary, placing them first ensures this
-		if (Type1->is_array() != Type2->is_array())
+		if (bType1Array != bType2Array)
 		{
-			return int(Type1->is_array()) > int(Type2->is_array());
+			return int(bType1Array) > int(bType2Array);
 		}
 
 		// Then number of vector elements.
@@ -627,19 +625,55 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 		}
 	}
 
+	// Make sure any CB's with big matrices get at the end
+	std::vector<std::string> CBOrder;
+	{
+		std::vector<std::string> EndOrganizedVars;
+		for (auto& Pair : OrganizedVars)
+		{
+			bool bNonArrayFound = false;
+			for (auto& PrecListPair : Pair.second)
+			{
+				for (auto* Var : PrecListPair.second)
+				{
+					if (!Var->type->is_array())
+					{
+						bNonArrayFound = true;
+						break;
+					}
+				}
+
+				if (bNonArrayFound)
+				{
+					break;
+				}
+			}
+
+			if (bNonArrayFound)
+			{
+				CBOrder.push_back(Pair.first);
+			}
+			else
+			{
+				EndOrganizedVars.push_back(Pair.first);
+			}
+		}
+
+		CBOrder.insert(CBOrder.end(), EndOrganizedVars.begin(), EndOrganizedVars.end());
+	}
+
 	// Now actually create the packed variables
 	TStringIRVarMap UniformArrayVarMap;
 	std::map<std::string, std::map<char, int> > NumElementsMap;
-	for (auto IterCBVarSet = OrganizedVars.begin(); IterCBVarSet != OrganizedVars.end(); ++IterCBVarSet)
+	for (auto& SourceCB : CBOrder)
 	{
-		std::string SourceCB = IterCBVarSet->first;
 		std::string DestCB = bGroupFlattenedUBs ? SourceCB : "";
-		auto& VarSet = IterCBVarSet->second;
-		for (auto IterVarSet = VarSet.begin(); IterVarSet != VarSet.end(); ++IterVarSet)
+		check(OrganizedVars.find(SourceCB) != OrganizedVars.end());
+		for (auto& VarSetPair : OrganizedVars[SourceCB])
 		{
-			ir_variable* UniformArrayVar = NULL;
-			char ArrayType = IterVarSet->first;
-			auto& Vars = IterVarSet->second;
+			ir_variable* UniformArrayVar = nullptr;
+			char ArrayType = VarSetPair.first;
+			auto& Vars = VarSetPair.second;
 			for (auto* var : Vars)
 			{
 				const glsl_type* type = var->type->is_array() ? var->type->fields.array : var->type;
@@ -839,6 +873,304 @@ static int ProcessPackedImages(int UniformIndex, _mesa_glsl_parse_state* ParseSt
 	return UniformIndex;
 }
 
+namespace DebugPackUniforms
+{
+	struct SDMARange
+	{
+		unsigned SourceCB;
+		unsigned SourceOffset;
+		unsigned Size;
+		unsigned DestCBIndex;
+		unsigned DestCBPrecision;
+		unsigned DestOffset;
+
+		bool operator <(SDMARange const & Other) const
+		{
+			if (SourceCB == Other.SourceCB)
+			{
+				return SourceOffset < Other.SourceOffset;
+			}
+
+			return SourceCB < Other.SourceCB;
+		}
+	};
+	typedef std::list<SDMARange> TDMARangeList;
+	typedef std::map<unsigned, TDMARangeList> TCBDMARangeMap;
+
+
+	static void InsertRange(TCBDMARangeMap& CBAllRanges, unsigned SourceCB, unsigned SourceOffset, unsigned Size, unsigned DestCBIndex, unsigned DestCBPrecision, unsigned DestOffset)
+	{
+		check(SourceCB < (1 << 12));
+		check(DestCBIndex < (1 << 12));
+		check(DestCBPrecision < (1 << 8));
+		unsigned SourceDestCBKey = (SourceCB << 20) | (DestCBIndex << 8) | DestCBPrecision;
+		SDMARange Range ={SourceCB, SourceOffset, Size, DestCBIndex, DestCBPrecision, DestOffset};
+
+		TDMARangeList& CBRanges = CBAllRanges[SourceDestCBKey];
+		//printf("* InsertRange: %08x\t%d:%d - %d:%c:%d:%d\n", SourceDestCBKey, SourceCB, SourceOffset, DestCBIndex, DestCBPrecision, DestOffset, Size);
+		if (CBRanges.empty())
+		{
+			CBRanges.push_back(Range);
+		}
+		else
+		{
+			TDMARangeList::iterator Prev = CBRanges.end();
+			bool bAdded = false;
+			for (auto Iter = CBRanges.begin(); Iter != CBRanges.end(); ++Iter)
+			{
+				if (SourceOffset + Size <= Iter->SourceOffset)
+				{
+					if (Prev == CBRanges.end())
+					{
+						CBRanges.push_front(Range);
+					}
+					else
+					{
+						CBRanges.insert(Iter, Range);
+					}
+
+					bAdded = true;
+					break;
+				}
+
+				Prev = Iter;
+			}
+
+			if (!bAdded)
+			{
+				CBRanges.push_back(Range);
+			}
+
+			if (CBRanges.size() > 1)
+			{
+				// Try to merge ranges
+				bool bDirty = false;
+				do
+				{
+					bDirty = false;
+					TDMARangeList NewCBRanges;
+					for (auto Iter = CBRanges.begin(); Iter != CBRanges.end(); ++Iter)
+					{
+						if (Iter == CBRanges.begin())
+						{
+							Prev = CBRanges.begin();
+						}
+						else
+						{
+							if (Prev->SourceOffset + Prev->Size == Iter->SourceOffset && Prev->DestOffset + Prev->Size == Iter->DestOffset)
+							{
+								SDMARange Merged = *Prev;
+								Merged.Size = Prev->Size + Iter->Size;
+								NewCBRanges.pop_back();
+								NewCBRanges.push_back(Merged);
+								++Iter;
+								NewCBRanges.insert(NewCBRanges.end(), Iter, CBRanges.end());
+								bDirty = true;
+								break;
+							}
+						}
+
+						NewCBRanges.push_back(*Iter);
+						Prev = Iter;
+					}
+
+					CBRanges.swap(NewCBRanges);
+				}
+				while (bDirty);
+			}
+		}
+	}
+
+	static TDMARangeList SortRanges(TCBDMARangeMap& CBRanges)
+	{
+		TDMARangeList Sorted;
+		for (auto& Pair : CBRanges)
+		{
+			Sorted.insert(Sorted.end(), Pair.second.begin(), Pair.second.end());
+		}
+
+		Sorted.sort();
+
+		return Sorted;
+	}
+
+	void DebugPrintPackedUniformBuffers(_mesa_glsl_parse_state* ParseState, bool bGroupFlattenedUBs)
+	{
+		// @PackedUB: UniformBuffer0(SourceIndex0): Member0(SourceOffset,SizeInFloats),Member1(SourceOffset,SizeInFloats), ...
+		// @PackedUB: UniformBuffer1(SourceIndex1): Member0(SourceOffset,SizeInFloats),Member1(SourceOffset,SizeInFloats), ...
+		// ...
+
+		// First find all used CBs (since we lost that info during flattening)
+		TStringSet UsedCBs;
+		for (auto IterCB = ParseState->CBPackedArraysMap.begin(); IterCB != ParseState->CBPackedArraysMap.end(); ++IterCB)
+		{
+			for (auto Iter = IterCB->second.begin(); Iter != IterCB->second.end(); ++Iter)
+			{
+				_mesa_glsl_parse_state::TUniformList& Uniforms = Iter->second;
+				for (auto IterU = Uniforms.begin(); IterU != Uniforms.end(); ++IterU)
+				{
+					if (!IterU->CB_PackedSampler.empty())
+					{
+						check(IterCB->first == IterU->CB_PackedSampler);
+						UsedCBs.insert(IterU->CB_PackedSampler);
+					}
+				}
+			}
+		}
+
+		check(UsedCBs.size() == ParseState->CBPackedArraysMap.size());
+
+		// Now get the CB index based off source declaration order, and print an info line for each, while creating the mem copy list
+		unsigned CBIndex = 0;
+		TCBDMARangeMap CBRanges;
+		for (unsigned i = 0; i < ParseState->num_uniform_blocks; i++)
+		{
+			const glsl_uniform_block* block = ParseState->uniform_blocks[i];
+			if (UsedCBs.find(block->name) != UsedCBs.end())
+			{
+				bool bNeedsHeader = true;
+
+				// Now the members for this CB
+				bool bNeedsComma = false;
+				auto IterPackedArrays = ParseState->CBPackedArraysMap.find(block->name);
+				check(IterPackedArrays != ParseState->CBPackedArraysMap.end());
+				for (auto Iter = IterPackedArrays->second.begin(); Iter != IterPackedArrays->second.end(); ++Iter)
+				{
+					char ArrayType = Iter->first;
+					check(ArrayType != EArrayType_Image && ArrayType != EArrayType_Sampler);
+
+					_mesa_glsl_parse_state::TUniformList& Uniforms = Iter->second;
+					for (auto IterU = Uniforms.begin(); IterU != Uniforms.end(); ++IterU)
+					{
+						glsl_packed_uniform& Uniform = *IterU;
+						if (Uniform.CB_PackedSampler == block->name)
+						{
+							if (bNeedsHeader)
+							{
+								printf("// @PackedUB: %s(%d): ",
+									block->name,
+									CBIndex);
+								bNeedsHeader = false;
+							}
+
+							printf("%s%s(%u,%u)",
+								bNeedsComma ? "," : "",
+								Uniform.Name.c_str(),
+								Uniform.OffsetIntoCBufferInFloats,
+								Uniform.SizeInFloats);
+
+							bNeedsComma = true;
+							unsigned SourceOffset = Uniform.OffsetIntoCBufferInFloats;
+							unsigned DestOffset = Uniform.offset;
+							unsigned Size = Uniform.SizeInFloats;
+							unsigned DestCBIndex = bGroupFlattenedUBs ? std::distance(UsedCBs.begin(), UsedCBs.find(block->name)) : 0;
+							unsigned DestCBPrecision = ArrayType;
+							InsertRange(CBRanges, CBIndex, SourceOffset, Size, DestCBIndex, DestCBPrecision, DestOffset);
+						}
+					}
+				}
+
+				if (!bNeedsHeader)
+				{
+					printf("\n");
+				}
+
+				CBIndex++;
+			}
+		}
+
+		//DumpSortedRanges(SortRanges(CBRanges));
+
+		// @PackedUBCopies: SourceArray:SourceOffset-DestArray:DestOffset,SizeInFloats;SourceArray:SourceOffset-DestArray:DestOffset,SizeInFloats,...
+		bool bFirst = true;
+		for (auto& Pair : CBRanges)
+		{
+			TDMARangeList& List = Pair.second;
+			for (auto IterList = List.begin(); IterList != List.end(); ++IterList)
+			{
+				if (bFirst)
+				{
+					printf(bGroupFlattenedUBs ? "// @PackedUBCopies: " : "// @PackedUBGlobalCopies: ");
+					bFirst = false;
+				}
+				else
+				{
+					printf(",");
+				}
+
+				if (bGroupFlattenedUBs)
+				{
+					printf("%d:%d-%d:%c:%d:%d", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBIndex, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
+				}
+				else
+				{
+					check(IterList->DestCBIndex == 0);
+					printf("%d:%d-%c:%d:%d", IterList->SourceCB, IterList->SourceOffset, IterList->DestCBPrecision, IterList->DestOffset, IterList->Size);
+				}
+			}
+		}
+
+		if (!bFirst)
+		{
+			printf("\n");
+		}
+	}
+
+	void DebugPrintPackedGlobals(_mesa_glsl_parse_state* State)
+	{
+		//	@PackedGlobals: Global0(DestArrayType, DestOffset, SizeInFloats), Global1(DestArrayType, DestOffset, SizeInFloats), ...
+		bool bNeedsHeader = true;
+		bool bNeedsComma = false;
+		for (auto& Pair : State->GlobalPackedArraysMap)
+		{
+			char ArrayType = Pair.first;
+			if (ArrayType != EArrayType_Image && ArrayType != EArrayType_Sampler)
+			{
+				_mesa_glsl_parse_state::TUniformList& Uniforms = Pair.second;
+				check(!Uniforms.empty());
+
+				for (auto Iter = Uniforms.begin(); Iter != Uniforms.end(); ++Iter)
+				{
+					glsl_packed_uniform& Uniform = *Iter;
+					if (!State->bFlattenUniformBuffers || Uniform.CB_PackedSampler.empty())
+					{
+						if (bNeedsHeader)
+						{
+							printf("// @PackedGlobals: ");
+							bNeedsHeader = false;
+						}
+
+						printf(
+							"%s%s(%c:%u,%u)",
+							bNeedsComma ? "," : "",
+							Uniform.Name.c_str(),
+							ArrayType,
+							Uniform.offset,
+							Uniform.num_components
+							);
+						bNeedsComma = true;
+					}
+				}
+			}
+		}
+
+		if (!bNeedsHeader)
+		{
+			printf("\n");
+		}
+	}
+	void DebugPrintPackedUniforms(_mesa_glsl_parse_state* ParseState, bool bGroupFlattenedUBs)
+	{
+		DebugPrintPackedGlobals(ParseState);
+
+		if (ParseState->bFlattenUniformBuffers && !ParseState->CBuffersOriginal.empty())
+		{
+			DebugPrintPackedUniformBuffers(ParseState, bGroupFlattenedUBs);
+		}
+	}
+
+}
+
 /**
 * Pack uniforms in to typed arrays.
 * @param Instructions - The IR for which to pack uniforms.
@@ -857,7 +1189,7 @@ void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, b
 
 	if (MainSig && UniformVariables.Num())
 	{
-		std::sort(UniformVariables.begin(), UniformVariables.end(), SSortUniformsPredicate(ParseState));
+		std::sort(UniformVariables.begin(), UniformVariables.end(), SSortUniformsPredicate());
 		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, PUInfo, bFlattenStructure, bGroupFlattenedUBs, OutUniformMap);
 		if (UniformIndex == -1)
 		{
@@ -879,6 +1211,12 @@ void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, b
 	ParseState->has_packed_uniforms = true;
 
 done:
+	static bool Debug = false;
+	if (Debug)
+	{
+		DebugPackUniforms::DebugPrintPackedUniforms(ParseState, true);
+	}
+
 	ralloc_free(tmp_ctx);
 }
 
@@ -1018,6 +1356,9 @@ struct SSamplerNameVisitor : public ir_rvalue_visitor
 				{
 					SamplerToTextureMap[SamplerStateVar->name].insert(SamplerVar->name);
 					TextureToSamplerMap[SamplerVar->name].insert(SamplerStateVar->name);
+
+					check(SamplerStateVar->name);
+					TextureIR->SamplerStateName = SamplerStateVar->name;
 
 					// Remove the reference to the hlsl sampler
 					ralloc_free(TextureIR->SamplerState);

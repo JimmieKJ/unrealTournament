@@ -31,21 +31,92 @@ namespace NetworkProfiler
 			InitializeComponent();
 
 			// Set default state.
-			foreach( var Series in NetworkChart.Series )
-			{
-				Series.Enabled = false;
-			}
-			NetworkChart.Series[4].Enabled = true;
-			ChartListBox.SetItemChecked(4, true);
-			NetworkChart.Series[8].Enabled = true;
-			ChartListBox.SetItemChecked(8, true);
-			NetworkChart.Series[23].Enabled = true;
-			ChartListBox.SetItemChecked(23, true);
+			SetDefaultLineView();
 
 			// Force the columns to the way we want them
 			SetupColumns( ActorListView,	new String[]	{ "Total Size (KBytes)", "Count", "Average Size (Bytes)", "Average Size (Bits)", "Time (ms)", "Actor Class" });
 			SetupColumns( PropertyListView, new String[]	{ "Total Size (KBytes)", "Count", "Average Size (Bytes)", "Average Size (Bits)", "Time (ms)", "Property" });
 			SetupColumns( RPCListView,		new String[]	{ "Total Size (KBytes)", "Count", "Average Size (Bytes)", "Average Size (Bits)", "Time (ms)", "RPC" });
+		}
+
+		private void SetDefaultLineView()
+		{
+			// Set default state.
+			foreach( var Series in NetworkChart.Series )
+			{
+				Series.Enabled = false;
+			}
+
+			for( int i = 0; i < ChartListBox.Items.Count; ++i )
+			{
+				ChartListBox.SetItemChecked(i, false);
+			}
+
+			NetworkChart.Series["PropertySize"].Enabled = true;
+			NetworkChart.Series["PropertySize"].ChartType = SeriesChartType.FastLine;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("PropertySize"), true);
+
+			NetworkChart.Series["RPCSize"].Enabled = true;
+			NetworkChart.Series["RPCSize"].ChartType = SeriesChartType.FastLine;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("RPCSize"), true);
+
+			NetworkChart.Series["Events"].Enabled = true;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("Events"), true);
+
+			NetworkChart.Series["ExportBunchSize"].ChartType = SeriesChartType.FastLine;
+			NetworkChart.Series["MustBeMappedGuidsSize"].ChartType = SeriesChartType.FastLine;
+			NetworkChart.Series["SendBunchHeaderSize"].ChartType = SeriesChartType.FastLine;
+			NetworkChart.Series["ContentBlockHeaderSize"].ChartType = SeriesChartType.FastLine;
+			NetworkChart.Series["ContentBlockFooterSize"].ChartType = SeriesChartType.FastLine;
+			NetworkChart.Series["PropertyHandleSize"].ChartType = SeriesChartType.FastLine;
+		}
+
+		private void SetDefaultStackedBunchSizeView()
+		{
+			foreach( var Series in NetworkChart.Series )
+			{
+				Series.Enabled = false;
+			}
+
+			for( int i = 0; i < ChartListBox.Items.Count; ++i )
+			{
+				ChartListBox.SetItemChecked(i, false);
+			}
+
+			NetworkChart.Series["SendBunchSize"].Enabled = true;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("SendBunchSize"), true);
+
+			NetworkChart.Series["PropertySize"].Enabled = true;
+			NetworkChart.Series["PropertySize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("PropertySize"), true);
+
+			NetworkChart.Series["RPCSize"].Enabled = true;
+			NetworkChart.Series["RPCSize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("RPCSize"), true);
+
+			NetworkChart.Series["ExportBunchSize"].Enabled = true;
+			NetworkChart.Series["ExportBunchSize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("ExportBunchSize"), true);
+
+			NetworkChart.Series["MustBeMappedGuidsSize"].Enabled = true;
+			NetworkChart.Series["MustBeMappedGuidsSize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("MustBeMappedGuidsSize"), true);
+
+			NetworkChart.Series["SendBunchHeaderSize"].Enabled = true;
+			NetworkChart.Series["SendBunchHeaderSize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("SendBunchHeaderSize"), true);
+
+			NetworkChart.Series["ContentBlockHeaderSize"].Enabled = true;
+			NetworkChart.Series["ContentBlockHeaderSize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("ContentBlockHeaderSize"), true);
+
+			NetworkChart.Series["ContentBlockFooterSize"].Enabled = true;
+			NetworkChart.Series["ContentBlockFooterSize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("ContentBlockFooterSize"), true);
+
+			NetworkChart.Series["PropertyHandleSize"].Enabled = true;
+			NetworkChart.Series["PropertyHandleSize"].ChartType = SeriesChartType.StackedArea;
+			ChartListBox.SetItemChecked(NetworkChart.Series.IndexOf("PropertyHandleSize"), true);
 		}
 
 		private void SetupColumns(ListView ListView, String[] Headers)
@@ -293,6 +364,22 @@ namespace NetworkProfiler
 		private void ActorListView_ColumnClick(object sender, ColumnClickEventArgs e)
 		{
 			HandleListViewSorting( e.Column, ActorListView );
+		}
+
+		private void LineViewRadioButton_CheckChanged(object sender, EventArgs e)
+		{
+			if (LineViewRadioButton.Checked)
+			{
+				SetDefaultLineView();
+			}
+		}
+
+		private void StackedBunchSizeRadioButton_CheckChanged(object sender, EventArgs e)
+		{
+			if (StackedBunchSizeRadioButton.Checked)
+			{
+				SetDefaultStackedBunchSizeView();
+			}
 		}
 	}
 }

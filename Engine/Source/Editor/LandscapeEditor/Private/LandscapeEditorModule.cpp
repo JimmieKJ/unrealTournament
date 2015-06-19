@@ -57,11 +57,11 @@ public:
 		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(ViewportMenuExtender);
 
 		// Actor Factories
-		UActorFactoryLandscape* LandscapeActorFactory = ConstructObject<UActorFactoryLandscape>(UActorFactoryLandscape::StaticClass());
+		UActorFactoryLandscape* LandscapeActorFactory = NewObject<UActorFactoryLandscape>();
 		LandscapeActorFactory->NewActorClass = ALandscape::StaticClass();
 		GEditor->ActorFactories.Add(LandscapeActorFactory);
 
-		UActorFactoryLandscape* LandscapeProxyActorFactory = ConstructObject<UActorFactoryLandscape>(UActorFactoryLandscape::StaticClass());
+		UActorFactoryLandscape* LandscapeProxyActorFactory = NewObject<UActorFactoryLandscape>();
 		LandscapeProxyActorFactory->NewActorClass = ALandscapeProxy::StaticClass();
 		GEditor->ActorFactories.Add(LandscapeProxyActorFactory);
 	}

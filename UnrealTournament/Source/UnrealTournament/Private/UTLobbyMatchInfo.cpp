@@ -27,7 +27,7 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 
 	bSpectatable = true;
 	bJoinAnytime = true;
-	bMapListChanged = false;
+	bMapChanged = false;
 
 	BotSkillLevel = -1;
 
@@ -45,12 +45,13 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, CurrentRuleset);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Players);
 	DOREPLIFETIME(AUTLobbyMatchInfo, MatchBadge);
-	DOREPLIFETIME(AUTLobbyMatchInfo, MapList);
+	DOREPLIFETIME(AUTLobbyMatchInfo, InitialMap);
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
 	DOREPLIFETIME(AUTLobbyMatchInfo, RankCeiling);
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
+	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 }
 
@@ -58,6 +59,8 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
+
+	UniqueMatchID = FGuid::NewGuid();
 
 	MatchBadge = TEXT("Loading...");
 }
@@ -118,7 +121,28 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 		{
 			PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
 		}
-		// Add code for private/invite only matches
+		
+		if (CurrentRuleset.IsValid() && CurrentRuleset->bTeamGame)
+		{
+			// get the team sizes;
+			int TeamSizes[2];
+			TeamSizes[0] = 0;
+			TeamSizes[1] = 0;
+
+			for (int32 i=0;i<Players.Num();i++)
+			{
+				if (Players[i]->DesiredTeamNum >=0 && Players[i]->DesiredTeamNum <= 1)
+				{
+					TeamSizes[Players[i]->DesiredTeamNum]++;
+				}
+			}
+			PlayerToAdd->DesiredTeamNum = (TeamSizes[0] > TeamSizes[1]) ? 1 : 0;
+
+		}
+		else
+		{
+			PlayerToAdd->DesiredTeamNum = 0;
+		}
 	}
 	
 	Players.Add(PlayerToAdd);
@@ -234,7 +258,7 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState, AUTLobbyMatchI
 {
 	if (MatchToCopy)
 	{
-		SetRules(MatchToCopy->CurrentRuleset, MatchToCopy->MapList);
+		SetRules(MatchToCopy->CurrentRuleset, MatchToCopy->InitialMap);
 		BotSkillLevel = MatchToCopy->BotSkillLevel;
 	}
 
@@ -255,11 +279,35 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 	{
 		if (Target == Players[i])
 		{
-			// Right now we only have kicks and bans.
-			RemovePlayer(Target);
-			if (CommandID == 1)
+			if (!CurrentRuleset->bTeamGame) CommandID++;		// Account for ChangeTeam.
+		
+			if (CommandID == 0 && CurrentRuleset->bTeamGame)
 			{
-				BannedIDs.Add(Target->UniqueId);
+				if (Target->DesiredTeamNum != 255)
+				{
+					Target->DesiredTeamNum = 1 - Target->DesiredTeamNum;
+				}
+				else
+				{
+					Target->DesiredTeamNum = 0;
+				}
+
+				UE_LOG(UT,Log,TEXT("Changing %s to team %i"), *Target->PlayerName, Target->DesiredTeamNum)
+			}
+			else if (CommandID == 1)
+			{
+				Target->DesiredTeamNum = 255;
+				UE_LOG(UT,Log,TEXT("Changing %s to spectator"), *Target->PlayerName, Target->DesiredTeamNum)
+
+			}
+			else if (CommandID > 1)
+			{
+				// Right now we only have kicks and bans.
+				RemovePlayer(Target);
+				if (CommandID == 3)
+				{
+					BannedIDs.Add(Target->UniqueId);
+				}
 			}
 		}
 	}
@@ -302,35 +350,26 @@ void AUTLobbyMatchInfo::LaunchMatch()
 		Players[i]->bReadyToPlay = true;
 	}
 
-	if (CheckLobbyGameState() && CurrentRuleset.IsValid())
+	if (CheckLobbyGameState() && CurrentRuleset.IsValid() && InitialMapInfo.IsValid())
 	{
-		if (MapList.Num() > 0)
+		// build all of the data needed to launch the map.
+
+		FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*InitialMap, *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
+		GameURL += CurrentRuleset->GameOptions;
+
+		if (!CurrentRuleset->bCustomRuleset)
 		{
-			// build all of the data needed to launch the map.
+			// Custom rules already have their bot info set
 
-			FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*MapList[0], *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
-			GameURL += CurrentRuleset->GameOptions;
+			int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
 
-			if (!CurrentRuleset->bCustomRuleset)
+			if (BotSkillLevel >= 0)
 			{
-				// Custom rules already have their bot info set
-				
-				// Load the level summary of this map.
-				UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MapList[0]);
-				int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
-
-				if (BotSkillLevel >= 0)
-				{
-					GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(BotSkillLevel,0,7));			
-				}
+				GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(BotSkillLevel,0,7));			
 			}
+		}
 
-			LobbyGameState->LaunchGameInstance(this, GameURL);
-		}
-		else
-		{
-			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NoMaps","Please Select a map to play."));		
-		}
+		LobbyGameState->LaunchGameInstance(this, GameURL);
 	}
 }
 
@@ -355,30 +394,14 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-
 			if (Players[i].IsValid())
 			{
-				// Add this player to the players in Match
-				PlayersInMatchInstance.Add(FPlayerListInfo(Players[i]));
-
 				// Tell the client to connect to the instance
-				Players[i]->ClientConnectToInstance(GameInstanceGUID, GM->ServerInstanceGUID.ToString(),false);
+				Players[i]->ClientConnectToInstance(GameInstanceGUID, false);
 			}
 		}
 	}
 	SetLobbyMatchState(ELobbyMatchState::InProgress);
-}
-
-bool AUTLobbyMatchInfo::WasInMatchInstance(AUTLobbyPlayerState* PlayerState)
-{
-	for (int32 i=0; i<PlayersInMatchInstance.Num();i++)
-	{
-		if (PlayersInMatchInstance[i].PlayerID == PlayerState->UniqueId)
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState)
@@ -475,39 +498,29 @@ void AUTLobbyMatchInfo::OnRep_Update()
 	OnMatchInfoUpdatedDelegate.ExecuteIfBound();
 }
 
-void AUTLobbyMatchInfo::OnRep_MapList()
+void AUTLobbyMatchInfo::OnRep_InitialMap()
 {
-	bMapListChanged = true;
+	bMapChanged = true;
+	LoadInitialMapInfo();
 }
 
-FString AUTLobbyMatchInfo::GetMapList()
+void AUTLobbyMatchInfo::LoadInitialMapInfo()
 {
-	FString Maps = TEXT("");
-	if (CurrentRuleset.IsValid() && CurrentRuleset->MapPlaylist.Num() >0)
-	{
-		for (int32 i=0; i<CurrentRuleset->MapPlaylist.Num(); i++)
-		{
-			Maps += i > 0 ? TEXT(", ") + CurrentRuleset->MapPlaylist[i] : CurrentRuleset->MapPlaylist[i];
-		}
-	}
-
-	return Maps;
+	InitialMapInfo = GetMapInformation(InitialMap);
 }
 
-void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const TArray<FString>& NewMapList)
+
+void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
 {
 	CurrentRuleset = NewRuleset;
-	MapList.Empty();
-	for (int32 i=0; i < NewMapList.Num(); i++)
-	{
-		MapList.Add(NewMapList[i]);
-	}
+	InitialMap = StartingMap;
+	InitialMapInfo = GetMapInformation(InitialMap);
 
-	bMapListChanged = true;
+	bMapChanged = true;
 }
 
-bool AUTLobbyMatchInfo::ServerSetRules_Validate(const FString& RulesetTag, const TArray<FString>& NewMapList,int32 NewBotSkillLevel) { return true; }
-void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, const TArray<FString>& NewMapList,int32 NewBotSkillLevel)
+bool AUTLobbyMatchInfo::ServerSetRules_Validate(const FString& RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel) { return true; }
+void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel)
 {
 	if ( CheckLobbyGameState() )
 	{
@@ -515,7 +528,19 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 
 		if (NewRuleSet.IsValid())
 		{
-			SetRules(NewRuleSet, NewMapList);
+			InitialMap = StartingMap;
+			InitialMapInfo = GetMapInformation(InitialMap);
+
+			SetRules(NewRuleSet, InitialMap);
+			if (!InitialMapInfo.IsValid())
+			{
+				MatchBadge = FString::Printf(TEXT("Setting up a %s match."), *NewRuleSet->Title);
+			}
+			else
+			{
+				MatchBadge = FString::Printf(TEXT("Setting up a %s match on %s."), *NewRuleSet->Title, *InitialMapInfo->Title);
+			
+			}
 		}
 
 		BotSkillLevel = NewBotSkillLevel;
@@ -607,15 +632,15 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 				}
 			}
 
-			NeededPackageURLs.Add(CurrentRuleset->RequiredPackages[i].PackageURL);
+			NeededPackageURLs.Add(CurrentRuleset->RequiredPackages[i].PackageURLProtocol + "://" + CurrentRuleset->RequiredPackages[i].PackageURL);
 		}
 	}
 
 	return true;
 }
 
-bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount) { return true; }
-void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount)
+bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount) { return true; }
+void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount)
 {
 	// We need to build a one off custom replicated ruleset just for this hub.  :)
 
@@ -629,27 +654,10 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		// Look up the game mode in the AllowedGameData array and get the text description.
 
-		FString Desc = TEXT("A custom match.");
-		for (int32 i=0;i<GameState->AllowedGameData.Num();i++)
-		{
-			if (GameState->AllowedGameData[i].Package.Equals(GameMode, ESearchCase::IgnoreCase))
-			{
-				Desc = FString::Printf(TEXT("A custom %s match!"), *GameState->AllowedGameData[i].MenuDescription);
-				break;
-			}
-		
-		}
-
 		NewReplicatedRuleset->Title = TEXT("Custom Rule");
 		NewReplicatedRuleset->Tooltip = TEXT("");
-		NewReplicatedRuleset->Description = Desc + TEXT("\nBe warned, anything goes in here, so enter at your own risk.\n");
-
+		NewReplicatedRuleset->Description = Description;
 		int32 PlayerCount = 20;
-
-		for (int32 i=0; i < GameOptions.Num(); i++)
-		{
-			NewReplicatedRuleset->Description += GameOptions[i] + TEXT("\n");
-		}
 
 		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount;
 		if (DesiredSkillLevel >= 0)
@@ -668,28 +676,46 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		if (DesiredSkillLevel >= 0)
 		{
-			// Load the level summary of this map.
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
-
-			// This match wants bots.  
-			int32 OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+			int32 OptimalPlayerCount = 4;
+			TSharedPtr<FMapListItem> MapInfo = GetMapInformation(StartingMap);
+			if (MapInfo.IsValid())
+			{
+				OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
+			}
 			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
 		}
 
 		NewReplicatedRuleset->GameOptions = FinalGameOptions;
 
 
-		NewReplicatedRuleset->MapPlaylistSize = 1;
-		NewReplicatedRuleset->MapPlaylist.Add(StartingMap);
 		NewReplicatedRuleset->MinPlayersToStart = 2;
 		NewReplicatedRuleset->MaxPlayers = 16;
 		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
 		NewReplicatedRuleset->bCustomRuleset = true;
 
-		MapList.Add(StartingMap);
-
 		// Add code to setup the required packages array
 		CurrentRuleset = NewReplicatedRuleset;
+		InitialMap = StartingMap;
+		InitialMapInfo = GetMapInformation(InitialMap);
+
+
+		if (!InitialMapInfo.IsValid())
+		{
+			MatchBadge = FString::Printf(TEXT("Setting up a custom match."));
+		}
+		else
+		{
+			MatchBadge = FString::Printf(TEXT("Setting up a custom match on %s."), *InitialMapInfo->Title);
+			
+		}
+
+
+		MatchBadge = TEXT("Setting up a custom match.");
+
+
+
+
+
 	}
 
 }
@@ -706,3 +732,71 @@ bool AUTLobbyMatchInfo::IsBanned(FUniqueNetIdRepl Who)
 
 	return false;
 }
+
+TSharedPtr<FMapListItem> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage)
+{
+	TSharedPtr<FMapListItem> MapInfo;
+
+	TArray<FAssetData> MapAssets;
+	GetAllAssetData(UWorld::StaticClass(), MapAssets);
+	for (const FAssetData& Asset : MapAssets)
+	{
+		if (Asset.PackageName.ToString().Equals(MapPackage, ESearchCase::CaseSensitive))
+		{
+			const FString* Title = Asset.TagsAndValues.Find(NAME_MapInfo_Title); 
+			const FString* Author = Asset.TagsAndValues.Find(NAME_MapInfo_Author);
+			const FString* Description = Asset.TagsAndValues.Find(NAME_MapInfo_Description);
+			const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+
+			const FString* OptimalPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalPlayerCount);
+			int32 OptimalPlayerCount = 6;
+			if (OptimalPlayerCountStr != NULL)
+			{
+				OptimalPlayerCount = FCString::Atoi(**OptimalPlayerCountStr);
+			}
+
+			const FString* OptimalTeamPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalTeamPlayerCount);
+			int32 OptimalTeamPlayerCount = 10;
+			if (OptimalTeamPlayerCountStr != NULL)
+			{
+				OptimalTeamPlayerCount = FCString::Atoi(**OptimalTeamPlayerCountStr);
+			}
+
+			MapInfo = MakeShareable(new FMapListItem( Asset.PackageName.ToString(), (Title != NULL && !Title->IsEmpty()) ? *Title : *Asset.AssetName.ToString(), (Author != NULL) ? *Author : FString(),
+											(Description != NULL) ? *Description : FString(), (Screenshot != NULL) ? *Screenshot : FString(), OptimalPlayerCount, OptimalTeamPlayerCount));
+			break;
+		}
+	}
+	
+	if (!MapInfo.IsValid())
+	{
+		// Could not be loaded via the asset registry.  Try to load the level summary to get the information.
+		UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MapPackage);		
+		if (Summary)
+		{
+			MapInfo = MakeShareable(new FMapListItem( MapPackage, *Summary->Title, *Summary->Author, *Summary->Description.ToString(), *Summary->ScreenshotReference, Summary->OptimalPlayerCount, Summary->OptimalTeamPlayerCount));
+		}
+	}
+
+	return MapInfo;
+}
+
+int32 AUTLobbyMatchInfo::NumPlayersInMatch()
+{
+	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers) return Players.Num();
+	else if (CurrentState == ELobbyMatchState::InProgress)
+	{
+		int32 Cnt = Players.Num();
+		for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+		{
+			if (!PlayersInMatchInstance[i].bIsSpectator)
+			{
+				Cnt++;
+			}
+		}
+
+		return Cnt;
+	}
+	return 0;
+}
+

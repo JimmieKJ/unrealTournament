@@ -65,7 +65,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 
 	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffect(const UGameplayEffect* GameplayEffect, const FGameplayEffectContextHandle& InEffectContext, float Level, FPredictionKey PredictionKey = FPredictionKey());
 
-	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectSpec(FGameplayEffectSpec& Spec, FPredictionKey PredictionKey = FPredictionKey());
+	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectSpec(const FGameplayEffectSpec& Spec, FPredictionKey PredictionKey = FPredictionKey());
 
 	virtual void AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray);
 
@@ -114,6 +114,11 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData
 	virtual FVector GetEndPoint() const
 	{
 		return FVector::ZeroVector;
+	}
+
+	virtual FTransform GetEndPointTransform() const
+	{
+		return FTransform(GetEndPoint());
 	}
 
 	// -------------------------------------
@@ -168,7 +173,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetDataHandle
 		Data.Add(TSharedPtr<FGameplayAbilityTargetData>(DataPtr));
 	}
 
-	TArray<TSharedPtr<FGameplayAbilityTargetData>>	Data;
+	TArray<TSharedPtr<FGameplayAbilityTargetData> >	Data;
 
 	void Clear()
 	{
@@ -357,31 +362,31 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityTargetData_LocationInfo : public FG
 
 	// -------------------------------------
 
-	virtual bool HasOrigin() const
+	virtual bool HasOrigin() const override
 	{
 		return true;
 	}
 
-	virtual FTransform GetOrigin() const
+	virtual FTransform GetOrigin() const override
 	{
 		return SourceLocation.GetTargetingTransform();
 	}
 
 	// -------------------------------------
 
-	virtual bool HasEndPoint() const
+	virtual bool HasEndPoint() const override
 	{
 		return true;
 	}
 
-	virtual FVector GetEndPoint() const
+	virtual FVector GetEndPoint() const override
 	{
 		return TargetLocation.GetTargetingTransform().GetLocation();
 	}
 
 	// -------------------------------------
 
-	virtual UScriptStruct* GetScriptStruct()
+	virtual UScriptStruct* GetScriptStruct() override
 	{
 		return FGameplayAbilityTargetData_LocationInfo::StaticStruct();
 	}
@@ -587,3 +592,87 @@ struct TStructOpsTypeTraits<FGameplayAbilityTargetData_SingleTargetHit> : public
 
 /** Generic callback for returning when target data is available */
 DECLARE_MULTICAST_DELEGATE_OneParam(FAbilityTargetData, FGameplayAbilityTargetDataHandle);
+
+
+// ----------------------------------------------------
+
+/** Generic callback for returning when target data is available */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FAbilityTargetDataSetDelegate, FGameplayAbilityTargetDataHandle, FGameplayTag);
+
+/** These are generic, nonpayload carrying events that are replicated between the client and server */
+UENUM()
+namespace EAbilityGenericReplicatedEvent
+{
+	enum Type
+	{	
+		/** A generic confirmation to commit the ability */
+		GenericConfirm = 0,
+		/** A generic cancellation event. Not necessarily a canellation of the ability or targeting. Could be used to cancel out of a channelling portion of ability. */
+		GenericCancel,
+		/** Additional input presses of the ability (Press X to activate ability, press X again while it is active to do other things within the GameplayAbility's logic) */
+		InputPressed,	
+		/** Input release event of the ability */
+		InputReleased,
+		/** A generic event from the client */
+		GenericSignalFromClient,
+		/** A generic event from the server */
+		GenericSignalFromServer,
+		/** Custom events for game use */
+		GameCustom1,
+		GameCustom2,
+		GameCustom3,
+		GameCustom4,
+		GameCustom5,
+
+		MAX
+	};
+}
+
+struct FAbilityReplicatedData
+{
+	FAbilityReplicatedData() : bTriggered(false) {}
+	/** Event has triggered */
+	bool bTriggered;
+
+	FSimpleMulticastDelegate Delegate;
+};
+
+/** Struct defining the cached data for a specific gameplay ability. This data is generally syncronized client->server in a network game. */
+struct FAbilityReplicatedDataCache
+{
+	/** What elements this activation is targeting */
+	FGameplayAbilityTargetDataHandle TargetData;
+
+	/** What tag to pass through when doing an application */
+	FGameplayTag ApplicationTag;
+
+	/** True if we've been positively confirmed our targeting, false if we don't know */
+	bool bTargetConfirmed;
+
+	/** True if we've been positively cancelled our targeting, false if we don't know */
+	bool bTargetCancelled;
+
+	/** Delegate to call whenever this is modified */
+	FAbilityTargetDataSetDelegate TargetSetDelegate;
+
+	/** Delegate to call whenever this is confirmed (without target data) */
+	FSimpleMulticastDelegate TargetCancelledDelegate;
+
+	/** Generic events that contain no payload data */
+	FAbilityReplicatedData	GenericEvents[EAbilityGenericReplicatedEvent::MAX];
+
+	FAbilityReplicatedDataCache() : bTargetConfirmed(false), bTargetCancelled(false) {}
+
+	/** Resets any cached data, leaves delegates up */
+	void Reset()
+	{
+		bTargetConfirmed = bTargetCancelled = false;
+		TargetData = FGameplayAbilityTargetDataHandle();
+		ApplicationTag = FGameplayTag();
+		for (int32 i=0; i < (int32) EAbilityGenericReplicatedEvent::MAX; ++i)
+		{
+			GenericEvents[i].bTriggered = false;
+		}
+
+	}
+};

@@ -6,7 +6,7 @@
 #include "UTNavMeshRenderingComponent.generated.h"
 
 UCLASS()
-class UUTNavMeshRenderingComponent : public UNavMeshRenderingComponent
+class UNREALTOURNAMENT_API UUTNavMeshRenderingComponent : public UNavMeshRenderingComponent
 {
 	GENERATED_BODY()
 

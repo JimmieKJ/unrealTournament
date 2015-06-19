@@ -13,7 +13,7 @@ namespace EChatMessageType
 struct FSelectedFriend
 {
 	TSharedPtr<FUniqueNetId> UserID;
-	FText FriendName;
+	FText DisplayName;
 	EChatMessageType::Type MessageType;
 	TSharedPtr<FFriendViewModel> ViewModel;
 	TSharedPtr<FChatItemViewModel> SelectedMessage;
@@ -23,13 +23,16 @@ class FChatViewModel
 	: public TSharedFromThis<FChatViewModel>
 {
 public:
-	virtual TArray<TSharedRef<FChatItemViewModel > >& GetFilteredChatList() = 0;
+	virtual TArray<TSharedRef<FChatItemViewModel > >& GetMessages() = 0;
 	virtual FReply HandleSelectionChanged(TSharedRef<FChatItemViewModel> ItemSelected) = 0;
 	virtual FText GetViewGroupText() const = 0;
 	virtual FText GetChatGroupText() const = 0;
 	virtual EVisibility GetFriendRequestVisibility() const = 0;
 	virtual EVisibility GetInviteToGameVisibility() const = 0;
 	virtual EVisibility GetOpenWhisperVisibility() const = 0;
+	virtual EVisibility GetAcceptFriendRequestVisibility() const = 0;
+	virtual EVisibility GetIgnoreFriendRequestVisibility() const = 0;
+	virtual EVisibility GetCancelFriendRequestVisibility() const = 0;
 	virtual void EnumerateFriendOptions(TArray<EFriendActionType::Type>& OUTActionList) = 0;
 	virtual void PerformFriendAction(EFriendActionType::Type ActionType) = 0;
 	virtual void CancelAction() = 0;
@@ -38,6 +41,8 @@ public:
 	virtual void SetViewChannel(const EChatMessageType::Type NewOption) = 0;
 	virtual const EChatMessageType::Type GetChatChannel() const = 0;
 	virtual bool IsChatChannelValid() const = 0;
+	virtual bool IsChatConnected() const = 0;
+	virtual FText GetChatDisconnectText() const = 0;
 	virtual void SetChannelUserClicked(const TSharedRef<FChatItemViewModel> ChatItemSelected) = 0;
 	virtual bool SendMessage(const FText NewMessage) = 0;
 	virtual EChatMessageType::Type GetChatChannelType() const = 0;
@@ -50,7 +55,7 @@ public:
 	virtual bool HasActionPending() const = 0;
 	virtual void SetInGame(bool bInGameSetting) = 0;
 	virtual void LockChatChannel(bool bLocked) = 0;
-	virtual bool IsChatChannelLocked() const = 0;
+	virtual bool IsChatChannelLocked() const = 0;	
 	virtual void EnableGlobalChat(bool bEnable) = 0;
 	DECLARE_EVENT(FChatViewModel, FChatListUpdated)
 	virtual FChatListUpdated& OnChatListUpdated() = 0;

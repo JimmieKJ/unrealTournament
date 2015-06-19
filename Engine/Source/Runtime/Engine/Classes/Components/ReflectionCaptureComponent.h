@@ -123,7 +123,7 @@ class UReflectionCaptureComponent : public USceneComponent
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostEditImport();
+	virtual void PostEditImport() override;
 	virtual void PreFeatureLevelChange(ERHIFeatureLevel::Type PendingFeatureLevel) override;
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;

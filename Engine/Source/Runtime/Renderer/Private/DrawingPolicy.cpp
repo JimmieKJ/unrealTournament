@@ -59,7 +59,7 @@ void FMeshDrawingPolicy::SetMeshRenderState(
 
 		// Use bitwise logic ops to avoid branches
 	RHICmdList.SetRasterizerState( GetStaticRasterizerState<true>(
-			( Mesh.bWireframe | IsWireframe() ) ? FM_Wireframe : FM_Solid, ( ( IsTwoSided() & !NeedsBackfacePass() ) | Mesh.bDisableBackfaceCulling ) ? CM_None :
+			( Mesh.bWireframe || IsWireframe() ) ? FM_Wireframe : FM_Solid, ( ( IsTwoSided() && !NeedsBackfacePass() ) || Mesh.bDisableBackfaceCulling ) ? CM_None :
 			( ( (View.bReverseCulling ^ bBackFace) ^ Mesh.ReverseCulling ) ? CM_CCW : CM_CW )
 			));
 }

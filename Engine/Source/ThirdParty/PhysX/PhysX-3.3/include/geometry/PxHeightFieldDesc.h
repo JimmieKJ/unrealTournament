@@ -1,31 +1,14 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
-// Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
+// Copyright (c) 2001-2004 NovodeX AG. All rights reserved.
 
 
 #ifndef PX_COLLISION_NXHEIGHTFIELDDESC
@@ -34,6 +17,7 @@
 @{
 */
 
+#include "foundation/PxBounds3.h"
 #include "common/PxPhysXCommonConfig.h"
 #include "geometry/PxHeightFieldFlag.h"
 #include "common/PxCoreUtilityTypes.h"
@@ -58,6 +42,8 @@ public:
 	/**
 	\brief Number of sample rows in the height field samples array.
 
+	\note Local space X-axis corresponds to rows.
+
 	<b>Range:</b> &gt;1<br>
 	<b>Default:</b> 0
 	*/
@@ -65,6 +51,8 @@ public:
 
 	/**
 	\brief Number of sample columns in the height field samples array.
+
+	\note Local space Z-axis corresponds to columns.
 
 	<b>Range:</b> &gt;1<br>
 	<b>Default:</b> 0
@@ -81,7 +69,7 @@ public:
 	@see PxHeightFormat PxHeightFieldDesc.samples
 	*/
 	PxHeightFieldFormat::Enum		format;
-	
+
 	/**
 	\brief The samples array.
 
@@ -106,7 +94,7 @@ public:
 	\brief Sets how thick the heightfield surface is.
 
 	In this way even objects which are under the surface of the height field but above
-	this cutoff are treated as colliding with the height field. 
+	this cutoff are treated as colliding with the height field.
 
 	The thickness is measured relative to the surface at the given point.
 
@@ -114,17 +102,19 @@ public:
 
 	You may use a smaller finite value for the extent if you want to put some space under the height field, such as a cave.
 
-	<b>Range:</b> (-PX_MAX_F32, PX_MAX_F32)<br>
+	\note Please refer to the Raycasts Against Heightfields section of the user guide for details of how this value affects raycasts.
+
+	<b>Range:</b> (-PX_MAX_BOUNDS_EXTENTS, PX_MAX_BOUNDS_EXTENTS)<br>
 	<b>Default:</b> -1
 	*/
 	PxReal					thickness;
 
 	/**
-	This threshold is used by the collision detection to determine if a height field edge is convex 
-	and can generate contact points. 
-	Usually the convexity of an edge is determined from the angle (or cosine of the angle) between 
-	the normals of the faces sharing that edge. 
-	The height field allows a more efficient approach by comparing height values of neighboring vertices. 
+	This threshold is used by the collision detection to determine if a height field edge is convex
+	and can generate contact points.
+	Usually the convexity of an edge is determined from the angle (or cosine of the angle) between
+	the normals of the faces sharing that edge.
+	The height field allows a more efficient approach by comparing height values of neighboring vertices.
 	This parameter offsets the comparison. Smaller changes than 0.5 will not alter the set of convex edges.
 	The rule of thumb is that larger values will result in fewer edge contacts.
 
@@ -150,7 +140,7 @@ public:
 	PX_INLINE				PxHeightFieldDesc();
 
 	/**
-	\brief (re)sets the structure to the default.	
+	\brief (re)sets the structure to the default.
 	*/
 	PX_INLINE		void	setToDefault();
 
@@ -178,18 +168,25 @@ PX_INLINE void PxHeightFieldDesc::setToDefault()
 
 PX_INLINE bool PxHeightFieldDesc::isValid() const
 {
-	if (nbColumns < 2) return false;
-	if (nbRows < 2) return false;
+	if (nbColumns < 2)
+		return false;
+	if (nbRows < 2)
+		return false;
 	switch (format)
 	{
 	case PxHeightFieldFormat::eS16_TM:
-		if (samples.stride < 4) return false;
+		if (samples.stride < 4)
+			return false;
 		break;
 	default:
 		return false;
 	}
-	if (convexEdgeThreshold < 0) return false;
-	if ((flags & PxHeightFieldFlag::eNO_BOUNDARY_EDGES) != flags) return false;
+	if (convexEdgeThreshold < 0)
+		return false;
+	if ((flags & PxHeightFieldFlag::eNO_BOUNDARY_EDGES) != flags)
+		return false;
+	if (thickness < -PX_MAX_BOUNDS_EXTENTS || thickness > PX_MAX_BOUNDS_EXTENTS)
+		return false;
 	return true;
 }
 

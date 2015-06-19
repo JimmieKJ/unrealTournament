@@ -50,7 +50,7 @@ public:
 	void Construct(const FArguments& InArgs)
 	{
 		FString OptionalBranchPrefix;
-		GConfig->GetString(TEXT("LevelEditor"), TEXT("ProjectNameWatermarkPrefix"), /*out*/ OptionalBranchPrefix, GEditorUserSettingsIni);
+		GConfig->GetString(TEXT("LevelEditor"), TEXT("ProjectNameWatermarkPrefix"), /*out*/ OptionalBranchPrefix, GEditorPerProjectIni);
 
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("Branch"), FText::FromString(OptionalBranchPrefix));
@@ -372,9 +372,9 @@ void FLevelEditorModule::FocusViewport()
 	}
 }
 
-void FLevelEditorModule::BroadcastActorSelectionChanged( const TArray<UObject*>& NewSelection )
+void FLevelEditorModule::BroadcastActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh)
 {
-	ActorSelectionChangedEvent.Broadcast( NewSelection );
+	ActorSelectionChangedEvent.Broadcast(NewSelection, bForceRefresh);
 }
 
 void FLevelEditorModule::BroadcastRedrawViewports( bool bInvalidateHitProxies )
@@ -567,16 +567,6 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		ActionList.MapAction( Commands.OpenRecentFileCommands[ CurRecentIndex ], FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::OpenRecentFile, CurRecentIndex ), DefaultExecuteAction );
 	}
 
-	for( int32 CurFavoriteIndex = 0; CurFavoriteIndex < FLevelEditorCommands::MaxFavoriteFiles; ++CurFavoriteIndex )
-	{
-		ActionList.MapAction( Commands.OpenFavoriteFileCommands[ CurFavoriteIndex ], FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::OpenFavoriteFile, CurFavoriteIndex ), DefaultExecuteAction );
-	}
-
-	for( int32 CurFavoriteIndex = 0; CurFavoriteIndex < FLevelEditorCommands::MaxFavoriteFiles; ++CurFavoriteIndex )
-	{
-		ActionList.MapAction( Commands.RemoveFavoriteCommands[ CurFavoriteIndex ], FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::RemoveFavorite, CurFavoriteIndex ), DefaultExecuteAction );
-	}
-
 	ActionList.MapAction( Commands.Import,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::Import_Clicked ) );
 
@@ -628,6 +618,12 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanViewReferences )
 		);
 
+	ActionList.MapAction( 
+		FGlobalEditorCommonCommands::Get().ViewSizeMap, 
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ViewSizeMap_Execute ),
+		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanViewSizeMap )
+		);
+
 	const FVector* NullVector = nullptr;
 	ActionList.MapAction(
 		Commands.GoHere,
@@ -639,7 +635,12 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("CAMERA SNAP") ) )
 		);
 
-	ActionList.MapAction( 
+	ActionList.MapAction(
+		Commands.SnapObjectToCamera,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapObjectToView_Clicked)
+		);
+
+	ActionList.MapAction(
 		Commands.GoToCodeForActor, 
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::GoToCodeForActor_Clicked )
 		);
@@ -726,6 +727,43 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		Commands.AlignOriginToActor,
 		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::MoveActorToActor_Clicked, bAlign),
 		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ActorsSelected_CanExecute)
+		);
+
+	ActionList.MapAction(
+		Commands.SnapTo2DLayer,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SnapTo2DLayer_Clicked),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CanSnapTo2DLayer)
+		);
+
+	ActionList.MapAction(
+		Commands.MoveSelectionUpIn2DLayers,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::MoveSelectionToDifferent2DLayer_Clicked, /*bGoingUp=*/ true, /*bForceToTopOrBottom=*/ false),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CanMoveSelectionToDifferent2DLayer, /*bGoingUp=*/ true)
+		);
+	ActionList.MapAction(
+		Commands.MoveSelectionDownIn2DLayers,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::MoveSelectionToDifferent2DLayer_Clicked, /*bGoingUp=*/ false, /*bForceToTopOrBottom=*/ false),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CanMoveSelectionToDifferent2DLayer, /*bGoingUp=*/ false)
+		);
+	ActionList.MapAction(
+		Commands.MoveSelectionToTop2DLayer,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::MoveSelectionToDifferent2DLayer_Clicked, /*bGoingUp=*/ true, /*bForceToTopOrBottom=*/ true),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CanMoveSelectionToDifferent2DLayer, /*bGoingUp=*/ true)
+		);
+	ActionList.MapAction(
+		Commands.MoveSelectionToBottom2DLayer,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::MoveSelectionToDifferent2DLayer_Clicked, /*bGoingUp=*/ false, /*bForceToTopOrBottom=*/ true),
+		FCanExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::CanMoveSelectionToDifferent2DLayer, /*bGoingUp=*/ false)
+		);
+
+
+	ActionList.MapAction(
+		Commands.Select2DLayerAbove,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::Select2DLayerDeltaAway_Clicked, -1)
+		);
+	ActionList.MapAction(
+		Commands.Select2DLayerBelow,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::Select2DLayerDeltaAway_Clicked, 1)
 		);
 
 	bAlign = false;
@@ -929,18 +967,6 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		);
 	
 	ActionList.MapAction(
-		Commands.MergeActors,
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::MergeActors_Clicked ),
-		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanExecuteMergeActors )
-		);
-
-	ActionList.MapAction(
-		Commands.MergeActorsByMaterials,
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::MergeActorsByMaterials_Clicked ),
-		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanExecuteMergeActorsByMaterials )
-		);
-	
-	ActionList.MapAction(
 		Commands.ShowAll,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("ACTOR UNHIDE ALL") ) ) 
 		);
@@ -1069,16 +1095,6 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction(
 		Commands.SelectAllSubtractiveBrushes,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("MAP SELECT SUBTRACTS") ) )
-		);
-
-	ActionList.MapAction(
-		Commands.SelectAllSemiSolidBrushes,
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("MAP SELECT SEMISOLIDS") ) )
-		);
-
-	ActionList.MapAction(
-		Commands.SelectAllNonSolidBrushes,
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("MAP SELECT NONSOLIDS") ) )
 		);
 
 	ActionList.MapAction(
@@ -1363,6 +1379,9 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction( Commands.BuildPathsOnly,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::BuildPathsOnly_Execute ) );
 
+	ActionList.MapAction(Commands.BuildLODsOnly,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::BuildLODsOnly_Execute));
+
 	ActionList.MapAction( 
 		Commands.LightingQuality_Production, 
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingQuality, (ELightingBuildQuality)Quality_Production ),
@@ -1383,32 +1402,6 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingQuality, (ELightingBuildQuality)Quality_Preview ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsLightingQualityChecked, (ELightingBuildQuality)Quality_Preview) );
-
-	ActionList.MapAction( 
-		Commands.LightingTools_ShowBounds, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingToolShowBounds ),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsLightingToolShowBoundsChecked ) );
-	ActionList.MapAction( 
-		Commands.LightingTools_ShowTraces, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingToolShowTraces ),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsLightingToolShowTracesChecked ) );
-	ActionList.MapAction( 
-		Commands.LightingTools_ShowDirectOnly, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingToolShowDirectOnly ),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsLightingToolShowDirectOnlyChecked ) );
-	ActionList.MapAction( 
-		Commands.LightingTools_ShowIndirectOnly, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingToolShowIndirectOnly ),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsLightingToolShowIndirectOnlyChecked ) );
-	ActionList.MapAction( 
-		Commands.LightingTools_ShowIndirectSamples, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingToolShowIndirectSamples ),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsLightingToolShowIndirectSamplesChecked ) );
 
 	ActionList.MapAction( 
 		Commands.LightingDensity_RenderGrayscale, 

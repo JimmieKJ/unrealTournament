@@ -13,7 +13,7 @@
 #include "Editor/GeometryMode/Public/GeometryEdMode.h"
 #include "Editor/GeometryMode/Public/EditorGeometry.h"
 #include "ActorEditorUtils.h"
-#include "Foliage/InstancedFoliageActor.h"
+#include "InstancedFoliageActor.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "Particles/Emitter.h"
 #include "Particles/ParticleSystemComponent.h"
@@ -96,12 +96,6 @@ public:
 	}
 };
 
-UUnrealEdEngine::UUnrealEdEngine(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
-
-
 void UUnrealEdEngine::edactCopySelected( UWorld* InWorld, FString* DestinationData )
 {
 	if (GetSelectedComponentCount() > 0)
@@ -121,6 +115,7 @@ void UUnrealEdEngine::edactCopySelected( UWorld* InWorld, FString* DestinationDa
 		// Before copying, deselect:
 		//		- Actors belonging to prefabs unless all actors in the prefab are selected.
 		//		- Builder brushes.
+		//      - World Settings.
 		TArray<AActor*> ActorsToDeselect;
 
 		bool bSomeSelectedActorsNotInCurrentLevel = false;
@@ -133,6 +128,12 @@ void UUnrealEdEngine::edactCopySelected( UWorld* InWorld, FString* DestinationDa
 			ABrush* Brush = Cast< ABrush >(Actor);
 			const bool bActorIsBuilderBrush = ( Brush && FActorEditorUtils::IsABuilderBrush(Brush) );
 			if (bActorIsBuilderBrush)
+			{
+				ActorsToDeselect.Add(Actor);
+			}
+
+			// Deselect world settings
+			if (Actor->IsA( AWorldSettings::StaticClass() ))
 			{
 				ActorsToDeselect.Add(Actor);
 			}
@@ -329,7 +330,7 @@ void UUnrealEdEngine::edactPasteSelected(UWorld* InWorld, bool bDuplicate, bool 
 			Actor->TeleportTo(Actor->GetActorLocation() + ActorLocationOffset, Actor->GetActorRotation(), false, true);
 
 			// Re-label duplicated actors so that labels become unique
-			GEditor->SetActorLabelUnique(Actor, Actor->GetActorLabel(), &ActorLabels);
+			FActorLabelUtilities::SetActorLabelUnique(Actor, Actor->GetActorLabel(), &ActorLabels);
 			ActorLabels.Add(Actor->GetActorLabel());
 
 			GEditor->Layers->InitializeNewActorLayers(Actor);
@@ -814,19 +815,6 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 		{
 			LevelsAlreadyModified.Add( Level );
 			Level->Modify();
-		}
-
-		// See if there is any foliage that also needs to be removed
-		AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(Level);
-		if( IFA )
-		{
-			TInlineComponentArray<UActorComponent*> Components;
-			Actor->GetComponents(Components);
-
-			for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
-			{
-				IFA->DeleteInstancesForComponent( Components[ComponentIndex] );
-			}
 		}
 
 		UE_LOG(LogEditorActor, Log,  TEXT("Deleted Actor: %s"), *Actor->GetClass()->GetName() );
@@ -1881,7 +1869,7 @@ void UUnrealEdEngine::edactSelectMatchingStaticMesh( bool bAllClasses )
 			if ( FStaticMeshActor::GetStaticMeshInfoFromActor( Actor, ActorInfo ) )
 			{
 				bool bSelectActor = false;
-				if ( !bSelectActor && (bAllClasses || ActorInfo.IsStaticMeshActor()) )
+				if ( bAllClasses || ActorInfo.IsStaticMeshActor() )
 				{
 					for ( int32 i = 0 ; i < StaticMeshActors.Num() ; ++i )
 					{
@@ -2252,6 +2240,7 @@ void UUnrealEdEngine::edactAlignVertices()
 			Brush->PreEditChange(NULL);
 			Brush->Modify();
 			FVector BrushLocation = Brush->GetActorLocation();
+			const FTransform BrushTransform = Brush->GetRootComponent()->GetComponentTransform();
 
 			// Snap each vertex in the brush to an integer grid.
 			UPolys* Polys = Brush->Brush->Polys;
@@ -2260,10 +2249,17 @@ void UUnrealEdEngine::edactAlignVertices()
 				FPoly* Poly = &Polys->Element[PolyIdx];
 				for( int32 VertIdx=0; VertIdx<Poly->Vertices.Num(); VertIdx++ )
 				{
+					const float GridSize = GetGridSize();
+
 					// Snap each vertex to the nearest grid.
-					Poly->Vertices[VertIdx].X = FMath::RoundToFloat( ( Poly->Vertices[VertIdx].X + BrushLocation.X )  / GetGridSize() ) * GetGridSize() - BrushLocation.X;
-					Poly->Vertices[VertIdx].Y = FMath::RoundToFloat( ( Poly->Vertices[VertIdx].Y + BrushLocation.Y )  / GetGridSize() ) * GetGridSize() - BrushLocation.Y;
-					Poly->Vertices[VertIdx].Z = FMath::RoundToFloat( ( Poly->Vertices[VertIdx].Z + BrushLocation.Z )  / GetGridSize() ) * GetGridSize() - BrushLocation.Z;
+					const FVector Vertex = Poly->Vertices[VertIdx];
+					const FVector VertexWorld = BrushTransform.TransformPosition(Vertex);
+					const FVector VertexSnapped(FMath::RoundToFloat(VertexWorld.X / GridSize) * GridSize,
+												FMath::RoundToFloat(VertexWorld.Y / GridSize) * GridSize,
+												FMath::RoundToFloat(VertexWorld.Z / GridSize) * GridSize);
+					const FVector VertexSnappedLocal = BrushTransform.InverseTransformPosition(VertexSnapped);
+
+					Poly->Vertices[VertIdx] = VertexSnappedLocal;
 				}
 
 				// If the snapping resulted in an off plane polygon, triangulate it to compensate.
@@ -2304,7 +2300,7 @@ void UUnrealEdEngine::edactAlignVertices()
 						FEdModeGeometry::TGeomObjectIterator GeomModeIt = GeomMode->GeomObjectItor();
 						for( ; GeomModeIt; ++GeomModeIt )
 						{
-							FGeomObject* Object = *GeomModeIt;
+							FGeomObjectPtr Object = *GeomModeIt;
 							if( Object->GetActualBrush() == Brush )
 							{
 								// We found our current brush, update the geometry object's data

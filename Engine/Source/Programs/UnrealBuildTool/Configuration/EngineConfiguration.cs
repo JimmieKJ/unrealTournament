@@ -220,6 +220,53 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Gets a single GUID value associated with the specified key.
+		/// </summary>
+		/// <param name="SectionName">Section name</param>
+		/// <param name="Key">Key name</param>
+		/// <param name="Value">Value associated with the specified key. If the key has more than one value, only the first one is returned</param>
+		/// <returns>True if the key exists</returns>
+		public bool GetGUID(string SectionName, string Key, out Guid Value)
+		{
+			Value = Guid.Empty;
+			string TextValue;
+			bool Result = GetString(SectionName, Key, out TextValue);
+			if (Result)
+			{
+                string HexString = "";
+                if (TextValue.Contains("A=") && TextValue.Contains("B=") && TextValue.Contains("C=") && TextValue.Contains("D="))
+                {
+                    char[] Separators = new char[] { '(', ')', '=', ',', ' ', 'A', 'B', 'C', 'D' };
+                    string[] ComponentValues = TextValue.Split(Separators, StringSplitOptions.RemoveEmptyEntries);
+                    if (ComponentValues.Length == 4)
+                    {
+                        for (int ComponentIndex = 0; ComponentIndex < 4; ComponentIndex++)
+                        {
+                            int IntegerValue;
+                            Result &= Int32.TryParse(ComponentValues[ComponentIndex], out IntegerValue);
+                            HexString += IntegerValue.ToString("X8");
+                        }
+                    }
+                }
+                else
+                {
+                    HexString = TextValue;
+                }
+
+                try
+                {
+                    Value = Guid.ParseExact(HexString, "N");
+                    Result = true;
+                }
+                catch (Exception)
+                {
+                    Result = false;
+                }
+			}
+			return Result;
+		}
+
+		/// <summary>
 		/// Gets a single float value associated with the specified key.
 		/// </summary>
 		/// <param name="SectionName">Section name</param>
@@ -545,21 +592,18 @@ namespace UnrealBuildTool
 				}
 			}
 
-			string UserSettingsFolder = null; // Match FPlatformProcess::UserSettingsDir()
+			string UserSettingsFolder = Utils.GetUserSettingDirectory(); // Match FPlatformProcess::UserSettingsDir()
 			string PersonalFolder = null; // Match FPlatformProcess::UserDir()
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 			{
-				UserSettingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Library", "Application Support", "Epic");
 				PersonalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Documents");
 			}
 			else if (Environment.OSVersion.Platform == PlatformID.Unix)
 			{
-				UserSettingsFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Epic");
 				PersonalFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Documents");
 			}
 			else
 			{
-				UserSettingsFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 				PersonalFolder = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
 			}
 

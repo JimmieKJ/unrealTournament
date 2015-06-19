@@ -328,6 +328,7 @@ void SAnimationRefPoseViewport::CleanupComponent(USceneComponent* Component)
 
 SAnimationRefPoseViewport::SAnimationRefPoseViewport()
 	: PreviewScene(FPreviewScene::ConstructionValues())
+	, PreviewComponent(nullptr)
 {
 }
 
@@ -338,6 +339,11 @@ void SAnimationRefPoseViewport::Construct(const FArguments& InArgs)
 	AnimRefPropertyHandle = InArgs._AnimRefPropertyHandle;
 	RefPoseTypeHandle = InArgs._RefPoseTypeHandle;
 	RefFrameIndexPropertyHandle = InArgs._RefFrameIndexPropertyHandle;
+
+	// Create the preview component
+	PreviewComponent = NewObject<UDebugSkelMeshComponent>();
+	PreviewComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+	PreviewScene.AddComponent( PreviewComponent, FTransform::Identity );
 
 	this->ChildSlot
 	[
@@ -368,30 +374,26 @@ void SAnimationRefPoseViewport::Construct(const FArguments& InArgs)
 			.PreviewInstance(this, &SAnimationRefPoseViewport::GetPreviewInstance)
 			.DraggableBars(this, &SAnimationRefPoseViewport::GetBars)
 			.OnBarDrag(this, &SAnimationRefPoseViewport::OnBarDrag)
+			.OnTickPlayback(this, &SAnimationRefPoseViewport::OnTickPreview)
 			.bAllowZoom(true)
 		]
 	];
 
-
-	// Create a viewport client
-	LevelViewportClient	= MakeShareable(new FAnimationSegmentViewportClient(PreviewScene));
+	// Create the viewport
+	LevelViewportClient = MakeShareable( new FAnimationSegmentViewportClient( PreviewScene ) );
 
 	LevelViewportClient->ViewportType = LVT_Perspective;
 	LevelViewportClient->bSetListenerPosition = false;
 	LevelViewportClient->SetViewLocation( EditorViewportDefs::DefaultPerspectiveViewLocation );
-	LevelViewportClient->SetViewRotation( EditorViewportDefs::DefaultPerspectiveViewRotation );	
+	LevelViewportClient->SetViewRotation( EditorViewportDefs::DefaultPerspectiveViewRotation );
 
-	SceneViewport = MakeShareable(new FSceneViewport(LevelViewportClient.Get(), ViewportWidget));
+	SceneViewport = MakeShareable( new FSceneViewport( LevelViewportClient.Get(), ViewportWidget ) );
 	LevelViewportClient->Viewport = SceneViewport.Get();
-	LevelViewportClient->SetRealtime(true);
-	LevelViewportClient->VisibilityDelegate.BindSP(this, &SAnimationRefPoseViewport::IsVisible);
-	LevelViewportClient->SetViewMode(VMI_Lit);
+	LevelViewportClient->SetRealtime( true );
+	LevelViewportClient->VisibilityDelegate.BindSP( this, &SAnimationRefPoseViewport::IsVisible );
+	LevelViewportClient->SetViewMode( VMI_Lit );
 
-	ViewportWidget->SetViewportInterface(SceneViewport.ToSharedRef());
-
-	PreviewComponent = ConstructObject<UDebugSkelMeshComponent>(UDebugSkelMeshComponent::StaticClass());
-	PreviewComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-	PreviewScene.AddComponent(PreviewComponent, FTransform::Identity);
+	ViewportWidget->SetViewportInterface( SceneViewport.ToSharedRef() );
 
 	InitSkeleton();
 }
@@ -438,40 +440,38 @@ void SAnimationRefPoseViewport::InitSkeleton()
 	}
 }
 
-void SAnimationRefPoseViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SAnimationRefPoseViewport::OnTickPreview( double InCurrentTime, float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	LevelViewportClient->Invalidate();
+}
 
+void SAnimationRefPoseViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
 	class UDebugSkelMeshComponent* Component = PreviewComponent;
 
-	FString TargetSkeletonName = TargetSkeleton? TargetSkeleton->GetName() : FName(NAME_None).ToString();
+	FString TargetSkeletonName = TargetSkeleton ? TargetSkeleton->GetName() : FName( NAME_None ).ToString();
 
-	if (Component != NULL)
+	if ( Component != NULL )
 	{
 		// Reinit the skeleton if the anim ref has changed
 		InitSkeleton();
 
-		if (Component->IsPreviewOn() && AnimRef != NULL)
+		if ( Component->IsPreviewOn() && AnimRef != NULL )
 		{
-			if(PreviewComponent != NULL && PreviewComponent->PreviewInstance != NULL)
+			if ( PreviewComponent != NULL && PreviewComponent->PreviewInstance != NULL )
 			{
 				uint8 RefPoseType;
-				RefPoseTypeHandle->GetValue(RefPoseType);
-				if (RefPoseType == ABPT_AnimFrame)
+				RefPoseTypeHandle->GetValue( RefPoseType );
+				if ( RefPoseType == ABPT_AnimFrame )
 				{
 					int RefFrameIndex;
-					RefFrameIndexPropertyHandle->GetValue(RefFrameIndex);
-					float Fraction = (AnimRef->NumFrames > 0)? FMath::Clamp<float>((float)RefFrameIndex/(float)AnimRef->NumFrames, 0.f, 1.f) : 0.f;
+					RefFrameIndexPropertyHandle->GetValue( RefFrameIndex );
+					float Fraction = ( AnimRef->NumFrames > 0 ) ? FMath::Clamp<float>( (float)RefFrameIndex / (float)AnimRef->NumFrames, 0.f, 1.f ) : 0.f;
 					float RefTime = AnimRef->SequenceLength * Fraction;
-					PreviewComponent->PreviewInstance->SetPosition(RefTime, false);
-					PreviewComponent->PreviewInstance->SetPlaying(false);
+					PreviewComponent->PreviewInstance->SetPosition( RefTime, false );
+					PreviewComponent->PreviewInstance->SetPlaying( false );
+					LevelViewportClient->Invalidate();
 				}
-				else
-				{
-					PreviewComponent->PreviewInstance->SetPlaying(true);
-				}
-				// reinvalidate the viewport
-				LevelViewportClient->Invalidate();
 			}
 
 			Description->SetText( FText::Format( LOCTEXT( "Previewing", "Previewing {0}" ), FText::FromString( Component->GetPreviewText() ) ) );

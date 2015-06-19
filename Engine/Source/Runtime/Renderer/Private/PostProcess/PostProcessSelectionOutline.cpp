@@ -37,7 +37,7 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 	// Set the render target/viewport.
 	SetRenderTarget(Context.RHICmdList, FTextureRHIParamRef(), DestRenderTarget.TargetableTexture);
 	// This is a reversed Z depth surface, so 0.0f is the far plane.
-	Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, true, 0, FIntRect());
+	Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, (float)ERHIZBuffer::FarPlane, true, 0, FIntRect());
 	Context.SetViewportAndCallRHI(ViewRect);
 
 	if (View.Family->EngineShowFlags.Selection)
@@ -83,9 +83,8 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 					}
 				}
 
-				// This is a reversed Z depth surface, using CF_GreaterEqual.
 				// Note that the stencil value will overflow with enough selected objects
-				Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true, CF_GreaterEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI(), *AssignedStencilIndexPtr);
+				Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual, true, CF_Always, SO_Keep, SO_Keep, SO_Replace>::GetRHI(), *AssignedStencilIndexPtr);
 
 				const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
 				FHitProxyDrawingPolicyFactory::DrawDynamicMesh(Context.RHICmdList, View, FactoryContext, MeshBatch, false, true, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
@@ -105,16 +104,16 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 
 			// top
 			Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, ViewRect.Min.Y, ViewRect.Max.X, InnerRect.Min.Y);
-			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, true, 0, FIntRect());
+			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, (float)ERHIZBuffer::FarPlane, true, 0, FIntRect());
 			// bottom
 			Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, InnerRect.Max.Y, ViewRect.Max.X, ViewRect.Max.Y);
-			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, true, 0, FIntRect());
+			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, (float)ERHIZBuffer::FarPlane, true, 0, FIntRect());
 			// left
 			Context.RHICmdList.SetScissorRect(true, ViewRect.Min.X, ViewRect.Min.Y, InnerRect.Min.X, ViewRect.Max.Y);
-			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, true, 0, FIntRect());
+			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, (float)ERHIZBuffer::FarPlane, true, 0, FIntRect());
 			// right
 			Context.RHICmdList.SetScissorRect(true, InnerRect.Max.X, ViewRect.Min.Y, ViewRect.Max.X, ViewRect.Max.Y);
-			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, 0.0f, true, 0, FIntRect());
+			Context.RHICmdList.Clear(false, FLinearColor(0, 0, 0, 0), true, (float)ERHIZBuffer::FarPlane, true, 0, FIntRect());
 
 			Context.RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 		}
@@ -281,7 +280,7 @@ public:
 	}
 	
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << OutlineColor << SubduedOutlineColor << BSPSelectionIntensity << DeferredParameters << PostprocessInput1MS << EditorPrimitivesStencil << EditorRenderParams;
@@ -341,7 +340,7 @@ void FRCPassPostProcessSelectionOutline::Process(FRenderingCompositePassContext&
 
 	// Set the view family's render target/viewport.
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, ViewRect);
+	Context.RHICmdList.Clear(true, FLinearColor::Black, false, (float)ERHIZBuffer::FarPlane, false, 0, ViewRect);
 	Context.SetViewportAndCallRHI(ViewRect);
 
 	// set the state

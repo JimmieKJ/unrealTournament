@@ -38,8 +38,24 @@ class UNREALTOURNAMENT_API UUTReachSpec : public UObject
 		return DefaultCost;
 	}
 
+	/** called when AI is in the falling state to allow paths to handle special air control requirements (e.g. air control to wall or movement volume for special move instead of directly towards destination)
+	 * return true to skip normal fall control logic
+	 */
+	virtual bool OverrideAirControl(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const
+	{
+		return false;
+	}
+
 	/** return whether AI should pause before continuing move along this path (e.g. wait for elevator to reach the right place) */
-	virtual bool WaitForMove(APawn* Asker, const FComponentBasedPosition& MovePos) const
+	virtual bool WaitForMove(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const
+	{
+		return false;
+	}
+
+	/** return true to allow AI to jump/fall off ledges when following this path even if the R_JUMP reach flag is not set
+	 * useful if there is a faster route through this node available to jump-capable Pawns
+	 */
+	virtual bool AllowWalkOffLedges(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos) const
 	{
 		return false;
 	}

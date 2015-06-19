@@ -5,6 +5,7 @@
 #include "StreamingLevelCollectionModel.h"
 #include "StreamingLevelModel.h"
 #include "Engine/LevelStreaming.h"
+#include "AssetData.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
@@ -62,6 +63,14 @@ FName FStreamingLevelModel::GetLongPackageName() const
 	else
 	{
 		return LevelCollectionModel.GetWorld()->PersistentLevel->GetOutermost()->GetFName();
+	}
+}
+
+void FStreamingLevelModel::UpdateAsset(const FAssetData& AssetData)
+{
+	if (LevelStreaming.IsValid())
+	{
+		LevelStreaming->SetWorldAssetByPackageName(AssetData.PackageName);
 	}
 }
 

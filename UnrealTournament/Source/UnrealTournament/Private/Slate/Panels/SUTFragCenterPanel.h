@@ -16,12 +16,8 @@ class UNREALTOURNAMENT_API SUTFragCenterPanel : public SUTWebBrowserPanel
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
-	void UpdateAutoPlay();
 	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 protected:
-	TSharedPtr<SUTButton> AutoPlayToggleButton;
-	FText GetAutoPlayText();
-	FReply ChangeAutoPlay();
 
 	FString DesiredURL;
 	bool bShowWarning;

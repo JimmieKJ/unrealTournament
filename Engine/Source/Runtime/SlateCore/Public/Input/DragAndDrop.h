@@ -21,7 +21,7 @@ public:
 	/**
 	 * Default constructor.
 	 */
-	FDragDropOperation( ) { }
+	FDragDropOperation();
 
 	/**
 	 * Destructor.
@@ -52,14 +52,23 @@ public:
 	/** Allows drag/drop operations to override the current cursor */
 	virtual FCursorReply OnCursorQuery();
 
-	/** Gets the widget that will serve as the decorator unless overridden. If you do not override, you will have no decorator */
+	/**
+	 * Gets the widget that will serve as the decorator unless overridden. 
+	 * If you do not override, you will have no decorator
+	 */
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const { return TSharedPtr<SWidget>(); }
+
+	/** Gets the desired position of the decorator in absolute space. */
+	virtual FVector2D GetDecoratorPosition() const { return FVector2D(0, 0); }
 	
 	/** Alters the visibility of the window */
-	void SetDecoratorVisibility(bool bVisible);
+	virtual void SetDecoratorVisibility(bool bVisible);
 
 	/** Is this drag Drop operation going to interact with applications outside of Slate */
 	virtual bool IsExternalOperation() const { return false; }
+
+	/** @return true if the operation does not create a decorator window.  Used for game drag drop operations. */
+	virtual bool IsWindowlessOperation() const { return bCreateNewWindow == false; }
 
 	/** 
 	 * Sets the cursor to override the drag drop operations cursor with so that a 
@@ -76,9 +85,14 @@ protected:
 	virtual void Construct();
 
 	/**
-	 * Destroys the cursor decorator.
+	 * Creates a window for the cursor decorator.
 	 */
-	void DestroyCursorDecoratorWindow( );
+	void CreateCursorDecoratorWindow();
+
+	/**
+	 * Destroys the cursor decorator window.
+	 */
+	void DestroyCursorDecoratorWindow();
 
 	/**
 	 * Checks whether this drag and drop operation can cast safely to the specified type.
@@ -89,6 +103,12 @@ protected:
 	}
 
 protected:
+
+	/**
+	 * Create a new window for the decorator content.  If this is false,
+	 * SlateApplication will draw the decorator directly using the 
+	 */
+	bool bCreateNewWindow;
 
 	/** The window that owns the decorator widget */
 	TSharedPtr<SWindow> CursorDecoratorWindow;
@@ -215,5 +235,22 @@ private:
 	} DragType;
 };
 
+
+class SLATECORE_API FGameDragDropOperation : public FDragDropOperation
+{
+public:
+	DRAG_DROP_OPERATOR_TYPE(FGameDragDropOperation, FDragDropOperation)
+
+	/**
+	* Default constructor.
+	*/
+	FGameDragDropOperation();
+
+	virtual FVector2D GetDecoratorPosition() const override;
+
+protected:
+	/** The absolute position of the decorator. */
+	FVector2D DecoratorPosition;
+};
 
 #include "DragAndDrop.inl"

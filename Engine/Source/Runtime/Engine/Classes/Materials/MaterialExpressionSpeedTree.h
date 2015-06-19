@@ -17,12 +17,13 @@ enum ESpeedTreeGeometryType
 UENUM()
 enum ESpeedTreeWindType
 {
-	STW_None	UMETA(DisplayName="None"),
-	STW_Fastest	UMETA(DisplayName="Fastest"),
-	STW_Fast	UMETA(DisplayName="Fast"),
-	STW_Better	UMETA(DisplayName="Better"),
-	STW_Best	UMETA(DisplayName="Best"),
-	STW_Palm	UMETA(DisplayName="Palm")
+	STW_None		UMETA(DisplayName="None"),
+	STW_Fastest		UMETA(DisplayName="Fastest"),
+	STW_Fast		UMETA(DisplayName="Fast"),
+	STW_Better		UMETA(DisplayName="Better"),
+	STW_Best		UMETA(DisplayName="Best"),
+	STW_Palm		UMETA(DisplayName="Palm"),
+	STW_BestPlus	UMETA(DisplayName="BestPlus"),
 };
 
 UENUM()
@@ -50,6 +51,9 @@ class UMaterialExpressionSpeedTree : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionSpeedTree, meta=(DisplayName = "Billboard Threshold", ToolTip="The threshold for triangles to be removed from the bilboard mesh when not facing the camera (0 = none pass, 1 = all pass).", ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
 	float BillboardThreshold;
 
+	UPROPERTY(EditAnywhere, Category=MaterialExpressionSpeedTree, AdvancedDisplay, meta=(DisplayName = "Support accurate velocities from wind. This will incur extra cost per vertex."))
+	bool bAccurateWindVelocities;
+
 	// Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 #if WITH_EDITOR
@@ -62,5 +66,3 @@ class UMaterialExpressionSpeedTree : public UMaterialExpression
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	// End UMaterialExpression Interface
 };
-
-

@@ -40,6 +40,7 @@ void SScrubWidget::Construct( const SScrubWidget::FArguments& InArgs )
 	ViewInputMax = InArgs._ViewInputMax;
 	OnSetInputViewRange = InArgs._OnSetInputViewRange;
 	OnCropAnimSequence = InArgs._OnCropAnimSequence;
+	OnAddAnimSequence = InArgs._OnAddAnimSequence;
 	OnReZeroAnimSequence = InArgs._OnReZeroAnimSequence;
 
 	DraggableBars = InArgs._DraggableBars;
@@ -332,7 +333,7 @@ FReply SScrubWidget::OnMouseMove( const FGeometry& MyGeometry, const FPointerEve
 		else if (!bDragging)
 		{
 			DistanceDragged += FMath::Abs(MouseEvent.GetCursorDelta().X);
-			if ( DistanceDragged > FSlateApplication::Get().GetDragTriggerDistnace() )
+			if ( DistanceDragged > FSlateApplication::Get().GetDragTriggerDistance() )
 			{
 				bDragging = true;
 			}
@@ -373,7 +374,7 @@ void SScrubWidget::CommitValue( float NewValue, bool bSliderClamp, bool bCommitt
 	OnValueChanged.ExecuteIfBound( NewValue );
 }
 
-FVector2D SScrubWidget::ComputeDesiredSize() const 
+FVector2D SScrubWidget::ComputeDesiredSize( float ) const
 {
 	return FVector2D(100, 30);
 }
@@ -412,7 +413,7 @@ FCursorReply SScrubWidget::OnCursorQuery( const FGeometry& MyGeometry, const FPo
 
 void SScrubWidget::CreateContextMenu(float CurrentFrameTime)
 {
-	if ((OnCropAnimSequence.IsBound() || OnReZeroAnimSequence.IsBound()) && (SequenceLength.Get() >= MINIMUM_ANIMATION_LENGTH))
+	if ((OnCropAnimSequence.IsBound() || OnReZeroAnimSequence.IsBound() || OnAddAnimSequence.IsBound()) && (SequenceLength.Get() >= MINIMUM_ANIMATION_LENGTH))
 	{
 		const bool CloseAfterSelection = true;
 		FMenuBuilder MenuBuilder( CloseAfterSelection, NULL );
@@ -420,7 +421,7 @@ void SScrubWidget::CreateContextMenu(float CurrentFrameTime)
 		MenuBuilder.BeginSection("SequenceEditingContext", LOCTEXT("SequenceEditing", "Sequence Editing") );
 		{
 			float CurrentFrameFraction = CurrentFrameTime / SequenceLength.Get();
-			uint32 CurrentFrameNumber = CurrentFrameFraction * NumOfKeys.Get();
+			int32 CurrentFrameNumber = CurrentFrameFraction * NumOfKeys.Get();
 
 			FUIAction Action;
 			FText Label;
@@ -455,6 +456,20 @@ void SScrubWidget::CreateContextMenu(float CurrentFrameTime)
 				}
 			}
 
+			if (OnAddAnimSequence.IsBound())
+			{
+				//Corrected frame time based on selected frame number
+				float CorrectedFrameTime = CurrentFrameFraction * SequenceLength.Get();
+
+				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceAdded, true, CurrentFrameNumber));
+				Label = FText::Format(LOCTEXT("InsertBeforeCurrentFrame", "Insert frame before {0}"), FText::AsNumber(CurrentFrameNumber));
+				MenuBuilder.AddMenuEntry(Label, LOCTEXT("InsertBefore_ToolTip", "Insert a frame before current position"), FSlateIcon(), Action);
+
+				Action = FUIAction(FExecuteAction::CreateSP(this, &SScrubWidget::OnSequenceAdded, false, CurrentFrameNumber));
+				Label = FText::Format(LOCTEXT("InsertAfterCurrentFrame", "Insert frame after {0}"), FText::AsNumber(CurrentFrameNumber));
+				MenuBuilder.AddMenuEntry(Label, LOCTEXT("InsertAfter_ToolTip", "Insert a frame after current position"), FSlateIcon(), Action);
+			}
+
 			if (OnReZeroAnimSequence.IsBound())
 			{
 				//Menu - "ReZero"
@@ -475,6 +490,16 @@ void SScrubWidget::OnSequenceCropped( bool bFromStart, float CurrentFrameTime )
 
 	//Update scrub widget's min and max view output.
 	OnSetInputViewRange.ExecuteIfBound( ViewInputMin.Get(), ViewInputMax.Get() );
+}
+
+void SScrubWidget::OnSequenceAdded(bool bBefore, int32 CurrentFrameNumber)
+{
+	OnAddAnimSequence.ExecuteIfBound(bBefore, CurrentFrameNumber);
+
+	//Update scrubs new length to be new Sequence Length
+	// @Todo fixme: this whole thing needs to change to "Refresh" 
+	// - including the OnSequenceCropped
+	OnSetInputViewRange.ExecuteIfBound(ViewInputMin.Get(), SequenceLength.Get());
 }
 
 void SScrubWidget::OnReZero()

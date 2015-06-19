@@ -52,7 +52,6 @@ AGameMode::AGameMode(const FObjectInitializer& ObjectInitializer)
 	DefaultPawnClass = ADefaultPawn::StaticClass();
 	PlayerControllerClass = APlayerController::StaticClass();
 	SpectatorClass = ASpectatorPawn::StaticClass();
-	ReplaySpectatorPlayerControllerClass = APlayerController::StaticClass();
 	EngineMessageClass = UEngineMessage::StaticClass();
 	GameStateClass = AGameState::StaticClass();
 	CurrentID = 1;
@@ -258,6 +257,14 @@ void AGameMode::PostLogin( APlayerController* NewPlayer )
 	{
 		NewPlayer->ClientGotoState(NAME_Spectating);
 	}
+	else
+	{
+		// If NewPlayer is not only a spectator and has a valid ID, add him as a user to the replay.
+		if (NewPlayer->PlayerState->UniqueId.IsValid())
+		{
+			GetGameInstance()->AddUserToReplay(NewPlayer->PlayerState->UniqueId.ToString());
+		}
+	}
 
 	if (GameSession)
 	{
@@ -290,15 +297,15 @@ void AGameMode::PostLogin( APlayerController* NewPlayer )
 bool AGameMode::ShouldStartInCinematicMode(bool& OutHidePlayer,bool& OutHideHUD,bool& OutDisableMovement,bool& OutDisableTurning)
 {
 	bool StartInCinematicMode = false;
-	if(GEngine->bStartWithMatineeCapture)
+	if(GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture)
 	{
-		GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("CinematicMode"), StartInCinematicMode, GEditorUserSettingsIni );
+		GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("CinematicMode"), StartInCinematicMode, GEditorPerProjectIni );
 		if(StartInCinematicMode)
 		{
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("DisableMovement"), OutDisableMovement, GEditorUserSettingsIni );
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("DisableTurning"), OutDisableTurning, GEditorUserSettingsIni );
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("HidePlayer"), OutHidePlayer, GEditorUserSettingsIni );
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("HideHUD"), OutHideHUD, GEditorUserSettingsIni );
+			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("DisableMovement"), OutDisableMovement, GEditorPerProjectIni );
+			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("DisableTurning"), OutDisableTurning, GEditorPerProjectIni );
+			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("HidePlayer"), OutHidePlayer, GEditorPerProjectIni );
+			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("HideHUD"), OutHideHUD, GEditorPerProjectIni );
 			return StartInCinematicMode;
 		}
 	}
@@ -628,6 +635,11 @@ void AGameMode::HandleMatchHasStarted()
 			}
 		}
 	}
+
+	if (IsHandlingReplays() && GetGameInstance() != nullptr)
+	{
+		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+	}
 }
 
 bool AGameMode::ReadyToEndMatch_Implementation()
@@ -649,6 +661,14 @@ void AGameMode::EndMatch()
 void AGameMode::HandleMatchHasEnded()
 {
 	GameSession->HandleMatchHasEnded();
+
+	// PLK - going to end replays on timer for UT
+	/*
+	if (IsHandlingReplays() && GetGameInstance() != nullptr)
+	{
+		GetGameInstance()->StopRecordingReplay();
+	}
+	*/
 }
 
 void AGameMode::StartToLeaveMap()
@@ -945,7 +965,7 @@ void AGameMode::ProcessServerTravel(const FString& URL, bool bAbsolute)
 		return;
 	}
 	
-	FGuid NextMapGuid = UEngine::GetPackageGuid(FName(*NextMap));
+	FGuid NextMapGuid = UEngine::GetPackageGuid(FName(*NextMap), GetWorld()->IsPlayInEditor());
 
 	// Notify clients we're switching level and give them time to receive.
 	FString URLMod = URL;
@@ -1290,11 +1310,25 @@ void AGameMode::PreLogin(const FString& Options, const FString& Address, const T
 APlayerController* AGameMode::SpawnPlayerController(ENetRole RemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation)
 {
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.Instigator = Instigator;
-	return GetWorld()->SpawnActor<APlayerController>(PlayerControllerClass, SpawnLocation, SpawnRotation, SpawnInfo);
+	SpawnInfo.Instigator = Instigator;	
+	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save player controllers into a map
+	SpawnInfo.bDeferConstruction = true;
+	APlayerController* NewPC = GetWorld()->SpawnActor<APlayerController>(PlayerControllerClass, SpawnLocation, SpawnRotation, SpawnInfo);
+	if (NewPC)
+	{
+		if (RemoteRole == ROLE_SimulatedProxy)
+		{
+			// This is a local player because it has no authority/autonomous remote role
+			NewPC->SetAsLocalPlayerController();
+		}
+		
+		UGameplayStatics::FinishSpawningActor(NewPC, FTransform(SpawnRotation, SpawnLocation));
+	}
+
+	return NewPC;
 }
 
-TSubclassOf<APawn> AGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+UClass* AGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
 {
 	return DefaultPawnClass;
 }
@@ -1474,7 +1508,7 @@ AActor* AGameMode::ChoosePlayerStart_Implementation( AController* Player )
 {
 	// Choose a player start
 	APlayerStart* FoundPlayerStart = NULL;
-	TSubclassOf<APawn> PawnClass = GetDefaultPawnClassForController(Player);
+	UClass* PawnClass = GetDefaultPawnClassForController(Player);
 	APawn* PawnToFit = PawnClass ? PawnClass->GetDefaultObject<APawn>() : nullptr;
 	TArray<APlayerStart*> UnOccupiedStartPoints;
 	TArray<APlayerStart*> OccupiedStartPoints;
@@ -1729,9 +1763,4 @@ bool AGameMode::IsHandlingReplays()
 	}
 
 	return bHandleDedicatedServerReplays && GetNetMode() == ENetMode::NM_DedicatedServer;
-}
-
-FName AGameMode::GetMatchState() const
-{
-	return MatchState;
 }

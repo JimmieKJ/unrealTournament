@@ -163,6 +163,11 @@ void FSpeedTreeWind::Advance(bool bEnabled, double fTime)
 		m_fElapsedTime = fTime - m_fLastTime;
 	m_fLastTime = fTime;
 
+	{
+		// Copy values to previous frame's area of the buffer
+		FMemory::Memcpy(m_afShaderTable + NUM_SHADER_VALUES, m_afShaderTable, NUM_SHADER_VALUES * sizeof(m_afShaderTable[0]));
+	}
+
 	if (bEnabled)
 	{
 		if (m_bGustingEnabled)
@@ -510,6 +515,16 @@ void FSpeedTreeWind::SetDirection(const FVector& vDir)
 		m_afDirectionMidTarget[2] = (m_afDirectionAtStart[2] + m_afDirectionTarget[2]) * 0.5f;
 		Normalize(m_afDirectionMidTarget);
 	}
+}
+
+void FSpeedTreeWind::SetGustMin(float InGustMin)
+{
+	m_sParams.m_fGustStrengthMin = InGustMin;
+}
+
+void FSpeedTreeWind::SetGustMax(float InGustMax)
+{
+	m_sParams.m_fGustStrengthMax = InGustMax;
 }
 
 

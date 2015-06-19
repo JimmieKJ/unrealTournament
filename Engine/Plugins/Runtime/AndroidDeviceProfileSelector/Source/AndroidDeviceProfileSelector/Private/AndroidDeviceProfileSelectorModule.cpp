@@ -27,7 +27,31 @@ FString const FAndroidDeviceProfileSelectorModule::GetRuntimeDeviceProfileName()
 
 	UE_LOG(LogAndroid, Log,TEXT("Default profile:%s GPUFamily:%s"),*ProfileName,*GPUFamily);
 
-	if (FCString::Stricmp(*GPUFamily, TEXT("Adreno (TM) 320")) == 0)
+	if (FCString::Stricmp(*GPUFamily, TEXT("PowerVR SGX 540")) == 0)
+	{
+		ProfileName = TEXT("Android_PowerVR540");
+	}
+	else if (FCString::Stricmp(*GPUFamily, TEXT("Adreno (TM) 200")) == 0)
+	{
+		ProfileName = TEXT("Android_Adreno200");
+	}
+	else if (FCString::Stricmp(*GPUFamily, TEXT("Adreno (TM) 203")) == 0)
+	{
+		ProfileName = TEXT("Android_Adreno203");
+	}
+	else if (FCString::Stricmp(*GPUFamily, TEXT("Adreno (TM) 205")) == 0)
+	{
+		ProfileName = TEXT("Android_Adreno205");
+	}
+	else if (FCString::Stricmp(*GPUFamily, TEXT("Adreno (TM) 220")) == 0)
+	{
+		ProfileName = TEXT("Android_Adreno220");
+	}
+	else if (FCString::Stricmp(*GPUFamily, TEXT("Adreno (TM) 225")) == 0)
+	{
+		ProfileName = TEXT("Android_Adreno225");
+	}
+	else if (FCString::Stricmp(*GPUFamily, TEXT("Adreno (TM) 320")) == 0)
 	{
 		ProfileName = TEXT("Android_Adreno320");
 	}

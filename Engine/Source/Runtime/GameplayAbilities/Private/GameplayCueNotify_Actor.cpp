@@ -11,12 +11,22 @@ AGameplayCueNotify_Actor::AGameplayCueNotify_Actor(const FObjectInitializer& Obj
 {
 	IsOverride = true;
 	PrimaryActorTick.bCanEverTick = true;
+	bAutoDestroyOnRemove = false;
+	AutoDestroyDelay = 0.f;
 }
 
 #if WITH_EDITOR
 void AGameplayCueNotify_Actor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	UAbilitySystemGlobals::Get().GetGameplayCueManager()->bAccelerationMapOutdated = true;
+	const UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
+	UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(GetClass());
+
+	if (PropertyThatChanged && PropertyThatChanged->GetFName() == FName(TEXT("GameplayCueTag")))
+	{
+		DeriveGameplayCueTagFromAssetName();
+		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleAssetDeleted(Blueprint);
+		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleAssetAdded(Blueprint);
+	}
 }
 #endif
 
@@ -40,6 +50,17 @@ void AGameplayCueNotify_Actor::Serialize(FArchive& Ar)
 	}
 }
 
+void AGameplayCueNotify_Actor::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// Most likely case for this is the target actor is no longer net relevant to us and has been destroyed, so this should be destroyed too
+	if (GetOwner())
+	{
+		GetOwner()->OnDestroyed.AddDynamic(this, &AGameplayCueNotify_Actor::OnOwnerDestroyed);
+	}
+}
+
 void AGameplayCueNotify_Actor::PostInitProperties()
 {
 	Super::PostInitProperties();
@@ -53,14 +74,23 @@ bool AGameplayCueNotify_Actor::HandlesEvent(EGameplayCueEvent::Type EventType) c
 
 void AGameplayCueNotify_Actor::HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
 {
+	SCOPE_CYCLE_COUNTER(STAT_HandleGameplayCueNotifyActor);
+
 	if (MyTarget && !MyTarget->IsPendingKill())
 	{
 		K2_HandleGameplayCue(MyTarget, EventType, Parameters);
+
+		// Clear any pending auto-destroy that may have occurred from a previous OnRemove
+		SetLifeSpan(0.f);
 
 		switch (EventType)
 		{
 		case EGameplayCueEvent::OnActive:
 			OnActive(MyTarget, Parameters);
+			break;
+
+		case EGameplayCueEvent::WhileActive:
+			WhileActive(MyTarget, Parameters);
 			break;
 
 		case EGameplayCueEvent::Executed:
@@ -69,6 +99,18 @@ void AGameplayCueNotify_Actor::HandleGameplayCue(AActor* MyTarget, EGameplayCueE
 
 		case EGameplayCueEvent::Removed:
 			OnRemove(MyTarget, Parameters);
+
+			if (bAutoDestroyOnRemove)
+			{
+				if (AutoDestroyDelay > 0.f)
+				{
+					SetLifeSpan(AutoDestroyDelay);
+				}
+				else
+				{
+					Destroy();
+				}
+			}
 			break;
 		};
 	}
@@ -82,7 +124,6 @@ void AGameplayCueNotify_Actor::OnOwnerDestroyed()
 {
 	// May need to do extra cleanup in child classes
 	Destroy();
-	//MarkPendingKill();
 }
 
 bool AGameplayCueNotify_Actor::OnExecute_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters)
@@ -91,6 +132,11 @@ bool AGameplayCueNotify_Actor::OnExecute_Implementation(AActor* MyTarget, FGamep
 }
 
 bool AGameplayCueNotify_Actor::OnActive_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters)
+{
+	return false;
+}
+
+bool AGameplayCueNotify_Actor::WhileActive_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters)
 {
 	return false;
 }

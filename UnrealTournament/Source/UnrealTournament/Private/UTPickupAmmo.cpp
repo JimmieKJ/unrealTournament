@@ -8,7 +8,6 @@ AUTPickupAmmo::AUTPickupAmmo(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	Ammo.Amount = 10;
-	bDisplayRespawnTimer = false;
 	BaseDesireability = 0.2f;
 	PickupMessageString = NSLOCTEXT("PickupMessage", "AmmoPickedUp", "Ammo");
 }

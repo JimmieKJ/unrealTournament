@@ -16,33 +16,32 @@
 
 // Allow Windows Platform types in the entire file.
 #include "AllowWindowsPlatformTypes.h"
-	#include "Ole2.h"
-	#include <shlobj.h>
-	#include <objbase.h>
-	#include <SetupApi.h>
-	#include <devguid.h>
+#include "Ole2.h"
+#include <shlobj.h>
+#include <objbase.h>
+#include <SetupApi.h>
+#include <devguid.h>
+#include <dwmapi.h>
+
 
 // This might not be defined by Windows when maintaining backwards-compatibility to pre-Vista builds
 #ifndef WM_MOUSEHWHEEL
 #define WM_MOUSEHWHEEL                  0x020E
 #endif
 
-// This might not be defined by Windows when maintaining backwards-compatibility to pre-Win8 builds
-#ifndef SM_CONVERTIBLESLATEMODE
-#define SM_CONVERTIBLESLATEMODE			0x2003
-#endif
-
 DEFINE_LOG_CATEGORY(LogWindowsDesktop);
 
 const FIntPoint FWindowsApplication::MinimizedWindowPosition(-32000,-32000);
 
-FWindowsApplication* WindowApplication = NULL;
+FWindowsApplication* WindowsApplication = nullptr;
+
 
 FWindowsApplication* FWindowsApplication::CreateWindowsApplication( const HINSTANCE InstanceHandle, const HICON IconHandle )
 {
-	WindowApplication = new FWindowsApplication( InstanceHandle, IconHandle );
-	return WindowApplication;
+	WindowsApplication = new FWindowsApplication( InstanceHandle, IconHandle );
+	return WindowsApplication;
 }
+
 
 FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON IconHandle )
 	: GenericApplication( MakeShareable( new FWindowsCursor() ) )
@@ -51,11 +50,11 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	, bIsMouseAttached( false )
 	, XInput( XInputInterface::Create( MessageHandler ) )
 	, bHasLoadedInputPlugins( false )
+	, bAllowedToDeferMessageProcessing(true)
 	, CVarDeferMessageProcessing( 
 		TEXT( "Slate.DeferWindowsMessageProcessing" ),
 		bAllowedToDeferMessageProcessing,
 		TEXT( "Whether windows message processing is deferred until tick or if they are processed immediately" ) )
-	, bAllowedToDeferMessageProcessing( true )
 	, bInModalSizeLoop( false )
 
 {
@@ -77,15 +76,17 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 		TextInputMethodSystem.Reset();
 	}
 
+	TaskbarList = FTaskbarList::Create();
+
 	// Get initial display metrics. (display information for existing desktop, before we start changing resolutions)
 	FDisplayMetrics::GetDisplayMetrics(InitialDisplayMetrics);
 
 	// Save the current sticky/toggle/filter key settings so they can be restored them later
 	// If there are .ini settings, use them instead of the current system settings.
 	// NOTE: Whenever we exit and restore these settings gracefully, the .ini settings are removed.
-	FMemory::MemZero(StartupStickyKeys);
-	FMemory::MemZero(StartupToggleKeys);
-	FMemory::MemZero(StartupFilterKeys);
+	FMemory::Memzero(StartupStickyKeys);
+	FMemory::Memzero(StartupToggleKeys);
+	FMemory::Memzero(StartupFilterKeys);
 	
 	StartupStickyKeys.cbSize = sizeof(StartupStickyKeys);
 	StartupToggleKeys.cbSize = sizeof(StartupToggleKeys);
@@ -184,6 +185,8 @@ void FWindowsApplication::DestroyApplication()
 	// Restore accessibility shortcuts and remove the saved state from the .ini
 	AllowAccessibilityShortcutKeys(true);
 	GConfig->EmptySection(TEXT("WindowsApplication.Accessibility"), GEngineIni);
+
+	TaskbarList = nullptr;
 }
 
 void FWindowsApplication::ShutDownAfterError()
@@ -191,6 +194,8 @@ void FWindowsApplication::ShutDownAfterError()
 	// Restore accessibility shortcuts and remove the saved state from the .ini
 	AllowAccessibilityShortcutKeys(true);
 	GConfig->EmptySection(TEXT("WindowsApplication.Accessibility"), GEngineIni);
+
+	TaskbarList = nullptr;
 }
 
 bool FWindowsApplication::RegisterClass( const HINSTANCE HInstance, const HICON HIcon )
@@ -261,16 +266,39 @@ void FWindowsApplication::SetMessageHandler( const TSharedRef< FGenericApplicati
 
 FModifierKeysState FWindowsApplication::GetModifierKeys() const
 {
-	const bool bIsLeftShiftDown = ( ::GetAsyncKeyState( VK_LSHIFT ) & 0x8000 ) != 0;
-	const bool bIsRightShiftDown = ( ::GetAsyncKeyState( VK_RSHIFT ) & 0x8000 ) != 0;
-	const bool bIsLeftControlDown = ( ::GetAsyncKeyState( VK_LCONTROL ) & 0x8000 ) != 0;
-	const bool bIsRightControlDown = ( ::GetAsyncKeyState( VK_RCONTROL ) & 0x8000 ) != 0;
-	const bool bIsLeftAltDown = ( ::GetAsyncKeyState( VK_LMENU ) & 0x8000 ) != 0;
-	const bool bIsRightAltDown = ( ::GetAsyncKeyState (VK_RMENU ) & 0x8000 ) != 0;
-	const bool bAreCapsLocked = ( ::GetKeyState( VK_CAPITAL ) & 0x0001 ) != 0;
-
-	return FModifierKeysState(bIsLeftShiftDown, bIsRightShiftDown, bIsLeftControlDown, bIsRightControlDown, bIsLeftAltDown, bIsRightAltDown, false, false, bAreCapsLocked); // Win key is ignored
+	return CachedModifierKeyState;
 }
+
+
+static TSharedPtr< FWindowsWindow > FindWindowByHWND(const TArray< TSharedRef< FWindowsWindow > >& WindowsToSearch, HWND HandleToFind)
+{
+	for (int32 WindowIndex = 0; WindowIndex < WindowsToSearch.Num(); ++WindowIndex)
+	{
+		TSharedRef< FWindowsWindow > Window = WindowsToSearch[WindowIndex];
+		if (Window->GetHWnd() == HandleToFind)
+		{
+			return Window;
+		}
+	}
+
+	return TSharedPtr< FWindowsWindow >(nullptr);
+}
+
+
+bool FWindowsApplication::IsCursorDirectlyOverSlateWindow() const
+{
+	POINT CursorPos;
+	BOOL bGotPoint = ::GetCursorPos(&CursorPos);
+	if (bGotPoint)
+	{
+		HWND hWnd = ::WindowFromPoint(CursorPos);
+
+		TSharedPtr< FWindowsWindow > SlatWindowUnderCursor = FindWindowByHWND(Windows, hWnd);
+		return SlatWindowUnderCursor.IsValid();
+	}
+	return false;
+}
+
 
 void FWindowsApplication::SetCapture( const TSharedPtr< FGenericWindow >& InWindow )
 {
@@ -356,7 +384,6 @@ FPlatformRect FWindowsApplication::GetWorkArea( const FPlatformRect& CurrentWind
 	GetMonitorInfo( hBestMonitor, &MonitorInfo);
 
 	// ... so that we can figure out the work area (are not covered by taskbar)
-	MonitorInfo.rcWork;
 
 	FPlatformRect WorkArea;
 	WorkArea.Left = MonitorInfo.rcWork.left;
@@ -478,7 +505,7 @@ void GetMonitorInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 	DisplayDevice.cb = sizeof(DisplayDevice);
 	DWORD DeviceIndex = 0; // device index
 
-	FMonitorInfo* PrimaryDevice = NULL;
+	FMonitorInfo* PrimaryDevice = nullptr;
 	OutMonitorInfo.Empty(2); // Reserve two slots, as that will be the most common maximum
 
 	FString DeviceID;
@@ -499,7 +526,7 @@ void GetMonitorInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 					FMonitorInfo Info;
 
 					Info.ID = FString::Printf(TEXT("%s"), Monitor.DeviceID);
-					Info.Name = Info.ID.Mid (8, Info.ID.Find (TEXT("\\"), ESearchCase::IgnoreCase, ESearchDir::FromStart, 9) - 8);
+					Info.Name = Info.ID.Mid (8, Info.ID.Find (TEXT("\\"), ESearchCase::CaseSensitive, ESearchDir::FromStart, 9) - 8);
 
 					if (GetSizeForDevID(Info.Name, Info.NativeWidth, Info.NativeHeight))
 					{
@@ -507,7 +534,7 @@ void GetMonitorInfo(TArray<FMonitorInfo>& OutMonitorInfo)
 						Info.bIsPrimary = (DisplayDevice.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) > 0;
 						OutMonitorInfo.Add(Info);
 
-						if (PrimaryDevice == NULL && Info.bIsPrimary)
+						if (PrimaryDevice == nullptr && Info.bIsPrimary)
 						{
 							PrimaryDevice = &OutMonitorInfo.Last();
 						}
@@ -562,7 +589,7 @@ void FWindowsApplication::GetInitialDisplayMetrics( FDisplayMetrics& OutDisplayM
 EWindowTitleAlignment::Type FWindowsApplication::GetWindowTitleAlignment() const
 {
 	OSVERSIONINFOEX VersionInfo;
-	FMemory::MemZero(VersionInfo);
+	FMemory::Memzero(VersionInfo);
 	VersionInfo.dwMajorVersion = 6;
 	VersionInfo.dwMinorVersion = 2;
 	VersionInfo.dwOSVersionInfoSize = sizeof(VersionInfo);
@@ -579,36 +606,29 @@ EWindowTitleAlignment::Type FWindowsApplication::GetWindowTitleAlignment() const
 
 	return EWindowTitleAlignment::Left;
 }
-
-static TSharedPtr< FWindowsWindow > FindWindowByHWND( const TArray< TSharedRef< FWindowsWindow > >& WindowsToSearch, HWND HandleToFind )
+	
+EWindowTransparency FWindowsApplication::GetWindowTransparencySupport() const
 {
-	for (int32 WindowIndex=0; WindowIndex < WindowsToSearch.Num(); ++WindowIndex)
-	{
-		TSharedRef< FWindowsWindow > Window = WindowsToSearch[ WindowIndex ];
-		if ( Window->GetHWnd() == HandleToFind )
-		{
-			return Window;
-		}
-	}
+#if ALPHA_BLENDED_WINDOWS
+	BOOL bIsCompositionEnabled = FALSE;
+	::DwmIsCompositionEnabled(&bIsCompositionEnabled);
 
-	return TSharedPtr< FWindowsWindow >( NULL );
+	return bIsCompositionEnabled ? EWindowTransparency::PerPixel : EWindowTransparency::PerWindow;
+#else
+	return EWindowTransparency::PerWindow;
+#endif
 }
 
 
-/** All WIN32 messages sent to our app go here; this method simply passes them on */
 LRESULT CALLBACK FWindowsApplication::AppWndProc(HWND hwnd, uint32 msg, WPARAM wParam, LPARAM lParam)
 {
 	ensure( IsInGameThread() );
 
-	return WindowApplication->ProcessMessage( hwnd, msg, wParam, lParam );
+	return WindowsApplication->ProcessMessage( hwnd, msg, wParam, lParam );
 }
 
 int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam, LPARAM lParam )
 {
-	//The message id for when the taskbar button becoems created.
-	//This is set to s proper id once a WM_CREATE message is received.
-	static DWORD wmTaskbarButtonCreate = (DWORD)-1; 
-
 	TSharedPtr< FWindowsWindow > CurrentNativeEventWindowPtr = FindWindowByHWND( Windows, hwnd );
 
 	if( Windows.Num() && CurrentNativeEventWindowPtr.IsValid() )
@@ -878,6 +898,14 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 				}
 			}
 			break;
+			
+#if WINVER > 0x502
+		case WM_DWMCOMPOSITIONCHANGED:
+			{
+				DeferMessage( CurrentNativeEventWindowPtr, hwnd, msg, wParam, lParam );
+			}
+			break;
+#endif
 
 			// Window focus and activation
 		case WM_ACTIVATE:
@@ -1065,22 +1093,27 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 			break;
 		
 		case WM_CREATE:
-			{
-				wmTaskbarButtonCreate = RegisterWindowMessage(TEXT("TaskbarButtonCreated"));
-				return 0;
-			}
-			break;
+			return 0;
 
 		case WM_DEVICECHANGE:
 			{
 				XInput->SetNeedsControllerStateUpdate(); 
 				QueryConnectedMice();
 			}
-		}
 
-		if (wmTaskbarButtonCreate)
-		{
-			TaskbarList = FTaskbarList::Create();
+		default:
+			{
+			    int32 HandlerResult = 0;
+
+				// give others a chance to handle unprocessed messages
+				for (auto Handler : MessageHandlers)
+				{
+					if (Handler->ProcessMessage(hwnd, msg, wParam, lParam, HandlerResult))
+					{
+						return HandlerResult;
+					}
+				}
+			}
 		}
 	}
 
@@ -1475,9 +1508,10 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 			break;
 
 		case WM_SETTINGCHANGE:
-			MessageHandler->OnConvertibleDeviceModeChanged((GetSystemMetrics(SM_CONVERTIBLESLATEMODE) == 0)
-				? EConvertibleLaptopModes::Tablet
-				: EConvertibleLaptopModes::Laptop);
+			if ((lParam != 0) && (FCString::Strcmp((LPCTSTR)lParam, TEXT("ConvertibleSlateMode")) == 0))
+			{
+				MessageHandler->OnConvertibleLaptopModeChanged();
+			}
 			break;
 	
 		case WM_NCACTIVATE:
@@ -1576,6 +1610,14 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 				}
 			}
 			break;
+
+#if WINVER > 0x502
+		case WM_DWMCOMPOSITIONCHANGED:
+			{
+				CurrentNativeEventWindowPtr->OnTransparencySupportChanged(GetWindowTransparencySupport());
+			}
+			break;
+#endif
 		}
 	}
 
@@ -1714,6 +1756,19 @@ void FWindowsApplication::ProcessDeferredEvents( const float TimeDelta )
 	}
 }
 
+void FWindowsApplication::Tick( const float TimeDelta )
+{
+	const bool bIsLeftShiftDown = (::GetAsyncKeyState(VK_LSHIFT) & 0x8000) != 0;
+	const bool bIsRightShiftDown = (::GetAsyncKeyState(VK_RSHIFT) & 0x8000) != 0;
+	const bool bIsLeftControlDown = (::GetAsyncKeyState(VK_LCONTROL) & 0x8000) != 0;
+	const bool bIsRightControlDown = (::GetAsyncKeyState(VK_RCONTROL) & 0x8000) != 0;
+	const bool bIsLeftAltDown = (::GetAsyncKeyState(VK_LMENU) & 0x8000) != 0;
+	const bool bIsRightAltDown = (::GetAsyncKeyState(VK_RMENU) & 0x8000) != 0;
+	const bool bAreCapsLocked = (::GetKeyState(VK_CAPITAL) & 0x0001) != 0;
+
+	CachedModifierKeyState = FModifierKeysState(bIsLeftShiftDown, bIsRightShiftDown, bIsLeftControlDown, bIsRightControlDown, bIsLeftAltDown, bIsRightAltDown, false, false, bAreCapsLocked); // Win key is ignored
+}
+
 void FWindowsApplication::PollGameDeviceState( const float TimeDelta )
 {
 	// initialize any externally-implemented input devices (we delay load initialize the array so any plugins have had time to load)
@@ -1843,6 +1898,19 @@ HRESULT FWindowsApplication::OnOLEDrop( const HWND HWnd, const FDragDropOLEData&
 	return 0;
 }
 
+
+void FWindowsApplication::AddMessageHandler(IWindowsMessageHandler& MessageHandler)
+{
+	WindowsApplication->MessageHandlers.AddUnique(&MessageHandler);
+}
+
+
+void FWindowsApplication::RemoveMessageHandler(IWindowsMessageHandler& MessageHandler)
+{
+	WindowsApplication->MessageHandlers.RemoveSwap(&MessageHandler);
+}
+
+
 void FWindowsApplication::QueryConnectedMice()
 {
 	TArray<RAWINPUTDEVICELIST> DeviceList;
@@ -1866,16 +1934,16 @@ void FWindowsApplication::QueryConnectedMice()
 		if (Device.dwType != RIM_TYPEMOUSE)
 			continue;
 		//Force the use of ANSI versions of these calls
-		if (GetRawInputDeviceInfoA(Device.hDevice, RIDI_DEVICENAME, nullptr, &NameLen) < 0)
+		if (GetRawInputDeviceInfoA(Device.hDevice, RIDI_DEVICENAME, nullptr, &NameLen) == static_cast<UINT>(-1))
 			continue;
 
 		Name.Reset(new char[NameLen+1]);
-		if (GetRawInputDeviceInfoA(Device.hDevice, RIDI_DEVICENAME, Name.GetOwnedPointer(), &NameLen) < 0)
+		if (GetRawInputDeviceInfoA(Device.hDevice, RIDI_DEVICENAME, Name.GetOwnedPointer(), &NameLen) == static_cast<UINT>(-1))
 			continue;
 
 		Name[NameLen] = 0;
 		FString WName = ANSI_TO_TCHAR(Name);
-		WName.ReplaceInline(TEXT("#"), TEXT("\\"));
+		WName.ReplaceInline(TEXT("#"), TEXT("\\"), ESearchCase::CaseSensitive);
 		/*
 		 * Name XP starts with \??\, vista+ starts \\?\ 
 		 * In the device list exists a fake Mouse device with the device name of RDP_MOU
@@ -1950,5 +2018,6 @@ TSharedRef<FTaskbarList> FTaskbarList::Create()
 
 	return TaskbarList;
 }
+
 
 #include "HideWindowsPlatformTypes.h"

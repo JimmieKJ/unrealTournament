@@ -7,6 +7,8 @@
 #pragma once
 #include "OnlineSession.generated.h"
 
+class FOnlineSessionSearchResult;
+
 UCLASS(config=Game)
 class ENGINE_API UOnlineSession : public UObject
 {
@@ -22,6 +24,15 @@ public:
 
 	/** Called to tear down any online sessions and return to main menu	 */
 	virtual void HandleDisconnect(UWorld *World, class UNetDriver *NetDriver);
+
+	/** Start the online session specified */
+	virtual void StartOnlineSession(FName SessionName) {};
+
+	/** End the online session specified */
+	virtual void EndOnlineSession(FName SessionName) {};
+
+	/** Called when a user accepts an invite */
+	virtual void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult) {};
 };
 
 

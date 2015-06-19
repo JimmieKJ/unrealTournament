@@ -38,7 +38,7 @@ public:
 	}
 	TLightMapDensityVS() {}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::VertexParametersType::Serialize(Ar);
@@ -205,7 +205,7 @@ public:
 		SetShaderValue(RHICmdList, GetPixelShader(),VertexMappedColor,GEngine->LightMapDensityVertexMappedColor,0);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::PixelParametersType::Serialize(Ar);

@@ -11,7 +11,7 @@ void FSlateDrawElement::Init(uint32 InLayer, const FPaintGeometry& PaintGeometry
 	Layer = InLayer;
 	Scale = PaintGeometry.DrawScale;
 	DrawEffects = InDrawEffects;
-	extern TOptional<FShortRect> GSlateScissorRect;
+	extern SLATECORE_API TOptional<FShortRect> GSlateScissorRect;
 	ScissorRect = GSlateScissorRect;
 }
 
@@ -174,7 +174,7 @@ FVector2D FSlateDrawElement::GetRotationPoint(const FPaintGeometry& PaintGeometr
 	return RotationPoint;
 }
 
-FSlateWindowElementList::FDeferredPaint::FDeferredPaint( const TSharedRef<SWidget>& InWidgetToPaint, const FPaintArgs& InArgs, const FGeometry InAllottedGeometry, const FSlateRect InMyClippingRect, const FWidgetStyle& InWidgetStyle, bool InParentEnabled )
+FSlateWindowElementList::FDeferredPaint::FDeferredPaint( const TSharedRef<const SWidget>& InWidgetToPaint, const FPaintArgs& InArgs, const FGeometry InAllottedGeometry, const FSlateRect InMyClippingRect, const FWidgetStyle& InWidgetStyle, bool InParentEnabled )
 : WidgetToPaintPtr( InWidgetToPaint )
 , Args( InArgs )
 , AllottedGeometry( InAllottedGeometry )
@@ -187,7 +187,7 @@ FSlateWindowElementList::FDeferredPaint::FDeferredPaint( const TSharedRef<SWidge
 
 int32 FSlateWindowElementList::FDeferredPaint::ExecutePaint( int32 LayerId, FSlateWindowElementList& OutDrawElements ) const
 {
-	TSharedPtr<SWidget> WidgetToPaint = WidgetToPaintPtr.Pin();
+	TSharedPtr<const SWidget> WidgetToPaint = WidgetToPaintPtr.Pin();
 	if ( WidgetToPaint.IsValid() )
 	{
 		return WidgetToPaint->Paint( Args, AllottedGeometry, OutDrawElements.GetWindow()->GetClippingRectangleInWindow(), OutDrawElements, LayerId, WidgetStyle, bParentEnabled );
@@ -205,9 +205,11 @@ void FSlateWindowElementList::QueueDeferredPainting( const FDeferredPaint& InDef
 
 int32 FSlateWindowElementList::PaintDeferred( int32 LayerId )
 {
-	for ( const TSharedRef<FDeferredPaint>& PaintArgs : DeferredPaintList )
+	for ( int32 i = 0; i < DeferredPaintList.Num(); ++i )
 	{
-		LayerId = PaintArgs->ExecutePaint( LayerId, *this );
+		const TSharedRef< FDeferredPaint >& Args = DeferredPaintList[ i ];
+
+		LayerId = Args->ExecutePaint( LayerId, *this );
 	}
 
 	return LayerId;

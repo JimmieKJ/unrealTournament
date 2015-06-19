@@ -75,8 +75,6 @@ void UK2Node_GetDataTableRow::SetReturnTypeForStruct(UScriptStruct* RowStruct)
 		RowStruct = FTableRowBase::StaticStruct();
 	}
 
-	UEdGraphPin* ResultPin = GetResultPin();
-
 	UScriptStruct* NewRowStruct = RowStruct;
 	UScriptStruct* OldRowStruct = GetReturnTypeForStruct();
 
@@ -86,11 +84,11 @@ void UK2Node_GetDataTableRow::SetReturnTypeForStruct(UScriptStruct* RowStruct)
 		// Doing this just to force the row name drop down to refresh
 		ReconstructNode();
 
+		UEdGraphPin* ResultPin = GetResultPin();
 		// Because the Return Value struct type has changed, we break the output link
 		ResultPin->BreakAllPinLinks();
 
 		// Change class of output pin
-		UEdGraphPin* ResultPin = GetResultPin();
 		ResultPin->PinType.PinSubCategoryObject = RowStruct;
 
 		// When the DataTable pin gets a new value assigned, we need to update the Slate UI so that SGraphNodeCallParameterCollectionFunction will update the ParameterName drop down
@@ -296,14 +294,14 @@ FText UK2Node_GetDataTableRow::GetNodeTitle(ENodeTitleType::Type TitleType) cons
 		{
 			return NSLOCTEXT("K2Node", "DataTable_Title_None", "Get Data Table Row NONE");
 		}
-		else if (CachedNodeTitle.IsOutOfDate())
+		else if (CachedNodeTitle.IsOutOfDate(this))
 		{
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("DataTableName"), FText::FromString(DataTablePin->DefaultObject->GetName()));
 
 			FText LocFormat = NSLOCTEXT("K2Node", "DataTable", "Get Data Table Row {DataTableName}");
 			// FText::Format() is slow, so we cache this to save on performance
-			CachedNodeTitle = FText::Format(LocFormat, Args);
+			CachedNodeTitle.SetCachedText(FText::Format(LocFormat, Args), this);
 		}
 	}
 	else

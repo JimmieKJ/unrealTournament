@@ -7,5 +7,5 @@
 #include "Paper2DModule.h"
 #include "Paper2DEditorClasses.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogPaper2DEditor, Verbose, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogPaper2DEditor, Log, All);
 

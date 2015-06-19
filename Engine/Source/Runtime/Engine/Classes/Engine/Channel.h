@@ -1,16 +1,16 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//
-// Base class of communication channels.
-//
-
 #pragma once
+
 #include "Channel.generated.h"
+
 
 // Constant for all buffers that are reading from the network
 const int MAX_STRING_SERIALIZE_SIZE	= NAME_SIZE;
 
-// Types of channels.
+/**
+ * Enumerates channel types.
+ */
 enum EChannelType
 {
 	CHTYPE_None			= 0,  // Invalid type.
@@ -21,11 +21,17 @@ enum EChannelType
 	CHTYPE_MAX          = 8,  // Maximum.
 };
 
+
 // The channel index to use for voice
 #define VOICE_CHANNEL_INDEX 1
 
+
+/**
+ * Base class of communication channels.
+ */
 UCLASS(transient)
-class ENGINE_API UChannel : public UObject
+class ENGINE_API UChannel
+	: public UObject
 {
 	GENERATED_UCLASS_BODY()
 	
@@ -33,19 +39,19 @@ class ENGINE_API UChannel : public UObject
 	class UNetConnection*	Connection;		// Owner connection.
 
 	// Variables.
-	uint32			OpenAcked:1;		// Whether open has been acknowledged.
-	uint32			Closing:1;			// State of the channel.
-	uint32			Dormant:1;			// Channel is going dormant (it will close but the client will not destroy 
-	uint32			OpenTemporary:1;	// Opened temporarily.
-	uint32			Broken:1;			// Has encountered errors and is ignoring subsequent packets.
-	uint32			bTornOff:1;			// Actor associated with this channel was torn off
-	uint32			bPendingDormancy:1;	// Channel wants to go dormant (it will check during tick if it can go dormant)
-	int32					ChIndex;			// Index of this channel.
-	int32					OpenedLocally;		// Whether channel was opened locally or by remote.
-	FPacketIdRange		OpenPacketId;		// Packet the spawn message was sent in.
+	uint32				OpenAcked:1;		// If OpenedLocally is true, this means we have acknowledged the packet we sent the bOpen bunch on. Otherwise, it means we have received the bOpen bunch from the server.
+	uint32				Closing:1;			// State of the channel.
+	uint32				Dormant:1;			// Channel is going dormant (it will close but the client will not destroy 
+	uint32				OpenTemporary:1;	// Opened temporarily.
+	uint32				Broken:1;			// Has encountered errors and is ignoring subsequent packets.
+	uint32				bTornOff:1;			// Actor associated with this channel was torn off
+	uint32				bPendingDormancy:1;	// Channel wants to go dormant (it will check during tick if it can go dormant)
+	int32				ChIndex;			// Index of this channel.
+	int32				OpenedLocally;		// Whether channel was opened locally or by remote.
+	FPacketIdRange		OpenPacketId;		// If OpenedLocally is true, this is the packet we sent the bOpen bunch on. Otherwise, it's the packet we received the bOpen bunch on.
 	EChannelType		ChType;				// Type of this channel.
-	int32					NumInRec;			// Number of packets in InRec.
-	int32					NumOutRec;			// Number of packets in OutRec.
+	int32				NumInRec;			// Number of packets in InRec.
+	int32				NumOutRec;			// Number of packets in OutRec.
 	class FInBunch*		InRec;				// Incoming data with queued dependencies.
 	class FOutBunch*	OutRec;				// Outgoing reliable unacked data.
 	class FInBunch*		InPartialBunch;		// Partial bunch we are receiving (incoming partial bunches are appended to this)
@@ -56,15 +62,13 @@ class ENGINE_API UChannel : public UObject
 	/** @return true if the specified channel type exists. */
 	static bool IsKnownChannelType( int32 Type );
 
-	
-	// Begin UObject Interface
+public:
 
+	// UObject overrides
 
 	virtual void BeginDestroy() override;
 
-
-	// End UObject Interface
-	
+public:	
 
 	/** UChannel interface. */
 	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally );
@@ -131,7 +135,7 @@ protected:
 	/** Closes the actor channel but with a 'dormant' flag set so it can be reopened */
 	virtual void BecomeDormant() { }
 
-	/** cleans up channel structures and NULLs references to the channel */
+	/** cleans up channel structures and nulls references to the channel */
 	virtual bool CleanUp( const bool bForDestroy );
 
 private:
@@ -139,7 +143,7 @@ private:
 	/** Just sends the bunch out on the connection */
 	int32 SendRawBunch(FOutBunch* Bunch, bool Merge);
 
-	/** Final step to prepare bunch to be sent. If reliable, adds to ack list. */
+	/** Final step to prepare bunch to be sent. If reliable, adds to acknowldege list. */
 	FOutBunch* PrepBunch(FOutBunch* Bunch, FOutBunch* OutBunch, bool Merge);
 
 	/** Received next bunch to process. This handles partial bunches */

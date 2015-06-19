@@ -67,6 +67,7 @@ public:
 		void SetupDockingStyles();
 		void SetupTutorialStyles();
 		void SetupTranslationEditorStyles();
+		void SetupLocalizationDashboardStyles();
 		void SetupPropertyEditorStyles();
 		void SetupProfilerStyle();
 		void SetupGraphEditorStyles();

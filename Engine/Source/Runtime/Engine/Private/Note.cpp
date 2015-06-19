@@ -6,13 +6,13 @@
 ANote::ANote(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	USceneComponent* SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
+	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComp"));
 	RootComponent = SceneComponent;
 	RootComponent->Mobility = EComponentMobility::Static;
 
 #if WITH_EDITORONLY_DATA
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("Arrow"));
-	SpriteComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("Arrow"));
+	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 
 	if (!IsRunningCommandlet())
 	{
@@ -41,6 +41,7 @@ ANote::ANote(const FObjectInitializer& ObjectInitializer)
 			ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Notes;
 			ArrowComponent->Mobility = EComponentMobility::Static;
 			ArrowComponent->bIsScreenSizeScaled = true;
+			ArrowComponent->AttachParent = RootComponent;
 		}
 
 		if (SpriteComponent)

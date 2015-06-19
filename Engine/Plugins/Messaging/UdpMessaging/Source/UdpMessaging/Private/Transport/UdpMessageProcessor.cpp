@@ -21,7 +21,7 @@ FUdpMessageProcessor::FUdpMessageProcessor( FSocket* InSocket, const FGuid& InNo
 	, Socket(InSocket)
 	, Stopping(false)
 {
-	WorkEvent = FPlatformProcess::CreateSynchEvent();
+	WorkEvent = FPlatformProcess::GetSynchEventFromPool();
 	Thread = FRunnableThread::Create(this, TEXT("FUdpMessageProcessor"), 128 * 1024, TPri_AboveNormal, FPlatformAffinity::GetPoolThreadMask());
 
 	const UUdpMessagingSettings& Settings = *GetDefault<UUdpMessagingSettings>();
@@ -48,7 +48,8 @@ FUdpMessageProcessor::~FUdpMessageProcessor()
 	Thread->Kill(true);
 		
 	delete Thread;
-	delete WorkEvent;
+	FPlatformProcess::ReturnSynchEventToPool(WorkEvent);
+	WorkEvent = nullptr;
 }
 
 

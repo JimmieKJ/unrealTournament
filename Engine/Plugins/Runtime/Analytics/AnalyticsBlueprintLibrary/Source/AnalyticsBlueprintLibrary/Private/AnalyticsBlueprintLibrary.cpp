@@ -143,8 +143,68 @@ void UAnalyticsBlueprintLibrary::RecordItemPurchase(const FString& ItemId, const
 		static bool bHasLogged = false;
 		if (!bHasLogged)
 		{
-			UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordEventWithAttributes: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+			UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordItemPurchase: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
 		}
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordSimpleItemPurchase(const FString& ItemId, int32 ItemQuantity)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordItemPurchase(ItemId, ItemQuantity);
+	}
+	else
+	{
+		static bool bHasLogged = false;
+		if (!bHasLogged)
+		{
+			UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordSimpleItemPurchase: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+		}
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordSimpleItemPurchaseWithAttributes(const FString& ItemId, int32 ItemQuantity, const TArray<FAnalyticsEventAttr>& Attributes)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordItemPurchase(ItemId, ItemQuantity, ConvertAttrs(Attributes));
+	}
+	else
+	{
+		static bool bHasLogged = false;
+		if (!bHasLogged)
+		{
+			UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordSimpleItemPurchaseWithAttributes: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+		}
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordSimpleCurrencyPurchase(const FString& GameCurrencyType, int32 GameCurrencyAmount)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordCurrencyPurchase(GameCurrencyType, GameCurrencyAmount);
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordSimpleCurrencyPurchase: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordSimpleCurrencyPurchaseWithAttributes(const FString& GameCurrencyType, int32 GameCurrencyAmount, const TArray<FAnalyticsEventAttr>& Attributes)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordCurrencyPurchase(GameCurrencyType, GameCurrencyAmount, ConvertAttrs(Attributes));
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordSimpleCurrencyPurchaseWithAttributes: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
 	}
 }
 
@@ -171,6 +231,19 @@ void UAnalyticsBlueprintLibrary::RecordCurrencyGiven(const FString& GameCurrency
 	else
 	{
 		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordCurrencyGiven: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordCurrencyGivenWithAttributes(const FString& GameCurrencyType, int32 GameCurrencyAmount, const TArray<FAnalyticsEventAttr>& Attributes)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordCurrencyGiven(GameCurrencyType, GameCurrencyAmount, ConvertAttrs(Attributes));
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordCurrencyGivenWithAttributes: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
 	}
 }
 
@@ -226,4 +299,121 @@ FAnalyticsEventAttr UAnalyticsBlueprintLibrary::MakeEventAttribute(const FString
 	EventAttr.Name = AttributeName;
 	EventAttr.Value = AttributeValue;
 	return EventAttr;
+}
+
+void UAnalyticsBlueprintLibrary::SetAge(int32 Age)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->SetAge(Age);
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("SetAge: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::SetLocation(const FString& Location)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->SetLocation(Location);
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("SetLocation: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::SetGender(const FString& Gender)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->SetGender(Gender);
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("SetGender: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::SetBuildInfo(const FString& BuildInfo)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->SetBuildInfo(BuildInfo);
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("SetBuildInfo: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordErrorWithAttributes(const FString& Error, const TArray<FAnalyticsEventAttr>& Attributes)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordError(Error, ConvertAttrs(Attributes));
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordErrorWithAttributes: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordError(const FString& Error)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordError(Error);
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordError: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordProgressWithFullHierarchyAndAttributes(const FString& ProgressType, const TArray<FString>& ProgressNames, const TArray<FAnalyticsEventAttr>& Attributes)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordProgress(ProgressType, ProgressNames, ConvertAttrs(Attributes));
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordProgressWithFullHierarchyAndAttributes: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordProgressWithAttributes(const FString& ProgressType, const FString& ProgressName, const TArray<FAnalyticsEventAttr>& Attributes)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordProgress(ProgressType, ProgressName, ConvertAttrs(Attributes));
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordProgressWithAttributes: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
+}
+
+void UAnalyticsBlueprintLibrary::RecordProgress(const FString& ProgressType, const FString& ProgressName)
+{
+	TSharedPtr<IAnalyticsProvider> Provider = FAnalytics::Get().GetDefaultConfiguredProvider();
+	if (Provider.IsValid())
+	{
+		Provider->RecordProgress(ProgressType, ProgressName);
+	}
+	else
+	{
+		UE_LOG(LogAnalyticsBPLib, Warning, TEXT("RecordProgress: Failed to get the default analytics provider. Double check your [Analytics] configuration in your INI"));
+	}
 }

@@ -3,6 +3,7 @@
 #pragma once
 #include "Engine/EngineBaseTypes.h"
 #include "Engine/EngineTypes.h"
+#include "Engine/MemberReference.h"
 #include "Interfaces/Interface_AssetUserData.h"
 #include "ActorComponent.generated.h"
 
@@ -11,10 +12,10 @@ struct FReplicationFlags;
 UENUM()
 enum class EComponentCreationMethod : uint8
 {
-	Native,
-	SimpleConstructionScript,
-	UserConstructionScript,
-	Instance,
+	Native,						// A component that is part of a native class
+	SimpleConstructionScript,	// A component that is created from a template defined in the Components section of the Blueprint
+	UserConstructionScript,		// A dynamically created component, either from the UserConstructionScript or from a Add Component node in a Blueprint event graph
+	Instance,					// A component added to a single Actor instance via the Component section of the Actor's details panel
 };
 
 /**
@@ -115,18 +116,59 @@ public:
 	UPROPERTY(transient, ReplicatedUsing=OnRep_IsActive)
 	uint32 bIsActive:1;
 
-	/** If TRUE, we call the virtual InitializeComponent */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category="Variable")
+	uint32 bEditableWhenInherited:1;
+
+	/** If true, we call the virtual InitializeComponent */
 	uint32 bWantsInitializeComponent:1;
 
+	/** If true, we call the virtual BeginPlay */
+	UPROPERTY()
+	uint32 bWantsBeginPlay:1;
+
+private:
 	/** Indicates that OnCreatedComponent has been called, but OnDestroyedComponent has not yet */
 	uint32 bHasBeenCreated:1;
 
 	/** Indicates that InitializeComponent has been called, but UninitializeComponent has not yet */
 	uint32 bHasBeenInitialized:1;
 
+	/** Indicates that BeginPlay has been called, but EndPlay has not yet */
+	uint32 bHasBegunPlay:1;
+
+#if WITH_EDITOR
+	/** During undo/redo it isn't safe to cache owner */
+	uint32 bCanUseCachedOwner:1;
+#endif
+
+	/** Tracks whether the component has been added to one of the world's end of frame update lists */
+	uint32 MarkedForEndOfFrameUpdateState:2;
+	friend struct FMarkComponentEndOfFrameUpdateState;
+
+	friend class FActorComponentInstanceData;
+
+public:
 	UPROPERTY()
 	EComponentCreationMethod CreationMethod;
+
+private:
+	mutable AActor* Owner;
+
+	UPROPERTY()
+	TArray<FSimpleMemberReference> UCSModifiedProperties;
+
+public:
+
+	uint32 GetMarkedForEndOfFrameUpdateState() const { return MarkedForEndOfFrameUpdateState; }
+
+	void DetermineUCSModifiedProperties();
+	void GetUCSModifiedProperties(TSet<const UProperty*>& ModifiedProperties) const;
+
+	bool IsEditableWhenInherited() const;
+
+	bool HasBeenCreated() const { return bHasBeenCreated; }
+	bool HasBeenInitialized() const { return bHasBeenInitialized; }
+	bool HasBegunPlay() const { return bHasBegunPlay; }
 
 	bool IsCreatedByConstructionScript() const;
 
@@ -235,10 +277,11 @@ private:
 	void ExecuteRegisterEvents();
 
 	/* Utility function for each of the PostEditChange variations to call for the same behavior */
-	void ConsolidatedPostEditChange();
+	void ConsolidatedPostEditChange(const FPropertyChangedEvent& PropertyChangedEvent);
 protected:
 
 	friend class FComponentReregisterContextBase;
+	friend class FComponentRecreateRenderStateContext;
 
 	/**
 	 * Called when a component is registered, after Scene is set, but before CreateRenderState_Concurrent or CreatePhysicsState are called.
@@ -291,24 +334,42 @@ protected:
 
 public:
 	/**
-	 * Starts gameplay for this component.
-	 * Requires component to be registered, and bWantsInitializeComponent to be TRUE.
+	 * Initializes the component.  Occurs at level startup. This is before BeginPlay (Actor or Component).  
+	 * All Components in the level will be Initialized on load before any Actor/Component gets BeginPlay
+	 * Requires component to be registered, and bWantsInitializeComponent to be true.
 	 */
 	virtual void InitializeComponent();
 
-	/** Event when the component is initialized, either via creation or its Actor's BeginPlay. */
-	UFUNCTION(BlueprintImplementableEvent, meta=(Keywords = "Begin", FriendlyName = "Initialize Component"))
-	virtual void ReceiveInitializeComponent();
+	/**
+	 * BeginsPlay for the component.  Occurs at level startup. This is before BeginPlay (Actor or Component).  
+	 * All Components (that want initialization) in the level will be Initialized on load before any 
+	 * Actor/Component gets BeginPlay.
+	 * Requires component to be registered and initialized.
+	 */
+	virtual void BeginPlay();
+
+	/** 
+	 * Blueprint implementable event for when the component is beginning play, called before its Owner's BeginPlay on Actor BeginPlay 
+	 * or when the component is dynamically created if the Actor has already BegunPlay. 
+	 */
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Begin Play"))
+	void ReceiveBeginPlay();
 
 	/**
 	 * Ends gameplay for this component.
+	 * Called from AActor::EndPlay only if bHasBegunPlay is true
+	 */
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason);
+
+	/**
+	 * Handle this component being Uninitialized.
 	 * Called from AActor::EndPlay only if bHasBeenInitialized is true
 	 */
 	virtual void UninitializeComponent();
 
-	/** Event when the component is uninitialized, generally via descruction or its Actor's EndPlay. */
-	UFUNCTION(BlueprintImplementableEvent, meta=(Keywords = "End Delete", FriendlyName = "Uninitialize Component"))
-	virtual void ReceiveUninitializeComponent();
+	/** Blueprint implementable event for when the component ends play, generally via destruction or its Actor's EndPlay. */
+	UFUNCTION(BlueprintImplementableEvent, meta=(Keywords = "delete", DisplayName = "End Play"))
+	void ReceiveEndPlay(EEndPlayReason::Type EndPlayReason);
 	
 	/**
 	 * When called, will call the virtual call chain to register all of the tick functions
@@ -473,10 +534,10 @@ public:
 	}
 
 	// Always called immediately before properties are received from the remote.
-	virtual void PreNetReceive() { }
+	virtual void PreNetReceive() override { }
 	
 	// Always called immediately after properties are received from the remote.
-	virtual void PostNetReceive() { }
+	virtual void PostNetReceive() override { }
 
 	/** Called before we throw away components during RerunConstructionScripts, to cache any data we wish to persist across that operation */
 	virtual class FActorComponentInstanceData* GetComponentInstanceData() const;
@@ -499,6 +560,7 @@ public:
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditChangeChainProperty( FPropertyChangedChainEvent& PropertyChangedEvent ) override;
+	virtual void PreEditUndo() override;
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
 	// End UObject interface.
@@ -510,7 +572,7 @@ public:
 	// End IInterface_AssetUserData Interface
 
 	/** See if the owning Actor is currently running the UCS */
-	bool IsRunningUserConstructionScript() const;
+	bool IsOwnerRunningUserConstructionScript() const;
 
 	/** See if this component is currently registered */
 	FORCEINLINE bool IsRegistered() const
@@ -535,7 +597,7 @@ public:
 	/**
 	 * Unregister and mark for pending kill a component.  This may not be used to destroy a component is owned by an actor other than the one calling the function.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components", meta=(Keywords = "Delete", HidePin="Object", DefaultToSelf="Object", FriendlyName = "DestroyComponent"))
+	UFUNCTION(BlueprintCallable, Category="Components", meta=(Keywords = "Delete", HidePin="Object", DefaultToSelf="Object", DisplayName = "DestroyComponent"))
 	void K2_DestroyComponent(UObject* Object);
 
 	/** Unregisters and immediately re-registers component.  Handles bWillReregister properly. */
@@ -561,8 +623,8 @@ public:
 	virtual void RemoveTickPrerequisiteComponent(UActorComponent* PrerequisiteComponent);
 
 	/** Event called every frame */
-	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "Tick"))
-	virtual void ReceiveTick(float DeltaSeconds);
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Tick"))
+	void ReceiveTick(float DeltaSeconds);
 	
 	/** 
 	 *  Called by owner actor on position shifting
@@ -582,5 +644,24 @@ private:
 #endif
 };
 
+//////////////////////////////////////////////////////////////////////////
+// UActorComponent inlines
 
-
+FORCEINLINE_DEBUGGABLE class AActor* UActorComponent::GetOwner() const
+{
+#if WITH_EDITOR
+	// During undo/redo the cached owner is unreliable so just used GetTypedOuter
+	if (bCanUseCachedOwner)
+	{
+		checkSlow(Owner == GetTypedOuter<AActor>()); // verify cached value is correct
+		return Owner;
+	}
+	else
+	{
+		return GetTypedOuter<AActor>();
+	}
+#else
+	checkSlow(Owner == GetTypedOuter<AActor>()); // verify cached value is correct
+	return Owner;
+#endif
+}

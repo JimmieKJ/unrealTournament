@@ -17,6 +17,12 @@ public class PhysXFormats : ModuleRules
 			}
 			);
 
+        PrivateIncludePaths.AddRange(
+            new string[] {
+                "Runtime/Engine/Private",   //Not sure why this is its own format. The two modules depend on eachother.
+			}
+        );
+
 		SetupModulePhysXAPEXSupport(Target);
 	}
 }

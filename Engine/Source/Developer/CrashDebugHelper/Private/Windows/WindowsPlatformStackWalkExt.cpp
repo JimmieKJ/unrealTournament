@@ -1,9 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugHelperPrivatePCH.h"
-
-#include "ModuleManager.h"
+#include "GenericPlatform/GenericPlatformContext.h"
 #include "WindowsPlatformStackWalkExt.h"
+#include "CrashDebugPDBCache.h"
 
 #include "AllowWindowsPlatformTypes.h"
 #include "dbgeng.h"
@@ -27,9 +27,7 @@ FWindowsPlatformStackWalkExt::~FWindowsPlatformStackWalkExt()
 }
 
 
-/**
- * Initialise the COM interface to grab stacks
- */
+
 bool FWindowsPlatformStackWalkExt::InitStackWalking()
 {
 	if (!FWindowsPlatformMisc::CoInitialize())
@@ -46,9 +44,6 @@ bool FWindowsPlatformStackWalkExt::InitStackWalking()
 	return true;
 }
 
-/**
- * Shutdown COM
- */
 void FWindowsPlatformStackWalkExt::ShutdownStackWalking()
 {
 	Advanced->Release();
@@ -61,7 +56,7 @@ void FWindowsPlatformStackWalkExt::ShutdownStackWalking()
 }
 
 /**
- * Set the options we want for symbol lookup
+ * 
  */
 void FWindowsPlatformStackWalkExt::InitSymbols()
 {
@@ -79,22 +74,21 @@ void FWindowsPlatformStackWalkExt::InitSymbols()
 	// This option allows for undecorated names to be handled by the symbol engine.
 	SymOpts |= SYMOPT_UNDNAME;
 
+#if	_DEBUG
 	// Disable by default as it can be very spammy/slow.  Turn it on if you are debugging symbol look-up!
 	SymOpts |= SYMOPT_DEBUG;
+#endif // _DEBUG
 
 	Symbol->SetSymbolOptions( SymOpts );
 }
 
-/** 
- * Grab the branch relative path of the binary
- */
 FString FWindowsPlatformStackWalkExt::ExtractRelativePath( const TCHAR* BaseName, TCHAR* FullName )
 {
 	FString FullPath = FString( FullName ).ToLower();
 	FullPath = FullPath.Replace( TEXT( "\\" ), TEXT( "/" ) );
 
 	TArray<FString> Components;
-	int32 Count = FullPath.ParseIntoArray( &Components, TEXT( "/" ), true );
+	int32 Count = FullPath.ParseIntoArray( Components, TEXT( "/" ), true );
 	FullPath = TEXT( "" );
 
 	for( int32 Index = 0; Index < Count; Index++ )
@@ -126,7 +120,7 @@ void FWindowsPlatformStackWalkExt::GetExeFileVersionAndModuleList( FCrashModuleI
 	ULONG UnloadedModuleCount = 0;
 	Symbol->GetNumberModules( &LoadedModuleCount, &UnloadedModuleCount );
 
-	CrashInfo.Log( FString::Printf( TEXT( " ... found %d loaded, and %d unloaded modules." ), LoadedModuleCount, UnloadedModuleCount ) );
+	UE_LOG( LogCrashDebugHelper, Log, TEXT( "Modules loaded: %i, unloaded: %i" ), LoadedModuleCount, UnloadedModuleCount );
 
 	// Find the relative names of all the modules so we know which files to sync
 	int ExecutableIndex = -1;
@@ -164,7 +158,7 @@ void FWindowsPlatformStackWalkExt::GetExeFileVersionAndModuleList( FCrashModuleI
 	}
 	else
 	{
-		CrashInfo.Log( FString::Printf( TEXT( " ... unable to locate executable." ) ) );
+		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Unable to locate the executable" ) );
 	}
 }
 
@@ -262,9 +256,6 @@ public:
 	}
 };
 
-/** 
- * Set the symbol paths based on the module paths
- */
 void FWindowsPlatformStackWalkExt::SetSymbolPathsFromModules()
 {
 	const bool bUseCachedData = CrashInfo.PDBCacheEntry.IsValid();
@@ -359,29 +350,45 @@ void FWindowsPlatformStackWalkExt::SetSymbolPathsFromModules()
 		FString BinariesDir = FString(FPlatformProcess::BaseDir());
 		if ( !FPaths::FileExists( FPaths::Combine(*BinariesDir, TEXT("symsrv.dll")) ) )
 		{
-			CrashInfo.Log( FString::Printf(TEXT("Error: symsrv.dll was not detected in '%s'. Microsoft symbols will not be downloaded!"), *BinariesDir) );
+			UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Error: symsrv.dll was not detected in: %s. Microsoft symbols will not be downloaded!" ), *BinariesDir );
 		}
 		if ( !FPaths::FileExists( FPaths::Combine(*BinariesDir, TEXT("symsrv.yes")) ) )
 		{
-			CrashInfo.Log( FString::Printf(TEXT("symsrv.yes was not detected in '%s'. This will cause a popup to confirm the license."), *BinariesDir) );
+			UE_LOG( LogCrashDebugHelper, Warning, TEXT( "symsrv.yes was not detected in: %s. This will cause a popup to confirm the license." ), *BinariesDir );
 		}
 		if ( !FPaths::FileExists( FPaths::Combine(*BinariesDir, TEXT("dbghelp.dll")) ) )
 		{
-			CrashInfo.Log( FString::Printf(TEXT("Error: dbghelp.dll was not detected in '%s'. Microsoft symbols will not be downloaded!"), *BinariesDir) );
+			UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Error: dbghelp.dll was not detected in: %s. Microsoft symbols will not be downloaded!" ), *BinariesDir );
 		}
 
 		Symbol->AppendImagePathWide( TEXT( "SRV*..\\..\\Intermediate\\SymbolCache*http://msdl.microsoft.com/download/symbols" ) );
 		Symbol->AppendSymbolPathWide( TEXT( "SRV*..\\..\\Intermediate\\SymbolCache*http://msdl.microsoft.com/download/symbols" ) );
 	}
 
-	TCHAR SymbolPath[1024] = { 0 };
-	Symbol->GetSymbolPathWide( SymbolPath, 1024, NULL );
-	CrashInfo.Log( FString::Printf( TEXT( " ... setting symbol path to: '%s'" ), SymbolPath ) );
+	TCHAR SymbolPath[16384] = { 0 };
 
-	Symbol->GetImagePathWide( SymbolPath, 1024, NULL );
-	CrashInfo.Log( FString::Printf( TEXT( " ... setting image path to: '%s'" ), SymbolPath ) );
+	Symbol->GetSymbolPathWide( SymbolPath, ARRAY_COUNT(SymbolPath), NULL );
+	TArray<FString> SymbolPaths;
+	FString( SymbolPath ).ParseIntoArray(SymbolPaths, TEXT(";"), true );
+
+	UE_LOG( LogCrashDebugHelper, Log, TEXT( "Symbol paths" ) );
+	for( const auto& It : SymbolPaths )
+	{
+		UE_LOG( LogCrashDebugHelper, Log, TEXT( "    %s" ), *It );
+	}
+
+	Symbol->GetImagePathWide( SymbolPath, ARRAY_COUNT( SymbolPath ), NULL );
+	TArray<FString> ImagePaths;
+	FString( SymbolPath ).ParseIntoArray( ImagePaths, TEXT( ";" ), true );
+	
+	UE_LOG( LogCrashDebugHelper, Log, TEXT( "Image paths" ) );
+	for( const auto& It : ImagePaths )
+	{
+		UE_LOG( LogCrashDebugHelper, Log, TEXT( "    %s" ), *It );
+	}
 }
 
+/** Helper class used to sort modules by name. */
 class FSortModulesByName
 {
 public:
@@ -403,9 +410,6 @@ public:
 	}
 };
 
-/** 
- * Get detailed info about each module
- */
 void FWindowsPlatformStackWalkExt::GetModuleInfoDetailed()
 {
 	// The the number of loaded modules
@@ -455,10 +459,6 @@ void FWindowsPlatformStackWalkExt::GetModuleInfoDetailed()
 
 	CrashInfo.Modules.Sort( FSortModulesByName() );
 }
-
-/**
- * Check to see if the stack address resides within one of the loaded modules i.e. is it valid?
- */
 bool FWindowsPlatformStackWalkExt::IsOffsetWithinModules( uint64 Offset )
 {
 	for( int ModuleIndex = 0; ModuleIndex < CrashInfo.Modules.Num(); ModuleIndex++ )
@@ -473,9 +473,6 @@ bool FWindowsPlatformStackWalkExt::IsOffsetWithinModules( uint64 Offset )
 	return false;
 }
 
-/** 
- * Extract the system info of the crash from the minidump
- */
 void FWindowsPlatformStackWalkExt::GetSystemInfo()
 {
 	FCrashSystemInfo& SystemInfo = CrashInfo.SystemInfo;
@@ -521,16 +518,6 @@ void FWindowsPlatformStackWalkExt::GetSystemInfo()
 	SystemInfo.ProcessorCount = ProcessorCount;
 }
 
-/** 
- * Extract the thread info from the minidump
- */
-void FWindowsPlatformStackWalkExt::GetThreadInfo()
-{
-}
-
-/** 
- * Extract info about the exception that caused the crash
- */
 void FWindowsPlatformStackWalkExt::GetExceptionInfo()
 {
 	FCrashExceptionInfo& Exception = CrashInfo.Exception;
@@ -547,146 +534,149 @@ void FWindowsPlatformStackWalkExt::GetExceptionInfo()
 	Exception.ExceptionString = Description;
 }
 
-/** 
- * Get the callstack of the crash. Returns true if at least one function name was found in the debugging symbols
- */
-bool FWindowsPlatformStackWalkExt::GetCallstacks()
+
+int FWindowsPlatformStackWalkExt::GetCallstacks()
 {
-	bool bAtLeastOneFunctionNameFound = false;
+	const int32 MAX_NAME_LENGHT = FProgramCounterSymbolInfo::MAX_NAME_LENGHT;
+	int32 NumValidFunctionNames = 0;
 
 	FCrashExceptionInfo& Exception = CrashInfo.Exception;
 
 	FMemMark Mark(FMemStack::Get());
 
 	//const float int int32 FString
-	const int32 ConextSize = 4096;
-	byte* Context = new(FMemStack::Get()) byte[ConextSize];
+	const int32 ContextSize = 4096;
+	byte* Context = new(FMemStack::Get()) byte[ContextSize];
 	ULONG DebugEvent = 0;
 	ULONG ProcessID = 0;
 	ULONG ThreadID = 0;
-	ULONG ContextSize = 0;
+	ULONG ContextUsed = 0;
 
 	// Get the context of the crashed thread
-	if( Control->GetStoredEventInformation( &DebugEvent, &ProcessID, &ThreadID, Context, ConextSize, &ContextSize, NULL, 0, 0) )
+	HRESULT hr = Control->GetStoredEventInformation(&DebugEvent, &ProcessID, &ThreadID, Context, ContextSize, &ContextUsed, NULL, 0, 0);
+	if( FAILED(hr) )
 	{
-		return bAtLeastOneFunctionNameFound;
+		return NumValidFunctionNames;
 	}
 
 	// Some magic number checks
-	if( ContextSize == 716 )
+	if( ContextUsed == 716 )
 	{
-		CrashInfo.Log( FString::Printf( TEXT( " ... context size matches x86 sizeof( CONTEXT )" ) ) );
+		UE_LOG( LogCrashDebugHelper, Log, TEXT( "Context size matches x86 sizeof( CONTEXT )" ) );
 	}
-	else if( ContextSize == 1232 )
+	else if( ContextUsed == 1232 )
 	{
-		CrashInfo.Log( FString::Printf( TEXT( " ... context size matches x64 sizeof( CONTEXT )" ) ) );
+		UE_LOG( LogCrashDebugHelper, Log, TEXT( "Context size matches x64 sizeof( CONTEXT )" ) );
 	}
 
 	// Get the entire stack trace
 	const uint32 MaxFrames = 128;
-	const uint32 MaxFramesSize = MaxFrames * ContextSize;
+	const uint32 MaxFramesSize = MaxFrames * ContextUsed;
 
 	DEBUG_STACK_FRAME* StackFrames = new(FMemStack::Get()) DEBUG_STACK_FRAME[MaxFrames];
 	ULONG Count = 0;
 	bool bFoundSourceFile = false;
 	void* ContextData = FMemStack::Get().PushBytes( MaxFramesSize, 0 );
 	FMemory::Memzero( ContextData, MaxFramesSize );
-	HRESULT HR = Control->GetContextStackTrace( Context, ContextSize, StackFrames, MaxFrames, ContextData, MaxFramesSize, ContextSize, &Count );
+	HRESULT HR = Control->GetContextStackTrace( Context, ContextUsed, StackFrames, MaxFrames, ContextData, MaxFramesSize, ContextUsed, &Count );
 
 	for( uint32 StackIndex = 0; StackIndex < Count; StackIndex++ )
-	{
-		FString Line;
-		uint64 Offset = StackFrames[StackIndex].InstructionOffset;
+	{	
+		const uint64 Offset = StackFrames[StackIndex].InstructionOffset;
 
 		if( IsOffsetWithinModules( Offset ) )
 		{
 			// Get the module, function, and offset
 			uint64 Displacement = 0;
-			TCHAR FunctionName[MAX_PATH] = { 0 };
+			TCHAR NameByOffset[MAX_PATH] = {0};
+			Symbol->GetNameByOffsetWide( Offset, NameByOffset, ARRAYSIZE( NameByOffset ) - 1, NULL, &Displacement );
+			FString ModuleAndFunction = NameByOffset;
 
-			Symbol->GetNameByOffsetWide( Offset, FunctionName, ARRAYSIZE( FunctionName ) - 1, NULL, &Displacement );
+			// Don't care about any more entries higher than this
+			if( ModuleAndFunction.Contains( TEXT( "tmainCRTStartup" ) ) )
+			{
+				break;
+			}
 
 			// Look for source file name and line number
 			TCHAR SourceName[MAX_PATH] = { 0 };
 			ULONG LineNumber = 0;
-
 			Symbol->GetLineByOffsetWide( Offset, &LineNumber, SourceName, ARRAYSIZE( SourceName ) - 1, NULL, NULL );
 
-			Line = FunctionName;
-
 			// Remember the top of the stack to locate in the source file
-			if( !bFoundSourceFile && FString( SourceName ).Len() > 0 && LineNumber > 0 )
+			if( !bFoundSourceFile && FCString::Strlen( SourceName ) > 0 && LineNumber > 0 )
 			{
 				CrashInfo.SourceFile = ExtractRelativePath( TEXT( "source" ), SourceName );
 				CrashInfo.SourceLineNumber = LineNumber;
 				bFoundSourceFile = true;
 			}
 
-			// If we find an assert, the actual source file we're interested in is the next one up, so reset the source file found flag
-			if( Line.Contains( TEXT( "FDebug::AssertFailed" ), ESearchCase::CaseSensitive)
-				|| Line.Contains( TEXT("FDebug::EnsureNotFalse"), ESearchCase::CaseSensitive)
-				|| Line.Contains( TEXT( "FDebug::EnsureFailed" ), ESearchCase::CaseSensitive) )
-			{
-				bFoundSourceFile = false;
-			}
-
+			FString ModuleName;
+			FString FunctionName;
 			// According to MSDN, the symbol name will include an ! if the function name could be discovered, delimiting it from the module name
-			if( Line.Contains(TEXT( "!" )) )
+			// https://msdn.microsoft.com/en-us/library/windows/hardware/ff547186(v=vs.85).aspx
+			if( ModuleAndFunction.Contains( TEXT( "!" ) ) )
 			{
-				Line += TEXT( "()" );
-				bAtLeastOneFunctionNameFound = true;
+				NumValidFunctionNames++;
+ 
+				ModuleAndFunction.Split( TEXT( "!" ), &ModuleName, &FunctionName );
+				FunctionName += TEXT( "()" );
+			}
+			else
+			{
+				ModuleName = ModuleAndFunction;
 			}
 
-			Line += FString::Printf( TEXT( " + %d bytes" ), Displacement );
-			
-			if( LineNumber > 0 )
+			// @TODO yrx 2015-02-24 Add for other platforms
+			// If we find an assert, the actual source file we're interested in is the next one up, so reset the source file found flag
+			if( FunctionName.Len() > 0 )
 			{
-				Line += FString::Printf( TEXT( " [%s:%d]" ), SourceName, LineNumber );
+				if( FunctionName.Contains( TEXT( "FDebug::AssertFailed" ), ESearchCase::CaseSensitive )
+					|| FunctionName.Contains( TEXT( "FDebug::EnsureNotFalse" ), ESearchCase::CaseSensitive )
+					|| FunctionName.Contains( TEXT( "FDebug::EnsureFailed" ), ESearchCase::CaseSensitive ) )
+				{
+					bFoundSourceFile = false;
+				}
 			}
 
-			Exception.CallStackString.Add( Line );
-		}
-		else
-		{
-			break;
-		}
+			// FString InModuleName, FString InFunctionName, FString InFilename, uint32 InLineNumber, uint64 InSymbolDisplacement, uint64 InOffsetInModule, uint64 InProgramCounter
+			FProgramCounterSymbolInfoEx SymbolInfo( ModuleName, FunctionName, SourceName, LineNumber, Displacement, Offset, 0 );
+			FString GenericFormattedCallstackLine;
+			FGenericPlatformStackWalk::SymbolInfoToHumanReadableStringEx( SymbolInfo, GenericFormattedCallstackLine );
+			Exception.CallStackString.Add( GenericFormattedCallstackLine );
 
-		// Don't care about any more entries higher than this
-		if( Line.Contains(TEXT( "tmainCRTStartup" )) )
-		{
-			break;
+			UE_LOG( LogCrashDebugHelper, Log, TEXT( "%3u: %s" ), StackIndex, *GenericFormattedCallstackLine );
 		}
 	}
 
-	CrashInfo.Log( FString::Printf( TEXT( " ... callstack generated!" ) ) );
+	UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Callstack generated with %i valid function names" ), NumValidFunctionNames );
 
-	return bAtLeastOneFunctionNameFound;
+	return NumValidFunctionNames;
 }
 
-/** 
- * Open a minidump as a new session
- */
+
 bool FWindowsPlatformStackWalkExt::OpenDumpFile( const FString& InCrashDumpFilename )
 {
 	const bool bFound = IFileManager::Get().FileSize( *InCrashDumpFilename ) != INDEX_NONE;
 	if( !bFound )
 	{
-		CrashInfo.Log( FString::Printf( TEXT( " ... failed to find minidump file: %s" ), *InCrashDumpFilename ) );
+		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Failed to find minidump file: %s" ), *InCrashDumpFilename );
 		return false;
 	}
 
-	if( Client->OpenDumpFileWide( *InCrashDumpFilename, NULL ) )
+	HRESULT hr = Client->OpenDumpFileWide(*InCrashDumpFilename, NULL);
+	if(FAILED(hr) )
 	{
-		CrashInfo.Log( FString::Printf( TEXT( " ... failed to open minidump: %s" ), *InCrashDumpFilename ) );
+		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Failed to open minidump file: %s" ), *InCrashDumpFilename );
 		return false;
 	}
 
 	if( Control->WaitForEvent( 0, INFINITE ) != S_OK )
 	{
-		CrashInfo.Log( FString::Printf( TEXT( " ... failed while waiting for minidump to load: %s" ), *InCrashDumpFilename ) );
+		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Failed while waiting for minidump to load: %s" ), *InCrashDumpFilename );
 		return false;
 	}
 
-	CrashInfo.Log( FString::Printf( TEXT( "Successfully opened minidump: %s" ), *InCrashDumpFilename ) );
+	UE_LOG( LogCrashDebugHelper, Log, TEXT( "Successfully opened minidump: %s" ), *InCrashDumpFilename );
 	return true;
 }

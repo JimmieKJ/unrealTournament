@@ -4,16 +4,18 @@
 
 
 /**
- * A sequence of curves that can be used to drive animations.
+ * A sequence of curves that can be used to drive animations for slate widgets.
+ * Active timer registration is handled for the widget being animated when calling play.
+ *
  * Each curve within the sequence has a time offset and a duration.
  * This makes FCurveSequence convenient for crating staggered animations.
  * e.g.
  *   // We want to zoom in a widget, and then fade in its contents.
  *   FCurveHandle ZoomCurve = Sequence.AddCurve( 0, 0.15f );
  *   FCurveHandle FadeCurve = Sequence.AddCurve( 0.15f, 0.1f );
- *	 Sequence.Play();
+ *	 Sequence.Play( this->AsShared() );
  */
-struct SLATECORE_API FCurveSequence
+struct SLATECORE_API FCurveSequence : public TSharedFromThis<FCurveSequence>
 {
 public:
 
@@ -43,6 +45,9 @@ public:
 
 	/** Default constructor */
 	FCurveSequence( );
+
+	/** Makes sure the active timer is unregistered */
+	~FCurveSequence();
 
 	/**
 	 * Construct by adding a single animation curve to this sequence.  Does not provide access to the curve though.
@@ -78,23 +83,49 @@ public:
 	 * @param InEaseFunction       Easing function to use for this curve.  Defaults to Linear.  Use this to smooth out your animation transitions.
 	 */
 	FCurveHandle AddCurveRelative( const float InOffset, const float InDurationSecond, const ECurveEaseFunction::Type InEaseFunction = ECurveEaseFunction::Linear );
-
+	
 	/**
 	 * Start playing this curve sequence
 	 *
 	 * @param	StartAtTime		Specifies a time offset relative to the animation to start at.  Defaults to zero (the actual start of the sequence.)
 	 */
+	DEPRECATED(4.8, "FCurveSequence::Play(const float StartAtTime) is deprecated. Curve sequences must be associated with a specific widget when played. Use Play(const TSharedRef<SWidget>& InOwnerWidget, bool bPlayLooped, const float StartAtTime) instead.")
 	void Play( const float StartAtTime = 0.0f );
-
-	/** Reverse the direction of an in-progress animation */
-	void Reverse( );
 
 	/**
 	 * Start playing this curve sequence in reverse
 	 *
 	 * @param	StartAtTime		Specifies a time offset relative to the animation to start at.  Defaults to zero (the actual start of the sequence.)
 	 */
+	DEPRECATED(4.8, "FCurveSequence::PlayReverse(const float StartAtTime) is deprecated. Curve sequences must be associated with a specific widget when played. Use PlayReverse(const TSharedRef<SWidget>& InOwnerWidget, bool bPlayLooped, const float StartAtTime) instead.")
 	void PlayReverse( const float StartAtTime = 0.0f );
+
+	/**
+	 * Start playing this curve sequence. Registers an active timer with the widget being animated.
+	 *
+	 * @param InOwnerWidget The widget that is being animated by this sequence.
+	 * @param bPlayLooped True if the curve sequence should play continually on a loop. Note that the active timer will persist until this sequence is paused or jumped to the start/end.
+	 * @param StartAtTime The relative time within the animation at which to begin playing (i.e. 0.0f is the beginning).
+	 */
+	void Play( const TSharedRef<SWidget>& InOwnerWidget, bool bPlayLooped = false, const float StartAtTime = 0.0f );
+
+	/**
+	 * Start playing this curve sequence in reverse. Registers an active timer for the widget using the sequence.
+	 *
+	 * @param InOwnerWidget The widget that is being animated by this sequence.
+	 * @param bPlayLooped True if the curve sequence should play continually on a loop. Note that the active timer will persist until this sequence is paused or jumped to the start/end.
+	 * @param StartAtTime The relative time within the animation at which to begin playing (i.e. 0.0f is the beginning).
+	 */
+	void PlayReverse( const TSharedRef<SWidget>& InOwnerWidget, bool bPlayLooped = false, const float StartAtTime = 0.0f );
+
+	/** Reverse the direction of an in-progress animation */
+	void Reverse( );
+
+	/** Pause this curve sequence. */
+	void Pause();
+
+	/** Unpause this curve sequence to resume play. */
+	void Resume( );
 
 	/**
 	 * Checks whether the sequence is currently playing.
@@ -107,7 +138,10 @@ public:
 	float GetSequenceTime( ) const;
 
 	/** @return the current time relative to the beginning of the sequence as if the animation were a looping one. */
+	DEPRECATED(4.8, "FCurveSequence::GetSequenceTimeLooping() is deprecated. Use GetSequenceTime() instead. To play a sequence on a loop, pass \"true\" as the second parameter to Play or PlayReverse.")
 	float GetSequenceTimeLooping( ) const;
+	/** Shell to avoid generating internal deprecated warnings. Do not call. Will be removed when GetSequenceTimeLooping() is removed. */
+	float DEPRECATED_GetSequenceTimeLooping() const;
 
 	/** @return true if the animation is in reverse */
 	bool IsInReverse( ) const;
@@ -127,13 +161,16 @@ public:
 	/** Is the sequence at the end? */
 	bool IsAtEnd( ) const;
 
+	/** Is the sequence looping? */
+	bool IsLooping() const;
+
 	/**
 	 * For single-curve animations, returns the interpolation alpha for the animation.  If you call this function
 	 * on a sequence with multiple curves, an assertion will trigger.
 	 *
 	 * @return A linearly interpolated value between 0 and 1 for this curve.
 	 */
-	float GetLerp( ) const;
+	float GetLerp() const;
 
 	/**
 	 * For single-curve animations, returns the looping interpolation alpha for the animation.  If you call this
@@ -141,7 +178,10 @@ public:
 	 *
 	 * @return A linearly interpolated value between 0 and 1 for this curve.
 	 */
+	DEPRECATED(4.8, "FCurveSequence::GetLerpLooping() is deprecated. Use GetLerp() instead. To play a sequence on a loop, pass \"true\" as the second parameter to Play or PlayReverse.")
 	float GetLerpLooping( ) const;
+	/** Shell to avoid generating internal deprecated warnings. Do not call. Will be removed when GetLerpLooping() is removed. */
+	float DEPRECATED_GetLerpLooping() const;
 
 	/**
 	 * @param CurveIndex  Index of a curve in the curves array.
@@ -156,6 +196,22 @@ protected:
 	void SetStartTime( double InStartTime );
 
 private:
+	/** Helper to take care of registering the active timer */
+	void RegisterActiveTimerIfNeeded(TSharedRef<SWidget> InOwnerWidget);
+
+	/** Hollow active timer to ensure a Slate Tick/Paint pass while the sequence is playing */
+	EActiveTimerReturnType EnsureSlateTickDuringAnimation( double InCurrentTime, float InDeltaTime );
+
+private:
+
+	/** 
+	 * Weak reference to the owner widget that is being animated by this curve sequence.
+	 * Necessary to ensure the active timer is unregistered if the sequence is destroyed before/by the owner.
+	 */
+	TWeakPtr<SWidget> OwnerWidget;
+
+	/** The handle to the active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 
 	/** All the curves in this sequence. */
 	TArray<FSlateCurve> Curves;
@@ -163,9 +219,18 @@ private:
 	/** When the curve started playing. */
 	double StartTime;
 
+	/** When the curve was paused */
+	double PauseTime;
+
 	/** How long the entire sequence lasts. */
 	float TotalDuration;
 
 	/** Are we playing the animation in reverse */
-	bool bInReverse;
+	uint8 bInReverse : 1;
+
+	/** Is the sequence playing on a loop? */
+	uint8 bIsLooping : 1;
+
+	/** Is the sequence currently paused? */
+	uint8 bIsPaused : 1;
 };

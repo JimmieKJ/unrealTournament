@@ -8,6 +8,7 @@
 #define __STATICMESHDRAWLIST_INL__
 
 #include "RHICommandList.h"
+#include "EngineStats.h"
 
 // Expensive
 #define PER_MESH_DRAW_STATS 0
@@ -494,18 +495,14 @@ void TStaticMeshDrawList<DrawingPolicyType>::SortFrontToBack(FVector ViewPositio
 		FBoxSphereBounds AccumulatedBounds(ForceInit);
 
 		FDrawingPolicyLink& DrawingPolicyLink = *DrawingPolicyIt;
-		for (int32 ElementIndex = 0; ElementIndex < DrawingPolicyLink.Elements.Num(); ElementIndex++)
+		if (DrawingPolicyLink.Elements.Num())
 		{
-			FElement& Element = DrawingPolicyLink.Elements[ElementIndex];
-
-			if (ElementIndex == 0)
-			{
-				AccumulatedBounds = Element.Bounds;
-			}
-			else
-			{
-				AccumulatedBounds = AccumulatedBounds + Element.Bounds;
-			}
+			AccumulatedBounds = DrawingPolicyLink.Elements[0].Bounds;
+			for (int32 ElementIndex = 1; ElementIndex < DrawingPolicyLink.Elements.Num(); ElementIndex++)
+		    {
+		        FElement& Element = DrawingPolicyLink.Elements[ElementIndex];
+		        AccumulatedBounds = AccumulatedBounds + Element.Bounds;
+		    }
 		}
 		DrawingPolicyIt->CachedBoundingSphere = AccumulatedBounds.GetSphere();
 	}

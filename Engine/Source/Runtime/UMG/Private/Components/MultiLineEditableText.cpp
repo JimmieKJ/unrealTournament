@@ -83,14 +83,14 @@ void UMultiLineEditableText::SetText(FText InText)
 	}
 }
 
-void UMultiLineEditableText::HandleOnTextChanged(const FText& Text)
+void UMultiLineEditableText::HandleOnTextChanged(const FText& InText)
 {
-	OnTextChanged.Broadcast(Text);
+	OnTextChanged.Broadcast(InText);
 }
 
-void UMultiLineEditableText::HandleOnTextCommitted(const FText& Text, ETextCommit::Type CommitMethod)
+void UMultiLineEditableText::HandleOnTextCommitted(const FText& InText, ETextCommit::Type CommitMethod)
 {
-	OnTextCommitted.Broadcast(Text, CommitMethod);
+	OnTextCommitted.Broadcast(InText, CommitMethod);
 }
 
 #if WITH_EDITOR

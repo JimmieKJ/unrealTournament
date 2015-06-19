@@ -7,6 +7,8 @@
 #include "K2Node_Tunnel.h"
 #include "K2Node_Composite.h"
 
+#define LOCTEXT_NAMESPACE "K2Node"
+
 UK2Node_Tunnel::UK2Node_Tunnel(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -65,6 +67,33 @@ FText UK2Node_Tunnel::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	{
 		return NSLOCTEXT("K2Node", "TunnelConnectionTitle", "Tunnel Connection");
 	}
+}
+
+FString UK2Node_Tunnel::CreateUniquePinName(FString InSourcePinName) const
+{
+	if (GetClass() == UK2Node_Tunnel::StaticClass())
+	{
+		// When dealing with a tunnel node that is not a sub class (macro/collapsed graph entry and result), attempt to find the paired node and find a valid name between the two
+		TWeakObjectPtr<UK2Node_EditablePinBase> TunnelEntry;
+		TWeakObjectPtr<UK2Node_EditablePinBase> TunnelResult;
+		FBlueprintEditorUtils::GetEntryAndResultNodes(GetGraph(), TunnelEntry, TunnelResult);
+
+		if (TunnelEntry.IsValid() && TunnelResult.IsValid())
+		{
+			FString PinName(InSourcePinName);
+
+			int32 Index = 1;
+			while (TunnelEntry.Get()->FindPin(PinName) != nullptr || TunnelResult.Get()->FindPin(PinName) != nullptr)
+			{
+				++Index;
+				PinName = InSourcePinName + FString::FromInt(Index);
+			}
+
+			return PinName;
+		}
+	}
+
+	return Super::CreateUniquePinName(InSourcePinName);
 }
 
 bool UK2Node_Tunnel::CanUserDeleteNode() const
@@ -126,10 +155,40 @@ UK2Node_Tunnel* UK2Node_Tunnel::GetOutputSource() const
 	return OutputSourceNode;
 }
 
+bool UK2Node_Tunnel::CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage)
+{
+	bool bResult = true;
+	// Make sure that if this is an exec node we are allowed one.
+	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+	if (InPinType.PinCategory == Schema->PC_Exec && !CanModifyExecutionWires())
+	{
+		OutErrorMessage = LOCTEXT("MultipleExecPinError", "Cannot support more exec pins!");
+		bResult = false;
+	}
+	else if(InDesiredDirection == EGPD_Input && !bCanHaveInputs)
+	{
+		OutErrorMessage = LOCTEXT("AddTunnelInputPinError", "Cannot add input pins to entry node!");
+		bResult = false;
+	}
+	else if(InDesiredDirection == EGPD_Output && !bCanHaveOutputs)
+	{
+		OutErrorMessage = LOCTEXT("AddTunnelOutputPinError", "Cannot add output pins to entry node!");
+		bResult = false;
+	}
+	return bResult;
+}
+
 UEdGraphPin* UK2Node_Tunnel::CreatePinFromUserDefinition(const TSharedPtr<FUserPinInfo> NewPinInfo)
 {
 	// Create the new pin
 	EEdGraphPinDirection Direction = bCanHaveInputs ? EGPD_Input : EGPD_Output;
+
+	// Let the user pick the pin direction if legal
+	if ( (bCanHaveInputs && NewPinInfo->DesiredPinDirection == EGPD_Input) || (bCanHaveOutputs && NewPinInfo->DesiredPinDirection == EGPD_Output) )
+	{
+		Direction = NewPinInfo->DesiredPinDirection;
+	}
+
 	UEdGraphPin* Result = CreatePin(
 		Direction, 
 		NewPinInfo->PinType.PinCategory, 
@@ -159,7 +218,7 @@ UEdGraphPin* UK2Node_Tunnel::CreatePinFromUserDefinition(const TSharedPtr<FUserP
 	}
 	else if (UK2Node_Tunnel* TunnelNode = Cast<UK2Node_Tunnel>(TargetNode))
 	{
-		TunnelNode->CreateUserDefinedPin(NewPinInfo->PinName, NewPinInfo->PinType);
+		TunnelNode->CreateUserDefinedPin(NewPinInfo->PinName, NewPinInfo->PinType, (Direction == EGPD_Input)? EGPD_Output : EGPD_Input);
 	}
 
 	//@TODO: Automatically update loaded macro instances when this node is changed too
@@ -206,3 +265,4 @@ UObject* UK2Node_Tunnel::GetJumpTargetForDoubleClick() const
 
 	return TargetNode;
 }
+#undef LOCTEXT_NAMESPACE

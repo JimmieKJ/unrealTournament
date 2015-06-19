@@ -1,0 +1,492 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "EnginePrivate.h"
+#include "Components/InterpToMovementComponent.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogInterpToMovementComponent, Log, All);
+
+const float UInterpToMovementComponent::MIN_TICK_TIME = 0.0002f;
+
+UInterpToMovementComponent::UInterpToMovementComponent(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	bUpdateOnlyIfRendered = false;
+	bForceSubStepping = false;
+
+	bWantsInitializeComponent = true;
+
+	MaxSimulationTimeStep = 0.05f;
+	MaxSimulationIterations = 8;
+
+	bIsWaiting = false;
+	TimeMultiplier = 1.0f;	
+	Duration = 1.0f;
+	CurrentDirection = 1.0f;
+	CurrentTime = 0.0f;
+	bStopped = false;
+}
+
+void UInterpToMovementComponent::InitializeComponent()
+{
+	Super::InitializeComponent();
+}
+
+
+void UInterpToMovementComponent::StopMovementImmediately()
+{
+	bStopped = true;
+	FHitResult FakeHit;
+	OnInterpToStop.Broadcast(FakeHit, CurrentTime);
+	// Not calling StopSimulating here (that nulls UpdatedComponent). Users can call that explicitly instead if they wish.
+
+	Super::StopMovementImmediately();
+}
+
+
+void UInterpToMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_InterpToMovementComponent_TickComponent);
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// skip if don't want component updated when not rendered or updated component can't move
+	if (!UpdatedComponent || ShouldSkipUpdate(DeltaTime))
+	{
+		return;
+	}
+	AActor* ActorOwner = UpdatedComponent->GetOwner();
+	if (!ActorOwner || !CheckStillInWorld())
+	{
+		return;
+	}
+
+	if (UpdatedComponent->IsSimulatingPhysics())
+	{
+		return;
+	}
+	if((bStopped == true ) || ( ActorOwner->IsPendingKill() ) )
+	{
+		return;
+	}
+	if( ControlPoints.Num()== 0 ) 
+	{
+		return;
+	}
+
+	// This will update any control points coordinates that are linked to actors.
+	UpdateControlPoints(false);
+
+	float RemainingTime = DeltaTime;
+	int32 NumBounces = 0;
+	int32 Iterations = 0;
+	FHitResult Hit(1.f);
+
+	FVector WaitPos = FVector::ZeroVector;
+	if (bIsWaiting == true)
+	{
+		WaitPos = UpdatedComponent->GetComponentLocation();
+	}
+	while (RemainingTime >= MIN_TICK_TIME && (Iterations < MaxSimulationIterations) && !ActorOwner->IsPendingKill() && UpdatedComponent)
+	{
+		Iterations++;
+
+		const float TimeTick = ShouldUseSubStepping() ? GetSimulationTimeStep(RemainingTime, Iterations) : RemainingTime;
+		RemainingTime -= TimeTick;
+
+		// Calculate the current time with this tick iteration
+		float Time = FMath::Clamp(CurrentTime + ((DeltaTime*TimeMultiplier)*CurrentDirection),0.0f,1.0f);		
+		FVector MoveDelta = ComputeMoveDelta(Time);
+		
+		// Update the rotation on the spline if required
+		FRotator CurrentRotation = UpdatedComponent->GetComponentRotation();				
+		
+		// Move the component
+ 		if ((bPauseOnImpact == false ) && (BehaviourType != EInterpToBehaviourType::OneShot))
+ 		{
+ 			// If we can bounce, we are allowed to move out of penetrations, so use SafeMoveUpdatedComponent which does that automatically.
+ 			SafeMoveUpdatedComponent(MoveDelta, CurrentRotation, true, Hit);
+ 		}
+ 		else
+		{
+			// If we can't bounce, then we shouldn't adjust if initially penetrating, because that should be a blocking hit that causes a hit event and stop simulation.
+			TGuardValue<EMoveComponentFlags> ScopedFlagRestore(MoveComponentFlags, MoveComponentFlags | MOVECOMP_NeverIgnoreBlockingOverlaps);
+			MoveUpdatedComponent(MoveDelta, CurrentRotation, true, &Hit);
+		}
+		//DrawDebugPoint(GetWorld(), UpdatedComponent->GetComponentLocation(), 16, FColor::White,true,5.0f);
+		// If we hit a trigger that destroyed us, abort.
+		if (ActorOwner->IsPendingKill() || !UpdatedComponent)
+		{
+			return;
+		}
+
+		// Handle hit result after movement
+		if (!Hit.bBlockingHit)
+		{
+			// If we were 'waiting' were not any more - broadcast we are off again
+			if( bIsWaiting == true )
+			{
+				OnWaitEndDelegate.Broadcast(Hit, Time);
+				bIsWaiting = false;
+			}
+			else
+			{				
+				CalculateNewTime(CurrentTime, TimeTick, Hit, true, bStopped);
+				if (bStopped == true)
+				{
+					return;
+				}
+			}
+		}
+		else
+		{
+			if (HandleHitWall(Hit, TimeTick, MoveDelta))
+			{
+				break;
+			}
+
+			NumBounces++;
+			float SubTickTimeRemaining = TimeTick * (1.f - Hit.Time);
+			
+			// A few initial bounces should add more time and iterations to complete most of the simulation.
+			if (NumBounces <= 2 && SubTickTimeRemaining >= MIN_TICK_TIME)
+			{
+				RemainingTime += SubTickTimeRemaining;
+				Iterations--;
+			}
+		}
+	}
+	if( bIsWaiting == false )
+	{		
+		FHitResult DummyHit;
+		CurrentTime = CalculateNewTime(CurrentTime, DeltaTime, DummyHit, false, bStopped);		
+	}
+	UpdateComponentVelocity();
+}
+
+float UInterpToMovementComponent::CalculateNewTime( float TimeNow, float Delta, FHitResult& HitResult, bool InBroadcastEvent, bool& OutStopped )
+{
+	float NewTime = TimeNow;
+	OutStopped = false;
+	if (bIsWaiting == false)
+	{
+		NewTime += ((Delta*TimeMultiplier)*CurrentDirection);
+		if (NewTime >= 1.0f)
+		{
+			if (BehaviourType == EInterpToBehaviourType::OneShot)
+			{
+				NewTime = 1.0f;
+				OutStopped = true;
+				if(InBroadcastEvent == true )
+				{
+					OnInterpToStop.Broadcast(HitResult, NewTime);
+				}
+			}
+			else if(BehaviourType == EInterpToBehaviourType::Loop_Reset)
+			{
+				NewTime = 0.0f;
+				if (InBroadcastEvent == true)
+				{
+					OnResetDelegate.Broadcast(HitResult, NewTime);
+				}
+			}
+			else
+			{
+				FHitResult DummyHit;
+				NewTime = ReverseDirection(DummyHit,NewTime, InBroadcastEvent);
+			}	
+		}
+		else if (NewTime < 0.0f)
+		{
+			if (BehaviourType == EInterpToBehaviourType::OneShot_Reverse)
+			{
+				NewTime = 0.0f;
+				bStopped = true;
+				if (InBroadcastEvent == true)
+				{
+					OnInterpToStop.Broadcast(HitResult, NewTime);
+				}				
+			}
+			else if (BehaviourType == EInterpToBehaviourType::PingPong)
+			{
+
+				FHitResult DummyHit;
+				NewTime = ReverseDirection(DummyHit, NewTime, InBroadcastEvent);
+			}			
+		}
+	}
+	return NewTime;
+}
+
+FVector UInterpToMovementComponent::ComputeMoveDelta(float InTime) const
+{	
+	FVector MoveDelta = FVector::ZeroVector;
+	FVector NewPosition = FVector::ZeroVector;
+	//Find current control point
+	float Time = 0.0f;
+	int32 CurrentControlPoint = INDEX_NONE;
+	// Always use the end point if we are at the end 
+	if (InTime >= 1.0f)
+	{
+		CurrentControlPoint = ControlPoints.Num() - 1;
+	}
+	else
+	{
+		for (int32 iSpline = 0; iSpline < ControlPoints.Num(); iSpline++)
+		{
+			float NextTime = Time + ControlPoints[iSpline].Percentage;
+			if (InTime < NextTime)
+			{
+				CurrentControlPoint = iSpline;
+				break;
+			}
+			Time = NextTime;
+		}
+	}
+	// If we found a valid control point get the position between it and the next
+	if (CurrentControlPoint != INDEX_NONE)
+	{
+		FRotator CurrentRotation = UpdatedComponent->GetComponentRotation();
+		float Base = InTime - ControlPoints[CurrentControlPoint].StartTime;
+		float ThisAlpha = Base / ControlPoints[CurrentControlPoint].Percentage;
+		FVector BeginControlPoint = ControlPoints[CurrentControlPoint].PositionControlPoint;
+		BeginControlPoint = CurrentRotation.RotateVector(BeginControlPoint) + ( ControlPoints[CurrentControlPoint].bPositionIsRelative == true ? StartLocation : FVector::ZeroVector);
+
+		int32 NextControlPoint = FMath::Clamp(CurrentControlPoint + 1, 0, ControlPoints.Num() - 1);
+		FVector EndControlPoint = ControlPoints[NextControlPoint].PositionControlPoint;
+		EndControlPoint = CurrentRotation.RotateVector(EndControlPoint) + ( ControlPoints[NextControlPoint].bPositionIsRelative == true ? StartLocation : FVector::ZeroVector);
+
+		NewPosition = FMath::Lerp(BeginControlPoint, EndControlPoint, ThisAlpha);
+	}
+
+	FVector CurrentPosition = UpdatedComponent->GetComponentLocation();
+	MoveDelta = NewPosition - CurrentPosition;
+	return MoveDelta;
+}
+
+void UInterpToMovementComponent::StopSimulating(const FHitResult& HitResult)
+{
+	SetUpdatedComponent(nullptr);
+	Velocity = FVector::ZeroVector;
+	OnInterpToStop.Broadcast(HitResult, CurrentTime);
+}
+
+bool UInterpToMovementComponent::HandleHitWall(const FHitResult& Hit, float Time, const FVector& MoveDelta)
+{
+	AActor* ActorOwner = UpdatedComponent ? UpdatedComponent->GetOwner() : NULL;
+	if (!CheckStillInWorld() || !ActorOwner || ActorOwner->IsPendingKill())
+	{
+		return true;
+	}
+	HandleImpact(Hit, Time, MoveDelta);
+
+	if (ActorOwner->IsPendingKill() || !UpdatedComponent)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+void UInterpToMovementComponent::HandleImpact(const FHitResult& Hit, float Time, const FVector& MoveDelta)
+{
+	if( bPauseOnImpact == false )
+	{
+		switch(BehaviourType )
+		{
+		case EInterpToBehaviourType::OneShot:
+		case EInterpToBehaviourType::OneShot_Reverse:
+			OnInterpToStop.Broadcast(Hit, Time);
+			// If one shot we are done. If One shot reverse and we are already in reverse we are done too.
+			if ((BehaviourType == EInterpToBehaviourType::OneShot) || (CurrentDirection == -1.0f))
+			{
+				bStopped = true;
+				StopSimulating(Hit);
+				return;
+			}
+			break;
+		case EInterpToBehaviourType::Loop_Reset:
+			{
+				CurrentTime = 0.0f;
+				OnResetDelegate.Broadcast(Hit, CurrentTime);
+			}
+			break;
+		default:
+			ReverseDirection(Hit, Time, true);
+			break;
+		}		
+	}
+	else
+	{
+		if( bIsWaiting == false )
+		{
+			OnWaitBeginDelegate.Broadcast(Hit, Time);
+			bIsWaiting = true;
+		}
+	}
+}
+
+bool UInterpToMovementComponent::CheckStillInWorld()
+{
+	if (!UpdatedComponent)
+	{
+		return false;
+	}
+	// check the variations of KillZ
+	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings(true);
+	if (!WorldSettings->bEnableWorldBoundsChecks)
+	{
+		return true;
+	}
+	AActor* ActorOwner = UpdatedComponent->GetOwner();
+	if (!ActorOwner)
+	{
+		return false;
+	}
+	if (ActorOwner->GetActorLocation().Z < WorldSettings->KillZ)
+	{
+		UDamageType const* DmgType = WorldSettings->KillZDamageType ? WorldSettings->KillZDamageType->GetDefaultObject<UDamageType>() : GetDefault<UDamageType>();
+		ActorOwner->FellOutOfWorld(*DmgType);
+		return false;
+	}
+	// Check if box has poked outside the world
+	else if (UpdatedComponent && UpdatedComponent->IsRegistered())
+	{
+		const FBox&	Box = UpdatedComponent->Bounds.GetBox();
+		if (Box.Min.X < -HALF_WORLD_MAX || Box.Max.X > HALF_WORLD_MAX ||
+			Box.Min.Y < -HALF_WORLD_MAX || Box.Max.Y > HALF_WORLD_MAX ||
+			Box.Min.Z < -HALF_WORLD_MAX || Box.Max.Z > HALF_WORLD_MAX)
+		{
+			UE_LOG(LogInterpToMovementComponent, Warning, TEXT("%s is outside the world bounds!"), *ActorOwner->GetName());
+			ActorOwner->OutsideWorldBounds();
+			// not safe to use physics or collision at this point
+			ActorOwner->SetActorEnableCollision(false);
+			FHitResult Hit(1.f);
+			StopSimulating(Hit);
+			return false;
+		}
+	}
+	return true;
+}
+
+bool UInterpToMovementComponent::ShouldUseSubStepping() const
+{
+	return bForceSubStepping;
+}
+
+float UInterpToMovementComponent::GetSimulationTimeStep(float RemainingTime, int32 Iterations) const
+{
+	if (RemainingTime > MaxSimulationTimeStep)
+	{
+		if (Iterations < MaxSimulationIterations)
+		{
+			// Subdivide moves to be no longer than MaxSimulationTimeStep seconds
+			RemainingTime = FMath::Min(MaxSimulationTimeStep, RemainingTime * 0.5f);
+		}
+		else
+		{
+			// If this is the last iteration, just use all the remaining time. This is usually better than cutting things short, as the simulation won't move far enough otherwise.
+			// Print a throttled warning.
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			static uint32 s_WarningCount = 0;
+			if ((s_WarningCount++ < 100) || (GFrameCounter & 15) == 0)
+			{
+				UE_LOG(LogInterpToMovementComponent, Warning, TEXT("GetSimulationTimeStep() - Max iterations %d hit while remaining time %.6f > MaxSimulationTimeStep (%.3f) for '%s'"), MaxSimulationIterations, RemainingTime, MaxSimulationTimeStep, *GetPathNameSafe(UpdatedComponent));
+			}
+#endif
+		}
+	}
+
+	// no less than MIN_TICK_TIME (to avoid potential divide-by-zero during simulation).
+	return FMath::Max(MIN_TICK_TIME, RemainingTime);
+}
+
+
+void UInterpToMovementComponent::BeginPlay()
+{
+	StartLocation = UpdatedComponent->GetComponentLocation();
+	TimeMultiplier = 1.0f / Duration;
+	if( ControlPoints.Num() != 0 )
+	{
+		UpdateControlPoints(true);
+		// Update the component location to match first control point
+		FVector MoveDelta = ComputeMoveDelta(0.0f);
+		FRotator CurrentRotation = UpdatedComponent->GetComponentRotation();
+		FHitResult Hit(1.f);
+		UpdatedComponent->MoveComponent(MoveDelta, CurrentRotation, false, &Hit);
+	}	
+}
+
+void UInterpToMovementComponent::UpdateControlPoints(bool InForceUpdate)
+{
+	if (UpdatedComponent != nullptr)
+	{
+		if (InForceUpdate == true) 
+		{
+			FVector BasePosition = UpdatedComponent->GetComponentLocation();
+			TotalDistance = 0.0f;
+			FVector CurrentPos = ControlPoints[0].PositionControlPoint;
+			if (ControlPoints[0].bPositionIsRelative == true)
+			{
+				CurrentPos += BasePosition;
+			}
+			// Calculate the distances from point to point
+			for (int32 ControlPoint = 0; ControlPoint < ControlPoints.Num(); ControlPoint++)
+			{
+				if (ControlPoint + 1 < ControlPoints.Num())
+				{
+					FVector NextPosition = ControlPoints[ControlPoint + 1].PositionControlPoint;
+					if( ControlPoints[ControlPoint+1].bPositionIsRelative == true )
+					{
+						NextPosition += BasePosition;
+					}
+					ControlPoints[ControlPoint].DistanceToNext = (NextPosition - CurrentPos).Size();
+
+					TotalDistance += ControlPoints[ControlPoint].DistanceToNext;
+					CurrentPos = NextPosition;
+				}
+			}
+			float Percent = 0.0f;
+			// Use the distance to determine what % of time to spend going from each point
+			for (int32 ControlPoint = 0; ControlPoint < ControlPoints.Num(); ControlPoint++)
+			{
+				ControlPoints[ControlPoint].StartTime = Percent;
+				ControlPoints[ControlPoint].Percentage = ControlPoints[ControlPoint].DistanceToNext / TotalDistance;
+				Percent += ControlPoints[ControlPoint].Percentage;
+			}
+		}
+	}
+}
+
+float UInterpToMovementComponent::ReverseDirection(const FHitResult& Hit, float Time, bool InBroadcastEvent)
+{
+	float NewTime = Time;
+	// Invert the direction we are moving 
+	if (InBroadcastEvent == true)
+	{
+		OnInterpToReverse.Broadcast(Hit, NewTime);
+	}
+	// flip dir
+	CurrentDirection = -CurrentDirection;
+	// remove extra time from current time
+	float Remainder = NewTime - 1.0f;
+	NewTime = 1.0f - Remainder;
+	return NewTime;
+}
+
+
+void UInterpToMovementComponent::AddControlPointPosition(FVector Pos)
+{
+	UE_LOG(LogInterpToMovementComponent, Warning, TEXT("Pos:%s"),*Pos.ToString());
+	ControlPoints.Add( FInterpControlPoint(Pos));
+}
+
+#if WITH_EDITOR
+void UInterpToMovementComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (ControlPoints.Num() != 0)
+	{
+		UpdateControlPoints(true);
+	}
+}
+#endif // WITH_EDITOR

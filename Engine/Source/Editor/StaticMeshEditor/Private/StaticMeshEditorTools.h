@@ -74,19 +74,14 @@ private:
 	/** Callback when the "Defaults" button is clicked. */
 	FReply OnDefaults();
 
-	/** Assigns the max number of hulls based on the spinbox's value. */
-	void OnHullCountCommitted(int32 InNewValue, ETextCommit::Type CommitInfo);
+	/** Assigns the accuracy of hulls based on the spinbox's value. */
+	void OnHullAccuracyCommitted(float InNewValue, ETextCommit::Type CommitInfo);
 
-	/** Assigns the max number of hulls based on the spinbox's value. */
-	void OnHullCountChanged(int32 InNewValue);
+	/** Assigns the accuracy of hulls based on the spinbox's value. */
+	void OnHullAccuracyChanged(float InNewValue);
 
-
-	/** 
-	 *	Retrieves the max number of hulls allowed.
-	 *
-	 *	@return			The max number of hulls selected.
-	 */
-	int32 GetHullCount() const;
+	/** Retrieves the accuracy of hulls created. */
+	float GetHullAccuracy() const;
 
 	/** Assigns the max number of hulls based on the spinbox's value. */
 	void OnVertsPerHullCountCommitted(int32 InNewValue, ETextCommit::Type CommitInfo);
@@ -106,10 +101,10 @@ private:
 	TWeakPtr<IStaticMeshEditor> StaticMeshEditorPtr;
 
 	/** Spinbox for the max number of hulls allowed. */
-	TSharedPtr< SSpinBox<int32> > MaxHull;
+	TSharedPtr< SSpinBox<float> > HullAccuracy;
 
 	/** The current number of max number of hulls selected. */
-	int32 CurrentMaxHullCount;
+	float CurrentHullAccuracy;
 
 	/** Spinbox for the max number of verts per hulls allowed. */
 	TSharedPtr< SSpinBox<int32> > MaxVertsPerHull;
@@ -171,6 +166,9 @@ private:
 
 	void OnDistanceFieldResolutionScaleChanged(float NewValue);
 	void OnDistanceFieldResolutionScaleCommitted(float NewValue, ETextCommit::Type TextCommitType);
+	FString GetCurrentDistanceFieldReplacementMeshPath() const;
+	void OnDistanceFieldReplacementMeshSelected(const FAssetData& AssetData);
+
 private:
 	TWeakPtr<FLevelOfDetailSettingsLayout> ParentLODSettings;
 	FMeshBuildSettings BuildSettings;
@@ -284,6 +282,10 @@ private:
 	void OnLODCountCommitted(int32 InValue, ETextCommit::Type CommitInfo);
 	int32 GetLODCount() const;
 
+	void OnMinLODChanged(int32 NewValue);
+	void OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo);
+	int32 GetMinLOD() const;
+
 	float GetLODScreenSize(int32 LODIndex)const;
 	FText GetLODScreenSizeTitle(int32 LODIndex) const;
 	bool CanChangeLODScreenSize() const;
@@ -302,6 +304,7 @@ private:
 	void OnImportLOD(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void UpdateLODNames();
 	FText GetLODCountTooltip() const;
+	FText GetMinLODTooltip() const;
 
 private:
 

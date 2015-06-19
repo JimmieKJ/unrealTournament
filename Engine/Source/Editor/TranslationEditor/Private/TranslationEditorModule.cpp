@@ -30,6 +30,7 @@ void FTranslationEditorModule::StartupModule()
 void FTranslationEditorModule::ShutdownModule()
 {
 	MenuExtensibilityManager.Reset();
+	TranslationPickerManager::ClosePickerWindow();
 
 #if WITH_UNREAL_DEVELOPER_TOOLS
 	// unregister message log

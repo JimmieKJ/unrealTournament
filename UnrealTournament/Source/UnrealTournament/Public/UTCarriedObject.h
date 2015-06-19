@@ -148,11 +148,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	 *	Drops the object in to the world and allows it to become a pickup.
 	 *  @Killer The controller that cause this object to be dropped
 	 **/
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = GameObject)
 	virtual void Drop(AController* Killer = NULL);
 
 	/**	Sends this object back to its base */
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = GameObject)
 	virtual void SendHome();
 	virtual void SendHomeWithNotify();
 
@@ -161,13 +161,15 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	virtual void Use();
 
 	/**  Call this to tell the object to score.*/
-	UFUNCTION()
-	virtual void Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS);
+	UFUNCTION(BlueprintNativeEvent)
+	void Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void TryPickup(AUTCharacter* Character);
 
 	virtual void SetTeam(AUTTeamInfo* NewTeam);
+
+	virtual void EnteredPainVolume(class AUTPainVolume* PainVolume);
 
 	UFUNCTION()
 	virtual void AttachTo(USkeletalMeshComponent* AttachToMesh);
@@ -194,11 +196,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	virtual float GetHeldTime(AUTPlayerState* TestHolder);
 
 	/**	@Returns the index of a player in the assist array */
-	virtual int32 FindAssist(AUTPlayerState* Holder)
+	virtual int32 FindAssist(AUTPlayerState* InHolder)
 	{
 		for (int32 i=0; i<AssistTracking.Num(); i++)
 		{
-			if (AssistTracking[i].Holder == Holder) return i;
+			if (AssistTracking[i].Holder == InHolder) return i;
 		}
 
 		return -1;

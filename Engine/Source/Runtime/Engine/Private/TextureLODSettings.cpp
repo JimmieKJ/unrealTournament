@@ -1,25 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "EnginePrivate.h"
-#include "TextureLODSettings.h"
 
-void FTextureLODSettings::Initialize( const FString& IniFilename, const TCHAR* IniSection )
+UTextureLODSettings::UTextureLODSettings(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
-	// look up the file object
-	FConfigFile* ConfigFile = GConfig->FindConfigFile(IniFilename);
-	if (ConfigFile)
-	{
-		// pass to the other initialize function
-		Initialize(*ConfigFile, IniSection);
-	}
-}
-
-void FTextureLODSettings::Initialize(const FConfigFile& IniFile, const TCHAR* IniSection)
-{
-	// Read individual entries from a config file.
-#define GROUPREADENTRY(g) ReadEntry( g, TEXT(#g), IniFile, IniSection );
-	FOREACH_ENUM_TEXTUREGROUP(GROUPREADENTRY)
-#undef GROUPREADENTRY
 }
 
 /**
@@ -27,7 +12,7 @@ void FTextureLODSettings::Initialize(const FConfigFile& IniFile, const TCHAR* In
  *
  * @return array of texture group names
  */
-TArray<FString> FTextureLODSettings::GetTextureGroupNames()
+TArray<FString> UTextureLODSettings::GetTextureGroupNames()
 {
 	TArray<FString> TextureGroupNames;
 
@@ -38,94 +23,46 @@ TArray<FString> FTextureLODSettings::GetTextureGroupNames()
 	return TextureGroupNames;
 }
 
-void FTextureLODSettings::ReadEntry( int32 GroupId, const TCHAR* GroupName, const FConfigFile& IniFile, const TCHAR* IniSection )
+void UTextureLODSettings::SetupLODGroup(int32 GroupId)
 {
-	// Look for string in filename/ section.
-	FString Entry;
-	if (IniFile.GetString(IniSection, GroupName, Entry))
+	TextureLODGroups[GroupId].MinLODMipCount = FMath::CeilLogTwo(TextureLODGroups[GroupId].MinLODSize);
+	TextureLODGroups[GroupId].MaxLODMipCount = FMath::CeilLogTwo(TextureLODGroups[GroupId].MaxLODSize);
+
+	// Convert into single filter enum. The code is layed out such that invalid input will 
+	// map to the default state of highest quality filtering.
+
+	// Linear filtering
+	if (TextureLODGroups[GroupId].MinMagFilter == NAME_Linear)
 	{
-		// Trim whitespace at the beginning.
-		Entry = Entry.Trim();
-		// Remove brackets.
-		Entry = Entry.Replace( TEXT("("), TEXT("") );
-		Entry = Entry.Replace( TEXT(")"), TEXT("") );
-		
-		// Parse minimum LOD mip count.
-		int32	MinLODSize = 0;
-		if( FParse::Value( *Entry, TEXT("MinLODSize="), MinLODSize ) )
+		if (TextureLODGroups[GroupId].MipFilter == NAME_Point)
 		{
-			TextureLODGroups[GroupId].MinLODMipCount = FMath::CeilLogTwo( MinLODSize );
+			TextureLODGroups[GroupId].Filter = ETextureSamplerFilter::Bilinear;
 		}
-
-		// Parse maximum LOD mip count.
-		int32 MaxLODSize = 0;
-		if( FParse::Value( *Entry, TEXT("MaxLODSize="), MaxLODSize ) )
-		{
-			TextureLODGroups[GroupId].MaxLODMipCount = FMath::CeilLogTwo( MaxLODSize );
-		}
-
-		// Parse LOD bias.
-		int32 LODBias = 0;
-		if( FParse::Value( *Entry, TEXT("LODBias="), LODBias ) )
-		{
-			TextureLODGroups[GroupId].LODBias = LODBias;
-		}
-
-		// Parse min/map/mip filter names.
-		FName MinMagFilter = NAME_Aniso;
-		FParse::Value( *Entry, TEXT("MinMagFilter="), MinMagFilter );
-		FName MipFilter = NAME_Point;
-		FParse::Value( *Entry, TEXT("MipFilter="), MipFilter );
-
-		{
-			FString MipGenSettings;
-			FParse::Value( *Entry, TEXT("MipGenSettings="), MipGenSettings );
-			TextureLODGroups[GroupId].MipGenSettings = UTexture::GetMipGenSettingsFromString(*MipGenSettings, true);
-		}
-
-		// Convert into single filter enum. The code is layed out such that invalid input will 
-		// map to the default state of highest quality filtering.
-
-		// Linear filtering
-		if( MinMagFilter == NAME_Linear )
-		{
-			if( MipFilter == NAME_Point )
-			{
-				TextureLODGroups[GroupId].Filter = SF_Bilinear;
-			}
-			else
-			{
-				TextureLODGroups[GroupId].Filter = SF_Trilinear;
-			}
-		}
-		// Point. Don't even care about mip filter.
-		else if( MinMagFilter == NAME_Point )
-		{
-			TextureLODGroups[GroupId].Filter = SF_Point;
-		}
-		// Aniso or unknown.
 		else
 		{
-			if( MipFilter == NAME_Point )
-			{
-				TextureLODGroups[GroupId].Filter = SF_AnisotropicPoint;
-			}
-			else
-			{
-				TextureLODGroups[GroupId].Filter = SF_AnisotropicLinear;
-			}
+			TextureLODGroups[GroupId].Filter = ETextureSamplerFilter::Trilinear;
 		}
-
-		// Parse NumStreamedMips
-		int32 NumStreamedMips = -1;
-		if( FParse::Value( *Entry, TEXT("NumStreamedMips="), NumStreamedMips ) )
+	}
+	// Point. Don't even care about mip filter.
+	else if (TextureLODGroups[GroupId].MinMagFilter == NAME_Point)
+	{
+		TextureLODGroups[GroupId].Filter = ETextureSamplerFilter::Point;
+	}
+	// Aniso or unknown.
+	else
+	{
+		if (TextureLODGroups[GroupId].MipFilter == NAME_Point)
 		{
-			TextureLODGroups[GroupId].NumStreamedMips = NumStreamedMips;
+			TextureLODGroups[GroupId].Filter = ETextureSamplerFilter::AnisotropicPoint;
+		}
+		else
+		{
+			TextureLODGroups[GroupId].Filter = ETextureSamplerFilter::AnisotropicLinear;
 		}
 	}
 }
 
-int32 FTextureLODSettings::CalculateLODBias( const UTexture* Texture, bool bIncTextureMips ) const
+int32 UTextureLODSettings::CalculateLODBias(const UTexture* Texture, bool bIncTextureMips) const
 {	
 	check( Texture );
 	TextureMipGenSettings MipGenSetting = TMGS_MAX;
@@ -135,13 +72,13 @@ int32 FTextureLODSettings::CalculateLODBias( const UTexture* Texture, bool bIncT
 	return CalculateLODBias(Texture->GetSurfaceWidth(), Texture->GetSurfaceHeight(), Texture->LODGroup, (bIncTextureMips ? Texture->LODBias : 0), (bIncTextureMips ? Texture->NumCinematicMipLevels : 0), MipGenSetting);
 }
 
-int32 FTextureLODSettings::CalculateLODBias( int32 Width, int32 Height, int32 LODGroup, int32 LODBias, int32 NumCinematicMipLevels, TextureMipGenSettings InMipGenSetting ) const
+int32 UTextureLODSettings::CalculateLODBias(int32 Width, int32 Height, int32 LODGroup, int32 LODBias, int32 NumCinematicMipLevels, TextureMipGenSettings InMipGenSetting) const
 {	
 	// Find LOD group.
 	const FTextureLODGroup& LODGroupInfo = TextureLODGroups[LODGroup];
 
 	// Test to see if we have no mip generation as in which case the LOD bias will be ignored
-	const TextureMipGenSettings FinalMipGenSetting = (InMipGenSetting == TMGS_FromTextureGroup) ? LODGroupInfo.MipGenSettings : InMipGenSetting;
+	const TextureMipGenSettings FinalMipGenSetting = (InMipGenSetting == TMGS_FromTextureGroup) ? (TextureMipGenSettings)LODGroupInfo.MipGenSettings : InMipGenSetting;
 	if ( FinalMipGenSetting == TMGS_NoMipmaps )
 	{
 		return 0;
@@ -164,7 +101,7 @@ int32 FTextureLODSettings::CalculateLODBias( int32 Width, int32 Height, int32 LO
 /** 
 * Useful for stats in the editor.
 */
-void FTextureLODSettings::ComputeInGameMaxResolution(int32 LODBias, UTexture &Texture, uint32 &OutSizeX, uint32 &OutSizeY) const
+void UTextureLODSettings::ComputeInGameMaxResolution(int32 LODBias, UTexture &Texture, uint32 &OutSizeX, uint32 &OutSizeY) const
 {
 	uint32 ImportedSizeX = FMath::TruncToInt(Texture.GetSurfaceWidth());
 	uint32 ImportedSizeY = FMath::TruncToInt(Texture.GetSurfaceHeight());
@@ -188,19 +125,26 @@ void FTextureLODSettings::ComputeInGameMaxResolution(int32 LODBias, UTexture &Te
 * @param   GroupIndex      usually from Texture.LODGroup
 * @return                  A handle to the indexed LOD group. 
 */
-const FTextureLODSettings::FTextureLODGroup& FTextureLODSettings::GetTextureLODGroup(TextureGroup GroupIndex) const
+FTextureLODGroup& UTextureLODSettings::GetTextureLODGroup(TextureGroup GroupIndex)
 {
-	if((uint32)GroupIndex >= TEXTUREGROUP_MAX)
-	{
-		// to prevent crash
-		GroupIndex = (TextureGroup)0;
-	}
-//	check((uint32)GroupIndex < TEXTUREGROUP_MAX);
+	check(GroupIndex >= 0 && GroupIndex < TEXTUREGROUP_MAX);
+	return TextureLODGroups[GroupIndex];
+}
+
+/**
+* TextureLODGroups access with bounds check
+*
+* @param   GroupIndex      usually from Texture.LODGroup
+* @return                  A handle to the indexed LOD group.
+*/
+const FTextureLODGroup& UTextureLODSettings::GetTextureLODGroup(TextureGroup GroupIndex) const
+{
+	check(GroupIndex >= 0 && GroupIndex < TEXTUREGROUP_MAX);
 	return TextureLODGroups[GroupIndex];
 }
 
 #if WITH_EDITORONLY_DATA
-void FTextureLODSettings::GetMipGenSettings( const UTexture& Texture, TextureMipGenSettings& OutMipGenSettings, float& OutSharpen, uint32& OutKernelSize, bool& bOutDownsampleWithAverage, bool& bOutSharpenWithoutColorShift, bool &bOutBorderColorBlack ) const
+void UTextureLODSettings::GetMipGenSettings(const UTexture& Texture, TextureMipGenSettings& OutMipGenSettings, float& OutSharpen, uint32& OutKernelSize, bool& bOutDownsampleWithAverage, bool& bOutSharpenWithoutColorShift, bool &bOutBorderColorBlack) const
 {
 	TextureMipGenSettings Setting = (TextureMipGenSettings)Texture.MipGenSettings;
 
@@ -251,7 +195,7 @@ void FTextureLODSettings::GetMipGenSettings( const UTexture& Texture, TextureMip
  * @param	InLODGroup		The LOD Group ID 
  * @return	LODBias
  */
-int32 FTextureLODSettings::GetTextureLODGroupLODBias( int32 InLODGroup ) const
+int32 UTextureLODSettings::GetTextureLODGroupLODBias(int32 InLODGroup) const
 {
 	int32 Retval = 0;
 
@@ -271,7 +215,7 @@ int32 FTextureLODSettings::GetTextureLODGroupLODBias( int32 InLODGroup ) const
  * @param	InLODGroup		The LOD Group ID 
  * @return	Number of streaming mip-levels for textures in the specified LODGroup
  */
-int32 FTextureLODSettings::GetMinLODMipCount( int32 InLODGroup ) const
+int32 UTextureLODSettings::GetMinLODMipCount(int32 InLODGroup) const
 {
 	int32 Retval = 0;
 
@@ -292,7 +236,7 @@ int32 FTextureLODSettings::GetMinLODMipCount( int32 InLODGroup ) const
  * @param	InLODGroup		The LOD Group ID 
  * @return	Number of streaming mip-levels for textures in the specified LODGroup
  */
-int32 FTextureLODSettings::GetMaxLODMipCount( int32 InLODGroup ) const
+int32 UTextureLODSettings::GetMaxLODMipCount(int32 InLODGroup) const
 {
 	int32 Retval = 0;
 
@@ -311,7 +255,7 @@ int32 FTextureLODSettings::GetMaxLODMipCount( int32 InLODGroup ) const
  * @param	InLODGroup		The LOD Group ID 
  * @return	Number of streaming mip-levels for textures in the specified LODGroup
  */
-int32 FTextureLODSettings::GetNumStreamedMips( int32 InLODGroup ) const
+int32 UTextureLODSettings::GetNumStreamedMips(int32 InLODGroup) const
 {
 	int32 Retval = 0;
 
@@ -328,7 +272,7 @@ int32 FTextureLODSettings::GetNumStreamedMips( int32 InLODGroup ) const
  * @param	InLODGroup		The LOD Group ID 
  * @return	TextureMipGenSettings for lod group
  */
- const TextureMipGenSettings& FTextureLODSettings::GetTextureMipGenSettings( int32 InLODGroup ) const
+const TextureMipGenSettings UTextureLODSettings::GetTextureMipGenSettings(int32 InLODGroup) const
 {
 	return TextureLODGroups[InLODGroup].MipGenSettings; 
 }
@@ -342,16 +286,16 @@ int32 FTextureLODSettings::GetNumStreamedMips( int32 InLODGroup ) const
  * @param	Texture		Texture to retrieve filter state for, must not be 0
  * @return	Filter sampler state for passed in texture
  */
-ESamplerFilter FTextureLODSettings::GetSamplerFilter( const UTexture* Texture ) const
+ETextureSamplerFilter UTextureLODSettings::GetSamplerFilter(const UTexture* Texture) const
 {
 	// Default to point filtering.
-	ESamplerFilter Filter = SF_Point;
+	ETextureSamplerFilter Filter = ETextureSamplerFilter::Point;
 
 	switch(Texture->Filter)
 	{
-		case TF_Nearest: Filter = SF_Point; break;
-		case TF_Bilinear: Filter = SF_Bilinear; break;
-		case TF_Trilinear: Filter = SF_Trilinear; break;
+		case TF_Nearest: Filter = ETextureSamplerFilter::Point; break;
+		case TF_Bilinear: Filter = ETextureSamplerFilter::Bilinear; break;
+		case TF_Trilinear: Filter = ETextureSamplerFilter::Trilinear; break;
 
 		// TF_Default
 		default:
@@ -362,7 +306,7 @@ ESamplerFilter FTextureLODSettings::GetSamplerFilter( const UTexture* Texture ) 
 	return Filter;
 }
 
-ESamplerFilter FTextureLODSettings::GetSamplerFilter( int32 InLODGroup) const
+ETextureSamplerFilter UTextureLODSettings::GetSamplerFilter(int32 InLODGroup) const
 {
 	return TextureLODGroups[InLODGroup].Filter;
 }

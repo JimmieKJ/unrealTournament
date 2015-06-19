@@ -42,6 +42,25 @@ void SVisualLoggerStatusView::Construct(const FArguments& InArgs, const TSharedR
 		];
 }
 
+void GenerateChildren(TSharedPtr<FLogStatusItem> StatusItem, const FVisualLogStatusCategory LogCategory)
+{
+	for (int32 LineIndex = 0; LineIndex < LogCategory.Data.Num(); LineIndex++)
+	{
+		FString KeyDesc, ValueDesc;
+		const bool bHasValue = LogCategory.GetDesc(LineIndex, KeyDesc, ValueDesc);
+		if (bHasValue)
+		{
+			StatusItem->Children.Add(MakeShareable(new FLogStatusItem(KeyDesc, ValueDesc)));
+		}
+	}
+
+	for (const FVisualLogStatusCategory& Child : LogCategory.Children)
+	{
+		TSharedPtr<FLogStatusItem> ChildCategory = MakeShareable(new FLogStatusItem(Child.Category));
+		StatusItem->Children.Add(ChildCategory);
+		GenerateChildren(ChildCategory, Child);
+	}
+}
 void SVisualLoggerStatusView::OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEntryItem& LogEntry)
 {
 	TArray<FString> ExpandedCategories;
@@ -61,7 +80,7 @@ void SVisualLoggerStatusView::OnItemSelectionChanged(const FVisualLogDevice::FVi
 
 	for (int32 CategoryIndex = 0; CategoryIndex < LogEntry.Entry.Status.Num(); CategoryIndex++)
 	{
-		if (LogEntry.Entry.Status[CategoryIndex].Data.Num() <= 0)
+		if (LogEntry.Entry.Status[CategoryIndex].Data.Num() <= 0 && LogEntry.Entry.Status[CategoryIndex].Children.Num() == 0)
 		{
 			continue;
 		}
@@ -75,6 +94,13 @@ void SVisualLoggerStatusView::OnItemSelectionChanged(const FVisualLogDevice::FVi
 			{
 				StatusItem->Children.Add(MakeShareable(new FLogStatusItem(KeyDesc, ValueDesc)));
 			}
+		}
+
+		for (const FVisualLogStatusCategory& Child : LogEntry.Entry.Status[CategoryIndex].Children)
+		{
+			TSharedPtr<FLogStatusItem> ChildCategory = MakeShareable(new FLogStatusItem(Child.Category));
+			StatusItem->Children.Add(ChildCategory);
+			GenerateChildren(ChildCategory, Child);
 		}
 
 		StatusItems.Add(StatusItem);
@@ -107,7 +133,7 @@ TSharedRef<ITableRow> SVisualLoggerStatusView::HandleGenerateLogStatus(TSharedPt
 		return SNew(STableRow<TSharedPtr<FLogStatusItem> >, OwnerTable)
 			[
 				SNew(STextBlock)
-				.Text(InItem->ItemText)
+				.Text(FText::FromString(InItem->ItemText))
 			];
 	}
 
@@ -116,21 +142,21 @@ TSharedRef<ITableRow> SVisualLoggerStatusView::HandleGenerateLogStatus(TSharedPt
 		[
 			SNew(SBorder)
 			.BorderImage(FLogVisualizerStyle::Get().GetBrush("NoBorder"))
-			.ToolTipText(TooltipText)
+			.ToolTipText(FText::FromString(TooltipText))
 			[
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				[
 					SNew(STextBlock)
-					.Text(InItem->ItemText)
+					.Text(FText::FromString(InItem->ItemText))
 					.ColorAndOpacity(FColorList::Aquamarine)
 				]
 				+ SHorizontalBox::Slot()
 				.Padding(4.0f, 0, 0, 0)
 				[
 					SNew(STextBlock)
-					.Text(InItem->ValueText)
+					.Text(FText::FromString(InItem->ValueText))
 				]
 			]
 		];

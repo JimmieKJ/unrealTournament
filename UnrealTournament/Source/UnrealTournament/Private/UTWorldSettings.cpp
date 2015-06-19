@@ -7,13 +7,14 @@
 #include "UTLevelSummary.h"
 
 AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
-: Super(ObjectInitializer), ImpactEffectFadeTime(1.0f)
+: Super(ObjectInitializer)
 {
 	KillZDamageType = UUTDmgType_KillZ::StaticClass();
 
 	MaxImpactEffectVisibleLifetime = 30.0f;
 	MaxImpactEffectInvisibleLifetime = 15.0f;
 	ImpactEffectFadeSpeed = 0.5f;
+	ImpactEffectFadeTime=1.0f;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -50,7 +51,7 @@ void AUTWorldSettings::CreateLevelSummary()
 			LevelSummary = FindObject<UUTLevelSummary>(UUTLevelSummary::StaticClass(), *NAME_LevelSummary.ToString());
 			if (LevelSummary == NULL)
 			{
-				LevelSummary = ConstructObject<UUTLevelSummary>(UUTLevelSummary::StaticClass(), GetOutermost(), NAME_LevelSummary, RF_Standalone);
+				LevelSummary = NewObject<UUTLevelSummary>(GetOutermost(), NAME_LevelSummary, RF_Standalone);
 			}
 		}
 		else if (LevelSummary->GetFName() != NAME_LevelSummary)
@@ -85,7 +86,7 @@ void AUTWorldSettings::BeginPlay()
 {
 	if (Music != NULL && GetNetMode() != NM_DedicatedServer)
 	{
-		MusicComp = ConstructObject<UAudioComponent>(UAudioComponent::StaticClass(), this);
+		MusicComp = NewObject<UAudioComponent>(this);
 		MusicComp->bAllowSpatialization = false;
 		MusicComp->SetSound(Music);
 		MusicComp->Play();

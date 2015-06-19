@@ -203,12 +203,12 @@ void FOnlineIdentityIOS::GetUserPrivilege(const FUniqueNetId& UserId, EUserPrivi
 	Delegate.ExecuteIfBound(UserId, Privilege, (uint32)EPrivilegeResults::NoFailures);
 }
 
-FPlatformUserId FOnlineIdentityIOS::GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId)
+FPlatformUserId FOnlineIdentityIOS::GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& InUniqueNetId)
 {
 	for (int i = 0; i < MAX_LOCAL_PLAYERS; ++i)
 	{
 		auto CurrentUniqueId = GetUniquePlayerId(i);
-		if (CurrentUniqueId.IsValid() && (*CurrentUniqueId == UniqueNetId))
+		if (CurrentUniqueId.IsValid() && (*CurrentUniqueId == InUniqueNetId))
 		{
 			return i;
 		}

@@ -15,8 +15,8 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	GENERATED_UCLASS_BODY()
 	
 	/** Helper function that makes a stat object */
-	UStat* MakeStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod);
-
+	UStat* MakeStat(FName StatName, bool bBackendStat);
+	
 	/** Initialize the manager from the config variables
 	 *  @param UTPC The PC that uses this stat manager
 	 */
@@ -49,8 +49,9 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 
 	AUTPlayerState* GetPlayerState() { return UTPS; }
 
-	virtual void PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject);
-	virtual void InsertDataFromJsonObject(const TSharedPtr<FJsonObject> JsonObject);
+	virtual void PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject, AUTPlayerState* PS);
+	virtual void PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> JsonObject);
+	virtual void InsertDataFromNonBackendJsonObject(const TSharedPtr<FJsonObject> JsonObject);
 
 	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
@@ -73,11 +74,7 @@ private:
 	/** Array of stats tracked */
 	UPROPERTY()
 	TArray<UStat*> Stats;
-
-	// Prefix prepended to all stat names when constructing stat objects
-	UPROPERTY()
-	FString StatPrefix;
-
+	
 	/** Reference to the PS that controls this StatManager */
 	UPROPERTY()
 	AUTPlayerState *UTPS;

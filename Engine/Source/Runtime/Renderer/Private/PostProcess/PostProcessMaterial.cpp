@@ -26,24 +26,38 @@ public:
 		return (Material->GetMaterialDomain() == MD_PostProcess) && IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
 
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FMaterialShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+
+		OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL"), 1);
+	}
+
+
 	FPostProcessMaterialVS( )	{ }
 	FPostProcessMaterialVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FMaterialShader(Initializer)
 	{
+		PostprocessParameter.Bind(Initializer.ParameterMap);
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FRenderingCompositePassContext& Context )
 	{
-		FMaterialShader::SetParameters(RHICmdList, GetVertexShader(), Context.View);
+		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Context.View);
+		PostprocessParameter.SetVS(ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
 	}
 
 	// Begin FShader interface
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
+		Ar << PostprocessParameter;
 		return bShaderHasOutdatedParameters;
 	}
 	//  End FShader interface 
+private:
+	FPostProcessPassParameters PostprocessParameter;
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FPostProcessMaterialVS,TEXT("PostProcessMaterialShaders"),TEXT("MainVS"),SF_Vertex);
@@ -64,6 +78,13 @@ public:
 		return (Material->GetMaterialDomain() == MD_PostProcess) && IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
 
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const class FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FMaterialShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
+
+		OutEnvironment.SetDefine(TEXT("POST_PROCESS_MATERIAL"), 1);
+	}
+
 	FPostProcessMaterialPS() {}
 	FPostProcessMaterialPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FMaterialShader(Initializer)
@@ -79,7 +100,7 @@ public:
 		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
 		Ar << PostprocessParameter;
@@ -92,9 +113,18 @@ private:
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FPostProcessMaterialPS,TEXT("PostProcessMaterialShaders"),TEXT("MainPS"),SF_Pixel);
 
-FRCPassPostProcessMaterial::FRCPassPostProcessMaterial(UMaterialInterface* InMaterialInterface, EPixelFormat OutputFormatIN)
+FRCPassPostProcessMaterial::FRCPassPostProcessMaterial(UMaterialInterface* InMaterialInterface, ERHIFeatureLevel::Type InFeatureLevel, EPixelFormat OutputFormatIN)
 : MaterialInterface(InMaterialInterface), OutputFormat(OutputFormatIN)
 {
+	FMaterialRenderProxy* Proxy = MaterialInterface->GetRenderProxy(false);
+	check(Proxy);
+
+	const FMaterial* Material = Proxy->GetMaterialNoFallback(InFeatureLevel);
+	
+	if (!Material || Material->GetMaterialDomain() != MD_PostProcess)
+	{
+		MaterialInterface = UMaterial::GetDefaultMaterial(MD_PostProcess);
+	}
 }
 
 void FRCPassPostProcessMaterial::Process(FRenderingCompositePassContext& Context)

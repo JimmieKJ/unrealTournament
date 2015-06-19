@@ -9,7 +9,6 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 : Super(ObjectInitializer)
 {
 	bIsUnique = true;
-	Importance = 0.8f;
 	bIsSpecial = true;
 	Lifetime = 3.0f;
 	MessageArea = FName(TEXT("DeathMessage"));
@@ -64,18 +63,10 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 	return NAME_None;
 }
 
-void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) const
+bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	Super::ClientReceive(ClientData);
-	if ((ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
-	 ||  (ClientData.RelatedPlayerState_2 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_2->GetOwner()))
-	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->RewardAnnouncer != NULL)
-		{
-			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
-		}
-	}
+	return ((ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
+		|| (ClientData.RelatedPlayerState_2 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_2->GetOwner()));
 }
 
 FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const

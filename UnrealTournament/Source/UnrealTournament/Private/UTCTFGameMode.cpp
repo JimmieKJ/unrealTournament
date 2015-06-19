@@ -6,6 +6,7 @@
 #include "UTCTFGameMessage.h"
 #include "UTCTFRewardMessage.h"
 #include "UTFirstBloodMessage.h"
+#include "UTCountDownMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
 #include "UTMutator.h"
@@ -31,6 +32,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = AUTCTFGameState::StaticClass();
 	bAllowOvertime = true;
 	OvertimeDuration = 5;
+	AdvantageDuration = 5;
 	bUseTeamStarts = true;
 	bSuddenDeath = true;
 	MercyScore = 5;
@@ -59,6 +61,9 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	// OvertimeDuration is in minutes
 	OvertimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("OvertimeDuration"), OvertimeDuration));
 	OvertimeDuration *= 60;
+
+	// AdvantageDuration is in seconds 
+	AdvantageDuration = FMath::Max(0, GetIntOption(Options, TEXT("AdvantageDuration"), AdvantageDuration));
 
 	if (TimeLimit > 0)
 	{
@@ -259,6 +264,7 @@ void AUTCTFGameMode::CheckGameTime()
 							CTFGameState->bPlayingAdvantage = true;
 							CTFGameState->AdvantageTeamIndex = AdvantageTeam;
 							CTFGameState->SetTimeLimit(60);
+							RemainingAdvantageTime = AdvantageDuration;
 
 							// Broadcast the Advantage Message....
 							BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 6, NULL, NULL, CTFGameState->Teams[AdvantageTeam]);
@@ -342,10 +348,11 @@ void AUTCTFGameMode::HandleHalftime()
 
 void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 {
-	if ((CTFGameState == NULL) || (CTFGameState->FlagBases.Num() >= TeamNum) || (CTFGameState->FlagBases[TeamNum] == NULL) )
+	if ((CTFGameState == NULL) || (TeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamNum] == NULL))
 	{
 		return;
 	}
+
 	TArray<AController*> Members = Teams[TeamNum]->GetTeamMembers();
 	const int32 MaxPlayers = FMath::Min(8, Members.Num());
 
@@ -371,7 +378,7 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 				FCollisionQueryParams CapsuleParams(NAME_FlagPlacement, false, this);
 				FCollisionResponseParams ResponseParam;
 				TArray<FOverlapResult> Overlaps;
-				bool bEncroached = GetWorld()->OverlapMulti(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
+				bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
 				if (!bEncroached)
 				{
 					UTChar->SetActorLocation(PlacementLoc);
@@ -686,19 +693,27 @@ bool AUTCTFGameMode::CheckAdvantage()
 	// If our flag is held, then look to see if our advantage is lost.. has to be held for 5 seconds.
 	if (Flags[CTFGameState->AdvantageTeamIndex]->ObjectState == CarriedObjectState::Held)
 	{
-		AdvantageGraceTime++;
-		if (AdvantageGraceTime >= 5)		// 5 second grace period.. make this config :)
+		//Starting the Advantage so play the "Loosing advantage" announcement
+		if (RemainingAdvantageTime == AdvantageDuration)
+		{
+			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 7, NULL, NULL, CTFGameState->Teams[CTFGameState->AdvantageTeamIndex]);
+		}
+		const int32 AnnouncementLength = 2; //Time for the audio announcement to play out
+
+		RemainingAdvantageTime--;
+		if (RemainingAdvantageTime < 0)
 		{
 			return false;
 		}
-		else
+		//Play the countdown to match the placeholder announcement. Delay by the length of the audio
+		else if (RemainingAdvantageTime < 10 && RemainingAdvantageTime < AdvantageDuration - AnnouncementLength)
 		{
-			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 7, NULL, NULL, CTFGameState->Teams[CTFGameState->AdvantageTeamIndex]);
+			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RemainingAdvantageTime+1);
 		}
 	}
 	else
 	{
-		AdvantageGraceTime = 0;
+		RemainingAdvantageTime = AdvantageDuration;
 	}
 		
 	return true;
@@ -746,9 +761,10 @@ void AUTCTFGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	// Dont ever end the game in PIE
 	if (GetWorld()->WorldType == EWorldType::PIE) return;
 
+	Super::EndGame(Winner, Reason);
+
 	// Send all of the flags home...
 	CTFGameState->ResetFlags();
-	Super::EndGame(Winner, Reason);
 }
 
 

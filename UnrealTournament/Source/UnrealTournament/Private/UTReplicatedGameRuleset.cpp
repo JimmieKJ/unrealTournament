@@ -27,11 +27,12 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Title);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Tooltip);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Description);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPlaylist);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPrefixes);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, DefaultMap);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MinPlayersToStart);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MaxPlayers);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, OptimalPlayers);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, DisplayTexture);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPlaylistSize);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, RequiredPackages);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, GameModeClass);
@@ -45,10 +46,10 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
 	Title = NewRules->Title;
 	Tooltip = NewRules->Tooltip;
 	Description = Fixup(NewRules->Description);
-	MapPlaylistSize = FMath::Clamp<int32>(NewRules->MapPlaylistSize, 1, 6);
-	MapPlaylist = NewRules->MapPlaylist;
+	MapPrefixes = NewRules->MapPrefixes;
 	MinPlayersToStart = NewRules->MinPlayersToStart;
 	MaxPlayers = NewRules->MaxPlayers;
+	DefaultMap = NewRules->DefaultMap;
 	bTeamGame = NewRules->bTeamGame;
 	
 	for (int32 i = 0; i < NewRules->RedirectReferences.Num(); i++)
@@ -76,7 +77,7 @@ void AUTReplicatedGameRuleset::BuildSlateBadge()
 {
 #if !UE_SERVER
 	UTexture2D* BadgeTexture = LoadObject<UTexture2D>(nullptr, *DisplayTexture, nullptr, LOAD_None, nullptr);
-	SlateBadge = MakeShareable( new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), FName(TEXT("SlateBadge"))) );
+	SlateBadge = MakeShareable( new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None) );
 #endif
 }
 

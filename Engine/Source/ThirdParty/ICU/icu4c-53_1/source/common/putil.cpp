@@ -81,6 +81,9 @@
 #   define NOMCX
 #   include <windows.h>
 #   include "wintz.h"
+#	if U_PLATFORM == U_PF_DURANGO
+#		define ICU_NO_USER_DATA_OVERRIDE 1
+#	endif
 #elif U_PLATFORM == U_PF_OS400
 #   include <float.h>
 #   include <qusec.h>       /* error code structure */
@@ -1627,7 +1630,11 @@ The leftmost codepage (.xxx) wins.
         return gCorrectedPOSIXLocale;
     }
 
+#if U_PLATFORM == U_PF_DURANGO
+	LCID id = LocaleNameToLCID(LOCALE_NAME_USER_DEFAULT, 0);
+#else
     LCID id = GetThreadLocale();
+#endif
     correctedPOSIXLocale = static_cast<char *>(uprv_malloc(POSIX_LOCALE_CAPACITY + 1));
     if (correctedPOSIXLocale) {
         int32_t posixLen = uprv_convertToPosix(id, correctedPOSIXLocale, POSIX_LOCALE_CAPACITY, &status);
@@ -1964,6 +1971,13 @@ int_getDefaultCodepage()
 #elif U_PLATFORM == U_PF_CLASSIC_MACOS
     return "macintosh"; /* TODO: Macintosh Roman. There must be a better way. fixme! */
 
+#elif U_PLATFORM == U_PF_DURANGO
+	static char codepage[64];
+	DWORD codepage_num; 
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_IDEFAULTANSICODEPAGE|LOCALE_RETURN_NUMBER, (LPWSTR)&codepage_num, 2);
+	sprintf(codepage, "windows-%d", codepage_num);
+	return codepage;
+
 #elif U_PLATFORM_USES_ONLY_WIN32_API
     static char codepage[64];
     sprintf(codepage, "windows-%d", GetACP());
@@ -2239,7 +2253,11 @@ uprv_dl_open(const char *libName, UErrorCode *status) {
   
   if(U_FAILURE(*status)) return NULL;
   
+#if U_PLATFORM == U_PF_DURANGO
+  lib = LoadLibraryExA(libName, NULL, 0);
+#else
   lib = LoadLibraryA(libName);
+#endif
   
   if(lib==NULL) {
     *status = U_MISSING_RESOURCE_ERROR;

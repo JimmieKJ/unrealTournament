@@ -350,7 +350,7 @@ FReply SColorGradientEditor::OnMouseMove( const FGeometry& MyGeometry, const FPo
 					// Start a transaction, we just started dragging a stop
 					bDraggingStop = true;
 					GEditor->BeginTransaction( LOCTEXT("MoveGradientStop", "Move Gradient Stop") );
-					CurveOwner->GetOwner()->Modify();
+					CurveOwner->ModifyOwner();
 				}
 
 				return FReply::Handled();
@@ -437,7 +437,7 @@ FReply SColorGradientEditor::OnKeyDown( const FGeometry& MyGeometry, const FKeyE
 	return FReply::Unhandled();
 }
 
-FVector2D SColorGradientEditor::ComputeDesiredSize() const
+FVector2D SColorGradientEditor::ComputeDesiredSize( float ) const
 {
 	return FVector2D( 1000, 75 );
 }
@@ -591,7 +591,7 @@ void SColorGradientEditor::OnSelectedStopColorChanged( FLinearColor InNewColor )
 {
 	FScopedTransaction ColorChange( LOCTEXT("ChangeGradientStopColor", "Change Gradient Stop Color") );
 	SelectedStop.SetColor( InNewColor, *CurveOwner );
-	CurveOwner->GetOwner()->Modify();
+	CurveOwner->ModifyOwner();
 
 	// Set the the last edited color.  The next time a new stop is added we'll use this value
 	LastModifiedColor.R = InNewColor.R;
@@ -602,13 +602,13 @@ void SColorGradientEditor::OnSelectedStopColorChanged( FLinearColor InNewColor )
 void SColorGradientEditor::OnCancelSelectedStopColorChange( FLinearColor PreviousColor )
 {
 	SelectedStop.SetColor( PreviousColor.HSVToLinearRGB(), *CurveOwner );
-	CurveOwner->GetOwner()->Modify();
+	CurveOwner->ModifyOwner();
 }
 
 void SColorGradientEditor::OnBeginChangeAlphaValue()
 {
 	GEditor->BeginTransaction( LOCTEXT("ChangeGradientStopAlpha", "Change Gradient Stop Alpha") );
-	CurveOwner->GetOwner()->Modify();
+	CurveOwner->ModifyOwner();
 
 	bDraggingAlphaValue = true;
 }
@@ -639,7 +639,7 @@ void SColorGradientEditor::OnAlphaValueCommitted( float NewValue, ETextCommit::T
 	{
 		// Value was typed in, no transaction is active
 		FScopedTransaction ChangeAlphaTransaction( LOCTEXT("ChangeGradientStopAlpha", "Change Gradient Stop Alpha") );
-		CurveOwner->GetOwner()->Modify();
+		CurveOwner->ModifyOwner();
 
 		SelectedStop.SetColor( FLinearColor( 0,0,0, NewValue ), *CurveOwner );
 	}
@@ -664,7 +664,7 @@ void SColorGradientEditor::OnSetGradientStopTimeFromPopup( const FText& NewText,
 		float NewTime = FCString::Atof( *NewText.ToString() );
 
 		FScopedTransaction Transaction( LOCTEXT("ChangeGradientStopTime", "Change Gradient Stop Time" ) );
-		CurveOwner->GetOwner()->Modify();
+		CurveOwner->ModifyOwner();
 
 		SelectedStop.SetTime( NewTime, *CurveOwner );
 	}
@@ -819,7 +819,7 @@ void SColorGradientEditor::GetGradientStopMarks( TArray<FGradientStopMark>& OutC
 void SColorGradientEditor::DeleteStop( const FGradientStopMark& InMark )
 {
 	FScopedTransaction DeleteStopTrans( LOCTEXT("DeleteGradientStop", "Delete Gradient Stop") );
-	CurveOwner->GetOwner()->Modify();
+	CurveOwner->ModifyOwner();
 
 	TArray<FRichCurveEditInfo> Curves = CurveOwner->GetCurves();
 
@@ -879,7 +879,7 @@ FGradientStopMark SColorGradientEditor::AddStop( const FVector2D& Position, cons
 void SColorGradientEditor::MoveStop( FGradientStopMark& Mark, float NewTime )
 {
 	Mark.SetTime( NewTime, *CurveOwner );
-	CurveOwner->GetOwner()->Modify();
+	CurveOwner->ModifyOwner();
 }
 
 

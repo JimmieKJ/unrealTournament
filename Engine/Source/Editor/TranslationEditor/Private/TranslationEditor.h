@@ -59,7 +59,8 @@ protected:
 private:
 
 	FTranslationEditor(TSharedRef< FTranslationDataManager > InDataManager, const FString& InManifestFile, const FString& InArchiveFile )
-	:  DataManager(InDataManager)
+		: ITranslationEditor(InManifestFile, InArchiveFile)
+	, DataManager(InDataManager)
 	, SourceFont(FEditorStyle::GetFontStyle( PropertyTableConstants::NormalFontStyle ))
 	, TranslationTargetFont(FEditorStyle::GetFontStyle( PropertyTableConstants::NormalFontStyle ))
 	, SourceColumn(MakeShareable(new FCustomFontColumn(SourceFont)))
@@ -69,8 +70,6 @@ private:
 				.Font(TranslationTargetFont))
 	, NamespaceTextBlock(SNew(STextBlock)
 				.Text(FText::FromString("")))
-	, ManifestFilePath(InManifestFile)
-	, ArchiveFilePath(InArchiveFile)
 	{}
 
 	/** Does some things we can't do in the constructor because we can't get a SharedRef to "this" there */ 
@@ -259,11 +258,6 @@ private:
 	TSharedRef<STextBlock> PreviewTextBlock;
 	/** Text block displaying the namespace of the currently selected translation unit */
 	TSharedRef<STextBlock> NamespaceTextBlock;
-
-	/** Name of the project we are translating for */
-	FString ManifestFilePath;
-	/** Name of the language we are translating to */
-	FString ArchiveFilePath;
 
 	/** Used to remember the location of the file the user last exported to */
 	FString LastExportFilePath;

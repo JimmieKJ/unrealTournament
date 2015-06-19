@@ -46,6 +46,8 @@
 #include "../Private/GeomFitUtils.h"
 #include "TargetPlatform.h"
 #include "FbxErrors.h"
+#include "Engine/StaticMeshSocket.h"
+#include "Engine/Polys.h"
 
 #define LOCTEXT_NAMESPACE "FbxStaticMeshImport"
 
@@ -91,7 +93,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMesh(UObject* InParent, FbxNode* N
 	return ImportStaticMeshAsSingle(InParent, MeshNodeArray, Name, Flags, ImportData, InStaticMesh, LODIndex);
 }
 
-bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,
+bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,FRawMesh* InRawMesh,
 													  EVertexColorImportOption::Type VertexColorImportOption, const TMap<FVector, FColor>& ExistingVertexColorData, const FColor& VertexOverrideColor)
 {
 	check(StaticMesh->SourceModels.IsValidIndex(LODIndex));
@@ -134,7 +136,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 					if (ElementUV)
 					{
 						const char* UVSetName = ElementUV->GetName();
-						FString LocalUVSetName = ANSI_TO_TCHAR(UVSetName);
+						FString LocalUVSetName = UTF8_TO_TCHAR(UVSetName);
 
 						UVSets.AddUnique(LocalUVSetName);
 					}
@@ -245,7 +247,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 
 	if (!Mesh->IsTriangleMesh())
 	{
-		UE_LOG(LogFbx, Warning, TEXT("Triangulating static mesh %s"), ANSI_TO_TCHAR(Node->GetName()));
+		UE_LOG(LogFbx, Warning, TEXT("Triangulating static mesh %s"), UTF8_TO_TCHAR(Node->GetName()));
 
 		const bool bReplace = true;
 		FbxNodeAttribute* ConvertedNode = GeometryConverter->Triangulate(Mesh, bReplace);
@@ -287,9 +289,8 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 	LayerCount = Mesh->GetLayerCount();
 	for (int32 UVIndex = 0; UVIndex < UniqueUVCount; UVIndex++)
 	{
-		bool bFoundUV = false;
 		LayerElementUV[UVIndex] = NULL;
-		for (int32 UVLayerIndex = 0; !bFoundUV &&UVLayerIndex<LayerCount; UVLayerIndex++)
+		for (int32 UVLayerIndex = 0; UVLayerIndex<LayerCount; UVLayerIndex++)
 		{
 			FbxLayer* lLayer = Mesh->GetLayer(UVLayerIndex);
 			int UVSetCount = lLayer->GetUVSetCount();
@@ -302,7 +303,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 					if (ElementUV)
 					{
 						const char* UVSetName = ElementUV->GetName();
-						FString LocalUVSetName = ANSI_TO_TCHAR(UVSetName);
+						FString LocalUVSetName = UTF8_TO_TCHAR(UVSetName);
 						if (LocalUVSetName == UVSets[UVIndex])
 						{
 							LayerElementUV[UVIndex] = ElementUV;
@@ -439,9 +440,23 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 	int32 WedgeCount = TriangleCount * 3;
 	bool OddNegativeScale = IsOddNegativeScale(TotalMatrix);
 
-	// Load the existing raw mesh.
-	FRawMesh RawMesh;
-	SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+	FRawMesh* RawMeshPtr;
+
+	TScopedPointer<FRawMesh> NewMesh;
+	if( !InRawMesh )
+	{
+		// Load the existing raw mesh.
+		NewMesh = new FRawMesh;
+		SrcModel.RawMeshBulkData->LoadRawMesh(*NewMesh);
+		RawMeshPtr = NewMesh.GetOwnedPointer();
+	}
+	else
+	{
+		RawMeshPtr = InRawMesh;
+	}
+
+	FRawMesh& RawMesh = *RawMeshPtr;
+
 	int32 VertexOffset = RawMesh.VertexPositions.Num();
 	int32 WedgeOffset = RawMesh.WedgeIndices.Num();
 	int32 TriangleOffset = RawMesh.FaceMaterialIndices.Num();
@@ -692,8 +707,11 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 	}
 
 
-	// Store the new raw mesh.
-	SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+	// Store the new raw mesh if needed
+	if( !InRawMesh )
+	{
+		SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+	}
 	
 	//
 	// clean up.  This needs to happen before the mesh is destroyed
@@ -708,7 +726,7 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStaticMeshImportData* TemplateImportData)
 {
 	char MeshName[1024];
-	FCStringAnsi::Strcpy(MeshName,1024,TCHAR_TO_ANSI(*Mesh->GetName()));
+	FCStringAnsi::Strcpy(MeshName,1024,TCHAR_TO_UTF8(*Mesh->GetName()));
 	TArray<FbxNode*> FbxMeshArray;
 	FbxNode* Node = NULL;
 	UStaticMesh* NewMesh = NULL;
@@ -777,6 +795,8 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 		}
 	}
 	
+	struct ExistingStaticMeshData* ExistMeshDataPtr = SaveExistingStaticMeshData(Mesh);
+
 	if (Node)
 	{
 		FbxNode* NodeParent = Node->GetParent();
@@ -814,6 +834,8 @@ UStaticMesh* UnFbx::FFbxImporter::ReimportStaticMesh(UStaticMesh* Mesh, UFbxStat
 			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("Error_NoFBXMeshFound", "No FBX mesh found when reimport Unreal mesh '{0}'. The FBX file is crashed."), FText::FromString(Mesh->GetName()))), FFbxErrors::Generic_Mesh_MeshNotFound);
 		}
 	}
+
+	RestoreExistingMeshData(ExistMeshDataPtr, NewMesh);
 	return NewMesh;
 }
 
@@ -834,7 +856,6 @@ void UnFbx::FFbxImporter::VerifyGeometry(UStaticMesh* StaticMesh)
 UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TArray<FbxNode*>& MeshNodeArray, const FName InName, EObjectFlags Flags, UFbxStaticMeshImportData* TemplateImportData, UStaticMesh* InStaticMesh, int LODIndex)
 {
 	bool bBuildStatus = true;
-	struct ExistingStaticMeshData* ExistMeshDataPtr = NULL;
 
 	// Make sure rendering is done - so we are not changing data being used by collision drawing.
 	FlushRenderingCommands();
@@ -912,7 +933,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 		// Free any RHI resources for existing mesh before we re-create in place.
 		ExistingMesh->PreEditChange(NULL);
-		ExistMeshDataPtr = SaveExistingStaticMeshData(ExistingMesh);
 	}
 	else if (ExistingObject)
 	{
@@ -956,7 +976,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	}
 	else
 	{
-		StaticMesh = NewNamedObject<UStaticMesh>(Package, FName(*MeshName), Flags | RF_Public);
+		StaticMesh = NewObject<UStaticMesh>(Package, FName(*MeshName), Flags | RF_Public);
 	}
 
 	if (StaticMesh->SourceModels.Num() < LODIndex+1)
@@ -973,8 +993,8 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	if( InStaticMesh != NULL && LODIndex > 0 && !SrcModel.RawMeshBulkData->IsEmpty() )
 	{
 		// clear out the old mesh data
-		FRawMesh RawMesh;
-		SrcModel.RawMeshBulkData->SaveRawMesh( RawMesh );
+		FRawMesh EmptyRawMesh;
+		SrcModel.RawMeshBulkData->SaveRawMesh( EmptyRawMesh );
 	}
 	
 	// make sure it has a new lighting guid
@@ -984,6 +1004,15 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	StaticMesh->LightMapResolution = 64;
 	StaticMesh->LightMapCoordinateIndex = 1;
 
+	// Note: This is only used if large file improvements are enabled.
+	FRawMesh NewRawMesh;
+
+	const bool bEnableLargeFileImportImprovements = GetDefault<UEditorExperimentalSettings>()->bEnableLargeFileImportImprovements;
+	if( bEnableLargeFileImportImprovements )
+	{
+		SrcModel.RawMeshBulkData->LoadRawMesh(NewRawMesh);
+	}
+
 	TArray<FFbxMaterial> MeshMaterials;
 	for (MeshIndex = 0; MeshIndex < MeshNodeArray.Num(); MeshIndex++ )
 	{
@@ -991,7 +1020,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 		if (Node->GetMesh())
 		{
-			if (!BuildStaticMeshFromGeometry(Node->GetMesh(), StaticMesh, MeshMaterials, LODIndex,
+			if (!BuildStaticMeshFromGeometry(Node->GetMesh(), StaticMesh, MeshMaterials, LODIndex, bEnableLargeFileImportImprovements ? &NewRawMesh : nullptr,
 											 VertexColorImportOption, ExistingVertexColorData, ImportOptions->VertexOverrideColor))
 			{
 				bBuildStatus = false;
@@ -1000,12 +1029,19 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
+
+	if( bEnableLargeFileImportImprovements )
+	{
+		// Store the new raw mesh.
+		SrcModel.RawMeshBulkData->SaveRawMesh(NewRawMesh);
+	}
+
 	if (bBuildStatus)
 	{
-		UE_LOG(LogFbx,Log,TEXT("== Initial material list:"));
+		UE_LOG(LogFbx,Verbose,TEXT("== Initial material list:"));
 		for (int32 MaterialIndex = 0; MaterialIndex < MeshMaterials.Num(); ++MaterialIndex)
 		{
-			UE_LOG(LogFbx,Log,TEXT("%d: %s"),MaterialIndex,*MeshMaterials[MaterialIndex].GetName() );
+			UE_LOG(LogFbx,Verbose,TEXT("%d: %s"),MaterialIndex,*MeshMaterials[MaterialIndex].GetName() );
 		}
 
 		// Compress the materials array by removing any duplicates.
@@ -1045,7 +1081,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			}
 			else
 			{
-				UE_LOG(LogFbx,Log,TEXT("  remap %d -> %d"), MaterialIndex, MaterialMap[MaterialIndex]);
+				UE_LOG(LogFbx,Verbose,TEXT("  remap %d -> %d"), MaterialIndex, MaterialMap[MaterialIndex]);
 			}
 		}
 
@@ -1089,15 +1125,15 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 		SortedMaterialIndex.Sort();
 
-		UE_LOG(LogFbx,Log,TEXT("== After sorting:"));
-		TArray<UMaterialInterface*> SortedMaterials;
+		UE_LOG(LogFbx,Verbose,TEXT("== After sorting:"));
+		TArray<FFbxMaterial> SortedMaterials;
 		for (int32 SortedIndex = 0; SortedIndex < SortedMaterialIndex.Num(); ++SortedIndex)
 		{
 			int32 RemappedIndex = SortedMaterialIndex[SortedIndex] & 0xffff;
-			SortedMaterials.Add(UniqueMaterials[RemappedIndex].Material);
-			UE_LOG(LogFbx,Log,TEXT("%d: %s"),SortedIndex,*UniqueMaterials[RemappedIndex].GetName());
+			SortedMaterials.Add(UniqueMaterials[RemappedIndex]);
+			UE_LOG(LogFbx,Verbose,TEXT("%d: %s"),SortedIndex,*UniqueMaterials[RemappedIndex].GetName());
 		}
-		UE_LOG(LogFbx,Log,TEXT("== Mapping table:"));
+		UE_LOG(LogFbx,Verbose,TEXT("== Mapping table:"));
 		for (int32 MaterialIndex = 0; MaterialIndex < MaterialMap.Num(); ++MaterialIndex)
 		{
 			for (int32 SortedIndex = 0; SortedIndex < SortedMaterialIndex.Num(); ++SortedIndex)
@@ -1105,7 +1141,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 				int32 RemappedIndex = SortedMaterialIndex[SortedIndex] & 0xffff;
 				if (MaterialMap[MaterialIndex] == RemappedIndex)
 				{
-					UE_LOG(LogFbx,Log,TEXT("  sort %d -> %d"), MaterialIndex, SortedIndex);
+					UE_LOG(LogFbx,Verbose,TEXT("  sort %d -> %d"), MaterialIndex, SortedIndex);
 					MaterialMap[MaterialIndex] = SortedIndex;
 					break;
 				}
@@ -1116,31 +1152,31 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		int32 MaxMaterialIndex = 0;
 		int32 FirstOpenUVChannel = 1;
 		{
-			FRawMesh RawMesh;
-			SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+			FRawMesh LocalRawMesh;
+			SrcModel.RawMeshBulkData->LoadRawMesh(LocalRawMesh);
 
 			if (bDoRemap)
 			{
-				for (int32 TriIndex = 0; TriIndex < RawMesh.FaceMaterialIndices.Num(); ++TriIndex)
+				for (int32 TriIndex = 0; TriIndex < LocalRawMesh.FaceMaterialIndices.Num(); ++TriIndex)
 				{
-					RawMesh.FaceMaterialIndices[TriIndex] = MaterialMap[RawMesh.FaceMaterialIndices[TriIndex]];
+					LocalRawMesh.FaceMaterialIndices[TriIndex] = MaterialMap[LocalRawMesh.FaceMaterialIndices[TriIndex]];
 				}
 			}
 
 			// Compact material indices so that we won't have any sections with zero triangles.
-			RawMesh.CompactMaterialIndices();
+			LocalRawMesh.CompactMaterialIndices();
 
 			// Also compact the sorted materials array.
-			if (RawMesh.MaterialIndexToImportIndex.Num() > 0)
+			if (LocalRawMesh.MaterialIndexToImportIndex.Num() > 0)
 			{
-				TArray<UMaterialInterface*> OldSortedMaterials;
+				TArray<FFbxMaterial> OldSortedMaterials;
 
 				Exchange(OldSortedMaterials,SortedMaterials);
-				SortedMaterials.Empty(RawMesh.MaterialIndexToImportIndex.Num());
-				for (int32 MaterialIndex = 0; MaterialIndex < RawMesh.MaterialIndexToImportIndex.Num(); ++MaterialIndex)
+				SortedMaterials.Empty(LocalRawMesh.MaterialIndexToImportIndex.Num());
+				for (int32 MaterialIndex = 0; MaterialIndex < LocalRawMesh.MaterialIndexToImportIndex.Num(); ++MaterialIndex)
 				{
-					UMaterialInterface* Material = NULL;
-					int32 ImportIndex = RawMesh.MaterialIndexToImportIndex[MaterialIndex];
+					FFbxMaterial Material;
+					int32 ImportIndex = LocalRawMesh.MaterialIndexToImportIndex[MaterialIndex];
 					if (OldSortedMaterials.IsValidIndex(ImportIndex))
 					{
 						Material = OldSortedMaterials[ImportIndex];
@@ -1149,21 +1185,21 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 				}
 			}
 
-			for (int32 TriIndex = 0; TriIndex < RawMesh.FaceMaterialIndices.Num(); ++TriIndex)
+			for (int32 TriIndex = 0; TriIndex < LocalRawMesh.FaceMaterialIndices.Num(); ++TriIndex)
 			{
-				MaxMaterialIndex = FMath::Max<int32>(MaxMaterialIndex,RawMesh.FaceMaterialIndices[TriIndex]);
+				MaxMaterialIndex = FMath::Max<int32>(MaxMaterialIndex,LocalRawMesh.FaceMaterialIndices[TriIndex]);
 			}
 
 			for( int32 i = 0; i < MAX_MESH_TEXTURE_COORDS; i++ )
 			{
-				if( RawMesh.WedgeTexCoords[i].Num() == 0 )
+				if( LocalRawMesh.WedgeTexCoords[i].Num() == 0 )
 				{
 					FirstOpenUVChannel = i;
 					break;
 				}
 			}
 
-			SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+			SrcModel.RawMeshBulkData->SaveRawMesh(LocalRawMesh);
 		}
 
 		// Setup per-section info and the materials array.
@@ -1172,16 +1208,26 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			StaticMesh->Materials.Empty();
 		}
 		
+		// Build a new map of sections with the unique material set
+		FMeshSectionInfoMap NewMap;
 		int32 NumMaterials = FMath::Min(SortedMaterials.Num(),MaxMaterialIndex+1);
 		for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
 		{
 			FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, MaterialIndex);
-			Info.MaterialIndex = StaticMesh->Materials.Num();
-			StaticMesh->SectionInfoMap.Set(LODIndex, MaterialIndex, Info);
-			StaticMesh->Materials.Add(SortedMaterials[MaterialIndex]);
+
+			int32 Index = StaticMesh->Materials.Add(SortedMaterials[MaterialIndex].Material);
+
+			Info.MaterialIndex = Index;
+			NewMap.Set( LODIndex, MaterialIndex, Info);
 		}
 
-	
+		// Copy the final section map into the static mesh
+		StaticMesh->SectionInfoMap.Clear();
+		StaticMesh->SectionInfoMap.CopyFrom(NewMap);
+
+		FRawMesh LocalRawMesh;
+		SrcModel.RawMeshBulkData->LoadRawMesh(LocalRawMesh);
+
 		// Setup default LOD settings based on the selected LOD group.
 		if (ExistingMesh == NULL && LODIndex == 0)
 		{
@@ -1198,11 +1244,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 				StaticMesh->SourceModels[ModelLODIndex].ReductionSettings = LODGroup.GetDefaultSettings(ModelLODIndex);
 			}
 			StaticMesh->LightMapResolution = LODGroup.GetDefaultLightMapResolution();
-		}
-
-		if (ExistMeshDataPtr)
-		{
-			RestoreExistingMeshData(ExistMeshDataPtr, StaticMesh);
 		}
 
 		UFbxStaticMeshImportData* ImportData = UFbxStaticMeshImportData::GetImportDataForStaticMesh(StaticMesh, TemplateImportData);
@@ -1226,9 +1267,34 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			SrcModel.BuildSettings.bGenerateLightmapUVs = false;
 		}
 
+		TArray<FText> BuildErrors;
 		StaticMesh->LODGroup = ImportOptions->StaticMeshLODGroup;
-		StaticMesh->Build(false);
+		StaticMesh->Build(false, &BuildErrors);
+
+		for( FText& Error : BuildErrors )
+		{
+			AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, Error), FFbxErrors::StaticMesh_BuildError );
+		}
 		
+		// this is damage control. After build, we'd like to absolutely sure that 
+		// all index is pointing correctly and they're all used. Otherwise we remove them
+		FMeshSectionInfoMap OldSectionInfoMap = StaticMesh->SectionInfoMap;
+		StaticMesh->SectionInfoMap.Clear();
+		// fix up section data
+		for (int32 LODResoureceIndex = 0; LODResoureceIndex<StaticMesh->RenderData->LODResources.Num(); ++LODResoureceIndex)
+		{
+			FStaticMeshLODResources& LOD = StaticMesh->RenderData->LODResources[LODResoureceIndex];
+			int32 NumSections = LOD.Sections.Num();
+			for(int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+			{
+				FMeshSectionInfo Info = OldSectionInfoMap.Get(LODResoureceIndex, SectionIndex);
+				if (StaticMesh->Materials.IsValidIndex(Info.MaterialIndex))
+				{
+					StaticMesh->SectionInfoMap.Set(LODResoureceIndex, SectionIndex, Info);
+				}
+			}
+		}
+
 		// The code to check for bad lightmap UVs doesn't scale well with number of triangles.
 		// Skip it here because Lightmass will warn about it during a light build anyway.
 		bool bWarnOnBadLightmapUVs = false;
@@ -1291,7 +1357,7 @@ static void FindMeshSockets( FbxNode* StartNode, TArray<FbxSocketNode>& OutFbxSo
 		if( Attribute != NULL && Attribute->GetAttributeType() == FbxNodeAttribute::eNull )
 		{
 			// Is this prefixed correctly? If so it is a socket
-			FString SocketName = ANSI_TO_TCHAR( StartNode->GetName() );
+			FString SocketName = UTF8_TO_TCHAR( StartNode->GetName() );
 			if( SocketName.StartsWith( SocketPrefix ) )
 			{
 				// Remove the prefix from the name
@@ -1329,7 +1395,7 @@ void UnFbx::FFbxImporter::ImportStaticMeshSockets( UStaticMesh* StaticMesh )
 		if( !Socket )
 		{
 			// If the socket didn't exist create a new one now
-			Socket = ConstructObject<UStaticMeshSocket>( UStaticMeshSocket::StaticClass(), StaticMesh );
+			Socket = NewObject<UStaticMeshSocket>(StaticMesh);
 			check(Socket);
 
 			Socket->SocketName = SocketNode.SocketName;
@@ -1470,7 +1536,7 @@ bool UnFbx::FFbxImporter::ImportCollisionModels(UStaticMesh* StaticMesh, const F
 
 		if (!FbxMesh->IsTriangleMesh())
 		{
-			FString NodeName = ANSI_TO_TCHAR(MakeName(Node->GetName()));
+			FString NodeName = UTF8_TO_TCHAR(MakeName(Node->GetName()));
 			UE_LOG(LogFbx, Warning, TEXT("Triangulating mesh %s for collision model"), *NodeName);
 
 			const bool bReplace = true;

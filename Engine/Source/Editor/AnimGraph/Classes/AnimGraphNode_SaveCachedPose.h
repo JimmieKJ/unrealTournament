@@ -31,7 +31,6 @@ class UAnimGraphNode_SaveCachedPose : public UAnimGraphNode_Base
 
 	// UAnimGraphNode_Base interface
 	virtual FString GetNodeCategory() const override;
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual bool IsSinkNode() const override { return true; }
 	// End of UAnimGraphNode_Base interface
 

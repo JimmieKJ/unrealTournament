@@ -4,65 +4,65 @@
 #include "BlueprintFunctionLibrary.h"
 #include "KismetStringLibrary.generated.h"
 
-UCLASS(MinimalAPI)
-class UKismetStringLibrary : public UBlueprintFunctionLibrary
+UCLASS()
+class ENGINE_API UKismetStringLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
 	/** Converts a float value to a string */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (float)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (float)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_FloatToString(float InFloat);
 
 	/** Converts an integer value to a string */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (int)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (int)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_IntToString(int32 InInt);
 
 	/** Converts a byte value to a string */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (byte)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (byte)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_ByteToString(uint8 InByte);
 
 	/** Converts a boolean value to a string, either 'true' or 'false' */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (boolean)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (boolean)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_BoolToString(bool InBool);
 
 	/** Converts a vector value to a string, in the form 'X= Y= Z=' */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (Vector)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (Vector)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_VectorToString(FVector InVec);
 
 	/** Converts a vector2d value to a string, in the form 'X= Y=' */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (vector2d)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (vector2d)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_Vector2dToString(FVector2D InVec);
 
 	/** Converts a rotator value to a string, in the form 'P= Y= R=' */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (rotator)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (rotator)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_RotatorToString(FRotator InRot);
 
 	/** Converts a transform value to a string, in the form 'Translation: X= Y= Z= Rotation: P= Y= R= Scale: X= Y= Z=' */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (transform)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (transform)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_TransformToString(const FTransform& InTrans);
 
 	/** Converts a UObject value to a string by calling the object's GetName method */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (object)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (object)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_ObjectToString(class UObject* InObj);
 
 	/** Converts a linear color value to a string, in the form '(R=,G=,B=,A=)' */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (linear color)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (linear color)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_ColorToString(FLinearColor InColor);
 
 	/** Converts a name value to a string */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "ToString (name)", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "ToString (name)", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FString Conv_NameToString(FName InName);
 
 	/** Converts a string to a name value */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "String To Name", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "String To Name", CompactNodeTitle = "->"), Category="Utilities|String")
 	static FName Conv_StringToName(const FString& InString);
 
 	/** Converts a string to a int value */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "String To Int", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "String To Int", CompactNodeTitle = "->"), Category="Utilities|String")
 	static int32 Conv_StringToInt(const FString& InString);
 
 	/** Converts a string to a float value */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "String To Float", CompactNodeTitle = "->"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "String To Float", CompactNodeTitle = "->"), Category="Utilities|String")
 	static float Conv_StringToFloat(const FString& InString);
 	
 
@@ -74,7 +74,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (float)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (float)"), Category="Utilities|String")
 	static FString BuildString_Float(const FString& AppendTo, const FString& Prefix, float InFloat, const FString& Suffix);
 
 	/** 
@@ -85,7 +85,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (int)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (int)"), Category="Utilities|String")
 	static FString BuildString_Int(const FString& AppendTo, const FString& Prefix, int32 InInt, const FString& Suffix);
 
 	/** 
@@ -96,7 +96,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (boolean)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (boolean)"), Category="Utilities|String")
 	static FString BuildString_Bool(const FString& AppendTo, const FString& Prefix, bool InBool, const FString& Suffix);
 
 	/** 
@@ -107,7 +107,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (vector)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (vector)"), Category="Utilities|String")
 	static FString BuildString_Vector(const FString& AppendTo, const FString& Prefix, FVector InVector, const FString& Suffix);
 
 	/** 
@@ -118,7 +118,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (vector2d)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (vector2d)"), Category="Utilities|String")
 	static FString BuildString_Vector2d(const FString& AppendTo, const FString& Prefix, FVector2D InVector2d, const FString& Suffix);
 
 	/** 
@@ -129,7 +129,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (rotator)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (rotator)"), Category="Utilities|String")
 	static FString BuildString_Rotator(const FString& AppendTo, const FString& Prefix, FRotator InRot, const FString& Suffix);
 
 	/** 
@@ -140,7 +140,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (object)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (object)"), Category="Utilities|String")
 	static FString BuildString_Object(const FString& AppendTo, const FString& Prefix, class UObject* InObj, const FString& Suffix);
 
 	/** 
@@ -151,7 +151,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (color)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (color)"), Category="Utilities|String")
 	static FString BuildString_Color(const FString& AppendTo, const FString& Prefix, FLinearColor InColor, const FString& Suffix);
 
 	/** 
@@ -162,7 +162,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param Suffix - A suffix to append to the end of the conversion string
 	 * @return A new string built from the passed parameters
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "BuildString (name)"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "BuildString (name)"), Category="Utilities|String")
 	static FString BuildString_Name(const FString& AppendTo, const FString& Prefix, FName InName, const FString& Suffix);
 
 
@@ -176,7 +176,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param B - The string to append to A
 	 * @returns A new string which is the concatenation of A+B
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "Append"), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Append", CommutativeAssociativeBinaryOperator = "true"), Category="Utilities|String")
 	static FString Concat_StrStr(const FString& A, const FString& B);
 
 	/**
@@ -185,7 +185,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param B - The string to compare
 	 * @returns True if the strings are equal, false otherwise
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "Equal (string)", CompactNodeTitle = "=="), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal (string)", CompactNodeTitle = "=="), Category="Utilities|String")
 	static bool EqualEqual_StrStr(const FString& A, const FString& B);
 
 	/**
@@ -194,7 +194,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param B - The string to compare
 	 * @returns True if the strings are equal, false otherwise
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "Equal, Case Insensitive (string)", CompactNodeTitle = "=="), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal, Case Insensitive (string)", CompactNodeTitle = "=="), Category="Utilities|String")
 	static bool EqualEqual_StriStri(const FString& A, const FString& B);
 
 	/** 
@@ -203,7 +203,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param B - The string to compare
 	 * @return Returns true if the input strings are not equal, false if they are equal
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "NotEqual (string)", CompactNodeTitle = "!="), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "NotEqual (string)", CompactNodeTitle = "!="), Category="Utilities|String")
 	static bool NotEqual_StrStr(const FString& A, const FString& B);
 
 	/** Test if the input string are not equal (A != B), ignoring case differences
@@ -211,7 +211,7 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 * @param B - The string to compare
 	 * @return Returns true if the input strings are not equal, false if they are equal
 	 */
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "NotEqual, case insenstive (string)", CompactNodeTitle = "!="), Category="Utilities|String")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "NotEqual, case insenstive (string)", CompactNodeTitle = "!="), Category="Utilities|String")
 	static bool NotEqual_StriStri(const FString& A, const FString& B);
 
 	/** 
@@ -263,6 +263,15 @@ class UKismetStringLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category="Utilities|String")
 	static TArray<FString> ParseIntoArray(const FString& SourceString, const FString& Delimiter = FString(TEXT(" ")), const bool CullEmptyStrings = true);
+	
+	/**
+	 * Concatenates an array of strings into a single string.
+	 * @param SourceArray - The array of strings to concatenate.
+	 * @param Separator - The string used to separate each element.
+	 * @return The final, joined, separated string.
+	 */
+	UFUNCTION(BlueprintPure, Category="Utilities|String")
+	static FString JoinStringArray(const TArray<FString>& SourceArray, const FString&  Separator = FString(TEXT(" ")));
 
 	/**
 	* Returns an array that contains one entry for each character in SourceString

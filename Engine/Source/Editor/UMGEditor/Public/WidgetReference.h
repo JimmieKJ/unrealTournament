@@ -50,7 +50,7 @@ public:
 		return TSharedPtr<SWidget>();
 	}
 
-	/** Checks if widget reference is the same as nother widget reference, based on the template pointers. */
+	/** Checks if widget reference is the same as another widget reference, based on the template pointers. */
 	bool operator==( const FWidgetReference& Other ) const
 	{
 		if ( TemplateHandle.IsValid() && Other.TemplateHandle.IsValid() )
@@ -59,6 +59,12 @@ public:
 		}
 
 		return false;
+	}
+
+	/** Checks if widget reference is the different from another widget reference, based on the template pointers. */
+	bool operator!=( const FWidgetReference& Other ) const
+	{
+		return !operator==( Other );
 	}
 
 private:

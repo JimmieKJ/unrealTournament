@@ -18,15 +18,6 @@ struct FSessionServicePing
 
 };
 
-template<>
-struct TStructOpsTypeTraits<FSessionServicePing> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message that is published in response to FSessionServicePing.
@@ -75,15 +66,6 @@ struct FSessionServicePong
 	/** Holds a flag indicating whether the application is the only one in that session. */
 	UPROPERTY()
 	bool Standalone;
-};
-
-template<>
-struct TStructOpsTypeTraits<FSessionServicePong> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -137,15 +119,6 @@ public:
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FSessionServiceLog> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message to subscribe to an application's console log.
@@ -156,15 +129,6 @@ struct FSessionServiceLogSubscribe
 	GENERATED_USTRUCT_BODY()
 };
 
-template<>
-struct TStructOpsTypeTraits<FSessionServiceLogSubscribe> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message to unsubscribe from an application's console log.
@@ -173,13 +137,4 @@ USTRUCT()
 struct FSessionServiceLogUnsubscribe
 {
 	GENERATED_USTRUCT_BODY()
-};
-
-template<>
-struct TStructOpsTypeTraits<FSessionServiceLogUnsubscribe> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };

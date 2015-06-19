@@ -1,21 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "AIGraphNode.h"
 #include "BehaviorTreeEditorTypes.h"
-#include "DiffResults.h"
 #include "BehaviorTreeGraphNode.generated.h"
 
 UCLASS()
-class UBehaviorTreeGraphNode : public UEdGraphNode
+class UBehaviorTreeGraphNode : public UAIGraphNode
 {
 	GENERATED_UCLASS_BODY()
-
-	UPROPERTY()
-	UObject* NodeInstance;
-
-	/** parent node if node is not a standalone node*/
-	UPROPERTY(transient)
-	UBehaviorTreeGraphNode* ParentNode;
 
 	/** only some of behavior tree nodes support decorators */
 	UPROPERTY()
@@ -28,70 +22,26 @@ class UBehaviorTreeGraphNode : public UEdGraphNode
 	// Begin UEdGraphNode Interface
 	virtual class UBehaviorTreeGraph* GetBehaviorTreeGraph();
 	virtual void AllocateDefaultPins() override;
-	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
-	virtual void PostPlacedNewNode() override;
-	virtual void PrepareForCopying() override;
-	virtual bool CanDuplicateNode() const override;
-	virtual bool CanUserDeleteNode() const override;
-	virtual void DestroyNode() override;
 	virtual FText GetTooltipText() const override;
-	virtual void NodeConnectionListChanged() override;
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const override;
-	virtual void FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results) override;
 	// End UEdGraphNode Interface
 
-	// Begin UObject Interface
-#if WITH_EDITOR
-	virtual void PostEditImport() override;
-	virtual void PostEditUndo() override;
-#endif
-	// End UObject
+	virtual FText GetDescription() const override;
+	virtual bool HasErrors() const override;
+	virtual void InitializeInstance() override;
+	virtual void OnSubNodeAdded(UAIGraphNode* SubNode) override;
+	virtual void OnSubNodeRemoved(UAIGraphNode* SubNode) override;
+	virtual void RemoveAllSubNodes() override;
+	virtual int32 FindSubNodeDropIndex(UAIGraphNode* SubNode) const override;
+	virtual void InsertSubNodeAt(UAIGraphNode* SubNode, int32 DropIndex) override;
 
-	// @return the input pin for this state
-	virtual UEdGraphPin* GetInputPin(int32 InputIndex=0) const;
-	// @return the output pin for this state
-	virtual UEdGraphPin* GetOutputPin(int32 InputIndex=0) const;
-	//
-	virtual UEdGraph* GetBoundGraph() const { return NULL; }
-
-	virtual FString	GetDescription() const;
 	/** check if node can accept breakpoints */
 	virtual bool CanPlaceBreakpoints() const { return false; }
-	virtual void PostCopyNode();
-
-	virtual bool IsSubNode() const { return false; }
-
-	/**
-	 * Finds the difference in Behavior Tree properties
-	 * 
-	 * @param Struct The struct of the class we are looking at
-	 * @param Data The raw data for the UObject we are comparing LHS
-	 * @param OtherData The raw data for the UObject we are comparing RHS
-	 * @param Results The Results where differences are stored
-	 * @param Diff The single result with default parameters setup
-	 */
-	void DiffProperties(UStruct* Struct, void* Data, void* OtherData, FDiffResults& Results, FDiffSingleResult& Diff);
 
 	void ClearDebuggerState();
 
-	/** add subnode */
-	void AddSubNode(UBehaviorTreeGraphNode* NodeTemplate, class UEdGraph* ParentGraph);
-
-	/** reinitialize node instance */
-	virtual bool RefreshNodeClass();
-
 	/** gets icon resource name for title bar */
 	virtual FName GetNameIcon() const;
-
-	/** Check if node instance uses blueprint for its implementation */
-	bool UsesBlueprint() const;
-
-	/** check if node has any errors, used for assigning colors on graph */
-	virtual bool HasErrors() const;
-
-	/** instance class */
-	UPROPERTY()
-	struct FClassData ClassData;
 
 	/** if set, this node was injected from subtree and shouldn't be edited */
 	UPROPERTY()
@@ -166,13 +116,6 @@ class UBehaviorTreeGraphNode : public UEdGraphNode
 	/** used to show node's runtime description rather than static one */
 	FString DebuggerRuntimeDescription;
 
-	/** error message for node */
-	FString ErrorMessage;
-
-	/** subnode index assigned during copy operation to connect nodes again on paste */
-	UPROPERTY()
-	int32 CopySubNodeIndex;
-
 protected:
 
 	/** creates add decorator... submenu */
@@ -186,7 +129,4 @@ protected:
 
 	/** add right click menu to create subnodes: Services */
 	void AddContextMenuActionsServices(const FGraphNodeContextMenuBuilder& Context) const;
-
-	void ResetNodeOwner();
 };
-

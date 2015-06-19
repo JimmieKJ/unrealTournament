@@ -32,6 +32,9 @@ public:
 	// Lists objects that reference the selected asset.
 	TSharedPtr<FUICommandInfo> ListObjectsThatReference;
 
+	// Shows a size map for the selected asset.
+	TSharedPtr<FUICommandInfo> ShowSizeMap;
+
 	// Shows a reference tree for the selected asset.
 	TSharedPtr<FUICommandInfo> ShowReferenceTree;
 

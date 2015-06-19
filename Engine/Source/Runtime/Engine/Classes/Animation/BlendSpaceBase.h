@@ -255,7 +255,7 @@ public:
 	TArray<FPerBoneInterpolation> PerBoneBlend;
 
 	// Begin UObject interface
-	virtual void PostLoad();
+	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR

@@ -1,13 +1,20 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "Engine/Light.h"
 #include "DirectionalLight.generated.h"
 
+
 class UArrowComponent;
 
+
+/**
+ * Implements a directional light actor.
+ */
 UCLASS(ClassGroup=(Lights, DirectionalLights), MinimalAPI, meta=(ChildCanTick))
-class ADirectionalLight : public ALight
+class ADirectionalLight
+	: public ALight
 {
 	GENERATED_UCLASS_BODY()
 
@@ -21,20 +28,17 @@ private_subobject:
 
 public:
 
-	// Begin UObject Interface
+	// UObject Interface
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void LoadedFromAnotherClass(const FName& OldClassName) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
-	// End UObject Interface
 
 public:
+
 #if WITH_EDITORONLY_DATA
 	/** Returns ArrowComponent subobject **/
 	ENGINE_API UArrowComponent* GetArrowComponent() const;
 #endif
 };
-
-
-

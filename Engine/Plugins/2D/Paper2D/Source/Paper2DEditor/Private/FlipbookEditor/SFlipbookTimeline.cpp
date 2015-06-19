@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DEditorPrivatePCH.h"
+#include "PaperFlipbook.h"
 #include "SFlipbookTimeline.h"
 #include "Editor/UnrealEd/Public/DragAndDrop/AssetDragDropOp.h"
 #include "Editor/UnrealEd/Public/ScopedTransaction.h"
@@ -19,61 +20,86 @@
 //////////////////////////////////////////////////////////////////////////
 // SFlipbookTimeline
 
-void SFlipbookTimeline::Construct(const FArguments& InArgs, TSharedPtr<const FUICommandList> InCommandList)
+void SFlipbookTimeline::Construct(const FArguments& InArgs, TSharedPtr<FUICommandList> InCommandList)
 {
 	FlipbookBeingEdited = InArgs._FlipbookBeingEdited;
 	PlayTime = InArgs._PlayTime;
 	OnSelectionChanged = InArgs._OnSelectionChanged;
 	CommandList = InCommandList;
 
-	SlateUnitsPerFrame = 32;
+	SlateUnitsPerFrame = 120.0f;
+
+	BackgroundPerFrameSlices = SNew(SHorizontalBox);
+
+	TimelineHeader = SNew(STimelineHeader)
+		.SlateUnitsPerFrame(this, &SFlipbookTimeline::GetSlateUnitsPerFrame)
+		.FlipbookBeingEdited(FlipbookBeingEdited)
+		.PlayTime(PlayTime);
+
+	TimelineTrack = SNew(SFlipbookTimelineTrack, CommandList)
+		.SlateUnitsPerFrame(this, &SFlipbookTimeline::GetSlateUnitsPerFrame)
+		.FlipbookBeingEdited(FlipbookBeingEdited)
+		.OnSelectionChanged(OnSelectionChanged);
 
 	ChildSlot
 	[
 		SNew(SBorder)
 		.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
 		[
-			SNew(SHorizontalBox)
-
-			// Empty flipbook instructions
-			+SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Center)
+			SNew(SScrollBox)
+			.Orientation(Orient_Horizontal)
+			.ScrollBarAlwaysVisible(true)
+			+SScrollBox::Slot()
 			[
-				SNew(STextBlock)
-				.Visibility(this, &SFlipbookTimeline::NoFramesWarningVisibility)
-				.Text(LOCTEXT("EmptyTimelineInstruction", "Right-click here or drop in sprites to add key frames"))
-			]
+				SNew(SOverlay)
 
-			// Flipbook header and track
-			+SHorizontalBox::Slot()
-			[
-				SNew(SVerticalBox)
-		
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(0,0,0,2)
+				// Per-frame background
+				+SOverlay::Slot()
+				.VAlign(VAlign_Fill)
 				[
-					SNew(STimelineHeader)
-					.SlateUnitsPerFrame(SlateUnitsPerFrame)
-					.FlipbookBeingEdited(FlipbookBeingEdited)
-					.PlayTime(PlayTime)
+					BackgroundPerFrameSlices.ToSharedRef()
 				]
 
-				+SVerticalBox::Slot()
-				.AutoHeight()
+				// Flipbook header and track
+				+SOverlay::Slot()
 				[
-					SNew(SBox).HeightOverride(FFlipbookUIConstants::FrameHeight)
+					SNew(SVerticalBox)
+		
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0,0,0,2)
 					[
-						SNew(SFlipbookTimelineTrack, InCommandList)
-						.SlateUnitsPerFrame(SlateUnitsPerFrame)
-						.FlipbookBeingEdited(FlipbookBeingEdited)
-						.OnSelectionChanged(OnSelectionChanged)
+						TimelineHeader.ToSharedRef()
 					]
+
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SBox)
+						.HeightOverride(FFlipbookUIConstants::FrameHeight)
+						[
+							TimelineTrack.ToSharedRef()
+						]
+					]
+				]
+
+				// Empty flipbook instructions
+				+ SOverlay::Slot()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Visibility(this, &SFlipbookTimeline::NoFramesWarningVisibility)
+					.Text(LOCTEXT("EmptyTimelineInstruction", "Right-click here or drop in sprites to add key frames"))
 				]
 			]
 		]
 	];
+
+	UPaperFlipbook* Flipbook = FlipbookBeingEdited.Get();
+	NumKeyFramesFromLastRebuild = (Flipbook != nullptr) ? Flipbook->GetNumKeyFrames() : 0;
+	NumFramesFromLastRebuild = (Flipbook != nullptr) ? Flipbook->GetNumFrames() : 0;
+	RebuildPerFrameBG();
 }
 
 void SFlipbookTimeline::OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent)
@@ -202,6 +228,26 @@ int32 SFlipbookTimeline::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 	return LayerId;
 }
 
+FReply SFlipbookTimeline::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	if (MouseEvent.IsControlDown())
+	{
+		const float DirectionScale = 0.08f;
+		const float MinFrameSize = 16.0f;
+		const float Direction = MouseEvent.GetWheelDelta();
+		const float NewUnitsPerFrame = FMath::Max(MinFrameSize, SlateUnitsPerFrame * (1.0f + Direction * DirectionScale));
+		SlateUnitsPerFrame = NewUnitsPerFrame;
+		
+		CheckForRebuild(/*bRebuildAll=*/ true);
+
+		return FReply::Handled();
+	}
+	else
+	{
+		return FReply::Unhandled();
+	}
+}
+
 TSharedRef<SWidget> SFlipbookTimeline::GenerateContextMenu()
 {
 	FMenuBuilder MenuBuilder(true, CommandList);
@@ -232,11 +278,58 @@ FReply SFlipbookTimeline::OnMouseButtonUp(const FGeometry& MyGeometry, const FPo
 	}
 }
 
+void SFlipbookTimeline::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	CheckForRebuild();
+}
+
+void SFlipbookTimeline::CheckForRebuild(bool bRebuildAll)
+{
+	UPaperFlipbook* Flipbook = FlipbookBeingEdited.Get();
+
+	const int32 NewNumKeyframes = (Flipbook != nullptr) ? Flipbook->GetNumKeyFrames() : 0;
+	if ((NewNumKeyframes != NumKeyFramesFromLastRebuild) || bRebuildAll)
+	{
+		NumKeyFramesFromLastRebuild = NewNumKeyframes;
+		TimelineTrack->Rebuild();
+	}
+
+	const int32 NewNumFrames = (Flipbook != nullptr) ? Flipbook->GetNumFrames() : 0;
+	if ((NewNumFrames != NumFramesFromLastRebuild) || bRebuildAll)
+	{
+		NumFramesFromLastRebuild = NewNumFrames;
+		TimelineHeader->Rebuild();
+		RebuildPerFrameBG();
+	}
+}
+
 EVisibility SFlipbookTimeline::NoFramesWarningVisibility() const
 {
 	UPaperFlipbook* Flipbook = FlipbookBeingEdited.Get();
 	const int32 TotalNumFrames = (Flipbook != nullptr) ? Flipbook->GetNumFrames() : 0;
 	return (TotalNumFrames == 0) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+void SFlipbookTimeline::RebuildPerFrameBG()
+{
+	const FLinearColor BackgroundColors[2] = { FLinearColor(1.0f, 1.0f, 1.0f, 0.05f), FLinearColor(0.0f, 0.0f, 0.0f, 0.05f) };
+
+	BackgroundPerFrameSlices->ClearChildren();
+	for (int32 FrameIndex = 0; FrameIndex < NumFramesFromLastRebuild; ++FrameIndex)
+	{
+		const FLinearColor& BackgroundColorForFrameIndex = BackgroundColors[FrameIndex & 1];
+
+		BackgroundPerFrameSlices->AddSlot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(SlateUnitsPerFrame)
+			[
+				SNew(SColorBlock)
+				.Color(BackgroundColorForFrameIndex)
+			]
+		];
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////

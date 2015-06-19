@@ -140,7 +140,7 @@ public:
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
-	virtual FString GetFriendlyName() const { return TEXT("ColorOnly Static-mesh vertices"); }
+	virtual FString GetFriendlyName() const override { return TEXT("ColorOnly Static-mesh vertices"); }
 
 private:
 

@@ -9,6 +9,7 @@
 #include "IPhysXFormat.h"
 #include "IPhysXFormatModule.h"
 #include "PhysXFormats.h"
+#include "PhysicsEngine/PhysXSupport.h"
 
 static_assert(WITH_PHYSX, "No point in compiling PhysX cooker, if we don't have PhysX.");
 
@@ -64,7 +65,7 @@ public:
 		: PhysXCooking( InCooking )
 	{}
 
-	virtual bool AllowParallelBuild() const
+	virtual bool AllowParallelBuild() const override
 	{
 		return false;
 	}
@@ -76,7 +77,7 @@ public:
 	}
 
 
-	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const
+	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const override
 	{
 		OutFormats.Add(NAME_PhysXPC);
 		OutFormats.Add(NAME_PhysXXboxOne);
@@ -201,6 +202,78 @@ public:
 #else
 		return false;
 #endif		// WITH_PHYSX
+	}
+
+	virtual bool SerializeActors(FName Format, const TArray<FBodyInstance*>& Bodies, const TArray<UBodySetup*>& BodySetups, const TArray<UPhysicalMaterial*>& PhysicalMaterials, TArray<uint8>& OutBuffer) const override
+	{
+#if WITH_PHYSX
+		PxSerializationRegistry* PRegistry = PxSerialization::createSerializationRegistry(*GPhysXSDK);
+		PxCollection* PCollection = PxCreateCollection();
+
+		PxBase* PLastObject = nullptr;
+
+		for(FBodyInstance* BodyInstance : Bodies)
+		{
+			if(BodyInstance->RigidActorSync)
+			{
+				PCollection->add(*BodyInstance->RigidActorSync, BodyInstance->RigidActorSyncId);
+				PLastObject = BodyInstance->RigidActorSync;
+			}
+
+			if(BodyInstance->RigidActorAsync)
+			{
+				PCollection->add(*BodyInstance->RigidActorAsync,  BodyInstance->RigidActorAsyncId);
+				PLastObject = BodyInstance->RigidActorAsync;
+			}
+		}
+
+		PxSerialization::createSerialObjectIds(*PCollection, PxSerialObjectId(1));	//we get physx to assign an id for each actor
+
+		//Note that rigid bodies may have assigned ids. It's important to let them go first because we rely on that id for deserialization.
+		//One this is done we must find out the next available ID, and use that for naming the shared resources. We have to save this for deserialization
+		uint64 BaseId = PLastObject ? (PCollection->getId(*PLastObject) + 1) : 1;
+
+		PxCollection* PExceptFor = MakePhysXCollection(PhysicalMaterials, BodySetups, BaseId);
+		
+		for (FBodyInstance* BodyInstance : Bodies)	//and then we mark that id back into the bodyinstance so we can pair the two later
+		{
+			if (BodyInstance->RigidActorSync)
+			{
+				BodyInstance->RigidActorSyncId = PCollection->getId(*BodyInstance->RigidActorSync);
+			}
+
+			if (BodyInstance->RigidActorAsync)
+			{
+				BodyInstance->RigidActorAsyncId = PCollection->getId(*BodyInstance->RigidActorAsync);
+			}
+		}
+
+		//We must store the BaseId for shared resources.
+		FMemoryWriter Ar(OutBuffer);
+		uint8 bIsLittleEndian = PLATFORM_LITTLE_ENDIAN; //TODO: We should pass the target platform into this function and write it. Then swap the endian on the writer so the reader doesn't have to do it at runtime
+		Ar << bIsLittleEndian;
+		Ar << BaseId;
+		//Note that PhysX expects the binary data to be 128-byte aligned. Because of this we must pad
+		int32 BytesToPad = PHYSX_SERIALIZATION_ALIGNMENT - (Ar.Tell() % PHYSX_SERIALIZATION_ALIGNMENT);
+		OutBuffer.AddZeroed(BytesToPad);
+
+		FPhysXOutputStream Buffer(&OutBuffer);
+		PxSerialization::complete(*PCollection, *PRegistry, PExceptFor);
+		PxSerialization::serializeCollectionToBinary(Buffer, *PCollection, *PRegistry, PExceptFor);
+
+#if PHYSX_MEMORY_VALIDATION
+		GPhysXAllocator->ValidateHeaders();
+#endif
+		PCollection->release();
+		PExceptFor->release();
+		PRegistry->release();
+
+#if PHYSX_MEMORY_VALIDATION
+		GPhysXAllocator->ValidateHeaders();
+#endif
+		return true;
+#endif
+		return false;
 	}
 
 };

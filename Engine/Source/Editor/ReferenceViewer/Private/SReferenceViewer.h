@@ -22,12 +22,12 @@ public:
 	/** Sets a new root package name */
 	void SetGraphRootPackageNames(const TArray<FName>& NewGraphRootPackageNames);
 
-	// SWidget implementation
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
-	// End SWidget implementation
-
 private:
 
+	/** Called to create context menu when right-clicking on graph */
+	FActionMenuContent OnCreateGraphActionMenu(UEdGraph* InGraph, const FVector2D& InNodePosition, const TArray<UEdGraphPin*>& InDraggedPins, bool bAutoExpand, SGraphEditor::FActionMenuClosed InOnMenuClosed);
+
+	/** Called when a node is double clicked */
 	void OnNodeDoubleClicked(class UEdGraphNode* Node);
 
 	/** True if the user may use the history back button */
@@ -78,13 +78,14 @@ private:
 	void ListReferencedObjects();
 	void ListObjectsThatReference();
 	void MakeCollectionWithReferencedAssets(ECollectionShareType::Type ShareType);
+	void ShowSizeMap();
 	void ShowReferenceTree();
 
 	void ReCenterGraphOnNodes(const TSet<UObject*>& Nodes);
 
 	UObject* GetObjectFromSingleSelectedNode() const;
 	bool HasExactlyOneNodeSelected() const;
-	bool IsSingleSelectedItemValidObject() const;
+	bool HasAtLeastOneNodeSelected() const;
 
 	void OnInitialAssetRegistrySearchComplete();
 private:

@@ -32,11 +32,6 @@ SMatineeRecorder::~SMatineeRecorder()
 	LevelViewportClient.Reset();
 }
 
-void SMatineeRecorder::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
-{
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-}
-
 void SMatineeRecorder::RefreshViewport()
 {
 	Viewport->InvalidateDisplay();
@@ -114,10 +109,8 @@ void SMatineeRecorder::Construct(const FArguments& InArgs)
 		]
 	];
 
-	CameraModeComboBox->ComputeDesiredSize();
-
 	// Create an animation viewport client
-	LevelViewportClient = MakeShareable( new FLevelEditorViewportClient );
+	LevelViewportClient = MakeShareable( new FLevelEditorViewportClient(nullptr) );
 
 	Viewport = MakeShareable( new FSceneViewport( LevelViewportClient.Get(), ViewportWidget ) );
 	LevelViewportClient->Viewport = Viewport.Get();
@@ -137,8 +130,6 @@ void SMatineeRecorder::Construct(const FArguments& InArgs)
 
 	// The viewport widget needs an interface so it knows what should render
 	ViewportWidget->SetViewportInterface( Viewport.ToSharedRef() );
-
-	TWeakPtr<FLevelEditorViewportClient>(LevelViewportClient);
 }
 
 /** Gets the current image that should be displayed for the Record/Stop button based on the status of the InterpEditor. */

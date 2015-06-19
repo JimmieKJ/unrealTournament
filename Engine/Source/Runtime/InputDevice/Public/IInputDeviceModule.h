@@ -8,7 +8,7 @@
 
 
 /**
- * The public interface of the MotionControlsModule
+ * The public interface of the InputDeviceModule
  */
 class IInputDeviceModule : public IModuleInterface, public IModularFeature
 {

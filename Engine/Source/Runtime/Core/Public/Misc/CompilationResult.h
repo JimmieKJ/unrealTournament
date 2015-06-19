@@ -14,18 +14,18 @@ namespace ECompilationResult
 {
 	enum Type
 	{
-		/** All targets were up to date, used only with -canskiplink */
-		UpToDate = -2,
-		/** Build was canceled, this is used on the engine side only */
-		Canceled = -1,
 		/** Compilation succeeded */
 		Succeeded = 0,
-		/** Compilation failed because generated code changed which was not supported */
-		FailedDueToHeaderChange = 1,
-		/** Compilation failed due to compilation errors */
-		OtherCompilationError = 2,
+		/** Build was canceled, this is used on the engine side only */
+		Canceled = 1,
+		/** All targets were up to date, used only with -canskiplink */
+		UpToDate = 2,
 		/** The process has most likely crashed. This is what UE returns in case of an assert */
 		CrashOrAssert = 3,
+		/** Compilation failed because generated code changed which was not supported */
+		FailedDueToHeaderChange = 4,
+		/** Compilation failed due to compilation errors */
+		OtherCompilationError = 5,
 		/** Compilation is not supported in the current build */
 		Unsupported,
 		/** Unknown error */

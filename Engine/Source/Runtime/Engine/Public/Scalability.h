@@ -55,10 +55,10 @@ namespace Scalability
 	/**  */
 	ENGINE_API void InitScalabilitySystem();
 
-	/** @param IniName e.g. GEditorUserSettingsIni or GGameUserSettingsIni */
+	/** @param IniName e.g. GEditorPerProjectIni or GGameUserSettingsIni */
 	ENGINE_API void LoadState(const FString& IniName);
 	
-	/** @param IniName e.g. GEditorUserSettingsIni or GGameUserSettingsIni */
+	/** @param IniName e.g. GEditorPerProjectIni or GGameUserSettingsIni */
 	ENGINE_API void SaveState(const FString& IniName);
 
 	/**

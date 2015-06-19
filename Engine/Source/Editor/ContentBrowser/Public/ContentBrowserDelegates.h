@@ -84,6 +84,9 @@ DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnVisualizeAssetToolTip, const TSharedP
 /** Called from the Asset Dialog when a non-modal dialog is closed or cancelled */
 DECLARE_DELEGATE(FOnAssetDialogCancelled);
 
+/** Called when an asset item's tooltip is closing */
+DECLARE_DELEGATE( FOnAssetToolTipClosing );
+
 /** Called from the Asset Dialog when assets are chosen in non-modal Open dialogs */
 DECLARE_DELEGATE_OneParam(FOnAssetsChosenForOpen, const TArray<FAssetData>& /*SelectedAssets*/);
 

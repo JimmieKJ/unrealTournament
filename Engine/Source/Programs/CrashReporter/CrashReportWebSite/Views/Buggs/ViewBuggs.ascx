@@ -40,16 +40,18 @@
 		<th>&nbsp;</th>
 		<!-- if you add a new column be sure to update the switch statement in the repository SortBy function -->
 		<th style='width:  6em;'><%=Url.TableHeader( "Id", "Id", Model )%></th>
-		<th style='width: 15em;'><%=Url.TableHeader( "Build Version", "BuildVersion", Model )%></th>
-		<th style='width: 15em;'><%=Url.TableHeader( "Crashes In Time Frame", "CrashesInTimeFrame", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "Build Version", "BuildVersion", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "Crashes In Time Frame (Group)", "CrashesInTimeFrameGroup", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "Crashes In Time Frame (All)", "CrashesInTimeFrameAll", Model )%></th>
 		<th style='width: 12em;'><%=Url.TableHeader( "Latest Crash", "LatestCrash", Model )%></th>
 		<th style='width: 12em;'><%=Url.TableHeader( "First Crash", "FirstCrash", Model )%></th> 
-		<th style='width: 11em;'><%=Url.TableHeader( "# of Crashes", "NumberOfCrashes", Model )%></th> 
-		<th style='width: 11em;'><%=Url.TableHeader( "Users Affected", "NumberOfUsers", Model )%></th> 
-		<th style='width: 14em;'><%=Url.TableHeader( "Pattern", "Pattern", Model )%></th> 
-		<th style='width: 12em;'><%=Url.TableHeader( "Status", "Status", Model )%></th>
-		<th style='width: 12em;'><%=Url.TableHeader( "FixedCL#", "FixedChangeList", Model )%></th>
-		<th style='width: 12em;'><%=Url.TableHeader( "TTPID", "TTPID", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "# of Crashes", "NumberOfCrashes", Model )%></th> 
+		<th style='width: 8em;'><%=Url.TableHeader( "Users Affected", "NumberOfUsers", Model )%></th> 
+		<th style='width: 24em;'><%=Url.TableHeader( "Pattern", "Pattern", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "CrashType", "CrashType", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "Status", "Status", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "FixedCL#", "FixedChangeList", Model )%></th>
+		<th style='width: 8em;'><%=Url.TableHeader( "JIRA", "TTPID", Model )%></th>
 	</tr>
 	<%
 		using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() ) )
@@ -66,13 +68,13 @@
 						if( string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) && string.IsNullOrWhiteSpace( CurrentBugg.TTPID ) )
 						{
 							BuggRowColor = "#FFFF88"; // yellow
-							BuggColorDescription = "This CrashGroup has not been fixed or assigned a TTP";
+							BuggColorDescription = "This CrashGroup has not been fixed or assigned a JIRA";
 						}
 
 						if( !string.IsNullOrWhiteSpace( CurrentBugg.TTPID ) && string.IsNullOrWhiteSpace( CurrentBugg.FixedChangeList ) )
 						{
 							BuggRowColor = "#D01F3C"; // red
-							BuggColorDescription = "This CrashGroup has  been assigned a TTP: " + CurrentBugg.TTPID + " but has not been fixed.";
+							BuggColorDescription = "This CrashGroup has  been assigned a JIRA: " + CurrentBugg.TTPID + " but has not been fixed.";
 						}
 
 						if( CurrentBugg.Status == "Coder" )
@@ -97,11 +99,15 @@
 			<td class="BuggTd" style="background-color: <%=BuggRowColor %>;" title="<%=BuggColorDescription %>"></td>
 			<td class="Id"><%=Html.ActionLink( CurrentBugg.Id.ToString(), "Show", new { controller = "Buggs", id = CurrentBugg.Id }, null )%></td>
 			<td><%=CurrentBugg.BuildVersion%></td>
-			<td><%=CurrentBugg.CrashesInTimeFrame%></td>
+			<td><%=CurrentBugg.CrashesInTimeFrameGroup%></td>
+			<td><%=CurrentBugg.CrashesInTimeFrameAll%></td>
 			<td><%=CurrentBugg.TimeOfLastCrash%></td>
 			<td><%=CurrentBugg.TimeOfFirstCrash%></td>
 			<td><%=CurrentBugg.NumberOfCrashes%> </td>
-			<td><%=CurrentBugg.NumberOfUsers%></td>
+
+			
+			<td><%=CurrentBugg.NumberOfUniqueMachines%></td>
+			
 			<td class="CallStack">
 				<div>
 					<div id='Div1' class='TrimmedCallStackBox'>
@@ -111,9 +117,9 @@
 						foreach( string FunctionCall in FunctionCalls )
 						{
 							string FunctionCallDisplay = FunctionCall;
-							if( FunctionCall.Length > 45 )
+							if( FunctionCall.Length > 60 )
 							{
-								FunctionCallDisplay = FunctionCall.Substring( 0, 45 );
+								FunctionCallDisplay = FunctionCall.Substring( 0, 60 );
 							}%>
 								<span class="FunctionName">
 									<%=Url.CallStackSearchLink( Html.Encode( FunctionCallDisplay ), Model )%>
@@ -140,9 +146,10 @@
 					</a>
 				</div>
 			</td>
+			<td><%=CurrentBugg.GetCrashTypeAsString()%></td>
 			<td><%=CurrentBugg.Status%></td>
 			<td><%=CurrentBugg.FixedChangeList%></td>
-			<td><%=CurrentBugg.TTPID%></td>
+			<td> <span><a href="https://jira.ol.epicgames.net/browse/<%=CurrentBugg.TTPID%>" target="_blank"><%=CurrentBugg.TTPID%></a></span>  </td>
 		</tr>
 	<%				}
 				}

@@ -23,6 +23,11 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 	SaveSettingsName = InArgs._AssetPickerConfig.SaveSettingsName;
 	OnFolderEnteredDelegate = InArgs._AssetPickerConfig.OnFolderEntered;
 
+	if ( InArgs._AssetPickerConfig.bFocusSearchBoxWhenOpened )
+	{
+		RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SAssetPicker::SetFocusPostConstruct ) );
+	}
+
 	for (auto DelegateIt = InArgs._AssetPickerConfig.GetCurrentSelectionDelegates.CreateConstIterator(); DelegateIt; ++DelegateIt)
 	{
 		if ((*DelegateIt) != NULL)
@@ -57,7 +62,7 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 	TAttribute< FText > HighlightText;
 	EThumbnailLabel::Type ThumbnailLabel = InArgs._AssetPickerConfig.ThumbnailLabel;
 
-	FrontendFilters = MakeShareable(new AssetFilterCollectionType());
+	FrontendFilters = MakeShareable(new FAssetFilterCollectionType());
 
 	// Search box
 	if (!InArgs._AssetPickerConfig.bAutohideSearchBar)
@@ -202,6 +207,7 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 		.OnGetAssetContextMenu(InArgs._AssetPickerConfig.OnGetAssetContextMenu)
 		.OnGetCustomAssetToolTip(InArgs._AssetPickerConfig.OnGetCustomAssetToolTip)
 		.OnVisualizeAssetToolTip(InArgs._AssetPickerConfig.OnVisualizeAssetToolTip)
+		.OnAssetToolTipClosing(InArgs._AssetPickerConfig.OnAssetToolTipClosing)
 		.AreRealTimeThumbnailsAllowed(this, &SAssetPicker::IsHovered)
 		.FrontendFilters(FrontendFilters)
 		.InitialSourcesData(CurrentSourcesData)
@@ -230,17 +236,18 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 	AssetViewPtr->RequestSlowFullListRefresh();
 }
 
-void SAssetPicker::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType SAssetPicker::SetFocusPostConstruct( double InCurrentTime, float InDeltaTime )
 {
-	if ( bPendingFocusNextFrame && SearchBoxPtr.IsValid() )
+	if ( SearchBoxPtr.IsValid() )
 	{
 		FWidgetPath WidgetToFocusPath;
 		FSlateApplication::Get().GeneratePathToWidgetUnchecked( SearchBoxPtr.ToSharedRef(), WidgetToFocusPath );
 		FSlateApplication::Get().SetKeyboardFocus( WidgetToFocusPath, EFocusCause::SetDirectly );
-		bPendingFocusNextFrame = false;
+
+		return EActiveTimerReturnType::Stop;
 	}
 
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	return EActiveTimerReturnType::Continue;
 }
 
 FReply SAssetPicker::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
@@ -473,10 +480,10 @@ void SAssetPicker::LoadSettings()
 		// Load all our data using the settings string as a key in the user settings ini
 		if (FilterListPtr.IsValid())
 		{
-			FilterListPtr->LoadSettings(GEditorUserSettingsIni, SContentBrowser::SettingsIniSection, SettingsString);
+			FilterListPtr->LoadSettings(GEditorPerProjectIni, SContentBrowser::SettingsIniSection, SettingsString);
 		}
 		
-		AssetViewPtr->LoadSettings(GEditorUserSettingsIni, SContentBrowser::SettingsIniSection, SettingsString);
+		AssetViewPtr->LoadSettings(GEditorPerProjectIni, SContentBrowser::SettingsIniSection, SettingsString);
 	}
 }
 
@@ -489,10 +496,10 @@ void SAssetPicker::SaveSettings() const
 		// Save all our data using the settings string as a key in the user settings ini
 		if (FilterListPtr.IsValid())
 		{
-			FilterListPtr->SaveSettings(GEditorUserSettingsIni, SContentBrowser::SettingsIniSection, SettingsString);
+			FilterListPtr->SaveSettings(GEditorPerProjectIni, SContentBrowser::SettingsIniSection, SettingsString);
 		}
 
-		AssetViewPtr->SaveSettings(GEditorUserSettingsIni, SContentBrowser::SettingsIniSection, SettingsString);
+		AssetViewPtr->SaveSettings(GEditorPerProjectIni, SContentBrowser::SettingsIniSection, SettingsString);
 	}
 }
 

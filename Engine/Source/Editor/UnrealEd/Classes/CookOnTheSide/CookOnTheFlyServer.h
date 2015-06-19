@@ -22,7 +22,7 @@ enum class ECookInitializationFlags
 	AutoTick = 0x10,				// enable ticking (only works in the editor)
 	AsyncSave = 0x20,				// save packages async
 	IncludeServerMaps = 0x80,		// should we include the server maps when cooking
-	GenerateStreamingInstallManifest = 0x100,  // should we generate streaming install manifest
+	UseSerializationForPackageDependencies = 0x100, // should we use the serialization code path for generating package dependencies (old method will be depricated)
 };
 ENUM_CLASS_FLAGS(ECookInitializationFlags);
 
@@ -33,6 +33,8 @@ enum class ECookByTheBookOptions
 	MapsOnly = 0x2,				// cook only maps
 	NoDevContent = 0x4,			// don't include dev content
 	LeakTest = 0x8,				// test for uobject leaks after each level load
+	ForceDisableCompressed = 0x10, // force compression to be disabled even if the cooker was initialized with it enabled
+	ForceEnableCompressed = 0x20, // force compression to be on even if the cooker was initialized with it disabled
 };
 ENUM_CLASS_FLAGS(ECookByTheBookOptions);
 
@@ -51,7 +53,10 @@ namespace ECookMode
 UCLASS()
 class UNREALED_API UCookOnTheFlyServer : public UObject, public FTickableEditorObject
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+
+	UCookOnTheFlyServer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 private:
 
 	/** Array which has been made thread safe :) */
@@ -582,16 +587,23 @@ private:
 	struct FCookByTheBookOptions
 	{
 	public:
-		FCookByTheBookOptions() : bGenerateStreamingInstallManifests(false),
+		FCookByTheBookOptions() : bLeakTest(false),
+			bGenerateStreamingInstallManifests(false),
+			bGenerateDependenciesForMaps(false),
 			bRunning(false),
 			CookTime( 0.0 ),
-			CookStartTime( 0.0 )
+			CookStartTime( 0.0 ), 
+			bErrorOnEngineContentUse(false),
+			bForceEnableCompressedPackages(false),
+			bForceDisableCompressedPackages(false)
 		{ }
 
 		/** Should we test for UObject leaks */
 		bool bLeakTest;
 		/** Should we generate streaming install manifests (only valid option in cook by the book) */
 		bool bGenerateStreamingInstallManifests;
+		/** Should we generate a seperate manifest for map dependencies */
+		bool bGenerateDependenciesForMaps;
 		/** Is cook by the book currently running */
 		bool bRunning;
 		/** Cancel has been queued will be processed next tick */
@@ -604,12 +616,18 @@ private:
 		TSet<FWeakObjectPtr> LastGCItems;
 		/** Map of platform name to manifest generator, manifest is only used in cook by the book however it needs to be maintained across multiple cook by the books. */
 		TMap<FName, FChunkManifestGenerator*> ManifestGenerators;
+		/** Dependency graph of maps as root objects. */
+		TMap< FName, TSet <FName> > MapDependencyGraph; 
 		/** If a cook is cancelled next cook will need to resume cooking */ 
 		TArray<FFilePlatformRequest> PreviousCookRequests; 
-		/** If we are based on a release version of the game this is the set of packages which were cooked in that release */
-		TMap<FName,TArray<FName> > BasedOnReleaseCookedPackages;
+		/** Timing information about cook by the book */
 		double CookTime;
 		double CookStartTime;
+		/** error when detecting engine content being used in this cook */
+		bool bErrorOnEngineContentUse;
+		/** force this cook by the book to enable \ disable package compression */
+		bool bForceEnableCompressedPackages;
+		bool bForceDisableCompressedPackages;
 	};
 	FCookByTheBookOptions* CookByTheBookOptions;
 	
@@ -621,9 +639,20 @@ private:
 
 	//////////////////////////////////////////////////////////////////////////
 	// General cook options
+	TArray<UClass*> FullGCAssetClasses;
+	/** Number of packages to load before performing a garbage collect. Set to 0 to never GC based on number of loaded packages */
+	uint32 PackagesPerGC;
+	/** Amount of time that is allowed to be idle before forcing a garbage collect. Set to 0 to never force GC due to idle time */
+	double IdleTimeToGC;
+	/** Max memory the cooker should use before forcing a gc */
+	uint64 MaxMemoryAllowance;
+
 	ECookInitializationFlags CookFlags;
 	TAutoPtr<class FSandboxPlatformFile> SandboxFile;
 	bool bIsSavingPackage; // used to stop recursive mark package dirty functions
+	TSet<FName> PackagesKeptFromPreviousCook; // used for iterative cooking this is a list of the packages which were kept from the previous cook
+
+	//////////////////////////////////////////////////////////////////////////
 
 	// data about the current package being processed
 	struct FReentryData
@@ -657,6 +686,7 @@ private:
 	FString GetCachedStandardPackageFilename( const UPackage* Package ) const;
 	FName GetCachedStandardPackageFileFName( const UPackage* Package ) const;
 	const FString& GetCachedSandboxFilename( const UPackage* Package, TAutoPtr<class FSandboxPlatformFile>& SandboxFile ) const;
+	const FName* GetCachedPackageFilenameToPackageFName(const FName& StandardPackageFilename) const;
 	const FCachedPackageFilename& Cache(const FName& PackageName) const;
 	void ClearPackageFilenameCache() const;
 	bool ClearPackageFilenameCacheForPackage( const UPackage* Package ) const;
@@ -665,6 +695,7 @@ private:
 	// declared mutable as it's used to cache package filename strings and I don't want to declare all functions using it as non const
 	// used by GetCached * Filename functions
 	mutable TMap<FName, FCachedPackageFilename> PackageFilenameCache; // filename cache (only process the string operations once)
+	mutable TMap<FName, FName> PackageFilenameToPackageFNameCache;
 
 	// declared mutable as it's used purely as a cache and don't want to have to declare all the functions as non const just because of this cache
 	// used by IniSettingsOutOfDate and GetCurrentIniStrings 
@@ -677,6 +708,8 @@ public:
 		COSR_CookedMap			= 0x00000001,
 		COSR_CookedPackage		= 0x00000002,
 		COSR_ErrorLoadingPackage= 0x00000004,
+		COSR_RequiresGC			= 0x00000008,
+		COSR_WaitingOnCache		= 0x00000010,
 	};
 
 
@@ -727,10 +760,16 @@ public:
 		FString DLCName;
 		FString CreateReleaseVersion;
 		FString BasedOnReleaseVersion;
+		bool bGenerateStreamingInstallManifests; 
+		bool bGenerateDependenciesForMaps; 
+		bool bErrorOnEngineContentUse; // this is a flag for dlc, will cause the cooker to error if the dlc references engine content
 
 		FCookByTheBookStartupOptions() :
 			CookOptions(ECookByTheBookOptions::None),
-			DLCName(FString())
+			DLCName(FString()),
+			bGenerateStreamingInstallManifests(false),
+			bGenerateDependenciesForMaps(false),
+			bErrorOnEngineContentUse(false)
 		{ }
 	};
 
@@ -760,7 +799,6 @@ public:
 	 * @return returns ECookOnTheSideResult
 	 */
 	uint32 TickCookOnTheSide( const float TimeSlice, uint32 &CookedPackagesCount );
-	
 
 	/**
 	 * Clear all the previously cooked data all cook requests from now on will be considered recook requests
@@ -789,7 +827,6 @@ public:
 	bool HasCookRequests() const { return CookRequests.HasItems(); }
 
 	bool HasRecompileShaderRequests() const { return RecompileRequests.HasItems(); }
-
 
 	uint32 NumConnections() const;
 
@@ -823,9 +860,21 @@ public:
 	
 
 	virtual void BeginDestroy() override;
-	
 
+	/**
+	 * SetFullGCAssetClasses FullGCAssetClasses is used to determine when TickCookOnTheSide returns RequiresGC
+	 *   When one of these classes is saved it will return COSR_RequiresGC
+	 */
+	void SetFullGCAssetClasses( const TArray<UClass*>& InFullGCAssetClasses );
 
+	/** Returns the configured number of packages to process before GC */
+	uint32 GetPackagesPerGC() const;
+
+	/** Returns the configured amount of idle time before forcing a GC */
+	double GetIdleTimeToGC() const;
+
+	/** Returns the configured amount of memory allowed before forcing a GC */
+	uint64 GetMaxMemoryAllowance() const;
 
 	/**
 	 * Callbacks from editor 
@@ -851,14 +900,14 @@ private:
 	/**
 	 * Collect all the files which need to be cooked for a cook by the book session
 	 */
-	void CollectFilesToCook(TArray<FString>& FilesInPath, 
+	void CollectFilesToCook(TArray<FName>& FilesInPath, 
 		const TArray<FString>& CookMaps, const TArray<FString>& CookDirectories, const TArray<FString>& CookCultures, 
 		const TArray<FString>& IniMapSections, bool bCookAll, bool bMapsOnly, bool bNoDev);
 
 	/**
 	 * AddFileToCook add file to cook list 
 	 */
-	void AddFileToCook( TArray<FString>& InOutFilesToCook, const FString &InFilename ) const;
+	void AddFileToCook( TArray<FName>& InOutFilesToCook, const FString &InFilename ) const;
 
 	/**
 	 * Call back from the TickCookOnTheSide when a cook by the book finishes (when started form StartCookByTheBook)
@@ -924,6 +973,16 @@ private:
 	 * @param Found return value, all objects which package is dependent on
 	 */
 	void GetDependencies( const TSet<UPackage*>& Packages, TSet<UObject*>& Found);
+
+
+	/**
+	 * GetDependencies
+	 * 
+	 * @param Packages List of packages to use as the root set for dependency checking
+	 * @param Found return value, all objects which package is dependent on
+	 */
+	void GetDependentPackages( const TSet<UPackage*>& Packages, TSet<FName>& Found);
+
 	/**
 	 * GenerateManifestInfo
 	 * generate the manifest information for a given package
@@ -956,6 +1015,18 @@ private:
 	 */
 	FString ConvertToFullSandboxPath( const FString &FileName, bool bForWrite = false ) const;
 	FString ConvertToFullSandboxPath( const FString &FileName, bool bForWrite, const FString& PlatformName ) const;
+
+
+
+	/**
+	 * GetSandboxAssetRegistryFilename
+	 * 
+	 * return full path of the asset registry in the sandbox
+	 */
+	const FString GetSandboxAssetRegistryFilename();
+
+	const FString GetCookedAssetRegistryFilename(const FString& PlatformName);
+
 	/**
 	 * Get the sandbox root directory for that platform
 	 * is effected by the CookingDlc settings
@@ -974,13 +1045,6 @@ private:
 		return false;
 	}
 
-	/**
-	 * GetDLCContentPath
-	 * 
-	 * @return return the path to the source dlc content
-	 */
-	FString GetDLCContentPath();
-	
 	inline bool IsCreatingReleaseVersion()
 	{
 		if ( CookByTheBookOptions )
@@ -1034,6 +1098,9 @@ private:
 	 */
 	bool GetPackageTimestamp( const FString& InFilename, FDateTime& OutDateTime );
 
+	/** If true, the maximum file length of a package being saved will be reduced by 32 to compensate for compressed package intermediate files */
+	bool ShouldConsiderCompressedPackageFileLengthRequirements() const;
+
 	/**
 	 *	Cook (save) the given package
 	 *
@@ -1081,7 +1148,7 @@ private:
 	void GenerateAssetRegistry(const TArray<ITargetPlatform*>& Platforms);
 
 	/** Generates long package names for all files to be cooked */
-	void GenerateLongPackageNames(TArray<FString>& FilesInPath);
+	void GenerateLongPackageNames(TArray<FName>& FilesInPath);
 
 
 	void GetDependencies( UPackage* Package, TArray<UPackage*> Dependencies );

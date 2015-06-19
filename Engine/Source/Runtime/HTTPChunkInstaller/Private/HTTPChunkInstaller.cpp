@@ -52,66 +52,10 @@ FHTTPChunkInstall::FHTTPChunkInstall()
 	, InstallerState(ChunkInstallState::Setup)
 	, InstallSpeed(EChunkInstallSpeed::Fast)
 	, bDebugNoInstalledRequired(false)
+	, bFirstRun(true)
+	, bSystemInitialised(false)
 {
-	BPSModule = GetBuildPatchServices();
 
-#if !UE_BUILD_SHIPPING
-	const TCHAR* CmdLine = FCommandLine::Get();
-	bool Result = FParse::Param(CmdLine,TEXT("Pak")) || FParse::Param(CmdLine,TEXT("Signedpak")) || FParse::Param(CmdLine,TEXT("Signed")) || FParse::Param(CmdLine, TEXT("TestChunkInstall"));
-	if(!FPlatformProperties::RequiresCookedData() || !Result || FParse::Param(CmdLine,TEXT("NoPak")) || FParse::Param(CmdLine, TEXT("NoChunkInstall")))
-	{		
-		bDebugNoInstalledRequired = true;
-	}
-#endif
-
-	// Grab the title file interface
-	FString TitleFileSource;
-	bool bValidTitleFileSource = GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("TitleFileSource"), TitleFileSource, GEngineIni);
-	if (bValidTitleFileSource && TitleFileSource != TEXT("Local"))
-	{
-		OnlineTitleFile = Online::GetTitleFileInterface(*TitleFileSource);
-	}
-	else
-	{
-		FString LocalTileFileDirectory = FPaths::GameConfigDir();
-		GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("LocalTitleFileDirectory"), LocalTileFileDirectory, GEngineIni);
-		OnlineTitleFile = MakeShareable(new FLocalTitleFile(LocalTileFileDirectory));
-	}
-	CloudDir	= FPaths::Combine(*FPaths::GameContentDir()	, TEXT("Cloud"));
-	StageDir	= FPaths::Combine(*FPaths::GameSavedDir()	, TEXT("Chunks"), TEXT("Staged"));
-	InstallDir	= FPaths::Combine(*FPaths::GameSavedDir()	, TEXT("Chunks"), TEXT("Installed"));
-	BackupDir	= FPaths::Combine(*FPaths::GameSavedDir()	, TEXT("Chunks"), TEXT("Backup"));
-	CacheDir	= FPaths::Combine(*FPaths::GameSavedDir()	, TEXT("Chunks"), TEXT("Cache"));
-	ContentDir  = FPaths::Combine(*FPaths::GameContentDir() , TEXT("Chunks"));
-
-	FString TmpString1;
-	FString TmpString2;
-	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("CloudDirectory"), TmpString1, GEngineIni))
-	{
-		CloudDir = TmpString1;
-	}
-	if ((GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("CloudProtocol"), TmpString1, GEngineIni)) && (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("CloudDomain"), TmpString2, GEngineIni)))
-	{
-		CloudDir = FString::Printf(TEXT("%s://%s"), *TmpString1, *TmpString2);
-	}
-	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("StageDirectory"), TmpString1, GEngineIni))
-	{
-		StageDir = TmpString1;
-	}
-	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("InstallDirectory"), TmpString1, GEngineIni))
-	{
-		InstallDir = TmpString1;
-	}
-	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("BackupDirectory"), TmpString1, GEngineIni))
-	{
-		BackupDir = TmpString1;
-	}
-	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("ContentDirectory"), TmpString1, GEngineIni))
-	{
-		ContentDir = TmpString1;
-	}
-
-	bFirstRun = true;
 }
 
 
@@ -126,27 +70,39 @@ FHTTPChunkInstall::~FHTTPChunkInstall()
 
 bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 {
+	if (!bSystemInitialised)
+	{
+		InitialiseSystem();
+	}
+
 	switch (InstallerState)
 	{
 	case ChunkInstallState::Setup:
 		{
 			check(OnlineTitleFile.IsValid());
-			OnlineTitleFile->AddOnEnumerateFilesCompleteDelegate(FOnEnumerateFilesCompleteDelegate::CreateRaw(this,&FHTTPChunkInstall::OSSEnumerateFilesComplete));
-			OnlineTitleFile->AddOnReadFileCompleteDelegate(FOnReadFileCompleteDelegate::CreateRaw(this,&FHTTPChunkInstall::OSSReadFileComplete));
-			ChunkSetupTask.GetTask().Init(BPSModule, InstallDir, ContentDir, MountedPaks);
-			ChunkSetupTask.StartBackgroundTask();
+			EnumFilesCompleteHandle = OnlineTitleFile->AddOnEnumerateFilesCompleteDelegate_Handle(FOnEnumerateFilesCompleteDelegate::CreateRaw(this,&FHTTPChunkInstall::OSSEnumerateFilesComplete));
+			ReadFileCompleteHandle = OnlineTitleFile->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateRaw(this,&FHTTPChunkInstall::OSSReadFileComplete));
+			ChunkSetupTask.SetupWork(BPSModule, InstallDir, ContentDir, HoldingDir, MountedPaks);
+			ChunkSetupTaskThread.Reset(FRunnableThread::Create(&ChunkSetupTask, TEXT("Chunk descovery thread")));
 			InstallerState = ChunkInstallState::SetupWait;
 		} break;
 	case ChunkInstallState::SetupWait:
 		{
 			if (ChunkSetupTask.IsDone())
 			{
-				for (auto It = ChunkSetupTask.GetTask().InstalledChunks.CreateConstIterator(); It; ++It)
+				ChunkSetupTaskThread->WaitForCompletion();
+				ChunkSetupTaskThread.Reset();
+				for (auto It = ChunkSetupTask.InstalledChunks.CreateConstIterator(); It; ++It)
 				{
 					UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Adding Chunk %d to installed manifests"), It.Key());
 					InstalledManifests.Add(It.Key(), It.Value());
 				}
-				MountedPaks.Append(ChunkSetupTask.GetTask().MountedPaks);
+				for (auto It = ChunkSetupTask.HoldingChunks.CreateConstIterator(); It; ++It)
+				{
+					UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Adding Chunk %d to holding manifests"), It.Key());
+					PrevInstallManifests.Add(It.Key(), It.Value());
+				}
+				MountedPaks.Append(ChunkSetupTask.MountedPaks);
 				InstallerState = ChunkInstallState::QueryRemoteManifests;
 			}
 		} break;
@@ -154,12 +110,6 @@ bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 		{			
 			//Now query the title file service for the chunk manifests. This should return the list of expected chunk manifests
 			check(OnlineTitleFile.IsValid());
-			if (InstallSpeed == EChunkInstallSpeed::Paused)
-			{
-				UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Skipping enumerating manifest files because system is paused"));
-				InstallerState = ChunkInstallState::PostSetup;
-				break;
-			}
 			OnlineTitleFile->ClearFiles();
 			InstallerState = ChunkInstallState::RequestingTitleFiles;
 			UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Enumerating manifest files"));
@@ -171,6 +121,7 @@ bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 			TArray<FCloudFileHeader> FileList;
 			TitleFilesToRead.Reset();
 			RemoteManifests.Reset();
+			ExpectedChunks.Empty();
 			OnlineTitleFile->GetFileList(FileList);
 			for (int32 FileIndex = 0, FileCount = FileList.Num(); FileIndex < FileCount; ++FileIndex)
 			{
@@ -189,8 +140,8 @@ bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 				if (!IsDataInFileCache(TitleFilesToRead[0].Hash))
 				{
 					UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Reading manifest %s from remote source"), *TitleFilesToRead[0].FileName);
-					OnlineTitleFile->ReadFile(TitleFilesToRead[0].DLName);
 					InstallerState = ChunkInstallState::WaitingOnRead;
+					OnlineTitleFile->ReadFile(TitleFilesToRead[0].DLName);
 				}
 				else
 				{
@@ -236,8 +187,8 @@ bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 			{
 				if (bFirstRun)
 				{
-					ChunkMountTask.GetTask().Init(BPSModule, ContentDir, MountedPaks);
-					ChunkMountTask.StartBackgroundTask();
+					ChunkMountTask.SetupWork(BPSModule, ContentDir, MountedPaks, ExpectedChunks);
+					ChunkMountTaskThread.Reset(FRunnableThread::Create(&ChunkMountTask, TEXT("Chunk mounting thread")));
 				}
 				InstallerState = ChunkInstallState::PostSetup;
 			}
@@ -246,13 +197,25 @@ bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 				InstallerState = ChunkInstallState::ReadTitleFiles;
 			}
 		} break;
+	case ChunkInstallState::EnterOfflineMode:
+		{
+			for (auto It = InstalledManifests.CreateConstIterator(); It; ++It)
+			{
+				ExpectedChunks.Add(It.Key());
+			}
+			ChunkMountTask.SetupWork(BPSModule, ContentDir, MountedPaks, ExpectedChunks);
+			ChunkMountTaskThread.Reset(FRunnableThread::Create(&ChunkMountTask, TEXT("Chunk mounting thread")));
+			InstallerState = ChunkInstallState::PostSetup;
+		} break;
 	case ChunkInstallState::PostSetup:
 		{
 			if (bFirstRun)
 			{
 				if (ChunkMountTask.IsDone())
 				{
-					MountedPaks.Append(ChunkMountTask.GetTask().MountedPaks);
+					ChunkMountTaskThread->WaitForCompletion();
+					ChunkMountTaskThread.Reset();
+					MountedPaks.Append(ChunkMountTask.MountedPaks);
 					UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Completed First Run"));
 					bFirstRun = false;
 				}
@@ -277,12 +240,13 @@ bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 			{
 				InstallService.Reset();
 			}
+			ChunkCopyInstallThread.Reset();
 			check(RemoteManifests.Find(InstallingChunkID));
 			UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Adding Chunk %d to installed manifests"), InstallingChunkID);
 			InstalledManifests.Add(InstallingChunkID, InstallingChunkManifest);
 			UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Removing Chunk %d from remote manifests"), InstallingChunkID);
 			RemoteManifests.Remove(InstallingChunkID, InstallingChunkManifest);
-			MountedPaks.Append(ChunkCopyInstall.GetTask().MountedPaks);
+			MountedPaks.Append(ChunkCopyInstall.MountedPaks);
 			if (!RemoteManifests.Contains(InstallingChunkID))
 			{
 				// No more manifests relating to the chunk ID are left to install.
@@ -293,9 +257,8 @@ bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 					FoundDelegate->Broadcast(InstallingChunkID);
 				}
 			}
-			InstallingChunkID = -1;
-			InstallingChunkManifest.Reset();
-			InstallerState = ChunkInstallState::Idle;
+			EndInstall();
+
 		} break;
 	case ChunkInstallState::Installing:
 	case ChunkInstallState::RequestingTitleFiles:
@@ -331,7 +294,7 @@ void FHTTPChunkInstall::UpdatePendingInstallQueue()
 			auto ChunkIDField = ChunkManifest->GetCustomField("ChunkID");
 			if (ChunkIDField.IsValid())
 			{
-				BeginChunkInstall(NextChunk.ChunkID, ChunkManifest);
+				BeginChunkInstall(NextChunk.ChunkID, ChunkManifest, FindPreviousInstallManifest(ChunkManifest));
 			}
 			else
 			{
@@ -354,7 +317,7 @@ void FHTTPChunkInstall::UpdatePendingInstallQueue()
 				auto ChunkIDField = ChunkManifest->GetCustomField("ChunkID");
 				if (ChunkIDField.IsValid())
 				{
-					BeginChunkInstall(ChunkIDField->AsInteger(), ChunkManifest);
+					BeginChunkInstall(ChunkIDField->AsInteger(), ChunkManifest, FindPreviousInstallManifest(ChunkManifest));
 					return;
 				}
 			}
@@ -372,7 +335,13 @@ EChunkLocation::Type FHTTPChunkInstall::GetChunkLocation(uint32 ChunkID)
 	}
 #endif
 
-	if (bFirstRun)
+	// Safe to assume Chunk0 is ready
+	if (ChunkID == 0)
+	{
+		return EChunkLocation::BestLocation;
+	}
+
+	if (bFirstRun || !bSystemInitialised)
 	{
 		/** Still waiting on setup to finish, report that nothing is installed yet... */
 		return EChunkLocation::NotAvailable;
@@ -403,7 +372,13 @@ float FHTTPChunkInstall::GetChunkProgress(uint32 ChunkID,EChunkProgressReporting
 	}
 #endif
 
-	if (bFirstRun)
+	// Safe to assume Chunk0 is ready
+	if (ChunkID == 0)
+	{
+		return 100.f;
+	}
+
+	if (bFirstRun || !bSystemInitialised)
 	{
 		/** Still waiting on setup to finish, report that nothing is installed yet... */
 		return 0.f;
@@ -431,12 +406,12 @@ float FHTTPChunkInstall::GetChunkProgress(uint32 ChunkID,EChunkProgressReporting
 
 void FHTTPChunkInstall::OSSEnumerateFilesComplete(bool bSuccess)
 {
-	InstallerState = bSuccess ? ChunkInstallState::SearchTitleFiles : ChunkInstallState::QueryRemoteManifests;
+	InstallerState = bSuccess ? ChunkInstallState::SearchTitleFiles : ChunkInstallState::EnterOfflineMode;
 }
 
 void FHTTPChunkInstall::OSSReadFileComplete(bool bSuccess, const FString& Filename)
 {
-	InstallerState = bSuccess ? ChunkInstallState::ReadComplete : ChunkInstallState::ReadTitleFiles;
+	InstallerState = bSuccess ? ChunkInstallState::ReadComplete : ChunkInstallState::EnterOfflineMode;
 }
 
 void FHTTPChunkInstall::OSSInstallComplete(bool bSuccess, IBuildManifestRef BuildManifest)
@@ -452,14 +427,15 @@ void FHTTPChunkInstall::OSSInstallComplete(bool bSuccess, IBuildManifestRef Buil
 		if (!BuildChunkFolderName(BuildManifest, ChunkFdrName, ManifestName, ChunkID, bIsPatch))
 		{
 			//Something bad has happened, bail
-			InstallerState = ChunkInstallState::Idle;
+			EndInstall();
 			return;
 		}
 		UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Chunk %d install complete, preparing to copy to content directory"), ChunkID);
 		FString ManifestPath = FPaths::Combine(*InstallDir, *ChunkFdrName, *ManifestName);
+		FString HoldingManifestPath = FPaths::Combine(*HoldingDir, *ChunkFdrName, *ManifestName);
 		FString SrcDir = FPaths::Combine(*InstallDir, *ChunkFdrName);
 		FString DestDir = FPaths::Combine(*ContentDir, *ChunkFdrName);
-		bool bCopyDir = true; 
+		bool bCopyDir = InstallDir != ContentDir; 
 		TArray<IBuildManifestPtr> FoundManifests;
 		InstalledManifests.MultiFind(ChunkID, FoundManifests);
 		for (const auto& It : FoundManifests)
@@ -471,11 +447,16 @@ void FHTTPChunkInstall::OSSInstallComplete(bool bSuccess, IBuildManifestRef Buil
 				bCopyDir = false;
 			}
 		}
-		ChunkCopyInstall.GetTask().Init(ManifestPath, SrcDir, DestDir, BPSModule, BuildManifest, MountedPaks, bCopyDir);
+		ChunkCopyInstall.SetupWork(ManifestPath, HoldingManifestPath, SrcDir, DestDir, BPSModule, BuildManifest, MountedPaks, bCopyDir);
 		UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Copying Chunk %d to content directory"), ChunkID);
-		ChunkCopyInstall.StartBackgroundTask();
+		ChunkCopyInstallThread.Reset(FRunnableThread::Create(&ChunkCopyInstall, TEXT("Chunk Install Copy Thread")));
+		InstallerState = ChunkInstallState::CopyToContent;
 	}
-	InstallerState = ChunkInstallState::CopyToContent;
+	else
+	{
+		//Something bad has happened, return to the Idle state. We'll re-attempt the install
+		EndInstall();
+	}
 }
 
 void FHTTPChunkInstall::ParseTitleFileManifest(const FString& ManifestFileHash)
@@ -503,6 +484,7 @@ void FHTTPChunkInstall::ParseTitleFileManifest(const FString& ManifestFileHash)
 	}
 	//Compare to installed manifests and add to the remote if it needs to be installed.
 	uint32 ChunkID = (uint32)RemoteChunkIDField->AsInteger();
+	ExpectedChunks.Add(ChunkID);
 	TArray<IBuildManifestPtr> FoundManifests;
 	InstalledManifests.MultiFind(ChunkID, FoundManifests);
 	uint32 FoundCount = FoundManifests.Num();
@@ -536,9 +518,13 @@ void FHTTPChunkInstall::ParseTitleFileManifest(const FString& ManifestFileHash)
 					if (BuildChunkFolderName(InstalledManifest.ToSharedRef(), ChunkFdrName, ManifestName, ChunkID, bIsPatch))
 					{
 						FString ManifestPath = FPaths::Combine(*ContentDir, *ChunkFdrName, *ManifestName);
+						FString HoldingPath = FPaths::Combine(*HoldingDir, *ChunkFdrName, *ManifestName);
 						IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-						PlatformFile.DeleteFile(*ManifestPath);
+						PlatformFile.CreateDirectoryTree(*FPaths::Combine(*HoldingDir, *ChunkFdrName));
+						PlatformFile.MoveFile(*HoldingPath, *ManifestPath);
 					}
+					UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Adding Chunk %d to previous installed manifests"), ChunkID);
+					PrevInstallManifests.Add(ChunkID, InstalledManifest);
 					UE_LOG(LogHTTPChunkInstaller, Log, TEXT("Removing Chunk %d from installed manifests"), ChunkID);
 					InstalledManifests.Remove(ChunkID, InstalledManifest);
 				}
@@ -594,23 +580,24 @@ bool FHTTPChunkInstall::PrioritizeChunk(uint32 ChunkID, EChunkPriority::Type Pri
 	return true;
 }
 
-bool FHTTPChunkInstall::SetChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate)
+FDelegateHandle FHTTPChunkInstall::SetChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate)
 {
 	FPlatformChunkInstallCompleteMultiDelegate* FoundDelegate = DelegateMap.Find(ChunkID);
 	if (FoundDelegate)
 	{
-		FoundDelegate->Add(Delegate);
+		return FoundDelegate->Add(Delegate);
 	}
 	else
 	{
 		FPlatformChunkInstallCompleteMultiDelegate MC;
-		MC.Add(Delegate);
+		auto RetVal = MC.Add(Delegate);
 		DelegateMap.Add(ChunkID, MC);
+		return RetVal;
 	}
-	return false;
+	return FDelegateHandle();
 }
 
-void FHTTPChunkInstall::RemoveChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate)
+void FHTTPChunkInstall::RemoveChunkInstallDelgate(uint32 ChunkID, FDelegateHandle Delegate)
 {
 	FPlatformChunkInstallCompleteMultiDelegate* FoundDelegate = DelegateMap.Find(ChunkID);
 	if (!FoundDelegate)
@@ -620,10 +607,11 @@ void FHTTPChunkInstall::RemoveChunkInstallDelgate(uint32 ChunkID, FPlatformChunk
 	FoundDelegate->Remove(Delegate);
 }
 
-void FHTTPChunkInstall::BeginChunkInstall(uint32 ChunkID,IBuildManifestPtr ChunkManifest)
+void FHTTPChunkInstall::BeginChunkInstall(uint32 ChunkID,IBuildManifestPtr ChunkManifest, IBuildManifestPtr PrevInstallChunkManifest)
 {
 	check(ChunkManifest->GetCustomField("ChunkID").IsValid());
 	InstallingChunkID = ChunkID;
+	check(ChunkID > 0 && ChunkID < 100);
 	InstallingChunkManifest = ChunkManifest;
 	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	auto PatchField = ChunkManifest->GetCustomField("bIsPatch");
@@ -642,7 +630,7 @@ void FHTTPChunkInstall::BeginChunkInstall(uint32 ChunkID,IBuildManifestPtr Chunk
 	BPSModule->SetCloudDirectory(CloudDir);
 	BPSModule->SetStagingDirectory(ChunkStageDir);
 	UE_LOG(LogHTTPChunkInstaller,Log,TEXT("Starting Chunk %d install"),InstallingChunkID);
-	InstallService = BPSModule->StartBuildInstall(nullptr,ChunkManifest,ChunkInstallDir,FBuildPatchBoolManifestDelegate::CreateRaw(this,&FHTTPChunkInstall::OSSInstallComplete));
+	InstallService = BPSModule->StartBuildInstall(PrevInstallChunkManifest,ChunkManifest,ChunkInstallDir,FBuildPatchBoolManifestDelegate::CreateRaw(this,&FHTTPChunkInstall::OSSInstallComplete));
 	if(InstallSpeed == EChunkInstallSpeed::Paused && !InstallService->IsPaused())
 	{
 		InstallService->TogglePauseInstall();
@@ -697,6 +685,102 @@ bool FHTTPChunkInstall::RemoveDataFromFileCache(const FString& ManifestHash)
 		return PlatformFile.DeleteFile(*ManifestPath);
 	}
 	return false;
+}
+
+void FHTTPChunkInstall::InitialiseSystem()
+{
+	BPSModule = GetBuildPatchServices();
+
+#if !UE_BUILD_SHIPPING
+	const TCHAR* CmdLine = FCommandLine::Get();
+	if (!FPlatformProperties::RequiresCookedData() || FParse::Param(CmdLine, TEXT("NoPak")) || FParse::Param(CmdLine, TEXT("NoChunkInstall")))
+	{
+		bDebugNoInstalledRequired = true;
+	}
+#endif
+
+	// Grab the title file interface
+	FString TitleFileSource;
+	bool bValidTitleFileSource = GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("TitleFileSource"), TitleFileSource, GEngineIni);
+	if (bValidTitleFileSource && TitleFileSource != TEXT("Local"))
+	{
+		OnlineTitleFile = Online::GetTitleFileInterface(*TitleFileSource);
+	}
+	else
+	{
+		FString LocalTileFileDirectory = FPaths::GameConfigDir();
+		auto bGetConfigDir = GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("LocalTitleFileDirectory"), LocalTileFileDirectory, GEngineIni);
+		OnlineTitleFile = MakeShareable(new FLocalTitleFile(LocalTileFileDirectory));
+#if !UE_BUILD_SHIPPING
+		bDebugNoInstalledRequired = !bGetConfigDir;
+#endif
+	}
+	CloudDir = FPaths::Combine(*FPaths::GameContentDir(), TEXT("Cloud"));
+	StageDir = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Chunks"), TEXT("Staged"));
+	InstallDir = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Chunks"), TEXT("Installed")); // By default this should match ContentDir
+	BackupDir = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Chunks"), TEXT("Backup"));
+	CacheDir = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Chunks"), TEXT("Cache"));
+	HoldingDir = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Chunks"), TEXT("Hold"));
+	ContentDir = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Chunks"), TEXT("Installed")); // By default this should match InstallDir
+
+	FString TmpString1;
+	FString TmpString2;
+	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("CloudDirectory"), TmpString1, GEngineIni))
+	{
+		CloudDir = TmpString1;
+	}
+	if ((GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("CloudProtocol"), TmpString1, GEngineIni)) && (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("CloudDomain"), TmpString2, GEngineIni)))
+	{
+		CloudDir = FString::Printf(TEXT("%s://%s"), *TmpString1, *TmpString2);
+	}
+	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("StageDirectory"), TmpString1, GEngineIni))
+	{
+		StageDir = TmpString1;
+	}
+	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("InstallDirectory"), TmpString1, GEngineIni))
+	{
+		InstallDir = TmpString1;
+	}
+	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("BackupDirectory"), TmpString1, GEngineIni))
+	{
+		BackupDir = TmpString1;
+	}
+	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("ContentDirectory"), TmpString1, GEngineIni))
+	{
+		ContentDir = TmpString1;
+	}
+	if (GConfig->GetString(TEXT("HTTPChunkInstall"), TEXT("HoldingDirectory"), TmpString1, GEngineIni))
+	{
+		HoldingDir = TmpString1;
+	}
+
+	bFirstRun = true;
+	bSystemInitialised = true;
+}
+
+IBuildManifestPtr FHTTPChunkInstall::FindPreviousInstallManifest(const IBuildManifestPtr& ChunkManifest)
+{
+	auto ChunkIDField = ChunkManifest->GetCustomField("ChunkID");
+	if (!ChunkIDField.IsValid())
+	{
+		return IBuildManifestPtr();
+	}
+	auto ChunkID = ChunkIDField->AsInteger();
+	TArray<IBuildManifestPtr> FoundManifests;
+	PrevInstallManifests.MultiFind(ChunkID, FoundManifests);
+	return FoundManifests.Num() == 0 ? IBuildManifestPtr() : FoundManifests[0];
+}
+
+void FHTTPChunkInstall::EndInstall()
+{
+	if (InstallService.IsValid())
+	{
+		//InstallService->CancelInstall();
+		InstallService.Reset();
+	}
+	InstallingChunkID = -1;
+	InstallingChunkManifest.Reset();
+	InstallerState = ChunkInstallState::Idle;
 }
 
 /**

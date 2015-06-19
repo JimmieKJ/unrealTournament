@@ -434,7 +434,7 @@ UCurvedStairBuilder::UCurvedStairBuilder(const FObjectInitializer& ObjectInitial
 void UCurvedStairBuilder::BuildCurvedStair( int32 Direction )
 {
 	FRotator RotStep(ForceInit);
-	RotStep.Yaw = AngleOfCurve / NumSteps;
+	RotStep.Yaw = static_cast<float>(AngleOfCurve) / NumSteps;
 
 	if( CounterClockwise )
 	{

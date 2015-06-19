@@ -16,21 +16,6 @@ class IKismetCompilerBackend
 };
 
 //////////////////////////////////////////////////////////////////////////
-// FKismetCppBackend
-
-class IKismetCppBackend : public IKismetCompilerBackend
-{
-public:
-	static IKismetCppBackend* Create(UEdGraphSchema_K2* InSchema, FKismetCompilerContext& InContext);
-
-	virtual const FString& GetBody() const = 0;
-	virtual const FString& GetHeader() const = 0;
-	virtual void GenerateCodeFromClass(UClass* SourceClass, TIndirectArray<FKismetFunctionContext>& Functions, bool bGenerateStubsOnly = false) = 0;
-
-	virtual ~IKismetCppBackend() {}
-};
-
-//////////////////////////////////////////////////////////////////////////
 // FKismetVMBackend
 
 class FKismetCompilerVMBackend : public IKismetCompilerBackend

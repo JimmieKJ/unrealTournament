@@ -10,7 +10,7 @@
 /**
  * Simple Head Mounted Display
  */
-class FSimpleHMD : public IHeadMountedDisplay, public ISceneViewExtension
+class FSimpleHMD : public IHeadMountedDisplay, public ISceneViewExtension, public TSharedFromThis<FSimpleHMD, ESPMode::ThreadSafe>
 {
 public:
 	/** IHeadMountedDisplay interface */
@@ -23,20 +23,20 @@ public:
 	virtual void GetFieldOfView(float& OutHFOVInDegrees, float& OutVFOVInDegrees) const override;
 
 	virtual bool DoesSupportPositionalTracking() const override;
-	virtual bool HasValidTrackingPosition() const override;
-	virtual void GetPositionalTrackingCameraProperties(FVector& OutOrigin, FRotator& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;
+	virtual bool HasValidTrackingPosition() override;
+	virtual void GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;
 
 	virtual void SetInterpupillaryDistance(float NewInterpupillaryDistance) override;
 	virtual float GetInterpupillaryDistance() const override;
 
 	virtual void GetCurrentOrientationAndPosition(FQuat& CurrentOrientation, FVector& CurrentPosition) override;
-	virtual class ISceneViewExtension* GetViewExtension() override;
+	virtual TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> GetViewExtension() override;
 	virtual void ApplyHmdRotation(APlayerController* PC, FRotator& ViewRotation) override;
-	virtual void UpdatePlayerCameraRotation(APlayerCameraManager*, struct FMinimalViewInfo& POV) override;
+	virtual void UpdatePlayerCameraRotation(class APlayerCameraManager* Camera, struct FMinimalViewInfo& POV) override;
 
 	virtual bool IsChromaAbCorrectionEnabled() const override;
 
-	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) override;
+	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 	virtual void OnScreenModeChange(EWindowMode::Type WindowMode) override;
 
 	virtual bool IsPositionalTrackingEnabled() const override;
@@ -59,29 +59,24 @@ public:
 	virtual void SetBaseOrientation(const FQuat& BaseOrient) override;
 	virtual FQuat GetBaseOrientation() const override;
 
-	virtual void SetPositionOffset(const FVector& PosOff) override;
-	virtual FVector GetPositionOffset() const override;
-
-	virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FSceneView& View, const FIntPoint& TextureSize) override;
-	virtual void UpdateScreenSettings(const FViewport*) override;
+	virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize) override;
 
 	/** IStereoRendering interface */
 	virtual bool IsStereoEnabled() const override;
 	virtual bool EnableStereo(bool stereo = true) override;
 	virtual void AdjustViewRect(EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const override;
-	virtual void CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, const FRotator& ViewRotation, 
-										   const float MetersToWorld, FVector& ViewLocation) override;
+	virtual void CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, const FRotator& ViewRotation,
+		const float MetersToWorld, FVector& ViewLocation) override;
 	virtual FMatrix GetStereoProjectionMatrix(const EStereoscopicPass StereoPassType, const float FOV) const override;
 	virtual void InitCanvasFromView(FSceneView* InView, UCanvas* Canvas) override;
-	virtual void PushViewportCanvas(EStereoscopicPass StereoPass, FCanvas *InCanvas, UCanvas *InCanvasObject, FViewport *InViewport) const override;
-	virtual void PushViewCanvas(EStereoscopicPass StereoPass, FCanvas *InCanvas, UCanvas *InCanvasObject, FSceneView *InView) const override;
-	virtual void GetEyeRenderParams_RenderThread(EStereoscopicPass StereoPass, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const override;
+	virtual void GetEyeRenderParams_RenderThread(const struct FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const override;
 
 	/** ISceneViewExtension interface */
-	virtual void ModifyShowFlags(FEngineShowFlags& ShowFlags) override;
+	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override;
 	virtual void SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView) override;
-	virtual void PreRenderView_RenderThread(FSceneView& InView) override;
-	virtual void PreRenderViewFamily_RenderThread(FSceneViewFamily& InViewFamily) override;
+	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) {}
+	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
+	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
 
 public:
 	/** Constructor */

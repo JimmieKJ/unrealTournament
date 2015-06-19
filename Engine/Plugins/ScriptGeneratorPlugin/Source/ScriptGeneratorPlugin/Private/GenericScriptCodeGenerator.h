@@ -37,7 +37,7 @@ protected:
 	FString GenerateReturnValueHandler(const FString& ClassNameCPP, UClass* Class, UFunction* Function, UProperty* ReturnValue);
 
 	// FScriptCodeGeneratorBase
-	virtual bool CanExportClass(UClass* Class);
+	virtual bool CanExportClass(UClass* Class) override;
 
 public:
 

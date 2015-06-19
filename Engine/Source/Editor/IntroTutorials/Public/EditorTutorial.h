@@ -247,6 +247,10 @@ class INTROTUTORIALS_API UEditorTutorial : public UObject
 	UPROPERTY(EditAnywhere, Category="Stages")
 	TArray<FTutorialStage> Stages;
 
+	/** Tutorial to optionally chain back to if the "back" button is clicked on the first stage */
+	UPROPERTY(EditAnywhere, Category = "Tutorial", meta = (MetaClass = "EditorTutorial"))
+	FStringClassReference PreviousTutorial;
+
 	/** Tutorial to optionally chain onto after this tutorial completes */
 	UPROPERTY(EditAnywhere, Category="Tutorial", meta=(MetaClass="EditorTutorial"))
 	FStringClassReference NextTutorial;
@@ -277,6 +281,10 @@ class INTROTUTORIALS_API UEditorTutorial : public UObject
 
 	/** UObject implementation */
 	virtual UWorld* GetWorld() const override;
+
+	/** Comma seperated list of tags the search will use to help find this tutorial  */
+	UPROPERTY(EditAnywhere, Category = "Tutorial", AssetRegistrySearchable)
+	FText SearchTags;
 
 public:
 	/** Called when a tutorial stage is started */
@@ -329,4 +337,16 @@ protected:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Tutorial")
 	static void OpenAsset(UObject* Asset);
+
+	/**
+	 * Sets the visibility of the engine folder in the content browser
+	 */
+	UFUNCTION(BlueprintCallable, Category="Tutorial")
+	static void SetEngineFolderVisibilty(bool bNewVisibility);
+
+	/**
+	 * Returns the visibility of the engine folder in the content browser
+	 */
+	UFUNCTION(BlueprintCallable, Category="Tutorial")
+	static bool GetEngineFolderVisibilty();
 };

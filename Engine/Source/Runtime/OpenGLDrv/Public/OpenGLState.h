@@ -314,8 +314,8 @@ struct FOpenGLContextState : public FOpenGLCommonState
 	float							ClearDepth;
 
 	// @todo-mobile: Used to cache the last color attachment to optimize logical buffer loads
-	GLuint							LastES2ColorRT;
-	GLuint							LastES2DepthRT;
+	GLuint							LastES2ColorRTResource;
+	GLenum							LastES2ColorTargetType;
 
 	FOpenGLCachedAttr				VertexAttrs[NUM_OPENGL_VERTEX_STREAMS];
 	FOpenGLStream					VertexStreams[NUM_OPENGL_VERTEX_STREAMS];
@@ -342,12 +342,11 @@ struct FOpenGLContextState : public FOpenGLCommonState
 	,	ClearStencil(0xFFFF)
 	,	ClearDepth(-1.0f)
 #if PLATFORM_ANDROID
-	,	LastES2ColorRT(0xFFFFFFFF)
-	,	LastES2DepthRT(0xFFFFFFFF)
+	,	LastES2ColorRTResource(0xFFFFFFFF)
 #else
-	,	LastES2ColorRT(0)
-	,	LastES2DepthRT(0)
+	,	LastES2ColorRTResource(0)
 #endif
+	,	LastES2ColorTargetType(GL_NONE)
 	, VertexDecl(0)
 	, ActiveAttribMask(0)
 	, ActiveStreamMask(0)
@@ -508,4 +507,25 @@ struct FOpenGLRHIState : public FOpenGLCommonState
 
 		FOpenGLCommonState::CleanupResources();
 	}
+};
+
+template<>
+struct TOpenGLResourceTraits<FRHISamplerState>
+{
+	typedef FOpenGLSamplerState TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIRasterizerState>
+{
+	typedef FOpenGLRasterizerState TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIDepthStencilState>
+{
+	typedef FOpenGLDepthStencilState TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIBlendState>
+{
+	typedef FOpenGLBlendState TConcreteType;
 };

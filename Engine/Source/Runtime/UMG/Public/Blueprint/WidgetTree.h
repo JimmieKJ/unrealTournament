@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UserWidget.h"
+#include "Components/PanelWidget.h"
 
 #include "WidgetTree.generated.h"
 
@@ -41,7 +42,7 @@ public:
 	void GetAllWidgets(TArray<UWidget*>& Widgets) const;
 
 	/** Gathers descendant child widgets of a parent widget. */
-	void GetChildWidgets(UWidget* Parent, TArray<UWidget*>& Widgets) const;
+	static void GetChildWidgets(UWidget* Parent, TArray<UWidget*>& Widgets);
 
 	/**
 	 * Iterates through all widgets including widgets contained in named slots, other than
@@ -65,7 +66,7 @@ public:
 	 * inside another user widget.
 	 */
 	template <typename Predicate>
-	FORCEINLINE void ForWidgetAndChildren(UWidget* Widget, Predicate Pred) const
+	static FORCEINLINE void ForWidgetAndChildren(UWidget* Widget, Predicate Pred)
 	{
 		// Search for any named slot with content that we need to dive into.
 		if ( INamedSlotInterface* NamedSlotHost = Cast<INamedSlotInterface>(Widget) )
@@ -101,18 +102,18 @@ public:
 
 	/** Constructs the widget, and adds it to the tree. */
 	template< class T >
-	FORCEINLINE T* ConstructWidget(TSubclassOf<UWidget> WidgetType)
+	FORCEINLINE T* ConstructWidget(TSubclassOf<UWidget> WidgetType, FName WidgetName = NAME_None)
 	{
 		if ( WidgetType->IsChildOf(UUserWidget::StaticClass()) )
 		{
-			UUserWidget* Widget = ConstructObject<UUserWidget>(WidgetType, this);
+			UUserWidget* Widget = NewObject<UUserWidget>(this, WidgetType, WidgetName);
 			Widget->Initialize();
 			Widget->SetFlags(RF_Transactional);
 			return (T*)Widget;
 		}
 		else
 		{
-			UWidget* Widget = (UWidget*)ConstructObject<UWidget>(WidgetType, this);
+			UWidget* Widget = (UWidget*)NewObject<UWidget>(this, WidgetType, WidgetName);
 			Widget->SetFlags(RF_Transactional);
 			return (T*)Widget;
 		}

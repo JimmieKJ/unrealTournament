@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	KismetCompilerVMBackend.cpp
@@ -13,6 +13,7 @@
 #include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
+#include "Engine/UserDefinedStruct.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FScriptBytecodeWriter
@@ -30,13 +31,13 @@ public:
 	{
 	}
 	
-	void Serialize( void* V, int64 Length )
+	void Serialize( void* V, int64 Length ) override
 	{
 		int32 iStart = ScriptBuffer.AddUninitialized( Length );
 		FMemory::Memcpy( &(ScriptBuffer[iStart]), V, Length );
 	}
 
-	FArchive& operator<<(FName& Name)
+	FArchive& operator<<(FName& Name) override
 	{
 		FArchive& Ar = *this;
 
@@ -49,7 +50,7 @@ public:
 		return Ar;
 	}
 
-	FArchive& operator<<(UObject*& Res)
+	FArchive& operator<<(UObject*& Res) override
 	{
 		ScriptPointerType D = (ScriptPointerType)Res; 
 		FArchive& Ar = *this;
@@ -58,12 +59,12 @@ public:
 		return Ar;
 	}
 
-	FArchive& operator<<(FLazyObjectPtr& LazyObjectPtr)
+	FArchive& operator<<(FLazyObjectPtr& LazyObjectPtr) override
 	{
 		return FArchive::operator<<(LazyObjectPtr);
 	}
 
-	FArchive& operator<<(FAssetPtr& AssetPtr)
+	FArchive& operator<<(FAssetPtr& AssetPtr) override
 	{
 		return FArchive::operator<<(AssetPtr);
 	}
@@ -274,12 +275,12 @@ protected:
 			FSkipOffsetEmitter Skipper(ScriptBuilder.Writer.ScriptBuffer);
 			Skipper.Emit();
 
-			// R-Value property
+			// R-Value property, see ReadVariableSize in UObject::ProcessContextOpcode() for usage
 			//@TODO: Not sure what to use for yet
 			UProperty* RValueProperty = RValueTerm ? RValueTerm->AssociatedVarProperty : NULL;
 			Writer << RValueProperty;
 
-			// Property type if needed
+			// Property type if needed, it seems it's not used in ue4
 			//@TODO: Not sure what to use for yet
 			uint8 PropetyType = 0;
 			Writer << PropetyType;
@@ -318,9 +319,9 @@ public:
 		, bIsUbergraph(bInIsUbergraph)
 		, ReturnStatement(InReturnStatement)
 	{
-		VectorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Vector"));
-		RotatorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Rotator"));
-		TransformStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Transform"));
+		VectorStruct = GetBaseStructure(TEXT("Vector"));
+		RotatorStruct = GetBaseStructure(TEXT("Rotator"));
+		TransformStruct = GetBaseStructure(TEXT("Transform"));
 		LatentInfoStruct = FLatentActionInfo::StaticStruct();
 	}
 
@@ -359,16 +360,13 @@ public:
 		}
 	}
 
-	virtual void EmitTermExpr(FBPTerminal* Term, UProperty* CoerceProperty = NULL)
+	virtual void EmitTermExpr(FBPTerminal* Term, UProperty* CoerceProperty = NULL, bool bAllowStaticArray = false)
 	{
 		//@TODO: Must have a coercion type if it's a literal, because the symbol table isn't plumbed in here and the literals don't carry type information either, yay!
 		check((!Term->bIsLiteral) || (CoerceProperty != NULL));
 
 		if (Term->bIsLiteral)
 		{
-			// Can't have a literal array
-			check(!CoerceProperty->IsA(UArrayProperty::StaticClass())); 
-
 			if (CoerceProperty->IsA(UStrProperty::StaticClass()))
 			{
 				EmitStringLiteral(Term->Name);
@@ -378,8 +376,8 @@ public:
 				Writer << EX_TextConst;
 				
 				EmitStringLiteral(FTextInspector::GetSourceString(Term->TextLiteral)? *FTextInspector::GetSourceString(Term->TextLiteral) : TEXT(""));
-				EmitStringLiteral(FTextInspector::GetKey(Term->TextLiteral)? *FTextInspector::GetKey(Term->TextLiteral) : TEXT(""));
-				EmitStringLiteral(FTextInspector::GetNamespace(Term->TextLiteral)? *FTextInspector::GetNamespace(Term->TextLiteral) : TEXT(""));
+				EmitStringLiteral(FTextInspector::GetKey(Term->TextLiteral).Get(TEXT("")));
+				EmitStringLiteral(FTextInspector::GetNamespace(Term->TextLiteral).Get(TEXT("")));
 			}
 			else if (CoerceProperty->IsA(UFloatProperty::StaticClass()))
 			{
@@ -483,7 +481,10 @@ public:
 					int32 StructSize = Struct->GetStructureSize() * StructProperty->ArrayDim;
 					uint8* StructData = (uint8*)FMemory_Alloca(StructSize);
 					StructProperty->InitializeValue(StructData);
-					ensure(1 == StructProperty->ArrayDim);
+					if (!ensure(bAllowStaticArray || 1 == StructProperty->ArrayDim))
+					{
+						UE_LOG(LogK2Compiler, Error, TEXT("Unsupported static array. Property: %s, Struct: %s"), *StructProperty->GetName(), *Struct->GetName());
+					}
 					if(!FStructureEditorUtils::Fill_MakeStructureDefaultValue(Cast<UUserDefinedStruct>(Struct), StructData))
 					{
 						UE_LOG(LogK2Compiler, Warning, TEXT("MakeStructureDefaultValue parsing error. Property: %s, Struct: %s"), *StructProperty->GetName(), *Struct->GetName());
@@ -498,30 +499,58 @@ public:
 
 					for( UProperty* Prop = Struct->PropertyLink; Prop; Prop = Prop->PropertyLinkNext )
 					{
-						// Array constants aren't yet supported, so skip them
-						if( Prop->IsA(UArrayProperty::StaticClass()) )
+						for (int32 ArrayIter = 0; ArrayIter < Prop->ArrayDim; ++ArrayIter)
 						{
-							continue;
-						}
+							// Create a new term for each property, and serialize it out
+							FBPTerminal NewTerm;
+							NewTerm.bIsLiteral = true;
+							Prop->ExportText_InContainer(ArrayIter, NewTerm.Name, StructData, StructData, NULL, PPF_None);
+							if (Prop->IsA(UTextProperty::StaticClass()))
+							{
+								NewTerm.TextLiteral = FText::FromString(NewTerm.Name);
+							}
+							else if (Prop->IsA(UObjectProperty::StaticClass()))
+							{
+								NewTerm.ObjectLiteral = Cast<UObjectProperty>(Prop)->GetObjectPropertyValue(Prop->ContainerPtrToValuePtr<void>(StructData));
+							}
 
-						// Create a new term for each property, and serialize it out
-						FBPTerminal NewTerm;
-						NewTerm.bIsLiteral = true;
-						Prop->ExportText_InContainer(0, NewTerm.Name, StructData, StructData, NULL, PPF_None);
-						if (Prop->IsA(UTextProperty::StaticClass()))
-						{
-							NewTerm.TextLiteral = FText::FromString(NewTerm.Name);
+							EmitTermExpr(&NewTerm, Prop, true);
 						}
-						else if(Prop->IsA(UObjectProperty::StaticClass()))
-						{
-							NewTerm.ObjectLiteral = Cast<UObjectProperty>(Prop)->GetObjectPropertyValue(Prop->ContainerPtrToValuePtr<void>(StructData));
-						}
-
-						EmitTermExpr(&NewTerm, Prop);
 					}
 
 					Writer << EX_EndStructConst;
 				}
+			}
+			else if (auto ArrayPropr = Cast<UArrayProperty>(CoerceProperty))
+			{
+				UProperty* InnerProp = ArrayPropr->Inner;
+				ensure(InnerProp);
+				FScriptArray ScriptArray;
+				ArrayPropr->ImportText(*Term->Name, &ScriptArray, 0, NULL, GLog);
+				int32 ElementNum = ScriptArray.Num();
+
+				FScriptArrayHelper ScriptArrayHelper(ArrayPropr, &ScriptArray);
+
+				Writer << EX_ArrayConst;
+				Writer << InnerProp;
+				Writer << ElementNum;
+				for (int32 ElemIdx = 0; ElemIdx < ElementNum; ++ElemIdx)
+				{
+					FBPTerminal NewTerm;
+					NewTerm.bIsLiteral = true;
+					uint8* RawElemData = ScriptArrayHelper.GetRawPtr(ElemIdx);
+					InnerProp->ExportText_Direct(NewTerm.Name, RawElemData, RawElemData, NULL, PPF_None);
+					if (InnerProp->IsA(UTextProperty::StaticClass()))
+					{
+						NewTerm.TextLiteral = FText::FromString(NewTerm.Name);
+					}
+					else if (InnerProp->IsA(UObjectProperty::StaticClass()))
+					{
+						NewTerm.ObjectLiteral = Cast<UObjectProperty>(InnerProp)->GetObjectPropertyValue(RawElemData);
+					}
+					EmitTermExpr(&NewTerm, InnerProp);
+				}
+				Writer << EX_EndArrayConst;
 			}
 			else if (CoerceProperty->IsA(UDelegateProperty::StaticClass()))
 			{
@@ -638,7 +667,7 @@ public:
 		Writer << EX_EndStructConst;
 	}
 
-	void EmitFunctionCall(FBlueprintCompiledStatement& Statement)
+	void EmitFunctionCall(FKismetCompilerContext& CompilerContext, FKismetFunctionContext& FunctionContext, FBlueprintCompiledStatement& Statement)
 	{
 		UFunction* FunctionToCall = Statement.FunctionToCall;
 		check(FunctionToCall);
@@ -676,6 +705,21 @@ public:
 			// Overwrite RHS(0) text with the state index to kick off
 			check(Statement.RHS[Statement.UbergraphCallIndex]->bIsLiteral);
 			Statement.RHS[Statement.UbergraphCallIndex]->Name = FString::FromInt(OffsetWithinUbergraph);
+
+#if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
+			// Store optimization data if this is a simple call into the ubergraph
+			if (FunctionContext.bIsSimpleStubGraphWithNoParams && CompilerContext.NewClass->UberGraphFunction)
+			{
+				check(FunctionToCall == CompilerContext.NewClass->UberGraphFunction);
+				check(FunctionToCall->ParmsSize == sizeof(int32));
+
+				if ((FunctionToCall->FirstPropertyToInit == nullptr) && (FunctionToCall->PostConstructLink == nullptr))
+				{
+					FunctionContext.Function->EventGraphFunction = FunctionToCall;
+					FunctionContext.Function->EventGraphCallOffset = OffsetWithinUbergraph;
+				}
+			}
+#endif
 		}
 
 		// Handle the return value assignment if present
@@ -1233,7 +1277,7 @@ public:
 			Writer << ((Statement.Type == KCST_DebugSite) ? EX_Tracepoint : EX_WireTracepoint);
 			break;
 		case KCST_CallFunction:
-			EmitFunctionCall(Statement);
+			EmitFunctionCall(CompilerContext, FunctionContext, Statement);
 			break;
 		case KCST_CallDelegate:
 			EmitCallDelegate(Statement);

@@ -59,7 +59,7 @@ public:
 		LightMapPolicyType::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::VertexParametersType::Serialize(Ar);
@@ -177,7 +177,7 @@ public:
 		FMeshMaterialShader::SetMesh(RHICmdList, PixelShader,VertexFactory,View,Proxy,BatchElement);		
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		LightMapPolicyType::PixelParametersType::Serialize(Ar);

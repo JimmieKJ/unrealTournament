@@ -58,21 +58,21 @@ void UParticleModuleTypeDataBeam2::InitializeDefaults()
 {
 	if (!Distance.Distribution)
 	{
-		UDistributionFloatConstant* DistributionDistance = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionDistance"));
+		UDistributionFloatConstant* DistributionDistance = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionDistance"));
 		DistributionDistance->Constant = 25.0f;
 		Distance.Distribution = DistributionDistance;
 	}
 
 	if (!TaperFactor.Distribution)
 	{
-		UDistributionFloatConstant* DistributionTaperFactor = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionTaperFactor"));
+		UDistributionFloatConstant* DistributionTaperFactor = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionTaperFactor"));
 		DistributionTaperFactor->Constant = 1.0f;
 		TaperFactor.Distribution = DistributionTaperFactor;
 	}
 
 	if (!TaperScale.Distribution)
 	{
-		UDistributionFloatConstant* DistributionTaperScale = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionTaperScale"));
+		UDistributionFloatConstant* DistributionTaperScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionTaperScale"));
 		DistributionTaperScale->Constant = 1.0f;
 		TaperScale.Distribution = DistributionTaperScale;
 	}
@@ -908,21 +908,21 @@ void UParticleModuleBeamModifier::InitializeDefaults()
 {
 	if(!Position.Distribution)
 	{
-		UDistributionVectorConstant* DistributionPosition = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionPosition"));
+		UDistributionVectorConstant* DistributionPosition = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionPosition"));
 		DistributionPosition->Constant = FVector(0.0f, 0.0f, 0.0f);
 		Position.Distribution = DistributionPosition;
 	}
 	
 	if(!Tangent.Distribution)
 	{
-		UDistributionVectorConstant* DistributionTangent = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionTangent"));
+		UDistributionVectorConstant* DistributionTangent = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionTangent"));
 		DistributionTangent->Constant = FVector(0.0f, 0.0f, 0.0f);
 		Tangent.Distribution = DistributionTangent;
 	}
 
 	if(!Strength.Distribution)
 	{
-		UDistributionFloatConstant* DistributionStrength = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
+		UDistributionFloatConstant* DistributionStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
 		DistributionStrength->Constant = 0.0f;
 		Strength.Distribution = DistributionStrength;
 	}
@@ -933,15 +933,15 @@ void UParticleModuleBeamModifier::PostInitProperties()
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		UDistributionVectorConstant* DistributionPosition = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionPosition"));
+		UDistributionVectorConstant* DistributionPosition = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionPosition"));
 		DistributionPosition->Constant = FVector(0.0f, 0.0f, 0.0f);
 		Position.Distribution = DistributionPosition;
 
-		UDistributionVectorConstant* DistributionTangent = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionTangent"));
+		UDistributionVectorConstant* DistributionTangent = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionTangent"));
 		DistributionTangent->Constant = FVector(0.0f, 0.0f, 0.0f);
 		Tangent.Distribution = DistributionTangent;
 
-		UDistributionFloatConstant* DistributionStrength = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
+		UDistributionFloatConstant* DistributionStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStrength"));
 		DistributionStrength->Constant = 0.0f;
 		Strength.Distribution = DistributionStrength;
 	}
@@ -1174,35 +1174,35 @@ void UParticleModuleBeamNoise::InitializeDefaults()
 {
 	if (!NoiseSpeed.Distribution)
 	{
-		UDistributionVectorConstant* DistributionNoiseSpeed = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseSpeed"));
+		UDistributionVectorConstant* DistributionNoiseSpeed = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseSpeed"));
 		DistributionNoiseSpeed->Constant = FVector(50.0f, 50.0f, 50.0f);
 		NoiseSpeed.Distribution = DistributionNoiseSpeed;
 	}
 
 	if (!NoiseRange.Distribution)
 	{
-		UDistributionVectorConstant* DistributionNoiseRange = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseRange"));
+		UDistributionVectorConstant* DistributionNoiseRange = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseRange"));
 		DistributionNoiseRange->Constant = FVector(50.0f, 50.0f, 50.0f);
 		NoiseRange.Distribution = DistributionNoiseRange;
 	}
 
 	if (!NoiseRangeScale.Distribution)
 	{
-		UDistributionFloatConstant* DistributionNoiseRangeScale = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseRangeScale"));
+		UDistributionFloatConstant* DistributionNoiseRangeScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseRangeScale"));
 		DistributionNoiseRangeScale->Constant = 1.0f;
 		NoiseRangeScale.Distribution = DistributionNoiseRangeScale; 
 	}
 
 	if (!NoiseTangentStrength.Distribution)
 	{
-		UDistributionFloatConstant* DistributionNoiseTangentStrength = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseTangentStrength"));
+		UDistributionFloatConstant* DistributionNoiseTangentStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseTangentStrength"));
 		DistributionNoiseTangentStrength->Constant = 250.0f;
 		NoiseTangentStrength.Distribution = DistributionNoiseTangentStrength; 
 	}
 
 	if (!NoiseScale.Distribution)
 	{
-		NoiseScale.Distribution = NewNamedObject<UDistributionFloatConstantCurve>(this, TEXT("DistributionNoiseScale"));
+		NoiseScale.Distribution = NewObject<UDistributionFloatConstantCurve>(this, TEXT("DistributionNoiseScale"));
 	}
 }
 
@@ -1211,23 +1211,23 @@ void UParticleModuleBeamNoise::PostInitProperties()
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		UDistributionVectorConstant* DistributionNoiseSpeed = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseSpeed"));
+		UDistributionVectorConstant* DistributionNoiseSpeed = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseSpeed"));
 		DistributionNoiseSpeed->Constant = FVector(50.0f, 50.0f, 50.0f);
 		NoiseSpeed.Distribution = DistributionNoiseSpeed;
 
-		UDistributionVectorConstant* DistributionNoiseRange = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseRange"));
+		UDistributionVectorConstant* DistributionNoiseRange = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionNoiseRange"));
 		DistributionNoiseRange->Constant = FVector(50.0f, 50.0f, 50.0f);
 		NoiseRange.Distribution = DistributionNoiseRange;
 
-		UDistributionFloatConstant* DistributionNoiseRangeScale = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseRangeScale"));
+		UDistributionFloatConstant* DistributionNoiseRangeScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseRangeScale"));
 		DistributionNoiseRangeScale->Constant = 1.0f;
 		NoiseRangeScale.Distribution = DistributionNoiseRangeScale; 
 
-		UDistributionFloatConstant* DistributionNoiseTangentStrength = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseTangentStrength"));
+		UDistributionFloatConstant* DistributionNoiseTangentStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionNoiseTangentStrength"));
 		DistributionNoiseTangentStrength->Constant = 250.0f;
 		NoiseTangentStrength.Distribution = DistributionNoiseTangentStrength; 
 
-		NoiseScale.Distribution = NewNamedObject<UDistributionFloatConstantCurve>(this, TEXT("DistributionNoiseScale"));
+		NoiseScale.Distribution = NewObject<UDistributionFloatConstantCurve>(this, TEXT("DistributionNoiseScale"));
 	}
 }
 
@@ -1513,21 +1513,21 @@ void UParticleModuleBeamSource::InitializeDefaults()
 {
 	if (!Source.Distribution)
 	{
-		UDistributionVectorConstant* DistributionSource = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionSource"));
+		UDistributionVectorConstant* DistributionSource = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSource"));
 		DistributionSource->Constant = FVector(50.0f, 50.0f, 50.0f);
 		Source.Distribution = DistributionSource; 
 	}
 
 	if (!SourceTangent.Distribution)
 	{
-		UDistributionVectorConstant* DistributionSourceTangent = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionSourceTangent")); 
+		UDistributionVectorConstant* DistributionSourceTangent = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSourceTangent"));
 		DistributionSourceTangent->Constant = FVector(1.0f, 0.0f, 0.0f);
 		SourceTangent.Distribution = DistributionSourceTangent; 
 	}
 
 	if (!SourceStrength.Distribution)
 	{
-		UDistributionFloatConstant* DistributionSourceStrength = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionSourceStrength"));
+		UDistributionFloatConstant* DistributionSourceStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionSourceStrength"));
 		DistributionSourceStrength->Constant = 25.0f;
 		SourceStrength.Distribution = DistributionSourceStrength; 
 	}
@@ -1934,21 +1934,21 @@ void UParticleModuleBeamTarget::InitializeDefaults()
 {
 	if (!Target.Distribution)
 	{
-		UDistributionVectorConstant* DistributionTarget = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionTarget"));
+		UDistributionVectorConstant* DistributionTarget = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionTarget"));
 		DistributionTarget->Constant = FVector(50.0f, 50.0f, 50.0f);
 		Target.Distribution = DistributionTarget;
 	}
 
 	if (!TargetTangent.Distribution)
 	{
-		UDistributionVectorConstant* DistributionTargetTangent = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionTargetTangent"));
+		UDistributionVectorConstant* DistributionTargetTangent = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionTargetTangent"));
 		DistributionTargetTangent->Constant = FVector(1.0f, 0.0f, 0.0f);
 		TargetTangent.Distribution = DistributionTargetTangent; 
 	}
 
 	if (!TargetStrength.Distribution)
 	{
-		UDistributionFloatConstant* DistributionTargetStrength = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionTargetStrength"));
+		UDistributionFloatConstant* DistributionTargetStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionTargetStrength"));
 		DistributionTargetStrength->Constant = 25.0;
 		TargetStrength.Distribution = DistributionTargetStrength;
 	}

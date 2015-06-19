@@ -5,6 +5,9 @@
 
 #include "Persona.h"
 #include "SAnimEditorBase.h"
+#include "Animation/AnimComposite.h"
+
+class UAnimComposite;
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimCompositeEditor
@@ -43,7 +46,7 @@ private:
 	void RebuildPanel();
 
 	/** Handler for when composite is edited in details view */
-	void OnCompositeChange(class UObject *EditorAnimBaseObj, bool Rebuild);
+	void OnCompositeChange(class UObject *EditorAnimBaseObj, bool bRebuild);
 
 	/** This will remove empty spaces in the composite's anim segments but not resort. e.g. - all cached indexes remains valid. UI IS NOT REBUILT after this */
 	void CollapseComposite();
@@ -69,15 +72,17 @@ private:
 	/** This will sort all components of the montage and update (recreate) the UI */
 	void SortAndUpdateComposite();
 
+	/** One-off active timer to trigger a panel rebuild */
+	EActiveTimerReturnType TriggerRebuildPanel(double InCurrentTime, float InDeltaTime);
+
+	/** Whether the active timer to trigger a panel rebuild is currently registered */
+	bool bIsActiveTimerRegistered;
+
 public:
 
 	/** delegate handlers for when the composite is being editor */
 	void			PreAnimUpdate();
 	void			PostAnimUpdate();
-
-	// SWidget interface start
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	// SWidget interface end
 
 	// Begin SAnimEditorBase interface
 	virtual TSharedRef<SWidget> CreateDocumentAnchor() override;

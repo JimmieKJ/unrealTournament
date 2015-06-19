@@ -12,6 +12,8 @@
 #include "Editor/DeviceProfileEditor/Public/DeviceProfileEditorModule.h"
 #include "UndoHistoryModule.h"
 #include "GenericCommands.h"
+#include "ToolboxModule.h"
+
 
 #define LOCTEXT_NAMESPACE "MainFileMenu"
 
@@ -188,10 +190,12 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 		// When the feature becomes permanent and need not check a flag, register a nomad spawner for it in the proper WorkspaceMenu category
 		bool bMessagingDebugger = GetDefault<UEditorExperimentalSettings>()->bMessagingDebugger;
 		bool bBlutility = GetDefault<UEditorExperimentalSettings>()->bEnableEditorUtilityBlueprints;
-		bool bTranslationEditor = GetDefault<UEditorExperimentalSettings>()->bEnableTranslationEditor;
+		bool bLocalizationDashboard = GetDefault<UEditorExperimentalSettings>()->bEnableLocalizationDashboard;
+		bool bTranslationPicker = GetDefault<UEditorExperimentalSettings>()->bEnableTranslationPicker;
+		bool bMergeActors = GetDefault<UEditorExperimentalSettings>()->bActorMerging;
 
 		// Make sure at least one is enabled before creating the section
-		if (bMessagingDebugger || bBlutility || bTranslationEditor)
+		if (bMessagingDebugger || bBlutility || bLocalizationDashboard || bTranslationPicker || bMergeActors)
 		{
 			MenuBuilder.BeginSection("ExperimentalTabSpawners", LOCTEXT("ExperimentalTabSpawnersHeading", "Experimental"));
 			{
@@ -217,13 +221,36 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 						);
 				}
 
-				// Translation Editor
-				if (bTranslationEditor)
+				// Localization Dashboard
+				if (bLocalizationDashboard)
 				{
-					MenuBuilder.AddSubMenu(
-						LOCTEXT("TranslationEditorSubMenuLabel", "Translation Editor"),
-						LOCTEXT("EditorPreferencesSubMenuToolTip", "Open the Translation Editor for a Given Project and Language"),
-						FNewMenuDelegate::CreateStatic(&FMainFrameTranslationEditorMenu::MakeMainFrameTranslationEditorSubMenu)
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("LocalizationDashboardLabel", "Localization Dashboard"),
+						LOCTEXT("BlutilityShelfToolTip", "Open the Localization Dashboard for this Project."),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateStatic(&FMainMenu::OpenLocalizationDashboard))
+						);
+				}
+
+				// Translation Picker
+				if (bTranslationPicker)
+				{
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("TranslationPickerMenuItem", "Translation Picker"),
+						LOCTEXT("TranslationPickerMenuItemToolTip", "Launch the Translation Picker to Modify Editor Translations"),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateStatic(&FMainFrameTranslationEditorMenu::HandleOpenTranslationPicker))
+						);
+				}
+
+				// Actor merging
+				if (bMergeActors)
+				{
+					MenuBuilder.AddMenuEntry(
+						LOCTEXT("MergeActorsMenuLabel", "Merge Actors"),
+						LOCTEXT("MergeActorsToolTip", "The Merge Actors tab provides tools for merging multiple actor meshes into a single mesh."),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateStatic(&FMainMenu::OpenMergeActors))
 						);
 				}
 			}
@@ -277,9 +304,17 @@ void FMainMenu::FillHelpMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExte
 }
 
 
-TSharedRef<SWidget> FMainMenu::MakeMainMenu( const TSharedPtr<FTabManager>& TabManager, const TSharedRef< FExtender > Extender )
+TSharedRef<SWidget> FMainMenu::MakeMainMenu(const TSharedPtr<FTabManager>& TabManager, const TSharedRef< FExtender > Extender)
 {
 #define LOCTEXT_NAMESPACE "MainMenu"
+
+	
+	// Put the toolbox into our menus
+	{
+		const IWorkspaceMenuStructure& MenuStructure = WorkspaceMenu::GetMenuStructure();
+		IToolboxModule& ToolboxModule = FModuleManager::LoadModuleChecked<IToolboxModule>("Toolbox");
+		ToolboxModule.RegisterSpawners(MenuStructure.GetDeveloperToolsDebugCategory(), MenuStructure.GetDeveloperToolsMiscCategory());
+	}
 
 	// Cache all project names once
 	FMainFrameActionCallbacks::CacheProjectNames();
@@ -357,10 +392,16 @@ TSharedRef< SWidget > FMainMenu::MakeMainTabMenu( const TSharedPtr<FTabManager>&
 
 				MenuBuilder.AddSubMenu(
 					LOCTEXT("PackageProjectSubMenuLabel", "Package Project"),
-					LOCTEXT("PackageProjectSubMenuToolTip", "Compile, cook and package your project and its content for distribution"),
+					LOCTEXT("PackageProjectSubMenuToolTip", "Compile, cook and package your project and its content for distribution."),
 					FNewMenuDelegate::CreateStatic( &FPackageProjectMenu::MakeMenu ), false, FSlateIcon(FEditorStyle::GetStyleSetName(), "MainFrame.PackageProject")
 				);
-
+				/*
+				MenuBuilder.AddMenuEntry( FMainFrameCommands::Get().LocalizeProject,
+					NAME_None,
+					TAttribute<FText>(),
+					LOCTEXT("LocalizeProjectToolTip", "Gather text from your project and import/export translations.")
+					);
+					*/
 				/*
 				MenuBuilder.AddSubMenu(
 					LOCTEXT("CookProjectSubMenuLabel", "Cook Project"),
@@ -382,6 +423,14 @@ TSharedRef< SWidget > FMainMenu::MakeMainTabMenu( const TSharedPtr<FTabManager>&
 						NAME_None,
 						FText::Format(LOCTEXT("OpenIDELabel", "Open {0}"), ShortIDEName),
 						FText::Format(LOCTEXT("OpenIDETooltip", "Opens your C++ code in {0}."), ShortIDEName)
+					);
+				}
+				else
+				{
+					MenuBuilder.AddMenuEntry( FMainFrameCommands::Get().RefreshCodeProject,
+						NAME_None,
+						FText::Format(LOCTEXT("GenerateCodeProjectLabel", "Generate {0} Project"), ShortIDEName),
+						FText::Format(LOCTEXT("GenerateCodeProjectTooltip", "Generates your C++ code project in {0}."), ShortIDEName)
 					);
 				}
 
@@ -411,7 +460,7 @@ TSharedRef< SWidget > FMainMenu::MakeMainTabMenu( const TSharedPtr<FTabManager>&
 
 		static void FillRecentFileAndExitMenuItems( FMenuBuilder& MenuBuilder )
 		{
-			MenuBuilder.BeginSection( "FileRecentFiles" );
+			MenuBuilder.BeginSection("FileRecentFiles");
 			{
 				if (GetDefault<UEditorStyleSettings>()->bShowProjectMenus && FMainFrameActionCallbacks::ProjectNames.Num() > 0)
 				{
@@ -423,6 +472,7 @@ TSharedRef< SWidget > FMainMenu::MakeMainTabMenu( const TSharedPtr<FTabManager>&
 				}
 			}
 			MenuBuilder.EndSection();
+
 #if !PLATFORM_MAC // Handled by app's menu in menu bar
 			MenuBuilder.AddMenuSeparator();
 			MenuBuilder.AddMenuEntry( FMainFrameCommands::Get().Exit, "Exit" );

@@ -33,16 +33,16 @@ public:
 	/** Stores the coordinate system that was active when the mode was entered so it can restore it later. */
 	ECoordSystem SaveCoordSystem;
 
-	virtual void Enter();
-	virtual void Exit();
-	virtual FVector GetWidgetLocation() const;
-	virtual bool ShouldDrawWidget() const;
-	virtual bool GetCustomDrawingCoordinateSystem( FMatrix& InMatrix, void* InData );
-	virtual bool GetCustomInputCoordinateSystem( FMatrix& InMatrix, void* InData );
-	virtual EAxisList::Type GetWidgetAxisToDraw( FWidget::EWidgetMode InWidgetMode ) const;
-	virtual bool StartTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport);
-	virtual bool EndTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport);
-	virtual bool AllowWidgetMove() { return false; }
+	virtual void Enter() override;
+	virtual void Exit() override;
+	virtual FVector GetWidgetLocation() const override;
+	virtual bool ShouldDrawWidget() const override;
+	virtual bool GetCustomDrawingCoordinateSystem( FMatrix& InMatrix, void* InData ) override;
+	virtual bool GetCustomInputCoordinateSystem( FMatrix& InMatrix, void* InData ) override;
+	virtual EAxisList::Type GetWidgetAxisToDraw( FWidget::EWidgetMode InWidgetMode ) const override;
+	virtual bool StartTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport) override;
+	virtual bool EndTracking(FEditorViewportClient* InViewportClient, FViewport* InViewport) override;
+	virtual bool AllowWidgetMove() override { return false; }
 	virtual bool IsCompatibleWith(FEditorModeID OtherModeID) const override;
 
 protected:

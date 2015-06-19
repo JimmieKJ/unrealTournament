@@ -1,13 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ContainerAllocationPolicies.h: Defines allocation policies for containers.
-=============================================================================*/
-
 #pragma once
 
 #include "MemoryBase.h"
 #include "Misc/OutputDevice.h"
+
 
 /** Used to determine the alignment of an element type. */
 template<typename ElementType>
@@ -31,7 +28,6 @@ public:
 };
 
 #define ALIGNOF(T) (TElementAlignmentCalculator<T>::Alignment)
-
 
 
 /** branchless pointer selection
@@ -198,7 +194,7 @@ public:
 
 		/** Default constructor. */
 		ForAnyElementType()
-			: Data(NULL)
+			: Data(nullptr)
 		{}
 
 		/**
@@ -216,7 +212,7 @@ public:
 			}
 
 			Data       = Other.Data;
-			Other.Data = NULL;
+			Other.Data = nullptr;
 		}
 
 		/** Destructor. */
@@ -239,7 +235,7 @@ public:
 			SIZE_T NumBytesPerElement
 			)
 		{
-			// Avoid calling FMemory::Realloc( NULL, 0 ) as ANSI C mandates returning a valid pointer which is not what we want.
+			// Avoid calling FMemory::Realloc( nullptr, 0 ) as ANSI C mandates returning a valid pointer which is not what we want.
 			if( Data || NumElements )
 			{
 				//checkSlow(((uint64)NumElements*(uint64)ElementTypeInfo.GetSize() < (uint64)INT_MAX));
@@ -304,7 +300,7 @@ public:
 	public:
 		/** Default constructor. */
 		ForAnyElementType()
-			: Data(NULL)
+			: Data(nullptr)
 		{}
 
 		/**
@@ -322,7 +318,7 @@ public:
 			}
 
 			Data       = Other.Data;
-			Other.Data = NULL;
+			Other.Data = nullptr;
 		}
 
 		/** Destructor. */
@@ -341,7 +337,7 @@ public:
 		}
 		void ResizeAllocation(int32 PreviousNumElements,int32 NumElements,SIZE_T NumBytesPerElement)
 		{
-			// Avoid calling FMemory::Realloc( NULL, 0 ) as ANSI C mandates returning a valid pointer which is not what we want.
+			// Avoid calling FMemory::Realloc( nullptr, 0 ) as ANSI C mandates returning a valid pointer which is not what we want.
 			if( Data || NumElements )
 			{
 				//checkSlow(((uint64)NumElements*(uint64)ElementTypeInfo.GetSize() < (uint64)INT_MAX));

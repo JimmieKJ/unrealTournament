@@ -59,6 +59,15 @@
 #include "ObjectTools.h"
 #include "RHI.h"
 
+#include "Engine/SimpleConstructionScript.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/PointLight.h"
+#include "GameFramework/PlayerStart.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/DirectionalLight.h"
+#include "Distributions/DistributionVectorUniform.h"
+
 #define LOCTEXT_NAMESPACE "EditorBuildPromotionTests"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorBuildPromotionTests, Log, All);
@@ -164,15 +173,15 @@ namespace EditorBuildPromotionTestUtils
 	*
 	* @param CommandContext - The context of the command
 	* @param Command - The command name to set
-	* @param NewGesture - The new input gesture to assign
+	* @param NewChord - The new input chord to assign
 	*/
-	static void SetEditorKeybinding(const FString& CommandContext, const FString& Command, const FInputGesture& NewGesture)
+	static void SetEditorKeybinding(const FString& CommandContext, const FString& Command, const FInputChord& NewChord)
 	{
 		TSharedPtr<FUICommandInfo> UICommand = FInputBindingManager::Get().FindCommandInContext(*CommandContext, *Command);
 		if (UICommand.IsValid())
 		{
-			UICommand->SetActiveGesture(NewGesture);
-			FInputBindingManager::Get().NotifyActiveGestureChanged(*UICommand.Get());
+			UICommand->SetActiveChord(NewChord);
+			FInputBindingManager::Get().NotifyActiveChordChanged(*UICommand.Get());
 			FInputBindingManager::Get().SaveInputBindings();
 		}
 		else
@@ -186,15 +195,15 @@ namespace EditorBuildPromotionTestUtils
 	*
 	* @param CommandContext - The context of the command
 	* @param Command - The command name to get
-	* @param NewGesture - The current input gesture that is assigned
+	* @param NewChord - The current input chord that is assigned
 	*/
-	static bool GetEditorKeybinding(const FString& CommandContext, const FString& Command, FInputGesture& CurrentGesture)
+	static bool GetEditorKeybinding(const FString& CommandContext, const FString& Command, FInputChord& CurrentChord)
 	{
 		TSharedPtr<FUICommandInfo> UICommand = FInputBindingManager::Get().FindCommandInContext(*CommandContext, *Command);
 		if (UICommand.IsValid())
 		{
-			TSharedRef<const FInputGesture> ActiveGesture = UICommand->GetActiveGesture();
-			CurrentGesture = ActiveGesture.Get();
+			TSharedRef<const FInputChord> ActiveChord = UICommand->GetActiveChord();
+			CurrentChord = ActiveChord.Get();
 		}
 		else
 		{
@@ -235,8 +244,8 @@ namespace EditorBuildPromotionTestUtils
 	static void ExportEditorSettings(const FString& TargetFilename)
 	{
 		FInputBindingManager::Get().SaveInputBindings();
-		GConfig->Flush(false, GEditorUserSettingsIni);
-		IFileManager::Get().Copy(*TargetFilename, *GEditorUserSettingsIni);
+		GConfig->Flush(false, GEditorPerProjectIni);
+		IFileManager::Get().Copy(*TargetFilename, *GEditorPerProjectIni);
 	}
 
 	/**
@@ -246,9 +255,9 @@ namespace EditorBuildPromotionTestUtils
 	*/
 	static void ImportEditorSettings(const FString& TargetFilename)
 	{
-		GConfig->Flush(true, GEditorUserSettingsIni);
-		IFileManager::Get().Copy(*GEditorUserSettingsIni, *TargetFilename);
-		GConfig->LoadFile(GEditorUserSettingsIni);
+		GConfig->Flush(true, GEditorPerProjectIni);
+		IFileManager::Get().Copy(*GEditorPerProjectIni, *TargetFilename);
+		GConfig->LoadFile(GEditorPerProjectIni);
 	}
 
 	/**
@@ -259,7 +268,7 @@ namespace EditorBuildPromotionTestUtils
 	static UMaterial* CreateMaterialFromTexture(UTexture* InTexture)
 	{
 		// Create the factory used to generate the asset
-		UMaterialFactoryNew* Factory = ConstructObject<UMaterialFactoryNew>(UMaterialFactoryNew::StaticClass());
+		UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
 		Factory->InitialTexture = InTexture;
 
 
@@ -344,10 +353,10 @@ namespace EditorBuildPromotionTestUtils
 	/**
 	* Sends a UI command to the active top level window after focusing on a widget of a given type
 	*
-	* @param InGesture - The gesture to send to the window
+	* @param InChord - The chord to send to the window
 	* @param WidgetTypeToFocus - The widget type to find and focus on
 	*/
-	static void SendCommandToCurrentEditor(const FInputGesture& InGesture, const FName& WidgetTypeToFocus)
+	static void SendCommandToCurrentEditor(const FInputChord& InChord, const FName& WidgetTypeToFocus)
 	{
 		//Focus the asset Editor / Graph 
 		TSharedRef<SWindow> EditorWindow = FSlateApplication::Get().GetActiveTopLevelWindow().ToSharedRef();
@@ -358,8 +367,8 @@ namespace EditorBuildPromotionTestUtils
 			FSlateApplication::Get().SetKeyboardFocus(FocusWidget.ToSharedRef(), EFocusCause::SetDirectly);
 
 			//Send the command
-			FModifierKeysState ModifierKeys(InGesture.NeedsShift(), false, InGesture.NeedsControl(), false, InGesture.NeedsAlt(), false, InGesture.NeedsCommand(), false, false);
-			FKeyEvent KeyEvent(InGesture.Key, ModifierKeys, 0/*UserIndex*/, false, 0, 0);
+			FModifierKeysState ModifierKeys(InChord.NeedsShift(), false, InChord.NeedsControl(), false, InChord.NeedsAlt(), false, InChord.NeedsCommand(), false, false);
+			FKeyEvent KeyEvent(InChord.Key, ModifierKeys, 0/*UserIndex*/, false, 0, 0);
 			FSlateApplication::Get().ProcessKeyDownEvent(KeyEvent);
 			FSlateApplication::Get().ProcessKeyUpEvent(KeyEvent);
 		}
@@ -370,25 +379,25 @@ namespace EditorBuildPromotionTestUtils
 	}
 
 	/**
-	* Gets the current input gesture or sets a new one if it doesn't exist
+	* Gets the current input chord or sets a new one if it doesn't exist
 	*
 	* @param Context - The context of the UI Command
 	* @param Command - The name of the UI command
 	*/
-	static FInputGesture GetOrSetUICommand(const FString& Context, const FString& Command)
+	static FInputChord GetOrSetUICommand(const FString& Context, const FString& Command)
 	{
-		FInputGesture CurrentGesture;
-		GetEditorKeybinding(Context, Command, CurrentGesture);
+		FInputChord CurrentChord;
+		GetEditorKeybinding(Context, Command, CurrentChord);
 
 		//If there is no current keybinding, set one
-		if (!CurrentGesture.Key.IsValid())
+		if (!CurrentChord.Key.IsValid())
 		{
-			FInputGesture NewGesture(EKeys::J, EModifierKey::Control);
-			SetEditorKeybinding(Context, Command, NewGesture);
-			CurrentGesture = NewGesture;
+			FInputChord NewChord(EKeys::J, EModifierKey::Control);
+			SetEditorKeybinding(Context, Command, NewChord);
+			CurrentChord = NewChord;
 		}
 
-		return CurrentGesture;
+		return CurrentChord;
 	}
 
 	/**
@@ -398,10 +407,10 @@ namespace EditorBuildPromotionTestUtils
 	{
 		const FString Context = TEXT("MaterialEditor");
 		const FString Command = TEXT("Apply");
-		FInputGesture CurrentApplyGesture = GetOrSetUICommand(Context, Command);
+		FInputChord CurrentApplyChord = GetOrSetUICommand(Context, Command);
 
 		const FName FocusWidgetType(TEXT("SGraphEditor"));
-		SendCommandToCurrentEditor(CurrentApplyGesture, FocusWidgetType);
+		SendCommandToCurrentEditor(CurrentApplyChord, FocusWidgetType);
 	}
 
 	/**
@@ -412,10 +421,10 @@ namespace EditorBuildPromotionTestUtils
 		const FString Context = TEXT("AssetEditor");
 		const FString Command = TEXT("SaveAsset");
 
-		FInputGesture CurrentSaveGesture = GetOrSetUICommand(Context, Command);
+		FInputChord CurrentSaveChord = GetOrSetUICommand(Context, Command);
 
 		const FName FocusWidgetType(TEXT("SCascadeEmitterCanvas"));
-		SendCommandToCurrentEditor(CurrentSaveGesture, FocusWidgetType);
+		SendCommandToCurrentEditor(CurrentSaveChord, FocusWidgetType);
 	}
 
 	/**
@@ -426,10 +435,10 @@ namespace EditorBuildPromotionTestUtils
 		const FString Context = TEXT("BlueprintEditor");
 		const FString Command = TEXT("ResetCamera");
 
-		FInputGesture CurrentSaveGesture = GetOrSetUICommand(Context, Command);
+		FInputChord CurrentSaveChord = GetOrSetUICommand(Context, Command);
 
 		const FName FocusWidgetType(TEXT("SSCSEditorViewport"));
-		SendCommandToCurrentEditor(CurrentSaveGesture, FocusWidgetType);
+		SendCommandToCurrentEditor(CurrentSaveChord, FocusWidgetType);
 	}
 
 	/**
@@ -600,8 +609,7 @@ namespace EditorBuildPromotionTestUtils
 
 			ensure(NULL != Cast<UBlueprintGeneratedClass>(InBlueprint->GeneratedClass));
 			// Then create a new template object, and add to array in
-			UActorComponent* NewTemplate = ConstructObject<UActorComponent>(ComponentClass, InBlueprint->GeneratedClass);
-			NewTemplate->SetFlags(RF_ArchetypeObject);
+			UActorComponent* NewTemplate = NewObject<UActorComponent>(InBlueprint->GeneratedClass, ComponentClass, NAME_None, RF_ArchetypeObject|RF_Public);
 			InBlueprint->ComponentTemplates.Add(NewTemplate);
 
 			// Set the name of the template as the default for the TemplateName param
@@ -706,12 +714,11 @@ namespace EditorBuildPromotionTestUtils
 
 		// Make an add component node
 		UK2Node_Event* NewEventNode = NewObject<UK2Node_Event>(TempOuter);
-		NewEventNode->EventSignatureName = "ReceiveBeginPlay";
-		NewEventNode->EventSignatureClass = AActor::StaticClass();
+		NewEventNode->EventReference.SetExternalMember(FName(TEXT("ReceiveBeginPlay")), AActor::StaticClass());
 		NewEventNode->bOverrideFunction = true;
 
 		//Check for existing events
-		UK2Node_Event* ExistingEvent = FBlueprintEditorUtils::FindOverrideForFunction(InBlueprint, NewEventNode->EventSignatureClass, NewEventNode->EventSignatureName);
+		UK2Node_Event* ExistingEvent = FBlueprintEditorUtils::FindOverrideForFunction(InBlueprint, NewEventNode->EventReference.GetMemberParentClass(NewEventNode->GetBlueprintClassFromNode()), NewEventNode->EventReference.GetMemberName());
 
 		if (!ExistingEvent)
 		{
@@ -912,17 +919,20 @@ namespace EditorBuildPromotionTestUtils
 			return;
 		}
 
+		UWorld* CurrentWorld = GEditor->GetEditorWorldContext().World();
+		GUnrealEd->Exec(CurrentWorld, TEXT("MAP REBUILD"));
+
 		FLightingBuildOptions LightingBuildOptions;
 
 		// Retrieve settings from ini.
-		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"), LightingBuildOptions.bOnlyBuildSelected, GEditorUserSettingsIni);
-		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"), LightingBuildOptions.bOnlyBuildCurrentLevel, GEditorUserSettingsIni);
-		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"), LightingBuildOptions.bOnlyBuildSelectedLevels, GEditorUserSettingsIni);
-		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"), LightingBuildOptions.bOnlyBuildVisibility, GEditorUserSettingsIni);
-		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), LightingBuildOptions.bUseErrorColoring, GEditorUserSettingsIni);
-		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), LightingBuildOptions.bShowLightingBuildInfo, GEditorUserSettingsIni);
+		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelected"), LightingBuildOptions.bOnlyBuildSelected, GEditorPerProjectIni);
+		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildCurrentLevel"), LightingBuildOptions.bOnlyBuildCurrentLevel, GEditorPerProjectIni);
+		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildSelectedLevels"), LightingBuildOptions.bOnlyBuildSelectedLevels, GEditorPerProjectIni);
+		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("OnlyBuildVisibility"), LightingBuildOptions.bOnlyBuildVisibility, GEditorPerProjectIni);
+		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("UseErrorColoring"), LightingBuildOptions.bUseErrorColoring, GEditorPerProjectIni);
+		GConfig->GetBool(TEXT("LightingBuildOptions"), TEXT("ShowLightingBuildInfo"), LightingBuildOptions.bShowLightingBuildInfo, GEditorPerProjectIni);
 		int32 QualityLevel;
-		GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorUserSettingsIni);
+		GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorPerProjectIni);
 		QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
 		LightingBuildOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
 
@@ -1548,7 +1558,7 @@ namespace BuildPromotionTestHelper
 			}
 
 			//Apply if this is a material.  (Editor won't close unless we do)
-			if (CurrentAsset->IsA(UMaterialInterface::StaticClass()))
+			if (CurrentAsset && CurrentAsset->IsA(UMaterialInterface::StaticClass()))
 			{
 				EditorBuildPromotionTestUtils::SendUpdateMaterialCommand();
 			}
@@ -2312,7 +2322,7 @@ namespace BuildPromotionTestHelper
 		bool Lighting_BuildLighting_Part1()
 		{
 			//Set production quality
-			GConfig->SetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), (int32)ELightingBuildQuality::Quality_Production, GEditorUserSettingsIni);
+			GConfig->SetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), (int32)ELightingBuildQuality::Quality_Production, GEditorPerProjectIni);
 			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Set the lighting quality to Production"));
 
 			//Force AutoApplyLighting on
@@ -2350,7 +2360,7 @@ namespace BuildPromotionTestHelper
 	const FString FilePath = AutomationTestSettings->BuildPromotionTest.ImportWorkflow.ImportSetting.ImportFilePath.FilePath; \
 	if (FilePath.Len() > 0) \
 	{ \
-		TFactoryClass* FactoryInst = ConstructObject<TFactoryClass>(TFactoryClass::StaticClass()); \
+		TFactoryClass* FactoryInst = NewObject<TFactoryClass>(); \
 		ExtraSettings \
 		AutomationEditorCommonUtils::ApplyCustomFactorySettings(FactoryInst, AutomationTestSettings->BuildPromotionTest.ImportWorkflow.ImportSetting.FactorySettings); \
 		ClassVariable = Cast<TObjectClass>(EditorBuildPromotionTestUtils::ImportAsset(FactoryInst, FilePath)); \
@@ -2416,7 +2426,7 @@ namespace BuildPromotionTestHelper
 			{
 				const FString BaseFileName = FPaths::GetPath(SurroundFilePath) / FPaths::GetBaseFilename(SurroundFilePath).LeftChop(3);
 
-				USoundSurroundFactory* FactoryInst = ConstructObject<USoundSurroundFactory>(USoundSurroundFactory::StaticClass());
+				USoundSurroundFactory* FactoryInst = NewObject<USoundSurroundFactory>();
 				AutomationEditorCommonUtils::ApplyCustomFactorySettings(FactoryInst, AutomationTestSettings->BuildPromotionTest.ImportWorkflow.SurroundSound.FactorySettings); 
 
 				const FString SurroundChannels[] = { TEXT("_fl"), TEXT("_fr"), TEXT("_fc"), TEXT("_lf"), TEXT("_sl"), TEXT("_sr"), TEXT("_bl"), TEXT("_br") };
@@ -2464,7 +2474,7 @@ namespace BuildPromotionTestHelper
 					if (FactoryClass)
 					{
 						//Create the factory and import the asset
-						UFactory* FactoryInst = ConstructObject<UFactory>(FactoryClass);
+						UFactory* FactoryInst = NewObject<UFactory>(GetTransientPackage(), FactoryClass);
 						AutomationEditorCommonUtils::ApplyCustomFactorySettings(FactoryInst, AssetsToImport[i].FactorySettings);
 						UObject* NewObject = EditorBuildPromotionTestUtils::ImportAsset(FactoryInst, FilePath);
 						if (NewObject)
@@ -2726,7 +2736,15 @@ namespace BuildPromotionTestHelper
 			{
 				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
-				OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("BlueprintDescription"), TEXT("Modified by BuildPromotionTest TM")));
+				if (Asset)
+				{
+					OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("BlueprintDescription"), TEXT("Modified by BuildPromotionTest TM")));
+				}
+				else
+				{
+					SkippedTests.Add(TEXT("ContentBrowser: Open Blueprint. (Asset not found)"));
+					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping Asset: BlueprintAsset not found"));
+				}
 			}
 			else
 			{
@@ -2740,7 +2758,15 @@ namespace BuildPromotionTestHelper
 			{
 				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
-				OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("TwoSided"), TEXT("true")));
+				if (Asset)
+				{
+					OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("TwoSided"), TEXT("true")));
+				}
+				else
+				{
+					SkippedTests.Add(TEXT("ContentBrowser: Open Material. (Asset not found)"));
+					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping Asset: MaterialAsset not found"));
+				}
 			}
 			else
 			{
@@ -2754,7 +2780,15 @@ namespace BuildPromotionTestHelper
 			{
 				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
-				OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("UpdateTime_FPS"), TEXT("100")));
+				if (Asset)
+				{
+					OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("UpdateTime_FPS"), TEXT("100")));
+				}
+				else
+				{
+					SkippedTests.Add(TEXT("ContentBrowser: Open ParticleSystem. (Asset not found)"));
+					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping Asset: ParticleSystemAsset not found"));
+				}
 			}
 			else
 			{
@@ -2768,7 +2802,15 @@ namespace BuildPromotionTestHelper
 			{
 				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
-				OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("bUseFullPrecisionUVs"), TEXT("1")));
+				if (Asset)
+				{
+					OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("bUseFullPrecisionUVs"), TEXT("1")));
+				}
+				else
+				{
+					SkippedTests.Add(TEXT("ContentBrowser: Open SkeletalMesh. (Asset not found)"));
+					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping Asset: SkeletalMeshAsset not found"));
+				}
 			}
 			else
 			{
@@ -2782,7 +2824,15 @@ namespace BuildPromotionTestHelper
 			{
 				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
-				OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("AutoLODPixelError"), TEXT("42.f")));
+				if (Asset)
+				{
+					OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("AutoLODPixelError"), TEXT("42.f")));
+				}
+				else
+				{
+					SkippedTests.Add(TEXT("ContentBrowser: Open StaticMesh. (Asset not found)"));
+					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping Asset: StaticMeshAsset not found"));
+				}
 			}
 			else
 			{
@@ -2796,7 +2846,15 @@ namespace BuildPromotionTestHelper
 			{
 				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
-				OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("LODBias"), TEXT("2")));
+				if (Asset)
+				{
+					OpenInfo.Add(FOpenAssetInfo(Asset, AssetData, TEXT("LODBias"), TEXT("2")));
+				}
+				else
+				{
+					SkippedTests.Add(TEXT("ContentBrowser: Open Texture. (Asset not found)"));
+					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping Asset: TextureAsset not found"));
+				}
 			}
 			else
 			{
@@ -2940,7 +2998,7 @@ namespace BuildPromotionTestHelper
 		bool ContentBrowser_CreateAParticleSystem_Part1()
 		{
 			//Create a Particle system
-			UParticleSystemFactoryNew* PSFactory = ConstructObject<UParticleSystemFactoryNew>(UParticleSystemFactoryNew::StaticClass());
+			UParticleSystemFactoryNew* PSFactory = NewObject<UParticleSystemFactoryNew>();
 			const FString& PSName(TEXT("BP_ParticleSystem"));
 			CreatedPS = Cast<UParticleSystem>(EditorBuildPromotionTestUtils::CreateAsset(PSFactory, UParticleSystem::StaticClass(), PSName));
 			if (CreatedPS)
@@ -3045,7 +3103,7 @@ namespace BuildPromotionTestHelper
 
 			if (FirstBlueprintMesh && SecondBlueprintMesh && CreatedPS)
 			{
-				UBlueprintFactory* Factory = ConstructObject<UBlueprintFactory>(UBlueprintFactory::StaticClass());
+				UBlueprintFactory* Factory = NewObject<UBlueprintFactory>();
 				Factory->ParentClass = AActor::StaticClass();
 
 				const FString PackageName = EditorBuildPromotionTestUtils::GetGamePath() + TEXT("/") + EditorBuildPromotionTestUtils::BlueprintNameString;
@@ -4237,7 +4295,7 @@ namespace BuildPromotionTestHelper
 /**
 * Automation test that handles cleanup of the build promotion test
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionInitialCleanupTest, "Promotion.Editor Promotion Pass.Step 1 Main Editor Test.Cleanup old files", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionInitialCleanupTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.Cleanup old files", EAutomationTestFlags::ATF_Editor);
 bool FBuildPromotionInitialCleanupTest::RunTest(const FString& Parameters)
 {
 	EditorBuildPromotionTestUtils::PerformCleanup();
@@ -4283,7 +4341,7 @@ bool FLogTestResultCommand::Update()
 /**
 * Automation test that handles setting keybindings and editor preferences
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionSettingsTest, "Promotion.Editor Promotion Pass.Step 1 Main Editor Test.Settings", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionSettingsTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.Settings", EAutomationTestFlags::ATF_Editor);
 
 bool FBuildPromotionSettingsTest::RunTest(const FString& Parameters)
 {
@@ -4303,18 +4361,18 @@ bool FBuildPromotionSettingsTest::RunTest(const FString& Parameters)
 	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Binding create empty layer shortcut"));
 
 	//Bind H to CreateEmptyLayer keybinding
-	FInputGesture NewCreateGesture(EKeys::H, EModifierKey::None);
-	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("LayersView"), TEXT("CreateEmptyLayer"), NewCreateGesture);
+	FInputChord NewCreateChord(EKeys::H, EModifierKey::None);
+	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("LayersView"), TEXT("CreateEmptyLayer"), NewCreateChord);
 
 	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Binding request rename layer shortcut"));
 
 	//Bind J to RequestRenameLayer
-	FInputGesture NewRenameGesture(EKeys::J, EModifierKey::None);
-	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("LayersView"), TEXT("RequestRenameLayer"), NewRenameGesture);
+	FInputChord NewRenameChord(EKeys::J, EModifierKey::None);
+	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("LayersView"), TEXT("RequestRenameLayer"), NewRenameChord);
 
 	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Binding play shortcut (PIE)"));
-	FInputGesture NewPIEGesture(EKeys::L, EModifierKey::Control);
-	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("PlayWorld"), TEXT("RepeatLastPlay"), NewPIEGesture);
+	FInputChord NewPIEChord(EKeys::L, EModifierKey::Control);
+	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("PlayWorld"), TEXT("RepeatLastPlay"), NewPIEChord);
 
 	//Export the keybindings
 	const FString TargetKeybindFile = FString::Printf(TEXT("%s/BuildPromotion/Keybindings-%d.ini"), *FPaths::AutomationDir(), GEngineVersion.GetChangelist());
@@ -4340,9 +4398,9 @@ bool FBuildPromotionSettingsTest::RunTest(const FString& Parameters)
 	//Change the setting back
 	EditorBuildPromotionTestUtils::SetPropertyByName(EditorStyleSettings, TEXT("bUseSmallToolBarIcons"), OldStyleSetting);
 
-	FInputGesture CurrentCreateGesture;
-	EditorBuildPromotionTestUtils::GetEditorKeybinding(TEXT("LayersView"), TEXT("CreateEmptyLayer"), CurrentCreateGesture);
-	if (CurrentCreateGesture.Key == NewCreateGesture.Key)
+	FInputChord CurrentCreateChord;
+	EditorBuildPromotionTestUtils::GetEditorKeybinding(TEXT("LayersView"), TEXT("CreateEmptyLayer"), CurrentCreateChord);
+	if (CurrentCreateChord.Key == NewCreateChord.Key)
 	{
 		UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("CreateEmptyLayer keybinding correct."));
 	}
@@ -4351,9 +4409,9 @@ bool FBuildPromotionSettingsTest::RunTest(const FString& Parameters)
 		UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("CreateEmptyLayer keybinding incorrect."));
 	}
 
-	FInputGesture CurrentRenameGesture;
-	EditorBuildPromotionTestUtils::GetEditorKeybinding(TEXT("LayersView"), TEXT("RequestRenameLayer"), CurrentRenameGesture);
-	if (CurrentRenameGesture.Key == NewRenameGesture.Key)
+	FInputChord CurrentRenameChord;
+	EditorBuildPromotionTestUtils::GetEditorKeybinding(TEXT("LayersView"), TEXT("RequestRenameLayer"), CurrentRenameChord);
+	if (CurrentRenameChord.Key == NewRenameChord.Key)
 	{
 		UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("RequestRenameLayer keybinding correct."));
 	}
@@ -4392,7 +4450,7 @@ bool FRunBuildPromotionTestCommand::Update()
 /**
 * Automation test that handles the build promotion process
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionTest, "Promotion.Editor Promotion Pass.Step 1 Main Editor Test.General Editor Test", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.General Editor Test", EAutomationTestFlags::ATF_Editor);
 
 bool FBuildPromotionTest::RunTest(const FString& Parameters)
 {
@@ -4432,7 +4490,7 @@ bool FPIEExecCommand::Update()
 /**
 * Execute the loading of one map to verify PIE works
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionPIETest, "Promotion.Editor Promotion Pass.Step 2 Run Map After Re-launch.Run Map", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionPIETest, "System.Promotion.Editor Promotion Pass.Step 2 Run Map After Re-launch.Run Map", EAutomationTestFlags::ATF_Editor)
 bool FBuildPromotionPIETest::RunTest(const FString& Parameters)
 {
 	UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();
@@ -4479,7 +4537,7 @@ bool FBuildPromotionPIETest::RunTest(const FString& Parameters)
 /**
 * Automation test that handles cleanup of the build promotion test
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionCleanupTest, "Promotion.Editor Promotion Pass.Step 3 Test Cleanup.Cleanup", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionCleanupTest, "System.Promotion.Editor Promotion Pass.Step 3 Test Cleanup.Cleanup", EAutomationTestFlags::ATF_Editor);
 bool FBuildPromotionCleanupTest::RunTest(const FString& Parameters)
 {
 	EditorBuildPromotionTestUtils::PerformCleanup();

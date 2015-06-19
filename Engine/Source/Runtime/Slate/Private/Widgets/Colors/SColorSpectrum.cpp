@@ -22,7 +22,7 @@ void SColorSpectrum::Construct( const FArguments& InArgs )
 /* SWidget overrides
  *****************************************************************************/
 
-FVector2D SColorSpectrum::ComputeDesiredSize( ) const
+FVector2D SColorSpectrum::ComputeDesiredSize( float ) const
 {
 	return Image->ImageSize;
 }

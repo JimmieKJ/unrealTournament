@@ -160,20 +160,6 @@ namespace
 
 		return OutputValue;
 	}
-
-	template <typename T>
-	inline T WriteToArray(const T* ElementArray, int32& ReadIndex, int32 NumElements, int32 IndexStride = 1)
-	{
-		T OutputValue = 0;
-
-		if (ReadIndex >= 0 && ReadIndex < NumElements)
-		{
-			OutputValue = ElementArray[ReadIndex];
-			ReadIndex += IndexStride;
-		}
-
-		return OutputValue;
-	}
 } // end namespace
 
 namespace LPCM

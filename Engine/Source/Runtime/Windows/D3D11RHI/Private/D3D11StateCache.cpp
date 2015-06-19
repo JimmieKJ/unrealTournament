@@ -286,7 +286,7 @@ void FD3D11StateCacheBase::ClearState()
 
 #if D3D11_ALLOW_STATE_CACHE
 	// Shader Resource View State Cache
-	for (uint32 ShaderFrequency = 0; ShaderFrequency < SF_MAX; ShaderFrequency++ )
+	for (uint32 ShaderFrequency = 0; ShaderFrequency < SF_NumFrequencies; ShaderFrequency++)
 	{
 		for (uint32 Index = 0; Index < D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT; Index++)
 		{

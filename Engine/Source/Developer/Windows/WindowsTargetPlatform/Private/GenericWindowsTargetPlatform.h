@@ -29,7 +29,7 @@ public:
 		
 		#if WITH_ENGINE
 			FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *PlatformName());
-			TextureLODSettings.Initialize(EngineSettings, TEXT("SystemSettings"));
+			TextureLODSettings = nullptr; // These are registered by the device profile system.
 			StaticMeshLODSettings.Initialize(EngineSettings);
 
 			// Get the Target RHIs for this platform, we do not always want all those that are supported.
@@ -44,7 +44,7 @@ public:
 				FString ShaderFormat = TargetedShaderFormats[ShaderFormatIdx];
 				if(PossibleShaderFormats.Contains(FName(*ShaderFormat)) == false)
 				{
-					TargetedShaderFormats.Remove(ShaderFormat);
+					TargetedShaderFormats.RemoveAt(ShaderFormatIdx);
 				}
 			}
 
@@ -109,6 +109,12 @@ public:
 		return TSuper::SupportsFeature(Feature);
 	}
 
+	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const override
+	{
+		OutSection = TEXT("/Script/WindowsTargetPlatform.WindowsTargetSettings");
+		InStringKeys.Add(TEXT("MinimumOSVersion"));
+	}
+
 #if WITH_ENGINE
 	virtual void GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const override
 	{
@@ -142,32 +148,21 @@ public:
 
 	virtual void GetTextureFormats( const UTexture* InTexture, TArray<FName>& OutFormats ) const override
 	{
-		static FName NameBC6H(TEXT("BC6H"));
-		static FName NameBC7(TEXT("BC7"));
-		static FName NameRGBA16F(TEXT("RGBA16F"));
-		static FName NameAutoDXT(TEXT("AutoDXT"));
-
 		if (!IS_DEDICATED_SERVER)
 		{
-			FName TextureFormatName = GetDefaultTextureFormatName(InTexture, EngineSettings);
-			if (!bSupportDX11TextureFormats)
-			{
-				if (TextureFormatName == NameBC6H)
-				{
-					TextureFormatName = NameRGBA16F;
-				}
-				else if (TextureFormatName == NameBC7)
-				{
-					TextureFormatName = NameAutoDXT;
-				}
-			}
+			FName TextureFormatName = GetDefaultTextureFormatName(InTexture, EngineSettings, bSupportDX11TextureFormats);
 			OutFormats.Add(TextureFormatName);
 		}
 	}
 
-	virtual const struct FTextureLODSettings& GetTextureLODSettings( ) const override
+	virtual const UTextureLODSettings& GetTextureLODSettings() const override
 	{
-		return TextureLODSettings;
+		return *TextureLODSettings;
+	}
+
+	virtual void RegisterTextureLODSettings(const UTextureLODSettings* InTextureLODSettings) override
+	{
+		TextureLODSettings = InTextureLODSettings;
 	}
 
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override
@@ -260,7 +255,7 @@ private:
 	FConfigFile EngineSettings;
 
 	// Holds the texture LOD settings.
-	FTextureLODSettings TextureLODSettings;
+	const UTextureLODSettings* TextureLODSettings;
 
 	// Holds static mesh LOD settings.
 	FStaticMeshLODSettings StaticMeshLODSettings;

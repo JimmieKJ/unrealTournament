@@ -15,8 +15,17 @@ private:
 	
 	/** Whether the stats malloc profiler is enabled, disabled by default */
 	bool bEnabled;
+	
+	/** True if the stats malloc profiler was enabled, we can't enable malloc profiler second time. */
+	bool bWasEnabled;
 
+	/** Memory sequence tag, used by the processing tool to indicate the order of allocations. */
+	FThreadSafeCounter MemorySequenceTag;
+
+	/** Malloc calls made this frame. */
 	FThreadSafeCounter AllocPtrCalls;
+
+	/** Free calls made this frame. */
 	FThreadSafeCounter FreePtrCalls;
 
 public:
@@ -29,7 +38,12 @@ public:
 
 	static CORE_API FStatsMallocProfilerProxy* Get();
 
-	void SetState( bool bEnable );
+	/**
+	 * @return true, if the command line has the memory profiler token
+	 */
+	static CORE_API bool HasMemoryProfilerToken();
+
+	void SetState( bool bNewState );
 
 	bool GetState() const
 	{
@@ -41,17 +55,19 @@ public:
 	/**
 	 * Tracks malloc operation.
 	 *
-	 * @param	Ptr	- Allocated pointer 
-	 * @param	Size- Size of allocated pointer
+	 * @param	Ptr			- Allocated pointer 
+	 * @param	Size		- Size of allocated pointer
+	 * @param	SequenceTag - Previous value for the memory sequence tag
 	 */
-	void TrackAlloc( void* Ptr, int64 Size );
+	void TrackAlloc( void* Ptr, int64 Size, int32 SequenceTag );
 
 	/**
 	 * Tracks free operation
 	 *
 	 * @param	Ptr	- Freed pointer
+	 * @param	SequenceTag - Previous value for the memory sequence tag
 	 */
-	void TrackFree( void* Ptr );
+	void TrackFree( void* Ptr, int32 SequenceTag );
 
 	virtual void* Malloc( SIZE_T Size, uint32 Alignment ) override;
 	virtual void* Realloc( void* OldPtr, SIZE_T NewSize, uint32 Alignment ) override;

@@ -640,14 +640,7 @@ bool FOnlineSessionSteam::IsPlayerInSession(FName SessionName, const FUniqueNetI
 	return IsPlayerInSessionImpl(this, SessionName, UniqueId);
 }
 
-bool FOnlineSessionSteam::StartMatchmaking(int32 SearchingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
-{
-	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
-	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
-	return false;
-}
-
-bool FOnlineSessionSteam::StartMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
+bool FOnlineSessionSteam::StartMatchmaking(const TArray< TSharedRef<FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
 	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
@@ -709,6 +702,13 @@ bool FOnlineSessionSteam::FindSessions(const FUniqueNetId& SearchingPlayerId, co
 {
 	// @todo: use proper SearchingPlayerId
 	return FindSessions(0, SearchSettings);
+}
+
+bool FOnlineSessionSteam::FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegates)
+{
+	FOnlineSessionSearchResult EmptyResult;
+	CompletionDelegates.ExecuteIfBound(0, false, EmptyResult);
+	return true;
 }
 
 uint32 FOnlineSessionSteam::FindInternetSession(const TSharedRef<FOnlineSessionSearch>& SearchSettings)
@@ -1420,30 +1420,27 @@ void FOnlineSessionSteam::TickPendingInvites(float DeltaTime)
 {
 	if (PendingInvite.PendingInviteType != ESteamSession::None)
 	{
-		for (int32 UserIndex = 0; UserIndex < MAX_LOCAL_PLAYERS; UserIndex++)
+		if (OnSessionUserInviteAcceptedDelegates.IsBound())
 		{
-			if (OnSessionInviteAcceptedDelegates[UserIndex].IsBound())
+			FOnlineAsyncItem* NewEvent = NULL;
+			FUniqueNetIdSteam FriendId(0);
+			if (PendingInvite.PendingInviteType == ESteamSession::LobbySession)
 			{
-				FOnlineAsyncItem* NewEvent = NULL;
-				FUniqueNetIdSteam FriendId(0);
-				if (PendingInvite.PendingInviteType == ESteamSession::LobbySession)
-				{
-					NewEvent = new FOnlineAsyncEventSteamLobbyInviteAccepted(SteamSubsystem, FriendId, PendingInvite.LobbyId);
-				}
-				else
-				{
-					NewEvent = new FOnlineAsyncEventSteamInviteAccepted(SteamSubsystem, FriendId, PendingInvite.ServerIp);
-				}
-
-				if (NewEvent)
-				{
-					UE_LOG_ONLINE(Verbose, TEXT("%s"), *NewEvent->ToString());
-					SteamSubsystem->QueueAsyncOutgoingItem(NewEvent);
-				}
-
-				// Clear the invite
-				PendingInvite.PendingInviteType = ESteamSession::None;
+				NewEvent = new FOnlineAsyncEventSteamLobbyInviteAccepted(SteamSubsystem, FriendId, PendingInvite.LobbyId);
 			}
+			else
+			{
+				NewEvent = new FOnlineAsyncEventSteamInviteAccepted(SteamSubsystem, FriendId, PendingInvite.ServerIp);
+			}
+
+			if (NewEvent)
+			{
+				UE_LOG_ONLINE(Verbose, TEXT("%s"), *NewEvent->ToString());
+				SteamSubsystem->QueueAsyncOutgoingItem(NewEvent);
+			}
+
+			// Clear the invite
+			PendingInvite.PendingInviteType = ESteamSession::None;
 		}
 	}
 }

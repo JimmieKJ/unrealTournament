@@ -1,21 +1,19 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ProfilerClientManager.h: Declares the FProfilerClientManager class.
-=============================================================================*/
-
 #pragma once
 
+// #YRX_Profiler: 2015-05-13 Remove it later.
 #define PROFILER_THREADED_LOAD 1
+
 
 /** Helper struct containing all of the data and operations associated with a service connection */
 struct FServiceConnection
 {
 	FServiceConnection()
 		: DataLoadingProgress( 0.0f )
+		, ReadMessages(0)
 	{
 		MetaData.CriticalSection = &CriticalSection;
-		CurrentFrame = 0;
 	}
 
 	~FServiceConnection()
@@ -26,14 +24,13 @@ struct FServiceConnection
 	FServiceConnection(const FServiceConnection& InConnnection)
 	{
 		MetaData.CriticalSection = &CriticalSection;
-		CurrentFrame = 0;
 	}
 
 	/** Instance Id */
 	FGuid InstanceId;
 
 	/** Service endpoint */
-	FMessageAddress ServiceAddress;
+	FMessageAddress ProfilerServiceAddress;
 
 	/** Descriptions for the stats */
 	FStatMetaData MetaData;
@@ -42,7 +39,7 @@ struct FServiceConnection
 	FProfilerDataFrame CurrentData;
 
 	/** Initialize the connection from the given authorization message and context */
-	void Initialize( const FProfilerServiceAuthorize2& Message, const IMessageContextRef& Context );
+	void Initialize( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context );
 
 #if STATS
 	/** Current stats data */
@@ -69,8 +66,8 @@ struct FServiceConnection
 	/** Current data loading progress. */
 	float DataLoadingProgress;
 
-	/** Current frame of data to process */
-	int64 CurrentFrame;
+	/** Current number of read messages. */
+	uint64 ReadMessages;
 
 	/** Messages received and pending process, they are stored in a map as we can receive them out of order */
 	TMap<int64, TArray<uint8> > PendingMessages;
@@ -133,9 +130,9 @@ class FProfilerClientManager
 
 		void DoWork();
 
-		static const TCHAR* Name()
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FAsyncReadWorker");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncReadWorker, STATGROUP_ThreadPoolAsyncTasks);
 		}
 	};
 
@@ -144,36 +141,25 @@ public:
 	/**
 	 * Default constructor
 	 *
-	 * @param InMessageBus - The message bus to use.
+	 * @param InMessageBus The message bus to use.
 	 */
 	FProfilerClientManager( const IMessageBusRef& InMessageBus );
 
-	/**
-	 * Default destructor
-	 */
+	/** Default destructor */
 	~FProfilerClientManager();
 
 public:
 
-	// Begin IProfileClient Interface
+	// IProfilerClient Interface
+
 	virtual void Subscribe( const FGuid& Session ) override;
-
 	virtual void Track( const FGuid& Instance ) override;
-
-	virtual void Track( const TArray<ISessionInstanceInfoPtr>& Instances ) override;
-
+	virtual void Track( const TArray<TSharedPtr<ISessionInstanceInfo>>& Instances ) override;
 	virtual void Untrack( const FGuid& Instance ) override;
-
 	virtual void Unsubscribe() override;
-
 	virtual void SetCaptureState( const bool bRequestedCaptureState, const FGuid& InstanceId = FGuid() ) override;
-
 	virtual void SetPreviewState( const bool bRequestedPreviewState, const FGuid& InstanceId = FGuid() ) override;
-
 	virtual void LoadCapture( const FString& DataFilepath, const FGuid& ProfileId ) override;
-
-	virtual void RequestMetaData() override;
-
 	virtual void RequestLastCapturedFile( const FGuid& InstanceId = FGuid() ) override;
 
 	virtual const FStatMetaData& GetStatMetaData( const FGuid& InstanceId ) const override
@@ -221,23 +207,16 @@ public:
 	{
 		return ProfilerLoadedMetaDataDelegate;
 	}
-	// End IAutomationControllerModule Interface
 
-	static const int32 MaxFramesPerTick = 60;
+	static const int32 MaxFramesPerTick = 30;
 
 private:
 
 	// Handles message bus shutdowns.
 	void HandleMessageBusShutdown();
 
-	// Handles FProfilerServiceAuthorize messages.
-	void HandleServiceAuthorizeMessage( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context );
-
 	// Handles FProfilerServiceAuthorize2 messages.
-	void HandleServiceAuthorize2Message( const FProfilerServiceAuthorize2& Message, const IMessageContextRef& Context );
-
-	// Handles FProfilerServiceMetaData messages.
-	void HandleServiceMetaDataMessage( const FProfilerServiceMetaData& Message, const IMessageContextRef& Context );
+	void HandleServiceAuthorizeMessage( const FProfilerServiceAuthorize& Message, const IMessageContextRef& Context );
 
 	// Handles FProfilerServiceFileChunk messages.
 	void HandleServiceFileChunk( const FProfilerServiceFileChunk& FileChunk, const IMessageContextRef& Context );
@@ -249,7 +228,7 @@ private:
 	bool HandleTicker( float DeltaTime );
 
 	// Handles FProfilerServiceData2 messages.
-	void HandleServiceData2Message( const FProfilerServiceData2& Message, const IMessageContextRef& Context );
+	void HandleProfilerServiceData2Message( const FProfilerServiceData2& Message, const IMessageContextRef& Context );
 
 	// Handles FProfilerServicePreviewAck messages
 	void HandleServicePreviewAckMessage( const FProfilerServicePreviewAck& Messsage, const IMessageContextRef& Context );
@@ -265,6 +244,12 @@ private:
 
 	/** Broadcast that loading has completed and cleans internal structures. */
 	void FinalizeLoading();
+
+	/** Decompress all stats data and send to the game thread. */
+	void DecompressDataAndSendToGame( FProfilerServiceData2* ToProcess );
+
+	/** Sends decompressed data to the game thread. */
+	void SendToGame( TArray<uint8>* DataToGame, int64 Frame, const FGuid InstanceId );
 
 private:
 
@@ -357,6 +342,9 @@ private:
 
 	/** Handle to the registered MessageDelegate. */
 	FDelegateHandle MessageDelegateHandle;
+
+	/** Handle to the registered OnShutdown for Message Bus. */
+	FDelegateHandle OnShutdownMessageBusDelegateHandle;
 
 #if PROFILER_THREADED_LOAD
 	/** Loads a file asynchronously */

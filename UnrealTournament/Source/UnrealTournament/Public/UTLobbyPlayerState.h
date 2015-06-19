@@ -57,7 +57,7 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 	 *  should cache this off and use it to return later.
 	 **/
 	UFUNCTION(Client, Reliable)
-	virtual void ClientConnectToInstance(const FString& GameInstanceGUIDString, const FString& LobbyGUIDString, bool bAsSpectator);
+	virtual void ClientConnectToInstance(const FString& GameInstanceGUIDString, bool bAsSpectator);
 
 	// Allows for UI/etc to pickup changes to the current match.
 	FCurrentMatchChangedDelegate CurrentMatchChangedDelegate;
@@ -106,6 +106,10 @@ protected:
 	UFUNCTION(Client, Reliable)
 	virtual void Client_ReceiveBlock(int32 Block, FAllowedData Data);
 
+public:
+	// We don't need TeamInfo's for the lobby, just store a desired team num for now.  255 will be spectator.
+	UPROPERTY(Replicated)
+	uint8 DesiredTeamNum;
 };
 
 

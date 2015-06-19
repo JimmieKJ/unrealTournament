@@ -114,6 +114,31 @@ typedef TMap< FName, FDetailLayoutCallback > FCustomDetailLayoutNameMap;
 typedef TMap< FName, FPropertyTypeLayoutCallbackList > FCustomPropertyTypeLayoutMap;
 
 
+/** Struct used to control the visibility of properties in a Structure Detail View */
+struct FStructureDetailsViewArgs
+{
+	FStructureDetailsViewArgs()
+		: bShowObjects(false)
+		, bShowAssets(true)
+		, bShowClasses(true)
+		, bShowInterfaces(false)
+	{
+	}
+
+	/** True if we should show general object properties in the details view */
+	bool bShowObjects : 1;
+
+	/** True if we should show asset properties in the details view */
+	bool bShowAssets : 1;
+
+	/** True if we should show class properties in the details view */
+	bool bShowClasses : 1;
+
+	/** True if we should show interface properties in the details view */
+	bool bShowInterfaces : 1;
+};
+
+
 class FPropertyEditorModule : public IModuleInterface
 {
 	friend class SPropertyTreeView;
@@ -232,7 +257,7 @@ public:
 	 */
 	virtual TSharedPtr<class ISinglePropertyView> CreateSingleProperty( UObject* InObject, FName InPropertyName, const struct FSinglePropertyParams& InitParams );
 
-	virtual TSharedRef<class IStructureDetailsView> CreateStructureDetailView(const struct FDetailsViewArgs& DetailsViewArgs, TSharedPtr<class FStructOnScope> StructData, bool bShowObjects, const FText& CustomName = FText::GetEmpty());
+	virtual TSharedRef<class IStructureDetailsView> CreateStructureDetailView(const struct FDetailsViewArgs& DetailsViewArgs, const FStructureDetailsViewArgs& StructureDetailsViewArgs, TSharedPtr<class FStructOnScope> StructData, const FText& CustomName = FText::GetEmpty());
 
 	/**
 	 * Creates a property change listener that notifies users via a  delegate when a property on an object changes

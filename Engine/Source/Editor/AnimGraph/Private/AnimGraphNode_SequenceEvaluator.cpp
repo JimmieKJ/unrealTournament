@@ -51,7 +51,7 @@ FText UAnimGraphNode_SequenceEvaluator::GetNodeTitle(ENodeTitleType::Type TitleT
 	// @TODO: don't know enough about this node type to comfortably assert that
 	//        the CacheName won't change after the node has spawned... until
 	//        then, we'll leave this optimization off
-	else //if (CachedNodeTitle.IsOutOfDate())
+	else //if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		const FText SequenceName = FText::FromString(Node.Sequence->GetName());
 
@@ -61,20 +61,15 @@ FText UAnimGraphNode_SequenceEvaluator::GetNodeTitle(ENodeTitleType::Type TitleT
 		// FText::Format() is slow, so we cache this to save on performance
 		if (Node.Sequence->IsValidAdditive())
 		{
-			CachedNodeTitle = FText::Format(LOCTEXT("EvaluateSequence_Additive", "Evaluate {SequenceName} (additive)"), Args);
+			CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("EvaluateSequence_Additive", "Evaluate {SequenceName} (additive)"), Args), this);
 		}
 		else
 		{
-			CachedNodeTitle = FText::Format(LOCTEXT("EvaluateSequence", "Evaluate {SequenceName}"), Args);
+			CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("EvaluateSequence", "Evaluate {SequenceName}"), Args), this);
 		}
 	}
 
 	return CachedNodeTitle;
-}
-
-void UAnimGraphNode_SequenceEvaluator::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	// Intentionally empty; you can drop down a regular sequence player and convert into a sequence evaluator in the right-click menu.
 }
 
 void UAnimGraphNode_SequenceEvaluator::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const

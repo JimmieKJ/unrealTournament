@@ -30,13 +30,13 @@ public:
 
 	virtual void RegisterCommands() override
 	{
-		UI_COMMAND( RefreshTests, "Refresh Tests", "Refresh Tests", EUserInterfaceActionType::Button, FInputGesture() );
-		UI_COMMAND( FindWorkers, "Find Workers", "Find Workers", EUserInterfaceActionType::Button, FInputGesture() );
-		UI_COMMAND( ErrorFilter, "Errors", "Toggle Error Filter", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-		UI_COMMAND( WarningFilter, "Warnings", "Toggle Warning Filter", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-		UI_COMMAND( SmokeTestFilter, "Smoke Tests", "Toggle Smoke Test Filter", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-		UI_COMMAND( DeveloperDirectoryContent, "Dev Content", "Developer Directory Content Filter (when enabled, developer directories are also included)", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-		UI_COMMAND( VisualCommandlet, "Vis Cmdlet", "Visual Commandlet Filter", EUserInterfaceActionType::ToggleButton, FInputGesture() );
+		UI_COMMAND( RefreshTests, "Refresh Tests", "Refresh Tests", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND( FindWorkers, "Find Workers", "Find Workers", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND( ErrorFilter, "Errors", "Toggle Error Filter", EUserInterfaceActionType::ToggleButton, FInputChord() );
+		UI_COMMAND( WarningFilter, "Warnings", "Toggle Warning Filter", EUserInterfaceActionType::ToggleButton, FInputChord() );
+		UI_COMMAND( SmokeTestFilter, "Smoke Tests", "Toggle Smoke Test Filter", EUserInterfaceActionType::ToggleButton, FInputChord() );
+		UI_COMMAND( DeveloperDirectoryContent, "Dev Content", "Developer Directory Content Filter (when enabled, developer directories are also included)", EUserInterfaceActionType::ToggleButton, FInputChord() );
+		UI_COMMAND( VisualCommandlet, "Vis Cmdlet", "Visual Commandlet Filter", EUserInterfaceActionType::ToggleButton, FInputChord() );
 	}
 public:
 	TSharedPtr<FUICommandInfo> RefreshTests;

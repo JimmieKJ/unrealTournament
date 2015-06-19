@@ -4,8 +4,8 @@
 
 #include "SlateBlueprintLibrary.generated.h"
 
-UCLASS(MinimalAPI)
-class USlateBlueprintLibrary : public UBlueprintFunctionLibrary
+UCLASS()
+class UMG_API USlateBlueprintLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 

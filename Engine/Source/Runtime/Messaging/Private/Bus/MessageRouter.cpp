@@ -12,13 +12,14 @@ FMessageRouter::FMessageRouter()
 	, Tracer(MakeShareable(new FMessageTracer()))
 {
 	ActiveSubscriptions.FindOrAdd(NAME_All);
-	WorkEvent = FPlatformProcess::CreateSynchEvent(true);
+	WorkEvent = FPlatformProcess::GetSynchEventFromPool(true);
 }
 
 
 FMessageRouter::~FMessageRouter()
 {
-	delete WorkEvent;
+	FPlatformProcess::ReturnSynchEventToPool(WorkEvent);
+	WorkEvent = nullptr;
 }
 
 

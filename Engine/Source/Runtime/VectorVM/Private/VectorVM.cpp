@@ -1,8 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "VectorVMPrivate.h"
+#include "CurveVector.h"
+#include "VectorVMDataObject.h"
 #include "ModuleManager.h"
-
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, VectorVM);
 
@@ -28,6 +29,16 @@ DEFINE_LOG_CATEGORY_STATIC(LogVectorVM, All, All);
 #define SRCOP_CCCR 0x0e
 #define SRCOP_CCCC 0x0f
 
+#define SRCOP_RRRB 0x10
+#define SRCOP_RRBR 0x20
+#define SRCOP_RRBB 0x30
+
+
+
+
+
+
+
 /**
  * Context information passed around during VM execution.
  */
@@ -39,23 +50,31 @@ struct FVectorVMContext
 	VectorRegister* RESTRICT * RESTRICT RegisterTable;
 	/** Pointer to the constant table. */
 	FVector4 const* RESTRICT ConstantTable;
+	/** Pointer to the data object constant table. */
+	FNiagaraDataObject * RESTRICT *DataObjConstantTable;
+
 	/** The number of vectors to process. */
 	int32 NumVectors;
 
 	/** Initialization constructor. */
 	FVectorVMContext(
-		uint8 const* InCode,
+		const uint8* InCode,
 		VectorRegister** InRegisterTable,
-		FVector4 const* InConstantTable,
+		const FVector4* InConstantTable,
+		FNiagaraDataObject** InDataObjTable,
 		int32 InNumVectors
 		)
 		: Code(InCode)
 		, RegisterTable(InRegisterTable)
 		, ConstantTable(InConstantTable)
+		, DataObjConstantTable(InDataObjTable)
 		, NumVectors(InNumVectors)
 	{
 	}
 };
+
+
+
 
 /** Decode the next operation contained in the bytecode. */
 static VM_FORCEINLINE VectorVM::EOp DecodeOp(FVectorVMContext& Context)
@@ -76,6 +95,21 @@ static VM_FORCEINLINE VectorRegister DecodeConstant(FVectorVMContext& Context)
 	return VectorLoad(vec);
 }
 
+/** Decode a constant from the bytecode. */
+static /*VM_FORCEINLINE*/ const FNiagaraDataObject *DecodeDataObjConstant(FVectorVMContext& Context)
+{
+	const FNiagaraDataObject* Obj = Context.DataObjConstantTable[*Context.Code++];
+	return Obj;
+}
+
+/** Decode a constant from the bytecode. */
+static /*VM_FORCEINLINE*/ FNiagaraDataObject *DecodeWritableDataObjConstant(FVectorVMContext& Context)
+{
+	FNiagaraDataObject* Obj = Context.DataObjConstantTable[*Context.Code++];
+	return Obj;
+}
+
+
 static VM_FORCEINLINE uint8 DecodeSrcOperandTypes(FVectorVMContext& Context)
 {
 	return *Context.Code++;
@@ -86,6 +120,8 @@ static VM_FORCEINLINE uint8 DecodeByte(FVectorVMContext& Context)
 	return *Context.Code++;
 }
 
+
+
 /** Handles reading of a constant. */
 struct FConstantHandler
 {
@@ -95,6 +131,27 @@ struct FConstantHandler
 	{}
 	VM_FORCEINLINE const VectorRegister& Get(){ return Constant; }
 };
+
+/** Handles reading of a data object constant. */
+struct FDataObjectConstantHandler
+{
+	const FNiagaraDataObject *Constant;
+	FDataObjectConstantHandler(FVectorVMContext& Context)
+		: Constant(DecodeDataObjConstant(Context))
+	{}
+	VM_FORCEINLINE const FNiagaraDataObject *Get(){ return Constant; }
+};
+
+/** Handles reading of a data object constant. */
+struct FWritableDataObjectConstantHandler
+{
+	FNiagaraDataObject *Constant;
+	FWritableDataObjectConstantHandler(FVectorVMContext& Context)
+		: Constant(DecodeWritableDataObjConstant(Context))
+	{}
+	VM_FORCEINLINE FNiagaraDataObject *Get(){ return Constant; }
+};
+
 
 /** Handles reading of a register, advancing the pointer with each read. */
 struct FRegisterHandler
@@ -127,6 +184,7 @@ VM_FORCEINLINE void VectorBinaryLoop(FVectorVMContext& Context, VectorRegister* 
 		Kernel::DoKernel(Dst++, Arg0.Get(), Arg1.Get());
 	}
 }
+
 
 template<typename Kernel, typename Arg0Handler, typename Arg1Handler, typename Arg2Handler>
 VM_FORCEINLINE void VectorTrinaryLoop(FVectorVMContext& Context, VectorRegister* RESTRICT Dst, int32 NumVectors)
@@ -190,6 +248,48 @@ struct TBinaryVectorKernel
 		};
 	}
 };
+
+
+
+
+/** Base class of Vector kernels with 2 operands, one of which can be a data object. */
+template <typename Kernel>
+struct TBinaryVectorKernelData
+{
+	static void Exec(FVectorVMContext& Context)
+	{
+		VectorRegister* RESTRICT Dst = DecodeRegister(Context);
+		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		int32 NumVectors = Context.NumVectors;
+		switch (SrcOpTypes)
+		{
+		case SRCOP_RRRB:	VectorBinaryLoop<Kernel, FDataObjectConstantHandler, FRegisterHandler>(Context, Dst, NumVectors); break;
+		default: check(0); break;
+		};
+	}
+};
+
+
+
+/** Base class of Vector kernels with 2 operands, one of which can be a data object. */
+template <typename Kernel>
+struct TTrinaryVectorKernelData
+{
+	static void Exec(FVectorVMContext& Context)
+	{
+		VectorRegister* RESTRICT Dst = DecodeRegister(Context);
+		uint32 SrcOpTypes = DecodeSrcOperandTypes(Context);
+		int32 NumVectors = Context.NumVectors;
+		switch (SrcOpTypes)
+		{
+		case SRCOP_RRRB:	VectorTrinaryLoop<Kernel, FWritableDataObjectConstantHandler, FRegisterHandler, FRegisterHandler>(Context, Dst, NumVectors); break;
+		default: check(0); break;
+		};
+	}
+};
+
+
+
 
 /** Base class of Vector kernels with 3 operands. */
 template <typename Kernel>
@@ -315,12 +415,7 @@ struct FVectorKernelSqrt : public TUnaryVectorKernel<FVectorKernelSqrt>
 	static void VM_FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst,VectorRegister Src0)
 	{
 		// TODO: Need a SIMD sqrt!
-		float* RESTRICT FloatDst = reinterpret_cast<float* RESTRICT>(Dst);
-		float const* FloatSrc0 = reinterpret_cast<float const*>(&Src0);
-		FloatDst[0] = FMath::Sqrt(FloatSrc0[0]);
-		FloatDst[1] = FMath::Sqrt(FloatSrc0[1]);
-		FloatDst[2] = FMath::Sqrt(FloatSrc0[2]);
-		FloatDst[3] = FMath::Sqrt(FloatSrc0[3]);
+		*Dst = VectorReciprocal(VectorReciprocalSqrt(Src0));
 	}
 };
 
@@ -479,20 +574,47 @@ struct FVectorKernelTrunc : public TUnaryVectorKernel<FVectorKernelTrunc>
 
 struct FVectorKernelLessThan : public TBinaryVectorKernel<FVectorKernelLessThan>
 {
-	static void FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, VectorRegister Src0, VectorRegister Src1)
+	static void VM_FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, VectorRegister Src0, VectorRegister Src1)
 	{
 		const VectorRegister Large = MakeVectorRegister(BIG_NUMBER, BIG_NUMBER, BIG_NUMBER, BIG_NUMBER);
 		const VectorRegister One = MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f);
 		const VectorRegister Zero = MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f);
-
-		float const* FloatSrc0 = reinterpret_cast<float const*>(&Src0);
-		float const* FloatSrc1 = reinterpret_cast<float const*>(&Src1);
 		VectorRegister Tmp = VectorSubtract(Src1, Src0);
 		Tmp = VectorMultiply(Tmp, Large);
 		Tmp = VectorMin(Tmp, One);
 		*Dst = VectorMax(Tmp, Zero);
 	}
 };
+
+
+
+struct FVectorKernelSample : public TBinaryVectorKernelData<FVectorKernelSample>
+{
+	static void FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, const FNiagaraDataObject *Src0, VectorRegister Src1)
+	{
+		if (Src0)
+		{
+			float const* FloatSrc1 = reinterpret_cast<float const*>(&Src1);
+			FVector4 Tmp = Src0->Sample(FVector4(FloatSrc1[0], FloatSrc1[1], FloatSrc1[2], FloatSrc1[3]));
+			*Dst = VectorLoad(&Tmp);
+		}
+	}
+};
+
+struct FVectorKernelBufferWrite : public TTrinaryVectorKernelData<FVectorKernelBufferWrite>
+{
+	static void FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, FNiagaraDataObject *Src0, VectorRegister Src1, VectorRegister Src2)
+	{
+		if (Src0)
+		{
+			float const* FloatSrc1 = reinterpret_cast<float const*>(&Src1);	// Coords
+			float const* FloatSrc2 = reinterpret_cast<float const*>(&Src2);	// Value
+			FVector4 Tmp = Src0->Write(FVector4(FloatSrc1[0], FloatSrc1[1], FloatSrc1[2], FloatSrc1[3]), FVector4(FloatSrc2[0], FloatSrc2[1], FloatSrc2[2], FloatSrc2[3]));
+			*Dst = VectorLoad(&Tmp);
+		}
+	}
+};
+
 
 struct FVectorKernelDot : public TBinaryVectorKernel<FVectorKernelDot>
 {
@@ -506,10 +628,8 @@ struct FVectorKernelLength : public TUnaryVectorKernel<FVectorKernelLength>
 {
 	static void VM_FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, VectorRegister Src0)
 	{
-		VectorRegister Temp = VectorDot4(Src0, Src0);
-		float const* FloatSrc = reinterpret_cast<float const*>(&Temp);
-		float SDot = FMath::Sqrt(FloatSrc[0]);
-		*Dst = MakeVectorRegister(SDot, SDot, SDot, SDot);
+		VectorRegister Temp = VectorReciprocalLen(Src0);
+		*Dst = VectorReciprocal(Temp);
 	}
 };
 
@@ -591,51 +711,37 @@ struct FVectorKernelNoise : public TUnaryVectorKernel<FVectorKernelNoise>
 	static void VM_FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, VectorRegister Src0)
 	{
 		const VectorRegister One = MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f);
+		const VectorRegister VecEight = MakeVectorRegister(8.0f, 8.0f, 8.0f, 8.0f);
 		const VectorRegister OneHalf = MakeVectorRegister(0.5f, 0.5f, 0.5f, 0.5f);
-		VectorRegister RndVals[2][2][2];
 		*Dst = MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f);
-
-		float const* FloatSrc = reinterpret_cast<float const*>(&Src0);
-
+		
 		for (uint32 i = 1; i < 2; i++)
 		{
-			float FX = FloatSrc[0] / 5 / (1<<i);
-			float FY = FloatSrc[1] / 5 / (1<<i);
-			float FZ = FloatSrc[2] / 5 / (1<<i);
-			uint32 X = FMath::Abs( (int32)(FX) % 8 );
-			uint32 Y = FMath::Abs( (int32)(FY) % 8 );
-			uint32 Z = FMath::Abs( (int32)(FZ) % 8 );
+			float Di = 0.2f * (1.0f/(1<<i));
+			VectorRegister Div = MakeVectorRegister(Di, Di, Di, Di);
+			VectorRegister Coords = VectorMod( VectorAbs( VectorMultiply(Src0, Div) ), VecEight );
+			const float *CoordPtr = reinterpret_cast<float const*>(&Coords);
+			const int32 Cx = CoordPtr[0];
+			const int32 Cy = CoordPtr[1];
+			const int32 Cz = CoordPtr[2];
 
-			for (int32 z = 0; z < 2; z++)
-			{
-				for (int32 y = 0; y < 2; y++)
-				{
-					for (int32 x = 0; x < 2; x++)
-					{
-						RndVals[x][y][z] = RandomTable[X+x][Y+y][Z+z];
-					}
-				}
-			}
-
-			const int32 IntCoords[3] = { static_cast<int32>(FX), static_cast<int32>(FY), static_cast<int32>(FZ) };
-			const float Fractionals[3] = { FX - IntCoords[0], FY - IntCoords[1], FZ - IntCoords[2] };
-			VectorRegister Alpha = MakeVectorRegister(Fractionals[0], Fractionals[0], Fractionals[0], Fractionals[0]);
-
+			VectorRegister Frac = VectorFractional(Coords);
+			VectorRegister Alpha = VectorReplicate(Frac, 0);
 			VectorRegister OneMinusAlpha = VectorSubtract(One, Alpha);
-			VectorRegister XV1 = VectorAdd(VectorMultiply(RndVals[0][0][0], Alpha), VectorMultiply(RndVals[1][0][0], OneMinusAlpha));
-			VectorRegister XV2 = VectorAdd(VectorMultiply(RndVals[0][1][0], Alpha), VectorMultiply(RndVals[1][1][0], OneMinusAlpha));
-			VectorRegister XV3 = VectorAdd(VectorMultiply(RndVals[0][0][1], Alpha), VectorMultiply(RndVals[1][0][1], OneMinusAlpha));
-			VectorRegister XV4 = VectorAdd(VectorMultiply(RndVals[0][1][1], Alpha), VectorMultiply(RndVals[1][1][1], OneMinusAlpha));
+			
+			VectorRegister XV1 = VectorMultiplyAdd(RandomTable[Cx][Cy][Cz], Alpha, VectorMultiply(RandomTable[Cx+1][Cy][Cz], OneMinusAlpha));
+			VectorRegister XV2 = VectorMultiplyAdd(RandomTable[Cx][Cy+1][Cz], Alpha, VectorMultiply(RandomTable[Cx+1][Cy+1][Cz], OneMinusAlpha));
+			VectorRegister XV3 = VectorMultiplyAdd(RandomTable[Cx][Cy][Cz+1], Alpha, VectorMultiply(RandomTable[Cx+1][Cy][Cz+1], OneMinusAlpha));
+			VectorRegister XV4 = VectorMultiplyAdd(RandomTable[Cx][Cy+1][Cz+1], Alpha, VectorMultiply(RandomTable[Cx+1][Cy+1][Cz+1], OneMinusAlpha));
 
-			Alpha = MakeVectorRegister(Fractionals[1], Fractionals[1], Fractionals[1], Fractionals[1]);
+			Alpha = VectorReplicate(Frac, 1);
 			OneMinusAlpha = VectorSubtract(One, Alpha);
-			VectorRegister YV1 = VectorAdd(VectorMultiply(XV1, Alpha), VectorMultiply(XV2, OneMinusAlpha));
-			VectorRegister YV2 = VectorAdd(VectorMultiply(XV3, Alpha), VectorMultiply(XV4, OneMinusAlpha));
+			VectorRegister YV1 = VectorMultiplyAdd(XV1, Alpha, VectorMultiply(XV2, OneMinusAlpha));
+			VectorRegister YV2 = VectorMultiplyAdd(XV3, Alpha, VectorMultiply(XV4, OneMinusAlpha));
 
-
-			Alpha = MakeVectorRegister(Fractionals[2], Fractionals[2], Fractionals[2], Fractionals[2]);
+			Alpha = VectorReplicate(Frac, 2);
 			OneMinusAlpha = VectorSubtract(One, Alpha);
-			VectorRegister ZV = VectorAdd(VectorMultiply(YV1, Alpha), VectorMultiply(YV2, OneMinusAlpha));
+			VectorRegister ZV = VectorMultiplyAdd(YV1, Alpha, VectorMultiply(YV2, OneMinusAlpha));
 
 			*Dst = VectorAdd(*Dst, ZV);
 		}
@@ -667,6 +773,42 @@ struct FVectorKernelCompose : public TQuatenaryVectorKernel<FVectorKernelCompose
 		*Dst = VectorShuffle(Tmp0, Tmp1, 0, 2, 0, 2);
 	}
 };
+
+// Ken Perlin's smootherstep function (zero first and second order derivatives at 0 and 1)
+// calculated separately for each channel of Src2
+struct FVectorKernelEaseIn : public TTrinaryVectorKernel<FVectorKernelEaseIn>
+{
+	static void VM_FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, const VectorRegister& Src0, const VectorRegister& Src1, const VectorRegister& Src2)
+	{
+		VectorRegister X = VectorMin( VectorDivide(VectorSubtract(Src2, Src0), VectorSubtract(Src1, Src0)), MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f) );
+		X = VectorMax(X, MakeVectorRegister(0.0f, 0.0f, 0.0f, 0.0f));
+
+		VectorRegister X3 = VectorMultiply( VectorMultiply(X, X), X);
+		VectorRegister N6 = MakeVectorRegister(6.0f, 6.0f, 6.0f, 6.0f);
+		VectorRegister N15 = MakeVectorRegister(15.0f, 15.0f, 15.0f, 15.0f);
+		VectorRegister T = VectorSubtract( VectorMultiply(X, N6), N15 );
+		T = VectorAdd(VectorMultiply(X, T), MakeVectorRegister(10.0f, 10.0f, 10.0f, 10.0f));
+
+		*Dst = VectorMultiply(X3, T);
+	}
+};
+
+// smoothly runs 0->1->0
+struct FVectorKernelEaseInOut : public TUnaryVectorKernel<FVectorKernelEaseInOut>
+{
+	static void VM_FORCEINLINE DoKernel(VectorRegister* RESTRICT Dst, const VectorRegister& Src0)
+	{
+		VectorRegister T = VectorMultiply(Src0, MakeVectorRegister(2.0f, 2.0f, 2.0f, 2.0f));
+		T = VectorSubtract(T, MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f));
+		VectorRegister X2 = VectorMultiply(T, T);
+		
+		VectorRegister R = VectorMultiply(X2, MakeVectorRegister(0.9604f, 0.9604f, 0.9604f, 0.9604f));
+		R = VectorSubtract(R, MakeVectorRegister(1.96f, 1.96f, 1.96f, 1.96f));
+		R = VectorMultiply(R, X2);
+		*Dst = VectorAdd(R, MakeVectorRegister(1.0f, 1.0f, 1.0f, 1.0f));
+	}
+};
+
 
 struct FVectorKernelOutput : public TUnaryVectorKernel<FVectorKernelOutput>
 {
@@ -708,6 +850,7 @@ void VectorVM::Exec(
 	VectorRegister** OutputRegisters,
 	int32 NumOutputRegisters,
 	FVector4 const* ConstantTable,
+	FNiagaraDataObject* *DataObjConstTable,
 	int32 NumVectors
 	)
 {
@@ -736,7 +879,7 @@ void VectorVM::Exec(
 
 		// Setup execution context.
 		int32 VectorsThisChunk = FMath::Min<int32>(NumVectors, VectorsPerChunk);
-		FVectorVMContext Context(Code, RegisterTable, ConstantTable, VectorsThisChunk);
+		FVectorVMContext Context(Code, RegisterTable, ConstantTable, DataObjConstTable, VectorsThisChunk);
 		EOp Op = EOp::done;
 
 		// Execute VM on all vectors in this chunk.
@@ -794,8 +937,13 @@ void VectorVM::Exec(
 			case EOp::composez: FVectorKernelCompose<2, 2, 2, 2>::Exec(Context); break;
 			case EOp::composew: FVectorKernelCompose<3, 3, 3, 3>::Exec(Context); break;
 			case EOp::lessthan: FVectorKernelLessThan::Exec(Context); break;
+			case EOp::sample: FVectorKernelSample::Exec(Context); break;
+			case EOp::bufferwrite: FVectorKernelBufferWrite::Exec(Context); break;
+			case EOp::eventbroadcast: break;
+			case EOp::easein: FVectorKernelEaseIn::Exec(Context); break;
+			case EOp::easeinout: FVectorKernelEaseInOut::Exec(Context); break;
 			case EOp::output: FVectorKernelOutput::Exec(Context); break;
-
+				
 			// Execution always terminates with a "done" opcode.
 			case EOp::done:
 				break;
@@ -824,11 +972,23 @@ uint8 VectorVM::CreateSrcOperandMask(bool bIsOp0Constant, bool bIsOp1Constant, b
 			(bIsOp3Constant ? (1 << 3) : 0) ;
 }
 
+uint8 VectorVM::CreateSrcOperandMask(VectorVM::EOperandType Type1, VectorVM::EOperandType Type2, VectorVM::EOperandType Type3, VectorVM::EOperandType Type4)
+{
+	return	(Type1==VectorVM::ConstantOperandType ? (1 << 0) : 0) |
+		(Type2 == VectorVM::ConstantOperandType ? (1 << 1) : 0) |
+		(Type3 == VectorVM::ConstantOperandType ? (1 << 2) : 0) |
+		(Type4 == VectorVM::ConstantOperandType ? (1 << 3) : 0) |
+		(Type1 == VectorVM::DataObjConstantOperandType ? (1 << 4) : 0) | 
+		(Type2 == VectorVM::DataObjConstantOperandType ? (1 << 5) : 0) |
+		(Type3 == VectorVM::DataObjConstantOperandType ? (1 << 6) : 0) |
+		(Type4 == VectorVM::DataObjConstantOperandType ? (1 << 7) : 0);
+}
+
 /*------------------------------------------------------------------------------
 	Automation test for the VM.
 ------------------------------------------------------------------------------*/
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVectorVMTest, "Core.Math.Vector VM", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FVectorVMTest, "System.Core.Math.Vector VM", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FVectorVMTest::RunTest(const FString& Parameters)
 {
@@ -869,6 +1029,7 @@ bool FVectorVMTest::RunTest(const FString& Parameters)
 		InputRegisters, 3,
 		OutputRegisters, 1,
 		ConstantTable,
+		nullptr,
 		VectorVM::VectorsPerChunk
 		);
 

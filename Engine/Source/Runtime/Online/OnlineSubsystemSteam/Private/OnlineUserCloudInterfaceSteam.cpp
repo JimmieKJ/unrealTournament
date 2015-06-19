@@ -140,48 +140,48 @@ void FOnlineAsyncTaskSteamReadUserFile::TriggerDelegates()
 	UserCloudInterface->TriggerOnReadUserFileCompleteDelegates(bWasSuccessful, UserId, FileName);
 }
 
-bool FOnlineAsyncTaskSteamWriteUserFile::WriteUserFile(const FUniqueNetId& UserId, const FString& FileToWrite, const TArray<uint8>& Contents)
+bool FOnlineAsyncTaskSteamWriteUserFile::WriteUserFile(const FUniqueNetId& InUserId, const FString& InFileToWrite, const TArray<uint8>& InContents)
 {
 	bool bSuccess = false;
-	if (FileToWrite.Len() > 0 && Contents.Num() > 0)
+	if (InFileToWrite.Len() > 0 && InContents.Num() > 0)
 	{
 		if (SteamRemoteStorage() && FileName.Len() > 0)
 		{
-			CSteamID SteamId(*(uint64*)UserId.GetBytes());
+			CSteamID SteamId(*(uint64*)InUserId.GetBytes());
 			if (SteamUser()->BLoggedOn() && SteamUser()->GetSteamID() == SteamId)
 			{
 				// Currently don't support greater than 1 chunk
-				if (Contents.Num() < k_unMaxCloudFileChunkSize)
+				if (InContents.Num() < k_unMaxCloudFileChunkSize)
 				{
-					if (SteamRemoteStorage()->FileWrite(TCHAR_TO_UTF8(*FileToWrite), Contents.GetData(), Contents.Num()))
+					if (SteamRemoteStorage()->FileWrite(TCHAR_TO_UTF8(*InFileToWrite), InContents.GetData(), InContents.Num()))
 					{
 						FScopeLock ScopeLock(&Subsystem->UserCloudDataLock);
-						FSteamUserCloudData* UserCloud = Subsystem->GetUserCloudEntry(UserId);
+						FSteamUserCloudData* UserCloud = Subsystem->GetUserCloudEntry(InUserId);
 						if (UserCloud)
 						{
 							// Update the metadata table to reflect this write (might be new entry)
-							FCloudFileHeader* UserCloudFileMetadata = UserCloud->GetFileMetadata(FileToWrite, true);
+							FCloudFileHeader* UserCloudFileMetadata = UserCloud->GetFileMetadata(InFileToWrite, true);
 							check(UserCloudFileMetadata);
 
-							UserCloudFileMetadata->FileSize = SteamRemoteStorage()->GetFileSize(TCHAR_TO_UTF8(*FileToWrite));
+							UserCloudFileMetadata->FileSize = SteamRemoteStorage()->GetFileSize(TCHAR_TO_UTF8(*InFileToWrite));
 							UserCloudFileMetadata->Hash = FString(TEXT("0"));
 
 							// Update the file table to reflect this write
-							FCloudFile* UserCloudFileData = UserCloud->GetFileData(FileToWrite, true);
+							FCloudFile* UserCloudFileData = UserCloud->GetFileData(InFileToWrite, true);
 							check(UserCloudFileData);
 
-							UserCloudFileData->Data = Contents;
+							UserCloudFileData->Data = InContents;
 							bSuccess = true;
 						}
 					}
 					else
 					{
-						UE_LOG_ONLINE(Warning, TEXT("Failed to write file to Steam cloud \"%s\"."), *FileToWrite);
+						UE_LOG_ONLINE(Warning, TEXT("Failed to write file to Steam cloud \"%s\"."), *InFileToWrite);
 					}
 				}
 				else
 				{
-					UE_LOG_ONLINE(Warning, TEXT("File too large %d to write to Steam cloud."), Contents.Num());
+					UE_LOG_ONLINE(Warning, TEXT("File too large %d to write to Steam cloud."), InContents.Num());
 				}
 			}
 			else
@@ -197,16 +197,16 @@ bool FOnlineAsyncTaskSteamWriteUserFile::WriteUserFile(const FUniqueNetId& UserI
 
 	{
 		FScopeLock ScopeLock(&Subsystem->UserCloudDataLock);
-		FSteamUserCloudData* UserCloud = Subsystem->GetUserCloudEntry(UserId);
+		FSteamUserCloudData* UserCloud = Subsystem->GetUserCloudEntry(InUserId);
 		if (UserCloud)
 		{
-			FCloudFile* UserCloudFileData = UserCloud->GetFileData(FileToWrite, true);
+			FCloudFile* UserCloudFileData = UserCloud->GetFileData(InFileToWrite, true);
 			check(UserCloudFileData);
 			UserCloudFileData->AsyncState = bSuccess ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;
 		}
 	}
 
-	//SteamSubsystem->GetUserCloudInterface()->DumpCloudFileState(UserId, FileToWrite);
+	//SteamSubsystem->GetUserCloudInterface()->DumpCloudFileState(InUserId, InFileToWrite);
 	return bSuccess;
 }
 
@@ -333,10 +333,22 @@ bool FOnlineUserCloudSteam::WriteUserFile(const FUniqueNetId& UserId, const FStr
 	return false;
 }
 
+void FOnlineUserCloudSteam::CancelWriteUserFile(const FUniqueNetId& UserId, const FString& FileName)
+{
+	// Not implemented
+}
+
+
 bool FOnlineUserCloudSteam::DeleteUserFile(const FUniqueNetId& UserId, const FString& FileName, bool bShouldCloudDelete, bool bShouldLocallyDelete)
 {
 	SteamSubsystem->QueueAsyncTask(new FOnlineAsyncTaskSteamDeleteUserFile(SteamSubsystem, FUniqueNetIdSteam(*(uint64*)UserId.GetBytes()), FileName, bShouldCloudDelete, bShouldLocallyDelete));
 	return true;
+}
+
+bool FOnlineUserCloudSteam::RequestUsageInfo(const FUniqueNetId& UserId)
+{
+	// Not implemented
+	return false;
 }
 
 void FOnlineUserCloudSteam::DumpCloudState(const FUniqueNetId& UserId)

@@ -4,12 +4,12 @@
 
 #include "PreviewScene.h"
 #include "SEditorViewport.h"
-
+#include "Editor/UnrealEd/Public/SCommonEditorViewportToolbarBase.h"
 
 /**
  * Material Editor Preview viewport widget
  */
-class SMaterialEditorViewport : public SEditorViewport, public FGCObject
+class SMaterialEditorViewport : public SEditorViewport, public FGCObject, public ICommonEditorViewportToolbarInfoProvider
 {
 public:
 	SLATE_BEGIN_ARGS( SMaterialEditorViewport ){}
@@ -21,7 +21,6 @@ public:
 	
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	void RefreshViewport();
 	
 	/**
@@ -30,33 +29,25 @@ public:
 	 *
 	 * @return	true if a mesh was set successfully, false otherwise.
 	 */
-	bool SetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh);
+	bool SetPreviewAsset(UObject* InAsset);
 
 	/**
-	 * Sets the preview mesh to the named mesh, if it can be found.  Checks static meshes first, then skeletal meshes.
-	 * Does nothing if the named mesh is not found or if the named mesh is a skeletal mesh but the material has
+	 * Sets the preview asset to the named asset, if it can be found and is convertible into a UMeshComponent subclass.
+	 * Does nothing if the named asset is not found or if the named asset is a skeletal mesh but the material has
 	 * bUsedWithSkeletalMesh=false.
 	 *
-	 * @return	true if the named mesh was found and set successfully, false otherwise.
+	 * @return	true if the named asset was found and set successfully, false otherwise.
 	 */
-	bool SetPreviewMesh(const TCHAR* InMeshName);
+	bool SetPreviewAssetByName(const TCHAR* InAssetName);
 
 	void SetPreviewMaterial(UMaterialInterface* InMaterialInterface);
+
+	/** Component for the preview mesh. */
+	UMeshComponent* PreviewMeshComponent;
+
+	/** Material for the preview mesh */
+	UMaterialInterface* PreviewMaterial;
 	
-	void ToggleRealtime();
-
-	/** @return The list of commands known by the material editor */
-	TSharedRef<FUICommandList> GetMaterialEditorCommands() const;
-
-	/** If true, use PreviewSkeletalMeshComponent as the preview mesh; if false, use PreviewMeshComponent. */
-	bool bUseSkeletalMeshAsPreview;
-
-	/** Component for the preview static mesh. */
-	UMaterialEditorMeshComponent* PreviewMeshComponent;
-	
-	/** Component for the preview skeletal mesh. */
-	USkeletalMeshComponent*	PreviewSkeletalMeshComponent;
-
 	/** The preview primitive we are using. */
 	EThumbnailPrimType PreviewPrimType;
 	
@@ -76,15 +67,22 @@ public:
 	void OnSetPreviewPrimitive(EThumbnailPrimType PrimType);
 	bool IsPreviewPrimitiveChecked(EThumbnailPrimType PrimType) const;
 	void OnSetPreviewMeshFromSelection();
+	bool IsPreviewMeshFromSelectionChecked() const;
 	void TogglePreviewGrid();
 	bool IsTogglePreviewGridChecked() const;
 	void TogglePreviewBackground();
 	bool IsTogglePreviewBackgroundChecked() const;
 
+	// ICommonEditorViewportToolbarInfoProvider interface
+	virtual TSharedRef<class SEditorViewport> GetViewportWidget() override;
+	virtual TSharedPtr<FExtender> GetExtenders() const override;
+	virtual void OnFloatingButtonClicked() override;
+	// End of ICommonEditorViewportToolbarInfoProvider interface
+
 protected:
 	/** SEditorViewport interface */
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
-	virtual TSharedPtr<SWidget> MakeViewportToolbar() override;
+	virtual void PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay) override;
 	virtual EVisibility OnGetViewportContentVisibility() const override;
 	virtual void BindCommands() override;
 	virtual void OnFocusViewportToSelection() override;
@@ -92,7 +90,7 @@ private:
 	/** The parent tab where this viewport resides */
 	TWeakPtr<SDockTab> ParentTab;
 
-	bool IsVisible() const;
+	bool IsVisible() const override;
 
 	/** Pointer back to the material editor tool that owns us */
 	TWeakPtr<IMaterialEditor> MaterialEditorPtr;

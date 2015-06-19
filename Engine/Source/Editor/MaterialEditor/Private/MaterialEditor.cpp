@@ -29,6 +29,7 @@
 #include "Materials/MaterialExpressionTransformPosition.h"
 #include "Materials/MaterialExpressionVectorParameter.h"
 #include "Materials/MaterialFunction.h"
+#include "Materials/MaterialParameterCollection.h"
 
 #include "MaterialEditorActions.h"
 #include "MaterialExpressionClasses.h"
@@ -68,6 +69,9 @@
 #include "Developer/MessageLog/Public/MessageLogModule.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "GenericCommands.h"
+#include "CanvasTypes.h"
+#include "Engine/Selection.h"
+#include "Engine/TextureCube.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"
 
@@ -124,10 +128,10 @@ bool FMatExpressionPreview::ShouldCache(EShaderPlatform Platform, const FShaderT
 	return false;
 }
 
-int32 FMatExpressionPreview::CompilePropertyAndSetMaterialProperty(EMaterialProperty Property, FMaterialCompiler* Compiler, EShaderFrequency OverrideShaderFrequency) const
+int32 FMatExpressionPreview::CompilePropertyAndSetMaterialProperty(EMaterialProperty Property, FMaterialCompiler* Compiler, EShaderFrequency OverrideShaderFrequency, bool bUsePreviousFrameTime) const
 {
 	// needs to be called in this function!!
-	Compiler->SetMaterialProperty(Property, OverrideShaderFrequency);
+	Compiler->SetMaterialProperty(Property, OverrideShaderFrequency, bUsePreviousFrameTime);
 
 	int32 Ret = INDEX_NONE;
 
@@ -138,7 +142,7 @@ int32 FMatExpressionPreview::CompilePropertyAndSetMaterialProperty(EMaterialProp
 		// Get back into gamma corrected space, as DrawTile does not do this adjustment.
 		Ret = Compiler->Power(Compiler->Max(Expression->CompilePreview(Compiler, OutputIndex, -1), Compiler->Constant(0)), Compiler->Constant(1.f / 2.2f));
 	}
-	else if ( Property == MP_WorldPositionOffset)
+	else if (Property == MP_WorldPositionOffset)
 	{
 		//set to 0 to prevent off by 1 pixel errors
 		Ret = Compiler->Constant(0.0f);
@@ -208,7 +212,8 @@ void FMaterialEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& T
 
 	TabManager->RegisterTabSpawner( HLSLCodeTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_HLSLCode) )
 		.SetDisplayName( LOCTEXT("HLSLCodeTab", "HLSL Code") )
-		.SetGroup( WorkspaceMenuCategoryRef );
+		.SetGroup( WorkspaceMenuCategoryRef )
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "MaterialEditor.Tabs.HLSLCode"));
 }
 
 
@@ -267,7 +272,7 @@ void FMaterialEditor::InitEditorForMaterialFunction(UMaterialFunction* InMateria
 	ExpressionPreviewMaterial = NULL;
 
 	// Create a temporary material to preview the material function
-	Material = (UMaterial*)StaticConstructObject(UMaterial::StaticClass()); 
+	Material = NewObject<UMaterial>(); 
 	{
 		FArchiveUObject DummyArchive;
 		// Hack: serialize the new material with an archive that does nothing so that its material resources are created
@@ -430,10 +435,10 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	LoadEditorSettings();
 	
 	// Set the preview mesh for the material.  This call must occur after the toolbar is initialized.
-	if (!SetPreviewMesh(*Material->PreviewMesh.ToString()))
+	if (!SetPreviewAssetByName(*Material->PreviewMesh.ToString()))
 	{
 		// The material preview mesh couldn't be found or isn't loaded.  Default to the one of the primitive types.
-		Viewport->SetPreviewMesh( GUnrealEd->GetThumbnailManager()->EditorSphere, NULL );
+		SetPreviewAsset( GUnrealEd->GetThumbnailManager()->EditorSphere );
 	}
 
 	// Initialize expression previews.
@@ -798,15 +803,20 @@ UMaterialInterface* FMaterialEditor::GetMaterialInterface() const
 	return Material;
 }
 
-bool FMaterialEditor::ApproveSetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh)
+bool FMaterialEditor::ApproveSetPreviewAsset(UObject* InAsset)
 {
 	bool bApproved = true;
+
 	// Only permit the use of a skeletal mesh if the material has bUsedWithSkeltalMesh.
-	if ( InSkeletalMesh && !Material->bUsedWithSkeletalMesh )
+	if (USkeletalMesh* SkeletalMesh = Cast<USkeletalMesh>(InAsset))
 	{
-		FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "Error_MaterialEditor_CantPreviewOnSkelMesh", "Can't preview on the specified skeletal mesh because the material has not been compiled with bUsedWithSkeletalMesh.") );
-		bApproved = false;
+		if (!Material->bUsedWithSkeletalMesh)
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "Error_MaterialEditor_CantPreviewOnSkelMesh", "Can't preview on the specified skeletal mesh because the material has not been compiled with bUsedWithSkeletalMesh."));
+			bApproved = false;
+		}
 	}
+
 	return bApproved;
 }
 
@@ -814,7 +824,10 @@ void FMaterialEditor::SaveAsset_Execute()
 {
 	UE_LOG(LogMaterialEditor, Log, TEXT("Saving and Compiling material %s"), *GetEditingObjects()[0]->GetName());
 	
-	UpdateOriginalMaterial();
+	if (bMaterialDirty)
+	{
+		UpdateOriginalMaterial();
+	}
 
 	UPackage* Package = OriginalMaterial->GetOutermost();
 
@@ -912,7 +925,7 @@ void FMaterialEditor::DrawMaterialInfoStrings(
 			Canvas->DrawShadowedString(
 				5,
 				DrawPositionY,
-				*FString::Printf(TEXT("%s samplers: %u/%u"), FeatureLevel == ERHIFeatureLevel::ES2 ? TEXT("Mobile texture") : TEXT("Texture"), SamplersUsed, MaxSamplers),
+				*FString::Printf(TEXT("%s samplers: %u/%u"), FeatureLevel <= ERHIFeatureLevel::ES3_1 ? TEXT("Mobile texture") : TEXT("Texture"), SamplersUsed, MaxSamplers),
 				FontToUse,
 				SamplersUsed > MaxSamplers ? FLinearColor(1,0,0) : FLinearColor(1,1,0)
 				);
@@ -1012,20 +1025,20 @@ void FMaterialEditor::RecenterEditor()
 	}
 }
 
-bool FMaterialEditor::SetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh)
+bool FMaterialEditor::SetPreviewAsset(UObject* InAsset)
 {
 	if (Viewport.IsValid())
 	{
-		return Viewport->SetPreviewMesh(InStaticMesh, InSkeletalMesh);
+		return Viewport->SetPreviewAsset(InAsset);
 	}
 	return false;
 }
 
-bool FMaterialEditor::SetPreviewMesh(const TCHAR* InMeshName)
+bool FMaterialEditor::SetPreviewAssetByName(const TCHAR* InAssetName)
 {
 	if (Viewport.IsValid())
 	{
-		return Viewport->SetPreviewMesh(InMeshName);
+		return Viewport->SetPreviewAssetByName(InAssetName);
 	}
 	return false;
 }
@@ -1048,7 +1061,7 @@ void FMaterialEditor::RefreshPreviewViewport()
 
 void FMaterialEditor::LoadEditorSettings()
 {
-	EditorOptions = ConstructObject<UMaterialEditorOptions>( UMaterialEditorOptions::StaticClass() );
+	EditorOptions = NewObject<UMaterialEditorOptions>();
 	
 	if (EditorOptions->bHideUnusedConnectors) {OnShowConnectors();}
 	if (bLivePreview != EditorOptions->bLivePreviewUpdate)
@@ -1062,7 +1075,7 @@ void FMaterialEditor::LoadEditorSettings()
 	{
 		if (EditorOptions->bShowGrid) {Viewport->TogglePreviewGrid();}
 		if (EditorOptions->bShowBackground) {Viewport->TogglePreviewBackground();}
-		if (EditorOptions->bRealtimeMaterialViewport) {Viewport->ToggleRealtime();}
+		if (EditorOptions->bRealtimeMaterialViewport) {Viewport->OnToggleRealtime();}
 
 		// Load the preview scene
 		Viewport->PreviewScene.LoadSettings(TEXT("MaterialEditor"));
@@ -1076,7 +1089,7 @@ void FMaterialEditor::LoadEditorSettings()
 
 	// Primitive type
 	int32 PrimType;
-	if(GConfig->GetInt(TEXT("MaterialEditor"), TEXT("PrimType"), PrimType, GEditorUserSettingsIni))
+	if(GConfig->GetInt(TEXT("MaterialEditor"), TEXT("PrimType"), PrimType, GEditorPerProjectIni))
 	{
 		Viewport->OnSetPreviewPrimitive((EThumbnailPrimType)PrimType);
 	}
@@ -1101,7 +1114,7 @@ void FMaterialEditor::SaveEditorSettings()
 		EditorOptions->SaveConfig();
 	}
 
-	GConfig->SetInt(TEXT("MaterialEditor"), TEXT("PrimType"), Viewport->PreviewPrimType, GEditorUserSettingsIni);
+	GConfig->SetInt(TEXT("MaterialEditor"), TEXT("PrimType"), Viewport->PreviewPrimType, GEditorPerProjectIni);
 }
 
 FText FMaterialEditor::GetCodeViewText() const
@@ -1128,17 +1141,8 @@ void FMaterialEditor::RegenerateCodeView(bool bForce)
 		return;
 	}
 
-	TMap<FMaterialExpressionKey,int32> ExpressionCodeMap[MP_MAX][SF_NumFrequencies];
-	for (int32 PropertyIndex = 0; PropertyIndex < MP_MAX; PropertyIndex++)
-	{
-		for (int32 FrequencyIndex = 0; FrequencyIndex < SF_NumFrequencies; FrequencyIndex++)
-		{
-			ExpressionCodeMap[PropertyIndex][FrequencyIndex].Empty();
-		}
-	}
-
 	FString MarkupSource;
-	if (Material->GetMaterialResource(GMaxRHIFeatureLevel)->GetMaterialExpressionSource(MarkupSource, ExpressionCodeMap))
+	if (Material->GetMaterialResource(GMaxRHIFeatureLevel)->GetMaterialExpressionSource(MarkupSource))
 	{
 		// Remove line-feeds and leave just CRs so the character counts match the selection ranges.
 		MarkupSource.ReplaceInline(TEXT("\r"), TEXT(""));
@@ -1592,7 +1596,7 @@ void FMaterialEditor::UpdateMaterialInfoList(bool bForceDisplay)
 				if (SamplersUsed >= 0)
 				{
 					int32 MaxSamplers = GetFeatureLevelMaxTextureSamplers(MaterialResource->GetFeatureLevel());
-					FString SamplersString = FString::Printf(TEXT("%s samplers: %u/%u"), FeatureLevel == ERHIFeatureLevel::ES2 ? TEXT("Mobile texture") : TEXT("Texture"), SamplersUsed, MaxSamplers);
+					FString SamplersString = FString::Printf(TEXT("%s samplers: %u/%u"), FeatureLevel <= ERHIFeatureLevel::ES3_1 ? TEXT("Mobile texture") : TEXT("Texture"), SamplersUsed, MaxSamplers);
 					TempMaterialInfoList.Add(MakeShareable(new FMaterialInfo(SamplersString, FLinearColor::Yellow)));
 					TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create( EMessageSeverity::Info );
 					Line->AddToken( FTextToken::Create( FText::FromString( SamplersString ) ) );
@@ -1718,7 +1722,7 @@ void FMaterialEditor::BindCommands()
 
 	ToolkitCommands->MapAction(
 		FEditorViewportCommands::Get().ToggleRealTime,
-		FExecuteAction::CreateSP( Viewport.ToSharedRef(), &SMaterialEditorViewport::ToggleRealtime ),
+		FExecuteAction::CreateSP( Viewport.ToSharedRef(), &SMaterialEditorViewport::OnToggleRealtime ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( Viewport.ToSharedRef(), &SMaterialEditorViewport::IsRealtime ) );
 
@@ -2745,7 +2749,7 @@ void FMaterialEditor::SetPreviewExpression(UMaterialExpression* NewPreviewExpres
 		if( ExpressionPreviewMaterial == NULL )
 		{
 			// Create the expression preview material if it hasnt already been created
-			ExpressionPreviewMaterial = (UMaterial*)StaticConstructObject( UMaterial::StaticClass(), GetTransientPackage(), NAME_None, RF_Public);
+			ExpressionPreviewMaterial = NewObject<UMaterial>(GetTransientPackage(), NAME_None, RF_Public);
 			ExpressionPreviewMaterial->bIsPreviewMaterial = true;
 		}
 
@@ -2811,7 +2815,7 @@ UMaterialExpression* FMaterialEditor::CreateNewMaterialExpression(UClass* NewExp
 			ExpressionOuter = MaterialFunction;
 		}
 
-		NewExpression = ConstructObject<UMaterialExpression>( NewExpressionClass, ExpressionOuter, NAME_None, RF_Transactional );
+		NewExpression = NewObject<UMaterialExpression>(ExpressionOuter, NewExpressionClass, NAME_None, RF_Transactional);
 		Material->Expressions.Add( NewExpression );
 		NewExpression->Material = Material;
 
@@ -2896,7 +2900,7 @@ UMaterialExpression* FMaterialEditor::CreateNewMaterialExpression(UClass* NewExp
 		if( RotateAboutAxisExpression )
 		{
 			// Create a default expression for the Position input
-			UMaterialExpressionWorldPosition* WorldPositionExpression = ConstructObject<UMaterialExpressionWorldPosition>( UMaterialExpressionWorldPosition::StaticClass(), ExpressionOuter, NAME_None, RF_Transactional );
+			UMaterialExpressionWorldPosition* WorldPositionExpression = NewObject<UMaterialExpressionWorldPosition>(ExpressionOuter, NAME_None, RF_Transactional);
 			Material->Expressions.Add( WorldPositionExpression );
 			WorldPositionExpression->Material = Material;
 			RotateAboutAxisExpression->Position.Expression = WorldPositionExpression;
@@ -2963,7 +2967,7 @@ UMaterialExpressionComment* FMaterialEditor::CreateNewMaterialExpressionComment(
 			ExpressionOuter = MaterialFunction;
 		}
 
-		NewComment = ConstructObject<UMaterialExpressionComment>( UMaterialExpressionComment::StaticClass(), ExpressionOuter, NAME_None, RF_Transactional );
+		NewComment = NewObject<UMaterialExpressionComment>(ExpressionOuter, NAME_None, RF_Transactional);
 
 		// Add to the list of comments associated with this material.
 		Material->EditorComments.Add( NewComment );
@@ -3448,14 +3452,14 @@ void FMaterialEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 	if ( PropertyThatChanged )
 	{
 		const FName NameOfPropertyThatChanged( *PropertyThatChanged->GetName() );
-		if ( NameOfPropertyThatChanged == FName(TEXT("PreviewMesh")) ||
-			NameOfPropertyThatChanged == FName(TEXT("bUsedWithSkeletalMesh")) )
+		if ((NameOfPropertyThatChanged == GET_MEMBER_NAME_CHECKED(UMaterialInterface, PreviewMesh)) ||
+			(NameOfPropertyThatChanged == GET_MEMBER_NAME_CHECKED(UMaterial, bUsedWithSkeletalMesh)))
 		{
 			// SetPreviewMesh will return false if the material has bUsedWithSkeletalMesh and
 			// a skeleton was requested, in which case revert to a sphere static mesh.
-			if (!SetPreviewMesh(*Material->PreviewMesh.ToString()))
+			if (!SetPreviewAssetByName(*Material->PreviewMesh.ToString()))
 			{
-				SetPreviewMesh( GUnrealEd->GetThumbnailManager()->EditorSphere, NULL );
+				SetPreviewAsset(GUnrealEd->GetThumbnailManager()->EditorSphere);
 			}
 		}
 
@@ -3504,6 +3508,8 @@ void FMaterialEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 
 	Material->MarkPackageDirty();
 	SetMaterialDirty();
+
+	GetDefault<UMaterialGraphSchema>()->ForceVisualizationCacheClear();
 }
 
 void FMaterialEditor::ToggleCollapsed(UMaterialExpression* MaterialExpression)
@@ -3755,7 +3761,7 @@ TSharedRef<SGraphEditor> FMaterialEditor::CreateGraphEditorWidget()
 			FExecuteAction::CreateSP(this, &FMaterialEditor::OnCreateComponentMaskNode)
 			);
 
-		GraphEditorCommands->MapAction(FMaterialEditorCommands::Get().GoToDocumentation,
+		GraphEditorCommands->MapAction(FGraphEditorCommands::Get().GoToDocumentation,
 			FExecuteAction::CreateSP(this, &FMaterialEditor::OnGoToDocumentation),
 			FCanExecuteAction::CreateSP(this, &FMaterialEditor::CanGoToDocumentation)
 			);
@@ -4073,11 +4079,11 @@ void FMaterialEditor::OnNodeTitleCommitted(const FText& NewText, ETextCommit::Ty
 	}
 }
 
-FReply FMaterialEditor::OnSpawnGraphNodeByShortcut(FInputGesture InGesture, const FVector2D& InPosition, UEdGraph* InGraph)
+FReply FMaterialEditor::OnSpawnGraphNodeByShortcut(FInputChord InChord, const FVector2D& InPosition, UEdGraph* InGraph)
 {
 	UEdGraph* Graph = InGraph;
 
-	TSharedPtr< FEdGraphSchemaAction > Action = FMaterialEditorSpawnNodeCommands::Get().GetGraphActionByGesture(InGesture, InGraph);
+	TSharedPtr< FEdGraphSchemaAction > Action = FMaterialEditorSpawnNodeCommands::Get().GetGraphActionByChord(InChord, InGraph);
 
 	if(Action.IsValid())
 	{

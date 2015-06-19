@@ -30,6 +30,9 @@ void test_fontdialog(struct UFontDialogHints* hints)
   while(UFontDialog_ProcessEvents(dialog)) {
     usleep(5000);
   }
+  const UFontDialogResult* result =  UFontDialog_Result(dialog);
+  printf("Selected font: %s - %.1f\n", result->fontName, result->pointSize);
+  printf("Style: %s%s\n", ((int)result->flags)&UFontDialogBold ? "Bold":"", ((int)result->flags)&UFontDialogItalic ? "Italic":"");
 
   UFontDialog_Destroy(dialog);
 }
@@ -39,6 +42,9 @@ int main(void)
 
   {
     struct UFontDialogHints hints = DEFAULT_UFONTDIALOGHINTS;
+    hints.InitialFontName = "Arial";
+    hints.InitialPixelSize = 20;
+    hints.WindowTitle = "Open Font";
 
     test_fontdialog(&hints);
   }
@@ -46,7 +52,7 @@ int main(void)
   {
     struct UFileDialogHints hints = DEFAULT_UFILEDIALOGHINTS;
 
-    //hints.InitialDirectory = "/home/rush";
+    hints.InitialDirectory = "/home/";
 
     hints.NameFilter = "Image files (*.jpg *.png)";
 

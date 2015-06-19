@@ -8,11 +8,14 @@
 #include "GameplayDebuggingControllerComponent.h"
 #include "AISystem.h"
 #include "GameplayDebuggerSettings.h"
+#include "GameFramework/PlayerState.h"
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
 #include "ISettingsModule.h"
 #include "LevelEditor.h"
 #endif // WITH_EDITOR
+
+DEFINE_LOG_CATEGORY(LogGameplayDebugger);
 
 #define LOCTEXT_NAMESPACE "FGameplayDebugger"
 FGameplayDebuggerSettings GameplayDebuggerSettings(class AGameplayDebuggingReplicator* Replicator)
@@ -86,7 +89,7 @@ void FGameplayDebugger::StartupModule()
 
 		UGameplayDebuggerSettings::StaticClass()->GetDefaultObject<UGameplayDebuggerSettings>()->OnSettingChanged().AddRaw(this, &FGameplayDebugger::HandleSettingChanged);
 
-#	if ADD_LEVEL_EDITOR_EXTENSIONS
+#		if ADD_LEVEL_EDITOR_EXTENSIONS
 		const bool bExtendViewportMenu = UGameplayDebuggerSettings::StaticClass()->GetDefaultObject<UGameplayDebuggerSettings>()->bExtendViewportMenu;
 		if (!IsRunningCommandlet() && bExtendViewportMenu)
 		{
@@ -100,8 +103,8 @@ void FGameplayDebugger::StartupModule()
 				}
 			}
 		}
-#	endif //ADD_LEVEL_EDITOR_EXTENSIONS
-#endif
+#		endif //ADD_LEVEL_EDITOR_EXTENSIONS
+#	endif //WITH_EDITOR
 	}
 #endif
 }
@@ -293,7 +296,7 @@ bool FGameplayDebugger::CreateGameplayDebuggerForPlayerController(APlayerControl
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.bNoCollisionFail = true;
 	SpawnInfo.Name = *FString::Printf(TEXT("GameplayDebuggingReplicator_%s"), *PlayerController->GetName());
-	AGameplayDebuggingReplicator* DestActor = World->SpawnActor<AGameplayDebuggingReplicator>(SpawnInfo);
+	AGameplayDebuggingReplicator* DestActor = World->SpawnActor<AGameplayDebuggingReplicator>(FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
 	if (DestActor != NULL)
 	{
 		DestActor->SetLocalPlayerOwner(PlayerController);
@@ -332,6 +335,7 @@ void FGameplayDebugger::RemoveReplicator(UWorld* InWorld, AGameplayDebuggingRepl
 
 void FGameplayDebugger::WorldAdded(UWorld* InWorld)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bool bIsServer = InWorld && InWorld->GetNetMode() < ENetMode::NM_Client; // (Only server code)
 	if (!bIsServer)
 	{
@@ -357,7 +361,7 @@ void FGameplayDebugger::WorldAdded(UWorld* InWorld)
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.bNoCollisionFail = true;
 	SpawnInfo.Name = *FString::Printf(TEXT("GameplayDebuggingReplicator_Global"));
-	AGameplayDebuggingReplicator* DestActor = InWorld->SpawnActor<AGameplayDebuggingReplicator>(SpawnInfo);
+	AGameplayDebuggingReplicator* DestActor = InWorld->SpawnActor<AGameplayDebuggingReplicator>(FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
 	if (DestActor != NULL)
 	{
 		DestActor->SetLocalPlayerOwner(NULL);
@@ -366,10 +370,12 @@ void FGameplayDebugger::WorldAdded(UWorld* InWorld)
 		DestActor->SetAsGlobalInWorld(true);
 		AddReplicator(InWorld, DestActor);
 	}
+#endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
 void FGameplayDebugger::WorldDestroyed(UWorld* InWorld)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bool bIsServer = InWorld && InWorld->GetNetMode() < ENetMode::NM_Client; // (Only work on  server)
 	if (!bIsServer)
 	{
@@ -378,7 +384,9 @@ void FGameplayDebugger::WorldDestroyed(UWorld* InWorld)
 
 	// remove global replicator from level
 	AllReplilcatorsPerWorlds.Remove(InWorld);
+#endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
+
 #if WITH_EDITOR
 void FGameplayDebugger::OnLevelActorAdded(AActor* InActor)
 {
@@ -417,7 +425,8 @@ void FGameplayDebugger::OnLevelActorDeleted(AActor* InActor)
 			if (Replicator->GetLocalPlayerOwner() == PC)
 			{
 				RemoveReplicator(World, Replicator.Get());
-				World->DestroyActor(Replicator.Get());
+				Replicator->MarkPendingKill();
+				//World->DestroyActor(Replicator.Get());
 			}
 		}
 	}
@@ -427,80 +436,134 @@ void FGameplayDebugger::OnLevelActorDeleted(AActor* InActor)
 
 bool FGameplayDebugger::Exec(UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bool bHandled = false;
 
-	APlayerController* PC = Inworld ? Inworld->GetFirstPlayerController() : NULL;
-	if (!Inworld || !PC)
+	
+	if (!Inworld)
 	{
 		return bHandled;
 	}
 
 	if (FParse::Command(&Cmd, TEXT("EnableGDT")))
 	{
-		AGameplayDebuggingReplicator* Replicator = NULL;
-		for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
+		if (Inworld->GetNetMode() == NM_Client)
 		{
-			Replicator = *It;
-			if (Replicator && !Replicator->IsPendingKill())
+			APlayerController* LocalPC = NULL;
+			for (FConstPlayerControllerIterator Iterator = Inworld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* LocalPC = Replicator->GetLocalPlayerOwner();
-				if (LocalPC == PC)
+				APlayerController* PlayerController = *Iterator;
+				if (PlayerController && PlayerController->IsLocalPlayerController())
 				{
+					LocalPC = PlayerController;
 					break;
 				}
 			}
-			Replicator = NULL;
-		}
 
-		if (Inworld->GetNetMode() == NM_Client)
-		{
-			if (!Replicator)
+			if (LocalPC)
 			{
-				PC->ConsoleCommand("cheat EnableGDT");
-				bHandled = true;
-			}
-			else if (!Replicator->IsToolCreated())
-			{
-				Replicator->CreateTool();
-				Replicator->EnableTool();
-				bHandled = true;
-			}
-		}
-		else if (Inworld->GetNetMode() < NM_Client)
-		{
-			if (!Replicator)
-			{
-				CreateGameplayDebuggerForPlayerController(PC);
+				AGameplayDebuggingReplicator* Replicator = NULL;
 				for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
 				{
 					Replicator = *It;
 					if (Replicator && !Replicator->IsPendingKill())
 					{
-						APlayerController* LocalPC = Replicator->GetLocalPlayerOwner();
-						if (LocalPC == PC)
+						APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
+						if (LocalPC == PCOwner)
 						{
 							break;
 						}
 					}
 					Replicator = NULL;
 				}
-			}
 
-			if (Inworld->GetNetMode() != NM_DedicatedServer)
-			{
-				if (Replicator && !Replicator->IsToolCreated())
+				if (!Replicator)
+				{					
+					LocalPC->ClientMessage(TEXT("Enabling GameplayDebugger on server, please wait for replicated data..."));
+					const FString ServerCheatString = FString::Printf(TEXT("cheat EnableGDT %s"), *LocalPC->PlayerState->UniqueId.ToString());
+					UE_LOG(LogGameplayDebugger, Warning, TEXT("Sending to Server: %s"), *ServerCheatString);
+					LocalPC->ConsoleCommand(*ServerCheatString);
+					bHandled = true;
+				}
+				else if (!Replicator->IsToolCreated())
 				{
 					Replicator->CreateTool();
 					Replicator->EnableTool();
 					bHandled = true;
 				}
 			}
-			else
+		}
+		else if (Inworld->GetNetMode() < NM_Client)
+		{
+			APlayerController* LocalPC = NULL;
+			UE_LOG(LogGameplayDebugger, Warning, TEXT("Got from client: %s"), Cmd);
+			FString UniqueId = FParse::Token(Cmd, 0);
+			for (FConstPlayerControllerIterator Iterator = Inworld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				if (Replicator)
+				APlayerController* PlayerController = *Iterator;
+				UE_LOG(LogGameplayDebugger, Warning, TEXT("- Client: %s"), *PlayerController->PlayerState->UniqueId.ToString());
+				if (PlayerController && PlayerController->PlayerState->UniqueId.ToString() == UniqueId)
 				{
-					Replicator->bAutoActivate = true;;
-					bHandled = true;
+					LocalPC = PlayerController;
+					break;
+				}
+			}
+			if (!LocalPC && Inworld->GetNetMode() != NM_DedicatedServer)
+			{
+				LocalPC = Inworld->GetFirstPlayerController();
+			}
+
+			if (LocalPC)
+			{
+				AGameplayDebuggingReplicator* Replicator = NULL;
+				for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
+				{
+					Replicator = *It;
+					if (Replicator && !Replicator->IsPendingKill())
+					{
+						APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
+						if (LocalPC == PCOwner)
+						{
+							break;
+						}
+					}
+					Replicator = NULL;
+				}
+
+				if (!Replicator)
+				{
+					CreateGameplayDebuggerForPlayerController(LocalPC);
+					for (TActorIterator<AGameplayDebuggingReplicator> It(Inworld); It; ++It)
+					{
+						Replicator = *It;
+						if (Replicator && !Replicator->IsPendingKill())
+						{
+							APlayerController* PCOwner = Replicator->GetLocalPlayerOwner();
+							if (LocalPC == PCOwner)
+							{
+								break;
+							}
+						}
+						Replicator = NULL;
+					}
+				}
+
+				if (Inworld->GetNetMode() != NM_DedicatedServer)
+				{
+					if (Replicator && !Replicator->IsToolCreated())
+					{
+						Replicator->CreateTool();
+						Replicator->EnableTool();
+						bHandled = true;
+					}
+				}
+				else
+				{
+					if (Replicator)
+					{
+						Replicator->ClientAutoActivate();
+						bHandled = true;
+					}
 				}
 			}
 		}
@@ -542,6 +605,9 @@ bool FGameplayDebugger::Exec(UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& A
 	}
 
 	return bHandled;
+#else
+	return false;
+#endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
 #undef LOCTEXT_NAMESPACE

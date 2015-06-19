@@ -7,7 +7,7 @@
 class FBuildDataEnumeration
 {
 public:
-	static bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile);
+	static bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile, const bool bIncludeSizes);
 };
 
 #endif //WITH_BUILDPATCHGENERATION

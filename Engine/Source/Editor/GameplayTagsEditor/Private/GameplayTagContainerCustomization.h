@@ -35,6 +35,12 @@ private:
 	/** Called when the clear all button is clicked; Clears all selected tags in the container*/
 	FReply OnClearAllButtonClicked();
 
+	/** Returns the visibility of the "clear all" button (collapsed when there are no tags) */
+	EVisibility GetClearAllVisibility() const;
+
+	/** Returns the visibility of the tags list box (collapsed when there are no tags) */
+	EVisibility GetTagsListVisibility() const;
+
 	/** Returns the selected tags list widget*/
 	TSharedRef<SWidget> ActiveTags();
 

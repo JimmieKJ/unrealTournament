@@ -218,7 +218,7 @@ FbxString FFbxDataConverter::ConvertToFbxString(FName Name)
 	FString UnrealString;
 	Name.ToString(UnrealString);
 
-	OutString = TCHAR_TO_ANSI(*UnrealString);
+	OutString = TCHAR_TO_UTF8(*UnrealString);
 
 	return OutString;
 }
@@ -227,7 +227,7 @@ FbxString FFbxDataConverter::ConvertToFbxString(const FString& String)
 {
 	FbxString OutString;
 
-	OutString = TCHAR_TO_ANSI(*String);
+	OutString = TCHAR_TO_UTF8(*String);
 
 	return OutString;
 }

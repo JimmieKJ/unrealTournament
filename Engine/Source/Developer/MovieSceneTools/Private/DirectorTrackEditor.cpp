@@ -26,8 +26,12 @@ namespace AnimatableShotToolConstants
 {
 	// @todo Sequencer Perhaps allow this to be customizable
 	const uint32 DirectorTrackHeight = 100;
+	const double ThumbnailFadeInDuration = 0.25f;
+
 }
 
+/////////////////////////////////////////////////
+// FShotThumbnailPool
 
 FShotThumbnailPool::FShotThumbnailPool(TSharedPtr<ISequencer> InSequencer, uint32 InMaxThumbnailsToDrawAtATime)
 	: Sequencer(InSequencer)
@@ -84,15 +88,15 @@ void FShotThumbnailPool::DrawThumbnails()
 }
 
 
+/////////////////////////////////////////////////
+// FShotThumbnail
 
 FShotThumbnail::FShotThumbnail(TSharedPtr<FShotSection> InSection, TRange<float> InTimeRange)
 	: OwningSection(InSection)
 	, Texture(NULL)
 	, TimeRange(InTimeRange)
+	, FadeInStartTime(0.0)
 {
-	ThumbnailFadeAnimation = FCurveSequence();
-	ThumbnailFadeCurve = ThumbnailFadeAnimation.AddCurve(0.f, 0.25f, ECurveEaseFunction::QuadOut);
-
 	Texture = new FSlateTexture2DRHIRef(GetSize().X, GetSize().Y, PF_B8G8R8A8, NULL, TexCreate_Dynamic, true);
 
 	BeginInitResource( Texture );
@@ -122,7 +126,7 @@ FSlateShaderResource* FShotThumbnail::GetViewportRenderTargetTexture() const
 void FShotThumbnail::DrawThumbnail()
 {
 	OwningSection.Pin()->DrawViewportThumbnail(SharedThis(this));
-	ThumbnailFadeAnimation.Play();
+	FadeInStartTime = FSlateApplication::Get().GetCurrentTime();
 }
 
 float FShotThumbnail::GetTime() const {return TimeRange.GetLowerBoundValue();}
@@ -137,7 +141,10 @@ void FShotThumbnail::CopyTextureIn(FSlateRenderTargetRHI* InTexture)
 	});
 }
 
-float FShotThumbnail::GetFadeInCurve() const {return 1.f - ThumbnailFadeCurve.GetLerp();}
+float FShotThumbnail::GetFadeInCurve() const 
+{
+	return (float)FMath::Clamp(FadeInStartTime / AnimatableShotToolConstants::ThumbnailFadeInDuration, 0.0, 1.0);
+}
 
 bool FShotThumbnail::IsVisible() const
 {
@@ -149,7 +156,8 @@ bool FShotThumbnail::IsValid() const
 	return OwningSection.IsValid();
 }
 
-
+/////////////////////////////////////////////////
+// FShotSection
 
 FShotSection::FShotSection( TSharedPtr<ISequencer> InSequencer, TSharedPtr<FShotThumbnailPool> InThumbnailPool, UMovieSceneSection& InSection, UObject* InTargetObject )
 	: Section( &InSection )
@@ -161,14 +169,14 @@ FShotSection::FShotSection( TSharedPtr<ISequencer> InSequencer, TSharedPtr<FShot
 	, StoredSize(ForceInit)
 	, StoredStartTime(0.f)
 	, VisibleTimeRange(TRange<float>::Empty())
-	, InternalViewportScene(NULL)
-	, InternalViewportClient(NULL)
+	, InternalViewportScene(nullptr)
+	, InternalViewportClient(nullptr)
 {
 	if (Camera.IsValid())
 	{
 		// @todo Sequencer optimize This code shouldn't even be called if this is offscreen
 		// the following code could be generated on demand when the section is scrolled onscreen
-		InternalViewportClient = MakeShareable(new FLevelEditorViewportClient());
+		InternalViewportClient = MakeShareable(new FLevelEditorViewportClient(nullptr));
 		InternalViewportClient->ViewportType = LVT_Perspective;
 		InternalViewportClient->bDisableInput = true;
 		InternalViewportClient->bDrawAxes = false;
@@ -176,7 +184,7 @@ FShotSection::FShotSection( TSharedPtr<ISequencer> InSequencer, TSharedPtr<FShot
 		InternalViewportClient->EngineShowFlags.DisableAdvancedFeatures();
 		InternalViewportClient->SetActorLock(Camera.Get());
 
-		InternalViewportScene = MakeShareable(new FSceneViewport(InternalViewportClient.Get(), NULL));
+		InternalViewportScene = MakeShareable(new FSceneViewport(InternalViewportClient.Get(), nullptr));
 		InternalViewportClient->Viewport = InternalViewportScene.Get();
 
 		CalculateThumbnailWidthAndResize();
@@ -189,7 +197,7 @@ FShotSection::~FShotSection()
 
 	if (InternalViewportClient.IsValid())
 	{
-		InternalViewportClient->Viewport = NULL;
+		InternalViewportClient->Viewport = nullptr;
 	}
 }
 
@@ -377,7 +385,8 @@ void FShotSection::CalculateThumbnailWidthAndResize()
 	}
 }
 
-
+/////////////////////////////////////////////////
+// FDirectorTrackEditor
 
 FDirectorTrackEditor::FDirectorTrackEditor( TSharedRef<ISequencer> InSequencer )
 	: FMovieSceneTrackEditor( InSequencer ) 

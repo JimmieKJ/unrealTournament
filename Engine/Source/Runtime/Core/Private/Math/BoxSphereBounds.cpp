@@ -14,61 +14,38 @@ FBoxSphereBounds FBoxSphereBounds::TransformBy(const FMatrix& M) const
 {
 	FBoxSphereBounds Result;
 
-	Result.Origin = M.TransformPosition(Origin);
-	Result.BoxExtent = FVector::ZeroVector;
+	const VectorRegister VecOrigin = VectorLoadFloat3(&Origin);
+	const VectorRegister VecExtent = VectorLoadFloat3(&BoxExtent);
 
-	float Signs[2] = { -1.0f, 1.0f };
+	const VectorRegister m0 = VectorLoadAligned(M.M[0]);
+	const VectorRegister m1 = VectorLoadAligned(M.M[1]);
+	const VectorRegister m2 = VectorLoadAligned(M.M[2]);
+	const VectorRegister m3 = VectorLoadAligned(M.M[3]);
 
-	for (int32 X = 0; X < 2; X++)
-	{
-		for (int32 Y = 0; Y < 2; Y++)
-		{
-			for (int32 Z = 0; Z < 2; Z++)
-			{
-				FVector	Corner = M.TransformVector(FVector(Signs[X] * BoxExtent.X,Signs[Y] * BoxExtent.Y,Signs[Z] * BoxExtent.Z));
+	VectorRegister NewOrigin = VectorMultiply(VectorReplicate(VecOrigin, 0), m0);
+	NewOrigin = VectorMultiplyAdd(VectorReplicate(VecOrigin, 1), m1, NewOrigin);
+	NewOrigin = VectorMultiplyAdd(VectorReplicate(VecOrigin, 2), m2, NewOrigin);
+	NewOrigin = VectorAdd(NewOrigin, m3);
 
-				Result.BoxExtent.X = FMath::Max(Corner.X,Result.BoxExtent.X);
-				Result.BoxExtent.Y = FMath::Max(Corner.Y,Result.BoxExtent.Y);
-				Result.BoxExtent.Z = FMath::Max(Corner.Z,Result.BoxExtent.Z);
-			}
-		}
-	}
+	VectorRegister NewExtent = VectorAbs(VectorMultiply(VectorReplicate(VecExtent, 0), m0));
+	NewExtent = VectorAdd(NewExtent, VectorAbs(VectorMultiply(VectorReplicate(VecExtent, 1), m1)));
+	NewExtent = VectorAdd(NewExtent, VectorAbs(VectorMultiply(VectorReplicate(VecExtent, 2), m2)));
 
-	const FVector XAxis(M.M[0][0], M.M[0][1], M.M[0][2]);
-	const FVector YAxis(M.M[1][0], M.M[1][1], M.M[1][2]);
-	const FVector ZAxis(M.M[2][0], M.M[2][1], M.M[2][2]);
+	VectorStoreFloat3(NewExtent, &Result.BoxExtent);
+	VectorStoreFloat3(NewOrigin, &Result.Origin);
 
-	Result.SphereRadius = FMath::Sqrt(FMath::Max(XAxis | XAxis, FMath::Max(YAxis | YAxis, ZAxis | ZAxis))) * SphereRadius;
+	VectorRegister MaxRadius = VectorMultiply(m0, m0);
+	MaxRadius = VectorMultiplyAdd(m1, m1, MaxRadius);
+	MaxRadius = VectorMultiplyAdd(m2, m2, MaxRadius);
+	MaxRadius = VectorMax(VectorMax(MaxRadius, VectorReplicate(MaxRadius, 1)), VectorReplicate(MaxRadius, 2));
+	Result.SphereRadius = FMath::Sqrt(VectorGetComponent( MaxRadius, 0) ) * SphereRadius;
 
 	return Result;
 }
 
-
 FBoxSphereBounds FBoxSphereBounds::TransformBy(const FTransform& M) const
 {
-	FBoxSphereBounds Result;
-
-	Result.Origin = M.TransformPosition(Origin);
-	Result.BoxExtent = FVector::ZeroVector;
-
-	float Signs[2] = { -1.0f, 1.0f };
-
-	for (int32 X = 0; X < 2; X++)
-	{
-		for (int32 Y = 0; Y < 2; Y++)
-		{
-			for (int32 Z = 0; Z < 2; Z++)
-			{
-				FVector	Corner = M.TransformVector(FVector(Signs[X] * BoxExtent.X,Signs[Y] * BoxExtent.Y,Signs[Z] * BoxExtent.Z));
-
-				Result.BoxExtent.X = FMath::Max(Corner.X, Result.BoxExtent.X);
-				Result.BoxExtent.Y = FMath::Max(Corner.Y, Result.BoxExtent.Y);
-				Result.BoxExtent.Z = FMath::Max(Corner.Z, Result.BoxExtent.Z);
-			}
-		}
-	}
-
-	Result.SphereRadius = SphereRadius * M.GetMaximumAxisScale();
-
+	const FMatrix Mat = M.ToMatrixWithScale();
+	FBoxSphereBounds Result = TransformBy(Mat);
 	return Result;
 }

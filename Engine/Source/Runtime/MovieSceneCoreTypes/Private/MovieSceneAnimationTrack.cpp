@@ -66,7 +66,7 @@ TRange<float> UMovieSceneAnimationTrack::GetSectionBoundaries() const
 void UMovieSceneAnimationTrack::AddNewAnimation(float KeyTime, UAnimSequence* AnimSequence)
 {
 	// add the section
-	UMovieSceneAnimationSection* NewSection = ConstructObject<UMovieSceneAnimationSection>( UMovieSceneAnimationSection::StaticClass(), this );
+	UMovieSceneAnimationSection* NewSection = NewObject<UMovieSceneAnimationSection>(this);
 	NewSection->InitialPlacement( AnimationSections, KeyTime, KeyTime + AnimSequence->SequenceLength, SupportsMultipleRows() );
 	NewSection->SetAnimationStartTime( KeyTime );
 	NewSection->SetAnimSequence(AnimSequence);

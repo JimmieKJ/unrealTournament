@@ -447,14 +447,7 @@ bool FOnlineSessionNull::IsPlayerInSession(FName SessionName, const FUniqueNetId
 	return IsPlayerInSessionImpl(this, SessionName, UniqueId);
 }
 
-bool FOnlineSessionNull::StartMatchmaking(int32 SearchingPlayerNum, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
-{
-	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
-	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
-	return false;
-}
-
-bool FOnlineSessionNull::StartMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
+bool FOnlineSessionNull::StartMatchmaking(const TArray< TSharedRef<FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
 	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
@@ -512,6 +505,13 @@ bool FOnlineSessionNull::FindSessions(const FUniqueNetId& SearchingPlayerId, con
 {
 	// This function doesn't use the SearchingPlayerNum parameter, so passing in anything is fine.
 	return FindSessions(0, SearchSettings);
+}
+
+bool FOnlineSessionNull::FindSessionById(const FUniqueNetId& SearchingUserId, const FUniqueNetId& SessionId, const FUniqueNetId& FriendId, const FOnSingleSessionResultCompleteDelegate& CompletionDelegates)
+{
+	FOnlineSessionSearchResult EmptyResult;
+	CompletionDelegates.ExecuteIfBound(0, false, EmptyResult);
+	return true;
 }
 
 uint32 FOnlineSessionNull::FindLANSession()

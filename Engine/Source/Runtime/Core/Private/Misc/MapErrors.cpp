@@ -54,6 +54,9 @@ FName FMapErrors::NoLevelsAssociated(TEXT("NoLevelsAssociated"));
 FName FMapErrors::FilenameIsTooLongForCooking(TEXT("FilenameIsTooLongForCooking"));
 FName FMapErrors::UsingExternalObject(TEXT("UsingExternalObject"));
 FName FMapErrors::RepairedPaintedVertexColors(TEXT("RepairedPaintedVertexColors"));
+FName FMapErrors::LODActorMissingStaticMesh(TEXT("LODActorMissingStaticMesh"));
+FName FMapErrors::LODActorMissingActor(TEXT("LODActorMissingActor"));
+FName FMapErrors::LODActorNoActorFound(TEXT("LODActorNoActor"));
 
 static const FString MapErrorsPath = TEXT("Shared/Editor/MapErrors");
 

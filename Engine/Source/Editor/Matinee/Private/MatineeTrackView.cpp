@@ -148,7 +148,7 @@ void FMatinee::OnToggleDirectorTimeline()
 		DirectorTrackWindow->InterpEdVC->Viewport->Draw();
 
 		// Save to ini when it changes.
-		GConfig->SetBool(TEXT("Matinee"), TEXT("DirectorTimelineEnabled"), DirectorTrackWindow->InterpEdVC->bWantTimeline, GEditorUserSettingsIni);
+		GConfig->SetBool(TEXT("Matinee"), TEXT("DirectorTimelineEnabled"), DirectorTrackWindow->InterpEdVC->bWantTimeline, GEditorPerProjectIni);
 	}
 }
 

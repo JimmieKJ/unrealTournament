@@ -73,6 +73,10 @@ private:
 	/** Handles determining the checked state of the 'Incremental' check box. */
 	ECheckBoxState HandleIncrementalCheckBoxIsChecked( ) const;
 
+	void HandleCompressedCheckBoxCheckStateChanged( ECheckBoxState NewState );
+
+	ECheckBoxState HandleCompressedCheckBoxIsChecked( ) const;
+	
 	/** Handles generating a row widget in the map list view. */
 	TSharedRef<ITableRow> HandleMapListViewGenerateRow( TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 
@@ -121,6 +125,54 @@ private:
 	// Callback for determining the checked state of the 'UnrealPak' check box.
 	ECheckBoxState HandleUnrealPakCheckBoxIsChecked( ) const;
 
+	void HandleGenerateChunksCheckBoxCheckStateChanged(ECheckBoxState NewState);
+	ECheckBoxState HandleGenerateChunksCheckBoxIsChecked() const;
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// creating release version related functions
+	// Callback for check state changes of the 'GeneratePatch' check box.
+	void HandleCreateReleaseVersionCheckBoxCheckStateChanged( ECheckBoxState NewState );
+	// Callback for determining the checked state of the 'GeneratePatch' check box.
+	ECheckBoxState HandleCreateReleaseVersionCheckBoxIsChecked( ) const;
+
+	void HandleCreateReleaseVersionNameCommitted(const FText& NewText, ETextCommit::Type CommitType);
+	FText HandleCreateReleaseVersionNameTextBlockText() const;
+
+	void HandleBasedOnReleaseVersionNameCommitted(const FText& NewText, ETextCommit::Type CommitType);
+	FText HandleBasedOnReleaseVersionNameTextBlockText() const;
+
+	//////////////////////////////////////////////////////////////////////////
+	// patch generation related functions
+	// Callback for check state changes of the 'GeneratePatch' check box.
+	void HandleGeneratePatchCheckBoxCheckStateChanged( ECheckBoxState NewState );
+	// Callback for determining the checked state of the 'GeneratePatch' check box.
+	ECheckBoxState HandleGeneratePatchCheckBoxIsChecked( ) const;
+
+	// Callback for changing patchSourceContent path (should be the path of a pak file)
+	FText HandlePatchSourceContentPathTextBlockText() const;
+	// Callback for getting the PatchSourceContentPath
+	void HandlePatchSourceContentPathCommitted(const FText& NewText, ETextCommit::Type CommitType);
+
+	//////////////////////////////////////////////////////////////////////////
+	// dlc check box related functions 
+	void HandleBuildDLCCheckBoxCheckStateChanged( ECheckBoxState NewState );
+	ECheckBoxState HandleBuildDLCCheckBoxIsChecked() const;
+	void HandleDLCNameCommitted(const FText& NewText, ETextCommit::Type CommitType);
+	FText HandleDLCNameTextBlockText() const;
+	void HandleDLCIncludeEngineContentCheckBoxCheckStateChanged(ECheckBoxState NewState);
+	ECheckBoxState HandleDLCIncludeEngineContentCheckBoxIsChecked() const;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Http Chunk Installer options & functions
+	FReply HandleHtppChunkInstallBrowseButtonClicked();
+	void HandleHtppChunkInstallDirectoryTextChanged(const FText& InText);
+	void HandleHtppChunkInstallDirectoryTextCommitted(const FText& InText, ETextCommit::Type CommitInfo);
+	void HandleHttpChunkInstallCheckBoxCheckStateChanged(ECheckBoxState NewState);
+	ECheckBoxState HandleHttpChunkInstallCheckBoxIsChecked() const;
+	FText HandleHttpChunkInstallNameTextBlockText() const;
+	void HandleHtppChunkInstallNameCommitted(const FText& NewText, ETextCommit::Type CommitType);
+
 	/** creates the complex widget. */
 	TSharedRef<SWidget> MakeComplexWidget();
 
@@ -128,6 +180,12 @@ private:
 	TSharedRef<SWidget> MakeSimpleWidget();
 
 private:
+
+	/** Textbox which holds the PatchSourceContentPath */
+	TSharedPtr<SEditableTextBox> PatchSourceContentPath;
+
+	/** Textbox which holds the DLCBasedOnReleaseVersion */
+	TSharedPtr<SEditableTextBox> DLCBasedOnReleaseVersionName;
 
 	/** Holds the culture list. */
 	TArray<TSharedPtr<FString> > CultureList;
@@ -146,4 +204,7 @@ private:
 
 	/** Holds the current 'Show maps' check box choice. */
 	EShowMapsChoices::Type ShowMapsChoice;
+
+	// Holds the Http Chunk Install directory path text box.
+	TSharedPtr<SEditableTextBox> HttpChunkInstallDirectoryTextBox;
 };

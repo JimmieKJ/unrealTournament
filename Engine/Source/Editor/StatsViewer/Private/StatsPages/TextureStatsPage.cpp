@@ -5,6 +5,8 @@
 #include "TextureStats.h"
 #include "ReferencedAssetsUtils.h"
 #include "AssetSelection.h"
+#include "EngineUtils.h"
+#include "Engine/TextureCube.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer.TextureStats"
 
@@ -185,7 +187,7 @@ struct TextureStatsGenerator : public FFindReferencedAssets
 		UTextureStats** EntryPtr = EntryMap.Find(InTexture->GetPathName());
 		if(EntryPtr == NULL)
 		{
-			Entry = ConstructObject<UTextureStats>(UTextureStats::StaticClass());
+			Entry = NewObject<UTextureStats>();
 			Entry->AddToRoot();
 			OutObjects.Add(Entry);
 			EntryMap.Add(InTexture->GetPathName(), Entry);
@@ -332,7 +334,7 @@ void FTextureStatsPage::GenerateTotals( const TArray< TWeakObjectPtr<UObject> >&
 {
 	if(InObjects.Num())
 	{
-		UTextureStats* TotalEntry = ConstructObject<UTextureStats>( UTextureStats::StaticClass() );
+		UTextureStats* TotalEntry = NewObject<UTextureStats>();
 
 		for( auto It = InObjects.CreateConstIterator(); It; ++It )
 		{

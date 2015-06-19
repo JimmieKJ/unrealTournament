@@ -85,7 +85,7 @@ static int classify_identifier(struct _mesa_glsl_parse_state *, const char *);
  *    word      KEYWORD(110, 130 || ES, TOKEN)
  * ...means the word is a legal keyword in GLSL ES 1.00.
  */
-#define ES yyextra->es_shader
+#define ES 1
 
 static int
 literal_integer(char *text, int len, struct _mesa_glsl_parse_state *state,
@@ -318,19 +318,6 @@ RWTexture3D			KEYWORD(100, 310, RWTEXTURE3D);
 struct		return STRUCT;
 cbuffer		return CBUFFER;
 void		return VOID_TOK;
-
-layout		{
-		  if ((yyextra->language_version >= 140)
-			  || yyextra->AMD_conservative_depth_enable
-			  || yyextra->ARB_conservative_depth_enable
-			  || yyextra->ARB_explicit_attrib_location_enable
-			  || yyextra->ARB_fragment_coord_conventions_enable) {
-			  return LAYOUT_TOK;
-		   } else {
-			  yylval->identifier = strdup(yytext);
-			  return IDENTIFIER;
-		   }
-		}
 
 \+\+		return INC_OP;
 --		return DEC_OP;

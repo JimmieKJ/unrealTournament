@@ -45,5 +45,14 @@ struct FBlueprintNodeSpawnerUtils
 	 * @return A UClass that corresponds to the supplied binding.
 	 */
 	static UClass* GetBindingClass(const UObject* Binding);
+
+	/**
+	 * Checks if the node-spawner's associated action is stale (meaning it 
+	 * belongs to a TRASH or REINST class).
+	 * 
+	 * @param  BlueprintAction    The node-spawner you want to check.
+	 * @return True if the action is stale (associated with a TRASH or REINST class).
+	 */
+	static bool IsStaleFieldAction(UBlueprintNodeSpawner const* BlueprintAction);
 };
 

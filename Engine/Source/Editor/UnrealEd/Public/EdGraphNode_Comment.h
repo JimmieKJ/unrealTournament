@@ -23,7 +23,11 @@ namespace ECommentBoxMode
 UCLASS(MinimalAPI)
 class UEdGraphNode_Comment : public UEdGraphNode
 {
-	GENERATED_UCLASS_BODY()
+public:
+	GENERATED_BODY()
+
+public:
+	UEdGraphNode_Comment(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	/** Color to style comment with */
 	UPROPERTY(EditAnywhere, Category=Comment)
@@ -38,7 +42,7 @@ class UEdGraphNode_Comment : public UEdGraphNode
 	TEnumAsByte<ECommentBoxMode::Type> MoveMode;
 
 	/** comment Depth */
-	UPROPERTY(EditAnywhere, Category=Comment, meta=(DisplayName="CommentDepth"))
+	UPROPERTY()
 	int32 CommentDepth;
 
 public:

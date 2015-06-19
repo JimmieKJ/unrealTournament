@@ -20,6 +20,7 @@ FCurlHttpRequest::FCurlHttpRequest(CURLM * InMultiHandle)
 	,	BytesSent(0)
 	,	CompletionStatus(EHttpRequestStatus::NotStarted)
 	,	ElapsedTime(0.0f)
+	,	TimeSinceLastResponse(0.0f)
 {
 	check(MultiHandle);
 	if (MultiHandle)
@@ -99,7 +100,7 @@ FString FCurlHttpRequest::GetURLParameter(const FString& ParameterName)
 {
 	TArray<FString> StringElements;
 
-	int32 NumElems = URL.ParseIntoArray(&StringElements, TEXT("&"), true);
+	int32 NumElems = URL.ParseIntoArray(StringElements, TEXT("&"), true);
 	check(NumElems == StringElements.Num());
 	
 	FString ParamValDelimiter(TEXT("="));
@@ -174,22 +175,7 @@ void FCurlHttpRequest::SetVerb(const FString& InVerb)
 void FCurlHttpRequest::SetURL(const FString& InURL)
 {
 	check(EasyHandle);
-
-	URL = InURL.Replace(TEXT("%"), TEXT("%25"));
-	URL = URL.Replace(TEXT(" "), TEXT("%20"));
-	URL = URL.Replace(TEXT("\""), TEXT("%22"));
-	URL = URL.Replace(TEXT("<"), TEXT("%3C"));
-	URL = URL.Replace(TEXT(">"), TEXT("%3E"));
-
-	URL = URL.Replace(TEXT("["), TEXT("%5B"));
-	URL = URL.Replace(TEXT("]"), TEXT("%5D"));
-	URL = URL.Replace(TEXT("\\"), TEXT("%5C"));
-	URL = URL.Replace(TEXT("^"), TEXT("%5E"));
-
-	URL = URL.Replace(TEXT("`"), TEXT("%60"));
-	URL = URL.Replace(TEXT("{"), TEXT("%7B"));
-	URL = URL.Replace(TEXT("}"), TEXT("%7D"));
-	URL = URL.Replace(TEXT("|"), TEXT("%7C"));
+	URL = InURL;
 }
 
 void FCurlHttpRequest::SetContent(const TArray<uint8>& ContentPayload)
@@ -262,6 +248,8 @@ size_t FCurlHttpRequest::ReceiveResponseHeaderCallback(void* Ptr, size_t SizeInB
 
 	if (Response.IsValid())
 	{
+		TimeSinceLastResponse = 0.0f;
+
 		uint32 HeaderSize = SizeInBlocks * BlockSizeInBytes;
 		if (HeaderSize > 0 && HeaderSize <= CURL_MAX_HTTP_HEADER)
 		{
@@ -304,6 +292,8 @@ size_t FCurlHttpRequest::ReceiveResponseBodyCallback(void* Ptr, size_t SizeInBlo
 
 	if (Response.IsValid())
 	{
+		TimeSinceLastResponse = 0.0f;
+
 		uint32 SizeToDownload = SizeInBlocks * BlockSizeInBytes;
 
 		UE_LOG(LogHttp, Verbose, TEXT("%p: ReceiveResponseBodyCallback: %d bytes out of %d received. (SizeInBlocks=%d, BlockSizeInBytes=%d, Response->TotalBytesRead=%d, Response->GetContentLength()=%d, SizeToDownload=%d (<-this will get returned from the callback))"),
@@ -322,7 +312,7 @@ size_t FCurlHttpRequest::ReceiveResponseBodyCallback(void* Ptr, size_t SizeInBlo
 			Response->TotalBytesRead += SizeToDownload;
 
 			// Update response progress
-			OnRequestProgress().ExecuteIfBound(SharedThis(this), Response->TotalBytesRead);
+			OnRequestProgress().ExecuteIfBound(SharedThis(this), BytesSent, Response->TotalBytesRead);
 
 			return SizeToDownload;
 		}
@@ -337,11 +327,15 @@ size_t FCurlHttpRequest::ReceiveResponseBodyCallback(void* Ptr, size_t SizeInBlo
 
 size_t FCurlHttpRequest::UploadCallback(void* Ptr, size_t SizeInBlocks, size_t BlockSizeInBytes)
 {
+	TimeSinceLastResponse = 0.0f;
+
 	size_t SizeToSend = RequestPayload.Num() - BytesSent;
 	size_t SizeToSendThisTime = 0;
 
 	if (SizeToSend != 0)
 	{
+		OnRequestProgress().ExecuteIfBound(SharedThis(this), BytesSent, 0);
+
 		SizeToSendThisTime = FMath::Min(SizeToSend, SizeInBlocks * BlockSizeInBytes);
 		if (SizeToSendThisTime != 0)
 		{
@@ -443,6 +437,12 @@ bool IsURLEncoded(const TArray<uint8> & Payload)
 bool FCurlHttpRequest::StartRequest()
 {
 	check(EasyHandle);
+
+	bCompleted = false;
+	bCanceled = false;
+
+	curl_slist_free_all(HeaderList);
+	HeaderList = nullptr;
 
 	// default no verb to a GET
 	if (Verb.IsEmpty())
@@ -638,23 +638,31 @@ const FHttpResponsePtr FCurlHttpRequest::GetResponse() const
 
 void FCurlHttpRequest::Tick(float DeltaSeconds)
 {
-	// check for true completion/cancellation
-	if (bCompleted || bCanceled)
-	{
-		FinishedRequest();
-		return;
-	}
-
 	// keep track of elapsed seconds
 	ElapsedTime += DeltaSeconds;
-	const float HttpTimeout = FHttpModule::Get().GetHttpTimeout();
-	if (HttpTimeout > 0 && ElapsedTime >= HttpTimeout)
-	{
-		UE_LOG(LogHttp, Warning, TEXT("Timeout processing Http request. %p"),
-			this);
+	TimeSinceLastResponse += DeltaSeconds;
 
-		// finish it off since it is timeout
+	// check for true completion/cancellation
+	if (bCompleted && 
+		ElapsedTime >= FHttpModule::Get().GetHttpDelayTime())
+	{
 		FinishedRequest();
+	}
+	else if (bCanceled)
+	{
+		FinishedRequest();
+	}
+	else
+	{
+		const float HttpTimeout = FHttpModule::Get().GetHttpTimeout();
+		if (HttpTimeout > 0 && TimeSinceLastResponse >= HttpTimeout)
+		{
+			UE_LOG(LogHttp, Warning, TEXT("Timeout processing Http request. %p"),
+				this);
+
+			// finish it off since it is timeout
+			FinishedRequest();
+		}
 	}
 }
 
@@ -724,6 +732,11 @@ void FCurlHttpRequest::CleanupRequest()
 	{
 		bEasyHandleAddedToMulti = false;
 	}
+}
+
+float FCurlHttpRequest::GetElapsedTime()
+{
+	return ElapsedTime;
 }
 
 

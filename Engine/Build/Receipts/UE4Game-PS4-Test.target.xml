@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<BuildReceipt xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <Properties>
+    <Property Name="TargetName" Value="UE4Game" />
+    <Property Name="Platform" Value="PS4" />
+    <Property Name="Configuration" Value="Test" />
+    <Property Name="Precompile" Value="False" />
+  </Properties>
+  <BuildProducts>
+    <BuildProduct Path="$(EngineDir)\Binaries\PS4\UE4Game-PS4-Test.self" Type="Executable" />
+    <BuildProduct Path="$(EngineDir)\Plugins\2D\Paper2D\Binaries\PS4\UE4Game-Paper2D-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Experimental\CharacterAI\Binaries\PS4\UE4Game-CharacterAI-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Media\PS4\PS4Media\Binaries\PS4\UE4Game-PS4Media-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Messaging\UdpMessaging\Binaries\PS4\UE4Game-UdpMessaging-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CableComponent\Binaries\PS4\UE4Game-CableComponent-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\CustomMeshComponent\Binaries\PS4\UE4Game-CustomMeshComponent-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\ExampleDeviceProfileSelector\Binaries\PS4\UE4Game-ExampleDeviceProfileSelector-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Runtime\PS4\PS4MoviePlayer\Binaries\PS4\UE4Game-PS4MoviePlayer-PS4-Test.a" Type="StaticLibrary" />
+    <BuildProduct Path="$(EngineDir)\Plugins\Slate\SlateRemote\Binaries\PS4\UE4Game-SlateRemote-PS4-Test.a" Type="StaticLibrary" />
+  </BuildProducts>
+  <RuntimeDependencies />
+</BuildReceipt>

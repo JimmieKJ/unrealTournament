@@ -108,7 +108,7 @@ void SSoundClassActionMenuItem::OnNewSoundClassNameEntered( const FText& NewText
 	TArray< TSharedPtr<FEdGraphSchemaAction> > ActionList;
 	ActionList.Add( InAction );
 
-	Owner.Pin()->OnActionSelected(ActionList);
+	Owner.Pin()->OnActionSelected(ActionList, ESelectInfo::OnKeyPress);
 }
 
 ///////////////////////////////////////////////
@@ -168,19 +168,22 @@ TSharedRef<SWidget> SSoundClassActionMenu::OnCreateWidgetForAction(struct FCreat
 }
 
 
-void SSoundClassActionMenu::OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions )
+void SSoundClassActionMenu::OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions, ESelectInfo::Type InSelectionType )
 {
-	if ( GraphObj != NULL )
+	if (InSelectionType == ESelectInfo::OnMouseClick  || InSelectionType == ESelectInfo::OnKeyPress || SelectedActions.Num() == 0)
 	{
-		for ( int32 ActionIndex = 0; ActionIndex < SelectedActions.Num(); ActionIndex++ )
+		if ( GraphObj != NULL )
 		{
-			TSharedPtr<FEdGraphSchemaAction> CurrentAction = SelectedActions[ActionIndex];
-
-			if ( CurrentAction.IsValid() )
+			for ( int32 ActionIndex = 0; ActionIndex < SelectedActions.Num(); ActionIndex++ )
 			{
-				FSlateApplication::Get().DismissAllMenus();
+				TSharedPtr<FEdGraphSchemaAction> CurrentAction = SelectedActions[ActionIndex];
 
-				CurrentAction->PerformAction(GraphObj, DraggedFromPins, NewNodePosition);
+				if ( CurrentAction.IsValid() )
+				{
+					FSlateApplication::Get().DismissAllMenus();
+
+					CurrentAction->PerformAction(GraphObj, DraggedFromPins, NewNodePosition);
+				}
 			}
 		}
 	}

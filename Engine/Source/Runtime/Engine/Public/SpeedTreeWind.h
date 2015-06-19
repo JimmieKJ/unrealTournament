@@ -241,6 +241,11 @@ public:
 	ENGINE_API	const FSpeedTreeWind::SParams&	GetParams(void) const;
 	ENGINE_API	void							SetStrength(float fStrength);						// use this function to set a new desired strength (it will reach that strength smoothly)
 	ENGINE_API	void							SetDirection(const FVector& vDir);					// use this function to set a new desired direction (it will reach that direction smoothly)
+
+	//instantly set gust min/max.   Trees will pop if visible.  Don't call during gameplay while trees are visible.
+	ENGINE_API	void							SetGustMin(float InGustMin);
+	ENGINE_API	void							SetGustMax(float InGustMax);
+
 	ENGINE_API	void							SetInitDirection(const FVector& vDir);				// use this function to set a starting direction, once
 	ENGINE_API	void							EnableGusting(bool bEnabled);
 	ENGINE_API	void							SetGustFrequency(float fGustFreq);
@@ -315,7 +320,8 @@ protected:
 
 					bool		m_bNeedsReload;
 
-	MS_ALIGN(16)	float		m_afShaderTable[NUM_SHADER_VALUES] GCC_ALIGN(16);
+					// Includes Previous frame's values after current
+	MS_ALIGN(16)	float		m_afShaderTable[NUM_SHADER_VALUES * 2] GCC_ALIGN(16);
 };
 
 
@@ -343,6 +349,24 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FSpeedTreeUniformParameters, ENGINE_API)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, WindRollingLeafAndDirection)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, WindRollingNoise)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, WindAnimation)
+	// Straight copy of the previous members for last frame's values
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindVector)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindGlobal)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindBranch)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindBranchTwitch)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindBranchWhip)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindBranchAnchor)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindBranchAdherences)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindTurbulences)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindLeaf1Ripple)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindLeaf1Tumble)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindLeaf1Twitch)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindLeaf2Ripple)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindLeaf2Tumble)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindLeaf2Twitch)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindFrondRipple)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindRollingBranch)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindRollingLeafAndDirection)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindRollingNoise)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, PrevWindAnimation)
 END_UNIFORM_BUFFER_STRUCT(FSpeedTreeUniformParameters)
-typedef TUniformBufferRef<FSpeedTreeUniformParameters> FSpeedTreeUniformBufferRef;
-

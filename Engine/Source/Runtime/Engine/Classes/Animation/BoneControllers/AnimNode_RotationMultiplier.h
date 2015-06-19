@@ -37,6 +37,9 @@ struct ENGINE_API FAnimNode_RotationMultiplier : public FAnimNode_SkeletalContro
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Multiplier)
 	TEnumAsByte<EBoneAxis> RotationAxisToRefer;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multiplier)
+	bool bIsAdditive;	
 
 	FAnimNode_RotationMultiplier();
 
@@ -51,9 +54,9 @@ struct ENGINE_API FAnimNode_RotationMultiplier : public FAnimNode_SkeletalContro
 
 private:
 	// Extract Delta Quat of rotation around Axis of animation and reference pose for the SourceBoneIndex
-	FQuat ExtractAngle(const TArray<FTransform> & RefPoseTransforms, FA2CSPose& MeshBases, const EBoneAxis Axis,  int32 SourceBoneIndex);
+	FQuat ExtractAngle(const FTransform& RefPoseTransform, const FTransform& LocalBoneTransform, const EBoneAxis Axis);
 	// Multiply scalar value Multiplier to the delta Quat of SourceBone Index's rotation
-	void MultiplyQuatBasedOnSourceIndex(const TArray<FTransform> & RefPoseTransforms, FA2CSPose& MeshBases, const EBoneAxis Axis, int32 SourceBoneIndex, float Multiplier, const FQuat& ReferenceQuat, FQuat& OutQuat);
+	FQuat MultiplyQuatBasedOnSourceIndex(const FTransform& RefPoseTransform, const FTransform& LocalBoneTransform, const EBoneAxis Axis, float InMultiplier, const FQuat& ReferenceQuat);
 
 	// FAnimNode_SkeletalControlBase interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;

@@ -59,13 +59,80 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
 		dispatch_async(dispatch_get_main_queue(), ^
 		{
 		// Get the friends list for the local player from the server
-		[[GKLocalPlayer localPlayer] loadFriendsWithCompletionHandler:
-			^(NSArray* Friends, NSError* Error) 
-			{
-				if( Error )
-				{
-					FString ErrorStr(FString::Printf(TEXT("FOnlineFriendsIOS::ReadFriendsList() - Failed to read friends list with error: [%i]"), [Error code]));
-					UE_LOG(LogOnline, Verbose, TEXT("%s"), *ErrorStr);
+#ifdef __IPHONE_8_0
+            if ([[GKLocalPlayer localPlayer] respondsToSelector:@selector(loadFriendPlayersWithCompletionHandler)] == YES)
+            {
+                [[GKLocalPlayer localPlayer] loadFriendPlayersWithCompletionHandler:
+                 ^(NSArray* Friends, NSError* Error)
+                 {
+                    if( Error )
+                    {
+                        FString ErrorStr(FString::Printf(TEXT("FOnlineFriendsIOS::ReadFriendsList() - Failed to read friends list with error: [%i]"), [Error code]));
+                        UE_LOG(LogOnline, Verbose, TEXT("%s"), *ErrorStr);
+                 
+                        // Report back to the game thread whether this succeeded.
+                        [FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
+                         {
+                            Delegate.ExecuteIfBound(0, false, ListName, ErrorStr);
+                            return true;
+                         }];
+                    }
+                    else
+                    {
+                        [GKPlayer loadPlayersForIdentifiers:Friends withCompletionHandler:
+                         ^(NSArray* Players, NSError* Error2)
+                         {
+                            FString ErrorStr;
+                            bool bWasSuccessful = false;
+                            if( Error2 )
+                            {
+                                ErrorStr = FString::Printf(TEXT("FOnlineFriendsIOS::ReadFriendsList() - Failed to loadPlayersForIdentifiers with error: [%i]"), [Error2 code]);
+                            }
+                            else
+                            {
+                                // Clear our previosly cached friends before we repopulate the cache.
+                                CachedFriends.Empty();
+                                for( int32 FriendIdx = 0; FriendIdx < [Players count]; FriendIdx++ )
+                                {
+                                    GKPlayer* Friend = Players[ FriendIdx ];
+                  
+                                    // Add new friend entry to list
+                                    TSharedRef<FOnlineFriendIOS> FriendEntry(
+                                            new FOnlineFriendIOS(*FString(Friend.playerID))
+                                    );
+                                    FriendEntry->AccountData.Add(
+                                            TEXT("nickname"), *FString(Friend.alias)
+                                    );
+                                    CachedFriends.Add(FriendEntry);
+                  
+                                    UE_LOG(LogOnline, Verbose, TEXT("GCFriend - Id:%s Alias:%s"), *FString(Friend.playerID),
+                                        *FriendEntry->GetDisplayName() );
+                                }
+                  
+                                bWasSuccessful = true;
+                            }
+                  
+                            // Report back to the game thread whether this succeeded.
+                            [FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
+                             {
+                                Delegate.ExecuteIfBound(0, bWasSuccessful, ListName, ErrorStr);
+                                return true;
+                             }];
+                         }];
+                    }
+                 }];
+            }
+            else
+#endif
+            {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
+                [[GKLocalPlayer localPlayer] loadFriendsWithCompletionHandler:
+                 ^(NSArray* Friends, NSError* Error)
+                 {
+                    if( Error )
+                    {
+                        FString ErrorStr(FString::Printf(TEXT("FOnlineFriendsIOS::ReadFriendsList() - Failed to read friends list with error: [%i]"), [Error code]));
+                        UE_LOG(LogOnline, Verbose, TEXT("%s"), *ErrorStr);
 
 						// Report back to the game thread whether this succeeded.
 						[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
@@ -73,12 +140,12 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
 							Delegate.ExecuteIfBound(0, false, ListName, ErrorStr);
 							return true;
 						}];
-				}
-				else
-				{
-					[GKPlayer loadPlayersForIdentifiers:Friends withCompletionHandler:
-						^(NSArray* Players, NSError* Error2)
-						{
+                    }
+                    else
+                    {
+                        [GKPlayer loadPlayersForIdentifiers:Friends withCompletionHandler:
+                         ^(NSArray* Players, NSError* Error2)
+                         {
 								FString ErrorStr;
 								bool bWasSuccessful = false;
 							if( Error2 )
@@ -106,20 +173,20 @@ bool FOnlineFriendsIOS::ReadFriendsList(int32 LocalUserNum, const FString& ListN
 										*FriendEntry->GetDisplayName() );
 								}
 
-									bWasSuccessful = true;
-							}
+                                bWasSuccessful = true;
+                            }
 								
-								// Report back to the game thread whether this succeeded.
-								[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
-								{
-									Delegate.ExecuteIfBound(0, bWasSuccessful, ListName, ErrorStr);
-									return true;
-								}];
-						}
-					];
-				}
+							// Report back to the game thread whether this succeeded.
+							[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
+							{
+								Delegate.ExecuteIfBound(0, bWasSuccessful, ListName, ErrorStr);
+								return true;
+							}];
+						}];
+                    }
+                }];
+#endif
 			}
-		];
 		});
 	}
 	else

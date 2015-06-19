@@ -83,6 +83,8 @@ struct RHI_API FGPUProfilerEventNodeFrame
 
 	/** D3D11 Hack */
 	virtual void LogDisjointQuery() {}
+
+	virtual bool PlatformDisablesVSync() const { return false; }
 };
 
 /**

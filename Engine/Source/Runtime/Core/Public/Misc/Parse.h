@@ -106,4 +106,7 @@ struct CORE_API FParse
 
 	/** Parses a resolution in the form 1920x1080<f|w|wf>. Same as above, but also attempts to process a fullscreen/windowed flag from the end */
 	static bool Resolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, int32& OutWindowMode);
+
+	/** Parses the scheme name from a URI */
+	static bool SchemeNameFromURI(const TCHAR* InURI, FString& OutSchemeName);
 };

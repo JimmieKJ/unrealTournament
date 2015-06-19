@@ -13,6 +13,8 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "UTReplicatedMapVoteInfo.h"
+#include "UTRewardMessage.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -21,9 +23,9 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bReadyToPlay = false;
 	bPendingTeamSwitch = false;
 	LastKillTime = 0.0f;
-	int32 Kills = 0;
+	Kills = 0;
 	bOutOfLives = false;
-	int32 Deaths = 0;
+	Deaths = 0;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -146,15 +148,58 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			Pawn = Controller->GetPawn();
 			UTChar = Cast<AUTCharacter>(Pawn);
 		}
+		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+		bool bAnnounceWeaponSpree = false;
+		if (UTDamage)
+		{
+			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
+			{
+				// FIXMESTEVE - preset, not constructed FName
+				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
+			}
+			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
+			{
+				int32 SpreeIndex = -1;
+				for (int32 i = 0; i < WeaponSprees.Num(); i++)
+				{
+					if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
+					{
+						SpreeIndex = i;
+						break;
+					}
+				}
+				if (SpreeIndex == -1)
+				{
+					new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
+					SpreeIndex = WeaponSprees.Num() - 1;
+				}
+
+				WeaponSprees[SpreeIndex].Kills++;
+
+				if (MyPC && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+				{
+					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, WeaponSprees[SpreeIndex].Kills);
+				}
+				// delay actual announcement to keep multiple announcements in preferred order
+				bAnnounceWeaponSpree = (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount);
+				// more likely to kill again with same weapon, so shorten search through array by swapping
+				WeaponSprees.Swap(0, SpreeIndex);
+			}
+			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass && MyPC != nullptr)
+			{
+				MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
+			}
+		}
 
 		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
 		{
 			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
 			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
 			MultiKillLevel++;
-			if (Cast<AUTPlayerController>(GetOwner()) != NULL)
+			if (MyPC != NULL)
 			{
-				((AUTPlayerController*)GetOwner())->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
 			}
 		}
 		else
@@ -192,41 +237,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 
-		ModifyStatsValue(NAME_Kills, 1);
-		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
-		if (UTDamage)
+		if (bAnnounceWeaponSpree)
 		{
-			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
-			{
-				// FIXMESTEVE - preset, not constructed FName
-				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
-			}
-			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
-			{
-				int32 SpreeIndex = -1;
-				for (int32 i = 0; i < WeaponSprees.Num(); i++)
-				{
-					if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
-					{
-						SpreeIndex = i;
-						break;
-					}
-				}
-				if (SpreeIndex == -1)
-				{
-					new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
-					SpreeIndex = WeaponSprees.Num() - 1;
-				}
-
-				WeaponSprees[SpreeIndex].Kills++;
-				if (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount)
-				{
-					AnnounceWeaponSpree(SpreeIndex, UTDamage);
-				}
-				// more likely to kill again with same weapon, so shorten search through array by swapping
-				WeaponSprees.Swap(0, SpreeIndex);
-			}
+			AnnounceWeaponSpree(UTDamage);
 		}
+
+		ModifyStatsValue(NAME_Kills, 1);
 	}
 	else
 	{
@@ -234,9 +250,9 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 	}
 }
 
-void AUTPlayerState::AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<UUTDamageType> UTDamage)
+void AUTPlayerState::AnnounceWeaponSpree(TSubclassOf<UUTDamageType> UTDamage)
 {
-	// will be replicated to owning player, causing OnWeaponSpreeDamage()  // FIXMESTEVE back to replicated function not property?
+	// will be replicated to owning player, causing OnWeaponSpreeDamage()
 	WeaponSpreeDamage = UTDamage;
 	
 	// for standalone
@@ -621,7 +637,7 @@ void AUTPlayerState::BeginPlay()
 	if (Role == ROLE_Authority && StatManager == nullptr)
 	{
 		//Make me a statmanager
-		StatManager = ConstructObject<UStatManager>(UStatManager::StaticClass(), this);
+		StatManager = NewObject<UStatManager>(this, UStatManager::StaticClass());
 		StatManager->InitializeManager(this);
 	}
 
@@ -757,7 +773,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 						UE_LOG(LogGameStats, Warning, TEXT("Failed to find matching StatsID in valid stats read."));
 					}
 
-					StatManager->InsertDataFromJsonObject(StatsJson);
+					StatManager->InsertDataFromNonBackendJsonObject(StatsJson);
 
 					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
 					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))), EStatRecordingPeriod::Persistent);
@@ -785,33 +801,109 @@ FString AUTPlayerState::GetStatsFilename()
 
 void AUTPlayerState::WriteStatsToCloud()
 {
-	if (!StatsID.IsEmpty() && bReadStatsFromCloud && OnlineUserCloudInterface.IsValid() && StatManager != nullptr && !bOnlySpectator)
+	if (!StatsID.IsEmpty() && StatManager != nullptr)
 	{
-		// We ended with this player name, save it in the stats
-		StatManager->PreviousPlayerNames.AddUnique(PlayerName);
-		if (StatManager->PreviousPlayerNames.Num() > StatManager->NumPreviousPlayerNamesToKeep)
+		// Write the stats stored in the cloud file
+		if (bReadStatsFromCloud && OnlineUserCloudInterface.IsValid() && !bOnlySpectator)
 		{
-			StatManager->PreviousPlayerNames.RemoveAt(0, StatManager->PreviousPlayerNames.Num() - StatManager->NumPreviousPlayerNamesToKeep);
+			// We ended with this player name, save it in the stats
+			StatManager->PreviousPlayerNames.AddUnique(PlayerName);
+			if (StatManager->PreviousPlayerNames.Num() > StatManager->NumPreviousPlayerNamesToKeep)
+			{
+				StatManager->PreviousPlayerNames.RemoveAt(0, StatManager->PreviousPlayerNames.Num() - StatManager->NumPreviousPlayerNamesToKeep);
+			}
+
+			TArray<uint8> FileContents;
+			TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
+			StatsJson->SetStringField(TEXT("StatsID"), StatsID);
+			StatsJson->SetStringField(TEXT("PlayerName"), PlayerName);
+			StatManager->PopulateJsonObjectForNonBackendStats(StatsJson);
+
+			FString OutputJsonString;
+			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+			FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+			{
+				FMemoryWriter MemoryWriter(FileContents);
+				MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
+			}
+
+			UE_LOG(LogGameStats, Log, TEXT("Writing stats for %s, previously read stats: %d"), *PlayerName, bSuccessfullyReadStatsFromCloud ? 1 : 0);
+
+			OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents);
+			bWroteStatsToCloud = true;
 		}
 
-		TArray<uint8> FileContents;
-		TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
-		StatsJson->SetStringField(TEXT("StatsID"), StatsID);
-		StatsJson->SetStringField(TEXT("PlayerName"), PlayerName);
-		StatManager->PopulateJsonObject(StatsJson);
-
-		FString OutputJsonString;
-		TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
-		FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+		// Write the stats going to the backend
 		{
-			FMemoryWriter MemoryWriter(FileContents);
-			MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
+			TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
+			StatManager->PopulateJsonObjectForBackendStats(StatsJson, this);
+			FString OutputJsonString;
+			TArray<uint8> BackendStatsData;
+			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+			FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+			{
+				FMemoryWriter MemoryWriter(BackendStatsData);
+				MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
+			}
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+#else
+			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+#endif
+
+			FString McpConfigOverride;
+			FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+
+			if (McpConfigOverride == TEXT("prodnet"))
+			{
+				BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			}
+			else if (McpConfigOverride == TEXT("localhost"))
+			{
+				BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			}
+			else if (McpConfigOverride == TEXT("gamedev"))
+			{
+				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			}
+
+			FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();
+			if (StatsWriteRequest.IsValid())
+			{
+				StatsWriteRequest->SetURL(BaseURL);
+				StatsWriteRequest->OnProcessRequestComplete().BindUObject(this, &AUTPlayerState::StatsWriteComplete);
+				StatsWriteRequest->SetVerb(TEXT("POST"));
+				StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+				
+				if (OnlineIdentityInterface.IsValid())
+				{
+					FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+					StatsWriteRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+				}
+
+				UE_LOG(LogGameStats, VeryVerbose, TEXT("%s"), *OutputJsonString);
+
+				StatsWriteRequest->SetContent(BackendStatsData);
+				StatsWriteRequest->ProcessRequest();
+			}
 		}
 
-		UE_LOG(LogGameStats, Log, TEXT("Writing stats for %s, previously read stats: %d"), *PlayerName, bSuccessfullyReadStatsFromCloud ? 1 : 0);
+	}
+}
 
-		OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents); 
-		bWroteStatsToCloud = true;
+void AUTPlayerState::StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (HttpRequest.IsValid() && HttpResponse.IsValid())
+	{
+		if (bSucceeded && HttpResponse->GetResponseCode() == 200)
+		{
+			UE_LOG(LogGameStats, Verbose, TEXT("Stats write succeeded %s %s"), *HttpRequest->GetURL(), *HttpResponse->GetContentAsString());
+		}
+		else
+		{
+			UE_LOG(LogGameStats, Warning, TEXT("Stats write failed %s %s"), *HttpRequest->GetURL(), *HttpResponse->GetContentAsString());
+		}
 	}
 }
 
@@ -1386,5 +1478,20 @@ void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
 	float CurrentValue = StatsData.FindRef(StatsName);
 	StatsData.Add(StatsName, CurrentValue + Change);
+}
+
+bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapVoteInfo* VoteInfo) { return true; }
+void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapVoteInfo* VoteInfo)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
+		{
+			if (UTGameState->MapVoteList[i]) UTGameState->MapVoteList[i]->UnregisterVoter(this);
+		}
+
+		VoteInfo->RegisterVoter(this);
+	}
 }
 

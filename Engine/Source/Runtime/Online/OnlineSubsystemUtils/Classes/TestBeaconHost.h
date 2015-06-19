@@ -14,7 +14,7 @@ class ONLINESUBSYSTEMUTILS_API ATestBeaconHost : public AOnlineBeaconHostObject
 
 	// Begin AOnlineBeaconHost Interface 
 	virtual AOnlineBeaconClient* SpawnBeaconActor(class UNetConnection* ClientConnection) override;
-	virtual void ClientConnected(class AOnlineBeaconClient* NewClientActor, class UNetConnection* ClientConnection);
+	virtual void ClientConnected(class AOnlineBeaconClient* NewClientActor, class UNetConnection* ClientConnection) override;
 	// End AOnlineBeaconHost Interface 
 
 	virtual bool Init();

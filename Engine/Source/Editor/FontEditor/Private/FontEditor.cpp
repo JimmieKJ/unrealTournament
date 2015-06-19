@@ -65,13 +65,13 @@ public:
 
 void FFontEditorCommands::RegisterCommands()
 {
-	UI_COMMAND(Update, "Update", "Imports a texture to replace the currently selected page.", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND(UpdateAll, "Update All", "Imports a set of textures to replace all pages.", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND(ExportPage, "Export", "Exports the currently selected page.", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND(ExportAllPages, "Export All", "Exports all pages.", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(Update, "Update", "Imports a texture to replace the currently selected page.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(UpdateAll, "Update All", "Imports a set of textures to replace all pages.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ExportPage, "Export", "Exports the currently selected page.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ExportAllPages, "Export All", "Exports all pages.", EUserInterfaceActionType::Button, FInputChord());
 
-	UI_COMMAND(FontBackgroundColor, "Background", "Changes the background color of the previewer.", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND(FontForegroundColor, "Foreground", "Changes the foreground color of the previewer.", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(FontBackgroundColor, "Background", "Changes the background color of the previewer.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(FontForegroundColor, "Foreground", "Changes the foreground color of the previewer.", EUserInterfaceActionType::Button, FInputChord());
 }
 
 void FFontEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
@@ -146,9 +146,9 @@ void FFontEditor::InitFontEditor(const EToolkitMode::Type Mode, const TSharedPtr
 	Font->SetFlags(RF_Transactional);
 	
 	// Create a TGA exporter
-	TGAExporter = ConstructObject<UTextureExporterTGA>(UTextureExporterTGA::StaticClass());
+	TGAExporter = NewObject<UTextureExporterTGA>();
 	// And our importer
-	Factory = ConstructObject<UTextureFactory>(UTextureFactory::StaticClass());
+	Factory = NewObject<UTextureFactory>();
 	// Set the defaults
 	Factory->Blending = BLEND_Opaque;
 	Factory->ShadingModel = MSM_Unlit;
@@ -380,7 +380,6 @@ void FFontEditor::PostUndo(bool bSuccess)
 	UpdateLayout();
 
 	CompositeFontEditor->Refresh();
-	FontPreviewWidget->RefreshViewport();
 }
 
 void FFontEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, class FEditPropertyChain* PropertyThatChanged)
@@ -1012,12 +1011,12 @@ bool FFontEditor::RecreateFontObject(const EFontCacheType NewCacheType)
 	{
 	case EFontCacheType::Offline:
 		// UTrueTypeFontFactory will create a new font object using a texture generated from a user-selection font
-		FontFactoryPtr = ConstructObject<UTrueTypeFontFactory>(UTrueTypeFontFactory::StaticClass());
+		FontFactoryPtr = NewObject<UTrueTypeFontFactory>();
 		break;
 
 	case EFontCacheType::Runtime:
 		// UFontFactory will create an empty font ready to add new font files to
-		FontFactoryPtr = ConstructObject<UFontFactory>(UFontFactory::StaticClass());
+		FontFactoryPtr = NewObject<UFontFactory>();
 		break;
 
 	default:

@@ -104,12 +104,16 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 	{
 		FSlateBackBuffer BackBufferTarget(RenderTargetResource->GetTextureRHI(), FIntPoint(RenderTarget->SizeX, RenderTarget->SizeY ) );
 
+		// The scene renderer will handle it in this case
+		const bool bAllowSwitchVerticalAxis = false;
+
 		RenderTargetPolicy->DrawElements
 		(
 			RHICmdList,
 			BackBufferTarget,
 			ProjectionMatrix,
-			WindowElementList.GetRenderBatches()
+			WindowElementList.GetRenderBatches(),
+			bAllowSwitchVerticalAxis
 			);
 	}
 

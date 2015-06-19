@@ -6,7 +6,7 @@
 #include "Animation/BoneControllers/AnimNode_WheelHandler.h"
 #include "AnimGraphNode_WheelHandler.generated.h"
 
-UCLASS(MinimalAPI)
+UCLASS(MinimalAPI, meta=(Keywords = "Modify Wheel Vehicle"))
 class UAnimGraphNode_WheelHandler : public UAnimGraphNode_SkeletalControlBase
 {
 	GENERATED_UCLASS_BODY()
@@ -18,10 +18,8 @@ public:
 	// UEdGraphNode interface
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
-	virtual FString GetKeywords() const override;
 	// validate if this is within VehicleAnimInstance
 	virtual void ValidateAnimNodePostCompile(class FCompilerResultsLog& MessageLog, class UAnimBlueprintGeneratedClass* CompiledClass, int32 CompiledNodeIndex) override;
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual bool IsCompatibleWithGraph(const UEdGraph* TargetGraph) const override;
 	// End of UEdGraphNode interface
 

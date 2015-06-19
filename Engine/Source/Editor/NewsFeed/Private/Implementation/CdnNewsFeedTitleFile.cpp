@@ -70,6 +70,11 @@ bool FCdnNewsFeedTitleFile::ClearFile(const FString& FileName)
 	return false;
 }
 
+void FCdnNewsFeedTitleFile::DeleteCachedFiles(bool bSkipEnumerated)
+{
+	// not implemented
+}
+
 bool FCdnNewsFeedTitleFile::EnumerateFiles(const FPagedQuery& Page)
 {
 	// Make sure an enumeration request  is not currently pending
@@ -365,9 +370,11 @@ void FCdnNewsFeedTitleFile::ReadFile_HttpRequestComplete(FHttpRequestPtr HttpReq
 	FString ResponseStr, ErrorStr;
 
 	// Cloud file being operated on
-	FCloudFile* CloudFile = GetCloudFile(PendingRequest->FileName, true);
-	CloudFile->AsyncState = EOnlineAsyncTaskState::Failed;
-	CloudFile->Data.Empty();
+	{
+		FCloudFile* CloudFile = GetCloudFile(PendingRequest->FileName, true);
+		CloudFile->AsyncState = EOnlineAsyncTaskState::Failed;
+		CloudFile->Data.Empty();
+	}
 	
 	if (bSucceeded && 
 		HttpResponse.IsValid())

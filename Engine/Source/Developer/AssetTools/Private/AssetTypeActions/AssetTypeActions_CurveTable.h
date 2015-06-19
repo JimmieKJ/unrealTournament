@@ -14,4 +14,11 @@ public:
 	virtual void OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<class IToolkitHost> EditWithinLevelEditor = TSharedPtr<IToolkitHost>() ) override;
 	virtual void GetResolvedSourceFilePaths(const TArray<UObject*>& TypeAssets, TArray<FString>& OutSourceFilePaths) const override;
 	// End IAssetTypeActions
+
+private:
+	/** Handler for when CSV is selected */
+	void ExecuteExportAsCSV(TArray< TWeakObjectPtr<UObject> > Objects);
+
+	/** Handler for when JSON is selected */
+	void ExecuteExportAsJSON(TArray< TWeakObjectPtr<UObject> > Objects);
 };

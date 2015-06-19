@@ -31,49 +31,58 @@ namespace EExportFunctionType
 class FClass;
 class FClasses;
 class FModuleClasses;
+class FScope;
+
+// These are declared in this way to allow swapping out the classes for something more optimized in the future
+typedef FStringOutputDevice FUHTStringBuilder;
+typedef FStringOutputDeviceCountLines FUHTStringBuilderLineCounter;
 
 struct FNativeClassHeaderGenerator
 {
 private:
-	FClass*				CurrentClass;
-	TArray<FClass*>		Classes;
-	FString				API;
-	FString			ClassesHeaderPath;
+	FString API;
+
+	/**
+	 * Gets API string for this header.
+	 */
+	FString GetAPIString()
+	{
+		return FString::Printf(TEXT("%s_API "), *API);
+	}
+
+	FString ClassesHeaderPath;
 	/** the name of the cpp file where the implementation functions are generated, without the .cpp extension */
-	FString				GeneratedCPPFilenameBase;
+	FString GeneratedCPPFilenameBase;
 	/** the name of the proto file where proto definitions are generated */
-	FString				GeneratedProtoFilenameBase;
+	FString GeneratedProtoFilenameBase;
 	/** the name of the java file where mcp definitions are generated */
-	FString				GeneratedMCPFilenameBase;
-	UPackage*			Package;
-	FStringOutputDevice	PreHeaderText;
-	FStringOutputDevice	EnumForeachText;
-	FStringOutputDevice ListOfPublicClassesUObjectHeaderGroupIncludes;  // This is built up each time from scratch each time for each header groups
-	FStringOutputDevice ListOfPublicClassesUObjectHeaderModuleIncludes; // This is built up for the entire module, and for all processed headers
-	FStringOutputDevice ListOfAllUObjectHeaderIncludes;
-	FStringOutputDevice FriendText;
-	FStringOutputDevice	GeneratedPackageCPP;
-	FStringOutputDevice	GeneratedHeaderText;
-	FStringOutputDevice	GeneratedHeaderTextBeforeForwardDeclarations;
-	FStringOutputDevice	GeneratedForwardDeclarations;
+	FString GeneratedMCPFilenameBase;
+	UPackage* Package;
+	FUHTStringBuilder PreHeaderText;
+	FUHTStringBuilder EnumForeachText;
+	TArray<FUnrealSourceFile*> ListOfPublicHeaderGroupIncludes;			// This is built up each time from scratch each time for each header groups
+	FUHTStringBuilder ListOfPublicClassesUObjectHeaderModuleIncludes; // This is built up for the entire module, and for all processed headers
+	FUHTStringBuilder ListOfAllUObjectHeaderIncludes;
+	FUHTStringBuilder GeneratedPackageCPP;
+	FUHTStringBuilder GeneratedHeaderText;
+	FUHTStringBuilder GeneratedHeaderTextBeforeForwardDeclarations;
+	FUHTStringBuilder GeneratedForwardDeclarations;
     /** output generated for a .proto file */
-	FStringOutputDevice GeneratedProtoText;
+	FUHTStringBuilder GeneratedProtoText;
 	/** output generated for a mcp .java file */
-	FStringOutputDevice GeneratedMCPText;
-	FStringOutputDevice	PrologMacroCalls;
-	FStringOutputDevice	InClassMacroCalls;
-	FStringOutputDevice	InClassNoPureDeclsMacroCalls;
-	FStringOutputDevice	StandardUObjectConstructorsMacroCall;
-	FStringOutputDevice	EnhancedUObjectConstructorsMacroCall;
-	FStringOutputDevice	AllConstructors;
-	FStringOutputDevice StaticChecks;
+	FUHTStringBuilder GeneratedMCPText;
+	FUHTStringBuilder PrologMacroCalls;
+	FUHTStringBuilder InClassMacroCalls;
+	FUHTStringBuilder InClassNoPureDeclsMacroCalls;
+	FUHTStringBuilder StandardUObjectConstructorsMacroCall;
+	FUHTStringBuilder EnhancedUObjectConstructorsMacroCall;
 
 	/** Generated function implementations that belong in the cpp file, split into multiple files base on line count **/
-	TArray<FStringOutputDeviceCountLines> GeneratedFunctionBodyTextSplit;
+	TArray<TUniqueObj<FUHTStringBuilderLineCounter>> GeneratedFunctionBodyTextSplit;
 	/** Declarations of generated functions for this module**/
-	FStringOutputDevice	GeneratedFunctionDeclarations;
+	FUHTStringBuilder GeneratedFunctionDeclarations;
 	/** Declarations of generated functions for cross module**/
-	FStringOutputDevice	CrossModuleGeneratedFunctionDeclarations;
+	FUHTStringBuilder CrossModuleGeneratedFunctionDeclarations;
 	/** Set of already exported cross-module references, to prevent duplicates */
 	TSet<FString> UniqueCrossModuleReferences;
 
@@ -81,18 +90,18 @@ private:
 	TSet<FName> ReferencedNames;
 
 	/** the existing disk version of the header for this package's names */
-	FString				OriginalNamesHeader;
+	FString OriginalNamesHeader;
 	/** the existing disk version of this header */
-	FString				OriginalHeader;
+	FString OriginalHeader;
 
 	/** Array of temp filenames that for files to overwrite headers */
-	TArray<FString>		TempHeaderPaths;
+	TArray<FString> TempHeaderPaths;
 
 	/** Array of all header filenames from the current package. */
-	TArray<FString>		PackageHeaderPaths;
+	TArray<FString> PackageHeaderPaths;
 
 	/** Array of all generated Classes headers for the current package */
-	TArray<FString>		ClassesHeaders;
+	TArray<FString> ClassesHeaders;
 	
 	/** if we are exporting a struct for offset determination only, replace some types with simpler ones (delegates) */
 	bool bIsExportingForOffsetDeterminationOnly;
@@ -102,6 +111,11 @@ private:
 
 	/** If true, any change in the generated headers will result in UHT failure. */
 	bool bFailIfGeneratedCodeChanges;
+
+#if WITH_HOT_RELOAD_CTORS
+	/** If true, then generate vtable constructors and it's callers. */
+	bool bExportVTableConstructors;
+#endif // WITH_HOT_RELOAD_CTORS
 
 	/** All properties that need to be forward declared. */
 	TArray<UProperty*>	ForwardDeclarations;
@@ -114,7 +128,7 @@ private:
 	/**
 	 * Gets generated function text device.
 	 */
-	FStringOutputDevice& GetGeneratedFunctionTextDevice();
+	FUHTStringBuilder& GetGeneratedFunctionTextDevice();
 
 	/**
 	 * Sorts the list of header files being exported from a package according to their dependency on each other.
@@ -159,13 +173,6 @@ private:
 	bool ShouldExportFunction( UFunction* Function );
 
 	/**
-	 * Returns a C++ code string for declaring a class or variable as an export, if the class is configured for that
-	 *
-	 * @return	The API declaration string
-	 */
-	FString MakeAPIDecl() const;
-
-	/**
 	 * Exports the struct's C++ properties to the HeaderText output device and adds special
 	 * compiler directives for GCC to pack as we expect.
 	 *
@@ -173,80 +180,65 @@ private:
 	 * @param	TextIndent			Current text indentation
 	 * @param	Output	alternate output device
 	 */
-	void ExportProperties( UStruct* Struct, int32 TextIndent, bool bAccessSpecifiers = true, class FStringOutputDevice* Output = NULL );
+	void ExportProperties(UStruct* Struct, int32 TextIndent, bool bAccessSpecifiers = true, FUHTStringBuilder* Output = NULL);
 
-	/** Return the name of the singleton function that returns the UObject for Item **/
+	/** Return the name of the singleton function that returns the UObject for Item */
 	FString GetSingletonName(UField* Item, bool bRequiresValidObject=true);
+	/** Return the name of the singleton function that returns the UObject for Item */
 	FString GetSingletonName(FClass* Item, bool bRequiresValidObject=true);
 
 	/** 
 	 * Export functions used to find and call C++ or script implementation of a script function in the interface 
 	 */
-	void ExportInterfaceCallFunctions( const TArray<UFunction*>& CallbackFunctions, FStringOutputDevice& HeaderOutput );
+	void ExportInterfaceCallFunctions(const TArray<UFunction*>& CallbackFunctions, UClass* Class, FClassMetaData* ClassData, FUHTStringBuilder& HeaderOutput);
 
-	/**
-	 * Exports the C++ class declarations for a native interface class.
+	/** 
+	 * Export UInterface boilerplate.
+	 *
+	 * @param UInterfaceBoilerplate Device to export to.
+	 * @param Class Interface to export.
+	 * @param FriendText Friend text for this boilerplate.
 	 */
-	void ExportInterfaceClassDeclaration( FClass* Class );
+	void ExportUInterfaceBoilerplate(FUHTStringBuilder& UInterfaceBoilerplate, FClass* Class, const FString& FriendText);
 
 	/**
 	 * Appends the header definition for an inheritance hierarchy of classes to the header.
 	 * Wrapper for ExportClassHeaderRecursive().
 	 *
 	 * @param	AllClasses			The classes being processed.
-	 * @param	Class				The class to be exported.
+	 * @param	SourceFile			The source file to export header for.
 	 */
-	void ExportClassHeader( FClasses& AllClasses, FClass* Class );
+	void ExportSourceFileHeader(FClasses& AllClasses, FUnrealSourceFile* SourceFile);
 
 	/**
 	 * After all of the dependency checking, and setup for isolating the generated code, actually export the class
 	 *
-	 * @param	Class				The class to be exported.
-	 * @param	bValidNonTemporaryClass	Is the class permanent, or a temporary shell?
+	 * @param SourceFile Source file to export.
 	 */
-	void ExportClassHeaderInner( FClass* Class, bool bValidNonTemporaryClass );
+	void ExportClassesFromSourceFileInner(FUnrealSourceFile& SourceFile);
 
 	/**
 	 * After all of the dependency checking, but before actually exporting the class, set up the generated code
 	 *
-	 * @param	Class				The class to be exported.
-	 * @param	bIsExportClass		true if this is an export class
+	 * @param SourceFile Source file to export.
 	 */
-	void ExportClassHeaderWrapper( FClass* Class, bool bIsExportClass );
+	void ExportClassesFromSourceFileWrapper(FUnrealSourceFile& SourceFile);
 
 	/**
 	 * Appends the header definition for an inheritance hierarchy of classes to the header.
 	 *
 	 * @param	AllClasses				The classes being processed.
-	 * @param	Class					The class to be exported.
-	 * @param	DependencyChain			Used for finding errors. Must be empty before the first call.
-	 * @param	VisitedSet				The set of classes visited so far. Must be empty before the first call.
+	 * @param	SourceFile				The source file for which to export header.
+	 * @param	VisitedSet				The set of source files visited so far. Must be empty before the first call.
 	 * @param	bCheckDependenciesOnly	Whether we should just keep checking for dependency errors, without exporting anything.
 	 */
-	void ExportClassHeaderRecursive( FClasses& AllClasses, FClass* Class, TArray<FClass*>& DependencyChain, TSet<const UClass*>& VisitedSet, bool bCheckDependenciesOnly );
+	void ExportSourceFileHeaderRecursive(FClasses& AllClasses, FUnrealSourceFile* SourceFile, TSet<const FUnrealSourceFile*>& VisitedSet, bool bCheckDependenciesOnly);
 
 	/**
 	 * Returns a string in the format CLASS_Something|CLASS_Something which represents all class flags that are set for the specified
 	 * class which need to be exported as part of the DECLARE_CLASS macro
 	 */
 	FString GetClassFlagExportText( UClass* Class );
-
-	/**
-	 * Iterates through all fields of the specified class, and separates fields that should be exported with this class into the appropriate array.
-	 * 
-	 * @param	Class				the class to pull fields from
-	 * @param	Enums				[out] all enums declared in the specified class
-	 * @param	Structs				[out] list of structs declared in the specified class
-	 * @param	CallbackFunctions	[out] list of delegates and events declared in the specified class
-	 * @param	NativeFunctions		[out] list of native functions declared in the specified class
-	 * @param	DelegateProperties	[out] list of delegate properties declared in the specified class
-	 */
-	void RetrieveRelevantFields(UClass* Class, TArray<UEnum*>& Enums, TArray<UScriptStruct*>& Structs, TArray<UFunction*>& CallbackFunctions, TArray<UFunction*>& NativeFunctions, TArray<UFunction*>& DelegateProperties);
-
-	/**
-	 * Exports the header text for the names needed
-	 */
-	void ExportNames();
 
 	/**
 	 * Exports the header text for the list of enums specified
@@ -263,11 +255,12 @@ private:
 	void ExportGeneratedEnumsInitCode(const TArray<UEnum*>& Enums);
 
 	/**
-	 * Exports the macro declarations for GENERATED_USTRUCT_BODY() for each Foo in the list of structs specified
+	 * Exports the macro declarations for GENERATED_BODY() for each Foo in the list of structs specified
 	 * 
+	 * @param	SourceFile	the source file
 	 * @param	Structs		the structs to export
 	 */
-	void ExportGeneratedStructBodyMacros(const TArray<UScriptStruct*>& NativeStructs);
+	void ExportGeneratedStructBodyMacros(FUnrealSourceFile& SourceFile, const TArray<UScriptStruct*>& NativeStructs);
 
 	/**
 	 * Exports a local mirror of the specified struct; used to get offsets for noexport structs
@@ -276,7 +269,7 @@ private:
 	 * @param	TextIndent	the current indentation of the header exporter
 	 * @param	HeaderOutput	the output device for the mirror struct
 	 */
-	void ExportMirrorsForNoexportStructs( const TArray<UScriptStruct*>& NativeStructs, int32 TextIndent, FStringOutputDevice& HeaderOutput);
+	void ExportMirrorsForNoexportStructs(const TArray<UScriptStruct*>& NativeStructs, int32 TextIndent, FUHTStringBuilder& HeaderOutput);
 
 	/**
 	 * Exports the parameter struct declarations for the list of functions specified
@@ -289,38 +282,52 @@ private:
 	/**
 	 * Exports C++ type definitions for delegates
 	 *
+	 * @param	SourceFile			Source file of the delegate.
 	 * @param	DelegateFunctions	the functions that have parameters which need to be exported
 	 * @param	bWrapperImplementationsOnly	 True if only function implementations for delegate wrappers should be exported
 	 */
-	void ExportDelegateDefinitions( const TArray<UFunction*>& DelegateFunctions, const bool bWrapperImplementationsOnly );
+	void ExportDelegateDefinitions(FUnrealSourceFile& SourceFile, const TArray<UDelegateFunction*>& DelegateFunctions, const bool bWrapperImplementationsOnly);
 
 	/**
 	 * Exports the parameter struct declarations for the list of functions specified
 	 * 
+	 * @param	Scope				Current scope.
 	 * @param	CallbackFunctions	the functions that have parameters which need to be exported
+	 * @param	Output				ALternate output device
 	 * @param	Indent				number of spaces to put before each line
 	 * @param	bOutputConstructor	If true, output a constructor for the parm struct
-	 * @param	Output				ALternate output device
 	 */
-	void ExportEventParms( const TArray<UFunction*>& CallbackFunctions, const TCHAR* MacroSuffix, int32 Indent = 0, bool bOutputConstructor=true, class FStringOutputDevice* Output = NULL );
+	void ExportEventParms(FScope& Scope, const TArray<UFunction*>& CallbackFunctions, FUHTStringBuilder& Output, int32 Indent = 0, bool bOutputConstructor = true);
+
+	/**
+	 * Exports the parameter struct declarations for the given function.
+	 *
+	 * @param	Function			the function that have parameters which need to be exported
+	 * @param	HeaderOutput		output device
+	 * @param	Indent				number of spaces to put before each line
+	 * @param	bOutputConstructor	If true, output a constructor for the param struct
+	 */
+	void ExportEventParm(UFunction* Function, FUHTStringBuilder& HeaderOutput, int32 Indent = 0, bool bOutputConstructor = true);
 
 	/**
 	 * Generate a .proto message declaration for any functions marked as requiring one
 	 * 
 	 * @param InCallbackFunctions array of functions for consideration to generate .proto definitions
+	 * @param ClassData class data
 	 * @param Indent starting indentation level
 	 * @param Output optional output redirect
 	 */
-	void ExportProtoMessage(const TArray<UFunction*>& InCallbackFunctions, int32 Indent = 0, class FStringOutputDevice* Output = NULL);
+	void ExportProtoMessage(const TArray<UFunction*>& InCallbackFunctions, FClassMetaData* ClassData, int32 Indent = 0, FUHTStringBuilder* Output = NULL);
 
 	/**
 	 * Generate a .java message declaration for any functions marked as requiring one
 	 * 
 	 * @param InCallbackFunctions array of functions for consideration to generate .proto definitions
+	 * @param ClassData class data
 	 * @param Indent starting indentation level
 	 * @param Output optional output redirect
 	 */
-	void ExportMCPMessage(const TArray<UFunction*>& InCallbackFunctions, int32 Indent = 0, class FStringOutputDevice* Output = NULL);
+	void ExportMCPMessage(const TArray<UFunction*>& InCallbackFunctions, FClassMetaData* ClassData, int32 Indent = 0, FUHTStringBuilder* Output = NULL);
 
 	/** 
 	* Exports the temp header files into the .h files, then deletes the temp files.
@@ -366,34 +373,39 @@ private:
 	 * @param	FunctionHeaderStyle	Whether we're outputting a declaration or definition.
 	 * @param	ExtraParam			Optional extra parameter that will be added to the declaration as the first argument
 	 */
-	void ExportNativeFunctionHeader( const FFuncInfo& FunctionData, FStringOutputDevice& HeaderOutput, EExportFunctionType::Type FunctionType, EExportFunctionHeaderStyle::Type FunctionHeaderStyle, const TCHAR* ExtraParam = NULL );
+	void ExportNativeFunctionHeader(const FFuncInfo& FunctionData, FUHTStringBuilder& HeaderOutput, EExportFunctionType::Type FunctionType, EExportFunctionHeaderStyle::Type FunctionHeaderStyle, const TCHAR* ExtraParam = NULL);
 
 	/**
-	* Exports checks if function exists
+	* Runs checks whether necessary RPC functions exist for function described by FunctionData.
 	*
 	* @param	FunctionData			Data representing the function to export.
-	* @param	CheckClasses			Where to write the member check classes.
-	* @param	StaticChecks			Where to write the static asserts throwing errors when function doesn't exist.
 	* @param	ClassName				Name of currently parsed class.
+	* @param	ImplementationPosition	Position in source file of _Implementation function for function described by FunctionData.
+	* @param	ValidatePosition		Position in source file of _Validate function for function described by FunctionData.
+	* @param	SourceFile				Currently analyzed source file.
 	*/
-	void ExportFunctionChecks(const FFuncInfo& FunctionData, FStringOutputDevice& CheckClasses, FStringOutputDevice& StaticChecks, const FString& ClassName);
+	void CheckRPCFunctions(const FFuncInfo& FunctionData, const FString& ClassName, int32 ImplementationPosition, int32 ValidatePosition, const FUnrealSourceFile& SourceFile);
 
 	/**
 	 * Exports the native stubs for the list of functions specified
 	 * 
-	 * @param	NativeFunctions	the functions to export
+	 * @param SourceFile	current source file
+	 * @param Class			class
+	 * @param ClassData		class data
 	 */
-	void ExportNativeFunctions(const TArray<UFunction*>& NativeFunctions);
+	void ExportNativeFunctions(FUnrealSourceFile& SourceFile, UClass* Class, FClassMetaData* ClassData);
 
 	/**
 	 * Export the actual internals to a standard thunk function
 	 *
 	 * @param RPCWrappers output device for writing
+	 * @param Function given function
 	 * @param FunctionData function data for the current function
 	 * @param Parameters list of parameters in the function
 	 * @param Return return parameter for the function
+	 * @param DeprecationWarningOutputDevice Device to output deprecation warnings for _Validate and _Implementation functions.
 	 */
-	void ExportFunctionThunk(FStringOutputDevice& RPCWrappers, const FFuncInfo& FunctionData, const TArray<UProperty*>& Parameters, UProperty* Return);
+	void ExportFunctionThunk(FUHTStringBuilder& RPCWrappers, UFunction* Function, const FFuncInfo& FunctionData, const TArray<UProperty*>& Parameters, UProperty* Return, FUHTStringBuilder& DeprecationWarningOutputDevice);
 
 	/** Exports the native function registration code for the given class. */
 	void ExportNatives(FClass* Class);
@@ -402,8 +414,18 @@ private:
 	 * Exports generated singleton functions for UObjects that used to be stored in .u files.
 	 * 
 	 * @param	Class			Class to export
-	**/
-	void ExportNativeGeneratedInitCode(FClass* Class);
+	 * @param	OutFriendText	(Output parameter) Friend text
+	 */
+	void ExportNativeGeneratedInitCode(FClass* Class, FUHTStringBuilder& OutFriendText);
+
+	/**
+	 * Export given function.
+	 *
+	 * @param Function Given function.
+	 * @param Scope Scope for this function.
+	 * @param bIsNoExport Is in NoExport class.
+	 */
+	void ExportFunction(UFunction* Function, FScope* Scope, bool bIsNoExport);
 
 	/**
 	 * Exports a generated singleton function to setup the package for compiled-in classes.
@@ -448,9 +470,11 @@ private:
 	/**
 	 * Exports the proxy definitions for the list of enums specified
 	 * 
-	 * @param	CallbackFunctions	the functions to export
+	 * @param SourceFile	current source file
+	 * @param Class			current class
+	 * @param ClassData		current class data
 	 */
-	void ExportCallbackFunctions( const TArray<UFunction*>& CallbackFunctions);
+	TArray<UFunction*> ExportCallbackFunctions(FUnrealSourceFile& SourceFile, UClass* Class, FClassMetaData* ClassData);
 
 	/**
 	 * Determines if the property has alternate export text associated with it and if so replaces the text in PropertyText with the
@@ -460,7 +484,7 @@ private:
 	 * @param	Prop			the property that is being exported
 	 * @param	PropertyText	the string containing the text exported from ExportCppDeclaration
 	 */
-	void ApplyAlternatePropertyExportText( UProperty* Prop, FStringOutputDevice& PropertyText );
+	void ApplyAlternatePropertyExportText(UProperty* Prop, FUHTStringBuilder& PropertyText);
 
 	/**
 	* Create a temp header file name from the header name
@@ -489,14 +513,28 @@ private:
 	/**
 	 * Exports macros that manages UObject constructors.
 	 * 
+	 * @param ConstructorsMacroPrefix Prefix for constructors macro.
 	 * @param Class Class for which to export macros.
 	 */
-	void ExportConstructorsMacros(FClass* Class);
+	void ExportConstructorsMacros(const FString& ConstructorsMacroPrefix, FClass* Class);
+
+	/**
+	 * Gets list of public headers for the given package in the form of string of includes.
+	 */
+	FString GetListOfPublicHeaderGroupIncludesString(UPackage* Package);
 
 public:
 
 	// Constructor
-	FNativeClassHeaderGenerator( UPackage* InPackage, FClasses& AllClasses, bool InAllowSaveExportedHeaders );
+	FNativeClassHeaderGenerator(
+		UPackage* InPackage,
+		const TArray<FUnrealSourceFile*>& SourceFiles,
+		FClasses& AllClasses,
+		bool InAllowSaveExportedHeaders
+#if WITH_HOT_RELOAD_CTORS
+		, bool bExportVTableConstructors
+#endif // WITH_HOT_RELOAD_CTORS
+	);
 
 	/**
 	 * Gets string with function return type.
@@ -513,4 +551,13 @@ public:
 	* @return FString with function parameters.
 	*/
 	FString GetFunctionParameterString(UFunction* Function);
+
+	/**
+	 * Checks if function is missing "virtual" specifier.
+	 * 
+	 * @param SourceFile SourceFile where function is declared.
+	 * @param FunctionNamePosition Position of name of function in SourceFile.
+	 * @return true if function misses "virtual" specifier, false otherwise.
+	 */
+	bool IsMissingVirtualSpecifier(const FString& SourceFile, int32 FunctionNamePosition) const;
 };

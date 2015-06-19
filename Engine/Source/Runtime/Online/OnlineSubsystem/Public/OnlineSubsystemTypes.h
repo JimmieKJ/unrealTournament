@@ -1116,10 +1116,12 @@ namespace EInviteStatus
 class FOnlineFriend : public FOnlineUser
 {
 public:
+	
 	/**
 	 * @return the current invite status of a friend wrt to user that queried
 	 */
 	virtual EInviteStatus::Type GetInviteStatus() const = 0;
+	
 	/**
 	 * @return presence info for an online friend
 	 */
@@ -1127,46 +1129,16 @@ public:
 };
 
 /**
- * Friend user info returned via IOnlineFriends interface
+ * Recent player user info returned via IOnlineFriends interface
  */
 class FOnlineRecentPlayer : public FOnlineUser
 {
 public:
+	
 	/**
 	 * @return last time the player was seen by the current user
 	 */
 	virtual FDateTime GetLastSeen() const = 0;
-};
-
-/**
- * Party user info returned via IOnlineParty interface
- */
-struct FOnlinePartyMember
-{
-	/** The unique ID of this party member */
-	TSharedPtr<FUniqueNetId>	UniqueId;
-
-	/** True if this party member is using the local console */
-	bool						IsLocal;
-
-	/** The time at which the player joined the party */
-	FDateTime					JoinTime;
-
-	/** If the platform supports grouping party members by device, this will be set */
-	int32						DeviceGroup;
-
-	/** Constructor */
-	FOnlinePartyMember(
-		const TSharedPtr<FUniqueNetId>& PartyMemberId,
-		const bool IsLocalPartyMember,
-		const FDateTime& PartyJoinTime,
-		const int32 InDeviceGroup
-		)
-		: UniqueId(PartyMemberId)
-		, IsLocal(IsLocalPartyMember)
-		, JoinTime(PartyJoinTime)
-		, DeviceGroup(InDeviceGroup)
-	{}
 };
 
 /** The possible permission categories we can choose from to read from the server */
@@ -1358,3 +1330,7 @@ struct FOnlineNotification
 */
 typedef FString FNotificationTransportId;
 
+/**
+* Id of a party instance
+*/
+typedef FUniqueNetId FOnlinePartyId;

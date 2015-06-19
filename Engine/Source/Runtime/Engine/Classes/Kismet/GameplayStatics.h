@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 #include "Engine/LatentActionManager.h"
@@ -38,7 +38,7 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 
 	/** Spawns an instance of an actor class, but does not automatically run its construction script.  */
 	UFUNCTION(BlueprintCallable, Category="Spawning", meta=(WorldContext="WorldContextObject", UnsafeDuringActorConstruction = "true", BlueprintInternalUseOnly = "true"))
-	static class AActor* BeginSpawningActorFromClass(UObject* WorldContextObject, TSubclassOf<AActor> ActorClass, const FTransform& SpawnTransform, bool bNoCollisionFail = false);
+	static class AActor* BeginSpawningActorFromClass(UObject* WorldContextObject, TSubclassOf<AActor> ActorClass, const FTransform& SpawnTransform, bool bNoCollisionFail = false, AActor* Owner = nullptr);
 
 	/** 'Finish' spawning an actor.  This will run the construction script. */
 	UFUNCTION(BlueprintCallable, Category="Spawning", meta=(UnsafeDuringActorConstruction = "true", BlueprintInternalUseOnly = "true"))
@@ -114,7 +114,16 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	/** Returns level streaming object with specified level package name */
 	UFUNCTION(BlueprintPure, meta=(WorldContext="WorldContextObject"), Category="Game")
 	static class ULevelStreaming* GetStreamingLevel(UObject* WorldContextObject, FName PackageName);
-	
+
+	/** Flushes level streaming in blocking fashion and returns when all sub-levels are loaded / visible / hidden */
+	UFUNCTION(BlueprintCallable, meta=(WorldContext="WorldContextObject"), Category = "Game")
+	static void FlushLevelStreaming(UObject* WorldContextObject);
+		
+	/** Cancels all currently queued streaming packages */
+	UFUNCTION(BlueprintCallable, Category = "Game")
+	static void CancelAsyncLoading();
+
+
 	/**
 	 * Travel to another level
 	 *
@@ -134,7 +143,7 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category="Game", meta=(WorldContext="WorldContextObject") )
 	static class AGameState* GetGameState(UObject* WorldContextObject);
 
-	UFUNCTION(BlueprintPure, meta=(FriendlyName = "GetClass"), Category="Utilities")
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "GetClass"), Category="Utilities")
 	static class UClass *GetObjectClass(const UObject *Object);
 
 	/**
@@ -179,7 +188,7 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @return true if damage was applied to at least one actor.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Game|Damage", meta=(WorldContext="WorldContextObject", AutoCreateRefTerm="IgnoreActors"))
-		static bool ApplyRadialDamage(UObject* WorldContextObject, float BaseDamage, const FVector& Origin, float DamageRadius, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser = NULL, AController* InstigatedByController = NULL, bool bDoFullDamage = false, ECollisionChannel DamagePreventionChannel = ECC_Visibility);
+	static bool ApplyRadialDamage(UObject* WorldContextObject, float BaseDamage, const FVector& Origin, float DamageRadius, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser = NULL, AController* InstigatedByController = NULL, bool bDoFullDamage = false, ECollisionChannel DamagePreventionChannel = ECC_Visibility);
 	
 	/** Hurt locally authoritative actors within the radius. Will only hit components that block the Visibility channel.
 	 * @param BaseDamage - The base damage to apply, i.e. the damage at the origin.
@@ -195,7 +204,7 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @return true if damage was applied to at least one actor.
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Game|Damage", meta=(WorldContext="WorldContextObject", AutoCreateRefTerm="IgnoreActors"))
-		static bool ApplyRadialDamageWithFalloff(UObject* WorldContextObject, float BaseDamage, float MinimumDamage, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser = NULL, AController* InstigatedByController = NULL, ECollisionChannel DamagePreventionChannel = ECC_Visibility);
+	static bool ApplyRadialDamageWithFalloff(UObject* WorldContextObject, float BaseDamage, float MinimumDamage, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff, TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser = NULL, AController* InstigatedByController = NULL, ECollisionChannel DamagePreventionChannel = ECC_Visibility);
 	
 
 	/** Hurts the specified actor with the specified impact.
@@ -266,13 +275,25 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @param MaximumRange	The maximum distance away from Location that a listener can be
 	 * @note This will always return false if there is no audio device, or the audio device is disabled.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Audio")
-	static bool AreAnyListenersWithinRange(FVector Location, float MaximumRange);
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
+	static bool AreAnyListenersWithinRange(UObject* WorldContextObject, FVector Location, float MaximumRange);
+	
+	/**
+	 * Plays a sound directly with no attenuation, perfect for UI sounds.
+	 *
+	 * ● Fire and Forget.
+	 * ● Not Replicated.
+	 * @param Sound - Sound to play.
+	 * @param VolumeMultiplier - Multiplied with the volume to make the sound louder or softer.
+	 * @param PitchMultiplier - Multiplies the pitch.
+	 */
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Audio", meta=( WorldContext="WorldContextObject", AdvancedDisplay = "2", UnsafeDuringActorConstruction = "true" ))
+	static void PlaySound2D(UObject* WorldContextObject, class USoundBase* Sound, float VolumeMultiplier = 1.f, float PitchMultiplier = 1.f, float StartTime = 0.f);
 
-	/** Plays a sound at the given location. This is a fire and forget sound and does not travel with any actor. Replication is also not handled at this point.
+	/**
+	 * Plays a sound at the given location. This is a fire and forget sound and does not travel with any actor. Replication is also not handled at this point.
 	 * @param Sound - sound to play
 	 * @param Location - World position to play sound at
-	 * @param World - The World in which the sound is to be played
 	 * @param VolumeMultiplier - Volume multiplier 
 	 * @param PitchMultiplier - PitchMultiplier
 	 * @param AttenuationSettings - Override attenuation settings package to play sound with
@@ -321,20 +342,20 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 
 	// --- Audio Functions ----------------------------
 	/** Set the sound mix of the audio system for special EQing **/
-	UFUNCTION(BlueprintCallable, Category="Audio")
-	static void SetBaseSoundMix(class USoundMix* InSoundMix);
+	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
+	static void SetBaseSoundMix(UObject* WorldContextObject, class USoundMix* InSoundMix);
 
 	/** Push a sound mix modifier onto the audio system **/
-	UFUNCTION(BlueprintCallable, Category="Audio")
-	static void PushSoundMixModifier(class USoundMix* InSoundMixModifier);
+	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
+	static void PushSoundMixModifier(UObject* WorldContextObject, class USoundMix* InSoundMixModifier);
 
 	/** Pop a sound mix modifier from the audio system **/
-	UFUNCTION(BlueprintCallable, Category="Audio")
-	static void PopSoundMixModifier(class USoundMix* InSoundMixModifier);
+	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
+	static void PopSoundMixModifier(UObject* WorldContextObject, class USoundMix* InSoundMixModifier);
 
 	/** Clear all sound mix modifiers from the audio system **/
-	UFUNCTION(BlueprintCallable, Category="Audio")
-	static void ClearSoundMixModifiers();
+	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
+	static void ClearSoundMixModifiers(UObject* WorldContextObject);
 
 	/** Activates a Reverb Effect without the need for a volume
 	 * @param ReverbEffect Reverb Effect to use
@@ -343,16 +364,16 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @param Volume Volume level of Reverb Effect
 	 * @param FadeTime Time before Reverb Effect is fully active
 	 */
-	UFUNCTION(BlueprintCallable, Category="Audio", meta=(AdvancedDisplay = "2"))
-	static void ActivateReverbEffect(class UReverbEffect* ReverbEffect, FName TagName, float Priority = 0.f, float Volume = 0.5f, float FadeTime = 2.f);
+	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject", AdvancedDisplay = "2"))
+	static void ActivateReverbEffect(UObject* WorldContextObject, class UReverbEffect* ReverbEffect, FName TagName, float Priority = 0.f, float Volume = 0.5f, float FadeTime = 2.f);
 
 	/**
 	 * Deactivates a Reverb Effect not applied by a volume
 	 *
 	 * @param TagName Tag associated with Reverb Effect to remove
 	 */
-	UFUNCTION(BlueprintCallable, Category="Audio")
-	static void DeactivateReverbEffect(FName TagName);
+	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
+	static void DeactivateReverbEffect(UObject* WorldContextObject, FName TagName);
 
 	// --- Decal functions ------------------------------
 
@@ -382,10 +403,11 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	/** Extracts data from a HitResult. 
 	 * @param Hit			The source HitResult.
 	 * @param bBlockingHit	True if there was a blocking hit, false otherwise.
+	 * @param bInitialOverlap True if the hit started in an initial overlap. In this case some other values should be interpreted differently. Time will be 0, ImpactPoint will equal Location, and normals will be equal and indicate a depenetration vector.
 	 * @param Time			'Time' of impact along trace direction ranging from [0.0 to 1.0) if there is a hit, indicating time between start and end. Equals 1.0 if there is no hit.
 	 * @param Location		Location of the hit in world space. If this was a swept shape test, this is the location where we can place the shape in the world where it will not penetrate.
 	 * @param Normal		Normal of the hit in world space, for the object that was swept (e.g. for a sphere trace this points towards the sphere's center). Equal to ImpactNormal for line tests.
-	 * @param ImpactPoint	Location of the actual contact point of the trace shape with the surface of the hit object.
+	 * @param ImpactPoint	Location of the actual contact point of the trace shape with the surface of the hit object. Equal to Location in the case of an initial overlap.
 	 * @param ImpactNormal	Normal of the hit in world space, for the object that was hit by the sweep.
 	 * @param PhysMat		Physical material that was hit. Must set bReturnPhysicalMaterial to true in the query params for this to be returned.
 	 * @param HitActor		Actor hit by the trace.
@@ -394,7 +416,7 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @param HitItem		Primitive-specific data recording which item in the primitive was hit
 	 */
 	UFUNCTION(BlueprintPure, Category = "Collision", meta=(NativeBreakFunc))
-	static void BreakHitResult(const struct FHitResult& Hit, bool& bBlockingHit, float& Time, FVector& Location, FVector& Normal, FVector& ImpactPoint, FVector& ImpactNormal, class UPhysicalMaterial*& PhysMat, class AActor*& HitActor, class UPrimitiveComponent*& HitComponent, FName& HitBoneName, int32& HitItem);
+	static void BreakHitResult(const struct FHitResult& Hit, bool& bBlockingHit, bool& bInitialOverlap, float& Time, FVector& Location, FVector& ImpactPoint, FVector& Normal, FVector& ImpactNormal, class UPhysicalMaterial*& PhysMat, class AActor*& HitActor, class UPrimitiveComponent*& HitComponent, FName& HitBoneName, int32& HitItem, FVector& TraceStart, FVector& TraceEnd);
 
 	/** Returns the EPhysicalSurface type of the given Hit. 
 	 * To edit surface type for your project, use ProjectSettings/Physics/PhysicalSurface section
@@ -499,7 +521,7 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @param bDrawDebug		When true, a debug arc is drawn (red for an invalid arc, green for a valid arc)
 	 * @return					Returns false if there is no valid solution or the valid solutions are blocked.  Returns true otherwise.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement", FriendlyName="SuggestProjectileVelocity", meta=(WorldContext="WorldContextObject"))
+	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement", DisplayName="SuggestProjectileVelocity", meta=(WorldContext="WorldContextObject"))
 	static bool BlueprintSuggestProjectileVelocity(UObject* WorldContextObject, FVector& TossVelocity, FVector StartLocation, FVector EndLocation, float LaunchSpeed, float OverrideGravityZ, ESuggestProjVelocityTraceOption::Type TraceOption, float CollisionRadius, bool bFavorHighArc, bool bDrawDebug);
 
 	/** Native version, has more options than the Blueprint version. */
@@ -512,5 +534,17 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	/** Requests a new location for a world origin */
 	UFUNCTION(BlueprintCallable, Category="Game", meta=(WorldContext="WorldContextObject"))
 	static void SetWorldOriginLocation(UObject* WorldContextObject, FIntVector NewLocation);
+
+	/**
+	* Counts how many grass foliage instances overlap a given sphere.
+	*
+	* @param	Mesh			The static mesh we are interested in counting
+	* @param	CenterPosition	The center position of the sphere
+	* @param	Radius			The radius of the sphere.
+	*
+	* @return number of foliage instances with their mesh set to Mesh that overlap the sphere
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Foliage", meta = (WorldContext = "WorldContextObject", UnsafeDuringActorConstruction = "true"))
+	static int32 GrassOverlappingSphereCount(UObject* WorldContextObject, const UStaticMesh* StaticMesh, FVector CenterPosition, float Radius);
 };
 

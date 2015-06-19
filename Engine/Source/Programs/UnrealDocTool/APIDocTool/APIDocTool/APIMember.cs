@@ -336,30 +336,11 @@ namespace APIDocTool
 		{
 			if (SnippetLines != null)
 			{
-				Writer.EnterSection("snippets", "Snippets");
-				Writer.EnterRegion("simplecode");
+				Writer.EnterSection("examplecode", "Example Code");
 				foreach (string SnippetLine in SnippetLines)
 				{
-					StringBuilder OutputLine = new StringBuilder();
-					for (int Idx = 0; Idx < SnippetLine.Length; Idx++)
-					{
-						if (SnippetLine[Idx] == ' ')
-						{
-							OutputLine.Append("&nbsp;");
-						}
-						else if (SnippetLine[Idx] == '\t')
-						{
-							OutputLine.Append("&nbsp;&nbsp;&nbsp;&nbsp;");
-						}
-						else
-						{
-							OutputLine.Append(Markdown.EscapeText(SnippetLine.Substring(Idx)));
-							break;
-						}
-					}
-					Writer.WriteLine(OutputLine.ToString() + "  ");
+					Writer.WriteLine(SnippetLine + "  ");
 				}
-				Writer.LeaveRegion();
 				Writer.LeaveSection();
 			}
 		}

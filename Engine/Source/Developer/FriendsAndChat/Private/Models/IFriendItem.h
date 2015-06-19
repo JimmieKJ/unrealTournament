@@ -2,10 +2,13 @@
 
 #pragma once
 
+#include "IUserInfo.h"
+
 /**
  * Class containing the friend information - used to build the list view.
  */
 class IFriendItem
+	: public IUserInfo, public TSharedFromThis<IFriendItem>
 {
 public:
 
@@ -26,22 +29,10 @@ public:
 	virtual const TSharedPtr< FOnlineFriend > GetOnlineFriend() const = 0;
 
 	/**
-	 * Get the cached user name.
-	 * @return The user name.
-	 */
-	virtual const FString GetName() const = 0;
-
-	/**
 	 * Get the user location.
 	 * @return The user location.
 	 */
 	virtual const FText GetFriendLocation() const = 0;
-
-	/**
-	 * Get the client the user is logged in on
-	 * @return The client id
-	 */
-	virtual const FString GetClientId() const = 0;
 
 	/**
 	* Get the client name the user is logged in on
@@ -53,19 +44,13 @@ public:
 	* Get the player's session id
 	* @return The session id the user is playing in
 	*/
-	virtual const FString GetSessionId() const = 0;
+	virtual const TSharedPtr<FUniqueNetId> GetSessionId() const = 0;
 
 	/**
 	 * Get if the user is online.
 	 * @return The user online state.
 	 */
 	virtual const bool IsOnline() const = 0;
-
-	/**
-	 * Get the online status of the user
-	 * @return online presence status
-	 */
-	virtual EOnlinePresenceState::Type GetOnlineStatus() const = 0;
 
 	/**
 	 * Get if the user is online and his game is joinable
@@ -83,7 +68,7 @@ public:
 	 * Get game session id that this friend is currently in
 	 * @return The id of the game session
 	 */
-	virtual FString GetGameSessionId() const = 0;
+	virtual TSharedPtr<FUniqueNetId> GetGameSessionId() const = 0;
 
 	/**
 	 * Get the Unique ID.

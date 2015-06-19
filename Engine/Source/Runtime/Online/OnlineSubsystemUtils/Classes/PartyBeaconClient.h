@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconClient.h"
-#include "PartyBeaconHost.h"
+#include "OnlineBeaconClient.h"
+#include "PartyBeaconState.h"
 
 #include "PartyBeaconClient.generated.h"
+
+#define PARTY_BEACON_TYPE TEXT("PartyBeacon")
 
 /**
  * Delegate triggered when a response from the party beacon host has been received
@@ -13,11 +15,6 @@
  * @param ReservationResponse response from the server
  */
 DECLARE_DELEGATE_OneParam(FOnReservationRequestComplete, EPartyReservationResult::Type);
-
-/**
- * Delegate triggered on failures to connect to the party host beacon
- */
-DECLARE_DELEGATE(FOnHostConnectionFailure);
 
 /**
  * A beacon client used for making reservations with an existing game session
@@ -28,12 +25,11 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconClient : public AOnlineBeaconClient
 	GENERATED_UCLASS_BODY()
 
 	// Begin AOnlineBeacon Interface
-	virtual FString GetBeaconType() override { return TEXT("PartyBeacon"); }
+	virtual FString GetBeaconType() override { return PARTY_BEACON_TYPE; }
 	// End AOnlineBeacon Interface
 
 	// Begin AOnlineBeaconClient Interface
 	virtual void OnConnected() override;
-	virtual void OnFailure() override;
 	// End AOnlineBeaconClient Interface
 
 	/**
@@ -55,7 +51,7 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconClient : public AOnlineBeaconClient
 	virtual void CancelReservation();
 
 	/**
-	 * Response from the host session after making a reservation requestion
+	 * Response from the host session after making a reservation request
 	 *
 	 * @param ReservationResponse response from server
 	 */
@@ -65,14 +61,9 @@ class ONLINESUBSYSTEMUTILS_API APartyBeaconClient : public AOnlineBeaconClient
 	/**
 	 * Delegate triggered when a response from the party beacon host has been received
 	 *
-	 * @param ReservationResponse response from the server
+	 * @return delegate to handle response from the server
 	 */
 	FOnReservationRequestComplete& OnReservationRequestComplete() { return ReservationRequestComplete; }
-
-	/**
-	* Delegate triggered on failures to connect to the party host beacon
-	*/
-	FOnHostConnectionFailure& OnHostConnectionFailure() { return HostConnectionFailure; }
 
 	/**
 	* @return the pending reservation associated with this beacon client
@@ -83,8 +74,6 @@ protected:
 
 	/** Delegate for reservation request responses */
 	FOnReservationRequestComplete ReservationRequestComplete;
-	/** Delegate for party host beacon connection failures */
-	FOnHostConnectionFailure HostConnectionFailure;
 
 	/** Session Id of the destination host */
 	FString DestSessionId;

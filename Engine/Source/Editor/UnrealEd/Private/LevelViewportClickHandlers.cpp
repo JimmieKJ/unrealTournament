@@ -17,6 +17,7 @@
 #include "Engine/Selection.h"
 #include "Engine/StaticMeshActor.h"
 #include "Engine/TargetPoint.h"
+#include "EngineUtils.h"
 
 #define LOCTEXT_NAMESPACE "ClickHandlers"
 
@@ -193,17 +194,6 @@ namespace ClickHandlers
 				if( SelectedClass )
 				{
 					PrivateAddActor( SelectedClass );
-				}
-
-				return true;
-			}
-			else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::Period) )
-			{
-				if(Click.IsControlDown())
-				{
-					// create a pylon
-					UClass* PylonClass = GEditor->GetClassFromPairMap( FString(TEXT("Pylon")) );
-					PrivateAddActor( PylonClass );
 				}
 
 				return true;
@@ -447,6 +437,18 @@ namespace ClickHandlers
 
 	bool ClickGeomPoly(FLevelEditorViewportClient* ViewportClient, HGeomPolyProxy* InHitProxy, const FViewportClick& Click)
 	{
+		//something is wrong with the hitproxy relating to this click - create a debug log to help identify what
+		if( InHitProxy == NULL )
+		{
+			UE_LOG(LogEditorViewport, Warning, TEXT("Invalid hitproxy"));
+			return false;
+		}
+
+		if( !InHitProxy->GeomObjectWeakPtr.IsValid() )
+		{
+			return false;
+		}
+
 		// Pivot snapping
 		if( Click.GetKey() == EKeys::MiddleMouseButton && Click.IsAltDown() )
 		{
@@ -456,7 +458,7 @@ namespace ClickHandlers
 		}
 		else if( Click.GetKey() == EKeys::LeftMouseButton && Click.IsControlDown() && Click.IsShiftDown() && !Click.IsAltDown() )
 		{
-			GEditor->SelectActor( InHitProxy->GeomObject->GetActualBrush(), false, true );
+			GEditor->SelectActor( InHitProxy->GetGeomObject()->GetActualBrush(), false, true );
 		}
 		else if( Click.GetKey() == EKeys::LeftMouseButton )
 		{
@@ -464,7 +466,7 @@ namespace ClickHandlers
 			FEdMode* Mode = GLevelEditorModeTools().GetActiveMode( FBuiltinEditorModes::EM_Geometry );
 			if( Mode )
 			{
-				if( ( InHitProxy != NULL) && ( InHitProxy->GeomObject != NULL ) && (InHitProxy->GeomObject->PolyPool.IsValidIndex( InHitProxy->PolyIndex ) == true ) )					
+				if( ( InHitProxy->GetGeomObject() != NULL ) && (InHitProxy->GetGeomObject()->PolyPool.IsValidIndex( InHitProxy->PolyIndex ) == true ) )					
 				{
 					Mode->GetCurrentTool()->StartTrans();
 
@@ -473,7 +475,7 @@ namespace ClickHandlers
 						Mode->GetCurrentTool()->SelectNone();
 					}
 
-					FGeomPoly& gp = InHitProxy->GeomObject->PolyPool[ InHitProxy->PolyIndex ];
+					FGeomPoly& gp = InHitProxy->GetGeomObject()->PolyPool[ InHitProxy->PolyIndex ];
 					gp.Select( Click.IsControlDown() ? !gp.IsSelected() : true );
 
 					Mode->SelectionChanged();
@@ -483,26 +485,13 @@ namespace ClickHandlers
 				}
 				else
 				{
-					//something is wrong with the hitproxy relating to this click - create a debug log to help identify what
-					if( InHitProxy == NULL) 
+					//try to get the name of the object also
+					FString name = TEXT("UNKNOWN");
+					if( InHitProxy->GetGeomObject()->GetActualBrush() != NULL )
 					{
-						UE_LOG(LogEditorViewport, Warning, TEXT("Invalid hitproxy" ) );
+						name = InHitProxy->GetGeomObject()->GetActualBrush()->GetName();
 					}
-					else if ( InHitProxy->GeomObject == NULL ) 
-					{
-						UE_LOG(LogEditorViewport, Warning, TEXT("Invalid GeomObject" ) );		
-					}
-					else
-					{
-						//try to get the name of the object also
-						FString name = TEXT("UNKNOWN");
-						if( InHitProxy->GeomObject->GetActualBrush() != NULL )
-						{
-							name = InHitProxy->GeomObject->GetActualBrush()->GetName();
-						}
-						UE_LOG(LogEditorViewport, Warning, TEXT("Invalid PolyIndex %d on %s" ) ,InHitProxy->PolyIndex , *name );
-					}
-
+					UE_LOG(LogEditorViewport, Warning, TEXT("Invalid PolyIndex %d on %s" ) ,InHitProxy->PolyIndex , *name );
 				}
 			}
 		}
@@ -519,16 +508,32 @@ namespace ClickHandlers
 		bool bResult = false;
 		switch( ViewportType )
 		{
-		case LVT_OrthoXY:	bResult = FMath::Abs(Vec0.X - Vec1.X) < Tolerance && FMath::Abs(Vec0.Y - Vec1.Y) < Tolerance;	break;
-		case LVT_OrthoXZ:	bResult = FMath::Abs(Vec0.X - Vec1.X) < Tolerance && FMath::Abs(Vec0.Z - Vec1.Z) < Tolerance;	break;
-		case LVT_OrthoYZ:	bResult = FMath::Abs(Vec0.Y - Vec1.Y) < Tolerance && FMath::Abs(Vec0.Z - Vec1.Z) < Tolerance;	break;
-		default:			check( 0 );		break;
+		case LVT_OrthoXY:
+		case LVT_OrthoNegativeXY:
+			bResult = FMath::Abs(Vec0.X - Vec1.X) < Tolerance && FMath::Abs(Vec0.Y - Vec1.Y) < Tolerance;
+			break;
+		case LVT_OrthoXZ:
+		case LVT_OrthoNegativeXZ:
+			bResult = FMath::Abs(Vec0.X - Vec1.X) < Tolerance && FMath::Abs(Vec0.Z - Vec1.Z) < Tolerance;
+			break;
+		case LVT_OrthoYZ:
+		case LVT_OrthoNegativeYZ:
+			bResult = FMath::Abs(Vec0.Y - Vec1.Y) < Tolerance && FMath::Abs(Vec0.Z - Vec1.Z) < Tolerance;
+			break;
+		default:
+			check( 0 );
+			break;
 		}
 		return bResult;
 	}
 
 	bool ClickGeomEdge(FLevelEditorViewportClient* ViewportClient, HGeomEdgeProxy* InHitProxy, const FViewportClick& Click)
 	{
+		if( !InHitProxy->GetGeomObject() )
+		{
+			return false;
+		}
+
 		// Pivot snapping
 		if( Click.GetKey() == EKeys::MiddleMouseButton && Click.IsAltDown() )
 		{
@@ -538,7 +543,7 @@ namespace ClickHandlers
 		}
 		else if( Click.GetKey() == EKeys::LeftMouseButton && Click.IsControlDown() && Click.IsShiftDown() && !Click.IsAltDown() )
 		{
-			GEditor->SelectActor( InHitProxy->GeomObject->GetActualBrush(), false, true );
+			GEditor->SelectActor( InHitProxy->GetGeomObject()->GetActualBrush(), false, true );
 
 			return true;
 		}
@@ -556,17 +561,17 @@ namespace ClickHandlers
 					Mode->GetCurrentTool()->SelectNone();
 				}
 
-				FGeomEdge& HitEdge = InHitProxy->GeomObject->EdgePool[ InHitProxy->EdgeIndex ];
+				FGeomEdge& HitEdge = InHitProxy->GetGeomObject()->EdgePool[ InHitProxy->EdgeIndex ];
 				HitEdge.Select( bControlDown ? !HitEdge.IsSelected() : true );
 
 				if( ViewportClient->IsOrtho() )
 				{
 					// Select all edges in the brush that match the projected mid point of the original edge.
-					for( int32 EdgeIndex = 0 ; EdgeIndex < InHitProxy->GeomObject->EdgePool.Num() ; ++EdgeIndex )
+					for( int32 EdgeIndex = 0 ; EdgeIndex < InHitProxy->GetGeomObject()->EdgePool.Num() ; ++EdgeIndex )
 					{
 						if ( EdgeIndex != InHitProxy->EdgeIndex )
 						{
-							FGeomEdge& GeomEdge = InHitProxy->GeomObject->EdgePool[ EdgeIndex ];
+							FGeomEdge& GeomEdge = InHitProxy->GetGeomObject()->EdgePool[ EdgeIndex ];
 							if ( OrthoEqual( ViewportClient->ViewportType, GeomEdge.GetMid(), HitEdge.GetMid() ) )
 							{
 								GeomEdge.Select( bControlDown ? !GeomEdge.IsSelected() : true );
@@ -592,6 +597,11 @@ namespace ClickHandlers
 
 	bool ClickGeomVertex(FLevelEditorViewportClient* ViewportClient,HGeomVertexProxy* InHitProxy,const FViewportClick& Click)
 	{
+		if(InHitProxy->GetGeomObject() == nullptr)
+		{
+			return false;
+		}
+
 		if( !GLevelEditorModeTools().IsModeActive( FBuiltinEditorModes::EM_Geometry ) )
 		{
 			return false;
@@ -605,14 +615,8 @@ namespace ClickHandlers
 
 		if( Click.GetKey() == EKeys::RightMouseButton )
 		{
-			// sanity checks & defensive coding seem necessary based on Prio 1 TTP #318426
-			ensure( NULL != InHitProxy->GeomObject );
-			if ( InHitProxy->GeomObject == NULL ) 
-			{
-				UE_LOG(LogEditorViewport, Warning, TEXT("Invalid GeomObject" ) );	
-				return false;
-			}
-			if (InHitProxy->VertexIndex < 0 || InHitProxy->VertexIndex >= InHitProxy->GeomObject->VertexPool.Num() )
+
+			if (InHitProxy->VertexIndex < 0 || InHitProxy->VertexIndex >= InHitProxy->GetGeomObject()->VertexPool.Num() )
 			{
 				UE_LOG(LogEditorViewport, Warning, TEXT("Invalid InHitProxy->VertexIndex" ) );		
 				return false;
@@ -622,7 +626,7 @@ namespace ClickHandlers
 			Tool->StartTrans();
 
 			// Compute out far to move to get back on the grid.
-			const FVector WorldLoc = InHitProxy->GeomObject->GetActualBrush()->ActorToWorld().TransformPosition( InHitProxy->GeomObject->VertexPool[ InHitProxy->VertexIndex ] );
+			const FVector WorldLoc = InHitProxy->GetGeomObject()->GetActualBrush()->ActorToWorld().TransformPosition( InHitProxy->GetGeomObject()->VertexPool[ InHitProxy->VertexIndex ] );
 
 			FVector SnappedLoc = WorldLoc;
 			FSnappingUtils::SnapPointToGrid( SnappedLoc, FVector(GEditor->GetGridSize()) );
@@ -630,9 +634,9 @@ namespace ClickHandlers
 			const FVector Delta = SnappedLoc - WorldLoc;
 			GEditor->SetPivot( SnappedLoc, false, false );
 
-			for( int32 VertexIndex = 0 ; VertexIndex < InHitProxy->GeomObject->VertexPool.Num() ; ++VertexIndex )
+			for( int32 VertexIndex = 0 ; VertexIndex < InHitProxy->GetGeomObject()->VertexPool.Num() ; ++VertexIndex )
 			{
-				FGeomVertex& GeomVertex = InHitProxy->GeomObject->VertexPool[VertexIndex];
+				FGeomVertex& GeomVertex = InHitProxy->GetGeomObject()->VertexPool[VertexIndex];
 				if( GeomVertex.IsSelected() )
 				{
 					GeomVertex += Delta;
@@ -640,7 +644,7 @@ namespace ClickHandlers
 			}
 
 			Tool->EndTrans();
-			InHitProxy->GeomObject->SendToSource();
+			InHitProxy->GetGeomObject()->SendToSource();
 			ViewportClient->Invalidate( true, true );
 
 			// HACK: The Bsp update has to occur after SendToSource() updates the vert pool, putting it outside
@@ -663,7 +667,7 @@ namespace ClickHandlers
 		}
 		else if( Click.GetKey() == EKeys::LeftMouseButton && Click.IsControlDown() && Click.IsShiftDown() && !Click.IsAltDown() )
 		{
-			GEditor->SelectActor( InHitProxy->GeomObject->GetActualBrush(), false, true );
+			GEditor->SelectActor( InHitProxy->GetGeomObject()->GetActualBrush(), false, true );
 		}
 		else if( Click.GetKey() == EKeys::LeftMouseButton )
 		{
@@ -676,7 +680,7 @@ namespace ClickHandlers
 				Mode->GetCurrentTool()->SelectNone();
 			}
 
-			FGeomVertex& HitVertex = InHitProxy->GeomObject->VertexPool[ InHitProxy->VertexIndex ];
+			FGeomVertex& HitVertex = InHitProxy->GetGeomObject()->VertexPool[ InHitProxy->VertexIndex ];
 			bool bSelect = bControlDown ? !HitVertex.IsSelected() : true;
 
 			HitVertex.Select( bSelect );
@@ -684,11 +688,11 @@ namespace ClickHandlers
 			if( ViewportClient->IsOrtho() )
 			{
 				// Select all vertices that project to the same location.
-				for( int32 VertexIndex = 0 ; VertexIndex < InHitProxy->GeomObject->VertexPool.Num() ; ++VertexIndex )
+				for( int32 VertexIndex = 0 ; VertexIndex < InHitProxy->GetGeomObject()->VertexPool.Num() ; ++VertexIndex )
 				{
 					if ( VertexIndex != InHitProxy->VertexIndex )
 					{
-						FGeomVertex& GeomVertex = InHitProxy->GeomObject->VertexPool[VertexIndex];
+						FGeomVertex& GeomVertex = InHitProxy->GetGeomObject()->VertexPool[VertexIndex];
 						if ( OrthoEqual( ViewportClient->ViewportType, GeomVertex, HitVertex ) )
 						{
 							GeomVertex.Select( bSelect );
@@ -815,15 +819,6 @@ namespace ClickHandlers
 		{
 			// Create a static mesh.
 			PrivateAddActor( AStaticMeshActor::StaticClass() );
-		}
-		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::Period) )
-		{
-			if(Click.IsControlDown())
-			{
-				// create a pylon
-				UClass* PylonClass = GEditor->GetClassFromPairMap( FString(TEXT("Pylon")) );
-				PrivateAddActor( PylonClass );
-			}
 		}
 		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::Semicolon) )
 		{
@@ -1009,16 +1004,6 @@ namespace ClickHandlers
 		{
 			// Create a static mesh.
 			PrivateAddActor( AStaticMeshActor::StaticClass() );
-		}
-		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::Period) )
-		{
-			// Create a pathnode.
-			if(Click.IsControlDown())
-			{
-				// create a pylon
-				UClass* PylonClass = GEditor->GetClassFromPairMap( FString(TEXT("Pylon")) );
-				PrivateAddActor( PylonClass );
-			}
 		}
 		else if( Click.GetKey() == EKeys::RightMouseButton && !Click.IsControlDown() && !ViewportClient->Viewport->KeyState(EKeys::LeftMouseButton) )
 		{

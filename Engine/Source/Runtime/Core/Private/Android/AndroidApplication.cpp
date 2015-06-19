@@ -131,10 +131,6 @@ private:
 	}
 };
 
-#if 0
-DECLARE_THREAD_SINGLETON(FJNIHelper);
-#endif
-
 void FAndroidApplication::InitializeJavaEnv( JavaVM* VM, jint Version, jobject GlobalThis )
 {
 	if (CurrentJavaVM == nullptr)
@@ -156,6 +152,7 @@ void FAndroidApplication::InitializeJavaEnv( JavaVM* VM, jint Version, jobject G
 
 static void JavaEnvDestructor(void*)
 {
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*** JavaEnvDestructor: %d"), FPlatformTLS::GetCurrentThreadId());
 	FAndroidApplication::DetachJavaEnv();
 }
 
@@ -171,7 +168,10 @@ JNIEnv* FAndroidApplication::GetJavaEnv( bool bRequireGlobalThis /*= true*/ )
 	{
 		return nullptr;
 	}
-#else
+#endif
+#if 0
+	// not reliable at the moment.. revisit later
+
 	// Magic static - *should* be thread safe
 	//Android & pthread specific, bind a destructor for thread exit
 	static uint32 TlsSlot = 0;
@@ -195,6 +195,36 @@ JNIEnv* FAndroidApplication::GetJavaEnv( bool bRequireGlobalThis /*= true*/ )
 	}
 
 	return (!bRequireGlobalThis || (GlobalObjectRef != nullptr)) ? Env : nullptr;
+#else
+	// register a destructor to detach this thread
+	static uint32 TlsSlot = 0;
+	if (TlsSlot == 0)
+	{
+		pthread_key_create((pthread_key_t*)&TlsSlot, &JavaEnvDestructor);
+	}
+
+	JNIEnv* Env = nullptr;
+	jint GetEnvResult = CurrentJavaVM->GetEnv((void **)&Env, CurrentJavaVersion);
+	if (GetEnvResult == JNI_EDETACHED)
+	{
+		// attach to this thread
+		jint AttachResult = CurrentJavaVM->AttachCurrentThread(&Env, NULL);
+		if (AttachResult == JNI_ERR)
+		{
+			FPlatformMisc::LowLevelOutputDebugString(L"UNIT TEST -- Failed to attach thread to get the JNI environment!");
+			check(false);
+			return nullptr;
+		}
+		FPlatformTLS::SetTlsValue(TlsSlot, (void*)Env);
+	}
+	else if (GetEnvResult != JNI_OK)
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(L"UNIT TEST -- Failed to get the JNI environment! Result = %d", GetEnvResult);
+		check(false);
+		return nullptr;
+
+	}
+	return Env;
 #endif
 }
 

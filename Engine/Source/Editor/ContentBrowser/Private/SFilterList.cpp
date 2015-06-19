@@ -3,6 +3,7 @@
 
 #include "ContentBrowserPCH.h"
 #include "FrontendFilters.h"
+#include "ContentBrowserFrontEndFilterExtension.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -98,7 +99,7 @@ public:
 		FrontendFilter = InArgs._FrontendFilter;
 
 		// Get the tooltip and color of the type represented by this filter
-		FText FilterToolTip;
+		TAttribute<FText> FilterToolTip;
 		FilterColor = FLinearColor::White;
 		if ( InArgs._AssetTypeActions.IsValid() )
 		{
@@ -107,10 +108,10 @@ public:
 
 			// No tooltip for asset type filters
 		}
-		else if ( InArgs._FrontendFilter.IsValid() )
+		else if ( FrontendFilter.IsValid() )
 		{
 			FilterColor = FrontendFilter->GetColor();
-			FilterToolTip = FrontendFilter->GetToolTipText();
+			FilterToolTip = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(FrontendFilter.ToSharedRef(), &FFrontendFilter::GetToolTipText));
 		}
 
 		ChildSlot
@@ -133,7 +134,7 @@ public:
 					.ColorAndOpacity(this, &SFilter::GetFilterNameColorAndOpacity)
 					.Font(FEditorStyle::GetFontStyle("ContentBrowser.FilterNameFont"))
 					.ShadowOffset(FVector2D(1.f, 1.f))
-					.Text( GetFilterName() )
+					.Text(this, &SFilter::GetFilterName)
 				]
 			]
 		];
@@ -252,6 +253,11 @@ private:
 				);
 		}
 		MenuBuilder.EndSection();
+
+		if (FrontendFilter.IsValid())
+		{
+			FrontendFilter->ModifyContextMenu(MenuBuilder);
+		}
 
 		return MenuBuilder.MakeWidget();
 	}
@@ -376,19 +382,46 @@ void SFilterList::Construct( const FArguments& InArgs )
 
 	TSharedPtr<FFrontendFilterCategory> DefaultCategory = MakeShareable( new FFrontendFilterCategory(LOCTEXT("FrontendFiltersCategory", "Other Filters"), LOCTEXT("FrontendFiltersCategoryTooltip", "Filter assets by all filters in this category.")) );
 
-	// Add all frontend filters here
+	// Add all built-in frontend filters here
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_CheckedOut(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_Modified(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_ShowOtherDevelopers(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_ReplicatedBlueprint(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_ShowRedirectors(DefaultCategory)) );
 	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_InUseByLoadedLevels(DefaultCategory)) );
+	AllFrontendFilters.Add( MakeShareable(new FFrontendFilter_ArbitraryComparisonOperation(DefaultCategory)) );
 
-	for(auto Iter = InArgs._ExtraFrontendFilters.CreateConstIterator(); Iter; ++Iter)
+	// Add any global user-defined frontend filters
+	for (TObjectIterator<UContentBrowserFrontEndFilterExtension> ExtensionIt(RF_NoFlags); ExtensionIt; ++ExtensionIt)
+	{
+		if (UContentBrowserFrontEndFilterExtension* PotentialExtension = *ExtensionIt)
+		{
+			if (PotentialExtension->HasAnyFlags(RF_ClassDefaultObject) && !PotentialExtension->GetClass()->HasAnyCastFlag(CLASS_Deprecated | CLASS_Abstract))
+			{
+				// Grab the filters
+				TArray< TSharedRef<FFrontendFilter> > ExtendedFrontendFilters;
+				PotentialExtension->AddFrontEndFilterExtensions(DefaultCategory, ExtendedFrontendFilters);
+				AllFrontendFilters.Append(ExtendedFrontendFilters);
+
+				// Grab the categories
+				for (const TSharedRef<FFrontendFilter>& FilterRef : ExtendedFrontendFilters)
+				{
+					TSharedPtr<FFrontendFilterCategory> Category = FilterRef->GetCategory();
+					if (Category.IsValid())
+					{
+						AllFrontendFilterCategories.AddUnique(Category);
+					}
+				}
+			}
+		}
+	}
+
+	// Add in filters specific to this invocation
+	for (auto Iter = InArgs._ExtraFrontendFilters.CreateConstIterator(); Iter; ++Iter)
 	{
 		TSharedRef<FFrontendFilter> Filter = (*Iter);
 		TSharedPtr<FFrontendFilterCategory> Category = Filter->GetCategory();
-		if ( Category.IsValid() )
+		if (Category.IsValid())
 		{
 			AllFrontendFilterCategories.AddUnique( Category );
 		}
@@ -399,15 +432,17 @@ void SFilterList::Construct( const FArguments& InArgs )
 	AllFrontendFilterCategories.Add(DefaultCategory);
 
 	// Auto add all inverse filters
-	for ( auto FilterIt = AllFrontendFilters.CreateConstIterator(); FilterIt; ++FilterIt )
+	for (auto FilterIt = AllFrontendFilters.CreateConstIterator(); FilterIt; ++FilterIt)
 	{
 		SetFrontendFilterActive(*FilterIt, false);
 	}
 
+	FilterBox = SNew(SWrapBox)
+		.UseAllottedWidth(true);
+
 	ChildSlot
 	[
-		SAssignNew(FilterBox, SWrapBox)
-		.UseAllottedWidth(true)
+		FilterBox.ToSharedRef()
 	];
 }
 
@@ -615,12 +650,13 @@ void SFilterList::SaveSettings(const FString& IniFilename, const FString& IniSec
 		}
 		else if ( Filter->GetFrontendFilter().IsValid() )
 		{
+			const TSharedPtr<FFrontendFilter>& FrontendFilter = Filter->GetFrontendFilter();
 			if ( ActiveFrontendFilterString.Len() > 0 )
 			{
 				ActiveFrontendFilterString += TEXT(",");
 			}
 
-			const FString FilterName = Filter->GetFrontendFilter()->GetName();
+			const FString FilterName = FrontendFilter->GetName();
 			ActiveFrontendFilterString += FilterName;
 
 			if ( Filter->IsEnabled() )
@@ -632,6 +668,9 @@ void SFilterList::SaveSettings(const FString& IniFilename, const FString& IniSec
 
 				EnabledFrontendFilterString += FilterName;
 			}
+
+			const FString CustomSettingsString = FString::Printf(TEXT("%s.CustomSettings.%s"), *SettingsString, *FilterName);
+			FrontendFilter->SaveSettings(IniFilename, IniSection, CustomSettingsString);
 		}
 	}
 
@@ -653,8 +692,8 @@ void SFilterList::LoadSettings(const FString& IniFilename, const FString& IniSec
 		// Parse comma delimited strings into arrays
 		TArray<FString> TypeFilterNames;
 		TArray<FString> EnabledTypeFilterNames;
-		ActiveTypeFilterString.ParseIntoArray(&TypeFilterNames, TEXT(","), /*bCullEmpty=*/true);
-		EnabledTypeFilterString.ParseIntoArray(&EnabledTypeFilterNames, TEXT(","), /*bCullEmpty=*/true);
+		ActiveTypeFilterString.ParseIntoArray(TypeFilterNames, TEXT(","), /*bCullEmpty=*/true);
+		EnabledTypeFilterString.ParseIntoArray(EnabledTypeFilterNames, TEXT(","), /*bCullEmpty=*/true);
 
 		// Get the list of all asset type actions
 		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
@@ -691,16 +730,16 @@ void SFilterList::LoadSettings(const FString& IniFilename, const FString& IniSec
 		// Parse comma delimited strings into arrays
 		TArray<FString> FrontendFilterNames;
 		TArray<FString> EnabledFrontendFilterNames;
-		ActiveFrontendFilterString.ParseIntoArray(&FrontendFilterNames, TEXT(","), /*bCullEmpty=*/true);
-		EnabledFrontendFilterString.ParseIntoArray(&EnabledFrontendFilterNames, TEXT(","), /*bCullEmpty=*/true);
+		ActiveFrontendFilterString.ParseIntoArray(FrontendFilterNames, TEXT(","), /*bCullEmpty=*/true);
+		EnabledFrontendFilterString.ParseIntoArray(EnabledFrontendFilterNames, TEXT(","), /*bCullEmpty=*/true);
 
 		// For each FrontendFilter, add any that were active and enable any that were previously enabled
-		for ( auto FrontendFilterIt = AllFrontendFilters.CreateConstIterator(); FrontendFilterIt; ++FrontendFilterIt )
+		for ( auto FrontendFilterIt = AllFrontendFilters.CreateIterator(); FrontendFilterIt; ++FrontendFilterIt )
 		{
-			const TSharedRef<FFrontendFilter>& FrontendFilter = *FrontendFilterIt;
-			if ( !IsFrontendFilterInUse(FrontendFilter) )
+			TSharedRef<FFrontendFilter>& FrontendFilter = *FrontendFilterIt;
+			const FString& FilterName = FrontendFilter->GetName();
+			if (!IsFrontendFilterInUse(FrontendFilter))
 			{
-				const FString& FilterName = FrontendFilter->GetName();
 				if ( FrontendFilterNames.Contains(FilterName) )
 				{
 					TSharedRef<SFilter> NewFilter = AddFilter(FrontendFilter);
@@ -711,6 +750,9 @@ void SFilterList::LoadSettings(const FString& IniFilename, const FString& IniSec
 					}
 				}
 			}
+
+			const FString CustomSettingsString = FString::Printf(TEXT("%s.CustomSettings.%s"), *SettingsString, *FilterName);
+			FrontendFilter->LoadSettings(IniFilename, IniSection, CustomSettingsString);
 		}
 	}
 }
@@ -928,6 +970,8 @@ bool IsFilteredByPicker(TArray<UClass*> FilterClassList, UClass* TestClass)
 
 TSharedRef<SWidget> SFilterList::MakeAddFilterMenu(EAssetTypeCategories::Type MenuExpansion)
 {
+	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
+
 	// A local struct to describe a category in the filter menu
 	struct FCategoryMenu
 	{
@@ -950,18 +994,23 @@ TSharedRef<SWidget> SFilterList::MakeAddFilterMenu(EAssetTypeCategories::Type Me
 
 	// Create a map of Categories to Menus
 	TMap<EAssetTypeCategories::Type, FCategoryMenu> CategoryToMenuMap;
-	CategoryToMenuMap.Add(EAssetTypeCategories::Basic, FCategoryMenu( LOCTEXT("BasicFilter", "Basic"), LOCTEXT("BasicFilterTooltip", "Filter by basic assets."), "ContentBrowserFilterBasicAsset", LOCTEXT("BasicAssetsMenuHeading", "Basic Assets") ) );
-	CategoryToMenuMap.Add(EAssetTypeCategories::Animation, FCategoryMenu( LOCTEXT("AnimationFilter", "Animation"), LOCTEXT("AnimationFilterTooltip", "Filter by animation assets."), "ContentBrowserFilterAnimationAsset", LOCTEXT("AnimationAssetsMenuHeading", "Animation Assets") ) );
-	CategoryToMenuMap.Add(EAssetTypeCategories::Blueprint, FCategoryMenu( LOCTEXT("BlueprintFilter", "Blueprints"), LOCTEXT("BlueprintFilterTooltip", "Filter by blueprint assets."), "ContentBrowserFilterBlueprintAsset", LOCTEXT("BlueprintAssetsMenuHeading", "Blueprint Assets") ) );
-	CategoryToMenuMap.Add(EAssetTypeCategories::MaterialsAndTextures, FCategoryMenu(LOCTEXT("MaterialFilter", "Materials & Textures"), LOCTEXT("MaterialFilterTooltip", "Filter by material and texture assets."), "ContentBrowserFilterMaterialAsset", LOCTEXT("MaterialAssetsMenuHeading", "Material Assets")));
-	CategoryToMenuMap.Add(EAssetTypeCategories::Sounds, FCategoryMenu( LOCTEXT("SoundFilter", "Sounds"), LOCTEXT("SoundFilterTooltip", "Filter by sound assets."), "ContentBrowserFilterSoundAsset", LOCTEXT("SoundAssetsMenuHeading", "Sound Assets") ) );
-	CategoryToMenuMap.Add(EAssetTypeCategories::Physics, FCategoryMenu( LOCTEXT("PhysicsFilter", "Physics"), LOCTEXT("PhysicsFilterTooltip", "Filter by physics assets."), "ContentBrowserFilterPhysicsAsset", LOCTEXT("PhysicsAssetsMenuHeading", "Physics Assets") ) );
-	CategoryToMenuMap.Add(EAssetTypeCategories::UI, FCategoryMenu(LOCTEXT("UIFilter", "User Interface"), LOCTEXT("UIFilterTooltip", "Filter by UI assets."), "ContentBrowserFilterUIAsset", LOCTEXT("UIAssetsMenuHeading", "User Interface Assets")));
-	CategoryToMenuMap.Add(EAssetTypeCategories::Misc, FCategoryMenu( LOCTEXT("MiscFilter", "Miscellaneous"), LOCTEXT("MiscFilterTooltip", "Filter by miscellaneous assets."), "ContentBrowserFilterMiscAsset", LOCTEXT("MiscAssetsMenuHeading", "Misc Assets") ) );
-	CategoryToMenuMap.Add(EAssetTypeCategories::Gameplay, FCategoryMenu(LOCTEXT("GameplayFilter", "Gameplay"), LOCTEXT("GameplayFilterTooltip", "Filter by gameplay assets."), "ContentBrowserFilterGameplayAsset", LOCTEXT("GameplayAssetsMenuHeading", "Gameplay Assets")));
 
-	// Load the asset tools module to get access to the browser type maps
-	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
+	// Add the Basic category
+	CategoryToMenuMap.Add(EAssetTypeCategories::Basic, FCategoryMenu( LOCTEXT("BasicFilter", "Basic"), LOCTEXT("BasicFilterTooltip", "Filter by basic assets."), "ContentBrowserFilterBasicAsset", LOCTEXT("BasicAssetsMenuHeading", "Basic Assets") ) );
+
+	// Add the advanced categories
+	TArray<FAdvancedAssetCategory> AdvancedAssetCategories;
+	AssetToolsModule.Get().GetAllAdvancedAssetCategories(/*out*/ AdvancedAssetCategories);
+
+	for (const FAdvancedAssetCategory& AdvancedAssetCategory : AdvancedAssetCategories)
+	{
+		const FName ExtensionPoint = NAME_None;
+		const FText SectionHeading = FText::Format(LOCTEXT("WildcardFilterHeadingHeadingTooltip", "{0} Assets."), AdvancedAssetCategory.CategoryName);
+		const FText Tooltip = FText::Format(LOCTEXT("WildcardFilterTooltip", "Filter by {0}."), SectionHeading);
+		CategoryToMenuMap.Add(AdvancedAssetCategory.CategoryType, FCategoryMenu(AdvancedAssetCategory.CategoryName, Tooltip, ExtensionPoint, SectionHeading));
+	}
+
+	// Get the browser type maps
 	TArray<TWeakPtr<IAssetTypeActions>> AssetTypeActionsList;
 	AssetToolsModule.Get().GetAssetTypeActionsList(AssetTypeActionsList);
 

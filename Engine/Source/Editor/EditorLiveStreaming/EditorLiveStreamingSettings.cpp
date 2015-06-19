@@ -19,9 +19,5 @@ void UEditorLiveStreamingSettings::PostEditChangeProperty( struct FPropertyChang
 //		...
 //	}
 
-	// Save config to file, but only if we are not the build machine since game agnostic settings may put the builder in an unclean state
-	if( !GIsBuildMachine )
-	{
-		this->SaveConfig();
-	}	
+	this->SaveConfig();
 }

@@ -10,12 +10,12 @@
 ADocumentationActor::ADocumentationActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	USceneComponent* SceneComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComp"));
+	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComp"));
 	RootComponent = SceneComponent;	
 
 #if WITH_EDITORONLY_DATA
 	// Create a Material billboard to represent our actor
-	Billboard = ObjectInitializer.CreateDefaultSubobject<UMaterialBillboardComponent>(this, TEXT("BillboardComponent"));
+	Billboard = CreateDefaultSubobject<UMaterialBillboardComponent>(TEXT("BillboardComponent"));
 	if (!IsRunningCommandlet() && (Billboard != NULL))
 	{
 		static ConstructorHelpers::FObjectFinder<UMaterial> MaterialAsset(TEXT("/Engine/EditorMaterials/HelpActorMaterial"));

@@ -4,6 +4,7 @@
 #include "HotReloadClassReinstancer.h"
 
 #if WITH_ENGINE
+#include "Engine/BlueprintGeneratedClass.h"
 
 void FHotReloadClassReinstancer::SetupNewClassReinstancing(UClass* InNewClass, UClass* InOldClass)
 {
@@ -176,43 +177,22 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 	FCDOWriter Ar(OutData, InObject, VisitedObjects);
 }
 
-void FHotReloadClassReinstancer::ReconstructClassDefaultObject(UClass* InOldClass)
+void FHotReloadClassReinstancer::ReconstructClassDefaultObject(UClass* InClass, UObject* InOuter, FName InName, EObjectFlags InFlags)
 {
-	// Remember all the basic info about the object before we destroy it
-	UObject* OldCDO = InOldClass->GetDefaultObject();
-	EObjectFlags CDOFlags = OldCDO->GetFlags();
-	UObject* CDOOuter = OldCDO->GetOuter();
-	FName CDOName = OldCDO->GetFName();
-
 	// Get the parent CDO
-	UClass* ParentClass = InOldClass->GetSuperClass();
+	UClass* ParentClass = InClass->GetSuperClass();
 	UObject* ParentDefaultObject = NULL;
 	if (ParentClass != NULL)
 	{
 		ParentDefaultObject = ParentClass->GetDefaultObject(); // Force the default object to be constructed if it isn't already
 	}
 
-	if (!OldCDO->HasAnyFlags(RF_FinishDestroyed))
-	{
-		// Begin the asynchronous object cleanup.
-		OldCDO->ConditionalBeginDestroy();
-
-		// Wait for the object's asynchronous cleanup to finish.
-		while (!OldCDO->IsReadyForFinishDestroy())
-		{
-			FPlatformProcess::Sleep(0);
-		}
-		// Finish destroying the object.
-		OldCDO->ConditionalFinishDestroy();
-	}
-	OldCDO->~UObject();
-
 	// Re-create
-	FMemory::Memzero((void*)OldCDO, InOldClass->GetPropertiesSize());
-	new ((void *)OldCDO) UObjectBase(InOldClass, CDOFlags, CDOOuter, CDOName);
+	InClass->ClassDefaultObject = StaticAllocateObject(InClass, InOuter, InName, InFlags, false);
+	check(InClass->ClassDefaultObject);
 	const bool bShouldInitilizeProperties = false;
 	const bool bCopyTransientsFromClassDefaults = false;
-	(*InOldClass->ClassConstructor)(FObjectInitializer(OldCDO, ParentDefaultObject, bCopyTransientsFromClassDefaults, bShouldInitilizeProperties));
+	(*InClass->ClassConstructor)(FObjectInitializer(InClass->ClassDefaultObject, ParentDefaultObject, bCopyTransientsFromClassDefaults, bShouldInitilizeProperties));
 }
 
 void FHotReloadClassReinstancer::RecreateCDOAndSetupOldClassReinstancing(UClass* InOldClass)
@@ -228,9 +208,25 @@ void FHotReloadClassReinstancer::RecreateCDOAndSetupOldClassReinstancing(UClass*
 
 	// Collect the original property values
 	SerializeCDOProperties(InOldClass->GetDefaultObject(), OriginalCDOProperties);
+
+	// Remember all the basic info about the object before we rename it
+	EObjectFlags CDOFlags = OriginalCDO->GetFlags();
+	UObject* CDOOuter = OriginalCDO->GetOuter();
+	FName CDOName = OriginalCDO->GetFName();
+
+	// Rename original CDO, so we can store this one as OverridenArchetypeForCDO
+	// and create new one with the same name and outer.
+	OriginalCDO->Rename(
+		*MakeUniqueObjectName(
+			GetTransientPackage(),
+			OriginalCDO->GetClass(),
+			*FString::Printf(TEXT("BPGC_ARCH_FOR_CDO_%s"), *InOldClass->GetName())
+		).ToString(),
+		GetTransientPackage(),
+		REN_DoNotDirty | REN_DontCreateRedirectors | REN_NonTransactional | REN_SkipGeneratedClasses | REN_ForceNoResetLoaders);
 	
-	// Destroy and re-create the CDO, re-running its constructor
-	ReconstructClassDefaultObject(InOldClass);
+	// Re-create the CDO, re-running its constructor
+	ReconstructClassDefaultObject(InOldClass, CDOOuter, CDOName, CDOFlags);
 
 	// Collect the property values after re-constructing the CDO
 	SerializeCDOProperties(InOldClass->GetDefaultObject(), ReconstructedCDOProperties);
@@ -252,6 +248,12 @@ void FHotReloadClassReinstancer::RecreateCDOAndSetupOldClassReinstancing(UClass*
 				if (!ChildBP->HasAnyFlags(RF_NeedLoad))
 				{
 					Children.AddUnique(ChildBP);
+					auto BPGC = Cast<UBlueprintGeneratedClass>(ChildBP->GeneratedClass);
+					auto CurrentCDO = BPGC ? BPGC->GetDefaultObject(false) : nullptr;
+					if (CurrentCDO && (OriginalCDO == CurrentCDO->GetArchetype()))
+					{
+						BPGC->OverridenArchetypeForCDO = OriginalCDO;
+					}
 				}
 			}
 		}
@@ -261,12 +263,30 @@ void FHotReloadClassReinstancer::RecreateCDOAndSetupOldClassReinstancing(UClass*
 FHotReloadClassReinstancer::FHotReloadClassReinstancer(UClass* InNewClass, UClass* InOldClass)
 	: NewClass(nullptr)
 	, bNeedsReinstancing(false)
+	, CopyOfPreviousCDO(nullptr)
 {
+	ensure(InOldClass);
+	ensure(!HotReloadedOldClass && !HotReloadedNewClass);
+	HotReloadedOldClass = InOldClass;
+	HotReloadedNewClass = InNewClass ? InNewClass : InOldClass;
+
 	// If InNewClass is NULL, then the old class has not changed after hot-reload.
 	// However, we still need to check for changes to its constructor code (CDO values).
 	if (InNewClass)
 	{
 		SetupNewClassReinstancing(InNewClass, InOldClass);
+
+		TMap<UObject*, UObject*> ClassRedirects;
+		ClassRedirects.Add(InOldClass, InNewClass);
+
+		for (TObjectIterator<UBlueprint> BlueprintIt; BlueprintIt; ++BlueprintIt)
+		{
+			FArchiveReplaceObjectRef<UObject> ReplaceObjectArch(*BlueprintIt, ClassRedirects, false, true, true);
+			if (ReplaceObjectArch.GetCount())
+			{
+				EnlistDependentBlueprintToRecompile(*BlueprintIt, true);
+			}
+		}
 	}
 	else
 	{
@@ -279,6 +299,10 @@ FHotReloadClassReinstancer::~FHotReloadClassReinstancer()
 	// Make sure the base class does not remove the DuplicatedClass from root, we not always want it.
 	// For example when we're just reconstructing CDOs. Other cases are handled by HotReloadClassReinstancer.
 	DuplicatedClass = nullptr;
+
+	ensure(HotReloadedOldClass);
+	HotReloadedOldClass = nullptr;
+	HotReloadedNewClass = nullptr;
 }
 
 /** Helper for finding subobject in an array. Usually there's not that many subobjects on a class to justify a TMap */
@@ -328,6 +352,37 @@ void FHotReloadClassReinstancer::UpdateDefaultProperties()
 				Ar << UnusedName;
 			}
 			return *this;
+		}
+		virtual FArchive& operator<<(FName& InName) override
+		{
+			FArchive& Ar = *this;
+			NAME_INDEX ComparisonIndex = InName.GetComparisonIndex();
+			NAME_INDEX DisplayIndex = InName.GetDisplayIndex();
+			int32 Number = InName.GetNumber();
+			Ar << ComparisonIndex;
+			Ar << DisplayIndex;
+			Ar << Number;
+			return Ar;
+		}
+		virtual FArchive& operator<<(FLazyObjectPtr& LazyObjectPtr) override
+		{
+			FArchive& Ar = *this;
+			auto UniqueID = LazyObjectPtr.GetUniqueID();
+			Ar << UniqueID;
+			return *this;
+		}
+		virtual FArchive& operator<<(FAssetPtr& AssetPtr) override
+		{
+			FArchive& Ar = *this;
+			auto UniqueID = AssetPtr.GetUniqueID();
+			Ar << UniqueID;
+			return Ar;
+		}
+		virtual FArchive& operator<<(FStringAssetReference& Value) override
+		{
+			FArchive& Ar = *this;
+			Ar << Value.AssetLongPathname;
+			return Ar;
 		}
 	};
 
@@ -428,8 +483,14 @@ void FHotReloadClassReinstancer::UpdateDefaultProperties()
 
 void FHotReloadClassReinstancer::ReinstanceObjectsAndUpdateDefaults()
 {
-	ReinstanceObjects();
+	ReinstanceObjects(true);
 	UpdateDefaultProperties();
+}
+
+void FHotReloadClassReinstancer::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	FBlueprintCompileReinstancer::AddReferencedObjects(Collector);
+	Collector.AddReferencedObject(CopyOfPreviousCDO);
 }
 
 #endif

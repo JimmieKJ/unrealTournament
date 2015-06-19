@@ -46,7 +46,6 @@ div#display_wrapper {
 canvas.main {
   border: none;
   background: #444;
-  display: block;
 }
 
 canvas.main:not([fullscreen]) {
@@ -67,6 +66,9 @@ input[type=button]:hover {
   border-color: #777;
 }
 
+video {
+  display: none;
+}
     </style>
   </head>
   <body>
@@ -81,7 +83,7 @@ input[type=button]:hover {
     </div>
 
     <div class="emscripten">
-      <input type="button" value="Fullscreen" onclick="Module.requestFullScreen(false)">
+      <input type="button" value="Fullscreen" id="fullscreen_request">
       <input type="button" value="Pause" onclick="Module['pauseMainLoop']();">
       <input type="button" value="Resume" onclick="Module['resumeMainLoop']();">
       <!--input type="button" value="Quit" onclick="__exit(0)" -->
@@ -115,11 +117,15 @@ var UE4 = {
   }
   ,
   get on_fatal() {
-    var fn = Module.cwrap('on_fatal', null, ['string', 'string'])
-    delete UE4["on_fatal"];
-    UE4.on_fatal = fn;
-    return fn;
-  }
+    try {
+        var fn = Module.cwrap('on_fatal', null, ['string', 'string'])
+        delete UE4["on_fatal"];
+        UE4.on_fatal = fn;
+        return fn;
+    } catch(e) {
+        return function() {}
+    }
+  },
 };
 
 function resizeListener(width, height) {
@@ -131,52 +137,9 @@ var gWasFullScreen = false;
 var gOldWidth, gOldHeight;
 
 function fullScreenChange() {
-  var fsElem = document['fullScreenElement'] ||
-               document['mozFullScreenElement'] ||
-               document['webkitFullScreenElement'] ||
-               document['msFullScreenElement'] ||
-               document['webkitCurrentFullScreenElement'];
-  var canvas = document.getElementById("canvas");
-
-  if (fsElem == canvas || fsElem == canvas.parentNode) {
-    // we just went full screen
-    gWasFullScreen = true;
-
-    // update the canvas size
-    gOldWidth = canvas.width;
-    gOldHeight = canvas.height;
-
-    var width = window.screen.width;
-    var height = window.screen.height;
-
-    canvas.width = width;
-    canvas.height = height;
-    canvas.setAttribute("fullscreen", "true");
-
-    console.log("Resize: (to fullscreen)", canvas.width, canvas.height);
-    UE4.resize_game(canvas.width, canvas.height); 
-  } else if (gWasFullScreen) {
-    // we just left full screen
-    gWasFullScreen = false;
-
-    canvas.width = gOldWidth;
-    canvas.height = gOldHeight;
-    canvas.removeAttribute("fullscreen");
-
-    console.log("Resize: (to windowed) ", canvas.width, canvas.height);
-    UE4.resize_game(canvas.width, canvas.height); 
-  }
 }
 
 function preRunHandler() {
-  document.addEventListener('fullscreenchange', fullScreenChange, false);
-  document.addEventListener('mozfullscreenchange', fullScreenChange, false);
-  document.addEventListener('webkitfullscreenchange', fullScreenChange, false);
-  document.addEventListener('MSFullscreenChange', fullScreenChange, false);
-
-  // this needs to die
-  Browser.updateCanvasDimensions = function() { };
-
 }
 
 function loadJavaScriptFile(filename,isAsync){ 

@@ -1,5 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved. 
 #include "ScriptEditorPluginPrivatePCH.h"
+#include "ScriptBlueprintGeneratedClass.h"
 
 UScriptFactory::UScriptFactory(const FObjectInitializer& ObjectInitializer)
 	: Super( ObjectInitializer )
@@ -7,8 +8,7 @@ UScriptFactory::UScriptFactory(const FObjectInitializer& ObjectInitializer)
 	SupportedClass = UScriptBlueprint::StaticClass();
 	ParentClass = AActor::StaticClass();
 
-	Formats.Add(TEXT("txt;Script"));
-	Formats.Add(TEXT("lua;Script"));
+	FScriptContextBase::GetSupportedScriptFileFormats(Formats);
 
 	bCreateNew = false;
 	bEditorImport = true;
@@ -53,15 +53,32 @@ UObject* UScriptFactory::FactoryCreateText(UClass* InClass, UObject* InParent, F
 {
 	GEditor->SelectNone(true, true, false);
 
-	UScriptBlueprint* NewBlueprint = CastChecked<UScriptBlueprint>(FKismetEditorUtilities::CreateBlueprint(ParentClass, InParent, InName, BPTYPE_Normal, UScriptBlueprint::StaticClass(), UScriptBlueprintGeneratedClass::StaticClass(), "UScriptFactory"));
-	NewBlueprint->SourceFilePath = FReimportManager::SanitizeImportFilename(CurrentFilename, NewBlueprint);
-	NewBlueprint->SourceCode = Buffer;
-	NewBlueprint->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*NewBlueprint->SourceFilePath).ToString();
+	UScriptBlueprint* NewBlueprint = nullptr;
+	TAutoPtr<FScriptContextBase> ScriptContext(FScriptContextBase::CreateContext(Buffer, nullptr, nullptr));
+	if (ScriptContext.IsValid())
+	{
+	    NewBlueprint = Cast<UScriptBlueprint>( FindObject<UBlueprint>( InParent, *InName.ToString() ) );
+	    if( NewBlueprint != nullptr )
+	    {
+		    NewBlueprint->Modify();
+	    }
+	    else
+	    {
+		    NewBlueprint = CastChecked<UScriptBlueprint>(FKismetEditorUtilities::CreateBlueprint(ParentClass, InParent, InName, BPTYPE_Normal, UScriptBlueprint::StaticClass(), UScriptBlueprintGeneratedClass::StaticClass(), "UScriptFactory"));
+		}
+		NewBlueprint->SourceFilePath = FReimportManager::SanitizeImportFilename(CurrentFilename, NewBlueprint);
+		NewBlueprint->SourceCode = Buffer;
+		NewBlueprint->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*NewBlueprint->SourceFilePath).ToString();
 
-	// Need to make sure we compile with the new source code
-	FKismetEditorUtilities::CompileBlueprint(NewBlueprint);
+		// Need to make sure we compile with the new source code
+		FKismetEditorUtilities::CompileBlueprint(NewBlueprint);
 
-	FEditorDelegates::OnAssetPostImport.Broadcast(this, NewBlueprint);
+		FEditorDelegates::OnAssetPostImport.Broadcast(this, NewBlueprint);
+	}
+	else
+	{
+		UE_LOG(LogScriptEditorPlugin, Warning, TEXT("Failed to import %s: could not compile script."), *CurrentFilename);
+	}
 
 	return NewBlueprint;
 }

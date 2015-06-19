@@ -7,6 +7,9 @@
 #include "FriendsUserSettingsViewModel.h"
 #include "FriendListViewModel.h"
 #include "FriendsUserViewModel.h"
+#include "ClanViewModel.h"
+#include "ClanRepository.h"
+#include "IFriendList.h"
 
 class FFriendsViewModelImpl
 	: public FFriendsViewModel
@@ -40,7 +43,12 @@ public:
 
 	virtual TSharedRef< FFriendListViewModel > GetFriendListViewModel(EFriendsDisplayLists::Type ListType) override
 	{
-		return FFriendListViewModelFactory::Create(SharedThis(this), ListType);
+		return FFriendListViewModelFactory::Create(FriendsListFactory->Create(ListType), ListType);
+	}
+
+	virtual TSharedRef< FClanViewModel > GetClanViewModel() override
+	{
+		return FClanViewModelFactory::Create(ClanRepository);
 	}
 
 	virtual void RequestFriend(const FText& FriendName) const override
@@ -49,6 +57,34 @@ public:
 		{
 			FriendsAndChatManager.Pin()->RequestFriend(FriendName);
 		}
+	}
+
+	virtual EVisibility GetGlobalChatButtonVisibility() const override
+	{
+		if (FriendsAndChatManager.IsValid())
+		{
+			return FriendsAndChatManager.Pin()->IsInGlobalChat() ? EVisibility::Visible : EVisibility::Collapsed;
+		}
+		return EVisibility::Collapsed;
+	}
+
+	virtual void DisplayGlobalChatWindow() const override
+	{
+		if (FriendsAndChatManager.IsValid())
+		{
+			FriendsAndChatManager.Pin()->OpenGlobalChat();
+		}
+	}
+
+	virtual const FString GetName() const override
+	{
+		FString Nickname;
+		TSharedPtr<FFriendsAndChatManager> ManagerPinned = FriendsAndChatManager.Pin();
+		if (ManagerPinned.IsValid())
+		{
+			Nickname = ManagerPinned->GetUserNickname();
+		}
+		return Nickname;
 	}
 
 	~FFriendsViewModelImpl()
@@ -67,15 +103,21 @@ private:
 	}
 
 	FFriendsViewModelImpl(
-		const TSharedRef<FFriendsAndChatManager>& FriendsAndChatManager
+		const TSharedRef<FFriendsAndChatManager>& InFriendsAndChatManager,
+		const TSharedRef<IClanRepository>& InClanRepository,
+		const TSharedRef<IFriendListFactory>& InFriendsListFactory
 		)
-		: FriendsAndChatManager(FriendsAndChatManager)
+		: FriendsAndChatManager(InFriendsAndChatManager)
+		, ClanRepository(InClanRepository)
+		, FriendsListFactory(InFriendsListFactory)
 		, bIsPerformingAction(false)
 	{
 	}
 
 private:
 	TWeakPtr<FFriendsAndChatManager> FriendsAndChatManager;
+	TSharedRef<IClanRepository> ClanRepository;
+	TSharedRef<IFriendListFactory> FriendsListFactory;
 	bool bIsPerformingAction;
 
 private:
@@ -83,9 +125,11 @@ private:
 };
 
 TSharedRef< FFriendsViewModel > FFriendsViewModelFactory::Create(
-	const TSharedRef<FFriendsAndChatManager>& FriendsAndChatManager
+	const TSharedRef<FFriendsAndChatManager>& FriendsAndChatManager,
+	const TSharedRef<IClanRepository>& ClanRepository,
+	const TSharedRef<IFriendListFactory>& FriendsListFactory
 	)
 {
-	TSharedRef< FFriendsViewModelImpl > ViewModel(new FFriendsViewModelImpl(FriendsAndChatManager));
+	TSharedRef< FFriendsViewModelImpl > ViewModel(new FFriendsViewModelImpl(FriendsAndChatManager, ClanRepository, FriendsListFactory));
 	return ViewModel;
 }

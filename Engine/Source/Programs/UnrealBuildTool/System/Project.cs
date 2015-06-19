@@ -126,6 +126,7 @@ namespace UnrealBuildTool
 		protected ProjectFile( string InitRelativeFilePath )
 		{
 			RelativeProjectFilePath = InitRelativeFilePath;
+			ShouldBuildByDefaultForSolutionTargets = true;
 		}
 
 
@@ -178,6 +179,12 @@ namespace UnrealBuildTool
 			set;
 		}
 
+		/// Whether this project should be built by default. Can still be built from the IDE through the context menu.
+		public bool ShouldBuildByDefaultForSolutionTargets
+		{
+			get;
+			set;
+		}
 
 
 

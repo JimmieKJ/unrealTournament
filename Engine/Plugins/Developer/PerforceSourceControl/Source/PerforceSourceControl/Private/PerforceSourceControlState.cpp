@@ -77,7 +77,7 @@ FName FPerforceSourceControlState::GetIconName() const
 	case EPerforceState::OpenForAdd:
 		return FName("Perforce.OpenForAdd");
 	case EPerforceState::MarkedForDelete:
-		return NAME_None;
+		return FName("Perforce.MarkedForDelete");
 	case EPerforceState::Branched:
 		return FName("Perforce.Branched");
 	}
@@ -108,7 +108,7 @@ FName FPerforceSourceControlState::GetSmallIconName() const
 	case EPerforceState::OpenForAdd:
 		return FName("Perforce.OpenForAdd_Small");
 	case EPerforceState::MarkedForDelete:
-		return NAME_None;
+		return FName("Perforce.MarkedForDelete_Small");
 	case EPerforceState::Branched:
 		return FName("Perforce.Branched_Small");
 	}

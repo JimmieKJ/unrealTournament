@@ -29,9 +29,7 @@
 #include "SDL_waylandwindow.h"
 #include "SDL_waylandvideo.h"
 #include "SDL_waylandtouch.h"
-/* EG BEGIN */
 #include "SDL_waylanddyn.h"
-/* EG END */
 
 static void
 handle_ping(void *data, struct wl_shell_surface *shell_surface,
@@ -111,6 +109,12 @@ Wayland_GetWindowWMInfo(_THIS, SDL_Window * window, SDL_SysWMinfo * info)
     return SDL_TRUE;
 }
 
+int
+Wayland_SetWindowHitTest(SDL_Window *window, SDL_bool enabled)
+{
+    return 0;  /* just succeed, the real work is done elsewhere. */
+}
+
 void Wayland_ShowWindow(_THIS, SDL_Window *window)
 {
     SDL_WindowData *wind = window->driverdata;
@@ -118,7 +122,7 @@ void Wayland_ShowWindow(_THIS, SDL_Window *window)
     if (window->flags & SDL_WINDOW_FULLSCREEN)
         wl_shell_surface_set_fullscreen(wind->shell_surface,
                                         WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
-                                        0, NULL);
+                                        0, (struct wl_output *)window->fullscreen_mode.driverdata);
     else
         wl_shell_surface_set_toplevel(wind->shell_surface);
 
@@ -134,7 +138,7 @@ Wayland_SetWindowFullscreen(_THIS, SDL_Window * window,
     if (fullscreen)
         wl_shell_surface_set_fullscreen(wind->shell_surface,
                                         WL_SHELL_SURFACE_FULLSCREEN_METHOD_SCALE,
-                                        0, NULL);
+                                        0, (struct wl_output *)_display->driverdata);
     else
         wl_shell_surface_set_toplevel(wind->shell_surface);
 
@@ -149,7 +153,7 @@ int Wayland_CreateWindow(_THIS, SDL_Window *window)
 
     data = calloc(1, sizeof *data);
     if (data == NULL)
-        return 0;
+        return SDL_OutOfMemory();
 
     c = _this->driverdata;
     window->driverdata = data;
@@ -181,17 +185,6 @@ int Wayland_CreateWindow(_THIS, SDL_Window *window)
     }
 #endif /* SDL_VIDEO_DRIVER_WAYLAND_QT_TOUCH */
 
-    /**
-     * If the user specified 0x0 as the size (turned to 1x1 by SDL_CreateWindow
-     * in SDL_video.c), we want to make the window fill the whole screen
-     **/
-    if (window->w == 1) {
-        window->w = c->screen_allocation.width;
-    }
-    if (window->h == 1) {
-        window->h = c->screen_allocation.height;
-    }
-
     data->egl_window = WAYLAND_wl_egl_window_create(data->surface,
                                             window->w, window->h);
 
@@ -199,8 +192,7 @@ int Wayland_CreateWindow(_THIS, SDL_Window *window)
     data->egl_surface = SDL_EGL_CreateSurface(_this, (NativeWindowType) data->egl_window);
     
     if (data->egl_surface == EGL_NO_SURFACE) {
-        SDL_SetError("failed to create a window surface");
-        return -1;
+        return SDL_SetError("failed to create a window surface");
     }
 
     if (data->shell_surface) {
@@ -246,8 +238,6 @@ void Wayland_DestroyWindow(_THIS, SDL_Window *window)
     SDL_VideoData *data = _this->driverdata;
     SDL_WindowData *wind = window->driverdata;
 
-    window->driverdata = NULL;
-
     if (data) {
         SDL_EGL_DestroySurface(_this, wind->egl_surface);
         WAYLAND_wl_egl_window_destroy(wind->egl_window);
@@ -264,6 +254,7 @@ void Wayland_DestroyWindow(_THIS, SDL_Window *window)
         SDL_free(wind);
         WAYLAND_wl_display_flush(data->display);
     }
+    window->driverdata = NULL;
 }
 
 #endif /* SDL_VIDEO_DRIVER_WAYLAND && SDL_VIDEO_OPENGL_EGL */

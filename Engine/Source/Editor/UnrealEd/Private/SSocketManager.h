@@ -18,7 +18,7 @@ public:
 	virtual ~SSocketManager();
 
 	// ISocketManager interface
-	virtual UStaticMeshSocket* GetSelectedSocket() const;
+	virtual UStaticMeshSocket* GetSelectedSocket() const override;
 	virtual void SetSelectedSocket(UStaticMeshSocket* InSelectedSocket) override;
 	virtual void DeleteSelectedSocket() override;
 	virtual void DuplicateSelectedSocket() override;
@@ -45,6 +45,9 @@ private:
 	/** Refreshes the socket list. */
 	void RefreshSocketList();
 
+	/** Gets the visibility of the select a socket message */
+	EVisibility GetSelectSocketMessageVisibility() const;
+
 	/** 
 	 *	Updates the details to the selected socket.
 	 *
@@ -58,34 +61,10 @@ private:
 	/** Callback for the Create Socket button. */
 	FReply CreateSocket_Execute();
 
-	/** Callback for the Delete Socket button. */
-	FReply DeleteSelectedSocket_Execute();
-
 	FText GetSocketHeaderText() const;
 
 	/** Callback for when the socket name textbox is changed, verifies the name is not a duplicate. */
 	void SocketName_TextChanged(const FText& InText);
-
-	/** Callback for the world space rotation value for Pitch being changed. */
-	void PitchRotation_ValueChanged(float InValue);
-
-	/** Callback for the world space rotation value for Yaw being changed. */
-	void YawRotation_ValueChanged(float InValue);
-
-	/** Callback for the world space rotation value for Roll being changed. */
-	void RollRotation_ValueChanged(float InValue);
-
-	/** Callback to get the world space rotation pitch value. */
-	float GetWorldSpacePitchValue() const;
-
-	/** Callback to get the world space rotation yaw value. */
-	float GetWorldSpaceYawValue() const;
-
-	/** Callback to get the world space rotation roll value. */
-	float GetWorldSpaceRollValue() const;
-
-	/** Handles rotating the socket in world space. */
-	void RotateSocket_WorldSpace();
 
 	/** Callback to retrieve the context menu for the list view */
 	TSharedPtr<SWidget> OnContextMenuOpening();

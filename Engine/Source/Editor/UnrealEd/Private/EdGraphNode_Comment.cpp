@@ -54,9 +54,9 @@ void UEdGraphNode_Comment::PostPlacedNewNode()
 
 FText UEdGraphNode_Comment::GetTooltipText() const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
-		CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "CommentBlock_Tooltip", "Comment:\n{0}"), FText::FromString(NodeComment));
+		CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "CommentBlock_Tooltip", "Comment:\n{0}"), FText::FromString(NodeComment)), this);
 	}
 	return CachedTooltip;
 }

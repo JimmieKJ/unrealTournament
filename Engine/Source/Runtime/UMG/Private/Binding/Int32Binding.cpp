@@ -21,9 +21,11 @@ bool UInt32Binding::IsSupportedSource(UProperty* Property) const
 
 int32 UInt32Binding::GetValue() const
 {
+	//SCOPE_CYCLE_COUNTER(STAT_UMGBinding);
+
 	if ( UObject* Source = SourceObject.Get() )
 	{
-		int32 Value;
+		int32 Value = 0;
 		if ( SourcePath.GetValue<int32>(Source, Value) )
 		{
 			return Value;

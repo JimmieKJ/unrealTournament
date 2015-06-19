@@ -19,6 +19,15 @@ static void file_selected(GtkDialog *dialog, gint response_id, gpointer user_dat
   ((UFileDialog*)user_data)->gtk_response = response_id;
 }
 
+bool ULinuxNativeDialogs_Initialize() {
+    return true;
+}
+
+void ULinuxNativeDialogs_Shutdown() {
+    // no-op
+}
+
+
 struct UFileDialog* UFileDialog_Create(struct UFileDialogHints *hints)
 {
   if(!hints)
@@ -96,7 +105,17 @@ struct UFileDialog* UFileDialog_Create(struct UFileDialogHints *hints)
         {
           *pattern_end = 0;
         }
-        gtk_file_filter_add_pattern(filter, pattern);
+
+        if(!strcmp(pattern, "*.*"))
+        {
+          // replace *.* with * as otherwise selecting folders can be broken
+          gtk_file_filter_add_pattern(filter, "*");
+        }
+        else
+        {
+          gtk_file_filter_add_pattern(filter, pattern);
+        }
+
         if(!pattern_end)
         {
           break;
@@ -123,7 +142,7 @@ struct UFileDialog* UFileDialog_Create(struct UFileDialogHints *hints)
   {
     gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(uedialog->dialog), hints->DefaultFile);
   }
- 
+
   switch(hints->Action)
   {
     case UFileDialogActionOpenMultiple:
@@ -168,8 +187,7 @@ bool UFileDialog_ProcessEvents(UFileDialog* handle)
         int i = 0;
         handle->result.selection = (const char**)malloc(sizeof(const char*) * g_slist_length(list));
         handle->result.count = g_slist_length(list);
-        for(elem = list; elem; elem = elem->next)
-        {
+        for(elem = list; elem; elem = elem->next) {
           handle->result.selection[i] = strdup(elem->data);
           i++;
         }
@@ -184,16 +202,17 @@ bool UFileDialog_ProcessEvents(UFileDialog* handle)
     return false;
   }
 
+  while(gtk_events_pending()) {
+    gtk_main_iteration_do(false);
+  }
 
-  return gtk_main_iteration_do(false);
+  return true;
 }
 
 const UFileDialogResult* UFileDialog_Result(UFileDialog* handle)
 {
   if(!handle)
-  {
     return NULL;
-  }
   return &(handle->result);
 }
 
@@ -202,8 +221,15 @@ void UFileDialog_Destroy(UFileDialog* handle)
   int i;
   if(GTK_IS_FILE_CHOOSER(handle->dialog))
   {
+    gtk_widget_hide(handle->dialog);
+    while(gtk_events_pending()) {
+      gtk_main_iteration_do(false);
+    }
     gtk_widget_destroy (handle->dialog);
   }
+  // in laggy environment this is necessary - WHY?
+  for(i = 0;i < 10;++i)
+    gtk_main_iteration_do(false);
 
   if(handle->result.selection) {
     for(i = 0;i < handle->result.count;++i) {
@@ -216,31 +242,145 @@ void UFileDialog_Destroy(UFileDialog* handle)
 
 struct UFontDialog
 {
-    GtkWidget* dialog;
-    UFontDialogResult result;
+  GtkWidget* dialog;
+  int gtk_response;
+  UFontDialogResult result;
 };
+
+static void font_selected(GtkDialog *dialog, gint response_id, gpointer user_data)
+{
+  ((UFontDialog*)user_data)->gtk_response = response_id;
+}
 
 UFontDialog* UFontDialog_Create(struct UFontDialogHints *hints)
 {
+  if(!hints)
+  {
     return NULL;
+  }
+
+  if(!gtk_init_check(0, NULL))
+  {
+    return NULL;
+  }
+
+  UFontDialog* uedialog = calloc(1, sizeof(UFontDialog));
+
+  const char* title = "Select Font";
+  if(hints->WindowTitle)
+  {
+    title = hints->WindowTitle;
+  }
+
+  uedialog->dialog = gtk_font_selection_dialog_new(title);
+
+  const char* initialName = "";
+  if(hints->InitialFontName) {
+    initialName = hints->InitialFontName;
+  }
+  int size = 12;
+  if(hints->InitialPointSize) {
+    size = hints->InitialPointSize;
+  }
+  else if(hints->InitialPixelSize) {
+    size = hints->InitialPixelSize;
+  }
+
+  char initialBuffer[1024];
+  snprintf(initialBuffer, sizeof(initialBuffer), "%s %i", initialName, size);
+
+  gtk_font_selection_dialog_set_font_name(GTK_FONT_SELECTION_DIALOG(uedialog->dialog), 
+      initialBuffer);
+
+  g_signal_connect (G_OBJECT (uedialog->dialog), "response",
+    G_CALLBACK (font_selected),
+    uedialog);
+
+  gtk_widget_show(uedialog->dialog);
+
+  uedialog->result.fontName = "";
+  uedialog->result.pointSize = 0;
+  uedialog->result.pixelSize = 0;
+
+  return uedialog;
 }
 
 bool UFontDialog_ProcessEvents(UFontDialog* handle)
 {
+  if(!GTK_IS_FONT_SELECTION_DIALOG(handle->dialog))
+  {
+    // widget is destroyed
+     return false;
+  }
+
+  if(handle->gtk_response) {
+    switch(handle->gtk_response) {
+      case GTK_RESPONSE_OK:
+      {
+
+        PangoFontDescription *font_desc;
+        gchar *fontname = gtk_font_selection_dialog_get_font_name(
+                            GTK_FONT_SELECTION_DIALOG(handle->dialog));
+
+        handle->result.fontName = strdup(fontname);
+
+        font_desc = pango_font_description_from_string(fontname);
+
+        g_free(fontname);
+
+        handle->result.pointSize = (float)pango_font_description_get_size(font_desc)/PANGO_SCALE;
+        handle->result.pixelSize = pango_font_description_get_size(font_desc)/PANGO_SCALE;
+
+        handle->result.fontName = strdup(pango_font_description_get_family(font_desc));
+
+        PangoStyle style = pango_font_description_get_style(font_desc);
+        if(style & PANGO_STYLE_OBLIQUE || style & PANGO_STYLE_ITALIC)
+          handle->result.flags |= UFontDialogItalic;
+
+        PangoWeight weight = pango_font_description_get_weight(font_desc);
+        if(weight >= PANGO_WEIGHT_BOLD)
+          handle->result.flags |= UFontDialogBold;
+
+        pango_font_description_free(font_desc);
+      }
+      break;
+      default:
+      ;
+    }
     return false;
+  }
+
+  while(gtk_events_pending()) {
+    gtk_main_iteration_do(false);
+  }
+
+  return true;
 }
 
 void UFontDialog_Destroy(UFontDialog* handle)
 {
+  int i;
+  if(GTK_IS_FONT_SELECTION_DIALOG(handle->dialog))
+  {
+    gtk_widget_hide(handle->dialog);
+    while(gtk_events_pending()) {
+      gtk_main_iteration_do(false);
+    }
+    gtk_widget_destroy (handle->dialog);
+  }
+  // in laggy environment this is necessary - WHY?
+  for(i = 0;i < 10;++i)
+    gtk_main_iteration_do(false);
 
+  if(handle->result.fontName[0]) {
+    free((void*)handle->result.fontName);
+  }
+  free(handle);
 }
 
 const UFontDialogResult* UFontDialog_Result(UFontDialog* handle)
 {
-    if(!handle)
-    {
-        return NULL;
-    }
-
-    return &(handle->result);
+  if(!handle)
+    return NULL;
+  return &(handle->result); 
 }

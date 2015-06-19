@@ -27,9 +27,9 @@ struct FRepUTMovement
 	UPROPERTY()
 	FVector_NetQuantize Location;
 
-	/** @TODO FIXMESTEVE only need a few bits for this - maybe hide in Rotation.Roll */
-	//UPROPERTY()
-	//FVector_NetQuantize Acceleration;
+	/* Compressed acceleration direction: lowest 2 bits are forward/back, next 2 bits are left/right (-1, 0, 1) */
+	UPROPERTY()
+	uint8 AccelDir;
 
 	UPROPERTY()
 	FRotator Rotation;
@@ -53,8 +53,7 @@ struct FRepUTMovement
 		Rotation.SerializeCompressed(Ar);
 		LinearVelocity.NetSerialize(Ar, Map, bOutSuccessLocal);
 		bOutSuccess &= bOutSuccessLocal;
-		//Acceleration.NetSerialize(Ar, Map, bOutSuccessLocal);
-		//bOutSuccess &= bOutSuccessLocal;
+		Ar.SerializeBits(&AccelDir, 8);
 
 		return true;
 	}
@@ -75,12 +74,10 @@ struct FRepUTMovement
 		{
 			return false;
 		}
-		/*
-		if (Acceleration != Other.Acceleration)
+		if (AccelDir != Other.AccelDir)
 		{
 			return false;
 		}
-		*/
 		return true;
 	}
 
@@ -192,6 +189,27 @@ enum EAllowedSpecialMoveAnims
 	EASM_Any,
 	EASM_UpperBodyOnly, 
 	EASM_None,
+};
+
+UENUM(BlueprintType)
+enum EMovementEvent
+{
+	EME_Jump,
+	EME_Dodge,
+	EME_WallDodge,
+	EME_Slide,
+};
+
+USTRUCT(BlueprintType)
+struct FMovementEventInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	TEnumAsByte<EMovementEvent> EventType;
+
+	UPROPERTY(BlueprintReadOnly)
+	FVector_NetQuantize EventLocation;
 };
 
 USTRUCT(BlueprintType)
@@ -454,7 +472,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return InventoryList;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn|Inventory", meta = (FriendlyName = "CreateInventory", AdvancedDisplay = "bAutoActivate"))
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn|Inventory", meta = (DisplayName = "CreateInventory", AdvancedDisplay = "bAutoActivate"))
 	virtual AUTInventory* K2_CreateInventory(TSubclassOf<AUTInventory> NewInvClass, bool bAutoActivate = true);
 	
 	template<typename InvClass>
@@ -513,22 +531,23 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void SwitchWeapon(AUTWeapon* NewWeapon);
 
-	inline bool IsPendingFire(uint8 FireMode) const
+	inline bool IsPendingFire(uint8 InFireMode) const
 	{
-		return !IsFiringDisabled() && (FireMode < PendingFire.Num() && PendingFire[FireMode] != 0);
+		return !IsFiringDisabled() && (InFireMode < PendingFire.Num() && PendingFire[InFireMode] != 0);
 	}
+
 	/** blueprint accessor to what firemodes the player currently has active */
 	UFUNCTION(BlueprintPure, Category = Weapon)
-	bool IsTriggerDown(uint8 FireMode);
+	bool IsTriggerDown(uint8 InFireMode);
 
 	/** sets the pending fire flag; generally should be called by whatever weapon processes the firing command, unless it's an explicit single shot */
-	inline void SetPendingFire(uint8 FireMode, bool bNowFiring)
+	inline void SetPendingFire(uint8 InFireMode, bool bNowFiring)
 	{
-		if (PendingFire.Num() < FireMode + 1)
+		if (PendingFire.Num() < InFireMode + 1)
 		{
-			PendingFire.SetNumZeroed(FireMode + 1);
+			PendingFire.SetNumZeroed(InFireMode + 1);
 		}
-		PendingFire[FireMode] = bNowFiring ? 1 : 0;
+		PendingFire[InFireMode] = bNowFiring ? 1 : 0;
 	}
 
 	inline void ClearPendingFire()
@@ -712,12 +731,12 @@ public:
 		return bDisallowWeaponFiring;
 	}
 
-	/** Used to replicate bIsDodgeRolling to non owning clients */
-	UPROPERTY(ReplicatedUsing = OnRepDodgeRolling)
-	bool bRepDodgeRolling;
+	/** Used to replicate bIsFloorSliding to non owning clients */
+	UPROPERTY(ReplicatedUsing = OnRepFloorSliding)
+	bool bRepFloorSliding;
 
 	UFUNCTION()
-	virtual void OnRepDodgeRolling();
+	virtual void OnRepFloorSliding();
 
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual EAllowedSpecialMoveAnims AllowedSpecialMoveAnims();
@@ -752,7 +771,7 @@ public:
 	virtual bool IsFeigningDeath();
 
 	// AI hooks
-	virtual void OnWalkingOffLedge_Implementation() override;
+	virtual void OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta) override;
 
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */
@@ -866,6 +885,26 @@ public:
 	UFUNCTION(blueprintNativeEvent, BlueprintCosmetic)
 	void PlayDamageEffects();
 
+	/** Time character died */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		float TimeOfDeath;
+
+	/** Hack to accumulate flak shards for close kill - can also use for other multi-proj weapons. */
+	UPROPERTY()
+		float FlakShredTime;
+
+	UPROPERTY()
+		FName FlakShredStatName;
+
+	UPROPERTY()
+	class AUTPlayerController* FlakShredInstigator;
+
+	/** Reward announcement for close up flak kill. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
+		TSubclassOf<class UUTRewardMessage> CloseFlakRewardMessageClass;
+
+	virtual void AnnounceShred(class AUTPlayerController *PC);
+
 	/** called when we die (generally, by running out of health)
 	 *  SERVER ONLY - do not do visual effects here!
 	 * return true if we can die, false if immortal (gametype effect, powerup, mutator, etc)
@@ -952,20 +991,23 @@ public:
 	/** Dodge requested by controller, return whether dodge occurred. */
 	virtual bool Dodge(FVector DodgeDir, FVector DodgeCross);
 
-	/** Roll requested by controller, return whether roll occurred. */
-	virtual bool Roll(FVector RollDir);
-
 	/** Dodge just occurred in dodge dir, play any sounds/effects desired.
-	 * called on server and owning client
+	 * called on all clients
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void OnDodge(const FVector &DodgeDir);
+		void OnDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
+
+	/** Wall Dodge just occurred in dodge dir, play any sounds/effects desired.
+	* called on all clients
+	*/
+	UFUNCTION(BlueprintNativeEvent)
+		void OnWallDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
 
 	/** Slide just occurred, play any sounds/effects desired.
 	* called on server and owning client
 	*/
 	UFUNCTION(BlueprintNativeEvent)
-		void OnSlide(const FVector &SlideDir);
+		void OnSlide(const FVector& SlideLocation, const FVector &SlideDir);
 
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -998,7 +1040,23 @@ public:
 	UFUNCTION(BlueprintPure, Category = PlayerController)
 	virtual APlayerCameraManager* GetPlayerCameraManager();
 
-	/** particle component for muzzle flash */
+	/** particle component for dodge */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* DodgeEffect;
+
+	/** particle component for slide */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* SlideEffect;
+
+	/** min Z speed to spawn LandEffect. */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		float LandEffectSpeed;
+
+	/** particle component for high velocity jump landing */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* LandEffect;
+
+	/** particle component for teleport */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
 
@@ -1008,7 +1066,7 @@ public:
 
 	/** play jumping sound/effects; should be called on server and owning client */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Effects)
-	void PlayJump();
+		void PlayJump(const FVector& JumpLocation, const FVector& JumpDir);
 
 	/** Pawns must be overlapping at least this much for a telefrag to occur. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
@@ -1060,9 +1118,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PainSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* WallHitSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* DodgeRollSound;
+	USoundBase* FloorSlideSound;
 
 	//================================
 	// Swimming
@@ -1123,6 +1179,10 @@ public:
 
 	//===============================
 
+	/** Ambient sound played while wall sliding */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* WallSlideAmbientSound;
+
 	/** Ambient sound played while sprinting */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* SprintAmbientSound;
@@ -1147,10 +1207,6 @@ public:
 	/** Last time we handled  wall hit for gameplay (damage,sound, etc.) */
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastWallHitNotifyTime;
-
-	/** Whether can play wall hit sound - true when it hasn't yet been played for this fall */
-	UPROPERTY(BlueprintReadWrite, Category = Sounds)
-	bool bCanPlayWallHitSound;
 
 	/** sets character overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but only one will be displayed at a time
@@ -1249,6 +1305,26 @@ public:
 	virtual void PreNetReceive() override;
 	virtual void PostNetReceive() override;
 
+	/** For replicating movement events to generate client side sounds and effects. */
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = MovementEventReplicated, Category = "Movement")
+		FMovementEventInfo MovementEvent;
+
+	/** Last time MovementEvent was updated.  @TODO FIXMESTEVE - like flashcount, should not rep to owner, or if more than 0.5f since updated. */
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+		float MovementEventTime;
+
+	/** Direction associated with movement event.  Only accurate on server and player creating event, otherwise, uses Velocity normal. */
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+		FVector MovementEventDir;
+
+	/** called when movement event needing client side sound/effects occurs */
+	UFUNCTION()
+	virtual void MovementEventUpdated(EMovementEvent MovementEventType, FVector Dir);
+
+	/** repnotify handler for MovementEvent. */
+	UFUNCTION()
+		virtual void MovementEventReplicated();
+
 	//--------------------------
 	// Weapon bob and eye offset
 
@@ -1320,6 +1396,17 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 	FVector CrouchEyeOffset;
 
+	/** Default crouched eye height */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+		float DefaultCrouchedEyeHeight;
+
+	/** Default crouched eye height */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+		float FloorSlideEyeHeight;
+
+	/** Transition between regular and floor slide crouched eyeheight. */
+	virtual void UpdateCrouchedEyeHeight();
+
 	/** Target Eye position offset from base view position. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 	FVector TargetEyeOffset;
@@ -1367,9 +1454,6 @@ public:
 	/** maximum amount of time Pawn stays around when dead even if visible (may be cleaned up earlier if not visible) */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Death)
 	float MaxDeathLifeSpan;
-	/** GetWorld()->TimeSeconds when PlayDying() was called */
-	UPROPERTY(BlueprintReadOnly, Category = Death)
-	float TimeOfDeath;
 
 	/** Broadcast when the pawn has died [Server only] */
 	UPROPERTY(BlueprintAssignable)
@@ -1414,6 +1498,8 @@ public:
 	virtual void OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust) override;
 
 	virtual void Crouch(bool bClientSimulation = false) override;
+
+	virtual void UnCrouch(bool bClientSimulation = false) override;
 
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 	UFUNCTION()
@@ -1510,8 +1596,6 @@ protected:
 	virtual void ClientSwitchWeapon(AUTWeapon* NewWeapon);
 	/** utility to redirect to SwitchToBestWeapon() to the character's Controller (human or AI) */
 	void SwitchToBestWeapon();
-
-	
 
 	// firemodes with input currently being held down (pending or actually firing)
 	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
@@ -1680,19 +1764,21 @@ public:
 	class UPhysicsConstraintComponent* RagdollConstraint;
 
 	UPROPERTY(BlueprintReadOnly, Category = Movement)
-		float FallingStartTime;
+	float FallingStartTime;
 
 	virtual void Falling();
 
 	/** Local player currently viewing this character. */
 	UPROPERTY()
-		class AUTPlayerController* CurrentViewerPC;
+	class AUTPlayerController* CurrentViewerPC;
 
 	virtual	class AUTPlayerController* GetLocalViewer();
 
 	/** Previous actor location Z when last updated eye offset. */
 	UPROPERTY()
-		float OldZ;
+	float OldZ;
+
+	virtual bool ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor) override;
 };
 
 inline bool AUTCharacter::IsDead()

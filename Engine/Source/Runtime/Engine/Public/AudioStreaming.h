@@ -39,12 +39,9 @@ public:
 	 */
 	void DoWork();
 
-	/**
-	 * Name of the async task.
-	 */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncStreamDerivedChunkTask");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncStreamDerivedChunkWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
 	/**

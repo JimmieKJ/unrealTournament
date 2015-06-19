@@ -416,81 +416,6 @@ private:
 	}
 };
 
-struct SLevelBlueprintTreeLabel : FCommonLabelData, public SCompoundWidget
-{
-	SLATE_BEGIN_ARGS(SLevelBlueprintTreeLabel){}
-	SLATE_END_ARGS()
-
-	void Construct(const FArguments& InArgs, FLevelBlueprintTreeItem& LevelBlueprintItem, ISceneOutliner& SceneOutliner, const STableRow<FTreeItemPtr>& InRow)
-	{
-		TreeItemPtr = StaticCastSharedRef<FLevelBlueprintTreeItem>(LevelBlueprintItem.AsShared());
-		WeakSceneOutliner = StaticCastSharedRef<ISceneOutliner>(SceneOutliner.AsShared());
-
-		ChildSlot
-		[
-			SNew(SHorizontalBox)
-
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(FDefaultTreeItemMetrics::IconPadding())
-			[
-				SNew(SBox)
-				.WidthOverride(FDefaultTreeItemMetrics::IconSize())
-				.HeightOverride(FDefaultTreeItemMetrics::IconSize())
-				[
-					SNew(SImage)
-					.Image(FEditorStyle::GetBrush("LevelEditor.OpenLevelBlueprint"))
-					.ToolTipText(LOCTEXT("LevelBlueprint_Tooltip", "Level Blueprint"))
-				]
-			]
-
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
-			.VAlign(VAlign_Center)
-			.Padding(0.0f, 2.0f)
-			[
-				SNew(STextBlock)
-				.Text(this, &SLevelBlueprintTreeLabel::GetDisplayText)
-				.HighlightText(SceneOutliner.GetFilterHighlightText())
-				.ColorAndOpacity(this, &SLevelBlueprintTreeLabel::GetForegroundColor)
-				.ToolTip(IDocumentation::Get()->CreateToolTip(
-					TAttribute<FText>(this, &SLevelBlueprintTreeLabel::GetTooltipText),
-					nullptr,
-					TEXT("Shared/LevelEditor/SceneOutliner"),
-					TEXT("LevelBlueprintLabel")))
-			]
-		];
-	}
-
-private:
-	TWeakPtr<FLevelBlueprintTreeItem> TreeItemPtr;
-
-	FText GetDisplayText() const
-	{
-		auto Item = TreeItemPtr.Pin();
-		return Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
-	}
-
-	FText GetTooltipText() const
-	{
-		auto Item = TreeItemPtr.Pin();
-		FText LevelDisplayName = Item.IsValid() ? FText::FromString(Item->GetDisplayString()) : FText();
-
-		return FText::Format(LOCTEXT("LevelBlueprintLabel_Tooltip", "The Level Blueprint for {0}, double-click to edit"), LevelDisplayName);
-	}
-
-	FSlateColor GetForegroundColor() const
-	{
-		if (auto BaseColor = FCommonLabelData::GetForegroundColor(TreeItemPtr.Pin()))
-		{
-			return BaseColor.GetValue();
-		}
-		
-		return FSlateColor::UseForeground();
-	}
-};
-
 struct SFolderTreeLabel : FCommonLabelData, public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SFolderTreeLabel){}
@@ -708,13 +633,6 @@ TSharedRef<SWidget> FItemLabelColumn::GenerateWidget( FWorldTreeItem& TreeItem, 
 	ISceneOutliner* Outliner = WeakSceneOutliner.Pin().Get();
 	check(Outliner);
 	return SNew(SWorldTreeLabel, TreeItem, *Outliner, InRow);
-}
-
-TSharedRef<SWidget> FItemLabelColumn::GenerateWidget( FLevelBlueprintTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow )
-{
-	ISceneOutliner* Outliner = WeakSceneOutliner.Pin().Get();
-	check(Outliner);
-	return SNew(SLevelBlueprintTreeLabel, TreeItem, *Outliner, InRow);
 }
 
 TSharedRef<SWidget> FItemLabelColumn::GenerateWidget( FFolderTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow )

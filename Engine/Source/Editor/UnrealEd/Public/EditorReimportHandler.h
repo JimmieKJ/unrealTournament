@@ -52,6 +52,14 @@ public:
 	UNREALED_API virtual bool Reimport( UObject* Obj, bool bAskForNewFileIfMissing = false, bool bShowNotification = true );
 
 	/**
+	 * Update the reimport paths for the specified object
+	 *
+	 * @param	Obj	Object to update
+	 * @param	InFilenames The files we want to set to its import paths
+	 */
+	UNREALED_API virtual void UpdateReimportPaths( UObject* Obj, const TArray<FString>& InFilenames );
+
+	/**
 	 * Convert a file path to be relative to the specified object, if it resides in the same package folder
 	 * 
 	 * @param	InPath Absolute (or relative by cwd) path to the source file

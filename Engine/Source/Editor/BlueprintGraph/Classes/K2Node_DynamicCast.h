@@ -21,6 +21,7 @@ class UK2Node_DynamicCast : public UK2Node
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Cast_16x"); }
 	virtual void GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const override;
+	virtual void PostReconstructNode() override;
 	virtual void PostPlacedNewNode() override;
 	// End UEdGraphNode interface
 
@@ -31,6 +32,10 @@ class UK2Node_DynamicCast : public UK2Node
 	virtual FText GetMenuCategory() const override;
 	virtual FBlueprintNodeSignature GetSignature() const override;
 	virtual bool IsNodePure() const override { return bIsPureCast; }
+	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
+	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
+	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
+	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	// End of UK2Node interface
 
 	/** Get the 'valid cast' exec pin */
@@ -60,6 +65,9 @@ protected:
 	/** Flips the node's purity (adding/removing exec pins as needed). */
 	void TogglePurity();
 
+	/** Update exec pins when converting from impure to pure. */
+	bool ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins);
+	
 	/** Constructing FText strings can be costly, so we cache the node's title */
 	FNodeTextCache CachedNodeTitle;
 

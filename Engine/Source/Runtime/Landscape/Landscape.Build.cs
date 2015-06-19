@@ -18,6 +18,7 @@ public class Landscape : ModuleRules
 				"TargetPlatform",
 				"DerivedDataCache",
 				"ImageWrapper",
+                "Foliage",
 			}
 		);
 
@@ -29,6 +30,8 @@ public class Landscape : ModuleRules
 				"RenderCore", 
 				"RHI",
 				"ShaderCore",
+                "Renderer",
+                "Foliage",
 			}
 		);
 

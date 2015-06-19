@@ -19,6 +19,9 @@ public:
 	/** Renames assets using the specified names. */
 	void RenameAssets(const TArray<FAssetRenameData>& AssetsAndNames) const;
 
+	/** Accessor for post rename event */
+	FAssetPostRenameEvent& OnAssetPostRenameEvent() { return AssetPostRenameEvent; }
+
 	/**
 	 * Function that renames all FStringAssetReference object with the old asset path to the new one.
 	 *
@@ -30,7 +33,7 @@ public:
 
 private:
 	/** Attempts to load and fix redirector references for the supplied assets */
-	void FixReferencesAndRename(TArray<FAssetRenameDataWithReferencers> AssetsToRename) const;
+	void FixReferencesAndRename(TArray<FAssetRenameData> AssetsAndNames) const;
 
 	/** Get a list of assets referenced from CDOs */
 	TArray<TWeakObjectPtr<UObject>> FindCDOReferencedAssets(const TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const;
@@ -65,4 +68,9 @@ private:
 
 	/** Report any failures that may have happened during the rename */
 	void ReportFailures(const TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const;
+
+private:
+
+	/** Event issued at the end of the rename process */
+	FAssetPostRenameEvent AssetPostRenameEvent;
 };

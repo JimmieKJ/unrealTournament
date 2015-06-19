@@ -4,6 +4,7 @@
 #include "SkyLightComponentDetails.h"
 #include "Components/LightComponentBase.h"
 #include "Engine/SkyLight.h"
+#include "Components/SkyLightComponent.h"
 
 #define LOCTEXT_NAMESPACE "SkyLightComponentDetails"
 
@@ -68,7 +69,10 @@ FReply FSkyLightComponentDetails::OnUpdateSkyCapture()
 {
 	if( SkyLight.IsValid() )
 	{
-		GEditor->UpdateSkyCaptures();
+		if (UWorld* SkyLightWorld = SkyLight->GetWorld())
+		{
+			SkyLightWorld->UpdateAllSkyCaptures();
+		}
 	}
 
 	return FReply::Handled();

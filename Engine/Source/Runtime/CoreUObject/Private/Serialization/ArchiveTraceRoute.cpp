@@ -140,8 +140,8 @@ FArchiveTraceRoute::FArchiveTraceRoute( UObject* TargetObject, TMap<UObject*,FTr
 	TSparseArray<UObject*> RootObjects;
 
 	// allocate enough memory for all objects
-	ObjectGraph.Empty(GUObjectArray.GetObjectArrayNum());
-	RootObjects.Empty(GUObjectArray.GetObjectArrayNum() / 2);
+	ObjectGraph.Empty(GetUObjectArray().GetObjectArrayNum());
+	RootObjects.Empty(GetUObjectArray().GetObjectArrayNum() / 2);
 
 	// search for objects that have the right flags and add them to the list of objects that we're going to start with
 	// all other objects need to be tagged so that we can tell whether they've been serialized or not.

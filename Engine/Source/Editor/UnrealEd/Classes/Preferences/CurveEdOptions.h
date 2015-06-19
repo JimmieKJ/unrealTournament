@@ -10,7 +10,7 @@
 #pragma once
 #include "CurveEdOptions.generated.h"
 
-UCLASS(hidecategories=Object, config=EditorUserSettings)
+UCLASS(hidecategories=Object, config=EditorPerProjectUserSettings)
 class UNREALED_API UCurveEdOptions : public UObject
 {
 	GENERATED_UCLASS_BODY()

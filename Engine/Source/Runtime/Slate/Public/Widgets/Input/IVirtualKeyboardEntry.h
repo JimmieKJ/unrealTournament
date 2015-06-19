@@ -10,6 +10,7 @@ enum EKeyboardType
 	Keyboard_Web,
 	Keyboard_Email,
 	Keyboard_Password,
+	Keyboard_AlphaNumeric,
 };
 
 class SLATE_API IVirtualKeyboardEntry

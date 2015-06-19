@@ -80,6 +80,9 @@ public:
 
 private:
 
+	/** Update the key selection state of the visualizer */
+	void ChangeSelectionState(int32 Index, bool bIsCtrlHeld);
+
 	void NotifyComponentModified();
 
 	void OnDeleteKey();
@@ -112,11 +115,17 @@ private:
 	/** Name of property on the actor that references the spline we are editing */
 	FName SplineCompPropName;
 
-	/** Index of key we have selected */
-	int32 SelectedKeyIndex;
+	/** Index of keys we have selected */
+	TSet<int32> SelectedKeys;
+
+	/** Index of the last key we selected */
+	int32 LastKeyIndexSelected;
 
 	/** Index of segment we have selected */
 	int32 SelectedSegmentIndex;
+
+	/** Index of tangent handle we have selected */
+	int32 SelectedTangentHandle;
 
 	struct ESelectedTangentHandle
 	{
@@ -128,8 +137,8 @@ private:
 		};
 	};
 
-	/** Whether the selected key is a tangent handle, and if so, which type */
-	ESelectedTangentHandle::Type SelectedTangentHandle;
+	/** The type of the selected tangent handle */
+	ESelectedTangentHandle::Type SelectedTangentHandleType;
 
 	/** Position on spline we have selected */
 	FVector SelectedSplinePosition;

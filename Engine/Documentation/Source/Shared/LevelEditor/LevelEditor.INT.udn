@@ -124,3 +124,32 @@ While not considered production-ready, they are a step beyond 'experimental' and
 * There is probably no documentation or example content yet.
 * They will be promoted out of 'Early Access' when they are production ready.
 [/EXCERPT:ActorUsesEarlyAccessClass]
+
+[EXCERPT:ComponentUsesExperimentalClass]
+###Here be dragons!
+
+![](HereBeDragons.png)
+
+This Component uses one or more 'experimental' classes.
+
+These are totally unsupported and undocumented prototypes:
+* They may be dramatically changed or abandoned in a future build.
+* Data or code compatibility is not guaranteed.
+* The code is in an early state and may cause editor instability or crashes.
+* They may be promoted to 'Early Access' or 'Fully Supported' in the future.
+
+Use these at your own risk!
+[/EXCERPT:ComponentUsesExperimentalClass]
+
+[EXCERPT:ComponentUsesEarlyAccessClass]
+###Early Access
+
+This Component uses one or more 'early access' classes.
+
+While not considered production-ready, they are a step beyond 'experimental' and are being provided as a preview of things to come:
+* We will try to provide forward-compatibility for content you create.
+* The classes may change significantly in the future.
+* The code is in an early state and may not meet the desired polish / quality bar.
+* There is probably no documentation or example content yet.
+* They will be promoted out of 'Early Access' when they are production ready.
+[/EXCERPT:ComponentUsesEarlyAccessClass]

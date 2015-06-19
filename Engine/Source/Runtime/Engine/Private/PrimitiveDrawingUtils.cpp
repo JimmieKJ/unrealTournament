@@ -183,7 +183,8 @@ void DrawBox(FPrimitiveDrawInterface* PDI,const FMatrix& BoxToWorld,const FVecto
 	MeshBuilder.Draw(PDI,FScaleMatrix(Radii) * BoxToWorld,MaterialRenderProxy,DepthPriorityGroup,0.f);
 }
 
-void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, float StartAngle, float EndAngle, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector)
+void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, float StartAngle, float EndAngle, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, 
+					bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector,bool bUseSelectionOutline,HHitProxy* HitProxy)
 {
 	// Use a mesh builder to draw the sphere.
 	FDynamicMeshBuilder MeshBuilder;
@@ -263,14 +264,20 @@ void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSid
 		FMemory::Free(Verts);
 		FMemory::Free(ArcVerts);
 	}
-	MeshBuilder.GetMesh(FScaleMatrix(Radii) * FTranslationMatrix(Center), MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, false, ViewIndex, Collector);
+	MeshBuilder.GetMesh(FScaleMatrix(Radii) * FTranslationMatrix(Center), MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, false, bUseSelectionOutline, ViewIndex, Collector, HitProxy);
 }
 
-void GetSphereMesh(const FVector& Center,const FVector& Radii,int32 NumSides,int32 NumRings,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriority,bool bDisableBackfaceCulling,int32 ViewIndex,FMeshElementCollector& Collector)
+void GetSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority,
+					bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector)
 {
-	GetHalfSphereMesh(Center, Radii, NumSides, NumRings, 0, PI, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector);
+	GetSphereMesh(Center, Radii, NumSides, NumRings, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector, true, NULL);
 }
 
+extern ENGINE_API void GetSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority,
+	bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector, bool bUseSelectionOutline, HHitProxy* HitProxy)
+{
+	GetHalfSphereMesh(Center, Radii, NumSides, NumRings, 0, PI, MaterialRenderProxy, DepthPriority, bDisableBackfaceCulling, ViewIndex, Collector, bUseSelectionOutline, HitProxy);
+}
 
 void DrawSphere(FPrimitiveDrawInterface* PDI,const FVector& Center,const FVector& Radii,int32 NumSides,int32 NumRings,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriority,bool bDisableBackfaceCulling)
 {
@@ -648,19 +655,6 @@ void DrawCylinder(FPrimitiveDrawInterface* PDI, const FMatrix& CylToWorld, const
 	MeshBuilder.Draw(PDI, CylToWorld, MaterialRenderProxy, DepthPriority,0.f);
 }
 
-/**
- * Draws a circle using triangles.
- *
- * @param	PDI						Draw interface.
- * @param	Base					Center of the circle.
- * @param	XAxis					X alignment axis to draw along.
- * @param	YAxis					Y alignment axis to draw along.
- * @param	Color					Color of the circle.
- * @param	Radius					Radius of the circle.
- * @param	NumSides				Numbers of sides that the circle has.
- * @param	MaterialRenderProxy		Material to use for render 
- * @param	DepthPriority			Depth priority for the circle.
- */
 void DrawDisc(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& XAxis,const FVector& YAxis,FColor Color,float Radius,int32 NumSides,const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority)
 {
 	check (NumSides >= 3);
@@ -710,34 +704,7 @@ void DrawDisc(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVect
 	MeshBuilder.Draw(PDI, FMatrix::Identity, MaterialRenderProxy, DepthPriority,0.f);
 }
 
-/**
- * Draws a flat arrow with an outline.
- *
- * @param	PDI						Draw interface.
- * @param	Base					Base of the arrow.
- * @param	XAxis					X alignment axis to draw along.
- * @param	YAxis					Y alignment axis to draw along.
- * @param	Color					Color of the circle.
- * @param	Length					Length of the arrow, from base to tip.
- * @param	Width					Width of the base of the arrow, head of the arrow will be 2x.
- * @param	MaterialRenderProxy		Material to use for render 
- * @param	DepthPriority			Depth priority for the circle.
- */
-
-/*
-x-axis is from point 0 to point 2
-y-axis is from point 0 to point 1
-		6
-		/\
-	   /  \
-	  /    \
-	 4_2  3_5
-	   |  |
-	   0__1
-*/
-
-
-void DrawFlatArrow(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& XAxis,const FVector& YAxis,FColor Color,float Length,int32 Width, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority)
+void DrawFlatArrow(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& XAxis,const FVector& YAxis,FColor Color,float Length,int32 Width, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, float Thickness)
 {
 	float DistanceFromBaseToHead = Length/3.0f;
 	float DistanceFromBaseToTip = DistanceFromBaseToHead*2.0f;
@@ -801,14 +768,6 @@ void DrawFlatArrow(class FPrimitiveDrawInterface* PDI,const FVector& Base,const 
 
 // Line drawing utility functions.
 
-/**
- * Draws a wireframe box.
- *
- * @param	PDI				Draw interface.
- * @param	Box				The FBox to use for drawing.
- * @param	Color			Color of the box.
- * @param	DepthPriority	Depth priority for the circle.
- */
 void DrawWireBox(FPrimitiveDrawInterface* PDI, const FBox& Box, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	FVector	B[2],P,Q;
@@ -836,19 +795,41 @@ void DrawWireBox(FPrimitiveDrawInterface* PDI, const FBox& Box, const FLinearCol
 	}
 }
 
-/**
- * Draws a circle using lines.
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center of the circle.
- * @param	X				X alignment axis to draw along.
- * @param	Y				Y alignment axis to draw along.
- * @param	Z				Z alignment axis to draw along.
- * @param	Color			Color of the circle.
- * @param	Radius			Radius of the circle.
- * @param	NumSides		Numbers of sides that the circle has.
- * @param	DepthPriority	Depth priority for the circle.
- */
+
+void DrawWireBox(FPrimitiveDrawInterface* PDI, const FMatrix& Matrix, const FBox& Box, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
+{
+	FVector B[ 2 ];
+	B[ 0 ] = Box.Min;
+	B[ 1 ] = Box.Max;
+
+	for( int i = 0; i < 2; i++ )
+	{
+		for( int j = 0; j < 2; j++ )
+		{
+			FVector P, Q;
+
+			P.X = B[ i ].X; Q.X = B[ i ].X;
+			P.Y = B[ j ].Y; Q.Y = B[ j ].Y;
+			P.Z = B[ 0 ].Z; Q.Z = B[ 1 ].Z;
+			P = Matrix.TransformPosition( P ); Q = Matrix.TransformPosition( Q );
+			PDI->DrawLine(P, Q, Color, DepthPriority, Thickness, DepthBias, bScreenSpace);
+
+			P.Y = B[ i ].Y; Q.Y = B[ i ].Y;
+			P.Z = B[ j ].Z; Q.Z = B[ j ].Z;
+			P.X = B[ 0 ].X; Q.X = B[ 1 ].X;
+			P = Matrix.TransformPosition( P ); Q = Matrix.TransformPosition( Q );
+			PDI->DrawLine(P, Q, Color, DepthPriority, Thickness, DepthBias, bScreenSpace);
+
+			P.Z = B[ i ].Z; Q.Z = B[ i ].Z;
+			P.X = B[ j ].X; Q.X = B[ j ].X;
+			P.Y = B[ 0 ].Y; Q.Y = B[ 1 ].Y;
+			P = Matrix.TransformPosition( P ); Q = Matrix.TransformPosition( Q );
+			PDI->DrawLine(P, Q, Color, DepthPriority, Thickness, DepthBias, bScreenSpace);
+		}
+	}
+}
+
+
 void DrawCircle(FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	const float	AngleDelta = 2.0f * PI / NumSides;
@@ -862,20 +843,6 @@ void DrawCircle(FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector
 	}
 }
 
-/**
- * Draws an arc using lines.
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center of the circle.
- * @param	X				Normalized axis from one point to the center
- * @param	Y				Normalized axis from other point to the center
- * @param   MinAngle        The minimum angle
- * @param   MinAngle        The maximum angle
- * @param   Radius          Radius of the arc
- * @param	Sections		Numbers of sides that the circle has.
- * @param	Color			Color of the circle.
- * @param	DepthPriority	Depth priority for the circle.
- */
 void DrawArc(FPrimitiveDrawInterface* PDI, const FVector Base, const FVector X, const FVector Y, const float MinAngle, const float MaxAngle, const float Radius, const int32 Sections, const FLinearColor& Color, uint8 DepthPriority)
 {
 	float AngleStep = (MaxAngle - MinAngle)/((float)(Sections));
@@ -893,16 +860,6 @@ void DrawArc(FPrimitiveDrawInterface* PDI, const FVector Base, const FVector X, 
 	}
 }
 
-/**
- * Draws a sphere using circles.
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center of the sphere.
- * @param	Color			Color of the sphere.
- * @param	Radius			Radius of the sphere.
- * @param	NumSides		Numbers of sides that the circle has.
- * @param	DepthPriority	Depth priority for the circle.
- */
 void DrawWireSphere(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	DrawCircle(PDI, Base, FVector(1,0,0), FVector(0,1,0), Color, Radius, NumSides, DepthPriority, Thickness, DepthBias, bScreenSpace);
@@ -910,15 +867,6 @@ void DrawWireSphere(class FPrimitiveDrawInterface* PDI, const FVector& Base, con
 	DrawCircle(PDI, Base, FVector(0, 1, 0), FVector(0, 0, 1), Color, Radius, NumSides, DepthPriority, Thickness, DepthBias, bScreenSpace);
 }
 
-/**
- * Draws a sphere using circles, automatically calculating a reasonable number of sides
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center of the sphere.
- * @param	Color			Color of the sphere.
- * @param	Radius			Radius of the sphere.
- * @param	DepthPriority	Depth priority for the circle.
- */
 void DrawWireSphereAutoSides(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FLinearColor& Color, float Radius, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	// Guess a good number of sides
@@ -941,20 +889,6 @@ void DrawWireSphereAutoSides(class FPrimitiveDrawInterface* PDI, const FTransfor
 	DrawWireSphere(PDI, Transform, Color, Radius, NumSides, DepthPriority, Thickness, DepthBias, bScreenSpace);
 }
 
-/**
- * Draws a wireframe cylinder.
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center pointer of the base of the cylinder.
- * @param	X				X alignment axis to draw along.
- * @param	Y				Y alignment axis to draw along.
- * @param	Z				Z alignment axis to draw along.
- * @param	Color			Color of the cylinder.
- * @param	Radius			Radius of the cylinder.
- * @param	HalfHeight		Half of the height of the cylinder.
- * @param	NumSides		Numbers of sides that the cylinder has.
- * @param	DepthPriority	Depth priority for the cylinder.
- */
 void DrawWireCylinder(FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FVector& Z, const FLinearColor& Color, float Radius, float HalfHeight, int32 NumSides, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	const float	AngleDelta = 2.0f * PI / NumSides;
@@ -986,21 +920,6 @@ static void DrawHalfCircle(FPrimitiveDrawInterface* PDI, const FVector& Base, co
 	}	
 }
 
-
-/**
- * Draws a wireframe capsule.
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center pointer of the base of the cylinder.
- * @param	X				X alignment axis to draw along.
- * @param	Y				Y alignment axis to draw along.
- * @param	Z				Z alignment axis to draw along.
- * @param	Color			Color of the cylinder.
- * @param	Radius			Radius of the cylinder.
- * @param	HalfHeight		Half of the height of the cylinder.
- * @param	NumSides		Numbers of sides that the cylinder has.
- * @param	DepthPriority	Depth priority for the cylinder.
- */
 void DrawWireCapsule(FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FVector& Z, const FLinearColor& Color, float Radius, float HalfHeight, int32 NumSides, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	const FVector Origin = Base;
@@ -1051,20 +970,6 @@ void DrawWireCapsule(FPrimitiveDrawInterface* PDI, const FVector& Base, const FV
 	}
 }
 
-
-
-/**
- * Draws a wireframe cone
- *
- * @param	PDI				Draw interface.
- * @param	Transform		Generic transform to apply (ex. a local-to-world transform).
- * @param	ConeRadius		Radius of the cone.
- * @param	ConeAngle		Angle of the cone.
- * @param	ConeSides		Numbers of sides that the cone has.
- * @param	Color			Color of the cone.
- * @param	DepthPriority	Depth priority for the cone.
- * @param	Verts			Out param, the positions of the verts at the cone's base.
- */
 void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FTransform& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
 	static const float TwoPI = 2.0f * PI;
@@ -1112,19 +1017,6 @@ void DrawWireCone(FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FM
 	DrawWireCone(PDI, Verts, FTransform(Transform), ConeRadius, ConeAngle, ConeSides, Color, DepthPriority, Thickness, DepthBias, bScreenSpace);
 }
 
-/**
- * Draws a wireframe cone with a arcs on the cap
- *
- * @param	PDI				Draw interface.
- * @param	Transform		Generic transform to apply (ex. a local-to-world transform).
- * @param	ConeRadius		Radius of the cone.
- * @param	ConeAngle		Angle of the cone.
- * @param	ConeSides		Numbers of sides that the cone has.
- * @param   ArcFrequency    How frequently to draw an arc (1 means every vertex, 2 every 2nd etc.)
- * @param	CapSegments		How many lines to use to make the arc
- * @param	Color			Color of the cone.
- * @param	DepthPriority	Depth priority for the cone.
- */
 void DrawWireSphereCappedCone(FPrimitiveDrawInterface* PDI, const FTransform& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, int32 ArcFrequency, int32 CapSegments, const FLinearColor& Color, uint8 DepthPriority)
 {
 	// The cap only works if there are an even number of verts generated so add another if needed 
@@ -1148,21 +1040,6 @@ void DrawWireSphereCappedCone(FPrimitiveDrawInterface* PDI, const FTransform& Tr
 }
 
 
-/**
- * Draws a wireframe chopped cone(cylinder with independant top and bottom radius).
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center pointer of the base of the cone.
- * @param	X				X alignment axis to draw along.
- * @param	Y				Y alignment axis to draw along.
- * @param	Z				Z alignment axis to draw along.
- * @param	Color			Color of the cone.
- * @param	Radius			Radius of the cone at the bottom.
- * @param	TopRadius		Radius of the cone at the top.
- * @param	HalfHeight		Half of the height of the cone.
- * @param	NumSides		Numbers of sides that the cone has.
- * @param	DepthPriority	Depth priority for the cone.
- */
 void DrawWireChoppedCone(FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& X,const FVector& Y,const FVector& Z,const FLinearColor& Color,float Radius, float TopRadius,float HalfHeight,int32 NumSides,uint8 DepthPriority)
 {
 	const float	AngleDelta = 2.0f * PI / NumSides;
@@ -1182,19 +1059,6 @@ void DrawWireChoppedCone(FPrimitiveDrawInterface* PDI,const FVector& Base,const 
 		LastTopVertex = TopVertex;
 	}
 }
-
-/**
- * Draws an oriented box.
- *
- * @param	PDI				Draw interface.
- * @param	Base			Center point of the box.
- * @param	X				X alignment axis to draw along.
- * @param	Y				Y alignment axis to draw along.
- * @param	Z				Z alignment axis to draw along.
- * @param	Color			Color of the box.
- * @param	Extent			Vector with the half-sizes of the box.
- * @param	DepthPriority	Depth priority for the cone.
- */
 
 void DrawOrientedWireBox(FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FVector& Z, FVector Extent, const FLinearColor& Color, uint8 DepthPriority, float Thickness, float DepthBias, bool bScreenSpace)
 {
@@ -1233,48 +1097,27 @@ void DrawOrientedWireBox(FPrimitiveDrawInterface* PDI, const FVector& Base, cons
 }
 
 
-void DrawCoordinateSystem(FPrimitiveDrawInterface* PDI, FVector const& AxisLoc, FRotator const& AxisRot, float Scale, uint8 DepthPriority)
+void DrawCoordinateSystem(FPrimitiveDrawInterface* PDI, FVector const& AxisLoc, FRotator const& AxisRot, float Scale, uint8 DepthPriority, float Thickness)
 {
 	FRotationMatrix R(AxisRot);
 	FVector const X = R.GetScaledAxis( EAxis::X );
 	FVector const Y = R.GetScaledAxis( EAxis::Y );
 	FVector const Z = R.GetScaledAxis( EAxis::Z );
 
-	PDI->DrawLine(AxisLoc, AxisLoc + X*Scale, FLinearColor::Red, DepthPriority );
-	PDI->DrawLine(AxisLoc, AxisLoc + Y*Scale, FLinearColor::Green, DepthPriority );
-	PDI->DrawLine(AxisLoc, AxisLoc + Z*Scale, FLinearColor::Blue, DepthPriority );
-}
-/**
- * Draws a directional arrow.
- *
- * @param	PDI				Draw interface.
- * @param	ArrowToWorld	Transform matrix for the arrow.
- * @param	InColor			Color of the arrow.
- * @param	Length			Length of the arrow
- * @param	ArrowSize		Size of the arrow head.
- * @param	DepthPriority	Depth priority for the arrow.
- */
-void DrawDirectionalArrow(FPrimitiveDrawInterface* PDI,const FMatrix& ArrowToWorld,const FLinearColor& InColor,float Length,float ArrowSize,uint8 DepthPriority)
-{
-	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector::ZeroVector),InColor,DepthPriority);
-	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,+ArrowSize,+ArrowSize)),InColor,DepthPriority);
-	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,+ArrowSize,-ArrowSize)),InColor,DepthPriority);
-	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,-ArrowSize,+ArrowSize)),InColor,DepthPriority);
-	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,-ArrowSize,-ArrowSize)),InColor,DepthPriority);
+	PDI->DrawLine(AxisLoc, AxisLoc + X*Scale, FLinearColor::Red, DepthPriority, Thickness );
+	PDI->DrawLine(AxisLoc, AxisLoc + Y*Scale, FLinearColor::Green, DepthPriority, Thickness );
+	PDI->DrawLine(AxisLoc, AxisLoc + Z*Scale, FLinearColor::Blue, DepthPriority, Thickness );
 }
 
-/**
- * Draws a directional arrow with connected spokes.
- *
- * @param	PDI				Draw interface.
- * @param	ArrowToWorld	Transform matrix for the arrow.
- * @param	Color			Color of the arrow.
- * @param	ArrowHeight		Height of the the arrow head.
- * @param	ArrowWidth		Width of the arrow head.
- * @param	DepthPriority	Depth priority for the arrow.
- * @param	Thickness		Thickness of the lines used to draw the arrow.
- * @param	NumSpokes		Number of spokes used to make the arrow head.
- */
+void DrawDirectionalArrow(FPrimitiveDrawInterface* PDI,const FMatrix& ArrowToWorld,const FLinearColor& InColor,float Length,float ArrowSize,uint8 DepthPriority,float Thickness)
+{
+	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector::ZeroVector),InColor,DepthPriority,Thickness);
+	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,+ArrowSize,+ArrowSize)),InColor,DepthPriority,Thickness);
+	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,+ArrowSize,-ArrowSize)),InColor,DepthPriority,Thickness);
+	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,-ArrowSize,+ArrowSize)),InColor,DepthPriority,Thickness);
+	PDI->DrawLine(ArrowToWorld.TransformPosition(FVector(Length,0,0)),ArrowToWorld.TransformPosition(FVector(Length-ArrowSize,-ArrowSize,-ArrowSize)),InColor,DepthPriority,Thickness);
+}
+
 void DrawConnectedArrow(class FPrimitiveDrawInterface* PDI, const FMatrix& ArrowToWorld, const FLinearColor& Color, float ArrowHeight, float ArrowWidth, uint8 DepthPriority, float Thickness, int32 NumSpokes)
 {
 	float RotPerSpoke = (2.0f * PI) / (float)NumSpokes;
@@ -1291,15 +1134,6 @@ void DrawConnectedArrow(class FPrimitiveDrawInterface* PDI, const FMatrix& Arrow
 	}
 }
 
-/**
- * Draws a axis-aligned 3 line star.
- *
- * @param	PDI				Draw interface.
- * @param	Position		Position of the star.
- * @param	Size			Size of the star
- * @param	InColor			Color of the arrow.
- * @param	DepthPriority	Depth priority for the star.
- */
 void DrawWireStar(FPrimitiveDrawInterface* PDI,const FVector& Position, float Size, const FLinearColor& Color,uint8 DepthPriority)
 {
 	PDI->DrawLine(Position + Size * FVector(1,0,0), Position - Size * FVector(1,0,0), Color, DepthPriority);
@@ -1307,16 +1141,6 @@ void DrawWireStar(FPrimitiveDrawInterface* PDI,const FVector& Position, float Si
 	PDI->DrawLine(Position + Size * FVector(0,0,1), Position - Size * FVector(0,0,1), Color, DepthPriority);
 }
 
-/**
- * Draws a dashed line.
- *
- * @param	PDI				Draw interface.
- * @param	Start			Start position of the line.
- * @param	End				End position of the line.
- * @param	Color			Color of the arrow.
- * @param	DashSize		Size of each of the dashes that makes up the line.
- * @param	DepthPriority	Depth priority for the line.
- */
 void DrawDashedLine(FPrimitiveDrawInterface* PDI, const FVector& Start, const FVector& End, const FLinearColor& Color, float DashSize, uint8 DepthPriority, float DepthBias)
 {
 	FVector LineDir = End - Start;
@@ -1349,15 +1173,6 @@ void DrawDashedLine(FPrimitiveDrawInterface* PDI, const FVector& Start, const FV
 	}
 }
 
-/**
- * Draws a wireframe diamond.
- *
- * @param	PDI				Draw interface.
- * @param	DiamondMatrix	Transform Matrix for the diamond.
- * @param	Size			Size of the diamond.
- * @param	InColor			Color of the diamond.
- * @param	DepthPriority	Depth priority for the diamond.
- */
 void DrawWireDiamond(FPrimitiveDrawInterface* PDI,const FMatrix& DiamondMatrix, float Size, const FLinearColor& InColor,uint8 DepthPriority)
 {
 	const FVector TopPoint = DiamondMatrix.TransformPosition( FVector(0,0,1) * Size );
@@ -1623,7 +1438,7 @@ void ApplyViewModeOverrides(
 		{
 			// Determine unique color for model component.
 			FLinearColor BSPSplitColor;
-			FRandomStream RandomStream(GetTypeHash(PrimitiveSceneProxy->GetPrimitiveComponentId().Value));
+			FRandomStream RandomStream(GetTypeHash(PrimitiveSceneProxy->GetPrimitiveComponentId().PrimIDValue));
 			BSPSplitColor.R = RandomStream.GetFraction();
 			BSPSplitColor.G = RandomStream.GetFraction();
 			BSPSplitColor.B = RandomStream.GetFraction();

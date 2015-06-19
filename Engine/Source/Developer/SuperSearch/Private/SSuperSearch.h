@@ -6,21 +6,9 @@
 #include "AssetData.h"
 #endif
 
-/**
- * Console input box with command-completion support
+/* 
+ * Super search - Searches a number of resources including documentation, tutorials, Wiki and AnswerHub
  */
-
-struct FSearchEntry
-{
-	FString Title;
-	FString URL;
-	bool bCategory;
-#if WITH_EDITOR
-	FAssetData AssetData;
-#endif
-	static FSearchEntry * MakeCategoryEntry(const FString& InTitle);
-};
-
 
 class SSuperSearchBox
 	: public SCompoundWidget
@@ -56,7 +44,7 @@ public:
 	{
 		return InputText.ToSharedRef();
 	}
-
+		
 protected:
 
 	virtual bool SupportsKeyboardFocus() const { return true; }
@@ -89,7 +77,6 @@ protected:
 	void ClearSuggestions();
 
 	FString GetSelectionText() const;
-
 
 private:
 

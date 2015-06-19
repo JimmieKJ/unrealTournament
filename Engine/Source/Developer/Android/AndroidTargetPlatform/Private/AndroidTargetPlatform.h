@@ -33,6 +33,12 @@ namespace AndroidTexFormat
 	static FName NameETC2_RGB(TEXT("ETC2_RGB"));
 	static FName NameETC2_RGBA(TEXT("ETC2_RGBA"));
 	static FName NameAutoETC2(TEXT("AutoETC2"));
+	static FName NameASTC_4x4(TEXT("ASTC_4x4"));
+	static FName NameASTC_6x6(TEXT("ASTC_6x6"));
+	static FName NameASTC_8x8(TEXT("ASTC_8x8"));
+	static FName NameASTC_10x10(TEXT("ASTC_10x10"));
+	static FName NameASTC_12x12(TEXT("ASTC_12x12"));
+	static FName NameAutoASTC(TEXT("AutoASTC"));
 
 	// Uncompressed Texture Formats
 	static FName NameBGRA8(TEXT("BGRA8"));
@@ -64,7 +70,7 @@ public:
 public:
 
 	/**
-	 * Gets the name of the Android platform variant, i.e. ATC, DXT or PVRTC.
+	 * Gets the name of the Android platform variant, i.e. ATC, DXT, PVRTC, etc.
 	 *
 	 * @param Variant name.
 	 */
@@ -115,10 +121,7 @@ public:
 	}
 
 #if WITH_ENGINE
-	virtual void GetReflectionCaptureFormats( TArray<FName>& OutFormats ) const override
-	{
-		OutFormats.Add(FName(TEXT("EncodedHDR")));
-	}
+	virtual void GetReflectionCaptureFormats( TArray<FName>& OutFormats ) const override;
 
 	virtual void GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const override;
 
@@ -128,7 +131,12 @@ public:
 
 	virtual void GetTextureFormats( const UTexture* InTexture, TArray<FName>& OutFormats ) const override;
 
-	virtual const struct FTextureLODSettings& GetTextureLODSettings( ) const override;
+	virtual const UTextureLODSettings& GetTextureLODSettings() const override;
+
+	virtual void RegisterTextureLODSettings(const UTextureLODSettings* InTextureLODSettings) override
+	{
+		TextureLODSettings = InTextureLODSettings;
+	}
 
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override;
 #endif //WITH_ENGINE
@@ -136,6 +144,13 @@ public:
 	virtual bool SupportsVariants() const override;
 
 	virtual FText GetVariantTitle() const override;
+
+	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const override
+	{
+		OutSection = TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings");
+		InBoolKeys.Add(TEXT("bBuildForArmV7")); InBoolKeys.Add(TEXT("bBuildForArm64")); InBoolKeys.Add(TEXT("bBuildForX86"));
+		InBoolKeys.Add(TEXT("bBuildForX8664")); InBoolKeys.Add(TEXT("bBuildForES2")); InBoolKeys.Add(TEXT("bBuildForES31"));
+	}
 
 	DECLARE_DERIVED_EVENT(FAndroidTargetPlatform, ITargetPlatform::FOnTargetDeviceDiscovered, FOnTargetDeviceDiscovered);
 	virtual FOnTargetDeviceDiscovered& OnDeviceDiscovered( ) override
@@ -172,12 +187,15 @@ protected:
 		return true;
 	}
 
+#if WITH_ENGINE
+	// Holds the Engine INI settings (for quick access).
+	FConfigFile EngineSettings;
+#endif //WITH_ENGINE
+
 private:
 
 	// Handles when the ticker fires.
 	bool HandleTicker( float DeltaTime );
-
-private:
 
 	// Holds a map of valid devices.
 	TMap<FString, FAndroidTargetDevicePtr> Devices;
@@ -192,19 +210,14 @@ private:
 	IAndroidDeviceDetection* DeviceDetection;
 
 #if WITH_ENGINE
-	// Holds the Engine INI settings (for quick access).
-	FConfigFile EngineSettings;
-
 	// Holds a cache of the target LOD settings.
-	FTextureLODSettings TextureLODSettings;
+	const UTextureLODSettings* TextureLODSettings;
 
 	// Holds the static mesh LOD settings.
 	FStaticMeshLODSettings StaticMeshLODSettings;
 
 	ITargetDevicePtr DefaultDevice;
 #endif //WITH_ENGINE
-
-private:
 
 	// Holds an event delegate that is executed when a new target device has been discovered.
 	FOnTargetDeviceDiscovered DeviceDiscoveredEvent;

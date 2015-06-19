@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2300945
+﻿INTSourceChangelist:2517815
 Availability:NoPublish
 Title:
 Crumbs:
@@ -312,6 +312,14 @@ CustomTexture 는 Custom 표현식 안에 있는 HLSL 코드 내 텍스처를 �
 Engine/Rendering/Materials/ExpressionReference/Custom#customtexture
 [/VAR]
 [/EXCERPT:UMaterialExpressionCustomTexture]
+
+[EXCERPT:UMaterialExpressionDecalMipmapLevel]
+DecalMipmapLevel 는 커스텀 UV 가 없다 가정하고 데칼 텍스처의 밉맵 레벨을 명시적으로 계산하는데 사용됩니다. 이는 데칼이 투사되는 에지의 2x2 픽셀 밉맵 부작용을 피하기 위해 사용됩니다.
+
+[VAR:ToolTipFullLink]
+Engine/Actors/DecalActor/DecalUserGuide
+[/VAR]
+[/EXCERPT:UMaterialExpressionDecalMipmapLevel]
 
 [EXCERPT:UMaterialExpressionDepthFade]
 DepthFade 표현식은 반투명 오브젝트와 불투명 오브젝트가 겹칠 때 일어나는 이음새를 감추는 데 사용됩니다.

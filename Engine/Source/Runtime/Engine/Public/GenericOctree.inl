@@ -269,6 +269,14 @@ ElementType& TOctree<ElementType,OctreeSemantics>::GetElementById(FOctreeElement
 	return ElementIdNode->Elements[ElementId.ElementIndex];
 }
 
+template<typename ElementType, typename OctreeSemantics>
+const ElementType& TOctree<ElementType, OctreeSemantics>::GetElementById(FOctreeElementId ElementId) const
+{
+	check(ElementId.IsValidId());
+	FNode* ElementIdNode = (FNode*)ElementId.Node;
+	return ElementIdNode->Elements[ElementId.ElementIndex];
+}
+
 template<typename ElementType,typename OctreeSemantics> 
 bool TOctree<ElementType,OctreeSemantics>::IsValidElementId(FOctreeElementId ElementId) const
 {
@@ -344,6 +352,15 @@ TOctree<ElementType,OctreeSemantics>::TOctree(const FVector& InOrigin,float InEx
 ,	TotalSizeBytes(0)
 {
 }
+
+#if WITH_HOT_RELOAD_CTORS
+template<typename ElementType, typename OctreeSemantics>
+TOctree<ElementType, OctreeSemantics>::TOctree()
+	: RootNode(nullptr)
+{
+	EnsureRetrievingVTablePtr();
+}
+#endif // WITH_HOT_RELOAD_CTORS
 
 template<typename ElementType,typename OctreeSemantics>
 void TOctree<ElementType,OctreeSemantics>::ApplyOffset(const FVector& InOffset)

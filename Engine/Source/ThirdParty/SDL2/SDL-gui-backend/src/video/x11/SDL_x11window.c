@@ -130,19 +130,17 @@ X11_SetNetWMState(_THIS, Window xwindow, Uint32 flags)
 {
     SDL_VideoData *videodata = (SDL_VideoData *) _this->driverdata;
     Display *display = videodata->display;
+    /* !!! FIXME: just dereference videodata below instead of copying to locals. */
     Atom _NET_WM_STATE = videodata->_NET_WM_STATE;
     /* Atom _NET_WM_STATE_HIDDEN = videodata->_NET_WM_STATE_HIDDEN; */
     Atom _NET_WM_STATE_FOCUSED = videodata->_NET_WM_STATE_FOCUSED;
     Atom _NET_WM_STATE_MAXIMIZED_VERT = videodata->_NET_WM_STATE_MAXIMIZED_VERT;
     Atom _NET_WM_STATE_MAXIMIZED_HORZ = videodata->_NET_WM_STATE_MAXIMIZED_HORZ;
     Atom _NET_WM_STATE_FULLSCREEN = videodata->_NET_WM_STATE_FULLSCREEN;
-    /* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS	
     Atom _NET_WM_STATE_ABOVE = videodata->_NET_WM_STATE_ABOVE;
     Atom _NET_WM_STATE_SKIP_TASKBAR = videodata->_NET_WM_STATE_SKIP_TASKBAR;
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-    /* EG END */	
-    Atom atoms[6];
+    Atom _NET_WM_STATE_SKIP_PAGER = videodata->_NET_WM_STATE_SKIP_PAGER;
+    Atom atoms[16];
     int count = 0;
 
     /* The window manager sets this property, we shouldn't set it.
@@ -153,16 +151,14 @@ X11_SetNetWMState(_THIS, Window xwindow, Uint32 flags)
         atoms[count++] = _NET_WM_STATE_HIDDEN;
     }
     */
-    /* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
+
     if (flags & SDL_WINDOW_ALWAYS_ON_TOP) {
         atoms[count++] = _NET_WM_STATE_ABOVE;
     }
     if (flags & SDL_WINDOW_SKIP_TASKBAR) {
         atoms[count++] = _NET_WM_STATE_SKIP_TASKBAR;
+        atoms[count++] = _NET_WM_STATE_SKIP_PAGER;
     }
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-    /* EG END */
     if (flags & SDL_WINDOW_INPUT_FOCUS) {
         atoms[count++] = _NET_WM_STATE_FOCUSED;
     }
@@ -173,6 +169,9 @@ X11_SetNetWMState(_THIS, Window xwindow, Uint32 flags)
     if (flags & SDL_WINDOW_FULLSCREEN) {
         atoms[count++] = _NET_WM_STATE_FULLSCREEN;
     }
+
+    SDL_assert(count <= SDL_arraysize(atoms));
+
     if (count > 0) {
         X11_XChangeProperty(display, xwindow, _NET_WM_STATE, XA_ATOM, 32,
                         PropModeReplace, (unsigned char *)atoms, count);
@@ -320,6 +319,11 @@ SetupWindowData(_THIS, SDL_Window * window, Window w, BOOL created)
             /* Tell x11 to clip mouse */
         }
     }
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    data->initiate_maximize = SDL_FALSE;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
     /* All done! */
     window->driverdata = data;
@@ -351,7 +355,7 @@ SetWindowBordered(Display *display, int screen, Window window, SDL_bool border)
 
         X11_XChangeProperty(display, window, WM_HINTS, WM_HINTS, 32,
                         PropModeReplace, (unsigned char *) &MWMHints,
-                        sizeof(MWMHints) / 4);
+                        sizeof(MWMHints) / sizeof(long));
     } else {  /* set the transient hints instead, if necessary */
         X11_XSetTransientForHint(display, window, RootWindow(display, screen));
     }
@@ -373,20 +377,14 @@ X11_CreateWindow(_THIS, SDL_Window * window)
     XSizeHints *sizehints;
     XWMHints *wmhints;
     XClassHint *classhints;
-    const long _NET_WM_BYPASS_COMPOSITOR_HINT_ON = 1;
     Atom _NET_WM_BYPASS_COMPOSITOR;
     Atom _NET_WM_WINDOW_TYPE;
-    Atom _NET_WM_WINDOW_TYPE_NORMAL;
-    /* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-    Atom _NET_WM_WINDOW_TYPE_UTILITY;
-    Atom _NET_WM_WINDOW_TYPE_DOCK;
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-    /* EG END */
-    
+    Atom wintype;
+    const char *wintype_name = NULL;
+    int compositor = 1;
     Atom _NET_WM_PID;
     Atom XdndAware, xdnd_version = 5;
-    Uint32 fevent = 0;
+    long fevent = 0;
 
 #if SDL_VIDEO_OPENGL_GLX || SDL_VIDEO_OPENGL_EGL
     if ((window->flags & SDL_WINDOW_OPENGL) &&
@@ -421,7 +419,7 @@ X11_CreateWindow(_THIS, SDL_Window * window)
         depth = displaydata->depth;
     }
 
-    xattr.override_redirect = False;
+    xattr.override_redirect = ((window->flags & SDL_WINDOW_TOOLTIP) || (window->flags & SDL_WINDOW_POPUP_MENU)) ? True : False;
     xattr.background_pixmap = None;
     xattr.border_pixel = 0;
 
@@ -530,12 +528,15 @@ X11_CreateWindow(_THIS, SDL_Window * window)
 
     /* Setup the input hints so we get keyboard input */
     wmhints = X11_XAllocWMHints();
-    if( window->flags & SDL_WINDOW_ACCEPTS_INPUT) {
-        wmhints->input = True;
-    } else {
-        wmhints->input = False;
-    }
-    wmhints->window_group = 20140512;
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    /* Default to false. */
+    wmhints->input = False;
+#else
+    wmhints->input = True;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+    wmhints->window_group = data->window_group;
     wmhints->flags = InputHint | WindowGroupHint;
 
     /* Setup the class hints so we can get an icon (AfterStep) */
@@ -551,47 +552,50 @@ X11_CreateWindow(_THIS, SDL_Window * window)
     X11_XFree(classhints);
     /* Set the PID related to the window for the given hostname, if possible */
     if (data->pid > 0) {
+        const long pid = (long) data->pid;
         _NET_WM_PID = X11_XInternAtom(display, "_NET_WM_PID", False);
         X11_XChangeProperty(display, w, _NET_WM_PID, XA_CARDINAL, 32, PropModeReplace,
-                        (unsigned char *)&data->pid, 1);
+                        (unsigned char *)&pid, 1);
     }
 
     /* Set the window manager state */
     X11_SetNetWMState(_this, w, window->flags);
 
-    /* Let the window manager know we're a "normal" window */
-    _NET_WM_WINDOW_TYPE = X11_XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
-    _NET_WM_WINDOW_TYPE_NORMAL = X11_XInternAtom(display, "_NET_WM_WINDOW_TYPE_NORMAL", False);
-    /* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
+    compositor = 2;  /* don't disable compositing except for "normal" windows */
+
     if (window->flags & SDL_WINDOW_UTILITY) {
-        _NET_WM_WINDOW_TYPE_UTILITY = X11_XInternAtom(display, "_NET_WM_WINDOW_TYPE_UTILITY", False);
-        X11_XChangeProperty(display, w, _NET_WM_WINDOW_TYPE, XA_ATOM, 32,
-                            PropModeReplace,
-                            (unsigned char *)&_NET_WM_WINDOW_TYPE_UTILITY, 1);
+        wintype_name = "_NET_WM_WINDOW_TYPE_UTILITY";
+    } else if (window->flags & SDL_WINDOW_DND) {
+        wintype_name = "_NET_WM_WINDOW_TYPE_DND";
+    } else if (window->flags & SDL_WINDOW_NOTIFICATION) {
+        wintype_name = "_NET_WM_WINDOW_TYPE_NOTIFICATION";
+    } else if (window->flags & SDL_WINDOW_DIALOG) {
+        wintype_name = "_NET_WM_WINDOW_TYPE_DIALOG";
     } else if (window->flags & SDL_WINDOW_TOOLTIP) {
-        _NET_WM_WINDOW_TYPE_DOCK = X11_XInternAtom(display, "_NET_WM_WINDOW_TYPE_DOCK", False);
-        X11_XChangeProperty(display, w, _NET_WM_WINDOW_TYPE, XA_ATOM, 32,
-                            PropModeReplace,
-                            (unsigned char *)&_NET_WM_WINDOW_TYPE_DOCK, 1);
-    } else
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-    {
-        X11_XChangeProperty(display, w, _NET_WM_WINDOW_TYPE, XA_ATOM, 32,
-                        PropModeReplace,
-                        (unsigned char *)&_NET_WM_WINDOW_TYPE_NORMAL, 1);
+        wintype_name = "_NET_WM_WINDOW_TYPE_TOOLTIP";
+    } else if (window->flags & SDL_WINDOW_POPUP_MENU) {
+        wintype_name = "_NET_WM_WINDOW_TYPE_POPUP_MENU";
+    } else {
+        wintype_name = "_NET_WM_WINDOW_TYPE_NORMAL";
+        compositor = 1;  /* disable compositing for "normal" windows */
     }
-    /* EG END */
+
+    /* Let the window manager know what type of window we are. */
+    _NET_WM_WINDOW_TYPE = X11_XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+    wintype = X11_XInternAtom(display, wintype_name, False);
+    X11_XChangeProperty(display, w, _NET_WM_WINDOW_TYPE, XA_ATOM, 32,
+                    PropModeReplace, (unsigned char *)&wintype, 1);
 
     _NET_WM_BYPASS_COMPOSITOR = X11_XInternAtom(display, "_NET_WM_BYPASS_COMPOSITOR", False);
     X11_XChangeProperty(display, w, _NET_WM_BYPASS_COMPOSITOR, XA_CARDINAL, 32,
                     PropModeReplace,
-                    (unsigned char *)&_NET_WM_BYPASS_COMPOSITOR_HINT_ON, 1);
+                    (unsigned char *)&compositor, 1);
 
     {
         Atom protocols[] = {
             data->WM_DELETE_WINDOW, /* Allow window to be deleted by the WM */
             data->_NET_WM_PING, /* Respond so WM knows we're alive */
+            data->WM_TAKE_FOCUS /* Since we will want to set input focus explicitly */
         };
         X11_XSetWMProtocols(display, w, protocols, sizeof (protocols) / sizeof (protocols[0]));
     }
@@ -690,6 +694,7 @@ X11_GetWindowTitle(_THIS, Window xwindow)
                     &items_read, &items_left, &propdata);
         if (status == Success && propdata) {
             title = SDL_iconv_string("UTF-8", "", SDL_static_cast(char*, propdata), items_read+1);
+            X11_XFree(propdata);
         } else {
             title = SDL_strdup("");
         }
@@ -702,67 +707,39 @@ X11_SetWindowTitle(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
     Display *display = data->videodata->display;
-    XTextProperty titleprop, iconprop;
+    XTextProperty titleprop;
     Status status;
-    const char *title = window->title;
-    const char *icon = NULL;
+    const char *title = window->title ? window->title : "";
+    char *title_locale = NULL;
 
 #ifdef X_HAVE_UTF8_STRING
     Atom _NET_WM_NAME = data->videodata->_NET_WM_NAME;
-    Atom _NET_WM_ICON_NAME = data->videodata->_NET_WM_ICON_NAME;
 #endif
 
-    if (title != NULL) {
-        char *title_locale = SDL_iconv_utf8_locale(title);
-        if (!title_locale) {
-            SDL_OutOfMemory();
-            return;
-        }
-        status = X11_XStringListToTextProperty(&title_locale, 1, &titleprop);
-        SDL_free(title_locale);
-        if (status) {
-            X11_XSetTextProperty(display, data->xwindow, &titleprop, XA_WM_NAME);
+    title_locale = SDL_iconv_utf8_locale(title);
+    if (!title_locale) {
+        SDL_OutOfMemory();
+        return;
+    }
+
+    status = X11_XStringListToTextProperty(&title_locale, 1, &titleprop);
+    SDL_free(title_locale);
+    if (status) {
+        X11_XSetTextProperty(display, data->xwindow, &titleprop, XA_WM_NAME);
+        X11_XFree(titleprop.value);
+    }
+#ifdef X_HAVE_UTF8_STRING
+    if (SDL_X11_HAVE_UTF8) {
+        status = X11_Xutf8TextListToTextProperty(display, (char **) &title, 1,
+                                            XUTF8StringStyle, &titleprop);
+        if (status == Success) {
+            X11_XSetTextProperty(display, data->xwindow, &titleprop,
+                                 _NET_WM_NAME);
             X11_XFree(titleprop.value);
         }
-#ifdef X_HAVE_UTF8_STRING
-        if (SDL_X11_HAVE_UTF8) {
-            status =
-                X11_Xutf8TextListToTextProperty(display, (char **) &title, 1,
-                                            XUTF8StringStyle, &titleprop);
-            if (status == Success) {
-                X11_XSetTextProperty(display, data->xwindow, &titleprop,
-                                 _NET_WM_NAME);
-                X11_XFree(titleprop.value);
-            }
-        }
-#endif
     }
-    if (icon != NULL) {
-        char *icon_locale = SDL_iconv_utf8_locale(icon);
-        if (!icon_locale) {
-            SDL_OutOfMemory();
-            return;
-        }
-        status = X11_XStringListToTextProperty(&icon_locale, 1, &iconprop);
-        SDL_free(icon_locale);
-        if (status) {
-            X11_XSetTextProperty(display, data->xwindow, &iconprop,
-                             XA_WM_ICON_NAME);
-            X11_XFree(iconprop.value);
-        }
-#ifdef X_HAVE_UTF8_STRING
-        if (SDL_X11_HAVE_UTF8) {
-            status =
-                X11_Xutf8TextListToTextProperty(display, (char **) &icon, 1,
-                                            XUTF8StringStyle, &iconprop);
-            if (status == Success) {
-                X11_XSetTextProperty(display, data->xwindow, &iconprop,
-                                 _NET_WM_ICON_NAME);
-                X11_XFree(iconprop.value);
-            }
-        }
 #endif
-    }
+
     X11_XFlush(display);
 }
 
@@ -925,45 +902,31 @@ X11_SetWindowSize(_THIS, SDL_Window * window)
     X11_XFlush(display);
 }
 
-/* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
 int
-X11_GetWindowBordersSize(_THIS, SDL_Window * window, SDL_Rect * borders)
+X11_GetWindowBordersSize(_THIS, SDL_Window * window, int *top, int *left, int *bottom, int *right)
 {
     SDL_WindowData *data = (SDL_WindowData *)window->driverdata;
-    SDL_DisplayData *displaydata =
-        (SDL_DisplayData *) SDL_GetDisplayForWindow(window)->driverdata;
     Display *display = data->videodata->display;
+    Atom _NET_FRAME_EXTENTS = X11_XInternAtom(display, "_NET_FRAME_EXTENTS", 0);
+    Atom type;
+    int format;
+    unsigned long nitems, bytes_after;
+    unsigned char *property;
     int result = -1;
 
-    /* assume that the caller sanitized the parameters */
-    SDL_assert(borders);
-    SDL_assert(borders->x == 0);
-    SDL_assert(borders->y == 0);
-    SDL_assert(borders->w == 0);
-    SDL_assert(borders->h == 0);
-    
-    if (data->xwindow) {
-        Atom _net_frame_extents = X11_XInternAtom(display, "_NET_FRAME_EXTENTS", 0);
-        Atom type;
-        int format;
-        unsigned long nitems, bytes_after;
-        unsigned char *property;
-        if (X11_XGetWindowProperty(display, data->xwindow,
-                _net_frame_extents, 0, 16, 0,
-                XA_CARDINAL, &type, &format,
-                &nitems, &bytes_after, &property) == Success) {
-            if (type != None && nitems == 4)
-            {
-                borders->x = ((long*)property)[0];
-                borders->w = ((long*)property)[1];
-                borders->y = ((long*)property)[2];
-                borders->h = ((long*)property)[3];
-                result = 0;
-            }
-            X11_XFree(property);
+    if (X11_XGetWindowProperty(display, data->xwindow, _NET_FRAME_EXTENTS,
+                               0, 16, 0, XA_CARDINAL, &type, &format,
+                               &nitems, &bytes_after, &property) == Success) {
+        if (type != None && nitems == 4) {
+            *left = (int) (((long*)property)[0]);
+            *right = (int) (((long*)property)[1]);
+            *top = (int) (((long*)property)[2]);
+            *bottom = (int) (((long*)property)[3]);
+            result = 0;
         }
+        X11_XFree(property);
     }
+
     return result;
 }
 
@@ -971,14 +934,12 @@ int
 X11_SetWindowOpacity(_THIS, SDL_Window * window, float opacity)
 {
     SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
-    SDL_DisplayData *displaydata =
-        (SDL_DisplayData *) SDL_GetDisplayForWindow(window)->driverdata;
     Display *display = data->videodata->display;
     Atom _NET_WM_WINDOW_OPACITY = data->videodata->_NET_WM_WINDOW_OPACITY;
-
     const Uint32 FullyOpaque = 0xffffffff;
-    Uint32 x11_opacity = 0;
-    if (opacity > 0) {
+    long x11_opacity = 0;
+
+    if (opacity > 0.0f) {
         if (opacity < 1.0f) {
             x11_opacity = (Uint32)(opacity * (float)FullyOpaque);
         } else {
@@ -992,28 +953,11 @@ X11_SetWindowOpacity(_THIS, SDL_Window * window, float opacity)
         X11_XChangeProperty(display, data->xwindow, _NET_WM_WINDOW_OPACITY, XA_CARDINAL, 32,
             PropModeReplace, (unsigned char *)&x11_opacity, 1);
     }
-}
 
-int 
-X11_SetWindowInputState(_THIS, SDL_Window * window, SDL_bool enable) {
-    SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
-    Display *display = data->videodata->display;
-
-    XWMHints* hints = X11_XAllocWMHints();
-    if(enable) {
-      hints->input = True;
-    } else {
-      hints->input = False;
-    }
-    hints->flags = InputHint;
-    
-    X11_XSetWMHints(display, data->xwindow, hints);
-    X11_XFree(hints);
-    X11_XFlush(display);
     return 0;
 }
 
-int
+int 
 X11_SetWindowModalFor(_THIS, SDL_Window * modal_window, SDL_Window * parent_window) {
     SDL_WindowData *data = (SDL_WindowData *) modal_window->driverdata;
     SDL_WindowData *parent_data = (SDL_WindowData *) parent_window->driverdata;
@@ -1022,8 +966,19 @@ X11_SetWindowModalFor(_THIS, SDL_Window * modal_window, SDL_Window * parent_wind
     X11_XSetTransientForHint(display, data->xwindow, parent_data->xwindow);
     return 0;
 }
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG END */
+
+int
+X11_SetWindowInputFocus(_THIS, SDL_Window * window) 
+{
+    if (X11_IsWindowMapped(_this, window)) {
+        SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
+        Display *display = data->videodata->display;
+        X11_XSetInputFocus(display, data->xwindow, RevertToNone, CurrentTime);
+        X11_XFlush(display);
+        return 0;
+    }
+    return -1;
+}
 
 void
 X11_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered)
@@ -1091,8 +1046,8 @@ X11_HideWindow(_THIS, SDL_Window * window)
     }
 }
 
-int
-X11_SetWindowActive(_THIS, SDL_Window * window)
+static void
+SetWindowActive(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
     SDL_DisplayData *displaydata =
@@ -1116,9 +1071,7 @@ X11_SetWindowActive(_THIS, SDL_Window * window)
                    SubstructureNotifyMask | SubstructureRedirectMask, &e);
 
         X11_XFlush(display);
-        return 0;
     }
-    return -1;
 }
 
 void
@@ -1128,7 +1081,7 @@ X11_RaiseWindow(_THIS, SDL_Window * window)
     Display *display = data->videodata->display;
 
     X11_XRaiseWindow(display, data->xwindow);
-    X11_SetWindowActive(_this, window);
+    SetWindowActive(_this, window);
     X11_XFlush(display);
 }
 
@@ -1194,10 +1147,10 @@ X11_RestoreWindow(_THIS, SDL_Window * window)
 {
     SetWindowMaximized(_this, window, SDL_FALSE);
     X11_ShowWindow(_this, window);
-    X11_SetWindowActive(_this, window);
+    SetWindowActive(_this, window);
 }
 
-/* This asks the Window Manager to handle fullscreen for us. Most don't do it right, though. */
+/* This asks the Window Manager to handle fullscreen for us. This is the modern way. */
 static void
 X11_SetWindowFullscreenViaWM(_THIS, SDL_Window * window, SDL_VideoDisplay * _display, SDL_bool fullscreen)
 {
@@ -1262,12 +1215,10 @@ X11_SetWindowFullscreenViaWM(_THIS, SDL_Window * window, SDL_VideoDisplay * _dis
         }
     }
 
-    /* EG BEGIN */
     if (!fullscreen && (window->flags & SDL_WINDOW_MAXIMIZED) == 0) {
         /* Fullscreen windows sometimes end up being maximized without us knowing - this kludge fixes it. */
         SetWindowMaximized(_this, window, SDL_FALSE);
     }
-    /* EG END */
 
     X11_XFlush(display);
 }
@@ -1549,7 +1500,6 @@ void
 X11_DestroyWindow(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
-    window->driverdata = NULL;
 
     if (data) {
         SDL_VideoData *videodata = (SDL_VideoData *) data->videodata;
@@ -1579,6 +1529,7 @@ X11_DestroyWindow(_THIS, SDL_Window * window)
         }
         SDL_free(data);
     }
+    window->driverdata = NULL;
 }
 
 SDL_bool

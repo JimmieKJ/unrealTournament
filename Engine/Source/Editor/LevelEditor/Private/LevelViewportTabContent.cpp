@@ -48,7 +48,7 @@ void FLevelViewportTabContent::Initialize(TSharedPtr<class SLevelEditor> InParen
 
 	FString LayoutTypeString;
 	if(LayoutString.IsEmpty() ||
-		!GConfig->GetString(*IniSection, *(InLayoutString + TEXT(".LayoutType")), LayoutTypeString, GEditorUserSettingsIni))
+		!GConfig->GetString(*IniSection, *(InLayoutString + TEXT(".LayoutType")), LayoutTypeString, GEditorPerProjectIni))
 	{
 		LayoutTypeString = LevelViewportConfigurationNames::FourPanes2x2.ToString();
 	}
@@ -123,7 +123,7 @@ void FLevelViewportTabContent::SaveLayoutString(const FString InLayoutString) co
 		FString LayoutTypeString = ActiveLevelViewportLayout->GetLayoutTypeName().ToString();
 
 		const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
-		GConfig->SetString(*IniSection, *(InLayoutString + TEXT(".LayoutType")), *LayoutTypeString, GEditorUserSettingsIni);
+		GConfig->SetString(*IniSection, *(InLayoutString + TEXT(".LayoutType")), *LayoutTypeString, GEditorPerProjectIni);
 
 		ActiveLevelViewportLayout->SaveLayoutString(InLayoutString);
 	}

@@ -13,7 +13,7 @@ USubMovieSceneTrack::USubMovieSceneTrack( const FObjectInitializer& ObjectInitia
 
 UMovieSceneSection* USubMovieSceneTrack::CreateNewSection()
 {
-	return ConstructObject<USubMovieSceneSection>( USubMovieSceneSection::StaticClass(), this, NAME_None, RF_Transactional );
+	return NewObject<USubMovieSceneSection>(this, NAME_None, RF_Transactional);
 }
 
 FName USubMovieSceneTrack::GetTrackName() const

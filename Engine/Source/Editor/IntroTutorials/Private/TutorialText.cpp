@@ -101,8 +101,7 @@ static void ParseTutorialLink(const FString &InternalLink)
 	{
 		FIntroTutorials& IntroTutorials = FModuleManager::GetModuleChecked<FIntroTutorials>(TEXT("IntroTutorials"));
 		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-		const bool bRestart = true;
-		IntroTutorials.LaunchTutorial(Blueprint->GeneratedClass->GetDefaultObject<UEditorTutorial>(), bRestart, MainFrameModule.GetParentWindow());
+		IntroTutorials.LaunchTutorial(Blueprint->GeneratedClass->GetDefaultObject<UEditorTutorial>(), IIntroTutorials::ETutorialStartType::TST_RESTART, MainFrameModule.GetParentWindow());
 
 		if( FEngineAnalytics::IsAvailable() )
 		{
@@ -135,7 +134,7 @@ static void ParseCodeLink(const FString &InternalLink)
 	int32 Col = 0;
 
 	TArray<FString> Tokens;
-	InternalLink.ParseIntoArray(&Tokens, TEXT(","), 0);
+	InternalLink.ParseIntoArray(Tokens, TEXT(","), 0);
 	int32 TokenStringsCount = Tokens.Num();
 	if (TokenStringsCount > 0)
 	{

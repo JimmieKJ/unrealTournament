@@ -5,7 +5,6 @@
 #include "BlueprintGraphClasses.h"
 #include "Kismet2NameValidators.h"
 #include "EdGraphUtilities.h"
-#include "K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 #include "BasicTokenParser.h"
 #include "UnrealMathUtility.h"
 #include "BlueprintEditorUtils.h"
@@ -194,6 +193,12 @@ public:
 	 */
 	virtual FString ToString() const = 0;
 
+	/**
+	 * Variable Guid's are stored in the internal expression and must be 
+	 * converted back to their name when showing the expression in the node's title
+	 */
+	virtual FString ToDisplayString(UBlueprint* InBlueprint) const { return ToString(); };
+
 protected:
 	IFExpressionNode() {}
 };
@@ -226,7 +231,7 @@ public:
 	/** For debug purposes, constructs a textual representation of this expression */
 	virtual FString ToString() const override
 	{
-		if (Token.TokenType == FBasicToken::TOKEN_Identifier)
+		if (Token.TokenType == FBasicToken::TOKEN_Identifier || Token.TokenType == FBasicToken::TOKEN_Guid)
 		{
 			return FString::Printf(TEXT("%s"), Token.Identifier);
 		}
@@ -240,6 +245,24 @@ public:
 		}
 	}
 
+	virtual FString ToDisplayString(UBlueprint* InBlueprint) const
+	{
+		if (Token.TokenType == FBasicToken::TOKEN_Guid)
+		{
+			FGuid VariableGuid;
+			if(FGuid::Parse(FString(Token.Identifier), VariableGuid))
+			{
+				FName VariableName = FBlueprintEditorUtils::FindMemberVariableNameByGuid(InBlueprint, VariableGuid);
+
+				if (VariableName.IsNone())
+				{
+					VariableName = FBlueprintEditorUtils::FindLocalVariableNameByGuid(InBlueprint, VariableGuid);
+				}
+				return VariableName.ToString();
+			}
+		}
+		return ToString();
+	}
 public:
 	/** The base token which this leaf node represents */
 	FBasicToken Token;
@@ -287,6 +310,13 @@ public:
 	{
 		const FString LeftStr = LHS->ToString();
 		const FString RightStr = RHS->ToString();
+		return FString::Printf(TEXT("(%s %s %s)"), *LeftStr, *Operator, *RightStr);
+	}
+
+	virtual FString ToDisplayString(UBlueprint* InBlueprint) const
+	{
+		const FString LeftStr = LHS->ToDisplayString(InBlueprint);
+		const FString RightStr = RHS->ToDisplayString(InBlueprint);
 		return FString::Printf(TEXT("(%s %s %s)"), *LeftStr, *Operator, *RightStr);
 	}
 
@@ -339,6 +369,11 @@ public:
 		return FString::Printf(TEXT("(%s%s)"), *Operator, *RightStr);
 	}
 
+	virtual FString ToDisplayString(UBlueprint* InBlueprint) const
+	{
+		const FString RightStr = RHS->ToDisplayString(InBlueprint);
+		return FString::Printf(TEXT("(%s%s)"), *Operator, *RightStr);
+	}
 public:
 	FString Operator;
 	TSharedRef<IFExpressionNode> RHS;
@@ -392,6 +427,13 @@ public:
 		return FString::Printf(TEXT("(%s ? %s : %s)"), *ConditionStr, *TrueStr, *FalseStr);
 	}
 
+	virtual FString ToDisplayString(UBlueprint* InBlueprint) const
+	{
+		const FString ConditionStr = Condition->ToDisplayString(InBlueprint);
+		const FString TrueStr = TruePart->ToDisplayString(InBlueprint);
+		const FString FalseStr = FalsePart->ToDisplayString(InBlueprint);
+		return FString::Printf(TEXT("(%s ? %s : %s)"), *ConditionStr, *TrueStr, *FalseStr);
+	}
 public:
 	TSharedRef<IFExpressionNode> Condition;
 	TSharedRef<IFExpressionNode> TruePart;
@@ -449,6 +491,24 @@ public:
 		return AsString;
 	}
 
+	virtual FString ToDisplayString(UBlueprint* InBlueprint) const
+	{
+		FString AsString("(");
+		for (TSharedRef<IFExpressionNode> Child : Children)
+		{
+			AsString += Child->ToDisplayString(InBlueprint);
+			if (Child == Children.Last())
+			{
+				AsString += ")";
+			}
+			else 
+			{
+				AsString += ", ";
+			}
+		}
+		return AsString;
+	}
+
 	virtual ~FExpressionList() {}
 
 public:
@@ -494,6 +554,11 @@ public:
 		return FString::Printf(TEXT("(%s%s)"), *FuncName, *ParamsString);
 	}
 
+	virtual FString ToDisplayString(UBlueprint* InBlueprint) const
+	{
+		FString const ParamsString = ParamList->ToDisplayString(InBlueprint);
+		return FString::Printf(TEXT("(%s%s)"), *FuncName, *ParamsString);
+	}
 public:
 	FString FuncName;
 	TSharedRef<FExpressionList> ParamList;
@@ -1202,7 +1267,7 @@ public:
 		if (RootFragment.IsValid())
 		{
 			// connect the final node of the expression with the math-node's output
-			UEdGraphPin* ReturnPin = ExitNode->CreateUserDefinedPin(TEXT("ReturnValue"), RootFragment->GetOutputType());
+			UEdGraphPin* ReturnPin = ExitNode->CreateUserDefinedPin(TEXT("ReturnValue"), RootFragment->GetOutputType(), EGPD_Input);
 			if (!RootFragment->ConnectToInput(ReturnPin, MessageLog))
 			{
 				MessageLog.Error(*LOCTEXT("ResultConnectError", "Failed to connect the generated nodes with expression's result pin: '@@'").ToString(),
@@ -1255,20 +1320,70 @@ public:
 		check(ActiveMessageLog != nullptr);
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
-		if (ExpressionNode.Token.TokenType == FBasicToken::TOKEN_Identifier)
+		if (ExpressionNode.Token.TokenType == FBasicToken::TOKEN_Identifier || ExpressionNode.Token.TokenType == FBasicToken::TOKEN_Guid)
 		{
 			FString const VariableIdentifier = ExpressionNode.Token.Identifier;
 			// first we try to match up variables with existing variable properties on the blueprint
-			if (UProperty* VariableProperty = FindField<UProperty>(TargetBlueprint->SkeletonGeneratedClass, *VariableIdentifier))
+
+			FMemberReference VariableReference;
+			FString VariableName;
+			FGuid VariableGuid;
+
+			if (ExpressionNode.Token.TokenType == FBasicToken::TOKEN_Guid && FGuid::Parse(VariableIdentifier, VariableGuid))
 			{
-				TSharedPtr<FCodeGenFragment_VariableGet> VariableGetFragment = GeneratePropertyFragment(ExpressionNode, VariableProperty, *ActiveMessageLog);
+				// First look the variable up as a Member variable
+				FName VariableFName;
+				VariableFName = FBlueprintEditorUtils::FindMemberVariableNameByGuid(TargetBlueprint, VariableGuid);
+
+				// If the variable was not found, look it up as a local variable
+				if (VariableFName.IsNone())
+				{
+					VariableFName = FBlueprintEditorUtils::FindLocalVariableNameByGuid(TargetBlueprint, VariableGuid);
+					VariableReference.SetLocalMember(VariableFName, CompilingNode->GetGraph()->GetName(), VariableGuid);
+				}
+				else
+				{
+					VariableReference.SetSelfMember(VariableFName);
+				}
+
+				VariableName = VariableFName.ToString();
+			}
+			else 
+			{
+				VariableName = VariableIdentifier;
+
+				// First look the variable up as a Member variable
+				VariableGuid = FBlueprintEditorUtils::FindMemberVariableGuidByName(TargetBlueprint, FName(*VariableName));
+
+				// If the variable was not found, look it up as a local variable
+				if (!VariableGuid.IsValid())
+				{
+					VariableGuid = FBlueprintEditorUtils::FindLocalVariableGuidByName(TargetBlueprint, CompilingNode->GetGraph(), FName(*VariableName));
+					VariableReference.SetLocalMember(FName(*VariableName), CompilingNode->GetGraph()->GetName(), VariableGuid);
+				}
+				else
+				{
+					VariableReference.SetSelfMember(FName(*VariableName));
+				}
+
+				// If we found a valid Guid, change the expression's identifier to be the Guid
+				if (VariableGuid.IsValid())
+				{
+					FCString::Strncpy(ExpressionNode.Token.Identifier, *VariableGuid.ToString(EGuidFormats::DigitsWithHyphensInBraces), NAME_SIZE);
+					ExpressionNode.Token.TokenType = FBasicToken::TOKEN_Guid;
+				}
+			}
+
+			if (UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(TargetBlueprint))
+			{
+				TSharedPtr<FCodeGenFragment_VariableGet> VariableGetFragment = GeneratePropertyFragment(ExpressionNode, VariableProperty, VariableReference, *ActiveMessageLog);
 				if (VariableGetFragment.IsValid())
 				{
 					CompiledFragments.Add(&ExpressionNode, VariableGetFragment);
 				}
 			}
 			// if a variable-get couldn't be created for it, it needs to be an input to the math node
-			else 
+			else if(ExpressionNode.Token.TokenType != FBasicToken::TOKEN_Guid)
 			{
 				CompiledFragments.Add(&ExpressionNode, GenerateInputPinFragment(VariableIdentifier));
 			}
@@ -1477,7 +1592,7 @@ private:
 			// currently, generated expressions ALWAYS take a float (it is the most versatile type)
 			DefaultType.PinCategory = K2Schema->PC_Float;
 			
-			UEdGraphPin* NewInputPin = EntryNode->CreateUserDefinedPin(VariableIdentifier, DefaultType);
+			UEdGraphPin* NewInputPin = EntryNode->CreateUserDefinedPin(VariableIdentifier, DefaultType, EGPD_Output);
 			InputPinFragment = MakeShareable(new FCodeGenFragment_InputPin(NewInputPin));
 		}
 		
@@ -1497,25 +1612,26 @@ private:
      * wrapper is created and returned (to aid in linking the node later).
      *
      * @param  ExpressionContext    The expression node that we're generating this fragment for.
-     * @param  VariableProperty     The variable that the generated UK2Node should access.
+	 * @param  VariableProperty     The variable that the generated UK2Node should access.
+     * @param  VariableReference    Variable reference to assign to the node
      * @return An empty pointer if we failed to generate something, otherwise new variable-get fragment.
      */
-	TSharedPtr<FCodeGenFragment_VariableGet> GeneratePropertyFragment(FTokenWrapperNode& ExpressionContext, UProperty* VariableProperty, FCompilerResultsLog& MessageLog)
+	TSharedPtr<FCodeGenFragment_VariableGet> GeneratePropertyFragment(FTokenWrapperNode& ExpressionContext, UProperty* VariableProperty, FMemberReference& MemberReference, FCompilerResultsLog& MessageLog)
 	{
-		check(ExpressionContext.Token.TokenType == FBasicToken::TOKEN_Identifier);
+		check(ExpressionContext.Token.TokenType == FBasicToken::TOKEN_Identifier || ExpressionContext.Token.TokenType == FBasicToken::TOKEN_Guid);
 		check(VariableProperty != nullptr);
 		UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
 		
 		TSharedPtr<FCodeGenFragment_VariableGet> VariableGetFragment;
 		
 		UClass* VariableAccessClass = TargetBlueprint->SkeletonGeneratedClass;
-		if (UEdGraphSchema_K2::CanUserKismetAccessVariable(VariableProperty, VariableAccessClass, UEdGraphSchema_K2::CannotBeDelegate))
+		if (MemberReference.IsLocalScope() || UEdGraphSchema_K2::CanUserKismetAccessVariable(VariableProperty, VariableAccessClass, UEdGraphSchema_K2::CannotBeDelegate))
 		{
 			FEdGraphPinType VarType;
 			if (K2Schema->ConvertPropertyToPinType(VariableProperty, /*out*/VarType))
 			{
 				UK2Node_VariableGet* NodeTemplate = NewObject<UK2Node_VariableGet>();
-				NodeTemplate->VariableReference.SetSelfMember(VariableProperty->GetFName());
+				NodeTemplate->VariableReference = MemberReference;
 				UK2Node_VariableGet* VariableGetNode = SpawnNodeFromTemplate<UK2Node_VariableGet>(&ExpressionContext, NodeTemplate);
 				
 				VariableGetFragment = MakeShareable(new FCodeGenFragment_VariableGet(VariableGetNode, VarType));
@@ -2289,19 +2405,6 @@ void UK2Node_MathExpression::PostEditChangeProperty(struct FPropertyChangedEvent
 }
 
 //------------------------------------------------------------------------------
-void UK2Node_MathExpression::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	UK2Node_MathExpression* TemplateNode = NewObject<UK2Node_MathExpression>(GetTransientPackage(), GetClass());
-
-	const FString Category = TEXT("");
-	const FText   MenuDesc = LOCTEXT("AddMathExprMenuOption", "Add Math Expression...");
-	const FString Tooltip  = TEXT("Create a new mathematical expression");
-
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, Category, MenuDesc, Tooltip);
-	NodeAction->NodeTemplate = TemplateNode;
-}
-
-//------------------------------------------------------------------------------
 void UK2Node_MathExpression::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
 	// actions get registered under specific object-keys; the idea is that 
@@ -2350,6 +2453,10 @@ void UK2Node_MathExpression::RebuildExpression(FString InExpression)
 		ClearExpression();
 		Expression = InExpression;
 
+		// This should not be sanitized, if anything fails to occur, what the user inputed should be what is displayed
+		CachedDisplayExpression.SetCachedText(FText::FromString(Expression), this);
+		CachedNodeTitle.SetCachedText(GetFullTitle(CachedDisplayExpression), this);
+
 		if (!InExpression.IsEmpty()) // @TODO: is this needed?
 		{
 			// build a expression tree from the string
@@ -2364,7 +2471,13 @@ void UK2Node_MathExpression::RebuildExpression(FString InExpression)
 				// a series of errors being attached to the node).
 				if (!GraphGenerator.GenerateCode(ExpressionRoot.ToSharedRef(), *CachedMessageLog))
 				{
-					CachedMessageLog->Error(*LOCTEXT("MathExprFailedGen", "Failed to generate full expression graph for: '@@'").ToString(), this);
+					CachedMessageLog->Error(*LOCTEXT("MathExprGFailedGen", "Failed to generate full expression graph for: '@@'").ToString(), this);
+				}
+				else
+				{
+					Expression = ExpressionRoot->ToString();
+					CachedDisplayExpression.SetCachedText(FText::FromString(SanitizeDisplayExpression(ExpressionRoot->ToDisplayString(GetBlueprint()))), this);
+					CachedNodeTitle.SetCachedText(GetFullTitle(CachedDisplayExpression), this);
 				}
 
 				if (UK2Node_Tunnel* EntryNode = GetEntryNode())
@@ -2479,12 +2592,27 @@ FText UK2Node_MathExpression::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	}
 	else if (TitleType != ENodeTitleType::FullTitle)
 	{
-		return FText::FromString(Expression);
+		if (CachedDisplayExpression.IsOutOfDate(this))
+		{
+			FExpressionParser Parser;
+			TSharedPtr<IFExpressionNode> ExpressionRoot = Parser.ParseExpression(Expression);
+			if(Parser.IsValid())
+			{
+				CachedDisplayExpression.SetCachedText(FText::FromString(SanitizeDisplayExpression(ExpressionRoot->ToDisplayString(GetBlueprint()))), this);
+			}
+		}
+		return CachedDisplayExpression;
 	}
-	else if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
-		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LOCTEXT("MathExpressionSecondTitleLine", "{0}\nMath Expression"), FText::FromString(Expression));
+		FExpressionParser Parser;
+		TSharedPtr<IFExpressionNode> ExpressionRoot = Parser.ParseExpression(Expression);
+
+		if(Parser.IsValid())
+		{
+			CachedDisplayExpression.SetCachedText(FText::FromString(SanitizeDisplayExpression(ExpressionRoot->ToDisplayString(GetBlueprint()))), this);
+		}
+		CachedNodeTitle.SetCachedText(GetFullTitle(CachedDisplayExpression), this);
 	}
 	return CachedNodeTitle;
 }
@@ -2504,6 +2632,22 @@ void UK2Node_MathExpression::ReconstructNode()
 		RebuildExpression(Expression);
 	}
 	Super::ReconstructNode();
+}
+
+//------------------------------------------------------------------------------
+FString UK2Node_MathExpression::SanitizeDisplayExpression(FString InExpression) const
+{
+	// We do not want the outermost parentheses in the display expression, they add nothing to the logical comprehension
+	InExpression.RemoveFromStart(TEXT("("));
+	InExpression.RemoveFromEnd(TEXT(")"));
+
+	return InExpression;
+}
+
+FText UK2Node_MathExpression::GetFullTitle(FText InExpression) const
+{
+	// FText::Format() is slow, so we cache this to save on performance
+	return FText::Format(LOCTEXT("MathExpressionSecondTitleLine", "{0}\nMath Expression"), InExpression);
 }
 
 #undef LOCTEXT_NAMESPACE

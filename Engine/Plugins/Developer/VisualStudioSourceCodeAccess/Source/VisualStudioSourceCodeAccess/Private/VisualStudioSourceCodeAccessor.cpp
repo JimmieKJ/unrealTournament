@@ -300,7 +300,7 @@ bool FVisualStudioSourceCodeAccessor::OpenVisualStudioFilesInternalViaDTE(const 
 							if ( SUCCEEDED(DTE->get_ActiveDocument(&Document)) &&
 								 SUCCEEDED(Document->get_Selection(&SelectionDispatch)) &&
 								 SUCCEEDED(SelectionDispatch->QueryInterface(&Selection)) &&
-								 SUCCEEDED(Selection->GotoLine(Request.LineNumber, true)) )
+								 SUCCEEDED(Selection->GotoLine(Request.LineNumber, VARIANT_TRUE)) )
 							{
 								if ( !SUCCEEDED(Selection->MoveToLineAndOffset(Request.LineNumber, Request.ColumnNumber, false)) )
 								{
@@ -875,7 +875,7 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 						{
 							const FString ProjectRelativeSourceFilePath = SourceFile.Mid(ModuleNewSourceFiles.ModuleNameAndPath.ModulePath.Len());
 							TArray<FString> SourceFileParts;
-							ProjectRelativeSourceFilePath.ParseIntoArray(&SourceFileParts, TEXT("/"), true);
+							ProjectRelativeSourceFilePath.ParseIntoArray(SourceFileParts, TEXT("/"), true);
 					
 							if (SourceFileParts.Num() == 0)
 							{
@@ -930,6 +930,13 @@ bool FVisualStudioSourceCodeAccessor::AddSourceFiles(const TArray<FString>& Abso
 							{
 								bSuccess &= true;
 							}
+						}
+
+						// Save the updated project to avoid a message when closing VS
+						CComPtr<EnvDTE::Project> Project;
+						if (SUCCEEDED(ModuleProjectFolder->get_ContainingProject(&Project)) && Project)
+						{
+							Project->Save(nullptr);
 						}
 					}
 					else
@@ -1084,7 +1091,7 @@ bool FVisualStudioSourceCodeAccessor::RunVisualStudioAndOpenSolutionAndFiles(con
 
 	FProcHandle WorkerHandle = FPlatformProcess::CreateProc(*ExecutablePath, *Params, true, false, false, nullptr, 0, nullptr, nullptr);
 	bool bSuccess = WorkerHandle.IsValid();
-	WorkerHandle.Close();
+	FPlatformProcess::CloseProc(WorkerHandle);
 	return bSuccess;
 }
 

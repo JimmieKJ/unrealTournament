@@ -11,6 +11,7 @@
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
 #include "Slate/Panels/SUWServerBrowser.h"
+#include "Slate/Panels/SUWReplayBrowser.h"
 #include "Slate/Panels/SUWStatsViewer.h"
 #include "Slate/Panels/SUWCreditsPanel.h"
 #include "Slate/SUWMessageBox.h"
@@ -27,12 +28,17 @@
 #include "Slate/SUWRedirectDialog.h"
 #include "Slate/SUTLoadoutMenu.h"
 #include "Slate/SUTBuyMenu.h"
+#include "Slate/SUWMapVoteDialog.h"
+#include "Slate/SUTReplayWindow.h"
+#include "Slate/SUTReplayMenu.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Base64.h"
 #include "UTGameEngine.h"
+#include "Engine/DemoNetDriver.h"
+#include "UTConsole.h"
 
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
@@ -116,6 +122,17 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 	}
 }
 
+bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	// disallow certain commands in shipping builds
+#if UE_BUILD_SHIPPING
+	if (FParse::Command(&Cmd, TEXT("SHOW")))
+	{
+		return true;
+	}
+#endif
+	return Super::Exec(InWorld, Cmd, Ar);
+}
 
 bool UUTLocalPlayer::IsAFriend(FUniqueNetIdRepl PlayerId)
 {
@@ -226,10 +243,13 @@ void UUTLocalPlayer::ShowMenu()
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
-	
 		if ( IsMenuGame() )
 		{
 			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
+		}
+		else if (IsReplay())
+		{
+			SAssignNew(DesktopSlateWidget, SUTReplayMenu).PlayerOwner(this);
 		}
 		else
 		{
@@ -261,7 +281,8 @@ void UUTLocalPlayer::ShowMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = true;
-			PlayerController->SetInputMode( FInputModeUIOnly() );
+			PlayerController->SetInputMode(FInputModeUIOnly());
+
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -288,11 +309,30 @@ void UUTLocalPlayer::HideMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
 			PlayerController->SetPause(false);
+
+			//Replay window will set its own input mode
+			if (!IsReplay())
+			{
+				PlayerController->SetInputMode(FInputModeGameOnly());
+			}
 		}
 
-		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+		if (IsReplay())
+		{
+			OpenReplayWindow();
+
+			//Temp workaround for the console breaking input
+			UUTConsole* Console = (ViewportClient != nullptr) ? Cast<UUTConsole>(ViewportClient->ViewportConsole) : nullptr;
+			if (Console != nullptr)
+			{
+				Console->ClearReopenMenus();
+			}
+		}
+		else
+		{
+			FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+		}
 
 	}
 	else
@@ -400,6 +440,16 @@ TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
 	}
 
 	return ServerBrowserWidget;
+}
+
+TSharedPtr<class SUWReplayBrowser> UUTLocalPlayer::GetReplayBrowser()
+{
+	if (!ReplayBrowserWidget.IsValid())
+	{
+		SAssignNew(ReplayBrowserWidget, SUWReplayBrowser, this);
+	}
+
+	return ReplayBrowserWidget;
 }
 
 TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
@@ -626,7 +676,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 			if (FParse::Value(FCommandLine::Get(), TEXT("invitesession="), SessionId) && !SessionId.IsEmpty() &&
 				FParse::Value(FCommandLine::Get(), TEXT("invitefrom="), FriendId) && !FriendId.IsEmpty())
 			{
-				JoinFriendSession(FUniqueNetIdString(FriendId), SessionId);
+				JoinFriendSession(FUniqueNetIdString(FriendId), FUniqueNetIdString(SessionId));
 			}
 		}
 	}
@@ -703,7 +753,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
 		ReadELOFromCloud();
-		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false, false);
+		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
 		// query entitlements for UI
 		IOnlineEntitlementsPtr EntitlementsInterface = OnlineSubsystem->GetEntitlementsInterface();
@@ -913,7 +963,7 @@ FString UUTLocalPlayer::GetProfileFilename()
 {
 	if (IsLoggedIn())
 	{
-		return TEXT("user_profile");
+		return TEXT("user_profile_1");
 	}
 
 	return TEXT("local_user_profile");
@@ -1004,7 +1054,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// Create the current profile.
 			if (CurrentProfileSettings == NULL)
 			{
-				CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(), GetTransientPackage());
+				CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
 			}
 
 			TArray<uint8> FileContents;
@@ -1033,7 +1083,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		}
 		else if (CurrentProfileSettings == NULL) // Create a new profile settings object
 		{
-			CurrentProfileSettings = ConstructObject<UUTProfileSettings>(UUTProfileSettings::StaticClass(), GetTransientPackage());
+			CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
 
 			// Set some profile defaults, should be a function call if this gets any larger
 			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
@@ -1077,6 +1127,8 @@ void UUTLocalPlayer::SaveProfileSettings()
 	{
 		CurrentProfileSettings->GatherAllSettings(this);
 		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
+
+		CurrentProfileSettings->bNeedProfileWriteForTokens = false;
 
 		// Build a blob of the profile contents
 		TArray<uint8> FileContents;
@@ -1205,45 +1257,47 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 
 int32 UUTLocalPlayer::GetBaseELORank()
 {
-	// Currently Elo returned is just a representation of DM skill
-	// good enough for initial sorting of players by skill
-	// Will eventually calculate per game type more accurately
-
 	float TotalRating = 0.f;
 	float RatingCount = 0.f;
 	float CurrentRating = 1.f;
-	int32 MatchCount = 0;
+	int32 BestRating = 0;
+	int32 MatchCount = DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed;
+
 	if (DUEL_ELO > 0)
 	{
 		TotalRating += DUEL_ELO;
 		RatingCount += 1.f;
-		MatchCount += DuelMatchesPlayed;
 		CurrentRating = TotalRating / RatingCount;
+		BestRating = (DuelMatchesPlayed > 40) ? FMath::Max(BestRating, DUEL_ELO) : BestRating;
 	}
 
-	// max rating of 5000 if not Duel
-	if ((TDM_ELO > 0) && ((CurrentRating < 5000) || (DuelMatchesPlayed < 50)))
+	if (TDM_ELO > 0)
 	{
-		TotalRating += 0.8f * FMath::Min(TDM_ELO, 5000);
-		RatingCount += 0.8f;
-		MatchCount += TDMMatchesPlayed;
+		TotalRating += TDM_ELO;
+		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
+		BestRating = (TDMMatchesPlayed > 40) ? FMath::Max(BestRating, TDM_ELO) : BestRating;
 	}
 
-	// FFA Elo is the least accurate, weighted lower
+	// FFA Elo is the least accurate, weighted lower @TODO FIXMESTEVE show badge based on current game type
 	// max rating of 2400 based on FFA 
-	if ((FFA_ELO > 0) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed < 40)))
+	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < 40)))
 	{
 		TotalRating += 0.5f * FMath::Min(FFA_ELO, 2400);
 		RatingCount += 0.5f;
-		MatchCount += FFAMatchesPlayed;
 		CurrentRating = TotalRating / RatingCount;
 	}
 
-	// Limit displayed Elo to 400 + 50 * number of matches played, except scaling to 100 * number of duels played if duels played > 10
-	float MaxElo = 400.f + 50.f * MatchCount + FMath::Max(0.f, float(DuelMatchesPlayed) - 10.f) * 50.f * FMath::Clamp((float(DuelMatchesPlayed)-10.f)/40.f, 0.f, 1.f);
-		
-	return FMath::Min(CurrentRating, MaxElo);
+	if ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < 40))
+	{
+		TotalRating += CTF_ELO;
+		RatingCount += 1.f;
+		CurrentRating = TotalRating / RatingCount;
+		BestRating = (CTFMatchesPlayed > 40) ? FMath::Max(BestRating, CTF_ELO) : BestRating;
+	}
+
+	// Limit displayed Elo to 400 + 50 * number of matches played
+	return FMath::Min(FMath::Max(float(BestRating), CurrentRating), 400.f + 50.f * MatchCount);
 }
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
@@ -1517,10 +1571,16 @@ TSharedPtr<SUWFriendsPopup> UUTLocalPlayer::GetFriendsPopup()
 void UUTLocalPlayer::ReturnToMainMenu()
 {
 	HideMenu();
+
+	// Under certain situations (when we fail to load a replay immediately after starting watching it), 
+	//	the replay menu will show up at the last second, and nothing will close it.
+	// This is to make absolutely sure the replay menu doesn't persist into the main menu
+	CloseReplayWindow();
+
 	Exec(GetWorld(), TEXT("disconnect"), *GLog);
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
@@ -1530,6 +1590,9 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 
 	bWantsToConnectAsSpectator = bSpectate;
 	bWantsToFindMatch = bFindMatch;
+
+	ConnectDesiredTeam = DesiredTeam;
+
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
 	if (!UniqueId.IsValid())
 	{
@@ -1592,6 +1655,11 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			}
 
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
+
+			if (ConnectDesiredTeam >= 0)
+			{
+				ConnectionString += FString::Printf(TEXT("?Team=%i"), ConnectDesiredTeam);
+			}
 
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
 			Context.LastURL.RemoveOption(TEXT("QuickStart"));
@@ -1668,7 +1736,7 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 
 }
 
-void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId)
+void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {
 	if (OnlineIdentityInterface.IsValid() && OnlineSessionInterface.IsValid() && OnlinePresenceInterface.IsValid())
 	{
@@ -1685,15 +1753,11 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 				OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
 			}
 
-
-			FString SessionId = bUseLobbySessionId ? LastLobbySessionId : TEXT("");
-
 			TSharedPtr<FOnlineUserPresence> CurrentPresence;
 			OnlinePresenceInterface->GetCachedPresence(*UserId, CurrentPresence);
 			if (CurrentPresence.IsValid())
 			{
 				CurrentPresence->Status.StatusStr = NewPresenceString;
-				CurrentPresence->Status.Properties.Add(HUBSessionIdKey,SessionId);
 				OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 			}
 			else
@@ -1701,7 +1765,6 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 				FOnlineUserPresenceStatus NewStatus;
 				NewStatus.State = EOnlinePresenceState::Online;
 				NewStatus.StatusStr = NewPresenceString;
-				NewStatus.Properties.Add(HUBSessionIdKey, SessionId);
 				OnlinePresenceInterface->SetPresence(*UserId, NewStatus, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 			}
 		}
@@ -1728,7 +1791,7 @@ void UUTLocalPlayer::OnPresenceReceived(const FUniqueNetId& UserId, const TShare
 	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
-void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId)
+void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)
 {
 	JoinFriendSession(FriendId, SessionId);
 }
@@ -1754,14 +1817,14 @@ void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatM
 	}
 }
 
-void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId)
+void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)
 {
 	UE_LOG(UT, Log, TEXT("##########################"));
 	UE_LOG(UT, Log, TEXT("Joining a Friend Session"));
 	UE_LOG(UT, Log, TEXT("##########################"));
 
 	//@todo samz - use FindSessionById instead of FindFriendSession with a pending SessionId
-	PendingFriendInviteSessionId = SessionId;
+	PendingFriendInviteSessionId = SessionId.ToString();
 	PendingFriendInviteFriendId = FriendId.ToString();
 	OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
 	OnlineSessionInterface->FindFriendSession(0, FriendId);
@@ -1872,21 +1935,6 @@ void UUTLocalPlayer::CloseQuickMatch()
 }
 
 #endif
-
-void UUTLocalPlayer::RememberLobby(FString LobbyServerGUID)
-{
-	LastLobbyServerGUID = LobbyServerGUID;
-	if (OnlineSessionInterface.IsValid())
-	{
-		FNamedOnlineSession* Session = OnlineSessionInterface->GetNamedSession(GameSessionName);
-		if (Session)
-		{
-			LastLobbySessionId = Session->SessionInfo->GetSessionId().ToString();
-		}
-		
-	}
-
-}
 
 void UUTLocalPlayer::ShowConnectingDialog()
 {
@@ -2050,4 +2098,92 @@ void UUTLocalPlayer::CloseLoadout()
 
 	}
 #endif
+}
+
+void UUTLocalPlayer::OpenMapVote(AUTGameState* GameState)
+{
+#if !UE_SERVER
+	SAssignNew(MapVoteMenu,SUWMapVoteDialog).PlayerOwner(this).GameState(GameState);
+	OpenDialog( MapVoteMenu.ToSharedRef(), 200 );
+#endif
+}
+void UUTLocalPlayer::CloseMapVote()
+{
+#if !UE_SERVER
+	if (MapVoteMenu.IsValid())
+	{
+		CloseDialog(MapVoteMenu.ToSharedRef());		
+	}
+#endif
+}
+
+void UUTLocalPlayer::OpenReplayWindow()
+{
+#if !UE_SERVER
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		if (!ReplayWindow.IsValid())
+		{
+			SAssignNew(ReplayWindow, SUTReplayWindow)
+				.PlayerOwner(this)
+				.DemoNetDriver(DemoDriver);
+
+			if (ReplayWindow.IsValid())
+			{
+				GEngine->GameViewport->AddViewportWidgetContent(ReplayWindow.ToSharedRef(), -1);
+			}
+
+			if (ReplayWindow.IsValid())
+			{
+				ReplayWindow->SetVisibility(EVisibility::Visible);
+
+				if (PlayerController)
+				{
+					PlayerController->bShowMouseCursor = true;
+					PlayerController->SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(ReplayWindow));
+				}
+			}
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::CloseReplayWindow()
+{
+#if !UE_SERVER
+	if (ReplayWindow.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(ReplayWindow.ToSharedRef());
+		ReplayWindow.Reset();
+
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = false;
+			PlayerController->SetInputMode(FInputModeGameAndUI());
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::ToggleReplayWindow()
+{
+#if !UE_SERVER
+	if (IsReplay())
+	{
+		if (!ReplayWindow.IsValid())
+		{
+			OpenReplayWindow();
+		}
+		else
+		{
+			CloseReplayWindow();
+		}
+	}
+#endif
+}
+
+bool UUTLocalPlayer::IsReplay()
+{
+	return (GetWorld()->DemoNetDriver != nullptr);
 }

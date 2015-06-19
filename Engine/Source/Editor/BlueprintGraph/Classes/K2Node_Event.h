@@ -2,6 +2,8 @@
 
 
 #pragma once
+#include "Core.h"
+#include "Engine/MemberReference.h"
 #include "K2Node_EditablePinBase.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "K2Node_Event.generated.h"
@@ -14,11 +16,15 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 
 	/** Name of function signature that this event implements */
 	UPROPERTY()
-	FName EventSignatureName;
+	FName EventSignatureName_DEPRECATED;
 
 	/** Class that the function signature is from. */
 	UPROPERTY()
-	TSubclassOf<class UObject> EventSignatureClass;
+	TSubclassOf<class UObject> EventSignatureClass_DEPRECATED;
+
+	/** Reference for the function this event is linked to */
+	UPROPERTY()
+	FMemberReference EventReference;
 
 	/** If true, we are actually overriding this function, not making a new event with a signature that matches */
 	UPROPERTY()
@@ -43,7 +49,7 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	// Begin UEdGraphNode interface
 	BLUEPRINTGRAPH_API virtual void AllocateDefaultPins() override;
 	BLUEPRINTGRAPH_API virtual FText GetTooltipText() const override;
-	BLUEPRINTGRAPH_API virtual FString GetKeywords() const override;	
+	BLUEPRINTGRAPH_API virtual FText GetKeywords() const override;	
 	BLUEPRINTGRAPH_API virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	BLUEPRINTGRAPH_API virtual FLinearColor GetNodeTitleColor() const override;
 	BLUEPRINTGRAPH_API virtual bool CanPasteHere(const UEdGraph* TargetGraph) const override;
@@ -66,7 +72,7 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	BLUEPRINTGRAPH_API virtual FString GetDocumentationExcerptName() const override;
 	BLUEPRINTGRAPH_API virtual FNodeHandlingFunctor* CreateNodeHandler(FKismetCompilerContext& CompilerContext) const override;
 	BLUEPRINTGRAPH_API virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
-	BLUEPRINTGRAPH_API virtual FText GetToolTipHeading() const;
+	BLUEPRINTGRAPH_API virtual FText GetToolTipHeading() const override;
 	BLUEPRINTGRAPH_API virtual void GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& OutNodeAttributes ) const override;
 	BLUEPRINTGRAPH_API virtual FText GetMenuCategory() const override;
 	// End UK2Node interface
@@ -74,7 +80,7 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	/** Checks whether the parameters for this event node are compatible with the specified function entry node */
 	BLUEPRINTGRAPH_API virtual bool IsFunctionEntryCompatible(const class UK2Node_FunctionEntry* EntryNode) const;
 	
-	UFunction* FindEventSignatureFunction();
+	BLUEPRINTGRAPH_API UFunction* FindEventSignatureFunction();
 	BLUEPRINTGRAPH_API void UpdateDelegatePin(bool bSilent = false);
 	BLUEPRINTGRAPH_API FName GetFunctionName() const;
 	BLUEPRINTGRAPH_API virtual bool IsUsedByAuthorityOnlyDelegate() const { return false; }
@@ -83,8 +89,10 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	/** Returns localized string describing replication settings. 
 	 *		Calling - whether this function is being called ("sending") or showing implementation ("receiving"). Determined whether we output "Replicated To Server" or "Replicated From Client".
 	 */
-	static FString GetLocalizedNetString(uint32 NetFlags, bool Calling);
+	static FText GetLocalizedNetString(uint32 NetFlags, bool Calling);
 
+	/** Helper function to identify if two Event nodes are the same */
+	static BLUEPRINTGRAPH_API bool AreEventNodesIdentical(const UK2Node_Event* InNodeA, const UK2Node_Event* InNodeB);
 private:
 	/** Constructing FText strings can be costly, so we cache the node's tooltip */
 	FNodeTextCache CachedTooltip;

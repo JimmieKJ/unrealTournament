@@ -78,6 +78,13 @@ public:
 	void AllocatePermanentObjectPool(int32 MaxObjectsNotConsideredByGC);
 
 	/**
+	* Reserves array memory to hold the specified number of objects
+	*
+	* @param MaxObjectsNotConsideredByGC number of objects in the permanent object pool
+	*/
+	void ReserveUObjectPool(int32 InNumObjects);
+
+	/**
 	 * Disables the disregard for GC optimization. Commandlets can't use it.
 	 *
 	 */
@@ -107,7 +114,7 @@ public:
 	 *
 	 * @param	Object Object to allocate an index for
 	 */
-	void AllocateUObjectIndex(class UObjectBase* Object);
+	void AllocateUObjectIndex(class UObjectBase* Object, bool bMergingThreads = false);
 
 	/**
 	 * Returns a UObject index top to the global uobject array
@@ -138,7 +145,7 @@ public:
 		check(Index >= 0);
 		if (Index < ObjObjects.Num())
 		{
-			return ObjObjects[Index];
+			return (UObjectBase*)ObjObjects[Index];
 		}
 		return NULL;
 	}
@@ -257,6 +264,7 @@ public:
 		return ObjLastNonGCIndex + 1;
 	}
 
+#if WITH_EDITOR
 	/**
 	 * Returns the number of actual object indices that are claimed (the total size of the global object array minus
 	 * the number of available object array elements
@@ -265,9 +273,9 @@ public:
 	 */
 	FORCEINLINE int32 GetObjectArrayNumMinusAvailable()
 	{
-		return ObjObjects.Num() - ObjAvailable.Num();
+		return ObjObjects.Num() - ObjAvailableCount.GetValue();
 	}
-
+#endif
 
 	/**
 	 * Clears some internal arrays to get rid of false memory leaks
@@ -346,7 +354,7 @@ public:
 		 */
 		FORCEINLINE UObjectBase* GetObject() const 
 		{ 
-			return Array.ObjObjects[Index];
+			return (UObjectBase*)Array.ObjObjects[Index];
 		}
 		/**
 		 * Iterator advance with ordinary name for clarity in subclasses
@@ -365,7 +373,7 @@ public:
 			return false;
 		}
 	private:
-		/** the array that we are iterating on, probably always GUObjectArray */
+		/** the array that we are iterating on, probably always GetUObjectArray() */
 		const FUObjectArray& Array;
 		/** index of the current element in the object array */
 		int32 Index;
@@ -373,23 +381,31 @@ public:
 
 private:
 
+	typedef TStaticIndirectArrayThreadSafeRead<UObjectBase, 8 * 1024 * 1024 /* Max 8M UObjects */, 16384 /* allocated in 64K/128K chunks */ > TUObjectArray;
+
 	/**
 	 * return the object array for use by debug visualizers
 	 */
-	static TArray<UObjectBase*>* GetObjectArrayForDebugVisualizers();
+	static UObjectBase*** GetObjectArrayForDebugVisualizers();
 
 	// note these variables are left with the Obj prefix so they can be related to the historical GObj versions
 
 	/** First index into objects array taken into account for GC.							*/
-	int32							ObjFirstGCIndex;
+	int32 ObjFirstGCIndex;
 	/** Index pointing to last object created in range disregarded for GC.					*/
-	int32							ObjLastNonGCIndex;
+	int32 ObjLastNonGCIndex;
 	/** If true this is the intial load and we should load objects int the disregarded for GC range.	*/
-	int32							OpenForDisregardForGC;
+	int32 OpenForDisregardForGC;
 	/** Array of all live objects.											*/
-	TArray<UObjectBase*>		ObjObjects;
+	TUObjectArray ObjObjects;
+	/** Synchronization object for all live objects.											*/
+	FCriticalSection ObjObjectsCritical;
 	/** Available object indices.											*/
-	TArray<int32>					ObjAvailable;	
+	TLockFreePointerList<int32> ObjAvailableList;
+#if WITH_EDITOR
+	/** Available object index count.										*/
+	FThreadSafeCounter ObjAvailableCount;
+#endif
 	/**
 	 * Array of things to notify when a UObjectBase is created
 	 */
@@ -401,7 +417,7 @@ private:
 };
 
 /** Global UObject allocator							*/
-extern COREUOBJECT_API FUObjectArray GUObjectArray;
+COREUOBJECT_API FUObjectArray& GetUObjectArray();
 
 /**
 	* Static version of IndexToObject for use with TWeakObjectPtr.
@@ -410,7 +426,7 @@ struct FIndexToObject
 {
 	static FORCEINLINE class UObjectBase* IndexToObject(int32 Index, bool bEvenIfPendingKill)
 	{
-		return GUObjectArray.IndexToObject(Index, bEvenIfPendingKill);
+		return GetUObjectArray().IndexToObject(Index, bEvenIfPendingKill);
 	}
 };
 

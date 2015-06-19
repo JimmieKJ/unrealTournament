@@ -52,6 +52,11 @@ void FDetailItemNode::Initialize()
 		InitGroup();
 	}
 
+	if (Customization.PropertyRow.IsValid() && Customization.PropertyRow->GetForceAutoExpansion())
+	{
+		SetExpansionState(true);
+	}
+
 	// Cache the visibility of customizations that can set it
 	if( Customization.HasCustomWidget() )
 	{	
@@ -133,12 +138,17 @@ bool FDetailItemNode::HasMultiColumnWidget() const
 
 void FDetailItemNode::ToggleExpansion()
 {
-	bIsExpanded = !bIsExpanded;
-	
-	// Expand the child after filtering if it wants to be expanded
-	ParentCategory.Pin()->RequestItemExpanded( AsShared(), bIsExpanded );
+	SetExpansionState( !bIsExpanded );
+}
 
-	OnItemExpansionChanged( bIsExpanded );
+void FDetailItemNode::SetExpansionState(bool bWantsExpanded)
+{
+	bIsExpanded = bWantsExpanded;
+
+	// Expand the child after filtering if it wants to be expanded
+	ParentCategory.Pin()->RequestItemExpanded(AsShared(), bIsExpanded);
+
+	OnItemExpansionChanged(bIsExpanded);
 }
 
 TSharedRef< ITableRow > FDetailItemNode::GenerateNodeWidget( const TSharedRef<STableViewBase>& OwnerTable, const FDetailColumnSizeData& ColumnSizeData, const TSharedRef<IPropertyUtilities>& PropertyUtilities )
@@ -279,14 +289,14 @@ static bool PassesAllFilters( const FDetailLayoutCustomization& InCustomization,
 {	
 	struct Local
 	{
-		static bool StringPassesFilter(const FDetailFilter& InFilter, const FString& InString)
+		static bool StringPassesFilter(const FDetailFilter& InDetailFilter, const FString& InString)
 		{
 			// Make sure the passed string matches all filter strings
 			if( InString.Len() > 0 )
 			{
-				for (int32 TestNameIndex = 0; TestNameIndex < InFilter.FilterStrings.Num(); ++TestNameIndex)
+				for (int32 TestNameIndex = 0; TestNameIndex < InDetailFilter.FilterStrings.Num(); ++TestNameIndex)
 				{
-					const FString& TestName = InFilter.FilterStrings[TestNameIndex];
+					const FString& TestName = InDetailFilter.FilterStrings[TestNameIndex];
 					if ( !InString.Contains(TestName) ) 
 					{
 						return false;

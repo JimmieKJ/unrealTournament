@@ -15,7 +15,8 @@ public class OpenGLDrv : ModuleRules
 				"Engine", 
 				"RHI", 
 				"RenderCore", 
-				"ShaderCore", 
+				"ShaderCore",
+				"UtilityShaders",
 			}
 			);
 

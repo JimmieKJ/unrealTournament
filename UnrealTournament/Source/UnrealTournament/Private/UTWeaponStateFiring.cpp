@@ -40,7 +40,7 @@ void UUTWeaponStateFiring::UpdateTiming()
 
 bool UUTWeaponStateFiring::WillSpawnShot(float DeltaTime)
 {
-	return (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle) < DeltaTime);
+	return (GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode())) && (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle) < DeltaTime);
 }
 
 static float LastShotTime = 0.f;

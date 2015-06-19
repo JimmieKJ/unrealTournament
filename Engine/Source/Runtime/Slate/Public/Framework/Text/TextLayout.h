@@ -9,7 +9,7 @@
 
 #define TEXT_LAYOUT_DEBUG 0
 
-UENUM()
+UENUM( BlueprintType )
 namespace ETextJustify
 {
 	enum Type
@@ -151,6 +151,8 @@ public:
 		FVector2D ActualSize;
 		/** Measured size exclusive of trailing whitespace, as used to perform wrapping on a word boundary */
 		FVector2D TrimmedSize;
+		/** If this break candidate has trailing whitespace, this is the width of the first character of the trailing whitespace */
+		float FirstTrailingWhitespaceCharWidth;
 
 		int16 MaxAboveBaseline;
 		int16 MaxBelowBaseline;
@@ -280,6 +282,7 @@ public:
 
 	FVector2D GetSize() const;
 	FVector2D GetDrawSize() const;
+	FVector2D GetWrappedSize() const;
 
 	float GetWrappingWidth() const;
 	void SetWrappingWidth( float Value );
@@ -451,7 +454,7 @@ private:
 
 	void JustifyLayout();
 
-	void CreateLineViewBlocks( int32 LineModelIndex, const int32 StopIndex, int32& OutRunIndex, int32& OutRendererIndex, int32& OutPreviousBlockEnd, TArray< TSharedRef< ILayoutBlock > >& OutSoftLine );
+	void CreateLineViewBlocks( int32 LineModelIndex, const int32 StopIndex, const float WrappedLineWidth, int32& OutRunIndex, int32& OutRendererIndex, int32& OutPreviousBlockEnd, TArray< TSharedRef< ILayoutBlock > >& OutSoftLine );
 
 	FBreakCandidate CreateBreakCandidate( int32& OutRunIndex, FLineModel& Line, int32 PreviousBreak, int32 CurrentBreak );
 
@@ -468,6 +471,35 @@ protected:
 			Layout = 1<<0,
 			Highlights = 1<<1, 
 		};
+	};
+
+	struct FTextLayoutSize
+	{
+		FTextLayoutSize()
+			: DrawWidth(0.0f)
+			, WrappedWidth(0.0f)
+			, Height(0.0f)
+		{
+		}
+
+		FVector2D GetDrawSize() const
+		{
+			return FVector2D(DrawWidth, Height);
+		}
+
+		FVector2D GetWrappedSize() const
+		{
+			return FVector2D(WrappedWidth, Height);
+		}
+
+		/** Width of the text layout, including any lines which extend beyond the wrapping boundaries (eg, lines with lots of trailing whitespace, or lines with no break candidates) */
+		float DrawWidth;
+
+		/** Width of the text layout after the text has been wrapped, and including the first piece of trailing whitespace for any given soft-wrapped line */
+		float WrappedWidth;
+
+		/** Height of the text layout */
+		float Height;
 	};
 
 	/** The models for the lines of text. A LineModel represents a single string with no manual breaks. */
@@ -495,7 +527,7 @@ protected:
 	float LineHeightPercentage;
 
 	/** The final size of the text layout on screen. */
-	FVector2D DrawSize;
+	FTextLayoutSize TextLayoutSize;
 
 	/** The size of the text layout that can actually be seen from the parent widget */
 	FVector2D ViewSize;

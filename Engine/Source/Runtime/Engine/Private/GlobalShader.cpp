@@ -112,9 +112,11 @@ FShader* FGlobalShaderType::FinishCompileShader(const FShaderCompileJob& Current
 {
 	if (CurrentJob.bSucceeded)
 	{
+		FShaderType* SpecificType = CurrentJob.ShaderType->LimitShaderResourceToThisType() ? CurrentJob.ShaderType : NULL;
+
 		// Reuse an existing resource with the same key or create a new one based on the compile output
 		// This allows FShaders to share compiled bytecode and RHI shader references
-		FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output);
+		FShaderResource* Resource = FShaderResource::FindOrCreateShaderResource(CurrentJob.Output, SpecificType);
 		check(Resource);
 
 		// Find a shader with the same key in memory
@@ -297,9 +299,22 @@ FString SaveGlobalShaderFile(EShaderPlatform Platform, FString SavePath)
 
 	// make the final name
 	FString FullPath = SavePath / GetGlobalShaderCacheFilename(Platform);
-	verify(FFileHelper::SaveArrayToFile(GlobalShaderData, *FullPath));
+	if (!FFileHelper::SaveArrayToFile(GlobalShaderData, *FullPath))
+	{
+		UE_LOG(LogMaterial, Fatal, TEXT("Could not save global shader file to '%s'"), *FullPath);
+	}
 
 	return FullPath;
+}
+
+FString GetGlobalShaderMapDDCKey()
+{
+	return FString(GLOBALSHADERMAP_DERIVEDDATA_VER);
+}
+
+FString GetMaterialShaderMapDDCKey()
+{
+	return FString(MATERIALSHADERMAP_DERIVEDDATA_VER);
 }
 
 /** Creates a string key for the derived data cache entry for the global shader map. */
@@ -325,6 +340,8 @@ void SaveGlobalShaderMapToDerivedDataCache(EShaderPlatform Platform)
 
 TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform, bool bRefreshShaderMap)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("GetGlobalShaderMap"), STAT_GetGlobalShaderMap, STATGROUP_LoadTime);
+
 	// No global shaders needed on dedicated server
 	if (FPlatformProperties::IsServerOnly())
 	{
@@ -427,7 +444,7 @@ TShaderMap<FGlobalShaderType>* GetGlobalShaderMap(EShaderPlatform Platform, bool
 
 				if (Shader)
 				{
-					Shader->InitializeResource();
+					Shader->BeginInitializeResources();
 				}
 			}
 		}

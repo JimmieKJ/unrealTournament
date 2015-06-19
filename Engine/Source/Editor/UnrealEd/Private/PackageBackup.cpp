@@ -220,7 +220,7 @@ bool FAutoPackageBackup::ShouldBackupPackage( const UPackage& InPackage, FString
 bool FAutoPackageBackup::IsPackageBackupEnabled()
 {
 	bool bEnabled = false;
-	GConfig->GetBool( TEXT("FAutoPackageBackup"), TEXT("Enabled"), bEnabled, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("FAutoPackageBackup"), TEXT("Enabled"), bEnabled, GEditorPerProjectIni );
 	return bEnabled;
 }
 
@@ -233,7 +233,7 @@ bool FAutoPackageBackup::IsPackageBackupEnabled()
 int32 FAutoPackageBackup::GetMaxAllowedBackupSpace()
 {
 	int32 MaxSpaceAllowed = 0;
-	if ( GConfig->GetInt( TEXT("FAutoPackageBackup"), TEXT("MaxAllowedSpaceInMB"), MaxSpaceAllowed, GEditorUserSettingsIni ) )
+	if ( GConfig->GetInt( TEXT("FAutoPackageBackup"), TEXT("MaxAllowedSpaceInMB"), MaxSpaceAllowed, GEditorPerProjectIni ) )
 	{
 		// Convert the user stored value from megabytes to bytes; <<= 20 is the same as *= 1024 * 1024
 		MaxSpaceAllowed <<= 20;
@@ -251,7 +251,7 @@ int32 FAutoPackageBackup::GetMaxAllowedBackupSpace()
 int32 FAutoPackageBackup::GetBackupInterval()
 {
 	int32 BackupInterval = 0;
-	if ( GConfig->GetInt( TEXT("FAutoPackageBackup"), TEXT("BackupIntervalInMinutes"), BackupInterval, GEditorUserSettingsIni ) )
+	if ( GConfig->GetInt( TEXT("FAutoPackageBackup"), TEXT("BackupIntervalInMinutes"), BackupInterval, GEditorPerProjectIni ) )
 	{
 		// Convert the user stored value from minutes to seconds
 		BackupInterval *= 60;

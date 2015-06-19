@@ -9,6 +9,9 @@
 #include "UTTimerMessage.h"
 #include "UTReplicatedLoadoutInfo.h"
 #include "UTMutator.h"
+#include "UTReplicatedMapVoteInfo.h"
+#include "UTPickup.h"
+#include "UTArmor.h"
 #include "StatNames.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
@@ -16,7 +19,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 {
 	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();
-	MultiKillDelay = 4.0f;
+	MultiKillDelay = 3.0f;
 	SpawnProtectionTime = 2.5f;
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
@@ -31,6 +34,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_AttackerScore);
 	GameScoreStats.Add(NAME_DefenderScore);
 	GameScoreStats.Add(NAME_SupporterScore);
+	GameScoreStats.Add(NAME_Suicides);
 
 	GameScoreStats.Add(NAME_UDamageTime);
 	GameScoreStats.Add(NAME_BerserkTime);
@@ -40,16 +44,6 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_ArmorVestCount);
 	GameScoreStats.Add(NAME_ArmorPadsCount);
 	GameScoreStats.Add(NAME_HelmetCount);
-
-	GameScoreStats.Add(NAME_MultiKillLevel0);
-	GameScoreStats.Add(NAME_MultiKillLevel1);
-	GameScoreStats.Add(NAME_MultiKillLevel2);
-	GameScoreStats.Add(NAME_MultiKillLevel3);
-	GameScoreStats.Add(NAME_SpreeKillLevel0);
-	GameScoreStats.Add(NAME_SpreeKillLevel1);
-	GameScoreStats.Add(NAME_SpreeKillLevel2);
-	GameScoreStats.Add(NAME_SpreeKillLevel3);
-	GameScoreStats.Add(NAME_SpreeKillLevel4);
 
 	TeamStats.Add(NAME_TeamKills);
 	TeamStats.Add(NAME_UDamageTime);
@@ -100,6 +94,19 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_BestShockCombo);
 	WeaponStats.Add(NAME_AirRox);
 	WeaponStats.Add(NAME_AmazingCombos);
+	WeaponStats.Add(NAME_FlakShreds);
+	WeaponStats.Add(NAME_AirSnot);
+
+	RewardStats.Add(NAME_MultiKillLevel0);
+	RewardStats.Add(NAME_MultiKillLevel1);
+	RewardStats.Add(NAME_MultiKillLevel2);
+	RewardStats.Add(NAME_MultiKillLevel3);
+
+	RewardStats.Add(NAME_SpreeKillLevel0);
+	RewardStats.Add(NAME_SpreeKillLevel1);
+	RewardStats.Add(NAME_SpreeKillLevel2);
+	RewardStats.Add(NAME_SpreeKillLevel3);
+	RewardStats.Add(NAME_SpreeKillLevel4);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -120,6 +127,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
 	DOREPLIFETIME(AUTGameState, AvailableLoadout);
+	DOREPLIFETIME(AUTGameState, HubGuid);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);
@@ -138,6 +146,9 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerDescription, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
+
+	DOREPLIFETIME(AUTGameState, MapVoteList);
+	DOREPLIFETIME(AUTGameState, VoteTimer);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -268,7 +279,7 @@ void AUTGameState::DefaultTimer()
 		}
 	}
 
-	if ((RemainingTime > 0) && !bStopGameClock)
+	if ((RemainingTime > 0) && !bStopGameClock && TimeLimit > 0)
 	{
 		if (IsMatchInProgress())
 		{
@@ -600,16 +611,9 @@ void AUTGameState::ReceivedGameModeClass()
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-			if (UTPC != NULL)
+			if (UTPC != NULL && UTPC->Announcer != NULL)
 			{
-				if (UTPC->RewardAnnouncer != NULL)
-				{
-					UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->RewardAnnouncer);
-				}
-				if (UTPC->StatusAnnouncer != NULL)
-				{
-					UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->StatusAnnouncer);
-				}
+				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->Announcer);
 			}
 		}
 	}
@@ -923,7 +927,7 @@ void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClas
 	}
 }
 
-void AUTGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList)
+void AUTGameState::GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList)
 {
 	TArray<FAssetData> MapAssets;
 	GetAllAssetData(UWorld::StaticClass(), MapAssets);
@@ -932,12 +936,106 @@ void AUTGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<T
 		FString MapPackageName = Asset.PackageName.ToString();
 		// ignore /Engine/ as those aren't real gameplay maps
 		// make sure expected file is really there
-		if ( DefaultGameMode->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
-			IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
+		if ( !MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
 		{
-			static FName NAME_Title(TEXT("Title"));
-			const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
-			MapList.Add(MakeShareable(new FMapListItem(Asset.AssetName.ToString(), (Title != NULL) ? *Title : FString())));
+			// Look to see if this is allowed.
+			bool bMapIsAllowed = AllowedMapPrefixes.Num() == 0;
+			for (int32 i=0; i<AllowedMapPrefixes.Num();i++)
+			{
+				if ( Asset.AssetName.ToString().StartsWith(AllowedMapPrefixes[i] + TEXT("-")) )
+				{
+					bMapIsAllowed = true;
+					break;
+				}
+			}
+
+			if (bMapIsAllowed)
+			{
+				const FString* Title = Asset.TagsAndValues.Find(NAME_MapInfo_Title); 
+				const FString* Author = Asset.TagsAndValues.Find(NAME_MapInfo_Author);
+				const FString* Description = Asset.TagsAndValues.Find(NAME_MapInfo_Description);
+				const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+
+				const FString* OptimalPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalPlayerCount);
+				int32 OptimalPlayerCount = 6;
+				if (OptimalPlayerCountStr != NULL)
+				{
+					OptimalPlayerCount = FCString::Atoi(**OptimalPlayerCountStr);
+				}
+
+				const FString* OptimalTeamPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalTeamPlayerCount);
+				int32 OptimalTeamPlayerCount = 10;
+				if (OptimalTeamPlayerCountStr != NULL)
+				{
+					OptimalTeamPlayerCount = FCString::Atoi(**OptimalTeamPlayerCountStr);
+				}
+
+				MapList.Add(MakeShareable(new FMapListItem( Asset.PackageName.ToString(), (Title != NULL && !Title->IsEmpty()) ? *Title : *Asset.AssetName.ToString(), (Author != NULL) ? *Author : FString(),
+												(Description != NULL) ? *Description : FString(), (Screenshot != NULL) ? *Screenshot : FString(), OptimalPlayerCount, OptimalTeamPlayerCount)));
+			}
+
 		}
 	}
 }
+
+void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference)
+{
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	AUTReplicatedMapVoteInfo* MapVoteInfo = GetWorld()->SpawnActor<AUTReplicatedMapVoteInfo>(Params);
+	if (MapVoteInfo)
+	{
+		MapVoteInfo->MapPackage = MapPackage;
+		MapVoteInfo->MapTitle = MapTitle;
+		MapVoteInfo->MapScreenshotReference = MapScreenshotReference;
+		MapVoteList.Add(MapVoteInfo);
+	}
+}
+
+void AUTGameState::SortVotes()
+{
+	for (int32 i=0; i<MapVoteList.Num()-1; i++)
+	{
+		AUTReplicatedMapVoteInfo* V1 = Cast<AUTReplicatedMapVoteInfo>(MapVoteList[i]);
+		for (int32 j=i+1; j<MapVoteList.Num(); j++)
+		{
+			AUTReplicatedMapVoteInfo* V2 = Cast<AUTReplicatedMapVoteInfo>(MapVoteList[j]);
+			if( V2->VoteCount > V1->VoteCount )
+			{
+				MapVoteList[i] = V2;
+				MapVoteList[j] = V1;
+				V1 = V2;
+			}
+		}
+	}
+}
+
+bool AUTGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList)
+{
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTPickup* Pickup = Cast<AUTPickup>(*It);
+		AUTPickupInventory* PickupInventory = Cast<AUTPickupInventory>(*It);
+
+		if ((PickupInventory && PickupInventory->GetInventoryType() && PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer
+			&& ((PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || PickupInventory->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
+			|| (Pickup && Pickup->bDelayedSpawn && Pickup->RespawnTime >= 0.0f && Pickup->HUDIcon.Texture != nullptr))
+		{
+			if (!Pickup->bOverride_TeamSide)
+			{
+				Pickup->TeamSide = NearestTeamSide(Pickup);
+			}
+			PickupList.Add(Pickup);
+		}
+	}
+
+	//Sort the list by by respawn time 
+	//TODO: powerup priority so different armors sort properly
+	PickupList.Sort([](const AUTPickup& A, const AUTPickup& B) -> bool
+	{
+		return A.RespawnTime > B.RespawnTime;
+	});
+
+	return true;
+}
+

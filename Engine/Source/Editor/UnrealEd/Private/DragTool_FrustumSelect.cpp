@@ -20,12 +20,6 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-/** 
- * Updates the drag tool's end location with the specified delta.  The end location is
- * snapped to the editor constraints if bUseSnapping is true.
- *
- * @param	InDelta		A delta of mouse movement.
- */
 void FDragTool_ActorFrustumSelect::AddDelta( const FVector& InDelta )
 {
 	FIntPoint MousePos;
@@ -36,7 +30,6 @@ void FDragTool_ActorFrustumSelect::AddDelta( const FVector& InDelta )
 
 	const bool bUseHoverFeedback = GEditor != NULL && GetDefault<ULevelEditorViewportSettings>()->bEnableViewportHoverFeedback;
 }
-
 
 void FDragTool_ActorFrustumSelect::StartDrag(FEditorViewportClient* InViewportClient, const FVector& InStart, const FVector2D& InStartScreen)
 {
@@ -55,13 +48,9 @@ void FDragTool_ActorFrustumSelect::StartDrag(FEditorViewportClient* InViewportCl
 
 }
 
-/**
-* Ends a mouse drag behavior (the user has let go of the mouse button).
-*/
 void FDragTool_ActorFrustumSelect::EndDrag()
 {
-	FEditorModeTools& EdModeTools = GLevelEditorModeTools();
-	const bool bGeometryMode = EdModeTools.IsModeActive( FBuiltinEditorModes::EM_Geometry );
+	const bool bGeometryMode = ModeTools->IsModeActive(FBuiltinEditorModes::EM_Geometry);
 
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(LevelViewportClient->Viewport, LevelViewportClient->GetScene(), LevelViewportClient->EngineShowFlags ));
 	FSceneView* SceneView = LevelViewportClient->CalcSceneView(&ViewFamily);
@@ -78,7 +67,7 @@ void FDragTool_ActorFrustumSelect::EndDrag()
 	if( !bShiftDown )
 	{
 		// If the user is selecting, but isn't hold down SHIFT, remove all current selections.
-		GLevelEditorModeTools().SelectNone();
+		ModeTools->SelectNone();
 	}
 
 	// Does an actor have to be fully contained in the box to be selected
@@ -86,7 +75,7 @@ void FDragTool_ActorFrustumSelect::EndDrag()
 	bool bSelectionChanged = false;
 
 	// Let the editor mode try to handle the selection.
-	const bool bEditorModeHandledSelection = GLevelEditorModeTools().FrustumSelect( Frustum, bLeftMouseButtonDown );
+	const bool bEditorModeHandledSelection = ModeTools->FrustumSelect(Frustum, bLeftMouseButtonDown);
 
 	if( !bEditorModeHandledSelection )
 	{
@@ -238,8 +227,7 @@ bool FDragTool_ActorFrustumSelect::IntersectsFrustum( AActor& InActor, const FCo
 {	
 	bool bActorHitByBox = false;
 
-	FEditorModeTools& EdModeTools = GLevelEditorModeTools();
-	const bool bGeometryMode = EdModeTools.IsModeActive(FBuiltinEditorModes::EM_Geometry);
+	const bool bGeometryMode = ModeTools->IsModeActive(FBuiltinEditorModes::EM_Geometry);
 
 	// Check for special cases (like certain show flags that might hide an actor)
 	bool bActorIsHiddenByShowFlags = false;
@@ -275,14 +263,6 @@ bool FDragTool_ActorFrustumSelect::IntersectsFrustum( AActor& InActor, const FCo
 	return bActorHitByBox;
 }
 
-/** 
- * Returns true if the provided BSP node intersects with the provided frustum 
- *
- * @param InModel				The model containing BSP nodes to check
- * @param NodeIndex				The index to a BSP node in the model.  This node is used for the bounds check.
- * @param InFrustum				The frustum to check against.
- * @param bUseStrictSelection	true if the node must be entirely within the frustum
- */
 bool FDragTool_ActorFrustumSelect::IntersectsFrustum( const UModel& InModel, int32 NodeIndex, const FConvexVolume& InFrustum, bool bUseStrictSelection ) const
 {
 	FBox NodeBB;
@@ -297,12 +277,6 @@ bool FDragTool_ActorFrustumSelect::IntersectsFrustum( const UModel& InModel, int
 	return bIntersects && (!bUseStrictSelection || (bUseStrictSelection && bFullyContained));
 }
 
-/** 
- * Calculates a frustum to check actors against 
- * 
- * @param OutFrustum		The created frustum
- * @param bUseBoxFrustum	If true a frustum out of the current dragged box will be created.  false will use the view frustum.
- */
 void FDragTool_ActorFrustumSelect::CalculateFrustum( FSceneView* View, FConvexVolume& OutFrustum, bool bUseBoxFrustum )
 {
 	if( bUseBoxFrustum )
@@ -350,7 +324,6 @@ void FDragTool_ActorFrustumSelect::CalculateFrustum( FSceneView* View, FConvexVo
 	}
 }
 
-/** Adds a hover effect to the passed in actor */
 void FDragTool_ActorFrustumSelect::AddHoverEffect( AActor& InActor )
 {
 	FViewportHoverTarget HoverTarget( &InActor );
@@ -358,7 +331,6 @@ void FDragTool_ActorFrustumSelect::AddHoverEffect( AActor& InActor )
 	FLevelEditorViewportClient::HoveredObjects.Add( HoverTarget );
 }
 
-/** Removes a hover effect from the passed in actor */
 void FDragTool_ActorFrustumSelect::RemoveHoverEffect( AActor& InActor  )
 {
 	FViewportHoverTarget HoverTarget( &InActor );
@@ -370,7 +342,6 @@ void FDragTool_ActorFrustumSelect::RemoveHoverEffect( AActor& InActor  )
 	}
 }
 
-/** Adds a hover effect to the passed in bsp surface */
 void FDragTool_ActorFrustumSelect::AddHoverEffect( UModel& InModel, int32 SurfIndex )
 {
 	FViewportHoverTarget HoverTarget( &InModel, SurfIndex );
@@ -378,7 +349,6 @@ void FDragTool_ActorFrustumSelect::AddHoverEffect( UModel& InModel, int32 SurfIn
 	FLevelEditorViewportClient::HoveredObjects.Add( HoverTarget );
 }
 
-/** Removes a hover effect from the passed in bsp surface */
 void FDragTool_ActorFrustumSelect::RemoveHoverEffect( UModel& InModel, int32 SurfIndex )
 {
 	FViewportHoverTarget HoverTarget( &InModel, SurfIndex );

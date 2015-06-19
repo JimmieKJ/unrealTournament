@@ -34,7 +34,7 @@ TSharedRef<SWidget> UThrobber::RebuildWidget()
 
 	MyThrobber = SNew(SThrobber)
 		.PieceImage(&Image)
-		.NumPieces(NumberOfPieces)
+		.NumPieces(FMath::Clamp(NumberOfPieces, 1, 25))
 		.Animate(GetAnimation());
 
 	return MyThrobber.ToSharedRef();
@@ -44,7 +44,7 @@ void UThrobber::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
 
-	MyThrobber->SetNumPieces(NumberOfPieces);
+	MyThrobber->SetNumPieces(FMath::Clamp(NumberOfPieces, 1, 25));
 	MyThrobber->SetAnimate(GetAnimation());
 }
 
@@ -62,7 +62,7 @@ void UThrobber::SetNumberOfPieces(int32 InNumberOfPieces)
 	NumberOfPieces = InNumberOfPieces;
 	if (MyThrobber.IsValid())
 	{
-		MyThrobber->SetNumPieces(InNumberOfPieces);
+		MyThrobber->SetNumPieces(FMath::Clamp(NumberOfPieces, 1, 25));
 	}
 }
 

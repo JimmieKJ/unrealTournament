@@ -53,7 +53,7 @@ fi
 
 if [ "$UATNoCompileArg" != "-NoCompile" ]; then
   # see if the .csproj exists to be compiled
-	if [ ! -f Source/Programs/AutomationTool/AutomationTool_Mono.csproj ]; then
+	if [ ! -f Source/Programs/AutomationTool/AutomationTool.csproj ]; then
 		echo No project to compile, attempting to use precompiled AutomationTool
 		UATNoCompileArg=-NoCompile
 	else
@@ -68,13 +68,10 @@ if [ "$UATNoCompileArg" != "-NoCompile" ]; then
 		echo Compiling AutomationTool with xbuild
 
 		ARGS="/p:Configuration=Development /p:Platform=AnyCPU /verbosity:quiet /nologo"
-    ARGS="${ARGS} /p:TargetFrameworkProfile="
-		if [ "$(uname)" = "Darwin" ]; then
-		  ARGS="${ARGS} /p:TargetFrameworkVersion=v4.5"
-		fi
+		ARGS="${ARGS} /p:TargetFrameworkProfile="
 
-		echo "xbuild Source/Programs/AutomationTool/AutomationTool_Mono.csproj $ARGS"
-		xbuild Source/Programs/AutomationTool/AutomationTool_Mono.csproj $ARGS
+		echo "xbuild Source/Programs/AutomationTool/AutomationTool.csproj $ARGS"
+		xbuild Source/Programs/AutomationTool/AutomationTool.csproj $ARGS
 		# make sure it succeeded
 		if [ $? -ne 0 ]; then
 			echo RunUAT ERROR: AutomationTool failed to compile.

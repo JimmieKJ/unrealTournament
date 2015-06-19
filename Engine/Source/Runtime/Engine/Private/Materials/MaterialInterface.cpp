@@ -17,7 +17,7 @@ void FMaterialRelevance::SetPrimitiveViewRelevance(FPrimitiveViewRelevance& OutV
 	OutViewRelevance.bDistortionRelevance = bDistortion;
 	OutViewRelevance.bSeparateTranslucencyRelevance = bSeparateTranslucency;
 	OutViewRelevance.bNormalTranslucencyRelevance = bNormalTranslucency;
-	OutViewRelevance.bSubsurfaceProfileRelevance = bSubsurfaceProfile;
+	OutViewRelevance.ShadingModelMaskRelevance = ShadingModelMask;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -50,14 +50,14 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 		const bool bIsLit =  ShadingModel != MSM_Unlit;
 		// Determine the material's view relevance.
 		FMaterialRelevance MaterialRelevance;
+		MaterialRelevance.ShadingModelMask = 1 << ShadingModel;
 		MaterialRelevance.bOpaque = !bIsTranslucent;
 		MaterialRelevance.bMasked = IsMasked();
 		MaterialRelevance.bDistortion = Material->bUsesDistortion && bIsTranslucent;
 		MaterialRelevance.bSeparateTranslucency = bIsTranslucent && Material->bEnableSeparateTranslucency;
 		MaterialRelevance.bNormalTranslucency = bIsTranslucent && !Material->bEnableSeparateTranslucency;
-		MaterialRelevance.bDisableDepthTest = bIsTranslucent && Material->bDisableDepthTest;
-		MaterialRelevance.bSubsurfaceProfile = (Material->MaterialDomain == MD_Surface) && !bIsTranslucent && (ShadingModel == MSM_SubsurfaceProfile);
-
+		MaterialRelevance.bDisableDepthTest = bIsTranslucent && Material->bDisableDepthTest;		
+		MaterialRelevance.bOutputsVelocityInBasePass = Material->bOutputVelocityOnBasePass;		
 		return MaterialRelevance;
 	}
 	else
@@ -319,43 +319,21 @@ void UMaterialInterface::UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy)
 			Settings = LocalSubsurfaceProfile->Settings;
 		}
 
-		// this can be improved, it doesn't support Renderer hot reload
+		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+			UpdateMaterialRenderProxySubsurface,
+			const FSubsurfaceProfileStruct, Settings, Settings,
+			USubsurfaceProfile*, LocalSubsurfaceProfile, LocalSubsurfaceProfile,
+			FMaterialRenderProxy&, Proxy, Proxy,
 		{
-			static bool bFirst = true;
+			uint32 AllocationId = 0;
 
-			if (bFirst)
+			if (LocalSubsurfaceProfile)
 			{
-				bFirst = false;
+				AllocationId = GSubsufaceProfileTextureObject.AddOrUpdateProfile(Settings, LocalSubsurfaceProfile);
 
-				static const FName RendererModuleName("Renderer");
-				IRendererModule& RendererModule = FModuleManager::GetModuleChecked<IRendererModule>(RendererModuleName);
-
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-					UpdateMaterialRenderProxySubsurfaceSetup,
-					IRendererModule&, RendererModule, RendererModule,
-					{
-					GSubsufaceProfileTextureObject.SetRendererModule(&RendererModule);
-				});
+				check(AllocationId >= 0 && AllocationId <= 255);
 			}
-		}
-
-		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
-				UpdateMaterialRenderProxySubsurface,
-				const FSubsurfaceProfileStruct, Settings, Settings,
-				USubsurfaceProfilePointer, LocalSubsurfaceProfile, (USubsurfaceProfilePointer)LocalSubsurfaceProfile,
-				FMaterialRenderProxy&, Proxy, Proxy,
-			{
-				uint32 AllocationId = 0;
-
-				if (LocalSubsurfaceProfile)
-				{
-					AllocationId = GSubsufaceProfileTextureObject.AddOrUpdateProfile(Settings, LocalSubsurfaceProfile);
-
-					check(AllocationId >= 0 && AllocationId <= 255);
-				}
-				Proxy.SetSubsurfaceProfileRT(LocalSubsurfaceProfile);
-			});
-		}
+			Proxy.SetSubsurfaceProfileRT(LocalSubsurfaceProfile);
+		});
 	}
 }

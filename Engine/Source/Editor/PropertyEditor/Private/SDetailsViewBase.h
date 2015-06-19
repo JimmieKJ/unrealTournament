@@ -147,6 +147,11 @@ public:
 	virtual void SetIsPropertyVisibleDelegate(FIsPropertyVisible InIsPropertyVisible) override;
 
 	/**
+	 * Sets a delegate to call to determine if a specific property should be read-only in this instance of the details view
+	 */ 
+	virtual void SetIsPropertyReadOnlyDelegate( FIsPropertyReadOnly InIsPropertyReadOnly ) override;
+
+	/**
 	 * Sets a delegate to call to determine if the properties  editing is enabled
 	 */ 
 	virtual void SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled IsPropertyEditingEnabled) override;
@@ -159,8 +164,8 @@ public:
 	virtual void SetKeyframeHandler( TSharedPtr<class IDetailKeyframeHandler> InKeyframeHandler ) override;
 	virtual TSharedPtr<IDetailKeyframeHandler> GetKeyframeHandler() override;
 
-	virtual void SetExtensionHandler(TSharedPtr<class IDetailPropertyExtensionHandler> InExtensionHandler);
-	virtual TSharedPtr<IDetailPropertyExtensionHandler> GetExtensionHandler();
+	virtual void SetExtensionHandler(TSharedPtr<class IDetailPropertyExtensionHandler> InExtensionHandler) override;
+	virtual TSharedPtr<IDetailPropertyExtensionHandler> GetExtensionHandler() override;
 
 	/**
 	 * Requests that an item in the tree be expanded or collapsed
@@ -234,6 +239,11 @@ public:
 	virtual bool IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const override;
 
 	/**
+	 * @return True if the property is visible
+	 */
+	virtual bool IsPropertyReadOnly( const struct FPropertyAndParent& PropertyAndParent ) const override;
+
+	/**
 	* Sets a delegate which is regardless of the objects being viewed to lay out generic details not specific to any object
 	*/
 	virtual void SetGenericLayoutDetailsDelegate(FOnGetDetailCustomizationInstance OnGetGenericDetails) override;
@@ -246,7 +256,7 @@ public:
 	/**
 	 * @return The thumbnail pool that should be used for thumbnails being rendered in this view
 	 */
-	TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const;
+	TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const override;
 
 	/**
 	 * Returns the property utilities for this view
@@ -264,7 +274,7 @@ public:
 	// SWidget interface
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent) override;
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End of SWidget interface
 
 	/** Saves the expansion state of property nodes for the selected object set */
@@ -381,6 +391,7 @@ protected:
 
 	virtual TSharedPtr<SWidget> GetNameAreaWidget() override;
 	virtual TSharedPtr<SWidget> GetFilterAreaWidget() override;
+	virtual TSharedPtr<class FUICommandList> GetHostCommandList() const override;
 
 	/** 
 	 * Hides or shows properties based on the passed in filter text
@@ -420,6 +431,8 @@ protected:
 	TArray< TSharedRef<IDetailTreeNode> > RootTreeNodes;
 	/** Delegate executed to determine if a property should be visible */
 	FIsPropertyVisible IsPropertyVisibleDelegate;
+	/** Delegate executed to determine if a property should be read-only */
+	FIsPropertyReadOnly IsPropertyReadOnlyDelegate;
 	/** Delegate called to see if a property editing is enabled */
 	FIsPropertyEditingEnabled IsPropertyEditingEnabledDelegate;
 	/** Delegate called when the details panel finishes editing a property (after post edit change is called) */

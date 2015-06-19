@@ -54,7 +54,7 @@ bool FSandboxPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine
 		// Commandline syntax
 		bool bWipeSandbox = false;
 		FPaths::NormalizeFilename(CommandLineDirectory);
-		int32 CommandIndex = CommandLineDirectory.Find( TEXT(":") );
+		int32 CommandIndex = CommandLineDirectory.Find(TEXT(":"), ESearchCase::CaseSensitive);
 		if( CommandIndex != INDEX_NONE )
 		{
 			// Check if absolute path was specified and the ':' refers to drive name
@@ -131,6 +131,9 @@ bool FSandboxPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine
 
 FString FSandboxPlatformFile::ConvertToSandboxPath( const TCHAR* Filename ) const
 {
+	// Mostly for the malloc profiler to flush the data.
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FSandboxPlatformFile::ConvertToSandboxPath"), STAT_SandboxPlatformFile_ConvertToSandboxPath, STATGROUP_LoadTimeVerbose);
+
 	// convert to a standardized path (relative)
 	FString SandboxPath = Filename;
 	FPaths::MakeStandardFilename(SandboxPath);
@@ -283,6 +286,20 @@ FString FSandboxPlatformFile::ConvertToAbsolutePathForExternalAppForWrite( const
 {
 	return ConvertToSandboxPath( Filename );
 }
+
+const FString& FSandboxPlatformFile::GetAbsolutePathToGameDirectory()
+{
+	if (AbsoluteGameDirectory.IsEmpty())
+	{
+		AbsoluteGameDirectory = FPaths::GetProjectFilePath();
+		UE_CLOG(AbsoluteGameDirectory.IsEmpty(), SandboxFile, Fatal, TEXT("SandboxFileWrapper tried to access project path before it was set."));
+		AbsoluteGameDirectory = FPaths::ConvertRelativePathToFull(AbsoluteGameDirectory);
+		// Strip .uproject filename and game directory, keep just to path to the game directory which could simply be the root dir (but not always).
+		AbsoluteGameDirectory = FPaths::GetPath(FPaths::GetPath(AbsoluteGameDirectory));
+	}
+	return AbsoluteGameDirectory;
+}
+
 
 /**
  * Module for the sandbox file

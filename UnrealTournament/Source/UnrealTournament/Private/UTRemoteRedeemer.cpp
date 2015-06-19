@@ -150,7 +150,7 @@ void AUTRemoteRedeemer::OnStop(const FHitResult& Hit)
 
 void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (Role == ROLE_Authority && Driver != OtherActor)
+	if (Role == ROLE_Authority && Driver != OtherActor && !Cast<APhysicsVolume>(OtherActor))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(this, OtherActor))
@@ -431,7 +431,7 @@ void AUTRemoteRedeemer::ForceReplication_Implementation()
 {
 }
 
-bool AUTRemoteRedeemer::IsRelevancyOwnerFor(AActor* ReplicatedActor, AActor* ActorOwner, AActor* ConnectionActor)
+bool AUTRemoteRedeemer::IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* ActorOwner, const AActor* ConnectionActor) const
 {
 	if (ReplicatedActor == ActorOwner)
 	{

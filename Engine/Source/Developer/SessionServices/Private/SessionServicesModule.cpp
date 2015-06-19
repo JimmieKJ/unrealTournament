@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SessionServicesPrivatePCH.h"
+#include "ISessionServicesModule.h"
 #include "ModuleManager.h"
 
 

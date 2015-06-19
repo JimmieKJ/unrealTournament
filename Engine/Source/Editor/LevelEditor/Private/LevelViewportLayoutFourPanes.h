@@ -47,7 +47,7 @@ public:
 	virtual TSharedRef<SWidget> MakeFourPanelWidget(
 		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
 		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
-		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1);
+		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1) override;
 };
 
 
@@ -61,7 +61,7 @@ public:
 	virtual TSharedRef<SWidget> MakeFourPanelWidget(
 		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
 		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
-		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1);
+		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1) override;
 };
 
 
@@ -75,7 +75,7 @@ public:
 	virtual TSharedRef<SWidget> MakeFourPanelWidget(
 		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
 		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
-		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1);
+		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1) override;
 };
 
 
@@ -89,7 +89,7 @@ public:
 	virtual TSharedRef<SWidget> MakeFourPanelWidget(
 		TArray<TSharedPtr< SLevelViewport >>& ViewportWidgets,
 		const FString& ViewportKey0, const FString& ViewportKey1, const FString& ViewportKey2, const FString& ViewportKey3,
-		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1);
+		float PrimarySplitterPercentage, float SecondarySplitterPercentage0, float SecondarySplitterPercentage1) override;
 };
 
 #endif

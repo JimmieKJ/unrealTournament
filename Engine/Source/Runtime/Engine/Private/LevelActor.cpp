@@ -6,6 +6,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Collision.h"
 #include "Engine/DemoNetDriver.h"
+#include "AudioDeviceManager.h"
 
 #if WITH_PHYSX
 	#include "PhysicsEngine/PhysXSupport.h"
@@ -271,6 +272,17 @@ AActor* UWorld::SpawnActor( UClass* Class, FVector const* Location, FRotator con
 		UE_LOG(LogSpawn, Warning, TEXT("SpawnActor failed because we are in the process of tearing down the world"));
 		return NULL;
 	}
+	else if (Location && Location->ContainsNaN())
+	{
+		UE_LOG(LogSpawn, Warning, TEXT("SpawnActor failed because the given location (%s) is invalid"), *Location->ToString());
+		return NULL;
+	}
+	else if (Rotation && Rotation->ContainsNaN())
+	{
+		UE_LOG(LogSpawn, Warning, TEXT("SpawnActor failed because the given rotation (%s) is invalid"), *Rotation->ToString());
+		return NULL;
+		
+	}
 
 	AActor* Template = SpawnParameters.Template;
 	// Use class's default actor as a template.
@@ -307,7 +319,7 @@ AActor* UWorld::SpawnActor( UClass* Class, FVector const* Location, FRotator con
 		// Spawn in the same level as the owner if we have one. @warning: this relies on the outer of an actor being the level.
 		LevelToSpawnIn = (SpawnParameters.Owner != NULL) ? CastChecked<ULevel>(SpawnParameters.Owner->GetOuter()) : CurrentLevel;
 	}
-	AActor* Actor = ConstructObject<AActor>( Class, LevelToSpawnIn, SpawnParameters.Name, SpawnParameters.ObjectFlags, Template );
+	AActor* Actor = NewObject<AActor>(LevelToSpawnIn, Class, SpawnParameters.Name, SpawnParameters.ObjectFlags, Template);
 	check(Actor);
 
 #if WITH_EDITOR
@@ -398,20 +410,21 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 		UE_LOG(LogSpawn, Warning, TEXT("Destroying %s, which doesn't have a valid world pointer"), *ThisActor->GetPathName());
 	}
 
+	// If already on list to be deleted, pretend the call was successful.
+	// We don't want recursive calls to trigger destruction notifications multiple times.
+	if (ThisActor->IsPendingKillPending())
+	{
+		return true;
+	}
+
 	// In-game deletion rules.
-	if( AreActorsInitialized() )
+	if( IsGameWorld() )
 	{
 		// Never destroy the world settings actor. This used to be enforced by bNoDelete and is actually needed for 
 		// seamless travel and network games.
 		if (GetWorldSettings() == ThisActor)
 		{
 			return false;
-		}
-
-		// If already on list to be deleted, pretend the call was successful.
-		if( ThisActor->IsPendingKill() )
-		{
-			return true;
 		}
 
 		// Can't kill if wrong role.
@@ -440,6 +453,8 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 	{
 		ThisActor->Modify();
 	}
+
+	// Prevent recursion
 	ThisActor->bPendingKillPending = true;
 
 	// Notify the texture streaming manager about the destruction of this actor.
@@ -452,11 +467,10 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 	TArray<AActor*> AttachedActors;
 	ThisActor->GetAttachedActors(AttachedActors);
 
-	TInlineComponentArray<USceneComponent*> SceneComponents;
-	ThisActor->GetComponents(SceneComponents);
-
 	if (AttachedActors.Num() > 0)
 	{
+		TInlineComponentArray<USceneComponent*> SceneComponents;
+		ThisActor->GetComponents(SceneComponents);
 
 		for (TArray< AActor* >::TConstIterator AttachedActorIt(AttachedActors); AttachedActorIt; ++AttachedActorIt)
 		{
@@ -487,7 +501,7 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 			OldParentActor->Modify();
 		}
 
-		ThisActor->DetachRootComponentFromParent(false);
+		ThisActor->DetachRootComponentFromParent();
 
 #if WITH_EDITOR
 		if( GIsEditor )
@@ -497,31 +511,18 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 #endif
 	}
 
-	if( ThisActor->IsPendingKill() )
-	{
-		return true;
-	}
-
 	ThisActor->ClearComponentOverlaps();
-
-	if (ThisActor->IsPendingKill())
-	{
-		return true;
-	}
 
 	// If this actor has an owner, notify it that it has lost a child.
 	if( ThisActor->GetOwner() )
 	{
 		ThisActor->SetOwner(NULL);
-		if( ThisActor->IsPendingKill() )
-		{
-			return true;
-		}
 	}
 	// Notify net players that this guy has been destroyed.
-	if( NetDriver )
+	UNetDriver* ActorNetDriver = GEngine->FindNamedNetDriver(this, ThisActor->NetDriverName);
+	if (ActorNetDriver)
 	{
-		NetDriver->NotifyActorDestroyed( ThisActor );
+		ActorNetDriver->NotifyActorDestroyed(ThisActor);
 	}
 
 	if ( DemoNetDriver )
@@ -531,7 +532,16 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 
 	// Remove the actor from the actor list.
 	RemoveActor( ThisActor, bShouldModifyLevel );
-	
+
+	// Invalidate the lighting cache in the Editor.  We need to check for GIsEditor as play has not begun in network game and objects get destroyed on switching levels
+	if ( GIsEditor )
+	{
+		ThisActor->InvalidateLightingCache();
+#if WITH_EDITOR
+		GEngine->BroadcastLevelActorDeleted(ThisActor);
+#endif
+	}
+		
 	// Clean up the actor's components.
 	ThisActor->UnregisterAllComponents();
 
@@ -544,15 +554,6 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 	const bool bRegisterTickFunctions = false;
 	const bool bIncludeComponents = true;
 	ThisActor->RegisterAllActorTickFunctions(bRegisterTickFunctions, bIncludeComponents);
-
-	// Invalidate the lighting cache in the Editor.  We need to check for GIsEditor as play has not begun in network game and objects get destroyed on switching levels
-	if( GIsEditor )
-	{
-		ThisActor->InvalidateLightingCache();
-#if WITH_EDITOR
-		GEngine->BroadcastLevelActorDeleted(ThisActor);
-#endif
-	}
 
 	// Return success.
 	return true;
@@ -688,7 +689,7 @@ bool UWorld::EncroachingBlockingGeometry(AActor* TestActor, FVector TestLocation
 		if (Capsule)
 		{
 			FCollisionQueryParams Params(NAME_EncroachingBlockingGeometry, false, TestActor);
-			bFoundBlockingHit = OverlapMulti(Overlaps, TestLocation, FQuat::Identity, BlockingChannel, FCollisionShape::MakeCapsule(FMath::Max(Capsule->GetScaledCapsuleRadius() - Epsilon, 0.1f), FMath::Max(Capsule->GetScaledCapsuleHalfHeight() - Epsilon, 0.1f)), Params);
+			bFoundBlockingHit = OverlapMultiByChannel(Overlaps, TestLocation, FQuat::Identity, BlockingChannel, FCollisionShape::MakeCapsule(FMath::Max(Capsule->GetScaledCapsuleRadius() - Epsilon, 0.1f), FMath::Max(Capsule->GetScaledCapsuleHalfHeight() - Epsilon, 0.1f)), Params);
 		}
 		else
 		{
@@ -696,13 +697,13 @@ bool UWorld::EncroachingBlockingGeometry(AActor* TestActor, FVector TestLocation
 			if (Sphere)
 			{
 				FCollisionQueryParams Params(NAME_EncroachingBlockingGeometry, false, TestActor);
-				bFoundBlockingHit = OverlapMulti(Overlaps, TestLocation, FQuat::Identity, BlockingChannel, FCollisionShape::MakeSphere(FMath::Max(Sphere->GetScaledSphereRadius() - Epsilon, 0.1f)), Params);
+				bFoundBlockingHit = OverlapMultiByChannel(Overlaps, TestLocation, FQuat::Identity, BlockingChannel, FCollisionShape::MakeSphere(FMath::Max(Sphere->GetScaledSphereRadius() - Epsilon, 0.1f)), Params);
 			}
 			else if (PrimComp->IsRegistered())
 			{
 				// must be registered
 				FComponentQueryParams Params(NAME_EncroachingBlockingGeometry, TestActor);
-				bFoundBlockingHit = ComponentOverlapMulti(Overlaps, PrimComp, TestLocation, TestActor->GetActorRotation(), BlockingChannel, Params);
+				bFoundBlockingHit = ComponentOverlapMultiByChannel(Overlaps, PrimComp, TestLocation, TestActor->GetActorQuat(), BlockingChannel, Params);
 			}
 			else
 			{
@@ -756,7 +757,7 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 	// Only load secondary levels in the Editor, and not for commandlets.
 	if( (!IsRunningCommandlet() || bForce)
 	// Don't do any work for world info actors that are part of secondary levels being streamed in! 
-	&&	!GIsAsyncLoading )
+	&& !IsAsyncLoading())
 	{
 		for( int32 LevelIndex=0; LevelIndex<StreamingLevels.Num(); LevelIndex++ )
 		{
@@ -778,7 +779,7 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 
 
 				bool bAlreadyLoaded = false;
-				UPackage* const LevelPackage = FindObject<UPackage>(NULL, *StreamingLevelWorldAssetPackageName,true);
+				UPackage* LevelPackage = FindObject<UPackage>(NULL, *StreamingLevelWorldAssetPackageName,true);
 				// don't need to do any extra work if the level is already loaded
 				if ( LevelPackage && LevelPackage->IsFullyLoaded() ) 
 				{
@@ -793,7 +794,7 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 					if( FPackageName::IsShortPackageName(StreamingLevelWorldAssetPackageFName) == false )
 					{
 						ULevel::StreamedLevelsOwningWorld.Add(StreamingLevelWorldAssetPackageFName, this);
-						UPackage* const LevelPackage = LoadPackage( NULL, *StreamingLevelWorldAssetPackageName, LOAD_None );
+						LevelPackage = LoadPackage( NULL, *StreamingLevelWorldAssetPackageName, LOAD_None );
 						ULevel::StreamedLevelsOwningWorld.Remove(StreamingLevelWorldAssetPackageFName);
 
 						if( LevelPackage )
@@ -877,11 +878,10 @@ void UWorld::RefreshStreamingLevels( const TArray<class ULevelStreaming*>& InLev
 		for( int32 LevelIndex=0; LevelIndex<InLevelsToRefresh.Num(); LevelIndex++ )
 		{
 			ULevelStreaming* StreamingLevel = InLevelsToRefresh[LevelIndex];
-			ULevel* LoadedLevel = StreamingLevel->GetLoadedLevel();
+			ULevel* LoadedLevel = StreamingLevel ? StreamingLevel->GetLoadedLevel() : nullptr;
 
-			if( StreamingLevel 
-				&&	LoadedLevel 
-				&&	LoadedLevel->bIsVisible )
+			if( LoadedLevel &&
+				LoadedLevel->bIsVisible )
 			{
 				RemoveFromWorld( LoadedLevel );
 			}
@@ -951,6 +951,29 @@ AAudioVolume* UWorld::GetAudioSettings( const FVector& ViewLocation, FReverbSett
 		}
 	}
 	return Volume;
+}
+
+void UWorld::SetAudioDeviceHandle(const uint32 InAudioDeviceHandle)
+{
+	AudioDeviceHandle = InAudioDeviceHandle;
+}
+
+FAudioDevice* UWorld::GetAudioDevice()
+{
+	FAudioDevice* AudioDevice = nullptr;
+	if (GEngine)
+	{
+		class FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+		if (AudioDeviceManager != nullptr)
+		{
+			AudioDevice = AudioDeviceManager->GetAudioDevice(AudioDeviceHandle);
+			if (AudioDevice == nullptr)
+			{
+				AudioDevice = GEngine->GetMainAudioDevice();
+			}
+		}
+	}
+	return AudioDevice;
 }
 
 /**

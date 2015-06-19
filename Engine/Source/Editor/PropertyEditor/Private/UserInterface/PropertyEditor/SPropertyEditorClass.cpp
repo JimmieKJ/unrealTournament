@@ -8,8 +8,8 @@
 #include "PropertyEditor.h"
 #include "SPropertyEditorClass.h"
 #include "SPropertyEditorCombo.h"
-#include "Editor/ClassViewer/Public/ClassViewerModule.h"
-#include "Editor/ClassViewer/Public/ClassViewerFilter.h"
+#include "ClassViewerModule.h"
+#include "ClassViewerFilter.h"
 
 #include "PropertyHandle.h"
 
@@ -27,7 +27,7 @@ public:
 	/** Whether or not abstract classes are allowed. */
 	bool bAllowAbstract;
 
-	bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs )
+	bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs ) override
 	{
 		bool bMatchesFlags = !InClass->HasAnyClassFlags(CLASS_Hidden|CLASS_HideDropDown|CLASS_Deprecated) &&
 			(bAllowAbstract || !InClass->HasAnyClassFlags(CLASS_Abstract));

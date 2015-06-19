@@ -7,7 +7,7 @@
 #include "UTComboBoxString.generated.h"
 
 UCLASS()
-class UUTComboBoxString : public UComboBoxString
+class UNREALTOURNAMENT_API UUTComboBoxString : public UComboBoxString
 {
 	GENERATED_BODY()
 

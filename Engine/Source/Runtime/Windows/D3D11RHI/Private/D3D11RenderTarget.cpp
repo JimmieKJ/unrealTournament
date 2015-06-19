@@ -8,126 +8,7 @@
 #include "BatchedElements.h"
 #include "ScreenRendering.h"
 #include "RHIStaticStates.h"
-
-namespace
-{
-	struct FDummyResolveParameter {};
-
-	class FResolveDepthPS : public FGlobalShader
-	{
-		DECLARE_SHADER_TYPE(FResolveDepthPS,Global);
-	public:
-
-		typedef FDummyResolveParameter FParameter;
-
-		static bool ShouldCache(EShaderPlatform Platform) { return Platform == SP_PCD3D_SM5; }
-
-		FResolveDepthPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-			FGlobalShader(Initializer)
-		{
-			UnresolvedSurface.Bind(Initializer.ParameterMap,TEXT("UnresolvedSurface"), SPF_Mandatory);
-		}
-		FResolveDepthPS() {}
-
-		void SetParameters(FRHICommandList& RHICmdList, ID3D11DeviceContext* Direct3DDeviceContext,FParameter)
-		{
-		}
-
-		virtual bool Serialize(FArchive& Ar)
-		{
-			bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-			Ar << UnresolvedSurface;
-			return bShaderHasOutdatedParameters;
-		}
-
-		FShaderResourceParameter UnresolvedSurface;
-	};
-	IMPLEMENT_SHADER_TYPE(,FResolveDepthPS,TEXT("ResolvePixelShader"),TEXT("MainDepth"),SF_Pixel);
-
-
-	class FResolveDepthNonMSPS : public FGlobalShader
-	{
-		DECLARE_SHADER_TYPE(FResolveDepthNonMSPS,Global);
-	public:
-
-		typedef FDummyResolveParameter FParameter;
-
-		static bool ShouldCache(EShaderPlatform Platform) { return GetMaxSupportedFeatureLevel(Platform) <= ERHIFeatureLevel::SM4; }
-
-		FResolveDepthNonMSPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-		FGlobalShader(Initializer)
-		{
-			UnresolvedSurface.Bind(Initializer.ParameterMap,TEXT("UnresolvedSurfaceNonMS"), SPF_Mandatory);
-		}
-		FResolveDepthNonMSPS() {}
-
-		void SetParameters(FRHICommandList& RHICmdList, ID3D11DeviceContext* Direct3DDeviceContext,FParameter)
-		{
-		}
-
-		virtual bool Serialize(FArchive& Ar)
-		{
-			bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-			Ar << UnresolvedSurface;
-			return bShaderHasOutdatedParameters;
-		}
-
-		FShaderResourceParameter UnresolvedSurface;
-	};
-	IMPLEMENT_SHADER_TYPE(,FResolveDepthNonMSPS,TEXT("ResolvePixelShader"),TEXT("MainDepthNonMS"),SF_Pixel);
-
-	class FResolveSingleSamplePS : public FGlobalShader
-	{
-		DECLARE_SHADER_TYPE(FResolveSingleSamplePS,Global);
-	public:
-
-		typedef uint32 FParameter;
-
-		static bool ShouldCache(EShaderPlatform Platform) { return Platform == SP_PCD3D_SM5; }
-
-		FResolveSingleSamplePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-			FGlobalShader(Initializer)
-		{
-			UnresolvedSurface.Bind(Initializer.ParameterMap,TEXT("UnresolvedSurface"), SPF_Mandatory);
-			SingleSampleIndex.Bind(Initializer.ParameterMap,TEXT("SingleSampleIndex"), SPF_Mandatory);
-		}
-		FResolveSingleSamplePS() {}
-
-		void SetParameters(FRHICommandList& RHICmdList, ID3D11DeviceContext* Direct3DDeviceContext,uint32 SingleSampleIndexValue)
-		{
-			SetShaderValue(RHICmdList, GetPixelShader(),SingleSampleIndex,SingleSampleIndexValue);
-		}
-
-		virtual bool Serialize(FArchive& Ar)
-		{
-			bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-			Ar << UnresolvedSurface;
-			Ar << SingleSampleIndex;
-			return bShaderHasOutdatedParameters;
-		}
-
-		FShaderResourceParameter UnresolvedSurface;
-		FShaderParameter SingleSampleIndex;
-	};
-	IMPLEMENT_SHADER_TYPE(,FResolveSingleSamplePS,TEXT("ResolvePixelShader"),TEXT("MainSingleSample"),SF_Pixel);
-
-	/**
-	 * A vertex shader for rendering a textured screen element.
-	 */
-	class FResolveVS : public FGlobalShader
-	{
-		DECLARE_SHADER_TYPE(FResolveVS,Global);
-	public:
-
-		static bool ShouldCache(EShaderPlatform Platform) { return true; }
-
-		FResolveVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
-			FGlobalShader(Initializer)
-		{}
-		FResolveVS() {}
-	};
-	IMPLEMENT_SHADER_TYPE(,FResolveVS,TEXT("ResolveVertexShader"),TEXT("Main"),SF_Vertex);
-}
+#include "ResolveShader.h"
 
 static inline DXGI_FORMAT ConvertTypelessToUnorm(DXGI_FORMAT Format)
 {
@@ -254,12 +135,16 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 	TShaderMapRef<TPixelShader> ResolvePixelShader(ShaderMap);
 	SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, ResolveBoundShaderState, GScreenVertexDeclaration.VertexDeclarationRHI, *ResolveVertexShader, *ResolvePixelShader);
 
-	ResolvePixelShader->SetParameters(RHICmdList, Direct3DDeviceContext,PixelShaderParameter);
+	ResolvePixelShader->SetParameters(RHICmdList, PixelShaderParameter);
 	RHICmdList.Flush(); // always call flush when using a command list in RHI implementations before doing anything else. This is super hazardous.
 
 	// Set the source texture.
 	const uint32 TextureIndex = ResolvePixelShader->UnresolvedSurface.GetBaseIndex();
-	SetShaderResourceView<SF_Pixel>(SourceTexture, SourceTexture->GetShaderResourceView(), TextureIndex);
+
+	if (SourceTexture)
+	{
+		SetShaderResourceView<SF_Pixel>(SourceTexture, SourceTexture->GetShaderResourceView(), TextureIndex);
+	}
 
 	// Generate the vertices used
 	FScreenVertex Vertices[4];
@@ -313,7 +198,7 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 		return;
 	}
 
-	FRHICommandList_RecursiveHazardous RHICmdList;
+	FRHICommandList_RecursiveHazardous RHICmdList(this);
 
 
 	FD3D11Texture2D* SourceTexture2D = static_cast<FD3D11Texture2D*>(SourceTextureRHI->GetTexture2D());
@@ -322,16 +207,51 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 	FD3D11TextureCube* SourceTextureCube = static_cast<FD3D11TextureCube*>(SourceTextureRHI->GetTextureCube());
 	FD3D11TextureCube* DestTextureCube = static_cast<FD3D11TextureCube*>(DestTextureRHI->GetTextureCube());
 
+	FD3D11Texture3D* SourceTexture3D = static_cast<FD3D11Texture3D*>(SourceTextureRHI->GetTexture3D());
+	FD3D11Texture3D* DestTexture3D = static_cast<FD3D11Texture3D*>(DestTextureRHI->GetTexture3D());
+
+#if CHECK_SRV_TRANSITIONS
+	//check first, as some of the resolve shaders could trigger the resource we're currently resolving.
+	ID3D11Resource* SourceResource = nullptr;
+	int32 ResolveSlice = -1;
+	if (SourceTexture2D)
+	{
+		SourceResource = SourceTexture2D->GetResource();
+	}
+	if (SourceTextureCube)
+	{
+		SourceResource = SourceTextureCube->GetResource();
+		ResolveSlice = ResolveParams.SourceArrayIndex * 6 + ResolveParams.CubeFace;
+	}
+	if (SourceTexture3D)
+	{
+		SourceResource = SourceTexture3D->GetResource();
+	}
+
+	if (SourceResource)
+	{
+		// if we don't have specific resolve data remove all references.
+		// this is helpful when you clear many mips/slices but only want to do one resolve.
+		if (ResolveParams.MipIndex == -1 && ResolveParams.SourceArrayIndex == -1)
+		{
+			UnresolvedTargets.Remove(SourceResource);
+		}
+		else
+		{
+			UnresolvedTargets.Remove(SourceResource, FUnresolvedRTInfo(SourceTextureRHI->GetName(), ResolveParams.MipIndex, 1, ResolveSlice, 1));
+		}
+	}
+#endif
+		
 	if(SourceTexture2D && DestTexture2D)
 	{
 		check(!SourceTextureCube && !DestTextureCube);
-
 		if(SourceTexture2D != DestTexture2D)
 		{
 			GPUProfilingData.RegisterGPUWork();
 		
 			if(FeatureLevel == D3D_FEATURE_LEVEL_11_0 
-			&& DestTexture2D->GetDepthStencilView(DSAT_Writable)
+			&& DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite)
 			&& SourceTextureRHI->IsMultisampled()
 			&& !DestTextureRHI->IsMultisampled())
 			{
@@ -344,7 +264,7 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 					SourceTexture2D,
 					DestTexture2D,
 					DestTexture2D->GetRenderTargetView(0, -1),
-					DestTexture2D->GetDepthStencilView(DSAT_Writable),
+					DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite),
 					ResolveTargetDesc,
 					GetDefaultRect(ResolveParams.Rect,DestTexture2D->GetSizeX(),DestTexture2D->GetSizeY()),
 					GetDefaultRect(ResolveParams.Rect,DestTexture2D->GetSizeX(),DestTexture2D->GetSizeY()),
@@ -353,7 +273,7 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 					);
 			}
 			else if(FeatureLevel == D3D_FEATURE_LEVEL_10_0 
-					&& DestTexture2D->GetDepthStencilView(DSAT_Writable))
+				&& DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite))
 			{
 				D3D11_TEXTURE2D_DESC ResolveTargetDesc;
 
@@ -364,7 +284,7 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 					SourceTexture2D,
 					DestTexture2D,
 					NULL,
-					DestTexture2D->GetDepthStencilView(DSAT_Writable),
+					DestTexture2D->GetDepthStencilView(FExclusiveDepthStencil::DepthWrite_StencilWrite),
 					ResolveTargetDesc,
 					GetDefaultRect(ResolveParams.Rect,DestTexture2D->GetSizeX(),DestTexture2D->GetSizeY()),
 					GetDefaultRect(ResolveParams.Rect,DestTexture2D->GetSizeX(),DestTexture2D->GetSizeY()),
@@ -415,12 +335,12 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 	}
 	else if(SourceTextureCube && DestTextureCube)
 	{
-		check(!SourceTexture2D && !DestTexture2D);
-		
+		check(!SourceTexture2D && !DestTexture2D);			
+
 		if(SourceTextureCube != DestTextureCube)
 		{
 			GPUProfilingData.RegisterGPUWork();
-		
+
 			// Determine the cubemap face being resolved.
 			const uint32 D3DFace = GetD3D11CubeFace(ResolveParams.CubeFace);
 			const uint32 SourceSubresource = D3D11CalcSubresource(ResolveParams.MipIndex, ResolveParams.SourceArrayIndex * 6 + D3DFace, SourceTextureCube->GetNumMips());
@@ -450,6 +370,12 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 		const uint32 D3DFace = GetD3D11CubeFace(ResolveParams.CubeFace);
 		const uint32 Subresource = D3D11CalcSubresource(0, D3DFace, 1);
 		Direct3DDeviceIMContext->CopySubresourceRegion(DestTextureCube->GetResource(), Subresource, 0, 0, 0, SourceTexture2D->GetResource(), 0, NULL);
+	}
+	else if (SourceTexture3D && DestTexture3D)
+	{
+		// bit of a hack.  no one resolves slice by slice and 0 is the default value.  assume for the moment they are resolving the whole texture.
+		check(ResolveParams.SourceArrayIndex == 0);
+		check(SourceTexture3D == DestTexture3D);
 	}
 }
 
@@ -546,6 +472,7 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 		case DXGI_FORMAT_B8G8R8A8_TYPELESS:
 		case DXGI_FORMAT_B8G8R8A8_UNORM:
 		case DXGI_FORMAT_R8G8B8A8_TYPELESS:
+		case DXGI_FORMAT_R8G8B8A8_UNORM:
 		case DXGI_FORMAT_R24G8_TYPELESS:
 		case DXGI_FORMAT_R10G10B10A2_UNORM:
 		case DXGI_FORMAT_R11G11B10_FLOAT:
@@ -566,6 +493,13 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 			break;
 		case DXGI_FORMAT_R32G32B32A32_FLOAT:
 			BytesPerPixel = 16;
+			break;
+		case DXGI_FORMAT_R8_TYPELESS:
+		case DXGI_FORMAT_R8_UNORM:
+		case DXGI_FORMAT_R8_UINT:
+		case DXGI_FORMAT_R8_SNORM:
+		case DXGI_FORMAT_R8_SINT:
+			BytesPerPixel = 1;
 			break;
 	}
 
@@ -731,7 +665,7 @@ static void ConvertRAWSurfaceDataToFColor(DXGI_FORMAT Format, uint32 Width, uint
 			}
 		}
 	}
-	else if(Format == DXGI_FORMAT_R8G8B8A8_TYPELESS)
+	else if(Format == DXGI_FORMAT_R8G8B8A8_TYPELESS || Format == DXGI_FORMAT_R8G8B8A8_UNORM)
 	{
 		// Read the data out of the buffer, converting it from ABGR to ARGB.
 		for(uint32 Y = 0; Y < Height; Y++)
@@ -998,7 +932,7 @@ void FD3D11DynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRec
 	}
 	else
 	{
-		FRHICommandList_RecursiveHazardous RHICmdList;
+		FRHICommandList_RecursiveHazardous RHICmdList(this);
 		ReadSurfaceDataMSAARaw(RHICmdList, TextureRHI, InRect, OutDataRaw, InFlags);
 	}
 

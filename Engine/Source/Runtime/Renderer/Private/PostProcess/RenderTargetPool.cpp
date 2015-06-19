@@ -259,6 +259,15 @@ bool FRenderTargetPool::FindFreeElement(const FPooledRenderTargetDesc& Desc, TRe
 					(FTexture2DRHIRef&)Found->RenderTargetItem.ShaderResourceTexture,
 					Desc.NumSamples
 					);
+
+				if( Desc.NumMips > 1 )
+				{
+					Found->RenderTargetItem.MipSRVs.SetNum( Desc.NumMips );
+					for( uint16 i = 0; i < Desc.NumMips; i++ )
+					{
+						Found->RenderTargetItem.MipSRVs[i] = RHICreateShaderResourceView( (FTexture2DRHIRef&)Found->RenderTargetItem.ShaderResourceTexture, i );
+					}
+				}
 			}
 			else if(Desc.Is3DTexture())
 			{
@@ -686,7 +695,7 @@ FRenderTargetPool::SMemoryStats FRenderTargetPool::ComputeView()
 		{
 			uint32 ColumnX = 0;
 
-			for(int32 ColumnIndex = 0, Num = Colums.Num(); ColumnIndex < Num; ++ColumnIndex)
+			for(int32 ColumnIndex = 0, ColumnsNum = Colums.Num(); ColumnIndex < ColumnsNum; ++ColumnIndex)
 			{
 				const FRTPColumn& RTPColumn = Colums[ColumnIndex];
 
@@ -708,7 +717,7 @@ FRenderTargetPool::SMemoryStats FRenderTargetPool::ComputeView()
 				MemoryStats.TotalColumnSize += ColumnSize;
 				MemoryStats.TotalUsageInBytes += RTPColumn.SizeInBytes;
 				
-				for(int32 EventIndex = 0, Num = RenderTargetPoolEvents.Num(); EventIndex < Num; EventIndex++)
+				for(int32 EventIndex = 0, PoolEventsNum = RenderTargetPoolEvents.Num(); EventIndex < PoolEventsNum; EventIndex++)
 				{
 					FRenderTargetPoolEvent* Event = &RenderTargetPoolEvents[EventIndex];
 
@@ -1201,11 +1210,13 @@ void FRenderTargetPool::DumpMemoryUsage(FOutputDevice& OutputDevice)
 
 uint32 FPooledRenderTarget::AddRef() const
 {
+	check(IsInRenderingThread());
 	return uint32(++NumRefs);
 }
 
 uint32 FPooledRenderTarget::Release() const
 {
+	check(IsInRenderingThread());
 	uint32 Refs = uint32(--NumRefs);
 	if(Refs == 0)
 	{

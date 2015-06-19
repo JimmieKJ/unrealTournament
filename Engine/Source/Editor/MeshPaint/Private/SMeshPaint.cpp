@@ -34,8 +34,10 @@ public:
 	}
 
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-	void Construct( const FArguments& InArgs )
+	void Construct( const FArguments& InArgs, class FEdModeMeshPaint* InMeshPaintEditMode )
 	{	
+		MeshPaintEditMode = InMeshPaintEditMode;
+			
 		ChildSlot
 		[
 			SNew(SBorder)
@@ -288,7 +290,7 @@ private:
 	{
 		FImportVertexTextureHelper ImportVertex;
 		FString Path = TGATextBox->GetText().ToString();
-		ImportVertex.ImportVertexColors(Path, UVValue, LODValue, ImportColorMask);
+		ImportVertex.ImportVertexColors(MeshPaintEditMode->GetModeManager(), Path, UVValue, LODValue, ImportColorMask);
 
 		return FReply::Handled();
 	}
@@ -351,8 +353,11 @@ private:
 	/** The currently selected LOD value */
 	int32 LODValue;
 
-	/* Mask representing the import color channels that are selected */
+	/** Mask representing the import color channels that are selected */
 	uint8 ImportColorMask;
+	
+	/** Mesh paint edit mode */
+	class FEdModeMeshPaint* MeshPaintEditMode;
 };
 
 DECLARE_DELEGATE_OneParam( FOMeshPaintResourceChanged, EMeshPaintResource::Type );
@@ -1063,6 +1068,10 @@ private:
 };
 
 
+FMeshPaintToolKit::FMeshPaintToolKit(class FEdModeMeshPaint* InOwningMode)
+	: MeshPaintEdMode(InOwningMode)
+{
+}
 
 void FMeshPaintToolKit::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
 {
@@ -1076,7 +1085,7 @@ void FMeshPaintToolKit::UnregisterTabSpawners(const TSharedRef<class FTabManager
 
 void FMeshPaintToolKit::Init(const TSharedPtr< class IToolkitHost >& InitToolkitHost)
 {
-	MeshPaintWidgets = SNew(SMeshPaint, SharedThis(this));
+	MeshPaintWidgets = SNew(SMeshPaint, SharedThis(this), MeshPaintEdMode);
 
 	FModeToolkit::Init(InitToolkitHost);
 }
@@ -1093,7 +1102,7 @@ FText FMeshPaintToolKit::GetBaseToolkitName() const
 
 class FEdMode* FMeshPaintToolKit::GetEditorMode() const
 {
-	return GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_MeshPaint);
+	return MeshPaintEdMode;
 }
 
 TSharedPtr<SWidget> FMeshPaintToolKit::GetInlineContent() const
@@ -1107,9 +1116,9 @@ SMeshPaint::~SMeshPaint()
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SMeshPaint::Construct(const FArguments& InArgs, TSharedRef<FMeshPaintToolKit> InParentToolkit)
+void SMeshPaint::Construct(const FArguments& InArgs, TSharedRef<FMeshPaintToolKit> InParentToolkit, class FEdModeMeshPaint* InOwningMode)
 {
-	MeshPaintEditMode = (FEdModeMeshPaint*)GLevelEditorModeTools().GetActiveMode( FBuiltinEditorModes::EM_MeshPaint );
+	MeshPaintEditMode = InOwningMode;
 
 	PaintColorSet = EMeshPaintColorSet::PaintColor;
 	bShowImportOptions = false;
@@ -1672,7 +1681,7 @@ void SMeshPaint::Construct(const FArguments& InArgs, TSharedRef<FMeshPaintToolKi
 								+SVerticalBox::Slot()
 								.AutoHeight()
 								[
-									SNew(SImportVertexColorsFromTGA)
+									SNew(SImportVertexColorsFromTGA, MeshPaintEditMode)
 								]
 							]
 							// Erase/Paint color radio button
@@ -2087,19 +2096,15 @@ void SMeshPaint::Construct(const FArguments& InArgs, TSharedRef<FMeshPaintToolKi
 		]
 	];
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SMeshPaint::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	if( MeshPaintEditMode->UpdateTextureList() == true )
-	{
-		MeshPaintEditMode->UpdateTexturePaintTargetList();
-	}
+	MeshPaintEditMode->UpdateTexturePaintTargetList();
 }
 
-class FEdMode* SMeshPaint::GetEditorMode() const
+class FEdModeMeshPaint* SMeshPaint::GetEditorMode() const
 {
-	return (FEdModeMeshPaint*)GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_MeshPaint);
+	return MeshPaintEditMode;
 }
 
 EVisibility SMeshPaint::GetResourceTypeVerticesVisibility() const

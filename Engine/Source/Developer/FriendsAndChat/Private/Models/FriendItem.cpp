@@ -105,24 +105,23 @@ const FString FFriendItem::GetClientName() const
 		}
 		else if (FFriendItem::LauncherClientIds.Contains(ClientId))
 		{
-			Result = TEXT("Unreal Engine Launcher");
+			Result = TEXT("Epic Games Launcher");
 		}
 	}
 	return Result;
 }
 
-const FString FFriendItem::GetSessionId() const
+const TSharedPtr<FUniqueNetId> FFriendItem::GetSessionId() const
 {
-	FString SessionId;
 	if (OnlineFriend.IsValid())
 	{
 		const FOnlineUserPresence& OnlinePresence = OnlineFriend->GetPresence();
 		if (OnlinePresence.SessionId.IsValid())
 		{
-			SessionId = OnlinePresence.SessionId->ToString();
+			return OnlinePresence.SessionId;
 		}
 	}
-	return SessionId;
+	return nullptr;
 }
 
 const bool FFriendItem::IsOnline() const
@@ -134,7 +133,7 @@ const bool FFriendItem::IsOnline() const
 	return false;
 }
 
-EOnlinePresenceState::Type FFriendItem::GetOnlineStatus() const
+const EOnlinePresenceState::Type FFriendItem::GetOnlineStatus() const
 {
 	if (OnlineFriend.IsValid())
 	{
@@ -149,10 +148,8 @@ bool FFriendItem::IsGameJoinable() const
 	{
 		const FOnlineUserPresence& FriendPresence = OnlineFriend->GetPresence();
 		const bool bIsOnline = FriendPresence.Status.State != EOnlinePresenceState::Offline;
-		const bool bIsJoinable = 
-			FriendPresence.bIsJoinable && 
-			!GetGameSessionId().IsEmpty() && 
-			GetGameSessionId() != FFriendsAndChatManager::Get()->GetGameSessionId();
+		bool bIsJoinable = FriendPresence.bIsJoinable && !FFriendsAndChatManager::Get()->IsFriendInSameSession(AsShared());
+
 		return bIsOnline && bIsJoinable;
 	}
 	return false;
@@ -164,18 +161,17 @@ bool FFriendItem::CanInvite() const
 	return FriendsClientID == FFriendsAndChatManager::Get()->GetUserClientId() || FFriendItem::LauncherClientIds.Contains(FriendsClientID);
 }
 
-FString FFriendItem::GetGameSessionId() const
+TSharedPtr<FUniqueNetId> FFriendItem::GetGameSessionId() const
 {
-	FString SessionId;
 	if (OnlineFriend.IsValid())
 	{
 		const FOnlineUserPresence& FriendPresence = OnlineFriend->GetPresence();
 		if (FriendPresence.SessionId.IsValid())
 		{
-			SessionId = FriendPresence.SessionId->ToString();
+			return FriendPresence.SessionId;
 		}
 	}
-	return SessionId;
+	return nullptr;
 }
 
 const TSharedRef< FUniqueNetId > FFriendItem::GetUniqueID() const

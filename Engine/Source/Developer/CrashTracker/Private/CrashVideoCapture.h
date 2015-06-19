@@ -35,7 +35,10 @@ public:
 
 	void DoWork();
 
-	static const TCHAR* Name();
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncImageCompress, STATGROUP_ThreadPoolAsyncTasks);
+	}
 
 private:
 	/** The image compression algorithm to use */

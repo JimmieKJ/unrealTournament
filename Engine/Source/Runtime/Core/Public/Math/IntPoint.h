@@ -243,6 +243,7 @@ public:
 	 * @see DivideAndRoundDown
 	 */
 	static FIntPoint DivideAndRoundUp( FIntPoint lhs, int32 Divisor );
+	static FIntPoint DivideAndRoundUp( FIntPoint lhs, FIntPoint Divisor );
 
 	/**
 	 * Divide an int point and round down the result.
@@ -415,12 +416,15 @@ FORCEINLINE FIntPoint FIntPoint::ComponentMax(const FIntPoint& Other) const
 	return FIntPoint(FMath::Max(X, Other.X), FMath::Max(Y, Other.Y));
 }
 
-
 FORCEINLINE FIntPoint FIntPoint::DivideAndRoundUp( FIntPoint lhs, int32 Divisor )
 {
 	return FIntPoint(FMath::DivideAndRoundUp(lhs.X, Divisor), FMath::DivideAndRoundUp(lhs.Y, Divisor));
-}	
+}
 
+FORCEINLINE FIntPoint FIntPoint::DivideAndRoundUp( FIntPoint lhs, FIntPoint Divisor )
+{
+	return FIntPoint(FMath::DivideAndRoundUp(lhs.X, Divisor.X), FMath::DivideAndRoundUp(lhs.Y, Divisor.Y));
+}	
 
 FORCEINLINE FIntPoint FIntPoint::DivideAndRoundDown( FIntPoint lhs, int32 Divisor )
 {

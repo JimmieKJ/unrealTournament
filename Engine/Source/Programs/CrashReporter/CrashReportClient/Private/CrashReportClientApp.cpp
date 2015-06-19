@@ -92,6 +92,18 @@ FPlatformErrorReport LoadErrorReport()
 #endif
 }
 
+FCrashReportClientConfig::FCrashReportClientConfig()
+	: DiagnosticsFilename( TEXT( "Diagnostics.txt" ))
+{
+	if( !GConfig->GetString( TEXT( "CrashReportClient" ), TEXT( "CrashReportReceiverIP" ), CrashReportReceiverIP, GEngineIni ) )
+	{
+		// Use the default value.
+		CrashReportReceiverIP = TEXT( "http://crashreporter.epicgames.com:57005" );
+	}
+
+	UE_LOG( CrashReportClientLog, Log, TEXT( "CrashReportReceiverIP: %s" ), *CrashReportReceiverIP );
+}
+
 void RunCrashReportClient(const TCHAR* CommandLine)
 {
 	// Override the stack size for the thread pool.
@@ -99,6 +111,9 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 
 	// Set up the main loop
 	GEngineLoop.PreInit(CommandLine);
+
+	// Initialize config.
+	FCrashReportClientConfig::Get();
 
 	const bool bUnattended = 
 #if CRASH_REPORT_UNATTENDED_ONLY
@@ -196,7 +211,11 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 	}
 
 	FPlatformErrorReport::ShutDown();
-	GEngineLoop.AppExit();
+
+	FEngineLoop::AppPreExit();
+	FTaskGraphInterface::Shutdown();
+
+	FEngineLoop::AppExit();
 }
 
 void CrashReportClientCheck(bool bCondition, const TCHAR* Location)

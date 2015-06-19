@@ -90,7 +90,7 @@ protected:
 		const FText& DisplayNameText = Column->GetDisplayName();
 
 		TArray< FString > DisplayNamePieces;
-		DisplayNameText.ToString().ParseIntoArray( /*OUT*/ &DisplayNamePieces, TEXT("->"), true /*Cull Empty*/);
+		DisplayNameText.ToString().ParseIntoArray(DisplayNamePieces, TEXT("->"), true);
 
 		for (int Index = 0; Index < DisplayNamePieces.Num(); Index++)
 		{

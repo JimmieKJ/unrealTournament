@@ -109,11 +109,6 @@ TArray<FRichCurveEditInfo> FWheeledVehicleMovementComponent4WDetails::FSteeringC
 	return Curves;
 }
 
-UObject* FWheeledVehicleMovementComponent4WDetails::FSteeringCurveEditor::GetOwner()
-{
-	return Owner;
-}
-
 void FWheeledVehicleMovementComponent4WDetails::FSteeringCurveEditor::ModifyOwner()
 {
 	if (Owner)
@@ -156,11 +151,6 @@ TArray<FRichCurveEditInfo> FWheeledVehicleMovementComponent4WDetails::FTorqueCur
 	Curves.Add(&VehicleComponent->EngineSetup.TorqueCurve.EditorCurveData);
 
 	return Curves;
-}
-
-UObject* FWheeledVehicleMovementComponent4WDetails::FTorqueCurveEditor::GetOwner()
-{
-	return Owner;
 }
 
 void FWheeledVehicleMovementComponent4WDetails::FTorqueCurveEditor::ModifyOwner()

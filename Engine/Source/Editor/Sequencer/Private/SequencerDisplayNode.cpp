@@ -12,6 +12,7 @@
 #include "MovieSceneTrack.h"
 #include "CommonMovieSceneTools.h"
 #include "IKeyArea.h"
+#include "ISequencerObjectBindingManager.h"
 
 
 class SSequencerObjectTrack : public SLeafWidget
@@ -24,7 +25,7 @@ public:
 
 	/** SLeafWidget Interface */
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	
 	void Construct( const FArguments& InArgs, TSharedRef<FSequencerDisplayNode> InRootNode )
 	{
@@ -75,7 +76,7 @@ int32 SSequencerObjectTrack::OnPaint(const FPaintArgs& Args, const FGeometry& Al
 		FSlateDrawElement::MakeBox(
 			OutDrawElements,
 			LayerId+1,
-			AllottedGeometry.ToPaintGeometry(FVector2D(KeyPosition - FMath::TruncToFloat(KeyMarkSize.X/2.f), FMath::TruncToFloat(AllottedGeometry.Size.Y/2.f - KeyMarkSize.Y/2.f)), KeyMarkSize),
+			AllottedGeometry.ToPaintGeometry(FVector2D(KeyPosition - FMath::CeilToFloat(KeyMarkSize.X/2.f), FMath::CeilToFloat(AllottedGeometry.Size.Y/2.f - KeyMarkSize.Y/2.f)), KeyMarkSize),
 			FEditorStyle::GetBrush("Sequencer.KeyMark"),
 			MyClippingRect,
 			ESlateDrawEffect::None,
@@ -86,7 +87,7 @@ int32 SSequencerObjectTrack::OnPaint(const FPaintArgs& Args, const FGeometry& Al
 	return LayerId+1;
 }
 
-FVector2D SSequencerObjectTrack::ComputeDesiredSize() const
+FVector2D SSequencerObjectTrack::ComputeDesiredSize( float ) const
 {
 	// Note: X Size is not used
 	return FVector2D( 100.0f, RootNode->GetNodeHeight() );
@@ -265,11 +266,6 @@ void FSequencerDisplayNode::GetChildKeyAreaNodesRecursively(TArray< TSharedRef<F
 	}
 }
 
-void FSequencerDisplayNode::SetSelectionState( bool bSelect, bool bDeselectOtherNodes )
-{
-	ParentTree.SetSelectionState( AsShared(), bSelect, bDeselectOtherNodes );
-}
-
 void FSequencerDisplayNode::ToggleExpansion()
 {
 	bExpanded = !bExpanded;
@@ -278,12 +274,6 @@ void FSequencerDisplayNode::ToggleExpansion()
 	ParentTree.SaveExpansionState( *this, bExpanded );
 
 	UpdateCachedShotFilteredVisibility();
-}
-
-bool FSequencerDisplayNode::IsSelected() const
-{
-	// Ask the tree if we are selected
-	return ParentTree.IsNodeSelected( SharedThis(this) );
 }
 
 bool FSequencerDisplayNode::IsExpanded() const
@@ -298,7 +288,7 @@ bool FSequencerDisplayNode::IsVisible() const
 	// If shot filtering is off on clean view is on, node must be pinned
 	return bCachedShotFilteredVisibility &&
 		(ParentTree.HasActiveFilter() ? ParentTree.IsNodeFiltered(AsShared()) : IsParentExpandedOrIsARootNode()) &&
-		(GetSequencer().IsShotFilteringOn() || !GetSequencer().IsUsingCleanView() || bNodeIsPinned);
+		(GetSequencer().IsShotFilteringOn() || !GetDefault<USequencerSettings>()->GetIsUsingCleanView() || bNodeIsPinned);
 }
 
 bool FSequencerDisplayNode::HasVisibleChildren() const
@@ -443,6 +433,13 @@ void FTrackNode::FixRowIndices()
 			Sections[i]->GetSectionObject()->SetRowIndex(0);
 		}
 	}
+}
+
+FText FObjectBindingNode::GetDisplayName() const
+{
+	FText DisplayName;
+	return GetSequencer().GetObjectBindingManager()->TryGetObjectBindingDisplayName(ObjectBinding, DisplayName) ?
+		DisplayName : DefaultDisplayName;
 }
 
 float FObjectBindingNode::GetNodeHeight() const

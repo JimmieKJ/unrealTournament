@@ -23,19 +23,19 @@ class UK2Node_Switch : public UK2Node
 	TSubclassOf<class UObject> FunctionClass;
 
 	// UObject interface
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	BLUEPRINTGRAPH_API virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	// End of UObject interface
 
 	// UEdGraphNode interface
-	virtual void AllocateDefaultPins() override;
-	virtual FLinearColor GetNodeTitleColor() const override;
+	BLUEPRINTGRAPH_API virtual void AllocateDefaultPins() override;
+	BLUEPRINTGRAPH_API virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Switch_16x"); }
 	// End of UEdGraphNode interface
 
 	// UK2Node interface
-	virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const override;
-	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
-	virtual FText GetMenuCategory() const override;
+	BLUEPRINTGRAPH_API virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const override;
+	BLUEPRINTGRAPH_API virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
+	BLUEPRINTGRAPH_API virtual FText GetMenuCategory() const override;
 	virtual bool CanEverRemoveExecutionPin() const override { return true; }
 	// End of UK2Node interface
 

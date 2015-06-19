@@ -13,6 +13,7 @@
 #include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
 #include "Editor/UnrealEd/Public/ObjectTools.h"
 #include "DefaultValueHelper.h"
+#include "Engine/UserDefinedStruct.h"
 
 #define LOCTEXT_NAMESPACE "KismetCompiler"
 
@@ -44,14 +45,14 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 			if(OwningFunction)
 			{
 				// Check for the magic ArrayParm property, which always matches array types
-				FString ArrayPointerMetaData = OwningFunction->GetMetaData(TEXT("ArrayParm"));
+				FString ArrayPointerMetaData = OwningFunction->GetMetaData(FBlueprintMetadata::MD_ArrayParam);
 				TArray<FString> ArrayPinComboNames;
-				ArrayPointerMetaData.ParseIntoArray(&ArrayPinComboNames, TEXT(","), true);
+				ArrayPointerMetaData.ParseIntoArray(ArrayPinComboNames, TEXT(","), true);
 
 				for(auto Iter = ArrayPinComboNames.CreateConstIterator(); Iter; ++Iter)
 				{
 					TArray<FString> ArrayPinNames;
-					Iter->ParseIntoArray(&ArrayPinNames, TEXT("|"), true);
+					Iter->ParseIntoArray(ArrayPinNames, TEXT("|"), true);
 
 					if( ArrayPinNames[0] == SourcePin->PinName )
 					{
@@ -75,12 +76,12 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 	}
 
 	// Check for the early out...if this is a type dependent parameter in an array function
-	if ( (OwningFunction != NULL) && OwningFunction->HasMetaData(TEXT("ArrayParm")) )
+	if ( (OwningFunction != NULL) && OwningFunction->HasMetaData(FBlueprintMetadata::MD_ArrayParam) )
 	{
 		// Check to see if this param is type dependent on an array parameter
-		const FString DependentParams = OwningFunction->GetMetaData(TEXT("ArrayTypeDependentParams"));
+		const FString DependentParams = OwningFunction->GetMetaData(FBlueprintMetadata::MD_ArrayDependentParam);
 		TArray<FString>	DependentParamNames;
-		DependentParams.ParseIntoArray(&DependentParamNames, TEXT(","), true);
+		DependentParams.ParseIntoArray(DependentParamNames, TEXT(","), true);
 		if (DependentParamNames.Find(SourcePin->PinName) != INDEX_NONE)
 		{
 			//@todo:  This assumes that the wildcard coersion has done its job...I'd feel better if there was some easier way of accessing the target array type
@@ -301,7 +302,7 @@ void FKismetCompilerUtilities::ConsignToOblivion(UClass* OldClass, bool bForceNo
 	if (OldClass != NULL)
 	{
 		// Use the Kismet class reinstancer to ensure that the CDO and any existing instances of this class are cleaned up!
-		FBlueprintCompileReinstancer CTOResinstancer(OldClass);
+		auto CTOResinstancer = FBlueprintCompileReinstancer::Create(OldClass);
 
 		UPackage* OwnerOutermost = OldClass->GetOutermost();
 		if( OldClass->ClassDefaultObject )
@@ -328,7 +329,7 @@ void FKismetCompilerUtilities::ConsignToOblivion(UClass* OldClass, bool bForceNo
 		for( TFieldIterator<UFunction> ItFunc(OldClass,EFieldIteratorFlags::ExcludeSuper); ItFunc; ++ItFunc )
 		{
 			UFunction* CurrentFunc = *ItFunc;
-			ULinkerLoad::InvalidateExport(CurrentFunc);
+			FLinkerLoad::InvalidateExport(CurrentFunc);
 
 			for( TFieldIterator<UProperty> It(CurrentFunc,EFieldIteratorFlags::ExcludeSuper); It; ++It )
 			{
@@ -351,10 +352,10 @@ void FKismetCompilerUtilities::InvalidatePropertyExport(UProperty* PropertyToInv
 	UArrayProperty* ArrayProp = Cast<UArrayProperty>(PropertyToInvalidate);
  	if( ArrayProp && ArrayProp->Inner )
  	{
-		ULinkerLoad::InvalidateExport(ArrayProp->Inner);
+		FLinkerLoad::InvalidateExport(ArrayProp->Inner);
  	}
 
-	ULinkerLoad::InvalidateExport(PropertyToInvalidate);
+	FLinkerLoad::InvalidateExport(PropertyToInvalidate);
 }
 
 void FKismetCompilerUtilities::RemoveObjectRedirectorIfPresent(UObject* Package, const FString& NewName, UObject* ObjectBeingMovedIn)
@@ -507,6 +508,61 @@ void FKismetCompilerUtilities::ValidateEnumProperties(UObject* DefaultObject, FC
 	}
 }
 
+bool FKismetCompilerUtilities::ValidateSelfCompatibility(const UEdGraphPin* Pin, FKismetFunctionContext& Context)
+{
+	const UBlueprint* Blueprint = Context.Blueprint;
+	const UEdGraph* SourceGraph = Context.SourceGraph;
+	UEdGraphSchema_K2* K2Schema = Context.Schema;
+	const UBlueprintGeneratedClass* BPClass = Context.NewClass;
+
+	FString ErrorMsg;
+	if (Blueprint->BlueprintType != BPTYPE_FunctionLibrary && K2Schema->IsStaticFunctionGraph(SourceGraph))
+	{
+		ErrorMsg = FString::Printf(*LOCTEXT("PinMustHaveConnection_Static_Error", "'@@' must have a connection, because %s is a static function and will not be bound to instances of this blueprint.").ToString(), *SourceGraph->GetName());
+	}
+	else
+	{
+		FEdGraphPinType SelfType;
+		SelfType.PinCategory = K2Schema->PC_Object;
+		SelfType.PinSubCategory = K2Schema->PSC_Self;
+
+		if (!K2Schema->ArePinTypesCompatible(SelfType, Pin->PinType, BPClass))
+		{
+			FString PinType = Pin->PinType.PinCategory;
+			if ((Pin->PinType.PinCategory == K2Schema->PC_Object) ||
+				(Pin->PinType.PinCategory == K2Schema->PC_Interface) ||
+				(Pin->PinType.PinCategory == K2Schema->PC_Class))
+			{
+				if (Pin->PinType.PinSubCategoryObject.IsValid())
+				{
+					PinType = Pin->PinType.PinSubCategoryObject->GetName();
+				}
+				else
+				{
+					PinType = TEXT("");
+				}
+			}
+
+			if (PinType.IsEmpty())
+			{
+				ErrorMsg = FString::Printf(*LOCTEXT("PinMustHaveConnection_NoType_Error", "This blueprint (self) is not compatible with '@@', therefore that pin must have a connection.").ToString());
+			}
+			else
+			{
+				ErrorMsg = FString::Printf(*LOCTEXT("PinMustHaveConnection_WrongClass_Error", "This blueprint (self) is not a %s, therefore '@@' must have a connection.").ToString(), *PinType);
+			}
+		}
+	}
+
+	if (!ErrorMsg.IsEmpty())
+	{
+		Context.MessageLog.Error(*ErrorMsg, Pin);
+		return false;
+	}
+
+	return true;
+}
+
 UEdGraphPin* FKismetCompilerUtilities::GenerateAssignmentNodes(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, UK2Node_CallFunction* CallBeginSpawnNode, UEdGraphNode* SpawnNode, UEdGraphPin* CallBeginResult, const UClass* ForClass )
 {
 	static FString ObjectParamName = FString(TEXT("Object"));
@@ -605,6 +661,39 @@ UEdGraphPin* FKismetCompilerUtilities::GenerateAssignmentNodes(class FKismetComp
 	return LastThen;
 }
 
+void FKismetCompilerUtilities::CreateObjectAssignmentStatement(FKismetFunctionContext& Context, UEdGraphNode* Node, FBPTerminal* SrcTerm, FBPTerminal* DstTerm)
+{
+	UClass* InputObjClass = Cast<UClass>(SrcTerm->Type.PinSubCategoryObject.Get());
+	UClass* OutputObjClass = Cast<UClass>(DstTerm->Type.PinSubCategoryObject.Get());
+
+	const bool bIsOutputInterface = ((OutputObjClass != NULL) && OutputObjClass->HasAnyClassFlags(CLASS_Interface));
+	const bool bIsInputInterface = ((InputObjClass != NULL) && InputObjClass->HasAnyClassFlags(CLASS_Interface));
+
+	if (bIsOutputInterface != bIsInputInterface)
+	{
+		// Create a literal term from the class specified in the node
+		FBPTerminal* ClassTerm = Context.CreateLocalTerminal(ETerminalSpecification::TS_Literal);
+		ClassTerm->Name = OutputObjClass->GetName();
+		ClassTerm->bIsLiteral = true;
+		ClassTerm->Source = DstTerm->Source;
+		ClassTerm->ObjectLiteral = OutputObjClass;
+
+		EKismetCompiledStatementType CastOpType = bIsOutputInterface ? KCST_CastObjToInterface : KCST_CastInterfaceToObj;
+		FBlueprintCompiledStatement& CastStatement = Context.AppendStatementForNode(Node);
+		CastStatement.Type = CastOpType;
+		CastStatement.LHS = DstTerm;
+		CastStatement.RHS.Add(ClassTerm);
+		CastStatement.RHS.Add(SrcTerm);
+	}
+	else
+	{
+		FBlueprintCompiledStatement& Statement = Context.AppendStatementForNode(Node);
+		Statement.Type = KCST_Assignment;
+		Statement.LHS = DstTerm;
+		Statement.RHS.Add(SrcTerm);
+	}
+}
+
 /** Creates a property named PropertyName of type PropertyType in the Scope or returns NULL if the type is unknown, but does *not* link that property in */
 UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const FName& PropertyName, const FEdGraphPinType& Type, UClass* SelfClass, uint64 PropertyFlags, const UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog)
 {
@@ -621,19 +710,21 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 	// Check to see if there's already a object on this scope with the same name, and throw an internal compiler error if so
 	// If this happens, it breaks the property link, which causes stack corruption and hard-to-track errors, so better to fail at this point
 	{
-		if (UObject* ExistingObject = FindObject<UObject>(Scope, *PropertyName.ToString(), false))
+		if (UObject* ExistingObject = CheckPropertyNameOnScope(Scope, PropertyName))
 		{
-			MessageLog.Error(*FString::Printf(TEXT("Internal Compiler Error:  Tried to create a property %s in scope %s, but another object of type %s already already exists there."), *PropertyName.ToString(), (Scope ? *Scope->GetName() : TEXT("None"))), *ExistingObject->GetFullName(Scope));
+			MessageLog.Error(*FString::Printf(TEXT("Internal Compiler Error:  Tried to create a property %s in scope %s, but %s already exists there."), *PropertyName.ToString(), (Scope ? *Scope->GetName() : TEXT("None")), *ExistingObject->GetFullName()));
 
 			// Find a free name, so we can still create the property to make it easier to spot the duplicates, and avoid crashing
 			uint32 Counter = 0;
-			FString TestNameString;
+			FName TestName;
 			do 
 			{
-				TestNameString = PropertyName.ToString() + FString::Printf(TEXT("_ERROR_DUPLICATE_%d"), Counter++);
-			} while (FindObject<UObject>(Scope, *TestNameString, false) != NULL);
+				FString TestNameString = PropertyName.ToString() + FString::Printf(TEXT("_ERROR_DUPLICATE_%d"), Counter++);
+				TestName = FName(*TestNameString);
 
-			ValidatedPropertyName = FName(*TestNameString);
+			} while (CheckPropertyNameOnScope(Scope, TestName) != NULL);
+
+			ValidatedPropertyName = TestName;
 		}
 	}
 
@@ -642,7 +733,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 	UArrayProperty* NewArrayProperty = NULL;
 	if( bIsArrayProperty )
 	{
-		NewArrayProperty = NewNamedObject<UArrayProperty>(Scope, ValidatedPropertyName, ObjectFlags);
+		NewArrayProperty = NewObject<UArrayProperty>(Scope, ValidatedPropertyName, ObjectFlags);
 		PropertyScope = NewArrayProperty;
 	}
 	else
@@ -665,7 +756,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 		{
 			if (SubType->HasAnyClassFlags(CLASS_Interface))
 			{
-				UInterfaceProperty* NewPropertyObj = NewNamedObject<UInterfaceProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+				UInterfaceProperty* NewPropertyObj = NewObject<UInterfaceProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				// we want to use this setter function instead of setting the 
 				// InterfaceClass member directly, because it properly handles  
 				// placeholder classes (classes that are stubbed in during load)
@@ -678,11 +769,11 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 
 				if( Type.bIsWeakPointer )
 				{
-					NewPropertyObj = NewNamedObject<UWeakObjectProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+					NewPropertyObj = NewObject<UWeakObjectProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				}
 				else
 				{
-					NewPropertyObj = NewNamedObject<UObjectProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+					NewPropertyObj = NewObject<UObjectProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				}
 				// we want to use this setter function instead of setting the 
 				// PropertyClass member directly, because it properly handles  
@@ -700,7 +791,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 			FString StructureError;
 			if (FStructureEditorUtils::EStructureError::Ok == FStructureEditorUtils::IsStructureValid(SubType, NULL, &StructureError))
 			{
-				UStructProperty* NewPropertyStruct = NewNamedObject<UStructProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+				UStructProperty* NewPropertyStruct = NewObject<UStructProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				NewPropertyStruct->Struct = SubType;
 				NewProperty = NewPropertyStruct;
 			}
@@ -734,7 +825,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 
 		if (SubType != NULL)
 		{
-			UClassProperty* NewPropertyClass = NewNamedObject<UClassProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+			UClassProperty* NewPropertyClass = NewObject<UClassProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 			// we want to use this setter function instead of setting the 
 			// MetaClass member directly, because it properly handles  
 			// placeholder classes (classes that are stubbed in during load)
@@ -747,7 +838,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 	{
 		if (UFunction* SignatureFunction = FMemberReference::ResolveSimpleMemberReference<UFunction>(Type.PinSubCategoryMemberReference))
 		{
-			UDelegateProperty* NewPropertyDelegate = NewNamedObject<UDelegateProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+			UDelegateProperty* NewPropertyDelegate = NewObject<UDelegateProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 			NewPropertyDelegate->SignatureFunction = SignatureFunction;
 			NewProperty = NewPropertyDelegate;
 		}
@@ -755,47 +846,47 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 	else if (Type.PinCategory == Schema->PC_MCDelegate)
 	{
 		UFunction* const SignatureFunction = FMemberReference::ResolveSimpleMemberReference<UFunction>(Type.PinSubCategoryMemberReference);
-		UMulticastDelegateProperty* NewPropertyDelegate = NewNamedObject<UMulticastDelegateProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		UMulticastDelegateProperty* NewPropertyDelegate = NewObject<UMulticastDelegateProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 		NewPropertyDelegate->SignatureFunction = SignatureFunction;
 		NewProperty = NewPropertyDelegate;
 	}
 	else if (Type.PinCategory == Schema->PC_Int)
 	{
-		NewProperty = NewNamedObject<UIntProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		NewProperty = NewObject<UIntProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 	}
 	else if (Type.PinCategory == Schema->PC_Float)
 	{
-		NewProperty = NewNamedObject<UFloatProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		NewProperty = NewObject<UFloatProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 	}
 	else if (Type.PinCategory == Schema->PC_Boolean)
 	{
-		UBoolProperty* BoolProperty = NewNamedObject<UBoolProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		UBoolProperty* BoolProperty = NewObject<UBoolProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 		BoolProperty->SetBoolSize(sizeof(bool), true);
 		NewProperty = BoolProperty;
 	}
 	else if (Type.PinCategory == Schema->PC_String)
 	{
-		NewProperty = NewNamedObject<UStrProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		NewProperty = NewObject<UStrProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 	}
 	else if (Type.PinCategory == Schema->PC_Text)
 	{
-		NewProperty = NewNamedObject<UTextProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		NewProperty = NewObject<UTextProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 	}
 	else if (Type.PinCategory == Schema->PC_Byte)
 	{
-		UByteProperty* ByteProp = NewNamedObject<UByteProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		UByteProperty* ByteProp = NewObject<UByteProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 		ByteProp->Enum = Cast<UEnum>(Type.PinSubCategoryObject.Get());
 
 		NewProperty = ByteProp;
 	}
 	else if (Type.PinCategory == Schema->PC_Name)
 	{
-		NewProperty = NewNamedObject<UNameProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		NewProperty = NewObject<UNameProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 	}
 	else
 	{
 		// Failed to resolve the type-subtype, create a generic property to survive VM bytecode emission
-		NewProperty = NewNamedObject<UIntProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+		NewProperty = NewObject<UIntProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 	}
 
 	if (bIsArrayProperty)
@@ -815,6 +906,250 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 	return NewProperty;
 }
 
+UObject* FKismetCompilerUtilities::CheckPropertyNameOnScope(UStruct* Scope, const FName& PropertyName)
+{
+	FString NameStr = PropertyName.ToString();
+
+	if (UObject* ExistingObject = FindObject<UObject>(Scope, *NameStr, false))
+	{
+		return ExistingObject;
+	}
+
+	if (Scope && !Scope->IsA<UFunction>() && (UBlueprintGeneratedClass::GetUberGraphFrameName() != PropertyName))
+	{
+		if (auto Field = FindField<UProperty>(Scope ? Scope->GetSuperStruct() : nullptr, *NameStr))
+		{
+			return Field;
+		}
+	}
+
+	return nullptr;
+}
+
+/** Checks if the execution path ends with a Return node */
+void FKismetCompilerUtilities::ValidateProperEndExecutionPath(FKismetFunctionContext& Context)
+{
+	struct FRecrursiveHelper
+	{
+		static bool IsExecutionSequence(const UEdGraphNode* Node)
+		{
+			return Node && (UK2Node_ExecutionSequence::StaticClass() == Node->GetClass()); // no "SourceNode->IsA<UK2Node_ExecutionSequence>()" because MultiGate is based on ExecutionSequence
+		}
+
+		static void CheckPathEnding(const UK2Node* StartingNode, TSet<const UK2Node*>& VisitedNodes, FKismetFunctionContext& InContext, bool bPathShouldEndWithReturn, TSet<const UK2Node*>& BreakableNodesSeeds)
+		{
+			const UK2Node* CurrentNode = StartingNode;
+			while (CurrentNode)
+			{
+				const UK2Node* SourceNode = CurrentNode;
+				CurrentNode = nullptr;
+
+				bool bAlreadyVisited = false;
+				VisitedNodes.Add(SourceNode, &bAlreadyVisited);
+				if (!bAlreadyVisited && !SourceNode->IsA<UK2Node_FunctionResult>())
+				{
+					const bool bIsExecutionSequence = IsExecutionSequence(SourceNode); 
+					for (auto CurrentPin : SourceNode->Pins)
+					{
+						if (CurrentPin
+							&& (CurrentPin->Direction == EEdGraphPinDirection::EGPD_Output)
+							&& (CurrentPin->PinType.PinCategory == InContext.Schema->PC_Exec))
+						{
+							if (!CurrentPin->LinkedTo.Num())
+							{
+								if (!bIsExecutionSequence)
+								{
+									BreakableNodesSeeds.Add(SourceNode);
+								}
+								if (bPathShouldEndWithReturn && !bIsExecutionSequence)
+								{
+									InContext.MessageLog.Note(*LOCTEXT("ExecutionEnd_Note", "The execution path doesn't end with a return node. @@").ToString(), CurrentPin);
+								}
+								continue;
+							}
+							auto LinkedPin = CurrentPin->LinkedTo[0];
+							auto NextNode = ensure(LinkedPin) ? Cast<const UK2Node>(LinkedPin->GetOwningNodeUnchecked()) : nullptr;
+							ensure(NextNode);
+							if (CurrentNode)
+							{
+								FRecrursiveHelper::CheckPathEnding(CurrentNode, VisitedNodes, InContext, bPathShouldEndWithReturn && !bIsExecutionSequence, BreakableNodesSeeds);
+							}
+							CurrentNode = NextNode;
+						}
+					}
+				}
+			}
+		}
+
+		static void GatherBreakableNodes(const UK2Node* StartingNode, TSet<const UK2Node*>& BreakableNodes, FKismetFunctionContext& InContext)
+		{
+			const UK2Node* CurrentNode = StartingNode;
+			while (CurrentNode)
+			{
+				const UK2Node* SourceNode = CurrentNode;
+				CurrentNode = nullptr;
+
+				bool bAlreadyVisited = false;
+				BreakableNodes.Add(SourceNode, &bAlreadyVisited);
+				if (!bAlreadyVisited)
+				{
+					for (auto CurrentPin : SourceNode->Pins)
+					{
+						if (CurrentPin
+							&& (CurrentPin->Direction == EEdGraphPinDirection::EGPD_Input)
+							&& (CurrentPin->PinType.PinCategory == InContext.Schema->PC_Exec)
+							&& CurrentPin->LinkedTo.Num())
+						{
+							for (auto LinkedPin : CurrentPin->LinkedTo)
+							{
+								auto NextNode = ensure(LinkedPin) ? Cast<const UK2Node>(LinkedPin->GetOwningNodeUnchecked()) : nullptr;
+								ensure(NextNode);
+								if (!FRecrursiveHelper::IsExecutionSequence(NextNode))
+								{
+									if (CurrentNode)
+									{
+										GatherBreakableNodes(CurrentNode, BreakableNodes, InContext);
+									}
+									CurrentNode = NextNode;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		static void GatherBreakableNodesSeedsFromSequences(TSet<const UK2Node_ExecutionSequence*>& UnBreakableExecutionSequenceNodes
+			, TSet<const UK2Node*>& BreakableNodesSeeds
+			, TSet<const UK2Node*>& BreakableNodes
+			, FKismetFunctionContext& InContext)
+		{
+			for (auto SequenceNode : UnBreakableExecutionSequenceNodes)
+			{
+				bool bIsBreakable = true;
+				// Sequence is breakable when all it's outputs are breakable
+				for (auto CurrentPin : SequenceNode->Pins)
+				{
+					if (CurrentPin
+						&& (CurrentPin->Direction == EEdGraphPinDirection::EGPD_Output)
+						&& (CurrentPin->PinType.PinCategory == InContext.Schema->PC_Exec)
+						&& CurrentPin->LinkedTo.Num())
+					{
+						auto LinkedPin = CurrentPin->LinkedTo[0];
+						auto NextNode = ensure(LinkedPin) ? Cast<const UK2Node>(LinkedPin->GetOwningNodeUnchecked()) : nullptr;
+						ensure(NextNode);
+						if (!BreakableNodes.Contains(NextNode))
+						{
+							bIsBreakable = false;
+							break;
+						}
+					}
+				}
+
+				if (bIsBreakable)
+				{
+					bool bWasAlreadyBreakable = false;
+					BreakableNodesSeeds.Add(SequenceNode, &bWasAlreadyBreakable);
+					ensure(!bWasAlreadyBreakable);
+					int32 WasRemoved = UnBreakableExecutionSequenceNodes.Remove(SequenceNode);
+					ensure(WasRemoved);
+				}
+			}
+		}
+
+		static void CheckDeadExecutionPath(TSet<const UK2Node*>& BreakableNodesSeeds, FKismetFunctionContext& InContext)
+		{
+			TSet<const UK2Node_ExecutionSequence*> UnBreakableExecutionSequenceNodes;
+			for (auto Node : InContext.SourceGraph->Nodes)
+			{
+				if (FRecrursiveHelper::IsExecutionSequence(Node))
+				{
+					UnBreakableExecutionSequenceNodes.Add(Cast<UK2Node_ExecutionSequence>(Node));
+				}
+			}
+
+			TSet<const UK2Node*> BreakableNodes;
+			while (BreakableNodesSeeds.Num())
+			{
+				for (auto StartingNode : BreakableNodesSeeds)
+				{
+					GatherBreakableNodes(StartingNode, BreakableNodes, InContext);
+				}
+				BreakableNodesSeeds.Empty();
+				FRecrursiveHelper::GatherBreakableNodesSeedsFromSequences(UnBreakableExecutionSequenceNodes, BreakableNodesSeeds, BreakableNodes, InContext);
+			}
+
+			for (auto UnBreakableExecutionSequenceNode : UnBreakableExecutionSequenceNodes)
+			{
+				bool bUnBreakableOutputWasFound = false;
+				for (auto CurrentPin : UnBreakableExecutionSequenceNode->Pins)
+				{
+					if (CurrentPin
+						&& (CurrentPin->Direction == EEdGraphPinDirection::EGPD_Output)
+						&& (CurrentPin->PinType.PinCategory == InContext.Schema->PC_Exec)
+						&& CurrentPin->LinkedTo.Num())
+					{
+						if (bUnBreakableOutputWasFound)
+						{
+							InContext.MessageLog.Note(*LOCTEXT("DeadExecution_Note", "The path is never executed. @@").ToString(), CurrentPin);
+							break;
+						}
+
+						auto LinkedPin = CurrentPin->LinkedTo[0];
+						auto NextNode = ensure(LinkedPin) ? Cast<const UK2Node>(LinkedPin->GetOwningNodeUnchecked()) : nullptr;
+						ensure(NextNode);
+						if (!BreakableNodes.Contains(NextNode))
+						{
+							bUnBreakableOutputWasFound = true;
+						}
+					}
+				}
+			}
+		}
+	};
+
+	// Function is designed for multiple return nodes.
+	if (!Context.IsEventGraph() && Context.SourceGraph && Context.Schema)
+	{
+		TArray<UK2Node_FunctionResult*> ReturnNodes;
+		Context.SourceGraph->GetNodesOfClass(ReturnNodes);
+		if (ReturnNodes.Num() && ensure(Context.EntryPoint))
+		{
+			TSet<const UK2Node*> VisitedNodes, BreakableNodesSeeds;
+			FRecrursiveHelper::CheckPathEnding(Context.EntryPoint, VisitedNodes, Context, true, BreakableNodesSeeds);
+
+			// A non-pure node, that lies on a execution path, that may result with "EndThread" state, is called Breakable.
+			// The execution path between the node and Return node can be broken.
+
+			FRecrursiveHelper::CheckDeadExecutionPath(BreakableNodesSeeds, Context);
+		}
+	}
+}
+
+void FKismetCompilerUtilities::DetectValuesReturnedByRef(const UFunction* Func, const UK2Node * Node, FCompilerResultsLog& MessageLog)
+{
+	// this warning works properly with the fix from cl#2536849. Since this change-list wasn't included into 4.8, the warning is temporarily disabled.
+	/*
+	for (TFieldIterator<UProperty> PropIt(Func); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
+	{
+		UProperty* FuncParam = *PropIt;
+		if (FuncParam->HasAllPropertyFlags(CPF_OutParm) && !FuncParam->HasAllPropertyFlags(CPF_ConstParm))
+		{
+			const FString MessageStr = FString::Printf(
+				*LOCTEXT("WrongRefOutput", "No value will be returned by reference. Parameter '%s'. Node: @@").ToString(),
+				*FuncParam->GetName());
+			if (FuncParam->IsA<UArrayProperty>()) // array is always passed by reference, see FKismetCompilerContext::CreatePropertiesFromList
+			{
+				MessageLog.Note(*MessageStr, Node);
+			}
+			else
+			{
+				MessageLog.Warning(*MessageStr, Node);
+			}
+		}
+	}
+	*/
+}
 
 //////////////////////////////////////////////////////////////////////////
 // FNodeHandlingFunctor

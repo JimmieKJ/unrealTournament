@@ -7,6 +7,7 @@
 #include "SoundDefinitions.h"
 #include "Sound/SoundNodeWavePlayer.h"
 #include "GraphEditor.h"
+#include "Sound/SoundCue.h"
 
 bool FSoundCueEditorUtilities::CanPasteNodes(const class UEdGraph* Graph)
 {
@@ -32,7 +33,7 @@ void FSoundCueEditorUtilities::CreateWaveContainers(TArray<USoundWave*>& Selecte
 {
 	const int32 NodeSpacing = 70;
 	
-	Location.Y -= (SelectedWaves.Num() - 1) * NodeSpacing / 2;
+	Location.Y -= static_cast<float>((SelectedWaves.Num() - 1) * NodeSpacing) / 2.f;
 
 	for(int32 WaveIndex = 0; WaveIndex < SelectedWaves.Num(); WaveIndex++)
 	{
@@ -43,7 +44,7 @@ void FSoundCueEditorUtilities::CreateWaveContainers(TArray<USoundWave*>& Selecte
 
 			WavePlayer->SoundWave = NewWave;
 
-			WavePlayer->GraphNode->NodePosX = Location.X - WavePlayer->GraphNode->EstimateNodeWidth();
+			WavePlayer->GraphNode->NodePosX = Location.X - WavePlayer->GetGraphNode()->EstimateNodeWidth();
 			WavePlayer->GraphNode->NodePosY = Location.Y + (NodeSpacing * WaveIndex);
 
 			OutPlayers.Add(WavePlayer);

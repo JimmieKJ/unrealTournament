@@ -45,6 +45,9 @@ struct ENGINE_API FAnimNode_SpringBone : public FAnimNode_SkeletalControlBase
 	/** Internal use - Amount of time we need to simulate. */
 	float RemainingTime;
 
+	/** Internal use - Current timestep */
+	float FixedTimeStep;
+
 	/** Did we have a non-zero ControlStrength last frame. */
 	bool bHadValidStrength;
 

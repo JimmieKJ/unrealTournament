@@ -87,9 +87,12 @@ public:
 		, _SelectionMode(ESelectionMode::Multi)
 		, _ClearSelectionOnClick(true)
 		, _ExternalScrollbar()
+		, _ConsumeMouseWheel( EConsumeMouseWheel::WhenScrollingPossible )
 		{}
 
 		SLATE_EVENT( FOnGenerateRow, OnGenerateRow )
+
+		SLATE_EVENT( FOnTableViewScrolled, OnTreeViewScrolled )
 
 		SLATE_EVENT( FOnItemScrolledIntoView, OnItemScrolledIntoView )
 
@@ -117,6 +120,8 @@ public:
 
 		SLATE_ARGUMENT( TSharedPtr<SScrollBar>, ExternalScrollbar )
 
+		SLATE_ARGUMENT( EConsumeMouseWheel, ConsumeMouseWheel );
+
 	SLATE_END_ARGS()
 
 		
@@ -140,6 +145,7 @@ public:
 		this->SelectionMode = InArgs._SelectionMode;
 
 		this->bClearSelectionOnClick = InArgs._ClearSelectionOnClick;
+		this->ConsumeMouseWheel = InArgs._ConsumeMouseWheel;
 
 		// Check for any parameters that the coder forgot to specify.
 		FString ErrorString;
@@ -168,13 +174,13 @@ public:
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(ErrorString)
+				.Text(FText::FromString(ErrorString))
 			];
 		}
 		else
 		{
 			// Make the TableView
-			this->ConstructChildren( 0, InArgs._ItemHeight, EListItemAlignment::LeftAligned, InArgs._HeaderRow, InArgs._ExternalScrollbar );
+			this->ConstructChildren( 0, InArgs._ItemHeight, EListItemAlignment::LeftAligned, InArgs._HeaderRow, InArgs._ExternalScrollbar, InArgs._OnTreeViewScrolled );
 		}
 	}
 
@@ -339,7 +345,7 @@ public:
 	 * @param  InCurrentTime  Current absolute real time.
 	 * @param  InDeltaTime  Real time passed since last tick.
 	 */
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
 		if ( bTreeItemsAreDirty )
 		{
@@ -480,7 +486,7 @@ public:
 	 * @param InItem   Item to visualize.
 	 * @return A widget that represents this item.
 	 */
-	virtual TSharedRef<ITableRow> GenerateNewWidget( ItemType InItem )
+	virtual TSharedRef<ITableRow> GenerateNewWidget( ItemType InItem ) override
 	{
 		if ( this->OnGenerateRow.IsBound() )
 		{

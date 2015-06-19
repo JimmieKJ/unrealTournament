@@ -68,8 +68,13 @@ LANDSCAPE_API void FLandscapeComponentDataInterface::UnlockRawHeightData() const
 	DataInterface->UnlockMip(Component->HeightmapTexture, MipLevel);
 }
 
-LANDSCAPE_API void FLandscapeComponentDataInterface::GetHeightmapTextureData(TArray<FColor>& OutData)
+LANDSCAPE_API void FLandscapeComponentDataInterface::GetHeightmapTextureData(TArray<FColor>& OutData, bool bOkToFail)
 {
+	if (bOkToFail && !HeightMipData)
+	{
+		OutData.Empty();
+		return;
+	}
 #if LANDSCAPE_VALIDATE_DATA_ACCESS
 	check(HeightMipData);
 #endif

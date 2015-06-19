@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "PaperTileMap.h"
+#include "PaperTileLayer.h"
+
 //////////////////////////////////////////////////////////////////////////
 // STileLayerItem
 
@@ -13,15 +16,19 @@ public:
 
 	void Construct(const FArguments& InArgs, int32 Index, class UPaperTileMap* InMap, FIsSelected InIsSelectedDelegate);
 
+	void BeginEditingName();
+
 protected:
 	int32 MyIndex;
-	class UPaperTileMap* MyMap;
-	class UPaperTileLayer* GetMyLayer() const { return MyMap->TileLayers[MyIndex]; }
+	UPaperTileMap* MyMap;
+	UPaperTileLayer* GetMyLayer() const { return MyMap->TileLayers[MyIndex]; }
 
 	TSharedPtr<SButton> VisibilityButton;
 
 	const FSlateBrush* EyeClosed;
 	const FSlateBrush* EyeOpened;
+
+	TSharedPtr<SInlineEditableTextBlock> LayerNameWidget;
 
 protected:
 	FText GetLayerDisplayName() const;

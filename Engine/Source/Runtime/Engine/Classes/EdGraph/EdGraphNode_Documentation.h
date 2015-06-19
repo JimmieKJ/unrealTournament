@@ -9,11 +9,11 @@ class UEdGraphNode_Documentation : public UEdGraphNode
 	GENERATED_UCLASS_BODY()
 
 	/** Documentation Link */
-	UPROPERTY(meta=(FriendlyName="Documentation Link"))
+	UPROPERTY(meta=(DisplayName="Documentation Link"))
 	FString Link;
 
 	/** Documentation Excerpt */
-	UPROPERTY(meta=(FriendlyName="Documentation Excerpt"))
+	UPROPERTY(meta=(DisplayName="Documentation Excerpt"))
 	FString Excerpt;
 
 public:

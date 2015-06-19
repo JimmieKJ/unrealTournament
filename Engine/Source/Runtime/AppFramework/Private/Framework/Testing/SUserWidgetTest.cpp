@@ -9,7 +9,7 @@ class SUserWidgetExampleImpl
 {
 public:
 
-	void Construct( const FArguments& InArgs )
+	void Construct( const FArguments& InArgs ) override
 	{
 		SUserWidget::Construct( SUserWidget::FArguments()
 		[

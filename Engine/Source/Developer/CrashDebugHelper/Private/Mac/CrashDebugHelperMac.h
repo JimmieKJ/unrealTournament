@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CrashDebugHelper.h"
+
 class FCrashDebugHelperMac : public ICrashDebugHelper
 {
 public:
@@ -18,7 +20,6 @@ public:
 	 */
 	virtual bool ParseCrashDump(const FString& InCrashDumpName, FCrashDebugInfo& OutCrashDebugInfo) override;
 
-	virtual bool SyncAndDebugCrashDump(const FString& InCrashDumpName) override;
 
 	/**
 	 *	Parse the given crash dump, and generate a report. 

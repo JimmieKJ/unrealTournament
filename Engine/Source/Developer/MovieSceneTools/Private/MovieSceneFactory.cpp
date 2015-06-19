@@ -24,7 +24,7 @@ UMovieSceneFactory::UMovieSceneFactory( const FObjectInitializer& ObjectInitiali
 
 UObject* UMovieSceneFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	return StaticConstructObject( UMovieScene::StaticClass(), InParent, Name, Flags );
+	return NewObject<UMovieScene>(InParent, Name, Flags);
 }
 
 #undef LOCTEXT_NAMESPACE

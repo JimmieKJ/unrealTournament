@@ -29,15 +29,15 @@ public:
 
 protected:
 	/** The padding area between the slot and the content it contains. */
-	UPROPERTY(EditDefaultsOnly, Category="Layout|Border Slot")
+	UPROPERTY(EditAnywhere, Category="Layout|Border Slot")
 	FMargin Padding;
 
 	/** The alignment of the object horizontally. */
-	UPROPERTY(EditDefaultsOnly, Category="Layout|Border Slot")
+	UPROPERTY(EditAnywhere, Category="Layout|Border Slot")
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
 
 	/** The alignment of the object vertically. */
-	UPROPERTY(EditDefaultsOnly, Category="Layout|Border Slot")
+	UPROPERTY(EditAnywhere, Category="Layout|Border Slot")
 	TEnumAsByte<EVerticalAlignment> VerticalAlignment;
 
 public:

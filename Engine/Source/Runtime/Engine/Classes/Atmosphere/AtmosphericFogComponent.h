@@ -91,6 +91,8 @@ class UAtmosphericFogComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
+	~UAtmosphericFogComponent();
+
 	/** Global scattering factor. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, interp, Category=Atmosphere)
 	float SunMultiplier;
@@ -213,11 +215,13 @@ public:
 	enum EPrecomputeState
 	{
 		EInvalid = 0,
-		EFinishedComputation = 1,
 		EValid = 2,
 	};
 
-	FThreadSafeCounter PrecomputeCounter;
+	// this is mostly a legacy thing, it is only modified by the game thread
+	uint32 PrecomputeCounter;
+	// When non-zero, the component should flush rendering commands and see if there is any atmosphere stuff to deal with, then decrement it
+	mutable FThreadSafeCounter GameThreadServiceRequest;
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|AtmosphericFog")
 	void StartPrecompute();	
@@ -256,13 +260,6 @@ public:
 
 	ENGINE_API void InitResource();
 	ENGINE_API void ReleaseResource();
-
-	// Begin UActorComponent interface.
-	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	virtual FName GetComponentInstanceDataType() const override;
-	// End UActorComponent interface.
-
-	void ApplyComponentInstanceData(class FAtmospherePrecomputeInstanceData* ComponentInstanceData);
 
 	const FAtmospherePrecomputeParameters& GetPrecomputeParameters() const { return PrecomputeParams;  }
 

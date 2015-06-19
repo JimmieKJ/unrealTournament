@@ -27,18 +27,44 @@ void SSequencerTrackArea::Construct( const FArguments& InArgs, TSharedRef<FSeque
 			.ExternalScrollbar(ScrollBar)
 		]
 		+ SOverlay::Slot()
-		.HAlign(HAlign_Right)
 		[
-			ScrollBar
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(OutlinerFillPercent)
+			[
+				SNew(SSpacer)
+			]
+			+ SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			[
+				SAssignNew(CurveEditor, SSequencerCurveEditor, InSequencer)
+				.Visibility( this, &SSequencerTrackArea::GetCurveEditorVisibility )
+				.ViewRange(ViewRange)
+			]
+		]
+		+ SOverlay::Slot()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Right)
+			.FillWidth( TAttribute<float>( this, &SSequencerTrackArea::GetScrollBarSlotFill ) )
+			[
+				ScrollBar
+			]
+			+ SHorizontalBox::Slot()
+			.FillWidth( TAttribute<float>( this, &SSequencerTrackArea::GetScrollBarSpacerSlotFill ) )
+			[
+				SNew( SSpacer )
+			]
 		]
 	];
 }
 
-void SSequencerTrackArea::Update( const FSequencerNodeTree& InSequencerNodeTree )
+void SSequencerTrackArea::Update( TSharedPtr<FSequencerNodeTree> InSequencerNodeTree )
 {
 	ScrollBox->ClearChildren();
 
-	const TArray< TSharedRef<FSequencerDisplayNode> >& RootNodes = InSequencerNodeTree.GetRootNodes();
+	const TArray< TSharedRef<FSequencerDisplayNode> >& RootNodes = InSequencerNodeTree->GetRootNodes();
 
 	for( int32 RootNodeIndex = 0; RootNodeIndex < RootNodes.Num(); ++RootNodeIndex )
 	{
@@ -53,6 +79,8 @@ void SSequencerTrackArea::Update( const FSequencerNodeTree& InSequencerNodeTree 
 
 	// @todo Sequencer - Remove this expensive operation
 	ScrollBox->SlatePrepass();
+
+	CurveEditor->SetSequencerNodeTree(InSequencerNodeTree);
 }
 
 void SSequencerTrackArea::GenerateLayoutNodeWidgetsRecursive( const TArray< TSharedRef<FSequencerDisplayNode> >& Nodes )
@@ -87,8 +115,32 @@ void SSequencerTrackArea::GenerateWidgetForNode( TSharedRef<FSequencerDisplayNod
 		.FillWidth( 1.0f )
 		.Padding( FMargin(0.0f, 2.0f) )
 		[
-			// Generate a widget for the section area portion of the node
-			Node->GenerateWidgetForSectionArea( ViewRange )
+			SNew(SBox)
+			.Visibility(this, &SSequencerTrackArea::GetSectionControlVisibility)
+			[
+				// Generate a widget for the section area portion of the node
+				Node->GenerateWidgetForSectionArea( ViewRange )
+			]
 		]
 	];
+}
+
+EVisibility SSequencerTrackArea::GetCurveEditorVisibility() const
+{
+	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? EVisibility::Visible : EVisibility::Hidden;
+}
+
+EVisibility SSequencerTrackArea::GetSectionControlVisibility() const
+{
+	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? EVisibility::Hidden : EVisibility::Visible;
+}
+
+float SSequencerTrackArea::GetScrollBarSlotFill() const
+{
+	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? OutlinerFillPercent.Get() : 1.0f;
+}
+
+float SSequencerTrackArea::GetScrollBarSpacerSlotFill() const
+{
+	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? 1.0f : 0.0f;
 }

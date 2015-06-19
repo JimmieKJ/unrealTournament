@@ -12,7 +12,7 @@ UDeviceProfile::UDeviceProfile(const FObjectInitializer& ObjectInitializer)
 	bVisible = true;
 
 	FString DeviceProfileFileName = FPaths::EngineConfigDir() + TEXT("Deviceprofiles.ini");
-	LoadConfig(GetClass(), *DeviceProfileFileName);
+//	LoadConfig(GetClass(), *DeviceProfileFileName, UE4::LCPF_ReadParentSections);
 }
 
 
@@ -40,6 +40,51 @@ void UDeviceProfile::GatherParentCVarInformationRecursively(OUT TMap<FString, FS
 	}
 }
 
+UTextureLODSettings* UDeviceProfile::GetTextureLODSettings() const
+{
+	return (UTextureLODSettings*)this;
+}
+
+
+void UDeviceProfile::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	// Ensure the Texture LOD Groups are in order of TextureGroup Enum
+	TextureLODGroups.Sort([]
+		(const FTextureLODGroup& Lhs, const FTextureLODGroup& Rhs)
+		{
+			return (int32)Lhs.Group < (int32)Rhs.Group;
+		}
+	);
+
+	// Make sure every Texture Group has an entry, any that aren't specified for this profile should use it's parents values, or the defaults.
+	UDeviceProfile* ParentProfile = nullptr;
+	if (HasAnyFlags(RF_ClassDefaultObject) == false)
+	{
+		if (BaseProfileName.IsEmpty() == false)
+		{
+			ParentProfile = FindObject<UDeviceProfile>(GetTransientPackage(), *BaseProfileName);
+		}
+		if (ParentProfile == nullptr)
+		{
+			ParentProfile = CastChecked<UDeviceProfile>(UDeviceProfile::StaticClass()->GetDefaultObject());
+		}
+	}
+
+	for (int32 GroupId = 0; GroupId < (int32)TEXTUREGROUP_MAX; ++GroupId)
+	{
+		if (TextureLODGroups.Num() < (GroupId + 1) || TextureLODGroups[GroupId].Group > GroupId)
+		{
+			TextureLODGroups.Insert((ParentProfile ? ParentProfile->TextureLODGroups[GroupId] : FTextureLODGroup()), GroupId);
+			TextureLODGroups[GroupId].Group = (TextureGroup)GroupId;
+		}
+	}
+
+#define SETUPLODGROUP(GroupId) SetupLODGroup(GroupId);
+	FOREACH_ENUM_TEXTUREGROUP(SETUPLODGROUP)
+#undef SETUPLODGROUP
+}
 
 #if WITH_EDITOR
 

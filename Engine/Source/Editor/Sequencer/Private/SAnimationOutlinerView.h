@@ -52,6 +52,12 @@ private:
 	 * @return The expander visibility of this node                                                              
 	 */
 	EVisibility GetExpanderVisibility() const;
+
+	/**
+	 * @return The display name for this node.
+	 */
+	FText GetDisplayName() const;
+
 private:
 	/** Layout node the widget is visualizing */
 	TSharedPtr<FSequencerDisplayNode> DisplayNode;
@@ -59,6 +65,8 @@ private:
 	FOnNodeSelectionChanged OnSelectionChanged;
 	/** Brush to display a border around the widget when it is selected */
 	const FSlateBrush* SelectedBrush;
+	/** Brush to display a border around the widget when it is selected but inactive */
+	const FSlateBrush* SelectedBrushInactive;
 	/** Brush to use if the node is not selected */
 	const FSlateBrush* NotSelectedBrush;
 	/** Brush to use for the expander image when this node is expanded */

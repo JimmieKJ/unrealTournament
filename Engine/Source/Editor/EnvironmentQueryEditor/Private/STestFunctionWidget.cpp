@@ -34,13 +34,21 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 
 	LayerId++;
 
+	UEnvQueryTest* TestOb = DrawTestOb.Get();
+	if (TestOb == nullptr)
+	{
+		return LayerId;
+	}
+
+	const FEnvQueryTestScoringPreview& PreviewData = TestOb->PreviewData;
+
 	// Draw filter background
-	if (bShowLowPassFilter)
+	if (PreviewData.bShowFilterLow)
 	{
 		FSlateDrawElement::MakeBox(
 			OutDrawElements,
 			LayerId,
-			AllottedGeometry.ToPaintGeometry(FVector2D(0, 0), FVector2D(FMath::TruncToInt(FilterLowX * AllottedGeometry.Size.X), AllottedGeometry.Size.Y)),
+			AllottedGeometry.ToPaintGeometry(FVector2D(0, 0), FVector2D(FMath::TruncToInt(PreviewData.FilterLow * AllottedGeometry.Size.X), AllottedGeometry.Size.Y)),
 			WhiteBrush,
 			MyClippingRect,
 			DrawEffects,
@@ -50,12 +58,12 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 		LayerId++;
 	}
 
-	if (bShowHiPassFilter)
+	if (PreviewData.bShowFilterHigh)
 	{
 		FSlateDrawElement::MakeBox(
 			OutDrawElements,
 			LayerId,
-			AllottedGeometry.ToPaintGeometry(FVector2D(FMath::TruncToInt(FilterHiX * AllottedGeometry.Size.X), 0), FVector2D(AllottedGeometry.Size.X, AllottedGeometry.Size.Y)),
+			AllottedGeometry.ToPaintGeometry(FVector2D(FMath::TruncToInt(PreviewData.FilterHigh * AllottedGeometry.Size.X), 0), FVector2D(AllottedGeometry.Size.X, AllottedGeometry.Size.Y)),
 			WhiteBrush,
 			MyClippingRect,
 			DrawEffects,
@@ -84,11 +92,11 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 	LayerId++;
 
 	// Draw clamping and filtering filters
-	if (bShowClampMin)
+	if (PreviewData.bShowClampMin)
 	{
 		TArray<FVector2D> ClampLine;
-		ClampLine.Add(GetWidgetPosition(ClampMinX, 0, AllottedGeometry));
-		ClampLine.Add(GetWidgetPosition(ClampMinX, 1, AllottedGeometry));
+		ClampLine.Add(GetWidgetPosition(PreviewData.ClampMin, 0, AllottedGeometry));
+		ClampLine.Add(GetWidgetPosition(PreviewData.ClampMin, 1, AllottedGeometry));
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements,
@@ -103,11 +111,11 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 		LayerId++;
 	}
 
-	if (bShowClampMax)
+	if (PreviewData.bShowClampMax)
 	{
 		TArray<FVector2D> ClampLine;
-		ClampLine.Add(GetWidgetPosition(ClampMaxX, 0, AllottedGeometry));
-		ClampLine.Add(GetWidgetPosition(ClampMaxX, 1, AllottedGeometry));
+		ClampLine.Add(GetWidgetPosition(PreviewData.ClampMax, 0, AllottedGeometry));
+		ClampLine.Add(GetWidgetPosition(PreviewData.ClampMax, 1, AllottedGeometry));
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements,
@@ -122,11 +130,11 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 		LayerId++;
 	}
 
-	if (bShowLowPassFilter)
+	if (PreviewData.bShowFilterLow)
 	{
 		TArray<FVector2D> FilterLine;
-		FilterLine.Add(GetWidgetPosition(FilterLowX, 0, AllottedGeometry));
-		FilterLine.Add(GetWidgetPosition(FilterLowX, 1, AllottedGeometry));
+		FilterLine.Add(GetWidgetPosition(PreviewData.FilterLow, 0, AllottedGeometry));
+		FilterLine.Add(GetWidgetPosition(PreviewData.FilterLow, 1, AllottedGeometry));
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements,
@@ -141,11 +149,11 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 		LayerId++;
 	}
 
-	if (bShowHiPassFilter)
+	if (PreviewData.bShowFilterHigh)
 	{
 		TArray<FVector2D> FilterLine;
-		FilterLine.Add(GetWidgetPosition(FilterHiX, 0, AllottedGeometry));
-		FilterLine.Add(GetWidgetPosition(FilterHiX, 1, AllottedGeometry));
+		FilterLine.Add(GetWidgetPosition(PreviewData.FilterHigh, 0, AllottedGeometry));
+		FilterLine.Add(GetWidgetPosition(PreviewData.FilterHigh, 1, AllottedGeometry));
 
 		FSlateDrawElement::MakeLines(
 			OutDrawElements,
@@ -163,11 +171,11 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 	// Draw line graph
 	TArray<FVector2D> LinePoints;
 
-	const float DeltaX = ((float)AllottedGeometry.Size.X / (ScoreValues.Num() - 1));
-	for (int32 Idx = 0; Idx < ScoreValues.Num(); Idx++)
+	const float DeltaX = ((float)AllottedGeometry.Size.X / (ARRAY_COUNT(PreviewData.Samples) - 1));
+	for (int32 Idx = 0; Idx < ARRAY_COUNT(PreviewData.Samples); Idx++)
 	{
 		const float XPos = Idx * DeltaX;
-		const float YPos = (AllottedGeometry.Size.Y - 1) - (ScoreValues[Idx] * AllottedGeometry.Size.Y);
+		const float YPos = (AllottedGeometry.Size.Y - 1) - (PreviewData.Samples[Idx] * AllottedGeometry.Size.Y);
 
 		LinePoints.Add(FVector2D(FMath::TruncToInt(XPos), FMath::TruncToInt(YPos)));
 	}
@@ -187,7 +195,7 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 	return LayerId;
 }
 
-FVector2D STestFunctionWidget::ComputeDesiredSize() const
+FVector2D STestFunctionWidget::ComputeDesiredSize( float ) const
 {
 	return FVector2D(128, 92);
 }

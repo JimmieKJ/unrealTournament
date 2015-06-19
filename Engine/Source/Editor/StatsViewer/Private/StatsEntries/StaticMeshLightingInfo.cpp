@@ -2,6 +2,7 @@
 
 #include "StatsViewerPrivatePCH.h"
 #include "StaticMeshLightingInfo.h"
+#include "Lightmass/LightmappedSurfaceCollection.h"
 
 #define LOCTEXT_NAMESPACE "Editor.StatsViewer"
 

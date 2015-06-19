@@ -1,12 +1,16 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "MenuAnchor.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMenuOpenChangedEvent, bool, bIsOpen);
+
 /**
  * The Menu Anchor allows you to specify an location that a popup menu should be anchored to, 
  * and should be summoned from.
+ * ● Single Child
+ * ● Popup
  */
 UCLASS()
 class UMG_API UMenuAnchor : public UContentWidget
@@ -20,16 +24,21 @@ public:
 	 * If you want to customize the creation of the popup, you should bind a function to OnGetMenuContentEvent 
 	 * instead.
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Menu")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Menu Anchor")
 	TSubclassOf<class UUserWidget> MenuClass;
 
 	/** Called when the menu content is requested to allow a more customized handling over what to display */
-	UPROPERTY(EditDefaultsOnly, Category="Events")
-	FGetContent OnGetMenuContentEvent;
+	UPROPERTY(EditAnywhere, Category="Events")
+	FGetWidget OnGetMenuContentEvent;
 	
 	/** The placement location of the summoned widget. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Menu")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Menu Anchor")
 	TEnumAsByte<EMenuPlacement> Placement;
+
+public:
+	/** Called when the opened state of the menu changes */
+	UPROPERTY(BlueprintAssignable, Category="Menu Anchor|Event")
+	FOnMenuOpenChangedEvent OnMenuOpenChanged;
 
 public:
 	//TODO UMG Add Set MenuClass
@@ -57,15 +66,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
 	bool IsOpen() const;
 
-	///** @return true if we should open the menu due to a click. Sometimes we should not, if
-	//the same MouseDownEvent that just closed the menu is about to re-open it because it happens to land on the button.*/
-	//bool ShouldOpenDueToClick() const;
+	/**
+	 * @return true if we should open the menu due to a click. Sometimes we should not, if
+	 * the same MouseDownEvent that just closed the menu is about to re-open it because it 
+	 * happens to land on the button.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
+	bool ShouldOpenDueToClick() const;
 
-	///** @return The current menu position */
-	//FVector2D GetMenuPosition() const;
+	/** @return The current menu position */
+	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
+	FVector2D GetMenuPosition() const;
 
-	///** @return Whether this menu has open submenus */
-	//bool HasOpenSubMenus() const;
+	/** @return Whether this menu has open submenus */
+	UFUNCTION(BlueprintCallable, Category="Menu Anchor")
+	bool HasOpenSubMenus() const;
 
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 
@@ -87,6 +102,7 @@ protected:
 
 protected:
 	TSharedRef<SWidget> HandleGetMenuContent();
+	void HandleMenuOpenChanged(bool bIsOpen);
 
 protected:
 	TSharedPtr<SMenuAnchor> MyMenuAnchor;

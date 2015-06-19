@@ -112,6 +112,7 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 	/**
 	 * If velocity is below this threshold after a bounce, stops simulating and triggers the OnProjectileStop event.
 	 * Ignored if bShouldBounce is false, in which case the projectile stops simulating on the first impact.
+	 * @see StopSimulating(), OnProjectileStop
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ProjectileBounces)
 	float BounceVelocityStopSimulatingThreshold;
@@ -174,9 +175,9 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 	 */
 	virtual FVector ComputeVelocity(FVector InitialVelocity, float DeltaTime) const;
 
-	/** Clears the reference to UpdatedComponent, fires stop event, and stops ticking. */
+	/** Clears the reference to UpdatedComponent, fires stop event (OnProjectileStop), and stops ticking (if bAutoUpdateTickRegistration is true). */
 	UFUNCTION(BlueprintCallable, Category="Game|Components|ProjectileMovement")
-	void StopSimulating(const FHitResult& HitResult);
+	virtual void StopSimulating(const FHitResult& HitResult);
 
 	bool HasStoppedSimulation() { return UpdatedComponent == NULL; }
 
@@ -222,18 +223,56 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 
 protected:
 
-	/** @return true if the simulation should stop. */
-	bool HandleHitWall(const FHitResult& Hit, float TimeTick, const FVector& MoveDelta);
+	// Enum indicating how simulation should proceed after HandleBlockingHit() is called.
+	enum class EHandleBlockingHitResult
+	{
+		Deflect,				/** Assume velocity has been deflected, and trigger HandleDeflection(). This is the default return value of HandleBlockingHit(). */
+		AdvanceNextSubstep,		/** Advance to the next simulation update. Typically used when additional slide/multi-bounce logic can be ignored,
+								    such as when an object that blocked the projectile is destroyed and movement should continue. */
+		Abort,					/** Abort all further simulation. Typically used when components have been invalidated or simulation should stop. */
+	};
 
-	/** Applies bounce logic (if enabled) to affect velocity upon impact, or stops the projectile if bounces are not enabled (or velocity is below threshold). Fires applicable events. */
+	/**
+	 * Handle blocking hit during simulation update. Checks that simulation remains valid after collision.
+	 * If simulating then calls HandleImpact(), and returns EHandleHitWallResult::Deflect by default to enable multi-bounce and sliding support through HandleDeflection().
+	 * If no longer simulating then returns EHandleHitWallResult::Abort, which aborts attempts at further simulation.
+	 *
+	 * @param  Hit						Blocking hit that occurred.
+	 * @param  TimeTick					Time delta of last move that resulted in the blocking hit.
+	 * @param  MoveDelta				Movement delta for the current sub-step.
+	 * @param  SubTickTimeRemaining		How much time to continue simulating in the current sub-step, which may change as a result of this function.
+	 *									Initial default value is: TimeTick * (1.f - Hit.Time)
+	 * @return Result indicating how simulation should proceed.
+	 * @see EHandleHitWallResult, HandleImpact()
+	 */
+	 virtual EHandleBlockingHitResult HandleBlockingHit(const FHitResult& Hit, float TimeTick, const FVector& MoveDelta, float& SubTickTimeRemaining);
+
+	/**
+	 * Applies bounce logic if enabled to affect velocity upon impact (using ComputeBounceResult()),
+	 * or stops the projectile if bounces are not enabled or velocity is below BounceVelocityStopSimulatingThreshold.
+	 * Triggers applicable events (OnProjectileBounce).
+	 */
 	virtual void HandleImpact(const FHitResult& Hit, float TimeSlice=0.f, const FVector& MoveDelta = FVector::ZeroVector) override;
+
+	/**
+	 * Handle a blocking hit after HandleBlockingHit() returns a result indicating that deflection occured.
+	 * Default implementation increments NumBounces, checks conditions that could indicate a slide, and calls HandleSliding() if necessary.
+	 * 
+	 * @param  Hit					Blocking hit that occurred. May be changed to indicate the last hit result of further movement.
+	 * @param  OldVelocity			Velocity at the start of the simulation update sub-step. Current Velocity may differ (as a result of a bounce).
+	 * @param  NumBounces			Number of bounces that have occurred thus far in the tick.
+	 * @param  SubTickTimeRemaining	Time remaining in the simulation sub-step. May be changed to indicate change to remaining time.
+	 * @return True if simulation of the projectile should continue, false otherwise.
+	 * @see HandleSliding()
+	 */
+	 virtual bool HandleDeflection(FHitResult& Hit, const FVector& OldVelocity, const uint32 NumBounces, float& SubTickTimeRemaining);
 
 	/**
 	 * Handle case where projectile is sliding along a surface.
 	 * Velocity will be parallel to the impact surface upon entry to this method.
 	 * 
-	 * @param  InitialHit Hit result of impact causing slide. May be modified by this function to reflect any subsequent movement.
-	 * @param  SubTickTimeRemaining Time remaining in the tick. This function may update this time with any reduction to the simulation time requested.
+	 * @param  InitialHit				Hit result of impact causing slide. May be modified by this function to reflect any subsequent movement.
+	 * @param  SubTickTimeRemaining		Time remaining in the tick. This function may update this time with any reduction to the simulation time requested.
 	 * @return True if simulation of the projectile should continue, false otherwise.
 	 */
 	virtual bool HandleSliding(FHitResult& Hit, float& SubTickTimeRemaining);

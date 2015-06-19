@@ -16,9 +16,9 @@
 #define INVALID_INDEX -1
 
 /** Compile Steam SDK version in use */
-#define STEAM_SDK_VER TEXT("1.30")
+#define STEAM_SDK_VER TEXT("1.32")
 /** Path of the current Steam SDK version in use */
-#define STEAM_SDK_VER_PATH TEXT("Steamv130")
+#define STEAM_SDK_VER_PATH TEXT("Steamv132")
 /** Root location of Steam SDK */
 #define STEAM_SDK_ROOT_PATH TEXT("Binaries/ThirdParty/Steamworks")
 
@@ -40,9 +40,14 @@
 #pragma warning(disable:4996)
 #endif
 
+#pragma push_macro("ARRAY_COUNT")
+#undef ARRAY_COUNT
+
 // Steamworks SDK headers
 #include "steam/steam_api.h"
 #include "steam/steam_gameserver.h"
+
+#pragma pop_macro("ARRAY_COUNT")
 
 // @todo Steam: See above
 #ifdef _MSC_VER

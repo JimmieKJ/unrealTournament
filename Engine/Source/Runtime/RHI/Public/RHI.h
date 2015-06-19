@@ -49,6 +49,9 @@ class RHI_API FRHICommandList;
 /** The maximum number of mip-maps that a texture can contain. 	*/
 extern	RHI_API int32		GMaxTextureMipCount;
 
+/** true if this platform has quad buffer stereo support. */
+extern RHI_API bool GSupportsQuadBufferStereo;
+
 /** true if the RHI supports textures that may be bound as both a render target and a shader resource. */
 extern RHI_API bool GSupportsRenderDepthTargetableShaderResources;
 
@@ -191,6 +194,22 @@ extern RHI_API bool GRHISupportsFirstInstance;
 /** Whether or not the engine should set the BackBuffer as a render target early in the frame. */
 extern RHI_API bool GRHIRequiresEarlyBackBufferRenderTarget;
 
+/** Whether or not the RHI supports an RHI thread.
+Requirements for RHI thread
+* Microresources (those in RHIStaticStates.h) need to be able to be created by any thread at any time and be able to work with a radically simplified rhi resource lifecycle. CreateSamplerState, CreateRasterizerState, CreateDepthStencilState, CreateBlendState
+* CreateUniformBuffer needs to be threadsafe
+* GetRenderQueryResult should be threadsafe, but this isn't required. If it isn't threadsafe, then you need to flush yourself in the RHI
+* GetViewportBackBuffer and AdvanceFrameForGetViewportBackBuffer need to be threadsafe and need to support the fact that the render thread has a different concept of "current backbuffer" than the RHI thread. Without an RHIThread this is moot due to the next two items.
+* AdvanceFrameForGetViewportBackBuffer needs be added as an RHI method and this needs to work with GetViewportBackBuffer to give the render thread the right back buffer even though many commands relating to the beginning and end of the frame are queued.
+* BeginDrawingViewport, and 5 or so other frame advance methods are queued with an RHIThread. Without an RHIThread, these just flush internally.
+***/
+extern RHI_API bool GRHISupportsRHIThread;
+
+/** Whether or not the RHI supports parallel RHIThread executes / translates
+Requirements:
+* RHICreateBoundShaderState is threadsafe and GetCachedBoundShaderState must not be used. GetCachedBoundShaderState_Threadsafe has a slightly different protocol.
+***/
+extern RHI_API bool GRHISupportsParallelRHIExecute;
 
 /** Called once per frame only from within an RHI. */
 extern RHI_API void RHIPrivateBeginFrame();

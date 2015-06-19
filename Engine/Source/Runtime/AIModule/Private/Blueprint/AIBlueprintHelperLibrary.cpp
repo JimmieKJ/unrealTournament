@@ -92,12 +92,25 @@ UAIAsyncTaskBlueprintProxy* UAIBlueprintHelperLibrary::CreateMoveToProxyObject(U
 		UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
 		MyObj = NewObject<UAIAsyncTaskBlueprintProxy>(World);
 
+		FAIMoveRequest MoveReq;
+		MoveReq.SetUsePathfinding(true);
+		MoveReq.SetAcceptanceRadius(AcceptanceRadius);
+		MoveReq.SetStopOnOverlap(bStopOnOverlap);
+		if (TargetActor)
+		{
+			MoveReq.SetGoalActor(TargetActor);
+		}
+		else
+		{
+			MoveReq.SetGoalLocation(Destination);
+		}
+		
 		FPathFindingQuery Query;
-		const bool bValidQuery = AIController->PreparePathfinding(Query, Destination, TargetActor, true);
+		const bool bValidQuery = AIController->PreparePathfinding(MoveReq, Query);
 
 		if (bValidQuery)
 		{
-			const FAIRequestID RequestID = AIController->RequestPathAndMove(Query, TargetActor, AcceptanceRadius, bStopOnOverlap, NULL);
+			const FAIRequestID RequestID = AIController->RequestPathAndMove(MoveReq, Query);
 			if (RequestID.IsValid())
 			{
 				MyObj->AIController = AIController;

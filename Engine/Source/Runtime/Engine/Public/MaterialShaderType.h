@@ -78,9 +78,10 @@ public:
 		ConstructSerializedType InConstructSerializedRef,
 		ConstructCompiledType InConstructCompiledRef,
 		ModifyCompilationEnvironmentType InModifyCompilationEnvironmentRef,
-		ShouldCacheType InShouldCacheRef
+		ShouldCacheType InShouldCacheRef,
+		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
-		FShaderType(InName,InSourceFilename,InFunctionName,InFrequency,InConstructSerializedRef),
+		FShaderType(InName,InSourceFilename,InFunctionName,InFrequency,InConstructSerializedRef,InGetStreamOutElementsRef),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCacheRef(InShouldCacheRef),
 		ModifyCompilationEnvironmentRef(InModifyCompilationEnvironmentRef)

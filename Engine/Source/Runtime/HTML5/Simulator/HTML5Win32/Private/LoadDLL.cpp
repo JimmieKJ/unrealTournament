@@ -25,11 +25,7 @@ void LoadANGLE( const char* EngineRoot)
 
 void LoadPhysXDLL(const char* EngineRoot) 
 {
-#if _MSC_VER >= 1800
     std::string  DllRoot  =   std::string(EngineRoot)  +  std::string("/Binaries/ThirdParty/PhysX/PhysX-3.3/Win32/VS2013/");
-#else
-    std::string  DllRoot  =   std::string(EngineRoot)  +  std::string("/Binaries/ThirdParty/PhysX/PhysX-3.3/Win32/VS2012/");
-#endif
 	
 #if UE_BUILD_DEBUG && !defined(NDEBUG)	// Use !defined(NDEBUG) to check to see if we actually are linking with Debug third party libraries (bDebugBuildsActuallyUseDebugCRT)
 

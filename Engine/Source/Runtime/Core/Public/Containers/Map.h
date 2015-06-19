@@ -1,9 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "Containers/Array.h"
 #include "Containers/Set.h"
 #include "Containers/UnrealString.h"
+
 
 #define ExchangeB(A,B) {bool T=A; A=B; B=T;}
 
@@ -162,7 +164,7 @@ struct TDefaultMapKeyFuncs : BaseKeyFuncs<TPair<KeyType,ValueType>,KeyType,bInAl
  * The base class of maps from keys to values.  Implemented using a TSet of key-value pairs with a custom KeyFuncs, 
  * with the same O(1) addition, removal, and finding. 
  **/
-template<typename KeyType,typename ValueType,bool bInAllowDuplicateKeys,typename SetAllocator = FDefaultSetAllocator,typename KeyFuncs = TDefaultMapKeyFuncs<KeyType,ValueType,bInAllowDuplicateKeys> >
+template <typename KeyType, typename ValueType, typename SetAllocator, typename KeyFuncs>
 class TMapBase
 {
 	friend struct TContainerTraits<TMapBase>;
@@ -175,7 +177,6 @@ public:
 protected:
 	typedef TPair<KeyType, ValueType> PairType;
 
-public:
 #if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
 
 	TMapBase() = default;
@@ -194,6 +195,7 @@ public:
 
 #endif
 
+public:
 	// Legacy comparison operators.  Note that these also test whether the map's key-value pairs were added in the same order!
 	friend bool LegacyCompareEqual(const TMapBase& A,const TMapBase& B)
 	{
@@ -202,6 +204,40 @@ public:
 	friend bool LegacyCompareNotEqual(const TMapBase& A,const TMapBase& B)
 	{
 		return LegacyCompareNotEqual(A.Pairs,B.Pairs);
+	}
+
+	/**
+	 * Compare this map with another for equality. Does not make any assumptions about Key order.
+	 * NOTE: this might be a candidate for operator== but it was decided to make it an explicit function
+	 *  since it can potentially be quite slow.
+	 *
+	 * @param Other The other map to compare against
+	 * @returns True if both this and Other contain the same keys with values that compare ==
+	 */
+	bool OrderIndependentCompareEqual(const TMapBase& Other) const
+	{
+		// first check counts (they should be the same obviously)
+		if (Num() != Other.Num())
+		{
+			return false;
+		}
+
+		// since we know the counts are the same, we can just iterate one map and check for existence in the other
+		for (typename PairSetType::TConstIterator It(Pairs); It; ++It)
+		{
+			const ValueType* BVal = Other.Find(It->Key);
+			if (BVal == nullptr)
+			{
+				return false;
+			}
+			if (!(*BVal == It->Value))
+			{
+				return false;
+			}
+		}
+
+		// all fields in A match B and A and B's counts are the same (so there can be no fields in B not in A)
+		return true;
 	}
 
 	/**
@@ -248,7 +284,7 @@ public:
 	 * @param	OutKeys	- Upon return, contains the set of unique keys in this map.
 	 * @return The number of unique keys in the map.
 	 */
-	int32 GetKeys(TArray<KeyType>& OutKeys) const
+	template<typename Allocator> int32 GetKeys(TArray<KeyType, Allocator>& OutKeys) const
 	{
 		TSet<KeyType> VisitedKeys;
 		for(typename PairSetType::TConstIterator It(Pairs);It;++It)
@@ -279,7 +315,6 @@ public:
 
 	/**
 	 * Sets the value associated with a key.
-	 * If the key is already associated with any values, the existing values are replaced by the new value.
 	 *
 	 * @param InKey - The key to associate the value with.
 	 * @param InValue - The value to associate with the key.
@@ -292,7 +327,6 @@ public:
 
 	/**
 	 * Sets a default value associated with a key.
-	 * If the key is already associated with any values, the existing values are replaced by the new value.
 	 *
 	 * @param InKey - The key to associate the value with.
 	 * @return A reference to the value as stored in the map.  The reference is only valid until the next change to any key in the map.
@@ -302,7 +336,6 @@ public:
 
 	/**
 	 * Sets the value associated with a key.
-	 * If the key is already associated with any values, the existing values are replaced by the new value.
 	 *
 	 * @param InKey - The key to associate the value with.
 	 * @param InValue - The value to associate with the key.
@@ -311,17 +344,6 @@ public:
 	template <typename InitKeyType, typename InitValueType>
 	ValueType& Emplace(InitKeyType&& InKey, InitValueType&& InValue)
 	{
-		// Remove existing values associated with the specified key.
-		// This is only necessary if the TSet allows duplicate keys; otherwise TSet::Add replaces the existing key-value pair.
-		if(KeyFuncs::bAllowDuplicateKeys)
-		{
-			for(typename PairSetType::TKeyIterator It(Pairs,KeyType(InKey));It;++It)
-			{
-				It.RemoveCurrent();
-			}
-		}
-
-		// Add the key-value pair to the set.  TSet::Add will replace any existing key-value pair that has the same key.
 		const FSetElementId PairId = Pairs.Emplace(TPairInitializer<InitKeyType&&, InitValueType&&>(Forward<InitKeyType>(InKey), Forward<InitValueType>(InValue)));
 
 		return Pairs[PairId].Value;
@@ -329,7 +351,6 @@ public:
 
 	/**
 	 * Sets a default value associated with a key.
-	 * If the key is already associated with any values, the existing values are replaced by the new value.
 	 *
 	 * @param InKey - The key to associate the value with.
 	 * @return A reference to the value as stored in the map.  The reference is only valid until the next change to any key in the map.
@@ -337,17 +358,6 @@ public:
 	template <typename InitKeyType>
 	ValueType& Emplace(InitKeyType&& InKey)
 	{
-		// Remove existing values associated with the specified key.
-		// This is only necessary if the TSet allows duplicate keys; otherwise TSet::Add replaces the existing key-value pair.
-		if(KeyFuncs::bAllowDuplicateKeys)
-		{
-			for(typename PairSetType::TKeyIterator It(Pairs,InKey);It;++It)
-			{
-				It.RemoveCurrent();
-			}
-		}
-
-		// Add the key-value pair to the set.  TSet::Add will replace any existing key-value pair that has the same key.
 		const FSetElementId PairId = Pairs.Emplace(TKeyInitializer<InitKeyType&&>(Forward<InitKeyType>(InKey)));
 
 		return Pairs[PairId].Value;
@@ -367,7 +377,7 @@ public:
 	/**
 	 * Returns the key associated with the specified value.  The time taken is O(N) in the number of pairs.
 	 * @param	Value - The value to search for
-	 * @return	A pointer to the key associated with the specified value, or NULL if the value isn't contained in this map.  The pointer
+	 * @return	A pointer to the key associated with the specified value, or nullptr if the value isn't contained in this map.  The pointer
 	 *			is only valid until the next change to any key in the map.
 	 */
 	const KeyType* FindKey(ValueInitType Value) const
@@ -379,13 +389,13 @@ public:
 				return &PairIt->Key;
 			}
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/**
 	 * Returns the value associated with a specified key.
 	 * @param	Key - The key to search for.
-	 * @return	A pointer to the value associated with the specified key, or NULL if the key isn't contained in this map.  The pointer
+	 * @return	A pointer to the value associated with the specified key, or nullptr if the key isn't contained in this map.  The pointer
 	 *			is only valid until the next change to any key in the map.
 	 */
 	FORCEINLINE ValueType* Find(KeyConstPointerType Key)
@@ -395,7 +405,7 @@ public:
 			return &Pair->Value;
 		}
 
-		return NULL;
+		return nullptr;
 	}
 	FORCEINLINE const ValueType* Find(KeyConstPointerType Key) const
 	{
@@ -456,7 +466,7 @@ public:
 	FORCEINLINE const ValueType& FindChecked(KeyConstPointerType Key) const
 	{
 		const auto* Pair = Pairs.Find(Key);
-		check( Pair != NULL );
+		check( Pair != nullptr );
 		return Pair->Value;
 	}
 
@@ -468,7 +478,7 @@ public:
 	FORCEINLINE ValueType& FindChecked(KeyConstPointerType Key)
 	{
 		auto* Pair = Pairs.Find(Key);
-		check( Pair != NULL );
+		check( Pair != nullptr );
 		return Pair->Value;
 	}
 
@@ -500,7 +510,7 @@ public:
 	/**
 	 * Generates an array from the keys in this map.
 	 */
-	void GenerateKeyArray(TArray<KeyType>& OutArray) const
+	template<typename Allocator> void GenerateKeyArray(TArray<KeyType, Allocator>& OutArray) const
 	{
 		OutArray.Empty(Pairs.Num());
 		for(typename PairSetType::TConstIterator PairIt(Pairs);PairIt;++PairIt)
@@ -512,7 +522,7 @@ public:
 	/**
 	 * Generates an array from the values in this map.
 	 */
-	void GenerateValueArray(TArray<ValueType>& OutArray) const
+	template<typename Allocator> void GenerateValueArray(TArray<ValueType, Allocator>& OutArray) const
 	{
 		OutArray.Empty(Pairs.Num());
 		for(typename PairSetType::TConstIterator PairIt(Pairs);PairIt;++PairIt)
@@ -756,13 +766,13 @@ private:
 };
 
 /** The base type of sortable maps. */
-template<typename KeyType,typename ValueType,bool bInAllowDuplicateKeys,typename SetAllocator,typename KeyFuncs>
-class TSortableMapBase : public TMapBase<KeyType,ValueType,bInAllowDuplicateKeys,SetAllocator,KeyFuncs>
+template <typename KeyType, typename ValueType, typename SetAllocator, typename KeyFuncs>
+class TSortableMapBase : public TMapBase<KeyType, ValueType, SetAllocator, KeyFuncs>
 {
 	friend struct TContainerTraits<TSortableMapBase>;
 
-public:
-	typedef TMapBase<KeyType,ValueType,bInAllowDuplicateKeys,SetAllocator,KeyFuncs> Super;
+protected:
+	typedef TMapBase<KeyType, ValueType, SetAllocator, KeyFuncs> Super;
 
 #if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
 
@@ -782,6 +792,7 @@ public:
 
 #endif
 
+public:
 	/**
 	 * Sorts the pairs array using each pair's Key as the sort criteria, then rebuilds the map's hash.
 	 * Invoked using "MyMapVar.KeySort( PREDICATE_CLASS() );"
@@ -841,14 +852,19 @@ private:
 	};
 };
 
+class FScriptMap;
+
 /** A TMapBase specialization that only allows a single value associated with each key.*/
 template<typename KeyType,typename ValueType,typename SetAllocator /*= FDefaultSetAllocator*/,typename KeyFuncs /*= TDefaultMapKeyFuncs<KeyType,ValueType,false>*/>
-class TMap : public TSortableMapBase<KeyType,ValueType,false,SetAllocator,KeyFuncs>
+class TMap : public TSortableMapBase<KeyType, ValueType, SetAllocator, KeyFuncs>
 {
 	friend struct TContainerTraits<TMap>;
+	friend class  FScriptMap;
+
+	static_assert(!KeyFuncs::bAllowDuplicateKeys, "TMap cannot be instantiated with a KeyFuncs which allows duplicate keys");
 
 public:
-	typedef TSortableMapBase<KeyType,ValueType,false,SetAllocator,KeyFuncs> Super;
+	typedef TSortableMapBase<KeyType, ValueType, SetAllocator, KeyFuncs> Super;
 	typedef typename Super::KeyInitType KeyInitType;
 	typedef typename Super::KeyConstPointerType KeyConstPointerType;
 
@@ -934,12 +950,14 @@ public:
 
 /** A TMapBase specialization that allows multiple values to be associated with each key. */
 template<typename KeyType,typename ValueType,typename SetAllocator /* = FDefaultSetAllocator */,typename KeyFuncs /*= TDefaultMapKeyFuncs<KeyType,ValueType,true>*/>
-class TMultiMap : public TSortableMapBase<KeyType,ValueType,true,SetAllocator,KeyFuncs>
+class TMultiMap : public TSortableMapBase<KeyType, ValueType, SetAllocator, KeyFuncs>
 {
 	friend struct TContainerTraits<TMultiMap>;
 
+	static_assert(KeyFuncs::bAllowDuplicateKeys, "TMultiMap cannot be instantiated with a KeyFuncs which disallows duplicate keys");
+
 public:
-	typedef TSortableMapBase<KeyType,ValueType,true,SetAllocator,KeyFuncs> Super;
+	typedef TSortableMapBase<KeyType, ValueType, SetAllocator, KeyFuncs> Super;
 	typedef typename Super::KeyConstPointerType KeyConstPointerType;
 	typedef typename Super::KeyInitType KeyInitType;
 	typedef typename Super::ValueInitType ValueInitType;
@@ -968,7 +986,7 @@ public:
 	 * @param OutValues - Upon return, contains the values associated with the key.
 	 * @param bMaintainOrder - true if the Values array should be in the same order as the map's pairs.
 	 */
-	void MultiFind(KeyInitType Key,TArray<ValueType>& OutValues,bool bMaintainOrder = false) const
+	template<typename Allocator> void MultiFind(KeyInitType Key,TArray<ValueType, Allocator>& OutValues,bool bMaintainOrder = false) const
 	{
 		for(typename Super::PairSetType::TConstKeyIterator It(Super::Pairs,Key);It;++It)
 		{
@@ -978,7 +996,7 @@ public:
 		if(bMaintainOrder)
 		{
 			// Create an array with the values in reverse enumerated order; i.e. the order they were inserted in the map.
-			TArray<ValueType> OrderedValues;
+			TArray<ValueType, Allocator> OrderedValues;
 			OrderedValues.Empty(OutValues.Num());
 			for(int32 Index = OutValues.Num() - 1;Index >= 0;Index--)
 			{
@@ -1021,57 +1039,6 @@ public:
 
 	/**
 	 * Adds a key-value association to the map.  The association doesn't replace any of the key's existing associations.
-	 *
-	 * @param InKey - The key to associate.
-	 * @param InValue - The value to associate.
-	 * @return A reference to the value as stored in the map; the reference is only valid until the next change to any key in the map.
-	 */
-	FORCEINLINE ValueType& Add(const KeyType&  InKey, const ValueType&  InValue) { return Emplace(         InKey ,          InValue ); }
-	FORCEINLINE ValueType& Add(const KeyType&  InKey,       ValueType&& InValue) { return Emplace(         InKey , MoveTemp(InValue)); }
-	FORCEINLINE ValueType& Add(      KeyType&& InKey, const ValueType&  InValue) { return Emplace(MoveTemp(InKey),          InValue ); }
-	FORCEINLINE ValueType& Add(      KeyType&& InKey,       ValueType&& InValue) { return Emplace(MoveTemp(InKey), MoveTemp(InValue)); }
-
-	/**
-	 * Adds a key-value association to the map.  The association doesn't replace any of the key's existing associations.
-	 * The value is default-constructed.
-	 *
-	 * @param InKey - The key to associate.
-	 * @return A reference to the value as stored in the map; the reference is only valid until the next change to any key in the map.
-	 */
-	FORCEINLINE ValueType& Add(const KeyType&  InKey) { return Emplace(         InKey ); }
-	FORCEINLINE ValueType& Add(      KeyType&& InKey) { return Emplace(MoveTemp(InKey)); }
-
-	/**
-	 * Adds a key-value association to the map.  The association doesn't replace any of the key's existing associations.
-	 *
-	 * @param InKey - The key to associate.
-	 * @param InValue - The value to associate.
-	 * @return A reference to the value as stored in the map; the reference is only valid until the next change to any key in the map.
-	 */
-	template <typename InitKeyType, typename InitValueType>
-	FORCEINLINE ValueType& Emplace(InitKeyType&& InKey, InitValueType&& InValue)
-	{
-		const FSetElementId PairId = Super::Pairs.Emplace(TPairInitializer<InitKeyType&&, InitValueType&&>(Forward<InitKeyType>(InKey), Forward<InitValueType>(InValue)));
-		return Super::Pairs[PairId].Value;
-	}
-
-	/**
-	 * Adds a key-value association to the map.  The association doesn't replace any of the key's existing associations.
-	 * The value is default-constructed.
-	 *
-	 * @param InKey - The key to associate.
-	 * @param InValue - The value to associate.
-	 * @return A reference to the value as stored in the map; the reference is only valid until the next change to any key in the map.
-	 */
-	template <typename InitKeyType>
-	FORCEINLINE ValueType& Emplace(InitKeyType&& InKey)
-	{
-		const FSetElementId KeyId = Super::Pairs.Emplace(TKeyInitializer<InitKeyType&&>(Forward<InitKeyType>(InKey)));
-		return Super::Pairs(KeyId).Value;
-	}
-
-	/**
-	 * Adds a key-value association to the map.  The association doesn't replace any of the key's existing associations.
 	 * However, if both the key and value match an existing association in the map, no new association is made and the existing association's
 	 * value is returned.
 	 * @param InKey - The key to associate.
@@ -1095,10 +1062,12 @@ public:
 	ValueType& EmplaceUnique(InitKeyType&& InKey, InitValueType&& InValue)
 	{
 		if (ValueType* Found = FindPair(InKey, InValue))
+		{
 			return *Found;
+		}
 
 		// If there's no existing association with the same key and value, create one.
-		return Add(Forward<InitKeyType>(InKey), Forward<InitValueType>(InValue));
+		return Super::Add(Forward<InitKeyType>(InKey), Forward<InitValueType>(InValue));
 	}
 
 	/**
@@ -1162,7 +1131,7 @@ public:
 	 * Finds an association between a specified key and value. (const)
 	 * @param Key - The key to find.
 	 * @param Value - The value to find.
-	 * @return If the map contains a matching association, a pointer to the value in the map is returned.  Otherwise NULL is returned.
+	 * @return If the map contains a matching association, a pointer to the value in the map is returned.  Otherwise nullptr is returned.
 	 *			The pointer is only valid as long as the map isn't changed.
 	 */
 	FORCEINLINE const ValueType* FindPair(KeyInitType Key,ValueInitType Value) const
@@ -1174,7 +1143,7 @@ public:
 	 * Finds an association between a specified key and value.
 	 * @param Key - The key to find.
 	 * @param Value - The value to find.
-	 * @return If the map contains a matching association, a pointer to the value in the map is returned.  Otherwise NULL is returned.
+	 * @return If the map contains a matching association, a pointer to the value in the map is returned.  Otherwise nullptr is returned.
 	 *			The pointer is only valid as long as the map isn't changed.
 	 */
 	ValueType* FindPair(KeyInitType Key,ValueInitType Value)
@@ -1189,7 +1158,7 @@ public:
 			}
 		}
 
-		return NULL;
+		return nullptr;
 	}
 
 	/** Returns the number of values within this map associated with the specified key */
@@ -1211,26 +1180,129 @@ public:
 	}
 };
 
-template <typename KeyType, typename ValueType, bool bInAllowDuplicateKeys, typename SetAllocator, typename KeyFuncs>
-struct TContainerTraits<TMapBase<KeyType, ValueType, bInAllowDuplicateKeys, SetAllocator, KeyFuncs>> : public TContainerTraitsBase<TMapBase<KeyType, ValueType, bInAllowDuplicateKeys, SetAllocator, KeyFuncs>>
+struct FScriptMapLayout
 {
-	enum { MoveWillEmptyContainer = TContainerTraits<typename TMapBase<KeyType, ValueType, bInAllowDuplicateKeys, SetAllocator, KeyFuncs>::PairSetType>::MoveWillEmptyContainer };
+	int32 KeyOffset;
+	int32 ValueOffset;
+
+	FScriptSetLayout SetLayout;
 };
 
-template <typename KeyType, typename ValueType, bool bInAllowDuplicateKeys, typename SetAllocator, typename KeyFuncs>
-struct TContainerTraits<TSortableMapBase<KeyType, ValueType, bInAllowDuplicateKeys, SetAllocator, KeyFuncs>> : public TContainerTraitsBase<TSortableMapBase<KeyType, ValueType, bInAllowDuplicateKeys, SetAllocator, KeyFuncs>>
+// Untyped map type for accessing TMap data, like FScriptArray for TArray.
+// Must have the same memory representation as a TMap.
+class FScriptMap
 {
-	enum { MoveWillEmptyContainer = TContainerTraits<typename TSortableMapBase<KeyType, ValueType, bInAllowDuplicateKeys, SetAllocator, KeyFuncs>::Super>::MoveWillEmptyContainer };
+public:
+	static FScriptMapLayout GetScriptLayout(int32 KeySize, int32 KeyAlignment, int32 ValueSize, int32 ValueAlignment)
+	{
+		FScriptMapLayout Result;
+
+		// TPair<Key, Value>
+		FStructBuilder PairStruct;
+		Result.KeyOffset   = PairStruct.AddMember(KeySize,   KeyAlignment);
+		Result.ValueOffset = PairStruct.AddMember(ValueSize, ValueAlignment);
+		Result.SetLayout   = FScriptSet::GetScriptLayout(PairStruct.GetSize(),  PairStruct.GetAlignment());
+
+		return Result;
+	}
+
+	FScriptMap()
+	{
+	}
+
+	bool IsValidIndex(int32 Index) const
+	{
+		return Pairs.IsValidIndex(Index);
+	}
+
+	int32 Num() const
+	{
+		return Pairs.Num();
+	}
+
+	int32 GetMaxIndex() const
+	{
+		return Pairs.GetMaxIndex();
+	}
+
+	void* GetData(int32 Index, const FScriptMapLayout& Layout)
+	{
+		return Pairs.GetData(Index, Layout.SetLayout);
+	}
+
+	const void* GetData(int32 Index, const FScriptMapLayout& Layout) const
+	{
+		return Pairs.GetData(Index, Layout.SetLayout);
+	}
+
+	void Empty(int32 Slack, const FScriptMapLayout& Layout)
+	{
+		Pairs.Empty(Slack, Layout.SetLayout);
+	}
+
+	void RemoveAt(int32 Index, const FScriptMapLayout& Layout)
+	{
+		Pairs.RemoveAt(Index, Layout.SetLayout);
+	}
+
+	/**
+	 * Adds an uninitialized object to the map.
+	 * The map will need rehashing at some point after this call to make it valid.
+	 *
+	 * @return  The index of the added element.
+	 */
+	int32 AddUninitialized(const FScriptMapLayout& Layout)
+	{
+		return Pairs.AddUninitialized(Layout.SetLayout);
+	}
+
+	void Rehash(const FScriptMapLayout& Layout, TFunctionRef<uint32 (const void*)> GetKeyHash)
+	{
+		Pairs.Rehash(Layout.SetLayout, GetKeyHash);
+	}
+
+private:
+	FScriptSet Pairs;
+
+	// This function isn't intended to be called, just to be compiled to validate the correctness of the type.
+	static void CheckConstraints()
+	{
+		typedef FScriptMap        ScriptType;
+		typedef TMap<int32, int8> RealType;
+
+		// Check that the class footprint is the same
+		static_assert(sizeof (ScriptType) == sizeof (RealType), "FScriptMap's size doesn't match TMap");
+		static_assert(ALIGNOF(ScriptType) == ALIGNOF(RealType), "FScriptMap's alignment doesn't match TMap");
+
+		// Check member sizes
+		static_assert(sizeof(DeclVal<ScriptType>().Pairs) == sizeof(DeclVal<RealType>().Pairs), "FScriptMap's Pairs member size does not match TMap's");
+
+		// Check member offsets
+		static_assert(STRUCT_OFFSET(ScriptType, Pairs) == STRUCT_OFFSET(RealType, Pairs), "FScriptMap's Pairs member offset does not match TMap's");
+	}
+
+public:
+	// These should really be private, because they shouldn't be called, but there's a bunch of code
+	// that needs to be fixed first.
+	FScriptMap(const FScriptMap&) { check(false); }
+	void operator=(const FScriptMap&) { check(false); }
 };
+
+template <>
+struct TIsZeroConstructType<FScriptMap>
+{
+	enum { Value = true };
+};
+
 
 template <typename KeyType, typename ValueType, typename SetAllocator,typename KeyFuncs>
 struct TContainerTraits<TMap<KeyType, ValueType, SetAllocator, KeyFuncs>> : public TContainerTraitsBase<TMap<KeyType, ValueType, SetAllocator, KeyFuncs>>
 {
-	enum { MoveWillEmptyContainer = TContainerTraits<typename TMap<KeyType, ValueType, SetAllocator, KeyFuncs>::Super>::MoveWillEmptyContainer };
+	enum { MoveWillEmptyContainer = TContainerTraits<typename TMap<KeyType, ValueType, SetAllocator, KeyFuncs>::PairSetType>::MoveWillEmptyContainer };
 };
 
 template <typename KeyType, typename ValueType, typename SetAllocator,typename KeyFuncs>
 struct TContainerTraits<TMultiMap<KeyType, ValueType, SetAllocator, KeyFuncs>> : public TContainerTraitsBase<TMultiMap<KeyType, ValueType, SetAllocator, KeyFuncs>>
 {
-	enum { MoveWillEmptyContainer = TContainerTraits<typename TMultiMap<KeyType, ValueType, SetAllocator, KeyFuncs>::Super>::MoveWillEmptyContainer };
+	enum { MoveWillEmptyContainer = TContainerTraits<typename TMultiMap<KeyType, ValueType, SetAllocator, KeyFuncs>::PairSetType>::MoveWillEmptyContainer };
 };

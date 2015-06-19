@@ -37,10 +37,7 @@ FText FWidgetTemplateClass::GetCategory() const
 
 UWidget* FWidgetTemplateClass::Create(UWidgetTree* Tree)
 {
-	UWidget* NewWidget = Tree->ConstructWidget<UWidget>(WidgetClass.Get());
-	NewWidget->OnCreationFromPalette();
-
-	return NewWidget;
+	return CreateNamed(Tree, NAME_None);
 }
 
 const FSlateBrush* FWidgetTemplateClass::GetIcon() const
@@ -61,6 +58,23 @@ void FWidgetTemplateClass::OnObjectsReplaced(const TMap<UObject*, UObject*>& Rep
 	{
 		WidgetClass = CastChecked<UClass>(*NewObject);
 	}
+}
+
+UWidget* FWidgetTemplateClass::CreateNamed(class UWidgetTree* Tree, FName NameOverride)
+{
+	if (NameOverride != NAME_None)
+	{
+		UObject* ExistingObject = StaticFindObject(UObject::StaticClass(), Tree, *NameOverride.ToString());
+		if (ExistingObject != nullptr)
+		{
+			NameOverride = MakeUniqueObjectName(Tree, WidgetClass.Get(), NameOverride);
+		}
+	}
+
+	UWidget* NewWidget = Tree->ConstructWidget<UWidget>(WidgetClass.Get(), NameOverride);
+	NewWidget->OnCreationFromPalette();
+
+	return NewWidget;
 }
 
 #undef LOCTEXT_NAMESPACE

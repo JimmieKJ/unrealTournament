@@ -39,21 +39,21 @@ void AUTProj_ShockBall::SetForwardTicked(bool bWasForwardTicked)
 	bUsingClientSideHits = bWasForwardTicked;
 }
 
-void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
+float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	if (bFakeClientProjectile)
 	{
 		if (MasterProjectile && !MasterProjectile->IsPendingKillPending())
 		{
-			MasterProjectile->ReceiveAnyDamage(Damage, DamageType, InstigatedBy, DamageCauser);
+			MasterProjectile->TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 		}
-		return;
+		return Damage;
 	}
-	if (ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
+	if (ComboTriggerType != NULL && DamageEvent.DamageTypeClass != NULL && DamageEvent.DamageTypeClass->IsChildOf(ComboTriggerType))
 	{
 		if (Role != ROLE_Authority)
 		{
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(EventInstigator);
 			if (UTPC)
 			{
 				UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
@@ -61,9 +61,11 @@ void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* 
 		}
 		else if (!bUsingClientSideHits)
 		{
-			PerformCombo(InstigatedBy, DamageCauser);
+			PerformCombo(EventInstigator, DamageCauser);
 		}
 	}
+
+	return Damage;
 }
 
 void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
@@ -182,13 +184,21 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 		FVector ShootPos = Shooter->GetWeapon()->GetFireStartLoc();
 		ComboScore += 100.f * (1.f - (GetVelocity().GetSafeNormal() | (GetActorLocation() - ShootPos).GetSafeNormal()));
 		// current movement speed relative to direction, with bonus if falling
-		float MovementBonus = (Shooter->GetCharacterMovement()->MovementMode == MOVE_Falling) ? 7.f : 4.f;
+		float MovementBonus = (Shooter->GetCharacterMovement()->MovementMode == MOVE_Falling) ? 5.f : 3.f;
 		ComboScore += MovementBonus * Shooter->GetVelocity().Size() / 1000.f;
+		// @TODO FIXMESTEVE also score target movement?
 	}
 	if ((ComboScore > 8.f) && (KillCount > 0))
 	{
-		PC->SendPersonalMessage(ComboRewardMessageClass);
 		PS->ModifyStatsValue(NAME_AmazingCombos, 1);
+		if (ComboScore > 11.f)
+		{
+			PC->SendPersonalMessage(ComboRewardMessageClass, 100);
+		}
+		else
+		{
+			PC->SendPersonalMessage(ComboRewardMessageClass, PS->GetStatsValue(NAME_AmazingCombos));
+		}
 	}
 
 	ComboScore *= 100.f; // multiply since stats stored as int32

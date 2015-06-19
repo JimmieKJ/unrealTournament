@@ -159,11 +159,23 @@ UnicodeString &Win32DateFormat::format(Calendar &cal, UnicodeString &appendTo, F
     uct = utmscale_fromInt64((int64_t) cal.getTime(status), UDTS_ICU4C_TIME, &status);
     uft = utmscale_toInt64(uct, UDTS_WINDOWS_FILE_TIME, &status);
 
+#if U_PLATFORM == U_PF_DURANGO
+	int32_t standard_offset;
+	int32_t daylight_offset;
+	tz.getOffset(cal.getTime(status), false, standard_offset, daylight_offset, status);
+	uft += standard_offset + daylight_offset;
+
+	ft.dwLowDateTime =  (DWORD) (uft & 0xFFFFFFFF);
+	ft.dwHighDateTime = (DWORD) ((uft >> 32) & 0xFFFFFFFF);
+
+	FileTimeToSystemTime(&ft, &st_local);
+#else
     ft.dwLowDateTime =  (DWORD) (uft & 0xFFFFFFFF);
     ft.dwHighDateTime = (DWORD) ((uft >> 32) & 0xFFFFFFFF);
 
-    FileTimeToSystemTime(&ft, &st_gmt);
+	FileTimeToSystemTime(&ft, &st_gmt);
     SystemTimeToTzSpecificLocalTime(&tzi, &st_gmt, &st_local);
+#endif
 
 
     if (fDateStyle != DateFormat::kNone && fTimeStyle != DateFormat::kNone) {
@@ -239,14 +251,28 @@ void Win32DateFormat::formatDate(const SYSTEMTIME *st, UnicodeString &appendTo) 
     UChar stackBuffer[STACK_BUFFER_SIZE];
     UChar *buffer = stackBuffer;
 
+#if U_PLATFORM == U_PF_DURANGO
+	UChar LocaleName[LOCALE_NAME_MAX_LENGTH];
+	mbstowcs(LocaleName, fLocale.getName(), LOCALE_NAME_MAX_LENGTH);
+	result = GetDateFormatEx(LocaleName, dfFlags[fDateStyle - kDateOffset], st, NULL, buffer, STACK_BUFFER_SIZE, NULL);
+#else
     result = GetDateFormatW(fLCID, dfFlags[fDateStyle - kDateOffset], st, NULL, buffer, STACK_BUFFER_SIZE);
+#endif
 
     if (result == 0) {
         if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+#if U_PLATFORM == U_PF_DURANGO
+			int newLength = GetDateFormatEx(LocaleName, dfFlags[fDateStyle - kDateOffset], st, NULL, NULL, 0, NULL);
+#else
             int newLength = GetDateFormatW(fLCID, dfFlags[fDateStyle - kDateOffset], st, NULL, NULL, 0);
+#endif
 
             buffer = NEW_ARRAY(UChar, newLength);
+#if U_PLATFORM == U_PF_DURANGO
+			GetDateFormatEx(LocaleName, dfFlags[fDateStyle - kDateOffset], st, NULL, NULL, newLength, NULL);
+#else
             GetDateFormatW(fLCID, dfFlags[fDateStyle - kDateOffset], st, NULL, buffer, newLength);
+#endif
         }
     }
 
@@ -265,14 +291,28 @@ void Win32DateFormat::formatTime(const SYSTEMTIME *st, UnicodeString &appendTo) 
     UChar stackBuffer[STACK_BUFFER_SIZE];
     UChar *buffer = stackBuffer;
 
+#if U_PLATFORM == U_PF_DURANGO
+	UChar LocaleName[LOCALE_NAME_MAX_LENGTH];
+	mbstowcs(LocaleName, fLocale.getName(), LOCALE_NAME_MAX_LENGTH);
+	result = GetTimeFormatEx(LocaleName, tfFlags[fTimeStyle], st, NULL, buffer, STACK_BUFFER_SIZE);
+#else
     result = GetTimeFormatW(fLCID, tfFlags[fTimeStyle], st, NULL, buffer, STACK_BUFFER_SIZE);
+#endif
 
     if (result == 0) {
         if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+#if U_PLATFORM == U_PF_DURANGO
+			int newLength = GetTimeFormatEx(LocaleName, tfFlags[fTimeStyle], st, NULL, NULL, 0);
+#else
             int newLength = GetTimeFormatW(fLCID, tfFlags[fTimeStyle], st, NULL, NULL, 0);
+#endif
 
             buffer = NEW_ARRAY(UChar, newLength);
-            GetDateFormatW(fLCID, tfFlags[fTimeStyle], st, NULL, buffer, newLength);
+#if U_PLATFORM == U_PF_DURANGO
+			GetTimeFormatEx(LocaleName, tfFlags[fTimeStyle], st, NULL, buffer, newLength);
+#else
+            GetTimeFormatW(fLCID, tfFlags[fTimeStyle], st, NULL, buffer, newLength);
+#endif
         }
     }
 
