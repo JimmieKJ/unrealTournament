@@ -800,8 +800,7 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		UTOwner->PositionUpdated(bShotSpawned);
 		bShotSpawned = false;
 		// tick movement reduction timer
-		// we do this based on the client's movement timestamp to minimize corrections
-		UTOwner->WalkMovementReductionTime -= DeltaSeconds;
+		UTOwner->WalkMovementReductionTime = FMath::Max(0.f, UTOwner->WalkMovementReductionTime - DeltaSeconds);
 		if (UTOwner->WalkMovementReductionTime <= 0.0f)
 		{
 			UTOwner->WalkMovementReductionPct = 0.0f;
