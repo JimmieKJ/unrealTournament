@@ -36,6 +36,7 @@ public:
 	FString ServerPassword;
 
 	//Password required to join as a spectator
+	UPROPERTY(GlobalConfig)
 	FString SpectatePassword;
 
 	uint32 bRequirePassword:1;
