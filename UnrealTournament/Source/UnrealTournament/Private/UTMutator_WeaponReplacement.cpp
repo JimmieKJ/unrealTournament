@@ -15,6 +15,7 @@ AUTMutator_WeaponReplacement::AUTMutator_WeaponReplacement(const FObjectInitiali
 : Super(ObjectInitializer)
 {
 	DisplayName = NSLOCTEXT("Mutator_WeaponReplacement", "Display Name", "Weapon Replacement");
+	GroupNames.Add(FName(TEXT("Arena")));
 #if !UE_SERVER
 	if (!IsRunningDedicatedServer())
 	{

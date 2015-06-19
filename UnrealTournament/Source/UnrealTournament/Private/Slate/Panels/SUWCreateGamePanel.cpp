@@ -665,10 +665,28 @@ FReply SUWCreateGamePanel::AddMutator()
 	TArray<UClass*> Selection = AvailableMutators->GetSelectedItems();
 	if (Selection.Num() > 0 && Selection[0] != NULL)
 	{
-		MutatorListEnabled.Add(Selection[0]);
-		MutatorListAvailable.Remove(Selection[0]);
-		AvailableMutators->RequestListRefresh();
-		EnabledMutators->RequestListRefresh();
+		const AUTMutator* ConflictCDO = NULL;
+		const AUTMutator* NewMutatorCDO = Selection[0]->GetDefaultObject<AUTMutator>();
+		for (UClass* EnabledMut : MutatorListEnabled)
+		{
+			const AUTMutator* EnabledMutCDO = EnabledMut->GetDefaultObject<AUTMutator>();
+			if (EnabledMutCDO->GroupNames.ContainsByPredicate([&](const FName& TestName) { return NewMutatorCDO->GroupNames.Contains(TestName); }))
+			{
+				ConflictCDO = EnabledMutCDO;
+				break;
+			}
+		}
+		if (ConflictCDO != NULL)
+		{
+			GetPlayerOwner()->ShowMessage(NSLOCTEXT("SUWCreateGamePanel", "MutatorConflictTitle", "Mutator Conflict"), FText::Format(NSLOCTEXT("SUWCreateGamePanel", "MutatorConflictText", "The selected mutator conflicts with the already enabled mutator \"{0}\""), ConflictCDO->DisplayName), UTDIALOG_BUTTON_OK);
+		}
+		else
+		{
+			MutatorListEnabled.Add(Selection[0]);
+			MutatorListAvailable.Remove(Selection[0]);
+			AvailableMutators->RequestListRefresh();
+			EnabledMutators->RequestListRefresh();
+		}
 	}
 	return FReply::Handled();
 }

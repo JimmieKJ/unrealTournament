@@ -16,6 +16,7 @@ AUTMutator_WeaponArena::AUTMutator_WeaponArena(const FObjectInitializer& ObjectI
 : Super(ObjectInitializer)
 {
 	DisplayName = NSLOCTEXT("Mutator_WeaponArena", "Display Name", "Weapon Arena");
+	GroupNames.Add(FName(TEXT("Arena")));
 	ArenaWeaponPath = "/Game/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.BP_RocketLauncher_C"; // warning: soft ref
 	bAllowTranslocator = true;
 #if !UE_SERVER
