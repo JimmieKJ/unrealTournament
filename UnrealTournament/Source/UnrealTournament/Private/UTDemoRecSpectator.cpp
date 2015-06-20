@@ -136,6 +136,16 @@ void AUTDemoRecSpectator::ClientTravelInternal_Implementation(const FString& URL
 {
 }
 
+void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
+{
+	BehindView(true);
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
+	APlayerController::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
+
+	TurnOffPawns();
+}
+
 void AUTDemoRecSpectator::BeginPlay()
 {
 	Super::BeginPlay();

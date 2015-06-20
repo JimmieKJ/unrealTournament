@@ -1875,14 +1875,7 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
 	Super::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
-	// freeze all Pawns locally
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (It->IsValid() && !Cast<ASpectatorPawn>(It->Get()))
-		{
-			It->Get()->TurnOff();
-		}
-	}
+	TurnOffPawns();
 }
 
 void AUTPlayerController::ShowEndGameScoreboard()
@@ -1930,7 +1923,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
 		//				happens because Pawn is replicated via property replication and ViewTarget is RPC'ed so comes first
-		if (IsLocalController() && bSpectateBehindView && PlayerState && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
+		if (IsLocalController() && bSpectateBehindView && PlayerState && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()) && NewViewTarget)
 		{
 			// pick good starting rotation
 			FindGoodView(NewViewTarget->GetActorLocation(), false);
@@ -3154,6 +3147,18 @@ FString AUTPlayerController::FixedupKeyname(FString KeyName)
 	if (KeyName.Equals(TEXT("zero"), ESearchCase::IgnoreCase)) return TEXT("0");
 
 	return KeyName;
+}
+
+void AUTPlayerController::TurnOffPawns()
+{
+	// freeze all Pawns locally
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (It->IsValid() && !Cast<ASpectatorPawn>(It->Get()))
+		{
+			It->Get()->TurnOff();
+		}
+	}
 }
 
 void AUTPlayerController::UpdateWeaponGroupKeys()
