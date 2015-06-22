@@ -66,6 +66,15 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 	LastStatsDownloadTime = -1;
 }
 
+void SUWStatsViewer::SetQueryWindow(const FString& InQueryWindow)
+{
+	if (InQueryWindow != QueryWindow)
+	{
+		LastStatsDownloadTime = -1;
+		QueryWindow = InQueryWindow;
+	}
+}
+
 void SUWStatsViewer::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
 	if (!PlayerOwner->IsLoggedIn())
@@ -122,7 +131,7 @@ void SUWStatsViewer::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttp
 			UE_LOG(LogGameStats, VeryVerbose, TEXT("%s"), *HttpResponse->GetContentAsString());
 
 			// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
-			FString JSONString = FString(TEXT("var BackendStats = ")) + HttpResponse->GetContentAsString() + TEXT(";");
+			FString JSONString = FString(TEXT("var BackendStats = ")) + HttpResponse->GetContentAsString() + TEXT("; var QueryWindow=\"") + QueryWindow + TEXT("\";");
 
 			FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/backendstats.json"));
 			FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
@@ -157,28 +166,29 @@ void SUWStatsViewer::ReadBackendStats()
 	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
 	if (StatsReadRequest.IsValid())
 	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
-		FString McpConfigOverride;
-		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
+		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
 #endif
-
+		FString McpConfigOverride;
+		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
 		if (McpConfigOverride == TEXT("localhost"))
 		{
-			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
+			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/");
 		}
 		else if (McpConfigOverride == TEXT("gamedev"))
 		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
 		}
 
-		StatsReadRequest->SetURL(BaseURL);
+		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
+
+		StatsReadRequest->SetURL(FinalStatsURL);
 		StatsReadRequest->OnProcessRequestComplete().BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
 		StatsReadRequest->SetVerb(TEXT("GET"));
 
-		UE_LOG(LogGameStats, Verbose, TEXT("%s"), *BaseURL);
+		UE_LOG(LogGameStats, Verbose, TEXT("%s"), *FinalStatsURL);
 
 		if (OnlineIdentityInterface.IsValid())
 		{

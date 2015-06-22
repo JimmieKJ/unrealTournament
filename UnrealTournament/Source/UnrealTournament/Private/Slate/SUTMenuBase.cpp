@@ -690,6 +690,10 @@ FReply SUTMenuBase::OnShowStatsViewer()
 	TSharedPtr<class SUWStatsViewer> StatsViewer = PlayerOwner->GetStatsViewer();
 	if (StatsViewer.IsValid())
 	{
+		StatsViewer->SetQueryWindow(TEXT("alltime"));
+		//StatsViewer->SetQueryWindow(TEXT("monthly"));
+		//StatsViewer->SetQueryWindow(TEXT("weekly"));
+		//StatsViewer->SetQueryWindow(TEXT("daily"));
 		ActivatePanel(StatsViewer);
 	}
 	return FReply::Handled();

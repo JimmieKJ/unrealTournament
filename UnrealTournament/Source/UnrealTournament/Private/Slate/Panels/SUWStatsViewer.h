@@ -19,8 +19,10 @@ class UNREALTOURNAMENT_API SUWStatsViewer : public SUWPanel
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow) override;
+
 protected:
 	FString StatsID;
+	FString QueryWindow;
 
 	double LastStatsDownloadTime;
 
@@ -40,6 +42,7 @@ protected:
 	void ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ShowErrorPage();
 public:
+	virtual void SetQueryWindow(const FString& InQueryWindow);
 	virtual ~SUWStatsViewer();
 };
 
