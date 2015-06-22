@@ -15,15 +15,6 @@ class UNREALTOURNAMENT_API SUTFragCenterPanel : public SUTWebBrowserPanel
 {
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
-
-	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
-protected:
-
-	FString DesiredURL;
-	bool bShowWarning;
-
-	virtual bool BeforePopup(FString URL, FString Target);
-	void WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 };
 
 #endif
