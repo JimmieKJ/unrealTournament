@@ -948,6 +948,34 @@ void AUTGameMode::DefaultTimer()
 			EmptyServerTime = 0;
 		}
 	}
+
+	if (MatchState == MatchState::MapVoteHappening)
+	{
+		// Scan the maps and see if we have 
+
+
+		TArray<AUTReplicatedMapVoteInfo*> Best;
+		for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
+		{
+			if (UTGameState->MapVoteList[i]->VoteCount > 0)
+			{
+				if (Best.Num() == 0 || Best[0]->VoteCount < UTGameState->MapVoteList[i]->VoteCount)
+				{
+					Best.Empty();
+					Best.Add(UTGameState->MapVoteList[i]);
+				}
+			}
+		}
+		if ( Best.Num() > 0 )
+		{
+			int32 Target = int32( float(GetNumPlayers()) * 0.5);
+			if ( Best[0]->VoteCount > Target)
+			{
+				TallyMapVotes();
+			}
+		}
+	}
+
 }
 
 void AUTGameMode::ForceLobbyUpdate()
@@ -3029,6 +3057,10 @@ void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid)
 
 void AUTGameMode::HandleMapVote()
 {
+
+	// Force at least 20 seconds of map vote time.
+	if (MapVoteTime < 20) MapVoteTime = 20;
+
 	UTGameState->VoteTimer = MapVoteTime;
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::TallyMapVotes, MapVoteTime+1);	
@@ -3037,7 +3069,7 @@ void AUTGameMode::HandleMapVote()
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		if (PC != NULL)
+		if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 		{
 			PC->ClientShowMapVote();
 		}

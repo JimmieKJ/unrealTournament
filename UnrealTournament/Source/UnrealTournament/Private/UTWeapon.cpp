@@ -593,6 +593,11 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 			if (Viewer == NULL)
 			{
 				Viewer = UTOwner->GetLocalViewer();
+				if (Viewer == NULL && UTOwner->Controller != NULL && UTOwner->Controller->IsLocalPlayerController())
+				{
+					// this can happen during initial replication; Controller might be set but ViewTarget not
+					Viewer = Cast<AUTPlayerController>(UTOwner->Controller);
+				}
 			}
 		}
 		return (Viewer != NULL) ? Viewer->GetWeaponHand() : HAND_Right;

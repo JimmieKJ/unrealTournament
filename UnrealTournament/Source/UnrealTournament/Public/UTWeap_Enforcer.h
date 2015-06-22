@@ -86,7 +86,7 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	TArray<UParticleSystemComponent*> LeftMuzzleFlash;
 
 	/**Update the left hand mesh positioning*/
-	virtual void Tick(float DeltaTime) override;
+	virtual void UpdateViewBob(float DeltaTime) override;
 
 	virtual void PlayFiringEffects() override;
 	virtual void FireInstantHit(bool bDealDamage, FHitResult* OutHit) override;
@@ -98,6 +98,7 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	virtual void GotoEquippingState(float OverflowTime) override;
 	virtual void FireShot() override;
 	virtual void StateChanged() override;
+	virtual void UpdateWeaponHand() override;
 	virtual TArray<UMeshComponent*> Get1PMeshes_Implementation() const
 	{
 		TArray<UMeshComponent*> Result = Super::Get1PMeshes_Implementation();

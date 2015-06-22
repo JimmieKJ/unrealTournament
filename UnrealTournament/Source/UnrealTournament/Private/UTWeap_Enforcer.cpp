@@ -88,26 +88,22 @@ void AUTWeap_Enforcer::AttachLeftMesh()
 	}
 }
 
-void AUTWeap_Enforcer::Tick(float DeltaTime)
+void AUTWeap_Enforcer::UpdateViewBob(float DeltaTime)
 {
-	Super::Tick(DeltaTime);
+	Super::UpdateViewBob(DeltaTime);
 
-	// note that this relies on us making BeginPlay() always called before first tick; see UUTGameEngine::LoadMap()
-	if (CurrentState != InactiveState)
+	// if weapon is up in first person, view bob with movement
+	if (LeftMesh != NULL && LeftMesh->AttachParent != NULL && UTOwner != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
 	{
-		// if weapon is up in first person, view bob with movement
-		if (LeftMesh != NULL && LeftMesh->AttachParent != NULL && UTOwner != NULL && UTOwner->IsLocallyControlled())
+		if (FirstPLeftMeshOffset.IsZero())
 		{
-			if (FirstPLeftMeshOffset.IsZero())
-			{
-				FirstPLeftMeshOffset = LeftMesh->GetRelativeTransform().GetLocation();
-				FirstPLeftMeshRotation = LeftMesh->GetRelativeTransform().Rotator();
-			}
-			LeftMesh->SetRelativeLocation(FirstPLeftMeshOffset);
-			LeftMesh->SetWorldLocation(LeftMesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(0.0f, this));
-
-			LeftMesh->SetRelativeRotation(Mesh->RelativeRotation - FirstPMeshRotation + FirstPLeftMeshRotation);
+			FirstPLeftMeshOffset = LeftMesh->GetRelativeTransform().GetLocation();
+			FirstPLeftMeshRotation = LeftMesh->GetRelativeTransform().Rotator();
 		}
+		LeftMesh->SetRelativeLocation(FirstPLeftMeshOffset);
+		LeftMesh->SetWorldLocation(LeftMesh->GetComponentLocation() + UTOwner->GetWeaponBobOffset(0.0f, this));
+
+		LeftMesh->SetRelativeRotation(Mesh->RelativeRotation - FirstPMeshRotation + FirstPLeftMeshRotation);
 	}
 }
 
@@ -346,6 +342,10 @@ void AUTWeap_Enforcer::DualEquipFinished()
 		if (UTOwner != NULL && UTOwner->GetWeapon() == this)
 		{
 			GetUTOwner()->SetWeaponAttachmentClass(AttachmentType);
+			if (ShouldPlay1PVisuals())
+			{
+				UpdateWeaponHand();
+			}
 		}
 		
 		if (Role == ROLE_Authority)
@@ -427,10 +427,17 @@ void AUTWeap_Enforcer::AttachToOwner_Implementation()
 	{
 		LeftMesh->SetHiddenInGame(false);
 		LeftMesh->AttachTo(UTOwner->FirstPersonMesh);
-		if (Cast<APlayerController>(UTOwner->Controller) != NULL && UTOwner->IsLocallyControlled())
+		if (ShouldPlay1PVisuals())
 		{
+			LeftMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
 			LeftMesh->LastRenderTime = GetWorld()->TimeSeconds;
 			LeftMesh->bRecentlyRendered = true;
+			if (LeftOverlayMesh != NULL)
+			{
+				LeftOverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose;
+				LeftOverlayMesh->LastRenderTime = GetWorld()->TimeSeconds;
+				LeftOverlayMesh->bRecentlyRendered = true;
+			}
 		}
 	}
 
@@ -470,4 +477,36 @@ void AUTWeap_Enforcer::DetachFromOwner_Implementation()
 	}
 
 	Super::DetachFromOwner_Implementation();
+}
+
+void AUTWeap_Enforcer::UpdateWeaponHand()
+{
+	Super::UpdateWeaponHand();
+	if (bDualEnforcerMode)
+	{
+		FirstPLeftMeshOffset = FVector::ZeroVector;
+		FirstPLeftMeshRotation = FRotator::ZeroRotator;
+		switch (GetWeaponHand())
+		{
+			case HAND_Center:
+				// TODO: not implemented, fallthrough
+				UE_LOG(UT, Warning, TEXT("HAND_Center is not implemented yet!"));
+			case HAND_Right:
+				LeftMesh->SetRelativeLocationAndRotation(GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeLocation, GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeRotation);
+				break;
+			case HAND_Left:
+			{
+				// swap
+				LeftMesh->SetRelativeLocationAndRotation(GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->Mesh->RelativeLocation, GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->Mesh->RelativeRotation);
+				Mesh->SetRelativeLocationAndRotation(GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeLocation, GetClass()->GetDefaultObject<AUTWeap_Enforcer>()->LeftMesh->RelativeRotation);
+				break;
+			}
+			case HAND_Hidden:
+			{
+				Mesh->SetRelativeLocationAndRotation(FVector(-50.0f, 20.0f, -50.0f), FRotator::ZeroRotator);
+				LeftMesh->SetRelativeLocationAndRotation(FVector(-50.0f, -20.0f, -50.0f), FRotator::ZeroRotator);
+				break;
+			}
+		}
+	}
 }

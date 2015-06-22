@@ -2611,12 +2611,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		}
 		bool bPotentialWallDodge = !UTCharacterMovement->IsMovingOnGround();
 
-		if (UTCharacterMovement->WantsFloorSlide() && UTCharacterMovement->IsMovingOnGround())
-		{
-			UTCharacterMovement->PerformFloorSlide(DodgeDir, UTCharacterMovement->CurrentFloor.HitResult.ImpactNormal);
-			return true;
-		}
-		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
+		if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			MovementEventUpdated(bPotentialWallDodge ? EME_WallDodge : EME_Dodge, DodgeDir);
 			return true;
