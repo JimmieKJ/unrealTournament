@@ -4787,7 +4787,6 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 
 void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
 {
-	UE_LOG(UT, Warning, TEXT("Set walk movement reduction %f %f"), InPct, InDuration);
 	WalkMovementReductionPct = (InDuration > 0.0f) ? InPct : 0.0f;
 	WalkMovementReductionTime = InDuration;
 	if (UTCharacterMovement)
