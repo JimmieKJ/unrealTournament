@@ -82,6 +82,8 @@ public:
 	void SetRules(UUTGameRuleset* NewRules);
 
 #if !UE_SERVER
+	UPROPERTY()
+	UTexture2D*  BadgeTexture;
 	TSharedPtr<FSlateDynamicImageBrush> SlateBadge;
 	const FSlateBrush* GetSlateBadge() const;
 #endif

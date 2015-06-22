@@ -563,6 +563,7 @@ struct FServerInstanceData
 	UPROPERTY()
 	FString Description;
 
+	UPROPERTY()
 	UTexture2D* BadgeTexture;
 
 #if !UE_SERVER
@@ -570,7 +571,8 @@ struct FServerInstanceData
 #endif
 
 	FServerInstanceData()
-		: RuleSetIcon(TEXT(""))
+		: BadgeTexture(NULL)
+		, RuleSetIcon(TEXT(""))
 		, Description(TEXT(""))
 	{
 	}

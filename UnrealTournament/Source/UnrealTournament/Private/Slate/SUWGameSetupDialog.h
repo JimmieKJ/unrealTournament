@@ -55,13 +55,14 @@ struct FRuleSubsetInfo
 
 };
 
-class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog
+class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog, public FGCObject
 {
 private:
 	struct FMapPlayListInfo
 	{
 		TSharedPtr<FMapListItem> MapInfo;
 		
+		UTexture2D* MapTexture;
 		FSlateDynamicImageBrush* MapImage;
 		TSharedPtr<SUTComboButton> Button;
 		TSharedPtr<SImage> ImageWidget;
@@ -70,6 +71,7 @@ private:
 
 		FMapPlayListInfo()
 		{
+			MapTexture = NULL;
 			CheckMark.Reset();
 			Button.Reset();
 			bSelected = false;
@@ -201,6 +203,14 @@ protected:
 
 	// Will be true if this dialog was opened while connected to a hub.
 	bool bHubMenu;
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		for (int32 i = 0; MapPlayList.Num(); i++)
+		{
+			Collector.AddReferencedObject(MapPlayList[i].MapTexture);
+		}
+	}
 
 
 

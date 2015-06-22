@@ -163,10 +163,12 @@ FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if ( GameState && GameState->HubGuid.IsValid() )
 	{
+
 		CloseMenus();
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (PC)
 		{
+			PlayerOwner->CloseMapVote();
 			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
 		}
 	}
@@ -177,6 +179,8 @@ FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 FReply SUTInGameMenu::OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);	
+
+	PlayerOwner->CloseMapVote();
 	CloseMenus();
 	PlayerOwner->ReturnToMainMenu();
 	return FReply::Handled();

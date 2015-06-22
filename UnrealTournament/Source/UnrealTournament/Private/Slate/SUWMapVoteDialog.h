@@ -16,7 +16,7 @@
 
 #if !UE_SERVER
 
-class UNREALTOURNAMENT_API SUWMapVoteDialog : public SUWDialog
+class UNREALTOURNAMENT_API SUWMapVoteDialog : public SUWDialog, public FGCObject
 {
 	SLATE_BEGIN_ARGS(SUWMapVoteDialog)
 	: _DialogTitle(NSLOCTEXT("SUWMapVoteDialog", "Title", "CHOOSE YOUR NEXT MAP..."))
@@ -49,17 +49,20 @@ protected:
 
 	struct FVoteButton
 	{
+		UTexture2D* MapTexture;
 		TWeakObjectPtr<AUTReplicatedMapVoteInfo> MapVoteInfo;
 		TSharedPtr<SImage> MapImage;
 
 		FVoteButton()
 		{
+			MapTexture = NULL;
 			MapVoteInfo.Reset();
 			MapImage.Reset();
 		}
 
-		FVoteButton(TWeakObjectPtr<AUTReplicatedMapVoteInfo> inMapVoteInfo, TSharedPtr<SImage> inMapImage)
-			: MapVoteInfo(inMapVoteInfo)
+		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapVoteInfo> inMapVoteInfo, TSharedPtr<SImage> inMapImage)
+			: MapTexture(inMapTexture)
+			, MapVoteInfo(inMapVoteInfo)
 			, MapImage(inMapImage)
 		{
 		}
@@ -78,6 +81,16 @@ protected:
 
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 	FText GetClockTime() const;
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		for (int32 i = 0; VoteButtons.Num(); i++)
+		{
+			Collector.AddReferencedObject(VoteButtons[i].MapTexture);
+		}
+	}
+
+
 
 };
 
