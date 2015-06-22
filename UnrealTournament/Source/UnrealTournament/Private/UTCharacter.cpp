@@ -1179,7 +1179,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && (FlakShredInstigator == EventInstigator))
 		{
 			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
-			UE_LOG(UT, Warning, TEXT("FOLLOWUP shred for %s"), EventInstigator ? *EventInstigator->GetName() : TEXT("None"));
 		}
 		return true;
 	}
