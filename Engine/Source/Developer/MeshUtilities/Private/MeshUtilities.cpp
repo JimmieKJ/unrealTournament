@@ -2933,7 +2933,6 @@ public:
 			{
 				MaxMaterialIndex = FMath::Max<int32>(RawMesh.FaceMaterialIndices[FaceIndex], MaxMaterialIndex);
 			}
-			MaxMaterialIndex = FMath::Min(MaxMaterialIndex, MAX_MESH_MATERIAL_INDEX);
 
 			while (MaxMaterialIndex >= LODModel.Sections.Num())
 			{

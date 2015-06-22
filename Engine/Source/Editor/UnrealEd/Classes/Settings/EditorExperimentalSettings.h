@@ -93,9 +93,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category = Rendering, meta = (DisplayName = "Enable Metal/High-end mobile rendering preview"))
 	bool bFeatureLevelES31Preview;
 
-	UPROPERTY(EditAnywhere, config, Category = Import)
-	bool bEnableLargeFileImportImprovements;
-
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *
