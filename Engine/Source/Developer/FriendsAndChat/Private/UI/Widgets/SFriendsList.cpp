@@ -90,7 +90,7 @@ FSlateColor SFriendsList::GetActionButtonFontColor(const FFriendsAndChatStyle& F
 	{
 	case EFriendActionLevel::Critical:
 	case EFriendActionLevel::Emphasis:
-		return FSlateColor::UseForeground();
+		return FSlateColor(FriendStyle.FriendButtonFontColor);
 	case EFriendActionLevel::Action:
 	default:
 		return FSlateColor(FriendStyle.FriendListActionFontColor);

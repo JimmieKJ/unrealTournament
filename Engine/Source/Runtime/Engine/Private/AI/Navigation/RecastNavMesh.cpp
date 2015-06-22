@@ -1979,7 +1979,7 @@ void ARecastNavMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 				UpdatePolyRefBitsPreview();
 			}
 
-			if (HasAnyFlags(RF_ClassDefaultObject) == false)
+			if (!HasAnyFlags(RF_ClassDefaultObject) && UNavigationSystem::GetIsNavigationAutoUpdateEnabled())
 			{
 				RebuildAll();
 			}

@@ -9,6 +9,7 @@
 #include "UTLevelSummary.h"
 #include "Engine/Console.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "Net/UnrealNetwork.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -535,7 +536,7 @@ void UUTGameEngine::IndexExpansionContent()
 					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
 						VersionString = VersionString.LeftChop(2);
-						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
+						FString CompiledVersionString = FString::FromInt(FNetworkVersion::GetLocalNetworkVersion());
 
 						if (VersionString == CompiledVersionString)
 						{
@@ -611,7 +612,7 @@ void UUTGameEngine::IndexExpansionContent()
 					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
 						VersionString = VersionString.LeftChop(2);
-						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
+						FString CompiledVersionString = FString::FromInt(FNetworkVersion::GetLocalNetworkVersion());
 
 						if (VersionString == CompiledVersionString)
 						{

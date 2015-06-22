@@ -319,6 +319,10 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	FLinearColor FriendListActionFontColor;
 	FFriendsAndChatStyle& SetFriendListActionFontColor(const FLinearColor& InColor);
 
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FLinearColor FriendButtonFontColor;
+	FFriendsAndChatStyle& SetFriendButtonFontColor(const FLinearColor& InColor);
+
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FSlateBrush ChatGlobalBrush;
 	FFriendsAndChatStyle& SetChatGlobalBrush(const FSlateBrush& Brush);
@@ -422,6 +426,10 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FScrollBarStyle ScrollBarStyle;
 	FFriendsAndChatStyle& SetScrollbarStyle(const FScrollBarStyle& InScrollBarStyle);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FScrollBorderStyle ScrollBorderStyle;
+	FFriendsAndChatStyle& SetScrollBorderStyle(const FScrollBorderStyle& InScrollBorderStyle);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FWindowStyle WindowStyle;

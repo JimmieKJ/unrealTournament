@@ -11,7 +11,7 @@ UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializ
 
 static uint32 UTGetNetworkVersion()
 {
-	return 3008040;
+	return 3008041;
 }
 
 void UUTGameInstance::Init()

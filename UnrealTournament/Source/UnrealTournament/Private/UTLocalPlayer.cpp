@@ -1988,7 +1988,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 
 void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
 {
-	if (OnlineFriendsInterface.IsValid())
+	if (OnlineFriendsInterface.IsValid() && FriendID.IsValid())
 	{
 		OnlineFriendsInterface->SendInvite(0, *FriendID.Get(), EFriendsLists::ToString(EFriendsLists::Default));
 	}
