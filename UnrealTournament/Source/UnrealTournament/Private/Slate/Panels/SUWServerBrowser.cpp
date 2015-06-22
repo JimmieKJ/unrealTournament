@@ -1474,7 +1474,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			PingTrackers[i].Server->AddRule(TEXT("Version"), PingTrackers[i].Server->Version);
 
 			PingTrackers[i].Server->HUBInstances.Empty();
-			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceCount; InstIndex++ )
+			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceInfo.Num(); InstIndex++ )
 			{
 				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceInfo[InstIndex]));	
 			}
