@@ -43,6 +43,7 @@ public:
 	virtual void OnHidePanel();
 
 	virtual void ExecuteJavascript(const FString& JS) { WebBrowserPanel->ExecuteJavascript(JS); }
+	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
 protected:
 	
@@ -71,6 +72,11 @@ protected:
 
 	float GetReverseScale() const;
 	bool ShowControls;
+
+	FString DesiredURL;
+	bool bShowWarning;
+
+	void WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 };
 
 #endif

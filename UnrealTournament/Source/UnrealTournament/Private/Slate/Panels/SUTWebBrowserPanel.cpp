@@ -29,6 +29,8 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 
 void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 {
+	bShowWarning = false;
+
 	if (bAllowScaling)
 	{
 		this->ChildSlot
@@ -125,8 +127,6 @@ void SUTWebBrowserPanel::OnHidePanel()
 
 bool SUTWebBrowserPanel::QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
 {
-	UE_LOG(UT, Log, TEXT("Javascript %s"), *QueryString);
-
 	if (OnJSQueryReceived.IsBound())
 	{
 		return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
@@ -157,9 +157,30 @@ bool SUTWebBrowserPanel::BeforePopup(FString URL, FString Target)
 		return OnBeforePopup.Execute(URL, Target);
 	}
 
-	return false;
+	DesiredURL = URL;
+	// These events happen on the render thread.  So we have to stall and wait for the game thread otherwise
+	// slate will "crash" via assert.
+	bShowWarning = true;	
+	return true;
 }
 
+void SUTWebBrowserPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	if (bShowWarning)
+	{
+		bShowWarning = false;	
+		GetPlayerOwner()->ShowMessage(NSLOCTEXT("SUTFragCenterPanel", "ExternalURLTitle", "WARNING External URL"), NSLOCTEXT("SUTFragCenterPanel", "ExternalURLMessage", "The URL you have selected is outside of the Unreal network and may be dangerous.  Are you sure you wish to go there?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTWebBrowserPanel::WarningResult));
+	}
+}
+
+
+void SUTWebBrowserPanel::WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		FPlatformProcess::LaunchURL(*DesiredURL, NULL, NULL);
+	}
+}
 
 
 #endif

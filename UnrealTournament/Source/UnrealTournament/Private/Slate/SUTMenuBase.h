@@ -20,7 +20,6 @@ public:
 	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
 
-
 protected:
 	TSharedPtr<class SHorizontalBox> LeftMenuBar;
 	TSharedPtr<class SHorizontalBox> RightMenuBar;
@@ -86,5 +85,9 @@ protected:
 	{
 		return true;
 	}
+
+	virtual FReply OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
+
+
 };
 #endif
