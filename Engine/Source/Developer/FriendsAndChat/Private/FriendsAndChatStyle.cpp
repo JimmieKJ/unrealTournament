@@ -350,6 +350,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListActionFontColor(const F
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendButtonFontColor(const FLinearColor& InColor)
+{
+	FriendButtonFontColor = InColor;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatGlobalBrush(const FSlateBrush& Brush)
 {
 	ChatGlobalBrush = Brush;
@@ -504,6 +510,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatOptionsBackgroundBrush(const 
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetScrollbarStyle(const FScrollBarStyle& InScrollBarStyle)
 {
 	ScrollBarStyle = InScrollBarStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetScrollBorderStyle(const FScrollBorderStyle& InScrollBorderStyle)
+{
+	ScrollBorderStyle = InScrollBorderStyle;
 	return *this;
 }
 

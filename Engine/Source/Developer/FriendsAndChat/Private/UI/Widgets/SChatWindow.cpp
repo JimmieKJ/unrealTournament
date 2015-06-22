@@ -61,6 +61,7 @@ public:
 					+ SOverlay::Slot()
 					[
 						SNew(SScrollBorder, TableBase)
+						.Style(&FriendStyle.ScrollBorderStyle)
 						[
 							SAssignNew(ChatListBox, SBox)
 							[

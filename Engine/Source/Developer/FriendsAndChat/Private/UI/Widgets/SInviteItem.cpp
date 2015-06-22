@@ -102,7 +102,7 @@ private:
 				.Cursor(EMouseCursor::Hand)
 				[
 					SNew(STextBlock)
-					.ColorAndOpacity(FSlateColor::UseForeground())
+					.ColorAndOpacity(FriendStyle.FriendButtonFontColor)
 					.Font(FriendStyle.FriendsFontStyleSmallBold)
 					.Text(EFriendActionType::ToText(FriendAction))
 				]
