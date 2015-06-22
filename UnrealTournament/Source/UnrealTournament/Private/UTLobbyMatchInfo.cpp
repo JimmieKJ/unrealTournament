@@ -689,7 +689,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 
 		NewReplicatedRuleset->MinPlayersToStart = 2;
-		NewReplicatedRuleset->MaxPlayers = 16;
 		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
 		NewReplicatedRuleset->bCustomRuleset = true;
 

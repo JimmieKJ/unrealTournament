@@ -157,7 +157,7 @@ void SUWMapVoteDialog::BuildMapList()
 				]
 			];
 
-			VoteButtons.Add( FVoteButton(MapVoteInfo, ImageWidget) );
+			VoteButtons.Add( FVoteButton(NULL, MapVoteInfo, ImageWidget) );
 		}
 	}
 
@@ -176,6 +176,7 @@ void SUWMapVoteDialog::TextureLoadComplete(const FName& InPackageName, UPackage*
 				UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
 				if (Tex)
 				{
+					VoteButtons[i].MapTexture = Tex;
 					VoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
 					VoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
 				}

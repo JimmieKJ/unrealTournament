@@ -414,6 +414,7 @@ void SUWGameSetupDialog::TextureLoadComplete(const FName& InPackageName, UPackag
 				UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
 				if (Tex)
 				{
+					MapPlayList[i].MapTexture = Tex;
 					MapPlayList[i].MapImage = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
 					MapPlayList[i].ImageWidget->SetImage(MapPlayList[i].MapImage);
 				}
