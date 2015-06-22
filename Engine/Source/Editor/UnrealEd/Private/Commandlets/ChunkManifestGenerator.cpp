@@ -600,7 +600,10 @@ bool FChunkManifestGenerator::SaveCookedPackageAssetRegistry( const FString& San
 					Json->WriteObjectStart("TagsAndValues");
 					for ( const auto& Tag : AssetData.TagsAndValues )
 					{
-						Json->WriteValue( Tag.Key.ToString(), Tag.Value );
+						if (Tag.Key != FName(TEXT("FiB")))
+						{
+							Json->WriteValue(Tag.Key.ToString(), Tag.Value);
+						}
 					}
 					Json->WriteObjectEnd(); // end tags and values object
 					Json->WriteObjectEnd(); // end unnamed array object
