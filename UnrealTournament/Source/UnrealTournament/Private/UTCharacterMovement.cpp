@@ -969,7 +969,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 
 	if (CharacterOwner)
 	{
-		bIsFloorSliding = bWantsFloorSlide;
+		bIsFloorSliding = bWantsFloorSlide && !Acceleration.IsNearlyZero() && (Velocity.Size2D() > 0.7f * MaxWalkSpeed);
 		if (CharacterOwner->ShouldNotifyLanded(Hit))
 		{
 			CharacterOwner->Landed(Hit);
