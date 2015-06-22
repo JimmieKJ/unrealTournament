@@ -494,92 +494,113 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 								+ SHeaderRow::Column("ServerGame")
 									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
 									.HAlignCell(HAlign_Center)
-									.HAlignHeader(HAlign_Center)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
-										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerGameColumnToolTip", "The Game type."))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										SNew(SBox)
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerGameColumn", "Game"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerGameColumnToolTip", "The Game type."))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 									]
 
 								+ SHeaderRow::Column("ServerMap")
 									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
 									.HAlignCell(HAlign_Center)
-									.HAlignHeader(HAlign_Center)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
-										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerMapColumnToolTip", "The current map."))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										SNew(SBox)
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerMapColumn", "Map"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerMapColumnToolTip", "The current map."))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 									]
 
 								+ SHeaderRow::Column("ServerNumPlayers")
 									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
 									.HAlignCell(HAlign_Center)
-									.HAlignHeader(HAlign_Center)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
-										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumnToolTip", "The # of Players on this server."))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										SNew(SBox)
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumn", "Players"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumPlayerColumnToolTip", "The # of Players on this server."))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 									]
 
 								+ SHeaderRow::Column("ServerNumSpecs")
 									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
 									.HAlignCell(HAlign_Center)
-									.HAlignHeader(HAlign_Center)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
-										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumnToolTip", "The # of spectators on this server."))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										SNew(SBox)
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumn", "Spectators"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumSpecsColumnToolTip", "The # of spectators on this server."))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 									]
 
 								+ SHeaderRow::Column("ServerNumFriends")
 									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
 									.HAlignCell(HAlign_Center)
-									.HAlignHeader(HAlign_Center)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
-										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumnToolTip", "The # of friends on this server."))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										SNew(SBox)
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumn", "Friends"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerNumFriendsColumnToolTip", "The # of friends on this server."))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 									]
 
 								+ SHeaderRow::Column("ServerFlags")
 									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
 									.HAlignCell(HAlign_Center)
-									.HAlignHeader(HAlign_Center)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
-										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumnToolTip", "Server Flags"))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										SNew(SBox)
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumnToolTip", "Server Flags"))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 									]
 
 								+ SHeaderRow::Column("ServerPing")
 									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
 									.HAlignCell(HAlign_Right)
-									.HAlignHeader(HAlign_Right)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
-										.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerPingColumnToolTip", "Your connection speed to the server."))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										SNew(SBox)
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerPingColumn", "Ping"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerPingColumnToolTip", "Your connection speed to the server."))
+											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+										]
 									]
 							)
 						]

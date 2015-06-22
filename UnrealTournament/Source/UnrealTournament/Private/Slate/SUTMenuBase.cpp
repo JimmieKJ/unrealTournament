@@ -950,5 +950,17 @@ TSharedRef<SWidget> SUTMenuBase::BuildBackground()
 	return SNullWidget::NullWidget;
 }
 
+FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
+{
+	if (InKeyboardEvent.GetKey() == EKeys::Escape)
+	{
+		if (bShowingFriends)
+		{
+			ToggleFriendsAndChat();
+		}
+	}
+
+	return SUWindowsDesktop::OnKeyUp(MyGeometry, InKeyboardEvent);
+}
 
 #endif
