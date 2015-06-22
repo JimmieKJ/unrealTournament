@@ -417,6 +417,8 @@ void AUTGameSession::UpdateGameState()
 				OGS->Set(SETTING_NUMMATCHES, UTGameMode->GetNumMatches(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 				OGS->Set(SETTING_PLAYERSONLINE, UTGameMode->GetNumPlayers(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 				OGS->Set(SETTING_SPECTATORSONLINE, UTGameMode->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_SERVERINSTANCEGUID, UTGameMode->ServerInstanceGUID.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+
 				SessionInterface->UpdateSession(SessionName, *OGS, true);
 			}
 		}

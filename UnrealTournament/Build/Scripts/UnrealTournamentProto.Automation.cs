@@ -1904,7 +1904,7 @@ public class MakeUTDLC : BuildCommand
         }
 
         string CookDir = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Plugins", DLCName, "Content");
-        RunCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2} -DLCName={3}", CookDir, SC.CookPlatform, Parameters, DLCName));
+        RunCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2} -DLCName={3} -SKIPEDITORCONTENT", CookDir, SC.CookPlatform, Parameters, DLCName));
     }
 
     public void Stage(DeploymentContext SC, ProjectParams Params)

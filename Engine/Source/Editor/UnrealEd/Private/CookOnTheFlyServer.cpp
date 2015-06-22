@@ -2688,7 +2688,31 @@ void UCookOnTheFlyServer::AddFileToCook( TArray<FName>& InOutFilesToCook, const 
 }
 
 void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const TArray<FString> &CookMaps, const TArray<FString> &InCookDirectories, const TArray<FString> &CookCultures, const TArray<FString> &IniMapSections, bool bCookAll, bool bMapsOnly, bool bNoDev)
-{
+{	
+	//PLK simplification, just try to cook the dlc name package
+	if (IsCookingDLC())
+	{
+		if (FPackageName::IsShortPackageName(CookByTheBookOptions->DlcName))
+		{
+			FString OutFilename;
+			if (FPackageName::SearchForPackageOnDisk(CookByTheBookOptions->DlcName, NULL, &OutFilename) == false)
+			{
+				LogCookerMessage(FString::Printf(TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName), EMessageSeverity::Warning);
+				UE_LOG(LogCook, Warning, TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName);
+			}
+			else
+			{
+				AddFileToCook(FilesInPath, OutFilename);
+			}
+		}
+		else
+		{
+			AddFileToCook(FilesInPath, CookByTheBookOptions->DlcName);
+		}
+
+		return;
+	}
+
 	TArray<FString> CookDirectories = InCookDirectories;
 	
 	
@@ -2759,7 +2783,7 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 	}
 
 	/*
-	//GDC simplification, not requiring plugins right now
+	//PLK simplification, not requiring plugins right now
 	if ( IsCookingDLC() )
 	{
 		// get the dlc and make sure we cook that directory 
@@ -2783,28 +2807,6 @@ void UCookOnTheFlyServer::CollectFilesToCook(TArray<FName>& FilesInPath, const T
 		}
 	}
 	*/
-
-	//GDC simplification, just try to cook the dlc name package
-	if (IsCookingDLC())
-	{
-		if (FPackageName::IsShortPackageName(CookByTheBookOptions->DlcName))
-		{
-			FString OutFilename;
-			if (FPackageName::SearchForPackageOnDisk(CookByTheBookOptions->DlcName, NULL, &OutFilename) == false)
-			{
-				LogCookerMessage(FString::Printf(TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName), EMessageSeverity::Warning);
-				UE_LOG(LogCook, Warning, TEXT("Unable to find package for map %s."), *CookByTheBookOptions->DlcName);
-			}
-			else
-			{
-				AddFileToCook(FilesInPath, OutFilename);
-			}
-		}
-		else
-		{
-			AddFileToCook(FilesInPath, CookByTheBookOptions->DlcName);
-		}
-	}
 
 	if ((FilesInPath.Num() == 0) || bCookAll)
 	{
