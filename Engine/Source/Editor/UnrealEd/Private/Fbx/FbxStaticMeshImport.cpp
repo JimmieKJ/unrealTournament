@@ -51,6 +51,8 @@
 
 #define LOCTEXT_NAMESPACE "FbxStaticMeshImport"
 
+static const int32 LARGE_MESH_MATERIAL_INDEX_THRESHOLD = 64;
+
 using namespace UnFbx;
 
 struct ExistingStaticMeshData;
@@ -93,7 +95,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMesh(UObject* InParent, FbxNode* N
 	return ImportStaticMeshAsSingle(InParent, MeshNodeArray, Name, Flags, ImportData, InStaticMesh, LODIndex);
 }
 
-bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,FRawMesh* InRawMesh,
+bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh* StaticMesh, TArray<FFbxMaterial>& MeshMaterials, int LODIndex,FRawMesh& RawMesh,
 													  EVertexColorImportOption::Type VertexColorImportOption, const TMap<FVector, FColor>& ExistingVertexColorData, const FColor& VertexOverrideColor)
 {
 	check(StaticMesh->SourceModels.IsValidIndex(LODIndex));
@@ -440,23 +442,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 	int32 WedgeCount = TriangleCount * 3;
 	bool OddNegativeScale = IsOddNegativeScale(TotalMatrix);
 
-	FRawMesh* RawMeshPtr;
-
-	TScopedPointer<FRawMesh> NewMesh;
-	if( !InRawMesh )
-	{
-		// Load the existing raw mesh.
-		NewMesh = new FRawMesh;
-		SrcModel.RawMeshBulkData->LoadRawMesh(*NewMesh);
-		RawMeshPtr = NewMesh.GetOwnedPointer();
-	}
-	else
-	{
-		RawMeshPtr = InRawMesh;
-	}
-
-	FRawMesh& RawMesh = *RawMeshPtr;
-
 	int32 VertexOffset = RawMesh.VertexPositions.Num();
 	int32 WedgeOffset = RawMesh.WedgeIndices.Num();
 	int32 TriangleOffset = RawMesh.FaceMaterialIndices.Num();
@@ -706,13 +691,6 @@ bool UnFbx::FFbxImporter::BuildStaticMeshFromGeometry(FbxMesh* Mesh, UStaticMesh
 		RawMesh.FaceMaterialIndices[DestTriangleIndex] = MaterialIndex;
 	}
 
-
-	// Store the new raw mesh if needed
-	if( !InRawMesh )
-	{
-		SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
-	}
-	
 	//
 	// clean up.  This needs to happen before the mesh is destroyed
 	//
@@ -993,8 +971,8 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	if( InStaticMesh != NULL && LODIndex > 0 && !SrcModel.RawMeshBulkData->IsEmpty() )
 	{
 		// clear out the old mesh data
-		FRawMesh EmptyRawMesh;
-		SrcModel.RawMeshBulkData->SaveRawMesh( EmptyRawMesh );
+		FRawMesh RawMesh;
+		SrcModel.RawMeshBulkData->SaveRawMesh( RawMesh );
 	}
 	
 	// make sure it has a new lighting guid
@@ -1004,14 +982,9 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 	StaticMesh->LightMapResolution = 64;
 	StaticMesh->LightMapCoordinateIndex = 1;
 
-	// Note: This is only used if large file improvements are enabled.
-	FRawMesh NewRawMesh;
 
-	const bool bEnableLargeFileImportImprovements = GetDefault<UEditorExperimentalSettings>()->bEnableLargeFileImportImprovements;
-	if( bEnableLargeFileImportImprovements )
-	{
-		SrcModel.RawMeshBulkData->LoadRawMesh(NewRawMesh);
-	}
+	FRawMesh RawMesh;
+	SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
 
 	TArray<FFbxMaterial> MeshMaterials;
 	for (MeshIndex = 0; MeshIndex < MeshNodeArray.Num(); MeshIndex++ )
@@ -1020,7 +993,7 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 		if (Node->GetMesh())
 		{
-			if (!BuildStaticMeshFromGeometry(Node->GetMesh(), StaticMesh, MeshMaterials, LODIndex, bEnableLargeFileImportImprovements ? &NewRawMesh : nullptr,
+			if (!BuildStaticMeshFromGeometry(Node->GetMesh(), StaticMesh, MeshMaterials, LODIndex, RawMesh,
 											 VertexColorImportOption, ExistingVertexColorData, ImportOptions->VertexOverrideColor))
 			{
 				bBuildStatus = false;
@@ -1029,12 +1002,9 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 		}
 	}
 
+	// Store the new raw mesh.
+	SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
 
-	if( bEnableLargeFileImportImprovements )
-	{
-		// Store the new raw mesh.
-		SrcModel.RawMeshBulkData->SaveRawMesh(NewRawMesh);
-	}
 
 	if (bBuildStatus)
 	{
@@ -1057,11 +1027,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 				{
 					int32 UniqueIndex = MaterialMap[OtherMaterialIndex];
 
-					if( UniqueIndex > MAX_MESH_MATERIAL_INDEX )
-					{
-						UniqueIndex = MAX_MESH_MATERIAL_INDEX;
-					}
-
 					MaterialMap.Add(UniqueIndex);
 					bDoRemap = true;
 					bUnique = false;
@@ -1072,11 +1037,6 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			{
 				int32 UniqueIndex = UniqueMaterials.Add(MeshMaterials[MaterialIndex]);
 
-				if (UniqueIndex > MAX_MESH_MATERIAL_INDEX)
-				{
-					UniqueIndex = MAX_MESH_MATERIAL_INDEX;
-				}
-
 				MaterialMap.Add( UniqueIndex );
 			}
 			else
@@ -1085,13 +1045,12 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			}
 		}
 
-		if (UniqueMaterials.Num() > MAX_MESH_MATERIAL_INDEX)
+		if (UniqueMaterials.Num() > LARGE_MESH_MATERIAL_INDEX_THRESHOLD)
 		{
 			AddTokenizedErrorMessage(
 				FTokenizedMessage::Create(
 				EMessageSeverity::Warning,
-				FText::Format(LOCTEXT("Error_TooManyMaterials", "StaticMesh has too many({1}) materials. Clamping materials to {0} which may produce unexpected results. Break apart your mesh into multiple pieces to fix this."),
-				FText::AsNumber(MAX_MESH_MATERIAL_INDEX),
+				FText::Format(LOCTEXT("Error_TooManyMaterials", "StaticMesh has a large number({1}) of materials and may render inefficently.  Consider breaking up the mesh into multiple Static Mesh Assets"),
 				FText::AsNumber(UniqueMaterials.Num())
 				)), 
 				FFbxErrors::StaticMesh_TooManyMaterials);
@@ -1157,26 +1116,26 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 
 			if (bDoRemap)
 			{
-				for (int32 TriIndex = 0; TriIndex < LocalRawMesh.FaceMaterialIndices.Num(); ++TriIndex)
+				for (int32 TriIndex = 0; TriIndex < RawMesh.FaceMaterialIndices.Num(); ++TriIndex)
 				{
-					LocalRawMesh.FaceMaterialIndices[TriIndex] = MaterialMap[LocalRawMesh.FaceMaterialIndices[TriIndex]];
+					RawMesh.FaceMaterialIndices[TriIndex] = MaterialMap[RawMesh.FaceMaterialIndices[TriIndex]];
 				}
 			}
 
 			// Compact material indices so that we won't have any sections with zero triangles.
-			LocalRawMesh.CompactMaterialIndices();
+			RawMesh.CompactMaterialIndices();
 
 			// Also compact the sorted materials array.
-			if (LocalRawMesh.MaterialIndexToImportIndex.Num() > 0)
+			if (RawMesh.MaterialIndexToImportIndex.Num() > 0)
 			{
 				TArray<FFbxMaterial> OldSortedMaterials;
 
 				Exchange(OldSortedMaterials,SortedMaterials);
-				SortedMaterials.Empty(LocalRawMesh.MaterialIndexToImportIndex.Num());
-				for (int32 MaterialIndex = 0; MaterialIndex < LocalRawMesh.MaterialIndexToImportIndex.Num(); ++MaterialIndex)
+				SortedMaterials.Empty(RawMesh.MaterialIndexToImportIndex.Num());
+				for (int32 MaterialIndex = 0; MaterialIndex < RawMesh.MaterialIndexToImportIndex.Num(); ++MaterialIndex)
 				{
 					FFbxMaterial Material;
-					int32 ImportIndex = LocalRawMesh.MaterialIndexToImportIndex[MaterialIndex];
+					int32 ImportIndex = RawMesh.MaterialIndexToImportIndex[MaterialIndex];
 					if (OldSortedMaterials.IsValidIndex(ImportIndex))
 					{
 						Material = OldSortedMaterials[ImportIndex];
@@ -1185,14 +1144,14 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 				}
 			}
 
-			for (int32 TriIndex = 0; TriIndex < LocalRawMesh.FaceMaterialIndices.Num(); ++TriIndex)
+			for (int32 TriIndex = 0; TriIndex < RawMesh.FaceMaterialIndices.Num(); ++TriIndex)
 			{
-				MaxMaterialIndex = FMath::Max<int32>(MaxMaterialIndex,LocalRawMesh.FaceMaterialIndices[TriIndex]);
+				MaxMaterialIndex = FMath::Max<int32>(MaxMaterialIndex,RawMesh.FaceMaterialIndices[TriIndex]);
 			}
 
 			for( int32 i = 0; i < MAX_MESH_TEXTURE_COORDS; i++ )
 			{
-				if( LocalRawMesh.WedgeTexCoords[i].Num() == 0 )
+				if( RawMesh.WedgeTexCoords[i].Num() == 0 )
 				{
 					FirstOpenUVChannel = i;
 					break;
@@ -1208,26 +1167,21 @@ UStaticMesh* UnFbx::FFbxImporter::ImportStaticMeshAsSingle(UObject* InParent, TA
 			StaticMesh->Materials.Empty();
 		}
 		
-		// Build a new map of sections with the unique material set
-		FMeshSectionInfoMap NewMap;
 		int32 NumMaterials = FMath::Min(SortedMaterials.Num(),MaxMaterialIndex+1);
 		for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; ++MaterialIndex)
 		{
 			FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, MaterialIndex);
-
+			//int32 Index = StaticMesh->Materials.Find( SortedMaterials[MaterialIndex] );
+			//if( Index == INDEX_NONE )
+			//{
 			int32 Index = StaticMesh->Materials.Add(SortedMaterials[MaterialIndex].Material);
-
+			//}
 			Info.MaterialIndex = Index;
-			NewMap.Set( LODIndex, MaterialIndex, Info);
+			StaticMesh->SectionInfoMap.Set(LODIndex, MaterialIndex, Info);
+			
 		}
 
-		// Copy the final section map into the static mesh
-		StaticMesh->SectionInfoMap.Clear();
-		StaticMesh->SectionInfoMap.CopyFrom(NewMap);
-
-		FRawMesh LocalRawMesh;
-		SrcModel.RawMeshBulkData->LoadRawMesh(LocalRawMesh);
-
+	
 		// Setup default LOD settings based on the selected LOD group.
 		if (ExistingMesh == NULL && LODIndex == 0)
 		{
