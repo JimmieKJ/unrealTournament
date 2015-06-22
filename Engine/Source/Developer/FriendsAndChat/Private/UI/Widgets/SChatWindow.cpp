@@ -45,7 +45,6 @@ public:
 		TSharedPtr<SButton> IgnoreFriendRequestButton;
 		TSharedPtr<SButton> AcceptFriendRequestButton;
 		TSharedPtr<SButton> CancelFriendRequestButton;
-		TSharedPtr<SUniformGridPanel> UniformPanel;
 
 		SUserWidget::Construct(SUserWidget::FArguments()
 		[
@@ -230,11 +229,8 @@ public:
 											.Padding(0, 10)
 											.AutoHeight()
 											[
-												SAssignNew(UniformPanel, SUniformGridPanel)
-												.SlotPadding(FMargin(10.0f, 0.0f))
-												.MinDesiredSlotWidth(150.0f)
-												.MinDesiredSlotHeight(30.0f)
-												+ SUniformGridPanel::Slot(0,0)
+												SNew(SHorizontalBox)
+												+SHorizontalBox::Slot()
 												[
 													SAssignNew(SendFriendRequestButton, SButton)
 													.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::SendFriendRequest)))
@@ -250,7 +246,7 @@ public:
 														.ColorAndOpacity(FSlateColor::UseForeground())
 													]
 												]
-												+ SUniformGridPanel::Slot(0, 0)
+												+SHorizontalBox::Slot()
 												[
 													SAssignNew(InviteToGameButton, SButton)
 													.Visibility(ViewModelPtr, &FChatViewModel::GetInviteToGameVisibility)
@@ -267,7 +263,7 @@ public:
 														.ColorAndOpacity(FSlateColor::UseForeground())
 													]
 												]
-												+ SUniformGridPanel::Slot(0, 0)
+												+SHorizontalBox::Slot()
 												[
 													SAssignNew(OpenWhisperButton, SButton)
 													.Visibility(ViewModelPtr, &FChatViewModel::GetOpenWhisperVisibility)
@@ -284,7 +280,7 @@ public:
 														.ColorAndOpacity(FSlateColor::UseForeground())
 													]
 												]
-												+ SUniformGridPanel::Slot(0, 0)
+												+SHorizontalBox::Slot()
 												[
 													SAssignNew(CancelFriendRequestButton, SButton)
 													.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::CancelFriendRequest)))
@@ -300,7 +296,7 @@ public:
 														.ColorAndOpacity(FSlateColor::UseForeground())
 													]
 												]
-												+ SUniformGridPanel::Slot(0, 0)
+												+SHorizontalBox::Slot()
 												[
 													SAssignNew(AcceptFriendRequestButton, SButton)
 													.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::AcceptFriendRequest)))
@@ -316,7 +312,7 @@ public:
 														.ColorAndOpacity(FSlateColor::UseForeground())
 													]
 												]
-												+ SUniformGridPanel::Slot(1, 0)
+												+SHorizontalBox::Slot()
 												[
 													SAssignNew(IgnoreFriendRequestButton, SButton)
 													.ButtonStyle(SFriendsList::GetActionButtonStyle(FriendStyle, EFriendActionType::ToActionLevel(EFriendActionType::IgnoreFriendRequest)))
