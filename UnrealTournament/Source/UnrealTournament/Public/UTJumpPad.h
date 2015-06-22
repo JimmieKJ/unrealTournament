@@ -65,6 +65,18 @@ protected:
 	virtual void CheckForErrors() override;
 #endif // WITH_EDITOR
 
+	virtual void GetSimpleCollisionCylinder(float& CollisionRadius, float& CollisionHalfHeight) const override
+	{
+		if (TriggerBox != NULL)
+		{
+			TriggerBox->CalcBoundingCylinder(CollisionRadius, CollisionHalfHeight);
+		}
+		else
+		{
+			Super::GetSimpleCollisionCylinder(CollisionRadius, CollisionHalfHeight);
+		}
+	}
+
 	/** Overridden to launch PendingJumpActors */
 	virtual void Tick(float DeltaTime) override;
 

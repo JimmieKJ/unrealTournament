@@ -587,6 +587,9 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 
 	DeletePaths();
 
+	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
+	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
+
 	// make sure generation params are in the list
 	SizeSteps.AddUnique(FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentMaxHeight)));
 
@@ -604,35 +607,84 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 			}
 			else
 			{
-				NavNodeRef Poly = FindNearestPoly(It->GetActorLocation(), GetPOIExtent(*It));
-				if (Poly != INVALID_NAVNODEREF)
+				if (Builder->IsDestinationOnly())
 				{
-					// find node for this tile or create it
-					UUTPathNode* Node = PolyToNode.FindRef(Poly);
-					if (Node == NULL)
+					// we need to make sure to grab all encompassing polys into the new PathNode as it will have special properties
+					// and Recast may have split the polys inside the extent of the POI
+					const FVector UnrealCenter = It->GetActorLocation();
+					const FVector RecastCenter = Unreal2RecastPoint(UnrealCenter);
+					FVector RecastExtent = GetPOIExtent(*It) * FVector(0.9f, 0.9f, 1.0f); // hack: trying to minimize grabbing a small portion of adjacent large polys
+					RecastExtent = FVector(RecastExtent[0], RecastExtent[2], RecastExtent[1]);
+					TArray<NavNodeRef> FinalPolys;
 					{
-						Node = NewObject<UUTPathNode>(this);
-						if (Builder->IsDestinationOnly())
+						NavNodeRef ResultPolys[10];
+						int32 NumPolys = 0;
+						InternalQuery.queryPolygons((float*)&RecastCenter, (float*)&RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+						FinalPolys.Reserve(NumPolys);
+						// remove polygons that do not truly intersect the bounding cylinder, since queryPolygons() is an AABB test
+						for (int32 i = 0; i < NumPolys; i++)
 						{
-							Node->bDestinationOnly = true;
+							FVector ClosestPt = FVector::ZeroVector;
+							if (GetClosestPointOnPoly(ResultPolys[i], UnrealCenter, ClosestPt) && (UnrealCenter - ClosestPt).Size2D() < RecastExtent.X)
+							{
+								FinalPolys.Add(ResultPolys[i]);
+							}
 						}
+					}
+					if (FinalPolys.Num() == 0)
+					{
+						MapCheckLog.Warning()->AddToken(FUObjectToken::Create(*It))->AddToken(FTextToken::Create(NSLOCTEXT("UTRecastNavMesh", "UnlinkedPOI", "Navigation relevant Actor couldn't be linked to the navmesh. Check that it is in a valid position and close enough to the ground.")));
+					}
+					else
+					{
+						UUTPathNode* Node = NewObject<UUTPathNode>(this);
+						Node->bDestinationOnly = true;
+						Node->POIs.Add(*It);
 						PathNodes.Add(Node);
-						PolyToNode.Add(Poly, Node);
-						Node->Polys.Add(Poly);
+						for (NavNodeRef Poly : FinalPolys)
+						{
+							UUTPathNode* OldNode = PolyToNode.FindRef(Poly);
+							if (OldNode != NULL)
+							{
+								OldNode->Polys.Remove(Poly);
+								if (OldNode->Polys.Num() == 0)
+								{
+									Node->POIs += OldNode->POIs;
+									PathNodes.Remove(OldNode);
+								}
+							}
+							PolyToNode.Add(Poly, Node);
+							Node->Polys.Add(Poly);
+						}
 						SetNodeSize(Node);
 					}
-					Node->POIs.Add(*It);
 				}
 				else
 				{
-					MapCheckLog.Warning()->AddToken(FUObjectToken::Create(*It))->AddToken(FTextToken::Create(NSLOCTEXT("UTRecastNavMesh", "UnlinkedPOI", "Navigation relevant Actor couldn't be linked to the navmesh. Check that it is in a valid position and close enough to the ground.")));
+					NavNodeRef Poly = FindNearestPoly(It->GetActorLocation(), GetPOIExtent(*It));
+					if (Poly != INVALID_NAVNODEREF)
+					{
+						// find node for this tile or create it
+						UUTPathNode* Node = PolyToNode.FindRef(Poly);
+						if (Node == NULL)
+						{
+							Node = NewObject<UUTPathNode>(this);
+							Node->bDestinationOnly = true;
+							PathNodes.Add(Node);
+							PolyToNode.Add(Poly, Node);
+							Node->Polys.Add(Poly);
+							SetNodeSize(Node);
+						}
+						Node->POIs.Add(*It);
+					}
+					else
+					{
+						MapCheckLog.Warning()->AddToken(FUObjectToken::Create(*It))->AddToken(FTextToken::Create(NSLOCTEXT("UTRecastNavMesh", "UnlinkedPOI", "Navigation relevant Actor couldn't be linked to the navmesh. Check that it is in a valid position and close enough to the ground.")));
+					}
 				}
 			}
 		}
 	}
-
-	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
-	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
 	// expand the nodes into adjacent tiles
 	// if compatible reachability, merge into the node's tiles list, otherwise generate a new node and path link
