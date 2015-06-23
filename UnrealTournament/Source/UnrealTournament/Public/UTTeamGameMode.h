@@ -31,11 +31,11 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	bool bAllowURLTeamCountOverride;
 
 	/** whether we should attempt to keep teams balanced */
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	bool bBalanceTeams;
 
 	/** whether we should announce your team */
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	bool bAnnounceTeam;
 
 	/** whether players should be spawned only on UTTeamPlayerStarts with the appropriate team number */
