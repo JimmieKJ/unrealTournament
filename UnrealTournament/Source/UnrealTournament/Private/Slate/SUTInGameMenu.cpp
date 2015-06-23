@@ -18,6 +18,8 @@
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 #include "Panels/SUInGameHomePanel.h"
+#include "UTAnalytics.h"
+#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 #if !UE_SERVER
 
@@ -163,11 +165,11 @@ FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if ( GameState && GameState->HubGuid.IsValid() )
 	{
-
 		CloseMenus();
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (PC)
 		{
+			WriteQuitMidGameAnalytics();
 			PlayerOwner->CloseMapVote();
 			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
 		}
@@ -176,10 +178,36 @@ FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
+void SUTInGameMenu::WriteQuitMidGameAnalytics()
+{
+	if (FUTAnalytics::IsAvailable() && PlayerOwner->GetWorld()->GetNetMode() != NM_Standalone)
+	{
+		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+		if (GameState->HasMatchStarted() && !GameState->HasMatchEnded())
+		{
+			AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+			if (PC)
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+				if (PS)
+				{
+					extern float ENGINE_API GAverageFPS;
+					TArray<FAnalyticsEventAttribute> ParamArray;
+					ParamArray.Add(FAnalyticsEventAttribute(TEXT("FPS"), GAverageFPS));
+					ParamArray.Add(FAnalyticsEventAttribute(TEXT("Kills"), PS->Kills));
+					ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Deaths));
+					FUTAnalytics::GetProvider().RecordEvent(TEXT("QuitMidGame"), ParamArray);
+				}
+			}
+		}
+	}
+}
+
 FReply SUTInGameMenu::OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);	
 
+	WriteQuitMidGameAnalytics();
 	PlayerOwner->CloseMapVote();
 	CloseMenus();
 	PlayerOwner->ReturnToMainMenu();

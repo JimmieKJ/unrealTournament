@@ -27,6 +27,6 @@ protected:
 	virtual FReply OpenHUDSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
 	virtual FText GetMapVoteTitle() const;
-
+	virtual void WriteQuitMidGameAnalytics();
 };
 #endif
