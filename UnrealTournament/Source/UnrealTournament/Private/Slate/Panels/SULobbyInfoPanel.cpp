@@ -874,6 +874,25 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 			return;
 		}
 
+		if (Cmd.ToLower() == TEXT("@debugrules"))
+		{
+			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
+			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+			if (GS)
+			{
+				for (int32 i=0; i < GS->AvailableGameRulesets.Num(); i++)
+				{
+					FString X;
+					TWeakObjectPtr<AUTReplicatedGameRuleset> R = GS->AvailableGameRulesets[i];
+					for (int32 j=0;j < R->Categories.Num();j++)
+					{
+						X = X + R->Categories[j].ToString() + TEXT(", ");
+					}
+					FText TextRule = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugRule", " Rule {0} = {1} {2} Cats= {3} "), FText::AsNumber(i), FText::FromString(R->UniqueTag), FText::FromString(R->Title), FText::FromString(X));
+					PlayerOwner->SaveChat(FName(TEXT("Debug")), TextRule.ToString(), FLinearColor::White);
+				}
+			}
+		}
 		if (Cmd.ToLower() == TEXT("@debugplayers"))
 		{
 			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
