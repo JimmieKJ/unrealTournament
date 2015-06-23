@@ -95,6 +95,12 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bDedicatedInstance = false;
 
 	MapVoteTime = 30;
+
+
+	bSpeedHackDetection = false;
+	MaxTimeMargin = 2.0f;
+	MinTimeMargin = -2.0f;
+	TimeMarginSlack = 0.001f;
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)

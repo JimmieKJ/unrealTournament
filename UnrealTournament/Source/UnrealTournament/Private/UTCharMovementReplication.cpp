@@ -1147,6 +1147,12 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 
 bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPredictionData_Server_Character & ServerData)
 {
+	//Sync the server timestamp with the clients
+	if (ServerSyncTime < 0.0f)
+	{
+		ServerSyncTime = GetWorld()->GetTimeSeconds() - TimeStamp;
+	}
+
 	// Very large deltas happen around a TimeStamp reset.
 	const float DeltaTimeStamp = (TimeStamp - ServerData.CurrentClientTimeStamp);
 	if (FMath::Abs(DeltaTimeStamp) > (MinTimeBetweenTimeStampResets * 0.5f))
@@ -1157,6 +1163,7 @@ bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPred
 			//UE_LOG(UTNet, Log, TEXT("TimeStamp reset detected. CurrentTimeStamp: %f, new TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
 			ServerData.CurrentClientTimeStamp = 0.f;
 			AdjustMovementTimers(-1.f*DeltaTimeStamp);
+			ServerSyncTime = GetWorld()->GetTimeSeconds();
 			return true;
 		}
 		else
@@ -1175,8 +1182,41 @@ bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPred
 		return false;
 	}
 
+	//SpeedHack close the players connection if the timestamp error is exceeded
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (UTGameMode != nullptr)
+	{
+		float ServerTimeStamp = GetWorld()->GetTimeSeconds() - ServerSyncTime;
+		float TimestampSlack = UTGameMode->TimeMarginSlack * ServerTimeStamp;
+		float TimestampError = TimeStamp - ServerTimeStamp;
+		if (TimestampError > UTGameMode->MaxTimeMargin + TimestampSlack ||
+			TimestampError < UTGameMode->MinTimeMargin - TimestampSlack)
+		{
+			UE_LOG(UTNet, Warning, TEXT("TimestampError exceeds TimeMargin: TimestampError: %f TimestampSlack: %f"), TimestampError, TimestampSlack);
+
+			//Only kick if bSpeedHackDetection enabled. Leaving in the checks and log regardless if enabled to track any false positives
+			if (UTGameMode->bSpeedHackDetection)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(CharacterOwner->GetOwner());
+				if (PC != nullptr && Cast<UNetConnection>(PC->Player) != nullptr)
+				{
+					Cast<UNetConnection>(PC->Player)->Close();
+				}
+				return false;
+			}
+		}
+	}
+
 	//UE_LOG(LogNetPlayerMovement, VeryVerbose, TEXT("TimeStamp %f Accepted! CurrentTimeStamp: %f"), TimeStamp, ServerData.CurrentClientTimeStamp);
 	return true;
+}
+
+void UUTCharacterMovement::StopActiveMovement()
+{
+	Super::StopActiveMovement();
+
+	//Make sure the sync time is reset for next move
+	ServerSyncTime = -1.0f;
 }
 
 FSavedMovePtr FNetworkPredictionData_Client_UTChar::AllocateNewMove()

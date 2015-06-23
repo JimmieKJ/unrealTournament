@@ -614,5 +614,14 @@ public:
 	virtual void CullMapVotes();
 	virtual void TallyMapVotes();
 
+	//Speed hack detection
+	UPROPERTY(Config)
+	float MaxTimeMargin;
+	UPROPERTY(Config)
+	float MinTimeMargin;
+	UPROPERTY(Config)
+	float TimeMarginSlack;
+	UPROPERTY(Config)
+	bool bSpeedHackDetection;
 };
 

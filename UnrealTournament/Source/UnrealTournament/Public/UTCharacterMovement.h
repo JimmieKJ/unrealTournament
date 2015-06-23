@@ -609,6 +609,10 @@ public:
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 
 	virtual void ClientAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode) override;
+
+	/** The initial time when client/server timestamps are the same. # < 0 will reset next check*/
+	float ServerSyncTime;
+	virtual void StopActiveMovement() override;
 };
 
 // Networking support
