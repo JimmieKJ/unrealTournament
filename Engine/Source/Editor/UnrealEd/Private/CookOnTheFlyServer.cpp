@@ -3056,6 +3056,8 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 
 		for ( auto& Manifest : CookByTheBookOptions->ManifestGenerators )
 		{
+			Manifest.Value->ClearAssetTag(TEXT("FiB"));
+
 			// Always try to save the manifests, this is required to make the asset registry work, but doesn't necessarily write a file
 			Manifest.Value->SaveManifests(SandboxFile.GetOwnedPointer());
 			Manifest.Value->SaveAssetRegistry(SandboxRegistryFilename);

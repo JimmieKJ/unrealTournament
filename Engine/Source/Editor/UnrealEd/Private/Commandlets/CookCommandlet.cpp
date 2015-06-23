@@ -1542,6 +1542,8 @@ bool UCookCommandlet::Cook(const TArray<ITargetPlatform*>& Platforms, TArray<FSt
 	GetDerivedDataCacheRef().WaitForQuiescence(true);
 
 	{
+		ManifestGenerator.ClearAssetTag(TEXT("FiB"));
+
 		// Always try to save the manifests, this is required to make the asset registry work, but doesn't necessarily write a file
 		ManifestGenerator.SaveManifests(SandboxFile.GetOwnedPointer());
 
