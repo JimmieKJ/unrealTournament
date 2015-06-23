@@ -81,88 +81,95 @@ void FLinkerLoad::CreateActiveRedirectsMap(const FString& GEngineIniName)
 	if (GConfig)
 	{
 		FConfigSection* PackageRedirects = GConfig->GetSectionPrivate( TEXT("/Script/Engine.Engine"), false, true, GEngineIniName );
-		for( FConfigSection::TIterator It(*PackageRedirects); It; ++It )
+		if (PackageRedirects)
 		{
-			if( It.Key() == TEXT("ActiveClassRedirects") )
+			for( FConfigSection::TIterator It(*PackageRedirects); It; ++It )
 			{
-				FName OldClassName = NAME_None;
-				FName NewClassName = NAME_None;
-				FName ObjectName = NAME_None;
-				FName OldSubobjName = NAME_None;
-				FName NewSubobjName = NAME_None;
-
-				bool bInstanceOnly = false;
-
-				FParse::Bool( *It.Value(), TEXT("InstanceOnly="), bInstanceOnly );
-				FParse::Value( *It.Value(), TEXT("ObjectName="), ObjectName );
-
-				FParse::Value( *It.Value(), TEXT("OldClassName="), OldClassName );
-				FParse::Value( *It.Value(), TEXT("NewClassName="), NewClassName );
-
-				FParse::Value( *It.Value(), TEXT("OldSubobjName="), OldSubobjName );
-				FParse::Value( *It.Value(), TEXT("NewSubobjName="), NewSubobjName );
-
-				if (NewSubobjName != NAME_None || OldSubobjName != NAME_None)
+				if( It.Key() == TEXT("ActiveClassRedirects") )
 				{
-					check(OldSubobjName != NAME_None && OldClassName != NAME_None );
-					SubobjectNameRedirects.Add(OldSubobjName, FSubobjectRedirect(OldClassName, NewSubobjName));
-				}
-				//instances only
-				else if( bInstanceOnly )
-				{
-					ObjectNameRedirectsInstanceOnly.Add(OldClassName,NewClassName);
-				}
-				//objects only on a per-object basis
-				else if( ObjectName != NAME_None )
-				{
-					ObjectNameRedirectsObjectOnly.Add(ObjectName, NewClassName);
-				}
-				//full redirect
-				else
-				{
-					if (NewClassName.ToString().Find(TEXT("."), ESearchCase::CaseSensitive) != NewClassName.ToString().Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromEnd))
+					FName OldClassName = NAME_None;
+					FName NewClassName = NAME_None;
+					FName ObjectName = NAME_None;
+					FName OldSubobjName = NAME_None;
+					FName NewSubobjName = NAME_None;
+
+					bool bInstanceOnly = false;
+
+					FParse::Bool( *It.Value(), TEXT("InstanceOnly="), bInstanceOnly );
+					FParse::Value( *It.Value(), TEXT("ObjectName="), ObjectName );
+
+					FParse::Value( *It.Value(), TEXT("OldClassName="), OldClassName );
+					FParse::Value( *It.Value(), TEXT("NewClassName="), NewClassName );
+
+					FParse::Value( *It.Value(), TEXT("OldSubobjName="), OldSubobjName );
+					FParse::Value( *It.Value(), TEXT("NewSubobjName="), NewSubobjName );
+
+					if (NewSubobjName != NAME_None || OldSubobjName != NAME_None)
 					{
-						UE_LOG(LogLinker, Error, TEXT("Currently we cannot rename nested objects for '%s'; if you want to leave the outer alone, just specify the name with no path"), *NewClassName.ToString());
+						check(OldSubobjName != NAME_None && OldClassName != NAME_None );
+						SubobjectNameRedirects.Add(OldSubobjName, FSubobjectRedirect(OldClassName, NewSubobjName));
 					}
+					//instances only
+					else if( bInstanceOnly )
+					{
+						ObjectNameRedirectsInstanceOnly.Add(OldClassName,NewClassName);
+					}
+					//objects only on a per-object basis
+					else if( ObjectName != NAME_None )
+					{
+						ObjectNameRedirectsObjectOnly.Add(ObjectName, NewClassName);
+					}
+					//full redirect
 					else
 					{
-						ObjectNameRedirects.Add(OldClassName,NewClassName);
+						if (NewClassName.ToString().Find(TEXT("."), ESearchCase::CaseSensitive) != NewClassName.ToString().Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromEnd))
+						{
+							UE_LOG(LogLinker, Error, TEXT("Currently we cannot rename nested objects for '%s'; if you want to leave the outer alone, just specify the name with no path"), *NewClassName.ToString());
+						}
+						else
+						{
+							ObjectNameRedirects.Add(OldClassName,NewClassName);
+						}
 					}
+				}	
+				else if( It.Key() == TEXT("ActiveGameNameRedirects") )
+				{
+					FName OldGameName = NAME_None;
+					FName NewGameName = NAME_None;
+
+					FParse::Value( *It.Value(), TEXT("OldGameName="), OldGameName );
+					FParse::Value( *It.Value(), TEXT("NewGameName="), NewGameName );
+
+					GameNameRedirects.Add(OldGameName, NewGameName);
 				}
-			}	
-			else if( It.Key() == TEXT("ActiveGameNameRedirects") )
-			{
-				FName OldGameName = NAME_None;
-				FName NewGameName = NAME_None;
+				else if ( It.Key() == TEXT("ActiveStructRedirects") )
+				{
+					FName OldStructName = NAME_None;
+					FName NewStructName = NAME_None;
 
-				FParse::Value( *It.Value(), TEXT("OldGameName="), OldGameName );
-				FParse::Value( *It.Value(), TEXT("NewGameName="), NewGameName );
+					FParse::Value( *It.Value(), TEXT("OldStructName="), OldStructName );
+					FParse::Value( *It.Value(), TEXT("NewStructName="), NewStructName );
 
-				GameNameRedirects.Add(OldGameName, NewGameName);
+					StructNameRedirects.Add(OldStructName, NewStructName);
+				}
+				else if ( It.Key() == TEXT("ActivePluginRedirects") )
+				{
+					FString OldPluginName;
+					FString NewPluginName;
+
+					FParse::Value( *It.Value(), TEXT("OldPluginName="), OldPluginName );
+					FParse::Value( *It.Value(), TEXT("NewPluginName="), NewPluginName );
+
+					OldPluginName = FString(TEXT("/")) + OldPluginName + FString(TEXT("/"));
+					NewPluginName = FString(TEXT("/")) + NewPluginName + FString(TEXT("/"));
+
+					PluginNameRedirects.Add(OldPluginName, NewPluginName);
+				}
 			}
-			else if ( It.Key() == TEXT("ActiveStructRedirects") )
-			{
-				FName OldStructName = NAME_None;
-				FName NewStructName = NAME_None;
-
-				FParse::Value( *It.Value(), TEXT("OldStructName="), OldStructName );
-				FParse::Value( *It.Value(), TEXT("NewStructName="), NewStructName );
-
-				StructNameRedirects.Add(OldStructName, NewStructName);
-			}
-			else if ( It.Key() == TEXT("ActivePluginRedirects") )
-			{
-				FString OldPluginName;
-				FString NewPluginName;
-
-				FParse::Value( *It.Value(), TEXT("OldPluginName="), OldPluginName );
-				FParse::Value( *It.Value(), TEXT("NewPluginName="), NewPluginName );
-
-				OldPluginName = FString(TEXT("/")) + OldPluginName + FString(TEXT("/"));
-				NewPluginName = FString(TEXT("/")) + NewPluginName + FString(TEXT("/"));
-
-				PluginNameRedirects.Add(OldPluginName, NewPluginName);
-			}
+		}
+		else
+		{
+			UE_LOG(LogLinker, Log, TEXT("Active class redirects did not initialize because /Script/Engine.Engine was not available in the engine ini."));
 		}
 	}
 	else
