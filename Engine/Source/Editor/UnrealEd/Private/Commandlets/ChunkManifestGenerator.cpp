@@ -600,10 +600,7 @@ bool FChunkManifestGenerator::SaveCookedPackageAssetRegistry( const FString& San
 					Json->WriteObjectStart("TagsAndValues");
 					for ( const auto& Tag : AssetData.TagsAndValues )
 					{
-						if (Tag.Key != FName(TEXT("FiB")))
-						{
-							Json->WriteValue(Tag.Key.ToString(), Tag.Value);
-						}
+						Json->WriteValue(Tag.Key.ToString(), Tag.Value);
 					}
 					Json->WriteObjectEnd(); // end tags and values object
 					Json->WriteObjectEnd(); // end unnamed array object
@@ -1085,4 +1082,12 @@ FString FChunkManifestGenerator::GetShortestReferenceChain(FName PackageName, in
 	FindShortestReferenceChain(ReferencesToCheck, ChunkID, ParentIndex, StringChain);
 
 	return StringChain;
+}
+
+void FChunkManifestGenerator::ClearAssetTag(const FName& TagToClear)
+{
+	for (auto& AssetData : AssetRegistryData)
+	{
+		AssetData.TagsAndValues.Remove(TagToClear);
+	}
 }

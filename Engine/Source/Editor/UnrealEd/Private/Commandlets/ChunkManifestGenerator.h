@@ -320,4 +320,5 @@ public:
 	 */
 	bool SaveCookedPackageAssetRegistry( const FString& SandboxPath, const bool Append );
 
+	void ClearAssetTag(const FName& TagToClear);
 };
