@@ -1735,11 +1735,17 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	{
 		if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 		{
-			UTPlayerState->bPendingTeamSwitch = false;
-			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
-				UTPlayerState->bReadyToPlay = false;
+				UTPlayerState->bPendingTeamSwitch = false;
+			}
+			else
+			{
+				ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+				if (UTPlayerState->bPendingTeamSwitch)
+				{
+					UTPlayerState->bReadyToPlay = false;
+				}
 			}
 			UTPlayerState->ForceNetUpdate();
 		}
