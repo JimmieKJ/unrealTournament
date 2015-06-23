@@ -36,6 +36,11 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	Settings.no_sandbox = true;
 	Settings.command_line_args_disabled = true;
 
+	// Enable on disk cache
+	FString CachePath(FPaths::Combine(*FPaths::GameSavedDir(), TEXT("webcache")));
+	CachePath = FPaths::ConvertRelativePathToFull(CachePath);
+	CefString(&Settings.cache_path) = *CachePath;
+
 	// Specify locale from our settings
 	FString LocaleCode = GetCurrentLocaleCode();
 	CefString(&Settings.locale) = *LocaleCode;
