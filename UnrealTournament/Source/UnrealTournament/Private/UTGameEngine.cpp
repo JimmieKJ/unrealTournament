@@ -294,7 +294,7 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 	if (UTLocalPlayer)
 	{
 		UUTProfileSettings* ProfileSettings = UTLocalPlayer->GetProfileSettings();
-		if (ProfileSettings && ProfileSettings->bNeedProfileWriteForTokens)
+		if (ProfileSettings && ProfileSettings->bNeedProfileWriteOnLevelChange)
 		{
 			UTLocalPlayer->SaveProfileSettings();
 		}

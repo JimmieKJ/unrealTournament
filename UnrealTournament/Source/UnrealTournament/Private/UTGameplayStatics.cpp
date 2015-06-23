@@ -682,3 +682,31 @@ void UUTGameplayStatics::TokensReset(UObject* WorldContextObject)
 		}
 	}
 }
+
+void UUTGameplayStatics::SetBestTime(UObject* WorldContextObject, FName TimingSection, float InBestTime)
+{
+	APlayerController* PC = UGameplayStatics::GetPlayerController(WorldContextObject, 0);
+	if (PC)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP && LP->GetProfileSettings())
+		{
+			LP->GetProfileSettings()->SetBestTime(TimingSection, InBestTime);
+		}
+	}
+}
+
+bool UUTGameplayStatics::GetBestTime(UObject* WorldContextObject, FName TimingSection, float& OutBestTime)
+{
+	APlayerController* PC = UGameplayStatics::GetPlayerController(WorldContextObject, 0);
+	if (PC)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP && LP->GetProfileSettings())
+		{
+			return LP->GetProfileSettings()->GetBestTime(TimingSection, OutBestTime);
+		}
+	}
+
+	return false;
+}

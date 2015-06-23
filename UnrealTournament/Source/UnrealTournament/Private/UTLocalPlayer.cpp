@@ -1128,7 +1128,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 		CurrentProfileSettings->GatherAllSettings(this);
 		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
 
-		CurrentProfileSettings->bNeedProfileWriteForTokens = false;
+		CurrentProfileSettings->bNeedProfileWriteOnLevelChange = false;
 
 		// Build a blob of the profile contents
 		TArray<uint8> FileContents;

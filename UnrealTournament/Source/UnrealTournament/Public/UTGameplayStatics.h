@@ -135,4 +135,12 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	/** Reset tokens picked up this level so they don't get saved to profile */
 	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
 	static void TokensReset(UObject* WorldContextObject);
+		
+	/** Set a best time for a named timing section */
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static void SetBestTime(UObject* WorldContextObject, FName TimingSection, float InBestTime);
+	
+	/** Get the best time for a named timing section */
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static bool GetBestTime(UObject* WorldContextObject, FName TimingSection, float& OutBestTime);
 };

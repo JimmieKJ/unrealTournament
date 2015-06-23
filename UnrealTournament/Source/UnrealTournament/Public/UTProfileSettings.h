@@ -54,6 +54,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	void TokenRevoke(FName TokenUniqueID);
 	void TokensCommit();
 	void TokensReset();
+
+	bool GetBestTime(FName TimingName, float& OutBestTime);
+	void SetBestTime(FName TimingName, float InBestTime);
 	
 	// debug only
 	void TokensClear();
@@ -100,7 +103,7 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	uint32 CountryFlag;
 
-	bool bNeedProfileWriteForTokens;
+	bool bNeedProfileWriteOnLevelChange;
 
 protected:
 
@@ -188,6 +191,9 @@ protected:
 	TArray<FName> FoundTokenUniqueIDs;
 	
 	TArray<FName> TempFoundTokenUniqueIDs;
+
+	UPROPERTY()
+	TMap<FName, float> BestTimes;
 
 	// If true, then the player will not show toasts in game.
 	UPROPERTY()

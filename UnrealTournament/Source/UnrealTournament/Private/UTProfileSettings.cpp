@@ -10,7 +10,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 	PlayerName = TEXT("Malcolm");
 	bSuppressToastsInGame = false;
 
-	bNeedProfileWriteForTokens = false;
+	bNeedProfileWriteOnLevelChange = false;
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
@@ -291,7 +291,7 @@ void UUTProfileSettings::TokensCommit()
 	for (auto ID : TempFoundTokenUniqueIDs)
 	{
 		FoundTokenUniqueIDs.AddUnique(ID);
-		bNeedProfileWriteForTokens = true;
+		bNeedProfileWriteOnLevelChange = true;
 	}
 
 	TempFoundTokenUniqueIDs.Empty();
@@ -306,4 +306,24 @@ void UUTProfileSettings::TokensClear()
 {
 	TempFoundTokenUniqueIDs.Empty();
 	FoundTokenUniqueIDs.Empty();
+}
+
+bool UUTProfileSettings::GetBestTime(FName TimingName, float& OutBestTime)
+{
+	OutBestTime = 0;
+
+	float* BestTime = BestTimes.Find(TimingName);
+	if (BestTime)
+	{
+		OutBestTime = *BestTime;
+		return true;
+	}
+
+	return false;
+}
+
+void UUTProfileSettings::SetBestTime(FName TimingName, float InBestTime)
+{
+	BestTimes[TimingName] = InBestTime;
+	bNeedProfileWriteOnLevelChange = true;
 }
