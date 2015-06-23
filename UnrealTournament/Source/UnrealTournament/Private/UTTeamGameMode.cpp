@@ -13,6 +13,7 @@
 #include "Slate/SUWindowsStyle.h"
 #include "Slate/SlateGameResources.h"
 #include "SNumericEntryBox.h"
+#include "StatNames.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -570,17 +571,17 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
 			
-			PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
-			PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
-			PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
+			PS->SetStatsValue(NAME_MatchesPlayed, 1);
+			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+			PS->SetStatsValue(NAME_PlayerXP, PS->Score);
 
 			if (UTGameState->WinningTeam == PS->Team)
 			{
-				PS->ModifyStat(FName(TEXT("Wins")), 1, EStatMod::Delta);
+				PS->SetStatsValue(NAME_Wins, 1);
 			}
 			else
 			{
-				PS->ModifyStat(FName(TEXT("Losses")), 1, EStatMod::Delta);
+				PS->SetStatsValue(NAME_Losses, 1);
 			}
 
 			PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
@@ -595,19 +596,19 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
 			if (PS && !PS->HasWrittenStatsToCloud())
 			{
-				PS->ModifyStat(FName(TEXT("MatchesQuit")), 1, EStatMod::Delta);
+				PS->SetStatsValue(NAME_MatchesQuit, 1);
 
-				PS->ModifyStat(FName(TEXT("MatchesPlayed")), 1, EStatMod::Delta);
-				PS->ModifyStat(FName(TEXT("TimePlayed")), UTGameState->ElapsedTime, EStatMod::Delta);
-				PS->ModifyStat(FName(TEXT("PlayerXP")), PS->Score, EStatMod::Delta);
+				PS->SetStatsValue(NAME_MatchesPlayed, 1);
+				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_PlayerXP, PS->Score);
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
-					PS->ModifyStat(FName(TEXT("Wins")), 1, EStatMod::Delta);
+					PS->SetStatsValue(NAME_Wins, 1);
 				}
 				else
 				{
-					PS->ModifyStat(FName(TEXT("Losses")), 1, EStatMod::Delta);
+					PS->SetStatsValue(NAME_Losses, 1);
 				}
 
 				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
