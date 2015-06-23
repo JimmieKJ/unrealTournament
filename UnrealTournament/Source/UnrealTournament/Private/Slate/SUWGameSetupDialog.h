@@ -150,10 +150,6 @@ public:
 
 protected:
 
-	// Holds the list of categories to create.
-	TArray<FName> Categories;
-	TArray<FText> CategoryTexts;
-
 	TArray<TWeakObjectPtr<class AUTReplicatedGameRuleset>> GameRulesets;
 
 	// When created from a hub, this will be valid.

@@ -46,11 +46,14 @@ void AUTLobbyGameState::PostInitializeComponents()
 
 	if (Role == ROLE_Authority)
 	{
+		UE_LOG(UT,Verbose,TEXT("Loading %i Additional Rules"), AllowedGameRulesets.Num())
 		for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
 		{
+			UE_LOG(UT,Verbose,TEXT("Loading Rule %s"), *AllowedGameRulesets[i])
 			if (!AllowedGameRulesets[i].IsEmpty())
 			{
-				UUTGameRuleset* NewRuleset = NewObject<UUTGameRuleset>(GetTransientPackage(), UUTGameRuleset::StaticClass());
+				FName RuleName = FName(*AllowedGameRulesets[i]);
+				UUTGameRuleset* NewRuleset = NewObject<UUTGameRuleset>(GetTransientPackage(), RuleName, RF_Transient);
 				if (NewRuleset)
 				{
 					bool bExistsAlready = false;

@@ -254,9 +254,17 @@ FText SUWMapVoteDialog::GetClockTime() const
 		}
 	}
 	return FText::GetEmpty();
-
-
 }
 
+void SUWMapVoteDialog::OnDialogClosed()
+{
+	for (int32 i=0; i < VoteButtons.Num(); i++)
+	{
+		VoteButtons[i].MapImage = nullptr;
+	}
+
+	VoteButtons.Empty();
+	SUWDialog::OnDialogClosed();
+}
 
 #endif

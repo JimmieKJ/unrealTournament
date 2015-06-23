@@ -15,16 +15,6 @@
 
 void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 {
-	UUTEpicDefaultRulesets* DefaultRuleset = UUTEpicDefaultRulesets::StaticClass()->GetDefaultObject<UUTEpicDefaultRulesets>();
-	if (DefaultRuleset)
-	{
-		for (int32 i = 0; i < DefaultRuleset->RuleCategories.Num(); i++)
-		{
-			Categories.Add(DefaultRuleset->RuleCategories[i].CategoryName);
-			CategoryTexts.Add(FText::FromString(DefaultRuleset->RuleCategories[i].CategoryButtonText));
-		}
-	}
-
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
 							.DialogTitle(InArgs._DialogTitle)
@@ -170,6 +160,26 @@ FText SUWGameSetupDialog::GetBotSkillText() const
 void SUWGameSetupDialog::BuildCategories()
 {
 	TSharedPtr<SUTTabButton> Button;
+	
+	TArray<FName> Categories;
+	AUTLobbyGameState* LobbyGameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		for(int32 i=0; i < LobbyGameState->AvailableGameRulesets.Num(); i++)
+		{
+			for (int32 j=0; j < LobbyGameState->AvailableGameRulesets[i]->Categories.Num(); j++)
+			{
+				FName Cat = LobbyGameState->AvailableGameRulesets[i]->Categories[j];
+				if (Categories.Find(Cat) == INDEX_NONE)
+				{
+					Categories.Add(Cat);
+				}
+			}
+		}
+	
+	}
+
+	Categories.Add(FName(TEXT("Custom")));
 
 	for (int32 i=0;i<Categories.Num(); i++)
 	{
@@ -181,7 +191,7 @@ void SUWGameSetupDialog::BuildCategories()
 			.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
 			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 			.ClickMethod(EButtonClickMethod::MouseDown)
-			.Text(CategoryTexts[i])
+			.Text(FText::FromString(Categories[i].ToString()))
 			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 			.OnClicked(this, &SUWGameSetupDialog::OnTabButtonClick, i)
 		];
@@ -210,7 +220,7 @@ FReply SUWGameSetupDialog::OnTabButtonClick(int32 ButtonIndex)
 	DisableButton(UTDIALOG_BUTTON_PLAY);
 	DisableButton(UTDIALOG_BUTTON_LAN);
 
-	BuildRuleList(Categories[ButtonIndex]);
+	BuildRuleList(Tabs[ButtonIndex].Category);
 	SelectedRuleset.Reset();
 	MapBox->ClearChildren();
 
@@ -658,9 +668,9 @@ void SUWGameSetupDialog::ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> M
 
 	// Find the best tab...
 
-	for (int32 i=0; i<Categories.Num();i++)
+	for (int32 i=0; i<Tabs.Num();i++)
 	{
-		if (Categories[i] == MatchInfo->CurrentRuleset->Categories[0])
+		if (Tabs[i].Category == MatchInfo->CurrentRuleset->Categories[0])
 		{
 			// Found it, switch to it's tab.
 			OnTabButtonClick(i);

@@ -659,7 +659,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		NewReplicatedRuleset->Description = Description;
 		int32 PlayerCount = 20;
 
-		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount;
 		if (DesiredSkillLevel >= 0)
 		{
 			//NewReplicatedRuleset->
@@ -674,17 +673,18 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 			FinalGameOptions += TEXT("?") + GameOptions[i];
 		}
 
-		if (DesiredSkillLevel >= 0)
+		int32 OptimalPlayerCount = 4;
+		TSharedPtr<FMapListItem> MapInfo = GetMapInformation(StartingMap);
+		if (MapInfo.IsValid())
 		{
-			int32 OptimalPlayerCount = 4;
-			TSharedPtr<FMapListItem> MapInfo = GetMapInformation(StartingMap);
-			if (MapInfo.IsValid())
-			{
-				OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
-			}
-			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
+			OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
 		}
 
+		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount > 0 ? DesiredPlayerCount : OptimalPlayerCount;
+		if (DesiredSkillLevel >= 0)
+		{
+			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), NewReplicatedRuleset->MaxPlayers, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
+		}
 		NewReplicatedRuleset->GameOptions = FinalGameOptions;
 
 
