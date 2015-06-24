@@ -255,7 +255,6 @@ void AUTImpactEffect::SetNoLocalPlayerLOD(UWorld* World, USceneComponent* NewCom
 	if (InstigatedBy != NULL && InstigatedBy->IsLocalPlayerController())
 	{
 		// see if this is a particle system, if so switch to direct LOD
-		UE_LOG(UT, Warning, TEXT("Force max LOD for %s"), *GetName());
 		UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(NewComp);
 		if (PSC)
 		{
