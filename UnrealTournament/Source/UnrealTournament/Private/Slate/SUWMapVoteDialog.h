@@ -85,7 +85,7 @@ protected:
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
-		for (int32 i = 0; VoteButtons.Num(); i++)
+		for (int32 i = 0; i < VoteButtons.Num(); i++)
 		{
 			if (VoteButtons[i].MapTexture != NULL)
 			{
