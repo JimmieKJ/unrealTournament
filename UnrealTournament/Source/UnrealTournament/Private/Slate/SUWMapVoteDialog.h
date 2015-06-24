@@ -87,7 +87,10 @@ protected:
 	{
 		for (int32 i = 0; VoteButtons.Num(); i++)
 		{
-			Collector.AddReferencedObject(VoteButtons[i].MapTexture);
+			if (VoteButtons[i].MapTexture != NULL)
+			{
+				Collector.AddReferencedObject(VoteButtons[i].MapTexture);
+			}
 		}
 	}
 

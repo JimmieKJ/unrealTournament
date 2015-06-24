@@ -80,6 +80,7 @@ private:
 		FMapPlayListInfo(TSharedPtr<FMapListItem> inMapInfo, bool bInitiallySelected)
 		{
 			MapInfo = inMapInfo;
+			MapTexture = NULL;
 
 			// Create the default Image Brush.  This will be replaced in time.
 			MapImage = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), NAME_None);
@@ -202,9 +203,12 @@ protected:
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
-		for (int32 i = 0; MapPlayList.Num(); i++)
+		for (int32 i = 0; i < MapPlayList.Num(); i++)
 		{
-			Collector.AddReferencedObject(MapPlayList[i].MapTexture);
+			if (MapPlayList[i].MapTexture != NULL)
+			{
+				Collector.AddReferencedObject(MapPlayList[i].MapTexture);
+			}
 		}
 	}
 
