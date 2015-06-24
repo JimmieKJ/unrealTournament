@@ -16,6 +16,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 		.bDialogSizeIsRelative(InArgs._bDialogSizeIsRelative)
 		.DialogPosition(InArgs._DialogPosition)
 		.DialogAnchorPoint(InArgs._DialogAnchorPoint)
+		.IsScrollable(false)
 		.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 		);
 
@@ -56,6 +57,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 				[
 					SNew(SBox)
 					.WidthOverride(700)
+					.HeightOverride(700)
 					[
 						SNew(SVerticalBox)
 						// Heading
