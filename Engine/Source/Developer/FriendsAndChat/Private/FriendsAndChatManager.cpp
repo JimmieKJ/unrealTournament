@@ -1969,9 +1969,9 @@ void FFriendsAndChatManager::ProcessReceivedGameInvites()
 		for (int32 Idx = 0; Idx < ReceivedGameInvites.Num(); Idx++)
 		{
 			const FReceivedGameInvite& Invite = ReceivedGameInvites[Idx];
-
+			
 			if (!Invite.InviteResult->Session.SessionInfo.IsValid() ||
-				Invite.InviteResult->Session.SessionInfo->GetSessionId().ToString() == GetGameSessionId()->ToString())
+				(GetGameSessionId().IsValid() && Invite.InviteResult->Session.SessionInfo->GetSessionId().ToString() == GetGameSessionId()->ToString()))
 			{
 				// remove invites if user is already in the game session
 				ReceivedGameInvites.RemoveAt(Idx--);
