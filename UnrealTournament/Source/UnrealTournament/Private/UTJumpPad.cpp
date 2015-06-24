@@ -87,7 +87,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 		if (B != NULL && GetUTNavData(GetWorld()) != NULL)
 		{
 			bool bRepathOnLand = false;
-			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this;
+			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this || (B->GetMoveTarget().Node != NULL && B->GetMoveTarget().Node->POIs.Contains(this));
 			if (!bExpectedJumpPad)
 			{
 				UUTReachSpec_JumpPad* JumpPadPath = Cast<UUTReachSpec_JumpPad>(B->GetCurrentPath().Spec.Get());
