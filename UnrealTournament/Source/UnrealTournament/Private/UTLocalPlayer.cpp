@@ -1622,6 +1622,13 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
 
+	// If we are trying to be crammed in to an existing session, we can just exit.
+	if (bAttemptingForceJoin)
+	{
+		bAttemptingForceJoin = false;
+		return;
+	}
+
 	ChatArchive.Empty();
 
 	// If we successed, nothing else needs to be done.
@@ -2186,4 +2193,34 @@ void UUTLocalPlayer::ToggleReplayWindow()
 bool UUTLocalPlayer::IsReplay()
 {
 	return (GetWorld()->DemoNetDriver != nullptr);
+}
+
+void UUTLocalPlayer::VerifyGameSession(const FString& ServerSessionId)
+{
+	if (OnlineSessionInterface.IsValid())
+	{
+		// Get our current Session Id.
+		FNamedOnlineSession* Session = OnlineSessionInterface->GetNamedSession(FName(TEXT("Game")));
+		if (Session == NULL || !Session->SessionInfo.IsValid() || Session->SessionInfo->GetSessionId().ToString() != ServerSessionId)
+		{
+			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+			if (UserId.IsValid())
+			{
+				TSharedPtr<FUniqueNetId> ServerId = MakeShareable(new FUniqueNetIdString(ServerSessionId));		
+				TSharedPtr<FUniqueNetId> EmptyId = MakeShareable(new FUniqueNetIdString(""));				
+				FOnSingleSessionResultCompleteDelegate CompletionDelegate;
+				CompletionDelegate.BindUObject(this, &UUTLocalPlayer::OnFindSessionByIdComplete);
+				OnlineSessionInterface->FindSessionById(*UserId, *ServerId, *EmptyId, CompletionDelegate);
+			}
+		}
+	}
+}
+
+void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSucessful, const FOnlineSessionSearchResult& SearchResult)
+{
+	if (bWasSucessful)
+	{
+		bAttemptingForceJoin = true;
+		OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
+	}
 }

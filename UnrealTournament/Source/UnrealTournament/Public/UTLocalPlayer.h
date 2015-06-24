@@ -481,6 +481,14 @@ public:
 	void ToggleReplayWindow();
 
 	virtual bool IsReplay();
+
+	virtual void VerifyGameSession(const FString& ServerSessionId);
+
+protected:
+	void OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSucessful, const FOnlineSessionSearchResult& SearchResult);
+	
+	// Will be true if we are attempting to force the player in to an existing session.
+	bool bAttemptingForceJoin;
 };
 
 
