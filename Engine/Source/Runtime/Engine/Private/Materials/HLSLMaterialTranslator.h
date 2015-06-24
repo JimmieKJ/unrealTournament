@@ -2103,12 +2103,12 @@ protected:
 			if (bCompilingPreviousFrame && ShaderFrequency == SF_Vertex)
 			{
 				// Only if not in a pixel shader...
-				return AddInlinedCodeChunk(MCT_Float3, TEXT("Parameters.PrevWorldPosition"));
+				return AddInlinedCodeChunk(MCT_Float3, TEXT("GetPrevWorldPosition_NoOffsets(Parameters)"));
 			}
 			else
 			{
 				// If not in a pixel shader, only the normal WorldPosition is available
-				return AddInlinedCodeChunk(MCT_Float3, TEXT("Parameters.WorldPosition"));
+				return AddInlinedCodeChunk(MCT_Float3, TEXT("GetWorldPosition_NoOffsets(Parameters)"));
 			}
 		}
 	}

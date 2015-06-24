@@ -206,8 +206,7 @@ struct FVertexFactoryIntermediates
 FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, float3x3 TangentToLocal)
 {
 	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
-	Result.WorldPosition = WorldPosition - View.PreViewTranslation.xyz;
-	Result.PrevWorldPosition = WorldPosition - View.PrevPreViewTranslation.xyz;
+	Result.WorldPosition = WorldPosition;
 	Result.VertexColor = Intermediates.Color;
 	Result.TangentToWorld = mul(TangentToLocal, GetLocalToWorld3x3());
 

@@ -282,8 +282,7 @@ half3x3 CalcTangentToWorldNoScale(in half3x3 TangentToLocal)
 FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, half3x3 TangentToLocal)
 {
 	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
-	Result.WorldPosition = WorldPosition - View.PreViewTranslation;
-	Result.PrevWorldPosition = WorldPosition - View.PrevPreViewTranslation.xyz;
+	Result.WorldPosition = WorldPosition;
 	Result.VertexColor = Intermediates.Color;
 
 	// does not handle instancing!

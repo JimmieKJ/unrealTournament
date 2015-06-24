@@ -236,8 +236,10 @@ struct FMaterialTessellationParameters
  */
 struct FMaterialVertexParameters
 {
+	// Position in the translated world (VertexFactoryGetWorldPosition).
+	// Previous position in the translated world (VertexFactoryGetPreviousWorldPosition) if
+	//    computing material's output for previous frame (See {BasePassVertex,Velocity}Shader.usf).
 	float3 WorldPosition;
-	float3 PrevWorldPosition;
 	// TangentToWorld[2] is WorldVertexNormal
 	half3x3 TangentToWorld;
 #if USE_INSTANCING
@@ -262,6 +264,30 @@ struct FMaterialVertexParameters
 	FMaterialParticleParameters Particle;
 };
 
+float3 GetWorldPosition(FMaterialVertexParameters Parameters)
+{
+	return Parameters.WorldPosition;
+}
+
+float3 GetPrevWorldPosition(FMaterialVertexParameters Parameters)
+{
+	// Previous world position and current world position are sharing the
+	// same attribute in Parameters, because in BasePassVertexShader.usf
+	// and in VelocityShader.usf, we are regenerating a Parameters from
+	// VertexFactoryGetPreviousWorldPosition() instead of
+	// VertexFactoryGetWorldPosition().
+	return GetWorldPosition(Parameters);
+}
+
+float3 GetWorldPosition_NoOffsets(FMaterialVertexParameters Parameters)
+{
+	return GetWorldPosition(Parameters) - View.PreViewTranslation;
+}
+
+float3 GetPrevWorldPosition_NoOffsets(FMaterialVertexParameters Parameters)
+{
+	return GetPrevWorldPosition(Parameters) - View.PrevPreViewTranslation;
+}
 
 #if DECAL_RENDERSTAGE && NUM_MATERIAL_TEXCOORDS
 	/*
@@ -788,7 +814,7 @@ float3 GetSpeedTreeVertexOffsetInner(FMaterialVertexParameters Parameters, int G
 		}
 	#else
 		float3x3 LocalToWorld = (float3x3)Primitive.LocalToWorld;
-		float3 LocalPosition = mul(float4(Parameters.WorldPosition.xyz, 1), Primitive.WorldToLocal).xyz;
+		float3 LocalPosition = mul(float4(GetWorldPosition_NoOffsets(Parameters), 1), Primitive.WorldToLocal).xyz;
 	#endif
 
 	float3 TreePos = GetObjectWorldPosition(Parameters);
