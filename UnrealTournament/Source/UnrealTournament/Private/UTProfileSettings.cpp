@@ -324,6 +324,6 @@ bool UUTProfileSettings::GetBestTime(FName TimingName, float& OutBestTime)
 
 void UUTProfileSettings::SetBestTime(FName TimingName, float InBestTime)
 {
-	BestTimes[TimingName] = InBestTime;
+	BestTimes.Add(TimingName, InBestTime);
 	bNeedProfileWriteOnLevelChange = true;
 }
