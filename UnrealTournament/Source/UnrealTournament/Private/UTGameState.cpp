@@ -13,6 +13,7 @@
 #include "UTPickup.h"
 #include "UTArmor.h"
 #include "StatNames.h"
+#include "UTGameEngine.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -148,6 +149,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerDescription, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
+
+	DOREPLIFETIME_CONDITION(AUTGameState, ServerSessionId, COND_InitialOnly);
 
 	DOREPLIFETIME(AUTGameState, MapVoteList);
 	DOREPLIFETIME(AUTGameState, VoteTimer);
@@ -1041,3 +1044,19 @@ bool AUTGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& Pickup
 	return true;
 }
 
+void AUTGameState::OnRep_ServerSessionId()
+{
+	UUTGameEngine* GameEngine = Cast<UUTGameEngine>(GEngine);
+	if (GameEngine && ServerSessionId != TEXT(""))
+	{
+		for(auto It = GameEngine->GetLocalPlayerIterator(GetWorld()); It; ++It)
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(*It);
+			if (LocalPlayer)
+			{
+				LocalPlayer->VerifyGameSession(ServerSessionId);
+			}
+		}
+	}
+
+}

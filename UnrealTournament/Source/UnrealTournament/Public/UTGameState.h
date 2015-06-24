@@ -358,6 +358,19 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = GameState)
 	bool GetImportantPickups(UPARAM(ref) TArray<class AUTPickup*>& PickupList);
 
+	/**
+	 *	The server will replicate it's session id.  Clients, upon recieving it, will check to make sure they are in that session
+	 *  and if not, add themselves.  If at all possible, clients should add themselves to the session before joining a server
+	 *  however there are times where that isn't possible (join via IP) and this will act as a catch all.
+	 **/
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_ServerSessionId)
+	FString ServerSessionId;
+
+protected:
+	UFUNCTION()
+	virtual void OnRep_ServerSessionId();
+
+
 };
 
 

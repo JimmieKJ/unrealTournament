@@ -181,7 +181,7 @@ void AUTGameSession::RegisterServer()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			EOnlineSessionState::Type State = SessionInterface->GetSessionState(FName(TEXT("Game")));
+			EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
 			if (State == EOnlineSessionState::NoSession)
 			{
 				bSessionValid = false;
@@ -224,7 +224,7 @@ void AUTGameSession::UnRegisterServer(bool bShuttingDown)
 
 		const auto OnlineSub = IOnlineSubsystem::Get();
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
-		EOnlineSessionState::Type State = SessionInterface->GetSessionState(FName(TEXT("Game")));
+		EOnlineSessionState::Type State = SessionInterface->GetSessionState(GameSessionName);
 
 		if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 		{
@@ -295,7 +295,7 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 	if (bWasSuccessful)
 	{
 		UE_LOG(UT,Verbose,TEXT("Session %s Created!"), *SessionName.ToString());
-		UpdateSessionJoinability(FName(TEXT("Game")), true, true, true, false);
+		UpdateSessionJoinability(GameSessionName, true, true, true, false);
 		// Immediately start the online session
 		StartMatch();
 	}
@@ -312,6 +312,12 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 		if (SessionInterface.IsValid())
 		{
 			SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(OnCreateSessionCompleteDelegate);
+			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+			if (GameState)
+			{
+				FNamedOnlineSession* Session = SessionInterface->GetNamedSession(GameSessionName);
+				GameState->ServerSessionId = Session->SessionInfo->GetSessionId().ToString();
+			}
 		}
 	}
 
