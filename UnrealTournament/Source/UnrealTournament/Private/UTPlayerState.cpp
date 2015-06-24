@@ -150,6 +150,22 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		}
 		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+
+		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
+		{
+			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
+			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
+			MultiKillLevel++;
+			if (MyPC != NULL)
+			{
+				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+			}
+		}
+		else
+		{
+			MultiKillLevel = 0;
+		}
+
 		bool bAnnounceWeaponSpree = false;
 		if (UTDamage)
 		{
@@ -190,21 +206,6 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			{
 				MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
 			}
-		}
-
-		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
-		{
-			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
-			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
-			MultiKillLevel++;
-			if (MyPC != NULL)
-			{
-				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
-			}
-		}
-		else
-		{
-			MultiKillLevel = 0;
 		}
 		if (Pawn != NULL)
 		{

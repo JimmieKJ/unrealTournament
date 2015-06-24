@@ -13,6 +13,7 @@ UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectI
 	ScaleInDirection = 0.f;
 	MessageFontIndex = 2;
 	SmallMessageFontIndex = 1;
+	NumVisibleLines = 3;
 }
 
 void UUTHUDWidgetMessage::InitializeWidget(AUTHUD* Hud)
@@ -108,8 +109,9 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 	// Pass 2 - Render the message
 	Canvas->Reset();
 
-	float Y = 0;
-	for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
+	float Y = 0.f;
+	int32 DrawCnt = 0;
+	for (int32 QueueIndex = 0; (QueueIndex < MessageQueue.Num()) && (DrawCnt < NumVisibleLines); QueueIndex++)
 	{
 		// When we hit the empty section of the array, exit out
 		if (MessageQueue[QueueIndex].MessageClass == NULL)
@@ -125,6 +127,7 @@ void UUTHUDWidgetMessage::DrawMessages(float DeltaTime)
 
 		DrawMessage(QueueIndex, 0.0f, Y);
 		Y += MessageQueue[QueueIndex].DisplayFont->GetMaxCharHeight() * GetTextScale(QueueIndex);
+		DrawCnt++;
 	}
 }
 

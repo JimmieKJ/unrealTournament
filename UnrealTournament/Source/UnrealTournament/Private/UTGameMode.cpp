@@ -1048,8 +1048,8 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
 
-			ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
+			ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			
 			if (bHasRespawnChoices)
 			{

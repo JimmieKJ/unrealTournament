@@ -188,6 +188,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	TArray<FLocalizedMessageData> MessageQueue;
 
+	/** Max number of messages to draw in this area. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		int32 NumVisibleLines;
+
 	virtual void ClearMessage(FLocalizedMessageData& Message);
 	virtual void AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
 	virtual void LayoutMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
