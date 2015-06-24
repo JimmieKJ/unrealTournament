@@ -644,17 +644,27 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 						for (NavNodeRef Poly : FinalPolys)
 						{
 							UUTPathNode* OldNode = PolyToNode.FindRef(Poly);
-							if (OldNode != NULL)
+							if (OldNode != Node) // can happen if prior merge moved further entries from FinalPolys
 							{
-								OldNode->Polys.Remove(Poly);
-								if (OldNode->Polys.Num() == 0)
+								if (OldNode != NULL)
 								{
+									// merge
+									Node->Polys += OldNode->Polys;
+									for (NavNodeRef OtherPoly : OldNode->Polys)
+									{
+										PolyToNode.Add(OtherPoly, Node);
+									}
+									OldNode->Polys.Empty();
 									Node->POIs += OldNode->POIs;
+									OldNode->POIs.Empty();
 									PathNodes.Remove(OldNode);
 								}
+								else
+								{
+									PolyToNode.Add(Poly, Node);
+									Node->Polys.Add(Poly);
+								}
 							}
-							PolyToNode.Add(Poly, Node);
-							Node->Polys.Add(Poly);
 						}
 						SetNodeSize(Node);
 					}
@@ -669,7 +679,6 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 						if (Node == NULL)
 						{
 							Node = NewObject<UUTPathNode>(this);
-							Node->bDestinationOnly = true;
 							PathNodes.Add(Node);
 							PolyToNode.Add(Poly, Node);
 							Node->Polys.Add(Poly);
