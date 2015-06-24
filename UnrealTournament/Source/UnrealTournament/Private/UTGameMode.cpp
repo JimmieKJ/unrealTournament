@@ -1521,7 +1521,7 @@ void AUTGameMode::InstanceNextMap(const FString& NextMap)
  *	NOTE: This is a really simple map list.  It doesn't support multiple maps in the list, etc and is really dumb.  But it
  *  will work for now.
  **/
-void AUTGameMode::TravelToNextMap()
+void AUTGameMode::TravelToNextMap_Implementation()
 {
 	FString CurrentMapName = GetWorld()->GetMapName();
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());

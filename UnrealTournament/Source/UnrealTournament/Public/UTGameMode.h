@@ -376,7 +376,8 @@ public:
 	virtual void HandleMatchInOvertime();
 
 	virtual void ShowFinalScoreboard();
-	virtual void TravelToNextMap();
+	UFUNCTION(BlueprintNativeEvent)
+	void TravelToNextMap();
 	virtual void StopReplayRecording();
 
 	virtual void RecreateLobbyBeacon();
