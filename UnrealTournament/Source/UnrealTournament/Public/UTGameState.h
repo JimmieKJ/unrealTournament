@@ -371,6 +371,18 @@ protected:
 	virtual void OnRep_ServerSessionId();
 
 
+	/** map of additional stats to hold match total stats*/
+	TMap< FName, float > StatsData;
+
+public:
+	UPROPERTY()
+	float LastScoreStatsUpdateTime;
+
+	/** Accessors for StatsData. */
+	float GetStatsValue(FName StatsName);
+	void SetStatsValue(FName StatsName, float NewValue);
+	void ModifyStatsValue(FName StatsName, float Change);
+
 };
 
 

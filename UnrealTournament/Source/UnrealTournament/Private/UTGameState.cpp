@@ -1060,3 +1060,21 @@ void AUTGameState::OnRep_ServerSessionId()
 	}
 
 }
+
+float AUTGameState::GetStatsValue(FName StatsName)
+{
+	return StatsData.FindRef(StatsName);
+}
+
+void AUTGameState::SetStatsValue(FName StatsName, float NewValue)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	StatsData.Add(StatsName, NewValue);
+}
+
+void AUTGameState::ModifyStatsValue(FName StatsName, float Change)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	float CurrentValue = StatsData.FindRef(StatsName);
+	StatsData.Add(StatsName, CurrentValue + Change);
+}

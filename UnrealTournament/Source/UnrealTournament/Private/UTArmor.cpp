@@ -25,18 +25,6 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	{
 		NewOwner->SetCharacterOverlay(OverlayMaterial, true);
 	}
-	if (StatsName != NAME_None)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(NewOwner->PlayerState);
-		if (PS)
-		{
-			PS->ModifyStatsValue(StatsName, 1);
-			if (PS->Team)
-			{
-				PS->Team->ModifyStatsValue(StatsName, 1);
-			}
-		}
-	}
 
 	NewOwner->CheckArmorStacking();
 }

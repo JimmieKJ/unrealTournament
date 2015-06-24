@@ -375,6 +375,34 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
 			AnnouncePickup(P);
 		}
+
+		//Add to the stats pickup count
+		const AUTInventory* Inventory = Cast<UClass>(InventoryType) ? Cast<AUTInventory>(Cast<UClass>(InventoryType)->GetDefaultObject()) : nullptr;
+		if (Inventory != nullptr && Inventory->StatsNameCount != NAME_None)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
+			if (PS)
+			{
+				PS->ModifyStatsValue(Inventory->StatsNameCount, 1);
+				if (PS->Team)
+				{
+					PS->Team->ModifyStatsValue(Inventory->StatsNameCount, 1);
+				}
+
+				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+				if (GS != nullptr)
+				{
+					GS->ModifyStatsValue(Inventory->StatsNameCount, 1);
+				}
+
+				//Send the pickup message to the spectators
+				AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (UTGameMode != nullptr)
+				{
+					UTGameMode->BroadcastSpectatorPickup(PS, Inventory);
+				}
+			}
+		}
 	}
 }
 

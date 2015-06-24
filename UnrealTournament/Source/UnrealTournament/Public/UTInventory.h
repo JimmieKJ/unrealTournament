@@ -226,6 +226,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	FText MenuDescription;
 
+	/**The stat for how many times this was pickup up*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
+	FName StatsNameCount;
 };
 
 // template to access a character's inventory

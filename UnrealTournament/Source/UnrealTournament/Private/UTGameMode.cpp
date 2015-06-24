@@ -8,6 +8,7 @@
 #include "UTTimedPowerup.h"
 #include "UTCountDownMessage.h"
 #include "UTFirstBloodMessage.h"
+#include "UTSpectatorPickupMessage.h"
 #include "UTMutator.h"
 #include "UTScoreboard.h"
 #include "SlateBasics.h"
@@ -2843,6 +2844,32 @@ void AUTGameMode::BlueprintBroadcastLocalized( AActor* Sender, TSubclassOf<ULoca
 void AUTGameMode::BlueprintSendLocalized( AActor* Sender, AUTPlayerController* Receiver, TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
 	Receiver->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
+
+void AUTGameMode::BroadcastSpectator(AActor* Sender, TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PC = (*Iterator);
+		if (PC->PlayerState != nullptr && PC->PlayerState->bOnlySpectator)
+		{
+			PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		}
+	}
+}
+
+void AUTGameMode::BroadcastSpectatorPickup(AUTPlayerState* PS, const AUTInventory* Inventory)
+{
+	if (PS != nullptr && Inventory != nullptr && Inventory->StatsNameCount != NAME_None)
+	{
+		int32 PlayerNumPickups = (int32)PS->GetStatsValue(Inventory->StatsNameCount);
+		int32 TotalPickups = (int32)UTGameState->GetStatsValue(Inventory->StatsNameCount);
+
+		//Stats may not have been replicated to the client so pack them in the switch
+		int32 Switch = TotalPickups << 16 | PlayerNumPickups;
+
+		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, Inventory->GetClass());
+	}
 }
 
 void AUTGameMode::PrecacheAnnouncements(UUTAnnouncer* Announcer) const
