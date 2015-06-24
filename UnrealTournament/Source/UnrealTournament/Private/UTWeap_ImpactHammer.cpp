@@ -223,7 +223,7 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 			if (UTOwner != NULL) // above auto-fire might have killed Owner
 			{
 				AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-				if (B != NULL && !B->IsCharging() && GetAISelectRating() < 0.5f)
+				if (B != NULL && !B->IsCharging() && (B->GetEnemy() == NULL || UTOwner->GetPendingWeapon() != NULL))
 				{
 					UTOwner->StopFiring();
 				}

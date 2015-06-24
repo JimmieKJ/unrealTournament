@@ -56,5 +56,13 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate) override;
 	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
 	virtual float GetAISelectRating_Implementation() override;
+	virtual float SuggestAttackStyle_Implementation() override
+	{
+		return 1.0f;
+	}
+	virtual float SuggestDefenseStyle_Implementation() override
+	{
+		return -0.5f;
+	}
 	virtual bool DoAssistedJump() override;
 };

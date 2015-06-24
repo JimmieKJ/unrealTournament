@@ -309,6 +309,8 @@ void AUTWeap_Enforcer::BecomeDual()
 	// the UneqippingState needs to be updated so that both guns are lowered during weapon switch
 	UnequippingState = EnforcerUnequippingState;
 
+	BaseAISelectRating = FMath::Max<float>(BaseAISelectRating, 0.6f);
+
 	//Setup a timer to fire once the equip animation finishes
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Enforcer::DualEquipFinished, EnforcerEquippingState->EquipTime);
