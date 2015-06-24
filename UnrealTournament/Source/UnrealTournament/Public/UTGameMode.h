@@ -630,5 +630,11 @@ public:
 	float TimeMarginSlack;
 	UPROPERTY(Config)
 	bool bSpeedHackDetection;
+
+
+	/** Overriden so we dont go into MatchState::LeavingMap state, which happens regardless if the travel fails
+	* On failed map changes, the game will be stuck in a LeavingMap state
+	*/
+	virtual void StartToLeaveMap() {}
 };
 
