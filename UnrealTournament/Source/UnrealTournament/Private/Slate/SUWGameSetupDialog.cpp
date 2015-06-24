@@ -162,21 +162,16 @@ void SUWGameSetupDialog::BuildCategories()
 	TSharedPtr<SUTTabButton> Button;
 	
 	TArray<FName> Categories;
-	AUTLobbyGameState* LobbyGameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (LobbyGameState)
+	for(int32 i=0; i < GameRulesets.Num(); i++)
 	{
-		for(int32 i=0; i < LobbyGameState->AvailableGameRulesets.Num(); i++)
+		for (int32 j=0; j < GameRulesets[i]->Categories.Num(); j++)
 		{
-			for (int32 j=0; j < LobbyGameState->AvailableGameRulesets[i]->Categories.Num(); j++)
+			FName Cat = GameRulesets[i]->Categories[j];
+			if (Categories.Find(Cat) == INDEX_NONE)
 			{
-				FName Cat = LobbyGameState->AvailableGameRulesets[i]->Categories[j];
-				if (Categories.Find(Cat) == INDEX_NONE)
-				{
-					Categories.Add(Cat);
-				}
+				Categories.Add(Cat);
 			}
 		}
-	
 	}
 
 	Categories.Add(FName(TEXT("Custom")));
@@ -222,7 +217,10 @@ FReply SUWGameSetupDialog::OnTabButtonClick(int32 ButtonIndex)
 
 	BuildRuleList(Tabs[ButtonIndex].Category);
 	SelectedRuleset.Reset();
-	MapBox->ClearChildren();
+	if (MapBox.IsValid())
+	{
+		MapBox->ClearChildren();
+	}
 
 	// Build the Rules List
 	return FReply::Handled();
