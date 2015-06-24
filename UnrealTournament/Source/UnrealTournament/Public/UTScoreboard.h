@@ -137,7 +137,7 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	int32 ActualPlayerCount;
 
-	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir);
+	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir, int32& PSIndex);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	UTexture2D* TextureAtlas;
@@ -216,6 +216,9 @@ protected:
 
 	/** Draw reward stat lines for player. */
 	virtual void DrawRewardStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
+
+	/** Draw movement stat lines for player. */
+	virtual void DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
 
 	//-------------------------------------
 

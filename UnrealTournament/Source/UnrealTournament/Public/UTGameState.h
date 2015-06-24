@@ -337,6 +337,9 @@ public:
 	UPROPERTY()
 		TArray<FName> RewardStats;
 
+	UPROPERTY()
+		TArray<FName> MovementStats;
+
 	UPROPERTY(Replicated)
 	TArray<AUTReplicatedMapVoteInfo*> MapVoteList;
 

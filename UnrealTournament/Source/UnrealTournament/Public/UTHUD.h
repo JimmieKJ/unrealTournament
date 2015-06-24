@@ -254,7 +254,7 @@ public:
 
 	// Used to determine which page of the scoreboard we should show
 	UPROPERTY()
-	uint32 ScoreboardPage;
+	int32 ScoreboardPage;
 
 protected:
 

@@ -480,7 +480,7 @@ void AUTPlayerController::FOV(float NewFOV)
 
 void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 {
-	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 2);
+	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 3);
 	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
 }
 
@@ -2347,6 +2347,14 @@ void AUTPlayerController::Tick(float DeltaTime)
 				if (StatsUpdateIndex < StatArraySize)
 				{
 					StatsName = GS->RewardStats[StatsUpdateIndex];
+				}
+			}
+			else if (CurrentlyViewedStatsTab == 3)
+			{
+				StatArraySize = GS->MovementStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->MovementStats[StatsUpdateIndex];
 				}
 			}
 			if (StatsUpdateIndex < StatArraySize)

@@ -59,19 +59,23 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"));
 	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "WeaponStatsHeader", "{PlayerName} Weapon Stats"));
 	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "RewardStatsHeader", "{PlayerName} Reward Stats"));
+	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "MovementStatsHeader", "{PlayerName} Movement Stats"));
 
 	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "ScoringBreakDownFooter", "Press Down Arrow to View Weapon Stats"));
 	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "WeaponStatsFooter", "Up Arrow to View Game Stats, Down Arrow to View Reward Stats"));
-	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "RewardStatsFooter", "Press Up Arrow to View Weapon Stats"));
+	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "RewardStatsFooter", "Press Up Arrow to View Weapon Stats, Down Arrow to View Movement Stats"));
+	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "MovementStatsFooter", "Press Up Arrow to View Reward Stats"));
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
 	// @TODO FIXMESTEVE hack for progressing through players for scoring breakdown
-	if ((NumPages > 1) && (UTHUDOwner->ScoreboardPage == NumPages-1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
+	if ((UTHUDOwner->ScoreboardPage >= NumPages-1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
 		&& ((Increment > 0) || (UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS != GetWorld()->GameState->PlayerArray[0])))
 	{
-		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment), UTPlayerOwner->CurrentlyViewedStatsTab);
+		int32 PageIndex = 0;
+		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment, PageIndex), UTPlayerOwner->CurrentlyViewedStatsTab);
+		UTHUDOwner->ScoreboardPage = PageIndex + NumPages - 1;
 		return;
 	}
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
@@ -87,50 +91,61 @@ void UUTScoreboard::OpenScoringPlaysPage()
 {
 }
 
-AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
+AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir, int32& PSIndex)
 {
-	int32 CurrentIndex = -1;
 	AUTPlayerState* ScoreBreakdownPS = UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS;
 	if (!ScoreBreakdownPS)
 	{
 		ScoreBreakdownPS = UTHUDOwner->GetScorerPlayerState();
 	}
-	// Find index of current viewtarget's PlayerState
-	for (int32 i = 0; i<GetWorld()->GameState->PlayerArray.Num(); i++)
+	TArray<AUTPlayerState*> PlayerArrayCopy;
+	for (APlayerState* PS : UTGameState->PlayerArray)
 	{
-		if (ScoreBreakdownPS == GetWorld()->GameState->PlayerArray[i])
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+		if (UTPS != NULL && !UTPS->bOnlySpectator)
+		{
+			PlayerArrayCopy.Add(UTPS);
+		}
+	}
+	if (PlayerArrayCopy.Num() == 0)
+	{
+		return NULL;
+	}
+	PlayerArrayCopy.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		return A.SpectatingID < B.SpectatingID;
+	});
+
+	if (!ScoreBreakdownPS)
+	{
+		PSIndex = 0;
+		return PlayerArrayCopy[0];
+	}
+
+	int32 CurrentIndex = 0;
+	for (int32 i = 0; i < PlayerArrayCopy.Num(); i++)
+	{
+		if (PlayerArrayCopy[i] == ScoreBreakdownPS)
 		{
 			CurrentIndex = i;
 			break;
 		}
 	}
-
-	int32 NewIndex;
-	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	if (CurrentIndex + dir >= PlayerArrayCopy.Num())
 	{
-		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
-		if (PlayerState && !PlayerState->bOnlySpectator)
-		{
-			return PlayerState;
-		}
+		CurrentIndex = -1;
 	}
-
-	// wrap around
-	CurrentIndex = (NewIndex < 0) ? GetWorld()->GameState->PlayerArray.Num() : -1;
-	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	else if (CurrentIndex + dir < 0)
 	{
-		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
-		if (PlayerState && !PlayerState->bOnlySpectator)
-		{
-			return PlayerState;
-		}
+		CurrentIndex = PlayerArrayCopy.Num();
 	}
-	return ScoreBreakdownPS;
+	PSIndex = CurrentIndex + dir;
+	return PlayerArrayCopy[PSIndex];
 }
 
 void UUTScoreboard::SetPage(int32 NewPage)
 {
-	UTHUDOwner->ScoreboardPage = FMath::Min<int32>(NewPage, NumPages - 1);
+	UTHUDOwner->ScoreboardPage = FMath::Clamp<int32>(NewPage, 0, NumPages - 1);
 	PageChanged();
 }
 
@@ -481,7 +496,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawText(FText::FromString(UTGameState->ServerDescription), 1259, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if (NumPages > 1)
 		{
-			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages + GetWorld()->GameState->PlayerArray.Num()));
+			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages - 1 + GetWorld()->GameState->PlayerArray.Num()));
 			DrawText(PageText, Size.X * 0.5f, YOffset + 13, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
@@ -837,6 +852,10 @@ void UUTScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffs
 	{
 		DrawRewardStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
 	}
+	else if (StatsPageIndex == 3)
+	{
+		DrawMovementStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
+	}
 	FString TabInstruction = (StatsPageIndex < StatsPageFooters.Num()) ? StatsPageFooters[StatsPageIndex].ToString() : "";
 	Canvas->DrawText(UTHUDOwner->SmallFont, TabInstruction, XOffset, PageBottom - StatsFontInfo.TextHeight, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 }
@@ -898,4 +917,8 @@ void UUTScoreboard::DrawRewardStats(AUTPlayerState* PS, float DeltaTime, float& 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "DominatingSprees", "Dominating"), PS->GetStatsValue(NAME_SpreeKillLevel2), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "UnstoppableSprees", "Unstoppable"), PS->GetStatsValue(NAME_SpreeKillLevel3), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "GodlikeSprees", "Godlike"), PS->GetStatsValue(NAME_SpreeKillLevel4), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+}
+
+void UUTScoreboard::DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo)
+{
 }
