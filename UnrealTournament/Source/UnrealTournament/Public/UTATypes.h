@@ -571,15 +571,16 @@ struct FServerInstanceData
 #endif
 
 	FServerInstanceData()
-		: BadgeTexture(NULL)
-		, RuleSetIcon(TEXT(""))
+		: RuleSetIcon(TEXT(""))
 		, Description(TEXT(""))
+		, BadgeTexture(NULL)
 	{
 	}
 
 	FServerInstanceData(FString inRuleSetIcon, FString inDescription)
 		: RuleSetIcon(inRuleSetIcon)
 		, Description(inDescription)
+		, BadgeTexture(NULL)
 	{
 	}
 

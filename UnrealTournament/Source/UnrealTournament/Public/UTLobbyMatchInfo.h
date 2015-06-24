@@ -51,9 +51,9 @@ struct FPlayerListInfo
 
 	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator)
 		: PlayerID(inPlayerID)
+		, bIsSpectator(inbIsSpectator)
 		, PlayerName(inPlayerName)
 		, PlayerScore(inPlayerScore)
-		, bIsSpectator(inbIsSpectator)
 	{
 	}
 
