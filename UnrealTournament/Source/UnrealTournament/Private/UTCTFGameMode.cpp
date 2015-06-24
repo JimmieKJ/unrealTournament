@@ -155,6 +155,10 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			Holder->Team->Score++;
 			Holder->Team->ForceNetUpdate();
 			BroadcastScoreUpdate(Holder, Holder->Team);
+			if (Holder->FlagCaptures == 3)
+			{
+				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
+			}
 
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
