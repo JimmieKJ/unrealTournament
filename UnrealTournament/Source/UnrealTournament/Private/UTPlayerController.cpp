@@ -1222,7 +1222,7 @@ void AUTPlayerController::LookUpAtRate(float Rate)
 
 void AUTPlayerController::Jump()
 {
-	if (UTCharacter)
+	if (UTCharacter != NULL && !IsMoveInputIgnored())
 	{
 		UTCharacter->bPressedJump = true;
 		UTCharacter->UTCharacterMovement->UpdateWallSlide(true);
@@ -1239,10 +1239,13 @@ void AUTPlayerController::JumpRelease()
 
 void AUTPlayerController::Crouch()
 {
-	bIsHoldingFloorSlide = true;
-	if (UTCharacter)
+	if (!IsMoveInputIgnored())
 	{
-		UTCharacter->Crouch(false);
+		bIsHoldingFloorSlide = true;
+		if (UTCharacter)
+		{
+			UTCharacter->Crouch(false);
+		}
 	}
 }
 
@@ -1391,7 +1394,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 void AUTPlayerController::CheckDodge(float LastTapTime, float MaxClickTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxClickTime)))
+	if (MyCharMovement != NULL && !IsMoveInputIgnored() && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxClickTime)))
 	{
 		MyCharMovement->bPressedDodgeForward = bForward;
 		MyCharMovement->bPressedDodgeBack = bBack;
@@ -1408,7 +1411,7 @@ void AUTPlayerController::OnSingleTapDodge()
 void AUTPlayerController::PerformSingleTapDodge()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
+	if (MyCharMovement != NULL && !IsMoveInputIgnored())
 	{
 		// base dodge direction on currently pressed axis movement.  
 		// If two directions pressed, dodge to the side
@@ -2659,16 +2662,19 @@ void AUTPlayerController::ApplyDeferredFireInputs()
 	{
 		if (Input.bStartFire)
 		{
-			if (UTCharacter != NULL)
+			if (!IsMoveInputIgnored())
 			{
-				if (StateName == NAME_Playing)
+				if (UTCharacter != NULL)
 				{
-					UTCharacter->StartFire(Input.FireMode);
+					if (StateName == NAME_Playing)
+					{
+						UTCharacter->StartFire(Input.FireMode);
+					}
 				}
-			}
-			else if (GetPawn() != nullptr)
-			{
-				GetPawn()->PawnStartFire(Input.FireMode);
+				else if (GetPawn() != nullptr)
+				{
+					GetPawn()->PawnStartFire(Input.FireMode);
+				}
 			}
 		}
 		else if (UTCharacter != NULL)
