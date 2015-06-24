@@ -72,6 +72,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_SniperHeadshotKills);
 	WeaponStats.Add(NAME_RedeemerKills);
 	WeaponStats.Add(NAME_InstagibKills);
+	WeaponStats.Add(NAME_TelefragKills);
 
 	WeaponStats.Add(NAME_ImpactHammerDeaths);
 	WeaponStats.Add(NAME_EnforcerDeaths);
@@ -90,6 +91,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_SniperHeadshotDeaths);
 	WeaponStats.Add(NAME_RedeemerDeaths);
 	WeaponStats.Add(NAME_InstagibDeaths);
+	WeaponStats.Add(NAME_TelefragDeaths);
 
 	WeaponStats.Add(NAME_BestShockCombo);
 	WeaponStats.Add(NAME_AirRox);

@@ -62,6 +62,7 @@ static const FName NAME_SniperKills(TEXT("SniperKills"));
 static const FName NAME_SniperHeadshotKills(TEXT("SniperHeadshotKills"));
 static const FName NAME_RedeemerKills(TEXT("RedeemerKills"));
 static const FName NAME_InstagibKills(TEXT("InstagibKills"));
+static const FName NAME_TelefragKills(TEXT("TelefragKills"));
 
 static const FName NAME_ImpactHammerDeaths(TEXT("ImpactHammerDeaths"));
 static const FName NAME_EnforcerDeaths(TEXT("EnforcerDeaths"));
@@ -80,6 +81,7 @@ static const FName NAME_SniperDeaths(TEXT("SniperDeaths"));
 static const FName NAME_SniperHeadshotDeaths(TEXT("SniperHeadshotDeaths"));
 static const FName NAME_RedeemerDeaths(TEXT("RedeemerDeaths"));
 static const FName NAME_InstagibDeaths(TEXT("InstagibDeaths"));
+static const FName NAME_TelefragDeaths(TEXT("TelefragDeaths"));
 
 static const FName NAME_PlayerXP(TEXT("PlayerXP"));
 

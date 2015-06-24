@@ -17,5 +17,6 @@ class UNREALTOURNAMENT_API UUTDmgType_BlockedTelefrag : public UUTDamageType
 		MaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "MaleSuicideMessage_BlockedTelefrag", "{Player2Name} found out that Shieldbelts block telefrags the hard way.");
 		FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "FemaleSuicideMessage_BlockedTelefrag", "{Player2Name} found out that Shieldbelts block telefrags the hard way.");
 		GibHealthThreshold = 10000000;
+		StatsName = "Telefrag";
 	}
 };

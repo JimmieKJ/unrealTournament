@@ -17,5 +17,6 @@ class UNREALTOURNAMENT_API UUTDmgType_Telefragged : public UUTDamageType
 		MaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "MaleSuicideMessage_Telefragged", "{Player2Name} telefragged himself.");
 		FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "FemaleSuicideMessage_Telefragged", "{Player2Name} telefragged herself.");
 		GibHealthThreshold = 10000000;
+		StatsName = "Telefrag";
 	}
 };

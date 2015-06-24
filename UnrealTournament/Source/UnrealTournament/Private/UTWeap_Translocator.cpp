@@ -9,6 +9,7 @@
 #include "UTTranslocatorMessage.h"
 #include "UTHUDWidget_Powerups.h"
 #include "UTReplicatedEmitter.h"
+#include "StatNames.h"
 
 AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
@@ -23,6 +24,10 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	AfterImageType = AUTWeaponRedirector::StaticClass();
 	TranslocatorMessageClass = UUTTranslocatorMessage::StaticClass();
 	FOVOffset = FVector(1.2f, 1.f, 3.f);
+
+	KillStatsName = NAME_TelefragKills;
+	DeathStatsName = NAME_TelefragDeaths;
+	DisplayName = NSLOCTEXT("UTWeap_Translocator", "DisplayName", "Telefrag");
 }
 
 FText AUTWeap_Translocator::GetHUDText()
