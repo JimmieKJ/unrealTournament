@@ -40,6 +40,7 @@ class UNREALTOURNAMENT_API SUWMapVoteDialog : public SUWDialog, public FGCObject
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+	virtual void OnDialogClosed() override;
 
 	TWeakObjectPtr<class AUTGameState> GameState;
 
