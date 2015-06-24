@@ -136,10 +136,10 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 	GetWorldTimerManager().SetTimer(IncreaseGlobStrengthHandle, this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
 
 	// AI decision to release fire
-	if (UTOwner != NULL)
+	if (UTOwner != NULL && GlobStrength > 1)
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-		if (B != NULL && CanAttack(B->GetTarget(), B->GetFocalPoint(), true))
+		if (B != NULL && B->GetFocusActor() == B->GetTarget() && CanAttack(B->GetTarget(), B->GetFocalPoint(), true))
 		{
 			if (GlobStrength >= MaxGlobStrength || !HasAmmo(CurrentFireMode) || !B->CheckFutureSight(0.25f))
 			{

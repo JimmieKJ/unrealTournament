@@ -1998,7 +1998,9 @@ bool AUTBot::CheckFutureSight(float DeltaTime)
 	else
 	{
 		// check if can still see target
-		return !GetWorld()->LineTraceTestByObjectType(FutureLoc, GetFocalPoint() + TrackedVelocity, ResultParams, Params);
+		// ignore aiming adjustments that are a result of aiming for splash, lobs, etc
+		const FVector PreTacticalFocalPoint = GetFocalPoint() - TacticalAimOffset;
+		return !GetWorld()->LineTraceTestByObjectType(FutureLoc, PreTacticalFocalPoint + TrackedVelocity, ResultParams, Params);
 	}
 }
 
