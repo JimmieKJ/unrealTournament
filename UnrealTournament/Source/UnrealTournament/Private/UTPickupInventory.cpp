@@ -313,6 +313,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 		{
 			Mesh->SetRenderInMainPass(!bNowHidden);
 			Mesh->SetRenderCustomDepth(bNowHidden);
+			Mesh->CastShadow = !bNowHidden;
 			for (USceneComponent* Child : Mesh->AttachChildren)
 			{
 				Child->SetVisibility(!bNowHidden, true);
