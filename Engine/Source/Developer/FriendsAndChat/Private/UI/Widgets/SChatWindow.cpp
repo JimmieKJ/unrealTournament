@@ -134,7 +134,7 @@ public:
 									[
 										SNew(SBorder)
 										.BorderImage(&FriendStyle.ChatContainerBackground)
-										.BorderBackgroundColor(FLinearColor(FColor(255, 255, 255, 128)))
+										.BorderBackgroundColor(FLinearColor(FColor(255, 255, 255, 255)))
 										[
 											SNew(SHorizontalBox)
 											.Visibility(this, &SChatWindowImpl::GetFriendNameVisibility)
@@ -174,7 +174,6 @@ public:
 									[
 										SAssignNew(ChatTextBox, SMultiLineEditableTextBox)
 										.Style(&FriendStyle.ChatEditableTextStyle)
-										.TextStyle(&FriendStyle.TextStyle)
 										.ClearKeyboardFocusOnCommit(false)
 										.OnTextCommitted(this, &SChatWindowImpl::HandleChatEntered)
 										.HintText(InArgs._ActivationHintText)
