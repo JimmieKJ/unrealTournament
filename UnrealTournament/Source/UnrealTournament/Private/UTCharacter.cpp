@@ -4807,6 +4807,10 @@ void AUTCharacter::OnRep_Invisible_Implementation()
 	{
 		LeaderHat->SetActorHiddenInGame(bInvisible);
 	}
+	if (Eyewear != NULL)
+	{
+		Eyewear->SetActorHiddenInGame(bInvisible);
+	}
 }
 
 void AUTCharacter::SetInvisible(bool bNowInvisible)
