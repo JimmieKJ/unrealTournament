@@ -145,4 +145,12 @@ public:
 	// Let the game's player controller know there was a network failure message.
 	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
 
+	/**Check to see if this PC can chat. Called on Client and server independantly*/
+	bool AllowTextMessage(const FString& Msg);
+
+	/**The accumulation of time added per message. Once overflowed the player must wait for this to return to 0*/
+	float ChatOverflowTime;
+	bool bOverflowed;
+	FText SpamText;
+	FString LastChatMessage;
 };

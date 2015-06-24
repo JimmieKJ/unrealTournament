@@ -12,6 +12,9 @@
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	ChatOverflowTime = 0.0f;
+	bOverflowed = false;
+	SpamText = NSLOCTEXT("AUTBasePlayerController", "SpamMessage", "You must wait a few seconds before sending another message.");
 }
 
 void AUTBasePlayerController::Destroyed()
@@ -114,33 +117,78 @@ void AUTBasePlayerController::TeamTalk()
 	}
 }
 
+bool AUTBasePlayerController::AllowTextMessage(const FString& Msg)
+{
+	static const float TIME_PER_MSG = 2.0f;
+	static const float MAX_OVERFLOW = 4.0f;
+
+	ChatOverflowTime = FMath::Max(ChatOverflowTime, GetWorld()->RealTimeSeconds);
+
+	//When overflowed, wait till the time is back to 0
+	if (bOverflowed && ChatOverflowTime > GetWorld()->RealTimeSeconds)
+	{
+		return false;
+	}
+	bOverflowed = false;
+
+	//Accumulate time for each message, double for a duplicate message
+	ChatOverflowTime += (LastChatMessage == Msg) ? TIME_PER_MSG * 2 : TIME_PER_MSG;
+	LastChatMessage = Msg;
+
+	if (ChatOverflowTime - GetWorld()->RealTimeSeconds <= MAX_OVERFLOW)
+	{
+		return true;
+	}
+
+	bOverflowed = true;
+	return false;
+}
 
 void AUTBasePlayerController::Say(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
 	Message = Message.Left(128);
-	ServerSay(Message, false);
+	if (AllowTextMessage(Message))
+	{
+		ServerSay(Message, false);
+	}
+	else
+	{
+		//Display spam message to the player
+		ClientSay_Implementation(nullptr, SpamText.ToString(), ChatDestinations::System);
+	}
 }
 
 void AUTBasePlayerController::TeamSay(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
 	Message = Message.Left(128);
-	ServerSay(Message, true);
+	if (AllowTextMessage(Message))
+	{
+		ServerSay(Message, true);
+	}
+	else
+	{
+		//Display spam message to the player
+		ClientSay_Implementation(nullptr, SpamText.ToString(), ChatDestinations::System);
+	}
 }
 
 bool AUTBasePlayerController::ServerSay_Validate(const FString& Message, bool bTeamMessage) { return true; }
 
 void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
 {
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	if (AllowTextMessage(Message))
 	{
-		AUTBasePlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
-		if (UTPC != nullptr)
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
+			AUTBasePlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+			if (UTPC != nullptr)
 			{
-				UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local) );
+				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
+				{
+					UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+				}
 			}
 		}
 	}
