@@ -3464,7 +3464,7 @@ public class GUBP : BuildCommand
 			Agenda.AddTargets(new string[] { "UnrealHeaderTool" }, HostPlatform, UnrealTargetConfiguration.Development);
 			Agenda.AddTargets(new string[] { ProgramTarget.TargetName }, HostPlatform, UnrealTargetConfiguration.Development, InAddArgs: "-skipnonhostplatforms");			
 
-			Build.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: false, InForceNonUnity: true);
+			Build.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: false, InForceNonUnity: true, InForceNoXGE: true);
 
 			UE4Build.CheckBuildProducts(Build.BuildProductFiles);
 			SaveRecordOfSuccessAndAddToBuildProducts();
@@ -3523,7 +3523,7 @@ public class GUBP : BuildCommand
                 }
             }
 
-            Build.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: false, InForceNonUnity: true);
+            Build.Build(Agenda, InDeleteBuildProducts: true, InUpdateVersionFiles: false, InForceNonUnity: true, InForceNoXGE: true);
 
             UE4Build.CheckBuildProducts(Build.BuildProductFiles);
             SaveRecordOfSuccessAndAddToBuildProducts();
