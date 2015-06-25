@@ -639,8 +639,8 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 	return true;
 }
 
-bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount) { return true; }
-void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount)
+bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame) { return true; }
+void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame)
 {
 	// We need to build a one off custom replicated ruleset just for this hub.  :)
 
@@ -697,6 +697,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		InitialMap = StartingMap;
 		InitialMapInfo = GetMapInformation(InitialMap);
 
+		NewReplicatedRuleset->bTeamGame = bTeamGame;
 
 		if (!InitialMapInfo.IsValid())
 		{

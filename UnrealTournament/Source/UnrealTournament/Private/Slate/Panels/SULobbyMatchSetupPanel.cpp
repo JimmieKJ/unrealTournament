@@ -955,8 +955,9 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 			TArray<FString> GameOptions;
 
 			int32 DesiredPlayerCount = 0;
-			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount);
-			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, Description, GameOptions, SetupDialog->BotSkillLevel, DesiredPlayerCount);
+			int32 bTeamGame = 0;
+			SetupDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount, bTeamGame);
+			MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, Description, GameOptions, SetupDialog->BotSkillLevel, DesiredPlayerCount, bTeamGame != 0);
 		}
 
 		else if (SetupDialog->SelectedRuleset.IsValid())

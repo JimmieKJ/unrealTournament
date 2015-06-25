@@ -742,8 +742,9 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		TArray<FString> GameOptionsList;
 
 		int32 DesiredPlayerCount = 0;
+		int32 bTeamGame;
 
-		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptionsList, DesiredPlayerCount);	
+		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptionsList, DesiredPlayerCount,bTeamGame);	
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *GameMode);
 		for (int32 i = 0; i < GameOptionsList.Num(); i++)

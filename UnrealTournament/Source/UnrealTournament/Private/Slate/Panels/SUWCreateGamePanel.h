@@ -17,7 +17,7 @@ public:
 
 	virtual ~SUWCreateGamePanel();
 
-	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel);
+	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel, int32& bTeamGame);
 
 protected:
 	enum EServerStartMode
