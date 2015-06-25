@@ -93,6 +93,8 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 	/** used for bot translocations to check that translocating to our current position allows reaching DesiredDest and is a safe target (e.g. not going to fall to death, etc) */
 	virtual bool IsAcceptableTranslocationTo(const FVector& DesiredDest);
 
+	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
+
 protected:
 	/** utility to trigger bot translocation and reset translocation related data */
 	virtual void BotTranslocate();

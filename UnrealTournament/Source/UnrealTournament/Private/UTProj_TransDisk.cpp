@@ -375,3 +375,19 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 		}
 	}
 }
+
+void AUTProj_TransDisk::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
+{
+	bCanHitInstigator = true;
+
+	//If sliding, turn bounce off to avoid audio spam and enable the slide used by pickups
+	//Slide angle can be controlled by HitZStopSimulatingThreshold, but for now the default is to stick to the slope
+	if (ProjectileMovement->bIsSliding)
+	{
+		ProjectileMovement->bShouldBounce = false;
+	}
+	else
+	{
+		Super::OnBounce(ImpactResult, ImpactVelocity);
+	}
+}
