@@ -776,6 +776,22 @@ TSharedPtr<FMapListItem> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage
 		{
 			MapInfo = MakeShareable(new FMapListItem( MapPackage, *Summary->Title, *Summary->Author, *Summary->Description.ToString(), *Summary->ScreenshotReference, Summary->OptimalPlayerCount, Summary->OptimalTeamPlayerCount));
 		}
+		else
+		{
+			FString MapName;
+			int32 Pos = INDEX_NONE;
+			MapPackage.FindLastChar(TEXT('/'),Pos);
+			if (Pos != INDEX_NONE)
+			{
+				MapName = MapPackage.Right(MapPackage.Len() - Pos - 1);
+				if (MapName == TEXT("")) MapName = MapPackage;
+			}
+			else
+			{
+				MapName = MapPackage;
+			}
+			MapInfo = MakeShareable(new FMapListItem( MapPackage, MapName, TEXT("n/a"), TEXT("n/a"), TEXT(""), 6, 10));
+		}
 	}
 
 	return MapInfo;
