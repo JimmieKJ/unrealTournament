@@ -103,6 +103,7 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	{
 		TArray<UMeshComponent*> Result = Super::Get1PMeshes_Implementation();
 		Result.Add(LeftMesh);
+		Result.Add(LeftOverlayMesh);
 		return Result;
 	}
 

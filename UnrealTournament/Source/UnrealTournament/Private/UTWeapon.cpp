@@ -1664,6 +1664,7 @@ TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
 {
 	TArray<UMeshComponent*> Result;
 	Result.Add(Mesh);
+	Result.Add(OverlayMesh);
 	return Result;
 }
 
