@@ -9,19 +9,6 @@ UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializ
 {
 }
 
-static uint32 UTGetNetworkVersion()
-{
-	return 3008041;
-}
-
-void UUTGameInstance::Init()
-{
-	// set up our handler for network versioning
-	FNetworkVersion::GetLocalNetworkVersionOverride.BindStatic(&UTGetNetworkVersion);
-
-	Super::Init();
-}
-
 void UUTGameInstance::StartGameInstance()
 {
 	Super::StartGameInstance();

@@ -4,6 +4,7 @@
 #include "AssetRegistryModule.h"
 #include "UTWorldSettings.h"
 #include "UTLevelSummary.h"
+#include "UnrealNetwork.h"
 
 class FUTModule : public FDefaultGameModuleImpl
 {
@@ -14,6 +15,11 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FUTModule, UnrealTournament, "UnrealTournament");
  
 DEFINE_LOG_CATEGORY(UT);
 DEFINE_LOG_CATEGORY(UTNet);
+
+static uint32 UTGetNetworkVersion()
+{
+	return 3008041;
+}
 
 // init editor hooks
 #if WITH_EDITOR
@@ -42,12 +48,17 @@ void FUTModule::StartupModule()
 	PropertyModule.NotifyCustomizationModuleChanged();
 
 	FWorldDelegates::GetAssetTags.AddStatic(&AddLevelSummaryAssetTags);
+
+	// set up our handler for network versioning
+	FNetworkVersion::GetLocalNetworkVersionOverride.BindStatic(&UTGetNetworkVersion);
 }
 
 #else
 
 void FUTModule::StartupModule()
 {
+	// set up our handler for network versioning
+	FNetworkVersion::GetLocalNetworkVersionOverride.BindStatic(&UTGetNetworkVersion);
 }
 #endif
 
