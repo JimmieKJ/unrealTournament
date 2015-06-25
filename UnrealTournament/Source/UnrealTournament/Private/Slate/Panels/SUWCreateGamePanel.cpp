@@ -730,7 +730,7 @@ FReply SUWCreateGamePanel::ConfigureBots()
 	return FReply::Handled();
 }
 
-void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel)
+void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel, int32& bTeamGame)
 {
 	StartingMap = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
 	AUTGameMode* DefaultGameMode = SelectedGameClass->GetDefaultObject<AUTGameMode>();
@@ -746,6 +746,7 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& Start
 		Description = FString::Printf(TEXT("A custom %s match!\nJoin at your own risk!\n"), *DefaultGameMode->DisplayName.ToString());			
 
 		DefaultGameMode->GetGameURLOptions(GameOptions, DesiredPlayerCount);
+		bTeamGame = DefaultGameMode->bTeamGame;
 
 		// If we don't want bots, clear BotFillCount
 
