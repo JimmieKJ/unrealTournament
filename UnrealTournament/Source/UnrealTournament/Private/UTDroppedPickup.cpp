@@ -22,6 +22,8 @@ AUTDroppedPickup::AUTDroppedPickup(const FObjectInitializer& ObjectInitializer)
 
 	//bCollideWhenPlacing = true; // causes too many false positives at the moment, re-evaluate later
 	InitialLifeSpan = 15.0f;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 
 	SetReplicates(true);
 	bReplicateMovement = true;
@@ -43,12 +45,21 @@ void AUTDroppedPickup::EnableInstigatorTouch()
 {
 	if (Instigator != NULL)
 	{
-		TArray<AActor*> Overlaps;
-		GetOverlappingActors(Overlaps, APawn::StaticClass());
-		if (Overlaps.Contains(Instigator))
+		CheckTouching();
+	}
+}
+
+void AUTDroppedPickup::CheckTouching()
+{
+	TArray<AActor*> Overlaps;
+	GetOverlappingActors(Overlaps, APawn::StaticClass());
+	for (AActor* TestActor : Overlaps)
+	{
+		APawn* P = Cast<APawn>(TestActor);
+		if (P != NULL && P->GetMovementComponent() != NULL)
 		{
 			FHitResult UnusedHitResult;
-			OnOverlapBegin(Instigator, Cast<UPrimitiveComponent>(Instigator->GetMovementComponent()->UpdatedComponent), 0, false, UnusedHitResult);
+			OnOverlapBegin(P, Cast<UPrimitiveComponent>(P->GetMovementComponent()->UpdatedComponent), 0, false, UnusedHitResult);
 		}
 	}
 }
@@ -58,6 +69,9 @@ void AUTDroppedPickup::SetInventory(AUTInventory* NewInventory)
 	Inventory = NewInventory;
 	InventoryType = (NewInventory != NULL) ? NewInventory->GetClass() : NULL;
 	InventoryTypeUpdated();
+
+	bFullyInitialized = true;
+	CheckTouching();
 }
 
 void AUTDroppedPickup::InventoryTypeUpdated_Implementation()
@@ -96,7 +110,7 @@ void AUTDroppedPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(EnableInstigatorTouchHandle))
+	if (bFullyInitialized && (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(EnableInstigatorTouchHandle)))
 	{
 		APawn* P = Cast<APawn>(OtherActor);
 		if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTestByChannel(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
@@ -123,10 +137,11 @@ void AUTDroppedPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 		if (UTGame != NULL && UTGame->NumBots > 0)
 		{
 			float Radius = 0.0f;
-			if (InventoryType != NULL && InventoryType.GetDefaultObject()->PickupSound != NULL)
+			USoundBase* PickupSound = GetPickupSound();
+			if (PickupSound)
 			{
-				Radius = InventoryType.GetDefaultObject()->PickupSound->GetMaxAudibleDistance();
-				const FAttenuationSettings* Settings = InventoryType.GetDefaultObject()->PickupSound->GetAttenuationSettingsToApply();
+				Radius = PickupSound->GetMaxAudibleDistance();
+				const FAttenuationSettings* Settings = PickupSound->GetAttenuationSettingsToApply();
 				if (Settings != NULL)
 				{
 					Radius = FMath::Max<float>(Radius, Settings->GetMaxDimension());
@@ -177,11 +192,28 @@ void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 	}
 }
 
-void AUTDroppedPickup::PlayTakenEffects_Implementation(APawn* TakenBy)
+USoundBase* AUTDroppedPickup::GetPickupSound_Implementation() const
 {
 	if (Inventory != NULL)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), Inventory->PickupSound, TakenBy, SRT_All, false, GetActorLocation(), NULL, NULL, false);
+		return Inventory->PickupSound;
+	}
+	else if (InventoryType != NULL)
+	{
+		return InventoryType.GetDefaultObject()->PickupSound;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+void AUTDroppedPickup::PlayTakenEffects_Implementation(APawn* TakenBy)
+{
+	USoundBase* PickupSound = GetPickupSound();
+	if (PickupSound != NULL)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, TakenBy, SRT_All, false, GetActorLocation(), NULL, NULL, false);
 	}
 }
 
