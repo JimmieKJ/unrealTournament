@@ -572,7 +572,7 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 									]
 
 								+ SHeaderRow::Column("ServerFlags")
-									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
+									.DefaultLabel(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Options"))
 									.HAlignCell(HAlign_Center)
 									.OnSort(this, &SUWServerBrowser::OnSort)
 									.HeaderContent()
@@ -581,8 +581,8 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 										.HAlign(HAlign_Center)
 										[
 											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Flags"))
-											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumnToolTip", "Server Flags"))
+											.Text(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumn", "Options"))
+											.ToolTipText(NSLOCTEXT("SUWServerBrowser", "ServerFlagsColumnToolTip", "Server Options"))
 											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 										]
 									]
