@@ -1595,7 +1595,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
 			for (UMeshComponent* WeapMesh : Meshes)
 			{
-				HideComponentTree(WeapMesh, HiddenComponents);
+				if (WeapMesh != NULL)
+				{
+					HideComponentTree(WeapMesh, HiddenComponents);
+				}
 			}
 		}
 	}
@@ -1607,7 +1610,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
 			for (UMeshComponent* WeapMesh : Meshes)
 			{
-				HiddenComponents.Add(WeapMesh->ComponentId);
+				if (WeapMesh != NULL)
+				{
+					HiddenComponents.Add(WeapMesh->ComponentId);
+				}
 			}
 		}
 		// hide third person character model
