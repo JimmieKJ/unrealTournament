@@ -925,11 +925,23 @@ void AUTGameMode::DefaultTimer()
 
 		if (!bDedicatedInstance)
 		{
-			// Look to see if we should time out this instance servers
-			if (HasMatchStarted() && NumPlayers <= 0)
+			if (!HasMatchStarted())
 			{
-				SendEveryoneBackToLobby();
-				LobbyBeacon->Empty();
+				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime && NumPlayers <= 0)
+				{
+					// Catch all...
+					SendEveryoneBackToLobby();
+					LobbyBeacon->Empty();			
+				}
+			}
+			else 
+			{
+				if (NumPlayers <= 0)
+				{
+					// Catch all...
+					SendEveryoneBackToLobby();
+					LobbyBeacon->Empty();
+				}
 			}
 		}
 	}
