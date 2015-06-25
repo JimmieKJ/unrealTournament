@@ -316,7 +316,10 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 			if (GameState)
 			{
 				FNamedOnlineSession* Session = SessionInterface->GetNamedSession(GameSessionName);
-				GameState->ServerSessionId = Session->SessionInfo->GetSessionId().ToString();
+				if (Session && Session->SessionInfo.IsValid())
+				{
+					GameState->ServerSessionId = Session->SessionInfo->GetSessionId().ToString();
+				}
 			}
 		}
 	}
