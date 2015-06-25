@@ -10,7 +10,6 @@ class UNREALTOURNAMENT_API UUTCharacterMovement : public UCharacterMovementCompo
 
 public:
 
-	virtual void MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult = NULL) override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual bool ClientUpdatePositionAfterServerUpdate() override;
 	virtual void ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration) override;
