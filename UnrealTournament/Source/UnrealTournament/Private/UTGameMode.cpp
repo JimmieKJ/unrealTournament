@@ -39,6 +39,7 @@ namespace MatchState
 	const FName MatchEnteringOvertime = FName(TEXT("MatchEnteringOvertime"));
 	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
 	const FName MapVoteHappening = FName(TEXT("MapVoteHappening"));
+	const FName MatchIntermission = FName(TEXT("MatchIntermission"));
 }
 
 AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
@@ -134,18 +135,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	Func->FunctionFlags |= FUNC_Native;
 	Func->SetNativeFunc((Native)&AUTGameMode::BeginPlayMutatorHack);
 
-	// MATTFIXME
-	/*
-	// HACK: workaround for cached inventory flags getting blown away by blueprint recompile cycle
-	for (TObjectIterator<AUTInventory> It(RF_NoFlags); It; ++It)
-	{
-		if (It->IsTemplate(RF_ClassDefaultObject))
-		{
-			It->PostInitProperties();
-		}
-	}
-	*/
-
 	UE_LOG(UT,Log,TEXT("==============="));
 	UE_LOG(UT,Log,TEXT("  Init Game Option: %s"), *Options);
 
@@ -173,8 +162,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	MaxWaitForPlayers = GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
 	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
-	InOpt = ParseOption(Options, TEXT("HasRespawnChoices"));
-	bHasRespawnChoices = EvalBoolOptions(InOpt, bHasRespawnChoices);
 
 	TimeLimit = FMath::Max(0,GetIntOption( Options, TEXT("TimeLimit"), TimeLimit ));
 	TimeLimit *= 60;
@@ -1693,6 +1680,13 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	{
 		TGuardValue<bool> FlagGuard(bSetPlayerDefaultsNewSpawn, true);
 		Super::RestartPlayer(aPlayer);
+
+		// apply any health changes
+		AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
+		if (UTC != NULL && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->Health == 0)
+		{
+			UTC->Health = UTC->HealthMax;
+		}
 	}
 
 	if (Cast<AUTBot>(aPlayer) != NULL)

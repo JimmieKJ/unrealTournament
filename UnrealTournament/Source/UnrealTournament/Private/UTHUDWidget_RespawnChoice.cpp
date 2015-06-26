@@ -96,7 +96,7 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 bool UUTHUDWidget_RespawnChoice::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (!bShowScores && UTPS != nullptr && !UTPS->bOnlySpectator && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB && UTGameState && (UTGameState->IsMatchInProgress() || UTGameState->IsMatchInCountdown()))
+	if (!bShowScores && UTPS != nullptr && !UTPS->bOnlySpectator && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB && UTGameState && (UTGameState->IsMatchInProgress() || UTGameState->IsMatchInCountdown() || UTGameState->IsMatchIntermission()))
 	{
 		return true;
 	}

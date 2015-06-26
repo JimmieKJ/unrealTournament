@@ -559,12 +559,7 @@ bool AUTGameState::HasMatchStarted() const
 bool AUTGameState::IsMatchInProgress() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTGameState::IsMatchAtHalftime() const
@@ -586,6 +581,11 @@ bool AUTGameState::IsMatchInOvertime() const
 	}
 
 	return false;
+}
+
+bool AUTGameState::IsMatchIntermission() const
+{
+	return GetMatchState() == MatchState::MatchIntermission;
 }
 
 void AUTGameState::OnWinnerReceived()

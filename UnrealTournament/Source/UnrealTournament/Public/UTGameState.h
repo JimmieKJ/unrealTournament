@@ -180,6 +180,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInCountdown() const;
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	virtual bool IsMatchIntermission() const;
+
 	virtual void BeginPlay() override;
 
 	/** Return largest SpectatingId value in current PlayerArray. */

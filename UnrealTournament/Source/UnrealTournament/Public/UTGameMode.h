@@ -14,6 +14,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
 	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
+	extern UNREALTOURNAMENT_API const FName MatchIntermission;				// The game is in a round intermission
 }
 
 USTRUCT()
