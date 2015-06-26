@@ -124,6 +124,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MovementStats.Add(NAME_NumWallRuns);
 	MovementStats.Add(NAME_NumImpactJumps);
 	MovementStats.Add(NAME_NumRocketJumps);
+	MovementStats.Add(NAME_SlideDist);
+	MovementStats.Add(NAME_WallRunDist);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const

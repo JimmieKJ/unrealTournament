@@ -398,11 +398,16 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 					FName MovementName = bIsSprinting ? NAME_SprintDist : NAME_RunDist;
 					if (MovementMode == MOVE_Falling)
 					{
-						MovementName = NAME_InAirDist;
+						AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+						MovementName = (UTCharOwner && UTCharOwner->bApplyWallSlide) ? NAME_WallRunDist : NAME_InAirDist;
 					}
 					else if (MovementMode == MOVE_Swimming)
 					{
 						MovementName = NAME_SwimDist;
+					}
+					else if (bIsFloorSliding)
+					{
+						MovementName = NAME_SlideDist;
 					}
 					PS->ModifyStatsValue(MovementName, Dist);
 				}

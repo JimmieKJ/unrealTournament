@@ -107,3 +107,5 @@ static const FName NAME_NumFloorSlides(TEXT("NumFloorSlides"));
 static const FName NAME_NumWallRuns(TEXT("NumWallRuns"));
 static const FName NAME_NumImpactJumps(TEXT("NumImpactJumps"));
 static const FName NAME_NumRocketJumps(TEXT("NumRocketJumps"));
+static const FName NAME_SlideDist(TEXT("SlideDist"));
+static const FName NAME_WallRunDist(TEXT("WallRunDist"));

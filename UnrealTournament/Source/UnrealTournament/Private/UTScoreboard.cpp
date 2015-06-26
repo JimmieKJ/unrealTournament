@@ -927,6 +927,10 @@ void UUTScoreboard::DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "RunDistance", "Run Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*RunDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	float SprintDistance = PS->GetStatsValue(NAME_SprintDist);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "SprintDistance", "Sprint Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*SprintDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float SlideDistance = PS->GetStatsValue(NAME_SlideDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "SlideDistance", "Slide Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*SlideDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float WallRunDistance = PS->GetStatsValue(NAME_WallRunDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WallRunDistance", "WallRun Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*WallRunDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	float FallDistance = PS->GetStatsValue(NAME_InAirDist);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FallDistance", "Fall Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*FallDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	float SwimDistance = PS->GetStatsValue(NAME_SwimDist);
@@ -935,7 +939,7 @@ void UUTScoreboard::DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TranslocDistance", "Teleport Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*TranslocDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	Canvas->DrawText(UTHUDOwner->SmallFont, "                                                             ----", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
-	float TotalDistance = RunDistance + SprintDistance + FallDistance + SwimDistance + TranslocDistance;
+	float TotalDistance = RunDistance + SprintDistance + FallDistance + SwimDistance + TranslocDistance + SlideDistance + WallRunDistance;
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Total Dist", "Total Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*TotalDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
