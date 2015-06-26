@@ -174,10 +174,24 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 				{
 					const FVector PawnLoc = CharacterOwner->GetActorLocation();
 					float XYSize = (LiftPath->LiftExitLoc - PawnLoc).Size2D();
-					float Time = XYSize / MaxWalkSpeed;
 					// test with slightly less than actual velocity to provide some room for error and so bots aren't perfect all the time
-					// TODO: maybe also delay more if lift is known to have significant travel time remaining?
-					if (PawnLoc.Z + (LiftVelocity.Z + JumpZVelocity * 0.9f) * Time + 0.5f * GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z)
+					const float LiftJumpZ = (LiftVelocity.Z + JumpZVelocity * 0.9f);
+					bool bShouldJump = false;
+					// special case for lift jumps that are meant to go nowhere (pickup on ceiling, etc)
+					if (XYSize < CharacterOwner->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f)
+					{
+						const float ZDiff = LiftPath->LiftExitLoc.Z - PawnLoc.Z;
+						// if there is any solution to the constant accel equation, then we can hit the target with a lift jump
+						// 0 = 0.5*GravityZ*t^2 + JumpVel.Z*t + (-ZDiff)
+						bShouldJump = FMath::Square<float>(LiftJumpZ) -(2.0f * GetGravityZ() * (-ZDiff)) > 0.0f;
+					}
+					else
+					{
+						// TODO: maybe also delay more if lift is known to have significant travel time remaining?
+						float Time = XYSize / MaxWalkSpeed;
+						bShouldJump = PawnLoc.Z + LiftJumpZ * Time + 0.5f * GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z;
+					}
+					if (bShouldJump)
 					{
 						// jump!
 						FVector DesiredVel2D;

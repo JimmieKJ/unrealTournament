@@ -250,7 +250,7 @@ void AUTLift::GetNavigationData(struct FNavigationRelevantData& Data) const
 				FScopedMovementUpdate TempMove(EncroachComponent);
 				// scale down the component for export to try to prevent the exported geometry from connecting to normal areas
 				FVector SavedScale = EncroachComponent->GetComponentScale();
-				EncroachComponent->SetWorldScale3D(SavedScale * FVector(NavmeshScale, NavmeshScale, 0.1f));
+				EncroachComponent->SetWorldScale3D(SavedScale * FVector(NavmeshScale, NavmeshScale, 1.0f));
 				EncroachComponent->SetWorldLocation(NextStop, false);
 				NavSys->GetNavOctree()->ComponentExportDelegate.Execute(EncroachComponent, Data);
 				EncroachComponent->SetWorldScale3D(SavedScale);
@@ -281,9 +281,10 @@ void AUTLift::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh*
 {
 	if (EncroachComponent != NULL)
 	{
-		FVector MyLoc = GetActorLocation();
+		const FVector MyLoc = GetActorLocation();
+		const FVector LiftCenter = GetComponentsBoundingBox().GetCenter();
 		FHitResult TopHit;
-		if (ActorLineTraceSingle(TopHit, MyLoc + FVector(0.0f, 0.0f, 10000.0f), MyLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
+		if (ActorLineTraceSingle(TopHit, LiftCenter + FVector(0.0f, 0.0f, 10000.0f), LiftCenter - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
 		{
 			float ZOffset = TopHit.Location.Z + NavData->AgentHeight * 0.25f - MyLoc.Z;
 			// figure out some offsets to check for exit locations at each start
