@@ -55,8 +55,8 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
 
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 
-	SizeSteps.Add(FCapsuleSize(46, 92));
-	SizeSteps.Add(FCapsuleSize(46, 64));
+	SizeSteps.Add(FCapsuleSize(42, 92));
+	SizeSteps.Add(FCapsuleSize(42, 55));
 	JumpTestThreshold2D = 2048.0f;
 	ScoutClass = AUTCharacter::StaticClass();
 }
@@ -546,7 +546,8 @@ FVector AUTRecastNavMesh::GetPOIExtent(AActor* POI) const
 {
 	// enforce a minimum extent for checks
 	// this handles cases where the POI doesn't define any colliding primitives (i.e. just a point in space that AI should be aware of)
-	FVector MinPOIExtent(AgentRadius, AgentRadius, AgentHeight * 0.5f);
+	FCapsuleSize HumanSize = GetHumanPathSize();
+	FVector MinPOIExtent(HumanSize.Radius, HumanSize.Radius, HumanSize.Height);
 	if (POI == NULL)
 	{
 		return MinPOIExtent;
