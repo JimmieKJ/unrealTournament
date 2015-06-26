@@ -943,9 +943,9 @@ void UUTScoreboard::DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumJumps", "Jumps"), PS->GetStatsValue(NAME_NumJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumDodges", "Dodges"), PS->GetStatsValue(NAME_NumDodges), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumWallDodges", "Wall Dodges"), PS->GetStatsValue(NAME_NumWallDodges), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-//	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumLiftJumps", "Lift Jumps"), PS->GetStatsValue(NAME_NumLiftJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumLiftJumps", "Lift Jumps"), PS->GetStatsValue(NAME_NumLiftJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumFloorSlides", "Floor Slides"), PS->GetStatsValue(NAME_NumFloorSlides), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-//	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumWallRuns", "Wall Runs"), PS->GetStatsValue(NAME_NumWallRuns), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
-//	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumImpactJumps", "Impact Jumps"), PS->GetStatsValue(NAME_NumImpactJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumWallRuns", "Wall Runs"), PS->GetStatsValue(NAME_NumWallRuns), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumImpactJumps", "Impact Jumps"), PS->GetStatsValue(NAME_NumImpactJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 //	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumRocketJumps", "Rocket Jumps"), PS->GetStatsValue(NAME_NumRocketJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 }

@@ -108,6 +108,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CurrentWallDodgeCount = 0;				
 	bWantsFloorSlide = false;	
 	bWantsWallSlide = false;
+	bCountWallSlides = true;
 	LastCheckedAgainstWall = 0.f;
 	bIsSettingUpFirstReplayMove = false;
 
@@ -264,6 +265,11 @@ void UUTCharacterMovement::ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpa
 	SetMovementMode(MOVE_Falling);
 	bNotifyApex = true;
 	NeedsClientAdjustment();
+	AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+	if (PS)
+	{
+		PS->ModifyStatsValue(NAME_NumImpactJumps, 1);
+	}
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
@@ -612,6 +618,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	}
 	NeedsClientAdjustment();
 	bool bIsAWallDodge = false;
+	bool bIsALiftJump = false;
 	if (!IsMovingOnGround())
 	{
 		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
@@ -655,6 +662,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		CurrentWallDodgeCount++;
 		LastWallDodgeNormal = Result.ImpactNormal;
 		bIsAWallDodge = true;
+		bCountWallSlides = true;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
 	{
@@ -662,6 +670,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		CurrentWallDodgeCount++;
 		LastWallDodgeNormal = FVector(0.f, 0.f, 1.f);
 		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
+		bIsALiftJump = true;
 	}
 
 	// perform the dodge
@@ -714,6 +723,10 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	if (PS)
 	{
 		PS->ModifyStatsValue(bIsAWallDodge ? NAME_NumWallDodges : NAME_NumDodges, 1);  
+		if (bIsALiftJump)
+		{
+			PS->ModifyStatsValue(NAME_NumLiftJumps, 1);
+		}
 	}
 	return true;
 }
@@ -996,7 +1009,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 {
 	bIsAgainstWall = false;
 	bFallingInWater = false;
-
+	bCountWallSlides = true;
 	if (CharacterOwner)
 	{
 		bIsFloorSliding = bWantsFloorSlide && !Acceleration.IsNearlyZero() && (Velocity.Size2D() > 0.7f * MaxWalkSpeed);
@@ -1092,6 +1105,10 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		if (PS)
 		{
 			PS->ModifyStatsValue(NAME_NumJumps, 1);
+			if (!GetImpartedMovementBaseVelocity().IsZero())
+			{
+				PS->ModifyStatsValue(NAME_NumLiftJumps, 1);
+			}
 		}
 		return true;
 	}
@@ -1256,6 +1273,15 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 		{
 			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
+			if (UTCharOwner->bApplyWallSlide && bCountWallSlides)
+			{
+				bCountWallSlides = false;
+				AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+				if (PS)
+				{
+					PS->ModifyStatsValue(NAME_NumWallRuns, 1);
+				}
+			}
 		}
 	}
 }

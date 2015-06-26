@@ -299,6 +299,9 @@ protected:
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
 	bool bWantsWallSlide;
 
+	/** true if wall slide stat should be updated.  Needed so we don't double count wallslides. */
+	bool bCountWallSlides;
+
 public:
 	/** Horizontal speed reduction on slide ending (multiplied). */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
