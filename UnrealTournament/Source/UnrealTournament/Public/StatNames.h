@@ -93,3 +93,17 @@ static const FName NAME_AmazingCombos(TEXT("AmazingCombos"));
 static const FName NAME_AirRox(TEXT("AirRox"));
 static const FName NAME_FlakShreds(TEXT("FlakShreds"));
 static const FName NAME_AirSnot(TEXT("AirSnot"));
+
+static const FName NAME_RunDist(TEXT("RunDist"));
+static const FName NAME_SprintDist(TEXT("SprintDist"));
+static const FName NAME_InAirDist(TEXT("InAirDist"));
+static const FName NAME_SwimDist(TEXT("SwimDist"));
+static const FName NAME_TranslocDist(TEXT("TranslocDist"));
+static const FName NAME_NumDodges(TEXT("NumDodges"));
+static const FName NAME_NumWallDodges(TEXT("NumWallDodges"));
+static const FName NAME_NumJumps(TEXT("NumJumps"));
+static const FName NAME_NumLiftJumps(TEXT("NumLiftJumps"));
+static const FName NAME_NumFloorSlides(TEXT("NumFloorSlides"));
+static const FName NAME_NumWallRuns(TEXT("NumWallRuns"));
+static const FName NAME_NumImpactJumps(TEXT("NumImpactJumps"));
+static const FName NAME_NumRocketJumps(TEXT("NumRocketJumps"));

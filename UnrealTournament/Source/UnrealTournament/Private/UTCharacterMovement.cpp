@@ -7,6 +7,7 @@
 #include "UTReachSpec_Lift.h"
 #include "UTWaterVolume.h"
 #include "UTBot.h"
+#include "StatNames.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
@@ -382,7 +383,23 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 			if ((CharacterOwner->Role == ROLE_Authority) && !bOwnerIsRagdoll)
 			{
+				FVector StartMoveLoc = GetActorLocation();
 				PerformMovement(DeltaTime);
+				AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+				if (PS)
+				{
+					float Dist = (GetActorLocation() - StartMoveLoc).Size();
+					FName MovementName = bIsSprinting ? NAME_SprintDist : NAME_RunDist;
+					if (MovementMode == MOVE_Falling)
+					{
+						MovementName = NAME_InAirDist;
+					}
+					else if (MovementMode == MOVE_Swimming)
+					{
+						MovementName = NAME_SwimDist;
+					}
+					PS->ModifyStatsValue(MovementName, Dist);
+				}
 			}
 			else if (bIsClient)
 			{
@@ -594,7 +611,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		bIsLowGrav = !UTCharOwner->bApplyWallSlide && bIsLowGrav;
 	}
 	NeedsClientAdjustment();
-
+	bool bIsAWallDodge = false;
 	if (!IsMovingOnGround())
 	{
 		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
@@ -637,6 +654,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		HorizontalImpulse = IsSwimming() ? SwimmingWallPushImpulse : WallDodgeImpulseHorizontal;
 		CurrentWallDodgeCount++;
 		LastWallDodgeNormal = Result.ImpactNormal;
+		bIsAWallDodge = true;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
 	{
@@ -691,6 +709,11 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	if (IsMovingOnGround())
 	{
 		SetMovementMode(MOVE_Falling);
+	}
+	AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+	if (PS)
+	{
+		PS->ModifyStatsValue(bIsAWallDodge ? NAME_NumWallDodges : NAME_NumDodges, 1);  
 	}
 	return true;
 }
@@ -748,6 +771,11 @@ void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir, const FVec
 		if (UTChar)
 		{
 			UTChar->MovementEventUpdated(EME_Slide, DodgeDir);
+		}
+		AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+		if (PS)
+		{
+			PS->ModifyStatsValue(NAME_NumFloorSlides, 1);
 		}
 	}
 }
@@ -1060,6 +1088,11 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		bNotifyApex = true;
 		bExplicitJump = true;
 		NeedsClientAdjustment(); 
+		AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+		if (PS)
+		{
+			PS->ModifyStatsValue(NAME_NumJumps, 1);
+		}
 		return true;
 	}
 	return false;

@@ -110,6 +110,20 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	RewardStats.Add(NAME_SpreeKillLevel2);
 	RewardStats.Add(NAME_SpreeKillLevel3);
 	RewardStats.Add(NAME_SpreeKillLevel4);
+
+	MovementStats.Add(NAME_RunDist);
+	MovementStats.Add(NAME_SprintDist);
+	MovementStats.Add(NAME_InAirDist);
+	MovementStats.Add(NAME_SwimDist);
+	MovementStats.Add(NAME_TranslocDist);
+	MovementStats.Add(NAME_NumDodges);
+	MovementStats.Add(NAME_NumWallDodges);
+	MovementStats.Add(NAME_NumJumps);
+	MovementStats.Add(NAME_NumLiftJumps);
+	MovementStats.Add(NAME_NumFloorSlides);
+	MovementStats.Add(NAME_NumWallRuns);
+	MovementStats.Add(NAME_NumImpactJumps);
+	MovementStats.Add(NAME_NumRocketJumps);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const

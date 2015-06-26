@@ -28,6 +28,7 @@
 #include "ComponentReregisterContext.h"
 #include "UTMutator.h"
 #include "UTRewardMessage.h"
+#include "StatNames.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -3935,6 +3936,12 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 			{
 				B->MoveTimer = -1.0f;
 			}
+		}
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS)
+		{
+			float Dist = (GetActorLocation() - TeleportStart).Size();
+			PS->ModifyStatsValue(NAME_TranslocDist, Dist);
 		}
 	}
 	return bResult;
