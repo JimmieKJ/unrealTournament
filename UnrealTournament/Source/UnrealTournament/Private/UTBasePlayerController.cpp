@@ -122,6 +122,11 @@ bool AUTBasePlayerController::AllowTextMessage(const FString& Msg)
 	static const float TIME_PER_MSG = 2.0f;
 	static const float MAX_OVERFLOW = 4.0f;
 
+	if (GetNetMode() == NM_Standalone || (GetNetMode() == NM_ListenServer && Role == ROLE_Authority))
+	{
+		return true;
+	}
+
 	ChatOverflowTime = FMath::Max(ChatOverflowTime, GetWorld()->RealTimeSeconds);
 
 	//When overflowed, wait till the time is back to 0
