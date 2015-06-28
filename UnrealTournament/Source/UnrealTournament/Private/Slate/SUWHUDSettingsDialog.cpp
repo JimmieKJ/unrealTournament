@@ -37,6 +37,17 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 		TargetHUD = PC->MyUTHUD;
 	}
 
+	KillMsgDesc.Add(NSLOCTEXT("UT", "Text", "Text"));
+	KillMsgDesc.Add(NSLOCTEXT("UT", "Icon", "Icon"));
+	KillMsgDesc.Add(NSLOCTEXT("UT", "Both", "Both"));
+	KillMsgDesc.Add(NSLOCTEXT("UT", "None", "None"));
+
+	KillMsgList.Add(MakeShareable(new FText(KillMsgDesc[EHudKillMsgStyle::KMS_Text])));
+	KillMsgList.Add(MakeShareable(new FText(KillMsgDesc[EHudKillMsgStyle::KMS_Icon])));
+	KillMsgList.Add(MakeShareable(new FText(KillMsgDesc[EHudKillMsgStyle::KMS_Both])));
+	KillMsgList.Add(MakeShareable(new FText(KillMsgDesc[EHudKillMsgStyle::KMS_None])));
+	TSharedPtr<FText> InitiallySelectedHand = (TargetHUD != nullptr) ? KillMsgList[TargetHUD->KillMsgStyle] : KillMsgList[EHudKillMsgStyle::KMS_Text];
+
 	if (DialogContent.IsValid())
 	{
 		if (TargetHUD.IsValid() )
@@ -309,8 +320,65 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 					]
-
-				+SVerticalBox::Slot()
+				+ SVerticalBox::Slot()
+				.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Right)
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(300.0f)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(NSLOCTEXT("SUWWeaponConfigDialog", "KillMsgStyle", "Kill Message Style"))
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(EHorizontalAlignment::HAlign_Right)
+					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+					[
+						SNew(SBox)
+						.WidthOverride(300.0f)
+						[
+							SAssignNew(KillMsgStyle, SComboBox< TSharedPtr<FText> >)
+							.InitiallySelectedItem(InitiallySelectedHand)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.OptionsSource(&KillMsgList)
+							.OnGenerateWidget(this, &SUWHUDSettingsDialog::GenerateKillMsgStyleWidget)
+							.OnSelectionChanged(this, &SUWHUDSettingsDialog::OnKillMsgStyleSelected)
+							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+							.Content()
+							[
+								SAssignNew(SelectedKillMsgStyle, STextBlock)
+								.Text(*InitiallySelectedHand.Get())
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							]
+						]
+					]
+				]
+				+ SVerticalBox::Slot()
+					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+					.HAlign(HAlign_Right)
+					[
+						SAssignNew(DrawPopupKillMsg, SCheckBox)
+						.ForegroundColor(FLinearColor::White)
+						.IsChecked(TargetHUD->bDrawPopupKillMsg ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+						.OnCheckStateChanged(this, &SUWHUDSettingsDialog::OnDrawPopupKillMsgChanged)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.Content()
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(NSLOCTEXT("SUWHUDSettingsDialog", "DrawPopupKillMsg", "Popup Kill Messages"))
+						]
+					]
+				+ SVerticalBox::Slot()
 					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
 					.HAlign(HAlign_Right)
 					[
@@ -324,7 +392,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							SNew(STextBlock)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(NSLOCTEXT("SUWHUDSettingsDialog", "UseWeaponColors", "Colorize Icons"))
-							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDWeaponColorsTT","Should the Weapon Bar colorize it's icons.")))
+							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog", "HUDWeaponColorsTT", "Should the Weapon Bar colorize it's icons.")))
 						]
 					]
 			];
@@ -463,6 +531,14 @@ void SUWHUDSettingsDialog::OnUseWeaponColorChanged(ECheckBoxState NewState)
 	}
 }
 
+void SUWHUDSettingsDialog::OnDrawPopupKillMsgChanged(ECheckBoxState NewState)
+{
+	if (TargetHUD.IsValid())
+	{
+		TargetHUD->bDrawPopupKillMsg = NewState == ECheckBoxState::Checked;
+	}
+}
+
 
 FReply SUWHUDSettingsDialog::OKClick()
 {
@@ -489,6 +565,8 @@ FReply SUWHUDSettingsDialog::CancelClick()
 		TargetHUD->HUDWidgetScaleOverride = DefaultHUD->HUDWidgetScaleOverride;
 		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = DefaultHUD->HUDWidgetBorderOpacity;
 		TargetHUD->bUseWeaponColors = DefaultHUD->bUseWeaponColors;
+		TargetHUD->KillMsgStyle = DefaultHUD->KillMsgStyle;
+		TargetHUD->bDrawPopupKillMsg = DefaultHUD->bDrawPopupKillMsg;
 	}
 
 	TargetHUD.Reset();
@@ -504,6 +582,44 @@ FReply SUWHUDSettingsDialog::OnButtonClick(uint16 ButtonID)
 	return FReply::Handled();
 }
 
+TSharedRef<ITableRow> SUWHUDSettingsDialog::GenerateKillMsgStyleRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList)
+{
+	checkSlow(WeaponType->IsChildOf(AUTWeapon::StaticClass()));
+
+	return SNew(STableRow<UClass*>, OwningList)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName)
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+		];
+}
+
+TSharedRef<SWidget> SUWHUDSettingsDialog::GenerateKillMsgStyleWidget(TSharedPtr<FText> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(*InItem.Get())
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		];
+}
+
+void SUWHUDSettingsDialog::OnKillMsgStyleSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	if (TargetHUD.IsValid())
+	{
+		for (int32 i = 0; i < KillMsgDesc.Num(); i++)
+		{
+			if (NewSelection.Get()->CompareTo(KillMsgDesc[i]) == 0)
+			{
+				TargetHUD.Get()->KillMsgStyle = (EHudKillMsgStyle::Type)i;
+			}
+		}
+	}
+	SelectedKillMsgStyle->SetText(*NewSelection.Get());
+}
 
 
 #endif

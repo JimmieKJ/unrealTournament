@@ -57,6 +57,13 @@ protected:
 
 	TSharedPtr<SCheckBox> UseWeaponColor;
 
+	TArray< TSharedPtr<FText> > KillMsgList;
+	TArray<FText> KillMsgDesc;
+	TSharedPtr< SComboBox< TSharedPtr<FText> > > KillMsgStyle;
+	TSharedPtr<STextBlock> SelectedKillMsgStyle;
+
+	TSharedPtr<SCheckBox> DrawPopupKillMsg;
+
 	// A reference to the target HUD..
 	TWeakObjectPtr<AUTHUD> TargetHUD;
 
@@ -83,7 +90,11 @@ protected:
 	void OnWeaponBarScaleChanged(float NewValue);
 
 	void OnUseWeaponColorChanged(ECheckBoxState NewState);
+	void OnDrawPopupKillMsgChanged(ECheckBoxState NewState);
 
+	TSharedRef<ITableRow> GenerateKillMsgStyleRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
+	TSharedRef<SWidget> GenerateKillMsgStyleWidget(TSharedPtr<FText> InItem);
+	void OnKillMsgStyleSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
 };
 
 #endif
