@@ -31,6 +31,13 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericFemaleSuicideMessage","{Player2Name} killed herself with the {WeaponName}.");
 	SelfVictimMessage = NSLOCTEXT("UTDeathMessages", "SelfVictimMessage", "You killed yourself.");
 	AssociatedWeaponName = NSLOCTEXT("UTDeathMessages","EnvironmentMessage","Environmental");
+
+	static ConstructorHelpers::FObjectFinder<UTexture> SkullTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	HUDIcon.Texture = SkullTex.Object;
+	HUDIcon.U = 727;
+	HUDIcon.V = 0;
+	HUDIcon.UL = 29;
+	HUDIcon.VL = 37;
 }
 
 FVector UTGetDamageMomentum(const FDamageEvent& DamageEvent, const AActor* HitActor, const AController* EventInstigator)

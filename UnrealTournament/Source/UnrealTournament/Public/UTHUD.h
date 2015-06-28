@@ -239,6 +239,12 @@ public:
 	UPROPERTY(globalconfig)
 	bool bUseWeaponColors;
 
+	UPROPERTY(globalconfig)
+	TEnumAsByte<EHudKillMsgStyle::Type> KillMsgStyle;
+
+	UPROPERTY(globalconfig)
+	bool bDrawPopupKillMsg;
+
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
 
