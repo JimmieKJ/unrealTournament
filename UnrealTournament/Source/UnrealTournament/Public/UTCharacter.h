@@ -1084,6 +1084,9 @@ public:
 	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite)
 	float CrushingDamageFactor;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Falling Damage")
+		TSubclassOf<UUTDamageType> CrushingDamageType;
+
 	/** Blueprint override for take falling damage.  Return true to keep TakeFallingDamage() from causing damage.
 		FallingSpeed is the Z velocity at landing, and Hit describes the impacted surface. */
 	UFUNCTION(BlueprintImplementableEvent)

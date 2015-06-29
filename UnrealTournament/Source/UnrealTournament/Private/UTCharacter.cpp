@@ -2827,7 +2827,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 			float Damage = CrushingDamageFactor * GetCharacterMovement()->Velocity.Z / -100.0f;
 			if (Damage >= 1.0f)
 			{
-				FUTPointDamageEvent DamageEvent(Damage, Hit, -GetCharacterMovement()->Velocity.GetSafeNormal(), UUTDmgType_FallingCrush::StaticClass());
+				FUTPointDamageEvent DamageEvent(Damage, Hit, -GetCharacterMovement()->Velocity.GetSafeNormal(), CrushingDamageType);
 				Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
 			}
 		}
