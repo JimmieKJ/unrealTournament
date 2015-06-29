@@ -253,6 +253,10 @@ FText AUTCTFGameState::GetGameStatusText()
 	{
 		return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
 	}
+	else if (GetMatchState() == MatchState::MapVoteHappening)
+	{
+		return NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
+	}
 	else if (bPlayingAdvantage)
 	{
 		if (AdvantageTeamIndex == 0)

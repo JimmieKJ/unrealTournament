@@ -648,6 +648,10 @@ FText AUTGameState::GetGameStatusText()
 		{
 			return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
 		}
+		else if (GetMatchState() == MatchState::MapVoteHappening)
+		{
+			return NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
+		}
 		else
 		{
 			return NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
