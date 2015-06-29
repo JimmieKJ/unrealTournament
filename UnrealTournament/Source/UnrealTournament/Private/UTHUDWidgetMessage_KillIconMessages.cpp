@@ -120,9 +120,9 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 		YL = DmgType->HUDIcon.VL;
 
 		//Scale the icon to match the height of the message
-		float IconScale = IconHeight * CurrentScale / DmgType->HUDIcon.VL;
-		XL = DmgType->HUDIcon.UL * IconScale;
-		YL = DmgType->HUDIcon.VL * IconScale;
+		float IconScale = IconHeight * CurrentScale / FMath::Abs(DmgType->HUDIcon.VL);
+		XL = FMath::Abs(DmgType->HUDIcon.UL) * IconScale;
+		YL = FMath::Abs(DmgType->HUDIcon.VL) * IconScale;
 
 		//center the icon
 		float IconY = Y - (YL * 0.5f);
