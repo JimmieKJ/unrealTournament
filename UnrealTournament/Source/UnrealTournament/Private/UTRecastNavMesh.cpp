@@ -110,16 +110,7 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(NavNodeRef PolyRef, const stru
 			bool bFailed = false;
 			for (int32 i = 0; i < 2; i++)
 			{
-				FVector PolyCenter = (i == 0) ? GetPolyCenter(PolyRef) : GetPolyCenter(Link.ref);
-				// note: poly center is not necessarily a valid surface height
-				float PolyHeight = PolyCenter.Z;
-				{
-					FVector RecastCenter = Unreal2RecastPoint(PolyCenter);
-					if (dtStatusSucceed(InternalQuery.getPolyHeight((i == 0) ? PolyRef : Link.ref, (float*)&RecastCenter, &PolyHeight)))
-					{
-						PolyCenter.Z = PolyHeight;
-					}
-				}
+				FVector PolyCenter = (i == 0) ? GetPolySurfaceCenter(PolyRef) : GetPolySurfaceCenter(Link.ref);
 				// find floor
 				FHitResult Hit;
 				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(AgentRadius, 1.0f);
@@ -196,7 +187,12 @@ void AUTRecastNavMesh::SetNodeSize(UUTPathNode* Node)
 				}
 			}
 		}
-	}				
+	}
+	if (bFirstEdge)
+	{
+		// node consists of a single, disconnected poly - use min size
+		Node->MinPolyEdgeSize = FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentHeight * 0.5f));
+	}
 }
 
 bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, FCollisionShape ScoutShape, float XYSpeed, float GravityZ, float BaseJumpZ, float MaxJumpZ, float* RequiredJumpZ, float* MaxFallSpeed) const
@@ -591,8 +587,11 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
+	// shouldn't be changing this at runtime and makes sure we get changes from defaults
+	// we don't want to simply make the property transient because for in-game we want to store the values that paths were built with
+	SizeSteps = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->SizeSteps;
 	// make sure generation params are in the list
-	SizeSteps.AddUnique(FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentMaxHeight)));
+	SizeSteps.AddUnique(FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentMaxHeight) / 2));
 
 	// list of IUTPathBuilderInterface implementing Actors that don't want to be added as POIs but still want path building callbacks
 	TArray<IUTPathBuilderInterface*> NonPOIBuilders;

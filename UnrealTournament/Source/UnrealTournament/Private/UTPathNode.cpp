@@ -115,6 +115,10 @@ FLinearColor FUTPathLink::GetPathColor() const
 	{
 		return FLinearColor(0.5f, 0.0f, 1.0f);
 	}
+	else if (CollisionHeight < GetDefault<AUTRecastNavMesh>()->GetHumanPathSize().Height)
+	{
+		return FLinearColor(0.0f, 0.2f, 0.0f);
+	}
 	else
 	{
 		return FLinearColor(0.0f, 1.0f, 0.0f);
