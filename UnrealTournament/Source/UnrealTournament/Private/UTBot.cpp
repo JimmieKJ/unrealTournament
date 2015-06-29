@@ -428,11 +428,7 @@ bool AUTBot::FindBestJumpVelocityXY(FVector& JumpVelocity, const FVector& StartL
 	else
 	{
 		Determinant = FMath::Sqrt(Determinant);
-		float Time = (-ZSpeed + Determinant) / GravityZ;
-		if (Time <= 0.0f)
-		{
-			Time = (-ZSpeed - Determinant) / GravityZ;
-		}
+		float Time = FMath::Max<float>(-ZSpeed + Determinant, -ZSpeed - Determinant) / GravityZ;
 		if (Time > 0.0f)
 		{
 			JumpVelocity = (TargetLoc - StartLoc) / Time;

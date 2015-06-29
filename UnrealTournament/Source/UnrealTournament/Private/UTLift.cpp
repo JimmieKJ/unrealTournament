@@ -250,7 +250,7 @@ void AUTLift::GetNavigationData(struct FNavigationRelevantData& Data) const
 				FScopedMovementUpdate TempMove(EncroachComponent);
 				// scale down the component for export to try to prevent the exported geometry from connecting to normal areas
 				FVector SavedScale = EncroachComponent->GetComponentScale();
-				EncroachComponent->SetWorldScale3D(SavedScale * FVector(NavmeshScale, NavmeshScale, 1.0f));
+				EncroachComponent->SetWorldScale3D(SavedScale * FVector(NavmeshScale, NavmeshScale, 0.1f));
 				EncroachComponent->SetWorldLocation(NextStop, false);
 				NavSys->GetNavOctree()->ComponentExportDelegate.Execute(EncroachComponent, Data);
 				EncroachComponent->SetWorldScale3D(SavedScale);

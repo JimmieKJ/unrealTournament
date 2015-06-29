@@ -175,7 +175,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					const FVector PawnLoc = CharacterOwner->GetActorLocation();
 					float XYSize = (LiftPath->LiftExitLoc - PawnLoc).Size2D();
 					// test with slightly less than actual velocity to provide some room for error and so bots aren't perfect all the time
-					const float LiftJumpZ = (LiftVelocity.Z + JumpZVelocity * 0.9f);
+					const float LiftJumpZ = (LiftVelocity.Z + JumpZVelocity * 0.95f);
 					bool bShouldJump = false;
 					// special case for lift jumps that are meant to go nowhere (pickup on ceiling, etc)
 					if (XYSize < CharacterOwner->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f)
@@ -188,14 +188,42 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					else
 					{
 						// TODO: maybe also delay more if lift is known to have significant travel time remaining?
-						float Time = XYSize / MaxWalkSpeed;
-						bShouldJump = PawnLoc.Z + LiftJumpZ * Time + 0.5f * GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z;
+						float XYTime = XYSize / MaxWalkSpeed;
+						float ZTime = 0.0f;
+						{
+							float Determinant = FMath::Square(LiftJumpZ) - 2.0 * GetGravityZ() * (PawnLoc.Z - LiftPath->LiftExitLoc.Z);
+							if (Determinant >= 0.0f)
+							{
+								float Time1 = (-LiftJumpZ + Determinant) / GetGravityZ();
+								float Time2 = (-LiftJumpZ - Determinant) / GetGravityZ();
+								if (Time1 > 0.0f)
+								{
+									if (Time2 > 0.0f)
+									{
+										ZTime = FMath::Min<float>(Time1, Time2);
+									}
+									else
+									{
+										ZTime = Time1;
+									}
+								}
+								else if (Time2 > 0.0f)
+								{
+									ZTime = Time2;
+								}
+							}
+						}
+						bShouldJump = (ZTime > XYTime || PawnLoc.Z + LiftJumpZ * XYTime + 0.5f * GetGravityZ() * FMath::Square<float>(XYTime) >= LiftPath->LiftExitLoc.Z);
 					}
 					if (bShouldJump)
 					{
 						// jump!
 						FVector DesiredVel2D;
-						if (B->FindBestJumpVelocityXY(DesiredVel2D, CharacterOwner->GetActorLocation(), LiftPath->LiftExitLoc, LiftVelocity.Z + JumpZVelocity, GetGravityZ(), CharacterOwner->GetSimpleCollisionHalfHeight()))
+						if (LiftPath->bSkipInitialAirControl)
+						{
+							Velocity = FVector::ZeroVector;
+						}
+						else if (B->FindBestJumpVelocityXY(DesiredVel2D, CharacterOwner->GetActorLocation(), LiftPath->LiftExitLoc, LiftVelocity.Z + JumpZVelocity, GetGravityZ(), CharacterOwner->GetSimpleCollisionHalfHeight()))
 						{
 							Velocity = FVector(DesiredVel2D.X, DesiredVel2D.Y, 0.0f).GetClampedToMaxSize2D(MaxWalkSpeed);
 						}

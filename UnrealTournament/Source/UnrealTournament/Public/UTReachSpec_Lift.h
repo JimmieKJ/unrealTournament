@@ -25,6 +25,9 @@ class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 	/** true if this is the path onto the lift, false if it's the path off the lift */
 	UPROPERTY()
 	bool bEntryPath;
+	/** lift jumps only - true if bot should avoid air control initially during jump (e.g. elevator shaft or similar where early air control can cause bot to bump head on an earlier floor than intended) */
+	UPROPERTY()
+	bool bSkipInitialAirControl;
 
 	UUTReachSpec_Lift(const FObjectInitializer& ObjectInitializer)
 		: Super(ObjectInitializer)
@@ -95,6 +98,11 @@ class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 	{
 		// allow jumping onto lift center regardless of path
 		return (MovePos.Base == Lift.Get()->GetEncroachComponent());
+	}
+
+	virtual bool OverrideAirControl(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const
+	{
+		return (bSkipInitialAirControl && Asker->GetActorLocation().Z < LiftExitLoc.Z - Asker->GetSimpleCollisionHalfHeight() * 3.0f && (Asker->GetVelocity().GetSafeNormal2D() | (LiftExitLoc - Asker->GetActorLocation()).GetSafeNormal2D()) >= 0.0f);
 	}
 
 	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
