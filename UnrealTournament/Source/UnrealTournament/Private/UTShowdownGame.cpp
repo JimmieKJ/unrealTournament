@@ -10,6 +10,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	bForceRespawn = false;
 	DisplayName = NSLOCTEXT("UTGameMode", "Showdown", "Showdown");
 	TimeLimit = 7.0f;
+	PowerupDuration = 15.0f;
 }
 
 void AUTShowdownGame::StartNewRound()
