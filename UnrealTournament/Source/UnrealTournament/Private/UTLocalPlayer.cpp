@@ -207,17 +207,20 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("SystemInfo"), ParamArray );
 	}
 
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if (!InViewportClient->GetWorld()->IsPlayInEditor())
 	{
-		// Initialize the Online Subsystem for this player
-		InitializeOnlineSubsystem();
-
-		if (OnlineIdentityInterface.IsValid())
+		if (!HasAnyFlags(RF_ClassDefaultObject))
 		{
-			// Attempt to Auto-Login to MCP
-			if (!OnlineIdentityInterface->AutoLogin(GetControllerId()))
+			// Initialize the Online Subsystem for this player
+			InitializeOnlineSubsystem();
+
+			if (OnlineIdentityInterface.IsValid())
 			{
-				bInitialSignInAttempt = false;
+				// Attempt to Auto-Login to MCP
+				if (!OnlineIdentityInterface->AutoLogin(GetControllerId()))
+				{
+					bInitialSignInAttempt = false;
+				}
 			}
 		}
 	}

@@ -46,7 +46,10 @@ void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> V
 		LayerManagerPtr = LayerManager;
 	}
 
-	LayerManagerPtr.Pin()->AddLayer(ViewportContent, ZOrder);
+	if (LayerManagerPtr.IsValid())
+	{
+		LayerManagerPtr.Pin()->AddLayer(ViewportContent, ZOrder);
+	}
 #endif
 }
 
