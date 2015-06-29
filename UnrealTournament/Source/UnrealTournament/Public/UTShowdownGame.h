@@ -38,6 +38,7 @@ public:
 			Super::RestartPlayer(aPlayer);
 		}
 	}
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
 	virtual void CallMatchStateChangeNotify() override;
 	virtual void DefaultTimer() override;

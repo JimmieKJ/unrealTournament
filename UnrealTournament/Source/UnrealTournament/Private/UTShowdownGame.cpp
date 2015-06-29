@@ -131,6 +131,61 @@ void AUTShowdownGame::StartIntermission()
 	}
 }
 
+AActor* AUTShowdownGame::ChoosePlayerStart_Implementation(AController* Player)
+{
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(Player->PlayerState);
+	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
+	{
+		if (UTPS->bChosePrimaryRespawnChoice)
+		{
+			return UTPS->RespawnChoiceA;
+		}
+		else
+		{
+			return UTPS->RespawnChoiceB;
+		}
+	}
+
+	// since we only allow respawning between rounds, skip all the traces and just give a random unique spawn point not in any other player's respawn choices
+
+	TArray<APlayerStart*> PlayerStarts;
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	{
+		PlayerStarts.Add(*It);
+	}
+
+	if (PlayerStarts.Num() < NumPlayers * 2) // min to not have dupes
+	{
+		return Super::ChoosePlayerStart_Implementation(Player);
+	}
+	else
+	{
+		APlayerStart* Pick = NULL;
+		bool bTaken;
+		int32 Tries = 0; // just in case
+		do
+		{
+			bTaken = false;
+			Pick = PlayerStarts[FMath::RandHelper(PlayerStarts.Num())];
+			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+			{
+				AController* C = It->Get();
+				if (C != NULL)
+				{
+					AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+					if (PS != NULL && !PS->bOnlySpectator && (PS->RespawnChoiceA == Pick || PS->RespawnChoiceB == Pick))
+					{
+						bTaken = true;
+						break;
+					}
+				}
+			}
+		} while (bTaken && ++Tries < 100);
+
+		return Pick;
+	}
+}
+
 void AUTShowdownGame::HandleMatchIntermission()
 {
 	IntermissionTimeRemaining = 6;
