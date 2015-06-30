@@ -221,7 +221,16 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		{
 			DesiredLoc = LastThirdPersonCameraLoc;
 		}
-		FVector Loc = (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f)) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
+
+		//If camera is jumping to a new location and we have LOS then interp 
+		bool bSnapCamera = false;
+		if (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f))
+		{
+			FHitResult Result;
+			CheckCameraSweep(Result, OutVT.Target, DesiredLoc, LastThirdPersonCameraLoc);
+			bSnapCamera = Result.bBlockingHit;
+		}
+		FVector Loc = (bSnapCamera) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
 
 		AUTCharacter* BaseChar = UTCharacter;
 		if (!BaseChar)
