@@ -15,6 +15,13 @@
 
 void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 {
+	AUTPlayerController* PC = Cast<AUTPlayerController>(InArgs._PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		TargetHUD = PC->MyUTHUD;
+	}
+	bInGame = TargetHUD.IsValid();
+
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
 							.DialogTitle(InArgs._DialogTitle)
@@ -24,18 +31,31 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 							.ContentPadding(InArgs._ContentPadding)
 							.ButtonMask(InArgs._ButtonMask)
-							.bShadow(false)
+							.bShadow(!bInGame) //Don't shadow if ingame
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 
+	//If main menu and no HUD, use the default
+	if (!TargetHUD.IsValid())
+	{
+		TargetHUD = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
+	}
+
+	//Since TargetHUD might be the CDO, Save off all the property data if we need to revert
+	Old_HUDWidgetOpacity = TargetHUD->HUDWidgetOpacity;
+	Old_HUDWidgetBorderOpacity = TargetHUD->HUDWidgetBorderOpacity;
+	Old_HUDWidgetSlateOpacity = TargetHUD->HUDWidgetSlateOpacity;
+	Old_HUDWidgetWeaponbarInactiveOpacity = TargetHUD->HUDWidgetWeaponbarInactiveOpacity;
+	Old_HUDWidgetWeaponBarScaleOverride = TargetHUD->HUDWidgetWeaponBarScaleOverride;
+	Old_HUDWidgetWeaponBarInactiveIconOpacity = TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity;
+	Old_HUDWidgetWeaponBarEmptyOpacity = TargetHUD->HUDWidgetWeaponBarEmptyOpacity;
+	Old_HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
+	Old_bUseWeaponColors = TargetHUD->bUseWeaponColors;
+	Old_KillMsgStyle = TargetHUD->KillMsgStyle;
+	Old_bDrawPopupKillMsg = TargetHUD->bDrawPopupKillMsg;
+
 	FVector2D ViewportSize;
 	GetPlayerOwner()->ViewportClient->GetViewportSize(ViewportSize);
-
-	AUTPlayerController* PC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	if (PC && PC->MyUTHUD)
-	{
-		TargetHUD = PC->MyUTHUD;
-	}
 
 	KillMsgDesc.Add(NSLOCTEXT("UT", "Text", "Text"));
 	KillMsgDesc.Add(NSLOCTEXT("UT", "Icon", "Icon"));
@@ -46,7 +66,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 	KillMsgList.Add(MakeShareable(new FText(KillMsgDesc[EHudKillMsgStyle::KMS_Icon])));
 	KillMsgList.Add(MakeShareable(new FText(KillMsgDesc[EHudKillMsgStyle::KMS_Both])));
 	KillMsgList.Add(MakeShareable(new FText(KillMsgDesc[EHudKillMsgStyle::KMS_None])));
-	TSharedPtr<FText> InitiallySelectedHand = (TargetHUD != nullptr) ? KillMsgList[TargetHUD->KillMsgStyle] : KillMsgList[EHudKillMsgStyle::KMS_Text];
+	TSharedPtr<FText> InitiallySelectedHand = (TargetHUD.IsValid()) ? KillMsgList[TargetHUD->KillMsgStyle] : KillMsgList[EHudKillMsgStyle::KMS_Text];
 
 	if (DialogContent.IsValid())
 	{
@@ -55,7 +75,18 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 			DialogContent->AddSlot()
 			[
 				SNew(SVerticalBox)
-
+				+ SVerticalBox::Slot()
+				.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				.AutoHeight()
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Justification(ETextJustify::Center)
+					.WrapTextAt(InArgs._DialogSize.X * 0.6)
+					.Text(bInGame ? FText::GetEmpty() : NSLOCTEXT("SUWHUDSettingsDialog", "MainMenuInstruction", "If you modify these options while in game, you will instantly see the effects of your changes."))
+				]
 				+SVerticalBox::Slot()
 					.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
 					[
@@ -542,10 +573,34 @@ void SUWHUDSettingsDialog::OnDrawPopupKillMsgChanged(ECheckBoxState NewState)
 
 FReply SUWHUDSettingsDialog::OKClick()
 {
+	//Save the new values to all AUTHUD CDOs
 	if (TargetHUD.IsValid())
 	{
-		TargetHUD->SaveConfig();
+		for (TObjectIterator<AUTHUD> It(EObjectFlags::RF_NoFlags,true); It; ++It)
+		{
+			if (It->HasAnyFlags(RF_ClassDefaultObject))
+			{
+				AUTHUD* HudCDO = (*It);
+				HudCDO->HUDWidgetOpacity = TargetHUD->HUDWidgetOpacity;
+				HudCDO->HUDWidgetBorderOpacity = TargetHUD->HUDWidgetBorderOpacity;
+				HudCDO->HUDWidgetSlateOpacity = TargetHUD->HUDWidgetSlateOpacity;
+				HudCDO->HUDWidgetWeaponbarInactiveOpacity = TargetHUD->HUDWidgetWeaponbarInactiveOpacity;
+				HudCDO->HUDWidgetWeaponBarScaleOverride = TargetHUD->HUDWidgetWeaponBarScaleOverride;
+				HudCDO->HUDWidgetWeaponBarInactiveIconOpacity = TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity;
+				HudCDO->HUDWidgetWeaponBarEmptyOpacity = TargetHUD->HUDWidgetWeaponBarEmptyOpacity;
+				HudCDO->HUDWidgetScaleOverride = TargetHUD->HUDWidgetScaleOverride;
+				HudCDO->bUseWeaponColors = TargetHUD->bUseWeaponColors;
+				HudCDO->KillMsgStyle = TargetHUD->KillMsgStyle;
+				HudCDO->bDrawPopupKillMsg = TargetHUD->bDrawPopupKillMsg;
+
+				if (HudCDO == AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>())
+				{
+					HudCDO->SaveConfig();
+				}
+			}
+		}
 	}
+
 	TargetHUD.Reset();
 	GetPlayerOwner()->HideHUDSettings();
 	return FReply::Handled();
@@ -553,20 +608,19 @@ FReply SUWHUDSettingsDialog::OKClick()
 
 FReply SUWHUDSettingsDialog::CancelClick()
 {
-
-	AUTHUD* DefaultHUD = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
-	if (TargetHUD.IsValid() && DefaultHUD)
+	if (TargetHUD.IsValid())
 	{
-		TargetHUD->HUDWidgetOpacity = DefaultHUD->HUDWidgetOpacity;
-		TargetHUD->HUDWidgetBorderOpacity = DefaultHUD->HUDWidgetBorderOpacity;
-		TargetHUD->HUDWidgetSlateOpacity = DefaultHUD->HUDWidgetSlateOpacity;
-		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = DefaultHUD->HUDWidgetWeaponbarInactiveOpacity;
-		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = DefaultHUD->HUDWidgetWeaponBarEmptyOpacity;
-		TargetHUD->HUDWidgetScaleOverride = DefaultHUD->HUDWidgetScaleOverride;
-		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = DefaultHUD->HUDWidgetBorderOpacity;
-		TargetHUD->bUseWeaponColors = DefaultHUD->bUseWeaponColors;
-		TargetHUD->KillMsgStyle = DefaultHUD->KillMsgStyle;
-		TargetHUD->bDrawPopupKillMsg = DefaultHUD->bDrawPopupKillMsg;
+		TargetHUD->HUDWidgetOpacity = Old_HUDWidgetOpacity;
+		TargetHUD->HUDWidgetBorderOpacity = Old_HUDWidgetBorderOpacity;
+		TargetHUD->HUDWidgetSlateOpacity = Old_HUDWidgetSlateOpacity;
+		TargetHUD->HUDWidgetWeaponbarInactiveOpacity = Old_HUDWidgetWeaponbarInactiveOpacity;
+		TargetHUD->HUDWidgetWeaponBarScaleOverride = Old_HUDWidgetWeaponBarScaleOverride;
+		TargetHUD->HUDWidgetWeaponBarInactiveIconOpacity = Old_HUDWidgetWeaponBarInactiveIconOpacity;
+		TargetHUD->HUDWidgetWeaponBarEmptyOpacity = Old_HUDWidgetWeaponBarEmptyOpacity;
+		TargetHUD->HUDWidgetScaleOverride = Old_HUDWidgetScaleOverride;
+		TargetHUD->bUseWeaponColors = Old_bUseWeaponColors;
+		TargetHUD->KillMsgStyle = Old_KillMsgStyle;
+		TargetHUD->bDrawPopupKillMsg = Old_bDrawPopupKillMsg;
 	}
 
 	TargetHUD.Reset();

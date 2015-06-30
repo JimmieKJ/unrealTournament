@@ -12,7 +12,7 @@ class UNREALTOURNAMENT_API SUWHUDSettingsDialog : public SUWDialog
 public:
 	SLATE_BEGIN_ARGS(SUWHUDSettingsDialog)
 	: _DialogTitle(NSLOCTEXT("SUWHUDSettingsDialog","Title","HUD Settings"))
-	, _DialogSize(FVector2D(1000, 600))
+	, _DialogSize(FVector2D(1000, 700))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -95,6 +95,23 @@ protected:
 	TSharedRef<ITableRow> GenerateKillMsgStyleRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
 	TSharedRef<SWidget> GenerateKillMsgStyleWidget(TSharedPtr<FText> InItem);
 	void OnKillMsgStyleSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
+
+private:
+
+	/**The backup vars for when the player cancels*/
+	float Old_HUDWidgetOpacity;
+	float Old_HUDWidgetBorderOpacity;
+	float Old_HUDWidgetSlateOpacity;
+	float Old_HUDWidgetWeaponbarInactiveOpacity;
+	float Old_HUDWidgetWeaponBarScaleOverride;
+	float Old_HUDWidgetWeaponBarInactiveIconOpacity;
+	float Old_HUDWidgetWeaponBarEmptyOpacity;
+	float Old_HUDWidgetScaleOverride;
+	bool Old_bUseWeaponColors;
+	TEnumAsByte<EHudKillMsgStyle::Type> Old_KillMsgStyle;
+	bool Old_bDrawPopupKillMsg;
+
+	bool bInGame;
 };
 
 #endif

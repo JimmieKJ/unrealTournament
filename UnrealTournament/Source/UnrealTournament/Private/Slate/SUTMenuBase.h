@@ -18,6 +18,7 @@ public:
 	virtual FReply OpenSocialSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenHUDSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
 
 protected:

@@ -509,14 +509,17 @@ void UUTLocalPlayer::HideHUDSettings()
 		CloseDialog(HUDSettings.ToSharedRef());
 		HUDSettings.Reset();
 
-		if (PlayerController)
+		if (!IsMenuGame())
 		{
-			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
-			PlayerController->SetPause(false);
-		}
+			if (PlayerController)
+			{
+				PlayerController->bShowMouseCursor = false;
+				PlayerController->SetInputMode(FInputModeGameOnly());
+				PlayerController->SetPause(false);
+			}
 
-		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+			FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+		}
 	}
 #endif
 }
