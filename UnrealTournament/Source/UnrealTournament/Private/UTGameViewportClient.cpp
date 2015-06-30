@@ -17,6 +17,9 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 	ReconnectAfterDownloadingMapDelay = 0;
 	VerifyFilesToDownloadAndReconnectDelay = 0;
 	MaxSplitscreenPlayers = 6;
+
+	bYoutubeConsentInFlight = false;
+	bYoutubeUploadingVideo = false;
 	
 	SplitscreenInfo.SetNum(10); // we are hijacking entries 8 and 9 for 5 and 6 players
 	
@@ -848,6 +851,7 @@ void UUTGameViewportClient::RefreshYoutubeToken()
 	FHttpRequestPtr YoutubeTokenRefreshRequest = FHttpModule::Get().CreateRequest();
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 	YoutubeTokenRefreshRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+	YoutubeTokenRefreshRequest->OnProcessRequestComplete().BindUObject(this, &UUTGameViewportClient::YoutubeTokenRefreshComplete);
 	// ClientID and ClientSecret UT Youtube app on PLK google account
 	FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
 	FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
@@ -870,6 +874,7 @@ void UUTGameViewportClient::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequ
 			UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
 			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), FirstPlayer->YoutubeAccessToken);
 			YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), FirstPlayer->YoutubeRefreshToken);
+			FirstPlayer->SaveConfig();
 		}
 	}
 	else
@@ -889,6 +894,7 @@ void UUTGameViewportClient::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequ
 		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
 		{
 			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), FirstPlayer->YoutubeAccessToken);
+			FirstPlayer->SaveConfig();
 		}
 	}
 	else
@@ -904,4 +910,130 @@ void UUTGameViewportClient::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequ
 bool UUTGameViewportClient::IsYoutubeConsentInFlight()
 {
 	return bYoutubeConsentInFlight;
+}
+
+void UUTGameViewportClient::YoutubeResumableSessionRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (HttpResponse.IsValid())
+	{
+		if (HttpResponse->GetResponseCode() == 200)
+		{
+			UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
+
+			// Location HTTP header section is where we upload to
+			FString UploadUrl = HttpResponse->GetHeader(TEXT("Location"));
+			FArchive* VideoTempFile = IFileManager::Get().CreateFileReader(*YoutubeFileToUpload);
+			VideoTempFile->Serialize(YoutubeUploadBinaryData.GetData(), YoutubeUploadBinaryData.Num());
+
+			FHttpRequestPtr YoutubeUploadRequest = FHttpModule::Get().CreateRequest();
+			YoutubeUploadRequest->SetVerb(TEXT("PUT"));
+			YoutubeUploadRequest->SetURL(UploadUrl);
+			YoutubeUploadRequest->OnProcessRequestComplete().BindUObject(this, &UUTGameViewportClient::YoutubeFileUploadRequestComplete);
+			YoutubeUploadRequest->SetHeader(TEXT("Authorization"), TEXT("Bearer ") + FirstPlayer->YoutubeAccessToken);
+			YoutubeUploadRequest->SetHeader(TEXT("Content-Length"), FString::FromInt(YoutubeUploadBinaryData.Num()));
+			YoutubeUploadRequest->SetHeader(TEXT("Content-Type"), TEXT("video/webm"));
+
+			YoutubeUploadRequest->SetContent(YoutubeUploadBinaryData);
+			YoutubeUploadRequest->ProcessRequest();
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("%s"), *HttpResponse->GetContentAsString());
+			bYoutubeUploadingVideo = false;
+		}
+	}
+}
+
+void UUTGameViewportClient::YoutubeFileUploadRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	bYoutubeUploadingVideo = false;
+
+	if (HttpResponse.IsValid())
+	{
+		// The docs say 201, but I get 200s
+		if (HttpResponse->GetResponseCode() == 200 || HttpResponse->GetResponseCode() == 201)
+		{
+			UE_LOG(UT, Log, TEXT("%s"), *HttpResponse->GetContentAsString());
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("%s"), *HttpResponse->GetContentAsString());
+		}
+	}
+}
+
+void UUTGameViewportClient::UploadVideoToYoutube(const FString& VideoFile)
+{
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
+	if (!FirstPlayer)
+	{
+		return;
+	}
+
+	if (FirstPlayer->YoutubeAccessToken.IsEmpty())
+	{
+		return;
+	}
+	
+	bYoutubeUploadingVideo = true;
+	YoutubeFileToUpload = VideoFile;
+
+	// Verify file size so we don't try to upload over what Youtube allows
+	int64 FileSizeInBytes = IFileManager::Get().FileSize(*VideoFile);
+	YoutubeFileToUpload = VideoFile;
+	YoutubeUploadBinaryData.Empty(FileSizeInBytes);
+	YoutubeUploadBinaryData.AddZeroed(FileSizeInBytes);
+
+	TSharedPtr<FJsonObject> RequestJson = MakeShareable(new FJsonObject);
+
+	TSharedPtr<FJsonObject> SnippetJson = MakeShareable(new FJsonObject);
+	SnippetJson->SetStringField(TEXT("title"), TEXT("UT Automated Upload"));
+	SnippetJson->SetStringField(TEXT("description"), TEXT("Unreal Tournament PreAlpha Gameplay Footage"));
+	TArray< TSharedPtr<FJsonValue> > TagsJson;
+	TagsJson.Add(MakeShareable(new FJsonValueString(TEXT("UnrealTournament"))));
+	TagsJson.Add(MakeShareable(new FJsonValueString(TEXT("UT"))));
+	TagsJson.Add(MakeShareable(new FJsonValueString(TEXT("boblife"))));
+	SnippetJson->SetArrayField(TEXT("tags"), TagsJson);
+	SnippetJson->SetNumberField(TEXT("categoryId"), 20);
+
+	TSharedPtr<FJsonObject> StatusJson = MakeShareable(new FJsonObject);
+	StatusJson->SetStringField(TEXT("privacyStatus"), TEXT("public"));
+	StatusJson->SetBoolField(TEXT("embeddable"), true);
+	StatusJson->SetStringField(TEXT("license"), TEXT("youtube"));
+
+	RequestJson->SetObjectField(TEXT("snippet"), SnippetJson);
+	RequestJson->SetObjectField(TEXT("status"), StatusJson);
+
+	TArray<uint8> RequestPayload;
+	FString OutputJsonString;
+	TSharedRef< TJsonWriter< TCHAR, TPrettyJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TPrettyJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+	FJsonSerializer::Serialize(RequestJson.ToSharedRef(), Writer);
+	{
+		FMemoryWriter MemoryWriter(RequestPayload);
+		FTCHARToUTF8 ConvertToUtf8(*OutputJsonString);
+		MemoryWriter.Serialize((void*)ConvertToUtf8.Get(), ConvertToUtf8.Length());
+	}
+
+	FString RequestUrl = TEXT("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status,contentDetails");
+
+	FHttpRequestPtr YoutubeResumableRequest = FHttpModule::Get().CreateRequest();
+	YoutubeResumableRequest->SetVerb(TEXT("POST"));
+	YoutubeResumableRequest->SetURL(RequestUrl);
+	YoutubeResumableRequest->OnProcessRequestComplete().BindUObject(this, &UUTGameViewportClient::YoutubeResumableSessionRequestComplete);
+	YoutubeResumableRequest->SetHeader(TEXT("Authorization"), TEXT("Bearer ") + FirstPlayer->YoutubeAccessToken);
+	//YoutubeResumableRequest->SetHeader(TEXT("Content-Length"), FString::FromInt(RequestPayload.Num()));
+	YoutubeResumableRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+	YoutubeResumableRequest->SetHeader(TEXT("X-Upload-Content-Length"), FString::FromInt(FileSizeInBytes));
+	YoutubeResumableRequest->SetHeader(TEXT("X-Upload-Content-Type"), TEXT("video/webm"));
+
+	YoutubeResumableRequest->SetContent(RequestPayload);
+
+	//UE_LOG(UT, Log, TEXT("%s"), *OutputJsonString);
+
+	YoutubeResumableRequest->ProcessRequest();
+}
+
+bool UUTGameViewportClient::IsYoutubeUploadInFlight()
+{
+	return bYoutubeUploadingVideo;
 }

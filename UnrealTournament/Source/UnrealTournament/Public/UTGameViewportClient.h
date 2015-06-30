@@ -88,6 +88,11 @@ protected:
 	virtual void YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	void YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+	bool bYoutubeUploadingVideo;
+	FString YoutubeFileToUpload;
+	TArray<uint8> YoutubeUploadBinaryData;
+	void YoutubeResumableSessionRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+	void YoutubeFileUploadRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 public:
 
@@ -116,5 +121,7 @@ public:
 	virtual void RequestYoutubeConsent();
 	virtual void RefreshYoutubeToken();
 	virtual bool IsYoutubeConsentInFlight();
+	virtual void UploadVideoToYoutube(const FString& VideoFile);
+	virtual bool IsYoutubeUploadInFlight();
 };
 
