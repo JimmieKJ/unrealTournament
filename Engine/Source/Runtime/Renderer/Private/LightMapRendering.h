@@ -300,22 +300,12 @@ public:
 		SuperElementDataType SuperElementData;
 		
 		FShadowMapInteraction ShadowMapInteraction;
-		FVector4 DistanceFieldValues;
 
 		/** Initialization constructor. */
 		ElementDataType( const FShadowMapInteraction& InShadowMapInteraction, const SuperElementDataType& InSuperElementData )
 			: SuperElementData(InSuperElementData)
 		{
 			ShadowMapInteraction = InShadowMapInteraction;
-
-			static const auto CVar0 = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.Shadow.DistanceFieldPenumbraSize"));
-			const float PenumbraSize = CVar0->GetValueOnAnyThread();
-
-			// Bias to convert distance from the distance field into the shadow penumbra based on penumbra size
-			DistanceFieldValues.X = 1.0f / FMath::Min(PenumbraSize, 1.0f);
-			DistanceFieldValues.Y = -0.5f * DistanceFieldValues.X + 0.5f;
-			DistanceFieldValues.Z = 0.0f;
-			DistanceFieldValues.W = 0.0f;
 		}
 	};
 
@@ -349,7 +339,7 @@ public:
 	public:
 		void Bind(const FShaderParameterMap& ParameterMap)
 		{
-			DistanceFieldParameters.Bind(ParameterMap,TEXT("DistanceFieldParameters"));
+			InvUniformPenumbraSizes.Bind(ParameterMap,TEXT("InvUniformPenumbraSizes"));
 			StaticShadowMapMasks.Bind(ParameterMap,TEXT("StaticShadowMapMasks"));
 			StaticShadowTexture.Bind(ParameterMap,TEXT("StaticShadowTexture"));
 			StaticShadowSampler.Bind(ParameterMap, TEXT("StaticShadowTextureSampler"));
@@ -357,12 +347,12 @@ public:
 			Super::PixelParametersType::Bind(ParameterMap);
 		}
 
-		void SetMesh(FRHICommandList& RHICmdList, FShader* PixelShader, const FShadowMapInteraction& ShadowMapInteraction, const FVector4& DistanceFieldValues) const
+		void SetMesh(FRHICommandList& RHICmdList, FShader* PixelShader, const FShadowMapInteraction& ShadowMapInteraction) const
 		{
 			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
 
-			SetShaderValue(RHICmdList, ShaderRHI, DistanceFieldParameters, DistanceFieldValues);
-			
+			SetShaderValue(RHICmdList, ShaderRHI, InvUniformPenumbraSizes, ShadowMapInteraction.GetInvUniformPenumbraSize());
+
 			SetShaderValue(RHICmdList, ShaderRHI, StaticShadowMapMasks, FVector4(
 				ShadowMapInteraction.GetChannelValid(0),
 				ShadowMapInteraction.GetChannelValid(1),
@@ -381,7 +371,7 @@ public:
 
 		void Serialize(FArchive& Ar)
 		{
-			Ar << DistanceFieldParameters;
+			Ar << InvUniformPenumbraSizes;
 			Ar << StaticShadowMapMasks;
 			Ar << StaticShadowTexture;
 			Ar << StaticShadowSampler;
@@ -392,7 +382,7 @@ public:
 		FShaderParameter StaticShadowMapMasks;
 		FShaderResourceParameter StaticShadowTexture;
 		FShaderResourceParameter StaticShadowSampler;
-		FShaderParameter DistanceFieldParameters;
+		FShaderParameter InvUniformPenumbraSizes;
 	};
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
@@ -424,7 +414,7 @@ public:
 
 		if (PixelShaderParameters)
 		{
-			PixelShaderParameters->SetMesh(RHICmdList, PixelShader, ElementData.ShadowMapInteraction, ElementData.DistanceFieldValues);
+			PixelShaderParameters->SetMesh(RHICmdList, PixelShader, ElementData.ShadowMapInteraction);
 		}
 
 		Super::SetMesh(RHICmdList, View, PrimitiveSceneProxy, VertexShaderParameters, PixelShaderParameters, VertexShader, PixelShader, VertexFactory, MaterialRenderProxy, ElementData.SuperElementData);

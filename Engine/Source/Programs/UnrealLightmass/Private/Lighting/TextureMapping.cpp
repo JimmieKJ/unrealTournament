@@ -25,6 +25,9 @@ public:
 		/** Weight used when combining super sampled attributes and determining if the texel has been mapped. */
 		float TotalSampleWeight;
 
+		/** Tracks the max sample weight encountered. */
+		float MaxSampleWeight;
+
 		/** World space radius of the texel. */
 		float TexelRadius;
 
@@ -213,25 +216,32 @@ void FStaticLightingRasterPolicy::ProcessPixel(int32 X,int32 Y,const Interpolant
 	}
 #endif
 
-	if (bUseMaxWeight && SampleWeight > TexelToVertex.TotalSampleWeight)
+	if (bUseMaxWeight)
 	{
-		// Use the sample with the largest weight.  
-		// This has the disadvantage compared averaging based on weight that it won't be well centered for texels on a UV seam,
-		// And a texel spanning multiple triangles will only use the normal from one of those triangles,
-		// But it has the advantage that the final position is guaranteed to be valid (ie actually on a triangle),
-		// Even for split texels which are mapped to triangles in different parts of the mesh.
-		TexelToVertex.TotalSampleWeight = SampleWeight;
-		TexelToVertex.WorldPosition = Interpolant.Vertex.WorldPosition;
-		TexelToVertex.WorldTangentX = Interpolant.Vertex.WorldTangentX;
-		TexelToVertex.WorldTangentY = Interpolant.Vertex.WorldTangentY;
-		TexelToVertex.WorldTangentZ = Interpolant.Vertex.WorldTangentZ;
-		TexelToVertex.TriangleNormal = TriangleNormal;
-		TexelToVertex.ElementIndex = Interpolant.ElementIndex;
-
-		for( int32 CurCoordIndex = 0; CurCoordIndex < MAX_TEXCOORDS; ++CurCoordIndex )
+		if (SampleWeight > TexelToVertex.MaxSampleWeight)
 		{
-			TexelToVertex.TextureCoordinates[ CurCoordIndex ] = Interpolant.Vertex.TextureCoordinates[ CurCoordIndex ];
+			// Use the sample with the largest weight.  
+			// This has the disadvantage compared averaging based on weight that it won't be well centered for texels on a UV seam,
+			// But it has the advantage that the final position is guaranteed to be valid (ie actually on a triangle),
+			// Even for split texels which are mapped to triangles in different parts of the mesh.
+			TexelToVertex.MaxSampleWeight = SampleWeight;
+			TexelToVertex.WorldPosition = Interpolant.Vertex.WorldPosition;
+			TexelToVertex.TriangleNormal = TriangleNormal;
+			TexelToVertex.ElementIndex = Interpolant.ElementIndex;
+
+			for( int32 CurCoordIndex = 0; CurCoordIndex < MAX_TEXCOORDS; ++CurCoordIndex )
+			{
+				TexelToVertex.TextureCoordinates[ CurCoordIndex ] = Interpolant.Vertex.TextureCoordinates[ CurCoordIndex ];
+			}
 		}
+		
+		// Weighted average of normal, improves the case where the position chosen by the max weight has a different normal than the rest of the texel
+		// Eg, small extrusions from an otherwise flat surface, and the texel center lies on the perpendicular extrusion
+		//@todo - only average normals within the texel radius to improve the split texel case?
+		TexelToVertex.WorldTangentX += Interpolant.Vertex.WorldTangentX * SampleWeight;
+		TexelToVertex.WorldTangentY += Interpolant.Vertex.WorldTangentY * SampleWeight;
+		TexelToVertex.WorldTangentZ += Interpolant.Vertex.WorldTangentZ * SampleWeight;
+		TexelToVertex.TotalSampleWeight += SampleWeight;
 	}
 	else if (!bUseMaxWeight)
 	{
@@ -483,10 +493,10 @@ void FStaticLightingSystem::ProcessTextureMapping(FStaticLightingTextureMapping*
 						FDebugStaticLightingVertex DebugVertex;
 						DebugVertex.VertexNormal = FVector4(TexelToVertex.WorldTangentZ);
 						DebugVertex.VertexPosition = TexelToVertex.WorldPosition;
-						
+						DebugOutput.Vertices.Add(DebugVertex);
+
 						if (X == Scene.DebugInput.LocalX && Y == Scene.DebugInput.LocalY)
-						{
-							DebugOutput.Vertices.Add(DebugVertex);
+						{							
 							DebugOutput.SelectedVertexIndices.Add(DebugOutput.Vertices.Num() - 1);
 							DebugOutput.SampleRadius = TexelToVertex.TexelRadius;
 						}
@@ -529,27 +539,77 @@ void FStaticLightingSystem::ProcessTextureMapping(FStaticLightingTextureMapping*
 				}
 				else 
 				{
-					if (!Light->UseStaticLighting(TextureMapping->bForceDirectLightMap)
+					if (!Light->UseStaticLighting()
 						&& (Light->LightFlags & GI_LIGHT_CASTSHADOWS) 
 						&& (Light->LightFlags & GI_LIGHT_CASTSTATICSHADOWS)
-						&& (Light->LightFlags & GI_LIGHT_USESIGNEDDISTANCEFIELDSHADOWS)
+						&& (Light->LightFlags & GI_LIGHT_STORE_SEPARATE_SHADOW_FACTOR)
 						&& ShadowSettings.bAllowSignedDistanceFieldShadows)
 					{
-						// Calculate distance field shadows, where the distance to the nearest shadow transition is stored instead of just a [0,1] shadow factor.
-						CalculateDirectSignedDistanceFieldLightingTextureMapping(TextureMapping, MappingContext, LightMapData, SignedDistanceFieldShadowMaps, TexelToVertexMap, TexelToCornersMap, bDebugThisMapping, Light);
+						if (Light->LightFlags & GI_LIGHT_USE_AREA_SHADOWS_FOR_SEPARATE_SHADOW_FACTOR)
+						{
+							FShadowMapData2D* ShadowMapData = new FShadowMapData2D(TextureMapping->CachedSizeX,TextureMapping->CachedSizeY);
+							CalculateDirectAreaLightingTextureMapping(TextureMapping, MappingContext, LightMapData, ShadowMapData, TexelToVertexMap, bDebugThisMapping, Light, false);
 
-						// Also calculate static lighting for simple light maps.  We'll force the shadows into simple light maps, but
-						// won't actually add the lights to the light guid list.  Instead, at runtime we'll check the shadow map guids
-						// for lights that are baked into light maps on platforms that don't support shadow mapping.
-						const bool bLowQualityLightMapsOnly = Light->GetDirectionalLight() == NULL;
-						CalculateDirectAreaLightingTextureMapping(TextureMapping, MappingContext, LightMapData, ShadowMaps, TexelToVertexMap, bDebugThisMapping, Light, bLowQualityLightMapsOnly);
+							if (ShadowMapData)
+							{
+								FSignedDistanceFieldShadowMapData2D* ConvertedShadowMapData = new FSignedDistanceFieldShadowMapData2D(TextureMapping->CachedSizeX, TextureMapping->CachedSizeY);
+
+								for (int32 Y = 0; Y < TextureMapping->CachedSizeY; Y++)
+								{
+									for (int32 X = 0; X < TextureMapping->CachedSizeX; X++)
+									{
+										const FShadowSample& SourceShadowSample = (*ShadowMapData)(X,Y);
+										FSignedDistanceFieldShadowSample& DestShadowSample = (*ConvertedShadowMapData)(X,Y);
+										DestShadowSample.bIsMapped = SourceShadowSample.bIsMapped;
+										// Encode with more precision near 0
+										// The decode shader code will undo this in GetPrecomputedShadowMasks
+										DestShadowSample.Distance = FMath::Sqrt(FMath::Clamp(SourceShadowSample.Visibility, 0.0f, 1.0f));
+										DestShadowSample.PenumbraSize = 1;
+									}
+								}
+
+								SignedDistanceFieldShadowMaps.Add(Light, ConvertedShadowMapData);
+							}
+						}
+						else
+						{
+							const bool bUseTextureSpaceDistanceFieldGeneration = true;
+
+							if (bUseTextureSpaceDistanceFieldGeneration)
+							{
+								// Calculate distance field shadows, where the distance to the nearest shadow transition is stored instead of just a [0,1] shadow factor.
+								CalculateDirectSignedDistanceFieldLightingTextureMappingTextureSpace(TextureMapping, MappingContext, LightMapData, SignedDistanceFieldShadowMaps, TexelToVertexMap, TexelToCornersMap, bDebugThisMapping, Light);
+							}
+							else
+							{
+								// Experimental method that avoids artifacts due to lightmap seams
+								CalculateDirectSignedDistanceFieldLightingTextureMappingLightSpace(TextureMapping, MappingContext, LightMapData, SignedDistanceFieldShadowMaps, TexelToVertexMap, TexelToCornersMap, bDebugThisMapping, Light);
+							}
+						}
+
+						// Stationary directional light is never put into the lightmap, even with low quality lightmaps
+						if (!Light->GetDirectionalLight())
+						{
+							// Also calculate static lighting for simple light maps.  We'll force the shadows into simple light maps, but
+							// won't actually add the lights to the light guid list.  Instead, at runtime we'll check the shadow map guids
+							// for lights that are baked into light maps on platforms that don't support shadow mapping.
+							FShadowMapData2D* ShadowMapData = NULL;
+							const bool bLowQualityLightMapsOnly = true;
+							CalculateDirectAreaLightingTextureMapping(TextureMapping, MappingContext, LightMapData, ShadowMapData, TexelToVertexMap, bDebugThisMapping, Light, bLowQualityLightMapsOnly);
+						}
 					}
-					else
+					else if (Light->UseStaticLighting())
 					{
-						// Calculate direct lighting from area lights, no filtering in texture space.  
+						FShadowMapData2D* ShadowMapData = NULL;
+
+						// Calculate direct lighting from area lights
 						// Shadow penumbras will be correctly shaped and will be softer for larger light sources and distant shadow casters.
-						const bool bLowQualityLightMapsOnly = false;
-						CalculateDirectAreaLightingTextureMapping(TextureMapping, MappingContext, LightMapData, ShadowMaps, TexelToVertexMap, bDebugThisMapping, Light, bLowQualityLightMapsOnly);
+						CalculateDirectAreaLightingTextureMapping(TextureMapping, MappingContext, LightMapData, ShadowMapData, TexelToVertexMap, bDebugThisMapping, Light, false);
+
+						if (Light->GetMeshAreaLight() == NULL)
+						{
+							LightMapData.AddLight(Light);
+						}
 					}
 				}
 			}
@@ -936,6 +996,14 @@ void FStaticLightingSystem::SetupTextureMapping(
 						}
 					}
 				}
+				else if (GeneralSettings.bUseMaxWeight)
+				{
+					// Weighted average
+					TexelToVertex.WorldTangentX = TexelToVertex.WorldTangentX / TexelToVertex.TotalSampleWeight;
+					TexelToVertex.WorldTangentY = TexelToVertex.WorldTangentY / TexelToVertex.TotalSampleWeight;
+					TexelToVertex.WorldTangentZ = TexelToVertex.WorldTangentZ / TexelToVertex.TotalSampleWeight;
+				}
+
 				// Mark the texel as mapped to some geometry in the scene
 				CurrentLightSample.bIsMapped = true;
 
@@ -1219,7 +1287,7 @@ void FStaticLightingSystem::CalculateDirectLightingTextureMappingFiltered(
 	else
 	{
 		// Check whether the light should use a light-map or shadow-map.
-		const bool bUseStaticLighting = Light->UseStaticLighting(TextureMapping->bForceDirectLightMap);
+		const bool bUseStaticLighting = Light->UseStaticLighting();
 		if (bUseStaticLighting)
 		{
 			// Convert the shadow-map into a light-map.
@@ -1287,33 +1355,15 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 	FStaticLightingTextureMapping* TextureMapping, 
 	FStaticLightingMappingContext& MappingContext,
 	FGatheredLightMapData2D& LightMapData, 
-	TMap<const FLight*, FShadowMapData2D*>& ShadowMaps,
+	FShadowMapData2D*& ShadowMapData,
 	const FTexelToVertexMap& TexelToVertexMap, 
 	bool bDebugThisMapping,
 	const FLight* Light,
-	const bool bLowQualityLightMapsOnly ) const
+	const bool bLowQualityLightMapsOnly) const
 {
 	LIGHTINGSTAT(FScopedRDTSCTimer AreaShadowsTimer(MappingContext.Stats.AreaShadowsThreadTime));
-	FShadowMapData2D* ShadowMapData = NULL;
-	const bool bUseStaticLighting =
-		Light->UseStaticLighting(TextureMapping->bForceDirectLightMap) ||
-		bLowQualityLightMapsOnly;	// Force static light maps if we're computing for LQ light maps only
+
 	bool bIsCompletelyOccluded = true;
-
-	if (!bUseStaticLighting)
-	{
-		// Only allow for shadow maps if shadow casting is enabled.
-		if ( (Light->LightFlags & GI_LIGHT_CASTSHADOWS) && (Light->LightFlags & GI_LIGHT_CASTSTATICSHADOWS) )
-		{
-			ShadowMapData = new FShadowMapData2D(TextureMapping->CachedSizeX,TextureMapping->CachedSizeY);
-		}
-		else
-		{
-			// Using neither static lighting nor shadow maps; nothing to do.
-			return;
-		}
-	}
-
 	FLMRandomStream SampleGenerator(0);
 
 	// Used for the optional lightmap gradient filtering pass
@@ -1349,6 +1399,8 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 
 			if ( CurrentLightSample.bIsMapped )
 			{
+				UnfilteredShadowFactorData(X, Y).bIsMapped = true;
+
 				// Only continue if some part of the light is in front of the surface
 				const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 
@@ -1451,9 +1503,8 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 						checkSlow(TexelToVertex.TotalSampleWeight > 0.0f);
 						TransmissionCache[(Y * TextureMapping->CachedSizeX) + X] = Transmission;
 						LightIntensityCache[(Y * TextureMapping->CachedSizeX) + X] = LightIntensity;
-						UnfilteredShadowFactorData(X, Y).Visibility = ShadowFactor;
-						UnfilteredShadowFactorData(X, Y).bIsMapped = true;
-
+						// Greyscale transmission for shadowmaps
+						UnfilteredShadowFactorData(X, Y).Visibility = ShadowFactor;// * FLinearColorUtils::LinearRGBToXYZ(Transmission).G;
 						// We have valid shadow factor values, enable the filter pass
 						bShadowFactorFilterPassEnabled = true;
 					}
@@ -1470,9 +1521,9 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 		const int32 KernelSizeX = 3; // Expected to be odd
 		const int32 KernelSizeY = 3; // Expected to be odd
 		const float FilterKernel3x3[KernelSizeX * KernelSizeY] = {
-			0.150f, 0.332f, 0.150f,
-			0.332f, 1.000f, 0.332f,
-			0.150f, 0.332f, 0.150f,
+			.5f * 0.150f, .5f * 0.332f, .5f * 0.150f,
+			.5f * 0.332f, .5f * 1.000f, .5f * 0.332f,
+			.5f * 0.150f, .5f * 0.332f, .5f * 0.150f,
 		};
 		for (int32 Y = 0; Y < TextureMapping->CachedSizeY; Y++)
 		{
@@ -1492,16 +1543,25 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 				{
 					float UnfilteredValue = UnfilteredShadowFactorData(X, Y).Visibility;
 					const bool bIntersectingSurface = TexelToVertexMap(X, Y).bIntersectingSurface;
+					const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+					const bool bLightIsInFrontOfTriangle = !Light->BehindSurface(TexelToVertex.WorldPosition, TexelToVertex.WorldTangentZ);
+
 					float FilteredValueNumerator = 0.0f;
 					float FilteredValueDenominator = 0.0f;
+					float CenterValueWeight = 1.0f;
+					
+					if (ShadowMapData)
+					{
+						// Lower the self weight on backfaces
+						// We want to spread frontface values onto backfaces for shadowmaps where the normal falloff will happen per-pixel
+						CenterValueWeight = bLightIsInFrontOfTriangle ? 1.0f : .1f;
+					}
 
 					// Compare (up to) the full grid of adjacent texels
 					int32 X1, Y1;
 					int32 FilterStepX = ((KernelSizeX - 1) / 2);
 					int32 FilterStepY = ((KernelSizeY - 1) / 2);
 
-					// Determine if filtering is needed at all
-					bool FilteringNeeded = false;
 					for (int32 KernelIndexY = -FilterStepY; KernelIndexY <= FilterStepY; KernelIndexY++)
 					{
 						// If this row is out of bounds, skip it
@@ -1524,40 +1584,41 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 
 							// Only include the texel if it's not completely in shadow
 							if (UnfilteredShadowFactorData(X1, Y1).bIsMapped
+								&& !(X1 == X && Y1 == Y)
 								// Don't filter across intersecting surface boundaries
 								&& (bIntersectingSurface == TexelToVertexMap(X1, Y1).bIntersectingSurface))
 							{
 								float ComparisonValue = UnfilteredShadowFactorData(X1, Y1).Visibility;
 								float DifferenceValue = FMath::Abs(UnfilteredValue - ComparisonValue);
-								if (DifferenceValue > ThresholdForFilteringPenumbra)
+								const FTexelToVertexMap::FTexelToVertex& NeighborTexelToVertex = TexelToVertexMap(X1, Y1);
+								const bool bNeighborLightIsInFrontOfTriangle = !Light->BehindSurface(NeighborTexelToVertex.WorldPosition, NeighborTexelToVertex.WorldTangentZ);
+
+								if (DifferenceValue > ThresholdForFilteringPenumbra 
+									// If we are filtering shadow factors for a shadowmap, only gather shadow values from frontfaces
+									&& (!ShadowMapData || bNeighborLightIsInFrontOfTriangle))
 								{
-									FilteringNeeded = true;
+									int32 FilterKernelIndex = ((KernelIndexY + FilterStepY) * KernelSizeX) + (KernelIndexX + FilterStepX);
+									float FilterKernelValue = FilterKernel3x3[FilterKernelIndex];
+
+									FilteredValueNumerator += (ComparisonValue * FilterKernelValue);
+									FilteredValueDenominator += FilterKernelValue;
 								}
-
-								// Accumulate the to-be-filtered values, in case we need to filter later.
-								// This is almost free since we're already doing the work for the lookup.
-								int32 FilterKernelIndex = ((KernelIndexY + FilterStepY) * KernelSizeX) + (KernelIndexX + FilterStepX);
-								float FilterKernelValue = FilterKernel3x3[FilterKernelIndex];
-
-								FilteredValueNumerator += (ComparisonValue * FilterKernelValue);
-								FilteredValueDenominator += FilterKernelValue;
 							}
 						}
 					}
 
 					float FinalShadowFactorValue;
-					if (FilteringNeeded)
+					if (FilteredValueDenominator > 0.0f)
 					{
-						FinalShadowFactorValue = (FilteredValueNumerator / FilteredValueDenominator);
+						FinalShadowFactorValue = (FilteredValueNumerator + UnfilteredValue * CenterValueWeight) / (FilteredValueDenominator + CenterValueWeight);
 					}
 					else
 					{
 						FinalShadowFactorValue = UnfilteredValue;
 					}
 
-					// If the shadow factor value is 0.0f, it will have no effect and thus can be ignored
 					FilteredShadowFactorData(X, Y).Visibility = FinalShadowFactorValue;
-					FilteredShadowFactorData(X, Y).bIsMapped = FinalShadowFactorValue > DELTA ? true : false;
+					FilteredShadowFactorData(X, Y).bIsMapped = true;
 				}
 			}
 		}
@@ -1600,18 +1661,27 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 					NumUnoccludedTexels++;
 					// Get any cached values
 					const float AdjustedShadowFactor = FMath::Pow(ShadowFactor, Light->ShadowExponent);
-					const FLinearColor Transmission = TransmissionCache[(Y * TextureMapping->CachedSizeX) + X];
-					const FLinearColor LightIntensity = LightIntensityCache[(Y * TextureMapping->CachedSizeX) + X];
-
-					// Calculate any derived values
-					const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
-					const FStaticLightingVertex CurrentVertex = TexelToVertex.GetVertex();
-					const FGatheredLightSample DirectLighting = CalculatePointLighting(TextureMapping, CurrentVertex, TexelToVertex.ElementIndex, Light, LightIntensity, Transmission);
 
 					if (GeneralSettings.ViewSingleBounceNumber < 1)
 					{
-						if (bUseStaticLighting)
+						if (ShadowMapData)
 						{
+							FShadowSample& CurrentShadowSample = (*ShadowMapData)(X,Y);
+							CurrentShadowSample.Visibility = AdjustedShadowFactor;
+							if ( CurrentShadowSample.Visibility > 0.0001f )
+							{
+								bIsCompletelyOccluded = false;
+							}
+						}
+						else
+						{
+							// Calculate any derived values
+							const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+							const FStaticLightingVertex CurrentVertex = TexelToVertex.GetVertex();
+							const FLinearColor LightIntensity = LightIntensityCache[(Y * TextureMapping->CachedSizeX) + X];
+							const FLinearColor Transmission = TransmissionCache[(Y * TextureMapping->CachedSizeX) + X];
+							const FGatheredLightSample DirectLighting = CalculatePointLighting(TextureMapping, CurrentVertex, TexelToVertex.ElementIndex, Light, LightIntensity, Transmission);
+
 							FGatheredLightMapSample& CurrentLightSample = LightMapData(X,Y);
 							if( bLowQualityLightMapsOnly )
 							{
@@ -1622,46 +1692,16 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 								CurrentLightSample.AddWeighted(DirectLighting, AdjustedShadowFactor);
 							}
 						}
-						else
-						{
-							FShadowSample& CurrentShadowSample = (*ShadowMapData)(X,Y);
-							// Using greyscale transmission for shadow maps, since we don't want to increase storage
-							CurrentShadowSample.Visibility = AdjustedShadowFactor * FLinearColorUtils::LinearRGBToXYZ(Transmission).G;
-							if ( CurrentShadowSample.Visibility > 0.0001f )
-							{
-								bIsCompletelyOccluded = false;
-							}
-						}
 					}
 				}
 			}
 		}
 	}
 
-	if (bUseStaticLighting)
+	if (ShadowMapData && (bIsCompletelyOccluded || NumUnoccludedTexels < NumMappedTexels * ShadowSettings.MinUnoccludedFraction))
 	{
-		// Don't modify light array when only updating LQ light maps.  This light has already been added
-		// to the shadow map light set, and we never want a light to appear in both lists.  Instead, the 
-		// runtime code will check both the light and shadow map lists for lights when running in a mode
-		// that does not support shadow maps.
-		if( !bLowQualityLightMapsOnly )
-		{
-			if (Light->GetMeshAreaLight() == NULL)
-			{
-				LightMapData.AddLight(Light);
-			}
-		}
-	}
-	else if (ShadowMapData)
-	{
-		if (bIsCompletelyOccluded || NumUnoccludedTexels < NumMappedTexels * ShadowSettings.MinUnoccludedFraction)
-		{
-			delete ShadowMapData;
-		}
-		else
-		{
-			ShadowMaps.Add(Light,ShadowMapData);
-		}
+		delete ShadowMapData;
+		ShadowMapData = NULL;
 	}
 }
 
@@ -1807,7 +1847,7 @@ void FDistanceFieldRasterPolicy::ProcessPixel(int32 X,int32 Y,const InterpolantT
  * Calculate signed distance field shadowing from a single light,  
  * Based on the paper "Improved Alpha-Tested Magnification for Vector Textures and Special Effects" by Valve.
  */
-void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMapping(
+void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMappingTextureSpace(
 	FStaticLightingTextureMapping* TextureMapping, 
 	FStaticLightingMappingContext& MappingContext,
 	FGatheredLightMapData2D& LightMapData, 
@@ -2002,6 +2042,7 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 					{
 						// Initialize the final distance field data, since it will only be written to after this if it gets scattered to during the search.
 						FinalShadowSample.Distance = 1.0f;
+						FinalShadowSample.PenumbraSize = 1.0f;
 					}
 
 					// Search for a neighbor with different visibility
@@ -2409,6 +2450,254 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 		}
 
 		ShadowMaps.Add(Light, ShadowMapData);
+	}
+}
+
+void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMappingLightSpace(
+	FStaticLightingTextureMapping* TextureMapping, 
+	FStaticLightingMappingContext& MappingContext,
+	FGatheredLightMapData2D& LightMapData, 
+	TMap<const FLight*, FSignedDistanceFieldShadowMapData2D*>& ShadowMaps,
+	const FTexelToVertexMap& TexelToVertexMap, 
+	const FTexelToCornersMap& TexelToCornersMap,
+	bool bDebugThisMapping,
+	const FLight* Light) const
+{
+	const FBoxSphereBounds MeshInfluenceBounds(TextureMapping->Mesh->BoundingBox.ExpandBy(ShadowSettings.MaxTransitionDistanceWorldSpace));
+
+	if (Light->AffectsBounds(MeshInfluenceBounds))
+	{
+		const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+		const FDirectionalLight* DirectionalLight = Light->GetDirectionalLight();
+		const FSpotLight* SpotLight = Light->GetSpotLight();
+		const FPointLight* PointLight = Light->GetPointLight();
+		check(DirectionalLight || SpotLight || PointLight);
+
+		if (DirectionalLight)
+		{
+			LIGHTINGSTAT(FManualRDTSCTimer FirstPassSourceTimer(MappingContext.Stats.SignedDistanceFieldSourceFirstPassThreadTime));
+			FVector4 XAxis, YAxis;
+			DirectionalLight->Direction.FindBestAxisVectors3(XAxis, YAxis);
+			// Create a coordinate system for the directional light, with the z axis corresponding to the light's direction
+			FMatrix WorldToLight = FBasisVectorMatrix(XAxis, YAxis, DirectionalLight->Direction, FVector4(0,0,0));
+
+			const FBox LightSpaceImportanceBounds = MeshInfluenceBounds.GetBox().TransformBy(WorldToLight);
+
+			FStaticShadowDepthMap ShadowDepthMap;
+
+			int32 ShadowMapSizeX = FMath::TruncToInt(FMath::Max(LightSpaceImportanceBounds.GetExtent().X * 2.0f * 100.0f / ShadowSettings.MaxTransitionDistanceWorldSpace, 4.0f));
+			ShadowMapSizeX = ShadowMapSizeX == appTruncErrorCode ? INT_MAX : ShadowMapSizeX;
+			int32 ShadowMapSizeY = FMath::TruncToInt(FMath::Max(LightSpaceImportanceBounds.GetExtent().Y * 2.0f * 100.0f / ShadowSettings.MaxTransitionDistanceWorldSpace, 4.0f));
+			ShadowMapSizeY = ShadowMapSizeY == appTruncErrorCode ? INT_MAX : ShadowMapSizeY;
+
+			uint64 ShadowDepthMapMaxSamples = 4194304;
+
+			// Clamp the number of dominant shadow samples generated if necessary while maintaining aspect ratio
+			if ((uint64)ShadowMapSizeX * (uint64)ShadowMapSizeY > (uint64)ShadowDepthMapMaxSamples)
+			{
+				const float AspectRatio = ShadowMapSizeX / (float)ShadowMapSizeY;
+				ShadowMapSizeY = FMath::TruncToInt(FMath::Sqrt(ShadowDepthMapMaxSamples / AspectRatio));
+				ShadowMapSizeX = FMath::TruncToInt(ShadowDepthMapMaxSamples / ShadowMapSizeY);
+			}
+
+			TArray<float> ShadowMap;
+
+			// Allocate the shadow map
+			ShadowMap.Empty(ShadowMapSizeX * ShadowMapSizeY);
+			ShadowMap.AddZeroed(ShadowMapSizeX * ShadowMapSizeY);
+			const float ShadowMapStart = LightSpaceImportanceBounds.Max.Z - SceneBounds.SphereRadius * 2;
+			const FMatrix LightToWorld = WorldToLight.InverseFast();
+
+			for (int32 Y = 0; Y < ShadowMapSizeY; Y++)
+			{
+				const float YFraction = (Y + .5f) / (float)(ShadowMapSizeY - 1);
+
+				for (int32 X = 0; X < ShadowMapSizeX; X++)
+				{
+					const float XFraction = (X + .5f) / (float)(ShadowMapSizeX - 1);
+
+					const FVector4 LightSpaceEndPosition(
+						LightSpaceImportanceBounds.Min.X + XFraction * (LightSpaceImportanceBounds.Max.X - LightSpaceImportanceBounds.Min.X),
+						LightSpaceImportanceBounds.Min.Y + YFraction * (LightSpaceImportanceBounds.Max.Y - LightSpaceImportanceBounds.Min.Y),
+						LightSpaceImportanceBounds.Max.Z);
+					const FVector4 WorldSpaceEndPosition = LightToWorld.TransformPosition(LightSpaceEndPosition);
+
+					const FVector4 LightSpaceStartPosition(LightSpaceEndPosition.X, LightSpaceEndPosition.Y, ShadowMapStart);
+					const FVector4 WorldSpaceStartPosition = LightToWorld.TransformPosition(LightSpaceStartPosition);
+
+					const FLightRay LightRay(
+						WorldSpaceStartPosition,
+						WorldSpaceEndPosition,
+						NULL,
+						NULL,
+						// We are tracing from the light instead of to the light,
+						// So flip sidedness so that backface culling matches up with tracing to the light
+						LIGHTRAY_FLIP_SIDEDNESS
+						);
+
+					FLightRayIntersection Intersection;
+					AggregateMesh.IntersectLightRay(LightRay, true, false, true, MappingContext.RayCache, Intersection);
+
+					float MaxSampleDistance = SceneBounds.SphereRadius * 2;
+
+					if (Intersection.bIntersects)
+					{
+						MaxSampleDistance = (Intersection.IntersectionVertex.WorldPosition - WorldSpaceStartPosition).Size3();
+					}
+
+					ShadowMap[Y * ShadowMapSizeX + X] = MaxSampleDistance;
+				}
+			}
+
+			FirstPassSourceTimer.Stop();
+
+			LIGHTINGSTAT(FScopedRDTSCTimer SearchTimer(MappingContext.Stats.SignedDistanceFieldSearchThreadTime));
+			FSignedDistanceFieldShadowMapData2D* ShadowMapData = new FSignedDistanceFieldShadowMapData2D(TextureMapping->CachedSizeX, TextureMapping->CachedSizeY);
+			const int32 TransitionSearchTexelRadiusX = FMath::TruncToInt(ShadowMapSizeX * ShadowSettings.MaxTransitionDistanceWorldSpace / LightSpaceImportanceBounds.GetSize().X);
+			const int32 TransitionSearchTexelRadiusY = FMath::TruncToInt(ShadowMapSizeY * ShadowSettings.MaxTransitionDistanceWorldSpace / LightSpaceImportanceBounds.GetSize().Y);
+			const float BoundsCellSizeX = (LightSpaceImportanceBounds.Max.X - LightSpaceImportanceBounds.Min.X) / ShadowMapSizeX;
+			const float BoundsCellSizeY = (LightSpaceImportanceBounds.Max.Y - LightSpaceImportanceBounds.Min.Y) / ShadowMapSizeY;
+			const float DepthBias = FMath::Max(BoundsCellSizeX, BoundsCellSizeY);
+
+			for (int32 Y = 0; Y < TextureMapping->CachedSizeY; Y++)
+			{
+				for (int32 X = 0; X < TextureMapping->CachedSizeX; X++)
+				{
+					bool bDebugThisTexel = false;
+#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
+					if (bDebugThisMapping
+						&& Y == Scene.DebugInput.LocalY
+						&& X == Scene.DebugInput.LocalX)
+					{
+						bDebugThisTexel = true;
+					}
+#endif
+					const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+
+					if (TexelToVertex.TotalSampleWeight > 0.0f)
+					{
+						const FVector4 LightSpacePosition = WorldToLight.TransformPosition(TexelToVertex.WorldPosition);
+						const FVector LightSpaceNormal = WorldToLight.TransformVector(TexelToVertex.WorldTangentZ);
+						const float SinThetaX = LightSpaceNormal.X;
+						const float TanThetaX = SinThetaX / FMath::Sqrt(1 - SinThetaX * SinThetaX);
+						const float SinThetaY = LightSpaceNormal.Y;
+						const float TanThetaY = SinThetaY / FMath::Sqrt(1 - SinThetaY * SinThetaY);
+						const float SurfaceDepth = LightSpacePosition.Z - ShadowMapStart;
+
+						const int32 ShadowMapX = FMath::Clamp(FMath::TruncToInt((LightSpacePosition.X - LightSpaceImportanceBounds.Min.X) / BoundsCellSizeX), 0, ShadowMapSizeX - 1);
+						const int32 ShadowMapY = FMath::Clamp(FMath::TruncToInt((LightSpacePosition.Y - LightSpaceImportanceBounds.Min.Y) / BoundsCellSizeY), 0, ShadowMapSizeY - 1);
+
+						const float TexelShadowMapDepth = ShadowMap[ShadowMapY * ShadowMapSizeX + ShadowMapX];
+						const float SlopeScaledDepthBias = 4 * FMath::Max(BoundsCellSizeX * FMath::Abs(TanThetaX), BoundsCellSizeY * FMath::Abs(TanThetaY));
+						const bool bTexelVisible = TexelShadowMapDepth > SurfaceDepth - SlopeScaledDepthBias - DepthBias;
+						float ClosestTransition = ShadowSettings.MaxTransitionDistanceWorldSpace;
+						//float ClosestTransitionPenumbraSize = 1;
+						float MostShadowingTransition = 1;
+						float MostShadowingTransitionDistance = 1;
+						float MostShadowingTransitionPenumbraSize = 1;
+
+						for (int32 SearchY = FMath::Max(ShadowMapY - TransitionSearchTexelRadiusY, 0); SearchY < FMath::Min(ShadowMapY + TransitionSearchTexelRadiusY, ShadowMapSizeY); SearchY++)
+						{
+							for (int32 SearchX = FMath::Max(ShadowMapX - TransitionSearchTexelRadiusX, 0); SearchX < FMath::Min(ShadowMapX + TransitionSearchTexelRadiusX, ShadowMapSizeX); SearchX++)
+							{
+								const FVector2D LightSpaceXYOffset((SearchX - ShadowMapX) * BoundsCellSizeX, (SearchY - ShadowMapY) * BoundsCellSizeY);
+								const float PlaneHeightOffsetX = LightSpaceXYOffset.X * TanThetaX;
+								const float PlaneHeightOffsetY = LightSpaceXYOffset.Y * TanThetaY;
+								const float PlaneHeightOffset = PlaneHeightOffsetX + PlaneHeightOffsetY;
+
+								const float SearchShadowMapDepth = ShadowMap[SearchY * ShadowMapSizeX + SearchX];
+								const float ExtrapolatedSurfaceDepth = SurfaceDepth + PlaneHeightOffset;
+								const float SearchTransition = LightSpaceXYOffset.Size();
+								const float SameSurfaceDepthBias = SearchTransition * 1.0f;
+								const bool bSearchTexelVisible = SearchShadowMapDepth > ExtrapolatedSurfaceDepth - SlopeScaledDepthBias - DepthBias - SameSurfaceDepthBias;
+
+								if (bTexelVisible)
+								{
+									const float SearchNormalizedDistance = FMath::Clamp(SearchTransition / ShadowSettings.MaxTransitionDistanceWorldSpace, 0.0f, 1.0f);
+									const float SearchEncodedDistance = bTexelVisible ? (SearchNormalizedDistance) * .5f + .5f : .5f - SearchNormalizedDistance * .5f;
+
+									const float ReceiverDistanceFromLight = SurfaceDepth;
+									const float OccluderDistanceFromLight = bTexelVisible ? SearchShadowMapDepth : TexelShadowMapDepth;
+									// World space distance from center of penumbra to fully shadowed or fully lit transition
+									const float SearchPenumbraSize = (ReceiverDistanceFromLight - OccluderDistanceFromLight) * Light->LightSourceRadius / OccluderDistanceFromLight;
+									const float SearchEncodedPenumbraSize = FMath::Clamp(SearchPenumbraSize / ShadowSettings.MaxTransitionDistanceWorldSpace, 0.01f, 1.0f);
+
+									const float SearchShadowing = FMath::Clamp(SearchEncodedDistance / SearchEncodedPenumbraSize - .5f / SearchEncodedPenumbraSize + .5f, 0.0f, 1.0f);
+
+									if (bSearchTexelVisible != bTexelVisible
+										/* && SearchTransition < ClosestTransition*/
+										&& SearchShadowing < MostShadowingTransition)
+									{
+										MostShadowingTransition = SearchShadowing;
+										MostShadowingTransitionDistance = SearchEncodedDistance;
+										MostShadowingTransitionPenumbraSize = SearchEncodedPenumbraSize;
+										//ClosestTransition = SearchTransition;
+										/*
+										if (bTexelVisible)
+										{
+											// Approximate the penumbra size using PenumbraSize = (ReceiverDistanceFromLight - OccluderDistanceFromLight) * LightSize / OccluderDistanceFromLight,
+											// Which is from the paper "Percentage-Closer Soft Shadows" by Randima Fernando
+											const float ReceiverDistanceFromLight = SurfaceDepth;
+											const float OccluderDistanceFromLight = SearchShadowMapDepth;
+											// World space distance from center of penumbra to fully shadowed or fully lit transition
+											const float PenumbraSize = (ReceiverDistanceFromLight - OccluderDistanceFromLight) * Light->LightSourceRadius / OccluderDistanceFromLight;
+											// Normalize the penumbra size so it is a fraction of MaxTransitionDistanceWorldSpace
+											ClosestTransitionPenumbraSize = FMath::Clamp(PenumbraSize / ShadowSettings.MaxTransitionDistanceWorldSpace, 0.01f, 1.0f);
+										}*/
+									}
+								}
+								else
+								{
+									if (bSearchTexelVisible != bTexelVisible
+										&& SearchTransition < ClosestTransition)
+									{
+										ClosestTransition = SearchTransition;
+									}
+								}
+							}
+						}
+
+						FSignedDistanceFieldShadowSample& FinalShadowSample = (*ShadowMapData)(X, Y);
+						FinalShadowSample.bIsMapped = true;
+						FinalShadowSample.Distance = MostShadowingTransitionDistance;
+						FinalShadowSample.PenumbraSize = MostShadowingTransitionPenumbraSize;
+
+						if (!bTexelVisible)
+						{
+							const float NormalizedDistance = FMath::Clamp(ClosestTransition / ShadowSettings.MaxTransitionDistanceWorldSpace, 0.0f, 1.0f);
+							// Encode the transition distance so that [.5,0] corresponds to [0,1] for shadowed texels, and [.5,1] corresponds to [0,1] for unshadowed texels.
+							// .5 of the encoded distance lies exactly on the shadow transition.
+							FinalShadowSample.Distance = bTexelVisible ? (NormalizedDistance) * .5f + .5f : .5f - NormalizedDistance * .5f;
+
+							const float ReceiverDistanceFromLight = SurfaceDepth;
+							const float OccluderDistanceFromLight = TexelShadowMapDepth;
+							const float PenumbraSize = (ReceiverDistanceFromLight - OccluderDistanceFromLight) * Light->LightSourceRadius / OccluderDistanceFromLight;
+							FinalShadowSample.PenumbraSize = FMath::Clamp(PenumbraSize / ShadowSettings.MaxTransitionDistanceWorldSpace, 0.01f, 1.0f);
+						}
+						/*
+						const float NormalizedDistance = FMath::Clamp(ClosestTransition / ShadowSettings.MaxTransitionDistanceWorldSpace, 0.0f, 1.0f);
+						// Encode the transition distance so that [.5,0] corresponds to [0,1] for shadowed texels, and [.5,1] corresponds to [0,1] for unshadowed texels.
+						// .5 of the encoded distance lies exactly on the shadow transition.
+						FinalShadowSample.Distance = bTexelVisible ? (NormalizedDistance) * .5f + .5f : .5f - NormalizedDistance * .5f;
+
+						if (bTexelVisible)
+						{
+							FinalShadowSample.PenumbraSize = ClosestTransitionPenumbraSize;
+						}
+						else
+						{
+							const float ReceiverDistanceFromLight = SurfaceDepth;
+							const float OccluderDistanceFromLight = TexelShadowMapDepth;
+							const float PenumbraSize = (ReceiverDistanceFromLight - OccluderDistanceFromLight) * Light->LightSourceRadius / OccluderDistanceFromLight;
+							FinalShadowSample.PenumbraSize = FMath::Clamp(PenumbraSize / ShadowSettings.MaxTransitionDistanceWorldSpace, 0.01f, 1.0f);
+						}
+						*/
+					}
+				}
+			}
+
+			ShadowMaps.Add(Light, ShadowMapData);
+		}
 	}
 }
 

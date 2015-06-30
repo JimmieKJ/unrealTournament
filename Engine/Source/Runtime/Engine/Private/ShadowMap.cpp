@@ -294,31 +294,37 @@ void FShadowMapPendingTexture::StartEncoding(UWorld* InWorld)
 	Texture->SRGB			= false;
 	Texture->LODGroup		= TEXTUREGROUP_Shadowmap;
 	Texture->ShadowmapFlags	= ShadowmapFlags;
-	Texture->Source.Init2DWithMipChain(GetSizeX(), GetSizeY(), TSF_BGRA8);
-	Texture->MipGenSettings = TMGS_LeaveExistingMips;
-	Texture->CompressionNone = true;
-
-	int32 TextureSizeX = Texture->Source.GetSizeX();
-	int32 TextureSizeY = Texture->Source.GetSizeY();
 
 	{
 		// Create the uncompressed top mip-level.
 		TArray< TArray<FFourDistanceFieldSamples> > MipData;
-		FShadowMap2D::EncodeSingleTexture(*this, Texture, MipData);
+		const int32 NumChannelsUsed = FShadowMap2D::EncodeSingleTexture(*this, Texture, MipData);
+
+		Texture->Source.Init2DWithMipChain(GetSizeX(), GetSizeY(), NumChannelsUsed == 1 ? TSF_G8 : TSF_BGRA8);
+		Texture->MipGenSettings = TMGS_LeaveExistingMips;
+		Texture->CompressionNone = true;
 
 		// Copy the mip-map data into the UShadowMapTexture2D's mip-map array.
 		for(int32 MipIndex = 0;MipIndex < MipData.Num();MipIndex++)
 		{
-			FColor* DestMipData = (FColor*)Texture->Source.LockMip(MipIndex);
-			uint32 MipSizeX = FMath::Max(1,TextureSizeX >> MipIndex);
-			uint32 MipSizeY = FMath::Max(1,TextureSizeY >> MipIndex);
+			uint8* DestMipData = (uint8*)Texture->Source.LockMip(MipIndex);
+			uint32 MipSizeX = FMath::Max<uint32>(1, GetSizeX() >> MipIndex);
+			uint32 MipSizeY = FMath::Max<uint32>(1, GetSizeY() >> MipIndex);
 
 			for(uint32 Y = 0;Y < MipSizeY;Y++)
 			{
 				for(uint32 X = 0;X < MipSizeX;X++)
 				{
 					const FFourDistanceFieldSamples& SourceSample = MipData[MipIndex][Y * MipSizeX + X];
-					DestMipData[ Y * MipSizeX + X ] = FColor(SourceSample.Samples[0].Distance, SourceSample.Samples[1].Distance, SourceSample.Samples[2].Distance, SourceSample.Samples[3].Distance);
+
+					if (NumChannelsUsed == 1)
+					{
+						DestMipData[Y * MipSizeX + X] = SourceSample.Samples[0].Distance;
+					}
+					else
+					{
+						((FColor*)DestMipData)[Y * MipSizeX + X] = FColor(SourceSample.Samples[0].Distance, SourceSample.Samples[1].Distance, SourceSample.Samples[2].Distance, SourceSample.Samples[3].Distance);
+					}
 				}
 			}
 
@@ -333,7 +339,7 @@ void FShadowMapPendingTexture::StartEncoding(UWorld* InWorld)
 
 	// Update stats.
 	int32 TextureSize			= Texture->CalcTextureMemorySizeEnum( TMC_AllMips );
-	GNumShadowmapTotalTexels	+= TextureSizeX * TextureSizeY;
+	GNumShadowmapTotalTexels	+= GetSizeX() * GetSizeY();
 	GNumShadowmapTextures++;
 	GShadowmapTotalSize			+= TextureSize;
 	GShadowmapTotalStreamingSize += (ShadowmapFlags & SMF_Streamed) ? TextureSize : 0;
@@ -509,13 +515,23 @@ void FShadowMap2D::Serialize(FArchive& Ar)
 	{
 		Ar << bChannelValid[Channel];
 	}
+
+	if (Ar.UE4Ver() >= VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE)
+	{
+		Ar << InvUniformPenumbraSize;
+	}
+	else if (Ar.IsLoading())
+	{
+		const float LegacyValue = 1.0f / .05f;
+		InvUniformPenumbraSize = FVector4(LegacyValue, LegacyValue, LegacyValue, LegacyValue);
+	}
 }
 
 FShadowMapInteraction FShadowMap2D::GetInteraction() const
 {
 	if (Texture)
 	{
-		return FShadowMapInteraction::Texture(Texture, CoordinateScale, CoordinateBias, bChannelValid);
+		return FShadowMapInteraction::Texture(Texture, CoordinateScale, CoordinateBias, bChannelValid, InvUniformPenumbraSize);
 	}
 	return FShadowMapInteraction::None();
 }
@@ -754,18 +770,20 @@ void FShadowMap2D::EncodeTextures(UWorld* InWorld , bool bLightingSuccessful)
 	}
 }
 
-void FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture, UShadowMapTexture2D* Texture, TArray< TArray<FFourDistanceFieldSamples> >& MipData)
+int32 FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture, UShadowMapTexture2D* Texture, TArray< TArray<FFourDistanceFieldSamples> >& MipData)
 {
 	TArray<FFourDistanceFieldSamples>* TopMipData = new(MipData) TArray<FFourDistanceFieldSamples>();
 	TopMipData->Empty(PendingTexture.GetSizeX() * PendingTexture.GetSizeY());
 	TopMipData->AddZeroed(PendingTexture.GetSizeX() * PendingTexture.GetSizeY());
-	int32 TextureSizeX = Texture->Source.GetSizeX();
-	int32 TextureSizeY = Texture->Source.GetSizeY();
+	int32 TextureSizeX = PendingTexture.GetSizeX();
+	int32 TextureSizeY = PendingTexture.GetSizeY();
+	int32 MaxChannelsUsed = 0;
 
 	for (int32 AllocationIndex = 0;AllocationIndex < PendingTexture.Allocations.Num();AllocationIndex++)
 	{
 		FShadowMapAllocation& Allocation = *PendingTexture.Allocations[AllocationIndex];
 		bool bChannelUsed[4] = {0};
+		FVector4 InvUniformPenumbraSize(0, 0, 0, 0);
 
 		for (int32 ChannelIndex = 0; ChannelIndex < 4; ChannelIndex++)
 		{
@@ -773,8 +791,12 @@ void FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture,
 			{
 				if (ShadowMapPair.Key->ShadowMapChannel == ChannelIndex)
 				{
+					MaxChannelsUsed = FMath::Max(MaxChannelsUsed, ChannelIndex + 1);
 					bChannelUsed[ChannelIndex] = true;
 					const TArray<FQuantizedSignedDistanceFieldShadowSample>& SourceSamples = ShadowMapPair.Value;
+
+					// Warning - storing one penumbra size for the whole shadowmap even though multiple lights can share a channel
+					InvUniformPenumbraSize[ChannelIndex] = 1.0f / ShadowMapPair.Key->GetUniformPenumbraSize();
 
 					// Copy the raw data for this light-map into the raw texture data array.
 					for (int32 Y = Allocation.MappedRect.Min.Y; Y < Allocation.MappedRect.Max.Y; ++Y)
@@ -789,6 +811,7 @@ void FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture,
 
 							if ( SourceSample.Coverage > 0 )
 							{
+								// Note: multiple lights can write to different parts of the destination due to channel assignment
 								DestSample.Samples[ChannelIndex] = SourceSample;
 							}
 #if WITH_EDITOR
@@ -847,6 +870,8 @@ void FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture,
 		{
 			Allocation.ShadowMap->bChannelValid[ChannelIndex] = bChannelUsed[ChannelIndex];
 		}
+
+		Allocation.ShadowMap->InvUniformPenumbraSize = InvUniformPenumbraSize;
 	}
 
 	const uint32 NumMips = FMath::Max(FMath::CeilLogTwo(TextureSizeX),FMath::CeilLogTwo(TextureSizeY)) + 1;
@@ -1023,6 +1048,8 @@ void FShadowMap2D::EncodeSingleTexture(FShadowMapPendingTexture& PendingTexture,
 	{
 		Allocation->PostEncode();
 	}
+
+	return MaxChannelsUsed;
 }
 
 #endif

@@ -205,6 +205,20 @@ ELightComponentType UPointLightComponent::GetLightType() const
 	return LightType_Point;
 }
 
+float UPointLightComponent::GetUniformPenumbraSize() const
+{
+	if (LightmassSettings.bUseAreaShadowsForStationaryLight)
+	{
+		// Interpret distance as shadow factor directly
+		return 1.0f;
+	}
+	else
+	{
+		// Heuristic to derive uniform penumbra size from light source radius
+		return FMath::Clamp(SourceRadius == 0 ? .05f : SourceRadius * .005f, .0001f, 1.0f);
+	}
+}
+
 //
 FBox UPointLightComponent::GetBoundingBox() const
 {

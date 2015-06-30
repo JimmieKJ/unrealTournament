@@ -461,7 +461,7 @@ void FStaticLightingMesh::CreateMeshAreaLights(
 					{
 						// Initialize all of the mesh area light's unused properties to 0
 						FMeshAreaLight* NewLight = new FMeshAreaLight(ForceInit);
-						NewLight->LightFlags = GI_LIGHT_HASSTATICLIGHTING | GI_LIGHT_USEDIRECTLIGHTMAP | GI_LIGHT_CASTSHADOWS | GI_LIGHT_CASTSTATICSHADOWS;
+						NewLight->LightFlags = GI_LIGHT_HASSTATICLIGHTING | GI_LIGHT_CASTSHADOWS | GI_LIGHT_CASTSTATICSHADOWS;
 						NewLight->SetPrimitives(
 							TrimmedEmissivePrimitives[LightIndex], 
 							MaterialElements[MaterialIndex].EmissiveLightFalloffExponent, 

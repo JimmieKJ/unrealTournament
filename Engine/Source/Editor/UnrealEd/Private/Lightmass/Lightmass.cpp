@@ -124,11 +124,10 @@ void Copy( const ULightComponentBase* In, Lightmass::FLightData& Out )
 	{
 		Out.LightFlags |= Lightmass::GI_LIGHT_HASSTATICSHADOWING;
 		Out.LightFlags |= Lightmass::GI_LIGHT_HASSTATICLIGHTING;
-		Out.LightFlags |= Lightmass::GI_LIGHT_USEDIRECTLIGHTMAP;
 	}
 	else if (In->HasStaticShadowing())
 	{
-		Out.LightFlags |= Lightmass::GI_LIGHT_USESIGNEDDISTANCEFIELDSHADOWS;
+		Out.LightFlags |= Lightmass::GI_LIGHT_STORE_SEPARATE_SHADOW_FACTOR;
 		Out.LightFlags |= Lightmass::GI_LIGHT_HASSTATICSHADOWING;
 	}
 
@@ -153,6 +152,11 @@ void Copy( const ULightComponent* In, Lightmass::FLightData& Out )
 	if( PointLight && PointLight->bUseInverseSquaredFalloff )
 	{
 		Out.LightFlags |= Lightmass::GI_LIGHT_INVERSE_SQUARED;
+	}
+
+	if (In->GetLightmassSettings().bUseAreaShadowsForStationaryLight)
+	{
+		Out.LightFlags |= Lightmass::GI_LIGHT_USE_AREA_SHADOWS_FOR_SEPARATE_SHADOW_FACTOR;
 	}
 
 	Out.Brightness = In->ComputeLightBrightness();
@@ -1350,7 +1354,6 @@ void FLightmassExporter::WriteBaseMappingData( int32 Channel, const FStaticLight
 	FMemory::Memzero(&MappingData,sizeof(MappingData));
 	MappingData.Guid = Mapping->Mesh->Guid;
 	MappingData.StaticLightingMeshInstance = Mapping->Mesh->SourceMeshGuid;
-	MappingData.bForceDirectLightMap = false;
 	Swarm.WriteChannel( Channel, &MappingData, sizeof(MappingData) );
 }
 
