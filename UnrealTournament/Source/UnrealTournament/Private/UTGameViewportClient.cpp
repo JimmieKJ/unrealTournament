@@ -7,6 +7,7 @@
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWRedirectDialog.h"
 #include "Slate/SUTGameLayerManager.h"
+#include "Slate/SUWYoutubeConsent.h"
 #include "Engine/GameInstance.h"
 #include "UTGameEngine.h"
 
@@ -798,3 +799,109 @@ void UUTGameViewportClient::RemoveContentDownloadCompleteDelegate(FDelegateHandl
 	ContentDownloadComplete.Remove(DelegateHandle);
 }
 
+void UUTGameViewportClient::RequestYoutubeConsent()
+{
+#if !UE_SERVER
+	bYoutubeConsentInFlight = true;
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	FirstPlayer->OpenDialog(
+							SAssignNew(YoutubeConsentDialog, SUWYoutubeConsent)
+							.PlayerOwner(FirstPlayer)
+							.DialogSize(FVector2D(0.8f, 0.8f))
+							.DialogPosition(FVector2D(0.5f, 0.5f))
+							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "YoutubeConsent", "Allow UT to post to YouTube?"))
+							.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+							.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::YoutubeConsentResult))
+							);
+#endif
+}
+
+void UUTGameViewportClient::YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
+	{
+		bYoutubeConsentInFlight = false;
+	}
+	else
+	{
+		FHttpRequestPtr YoutubeTokenRequest = FHttpModule::Get().CreateRequest();
+		YoutubeTokenRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+		YoutubeTokenRequest->OnProcessRequestComplete().BindUObject(this, &UUTGameViewportClient::YoutubeTokenRequestComplete);
+		YoutubeTokenRequest->SetVerb(TEXT("POST"));
+		YoutubeTokenRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
+
+		// ClientID and ClientSecret UT Youtube app on PLK google account
+		FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+		FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+		FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
+			                 + TEXT("&client_secret=") + ClientSecret + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code");
+
+		YoutubeTokenRequest->SetContentAsString(TokenRequest);
+		YoutubeTokenRequest->ProcessRequest();
+	}
+}
+
+void UUTGameViewportClient::RefreshYoutubeToken()
+{
+	bYoutubeConsentInFlight = true;
+
+	FHttpRequestPtr YoutubeTokenRefreshRequest = FHttpModule::Get().CreateRequest();
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	YoutubeTokenRefreshRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+	// ClientID and ClientSecret UT Youtube app on PLK google account
+	FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+	FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+	FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
+						 + TEXT("&client_secret=") + ClientSecret + TEXT("&refresh_token=") + FirstPlayer->YoutubeRefreshToken + TEXT("&grant_type=refresh_token");
+
+	YoutubeTokenRefreshRequest->SetContentAsString(TokenRequest);
+	YoutubeTokenRefreshRequest->ProcessRequest();
+}
+
+void UUTGameViewportClient::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	bYoutubeConsentInFlight = false;
+	if (HttpResponse->GetResponseCode() == 200)
+	{
+		TSharedPtr<FJsonObject> YoutubeTokenJson;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		{
+			UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
+			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), FirstPlayer->YoutubeAccessToken);
+			YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), FirstPlayer->YoutubeRefreshToken);
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s"), *HttpResponse->GetContentAsString());
+	}
+}
+
+void UUTGameViewportClient::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	bYoutubeConsentInFlight = false;
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
+	if (HttpResponse->GetResponseCode() == 200)
+	{
+		TSharedPtr<FJsonObject> YoutubeTokenJson;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		{
+			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), FirstPlayer->YoutubeAccessToken);
+		}
+	}
+	else
+	{
+		// Refresh token might have been expired
+		FirstPlayer->YoutubeAccessToken.Empty();
+		FirstPlayer->YoutubeRefreshToken.Empty();
+
+		RequestYoutubeConsent();
+	}
+}
+
+bool UUTGameViewportClient::IsYoutubeConsentInFlight()
+{
+	return bYoutubeConsentInFlight;
+}

@@ -110,6 +110,11 @@ public:
 	UPROPERTY(Config)
 	bool bFragCenterAutoMute;
 
+	UPROPERTY(config)
+	FString YoutubeAccessToken;
+
+	UPROPERTY(config)
+	FString YoutubeRefreshToken;
 
 protected:
 
@@ -251,7 +256,7 @@ protected:
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
 
 private:
-
+	
 	// Holds the Username of the pending user.  It's set in LoginOnline and cleared when there is a successful connection
 	FString PendingLoginUserName;
 
