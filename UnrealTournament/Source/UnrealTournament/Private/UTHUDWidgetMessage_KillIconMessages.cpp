@@ -149,24 +149,24 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 	{
 		BG = LocalVictimBG;
 	}
-	DrawTexture(BG.Atlas, BGSize.X, BGSize.Y, BGSize.Z, BGSize.W, BG.UVs.U, BG.UVs.V, BG.UVs.UL, BG.UVs.VL, BG.RenderOpacity * Alpha, BG.RenderColor, BG.RenderOffset, BG.Rotation, BG.RotPivot);
+	DrawTexture(BG.Atlas, BGSize.X, BGSize.Y, BGSize.Z, BGSize.W, BG.UVs.U, BG.UVs.V, BG.UVs.UL, BG.UVs.VL, BG.RenderOpacity * Alpha * UTHUDOwner->HUDWidgetOpacity * UTHUDOwner->HUDWidgetBorderOpacity, BG.RenderColor, BG.RenderOffset, BG.Rotation, BG.RotPivot);
 
 	//Draw the killer name
 	if (KillerPS != nullptr)
 	{
-		DrawText(FText::FromString(KillerPS->PlayerName), KillerSize.X, KillerSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha, GetPlayerColor(KillerPS, true), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString(KillerPS->PlayerName), KillerSize.X, KillerSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, GetPlayerColor(KillerPS, true), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 
 	//Draw the Damage Icon
 	if (DmgType != nullptr && DmgType->HUDIcon.Texture != nullptr)
 	{
-		DrawTexture(DmgType->HUDIcon.Texture, DamageSize.X, DamageSize.Y, DamageSize.Z, DamageSize.W, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, Alpha);
+		DrawTexture(DmgType->HUDIcon.Texture, DamageSize.X, DamageSize.Y, DamageSize.Z, DamageSize.W, DmgType->HUDIcon.U, DmgType->HUDIcon.V, DmgType->HUDIcon.UL, DmgType->HUDIcon.VL, Alpha * UTHUDOwner->HUDWidgetOpacity);
 	}
 
 	//Draw the victim name
 	if (VictimPS != nullptr)
 	{
-		DrawText(FText::FromString(VictimPS->PlayerName), VictimSize.X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha, GetPlayerColor(VictimPS, false), ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString(VictimPS->PlayerName), VictimSize.X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, GetPlayerColor(VictimPS, false), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 }
 
