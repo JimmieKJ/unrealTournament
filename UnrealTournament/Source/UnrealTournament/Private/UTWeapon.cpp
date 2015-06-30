@@ -1969,3 +1969,21 @@ void AUTWeapon::TestWeaponScale(float X, float Y, float Z)
 {
 	Mesh->SetRelativeScale3D(FVector(X, Y, Z));
 }
+
+void AUTWeapon::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	if (FlashCount > 0 || !InFlashLocation.IsZero())
+	{
+		CurrentFireMode = InFireMode;
+		PlayFiringEffects();
+	}
+	else
+	{
+		StopFiringEffects();
+	}
+}
+
+void AUTWeapon::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)
+{
+
+}

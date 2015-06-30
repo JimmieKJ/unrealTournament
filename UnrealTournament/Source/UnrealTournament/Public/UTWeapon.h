@@ -819,4 +819,9 @@ public:
 	/** blueprint hook to modify team color materials */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
 	void NotifyTeamChanged();
+
+	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
+	void FiringInfoUpdated(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation);
+	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
+	void FiringExtraUpdated(uint8 NewFlashExtra, uint8 InFireMode);
 };

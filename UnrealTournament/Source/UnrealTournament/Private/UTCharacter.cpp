@@ -1918,7 +1918,7 @@ void AUTCharacter::FiringInfoUpdated()
 			if (Controller == NULL)
 			{
 				EffectFiringMode = FireMode;
-				Weapon->PlayFiringEffects();
+				Weapon->FiringInfoUpdated(EffectFiringMode, FlashCount, FlashLocation);
 			}
 			FVector SpawnLocation;
 			FRotator SpawnRotation;
@@ -1927,14 +1927,7 @@ void AUTCharacter::FiringInfoUpdated()
 		}
 		else if (Controller == NULL)
 		{
-			if (FlashCount != 0)
-			{
-				Weapon->PlayFiringEffects();
-			}
-			else
-			{
-				Weapon->StopFiringEffects();
-			}
+			Weapon->FiringInfoUpdated(FireMode, FlashCount, FlashLocation);
 		}
 	}
 	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
@@ -1955,6 +1948,10 @@ void AUTCharacter::FiringExtraUpdated()
 	if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
 	{
 		WeaponAttachment->FiringExtraUpdated();
+	}
+	if (Weapon != nullptr && UTPC == nullptr)
+	{
+		Weapon->FiringExtraUpdated(FlashExtra, FireMode);
 	}
 }
 
