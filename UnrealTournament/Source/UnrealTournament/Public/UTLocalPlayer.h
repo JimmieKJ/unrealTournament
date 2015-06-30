@@ -484,6 +484,17 @@ public:
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 
+	/**
+	 *	return to if the progression system considers this player a beginner.
+	 **/
+	virtual bool IsConsiderABeginnner();
+
+	/**
+	 *	Closes any slate UI elements that are open
+	 **/
+	virtual void CloseAllUI();
+
+
 protected:
 	void OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSucessful, const FOnlineSessionSearchResult& SearchResult);
 	

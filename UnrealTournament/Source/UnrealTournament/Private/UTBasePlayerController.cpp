@@ -574,3 +574,18 @@ void AUTBasePlayerController::ServerRconKick_Implementation(const FString& NameO
 void AUTBasePlayerController::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 }
+
+void AUTBasePlayerController::ClientCloseAllUI_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseAllUI();
+	}
+}
+
+void AUTBasePlayerController::PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel)
+{
+	ClientCloseAllUI();
+	Super::PreClientTravel(PendingURL, TravelType, bIsSeamlessTravel);
+}

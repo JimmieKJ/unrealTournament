@@ -2227,3 +2227,14 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 		OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 	}
 }
+
+bool UUTLocalPlayer::IsConsiderABeginnner()
+{
+	// STEVE Add your code here.
+	return true;
+}
+
+void UUTLocalPlayer::CloseAllUI()
+{
+	GEngine->GameViewport->RemoveAllViewportWidgets();
+}

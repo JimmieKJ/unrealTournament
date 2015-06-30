@@ -153,4 +153,11 @@ public:
 	bool bOverflowed;
 	FText SpamText;
 	FString LastChatMessage;
+
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientCloseAllUI();
+
+	virtual void PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel);
+
 };
