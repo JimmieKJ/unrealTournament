@@ -18,6 +18,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/TargetPoint.h"
 #include "EngineUtils.h"
+#include "StaticLightingSystem/StaticLightingPrivate.h"
 
 #define LOCTEXT_NAMESPACE "ClickHandlers"
 
