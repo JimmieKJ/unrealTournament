@@ -13,7 +13,7 @@ class UNREALTOURNAMENT_API UUTKillIconMessage : public UUTLocalMessage
 	{
 		MessageArea = FName(TEXT("KillMessage"));
 		bIsSpecial = false;
-		Lifetime = 3.5f;
+		Lifetime = 4.f;
 	}
 
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const

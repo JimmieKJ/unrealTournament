@@ -69,7 +69,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
 	FlagTextures.Add(FlagTex.Object);
 
-	KillMsgStyle = EHudKillMsgStyle::KMS_Text;
+	KillMsgStyle = EHudKillMsgStyle::KMS_Icon;
 	bDrawPopupKillMsg = true;
 }
 
