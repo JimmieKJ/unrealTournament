@@ -171,14 +171,8 @@ void FCameraMotionParameters::Set(FRHICommandList& RHICmdList, const FSceneView&
 {
 	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 
-	FMatrix Proj = View.ViewMatrices.ProjMatrix;
-	FMatrix PrevProj = ViewState->PrevViewMatrices.ProjMatrix;
-
-	// Remove jitter
-	Proj.M[2][0] -= View.ViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
-	Proj.M[2][1] -= View.ViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();
-	PrevProj.M[2][0] -= ViewState->PrevViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
-	PrevProj.M[2][1] -= ViewState->PrevViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();
+	FMatrix Proj = View.ViewMatrices.GetProjNoAAMatrix();
+	FMatrix PrevProj = ViewState->PrevViewMatrices.GetProjNoAAMatrix();
 
 	FVector DeltaTranslation = ViewState->PrevViewMatrices.PreViewTranslation - View.ViewMatrices.PreViewTranslation;
 	FMatrix ViewProj = ( View.ViewMatrices.TranslatedViewMatrix * Proj ).GetTransposed();

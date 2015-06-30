@@ -1633,6 +1633,39 @@ protected:
 	{
 		return AddUniformExpression(new FMaterialUniformExpressionConstant(FLinearColor(X,Y,Z,W),MCT_Float4),MCT_Float4,TEXT("MaterialFloat4(%0.8f,%0.8f,%0.8f,%0.8f)"),X,Y,Z,W);
 	}
+	
+	virtual int32 ViewProperty(EMaterialExposedViewProperty Property) override
+	{
+		check(Property < MEVP_MAX);
+
+		// Compile time struct storing all EMaterialExposedViewProperty's enumerations' HLSL compilation specific meta information
+		struct EMaterialExposedViewPropertyMeta
+		{
+			EMaterialExposedViewProperty EnumValue;
+			EMaterialValueType Type;
+			const TCHAR * CurrentFrameCode;
+			const TCHAR * PreviousFrameCode;
+		};
+
+		static const EMaterialExposedViewPropertyMeta ViewPropertyMetaArray[] = {
+			{MEVP_FieldOfView, MCT_Float2, TEXT("View.FieldOfViewWideAngles"), TEXT("View.PrevFieldOfViewWideAngles")},
+			{MEVP_ViewSize, MCT_Float2, TEXT("View.ViewSizeAndSceneTexelSize.xy"), nullptr},
+			{MEVP_TexelSize, MCT_Float2, TEXT("View.ViewSizeAndSceneTexelSize.zw"), nullptr},
+		};
+		static_assert((sizeof(ViewPropertyMetaArray) / sizeof(ViewPropertyMetaArray[0])) == MEVP_MAX, "incoherency between EMaterialExposedViewProperty and ViewPropertyMetaArray");
+
+		auto& PropertyMeta = ViewPropertyMetaArray[Property];
+		check(Property == PropertyMeta.EnumValue);
+
+		auto Code = PropertyMeta.CurrentFrameCode;
+
+		if (bCompilingPreviousFrame && PropertyMeta.PreviousFrameCode)
+		{
+			Code = PropertyMeta.PreviousFrameCode;
+		}
+
+		return AddCodeChunk(PropertyMeta.Type, Code);
+	}
 
 	virtual int32 GameTime(bool bPeriodic, float Period) override
 	{
@@ -1899,16 +1932,6 @@ protected:
 		}
 
 		return AddCodeChunk(MCT_Float2,TEXT("ScreenAlignedPosition(Parameters.ScreenPosition).xy"));		
-	}
-
-	virtual int32 ViewSize() override
-	{
-		return AddCodeChunk(MCT_Float2,TEXT("View.ViewSizeAndSceneTexelSize.xy"));
-	}
-
-	virtual int32 SceneTexelSize() override
-	{
-		return AddCodeChunk(MCT_Float2,TEXT("View.ViewSizeAndSceneTexelSize.zw"));
 	}
 
 	virtual int32 ParticleMacroUV() override 

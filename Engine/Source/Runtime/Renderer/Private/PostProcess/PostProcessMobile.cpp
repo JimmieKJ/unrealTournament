@@ -2601,14 +2601,8 @@ public:
 		{
 			const FViewInfo& View = Context.View;
 
-			FMatrix Proj = View.ViewMatrices.ProjMatrix;
-			FMatrix PrevProj = ViewState->PrevViewMatrices.ProjMatrix;
-
-			// Remove jitter
-			Proj.M[2][0] -= View.ViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
-			Proj.M[2][1] -= View.ViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();
-			PrevProj.M[2][0] -= ViewState->PrevViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
-			PrevProj.M[2][1] -= ViewState->PrevViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();
+			FMatrix Proj = View.ViewMatrices.GetProjNoAAMatrix();
+			FMatrix PrevProj = ViewState->PrevViewMatrices.GetProjNoAAMatrix();
 
 			FMatrix ViewProj = ( Context.View.ViewMatrices.ViewMatrix * Proj ).GetTransposed();
 			FMatrix PrevViewProj = ( ViewState->PrevViewMatrices.ViewMatrix * PrevProj ).GetTransposed();
@@ -2784,8 +2778,7 @@ void FRCPassPostProcessAaES2::Process(FRenderingCompositePassContext& Context)
 	if (FSceneRenderer::ShouldCompositeEditorPrimitives(View))
 	{
 		// Remove jitter (ensures editor prims are stable.)
-		View.ViewMatrices.ProjMatrix.M[2][0] -= View.ViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
-		View.ViewMatrices.ProjMatrix.M[2][1] -= View.ViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();
+		View.ViewMatrices.RemoveTemporalJitter();
 
 		// Compute the view projection matrix and its inverse.
 		View.ViewProjectionMatrix = View.ViewMatrices.ViewMatrix * View.ViewMatrices.ProjMatrix;
