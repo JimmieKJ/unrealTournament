@@ -1987,3 +1987,11 @@ void AUTWeapon::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InF
 {
 
 }
+
+void AUTWeapon::FiringEffectsUpdated_Implementation(uint8 InFireMode, FVector InFlashLocation)
+{
+	FVector SpawnLocation;
+	FRotator SpawnRotation;
+	GetImpactSpawnPosition(InFlashLocation, SpawnLocation, SpawnRotation);
+	PlayImpactEffects(InFlashLocation, InFireMode, SpawnLocation, SpawnRotation);
+}

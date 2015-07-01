@@ -824,4 +824,6 @@ public:
 	void FiringInfoUpdated(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation);
 	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
 	void FiringExtraUpdated(uint8 NewFlashExtra, uint8 InFireMode);
+	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
+	void FiringEffectsUpdated(uint8 InFireMode, FVector InFlashLocation);
 };

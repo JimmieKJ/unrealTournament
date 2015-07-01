@@ -68,5 +68,5 @@ class UNREALTOURNAMENT_API AUTWeap_BioRifle : public AUTWeapon
 	UFUNCTION(BlueprintNativeEvent, Category = Bio)
 	void OnChargeShot();
 
-	void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
+	virtual void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
 };

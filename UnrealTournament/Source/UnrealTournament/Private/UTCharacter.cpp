@@ -1870,11 +1870,15 @@ void AUTCharacter::IncrementFlashCount(uint8 InFireMode)
 {
 	FlashCount++;
 	// we reserve zero for not firing; make sure we don't set that
-	if (FlashCount == 0)
+	if ((FlashCount & 0xF) == 0)
 	{
 		FlashCount++;
 	}
 	FireMode = InFireMode;
+
+	//Pack the Firemode in top 4 bits to prevent misfires when alternating projectile shots
+	//eg pri shot, FC = 1 -> alt shot, FC = 0 (stop fire) -> FC = 1  (FC is still 1 so no rep)
+	FlashCount = (FlashCount & 0x0F) | FireMode << 4;
 	FiringInfoUpdated();
 }
 void AUTCharacter::SetFlashExtra(uint8 NewFlashExtra, uint8 InFireMode)
@@ -1918,12 +1922,16 @@ void AUTCharacter::FiringInfoUpdated()
 			if (Controller == NULL)
 			{
 				EffectFiringMode = FireMode;
-				Weapon->FiringInfoUpdated(EffectFiringMode, FlashCount, FlashLocation);
+				Weapon->FiringInfoUpdated(FireMode, FlashCount, FlashLocation);
+				Weapon->FiringEffectsUpdated(FireMode, FlashLocation);
 			}
-			FVector SpawnLocation;
-			FRotator SpawnRotation;
-			Weapon->GetImpactSpawnPosition(FlashLocation, SpawnLocation, SpawnRotation);
-			Weapon->PlayImpactEffects(FlashLocation, EffectFiringMode, SpawnLocation, SpawnRotation);
+			else
+			{
+				FVector SpawnLocation;
+				FRotator SpawnRotation;
+				Weapon->GetImpactSpawnPosition(FlashLocation, SpawnLocation, SpawnRotation);
+				Weapon->PlayImpactEffects(FlashLocation, EffectFiringMode, SpawnLocation, SpawnRotation);
+			}
 		}
 		else if (Controller == NULL)
 		{
