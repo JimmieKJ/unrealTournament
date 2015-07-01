@@ -1634,7 +1634,7 @@ protected:
 		return AddUniformExpression(new FMaterialUniformExpressionConstant(FLinearColor(X,Y,Z,W),MCT_Float4),MCT_Float4,TEXT("MaterialFloat4(%0.8f,%0.8f,%0.8f,%0.8f)"),X,Y,Z,W);
 	}
 	
-	virtual int32 ViewProperty(EMaterialExposedViewProperty Property) override
+	virtual int32 ViewProperty(EMaterialExposedViewProperty Property, bool InvProperty) override
 	{
 		check(Property < MEVP_MAX);
 
@@ -1643,28 +1643,38 @@ protected:
 		{
 			EMaterialExposedViewProperty EnumValue;
 			EMaterialValueType Type;
-			const TCHAR * CurrentFrameCode;
-			const TCHAR * PreviousFrameCode;
+			const TCHAR * PropertyCode;
+			const TCHAR * InvPropertyCode;
 		};
 
 		static const EMaterialExposedViewPropertyMeta ViewPropertyMetaArray[] = {
-			{MEVP_FieldOfView, MCT_Float2, TEXT("View.FieldOfViewWideAngles"), TEXT("View.PrevFieldOfViewWideAngles")},
-			{MEVP_ViewSize, MCT_Float2, TEXT("View.ViewSizeAndSceneTexelSize.xy"), nullptr},
-			{MEVP_TexelSize, MCT_Float2, TEXT("View.ViewSizeAndSceneTexelSize.zw"), nullptr},
+			{MEVP_BufferSize, MCT_Float2, TEXT("View.BufferSizeAndInvSize.xy"), TEXT("View.BufferSizeAndInvSize.zw")},
+			{MEVP_FieldOfView, MCT_Float2, TEXT("View.<PREV>FieldOfViewWideAngles"), nullptr},
+			{MEVP_TanHalfFieldOfView, MCT_Float2, TEXT("Get<PREV>TanHalfFieldOfView()"), TEXT("Get<PREV>CotanHalfFieldOfView()")},
+			{MEVP_ViewSize, MCT_Float2, TEXT("View.ViewSizeAndInvSize.xy"), TEXT("View.ViewSizeAndInvSize.zw")},
 		};
 		static_assert((sizeof(ViewPropertyMetaArray) / sizeof(ViewPropertyMetaArray[0])) == MEVP_MAX, "incoherency between EMaterialExposedViewProperty and ViewPropertyMetaArray");
 
 		auto& PropertyMeta = ViewPropertyMetaArray[Property];
 		check(Property == PropertyMeta.EnumValue);
 
-		auto Code = PropertyMeta.CurrentFrameCode;
+		FString Code = PropertyMeta.PropertyCode;
 
-		if (bCompilingPreviousFrame && PropertyMeta.PreviousFrameCode)
+		if (InvProperty && PropertyMeta.InvPropertyCode)
 		{
-			Code = PropertyMeta.PreviousFrameCode;
+			Code = PropertyMeta.InvPropertyCode;
 		}
 
-		return AddCodeChunk(PropertyMeta.Type, Code);
+		// Resolved templated code
+		Code.ReplaceInline(TEXT("<PREV>"), bCompilingPreviousFrame ? TEXT("Prev") : TEXT(""));
+		
+		if (InvProperty && !PropertyMeta.InvPropertyCode)
+		{
+			// fall back to compute the property's inverse from PropertyCode
+			return Div(Constant(1.f), AddInlinedCodeChunk(PropertyMeta.Type, *Code));
+		}
+
+		return AddCodeChunk(PropertyMeta.Type, *Code);
 	}
 
 	virtual int32 GameTime(bool bPeriodic, float Period) override

@@ -385,8 +385,8 @@ void CullObjectsToTileWithGather(
 	float2 TanViewFOV = float2(1 / View.ViewToClip[0][0], 1 / View.ViewToClip[1][1]);
 	// tan(FOV) = HalfUnitPlaneWidth / 1, so TanViewFOV * 2 is the size of the whole unit view plane
 	// We are operating on a subset of that defined by ScissorRectMinAndSize
-	float2 TileSize = TanViewFOV * 2 * ScissorRectMinAndSize.zw / ((float2)View.ViewSizeAndSceneTexelSize.xy * NumGroups);
-	float2 UnitPlaneMin = -TanViewFOV + TanViewFOV * 2 * ScissorRectMinAndSize.xy / (float2)View.ViewSizeAndSceneTexelSize.xy;
+	float2 TileSize = TanViewFOV * 2 * ScissorRectMinAndSize.zw / ((float2)View.ViewSizeAndInvSize.xy * NumGroups);
+	float2 UnitPlaneMin = -TanViewFOV + TanViewFOV * 2 * ScissorRectMinAndSize.xy * View.ViewSizeAndInvSize.zw;
 	float2 UnitPlaneTileMin = (GroupId.xy * TileSize + UnitPlaneMin) * float2(1, -1);
 	float2 UnitPlaneTileMax = ((GroupId.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
 
@@ -481,7 +481,7 @@ void DistanceFieldShadowingCS(
 {
 	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
 
-	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * View.ViewSizeAndSceneTexelSize.zw);
+	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * View.BufferSizeAndInvSize.zw);
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 
 	float SceneDepth = CalcSceneDepth(ScreenUV);
@@ -610,7 +610,7 @@ void DistanceFieldShadowingUpsamplePS(
 	out float4 OutColor : SV_Target0)
 {
 	// Distance field shadowing was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = UVAndScreenPos.xy - ScissorRectMinAndSize.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - ScissorRectMinAndSize.xy * View.BufferSizeAndInvSize.zw;
 	float SceneDepth = CalcSceneDepth(UVAndScreenPos.xy);
 
 #define BILATERAL_UPSAMPLE 1

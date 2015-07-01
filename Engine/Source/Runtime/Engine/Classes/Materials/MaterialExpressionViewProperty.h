@@ -8,12 +8,14 @@
 UENUM()
 enum EMaterialExposedViewProperty
 {	
-	/** Horizontal and vertical fields of view in radian */
+	/** Horizontal and vertical size of the view's buffer in pixels */
+	MEVP_BufferSize UMETA(DisplayName="RenderTargetSize"),
+	/** Horizontal and vertical field of view angles in radian */
 	MEVP_FieldOfView UMETA(DisplayName="FieldOfView"),
+	/** Tan(FieldOfView * 0.5) */
+	MEVP_TanHalfFieldOfView UMETA(DisplayName="TanHalfFieldOfView"),
 	/** Horizontal and vertical size of the view in pixels */
 	MEVP_ViewSize UMETA(DisplayName="ViewSize"),
-	/** Horizontal and vertical size of view's render target's texel in the uv space (1 / ViewSize) */
-	MEVP_TexelSize UMETA(DisplayName="TexelSize"),
 
 	MEVP_MAX,
 };

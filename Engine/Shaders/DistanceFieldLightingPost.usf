@@ -171,7 +171,7 @@ void UpdateHistoryPS(
 	)
 {
 	// Distance field AO was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
 	float4 NewValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, DistanceFieldUVs, 0);
 	float SceneDepth = abs(NewValue.w);
 
@@ -190,7 +190,7 @@ void UpdateHistoryPS(
 
 		// Note: have to sample from one of the high res texels exactly to avoid filtering of the velocity buffer
 		// 0 is stored where camera velocity should be used, which must not be filtered with valid object velocities
-		float2 FullResTexel = UVAndScreenPos.xy - .5f * View.ViewSizeAndSceneTexelSize.zw;
+		float2 FullResTexel = UVAndScreenPos.xy - .5f * View.BufferSizeAndInvSize.zw;
 		float2 VelocityN = Texture2DSampleLevel(VelocityTexture, VelocityTextureSampler, FullResTexel, 0).xy;
 
 		if (VelocityN.x > 0)
@@ -204,12 +204,12 @@ void UpdateHistoryPS(
 	
 	float2 OldScreenPosition = (OldUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 
-	float2 OldDistanceFieldUVs = OldUV.xy - View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float2 OldDistanceFieldUVs = OldUV.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
 	float4 HistoryValue = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVs, 0);
 	
-	float2 MinUV = View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float2 MinUV = View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
 	// Pull in the max UV to exclude the region which will read outside the viewport due to bilinear filtering
-	float2 MaxUV = MinUV + (View.ViewSizeAndSceneTexelSize.xy - 1 * DOWNSAMPLE_FACTOR) * View.ViewSizeAndSceneTexelSize.zw;
+	float2 MaxUV = MinUV + (View.ViewSizeAndInvSize.xy - 1 * DOWNSAMPLE_FACTOR) * View.BufferSizeAndInvSize.zw;
 
 	float3 WorldPosition;
 	float3 PrevWorldPosition;
@@ -342,7 +342,7 @@ void AOUpsamplePS(
 	)
 {
 	// Distance field AO was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
 	float3 Irradiance = 0;
 
 #define BILATERAL_UPSAMPLE 1

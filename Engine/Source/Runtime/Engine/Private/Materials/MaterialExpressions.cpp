@@ -4605,11 +4605,16 @@ UMaterialExpressionViewProperty::UMaterialExpressionViewProperty(const FObjectIn
 	Property = MEVP_FieldOfView;
 	MenuCategories.Add(ConstructorStatics.NAME_Constants);
 	bShaderInputData = true;
+	bShowOutputNameOnPin = true;
+	
+	Outputs.Reset();
+	Outputs.Add(FExpressionOutput(TEXT("Property")));
+	Outputs.Add(FExpressionOutput(TEXT("InvProperty")));
 }
 
 int32 UMaterialExpressionViewProperty::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
-	return Compiler->ViewProperty(Property);
+	return Compiler->ViewProperty(Property, OutputIndex == 1);
 }
 
 void UMaterialExpressionViewProperty::GetCaption(TArray<FString>& OutCaptions) const
@@ -4674,7 +4679,7 @@ UMaterialExpressionSceneTexelSize::UMaterialExpressionSceneTexelSize(const FObje
 
 int32 UMaterialExpressionSceneTexelSize::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
-	return Compiler->ViewProperty(MEVP_TexelSize);
+	return Compiler->ViewProperty(MEVP_BufferSize, /* InvProperty = */ true);
 }
 
 void UMaterialExpressionSceneTexelSize::GetCaption(TArray<FString>& OutCaptions) const

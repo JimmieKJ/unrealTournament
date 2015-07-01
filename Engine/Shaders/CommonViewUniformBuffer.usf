@@ -12,10 +12,20 @@ float2 GetTanHalfFieldOfView()
 	return float2(View.ClipToView[0][0], View.ClipToView[1][1]);
 }
 
+float2 GetPrevTanHalfFieldOfView()
+{
+	return float2(View.PrevClipToView[0][0], View.PrevClipToView[1][1]);
+}
+
 /*
 * @return 1 / tan(View.FieldOfViewWideAngles * .5)
 */
 float2 GetCotanHalfFieldOfView()
 {
 	return float2(View.ViewToClip[0][0], View.ViewToClip[1][1]);
+}
+
+float2 GetPrevCotanHalfFieldOfView()
+{
+	return float2(View.PrevViewToClip[0][0], View.PrevViewToClip[1][1]);
 }
