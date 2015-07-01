@@ -169,7 +169,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	}
 
 	{
-		CharacterList.Add(MakeShareable(new FString(TEXT("Malcolm"))));
+		CharacterList.Add(MakeShareable(new FString(TEXT("Taye"))));
 		CharacterPathList.Add(TEXT(""));
 
 		TArray<FAssetData> AssetList;
