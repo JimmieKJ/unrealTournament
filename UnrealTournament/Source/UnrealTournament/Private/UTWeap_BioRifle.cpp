@@ -214,3 +214,22 @@ void AUTWeap_BioRifle::FireShot()
 	}
 }
 
+void AUTWeap_BioRifle::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	UUTWeaponStateFiringCharged* Charged = Cast<UUTWeaponStateFiringCharged>(FiringState[1]);
+	if (Charged != nullptr)
+	{
+		// odd FlashCount is charging, even is firing
+		if (UTOwner->FireMode != 1 || (UTOwner->FlashCount % 2) == 0)
+		{
+			OnChargeShot();
+			Super::FiringInfoUpdated_Implementation(InFireMode, FlashCount, InFlashLocation);
+		}
+		else
+		{
+			StopFiringEffects();
+			StartCharge();
+		}
+	}
+}
+

@@ -67,4 +67,6 @@ class UNREALTOURNAMENT_API AUTWeap_BioRifle : public AUTWeapon
 	/** hook to to play glob anim while charging*/
 	UFUNCTION(BlueprintNativeEvent, Category = Bio)
 	void OnChargeShot();
+
+	void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
 };
