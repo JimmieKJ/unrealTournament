@@ -51,11 +51,13 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 6200.f; 
+	MaxAcceleration = 6000.f; 
 	MaxFallingAcceleration = 4200.f;
 	BrakingDecelerationWalking = 500.f;
+	DefaultBrakingDecelerationWalking = BrakingDecelerationWalking;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
+	BrakingDecelerationSliding = 300.f;
 	GroundFriction = 12.f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
@@ -65,10 +67,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlopeDodgeScaling = 0.93f;
 
 	FloorSlideAcceleration = 1500.f;
-	MaxFloorSlideSpeed = 920.f;
+	MaxFloorSlideSpeed = MaxWalkSpeed;
 	FloorSlideDuration = 0.5f;
 	FloorSlideBonusTapInterval = 0.17f;
-	FloorSlideEndingSpeedFactor = 0.45f;
+	FloorSlideEndingSpeedFactor = 0.4f;
 	FloorSlideSlopeBraking = 2.7f;
 	FallingDamageRollReduction = 6.f;
 
@@ -86,7 +88,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 470.f; 
 
-	MaxSlideRiseZ = 400.f;
+	MaxSlideRiseZ = 650.f; 
 	MaxSlideFallZ = -180.f;
 	SlideGravityScaling = 0.16f;
 	MinWallSlideSpeed = 500.f;
@@ -863,12 +865,13 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		if (bIsFloorSliding)
 		{
 			GroundFriction = 0.f;
+			BrakingDecelerationWalking = BrakingDecelerationSliding;
 		}
-		else if (bWasFloorSlideing && (MovementMode != MOVE_Falling))
+		else if (bWasFloorSliding && (MovementMode != MOVE_Falling))
 		{
 			Velocity *= FloorSlideEndingSpeedFactor;
 		}
-		bWasFloorSlideing = bIsFloorSliding;
+		bWasFloorSliding = bIsFloorSliding;
 
 		bool bSavedWantsToCrouch = bWantsToCrouch;
 		bWantsToCrouch = bWantsToCrouch || bIsFloorSliding;
@@ -887,6 +890,7 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		Super::PerformMovement(DeltaSeconds);
 		bWantsToCrouch = bSavedWantsToCrouch;
 		GroundFriction = RealGroundFriction;
+		BrakingDecelerationWalking = DefaultBrakingDecelerationWalking;
 	}
 
 	if (UTOwner != NULL)
@@ -1238,7 +1242,7 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 			}*/
 		}
 
-		if (!bIsFloorSliding && bWasFloorSlideing)
+		if (!bIsFloorSliding && bWasFloorSliding)
 		{
 			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 			AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
@@ -1393,9 +1397,9 @@ bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FV
 float UUTCharacterMovement::GetGravityZ() const
 {
 	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
-	if (UTCharOwner)
+	if (UTCharOwner && UTCharOwner->bApplyWallSlide && (Velocity.Z < 0.f))
 	{
-		return Super::GetGravityZ() * ((UTCharOwner->bApplyWallSlide && (Velocity.Z < 0.f)) ? SlideGravityScaling : 1.f);
+		return Super::GetGravityZ() * SlideGravityScaling * (1.f - FMath::Square(WallSlideNormal.Z));
 	}
 	return Super::GetGravityZ();
 }

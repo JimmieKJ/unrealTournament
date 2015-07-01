@@ -120,6 +120,14 @@ public:
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 		float BrakingFriction;
 
+	/** Braking when sliding. */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float BrakingDecelerationSliding;
+
+	/** Braking when walking - set to same value as BrakingDecelerationWalking. */
+	UPROPERTY(Category = "Character Movement", BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float DefaultBrakingDecelerationWalking;
+
 	/** Max speed player can travel in water (faster than powered swim speed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Swimming)
 		float MaxWaterSpeed;
@@ -285,7 +293,7 @@ UPROPERTY()
 
 	/** True if was floor sliding last movement update. */
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
-	bool bWasFloorSlideing;
+	bool bWasFloorSliding;
 
 	UPROPERTY(Category = "Emote", BlueprintReadOnly)
 	bool bIsEmoting;
