@@ -65,4 +65,6 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 		return -0.5f;
 	}
 	virtual bool DoAssistedJump() override;
+
+	virtual void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
 };

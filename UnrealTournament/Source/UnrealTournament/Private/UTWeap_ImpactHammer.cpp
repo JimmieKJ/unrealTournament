@@ -402,3 +402,29 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 		}
 	}
 }
+
+void AUTWeap_ImpactHammer::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	if (InFireMode == 0)
+	{
+		CurrentFireMode = InFireMode;
+		UUTWeaponStateFiringCharged* Charged = Cast<UUTWeaponStateFiringCharged>(FiringState[0]);
+		if (Charged != nullptr)
+		{
+			// for primary, FlashCount > 0 is charging, FlashCount == 0 and FlashLocation set is release
+			if (UTOwner->FlashCount > 0)
+			{
+				Charged->ToggleLoopingEffects(true);
+			}
+			else if (!InFlashLocation.IsZero())
+			{
+				Charged->ToggleLoopingEffects(false);
+				PlayFiringEffects();
+			}
+		}
+	}
+	else
+	{
+		Super::FiringInfoUpdated_Implementation(InFireMode, FlashCount, InFlashLocation);
+	}
+}
