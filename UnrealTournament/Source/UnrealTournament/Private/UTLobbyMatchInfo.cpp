@@ -53,6 +53,7 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bQuickPlayMatch, COND_InitialOnly);
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -331,7 +332,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 
 	// TODO: need to check for ready ups on server side
 
-	if (!CheckLobbyGameState() || !LobbyGameState->CanLaunch(this))
+	if (!CheckLobbyGameState() || !LobbyGameState->CanLaunch())
 	{
 		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 		return;
@@ -816,3 +817,39 @@ int32 AUTLobbyMatchInfo::NumPlayersInMatch()
 	return 0;
 }
 
+bool AUTLobbyMatchInfo::IsMatchofType(const FString& MatchType)
+{
+	if (CurrentRuleset.IsValid() && !CurrentRuleset->bCustomRuleset)
+	{
+		if (MatchType == FQuickMatchTypeRulesetTag::DM && CurrentRuleset->UniqueTag == FQuickMatchTypeRulesetTag::DM)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool AUTLobbyMatchInfo::MatchHasRoom()
+{
+	if (CurrentRuleset.IsValid())
+	{
+		if (CurrentState == MatchState::InProgress)	
+		{
+			int32 Cnt = 0;
+			for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+			{
+				if (!PlayersInMatchInstance[i].bIsSpectator) Cnt++;
+			}
+
+			return (Cnt < CurrentRuleset->MaxPlayers);
+		}
+	
+	}
+	return true;
+}
+
+bool AUTLobbyMatchInfo::CanAddPlayer(int32 ELORank)
+{
+	return SkillTest(ELORank) && MatchHasRoom();
+}

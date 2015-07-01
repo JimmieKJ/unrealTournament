@@ -161,7 +161,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	void InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer);
 
 	// returns true if a match can start
-	bool CanLaunch(AUTLobbyMatchInfo* MatchToLaunch);
+	bool CanLaunch();
 
 	void BeginPlay();
 
@@ -228,6 +228,9 @@ public:
 
 protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName);
+
+public:
+	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, const FString& ClientUniqueId, int32 ELORank);
 
 };
 

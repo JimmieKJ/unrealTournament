@@ -622,7 +622,7 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 }
 
 
-bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
+bool AUTLobbyGameState::CanLaunch()
 {
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	return (GM && GM->GetNumMatches() < GM->MaxInstances);
@@ -851,4 +851,52 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
 	}
 
 	return NULL;
+}
+
+void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, const FString& ClientUniqueId, int32 ELORank)
+{
+	// Look through all available matches and see if there is 
+
+	for(int32 i=0; i < GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->bQuickPlayMatch && 
+				GameInstances[i].MatchInfo->IsMatchofType(MatchType) && 
+				(GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching || GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress))
+		{
+			// We have found a potential quick play match.  See if this player could be added to it.
+			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank))
+			{
+				// We can add the player to this match so do so.
+				Beacon->ClientJoinQuickplay(GameInstances[i].MatchInfo->GameInstanceGUID);
+				return;			
+			}
+		}
+	}
+
+
+	// We didn't have an existing instance to place this player in so see if we have room to add them.
+
+	if (CanLaunch())
+	{
+		// Tell the client they will have to wait while we spool up a match
+		Beacon->ClientWaitForQuickplay();
+		AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
+		if (NewMatchInfo)
+		{
+			AvailableMatches.Add(NewMatchInfo);
+
+			TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset = FindRuleset(MatchType);
+
+			if (NewRuleset.IsValid())
+			{
+				NewMatchInfo->SetRules(NewRuleset, NewRuleset->DefaultMap);
+			}
+
+			NewMatchInfo->bQuickPlayMatch = true;
+			NewMatchInfo->NotifyBeacons.Add(Beacon);
+			NewMatchInfo->bJoinAnytime = true;
+			NewMatchInfo->bSpectatable = true;
+			NewMatchInfo->LaunchMatch();
+		}
+	}
 }

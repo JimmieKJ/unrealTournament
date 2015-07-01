@@ -7,6 +7,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "TAttributeProperty.h"
 #include "UTGameMode.h"
+#include "UTServerBeaconClient.h"
 #include "UTLobbyMatchInfo.generated.h"
 
 DECLARE_DELEGATE(FOnMatchInfoUpdated);
@@ -274,7 +275,7 @@ public:
 	virtual void ServerMatchIsReadyForPlayers();
 
 	// Returns true if the match has room for a new player to join it
-	bool MatchHasRoom() { return true; }
+	virtual bool MatchHasRoom();
 
 	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 
@@ -299,6 +300,17 @@ public:
 
 	int32 NumPlayersInMatch();
 
+	UPROPERTY(replicated)
+	uint32 bQuickPlayMatch:1;
+
+	// Check to see if this match is of a given type.  This is used in Quickplay
+	virtual bool IsMatchofType(const FString& MatchType);
+
+	// Returns true if we can add a player to this match
+	virtual bool CanAddPlayer(int32 ELORank);
+
+	// When the hub receives the notice that the instance for this match is ready, notify any beacons in this array.
+	TArray<AUTServerBeaconClient*> NotifyBeacons;
 };
 
 
