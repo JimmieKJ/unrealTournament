@@ -2317,6 +2317,10 @@ void AUTPlayerController::Tick(float DeltaTime)
 		{
 			if ((GS->Teams.Num() > TeamStatsUpdateTeam) && (GS->Teams[TeamStatsUpdateTeam] != NULL))
 			{
+				if ((TeamStatsUpdateIndex == 0) && (TeamStatsUpdateTeam == 0))
+				{
+					LastTeamStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
+				}
 				if (TeamStatsUpdateIndex < GS->TeamStats.Num())
 				{
 					ClientUpdateTeamStats(TeamStatsUpdateTeam, TeamStatsUpdateIndex, GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
@@ -3365,7 +3369,11 @@ void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, ui
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && (GS->Teams.Num() > TeamNum) && GS->Teams[TeamNum])
 	{
-		FName StatsName = (GS->TeamStats.Num() < TeamStatsIndex) ? GS->TeamStats[TeamStatsIndex] : NAME_None;
+		FName StatsName = (GS->TeamStats.Num() > TeamStatsIndex) ? GS->TeamStats[TeamStatsIndex] : NAME_None;
+		if (StatsName == NAME_None)
+		{
+			UE_LOG(UT, Warning, TEXT("Failed teamstats assignment index %d"), TeamStatsIndex);
+		}
 		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
 	}
 }
