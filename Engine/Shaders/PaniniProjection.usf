@@ -18,20 +18,20 @@
 *                                        +
 *                                      / |
 *                        ->          /   |
-*                        z         /     |
-*        - + - - - - - - < - - - + - - - + - - + - - - - - - -
+*                        z         /     |                   (view direction)
+*        - + - - - - - - < - - - + - - - + - - + - - - - - - - - >
 *          D                     O       |A
 *                                        |
 *                                        |
 *                                (panini view plan)
 *
-*		O: origine of the frame
+*		O: origin of the frame
 *		A: origin of the panini view plane (0.0, 0.0, -1.0)
 *		D: panini projection center (0.0, 0.0, d)
 *		OM: the direction of the ray.
 *
-* @param OM - The direction of the ray in the panini frame. The z component is implicitely -1.0f.
-* @param d - The panini projection center's distance form the panini frame's origin.
+* @param OM - The direction of the ray in the panini frame. The z component is implicitely -1.0f in the panini frame.
+* @param d - The panini projection center's distance from the panini frame's origin.
 *		0.0f: Panini projection doesn't change anything, it will return PaniniDirection.
 *		1.0f: Panini
 *		@assert d>=0
@@ -42,7 +42,7 @@
 */
 float2 PaniniProjection(float2 OM, float d, float s)
 {
-	float PaniniDirectionXZInvLength = 1.0f / sqrt(1.0f + OM.x * OM.x);
+	float PaniniDirectionXZInvLength = rsqrt(1.0f + OM.x * OM.x);
 	float SinPhi = OM.x * PaniniDirectionXZInvLength;
 	float TanTheta = OM.y * PaniniDirectionXZInvLength;
 	float CosPhi = sqrt(1.0f - SinPhi * SinPhi);
@@ -50,6 +50,8 @@ float2 PaniniProjection(float2 OM, float d, float s)
 
 	return S * float2(SinPhi, lerp(TanTheta, TanTheta / CosPhi, s));
 }
+
+#if 1 // TODO: panini projection amterial node prototype code, can be remove once switch to the final one.
 
 float2 GetHalfFOVPerAxis()
 {
@@ -88,3 +90,5 @@ float3 CalcPaniniWorldPosition(float3 InWorldPosition, float d, float s, float P
 	float4 OutClipPosition = float4(OutScreenPos.xy * InClipPosition.w, InClipPosition.z, InClipPosition.w);
 	return mul(OutClipPosition, View.ClipToTranslatedWorld).xyz - View.PreViewTranslation;
 }
+
+#endif
