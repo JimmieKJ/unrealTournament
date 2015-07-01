@@ -392,13 +392,6 @@ MaterialFloat3 TransformTangentVectorToView(FMaterialPixelParameters Parameters,
 	return mul(mul(InTangentVector, Parameters.TangentToWorld), (MaterialFloat3x3)View.TranslatedWorldToView);
 }
 
-/** Transforms a vector from local space to tangent space */
-MaterialFloat3 TransformLocalVectorToTangent(FMaterialPixelParameters Parameters, MaterialFloat3 InLocalVector)
-{
-	// Transform from local to world space, and then to tangent space.
-	return mul(Parameters.TangentToWorld, mul(InLocalVector, GetLocalToWorld3x3()));
-}
-
 /** Transforms a vector from local space to world space (VS version) */
 MaterialFloat3 TransformLocalVectorToWorld(FMaterialVertexParameters Parameters,MaterialFloat3 InLocalVector)
 {
@@ -415,22 +408,10 @@ MaterialFloat3 TransformLocalVectorToWorld(FMaterialPixelParameters Parameters,M
 	return mul(InLocalVector, GetLocalToWorld3x3());
 }
 
-/** Transforms a vector from local space to view space */
-MaterialFloat3 TransformLocalVectorToView(MaterialFloat3 InLocalVector)
-{
-	return mul(mul(InLocalVector, GetLocalToWorld3x3()), (MaterialFloat3x3)View.TranslatedWorldToView);
-}
-
 /** Transforms a vector from world space to local space */
 MaterialFloat3 TransformWorldVectorToLocal(MaterialFloat3 InWorldVector)
 {
 	return mul(InWorldVector, (MaterialFloat3x3)Primitive.WorldToLocal);
-}
-
-/** Transforms a vector from view space to local space */
-MaterialFloat3 TransformViewVectorToLocal(MaterialFloat3 InViewVector)
-{
-	return mul(mul(InViewVector, (MaterialFloat3x3)View.ViewToTranslatedWorld), (MaterialFloat3x3)Primitive.WorldToLocal);
 }
 
 /** Transforms a position from local space to absolute world space */
@@ -449,11 +430,9 @@ float3 TransformLocalPositionToWorld(FMaterialVertexParameters Parameters,float3
 	#endif
 }
 
-/** Transforms a position from absolute world space to local space */
-float3 TransformWorldPositionToLocal(float3 InWorldPosition)
-{
-	return mul(float4(InWorldPosition, 1), Primitive.WorldToLocal).xyz;
-}
+#endif
+
+#if HAS_PRIMITIVE_UNIFORM_BUFFER
 
 /** Return the object's position in world space */
 float3 GetObjectWorldPosition(FMaterialPixelParameters Parameters)

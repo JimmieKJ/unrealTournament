@@ -147,8 +147,8 @@ public:
 
 	virtual int32 ComponentMask(int32 Vector,bool R,bool G,bool B,bool A) = 0;
 	virtual int32 AppendVector(int32 A,int32 B) = 0;
-	virtual int32 TransformVector(uint8 SourceCoordType,uint8 DestCoordType,int32 A) = 0;
-	virtual int32 TransformPosition(uint8 SourceCoordType,uint8 DestCoordType,int32 A) = 0;
+	virtual int32 TransformVector(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) = 0;
+	virtual int32 TransformPosition(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) = 0;
 
 	virtual int32 DynamicParameter() = 0;
 	virtual int32 LightmapUVs() = 0;
@@ -302,8 +302,14 @@ public:
 
 	virtual int32 ComponentMask(int32 Vector,bool R,bool G,bool B,bool A) override { return Compiler->ComponentMask(Vector,R,G,B,A); }
 	virtual int32 AppendVector(int32 A,int32 B) override { return Compiler->AppendVector(A,B); }
-	virtual int32 TransformVector(uint8 SourceCoordType,uint8 DestCoordType,int32 A) override { return Compiler->TransformVector(SourceCoordType,DestCoordType,A); }
-	virtual int32 TransformPosition(uint8 SourceCoordType,uint8 DestCoordType,int32 A) override { return Compiler->TransformPosition(SourceCoordType,DestCoordType,A); }
+	virtual int32 TransformVector(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) override
+	{
+		return Compiler->TransformVector(SourceCoordBasis, DestCoordBasis, A);
+	}
+	virtual int32 TransformPosition(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) override
+	{
+		return Compiler->TransformPosition(SourceCoordBasis, DestCoordBasis, A);
+	}
 
 	virtual int32 DynamicParameter() override { return Compiler->DynamicParameter(); }
 	virtual int32 LightmapUVs() override { return Compiler->LightmapUVs(); }

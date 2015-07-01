@@ -3132,221 +3132,196 @@ protected:
 		}
 	}
 
-	/**
-	* Generate shader code for transforming a vector
-	*/
-	virtual int32 TransformVector(uint8 SourceCoordType,uint8 DestCoordType,int32 A) override
+	int32 TransformBase(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A, int AWComponent)
 	{
-		if (ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Domain && ShaderFrequency != SF_Vertex)
+		if (A == INDEX_NONE)
 		{
-			return NonPixelShaderExpressionError();
+			// unable to compile
+			return INDEX_NONE;
 		}
-
-		const EMaterialVectorCoordTransformSource SourceCoordinateSpace = (EMaterialVectorCoordTransformSource)SourceCoordType;
-		const EMaterialVectorCoordTransform DestinationCoordinateSpace = (EMaterialVectorCoordTransform)DestCoordType;
-
-		// Construct float3(0,0,x) out of the input if it is a scalar
-		// This way artists can plug in a scalar and it will be treated as height, or a vector displacement
-		if(A != INDEX_NONE && (GetType(A) & MCT_Float1) && SourceCoordinateSpace == TRANSFORMSOURCE_Tangent)
-		{
-			A = AppendVector(Constant2(0, 0), A);
-		}
-
-		int32 Domain = Material->GetMaterialDomain();
-		if( (Domain != MD_Surface && Domain != MD_DeferredDecal) && 
-			(SourceCoordinateSpace == TRANSFORMSOURCE_Tangent || SourceCoordinateSpace == TRANSFORMSOURCE_Local || DestCoordType == TRANSFORM_Tangent || DestCoordType == TRANSFORM_Local))
-		{
-			return Errorf(TEXT("Local and tangent transforms are only supported in the Surface and Deferred Decal material domains!"));
-		}
-
-		if (ShaderFrequency != SF_Vertex)
-		{
-			bUsesTransformVector = true;
-		}
-
-		int32 Result = INDEX_NONE;
-		if(A != INDEX_NONE)
-		{
-			int32 NumInputComponents = GetNumComponents(GetParameterType(A));
-			// only allow float3/float4 transforms
-			if( NumInputComponents < 3 )
+		
+		{ // validation
+			if (ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Domain && ShaderFrequency != SF_Vertex)
 			{
-				Result = Errorf(TEXT("input must be a vector (%s: %s) or a scalar (if source is Tangent)"),*GetParameterCode(A),DescribeType(GetParameterType(A)));
+				return NonPixelShaderExpressionError();
 			}
-			else if ((SourceCoordinateSpace == TRANSFORMSOURCE_World && DestinationCoordinateSpace == TRANSFORM_World)
-				|| (SourceCoordinateSpace == TRANSFORMSOURCE_Local && DestinationCoordinateSpace == TRANSFORM_Local)
-				|| (SourceCoordinateSpace == TRANSFORMSOURCE_Tangent && DestinationCoordinateSpace == TRANSFORM_Tangent)
-				|| (SourceCoordinateSpace == TRANSFORMSOURCE_View && DestinationCoordinateSpace == TRANSFORM_View))
+
+			if (ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex)
 			{
-				// Pass through
-				Result = A;
+				if ((SourceCoordBasis == MCB_Local || DestCoordBasis == MCB_Local))
+				{
+					return Errorf(TEXT("Local space in only supported for vertex, compute or pixel shader"));
+				}
 			}
-			else 
+
+			if (AWComponent != 0 && (SourceCoordBasis == MCB_Tangent || DestCoordBasis == MCB_Tangent))
 			{
-				// code string to transform the input vector
-				FString CodeStr;
-				if (SourceCoordinateSpace == TRANSFORMSOURCE_Tangent)
-				{
-					switch( DestinationCoordinateSpace )
-					{
-					case TRANSFORM_Local:
-						// transform from tangent to local space
-						if( ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex )
-						{
-							return Errorf(TEXT("Local space in only supported for vertex or pixel shader!"));
-						}
-						CodeStr = FString(TEXT("TransformTangentVectorToLocal(Parameters,%s)"));
-						break;
-					case TRANSFORM_World:
-						// transform from tangent to world space
-						if(ShaderFrequency == SF_Domain)
-						{
-							// domain shader uses a prescale value to preserve scaling factor on WorldTransform	when sampling a displacement map
-							CodeStr = FString(TEXT("TransformTangentVectorToWorld_PreScaled(Parameters,%s)"));
-						}
-						else
-						{
-							CodeStr = FString(TEXT("TransformTangentVectorToWorld(Parameters.TangentToWorld,%s)"));
-						}
-						break;
-					case TRANSFORM_View:
-						// transform from tangent to view space
-						if( ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex )
-						{
-							return Errorf(TEXT("View space in only supported for vertex or pixel shader!"));
-						}
-						CodeStr = FString(TEXT("TransformTangentVectorToView(Parameters,%s)"));
-						break;
-					default:
-						UE_LOG(LogMaterial, Fatal, TEXT("Invalid DestCoordType. See EMaterialVectorCoordTransform") );
-					}
-				}
-				else if (SourceCoordinateSpace == TRANSFORMSOURCE_Local)
-				{
-					if( ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex )
-					{
-						return Errorf(TEXT("Local space in only supported for vertex or pixel shader!"));
-					}
-
-					switch( DestinationCoordinateSpace )
-					{
-					case TRANSFORM_Tangent:
-						CodeStr = FString(TEXT("TransformLocalVectorToTangent(Parameters,%s)"));
-						break;
-					case TRANSFORM_World:
-						CodeStr = FString(TEXT("TransformLocalVectorToWorld(Parameters,%s)"));
-						break;
-					case TRANSFORM_View:
-						CodeStr = FString(TEXT("TransformLocalVectorToView(%s)"));
-						break;
-					default:
-						UE_LOG(LogMaterial, Fatal, TEXT("Invalid DestCoordType. See EMaterialVectorCoordTransform") );
-					}
-				}
-				else if (SourceCoordinateSpace == TRANSFORMSOURCE_World)
-				{
-					switch( DestinationCoordinateSpace )
-					{
-					case TRANSFORM_Tangent:
-						CodeStr = FString(TEXT("TransformWorldVectorToTangent(Parameters.TangentToWorld,%s)"));
-						break;
-					case TRANSFORM_Local:
-						if( ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex )
-						{
-							return Errorf(TEXT("Local space in only supported for vertex or pixel shader!"));
-						}
-						CodeStr = FString(TEXT("TransformWorldVectorToLocal(%s)"));
-						break;
-					case TRANSFORM_View:
-						if( ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex )
-						{
-							return Errorf(TEXT("View space in only supported for vertex or pixel shader!"));
-						}
-						CodeStr = FString(TEXT("TransformWorldVectorToView(%s)"));
-						break;
-					default:
-						UE_LOG(LogMaterial, Fatal, TEXT("Invalid DestCoordType. See EMaterialVectorCoordTransform") );
-					}
-				}
-				else if (SourceCoordinateSpace == TRANSFORMSOURCE_View)
-				{
-					switch( DestinationCoordinateSpace )
-					{
-					case TRANSFORM_Tangent:
-						CodeStr = FString(TEXT("TransformWorldVectorToTangent(Parameters.TangentToWorld,TransformViewVectorToWorld(%s))"));
-						break;
-					case TRANSFORM_Local:
-						if( ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex )
-						{
-							return Errorf(TEXT("Local space in only supported for vertex or pixel shader!"));
-						}
-						CodeStr = FString(TEXT("TransformViewVectorToLocal(%s)"));
-						break;
-					case TRANSFORM_World:
-						if( ShaderFrequency != SF_Pixel && ShaderFrequency != SF_Compute && ShaderFrequency != SF_Vertex )
-						{
-							return Errorf(TEXT("View space in only supported for vertex or pixel shader!"));
-						}
-						CodeStr = FString(TEXT("TransformViewVectorToWorld(%s)"));
-						break;
-					default:
-						UE_LOG(LogMaterial, Fatal, TEXT("Invalid DestCoordType. See EMaterialVectorCoordTransform") );
-					}
-				}
-				else
-				{
-					UE_LOG(LogMaterial, Fatal, TEXT("Invalid SourceCoordType. See EMaterialVectorCoordTransformSource") );
-				}
-
-				// we are only transforming vectors (not points) so only return a float3
-				Result = AddCodeChunk(
-					MCT_Float3,
-					*CodeStr,
-					*CoerceParameter(A,MCT_Float3)
-					);
+				return Errorf(TEXT("Tangent basis not available for position transformations"));
+			}
+		
+			// Construct float3(0,0,x) out of the input if it is a scalar
+			// This way artists can plug in a scalar and it will be treated as height, or a vector displacement
+			if (GetType(A) == MCT_Float1 && SourceCoordBasis == MCB_Tangent)
+			{
+				A = AppendVector(Constant2(0, 0), A);
+			}
+			else if (GetNumComponents(GetParameterType(A)) < 3)
+			{
+				return Errorf(TEXT("input must be a vector (%s: %s) or a scalar (if source is Tangent)"), *GetParameterCode(A), DescribeType(GetParameterType(A)));
 			}
 		}
-		return Result; 
+		
+		if (SourceCoordBasis == DestCoordBasis)
+		{
+			// no transformation needed
+			return A;
+		}
+		
+		FString CodeStr;
+		EMaterialCommonBasis IntermediaryBasis = MCB_World;
+
+		switch (SourceCoordBasis)
+		{
+			case MCB_Tangent:
+			{
+				check(AWComponent == 0);
+				if (DestCoordBasis == MCB_World)
+				{
+					if (ShaderFrequency == SF_Domain)
+					{
+						// domain shader uses a prescale value to preserve scaling factor on WorldTransform	when sampling a displacement map
+						CodeStr = FString(TEXT("TransformTangent<TO>World_PreScaled(Parameters, <A>.xyz)"));
+					}
+					else
+					{
+						CodeStr = TEXT("mul(<A>, <MATRIX>(Parameters.TangentToWorld))");
+					}
+				}
+				// else use MCB_World as intermediary basis
+				break;
+			}
+			case MCB_Local:
+			{
+				if (DestCoordBasis == MCB_World)
+				{
+					 // TODO: need <PREV>
+					CodeStr = TEXT("TransformLocal<TO>World(Parameters, <A>.xyz)");
+				}
+				// else use MCB_World as intermediary basis
+				break;
+			}
+			case MCB_TranslatedWorld:
+			{
+				if (DestCoordBasis == MCB_World)
+				{
+					if (AWComponent)
+					{
+						CodeStr = TEXT("(<A>.xyz - View.<PREV>PreViewTranslation.xyz)");
+					}
+					else
+					{
+						CodeStr = TEXT("<A>");
+					}
+				}
+				else if (DestCoordBasis == MCB_View)
+				{
+					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>TranslatedWorldToView))");
+				}
+				// else use MCB_World as intermediary basis
+				break;
+			}
+			case MCB_World:
+			{
+				if (DestCoordBasis == MCB_Tangent)
+				{
+					CodeStr = TEXT("mul(<MATRIX>(Parameters.TangentToWorld), <A>)");
+				}
+				else if (DestCoordBasis == MCB_Local)
+				{
+					//TODO: need Primitive.PrevWorldToLocal
+					//TODO: inconsistent with TransformLocal<TO>World with instancing
+					CodeStr = TEXT("mul(<A>, <MATRIX>(Primitive.WorldToLocal))");
+				}
+				else if (DestCoordBasis == MCB_TranslatedWorld)
+				{
+					if (AWComponent)
+					{
+						CodeStr = TEXT("(<A>.xyz + View.<PREV>PreViewTranslation.xyz)");
+					}
+					else
+					{
+						CodeStr = TEXT("<A>");
+					}
+				}
+				// else use MCB_TranslatedWorld as intermediary basis
+				IntermediaryBasis = MCB_TranslatedWorld;
+				break;
+			}
+			case MCB_View:
+			{
+				if (DestCoordBasis == MCB_TranslatedWorld)
+				{
+					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>ViewToTranslatedWorld))");
+				}
+				// else use MCB_TranslatedWorld as intermediary basis
+				IntermediaryBasis = MCB_TranslatedWorld;
+				break;
+			}
+			default:
+				check(0);
+				break;
+		}
+
+		if (CodeStr.IsEmpty())
+		{
+			// check intermediary basis so we don't have infinite recursion
+			check(IntermediaryBasis != SourceCoordBasis);
+			check(IntermediaryBasis != DestCoordBasis);
+
+			// use intermediary basis
+			const int32 IntermediaryA = TransformBase(SourceCoordBasis, IntermediaryBasis, A, AWComponent);
+
+			return TransformBase(IntermediaryBasis, DestCoordBasis, IntermediaryA, AWComponent);
+		}
+		
+		if (AWComponent != 0)
+		{
+			A = AppendVector(A, Constant(1));
+			CodeStr.ReplaceInline(TEXT("<TO>"),TEXT("PositionTo"));
+			CodeStr.ReplaceInline(TEXT("<MATRIX>"),TEXT(""));
+			CodeStr += ".xyz";
+		}
+		else
+		{
+			CodeStr.ReplaceInline(TEXT("<TO>"),TEXT("VectorTo"));
+			CodeStr.ReplaceInline(TEXT("<MATRIX>"),TEXT("(MaterialFloat3x3)"));
+		}
+		
+		if (bCompilingPreviousFrame)
+		{
+			CodeStr.ReplaceInline(TEXT("<PREV>"),TEXT("Prev"));
+		}
+		else
+		{
+			CodeStr.ReplaceInline(TEXT("<PREV>"),TEXT(""));
+		}
+		
+		CodeStr.ReplaceInline(TEXT("<A>"), *GetParameterCode(A));
+
+		return AddCodeChunk(
+			MCT_Float3,
+			*CodeStr
+			);
+	}
+	
+	virtual int32 TransformVector(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) override
+	{
+		return TransformBase(SourceCoordBasis, DestCoordBasis, A, 0);
 	}
 
-	/**
-	* Generate shader code for transforming a position
-	*
-	* @param	CoordType - type of transform to apply. see EMaterialExpressionTransformPosition 
-	* @param	A - index for input vector parameter's code
-	*/
-	virtual int32 TransformPosition(uint8 SourceCoordType, uint8 DestCoordType, int32 A) override
+	virtual int32 TransformPosition(EMaterialCommonBasis SourceCoordBasis, EMaterialCommonBasis DestCoordBasis, int32 A) override
 	{
-		const EMaterialPositionTransformSource SourceCoordinateSpace = (EMaterialPositionTransformSource)SourceCoordType;
-		const EMaterialPositionTransformSource DestinationCoordinateSpace = (EMaterialPositionTransformSource)DestCoordType;
-
-		int32 Result = INDEX_NONE;
-
-		if (SourceCoordinateSpace == DestinationCoordinateSpace)
-		{
-			Result = A;
-		}
-		else if (A != INDEX_NONE)
-		{
-			// code string to transform the input vector
-			FString CodeStr;
-
-			if (SourceCoordinateSpace == TRANSFORMPOSSOURCE_Local)
-			{
-				CodeStr = FString(TEXT("TransformLocalPositionToWorld(Parameters,%s)"));
-			}
-			else if (SourceCoordinateSpace == TRANSFORMPOSSOURCE_World)
-			{
-				CodeStr = FString(TEXT("TransformWorldPositionToLocal(%s)"));
-			}
-				
-			Result = AddCodeChunk(
-				MCT_Float3,
-				*CodeStr,
-				*CoerceParameter(A,MCT_Float3)
-				);
-		}
-		return Result; 
+		return TransformBase(SourceCoordBasis, DestCoordBasis, A, 1);
 	}
 
 	virtual int32 DynamicParameter() override
