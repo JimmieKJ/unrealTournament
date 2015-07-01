@@ -71,7 +71,7 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets) && LoadingAnimation[NumLoadedRockets] != NULL)
 		{
-			AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets], LoadingAnimation[NumLoadedRockets]->SequenceLength / GetLoadTime());
+			AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets], LoadingAnimation[NumLoadedRockets]->SequenceLength / GetLoadTime(NumLoadedRockets));
 		}
 	}
 
@@ -88,7 +88,7 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 {
 	ConsumeAmmo(CurrentFireMode);
 	NumLoadedRockets++;
-	UTOwner->SetFlashExtra(NumLoadedRockets + 1, CurrentFireMode);
+	SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
 	LastLoadTime = GetWorld()->TimeSeconds;
 
 	UUTGameplayStatics::UTPlaySound(GetWorld(), RocketLoadedSound, UTOwner, SRT_AllButOwner);
@@ -160,9 +160,9 @@ void AUTWeap_RocketLauncher::ClientAbortLoad_Implementation()
 	}
 }
 
-float AUTWeap_RocketLauncher::GetLoadTime()
+float AUTWeap_RocketLauncher::GetLoadTime(int32 InNumLoadedRockets)
 {
-	return ((NumLoadedRockets > 0) ? RocketLoadTime : FirstRocketLoadTime) / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f);
+	return ((InNumLoadedRockets > 0) ? RocketLoadTime : FirstRocketLoadTime) / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f);
 }
 
 void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
@@ -186,6 +186,12 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 				CurrentRocketFireMode = 0;
 			}
 			UUTGameplayStatics::UTPlaySound(GetWorld(), AltFireModeChangeSound, UTOwner, SRT_AllButOwner);
+
+			//Update Extraflash so spectators can see the hud text
+			if (Role == ROLE_Authority)
+			{
+				SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
+			}
 		}
 	}
 }
@@ -273,7 +279,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		}
 
 		//Only play Muzzle flashes if the Rocket mode permits ie: Grenades no flash
-		if ((Role == ROLE_Authority) && RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash)
+		if ((Role == ROLE_Authority)/* && RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash*/)
 		{
 			UTOwner->IncrementFlashCount(NumLoadedRockets);
 		}
@@ -818,4 +824,69 @@ bool AUTWeap_RocketLauncher::IsPreparingAttack_Implementation()
 		UUTWeaponStateFiringCharged* ChargeState = Cast<UUTWeaponStateFiringCharged>(CurrentState);
 		return (ChargeState != NULL && ChargeState->bCharging);
 	}
+}
+
+void AUTWeap_RocketLauncher::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)
+{
+	if (InFireMode > 0 && NewFlashExtra > 0)
+	{
+		int32 NewNumLoadedRockets;
+		GetRocketFlashExtra(NewFlashExtra, InFireMode, NewNumLoadedRockets, CurrentRocketFireMode, bDrawRocketModeString);
+		
+		//Play the load animation
+		if (NewNumLoadedRockets != NumLoadedRockets && GetNetMode() != NM_DedicatedServer)
+		{
+			NumLoadedRockets = NewNumLoadedRockets;
+
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+			if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets - 1) && LoadingAnimation[NumLoadedRockets-1] != NULL)
+			{
+				AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets - 1], LoadingAnimation[NumLoadedRockets - 1]->SequenceLength / GetLoadTime(NumLoadedRockets-1));
+			}
+		}
+	}
+}
+
+void AUTWeap_RocketLauncher::SetRocketFlashExtra(uint8 InFireMode, int32 InNumLoadedRockets, int32 InCurrentRocketFireMode, bool bInDrawRocketModeString)
+{
+	if (UTOwner != nullptr && Role == ROLE_Authority)
+	{
+		if (InFireMode == 0)
+		{
+			GetUTOwner()->SetFlashExtra(0, InFireMode);
+		}
+		else
+		{
+			uint8 NewFlashExtra = InNumLoadedRockets;
+			if (bInDrawRocketModeString)
+			{
+				NewFlashExtra |= 1 << 7;
+				NewFlashExtra |= InCurrentRocketFireMode << 4;
+			}
+			GetUTOwner()->SetFlashExtra(NewFlashExtra, InFireMode);
+		}
+	}
+}
+
+void AUTWeap_RocketLauncher::GetRocketFlashExtra(uint8 InFlashExtra, uint8 InFireMode, int32& OutNumLoadedRockets, int32& OutCurrentRocketFireMode, bool& bOutDrawRocketModeString)
+{
+	if (InFireMode == 1)
+	{
+		//High bit is whether or not we should display the the Rocket mode string
+		if (InFlashExtra >> 7 > 0) 
+		{
+			bOutDrawRocketModeString = true;
+			OutCurrentRocketFireMode = (InFlashExtra >> 4) & 0x07; //The next 3 bits is the rocket mode
+		}
+		//Low 4 bits is the number of rockets
+		OutNumLoadedRockets = FMath::Min(InFlashExtra & 0x0F, MaxLoadedRockets);
+	}
+}
+
+void AUTWeap_RocketLauncher::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	Super::FiringInfoUpdated_Implementation(InFireMode, FlashCount, InFlashLocation);
+	CurrentRocketFireMode = 0;
+	bDrawRocketModeString = false;
+	NumLoadedRockets = 0;
 }

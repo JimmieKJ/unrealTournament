@@ -134,7 +134,7 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireRocketProjectile();
 
-	virtual float GetLoadTime();
+	virtual float GetLoadTime(int32 InNumLoadedRockets);
 	virtual void BeginLoadRocket();
 	virtual void EndLoadRocket();
 	virtual void ClearLoadedRockets();
@@ -242,4 +242,14 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	virtual bool IsPreparingAttack_Implementation() override;
 
 	virtual void Destroyed() override;
+
+	virtual void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
+	virtual void FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode) override;
+
+	/** Rocket FlashExtra bits
+	*	High bit = bDrawRocketModeString  
+	*	3 bits = CurrentRocketFireMode 
+	*	low 4 bits = NumLoadedRockets*/
+	virtual void SetRocketFlashExtra(uint8 InFireMode, int32 InNumLoadedRockets, int32 InCurrentRocketFireMode, bool bInDrawRocketModeString);
+	virtual void GetRocketFlashExtra(uint8 InFlashExtra, uint8 InFireMode, int32& OutNumLoadedRockets, int32& OutCurrentRocketFireMode, bool& bOutDrawRocketModeString);
 };
