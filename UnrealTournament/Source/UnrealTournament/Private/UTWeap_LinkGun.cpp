@@ -434,3 +434,11 @@ void AUTWeap_LinkGun::DebugSetLinkGunLinks(int32 newLinks)
 	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Black, FString::Printf(TEXT("DebugSetLinkGunLinks, oldLinks: %i, newLinks: %i"), Links, newLinks));
 	Links = newLinks;
 }
+
+void AUTWeap_LinkGun::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)
+{
+	if (NewFlashExtra > 0 && InFireMode == 1)
+	{
+		LastBeamPulseTime = GetWorld()->TimeSeconds;
+	}
+}

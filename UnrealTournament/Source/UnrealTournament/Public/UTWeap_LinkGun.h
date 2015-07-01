@@ -156,4 +156,6 @@ public:
 	virtual void OnMultiPress_Implementation(uint8 OtherFireMode) override;
 
 	virtual void Tick(float DeltaTime) override;
+
+	virtual void FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode) override;
 };
