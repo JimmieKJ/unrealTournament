@@ -90,7 +90,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAllowOvertime = true;
 	bForceRespawn = false;
 
-	DefaultPlayerName = FText::FromString(TEXT("Malcolm"));
+	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
 	LobbyInstanceID = 0;
 	DemoFilename = TEXT("%m-%td");

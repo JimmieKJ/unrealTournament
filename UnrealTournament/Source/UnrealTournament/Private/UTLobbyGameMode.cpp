@@ -27,7 +27,7 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	GameStateClass = AUTLobbyGameState::StaticClass();
 	PlayerStateClass = AUTLobbyPlayerState::StaticClass();
 	PlayerControllerClass = AUTLobbyPC::StaticClass();
-	DefaultPlayerName = FText::FromString(TEXT("Malcolm"));
+	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	GameMessageClass = UUTGameMessage::StaticClass();
 
 	DisplayName = NSLOCTEXT("UTLobbyGameMode", "HUB", "HUB");

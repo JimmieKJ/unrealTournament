@@ -7,7 +7,7 @@
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	PlayerName = TEXT("Malcolm");
+	PlayerName = TEXT("Player");
 	bSuppressToastsInGame = false;
 
 	bNeedProfileWriteOnLevelChange = false;
