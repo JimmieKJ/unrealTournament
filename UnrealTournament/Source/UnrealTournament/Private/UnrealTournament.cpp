@@ -21,6 +21,8 @@ static uint32 UTGetNetworkVersion()
 	return 3008041;
 }
 
+const FString ITEM_STAT_PREFIX = TEXT("ITEM_");
+
 // init editor hooks
 #if WITH_EDITOR
 
@@ -261,6 +263,15 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 			{
 				AssetList.RemoveAt(i);
 			}
+			else
+			{
+				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+				if (NeedsItem != NULL && NeedsItem->ToBool())
+				{
+					// TODO:
+					AssetList.RemoveAt(i);
+				}
+			}
 		}
 	}
 }
@@ -390,6 +401,15 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 			{
 				AssetList.RemoveAt(i);
 			}
+			else
+			{
+				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+				if (NeedsItem != NULL && NeedsItem->ToBool())
+				{
+					// TODO:
+					AssetList.RemoveAt(i);
+				}
+			}
 		}
 	}
 }
@@ -477,5 +497,44 @@ void ClearTimerActiveUFunc(UObject* Obj, FName FuncName)
 				return World->GetTimerManager().ClearTimer(Handle);
 			}
 		}
+	}
+}
+
+void ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDelegate, const FString& StatsID, const FString& QueryWindow)
+{
+	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
+	if (StatsReadRequest.IsValid())
+	{
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+#endif
+		FString McpConfigOverride;
+		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+		if (McpConfigOverride == TEXT("localhost"))
+		{
+			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/");
+		}
+		else if (McpConfigOverride == TEXT("gamedev"))
+		{
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+		}
+
+		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
+
+		StatsReadRequest->SetURL(FinalStatsURL);
+		StatsReadRequest->OnProcessRequestComplete() = ResultDelegate;
+		StatsReadRequest->SetVerb(TEXT("GET"));
+
+		UE_LOG(LogGameStats, Verbose, TEXT("%s"), *FinalStatsURL);
+
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		if (OnlineSubsystem != NULL && OnlineSubsystem->GetIdentityInterface().IsValid())
+		{
+			FString AuthToken = OnlineSubsystem->GetIdentityInterface()->GetAuthToken(0);
+			StatsReadRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+		}
+		StatsReadRequest->ProcessRequest();
 	}
 }

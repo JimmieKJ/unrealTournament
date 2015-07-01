@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#ifndef __UNREALTOURNAMENT_H__
-#define __UNREALTOURNAMENT_H__
+#pragma once
 
 #include "Engine.h"
 #include "ParticleDefinitions.h"
@@ -103,4 +102,12 @@ extern UNREALTOURNAMENT_API void SetTimerUFunc(UObject* Obj, FName FuncName, flo
 extern UNREALTOURNAMENT_API bool IsTimerActiveUFunc(UObject* Obj, FName FuncName);
 extern UNREALTOURNAMENT_API void ClearTimerUFunc(UObject* Obj, FName FuncName);
 
-#endif
+/** reads stats data for a user and calls the delegate when done
+ * NOTE: stats data currently also contains profile item counters!
+ * @param StatsId - user ID to query
+ * @param QueryWindow - query time period (e.g. "monthly")
+ */
+extern UNREALTOURNAMENT_API void ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDelegate, const FString& StatsId, const FString& QueryWindow = TEXT("alltime"));
+
+/** prefix for stat names for our hacky "inventory as stats" implementation */
+extern const FString ITEM_STAT_PREFIX;

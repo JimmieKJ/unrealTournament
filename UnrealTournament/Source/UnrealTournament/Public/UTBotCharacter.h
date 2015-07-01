@@ -9,6 +9,10 @@ class UNREALTOURNAMENT_API UUTBotCharacter : public UDataAsset
 {
 	GENERATED_BODY()
 public:
+	/** if set a UTProfileItem is required for this character to be available */
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
+	bool bRequiresItem;
+
 	/** alternate names to use when there are not enough bot characters for the number of players requested and we need to put in duplicates */
 	UPROPERTY(EditAnywhere)
 	TArray<FString> AltNames;
