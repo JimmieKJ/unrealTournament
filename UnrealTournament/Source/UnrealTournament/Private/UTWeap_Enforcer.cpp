@@ -303,6 +303,12 @@ void AUTWeap_Enforcer::BecomeDual()
 {
 	bBecomeDual = true;
 
+	//For spectators this may not have been set
+	if (EnforcerEquippingState->EquipTime == 0.0f)
+	{
+		EnforcerEquippingState->EquipTime = GetBringUpTime();
+	}
+
 	// pick up the second enforcer
 	AttachLeftMesh();
 
@@ -509,6 +515,40 @@ void AUTWeap_Enforcer::UpdateWeaponHand()
 				LeftMesh->SetRelativeLocationAndRotation(FVector(-50.0f, -20.0f, -50.0f), FRotator::ZeroRotator);
 				break;
 			}
+		}
+	}
+}
+
+void AUTWeap_Enforcer::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	CurrentFireMode = InFireMode;
+	UUTWeaponStateFiringBurst* BurstFireMode = Cast<UUTWeaponStateFiringBurst>(FiringState[GetCurrentFireMode()]);
+	if (InFlashLocation.IsZero())
+	{
+		FireCount = 0;
+		ImpactCount = 0;
+		if (BurstFireMode != nullptr)
+		{
+			BurstFireMode->CurrentShot = 0;
+		}
+	}
+	else
+	{
+		PlayFiringEffects();
+
+		FireCount++;
+		if (BurstFireMode)
+		{
+			BurstFireMode->CurrentShot++;
+		}
+
+		if ((BurstFireMode && FireCount >= BurstFireMode->BurstSize * 2) || (!BurstFireMode && FireCount > 1))
+		{
+			FireCount = 0;
+		}
+		if (BurstFireMode && BurstFireMode->CurrentShot >= BurstFireMode->BurstSize)
+		{
+			BurstFireMode->CurrentShot = 0;
 		}
 	}
 }

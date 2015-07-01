@@ -117,6 +117,8 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 
 	virtual void DualEquipFinished();
 
+	virtual void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
+
 protected:
 	
 	UPROPERTY()
