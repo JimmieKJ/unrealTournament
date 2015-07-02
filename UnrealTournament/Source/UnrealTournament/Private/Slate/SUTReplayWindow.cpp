@@ -12,6 +12,8 @@
 #include "UTPlayerState.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Engine/DemoNetDriver.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "UTVideoRecordingFeature.h"
 
 #if !UE_SERVER
 
@@ -19,6 +21,9 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 {
 	SpeedMin = 0.1f;
 	SpeedMax = 2.0f;
+
+	RecordTimeStart = -1;
+	RecordTimeStop = -1;
 
 	PlayerOwner = InArgs._PlayerOwner;
 	DemoNetDriver = InArgs._DemoNetDriver;
@@ -73,7 +78,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 					.AutoHeight()
 					.Padding(0.0f,0.0f,0.0f,10.0f)
 					[
-						SNew(SUTProgressSlider)
+						SAssignNew(TimeSlider, SUTProgressSlider)
 						.Value(this, &SUTReplayWindow::GetTimeSlider)
 						.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
 						.SliderBarColor(FColor(33, 93, 220))
@@ -90,9 +95,65 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Left)
 						.VAlign(VAlign_Center)
 						[
-							SNew(STextBlock)
-							.Text(this, &SUTReplayWindow::GetTimeText)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.HAlign(HAlign_Fill)
+							.AutoHeight()
+							.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+							[
+								SNew(STextBlock)
+								.Text(this, &SUTReplayWindow::GetTimeText)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							]
+							+ SVerticalBox::Slot()
+							.HAlign(HAlign_Fill)
+							.AutoHeight()
+							.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+							[
+								SNew(SHorizontalBox)
+								+ SHorizontalBox::Slot()
+								.HAlign(HAlign_Left)
+								.AutoWidth()
+								[
+									SAssignNew(RecordButton, SButton)
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+									.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
+									.ContentPadding(1.0f)
+									.Content()
+									[
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
+									]
+								]
+								+ SHorizontalBox::Slot()
+								.HAlign(HAlign_Left)
+								.AutoWidth()
+								[
+									SAssignNew(MarkStartButton, SButton)
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+									.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
+									.ContentPadding(1.0f)
+									.Content()
+									[
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
+									]
+								]
+								+ SHorizontalBox::Slot()
+								.HAlign(HAlign_Left)
+								.AutoWidth()
+								[
+									SAssignNew(MarkEndButton, SButton)
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+									.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
+									.ContentPadding(1.0f)
+									.Content()
+									[
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
+									]
+								]
+							]
 						]
 
 						//Play / Pause button
@@ -138,6 +199,24 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+
+	bool bVideoRecorderPresent = false;
+	static const FName VideoRecordingFeatureName("VideoRecording");
+	if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+	{
+		UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+		if (VideoRecorder)
+		{
+			bVideoRecorderPresent = true;
+		}
+	}
+
+	if (!bVideoRecorderPresent)
+	{
+		RecordButton->SetVisibility(EVisibility::Hidden);
+		MarkStartButton->SetVisibility(EVisibility::Hidden);
+		MarkEndButton->SetVisibility(EVisibility::Hidden);
+	}
 }
 
 FText SUTReplayWindow::GetTimeText() const
@@ -267,6 +346,54 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 	return FReply::Unhandled();
 }
 
+FReply SUTReplayWindow::OnMarkRecordStartClicked()
+{
+	if (DemoNetDriver.IsValid())
+	{
+		RecordTimeStart = DemoNetDriver->DemoCurrentTime;
+		TimeSlider->SetMarkStart(TimeSlider->GetValue());
+		// Verify that time stop is in a valid spot
+		if (RecordTimeStop > 0 && RecordTimeStop < RecordTimeStart)
+		{
+			RecordTimeStop = -1;
+			TimeSlider->SetMarkEnd(-1);
+		}
+	}
 
+	return FReply::Handled();
+}
+
+FReply SUTReplayWindow::OnMarkRecordStopClicked()
+{
+	if (DemoNetDriver.IsValid())
+	{
+		// Don't allow demo clips longer than 90 seconds right now, video temp files get really close to 4 gigs at that size
+		if (RecordTimeStart > 0 && DemoNetDriver->DemoCurrentTime > RecordTimeStart && DemoNetDriver->DemoCurrentTime - RecordTimeStart < 90)
+		{
+			RecordTimeStop = DemoNetDriver->DemoCurrentTime;
+			TimeSlider->SetMarkEnd(TimeSlider->GetValue());
+		}
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUTReplayWindow::OnRecordButtonClicked()
+{
+	if (DemoNetDriver.IsValid())
+	{
+		if (RecordTimeStart > 0 && RecordTimeStop > 0)
+		{
+			AWorldSettings* const WorldSettings = PlayerOwner->GetWorld()->GetWorldSettings();
+			WorldSettings->Pauser = nullptr;
+
+			PlayerOwner->GetWorld()->GetWorldSettings()->DemoPlayTimeDilation = 1.0f;
+			DemoNetDriver->GotoTimeInSeconds(RecordTimeStart);
+			PlayerOwner->RecordReplay(RecordTimeStop - RecordTimeStart);
+		}
+	}
+
+	return FReply::Handled();
+}
 
 #endif

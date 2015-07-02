@@ -83,17 +83,6 @@ protected:
 	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv);
 	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
-	TSharedPtr<class SUWYoutubeConsent> YoutubeConsentDialog;
-	bool bYoutubeConsentInFlight;
-	virtual void YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-	void YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
-	void YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
-	bool bYoutubeUploadingVideo;
-	FString YoutubeFileToUpload;
-	TArray<uint8> YoutubeUploadBinaryData;
-	void YoutubeResumableSessionRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
-	void YoutubeFileUploadRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
-
 public:
 
 	// Returns TRUE if there is currently a download in progress.
@@ -117,11 +106,5 @@ public:
 	 *	Removes the  call back to an object looking to know when a player's status changed.
 	 **/
 	virtual void RemoveContentDownloadCompleteDelegate(FDelegateHandle DelegateHandle);
-	
-	virtual void RequestYoutubeConsent();
-	virtual void RefreshYoutubeToken();
-	virtual bool IsYoutubeConsentInFlight();
-	virtual void UploadVideoToYoutube(const FString& VideoFile);
-	virtual bool IsYoutubeUploadInFlight();
 };
 

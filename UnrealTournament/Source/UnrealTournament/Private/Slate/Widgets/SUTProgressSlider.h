@@ -107,6 +107,11 @@ public:
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
+	void SetMarkStart(float InMarkStart) { MarkStart = InMarkStart; }
+	void SetMarkEnd(float InMarkEnd) { MarkEnd = InMarkEnd; }
+	float MarkStart;
+	float MarkEnd;
+
 protected:
 
 	/**

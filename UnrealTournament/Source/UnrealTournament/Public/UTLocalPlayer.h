@@ -487,6 +487,25 @@ public:
 
 	virtual bool IsReplay();
 
+#if !UE_SERVER
+	void RecordReplay(float RecordTime);
+	void RecordingReplayComplete();
+	void GetYoutubeConsentForUpload();
+	void ShouldVideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void VideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void ShouldVideoUploadDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+	void YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+	void UploadVideoToYoutube();
+	bool bRecordingReplay;
+	FString RecordedReplayFilename;
+	FString RecordedReplayTitle;
+	TSharedPtr<SUWDialog> YoutubeDialog;
+	TSharedPtr<class SUWYoutubeConsent> YoutubeConsentDialog;
+#endif
+
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 
 	/**

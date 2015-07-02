@@ -5,6 +5,8 @@
 #include "SUWindowsStyle.h"
 #include "SWebBrowser.h"
 
+#if !UE_SERVER
+
 void SUWYoutubeConsent::Construct(const FArguments& InArgs)
 {
 	SUWDialog::Construct(SUWDialog::FArguments()
@@ -80,3 +82,5 @@ void SUWYoutubeConsent::Tick(const FGeometry & AllottedGeometry, const double In
 {
 	SUWDialog::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
+
+#endif

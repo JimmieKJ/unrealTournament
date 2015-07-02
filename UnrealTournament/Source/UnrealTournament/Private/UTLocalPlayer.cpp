@@ -26,6 +26,7 @@
 #include "Slate/SUTQuickMatch.h"
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
+#include "Slate/SUWVideoCompressionDialog.h"
 #include "Slate/SUTLoadoutMenu.h"
 #include "Slate/SUTBuyMenu.h"
 #include "Slate/SUWMapVoteDialog.h"
@@ -39,6 +40,10 @@
 #include "UTGameEngine.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTConsole.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "UTVideoRecordingFeature.h"
+#include "Slate/SUWYoutubeUpload.h"
+#include "Slate/SUWYoutubeConsent.h"
 
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
@@ -2200,6 +2205,270 @@ bool UUTLocalPlayer::IsReplay()
 {
 	return (GetWorld()->DemoNetDriver != nullptr);
 }
+
+#if !UE_SERVER
+
+void UUTLocalPlayer::RecordReplay(float RecordTime)
+{
+	CloseReplayWindow();
+
+	bRecordingReplay = true;
+
+	static const FName VideoRecordingFeatureName("VideoRecording");
+	if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+	{
+		UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+		if (VideoRecorder)
+		{
+			VideoRecorder->OnRecordingComplete().AddUObject(this, &UUTLocalPlayer::RecordingReplayComplete);
+			VideoRecorder->StartRecording(RecordTime);
+		}
+	}
+}
+
+void UUTLocalPlayer::RecordingReplayComplete()
+{
+	bRecordingReplay = false;
+
+	static const FName VideoRecordingFeatureName("VideoRecording");
+	if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+	{
+		UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+		if (VideoRecorder)
+		{
+			VideoRecorder->OnRecordingComplete().RemoveAll(this);
+		}
+	}
+
+	// Pause the replay streamer
+	AWorldSettings* const WorldSettings = GetWorld()->GetWorldSettings();
+	if (WorldSettings->Pauser == nullptr)
+	{
+		WorldSettings->Pauser = (PlayerController != nullptr) ? PlayerController->PlayerState : nullptr;
+	}
+
+	// Show a dialog asking player if they want to compress
+	ShowMessage(NSLOCTEXT("VideoMessages", "CompressNowTitle", "Compress now?"),
+				NSLOCTEXT("VideoMessages", "CompressNow", "Your video recorded successfully.\nWould you like to compress the video now? It may take several minutes."),
+				UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ShouldVideoCompressDialogResult));
+}
+
+void UUTLocalPlayer::ShouldVideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		// Pick a proper filename for the video
+		FString BasePath = FPaths::ScreenShotDir();
+		RecordedReplayFilename = BasePath / TEXT("anim.webm");
+		static int32 WebMIndex = 0;
+		const int32 MaxTestWebMIndex = 65536;
+		for (int32 TestWebMIndex = WebMIndex + 1; TestWebMIndex < MaxTestWebMIndex; ++TestWebMIndex)
+		{
+			const FString TestFileName = BasePath / FString::Printf(TEXT("UTReplay%05i.webm"), TestWebMIndex);
+			if (IFileManager::Get().FileSize(*TestFileName) < 0)
+			{
+				WebMIndex = TestWebMIndex;
+				RecordedReplayFilename = TestFileName;
+				break;
+			}
+		}
+
+		static const FName VideoRecordingFeatureName("VideoRecording");
+		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+		{
+			UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+			if (VideoRecorder)
+			{
+				// Open a dialog that shows a nice progress bar of the compression
+				OpenDialog(SNew(SUWVideoCompressionDialog)
+							.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::VideoCompressDialogResult))
+							.DialogTitle(NSLOCTEXT("VideoMessages", "Compressing", "Compressing"))
+							.PlayerOwner(this)
+							.VideoRecorder(VideoRecorder)
+							.VideoFilename(RecordedReplayFilename)
+							);
+			}
+		}
+	}
+	else
+	{
+		OpenReplayWindow();
+	}
+}
+
+void UUTLocalPlayer::VideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		OpenDialog(SNew(SUWInputBox)
+			.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ShouldVideoUploadDialogResult))
+			.PlayerOwner(this)
+			.DefaultInput(TEXT("UT Automated Upload"))
+			.DialogTitle(NSLOCTEXT("VideoMessages", "UploadNowTitle", "Upload to YouTube?"))
+			.MessageText(NSLOCTEXT("VideoMessages", "UploadNow", "Your video compressed successfully.\nWould you like to upload the video to YouTube now?\nPlease enter a video title in the text box."))
+			.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO)
+			);
+	}
+	else
+	{
+		OpenReplayWindow();
+	}
+}
+
+void UUTLocalPlayer::ShouldVideoUploadDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			RecordedReplayTitle = Box->GetInputText();
+		}
+
+		if (YoutubeAccessToken.IsEmpty())
+		{
+			GetYoutubeConsentForUpload();
+		}
+		else if (!YoutubeRefreshToken.IsEmpty())
+		{
+			// Show a dialog here to stop the user for doing anything
+			YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
+				NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
+
+			FHttpRequestPtr YoutubeTokenRefreshRequest = FHttpModule::Get().CreateRequest();
+			YoutubeTokenRefreshRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+			YoutubeTokenRefreshRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRefreshComplete);
+			// ClientID and ClientSecret UT Youtube app on PLK google account
+			FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+			FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+			FString TokenRequest = TEXT("client_id=") + ClientID + TEXT("&client_secret=") + ClientSecret + 
+				                   TEXT("&refresh_token=") + YoutubeRefreshToken + TEXT("&grant_type=refresh_token");
+
+			YoutubeTokenRefreshRequest->SetContentAsString(TokenRequest);
+			YoutubeTokenRefreshRequest->ProcessRequest();
+		}
+	}
+	else
+	{
+		OpenReplayWindow();
+	}
+}
+
+void UUTLocalPlayer::YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		// Show a dialog here to stop the user for doing anything
+		YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
+			NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
+
+		FHttpRequestPtr YoutubeTokenRequest = FHttpModule::Get().CreateRequest();
+		YoutubeTokenRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+		YoutubeTokenRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRequestComplete);
+		YoutubeTokenRequest->SetVerb(TEXT("POST"));
+		YoutubeTokenRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
+
+		// ClientID and ClientSecret UT Youtube app on PLK google account
+		FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+		FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+		FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
+			+ TEXT("&client_secret=") + ClientSecret + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code");
+
+		YoutubeTokenRequest->SetContentAsString(TokenRequest);
+		YoutubeTokenRequest->ProcessRequest();
+	}
+}
+
+void UUTLocalPlayer::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (YoutubeDialog.IsValid())
+	{
+		CloseDialog(YoutubeDialog.ToSharedRef());
+	}
+
+	if (HttpResponse->GetResponseCode() == 200)
+	{
+		TSharedPtr<FJsonObject> YoutubeTokenJson;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		{
+			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
+			YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), YoutubeRefreshToken);
+			SaveConfig();
+
+			UploadVideoToYoutube();
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s"), *HttpResponse->GetContentAsString());
+	}
+}
+
+void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (YoutubeDialog.IsValid())
+	{
+		CloseDialog(YoutubeDialog.ToSharedRef());
+	}
+
+	if (HttpResponse->GetResponseCode() == 200)
+	{
+		TSharedPtr<FJsonObject> YoutubeTokenJson;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		{
+			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
+			SaveConfig();
+
+			UploadVideoToYoutube();
+		}
+	}
+	else
+	{
+		// Refresh token might have been expired
+		YoutubeAccessToken.Empty();
+		YoutubeRefreshToken.Empty();
+
+		GetYoutubeConsentForUpload();
+	}
+}
+
+void UUTLocalPlayer::GetYoutubeConsentForUpload()
+{
+	// Get youtube consent
+	OpenDialog(
+		SAssignNew(YoutubeConsentDialog, SUWYoutubeConsent)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.8f, 0.8f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "YoutubeConsent", "Allow UT to post to YouTube?"))
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeConsentResult))
+		);
+}
+
+void UUTLocalPlayer::UploadVideoToYoutube()
+{
+	// Get youtube consent
+	OpenDialog(
+		SNew(SUWYoutubeUpload)
+		.PlayerOwner(this)
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+		.VideoFilename(RecordedReplayFilename)
+		.AccessToken(YoutubeAccessToken)
+		.VideoTitle(RecordedReplayTitle)
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "YoutubeUpload", "Uploading To Youtube"))
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadResult))
+		);
+}
+
+void UUTLocalPlayer::YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	OpenReplayWindow();
+}
+
+#endif
 
 void UUTLocalPlayer::VerifyGameSession(const FString& ServerSessionId)
 {

@@ -391,6 +391,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{
 		Style.Set("UT.Replay.Button.Play", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Play", Icon48x48));
 		Style.Set("UT.Replay.Button.Pause", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Pause", Icon48x48));
+		Style.Set("UT.Replay.Button.Record", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Record", Icon24x24));
+		Style.Set("UT.Replay.Button.MarkStart", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkStart", Icon24x24));
+		Style.Set("UT.Replay.Button.MarkEnd", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkEnd", Icon24x24));
 	}
 
 	// ------------------------------------- OLD STUFF !!!!!!!

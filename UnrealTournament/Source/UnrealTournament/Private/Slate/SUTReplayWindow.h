@@ -31,6 +31,17 @@ class UNREALTOURNAMENT_API SUTReplayWindow : public SCompoundWidget
 
 protected:
 
+	float RecordTimeStart;
+	float RecordTimeStop;
+	FReply OnMarkRecordStartClicked();
+	FReply OnMarkRecordStopClicked();
+	FReply OnRecordButtonClicked();
+
+	TSharedPtr<class SUTProgressSlider> TimeSlider;
+	TSharedPtr<class SButton> RecordButton;
+	TSharedPtr<class SButton> MarkStartButton;
+	TSharedPtr<class SButton> MarkEndButton;
+
 	//TODO: make custom widgets for these
 	void OnSetTimeSlider(float NewValue);
 	float GetTimeSlider() const;

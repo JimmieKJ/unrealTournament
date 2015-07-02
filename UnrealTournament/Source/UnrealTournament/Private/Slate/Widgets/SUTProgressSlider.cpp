@@ -13,6 +13,9 @@ void SUTProgressSlider::Construct(const SUTProgressSlider::FArguments& InDeclara
 	bSliding = false;
 	DeferedValue = 0.0f;
 
+	MarkStart = -1.0f;
+	MarkEnd = -1.0f;
+
 	check(InDeclaration._Style);
 
 	Style = InDeclaration._Style;
@@ -125,6 +128,42 @@ int32 SUTProgressSlider::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 		DrawEffects,
 		SliderHandleColor.Get().GetColor(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
 		);
+
+	if (MarkStart > 0)
+	{
+		const float MarkerHandleOffset = MarkStart * SliderLength;
+		FVector2D MarkerHalfSize(12, 12);
+		FVector2D MarkerSize(24, 24);
+		FVector2D MarkerTopLeftPoint = FVector2D(MarkerHandleOffset - MarkerHalfSize.X + 0.5f * Indentation, 0.5f * AllottedHeight - MarkerHalfSize.Y);
+		// draw the start marker
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			SliderGeometry.ToPaintGeometry(MarkerTopLeftPoint, MarkerSize),
+			SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"),
+			RotatedClippingRect,
+			DrawEffects,
+			SliderHandleColor.Get().GetColor(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
+			);
+	}
+
+	if (MarkEnd > 0)
+	{
+		const float MarkerHandleOffset = MarkEnd * SliderLength;
+		FVector2D MarkerHalfSize(12, 12);
+		FVector2D MarkerSize(24, 24);
+		FVector2D MarkerTopLeftPoint = FVector2D(MarkerHandleOffset - MarkerHalfSize.X + 0.5f * Indentation, 0.5f * AllottedHeight - MarkerHalfSize.Y);
+		// draw the end marker
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			SliderGeometry.ToPaintGeometry(MarkerTopLeftPoint, MarkerSize),
+			SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"),
+			RotatedClippingRect,
+			DrawEffects,
+			SliderHandleColor.Get().GetColor(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
+			);
+	}
 
 	return LayerId;
 }
