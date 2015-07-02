@@ -26,35 +26,13 @@ void SUWVideoCompressionDialog::Construct(const FArguments& InArgs)
 		TSharedPtr<STextBlock> MessageTextBlock;
 		DialogContent->AddSlot()
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-			.AutoHeight()
-			.VAlign(VAlign_Top)
-			.HAlign(HAlign_Left)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				[
-					SNew(STextBlock).Text(NSLOCTEXT("SUWVideoCompressionDialog", "Compressing", "Compressing"))
-				]
-			]			
-			+ SVerticalBox::Slot()
-			.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-			//.AutoHeight()
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				.Padding(0.0f, 0.0f, 4.0f, 0.0f)
-				[
-					SNew(SProgressBar)
-					.Percent(this, &SUWVideoCompressionDialog::GetProgressCompression)
-				]
+				SNew(SProgressBar)
+				.Percent(this, &SUWVideoCompressionDialog::GetProgressCompression)
 			]
 		];
 	}
@@ -69,7 +47,7 @@ FReply SUWVideoCompressionDialog::OnButtonClick(uint16 ButtonID)
 	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
 	{
 		// kill the compression here
-		//VideoRecorder->CancelCompression();
+		VideoRecorder->CancelCompressing();
 
 		OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
 		GetPlayerOwner()->CloseDialog(SharedThis(this));

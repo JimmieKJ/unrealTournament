@@ -18,4 +18,5 @@ public:
 
 	virtual void StartCompressing(const FString& Filename) = 0;
 	virtual float GetCompressionCompletionPercent() = 0;
+	virtual void CancelCompressing() = 0;
 };

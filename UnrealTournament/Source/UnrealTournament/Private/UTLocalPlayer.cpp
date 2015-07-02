@@ -2303,9 +2303,11 @@ void UUTLocalPlayer::VideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widge
 		OpenDialog(SNew(SUWInputBox)
 			.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ShouldVideoUploadDialogResult))
 			.PlayerOwner(this)
+			.DialogSize(FVector2D(700, 400))
+			.bDialogSizeIsRelative(false)
 			.DefaultInput(TEXT("UT Automated Upload"))
 			.DialogTitle(NSLOCTEXT("VideoMessages", "UploadNowTitle", "Upload to YouTube?"))
-			.MessageText(NSLOCTEXT("VideoMessages", "UploadNow", "Your video compressed successfully.\nWould you like to upload the video to YouTube now?\nPlease enter a video title in the text box."))
+			.MessageText(NSLOCTEXT("VideoMessages", "UploadNow", "Your video compressed successfully.\nWould you like to upload the video to YouTube now?\n\nPlease enter a video title in the text box."))
 			.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO)
 			);
 	}
