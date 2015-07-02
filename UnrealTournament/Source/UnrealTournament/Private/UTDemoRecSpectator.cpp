@@ -136,6 +136,15 @@ void AUTDemoRecSpectator::ClientTravelInternal_Implementation(const FString& URL
 {
 }
 
+void AUTDemoRecSpectator::ClientToggleScoreboard_Implementation(bool bShow)
+{
+}
+
+void AUTDemoRecSpectator::ShowEndGameScoreboard()
+{
+
+}
+
 void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
 	BehindView(true);
@@ -193,4 +202,17 @@ void AUTDemoRecSpectator::HideMenu()
 		LocalPlayer->HideMenu();
 		LocalPlayer->OpenReplayWindow();
 	}
+}
+
+void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float DeltaSeconds)
+{
+	if (!bSpectateBehindView && TargetPawn)
+	{
+		TargetViewRotation = TargetPawn->GetActorRotation();
+		TargetViewRotation.Pitch = TargetPawn->RemoteViewPitch;
+		// Decompress remote view pitch from 1 byte
+		TargetViewRotation.Pitch *= 360.f / 255.f;
+	}
+
+	Super::SmoothTargetViewRotation(TargetPawn, DeltaSeconds);
 }

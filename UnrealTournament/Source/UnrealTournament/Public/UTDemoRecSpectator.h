@@ -24,6 +24,9 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 	virtual void ClientTravelInternal_Implementation(const FString& URL, ETravelType TravelType, bool bSeamless, FGuid MapPackageGuid) override;
 
+	virtual void ClientToggleScoreboard_Implementation(bool bShow) override;
+	virtual void ShowEndGameScoreboard() override;
+
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
 	virtual void InitPlayerState() override
@@ -45,4 +48,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 	virtual void ShowMenu() override;
 	virtual void HideMenu() override;
+
+
+	virtual void SmoothTargetViewRotation(APawn* TargetPawn, float DeltaSeconds) override;
 };
