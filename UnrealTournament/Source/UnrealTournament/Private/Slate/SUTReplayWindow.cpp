@@ -388,12 +388,26 @@ FReply SUTReplayWindow::OnRecordButtonClicked()
 			WorldSettings->Pauser = nullptr;
 
 			PlayerOwner->GetWorld()->GetWorldSettings()->DemoPlayTimeDilation = 1.0f;
-			DemoNetDriver->GotoTimeInSeconds(RecordTimeStart);
-			PlayerOwner->RecordReplay(RecordTimeStop - RecordTimeStart);
+			DemoNetDriver->GotoTimeInSeconds(RecordTimeStart, FOnGotoTimeDelegate::CreateRaw(this, &SUTReplayWindow::RecordSeekCompleted));
 		}
 	}
 
 	return FReply::Handled();
+}
+
+void SUTReplayWindow::RecordSeekCompleted(bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		PlayerOwner->RecordReplay(RecordTimeStop - RecordTimeStart);
+	}
+	else
+	{
+		RecordTimeStart = -1;
+		RecordTimeStop = -1;
+		TimeSlider->SetMarkStart(-1);
+		TimeSlider->SetMarkEnd(-1);
+	}
 }
 
 #endif
