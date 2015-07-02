@@ -853,7 +853,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
 	return NULL;
 }
 
-void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, const FString& ClientUniqueId, int32 ELORank)
+void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank)
 {
 	// Look through all available matches and see if there is 
 

@@ -27,7 +27,7 @@ struct FServerBeaconInfo
 class AUTServerBeaconClient;
 DECLARE_DELEGATE_TwoParams(FServerRequestResultsDelegate, AUTServerBeaconClient*, FServerBeaconInfo);
 DECLARE_DELEGATE_OneParam(FServerRequestFailureDelegate, AUTServerBeaconClient*);
-
+DECLARE_DELEGATE_ThreeParams(FServerRequestQuickplayDelegate, AUTServerBeaconClient*, const FName&, const FString&);
 
 /**
 * A beacon client used for making reservations with an existing game session
@@ -75,7 +75,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	// Asks the hub if this client can get added to a quick play session.  This will be called because
 	// the quickplay manager has decided this server is the best match.  The server will respond with one of the 3 functions below.
 	UFUNCTION(server, reliable, withvalidation)
-	virtual void ServerRequestQuickplay(const FString& MatchType, const FString& ClientUniqueId, int32 ELORank);
+	virtual void ServerRequestQuickplay(const FString& MatchType, int32 ELORank);
 
 	// If no quick play matches are available, let the client know to pick a new server.  This can occur if all of the available instances
 	// are taken on a hub.  
@@ -93,6 +93,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	FServerRequestResultsDelegate OnServerRequestResults;
 	FServerRequestFailureDelegate OnServerRequestFailure;
+	FServerRequestQuickplayDelegate OnRequestQuickplay;
 
 	FString ServerMOTD;
 
@@ -102,5 +103,5 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	
 protected:
 	FServerBeaconInfo HostServerInfo;
-
+	
 };

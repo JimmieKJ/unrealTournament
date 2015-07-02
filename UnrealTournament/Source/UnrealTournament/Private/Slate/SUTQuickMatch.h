@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTOnlineGameSettingsBase.h"
 #include "SlateBasics.h"
 
 #if !UE_SERVER
@@ -12,11 +13,22 @@ public:
 	int32 Ping;
 	int32 NoPlayers;
 
+	int32 ServerTrustLevel;
+	int32 bServerIsTrainingGround;
+
+	TWeakObjectPtr<AUTServerBeaconClient> Beacon;
+
 	FServerSearchInfo(const FOnlineSessionSearchResult& inSearchResult, int32 inPing, int32 inNoPlayers)
-		: SearchResult(inSearchResult)
-		, Ping(inPing)
-		, NoPlayers(inNoPlayers)
 	{
+		SearchResult = inSearchResult;
+		Ping = inPing;
+		NoPlayers = inNoPlayers;
+		
+		if (SearchResult.IsValid())
+		{
+			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
+			SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, bServerIsTrainingGround);
+		}
 	}
 
 	static TSharedRef<FServerSearchInfo> Make(const FOnlineSessionSearchResult& inSearchResult, int32 inPing, int32 inNoPlayers)
@@ -49,7 +61,7 @@ public:
 	{}
 
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
-	SLATE_ARGUMENT(FName, QuickMatchType)
+	SLATE_ARGUMENT(FString, QuickMatchType)
 	SLATE_END_ARGS()
 
 
@@ -65,6 +77,8 @@ public:
 	void Cancel();
 
 	virtual void TellSlateIWantKeyboardFocus();
+
+	virtual void OnDialogClosed();
 
 protected:
 
@@ -91,7 +105,7 @@ private:
 
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
-	FName QuickMatchType;
+	FString QuickMatchType;
 	float StartTime;
 
 	FText GetStatusText() const;
@@ -124,6 +138,11 @@ private:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
+protected:
+	virtual void RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const FName& CommandCode, const FString& InstanceGuid);
+	virtual void AttemptQuickMatch();
+
+	TSharedPtr<FServerSearchInfo> BestServer;
 };
 
 #endif

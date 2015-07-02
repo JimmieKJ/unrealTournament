@@ -1908,7 +1908,7 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 
 #if !UE_SERVER
 
-void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
+void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{

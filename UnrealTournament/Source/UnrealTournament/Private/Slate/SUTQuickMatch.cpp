@@ -289,6 +289,8 @@ void SUTQuickMatch::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
 	AUTServerBeaconClient* Beacon = PlayerOwner->GetWorld()->SpawnActor<AUTServerBeaconClient>(AUTServerBeaconClient::StaticClass());
 	if (Beacon)
 	{
+		ServerToPing->Beacon = Beacon;
+
 		FString BeaconIP;
 		OnlineSessionInterface->GetResolvedConnectString(ServerToPing->SearchResult, FName(TEXT("BeaconPort")), BeaconIP);
 
@@ -317,6 +319,7 @@ void SUTQuickMatch::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 
 void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
 {
+	bool bIsBeginnger = GetPlayerOwner()->IsConsiderABeginnner();
 	for (int32 i = 0; i < PingTrackers.Num(); i++)
 	{
 		if (PingTrackers[i].Beacon == Sender)
@@ -328,7 +331,9 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 			bool bInserted = false;
 			for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
 			{
-				if (FinalList[Idx]->Ping > Sender->Ping)
+				if ( (!FinalList[Idx]->bServerIsTrainingGround && bIsBeginnger && PingTrackers[i].Server->bServerIsTrainingGround) ||			
+					 (FinalList[Idx]->ServerTrustLevel < PingTrackers[i].Server->ServerTrustLevel) ||											
+					 (FinalList[Idx]->Ping > Sender->Ping) )
 				{
 					// Insert here..
 
@@ -339,8 +344,6 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 			}
 
 			if (!bInserted) FinalList.Add(PingTrackers[i].Server);
-
-			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i, 1);
 			break;
 		}
@@ -357,26 +360,25 @@ void SUTQuickMatch::FindBestMatch()
 		// We know the first server has the best ping and is the oldest server (most likely to have players).  So now search forward to find a server within
 		// 40ms of this ping that has the most players.
 
-		TSharedPtr<FServerSearchInfo> BestServer = FinalList[0];
+		TSharedPtr<FServerSearchInfo> BestPlayers = FinalList[0];
+		TSharedPtr<FServerSearchInfo> BestPing = BestPlayers;
 
 		for (int32 i=1;i<FinalList.Num();i++)
 		{
-			if (FinalList[i]->Ping - FinalList[0]->Ping < 40)
+			if (FinalList[i]->Ping < BestPing->Ping)
 			{
-				if (BestServer->NoPlayers < FinalList[i]->NoPlayers)
-				{
-					BestServer = FinalList[i];
-				}
+				BestPing = FinalList[i];
 			}
-			else
+
+			if (FinalList[i]->NoPlayers > BestPlayers->NoPlayers)
 			{
-				break;
+				BestPlayers = FinalList[i];
 			}
-		
 		}
 
-		PlayerOwner->CloseQuickMatch();
-		PlayerOwner->JoinSession(BestServer->SearchResult, false, QuickMatchType);
+		BestServer = (BestPing->NoPlayers == 0 || BestPlayers->Ping < BestPing->Ping + 40) ? BestPlayers : BestPing;
+		AttemptQuickMatch();
+
 	}
 	else
 	{
@@ -490,5 +492,54 @@ void SUTQuickMatch::Tick( const FGeometry& AllottedGeometry, const double InCurr
 		}
 	}
 }
+
+void SUTQuickMatch::AttemptQuickMatch()
+{
+	BestServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatch::RequestQuickPlayResults);
+	BestServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank());
+}
+
+
+void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const FName& CommandCode, const FString& InstanceGuid)
+{
+	if ( CommandCode == EQuickMatchResults::CantJoin )
+	{
+		UE_LOG(UT,Log,TEXT("QuickPlay Request to server Failed.  Attempting the next one"));
+		FinalList.Remove(BestServer);
+		BestServer->Beacon->DestroyBeacon();
+
+		// Restart the serarch
+		FindBestMatch();		
+	}
+	else if (CommandCode == EQuickMatchResults::WaitingForStart)
+	{
+		UE_LOG(UT,Log,TEXT("Quickplay hub is spooling up instance"));
+	}
+	else if (CommandCode == EQuickMatchResults::Join)
+	{
+		UE_LOG(UT,Log,TEXT("Quickplay connecting to hub"));
+		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetPlayerOwner()->PlayerController);
+		if (PC)
+		{
+			PC->ConnectToServerViaGUID(InstanceGuid,-1, false, false);
+			PlayerOwner->CloseQuickMatch();
+		}
+		else
+		{
+			UE_LOG(UT, Warning,TEXT("Quickmatch could not cast to BasePlayerController"));
+		}
+	}
+
+}
+
+void SUTQuickMatch::OnDialogClosed()
+{
+	for (int32 i=0; i < FinalList.Num(); i++)
+	{
+		FinalList[i]->Beacon->DestroyBeacon();	
+	}
+
+}
+
 
 #endif

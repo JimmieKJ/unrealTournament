@@ -88,7 +88,7 @@ public:
 	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
 	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
-	void StartQuickMatch(FName QuickMatchType);
+	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
 	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()

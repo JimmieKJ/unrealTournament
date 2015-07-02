@@ -603,3 +603,10 @@ namespace EHudKillMsgStyle
 		MAX,
 	};
 }
+
+namespace EQuickMatchResults
+{
+	const FName CantJoin = FName(TEXT("CantJoin"));
+	const FName WaitingForStart = FName(TEXT("WaitingForStart"));
+	const FName Join = FName(TEXT("Join"));
+}

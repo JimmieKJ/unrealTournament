@@ -230,7 +230,7 @@ protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName);
 
 public:
-	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, const FString& ClientUniqueId, int32 ELORank);
+	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank);
 
 };
 

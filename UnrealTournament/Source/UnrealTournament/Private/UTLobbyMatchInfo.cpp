@@ -403,6 +403,16 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 		}
 	}
 	SetLobbyMatchState(ELobbyMatchState::InProgress);
+
+	for (int32 i = 0; i < NotifyBeacons.Num(); i++)
+	{
+		if (NotifyBeacons[i])
+		{
+			NotifyBeacons[i]->ClientJoinQuickplay(GameInstanceGUID);
+		}
+	}
+
+	NotifyBeacons.Empty();
 }
 
 void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState)

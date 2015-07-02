@@ -44,7 +44,7 @@ protected:
 	virtual FReply OnBootCampClick(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnCommunityClick(TSharedPtr<SComboButton> MenuButton);
 
-	virtual FReply OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FName QuickMatchType);
+	virtual FReply OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FString QuickMatchType);
 
 	virtual FReply OnConnectIP(TSharedPtr<SComboButton> MenuButton);
 	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
