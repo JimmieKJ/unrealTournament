@@ -95,6 +95,14 @@ void AUTProj_ShockBall::PerformCombo(class AController* InstigatedBy, class AAct
 		{
 			Weapon->AddAmmo(-ComboAmmoCost);
 		}
+
+		//This gets called before server startfire(). bPlayComboEffects = true will send the FireExtra when fired
+		AUTCharacter* UTC = (InstigatedBy != nullptr) ? Cast<AUTCharacter>(InstigatedBy->GetPawn()) : nullptr;
+		AUTWeap_ShockRifle* ShockRifle = (UTC != nullptr) ? Cast<AUTWeap_ShockRifle>(UTC->GetWeapon()) : nullptr;
+		if (ShockRifle != nullptr)
+		{
+			ShockRifle->bPlayComboEffects = true;
+		}
 	}
 
 	//The player who combos gets the credit

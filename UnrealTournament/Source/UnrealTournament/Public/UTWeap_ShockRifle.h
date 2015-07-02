@@ -87,4 +87,7 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 
 	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const override;
 	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const override;
+
+	virtual void FireInstantHit(bool bDealDamage, FHitResult* OutHit) override;
+	virtual void FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode) override;
 };
