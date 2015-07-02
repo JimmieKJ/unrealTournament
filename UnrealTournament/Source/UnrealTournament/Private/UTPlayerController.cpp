@@ -1011,22 +1011,27 @@ void AUTPlayerController::ViewProjectile()
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
+		if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerId >= 0)
 		{
 			// toggle away from projectile cam
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
 				APawn* Pawn = *Iterator;
-				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+				if (Pawn != nullptr)
 				{
-					bAutoCam = false;
-					ViewPawn(*Iterator);
+					AUTPlayerState* PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
+					{
+						bAutoCam = false;
+						ViewPawn(*Iterator);
+						break;
+					}
 				}
 			}
 		}
 		else
 		{
-			if (LastSpectatedPlayerState == NULL)
+			if (LastSpectatedPlayerId < 0)
 			{
 				// make sure we have something to go to when projectile explodes
 				AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
@@ -1038,7 +1043,11 @@ void AUTPlayerController::ViewProjectile()
 				}
 				if (ViewedCharacter)
 				{
-					LastSpectatedPlayerState = ViewedCharacter->PlayerState;
+					AUTPlayerState* PS = Cast<AUTPlayerState>(ViewedCharacter->PlayerState);
+					if (PS)
+					{
+						LastSpectatedPlayerId = PS->SpectatingID;
+					}
 				}
 			}
 			bAutoCam = false;
@@ -1930,10 +1939,16 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		if (Char)
 		{
 			LastSpectatedPlayerState = Char->PlayerState;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(Char->PlayerState);
+			if (PS)
+			{
+				LastSpectatedPlayerId = PS->SpectatingID;
+			}
 		}
 		else if (!Cast<AUTProjectile>(UpdatedViewTarget) && (UpdatedViewTarget != this))
 		{
 			LastSpectatedPlayerState = NULL;
+			LastSpectatedPlayerId = -1;
 		}
 
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
@@ -2279,7 +2294,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 
 	// Follow the last spectated player again when they respawn
-	if ((StateName == NAME_Spectating) && LastSpectatedPlayerState && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
+	if ((StateName == NAME_Spectating) && LastSpectatedPlayerId >= 0 && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
 		APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 		AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
@@ -2288,9 +2303,14 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
 				APawn* Pawn = *Iterator;
-				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+				if (Pawn != nullptr)
 				{
-					ViewPawn(*Iterator);
+					AUTPlayerState* PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
+					{
+						ViewPawn(*Iterator);
+						break;
+					}
 				}
 			}
 		}

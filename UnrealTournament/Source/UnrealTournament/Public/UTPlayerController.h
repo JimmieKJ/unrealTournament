@@ -415,6 +415,9 @@ public:
 	UPROPERTY()
 	class APlayerState* LastSpectatedPlayerState;
 
+	UPROPERTY()
+	int32 LastSpectatedPlayerId;
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPawn(APawn* PawnToView);
 
