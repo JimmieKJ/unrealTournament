@@ -24,7 +24,7 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-            PrivateIncludePaths.Add("WebMRecord/ThirdParty");
+            PublicIncludePaths.Add("../../UnrealTournament/Plugins/WebMRecord/Source/ThirdParty");
 
             var LIBPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "vpx");
 
