@@ -20,7 +20,7 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	ProjectileMovement->Buoyancy = 0.5f;
 	MaxSpeedUnderWater = 1300.f;
 	DisruptDestroyTime = 11.f;
-	RemainingHealth = 10;
+	RemainingHealth = 35;
 }
 
 void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
