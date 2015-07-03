@@ -28,6 +28,7 @@
 #include "UTBotCharacter.h"
 #include "UTReplicatedMapVoteInfo.h"
 #include "StatNames.h"
+#include "UTProfileItemMessage.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1431,6 +1432,39 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
+	}
+
+	// TODO: temporarily profile item giveaway for testing
+	// give item to highest scoring player
+	APlayerState* Best = NULL;
+	float BestScore = 0.0f;
+	for (APlayerState* PS : GetWorld()->GameState->PlayerArray)
+	{
+		if (PS != NULL && PS->Score > BestScore)
+		{
+			Best = PS;
+			BestScore = PS->Score;
+		}
+	}
+	if (Best != NULL && Best->UniqueId.GetUniqueNetId().IsValid())
+	{
+		TArray<FAssetData> AllItems;
+		GetAllAssetData(UUTProfileItem::StaticClass(), AllItems, false);
+		if (AllItems.Num() > 0)
+		{
+			TArray<FProfileItemEntry> Rewards;
+			new(Rewards) FProfileItemEntry(Cast<UUTProfileItem>(AllItems[FMath::RandHelper(AllItems.Num())].GetAsset()), 1);
+
+			if (Rewards[0].Item != NULL)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Best->GetOwner());
+				if (PC != NULL)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTProfileItemMessage::StaticClass(), 0, Best, NULL, Rewards[0].Item);
+				}
+				GiveProfileItems(Best->UniqueId.GetUniqueNetId(), Rewards);
+			}
+		}
 	}
 }
 

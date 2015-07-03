@@ -113,8 +113,9 @@ void SUWStatsViewer::DownloadStats()
 			{
 				LastStatsDownloadTime = FApp::GetCurrentTime();
 				
-				ReadBackendStats();
-
+				FHttpRequestCompleteDelegate Delegate;
+				Delegate.BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
+				ReadBackendStats(Delegate, StatsID, QueryWindow);
 			}
 		}
 	}
@@ -158,44 +159,6 @@ void SUWStatsViewer::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttp
 	if (bShowErrorPage)
 	{
 		ShowErrorPage();
-	}
-}
-
-void SUWStatsViewer::ReadBackendStats()
-{
-	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
-	if (StatsReadRequest.IsValid())
-	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
-#endif
-		FString McpConfigOverride;
-		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
-		if (McpConfigOverride == TEXT("localhost"))
-		{
-			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/");
-		}
-		else if (McpConfigOverride == TEXT("gamedev"))
-		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
-		}
-
-		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
-
-		StatsReadRequest->SetURL(FinalStatsURL);
-		StatsReadRequest->OnProcessRequestComplete().BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
-		StatsReadRequest->SetVerb(TEXT("GET"));
-
-		UE_LOG(LogGameStats, Verbose, TEXT("%s"), *FinalStatsURL);
-
-		if (OnlineIdentityInterface.IsValid())
-		{
-			FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
-			StatsReadRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
-		}
-		StatsReadRequest->ProcessRequest();
 	}
 }
 

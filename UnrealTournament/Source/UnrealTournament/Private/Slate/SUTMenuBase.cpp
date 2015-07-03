@@ -23,6 +23,7 @@
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
 #include "UnrealNetwork.h"
+#include "SUWProfileItemsDialog.h"
 
 #if !UE_SERVER
 
@@ -632,6 +633,12 @@ FReply SUTMenuBase::OpenControlSettings(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
+FReply SUTMenuBase::OpenProfileItems()
+{
+	PlayerOwner->OpenDialog(SNew(SUWProfileItemsDialog).PlayerOwner(PlayerOwner));
+	return FReply::Handled();
+}
+
 FReply SUTMenuBase::ClearCloud(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
@@ -734,7 +741,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(*PlayerOwner->GetOnlinePlayerNickname()))
+						.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 					]
 				]
@@ -757,6 +764,28 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 						[
 							SNew(SImage)
 							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Stats"))
+						]
+					]
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.OnClicked(this, &SUTMenuBase::OpenProfileItems)
+				.ToolTipText(NSLOCTEXT("ToolTips", "TPMyItems", "Show collectable items you own."))
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(48)
+						.HeightOverride(48)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.UpArrow"))
 						]
 					]
 				]

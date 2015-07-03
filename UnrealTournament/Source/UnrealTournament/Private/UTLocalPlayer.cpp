@@ -45,7 +45,6 @@
 #include "Slate/SUWYoutubeUpload.h"
 #include "Slate/SUWYoutubeConsent.h"
 
-
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -993,10 +992,27 @@ void UUTLocalPlayer::LoadProfileSettings()
 	if (IsLoggedIn())
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
+		if (UserID.IsValid())
 		{
-			OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
+			if (OnlineUserCloudInterface.IsValid())
+			{
+				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
+			}
+		
+			ReadProfileItems();
 		}
+	}
+}
+
+void UUTLocalPlayer::ReadProfileItems()
+{
+	TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+	if (UserID.IsValid() && FPlatformTime::Seconds() > LastItemReadTime + 60.0)
+	{
+		FHttpRequestCompleteDelegate Delegate;
+		Delegate.BindUObject(this, &UUTLocalPlayer::OnReadProfileItemsComplete);
+		ReadBackendStats(Delegate, UserID->ToString());
+		LastItemReadTime = FPlatformTime::Seconds();
 	}
 }
 
@@ -1119,6 +1135,26 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			UpdateBaseELOFromCloudData();
 		}
 	}
+}
+
+void UUTLocalPlayer::OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems);
+	}
+}
+
+bool UUTLocalPlayer::OwnsItemFor(const FString& Path) const
+{
+	for (const FProfileItemEntry& Entry : ProfileItems)
+	{
+		if (Entry.Item != NULL && Entry.Item->Grants(Path))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 #if !UE_SERVER

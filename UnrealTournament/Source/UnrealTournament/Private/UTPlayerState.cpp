@@ -663,7 +663,6 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)
 	{
-		// TODO: check entitlement
 		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, LOAD_None, NULL) : NULL;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
@@ -718,6 +717,36 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 	{
 		ChatDestination = GameMode->GetNextChatDestination(this, ChatDestination);
 	}
+}
+
+void AUTPlayerState::SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId)
+{
+	Super::SetUniqueId(InUniqueId);
+
+	if (Role == ROLE_Authority && InUniqueId.IsValid())
+	{
+		ReadProfileItems();
+	}
+}
+
+void AUTPlayerState::ReadProfileItems()
+{
+	if (!IsProfileItemListPending() && UniqueId.IsValid())
+	{
+		FHttpRequestCompleteDelegate Delegate;
+		Delegate.BindUObject(this, &AUTPlayerState::ProfileItemListReqComplete);
+		ItemListReq = ReadBackendStats(Delegate, UniqueId->ToString());
+	}
+}
+
+void AUTPlayerState::ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems);
+	}
+	ItemListReq.Reset();
+	ValidateEntitlements();
 }
 
 void AUTPlayerState::ReadStatsFromCloud()
@@ -1096,9 +1125,42 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
 
+bool AUTPlayerState::OwnsItemFor(const FString& Path) const
+{
+	for (const FProfileItemEntry& Entry : ProfileItems)
+	{
+		if (Entry.Item != NULL && Entry.Item->Grants(Path))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AUTPlayerState::HasRightsFor(UObject* Obj) const
+{
+	if (Obj == NULL)
+	{
+		return true;
+	}
+	else
+	{
+		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+		FUniqueEntitlementId Entitlement = GetRequiredEntitlementFromObj(Obj);
+		if (EntitlementInterface.IsValid() && !Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+		{
+			return false;
+		}
+		else
+		{
+			return !NeedsProfileItem(Obj) || OwnsItemFor(Obj->GetPathName());
+		}
+	}
+}
+
 void AUTPlayerState::ValidateEntitlements()
 {
-	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid())
+	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid() && !IsProfileItemListPending())
 	{
 		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
 		if (EntitlementInterface.IsValid())
@@ -1108,28 +1170,23 @@ void AUTPlayerState::ValidateEntitlements()
 			EntitlementInterface->GetAllEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"), AllEntitlements);
 			if (AllEntitlements.Num() > 0)
 			{
-				FUniqueEntitlementId Entitlement = GetRequiredEntitlementFromObj(HatClass);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(HatClass))
 				{
 					ServerReceiveHatClass(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(EyewearClass);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(EyewearClass))
 				{
 					ServerReceiveEyewearClass(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(TauntClass);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(TauntClass))
 				{
 					ServerReceiveTauntClass(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(Taunt2Class);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(Taunt2Class))
 				{
 					ServerReceiveTaunt2Class(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(SelectedCharacter);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(SelectedCharacter))
 				{
 					ServerSetCharacter(FString());
 				}

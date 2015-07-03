@@ -11,6 +11,8 @@
 #include "UTEyewear.h"
 #include "UTTaunt.h"
 #include "Http.h"
+#include "UTProfileItem.h"
+
 #include "UTPlayerState.generated.h"
 
 USTRUCT(BlueprintType)
@@ -348,6 +350,31 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	int32 CountryFlag;
 
+	virtual void SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId) override;
+	/** read profile items for this user from the backend */
+	virtual void ReadProfileItems();
+
+private:
+	FHttpRequestPtr ItemListReq;
+	void ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+protected:
+	/** profile items this player owns, downloaded from the server */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FProfileItemEntry> ProfileItems;
+public:
+	inline bool IsProfileItemListPending() const
+	{
+		return ItemListReq.IsValid() && ItemListReq->GetStatus() == EHttpRequestStatus::Processing;
+	}
+	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
+	bool OwnsItemFor(const FString& Path) const;
+
+protected:
+	/** returns whether this user has rights to the given item
+	 * assumes entitlement and item list queries are completed
+	 */
+	virtual bool HasRightsFor(UObject* Obj) const;
+public:
 	virtual void ValidateEntitlements();
 
 	void WriteStatsToCloud();

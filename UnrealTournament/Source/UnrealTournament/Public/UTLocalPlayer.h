@@ -10,6 +10,7 @@
 #include "UTProfileSettings.h"
 #include "OnlinePresenceInterface.h"
 #include "Http.h"
+#include "UTProfileItem.h"
 
 #include "UTLocalPlayer.generated.h"
 
@@ -309,6 +310,7 @@ protected:
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
+	virtual void OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 #if !UE_SERVER
 	TSharedPtr<class SUWDialog> HUDSettings;
@@ -518,12 +520,28 @@ public:
 	 **/
 	virtual void CloseAllUI();
 
-
 protected:
 	void OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSucessful, const FOnlineSessionSearchResult& SearchResult);
 	
 	// Will be true if we are attempting to force the player in to an existing session.
 	bool bAttemptingForceJoin;
+
+	/** profile items this player owns, downloaded from the server */
+	UPROPERTY()
+	TArray<FProfileItemEntry> ProfileItems;
+
+	/** used to avoid reading too often */
+	double LastItemReadTime;
+	
+public:
+	/** read profile items from the backend */
+	virtual void ReadProfileItems();
+	inline const TArray<FProfileItemEntry>& GetProfileItems() const
+	{
+		return ProfileItems;
+	}
+	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
+	bool OwnsItemFor(const FString& Path) const;
 };
 
 

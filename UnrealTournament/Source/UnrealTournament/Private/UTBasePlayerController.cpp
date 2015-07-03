@@ -35,6 +35,18 @@ void AUTBasePlayerController::Destroyed()
 	Super::Destroyed();
 }
 
+void AUTBasePlayerController::InitInputSystem()
+{
+	Super::InitInputSystem();
+
+	// read profile items on every level change so we can detect updates
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL && LP->IsLoggedIn())
+	{
+		LP->ReadProfileItems();
+	}
+}
+
 void AUTBasePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
