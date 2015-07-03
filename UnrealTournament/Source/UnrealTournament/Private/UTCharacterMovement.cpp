@@ -811,6 +811,12 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 		return;
 	}
 	Super::Crouch(bClientSimulation);
+	if (CharacterOwner && CharacterOwner->bIsCrouched && (Velocity.Size2D() > MaxWalkSpeedCrouched))
+	{
+		float SavedVelZ = Velocity.Z;
+		Velocity = MaxWalkSpeedCrouched * Velocity.GetSafeNormal2D();
+		Velocity.Z = SavedVelZ;
+	}
 }
 
 void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir, const FVector& FloorNormal)
