@@ -31,6 +31,9 @@ class UNREALTOURNAMENT_API AUTBaseGameMode : public AGameMode
 	GENERATED_UCLASS_BODY()
 
 public:
+	virtual void PreInitializeComponents() override;
+	virtual void DefaultTimer() { };
+
 	//Password required to join as a player
 	UPROPERTY(GlobalConfig)
 	FString ServerPassword;
@@ -54,6 +57,9 @@ public:
 #endif
 
 protected:
+
+	/** Handle for efficient management of DefaultTimer timer */
+	FTimerHandle TimerHandle_DefaultTimer;
 
 	// Will be > 0 if this is an instance created by lobby
 	uint32 LobbyInstanceID;

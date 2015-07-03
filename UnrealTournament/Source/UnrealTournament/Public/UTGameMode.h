@@ -382,7 +382,7 @@ public:
 	virtual void StopReplayRecording();
 
 	virtual void RecreateLobbyBeacon();
-	virtual void DefaultTimer();
+	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
@@ -396,9 +396,7 @@ public:
 	virtual void BuildServerResponseRules(FString& OutRules);
 
 protected:
-	
-	/** Handle for efficient management of DefaultTimer timer */
-	FTimerHandle TimerHandle_DefaultTimer;
+
 
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);

@@ -371,3 +371,37 @@ bool AUTLobbyGameMode::IsHandlingReplays()
 	// No replays for HUB
 	return false;
 }
+
+void AUTLobbyGameMode::DefaultTimer()
+{
+	if (GetWorld()->GetTimeSeconds() > ServerRefreshCheckpoint * 60)
+	{
+		if (NumPlayers == 0)
+		{
+
+			bool bOkToRestart = true;
+
+			// Look to see if there are any non dedicated instances left standing.
+			for (int32 i=0; i < UTLobbyGameState->GameInstances.Num(); i++)
+			{
+				if (!UTLobbyGameState->GameInstances[i].MatchInfo->bDedicatedMatch)
+				{
+					bOkToRestart = false;
+					break;
+				}
+			}
+
+			if (bOkToRestart)
+			{
+				FString MapName = GetWorld()->GetMapName();
+				if ( FPackageName::IsShortPackageName(MapName) )
+				{
+					FPackageName::SearchForPackageOnDisk(MapName, &MapName); 
+				}
+
+				GetWorld()->ServerTravel(MapName);
+			}
+		}
+	}
+}
+

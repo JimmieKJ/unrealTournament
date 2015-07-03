@@ -21,6 +21,11 @@ public:
 	UPROPERTY()
 	AUTLobbyGameState* UTLobbyGameState;		
 
+	// Once a hub has been alive for this many hours, it will attempt to auto-restart
+	// itself when noone is one it.  In HOURS.
+	UPROPERTY(GlobalConfig)
+	int32 ServerRefreshCheckpoint;
+
 	UPROPERTY(GlobalConfig)
 	FString LobbyPassword;
 
@@ -128,6 +133,8 @@ public:
 
 	// Attempts to make sure the Lobby has the proper information
 	virtual void UpdateLobbySession();
+
+	virtual void DefaultTimer();
 
 protected:
 	TArray<FString> ParsedMOTD;
