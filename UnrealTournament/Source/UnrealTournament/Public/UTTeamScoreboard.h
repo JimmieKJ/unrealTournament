@@ -27,9 +27,14 @@ protected:
 	/** Draw one line of scoring breakdown where values are clock stats. */
 	virtual void DrawClockTeamStatsLine(FText StatsName, FName StatsID, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bSkipEmpty);
 
+	/** Return player with most kills for Team. */
 	virtual AUTPlayerState* FindTopTeamKillerFor(uint8 TeamNum);
 
+	/** Return player with best kill/death ratio for Team. */
 	virtual AUTPlayerState* FindTopTeamKDFor(uint8 TeamNum);
+
+	/** Return player with best score per minute for Team. */
+	virtual AUTPlayerState* FindTopTeamSPMFor(uint8 TeamNum);
 
 	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
 	virtual void OpenScoringPlaysPage() override;

@@ -314,7 +314,8 @@ void UUTCTFScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, floa
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "EnemyFCKills", " - Enemy FC Kills"), FCKills, PS->GetStatsValue(NAME_FCKillPoints), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "EnemyFCDamage", " Enemy FC Damage Bonus"), -1, PS->GetStatsValue(NAME_EnemyFCDamage), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
-	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %6.2f"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "ScorePM", "Score Per Minute"), FString::Printf(TEXT(" %6.2f"), ((PS->StartTime <  GetWorld()->GameState->ElapsedTime) ? PS->Score * 60.f / (GetWorld()->GameState->ElapsedTime - PS->StartTime) : 0.f)), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %6.2f"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
 
@@ -374,6 +375,8 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	AUTPlayerState* TopKillerBlue = FindTopTeamKillerFor(1);
 	AUTPlayerState* TopKDRed = FindTopTeamKDFor(0);
 	AUTPlayerState* TopKDBlue = FindTopTeamKDFor(1);
+	AUTPlayerState* TopSPMRed = FindTopTeamSPMFor(0);
+	AUTPlayerState* TopSPMBlue = FindTopTeamSPMFor(1);
 
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopScorer", "Top Scorer"), GetPlayerNameFor(TopScorerRed), GetPlayerNameFor(TopScorerBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopFlagRunner", "Top Flag Runner"), GetPlayerNameFor(UTGameState->Teams[0]->TopAttacker), GetPlayerNameFor(UTGameState->Teams[1]->TopAttacker), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
@@ -381,6 +384,7 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopSupport", "Top Support"), GetPlayerNameFor(UTGameState->Teams[0]->TopSupporter), GetPlayerNameFor(UTGameState->Teams[1]->TopSupporter), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), GetPlayerNameFor(TopKillerRed), GetPlayerNameFor(TopKillerBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKD", "Top K/D"), GetPlayerNameFor(TopKDRed), GetPlayerNameFor(TopKDBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopSPM", "Top Score Per Minute"), GetPlayerNameFor(TopSPMRed), GetPlayerNameFor(TopSPMBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ShieldBeltCount), UTGameState->Teams[1]->GetStatsValue(NAME_ShieldBeltCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
