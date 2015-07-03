@@ -18,7 +18,7 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
 	QuickMatchType = InArgs._QuickMatchType;
-
+	bWaitingForMatch = false;
 	checkSlow(PlayerOwner != NULL);
 
 	StartTime = PlayerOwner->GetWorld()->GetTimeSeconds();
@@ -136,6 +136,12 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 FText SUTQuickMatch::GetStatusText() const
 {
 	int32 DeltaSeconds = int32(PlayerOwner->GetWorld()->GetTimeSeconds() - StartTime);
+
+	if (bWaitingForMatch)
+	{
+		return FText::Format(NSLOCTEXT("QuickMatch","StatusFormatStrWait","Starting up Match... ({0})"), FText::AsNumber(DeltaSeconds));
+	}
+
 	return FText::Format(NSLOCTEXT("QuickMatch","StatusFormatStr","Searching for a game... ({0})"), FText::AsNumber(DeltaSeconds));
 }
 
@@ -245,7 +251,6 @@ void SUTQuickMatch::OnFindSessionsComplete(bool bWasSuccessful)
 					TSharedRef<FServerSearchInfo> NewServer = FServerSearchInfo::Make(SearchSettings->SearchResults[ServerIndex], 0, NoPlayers);
 					ServerList.Add(NewServer);
 				}
-
 			}
 
 			if (ServerList.Num() > 0)
@@ -404,6 +409,11 @@ void SUTQuickMatch::Cancel()
 	PingTrackers.Empty();
 	FinalList.Empty();
 
+	if (BestServer.IsValid() && BestServer->Beacon.IsValid())
+	{
+		BestServer->Beacon->DestroyBeacon();
+	}
+
 	if (OnlineSessionInterface.IsValid())
 	{
 		// Look to see if we are currently in the search phase.  If we are, we have to cancel it first.
@@ -514,6 +524,7 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 	else if (CommandCode == EQuickMatchResults::WaitingForStart)
 	{
 		UE_LOG(UT,Log,TEXT("Quickplay hub is spooling up instance"));
+		bWaitingForMatch = true;
 	}
 	else if (CommandCode == EQuickMatchResults::Join)
 	{

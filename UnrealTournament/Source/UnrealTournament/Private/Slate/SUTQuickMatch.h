@@ -82,6 +82,8 @@ public:
 
 protected:
 
+	bool bWaitingForMatch;
+
 	/** Holds a reference to the SCanvas widget that makes up the dialog */
 	TSharedPtr<SCanvas> Canvas;
 
