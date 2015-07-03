@@ -204,6 +204,15 @@ void AUTGameSession::RegisterServer()
 			}
 			else
 			{
+				// We have a valid session.
+
+				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 10000));
+				if (OnlineGameSettings.IsValid() && UTGameMode)
+				{
+					InitHostBeacon(OnlineGameSettings.Get());
+					OnlineGameSettings->ApplyGameSettings(UTGameMode);
+				}
+
 				bSessionValid = true;
 				UE_LOG(UT,Verbose,TEXT("Server is already registered and kicking.  No to go any furter."));
 			}
