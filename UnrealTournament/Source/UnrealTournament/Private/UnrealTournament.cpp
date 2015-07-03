@@ -497,7 +497,7 @@ bool IsTimerActiveUFunc(UObject* Obj, FName FuncName)
 		return false;
 	}
 }
-void ClearTimerActiveUFunc(UObject* Obj, FName FuncName)
+void ClearTimerUFunc(UObject* Obj, FName FuncName)
 {
 	if (Obj != NULL)
 	{

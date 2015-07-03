@@ -40,6 +40,7 @@ public:
 	}
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
+	virtual void CheckGameTime() override;
 	virtual void CallMatchStateChangeNotify() override;
 	virtual void DefaultTimer() override;
 };

@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTShowdownGame.h"
 #include "UTTimerMessage.h"
+#include "UTShowdownGameMessage.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -9,7 +10,8 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	ExtraHealth = 100;
 	bForceRespawn = false;
 	DisplayName = NSLOCTEXT("UTGameMode", "Showdown", "Showdown");
-	TimeLimit = 7.0f;
+	TimeLimit = 2.0f; // per round
+	GoalScore = 5;
 	PowerupDuration = 15.0f;
 }
 
@@ -44,6 +46,8 @@ void AUTShowdownGame::StartNewRound()
 	bAllowPlayerRespawns = false;
 
 	bHasRespawnChoices = false;
+
+	UTGameState->SetTimeLimit(TimeLimit);
 
 	AnnounceMatchStart();
 }
@@ -89,7 +93,7 @@ void AUTShowdownGame::SetPlayerDefaults(APawn* PlayerPawn)
 
 void AUTShowdownGame::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
-	if (GetMatchState() != MatchState::MatchIntermission)
+	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
 	{
 		bHasRespawnChoices = false; // make sure this is set so choices aren't displayed early
 		if (Other != NULL)
@@ -109,20 +113,77 @@ void AUTShowdownGame::ScoreKill(AController* Killer, AController* Other, APawn* 
 	}
 }
 
+void AUTShowdownGame::CheckGameTime()
+{
+	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	{
+		// end round; player with highest health + armor wins
+		TArray< AUTPlayerState*, TInlineAllocator<2> > AlivePlayers;
+		AUTPlayerState* RoundWinner = NULL;
+		int32 BestTotalHealth = 0;
+		bool bTied = false;
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+			if (UTC != NULL && !UTC->IsDead())
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+				if (PS != NULL)
+				{
+					AlivePlayers.Add(PS);
+					if (UTC->Health > BestTotalHealth)
+					{
+						RoundWinner = PS;
+						BestTotalHealth = UTC->Health;
+					}
+					else if (UTC->Health == BestTotalHealth)
+					{
+						bTied = true;
+					}
+				}
+			}
+		}
+		if (bTied)
+		{
+			// both players score a point
+			for (AUTPlayerState* PS : AlivePlayers)
+			{
+				if (PS != NULL)
+				{
+					PS->Score += 1.0f;
+					if (PS->Team != NULL)
+					{
+						PS->Team->Score += 1.0f;
+					}
+				}
+			}
+			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
+		}
+		else
+		{
+			RoundWinner->Score += 1.0f;
+			if (RoundWinner->Team != NULL)
+			{
+				RoundWinner->Team->Score += 1.0f;
+			}
+			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 0, RoundWinner);
+		}
+		SetTimerUFunc(this, FName(TEXT("StartIntermission")), 2.0f, false);
+	}
+}
+
 void AUTShowdownGame::StartIntermission()
 {
+	ClearTimerUFunc(this, FName(TEXT("StartIntermission")));
 	if (!HasMatchEnded())
 	{
 		// if there's not enough time for a new round to work, then award victory now
 		uint32 bTied = 0;
 		AUTPlayerState* Winner = NULL;
-		if (TimeLimit > 0 && UTGameState->RemainingTime <= 10)
+		Winner = IsThereAWinner(bTied);
+		if (Winner != NULL && !bTied && ((Winner->Team == NULL) ? (Winner->Score >= GoalScore) : (Winner->Team->Score >= GoalScore)))
 		{
-			Winner = IsThereAWinner(bTied);
-		}
-		if (Winner != NULL && !bTied)
-		{
-			EndGame(Winner, TEXT("timelimit"));
+			EndGame(Winner, TEXT("scorelimit"));
 		}
 		else
 		{
@@ -191,6 +252,17 @@ void AUTShowdownGame::HandleMatchIntermission()
 	IntermissionTimeRemaining = 6;
 	// reset timer for consistency
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation(), true);
+
+	// reset pickups in advance so they show up on the spawn previews
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTPickup* Pickup = Cast<AUTPickup>(*It);
+		if (Pickup != NULL)
+		{
+			checkSlow(Pickup->GetClass()->ImplementsInterface(IUTResetInterface::StaticClass()));
+			IUTResetInterface::Execute_Reset(Pickup);
+		}
+	}
 
 	// give players spawn point selection
 	bHasRespawnChoices = true;
