@@ -22,6 +22,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bWaitingPlayer = false;
 	bReadyToPlay = false;
 	bPendingTeamSwitch = false;
+	bCaster = false;
 	LastKillTime = 0.0f;
 	Kills = 0;
 	bOutOfLives = false;
@@ -82,6 +83,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 
 	DOREPLIFETIME(AUTPlayerState, SpectatingID);
 	DOREPLIFETIME(AUTPlayerState, SpectatingIDTeam);
+	DOREPLIFETIME(AUTPlayerState, bCaster);
 }
 
 void AUTPlayerState::SetPlayerName(const FString& S)

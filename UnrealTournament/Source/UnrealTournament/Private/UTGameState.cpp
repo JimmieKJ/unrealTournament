@@ -1098,3 +1098,19 @@ void AUTGameState::ModifyStatsValue(FName StatsName, float Change)
 	float CurrentValue = StatsData.FindRef(StatsName);
 	StatsData.Add(StatsName, CurrentValue + Change);
 }
+
+bool AUTGameState::AreAllPlayersReady()
+{
+	if (!HasMatchStarted())
+	{
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}

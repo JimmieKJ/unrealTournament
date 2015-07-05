@@ -99,11 +99,12 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	MapVoteTime = 30;
 
-
 	bSpeedHackDetection = false;
 	MaxTimeMargin = 2.0f;
 	MinTimeMargin = -2.0f;
 	TimeMarginSlack = 0.001f;
+
+	bCasterControl = false;
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -189,6 +190,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		BotFillCount = GetIntOption(Options, TEXT("BotFill"), BotFillCount);
 	}
+
+	InOpt = ParseOption(Options, TEXT("CasterControl"));
+	bCasterControl = EvalBoolOptions(InOpt, bCasterControl);
 
 	for (int32 i = 0; i < BuiltInMutators.Num(); i++)
 	{
@@ -524,6 +528,13 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 						PS->Loadout.Add(UTGameState->AvailableLoadout[i]);
 					}
 				}
+			}
+
+			bool bCaster = EvalBoolOptions(ParseOption(Options, TEXT("Caster")), false);
+			if (bCaster && bCasterControl)
+			{
+				PS->bCaster = true;
+				PS->bOnlySpectator = true;
 			}
 		}
 	}
@@ -2102,19 +2113,25 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
-			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
+			bool bCasterReady = false;
+			if ((bCasterControl) || (MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
 			{
-				for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
+				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 					if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
 					{
 						return false;
 					}
+
+					//Only need one caster to be ready
+					if (bCasterControl && PS->bCaster && PS->bReadyToPlay)
+					{
+						bCasterReady = true;
+					}
 				}
 			}
-
-			return true;
+			return (!bCasterControl || bCasterReady);
 		}
 		else
 		{

@@ -109,6 +109,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
+	/** Whether this spectator is a caster */
+	UPROPERTY(replicated)
+	uint32 bCaster : 1;
+
 	/** Whether this player has a pending switch team request (waiting for swap partner) */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;

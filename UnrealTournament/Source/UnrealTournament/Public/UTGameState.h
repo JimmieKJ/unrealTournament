@@ -386,6 +386,9 @@ public:
 	void SetStatsValue(FName StatsName, float NewValue);
 	void ModifyStatsValue(FName StatsName, float Change);
 
+	/** Returns true if all players are ready */
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	bool AreAllPlayersReady();
 };
 
 

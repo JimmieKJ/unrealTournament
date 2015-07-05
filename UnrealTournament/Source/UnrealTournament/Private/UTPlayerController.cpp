@@ -515,6 +515,16 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		}
 	}
 
+	//This is a separate from OnFire() since we dont want casters starting games by accident when clicking the mouse while flying around
+	static FName NAME_Enter(TEXT("Enter"));
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (Key.GetFName() == NAME_Enter && GS != nullptr && !GS->HasMatchStarted() && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
+	{
+		ServerRestartPlayer();
+		return true;
+	}
+
 	// unfortunately have to go roundabout because this is the only InputKey() that's virtual
 	UUTPlayerInput* Input = Cast<UUTPlayerInput>(PlayerInput);
 	if (Input != NULL)
@@ -1719,9 +1729,22 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	{
 		if (UTPlayerState)
 		{
-			UTPlayerState->bReadyToPlay = !UTPlayerState->bReadyToPlay;
-			UTPlayerState->bPendingTeamSwitch = false;
-			UTPlayerState->ForceNetUpdate();
+			if (UTPlayerState->bCaster)
+			{
+				//For casters, all players need to be ready before the caster can be ready. This avoids the game starting if the caster has been mashing buttons while players are getting ready
+				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+				if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
+				{
+					UTPlayerState->bReadyToPlay = true;
+					UTPlayerState->ForceNetUpdate();
+				}
+			}
+			else
+			{
+				UTPlayerState->bReadyToPlay = !UTPlayerState->bReadyToPlay;
+				UTPlayerState->bPendingTeamSwitch = false;
+				UTPlayerState->ForceNetUpdate();
+			}
 		}
 	}
 	else if (IsFrozen())

@@ -96,6 +96,10 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	uint32 bAllowOvertime:1;
 
+	/**If enabled, the server grants special control for casters*/
+	UPROPERTY(globalconfig)
+	uint32 bCasterControl:1;
+
 	/** If TRUE, force dead players to respawn immediately. Can be overridden with ForceRespawn=x on the url */
 	UPROPERTY(Config, EditDefaultsOnly)
 	bool bForceRespawn;

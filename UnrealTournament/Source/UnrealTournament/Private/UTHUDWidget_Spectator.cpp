@@ -95,6 +95,12 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 					? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
 					: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
 			}
+			else if (UTPS && UTPS->bCaster)
+			{
+				SpectatorMessage = (UTGameState->AreAllPlayersReady())
+					? NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForCaster", "All players are ready. Press [Enter] to start match.")
+					: NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
+			}
 			else if (UTPS && UTPS->bOnlySpectator)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
