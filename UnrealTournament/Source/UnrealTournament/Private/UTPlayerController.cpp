@@ -486,6 +486,12 @@ void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
+	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
+	if (GetWorld()->RealTimeSeconds < 0.5f)
+	{
+		return true;
+	}
+
 	// hack for scoreboard until we have a real interactive system
 	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
 	{
