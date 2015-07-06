@@ -75,6 +75,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, Loadout);
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
 	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
+	DOREPLIFETIME(AUTPlayerState, StatsID);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -1354,6 +1355,37 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 		[
 			SNew(STextBlock)
 			.Text(FText::AsNumber(AverageRank))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
+	];
+	
+	Panel->AddSlot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "EpicIDPrompt", "ID :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(StatsID))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	];

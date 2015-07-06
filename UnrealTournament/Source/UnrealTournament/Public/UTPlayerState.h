@@ -181,6 +181,7 @@ public:
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/
+	UPROPERTY(replicated)
 	FString StatsID;
 	
 	// How long until this player can respawn.  It's not directly replicated to the clients instead it's set
