@@ -329,28 +329,37 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
-			PingTrackers[i].Server->Ping = Sender->Ping;
-
-			// Insert sort it in to the final list of servers by ping.
-			
-			bool bInserted = false;
-			for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
+			if (!bIsBeginnger && PingTrackers[i].Server->bServerIsTrainingGround)
 			{
-				if ( (!FinalList[Idx]->bServerIsTrainingGround && bIsBeginnger && PingTrackers[i].Server->bServerIsTrainingGround) ||			
-					 (FinalList[Idx]->ServerTrustLevel < PingTrackers[i].Server->ServerTrustLevel) ||											
-					 (FinalList[Idx]->Ping > Sender->Ping) )
-				{
-					// Insert here..
-
-					FinalList.Insert(PingTrackers[i].Server, Idx);
-					bInserted = true;
-					break;
-				}
+				// Discard training ground servers if the player isn't a beginner
+				PingTrackers.RemoveAt(i, 1);
+				break;
 			}
+			else
+			{
+				PingTrackers[i].Server->Ping = Sender->Ping;
 
-			if (!bInserted) FinalList.Add(PingTrackers[i].Server);
-			PingTrackers.RemoveAt(i, 1);
-			break;
+				// Insert sort it in to the final list of servers by ping.
+			
+				bool bInserted = false;
+				for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
+				{
+					if ( (!FinalList[Idx]->bServerIsTrainingGround && bIsBeginnger && PingTrackers[i].Server->bServerIsTrainingGround) ||			
+						 (FinalList[Idx]->ServerTrustLevel < PingTrackers[i].Server->ServerTrustLevel) ||											
+						 (FinalList[Idx]->Ping > Sender->Ping) )
+					{
+						// Insert here..
+
+						FinalList.Insert(PingTrackers[i].Server, Idx);
+						bInserted = true;
+						break;
+					}
+				}
+
+				if (!bInserted) FinalList.Add(PingTrackers[i].Server);
+				PingTrackers.RemoveAt(i, 1);
+				break;
+			}
 		}
 	}
 

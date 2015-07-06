@@ -468,7 +468,7 @@ void SULobbyMatchSetupPanel::RankCeilingChanged(ECheckBoxState NewState)
 {
 	if (MatchInfo.IsValid())
 	{
-		MatchInfo->SetRankCeiling(NewState == ESlateCheckBoxState::Checked ? PlayerOwner->GetBaseELORank() : 0);
+		MatchInfo->SetRankLocked(NewState == ESlateCheckBoxState::Checked);
 	}
 }
 
@@ -929,7 +929,7 @@ void SULobbyMatchSetupPanel::BuildMapList()
 
 ECheckBoxState SULobbyMatchSetupPanel::GetLimitRankState() const
 {
-	return (MatchInfo.IsValid() && MatchInfo->RankCeiling > 0) ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked;
+	return (MatchInfo.IsValid() && MatchInfo->bRankLocked) ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked;
 }
 
 ECheckBoxState SULobbyMatchSetupPanel::GetAllowSpectatingState() const

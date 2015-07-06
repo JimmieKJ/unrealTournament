@@ -49,8 +49,9 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
-	DOREPLIFETIME(AUTLobbyMatchInfo, RankCeiling);
+	DOREPLIFETIME(AUTLobbyMatchInfo, bRankLocked);
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
+	DOREPLIFETIME(AUTLobbyMatchInfo, AverageRank);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bQuickPlayMatch, COND_InitialOnly);
@@ -152,6 +153,7 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 
 	// Players default to ready
 	PlayerToAdd->bReadyToPlay = true;
+	UpdateRank();
 }
 
 bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
@@ -184,6 +186,7 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 	{
 		Players.Remove(PlayerToRemove);
 		PlayerToRemove->RemovedFromMatch(this);
+		UpdateRank();
 	}
 
 	return false;
@@ -466,10 +469,10 @@ void AUTLobbyMatchInfo::ServerSetAllowSpectating_Implementation(bool bAllow)
 	bSpectatable = bAllow;
 }
 
-bool AUTLobbyMatchInfo::ServerSetRankCeiling_Validate(int32 NewRankCeiling) { return true; }
-void AUTLobbyMatchInfo::ServerSetRankCeiling_Implementation(int32 NewRankCeiling)
+bool AUTLobbyMatchInfo::ServerSetRankLocked_Validate(bool bLocked) { return true; }
+void AUTLobbyMatchInfo::ServerSetRankLocked_Implementation(bool bLocked)
 {
-	RankCeiling = NewRankCeiling;
+	bRankLocked = bLocked;
 }
 
 
@@ -831,7 +834,7 @@ bool AUTLobbyMatchInfo::IsMatchofType(const FString& MatchType)
 {
 	if (CurrentRuleset.IsValid() && !CurrentRuleset->bCustomRuleset)
 	{
-		if (MatchType == FQuickMatchTypeRulesetTag::DM && CurrentRuleset->UniqueTag == FQuickMatchTypeRulesetTag::DM)
+		if (MatchType == CurrentRuleset->UniqueTag)
 		{
 			return true;
 		}
@@ -859,7 +862,61 @@ bool AUTLobbyMatchInfo::MatchHasRoom()
 	return true;
 }
 
-bool AUTLobbyMatchInfo::CanAddPlayer(int32 ELORank)
+bool AUTLobbyMatchInfo::SkillTest(int32 Rank, bool bForceLock)
 {
-	return SkillTest(ELORank) && MatchHasRoom();
+	if (bRankLocked || bForceLock)
+	{
+		return (Rank >= AverageRank - 400) && (Rank <= AverageRank + 400);
+	}
+
+	return true;
+}
+
+
+bool AUTLobbyMatchInfo::CanAddPlayer(int32 ELORank, bool bForceRankLock)
+{
+	return SkillTest(ELORank, bForceRankLock) && MatchHasRoom();
+}
+
+
+void AUTLobbyMatchInfo::UpdateRank()
+{
+	if (CurrentState == ELobbyMatchState::InProgress)
+	{
+		if (PlayersInMatchInstance.Num() > 0)
+		{
+			MinRank = PlayersInMatchInstance[0].PlayerRank;
+			MaxRank = PlayersInMatchInstance[0].PlayerRank;
+			AverageRank = PlayersInMatchInstance[0].PlayerRank;
+
+			for (int32 i=1; i < PlayersInMatchInstance.Num(); i++)
+			{
+				int32 PlayerRank = PlayersInMatchInstance[i].PlayerRank;
+				if (PlayerRank < MinRank) MinRank = PlayerRank;
+				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
+				AverageRank += PlayerRank;
+			}
+		
+			AverageRank = int32( float(AverageRank) / float(PlayersInMatchInstance.Num()));
+		}
+	}
+	else
+	{
+		if (Players.Num() > 0)
+		{
+			MinRank = Players[0]->AverageRank;
+			MaxRank = Players[0]->AverageRank;
+			AverageRank = Players[0]->AverageRank;
+
+			for (int32 i=1; i < Players.Num(); i++)
+			{
+				int32 PlayerRank = Players[i]->AverageRank;
+				if (PlayerRank < MinRank) MinRank = PlayerRank;
+				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
+				AverageRank += PlayerRank;
+			}
+		
+			AverageRank = int32( float(AverageRank) / float(Players.Num()));
+		}
+	}
 }

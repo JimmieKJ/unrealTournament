@@ -2448,7 +2448,11 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 	{
 		if (C && Cast<AUTPlayerController>(C) && C->PlayerState)
 		{
-			LobbyBeacon->UpdatePlayer(C->PlayerState->UniqueId, C->PlayerState->PlayerName, int32(C->PlayerState->Score), C->PlayerState->bOnlySpectator, false);
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
+			if (PlayerState)
+			{
+				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, false, PlayerState->AverageRank);
+			}
 		}
 	}
 
@@ -2550,7 +2554,7 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
 		{
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, true);
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, true, PS->AverageRank);
 		}
 	}
 
@@ -3004,7 +3008,7 @@ void AUTGameMode::UpdateLobbyPlayerList()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
 			{
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, false);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, false, PS->AverageRank);
 			}
 		}
 	}

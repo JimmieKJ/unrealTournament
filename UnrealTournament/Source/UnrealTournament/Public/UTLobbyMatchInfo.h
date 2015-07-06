@@ -22,10 +22,6 @@ struct FPlayerListInfo
 	UPROPERTY()
 	FUniqueNetIdRepl PlayerID;
 
-	// If this player is in the match and in this lobby server, then LocalPlayerState will be valid
-	UPROPERTY()
-	TWeakObjectPtr<AUTLobbyPlayerState> LocalPlayerState;
-
 	UPROPERTY()
 	bool bIsSpectator;
 
@@ -37,24 +33,17 @@ struct FPlayerListInfo
 	UPROPERTY()
 	int32 PlayerScore;
 	
+	UPROPERTY()
+	int32 PlayerRank;
+
 	FPlayerListInfo() {};
 
-	FPlayerListInfo(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState)
-	{
-		if (inPlayerState.IsValid())
-		{
-			PlayerID = inPlayerState->UniqueId;
-			LocalPlayerState = inPlayerState;
-			PlayerName = inPlayerState->PlayerName;
-			PlayerScore = 0;
-		}
-	}
-
-	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator)
+	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, int32 inPlayerRank)
 		: PlayerID(inPlayerID)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerName(inPlayerName)
 		, PlayerScore(inPlayerScore)
+		, PlayerRank(inPlayerRank)
 	{
 	}
 
@@ -85,9 +74,9 @@ public:
 	UPROPERTY(Replicated)
 	uint32 bJoinAnytime:1;
 
-	// If true, please must be under the rank of the host
+	// If true, this match is locked by rank
 	UPROPERTY(Replicated)
-	int32 RankCeiling;
+	uint32 bRankLocked : 1;
 
 	// -1 means no bots.
 	UPROPERTY(Replicated)
@@ -163,13 +152,13 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetAllowSpectating(bool bAllow);
 
-	void SetRankCeiling(int32 NewRankCeiling)
+	void SetRankLocked(bool bLocked)
 	{
-		ServerSetRankCeiling(NewRankCeiling);
+		ServerSetRankLocked(bLocked);
 	}
 	
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetRankCeiling(int32 NewRankCeiling);
+	virtual void ServerSetRankLocked(bool bLocked);
 
 	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;
 	FOnRulesetUpdated OnRulesetUpdatedDelegate;
@@ -222,10 +211,7 @@ public:
 
 	FText GetDebugInfo();
 
-	bool SkillTest(int32 Rank)
-	{
-		return RankCeiling < 1 || Rank <= RankCeiling + 400; // MAKE ME CONFIG
-	}
+	bool SkillTest(int32 Rank, bool bForceLock=false);
 
 	/**
 	 *	Returns the Owner's UTLobbyPlayerState
@@ -307,10 +293,24 @@ public:
 	virtual bool IsMatchofType(const FString& MatchType);
 
 	// Returns true if we can add a player to this match
-	virtual bool CanAddPlayer(int32 ELORank);
+	virtual bool CanAddPlayer(int32 ELORank, bool bForceRankLock = false);
 
 	// When the hub receives the notice that the instance for this match is ready, notify any beacons in this array.
 	TArray<AUTServerBeaconClient*> NotifyBeacons;
+
+	// Holds the average rank of the players in this match
+	UPROPERTY(replicated)
+	int32 AverageRank;
+
+	// Updates the rank variables based on an event
+	void UpdateRank();
+
+protected:
+	// Holds the min/max ranks of the players in this match.
+	int32 MinRank;
+	int32 MaxRank;
+
+
 };
 
 

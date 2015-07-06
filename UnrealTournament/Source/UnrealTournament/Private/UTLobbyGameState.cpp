@@ -532,7 +532,7 @@ void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, c
 }
 
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -550,6 +550,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 						if (bLastUpdate)
 						{
 							Match->PlayersInMatchInstance.RemoveAt(j,1);
+							Match->UpdateRank();
 							return;
 						}
 						else
@@ -557,6 +558,8 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 							Match->PlayersInMatchInstance[j].PlayerName = PlayerName;
 							Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
 							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
+							Match->PlayersInMatchInstance[j].PlayerRank = PlayerRank;
+							Match->UpdateRank();
 							return;
 						}
 						break;
@@ -564,7 +567,8 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				}
 
 				// A player not in the instance table.. add them
-				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator));
+				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, PlayerRank));
+				Match->UpdateRank();
 			}
 		}
 	}
@@ -859,12 +863,15 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 
 	for(int32 i=0; i < GameInstances.Num(); i++)
 	{
+
+		UE_LOG(UT,Verbose,TEXT("Checking Instance for joinability: %i %i %i vs %i [%s]"), GameInstances[i].MatchInfo->bQuickPlayMatch, GameInstances[i].MatchInfo->IsMatchofType(MatchType), GameInstances[i].MatchInfo->AverageRank, ELORank, ( GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress ? TEXT("InProgress") : TEXT("Not in Progress")));
+
 		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->bQuickPlayMatch && 
 				GameInstances[i].MatchInfo->IsMatchofType(MatchType) && 
 				(GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching || GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress))
 		{
 			// We have found a potential quick play match.  See if this player could be added to it.
-			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank))
+			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
 			{
 				// We can add the player to this match so do so.
 				Beacon->ClientJoinQuickplay(GameInstances[i].MatchInfo->GameInstanceGUID);
@@ -899,4 +906,10 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->LaunchMatch();
 		}
 	}
+	else
+	{
+		// We couldn't create a match, so tell the client to look elsewhere.
+		Beacon->ClientQuickplayNotAvailable();
+	}
+
 }
