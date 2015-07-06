@@ -25,7 +25,7 @@ void AUTProj_FlakShardMain::DamageImpactedActor_Implementation(AActor* OtherActo
 	if (UTC && (UTC != Instigator) && Role == ROLE_Authority && Instigator != NULL && (InitialLifeSpan - GetLifeSpan() < 0.5f*MaxBonusTime))
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Instigator->Controller);
-		if (PC && UTC->IsDead() && (UTC->TimeOfDeath = GetWorld()->GetTimeSeconds()))
+		if (PC && UTC->IsDead() && (UTC->TimeOfDeath == GetWorld()->GetTimeSeconds()))
 		{
 			if (ShortRangeKillShake)
 			{
