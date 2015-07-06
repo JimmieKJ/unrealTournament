@@ -2510,6 +2510,11 @@ void UUTLocalPlayer::YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uin
 
 void UUTLocalPlayer::VerifyGameSession(const FString& ServerSessionId)
 {
+	if (IsReplay())
+	{
+		return;
+	}
+
 	if (OnlineSessionInterface.IsValid())
 	{
 		// Get our current Session Id.
