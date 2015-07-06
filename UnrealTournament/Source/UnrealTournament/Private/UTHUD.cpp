@@ -16,6 +16,7 @@
 #include "UTHUDWidget_Powerups.h"
 #include "Json.h"
 #include "DisplayDebugHelpers.h"
+#include "UTRemoteRedeemer.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -355,7 +356,12 @@ void AUTHUD::NotifyMatchStateChange()
 
 void AUTHUD::PostRender()
 {
-	//check(!IsPendingKillPending());
+	// @TODO FIXMESTEVE - need engine to also give pawn a chance to postrender so don't need this hack
+	AUTRemoteRedeemer* Missile = Cast<AUTRemoteRedeemer>(UTPlayerOwner->GetViewTarget());
+	if (Missile && !UTPlayerOwner->IsBehindView())
+	{
+		Missile->PostRender(this, Canvas);
+	}
 
 	// Always sort the PlayerState array at the beginning of each frame
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
