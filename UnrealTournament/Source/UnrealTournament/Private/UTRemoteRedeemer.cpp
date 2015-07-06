@@ -571,17 +571,28 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 		if (PS != NULL && PS->Team != NULL)
 		{
 			static FName NAME_TeamColor(TEXT("TeamColor"));
-			OverlayMI->SetVectorParameterValue(NAME_TeamColor, FLinearColor(0.5f, 0.5f, 0.5f, 0.5f));
+			OverlayMI->SetVectorParameterValue(NAME_TeamColor, FLinearColor(0.5f, 0.5f, 0.5f, 1.f));
 		}
 		FCanvasTileItem Item(FVector2D(0.0f, 0.0f), OverlayMI->GetRenderProxy(false), FVector2D(C->ClipX, C->ClipY));
 		// expand X axis size to be widest supported aspect ratio (16:9)
 		float OrigSizeX = Item.Size.X;
 		Item.Size.X = FMath::Max<float>(Item.Size.X, Item.Size.Y * 16.0f / 9.0f);
 		Item.Position.X -= (Item.Size.X - OrigSizeX) * 0.5f;
-		Item.UV0 = FVector2D(0.0f, 0.0f);
-		Item.UV1 = FVector2D(1.0f, 1.0f);
+		Item.UV0 = FVector2D(0.1f, 0.1f);
+		Item.UV1 = FVector2D(0.9f, 0.9f);
 		C->DrawItem(Item);
 
+		if (RedeemerDisplayOne != NULL)
+		{
+			FCanvasTileItem XHairItem(0.5f*FVector2D(C->ClipX - 0.8f*C->ClipY, 0.f), RedeemerDisplayOne->Resource, 0.8f*FVector2D(C->ClipY, C->ClipY), FLinearColor::Red);
+			XHairItem.UV0 = FVector2D(0.0f, 0.0f);
+			XHairItem.UV1 = FVector2D(1.0f, 1.0f);
+			XHairItem.BlendMode = SE_BLEND_Translucent;
+			XHairItem.Rotation.Yaw = -1.f*GetActorRotation().Roll;
+			XHairItem.Position.Y = XHairItem.Position.Y + 0.1f * C->ClipY;
+			XHairItem.PivotPoint = FVector2D(0.5f, 0.5f);
+			C->DrawItem(XHairItem);
+		}
 		if (TargetIndicator != NULL)
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
