@@ -2273,34 +2273,37 @@ void UUTLocalPlayer::ShouldVideoCompressDialogResult(TSharedPtr<SCompoundWidget>
 	{
 		// Pick a proper filename for the video
 		FString BasePath = FPaths::ScreenShotDir();
-		RecordedReplayFilename = BasePath / TEXT("anim.webm");
-		static int32 WebMIndex = 0;
-		const int32 MaxTestWebMIndex = 65536;
-		for (int32 TestWebMIndex = WebMIndex + 1; TestWebMIndex < MaxTestWebMIndex; ++TestWebMIndex)
+		if (IFileManager::Get().MakeDirectory(*FPaths::ScreenShotDir(), true))
 		{
-			const FString TestFileName = BasePath / FString::Printf(TEXT("UTReplay%05i.webm"), TestWebMIndex);
-			if (IFileManager::Get().FileSize(*TestFileName) < 0)
+			RecordedReplayFilename = BasePath / TEXT("anim.webm");
+			static int32 WebMIndex = 0;
+			const int32 MaxTestWebMIndex = 65536;
+			for (int32 TestWebMIndex = WebMIndex + 1; TestWebMIndex < MaxTestWebMIndex; ++TestWebMIndex)
 			{
-				WebMIndex = TestWebMIndex;
-				RecordedReplayFilename = TestFileName;
-				break;
+				const FString TestFileName = BasePath / FString::Printf(TEXT("UTReplay%05i.webm"), TestWebMIndex);
+				if (IFileManager::Get().FileSize(*TestFileName) < 0)
+				{
+					WebMIndex = TestWebMIndex;
+					RecordedReplayFilename = TestFileName;
+					break;
+				}
 			}
-		}
 
-		static const FName VideoRecordingFeatureName("VideoRecording");
-		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
-		{
-			UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
-			if (VideoRecorder)
+			static const FName VideoRecordingFeatureName("VideoRecording");
+			if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
 			{
-				// Open a dialog that shows a nice progress bar of the compression
-				OpenDialog(SNew(SUWVideoCompressionDialog)
-							.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::VideoCompressDialogResult))
-							.DialogTitle(NSLOCTEXT("VideoMessages", "Compressing", "Compressing"))
-							.PlayerOwner(this)
-							.VideoRecorder(VideoRecorder)
-							.VideoFilename(RecordedReplayFilename)
-							);
+				UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+				if (VideoRecorder)
+				{
+					// Open a dialog that shows a nice progress bar of the compression
+					OpenDialog(SNew(SUWVideoCompressionDialog)
+								.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::VideoCompressDialogResult))
+								.DialogTitle(NSLOCTEXT("VideoMessages", "Compressing", "Compressing"))
+								.PlayerOwner(this)
+								.VideoRecorder(VideoRecorder)
+								.VideoFilename(RecordedReplayFilename)
+								);
+				}
 			}
 		}
 	}

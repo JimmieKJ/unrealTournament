@@ -139,6 +139,7 @@ public:
 
 	bool bCancelCompressing;
 	bool bCompressionComplete;
+	bool bCompressionSuccessful;
 	void EncodeVideoAndAudio(const FString& Filename);
 
 protected:

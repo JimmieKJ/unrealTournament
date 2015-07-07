@@ -37,7 +37,7 @@ public:
 
 	FReply OnButtonClick(uint16 ButtonID);
 
-	void CompressingComplete();
+	void CompressingComplete(bool bSuccessful);
 
 	class UTVideoRecordingFeature* VideoRecorder;
 };

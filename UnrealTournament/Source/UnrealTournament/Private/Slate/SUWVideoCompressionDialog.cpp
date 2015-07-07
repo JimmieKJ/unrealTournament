@@ -60,14 +60,22 @@ TOptional<float> SUWVideoCompressionDialog::GetProgressCompression() const
 	return VideoRecorder->GetCompressionCompletionPercent();
 }
 
-void SUWVideoCompressionDialog::CompressingComplete()
+void SUWVideoCompressionDialog::CompressingComplete(bool bSuccessful)
 {
 	if (VideoRecorder)
 	{
 		VideoRecorder->OnCompressingComplete().RemoveAll(this);
 	}
 
-	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+	if (bSuccessful)
+	{
+		OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+	}
+	else
+	{
+		OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+	}
+
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 }
 #endif

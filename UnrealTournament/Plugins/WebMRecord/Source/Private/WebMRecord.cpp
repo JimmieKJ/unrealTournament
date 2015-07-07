@@ -36,6 +36,7 @@ FWebMRecord::FWebMRecord()
 	bCompressing = false;
 	bCompressionComplete = false;
 	bCancelCompressing = false;
+	bCompressionSuccessful = false;
 	CompressWorker = nullptr;
 	
 	VideoWidth = 1280;
@@ -210,7 +211,7 @@ void FWebMRecord::Tick(float DeltaTime)
 		if (bCompressionComplete)
 		{
 			bCompressing = false;
-			OnCompressingComplete().Broadcast();
+			OnCompressingComplete().Broadcast(bCompressionSuccessful);
 		}
 	}
 }
@@ -486,7 +487,8 @@ void FWebMRecord::MakeAudioPrivateData(const ogg_packet& header, const ogg_packe
 
 void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 {
-	
+	bCompressionSuccessful = false;
+
 	// Pick a proper filename for the video
 	FString BasePath = FPaths::ScreenShotDir();
 	FString WebMPath = BasePath / TEXT("anim.webm");
@@ -810,6 +812,7 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 
 	fclose(file);
 
+	bCompressionSuccessful = true;
 	UE_LOG(LogUTWebM, Display, TEXT("Selfie video complete! %s"), *WebMPath);
 }
 

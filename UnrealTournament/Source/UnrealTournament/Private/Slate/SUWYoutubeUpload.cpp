@@ -73,6 +73,10 @@ void SUWYoutubeUpload::Construct(const FArguments& InArgs)
 
 	// Verify file size so we don't try to upload over what Youtube allows
 	FileSizeInBytes = IFileManager::Get().FileSize(*VideoFilename);
+	if (FileSizeInBytes == -1)
+	{
+		return;
+	}
 
 	YoutubeUploadBinaryData.Empty(FileSizeInBytes);
 	YoutubeUploadBinaryData.AddZeroed(FileSizeInBytes);

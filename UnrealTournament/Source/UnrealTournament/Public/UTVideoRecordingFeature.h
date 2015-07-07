@@ -13,7 +13,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE(FRecordingComplete);
 	virtual FRecordingComplete& OnRecordingComplete() = 0;
 
-	DECLARE_MULTICAST_DELEGATE(FCompressingComplete);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FCompressingComplete, bool);
 	virtual FCompressingComplete& OnCompressingComplete() = 0;
 
 	virtual void StartCompressing(const FString& Filename) = 0;
