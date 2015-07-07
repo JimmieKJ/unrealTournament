@@ -270,6 +270,11 @@ FReply SUWReplayBrowser::OnWatchClick()
 		{
 			UE_LOG(UT, Verbose, TEXT("Watching stream %s %s"), *SelectedReplays[0]->StreamInfo.FriendlyName, *SelectedReplays[0]->StreamInfo.Name);
 			GEngine->Exec(PlayerOwner->GetWorld(), *FString::Printf(TEXT("DEMOPLAY %s"), *SelectedReplays[0]->StreamInfo.Name));
+
+			if (!PlayerOwner->IsMenuGame())
+			{
+				PlayerOwner->HideMenu();
+			}
 		}
 	}
 
@@ -341,6 +346,11 @@ void SUWReplayBrowser::OnListMouseButtonDoubleClick(TSharedPtr<FReplayData> Sele
 	if (PlayerOwner.IsValid() && PlayerOwner->GetWorld())
 	{
 		GEngine->Exec(PlayerOwner->GetWorld(), *FString::Printf(TEXT("DEMOPLAY %s"), *SelectedReplay->StreamInfo.Name));
+
+		if (!PlayerOwner->IsMenuGame())
+		{
+			PlayerOwner->HideMenu();
+		}
 	}
 }
 
