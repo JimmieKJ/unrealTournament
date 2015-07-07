@@ -1949,7 +1949,10 @@ bool USkeletalMeshComponent::ComponentIsTouchingSelectionBox(const FBox& InSelBB
 
 		// If the selection box has to encompass all of the component and none of the component's verts failed the intersection test, this component
 		// is consider touching
-		return true;
+		if (bMustEncompassEntireComponent)
+		{
+			return true;
+		}
 	}
 
 	return false;
