@@ -760,4 +760,7 @@ UTexture2D* AUTHUD::ResolveFlag(int32 FlagID, int32& X, int32& Y)
 	return Page < FlagTextures.Num() ? FlagTextures[Page] : NULL;
 }
 
-
+EInputMode::Type AUTHUD::GetInputMode_Implementation() 
+{
+	return EInputMode::EIM_None;
+}

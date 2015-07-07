@@ -58,8 +58,6 @@ void AUTBasePlayerController::ShowMenu()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		FInputModeUIOnly InputMode;
-		SetInputMode(InputMode);
 		LP->ShowMenu();
 	}
 
@@ -70,8 +68,6 @@ void AUTBasePlayerController::HideMenu()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		FInputModeGameOnly InputMode;
-		SetInputMode(InputMode);
 		LP->HideMenu();
 	}
 }
@@ -601,3 +597,67 @@ void AUTBasePlayerController::PreClientTravel(const FString& PendingURL, ETravel
 	ClientCloseAllUI();
 	Super::PreClientTravel(PendingURL, TravelType, bIsSeamlessTravel);
 }
+
+#if !UE_SERVER
+void AUTBasePlayerController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	UpdateInputMode();
+}
+
+void AUTBasePlayerController::UpdateInputMode()
+{
+	EInputMode::Type NewInputMode = EInputMode::EIM_None;
+
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		//Menus default to UI
+		if (LocalPlayer->AreMenusOpen())
+		{
+			NewInputMode = EInputMode::EIM_UIOnly;
+		}
+		else if (GetWorld()->DemoNetDriver != nullptr
+			|| LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
+		{
+			NewInputMode = EInputMode::EIM_GameAndUI;
+		}
+		else
+		{
+			//Give blueprints a chance to set the input
+			AUTHUD* UTHUD = Cast<AUTHUD>(MyHUD);
+			if (UTHUD != nullptr)
+			{
+				NewInputMode = UTHUD->GetInputMode();
+			}
+			
+			//Default to game only if no other input mode is wanted
+			if (NewInputMode == EInputMode::EIM_None)
+			{
+				NewInputMode = EInputMode::EIM_GameOnly;
+			}
+		}
+
+		//Apply the new input if it needs to be changed
+		if (NewInputMode != InputMode && NewInputMode != EInputMode::EIM_None)
+		{
+			InputMode = NewInputMode;
+			switch (NewInputMode)
+			{
+			case EInputMode::EIM_GameOnly:
+				bShowMouseCursor = false;
+				Super::SetInputMode(FInputModeGameOnly());
+				break;
+			case EInputMode::EIM_GameAndUI:
+				bShowMouseCursor = true;
+				Super::SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
+				break;
+			case EInputMode::EIM_UIOnly:
+				bShowMouseCursor = true;
+				Super::SetInputMode(FInputModeUIOnly());
+				break;
+			}
+		}
+	}
+}
+#endif

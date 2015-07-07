@@ -6,6 +6,18 @@
 
 class UUTGameViewportClient;
 
+UENUM(BlueprintType)
+namespace EInputMode
+{
+	enum Type
+	{
+		EIM_None,
+		EIM_GameOnly,
+		EIM_GameAndUI,
+		EIM_UIOnly,
+	};
+}
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
 {
@@ -161,5 +173,19 @@ public:
 	virtual void ClientCloseAllUI();
 
 	virtual void PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel);
+
+
+	/**This is overridden to avoid the Slate focus issues occuring with each widget managing their own input mode.
+	Instead of setting this manually, we will update the input mode based on the state of the game in UpdateInputMode()*/
+	virtual void SetInputMode(const FInputModeDataBase& InData) override {}
+
+#if !UE_SERVER
+	virtual void Tick(float DeltaTime) override;
+	virtual void UpdateInputMode();
+
+	UPROPERTY()
+	TEnumAsByte<EInputMode::Type> InputMode;
+#endif
+
 
 };

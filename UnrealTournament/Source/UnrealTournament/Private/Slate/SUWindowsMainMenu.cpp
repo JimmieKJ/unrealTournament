@@ -640,12 +640,6 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 			TWeakObjectPtr<UUTLocalPlayer> LP = PlayerOwner;
 			auto OnDialogConfirmation = [LP] (TSharedPtr<SCompoundWidget> Widget, uint16 Button)
 			{
-				if (LP.IsValid() && LP->PlayerController)
-				{
-					LP->PlayerController->bShowMouseCursor = false;
-					LP->PlayerController->SetInputMode(FInputModeGameOnly());
-				}
-
 				UUTGameUserSettings* LamdaGameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 				LamdaGameSettings->SaveConfig();
 			};
@@ -659,10 +653,6 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 				// Note: This is an extremely basic way to test for local network and it only covers the common case
 				if (StringAddress.StartsWith(TEXT("192.168.")))
 				{
-					if( PlayerOwner->PlayerController )
-					{
-						PlayerOwner->PlayerController->SetInputMode( FInputModeUIOnly() );
-					}
 					bShowingLanWarning = true;
 					PlayerOwner->ShowSupressableConfirmation(
 						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningTitle", "Local Network Detected"),
@@ -686,13 +676,6 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 		else
 		{
 			StartGame(true);
-		}
-
-		if (PlayerOwner->PlayerController && bShowingLanWarning)
-		{ 
-			// ensure the user can click the warning.  The game will have tried to hide the cursor otherwise
-			PlayerOwner->PlayerController->bShowMouseCursor = true;
-			PlayerOwner->PlayerController->SetInputMode(FInputModeUIOnly());
 		}
 	}
 	

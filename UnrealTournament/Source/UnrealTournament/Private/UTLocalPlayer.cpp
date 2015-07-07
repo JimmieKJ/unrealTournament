@@ -287,9 +287,6 @@ void UUTLocalPlayer::ShowMenu()
 
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = true;
-			PlayerController->SetInputMode(FInputModeUIOnly());
-
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -315,14 +312,7 @@ void UUTLocalPlayer::HideMenu()
 		DesktopSlateWidget.Reset();
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = false;
 			PlayerController->SetPause(false);
-
-			//Replay window will set its own input mode
-			if (!IsReplay())
-			{
-				PlayerController->SetInputMode(FInputModeGameOnly());
-			}
 		}
 
 		if (IsReplay())
@@ -479,6 +469,18 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 	return CreditsPanelWidget;
 }
 
+bool UUTLocalPlayer::AreMenusOpen()
+{
+	return IsMenuGame()
+		|| DesktopSlateWidget.IsValid()
+		|| HUDSettings.IsValid()
+		|| LoadoutMenu.IsValid()
+		|| MapVoteMenu.IsValid()
+		|| RedirectDialog.IsValid();
+	//Add any widget thats not in the menu here
+	//TODO: Should look through each active widget and determine the needed input mode EIM_UIOnly > EIM_GameAndUI > EIM_GameOnly
+}
+
 #endif
 
 void UUTLocalPlayer::ShowHUDSettings()
@@ -493,8 +495,6 @@ void UUTLocalPlayer::ShowHUDSettings()
 
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = true;
-			PlayerController->SetInputMode( FInputModeUIOnly() );
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -517,8 +517,6 @@ void UUTLocalPlayer::HideHUDSettings()
 		{
 			if (PlayerController)
 			{
-				PlayerController->bShowMouseCursor = false;
-				PlayerController->SetInputMode(FInputModeGameOnly());
 				PlayerController->SetPause(false);
 			}
 
@@ -2123,12 +2121,6 @@ void UUTLocalPlayer::OpenLoadout(bool bBuyMenu)
 			// Widget is already valid, just make it visible.
 			LoadoutMenu->SetVisibility(EVisibility::Visible);
 			LoadoutMenu->OnMenuOpened();
-
-			if (PlayerController)
-			{
-				PlayerController->bShowMouseCursor = true;
-				PlayerController->SetInputMode( FInputModeUIOnly() );
-			}
 		}
 	}
 #endif
@@ -2143,8 +2135,6 @@ void UUTLocalPlayer::CloseLoadout()
 		LoadoutMenu.Reset();
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
 			PlayerController->SetPause(false);
 		}
 
@@ -2191,12 +2181,6 @@ void UUTLocalPlayer::OpenReplayWindow()
 			if (ReplayWindow.IsValid())
 			{
 				ReplayWindow->SetVisibility(EVisibility::Visible);
-
-				if (PlayerController)
-				{
-					PlayerController->bShowMouseCursor = true;
-					PlayerController->SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(ReplayWindow));
-				}
 			}
 		}
 	}
@@ -2210,12 +2194,6 @@ void UUTLocalPlayer::CloseReplayWindow()
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(ReplayWindow.ToSharedRef());
 		ReplayWindow.Reset();
-
-		if (PlayerController)
-		{
-			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameAndUI());
-		}
 	}
 #endif
 }

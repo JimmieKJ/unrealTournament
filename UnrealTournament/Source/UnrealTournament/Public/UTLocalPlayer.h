@@ -96,6 +96,8 @@ public:
 	{
 		return DesktopSlateWidget;
 	}
+
+	virtual bool AreMenusOpen();
 #endif
 
 	// Holds all of the chat this client has received.

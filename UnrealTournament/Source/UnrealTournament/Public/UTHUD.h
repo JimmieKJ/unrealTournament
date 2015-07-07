@@ -328,5 +328,8 @@ public:
 
 	UTexture2D* ResolveFlag(int32 FlagID, int32& X, int32& Y);
 
+	/**Returns the necessary input mode for the hud this tick*/
+	UFUNCTION(BlueprintNativeEvent)
+	EInputMode::Type GetInputMode();
 };
 
