@@ -386,7 +386,7 @@ void SUWGameSetupDialog::BuildMapList()
 			// Look to see if this map fits the rules...
 
 			int32 OptimalPlayerCount = SelectedRuleset->bTeamGame ? AllowedMapList[i]->OptimalTeamPlayerCount : AllowedMapList[i]->OptimalPlayerCount;
-			if (OptimalPlayerCount >= SelectedRuleset->OptimalPlayers)
+			if (SelectedRuleset->OptimalPlayers == 0 || OptimalPlayerCount <= SelectedRuleset->OptimalPlayers)
 			{
 				MapPlayList.Add(FMapPlayListInfo(AllowedMapList[i], false));
 			}
