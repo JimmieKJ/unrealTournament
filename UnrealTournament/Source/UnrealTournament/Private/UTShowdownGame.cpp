@@ -259,7 +259,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 		AUTPickup* Pickup = Cast<AUTPickup>(*It);
 		if (Pickup != NULL)
 		{
-			checkSlow(Pickup->GetClass()->ImplementsInterface(IUTResetInterface::StaticClass()));
+			checkSlow(Pickup->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()));
 			IUTResetInterface::Execute_Reset(Pickup);
 		}
 	}
