@@ -509,6 +509,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 
 		if (GetPlayerOwner()->GetWorld()->GetNetMode() != NM_Client)
 		{
+			/*
 			TSharedPtr< TAttributePropertyBool > DemoRecAttr = MakeShareable(new TAttributePropertyBool(SelectedGameClass.GetDefaultObject(), &SelectedGameClass.GetDefaultObject()->bRecordDemo));
 			GameConfigProps.Add(DemoRecAttr);
 			GameConfigPanel->AddSlot()
@@ -542,7 +543,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 					]
 				]
 			];
-
+			*/
 			// Configure bots button
 			GameConfigPanel->AddSlot()
 			.AutoHeight()
