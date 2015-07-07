@@ -1154,6 +1154,8 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
+			static FName NAME_Jump(TEXT("Jump"));
+			((AUTCharacter*)CharacterOwner)->InventoryEvent(NAME_Jump);
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;

@@ -6,6 +6,7 @@
 #include "UnrealNetwork.h"
 #include "UTHUDWidget_Powerups.h"
 #include "StatNames.h"
+#include "UTJumpbootMessage.h"
 
 AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -95,11 +96,23 @@ void AUTJumpBoots::ClientRemoved_Implementation()
 void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 {
 	static FName NAME_MultiJump(TEXT("MultiJump"));
+	static FName NAME_Jump(TEXT("Jump"));
 	static FName NAME_Landed(TEXT("Landed"));
 
 	if (Role == ROLE_Authority)
 	{
-		if (EventName == NAME_MultiJump)
+		if (EventName == NAME_Jump)
+		{
+			if (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled() && (NumJumps == 3))
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(GetUTOwner()->PlayerState);
+				if (PS && (PS->GetStatsValue(NAME_BootJumps) == 0))
+				{
+					Cast<AUTPlayerController>(UTOwner->GetController())->SendPersonalMessage(UUTJumpbootMessage::StaticClass(), 0, NULL, NULL, NULL);
+				}
+			}
+		}
+		else if (EventName == NAME_MultiJump)
 		{
 			NumJumps--;
 			if (SuperJumpEffect != NULL)
@@ -118,6 +131,10 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 					if (PS->Team)
 					{
 						PS->Team->ModifyStatsValue(NAME_BootJumps, 1);
+					}
+					if (UTOwner && (NumJumps > 1) && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled())
+					{
+						Cast<AUTPlayerController>(UTOwner->GetController())->SendPersonalMessage(UUTJumpbootMessage::StaticClass(), 1, NULL, NULL, NULL);
 					}
 				}
 			}
