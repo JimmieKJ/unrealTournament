@@ -56,22 +56,11 @@ void UUTGameInstance::HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureT
 	if ( LocalPlayer != nullptr )
 	{
 #if !UE_SERVER
+		LocalPlayer->ReturnToMainMenu();
 		LocalPlayer->ShowMessage( 
 			NSLOCTEXT( "UUTGameInstance", "ReplayErrorTitle", "Replay Error" ),
-			NSLOCTEXT( "UUTGameInstance", "ReplayErrorMessage", "There was an error with the replay. Returning to the main menu." ), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject( this, &UUTGameInstance::ReplayErrorConfirm )
+			NSLOCTEXT( "UUTGameInstance", "ReplayErrorMessage", "There was an error with the replay. Returning to the main menu." ), UTDIALOG_BUTTON_OK, nullptr
 		);
 #endif
 	}
 }
-
-void UUTGameInstance::ReplayErrorConfirm( TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID )
-{
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>( GetFirstGamePlayer() );
-
-	if ( LocalPlayer != nullptr )
-	{
-		LocalPlayer->ReturnToMainMenu();
-	}
-}
-
-

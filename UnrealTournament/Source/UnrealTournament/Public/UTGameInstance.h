@@ -18,7 +18,5 @@ protected:
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld) override;
 
 	virtual void HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureType, const FString& ErrorString ) override;
-
-	virtual void ReplayErrorConfirm( TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID );
 };
 
