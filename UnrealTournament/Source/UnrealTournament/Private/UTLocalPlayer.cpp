@@ -2224,18 +2224,21 @@ bool UUTLocalPlayer::IsReplay()
 
 void UUTLocalPlayer::RecordReplay(float RecordTime)
 {
-	CloseReplayWindow();
-
-	bRecordingReplay = true;
-
-	static const FName VideoRecordingFeatureName("VideoRecording");
-	if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+	if (!bRecordingReplay)
 	{
-		UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
-		if (VideoRecorder)
+		CloseReplayWindow();
+
+		bRecordingReplay = true;
+
+		static const FName VideoRecordingFeatureName("VideoRecording");
+		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
 		{
-			VideoRecorder->OnRecordingComplete().AddUObject(this, &UUTLocalPlayer::RecordingReplayComplete);
-			VideoRecorder->StartRecording(RecordTime);
+			UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+			if (VideoRecorder)
+			{
+				VideoRecorder->OnRecordingComplete().AddUObject(this, &UUTLocalPlayer::RecordingReplayComplete);
+				VideoRecorder->StartRecording(RecordTime);
+			}
 		}
 	}
 }
