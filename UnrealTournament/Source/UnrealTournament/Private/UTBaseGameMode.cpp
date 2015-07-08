@@ -12,7 +12,7 @@ AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 void AUTBaseGameMode::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
-	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTBaseGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation(), true);
+	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTBaseGameMode::DefaultTimer, 1.0f / GetWorldSettings()->GetEffectiveTimeDilation(), true);
 }
 
 
