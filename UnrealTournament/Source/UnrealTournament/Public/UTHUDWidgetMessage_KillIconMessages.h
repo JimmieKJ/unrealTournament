@@ -16,8 +16,7 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_KillIconMessages : public UUTHUDW
 public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override
 	{
-		return (!UTHUDOwner->UTPlayerOwner || !UTHUDOwner->UTPlayerOwner->UTPlayerState
-			|| !UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || !UTHUDOwner->UTPlayerOwner->bShowCameraBinds);
+		return true;
 	}
 
 	/**Background for kills that dont involve the local player*/
