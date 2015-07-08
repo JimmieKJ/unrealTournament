@@ -14,6 +14,7 @@
 #include "Engine/DemoNetDriver.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "UTVideoRecordingFeature.h"
+#include "SceneViewport.h"
 
 #if !UE_SERVER
 
@@ -39,6 +40,8 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	FVector2D TimeSize = FVector2D(0.5f, 0.09f) * ViewportSize;
 	FVector2D TimePos(ViewportSize.X * 0.5f - TimeSize.X * 0.5f, ViewportSize.Y * 0.8);
 
+	HideTimeBarTime = 5.0f;
+
 	ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
@@ -52,146 +55,164 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 
 			//Time Controls
 			+ SCanvas::Slot()
-			.Position(TimePos)
-			.Size(TimeSize)
+			.Size(ViewportSize)
 			.VAlign(VAlign_Top)
 			.HAlign(HAlign_Left)
 			[
-				SNew(SOverlay)
-				+ SOverlay::Slot()
-				.VAlign(VAlign_Fill)
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
 				.HAlign(HAlign_Fill)
-				[
-					//Background image
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
-				]
-				+ SOverlay::Slot()
 				.VAlign(VAlign_Fill)
+
+				+ SVerticalBox::Slot()
 				.HAlign(HAlign_Fill)
-				.Padding(10.0f)
+				.VAlign(VAlign_Bottom)
 				[
-					//The Main time slider
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot()
+					SAssignNew(TimeBar, SBorder)
+					.VAlign(VAlign_Fill)
 					.HAlign(HAlign_Fill)
-					.AutoHeight()
-					.Padding(0.0f,0.0f,0.0f,10.0f)
+					.ColorAndOpacity(this, &SUTReplayWindow::GetTimeBarColor)
+					.BorderBackgroundColor(this, &SUTReplayWindow::GetTimeBarBorderColor)
+					.BorderImage(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
+					.Content()
 					[
-						SAssignNew(TimeSlider, SUTProgressSlider)
-						.Value(this, &SUTReplayWindow::GetTimeSlider)
-						.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
-						.SliderBarColor(FColor(33, 93, 220))
-						.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
-					]
-					+ SVerticalBox::Slot()
-					.HAlign(HAlign_Fill)
-					.AutoHeight()
-					.Padding(50.0f,0.0f)
-					[
-						//The current / total time
-						SNew(SUniformGridPanel)
-						+ SUniformGridPanel::Slot(0, 0)
-						.HAlign(HAlign_Left)
-						.VAlign(VAlign_Center)
+						SNew(SOverlay)
+						/*+ SOverlay::Slot()
+						.VAlign(VAlign_Fill)
+						.HAlign(HAlign_Fill)
 						[
+							//Background image
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
+						]*/
+						+ SOverlay::Slot()
+						.VAlign(VAlign_Fill)
+						.HAlign(HAlign_Fill)
+						.Padding(10.0f)
+						[
+							//The Main time slider
 							SNew(SVerticalBox)
 							+ SVerticalBox::Slot()
 							.HAlign(HAlign_Fill)
 							.AutoHeight()
-							.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+							.Padding(0.0f,0.0f,0.0f,10.0f)
 							[
-								SNew(STextBlock)
-								.Text(this, &SUTReplayWindow::GetTimeText)
-								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+								SAssignNew(TimeSlider, SUTProgressSlider)
+								.Value(this, &SUTReplayWindow::GetTimeSlider)
+								.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
+								.SliderBarColor(FColor(33, 93, 220))
+								.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
 							]
 							+ SVerticalBox::Slot()
 							.HAlign(HAlign_Fill)
 							.AutoHeight()
-							.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+							.Padding(50.0f,0.0f)
 							[
-								SNew(SHorizontalBox)
-								+ SHorizontalBox::Slot()
+								//The current / total time
+								SNew(SUniformGridPanel)
+								+ SUniformGridPanel::Slot(0, 0)
 								.HAlign(HAlign_Left)
-								.AutoWidth()
+								.VAlign(VAlign_Center)
 								[
-									SAssignNew(RecordButton, SButton)
-									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-									.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
-									.ContentPadding(1.0f)
-									.Content()
+									SNew(SVerticalBox)
+									+ SVerticalBox::Slot()
+									.HAlign(HAlign_Fill)
+									.AutoHeight()
+									.Padding(0.0f, 0.0f, 0.0f, 0.0f)
 									[
-										SNew(SImage)
-										.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
+										SNew(STextBlock)
+										.Text(this, &SUTReplayWindow::GetTimeText)
+										.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+									]
+									+ SVerticalBox::Slot()
+									.HAlign(HAlign_Fill)
+									.AutoHeight()
+									.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+									[
+										SNew(SHorizontalBox)
+										+ SHorizontalBox::Slot()
+										.HAlign(HAlign_Left)
+										.AutoWidth()
+										[
+											SAssignNew(RecordButton, SButton)
+											.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+											.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
+											.ContentPadding(1.0f)
+											.Content()
+											[
+												SNew(SImage)
+												.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
+											]
+										]
+										+ SHorizontalBox::Slot()
+										.HAlign(HAlign_Left)
+										.AutoWidth()
+										[
+											SAssignNew(MarkStartButton, SButton)
+											.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+											.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
+											.ContentPadding(1.0f)
+											.Content()
+											[
+												SNew(SImage)
+												.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
+											]
+										]
+										+ SHorizontalBox::Slot()
+										.HAlign(HAlign_Left)
+										.AutoWidth()
+										[
+											SAssignNew(MarkEndButton, SButton)
+											.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+											.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
+											.ContentPadding(1.0f)
+											.Content()
+											[
+												SNew(SImage)
+												.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
+											]
+										]
 									]
 								]
-								+ SHorizontalBox::Slot()
-								.HAlign(HAlign_Left)
-								.AutoWidth()
-								[
-									SAssignNew(MarkStartButton, SButton)
-									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-									.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
-									.ContentPadding(1.0f)
-									.Content()
-									[
-										SNew(SImage)
-										.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
-									]
-								]
-								+ SHorizontalBox::Slot()
-								.HAlign(HAlign_Left)
-								.AutoWidth()
-								[
-									SAssignNew(MarkEndButton, SButton)
-									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-									.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
-									.ContentPadding(1.0f)
-									.Content()
-									[
-										SNew(SImage)
-										.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
-									]
-								]
-							]
-						]
 
-						//Play / Pause button
-						+ SUniformGridPanel::Slot(1, 0)
-						.HAlign(HAlign_Center)
-						.VAlign(VAlign_Center)
-						[
-							SNew(SButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-							.OnClicked(this, &SUTReplayWindow::OnPlayPauseButtonClicked)
-							.ContentPadding(1.0f)
-							.Content()
-							[
-								SNew(SImage)
-								.Image(this, &SUTReplayWindow::GetPlayButtonBrush)
-							]
-						]
+								//Play / Pause button
+								+ SUniformGridPanel::Slot(1, 0)
+								.HAlign(HAlign_Center)
+								.VAlign(VAlign_Center)
+								[
+									SNew(SButton)
+									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+									.OnClicked(this, &SUTReplayWindow::OnPlayPauseButtonClicked)
+									.ContentPadding(1.0f)
+									.Content()
+									[
+										SNew(SImage)
+										.Image(this, &SUTReplayWindow::GetPlayButtonBrush)
+									]
+								]
 						
-						//Speed Control
-						+ SUniformGridPanel::Slot(2, 0)
-						.HAlign(HAlign_Right)
-						.VAlign(VAlign_Center)
-						[
-							SNew(SBox)
-							.WidthOverride(170)
-							.HAlign(HAlign_Fill)
-							.VAlign(VAlign_Center)
-							.Content()
-							[
-								SNew(SNumericEntryBox<float>)
-								.AllowSpin(true)
-								.MinValue(SpeedMin)
-								.MaxValue(SpeedMax)
-								.MinSliderValue(SpeedMin)
-								.MaxSliderValue(SpeedMax)
-								.Value(this, &SUTReplayWindow::GetSpeedSlider)
-								.OnValueChanged(this, &SUTReplayWindow::OnSetSpeedSlider)
-								.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+								//Speed Control
+								+ SUniformGridPanel::Slot(2, 0)
+								.HAlign(HAlign_Right)
+								.VAlign(VAlign_Center)
+								[
+									SNew(SBox)
+									.WidthOverride(170)
+									.HAlign(HAlign_Fill)
+									.VAlign(VAlign_Center)
+									.Content()
+									[
+										SNew(SNumericEntryBox<float>)
+										.AllowSpin(true)
+										.MinValue(SpeedMin)
+										.MaxValue(SpeedMax)
+										.MinSliderValue(SpeedMin)
+										.MaxSliderValue(SpeedMax)
+										.Value(this, &SUTReplayWindow::GetSpeedSlider)
+										.OnValueChanged(this, &SUTReplayWindow::OnSetSpeedSlider)
+										.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+									]
+								]
 							]
 						]
 					]
@@ -278,8 +299,34 @@ FReply SUTReplayWindow::OnPlayPauseButtonClicked()
 	return FReply::Handled();
 }
 
+FLinearColor SUTReplayWindow::GetTimeBarColor() const
+{
+	return FLinearColor(1.0f, 1.0f, 1.0f, FMath::Max(1.0f + HideTimeBarTime, 0.0f));
+}
+
+FSlateColor SUTReplayWindow::GetTimeBarBorderColor() const
+{
+	return FSlateColor(GetTimeBarColor());
+}
+
 void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
+	//Check if the mouse is close to the bottom of the screen to unhide the timebar
+	UUTGameViewportClient* GVC = Cast<UUTGameViewportClient>(PlayerOwner->ViewportClient);
+	if (GVC && GVC->GetGameViewport())
+	{
+		FVector2D MousePosition;
+		FVector2D ScreenSize;
+		GVC->GetMousePosition(MousePosition);
+		GVC->GetViewportSize(ScreenSize);
+		
+		if (!GVC->GetGameViewport()->HasMouseCapture() && (MousePosition.Y / ScreenSize.Y > 0.8f))
+		{
+			HideTimeBarTime = 2.0f;
+		}
+	}
+	HideTimeBarTime -= InDeltaTime;
+
 	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 

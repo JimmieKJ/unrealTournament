@@ -42,8 +42,13 @@ protected:
 	TSharedPtr<class SButton> RecordButton;
 	TSharedPtr<class SButton> MarkStartButton;
 	TSharedPtr<class SButton> MarkEndButton;
+	TSharedPtr<class SBorder> TimeBar;
 
-	//TODO: make custom widgets for these
+	//Time remaining to auto hide the time bar
+	float HideTimeBarTime;
+	FLinearColor GetTimeBarColor() const;
+	FSlateColor GetTimeBarBorderColor() const;
+
 	void OnSetTimeSlider(float NewValue);
 	float GetTimeSlider() const;
 
