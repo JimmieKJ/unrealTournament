@@ -188,7 +188,6 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	int32 AvailabelGameRulesetCount;
 
-
 	void ScanAssetRegistry();
 
 public:
@@ -231,6 +230,10 @@ protected:
 
 public:
 	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank);
+
+	// Sets a limit on the # of spectators allowed in an instance
+	UPROPERTY(Config)
+	int32 MaxSpectatorsInInstance;
 
 };
 

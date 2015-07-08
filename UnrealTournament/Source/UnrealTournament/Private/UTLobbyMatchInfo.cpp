@@ -321,30 +321,36 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
-	if (Players.Num() < CurrentRuleset->MinPlayersToStart)
+	if (CheckLobbyGameState() && LobbyGameState->CanLaunch())
 	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
-		return;
+		if (Players.Num() < CurrentRuleset->MinPlayersToStart)
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+			return;
+		}
+
+		if (NumPlayersInMatch() > CurrentRuleset->MaxPlayers)
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyPlayers","There are too many players in this match to start."));
+			return;
+		}
+
+		if (NumSpectatorsInMatch() > LobbyGameState->MaxSpectatorsInInstance)
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManySpectators","There are too many spectators in this match to start."));
+			return;
+		}
+
+		// TODO: need to check for ready ups on server side
+
+		if (CurrentState == ELobbyMatchState::WaitingForPlayers)
+		{
+			LaunchMatch();
+			return;
+		}
 	}
 
-	if (Players.Num() > CurrentRuleset->MaxPlayers)
-	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyPlayers","There are too many players in this match to start."));
-		return;
-	}
-
-	// TODO: need to check for ready ups on server side
-
-	if (!CheckLobbyGameState() || !LobbyGameState->CanLaunch())
-	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
-		return;
-	}
-
-	if (CurrentState == ELobbyMatchState::WaitingForPlayers)
-	{
-		LaunchMatch();
-	}
+	GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 }
 
 void AUTLobbyMatchInfo::LaunchMatch()
@@ -401,7 +407,8 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 			if (Players[i].IsValid())
 			{
 				// Tell the client to connect to the instance
-				Players[i]->ClientConnectToInstance(GameInstanceGUID, false);
+
+				Players[i]->ClientConnectToInstance(GameInstanceGUID, Players[i]->DesiredTeamNum == 255);
 			}
 		}
 	}
@@ -813,10 +820,19 @@ TSharedPtr<FMapListItem> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage
 
 int32 AUTLobbyMatchInfo::NumPlayersInMatch()
 {
-	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers) return Players.Num();
+	int32 ActualPlayerCount = 0;
+	for (int32 i = 0; i < Players.Num(); i++)
+	{
+		if (Players[i]->DesiredTeamNum != 255) ActualPlayerCount++;
+	}
+
+	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers)
+	{
+		return ActualPlayerCount;
+	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
-		int32 Cnt = Players.Num();
+		int32 Cnt = ActualPlayerCount;
 		for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
 		{
 			if (!PlayersInMatchInstance[i].bIsSpectator)
@@ -829,6 +845,36 @@ int32 AUTLobbyMatchInfo::NumPlayersInMatch()
 	}
 	return 0;
 }
+
+int32 AUTLobbyMatchInfo::NumSpectatorsInMatch()
+{
+	int32 ActualPlayerCount = 0;
+	for (int32 i = 0; i < Players.Num(); i++)
+	{
+		if (Players[i]->DesiredTeamNum == 255) ActualPlayerCount++;
+	}
+
+	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers)
+	{
+		return ActualPlayerCount;
+	}
+	else if (CurrentState == ELobbyMatchState::InProgress)
+	{
+		int32 Cnt = Players.Num();
+		for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+		{
+			if (PlayersInMatchInstance[i].bIsSpectator)
+			{
+				Cnt++;
+			}
+		}
+
+		return Cnt;
+	}
+
+	return 0;
+}
+
 
 bool AUTLobbyMatchInfo::IsMatchofType(const FString& MatchType)
 {
@@ -843,19 +889,18 @@ bool AUTLobbyMatchInfo::IsMatchofType(const FString& MatchType)
 	return false;
 }
 
-bool AUTLobbyMatchInfo::MatchHasRoom()
+bool AUTLobbyMatchInfo::MatchHasRoom(bool bForSpectator)
 {
 	if (CurrentRuleset.IsValid())
 	{
 		if (CurrentState == MatchState::InProgress)	
 		{
-			int32 Cnt = 0;
-			for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+			if (bForSpectator && CheckLobbyGameState())
 			{
-				if (!PlayersInMatchInstance[i].bIsSpectator) Cnt++;
+				return NumSpectatorsInMatch() < LobbyGameState->MaxSpectatorsInInstance;
 			}
 
-			return (Cnt < CurrentRuleset->MaxPlayers);
+			return NumPlayersInMatch() < CurrentRuleset->MaxPlayers;
 		}
 	
 	}

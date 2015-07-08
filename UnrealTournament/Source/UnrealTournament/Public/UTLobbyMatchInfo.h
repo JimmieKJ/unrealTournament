@@ -261,7 +261,7 @@ public:
 	virtual void ServerMatchIsReadyForPlayers();
 
 	// Returns true if the match has room for a new player to join it
-	virtual bool MatchHasRoom();
+	virtual bool MatchHasRoom(bool bForSpectator=false);
 
 	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 
@@ -285,6 +285,7 @@ public:
 	FGuid UniqueMatchID;
 
 	int32 NumPlayersInMatch();
+	int32 NumSpectatorsInMatch();
 
 	UPROPERTY(replicated)
 	uint32 bQuickPlayMatch:1;

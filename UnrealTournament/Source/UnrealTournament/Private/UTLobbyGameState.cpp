@@ -300,29 +300,17 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 		if (GM)
 		{
-			if (!bAsSpectator && MatchInfo->bJoinAnytime)
+			if (MatchInfo->bJoinAnytime || bAsSpectator)
 			{
-				 if ( MatchInfo->MatchHasRoom() )
+				 if ( MatchInfo->MatchHasRoom(bAsSpectator) )
 				 {
 					MatchInfo->AddPlayer(NewPlayer);
-					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, false);
-					return;
-				 }
-				 else
-				 {
-					NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
+					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
 					return;
 				 }
 			}
 
-			if (MatchInfo->bSpectatable)
-			{
-				MatchInfo->AddPlayer(NewPlayer);
-				NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, true);
-				return;
-			}
-
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchNoSpectate","This match doesn't allow spectating."));	
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
 			return;
 		}
 	}
