@@ -2729,7 +2729,7 @@ FVector AUTCharacter::GetTransformedEyeOffset() const
 		XTransform = XTransform * MaxZ / XTransform.Z;
 	}
 	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
-	return EyeOffsetGlobalScaling * (XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z));
+	return FMath::Clamp(EyeOffsetGlobalScaling, 0.f, 1.f) * (XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z));
 }
 
 FVector AUTCharacter::GetPawnViewLocation() const
