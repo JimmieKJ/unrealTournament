@@ -471,8 +471,7 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 
 bool UUTLocalPlayer::AreMenusOpen()
 {
-	return IsMenuGame()
-		|| DesktopSlateWidget.IsValid()
+	return DesktopSlateWidget.IsValid()
 		|| HUDSettings.IsValid()
 		|| LoadoutMenu.IsValid()
 		|| MapVoteMenu.IsValid()
