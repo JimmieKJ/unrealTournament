@@ -272,7 +272,10 @@ void UGameUserSettings::RequestResolutionChange(int32 InResolutionX, int32 InRes
 
 void UGameUserSettings::SaveSettings()
 {
-	Scalability::SaveState(GGameUserSettingsIni);
+	if (!GIsEditor)
+	{
+		Scalability::SaveState(GGameUserSettingsIni);
+	}
 	SaveConfig(CPF_Config, *GGameUserSettingsIni);
 }
 
