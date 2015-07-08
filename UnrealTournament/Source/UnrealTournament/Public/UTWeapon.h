@@ -203,7 +203,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	bool bHideInMenus;
 
 	/** Hack for adjusting first person weapon mesh at different FOVs (until we have separate render pass for first person weapon. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category="Weapon")
 	FVector FOVOffset;
 
 	UFUNCTION()
