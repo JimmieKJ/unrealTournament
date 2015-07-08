@@ -1113,6 +1113,27 @@ void AUTPlayerController::ServerViewProjectile_Implementation()
 	}
 }
 
+void AUTPlayerController::TogglePlayerInfo()
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		//Find the playerstate of the player we are currently spectating
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GetViewTarget());
+
+		if (PS == nullptr)
+		{
+			APawn* Pawn = Cast<APawn>(GetViewTarget());
+			PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+		}
+
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+		if (PS != nullptr && LP != nullptr && PS != PlayerState)
+		{
+			LP->ShowPlayerInfo(PS);
+		}
+	}
+}
+
 void AUTPlayerController::PlayMenuSelectSound()
 {
 	if (GetViewTarget())

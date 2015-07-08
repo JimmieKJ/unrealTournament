@@ -360,6 +360,9 @@ public:
 	UFUNCTION(exec)
 		virtual void ToggleShowBinds();
 
+	UFUNCTION(exec)
+	virtual void TogglePlayerInfo();
+
 	virtual void ViewAPlayer(int32 dir)
 	{
 		BehindView(bSpectateBehindView);

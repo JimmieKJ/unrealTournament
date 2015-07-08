@@ -12,6 +12,7 @@
 #include "UTWeaponAttachment.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "UTHUDWidget_ReplayTimeSlider.h"
+#include "UTPlayerInput.h"
 
 #if !UE_SERVER
 
@@ -33,6 +34,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 							.IsScrollable(false)
 							.ButtonMask(UTDIALOG_BUTTON_OK)
 							.OnDialogResult(InArgs._OnDialogResult)
+							.bShadow(false)
 						);
 
 	TargetPlayerState = InArgs._TargetPlayerState;
@@ -490,6 +492,26 @@ FReply SUWPlayerInfoDialog::KickVote()
 	}
 
 	return FReply::Handled();
+}
+
+FReply SUWPlayerInfoDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	//If the key matches the TogglePlayerInfo spectator bind then close the dialog
+	FName KeyName = InKeyEvent.GetKey().GetFName();
+
+	UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
+	if (UTInput != nullptr)
+	{
+		for (auto& Bind : UTInput->SpectatorBinds)
+		{
+			if (Bind.Command == TEXT("TogglePlayerInfo") && KeyName == Bind.KeyName)
+			{
+				GetPlayerOwner()->CloseDialog(SharedThis(this));
+				return FReply::Handled();
+			}
+		}
+	}
+	return FReply::Unhandled();
 }
 
 #endif
