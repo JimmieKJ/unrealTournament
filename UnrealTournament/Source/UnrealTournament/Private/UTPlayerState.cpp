@@ -216,7 +216,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			if (Spree % 5 == 0)
 			{
 				FName SKStat[5] = { NAME_SpreeKillLevel0, NAME_SpreeKillLevel1, NAME_SpreeKillLevel2, NAME_SpreeKillLevel3, NAME_SpreeKillLevel4 };
-				ModifyStatsValue(SKStat[FMath::Min(Spree, 4)], 1);
+				ModifyStatsValue(SKStat[FMath::Min(Spree / 5, 4)], 1);
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
