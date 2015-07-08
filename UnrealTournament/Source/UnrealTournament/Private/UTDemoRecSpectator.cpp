@@ -212,6 +212,42 @@ void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float Delt
 		TargetViewRotation.Pitch = TargetPawn->RemoteViewPitch;
 		// Decompress remote view pitch from 1 byte
 		TargetViewRotation.Pitch *= 360.f / 255.f;
+		
+		struct FBlendHelper
+		{
+			/** worker function for AUTDemoRecSpectator::SmoothTargetViewRotation() */
+			static float BlendRotation(float DeltaTime, float BlendC, float NewC)
+			{
+				if (FMath::Abs(BlendC - NewC) > 180.f)
+				{
+					if (BlendC > NewC)
+					{
+						NewC += 360.f;
+					}
+					else
+					{
+						BlendC += 360.f;
+					}
+				}
+
+				if (FMath::Abs(BlendC - NewC) > 90.f)
+				{
+					BlendC = NewC;
+				}
+				else
+				{
+					BlendC = BlendC + (NewC - BlendC) * FMath::Min(1.f, 12.f * DeltaTime);
+				}
+
+				return FRotator::ClampAxis(BlendC);
+			}
+		};
+
+		BlendedTargetViewRotation.Pitch = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Pitch, FRotator::ClampAxis(TargetViewRotation.Pitch));
+		BlendedTargetViewRotation.Yaw = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Yaw, FRotator::ClampAxis(TargetViewRotation.Yaw));
+		BlendedTargetViewRotation.Roll = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Roll, FRotator::ClampAxis(TargetViewRotation.Roll));
+
+		return;
 	}
 
 	Super::SmoothTargetViewRotation(TargetPawn, DeltaSeconds);
