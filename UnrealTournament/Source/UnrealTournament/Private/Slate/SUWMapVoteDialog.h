@@ -71,7 +71,9 @@ protected:
 	};
 
 	int32 LastVoteCount;
+	bool bRequiresRefresh;
 
+	TArray<FVoteButton> LeadingVoteButtons;
 	TArray<FVoteButton> VoteButtons;
 	TSharedPtr<SScrollBox> MapBox;
 	void BuildMapList();

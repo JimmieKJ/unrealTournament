@@ -117,6 +117,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	Style.Set("UT.Background.Dark", new FSlateColorBrush(FLinearColor(0, 0, 0, .5f)));
+	Style.Set("UT.Background.Black", new FSlateColorBrush(FLinearColor(0, 0, 0, 1.0f)));
 
 	Style.Set("UT.TeamBrush.Red", new FSlateColorBrush(FLinearColor(1.0f, 0, 0, 1.0f)));
 	Style.Set("UT.TeamBrush.Blue", new FSlateColorBrush(FLinearColor(0.0f, 0, 1.0f, 1.0f)));
