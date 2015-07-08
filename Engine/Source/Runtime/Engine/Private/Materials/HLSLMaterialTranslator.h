@@ -3225,7 +3225,7 @@ protected:
 				}
 				else if (DestCoordBasis == MCB_View)
 				{
-					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>TranslatedWorldToView))");
+					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>TranslatedWorldToCameraView))");
 				}
 				// else use MCB_World as intermediary basis
 				break;
@@ -3261,7 +3261,7 @@ protected:
 			{
 				if (DestCoordBasis == MCB_TranslatedWorld)
 				{
-					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>ViewToTranslatedWorld))");
+					CodeStr = TEXT("mul(<A>, <MATRIX>(View.<PREV>CameraViewToTranslatedWorld))");
 				}
 				// else use MCB_TranslatedWorld as intermediary basis
 				IntermediaryBasis = MCB_TranslatedWorld;
