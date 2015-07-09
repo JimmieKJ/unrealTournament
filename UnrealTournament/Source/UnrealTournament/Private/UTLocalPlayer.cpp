@@ -2390,6 +2390,9 @@ void UUTLocalPlayer::ShouldVideoUploadDialogResult(TSharedPtr<SCompoundWidget> W
 			FHttpRequestPtr YoutubeTokenRefreshRequest = FHttpModule::Get().CreateRequest();
 			YoutubeTokenRefreshRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
 			YoutubeTokenRefreshRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRefreshComplete);
+			YoutubeTokenRefreshRequest->SetVerb(TEXT("POST"));
+			YoutubeTokenRefreshRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
+
 			// ClientID and ClientSecret UT Youtube app on PLK google account
 			FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
 			FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
@@ -2450,6 +2453,9 @@ void UUTLocalPlayer::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FH
 		{
 			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
 			YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), YoutubeRefreshToken);
+
+			UE_LOG(UT, Log, TEXT("YoutubeTokenRequestComplete %s %s"), *YoutubeAccessToken, *YoutubeRefreshToken);
+
 			SaveConfig();
 
 			UploadVideoToYoutube();
@@ -2484,7 +2490,7 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 	}
 	else
 	{
-		UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent"));
+		UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent\n%s"), *HttpResponse->GetContentAsString());
 
 		// Refresh token might have been expired
 		YoutubeAccessToken.Empty();
