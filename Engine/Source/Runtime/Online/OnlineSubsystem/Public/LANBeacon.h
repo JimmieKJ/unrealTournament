@@ -16,7 +16,7 @@
 #define LAN_BEACON_PACKET_HEADER_SIZE 16
 
 /** The max size expected in a lan beacon packet */
-#define LAN_BEACON_MAX_PACKET_SIZE 512
+#define LAN_BEACON_MAX_PACKET_SIZE 1024
 
 // Offsets for various fields
 #define LAN_BEACON_VER_OFFSET 0
