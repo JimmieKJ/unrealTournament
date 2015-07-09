@@ -314,23 +314,6 @@ void UUTLocalPlayer::HideMenu()
 		{
 			PlayerController->SetPause(false);
 		}
-
-		if (IsReplay())
-		{
-			OpenReplayWindow();
-
-			//Temp workaround for the console breaking input
-			UUTConsole* Console = (ViewportClient != nullptr) ? Cast<UUTConsole>(ViewportClient->ViewportConsole) : nullptr;
-			if (Console != nullptr)
-			{
-				Console->ClearReopenMenus();
-			}
-		}
-		else
-		{
-			FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
-		}
-
 	}
 	else
 	{
