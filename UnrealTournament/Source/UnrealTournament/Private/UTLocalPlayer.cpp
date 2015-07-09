@@ -404,10 +404,12 @@ void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog, int32 ZOrder)
 {
 	GEngine->GameViewport->AddViewportWidgetContent(Dialog, ZOrder);
 	Dialog->OnDialogOpened();
+	OpenDialogs.Add(Dialog);
 }
 
 void UUTLocalPlayer::CloseDialog(TSharedRef<SUWDialog> Dialog)
 {
+	OpenDialogs.Remove(Dialog);
 	Dialog->OnDialogClosed();
 	GEngine->GameViewport->RemoveViewportWidgetContent(Dialog);
 }
@@ -455,10 +457,8 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 bool UUTLocalPlayer::AreMenusOpen()
 {
 	return DesktopSlateWidget.IsValid()
-		|| HUDSettings.IsValid()
 		|| LoadoutMenu.IsValid()
-		|| MapVoteMenu.IsValid()
-		|| RedirectDialog.IsValid();
+		|| OpenDialogs.Num() > 0;
 	//Add any widget thats not in the menu here
 	//TODO: Should look through each active widget and determine the needed input mode EIM_UIOnly > EIM_GameAndUI > EIM_GameOnly
 }
@@ -2187,6 +2187,7 @@ void UUTLocalPlayer::CloseMapVote()
 	if (MapVoteMenu.IsValid())
 	{
 		CloseDialog(MapVoteMenu.ToSharedRef());		
+		MapVoteMenu.Reset();
 	}
 #endif
 }
@@ -2596,4 +2597,22 @@ bool UUTLocalPlayer::IsConsiderABeginnner()
 void UUTLocalPlayer::CloseAllUI()
 {
 	GEngine->GameViewport->RemoveAllViewportWidgets();
+
+	OpenDialogs.Empty();
+	DesktopSlateWidget.Reset();
+	ServerBrowserWidget.Reset();
+	ReplayBrowserWidget.Reset();
+	StatsViewerWidget.Reset();
+	CreditsPanelWidget.Reset();
+	QuickMatchDialog.Reset();
+	LoginDialog.Reset();
+	HUDSettings.Reset();
+	ContentLoadingMessage.Reset();
+	FriendsMenu.Reset();
+	RedirectDialog.Reset();
+	LoadoutMenu.Reset();
+	MapVoteMenu.Reset();
+	ReplayWindow.Reset();
+	YoutubeDialog.Reset();
+	YoutubeConsentDialog.Reset();
 }
