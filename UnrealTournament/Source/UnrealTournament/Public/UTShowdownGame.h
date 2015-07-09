@@ -30,7 +30,7 @@ public:
 	int32 ExtraHealth;
 
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
-	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void RestartPlayer(AController* aPlayer) override
 	{
 		if (bAllowPlayerRespawns)

@@ -32,7 +32,7 @@ void ASampleGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
-void ASampleGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+void ASampleGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	// Just a suicide, pass it through
 	if (Killer == Other || Killer == nullptr)

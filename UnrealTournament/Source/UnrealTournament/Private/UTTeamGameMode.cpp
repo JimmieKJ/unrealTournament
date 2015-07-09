@@ -365,7 +365,7 @@ float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 	return Result;
 }
 
-bool AUTTeamGameMode::CheckScore(AUTPlayerState* Scorer)
+bool AUTTeamGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	AUTTeamInfo* WinningTeam = NULL;
 

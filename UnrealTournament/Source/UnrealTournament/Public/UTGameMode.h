@@ -324,11 +324,22 @@ public:
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
-	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
-	virtual void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
-	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
-	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
-	virtual bool CheckScore(AUTPlayerState* Scorer);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	bool CheckScore(AUTPlayerState* Scorer);
+
 	virtual void FindAndMarkHighScorer();
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 

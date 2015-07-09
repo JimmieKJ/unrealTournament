@@ -62,7 +62,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
-	virtual bool CheckScore(AUTPlayerState* Scorer) override;
+	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer) override;
 	virtual void PlayEndOfMatchMessage() override;
 	virtual void AnnounceMatchStart() override;
 	virtual void FindAndMarkHighScorer() override;

@@ -47,13 +47,13 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	int32 AdvantageDuration;
 
 	UFUNCTION(exec)
-		void CheatScore();
+	void CheatScore();
 
 	virtual void InitGameState();
 	virtual void PreInitializeComponents();
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );
-	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
-	virtual bool CheckScore(AUTPlayerState* Scorer);
+	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
+	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
 
@@ -85,8 +85,8 @@ protected:
 	UFUNCTION()
 	virtual bool IsMatchInSuddenDeath();
 
-	virtual void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker) override;
-	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
+	virtual void ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker) override;
+	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 
 	// returns the team index of a team with advatage or < 0 if no team has one
 	virtual uint8 TeamWithAdvantage();

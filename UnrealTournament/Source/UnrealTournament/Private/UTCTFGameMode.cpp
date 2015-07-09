@@ -118,7 +118,7 @@ void AUTCTFGameMode::CheatScore()
 	}
 }
 
-void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchAtHalftime() && GetMatchState() != MatchState::MatchEnteringHalftime)
 	{
@@ -194,7 +194,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 	}
 }
 
-bool AUTCTFGameMode::CheckScore(AUTPlayerState* Scorer)
+bool AUTCTFGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	if (Scorer->Team != NULL)
 	{
@@ -569,13 +569,13 @@ bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	return Player->CanRestartPlayer();
 }
 
-void AUTCTFGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTCTFGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
 	Super::ScoreDamage(DamageAmount, Victim, Attacker);
 	CTFScoring->ScoreDamage(DamageAmount, Victim, Attacker);
 }
 
-void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	CTFScoring->ScoreKill(Killer, Other, KilledPawn, DamageType);
 	if ((Killer != NULL && Killer != Other))

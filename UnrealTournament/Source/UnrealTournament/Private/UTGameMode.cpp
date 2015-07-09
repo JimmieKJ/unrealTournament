@@ -1121,11 +1121,11 @@ void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* 
 	}
 }
 
-void AUTGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
+void AUTGameMode::ScorePickup_Implementation(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
 {
 }
 
-void AUTGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
 	if (BaseMutator != NULL)
 	{
@@ -1133,7 +1133,7 @@ void AUTGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AControll
 	}
 }
 
-void AUTGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	if( (Killer == Other) || (Killer == NULL) )
 	{
@@ -1246,7 +1246,7 @@ void AUTGameMode::FindAndMarkHighScorer()
 	}
 }
 
-bool AUTGameMode::CheckScore(AUTPlayerState* Scorer)
+bool AUTGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	if ( Scorer != NULL )
 	{
@@ -2628,7 +2628,7 @@ TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 	return AUTGameSession::StaticClass();
 }
 
-void AUTGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+void AUTGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	if (BaseMutator != NULL)
 	{

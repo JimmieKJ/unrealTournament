@@ -91,7 +91,7 @@ void AUTShowdownGame::SetPlayerDefaults(APawn* PlayerPawn)
 	Super::SetPlayerDefaults(PlayerPawn);
 }
 
-void AUTShowdownGame::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
 	{
