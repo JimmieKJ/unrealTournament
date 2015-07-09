@@ -138,6 +138,7 @@ void AUTDemoRecSpectator::ClientTravelInternal_Implementation(const FString& URL
 
 void AUTDemoRecSpectator::ClientToggleScoreboard_Implementation(bool bShow)
 {
+	Super::ClientToggleScoreboard_Implementation(bShow);
 }
 
 void AUTDemoRecSpectator::ShowEndGameScoreboard()
