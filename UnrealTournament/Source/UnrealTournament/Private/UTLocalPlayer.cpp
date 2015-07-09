@@ -501,8 +501,6 @@ void UUTLocalPlayer::HideHUDSettings()
 			{
 				PlayerController->SetPause(false);
 			}
-
-			FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
 		}
 	}
 #endif
@@ -2119,9 +2117,6 @@ void UUTLocalPlayer::CloseLoadout()
 		{
 			PlayerController->SetPause(false);
 		}
-
-		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
-
 	}
 #endif
 }
