@@ -99,7 +99,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 	bAllowSpecCameraControl = false;
 	CurrentCameraRoll = 0.f;
-	WallSlideCameraRoll = 15.f;
+	WallSlideCameraRoll = 12.5f;
 }
 
 // @TODO FIXMESTEVE SPLIT OUT true spectator controls
