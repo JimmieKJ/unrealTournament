@@ -477,6 +477,8 @@ public:
 
 	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) override;
 
+	virtual void OnTeleported() override;
+
 	virtual bool DoJump(bool bReplayingMoves) override;
 
 	/** Perform a multijump */

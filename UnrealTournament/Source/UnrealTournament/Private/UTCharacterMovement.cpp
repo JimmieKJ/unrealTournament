@@ -1062,6 +1062,21 @@ void UUTCharacterMovement::ClearRestrictedJump()
 	GetWorld()->GetTimerManager().ClearTimer(ClearRestrictedJumpHandle);
 }
 
+void UUTCharacterMovement::OnTeleported()
+{
+	if (!HasValidData())
+	{
+		return;
+	}
+
+	bool bWasFalling = (MovementMode == MOVE_Falling);
+	Super::OnTeleported();
+	if (bWasFalling && (MovementMode == MOVE_Walking))
+	{
+		ProcessLanded(CurrentFloor.HitResult, 0.f, 0);
+	}
+}
+
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
 	bIsAgainstWall = false;
