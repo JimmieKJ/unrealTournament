@@ -147,6 +147,7 @@ void AUTDemoRecSpectator::ShowEndGameScoreboard()
 
 void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
+	SetViewTarget(EndGameFocus);
 	BehindView(true);
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 3.f, false);
