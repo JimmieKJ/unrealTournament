@@ -785,6 +785,7 @@ void AUTPlayerController::DemoRestart()
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
 	{
+		OnDemoSeeking();
 		DemoDriver->GotoTimeInSeconds(0);
 	}
 }
@@ -794,7 +795,18 @@ void AUTPlayerController::DemoSeek(float DeltaSeconds)
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
 	{
+		OnDemoSeeking();
 		DemoDriver->GotoTimeInSeconds(DemoDriver->DemoCurrentTime + DeltaSeconds);
+	}
+}
+
+void AUTPlayerController::DemoGoTo(float Seconds)
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		OnDemoSeeking();
+		DemoDriver->GotoTimeInSeconds(Seconds);
 	}
 }
 
@@ -803,7 +815,16 @@ void AUTPlayerController::DemoGoToLive()
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
 	{
+		OnDemoSeeking();
 		DemoDriver->JumpToEndOfLiveReplay();
+	}
+}
+
+void AUTPlayerController::OnDemoSeeking()
+{
+	if (MyUTHUD != NULL)
+	{
+		MyUTHUD->ToggleScoreboard(false);
 	}
 }
 
@@ -839,6 +860,12 @@ void AUTPlayerController::DemoTimeDilation(float DeltaAmount)
 	}
 
 	GetWorldSettings()->DemoPlayTimeDilation = DilationLUT[DilationIndex];
+}
+
+void AUTPlayerController::DemoSetTimeDilation(float Amount)
+{
+	Amount = FMath::Clamp(Amount, 0.1f, 5.0f);
+	GetWorldSettings()->DemoPlayTimeDilation = Amount;
 }
 
 void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)

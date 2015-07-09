@@ -142,14 +142,14 @@ void AUTDemoRecSpectator::ClientToggleScoreboard_Implementation(bool bShow)
 
 void AUTDemoRecSpectator::ShowEndGameScoreboard()
 {
-
+	Super::ShowEndGameScoreboard();
 }
 
 void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
 	BehindView(true);
 	FTimerHandle TimerHandle;
-	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 3.f, false);
 	APlayerController::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
 	TurnOffPawns();

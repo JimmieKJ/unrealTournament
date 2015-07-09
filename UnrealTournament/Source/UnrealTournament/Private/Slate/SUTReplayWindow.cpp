@@ -254,9 +254,10 @@ FText SUTReplayWindow::GetTimeText() const
 
 void SUTReplayWindow::OnSetTimeSlider(float NewValue)
 {
-	if (DemoNetDriver.IsValid())
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (UTPC != nullptr)
 	{
-		DemoNetDriver->GotoTimeInSeconds(DemoNetDriver->DemoTotalTime * NewValue);
+		UTPC->DemoGoTo(DemoNetDriver->DemoTotalTime * NewValue);
 	}
 }
 
@@ -272,7 +273,11 @@ float SUTReplayWindow::GetTimeSlider() const
 
 void SUTReplayWindow::OnSetSpeedSlider(float NewValue)
 {
-	PlayerOwner->GetWorld()->GetWorldSettings()->DemoPlayTimeDilation = NewValue;
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (UTPC != nullptr)
+	{
+		UTPC->DemoSetTimeDilation(NewValue);
+	}
 }
 
 TOptional<float> SUTReplayWindow::GetSpeedSlider() const
@@ -287,14 +292,10 @@ const FSlateBrush* SUTReplayWindow::GetPlayButtonBrush() const
 
 FReply SUTReplayWindow::OnPlayPauseButtonClicked()
 {
-	AWorldSettings* const WorldSettings = PlayerOwner->GetWorld()->GetWorldSettings();
-	if (WorldSettings->Pauser == nullptr)
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (UTPC != nullptr)
 	{
-		WorldSettings->Pauser = (PlayerOwner->PlayerController != nullptr) ? PlayerOwner->PlayerController->PlayerState : nullptr;
-	}
-	else
-	{
-		WorldSettings->Pauser = nullptr;
+		UTPC->DemoPause();
 	}
 	return FReply::Handled();
 }
