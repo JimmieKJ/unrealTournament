@@ -538,6 +538,9 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	if (PlayerState->Team)
 	{
 		BarColor = PlayerState->Team->TeamColor;
+		BarColor.R *= 0.5f;
+		BarColor.G *= 0.5f;
+		BarColor.B *= 0.5f;
 	}
 
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
@@ -582,10 +585,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 			DrawTexture(HealthIcon.Texture, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY - 0.015f*Width, 0.07f*Width, 0.07f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 			FFormatNamedArguments Args;
 			Args.Add("Health", FText::AsNumber(Character->Health));
-			DrawColor = FLinearColor::Green;
-			DrawColor.R *= 0.5f;
-			DrawColor.G *= 0.5f;
-			DrawColor.B *= 0.5f;
+			DrawColor = FLinearColor(0.5f, 1.f, 0.5f);
 			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * (ColumnHeaderScoreX + 0.06f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
 			if (Character->ArmorAmount > 0)
@@ -593,10 +593,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 				DrawTexture(ArmorIcon.Texture, XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY - 0.015f*Width, 0.065f*Width, 0.065f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 				FFormatNamedArguments ArmorArgs;
 				ArmorArgs.Add("Armor", FText::AsNumber(Character->ArmorAmount));
-				DrawColor = FLinearColor::Yellow;
-				DrawColor.R *= 0.5f;
-				DrawColor.G *= 0.5f;
-				DrawColor.B *= 0.5f;
+				DrawColor = FLinearColor(1.f, 1.f, 0.5f);
 				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * (ColumnHeaderArmor + 0.062f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 			}
 			if (Character->GetWeaponClass())
