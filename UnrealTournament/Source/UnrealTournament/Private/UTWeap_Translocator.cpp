@@ -174,7 +174,16 @@ void AUTWeap_Translocator::FireShot()
 					if (GetWorld()->FindTeleportSpot(UTOwner, WarpLocation, WarpRotation))
 					{
 						UTOwner->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
-						UTOwner->DropFlag();
+						if (Role == ROLE_Authority)
+						{
+							AUTCarriedObject* Flag = UTOwner->GetCarriedObject();
+							UTOwner->DropFlag();
+							if (Flag)
+							{
+								Flag->MovementComponent->Velocity = UTOwner->GetMovementComponent()->Velocity;
+								Flag->MovementComponent->Velocity.Z = FMath::Min(Flag->MovementComponent->Velocity.Z, 0.f);
+							}
+						}
 						UTOwner->bIsTranslocating = true;  // different telefrag rules than for teleporters
 
 						// You can die during teleportation, UTOwner is not guaranteed valid
