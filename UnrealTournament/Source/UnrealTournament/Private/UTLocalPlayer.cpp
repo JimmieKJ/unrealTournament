@@ -2398,6 +2398,10 @@ void UUTLocalPlayer::YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, ui
 		YoutubeTokenRequest->SetContentAsString(TokenRequest);
 		YoutubeTokenRequest->ProcessRequest();
 	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("Failed to get Youtube consent"));
+	}
 }
 
 void UUTLocalPlayer::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
@@ -2422,7 +2426,7 @@ void UUTLocalPlayer::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FH
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("%s"), *HttpResponse->GetContentAsString());
+		UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube\n%s"), *HttpResponse->GetContentAsString());
 	}
 }
 
@@ -2435,6 +2439,8 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 
 	if (HttpResponse->GetResponseCode() == 200)
 	{
+		UE_LOG(UT, Log, TEXT("YouTube Token refresh succeeded"));
+
 		TSharedPtr<FJsonObject> YoutubeTokenJson;
 		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
 		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
@@ -2447,6 +2453,8 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 	}
 	else
 	{
+		UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent"));
+
 		// Refresh token might have been expired
 		YoutubeAccessToken.Empty();
 		YoutubeRefreshToken.Empty();
@@ -2485,6 +2493,22 @@ void UUTLocalPlayer::UploadVideoToYoutube()
 }
 
 void UUTLocalPlayer::YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteTitle", "Upload To Youtube Complete"),
+					NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadComplete", "Your upload to Youtube completed successfully. It will be available in a few minutes."),
+					UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+	}
+	else
+	{
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailedTitle", "Upload To Youtube Failed"),
+					NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailed", "Your upload to Youtube did not complete successfully."),
+					UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+	}
+}
+
+void UUTLocalPlayer::YoutubeUploadCompleteResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
 	OpenReplayWindow();
 }

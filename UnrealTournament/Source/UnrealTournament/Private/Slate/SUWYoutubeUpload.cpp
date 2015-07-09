@@ -70,11 +70,13 @@ void SUWYoutubeUpload::Construct(const FArguments& InArgs)
 		];
 	}
 
-
 	// Verify file size so we don't try to upload over what Youtube allows
 	FileSizeInBytes = IFileManager::Get().FileSize(*VideoFilename);
 	if (FileSizeInBytes == -1)
 	{
+		UE_LOG(UT, Warning, TEXT("Failed to open video file %s"), *VideoFilename);
+		OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
 		return;
 	}
 
@@ -156,7 +158,15 @@ void SUWYoutubeUpload::YoutubeResumableSessionRequestComplete(FHttpRequestPtr Ht
 		else
 		{
 			UE_LOG(UT, Warning, TEXT("%s"), *HttpResponse->GetContentAsString());
+			OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+			GetPlayerOwner()->CloseDialog(SharedThis(this));
 		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("Failed to make http request"));
+		OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
 	}
 }
 
@@ -179,6 +189,8 @@ void SUWYoutubeUpload::YoutubeFileUploadRequestComplete(FHttpRequestPtr HttpRequ
 		else
 		{
 			UE_LOG(UT, Warning, TEXT("%s"), *HttpResponse->GetContentAsString());
+			OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+			GetPlayerOwner()->CloseDialog(SharedThis(this));
 		}
 	}
 }

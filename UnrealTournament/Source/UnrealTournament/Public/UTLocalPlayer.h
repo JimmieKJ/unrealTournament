@@ -500,6 +500,7 @@ public:
 	void ShouldVideoUploadDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	void YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	void YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeUploadCompleteResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	void YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void UploadVideoToYoutube();
