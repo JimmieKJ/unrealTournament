@@ -37,7 +37,7 @@ void ASampleGameMode::ScoreKill_Implementation(AController* Killer, AController*
 	// Just a suicide, pass it through
 	if (Killer == Other || Killer == nullptr)
 	{
-		Super::ScoreKill(Killer, Other, KilledPawn, DamageType);
+		Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 		return;
 	}
 
@@ -49,7 +49,7 @@ void ASampleGameMode::ScoreKill_Implementation(AController* Killer, AController*
 		{
 			if (DamageType == ScoringDamageTypes[DamageIndex].DamageType[i])
 			{
-				Super::ScoreKill(Killer, Other, KilledPawn, DamageType);
+				Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 				
 				KillerPlayerState->PlayerLevel = KillerPlayerState->Score;
 

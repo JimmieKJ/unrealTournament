@@ -571,7 +571,7 @@ bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 
 void AUTCTFGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
-	Super::ScoreDamage(DamageAmount, Victim, Attacker);
+	Super::ScoreDamage_Implementation(DamageAmount, Victim, Attacker);
 	CTFScoring->ScoreDamage(DamageAmount, Victim, Attacker);
 }
 

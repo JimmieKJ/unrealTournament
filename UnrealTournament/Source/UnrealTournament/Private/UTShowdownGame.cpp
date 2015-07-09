@@ -109,7 +109,7 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 				SetTimerUFunc(this, FName(TEXT("StartIntermission")), 1.0f, false);
 			}
 		}
-		AUTTeamGameMode::ScoreKill(Killer, Other, KilledPawn, DamageType);
+		AUTTeamGameMode::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 	}
 }
 

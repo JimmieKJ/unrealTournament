@@ -77,7 +77,7 @@ void AUTTeamDMGameMode::ScoreKill_Implementation(AController* Killer, AControlle
 		}
 	}
 
-	Super::ScoreKill(Killer, Other, KilledPawn, DamageType);
+	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 }
 
 AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner(uint32& bTied)
