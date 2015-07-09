@@ -129,7 +129,7 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	// disallow certain commands in shipping builds
-#if UE_BUILD_SHIPPING
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (FParse::Command(&Cmd, TEXT("SHOW")))
 	{
 		return true;
@@ -1278,6 +1278,25 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 			}
 		}
 	}
+
+	// Sanitize the elo rankings
+	const int32 StartingELO = 1500;
+	if (DUEL_ELO <= 0)
+	{
+		DUEL_ELO = StartingELO;
+	}
+	if (TDM_ELO <= 0)
+	{
+		TDM_ELO = StartingELO;
+	}
+	if (FFA_ELO <= 0)
+	{
+		FFA_ELO = StartingELO;
+	}
+	if (CTF_ELO <= 0)
+	{
+		CTF_ELO = StartingELO;
+	}
 }
 
 int32 UUTLocalPlayer::GetBaseELORank()
@@ -1287,13 +1306,28 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	float CurrentRating = 1.f;
 	int32 BestRating = 0;
 	int32 MatchCount = DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed;
+	const int32 MatchThreshold = 40;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	int32 ForcedELORank;
+	if (FParse::Value(FCommandLine::Get(), TEXT("ForceELORank="), ForcedELORank))
+	{
+		return ForcedELORank;
+	}
+#endif
+
+	UE_LOG(UT, Log, TEXT("GetBaseELORank Duels:%d, TDM:%d, FFA %d, CTF %d"), DuelMatchesPlayed, TDMMatchesPlayed, FFAMatchesPlayed, CTFMatchesPlayed);
 
 	if (DUEL_ELO > 0)
 	{
 		TotalRating += DUEL_ELO;
 		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
-		BestRating = (DuelMatchesPlayed > 40) ? FMath::Max(BestRating, DUEL_ELO) : BestRating;
+		if (DuelMatchesPlayed > MatchThreshold)
+		{
+			BestRating = FMath::Max(BestRating, DUEL_ELO);
+			UE_LOG(UT, Log, TEXT("GetBaseELORank Duel ELO %d is candidate for best"), DUEL_ELO);
+		}
 	}
 
 	if (TDM_ELO > 0)
@@ -1301,25 +1335,44 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		TotalRating += TDM_ELO;
 		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
-		BestRating = (TDMMatchesPlayed > 40) ? FMath::Max(BestRating, TDM_ELO) : BestRating;
+		if (TDMMatchesPlayed > MatchThreshold)
+		{
+			BestRating = FMath::Max(BestRating, TDM_ELO);
+			UE_LOG(UT, Log, TEXT("GetBaseELORank TDM ELO %d is candidate for best"), TDM_ELO);
+		}
 	}
 
 	// FFA Elo is the least accurate, weighted lower @TODO FIXMESTEVE show badge based on current game type
 	// max rating of 2400 based on FFA 
-	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < 40)))
+	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < MatchThreshold)))
 	{
+		UE_LOG(UT, Log, TEXT("GetBaseELORank applying FFA ELO %d to average rank, max 2400"), FFA_ELO);
 		TotalRating += 0.5f * FMath::Min(FFA_ELO, 2400);
 		RatingCount += 0.5f;
 		CurrentRating = TotalRating / RatingCount;
 	}
+	else
+	{
+		UE_LOG(UT, Log, TEXT("GetBaseELORank not factoring in FFA ELO %d to average rank"), FFA_ELO);
+	}
 
-	if ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < 40))
+	if (CTF_ELO > 0 && ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < MatchThreshold)))
 	{
 		TotalRating += CTF_ELO;
 		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
-		BestRating = (CTFMatchesPlayed > 40) ? FMath::Max(BestRating, CTF_ELO) : BestRating;
+		if (CTFMatchesPlayed > MatchThreshold)
+		{
+			BestRating = FMath::Max(BestRating, CTF_ELO);
+			UE_LOG(UT, Log, TEXT("GetBaseELORank CTF ELO %d is candidate for best"), CTF_ELO);
+		}
 	}
+	else
+	{
+		UE_LOG(UT, Log, TEXT("GetBaseELORank not factoring in CTF ELO %d to average rank"), CTF_ELO);
+	}
+
+	UE_LOG(UT, Log, TEXT("GetBaseELORank Best:%d WeightedAverage:%f MatchThrottled:%f"), BestRating, CurrentRating, 400.f + 50.f * MatchCount);
 
 	// Limit displayed Elo to 400 + 50 * number of matches played
 	return FMath::Min(FMath::Max(float(BestRating), CurrentRating), 400.f + 50.f * MatchCount);
