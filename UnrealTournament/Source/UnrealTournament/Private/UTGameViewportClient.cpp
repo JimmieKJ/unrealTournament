@@ -503,13 +503,11 @@ void UUTGameViewportClient::ReconnectAfterDownloadingContent()
 	if (FirstPlayer != nullptr)
 	{
 		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-		if (LastAttemptedURL.HasOption(TEXT("SpectatorOnly")))
+
+		//add all of the options the client was connecting with
+		for (FString& Option : LastAttemptedURL.Op)
 		{
-			ReconnectCommand += FString(TEXT("?SpectatorOnly=")) + LastAttemptedURL.GetOption(TEXT("SpectatorOnly"), TEXT(""));
-		}
-		if (LastAttemptedURL.HasOption(TEXT("password")))
-		{
-			ReconnectCommand += FString(TEXT("?password=")) + LastAttemptedURL.GetOption(TEXT("password"), TEXT(""));
+			ReconnectCommand += TEXT("?") + Option;
 		}
 
 		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
