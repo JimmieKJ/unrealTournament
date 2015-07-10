@@ -46,11 +46,6 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
-		SNew(SOverlay)
-		+ SOverlay::Slot()
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
-		[
 			SNew(SCanvas)
 
 			//Time Controls
@@ -77,14 +72,6 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 					.Content()
 					[
 						SNew(SOverlay)
-						/*+ SOverlay::Slot()
-						.VAlign(VAlign_Fill)
-						.HAlign(HAlign_Fill)
-						[
-							//Background image
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
-						]*/
 						+ SOverlay::Slot()
 						.VAlign(VAlign_Fill)
 						.HAlign(HAlign_Fill)
@@ -218,7 +205,6 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 					]
 				]
 			]
-		]
 	];
 
 	bool bVideoRecorderPresent = false;

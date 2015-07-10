@@ -191,7 +191,6 @@ void AUTDemoRecSpectator::ShowMenu()
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
-		LocalPlayer->CloseReplayWindow();
 		LocalPlayer->ShowMenu();
 	}
 }
@@ -202,7 +201,6 @@ void AUTDemoRecSpectator::HideMenu()
 	if (LocalPlayer)
 	{
 		LocalPlayer->HideMenu();
-		LocalPlayer->OpenReplayWindow();
 	}
 }
 

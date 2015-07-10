@@ -2211,7 +2211,7 @@ void UUTLocalPlayer::OpenReplayWindow()
 
 			if (ReplayWindow.IsValid())
 			{
-				ReplayWindow->SetVisibility(EVisibility::Visible);
+				ReplayWindow->SetVisibility(EVisibility::SelfHitTestInvisible);
 			}
 		}
 	}
