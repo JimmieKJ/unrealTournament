@@ -599,7 +599,7 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
 				AUTCharacter* EnemyChar = Cast<AUTCharacter>(*It);
-				if (EnemyChar != NULL && !EnemyChar->IsDead() && !EnemyChar->IsFeigningDeath() && (EnemyChar->GetMesh()->LastRenderTime > GetWorld()->TimeSeconds - 0.15f) && (GS == NULL || !GS->OnSameTeam(EnemyChar, this)))
+				if (EnemyChar != NULL && !EnemyChar->IsDead() && (EnemyChar->DrivenVehicle != this) && !EnemyChar->IsFeigningDeath() && (EnemyChar->GetMesh()->LastRenderTime > GetWorld()->TimeSeconds - 0.15f) && (GS == NULL || !GS->OnSameTeam(EnemyChar, this)))
 				{
 					FVector CircleLoc = EnemyChar->GetActorLocation();
 					static FName NAME_RedeemerHUD(TEXT("RedeemerHUD"));
