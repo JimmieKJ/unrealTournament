@@ -21,6 +21,7 @@ void SUWYoutubeUpload::Construct(const FArguments& InArgs)
 
 	VideoFilename = InArgs._VideoFilename;
 	AccessToken = InArgs._AccessToken;
+	UploadFailMessage.Empty();
 
 	VideoTitle = InArgs._VideoTitle;
 	if (VideoTitle.IsEmpty())
@@ -157,7 +158,8 @@ void SUWYoutubeUpload::YoutubeResumableSessionRequestComplete(FHttpRequestPtr Ht
 		}
 		else
 		{
-			UE_LOG(UT, Warning, TEXT("Resumable session failed\n%s"), *HttpResponse->GetContentAsString());
+			UploadFailMessage = *HttpResponse->GetContentAsString();
+			UE_LOG(UT, Warning, TEXT("Resumable session failed\n%s"), *UploadFailMessage);
 			OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
 			GetPlayerOwner()->CloseDialog(SharedThis(this));
 		}

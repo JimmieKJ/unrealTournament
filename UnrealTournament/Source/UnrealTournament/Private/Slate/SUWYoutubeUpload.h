@@ -44,6 +44,7 @@ public:
 
 	int32 BytesUploaded;
 	int64 FileSizeInBytes;
+	FString UploadFailMessage;
 	
 	void YoutubeResumableSessionRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void YoutubeFileUploadRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);

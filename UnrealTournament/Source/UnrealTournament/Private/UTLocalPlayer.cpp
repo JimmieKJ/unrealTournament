@@ -2540,9 +2540,43 @@ void UUTLocalPlayer::YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uin
 	}
 	else
 	{
-		ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailedTitle", "Upload To Youtube Failed"),
-					NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailed", "Your upload to Youtube did not complete successfully."),
-					UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+		SUWYoutubeUpload* UploadDialog = (SUWYoutubeUpload*)Widget.Get();
+		TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(UploadDialog->UploadFailMessage);
+		TSharedPtr< FJsonObject > JsonObject;
+		FJsonSerializer::Deserialize(JsonReader, JsonObject);
+		const TSharedPtr<FJsonObject>* ErrorObject;
+		bool bNeedsYoutubeSignup = false;
+		if (JsonObject->TryGetObjectField(TEXT("error"), ErrorObject))
+		{
+			const TArray<TSharedPtr<FJsonValue>>* ErrorArray;
+			if ((*ErrorObject)->TryGetArrayField(TEXT("errors"), ErrorArray))
+			{
+				for (int32 Idx = 0; Idx < ErrorArray->Num(); Idx++)
+				{
+					FString ErrorReason;
+					if ((*ErrorArray)[Idx]->AsObject()->TryGetStringField(TEXT("reason"), ErrorReason))
+					{
+						if (ErrorReason == TEXT("youtubeSignupRequired"))
+						{
+							bNeedsYoutubeSignup = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (bNeedsYoutubeSignup)
+		{
+			ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadNeedSignupTitle", "Upload To Youtube Failed"),
+						NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadNeedSignup", "Your account does not currently have a YouTube channel.\nPlease create one and try again."),
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+		}
+		else
+		{		
+			ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailedTitle", "Upload To Youtube Failed"),
+						NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailed", "Your upload to Youtube did not complete successfully."),
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+		}
 	}
 }
 
