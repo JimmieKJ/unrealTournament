@@ -2597,7 +2597,7 @@ bool UUTLocalPlayer::IsConsiderABeginnner()
 void UUTLocalPlayer::CloseAllUI()
 {
 	GEngine->GameViewport->RemoveAllViewportWidgets();
-
+#if !UE_SERVER
 	OpenDialogs.Empty();
 	DesktopSlateWidget.Reset();
 	ServerBrowserWidget.Reset();
@@ -2615,4 +2615,5 @@ void UUTLocalPlayer::CloseAllUI()
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
+#endif
 }
