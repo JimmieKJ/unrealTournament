@@ -69,7 +69,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 						DrawOffset += CellHeight;
 					}
 				} 
-				else if (Team == 0 && Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr)
+				else if (Team == 0 && (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr && !PlayerState->bIsDemoRecording))
 				{
 					NumSpectators++;
 				}

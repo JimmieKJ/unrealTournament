@@ -178,6 +178,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	bool bHasHighScore;
 
+	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
+	bool bIsDemoRecording;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/

@@ -29,11 +29,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
-	virtual void InitPlayerState() override
-	{
-		Super::InitPlayerState();
-		PlayerState->bOnlySpectator = true;
-	}
+	virtual void InitPlayerState() override;
 	virtual void CleanupPlayerState() override
 	{
 		// don't do AddInactivePlayer() stuff for demo spectator

@@ -328,7 +328,7 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 					DrawOffset = YOffset;
 				}
 			}
-			else if (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr)
+			else if (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr && !PlayerState->bIsDemoRecording)
 			{
 				NumSpectators++;
 			}

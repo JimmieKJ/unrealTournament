@@ -254,3 +254,15 @@ void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float Delt
 
 	Super::SmoothTargetViewRotation(TargetPawn, DeltaSeconds);
 }
+
+void AUTDemoRecSpectator::InitPlayerState()
+{
+	Super::InitPlayerState();
+	PlayerState->bOnlySpectator = true;
+
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS != nullptr)
+	{
+		UTPS->bIsDemoRecording = true;
+	}
+}
