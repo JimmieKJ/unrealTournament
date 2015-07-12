@@ -59,7 +59,7 @@ protected:
 	float SpeedMax;
 
 	FText GetTimeText() const;
-
+	
 	const FSlateBrush* GetPlayButtonBrush() const;
 	FReply OnPlayPauseButtonClicked();
 
@@ -67,8 +67,16 @@ protected:
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
-	bool GetGameMousePosition(FVector2D& MousePosition);
+	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
+
+	bool bDrawTooltip;
+	float TooltipTime;
+	FVector2D ToolTipPos;
+
+	FText GetTooltipText() const;
+	FVector2D GetTimeTooltipSize() const;
+	FVector2D GetTimeTooltipPosition() const;
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;

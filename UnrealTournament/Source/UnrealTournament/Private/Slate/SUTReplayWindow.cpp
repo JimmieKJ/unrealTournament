@@ -41,170 +41,200 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	FVector2D TimePos(ViewportSize.X * 0.5f - TimeSize.X * 0.5f, ViewportSize.Y * 0.8);
 
 	HideTimeBarTime = 5.0f;
+	bDrawTooltip = false;
 
 	ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
-			SNew(SCanvas)
-
-			//Time Controls
-			+ SCanvas::Slot()
-			.Size(ViewportSize)
-			.VAlign(VAlign_Top)
-			.HAlign(HAlign_Left)
+		//Time Controls
+		SNew(SCanvas)
+		+ SCanvas::Slot()
+		.Size(ViewportSize)
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Left)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Bottom)
 			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.HAlign(HAlign_Fill)
+				SAssignNew(TimeBar, SBorder)
 				.VAlign(VAlign_Fill)
-
-				+ SVerticalBox::Slot()
 				.HAlign(HAlign_Fill)
-				.VAlign(VAlign_Bottom)
+				.ColorAndOpacity(this, &SUTReplayWindow::GetTimeBarColor)
+				.BorderBackgroundColor(this, &SUTReplayWindow::GetTimeBarBorderColor)
+				.BorderImage(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
+				.Content()
 				[
-					SAssignNew(TimeBar, SBorder)
+					SNew(SOverlay)
+					+ SOverlay::Slot()
 					.VAlign(VAlign_Fill)
 					.HAlign(HAlign_Fill)
-					.ColorAndOpacity(this, &SUTReplayWindow::GetTimeBarColor)
-					.BorderBackgroundColor(this, &SUTReplayWindow::GetTimeBarBorderColor)
-					.BorderImage(SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow"))
-					.Content()
+					.Padding(10.0f, 0.0f, 10.0f, 10.0f)
 					[
-						SNew(SOverlay)
-						+ SOverlay::Slot()
-						.VAlign(VAlign_Fill)
+						//The Main time slider
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot()
 						.HAlign(HAlign_Fill)
-						.Padding(10.0f)
+						.AutoHeight()
+						.Padding(0.0f,0.0f,0.0f,10.0f)
 						[
-							//The Main time slider
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot()
-							.HAlign(HAlign_Fill)
-							.AutoHeight()
-							.Padding(0.0f,0.0f,0.0f,10.0f)
+							SAssignNew(TimeSlider, SUTProgressSlider)
+							.Value(this, &SUTReplayWindow::GetTimeSlider)
+							.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
+							.SliderBarColor(FColor(33, 93, 220))
+							.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
+						]
+						+ SVerticalBox::Slot()
+						.HAlign(HAlign_Fill)
+						.AutoHeight()
+						.Padding(50.0f,0.0f)
+						[
+							//The current / total time
+							SNew(SUniformGridPanel)
+							+ SUniformGridPanel::Slot(0, 0)
+							.HAlign(HAlign_Left)
+							.VAlign(VAlign_Center)
 							[
-								SAssignNew(TimeSlider, SUTProgressSlider)
-								.Value(this, &SUTReplayWindow::GetTimeSlider)
-								.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
-								.SliderBarColor(FColor(33, 93, 220))
-								.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.HAlign(HAlign_Fill)
+								.AutoHeight()
+								.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+								[
+									SNew(STextBlock)
+									.Text(this, &SUTReplayWindow::GetTimeText)
+									.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+								]
+								+ SVerticalBox::Slot()
+								.HAlign(HAlign_Fill)
+								.AutoHeight()
+								.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
+									[
+										SAssignNew(RecordButton, SButton)
+										.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+										.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
+										.ContentPadding(1.0f)
+										.Content()
+										[
+											SNew(SImage)
+											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
+										]
+									]
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
+									[
+										SAssignNew(MarkStartButton, SButton)
+										.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+										.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
+										.ContentPadding(1.0f)
+										.Content()
+										[
+											SNew(SImage)
+											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
+										]
+									]
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
+									[
+										SAssignNew(MarkEndButton, SButton)
+										.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+										.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
+										.ContentPadding(1.0f)
+										.Content()
+										[
+											SNew(SImage)
+											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
+										]
+									]
+								]
 							]
-							+ SVerticalBox::Slot()
-							.HAlign(HAlign_Fill)
-							.AutoHeight()
-							.Padding(50.0f,0.0f)
+							//Play / Pause button
+							+ SUniformGridPanel::Slot(1, 0)
+							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
 							[
-								//The current / total time
-								SNew(SUniformGridPanel)
-								+ SUniformGridPanel::Slot(0, 0)
-								.HAlign(HAlign_Left)
-								.VAlign(VAlign_Center)
+								SNew(SButton)
+								.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+								.OnClicked(this, &SUTReplayWindow::OnPlayPauseButtonClicked)
+								.ContentPadding(1.0f)
+								.Content()
 								[
-									SNew(SVerticalBox)
-									+ SVerticalBox::Slot()
-									.HAlign(HAlign_Fill)
-									.AutoHeight()
-									.Padding(0.0f, 0.0f, 0.0f, 0.0f)
-									[
-										SNew(STextBlock)
-										.Text(this, &SUTReplayWindow::GetTimeText)
-										.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-									]
-									+ SVerticalBox::Slot()
-									.HAlign(HAlign_Fill)
-									.AutoHeight()
-									.Padding(0.0f, 0.0f, 0.0f, 0.0f)
-									[
-										SNew(SHorizontalBox)
-										+ SHorizontalBox::Slot()
-										.HAlign(HAlign_Left)
-										.AutoWidth()
-										[
-											SAssignNew(RecordButton, SButton)
-											.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-											.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
-											.ContentPadding(1.0f)
-											.Content()
-											[
-												SNew(SImage)
-												.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
-											]
-										]
-										+ SHorizontalBox::Slot()
-										.HAlign(HAlign_Left)
-										.AutoWidth()
-										[
-											SAssignNew(MarkStartButton, SButton)
-											.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-											.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
-											.ContentPadding(1.0f)
-											.Content()
-											[
-												SNew(SImage)
-												.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
-											]
-										]
-										+ SHorizontalBox::Slot()
-										.HAlign(HAlign_Left)
-										.AutoWidth()
-										[
-											SAssignNew(MarkEndButton, SButton)
-											.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-											.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
-											.ContentPadding(1.0f)
-											.Content()
-											[
-												SNew(SImage)
-												.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
-											]
-										]
-									]
+									SNew(SImage)
+									.Image(this, &SUTReplayWindow::GetPlayButtonBrush)
 								]
-
-								//Play / Pause button
-								+ SUniformGridPanel::Slot(1, 0)
-								.HAlign(HAlign_Center)
+							]
+					
+							//Speed Control
+							+ SUniformGridPanel::Slot(2, 0)
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Center)
+							[
+								SNew(SBox)
+								.WidthOverride(170)
+								.HAlign(HAlign_Fill)
 								.VAlign(VAlign_Center)
+								.Content()
 								[
-									SNew(SButton)
-									.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-									.OnClicked(this, &SUTReplayWindow::OnPlayPauseButtonClicked)
-									.ContentPadding(1.0f)
-									.Content()
-									[
-										SNew(SImage)
-										.Image(this, &SUTReplayWindow::GetPlayButtonBrush)
-									]
-								]
-						
-								//Speed Control
-								+ SUniformGridPanel::Slot(2, 0)
-								.HAlign(HAlign_Right)
-								.VAlign(VAlign_Center)
-								[
-									SNew(SBox)
-									.WidthOverride(170)
-									.HAlign(HAlign_Fill)
-									.VAlign(VAlign_Center)
-									.Content()
-									[
-										SNew(SNumericEntryBox<float>)
-										.AllowSpin(true)
-										.MinValue(SpeedMin)
-										.MaxValue(SpeedMax)
-										.MinSliderValue(SpeedMin)
-										.MaxSliderValue(SpeedMax)
-										.Value(this, &SUTReplayWindow::GetSpeedSlider)
-										.OnValueChanged(this, &SUTReplayWindow::OnSetSpeedSlider)
-										.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-									]
+									SNew(SNumericEntryBox<float>)
+									.AllowSpin(true)
+									.MinValue(SpeedMin)
+									.MaxValue(SpeedMax)
+									.MinSliderValue(SpeedMin)
+									.MaxSliderValue(SpeedMax)
+									.Value(this, &SUTReplayWindow::GetSpeedSlider)
+									.OnValueChanged(this, &SUTReplayWindow::OnSetSpeedSlider)
+									.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 								]
 							]
 						]
 					]
 				]
 			]
+		]
+		//TimeSlider tooltip
+		+ SCanvas::Slot()
+		.Position(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateSP(this, &SUTReplayWindow::GetTimeTooltipPosition)))
+		.Size(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateSP(this, &SUTReplayWindow::GetTimeTooltipSize)))
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Center)
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.AutoHeight()
+			.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+			[
+				SNew(SBorder)
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Replay.Tooltip.BG"))
+				.Content()
+				[
+					SNew(STextBlock)
+					.Justification(ETextJustify::Center)
+					.Text(this, &SUTReplayWindow::GetTooltipText)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				]
+			]
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Center)
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Tooltip.Arrow"))
+			]
+		]
 	];
 
 	bool bVideoRecorderPresent = false;
@@ -318,7 +348,7 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 }
 
 // @Returns true if the mouse position is inside the viewport
-bool SUTReplayWindow::GetGameMousePosition(FVector2D& MousePosition)
+bool SUTReplayWindow::GetGameMousePosition(FVector2D& MousePosition) const
 {
 	// We need to get the mouse input but the mouse event only has the mouse in screen space.  We need it in viewport space and there
 	// isn't a good way to get there.  So we punt and just get it from the game viewport.
@@ -375,6 +405,18 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 				SpectatorWidget->TrackMouseMovement(MousePosition);
 			}
 		}
+	}
+
+	//Update the tooltip if the mouse is over the slider
+	const FGeometry TimeSliderGeometry = FindChildGeometry(MyGeometry, TimeSlider.ToSharedRef());
+	bDrawTooltip = TimeSliderGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
+	if (bDrawTooltip)
+	{
+		float Alpha = TimeSlider->PositionToValue(TimeSliderGeometry, MouseEvent.GetScreenSpacePosition());
+		TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
+
+		ToolTipPos.X = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X;
+		ToolTipPos.Y = MyGeometry.AbsoluteToLocal(TimeSliderGeometry.LocalToAbsolute(FVector2D(0.0f, 0.0f))).Y;
 	}
 
 	return FReply::Unhandled();
@@ -442,6 +484,22 @@ void SUTReplayWindow::RecordSeekCompleted(bool bSucceeded)
 		TimeSlider->SetMarkStart(-1);
 		TimeSlider->SetMarkEnd(-1);
 	}
+}
+
+FVector2D SUTReplayWindow::GetTimeTooltipPosition() const
+{
+	return ToolTipPos;
+}
+
+FVector2D SUTReplayWindow::GetTimeTooltipSize() const
+{
+	//TODO: Do a fancy interp when we have more to put in this tooltip other than the time (game events)
+	return bDrawTooltip ? FVector2D(110.0f, 55.0f) : FVector2D(0.0f, 0.0f);
+}
+
+FText SUTReplayWindow::GetTooltipText() const
+{
+	return FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(TooltipTime)));
 }
 
 #endif

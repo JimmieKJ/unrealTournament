@@ -112,6 +112,15 @@ public:
 	float MarkStart;
 	float MarkEnd;
 
+	/**
+	* Calculates the new value based on the given absolute coordinates.
+	*
+	* @param MyGeometry The slider's geometry.
+	* @param AbsolutePosition The absolute position of the slider.
+	* @return The new value.
+	*/
+	float PositionToValue(const FGeometry& MyGeometry, const FVector2D& AbsolutePosition);
+
 protected:
 
 	/**
@@ -121,14 +130,7 @@ protected:
 	*/
 	void CommitValue(float NewValue);
 
-	/**
-	* Calculates the new value based on the given absolute coordinates.
-	*
-	* @param MyGeometry The slider's geometry.
-	* @param AbsolutePosition The absolute position of the slider.
-	* @return The new value.
-	*/
-	float PositionToValue(const FGeometry& MyGeometry, const FVector2D& AbsolutePosition);
+
 
 private:
 
