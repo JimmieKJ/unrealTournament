@@ -965,6 +965,7 @@ void SUWindowsStyle::SetServerBrowserStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 
 	Style.Set("UWindows.Standard.ServerBrowser.Lock", new IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Lock", Icon17x22, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UWindows.Standard.ServerBrowser.Lan", new IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Lan", Icon17x22, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 	Style.Set("UWindows.Standard.ServerBrowser.Row", FTableRowStyle()
 		.SetEvenRowBackgroundBrush(IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))

@@ -312,7 +312,6 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	AllInternetServers.Empty();
 	AllHubServers.Empty();
-	AllLanServers.Empty();
 
 	FilteredServersSource.Empty();
 	FilteredHubsSource.Empty();
@@ -1046,10 +1045,11 @@ void SUWServerBrowser::RefreshServers()
 		bNeedsRefresh = false;
 		CleanupQoS();
 
+		// Search for Internet Servers
+
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 		SearchSettings->MaxSearchResults = 10000;
-		FString GameVer = FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion());
-		//SearchSettings->QuerySettings.Set(SETTING_SERVERVERSION, GameVer, EOnlineComparisonOp::Equals);											// Must equal the game version
+		SearchSettings->bIsLanQuery = false;
 		SearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = SearchSettings.ToSharedRef();
@@ -1066,6 +1066,88 @@ void SUWServerBrowser::RefreshServers()
 	}
 }
 
+void SUWServerBrowser::FoundServer(FOnlineSessionSearchResult& Result)
+{
+	FString ServerName;
+	Result.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
+	FString ServerIP;
+	OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("GamePort")), ServerIP);
+	// game class path
+	FString ServerGamePath;
+	Result.Session.SessionSettings.Get(SETTING_GAMEMODE,ServerGamePath);
+	// game name
+	FString ServerGameName;
+
+	// prefer using the name in the client's language, if available
+	// TODO: would be nice to not have to load the class, but the localization system doesn't guarantee any particular lookup location for the data,
+	//		so we have no way to know where it is
+	UClass* GameClass = LoadClass<AUTBaseGameMode>(NULL, *ServerGamePath, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+	if (GameClass != NULL)
+	{
+		ServerGameName = GameClass->GetDefaultObject<AUTBaseGameMode>()->DisplayName.ToString();
+	}
+	else
+	{
+		// FIXME: legacy compatibility, remove later
+		if (!Result.Session.SessionSettings.Get(SETTING_GAMENAME, ServerGameName))
+		{
+			ServerGameName = ServerGamePath;
+		}
+	}
+
+	FString ServerMap;
+	Result.Session.SessionSettings.Get(SETTING_MAPNAME,ServerMap);
+				
+	int32 ServerNoPlayers = 0;
+	Result.Session.SessionSettings.Get(SETTING_PLAYERSONLINE, ServerNoPlayers);
+				
+	int32 ServerNoSpecs = 0;
+	Result.Session.SessionSettings.Get(SETTING_SPECTATORSONLINE, ServerNoSpecs);
+				
+	int32 ServerMaxPlayers = 0;
+	Result.Session.SessionSettings.Get(SETTING_UTMAXPLAYERS, ServerMaxPlayers);
+				
+	int32 ServerMaxSpectators = 0;
+	Result.Session.SessionSettings.Get(SETTING_UTMAXSPECTATORS, ServerMaxSpectators);
+
+	int32 ServerNumMatches = 0;
+	Result.Session.SessionSettings.Get(SETTING_NUMMATCHES, ServerNumMatches);
+				
+	int32 ServerMinRank = 0;
+	Result.Session.SessionSettings.Get(SETTING_MINELO, ServerMinRank);
+
+	int32 ServerMaxRank = 0;
+	Result.Session.SessionSettings.Get(SETTING_MAXELO, ServerMaxRank);
+
+	FString ServerVer; 
+	Result.Session.SessionSettings.Get(SETTING_SERVERVERSION, ServerVer);
+				
+	int32 ServerFlags = 0x0000;
+	Result.Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
+				
+	uint32 ServerPing = -1;
+
+	int32 ServerTrustLevel = 2;
+	Result.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
+
+	FString BeaconIP;
+	OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
+	TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags,ServerTrustLevel);
+	NewServer->SearchResult = Result;
+
+	if (PingList.Num() == 0 || ServerGamePath != LOBBY_GAME_PATH )
+	{
+		PingList.Add( NewServer );
+	}
+	else
+	{
+		PingList.Insert(NewServer,0);
+	}
+
+	TotalPlayersPlaying += ServerNoPlayers + ServerNoSpecs;
+
+}
+
 void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 {
 	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
@@ -1077,84 +1159,63 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		{
 			for (int32 ServerIndex = 0; ServerIndex < SearchSettings->SearchResults.Num(); ServerIndex++)
 			{
-				FOnlineSessionSearchResult Result = SearchSettings->SearchResults[ServerIndex];
-				FString ServerName;
-				Result.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
-				FString ServerIP;
-				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("GamePort")), ServerIP);
-				// game class path
-				FString ServerGamePath;
-				Result.Session.SessionSettings.Get(SETTING_GAMEMODE,ServerGamePath);
-				// game name
-				FString ServerGameName;
-				// prefer using the name in the client's language, if available
-				// TODO: would be nice to not have to load the class, but the localization system doesn't guarantee any particular lookup location for the data,
-				//		so we have no way to know where it is
-				UClass* GameClass = LoadClass<AUTBaseGameMode>(NULL, *ServerGamePath, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
-				if (GameClass != NULL)
-				{
-					ServerGameName = GameClass->GetDefaultObject<AUTBaseGameMode>()->DisplayName.ToString();
-				}
-				else
-				{
-					// FIXME: legacy compatibility, remove later
-					if (!Result.Session.SessionSettings.Get(SETTING_GAMENAME, ServerGameName))
-					{
-						ServerGameName = ServerGamePath;
-					}
-				}
-			
+				FoundServer(SearchSettings->SearchResults[ServerIndex]);
+			}
+		}
 
-				FString ServerMap;
-				Result.Session.SessionSettings.Get(SETTING_MAPNAME,ServerMap);
-				
-				int32 ServerNoPlayers = 0;
-				Result.Session.SessionSettings.Get(SETTING_PLAYERSONLINE, ServerNoPlayers);
-				
-				int32 ServerNoSpecs = 0;
-				Result.Session.SessionSettings.Get(SETTING_SPECTATORSONLINE, ServerNoSpecs);
-				
-				int32 ServerMaxPlayers = 0;
-				Result.Session.SessionSettings.Get(SETTING_UTMAXPLAYERS, ServerMaxPlayers);
-				
-				int32 ServerMaxSpectators = 0;
-				Result.Session.SessionSettings.Get(SETTING_UTMAXSPECTATORS, ServerMaxSpectators);
+		// If a server exists in either of the lists but not in the PingList, then let's kill it.
+		ExpireDeadServers();
 
-				int32 ServerNumMatches = 0;
-				Result.Session.SessionSettings.Get(SETTING_NUMMATCHES, ServerNumMatches);
-				
-				int32 ServerMinRank = 0;
-				Result.Session.SessionSettings.Get(SETTING_MINELO, ServerMinRank);
+		if (OnlineSubsystem)
+		{
+			IOnlineFriendsPtr FriendsInterface = OnlineSubsystem->GetFriendsInterface();
+			if (FriendsInterface.IsValid())
+			{
+				// Grab a list of my online friends.
+				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateRaw(this, &SUWServerBrowser::OnReadFriendsListComplete));
+			}
+		}
 
-				int32 ServerMaxRank = 0;
-				Result.Session.SessionSettings.Get(SETTING_MAXELO, ServerMaxRank);
+		AddGameFilters();
+		InternetServerList->RequestListRefresh();
+		HUBServerList->RequestListRefresh();
+		PingNextServer();
+	}
+	else
+	{
+		UE_LOG(UT,Log,TEXT("Server List Request Failed!!!"));
+	}
 
-				FString ServerVer; 
-				Result.Session.SessionSettings.Get(SETTING_SERVERVERSION, ServerVer);
-				
-				int32 ServerFlags = 0x0000;
-				Result.Session.SessionSettings.Get(SETTING_SERVERFLAGS, ServerFlags);
-				
-				uint32 ServerPing = -1;
+	// Search for LAN Servers
 
-				int32 ServerTrustLevel = 2;
-				Result.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
+	LanSearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
+	LanSearchSettings->MaxSearchResults = 10000;
+	LanSearchSettings->bIsLanQuery = true;
+	LanSearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 
-				FString BeaconIP;
-				OnlineSessionInterface->GetResolvedConnectString(Result,FName(TEXT("BeaconPort")), BeaconIP);
-				TSharedRef<FServerData> NewServer = FServerData::Make( ServerName, ServerIP, BeaconIP, ServerGamePath, ServerGameName, ServerMap, ServerNoPlayers, ServerNoSpecs, ServerMaxPlayers, ServerMaxSpectators, ServerNumMatches, ServerMinRank, ServerMaxRank, ServerVer, ServerPing, ServerFlags,ServerTrustLevel);
-				NewServer->SearchResult = Result;
+	TSharedRef<FUTOnlineGameSearchBase> LanSearchSettingsRef = LanSearchSettings.ToSharedRef();
 
-				if (PingList.Num() == 0 || ServerGamePath != LOBBY_GAME_PATH )
-				{
-					PingList.Add( NewServer );
-				}
-				else
-				{
-					PingList.Insert(NewServer,0);
-				}
+	FOnFindSessionsCompleteDelegate Delegate;
+	Delegate.BindSP(this, &SUWServerBrowser::OnFindLANSessionsComplete);
+	OnFindSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
+	OnlineSessionInterface->FindSessions(0, LanSearchSettingsRef);
 
-				TotalPlayersPlaying += ServerNoPlayers + ServerNoSpecs;
+	SetBrowserState(EBrowserState::BrowserIdle);
+}
+
+
+void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
+{
+	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
+
+	if (bWasSuccessful)
+	{
+		TotalPlayersPlaying = 0;
+		if (LanSearchSettings->SearchResults.Num() > 0)
+		{
+			for (int32 ServerIndex = 0; ServerIndex < LanSearchSettings->SearchResults.Num(); ServerIndex++)
+			{
+				FoundServer(LanSearchSettings->SearchResults[ServerIndex]);
 			}
 		}
 
@@ -1185,8 +1246,6 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
 		PingNextServer();
-
-
 	}
 	else
 	{
@@ -1194,8 +1253,8 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 	}
 
 	SetBrowserState(EBrowserState::BrowserIdle);
-
 }
+
 
 void SUWServerBrowser::ExpireDeadServers()
 {
