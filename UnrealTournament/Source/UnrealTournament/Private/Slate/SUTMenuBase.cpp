@@ -4,7 +4,6 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "SScaleBox.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
 #include "SUTMenuBase.h"
@@ -37,93 +36,84 @@ void SUTMenuBase::CreateDesktop()
 	LeftMenuBar = NULL;
 	RightMenuBar = NULL;
 	ChildSlot
-		.VAlign(VAlign_Center)
-		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
 		[
-			SNew(SScaleBox)
-			.Stretch(EStretch::ScaleToFit)
+			SNew(SOverlay)
+			+ SOverlay::Slot()
 			[
-				SNew(SBox)
-				.WidthOverride(1920.0f)
-				.HeightOverride(1080.0f)
+				BuildBackground()
+			]
+			+ SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
 				[
-					SNew(SOverlay)
-					+ SOverlay::Slot()
+					SNew(SBox)
+					.HeightOverride(64)
 					[
-						BuildBackground()
-					]
-					+ SOverlay::Slot()
-					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.HAlign(HAlign_Fill)
+						SNew(SOverlay)
+						+ SOverlay::Slot()
 						[
-							SNew(SBox)
-							.HeightOverride(64)
-							[
-								SNew(SOverlay)
-								+ SOverlay::Slot()
-								[
-									SNew(SHorizontalBox)
-									+ SHorizontalBox::Slot()
-									.HAlign(HAlign_Fill)
-									[
-										SNew(SImage)
-										.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
-									]
-								]
-								+ SOverlay::Slot()
-									[
-										SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.AutoHeight()
-										[
-											SNew(SBox)
-											.HeightOverride(56)
-											[
-												// Left Menu
-												SNew(SOverlay)
-												+ SOverlay::Slot()
-												.HAlign(HAlign_Left)
-												.VAlign(VAlign_Center)
-												[
-													BuildDefaultLeftMenuBar()
-												]
-												+ SOverlay::Slot()
-													.HAlign(HAlign_Right)
-													.VAlign(VAlign_Center)
-													[
-														BuildDefaultRightMenuBar()
-													]
-											]
-										]
-										+ SVerticalBox::Slot()
-											.AutoHeight()
-											[
-												SNew(SBox)
-												.HeightOverride(8)
-												[
-													SNew(SCanvas)
-												]
-											]
-
-									]
-							]
-						]
-
-						+ SVerticalBox::Slot()
-							.VAlign(VAlign_Fill)
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
 							.HAlign(HAlign_Fill)
 							[
-								SNew(SOverlay)
-								+ SOverlay::Slot()
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
+							]
+						]
+						+ SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.AutoHeight()
 								[
-									SAssignNew(Desktop, SOverlay)
+									SNew(SBox)
+									.HeightOverride(56)
+									[
+										// Left Menu
+										SNew(SOverlay)
+										+ SOverlay::Slot()
+										.HAlign(HAlign_Left)
+										.VAlign(VAlign_Center)
+										[
+											BuildDefaultLeftMenuBar()
+										]
+										+ SOverlay::Slot()
+											.HAlign(HAlign_Right)
+											.VAlign(VAlign_Center)
+											[
+												BuildDefaultRightMenuBar()
+											]
+									]
 								]
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SBox)
+										.HeightOverride(8)
+										[
+											SNew(SCanvas)
+										]
+									]
+
 							]
 					]
 				]
+
+				+ SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SOverlay)
+						+ SOverlay::Slot()
+						[
+							SAssignNew(Desktop, SOverlay)
+						]
+					]
 			]
 		];
 

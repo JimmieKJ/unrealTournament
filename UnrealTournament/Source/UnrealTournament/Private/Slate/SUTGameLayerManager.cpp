@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "../Public/UnrealTournament.h"
+#include "SUTAspectPanel.h"
 #include "SUTGameLayerManager.h"
 
 #if !UE_SERVER
@@ -16,7 +17,10 @@ void SUTGameLayerManager::Construct(const FArguments& InArgs)
 		
 		+ SOverlay::Slot()
 		[
-			SAssignNew(GameLayers, SOverlay)
+			SNew(SUTAspectPanel)
+			[
+				SAssignNew(GameLayers, SOverlay)
+			]
 		]
 
 		+ SOverlay::Slot()
