@@ -14,7 +14,7 @@ struct TAttributeStat
 	TAttributeStat(AUTPlayerState* InPlayerState, FName InStatsName, StatValueFunc InValueFunc = nullptr, StatValueTextFunc InTextFunc = nullptr)
 		: PlayerState(InPlayerState), StatName(InStatsName), ValueFunc(InValueFunc), TextFunc(InTextFunc)
 	{
-		checkSlow(PlayerState);
+		checkSlow(PlayerState.IsValid());
 	}
 	virtual ~TAttributeStat()
 	{}
@@ -47,7 +47,7 @@ struct TAttributeStatWeapon : public TAttributeStat
 	TAttributeStatWeapon(AUTPlayerState* InPlayerState, AUTWeapon* InWeapon, bool InbKills)
 		: TAttributeStat(InPlayerState, NAME_Name, nullptr, nullptr), Weapon(InWeapon), bKills(InbKills)
 	{
-		checkSlow(PlayerState);
+		checkSlow(PlayerState.IsValid());
 	}
 
 	virtual float GetValue() const override
