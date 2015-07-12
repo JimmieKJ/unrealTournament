@@ -3,6 +3,7 @@
 #include "../Public/UnrealTournament.h"
 #include "SUWPlayerInfoDialog.h"
 #include "SUWindowsStyle.h"
+#include "Private/Slate/Widgets/SUTTabWidget.h"
 #include "../Public/UTCanvasRenderTarget2D.h"
 #include "EngineModule.h"
 #include "SlateMaterialBrush.h"
@@ -47,7 +48,6 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
 	ZoomOffset = -50;
-
 
 	PoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E.Pose_E"));
 
@@ -128,20 +128,29 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 
 	TargetPlayerState->BuildPlayerInfo(InfoPanel);
 
+	//Draw the game specific stats
 	InfoPanel->AddSlot()
 	.HAlign(HAlign_Center)
-	.Padding(0.0f,20.0f,0.0f,20.0f)
+	//.Padding(0.0f,10.0f,0.0f,10.0f)
 	[
 		SNew(STextBlock)
 		.Text(NSLOCTEXT("Generic", "CurrentStats", "- Current Stats -"))
 		.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 		.ColorAndOpacity(FLinearColor::Gray)
 	];
-		
+	InfoPanel->AddSlot()
+	.HAlign(HAlign_Fill)
+	.Padding(10.0f, 10.0f, 10.0f, 10.0f)
+	.AutoHeight()
+	[
+		SAssignNew(TabWidget, SUTTabWidget)
+		.OnTabButtonNumberChanged(this, &SUWPlayerInfoDialog::OnTabSelected)
+	];
+
 	AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
 	if (DefaultGameMode)
 	{
-		DefaultGameMode->BuildPlayerInfo(InfoPanel, TargetPlayerState.Get());
+		DefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
 	}
 
 	FriendStatus = NAME_None;
@@ -205,7 +214,6 @@ void SUWPlayerInfoDialog::Tick(const FGeometry& AllottedGeometry, const double I
 	}
 
 	BuildFriendPanel();
-
 }
 
 void SUWPlayerInfoDialog::RecreatePlayerPreview()
@@ -496,6 +504,13 @@ FReply SUWPlayerInfoDialog::KickVote()
 
 FReply SUWPlayerInfoDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
+	//Close with escape
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		GetPlayerOwner()->CloseDialog(SharedThis(this));
+		return FReply::Handled();
+	}
+
 	//If the key matches the TogglePlayerInfo spectator bind then close the dialog
 	FName KeyName = InKeyEvent.GetKey().GetFName();
 
@@ -512,6 +527,16 @@ FReply SUWPlayerInfoDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEve
 		}
 	}
 	return FReply::Unhandled();
+}
+
+void SUWPlayerInfoDialog::OnTabSelected(int32 NewIndex)
+{
+	//Tell the server that we want this tabs stats replicated
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+	if (UTPC != nullptr)
+	{
+		UTPC->ServerSetViewedScorePS(TargetPlayerState.Get(), NewIndex);
+	}
 }
 
 #endif

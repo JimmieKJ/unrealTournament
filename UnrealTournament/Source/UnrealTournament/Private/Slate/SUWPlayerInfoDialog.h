@@ -5,12 +5,71 @@
 #include "SUWDialog.h"
 
 #if !UE_SERVER
+
+struct TAttributeStat
+{
+	typedef float(*StatValueFunc)(const AUTPlayerState*, const TAttributeStat*);
+	typedef FText(*StatValueTextFunc)(const AUTPlayerState*, const TAttributeStat*);
+
+	TAttributeStat(AUTPlayerState* InPlayerState, FName InStatsName, StatValueFunc InValueFunc = nullptr, StatValueTextFunc InTextFunc = nullptr)
+		: PlayerState(InPlayerState), StatName(InStatsName), ValueFunc(InValueFunc), TextFunc(InTextFunc)
+	{
+		checkSlow(PlayerState);
+	}
+	virtual ~TAttributeStat()
+	{}
+
+	virtual float GetValue() const
+	{
+		if (PlayerState.IsValid())
+		{
+			return (ValueFunc != nullptr) ? ValueFunc(PlayerState.Get(), this) : PlayerState->GetStatsValue(StatName);
+		}
+		return 0.0f;
+	}
+	virtual FText GetValueText() const
+	{
+		if (PlayerState.IsValid())
+		{
+			return (TextFunc != nullptr) ? TextFunc(PlayerState.Get(), this) : FText::FromString(FString::FromInt((int32)GetValue()));
+		}
+		return FText();
+	}
+
+	FName StatName;
+	TWeakObjectPtr<AUTPlayerState> PlayerState;
+	StatValueFunc ValueFunc;
+	StatValueTextFunc TextFunc;
+};
+
+struct TAttributeStatWeapon : public TAttributeStat
+{
+	TAttributeStatWeapon(AUTPlayerState* InPlayerState, AUTWeapon* InWeapon, bool InbKills)
+		: TAttributeStat(InPlayerState, NAME_Name, nullptr, nullptr), Weapon(InWeapon), bKills(InbKills)
+	{
+		checkSlow(PlayerState);
+	}
+
+	virtual float GetValue() const override
+	{
+		if (PlayerState.IsValid() && Weapon.IsValid())
+		{
+			return bKills ? Weapon->GetWeaponKillStats(PlayerState.Get()) : Weapon->GetWeaponDeathStats(PlayerState.Get());
+		}
+		return 0.0f;
+	}
+
+	bool bKills;
+	TWeakObjectPtr<AUTWeapon> Weapon;
+};
+
+
 class UNREALTOURNAMENT_API SUWPlayerInfoDialog : public SUWDialog, public FGCObject
 {
 public:
 
 	SLATE_BEGIN_ARGS(SUWPlayerInfoDialog)
-	: _DialogSize(FVector2D(960,700))
+	: _DialogSize(FVector2D(1200,750))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -82,6 +141,12 @@ protected:
 	virtual FReply OnSendFriendRequest();
 
 	virtual FReply KickVote();
+
+	//Holds references to all of the stat attributes that are created
+	TArray<TSharedPtr<TAttributeStat> > StatList;
+	TSharedPtr<class SUTTabWidget> TabWidget;
+
+	virtual void OnTabSelected(int32 NewIndex);
 
 };
 #endif
