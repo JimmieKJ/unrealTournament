@@ -375,7 +375,7 @@ public:
 		return ItemListReq.IsValid() && ItemListReq->GetStatus() == EHttpRequestStatus::Processing;
 	}
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
-	bool OwnsItemFor(const FString& Path) const;
+	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 
 protected:
 	/** returns whether this user has rights to the given item

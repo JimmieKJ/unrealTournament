@@ -1123,7 +1123,7 @@ void UUTLocalPlayer::OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHt
 	}
 }
 
-bool UUTLocalPlayer::OwnsItemFor(const FString& Path) const
+bool UUTLocalPlayer::OwnsItemFor(const FString& Path, int32 VariantId) const
 {
 	for (const FProfileItemEntry& Entry : ProfileItems)
 	{

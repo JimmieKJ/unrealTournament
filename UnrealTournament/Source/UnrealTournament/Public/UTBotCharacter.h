@@ -31,7 +31,13 @@ public:
 	/** hat to use */
 	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTHat"))
 	FStringClassReference HatType;
+	/** optional hat variant ID */
+	UPROPERTY(EditAnywhere)
+	int32 HatVariantId;
 	/** eyewear to use */
 	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTEyewear"))
 	FStringClassReference EyewearType;
+	/** optional eyewear variant ID */
+	UPROPERTY(EditAnywhere)
+	int32 EyewearVariantId;
 };

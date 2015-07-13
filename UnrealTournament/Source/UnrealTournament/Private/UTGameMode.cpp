@@ -601,7 +601,9 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 				{
 					PS->SetCharacter(BotData->Character.ToString());
 					PS->ServerReceiveHatClass(BotData->HatType.ToString());
+					PS->ServerReceiveHatVariant(BotData->HatVariantId);
 					PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+					PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
 				}
 				bLoadedBotData = true;
 			}
@@ -673,7 +675,9 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 				PS->bReadyToPlay = true;
 				PS->SetCharacter(BotData->Character.ToString());
 				PS->ServerReceiveHatClass(BotData->HatType.ToString());
+				PS->ServerReceiveHatVariant(BotData->HatVariantId);
 				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
 			}
 
 			NewBot->InitializeSkill(BotData->Skill);
@@ -703,7 +707,9 @@ AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint
 				PS->bReadyToPlay = true;
 				PS->SetCharacter(BotData->Character.ToString());
 				PS->ServerReceiveHatClass(BotData->HatType.ToString());
+				PS->ServerReceiveHatVariant(BotData->HatVariantId);
 				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
 			}
 
 			NewBot->InitializeSkill(BotData->Skill);

@@ -21,6 +21,25 @@ struct FProfileItemEntry
 	{}
 };
 
+USTRUCT()
+struct FCosmeticEntry
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTCosmetic"))
+	FStringClassReference Item;
+	/** optional variant ID for cosmetic items that support it */
+	UPROPERTY(EditAnywhere)
+	int32 VariantId;
+
+	FCosmeticEntry()
+		: VariantId(0)
+	{}
+	explicit FCosmeticEntry(const FStringClassReference& InItem, int32 InVariant = 0)
+		: Item(InItem), VariantId(InVariant)
+	{}
+};
+
 /** collectable/consumable item that a player owns in their profile, such as a hat */
 UCLASS()
 class UUTProfileItem : public UDataAsset
@@ -50,9 +69,11 @@ public:
 	UPROPERTY(EditAnywhere)
 	TArray<FProfileItemEntry> Recipe;
 	
+	UPROPERTY()
+	TArray<FStringClassReference> GrantedCosmetics_DEPRECATED;
 	/** when this item is in the player's inventory, they have access to these cosmetic items */
-	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTCosmetic"))
-	TArray<FStringClassReference> GrantedCosmetics;
+	UPROPERTY(EditAnywhere)
+	TArray<FCosmeticEntry> GrantedCosmeticItems;
 	/** when this item is in the player's inventory, they have access to these player characters */
 	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTCharacterContent"))
 	TArray<FStringClassReference> GrantedCharacters;
@@ -60,11 +81,25 @@ public:
 	UPROPERTY(EditAnywhere, Meta = (AllowedClasses = "UTBotCharacter"))
 	TArray<FStringAssetReference> GrantedBots;
 
+	virtual void PostLoad() override
+	{
+		Super::PostLoad();
+
+		if (GrantedCosmetics_DEPRECATED.Num() > 0)
+		{
+			for (const FStringClassReference& Item : GrantedCosmetics_DEPRECATED)
+			{
+				new(GrantedCosmeticItems) FCosmeticEntry(Item);
+			}
+			GrantedCosmetics_DEPRECATED.Empty();
+		}
+	}
+
 	/** returns whether this item grants access to the object with the specified path */
-	inline bool Grants(const FString& Path) const
+	inline bool Grants(const FString& Path, int32 VariantId = 0) const
 	{
 		FString BPClassPath = Path + TEXT("_C");
-		return GrantedCosmetics.ContainsByPredicate([&](const FStringClassReference& TestItem) { return TestItem.ToString() == Path || TestItem.ToString() == BPClassPath; }) ||
+		return GrantedCosmeticItems.ContainsByPredicate([&](const FCosmeticEntry& TestItem) { return TestItem.VariantId == VariantId && (TestItem.Item.ToString() == Path || TestItem.Item.ToString() == BPClassPath); }) ||
 			GrantedCharacters.ContainsByPredicate([&](const FStringClassReference& TestItem) { return TestItem.ToString() == Path || TestItem.ToString() == BPClassPath; }) ||
 			GrantedBots.ContainsByPredicate([&](const FStringAssetReference& TestItem) { return TestItem.ToString().Contains(Path); });
 	}

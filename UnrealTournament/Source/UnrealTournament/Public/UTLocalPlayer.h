@@ -544,7 +544,7 @@ public:
 		return ProfileItems;
 	}
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
-	bool OwnsItemFor(const FString& Path) const;
+	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 };
 
 

@@ -1130,11 +1130,11 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
 
-bool AUTPlayerState::OwnsItemFor(const FString& Path) const
+bool AUTPlayerState::OwnsItemFor(const FString& Path, int32 VariantId) const
 {
 	for (const FProfileItemEntry& Entry : ProfileItems)
 	{
-		if (Entry.Item != NULL && Entry.Item->Grants(Path))
+		if (Entry.Item != NULL && Entry.Item->Grants(Path, VariantId))
 		{
 			return true;
 		}
