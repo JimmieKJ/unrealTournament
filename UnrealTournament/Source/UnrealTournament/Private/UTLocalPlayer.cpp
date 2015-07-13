@@ -1380,21 +1380,21 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
 {
-	// Bronze levels up to 1750, start at 400, go up every 150
-	if (EloRating  < 1750)
+	// Bronze levels up to 1750, start at 400, go up every 140
+	if (EloRating  < 1660)
 	{
 		BadgeLevel = 0;
-		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 150.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 140.f, 0.f, 8.f);
 	}
-	else if (EloRating < 3550)
+	else if (EloRating < 2200)
 	{
 		BadgeLevel = 1;
-		SubLevel = FMath::Clamp((float(EloRating) - 1750.f) / 200.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 1660.f) / 60.f, 0.f, 8.f);
 	}
 	else
 	{
 		BadgeLevel = 2;
-		SubLevel = FMath::Clamp((float(EloRating) - 3550.f) / 400.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 2200.f) / 50.f, 0.f, 8.f);
 	}
 }
 
