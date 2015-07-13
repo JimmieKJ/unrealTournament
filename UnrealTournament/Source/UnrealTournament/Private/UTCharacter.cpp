@@ -1307,12 +1307,31 @@ void AUTCharacter::StopRagdoll()
 		FBodyInstance* RootBody = GetMesh()->GetBodyInstance();
 		if (RootBody != NULL)
 		{
-			FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeLocation);
-			NewTransform *= GetCapsuleComponent()->GetComponentTransform();
-			RootBody->SetBodyTransform(NewTransform, true);
+			TArray<FTransform> BodyTransforms;
+			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
+			{
+				BodyTransforms.Add((GetMesh()->Bodies[i] != NULL) ? GetMesh()->Bodies[i]->GetUnrealWorldTransform() : FTransform::Identity);
+			}
+
+			const USkeletalMeshComponent* DefaultMesh = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh();
+			FTransform RelativeTransform(DefaultMesh->RelativeRotation, DefaultMesh->RelativeLocation, DefaultMesh->RelativeScale3D);
+			GetMesh()->SetWorldTransform(RelativeTransform * GetCapsuleComponent()->GetComponentTransform());
+
+			RootBody->SetBodyTransform(GetMesh()->GetComponentTransform(), true);
+			RootBody->PutInstanceToSleep();
 			RootBody->SetInstanceSimulatePhysics(false, true);
 			RootBody->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
-			GetMesh()->SyncComponentToRBPhysics();
+			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
+			{
+				if (GetMesh()->Bodies[i] != NULL && GetMesh()->Bodies[i] != RootBody)
+				{
+					GetMesh()->Bodies[i]->SetBodyTransform(BodyTransforms[i], true);
+					GetMesh()->Bodies[i]->PutInstanceToSleep();
+					//GetMesh()->Bodies[i]->SetInstanceSimulatePhysics(false, true);
+					//GetMesh()->Bodies[i]->PhysicsBlendWeight = 1.0f;
+				}
+			}
+			//GetMesh()->SyncComponentToRBPhysics();
 		}
 	}
 
@@ -3303,6 +3322,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		else
 		{
 			GetMesh()->SetAllBodiesPhysicsBlendWeight(FMath::Max(0.0f, GetMesh()->Bodies[0]->PhysicsBlendWeight - (1.0f / FMath::Max(0.01f, RagdollBlendOutTime)) * DeltaTime));
+			GetMesh()->PutAllRigidBodiesToSleep(); // make sure since we can't disable the physics without it breaking
 			if (GetMesh()->Bodies[0]->PhysicsBlendWeight == 0.0f)
 			{
 				bInRagdollRecovery = false;
