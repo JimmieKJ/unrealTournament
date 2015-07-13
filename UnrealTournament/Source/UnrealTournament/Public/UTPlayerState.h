@@ -458,6 +458,9 @@ public:
 	// Find the local player and see if we are his friend.
 	void OnRep_UniqueId();
 
+	virtual void RegisterPlayerWithSession(bool bWasFromInvite) override;
+	virtual void UnregisterPlayerWithSession() override;
+
 	// Calculated client-side by the local player when 
 	bool bIsFriend;
 

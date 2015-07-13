@@ -1214,6 +1214,28 @@ void AUTPlayerState::OnRep_UniqueId()
 	}
 }
 
+void AUTPlayerState::RegisterPlayerWithSession(bool bWasFromInvite)
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		return;
+	}
+
+	Super::RegisterPlayerWithSession(bWasFromInvite);
+}
+
+void AUTPlayerState::UnregisterPlayerWithSession()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		return;
+	}
+
+	Super::UnregisterPlayerWithSession();
+}
+
 #if !UE_SERVER
 
 const FSlateBrush* AUTPlayerState::GetELOBadgeImage() const
