@@ -47,6 +47,29 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 					.AutoHeight()
 					[
 						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(SBox)
+							.HeightOverride(42)
+							.WidthOverride(60)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								.HAlign(HAlign_Fill)
+								.VAlign(VAlign_Fill)
+								[
+									SNew(SImage)
+									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.Fill"))
+								]
+								+ SOverlay::Slot()
+								.HAlign(HAlign_Center)
+								.VAlign(VAlign_Center)
+								[
+									BuildChatDestinationsButton()
+								]
+							]
+						]
 						+SHorizontalBox::Slot()
 						.AutoWidth()
 						[
@@ -65,7 +88,7 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 								SNew(SHorizontalBox)
 								+SHorizontalBox::Slot()
 								.AutoWidth()
-								.Padding(30.0f,0.0f,30.0f,0.0f)
+								.Padding(0.0f,0.0f,30.0f,0.0f)
 								[
 									SNew(STextBlock)
 									.Text(this, &SUInGameHomePanel::GetChatDestinationText)
@@ -73,7 +96,7 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 								]
 							]
 						]
-
+			
 						+SHorizontalBox::Slot()
 						.FillWidth(1.0f)
 						[
@@ -112,32 +135,6 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 								]
 							]
 
-						]
-
-
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox)
-							.HeightOverride(42)
-							.WidthOverride(80)
-							[
-								SNew(SOverlay)
-								+SOverlay::Slot()
-								.HAlign(HAlign_Fill)
-								.VAlign(VAlign_Fill)
-								[
-									SNew(SImage)
-									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.Fill"))
-								]
-
-								+SOverlay::Slot()
-								.HAlign(HAlign_Center)
-								.VAlign(VAlign_Center)
-								[
-									BuildChatDestinationsButton()
-								]
-							]
 						]
 					]
 				]
