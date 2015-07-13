@@ -273,6 +273,17 @@ void SUTReplayWindow::OnSetTimeSlider(float NewValue)
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (UTPC != nullptr)
 	{
+		// Unpause if we're paused
+		if (DemoNetDriver.IsValid())
+		{
+			AWorldSettings* const WorldSettings = UTPC->GetWorldSettings();
+
+			if (WorldSettings->Pauser != nullptr)
+			{
+				WorldSettings->Pauser = nullptr;
+			}
+		}
+
 		UTPC->DemoGoTo(DemoNetDriver->DemoTotalTime * NewValue);
 	}
 }
