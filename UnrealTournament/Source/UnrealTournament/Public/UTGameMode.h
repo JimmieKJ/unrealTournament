@@ -547,6 +547,8 @@ protected:
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateSkillRating();
 
+	virtual void AwardProfileItems();
+
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);

@@ -622,6 +622,8 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
+
+	AwardProfileItems();
 }
 
 void AUTTeamGameMode::FindAndMarkHighScorer()

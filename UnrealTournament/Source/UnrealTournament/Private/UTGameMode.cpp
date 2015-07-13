@@ -1455,6 +1455,11 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
 
+	AwardProfileItems();
+}
+
+void AUTGameMode::AwardProfileItems()
+{
 	// TODO: temporarily profile item giveaway for testing
 	// give item to highest scoring player
 	APlayerState* Best = NULL;
@@ -1474,7 +1479,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		if (AllItems.Num() > 0)
 		{
 			TArray<FProfileItemEntry> Rewards;
-			new(Rewards) FProfileItemEntry(Cast<UUTProfileItem>(AllItems[FMath::RandHelper(AllItems.Num())].GetAsset()), 1);
+			new(Rewards)FProfileItemEntry(Cast<UUTProfileItem>(AllItems[FMath::RandHelper(AllItems.Num())].GetAsset()), 1);
 
 			if (Rewards[0].Item != NULL)
 			{
