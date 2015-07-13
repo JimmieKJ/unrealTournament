@@ -18,9 +18,6 @@ void SUWScaleBox::Construct(const SUWScaleBox::FArguments& InArgs)
 
 void SUWScaleBox::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
 {
-
-	UE_LOG(UT,Log,TEXT("OnArrangeChildren"));
-
 	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 	if (ArrangedChildren.Accepts(ChildVisibility))
 	{
