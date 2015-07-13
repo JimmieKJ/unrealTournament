@@ -1706,7 +1706,7 @@ public:
 
 	/** TacCom overlay material */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
-		UMaterialInterface* TacComOverlayMaterial;
+	UMaterialInterface* TacComOverlayMaterial;
 
 	virtual void UpdateTacComMesh(bool bTacComEnabled);
 
@@ -1724,7 +1724,7 @@ protected:
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateWeaponOverlays)
 	uint16 WeaponOverlayFlags;
 	/** mesh with current active overlay material on it (created dynamically when needed) */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	USkeletalMeshComponent* OverlayMesh;
 
 	/** replicated character material override */
