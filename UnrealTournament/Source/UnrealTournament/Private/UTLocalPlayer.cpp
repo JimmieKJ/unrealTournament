@@ -1316,7 +1316,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	}
 #endif
 
-	UE_LOG(UT, Log, TEXT("GetBaseELORank Duels:%d, TDM:%d, FFA %d, CTF %d"), DuelMatchesPlayed, TDMMatchesPlayed, FFAMatchesPlayed, CTFMatchesPlayed);
+	UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Duels:%d, TDM:%d, FFA %d, CTF %d"), DuelMatchesPlayed, TDMMatchesPlayed, FFAMatchesPlayed, CTFMatchesPlayed);
 
 	if (DUEL_ELO > 0)
 	{
@@ -1326,7 +1326,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		if (DuelMatchesPlayed > MatchThreshold)
 		{
 			BestRating = FMath::Max(BestRating, DUEL_ELO);
-			UE_LOG(UT, Log, TEXT("GetBaseELORank Duel ELO %d is candidate for best"), DUEL_ELO);
+			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Duel ELO %d is candidate for best"), DUEL_ELO);
 		}
 	}
 
@@ -1338,7 +1338,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		if (TDMMatchesPlayed > MatchThreshold)
 		{
 			BestRating = FMath::Max(BestRating, TDM_ELO);
-			UE_LOG(UT, Log, TEXT("GetBaseELORank TDM ELO %d is candidate for best"), TDM_ELO);
+			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank TDM ELO %d is candidate for best"), TDM_ELO);
 		}
 	}
 
@@ -1346,14 +1346,14 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	// max rating of 2400 based on FFA 
 	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < MatchThreshold)))
 	{
-		UE_LOG(UT, Log, TEXT("GetBaseELORank applying FFA ELO %d to average rank, max 2400"), FFA_ELO);
+		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank applying FFA ELO %d to average rank, max 2400"), FFA_ELO);
 		TotalRating += 0.5f * FMath::Min(FFA_ELO, 2400);
 		RatingCount += 0.5f;
 		CurrentRating = TotalRating / RatingCount;
 	}
 	else
 	{
-		UE_LOG(UT, Log, TEXT("GetBaseELORank not factoring in FFA ELO %d to average rank"), FFA_ELO);
+		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank not factoring in FFA ELO %d to average rank"), FFA_ELO);
 	}
 
 	if (CTF_ELO > 0 && ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < MatchThreshold)))
@@ -1364,15 +1364,15 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		if (CTFMatchesPlayed > MatchThreshold)
 		{
 			BestRating = FMath::Max(BestRating, CTF_ELO);
-			UE_LOG(UT, Log, TEXT("GetBaseELORank CTF ELO %d is candidate for best"), CTF_ELO);
+			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank CTF ELO %d is candidate for best"), CTF_ELO);
 		}
 	}
 	else
 	{
-		UE_LOG(UT, Log, TEXT("GetBaseELORank not factoring in CTF ELO %d to average rank"), CTF_ELO);
+		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank not factoring in CTF ELO %d to average rank"), CTF_ELO);
 	}
 
-	UE_LOG(UT, Log, TEXT("GetBaseELORank Best:%d WeightedAverage:%f MatchThrottled:%f"), BestRating, CurrentRating, 400.f + 50.f * MatchCount);
+	UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Best:%d WeightedAverage:%f MatchThrottled:%f"), BestRating, CurrentRating, 400.f + 50.f * MatchCount);
 
 	// Limit displayed Elo to 400 + 50 * number of matches played
 	return FMath::Min(FMath::Max(float(BestRating), CurrentRating), 400.f + 50.f * MatchCount);
