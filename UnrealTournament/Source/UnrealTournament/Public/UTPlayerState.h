@@ -468,7 +468,7 @@ public:
 public:
 	const FSlateBrush* GetELOBadgeImage() const;
 	const FSlateBrush* GetELOBadgeNumberImage() const;
-	void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel);
+	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 #endif
 
 	// If true, the game type considers this player special.

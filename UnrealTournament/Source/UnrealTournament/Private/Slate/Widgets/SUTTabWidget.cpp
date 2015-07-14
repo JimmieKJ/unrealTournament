@@ -23,12 +23,16 @@ void SUTTabWidget::Construct(const FArguments& InArgs)
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			[
-				SNew(SBorder)
-				.Padding(0.0f)
-				.BorderImage(SUWindowsStyle::Get().GetBrush("UT.TopMenu.MidFill"))
-				.Content()
+				SNew(SBox)
+				.HeightOverride(43) //this is here to fix some flickering issue with the tab widget
 				[
-					TabsContainer.ToSharedRef()
+					SNew(SBorder)
+					.Padding(0.0f)
+					.BorderImage(SUWindowsStyle::Get().GetBrush("UT.TopMenu.MidFill"))
+					.Content()
+					[
+						TabsContainer.ToSharedRef()
+					]
 				]
 			]
 			+ SVerticalBox::Slot()

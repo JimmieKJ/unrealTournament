@@ -18,6 +18,7 @@
 #include "UTBot.h"
 #include "UTSquadAI.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
+#include "Slate/SUWPlayerInfoDialog.h"
 #include "Slate/SlateGameResources.h"
 #include "Slate/Widgets/SUTTabWidget.h"
 #include "SNumericEntryBox.h"

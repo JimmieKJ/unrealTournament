@@ -69,10 +69,10 @@ class UNREALTOURNAMENT_API SUWPlayerInfoDialog : public SUWDialog, public FGCObj
 public:
 
 	SLATE_BEGIN_ARGS(SUWPlayerInfoDialog)
-	: _DialogSize(FVector2D(1200,750))
+	: _DialogSize(FVector2D(1920.0f, 750))
 	, _bDialogSizeIsRelative(false)
-	, _DialogPosition(FVector2D(0.5f,0.5f))
-	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
+	, _DialogPosition(FVector2D(0.5f, 0.058f))
+	, _DialogAnchorPoint(FVector2D(0.5f,0.0f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)												
@@ -132,7 +132,7 @@ protected:
 
 	// Friends...
 
-	TSharedPtr<class SVerticalBox> InfoPanel;
+	TSharedPtr<class SOverlay> InfoPanel;
 	TSharedPtr<class SHorizontalBox> FriendPanel;
 	TSharedPtr<class SButton> KickButton;
 	FName FriendStatus;
@@ -147,12 +147,12 @@ protected:
 	TArray<TSharedPtr<TAttributeStat> > StatList;
 	TSharedPtr<class SUTTabWidget> TabWidget;
 
-	virtual void OnTabSelected(int32 NewIndex);
+	virtual void OnTabButtonSelectionChanged(const FText& NewText);
 
 	FReply NextPlayer();
 	FReply PreviousPlayer();
 	AUTPlayerState* GetNextPlayerState(int32 dir);
-	int32 CurrentTab; //Store the current tab so we can go back to it when switching players
+	FText CurrentTab; //Store the current tab so we can go back to it when switching players
 
 	void OnUpdatePlayerState();
 };

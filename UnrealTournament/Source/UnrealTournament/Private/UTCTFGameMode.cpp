@@ -13,6 +13,7 @@
 #include "UTCTFSquadAI.h"
 #include "UTWorldSettings.h"
 #include "Slate/Widgets/SUTTabWidget.h"
+#include "Slate/SUWPlayerInfoDialog.h"
 #include "StatNames.h"
 
 namespace MatchState

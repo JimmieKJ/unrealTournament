@@ -9,6 +9,8 @@
 #include "UTHat.h"
 #include "UTCharacterContent.h"
 #include "../Private/Slate/SUWindowsStyle.h"
+#include "Slate/SUWPlayerInfoDialog.h"
+#include "Slate/Widgets/SUTTabWidget.h"
 #include "StatNames.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -1258,9 +1260,11 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }
 
-void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
+void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
-	Panel->AddSlot()
+	TabWidget->AddTab(NSLOCTEXT("AUTPlayerState", "PlayerInfo", "Player Info"), 
+	SNew(SVerticalBox)
+	+ SVerticalBox::Slot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1319,9 +1323,9 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 				]
 			]
 		]
-	];
+	]
 
-	Panel->AddSlot()
+	+SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1350,9 +1354,9 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 			.Text(FText::AsNumber(Score))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
-	];
+	]
 
-	Panel->AddSlot()
+	+SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1381,9 +1385,8 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 			.Text(FText::AsNumber(AverageRank))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
-	];
-	
-	Panel->AddSlot()
+	]
+	+ SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1412,7 +1415,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 			.Text(FText::FromString(StatsID))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
-	];
+	]);
 }
 #endif
 

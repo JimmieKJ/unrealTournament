@@ -44,8 +44,6 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 		TargetUniqueId = TargetPlayerState->UniqueId.GetUniqueNetId();
 	}
 
-	CurrentTab = 0;
-
 	PlayerPreviewMesh = nullptr;
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
@@ -123,7 +121,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 						SNew(SScrollBox)
 						+ SScrollBox::Slot()
 						[
-							SAssignNew(InfoPanel, SVerticalBox)
+							SAssignNew(InfoPanel, SOverlay)
 						]
 					]
 				]
@@ -132,6 +130,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 	}
 
 	OnUpdatePlayerState();
+	TabWidget->SelectTab(0);
 }
 
 SUWPlayerInfoDialog::~SUWPlayerInfoDialog()
@@ -516,15 +515,39 @@ FReply SUWPlayerInfoDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEve
 	return FReply::Unhandled();
 }
 
-void SUWPlayerInfoDialog::OnTabSelected(int32 NewIndex)
+void SUWPlayerInfoDialog::OnTabButtonSelectionChanged(const FText& NewText)
 {
-	//Tell the server that we want this tabs stats replicated
+	static const FText Score = NSLOCTEXT("AUTGameMode", "Score", "Score");
+	static const FText Weapons = NSLOCTEXT("AUTGameMode", "Weapons", "Weapons");
+	static const FText Rewards = NSLOCTEXT("AUTGameMode", "Rewards", "Rewards");
+	static const FText Movement = NSLOCTEXT("AUTGameMode", "Movement", "Movement");
+
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPC != nullptr)
 	{
-		UTPC->ServerSetViewedScorePS(TargetPlayerState.Get(), NewIndex);
+		if (NewText.EqualTo(Score))
+		{
+			UTPC->ServerSetViewedScorePS(TargetPlayerState.Get(), 0);
+		}
+		else if (NewText.EqualTo(Weapons))
+		{
+			UTPC->ServerSetViewedScorePS(TargetPlayerState.Get(), 1);
+		}
+		else if (NewText.EqualTo(Rewards))
+		{
+			UTPC->ServerSetViewedScorePS(TargetPlayerState.Get(), 2);
+		}
+		else if (NewText.EqualTo(Movement))
+		{
+			UTPC->ServerSetViewedScorePS(TargetPlayerState.Get(), 3);
+		}
+		else
+		{
+			UTPC->ServerSetViewedScorePS(nullptr, 0);
+		}
 	}
-	CurrentTab = NewIndex;
+
+	CurrentTab = NewText;
 }
 
 FReply SUWPlayerInfoDialog::NextPlayer()
@@ -610,27 +633,17 @@ void SUWPlayerInfoDialog::OnUpdatePlayerState()
 		StatList.Empty();
 		InfoPanel->ClearChildren();
 
-		TargetPlayerState->BuildPlayerInfo(InfoPanel);
+		InfoPanel->AddSlot()
+		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Fill)
+		[
+			SAssignNew(TabWidget, SUTTabWidget)
+			.OnTabButtonSelectionChanged(this, &SUWPlayerInfoDialog::OnTabButtonSelectionChanged)
+		];
+
+		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
-		InfoPanel->AddSlot()
-			.HAlign(HAlign_Center)
-			//.Padding(0.0f,10.0f,0.0f,10.0f)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "CurrentStats", "- Current Stats -"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-				.ColorAndOpacity(FLinearColor::Gray)
-			];
-		InfoPanel->AddSlot()
-			.HAlign(HAlign_Fill)
-			.Padding(10.0f, 10.0f, 10.0f, 10.0f)
-			.AutoHeight()
-			[
-				SAssignNew(TabWidget, SUTTabWidget)
-				.OnTabButtonNumberChanged(this, &SUWPlayerInfoDialog::OnTabSelected)
-			];
-
 		AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
 		if (DefaultGameMode)
 		{
@@ -640,8 +653,8 @@ void SUWPlayerInfoDialog::OnUpdatePlayerState()
 		FriendStatus = NAME_None;
 		RecreatePlayerPreview();
 
-		TabWidget->SelectTab(CurrentTab);
-		DialogTitle->SetText(FText::Format(NSLOCTEXT("SUWindowsDesktop", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(TargetPlayerState->PlayerName)));
+		TabWidget->OnButtonClicked(CurrentTab);
+		DialogTitle->SetText(FText::FromString(TargetPlayerState->PlayerName));
 	}
 }
 
