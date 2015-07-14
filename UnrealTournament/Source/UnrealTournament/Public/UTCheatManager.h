@@ -22,6 +22,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	virtual void ua();
 
 	UFUNCTION(exec)
+	virtual void SetChar(const FString& NewChar);
+
+	UFUNCTION(exec)
 	virtual void SetHat(const FString& Hat);
 
 	UFUNCTION(exec)
