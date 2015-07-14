@@ -197,7 +197,20 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	CameraStyle = GetCameraStyleWithOverrides();
 
 	// smooth third person camera all the time
-	if (CameraStyle == NAME_FreeCam)
+	if (OutVT.Target == PCOwner)
+	{
+		OutVT.POV.FOV = DefaultFOV;
+		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
+		OutVT.POV.bConstrainAspectRatio = false;
+		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+		OutVT.POV.PostProcessBlendWeight = 1.0f;
+		if (OutVT.POV.Location.IsZero())
+		{
+			OutVT.POV.Location = PCOwner->GetFocalLocation();
+		}
+		OutVT.POV.Rotation = PCOwner->GetControlRotation();
+	}
+	else if (CameraStyle == NAME_FreeCam)
 	{
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
 		AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
