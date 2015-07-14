@@ -70,6 +70,11 @@ protected:
 	FDialogResultDelegate OnDialogResult;
 
 	/**
+	*	Builds the TitleBar. Override to build a custom Title bar
+	**/
+	virtual TSharedRef<class SWidget> BuildTitleBar(FText InDialogTitle);
+
+	/**
 	 *	Called when the dialog wants to build the button bar.  It will iterate over the ButtonMask and add any buttons needed.
 	 **/
 	TSharedRef<class SWidget> BuildButtonBar(uint16 ButtonMask);

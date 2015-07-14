@@ -22,7 +22,7 @@
 #include "AssetData.h"
 
 // scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
-static const float BOB_SCALING_FACTOR = 2.0f;
+static const float BOB_SCALING_FACTOR = 1.f;
 
 #if !UE_SERVER
 
@@ -35,13 +35,11 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 {
 	FVector2D ViewportSize;
 	InArgs._PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
-	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
 
-	FVector2D UnscaledDialogSize = ViewportSize / DPIScale;
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
 							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "PlayerSettings", "Player Settings"))
-							.DialogSize(UnscaledDialogSize)
+							.DialogSize(FVector2D(1900.0,1060.0))
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 							.ContentPadding(FVector2D(0,0))
@@ -169,7 +167,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	}
 
 	{
-		CharacterList.Add(MakeShareable(new FString(TEXT("Malcolm"))));
+		CharacterList.Add(MakeShareable(new FString(TEXT("Taye"))));
 		CharacterPathList.Add(TEXT(""));
 
 		TArray<FAssetData> AssetList;
@@ -965,8 +963,31 @@ void SUWPlayerSettingsDialog::OnHatVariantSelected(TSharedPtr<FString> NewSelect
 {
 	if (NewSelection.IsValid())
 	{
-		SelectedHatVariant->SetText(*NewSelection.Get());
-		RecreatePlayerPreview();
+		// last minute prevent selecting "locked" entries, since Slate won't let us disable the menu items
+		bool bForcedNewSelection = false;
+		{
+			int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
+			if (HatPathList.IsValidIndex(Index))
+			{
+				if (!GetPlayerOwner()->OwnsItemFor(HatPathList[Index], HatVariantList.Find(NewSelection)))
+				{
+					for (int32 i = 0; i < HatVariantList.Num(); i++)
+					{
+						if (GetPlayerOwner()->OwnsItemFor(HatPathList[Index], i))
+						{
+							HatVariantComboBox->SetSelectedItem(HatVariantList[i]);
+							bForcedNewSelection = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (!bForcedNewSelection)
+		{
+			SelectedHatVariant->SetText(*NewSelection.Get());
+			RecreatePlayerPreview();
+		}
 	}
 }
 
@@ -982,8 +1003,34 @@ void SUWPlayerSettingsDialog::OnEyewearSelected(TSharedPtr<FString> NewSelection
 
 void SUWPlayerSettingsDialog::OnEyewearVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedEyewearVariant->SetText(*NewSelection.Get());
-	RecreatePlayerPreview();
+	if (NewSelection.IsValid())
+	{
+		// last minute prevent selecting "locked" entries, since Slate won't let us disable the menu items
+		bool bForcedNewSelection = false;
+		{
+			int32 Index = EyewearList.Find(EyewearComboBox->GetSelectedItem());
+			if (EyewearPathList.IsValidIndex(Index))
+			{
+				if (!GetPlayerOwner()->OwnsItemFor(EyewearPathList[Index], EyewearVariantList.Find(NewSelection)))
+				{
+					for (int32 i = 0; i < EyewearVariantList.Num(); i++)
+					{
+						if (GetPlayerOwner()->OwnsItemFor(EyewearPathList[Index], i))
+						{
+							EyewearVariantComboBox->SetSelectedItem(EyewearVariantList[i]);
+							bForcedNewSelection = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (!bForcedNewSelection)
+		{
+			SelectedEyewearVariant->SetText(*NewSelection.Get());
+			RecreatePlayerPreview();
+		}
+	}
 }
 
 void SUWPlayerSettingsDialog::OnCharacterSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
@@ -1177,7 +1224,16 @@ void SUWPlayerSettingsDialog::PopulateHatVariants()
 		{
 			for (int32 i = 0; i < HatClass->GetDefaultObject<AUTCosmetic>()->VariantNames.Num(); i++)
 			{
-				HatVariantList.Add(MakeShareable(new FString(HatClass->GetDefaultObject<AUTCosmetic>()->VariantNames[i].ToString())));
+				TSharedPtr<FString> Variant = MakeShareable(new FString());
+				if (!HatClass->GetDefaultObject<AUTCosmetic>()->bRequiresItem || GetPlayerOwner()->OwnsItemFor(NewHatPath, i))
+				{
+					*Variant.Get() = HatClass->GetDefaultObject<AUTCosmetic>()->VariantNames[i].ToString();
+				}
+				else
+				{
+					*Variant.Get() = NSLOCTEXT("SUWPlayerSettingsDialog", "LockedVariant", "--LOCKED--").ToString();
+				}
+				HatVariantList.Add(Variant);
 			}
 		}
 	}
@@ -1210,7 +1266,16 @@ void SUWPlayerSettingsDialog::PopulateEyewearVariants()
 		{
 			for (int32 i = 0; i < EyewearClass->GetDefaultObject<AUTCosmetic>()->VariantNames.Num(); i++)
 			{
-				EyewearVariantList.Add(MakeShareable(new FString(EyewearClass->GetDefaultObject<AUTCosmetic>()->VariantNames[i].ToString())));
+				TSharedPtr<FString> Variant = MakeShareable(new FString());
+				if (!EyewearClass->GetDefaultObject<AUTCosmetic>()->bRequiresItem || GetPlayerOwner()->OwnsItemFor(NewEyewearPath, i))
+				{
+					*Variant.Get() = EyewearClass->GetDefaultObject<AUTCosmetic>()->VariantNames[i].ToString();
+				}
+				else
+				{
+					*Variant.Get() = NSLOCTEXT("SUWPlayerSettingsDialog", "LockedVariant", "--LOCKED--").ToString();
+				}
+				EyewearVariantList.Add(Variant);
 			}
 		}
 	}

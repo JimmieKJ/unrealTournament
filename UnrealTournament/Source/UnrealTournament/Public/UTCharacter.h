@@ -940,9 +940,11 @@ public:
 	/** blood explosion played when gibbing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
+
 	/** type of gib to spawn */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTGib> GibClass;
+
 	/** bones to gib when exploding the entire character (i.e. through GibExplosion()) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TArray<FName> GibExplosionBones;
@@ -950,6 +952,7 @@ public:
 	/** gibs the entire Pawn and destroys it (only the blood/gibs remain) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void GibExplosion();
+
 	/** spawns a gib at the specified bone */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Death)
 	virtual void SpawnGib(FName BoneName, TSubclassOf<class UUTDamageType> DmgType = NULL);
@@ -1083,6 +1086,9 @@ public:
 	/** amount of damage dealt to other characters we land on per 100 units of speed */
 	UPROPERTY(Category = "Falling Damage", EditAnywhere, BlueprintReadWrite)
 	float CrushingDamageFactor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Falling Damage")
+		TSubclassOf<UUTDamageType> CrushingDamageType;
 
 	/** Blueprint override for take falling damage.  Return true to keep TakeFallingDamage() from causing damage.
 		FallingSpeed is the Z velocity at landing, and Hit describes the impacted surface. */
@@ -1700,7 +1706,7 @@ public:
 
 	/** TacCom overlay material */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
-		UMaterialInterface* TacComOverlayMaterial;
+	UMaterialInterface* TacComOverlayMaterial;
 
 	virtual void UpdateTacComMesh(bool bTacComEnabled);
 
@@ -1718,7 +1724,7 @@ protected:
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateWeaponOverlays)
 	uint16 WeaponOverlayFlags;
 	/** mesh with current active overlay material on it (created dynamically when needed) */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	USkeletalMeshComponent* OverlayMesh;
 
 	/** replicated character material override */

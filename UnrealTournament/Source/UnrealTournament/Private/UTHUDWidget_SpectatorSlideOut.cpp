@@ -167,16 +167,12 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10; // warning: hardcoded to match default binds, which has 5 red and 5 blue
 		float XOffset = SlideIn - Size.X;
-		float DrawOffset = 0.f;
+		float DrawOffset = 0.27f * Canvas->ClipY;
 		SlideOutFont = UTHUDOwner->SmallFont;
 
 		if (UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 		{
 			DrawCamBind(NAME_None, "Press number to view player", DeltaTime, XOffset, DrawOffset, false);
-		}
-		else
-		{
-			DrawOffset += CellHeight;
 		}
 		DrawOffset += CellHeight;
 
@@ -379,7 +375,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 						if (DrawOffset > Canvas->ClipY - CellHeight)
 						{
 							bOverflow = true;
-							XOffset = XOffset + Size.X + 2.f;
+							XOffset = XOffset + 0.75f * Size.X + 2.f;
 							DrawOffset -= CellHeight;
 						}
 					}
@@ -445,7 +441,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = Size.X;
+	float Width = 0.75f * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
 	if (bIsInteractive && KeyName != NAME_None)
@@ -470,19 +466,19 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 	}
 
 	// Draw the Text
-	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 0.5f, 0.5f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
 
 	FLinearColor FlagColor = Flag->Team ? Flag->Team->TeamColor : FLinearColor::White;
 	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.5f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
 
-	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.6f), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.6f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected)
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = Size.X;
+	float Width = 0.75f * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
 	if (bIsInteractive && KeyName != NAME_None)
@@ -509,9 +505,9 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 	// Draw the Text
 	if (KeyName != NAME_None)
 	{
-		DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 0.5f, 0.5f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
 	}
-	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
@@ -542,6 +538,9 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	if (PlayerState->Team)
 	{
 		BarColor = PlayerState->Team->TeamColor;
+		BarColor.R *= 0.5f;
+		BarColor.G *= 0.5f;
+		BarColor.B *= 0.5f;
 	}
 
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
@@ -580,16 +579,13 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 			{
 				// @TODO FIXMESTEVE - support actual overlays for different powerups - save related class when setting up overlays in GameState, so have easy mapping. 
 				// For now just assume UDamage
-				DrawTexture(UDamageHUDIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.1f)), YOffset + ColumnY - 0.05f*Width, 0.1f*Width, 0.1f*Width, UDamageHUDIcon.U, UDamageHUDIcon.V, UDamageHUDIcon.UL, UDamageHUDIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
+				DrawTexture(UDamageHUDIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.05f*Width, 0.1f*Width, 0.1f*Width, UDamageHUDIcon.U, UDamageHUDIcon.V, UDamageHUDIcon.UL, UDamageHUDIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 			}
 
 			DrawTexture(HealthIcon.Texture, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY - 0.015f*Width, 0.07f*Width, 0.07f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 			FFormatNamedArguments Args;
 			Args.Add("Health", FText::AsNumber(Character->Health));
-			DrawColor = FLinearColor::Green;
-			DrawColor.R *= 0.5f;
-			DrawColor.G *= 0.5f;
-			DrawColor.B *= 0.5f;
+			DrawColor = FLinearColor(0.5f, 1.f, 0.5f);
 			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * (ColumnHeaderScoreX + 0.06f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
 			if (Character->ArmorAmount > 0)
@@ -597,10 +593,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 				DrawTexture(ArmorIcon.Texture, XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY - 0.015f*Width, 0.065f*Width, 0.065f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 				FFormatNamedArguments ArmorArgs;
 				ArmorArgs.Add("Armor", FText::AsNumber(Character->ArmorAmount));
-				DrawColor = FLinearColor::Yellow;
-				DrawColor.R *= 0.5f;
-				DrawColor.G *= 0.5f;
-				DrawColor.B *= 0.5f;
+				DrawColor = FLinearColor(1.f, 1.f, 0.5f);
 				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * (ColumnHeaderArmor + 0.062f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 			}
 			if (Character->GetWeaponClass())

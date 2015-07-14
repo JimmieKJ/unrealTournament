@@ -9,7 +9,7 @@
 AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ComboDamageParams = FRadialDamageParams(215.0f, 550.0f);
+	ComboDamageParams = FRadialDamageParams(215.0f, 520.0f);
 	ComboAmmoCost = 3;
 	bComboExplosion = false;
 	bUsingClientSideHits = false;
@@ -94,6 +94,14 @@ void AUTProj_ShockBall::PerformCombo(class AController* InstigatedBy, class AAct
 		if (Weapon && (!GameMode || GameMode->bAmmoIsLimited || (Weapon->Ammo > 9)))
 		{
 			Weapon->AddAmmo(-ComboAmmoCost);
+		}
+
+		//This gets called before server startfire(). bPlayComboEffects = true will send the FireExtra when fired
+		AUTCharacter* UTC = (InstigatedBy != nullptr) ? Cast<AUTCharacter>(InstigatedBy->GetPawn()) : nullptr;
+		AUTWeap_ShockRifle* ShockRifle = (UTC != nullptr) ? Cast<AUTWeap_ShockRifle>(UTC->GetWeapon()) : nullptr;
+		if (ShockRifle != nullptr)
+		{
+			ShockRifle->bPlayComboEffects = true;
 		}
 	}
 

@@ -8,7 +8,7 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 #if WITH_RECAST && WITH_EDITOR
 	FPrimitiveSceneProxy* SceneProxy = NULL;
 	ARecastNavMesh* NavMesh = Cast<ARecastNavMesh>(GetOwner());
-	if (IsVisible() && NavMesh != NULL)
+	if (IsVisible() && NavMesh != NULL && !NavMesh->bPendingKillPending)
 	{
 		FNavMeshSceneProxyData ProxyData;
 		ProxyData.Reset();

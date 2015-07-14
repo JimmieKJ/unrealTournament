@@ -390,3 +390,21 @@ int32 AUTWeap_ShockRifle::GetWeaponDeathStats(AUTPlayerState * PS) const
 	}
 	return DeathCount;
 }
+
+void AUTWeap_ShockRifle::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
+{
+	//Store this now since it might get cleared below. bPlayComboEffects is set by the shock core when combo'd
+	bool bIsCombo = bPlayComboEffects;
+	Super::FireInstantHit(bDealDamage, OutHit);
+
+	//FlashExtra 1 will play the ComboEffects for the other clients 
+	if (Role == ROLE_Authority && UTOwner != nullptr && bIsCombo)
+	{
+		UTOwner->SetFlashExtra(1, CurrentFireMode);
+	}
+}
+
+void AUTWeap_ShockRifle::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)
+{
+	bPlayComboEffects = (InFireMode == 0 && (NewFlashExtra > 0));
+}

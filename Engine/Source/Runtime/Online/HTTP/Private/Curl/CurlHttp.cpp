@@ -270,6 +270,12 @@ size_t FCurlHttpRequest::ReceiveResponseHeaderCallback(void* Ptr, size_t SizeInB
 			if (Header.Split(TEXT(": "), &HeaderName, &Param))
 			{
 				Response->Headers.Add(HeaderName, Param);
+
+				//Store the content length so OnRequestProgress() delegates have something to work with
+				if (HeaderName == TEXT("Content-Length"))
+				{
+					Response->ContentLength = FCString::Atoi(*Param);
+				}
 			}
 			return HeaderSize;
 		}

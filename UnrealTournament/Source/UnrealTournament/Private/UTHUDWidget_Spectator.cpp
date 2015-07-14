@@ -75,10 +75,10 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 	FText SpectatorMessage;
 	if (UTGameState)
 	{
+		AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 		if (!UTGameState->HasMatchStarted())
 		{
 			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
-			AUTPlayerState* UTPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 			if (UTGameState->IsMatchInCountdown())
 			{
 				SpectatorMessage = (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
@@ -94,6 +94,12 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
 					? NSLOCTEXT("UUTHUDWidget_Spectator", "IsReadyTeam", "You are ready, press [ALTFIRE] to change teams.")
 					: NSLOCTEXT("UUTHUDWidget_Spectator", "IsReady", "You are ready to play.");
+			}
+			else if (UTPS && UTPS->bCaster)
+			{
+				SpectatorMessage = (UTGameState->AreAllPlayersReady())
+					? NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForCaster", "All players are ready. Press [Enter] to start match.")
+					: NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
 			}
 			else if (UTPS && UTPS->bOnlySpectator)
 			{
@@ -114,7 +120,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 				Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
 				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
 			}
-			else if (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
+			else if (UTPS && UTPS->bOnlySpectator)
 			{
 				AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
 				AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
@@ -144,7 +150,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 			}
 			else if (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL))
 			{
-				if (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime > 0.0f)
+				if (UTPS && UTPS->RespawnTime > 0.0f)
 				{
 					FFormatNamedArguments Args;
 					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()

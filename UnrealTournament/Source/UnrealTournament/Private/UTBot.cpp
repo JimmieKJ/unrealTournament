@@ -428,11 +428,7 @@ bool AUTBot::FindBestJumpVelocityXY(FVector& JumpVelocity, const FVector& StartL
 	else
 	{
 		Determinant = FMath::Sqrt(Determinant);
-		float Time = (-ZSpeed + Determinant) / GravityZ;
-		if (Time <= 0.0f)
-		{
-			Time = (-ZSpeed - Determinant) / GravityZ;
-		}
+		float Time = FMath::Max<float>(-ZSpeed + Determinant, -ZSpeed - Determinant) / GravityZ;
 		if (Time > 0.0f)
 		{
 			JumpVelocity = (TargetLoc - StartLoc) / Time;
@@ -1998,7 +1994,9 @@ bool AUTBot::CheckFutureSight(float DeltaTime)
 	else
 	{
 		// check if can still see target
-		return !GetWorld()->LineTraceTestByObjectType(FutureLoc, GetFocalPoint() + TrackedVelocity, ResultParams, Params);
+		// ignore aiming adjustments that are a result of aiming for splash, lobs, etc
+		const FVector PreTacticalFocalPoint = GetFocalPoint() - TacticalAimOffset;
+		return !GetWorld()->LineTraceTestByObjectType(FutureLoc, PreTacticalFocalPoint + TrackedVelocity, ResultParams, Params);
 	}
 }
 

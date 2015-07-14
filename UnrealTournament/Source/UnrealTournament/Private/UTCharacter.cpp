@@ -8,7 +8,6 @@
 #include "UTDmgType_Suicide.h"
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_Drown.h"
-#include "UTDmgType_FallingCrush.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
@@ -28,6 +27,7 @@
 #include "ComponentReregisterContext.h"
 #include "UTMutator.h"
 #include "UTRewardMessage.h"
+#include "StatNames.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -888,7 +888,10 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 }
 bool AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
-	Damage *= DamageScaling;
+	if (!DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld)
+	{
+		Damage *= DamageScaling;
+	}
 	return false;
 }
 
@@ -1306,12 +1309,31 @@ void AUTCharacter::StopRagdoll()
 		FBodyInstance* RootBody = GetMesh()->GetBodyInstance();
 		if (RootBody != NULL)
 		{
-			FTransform NewTransform(GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeRotation, GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeLocation);
-			NewTransform *= GetCapsuleComponent()->GetComponentTransform();
-			RootBody->SetBodyTransform(NewTransform, true);
+			TArray<FTransform> BodyTransforms;
+			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
+			{
+				BodyTransforms.Add((GetMesh()->Bodies[i] != NULL) ? GetMesh()->Bodies[i]->GetUnrealWorldTransform() : FTransform::Identity);
+			}
+
+			const USkeletalMeshComponent* DefaultMesh = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh();
+			FTransform RelativeTransform(DefaultMesh->RelativeRotation, DefaultMesh->RelativeLocation, DefaultMesh->RelativeScale3D);
+			GetMesh()->SetWorldTransform(RelativeTransform * GetCapsuleComponent()->GetComponentTransform());
+
+			RootBody->SetBodyTransform(GetMesh()->GetComponentTransform(), true);
+			RootBody->PutInstanceToSleep();
 			RootBody->SetInstanceSimulatePhysics(false, true);
 			RootBody->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
-			GetMesh()->SyncComponentToRBPhysics();
+			for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
+			{
+				if (GetMesh()->Bodies[i] != NULL && GetMesh()->Bodies[i] != RootBody)
+				{
+					GetMesh()->Bodies[i]->SetBodyTransform(BodyTransforms[i], true);
+					GetMesh()->Bodies[i]->PutInstanceToSleep();
+					//GetMesh()->Bodies[i]->SetInstanceSimulatePhysics(false, true);
+					//GetMesh()->Bodies[i]->PhysicsBlendWeight = 1.0f;
+				}
+			}
+			//GetMesh()->SyncComponentToRBPhysics();
 		}
 	}
 
@@ -1869,11 +1891,15 @@ void AUTCharacter::IncrementFlashCount(uint8 InFireMode)
 {
 	FlashCount++;
 	// we reserve zero for not firing; make sure we don't set that
-	if (FlashCount == 0)
+	if ((FlashCount & 0xF) == 0)
 	{
 		FlashCount++;
 	}
 	FireMode = InFireMode;
+
+	//Pack the Firemode in top 4 bits to prevent misfires when alternating projectile shots
+	//eg pri shot, FC = 1 -> alt shot, FC = 0 (stop fire) -> FC = 1  (FC is still 1 so no rep)
+	FlashCount = (FlashCount & 0x0F) | FireMode << 4;
 	FiringInfoUpdated();
 }
 void AUTCharacter::SetFlashExtra(uint8 NewFlashExtra, uint8 InFireMode)
@@ -1917,23 +1943,20 @@ void AUTCharacter::FiringInfoUpdated()
 			if (Controller == NULL)
 			{
 				EffectFiringMode = FireMode;
-				Weapon->PlayFiringEffects();
-			}
-			FVector SpawnLocation;
-			FRotator SpawnRotation;
-			Weapon->GetImpactSpawnPosition(FlashLocation, SpawnLocation, SpawnRotation);
-			Weapon->PlayImpactEffects(FlashLocation, EffectFiringMode, SpawnLocation, SpawnRotation);
-		}
-		else if (Controller == NULL)
-		{
-			if (FlashCount != 0)
-			{
-				Weapon->PlayFiringEffects();
+				Weapon->FiringInfoUpdated(FireMode, FlashCount, FlashLocation);
+				Weapon->FiringEffectsUpdated(FireMode, FlashLocation);
 			}
 			else
 			{
-				Weapon->StopFiringEffects();
+				FVector SpawnLocation;
+				FRotator SpawnRotation;
+				Weapon->GetImpactSpawnPosition(FlashLocation, SpawnLocation, SpawnRotation);
+				Weapon->PlayImpactEffects(FlashLocation, EffectFiringMode, SpawnLocation, SpawnRotation);
 			}
+		}
+		else if (Controller == NULL)
+		{
+			Weapon->FiringInfoUpdated(FireMode, FlashCount, FlashLocation);
 		}
 	}
 	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
@@ -1954,6 +1977,10 @@ void AUTCharacter::FiringExtraUpdated()
 	if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
 	{
 		WeaponAttachment->FiringExtraUpdated();
+	}
+	if (Weapon != nullptr && UTPC == nullptr)
+	{
+		Weapon->FiringExtraUpdated(FlashExtra, FireMode);
 	}
 }
 
@@ -2723,7 +2750,7 @@ FVector AUTCharacter::GetTransformedEyeOffset() const
 		XTransform = XTransform * MaxZ / XTransform.Z;
 	}
 	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
-	return EyeOffsetGlobalScaling * (XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z));
+	return FMath::Clamp(EyeOffsetGlobalScaling, 0.f, 1.f) * (XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z));
 }
 
 FVector AUTCharacter::GetPawnViewLocation() const
@@ -2826,7 +2853,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 			float Damage = CrushingDamageFactor * GetCharacterMovement()->Velocity.Z / -100.0f;
 			if (Damage >= 1.0f)
 			{
-				FUTPointDamageEvent DamageEvent(Damage, Hit, -GetCharacterMovement()->Velocity.GetSafeNormal(), UUTDmgType_FallingCrush::StaticClass());
+				FUTPointDamageEvent DamageEvent(Damage, Hit, -GetCharacterMovement()->Velocity.GetSafeNormal(), CrushingDamageType);
 				Hit.Actor->TakeDamage(Damage, DamageEvent, Controller, this);
 			}
 		}
@@ -3297,6 +3324,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		else
 		{
 			GetMesh()->SetAllBodiesPhysicsBlendWeight(FMath::Max(0.0f, GetMesh()->Bodies[0]->PhysicsBlendWeight - (1.0f / FMath::Max(0.01f, RagdollBlendOutTime)) * DeltaTime));
+			GetMesh()->PutAllRigidBodiesToSleep(); // make sure since we can't disable the physics without it breaking
 			if (GetMesh()->Bodies[0]->PhysicsBlendWeight == 0.0f)
 			{
 				bInRagdollRecovery = false;
@@ -3936,6 +3964,12 @@ bool AUTCharacter::TeleportTo(const FVector& DestLocation, const FRotator& DestR
 				B->MoveTimer = -1.0f;
 			}
 		}
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS)
+		{
+			float Dist = (GetActorLocation() - TeleportStart).Size();
+			PS->ModifyStatsValue(NAME_TranslocDist, Dist);
+		}
 	}
 	return bResult;
 }
@@ -3981,6 +4015,11 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 	}
 }
 
+/** @TODO FIXMESTEVE Chat bubble - need to replicate console/menu open
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	float ChatBubbleScale = Scale * FMath::Min(1.f, 2000.f / (1000.f + Dist));
+	Canvas->DrawTile(Cast<AUTHUD>(UTPC->MyHUD)->HUDAtlas, ScreenPosition.X + 0.6f*XL, ScreenPosition.Y - YL, 72.f*ChatBubbleScale, 72.f*ChatBubbleScale, 499, 940, 72, 72);
+*/
 void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
@@ -4806,6 +4845,10 @@ void AUTCharacter::OnRep_Invisible_Implementation()
 	if (LeaderHat)
 	{
 		LeaderHat->SetActorHiddenInGame(bInvisible);
+	}
+	if (Eyewear != NULL)
+	{
+		Eyewear->SetActorHiddenInGame(bInvisible);
 	}
 }
 

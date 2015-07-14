@@ -220,10 +220,10 @@ void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 	float3 DeviceZPlane;
 	DeviceZPlane.z = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV, 0).r;
 
-	float Left = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(-1, 0) * View.ViewSizeAndSceneTexelSize.zw, 0).r;
-	float Right= Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(1, 0) * View.ViewSizeAndSceneTexelSize.zw, 0).r;
-	float Top  = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, -1) * View.ViewSizeAndSceneTexelSize.zw, 0).r;
-	float Bottom = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, 1) * View.ViewSizeAndSceneTexelSize.zw, 0).r;
+	float Left = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(-1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
+	float Right= Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
+	float Top  = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, -1) * View.BufferSizeAndInvSize.zw, 0).r;
+	float Bottom = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, UV + float2(0, 1) * View.BufferSizeAndInvSize.zw, 0).r;
 
 	float2 DeviceZMinMax;
 	DeviceZMinMax.x = min(DeviceZPlane.z, min(min(Left, Right), min(Top, Bottom)));

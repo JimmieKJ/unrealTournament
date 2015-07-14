@@ -187,16 +187,13 @@ public:
 	virtual FVector4 GetDirectLightingDirection(const FVector4& Point, const FVector4& PointNormal) const = 0;
 
 	/**
-	 * Returns whether static lighting, aka lightmaps, is being used for primitive/ light
-	 * interaction.
+	 * Returns whether static lighting, aka lightmaps, is being used for primitive/ light interaction.
 	 *
-	 * @param bForceDirectLightMap	Whether primitive is set to force lightmaps
 	 * @return true if lightmaps/ static lighting is being used, false otherwise
 	 */
-	bool UseStaticLighting( bool bForceDirectLightMap ) const
+	bool UseStaticLighting() const
 	{
-		// use the flags that Unreal sent over to determine if we should use static lighting or not
-		return (LightFlags & GI_LIGHT_HASSTATICLIGHTING) && ((LightFlags & GI_LIGHT_USEDIRECTLIGHTMAP) || bForceDirectLightMap || !(LightFlags & GI_LIGHT_HASSTATICSHADOWING));
+		return (LightFlags & GI_LIGHT_HASSTATICLIGHTING) != 0;
 	}
 
 protected:

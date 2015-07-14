@@ -287,7 +287,7 @@ public:
 	/**
 	 * Constructs mip maps for a single shadowmap texture.
 	 */
-	static void EncodeSingleTexture(struct FShadowMapPendingTexture& PendingTexture, UShadowMapTexture2D* Texture, TArray< TArray<FFourDistanceFieldSamples>>& MipData);
+	static int32 EncodeSingleTexture(struct FShadowMapPendingTexture& PendingTexture, UShadowMapTexture2D* Texture, TArray< TArray<FFourDistanceFieldSamples>>& MipData);
 
 	static ENGINE_API FShadowMap2D* AllocateShadowMap(
 		UObject* LightMapOuter,
@@ -353,6 +353,9 @@ private:
 
 	/** Tracks which of the 4 channels has valid texture data. */
 	bool bChannelValid[4];
+
+	/** Stores the inverse of the penumbra size, normalized.  Stores 1 to interpret the shadowmap as a shadow factor directly, instead of as a distance field. */
+	FVector4 InvUniformPenumbraSize;
 
 	/** If true, update the status when encoding light maps */
 	ENGINE_API static bool bUpdateStatus;

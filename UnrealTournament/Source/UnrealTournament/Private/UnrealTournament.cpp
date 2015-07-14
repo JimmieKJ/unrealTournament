@@ -5,6 +5,10 @@
 #include "UTWorldSettings.h"
 #include "UTLevelSummary.h"
 #include "UnrealNetwork.h"
+#include "UTProfileItem.h"
+#include "UTCharacterContent.h"
+#include "UTTaunt.h"
+#include "UTBotCharacter.h"
 
 class FUTModule : public FDefaultGameModuleImpl
 {
@@ -20,6 +24,8 @@ static uint32 UTGetNetworkVersion()
 {
 	return 3008041;
 }
+
+const FString ITEM_STAT_PREFIX = TEXT("ITEM_");
 
 // init editor hooks
 #if WITH_EDITOR
@@ -204,6 +210,24 @@ bool LocallyHasEntitlement(const FString& Entitlement)
 	}
 }
 
+bool LocallyOwnsItemFor(const FString& Path)
+{
+	const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
+	for (const FWorldContext& Context : AllWorlds)
+	{
+		for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
+			if (LP != NULL && LP->OwnsItemFor(Path))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
 {
 	// calling this with UBlueprint::StaticClass() is probably a bug where the user intended to call GetAllBlueprintAssetData()
@@ -234,6 +258,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Pickups/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Weapons/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/ProfileItems/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -260,6 +285,14 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 			if (!LocallyHasEntitlement(GetRequiredEntitlementFromAsset(AssetList[i])))
 			{
 				AssetList.RemoveAt(i);
+			}
+			else
+			{
+				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+				if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+				{
+					AssetList.RemoveAt(i);
+				}
 			}
 		}
 	}
@@ -390,6 +423,14 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 			{
 				AssetList.RemoveAt(i);
 			}
+			else
+			{
+				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+				if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+				{
+					AssetList.RemoveAt(i);
+				}
+			}
 		}
 	}
 }
@@ -456,7 +497,7 @@ bool IsTimerActiveUFunc(UObject* Obj, FName FuncName)
 		return false;
 	}
 }
-void ClearTimerActiveUFunc(UObject* Obj, FName FuncName)
+void ClearTimerUFunc(UObject* Obj, FName FuncName)
 {
 	if (Obj != NULL)
 	{
@@ -476,6 +517,165 @@ void ClearTimerActiveUFunc(UObject* Obj, FName FuncName)
 				FTimerHandle Handle = World->GetTimerManager().K2_FindDynamicTimerHandle(Delegate);
 				return World->GetTimerManager().ClearTimer(Handle);
 			}
+		}
+	}
+}
+
+FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDelegate, const FString& StatsID, const FString& QueryWindow)
+{
+	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
+	if (StatsReadRequest.IsValid())
+	{
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+#endif
+		FString McpConfigOverride;
+		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+		if (McpConfigOverride == TEXT("localhost"))
+		{
+			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/");
+		}
+		else if (McpConfigOverride == TEXT("gamedev"))
+		{
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+		}
+
+		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
+
+		StatsReadRequest->SetURL(FinalStatsURL);
+		StatsReadRequest->OnProcessRequestComplete() = ResultDelegate;
+		StatsReadRequest->SetVerb(TEXT("GET"));
+
+		UE_LOG(LogGameStats, Verbose, TEXT("%s"), *FinalStatsURL);
+
+		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+		if (OnlineSubsystem != NULL && OnlineSubsystem->GetIdentityInterface().IsValid())
+		{
+			FString AuthToken = OnlineSubsystem->GetIdentityInterface()->GetAuthToken(0);
+			StatsReadRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+		}
+		StatsReadRequest->ProcessRequest();
+	}
+	return StatsReadRequest;
+}
+
+void ParseProfileItemJson(const FString& Data, TArray<FProfileItemEntry>& ItemList)
+{
+	TArray< TSharedPtr<FJsonValue> > StatsJson;
+	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Data);
+	if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.Num() > 0)
+	{
+		// compose a TMap of the items for search efficiency
+		TMap< FName, uint32 > StatValueMap;
+		for (TSharedPtr<FJsonValue> TestValue : StatsJson)
+		{
+			if (TestValue->Type == EJson::Object)
+			{
+				TSharedPtr<FJsonObject> Obj = TestValue->AsObject();
+				if (Obj->HasField(TEXT("name")))
+				{
+					uint32 Value = 0;
+					Obj->TryGetNumberField(TEXT("value"), Value);
+					StatValueMap.Add(FName(*Obj->GetStringField(TEXT("name"))), Value);
+				}
+			}
+		}
+
+		ItemList.Reset();
+
+		TArray<FAssetData> AllItems;
+		GetAllAssetData(UUTProfileItem::StaticClass(), AllItems, false);
+		for (const FAssetData& TestItem : AllItems)
+		{
+			FName FieldName(*(ITEM_STAT_PREFIX + TestItem.AssetName.ToString()));
+			uint32 Value = StatValueMap.FindRef(FieldName);
+			if (Value > 0)
+			{
+				UUTProfileItem* Obj = Cast<UUTProfileItem>(TestItem.GetAsset());
+				if (Obj != NULL)
+				{
+					new(ItemList) FProfileItemEntry(Obj, Value);
+				}
+			}
+		}
+	}
+}
+
+bool NeedsProfileItem(UObject* TestObj)
+{
+	UClass* TestCls = Cast<UClass>(TestObj);
+	TSubclassOf<AUTCosmetic> CosmeticCls(TestCls);
+	TSubclassOf<AUTCharacterContent> CharacterCls(TestCls);
+	TSubclassOf<AUTTaunt> TauntCls(TestCls);
+	const UUTBotCharacter* BotChar = Cast<UUTBotCharacter>(TestObj);
+	return (CosmeticCls != NULL && CosmeticCls.GetDefaultObject()->bRequiresItem) || (CharacterCls != NULL && CharacterCls.GetDefaultObject()->bRequiresItem) || (TauntCls != NULL && TauntCls.GetDefaultObject()->bRequiresItem) || (BotChar != NULL && BotChar->bRequiresItem);
+}
+
+void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList)
+{
+	if (UniqueId.IsValid() && ItemList.Num() > 0)
+	{
+		TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
+		for (const FProfileItemEntry& Entry : ItemList)
+		{
+			if (Entry.Item != NULL)
+			{
+				StatsJson->SetNumberField(ITEM_STAT_PREFIX + Entry.Item->GetName(), Entry.Count);
+			}
+		}
+
+		FString OutputJsonString;
+		TArray<uint8> BackendStatsData;
+		TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+		FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+		{
+			FMemoryWriter MemoryWriter(BackendStatsData);
+			MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
+		}
+
+		FString StatsID = UniqueId->ToString();
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+#else
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+#endif
+
+		FString McpConfigOverride;
+		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+
+		if (McpConfigOverride == TEXT("prodnet"))
+		{
+			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+		}
+		else if (McpConfigOverride == TEXT("localhost"))
+		{
+			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+		}
+		else if (McpConfigOverride == TEXT("gamedev"))
+		{
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+		}
+
+		FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();
+		if (StatsWriteRequest.IsValid())
+		{
+			StatsWriteRequest->SetURL(BaseURL);
+			StatsWriteRequest->SetVerb(TEXT("POST"));
+			StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+
+			if (IOnlineSubsystem::Get()->GetIdentityInterface().IsValid())
+			{
+				FString AuthToken = IOnlineSubsystem::Get()->GetIdentityInterface()->GetAuthToken(0);
+				StatsWriteRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+			}
+
+			UE_LOG(LogGameStats, VeryVerbose, TEXT("%s"), *OutputJsonString);
+
+			StatsWriteRequest->SetContent(BackendStatsData);
+			StatsWriteRequest->ProcessRequest();
 		}
 	}
 }

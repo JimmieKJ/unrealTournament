@@ -360,29 +360,46 @@ void UEditorEngine::polyUpdateMaster
 	UModel* Brush = Actor->Brush;
 	check(Brush);
 
-	// Use transform cached when the geometry was last built, in case the current Actor transform has changed since then
-	// (e.g. because Auto Update BSP is disabled)
-	check(Brush->bCachedOwnerTransformValid);
-	const FVector ActorLocation = Brush->OwnerLocationWhenLastBuilt;
-	const FVector ActorPrePivot = Brush->OwnerPrepivotWhenLastBuilt;
-	const FVector ActorScale = Brush->OwnerScaleWhenLastBuilt;
-	const FRotator ActorRotation = -Brush->OwnerRotationWhenLastBuilt;
+	FVector ActorLocation;
+	FVector ActorPrePivot;
+	FVector ActorScale;
+	FRotator ActorRotation;
 
-	for( int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Brush->Polys->Element.Num(); iEdPoly++ )
+	if (Brush->bCachedOwnerTransformValid)
+	{
+		// Use transform cached when the geometry was last built, in case the current Actor transform has changed since then
+		// (e.g. because Auto Update BSP is disabled)
+		ActorLocation = Brush->OwnerLocationWhenLastBuilt;
+		ActorPrePivot = Brush->OwnerPrepivotWhenLastBuilt;
+		ActorScale = Brush->OwnerScaleWhenLastBuilt;
+		ActorRotation = Brush->OwnerRotationWhenLastBuilt;
+	}
+	else
+	{
+		// No cached owner transform, so use the current one
+		ActorLocation = Actor->GetActorLocation();
+		ActorPrePivot = Actor->GetPrePivot();
+		ActorScale = Actor->GetActorScale();
+		ActorRotation = Actor->GetActorRotation();
+	}
+
+	const FRotationMatrix RotationMatrix(ActorRotation);
+
+	for (int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Brush->Polys->Element.Num(); iEdPoly++)
 	{
 		FPoly& MasterEdPoly = Brush->Polys->Element[iEdPoly];
-		if( iEdPoly==Surf.iBrushPoly || MasterEdPoly.iLink==Surf.iBrushPoly )
+		if (iEdPoly == Surf.iBrushPoly || MasterEdPoly.iLink == Surf.iBrushPoly)
 		{
 			Brush->Polys->Element.ModifyItem( iEdPoly );
 
 			MasterEdPoly.Material  = Surf.Material;
 			MasterEdPoly.PolyFlags = Surf.PolyFlags & ~(PF_NoEdit);
 
-			if( UpdateTexCoords )
+			if (UpdateTexCoords)
 			{
-				MasterEdPoly.Base = ActorRotation.RotateVector(Model->Points[Surf.pBase] - ActorLocation) / ActorScale + ActorPrePivot;
-				MasterEdPoly.TextureU = ActorRotation.RotateVector(Model->Vectors[Surf.vTextureU]) * ActorScale;
-				MasterEdPoly.TextureV = ActorRotation.RotateVector(Model->Vectors[Surf.vTextureV]) * ActorScale;
+				MasterEdPoly.Base = RotationMatrix.InverseTransformVector(Model->Points[Surf.pBase] - ActorLocation) / ActorScale + ActorPrePivot;
+				MasterEdPoly.TextureU = RotationMatrix.InverseTransformVector(Model->Vectors[Surf.vTextureU]) * ActorScale;
+				MasterEdPoly.TextureV = RotationMatrix.InverseTransformVector(Model->Vectors[Surf.vTextureV]) * ActorScale;
 			}
 		}
 	}

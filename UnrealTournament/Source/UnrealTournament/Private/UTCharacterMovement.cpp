@@ -7,6 +7,7 @@
 #include "UTReachSpec_Lift.h"
 #include "UTWaterVolume.h"
 #include "UTBot.h"
+#include "StatNames.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
@@ -50,11 +51,13 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 6200.f; 
+	MaxAcceleration = 6000.f; 
 	MaxFallingAcceleration = 4200.f;
 	BrakingDecelerationWalking = 500.f;
+	DefaultBrakingDecelerationWalking = BrakingDecelerationWalking;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
+	BrakingDecelerationSliding = 300.f;
 	GroundFriction = 12.f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
@@ -64,10 +67,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlopeDodgeScaling = 0.93f;
 
 	FloorSlideAcceleration = 1500.f;
-	MaxFloorSlideSpeed = 920.f;
+	MaxFloorSlideSpeed = MaxWalkSpeed;
 	FloorSlideDuration = 0.5f;
 	FloorSlideBonusTapInterval = 0.17f;
-	FloorSlideEndingSpeedFactor = 0.45f;
+	FloorSlideEndingSpeedFactor = 0.4f;
 	FloorSlideSlopeBraking = 2.7f;
 	FallingDamageRollReduction = 6.f;
 
@@ -85,7 +88,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 470.f; 
 
-	MaxSlideRiseZ = 400.f;
+	MaxSlideRiseZ = 650.f; 
 	MaxSlideFallZ = -180.f;
 	SlideGravityScaling = 0.16f;
 	MinWallSlideSpeed = 500.f;
@@ -107,6 +110,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CurrentWallDodgeCount = 0;				
 	bWantsFloorSlide = false;	
 	bWantsWallSlide = false;
+	bCountWallSlides = true;
 	LastCheckedAgainstWall = 0.f;
 	bIsSettingUpFirstReplayMove = false;
 
@@ -128,6 +132,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MinTimeBetweenClientAdjustments = 0.1f;
 	bLargeCorrection = false;
 	LargeCorrectionThreshold = 15.f;
+
+	ServerSyncTime = -1.0f;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
@@ -170,14 +176,56 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 				{
 					const FVector PawnLoc = CharacterOwner->GetActorLocation();
 					float XYSize = (LiftPath->LiftExitLoc - PawnLoc).Size2D();
-					float Time = XYSize / MaxWalkSpeed;
 					// test with slightly less than actual velocity to provide some room for error and so bots aren't perfect all the time
-					// TODO: maybe also delay more if lift is known to have significant travel time remaining?
-					if (PawnLoc.Z + (LiftVelocity.Z + JumpZVelocity * 0.9f) * Time + 0.5f * GetGravityZ() * FMath::Square<float>(Time) >= LiftPath->LiftExitLoc.Z)
+					const float LiftJumpZ = (LiftVelocity.Z + JumpZVelocity * 0.95f);
+					bool bShouldJump = false;
+					// special case for lift jumps that are meant to go nowhere (pickup on ceiling, etc)
+					if (XYSize < CharacterOwner->GetCapsuleComponent()->GetUnscaledCapsuleRadius() * 2.0f)
+					{
+						const float ZDiff = LiftPath->LiftExitLoc.Z - PawnLoc.Z;
+						// if there is any solution to the constant accel equation, then we can hit the target with a lift jump
+						// 0 = 0.5*GravityZ*t^2 + JumpVel.Z*t + (-ZDiff)
+						bShouldJump = FMath::Square<float>(LiftJumpZ) -(2.0f * GetGravityZ() * (-ZDiff)) > 0.0f;
+					}
+					else
+					{
+						// TODO: maybe also delay more if lift is known to have significant travel time remaining?
+						float XYTime = XYSize / MaxWalkSpeed;
+						float ZTime = 0.0f;
+						{
+							float Determinant = FMath::Square(LiftJumpZ) - 2.0 * GetGravityZ() * (PawnLoc.Z - LiftPath->LiftExitLoc.Z);
+							if (Determinant >= 0.0f)
+							{
+								float Time1 = (-LiftJumpZ + Determinant) / GetGravityZ();
+								float Time2 = (-LiftJumpZ - Determinant) / GetGravityZ();
+								if (Time1 > 0.0f)
+								{
+									if (Time2 > 0.0f)
+									{
+										ZTime = FMath::Min<float>(Time1, Time2);
+									}
+									else
+									{
+										ZTime = Time1;
+									}
+								}
+								else if (Time2 > 0.0f)
+								{
+									ZTime = Time2;
+								}
+							}
+						}
+						bShouldJump = (ZTime > XYTime || PawnLoc.Z + LiftJumpZ * XYTime + 0.5f * GetGravityZ() * FMath::Square<float>(XYTime) >= LiftPath->LiftExitLoc.Z);
+					}
+					if (bShouldJump)
 					{
 						// jump!
 						FVector DesiredVel2D;
-						if (B->FindBestJumpVelocityXY(DesiredVel2D, CharacterOwner->GetActorLocation(), LiftPath->LiftExitLoc, LiftVelocity.Z + JumpZVelocity, GetGravityZ(), CharacterOwner->GetSimpleCollisionHalfHeight()))
+						if (LiftPath->bSkipInitialAirControl)
+						{
+							Velocity = FVector::ZeroVector;
+						}
+						else if (B->FindBestJumpVelocityXY(DesiredVel2D, CharacterOwner->GetActorLocation(), LiftPath->LiftExitLoc, LiftVelocity.Z + JumpZVelocity, GetGravityZ(), CharacterOwner->GetSimpleCollisionHalfHeight()))
 						{
 							Velocity = FVector(DesiredVel2D.X, DesiredVel2D.Y, 0.0f).GetClampedToMaxSize2D(MaxWalkSpeed);
 						}
@@ -261,6 +309,11 @@ void UUTCharacterMovement::ApplyImpactVelocity(FVector JumpDir, bool bIsFullImpa
 	SetMovementMode(MOVE_Falling);
 	bNotifyApex = true;
 	NeedsClientAdjustment();
+	AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+	if (PS)
+	{
+		PS->ModifyStatsValue(NAME_NumImpactJumps, 1);
+	}
 }
 
 void UUTCharacterMovement::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
@@ -380,7 +433,28 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 			if ((CharacterOwner->Role == ROLE_Authority) && !bOwnerIsRagdoll)
 			{
+				FVector StartMoveLoc = GetActorLocation();
 				PerformMovement(DeltaTime);
+				AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+				if (PS)
+				{
+					float Dist = (GetActorLocation() - StartMoveLoc).Size();
+					FName MovementName = bIsSprinting ? NAME_SprintDist : NAME_RunDist;
+					if (MovementMode == MOVE_Falling)
+					{
+						AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+						MovementName = (UTCharOwner && UTCharOwner->bApplyWallSlide) ? NAME_WallRunDist : NAME_InAirDist;
+					}
+					else if (MovementMode == MOVE_Swimming)
+					{
+						MovementName = NAME_SwimDist;
+					}
+					else if (bIsFloorSliding)
+					{
+						MovementName = NAME_SlideDist;
+					}
+					PS->ModifyStatsValue(MovementName, Dist);
+				}
 			}
 			else if (bIsClient)
 			{
@@ -592,7 +666,8 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		bIsLowGrav = !UTCharOwner->bApplyWallSlide && bIsLowGrav;
 	}
 	NeedsClientAdjustment();
-
+	bool bIsAWallDodge = false;
+	bool bIsALiftJump = false;
 	if (!IsMovingOnGround())
 	{
 		if (IsFalling() && (CurrentWallDodgeCount >= MaxWallDodges))
@@ -635,6 +710,8 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		HorizontalImpulse = IsSwimming() ? SwimmingWallPushImpulse : WallDodgeImpulseHorizontal;
 		CurrentWallDodgeCount++;
 		LastWallDodgeNormal = Result.ImpactNormal;
+		bIsAWallDodge = true;
+		bCountWallSlides = true;
 	}
 	else if (!GetImpartedMovementBaseVelocity().IsZero())
 	{
@@ -642,6 +719,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		CurrentWallDodgeCount++;
 		LastWallDodgeNormal = FVector(0.f, 0.f, 1.f);
 		DodgeResetTime = GetCurrentMovementTime() + WallDodgeResetInterval;
+		bIsALiftJump = true;
 	}
 
 	// perform the dodge
@@ -690,6 +768,15 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	{
 		SetMovementMode(MOVE_Falling);
 	}
+	AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+	if (PS)
+	{
+		PS->ModifyStatsValue(bIsAWallDodge ? NAME_NumWallDodges : NAME_NumDodges, 1);  
+		if (bIsALiftJump)
+		{
+			PS->ModifyStatsValue(NAME_NumLiftJumps, 1);
+		}
+	}
 	return true;
 }
 
@@ -724,6 +811,12 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 		return;
 	}
 	Super::Crouch(bClientSimulation);
+	if (!bIsFloorSliding && CharacterOwner && CharacterOwner->bIsCrouched && (Velocity.Size2D() > MaxWalkSpeedCrouched))
+	{
+		float SavedVelZ = Velocity.Z;
+		Velocity = MaxWalkSpeedCrouched * Velocity.GetSafeNormal2D();
+		Velocity.Z = SavedVelZ;
+	}
 }
 
 void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir, const FVector& FloorNormal)
@@ -746,6 +839,11 @@ void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir, const FVec
 		if (UTChar)
 		{
 			UTChar->MovementEventUpdated(EME_Slide, DodgeDir);
+		}
+		AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+		if (PS)
+		{
+			PS->ModifyStatsValue(NAME_NumFloorSlides, 1);
 		}
 	}
 }
@@ -773,12 +871,13 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		if (bIsFloorSliding)
 		{
 			GroundFriction = 0.f;
+			BrakingDecelerationWalking = BrakingDecelerationSliding;
 		}
-		else if (bWasFloorSlideing && (MovementMode != MOVE_Falling))
+		else if (bWasFloorSliding && (MovementMode != MOVE_Falling))
 		{
 			Velocity *= FloorSlideEndingSpeedFactor;
 		}
-		bWasFloorSlideing = bIsFloorSliding;
+		bWasFloorSliding = bIsFloorSliding;
 
 		bool bSavedWantsToCrouch = bWantsToCrouch;
 		bWantsToCrouch = bWantsToCrouch || bIsFloorSliding;
@@ -797,6 +896,7 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		Super::PerformMovement(DeltaSeconds);
 		bWantsToCrouch = bSavedWantsToCrouch;
 		GroundFriction = RealGroundFriction;
+		BrakingDecelerationWalking = DefaultBrakingDecelerationWalking;
 	}
 
 	if (UTOwner != NULL)
@@ -962,11 +1062,26 @@ void UUTCharacterMovement::ClearRestrictedJump()
 	GetWorld()->GetTimerManager().ClearTimer(ClearRestrictedJumpHandle);
 }
 
+void UUTCharacterMovement::OnTeleported()
+{
+	if (!HasValidData())
+	{
+		return;
+	}
+
+	bool bWasFalling = (MovementMode == MOVE_Falling);
+	Super::OnTeleported();
+	if (bWasFalling && (MovementMode == MOVE_Walking))
+	{
+		ProcessLanded(CurrentFloor.HitResult, 0.f, 0);
+	}
+}
+
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
 	bIsAgainstWall = false;
 	bFallingInWater = false;
-
+	bCountWallSlides = true;
 	if (CharacterOwner)
 	{
 		bIsFloorSliding = bWantsFloorSlide && !Acceleration.IsNearlyZero() && (Velocity.Size2D() > 0.7f * MaxWalkSpeed);
@@ -1054,10 +1169,21 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
+			static FName NAME_Jump(TEXT("Jump"));
+			((AUTCharacter*)CharacterOwner)->InventoryEvent(NAME_Jump);
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
 		NeedsClientAdjustment(); 
+		AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+		if (PS)
+		{
+			PS->ModifyStatsValue(NAME_NumJumps, 1);
+			if (!GetImpartedMovementBaseVelocity().IsZero())
+			{
+				PS->ModifyStatsValue(NAME_NumLiftJumps, 1);
+			}
+		}
 		return true;
 	}
 	return false;
@@ -1139,7 +1265,7 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 			}*/
 		}
 
-		if (!bIsFloorSliding && bWasFloorSlideing)
+		if (!bIsFloorSliding && bWasFloorSliding)
 		{
 			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 			AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
@@ -1221,6 +1347,15 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 		{
 			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
+			if (UTCharOwner->bApplyWallSlide && bCountWallSlides)
+			{
+				bCountWallSlides = false;
+				AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
+				if (PS)
+				{
+					PS->ModifyStatsValue(NAME_NumWallRuns, 1);
+				}
+			}
 		}
 	}
 }
@@ -1285,9 +1420,9 @@ bool UUTCharacterMovement::CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FV
 float UUTCharacterMovement::GetGravityZ() const
 {
 	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
-	if (UTCharOwner)
+	if (UTCharOwner && UTCharOwner->bApplyWallSlide && (Velocity.Z < 0.f))
 	{
-		return Super::GetGravityZ() * ((UTCharOwner->bApplyWallSlide && (Velocity.Z < 0.f)) ? SlideGravityScaling : 1.f);
+		return Super::GetGravityZ() * SlideGravityScaling * (1.f - FMath::Square(WallSlideNormal.Z));
 	}
 	return Super::GetGravityZ();
 }

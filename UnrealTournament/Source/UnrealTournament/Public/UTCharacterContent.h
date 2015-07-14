@@ -45,6 +45,9 @@ public:
 	/** if set hide from the menus (i.e. intended for testing or built-in to a specific gametype or mod) */
 	UPROPERTY(EditDefaultsOnly)
 	bool bHideInUI;
+	/** if set a UTProfileItem is required for this character to be available */
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
+	bool bRequiresItem;
 
 protected:
 	UPROPERTY(VisibleDefaultsOnly)

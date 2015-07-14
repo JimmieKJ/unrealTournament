@@ -154,7 +154,7 @@ struct FViewMatrices
 		PreShadowTranslation = FVector::ZeroVector;
 		PreViewTranslation = FVector::ZeroVector;
 		ViewOrigin = FVector::ZeroVector;
-		TemporalAASample = FVector2D::ZeroVector;
+		TemporalAAProjJitter = FVector2D::ZeroVector;
 	}
 
 	/** ViewToClip : UE4 projection matrix projects such that clip space Z=1 is the near plane, and Z=0 is the infinite far plane. */
@@ -177,7 +177,9 @@ struct FViewMatrices
 	FVector		ViewOrigin;
 	/** Scale applied by the projection matrix in X and Y. */
 	FVector2D	ProjectionScale;
-	FVector2D	TemporalAASample;
+	/** TemporalAA jitter offset currently stored in the projection matrix */
+	FVector2D	TemporalAAProjJitter;
+
 	/**
 	 * Scale factor to use when computing the size of a sphere in pixels.
 	 * 
@@ -201,6 +203,22 @@ struct FViewMatrices
 		return ProjMatrix.M[3][3] < 1.0f;
 	}
 
+	FMatrix GetProjNoAAMatrix() const
+	{
+		FMatrix ProjNoAAMatrix = ProjMatrix;
+
+		ProjNoAAMatrix.M[2][0] -= TemporalAAProjJitter.X;
+		ProjNoAAMatrix.M[2][1] -= TemporalAAProjJitter.Y;
+
+		return ProjNoAAMatrix;
+	}
+
+	void RemoveTemporalJitter()
+	{
+		ProjMatrix = GetProjNoAAMatrix();
+		TemporalAAProjJitter = FVector2D::ZeroVector;
+	}
+
 	FMatrix GetViewProjMatrix() const
 	{
 		return ViewMatrix * ProjMatrix;
@@ -215,6 +233,11 @@ struct FViewMatrices
 	{
 		return ProjMatrix.Inverse();
 	}
+	
+	FMatrix GetInvProjNoAAMatrix() const
+	{
+		return GetProjNoAAMatrix().Inverse();
+	}
 
 	FMatrix GetInvViewMatrix() const
 	{
@@ -227,9 +250,9 @@ struct FViewMatrices
 		return GetInvProjMatrix() * GetInvViewMatrix();
 	}
 
-	FVector2D GetFieldOfViewPerAxis() const
+	FVector2D GetHalfFieldOfViewPerAxis() const
 	{
-		const FMatrix ClipToView = GetInvProjMatrix();
+		const FMatrix ClipToView = GetInvProjNoAAMatrix();
 
 		FVector VCenter = FVector(ClipToView.TransformPosition(FVector(0.0, 0.0, 0.0)));
 		FVector VUp = FVector(ClipToView.TransformPosition(FVector(0.0, 1.0, 0.0)));
@@ -288,6 +311,8 @@ BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters,ENGINE
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,WorldToClip)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,TranslatedWorldToView)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,ViewToTranslatedWorld)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,TranslatedWorldToCameraView)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,CameraViewToTranslatedWorld)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,ViewToClip)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,ClipToView)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,ClipToTranslatedWorld)
@@ -296,10 +321,13 @@ BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters,ENGINE
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector,ViewForward, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector,ViewUp, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector,ViewRight, EShaderPrecisionModifier::Half)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D,FieldOfViewWideAngles)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D,PrevFieldOfViewWideAngles)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,InvDeviceZToWorldZTransform)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,ScreenPositionScaleBias, EShaderPrecisionModifier::Half)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,ViewRectMin, EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,ViewSizeAndSceneTexelSize)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,ViewSizeAndInvSize)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,BufferSizeAndInvSize)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,ViewOrigin)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,TranslatedViewOrigin)
 	// The exposure scale is just a scalar but needs to be a float4 to workaround a driver bug on IOS.
@@ -347,7 +375,13 @@ BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FViewUniformShaderParameters,ENGINE
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevProjection)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevViewProj)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevViewRotationProj)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevViewToClip)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevClipToView)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevTranslatedWorldToClip)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevTranslatedWorldToView)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevViewToTranslatedWorld)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevTranslatedWorldToCameraView)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevCameraViewToTranslatedWorld)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,PrevViewOrigin)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,PrevPreViewTranslation)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,PrevInvViewProj)

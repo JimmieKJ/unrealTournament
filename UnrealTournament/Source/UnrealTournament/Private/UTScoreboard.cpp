@@ -8,6 +8,7 @@
 #include "UTWeapon.h"
 #include "UTWeap_Enforcer.h"
 #include "UTWeap_ImpactHammer.h"
+#include "UTWeap_Translocator.h"
 #include "UTDemoRecSpectator.h"
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -58,19 +59,23 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "ScoringBreakDownHeader", "{PlayerName} Scoring Breakdown"));
 	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "WeaponStatsHeader", "{PlayerName} Weapon Stats"));
 	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "RewardStatsHeader", "{PlayerName} Reward Stats"));
+	StatsPageTitles.Add(NSLOCTEXT("UTScoreboard", "MovementStatsHeader", "{PlayerName} Movement Stats"));
 
 	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "ScoringBreakDownFooter", "Press Down Arrow to View Weapon Stats"));
 	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "WeaponStatsFooter", "Up Arrow to View Game Stats, Down Arrow to View Reward Stats"));
-	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "RewardStatsFooter", "Press Up Arrow to View Weapon Stats"));
+	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "RewardStatsFooter", "Press Up Arrow to View Weapon Stats, Down Arrow to View Movement Stats"));
+	StatsPageFooters.Add(NSLOCTEXT("UTScoreboard", "MovementStatsFooter", "Press Up Arrow to View Reward Stats"));
 }
 
 void UUTScoreboard::AdvancePage(int32 Increment)
 {
 	// @TODO FIXMESTEVE hack for progressing through players for scoring breakdown
-	if ((NumPages > 1) && (UTHUDOwner->ScoreboardPage == NumPages-1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
+	if ((UTHUDOwner->ScoreboardPage >= NumPages-1) && UTHUDOwner->UTPlayerOwner && (GetWorld()->GameState->PlayerArray.Num() > 0) 
 		&& ((Increment > 0) || (UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS != GetWorld()->GameState->PlayerArray[0])))
 	{
-		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment), UTPlayerOwner->CurrentlyViewedStatsTab);
+		int32 PageIndex = 0;
+		UTHUDOwner->UTPlayerOwner->SetViewedScorePS(GetNextScoringPlayer(Increment, PageIndex), UTPlayerOwner->CurrentlyViewedStatsTab);
+		UTHUDOwner->ScoreboardPage = PageIndex + NumPages - 1;
 		return;
 	}
 	UTHUDOwner->ScoreboardPage = uint32(FMath::Clamp<int32>(int32(UTHUDOwner->ScoreboardPage) + Increment, 0, NumPages - 1));
@@ -86,50 +91,61 @@ void UUTScoreboard::OpenScoringPlaysPage()
 {
 }
 
-AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
+AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir, int32& PSIndex)
 {
-	int32 CurrentIndex = -1;
 	AUTPlayerState* ScoreBreakdownPS = UTHUDOwner->UTPlayerOwner->CurrentlyViewedScorePS;
 	if (!ScoreBreakdownPS)
 	{
 		ScoreBreakdownPS = UTHUDOwner->GetScorerPlayerState();
 	}
-	// Find index of current viewtarget's PlayerState
-	for (int32 i = 0; i<GetWorld()->GameState->PlayerArray.Num(); i++)
+	TArray<AUTPlayerState*> PlayerArrayCopy;
+	for (APlayerState* PS : UTGameState->PlayerArray)
 	{
-		if (ScoreBreakdownPS == GetWorld()->GameState->PlayerArray[i])
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+		if (UTPS != NULL && !UTPS->bOnlySpectator)
+		{
+			PlayerArrayCopy.Add(UTPS);
+		}
+	}
+	if (PlayerArrayCopy.Num() == 0)
+	{
+		return NULL;
+	}
+	PlayerArrayCopy.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		return A.SpectatingID < B.SpectatingID;
+	});
+
+	if (!ScoreBreakdownPS)
+	{
+		PSIndex = 0;
+		return PlayerArrayCopy[0];
+	}
+
+	int32 CurrentIndex = 0;
+	for (int32 i = 0; i < PlayerArrayCopy.Num(); i++)
+	{
+		if (PlayerArrayCopy[i] == ScoreBreakdownPS)
 		{
 			CurrentIndex = i;
 			break;
 		}
 	}
-
-	int32 NewIndex;
-	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	if (CurrentIndex + dir >= PlayerArrayCopy.Num())
 	{
-		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
-		if (PlayerState && !PlayerState->bOnlySpectator)
-		{
-			return PlayerState;
-		}
+		CurrentIndex = -1;
 	}
-
-	// wrap around
-	CurrentIndex = (NewIndex < 0) ? GetWorld()->GameState->PlayerArray.Num() : -1;
-	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+	else if (CurrentIndex + dir < 0)
 	{
-		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
-		if (PlayerState && !PlayerState->bOnlySpectator)
-		{
-			return PlayerState;
-		}
+		CurrentIndex = PlayerArrayCopy.Num();
 	}
-	return ScoreBreakdownPS;
+	PSIndex = CurrentIndex + dir;
+	return PlayerArrayCopy[PSIndex];
 }
 
 void UUTScoreboard::SetPage(int32 NewPage)
 {
-	UTHUDOwner->ScoreboardPage = FMath::Min<int32>(NewPage, NumPages - 1);
+	UTHUDOwner->ScoreboardPage = FMath::Clamp<int32>(NewPage, 0, NumPages - 1);
 	PageChanged();
 }
 
@@ -312,7 +328,7 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 					DrawOffset = YOffset;
 				}
 			}
-			else if (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr)
+			else if (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr && !PlayerState->bIsDemoRecording)
 			{
 				NumSpectators++;
 			}
@@ -480,7 +496,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawText(FText::FromString(UTGameState->ServerDescription), 1259, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		if (NumPages > 1)
 		{
-			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages + GetWorld()->GameState->PlayerArray.Num()));
+			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages - 1 + GetWorld()->GameState->PlayerArray.Num()));
 			DrawText(PageText, Size.X * 0.5f, YOffset + 13, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 	}
@@ -709,6 +725,8 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
 			}
 		}
+
+		StatsWeapons.AddUnique(AUTWeap_Translocator::StaticClass()->GetDefaultObject<AUTWeapon>());
 	}
 
 	float BestWeaponKills = (BestWeaponIndex == FMath::Clamp(BestWeaponIndex, 0, StatsWeapons.Num() - 1)) ? StatsWeapons[BestWeaponIndex]->GetWeaponKillStats(PS) : 0;
@@ -834,6 +852,10 @@ void UUTScoreboard::DrawScoreBreakdown(float DeltaTime, float& YPos, float XOffs
 	{
 		DrawRewardStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
 	}
+	else if (StatsPageIndex == 3)
+	{
+		DrawMovementStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
+	}
 	FString TabInstruction = (StatsPageIndex < StatsPageFooters.Num()) ? StatsPageFooters[StatsPageIndex].ToString() : "";
 	Canvas->DrawText(UTHUDOwner->SmallFont, TabInstruction, XOffset, PageBottom - StatsFontInfo.TextHeight, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 }
@@ -843,6 +865,7 @@ void UUTScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), PS->Kills, PS->Kills, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Deaths", "Deaths"), PS->Deaths, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Suicides", "Suicides"), PS->GetStatsValue(NAME_Suicides), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "ScorePM", "Score Per Minute"), FString::Printf(TEXT(" %6.2f"), ((PS->StartTime <  GetWorld()->GameState->ElapsedTime) ? PS->Score * 60.f / (GetWorld()->GameState->ElapsedTime - PS->StartTime) : 0.f)), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "KDRatio", "K/D Ratio"), FString::Printf(TEXT(" %6.2f"), ((PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f)), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
@@ -895,4 +918,39 @@ void UUTScoreboard::DrawRewardStats(AUTPlayerState* PS, float DeltaTime, float& 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "DominatingSprees", "Dominating"), PS->GetStatsValue(NAME_SpreeKillLevel2), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "UnstoppableSprees", "Unstoppable"), PS->GetStatsValue(NAME_SpreeKillLevel3), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "GodlikeSprees", "Godlike"), PS->GetStatsValue(NAME_SpreeKillLevel4), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+}
+
+void UUTScoreboard::DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo)
+{
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Distances in meters", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+	float RunDistance = PS->GetStatsValue(NAME_RunDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "RunDistance", "Run Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*RunDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float SprintDistance = PS->GetStatsValue(NAME_SprintDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "SprintDistance", "Sprint Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*SprintDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float SlideDistance = PS->GetStatsValue(NAME_SlideDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "SlideDistance", "Slide Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*SlideDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float WallRunDistance = PS->GetStatsValue(NAME_WallRunDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WallRunDistance", "WallRun Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*WallRunDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float FallDistance = PS->GetStatsValue(NAME_InAirDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FallDistance", "Fall Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*FallDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float SwimDistance = PS->GetStatsValue(NAME_SwimDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "SwimDistance", "Swim Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*SwimDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	float TranslocDistance = PS->GetStatsValue(NAME_TranslocDist);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TranslocDistance", "Teleport Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*TranslocDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	Canvas->DrawText(UTHUDOwner->SmallFont, "                                                             ----", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+	float TotalDistance = RunDistance + SprintDistance + FallDistance + SwimDistance + TranslocDistance + SlideDistance + WallRunDistance;
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Total Dist", "Total Distance"), FString::Printf(TEXT(" %8.1f"), 0.01f*TotalDistance), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	Canvas->DrawText(UTHUDOwner->SmallFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
+
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumJumps", "Jumps"), PS->GetStatsValue(NAME_NumJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumDodges", "Dodges"), PS->GetStatsValue(NAME_NumDodges), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumWallDodges", "Wall Dodges"), PS->GetStatsValue(NAME_NumWallDodges), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumLiftJumps", "Lift Jumps"), PS->GetStatsValue(NAME_NumLiftJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumFloorSlides", "Floor Slides"), PS->GetStatsValue(NAME_NumFloorSlides), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumWallRuns", "Wall Runs"), PS->GetStatsValue(NAME_NumWallRuns), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumImpactJumps", "Impact Jumps"), PS->GetStatsValue(NAME_NumImpactJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+//	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumRocketJumps", "Rocket Jumps"), PS->GetStatsValue(NAME_NumRocketJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 }

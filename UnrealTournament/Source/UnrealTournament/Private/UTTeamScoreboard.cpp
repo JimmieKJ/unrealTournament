@@ -69,7 +69,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 						DrawOffset += CellHeight;
 					}
 				} 
-				else if (Team == 0 && Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr)
+				else if (Team == 0 && (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr && !PlayerState->bIsDemoRecording))
 				{
 					NumSpectators++;
 				}
@@ -219,6 +219,34 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
 }
 
+AUTPlayerState* UUTTeamScoreboard::FindTopTeamSPMFor(uint8 TeamNum)
+{
+	TArray<AUTPlayerState*> MemberPS;
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && (PS->GetTeamNum() == TeamNum))
+		{
+			MemberPS.Add(PS);
+		}
+	}
+
+	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		float ElapsedTime = A.GetWorld()->GetGameState()->ElapsedTime;
+		if (A.StartTime == ElapsedTime)
+		{
+			return false;
+		}
+		if (B.StartTime == ElapsedTime)
+		{
+			return true;
+		}
+		return A.Score / (ElapsedTime - A.StartTime) > B.Score / (ElapsedTime - B.StartTime);
+	});
+	return ((MemberPS.Num() > 0) && (MemberPS[0]->Score > 0.f)) ? MemberPS[0] : NULL;
+}
+
 void UUTTeamScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
 {
 	if (UTHUDOwner)
@@ -311,10 +339,13 @@ void UUTTeamScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffse
 	AUTPlayerState* TopKillerBlue = FindTopTeamKillerFor(1);
 	AUTPlayerState* TopKDRed = FindTopTeamKDFor(0);
 	AUTPlayerState* TopKDBlue = FindTopTeamKDFor(1);
+	AUTPlayerState* TopSPMRed = FindTopTeamSPMFor(0);
+	AUTPlayerState* TopSPMBlue = FindTopTeamSPMFor(1);
 
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopScorer", "Top Scorer"), GetPlayerNameFor(TopScorerRed), GetPlayerNameFor(TopScorerBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKills", "Top Kills"), GetPlayerNameFor(TopKillerRed), GetPlayerNameFor(TopKillerBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopKD", "Top K/D"), GetPlayerNameFor(TopKDRed), GetPlayerNameFor(TopKDBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "TopSPM", "Top Score Per Minute"), GetPlayerNameFor(TopSPMRed), GetPlayerNameFor(TopSPMBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ShieldBeltCount), UTGameState->Teams[1]->GetStatsValue(NAME_ShieldBeltCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);

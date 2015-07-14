@@ -12,6 +12,9 @@
 #include "UTMutator.h"
 #include "UTCTFSquadAI.h"
 #include "UTWorldSettings.h"
+#include "Slate/Widgets/SUTTabWidget.h"
+#include "Slate/SUWPlayerInfoDialog.h"
+#include "StatNames.h"
 
 namespace MatchState
 {
@@ -118,7 +121,7 @@ void AUTCTFGameMode::CheatScore()
 	}
 }
 
-void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchAtHalftime() && GetMatchState() != MatchState::MatchEnteringHalftime)
 	{
@@ -155,6 +158,10 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 			Holder->Team->Score++;
 			Holder->Team->ForceNetUpdate();
 			BroadcastScoreUpdate(Holder, Holder->Team);
+			if (Holder->FlagCaptures == 3)
+			{
+				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
+			}
 
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
@@ -190,7 +197,7 @@ void AUTCTFGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Hol
 	}
 }
 
-bool AUTCTFGameMode::CheckScore(AUTPlayerState* Scorer)
+bool AUTCTFGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	if (Scorer->Team != NULL)
 	{
@@ -565,13 +572,13 @@ bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	return Player->CanRestartPlayer();
 }
 
-void AUTCTFGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTCTFGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
-	Super::ScoreDamage(DamageAmount, Victim, Attacker);
+	Super::ScoreDamage_Implementation(DamageAmount, Victim, Attacker);
 	CTFScoring->ScoreDamage(DamageAmount, Victim, Attacker);
 }
 
-void AUTCTFGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	CTFScoring->ScoreKill(Killer, Other, KilledPawn, DamageType);
 	if ((Killer != NULL && Killer != Other))
@@ -824,21 +831,80 @@ void AUTCTFGameMode::UpdateSkillRating()
 }
 
 #if !UE_SERVER
-void AUTCTFGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState)
+void AUTCTFGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
-	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 0.0)
+	TAttributeStat::StatValueTextFunc TwoDecimal = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> FText
+	{
+		return FText::FromString(FString::Printf(TEXT("%8.2f"), Stat->GetValue()));
+	};
+
+	TSharedPtr<SVerticalBox> TopLeftPane;
+	TSharedPtr<SVerticalBox> TopRightPane;
+	TSharedPtr<SVerticalBox> BotLeftPane;
+	TSharedPtr<SVerticalBox> BotRightPane;
+	TSharedPtr<SHorizontalBox> TopBox;
+	TSharedPtr<SHorizontalBox> BotBox;
+	BuildPaneHelper(TopBox, TopLeftPane, TopRightPane);
+	BuildPaneHelper(BotBox, BotLeftPane, BotRightPane);
+
+	//4x4 panes
+	TSharedPtr<SVerticalBox> MainBox = SNew(SVerticalBox)
+	+ SVerticalBox::Slot()
+	.AutoHeight()
 	[
-		NewPlayerInfoLine(FString("Captures"), FString::Printf(TEXT("%i"), PlayerState->FlagCaptures))
-	];
-	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 0.0)
+		TopBox.ToSharedRef()
+	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
 	[
-		NewPlayerInfoLine(FString("Returns"), FString::Printf(TEXT("%i"), PlayerState->FlagReturns))
-	];
-	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 15.0)
-	[
-		NewPlayerInfoLine(FString("Assists"), FString::Printf(TEXT("%i"), PlayerState->Assists))
+		BotBox.ToSharedRef()
 	];
 
-	Super::BuildPlayerInfo(Panel, PlayerState);
+	TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Score", "Score"), MainBox);
+
+	NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTGameMode", "Kills", "Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->Kills;	})), StatList);
+	NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTCTFGameMode", "RegKills", " - Regular Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
+	{
+		return PS->Kills - PS->GetStatsValue(NAME_FCKills) - PS->GetStatsValue(NAME_FlagSupportKills);
+	})), StatList);
+	NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTCTFGameMode", "FlagSupportKills", " - FC Support Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlagSupportKills)), StatList);
+	NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTCTFGameMode", "EnemyFCKills", " - Enemy FC Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_FCKillPoints)), StatList);
+	NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTCTFGameMode", "EnemyFCDamage", "Enemy FC Damage Bonus"), MakeShareable(new TAttributeStat(PlayerState, NAME_EnemyFCDamage)), StatList);
+	NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTGameMode", "Deaths", "Deaths"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->Deaths; })), StatList);
+	/*NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTGameMode", "ScorePM", "Score Per Minute"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
+	{
+		return (PS->StartTime <  PS->GetWorld()->GameState->ElapsedTime) ? PS->Score * 60.f / (PS->GetWorld()->GameState->ElapsedTime - PS->StartTime) : 0.f;
+	}, TwoDecimal)), StatList);*/
+	NewPlayerInfoLine(TopLeftPane, NSLOCTEXT("AUTGameMode", "KDRatio", "K/D Ratio"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
+	{
+		return (PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f;
+	}, TwoDecimal)), StatList);
+
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "BeltPickups", "Shield Belt Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShieldBeltCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "VestPickups", "Armor Vest Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
+	
+	TAttributeStat::StatValueTextFunc ToTime = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> FText
+	{
+		int32 Seconds = (int32)Stat->GetValue();
+		int32 Mins = Seconds / 60;
+		Seconds -= Mins * 60;
+		return FText::FromString(FString::Printf(TEXT("%d:%02d"), Mins, Seconds));
+	};
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "UDamage", "UDamage Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Berserk", "Berserk Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Invisibility", "Invisibility Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "JumpBootJumps", "JumpBoot Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_BootJumps)), StatList);
+
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagCaps", "Flag Captures"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->FlagCaptures; })), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagReturns", "Flag Returns"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->FlagReturns; })), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagAssists", "Assists"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->Assists; })), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "CarryAssists", " - Carry Assists"), MakeShareable(new TAttributeStat(PlayerState, NAME_CarryAssist)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "ReturnAssists", " - Return Assists"), MakeShareable(new TAttributeStat(PlayerState, NAME_ReturnAssist)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "DefendAssists", " - Support Assists"), MakeShareable(new TAttributeStat(PlayerState, NAME_DefendAssist)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagGrabs", "Flag Grabs"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlagGrabs)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagHeldTime", "Flag Held Time"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlagHeldTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagDenialTime", "Flag Denial Time"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlagHeldDenyTime, nullptr, ToTime)), StatList);
 }
 #endif

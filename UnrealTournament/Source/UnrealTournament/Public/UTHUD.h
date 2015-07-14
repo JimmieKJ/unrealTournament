@@ -239,6 +239,12 @@ public:
 	UPROPERTY(globalconfig)
 	bool bUseWeaponColors;
 
+	UPROPERTY(globalconfig)
+	TEnumAsByte<EHudKillMsgStyle::Type> KillMsgStyle;
+
+	UPROPERTY(globalconfig)
+	bool bDrawPopupKillMsg;
+
 	// accessor for CachedTeamColor.  
 	FLinearColor GetWidgetTeamColor();
 
@@ -254,7 +260,7 @@ public:
 
 	// Used to determine which page of the scoreboard we should show
 	UPROPERTY()
-	uint32 ScoreboardPage;
+	int32 ScoreboardPage;
 
 protected:
 
@@ -322,5 +328,8 @@ public:
 
 	UTexture2D* ResolveFlag(int32 FlagID, int32& X, int32& Y);
 
+	/**Returns the necessary input mode for the hud this tick*/
+	UFUNCTION(BlueprintNativeEvent)
+	EInputMode::Type GetInputMode();
 };
 

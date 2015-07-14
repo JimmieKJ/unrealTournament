@@ -152,6 +152,13 @@ class UDirectionalLightComponent : public ULightComponent
 	// ULightComponent interface.
 	virtual FVector4 GetLightPosition() const override;
 	virtual ELightComponentType GetLightType() const override;
+	virtual FLightmassLightSettings GetLightmassSettings() const override
+	{
+		return LightmassSettings;
+	}
+
+	virtual float GetUniformPenumbraSize() const override;
+
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 	virtual bool IsUsedAsAtmosphereSunLight() const override
 	{

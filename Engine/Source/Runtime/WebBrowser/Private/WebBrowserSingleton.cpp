@@ -6,6 +6,8 @@
 #include "WebBrowserHandler.h"
 #include "WebBrowserWindow.h"
 
+#include "Runtime/Launch/Resources/Version.h"
+
 #if WITH_CEF3
 #if PLATFORM_WINDOWS
 	#include "AllowWindowsPlatformTypes.h"
@@ -36,9 +38,17 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	Settings.no_sandbox = true;
 	Settings.command_line_args_disabled = true;
 
+	// Enable on disk cache
+	FString CachePath(FPaths::Combine(*FPaths::GameSavedDir(), TEXT("webcache")));
+	CachePath = FPaths::ConvertRelativePathToFull(CachePath);
+	CefString(&Settings.cache_path) = *CachePath;
+
 	// Specify locale from our settings
 	FString LocaleCode = GetCurrentLocaleCode();
 	CefString(&Settings.locale) = *LocaleCode;
+
+	FString ProductVersion = FString::Printf(TEXT("UnrealEngineChrome/%d"), ENGINE_VERSION);
+	CefString(&Settings.product_version) = *ProductVersion;
 
 	// Specify path to resources
 #if PLATFORM_WINDOWS

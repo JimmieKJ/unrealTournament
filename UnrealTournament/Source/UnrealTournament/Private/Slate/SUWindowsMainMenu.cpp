@@ -272,7 +272,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::Deathmatch)
+				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, FQuickMatchTypeRulesetTag::DM)
 			]
 			+ SVerticalBox::Slot()
 			.Padding(FMargin(0.0f, 0.0f))
@@ -283,7 +283,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, QuickMatchTypes::CaptureTheFlag)
+				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, FQuickMatchTypeRulesetTag::CTF)
 			]
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Center)
@@ -442,7 +442,7 @@ FReply SUWindowsMainMenu::OnTutorialClick()
 }
 
 
-FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FName QuickMatchType)
+FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FString QuickMatchType)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
@@ -452,7 +452,7 @@ FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, 
 		return FReply::Handled();
 	}
 
-	UE_LOG(UT,Log,TEXT("QuickMatch: %s"),*QuickMatchType.ToString());
+	UE_LOG(UT,Log,TEXT("QuickMatch: %s"),*QuickMatchType);
 	PlayerOwner->StartQuickMatch(QuickMatchType);
 	return FReply::Handled();
 }
@@ -640,12 +640,6 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 			TWeakObjectPtr<UUTLocalPlayer> LP = PlayerOwner;
 			auto OnDialogConfirmation = [LP] (TSharedPtr<SCompoundWidget> Widget, uint16 Button)
 			{
-				if (LP.IsValid() && LP->PlayerController)
-				{
-					LP->PlayerController->bShowMouseCursor = false;
-					LP->PlayerController->SetInputMode(FInputModeGameOnly());
-				}
-
 				UUTGameUserSettings* LamdaGameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 				LamdaGameSettings->SaveConfig();
 			};
@@ -659,10 +653,6 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 				// Note: This is an extremely basic way to test for local network and it only covers the common case
 				if (StringAddress.StartsWith(TEXT("192.168.")))
 				{
-					if( PlayerOwner->PlayerController )
-					{
-						PlayerOwner->PlayerController->SetInputMode( FInputModeUIOnly() );
-					}
 					bShowingLanWarning = true;
 					PlayerOwner->ShowSupressableConfirmation(
 						NSLOCTEXT("SUWCreateGamePanel", "LocalNetworkWarningTitle", "Local Network Detected"),
@@ -686,13 +676,6 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 		else
 		{
 			StartGame(true);
-		}
-
-		if (PlayerOwner->PlayerController && bShowingLanWarning)
-		{ 
-			// ensure the user can click the warning.  The game will have tried to hide the cursor otherwise
-			PlayerOwner->PlayerController->bShowMouseCursor = true;
-			PlayerOwner->PlayerController->SetInputMode(FInputModeUIOnly());
 		}
 	}
 	

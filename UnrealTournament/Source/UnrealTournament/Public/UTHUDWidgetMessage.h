@@ -40,11 +40,17 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 
 	// How long to scale in this message
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
-		float ScaleInTime;
+	float ScaleInTime;
 
 	// Starting scale of message
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
-		float ScaleInSize;
+	float ScaleInSize;
+
+	// The related playerstates from the localized message
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	APlayerState* RelatedPlayerState_1;
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	APlayerState* RelatedPlayerState_2;
 
 	// The optional object for this class.  
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
@@ -82,6 +88,8 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 		, MessageIndex(0)
 		, LifeLeft(0)
 		, LifeSpan(0)
+		, RelatedPlayerState_1(nullptr)
+		, RelatedPlayerState_2(nullptr)
 		, OptionalObject(NULL)
 		, DrawColor(ForceInit)
 		, DisplayFont(NULL)
@@ -187,6 +195,10 @@ protected:
 	// don't have to shrink/grow it.
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	TArray<FLocalizedMessageData> MessageQueue;
+
+	/** Max number of messages to draw in this area. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		int32 NumVisibleLines;
 
 	virtual void ClearMessage(FLocalizedMessageData& Message);
 	virtual void AddMessage(int32 QueueIndex, TSubclassOf<class UUTLocalMessage> MessageClass, uint32 MessageIndex, FText LocalMessageText, int32 MessageCount, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);

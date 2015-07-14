@@ -203,7 +203,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	bool bHideInMenus;
 
 	/** Hack for adjusting first person weapon mesh at different FOVs (until we have separate render pass for first person weapon. */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category="Weapon")
 	FVector FOVOffset;
 
 	UFUNCTION()
@@ -819,4 +819,11 @@ public:
 	/** blueprint hook to modify team color materials */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
 	void NotifyTeamChanged();
+
+	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
+	void FiringInfoUpdated(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation);
+	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
+	void FiringExtraUpdated(uint8 NewFlashExtra, uint8 InFireMode);
+	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
+	void FiringEffectsUpdated(uint8 InFireMode, FVector InFlashLocation);
 };

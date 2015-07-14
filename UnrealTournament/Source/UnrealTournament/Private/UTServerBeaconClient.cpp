@@ -156,3 +156,34 @@ void AUTServerBeaconClient::ClientReceivedAllInstance_Implementation(uint32 Fina
 
 	OnServerRequestResults.ExecuteIfBound(this, HostServerInfo);		
 }
+
+bool AUTServerBeaconClient::ServerRequestQuickplay_Validate(const FString& MatchType, int32 ELORank) { return true; }
+void AUTServerBeaconClient::ServerRequestQuickplay_Implementation(const FString& MatchType, int32 ELORank)
+{
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		// Have the lobby see if we can quick play this player.	
+		LobbyGameState->HandleQuickplayRequest(this, MatchType, ELORank);
+	}
+	else
+	{
+		ClientQuickplayNotAvailable();	
+	}
+}
+
+void AUTServerBeaconClient::ClientQuickplayNotAvailable_Implementation()
+{
+	OnRequestQuickplay.ExecuteIfBound(this, EQuickMatchResults::CantJoin, TEXT(""));
+}
+
+void AUTServerBeaconClient::ClientWaitForQuickplay_Implementation()
+{
+	OnRequestQuickplay.ExecuteIfBound(this, EQuickMatchResults::WaitingForStart, TEXT(""));
+}
+
+void AUTServerBeaconClient::ClientJoinQuickplay_Implementation(const FString& InstanceGuid)
+{
+	OnRequestQuickplay.ExecuteIfBound(this, EQuickMatchResults::Join, InstanceGuid);
+}
+

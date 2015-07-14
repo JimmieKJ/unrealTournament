@@ -10,7 +10,6 @@ class UNREALTOURNAMENT_API UUTCharacterMovement : public UCharacterMovementCompo
 
 public:
 
-	virtual void MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult = NULL) override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual bool ClientUpdatePositionAfterServerUpdate() override;
 	virtual void ReplicateMoveToServer(float DeltaTime, const FVector& NewAcceleration) override;
@@ -120,6 +119,14 @@ public:
 	/** Ground friction when braking. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 		float BrakingFriction;
+
+	/** Braking when sliding. */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float BrakingDecelerationSliding;
+
+	/** Braking when walking - set to same value as BrakingDecelerationWalking. */
+	UPROPERTY(Category = "Character Movement", BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float DefaultBrakingDecelerationWalking;
 
 	/** Max speed player can travel in water (faster than powered swim speed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Swimming)
@@ -286,7 +293,7 @@ UPROPERTY()
 
 	/** True if was floor sliding last movement update. */
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
-	bool bWasFloorSlideing;
+	bool bWasFloorSliding;
 
 	UPROPERTY(Category = "Emote", BlueprintReadOnly)
 	bool bIsEmoting;
@@ -299,6 +306,9 @@ protected:
 	/** True if player is holding modifier to wall slide.  Change with UpdateWallSlide(). */
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
 	bool bWantsWallSlide;
+
+	/** true if wall slide stat should be updated.  Needed so we don't double count wallslides. */
+	bool bCountWallSlides;
 
 public:
 	/** Horizontal speed reduction on slide ending (multiplied). */
@@ -467,6 +477,8 @@ public:
 
 	virtual void ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations) override;
 
+	virtual void OnTeleported() override;
+
 	virtual bool DoJump(bool bReplayingMoves) override;
 
 	/** Perform a multijump */
@@ -609,6 +621,10 @@ public:
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 
 	virtual void ClientAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode) override;
+
+	/** The initial time when client/server timestamps are the same. # < 0 will reset next check*/
+	float ServerSyncTime;
+	virtual void StopActiveMovement() override;
 };
 
 // Networking support

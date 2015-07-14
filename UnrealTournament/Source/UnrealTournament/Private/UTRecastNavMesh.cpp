@@ -55,8 +55,8 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
 
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 
-	SizeSteps.Add(FCapsuleSize(46, 92));
-	SizeSteps.Add(FCapsuleSize(46, 64));
+	SizeSteps.Add(FCapsuleSize(42, 92));
+	SizeSteps.Add(FCapsuleSize(42, 55));
 	JumpTestThreshold2D = 2048.0f;
 	ScoutClass = AUTCharacter::StaticClass();
 }
@@ -110,16 +110,7 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(NavNodeRef PolyRef, const stru
 			bool bFailed = false;
 			for (int32 i = 0; i < 2; i++)
 			{
-				FVector PolyCenter = (i == 0) ? GetPolyCenter(PolyRef) : GetPolyCenter(Link.ref);
-				// note: poly center is not necessarily a valid surface height
-				float PolyHeight = PolyCenter.Z;
-				{
-					FVector RecastCenter = Unreal2RecastPoint(PolyCenter);
-					if (dtStatusSucceed(InternalQuery.getPolyHeight((i == 0) ? PolyRef : Link.ref, (float*)&RecastCenter, &PolyHeight)))
-					{
-						PolyCenter.Z = PolyHeight;
-					}
-				}
+				FVector PolyCenter = (i == 0) ? GetPolySurfaceCenter(PolyRef) : GetPolySurfaceCenter(Link.ref);
 				// find floor
 				FHitResult Hit;
 				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(AgentRadius, 1.0f);
@@ -196,7 +187,12 @@ void AUTRecastNavMesh::SetNodeSize(UUTPathNode* Node)
 				}
 			}
 		}
-	}				
+	}
+	if (bFirstEdge)
+	{
+		// node consists of a single, disconnected poly - use min size
+		Node->MinPolyEdgeSize = FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentHeight * 0.5f));
+	}
 }
 
 bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, FCollisionShape ScoutShape, float XYSpeed, float GravityZ, float BaseJumpZ, float MaxJumpZ, float* RequiredJumpZ, float* MaxFallSpeed) const
@@ -546,7 +542,8 @@ FVector AUTRecastNavMesh::GetPOIExtent(AActor* POI) const
 {
 	// enforce a minimum extent for checks
 	// this handles cases where the POI doesn't define any colliding primitives (i.e. just a point in space that AI should be aware of)
-	FVector MinPOIExtent(AgentRadius, AgentRadius, AgentHeight * 0.5f);
+	FCapsuleSize HumanSize = GetHumanPathSize();
+	FVector MinPOIExtent(HumanSize.Radius, HumanSize.Radius, HumanSize.Height);
 	if (POI == NULL)
 	{
 		return MinPOIExtent;
@@ -590,8 +587,11 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
+	// shouldn't be changing this at runtime and makes sure we get changes from defaults
+	// we don't want to simply make the property transient because for in-game we want to store the values that paths were built with
+	SizeSteps = GetClass()->GetDefaultObject<AUTRecastNavMesh>()->SizeSteps;
 	// make sure generation params are in the list
-	SizeSteps.AddUnique(FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentMaxHeight)));
+	SizeSteps.AddUnique(FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentMaxHeight) / 2));
 
 	// list of IUTPathBuilderInterface implementing Actors that don't want to be added as POIs but still want path building callbacks
 	TArray<IUTPathBuilderInterface*> NonPOIBuilders;
@@ -2537,83 +2537,88 @@ void AUTRecastNavMesh::RemoveFromNavigation(AActor* OldPOI)
 
 void AUTRecastNavMesh::GetNodeTriangleMap(TMap<const UUTPathNode*, FNavMeshTriangleList>& TriangleMap)
 {
-	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
-
-	TMultiMap<const UUTPathNode*, const dtMeshTile*> NodeToTile;
-
-	for (TMap<NavNodeRef, UUTPathNode*>::TConstIterator It(PolyToNode); It; ++It)
+	if (GetRecastNavMeshImpl() != NULL)
 	{
-		const UUTPathNode* Node = It.Value();
-		FNavMeshTriangleList& TriangleData = TriangleMap.FindOrAdd(Node);
-
-		const dtMeshTile* Tile = NULL;
-		const dtPoly* Poly = NULL;
-		if (dtStatusSucceed(InternalMesh->getTileAndPolyByRef(It.Key(), &Tile, &Poly)))
+		const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
+		if (InternalMesh != NULL)
 		{
-			dtMeshHeader const* const Header = Tile->header;
-			if (Header != NULL && Poly->getType() == DT_POLYTYPE_GROUND)
+			TMultiMap<const UUTPathNode*, const dtMeshTile*> NodeToTile;
+
+			for (TMap<NavNodeRef, UUTPathNode*>::TConstIterator It(PolyToNode); It; ++It)
 			{
-				// add vertices if not already added
-				if (NodeToTile.FindPair(Node, Tile) == NULL)
-				{
-					NodeToTile.Add(Node, Tile);
-					// add all the poly verts
-					float* F = Tile->verts;
-					for (int32 VertIdx = 0; VertIdx < Header->vertCount; ++VertIdx)
-					{
-						TriangleData.Verts.Add(Recast2UnrealPoint(F));
-						F += 3;
-					}
-					int32 const DetailVertIndexBase = Header->vertCount;
-					// add the detail verts
-					F = Tile->detailVerts;
-					for (int32 DetailVertIdx = 0; DetailVertIdx < Header->detailVertCount; ++DetailVertIdx)
-					{
-						TriangleData.Verts.Add(Recast2UnrealPoint(F));
-						F += 3;
-					}
-				}
+				const UUTPathNode* Node = It.Value();
+				FNavMeshTriangleList& TriangleData = TriangleMap.FindOrAdd(Node);
 
-				// add triangle indices
-				uint32 BaseVertIndex = 0;
+				const dtMeshTile* Tile = NULL;
+				const dtPoly* Poly = NULL;
+				if (dtStatusSucceed(InternalMesh->getTileAndPolyByRef(It.Key(), &Tile, &Poly)))
 				{
-					// figure out base index for this tile's vertices
-					TArray<const dtMeshTile*> ExistingTiles;
-					NodeToTile.MultiFind(Node, ExistingTiles, true);
-					for (const dtMeshTile* TestTile : ExistingTiles)
+					dtMeshHeader const* const Header = Tile->header;
+					if (Header != NULL && Poly->getType() == DT_POLYTYPE_GROUND)
 					{
-						if (TestTile == Tile)
+						// add vertices if not already added
+						if (NodeToTile.FindPair(Node, Tile) == NULL)
 						{
-							break;
+							NodeToTile.Add(Node, Tile);
+							// add all the poly verts
+							float* F = Tile->verts;
+							for (int32 VertIdx = 0; VertIdx < Header->vertCount; ++VertIdx)
+							{
+								TriangleData.Verts.Add(Recast2UnrealPoint(F));
+								F += 3;
+							}
+							int32 const DetailVertIndexBase = Header->vertCount;
+							// add the detail verts
+							F = Tile->detailVerts;
+							for (int32 DetailVertIdx = 0; DetailVertIdx < Header->detailVertCount; ++DetailVertIdx)
+							{
+								TriangleData.Verts.Add(Recast2UnrealPoint(F));
+								F += 3;
+							}
 						}
-						else
+
+						// add triangle indices
+						uint32 BaseVertIndex = 0;
 						{
-							BaseVertIndex += TestTile->header->vertCount + TestTile->header->detailVertCount;
+							// figure out base index for this tile's vertices
+							TArray<const dtMeshTile*> ExistingTiles;
+							NodeToTile.MultiFind(Node, ExistingTiles, true);
+							for (const dtMeshTile* TestTile : ExistingTiles)
+							{
+								if (TestTile == Tile)
+								{
+									break;
+								}
+								else
+								{
+									BaseVertIndex += TestTile->header->vertCount + TestTile->header->detailVertCount;
+								}
+							}
+						}
+
+						const dtPolyDetail* DetailPoly = &Tile->detailMeshes[InternalMesh->decodePolyIdPoly(It.Key())];
+						for (int32 TriIdx = 0; TriIdx < DetailPoly->triCount; ++TriIdx)
+						{
+							int32 DetailTriIdx = (DetailPoly->triBase + TriIdx) * 4;
+							const unsigned char* DetailTri = &Tile->detailTris[DetailTriIdx];
+
+							// calc indices into the vert buffer we just populated
+							int32 TriVertIndices[3];
+							for (int32 TriVertIdx = 0; TriVertIdx < 3; ++TriVertIdx)
+							{
+								if (DetailTri[TriVertIdx] < Poly->vertCount)
+								{
+									TriVertIndices[TriVertIdx] = BaseVertIndex + Poly->verts[DetailTri[TriVertIdx]];
+								}
+								else
+								{
+									TriVertIndices[TriVertIdx] = BaseVertIndex + Header->vertCount + (DetailPoly->vertBase + DetailTri[TriVertIdx] - Poly->vertCount);
+								}
+							}
+
+							new(TriangleData.Triangles) FNavMeshTriangleList::FTriangle(TriVertIndices);
 						}
 					}
-				}
-				
-				const dtPolyDetail* DetailPoly = &Tile->detailMeshes[InternalMesh->decodePolyIdPoly(It.Key())];
-				for (int32 TriIdx = 0; TriIdx < DetailPoly->triCount; ++TriIdx)
-				{
-					int32 DetailTriIdx = (DetailPoly->triBase + TriIdx) * 4;
-					const unsigned char* DetailTri = &Tile->detailTris[DetailTriIdx];
-
-					// calc indices into the vert buffer we just populated
-					int32 TriVertIndices[3];
-					for (int32 TriVertIdx = 0; TriVertIdx < 3; ++TriVertIdx)
-					{
-						if (DetailTri[TriVertIdx] < Poly->vertCount)
-						{
-							TriVertIndices[TriVertIdx] = BaseVertIndex + Poly->verts[DetailTri[TriVertIdx]];
-						}
-						else
-						{
-							TriVertIndices[TriVertIdx] = BaseVertIndex + Header->vertCount + (DetailPoly->vertBase + DetailTri[TriVertIdx] - Poly->vertCount);
-						}
-					}
-
-					new(TriangleData.Triangles) FNavMeshTriangleList::FTriangle(TriVertIndices);
 				}
 			}
 		}

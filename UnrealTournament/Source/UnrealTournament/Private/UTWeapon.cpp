@@ -1664,6 +1664,7 @@ TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
 {
 	TArray<UMeshComponent*> Result;
 	Result.Add(Mesh);
+	Result.Add(OverlayMesh);
 	return Result;
 }
 
@@ -1773,7 +1774,12 @@ float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, f
 		{
 			//if (Bot.bHuntPlayer)
 			//	return 0;
-			if (AlreadyHas->Ammo >= AlreadyHas->MaxAmmo)
+			if (Ammo == 0 || AlreadyHas->MaxAmmo == 0)
+			{
+				// weapon pickup doesn't give ammo and/or weapon has infinite ammo so we don't care once we have it
+				return 0;
+			}
+			else if (AlreadyHas->Ammo >= AlreadyHas->MaxAmmo)
 			{
 				return 0.25f * Desire;
 			}
@@ -1900,7 +1906,7 @@ bool AUTWeapon::CanAttack_Implementation(AActor* Target, const FVector& TargetLo
 				ValidAIModes.Add(i);
 			}
 		}
-		if (!bPreferCurrentMode)
+		if (!bPreferCurrentMode && ValidAIModes.Num() > 0)
 		{
 			BestFireMode = ValidAIModes[FMath::RandHelper(ValidAIModes.Num())];
 		}
@@ -1962,4 +1968,30 @@ void AUTWeapon::TestWeaponRot(float Pitch, float Yaw, float Roll)
 void AUTWeapon::TestWeaponScale(float X, float Y, float Z)
 {
 	Mesh->SetRelativeScale3D(FVector(X, Y, Z));
+}
+
+void AUTWeapon::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	if (FlashCount > 0 || !InFlashLocation.IsZero())
+	{
+		CurrentFireMode = InFireMode;
+		PlayFiringEffects();
+	}
+	else
+	{
+		StopFiringEffects();
+	}
+}
+
+void AUTWeapon::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)
+{
+
+}
+
+void AUTWeapon::FiringEffectsUpdated_Implementation(uint8 InFireMode, FVector InFlashLocation)
+{
+	FVector SpawnLocation;
+	FRotator SpawnRotation;
+	GetImpactSpawnPosition(InFlashLocation, SpawnLocation, SpawnRotation);
+	PlayImpactEffects(InFlashLocation, InFireMode, SpawnLocation, SpawnRotation);
 }

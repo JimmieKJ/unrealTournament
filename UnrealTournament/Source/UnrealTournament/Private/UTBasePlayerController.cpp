@@ -12,6 +12,9 @@
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	ChatOverflowTime = 0.0f;
+	bOverflowed = false;
+	SpamText = NSLOCTEXT("AUTBasePlayerController", "SpamMessage", "You must wait a few seconds before sending another message.");
 }
 
 void AUTBasePlayerController::Destroyed()
@@ -32,6 +35,18 @@ void AUTBasePlayerController::Destroyed()
 	Super::Destroyed();
 }
 
+void AUTBasePlayerController::InitInputSystem()
+{
+	Super::InitInputSystem();
+
+	// read profile items on every level change so we can detect updates
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL && LP->IsLoggedIn())
+	{
+		LP->ReadProfileItems();
+	}
+}
+
 void AUTBasePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -43,8 +58,6 @@ void AUTBasePlayerController::ShowMenu()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		FInputModeUIOnly InputMode;
-		SetInputMode(InputMode);
 		LP->ShowMenu();
 	}
 
@@ -55,8 +68,6 @@ void AUTBasePlayerController::HideMenu()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		FInputModeGameOnly InputMode;
-		SetInputMode(InputMode);
 		LP->HideMenu();
 	}
 }
@@ -114,33 +125,83 @@ void AUTBasePlayerController::TeamTalk()
 	}
 }
 
+bool AUTBasePlayerController::AllowTextMessage(const FString& Msg)
+{
+	static const float TIME_PER_MSG = 2.0f;
+	static const float MAX_OVERFLOW = 4.0f;
+
+	if (GetNetMode() == NM_Standalone || (GetNetMode() == NM_ListenServer && Role == ROLE_Authority))
+	{
+		return true;
+	}
+
+	ChatOverflowTime = FMath::Max(ChatOverflowTime, GetWorld()->RealTimeSeconds);
+
+	//When overflowed, wait till the time is back to 0
+	if (bOverflowed && ChatOverflowTime > GetWorld()->RealTimeSeconds)
+	{
+		return false;
+	}
+	bOverflowed = false;
+
+	//Accumulate time for each message, double for a duplicate message
+	ChatOverflowTime += (LastChatMessage == Msg) ? TIME_PER_MSG * 2 : TIME_PER_MSG;
+	LastChatMessage = Msg;
+
+	if (ChatOverflowTime - GetWorld()->RealTimeSeconds <= MAX_OVERFLOW)
+	{
+		return true;
+	}
+
+	bOverflowed = true;
+	return false;
+}
 
 void AUTBasePlayerController::Say(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
 	Message = Message.Left(128);
-	ServerSay(Message, false);
+	if (AllowTextMessage(Message))
+	{
+		ServerSay(Message, false);
+	}
+	else
+	{
+		//Display spam message to the player
+		ClientSay_Implementation(nullptr, SpamText.ToString(), ChatDestinations::System);
+	}
 }
 
 void AUTBasePlayerController::TeamSay(FString Message)
 {
 	// clamp message length; aside from troll prevention this is needed for networking reasons
 	Message = Message.Left(128);
-	ServerSay(Message, true);
+	if (AllowTextMessage(Message))
+	{
+		ServerSay(Message, true);
+	}
+	else
+	{
+		//Display spam message to the player
+		ClientSay_Implementation(nullptr, SpamText.ToString(), ChatDestinations::System);
+	}
 }
 
 bool AUTBasePlayerController::ServerSay_Validate(const FString& Message, bool bTeamMessage) { return true; }
 
 void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
 {
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	if (AllowTextMessage(Message))
 	{
-		AUTBasePlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
-		if (UTPC != nullptr)
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
+			AUTBasePlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+			if (UTPC != nullptr)
 			{
-				UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local) );
+				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
+				{
+					UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+				}
 			}
 		}
 	}
@@ -521,3 +582,82 @@ void AUTBasePlayerController::ServerRconKick_Implementation(const FString& NameO
 void AUTBasePlayerController::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 }
+
+void AUTBasePlayerController::ClientCloseAllUI_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseAllUI();
+	}
+}
+
+void AUTBasePlayerController::PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel)
+{
+	ClientCloseAllUI();
+	Super::PreClientTravel(PendingURL, TravelType, bIsSeamlessTravel);
+}
+
+#if !UE_SERVER
+void AUTBasePlayerController::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	UpdateInputMode();
+}
+
+void AUTBasePlayerController::UpdateInputMode()
+{
+	EInputMode::Type NewInputMode = EInputMode::EIM_None;
+
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		//Menus default to UI
+		if (LocalPlayer->AreMenusOpen())
+		{
+			NewInputMode = EInputMode::EIM_UIOnly;
+		}
+		else if (GetWorld()->DemoNetDriver != nullptr
+			|| LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
+		{
+			NewInputMode = EInputMode::EIM_GameAndUI;
+		}
+		else
+		{
+			//Give blueprints a chance to set the input
+			AUTHUD* UTHUD = Cast<AUTHUD>(MyHUD);
+			if (UTHUD != nullptr)
+			{
+				NewInputMode = UTHUD->GetInputMode();
+			}
+			
+			//Default to game only if no other input mode is wanted
+			if (NewInputMode == EInputMode::EIM_None)
+			{
+				NewInputMode = EInputMode::EIM_GameOnly;
+			}
+		}
+
+		//Apply the new input if it needs to be changed
+		if (NewInputMode != InputMode && NewInputMode != EInputMode::EIM_None)
+		{
+			InputMode = NewInputMode;
+			switch (NewInputMode)
+			{
+			case EInputMode::EIM_GameOnly:
+				bShowMouseCursor = false;
+				Super::SetInputMode(FInputModeGameOnly());
+				break;
+			case EInputMode::EIM_GameAndUI:
+				bShowMouseCursor = true;
+				Super::SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
+				break;
+			case EInputMode::EIM_UIOnly:
+				bShowMouseCursor = true;
+				Super::SetInputMode(FInputModeUIOnly());
+				break;
+			}
+		}
+	}
+}
+#endif

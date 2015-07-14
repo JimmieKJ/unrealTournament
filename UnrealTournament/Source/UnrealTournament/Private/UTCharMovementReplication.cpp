@@ -285,7 +285,28 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 		bool bWasFalling = (MovementMode == MOVE_Falling);
 		SimulateMovement_Internal(DeltaTime);
 
-		if (MovementMode != MOVE_Falling)
+		if (MovementMode == MOVE_Falling)
+		{
+			if (GetWorld()->GetTimeSeconds() - LastCheckedAgainstWall > 0.07f)
+			{
+				LastCheckedAgainstWall = GetWorld()->GetTimeSeconds();
+				static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
+				const float TestWalkTime = FMath::Max(DeltaSeconds, 0.05f);
+				const FVector TestWalk = (FVector(0.f, 0.f, GetGravityZ()) * TestWalkTime + Velocity) * TestWalkTime;
+				FCollisionQueryParams CapsuleQuery(FallingTraceParamsTag, false, CharacterOwner);
+				FCollisionResponseParams ResponseParam;
+				InitCollisionParams(CapsuleQuery, ResponseParam);
+				const FVector PawnLocation = CharacterOwner->GetActorLocation();
+				const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
+				FHitResult Hit(1.f);
+				bIsAgainstWall = GetWorld()->SweepSingleByChannel(Hit, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_RadiusCustom, 2.f), CapsuleQuery, ResponseParam);
+				if (bIsAgainstWall)
+				{
+					WallSlideNormal = Hit.Normal;
+				}
+			}
+		}
+		else
 		{
 			LastCheckedAgainstWall = 0.f;
 		}
@@ -481,52 +502,6 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 	bJustTeleported = false;
 
 	LastUpdateLocation = UpdatedComponent ? UpdatedComponent->GetComponentLocation() : FVector::ZeroVector;
-}
-
-void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float DeltaSeconds, FStepDownResult* OutStepDownResult)
-{
-	//@TODO FIXMESTEVE - really just want MoveSmooth() to add a hit notification
-	if ((MovementMode != MOVE_Falling) || !HasValidData() || (CharacterOwner->Role != ROLE_SimulatedProxy))
-	{
-		Super::MoveSmooth(InVelocity, DeltaSeconds, OutStepDownResult);
-		return;
-	}
-	FVector Delta = InVelocity * DeltaSeconds;
-	if (Delta.IsZero())
-	{
-		return;
-	}
-
-	FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
-
-	FHitResult Hit(1.f);
-	SafeMoveUpdatedComponent(Delta, CharacterOwner->GetActorRotation(), true, Hit);
-
-	if (Hit.IsValidBlockingHit())
-	{
-		LastCheckedAgainstWall = GetWorld()->GetTimeSeconds();
-		bIsAgainstWall = true;
-		WallSlideNormal = Hit.Normal;
-		SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, false);
-	}
-	else if (GetWorld()->GetTimeSeconds() - LastCheckedAgainstWall > 0.07f)
-	{
-		LastCheckedAgainstWall = GetWorld()->GetTimeSeconds();
-		static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
-		const float TestWalkTime = FMath::Max(DeltaSeconds, 0.05f);
-		const FVector TestWalk = (FVector(0.f, 0.f, GetGravityZ()) * TestWalkTime + Velocity) * TestWalkTime;
-		FCollisionQueryParams CapsuleQuery(FallingTraceParamsTag, false, CharacterOwner);
-		FCollisionResponseParams ResponseParam;
-		InitCollisionParams(CapsuleQuery, ResponseParam);
-		const FVector PawnLocation = CharacterOwner->GetActorLocation();
-		const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
-		const bool bHit = GetWorld()->SweepSingleByChannel(Hit, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
-		bIsAgainstWall = bHit;
-		if (bHit)
-		{
-			WallSlideNormal = Hit.Normal;
-		}
-	}
 }
 
 void UUTCharacterMovement::SendClientAdjustment()
@@ -1147,6 +1122,12 @@ void UUTCharacterMovement::ClientAckGoodMove_Implementation(float TimeStamp)
 
 bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPredictionData_Server_Character & ServerData)
 {
+	//Sync the server timestamp with the clients
+	if (ServerSyncTime < 0.0f)
+	{
+		ServerSyncTime = GetWorld()->GetTimeSeconds() - TimeStamp;
+	}
+
 	// Very large deltas happen around a TimeStamp reset.
 	const float DeltaTimeStamp = (TimeStamp - ServerData.CurrentClientTimeStamp);
 	if (FMath::Abs(DeltaTimeStamp) > (MinTimeBetweenTimeStampResets * 0.5f))
@@ -1157,6 +1138,7 @@ bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPred
 			//UE_LOG(UTNet, Log, TEXT("TimeStamp reset detected. CurrentTimeStamp: %f, new TimeStamp: %f"), ServerData.CurrentClientTimeStamp, TimeStamp);
 			ServerData.CurrentClientTimeStamp = 0.f;
 			AdjustMovementTimers(-1.f*DeltaTimeStamp);
+			ServerSyncTime = GetWorld()->GetTimeSeconds();
 			return true;
 		}
 		else
@@ -1175,8 +1157,41 @@ bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPred
 		return false;
 	}
 
+	//SpeedHack close the players connection if the timestamp error is exceeded
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (UTGameMode != nullptr)
+	{
+		float ServerTimeStamp = GetWorld()->GetTimeSeconds() - ServerSyncTime;
+		float TimestampSlack = UTGameMode->TimeMarginSlack * ServerTimeStamp;
+		float TimestampError = TimeStamp - ServerTimeStamp;
+		if (TimestampError > UTGameMode->MaxTimeMargin + TimestampSlack ||
+			TimestampError < UTGameMode->MinTimeMargin - TimestampSlack)
+		{
+//			UE_LOG(UTNet, Warning, TEXT("TimestampError exceeds TimeMargin: TimestampError: %f TimestampSlack: %f"), TimestampError, TimestampSlack);
+
+			//Only kick if bSpeedHackDetection enabled. Leaving in the checks and log regardless if enabled to track any false positives
+			if (UTGameMode->bSpeedHackDetection)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(CharacterOwner->GetOwner());
+				if (PC != nullptr && Cast<UNetConnection>(PC->Player) != nullptr)
+				{
+					Cast<UNetConnection>(PC->Player)->Close();
+				}
+				return false;
+			}
+		}
+	}
+
 	//UE_LOG(LogNetPlayerMovement, VeryVerbose, TEXT("TimeStamp %f Accepted! CurrentTimeStamp: %f"), TimeStamp, ServerData.CurrentClientTimeStamp);
 	return true;
+}
+
+void UUTCharacterMovement::StopActiveMovement()
+{
+	Super::StopActiveMovement();
+
+	//Make sure the sync time is reset for next move
+	ServerSyncTime = -1.0f;
 }
 
 FSavedMovePtr FNetworkPredictionData_Client_UTChar::AllocateNewMove()

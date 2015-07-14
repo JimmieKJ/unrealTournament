@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "StatNames.h"
+#include "UTCTFScoring.h"
 
 DEFINE_LOG_CATEGORY(LogGameStats);
 
@@ -38,7 +39,6 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(NAME_SpreeKillLevel3, true));
 	Stats.Add(MakeStat(NAME_SpreeKillLevel4, true));
 
-
 	Stats.Add(MakeStat(NAME_ImpactHammerKills, true));
 	Stats.Add(MakeStat(NAME_EnforcerKills, true));
 	Stats.Add(MakeStat(NAME_BioRifleKills, true));
@@ -56,6 +56,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(NAME_SniperHeadshotKills, true));
 	Stats.Add(MakeStat(NAME_RedeemerKills, true));
 	Stats.Add(MakeStat(NAME_InstagibKills, true));
+	Stats.Add(MakeStat(NAME_TelefragKills, true));
 
 	Stats.Add(MakeStat(NAME_ImpactHammerDeaths, true));
 	Stats.Add(MakeStat(NAME_EnforcerDeaths, true));
@@ -74,7 +75,65 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(MakeStat(NAME_SniperHeadshotDeaths, true));
 	Stats.Add(MakeStat(NAME_RedeemerDeaths, true));
 	Stats.Add(MakeStat(NAME_InstagibDeaths, true));
+	Stats.Add(MakeStat(NAME_TelefragDeaths, true));
 
+	Stats.Add(MakeStat(NAME_UDamageTime, true));
+	Stats.Add(MakeStat(NAME_BerserkTime, true));
+	Stats.Add(MakeStat(NAME_InvisibilityTime, true));
+	Stats.Add(MakeStat(NAME_UDamageCount, true));
+	Stats.Add(MakeStat(NAME_BerserkCount, true));
+	Stats.Add(MakeStat(NAME_InvisibilityCount, true));
+	Stats.Add(MakeStat(NAME_BootJumps, true));
+	Stats.Add(MakeStat(NAME_ShieldBeltCount, true));
+	Stats.Add(MakeStat(NAME_ArmorVestCount, true));
+	Stats.Add(MakeStat(NAME_ArmorPadsCount, true));
+	Stats.Add(MakeStat(NAME_HelmetCount, true));
+
+	Stats.Add(MakeStat(NAME_BestShockCombo, true));
+	Stats.Add(MakeStat(NAME_AmazingCombos, true));
+	Stats.Add(MakeStat(NAME_AirRox, true));
+	Stats.Add(MakeStat(NAME_FlakShreds, true));
+	Stats.Add(MakeStat(NAME_AirSnot, true));
+
+	Stats.Add(MakeStat(NAME_RunDist, true));
+	Stats.Add(MakeStat(NAME_SprintDist, true));
+	Stats.Add(MakeStat(NAME_InAirDist, true));
+	Stats.Add(MakeStat(NAME_SwimDist, true));
+	Stats.Add(MakeStat(NAME_TranslocDist, true));
+	Stats.Add(MakeStat(NAME_NumDodges, true));
+	Stats.Add(MakeStat(NAME_NumWallDodges, true));
+	Stats.Add(MakeStat(NAME_NumJumps, true));
+	Stats.Add(MakeStat(NAME_NumLiftJumps, true));
+	Stats.Add(MakeStat(NAME_NumFloorSlides, true));
+	Stats.Add(MakeStat(NAME_NumWallRuns, true));
+	Stats.Add(MakeStat(NAME_NumImpactJumps, true));
+	Stats.Add(MakeStat(NAME_NumRocketJumps, true));
+	Stats.Add(MakeStat(NAME_SlideDist, true));
+	Stats.Add(MakeStat(NAME_WallRunDist, true));
+
+	Stats.Add(MakeStat(NAME_FlagHeldDeny, true));
+	Stats.Add(MakeStat(NAME_FlagHeldDenyTime, true));
+	Stats.Add(MakeStat(NAME_FlagHeldTime, true));
+	Stats.Add(MakeStat(NAME_FlagReturnPoints, true));
+	Stats.Add(MakeStat(NAME_CarryAssist, true));
+	Stats.Add(MakeStat(NAME_CarryAssistPoints, true));
+	Stats.Add(MakeStat(NAME_FlagCapPoints, true));
+	Stats.Add(MakeStat(NAME_DefendAssist, true));
+	Stats.Add(MakeStat(NAME_DefendAssistPoints, true));
+	Stats.Add(MakeStat(NAME_ReturnAssist, true));
+	Stats.Add(MakeStat(NAME_ReturnAssistPoints, true));
+	Stats.Add(MakeStat(NAME_TeamCapPoints, true));
+	Stats.Add(MakeStat(NAME_EnemyFCDamage, true));
+	Stats.Add(MakeStat(NAME_FCKills, true));
+	Stats.Add(MakeStat(NAME_FCKillPoints, true));
+	Stats.Add(MakeStat(NAME_FlagSupportKills, true));
+	Stats.Add(MakeStat(NAME_FlagSupportKillPoints, true));
+	Stats.Add(MakeStat(NAME_RegularKillPoints, true));
+	Stats.Add(MakeStat(NAME_FlagGrabs, true));
+	Stats.Add(MakeStat(NAME_AttackerScore, true));
+	Stats.Add(MakeStat(NAME_DefenderScore, true));
+	Stats.Add(MakeStat(NAME_SupporterScore, true));
+	
 	Stats.Add(MakeStat(NAME_PlayerXP, true));
 
 	NumMatchesToKeep = 5;
@@ -218,13 +277,7 @@ void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> Jso
 		if (Stat && Stat->bBackendStat && PS)
 		{
 			float NewStatValue = PS->GetStatsValue(Stat->StatName);
-			Stat->ModifyStat(NewStatValue, EStatMod::Set);
-
-			int32 StatValue = GetStatValue(Stat, EStatRecordingPeriod::Persistent);
-			if (StatValue > 0)
-			{
-				JsonObject->SetNumberField(Stat->StatName.ToString(), StatValue);
-			}
+			JsonObject->SetNumberField(Stat->StatName.ToString(), NewStatValue);
 		}
 	}
 }

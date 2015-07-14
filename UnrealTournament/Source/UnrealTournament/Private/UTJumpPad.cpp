@@ -84,10 +84,11 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 
 		// if it's a bot, refocus it to its desired endpoint for any air control adjustments
 		AUTBot* B = Cast<AUTBot>(Char->Controller);
-		if (B != NULL && GetUTNavData(GetWorld()) != NULL)
+		AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+		if (B != NULL && NavData != NULL)
 		{
 			bool bRepathOnLand = false;
-			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this;
+			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this || (B->GetMoveTarget().Node != NULL && B->GetMoveTarget().Node->POIs.Contains(this));
 			if (!bExpectedJumpPad)
 			{
 				UUTReachSpec_JumpPad* JumpPadPath = Cast<UUTReachSpec_JumpPad>(B->GetCurrentPath().Spec.Get());
@@ -109,19 +110,31 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 					}
 				}
 			}
-			else if (!B->GetMoveTarget().IsValid())
+			else if (!B->GetMoveTarget().IsValid() || B->MoveTimer <= 0.0f)
 			{
-				// bot got knocked onto jump pad or otherwise is surprised to be here
+				// bot got knocked onto jump pad, is stuck on it, or otherwise is surprised to be here
 				bRepathOnLand = true;
 			}
 			if (bRepathOnLand)
 			{
 				// make sure bot aborts move when it lands
 				B->MoveTimer = FMath::Min<float>(B->MoveTimer, JumpTime - 0.1f);
-				// if the jump pad just goes straight up (such that it will never land without air control), we need to force a decision now
-				if (JumpTarget.Size2D() < 1.0f)
+				// if bot might be stuck or the jump pad just goes straight up (such that it will never land without air control), we need to force something to happen
+				if (B->MoveTimer <= 0.0f || JumpTarget.Size2D() < 1.0f)
 				{
-					B->WhatToDoNext();
+					UUTPathNode* MyNode = NavData->FindNearestNode(GetActorLocation(), NavData->GetPOIExtent(this));
+					if (MyNode != NULL)
+					{
+						for (const FUTPathLink& Path : MyNode->Paths)
+						{
+							UUTReachSpec_JumpPad* JumpPadPath = Cast<UUTReachSpec_JumpPad>(Path.Spec.Get());
+							if (JumpPadPath != NULL && JumpPadPath->JumpPad == this)
+							{
+								B->SetMoveTargetDirect(FRouteCacheItem(Path.End.Get(), NavData->GetPolySurfaceCenter(Path.EndPoly), Path.EndPoly));
+								break;
+							}
+						}
+					}
 				}
 			}
 		}

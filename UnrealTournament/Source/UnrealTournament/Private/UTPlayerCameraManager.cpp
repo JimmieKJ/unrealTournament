@@ -99,7 +99,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 	bAllowSpecCameraControl = false;
 	CurrentCameraRoll = 0.f;
-	WallSlideCameraRoll = 15.f;
+	WallSlideCameraRoll = 12.5f;
 }
 
 // @TODO FIXMESTEVE SPLIT OUT true spectator controls
@@ -197,7 +197,20 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	CameraStyle = GetCameraStyleWithOverrides();
 
 	// smooth third person camera all the time
-	if (CameraStyle == NAME_FreeCam)
+	if (OutVT.Target == PCOwner)
+	{
+		OutVT.POV.FOV = DefaultFOV;
+		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
+		OutVT.POV.bConstrainAspectRatio = false;
+		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+		OutVT.POV.PostProcessBlendWeight = 1.0f;
+		if (OutVT.POV.Location.IsZero())
+		{
+			OutVT.POV.Location = PCOwner->GetFocalLocation();
+		}
+		OutVT.POV.Rotation = PCOwner->GetControlRotation();
+	}
+	else if (CameraStyle == NAME_FreeCam)
 	{
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
 		AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
@@ -221,7 +234,16 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		{
 			DesiredLoc = LastThirdPersonCameraLoc;
 		}
-		FVector Loc = (LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget) || ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f)) ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
+
+		//If camera is jumping to a new location and we have LOS then interp 
+		bool bSnapCamera = ((UTCharacter && UTCharacter->IsDead()) || LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget));
+		if (!bSnapCamera && ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f))
+		{
+			FHitResult Result;
+			CheckCameraSweep(Result, OutVT.Target, DesiredLoc, LastThirdPersonCameraLoc);
+			bSnapCamera = Result.bBlockingHit;
+		}
+		FVector Loc = bSnapCamera ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
 
 		AUTCharacter* BaseChar = UTCharacter;
 		if (!BaseChar)

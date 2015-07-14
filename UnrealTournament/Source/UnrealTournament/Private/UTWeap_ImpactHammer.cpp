@@ -223,7 +223,7 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 			if (UTOwner != NULL) // above auto-fire might have killed Owner
 			{
 				AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-				if (B != NULL && !B->IsCharging() && GetAISelectRating() < 0.5f)
+				if (B != NULL && !B->IsCharging() && (B->GetEnemy() == NULL || UTOwner->GetPendingWeapon() != NULL))
 				{
 					UTOwner->StopFiring();
 				}
@@ -400,5 +400,31 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 				return false;
 			}
 		}
+	}
+}
+
+void AUTWeap_ImpactHammer::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	if (InFireMode == 0)
+	{
+		CurrentFireMode = InFireMode;
+		UUTWeaponStateFiringCharged* Charged = Cast<UUTWeaponStateFiringCharged>(FiringState[0]);
+		if (Charged != nullptr)
+		{
+			// for primary, FlashCount > 0 is charging, FlashCount == 0 and FlashLocation set is release
+			if (UTOwner->FlashCount > 0)
+			{
+				Charged->ToggleLoopingEffects(true);
+			}
+			else if (!InFlashLocation.IsZero())
+			{
+				Charged->ToggleLoopingEffects(false);
+				PlayFiringEffects();
+			}
+		}
+	}
+	else
+	{
+		Super::FiringInfoUpdated_Implementation(InFireMode, FlashCount, InFlashLocation);
 	}
 }

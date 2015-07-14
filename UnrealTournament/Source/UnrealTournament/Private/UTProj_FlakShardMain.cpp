@@ -25,7 +25,7 @@ void AUTProj_FlakShardMain::DamageImpactedActor_Implementation(AActor* OtherActo
 	if (UTC && (UTC != Instigator) && Role == ROLE_Authority && Instigator != NULL && (InitialLifeSpan - GetLifeSpan() < 0.5f*MaxBonusTime))
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Instigator->Controller);
-		if (PC && UTC->IsDead() && (UTC->TimeOfDeath = GetWorld()->GetTimeSeconds()))
+		if (PC && UTC->IsDead() && (UTC->TimeOfDeath == GetWorld()->GetTimeSeconds()))
 		{
 			if (ShortRangeKillShake)
 			{
@@ -69,10 +69,7 @@ FRadialDamageParams AUTProj_FlakShardMain::GetDamageParams_Implementation(AActor
 		if (BonusTime > 0.0f)
 		{
 			// Apply bonus damage
-			const float CharacterRadius = OtherCharacter->GetSimpleCollisionRadius();
-			const float OffCenterDistance = FMath::PointDistToLine(OtherActor->GetActorLocation(), GetVelocity().GetSafeNormal(), HitLocation);
-			const float OffCenterMultiplier = FMath::Max(0.f, 2.f * CharacterRadius - OffCenterDistance) / CharacterRadius;
-			CalculatedParams.BaseDamage += CenteredDamageBonus * BonusTime * OffCenterMultiplier;
+			CalculatedParams.BaseDamage += CenteredDamageBonus * BonusTime;
 			OutMomentum += CenteredMomentumBonus * BonusTime;
 		}
 	}

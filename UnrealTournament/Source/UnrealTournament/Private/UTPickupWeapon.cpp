@@ -71,6 +71,7 @@ void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
 		GhostDepthMesh->AttachChildren.Empty();
 		GhostDepthMesh->SetRenderCustomDepth(true);
 		GhostDepthMesh->SetRenderInMainPass(false);
+		GhostDepthMesh->CastShadow = false;
 		GhostDepthMesh->RegisterComponent();
 		GhostDepthMesh->bShouldUpdatePhysicsVolume = false;
 		GhostDepthMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);

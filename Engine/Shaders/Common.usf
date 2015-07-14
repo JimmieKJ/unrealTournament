@@ -79,6 +79,9 @@
 
 // to support the console command "r.InvalidateShaderCache"
 #include "ShaderVersion.usf"
+	
+// uniform buffers specifics
+#include "CommonViewUniformBuffer.usf"
 
 #include "Definitions.usf"
 

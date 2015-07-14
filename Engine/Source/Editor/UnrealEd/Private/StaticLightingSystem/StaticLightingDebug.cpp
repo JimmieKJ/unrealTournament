@@ -162,9 +162,12 @@ static bool GetBarycentricWeights(
 	return false;
 }
 
+float TriangleTolerance = .01f;
+
 /** Updates GCurrentSelectedLightmapSample given a selected actor's components and the location of the click. */
 void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model, int32 iSurf, FVector ClickLocation)
 {
+#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
 	UStaticMeshComponent* SMComponent = NULL;
 	if (Components)
 	{
@@ -225,7 +228,7 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 
 				FVector BaryCentricWeights;
 				// Continue if click location is in the triangle and get its barycentric weights
-				if (GetBarycentricWeights(Position0, Position1, Position2, ClickLocation, .001f, BaryCentricWeights))
+				if (GetBarycentricWeights(Position0, Position1, Position2, ClickLocation, TriangleTolerance, BaryCentricWeights))
 				{
 					RestoreSelectedLightmapSample();
 
@@ -439,6 +442,7 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 		RestoreSelectedLightmapSample();
 		GCurrentSelectedLightmapSample = FSelectedLightmapSample();
 	}
+#endif
 }
 
 /** Renders debug elements for visualizing static lighting info */

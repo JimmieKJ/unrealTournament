@@ -49,10 +49,12 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, PlayersInMatchInstance);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bJoinAnytime);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
-	DOREPLIFETIME(AUTLobbyMatchInfo, RankCeiling);
+	DOREPLIFETIME(AUTLobbyMatchInfo, bRankLocked);
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
+	DOREPLIFETIME(AUTLobbyMatchInfo, AverageRank);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bQuickPlayMatch, COND_InitialOnly);
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -151,6 +153,7 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 
 	// Players default to ready
 	PlayerToAdd->bReadyToPlay = true;
+	UpdateRank();
 }
 
 bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
@@ -183,6 +186,7 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 	{
 		Players.Remove(PlayerToRemove);
 		PlayerToRemove->RemovedFromMatch(this);
+		UpdateRank();
 	}
 
 	return false;
@@ -317,30 +321,36 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
 void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
-	if (Players.Num() < CurrentRuleset->MinPlayersToStart)
+	if (CheckLobbyGameState() && LobbyGameState->CanLaunch())
 	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
-		return;
+		if (Players.Num() < CurrentRuleset->MinPlayersToStart)
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+			return;
+		}
+
+		if (NumPlayersInMatch() > CurrentRuleset->MaxPlayers)
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyPlayers","There are too many players in this match to start."));
+			return;
+		}
+
+		if (NumSpectatorsInMatch() > LobbyGameState->MaxSpectatorsInInstance)
+		{
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManySpectators","There are too many spectators in this match to start."));
+			return;
+		}
+
+		// TODO: need to check for ready ups on server side
+
+		if (CurrentState == ELobbyMatchState::WaitingForPlayers)
+		{
+			LaunchMatch();
+			return;
+		}
 	}
 
-	if (Players.Num() > CurrentRuleset->MaxPlayers)
-	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyPlayers","There are too many players in this match to start."));
-		return;
-	}
-
-	// TODO: need to check for ready ups on server side
-
-	if (!CheckLobbyGameState() || !LobbyGameState->CanLaunch(this))
-	{
-		GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
-		return;
-	}
-
-	if (CurrentState == ELobbyMatchState::WaitingForPlayers)
-	{
-		LaunchMatch();
-	}
+	GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 }
 
 void AUTLobbyMatchInfo::LaunchMatch()
@@ -397,11 +407,22 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 			if (Players[i].IsValid())
 			{
 				// Tell the client to connect to the instance
-				Players[i]->ClientConnectToInstance(GameInstanceGUID, false);
+
+				Players[i]->ClientConnectToInstance(GameInstanceGUID, Players[i]->DesiredTeamNum == 255);
 			}
 		}
 	}
 	SetLobbyMatchState(ELobbyMatchState::InProgress);
+
+	for (int32 i = 0; i < NotifyBeacons.Num(); i++)
+	{
+		if (NotifyBeacons[i])
+		{
+			NotifyBeacons[i]->ClientJoinQuickplay(GameInstanceGUID);
+		}
+	}
+
+	NotifyBeacons.Empty();
 }
 
 void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState)
@@ -455,10 +476,10 @@ void AUTLobbyMatchInfo::ServerSetAllowSpectating_Implementation(bool bAllow)
 	bSpectatable = bAllow;
 }
 
-bool AUTLobbyMatchInfo::ServerSetRankCeiling_Validate(int32 NewRankCeiling) { return true; }
-void AUTLobbyMatchInfo::ServerSetRankCeiling_Implementation(int32 NewRankCeiling)
+bool AUTLobbyMatchInfo::ServerSetRankLocked_Validate(bool bLocked) { return true; }
+void AUTLobbyMatchInfo::ServerSetRankLocked_Implementation(bool bLocked)
 {
-	RankCeiling = NewRankCeiling;
+	bRankLocked = bLocked;
 }
 
 
@@ -799,10 +820,19 @@ TSharedPtr<FMapListItem> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage
 
 int32 AUTLobbyMatchInfo::NumPlayersInMatch()
 {
-	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers) return Players.Num();
+	int32 ActualPlayerCount = 0;
+	for (int32 i = 0; i < Players.Num(); i++)
+	{
+		if (Players[i]->DesiredTeamNum != 255) ActualPlayerCount++;
+	}
+
+	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers)
+	{
+		return ActualPlayerCount;
+	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
-		int32 Cnt = Players.Num();
+		int32 Cnt = ActualPlayerCount;
 		for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
 		{
 			if (!PlayersInMatchInstance[i].bIsSpectator)
@@ -816,3 +846,122 @@ int32 AUTLobbyMatchInfo::NumPlayersInMatch()
 	return 0;
 }
 
+int32 AUTLobbyMatchInfo::NumSpectatorsInMatch()
+{
+	int32 ActualPlayerCount = 0;
+	for (int32 i = 0; i < Players.Num(); i++)
+	{
+		if (Players[i]->DesiredTeamNum == 255) ActualPlayerCount++;
+	}
+
+	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers)
+	{
+		return ActualPlayerCount;
+	}
+	else if (CurrentState == ELobbyMatchState::InProgress)
+	{
+		int32 Cnt = Players.Num();
+		for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+		{
+			if (PlayersInMatchInstance[i].bIsSpectator)
+			{
+				Cnt++;
+			}
+		}
+
+		return Cnt;
+	}
+
+	return 0;
+}
+
+
+bool AUTLobbyMatchInfo::IsMatchofType(const FString& MatchType)
+{
+	if (CurrentRuleset.IsValid() && !CurrentRuleset->bCustomRuleset)
+	{
+		if (MatchType == CurrentRuleset->UniqueTag)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool AUTLobbyMatchInfo::MatchHasRoom(bool bForSpectator)
+{
+	if (CurrentRuleset.IsValid())
+	{
+		if (CurrentState == MatchState::InProgress)	
+		{
+			if (bForSpectator && CheckLobbyGameState())
+			{
+				return NumSpectatorsInMatch() < LobbyGameState->MaxSpectatorsInInstance;
+			}
+
+			return NumPlayersInMatch() < CurrentRuleset->MaxPlayers;
+		}
+	
+	}
+	return true;
+}
+
+bool AUTLobbyMatchInfo::SkillTest(int32 Rank, bool bForceLock)
+{
+	if (bRankLocked || bForceLock)
+	{
+		return (Rank >= AverageRank - 400) && (Rank <= AverageRank + 400);
+	}
+
+	return true;
+}
+
+
+bool AUTLobbyMatchInfo::CanAddPlayer(int32 ELORank, bool bForceRankLock)
+{
+	return SkillTest(ELORank, bForceRankLock) && MatchHasRoom();
+}
+
+
+void AUTLobbyMatchInfo::UpdateRank()
+{
+	if (CurrentState == ELobbyMatchState::InProgress)
+	{
+		if (PlayersInMatchInstance.Num() > 0)
+		{
+			MinRank = PlayersInMatchInstance[0].PlayerRank;
+			MaxRank = PlayersInMatchInstance[0].PlayerRank;
+			AverageRank = PlayersInMatchInstance[0].PlayerRank;
+
+			for (int32 i=1; i < PlayersInMatchInstance.Num(); i++)
+			{
+				int32 PlayerRank = PlayersInMatchInstance[i].PlayerRank;
+				if (PlayerRank < MinRank) MinRank = PlayerRank;
+				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
+				AverageRank += PlayerRank;
+			}
+		
+			AverageRank = int32( float(AverageRank) / float(PlayersInMatchInstance.Num()));
+		}
+	}
+	else
+	{
+		if (Players.Num() > 0)
+		{
+			MinRank = Players[0]->AverageRank;
+			MaxRank = Players[0]->AverageRank;
+			AverageRank = Players[0]->AverageRank;
+
+			for (int32 i=1; i < Players.Num(); i++)
+			{
+				int32 PlayerRank = Players[i]->AverageRank;
+				if (PlayerRank < MinRank) MinRank = PlayerRank;
+				if (PlayerRank > MaxRank) MaxRank = PlayerRank;
+				AverageRank += PlayerRank;
+			}
+		
+			AverageRank = int32( float(AverageRank) / float(Players.Num()));
+		}
+	}
+}

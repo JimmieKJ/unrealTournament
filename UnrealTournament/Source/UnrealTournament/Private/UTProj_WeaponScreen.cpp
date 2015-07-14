@@ -103,6 +103,15 @@ void AUTProj_WeaponScreen::OnStop(const FHitResult& Hit)
 	ShutDown();
 }
 
+void AUTProj_WeaponScreen::TornOff()
+{
+	if (ExplosionEffects != NULL)
+	{
+		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform((-GetVelocity()).Rotation(), GetActorLocation()), NULL, this, InstigatorController);
+	}
+	ShutDown();
+}
+
 void AUTProj_WeaponScreen::Tick(float DeltaTime)
 {
 	if (RootComponent != NULL)

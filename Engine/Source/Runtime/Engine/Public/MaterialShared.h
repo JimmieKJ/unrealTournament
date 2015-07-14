@@ -84,6 +84,19 @@ enum EMaterialValueType
 };
 
 /**
+ * The common bases of material
+ */
+enum EMaterialCommonBasis
+{
+	MCB_Tangent,
+	MCB_Local,
+	MCB_TranslatedWorld,
+	MCB_World,
+	MCB_View,
+	MCB_MAX,
+};
+
+/**
  * The context of a material being rendered.
  */
 struct ENGINE_API FMaterialRenderContext

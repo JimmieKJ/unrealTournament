@@ -1214,12 +1214,14 @@ void UDemoNetDriver::SkipTime(const float InTimeToSkip)
 	TimeToSkip = InTimeToSkip;
 }
 
-void UDemoNetDriver::GotoTimeInSeconds( const float TimeInSeconds )
+void UDemoNetDriver::GotoTimeInSeconds(const float TimeInSeconds, const FOnGotoTimeDelegate& InOnGotoTimeDelegate)
 {
 	if ( QueuedGotoTimeInSeconds < 0 )
 	{
 		QueuedGotoTimeInSeconds = TimeInSeconds;
 	}
+
+	OnGotoTimeDelegate = InOnGotoTimeDelegate;
 }
 
 void UDemoNetDriver::JumpToEndOfLiveReplay()
@@ -1417,6 +1419,9 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 
 		const auto FastForwardTotalSeconds = FPlatformTime::Seconds() - FastForwardStartSeconds;
 
+		OnGotoTimeDelegate.ExecuteIfBound(true);
+		OnGotoTimeDelegate.Unbind();
+
 		UE_LOG( LogDemo, Log, TEXT( "Fast forward took %.2f seconds." ), FastForwardTotalSeconds );
 	}
 }
@@ -1507,6 +1512,8 @@ void UDemoNetDriver::CheckpointReady( const bool bSuccess, const int64 SkipExtra
 	{
 		UE_LOG( LogDemo, Warning, TEXT( "UDemoNetConnection::CheckpointReady: Failed to go to checkpoint." ) );
 		DemoCurrentTime = OldDemoCurrentTime;
+		OnGotoTimeDelegate.ExecuteIfBound(false);
+		OnGotoTimeDelegate.Unbind();
 		return;
 	}
 

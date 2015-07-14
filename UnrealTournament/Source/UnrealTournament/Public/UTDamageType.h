@@ -183,6 +183,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
 		int32 WeaponSpreeCount;
+
+	/** icon for drawing kill messages */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+	FCanvasIcon HUDIcon;
 };
 
 /** return the base momentum for the given damage event (before radial damage and any other modifiers) */

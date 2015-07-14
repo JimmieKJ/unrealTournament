@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "../Public/UnrealTournament.h"
+#include "SUTAspectPanel.h"
 #include "SUTGameLayerManager.h"
 
 #if !UE_SERVER
@@ -16,7 +17,16 @@ void SUTGameLayerManager::Construct(const FArguments& InArgs)
 		
 		+ SOverlay::Slot()
 		[
-			SAssignNew(GameLayers, SOverlay)
+			SNew(SUTAspectPanel)
+			.Visibility(EVisibility::SelfHitTestInvisible)
+			[
+				SAssignNew(GameLayers, SOverlay)
+			]
+		]
+
+		+ SOverlay::Slot()
+		[
+			SAssignNew(GameLayers_NoAspect, SOverlay)
 		]
 
 		+ SOverlay::Slot()
@@ -47,6 +57,19 @@ void SUTGameLayerManager::AddLayer(TSharedRef<class SWidget> ViewportContent, co
 void SUTGameLayerManager::RemoveLayer(TSharedRef<class SWidget> ViewportContent)
 {
 	GameLayers->RemoveSlot(ViewportContent);
+}
+
+void SUTGameLayerManager::AddLayer_NoAspect(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
+{
+	GameLayers_NoAspect->AddSlot(ZOrder)
+		[
+			ViewportContent
+		];
+}
+
+void SUTGameLayerManager::RemoveLayer_NoAspect(TSharedRef<class SWidget> ViewportContent)
+{
+	GameLayers_NoAspect->RemoveSlot(ViewportContent);
 }
 
 #endif

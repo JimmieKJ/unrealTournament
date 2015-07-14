@@ -1745,11 +1745,10 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 					SampleY = Halton( Index, 3 ) - 0.5f;
 				}
 
-				View.ViewMatrices.TemporalAASample.X = SampleX;
-				View.ViewMatrices.TemporalAASample.Y = SampleY;
-
-				View.ViewMatrices.ProjMatrix.M[2][0] += View.ViewMatrices.TemporalAASample.X * 2.0f / View.ViewRect.Width();
-				View.ViewMatrices.ProjMatrix.M[2][1] += View.ViewMatrices.TemporalAASample.Y * 2.0f / View.ViewRect.Height();;
+				View.ViewMatrices.TemporalAAProjJitter.X = SampleX * 2.0f / View.ViewRect.Width();
+				View.ViewMatrices.TemporalAAProjJitter.Y = SampleY * 2.0f / View.ViewRect.Height();
+				View.ViewMatrices.ProjMatrix.M[2][0] += View.ViewMatrices.TemporalAAProjJitter.X;
+				View.ViewMatrices.ProjMatrix.M[2][1] += View.ViewMatrices.TemporalAAProjJitter.Y;
 
 				// Compute the view projection matrix and its inverse.
 				View.ViewProjectionMatrix = View.ViewMatrices.ViewMatrix * View.ViewMatrices.ProjMatrix;

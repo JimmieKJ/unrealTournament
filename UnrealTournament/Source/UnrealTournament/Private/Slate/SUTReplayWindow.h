@@ -31,7 +31,24 @@ class UNREALTOURNAMENT_API SUTReplayWindow : public SCompoundWidget
 
 protected:
 
-	//TODO: make custom widgets for these
+	float RecordTimeStart;
+	float RecordTimeStop;
+	FReply OnMarkRecordStartClicked();
+	FReply OnMarkRecordStopClicked();
+	FReply OnRecordButtonClicked();
+	void RecordSeekCompleted(bool bSucceeded);
+
+	TSharedPtr<class SUTProgressSlider> TimeSlider;
+	TSharedPtr<class SButton> RecordButton;
+	TSharedPtr<class SButton> MarkStartButton;
+	TSharedPtr<class SButton> MarkEndButton;
+	TSharedPtr<class SBorder> TimeBar;
+
+	//Time remaining to auto hide the time bar
+	float HideTimeBarTime;
+	FLinearColor GetTimeBarColor() const;
+	FSlateColor GetTimeBarBorderColor() const;
+
 	void OnSetTimeSlider(float NewValue);
 	float GetTimeSlider() const;
 
@@ -42,7 +59,7 @@ protected:
 	float SpeedMax;
 
 	FText GetTimeText() const;
-
+	
 	const FSlateBrush* GetPlayButtonBrush() const;
 	FReply OnPlayPauseButtonClicked();
 
@@ -50,8 +67,18 @@ protected:
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
-	bool GetGameMousePosition(FVector2D& MousePosition);
+	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
+
+	bool bDrawTooltip;
+	float TooltipTime;
+	FVector2D ToolTipPos;
+
+	FText GetTooltipText() const;
+	FVector2D GetTimeTooltipSize() const;
+	FVector2D GetTimeTooltipPosition() const;
+
+	EVisibility GetVis() const;
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;

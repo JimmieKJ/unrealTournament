@@ -332,6 +332,9 @@ public:
 	virtual void DemoSeek(float DeltaSeconds);
 
 	UFUNCTION(exec)
+	virtual void DemoGoTo(float Seconds);
+
+	UFUNCTION(exec)
 	virtual void DemoGoToLive();
 
 	UFUNCTION(exec)
@@ -339,6 +342,11 @@ public:
 
 	UFUNCTION(exec)
 	virtual void DemoTimeDilation(float DeltaAmount);
+
+	UFUNCTION(exec)
+	virtual void DemoSetTimeDilation(float Amount);
+
+	virtual void OnDemoSeeking();
 
 	/** whether player wants behindview when spectating */
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
@@ -359,6 +367,9 @@ public:
 
 	UFUNCTION(exec)
 		virtual void ToggleShowBinds();
+
+	UFUNCTION(exec)
+	virtual void TogglePlayerInfo();
 
 	virtual void ViewAPlayer(int32 dir)
 	{
@@ -413,7 +424,10 @@ public:
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
 
 	UPROPERTY()
-	class APlayerState* LastSpectatedPlayerState;
+	class AUTPlayerState* LastSpectatedPlayerState;
+
+	UPROPERTY()
+	int32 LastSpectatedPlayerId;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPawn(APawn* PawnToView);

@@ -27,6 +27,7 @@
 #include "UTWeap_Translocator.h"
 #include "UTCTFGameMode.h"
 #include "UTCarriedObject.h"
+#include "UTCharacterContent.h"
 
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -189,4 +190,51 @@ void UUTCheatManager::BugItWorker(FVector TheLocation, FRotator TheRotation)
 
 	// The teleport doesn't play nice with our physics, so just go to walk mode rather than fall through the world
 	Walk();
+}
+
+void UUTCheatManager::SetChar(const FString& NewChar)
+{
+	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
+	for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+		if (PS)
+		{
+			bool bFoundCharacterContent = false;
+			FString NewCharPackageName;
+			if (FPackageName::SearchForPackageOnDisk(NewChar, &NewCharPackageName))
+			{
+				NewCharPackageName += TEXT(".") + NewChar + TEXT("_C");
+				if (LoadClass<AUTCharacterContent>(NULL, *NewCharPackageName, NULL, LOAD_None, NULL))
+				{
+					bFoundCharacterContent = true;
+				}
+			}
+
+			FString NewCharAlt = NewChar + TEXT("CharacterContent");
+			if (!bFoundCharacterContent && FPackageName::SearchForPackageOnDisk(NewCharAlt, &NewCharPackageName))
+			{
+				NewCharPackageName += TEXT(".") + NewCharAlt + TEXT("_C");
+				if (LoadClass<AUTCharacterContent>(NULL, *NewCharPackageName, NULL, LOAD_None, NULL))
+				{
+					bFoundCharacterContent = true;
+				}
+			}
+
+			FString NewCharAlt2 = NewChar + TEXT("Character");
+			if (!bFoundCharacterContent && FPackageName::SearchForPackageOnDisk(NewCharAlt2, &NewCharPackageName))
+			{
+				NewCharPackageName += TEXT(".") + NewCharAlt2 + TEXT("_C");
+				if (LoadClass<AUTCharacterContent>(NULL, *NewCharPackageName, NULL, LOAD_None, NULL))
+				{
+					bFoundCharacterContent = true;
+				}
+			}
+
+			if (bFoundCharacterContent)
+			{
+				PS->ServerSetCharacter(NewCharPackageName);
+			}
+		}
+	}
 }

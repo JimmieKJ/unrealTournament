@@ -136,11 +136,22 @@ void AUTDemoRecSpectator::ClientTravelInternal_Implementation(const FString& URL
 {
 }
 
+void AUTDemoRecSpectator::ClientToggleScoreboard_Implementation(bool bShow)
+{
+	Super::ClientToggleScoreboard_Implementation(bShow);
+}
+
+void AUTDemoRecSpectator::ShowEndGameScoreboard()
+{
+	Super::ShowEndGameScoreboard();
+}
+
 void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
+	SetViewTarget(EndGameFocus);
 	BehindView(true);
 	FTimerHandle TimerHandle;
-	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 3.f, false);
 	APlayerController::ClientGameEnded_Implementation(EndGameFocus, bIsWinner);
 
 	TurnOffPawns();
@@ -180,7 +191,6 @@ void AUTDemoRecSpectator::ShowMenu()
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
-		LocalPlayer->CloseReplayWindow();
 		LocalPlayer->ShowMenu();
 	}
 }
@@ -191,6 +201,66 @@ void AUTDemoRecSpectator::HideMenu()
 	if (LocalPlayer)
 	{
 		LocalPlayer->HideMenu();
-		LocalPlayer->OpenReplayWindow();
+	}
+}
+
+void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float DeltaSeconds)
+{
+	if (!bSpectateBehindView && TargetPawn)
+	{
+		TargetViewRotation = TargetPawn->GetActorRotation();
+		TargetViewRotation.Pitch = TargetPawn->RemoteViewPitch;
+		// Decompress remote view pitch from 1 byte
+		TargetViewRotation.Pitch *= 360.f / 255.f;
+		
+		struct FBlendHelper
+		{
+			/** worker function for AUTDemoRecSpectator::SmoothTargetViewRotation() */
+			static float BlendRotation(float DeltaTime, float BlendC, float NewC)
+			{
+				if (FMath::Abs(BlendC - NewC) > 180.f)
+				{
+					if (BlendC > NewC)
+					{
+						NewC += 360.f;
+					}
+					else
+					{
+						BlendC += 360.f;
+					}
+				}
+
+				if (FMath::Abs(BlendC - NewC) > 90.f)
+				{
+					BlendC = NewC;
+				}
+				else
+				{
+					BlendC = BlendC + (NewC - BlendC) * FMath::Min(1.f, 12.f * DeltaTime);
+				}
+
+				return FRotator::ClampAxis(BlendC);
+			}
+		};
+
+		BlendedTargetViewRotation.Pitch = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Pitch, FRotator::ClampAxis(TargetViewRotation.Pitch));
+		BlendedTargetViewRotation.Yaw = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Yaw, FRotator::ClampAxis(TargetViewRotation.Yaw));
+		BlendedTargetViewRotation.Roll = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Roll, FRotator::ClampAxis(TargetViewRotation.Roll));
+
+		return;
+	}
+
+	Super::SmoothTargetViewRotation(TargetPawn, DeltaSeconds);
+}
+
+void AUTDemoRecSpectator::InitPlayerState()
+{
+	Super::InitPlayerState();
+	PlayerState->bOnlySpectator = true;
+
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS != nullptr)
+	{
+		UTPS->bIsDemoRecording = true;
 	}
 }

@@ -300,29 +300,17 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 		if (GM)
 		{
-			if (!bAsSpectator && MatchInfo->bJoinAnytime)
+			if (MatchInfo->bJoinAnytime || bAsSpectator)
 			{
-				 if ( MatchInfo->MatchHasRoom() )
+				 if ( MatchInfo->MatchHasRoom(bAsSpectator) )
 				 {
 					MatchInfo->AddPlayer(NewPlayer);
-					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, false);
-					return;
-				 }
-				 else
-				 {
-					NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
+					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
 					return;
 				 }
 			}
 
-			if (MatchInfo->bSpectatable)
-			{
-				MatchInfo->AddPlayer(NewPlayer);
-				NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, true);
-				return;
-			}
-
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchNoSpectate","This match doesn't allow spectating."));	
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
 			return;
 		}
 	}
@@ -532,7 +520,7 @@ void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, c
 }
 
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -550,6 +538,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 						if (bLastUpdate)
 						{
 							Match->PlayersInMatchInstance.RemoveAt(j,1);
+							Match->UpdateRank();
 							return;
 						}
 						else
@@ -557,6 +546,8 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 							Match->PlayersInMatchInstance[j].PlayerName = PlayerName;
 							Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
 							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
+							Match->PlayersInMatchInstance[j].PlayerRank = PlayerRank;
+							Match->UpdateRank();
 							return;
 						}
 						break;
@@ -564,7 +555,8 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				}
 
 				// A player not in the instance table.. add them
-				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator));
+				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, PlayerRank));
+				Match->UpdateRank();
 			}
 		}
 	}
@@ -622,7 +614,7 @@ void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 }
 
 
-bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
+bool AUTLobbyGameState::CanLaunch()
 {
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	return (GM && GM->GetNumMatches() < GM->MaxInstances);
@@ -851,4 +843,61 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
 	}
 
 	return NULL;
+}
+
+void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank)
+{
+	// Look through all available matches and see if there is 
+
+	for(int32 i=0; i < GameInstances.Num(); i++)
+	{
+
+		UE_LOG(UT,Verbose,TEXT("Checking Instance for joinability: %i %i %i vs %i [%s]"), GameInstances[i].MatchInfo->bQuickPlayMatch, GameInstances[i].MatchInfo->IsMatchofType(MatchType), GameInstances[i].MatchInfo->AverageRank, ELORank, ( GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress ? TEXT("InProgress") : TEXT("Not in Progress")));
+
+		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->bQuickPlayMatch && 
+				GameInstances[i].MatchInfo->IsMatchofType(MatchType) && 
+				(GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching || GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress))
+		{
+			// We have found a potential quick play match.  See if this player could be added to it.
+			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
+			{
+				// We can add the player to this match so do so.
+				Beacon->ClientJoinQuickplay(GameInstances[i].MatchInfo->GameInstanceGUID);
+				return;			
+			}
+		}
+	}
+
+
+	// We didn't have an existing instance to place this player in so see if we have room to add them.
+
+	if (CanLaunch())
+	{
+		// Tell the client they will have to wait while we spool up a match
+		Beacon->ClientWaitForQuickplay();
+		AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
+		if (NewMatchInfo)
+		{
+			AvailableMatches.Add(NewMatchInfo);
+
+			TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset = FindRuleset(MatchType);
+
+			if (NewRuleset.IsValid())
+			{
+				NewMatchInfo->SetRules(NewRuleset, NewRuleset->DefaultMap);
+			}
+
+			NewMatchInfo->bQuickPlayMatch = true;
+			NewMatchInfo->NotifyBeacons.Add(Beacon);
+			NewMatchInfo->bJoinAnytime = true;
+			NewMatchInfo->bSpectatable = true;
+			NewMatchInfo->LaunchMatch();
+		}
+	}
+	else
+	{
+		// We couldn't create a match, so tell the client to look elsewhere.
+		Beacon->ClientQuickplayNotAvailable();
+	}
+
 }

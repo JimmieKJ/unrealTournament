@@ -10,6 +10,7 @@
 #include "UTProfileSettings.h"
 #include "OnlinePresenceInterface.h"
 #include "Http.h"
+#include "UTProfileItem.h"
 
 #include "UTLocalPlayer.generated.h"
 
@@ -88,13 +89,15 @@ public:
 	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
 	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
-	void StartQuickMatch(FName QuickMatchType);
+	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
 	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
 	{
 		return DesktopSlateWidget;
 	}
+
+	virtual bool AreMenusOpen();
 #endif
 
 	// Holds all of the chat this client has received.
@@ -110,6 +113,11 @@ public:
 	UPROPERTY(Config)
 	bool bFragCenterAutoMute;
 
+	UPROPERTY(config)
+	FString YoutubeAccessToken;
+
+	UPROPERTY(config)
+	FString YoutubeRefreshToken;
 
 protected:
 
@@ -251,7 +259,7 @@ protected:
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
 
 private:
-
+	
 	// Holds the Username of the pending user.  It's set in LoginOnline and cleared when there is a successful connection
 	FString PendingLoginUserName;
 
@@ -304,6 +312,7 @@ protected:
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
+	virtual void OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 #if !UE_SERVER
 	TSharedPtr<class SUWDialog> HUDSettings;
@@ -482,13 +491,56 @@ public:
 
 	virtual bool IsReplay();
 
+#if !UE_SERVER
+	void RecordReplay(float RecordTime);
+	void RecordingReplayComplete();
+	void GetYoutubeConsentForUpload();
+	void ShouldVideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void VideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void ShouldVideoUploadDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeUploadCompleteResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+	void YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+	void UploadVideoToYoutube();
+	bool bRecordingReplay;
+	FString RecordedReplayFilename;
+	FString RecordedReplayTitle;
+	TSharedPtr<SUWDialog> YoutubeDialog;
+	TSharedPtr<class SUWYoutubeConsent> YoutubeConsentDialog;
+#endif
+
 	virtual void VerifyGameSession(const FString& ServerSessionId);
+
+	/** Return whether the progression system considers this player a beginner. **/
+	virtual bool IsConsideredABeginnner();
+
+	/** Closes any slate UI elements that are open. **/
+	virtual void CloseAllUI();
 
 protected:
 	void OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSucessful, const FOnlineSessionSearchResult& SearchResult);
 	
 	// Will be true if we are attempting to force the player in to an existing session.
 	bool bAttemptingForceJoin;
+
+	/** Profile items this player owns, downloaded from the server */
+	UPROPERTY()
+	TArray<FProfileItemEntry> ProfileItems;
+
+	/** Used to avoid reading too often */
+	double LastItemReadTime;
+	
+public:
+	/** Read profile items from the backend */
+	virtual void ReadProfileItems();
+	inline const TArray<FProfileItemEntry>& GetProfileItems() const
+	{
+		return ProfileItems;
+	}
+	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
+	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 };
 
 

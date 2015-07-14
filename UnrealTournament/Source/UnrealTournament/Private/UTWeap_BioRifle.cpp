@@ -136,10 +136,10 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 	GetWorldTimerManager().SetTimer(IncreaseGlobStrengthHandle, this, &AUTWeap_BioRifle::IncreaseGlobStrength, GlobConsumeTime / ((UTOwner != NULL) ? UTOwner->GetFireRateMultiplier() : 1.0f), false);
 
 	// AI decision to release fire
-	if (UTOwner != NULL)
+	if (UTOwner != NULL && GlobStrength > 1)
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-		if (B != NULL && CanAttack(B->GetTarget(), B->GetFocalPoint(), true))
+		if (B != NULL && B->GetFocusActor() == B->GetTarget() && CanAttack(B->GetTarget(), B->GetFocalPoint(), true))
 		{
 			if (GlobStrength >= MaxGlobStrength || !HasAmmo(CurrentFireMode) || !B->CheckFutureSight(0.25f))
 			{
@@ -211,6 +211,25 @@ void AUTWeap_BioRifle::FireShot()
 	else
 	{
 		Super::FireShot();
+	}
+}
+
+void AUTWeap_BioRifle::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	UUTWeaponStateFiringCharged* Charged = Cast<UUTWeaponStateFiringCharged>(FiringState[1]);
+	if (Charged != nullptr)
+	{
+		// odd FlashCount is charging, even is firing
+		if (UTOwner->FireMode != 1 || (UTOwner->FlashCount % 2) == 0)
+		{
+			OnChargeShot();
+			Super::FiringInfoUpdated_Implementation(InFireMode, FlashCount, InFlashLocation);
+		}
+		else
+		{
+			StopFiringEffects();
+			StartCharge();
+		}
 	}
 }
 

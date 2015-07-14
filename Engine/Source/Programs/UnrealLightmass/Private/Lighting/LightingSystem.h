@@ -2405,17 +2405,28 @@ private:
 		FStaticLightingTextureMapping* TextureMapping, 
 		FStaticLightingMappingContext& MappingContext,
 		FGatheredLightMapData2D& LightMapData, 
-		TMap<const FLight*, FShadowMapData2D*>& ShadowMaps,
+		FShadowMapData2D*& ShadowMapData,
 		const FTexelToVertexMap& TexelToVertexMap, 
 		bool bDebugThisMapping,
 		const FLight* Light,
-		const bool bLowQualityLightMapsOnly ) const;
+		const bool bLowQualityLightMapsOnly) const;
 
 	/** 
 	 * Calculate signed distance field shadowing from a single light,  
 	 * Based on the paper "Improved Alpha-Tested Magnification for Vector Textures and Special Effects" by Valve.
 	 */
-	void CalculateDirectSignedDistanceFieldLightingTextureMapping(
+	void CalculateDirectSignedDistanceFieldLightingTextureMappingTextureSpace(
+		FStaticLightingTextureMapping* TextureMapping, 
+		FStaticLightingMappingContext& MappingContext,
+		FGatheredLightMapData2D& LightMapData, 
+		TMap<const FLight*, FSignedDistanceFieldShadowMapData2D*>& ShadowMaps,
+		const FTexelToVertexMap& TexelToVertexMap, 
+		const FTexelToCornersMap& TexelToCornersMap,
+		bool bDebugThisMapping,
+		const FLight* Light) const;
+
+	/** Experimental method that avoids artifacts due to lightmap seams. */
+	void CalculateDirectSignedDistanceFieldLightingTextureMappingLightSpace(
 		FStaticLightingTextureMapping* TextureMapping, 
 		FStaticLightingMappingContext& MappingContext,
 		FGatheredLightMapData2D& LightMapData, 

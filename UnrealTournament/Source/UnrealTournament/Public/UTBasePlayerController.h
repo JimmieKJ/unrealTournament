@@ -6,6 +6,18 @@
 
 class UUTGameViewportClient;
 
+UENUM(BlueprintType)
+namespace EInputMode
+{
+	enum Type
+	{
+		EIM_None,
+		EIM_GameOnly,
+		EIM_GameAndUI,
+		EIM_UIOnly,
+	};
+}
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
 {
@@ -17,6 +29,8 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 	virtual void SetupInputComponent() override;
 
 	virtual void Destroyed() override;
+
+	virtual void InitInputSystem() override;
 
 	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec)
@@ -144,5 +158,34 @@ public:
 
 	// Let the game's player controller know there was a network failure message.
 	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
+
+	/**Check to see if this PC can chat. Called on Client and server independantly*/
+	bool AllowTextMessage(const FString& Msg);
+
+	/**The accumulation of time added per message. Once overflowed the player must wait for this to return to 0*/
+	float ChatOverflowTime;
+	bool bOverflowed;
+	FText SpamText;
+	FString LastChatMessage;
+
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientCloseAllUI();
+
+	virtual void PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel);
+
+
+	/**This is overridden to avoid the Slate focus issues occuring with each widget managing their own input mode.
+	Instead of setting this manually, we will update the input mode based on the state of the game in UpdateInputMode()*/
+	virtual void SetInputMode(const FInputModeDataBase& InData) override {}
+
+#if !UE_SERVER
+	virtual void Tick(float DeltaTime) override;
+	virtual void UpdateInputMode();
+
+	UPROPERTY()
+	TEnumAsByte<EInputMode::Type> InputMode;
+#endif
+
 
 };

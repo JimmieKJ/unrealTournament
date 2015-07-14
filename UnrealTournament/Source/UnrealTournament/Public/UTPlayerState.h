@@ -11,6 +11,8 @@
 #include "UTEyewear.h"
 #include "UTTaunt.h"
 #include "Http.h"
+#include "UTProfileItem.h"
+
 #include "UTPlayerState.generated.h"
 
 USTRUCT(BlueprintType)
@@ -107,6 +109,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
+	/** Whether this spectator is a caster */
+	UPROPERTY(replicated)
+	uint32 bCaster : 1;
+
 	/** Whether this player has a pending switch team request (waiting for swap partner) */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;
@@ -172,9 +178,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	bool bHasHighScore;
 
+	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
+	bool bIsDemoRecording;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/
+	UPROPERTY(replicated)
 	FString StatsID;
 	
 	// How long until this player can respawn.  It's not directly replicated to the clients instead it's set
@@ -348,6 +358,31 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	int32 CountryFlag;
 
+	virtual void SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId) override;
+	/** read profile items for this user from the backend */
+	virtual void ReadProfileItems();
+
+private:
+	FHttpRequestPtr ItemListReq;
+	void ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+protected:
+	/** profile items this player owns, downloaded from the server */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<FProfileItemEntry> ProfileItems;
+public:
+	inline bool IsProfileItemListPending() const
+	{
+		return ItemListReq.IsValid() && ItemListReq->GetStatus() == EHttpRequestStatus::Processing;
+	}
+	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
+	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
+
+protected:
+	/** returns whether this user has rights to the given item
+	 * assumes entitlement and item list queries are completed
+	 */
+	virtual bool HasRightsFor(UObject* Obj) const;
+public:
 	virtual void ValidateEntitlements();
 
 	void WriteStatsToCloud();
@@ -423,6 +458,9 @@ public:
 	// Find the local player and see if we are his friend.
 	void OnRep_UniqueId();
 
+	virtual void RegisterPlayerWithSession(bool bWasFromInvite) override;
+	virtual void UnregisterPlayerWithSession() override;
+
 	// Calculated client-side by the local player when 
 	bool bIsFriend;
 
@@ -430,7 +468,7 @@ public:
 public:
 	const FSlateBrush* GetELOBadgeImage() const;
 	const FSlateBrush* GetELOBadgeNumberImage() const;
-	void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel);
+	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 #endif
 
 	// If true, the game type considers this player special.

@@ -404,6 +404,7 @@ void AUTPickup::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTrack
 void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AUTPickup, RespawnTime);
 	// warning: we rely on this ordering
 	DOREPLIFETIME_CONDITION(AUTPickup, State, COND_None);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);

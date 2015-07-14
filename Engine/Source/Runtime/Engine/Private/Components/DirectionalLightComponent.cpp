@@ -781,6 +781,20 @@ ELightComponentType UDirectionalLightComponent::GetLightType() const
 	return LightType_Directional;
 }
 
+float UDirectionalLightComponent::GetUniformPenumbraSize() const
+{
+	if (LightmassSettings.bUseAreaShadowsForStationaryLight)
+	{
+		// Interpret distance as shadow factor directly
+		return 1.0f;
+	}
+	else
+	{
+		// Heuristic to derive uniform penumbra size from light source angle
+		return FMath::Clamp(LightmassSettings.LightSourceAngle * .05f, .0001f, 1.0f);
+	}
+}
+
 void UDirectionalLightComponent::SetDynamicShadowDistanceMovableLight(float NewValue)
 {
 	if (DynamicShadowDistanceMovableLight != NewValue)

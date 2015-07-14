@@ -8,6 +8,7 @@
 #include "UTTimedPowerup.h"
 #include "UTCountDownMessage.h"
 #include "UTFirstBloodMessage.h"
+#include "UTSpectatorPickupMessage.h"
 #include "UTMutator.h"
 #include "UTScoreboard.h"
 #include "SlateBasics.h"
@@ -17,7 +18,9 @@
 #include "UTBot.h"
 #include "UTSquadAI.h"
 #include "Slate/Panels/SULobbyMatchSetupPanel.h"
+#include "Slate/SUWPlayerInfoDialog.h"
 #include "Slate/SlateGameResources.h"
+#include "Slate/Widgets/SUTTabWidget.h"
 #include "SNumericEntryBox.h"
 #include "UTCharacterContent.h"
 #include "UTGameEngine.h"
@@ -27,6 +30,10 @@
 #include "UTBotCharacter.h"
 #include "UTReplicatedMapVoteInfo.h"
 #include "StatNames.h"
+#include "UTProfileItemMessage.h"
+#include "UTWeap_ImpactHammer.h"
+#include "UTWeap_Translocator.h"
+#include "UTWeap_Enforcer.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -38,6 +45,7 @@ namespace MatchState
 	const FName MatchEnteringOvertime = FName(TEXT("MatchEnteringOvertime"));
 	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
 	const FName MapVoteHappening = FName(TEXT("MapVoteHappening"));
+	const FName MatchIntermission = FName(TEXT("MatchIntermission"));
 }
 
 AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
@@ -88,13 +96,20 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAllowOvertime = true;
 	bForceRespawn = false;
 
-	DefaultPlayerName = FText::FromString(TEXT("Malcolm"));
+	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
 	LobbyInstanceID = 0;
 	DemoFilename = TEXT("%m-%td");
 	bDedicatedInstance = false;
 
 	MapVoteTime = 30;
+
+	bSpeedHackDetection = false;
+	MaxTimeMargin = 2.0f;
+	MinTimeMargin = -2.0f;
+	TimeMarginSlack = 0.001f;
+
+	bCasterControl = false;
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -127,18 +142,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	Func->FunctionFlags |= FUNC_Native;
 	Func->SetNativeFunc((Native)&AUTGameMode::BeginPlayMutatorHack);
 
-	// MATTFIXME
-	/*
-	// HACK: workaround for cached inventory flags getting blown away by blueprint recompile cycle
-	for (TObjectIterator<AUTInventory> It(RF_NoFlags); It; ++It)
-	{
-		if (It->IsTemplate(RF_ClassDefaultObject))
-		{
-			It->PostInitProperties();
-		}
-	}
-	*/
-
 	UE_LOG(UT,Log,TEXT("==============="));
 	UE_LOG(UT,Log,TEXT("  Init Game Option: %s"), *Options);
 
@@ -166,8 +169,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	MaxWaitForPlayers = GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
 	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
-	InOpt = ParseOption(Options, TEXT("HasRespawnChoices"));
-	bHasRespawnChoices = EvalBoolOptions(InOpt, bHasRespawnChoices);
 
 	TimeLimit = FMath::Max(0,GetIntOption( Options, TEXT("TimeLimit"), TimeLimit ));
 	TimeLimit *= 60;
@@ -194,6 +195,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		BotFillCount = GetIntOption(Options, TEXT("BotFill"), BotFillCount);
 	}
+
+	InOpt = ParseOption(Options, TEXT("CasterControl"));
+	bCasterControl = EvalBoolOptions(InOpt, bCasterControl);
 
 	for (int32 i = 0; i < BuiltInMutators.Num(); i++)
 	{
@@ -420,8 +424,6 @@ void AUTGameMode::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
 
-	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation(), true);
-
 	// Because of the behavior changes to PostBeginPlay() this really has to go here as PreInitializeCompoennts is sort of the UE4 PBP even
 	// though PBP still exists.  It can't go in InitGame() or InitGameState() because team info needed for team locked GameObjectives are not
 	// setup at that point.
@@ -532,6 +534,13 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 					}
 				}
 			}
+
+			bool bCaster = EvalBoolOptions(ParseOption(Options, TEXT("Caster")), false);
+			if (bCaster && bCasterControl)
+			{
+				PS->bCaster = true;
+				PS->bOnlySpectator = true;
+			}
 		}
 	}
 	return Result;
@@ -593,7 +602,9 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 				{
 					PS->SetCharacter(BotData->Character.ToString());
 					PS->ServerReceiveHatClass(BotData->HatType.ToString());
+					PS->ServerReceiveHatVariant(BotData->HatVariantId);
 					PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+					PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
 				}
 				bLoadedBotData = true;
 			}
@@ -665,7 +676,9 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 				PS->bReadyToPlay = true;
 				PS->SetCharacter(BotData->Character.ToString());
 				PS->ServerReceiveHatClass(BotData->HatType.ToString());
+				PS->ServerReceiveHatVariant(BotData->HatVariantId);
 				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
 			}
 
 			NewBot->InitializeSkill(BotData->Skill);
@@ -695,7 +708,9 @@ AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint
 				PS->bReadyToPlay = true;
 				PS->SetCharacter(BotData->Character.ToString());
 				PS->ServerReceiveHatClass(BotData->HatType.ToString());
+				PS->ServerReceiveHatVariant(BotData->HatVariantId);
 				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
 			}
 
 			NewBot->InitializeSkill(BotData->Skill);
@@ -1032,7 +1047,7 @@ bool AUTGameMode::IsEnemy(AController * First, AController* Second)
 void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	// Ignore all killing when entering overtime as we kill off players and don't want it affecting their score.
-	if ((GetMatchState() != MatchState::MatchEnteringOvertime) && (GetMatchState() != MatchState::WaitingPostMatch))
+	if ((GetMatchState() != MatchState::MatchEnteringOvertime) && (GetMatchState() != MatchState::WaitingPostMatch) && (GetMatchState() != MatchState::MapVoteHappening))
 	{
 		AUTPlayerState* const KillerPlayerState = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 		AUTPlayerState* const KilledPlayerState = KilledPlayer ? Cast<AUTPlayerState>(KilledPlayer->PlayerState) : NULL;
@@ -1054,8 +1069,8 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
 
-			ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
+			ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			
 			if (bHasRespawnChoices)
 			{
@@ -1117,11 +1132,11 @@ void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* 
 	}
 }
 
-void AUTGameMode::ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
+void AUTGameMode::ScorePickup_Implementation(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy)
 {
 }
 
-void AUTGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
 {
 	if (BaseMutator != NULL)
 	{
@@ -1129,7 +1144,7 @@ void AUTGameMode::ScoreDamage(int32 DamageAmount, AController* Victim, AControll
 	}
 }
 
-void AUTGameMode::ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	if( (Killer == Other) || (Killer == NULL) )
 	{
@@ -1242,7 +1257,7 @@ void AUTGameMode::FindAndMarkHighScorer()
 	}
 }
 
-bool AUTGameMode::CheckScore(AUTPlayerState* Scorer)
+bool AUTGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 {
 	if ( Scorer != NULL )
 	{
@@ -1440,6 +1455,44 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
+
+	AwardProfileItems();
+}
+
+void AUTGameMode::AwardProfileItems()
+{
+	// TODO: temporarily profile item giveaway for testing
+	// give item to highest scoring player
+	APlayerState* Best = NULL;
+	float BestScore = 0.0f;
+	for (APlayerState* PS : GetWorld()->GameState->PlayerArray)
+	{
+		if (PS != NULL && PS->Score > BestScore)
+		{
+			Best = PS;
+			BestScore = PS->Score;
+		}
+	}
+	if (Best != NULL && Best->UniqueId.GetUniqueNetId().IsValid())
+	{
+		TArray<FAssetData> AllItems;
+		GetAllAssetData(UUTProfileItem::StaticClass(), AllItems, false);
+		if (AllItems.Num() > 0)
+		{
+			TArray<FProfileItemEntry> Rewards;
+			new(Rewards)FProfileItemEntry(Cast<UUTProfileItem>(AllItems[FMath::RandHelper(AllItems.Num())].GetAsset()), 1);
+
+			if (Rewards[0].Item != NULL)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Best->GetOwner());
+				if (PC != NULL)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTProfileItemMessage::StaticClass(), 0, Best, NULL, Rewards[0].Item);
+				}
+				GiveProfileItems(Best->UniqueId.GetUniqueNetId(), Rewards);
+			}
+		}
+	}
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
@@ -1526,7 +1579,7 @@ void AUTGameMode::InstanceNextMap(const FString& NextMap)
  *	NOTE: This is a really simple map list.  It doesn't support multiple maps in the list, etc and is really dumb.  But it
  *  will work for now.
  **/
-void AUTGameMode::TravelToNextMap()
+void AUTGameMode::TravelToNextMap_Implementation()
 {
 	FString CurrentMapName = GetWorld()->GetMapName();
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
@@ -1686,6 +1739,13 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 	{
 		TGuardValue<bool> FlagGuard(bSetPlayerDefaultsNewSpawn, true);
 		Super::RestartPlayer(aPlayer);
+
+		// apply any health changes
+		AUTCharacter* UTC = Cast<AUTCharacter>(aPlayer->GetPawn());
+		if (UTC != NULL && UTC->GetClass()->GetDefaultObject<AUTCharacter>()->Health == 0)
+		{
+			UTC->Health = UTC->HealthMax;
+		}
 	}
 
 	if (Cast<AUTBot>(aPlayer) != NULL)
@@ -2069,19 +2129,25 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
-			if ((MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
+			bool bCasterReady = false;
+			if ((bCasterControl) || (MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
 			{
-				for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
+				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 				{
 					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 					if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
 					{
 						return false;
 					}
+
+					//Only need one caster to be ready
+					if (bCasterControl && PS->bCaster && PS->bReadyToPlay)
+					{
+						bCasterReady = true;
+					}
 				}
 			}
-
-			return true;
+			return (!bCasterControl || bCasterReady);
 		}
 		else
 		{
@@ -2284,11 +2350,13 @@ void AUTGameMode::HandleMatchInOvertime()
 
 void AUTGameMode::HandleCountdownToBegin()
 {
+	// Currently broken by replay streaming
+	/*
 	if (bRecordDemo)
 	{
 		FString MapName = GetOutermost()->GetName();
 		GetWorld()->Exec(GetWorld(), *FString::Printf(TEXT("Demorec %s"), *DemoFilename.Replace(TEXT("%m"), *MapName.RightChop(MapName.Find(TEXT("/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd) + 1))));
-	}
+	}*/
 	CountDown = 5;
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
@@ -2398,7 +2466,11 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 	{
 		if (C && Cast<AUTPlayerController>(C) && C->PlayerState)
 		{
-			LobbyBeacon->UpdatePlayer(C->PlayerState->UniqueId, C->PlayerState->PlayerName, int32(C->PlayerState->Score), C->PlayerState->bOnlySpectator, false);
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
+			if (PlayerState)
+			{
+				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, false, PlayerState->AverageRank);
+			}
 		}
 	}
 
@@ -2500,7 +2572,7 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
 		{
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, true);
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, true, PS->AverageRank);
 		}
 	}
 
@@ -2574,7 +2646,7 @@ TSubclassOf<AGameSession> AUTGameMode::GetGameSessionClass() const
 	return AUTGameSession::StaticClass();
 }
 
-void AUTGameMode::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+void AUTGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	if (BaseMutator != NULL)
 	{
@@ -2851,6 +2923,32 @@ void AUTGameMode::BlueprintSendLocalized( AActor* Sender, AUTPlayerController* R
 	Receiver->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
+void AUTGameMode::BroadcastSpectator(AActor* Sender, TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PC = (*Iterator);
+		if (PC->PlayerState != nullptr && PC->PlayerState->bOnlySpectator)
+		{
+			PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		}
+	}
+}
+
+void AUTGameMode::BroadcastSpectatorPickup(AUTPlayerState* PS, const AUTInventory* Inventory)
+{
+	if (PS != nullptr && Inventory != nullptr && Inventory->StatsNameCount != NAME_None)
+	{
+		int32 PlayerNumPickups = (int32)PS->GetStatsValue(Inventory->StatsNameCount);
+		int32 TotalPickups = (int32)UTGameState->GetStatsValue(Inventory->StatsNameCount);
+
+		//Stats may not have been replicated to the client so pack them in the switch
+		int32 Switch = TotalPickups << 16 | PlayerNumPickups;
+
+		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, Inventory->GetClass());
+	}
+}
+
 void AUTGameMode::PrecacheAnnouncements(UUTAnnouncer* Announcer) const
 {
 	// slow but fairly reliable base implementation that looks up all local messages
@@ -2928,7 +3026,7 @@ void AUTGameMode::UpdateLobbyPlayerList()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
 			{
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, false);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, false, PS->AverageRank);
 			}
 		}
 	}
@@ -2995,49 +3093,293 @@ void AUTGameMode::UpdatePlayersPresence()
 }
 
 #if !UE_SERVER
-// TODO: use Attribs to make this live instead of fixed.
-TSharedRef<SWidget> AUTGameMode::NewPlayerInfoLine(FString LeftStr, FString RightStr)
+void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> Stat, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
-	TSharedPtr<SOverlay> Line;
-	SAssignNew(Line, SOverlay)
-	+SOverlay::Slot()
+	//Add stat in here for layout convenience
+	StatList.Add(Stat);
+
+	VBox->AddSlot()
+	.AutoHeight()
 	[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
+		SNew(SOverlay)
+		+SOverlay::Slot()
 		[
-			SNew(STextBlock)
-			.Text(FText::FromString(LeftStr))
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-			.ColorAndOpacity(FLinearColor::Gray)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			[
+				SNew(STextBlock)
+				.Text(DisplayName)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
 		]
-	]
-	+ SOverlay::Slot()
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Right)
+		+ SOverlay::Slot()
 		[
-			SNew(STextBlock)
-			.Text(FText::FromString(RightStr))
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.Text(Stat.ToSharedRef(), &TAttributeStat::GetValueText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+			]
 		]
 	];
-
-	return Line.ToSharedRef();
 }
 
-void AUTGameMode::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState)
+void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<TAttributeStat> DeathStat, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
-	Panel->AddSlot().Padding(30.0,5.0,30.0,0.0)
-	[
-		NewPlayerInfoLine(FString("Kills"), FString::Printf(TEXT("%i"), PlayerState->Kills))
-	];
-	Panel->AddSlot().Padding(30.0, 5.0, 30.0, 0.0)
-	[
-		NewPlayerInfoLine(FString("Deaths"), FString::Printf(TEXT("%i"), PlayerState->Deaths))
-	];
+	//Add stat in here for layout convenience
+	StatList.Add(KillStat);
+	StatList.Add(DeathStat);
 
+	VBox->AddSlot()
+	.AutoHeight()
+	[
+		SNew(SOverlay)
+		+ SOverlay::Slot()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Left)
+			[
+				SNew(STextBlock)
+				.Text(DisplayName)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SOverlay::Slot()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.6f)
+			.HAlign(HAlign_Fill)
+
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.2f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.Text(KillStat.ToSharedRef(), &TAttributeStat::GetValueText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
+			]
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.2f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.Text(DeathStat.ToSharedRef(), &TAttributeStat::GetValueText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.ColorAndOpacity(FLinearColor(1.0f,0.6f,0.6f))
+			]
+		]
+	];
+}
+
+void AUTGameMode::BuildPaneHelper(TSharedPtr<SHorizontalBox>& HBox, TSharedPtr<SVerticalBox>& LeftPane, TSharedPtr<SVerticalBox>& RightPane)
+{
+	SAssignNew(HBox, SHorizontalBox)
+	+ SHorizontalBox::Slot()
+	.HAlign(HAlign_Fill)
+	.Padding(20.0f, 20.0f, 20.0f, 10.0f)
+	[
+		SAssignNew(LeftPane, SVerticalBox)
+	]
+	+ SHorizontalBox::Slot()
+	.HAlign(HAlign_Fill)
+	.Padding(20.0f, 20.0f, 20.0f, 10.0f)
+	[
+		SAssignNew(RightPane, SVerticalBox)
+	];
+}
+
+void AUTGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
+{
+	TAttributeStat::StatValueTextFunc TwoDecimal = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> FText
+	{
+		return FText::FromString(FString::Printf(TEXT("%8.2f"), Stat->GetValue()));
+	};
+
+	TSharedPtr<SVerticalBox> LeftPane;
+	TSharedPtr<SVerticalBox> RightPane;
+	TSharedPtr<SHorizontalBox> HBox;
+	BuildPaneHelper(HBox, LeftPane, RightPane);
+
+	TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Score", "Score"), HBox);
+
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "Kills", "Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->Kills;	})), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "Deaths", "Deaths"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float {	return PS->Deaths; })), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "Suicides", "Suicides"), MakeShareable(new TAttributeStat(PlayerState, NAME_Suicides)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "ScorePM", "Score Per Minute"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
+	{
+		return (PS->StartTime <  PS->GetWorld()->GameState->ElapsedTime) ? PS->Score * 60.f / (PS->GetWorld()->GameState->ElapsedTime - PS->StartTime) : 0.f;
+	}, TwoDecimal)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "KDRatio", "K/D Ratio"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
+	{
+		return (PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f;
+	}, TwoDecimal)), StatList);
+
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "BeltPickups", "Shield Belt Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShieldBeltCount)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "VestPickups", "Armor Vest Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "JumpBootJumps", "JumpBoot Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_BootJumps)), StatList);
+	RightPane->AddSlot()[SNew(SSpacer).Size(FVector2D(0.0f, 20.0f))];
+
+	TAttributeStat::StatValueTextFunc ToTime = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> FText
+	{
+		int32 Seconds = (int32)Stat->GetValue();
+		int32 Mins = Seconds / 60;
+		Seconds -= Mins * 60;
+		return FText::FromString(FString::Printf(TEXT("%d:%02d"), Mins, Seconds));
+	};
+
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "UDamage", "UDamage Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "Berserk", "Berserk Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "Invisibility", "Invisibility Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityTime, nullptr, ToTime)), StatList);
+}
+
+void AUTGameMode::BuildRewardInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
+{
+	TSharedPtr<SVerticalBox> LeftPane;
+	TSharedPtr<SVerticalBox> RightPane;
+	TSharedPtr<SHorizontalBox> HBox;
+	BuildPaneHelper(HBox, LeftPane, RightPane);
+
+	TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Rewards", "Rewards"), HBox);
+
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "DoubleKills", "Double Kill"), MakeShareable(new TAttributeStat(PlayerState, NAME_MultiKillLevel0)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "MultiKills", "Multi Kill"), MakeShareable(new TAttributeStat(PlayerState, NAME_MultiKillLevel1)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "UltraKills", "Ultra Kill"), MakeShareable(new TAttributeStat(PlayerState, NAME_MultiKillLevel2)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "MonsterKills", "Monster Kill"), MakeShareable(new TAttributeStat(PlayerState, NAME_MultiKillLevel3)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "KillingSprees", "Killing Spree"), MakeShareable(new TAttributeStat(PlayerState, NAME_SpreeKillLevel0)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "RampageSprees", "Rampage"), MakeShareable(new TAttributeStat(PlayerState, NAME_SpreeKillLevel1)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "DominatingSprees", "Dominating"), MakeShareable(new TAttributeStat(PlayerState, NAME_SpreeKillLevel2)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "UnstoppableSprees", "Unstoppable"), MakeShareable(new TAttributeStat(PlayerState, NAME_SpreeKillLevel3)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "GodlikeSprees", "Godlike"), MakeShareable(new TAttributeStat(PlayerState, NAME_SpreeKillLevel4)), StatList);
+}
+
+void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
+{
+	TSharedPtr<SVerticalBox> TopLeftPane;
+	TSharedPtr<SVerticalBox> TopRightPane;
+	TSharedPtr<SVerticalBox> BotLeftPane;
+	TSharedPtr<SVerticalBox> BotRightPane;
+	TSharedPtr<SHorizontalBox> TopBox;
+	TSharedPtr<SHorizontalBox> BotBox;
+	BuildPaneHelper(TopBox, TopLeftPane, TopRightPane);
+	BuildPaneHelper(BotBox, BotLeftPane, BotRightPane);
+
+	//4x4 panes
+	TSharedPtr<SVerticalBox> MainBox = SNew(SVerticalBox)
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	[
+		TopBox.ToSharedRef()
+	]
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	[
+		BotBox.ToSharedRef()
+	];
+	TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Weapons", "Weapons"), MainBox);
+
+	//Get the weapons used in this map
+	TArray<AUTWeapon *> StatsWeapons;
+	{
+		// add default weapons - needs to be automated
+		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
+		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
+
+		//Get the rest of the weapons from the pickups in the map
+		for (FActorIterator It(PlayerState->GetWorld()); It; ++It)
+		{
+			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+			if (Pickup && Pickup->GetInventoryType())
+			{
+				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+			}
+		}
+		StatsWeapons.AddUnique(AUTWeap_Translocator::StaticClass()->GetDefaultObject<AUTWeapon>());
+	}
+
+	//Add weapons to the panes
+	for (int32 i = 0; i < StatsWeapons.Num();i++)
+	{
+		TSharedPtr<SVerticalBox> Pane = (i % 2) ? TopRightPane : TopLeftPane;
+		NewWeaponInfoLine(Pane, StatsWeapons[i]->DisplayName,
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], true)),
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], false)),
+			StatList);
+	}
+
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "ShockComboKills", "Shock Combo Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShockComboKills)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos"), MakeShareable(new TAttributeStat(PlayerState, NAME_AmazingCombos)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "HeadShots", "Sniper Headshots"), MakeShareable(new TAttributeStat(PlayerState, NAME_SniperHeadshotKills)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "AirRox", "Air Rocket Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirRox)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "FlakShreds", "Flak Shreds"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlakShreds)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "AirSnot", "Air Snot Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirSnot)), StatList);
+}
+
+void AUTGameMode::BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
+{
+	TAttributeStat::StatValueFunc ConvertToMeters = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
+	{
+		return 0.01f * PS->GetStatsValue(Stat->StatName);
+	};
+
+	TAttributeStat::StatValueTextFunc OneDecimal = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> FText
+	{
+		return FText::FromString(FString::Printf(TEXT("%8.1fm"), Stat->GetValue()));
+	};
+
+	TSharedPtr<SVerticalBox> LeftPane;
+	TSharedPtr<SVerticalBox> RightPane;
+	TSharedPtr<SHorizontalBox> HBox;
+	BuildPaneHelper(HBox, LeftPane, RightPane);
+
+	TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Movement", "Movement"), HBox);
+
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "RunDistance", "Run Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_RunDist, ConvertToMeters, OneDecimal)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "SprintDistance", "Sprint Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_SprintDist, ConvertToMeters, OneDecimal)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "SlideDistance", "Slide Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_SlideDist, ConvertToMeters, OneDecimal)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "WallRunDistance", "WallRun Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_WallRunDist, ConvertToMeters, OneDecimal)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "FallDistance", "Fall Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_InAirDist, ConvertToMeters, OneDecimal)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "SwimDistance", "Swim Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_SwimDist, ConvertToMeters, OneDecimal)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "TranslocDistance", "Teleport Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_TranslocDist, ConvertToMeters, OneDecimal)), StatList);
+	LeftPane->AddSlot()[SNew(SSpacer).Size(FVector2D(0.0f, 20.0f))];
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "Total", "Total"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
+	{
+		float Total = 0.0f;
+		Total += PS->GetStatsValue(NAME_RunDist);
+		Total += PS->GetStatsValue(NAME_SprintDist);
+		Total += PS->GetStatsValue(NAME_SlideDist);
+		Total += PS->GetStatsValue(NAME_WallRunDist);
+		Total += PS->GetStatsValue(NAME_InAirDist);
+		Total += PS->GetStatsValue(NAME_TranslocDist);
+		return 0.01f * Total;
+	}, OneDecimal)), StatList);
+
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumJumps", "Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumJumps)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumDodges", "Dodges"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumDodges)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumWallDodges", "Wall Dodges"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumWallDodges)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumLiftJumps", "Lift Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumLiftJumps)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumFloorSlides", "Floor Slides"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumFloorSlides)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumWallRuns", "Wall Runs"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumWallRuns)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumImpactJumps", "Impact Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumImpactJumps)), StatList);
+	//NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "NumRocketJumps", "Rocket Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_NumRocketJumps)), StatList);
+}
+
+void AUTGameMode::BuildPlayerInfo(AUTPlayerState* PlayerState, TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
+{
+	//These need to be in the same order as they are in the scoreboard. Replication of stats are done per tab
+	BuildScoreInfo(PlayerState, TabWidget, StatList);
+	BuildWeaponInfo(PlayerState, TabWidget, StatList);
+	BuildRewardInfo(PlayerState, TabWidget, StatList);
+	BuildMovementInfo(PlayerState, TabWidget, StatList);
 }
 #endif
 

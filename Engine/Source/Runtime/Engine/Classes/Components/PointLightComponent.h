@@ -83,6 +83,13 @@ public:
 	virtual FBox GetBoundingBox() const override;
 	virtual FSphere GetBoundingSphere() const override;
 	virtual ELightComponentType GetLightType() const override;
+	virtual FLightmassLightSettings GetLightmassSettings() const override
+	{
+		return LightmassSettings;
+	}
+
+	virtual float GetUniformPenumbraSize() const override;
+
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 
 	// Begin UObject Interface

@@ -35,6 +35,7 @@ class UNREALTOURNAMENT_API AUTProj_WeaponScreen : public AUTProjectile
 	{
 		// don't explode on general impacts
 	}
+	virtual void TornOff() override;
 	virtual void OnStop(const FHitResult& Hit) override;
 	virtual void Tick(float DeltaTime) override;
 

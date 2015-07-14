@@ -27,7 +27,7 @@ struct FServerBeaconInfo
 class AUTServerBeaconClient;
 DECLARE_DELEGATE_TwoParams(FServerRequestResultsDelegate, AUTServerBeaconClient*, FServerBeaconInfo);
 DECLARE_DELEGATE_OneParam(FServerRequestFailureDelegate, AUTServerBeaconClient*);
-
+DECLARE_DELEGATE_ThreeParams(FServerRequestQuickplayDelegate, AUTServerBeaconClient*, const FName&, const FString&);
 
 /**
 * A beacon client used for making reservations with an existing game session
@@ -72,9 +72,28 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	UFUNCTION(client, reliable)
 	virtual void ClientReceivedAllInstance(uint32 FinalCount);
 
+	// Asks the hub if this client can get added to a quick play session.  This will be called because
+	// the quickplay manager has decided this server is the best match.  The server will respond with one of the 3 functions below.
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerRequestQuickplay(const FString& MatchType, int32 ELORank);
+
+	// If no quick play matches are available, let the client know to pick a new server.  This can occur if all of the available instances
+	// are taken on a hub.  
+	UFUNCTION(client, reliable)
+	virtual void ClientQuickplayNotAvailable();
+
+	// If the hub has to spool up an instance for a quickplay match, this function will be called to let the client know a join is coming.  ClientJoinQuickplay below will
+	// be triggered when the instance is ready.
+	UFUNCTION(client, reliable)
+	virtual void ClientWaitForQuickplay();
+
+	// This will be called when a hub is ready for a client to transition to an instance for quick play. 
+	UFUNCTION(client, reliable)
+	virtual void ClientJoinQuickplay(const FString& InstanceGuid);
 
 	FServerRequestResultsDelegate OnServerRequestResults;
 	FServerRequestFailureDelegate OnServerRequestFailure;
+	FServerRequestQuickplayDelegate OnRequestQuickplay;
 
 	FString ServerMOTD;
 
@@ -84,5 +103,5 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	
 protected:
 	FServerBeaconInfo HostServerInfo;
-
+	
 };

@@ -10,7 +10,7 @@ UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class
 {
 	ManagedMessageArea = FName(TEXT("DeathMessage"));
 	Position = FVector2D(0.0f, 0.0f);			
-	ScreenPosition = FVector2D(0.5f, 0.25f);
+	ScreenPosition = FVector2D(0.5f, 0.37f);
 	Size = FVector2D(0.0f, 0.0f);			
 	Origin = FVector2D(0.5f, 0.0f);				
 	FadeTime = 1.0;
@@ -20,14 +20,14 @@ UUTHUDWidgetMessage_DeathMessages::UUTHUDWidgetMessage_DeathMessages(const class
 void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
 {
 	Canvas->Reset();
-	float Y = 0;
+	float Y = 0.f;
 	int32 DrawCnt=0;
-	for (int32 MessageIndex = MessageQueue.Num() - 1; MessageIndex >= 0 && DrawCnt < 2; MessageIndex--)
+	for (int32 MessageIndex = MessageQueue.Num() - 1; (MessageIndex >= 0) && (DrawCnt < NumVisibleLines); MessageIndex--)
 	{
 		if (MessageQueue[MessageIndex].MessageClass != NULL)	
 		{
-			DrawMessage(MessageIndex, 0, Y);
-			Y += MessageQueue[MessageIndex].TextHeight;
+			Y -= MessageQueue[MessageIndex].DisplayFont->GetMaxCharHeight();
+			DrawMessage(MessageIndex, 0.f, Y);
 			DrawCnt++;
 		}
 	}

@@ -125,6 +125,7 @@
 #include "Materials/MaterialExpressionTwoSidedSign.h"
 #include "Materials/MaterialExpressionVertexColor.h"
 #include "Materials/MaterialExpressionVertexNormalWS.h"
+#include "Materials/MaterialExpressionViewProperty.h"
 #include "Materials/MaterialExpressionViewSize.h"
 #include "Materials/MaterialExpressionWorldPosition.h"
 #include "Materials/MaterialFunction.h"
@@ -3106,7 +3107,7 @@ int32 UMaterialExpressionBumpOffset::Compile(class FMaterialCompiler* Compiler, 
 
 	return Compiler->Add(
 			Compiler->Mul(
-				Compiler->ComponentMask(Compiler->TransformVector(TRANSFORMSOURCE_World, TRANSFORM_Tangent, Compiler->CameraVector()),1,1,0,0),
+				Compiler->ComponentMask(Compiler->TransformVector(MCB_World, MCB_Tangent, Compiler->CameraVector()),1,1,0,0),
 				Compiler->Add(
 					Compiler->Mul(
 						HeightRatioInput.Expression ? Compiler->ForceCast(HeightRatioInput.Compile(Compiler),MCT_Float1) : Compiler->Constant(HeightRatio),
@@ -4587,6 +4588,49 @@ void UMaterialExpressionScreenPosition::GetCaption(TArray<FString>& OutCaptions)
 	OutCaptions.Add(TEXT("ScreenPosition"));
 }
 
+UMaterialExpressionViewProperty::UMaterialExpressionViewProperty(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FString NAME_Constants;
+		FConstructorStatics()
+			: NAME_Constants(LOCTEXT( "Constants", "Constants" ).ToString())
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	Property = MEVP_FieldOfView;
+	MenuCategories.Add(ConstructorStatics.NAME_Constants);
+	bShaderInputData = true;
+	bShowOutputNameOnPin = true;
+	
+	Outputs.Reset();
+	Outputs.Add(FExpressionOutput(TEXT("Property")));
+	Outputs.Add(FExpressionOutput(TEXT("InvProperty")));
+}
+
+int32 UMaterialExpressionViewProperty::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+{
+	return Compiler->ViewProperty(Property, OutputIndex == 1);
+}
+
+void UMaterialExpressionViewProperty::GetCaption(TArray<FString>& OutCaptions) const
+{
+#if WITH_EDITOR
+	const UEnum* ViewPropertyEnum = FindObject<UEnum>(NULL, TEXT("Engine.EMaterialExposedViewProperty"));
+	check(ViewPropertyEnum);
+
+	const FString PropertyDisplayName = ViewPropertyEnum->GetDisplayNameText(Property).ToString();
+#else
+	const FString PropertyDisplayName = TEXT("");
+#endif
+
+	OutCaptions.Add(FString(TEXT("View.")) + PropertyDisplayName);
+}
+
 UMaterialExpressionViewSize::UMaterialExpressionViewSize(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -4607,7 +4651,7 @@ UMaterialExpressionViewSize::UMaterialExpressionViewSize(const FObjectInitialize
 
 int32 UMaterialExpressionViewSize::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
-	return Compiler->ViewSize();
+	return Compiler->ViewProperty(MEVP_ViewSize);
 }
 
 void UMaterialExpressionViewSize::GetCaption(TArray<FString>& OutCaptions) const
@@ -4635,7 +4679,7 @@ UMaterialExpressionSceneTexelSize::UMaterialExpressionSceneTexelSize(const FObje
 
 int32 UMaterialExpressionSceneTexelSize::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
-	return Compiler->SceneTexelSize();
+	return Compiler->ViewProperty(MEVP_BufferSize, /* InvProperty = */ true);
 }
 
 void UMaterialExpressionSceneTexelSize::GetCaption(TArray<FString>& OutCaptions) const
@@ -5164,6 +5208,27 @@ void UMaterialExpressionAbs::GetCaption(TArray<FString>& OutCaptions) const
 // UMaterialExpressionTransform
 ///////////////////////////////////////////////////////////////////////////////
 
+static EMaterialCommonBasis GetMaterialCommonBasis(EMaterialVectorCoordTransformSource X)
+{
+	static const EMaterialCommonBasis ConversionTable[TRANSFORMSOURCE_MAX] = {
+		MCB_Tangent,
+		MCB_Local,
+		MCB_World,
+		MCB_View,
+	};
+	return ConversionTable[X];
+}
+
+static EMaterialCommonBasis GetMaterialCommonBasis(EMaterialVectorCoordTransform X)
+{
+	static const EMaterialCommonBasis ConversionTable[TRANSFORM_MAX] = {
+		MCB_Tangent,
+		MCB_Local,
+		MCB_World,
+		MCB_View,
+	};
+	return ConversionTable[X];
+}
 
 int32 UMaterialExpressionTransform::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
@@ -5176,52 +5241,33 @@ int32 UMaterialExpressionTransform::Compile(class FMaterialCompiler* Compiler, i
 	else
 	{
 		int32 VecInputIdx = Input.Compile(Compiler);
-		Result = Compiler->TransformVector(TransformSourceType, TransformType, VecInputIdx);
+		const auto TransformSourceBasis = GetMaterialCommonBasis(TransformSourceType);
+		const auto TransformDestBasis = GetMaterialCommonBasis(TransformType);
+		Result = Compiler->TransformVector(TransformSourceBasis, TransformDestBasis, VecInputIdx);
 	}
 
 	return Result;
 }
 
-const TCHAR* GetTransformSourceEnumText(EMaterialVectorCoordTransformSource Source)
-{
-	switch (Source)
-	{
-		case TRANSFORMSOURCE_World: return TEXT("World");
-		case TRANSFORMSOURCE_Local: return TEXT("Local");
-		case TRANSFORMSOURCE_View: return TEXT("View");
-		case TRANSFORMSOURCE_Tangent: return TEXT("Tangent");
-	}
-	return TEXT("");
-}
-
-const TCHAR* GetTransformTypeEnumText(EMaterialVectorCoordTransform Type)
-{
-	switch (Type)
-	{
-		case TRANSFORM_World: return TEXT("World");
-		case TRANSFORM_Local: return TEXT("Local");
-		case TRANSFORM_View: return TEXT("View");
-		case TRANSFORM_Tangent: return TEXT("Tangent");
-	}
-	return TEXT("");
-}
-
-
 void UMaterialExpressionTransform::GetCaption(TArray<FString>& OutCaptions) const
 {
-	OutCaptions.Add(TEXT("Vector Transform"));
-
-	FString TransformDesc = TEXT("(");
-	TransformDesc += GetTransformSourceEnumText(TransformSourceType);
+#if WITH_EDITOR
+	const UEnum* MVCTSEnum = FindObject<UEnum>(NULL, TEXT("Engine.EMaterialVectorCoordTransformSource"));
+	const UEnum* MVCTEnum = FindObject<UEnum>(NULL, TEXT("Engine.EMaterialVectorCoordTransform"));
+	check(MVCTSEnum);
+	check(MVCTEnum);
+	
+	FString TransformDesc;
+	TransformDesc += MVCTSEnum->GetDisplayNameText(TransformSourceType).ToString();
 	TransformDesc += TEXT(" to ");
-	TransformDesc += GetTransformTypeEnumText(TransformType);
-	TransformDesc += TEXT(")");
+	TransformDesc += MVCTEnum->GetDisplayNameText(TransformType).ToString();
 	OutCaptions.Add(TransformDesc);
-}
+#else
+	OutCaptions.Add(TEXT(""));
+#endif
 
-///////////////////////////////////////////////////////////////////////////////
-// UMaterialExpressionTransform
-///////////////////////////////////////////////////////////////////////////////
+	OutCaptions.Add(TEXT("TransformVector"));
+}
 
 UMaterialExpressionTransform::UMaterialExpressionTransform(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -5239,6 +5285,7 @@ UMaterialExpressionTransform::UMaterialExpressionTransform(const FObjectInitiali
 
 	MenuCategories.Add(ConstructorStatics.NAME_VectorOps);
 	TransformSourceType = TRANSFORMSOURCE_Tangent;
+	TransformType = TRANSFORM_Local;
 }
 
 
@@ -5261,13 +5308,24 @@ UMaterialExpressionTransformPosition::UMaterialExpressionTransformPosition(const
 
 	MenuCategories.Add(ConstructorStatics.NAME_VectorOps);
 	TransformSourceType = TRANSFORMPOSSOURCE_Local;
+	TransformType = TRANSFORMPOSSOURCE_World;
 }
 
-	
+static EMaterialCommonBasis GetMaterialCommonBasis(EMaterialPositionTransformSource X)
+{
+	static const EMaterialCommonBasis ConversionTable[TRANSFORMPOSSOURCE_MAX] = {
+		MCB_Local,
+		MCB_World,
+		MCB_TranslatedWorld,
+		MCB_View,
+	};
+	return ConversionTable[X];
+}
+
 int32 UMaterialExpressionTransformPosition::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
 	int32 Result=INDEX_NONE;
-
+	
 	if( !Input.Expression )
 	{
 		Result = Compiler->Errorf(TEXT("Missing Transform Position input vector"));
@@ -5275,34 +5333,30 @@ int32 UMaterialExpressionTransformPosition::Compile(class FMaterialCompiler* Com
 	else
 	{
 		int32 VecInputIdx = Input.Compile(Compiler);
-		Result = Compiler->TransformPosition( TransformSourceType, TransformType, VecInputIdx );
+		const auto TransformSourceBasis = GetMaterialCommonBasis(TransformSourceType);
+		const auto TransformDestBasis = GetMaterialCommonBasis(TransformType);
+		Result = Compiler->TransformPosition(TransformSourceBasis, TransformDestBasis, VecInputIdx);
 	}
 
 	return Result;
 }
 
-const TCHAR* GetTransformPositionTypeEnumText(EMaterialPositionTransformSource Transform)
-{
-	switch (Transform)
-	{
-		case TRANSFORMPOSSOURCE_Local: return TEXT("Local");
-		case TRANSFORMPOSSOURCE_World: return TEXT("World");
-	}
-	return TEXT("");
-}
-
-
 void UMaterialExpressionTransformPosition::GetCaption(TArray<FString>& OutCaptions) const
 {
-	OutCaptions.Add(TEXT("Position Transform"));
-
+#if WITH_EDITOR
+	const UEnum* MPTSEnum = FindObject<UEnum>(NULL, TEXT("Engine.EMaterialPositionTransformSource"));
+	check(MPTSEnum);
+	
 	FString TransformDesc;
-	TransformDesc += TEXT("(");
-	TransformDesc += GetTransformPositionTypeEnumText(TransformSourceType);
+	TransformDesc += MPTSEnum->GetDisplayNameText(TransformSourceType).ToString();
 	TransformDesc += TEXT(" to ");
-	TransformDesc += GetTransformPositionTypeEnumText(TransformType);
-	TransformDesc += TEXT(")");
+	TransformDesc += MPTSEnum->GetDisplayNameText(TransformType).ToString();
 	OutCaptions.Add(TransformDesc);
+#else
+	OutCaptions.Add(TEXT(""));
+#endif
+	
+	OutCaptions.Add(TEXT("TransformPosition"));
 }
 
 ///////////////////////////////////////////////////////////////////////////////

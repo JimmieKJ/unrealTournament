@@ -70,7 +70,7 @@ public:
 		FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
 
 		{
-			const FVector2D FOVPerAxis = Context.View.ViewMatrices.GetFieldOfViewPerAxis();
+			const FVector2D FOVPerAxis = Context.View.ViewMatrices.GetHalfFieldOfViewPerAxis();
 			const FVector2D ScreenPosToPaniniFactor = FVector2D(FMath::Tan(FOVPerAxis.X), FMath::Tan(FOVPerAxis.Y));
 			const FVector2D PaniniDirection = FVector2D(1.0f, 0.0f) * ScreenPosToPaniniFactor;
 			const FVector2D PaniniPosition = PaniniProjection(PaniniDirection, InPaniniConfig.D, InPaniniConfig.S);

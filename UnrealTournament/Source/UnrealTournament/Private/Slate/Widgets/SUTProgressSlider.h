@@ -107,14 +107,10 @@ public:
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
-protected:
-
-	/**
-	* Commits the specified slider value.
-	*
-	* @param NewValue The value to commit.
-	*/
-	void CommitValue(float NewValue);
+	void SetMarkStart(float InMarkStart) { MarkStart = InMarkStart; }
+	void SetMarkEnd(float InMarkEnd) { MarkEnd = InMarkEnd; }
+	float MarkStart;
+	float MarkEnd;
 
 	/**
 	* Calculates the new value based on the given absolute coordinates.
@@ -124,6 +120,17 @@ protected:
 	* @return The new value.
 	*/
 	float PositionToValue(const FGeometry& MyGeometry, const FVector2D& AbsolutePosition);
+
+protected:
+
+	/**
+	* Commits the specified slider value.
+	*
+	* @param NewValue The value to commit.
+	*/
+	void CommitValue(float NewValue);
+
+
 
 private:
 

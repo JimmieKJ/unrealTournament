@@ -4,7 +4,6 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "SScaleBox.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
 #include "SUTMenuBase.h"
@@ -23,6 +22,7 @@
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
 #include "UnrealNetwork.h"
+#include "SUWProfileItemsDialog.h"
 
 #if !UE_SERVER
 
@@ -36,93 +36,84 @@ void SUTMenuBase::CreateDesktop()
 	LeftMenuBar = NULL;
 	RightMenuBar = NULL;
 	ChildSlot
-		.VAlign(VAlign_Center)
-		.HAlign(HAlign_Center)
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
 		[
-			SNew(SScaleBox)
-			.Stretch(EStretch::ScaleToFit)
+			SNew(SOverlay)
+			+ SOverlay::Slot()
 			[
-				SNew(SBox)
-				.WidthOverride(1920.0f)
-				.HeightOverride(1080.0f)
+				BuildBackground()
+			]
+			+ SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Fill)
 				[
-					SNew(SOverlay)
-					+ SOverlay::Slot()
+					SNew(SBox)
+					.HeightOverride(64)
 					[
-						BuildBackground()
-					]
-					+ SOverlay::Slot()
-					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.HAlign(HAlign_Fill)
+						SNew(SOverlay)
+						+ SOverlay::Slot()
 						[
-							SNew(SBox)
-							.HeightOverride(64)
-							[
-								SNew(SOverlay)
-								+ SOverlay::Slot()
-								[
-									SNew(SHorizontalBox)
-									+ SHorizontalBox::Slot()
-									.HAlign(HAlign_Fill)
-									[
-										SNew(SImage)
-										.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
-									]
-								]
-								+ SOverlay::Slot()
-									[
-										SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.AutoHeight()
-										[
-											SNew(SBox)
-											.HeightOverride(56)
-											[
-												// Left Menu
-												SNew(SOverlay)
-												+ SOverlay::Slot()
-												.HAlign(HAlign_Left)
-												.VAlign(VAlign_Center)
-												[
-													BuildDefaultLeftMenuBar()
-												]
-												+ SOverlay::Slot()
-													.HAlign(HAlign_Right)
-													.VAlign(VAlign_Center)
-													[
-														BuildDefaultRightMenuBar()
-													]
-											]
-										]
-										+ SVerticalBox::Slot()
-											.AutoHeight()
-											[
-												SNew(SBox)
-												.HeightOverride(8)
-												[
-													SNew(SCanvas)
-												]
-											]
-
-									]
-							]
-						]
-
-						+ SVerticalBox::Slot()
-							.VAlign(VAlign_Fill)
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
 							.HAlign(HAlign_Fill)
 							[
-								SNew(SOverlay)
-								+ SOverlay::Slot()
+								SNew(SImage)
+								.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
+							]
+						]
+						+ SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot()
+								.AutoHeight()
 								[
-									SAssignNew(Desktop, SOverlay)
+									SNew(SBox)
+									.HeightOverride(56)
+									[
+										// Left Menu
+										SNew(SOverlay)
+										+ SOverlay::Slot()
+										.HAlign(HAlign_Left)
+										.VAlign(VAlign_Center)
+										[
+											BuildDefaultLeftMenuBar()
+										]
+										+ SOverlay::Slot()
+											.HAlign(HAlign_Right)
+											.VAlign(VAlign_Center)
+											[
+												BuildDefaultRightMenuBar()
+											]
+									]
 								]
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SBox)
+										.HeightOverride(8)
+										[
+											SNew(SCanvas)
+										]
+									]
+
 							]
 					]
 				]
+
+				+ SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					[
+						SNew(SOverlay)
+						+ SOverlay::Slot()
+						[
+							SAssignNew(Desktop, SOverlay)
+						]
+					]
 			]
 		];
 
@@ -417,6 +408,16 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUTMenuBase::OpenHUDSettings, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::OpenSystemSettings, DropDownButton)
@@ -622,6 +623,12 @@ FReply SUTMenuBase::OpenControlSettings(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
+FReply SUTMenuBase::OpenProfileItems()
+{
+	PlayerOwner->OpenDialog(SNew(SUWProfileItemsDialog).PlayerOwner(PlayerOwner));
+	return FReply::Handled();
+}
+
 FReply SUTMenuBase::ClearCloud(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
@@ -690,6 +697,10 @@ FReply SUTMenuBase::OnShowStatsViewer()
 	TSharedPtr<class SUWStatsViewer> StatsViewer = PlayerOwner->GetStatsViewer();
 	if (StatsViewer.IsValid())
 	{
+		StatsViewer->SetQueryWindow(TEXT("alltime"));
+		//StatsViewer->SetQueryWindow(TEXT("monthly"));
+		//StatsViewer->SetQueryWindow(TEXT("weekly"));
+		//StatsViewer->SetQueryWindow(TEXT("daily"));
 		ActivatePanel(StatsViewer);
 	}
 	return FReply::Handled();
@@ -720,7 +731,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString(*PlayerOwner->GetOnlinePlayerNickname()))
+						.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 					]
 				]
@@ -743,6 +754,28 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 						[
 							SNew(SImage)
 							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Stats"))
+						]
+					]
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.OnClicked(this, &SUTMenuBase::OpenProfileItems)
+				.ToolTipText(NSLOCTEXT("ToolTips", "TPMyItems", "Show collectable items you own."))
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(48)
+						.HeightOverride(48)
+						[
+							SNew(SImage)
+							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.UpArrow"))
 						]
 					]
 				]
@@ -961,6 +994,13 @@ FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKey
 	}
 
 	return SUWindowsDesktop::OnKeyUp(MyGeometry, InKeyboardEvent);
+}
+
+FReply SUTMenuBase::OpenHUDSettings(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	PlayerOwner->ShowHUDSettings();
+	return FReply::Handled();
 }
 
 #endif

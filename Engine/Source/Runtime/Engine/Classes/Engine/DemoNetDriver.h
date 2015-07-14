@@ -6,6 +6,8 @@
 
 DECLARE_LOG_CATEGORY_EXTERN( LogDemo, Log, All );
 
+DECLARE_DELEGATE_OneParam(FOnGotoTimeDelegate, const bool);
+
 /**
  * Simulated network driver for recording and playing back game sessions.
  */
@@ -85,6 +87,8 @@ private:
 	// If a channel is associated with Actor, adds the channel's GUID to the list of GUIDs excluded from queuing bunches during scrubbing.
 	void		AddNonQueuedActorForScrubbing(AActor* Actor);
 
+	FOnGotoTimeDelegate OnGotoTimeDelegate;
+
 public:
 
 	// UNetDriver interface.
@@ -98,11 +102,12 @@ public:
 	virtual void ProcessRemoteFunction( class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject = nullptr ) override;
 	virtual bool IsAvailable() const override { return true; }
 	void SkipTime(const float InTimeToSkip);
-	void GotoTimeInSeconds( const float TimeInSeconds );
 	bool InitConnectInternal( FString& Error );
 	virtual bool ShouldClientDestroyTearOffActors() const override;
 	virtual bool ShouldSkipRepNotifies() const override;
 	virtual bool ShouldQueueBunchesForActorGUID(FNetworkGUID InGUID) const override;
+
+	void GotoTimeInSeconds(const float TimeInSeconds, const FOnGotoTimeDelegate& InOnGotoTimeDelegate = FOnGotoTimeDelegate());
 
 public:
 
@@ -129,6 +134,7 @@ public:
 	void SpawnDemoRecSpectator( UNetConnection* Connection );
 	void ResetDemoState();
 	void JumpToEndOfLiveReplay();
+	virtual bool IsFastForwarding() { return bIsFastForwarding; }
 
 	/**
 	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)

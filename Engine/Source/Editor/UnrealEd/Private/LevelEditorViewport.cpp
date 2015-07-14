@@ -13,7 +13,7 @@
 #include "BSPOps.h"
 #include "LevelUtils.h"
 #include "Layers/ILayers.h"
-#include "../Private/StaticLightingSystem/StaticLightingPrivate.h"
+#include "StaticLightingSystem/StaticLightingPrivate.h"
 #include "EditorLevelUtils.h"
 #include "Engine.h"
 #include "Editor/LevelEditor/Public/LevelEditor.h"

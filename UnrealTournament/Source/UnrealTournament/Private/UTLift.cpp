@@ -6,7 +6,7 @@
 #include "UTDroppedPickup.h"
 #include "NavigationOctree.h"
 #include "UTLiftExit.h"
-#include "UTDmgType_FallingCrush.h"
+#include "UTDmgType_Crushed.h"
 #include "UTReachSpec_Lift.h"
 #include "UTRecastNavMesh.h"
 
@@ -48,7 +48,7 @@ void AUTLift::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp,
 			AUTCharacter* UTChar = Cast<AUTCharacter>(OtherActor);
 			if (UTChar && UTChar->IsRagdoll())
 			{
-				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
+				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Crushed::StaticClass());
 				UTChar->TakeDamage(100000.0f, DamageEvent, UTChar->GetController(), UTChar);
 			}
 			else
@@ -89,7 +89,7 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 			{
 				if (bMoveWasBlocked)
 				{
-					FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_FallingCrush::StaticClass());
+					FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(UTChar, UTChar->GetCapsuleComponent(), UTChar->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Crushed::StaticClass());
 					UTChar->TakeDamage(100000.0f, DamageEvent, UTChar->GetController(), UTChar);
 				}
 				bMoveWasBlocked = true;
@@ -281,9 +281,10 @@ void AUTLift::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh*
 {
 	if (EncroachComponent != NULL)
 	{
-		FVector MyLoc = GetActorLocation();
+		const FVector MyLoc = GetActorLocation();
+		const FVector LiftCenter = GetComponentsBoundingBox().GetCenter();
 		FHitResult TopHit;
-		if (ActorLineTraceSingle(TopHit, MyLoc + FVector(0.0f, 0.0f, 10000.0f), MyLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
+		if (ActorLineTraceSingle(TopHit, LiftCenter + FVector(0.0f, 0.0f, 10000.0f), LiftCenter - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams()))
 		{
 			float ZOffset = TopHit.Location.Z + NavData->AgentHeight * 0.25f - MyLoc.Z;
 			// figure out some offsets to check for exit locations at each start

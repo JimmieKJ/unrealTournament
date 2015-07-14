@@ -140,7 +140,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Called when an instance needs to update a player in a match's info
 	 **/
-	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate);
+	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank);
 
 	/**
 	 *	Called when an instance's game is over.  It this called via GameEnded and doesn't mean any of the
@@ -161,7 +161,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	void InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer);
 
 	// returns true if a match can start
-	bool CanLaunch(AUTLobbyMatchInfo* MatchToLaunch);
+	bool CanLaunch();
 
 	void BeginPlay();
 
@@ -187,7 +187,6 @@ protected:
 	// We replicate the count seperately so that the client can check and test their array to see if replication has been completed.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	int32 AvailabelGameRulesetCount;
-
 
 	void ScanAssetRegistry();
 
@@ -228,6 +227,13 @@ public:
 
 protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName);
+
+public:
+	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank);
+
+	// Sets a limit on the # of spectators allowed in an instance
+	UPROPERTY(Config)
+	int32 MaxSpectatorsInInstance;
 
 };
 

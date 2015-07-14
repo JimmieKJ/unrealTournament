@@ -758,15 +758,15 @@ enum EDawnLightFlags
 	GI_LIGHT_CASTSHADOWS			= 0x00000001,
 	// maps to ULightComponent::HasStaticLighting()
 	GI_LIGHT_HASSTATICLIGHTING		= 0x00000002,
-	// maps to ULightComponent::UseDirectLightMap
-	GI_LIGHT_USEDIRECTLIGHTMAP		= 0x00000004,
 	// maps to ULightComponent::HasStaticShadowing()
 	GI_LIGHT_HASSTATICSHADOWING		= 0x00000008,
 	// maps to ULightComponent::CastStaticShadows
 	GI_LIGHT_CASTSTATICSHADOWS		= 0x00000010,
-	GI_LIGHT_USESIGNEDDISTANCEFIELDSHADOWS = 0x00000020,
+	GI_LIGHT_STORE_SEPARATE_SHADOW_FACTOR = 0x00000020,
 	GI_LIGHT_INVERSE_SQUARED		= 0x00000080,
-	GI_LIGHT_USE_LIGHTPROFILE		= 0x00000100
+	GI_LIGHT_USE_LIGHTPROFILE		= 0x00000100,
+	// Whether a stationary light should generate a standard shadowmap (area shadows) or a distance field shadow map
+	GI_LIGHT_USE_AREA_SHADOWS_FOR_SEPARATE_SHADOW_FACTOR		= 0x00000200
 };
 
 struct FLightData
@@ -1036,8 +1036,6 @@ struct FStaticLightingMappingData
 {
 	FGuid Guid;
 	FGuid StaticLightingMeshInstance;
-	/** true if light-maps to be used for the object's direct lighting. */
-	bool bForceDirectLightMap;
 };
 
 struct FStaticLightingTextureMappingData

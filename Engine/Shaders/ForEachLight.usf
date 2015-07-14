@@ -37,7 +37,7 @@ float3 LightingForOneLight(FMaterialPixelParameters Parameters, uint LightIndex,
 	// The only type of shadowing supported for lights using tiled is static shadowing, so the light should only compute shadowing if it has static shadowing
 	LightData.bShadowed = dot(LightData.ShadowMapChannelMask, float4(1, 1, 1, 1));
 	
-	float2 ScreenUV = Parameters.SVPosition.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float2 ScreenUV = Parameters.SVPosition.xy * View.BufferSizeAndInvSize.zw;
 
 	return GetDynamicLighting(Parameters.WorldPosition, CameraVector, ScreenUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, float4(1, 1, 1, 1), uint2(0,0)).rgb;
 }

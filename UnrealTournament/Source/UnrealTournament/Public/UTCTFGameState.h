@@ -142,6 +142,10 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint32 bAllowSuddenDeath : 1;
 
+	/** The Elapsed time at which Overtime began */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+	int32 OvertimeStartTime;
+
 	/** Will be true if the game is playing advantage going in to half-time */
 	UPROPERTY(Replicated)
 		uint32 bPlayingAdvantage : 1;
@@ -178,6 +182,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual bool IsMatchInOvertime() const override;
 	virtual bool IsMatchInSuddenDeath() const override;
 	virtual bool IsMatchAtHalftime() const override;
+	virtual void OnRep_MatchState() override;
 
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 	

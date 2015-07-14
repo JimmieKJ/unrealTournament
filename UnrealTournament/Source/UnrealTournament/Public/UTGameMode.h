@@ -14,6 +14,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
 	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
+	extern UNREALTOURNAMENT_API const FName MatchIntermission;				// The game is in a round intermission
 }
 
 USTRUCT()
@@ -94,6 +95,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	uint32 bAllowOvertime:1;
+
+	/**If enabled, the server grants special control for casters*/
+	UPROPERTY(globalconfig)
+	uint32 bCasterControl:1;
 
 	/** If TRUE, force dead players to respawn immediately. Can be overridden with ForceRespawn=x on the url */
 	UPROPERTY(Config, EditDefaultsOnly)
@@ -319,11 +324,22 @@ public:
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
-	virtual void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
-	virtual void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
-	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
-	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
-	virtual bool CheckScore(AUTPlayerState* Scorer);
+	
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason);
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	bool CheckScore(AUTPlayerState* Scorer);
+
 	virtual void FindAndMarkHighScorer();
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 
@@ -376,11 +392,12 @@ public:
 	virtual void HandleMatchInOvertime();
 
 	virtual void ShowFinalScoreboard();
-	virtual void TravelToNextMap();
+	UFUNCTION(BlueprintNativeEvent)
+	void TravelToNextMap();
 	virtual void StopReplayRecording();
 
 	virtual void RecreateLobbyBeacon();
-	virtual void DefaultTimer();
+	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
@@ -394,9 +411,7 @@ public:
 	virtual void BuildServerResponseRules(FString& OutRules);
 
 protected:
-	
-	/** Handle for efficient management of DefaultTimer timer */
-	FTimerHandle TimerHandle_DefaultTimer;
+
 
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
@@ -491,6 +506,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Messaging)
 	virtual void BlueprintSendLocalized( AActor* Sender, AUTPlayerController* Receiver, TSubclassOf<ULocalMessage> Message, int32 Switch = 0, APlayerState* RelatedPlayerState_1 = NULL, APlayerState* RelatedPlayerState_2 = NULL, UObject* OptionalObject = NULL );
 
+	/**Broadcasts a localized message only to spectators*/
+	UFUNCTION(BlueprintCallable, Category = Messaging)
+	virtual void BroadcastSpectator(AActor* Sender, TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
+
+	/**Sends a pickup message to all spectators*/
+	virtual void BroadcastSpectatorPickup(AUTPlayerState* PS, const AUTInventory* Inventory);
+
 	/** called on the default object of the game class being played to precache announcer sounds
 	 * needed because announcers are dynamically loaded for convenience of user announcer packs, so we need to load up the audio we think we'll use at game time
 	 */
@@ -523,6 +545,8 @@ protected:
 
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateSkillRating();
+
+	virtual void AwardProfileItems();
 
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
@@ -585,8 +609,15 @@ protected:
 
 public:
 #if !UE_SERVER
-	TSharedRef<SWidget> NewPlayerInfoLine(FString LeftStr, FString RightStr);
-	virtual void BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel, AUTPlayerState* PlayerState);
+	void BuildPaneHelper(TSharedPtr<SHorizontalBox>& HBox, TSharedPtr<SVerticalBox>& LeftPane, TSharedPtr<SVerticalBox>& RightPane);
+	void NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> Stat, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	void NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<struct TAttributeStat> DeathStat, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+
+	virtual void BuildPlayerInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	virtual void BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	virtual void BuildRewardInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 
 #endif
 
@@ -619,5 +650,20 @@ public:
 	virtual void CullMapVotes();
 	virtual void TallyMapVotes();
 
+	//Speed hack detection
+	UPROPERTY(Config)
+	float MaxTimeMargin;
+	UPROPERTY(Config)
+	float MinTimeMargin;
+	UPROPERTY(Config)
+	float TimeMarginSlack;
+	UPROPERTY(Config)
+	bool bSpeedHackDetection;
+
+
+	/** Overriden so we dont go into MatchState::LeavingMap state, which happens regardless if the travel fails
+	* On failed map changes, the game will be stuck in a LeavingMap state
+	*/
+	virtual void StartToLeaveMap() {}
 };
 

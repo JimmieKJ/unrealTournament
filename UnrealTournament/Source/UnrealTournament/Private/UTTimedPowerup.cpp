@@ -34,15 +34,15 @@ void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTTimedPowerup::UpdateStatsCounter(float Amount)
 {
-	if (GetUTOwner() && (StatsName != NAME_None))
+	if (GetUTOwner() && (StatsNameTime != NAME_None))
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(GetUTOwner()->PlayerState);
 		if (PS)
 		{
-			PS->ModifyStatsValue(StatsName, Amount);
+			PS->ModifyStatsValue(StatsNameTime, Amount);
 			if (PS->Team)
 			{
-				PS->Team->ModifyStatsValue(StatsName, Amount);
+				PS->Team->ModifyStatsValue(StatsNameTime, Amount);
 			}
 		}
 	}

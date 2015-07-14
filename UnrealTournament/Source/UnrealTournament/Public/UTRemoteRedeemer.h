@@ -72,6 +72,25 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	virtual void GetActorEyesViewPoint(FVector& out_Location, FRotator& out_Rotation) const override;
 	void PawnStartFire(uint8 FireModeNum) override;
 
+	/** material to draw over the player's view when zoomed
+	* the material can use the parameter 'TeamColor' to receive the player's team color in team games (won't be changed in FFA modes)
+	*/
+	UPROPERTY(EditDefaultsOnly, Category = Overlay)
+		UMaterialInterface* OverlayMat;
+
+	/** material instance for e.g. team coloring */
+	UPROPERTY()
+		UMaterialInstanceDynamic* OverlayMI;
+
+	/** material for drawing enemy indicators */
+	UPROPERTY(EditDefaultsOnly, Category = Overlay)
+		UTexture2D* TargetIndicator;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overlay)
+		UTexture2D* RedeemerDisplayOne;
+
+	virtual void PostRender(class AUTHUD* HUD, UCanvas* Canvas);
+
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerBlowUp();
 

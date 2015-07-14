@@ -1130,9 +1130,17 @@ struct FLightmassLightSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Lightmass, meta=(UIMin = "0.1", UIMax = "4.0"))
 	float ShadowExponent;
 
+	/** 
+	 * Whether to use area shadows for stationary light precomputed shadowmaps.  
+	 * Area shadows get softer the further they are from shadow casters, but require higher lightmap resolution to get the same quality where the shadow is sharp.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Lightmass)
+	bool bUseAreaShadowsForStationaryLight;
+
 	FLightmassLightSettings()
 		: IndirectLightingSaturation(1.0f)
 		, ShadowExponent(2.0f)
+		, bUseAreaShadowsForStationaryLight(false)
 	{ }
 };
 

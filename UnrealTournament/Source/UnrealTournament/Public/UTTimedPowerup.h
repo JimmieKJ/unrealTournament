@@ -38,8 +38,9 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 
 	virtual void UpdateStatsCounter(float Amount);
 
+	/**The stat for how long this was held for*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
-		FName StatsName;
+	FName StatsNameTime;
 
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{

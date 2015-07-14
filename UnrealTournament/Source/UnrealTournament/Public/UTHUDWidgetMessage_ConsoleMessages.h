@@ -8,9 +8,6 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_ConsoleMessages : public UUTHUDWi
 	GENERATED_UCLASS_BODY()
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Widgets")
-	int32 NumVisibleLines;
-
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override
 	{
 		return (!UTHUDOwner->UTPlayerOwner || !UTHUDOwner->UTPlayerOwner->UTPlayerState 

@@ -236,8 +236,10 @@ struct FMaterialTessellationParameters
  */
 struct FMaterialVertexParameters
 {
+	// Position in the translated world (VertexFactoryGetWorldPosition).
+	// Previous position in the translated world (VertexFactoryGetPreviousWorldPosition) if
+	//    computing material's output for previous frame (See {BasePassVertex,Velocity}Shader.usf).
 	float3 WorldPosition;
-	float3 PrevWorldPosition;
 	// TangentToWorld[2] is WorldVertexNormal
 	half3x3 TangentToWorld;
 #if USE_INSTANCING
@@ -262,6 +264,30 @@ struct FMaterialVertexParameters
 	FMaterialParticleParameters Particle;
 };
 
+float3 GetWorldPosition(FMaterialVertexParameters Parameters)
+{
+	return Parameters.WorldPosition;
+}
+
+float3 GetPrevWorldPosition(FMaterialVertexParameters Parameters)
+{
+	// Previous world position and current world position are sharing the
+	// same attribute in Parameters, because in BasePassVertexShader.usf
+	// and in VelocityShader.usf, we are regenerating a Parameters from
+	// VertexFactoryGetPreviousWorldPosition() instead of
+	// VertexFactoryGetWorldPosition().
+	return GetWorldPosition(Parameters);
+}
+
+float3 GetWorldPosition_NoOffsets(FMaterialVertexParameters Parameters)
+{
+	return GetWorldPosition(Parameters) - View.PreViewTranslation;
+}
+
+float3 GetPrevWorldPosition_NoOffsets(FMaterialVertexParameters Parameters)
+{
+	return GetPrevWorldPosition(Parameters) - View.PrevPreViewTranslation;
+}
 
 #if DECAL_RENDERSTAGE && NUM_MATERIAL_TEXCOORDS
 	/*
@@ -366,13 +392,6 @@ MaterialFloat3 TransformTangentVectorToView(FMaterialPixelParameters Parameters,
 	return mul(mul(InTangentVector, Parameters.TangentToWorld), (MaterialFloat3x3)View.TranslatedWorldToView);
 }
 
-/** Transforms a vector from local space to tangent space */
-MaterialFloat3 TransformLocalVectorToTangent(FMaterialPixelParameters Parameters, MaterialFloat3 InLocalVector)
-{
-	// Transform from local to world space, and then to tangent space.
-	return mul(Parameters.TangentToWorld, mul(InLocalVector, GetLocalToWorld3x3()));
-}
-
 /** Transforms a vector from local space to world space (VS version) */
 MaterialFloat3 TransformLocalVectorToWorld(FMaterialVertexParameters Parameters,MaterialFloat3 InLocalVector)
 {
@@ -389,22 +408,10 @@ MaterialFloat3 TransformLocalVectorToWorld(FMaterialPixelParameters Parameters,M
 	return mul(InLocalVector, GetLocalToWorld3x3());
 }
 
-/** Transforms a vector from local space to view space */
-MaterialFloat3 TransformLocalVectorToView(MaterialFloat3 InLocalVector)
-{
-	return mul(mul(InLocalVector, GetLocalToWorld3x3()), (MaterialFloat3x3)View.TranslatedWorldToView);
-}
-
 /** Transforms a vector from world space to local space */
 MaterialFloat3 TransformWorldVectorToLocal(MaterialFloat3 InWorldVector)
 {
 	return mul(InWorldVector, (MaterialFloat3x3)Primitive.WorldToLocal);
-}
-
-/** Transforms a vector from view space to local space */
-MaterialFloat3 TransformViewVectorToLocal(MaterialFloat3 InViewVector)
-{
-	return mul(mul(InViewVector, (MaterialFloat3x3)View.ViewToTranslatedWorld), (MaterialFloat3x3)Primitive.WorldToLocal);
 }
 
 /** Transforms a position from local space to absolute world space */
@@ -423,11 +430,9 @@ float3 TransformLocalPositionToWorld(FMaterialVertexParameters Parameters,float3
 	#endif
 }
 
-/** Transforms a position from absolute world space to local space */
-float3 TransformWorldPositionToLocal(float3 InWorldPosition)
-{
-	return mul(float4(InWorldPosition, 1), Primitive.WorldToLocal).xyz;
-}
+#endif
+
+#if HAS_PRIMITIVE_UNIFORM_BUFFER
 
 /** Return the object's position in world space */
 float3 GetObjectWorldPosition(FMaterialPixelParameters Parameters)
@@ -788,7 +793,7 @@ float3 GetSpeedTreeVertexOffsetInner(FMaterialVertexParameters Parameters, int G
 		}
 	#else
 		float3x3 LocalToWorld = (float3x3)Primitive.LocalToWorld;
-		float3 LocalPosition = mul(float4(Parameters.WorldPosition.xyz, 1), Primitive.WorldToLocal).xyz;
+		float3 LocalPosition = mul(float4(GetWorldPosition_NoOffsets(Parameters), 1), Primitive.WorldToLocal).xyz;
 	#endif
 
 	float3 TreePos = GetObjectWorldPosition(Parameters);
@@ -798,11 +803,11 @@ float3 GetSpeedTreeVertexOffsetInner(FMaterialVertexParameters Parameters, int G
 #if !USE_INSTANCING || !USE_DITHERED_LOD_TRANSITION
 	if (LODType == SPEEDTREE_LOD_TYPE_SMOOTH) 
 	{
-		const float ScreenMultiple = 0.5 * max(View.ViewSizeAndSceneTexelSize.x * View.ViewToClip[0][0],
-												View.ViewSizeAndSceneTexelSize.y * View.ViewToClip[1][1]);
+		const float ScreenMultiple = 0.5 * max(View.ViewSizeAndInvSize.x * View.ViewToClip[0][0],
+												View.ViewSizeAndInvSize.y * View.ViewToClip[1][1]);
 		const float ScreenRadius = ScreenMultiple * Primitive.ObjectWorldPositionAndRadius.w / 
 									max(1.0, dot(TreePos - View.ViewOrigin.xyz, View.ViewForward.xyz));
-		const float ScreenArea = PI * ScreenRadius * ScreenRadius / (View.ViewSizeAndSceneTexelSize.x * View.ViewSizeAndSceneTexelSize.y);
+		const float ScreenArea = PI * ScreenRadius * ScreenRadius * View.ViewSizeAndInvSize.z * View.ViewSizeAndInvSize.w;
 		LodInterp = saturate((ScreenArea - SpeedTreeLODInfo.x) / SpeedTreeLODInfo.z);
 	}
 #endif
@@ -1534,7 +1539,7 @@ void CalcMaterialParameters(
 
 	{
 		float2 PixelPos = SvPosition.xy - View.ViewRectMin.xy;	
-		Parameters.ScreenPosition.xy = ( PixelPos / View.ViewSizeAndSceneTexelSize.xy - 0.5 ) * float2(2,-2);
+		Parameters.ScreenPosition.xy = ( PixelPos * View.ViewSizeAndInvSize.zw - 0.5 ) * float2(2,-2);
 		Parameters.ScreenPosition.zw = SvPosition.zw;
 		Parameters.ScreenPosition.xyz *= Parameters.ScreenPosition.w;
 	}

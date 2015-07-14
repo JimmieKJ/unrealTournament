@@ -46,6 +46,15 @@ bool AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 				}
 			}
 
+			// if lift jump, check for obstruction if bot tries to jump directly to exit
+			bool bSkipInitialAirControl = false;
+			if (bRequireLiftJump)
+			{
+				const FVector BestLiftCenter = BestStop + LiftCenterOffset;
+				FHitResult Hit;
+				bSkipInitialAirControl = TheLift->GetWorld()->LineTraceSingleByChannel(Hit, BestLiftCenter, BestLiftCenter + (ExitLoc - BestLiftCenter) * 0.7f, ECC_Pawn, FCollisionQueryParams()) && Hit.Normal.Z < 0.0f;
+			}
+
 			NavNodeRef LiftPoly = NavData->FindNearestPoly(BestStop + LiftCenterOffset, NavExtent * FVector(1.0f, 1.0f, 1.5f));
 			UUTPathNode* LiftNode = NavData->GetNodeFromPoly(LiftPoly);
 			if (MyPoly != INVALID_NAVNODEREF && LiftPoly != INVALID_NAVNODEREF && LiftNode != NULL)
@@ -79,6 +88,7 @@ bool AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 						LiftSpec->LiftExitLoc = ExitLoc;
 						LiftSpec->LiftCenter = NextStop + LiftCenterOffset;
 						LiftSpec->bEntryPath = false;
+						LiftSpec->bSkipInitialAirControl = bSkipInitialAirControl;
 						FUTPathLink* NewLink = new(StopNode->Paths) FUTPathLink(StopNode, StopPoly, MyNode, MyPoly, LiftSpec, PathSize.Radius, PathSize.Height, bRequireLiftJump ? R_JUMP : 0);
 						for (NavNodeRef StartPoly : StopNode->Polys)
 						{

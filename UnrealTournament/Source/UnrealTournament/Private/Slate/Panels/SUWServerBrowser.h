@@ -483,7 +483,18 @@ public:
 			{
 				TSharedPtr<SHorizontalBox> IconBox;
 				SAssignNew(IconBox, SHorizontalBox);
+			
+
+				if (ServerData->SearchResult.Session.SessionSettings.bIsLANMatch)
+				{
+					IconBox->AddSlot()
+						[
+							SNew( SImage )		
+								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.Lan"))
+						];
 				
+				}
+
 				if ( (ServerData->Flags & 0x01) != 0)
 				{
 					IconBox->AddSlot()
@@ -611,9 +622,6 @@ protected:
 	// The whole list of Hubs
 	TArray< TSharedPtr< FServerData > > AllHubServers;
 
-	// The list of lan servers
-	TArray< TSharedPtr< FServerData > > AllLanServers;
-
 	// A list of "pending ping requests".
 	TArray< FServerPingTracker> PingTrackers;
 
@@ -626,6 +634,8 @@ protected:
 	virtual void RefreshServers();
 
 	void OnFindSessionsComplete(bool bWasSuccessful);
+	void OnFindLANSessionsComplete(bool bWasSuccessful);
+
 	virtual void SetBrowserState(FName NewBrowserState);
 	virtual void CleanupQoS();
 
@@ -726,6 +736,7 @@ private:
 
 	FDelegateHandle OnFindSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
+	TSharedPtr<class FUTOnlineGameSearchBase> LanSearchSettings;
 
 	TSharedPtr<FServerData> RandomHUB;
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
@@ -748,6 +759,7 @@ protected:
 
 	int32 TotalPlayersPlaying;
 
+	void FoundServer(FOnlineSessionSearchResult& Result);
 };
 
 #endif

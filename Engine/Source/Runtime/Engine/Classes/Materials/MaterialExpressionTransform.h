@@ -8,20 +8,36 @@
 UENUM()
 enum EMaterialVectorCoordTransformSource
 {
-	TRANSFORMSOURCE_World UMETA(DisplayName="World"),
-	TRANSFORMSOURCE_Local UMETA(DisplayName="Local"),
-	TRANSFORMSOURCE_Tangent UMETA(DisplayName="Tangent"),
-	TRANSFORMSOURCE_View UMETA(DisplayName="View"),
+	/** Tangent space */
+	TRANSFORMSOURCE_Tangent UMETA(DisplayName="Tangent Space"),
+	
+	/** Local space */
+	TRANSFORMSOURCE_Local UMETA(DisplayName="Local Space"),
+	
+	/** World space */
+	TRANSFORMSOURCE_World UMETA(DisplayName="World Space"),
+	
+	/** View space */
+	TRANSFORMSOURCE_View UMETA(DisplayName="View Space"),
+
 	TRANSFORMSOURCE_MAX,
 };
 
 UENUM()
 enum EMaterialVectorCoordTransform
 {
-	TRANSFORM_World UMETA(DisplayName="World"),
-	TRANSFORM_View UMETA(DisplayName="View"),
-	TRANSFORM_Local UMETA(DisplayName="Local"),
-	TRANSFORM_Tangent UMETA(DisplayName="Tangent"),
+	/** Tangent space */
+	TRANSFORM_Tangent UMETA(DisplayName="Tangent Space"),
+	
+	/** Local space */
+	TRANSFORM_Local UMETA(DisplayName="Local Space"),
+	
+	/** World space */
+	TRANSFORM_World UMETA(DisplayName="World Space"),
+	
+	/** View space */
+	TRANSFORM_View UMETA(DisplayName="View Space"),
+
 	TRANSFORM_MAX,
 };
 

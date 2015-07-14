@@ -1964,7 +1964,7 @@ void FStaticLightingSystem::CalculateApproximateDirectLighting(
 				// Compute the light-map sample for the front-face of the vertex.
 				FGatheredLightSample Lighting = FGatheredLightSample::PointLightWorldSpace(FinalIntensity, TangentLightVector, WorldLightVector.GetSafeNormal());
 
-				if (Light->UseStaticLighting(false) || bCompositeAllLights)
+				if (Light->UseStaticLighting() || bCompositeAllLights)
 				{
 					OutStaticDirectLighting = OutStaticDirectLighting + Lighting;
 				}

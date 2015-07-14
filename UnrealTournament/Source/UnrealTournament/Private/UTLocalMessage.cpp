@@ -6,6 +6,7 @@
 #include "UTLocalMessage.h"
 #include "UTHUD.h"
 #include "UTAnnouncer.h"
+#include "Engine/DemoNetDriver.h"
 
 UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -19,6 +20,16 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
+	// Skip playing local messages if we're fast forwarding from a demo seek
+	UDemoNetDriver* DemoDriver = ClientData.LocalPC->GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		if (DemoDriver->IsFastForwarding())
+		{
+			return;
+		}
+	}
+
 	FText LocalMessageText = ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 	if ( !LocalMessageText.IsEmpty() )
 	{

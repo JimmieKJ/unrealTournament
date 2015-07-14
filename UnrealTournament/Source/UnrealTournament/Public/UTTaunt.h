@@ -17,4 +17,7 @@ class UNREALTOURNAMENT_API AUTTaunt : public AActor
 
 	UPROPERTY(EditDefaultsOnly)
 	UAnimMontage* TauntMontage;
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bRequiresItem;
 };

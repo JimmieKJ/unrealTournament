@@ -498,6 +498,8 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_BODYINSTANCE_BINARY_SERIALIZATION,
 	// Added fastcall data serialization directly in UFunction
 	VER_UE4_SERIALIZE_BLUEPRINT_EVENTGRAPH_FASTCALLS_IN_UFUNCTION,
+	// Shadowmap penumbra size stored
+	VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE,
 
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)

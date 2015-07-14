@@ -25,8 +25,7 @@ protected:
 	virtual void SetInitialPanel();
 	
 	virtual FReply OpenHUDSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
 	virtual FText GetMapVoteTitle() const;
-
+	virtual void WriteQuitMidGameAnalytics();
 };
 #endif

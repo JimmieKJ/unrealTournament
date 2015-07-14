@@ -9,6 +9,13 @@ AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 {
 }
 
+void AUTBaseGameMode::PreInitializeComponents()
+{
+	Super::PreInitializeComponents();
+	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTBaseGameMode::DefaultTimer, 1.0f / GetWorldSettings()->GetEffectiveTimeDilation(), true);
+}
+
+
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
 	// Grab the InstanceID if it's there.

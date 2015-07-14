@@ -73,6 +73,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_SniperHeadshotKills);
 	WeaponStats.Add(NAME_RedeemerKills);
 	WeaponStats.Add(NAME_InstagibKills);
+	WeaponStats.Add(NAME_TelefragKills);
 
 	WeaponStats.Add(NAME_ImpactHammerDeaths);
 	WeaponStats.Add(NAME_EnforcerDeaths);
@@ -91,6 +92,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_SniperHeadshotDeaths);
 	WeaponStats.Add(NAME_RedeemerDeaths);
 	WeaponStats.Add(NAME_InstagibDeaths);
+	WeaponStats.Add(NAME_TelefragDeaths);
 
 	WeaponStats.Add(NAME_BestShockCombo);
 	WeaponStats.Add(NAME_AirRox);
@@ -108,6 +110,22 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	RewardStats.Add(NAME_SpreeKillLevel2);
 	RewardStats.Add(NAME_SpreeKillLevel3);
 	RewardStats.Add(NAME_SpreeKillLevel4);
+
+	MovementStats.Add(NAME_RunDist);
+	MovementStats.Add(NAME_SprintDist);
+	MovementStats.Add(NAME_InAirDist);
+	MovementStats.Add(NAME_SwimDist);
+	MovementStats.Add(NAME_TranslocDist);
+	MovementStats.Add(NAME_NumDodges);
+	MovementStats.Add(NAME_NumWallDodges);
+	MovementStats.Add(NAME_NumJumps);
+	MovementStats.Add(NAME_NumLiftJumps);
+	MovementStats.Add(NAME_NumFloorSlides);
+	MovementStats.Add(NAME_NumWallRuns);
+	MovementStats.Add(NAME_NumImpactJumps);
+	MovementStats.Add(NAME_NumRocketJumps);
+	MovementStats.Add(NAME_SlideDist);
+	MovementStats.Add(NAME_WallRunDist);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -541,12 +559,7 @@ bool AUTGameState::HasMatchStarted() const
 bool AUTGameState::IsMatchInProgress() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTGameState::IsMatchAtHalftime() const
@@ -568,6 +581,11 @@ bool AUTGameState::IsMatchInOvertime() const
 	}
 
 	return false;
+}
+
+bool AUTGameState::IsMatchIntermission() const
+{
+	return GetMatchState() == MatchState::MatchIntermission;
 }
 
 void AUTGameState::OnWinnerReceived()
@@ -629,6 +647,10 @@ FText AUTGameState::GetGameStatusText()
 		if (HasMatchEnded())
 		{
 			return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+		}
+		else if (GetMatchState() == MatchState::MapVoteHappening)
+		{
+			return NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 		}
 		else
 		{
@@ -1057,4 +1079,38 @@ void AUTGameState::OnRep_ServerSessionId()
 		}
 	}
 
+}
+
+float AUTGameState::GetStatsValue(FName StatsName)
+{
+	return StatsData.FindRef(StatsName);
+}
+
+void AUTGameState::SetStatsValue(FName StatsName, float NewValue)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	StatsData.Add(StatsName, NewValue);
+}
+
+void AUTGameState::ModifyStatsValue(FName StatsName, float Change)
+{
+	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
+	float CurrentValue = StatsData.FindRef(StatsName);
+	StatsData.Add(StatsName, CurrentValue + Change);
+}
+
+bool AUTGameState::AreAllPlayersReady()
+{
+	if (!HasMatchStarted())
+	{
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
+			{
+				return false;
+			}
+		}
+	}
+	return true;
 }

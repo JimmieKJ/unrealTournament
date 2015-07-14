@@ -15,7 +15,7 @@ class UNREALTOURNAMENT_API AUTTeamDMGameMode : public AUTTeamGameMode
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = TeamDM)
 	bool bScoreSuicides;
 
-	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void UpdateSkillRating() override;

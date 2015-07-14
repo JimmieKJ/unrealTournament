@@ -24,12 +24,16 @@ class UNREALTOURNAMENT_API AUTWeapAttachment_RocketLauncher : public AUTWeaponAt
 
 	virtual void FiringExtraUpdated() override
 	{
+		//The lower 4 bits is the number of rockets charged 
+		int32 NumRockets = UTOwner->FlashExtra & 0x0F;
+
 		if (RocketLoadLights != NULL)
 		{
 			// we don't know the previous state so deactivate and retrigger every time
 			RocketLoadLights->DeactivateSystem();
 			RocketLoadLights->KillParticlesForced();
-			if (UTOwner->FlashExtra > 0)
+
+			if (NumRockets > 0)
 			{
 				uint8 NumLoadedRockets = UTOwner->FlashExtra - 1;
 				static FName NAME_RocketMesh(TEXT("RocketMesh"));
@@ -44,9 +48,9 @@ class UNREALTOURNAMENT_API AUTWeapAttachment_RocketLauncher : public AUTWeaponAt
 		}
 		if (Mesh != NULL && Mesh->GetAnimInstance() != NULL)
 		{
-			if (UTOwner->FlashExtra > 0 && RocketLoadMontages.IsValidIndex(UTOwner->FlashExtra - 1))
+			if (UTOwner->FlashExtra > 0 && RocketLoadMontages.IsValidIndex(NumRockets - 1))
 			{
-				Mesh->GetAnimInstance()->Montage_Play(RocketLoadMontages[UTOwner->FlashExtra - 1]);
+				Mesh->GetAnimInstance()->Montage_Play(RocketLoadMontages[NumRockets - 1]);
 			}
 			else
 			{

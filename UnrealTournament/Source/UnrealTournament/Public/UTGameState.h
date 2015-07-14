@@ -17,11 +17,11 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	GENERATED_UCLASS_BODY()
 
 	/** server settings */
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerName)
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerName)
 	FString ServerName;
 	
 	// The message of the day
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerMOTD)
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerMOTD)
 	FString ServerMOTD;
 
 	UFUNCTION()
@@ -180,6 +180,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInCountdown() const;
 
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	virtual bool IsMatchIntermission() const;
+
 	virtual void BeginPlay() override;
 
 	/** Return largest SpectatingId value in current PlayerArray. */
@@ -337,6 +340,9 @@ public:
 	UPROPERTY()
 		TArray<FName> RewardStats;
 
+	UPROPERTY()
+		TArray<FName> MovementStats;
+
 	UPROPERTY(Replicated)
 	TArray<AUTReplicatedMapVoteInfo*> MapVoteList;
 
@@ -368,6 +374,21 @@ protected:
 	virtual void OnRep_ServerSessionId();
 
 
+	/** map of additional stats to hold match total stats*/
+	TMap< FName, float > StatsData;
+
+public:
+	UPROPERTY()
+	float LastScoreStatsUpdateTime;
+
+	/** Accessors for StatsData. */
+	float GetStatsValue(FName StatsName);
+	void SetStatsValue(FName StatsName, float NewValue);
+	void ModifyStatsValue(FName StatsName, float Change);
+
+	/** Returns true if all players are ready */
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	bool AreAllPlayersReady();
 };
 
 

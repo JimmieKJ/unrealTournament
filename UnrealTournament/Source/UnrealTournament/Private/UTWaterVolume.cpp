@@ -59,10 +59,6 @@ void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 		{
 			P->PlayWaterSound(ExitSound ? ExitSound : P->WaterExitSound);
 		}
-		else if (ExitSound)
-		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
-		}
 		Super::ActorLeavingVolume(Other);
 	}
 }
@@ -110,10 +106,6 @@ void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
 		if (P)
 		{
 			P->PlayWaterSound(ExitSound ? ExitSound : P->WaterExitSound);
-		}
-		else if (ExitSound)
-		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ExitSound, Other, SRT_None);
 		}
 		Super::ActorLeavingVolume(Other);
 	}

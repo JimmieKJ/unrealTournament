@@ -26,6 +26,7 @@
 #include "Slate/SUTQuickMatch.h"
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
+#include "Slate/SUWVideoCompressionDialog.h"
 #include "Slate/SUTLoadoutMenu.h"
 #include "Slate/SUTBuyMenu.h"
 #include "Slate/SUWMapVoteDialog.h"
@@ -39,7 +40,10 @@
 #include "UTGameEngine.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTConsole.h"
-
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "UTVideoRecordingFeature.h"
+#include "Slate/SUWYoutubeUpload.h"
+#include "Slate/SUWYoutubeConsent.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -125,7 +129,7 @@ void UUTLocalPlayer::CleanUpOnlineSubSystyem()
 bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	// disallow certain commands in shipping builds
-#if UE_BUILD_SHIPPING
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (FParse::Command(&Cmd, TEXT("SHOW")))
 	{
 		return true;
@@ -283,9 +287,6 @@ void UUTLocalPlayer::ShowMenu()
 
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = true;
-			PlayerController->SetInputMode(FInputModeUIOnly());
-
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -311,32 +312,8 @@ void UUTLocalPlayer::HideMenu()
 		DesktopSlateWidget.Reset();
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = false;
 			PlayerController->SetPause(false);
-
-			//Replay window will set its own input mode
-			if (!IsReplay())
-			{
-				PlayerController->SetInputMode(FInputModeGameOnly());
-			}
 		}
-
-		if (IsReplay())
-		{
-			OpenReplayWindow();
-
-			//Temp workaround for the console breaking input
-			UUTConsole* Console = (ViewportClient != nullptr) ? Cast<UUTConsole>(ViewportClient->ViewportConsole) : nullptr;
-			if (Console != nullptr)
-			{
-				Console->ClearReopenMenus();
-			}
-		}
-		else
-		{
-			FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
-		}
-
 	}
 	else
 	{
@@ -427,10 +404,12 @@ void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog, int32 ZOrder)
 {
 	GEngine->GameViewport->AddViewportWidgetContent(Dialog, ZOrder);
 	Dialog->OnDialogOpened();
+	OpenDialogs.Add(Dialog);
 }
 
 void UUTLocalPlayer::CloseDialog(TSharedRef<SUWDialog> Dialog)
 {
+	OpenDialogs.Remove(Dialog);
 	Dialog->OnDialogClosed();
 	GEngine->GameViewport->RemoveViewportWidgetContent(Dialog);
 }
@@ -475,6 +454,15 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 	return CreditsPanelWidget;
 }
 
+bool UUTLocalPlayer::AreMenusOpen()
+{
+	return DesktopSlateWidget.IsValid()
+		|| LoadoutMenu.IsValid()
+		|| OpenDialogs.Num() > 0;
+	//Add any widget thats not in the menu here
+	//TODO: Should look through each active widget and determine the needed input mode EIM_UIOnly > EIM_GameAndUI > EIM_GameOnly
+}
+
 #endif
 
 void UUTLocalPlayer::ShowHUDSettings()
@@ -489,8 +477,6 @@ void UUTLocalPlayer::ShowHUDSettings()
 
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = true;
-			PlayerController->SetInputMode( FInputModeUIOnly() );
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -509,14 +495,13 @@ void UUTLocalPlayer::HideHUDSettings()
 		CloseDialog(HUDSettings.ToSharedRef());
 		HUDSettings.Reset();
 
-		if (PlayerController)
+		if (!IsMenuGame())
 		{
-			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
-			PlayerController->SetPause(false);
+			if (PlayerController)
+			{
+				PlayerController->SetPause(false);
+			}
 		}
-
-		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
 	}
 #endif
 }
@@ -985,10 +970,27 @@ void UUTLocalPlayer::LoadProfileSettings()
 	if (IsLoggedIn())
 	{
 		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-		if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
+		if (UserID.IsValid())
 		{
-			OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
+			if (OnlineUserCloudInterface.IsValid())
+			{
+				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
+			}
+		
+			ReadProfileItems();
 		}
+	}
+}
+
+void UUTLocalPlayer::ReadProfileItems()
+{
+	TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+	if (UserID.IsValid() && FPlatformTime::Seconds() > LastItemReadTime + 60.0)
+	{
+		FHttpRequestCompleteDelegate Delegate;
+		Delegate.BindUObject(this, &UUTLocalPlayer::OnReadProfileItemsComplete);
+		ReadBackendStats(Delegate, UserID->ToString());
+		LastItemReadTime = FPlatformTime::Seconds();
 	}
 }
 
@@ -1113,6 +1115,26 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	}
 }
 
+void UUTLocalPlayer::OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems);
+	}
+}
+
+bool UUTLocalPlayer::OwnsItemFor(const FString& Path, int32 VariantId) const
+{
+	for (const FProfileItemEntry& Entry : ProfileItems)
+	{
+		if (Entry.Item != NULL && Entry.Item->Grants(Path))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 #if !UE_SERVER
 void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
@@ -1131,7 +1153,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 		CurrentProfileSettings->GatherAllSettings(this);
 		CurrentProfileSettings->SettingsRevisionNum = CURRENT_PROFILESETTINGS_VERSION;
 
-		CurrentProfileSettings->bNeedProfileWriteForTokens = false;
+		CurrentProfileSettings->bNeedProfileWriteOnLevelChange = false;
 
 		// Build a blob of the profile contents
 		TArray<uint8> FileContents;
@@ -1256,6 +1278,25 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 			}
 		}
 	}
+
+	// Sanitize the elo rankings
+	const int32 StartingELO = 1500;
+	if (DUEL_ELO <= 0)
+	{
+		DUEL_ELO = StartingELO;
+	}
+	if (TDM_ELO <= 0)
+	{
+		TDM_ELO = StartingELO;
+	}
+	if (FFA_ELO <= 0)
+	{
+		FFA_ELO = StartingELO;
+	}
+	if (CTF_ELO <= 0)
+	{
+		CTF_ELO = StartingELO;
+	}
 }
 
 int32 UUTLocalPlayer::GetBaseELORank()
@@ -1265,13 +1306,28 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	float CurrentRating = 1.f;
 	int32 BestRating = 0;
 	int32 MatchCount = DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed;
+	const int32 MatchThreshold = 40;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	int32 ForcedELORank;
+	if (FParse::Value(FCommandLine::Get(), TEXT("ForceELORank="), ForcedELORank))
+	{
+		return ForcedELORank;
+	}
+#endif
+
+	UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Duels:%d, TDM:%d, FFA %d, CTF %d"), DuelMatchesPlayed, TDMMatchesPlayed, FFAMatchesPlayed, CTFMatchesPlayed);
 
 	if (DUEL_ELO > 0)
 	{
 		TotalRating += DUEL_ELO;
 		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
-		BestRating = (DuelMatchesPlayed > 40) ? FMath::Max(BestRating, DUEL_ELO) : BestRating;
+		if (DuelMatchesPlayed > MatchThreshold)
+		{
+			BestRating = FMath::Max(BestRating, DUEL_ELO);
+			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Duel ELO %d is candidate for best"), DUEL_ELO);
+		}
 	}
 
 	if (TDM_ELO > 0)
@@ -1279,25 +1335,44 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		TotalRating += TDM_ELO;
 		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
-		BestRating = (TDMMatchesPlayed > 40) ? FMath::Max(BestRating, TDM_ELO) : BestRating;
+		if (TDMMatchesPlayed > MatchThreshold)
+		{
+			BestRating = FMath::Max(BestRating, TDM_ELO);
+			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank TDM ELO %d is candidate for best"), TDM_ELO);
+		}
 	}
 
 	// FFA Elo is the least accurate, weighted lower @TODO FIXMESTEVE show badge based on current game type
 	// max rating of 2400 based on FFA 
-	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < 40)))
+	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < MatchThreshold)))
 	{
+		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank applying FFA ELO %d to average rank, max 2400"), FFA_ELO);
 		TotalRating += 0.5f * FMath::Min(FFA_ELO, 2400);
 		RatingCount += 0.5f;
 		CurrentRating = TotalRating / RatingCount;
 	}
+	else
+	{
+		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank not factoring in FFA ELO %d to average rank"), FFA_ELO);
+	}
 
-	if ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < 40))
+	if (CTF_ELO > 0 && ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < MatchThreshold)))
 	{
 		TotalRating += CTF_ELO;
 		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
-		BestRating = (CTFMatchesPlayed > 40) ? FMath::Max(BestRating, CTF_ELO) : BestRating;
+		if (CTFMatchesPlayed > MatchThreshold)
+		{
+			BestRating = FMath::Max(BestRating, CTF_ELO);
+			UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank CTF ELO %d is candidate for best"), CTF_ELO);
+		}
 	}
+	else
+	{
+		UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank not factoring in CTF ELO %d to average rank"), CTF_ELO);
+	}
+
+	UE_LOG(LogGameStats, Verbose, TEXT("GetBaseELORank Best:%d WeightedAverage:%f MatchThrottled:%f"), BestRating, CurrentRating, 400.f + 50.f * MatchCount);
 
 	// Limit displayed Elo to 400 + 50 * number of matches played
 	return FMath::Min(FMath::Max(float(BestRating), CurrentRating), 400.f + 50.f * MatchCount);
@@ -1305,23 +1380,32 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
 {
-	// Bronze levels up to 1750, start at 400, go up every 150
-	if (EloRating  < 1750)
+	// Bronze levels up to 1750, start at 400, go up every 140
+	if (EloRating  < 1660)
 	{
 		BadgeLevel = 0;
-		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 150.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 250.f) / 140.f, 0.f, 8.f);
 	}
-	else if (EloRating < 3550)
+	else if (EloRating < 2200)
 	{
 		BadgeLevel = 1;
-		SubLevel = FMath::Clamp((float(EloRating) - 1750.f) / 200.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 1660.f) / 60.f, 0.f, 8.f);
 	}
 	else
 	{
 		BadgeLevel = 2;
-		SubLevel = FMath::Clamp((float(EloRating) - 3550.f) / 400.f, 0.f, 8.f);
+		SubLevel = FMath::Clamp((float(EloRating) - 2200.f) / 50.f, 0.f, 8.f);
 	}
 }
+
+
+bool UUTLocalPlayer::IsConsideredABeginnner()
+{
+	float BaseELO = GetBaseELORank();
+
+	return (BaseELO < 1400);
+}
+
 
 int32 UUTLocalPlayer::GetHatVariant() const
 {
@@ -1900,7 +1984,7 @@ void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
 
 #if !UE_SERVER
 
-void UUTLocalPlayer::StartQuickMatch(FName QuickMatchType)
+void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{
@@ -2079,12 +2163,6 @@ void UUTLocalPlayer::OpenLoadout(bool bBuyMenu)
 			// Widget is already valid, just make it visible.
 			LoadoutMenu->SetVisibility(EVisibility::Visible);
 			LoadoutMenu->OnMenuOpened();
-
-			if (PlayerController)
-			{
-				PlayerController->bShowMouseCursor = true;
-				PlayerController->SetInputMode( FInputModeUIOnly() );
-			}
 		}
 	}
 #endif
@@ -2099,13 +2177,8 @@ void UUTLocalPlayer::CloseLoadout()
 		LoadoutMenu.Reset();
 		if (PlayerController)
 		{
-			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
 			PlayerController->SetPause(false);
 		}
-
-		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
-
 	}
 #endif
 }
@@ -2123,6 +2196,7 @@ void UUTLocalPlayer::CloseMapVote()
 	if (MapVoteMenu.IsValid())
 	{
 		CloseDialog(MapVoteMenu.ToSharedRef());		
+		MapVoteMenu.Reset();
 	}
 #endif
 }
@@ -2139,20 +2213,11 @@ void UUTLocalPlayer::OpenReplayWindow()
 				.PlayerOwner(this)
 				.DemoNetDriver(DemoDriver);
 
-			if (ReplayWindow.IsValid())
+			UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+			if (ReplayWindow.IsValid() && UTGVC != nullptr)
 			{
-				GEngine->GameViewport->AddViewportWidgetContent(ReplayWindow.ToSharedRef(), -1);
-			}
-
-			if (ReplayWindow.IsValid())
-			{
-				ReplayWindow->SetVisibility(EVisibility::Visible);
-
-				if (PlayerController)
-				{
-					PlayerController->bShowMouseCursor = true;
-					PlayerController->SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(ReplayWindow));
-				}
+				UTGVC->AddViewportWidgetContent_NoAspect(ReplayWindow.ToSharedRef(), -1);
+				ReplayWindow->SetVisibility(EVisibility::SelfHitTestInvisible);
 			}
 		}
 	}
@@ -2162,16 +2227,11 @@ void UUTLocalPlayer::OpenReplayWindow()
 void UUTLocalPlayer::CloseReplayWindow()
 {
 #if !UE_SERVER
-	if (ReplayWindow.IsValid())
+	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+	if (ReplayWindow.IsValid() && UTGVC != nullptr)
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(ReplayWindow.ToSharedRef());
+		UTGVC->RemoveViewportWidgetContent_NoAspect(ReplayWindow.ToSharedRef());
 		ReplayWindow.Reset();
-
-		if (PlayerController)
-		{
-			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameAndUI());
-		}
 	}
 #endif
 }
@@ -2198,8 +2258,349 @@ bool UUTLocalPlayer::IsReplay()
 	return (GetWorld()->DemoNetDriver != nullptr);
 }
 
+#if !UE_SERVER
+
+void UUTLocalPlayer::RecordReplay(float RecordTime)
+{
+	if (!bRecordingReplay)
+	{
+		CloseReplayWindow();
+
+		bRecordingReplay = true;
+
+		static const FName VideoRecordingFeatureName("VideoRecording");
+		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+		{
+			UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+			if (VideoRecorder)
+			{
+				VideoRecorder->OnRecordingComplete().AddUObject(this, &UUTLocalPlayer::RecordingReplayComplete);
+				VideoRecorder->StartRecording(RecordTime);
+			}
+		}
+	}
+}
+
+void UUTLocalPlayer::RecordingReplayComplete()
+{
+	bRecordingReplay = false;
+
+	static const FName VideoRecordingFeatureName("VideoRecording");
+	if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+	{
+		UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+		if (VideoRecorder)
+		{
+			VideoRecorder->OnRecordingComplete().RemoveAll(this);
+		}
+	}
+
+	// Pause the replay streamer
+	AWorldSettings* const WorldSettings = GetWorld()->GetWorldSettings();
+	if (WorldSettings->Pauser == nullptr)
+	{
+		WorldSettings->Pauser = (PlayerController != nullptr) ? PlayerController->PlayerState : nullptr;
+	}
+
+	// Show a dialog asking player if they want to compress
+	ShowMessage(NSLOCTEXT("VideoMessages", "CompressNowTitle", "Compress now?"),
+				NSLOCTEXT("VideoMessages", "CompressNow", "Your video recorded successfully.\nWould you like to compress the video now? It may take several minutes."),
+				UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ShouldVideoCompressDialogResult));
+}
+
+void UUTLocalPlayer::ShouldVideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		// Pick a proper filename for the video
+		FString BasePath = FPaths::ScreenShotDir();
+		if (IFileManager::Get().MakeDirectory(*FPaths::ScreenShotDir(), true))
+		{
+			RecordedReplayFilename = BasePath / TEXT("anim.webm");
+			static int32 WebMIndex = 0;
+			const int32 MaxTestWebMIndex = 65536;
+			for (int32 TestWebMIndex = WebMIndex + 1; TestWebMIndex < MaxTestWebMIndex; ++TestWebMIndex)
+			{
+				const FString TestFileName = BasePath / FString::Printf(TEXT("UTReplay%05i.webm"), TestWebMIndex);
+				if (IFileManager::Get().FileSize(*TestFileName) < 0)
+				{
+					WebMIndex = TestWebMIndex;
+					RecordedReplayFilename = TestFileName;
+					break;
+				}
+			}
+
+			static const FName VideoRecordingFeatureName("VideoRecording");
+			if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+			{
+				UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+				if (VideoRecorder)
+				{
+					// Open a dialog that shows a nice progress bar of the compression
+					OpenDialog(SNew(SUWVideoCompressionDialog)
+								.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::VideoCompressDialogResult))
+								.DialogTitle(NSLOCTEXT("VideoMessages", "Compressing", "Compressing"))
+								.PlayerOwner(this)
+								.VideoRecorder(VideoRecorder)
+								.VideoFilename(RecordedReplayFilename)
+								);
+				}
+			}
+		}
+	}
+	else
+	{
+		OpenReplayWindow();
+	}
+}
+
+void UUTLocalPlayer::VideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		OpenDialog(SNew(SUWInputBox)
+			.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ShouldVideoUploadDialogResult))
+			.PlayerOwner(this)
+			.DialogSize(FVector2D(700, 400))
+			.bDialogSizeIsRelative(false)
+			.DefaultInput(TEXT("UT Automated Upload"))
+			.DialogTitle(NSLOCTEXT("VideoMessages", "UploadNowTitle", "Upload to YouTube?"))
+			.MessageText(NSLOCTEXT("VideoMessages", "UploadNow", "Your video compressed successfully.\nWould you like to upload the video to YouTube now?\n\nPlease enter a video title in the text box."))
+			.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO)
+			);
+	}
+	else
+	{
+		OpenReplayWindow();
+	}
+}
+
+void UUTLocalPlayer::ShouldVideoUploadDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			RecordedReplayTitle = Box->GetInputText();
+		}
+
+		if (YoutubeAccessToken.IsEmpty())
+		{
+			GetYoutubeConsentForUpload();
+		}
+		else if (!YoutubeRefreshToken.IsEmpty())
+		{
+			// Show a dialog here to stop the user for doing anything
+			YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
+				NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
+
+			FHttpRequestPtr YoutubeTokenRefreshRequest = FHttpModule::Get().CreateRequest();
+			YoutubeTokenRefreshRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+			YoutubeTokenRefreshRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRefreshComplete);
+			YoutubeTokenRefreshRequest->SetVerb(TEXT("POST"));
+			YoutubeTokenRefreshRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
+
+			// ClientID and ClientSecret UT Youtube app on PLK google account
+			FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+			FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+			FString TokenRequest = TEXT("client_id=") + ClientID + TEXT("&client_secret=") + ClientSecret + 
+				                   TEXT("&refresh_token=") + YoutubeRefreshToken + TEXT("&grant_type=refresh_token");
+
+			YoutubeTokenRefreshRequest->SetContentAsString(TokenRequest);
+			YoutubeTokenRefreshRequest->ProcessRequest();
+		}
+	}
+	else
+	{
+		OpenReplayWindow();
+	}
+}
+
+void UUTLocalPlayer::YoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		// Show a dialog here to stop the user for doing anything
+		YoutubeDialog = ShowMessage(NSLOCTEXT("VideoMessages", "YoutubeTokenTitle", "AccessingYoutube"),
+			NSLOCTEXT("VideoMessages", "YoutubeToken", "Contacting YouTube..."), 0);
+
+		FHttpRequestPtr YoutubeTokenRequest = FHttpModule::Get().CreateRequest();
+		YoutubeTokenRequest->SetURL(TEXT("https://accounts.google.com/o/oauth2/token"));
+		YoutubeTokenRequest->OnProcessRequestComplete().BindUObject(this, &UUTLocalPlayer::YoutubeTokenRequestComplete);
+		YoutubeTokenRequest->SetVerb(TEXT("POST"));
+		YoutubeTokenRequest->SetHeader(TEXT("Content-Type"), TEXT("application/x-www-form-urlencoded"));
+
+		// ClientID and ClientSecret UT Youtube app on PLK google account
+		FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
+		FString ClientSecret = TEXT("kNKauX2DKUq_5cks86R8rD5E");
+		FString TokenRequest = TEXT("code=") + YoutubeConsentDialog->UniqueCode + TEXT("&client_id=") + ClientID
+			+ TEXT("&client_secret=") + ClientSecret + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&grant_type=authorization_code");
+
+		YoutubeTokenRequest->SetContentAsString(TokenRequest);
+		YoutubeTokenRequest->ProcessRequest();
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("Failed to get Youtube consent"));
+	}
+}
+
+void UUTLocalPlayer::YoutubeTokenRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (YoutubeDialog.IsValid())
+	{
+		CloseDialog(YoutubeDialog.ToSharedRef());
+	}
+
+	if (HttpResponse->GetResponseCode() == 200)
+	{
+		TSharedPtr<FJsonObject> YoutubeTokenJson;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		{
+			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
+			YoutubeTokenJson->TryGetStringField(TEXT("refresh_token"), YoutubeRefreshToken);
+
+			UE_LOG(UT, Log, TEXT("YoutubeTokenRequestComplete %s %s"), *YoutubeAccessToken, *YoutubeRefreshToken);
+
+			SaveConfig();
+
+			UploadVideoToYoutube();
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("Failed to get token from Youtube\n%s"), *HttpResponse->GetContentAsString());
+	}
+}
+
+void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (YoutubeDialog.IsValid())
+	{
+		CloseDialog(YoutubeDialog.ToSharedRef());
+	}
+
+	if (HttpResponse->GetResponseCode() == 200)
+	{
+		UE_LOG(UT, Log, TEXT("YouTube Token refresh succeeded"));
+
+		TSharedPtr<FJsonObject> YoutubeTokenJson;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(HttpResponse->GetContentAsString());
+		if (FJsonSerializer::Deserialize(JsonReader, YoutubeTokenJson) && YoutubeTokenJson.IsValid())
+		{
+			YoutubeTokenJson->TryGetStringField(TEXT("access_token"), YoutubeAccessToken);
+			SaveConfig();
+
+			UploadVideoToYoutube();
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Log, TEXT("YouTube Token might've expired, doing full consent\n%s"), *HttpResponse->GetContentAsString());
+
+		// Refresh token might have been expired
+		YoutubeAccessToken.Empty();
+		YoutubeRefreshToken.Empty();
+
+		GetYoutubeConsentForUpload();
+	}
+}
+
+void UUTLocalPlayer::GetYoutubeConsentForUpload()
+{
+	// Get youtube consent
+	OpenDialog(
+		SAssignNew(YoutubeConsentDialog, SUWYoutubeConsent)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.8f, 0.8f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "YoutubeConsent", "Allow UT to post to YouTube?"))
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeConsentResult))
+		);
+}
+
+void UUTLocalPlayer::UploadVideoToYoutube()
+{
+	// Get youtube consent
+	OpenDialog(
+		SNew(SUWYoutubeUpload)
+		.PlayerOwner(this)
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+		.VideoFilename(RecordedReplayFilename)
+		.AccessToken(YoutubeAccessToken)
+		.VideoTitle(RecordedReplayTitle)
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "YoutubeUpload", "Uploading To Youtube"))
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadResult))
+		);
+}
+
+void UUTLocalPlayer::YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteTitle", "Upload To Youtube Complete"),
+					NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadComplete", "Your upload to Youtube completed successfully. It will be available in a few minutes."),
+					UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+	}
+	else
+	{
+		SUWYoutubeUpload* UploadDialog = (SUWYoutubeUpload*)Widget.Get();
+		TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(UploadDialog->UploadFailMessage);
+		TSharedPtr< FJsonObject > JsonObject;
+		FJsonSerializer::Deserialize(JsonReader, JsonObject);
+		const TSharedPtr<FJsonObject>* ErrorObject;
+		bool bNeedsYoutubeSignup = false;
+		if (JsonObject->TryGetObjectField(TEXT("error"), ErrorObject))
+		{
+			const TArray<TSharedPtr<FJsonValue>>* ErrorArray;
+			if ((*ErrorObject)->TryGetArrayField(TEXT("errors"), ErrorArray))
+			{
+				for (int32 Idx = 0; Idx < ErrorArray->Num(); Idx++)
+				{
+					FString ErrorReason;
+					if ((*ErrorArray)[Idx]->AsObject()->TryGetStringField(TEXT("reason"), ErrorReason))
+					{
+						if (ErrorReason == TEXT("youtubeSignupRequired"))
+						{
+							bNeedsYoutubeSignup = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (bNeedsYoutubeSignup)
+		{
+			ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadNeedSignupTitle", "Upload To Youtube Failed"),
+						NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadNeedSignup", "Your account does not currently have a YouTube channel.\nPlease create one and try again."),
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+		}
+		else
+		{		
+			ShowMessage(NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailedTitle", "Upload To Youtube Failed"),
+						NSLOCTEXT("UUTLocalPlayer", "YoutubeUploadCompleteFailed", "Your upload to Youtube did not complete successfully."),
+						UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::YoutubeUploadCompleteResult));
+		}
+	}
+}
+
+void UUTLocalPlayer::YoutubeUploadCompleteResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	OpenReplayWindow();
+}
+
+#endif
+
 void UUTLocalPlayer::VerifyGameSession(const FString& ServerSessionId)
 {
+	if (IsReplay())
+	{
+		return;
+	}
+
 	if (OnlineSessionInterface.IsValid())
 	{
 		// Get our current Session Id.
@@ -2226,4 +2627,28 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 		bAttemptingForceJoin = true;
 		OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 	}
+}
+
+void UUTLocalPlayer::CloseAllUI()
+{
+	GEngine->GameViewport->RemoveAllViewportWidgets();
+#if !UE_SERVER
+	OpenDialogs.Empty();
+	DesktopSlateWidget.Reset();
+	ServerBrowserWidget.Reset();
+	ReplayBrowserWidget.Reset();
+	StatsViewerWidget.Reset();
+	CreditsPanelWidget.Reset();
+	QuickMatchDialog.Reset();
+	LoginDialog.Reset();
+	HUDSettings.Reset();
+	ContentLoadingMessage.Reset();
+	FriendsMenu.Reset();
+	RedirectDialog.Reset();
+	LoadoutMenu.Reset();
+	MapVoteMenu.Reset();
+	ReplayWindow.Reset();
+	YoutubeDialog.Reset();
+	YoutubeConsentDialog.Reset();
+#endif
 }

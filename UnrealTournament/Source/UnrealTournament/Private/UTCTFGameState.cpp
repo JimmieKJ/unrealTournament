@@ -83,10 +83,21 @@ float AUTCTFGameState::GetClockTime()
 {
 	if (IsMatchInOvertime())
 	{
-		// 2 halves in CTF
-		return ElapsedTime - 2.f*TimeLimit;
+		return ElapsedTime - OvertimeStartTime;
 	}
 	return (TimeLimit > 0.f) ? RemainingTime : ElapsedTime;
+}
+
+void AUTCTFGameState::OnRep_MatchState()
+{
+	Super::OnRep_MatchState();
+
+	//Make sure the timers are cleared since advantage-time may have been counting down
+	if (IsMatchInOvertime())
+	{
+		OvertimeStartTime = ElapsedTime;
+		RemainingTime = 0;
+	}
 }
 
 AUTTeamInfo* AUTCTFGameState::FindLeadingTeam()
@@ -252,6 +263,10 @@ FText AUTCTFGameState::GetGameStatusText()
 	if (HasMatchEnded())
 	{
 		return NSLOCTEXT("UTGameState", "PostGame", "Game Over");
+	}
+	else if (GetMatchState() == MatchState::MapVoteHappening)
+	{
+		return NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 	}
 	else if (bPlayingAdvantage)
 	{

@@ -422,14 +422,16 @@ public:
 		class UShadowMapTexture2D* InTexture,
 		const FVector2D& InCoordinateScale,
 		const FVector2D& InCoordinateBias,
-		const bool* InChannelValid)
+		const bool* InChannelValid,
+		const FVector4& InInvUniformPenumbraSize)
 	{
 		FShadowMapInteraction Result;
 		Result.Type = SMIT_Texture;
 		Result.ShadowTexture = InTexture;
 		Result.CoordinateScale = InCoordinateScale;
 		Result.CoordinateBias = InCoordinateBias;
-		
+		Result.InvUniformPenumbraSize = InInvUniformPenumbraSize;
+
 		for (int Channel = 0; Channel < 4; Channel++)
 		{
 			Result.bChannelValid[Channel] = InChannelValid[Channel];
@@ -441,6 +443,7 @@ public:
 	/** Default constructor. */
 	FShadowMapInteraction() :
 		ShadowTexture(nullptr),
+		InvUniformPenumbraSize(FVector4(0, 0, 0, 0)),
 		Type(SMIT_None)
 	{
 		for (int Channel = 0; Channel < ARRAY_COUNT(bChannelValid); Channel++)
@@ -476,11 +479,17 @@ public:
 		return bChannelValid[ChannelIndex];
 	}
 
+	inline FVector4 GetInvUniformPenumbraSize() const
+	{
+		return InvUniformPenumbraSize;
+	}
+
 private:
 	UShadowMapTexture2D* ShadowTexture;
 	FVector2D CoordinateScale;
 	FVector2D CoordinateBias;
 	bool bChannelValid[4];
+	FVector4 InvUniformPenumbraSize;
 	EShadowMapInteractionType Type;
 };
 

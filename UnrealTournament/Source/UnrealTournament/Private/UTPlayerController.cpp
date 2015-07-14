@@ -480,12 +480,18 @@ void AUTPlayerController::FOV(float NewFOV)
 
 void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 {
-	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 2);
+	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 3);
 	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
 }
 
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
+	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
+	if (GetWorld()->RealTimeSeconds < 0.5f)
+	{
+		return true;
+	}
+
 	// hack for scoreboard until we have a real interactive system
 	if (MyUTHUD != NULL && MyUTHUD->bShowScores && MyUTHUD->GetScoreboard() != NULL && EventType == IE_Pressed)
 	{
@@ -513,6 +519,16 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 			AdvanceStatsPage(+1);
 			return true;
 		}
+	}
+
+	//This is a separate from OnFire() since we dont want casters starting games by accident when clicking the mouse while flying around
+	static FName NAME_Enter(TEXT("Enter"));
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (Key.GetFName() == NAME_Enter && GS != nullptr && !GS->HasMatchStarted() && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
+	{
+		ServerRestartPlayer();
+		return true;
 	}
 
 	// unfortunately have to go roundabout because this is the only InputKey() that's virtual
@@ -598,7 +614,7 @@ void AUTPlayerController::ServerThrowWeapon_Implementation()
 {
 	if (UTCharacter != NULL && !UTCharacter->IsRagdoll())
 	{
-		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon)
+		if (UTCharacter->GetWeapon() != nullptr && UTCharacter->GetWeapon()->DroppedPickupClass != nullptr && UTCharacter->GetWeapon()->bCanThrowWeapon && !UTCharacter->GetWeapon()->IsFiring())
 		{
 			UTCharacter->TossInventory(UTCharacter->GetWeapon(), FVector(400.0f, 0, 200.f));
 		}
@@ -769,6 +785,7 @@ void AUTPlayerController::DemoRestart()
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
 	{
+		OnDemoSeeking();
 		DemoDriver->GotoTimeInSeconds(0);
 	}
 }
@@ -778,7 +795,18 @@ void AUTPlayerController::DemoSeek(float DeltaSeconds)
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
 	{
+		OnDemoSeeking();
 		DemoDriver->GotoTimeInSeconds(DemoDriver->DemoCurrentTime + DeltaSeconds);
+	}
+}
+
+void AUTPlayerController::DemoGoTo(float Seconds)
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		OnDemoSeeking();
+		DemoDriver->GotoTimeInSeconds(Seconds);
 	}
 }
 
@@ -787,7 +815,16 @@ void AUTPlayerController::DemoGoToLive()
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
 	{
+		OnDemoSeeking();
 		DemoDriver->JumpToEndOfLiveReplay();
+	}
+}
+
+void AUTPlayerController::OnDemoSeeking()
+{
+	if (MyUTHUD != NULL)
+	{
+		MyUTHUD->ToggleScoreboard(false);
 	}
 }
 
@@ -823,6 +860,12 @@ void AUTPlayerController::DemoTimeDilation(float DeltaAmount)
 	}
 
 	GetWorldSettings()->DemoPlayTimeDilation = DilationLUT[DilationIndex];
+}
+
+void AUTPlayerController::DemoSetTimeDilation(float Amount)
+{
+	Amount = FMath::Clamp(Amount, 0.1f, 5.0f);
+	GetWorldSettings()->DemoPlayTimeDilation = Amount;
 }
 
 void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
@@ -1011,22 +1054,27 @@ void AUTPlayerController::ViewProjectile()
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
-		if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerState)
+		if (Cast<AUTProjectile>(GetViewTarget()) && LastSpectatedPlayerId >= 0)
 		{
 			// toggle away from projectile cam
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
 				APawn* Pawn = *Iterator;
-				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+				if (Pawn != nullptr)
 				{
-					bAutoCam = false;
-					ViewPawn(*Iterator);
+					AUTPlayerState* PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
+					{
+						bAutoCam = false;
+						ViewPawn(*Iterator);
+						break;
+					}
 				}
 			}
 		}
 		else
 		{
-			if (LastSpectatedPlayerState == NULL)
+			if (LastSpectatedPlayerId < 0)
 			{
 				// make sure we have something to go to when projectile explodes
 				AUTCharacter* ViewedCharacter = Cast<AUTCharacter>(GetViewTarget());
@@ -1038,7 +1086,11 @@ void AUTPlayerController::ViewProjectile()
 				}
 				if (ViewedCharacter)
 				{
-					LastSpectatedPlayerState = ViewedCharacter->PlayerState;
+					AUTPlayerState* PS = Cast<AUTPlayerState>(ViewedCharacter->PlayerState);
+					if (PS)
+					{
+						LastSpectatedPlayerId = PS->SpectatingID;
+					}
 				}
 			}
 			bAutoCam = false;
@@ -1084,6 +1136,27 @@ void AUTPlayerController::ServerViewProjectile_Implementation()
 		if (BestProj)
 		{
 			SetViewTarget(BestProj);
+		}
+	}
+}
+
+void AUTPlayerController::TogglePlayerInfo()
+{
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		//Find the playerstate of the player we are currently spectating
+		AUTPlayerState* PS = Cast<AUTPlayerState>(GetViewTarget());
+
+		if (PS == nullptr)
+		{
+			APawn* Pawn = Cast<APawn>(GetViewTarget());
+			PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+		}
+
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+		if (PS != nullptr && LP != nullptr && PS != PlayerState)
+		{
+			LP->ShowPlayerInfo(PS);
 		}
 	}
 }
@@ -1222,7 +1295,7 @@ void AUTPlayerController::LookUpAtRate(float Rate)
 
 void AUTPlayerController::Jump()
 {
-	if (UTCharacter)
+	if (UTCharacter != NULL && !IsMoveInputIgnored())
 	{
 		UTCharacter->bPressedJump = true;
 		UTCharacter->UTCharacterMovement->UpdateWallSlide(true);
@@ -1239,10 +1312,13 @@ void AUTPlayerController::JumpRelease()
 
 void AUTPlayerController::Crouch()
 {
-	bIsHoldingFloorSlide = true;
-	if (UTCharacter)
+	if (!IsMoveInputIgnored())
 	{
-		UTCharacter->Crouch(false);
+		bIsHoldingFloorSlide = true;
+		if (UTCharacter)
+		{
+			UTCharacter->Crouch(false);
+		}
 	}
 }
 
@@ -1391,7 +1467,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 void AUTPlayerController::CheckDodge(float LastTapTime, float MaxClickTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxClickTime)))
+	if (MyCharMovement != NULL && !IsMoveInputIgnored() && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxClickTime)))
 	{
 		MyCharMovement->bPressedDodgeForward = bForward;
 		MyCharMovement->bPressedDodgeBack = bBack;
@@ -1408,7 +1484,7 @@ void AUTPlayerController::OnSingleTapDodge()
 void AUTPlayerController::PerformSingleTapDodge()
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
+	if (MyCharMovement != NULL && !IsMoveInputIgnored())
 	{
 		// base dodge direction on currently pressed axis movement.  
 		// If two directions pressed, dodge to the side
@@ -1592,7 +1668,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
 			for (UMeshComponent* WeapMesh : Meshes)
 			{
-				HideComponentTree(WeapMesh, HiddenComponents);
+				if (WeapMesh != NULL)
+				{
+					HideComponentTree(WeapMesh, HiddenComponents);
+				}
 			}
 		}
 	}
@@ -1604,7 +1683,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
 			for (UMeshComponent* WeapMesh : Meshes)
 			{
-				HiddenComponents.Add(WeapMesh->ComponentId);
+				if (WeapMesh != NULL)
+				{
+					HiddenComponents.Add(WeapMesh->ComponentId);
+				}
 			}
 		}
 		// hide third person character model
@@ -1701,9 +1783,22 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	{
 		if (UTPlayerState)
 		{
-			UTPlayerState->bReadyToPlay = !UTPlayerState->bReadyToPlay;
-			UTPlayerState->bPendingTeamSwitch = false;
-			UTPlayerState->ForceNetUpdate();
+			if (UTPlayerState->bCaster)
+			{
+				//For casters, all players need to be ready before the caster can be ready. This avoids the game starting if the caster has been mashing buttons while players are getting ready
+				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+				if (UTPlayerState->bCaster && GS != nullptr && GS->AreAllPlayersReady())
+				{
+					UTPlayerState->bReadyToPlay = true;
+					UTPlayerState->ForceNetUpdate();
+				}
+			}
+			else
+			{
+				UTPlayerState->bReadyToPlay = !UTPlayerState->bReadyToPlay;
+				UTPlayerState->bPendingTeamSwitch = false;
+				UTPlayerState->ForceNetUpdate();
+			}
 		}
 	}
 	else if (IsFrozen())
@@ -1735,11 +1830,17 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	{
 		if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 		{
-			UTPlayerState->bPendingTeamSwitch = false;
-			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
-				UTPlayerState->bReadyToPlay = false;
+				UTPlayerState->bPendingTeamSwitch = false;
+			}
+			else
+			{
+				ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+				if (UTPlayerState->bPendingTeamSwitch)
+				{
+					UTPlayerState->bReadyToPlay = false;
+				}
 			}
 			UTPlayerState->ForceNetUpdate();
 		}
@@ -1914,11 +2015,16 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		AUTCharacter* Char = Cast<AUTCharacter>(UpdatedViewTarget);
 		if (Char)
 		{
-			LastSpectatedPlayerState = Char->PlayerState;
+			LastSpectatedPlayerState = Cast<AUTPlayerState>(Char->PlayerState);
+			if (LastSpectatedPlayerState)
+			{
+				LastSpectatedPlayerId = LastSpectatedPlayerState->SpectatingID;
+			}
 		}
 		else if (!Cast<AUTProjectile>(UpdatedViewTarget) && (UpdatedViewTarget != this))
 		{
 			LastSpectatedPlayerState = NULL;
+			LastSpectatedPlayerId = -1;
 		}
 
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
@@ -2264,7 +2370,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 
 	// Follow the last spectated player again when they respawn
-	if ((StateName == NAME_Spectating) && LastSpectatedPlayerState && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
+	if ((StateName == NAME_Spectating) && LastSpectatedPlayerId >= 0 && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
 		APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 		AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
@@ -2273,9 +2379,14 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
 				APawn* Pawn = *Iterator;
-				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
+				if (Pawn != nullptr)
 				{
-					ViewPawn(*Iterator);
+					AUTPlayerState* PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
+					{
+						ViewPawn(*Iterator);
+						break;
+					}
 				}
 			}
 		}
@@ -2302,6 +2413,10 @@ void AUTPlayerController::Tick(float DeltaTime)
 		{
 			if ((GS->Teams.Num() > TeamStatsUpdateTeam) && (GS->Teams[TeamStatsUpdateTeam] != NULL))
 			{
+				if ((TeamStatsUpdateIndex == 0) && (TeamStatsUpdateTeam == 0))
+				{
+					LastTeamStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
+				}
 				if (TeamStatsUpdateIndex < GS->TeamStats.Num())
 				{
 					ClientUpdateTeamStats(TeamStatsUpdateTeam, TeamStatsUpdateIndex, GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
@@ -2341,6 +2456,14 @@ void AUTPlayerController::Tick(float DeltaTime)
 				if (StatsUpdateIndex < StatArraySize)
 				{
 					StatsName = GS->RewardStats[StatsUpdateIndex];
+				}
+			}
+			else if (CurrentlyViewedStatsTab == 3)
+			{
+				StatArraySize = GS->MovementStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->MovementStats[StatsUpdateIndex];
 				}
 			}
 			if (StatsUpdateIndex < StatArraySize)
@@ -2645,16 +2768,19 @@ void AUTPlayerController::ApplyDeferredFireInputs()
 	{
 		if (Input.bStartFire)
 		{
-			if (UTCharacter != NULL)
+			if (!IsMoveInputIgnored())
 			{
-				if (StateName == NAME_Playing)
+				if (UTCharacter != NULL)
 				{
-					UTCharacter->StartFire(Input.FireMode);
+					if (StateName == NAME_Playing)
+					{
+						UTCharacter->StartFire(Input.FireMode);
+					}
 				}
-			}
-			else if (GetPawn() != nullptr)
-			{
-				GetPawn()->PawnStartFire(Input.FireMode);
+				else if (GetPawn() != nullptr)
+				{
+					GetPawn()->PawnStartFire(Input.FireMode);
+				}
 			}
 		}
 		else if (UTCharacter != NULL)
@@ -3339,7 +3465,11 @@ void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, ui
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && (GS->Teams.Num() > TeamNum) && GS->Teams[TeamNum])
 	{
-		FName StatsName = (GS->TeamStats.Num() < TeamStatsIndex) ? GS->TeamStats[TeamStatsIndex] : NAME_None;
+		FName StatsName = (GS->TeamStats.Num() > TeamStatsIndex) ? GS->TeamStats[TeamStatsIndex] : NAME_None;
+		if (StatsName == NAME_None)
+		{
+			UE_LOG(UT, Warning, TEXT("Failed teamstats assignment index %d"), TeamStatsIndex);
+		}
 		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
 	}
 }

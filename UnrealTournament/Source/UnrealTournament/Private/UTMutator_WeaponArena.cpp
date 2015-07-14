@@ -105,9 +105,18 @@ bool AUTMutator_WeaponArena::CheckRelevance_Implementation(AActor* Other)
 	{
 		return Super::CheckRelevance_Implementation(Other);
 	}
-	else if (Cast<AUTWeapon>(Other) != NULL && Other->GetClass() != ArenaWeaponType && (!bAllowTranslocator || !Other->IsA(AUTWeap_Translocator::StaticClass())))
+	else if (Cast<AUTWeapon>(Other) != NULL)
 	{
-		return false;
+		if (Other->GetClass() != ArenaWeaponType && (!bAllowTranslocator || !Other->IsA(AUTWeap_Translocator::StaticClass())))
+		{
+			return false;
+		}
+		else
+		{
+			// modify AI rating so bots realize they're not going to get anything better
+			((AUTWeapon*)Other)->BaseAISelectRating = FMath::Max<float>(0.6f, ((AUTWeapon*)Other)->BaseAISelectRating);
+			return Super::CheckRelevance_Implementation(Other);
+		}
 	}
 	else
 	{

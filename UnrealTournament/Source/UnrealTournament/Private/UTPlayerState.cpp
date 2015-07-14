@@ -9,6 +9,8 @@
 #include "UTHat.h"
 #include "UTCharacterContent.h"
 #include "../Private/Slate/SUWindowsStyle.h"
+#include "Slate/SUWPlayerInfoDialog.h"
+#include "Slate/Widgets/SUTTabWidget.h"
 #include "StatNames.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -22,6 +24,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bWaitingPlayer = false;
 	bReadyToPlay = false;
 	bPendingTeamSwitch = false;
+	bCaster = false;
 	LastKillTime = 0.0f;
 	Kills = 0;
 	bOutOfLives = false;
@@ -40,6 +43,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	CTFSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
 	SpectatorNameScale = 1.f;
+	bIsDemoRecording = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -74,6 +78,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, Loadout);
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
 	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
+	DOREPLIFETIME(AUTPlayerState, StatsID);
 	
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -82,6 +87,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 
 	DOREPLIFETIME(AUTPlayerState, SpectatingID);
 	DOREPLIFETIME(AUTPlayerState, SpectatingIDTeam);
+	DOREPLIFETIME(AUTPlayerState, bCaster);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, bIsDemoRecording, COND_InitialOnly);
 }
 
 void AUTPlayerState::SetPlayerName(const FString& S)
@@ -150,6 +157,22 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		}
 		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+
+		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
+		{
+			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
+			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
+			MultiKillLevel++;
+			if (MyPC != NULL)
+			{
+				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+			}
+		}
+		else
+		{
+			MultiKillLevel = 0;
+		}
+
 		bool bAnnounceWeaponSpree = false;
 		if (UTDamage)
 		{
@@ -191,28 +214,13 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
 			}
 		}
-
-		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
-		{
-			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
-			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
-			MultiKillLevel++;
-			if (MyPC != NULL)
-			{
-				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
-			}
-		}
-		else
-		{
-			MultiKillLevel = 0;
-		}
 		if (Pawn != NULL)
 		{
 			Spree++;
 			if (Spree % 5 == 0)
 			{
 				FName SKStat[5] = { NAME_SpreeKillLevel0, NAME_SpreeKillLevel1, NAME_SpreeKillLevel2, NAME_SpreeKillLevel3, NAME_SpreeKillLevel4 };
-				ModifyStatsValue(SKStat[FMath::Min(Spree, 4)], 1);
+				ModifyStatsValue(SKStat[FMath::Min(Spree / 5, 4)], 1);
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
@@ -662,7 +670,6 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)
 	{
-		// TODO: check entitlement
 		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, LOAD_None, NULL) : NULL;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
@@ -717,6 +724,36 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 	{
 		ChatDestination = GameMode->GetNextChatDestination(this, ChatDestination);
 	}
+}
+
+void AUTPlayerState::SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId)
+{
+	Super::SetUniqueId(InUniqueId);
+
+	if (Role == ROLE_Authority && InUniqueId.IsValid())
+	{
+		ReadProfileItems();
+	}
+}
+
+void AUTPlayerState::ReadProfileItems()
+{
+	if (!IsProfileItemListPending() && UniqueId.IsValid())
+	{
+		FHttpRequestCompleteDelegate Delegate;
+		Delegate.BindUObject(this, &AUTPlayerState::ProfileItemListReqComplete);
+		ItemListReq = ReadBackendStats(Delegate, UniqueId->ToString());
+	}
+}
+
+void AUTPlayerState::ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems);
+	}
+	ItemListReq.Reset();
+	ValidateEntitlements();
 }
 
 void AUTPlayerState::ReadStatsFromCloud()
@@ -1095,9 +1132,42 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 	ModifyStat(FName(*(SkillStatName.ToString() + TEXT("Samples"))), 1, EStatMod::Delta);
 }
 
+bool AUTPlayerState::OwnsItemFor(const FString& Path, int32 VariantId) const
+{
+	for (const FProfileItemEntry& Entry : ProfileItems)
+	{
+		if (Entry.Item != NULL && Entry.Item->Grants(Path, VariantId))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AUTPlayerState::HasRightsFor(UObject* Obj) const
+{
+	if (Obj == NULL)
+	{
+		return true;
+	}
+	else
+	{
+		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+		FUniqueEntitlementId Entitlement = GetRequiredEntitlementFromObj(Obj);
+		if (EntitlementInterface.IsValid() && !Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+		{
+			return false;
+		}
+		else
+		{
+			return !NeedsProfileItem(Obj) || OwnsItemFor(Obj->GetPathName());
+		}
+	}
+}
+
 void AUTPlayerState::ValidateEntitlements()
 {
-	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid())
+	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid() && !IsProfileItemListPending())
 	{
 		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
 		if (EntitlementInterface.IsValid())
@@ -1107,28 +1177,23 @@ void AUTPlayerState::ValidateEntitlements()
 			EntitlementInterface->GetAllEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"), AllEntitlements);
 			if (AllEntitlements.Num() > 0)
 			{
-				FUniqueEntitlementId Entitlement = GetRequiredEntitlementFromObj(HatClass);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(HatClass))
 				{
 					ServerReceiveHatClass(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(EyewearClass);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(EyewearClass))
 				{
 					ServerReceiveEyewearClass(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(TauntClass);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(TauntClass))
 				{
 					ServerReceiveTauntClass(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(Taunt2Class);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(Taunt2Class))
 				{
 					ServerReceiveTaunt2Class(FString());
 				}
-				Entitlement = GetRequiredEntitlementFromObj(SelectedCharacter);
-				if (!Entitlement.IsEmpty() && !EntitlementInterface->GetItemEntitlement(*UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid())
+				if (!HasRightsFor(SelectedCharacter))
 				{
 					ServerSetCharacter(FString());
 				}
@@ -1149,6 +1214,28 @@ void AUTPlayerState::OnRep_UniqueId()
 	{
 		bIsFriend = LP->IsAFriend(UniqueId);
 	}
+}
+
+void AUTPlayerState::RegisterPlayerWithSession(bool bWasFromInvite)
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		return;
+	}
+
+	Super::RegisterPlayerWithSession(bWasFromInvite);
+}
+
+void AUTPlayerState::UnregisterPlayerWithSession()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		return;
+	}
+
+	Super::UnregisterPlayerWithSession();
 }
 
 #if !UE_SERVER
@@ -1173,9 +1260,11 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
 }
 
-void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
+void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
-	Panel->AddSlot()
+	TabWidget->AddTab(NSLOCTEXT("AUTPlayerState", "PlayerInfo", "Player Info"), 
+	SNew(SVerticalBox)
+	+ SVerticalBox::Slot()
 	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1234,9 +1323,9 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 				]
 			]
 		]
-	];
+	]
 
-	Panel->AddSlot()
+	+SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1265,9 +1354,9 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 			.Text(FText::AsNumber(Score))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
-	];
+	]
 
-	Panel->AddSlot()
+	+SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1296,7 +1385,37 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SVerticalBox> Panel)
 			.Text(FText::AsNumber(AverageRank))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
-	];
+	]
+	+ SVerticalBox::Slot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "EpicIDPrompt", "ID :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(StatsID))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
+	]);
 }
 #endif
 

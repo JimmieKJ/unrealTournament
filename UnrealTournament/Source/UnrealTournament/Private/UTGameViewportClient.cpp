@@ -16,7 +16,7 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 	ReconnectAfterDownloadingMapDelay = 0;
 	VerifyFilesToDownloadAndReconnectDelay = 0;
 	MaxSplitscreenPlayers = 6;
-	
+		
 	SplitscreenInfo.SetNum(10); // we are hijacking entries 8 and 9 for 5 and 6 players
 	
 	SplitscreenInfo[8].PlayerData.Add(FPerPlayerSplitscreenData(0.33f, 0.5f, 0.0f, 0.0f));
@@ -59,6 +59,34 @@ void UUTGameViewportClient::RemoveViewportWidgetContent(TSharedRef<class SWidget
 	if ( LayerManagerPtr.IsValid() )
 	{
 		LayerManagerPtr.Pin()->RemoveLayer(ViewportContent);
+	}
+#endif
+}
+
+void UUTGameViewportClient::AddViewportWidgetContent_NoAspect(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
+{
+#if !UE_SERVER
+	if (!LayerManagerPtr.IsValid())
+	{
+		TSharedRef<SUTGameLayerManager> LayerManager = SNew(SUTGameLayerManager);
+		Super::AddViewportWidgetContent(LayerManager);
+
+		LayerManagerPtr = LayerManager;
+	}
+
+	if (LayerManagerPtr.IsValid())
+	{
+		LayerManagerPtr.Pin()->AddLayer_NoAspect(ViewportContent, ZOrder);
+	}
+#endif
+}
+
+void UUTGameViewportClient::RemoveViewportWidgetContent_NoAspect(TSharedRef<class SWidget> ViewportContent)
+{
+#if !UE_SERVER
+	if (LayerManagerPtr.IsValid())
+	{
+		LayerManagerPtr.Pin()->RemoveLayer_NoAspect(ViewportContent);
 	}
 #endif
 }
@@ -503,13 +531,11 @@ void UUTGameViewportClient::ReconnectAfterDownloadingContent()
 	if (FirstPlayer != nullptr)
 	{
 		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-		if (LastAttemptedURL.HasOption(TEXT("SpectatorOnly")))
+
+		//add all of the options the client was connecting with
+		for (FString& Option : LastAttemptedURL.Op)
 		{
-			ReconnectCommand += FString(TEXT("?SpectatorOnly=")) + LastAttemptedURL.GetOption(TEXT("SpectatorOnly"), TEXT(""));
-		}
-		if (LastAttemptedURL.HasOption(TEXT("password")))
-		{
-			ReconnectCommand += FString(TEXT("?password=")) + LastAttemptedURL.GetOption(TEXT("password"), TEXT(""));
+			ReconnectCommand += TEXT("?") + Option;
 		}
 
 		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
@@ -797,4 +823,3 @@ void UUTGameViewportClient::RemoveContentDownloadCompleteDelegate(FDelegateHandl
 {
 	ContentDownloadComplete.Remove(DelegateHandle);
 }
-

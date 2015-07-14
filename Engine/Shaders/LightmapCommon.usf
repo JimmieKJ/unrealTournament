@@ -107,7 +107,7 @@ float4 GetSkyBentNormalAndOcclusion(float2 LightmapUV)
 
 #if STATICLIGHTING_TEXTUREMASK && STATICLIGHTING_SIGNEDDISTANCEFIELD
 	float4 StaticShadowMapMasks;
-	float4 DistanceFieldParameters;
+	float4 InvUniformPenumbraSizes;
 	Texture2D StaticShadowTexture;
 	SamplerState StaticShadowTextureSampler;
 #endif
@@ -118,8 +118,10 @@ half4 GetPrecomputedShadowMasks(FVertexFactoryInterpolantsVSToPS Interpolants)
 
 		// Fetch the 4 channels of distance field data
 		half4 DistanceField = Texture2DSample(StaticShadowTexture, StaticShadowTextureSampler, GetShadowMapCoordinate(Interpolants));
+		float4 DistanceFieldBias = -.5f * InvUniformPenumbraSizes + .5f;
+
 		// Compute shadow factors by scaling and biasing the distance
-		half4 ShadowFactors = saturate( DistanceField * DistanceFieldParameters.x + DistanceFieldParameters.y );
+		half4 ShadowFactors = saturate(DistanceField * InvUniformPenumbraSizes + DistanceFieldBias);
 		return StaticShadowMapMasks * ShadowFactors * ShadowFactors;
 
 	#elif HQ_TEXTURE_LIGHTMAP || LQ_TEXTURE_LIGHTMAP
@@ -142,8 +144,9 @@ half GetPrimaryPrecomputedShadowMask(FVertexFactoryInterpolantsVSToPS Interpolan
 
 		// Fetch the distance field data
 		half DistanceField = Texture2DSample(StaticShadowTexture, StaticShadowTextureSampler, GetShadowMapCoordinate(Interpolants)).r;
+		float DistanceFieldBias = -.5f * InvUniformPenumbraSizes.x + .5f;
 		// Compute shadow factors by scaling and biasing the distance
-		half ShadowFactor = saturate( DistanceField * DistanceFieldParameters.x + DistanceFieldParameters.y );
+		half ShadowFactor = saturate( DistanceField * InvUniformPenumbraSizes.x + DistanceFieldBias );
 		return ShadowFactor * ShadowFactor;
 
 	#elif MOVABLE_DIRECTIONAL_LIGHT

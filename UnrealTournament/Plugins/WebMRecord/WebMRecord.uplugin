@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "WebM Record",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.7.0",
+	"Description" : "Record in-game video to a WebM",
+	"Category" : "UnrealTournament.Mod",
+	"EnabledByDefault" : true,
+	"CanContainContent" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "WebMRecord",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64" ]
+		}
+	]
+}

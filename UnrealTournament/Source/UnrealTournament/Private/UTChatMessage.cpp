@@ -49,7 +49,14 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 		else if (Destination == ChatDestinations::MOTD) DestinationTag = TEXT("[MOTD]");
 
 		FString ChatMessage;
-		ChatMessage = FString::Printf(TEXT("[%s] %s: %s"), *DestinationTag, *PlayerName, *ClientData.MessageString);
+		if (Destination == ChatDestinations::MOTD || Destination == ChatDestinations::System)
+		{
+			ChatMessage = FString::Printf(TEXT("[%s] %s"), *DestinationTag, *ClientData.MessageString);
+		}
+		else
+		{
+			ChatMessage = FString::Printf(TEXT("[%s] %s: %s"), *DestinationTag, *PlayerName, *ClientData.MessageString);
+		}
 
 		FText LocalMessageText = FText::FromString(ChatMessage);
 		Cast<AUTHUD>(ClientData.LocalPC->MyHUD)->ReceiveLocalMessage(GetClass(), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.MessageIndex, LocalMessageText, ClientData.OptionalObject);

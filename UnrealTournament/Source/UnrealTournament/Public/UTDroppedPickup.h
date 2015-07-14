@@ -23,6 +23,10 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
 	UMeshComponent* Mesh;
+
+	/** set after all needed properties are set for this pickup to grant its item (e.g. SetInventoryType() called in the case of the default implementation, may vary for subclasses) */
+	UPROPERTY(BlueprintReadWrite)
+	bool bFullyInitialized;
 public:
 	inline const UMeshComponent* GetMesh() const
 	{
@@ -48,6 +52,9 @@ public:
 	{
 		Destroy();
 	}
+
+	UFUNCTION(BlueprintNativeEvent)
+	class USoundBase* GetPickupSound() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Inventory)
 	virtual void SetInventory(AUTInventory* NewInventory);
@@ -78,6 +85,21 @@ public:
 	/** defer Instigator picking the item back up */
 	UFUNCTION()
 	void EnableInstigatorTouch();
+
+	/** called to re-check overlapping actors, in case one was previously disallowed for some reason that may no longer be true (not fully initialized, obstruction removed, etc) */
+	UFUNCTION(BlueprintCallable, Category = Pickup)
+	virtual void CheckTouching();
+
+	virtual void Tick(float DeltaTime)
+	{
+		if (!bFullyInitialized)
+		{
+			bFullyInitialized = true;
+			CheckTouching();
+		}
+
+		Super::Tick(DeltaTime);
+	}
 
 	/** returns how much the given Pawn (generally AI controlled) wants this item, where anything >= 1.0 is considered very important
 	* note that it isn't necessary for this function to modify the weighting based on the path distance as that is handled internally;

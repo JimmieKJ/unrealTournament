@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#ifndef __UNREALTOURNAMENT_H__
-#define __UNREALTOURNAMENT_H__
+#pragma once
 
 #include "Engine.h"
 #include "ParticleDefinitions.h"
@@ -82,6 +81,8 @@ extern UNREALTOURNAMENT_API FString GetRequiredEntitlementFromPackageName(FName 
 
 /** returns whether any locally logged in player (via OSS) has the specified entitlement */
 extern UNREALTOURNAMENT_API bool LocallyHasEntitlement(const FString& Entitlement);
+/** returns whether any local player has the profile item required to use the specified object (cosmetic, character, etc) */
+extern UNREALTOURNAMENT_API bool LocallyOwnsItemFor(const FString& Path);
 
 /** returns asset data for all assets of the specified class 
  * do not use for Blueprints as you can only query for all blueprints period; use GetAllBlueprintAssetData() to query the blueprint's underlying class
@@ -103,4 +104,21 @@ extern UNREALTOURNAMENT_API void SetTimerUFunc(UObject* Obj, FName FuncName, flo
 extern UNREALTOURNAMENT_API bool IsTimerActiveUFunc(UObject* Obj, FName FuncName);
 extern UNREALTOURNAMENT_API void ClearTimerUFunc(UObject* Obj, FName FuncName);
 
-#endif
+/** reads stats data for a user and calls the delegate when done
+ * NOTE: stats data currently also contains profile item counters!
+ * @param StatsId - user ID to query
+ * @param QueryWindow - query time period (e.g. "monthly")
+ */
+extern UNREALTOURNAMENT_API FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDelegate, const FString& StatsId, const FString& QueryWindow = TEXT("alltime"));
+
+/** reads profile item json and fills in the items array
+ * array is emptied first
+ */
+extern UNREALTOURNAMENT_API void ParseProfileItemJson(const FString& Data, TArray<struct FProfileItemEntry>& ItemList);
+/** returns whether the given object requires an inventory item to grant rights to it */
+extern UNREALTOURNAMENT_API bool NeedsProfileItem(UObject* TestObj);
+/** sends backend request to give item(s) to a player */
+extern UNREALTOURNAMENT_API void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList);
+
+/** prefix for stat names for our hacky "inventory as stats" implementation */
+extern const FString ITEM_STAT_PREFIX;

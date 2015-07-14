@@ -18,6 +18,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "Engine/TargetPoint.h"
 #include "EngineUtils.h"
+#include "StaticLightingSystem/StaticLightingPrivate.h"
 
 #define LOCTEXT_NAMESPACE "ClickHandlers"
 
@@ -156,7 +157,6 @@ namespace ClickHandlers
 		}
 		else if( Click.GetKey() != EKeys::RightMouseButton )
 		{
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
 			if ( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) && Actor )
 			{
 				TArray<UActorComponent*> Components;
@@ -164,7 +164,6 @@ namespace ClickHandlers
 				SetDebugLightmapSample(&Components, NULL, 0, GEditor->ClickLocation);
 			}
 			else 
-#endif
 			if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::L) )
 			{
 				// If shift is down, we pick a color from under the mouse in the viewport and create a light with that color.

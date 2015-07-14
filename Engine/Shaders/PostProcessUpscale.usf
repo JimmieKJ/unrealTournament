@@ -35,15 +35,27 @@ float Gaussian(float Scale, float2 Offset)
 	return exp2(Scale * dot(Offset, Offset));
 }
 
-// @param In -1 .. 1 range
-// @return In -1 .. 1 range
-float2 PaniniDistortPos(float2 In)
+// Panini projection in the screen pos
+// @param InScreenPos: the position to project in the screen space
+// @return the panini projected postion in screen space
+float2 PaniniProjectionScreenPos(float2 InScreenPos)
 {
 	const float d = PaniniParams.x;
 	const float s = PaniniParams.y;
 	const float OutScreenPosScale = PaniniParams.z;
+#if 0
+	const float2 ScreenSpaceToPaniniFactor = tan(0.5 * View.FieldOfViewWideAngles);
+	const float2 PaniniToScreenSpaceFactor = 1 / ScreenSpaceToPaniniFactor;
+#else
+	const float2 ScreenSpaceToPaniniFactor = GetTanHalfFieldOfView();
+	const float2 PaniniToScreenSpaceFactor = GetCotanHalfFieldOfView();
+#endif
 
-	return ScreenPosPaniniProjection(In, d, s) * OutScreenPosScale;
+	const float2 PaniniDirection = InScreenPos * ScreenSpaceToPaniniFactor;
+	const float2 PaniniPosition = PaniniProjection(PaniniDirection, d, s);
+
+	// Return the new position back in the screen space frame
+	return PaniniPosition * PaniniToScreenSpaceFactor * OutScreenPosScale;
 }
 
 
@@ -65,7 +77,7 @@ void MainVS(
 	float2 PlanarScreenPos = TexCoord * 2 - 1;
 
 	// distort pos
-	Position.xy = PaniniDistortPos(PlanarScreenPos) * 0.5f + 0.5f;
+	Position.xy = PaniniProjectionScreenPos(PlanarScreenPos) * 0.5f + 0.5f;
 
 	DrawRectangle(Position, TexCoord, OutPosition, OutTexCoord.xy);
 	OutTexCoord.zw =  OutPosition.xy;

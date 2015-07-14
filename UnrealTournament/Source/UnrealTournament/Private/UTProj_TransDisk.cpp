@@ -20,7 +20,7 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	ProjectileMovement->Buoyancy = 0.5f;
 	MaxSpeedUnderWater = 1300.f;
 	DisruptDestroyTime = 11.f;
-	RemainingHealth = 10;
+	RemainingHealth = 35;
 }
 
 void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
@@ -373,5 +373,21 @@ void AUTProj_TransDisk::Tick(float DeltaTime)
 					break;
 			}
 		}
+	}
+}
+
+void AUTProj_TransDisk::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
+{
+	bCanHitInstigator = true;
+
+	//If sliding, turn bounce off to avoid audio spam and enable the slide used by pickups
+	//Slide angle can be controlled by HitZStopSimulatingThreshold, but for now the default is to stick to the slope
+	if (ProjectileMovement->bIsSliding)
+	{
+		ProjectileMovement->bShouldBounce = false;
+	}
+	else
+	{
+		Super::OnBounce(ImpactResult, ImpactVelocity);
 	}
 }

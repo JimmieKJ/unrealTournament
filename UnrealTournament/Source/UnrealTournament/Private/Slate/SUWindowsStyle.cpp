@@ -117,6 +117,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 
 	Style.Set("UT.Background.Dark", new FSlateColorBrush(FLinearColor(0, 0, 0, .5f)));
+	Style.Set("UT.Background.Black", new FSlateColorBrush(FLinearColor(0, 0, 0, 1.0f)));
 
 	Style.Set("UT.TeamBrush.Red", new FSlateColorBrush(FLinearColor(1.0f, 0, 0, 1.0f)));
 	Style.Set("UT.TeamBrush.Blue", new FSlateColorBrush(FLinearColor(0.0f, 0, 1.0f, 1.0f)));
@@ -391,6 +392,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{
 		Style.Set("UT.Replay.Button.Play", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Play", Icon48x48));
 		Style.Set("UT.Replay.Button.Pause", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Pause", Icon48x48));
+		Style.Set("UT.Replay.Button.Record", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Record", Icon24x24));
+		Style.Set("UT.Replay.Button.MarkStart", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkStart", Icon24x24));
+		Style.Set("UT.Replay.Button.MarkEnd", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkEnd", Icon24x24));
+
+		Style.Set("UT.Replay.Tooltip.BG", new IMAGE_BRUSH("Replay/UT.Replay.Tooltip.BG", Icon64x64));
+		Style.Set("UT.Replay.Tooltip.Arrow", new IMAGE_BRUSH("Replay/UT.Replay.Tooltip.Arrow", Icon16x16));
 	}
 
 	// ------------------------------------- OLD STUFF !!!!!!!
@@ -958,6 +965,7 @@ void SUWindowsStyle::SetServerBrowserStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 
 	Style.Set("UWindows.Standard.ServerBrowser.Lock", new IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Lock", Icon17x22, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UWindows.Standard.ServerBrowser.Lan", new IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.Lan", Icon17x22, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 	Style.Set("UWindows.Standard.ServerBrowser.Row", FTableRowStyle()
 		.SetEvenRowBackgroundBrush(IMAGE_BRUSH("ServerBrowser/UWindows.Standard.ServerBrowser.RowBrush.Even", Icon8x8, FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)))
@@ -1347,9 +1355,12 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	FLinearColor ComboItemTextColor = FLinearColor(FColor::White);
 	FLinearColor DefaultChatColor = FLinearColor(FColor::White);
 	FLinearColor DefaultDullFontColor =  FLinearColor(FColor(210, 210, 210));
+	FLinearColor InvertedChatEntryColor =  FLinearColor(FColor(50, 50, 50));
+
 	FLinearColor WhisplerChatColor = FLinearColor(FColor(255, 176, 59));	// orange
 	FLinearColor PartyChatColor = FLinearColor(FColor(89, 234, 186));		// light green
 	FLinearColor GameChatColor = FLinearColor(FColor(89, 234, 186));		// light green
+	FLinearColor ChatBoxColor = FLinearColor(FColor(50, 50, 50));		// dark gray
 
 	FLinearColor EmphasisColor = FLinearColor(FColor(234, 162, 54));		// amber
 	FLinearColor CriticalColor = FLinearColor(FColor(193, 99, 67));			// red
@@ -1454,6 +1465,16 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("FriendsList.AddFriendEditBorder", new BOX_BRUSH("Social-WIP/OutlinedWhiteBox_OpenTop", FVector2D(8.0f, 8.0f), FMargin(0.5), FLinearColor::White));
 
+	const FEditableTextBoxStyle ChatEntryEditableTextStyle = FEditableTextBoxStyle()
+		.SetBackgroundImageNormal(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+		.SetBackgroundImageHovered(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+		.SetBackgroundImageFocused(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+		.SetBackgroundImageReadOnly(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
+		.SetPadding(FMargin(5.0f))
+		.SetForegroundColor(InvertedChatEntryColor)
+		.SetFont(ExoRegular);
+	Style.Set("FriendList.ChatEntryEditableText", ChatEntryEditableTextStyle);
+
 	const FButtonStyle FriendsListItemButtonStyle = FButtonStyle(DefaultButton)
 		.SetNormal(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::Transparent))
 		.SetHovered(IMAGE_BRUSH("UI/White", FVector2D(8, 8), PortalPrimaryColor_Hovered))
@@ -1487,6 +1508,9 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("FriendsDefaultBackground", new IMAGE_BRUSH("Social-WIP/DefaultBackground", FVector2D(8, 8)));
 	const FSlateBrush* FriendsDefaultBackgroundBrush = Style.GetBrush("FriendsDefaultBackground");
+
+	Style.Set("FriendsChatBackground", new IMAGE_BRUSH("UI/White", FVector2D(8, 8), ChatBoxColor));
+	const FSlateBrush* FriendsChatBackgroundBrush = Style.GetBrush("FriendsChatBackground");
 
 	Style.Set("FriendsListPanelBackground", new BOX_BRUSH("Social-WIP/PanelBackground", FVector2D(38, 38), FMargin(0.4f)));
 	const FSlateBrush* FriendsListPanelBackgroundBrush = Style.GetBrush("FriendsListPanelBackground");
@@ -1538,7 +1562,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetFriendContainerHeader(*FriendContainerHeaderBrush)
 		.SetFriendListHeader(*FriendsListHeaderBrush)
 		.SetFriendItemSelected(*FriendsDefaultBackgroundBrush)
-		.SetChatContainerBackground(*FriendsDefaultBackgroundBrush)
+		.SetChatContainerBackground(*FriendsChatBackgroundBrush)
 		.SetFriendContainerBackground(*FriendsListPanelBackgroundBrush)
 		.SetAddFriendEditBorder(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::White))
 		.SetFriendImageBrush(*Style.GetBrush("FriendImageBrush"))
@@ -1569,7 +1593,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetChatWhisperBrush(*Style.GetBrush("WhisperChatIcon"))
 		.SetAddFriendEditableTextStyle(AddFriendEditableTextStyle)
 		.SetComboItemTextStyle(ComboItemTextStyle)
-		.SetChatEditableTextStyle(AddFriendEditableTextStyle)
+		.SetChatEditableTextStyle(ChatEntryEditableTextStyle)
 		.SetFriendCheckboxStyle(FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("Checkbox"))
 		.SetStatusButtonSize(FVector2D(136, 40))
 		.SetActionComboButtonStyle(ActionButtonComboButtonStyle)

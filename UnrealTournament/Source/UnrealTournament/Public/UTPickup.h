@@ -47,7 +47,7 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UParticleSystem* BaseTemplateTaken;
 
 	/** respawn time for the pickup; if it's <= 0 then the pickup doesn't respawn until the round resets */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = Pickup)
 	float RespawnTime;
 	/** if set, pickup begins play with its respawn time active */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup)

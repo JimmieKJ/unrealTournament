@@ -9,6 +9,9 @@ static const FName NAME_TeamKills(TEXT("TeamKills"));
 static const FName NAME_UDamageTime(TEXT("UDamageTime"));
 static const FName NAME_BerserkTime(TEXT("BerserkTime"));
 static const FName NAME_InvisibilityTime(TEXT("InvisibilityTime"));
+static const FName NAME_UDamageCount(TEXT("UDamageCount"));
+static const FName NAME_BerserkCount(TEXT("BerserkCount"));
+static const FName NAME_InvisibilityCount(TEXT("InvisibilityCount"));
 static const FName NAME_BootJumps(TEXT("BootJumps"));
 static const FName NAME_ShieldBeltCount(TEXT("ShieldBeltCount"));
 static const FName NAME_ArmorVestCount(TEXT("ArmorVestCount"));
@@ -62,6 +65,7 @@ static const FName NAME_SniperKills(TEXT("SniperKills"));
 static const FName NAME_SniperHeadshotKills(TEXT("SniperHeadshotKills"));
 static const FName NAME_RedeemerKills(TEXT("RedeemerKills"));
 static const FName NAME_InstagibKills(TEXT("InstagibKills"));
+static const FName NAME_TelefragKills(TEXT("TelefragKills"));
 
 static const FName NAME_ImpactHammerDeaths(TEXT("ImpactHammerDeaths"));
 static const FName NAME_EnforcerDeaths(TEXT("EnforcerDeaths"));
@@ -80,6 +84,7 @@ static const FName NAME_SniperDeaths(TEXT("SniperDeaths"));
 static const FName NAME_SniperHeadshotDeaths(TEXT("SniperHeadshotDeaths"));
 static const FName NAME_RedeemerDeaths(TEXT("RedeemerDeaths"));
 static const FName NAME_InstagibDeaths(TEXT("InstagibDeaths"));
+static const FName NAME_TelefragDeaths(TEXT("TelefragDeaths"));
 
 static const FName NAME_PlayerXP(TEXT("PlayerXP"));
 
@@ -88,3 +93,19 @@ static const FName NAME_AmazingCombos(TEXT("AmazingCombos"));
 static const FName NAME_AirRox(TEXT("AirRox"));
 static const FName NAME_FlakShreds(TEXT("FlakShreds"));
 static const FName NAME_AirSnot(TEXT("AirSnot"));
+
+static const FName NAME_RunDist(TEXT("RunDist"));
+static const FName NAME_SprintDist(TEXT("SprintDist"));
+static const FName NAME_InAirDist(TEXT("InAirDist"));
+static const FName NAME_SwimDist(TEXT("SwimDist"));
+static const FName NAME_TranslocDist(TEXT("TranslocDist"));
+static const FName NAME_NumDodges(TEXT("NumDodges"));
+static const FName NAME_NumWallDodges(TEXT("NumWallDodges"));
+static const FName NAME_NumJumps(TEXT("NumJumps"));
+static const FName NAME_NumLiftJumps(TEXT("NumLiftJumps"));
+static const FName NAME_NumFloorSlides(TEXT("NumFloorSlides"));
+static const FName NAME_NumWallRuns(TEXT("NumWallRuns"));
+static const FName NAME_NumImpactJumps(TEXT("NumImpactJumps"));
+static const FName NAME_NumRocketJumps(TEXT("NumRocketJumps"));
+static const FName NAME_SlideDist(TEXT("SlideDist"));
+static const FName NAME_WallRunDist(TEXT("WallRunDist"));
