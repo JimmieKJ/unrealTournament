@@ -1398,6 +1398,15 @@ void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& 
 	}
 }
 
+
+bool UUTLocalPlayer::IsConsideredABeginnner()
+{
+	float BaseELO = GetBaseELORank();
+
+	return (BaseELO < 1400);
+}
+
+
 int32 UUTLocalPlayer::GetHatVariant() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->HatVariant : FCString::Atoi(*GetDefaultURLOption(TEXT("HatVar")));
@@ -2618,12 +2627,6 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 		bAttemptingForceJoin = true;
 		OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 	}
-}
-
-bool UUTLocalPlayer::IsConsiderABeginnner()
-{
-	// STEVE Add your code here.
-	return true;
 }
 
 void UUTLocalPlayer::CloseAllUI()

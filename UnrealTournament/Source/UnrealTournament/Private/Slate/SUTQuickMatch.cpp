@@ -324,12 +324,12 @@ void SUTQuickMatch::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 
 void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo)
 {
-	bool bIsBeginnger = GetPlayerOwner()->IsConsiderABeginnner();
+	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
 	for (int32 i = 0; i < PingTrackers.Num(); i++)
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
-			if (!bIsBeginnger && PingTrackers[i].Server->bServerIsTrainingGround)
+			if (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround)
 			{
 				// Discard training ground servers if the player isn't a beginner
 				PingTrackers.RemoveAt(i, 1);
@@ -344,7 +344,7 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 				bool bInserted = false;
 				for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
 				{
-					if ( (!FinalList[Idx]->bServerIsTrainingGround && bIsBeginnger && PingTrackers[i].Server->bServerIsTrainingGround) ||			
+					if ( (!FinalList[Idx]->bServerIsTrainingGround && bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||			
 						 (FinalList[Idx]->ServerTrustLevel < PingTrackers[i].Server->ServerTrustLevel) ||											
 						 (FinalList[Idx]->Ping > Sender->Ping) )
 					{
@@ -364,7 +364,6 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	}
 
 	PingNextBatch();
-
 }
 
 void SUTQuickMatch::FindBestMatch()

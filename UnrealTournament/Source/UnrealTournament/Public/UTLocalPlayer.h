@@ -513,14 +513,10 @@ public:
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
 
-	/**
-	 *	return to if the progression system considers this player a beginner.
-	 **/
-	virtual bool IsConsiderABeginnner();
+	/** Return whether the progression system considers this player a beginner. **/
+	virtual bool IsConsideredABeginnner();
 
-	/**
-	 *	Closes any slate UI elements that are open
-	 **/
+	/** Closes any slate UI elements that are open. **/
 	virtual void CloseAllUI();
 
 protected:
@@ -529,15 +525,15 @@ protected:
 	// Will be true if we are attempting to force the player in to an existing session.
 	bool bAttemptingForceJoin;
 
-	/** profile items this player owns, downloaded from the server */
+	/** Profile items this player owns, downloaded from the server */
 	UPROPERTY()
 	TArray<FProfileItemEntry> ProfileItems;
 
-	/** used to avoid reading too often */
+	/** Used to avoid reading too often */
 	double LastItemReadTime;
 	
 public:
-	/** read profile items from the backend */
+	/** Read profile items from the backend */
 	virtual void ReadProfileItems();
 	inline const TArray<FProfileItemEntry>& GetProfileItems() const
 	{
