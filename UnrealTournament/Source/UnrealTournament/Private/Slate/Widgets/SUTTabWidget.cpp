@@ -56,12 +56,6 @@ void SUTTabWidget::AddTab(FText ButtonLabel, TSharedPtr<SWidget> Widget)
 		ButtonLabels.Add(ButtonLabel);
 		TabButtons.Add(Button);
 
-		//Auto select the first tab
-		if (ButtonLabels.Num() == 1)
-		{
-			OnButtonClicked(ButtonLabel);
-		}
-
 		//Add the tab button and the widget to the switcher
 		if (TabsContainer.IsValid())
 		{
@@ -78,6 +72,14 @@ void SUTTabWidget::AddTab(FText ButtonLabel, TSharedPtr<SWidget> Widget)
 				Widget.ToSharedRef()
 			];
 		}
+	}
+}
+
+void SUTTabWidget::SelectTab(int32 NewTab)
+{
+	if (ButtonLabels.IsValidIndex(NewTab))
+	{
+		OnButtonClicked(ButtonLabels[NewTab]);
 	}
 }
 

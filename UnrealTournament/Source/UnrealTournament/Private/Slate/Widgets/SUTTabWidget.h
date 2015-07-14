@@ -19,6 +19,8 @@ class UNREALTOURNAMENT_API SUTTabWidget : public SCompoundWidget
 
 	void AddTab(FText ButtonLabel, TSharedPtr<SWidget> Widget);
 
+	void SelectTab(int32 NewTab);
+
 	FReply OnButtonClicked(FText InLabel);
 
 protected:

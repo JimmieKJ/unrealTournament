@@ -44,6 +44,8 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 		TargetUniqueId = TargetPlayerState->UniqueId.GetUniqueNetId();
 	}
 
+	CurrentTab = 0;
+
 	PlayerPreviewMesh = nullptr;
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
@@ -91,70 +93,45 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 		TSharedPtr<STextBlock> MessageTextBlock;
 		DialogContent->AddSlot()
 		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.AutoWidth()
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
 			[
-				SNew(SBox)
-				.WidthOverride(350)
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew(SScaleBox)
-					.Stretch(EStretch::ScaleToFill)
+					SNew(SBox)
+					.WidthOverride(350)
 					[
-						SNew(SDragImage)
-						.Image(PlayerPreviewBrush)
-						.OnDrag(this, &SUWPlayerInfoDialog::DragPlayerPreview)
-						.OnZoom(this, &SUWPlayerInfoDialog::ZoomPlayerPreview)
+						SNew(SScaleBox)
+						.Stretch(EStretch::ScaleToFill)
+						[
+							SNew(SDragImage)
+							.Image(PlayerPreviewBrush)
+							.OnDrag(this, &SUWPlayerInfoDialog::DragPlayerPreview)
+							.OnZoom(this, &SUWPlayerInfoDialog::ZoomPlayerPreview)
+						]
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.FillHeight(1.0)
+					[
+						SNew(SScrollBox)
+						+ SScrollBox::Slot()
+						[
+							SAssignNew(InfoPanel, SVerticalBox)
+						]
 					]
 				]
 			]
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0)
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.FillHeight(1.0)
-				[
-					SNew(SScrollBox)
-					+SScrollBox::Slot()
-					[
-						SAssignNew(InfoPanel, SVerticalBox)
-					]
-				]
-			]
-
 		];
 	}
 
-	TargetPlayerState->BuildPlayerInfo(InfoPanel);
-
-	//Draw the game specific stats
-	InfoPanel->AddSlot()
-	.HAlign(HAlign_Center)
-	//.Padding(0.0f,10.0f,0.0f,10.0f)
-	[
-		SNew(STextBlock)
-		.Text(NSLOCTEXT("Generic", "CurrentStats", "- Current Stats -"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-		.ColorAndOpacity(FLinearColor::Gray)
-	];
-	InfoPanel->AddSlot()
-	.HAlign(HAlign_Fill)
-	.Padding(10.0f, 10.0f, 10.0f, 10.0f)
-	.AutoHeight()
-	[
-		SAssignNew(TabWidget, SUTTabWidget)
-		.OnTabButtonNumberChanged(this, &SUWPlayerInfoDialog::OnTabSelected)
-	];
-
-	AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
-	if (DefaultGameMode)
-	{
-		DefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
-	}
-
-	FriendStatus = NAME_None;
-	RecreatePlayerPreview();
+	OnUpdatePlayerState();
 }
 
 SUWPlayerInfoDialog::~SUWPlayerInfoDialog()
@@ -526,6 +503,16 @@ FReply SUWPlayerInfoDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEve
 			}
 		}
 	}
+
+	if (InKeyEvent.GetKey() == EKeys::Left)
+	{
+		PreviousPlayer();
+	}
+	else if (InKeyEvent.GetKey() == EKeys::Right)
+	{
+		NextPlayer();
+	}
+
 	return FReply::Unhandled();
 }
 
@@ -537,6 +524,160 @@ void SUWPlayerInfoDialog::OnTabSelected(int32 NewIndex)
 	{
 		UTPC->ServerSetViewedScorePS(TargetPlayerState.Get(), NewIndex);
 	}
+	CurrentTab = NewIndex;
+}
+
+FReply SUWPlayerInfoDialog::NextPlayer()
+{
+	if (TargetPlayerState.IsValid())
+	{
+		TargetPlayerState = GetNextPlayerState(1);
+		if (TargetPlayerState.IsValid())
+		{
+			OnUpdatePlayerState();
+		}
+		else
+		{
+			GetPlayerOwner()->CloseDialog(SharedThis(this));
+		}
+	}
+	
+	return FReply::Handled();
+}
+FReply SUWPlayerInfoDialog::PreviousPlayer()
+{
+	if (TargetPlayerState.IsValid())
+	{
+		TargetPlayerState = GetNextPlayerState(-1);
+		if (TargetPlayerState.IsValid())
+		{
+			OnUpdatePlayerState();
+		}
+		else
+		{
+			GetPlayerOwner()->CloseDialog(SharedThis(this));
+		}
+	}
+	return FReply::Handled();
+}
+
+AUTPlayerState* SUWPlayerInfoDialog::GetNextPlayerState(int32 dir)
+{
+	int32 CurrentIndex = -1;	
+	if (TargetPlayerState.IsValid())
+	{
+		UWorld* World = TargetPlayerState->GetWorld();
+
+		// Find index of current viewtarget's PlayerState
+		for (int32 i = 0; i < World->GameState->PlayerArray.Num(); i++)
+		{
+			if (TargetPlayerState.Get() == World->GameState->PlayerArray[i])
+			{
+				CurrentIndex = i;
+				break;
+			}
+		}
+
+		// Find next valid viewtarget in appropriate direction
+		int32 NewIndex;
+		for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < TargetPlayerState->GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+		{
+			AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(World->GameState->PlayerArray[NewIndex]);
+			if ((PlayerState != NULL) && (!PlayerState->bOnlySpectator))
+			{
+				return PlayerState;
+			}
+		}
+
+		// wrap around
+		CurrentIndex = (NewIndex < 0) ? TargetPlayerState->GetWorld()->GameState->PlayerArray.Num() : -1;
+		for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < World->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
+		{
+			AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(World->GameState->PlayerArray[NewIndex]);
+			if ((PlayerState != NULL) && (!PlayerState->bOnlySpectator))
+			{
+				return PlayerState;
+			}
+		}
+	}
+	return NULL;
+}
+
+void SUWPlayerInfoDialog::OnUpdatePlayerState()
+{
+	if (TargetPlayerState.IsValid())
+	{
+		StatList.Empty();
+		InfoPanel->ClearChildren();
+
+		TargetPlayerState->BuildPlayerInfo(InfoPanel);
+
+		//Draw the game specific stats
+		InfoPanel->AddSlot()
+			.HAlign(HAlign_Center)
+			//.Padding(0.0f,10.0f,0.0f,10.0f)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "CurrentStats", "- Current Stats -"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+				.ColorAndOpacity(FLinearColor::Gray)
+			];
+		InfoPanel->AddSlot()
+			.HAlign(HAlign_Fill)
+			.Padding(10.0f, 10.0f, 10.0f, 10.0f)
+			.AutoHeight()
+			[
+				SAssignNew(TabWidget, SUTTabWidget)
+				.OnTabButtonNumberChanged(this, &SUWPlayerInfoDialog::OnTabSelected)
+			];
+
+		AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
+		if (DefaultGameMode)
+		{
+			DefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
+		}
+
+		FriendStatus = NAME_None;
+		RecreatePlayerPreview();
+
+		TabWidget->SelectTab(CurrentTab);
+		DialogTitle->SetText(FText::Format(NSLOCTEXT("SUWindowsDesktop", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(TargetPlayerState->PlayerName)));
+	}
+}
+
+TSharedRef<class SWidget> SUWPlayerInfoDialog::BuildTitleBar(FText InDialogTitle)
+{
+	return SNew(SHorizontalBox)
+	+ SHorizontalBox::Slot()
+	.Padding(20.0f,0.0f,0.0f,0.0f)
+	.AutoWidth()
+	[
+		SNew(SButton)
+		.HAlign(HAlign_Left)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+		.Text(NSLOCTEXT("SUWPlayerInfoDialog", "PreviousPlayer", "<- Previous"))
+		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+		.OnClicked(this, &SUWPlayerInfoDialog::PreviousPlayer)
+	]
+	+ SHorizontalBox::Slot()
+	.HAlign(HAlign_Fill)
+	.FillWidth(1.0f)
+	[
+		SUWDialog::BuildTitleBar(InDialogTitle)
+	]
+	+ SHorizontalBox::Slot()
+	.Padding(0.0f, 0.0f, 20.0f, 0.0f)
+	.AutoWidth()
+	[
+		SNew(SButton)
+		.HAlign(HAlign_Right)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+		.Text(NSLOCTEXT("SUWPlayerInfoDialog", "NextPlayer", "Next ->"))
+		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+		.OnClicked(this, &SUWPlayerInfoDialog::NextPlayer)
+	];
 }
 
 #endif

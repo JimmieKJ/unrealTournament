@@ -108,11 +108,9 @@ void SUWDialog::Construct(const FArguments& InArgs)
 					.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 					.AutoHeight()
 					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Center)
+					.HAlign(HAlign_Fill)
 					[
-						SAssignNew(DialogTitle, STextBlock)
-						.Text(InArgs._DialogTitle)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Dialog.TitleTextStyle")
+						BuildTitleBar(InArgs._DialogTitle)
 					]
 
 					// The content section
@@ -362,5 +360,16 @@ void SUWDialog::DisableButton(uint16 ButtonID)
 
 }
 
+TSharedRef<class SWidget> SUWDialog::BuildTitleBar(FText InDialogTitle)
+{
+	return 	SNew(SBox)
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Center)
+		[
+			SAssignNew(DialogTitle, STextBlock)
+			.Text(InDialogTitle)
+			.TextStyle(SUWindowsStyle::Get(), "UT.Dialog.TitleTextStyle")
+		];
+}
 
 #endif

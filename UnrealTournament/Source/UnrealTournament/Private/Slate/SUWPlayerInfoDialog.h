@@ -91,6 +91,7 @@ public:
 
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual TSharedRef<class SWidget> BuildTitleBar(FText InDialogTitle) override;
 
 protected:
 
@@ -148,5 +149,11 @@ protected:
 
 	virtual void OnTabSelected(int32 NewIndex);
 
+	FReply NextPlayer();
+	FReply PreviousPlayer();
+	AUTPlayerState* GetNextPlayerState(int32 dir);
+	int32 CurrentTab; //Store the current tab so we can go back to it when switching players
+
+	void OnUpdatePlayerState();
 };
 #endif
