@@ -63,6 +63,34 @@ void UUTGameViewportClient::RemoveViewportWidgetContent(TSharedRef<class SWidget
 #endif
 }
 
+void UUTGameViewportClient::AddViewportWidgetContent_NoAspect(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
+{
+#if !UE_SERVER
+	if (!LayerManagerPtr.IsValid())
+	{
+		TSharedRef<SUTGameLayerManager> LayerManager = SNew(SUTGameLayerManager);
+		Super::AddViewportWidgetContent(LayerManager);
+
+		LayerManagerPtr = LayerManager;
+	}
+
+	if (LayerManagerPtr.IsValid())
+	{
+		LayerManagerPtr.Pin()->AddLayer_NoAspect(ViewportContent, ZOrder);
+	}
+#endif
+}
+
+void UUTGameViewportClient::RemoveViewportWidgetContent_NoAspect(TSharedRef<class SWidget> ViewportContent)
+{
+#if !UE_SERVER
+	if (LayerManagerPtr.IsValid())
+	{
+		LayerManagerPtr.Pin()->RemoveLayer_NoAspect(ViewportContent);
+	}
+#endif
+}
+
 void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString)
 {
 	Super::PeekTravelFailureMessages(World, FailureType, ErrorString);

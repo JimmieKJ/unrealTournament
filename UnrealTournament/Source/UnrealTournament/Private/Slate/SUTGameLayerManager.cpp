@@ -18,9 +18,15 @@ void SUTGameLayerManager::Construct(const FArguments& InArgs)
 		+ SOverlay::Slot()
 		[
 			SNew(SUTAspectPanel)
+			.Visibility(EVisibility::SelfHitTestInvisible)
 			[
 				SAssignNew(GameLayers, SOverlay)
 			]
+		]
+
+		+ SOverlay::Slot()
+		[
+			SAssignNew(GameLayers_NoAspect, SOverlay)
 		]
 
 		+ SOverlay::Slot()
@@ -51,6 +57,19 @@ void SUTGameLayerManager::AddLayer(TSharedRef<class SWidget> ViewportContent, co
 void SUTGameLayerManager::RemoveLayer(TSharedRef<class SWidget> ViewportContent)
 {
 	GameLayers->RemoveSlot(ViewportContent);
+}
+
+void SUTGameLayerManager::AddLayer_NoAspect(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
+{
+	GameLayers_NoAspect->AddSlot(ZOrder)
+		[
+			ViewportContent
+		];
+}
+
+void SUTGameLayerManager::RemoveLayer_NoAspect(TSharedRef<class SWidget> ViewportContent)
+{
+	GameLayers_NoAspect->RemoveSlot(ViewportContent);
 }
 
 #endif

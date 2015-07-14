@@ -41,6 +41,10 @@ class UNREALTOURNAMENT_API UUTGameViewportClient : public UGameViewportClient
 	virtual void AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder = 0) override;
 	virtual void RemoveViewportWidgetContent(TSharedRef<class SWidget> ViewportContent) override;
 
+	/**Only use these NoAspect versions if you really need to*/
+	virtual void AddViewportWidgetContent_NoAspect(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder = 0);
+	virtual void RemoveViewportWidgetContent_NoAspect(TSharedRef<class SWidget> ViewportContent);
+
 	virtual void PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString) override;
 	virtual void PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, enum ENetworkFailure::Type FailureType, const FString& ErrorString) override;
 

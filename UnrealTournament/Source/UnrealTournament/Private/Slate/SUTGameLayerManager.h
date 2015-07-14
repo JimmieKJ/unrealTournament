@@ -26,8 +26,12 @@ public:
 	void AddLayer(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder = 0);
 	void RemoveLayer(TSharedRef<class SWidget> ViewportContent);
 
+	void AddLayer_NoAspect(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder = 0);
+	void RemoveLayer_NoAspect(TSharedRef<class SWidget> ViewportContent);
+
 protected:
 	TSharedPtr<class SOverlay> GameLayers;
+	TSharedPtr<class SOverlay> GameLayers_NoAspect;
 	TSharedPtr<class STooltipPresenter> TooltipPresenter;
 };
 

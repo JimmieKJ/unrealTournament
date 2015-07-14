@@ -2204,13 +2204,10 @@ void UUTLocalPlayer::OpenReplayWindow()
 				.PlayerOwner(this)
 				.DemoNetDriver(DemoDriver);
 
-			if (ReplayWindow.IsValid())
+			UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+			if (ReplayWindow.IsValid() && UTGVC != nullptr)
 			{
-				GEngine->GameViewport->AddViewportWidgetContent(ReplayWindow.ToSharedRef(), -1);
-			}
-
-			if (ReplayWindow.IsValid())
-			{
+				UTGVC->AddViewportWidgetContent_NoAspect(ReplayWindow.ToSharedRef(), -1);
 				ReplayWindow->SetVisibility(EVisibility::SelfHitTestInvisible);
 			}
 		}
@@ -2221,9 +2218,10 @@ void UUTLocalPlayer::OpenReplayWindow()
 void UUTLocalPlayer::CloseReplayWindow()
 {
 #if !UE_SERVER
-	if (ReplayWindow.IsValid())
+	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+	if (ReplayWindow.IsValid() && UTGVC != nullptr)
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(ReplayWindow.ToSharedRef());
+		UTGVC->RemoveViewportWidgetContent_NoAspect(ReplayWindow.ToSharedRef());
 		ReplayWindow.Reset();
 	}
 #endif

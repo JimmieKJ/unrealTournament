@@ -47,17 +47,52 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
+		SNew(SOverlay)
+		+ SOverlay::Slot()
+		[
+			//TimeSlider tooltip
+			SNew(SCanvas)
+			+ SCanvas::Slot()
+			.Position(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateSP(this, &SUTReplayWindow::GetTimeTooltipPosition)))
+			.Size(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateSP(this, &SUTReplayWindow::GetTimeTooltipSize)))
+			.VAlign(VAlign_Bottom)
+			.HAlign(HAlign_Center)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.HAlign(HAlign_Fill)
+				.AutoHeight()
+				.Padding(0.0f, 0.0f, 0.0f, 0.0f)
+				[
+					SNew(SBorder)
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Replay.Tooltip.BG"))
+					.Content()
+					[
+						SNew(STextBlock)
+						.Justification(ETextJustify::Center)
+						.Text(this, &SUTReplayWindow::GetTooltipText)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					]
+				]
+				+ SVerticalBox::Slot()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Tooltip.Arrow"))
+				]
+			]
+		]
 		//Time Controls
-		SNew(SCanvas)
-		+ SCanvas::Slot()
-		.Size(ViewportSize)
-		.VAlign(VAlign_Top)
-		.HAlign(HAlign_Left)
+		+ SOverlay::Slot()
 		[
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
 			.HAlign(HAlign_Fill)
 			.VAlign(VAlign_Fill)
+			.FillHeight(1.0f)
+
 			+ SVerticalBox::Slot()
 			.HAlign(HAlign_Fill)
 			.VAlign(VAlign_Bottom)
@@ -175,7 +210,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									.Image(this, &SUTReplayWindow::GetPlayButtonBrush)
 								]
 							]
-					
+			
 							//Speed Control
 							+ SUniformGridPanel::Slot(2, 0)
 							.HAlign(HAlign_Right)
@@ -201,38 +236,6 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 						]
 					]
 				]
-			]
-		]
-		//TimeSlider tooltip
-		+ SCanvas::Slot()
-		.Position(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateSP(this, &SUTReplayWindow::GetTimeTooltipPosition)))
-		.Size(TAttribute<FVector2D>::Create(TAttribute<FVector2D>::FGetter::CreateSP(this, &SUTReplayWindow::GetTimeTooltipSize)))
-		.VAlign(VAlign_Bottom)
-		.HAlign(HAlign_Center)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Fill)
-			.AutoHeight()
-			.Padding(0.0f, 0.0f, 0.0f, 0.0f)
-			[
-				SNew(SBorder)
-				.VAlign(VAlign_Fill)
-				.HAlign(HAlign_Fill)
-				.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Replay.Tooltip.BG"))
-				.Content()
-				[
-					SNew(STextBlock)
-					.Justification(ETextJustify::Center)
-					.Text(this, &SUTReplayWindow::GetTooltipText)
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				]
-			]
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Center)
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Tooltip.Arrow"))
 			]
 		]
 	];
