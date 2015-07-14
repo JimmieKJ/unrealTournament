@@ -17,11 +17,11 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	GENERATED_UCLASS_BODY()
 
 	/** server settings */
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerName)
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerName)
 	FString ServerName;
 	
 	// The message of the day
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerMOTD)
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = ServerInfo, replicatedUsing = OnRep_ServerMOTD)
 	FString ServerMOTD;
 
 	UFUNCTION()
