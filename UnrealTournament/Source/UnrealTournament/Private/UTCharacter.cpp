@@ -8,7 +8,6 @@
 #include "UTDmgType_Suicide.h"
 #include "UTDmgType_Fell.h"
 #include "UTDmgType_Drown.h"
-#include "UTDmgType_FallingCrush.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "UTTeamGameMode.h"
 #include "UTDmgType_Telefragged.h"
@@ -889,7 +888,10 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 }
 bool AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
-	Damage *= DamageScaling;
+	if (!DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld)
+	{
+		Damage *= DamageScaling;
+	}
 	return false;
 }
 
