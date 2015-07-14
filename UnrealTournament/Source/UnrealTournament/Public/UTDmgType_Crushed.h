@@ -16,6 +16,6 @@ class UNREALTOURNAMENT_API UUTDmgType_Crushed : public UUTDamageType
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_FallingCrush", "{Player1Name} caused {Player2Name} to be crushed.");
 		MaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "MaleSuicideMessage_FallingCrush", "{Player2Name} was crushed by a large object.");
 		FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "FemaleSuicideMessage_FallingCrush", "{Player2Name} was crushed by a large object.");
-		SelfVictimMessage = NSLOCTEXT("UTDeathMessages", "SelfVictimMessage", "You were crushed by a large object.");
+		SelfVictimMessage = NSLOCTEXT("UTDeathMessages", "SelfVictimMessage_Crushed", "You were crushed by a large object.");
 	}
 };
