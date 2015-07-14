@@ -412,7 +412,7 @@ void AUTHUD::DrawHUD()
 		{
 			CacheFonts();
 		}
-		if (PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
+		if (PlayerOwner && PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
 		{
 			AddSpectatorWidgets();
 		}
@@ -431,17 +431,20 @@ void AUTHUD::DrawHUD()
 			}
 		}
 
-		if (bScoreboardIsUp)
+		if (UTPlayerOwner)
 		{
-			if (!UTPlayerOwner->CurrentlyViewedScorePS)
+			if (bScoreboardIsUp)
 			{
-				UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+				if (!UTPlayerOwner->CurrentlyViewedScorePS)
+				{
+					UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+				}
 			}
-		}
-		else if (UTPlayerOwner)
-		{
-			DrawDamageIndicators();
-			UTPlayerOwner->SetViewedScorePS(NULL, 0);
+			else
+			{
+				DrawDamageIndicators();
+				UTPlayerOwner->SetViewedScorePS(NULL, 0);
+			}
 		}
 	}
 }
