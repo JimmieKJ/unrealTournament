@@ -16,5 +16,6 @@ class UNREALTOURNAMENT_API UUTDmgType_KillZ : public UUTDamageType
 		ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages", "DeathMessage_Fell", "{Player1Name} knocked {Player2Name} over the edge.");
 		MaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "MaleSuicideMessage_Fell", "{Player2Name} fell to his death.");
 		FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages", "FemaleSuicideMessage_Fell", "{Player2Name} fell to her death.");
+		SelfVictimMessage = NSLOCTEXT("UTDeathMessages", "SelfVictimMessage", "You found out you can't fly.");
 	}
 };
