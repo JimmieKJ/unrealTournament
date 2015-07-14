@@ -2015,11 +2015,10 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		AUTCharacter* Char = Cast<AUTCharacter>(UpdatedViewTarget);
 		if (Char)
 		{
-			LastSpectatedPlayerState = Char->PlayerState;
-			AUTPlayerState* PS = Cast<AUTPlayerState>(Char->PlayerState);
-			if (PS)
+			LastSpectatedPlayerState = Cast<AUTPlayerState>(Char->PlayerState);
+			if (LastSpectatedPlayerState)
 			{
-				LastSpectatedPlayerId = PS->SpectatingID;
+				LastSpectatedPlayerId = LastSpectatedPlayerState->SpectatingID;
 			}
 		}
 		else if (!Cast<AUTProjectile>(UpdatedViewTarget) && (UpdatedViewTarget != this))

@@ -424,7 +424,7 @@ public:
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
 
 	UPROPERTY()
-	class APlayerState* LastSpectatedPlayerState;
+	class AUTPlayerState* LastSpectatedPlayerState;
 
 	UPROPERTY()
 	int32 LastSpectatedPlayerId;

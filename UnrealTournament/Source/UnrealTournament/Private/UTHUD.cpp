@@ -163,7 +163,8 @@ AUTPlayerState* AUTHUD::GetScorerPlayerState()
 	{
 		PS = (AUTPlayerState*)PawnOwner->PlayerState;
 	}
-	return PS;
+
+	return UTPlayerOwner->LastSpectatedPlayerState ? UTPlayerOwner->LastSpectatedPlayerState : PS;
 }
 
 TSubclassOf<UUTHUDWidget> AUTHUD::ResolveHudWidgetByName(const TCHAR* ResourceName)
