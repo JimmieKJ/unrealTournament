@@ -12,7 +12,7 @@ struct TAttributeStat
 	typedef FText(*StatValueTextFunc)(const AUTPlayerState*, const TAttributeStat*);
 
 	TAttributeStat(AUTPlayerState* InPlayerState, FName InStatsName, StatValueFunc InValueFunc = nullptr, StatValueTextFunc InTextFunc = nullptr)
-		: PlayerState(InPlayerState), StatName(InStatsName), ValueFunc(InValueFunc), TextFunc(InTextFunc)
+		: StatName(InStatsName), PlayerState(InPlayerState), ValueFunc(InValueFunc), TextFunc(InTextFunc)
 	{
 		checkSlow(PlayerState.IsValid());
 	}
@@ -45,7 +45,7 @@ struct TAttributeStat
 struct TAttributeStatWeapon : public TAttributeStat
 {
 	TAttributeStatWeapon(AUTPlayerState* InPlayerState, AUTWeapon* InWeapon, bool InbKills)
-		: TAttributeStat(InPlayerState, NAME_Name, nullptr, nullptr), Weapon(InWeapon), bKills(InbKills)
+		: TAttributeStat(InPlayerState, NAME_Name, nullptr, nullptr), bKills(InbKills), Weapon(InWeapon)
 	{
 		checkSlow(PlayerState.IsValid());
 	}

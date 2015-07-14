@@ -236,7 +236,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 
 		//If camera is jumping to a new location and we have LOS then interp 
-		bool bSnapCamera = (UTCharacter && UTCharacter->IsDead() || LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget));
+		bool bSnapCamera = ((UTCharacter && UTCharacter->IsDead()) || LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget));
 		if (!bSnapCamera && ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f))
 		{
 			FHitResult Result;
