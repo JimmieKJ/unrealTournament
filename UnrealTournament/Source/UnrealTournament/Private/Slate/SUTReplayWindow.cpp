@@ -48,6 +48,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	.HAlign(HAlign_Fill)
 	[
 		SNew(SOverlay)
+		.Visibility(this, &SUTReplayWindow::GetVis)
 		+ SOverlay::Slot()
 		[
 			//TimeSlider tooltip
@@ -514,6 +515,11 @@ FVector2D SUTReplayWindow::GetTimeTooltipSize() const
 FText SUTReplayWindow::GetTooltipText() const
 {
 	return FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(TooltipTime)));
+}
+
+EVisibility SUTReplayWindow::GetVis() const
+{
+	return PlayerOwner->AreMenusOpen() ? EVisibility::Hidden : EVisibility::SelfHitTestInvisible;
 }
 
 #endif

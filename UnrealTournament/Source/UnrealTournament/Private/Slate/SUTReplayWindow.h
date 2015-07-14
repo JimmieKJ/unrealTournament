@@ -78,6 +78,8 @@ protected:
 	FVector2D GetTimeTooltipSize() const;
 	FVector2D GetTimeTooltipPosition() const;
 
+	EVisibility GetVis() const;
+
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TWeakObjectPtr<class UDemoNetDriver> DemoNetDriver;
