@@ -2800,14 +2800,17 @@ void UCharacterMovementComponent::PhysSwimming(float deltaTime, int32 Iterations
 	float NetFluidFriction  = 0.f;
 	float Depth = ImmersionDepth();
 	float NetBuoyancy = Buoyancy * Depth;
-
+	float OriginalAccelZ = Acceleration.Z;
+	bool bLimitedUpAccel = false;
 	if (!HasRootMotion() && (Velocity.Z > 0.33f * MaxSwimSpeed) && (NetBuoyancy != 0.f) )
 	{
 		//damp positive Z out of water
 		Velocity.Z = FMath::Max(0.33f * MaxSwimSpeed, Velocity.Z * Depth*Depth);
+		
 	}
 	else if (Depth < 0.65f)
 	{
+		bLimitedUpAccel = (Acceleration.Z > 0.f);
 		Acceleration.Z = FMath::Min(0.1f, Acceleration.Z);
 	}
 	Iterations++;
@@ -2833,6 +2836,18 @@ void UCharacterMovementComponent::PhysSwimming(float deltaTime, int32 Iterations
 
 	if ( Hit.Time < 1.f && CharacterOwner)
 	{
+		if (bLimitedUpAccel && (Velocity.Z >= 0.f))
+		{
+			// allow upward velocity at surface if against obstacle
+			Velocity.Z += OriginalAccelZ * deltaTime;
+			Adjusted = Velocity * (1.f - Hit.Time)*deltaTime;
+			Swim(Adjusted, Hit);
+			if (!IsSwimming())
+			{
+				StartNewPhysics(remainingTime, Iterations);
+				return;
+			}
+		}
 		const FVector GravDir = FVector(0.f,0.f,-1.f);
 		const FVector VelDir = Velocity.GetSafeNormal();
 		const float UpDown = GravDir | VelDir;
