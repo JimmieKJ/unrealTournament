@@ -117,8 +117,8 @@ public:
 			TEXT("CTF"), 
 			TEXT("TeamPlay"), 
 			TEXT("Capture the Flag"), 
-			TEXT("Capture the flag."), 
-			TEXT("Capture the flag, with guns.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nTwo teams of 5 allowed!"),
+			TEXT("Capture the Flag."), 
+			TEXT("Capture the Flag, with guns.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nTwo teams of 5 allowed!"),
 			TEXT("CTF"), 
 			TEXT("CTF-Outside"),
 			10, 
@@ -136,8 +136,8 @@ public:
 			TEXT("BIGCTF"), 
 			TEXT("TeamPlay"), 
 			TEXT("Big Capture the Flag"), 
-			TEXT("Capture the flag with large teams."), 
-			TEXT("Capture the flag with large teams.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nTwo teams of 10 allowed!"),
+			TEXT("Capture the Flag with large teams."), 
+			TEXT("Capture the Flag with large teams.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nTwo teams of 10 allowed!"),
 			TEXT("CTF"), 
 			TEXT("CTF-Outside"),
 			20, 
@@ -190,8 +190,8 @@ public:
 			TEXT("iCTF"), 
 			TEXT("Instagib"), 
 			TEXT("Instagib CTF"), 
-			TEXT("One hit one kill CTF."), 
-			TEXT("Capture the flag with Instagib rifles.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nTwo teams of 5 allowed!"),
+			TEXT("Instagib CTF."), 
+			TEXT("Capture the Flag with Instagib rifles.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nTwo teams of 5 allowed!"),
 			TEXT("CTF"), 
 			TEXT("CTF-Outside"),
 			10, 
@@ -200,6 +200,24 @@ public:
 			TEXT("CTF"),
 			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
 			TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib"),
+			true);
+
+		if (NewRuleset) Storage.Add(NewRuleset);
+
+		NewRuleset = UUTEpicDefaultRulesets::AddDefaultRuleset(Owner,
+			TEXT("iCTF+t"),
+			TEXT("Instagib"),
+			TEXT("Translocator iCTF"),
+			TEXT("Translocator iCTF."),
+			TEXT("Capture the Flag with Instagib rifles and Translocators.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n\nTwo teams of 5 allowed!"),
+			TEXT("CTF"),
+			TEXT("CTF-Outside"),
+			10,
+			12,
+			TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'"),
+			TEXT("CTF"),
+			TEXT("/Script/UnrealTournament.UTCTFGameMode"),
+			TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib,AddTrans"),
 			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
