@@ -19,14 +19,7 @@ void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 	else
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(PutDownFinishedHandle, this, &UUTWeaponStateUnequipping::PutDownFinished, UnequipTime);
-		if (GetOuterAUTWeapon()->PutDownAnim != NULL)
-		{
-			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
-			if (AnimInstance != NULL)
-			{
-				AnimInstance->Montage_Play(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnim->SequenceLength / UnequipTime);
-			}
-		}
+		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnimHands, GetOuterAUTWeapon()->PutDownAnim->SequenceLength / UnequipTime);
 	}
 }
 
@@ -67,14 +60,7 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 	else
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(BringUpFinishedHandle, this, &UUTWeaponStateEquipping::BringUpFinished, EquipTime);
-		if (GetOuterAUTWeapon()->BringUpAnim != NULL)
-		{
-			UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
-			if (AnimInstance != NULL)
-			{
-				AnimInstance->Montage_Play(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnim->SequenceLength / EquipTime);
-			}
-		}
+		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnimHands, GetOuterAUTWeapon()->BringUpAnim->SequenceLength / EquipTime);
 	}
 }
 

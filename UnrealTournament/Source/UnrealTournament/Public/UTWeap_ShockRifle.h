@@ -48,6 +48,8 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 	/** anim to play for a shock combo instead of the normal one */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* ComboFireAnim;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* ComboFireAnimHands;
 
 	TSharedPtr<FCanvasWordWrapper> WordWrapper;
 
@@ -65,7 +67,7 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 		LastClientKillTime = GetWorld()->TimeSeconds;
 	}
 
-	virtual UAnimMontage* GetFiringAnim(uint8 FireMode) const;
+	virtual UAnimMontage* GetFiringAnim(uint8 FireMode, bool bOnHands = false) const;
 	virtual void PlayFiringEffects();
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
 	void Play1PComboEffects();

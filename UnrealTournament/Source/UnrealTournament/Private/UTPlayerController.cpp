@@ -1663,14 +1663,18 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	if (IsBehindView())
 	{
 		// hide first person weapon
-		if (P != NULL && P->GetWeapon() != NULL)
+		if (P != NULL)
 		{
-			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
-			for (UMeshComponent* WeapMesh : Meshes)
+			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
+			if (P->GetWeapon() != NULL)
 			{
-				if (WeapMesh != NULL)
+				TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
+				for (UMeshComponent* WeapMesh : Meshes)
 				{
-					HideComponentTree(WeapMesh, HiddenComponents);
+					if (WeapMesh != NULL)
+					{
+						HideComponentTree(WeapMesh, HiddenComponents);
+					}
 				}
 			}
 		}
@@ -1678,16 +1682,25 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	else if (P != NULL)
 	{
 		// hide first person mesh (but not attachments) if hidden weapons
-		if (GetWeaponHand() == HAND_Hidden && P->GetWeapon() != NULL)
+		if (GetWeaponHand() == HAND_Hidden)
 		{
-			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
-			for (UMeshComponent* WeapMesh : Meshes)
+			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
+			if (P->GetWeapon() != NULL)
 			{
-				if (WeapMesh != NULL)
+				TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
+				for (UMeshComponent* WeapMesh : Meshes)
 				{
-					HiddenComponents.Add(WeapMesh->ComponentId);
+					if (WeapMesh != NULL)
+					{
+						HiddenComponents.Add(WeapMesh->ComponentId);
+					}
 				}
 			}
+		}
+		else if (P->GetWeapon() != NULL && P->GetWeapon()->HandsAttachSocket == NAME_None)
+		{
+			// weapon doesn't use hands
+			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
 		}
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);

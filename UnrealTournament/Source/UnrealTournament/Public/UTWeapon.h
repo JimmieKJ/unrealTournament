@@ -135,6 +135,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Synchronize random seed on server and firing client so projectiles stay synchronized */
 	virtual void NetSynchRandomSeed();
 
+	/** socket to attach weapon to hands; if None, then the hands are hidden */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FName HandsAttachSocket;
+
 	/** time between shots, trigger checks, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon", meta = (ClampMin = "0.1"))
 	TArray<float> FireInterval;
@@ -150,6 +154,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** AnimMontage to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<UAnimMontage*> FireAnimation;
+	/** AnimMontage to play on hands each time we fire */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TArray<UAnimMontage*> FireAnimationHands;
 	/** particle component for muzzle flash */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystemComponent*> MuzzleFlash;
@@ -301,9 +308,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** equip anims */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* BringUpAnim;
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* BringUpAnimHands;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* PutDownAnim;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* PutDownAnimHands;
 
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
@@ -470,9 +480,14 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintImplementableEvent)
 	bool FireShotOverride();
 
+	/** plays an anim on the weapon and optionally hands
+	 * automatically handles fire rate modifiers by default, overridden if RateOverride is > 0.0
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim = NULL, float RateOverride = 0.0f);
 	/** returns montage to play on the weapon for the specified firing mode */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual UAnimMontage* GetFiringAnim(uint8 FireMode) const;
+	virtual UAnimMontage* GetFiringAnim(uint8 FireMode, bool bOnHands = false) const;
 	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();

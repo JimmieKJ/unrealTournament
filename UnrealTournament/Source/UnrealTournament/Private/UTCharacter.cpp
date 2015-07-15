@@ -4881,6 +4881,16 @@ void AUTCharacter::BehindViewChange(APlayerController* PC, bool bNowBehindView)
 			}
 		}
 	}
+	if (bNowBehindView)
+	{
+		FirstPersonMesh->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->FirstPersonMesh->MeshComponentUpdateFlag;
+	}
+	else
+	{
+		FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose;
+		FirstPersonMesh->LastRenderTime = GetWorld()->TimeSeconds;
+		FirstPersonMesh->bRecentlyRendered = true;
+	}
 }
 void AUTCharacter::BecomeViewTarget(APlayerController* PC)
 {
