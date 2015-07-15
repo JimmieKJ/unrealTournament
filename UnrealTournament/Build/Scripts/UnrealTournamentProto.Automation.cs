@@ -307,7 +307,6 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             SkipStage: Cmd.ParseParam("skipstage"),
             NoDebugInfo: Cmd.ParseParam("NoDebugInfo"),
             CrashReporter: !Cmd.ParseParam("mac"), // @todo Mac: change to true when Mac implementation is ready
-            StageNonMonolithic: true,
             CreateReleaseVersion: "UTVersion0",
 			// if we are running, we assume this is a local test and don't chunk
 			Run: Cmd.ParseParam("Run"),
@@ -1885,7 +1884,6 @@ public class MakeUTDLC : BuildCommand
             Stage: true,
             Pak: true,
             BasedOnReleaseVersion: AssetRegistry,
-            StageNonMonolithic: true,
             RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
             StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", DLCName)
         );
