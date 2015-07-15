@@ -76,7 +76,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	MaxSwimSpeed = 1000.f;
 	MaxWaterSpeed = 450.f; 
-	Buoyancy = 1.f;
+	Buoyancy = 0.95f;
 	SwimmingWallPushImpulse = 730.f;
 
 	MaxMultiJumpZSpeed = 280.f;
@@ -250,6 +250,32 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					}
 				}
 			}
+		}
+	}
+}
+
+void UUTCharacterMovement::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
+{
+	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
+
+	if (MovementMode == MOVE_Swimming)
+	{
+		FVector HorizontalVelocity = Velocity;
+		HorizontalVelocity.Z = 0.f;
+		float Speed2D = HorizontalVelocity.Size2D();
+		if (Speed2D > MaxSwimSpeed)
+		{
+			// clamp speed to MaxSwimSpeed
+			HorizontalVelocity = MaxSwimSpeed * HorizontalVelocity.GetSafeNormal();
+			Velocity.X = HorizontalVelocity.X;
+			Velocity.Y = HorizontalVelocity.Y;
+		}
+		else if (Speed2D > MaxWaterSpeed)
+		{
+			// damp speed if above MaxWaterSpeed
+			float ScalingFactor = FMath::Max(0.6f, MaxWaterSpeed / Speed2D);
+			Velocity.X *= ScalingFactor;
+			Velocity.Y *= ScalingFactor;
 		}
 	}
 }

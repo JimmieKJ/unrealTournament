@@ -150,6 +150,10 @@ public:
 	/** Push off bottom while swimming. */
 	virtual void PerformWaterJump();
 
+protected:
+	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
+
+public:
 	/** Impulse imparted by "easy" impact jump. Not charge or jump dependent (although get a small bonus with timed jump). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactJumping)
 	float EasyImpactImpulse;
