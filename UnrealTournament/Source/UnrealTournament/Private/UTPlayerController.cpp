@@ -1205,7 +1205,7 @@ void AUTPlayerController::OnAltFire()
 	{
 		new(DeferredFireInputs)FDeferredFireInput(1, true);
 	}
-	else if ( GetWorld()->GetGameState<AUTGameState>()->HasMatchStarted() && IsInState(NAME_Spectating) )
+	else if (GetWorld()->GetGameState() != NULL && GetWorld()->GetGameState()->HasMatchStarted() && IsInState(NAME_Spectating) )
 	{
 		PlayMenuSelectSound();
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && bPlayerIsWaiting)
