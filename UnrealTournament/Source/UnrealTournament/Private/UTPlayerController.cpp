@@ -1736,19 +1736,6 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	}
 }
 
-void AUTPlayerController::SetName(const FString& S)
-{
-	if (!S.IsEmpty())
-	{
-		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-		if (LP != NULL)
-		{
-			LP->SetNickname(S);
-			LP->SaveProfileSettings();
-		}
-	}
-}
-
 void AUTPlayerController::ToggleScoreboard(bool bShow)
 {
 	if (MyHUD != NULL && Cast<AUTHUD>(MyHUD) != NULL)

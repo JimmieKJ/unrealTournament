@@ -137,8 +137,6 @@ public:
 
 	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
 
-	virtual void SetName(const FString& S);
-
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
