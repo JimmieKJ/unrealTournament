@@ -6,6 +6,8 @@
 
 #if !UE_SERVER
 
+const int32 PING_ALLOWANCE = 30;
+
 class FServerSearchInfo
 {
 public:
@@ -28,6 +30,8 @@ public:
 		{
 			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
 			SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, bServerIsTrainingGround);
+
+			if (ServerTrustLevel > 0) bServerIsTrainingGround = false;
 		}
 	}
 

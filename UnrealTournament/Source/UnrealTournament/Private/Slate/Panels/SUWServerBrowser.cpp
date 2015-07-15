@@ -1191,22 +1191,20 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 	LanSearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 	LanSearchSettings->MaxSearchResults = 10000;
 	LanSearchSettings->bIsLanQuery = true;
+	LanSearchSettings->TimeoutInSeconds = 5.0;
 	LanSearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 
 	TSharedRef<FUTOnlineGameSearchBase> LanSearchSettingsRef = LanSearchSettings.ToSharedRef();
-
 	FOnFindSessionsCompleteDelegate Delegate;
 	Delegate.BindSP(this, &SUWServerBrowser::OnFindLANSessionsComplete);
-	OnFindSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
+	OnFindLANSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
 	OnlineSessionInterface->FindSessions(0, LanSearchSettingsRef);
-
-	SetBrowserState(EBrowserState::BrowserIdle);
 }
 
 
 void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 {
-	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
+	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindLANSessionCompleteDelegate);
 
 	if (bWasSuccessful)
 	{
@@ -1384,7 +1382,6 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 		}
 
 	}
-	SetBrowserState(EBrowserState::BrowserIdle);	
 }
 
 
@@ -1468,6 +1465,22 @@ void SUWServerBrowser::AddServer(TSharedPtr<FServerData> Server)
 
 void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 {
+	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
+
+	int32 ServerIsTrainingGround;
+	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, ServerIsTrainingGround);
+
+	int32 ServerTrustLevel; 
+	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
+
+	// Only trusted servers can be training grounds.  TODO: Move this to the MCP.
+	if ( ServerTrustLevel >0 ) ServerIsTrainingGround = 0;
+
+	if ( bIsBeginner != (ServerIsTrainingGround == 1))
+	{
+		return;
+	}
+
 	for (int32 i=0; i < AllHubServers.Num() ; i++)
 	{
 		if (!AllHubServers[i]->bFakeHUB)

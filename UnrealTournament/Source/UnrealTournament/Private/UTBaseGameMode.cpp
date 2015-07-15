@@ -32,7 +32,7 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
-	bTrainingGround = EvalBoolOptions(Options, bTrainingGround);
+	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
 
 	
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
