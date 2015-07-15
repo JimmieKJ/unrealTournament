@@ -76,7 +76,6 @@ public:
 	virtual int32 ReflectionVector() = 0;
 	virtual int32 ReflectionAboutCustomWorldNormal(int32 CustomWorldNormal, int32 bNormalizeCustomWorldNormal) = 0;
 	virtual int32 CameraVector() = 0;
-	virtual int32 CameraWorldPosition() = 0;
 	virtual int32 LightVector() = 0;
 
 	virtual int32 ScreenPosition() = 0;
@@ -238,7 +237,6 @@ public:
 
 	virtual int32 ReflectionVector() override { return Compiler->ReflectionVector(); }
 	virtual int32 CameraVector() override { return Compiler->CameraVector(); }
-	virtual int32 CameraWorldPosition() override { return Compiler->CameraWorldPosition(); }
 	virtual int32 LightVector() override { return Compiler->LightVector(); }
 
 	virtual int32 ScreenPosition() override { return Compiler->ScreenPosition(); }

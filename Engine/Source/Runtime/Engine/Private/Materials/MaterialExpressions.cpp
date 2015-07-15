@@ -2828,7 +2828,7 @@ UMaterialExpressionCameraPositionWS::UMaterialExpressionCameraPositionWS(const F
 
 int32 UMaterialExpressionCameraPositionWS::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
-	return Compiler->CameraWorldPosition();
+	return Compiler->ViewProperty(MEVP_WorldSpaceCameraPosition);
 }
 
 void UMaterialExpressionCameraPositionWS::GetCaption(TArray<FString>& OutCaptions) const
