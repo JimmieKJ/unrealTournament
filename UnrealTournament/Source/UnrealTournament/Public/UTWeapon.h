@@ -909,11 +909,11 @@ public:
 	virtual void ServerSetZoomState(uint8 NewZoomState);
 	virtual void LocalSetZoomState(uint8 NewZoomState);
 
-	/**Called when the weapon has zoomed in as far as it can go. Default is ZoomStop()*/
+	/**Called when the weapon has zoomed in as far as it can go. Default is EZoomState::EZS_Zoomed*/
 	UFUNCTION(BlueprintNativeEvent)
 	void OnZoomedIn();
 
-	/**Called when the weapon has zoomed all the way out. Default is EndZoom()*/
+	/**Called when the weapon has zoomed all the way out. Default is EZoomState::EZS_NotZoomed*/
 	UFUNCTION(BlueprintNativeEvent)
 	void OnZoomedOut();
 
