@@ -93,6 +93,10 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ModifyInventory(AUTInventory* Inv, AUTCharacter* NewOwner);
 
+	/** Add an inventory class to the defaultinventory array of the game. */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Inventory)
+		void AddDefaultInventory(TSubclassOf<AUTInventory> InventoryClass);
+
 	/** allows mutators to modify/react to damage
 	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	 */
