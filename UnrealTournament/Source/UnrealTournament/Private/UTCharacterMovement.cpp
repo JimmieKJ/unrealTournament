@@ -277,6 +277,26 @@ void UUTCharacterMovement::OnMovementModeChanged(EMovementMode PreviousMovementM
 			Velocity.X *= ScalingFactor;
 			Velocity.Y *= ScalingFactor;
 		}
+		if (PreviousMovementMode == MOVE_Falling)
+		{
+			// clear falling state flags
+			bIsAgainstWall = false;
+			bFallingInWater = false;
+			bCountWallSlides = true;
+			bIsFloorSliding = false;
+			bIsDodging = false;
+			SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
+			bJumpAssisted = false;
+			AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+			if (UTCharOwner)
+			{
+				UTCharOwner->bApplyWallSlide = false;
+			}
+			bExplicitJump = false;
+			ClearRestrictedJump();
+			CurrentMultiJumpCount = 0;
+			CurrentWallDodgeCount = 0;
+		}
 	}
 }
 
