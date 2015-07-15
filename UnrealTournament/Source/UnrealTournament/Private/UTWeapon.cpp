@@ -17,6 +17,7 @@
 #include "UTImpactEffect.h"
 #include "UTCharacterMovement.h"
 #include "UTWorldSettings.h"
+#include "UTPlayerCameraManager.h"
 #include "UTHUD.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
@@ -89,6 +90,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
 	IconColor = FLinearColor::White;
 	bShowPowerupTimer = false;
+
 }
 
 void AUTWeapon::PostInitProperties()
@@ -169,6 +171,8 @@ void AUTWeapon::BeginPlay()
 		GotoState(InactiveState);
 	}
 	checkSlow(CurrentState != NULL);
+
+	BeginPlayTime = GetWorld()->TimeSeconds;
 }
 
 void AUTWeapon::GotoState(UUTWeaponState* NewState)
@@ -449,6 +453,7 @@ bool AUTWeapon::PutDown()
 	}
 	else
 	{
+		SetZoomState(EZoomState::EZS_NotZoomed);
 		CurrentState->PutDown();
 		return true;
 	}
@@ -1502,6 +1507,8 @@ void AUTWeapon::Tick(float DeltaTime)
 	{
 		CurrentState->Tick(DeltaTime);
 	}
+
+	TickZoom(DeltaTime);
 }
 
 void AUTWeapon::UpdateViewBob(float DeltaTime)
@@ -1593,6 +1600,11 @@ void AUTWeapon::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME_CONDITION(AUTWeapon, Ammo, COND_None);
 	DOREPLIFETIME_CONDITION(AUTWeapon, MaxAmmo, COND_OwnerOnly);
 	DOREPLIFETIME(AUTWeapon, AttachmentType);
+
+	DOREPLIFETIME_CONDITION(AUTWeapon, ZoomCount, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTWeapon, ZoomState, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTWeapon, CurrentZoomMode, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTWeapon, ZoomTime, COND_InitialOnly);
 }
 
 FLinearColor AUTWeapon::GetCrosshairColor(UUTHUDWidget* WeaponHudWidget) const
@@ -2037,4 +2049,175 @@ void AUTWeapon::FiringEffectsUpdated_Implementation(uint8 InFireMode, FVector In
 	FRotator SpawnRotation;
 	GetImpactSpawnPosition(InFlashLocation, SpawnLocation, SpawnRotation);
 	PlayImpactEffects(InFlashLocation, InFireMode, SpawnLocation, SpawnRotation);
+}
+
+void AUTWeapon::TickZoom(float DeltaTime)
+{
+	if (GetUTOwner() != nullptr && ZoomModes.IsValidIndex(CurrentZoomMode))
+	{
+		if (ZoomState != EZoomState::EZS_NotZoomed)
+		{
+			if (ZoomState == EZoomState::EZS_ZoomingIn)
+			{
+				ZoomTime += DeltaTime;
+
+				if (ZoomTime >= ZoomModes[CurrentZoomMode].Time)
+				{
+					OnZoomedIn();
+				}
+			}
+			else if (ZoomState == EZoomState::EZS_ZoomingOut)
+			{
+				ZoomTime -= DeltaTime;
+
+				if (ZoomTime <= 0.0f)
+				{
+					OnZoomedOut();
+				}
+			}
+			ZoomTime = FMath::Clamp(ZoomTime, 0.0f, ZoomModes[CurrentZoomMode].Time);
+
+			//Do the FOV change
+			if (GetNetMode() != NM_DedicatedServer)
+			{
+				float StartFov = ZoomModes[CurrentZoomMode].StartFOV;
+				float EndFov = ZoomModes[CurrentZoomMode].EndFOV;
+
+				//Use the players default FOV if the FOV is zero
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
+				if (UTPC != nullptr)
+				{
+					if (StartFov == 0.0f)
+					{
+						StartFov = UTPC->ConfigDefaultFOV;
+					}
+					if (EndFov == 0.0f)
+					{
+						EndFov = UTPC->ConfigDefaultFOV;
+					}
+				}
+
+				//Calculate the FOV based on the zoom time
+				float FOV = 90.0f;
+				if (ZoomModes[CurrentZoomMode].Time == 0.0f)
+				{
+					FOV = StartFov;
+				}
+				else
+				{
+					FOV = FMath::Lerp(StartFov, EndFov, ZoomTime / ZoomModes[CurrentZoomMode].Time);
+					FOV = FMath::Clamp(FOV, EndFov, StartFov);
+				}
+
+				//Set the FOV
+				AUTPlayerCameraManager* Camera = Cast<AUTPlayerCameraManager>(GetUTOwner()->GetPlayerCameraManager());
+				if (Camera != NULL && Camera->GetCameraStyleWithOverrides() == FName(TEXT("Default")))
+				{
+					Camera->SetFOV(FOV);
+				}
+			}
+		}
+	}
+}
+
+
+void AUTWeapon::LocalSetZoomMode(uint8 NewZoomMode)
+{
+	if (ZoomModes.IsValidIndex(CurrentZoomMode))
+	{
+		CurrentZoomMode = NewZoomMode;
+	}
+	else
+	{
+		UE_LOG(LogUTWeapon, Warning, TEXT("%s::LocalSetZoomMode(): Invalid Zoom Mode: %d"), *GetName(), NewZoomMode);
+	}
+}
+
+void AUTWeapon::SetZoomMode(uint8 NewZoomMode)
+{
+	//Only Locally controlled players set the zoom mode so the server stays in sync
+	if (GetUTOwner() && GetUTOwner()->IsLocallyControlled() && CurrentZoomMode != NewZoomMode)
+	{
+		if (Role < ROLE_Authority)
+		{
+			ServerSetZoomMode(NewZoomMode);
+		}
+		LocalSetZoomMode(NewZoomMode);
+	}
+}
+
+bool AUTWeapon::ServerSetZoomMode_Validate(uint8 NewZoomMode) { return true; }
+void AUTWeapon::ServerSetZoomMode_Implementation(uint8 NewZoomMode)
+{
+	LocalSetZoomMode(NewZoomMode);
+}
+
+void AUTWeapon::LocalSetZoomState(uint8 NewZoomState)
+{
+	if (ZoomModes.IsValidIndex(CurrentZoomMode))
+	{
+		if (NewZoomState != ZoomState)
+		{
+			ZoomState = (EZoomState::Type)NewZoomState;
+
+			//Need to reset the zoom time since this state might be skipped on spec clients if states switch too fast
+			if (ZoomState == EZoomState::EZS_NotZoomed)
+			{
+				ZoomCount++;
+				OnRep_ZoomCount();
+			}
+			OnRep_ZoomState();
+		}
+	}
+	else
+	{
+		UE_LOG(LogUTWeapon, Warning, TEXT("%s::LocalSetZoomState(): Invalid Zoom Mode: %d"), *GetName(), CurrentZoomMode);
+	}
+}
+
+void AUTWeapon::SetZoomState(TEnumAsByte<EZoomState::Type> NewZoomState)
+{
+	//Only Locally controlled players set the zoom state so the server stays in sync
+	if (GetUTOwner() && GetUTOwner()->IsLocallyControlled() && NewZoomState != ZoomState)
+	{
+		if (Role < ROLE_Authority)
+		{
+			ServerSetZoomState(NewZoomState);
+		}
+		LocalSetZoomState(NewZoomState);
+	}
+}
+
+bool AUTWeapon::ServerSetZoomState_Validate(uint8 NewZoomState) { return true; }
+void AUTWeapon::ServerSetZoomState_Implementation(uint8 NewZoomState)
+{
+	LocalSetZoomState(NewZoomState);
+}
+
+void AUTWeapon::OnRep_ZoomState_Implementation()
+{
+	if (GetNetMode() != NM_DedicatedServer && ZoomState == EZoomState::EZS_NotZoomed && GetUTOwner() && GetUTOwner()->GetPlayerCameraManager())
+	{
+		GetUTOwner()->GetPlayerCameraManager()->UnlockFOV();
+	}
+}
+
+void AUTWeapon::OnRep_ZoomCount()
+{
+	//For spectators we don't want to clear the time if ZoomTime was just replicated (COND_InitialOnly). Can't do custom rep or we'll loose the COND_SkipOwner
+	//BeginPlayTime will be 0 for regular spectator, for demo rec it will be close to GetWorld()->TimeSeconds
+	if (BeginPlayTime != 0.0f && GetWorld()->TimeSeconds - BeginPlayTime > 0.2)
+	{
+		ZoomTime = 0.0f;
+	}
+}
+
+void AUTWeapon::OnZoomedIn_Implementation()
+{
+	SetZoomState(EZoomState::EZS_Zoomed);
+}
+
+void AUTWeapon::OnZoomedOut_Implementation()
+{
+	SetZoomState(EZoomState::EZS_NotZoomed);
 }

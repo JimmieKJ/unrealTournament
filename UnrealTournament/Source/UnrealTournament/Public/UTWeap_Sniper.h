@@ -39,4 +39,6 @@ class UNREALTOURNAMENT_API AUTWeap_Sniper : public AUTWeapon
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL);
 
 	virtual float GetAISelectRating_Implementation() override;
+
+	virtual void OnRep_ZoomState_Implementation() override;
 };

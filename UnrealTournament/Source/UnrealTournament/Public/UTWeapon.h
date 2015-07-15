@@ -69,6 +69,34 @@ struct FDelayedHitScanInfo
 	{}
 };
 
+UENUM(BlueprintType)
+namespace EZoomState
+{
+	enum Type
+	{
+		EZS_NotZoomed,
+		EZS_ZoomingIn,
+		EZS_ZoomingOut,
+		EZS_Zoomed,
+	};
+}
+
+USTRUCT(BlueprintType)
+struct FZoomInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** FOV angle at start of zoom, or zero to start at the camera's default FOV */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	float StartFOV;
+	/** FOV angle at the end of the zoom, or zero to end at the camera's default FOV */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	float EndFOV;
+	/** time to reach EndFOV from StartFOV */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	float Time;
+};
+
 UCLASS(Blueprintable, Abstract, NotPlaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 {
@@ -841,4 +869,55 @@ public:
 	void FiringExtraUpdated(uint8 NewFlashExtra, uint8 InFireMode);
 	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
 	void FiringEffectsUpdated(uint8 InFireMode, FVector InFlashLocation);
+
+	//Zoom Stuff
+
+	/**Used to reset the ZoomTime*/
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_ZoomCount)
+	uint8 ZoomCount;
+	UFUNCTION()
+	virtual void OnRep_ZoomCount();
+
+	/**The state of the weapons zoom. Override OnRep_ZoomState to handle any state changes*/
+	UPROPERTY(BlueprintReadOnly, Category = Zoom, Replicated, ReplicatedUsing = OnRep_ZoomState)
+	TEnumAsByte<EZoomState::Type> ZoomState;
+	UFUNCTION(BlueprintNativeEvent)
+	void OnRep_ZoomState();
+
+	/**Current zoom mode. An index into ZoomModes array*/
+	UPROPERTY(BlueprintReadOnly, Category = Zoom, Replicated)
+	uint8 CurrentZoomMode;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	TArray<FZoomInfo> ZoomModes;
+
+	/**How long the weapon been zooming for*/
+	UPROPERTY(BlueprintReadOnly, Category = Zoom, Replicated)
+	float ZoomTime;
+
+	/**Sets a new zoom mode. Index into ZoomModes*/
+	UFUNCTION(BlueprintCallable, Category = Zoom)
+	virtual void SetZoomMode(uint8 NewZoomMode);
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetZoomMode(uint8 NewZoomMode);
+	virtual void LocalSetZoomMode(uint8 NewZoomMode);
+
+	/**Sets the zoom state*/
+	UFUNCTION(BlueprintCallable, Category = Zoom)
+	virtual void SetZoomState(TEnumAsByte<EZoomState::Type> NewZoomState);
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetZoomState(uint8 NewZoomState);
+	virtual void LocalSetZoomState(uint8 NewZoomState);
+
+	/**Called when the weapon has zoomed in as far as it can go. Default is ZoomStop()*/
+	UFUNCTION(BlueprintNativeEvent)
+	void OnZoomedIn();
+
+	/**Called when the weapon has zoomed all the way out. Default is EndZoom()*/
+	UFUNCTION(BlueprintNativeEvent)
+	void OnZoomedOut();
+
+	virtual void TickZoom(float DeltaTime);
+	float BeginPlayTime;
+
 };

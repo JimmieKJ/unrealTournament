@@ -198,3 +198,36 @@ float AUTWeap_Sniper::GetAISelectRating_Implementation()
 		}
 	}
 }
+
+void AUTWeap_Sniper::OnRep_ZoomState_Implementation()
+{
+	Super::OnRep_ZoomState_Implementation();
+
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UUTWeaponStateZooming* WeaponStateZooming = FiringState.IsValidIndex(1) ? Cast<UUTWeaponStateZooming>(FiringState[1]) : nullptr;
+		if (WeaponStateZooming != nullptr)
+		{
+			if (ZoomState == EZoomState::EZS_NotZoomed)
+			{
+				SetActorHiddenInGame(false);
+				WeaponStateZooming->ToggleZoomInSound(false);
+				UUTGameplayStatics::UTPlaySound(GetWorld(), WeaponStateZooming->ZoomOutSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+			}
+			else
+			{
+				SetActorHiddenInGame(true);
+
+				if (ZoomState == EZoomState::EZS_ZoomingIn)
+				{
+					WeaponStateZooming->ToggleZoomInSound(true);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), WeaponStateZooming->ZoomInSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+				}
+				else
+				{
+					WeaponStateZooming->ToggleZoomInSound(false);
+				}
+			}
+		}
+	}
+}

@@ -1893,6 +1893,13 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 	{
 		((AUTCharacter*)GetViewTarget())->BehindViewChange(this, bWantBehindView);
 	}
+
+	// make sure we don't have leftover zoom
+	if (bWantBehindView && PlayerCameraManager != NULL)
+	{
+		PlayerCameraManager->UnlockFOV();
+		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
+	}
 }
 
 bool AUTPlayerController::IsBehindView()
