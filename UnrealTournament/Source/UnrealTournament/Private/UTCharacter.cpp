@@ -427,7 +427,13 @@ void AUTCharacter::Restart()
 	// make sure equipped weapon state is synchronized
 	if (IsLocallyControlled())
 	{
-		if (PendingWeapon != NULL)
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+		if (PC != NULL && PC->IsInState(NAME_Inactive))
+		{
+			// respawning from dead, switch to best
+			PC->SwitchToBestWeapon();
+		}
+		else if (PendingWeapon != NULL)
 		{
 			SwitchWeapon(PendingWeapon);
 		}
@@ -2613,8 +2619,6 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	{
 		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
 	}
-
-	SwitchToBestWeapon();
 }
 
 bool AUTCharacter::CanDodge() const
