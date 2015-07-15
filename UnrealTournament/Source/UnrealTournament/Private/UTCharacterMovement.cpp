@@ -1345,7 +1345,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 		UTCharOwner->bApplyWallSlide = false;
 		if (bWantsWallSlide && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero())
 		{
-			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
+			FVector VelocityAlongWall = Velocity + FMath::Abs(Velocity | Impact.ImpactNormal) * Impact.ImpactNormal;
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
 			if (UTCharOwner->bApplyWallSlide && bCountWallSlides)
 			{
