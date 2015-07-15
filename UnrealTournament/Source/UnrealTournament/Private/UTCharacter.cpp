@@ -1205,6 +1205,14 @@ void AUTCharacter::AnnounceShred(AUTPlayerController *PC)
 
 void AUTCharacter::StartRagdoll()
 {
+	// force standing
+	UTCharacterMovement->UnCrouch(true);
+	if (RootComponent == GetMesh() && GetMesh()->IsSimulatingPhysics())
+	{
+		// UnCrouch() caused death
+		return;
+	}
+
 	// turn off any taccom  @TODO FIXMESTEVE - should be able to keep on, at least when feigning
 	UpdateTacComMesh(false);
 
