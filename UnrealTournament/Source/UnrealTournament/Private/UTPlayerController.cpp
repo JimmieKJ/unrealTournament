@@ -1628,6 +1628,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				if (Pickup->IsTaken(GetPawn()))
 				{
 					bTaken = true;
+					Pickup->TimerEffect->SetFloatParameter(NAME_Progress, 1.0f - Pickup->GetRespawnTimeOffset(GetPawn()) / Pickup->RespawnTime);
 				}
 				else
 				{
@@ -1651,6 +1652,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				if (Pickup->GetGhostDepthMesh() != NULL)
 				{
 					HiddenComponents.Add(Pickup->GetGhostDepthMesh()->ComponentId);
+				}
+				if (Pickup->TimerEffect != NULL)
+				{
+					HiddenComponents.Add(Pickup->TimerEffect->ComponentId);
 				}
 			}
 		}

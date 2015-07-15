@@ -7,8 +7,8 @@
 #include "UTPickupMessage.h"
 #include "UTWorldSettings.h"
 
-static FName NAME_Progress(TEXT("Progress"));
-static FName NAME_RespawnTime(TEXT("RespawnTime"));
+FName NAME_Progress(TEXT("Progress"));
+FName NAME_RespawnTime(TEXT("RespawnTime"));
 
 void AUTPickup::PostEditImport()
 {

@@ -168,6 +168,12 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 					{
 						BaseEffect->SetTemplate(BaseTemplateTaken);
 					}
+					if (TimerEffect != NULL)
+					{
+						TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
+						TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
+						TimerEffect->SetHiddenInGame(false);
+					}
 					PC->AddWeaponPickup(this);
 				}
 			}
