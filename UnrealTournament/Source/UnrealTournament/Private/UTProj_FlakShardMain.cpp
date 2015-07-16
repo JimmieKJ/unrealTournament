@@ -9,9 +9,9 @@
 AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	CenteredMomentumBonus = 180000.f;
+	CenteredMomentumBonus = 40000.f;
 	CenteredDamageBonus = 30.0f;
-	MaxBonusTime = 0.2f;
+	MaxBonusTime = 0.18f;
 	NumSatelliteShards = 3;
 }
 
@@ -61,9 +61,9 @@ FRadialDamageParams AUTProj_FlakShardMain::GetDamageParams_Implementation(AActor
 {
 	FRadialDamageParams CalculatedParams = Super::GetDamageParams_Implementation(OtherActor, HitLocation, OutMomentum);
 
-	// When hitting a pawn within bonus point blank time
+	// When hitting a pawn within bonus point blank time without a bounce
 	AUTCharacter* OtherCharacter = Cast<AUTCharacter>(OtherActor);
-	if (OtherCharacter  && (MaxBonusTime > 0.f))
+	if (OtherCharacter && (MaxBonusTime > 0.f))
 	{
 		const float BonusTime = (GetLifeSpan() - InitialLifeSpan + MaxBonusTime)/MaxBonusTime;
 		if (BonusTime > 0.0f)

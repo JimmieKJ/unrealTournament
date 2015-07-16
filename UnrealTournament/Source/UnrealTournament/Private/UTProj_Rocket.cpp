@@ -11,7 +11,7 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 {
 	DamageParams.BaseDamage = 100;
 	DamageParams.OuterRadius = 420.f;
-	Momentum = 150000.0f;
+	Momentum = 142500.0f;
 	InitialLifeSpan = 10.f;
 	ProjectileMovement->InitialSpeed = 2900.f;
 	ProjectileMovement->MaxSpeed = 2900.f;

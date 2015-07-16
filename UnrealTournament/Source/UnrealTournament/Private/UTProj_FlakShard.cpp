@@ -36,7 +36,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	// Damage
 	DamageParams.BaseDamage = 18.0f;
 	DamageParams.MinimumDamage = 5.0f;
-	Momentum = 30500.f;
+	Momentum = 20000.f;
 
 	DamageAttenuation = 5.0f;
 	DamageAttenuationDelay = 0.75f;
