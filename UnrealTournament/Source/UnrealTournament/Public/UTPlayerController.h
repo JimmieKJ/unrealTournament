@@ -835,7 +835,7 @@ public:
 		ClientShowMapVote();
 	}
 
-	virtual void ShowMenu()
+	virtual void ShowMenu() override
 	{
 		Super::ShowMenu();
 		OnStopFire();

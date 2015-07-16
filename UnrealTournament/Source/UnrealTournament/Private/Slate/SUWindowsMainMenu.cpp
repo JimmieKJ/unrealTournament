@@ -30,10 +30,20 @@
 
 #if !UE_SERVER
 
+#include "UserWidget.h"
+
 void SUWindowsMainMenu::CreateDesktop()
 {
 	bNeedToShowGamePanel = false;
 	SUTMenuBase::CreateDesktop();
+}
+
+SUWindowsMainMenu::~SUWindowsMainMenu()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
 }
 
 void SUWindowsMainMenu::SetInitialPanel()
@@ -459,9 +469,20 @@ FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, 
 
 FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	if (MenuButton.IsValid())
+	{
+		MenuButton->SetIsOpen(false);
+	}
 
-	ConsoleCommand(TEXT("start TUT-BasicTraining?timelimit=0"));
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
+	{
+		TutorialMenu = CreateWidget<UUserWidget>(PlayerOwner->GetWorld(), UTEngine->TutorialMenuClass);
+		if (TutorialMenu != NULL)
+		{
+			TutorialMenu->AddToViewport(0);
+		}
+	}
 	return FReply::Handled();
 }
 

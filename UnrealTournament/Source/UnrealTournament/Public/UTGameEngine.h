@@ -17,6 +17,11 @@ public:
 	/** default screenshot used for levels when none provided in the level itself */
 	UPROPERTY()
 	UTexture2D* DefaultLevelScreenshot;
+#if !UE_SERVER
+	/** tutorial menu class, here for cooking */
+	UPROPERTY()
+	TSubclassOf<class UUserWidget> TutorialMenuClass;
+#endif
 
 	UPROPERTY()
 	FText ReadEULACaption;
