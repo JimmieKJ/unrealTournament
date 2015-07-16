@@ -28,6 +28,7 @@
 #include "UTMutator.h"
 #include "UTRewardMessage.h"
 #include "StatNames.h"
+#include "UTGhostComponent.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -153,6 +154,8 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	bIsTranslocating = false;
 	LastTakeHitTime = -10000.0f;
 	LastTakeHitReplicatedTime = -10000.0f;
+
+	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
 }
 
 void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
@@ -1184,6 +1187,17 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		{
 			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
 		}
+
+		//Stop ghosts on death
+		if (GhostComponent->bGhostRecording)
+		{
+			GhostComponent->GhostStopRecording();
+		}
+		if (GhostComponent->bGhostPlaying)
+		{
+			GhostComponent->GhostStopPlaying();
+		}
+
 		return true;
 	}
 }
@@ -1845,6 +1859,11 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 	{
 		Weapon->StartFire(FireModeNum);
 	}
+
+	if (GhostComponent->bGhostRecording && !IsFiringDisabled())
+	{
+		GhostComponent->GhostStartFire(FireModeNum);
+	}
 }
 
 void AUTCharacter::StopFire(uint8 FireModeNum)
@@ -1864,6 +1883,11 @@ void AUTCharacter::StopFire(uint8 FireModeNum)
 	else
 	{
 		SetPendingFire(FireModeNum, false);
+	}
+
+	if (GhostComponent->bGhostRecording && !IsFiringDisabled())
+	{
+		GhostComponent->GhostStopFire(FireModeNum);
 	}
 }
 
@@ -2300,6 +2324,11 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 			LocalSwitchWeapon(NewWeapon);
 			ServerSwitchWeapon(NewWeapon);
 		}
+	}
+
+	if (GhostComponent->bGhostRecording && NewWeapon != nullptr)
+	{
+		GhostComponent->GhostSwitchWeapon(NewWeapon);
 	}
 }
 
@@ -4930,6 +4959,12 @@ void AUTCharacter::MovementEventUpdated(EMovementEvent MovementEventType, FVecto
 	if (IsLocallyViewed())
 	{
 		MovementEventReplicated();
+	}
+
+	//Add the event if recording a ghost
+	if (GhostComponent->bGhostRecording)
+	{
+		GhostComponent->GhostMovementEvent(MovementEvent);
 	}
 }
 

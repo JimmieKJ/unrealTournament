@@ -841,7 +841,22 @@ public:
 		OnStopFire();
 		OnStopAltFire();
 	}
+	
+	AUTCharacter* PreGhostChar;
 
+	/** When looking at a GhostCharacter, this will possess the GhostCharacter and begin recording */
+	UFUNCTION(exec)
+	virtual void GhostStart();
+
+	/** Stops the recording GhostCharacter */
+	UFUNCTION(exec)
+	virtual void GhostStop();
+
+	/** Plays the recording of the GhostCharacter you are looking at */
+	UFUNCTION(exec)
+	virtual void GhostPlay();
+
+	class AUTCharacter* GhostTrace();
 };
 
 

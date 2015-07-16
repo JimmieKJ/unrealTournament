@@ -237,6 +237,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 {
 	GENERATED_UCLASS_BODY()
 
+	friend class UUTGhostComponent;
 	friend void UUTCharacterMovement::PerformMovement(float DeltaSeconds);
 
 	virtual void SetBase(UPrimitiveComponent* NewBase, const FName BoneName = NAME_None, bool bNotifyActor = true) override;
@@ -1785,6 +1786,9 @@ public:
 	float OldZ;
 
 	virtual bool ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor) override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
+	class UUTGhostComponent* GhostComponent;
 };
 
 inline bool AUTCharacter::IsDead()

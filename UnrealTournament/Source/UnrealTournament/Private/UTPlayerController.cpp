@@ -31,6 +31,7 @@
 #include "UTHUDWidget_NetInfo.h"
 #include "UTWorldSettings.h"
 #include "Engine/DemoNetDriver.h"
+#include "UTGhostComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -3517,4 +3518,76 @@ void AUTPlayerController::ClearTokens()
 		}
 	}
 #endif
+}
+
+
+AUTCharacter* AUTPlayerController::GhostTrace()
+{
+	FVector CameraLoc;
+	FRotator CameraRot;
+	GetPlayerViewPoint(CameraLoc, CameraRot);
+	FHitResult Hit;
+	GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("GhostTrace")), true, GetUTCharacter()));
+
+	return Cast<AUTCharacter>(Hit.Actor.Get());
+}
+
+void AUTPlayerController::GhostStart()
+{
+	if (GetWorld()->WorldType == EWorldType::PIE && Role == ROLE_Authority)
+	{
+		AUTCharacter* HitChar = GhostTrace();
+		if (HitChar != nullptr && (HitChar->GetController() == nullptr || Cast<AAIController>(HitChar->GetController()) != nullptr))
+		{
+			if (HitChar->GhostComponent->bGhostPlaying)
+			{
+				HitChar->GhostComponent->GhostStopPlaying();
+			}
+			//Store our original char so we can switch back later
+			PreGhostChar = GetUTCharacter();
+
+			Possess(HitChar);
+			SetViewTarget(HitChar);
+			HitChar->GhostComponent->GhostStartRecording();
+		}
+	}
+}
+
+void AUTPlayerController::GhostStop()
+{
+	if (GetWorld()->WorldType == EWorldType::PIE && Role == ROLE_Authority)
+	{
+		AUTCharacter* UTC = GetUTCharacter();
+		if (UTC != nullptr && UTC->GhostComponent->bGhostRecording)
+		{
+			UTC->GhostComponent->GhostStopRecording();
+
+			//
+			if (PreGhostChar != nullptr)
+			{
+				Possess(PreGhostChar);
+				SetViewTarget(PreGhostChar);
+			}
+
+			//Give it a controller and move it back to its original position
+			UTC->SpawnDefaultController();
+			UTC->GhostComponent->GhostMoveToStart();
+		}
+	}
+}
+
+void AUTPlayerController::GhostPlay()
+{
+	if (GetWorld()->WorldType == EWorldType::PIE)
+	{
+		AUTCharacter* UTC = GhostTrace();
+		if (UTC != nullptr)
+		{
+			if (UTC->GhostComponent->bGhostPlaying)
+			{
+				UTC->GhostComponent->GhostStopPlaying();
+			}
+			UTC->GhostComponent->GhostStartPlaying();
+		}
+	}
 }
