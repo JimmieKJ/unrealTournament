@@ -430,8 +430,10 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 		float Alpha = TimeSlider->PositionToValue(TimeSliderGeometry, MouseEvent.GetScreenSpacePosition());
 		TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
 
-		ToolTipPos.X = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X;
-		ToolTipPos.Y = MyGeometry.AbsoluteToLocal(TimeSliderGeometry.LocalToAbsolute(FVector2D(0.0f, 0.0f))).Y;
+		//need to scale the position like we are doing for the whole widget
+		float Scale = MyGeometry.Size.X / 1920.0f;
+		ToolTipPos.X = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X / Scale;
+		ToolTipPos.Y = MyGeometry.AbsoluteToLocal(TimeSliderGeometry.LocalToAbsolute(FVector2D(0.0f, 0.0f))).Y / Scale;
 	}
 
 	return FReply::Unhandled();
@@ -520,6 +522,24 @@ FText SUTReplayWindow::GetTooltipText() const
 EVisibility SUTReplayWindow::GetVis() const
 {
 	return PlayerOwner->AreMenusOpen() ? EVisibility::Hidden : EVisibility::SelfHitTestInvisible;
+}
+
+void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
+{
+	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
+	if (ArrangedChildren.Accepts(ChildVisibility))
+	{
+		FVector2D DesiredSize = FVector2D(1920.0f, 1080.0f);
+		FVector2D ActualGeometrySize = AllottedGeometry.Size * AllottedGeometry.Scale;
+		float Scale = 1.0f;
+		if (AllottedGeometry.Size != DesiredSize)
+		{
+			//Scale to fit the width of the screen
+			Scale = AllottedGeometry.Size.X / DesiredSize.X;
+			DesiredSize = ActualGeometrySize / Scale;
+		}
+		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild(ChildSlot.GetWidget(), FVector2D(0.0f, 0.0f), DesiredSize, Scale));
+	}
 }
 
 #endif

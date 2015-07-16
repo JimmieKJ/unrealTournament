@@ -28,6 +28,7 @@ class UNREALTOURNAMENT_API SUTReplayWindow : public SCompoundWidget
 	}
 
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
 
 protected:
 
