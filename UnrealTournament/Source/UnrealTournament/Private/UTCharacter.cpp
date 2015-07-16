@@ -784,7 +784,6 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			// Let the game Score damage if it wants to
 			// make sure not to count overkill damage!
 			Game->ScoreDamage(ResultDamage + FMath::Min<int32>(Health, 0), Controller, EventInstigator);
-
 			bool bIsSelfDamage = (EventInstigator == Controller && Controller != NULL);
 			if (UTDamageTypeCDO != NULL)
 			{
@@ -804,15 +803,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					}
 				}
 			}
-			// if Z impulse is low enough and currently walking, remove Z impulse to prevent switch to falling physics, preventing lockdown effects
-			else if (GetCharacterMovement()->MovementMode == MOVE_Walking && ((UTDamageTypeCDO != NULL && UTDamageTypeCDO->bPreventWalkingZMomentum) || ResultMomentum.Z < ResultMomentum.Size() * 0.1f))
-			{
-				ResultMomentum.Z = 0.0f;
-			}
+
 			if (IsRagdoll())
 			{
 				// intentionally always apply to root because that replicates better
-				GetMesh()->AddImpulseAtLocation(ResultMomentum, GetMesh()->GetComponentLocation());
+				GetMesh()->AddImpulseAtLocation(1.1f*ResultMomentum, GetMesh()->GetComponentLocation());
 			}
 			else if (UTCharacterMovement != NULL)
 			{
@@ -894,7 +889,7 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 }
 bool AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
-	if (!DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld)
+	if (DamageType && !DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld)
 	{
 		Damage *= DamageScaling;
 	}
