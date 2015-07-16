@@ -388,17 +388,20 @@ FReply SUTReplayWindow::OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, 
 
 bool SUTReplayWindow::MouseClickHUD()
 {
-	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-	if (PC && PC->MyUTHUD)
+	if (GetVis() != EVisibility::Hidden)
 	{
-		FVector2D MousePosition;
-		if (GetGameMousePosition(MousePosition))
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		if (PC && PC->MyUTHUD)
 		{
-			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
-			if (SpectatorWidget)
+			FVector2D MousePosition;
+			if (GetGameMousePosition(MousePosition))
 			{
-				SpectatorWidget->SetMouseInteractive(true);
-				return SpectatorWidget->MouseClick(MousePosition);
+				UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+				if (SpectatorWidget)
+				{
+					SpectatorWidget->SetMouseInteractive(true);
+					return SpectatorWidget->MouseClick(MousePosition);
+				}
 			}
 		}
 	}
@@ -423,17 +426,20 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 	}
 
 	//Update the tooltip if the mouse is over the slider
-	const FGeometry TimeSliderGeometry = FindChildGeometry(MyGeometry, TimeSlider.ToSharedRef());
-	bDrawTooltip = TimeSliderGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
-	if (bDrawTooltip)
+	if (GetVis() != EVisibility::Hidden)
 	{
-		float Alpha = TimeSlider->PositionToValue(TimeSliderGeometry, MouseEvent.GetScreenSpacePosition());
-		TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
+		const FGeometry TimeSliderGeometry = FindChildGeometry(MyGeometry, TimeSlider.ToSharedRef());
+		bDrawTooltip = TimeSliderGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
+		if (bDrawTooltip)
+		{
+			float Alpha = TimeSlider->PositionToValue(TimeSliderGeometry, MouseEvent.GetScreenSpacePosition());
+			TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
 
-		//need to scale the position like we are doing for the whole widget
-		float Scale = MyGeometry.Size.X / 1920.0f;
-		ToolTipPos.X = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X / Scale;
-		ToolTipPos.Y = MyGeometry.AbsoluteToLocal(TimeSliderGeometry.LocalToAbsolute(FVector2D(0.0f, 0.0f))).Y / Scale;
+			//need to scale the position like we are doing for the whole widget
+			float Scale = MyGeometry.Size.X / 1920.0f;
+			ToolTipPos.X = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X / Scale;
+			ToolTipPos.Y = MyGeometry.AbsoluteToLocal(TimeSliderGeometry.LocalToAbsolute(FVector2D(0.0f, 0.0f))).Y / Scale;
+		}
 	}
 
 	return FReply::Unhandled();
@@ -521,7 +527,7 @@ FText SUTReplayWindow::GetTooltipText() const
 
 EVisibility SUTReplayWindow::GetVis() const
 {
-	return PlayerOwner->AreMenusOpen() ? EVisibility::Hidden : EVisibility::SelfHitTestInvisible;
+	return PlayerOwner->AreMenusOpen() ? EVisibility::Hidden : EVisibility::Visible;
 }
 
 void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
