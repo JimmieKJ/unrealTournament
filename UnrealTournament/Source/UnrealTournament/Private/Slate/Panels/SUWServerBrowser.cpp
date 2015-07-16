@@ -1176,6 +1176,17 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			}
 		}
 
+		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
+		{
+			UE_LOG(UT,Log,TEXT("Received a list of %i Internet Servers....."), PingList.Num());
+			for (int32 i=0;i<PingList.Num();i++)
+			{
+				UE_LOG(UT,Log,TEXT("Received Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
+			}
+			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
+		}
+
+
 		AddGameFilters();
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
@@ -1226,9 +1237,6 @@ void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 			}
 			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 		}
-
-		// If a server exists in either of the lists but not in the PingList, then let's kill it.
-		ExpireDeadServers();
 
 		if (OnlineSubsystem)
 		{
@@ -1476,7 +1484,7 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 	// Only trusted servers can be training grounds.  TODO: Move this to the MCP.
 	if ( ServerTrustLevel >0 ) ServerIsTrainingGround = 0;
 
-	if ( bIsBeginner != (ServerIsTrainingGround == 1))
+	if ( !bIsBeginner && ServerIsTrainingGround == 1 )
 	{
 		return;
 	}
