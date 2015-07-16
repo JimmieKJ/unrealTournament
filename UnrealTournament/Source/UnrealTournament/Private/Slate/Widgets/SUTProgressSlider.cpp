@@ -120,7 +120,7 @@ int32 SUTProgressSlider::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 	
 	for (int i = 0; i < CurrentBookmarks.Num(); i++)
 	{
-		const float MarkerHandleOffset = CurrentBookmarks[i] * SliderLength;
+		const float MarkerHandleOffset = CurrentBookmarks[i].Time * SliderLength;
 		FVector2D MarkerSize(6, 12);
 		FVector2D MarkerHalfSize = MarkerSize / 2;
 		FVector2D MarkerTopLeftPoint = FVector2D(MarkerHandleOffset - MarkerHalfSize.X + 0.5f * Indentation, 0.5f * AllottedHeight - MarkerHalfSize.Y);
@@ -131,7 +131,7 @@ int32 SUTProgressSlider::OnPaint(const FPaintArgs& Args, const FGeometry& Allott
 			&Style->NormalThumbImage,
 			RotatedClippingRect,
 			DrawEffects,
-			CurrentBookmarkColor * InWidgetStyle.GetColorAndOpacityTint()
+			CurrentBookmarks[i].Color * InWidgetStyle.GetColorAndOpacityTint()
 			);
 	}
 

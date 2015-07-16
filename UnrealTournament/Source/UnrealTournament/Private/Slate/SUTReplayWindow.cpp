@@ -652,44 +652,67 @@ void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArra
 
 void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	TArray<float> Bookmarks;
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+	FBookmarkTimeAndColor TimeAndColor;
 	SelectedBookmark->SetText(FText::FromString(*NewSelection));
 	if (*NewSelection == TEXT("Bookmarks"))
 	{
 		// clear bookmarks
-		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+		TimeSlider->SetBookmarks(Bookmarks);
 	}
 	else if (*NewSelection == TEXT("Kills"))
 	{
+		TimeAndColor.Color = FLinearColor::Red;
 		for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
 		{
-			Bookmarks.Add(KillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+			TimeAndColor.Time = KillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			Bookmarks.Add(TimeAndColor);
 		}
-		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+		TimeSlider->SetBookmarks(Bookmarks);
 	}
 	else if (*NewSelection == TEXT("Flag Captures"))
 	{
 		for (int32 EventsIdx = 0; EventsIdx < FlagCapEvents.Num(); EventsIdx++)
 		{
-			Bookmarks.Add(FlagCapEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+			if (FlagCapEvents[EventsIdx].meta == TEXT("0"))
+			{
+				TimeAndColor.Color = FLinearColor::Red;
+			}
+			else
+			{
+				TimeAndColor.Color = FLinearColor::Blue;
+			}
+			TimeAndColor.Time = FlagCapEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			Bookmarks.Add(TimeAndColor);
 		}
-		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+		TimeSlider->SetBookmarks(Bookmarks);
 	}
 	else if (*NewSelection == TEXT("Flag Denies"))
 	{
 		for (int32 EventsIdx = 0; EventsIdx < FlagDenyEvents.Num(); EventsIdx++)
 		{
-			Bookmarks.Add(FlagDenyEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+			if (FlagDenyEvents[EventsIdx].meta == TEXT("0"))
+			{
+				TimeAndColor.Color = FLinearColor::Red;
+			}
+			else
+			{
+				TimeAndColor.Color = FLinearColor::Blue;
+			}
+			TimeAndColor.Time = FlagDenyEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			Bookmarks.Add(TimeAndColor);
 		}
-		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+		TimeSlider->SetBookmarks(Bookmarks);
 	}
 	else if (*NewSelection == TEXT("Multi Kills"))
 	{
+		TimeAndColor.Color = FLinearColor::Yellow;
 		for (int32 EventsIdx = 0; EventsIdx < MultiKillEvents.Num(); EventsIdx++)
 		{
-			Bookmarks.Add(MultiKillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+			TimeAndColor.Time = MultiKillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			Bookmarks.Add(TimeAndColor);
 		}
-		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+		TimeSlider->SetBookmarks(Bookmarks);
 	}
 }
 

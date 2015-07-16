@@ -5,6 +5,12 @@
 
 #if !UE_SERVER
 
+struct FBookmarkTimeAndColor
+{
+	float Time;
+	FLinearColor Color;
+};
+
 /**
 * A combination of a slider and progressbar. Used for the replay window
 * Allows OnValueChanged() to only be called on mouse up,  DeferValue = true
@@ -112,12 +118,10 @@ public:
 	float MarkStart;
 	float MarkEnd;
 
-	TArray<float> CurrentBookmarks;
-	FLinearColor CurrentBookmarkColor;
-	void SetBookmarks(TArray<float> InBookmarkTimes, FLinearColor BookmarkColors)
+	TArray<FBookmarkTimeAndColor> CurrentBookmarks;
+	void SetBookmarks(TArray<FBookmarkTimeAndColor> InBookmarks)
 	{
-		CurrentBookmarks = InBookmarkTimes;
-		CurrentBookmarkColor = BookmarkColors;
+		CurrentBookmarks = InBookmarks;
 	}
 
 	/**
