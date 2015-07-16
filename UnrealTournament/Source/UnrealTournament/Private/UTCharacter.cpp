@@ -3144,9 +3144,6 @@ void AUTCharacter::UpdateCharOverlays()
 			{
 				static FName NAME_TeamColor(TEXT("TeamColor"));
 				MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-
-				static FName NAME_Damage(TEXT("Damage"));
-				MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
 			}
 			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 			{
@@ -3349,6 +3346,15 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (BodyColorFlashCurve != NULL)
 	{
 		UpdateBodyColorFlash(DeltaTime);
+	}
+	if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
+	{
+		UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+		if (MID != NULL)
+		{
+			static FName NAME_Damage(TEXT("Damage"));
+			MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
+		}
 	}
 
 	// tick ragdoll recovery
