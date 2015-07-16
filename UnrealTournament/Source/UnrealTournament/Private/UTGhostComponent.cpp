@@ -221,7 +221,7 @@ void UUTGhostComponent::GhostStopPlaying()
 		bGhostPlaying = false;
 		UTOwner->Role = OldRole;
 
-		GhostMoveToStart();
+		OnGhostPlayFinished.Broadcast();
 		PrimaryComponentTick.SetTickFunctionEnable(false);
 	}
 }

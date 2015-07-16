@@ -8,6 +8,8 @@
 //TODOTIM: Make all these into objects that they can be derriveed from in BP
 // Modders should be able to create their own Ghost events and push them into the recording
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGhostPlayFinishedDelegate);
+
 USTRUCT(BlueprintType)
 struct FGhostBase
 {
@@ -105,6 +107,9 @@ public:
 	bool bGhostRecording;
 	UPROPERTY(BlueprintReadOnly, Category = Ghost)
 	bool bGhostPlaying;
+
+	UPROPERTY(BlueprintAssignable)
+	FGhostPlayFinishedDelegate OnGhostPlayFinished;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
 	TArray<FGhostMove> GhostMoves;
