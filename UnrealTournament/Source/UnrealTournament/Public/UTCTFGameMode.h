@@ -75,6 +75,8 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 	void BuildServerResponseRules(FString& OutRules);
 
+	void AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo* Team);
+	void AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team);
 protected:
 
 	virtual void HandleMatchHasStarted();

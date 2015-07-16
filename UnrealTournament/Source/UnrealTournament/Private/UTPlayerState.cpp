@@ -180,6 +180,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			{
 				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
 			}
+
+			AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (GM)
+			{
+				GM->AddMultiKillEventToReplay(MyPC);
+			}
 		}
 		else
 		{

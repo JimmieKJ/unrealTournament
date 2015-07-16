@@ -71,16 +71,23 @@ protected:
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
 
-	void KillsEnumerated(const FString& JsonString, bool bSucceeded);
-
-	struct FKillEvent
+	struct FBookmarkEvent
 	{
 		FString id;
 		FString meta;
 		float time;
 	};
 
-	TArray<FKillEvent> KillEvents;
+	void KillsEnumerated(const FString& JsonString, bool bSucceeded);
+	void FlagCapsEnumerated(const FString& JsonString, bool bSucceeded);
+	void FlagDenyEnumerated(const FString& JsonString, bool bSucceeded);
+	void MultiKillsEnumerated(const FString& JsonString, bool bSucceeded);
+	void ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray);
+
+	TArray<FBookmarkEvent> KillEvents;
+	TArray<FBookmarkEvent> FlagCapEvents;
+	TArray<FBookmarkEvent> FlagDenyEvents;
+	TArray<FBookmarkEvent> MultiKillEvents;
 
 	bool bDrawTooltip;
 	float TooltipTime;

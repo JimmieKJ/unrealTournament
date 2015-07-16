@@ -264,45 +264,76 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	DemoNetDriver->EnumerateEvents(TEXT("Kills"), EnumKills);
 }
 
+void SUTReplayWindow::ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray)
+{
+	//UE_LOG(UT, Log, TEXT("%s"), *JsonString);
+	BookmarkArray.Empty();
+
+	TSharedPtr<FJsonObject> JsonObject;
+	TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(JsonString);
+
+	if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
+	{
+		const TArray<TSharedPtr<FJsonValue>>* Events;
+		if (JsonObject->TryGetArrayField(TEXT("events"), Events))
+		{
+			for (int32 EventsIdx = 0; EventsIdx < Events->Num(); EventsIdx++)
+			{
+				FBookmarkEvent BookmarkEvent;
+				const TSharedPtr<FJsonValue>& EventJsonValue = (*Events)[EventsIdx];
+				EventJsonValue->AsObject()->TryGetStringField(TEXT("id"), BookmarkEvent.id);
+				EventJsonValue->AsObject()->TryGetStringField(TEXT("meta"), BookmarkEvent.meta);
+				int32 TimeTemp;
+				EventJsonValue->AsObject()->TryGetNumberField(TEXT("time1"), TimeTemp);
+
+				// time was in ms, should be in seconds
+				BookmarkEvent.time = TimeTemp / 1000.0f;
+
+				BookmarkArray.Add(BookmarkEvent);
+			}
+		}
+	}
+}
+
 void SUTReplayWindow::KillsEnumerated(const FString& JsonString, bool bSucceeded)
 {
-	KillEvents.Empty();
-
 	if (bSucceeded)
 	{
-		//UE_LOG(UT, Log, TEXT("%s"), *JsonString);
-		TSharedPtr<FJsonObject> KillsJson;
-		TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(JsonString);
+		ParseJsonIntoBookmarkArray(JsonString, KillEvents);
+	}
 
-		if (FJsonSerializer::Deserialize(JsonReader, KillsJson) && KillsJson.IsValid())
-		{
-			const TArray<TSharedPtr<FJsonValue>>* Events;
-			if (KillsJson->TryGetArrayField(TEXT("events"), Events))
-			{
-				for (int32 EventsIdx = 0; EventsIdx < Events->Num(); EventsIdx++)
-				{
-					FKillEvent KillEvent;
-					const TSharedPtr<FJsonValue>& EventJsonValue = (*Events)[EventsIdx];
-					EventJsonValue->AsObject()->TryGetStringField(TEXT("id"), KillEvent.id);
-					EventJsonValue->AsObject()->TryGetStringField(TEXT("meta"), KillEvent.meta);
-					int32 TimeTemp;
-					EventJsonValue->AsObject()->TryGetNumberField(TEXT("time1"), TimeTemp);
+	FEnumerateEventsCompleteDelegate EnumFlagCaps = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagCapsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("FlagCaps"), EnumFlagCaps);
+}
 
-					// time was in ms, should be in seconds
-					KillEvent.time = TimeTemp / 1000.0f;
 
-					KillEvents.Add(KillEvent);
-				}
-			}
+void SUTReplayWindow::FlagCapsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, FlagCapEvents);
+	}
 
-			// @debug
-			TArray<float> Bookmarks;
-			for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
-			{
-				Bookmarks.Add(KillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
-			}
-			TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
-		}
+	FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagDenyEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("FlagDeny"), EnumFlagDeny);
+}
+
+void SUTReplayWindow::FlagDenyEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, FlagDenyEvents);
+	}
+
+	FEnumerateEventsCompleteDelegate EnumMultiKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::MultiKillsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("MultiKills"), EnumMultiKills);
+}
+
+void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, MultiKillEvents);
 	}
 }
 
