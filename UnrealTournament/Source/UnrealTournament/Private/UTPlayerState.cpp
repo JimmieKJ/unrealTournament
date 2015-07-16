@@ -133,6 +133,19 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 			P->NotifyTeamChanged();
 		}
 	}
+	// HACK: remember last team player got on the URL for travelling purposes
+	if (Team != NULL)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC != NULL)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+			if (LP != NULL)
+			{
+				LP->SetDefaultURLOption(TEXT("Team"), FString::FromInt(Team->TeamIndex));
+			}
+		}
+	}
 }
 
 void AUTPlayerState::SetWaitingPlayer(bool B)

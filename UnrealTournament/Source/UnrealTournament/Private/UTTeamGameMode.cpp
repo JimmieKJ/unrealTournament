@@ -159,7 +159,7 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 					}
 				}
 
-				if (bBalanceTeams)
+				if (bBalanceTeams && (PS->Team != NULL || HasMatchStarted() || GetMatchState() == MatchState::CountdownToBegin))
 				{
 					for (int32 i = 0; i < Teams.Num(); i++)
 					{
@@ -271,6 +271,34 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 	}
 
 	return BestTeams[FMath::RandHelper(BestTeams.Num())]->TeamIndex;
+}
+
+void AUTTeamGameMode::HandleCountdownToBegin()
+{
+	// we ignore balancing when applying players' URL specified value during prematch
+	// make sure we're balanced now before the game begins
+	if (bBalanceTeams)
+	{
+		TArray<AUTTeamInfo*> SortedTeams = UTGameState->Teams;
+		SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
+
+		for (int32 i = 0; i < SortedTeams.Num() - 1; i++)
+		{
+			if (SortedTeams[i]->GetSize() > 1)
+			{
+				for (int32 j = i + 1; j < SortedTeams.Num(); j++)
+				{
+					if (SortedTeams[i]->GetSize() > SortedTeams[j]->GetSize() + 1)
+					{
+						ChangeTeam(SortedTeams[i]->GetTeamMembers()[0], j);
+						SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
+					}
+				}
+			}
+		}
+	}
+
+	Super::HandleCountdownToBegin();
 }
 
 void AUTTeamGameMode::CheckBotCount()
