@@ -34,6 +34,7 @@
 #include "UTWeap_ImpactHammer.h"
 #include "UTWeap_Translocator.h"
 #include "UTWeap_Enforcer.h"
+#include "Engine/DemoNetDriver.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1174,9 +1175,36 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		}
 	}
 
+	AddKillEventToReplay(Killer, Other, DamageType);
+
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
+	}
+}
+
+void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		AUTPlayerState* OtherPlayerState = Cast<AUTPlayerState>(Other->PlayerState);
+		TArray<uint8> Data;
+		FString KillInfo = FString::Printf(TEXT("%s %s %s"),
+											KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"),
+											OtherPlayerState ? *OtherPlayerState->PlayerName : TEXT("None"),
+											*DamageType->GetName());
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
+
+		FString MetaTag = KillerPlayerState->StatsID;
+		if (MetaTag.IsEmpty())
+		{
+			MetaTag = KillerPlayerState->PlayerName;
+		}
+		DemoNetDriver->AddEvent(TEXT("Kills"), MetaTag, Data);
 	}
 }
 

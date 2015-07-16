@@ -112,6 +112,14 @@ public:
 	float MarkStart;
 	float MarkEnd;
 
+	TArray<float> CurrentBookmarks;
+	FLinearColor CurrentBookmarkColor;
+	void SetBookmarks(TArray<float> InBookmarkTimes, FLinearColor BookmarkColors)
+	{
+		CurrentBookmarks = InBookmarkTimes;
+		CurrentBookmarkColor = BookmarkColors;
+	}
+
 	/**
 	* Calculates the new value based on the given absolute coordinates.
 	*

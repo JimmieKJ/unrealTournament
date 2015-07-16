@@ -71,6 +71,17 @@ protected:
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
 
+	void KillsEnumerated(const FString& JsonString, bool bSucceeded);
+
+	struct FKillEvent
+	{
+		FString id;
+		FString meta;
+		float time;
+	};
+
+	TArray<FKillEvent> KillEvents;
+
 	bool bDrawTooltip;
 	float TooltipTime;
 	FVector2D ToolTipPos;

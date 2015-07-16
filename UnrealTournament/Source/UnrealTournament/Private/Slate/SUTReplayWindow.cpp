@@ -12,6 +12,7 @@
 #include "UTPlayerState.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Engine/DemoNetDriver.h"
+#include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "UTVideoRecordingFeature.h"
 #include "SceneViewport.h"
@@ -257,6 +258,51 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 		RecordButton->SetVisibility(EVisibility::Hidden);
 		MarkStartButton->SetVisibility(EVisibility::Hidden);
 		MarkEndButton->SetVisibility(EVisibility::Hidden);
+	}
+
+	FEnumerateEventsCompleteDelegate EnumKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::KillsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("Kills"), EnumKills);
+}
+
+void SUTReplayWindow::KillsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	KillEvents.Empty();
+
+	if (bSucceeded)
+	{
+		//UE_LOG(UT, Log, TEXT("%s"), *JsonString);
+		TSharedPtr<FJsonObject> KillsJson;
+		TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(JsonString);
+
+		if (FJsonSerializer::Deserialize(JsonReader, KillsJson) && KillsJson.IsValid())
+		{
+			const TArray<TSharedPtr<FJsonValue>>* Events;
+			if (KillsJson->TryGetArrayField(TEXT("events"), Events))
+			{
+				for (int32 EventsIdx = 0; EventsIdx < Events->Num(); EventsIdx++)
+				{
+					FKillEvent KillEvent;
+					const TSharedPtr<FJsonValue>& EventJsonValue = (*Events)[EventsIdx];
+					EventJsonValue->AsObject()->TryGetStringField(TEXT("id"), KillEvent.id);
+					EventJsonValue->AsObject()->TryGetStringField(TEXT("meta"), KillEvent.meta);
+					int32 TimeTemp;
+					EventJsonValue->AsObject()->TryGetNumberField(TEXT("time1"), TimeTemp);
+
+					// time was in ms, should be in seconds
+					KillEvent.time = TimeTemp / 1000.0f;
+
+					KillEvents.Add(KillEvent);
+				}
+			}
+
+			// @debug
+			TArray<float> Bookmarks;
+			for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
+			{
+				Bookmarks.Add(KillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+			}
+			TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+		}
 	}
 }
 
