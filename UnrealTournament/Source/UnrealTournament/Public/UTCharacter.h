@@ -1522,6 +1522,8 @@ public:
 	UFUNCTION()
 	virtual AUTCarriedObject* GetCarriedObject();
 
+	virtual float GetLastRenderTime() const override;
+
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
 
 	/** returns true if any local PlayerController is viewing this Pawn */

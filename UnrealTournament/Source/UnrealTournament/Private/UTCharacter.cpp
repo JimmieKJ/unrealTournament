@@ -3133,6 +3133,7 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->RegisterComponent();
 				OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
 				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+				OverlayMesh->SetRenderCustomDepth(true);
 			}
 			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
 			// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
@@ -3180,6 +3181,7 @@ void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
 	}
 
 	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
 	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
 }
 
@@ -3546,6 +3548,21 @@ void AUTCharacter::Tick(float DeltaTime)
 	{
 	UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
+}
+
+float AUTCharacter::GetLastRenderTime() const
+{
+	// ignore special effects (e.g. overlay) using CustomDepth as they will render through walls and we don't want to count them if we can avoid it
+	float LastRenderTime = -1000.f;
+	for (const UActorComponent* ActorComponent : GetComponents())
+	{
+		const UPrimitiveComponent* PrimComp = Cast<const UPrimitiveComponent>(ActorComponent);
+		if (PrimComp != NULL && PrimComp->IsRegistered() && (!PrimComp->bRenderCustomDepth || PrimComp == GetMesh()))
+		{
+			LastRenderTime = FMath::Max(LastRenderTime, PrimComp->LastRenderTime);
+		}
+	}
+	return LastRenderTime;
 }
 
 bool AUTCharacter::IsInWater() const
