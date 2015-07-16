@@ -195,6 +195,29 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
 										]
 									]
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
+									[
+										SAssignNew(BookmarksComboBox, SComboBox< TSharedPtr<FString> >)
+										.InitiallySelectedItem(0)
+										.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+										.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+										.OptionsSource(&BookmarkNameList)
+										.OnGenerateWidget(this, &SUTReplayWindow::GenerateStringListWidget)
+										.OnSelectionChanged(this, &SUTReplayWindow::OnBookmarkSetSelected)
+										.Content()
+										[
+											SNew(SHorizontalBox)
+											+ SHorizontalBox::Slot()
+											.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+											[
+												SAssignNew(SelectedBookmark, STextBlock)
+												.Text(FText::FromString(TEXT("Bookmarks")))
+												.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+											]
+										]
+									]
 								]
 							]
 							//Play / Pause button
@@ -335,6 +358,8 @@ void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucc
 	{
 		ParseJsonIntoBookmarkArray(JsonString, MultiKillEvents);
 	}
+
+	RefreshBookmarksComboBox();
 }
 
 FText SUTReplayWindow::GetTimeText() const
@@ -623,6 +648,89 @@ void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArra
 		}
 		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild(ChildSlot.GetWidget(), FVector2D(0.0f, 0.0f), DesiredSize, Scale));
 	}
+}
+
+void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	TArray<float> Bookmarks;
+	SelectedBookmark->SetText(FText::FromString(*NewSelection));
+	if (*NewSelection == TEXT("Bookmarks"))
+	{
+		// clear bookmarks
+		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+	}
+	else if (*NewSelection == TEXT("Kills"))
+	{
+		for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
+		{
+			Bookmarks.Add(KillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+		}
+		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+	}
+	else if (*NewSelection == TEXT("Flag Captures"))
+	{
+		for (int32 EventsIdx = 0; EventsIdx < FlagCapEvents.Num(); EventsIdx++)
+		{
+			Bookmarks.Add(FlagCapEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+		}
+		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+	}
+	else if (*NewSelection == TEXT("Flag Denies"))
+	{
+		for (int32 EventsIdx = 0; EventsIdx < FlagDenyEvents.Num(); EventsIdx++)
+		{
+			Bookmarks.Add(FlagDenyEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+		}
+		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+	}
+	else if (*NewSelection == TEXT("Multi Kills"))
+	{
+		for (int32 EventsIdx = 0; EventsIdx < MultiKillEvents.Num(); EventsIdx++)
+		{
+			Bookmarks.Add(MultiKillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime);
+		}
+		TimeSlider->SetBookmarks(Bookmarks, FLinearColor::Red);
+	}
+}
+
+void SUTReplayWindow::RefreshBookmarksComboBox()
+{
+	BookmarkNameList.Empty();
+	TSharedPtr<FString> DefaultVariant = MakeShareable(new FString(TEXT("Bookmarks")));
+	BookmarkNameList.Add(DefaultVariant);
+	BookmarksComboBox->SetSelectedItem(DefaultVariant);
+
+	if (KillEvents.Num())
+	{
+		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Kills")));
+		BookmarkNameList.Add(Kills);
+	}
+	if (FlagCapEvents.Num())
+	{
+		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Flag Captures")));
+		BookmarkNameList.Add(Kills);
+	}
+	if (FlagDenyEvents.Num())
+	{
+		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Flag Denies")));
+		BookmarkNameList.Add(Kills);
+	}
+	if (MultiKillEvents.Num())
+	{
+		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Multi Kills")));
+		BookmarkNameList.Add(Kills);
+	}
+}
+
+TSharedRef<SWidget> SUTReplayWindow::GenerateStringListWidget(TSharedPtr<FString> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(*InItem.Get()))
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		];
 }
 
 #endif

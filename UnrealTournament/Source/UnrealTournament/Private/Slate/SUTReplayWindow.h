@@ -45,6 +45,15 @@ protected:
 	TSharedPtr<class SButton> MarkEndButton;
 	TSharedPtr<class SBorder> TimeBar;
 
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > BookmarksComboBox;
+	TArray<TSharedPtr<FString>> BookmarkNameList;
+	TSharedPtr<STextBlock> SelectedBookmark;
+	void OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void RefreshBookmarksComboBox();
+	FString BookmarkFocusPlayer;
+	/** utility to generate a simple text widget for list and combo boxes given a string value */
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+
 	//Time remaining to auto hide the time bar
 	float HideTimeBarTime;
 	FLinearColor GetTimeBarColor() const;
@@ -70,7 +79,7 @@ protected:
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
-
+	
 	struct FBookmarkEvent
 	{
 		FString id;
