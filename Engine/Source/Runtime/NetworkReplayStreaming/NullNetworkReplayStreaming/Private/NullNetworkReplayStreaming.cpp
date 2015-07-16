@@ -372,6 +372,16 @@ void FNullNetworkReplayStreamer::AddUserToReplay(const FString& UserString)
 	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::AddUserToReplay is currently unsupported."));
 }
 
+void FNullNetworkReplayStreamer::AddEvent( const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data )
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::AddEvent is currently unsupported."));
+}
+
+void FNullNetworkReplayStreamer::EnumerateEvents( const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate )
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::EnumerateEvents is currently unsupported."));
+}
+
 FArchive* FNullNetworkReplayStreamer::GetCheckpointArchive()
 {
 	// If the archive is null, and the API is being used properly, the caller is writing a checkpoint...

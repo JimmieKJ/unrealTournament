@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Runtime/Online/HTTP/Public/Interfaces/IHttpRequest.h"
+#include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
 #include "DemoNetDriver.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN( LogDemo, Log, All );
@@ -135,6 +137,8 @@ public:
 	void ResetDemoState();
 	void JumpToEndOfLiveReplay();
 	virtual bool IsFastForwarding() { return bIsFastForwarding; }
+	void AddEvent(const FString& Group, const FString& Meta, const TArray<uint8>& Data);
+	void EnumerateEvents(const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate);
 
 	/**
 	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)
