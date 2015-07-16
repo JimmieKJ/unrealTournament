@@ -171,4 +171,6 @@ private:
 	/**Returns the index of the FClickElement the mouse is under. -1 for none*/
 	int32 MouseHitTest(FVector2D Position);
 	FKey NumberToKey(int32 InNumber);
+
+	void UpdateCameraBindOffset(float& DrawOffset, float& XOffset, bool& bOverflow, float StartOffset, float& EndCamOffset);
 };
