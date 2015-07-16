@@ -207,6 +207,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 							.ContentPadding(FMargin(4.0f, 4.0f, 4.0f, 4.0f))
 							.OnClicked(this, &SUWWeaponConfigDialog::WeaponPriorityUp)
+							.IsEnabled(this, &SUWWeaponConfigDialog::CanMoveWeaponPriorityUp)
 							[
 								SNew(SImage)
 								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.UpArrow"))
@@ -228,6 +229,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 							.ContentPadding(FMargin(4.0f, 4.0f, 4.0f, 4.0f))
 							.OnClicked(this, &SUWWeaponConfigDialog::WeaponPriorityDown)
+							.IsEnabled(this, &SUWWeaponConfigDialog::CanMoveWeaponPriorityDown)
 							[
 								SNew(SImage)
 								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.DownArrow"))
@@ -377,6 +379,34 @@ FReply SUWWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 		CancelClick();
 	}
 	return FReply::Handled();
+}
+
+bool SUWWeaponConfigDialog::CanMoveWeaponPriorityUp() const
+{
+	auto SelectedItems = WeaponPriorities->GetSelectedItems();
+	if (SelectedItems.Num() > 0)
+	{
+		int32 Index = WeaponList.Find(SelectedItems[0]);
+		if (Index != INDEX_NONE && Index != 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool SUWWeaponConfigDialog::CanMoveWeaponPriorityDown() const
+{
+	auto SelectedItems = WeaponPriorities->GetSelectedItems();
+	if (SelectedItems.Num() > 0)
+	{
+		int32 Index = WeaponList.Find(SelectedItems[0]);
+		if (Index != INDEX_NONE && Index < WeaponList.Num() - 1)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 #endif

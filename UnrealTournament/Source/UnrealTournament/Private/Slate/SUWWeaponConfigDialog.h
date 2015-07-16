@@ -49,5 +49,8 @@ public:
 	{
 		Collector.AddReferencedObjects(WeaponList);
 	}
+
+	bool CanMoveWeaponPriorityUp() const;
+	bool CanMoveWeaponPriorityDown() const;
 };
 #endif
