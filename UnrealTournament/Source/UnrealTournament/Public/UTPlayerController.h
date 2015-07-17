@@ -835,12 +835,8 @@ public:
 		ClientShowMapVote();
 	}
 
-	virtual void ShowMenu() override
-	{
-		Super::ShowMenu();
-		OnStopFire();
-		OnStopAltFire();
-	}
+	/** Make sure no firing and scoreboard hidden before bringing up menu. */
+	virtual void ShowMenu() override;
 	
 	AUTCharacter* PreGhostChar;
 

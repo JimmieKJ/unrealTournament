@@ -2000,6 +2000,15 @@ void AUTPlayerController::ShowEndGameScoreboard()
 	}
 }
 
+void AUTPlayerController::ShowMenu()
+{
+	ToggleScoreboard(false);
+	Super::ShowMenu();
+	OnStopFire();
+	OnStopAltFire();
+}
+
+
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
 {
 	// remove any FOV shifts when changing targets (e.g. sniper zoom)
