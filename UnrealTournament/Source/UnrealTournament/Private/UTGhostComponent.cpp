@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTGhostComponent.h"
+#include "UTGhostData.h"
 
 
 UUTGhostComponent::UUTGhostComponent()
@@ -9,6 +10,8 @@ UUTGhostComponent::UUTGhostComponent()
 	bWantsBeginPlay = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
+	GhostData = nullptr;
+	GhostDataClass = nullptr;
 }
 
 void UUTGhostComponent::BeginPlay()
@@ -22,112 +25,114 @@ void UUTGhostComponent::TickComponent( float DeltaTime, ELevelTick TickType, FAc
 {
 	Super::TickComponent( DeltaTime, TickType, ThisTickFunction );
 
-
-	if (bGhostPlaying)
+	if (GhostData != nullptr)
 	{
-		float CurrentTime = GetWorld()->TimeSeconds - GhostStartTime;
-
-		//TODOTIM: All these gross loops should be unrolled into one based class loop
-
-		while (GhostMoves.IsValidIndex(GhostMoveIndex) && GhostMoves[GhostMoveIndex].Time < CurrentTime)
+		if (bGhostPlaying)
 		{
-			//Copy over the RepMovement so SimulatedMove can play it
-			UTOwner->UTReplicatedMovement = GhostMoves[GhostMoveIndex].RepMovement;
-			UTOwner->OnRep_UTReplicatedMovement();
+			float CurrentTime = GetWorld()->TimeSeconds - GhostStartTime;
 
-			//Set the movement flags
-			if (UTOwner->UTCharacterMovement != nullptr)
+			//TODOTIM: All these gross loops should be unrolled into one based class loop
+
+			while (GhostData->GhostMoves.IsValidIndex(GhostMoveIndex) && GhostData->GhostMoves[GhostMoveIndex].Time < CurrentTime)
 			{
-				UTOwner->UTCharacterMovement->UpdateFromCompressedFlags(GhostMoves[GhostMoveIndex].CompressedFlags);
-				UTOwner->OnRepFloorSliding();
+				//Copy over the RepMovement so SimulatedMove can play it
+				UTOwner->UTReplicatedMovement = GhostData->GhostMoves[GhostMoveIndex].RepMovement;
+				UTOwner->OnRep_UTReplicatedMovement();
 
-				UTOwner->bIsCrouched = GhostMoves[GhostMoveIndex].bIsCrouched;
-				UTOwner->OnRep_IsCrouched();
-				UTOwner->bApplyWallSlide = GhostMoves[GhostMoveIndex].bApplyWallSlide;
-
-			}
-
-			//Rotate the controller so weapon fire is in the right direction
-			if (UTOwner->GetController() != nullptr)
-			{
-				UTOwner->GetController()->SetControlRotation(UTOwner->UTReplicatedMovement.Rotation);
-			}
-
-			GhostMoveIndex++;
-		}
-
-		while (GhostEvents.IsValidIndex(GhostEventIndex) && GhostEvents[GhostEventIndex].Time < CurrentTime)
-		{
-			UTOwner->MovementEvent = GhostEvents[GhostEventIndex].MovementEvent;
-			UTOwner->MovementEventReplicated();
-
-			GhostEventIndex++;
-		}
-
-		while (GhostInputs.IsValidIndex(GhostInputIndex) && GhostInputs[GhostInputIndex].Time < CurrentTime)
-		{
-			if (UTOwner->Weapon != nullptr)
-			{
-				for (int32 FireBit = 0; FireBit < sizeof(uint8) * 8; FireBit++)
+				//Set the movement flags
+				if (UTOwner->UTCharacterMovement != nullptr)
 				{
-					uint8 OldBit = (GhostFireFlags >> FireBit) & 1;
-					uint8 NewBit = (GhostInputs[GhostInputIndex].FireFlags >> FireBit) & 1;
-					if (NewBit != OldBit)
+					UTOwner->UTCharacterMovement->UpdateFromCompressedFlags(GhostData->GhostMoves[GhostMoveIndex].CompressedFlags);
+					UTOwner->OnRepFloorSliding();
+
+					UTOwner->bIsCrouched = GhostData->GhostMoves[GhostMoveIndex].bIsCrouched;
+					UTOwner->OnRep_IsCrouched();
+					UTOwner->bApplyWallSlide = GhostData->GhostMoves[GhostMoveIndex].bApplyWallSlide;
+
+				}
+
+				//Rotate the controller so weapon fire is in the right direction
+				if (UTOwner->GetController() != nullptr)
+				{
+					UTOwner->GetController()->SetControlRotation(UTOwner->UTReplicatedMovement.Rotation);
+				}
+
+				GhostMoveIndex++;
+			}
+
+			while (GhostData->GhostEvents.IsValidIndex(GhostEventIndex) && GhostData->GhostEvents[GhostEventIndex].Time < CurrentTime)
+			{
+				UTOwner->MovementEvent = GhostData->GhostEvents[GhostEventIndex].MovementEvent;
+				UTOwner->MovementEventReplicated();
+
+				GhostEventIndex++;
+			}
+
+			while (GhostData->GhostInputs.IsValidIndex(GhostInputIndex) && GhostData->GhostInputs[GhostInputIndex].Time < CurrentTime)
+			{
+				if (UTOwner->Weapon != nullptr)
+				{
+					for (int32 FireBit = 0; FireBit < sizeof(uint8) * 8; FireBit++)
 					{
-						if (NewBit == 1)
+						uint8 OldBit = (GhostFireFlags >> FireBit) & 1;
+						uint8 NewBit = (GhostData->GhostInputs[GhostInputIndex].FireFlags >> FireBit) & 1;
+						if (NewBit != OldBit)
 						{
-							UTOwner->Weapon->BeginFiringSequence(FireBit, true);
-						}
-						else
-						{
-							UTOwner->Weapon->EndFiringSequence(FireBit);
+							if (NewBit == 1)
+							{
+								UTOwner->Weapon->BeginFiringSequence(FireBit, true);
+							}
+							else
+							{
+								UTOwner->Weapon->EndFiringSequence(FireBit);
+							}
 						}
 					}
+					GhostFireFlags = GhostData->GhostInputs[GhostInputIndex].FireFlags;
 				}
-				GhostFireFlags = GhostInputs[GhostInputIndex].FireFlags;
+				GhostInputIndex++;
 			}
-			GhostInputIndex++;
-		}
 
-		while (GhostWeapons.IsValidIndex(GhostWeaponIndex) && GhostWeapons[GhostWeaponIndex].Time < CurrentTime)
-		{
-			TSubclassOf<AUTWeapon> NewWeaponClass = GhostWeapons[GhostWeaponIndex].WeaponClass;
-			if (NewWeaponClass != nullptr)
+			while (GhostData->GhostWeapons.IsValidIndex(GhostWeaponIndex) && GhostData->GhostWeapons[GhostWeaponIndex].Time < CurrentTime)
 			{
-				//AUTInventory* Existing = P->FindInventoryType(NewWeaponClass, true);
-				//if (Existing == NULL || !Existing->StackPickup(NULL))
-				//{
-				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
-				Params.Instigator = UTOwner;
-				AUTWeapon* NewWeapon = GetWorld()->SpawnActor<AUTWeapon>(NewWeaponClass, UTOwner->GetActorLocation(), UTOwner->GetActorRotation(), Params);
-
-				//Give infinite ammo and instant switch speed to avoid any syncing issues
-				for (int32 i = 0; i < NewWeapon->AmmoCost.Num(); i++)
+				TSubclassOf<AUTWeapon> NewWeaponClass = GhostData->GhostWeapons[GhostWeaponIndex].WeaponClass;
+				if (NewWeaponClass != nullptr)
 				{
-					NewWeapon->AmmoCost[i] = 0;
+					//AUTInventory* Existing = P->FindInventoryType(NewWeaponClass, true);
+					//if (Existing == NULL || !Existing->StackPickup(NULL))
+					//{
+					FActorSpawnParameters Params;
+					Params.bNoCollisionFail = true;
+					Params.Instigator = UTOwner;
+					AUTWeapon* NewWeapon = GetWorld()->SpawnActor<AUTWeapon>(NewWeaponClass, UTOwner->GetActorLocation(), UTOwner->GetActorRotation(), Params);
+
+					//Give infinite ammo and instant switch speed to avoid any syncing issues
+					for (int32 i = 0; i < NewWeapon->AmmoCost.Num(); i++)
+					{
+						NewWeapon->AmmoCost[i] = 0;
+					}
+					NewWeapon->BringUpTime = 0.0f;
+					NewWeapon->PutDownTime = 0.0f;
+
+					UTOwner->AddInventory(NewWeapon, true);
+					UTOwner->SwitchWeapon(NewWeapon);
+					//}
 				}
-				NewWeapon->BringUpTime = 0.0f;
-				NewWeapon->PutDownTime = 0.0f;
-
-				UTOwner->AddInventory(NewWeapon, true);
-				UTOwner->SwitchWeapon(NewWeapon);
-				//}
+				GhostWeaponIndex++;
 			}
-			GhostWeaponIndex++;
-		}
 
-		if (!GhostMoves.IsValidIndex(GhostMoveIndex) &&
-			!GhostEvents.IsValidIndex(GhostEventIndex) &&
-			!GhostInputs.IsValidIndex(GhostInputIndex) &&
-			!GhostWeapons.IsValidIndex(GhostWeaponIndex))
-		{
-			GhostStopPlaying();
+			if (!GhostData->GhostMoves.IsValidIndex(GhostMoveIndex) &&
+				!GhostData->GhostEvents.IsValidIndex(GhostEventIndex) &&
+				!GhostData->GhostInputs.IsValidIndex(GhostInputIndex) &&
+				!GhostData->GhostWeapons.IsValidIndex(GhostWeaponIndex))
+			{
+				GhostStopPlaying();
+			}
 		}
-	}
-	else if (bGhostRecording)
-	{
-		GhostMove();
+		else if (bGhostRecording)
+		{
+			GhostMove();
+		}
 	}
 }
 
@@ -137,18 +142,27 @@ void UUTGhostComponent::GhostStartRecording()
 {
 	if (UTOwner->Role == ROLE_Authority && !bGhostRecording)
 	{
-		GhostMoves.Empty();
-		GhostEvents.Empty();
-		GhostInputs.Empty();
-		GhostWeapons.Empty();
-		bGhostRecording = true;
-		GhostStartTime = GetWorld()->TimeSeconds;
-		GhostFireFlags = 0;
-		PrimaryComponentTick.SetTickFunctionEnable(true);
-
-		if (UTOwner->Weapon != nullptr)
+		//load the data from a derrived BP class
+		if (GhostData == nullptr && GhostDataClass != nullptr)
 		{
-			GhostWeapons.Add(FGhostWeapon(GetWorld()->TimeSeconds - GhostStartTime, UTOwner->Weapon->GetClass()));
+			GhostData = NewObject<UUTGhostData>(this, GhostDataClass);
+		}
+
+		if (GhostData != nullptr)
+		{
+			GhostData->GhostMoves.Empty();
+			GhostData->GhostEvents.Empty();
+			GhostData->GhostInputs.Empty();
+			GhostData->GhostWeapons.Empty();
+			bGhostRecording = true;
+			GhostStartTime = GetWorld()->TimeSeconds;
+			GhostFireFlags = 0;
+			PrimaryComponentTick.SetTickFunctionEnable(true);
+
+			if (UTOwner->Weapon != nullptr)
+			{
+				GhostData->GhostWeapons.Add(FGhostWeapon(GetWorld()->TimeSeconds - GhostStartTime, UTOwner->Weapon->GetClass()));
+			}
 		}
 	}
 }
@@ -161,34 +175,14 @@ void UUTGhostComponent::GhostStopRecording()
 		PrimaryComponentTick.SetTickFunctionEnable(false);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		//Save the Samples to the editor actor if PIE
-		if (GetWorld()->WorldType == EWorldType::PIE && UTOwner->Role == ROLE_Authority)
+		//Save directly to the default object. The asset will still need to be saved
+		if (GhostDataClass != nullptr)
 		{
-			auto Worlds = GEngine->GetWorldContexts();
-			for (FWorldContext& WorldCtx : Worlds)
-			{
-				if (WorldCtx.WorldType == EWorldType::Editor && WorldCtx.World() != nullptr)
-				{
-					int32 NumLevels = WorldCtx.World()->GetNumLevels();
-					for (int32 i = 0; i < NumLevels; i++)
-					{
-						ULevel* Level = WorldCtx.World()->GetLevel(i);
-						for (AActor* Actor : Level->Actors)
-						{
-							AUTCharacter* LevelCharacter = Cast<AUTCharacter>(Actor);
-							if (LevelCharacter != nullptr && LevelCharacter->GetName() == UTOwner->GetName())
-							{
-								//TODOTIM: Look into making ghost data into asset BP's that can be viewed in content browser
-								//so they can be assigned to characters that are spawned on the fly
-								LevelCharacter->GhostComponent->GhostMoves = GhostMoves;
-								LevelCharacter->GhostComponent->GhostEvents = GhostEvents;
-								LevelCharacter->GhostComponent->GhostInputs = GhostInputs;
-								LevelCharacter->GhostComponent->GhostWeapons = GhostWeapons;
-							}
-						}
-					}
-				}
-			}
+			UUTGhostData* DefaultGhostData = GhostDataClass.GetDefaultObject();
+			DefaultGhostData->GhostMoves = GhostData->GhostMoves;
+			DefaultGhostData->GhostEvents = GhostData->GhostEvents;
+			DefaultGhostData->GhostInputs = GhostData->GhostInputs;
+			DefaultGhostData->GhostWeapons = GhostData->GhostWeapons;
 		}
 #endif
 	}
@@ -196,7 +190,13 @@ void UUTGhostComponent::GhostStopRecording()
 
 void UUTGhostComponent::GhostStartPlaying()
 {
-	if (!bGhostRecording && !bGhostPlaying && GhostMoves.Num() > 0)
+	//load the data from a derrived BP class
+	if (GhostData == nullptr && GhostDataClass != nullptr)
+	{
+		GhostData = NewObject<UUTGhostData>(this, GhostDataClass);
+	}
+
+	if (!bGhostRecording && !bGhostPlaying && GhostData != nullptr && GhostData->GhostMoves.Num() > 0)
 	{
 		bGhostPlaying = true;
 		GhostStartTime = GetWorld()->TimeSeconds;
@@ -228,16 +228,16 @@ void UUTGhostComponent::GhostStopPlaying()
 
 void UUTGhostComponent::GhostMoveToStart()
 {
-	if (GhostMoves.Num() > 0)
+	if (GhostData != nullptr && GhostData->GhostMoves.Num() > 0)
 	{
-		UTOwner->SetActorLocation(GhostMoves[0].RepMovement.Location);
+		UTOwner->SetActorLocation(GhostData->GhostMoves[0].RepMovement.Location);
 	}
 }
 
 void UUTGhostComponent::GhostMove()
 {
 	//TODOTIM: Don't add a move per tick. Only add if necessary
-	if (UTOwner->UTCharacterMovement != nullptr)
+	if (UTOwner->UTCharacterMovement != nullptr && GhostData != nullptr)
 	{
 		FGhostMove NewTick;
 		NewTick.Time = GetWorld()->TimeSeconds - GhostStartTime;
@@ -252,41 +252,41 @@ void UUTGhostComponent::GhostMove()
 		FakeMove.SetMoveFor(UTOwner, 0, FVector(0.0f), FakePredict);
 		NewTick.CompressedFlags = FakeMove.GetCompressedFlags();
 
-		GhostMoves.Add(NewTick);
+		GhostData->GhostMoves.Add(NewTick);
 	}
 }
 
 void UUTGhostComponent::GhostStartFire(uint8 FireModeNum)
 {
-	if (bGhostRecording)
+	if (bGhostRecording && GhostData != nullptr)
 	{
 		GhostFireFlags |= (1 << FireModeNum);
 		//UE_LOG(UT, Warning, TEXT("GhostFireFlags = %d"), GhostComponent->GhostFireFlags);
-		GhostInputs.Add(FGhostInput(GetWorld()->TimeSeconds - GhostStartTime, GhostFireFlags));
+		GhostData->GhostInputs.Add(FGhostInput(GetWorld()->TimeSeconds - GhostStartTime, GhostFireFlags));
 	}
 }
 void UUTGhostComponent::GhostStopFire(uint8 FireModeNum)
 {
-	if (bGhostRecording)
+	if (bGhostRecording && GhostData != nullptr)
 	{
 		GhostFireFlags &= ~(1 << FireModeNum);
 		//UE_LOG(UT, Warning, TEXT("GhostFireFlags = %d"), GhostFireFlags);
-		GhostInputs.Add(FGhostInput(GetWorld()->TimeSeconds - GhostStartTime, GhostFireFlags));
+		GhostData->GhostInputs.Add(FGhostInput(GetWorld()->TimeSeconds - GhostStartTime, GhostFireFlags));
 	}
 }
 
 void UUTGhostComponent::GhostSwitchWeapon(AUTWeapon* NewWeapon)
 {
-	if (bGhostRecording && NewWeapon != nullptr)
+	if (bGhostRecording && NewWeapon != nullptr && GhostData != nullptr)
 	{
-		GhostWeapons.Add(FGhostWeapon(GetWorld()->TimeSeconds - GhostStartTime, NewWeapon->GetClass()));
+		GhostData->GhostWeapons.Add(FGhostWeapon(GetWorld()->TimeSeconds - GhostStartTime, NewWeapon->GetClass()));
 	}
 }
 
 void UUTGhostComponent::GhostMovementEvent(const FMovementEventInfo& MovementEvent)
 {
-	if (bGhostRecording)
+	if (bGhostRecording && GhostData != nullptr)
 	{
-		GhostEvents.Add(FGhostEvent(GetWorld()->TimeSeconds - GhostStartTime, MovementEvent));
+		GhostData->GhostEvents.Add(FGhostEvent(GetWorld()->TimeSeconds - GhostStartTime, MovementEvent));
 	}
 }
