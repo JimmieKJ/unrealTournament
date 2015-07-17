@@ -81,7 +81,10 @@ void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, F
 		}
 	}
 	SetActorLocation(HitLocation);
-	PerformCombo(InstigatedBy, DamageCauser);
+	if (bUsingClientSideHits)
+	{
+		PerformCombo(InstigatedBy, DamageCauser);
+	}
 }
 
 void AUTProj_ShockBall::PerformCombo(class AController* InstigatedBy, class AActor* DamageCauser)
