@@ -211,7 +211,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	FFormatNamedArguments Args;
 	Args.Add("GameName", FText::AsCultureInvariant(GameName));
 	Args.Add("MapName", FText::AsCultureInvariant(MapName));
-	FText GameMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{GameName} on {MapName}"), Args);
+	FText GameMessage = FText::Format(NSLOCTEXT("UTScoreboard", "ScoreboardHeader", "{GameName} in {MapName}"), Args);
 	DrawText(GameMessage, 220, YOffset + 36.f, UTHUDOwner->MediumFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
 
 	DrawGameOptions(RenderDelta, YOffset);
