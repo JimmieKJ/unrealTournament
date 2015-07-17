@@ -307,49 +307,52 @@ void AUTPickupInventory::Reset_Implementation()
 
 void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 {
-	if (Mesh != NULL)
+	if (GetNetMode() != NM_DedicatedServer)
 	{
-		if (GhostMesh != NULL)
+		if (Mesh != NULL)
 		{
-			Mesh->SetRenderInMainPass(!bNowHidden);
-			Mesh->SetRenderCustomDepth(bNowHidden);
-			Mesh->CastShadow = !bNowHidden;
-			for (USceneComponent* Child : Mesh->AttachChildren)
+			if (GhostMesh != NULL)
 			{
-				Child->SetVisibility(!bNowHidden, true);
+				Mesh->SetRenderInMainPass(!bNowHidden);
+				Mesh->SetRenderCustomDepth(bNowHidden);
+				Mesh->CastShadow = !bNowHidden;
+				for (USceneComponent* Child : Mesh->AttachChildren)
+				{
+					Child->SetVisibility(!bNowHidden, true);
+				}
+				GhostMesh->SetVisibility(bNowHidden, true);
 			}
-			GhostMesh->SetVisibility(bNowHidden, true);
+			else
+			{
+				Mesh->SetHiddenInGame(bNowHidden, true);
+				Mesh->SetVisibility(!bNowHidden, true);
+			}
+
+			// toggle audio components
+			TArray<USceneComponent*> Children;
+			Mesh->GetChildrenComponents(true, Children);
+			for (int32 i = 0; i < Children.Num(); i++)
+			{
+				UAudioComponent* AC = Cast<UAudioComponent>(Children[i]);
+				if (AC != NULL)
+				{
+					if (bNowHidden)
+					{
+						AC->Stop();
+					}
+					else
+					{
+						AC->Play();
+					}
+				}
+			}
+			// if previously there was no InventoryType or no Mesh then the whole Actor might have been hidden
+			SetActorHiddenInGame(false);
 		}
 		else
 		{
-			Mesh->SetHiddenInGame(bNowHidden, true);
-			Mesh->SetVisibility(!bNowHidden, true);
+			Super::SetPickupHidden(bNowHidden);
 		}
-		
-		// toggle audio components
-		TArray<USceneComponent*> Children;
-		Mesh->GetChildrenComponents(true, Children);
-		for (int32 i = 0; i < Children.Num(); i++)
-		{
-			UAudioComponent* AC = Cast<UAudioComponent>(Children[i]);
-			if (AC != NULL)
-			{
-				if (bNowHidden)
-				{
-					AC->Stop();
-				}
-				else
-				{
-					AC->Play();
-				}
-			}
-		}
-		// if previously there was no InventoryType or no Mesh then the whole Actor might have been hidden
-		SetActorHiddenInGame(false);
-	}
-	else
-	{
-		Super::SetPickupHidden(bNowHidden);
 	}
 }
 
