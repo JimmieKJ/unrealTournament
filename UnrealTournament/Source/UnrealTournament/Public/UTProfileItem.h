@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "EngineBuildSettings.h"
+
 #include "UTProfileItem.generated.h"
 
 USTRUCT()
@@ -98,9 +100,15 @@ public:
 	/** returns whether this item grants access to the object with the specified path */
 	inline bool Grants(const FString& Path, int32 VariantId = 0) const
 	{
+#if !UE_BUILD_SHIPPING
+		if (!FEngineBuildSettings::IsInternalBuild())
+		{
+			return false;
+		}
 		FString BPClassPath = Path + TEXT("_C");
 		return GrantedCosmeticItems.ContainsByPredicate([&](const FCosmeticEntry& TestItem) { return TestItem.VariantId == VariantId && (TestItem.Item.ToString() == Path || TestItem.Item.ToString() == BPClassPath); }) ||
 			GrantedCharacters.ContainsByPredicate([&](const FStringClassReference& TestItem) { return TestItem.ToString() == Path || TestItem.ToString() == BPClassPath; }) ||
 			GrantedBots.ContainsByPredicate([&](const FStringAssetReference& TestItem) { return TestItem.ToString().Contains(Path); });
+#endif
 	}
 };

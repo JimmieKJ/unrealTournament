@@ -35,6 +35,7 @@
 #include "UTWeap_Translocator.h"
 #include "UTWeap_Enforcer.h"
 #include "Engine/DemoNetDriver.h"
+#include "EngineBuildSettings.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1522,6 +1523,11 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 void AUTGameMode::AwardProfileItems()
 {
+#if !UE_BUILD_SHIPPING
+	if (!FEngineBuildSettings::IsInternalBuild())
+	{
+		return;
+	}
 	// TODO: temporarily profile item giveaway for testing
 	// give item to highest scoring player
 	APlayerState* Best = NULL;
@@ -1554,6 +1560,7 @@ void AUTGameMode::AwardProfileItems()
 			}
 		}
 	}
+#endif
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
