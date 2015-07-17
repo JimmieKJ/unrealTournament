@@ -338,6 +338,17 @@ void SUTReplayWindow::FlagCapsEnumerated(const FString& JsonString, bool bSuccee
 		ParseJsonIntoBookmarkArray(JsonString, FlagCapEvents);
 	}
 
+	FEnumerateEventsCompleteDelegate EnumFlagReturns = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagReturnsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("FlagReturns"), EnumFlagReturns);
+}
+
+void SUTReplayWindow::FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, FlagReturnEvents);
+	}
+
 	FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagDenyEnumerated);
 	DemoNetDriver->EnumerateEvents(TEXT("FlagDeny"), EnumFlagDeny);
 }
@@ -499,6 +510,10 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 		else if (SelectedBookmark->GetText().ToString() == TEXT("Spree Kills"))
 		{
 			OnSpreeKillBookmarksSelected();
+		}
+		else if (SelectedBookmark->GetText().ToString() == TEXT("Flag Returns"))
+		{
+			OnFlagReturnsBookmarksSelected();
 		}
 	}
 
@@ -811,6 +826,36 @@ void SUTReplayWindow::OnSpreeKillBookmarksSelected()
 	TimeSlider->SetBookmarks(Bookmarks);
 }
 
+void SUTReplayWindow::OnFlagReturnsBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (FlagReturnEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+
+	FString FilterID = GetSpectatedPlayerID();
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Yellow;
+	for (int32 EventsIdx = 0; EventsIdx < FlagReturnEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != FlagReturnEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = FlagReturnEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
 void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	TArray<FBookmarkTimeAndColor> Bookmarks;
@@ -859,6 +904,10 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 		}
 		TimeSlider->SetBookmarks(Bookmarks);
 	}
+	else if (*NewSelection == TEXT("Flag Returns"))
+	{
+		OnFlagReturnsBookmarksSelected();
+	}
 	else if (*NewSelection == TEXT("Multi Kills"))
 	{
 		OnMultiKillBookmarksSelected();
@@ -889,6 +938,11 @@ void SUTReplayWindow::RefreshBookmarksComboBox()
 	if (FlagDenyEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Denies")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+	if (FlagReturnEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Returns")));
 		BookmarkNameList.Add(BookmarkName);
 	}
 	if (MultiKillEvents.Num())

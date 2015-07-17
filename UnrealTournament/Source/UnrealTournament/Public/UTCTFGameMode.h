@@ -76,6 +76,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	void BuildServerResponseRules(FString& OutRules);
 
 	void AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo* Team);
+	void AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team);
 	void AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team);
 protected:
 

@@ -56,6 +56,7 @@ protected:
 	void OnKillBookmarksSelected();
 	void OnMultiKillBookmarksSelected();
 	void OnSpreeKillBookmarksSelected();
+	void OnFlagReturnsBookmarksSelected();
 	FString GetSpectatedPlayerID();
 
 	//Time remaining to auto hide the time bar
@@ -94,6 +95,7 @@ protected:
 
 	void KillsEnumerated(const FString& JsonString, bool bSucceeded);
 	void FlagCapsEnumerated(const FString& JsonString, bool bSucceeded);
+	void FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded);
 	void FlagDenyEnumerated(const FString& JsonString, bool bSucceeded);
 	void MultiKillsEnumerated(const FString& JsonString, bool bSucceeded);
 	void SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded);
@@ -102,6 +104,7 @@ protected:
 	TArray<FBookmarkEvent> KillEvents;
 	TArray<FBookmarkEvent> FlagCapEvents;
 	TArray<FBookmarkEvent> FlagDenyEvents;
+	TArray<FBookmarkEvent> FlagReturnEvents;
 	TArray<FBookmarkEvent> MultiKillEvents;
 	TArray<FBookmarkEvent> SpreeKillEvents;
 

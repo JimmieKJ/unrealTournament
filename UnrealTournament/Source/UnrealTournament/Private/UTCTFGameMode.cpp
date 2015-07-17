@@ -216,6 +216,26 @@ void AUTCTFGameMode::AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo
 	}
 }
 
+void AUTCTFGameMode::AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (Returner && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		TArray<uint8> Data;
+		FString ReturnInfo = FString::Printf(TEXT("%s"), Returner ? *Returner->PlayerName : TEXT("None"));
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*ReturnInfo), ReturnInfo.Len() + 1);
+
+		FString MetaTag = Returner->StatsID;
+		if (MetaTag.IsEmpty())
+		{
+			MetaTag = Returner->PlayerName;
+		}
+		DemoNetDriver->AddEvent(TEXT("FlagReturns"), MetaTag, Data);
+	}
+}
+
 void AUTCTFGameMode::AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team)
 {
 	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;

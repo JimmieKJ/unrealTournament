@@ -92,6 +92,12 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		//UE_LOG(UT, Warning, TEXT("Flag Return %s score %d"), *ScorerPS->PlayerName, Points);
 		ScorerPS->ModifyStatsValue(NAME_FlagReturnPoints, Points);
 		ScorerPS->ModifyStatsValue(NAME_DefenderScore, Points);
+		
+		AUTCTFGameMode* GM = GetWorld()->GetAuthGameMode<AUTCTFGameMode>();
+		if (GM)
+		{
+			GM->AddReturnEventToReplay(ScorerPS, ScorerPS->Team);
+		}
 	}
 	else if (Reason == FName("FlagCapture"))
 	{
