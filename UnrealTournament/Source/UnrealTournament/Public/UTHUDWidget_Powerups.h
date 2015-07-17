@@ -10,7 +10,6 @@ class UNREALTOURNAMENT_API UUTHUDWidget_Powerups : public UUTHUDWidget
 
 public:
 	virtual void Draw_Implementation(float DeltaTime);
-	virtual void InitializeWidget(AUTHUD* Hud);
 
 protected:
 
@@ -29,4 +28,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text TimeText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	float ScaleFactor;
 };
