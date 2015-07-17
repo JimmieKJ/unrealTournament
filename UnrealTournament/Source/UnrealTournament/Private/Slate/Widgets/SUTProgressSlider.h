@@ -32,6 +32,7 @@ public:
 		, _OnMouseCaptureEnd()
 		, _OnValueChanged()
 		, _DeferValue(true)
+		, _TotalValue(1.f)
 	{ }
 
 	/** Whether the slidable area should be indented to fit the handle. */
@@ -69,6 +70,9 @@ public:
 
 		/** If true, don't update value until the mouse is released */
 		SLATE_ATTRIBUTE(bool, DeferValue)
+
+		/** The total length of the progress bar. */
+		SLATE_ATTRIBUTE(float, TotalValue)
 
 		SLATE_END_ARGS()
 
@@ -172,6 +176,9 @@ private:
 
 	// Holds a flag indicating whether the value is updated on mousemove or mouse up.
 	TAttribute<bool> DeferValueAttribute;
+
+	// Holds the slider's total length.
+	TAttribute<float> TotalValueAttribute;
 
 	// Is the slider being manipulated by the mouse
 	bool bSliding;

@@ -122,6 +122,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(TimeSlider, SUTProgressSlider)
 							.Value(this, &SUTReplayWindow::GetTimeSlider)
+							.TotalValue(this, &SUTReplayWindow::GetTimeSliderLength)
 							.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
 							.SliderBarColor(FColor(33, 93, 220))
 							.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
@@ -404,6 +405,16 @@ float SUTReplayWindow::GetTimeSlider() const
 	return SliderPos;
 }
 
+float SUTReplayWindow::GetTimeSliderLength() const
+{
+	if (DemoNetDriver.IsValid() && DemoNetDriver->DemoTotalTime > 0.0f)
+	{
+		return DemoNetDriver->DemoTotalTime;
+	}
+
+	return 1.0f;
+}
+
 void SUTReplayWindow::OnSetSpeedSlider(float NewValue)
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
@@ -665,7 +676,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 		TimeAndColor.Color = FLinearColor::Red;
 		for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
 		{
-			TimeAndColor.Time = KillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			TimeAndColor.Time = KillEvents[EventsIdx].time;
 			Bookmarks.Add(TimeAndColor);
 		}
 		TimeSlider->SetBookmarks(Bookmarks);
@@ -682,7 +693,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 			{
 				TimeAndColor.Color = FLinearColor::Blue;
 			}
-			TimeAndColor.Time = FlagCapEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			TimeAndColor.Time = FlagCapEvents[EventsIdx].time;
 			Bookmarks.Add(TimeAndColor);
 		}
 		TimeSlider->SetBookmarks(Bookmarks);
@@ -699,7 +710,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 			{
 				TimeAndColor.Color = FLinearColor::Blue;
 			}
-			TimeAndColor.Time = FlagDenyEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			TimeAndColor.Time = FlagDenyEvents[EventsIdx].time;
 			Bookmarks.Add(TimeAndColor);
 		}
 		TimeSlider->SetBookmarks(Bookmarks);
@@ -709,7 +720,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 		TimeAndColor.Color = FLinearColor::Yellow;
 		for (int32 EventsIdx = 0; EventsIdx < MultiKillEvents.Num(); EventsIdx++)
 		{
-			TimeAndColor.Time = MultiKillEvents[EventsIdx].time / DemoNetDriver->DemoTotalTime;
+			TimeAndColor.Time = MultiKillEvents[EventsIdx].time;
 			Bookmarks.Add(TimeAndColor);
 		}
 		TimeSlider->SetBookmarks(Bookmarks);
@@ -725,23 +736,23 @@ void SUTReplayWindow::RefreshBookmarksComboBox()
 
 	if (KillEvents.Num())
 	{
-		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Kills")));
-		BookmarkNameList.Add(Kills);
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Kills")));
+		BookmarkNameList.Add(BookmarkName);
 	}
 	if (FlagCapEvents.Num())
 	{
-		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Flag Captures")));
-		BookmarkNameList.Add(Kills);
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Captures")));
+		BookmarkNameList.Add(BookmarkName);
 	}
 	if (FlagDenyEvents.Num())
 	{
-		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Flag Denies")));
-		BookmarkNameList.Add(Kills);
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Denies")));
+		BookmarkNameList.Add(BookmarkName);
 	}
 	if (MultiKillEvents.Num())
 	{
-		TSharedPtr<FString> Kills = MakeShareable(new FString(TEXT("Multi Kills")));
-		BookmarkNameList.Add(Kills);
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Multi Kills")));
+		BookmarkNameList.Add(BookmarkName);
 	}
 }
 

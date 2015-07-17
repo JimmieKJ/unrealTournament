@@ -619,6 +619,8 @@ void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* 
 	CTFScoring->ScoreKill(Killer, Other, KilledPawn, DamageType);
 	if ((Killer != NULL && Killer != Other))
 	{
+		AddKillEventToReplay(Killer, Other, DamageType);
+
 		AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Killer->PlayerState);
 		if (AttackerPS != NULL)
 		{

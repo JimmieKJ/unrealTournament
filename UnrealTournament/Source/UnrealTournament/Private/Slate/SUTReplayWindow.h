@@ -61,6 +61,7 @@ protected:
 
 	void OnSetTimeSlider(float NewValue);
 	float GetTimeSlider() const;
+	float GetTimeSliderLength() const;
 
 	void OnSetSpeedSlider(float NewValue);
 	TOptional<float> GetSpeedSlider() const;
