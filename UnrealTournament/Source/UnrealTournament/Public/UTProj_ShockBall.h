@@ -49,12 +49,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = Damage)
 	void OnComboExplode();
 
-	/** True if should predict combos client-side. */
-	UPROPERTY(BlueprintReadOnly, Category = ShockCombo)
-		bool bUsingClientSideHits;
-
-	virtual void SetForwardTicked(bool bWasForwardTicked) override;
-
 	/** Overridden to do the combo */
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
