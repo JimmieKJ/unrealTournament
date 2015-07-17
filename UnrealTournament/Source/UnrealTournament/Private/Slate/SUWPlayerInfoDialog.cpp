@@ -323,7 +323,7 @@ TSharedRef<class SWidget> SUWPlayerInfoDialog::BuildCustomButtonBar()
 		SAssignNew(FriendPanel, SHorizontalBox)
 	];
 
-	if (GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client)
+	if ((GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client) && TargetPlayerState.IsValid() && !TargetPlayerState->bIsABot && (GetPlayerOwner()->PlayerController->PlayerState != TargetPlayerState))
 	{
 		CustomBox->AddSlot()
 		.Padding(10.0f,0.0f,10.0f,0.0f)
