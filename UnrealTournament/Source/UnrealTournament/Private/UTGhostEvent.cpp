@@ -5,6 +5,7 @@
 #include "UTCharacter.h"
 #include "UTGhostComponent.h"
 #include "UTWeapon.h"
+#include "UTReplicatedEmitter.h"
 
 
 void UUTGhostEvent::ApplyEvent_Implementation(AUTCharacter* UTC)
@@ -91,4 +92,17 @@ void UUTGhostEvent_Weapon::ApplyEvent_Implementation(AUTCharacter* UTC)
 		UTC->SwitchWeapon(NewWeapon);
 		//}
 	}
+}
+
+void UUTGhostEvent_JumpBoots::ApplyEvent_Implementation(AUTCharacter* UTC)
+{
+	if (SuperJumpEffect != NULL)
+	{
+		FActorSpawnParameters Params;
+		Params.Owner = UTC;
+		Params.Instigator = UTC;
+		UTC->GetWorld()->SpawnActor<AUTReplicatedEmitter>(SuperJumpEffect, UTC->GetActorLocation(), UTC->GetActorRotation(), Params);
+	}
+
+	UUTGameplayStatics::UTPlaySound(UTC->GetWorld(), SuperJumpSound, UTC, SRT_AllButOwner);
 }

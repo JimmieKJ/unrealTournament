@@ -239,6 +239,19 @@ void UUTGhostComponent::GhostMovementEvent(const FMovementEventInfo& MovementEve
 	}
 }
 
+void UUTGhostComponent::GhostJumpBoots(TSubclassOf<class AUTReplicatedEmitter> SuperJumpEffect, USoundBase* SuperJumpSound)
+{
+	if (bGhostRecording && GhostData != nullptr)
+	{
+		UUTGhostEvent_JumpBoots* NewEvent = Cast<UUTGhostEvent_JumpBoots>(CreateAndAddEvent(UUTGhostEvent_JumpBoots::StaticClass()));
+		if (NewEvent != nullptr)
+		{
+			NewEvent->SuperJumpEffect = SuperJumpEffect;
+			NewEvent->SuperJumpSound = SuperJumpSound;
+		}
+	}
+}
+
 UUTGhostEvent* UUTGhostComponent::CreateAndAddEvent(TSubclassOf<UUTGhostEvent> EventClass)
 {
 	UUTGhostEvent* NewEvent = nullptr;

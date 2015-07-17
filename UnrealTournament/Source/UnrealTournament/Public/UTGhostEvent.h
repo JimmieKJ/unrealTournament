@@ -87,3 +87,20 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void ApplyEvent(class AUTCharacter* UTC);
 };
+
+
+UCLASS(Blueprintable)
+class UNREALTOURNAMENT_API UUTGhostEvent_JumpBoots: public UUTGhostEvent
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
+	TSubclassOf<class AUTReplicatedEmitter> SuperJumpEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
+	USoundBase* SuperJumpSound;
+
+	UFUNCTION(BlueprintNativeEvent)
+	void ApplyEvent(class AUTCharacter* UTC);
+};

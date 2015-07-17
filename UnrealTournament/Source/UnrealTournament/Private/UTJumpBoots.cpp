@@ -7,6 +7,7 @@
 #include "UTHUDWidget_Powerups.h"
 #include "StatNames.h"
 #include "UTJumpbootMessage.h"
+#include "UTGhostComponent.h"
 
 AUTJumpBoots::AUTJumpBoots(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -136,6 +137,12 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 					{
 						Cast<AUTPlayerController>(UTOwner->GetController())->SendPersonalMessage(UUTJumpbootMessage::StaticClass(), 1, NULL, NULL, NULL);
 					}
+				}
+
+				//Save the jump event if we are recording a ghost
+				if (GetUTOwner()->GhostComponent->bGhostRecording)
+				{
+					GetUTOwner()->GhostComponent->GhostJumpBoots(SuperJumpEffect, SuperJumpSound);
 				}
 			}
 

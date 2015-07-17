@@ -63,6 +63,7 @@ public:
 	virtual void GhostStopFire(uint8 FireModeNum);
 	virtual void GhostSwitchWeapon(AUTWeapon* NewWeapon);
 	virtual void GhostMovementEvent(const FMovementEventInfo& MovementEvent);
+	virtual void GhostJumpBoots(TSubclassOf<class AUTReplicatedEmitter> SuperJumpEffect, USoundBase* SuperJumpSound);
 
 	UFUNCTION(BlueprintCallable, Category = Ghost)
 	class UUTGhostEvent* CreateAndAddEvent(TSubclassOf<class UUTGhostEvent> EventClass);
