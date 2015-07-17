@@ -14,6 +14,7 @@ UUTGhostComponent::UUTGhostComponent()
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 	GhostData = nullptr;
 	GhostDataClass = nullptr;
+	MaxMoveDelta = 0.064f;
 }
 
 void UUTGhostComponent::BeginPlay()
@@ -76,6 +77,8 @@ void UUTGhostComponent::GhostStartRecording()
 			bGhostRecording = true;
 			GhostStartTime = GetWorld()->TimeSeconds;
 			GhostFireFlags = 0;
+			OldCompressedFlags = 0;
+			NextMoveTime = 0.0f;
 			PrimaryComponentTick.SetTickFunctionEnable(true);
 
 			//add the current weapon if there is one being held
@@ -114,8 +117,10 @@ void UUTGhostComponent::GhostStartPlaying()
 		GhostStartTime = GetWorld()->TimeSeconds;
 		GhostEventIndex = 0;
 		GhostFireFlags = 0;
+		OldCompressedFlags = 0;
+		NextMoveTime = 0.0f;
 		
-		//Spawn the GhostControlelr
+		//Spawn the GhostControler
 		FActorSpawnParameters SpawnInfo;
 		SpawnInfo.Owner = UTOwner;
 		SpawnInfo.bNoCollisionFail = true;
@@ -157,23 +162,29 @@ void UUTGhostComponent::GhostMoveToStart()
 
 void UUTGhostComponent::GhostMove()
 {
-	//TODOTIM: Don't add a move per tick. Only add if necessary
 	if (UTOwner->UTCharacterMovement != nullptr && UTOwner->Controller != nullptr && GhostData != nullptr)
 	{
-		UUTGhostEvent_Move* MoveEvent = Cast<UUTGhostEvent_Move>(CreateAndAddEvent(UUTGhostEvent_Move::StaticClass()));
-		if (MoveEvent != nullptr)
+		FNetworkPredictionData_Client_UTChar FakePredict(*UTOwner->UTCharacterMovement);
+		FSavedMove_UTCharacter FakeMove;
+		FakeMove.SetMoveFor(UTOwner, 0, FVector(0.0f), FakePredict);
+
+		//If the movement compressed flags change. save the movment regardless of MaxMoveDelta
+		if (NextMoveTime <= GetWorld()->TimeSeconds || FakeMove.GetCompressedFlags() != OldCompressedFlags)
 		{
-			MoveEvent->bIsCrouched = UTOwner->bIsCrouched;
-			MoveEvent->bApplyWallSlide = UTOwner->bApplyWallSlide;
+			UUTGhostEvent_Move* MoveEvent = Cast<UUTGhostEvent_Move>(CreateAndAddEvent(UUTGhostEvent_Move::StaticClass()));
+			if (MoveEvent != nullptr)
+			{
+				MoveEvent->bIsCrouched = UTOwner->bIsCrouched;
+				MoveEvent->bApplyWallSlide = UTOwner->bApplyWallSlide;
 
-			UTOwner->GatherUTMovement();
-			MoveEvent->RepMovement = UTOwner->UTReplicatedMovement;
-			MoveEvent->RepMovement.Rotation.Pitch = UTOwner->Controller->GetControlRotation().Pitch;
+				UTOwner->GatherUTMovement();
+				MoveEvent->RepMovement = UTOwner->UTReplicatedMovement;
+				MoveEvent->RepMovement.Rotation.Pitch = UTOwner->Controller->GetControlRotation().Pitch;
 
-			FNetworkPredictionData_Client_UTChar FakePredict(*UTOwner->UTCharacterMovement);
-			FSavedMove_UTCharacter FakeMove;
-			FakeMove.SetMoveFor(UTOwner, 0, FVector(0.0f), FakePredict);
-			MoveEvent->CompressedFlags = FakeMove.GetCompressedFlags();
+				MoveEvent->CompressedFlags = FakeMove.GetCompressedFlags();
+				OldCompressedFlags = FakeMove.GetCompressedFlags();
+			}
+			NextMoveTime = GetWorld()->TimeSeconds + MaxMoveDelta;
 		}
 	}
 }

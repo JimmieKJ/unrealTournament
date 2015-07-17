@@ -70,6 +70,13 @@ public:
 	/** 1 bit for each firemode. 0 up 1 pressed*/
 	uint8 GhostFireFlags;
 
+	/**The maximum amount of time to save move events*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
+	float MaxMoveDelta;
+
+	float NextMoveTime;
+	uint8 OldCompressedFlags;
+
 protected:
 
 	float GhostStartTime;
