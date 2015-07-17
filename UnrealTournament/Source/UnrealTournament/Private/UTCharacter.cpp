@@ -1226,9 +1226,7 @@ void AUTCharacter::StartRagdoll()
 	// turn off any taccom  @TODO FIXMESTEVE - should be able to keep on, at least when feigning
 	UpdateTacComMesh(false);
 
-	// APawn::TurnOff disables collision at the end of match, undo that.
 	SetActorEnableCollision(true);
-
 	StopFiring();
 	DisallowWeaponFiring(true);
 	bInRagdollRecovery = false;
@@ -1541,7 +1539,8 @@ bool AUTCharacter::ServerFeignDeath_Validate()
 }
 void AUTCharacter::ServerFeignDeath_Implementation()
 {
-	if (Role == ROLE_Authority && !IsDead())
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (Role == ROLE_Authority && !IsDead() && (!GS || GS->IsMatchInProgress()))
 	{
 		if (bFeigningDeath)
 		{
