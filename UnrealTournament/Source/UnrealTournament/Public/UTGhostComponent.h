@@ -55,6 +55,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
 	TSubclassOf<class UUTGhostData> GhostDataClass;
 
+	UPROPERTY()
 	class UUTGhostData* GhostData;
 
 
