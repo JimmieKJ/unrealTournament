@@ -47,11 +47,10 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FGhostPlayFinishedDelegate OnGhostPlayFinished;
 
-	int32 GhostMoveIndex;
 	int32 GhostEventIndex;
-	int32 GhostInputIndex;
-	int32 GhostWeaponIndex;
 
+	/**If this is not null, the ghost recording will be saved to the default object
+	* Used for saving the record to a child UUTGhostData class*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
 	TSubclassOf<class UUTGhostData> GhostDataClass;
 
@@ -65,13 +64,16 @@ public:
 	virtual void GhostSwitchWeapon(AUTWeapon* NewWeapon);
 	virtual void GhostMovementEvent(const FMovementEventInfo& MovementEvent);
 
+	UFUNCTION(BlueprintCallable, Category = Ghost)
+	class UUTGhostEvent* CreateAndAddEvent(TSubclassOf<class UUTGhostEvent> EventClass);
+
+	/** 1 bit for each firemode. 0 up 1 pressed*/
+	uint8 GhostFireFlags;
+
 protected:
 
 	float GhostStartTime;
 
-
-	/** 1 bit for each firemode. 0 up 1 pressed*/
-	uint8 GhostFireFlags;
 
 	/**Save the old role since a Ghost always runs on ROLE_SimulatedProxy*/
 	TEnumAsByte<enum ENetRole> OldRole;
