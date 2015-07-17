@@ -913,6 +913,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
 	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
 
+	/** blueprint override for FellOutOfWorld()
+	 * if you return false, make sure to move the Pawn somewhere valid or you are likely to get spammed with this call
+	 */
+	UFUNCTION(BlueprintImplementableEvent, Category = Pawn)
+	bool OverrideFellOutOfWorld(TSubclassOf<UDamageType> DamageType);
+
 	virtual void FellOutOfWorld(const UDamageType& DmgType) override;
 
 	/** time between StopRagdoll() call and when physics has been fully blended out of our mesh */
@@ -1466,6 +1472,10 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FCharacterDiedSignature OnDied;
 
+	/** whether this pawn can obtain pickup items (UTPickup, UTDroppedPickup) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bCanPickupItems;
+
 	/** Max distance for enemy player indicator */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category =  HUD)
 	float PlayerIndicatorMaxDistance;
@@ -1476,7 +1486,7 @@ public:
 
 	/** Max distance for same team player indicator */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
-		float SpectatorIndicatorMaxDistance;
+	float SpectatorIndicatorMaxDistance;
 
 	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
 	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)

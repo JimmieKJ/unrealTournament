@@ -116,6 +116,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	RagdollBlendOutTime = 0.75f;
 	bApplyWallSlide = false;
 	FeignNudgeMag = 100000.f;
+	bCanPickupItems = true;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -3967,7 +3968,7 @@ void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
 	{
 		Super::FellOutOfWorld(DmgType);
 	}
-	else
+	else if (!OverrideFellOutOfWorld(DmgType.GetClass()))
 	{
 		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), DmgType.GetClass());
