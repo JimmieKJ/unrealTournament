@@ -794,6 +794,10 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 		// explosion effect unless I have a fake projectile doing it for me
 		if (MyFakeProjectile == NULL && ExplosionEffects != NULL)
 		{
+			if (!InstigatorController && Instigator)
+			{
+				InstigatorController = Instigator->GetController();
+			}
 			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(HitNormal.Rotation(), HitLocation), HitComp, this, InstigatorController, SRT_IfSourceNotReplicated, FImpactEffectNamedParameters(AdjustedDamageParams.OuterRadius));
 		}
 		ShutDown();
