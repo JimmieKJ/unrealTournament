@@ -4,6 +4,7 @@
 #include "UTGhostComponent.h"
 #include "UTGhostData.h"
 #include "UTGhostEvent.h"
+#include "UTGhostController.h"
 
 
 UUTGhostComponent::UUTGhostComponent()
@@ -113,6 +114,17 @@ void UUTGhostComponent::GhostStartPlaying()
 		GhostStartTime = GetWorld()->TimeSeconds;
 		GhostEventIndex = 0;
 		GhostFireFlags = 0;
+		
+		//Spawn the GhostControlelr
+		FActorSpawnParameters SpawnInfo;
+		SpawnInfo.Owner = UTOwner;
+		SpawnInfo.bNoCollisionFail = true;
+		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save AI controllers into a map
+		AController* NewController = GetWorld()->SpawnActor<AController>(AUTGhostController::StaticClass(), UTOwner->GetActorLocation(), UTOwner->GetActorRotation(), SpawnInfo);
+		if (NewController != NULL)
+		{
+			NewController->Possess(UTOwner);
+		}
 
 		//Simulate this char
 		OldRole = UTOwner->Role;
@@ -146,7 +158,7 @@ void UUTGhostComponent::GhostMoveToStart()
 void UUTGhostComponent::GhostMove()
 {
 	//TODOTIM: Don't add a move per tick. Only add if necessary
-	if (UTOwner->UTCharacterMovement != nullptr && GhostData != nullptr)
+	if (UTOwner->UTCharacterMovement != nullptr && UTOwner->Controller != nullptr && GhostData != nullptr)
 	{
 		UUTGhostEvent_Move* MoveEvent = Cast<UUTGhostEvent_Move>(CreateAndAddEvent(UUTGhostEvent_Move::StaticClass()));
 		if (MoveEvent != nullptr)
@@ -156,6 +168,7 @@ void UUTGhostComponent::GhostMove()
 
 			UTOwner->GatherUTMovement();
 			MoveEvent->RepMovement = UTOwner->UTReplicatedMovement;
+			MoveEvent->RepMovement.Rotation.Pitch = UTOwner->Controller->GetControlRotation().Pitch;
 
 			FNetworkPredictionData_Client_UTChar FakePredict(*UTOwner->UTCharacterMovement);
 			FSavedMove_UTCharacter FakeMove;

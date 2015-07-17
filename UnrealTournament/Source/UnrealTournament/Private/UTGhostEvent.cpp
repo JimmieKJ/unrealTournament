@@ -22,18 +22,18 @@ void UUTGhostEvent_Move::ApplyEvent_Implementation(AUTCharacter* UTC)
 	//Set the movement flags
 	if (UTC->UTCharacterMovement != nullptr)
 	{
+		//Rotate the controller so weapon fire is in the right direction
+		if (UTC->GetController() != nullptr)
+		{
+			UTC->GetController()->SetControlRotation(RepMovement.Rotation);
+		}
+
 		UTC->UTCharacterMovement->UpdateFromCompressedFlags(CompressedFlags);
 		UTC->OnRepFloorSliding();
 
 		UTC->bIsCrouched = bIsCrouched;
 		UTC->OnRep_IsCrouched();
 		UTC->bApplyWallSlide = bApplyWallSlide;
-	}
-
-	//Rotate the controller so weapon fire is in the right direction
-	if (UTC->GetController() != nullptr)
-	{
-		UTC->GetController()->SetControlRotation(RepMovement.Rotation);
 	}
 }
 
