@@ -40,10 +40,10 @@ void UUTWeaponStateEquipping::BeginState(const UUTWeaponState* PrevState)
 
 void UUTWeaponStateEquipping::BringUpFinished()
 {
-		GetOuterAUTWeapon()->GotoActiveState();
+	GetOuterAUTWeapon()->GotoActiveState();
 	if (PendingFireSequence >= 0)
 	{
-		GetOuterAUTWeapon()->bNetDelayedShot = true;
+		GetOuterAUTWeapon()->bNetDelayedShot = (GetUTOwner()->GetNetMode() == NM_DedicatedServer);
 		GetOuterAUTWeapon()->BeginFiringSequence(PendingFireSequence, true);
 		PendingFireSequence = -1;
 		GetOuterAUTWeapon()->bNetDelayedShot = false;
