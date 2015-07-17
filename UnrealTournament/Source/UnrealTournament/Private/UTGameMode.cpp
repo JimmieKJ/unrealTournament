@@ -1185,6 +1185,18 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 
 void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
 {
+	// Could be a suicide
+	if (Killer == nullptr)
+	{
+		return;
+	}
+
+	// Shouldn't happen, but safety first
+	if (Other == nullptr)
+	{
+		return;
+	}
+
 	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
 	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
@@ -1211,7 +1223,7 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 void AUTGameMode::AddMultiKillEventToReplay(AController* Killer)
 {
 	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
-	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
 		TArray<uint8> Data;

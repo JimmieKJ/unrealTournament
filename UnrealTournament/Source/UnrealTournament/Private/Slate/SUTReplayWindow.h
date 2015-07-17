@@ -50,9 +50,11 @@ protected:
 	TSharedPtr<STextBlock> SelectedBookmark;
 	void OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void RefreshBookmarksComboBox();
-	FString BookmarkFocusPlayer;
+	int32 LastSpectedPlayerID;
 	/** utility to generate a simple text widget for list and combo boxes given a string value */
 	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+	void OnKillBookmarksSelected();
+	void OnMultiKillBookmarksSelected();
 
 	//Time remaining to auto hide the time bar
 	float HideTimeBarTime;

@@ -184,7 +184,8 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 			if (GM)
 			{
-				GM->AddMultiKillEventToReplay(MyPC);
+				AController* Controller = Cast<AController>(GetOwner());
+				GM->AddMultiKillEventToReplay(Controller);
 			}
 		}
 		else

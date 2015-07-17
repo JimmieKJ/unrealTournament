@@ -472,6 +472,21 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 	}
 	HideTimeBarTime -= InDeltaTime;
 
+	// If focus has changed and we're looking at kill bookmarks, refilter the bookmarks
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (UTPC &&	LastSpectedPlayerID != UTPC->LastSpectatedPlayerId)
+	{
+		LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+		if (SelectedBookmark->GetText().ToString() == TEXT("Kills"))
+		{
+			OnKillBookmarksSelected();
+		}
+		else if (SelectedBookmark->GetText().ToString() == TEXT("MultiKills"))
+		{
+			OnMultiKillBookmarksSelected();
+		}
+	}
+
 	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
@@ -661,6 +676,116 @@ void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArra
 	}
 }
 
+void SUTReplayWindow::OnKillBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (KillEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+
+	FString FilterID;
+	if (LastSpectedPlayerID > 0)
+	{
+		const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (UTPS)
+			{
+				if (UTPS->SpectatingID == LastSpectedPlayerID)
+				{
+					// bots don't have StatsID, they just use playername right now
+					if (!UTPS->StatsID.IsEmpty())
+					{
+						FilterID = UTPS->StatsID;
+					}
+					else
+					{
+						FilterID = UTPS->PlayerName;
+					}
+
+					break;
+				}
+			}
+		}
+	}
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Red;
+	for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != KillEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = KillEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
+void SUTReplayWindow::OnMultiKillBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (MultiKillEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+
+	FString FilterID;
+	if (LastSpectedPlayerID > 0)
+	{
+		const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (UTPS)
+			{
+				if (UTPS->SpectatingID == LastSpectedPlayerID)
+				{
+					// bots don't have StatsID, they just use playername right now
+					if (!UTPS->StatsID.IsEmpty())
+					{
+						FilterID = UTPS->StatsID;
+					}
+					else
+					{
+						FilterID = UTPS->PlayerName;
+					}
+
+					break;
+				}
+			}
+		}
+	}
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Yellow;
+	for (int32 EventsIdx = 0; EventsIdx < MultiKillEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != MultiKillEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = MultiKillEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
 void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	TArray<FBookmarkTimeAndColor> Bookmarks;
@@ -673,13 +798,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 	}
 	else if (*NewSelection == TEXT("Kills"))
 	{
-		TimeAndColor.Color = FLinearColor::Red;
-		for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
-		{
-			TimeAndColor.Time = KillEvents[EventsIdx].time;
-			Bookmarks.Add(TimeAndColor);
-		}
-		TimeSlider->SetBookmarks(Bookmarks);
+		OnKillBookmarksSelected();
 	}
 	else if (*NewSelection == TEXT("Flag Captures"))
 	{
@@ -717,13 +836,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 	}
 	else if (*NewSelection == TEXT("Multi Kills"))
 	{
-		TimeAndColor.Color = FLinearColor::Yellow;
-		for (int32 EventsIdx = 0; EventsIdx < MultiKillEvents.Num(); EventsIdx++)
-		{
-			TimeAndColor.Time = MultiKillEvents[EventsIdx].time;
-			Bookmarks.Add(TimeAndColor);
-		}
-		TimeSlider->SetBookmarks(Bookmarks);
+		OnMultiKillBookmarksSelected();
 	}
 }
 
