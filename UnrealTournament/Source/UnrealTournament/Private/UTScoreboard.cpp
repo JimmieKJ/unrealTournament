@@ -645,6 +645,7 @@ void UUTScoreboard::SelectionClick()
 		if (LP)
 		{
 			LP->ShowPlayerInfo(SelectedPlayer);
+			ClearSelection();
 		}
 	}
 }
