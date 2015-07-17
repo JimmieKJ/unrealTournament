@@ -1242,6 +1242,27 @@ void AUTGameMode::AddMultiKillEventToReplay(AController* Killer)
 	}
 }
 
+void AUTGameMode::AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		TArray<uint8> Data;
+		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), SpreeLevel);
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
+
+		FString MetaTag = KillerPlayerState->StatsID;
+		if (MetaTag.IsEmpty())
+		{
+			MetaTag = KillerPlayerState->PlayerName;
+		}
+		DemoNetDriver->AddEvent(TEXT("SpreeKills"), MetaTag, Data);
+	}
+}
+
 bool AUTGameMode::OverridePickupQuery_Implementation(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup)
 {
 	return (BaseMutator != NULL && BaseMutator->OverridePickupQuery(Other, ItemClass, Pickup, bAllowPickup));

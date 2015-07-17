@@ -55,6 +55,8 @@ protected:
 	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
 	void OnKillBookmarksSelected();
 	void OnMultiKillBookmarksSelected();
+	void OnSpreeKillBookmarksSelected();
+	FString GetSpectatedPlayerID();
 
 	//Time remaining to auto hide the time bar
 	float HideTimeBarTime;
@@ -94,12 +96,14 @@ protected:
 	void FlagCapsEnumerated(const FString& JsonString, bool bSucceeded);
 	void FlagDenyEnumerated(const FString& JsonString, bool bSucceeded);
 	void MultiKillsEnumerated(const FString& JsonString, bool bSucceeded);
+	void SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded);
 	void ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray);
 
 	TArray<FBookmarkEvent> KillEvents;
 	TArray<FBookmarkEvent> FlagCapEvents;
 	TArray<FBookmarkEvent> FlagDenyEvents;
 	TArray<FBookmarkEvent> MultiKillEvents;
+	TArray<FBookmarkEvent> SpreeKillEvents;
 
 	bool bDrawTooltip;
 	float TooltipTime;

@@ -252,6 +252,13 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 					UTChar->CosmeticSpreeCount = FMath::Min(Spree / 5, 4);
 					UTChar->OnRepCosmeticSpreeCount();
 				}
+
+				AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (GM)
+				{
+					AController* Controller = Cast<AController>(GetOwner());
+					GM->AddSpreeKillEventToReplay(Controller, FMath::Min(Spree / 5, 4));
+				}
 			}
 		}
 

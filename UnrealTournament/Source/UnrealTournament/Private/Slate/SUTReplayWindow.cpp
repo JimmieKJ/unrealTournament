@@ -360,6 +360,17 @@ void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucc
 		ParseJsonIntoBookmarkArray(JsonString, MultiKillEvents);
 	}
 
+	FEnumerateEventsCompleteDelegate EnumSpreeKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::SpreeKillsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("SpreeKills"), EnumSpreeKills);
+}
+
+void SUTReplayWindow::SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, SpreeKillEvents);
+	}
+
 	RefreshBookmarksComboBox();
 }
 
@@ -481,9 +492,13 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 		{
 			OnKillBookmarksSelected();
 		}
-		else if (SelectedBookmark->GetText().ToString() == TEXT("MultiKills"))
+		else if (SelectedBookmark->GetText().ToString() == TEXT("Multi Kills"))
 		{
 			OnMultiKillBookmarksSelected();
+		}
+		else if (SelectedBookmark->GetText().ToString() == TEXT("Spree Kills"))
+		{
+			OnSpreeKillBookmarksSelected();
 		}
 	}
 
@@ -688,33 +703,8 @@ void SUTReplayWindow::OnKillBookmarksSelected()
 
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
-
-	FString FilterID;
-	if (LastSpectedPlayerID > 0)
-	{
-		const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
-		for (int32 i = 0; i < PlayerArray.Num(); i++)
-		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
-			if (UTPS)
-			{
-				if (UTPS->SpectatingID == LastSpectedPlayerID)
-				{
-					// bots don't have StatsID, they just use playername right now
-					if (!UTPS->StatsID.IsEmpty())
-					{
-						FilterID = UTPS->StatsID;
-					}
-					else
-					{
-						FilterID = UTPS->PlayerName;
-					}
-
-					break;
-				}
-			}
-		}
-	}
+	
+	FString FilterID = GetSpectatedPlayerID();
 
 	FBookmarkTimeAndColor TimeAndColor;
 	TimeAndColor.Color = FLinearColor::Red;
@@ -743,33 +733,8 @@ void SUTReplayWindow::OnMultiKillBookmarksSelected()
 
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
-
-	FString FilterID;
-	if (LastSpectedPlayerID > 0)
-	{
-		const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
-		for (int32 i = 0; i < PlayerArray.Num(); i++)
-		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
-			if (UTPS)
-			{
-				if (UTPS->SpectatingID == LastSpectedPlayerID)
-				{
-					// bots don't have StatsID, they just use playername right now
-					if (!UTPS->StatsID.IsEmpty())
-					{
-						FilterID = UTPS->StatsID;
-					}
-					else
-					{
-						FilterID = UTPS->PlayerName;
-					}
-
-					break;
-				}
-			}
-		}
-	}
+	
+	FString FilterID = GetSpectatedPlayerID();
 
 	FBookmarkTimeAndColor TimeAndColor;
 	TimeAndColor.Color = FLinearColor::Yellow;
@@ -781,6 +746,66 @@ void SUTReplayWindow::OnMultiKillBookmarksSelected()
 		}
 
 		TimeAndColor.Time = MultiKillEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
+FString SUTReplayWindow::GetSpectatedPlayerID()
+{
+	if (LastSpectedPlayerID > 0)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (UTPS)
+			{
+				if (UTPS->SpectatingID == LastSpectedPlayerID)
+				{
+					// bots don't have StatsID, they just use playername right now
+					if (!UTPS->StatsID.IsEmpty())
+					{
+						return UTPS->StatsID;
+					}
+					else
+					{
+						return UTPS->PlayerName;
+					}
+				}
+			}
+		}
+	}
+
+	return TEXT("");
+}
+
+void SUTReplayWindow::OnSpreeKillBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (SpreeKillEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+
+	FString FilterID = GetSpectatedPlayerID();
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Yellow;
+	for (int32 EventsIdx = 0; EventsIdx < SpreeKillEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != SpreeKillEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = SpreeKillEvents[EventsIdx].time;
 		Bookmarks.Add(TimeAndColor);
 	}
 	TimeSlider->SetBookmarks(Bookmarks);
@@ -838,6 +863,10 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 	{
 		OnMultiKillBookmarksSelected();
 	}
+	else if (*NewSelection == TEXT("Spree Kills"))
+	{
+		OnSpreeKillBookmarksSelected();
+	}
 }
 
 void SUTReplayWindow::RefreshBookmarksComboBox()
@@ -865,6 +894,11 @@ void SUTReplayWindow::RefreshBookmarksComboBox()
 	if (MultiKillEvents.Num())
 	{
 		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Multi Kills")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+	if (SpreeKillEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Spree Kills")));
 		BookmarkNameList.Add(BookmarkName);
 	}
 }

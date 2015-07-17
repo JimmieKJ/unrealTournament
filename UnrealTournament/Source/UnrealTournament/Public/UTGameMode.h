@@ -412,6 +412,7 @@ public:
 
 	void AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	void AddMultiKillEventToReplay(AController* Killer);
+	void AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel);
 protected:
 
 
