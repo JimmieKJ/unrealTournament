@@ -826,7 +826,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				GetCharacterMovement()->AddImpulse(ResultMomentum, false);
 			}
 			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
-			SetLastTakeHitInfo(ResultDamage, ResultMomentum, HitArmor, DamageEvent);
+			SetLastTakeHitInfo(Damage, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			if (Health <= 0)
 			{
 				Died(EventInstigator, DamageEvent);
@@ -852,7 +852,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Health -= int32(Damage);
 				// note: won't be replicated in this case since already torn off but we still need it for clientside impact effects on the corpse
-				SetLastTakeHitInfo(Damage, ResultMomentum, NULL, DamageEvent);
+				SetLastTakeHitInfo(Damage, Damage, ResultMomentum, NULL, DamageEvent);
 				TSubclassOf<UUTDamageType> UTDmg(*DamageEvent.DamageTypeClass);
 				if (UTDmg != NULL && UTDmg.GetDefaultObject()->ShouldGib(this))
 				{
@@ -900,7 +900,7 @@ bool AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Mom
 	return false;
 }
 
-void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
+void AUTCharacter::SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
 {
 	// if we haven't replicated a previous hit yet (generally, multi hit within same frame), stack with it
 	bool bStackHit = (LastTakeHitTime > LastTakeHitReplicatedTime && DamageEvent.DamageTypeClass == LastTakeHitInfo.DamageType);
@@ -909,7 +909,7 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUT
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
 	if (!bStackHit || LastTakeHitInfo.HitArmor == NULL)
 	{
-		LastTakeHitInfo.HitArmor = (HitArmor != NULL) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
+		LastTakeHitInfo.HitArmor = ((HitArmor != NULL) && HitArmor->ShouldDisplayHitEffect(AttemptedDamage, Damage, Health, ArmorAmount)) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
 	}
 	LastTakeHitInfo.Momentum = Momentum;
 

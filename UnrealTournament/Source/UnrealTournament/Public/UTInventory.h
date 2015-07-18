@@ -78,6 +78,7 @@ public:
 	/** return a component that can be instanced to be applied to pickups */
 	UFUNCTION(BlueprintNativeEvent)
 	UMeshComponent* GetPickupMeshTemplate(FVector& OverrideScale) const;
+
 	/** call AddOverlayMaterial() on the GRI to add any character or weapon overlay materials; this registration is required to replicate overlays */
 	UFUNCTION(BlueprintNativeEvent)
 	void AddOverlayMaterials(AUTGameState* GS) const;
@@ -138,6 +139,11 @@ public:
 	*/
 	UFUNCTION(BlueprintNativeEvent)
 	bool PreventHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor);
+
+	/** return true to display armor hit effects */
+	UFUNCTION(BlueprintNativeEvent)
+		bool ShouldDisplayHitEffect(int32 AttemptedDamage, int32 DamageAmount, int32 FinalHealth, int32 FinalArmor);
+
 	/** return effective change in owner's health due to carrying this item
 	 * for example, armor would return the amount of damage it could be expected to block
 	 * this is used by AI as part of enemy evaluation
