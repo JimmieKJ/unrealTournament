@@ -954,7 +954,33 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 				.OnValueCommitted(this, &SUWControlSettingsDialog::SetMaxDodgeClickTimeValue)
 			]
 		]
-	];
+	]
+	+ SVerticalBox::Slot()
+		.Padding(FMargin(10.0f, 25.0f, 10.0f, 5.0f))
+		.AutoHeight()
+		.HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(750)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("SUWControlSettingsDialog", "Slide From Run", "Enable slide from run"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SAssignNew(SlideFromRun, SCheckBox)
+					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+					.ForegroundColor(FLinearColor::White)
+					.IsChecked(PC->bAllowSlideFromRun ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				]
+		];
 }
 
 FReply SUWControlSettingsDialog::OnBindDefaultClick()
@@ -1054,6 +1080,7 @@ FReply SUWControlSettingsDialog::OKClick()
 		It->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
 		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
+		It->bAllowSlideFromRun = SlideFromRun->IsChecked();
 	}
 	AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->SaveConfig();

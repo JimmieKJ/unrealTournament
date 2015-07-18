@@ -98,6 +98,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bSingleTapWallDodge = PC->bSingleTapWallDodge;
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
+		bAllowSlideFromRun = PC->bAllowSlideFromRun;
 		WeaponBob = PC->WeaponBobGlobalScaling;
 		WeaponHand = PC->GetWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
@@ -179,6 +180,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
+		PC->bAllowSlideFromRun = bAllowSlideFromRun;
 		PC->WeaponBobGlobalScaling = WeaponBob;
 		PC->SetWeaponHand(WeaponHand);
 		PC->FFAPlayerColor = FFAPlayerColor;

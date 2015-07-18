@@ -834,7 +834,7 @@ void UUTCharacterMovement::HandleCrouchRequest()
 	bWantsToCrouch = true;
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
-		bPressedSlide = true;
+		bPressedSlide = IsFalling() || (Cast<AUTPlayerController>(UTCharacterOwner->GetController()) && Cast<AUTPlayerController>(UTCharacterOwner->GetController())->bAllowSlideFromRun);
 	}
 }
 

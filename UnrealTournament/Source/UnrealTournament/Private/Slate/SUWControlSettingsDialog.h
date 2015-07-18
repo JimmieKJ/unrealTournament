@@ -136,6 +136,7 @@ protected:
 	void EditAccelerationMax(const FText& Input, ETextCommit::Type);
 
 	//movement settings
+	TSharedPtr<SCheckBox> SlideFromRun;
 	TSharedPtr<SCheckBox> SingleTapWallDodge;
 	TSharedPtr<SCheckBox> SingleTapAfterJump;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeClickTime;

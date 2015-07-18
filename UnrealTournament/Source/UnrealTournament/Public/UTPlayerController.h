@@ -305,6 +305,10 @@ public:
 	UFUNCTION(exec)
 	virtual void SetWeaponBobScaling(float NewScaling);
 
+	/** If true, will slide if running and press crouch. */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
+		bool bAllowSlideFromRun;
+
 	/** If true, single quick tap will result in wall dodge on release.  Otherwise need double tap to wall dodge. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapWallDodge;
