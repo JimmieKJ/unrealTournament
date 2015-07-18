@@ -47,7 +47,7 @@ struct FTempBanInfo
 
 };
 
-class AUTReplicatedMapVoteInfo;
+class AUTReplicatedMapInfo;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
@@ -520,7 +520,7 @@ public:
 	uint8 KickPercent;
 
 	UFUNCTION(server, reliable, withvalidation)
-	virtual void RegisterVote(AUTReplicatedMapVoteInfo* VoteInfo);
+	virtual void RegisterVote(AUTReplicatedMapInfo* VoteInfo);
 
 };
 

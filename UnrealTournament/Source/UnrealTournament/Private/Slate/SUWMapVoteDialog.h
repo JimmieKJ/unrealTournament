@@ -51,7 +51,7 @@ protected:
 	struct FVoteButton
 	{
 		UTexture2D* MapTexture;
-		TWeakObjectPtr<AUTReplicatedMapVoteInfo> MapVoteInfo;
+		TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo;
 		TSharedPtr<SImage> MapImage;
 
 		FVoteButton()
@@ -61,7 +61,7 @@ protected:
 			MapImage.Reset();
 		}
 
-		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapVoteInfo> inMapVoteInfo, TSharedPtr<SImage> inMapImage)
+		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapInfo> inMapVoteInfo, TSharedPtr<SImage> inMapImage)
 			: MapTexture(inMapTexture)
 			, MapVoteInfo(inMapVoteInfo)
 			, MapImage(inMapImage)
@@ -79,7 +79,7 @@ protected:
 	void BuildMapList();
 	
 	void TextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
-	FReply OnMapClick(TWeakObjectPtr<AUTReplicatedMapVoteInfo> MapInfo);
+	FReply OnMapClick(TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo);
 	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();

@@ -26,6 +26,7 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyGameState, AvailableMatches);
 	DOREPLIFETIME(AUTLobbyGameState, AvailableGameRulesets);
 	DOREPLIFETIME(AUTLobbyGameState, AvailabelGameRulesetCount);
+	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServer);
 }
 
 void AUTLobbyGameState::PostInitializeComponents()
@@ -36,17 +37,12 @@ void AUTLobbyGameState::PostInitializeComponents()
 	{
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyGameState::CheckInstanceHealth, 60.0f, true);	
-	}
 
-	// Set the Epic official rules.  For now it's hard coded.  In time this will come from the MCP.
+		// Grab all of the available map assets.
+		TArray<FAssetData> MapAssets;
+		FindAllPlayableMaps(MapAssets);
 
-	UUTEpicDefaultRulesets::GetDefaultRules(this, AvailableGameRulesets);
-
-	// Load custom server rule sets.  NOTE: Custom, rules can not have the same unique tag or title as a default rule
-
-	if (Role == ROLE_Authority)
-	{
-		UE_LOG(UT,Verbose,TEXT("Loading %i Additional Rules"), AllowedGameRulesets.Num())
+		UE_LOG(UT,Verbose,TEXT("Loading Settings for %i Rules"), AllowedGameRulesets.Num())
 		for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
 		{
 			UE_LOG(UT,Verbose,TEXT("Loading Rule %s"), *AllowedGameRulesets[i])
@@ -56,6 +52,7 @@ void AUTLobbyGameState::PostInitializeComponents()
 				UUTGameRuleset* NewRuleset = NewObject<UUTGameRuleset>(GetTransientPackage(), RuleName, RF_Transient);
 				if (NewRuleset)
 				{
+					NewRuleset->UniqueTag = AllowedGameRulesets[i];
 					bool bExistsAlready = false;
 					for (int32 j=0; j < AvailableGameRulesets.Num(); j++)
 					{
@@ -66,25 +63,31 @@ void AUTLobbyGameState::PostInitializeComponents()
 						}
 					}
 
-					if (!bExistsAlready)
+					if ( !bExistsAlready )
 					{
+						// Before we create the replicated version of this rule.. if it's an epic rule.. insure they are using our defaults.
+						UUTEpicDefaultRulesets::InsureEpicDefaults(NewRuleset);
+
 						FActorSpawnParameters Params;
 						Params.Owner = this;
 						AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
 						if (NewReplicatedRuleset)
 						{
-							NewReplicatedRuleset->SetRules(NewRuleset);
+							// Build out the map info
+
+							NewReplicatedRuleset->SetRules(NewRuleset, MapAssets);
 							AvailableGameRulesets.Add(NewReplicatedRuleset);
 						}
+					}
+					else
+					{
+						UE_LOG(UT,Verbose,TEXT("Rule %s already exists."), *AllowedGameRulesets[i]);
 					}
 				}
 			}
 		}
 	
-
 		AvailabelGameRulesetCount = AvailableGameRulesets.Num();
-
-		ScanAssetRegistry();
 	}
 
 }
@@ -620,41 +623,13 @@ bool AUTLobbyGameState::CanLaunch()
 	return (GM && GM->GetNumMatches() < GM->MaxInstances);
 }
 
-void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 InGameInstanceID, const FString& CurrentMap)
-{
-/*
-	for (int32 i = 0; i < GameInstances.Num(); i++)
-	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
-		{
-			for (int32 j=0; j < GameInstances[i].MatchInfo->MapList.Num(); j++)
-			{
-				if (GameInstances[i].MatchInfo->MapList[j].ToLower() == CurrentMap.ToLower())
-				{
-					if (j < GameInstances[i].MatchInfo->MapList.Num()-1)
-					{
-						ClientBeacon->InstanceNextMap(GameInstances[i].MatchInfo->MapList[j+1]);
-						return;
-					}
 
-					break;
-				}
-			}
-
-			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Completed);
-			ClientBeacon->InstanceNextMap(TEXT(""));
-		}
-	}
-*/
-}
-
-void AUTLobbyGameState::ScanAssetRegistry()
+void AUTLobbyGameState::ScanAssetRegistry(TArray<FAssetData>& MapAssets)
 {
 	UE_LOG(UT,Verbose,TEXT("Beginning Lobby Scan of Asset Registry to generate custom settings list...."));
 
 	TArray<UClass*> AllowedGameModesClasses;
 	TArray<UClass*> AllowedMutatorsClasses;
-
 
 	AUTGameState::GetAvailableGameData(AllowedGameModesClasses, AllowedMutatorsClasses);
 	for (int32 i = 0; i < AllowedGameModesClasses.Num(); i++)
@@ -668,7 +643,6 @@ void AUTLobbyGameState::ScanAssetRegistry()
 	}
 
 	// Next , Grab the maps...
-	TArray<FAssetData> MapAssets;
 	GetAllAssetData(UWorld::StaticClass(), MapAssets);
 	for (const FAssetData& Asset : MapAssets)
 	{
@@ -746,37 +720,103 @@ void AUTLobbyGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<
 	}
 }
 
-void AUTLobbyGameState::GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList)
+AUTReplicatedMapInfo* AUTLobbyGameState::GetMapInfo(FString MapPackageName)
 {
-	Super::GetAvailableMaps(AllowedMapPrefixes, MapList);
-
-	// If we need to filter the maps futher, then do so.
-	if (AllowedMaps.Num() > 0)
+	for (int32 j = 0; j < AllMapsOnServer.Num(); j++)
 	{
-		int32 MIndex = 0;
-		while (MIndex < MapList.Num())
+		if (AllMapsOnServer[j] && AllMapsOnServer[j]->MapPackageName == MapPackageName)
 		{
-			bool bFound = false;
-			for (int32 i=0; i < AllowedMaps.Num(); i++)
-			{
-				if (MapList[MIndex]->PackageName.Equals(AllowedMaps[i].PackageName, ESearchCase::IgnoreCase))
-				{
-					bFound = true;
-					break;
-				}
-			}
+			return AllMapsOnServer[j];
+		}
+	}
 
-			if (bFound)
+	return NULL;
+}
+
+/**
+ *	Finds all of the playerable maps on the server and builds the needed ReplicatedMapInfo for that map.
+ **/
+void AUTLobbyGameState::FindAllPlayableMaps(TArray<FAssetData>& MapAssets)
+{
+	if (Role == ROLE_Authority)
+	{
+		ScanAssetRegistry(MapAssets);
+		for (const FAssetData& Asset : MapAssets)
+		{
+			AUTReplicatedMapInfo* MapInfo = CreateMapInfo(Asset);
+			if (MapInfo)
 			{
-				MIndex++;
-			}
-			else
-			{
-				MapList.RemoveAt(MIndex);
+				AllMapsOnServer.Add( MapInfo );
 			}
 		}
 	}
 }
+
+/**
+ *	On the server this will create all of the ReplicatedMapInfos for all available maps.  On the client, it will return
+ *  any ReplicatedMapInfos that match the prefixes
+ **/
+void AUTLobbyGameState::GetMapList(const TArray<FString>& AllowedMapPrefixes, TArray<AUTReplicatedMapInfo*>& MapList, bool bUseCache)
+{
+	if (Role == ROLE_Authority && !bUseCache)
+	{
+		TArray<FAssetData> MapAssets;
+		ScanForMaps(AllowedMapPrefixes, MapAssets);
+
+		// Build the Replicated Map Infos....
+		for (int32 i=0; i < MapAssets.Num(); i++)
+		{
+			AUTReplicatedMapInfo* MI = GetMapInfo(MapAssets[i].PackageName.ToString());
+			if (MI == NULL)
+			{
+				AUTReplicatedMapInfo* MapInfo = CreateMapInfo(MapAssets[i]);
+				if (MapInfo)
+				{
+					AllMapsOnServer.Add( MapInfo );
+					MapList.Add( MapInfo );
+				}
+			}
+		}
+	}
+	else
+	{
+		for (int32 i = 0; i < AllMapsOnServer.Num(); i++)
+		{
+			if ( AllMapsOnServer[i] )
+			{
+				bool bFound = AllowedMapPrefixes.Num() == 0;
+				for (int32 j = 0; j < AllowedMapPrefixes.Num(); j++)
+				{
+					if ( AllMapsOnServer[i]->MapAssetName.StartsWith(AllowedMapPrefixes[j] + TEXT("-")) )
+					{
+						bFound = true;
+						break;
+					}
+				}
+
+				if (bFound)
+				{
+					MapList.Add(AllMapsOnServer[i]);
+				}
+			}
+		}
+	}
+}
+
+AUTReplicatedMapInfo* AUTLobbyGameState::CreateMapInfo(const FAssetData& MapAsset)
+{
+	// Look to see if there is a cached version of this map info first before creating one.
+	for (int32 i = 0; i < AllMapsOnServer.Num(); i++)
+	{
+		if (AllMapsOnServer[i]->MapPackageName == MapAsset.PackageName.ToString())
+		{
+			return AllMapsOnServer[i];
+		}
+	}
+
+	return Super::CreateMapInfo(MapAsset);	
+}
+
 
 void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName)
 {
@@ -840,6 +880,11 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
 	for (int32 i=0; i<AvailableMatches.Num(); i++)
 	{
 		if (AvailableMatches[i]->UniqueMatchID == MatchID) return AvailableMatches[i];
+	}
+
+	for (int32 i=0; i<GameInstances.Num(); i++)
+	{
+		if (GameInstances[i].MatchInfo->UniqueMatchID == MatchID && GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress) return GameInstances[i].MatchInfo;
 	}
 
 	return NULL;

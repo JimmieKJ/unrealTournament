@@ -3,22 +3,40 @@
 
 #include "UTATypes.h"
 #include "UTPlayerState.h"
-#include "UTReplicatedMapVoteInfo.generated.h"
+#include "UTReplicatedMapInfo.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTReplicatedMapVoteInfo : public AInfo
+class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 
 	// The weapon
-	UPROPERTY()
-	FString MapPackage;
+	UPROPERTY(Replicated)
+	FString MapPackageName;
 
 	UPROPERTY(Replicated)
-	FString MapTitle;
+	FString MapAssetName;
+
+	UPROPERTY(Replicated)
+	FString Title;
+
+	UPROPERTY(Replicated)
+	FString Author;
+
+	UPROPERTY(Replicated)
+	FString Description;
+
+	UPROPERTY(Replicated)
+	int32 OptimalPlayerCount;
+
+	UPROPERTY(Replicated)
+	int32 OptimalTeamPlayerCount;
 
 	UPROPERTY(Replicated)
 	FString MapScreenshotReference;
+
+	UPROPERTY(Replicated)
+	FPackageRedirectReference Redirect;
 
 	// What rounds are this weapon available in
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_VoteCount)

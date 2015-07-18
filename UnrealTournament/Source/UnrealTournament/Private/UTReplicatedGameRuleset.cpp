@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTReplicatedGameRuleset.h"
+#include "UTReplicatedMapInfo.h"
 #include "Net/UnrealNetwork.h"
 
 #if !UE_SERVER
@@ -27,41 +28,107 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Title);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Tooltip);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, Description);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, MapPrefixes);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, DefaultMap);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, MaxMapsInList);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, MapList);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MinPlayersToStart);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, MaxPlayers);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, OptimalPlayers);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, DisplayTexture);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, RequiredPackages);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, GameModeClass);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bTeamGame);
 }
 
-void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules)
+
+int32 AUTReplicatedGameRuleset::AddMapAssetToMapList(const FAssetData& Asset)
 {
-	UniqueTag = NewRules->UniqueTag;
-	Categories = NewRules->Categories;
-	Title = NewRules->Title;
-	Tooltip = NewRules->Tooltip;
-	Description = Fixup(NewRules->Description);
-	MapPrefixes = NewRules->MapPrefixes;
-	MinPlayersToStart = NewRules->MinPlayersToStart;
-	MaxPlayers = NewRules->MaxPlayers;
-	DefaultMap = NewRules->DefaultMap;
-	bTeamGame = NewRules->bTeamGame;
-	
-	for (int32 i = 0; i < NewRules->RedirectReferences.Num(); i++)
+
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
 	{
-		RequiredPackages.Add( FPackageRedirectReference(&NewRules->RedirectReferences[i]) );
+		AUTReplicatedMapInfo* MapInfo = GameState->CreateMapInfo(Asset);
+		return MapList.Add(MapInfo);
 	}
+
+	return INDEX_NONE;
+}
+
+
+void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets)
+{
+
+	UniqueTag			= NewRules->UniqueTag;
+	Categories			= NewRules->Categories;
+	Title				= NewRules->Title;
+	Tooltip				= NewRules->Tooltip;
+	Description			= Fixup(NewRules->Description);
+	MinPlayersToStart	= NewRules->MinPlayersToStart;
+	MaxPlayers			= NewRules->MaxPlayers;
+	bTeamGame			= NewRules->bTeamGame;
+
+	MaxMapsInList = NewRules->MaxMapsInList;
+
+	// First add the Epic maps.
+
+	if (!NewRules->EpicMaps.IsEmpty())
+	{
+		TArray<FString> EpicMapList;
+		NewRules->EpicMaps.ParseIntoArray(EpicMapList,TEXT(","), true);
+		for (int32 i = 0 ; i < EpicMapList.Num(); i++)
+		{
+			FString MapName = EpicMapList[i];
+			if ( !MapName.IsEmpty() )
+			{
+				if ( FPackageName::IsShortPackageName(MapName) )
+				{
+					FPackageName::SearchForPackageOnDisk(MapName, &MapName); 
+				}
+
+				// Look for the map in the asset registry...
+
+				for (const FAssetData& Asset : MapAssets)
+				{
+					FString AssetPackageName = Asset.PackageName.ToString();
+					if ( MapName.Equals(AssetPackageName, ESearchCase::IgnoreCase) )
+					{
+						// Found the asset data for this map.  Build the FMapListInfo.
+						AddMapAssetToMapList(Asset);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	// Now add the custom maps..
+
+	for (int32 i = 0; i < NewRules->CustomMapList.Num(); i++)
+	{
+		//if (MaxMapsInList > 0 && MapList.Num() >= MaxMapsInList) break;
+
+		// Look for the map in the asset registry...
+
+		for (const FAssetData& Asset : MapAssets)
+		{
+			FString AssetPackageName = Asset.PackageName.ToString();
+			if ( NewRules->CustomMapList[i].MapName.Equals(AssetPackageName, ESearchCase::IgnoreCase) )
+			{
+				// Found the asset data for this map.  Build the FMapListInfo.
+				int32 Idx = AddMapAssetToMapList(Asset);
+				MapList[Idx]->Redirect = NewRules->CustomMapList[i].Redirect;
+				break;
+			}
+		}
+	}
+
+	RequiredPackages = NewRules->RequiredPackages;
 
 	DisplayTexture = NewRules->DisplayTexture;
 	GameMode = NewRules->GameMode;
 	GameOptions = NewRules->GameOptions;
 
 	BuildSlateBadge();
+
 }
 
 FString AUTReplicatedGameRuleset::Fixup(FString OldText)

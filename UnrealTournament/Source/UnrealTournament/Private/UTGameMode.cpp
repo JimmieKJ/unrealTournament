@@ -28,7 +28,7 @@
 #include "UTLevelSummary.h"
 #include "UTHUD_CastingGuide.h"
 #include "UTBotCharacter.h"
-#include "UTReplicatedMapVoteInfo.h"
+#include "UTReplicatedMapInfo.h"
 #include "StatNames.h"
 #include "UTProfileItemMessage.h"
 #include "UTWeap_ImpactHammer.h"
@@ -984,7 +984,7 @@ void AUTGameMode::DefaultTimer()
 		// Scan the maps and see if we have 
 
 
-		TArray<AUTReplicatedMapVoteInfo*> Best;
+		TArray<AUTReplicatedMapInfo*> Best;
 		for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
 		{
 			if (UTGameState->MapVoteList[i]->VoteCount > 0)
@@ -3526,8 +3526,8 @@ void AUTGameMode::HandleMapVote()
  **/
 void AUTGameMode::CullMapVotes()
 {
-	TArray<AUTReplicatedMapVoteInfo*> Sorted;
-	TArray<AUTReplicatedMapVoteInfo*> DeleteList;
+	TArray<AUTReplicatedMapInfo*> Sorted;
+	TArray<AUTReplicatedMapInfo*> DeleteList;
 	for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
 	{
 		int32 InsertIndex = 0;
@@ -3626,7 +3626,7 @@ void AUTGameMode::TallyMapVotes()
 	}
 
 
-	TArray<AUTReplicatedMapVoteInfo*> Best;
+	TArray<AUTReplicatedMapInfo*> Best;
 	for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
 	{
 		if (Best.Num() == 0 || Best[0]->VoteCount < UTGameState->MapVoteList[i]->VoteCount)
@@ -3639,7 +3639,7 @@ void AUTGameMode::TallyMapVotes()
 	if (Best.Num() > 0)
 	{
 		int32 Idx = FMath::RandRange(0, Best.Num() - 1);
-		GetWorld()->ServerTravel(Best[Idx]->MapPackage, false);
+		GetWorld()->ServerTravel(Best[Idx]->MapPackageName, false);
 	}
 	else
 	{

@@ -2094,16 +2094,16 @@ void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, floa
 	UE_LOG(UT,Verbose,TEXT("Redirect: %s %i [%f%%]"), *FileURL, NumBytes, Progress);
 }
 
-void UUTLocalPlayer::AccquireContent(TArray<FString>& ContentList)
+void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirects)
 {
 	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
 	if (UTGameViewport)
 	{
-		for (int32 i = 0; i < ContentList.Num(); i++)
+		for (int32 i = 0; i < Redirects.Num(); i++)
 		{
-			if (ContentList[i] != TEXT(""))
+			if (!Redirects[i].PackageName.IsEmpty())
 			{
-				UTGameViewport->DownloadRedirect(ContentList[i]);
+				UTGameViewport->DownloadRedirect(Redirects[i]);
 			}
 		}
 	}

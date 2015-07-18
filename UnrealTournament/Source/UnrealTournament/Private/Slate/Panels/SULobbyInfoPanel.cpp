@@ -286,13 +286,9 @@ FReply SULobbyInfoPanel::MatchButtonClicked()
 bool SULobbyInfoPanel::GetReadyButtonEnabled() const
 {
 	AUTLobbyPlayerState* LPS = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-	if (LPS && LPS->CurrentMatch && LPS->CurrentMatch->CurrentRuleset.IsValid())
+	if (LPS && LPS->CurrentMatch && LPS->CurrentMatch->CurrentRuleset.IsValid() && !PlayerOwner->IsDownloadInProgress())
 	{
-		TArray<FString> NeededPaks;
-		if (LPS->CurrentMatch->GetNeededPackagesForCurrentRuleset(NeededPaks))
-		{
-			return NeededPaks.Num() <= 0;
-		}
+		return true;
 	}
 	return false;
 }
@@ -310,24 +306,6 @@ FReply SULobbyInfoPanel::ReadyButtonClicked()
 			{
 					AUTLobbyMatchInfo* MatchInfo = LPS->CurrentMatch;
 
-/*
-					// Look to see if everyone is ready....
-					bool bAllReady = true;
-					for (int32 i=0; i < MatchInfo->Players.Num(); i++)
-					{
-						if (MatchInfo->Players[i].IsValid() && MatchInfo->Players[i] != LPS && !MatchInfo->Players[i]->bReadyToPlay)
-						{
-							bAllReady = false;
-							break;
-						}
-					}
-					 
-					if (!bAllReady)
-					{
-						PlayerOwner->ShowMessage(NSLOCTEXT("LobbyMessages","NotEveryoneReadyCaption","Not Ready"),NSLOCTEXT("LobbyMessages","NotEveryoneReadyMsg","Everone isn't ready to play.  Please wait for everyone before starting the match!"), UTDIALOG_BUTTON_OK);
-						return FReply::Handled();
-					}
-*/
 					if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 					{
 						MatchInfo->ServerStartMatch();	

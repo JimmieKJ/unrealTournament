@@ -13,6 +13,7 @@
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
 #include "UTAnalytics.h"
+#include "UTLobbyGameState.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
@@ -191,7 +192,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 							SNew(SBox)
 							.WidthOverride(290)
 							[
-								SAssignNew(MapList, SComboBox< TSharedPtr<FMapListItem> >)
+								SAssignNew(MapList, SComboBox< TWeakObjectPtr<AUTReplicatedMapInfo> >)
 								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
 								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 								.OptionsSource(&AllMaps)
@@ -438,11 +439,11 @@ TSharedRef<SWidget> SUWCreateGamePanel::AddMutatorMenu()
 		];
 }
 
-void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo)
+void SUWCreateGamePanel::OnMapSelected(TWeakObjectPtr<AUTReplicatedMapInfo> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	if (NewSelection.IsValid())
 	{
-		SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
+		SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection->Title) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
 
 		int32 OptimalPlayerCount = SelectedGameClass.GetDefaultObject()->bTeamGame ? NewSelection->OptimalTeamPlayerCount : NewSelection->OptimalPlayerCount;
 	
@@ -450,13 +451,13 @@ void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ES
 		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0}"), FText::AsNumber(OptimalPlayerCount)));
 		MapDesc->SetText(NewSelection->Description);
 
-		if (NewSelection->Screenshot.IsEmpty())
+		if (NewSelection->MapScreenshotReference.IsEmpty())
 		{
 			*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 		}
 		else
 		{
-			LevelShot = LoadObject<UTexture2D>(nullptr, *NewSelection->Screenshot);
+			LevelShot = LoadObject<UTexture2D>(nullptr, *NewSelection->MapScreenshotReference);
 			if (LevelShot)
 			{
 				*LevelScreenshot = FSlateDynamicImageBrush(LevelShot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
@@ -481,19 +482,20 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		];
 }
 
-TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FMapListItem> InItem)
+TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TWeakObjectPtr<AUTReplicatedMapInfo> InItem)
 {
 	return SNew(SBox)
 		.Padding(5)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(FText::FromString(InItem.Get()->GetDisplayName()))
+			.Text(FText::FromString(InItem->Title))
 		];
 }
 
 void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type SelectInfo)
 {
+	if (NewSelection == NULL) return;
 	if (NewSelection != SelectedGameClass)
 	{
 		// clear existing game type info and cancel any changes that were made
@@ -587,20 +589,49 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 
 		// generate map list
 		AUTGameMode* GameDefaults = SelectedGameClass.GetDefaultObject();
+
+		// Get the list of prefixes
+		TArray<FString> PrefixList;
+		PrefixList.Add(GameDefaults->GetMapPrefix());
+
 		AllMaps.Empty();
 
 		AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
 		if (GameState)
 		{
-			TArray<FString> PrefixList;
-			PrefixList.Add(GameDefaults->GetMapPrefix());
-			GameState->GetAvailableMaps(PrefixList, AllMaps);
+
+			AUTLobbyGameState* LobbyGameState = Cast<AUTLobbyGameState>(GameState);
+			if (LobbyGameState && GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client)
+			{
+				// We are a lobby game this means we should be the client as well.  In this instance, we want to use the
+				// collection of replicated MapInfos to get the list of maps that are playable.
+				TArray<AUTReplicatedMapInfo*> MapInfos;
+				LobbyGameState->GetMapList(PrefixList, MapInfos);
+				for (int32 i=0 ; i < MapInfos.Num(); i++)
+				{
+					if (MapInfos[i])
+					{
+						AllMaps.Add( MapInfos[i] );
+					}
+				}
+			}
+			else
+			{
+				TArray<FAssetData> MapAssets;
+				GameState->ScanForMaps(PrefixList, MapAssets);
+
+				for (int32 i = 0; i < MapAssets.Num(); i++)
+				{
+					AllMaps.Add( GameState->CreateMapInfo(MapAssets[i] ) );
+				}
+
+			}
 		}
 
-		AllMaps.Sort([](const TSharedPtr<FMapListItem>& A, const TSharedPtr<FMapListItem>& B)
+		AllMaps.Sort([](const TWeakObjectPtr<AUTReplicatedMapInfo>& A, const TWeakObjectPtr<AUTReplicatedMapInfo>& B)
 					{
-						bool bHasTitleA = !A.Get()->Title.IsEmpty();
-						bool bHasTitleB = !B.Get()->Title.IsEmpty();
+						bool bHasTitleA = !A->Title.IsEmpty();
+						bool bHasTitleB = !B->Title.IsEmpty();
 						if (bHasTitleA && !bHasTitleB)
 						{
 							return true;
@@ -611,7 +642,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 						}
 						else
 						{
-							return A.Get()->GetDisplayName() < B.Get()->GetDisplayName();
+							return A->Title < B->Title;
 						}
 					});
 
@@ -620,9 +651,9 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		{
 			MapList->SetSelectedItem(AllMaps[0]);
 			// remember last selection
-			for (TSharedPtr<FMapListItem> TestMap : AllMaps)
+			for (TWeakObjectPtr<AUTReplicatedMapInfo> TestMap : AllMaps)
 			{
-				if (TestMap.Get()->PackageName == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
+				if (TestMap->MapPackageName == SelectedGameClass.GetDefaultObject()->UILastStartingMap)
 				{
 					MapList->SetSelectedItem(TestMap);
 					break;
@@ -733,7 +764,7 @@ FReply SUWCreateGamePanel::ConfigureBots()
 
 void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel, int32& bTeamGame)
 {
-	StartingMap = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->PackageName : TEXT("");
+	StartingMap = MapList->GetSelectedItem().IsValid() ? MapList->GetSelectedItem().Get()->MapPackageName : TEXT("");
 	AUTGameMode* DefaultGameMode = SelectedGameClass->GetDefaultObject<AUTGameMode>();
 	if (DefaultGameMode)
 	{

@@ -7,24 +7,6 @@
 #include "Private/Slate/SUTInGameMenu.h"
 #include "UTBaseGameMode.generated.h"
 
-USTRUCT()
-struct FRedirectReference
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FString MapName;
-
-	UPROPERTY()
-	FString MapURLProtocol;
-
-	UPROPERTY()
-	FString MapURL;
-
-	UPROPERTY()
-	FString MapChecksum;
-};
-
 UCLASS()
 class UNREALTOURNAMENT_API AUTBaseGameMode : public AGameMode
 {
@@ -136,9 +118,10 @@ public:
 	}
 
 	UPROPERTY(Config)
-	TArray<FRedirectReference> RedirectReferences;
+	TArray<FPackageRedirectReference> RedirectReferences;
 
-	virtual FString GetRedirectURL(const FString& MapName) const;
+	virtual bool FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect);
+	virtual FString GetRedirectURL(const FString& PackageName) const;
 private:
 	FString GetCloudID() const;
 };

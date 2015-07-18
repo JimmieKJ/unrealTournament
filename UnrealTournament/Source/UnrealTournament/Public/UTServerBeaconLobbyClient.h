@@ -3,6 +3,7 @@
 #pragma once
 #include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconClient.h"
 #include "UTServerBeaconClient.h"
+#include "UTReplicatedMapInfo.h"
 #include "UTServerBeaconLobbyClient.generated.h"
 
 
@@ -62,15 +63,6 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void Lobby_InstanceEmpty(uint32 InstanceID);
 
-	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_RequestNextMap(uint32 InstanceID, const FString& CurrentMap);
-
-	/**
-	 *	Tells the instance what map to travel to.  If NextMap is empty, then it's the end of the map list and
-	 *  players will return to the Hub.
-	 **/
-	UFUNCTION(client, reliable)
-	virtual void InstanceNextMap(const FString& NextMap);
 
 	/**
 	 *	When we connect, if this is a connection between a hub and a dedicated instance, this function
@@ -88,7 +80,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 
 	// Will cause the hub to prime the AllowedMapPackages list with all maps available on the server.
 	UFUNCTION(server, reliable, withvalidation)
-	virtual void Lobby_PrimeMapList(const FString& MapPrefix);
+	virtual void Lobby_PrimeMapList(int32 GameInstanceID);
 
 	UFUNCTION(client, reliable)
 	virtual void Instance_ReceiveMap(const FString& MapPackageName, const FString& MapTitle, const FString& MapScreenshotReference, int32 Index);
@@ -111,6 +103,6 @@ protected:
 
 	FString HubKey;
 
-	TArray<TSharedPtr<FMapListItem>> AllowedMaps;
+	TArray<AUTReplicatedMapInfo*> AllowedMaps;
 
 };

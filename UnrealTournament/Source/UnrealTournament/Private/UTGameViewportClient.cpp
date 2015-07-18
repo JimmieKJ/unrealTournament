@@ -694,26 +694,98 @@ bool UUTGameViewportClient::IsDownloadInProgress()
 	return PendingDownloads.Num() > 0;
 }
 
-void UUTGameViewportClient::DownloadRedirect(FString FileURL)
+bool UUTGameViewportClient::CheckIfRedirectExists(const FPackageRedirectReference& Redirect)
 {
-	for (int32 i = 0; i < PendingDownloads.Num(); i++)
+
+	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
 	{
-		// Look to see if the file is already pending and if it is, don't add it again.
-		if (PendingDownloads[i].FileURL.Equals(FileURL, ESearchCase::IgnoreCase))
+		if (UTEngine->LocalContentChecksums.Contains(Redirect.PackageName))
 		{
-			return;
+			if (UTEngine->LocalContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
+			{
+				return true;
+			}
+			else
+			{
+				// Local content has a non-matching md5, not sure if we should try to unmount/delete it
+				return false;
+			}
+		}
+
+		if (UTEngine->MountedDownloadedContentChecksums.Contains(Redirect.PackageName))
+		{
+			if (UTEngine->MountedDownloadedContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
+			{
+				return true;
+			}
+			else
+			{
+				// Unmount the pak
+				if (FCoreDelegates::OnUnmountPak.IsBound())
+				{
+					FCoreDelegates::OnUnmountPak.Execute(Path);
+				}
+
+				// Remove the CRC entry
+				UTEngine->MountedDownloadedContentChecksums.Remove(Redirect.PackageName);
+				UTEngine->DownloadedContentChecksums.Remove(Redirect.PackageName);
+
+				// Delete the original file
+				FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
+			}
+		}
+
+		if (UTEngine->DownloadedContentChecksums.Contains(Redirect.PackageName))
+		{
+			if (UTEngine->DownloadedContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
+			{
+				// Mount the pak
+				if (FCoreDelegates::OnMountPak.IsBound())
+				{
+					FCoreDelegates::OnMountPak.Execute(Path, 0);
+					UTEngine->MountedDownloadedContentChecksums.Add(Redirect.PackageName, Redirect.PackageChecksum);
+				}
+
+				return true;
+			}
+			else
+			{
+				UTEngine->DownloadedContentChecksums.Remove(Redirect.PackageName);
+
+				// Delete the original file
+				FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
+			}
 		}
 	}
 
-	PendingDownloads.Add(FPendingRedirect(FileURL));
-	// NOTE: The next tick will start the download process...	
+	return false;
 }
 
-void UUTGameViewportClient::CancelRedirect(FString FileURL)
+void UUTGameViewportClient::DownloadRedirect(FPackageRedirectReference Redirect)
+{
+	if (!CheckIfRedirectExists(Redirect))
+	{
+		for (int32 i = 0; i < PendingDownloads.Num(); i++)
+		{
+			// Look to see if the file is already pending and if it is, don't add it again.
+			if (PendingDownloads[i].FileURL.Equals(Redirect.ToString(), ESearchCase::IgnoreCase))
+			{
+				return;
+			}
+		}
+
+		PendingDownloads.Add(FPendingRedirect(Redirect.ToString()));
+		// NOTE: The next tick will start the download process...	
+	}
+}
+
+void UUTGameViewportClient::CancelRedirect(FPackageRedirectReference Redirect)
 {
 	for (int32 i=0; i < PendingDownloads.Num(); i++)
 	{
-		if ( PendingDownloads[i].FileURL.Equals(FileURL, ESearchCase::IgnoreCase) )	
+		if ( PendingDownloads[i].FileURL.Equals(Redirect.ToString(), ESearchCase::IgnoreCase) )	
 		{
 			// Broadcast that this has been cancelled.
 

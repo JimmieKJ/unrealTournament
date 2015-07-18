@@ -7,6 +7,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTGameEngine.h"
 #include "UTLevelSummary.h"
+#include "UTReplicatedMapInfo.h"
 #include "UTReplicatedGameRuleset.h"
 
 
@@ -52,6 +53,8 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, bRankLocked);
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
 	DOREPLIFETIME(AUTLobbyMatchInfo, AverageRank);
+	DOREPLIFETIME(AUTLobbyMatchInfo, Redirects);
+
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bQuickPlayMatch, COND_InitialOnly);
@@ -534,8 +537,31 @@ void AUTLobbyMatchInfo::LoadInitialMapInfo()
 void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
 {
 	CurrentRuleset = NewRuleset;
+
 	InitialMap = StartingMap;
 	InitialMapInfo = GetMapInformation(InitialMap);
+
+	// Copy any required redirects in to match info.  The UI will pickup on the replication and pull them.
+	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	if (BaseGame)
+	{
+		Redirects.Empty();
+		for (int32 i = 0; i < NewRuleset->RequiredPackages.Num(); i++)
+		{
+			FPackageRedirectReference Redirect;
+			BaseGame->FindRedirect(NewRuleset->RequiredPackages[i], Redirect);
+			if (!Redirect.PackageName.IsEmpty())
+			{
+				Redirects.Add(Redirect);
+			}
+		}
+
+		if (InitialMapInfo->Redirect.PackageName != TEXT(""))
+		{
+			Redirects.Add(InitialMapInfo->Redirect);
+		}
+	}
+
 
 	bMapChanged = true;
 }
@@ -549,10 +575,7 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 
 		if (NewRuleSet.IsValid())
 		{
-			InitialMap = StartingMap;
-			InitialMapInfo = GetMapInformation(InitialMap);
-
-			SetRules(NewRuleSet, InitialMap);
+			SetRules(NewRuleSet, StartingMap);
 			if (!InitialMapInfo.IsValid())
 			{
 				MatchBadge = FString::Printf(TEXT("Setting up a %s match."), *NewRuleSet->Title);
@@ -582,82 +605,6 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 	{
 		MatchGameTime = GameTime;
 	}
-}
-
-// Unmounts and/or deletes stale packages per the current ruleset
-bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs)
-{
-	NeededPackageURLs.Empty();
-	for (int32 i = 0; i < CurrentRuleset->RequiredPackages.Num(); i++)
-	{
-		FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *CurrentRuleset->RequiredPackages[i].PackageName) + TEXT(".pak");
-		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-		if (UTEngine)
-		{
-			if (UTEngine->LocalContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
-			{
-				if (UTEngine->LocalContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
-				{
-					continue;
-				}
-				else
-				{
-					// Local content has a non-matching md5, not sure if we should try to unmount/delete it
-					return false;
-				}
-			}
-
-			if (UTEngine->MountedDownloadedContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
-			{
-				if (UTEngine->MountedDownloadedContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
-				{
-					// We've already mounted the content needed and the checksum matches
-					continue;
-				}
-				else
-				{
-					// Unmount the pak
-					if (FCoreDelegates::OnUnmountPak.IsBound())
-					{
-						FCoreDelegates::OnUnmountPak.Execute(Path);
-					}
-
-					// Remove the CRC entry
-					UTEngine->MountedDownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
-					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
-
-					// Delete the original file
-					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
-				}
-			}
-
-			if (UTEngine->DownloadedContentChecksums.Contains(CurrentRuleset->RequiredPackages[i].PackageName))
-			{
-				if (UTEngine->DownloadedContentChecksums[CurrentRuleset->RequiredPackages[i].PackageName] == CurrentRuleset->RequiredPackages[i].PackageChecksum)
-				{
-					// Mount the pak
-					if (FCoreDelegates::OnMountPak.IsBound())
-					{
-						FCoreDelegates::OnMountPak.Execute(Path, 0);
-						UTEngine->MountedDownloadedContentChecksums.Add(CurrentRuleset->RequiredPackages[i].PackageName, CurrentRuleset->RequiredPackages[i].PackageChecksum);
-					}
-
-					continue;
-				}
-				else
-				{
-					UTEngine->DownloadedContentChecksums.Remove(CurrentRuleset->RequiredPackages[i].PackageName);
-
-					// Delete the original file
-					FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
-				}
-			}
-
-			NeededPackageURLs.Add(CurrentRuleset->RequiredPackages[i].PackageURLProtocol + "://" + CurrentRuleset->RequiredPackages[i].PackageURL);
-		}
-	}
-
-	return true;
 }
 
 bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame) { return true; }
@@ -695,7 +642,8 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		}
 
 		int32 OptimalPlayerCount = 4;
-		TSharedPtr<FMapListItem> MapInfo = GetMapInformation(StartingMap);
+
+		TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo = GetMapInformation(StartingMap);
 		if (MapInfo.IsValid())
 		{
 			OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
@@ -733,10 +681,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		MatchBadge = TEXT("Setting up a custom match.");
 
-
-
-
-
 	}
 
 }
@@ -754,65 +698,13 @@ bool AUTLobbyMatchInfo::IsBanned(FUniqueNetIdRepl Who)
 	return false;
 }
 
-TSharedPtr<FMapListItem> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage)
+TWeakObjectPtr<AUTReplicatedMapInfo> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage)
 {
-	TSharedPtr<FMapListItem> MapInfo;
+	TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo;
 
-	TArray<FAssetData> MapAssets;
-	GetAllAssetData(UWorld::StaticClass(), MapAssets);
-	for (const FAssetData& Asset : MapAssets)
+	if ( CheckLobbyGameState() )
 	{
-		if (Asset.PackageName.ToString().Equals(MapPackage, ESearchCase::CaseSensitive))
-		{
-			const FString* Title = Asset.TagsAndValues.Find(NAME_MapInfo_Title); 
-			const FString* Author = Asset.TagsAndValues.Find(NAME_MapInfo_Author);
-			const FString* Description = Asset.TagsAndValues.Find(NAME_MapInfo_Description);
-			const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
-
-			const FString* OptimalPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalPlayerCount);
-			int32 OptimalPlayerCount = 6;
-			if (OptimalPlayerCountStr != NULL)
-			{
-				OptimalPlayerCount = FCString::Atoi(**OptimalPlayerCountStr);
-			}
-
-			const FString* OptimalTeamPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalTeamPlayerCount);
-			int32 OptimalTeamPlayerCount = 10;
-			if (OptimalTeamPlayerCountStr != NULL)
-			{
-				OptimalTeamPlayerCount = FCString::Atoi(**OptimalTeamPlayerCountStr);
-			}
-
-			MapInfo = MakeShareable(new FMapListItem( Asset.PackageName.ToString(), (Title != NULL && !Title->IsEmpty()) ? *Title : *Asset.AssetName.ToString(), (Author != NULL) ? *Author : FString(),
-											(Description != NULL) ? *Description : FString(), (Screenshot != NULL) ? *Screenshot : FString(), OptimalPlayerCount, OptimalTeamPlayerCount));
-			break;
-		}
-	}
-	
-	if (!MapInfo.IsValid())
-	{
-		// Could not be loaded via the asset registry.  Try to load the level summary to get the information.
-		UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MapPackage);		
-		if (Summary)
-		{
-			MapInfo = MakeShareable(new FMapListItem( MapPackage, *Summary->Title, *Summary->Author, *Summary->Description.ToString(), *Summary->ScreenshotReference, Summary->OptimalPlayerCount, Summary->OptimalTeamPlayerCount));
-		}
-		else
-		{
-			FString MapName;
-			int32 Pos = INDEX_NONE;
-			MapPackage.FindLastChar(TEXT('/'),Pos);
-			if (Pos != INDEX_NONE)
-			{
-				MapName = MapPackage.Right(MapPackage.Len() - Pos - 1);
-				if (MapName == TEXT("")) MapName = MapPackage;
-			}
-			else
-			{
-				MapName = MapPackage;
-			}
-			MapInfo = MakeShareable(new FMapListItem( MapPackage, MapName, TEXT("n/a"), TEXT("n/a"), TEXT(""), 6, 10));
-		}
+		MapInfo = LobbyGameState->GetMapInfo(MapPackage);
 	}
 
 	return MapInfo;
@@ -964,4 +856,9 @@ void AUTLobbyMatchInfo::UpdateRank()
 			AverageRank = int32( float(AverageRank) / float(Players.Num()));
 		}
 	}
+}
+
+void AUTLobbyMatchInfo::OnRep_RedirectsChanged()
+{
+	bRedirectsHaveChanged = true;
 }

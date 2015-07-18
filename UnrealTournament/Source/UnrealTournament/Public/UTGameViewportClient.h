@@ -89,14 +89,17 @@ protected:
 
 public:
 
+	// Returns TRUE if a given direct reference exists on this machine
+	bool CheckIfRedirectExists(const FPackageRedirectReference& Redirect);
+
 	// Returns TRUE if there is currently a download in progress.
 	virtual bool IsDownloadInProgress();
 
 	// Adds a redirect to the download queue and downloads it.
-	virtual void DownloadRedirect(FString FileURL);
+	virtual void DownloadRedirect(FPackageRedirectReference Redirect);
 
 	// Cancel a given redirect.  If this download is currently in progress it is ended and the next in the queue started.  
-	virtual void CancelRedirect(FString FileURL);
+	virtual void CancelRedirect(FPackageRedirectReference Redirect);
 
 	// Cancel all downloads.
 	virtual void CancelAllRedirectDownloads();

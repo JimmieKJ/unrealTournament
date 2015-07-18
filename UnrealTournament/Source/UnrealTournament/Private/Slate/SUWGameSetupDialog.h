@@ -60,7 +60,7 @@ class UNREALTOURNAMENT_API SUWGameSetupDialog : public SUWDialog, public FGCObje
 private:
 	struct FMapPlayListInfo
 	{
-		TSharedPtr<FMapListItem> MapInfo;
+		TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo;
 		
 		UTexture2D* MapTexture;
 		FSlateDynamicImageBrush* MapImage;
@@ -77,7 +77,7 @@ private:
 			bSelected = false;
 		}
 
-		FMapPlayListInfo(TSharedPtr<FMapListItem> inMapInfo, bool bInitiallySelected)
+		FMapPlayListInfo(TWeakObjectPtr<AUTReplicatedMapInfo> inMapInfo, bool bInitiallySelected)
 		{
 			MapInfo = inMapInfo;
 			MapTexture = NULL;
