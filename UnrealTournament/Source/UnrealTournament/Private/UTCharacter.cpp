@@ -907,7 +907,7 @@ void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUT
 
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
-	if (bStackHit || LastTakeHitInfo.HitArmor == NULL)
+	if (!bStackHit || LastTakeHitInfo.HitArmor == NULL)
 	{
 		LastTakeHitInfo.HitArmor = (HitArmor != NULL) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
 	}
