@@ -26,6 +26,9 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	BodyDamageColor = DefaultFlash.Object;
 	bBodyDamageColorRimOnly = true;
 
+	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> ArmorFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/GoldHitFlash.GoldHitFlash'"));
+	ArmorDamageColor = ArmorFlash.Object;
+
 	ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages","GenericConsoleDeathMessage","{Player1Name} killed {Player2Name} with the {WeaponName}.");
 	MaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericMaleSuicideMessage","{Player2Name} killed himself with the {WeaponName}.");
 	FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericFemaleSuicideMessage","{Player2Name} killed herself with the {WeaponName}.");
@@ -108,7 +111,14 @@ void UUTDamageType::PlayHitEffects_Implementation(AUTCharacter* HitPawn, bool bP
 {
 	if (BodyDamageColor != NULL && (HitPawn->LastTakeHitInfo.Damage > 0 || (HitPawn->LastTakeHitInfo.HitArmor != NULL && !bPlayedArmorEffect)))
 	{
-		HitPawn->SetBodyColorFlash(BodyDamageColor, bBodyDamageColorRimOnly);
+		if (bBlockedByArmor && HitPawn->LastTakeHitInfo.HitArmor && ArmorDamageColor)
+		{
+			HitPawn->SetBodyColorFlash(ArmorDamageColor, true);
+		}
+		else
+		{
+			HitPawn->SetBodyColorFlash(BodyDamageColor, bBodyDamageColorRimOnly);
+		}
 	}
 }
 
