@@ -2325,11 +2325,6 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 			ServerSwitchWeapon(NewWeapon);
 		}
 	}
-
-	if (GhostComponent->bGhostRecording && NewWeapon != nullptr)
-	{
-		GhostComponent->GhostSwitchWeapon(NewWeapon);
-	}
 }
 
 void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
@@ -2423,6 +2418,11 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		WeaponClass = NULL;
 		WeaponAttachmentClass = NULL;
 		UpdateWeaponAttachment();
+	}
+
+	if (GhostComponent->bGhostRecording && Weapon != nullptr)
+	{
+		GhostComponent->GhostSwitchWeapon(Weapon);
 	}
 }
 

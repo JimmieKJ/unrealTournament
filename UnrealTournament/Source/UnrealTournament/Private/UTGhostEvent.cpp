@@ -72,9 +72,6 @@ void UUTGhostEvent_Weapon::ApplyEvent_Implementation(AUTCharacter* UTC)
 {
 	if (WeaponClass != nullptr)
 	{
-		//AUTInventory* Existing = P->FindInventoryType(NewWeaponClass, true);
-		//if (Existing == NULL || !Existing->StackPickup(NULL))
-		//{
 		FActorSpawnParameters Params;
 		Params.bNoCollisionFail = true;
 		Params.Instigator = UTC;
@@ -90,7 +87,7 @@ void UUTGhostEvent_Weapon::ApplyEvent_Implementation(AUTCharacter* UTC)
 
 		UTC->AddInventory(NewWeapon, true);
 		UTC->SwitchWeapon(NewWeapon);
-		//}
+		UTC->WeaponChanged(); //force the pending weapon switch right away
 	}
 }
 
