@@ -12,6 +12,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	virtual void AllAmmo();
 
 	UFUNCTION(exec)
+		virtual void Gibs();
+
+	UFUNCTION(exec)
 	virtual void UnlimitedAmmo();
 
 	UFUNCTION(exec)
