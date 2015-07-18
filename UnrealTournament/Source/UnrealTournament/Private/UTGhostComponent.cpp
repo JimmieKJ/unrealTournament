@@ -13,7 +13,6 @@ UUTGhostComponent::UUTGhostComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 	GhostData = nullptr;
-	GhostDataClass = nullptr;
 	MaxMoveDelta = 0.064f;
 }
 
@@ -60,15 +59,7 @@ void UUTGhostComponent::GhostStartRecording()
 	{
 		if (GhostData == nullptr)
 		{
-			if (GhostDataClass != nullptr)
-			{
-				//write directly to the default object
-				GhostData = GhostDataClass.GetDefaultObject();
-			}
-			else
-			{
-				GhostData = NewObject<UUTGhostData>(this, GhostDataClass);
-			}
+			GhostData = NewObject<UUTGhostData>(this);
 		}
 
 		if (GhostData != nullptr)
@@ -105,12 +96,6 @@ void UUTGhostComponent::GhostStopRecording()
 
 void UUTGhostComponent::GhostStartPlaying()
 {
-	//load the data from a derrived BP class
-	if (GhostData == nullptr && GhostDataClass != nullptr)
-	{
-		GhostData = NewObject<UUTGhostData>(this, GhostDataClass);
-	}
-
 	if (!bGhostRecording && !bGhostPlaying && GhostData != nullptr && GhostData->Events.Num() > 0)
 	{
 		bGhostPlaying = true;

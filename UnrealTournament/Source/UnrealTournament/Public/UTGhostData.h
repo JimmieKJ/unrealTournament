@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS(CustomConstructor, Blueprintable)
+UCLASS(CustomConstructor, BlueprintType)
 class UNREALTOURNAMENT_API UUTGhostData : public UObject
 {
 	GENERATED_UCLASS_BODY()

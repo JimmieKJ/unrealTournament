@@ -49,14 +49,9 @@ public:
 
 	int32 GhostEventIndex;
 
-	/**If this is not null, the ghost recording will be saved to the default object
-	* Used for saving the record to a child UUTGhostData class*/
+	/** The asset to save the ghost data to. If this is null, the recording will be temporary for the lifetime of the character*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
-	TSubclassOf<class UUTGhostData> GhostDataClass;
-
-	UPROPERTY()
 	class UUTGhostData* GhostData;
-
 
 	virtual void GhostMove();
 	virtual void GhostStartFire(uint8 FireModeNum);
