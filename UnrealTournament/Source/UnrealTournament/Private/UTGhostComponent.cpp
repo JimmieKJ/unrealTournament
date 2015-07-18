@@ -65,6 +65,7 @@ void UUTGhostComponent::GhostStartRecording()
 		if (GhostData != nullptr)
 		{
 			GhostData->Events.Empty();
+			GhostData->StartTransform = UTOwner->GetTransform();
 			bGhostRecording = true;
 			GhostStartTime = GetWorld()->TimeSeconds;
 			GhostFireFlags = 0;
@@ -138,10 +139,10 @@ void UUTGhostComponent::GhostStopPlaying()
 
 void UUTGhostComponent::GhostMoveToStart()
 {
-	/*if (GhostData != nullptr && GhostData->GhostMoves.Num() > 0)
+	if (GhostData != nullptr)
 	{
-		UTOwner->SetActorLocation(GhostData->GhostMoves[0].RepMovement.Location);
-	}*/
+		UTOwner->SetActorTransform(GhostData->StartTransform);
+	}
 }
 
 

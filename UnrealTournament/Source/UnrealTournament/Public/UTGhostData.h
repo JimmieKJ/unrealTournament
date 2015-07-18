@@ -19,5 +19,8 @@ class UNREALTOURNAMENT_API UUTGhostData : public UObject
 	{}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
+	FTransform StartTransform;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
 	TArray<class UUTGhostEvent*> Events;
 };
