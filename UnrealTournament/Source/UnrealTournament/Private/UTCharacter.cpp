@@ -29,6 +29,7 @@
 #include "UTRewardMessage.h"
 #include "StatNames.h"
 #include "UTGhostComponent.h"
+#include "UTTimedPowerup.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -910,6 +911,11 @@ void AUTCharacter::SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const
 	if (!bStackHit || LastTakeHitInfo.HitArmor == NULL)
 	{
 		LastTakeHitInfo.HitArmor = ((HitArmor != NULL) && HitArmor->ShouldDisplayHitEffect(AttemptedDamage, Damage, Health, ArmorAmount)) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
+	}
+	if ((LastTakeHitInfo.HitArmor == NULL) && (HitArmor == NULL) && (Health > 0) && (Damage == AttemptedDamage) && (Health + Damage > 100) && ((Damage > 90) || (Health > 90)))
+	{
+		// notify superhealth hit effect
+		LastTakeHitInfo.HitArmor = AUTTimedPowerup::StaticClass();
 	}
 	LastTakeHitInfo.Momentum = Momentum;
 

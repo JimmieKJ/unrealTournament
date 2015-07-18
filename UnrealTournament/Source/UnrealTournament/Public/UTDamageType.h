@@ -108,6 +108,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 		const UCurveLinearColor* ArmorDamageColor;
 
+	/** optional rim color to flash in victim's material when hit with this damage type and have superhealth*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
+		const UCurveLinearColor* SuperHealthDamageColor;
+
 	/** if set apply BodyDamageColor to character edges only (rim shader) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Effects)
 	bool bBodyDamageColorRimOnly;
