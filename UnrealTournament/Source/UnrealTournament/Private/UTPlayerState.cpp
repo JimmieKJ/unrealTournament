@@ -42,6 +42,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
+	ReadyScale = 1.f;
 	SpectatorNameScale = 1.f;
 	bIsDemoRecording = false;
 }
@@ -1520,12 +1521,12 @@ void AUTPlayerState::ClientShowLoadoutMenu_Implementation()
 void AUTPlayerState::UpdateReady()
 {
 	uint8 NewReadyState = bReadyToPlay + (bPendingTeamSwitch >> 2);
-	if (NewReadyState != LastReadyState)
+	if ((ReadySwitchCount > 2) && bReadyToPlay)
 	{
-		ReadySwitchCount = (GetWorld()->GetTimeSeconds() - LastReadySwitchTime < 0.5f) ? ReadySwitchCount + 1 : 0;
-		LastReadySwitchTime = GetWorld()->GetTimeSeconds();
-		if ((ReadySwitchCount > 2) && (bReadyToPlay || bPendingTeamSwitch))
+		if (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.2f)
 		{
+			ReadySwitchCount++;
+			LastReadySwitchTime = GetWorld()->GetTimeSeconds();
 			if ((ReadySwitchCount & 14) == 0)
 			{
 				ReadySwitchCount += 2;
@@ -1534,11 +1535,22 @@ void AUTPlayerState::UpdateReady()
 			ReadyColor.G = (ReadySwitchCount & 4) ? 1.f : 0.f;
 			ReadyColor.B = (ReadySwitchCount & 8) ? 1.f : 0.f;
 		}
+		if (ReadySwitchCount > 10)
+		{
+			ReadyScale = 1.f + 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime);
+		}
 	}
-	else if (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f)
+	else if (!bReadyToPlay && (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f))
 	{
 		ReadySwitchCount = 0;
 		ReadyColor = FLinearColor::White;
+		ReadyScale = 1.f;
+	}
+	else if (NewReadyState != LastReadyState)
+	{
+		ReadySwitchCount = (GetWorld()->GetTimeSeconds() - LastReadySwitchTime < 0.5f) ? ReadySwitchCount + 1 : 0;
+		LastReadySwitchTime = GetWorld()->GetTimeSeconds();
+		ReadyScale = 1.f;
 	}
 	LastReadyState = NewReadyState;
 }
