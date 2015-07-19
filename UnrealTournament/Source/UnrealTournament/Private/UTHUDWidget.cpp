@@ -693,20 +693,17 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		}
 
 		FVector2D RenderPos = FVector2D(RenderPosition.X + X,RenderPosition.Y + Y);
+		float TextScaling = bScaleByDesignedResolution ? RenderScale*TextScale : TextScale;
 		// Handle Justification
 		if (TextHorzAlignment != ETextHorzPos::Left || TextVertAlignment != ETextVertPos::Top )
 		{
-			if (bScaleByDesignedResolution)
-			{
-				XL *= RenderScale * TextScale;
-				YL *= RenderScale* TextScale;
-			}
+			XL *= TextScaling;
+			YL *= TextScaling;
 
 			if (TextHorzAlignment != ETextHorzPos::Left)
 			{
 				RenderPos.X -= TextHorzAlignment == ETextHorzPos::Right ? XL : XL * 0.5f;
 			}
-
 			if (TextVertAlignment != ETextVertPos::Top)
 			{
 				RenderPos.Y -= TextVertAlignment == ETextVertPos::Bottom ? YL : YL * 0.5f;
@@ -736,10 +733,7 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 			TextItem.EnableShadow(ShadowColor, ShadowDirection);
 		}
 
-		if (bScaleByDesignedResolution)
-		{
-			TextItem.Scale = FVector2D(RenderScale * TextScale, RenderScale * TextScale);
-		}
+		TextItem.Scale = FVector2D(TextScaling, TextScaling);
 		Canvas->DrawItem(TextItem);
 	}
 
