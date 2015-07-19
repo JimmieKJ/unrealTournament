@@ -179,8 +179,8 @@ void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid
 	}
 }
 
-bool AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Validate(int32 GameInstanceID) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(int32 GameInstanceID)
+bool AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Validate(int32 InstanceID) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(int32 InstanceID)
 {
 	UE_LOG(UT,Verbose, TEXT("Lobby_PrimeMapList - Searching for maps"));
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
@@ -190,7 +190,7 @@ void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(int32 GameIns
 		
 		for (int32 i=0; i < LobbyGameState->GameInstances.Num(); i++)
 		{
-			if ( LobbyGameState->GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID )
+			if ( LobbyGameState->GameInstances[i].MatchInfo->GameInstanceID == InstanceID )
 			{
 				MatchInfo = LobbyGameState->GameInstances[i].MatchInfo;
 				break;
