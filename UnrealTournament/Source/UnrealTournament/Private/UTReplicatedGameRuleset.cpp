@@ -56,7 +56,6 @@ int32 AUTReplicatedGameRuleset::AddMapAssetToMapList(const FAssetData& Asset)
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets)
 {
-
 	UniqueTag			= NewRules->UniqueTag;
 	Categories			= NewRules->Categories;
 	Title				= NewRules->Title;
@@ -66,12 +65,9 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	MaxPlayers			= NewRules->MaxPlayers;
 	bTeamGame			= NewRules->bTeamGame;
 
-
-
 	MaxMapsInList = NewRules->MaxMapsInList;
 
 	// First add the Epic maps.
-
 	if (!NewRules->EpicMaps.IsEmpty())
 	{
 		TArray<FString> EpicMapList;
@@ -103,13 +99,11 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	}
 
 	// Now add the custom maps..
-
 	for (int32 i = 0; i < NewRules->CustomMapList.Num(); i++)
 	{
 		//if (MaxMapsInList > 0 && MapList.Num() >= MaxMapsInList) break;
 
 		// Look for the map in the asset registry...
-
 		for (const FAssetData& Asset : MapAssets)
 		{
 			FString AssetPackageName = Asset.PackageName.ToString();
@@ -124,11 +118,9 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	}
 
 	RequiredPackages = NewRules->RequiredPackages;
-
 	DisplayTexture = NewRules->DisplayTexture;
 	GameMode = NewRules->GameMode;
 	GameOptions = NewRules->GameOptions;
-
 	BuildSlateBadge();
 
 }
@@ -178,6 +170,10 @@ AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();
 			return DefaultGameModeObject;
 		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s Empty GameModeClass for Ruleset %s"), *GetName(), *Title);
 	}
 
 	return NULL;

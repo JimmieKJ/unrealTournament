@@ -459,7 +459,6 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 							if (NewReplicatedRuleset)
 							{
 								// Build out the map info
-
 								NewReplicatedRuleset->SetRules(NewRuleset, MapAssets);
 								AvailableGameRulesets.Add(NewReplicatedRuleset);
 							}
@@ -845,8 +844,7 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *CurrentRule->GameMode);
 		GameOptions += FString::Printf(TEXT("?MaxPlayers=%i"), CurrentRule->MaxPlayers);
 		GameOptions += CurrentRule->GameOptions;
-
-		if ( CreateGameDialog->BotSkillLevel >= 0 )
+		if ( DefaultGameMode && CreateGameDialog->BotSkillLevel >= 0 )
 		{
 			// This match wants bots.  
 			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? CreateGameDialog->MapPlayList[0].MapInfo->OptimalTeamPlayerCount : CreateGameDialog->MapPlayList[0].MapInfo->OptimalPlayerCount;
