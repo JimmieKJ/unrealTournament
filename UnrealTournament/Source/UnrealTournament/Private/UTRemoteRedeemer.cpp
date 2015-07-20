@@ -156,7 +156,14 @@ void AUTRemoteRedeemer::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS == NULL || !GS->OnSameTeam(this, OtherActor))
 		{
-			BlowUp();
+			if (Cast<AUTProjectile>(OtherActor))
+			{
+				Detonate();
+			}
+			else
+			{
+				BlowUp();
+			}
 		}
 	}
 }
@@ -200,6 +207,7 @@ void AUTRemoteRedeemer::Detonate()
 {
 	if (!bExploded)
 	{
+		bShotDown = true;
 		bExploded = true;
 		bTearOff = true;
 
