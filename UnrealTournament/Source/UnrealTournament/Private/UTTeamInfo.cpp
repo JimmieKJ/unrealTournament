@@ -59,11 +59,6 @@ void AUTTeamInfo::UpdateTeamLeaders()
 				PS->SecondaryAttackerScore = PS->GetStatsValue(GS->SecondaryAttackerStat);
 			}
 
-			if (PS->PlayerName.Equals(TEXT("TimEh")))
-			{
-				UE_LOG(UT, Warning, TEXT("TimEh AttackerScore:%f DefenderScore:%f SupporterScore:%f"), PS->AttackerScore, PS->DefenderScore, PS->SupporterScore);
-			}
-
 			MemberPS.Add(PS);
 		}
 	}
@@ -94,8 +89,6 @@ void AUTTeamInfo::UpdateTeamLeaders()
 		return A.SupporterScore > B.SupporterScore;
 	});
 	TopSupporter = (MemberPS[0] && (MemberPS[0]->SupporterScore > 0)) ? MemberPS[0] : NULL;
-
-	UE_LOG(UT, Warning,TEXT("TopAttacker:%s TopDefender:%s TopSupporter:%s"), TopAttacker ? *TopAttacker->PlayerName : TEXT(" "), TopDefender ? *TopDefender->PlayerName : TEXT(" "), TopSupporter ? *TopSupporter->PlayerName : TEXT(" "));
 }
 
 void AUTTeamInfo::AddToTeam(AController* C)
