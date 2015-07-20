@@ -172,9 +172,10 @@ void UUTTeamScoreboard::DrawClockTeamStatsLine(FText StatsName, FName StatsID, f
 AUTPlayerState* UUTTeamScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 {
 	TArray<AUTPlayerState*> MemberPS;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AUTPlayerState* PS = (*It);
 		if (PS && (PS->GetTeamNum() == TeamNum))
 		{
 			MemberPS.Add(PS);
@@ -191,9 +192,10 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
 AUTPlayerState* UUTTeamScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 {
 	TArray<AUTPlayerState*> MemberPS;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AUTPlayerState* PS = (*It);
 		if (PS && (PS->GetTeamNum() == TeamNum))
 		{
 			MemberPS.Add(PS);
@@ -222,9 +224,10 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 AUTPlayerState* UUTTeamScoreboard::FindTopTeamSPMFor(uint8 TeamNum)
 {
 	TArray<AUTPlayerState*> MemberPS;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AUTPlayerState* PS = (*It);
 		if (PS && (PS->GetTeamNum() == TeamNum))
 		{
 			MemberPS.Add(PS);
@@ -314,9 +317,11 @@ void UUTTeamScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffse
 	// find top scorer
 	AUTPlayerState* TopScorerRed = NULL;
 	AUTPlayerState* TopScorerBlue = NULL;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AUTPlayerState* PS = (*It);
 		if (PS && PS->Team)
 		{
 			if (!TopScorerRed && (PS->Team->TeamIndex == 0))

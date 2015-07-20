@@ -41,38 +41,31 @@ void AUTTeamInfo::Destroyed()
 
 void AUTTeamInfo::UpdateTeamLeaders()
 {
-	for (int32 i = 0; i < TeamMembers.Num(); i++)
-	{
-		if (TeamMembers[i] && TeamMembers[i]->PlayerState)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(TeamMembers[i]->PlayerState);
-			if (PS != NULL)
-			{
-				PS->AttackerScore = PS->GetStatsValue(NAME_AttackerScore);
-				PS->DefenderScore = PS->GetStatsValue(NAME_DefenderScore);
-				PS->SupporterScore = PS->GetStatsValue(NAME_SupporterScore);
-				
-				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-				if ((GS != NULL) && (GS->SecondaryAttackerStat != NAME_None))
-				{
-					PS->SecondaryAttackerScore = PS->GetStatsValue(GS->SecondaryAttackerStat); 
-				}
-			}
-		}
-	}
-
 	TArray<AUTPlayerState*> MemberPS;
-	for (int32 i = 0; i < TeamMembers.Num(); i++)
+
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = TeamMembers[i] ? Cast<AUTPlayerState>(TeamMembers[i]->PlayerState) : NULL;
-		if (PS)
+		AUTPlayerState* PS = (*It);
+		if (PS->GetTeamNum() == GetTeamNum())
 		{
+			PS->AttackerScore = PS->GetStatsValue(NAME_AttackerScore);
+			PS->DefenderScore = PS->GetStatsValue(NAME_DefenderScore);
+			PS->SupporterScore = PS->GetStatsValue(NAME_SupporterScore);
+
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if ((GS != NULL) && (GS->SecondaryAttackerStat != NAME_None))
+			{
+				PS->SecondaryAttackerScore = PS->GetStatsValue(GS->SecondaryAttackerStat);
+			}
+
+			if (PS->PlayerName.Equals(TEXT("TimEh")))
+			{
+				UE_LOG(UT, Warning, TEXT("TimEh AttackerScore:%f DefenderScore:%f SupporterScore:%f"), PS->AttackerScore, PS->DefenderScore, PS->SupporterScore);
+			}
+
 			MemberPS.Add(PS);
 		}
-	}
-	if (MemberPS.Num() == 0)
-	{
-		return;
 	}
 
 	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
@@ -101,6 +94,8 @@ void AUTTeamInfo::UpdateTeamLeaders()
 		return A.SupporterScore > B.SupporterScore;
 	});
 	TopSupporter = (MemberPS[0] && (MemberPS[0]->SupporterScore > 0)) ? MemberPS[0] : NULL;
+
+	UE_LOG(UT, Warning,TEXT("TopAttacker:%s TopDefender:%s TopSupporter:%s"), TopAttacker ? *TopAttacker->PlayerName : TEXT(" "), TopDefender ? *TopDefender->PlayerName : TEXT(" "), TopSupporter ? *TopSupporter->PlayerName : TEXT(" "));
 }
 
 void AUTTeamInfo::AddToTeam(AController* C)

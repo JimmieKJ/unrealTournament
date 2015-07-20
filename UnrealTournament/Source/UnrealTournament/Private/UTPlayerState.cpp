@@ -604,6 +604,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->EyewearVariant = EyewearVariant;
 		PS->SelectedCharacter = SelectedCharacter;
 		PS->StatManager = StatManager;
+		PS->StatsData = StatsData;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);
@@ -1653,3 +1654,11 @@ void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapInfo* VoteInfo)
 	}
 }
 
+void AUTPlayerState::OnRep_bIsInactive()
+{
+	//Now that we replicate InactivePRI's the super function is unsafe without these checks
+	if (GetWorld() && GetWorld()->GameState)
+	{
+		Super::OnRep_bIsInactive();
+	}
+}

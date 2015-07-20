@@ -525,6 +525,7 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void RegisterVote(AUTReplicatedMapInfo* VoteInfo);
 
+	virtual void OnRep_bIsInactive() override;
 };
 
 

@@ -3646,3 +3646,96 @@ void AUTGameMode::TallyMapVotes()
 		SendEveryoneBackToLobby();
 	}
 }
+
+//Same as AGameMode except we replicate the new inactive PS
+void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
+{
+	// don't store if it's an old PlayerState from the previous level or if it's a spectator
+	if (!PlayerState->bFromPreviousLevel && !PlayerState->bOnlySpectator)
+	{
+		APlayerState* NewPlayerState = PlayerState->Duplicate();
+		if (NewPlayerState)
+		{
+			GetWorld()->GameState->RemovePlayerState(NewPlayerState);
+
+			//AUTGameMode begin - bIsInactive needs to be set now as we are replicating right away
+			NewPlayerState->bIsInactive = true;
+			//AUTGameMode end
+
+			// delete after some time
+			NewPlayerState->SetLifeSpan(InactivePlayerStateLifeSpan);
+
+			// On console, we have to check the unique net id as network address isn't valid
+			bool bIsConsole = GEngine->IsConsoleBuild();
+
+			// make sure no duplicates
+			for (int32 i = 0; i<InactivePlayerArray.Num(); i++)
+			{
+				APlayerState* CurrentPlayerState = InactivePlayerArray[i];
+				if ((CurrentPlayerState == NULL) || CurrentPlayerState->IsPendingKill() ||
+					(!bIsConsole && (CurrentPlayerState->SavedNetworkAddress == NewPlayerState->SavedNetworkAddress)))
+				{
+					InactivePlayerArray.RemoveAt(i, 1);
+					i--;
+				}
+			}
+			InactivePlayerArray.Add(NewPlayerState);
+
+			// cap at 16 saved PlayerStates
+			if (InactivePlayerArray.Num() > 16)
+			{
+				InactivePlayerArray.RemoveAt(0, InactivePlayerArray.Num() - 16);
+			}
+		}
+	}
+
+	PlayerState->Destroy();
+}
+
+//Same as AGameMode except we duplicate the inactive PS
+bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
+{
+	// don't bother for spectators
+	if (PC->PlayerState->bOnlySpectator)
+	{
+		return false;
+	}
+
+	// On console, we have to check the unique net id as network address isn't valid
+	bool bIsConsole = GEngine->IsConsoleBuild();
+
+	FString NewNetworkAddress = PC->PlayerState->SavedNetworkAddress;
+	FString NewName = PC->PlayerState->PlayerName;
+	for (int32 i = 0; i<InactivePlayerArray.Num(); i++)
+	{
+		APlayerState* CurrentPlayerState = InactivePlayerArray[i];
+		if ((CurrentPlayerState == NULL) || CurrentPlayerState->IsPendingKill())
+		{
+			InactivePlayerArray.RemoveAt(i, 1);
+			i--;
+		}
+		else if ((bIsConsole && (CurrentPlayerState->UniqueId == PC->PlayerState->UniqueId)) ||
+			(!bIsConsole && (FCString::Stricmp(*CurrentPlayerState->SavedNetworkAddress, *NewNetworkAddress) == 0) && (FCString::Stricmp(*CurrentPlayerState->PlayerName, *NewName) == 0)))
+		{
+			// found it!
+			APlayerState* OldPlayerState = PC->PlayerState;
+
+			//AUTGameMode begin - Since bIsInactive is COND_InitialOnly we need to create a new PS
+			PC->PlayerState = CurrentPlayerState->Duplicate();
+			CurrentPlayerState->Destroy();
+			//AUTGameMode end
+
+			PC->PlayerState->SetOwner(PC);
+			OverridePlayerState(PC, OldPlayerState);
+			GetWorld()->GameState->AddPlayerState(PC->PlayerState);
+			InactivePlayerArray.RemoveAt(i, 1);
+			OldPlayerState->bIsInactive = true;
+			// Set the uniqueId to NULL so it will not kill the player's registration 
+			// in UnregisterPlayerWithSession()
+			OldPlayerState->SetUniqueId(NULL);
+			OldPlayerState->Destroy();
+			return true;
+		}
+	}
+	return false;
+}

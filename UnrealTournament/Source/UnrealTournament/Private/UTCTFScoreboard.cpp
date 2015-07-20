@@ -350,9 +350,11 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	// find top scorer
 	AUTPlayerState* TopScorerRed = NULL;
 	AUTPlayerState* TopScorerBlue = NULL;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AUTPlayerState* PS = (*It);
 		if (PS && PS->Team)
 		{
 			if (!TopScorerRed && (PS->Team->TeamIndex == 0))

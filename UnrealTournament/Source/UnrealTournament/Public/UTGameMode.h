@@ -668,5 +668,9 @@ public:
 	* On failed map changes, the game will be stuck in a LeavingMap state
 	*/
 	virtual void StartToLeaveMap() {}
+
+	/**Overridden to replicate Inactive Player States  */
+	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
+	virtual bool FindInactivePlayer(APlayerController* PC) override;
 };
 
