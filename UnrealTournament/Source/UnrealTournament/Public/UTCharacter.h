@@ -751,8 +751,8 @@ public:
 	UFUNCTION()
 	virtual void OnRepDrivenVehicle();
 
-	void StartDriving(APawn* Vehicle);
-	void StopDriving(APawn* Vehicle);
+	virtual void StartDriving(APawn* Vehicle);
+	virtual void StopDriving(APawn* Vehicle);
 
 	virtual APhysicsVolume* GetPawnPhysicsVolume() const override
 	{
