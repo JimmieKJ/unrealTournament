@@ -323,6 +323,16 @@ void UUTLocalPlayer::HideMenu()
 #endif
 }
 
+void UUTLocalPlayer::OpenTutorialMenu()
+{
+#if !UE_SERVER
+	if (IsMenuGame() && DesktopSlateWidget.IsValid())
+	{
+		StaticCastSharedPtr<SUWindowsMainMenu>(DesktopSlateWidget)->OpenTutorialMenu();
+	}
+#endif
+}
+
 void UUTLocalPlayer::MessageBox(FText MessageTitle, FText MessageText)
 {
 #if !UE_SERVER
@@ -1100,7 +1110,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		SaveProfileSettings();
 
 #if !UE_SERVER
-		FText WelcomeMessage = FText::Format(NSLOCTEXT("UTLocalPlayer","Welcome","This is your first time logging in so we have set your player name to '{0}'.  Would you like to change it now?"), GetAccountDisplayName());
+		FText WelcomeMessage = FText::Format(NSLOCTEXT("UTLocalPlayer","Welcome","Your player name is set to '{0}'. Would you like to change it?"), GetAccountDisplayName());
 		ShowMessage(NSLOCTEXT("UTLocalPlayer", "WelcomeTitle", "Welcome to Unreal Tournament"), WelcomeMessage, UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::WelcomeDialogResult),FVector2D(0.35,0.25));
 		// We couldn't load our profile or it was invalid or we choose to clear it so save it out.
 #endif

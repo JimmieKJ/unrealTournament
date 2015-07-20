@@ -1705,7 +1705,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				}
 			}
 		}
-		else if (P->GetWeapon() != NULL && P->GetWeapon()->HandsAttachSocket == NAME_None)
+		else if (P->GetWeapon() == NULL || P->GetWeapon()->HandsAttachSocket == NAME_None)
 		{
 			// weapon doesn't use hands
 			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
@@ -1787,6 +1787,11 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		UTPlayerState->ForceNetUpdate();
 	}
 	AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (!UTGM)
+	{
+		// this is a newly disconnected client
+		return;
+	}
 	if (!UTGM->HasMatchStarted())
 	{
 		if (UTPlayerState)
@@ -1819,7 +1824,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	{
 		return;
 	}
-	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
+	else if (!UTGM->PlayerCanRestart(this))
 	{
 		return;
 	}

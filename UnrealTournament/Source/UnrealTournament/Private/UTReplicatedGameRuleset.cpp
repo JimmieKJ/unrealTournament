@@ -35,7 +35,7 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, OptimalPlayers);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, DisplayTexture);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
-	DOREPLIFETIME(AUTReplicatedGameRuleset, GameModeClass);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, GameMode);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bTeamGame);
 }
 
@@ -65,6 +65,8 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	MinPlayersToStart	= NewRules->MinPlayersToStart;
 	MaxPlayers			= NewRules->MaxPlayers;
 	bTeamGame			= NewRules->bTeamGame;
+
+
 
 	MaxMapsInList = NewRules->MaxMapsInList;
 
@@ -168,9 +170,9 @@ void AUTReplicatedGameRuleset::GotTag()
 
 AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 {
-	if (!GameModeClass.IsEmpty())
+	if (!GameMode.IsEmpty())
 	{
-		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *GameModeClass, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *GameMode, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 		if (GModeClass)
 		{
 			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();

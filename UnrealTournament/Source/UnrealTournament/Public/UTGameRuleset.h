@@ -63,7 +63,7 @@ public:
 	UPROPERTY(Config)
 	FString DisplayTexture;
 
-	// Not displayed, this wholes the game type that will be passed to the server via the URL.  
+	// Not displayed, this holds the game type that will be passed to the server via the URL.  
 	UPROPERTY(Config)
 	FString GameMode;
 	

@@ -34,7 +34,6 @@ protected:
 	virtual TSharedRef<SWidget> BuildTutorialSubMenu();
 
 	virtual FReply OnShowGamePanel(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnTutorialClick();
 	virtual FReply OnCloseClicked();
 
 	virtual FReply OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton);
@@ -61,8 +60,12 @@ protected:
 	virtual void StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 	virtual void StartGame(bool bLanGame);
 
+	virtual FReply OnShowHomePanel() override;
+
 	TWeakObjectPtr<class UUserWidget> TutorialMenu;
 public:
 	virtual ~SUWindowsMainMenu();
+
+	virtual void OpenTutorialMenu();
 };
 #endif

@@ -29,6 +29,10 @@
 			"Enabled": false
 		},
 		{
+			"Name": "AnalyticsBlueprintLibrary",
+			"Enabled": true
+		},
+		{
 			"Name": "OculusAudio",
 			"Enabled": true,
 			"WhitelistPlatforms" : [ "Win64" ]

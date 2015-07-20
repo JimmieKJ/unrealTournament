@@ -931,6 +931,8 @@ public:
 	virtual void StartRagdoll();
 	virtual void StopRagdoll();
 
+	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = Pawn)
+	bool CanFeignDeath();
 	UFUNCTION(Exec, BlueprintCallable, Category = Pawn)
 	virtual void FeignDeath();
 	UFUNCTION(Reliable, Server, WithValidation, Category = Pawn)

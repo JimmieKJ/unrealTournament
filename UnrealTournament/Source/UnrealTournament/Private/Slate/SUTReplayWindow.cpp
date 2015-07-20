@@ -158,47 +158,102 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									.HAlign(HAlign_Left)
 									.AutoWidth()
 									[
-										SAssignNew(RecordButton, SButton)
-										.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-										.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
-										.ContentPadding(1.0f)
-										.Content()
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.HAlign(HAlign_Fill)
+										.AutoHeight()
 										[
-											SNew(SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
+											SNew(SBox)
+											.HeightOverride(32)
+											.WidthOverride(32)
+											[
+												SAssignNew(RecordButton, SButton)
+												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+												.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
+												.Content()
+												[
+													SNew(SImage)
+													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
+												]
+											]
 										]
 									]
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[
-										SAssignNew(MarkStartButton, SButton)
-										.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-										.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
-										.ContentPadding(1.0f)
-										.Content()
+									[											
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.HAlign(HAlign_Fill)
+										.AutoHeight()
 										[
-											SNew(SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
+											SNew(SBox)
+											.HeightOverride(32)
+											.WidthOverride(32)
+											[
+												SAssignNew(MarkStartButton, SButton)
+												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+												.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
+												.Content()
+												[
+													SNew(SImage)
+													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
+												]
+											]
 										]
 									]
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[
-										SAssignNew(MarkEndButton, SButton)
-										.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-										.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
-										.ContentPadding(1.0f)
-										.Content()
+									[											
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.HAlign(HAlign_Fill)
+										.AutoHeight()
 										[
-											SNew(SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
+											SNew(SBox)
+											.HeightOverride(32)
+											.WidthOverride(32)
+											[
+												SAssignNew(MarkEndButton, SButton)
+												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+												.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
+												.Content()
+												[
+													SNew(SImage)
+													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
+												]
+											]
 										]
 									]
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
+									[									
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.HAlign(HAlign_Fill)
+										.AutoHeight()
+										[
+											SNew(SBox)
+											.HeightOverride(32)
+											.WidthOverride(32)
+											[
+												SAssignNew(MarkEndButton, SButton)
+												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+												.OnClicked(this, &SUTReplayWindow::OnScreenshotButtonClicked)
+												.Content()
+												[
+													SNew(SImage)
+													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Screenshot"))
+												]
+											]
+										]
+									]
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
+									.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 									[
 										SAssignNew(BookmarksComboBox, SComboBox< TSharedPtr<FString> >)
 										.InitiallySelectedItem(0)
@@ -648,6 +703,16 @@ FReply SUTReplayWindow::OnRecordButtonClicked()
 			DemoNetDriver->GotoTimeInSeconds(RecordTimeStart, FOnGotoTimeDelegate::CreateRaw(this, &SUTReplayWindow::RecordSeekCompleted));
 		}
 	}
+
+	return FReply::Handled();
+}
+
+FReply SUTReplayWindow::OnScreenshotButtonClicked()
+{
+	// 4k resolution isn't actually >= 4000
+	GScreenshotResolutionX = 3840;
+	GScreenshotResolutionY = 2160;
+	PlayerOwner->ViewportClient->GetGameViewport()->TakeHighResScreenShot();
 
 	return FReply::Handled();
 }

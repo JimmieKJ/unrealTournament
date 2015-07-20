@@ -431,6 +431,7 @@ FReply SULobbyMatchSetupPanel::ChooseGameClicked()
 
 		if ( SetupDialog.IsValid() )
 		{
+			LastMapInfo.Reset();
 			if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
 			{
 				SetupDialog->ApplyCurrentRuleset(MatchInfo);

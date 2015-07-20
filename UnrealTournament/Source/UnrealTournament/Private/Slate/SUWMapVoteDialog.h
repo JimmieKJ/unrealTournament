@@ -53,6 +53,10 @@ protected:
 		UTexture2D* MapTexture;
 		TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo;
 		TSharedPtr<SImage> MapImage;
+		TSharedPtr<SBorder> BorderWidget;
+		TSharedPtr<STextBlock> MapTitle;
+		TSharedPtr<STextBlock> VoteCountText;
+		TSharedPtr<SUTComboButton> VoteButton;
 
 		FVoteButton()
 		{
@@ -61,24 +65,36 @@ protected:
 			MapImage.Reset();
 		}
 
-		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapInfo> inMapVoteInfo, TSharedPtr<SImage> inMapImage)
+		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapInfo> inMapVoteInfo, TSharedPtr<SUTComboButton> inVoteButton, TSharedPtr<SImage> inMapImage, TSharedPtr<STextBlock> inMapTitle, TSharedPtr<STextBlock> inVoteCountText, TSharedPtr<SBorder> inBorderWidget)
 			: MapTexture(inMapTexture)
 			, MapVoteInfo(inMapVoteInfo)
 			, MapImage(inMapImage)
+			, BorderWidget(inBorderWidget)
+			, MapTitle(inMapTitle)
+			, VoteCountText(inVoteCountText)
+			, VoteButton(inVoteButton)
 		{
 		}
 
 	};
 
-	int32 LastVoteCount;
-	bool bRequiresRefresh;
+	int32 NumMapInfos;
 
 	TArray<FVoteButton> LeadingVoteButtons;
 	TArray<FVoteButton> VoteButtons;
 	TSharedPtr<SScrollBox> MapBox;
 	void BuildMapList();
+
+	void BuildTopVotes();
+	void UpdateTopVotes();
+	void BuildAllVotes();
+
+	TSharedPtr<SGridPanel> TopPanel;
+	TSharedPtr<SGridPanel> MapPanel;
 	
 	void TextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
+	void LeaderTextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
+	FReply OnLeadingMapClick(int32 ButtonIndex);
 	FReply OnMapClick(TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo);
 	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 

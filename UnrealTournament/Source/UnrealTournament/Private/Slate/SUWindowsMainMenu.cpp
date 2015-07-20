@@ -63,6 +63,15 @@ void SUWindowsMainMenu::SetInitialPanel()
 	}
 }
 
+FReply SUWindowsMainMenu::OnShowHomePanel()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+	return SUTMenuBase::OnShowHomePanel();
+}
+
 /****************************** [ Build Sub Menus ] *****************************************/
 
 void SUWindowsMainMenu::BuildLeftMenuBar()
@@ -365,6 +374,13 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 
 FReply SUWindowsMainMenu::OnCloseClicked()
 {
+
+	for (int32 i=0; i<AvailableGameRulesets.Num();i++)
+	{
+		AvailableGameRulesets[i]->SlateBadge = NULL;
+	}
+
+
 	PlayerOwner->HideMenu();
 	ConsoleCommand(TEXT("quit"));
 	return FReply::Handled();
@@ -497,13 +513,6 @@ void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dia
 	}
 }
 
-FReply SUWindowsMainMenu::OnTutorialClick()
-{
-	ConsoleCommand(TEXT("Open " + PlayerOwner->TutorialLaunchParams));
-	return FReply::Handled();
-}
-
-
 FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FString QuickMatchType)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
@@ -526,6 +535,12 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 		MenuButton->SetIsOpen(false);
 	}
 
+	OpenTutorialMenu();
+	return FReply::Handled();
+}
+
+void SUWindowsMainMenu::OpenTutorialMenu()
+{
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
 	{
@@ -535,7 +550,6 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 			TutorialMenu->AddToViewport(0);
 		}
 	}
-	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton)
@@ -842,6 +856,12 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		{
 			GameOptions += TEXT("?BotFill=0");
 		}
+	}
+
+
+	for (int32 i=0; i<AvailableGameRulesets.Num();i++)
+	{
+		AvailableGameRulesets[i]->SlateBadge = NULL;
 	}
 
 	FString URL = StartingMap + GameOptions;

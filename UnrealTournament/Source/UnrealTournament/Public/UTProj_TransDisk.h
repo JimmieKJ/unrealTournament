@@ -95,6 +95,8 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
 
+	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL) override;
+
 protected:
 	/** utility to trigger bot translocation and reset translocation related data */
 	virtual void BotTranslocate();

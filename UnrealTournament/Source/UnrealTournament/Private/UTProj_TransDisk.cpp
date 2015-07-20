@@ -229,6 +229,16 @@ void AUTProj_TransDisk::Recall()
 	}
 }
 
+void AUTProj_TransDisk::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
+{
+	if (!bExploded)
+	{
+		// hack to handle explode call from weapon screen and bounce instead (just once)
+		bExploded = true;
+		ProjectileMovement->Velocity = ProjectileMovement->Velocity - 2.f * (ProjectileMovement->Velocity | HitNormal) * HitNormal;
+	}
+}
+
 void AUTProj_TransDisk::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	if (OtherActor == Instigator)

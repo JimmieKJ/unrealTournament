@@ -633,7 +633,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		}
 
 		NewReplicatedRuleset->GameMode = GameMode;
-		NewReplicatedRuleset->GameModeClass = GameMode;
 
 		FString FinalGameOptions = TEXT("");
 		for (int32 i=0; i<GameOptions.Num();i++)
