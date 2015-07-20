@@ -374,6 +374,13 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 
 FReply SUWindowsMainMenu::OnCloseClicked()
 {
+
+	for (int32 i=0; i<AvailableGameRulesets.Num();i++)
+	{
+		AvailableGameRulesets[i]->SlateBadge = NULL;
+	}
+
+
 	PlayerOwner->HideMenu();
 	ConsoleCommand(TEXT("quit"));
 	return FReply::Handled();
@@ -849,6 +856,12 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		{
 			GameOptions += TEXT("?BotFill=0");
 		}
+	}
+
+
+	for (int32 i=0; i<AvailableGameRulesets.Num();i++)
+	{
+		AvailableGameRulesets[i]->SlateBadge = NULL;
 	}
 
 	FString URL = StartingMap + GameOptions;

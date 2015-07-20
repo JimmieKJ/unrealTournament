@@ -58,11 +58,6 @@ public:
 	UPROPERTY(Replicated, ReplicatedUsing = BuildSlateBadge, BlueprintReadOnly, Category = Ruleset)
 	FString DisplayTexture;
 
-	// Why have GameMode and GameModeClass?  GameMode is passed on the URL/Command line and should be as short as possible.
-	// You can set up Aliases in DefaultGame.  But we need GameModeClass at times to grab the default object.
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
-	FString GameModeClass;
-
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	uint32 bCustomRuleset:1;
 
@@ -72,12 +67,14 @@ public:
 	UPROPERTY(Replicated)
 	uint32 bTeamGame:1;
 
-	// -------------- These are server side only.
-
 	// Not displayed, this wholes the game type that will be passed to the server via the URL.  
-	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString GameMode;
 	
+
+
+	// -------------- These are server side only.
+
 	// Hold the ?xxxx options that will be used to start the server.  NOTE: this set of options will be parsed for display.
 	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	FString GameOptions;
