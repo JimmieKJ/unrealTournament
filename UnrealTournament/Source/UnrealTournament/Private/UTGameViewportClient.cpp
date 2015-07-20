@@ -465,13 +465,18 @@ void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 				FSceneView* SceneView = It->CalcSceneView(&ViewFamily, ViewLocation, ViewRotation, Viewport);
 				if (SceneView != NULL)
 				{
+					TArray<UMeshComponent*> WeaponMeshes = UTC->GetWeapon()->Get1PMeshes();
 					for (USceneComponent* Attachment : UTC->GetWeapon()->GetMesh()->AttachChildren)
 					{
-						FVector AdjustedLoc = PaniniProjectLocation(SceneView, Attachment->GetComponentLocation(), UTC->GetWeapon()->GetMesh()->GetMaterial(0));
+						// any additional weapon meshes are assumed to be projected in the shader if desired
+						if (!WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
+						{
+							FVector AdjustedLoc = PaniniProjectLocation(SceneView, Attachment->GetComponentLocation(), UTC->GetWeapon()->GetMesh()->GetMaterial(0));
 
-						new(SavedTransforms) FSavedTransform(Attachment, Attachment->GetComponentTransform());
-						Attachment->SetWorldLocation(AdjustedLoc);
-						Attachment->DoDeferredRenderUpdates_Concurrent();
+							new(SavedTransforms) FSavedTransform(Attachment, Attachment->GetComponentTransform());
+							Attachment->SetWorldLocation(AdjustedLoc);
+							Attachment->DoDeferredRenderUpdates_Concurrent();
+						}
 					}
 				}
 			}
