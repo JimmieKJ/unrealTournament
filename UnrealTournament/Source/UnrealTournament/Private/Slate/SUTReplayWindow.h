@@ -38,6 +38,7 @@ protected:
 	FReply OnMarkRecordStopClicked();
 	FReply OnRecordButtonClicked();
 	void RecordSeekCompleted(bool bSucceeded);
+	FReply OnScreenshotButtonClicked();
 
 	TSharedPtr<class SUTProgressSlider> TimeSlider;
 	TSharedPtr<class SButton> RecordButton;
