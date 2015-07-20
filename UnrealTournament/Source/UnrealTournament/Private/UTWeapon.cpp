@@ -1746,7 +1746,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 	AUTGameState* GS = WeaponActor ? WeaponActor->GetWorld()->GetGameState<AUTGameState>() : NULL;
 	if (GS != NULL && InOwner != NULL && InMesh != NULL)
 	{
-		UMaterialInterface* TopOverlay = GS->GetFirstOverlay(InOwner->GetWeaponOverlayFlags());
+		UMaterialInterface* TopOverlay = GS->GetFirstOverlay(InOwner->GetWeaponOverlayFlags(), Cast<AUTWeapon>(WeaponActor) != NULL);
 		if (TopOverlay != NULL)
 		{
 			if (InOverlayMesh == NULL)
