@@ -40,7 +40,6 @@ void SUWMapVoteDialog::Construct(const FArguments& InArgs)
 			]
 		];
 	}
-	bRequiresRefresh = true;
 	BuildMapList();
 }
 
@@ -48,14 +47,10 @@ void SUWMapVoteDialog::BuildMapList()
 {
 	if (MapBox.IsValid() && GameState.IsValid() && GameState->VoteTimer > 0)
 	{
-		// Flag us as having been refreshed.
-		bRequiresRefresh = false;
+		GameState->SortVotes();
 
 		// Store the current # of votes so we can check later to see if additional maps have been replicated or removed.
-		LastVoteCount = GameState->MapVoteList.Num();
-		
-		// Figure out the # of columns needed.
-		int32 NoColumns = FMath::Min<int32>(GameState->MapVoteList.Num(), 6);
+		NumMapInfos = GameState->MapVoteList.Num();
 
 		MapBox->ClearChildren();
 		if ( GameState->VoteTimer > 0 && GameState->VoteTimer <= 10 )
@@ -85,9 +80,6 @@ void SUWMapVoteDialog::BuildMapList()
 			];
 		}
 
-		TSharedPtr<SGridPanel> TopPanel;
-		TSharedPtr<SGridPanel> MapPanel;
-
 		MapBox->AddSlot()
 		[
 			SNew(SVerticalBox)
@@ -104,11 +96,193 @@ void SUWMapVoteDialog::BuildMapList()
 			]
 		];
 
-		LeadingVoteButtons.Empty();
-		VoteButtons.Empty();
+		BuildTopVotes();
+		BuildAllVotes();
+	}
+}
 
-		GameState->SortVotes();
+void SUWMapVoteDialog::BuildTopVotes()
+{
+	// Figure out the # of columns needed.
+	int32 NoColumns = FMath::Min<int32>(GameState->MapVoteList.Num(), 6);
 
+	LeadingVoteButtons.Empty();
+	TopPanel->ClearChildren();
+
+	// The top row holds the top 6 maps in the lead.  Now if you have more than 6 maps with equal votes it will only show the first 6.
+	// If no map has been voted on yet, it shows an empty space.
+
+	for (int32 i=0; i < NoColumns; i++)
+	{
+		TSharedPtr<SImage> ImageWidget;
+		TSharedPtr<STextBlock> VoteCountText;
+		TSharedPtr<STextBlock> MapTitle;
+		TSharedPtr<SBorder> BorderWidget;
+		TSharedPtr<SUTComboButton> VoteButton;
+
+
+		TopPanel->AddSlot(i, 0).Padding(5.0,5.0,5.0,5.0)
+		[
+			SNew(SBox).WidthOverride(256)
+			.HeightOverride(158)							
+			[
+				SAssignNew(VoteButton, SUTComboButton)
+				.OnClicked(this, &SUWMapVoteDialog::OnLeadingMapClick, i)
+				.IsToggleButton(true)
+				.bRightClickOpensMenu(true)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
+				.MenuButtonStyle(SUWindowsStyle::Get(),"UT.ContextMenu.Button")
+				.MenuButtonTextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
+				.HasDownArrow(false)
+				.ButtonContent()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SBox)
+						.WidthOverride(256)
+						.HeightOverride(128)							
+						[
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SAssignNew(ImageWidget,SImage)
+								.Visibility(EVisibility::Hidden)
+							]
+							+SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot().FillHeight(1.0)
+								.Padding(5.0,5.0,0.0,0.0)
+								[
+									SNew(SOverlay)
+									+SOverlay::Slot()
+									[
+										SNew(SVerticalBox)
+										+SVerticalBox::Slot()
+										.AutoHeight()
+										[
+											SNew(SHorizontalBox)
+											+SHorizontalBox::Slot()
+											.AutoWidth()
+											[
+												SNew(SBox)
+												.WidthOverride(50)
+												.HeightOverride(50)
+												[
+													SAssignNew(BorderWidget,SBorder)
+													.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Black"))
+													.Visibility(EVisibility::Hidden)
+												]
+											]
+										]
+									]
+									+SOverlay::Slot()
+									[
+										SAssignNew(VoteCountText,STextBlock)
+										.Text(FText::AsNumber(0))
+										.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
+										.Visibility(EVisibility::Hidden)
+									]
+								]
+							]
+						]
+					]
+					+SVerticalBox::Slot()
+					.HAlign(HAlign_Center)
+					.AutoHeight()
+					[
+						SAssignNew(MapTitle, STextBlock)
+						.Text(NSLOCTEXT("SUWMapVoteDialog","WaitingForVoteText","????"))
+						.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
+						.ColorAndOpacity(FLinearColor::Black)
+					]
+				]
+			]
+		];
+		LeadingVoteButtons.Add( FVoteButton(NULL, NULL, VoteButton, ImageWidget, MapTitle, VoteCountText, BorderWidget) );
+	}
+	UpdateTopVotes();
+}
+
+void SUWMapVoteDialog::UpdateTopVotes()
+{
+	GameState->SortVotes();
+	for (int32 i=0; i < LeadingVoteButtons.Num(); i++)
+	{
+		bool bClear = true;
+
+		TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo;
+		if (i < GameState->MapVoteList.Num() && (GameState->MapVoteList[i]->VoteCount > 0 || GameState->VoteTimer <= 10))
+		{
+			MapVoteInfo = GameState->MapVoteList[i];
+		}
+
+		if ( MapVoteInfo.IsValid() )
+		{
+			bClear = false;
+			if ( LeadingVoteButtons[i].MapVoteInfo.Get() != MapVoteInfo.Get() )
+			{
+				LeadingVoteButtons[i].MapVoteInfo = MapVoteInfo;
+				FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
+
+				if (MapVoteInfo->MapScreenshotReference != TEXT(""))
+				{
+					if (MapVoteInfo->MapBrush == nullptr)
+					{
+						FString Package = MapVoteInfo->MapScreenshotReference;
+						const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
+						if ( Pos != INDEX_NONE )
+						{
+							Package = Package.Left(Pos);
+						}
+
+						LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWMapVoteDialog::LeaderTextureLoadComplete),0);
+					}
+					else
+					{
+						LeadingVoteButtons[i].MapImage->SetImage(MapVoteInfo->MapBrush);
+						LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
+					}
+
+				}
+
+				LeadingVoteButtons[i].MapTitle->SetText(MapVoteInfo->Title);
+				LeadingVoteButtons[i].MapTitle->SetVisibility(EVisibility::Visible);
+
+				LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
+				LeadingVoteButtons[i].VoteCountText->SetVisibility(EVisibility::Visible);
+				LeadingVoteButtons[i].BorderWidget->SetVisibility(EVisibility::Visible);
+			}
+			else if (MapVoteInfo->bNeedsUpdate)
+			{
+				LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
+			}
+		}
+
+		if (bClear && LeadingVoteButtons[i].MapVoteInfo.IsValid())
+		{
+			LeadingVoteButtons[i].MapVoteInfo.Reset();
+			LeadingVoteButtons[i].MapTitle->SetText(NSLOCTEXT("SUWMapVoteDialog","WaitingForVoteText","????"));
+			LeadingVoteButtons[i].VoteCountText->SetVisibility(EVisibility::Hidden);
+			LeadingVoteButtons[i].BorderWidget->SetVisibility(EVisibility::Hidden);
+		}
+	}
+}
+
+
+void SUWMapVoteDialog::BuildAllVotes()
+{
+	// Figure out the # of columns needed.
+	int32 NoColumns = FMath::Min<int32>(GameState->MapVoteList.Num(), 6);
+
+	VoteButtons.Empty();
+	MapPanel->ClearChildren();
+
+	// We only draw the full list if we have > 10 seconds left in map voting.
+	if (GameState->VoteTimer > 10)
+	{
 		// We need 2 lists.. one sorted by votes (use the main one in the GameState) and one that is sorted alphabetically.
 		// We will build that one here.
 		
@@ -136,19 +310,25 @@ void SUWMapVoteDialog::BuildMapList()
 			}
 		}
 
-		// The top row holds the top 6 maps in the lead.  Not if you have more than 6 maps with equal votes it will only show the first 6.
-		// If no map has been voted on yet, it shows an empty space.
+		// Now do the maps sorted
 
-		for (int32 i=0; i < GameState->MapVoteList.Num() && i < NoColumns; i++)
+		for (int32 i=0; i < AlphaSortedList.Num(); i++)
 		{
 			if (GameState->MapVoteList[i])
 			{
-				TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo = GameState->MapVoteList[i];
-				TSharedPtr<SImage> ImageWidget;
+				int32 Row = i / NoColumns;
+				int32 Col = i % NoColumns;
 
-				// If this map has votes or if we are in the final seconds, then show draw the map.
-				if ( MapVoteInfo.IsValid()  && (MapVoteInfo->VoteCount > 0 || GameState->VoteTimer <= 10) )
+				TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo = AlphaSortedList[i];
+			
+				if (MapVoteInfo.IsValid())
 				{
+					TSharedPtr<SImage> ImageWidget;
+					TSharedPtr<STextBlock> MapTitle;
+					TSharedPtr<STextBlock> VoteCountText;
+					TSharedPtr<SUTComboButton> VoteButton;
+					TSharedPtr<SBorder> BorderWidget;
+
 					FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
 
 					if (MapVoteInfo->MapScreenshotReference != TEXT(""))
@@ -170,14 +350,21 @@ void SUWMapVoteDialog::BuildMapList()
 						}
 					}
 
-					TopPanel->AddSlot(i, 0).Padding(5.0,5.0,5.0,5.0)
+					MapPanel->AddSlot(Col, Row).Padding(5.0,5.0,5.0,5.0)
 					[
-						SNew(SBox).WidthOverride(256)
+						SNew(SBox)
+						.WidthOverride(256)
 						.HeightOverride(158)							
 						[
-							SNew(SButton)
+							SAssignNew(VoteButton, SUTComboButton)
 							.OnClicked(this, &SUWMapVoteDialog::OnMapClick, MapVoteInfo)
+							.IsToggleButton(true)
+							.bRightClickOpensMenu(true)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
+							.MenuButtonStyle(SUWindowsStyle::Get(),"UT.ContextMenu.Button")
+							.MenuButtonTextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
+							.HasDownArrow(false)
+							.ButtonContent()
 							[
 								SNew(SVerticalBox)
 								+SVerticalBox::Slot()
@@ -214,7 +401,7 @@ void SUWMapVoteDialog::BuildMapList()
 															.WidthOverride(50)
 															.HeightOverride(50)
 															[
-																SNew(SBorder)
+																SAssignNew(BorderWidget,SBorder)
 																.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Black"))
 															]
 														]
@@ -222,7 +409,7 @@ void SUWMapVoteDialog::BuildMapList()
 												]
 												+SOverlay::Slot()
 												[
-													SNew(STextBlock)
+													SAssignNew(VoteCountText,STextBlock)
 													.Text(FText::AsNumber(MapVoteInfo->VoteCount))
 													.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
 												]
@@ -234,7 +421,7 @@ void SUWMapVoteDialog::BuildMapList()
 								.HAlign(HAlign_Center)
 								.AutoHeight()
 								[
-									SNew(STextBlock)
+									SAssignNew(MapTitle,STextBlock)
 									.Text(FText::FromString(MapVoteInfo->Title))
 									.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
 									.ColorAndOpacity(FLinearColor::Black)
@@ -242,155 +429,8 @@ void SUWMapVoteDialog::BuildMapList()
 							]
 						]
 					];
-				}
 
-				// Otherwise draw a blank space for this map.
-
-				else
-				{
-					TopPanel->AddSlot(i, 0).Padding(5.0,5.0,5.0,5.0)
-					[
-						SNew(SBox).WidthOverride(256)
-						.HeightOverride(158)							
-						[
-							SNew(SButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
-							[
-								SNew(SVerticalBox)
-								+SVerticalBox::Slot()
-								.HAlign(HAlign_Center)
-								.FillHeight(1.0)
-								[
-									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUWMapVoteDialog","WaitingForVoteText","????"))
-									.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
-									.ColorAndOpacity(FLinearColor::Black)
-								]
-							]
-						]
-					];
-				}
-
-				LeadingVoteButtons.Add( FVoteButton(NULL, MapVoteInfo, ImageWidget) );
-			}
-		}
-
-		// We only draw the full list if we have > 10 seconds left in map voting.
-		if (GameState->VoteTimer > 10)
-		{
-
-			// Now do the maps sorted
-
-			for (int32 i=0; i < AlphaSortedList.Num(); i++)
-			{
-				if (GameState->MapVoteList[i])
-				{
-					int32 Row = i / NoColumns;
-					int32 Col = i % NoColumns;
-
-					TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo = AlphaSortedList[i];
-			
-					if (MapVoteInfo.IsValid())
-					{
-						TSharedPtr<SImage> ImageWidget;
-						FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
-
-						if (MapVoteInfo->MapScreenshotReference != TEXT(""))
-						{
-							if (MapVoteInfo->MapBrush == nullptr)
-							{
-								FString Package = MapVoteInfo->MapScreenshotReference;
-								const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
-								if ( Pos != INDEX_NONE )
-								{
-									Package = Package.Left(Pos);
-								}
-
-								LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWMapVoteDialog::TextureLoadComplete),0);
-							}
-							else
-							{
-								MapBrush = MapVoteInfo->MapBrush;
-							}
-
-						}
-
-						MapPanel->AddSlot(Col, Row).Padding(5.0,5.0,5.0,5.0)
-						[
-							SNew(SBox)
-							.WidthOverride(256)
-							.HeightOverride(158)							
-							[
-								SNew(SButton)
-								.OnClicked(this, &SUWMapVoteDialog::OnMapClick, MapVoteInfo)
-								.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
-								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.AutoHeight()
-									[
-										SNew(SBox)
-										.WidthOverride(256)
-										.HeightOverride(128)							
-										[
-											SNew(SOverlay)
-											+SOverlay::Slot()
-											[
-												SAssignNew(ImageWidget,SImage)
-												.Image(MapBrush)
-											]
-											+SOverlay::Slot()
-											[
-												SNew(SVerticalBox)
-												+SVerticalBox::Slot().FillHeight(1.0)
-												.Padding(5.0,5.0,0.0,0.0)
-												[
-													SNew(SOverlay)
-													+SOverlay::Slot()
-													[
-														SNew(SVerticalBox)
-														+SVerticalBox::Slot()
-														.AutoHeight()
-														[
-															SNew(SHorizontalBox)
-															+SHorizontalBox::Slot()
-															.AutoWidth()
-															[
-																SNew(SBox)
-																.WidthOverride(50)
-																.HeightOverride(50)
-																[
-																	SNew(SBorder)
-																	.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Black"))
-																]
-															]
-														]
-													]
-													+SOverlay::Slot()
-													[
-														SNew(STextBlock)
-														.Text(FText::AsNumber(MapVoteInfo->VoteCount))
-														.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
-													]
-												]
-											]
-										]
-									]
-									+SVerticalBox::Slot()
-									.HAlign(HAlign_Center)
-									.AutoHeight()
-									[
-										SNew(STextBlock)
-										.Text(FText::FromString(MapVoteInfo->Title))
-										.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
-										.ColorAndOpacity(FLinearColor::Black)
-									]
-								]
-							]
-						];
-
-						VoteButtons.Add( FVoteButton(NULL, MapVoteInfo, ImageWidget) );
-					}
+					VoteButtons.Add( FVoteButton(NULL, MapVoteInfo, VoteButton, ImageWidget, MapTitle, VoteCountText, BorderWidget) );
 				}
 			}
 		}
@@ -419,51 +459,139 @@ void SUWMapVoteDialog::TextureLoadComplete(const FName& InPackageName, UPackage*
 	}
 }
 
-
-
-FReply SUWMapVoteDialog::OnMapClick(TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo)
+void SUWMapVoteDialog::LeaderTextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result)
 {
-
-	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
-	if (OwnerPlayerState)
+	if (Result == EAsyncLoadingResult::Succeeded)
 	{
-		OwnerPlayerState->RegisterVote(MapInfo.Get());
+		for (int32 i=0 ;i < LeadingVoteButtons.Num(); i++)
+		{
+			FString Screenshot = LeadingVoteButtons[i].MapVoteInfo->MapScreenshotReference;
+			FString PackageName = InPackageName.ToString();
+			if (Screenshot != TEXT("") && Screenshot.Contains(PackageName))
+			{
+				UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
+				if (Tex)
+				{
+					LeadingVoteButtons[i].MapTexture = Tex;
+					LeadingVoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
+					LeadingVoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
+					LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
+				}
+			}
+		}
+	}
+}
+
+
+
+FReply SUWMapVoteDialog::OnLeadingMapClick(int32 ButtonIndex)
+{
+	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	if (OwnerPlayerState && ButtonIndex >=0 && ButtonIndex <= LeadingVoteButtons.Num() && LeadingVoteButtons[ButtonIndex].MapVoteInfo.IsValid())
+	{
+		OwnerPlayerState->RegisterVote(LeadingVoteButtons[ButtonIndex].MapVoteInfo.Get());
+
+		// Now find the button..
+
+		for (int32 i=0; i < LeadingVoteButtons.Num(); i++)
+		{
+			if ( i == ButtonIndex )
+			{
+				if (LeadingVoteButtons[i].VoteButton.IsValid())
+				{
+					LeadingVoteButtons[i].VoteButton->BePressed();
+				}
+			}
+			else
+			{
+				if (LeadingVoteButtons[i].VoteButton.IsValid())
+				{
+					LeadingVoteButtons[i].VoteButton->UnPressed();
+				}
+			}
+		}
+
+		for (int32 i=0; i < VoteButtons.Num(); i++)
+		{
+			if (VoteButtons[i].VoteButton.IsValid())
+			{
+				VoteButtons[i].VoteButton->UnPressed();
+			}
+		}
 	}
 
 	return FReply::Handled();
 }
 
-void SUWMapVoteDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+FReply SUWMapVoteDialog::OnMapClick(TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo)
 {
-	if (GameState.IsValid())
+	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+	if (OwnerPlayerState)
 	{
-		if (bRequiresRefresh)
+		OwnerPlayerState->RegisterVote(MapInfo.Get());
+
+		// Now find the button..
+
+		for (int32 i=0; i < VoteButtons.Num(); i++)
 		{
-			BuildMapList();
-		}
-		else
-		{
-			bool bNeedsUpdate = false;
-			if (GameState->MapVoteList.Num() == LastVoteCount)
+			if (VoteButtons[i].MapVoteInfo.Get() == MapInfo.Get())
 			{
-				for (int32 i=0; i < GameState->MapVoteList.Num(); i++)
+				if (VoteButtons[i].VoteButton.IsValid())
 				{
-					if (GameState->MapVoteList[i]->bNeedsUpdate)
-					{
-						bNeedsUpdate = true;
-					}
-					GameState->MapVoteList[i]->bNeedsUpdate = false;
+					VoteButtons[i].VoteButton->BePressed();
 				}
 			}
 			else
 			{
-				bNeedsUpdate = true;
+				if (VoteButtons[i].VoteButton.IsValid())
+				{
+					VoteButtons[i].VoteButton->UnPressed();
+				}
 			}
+		}
 
-			if (bNeedsUpdate)
+		for (int32 i=0; i < LeadingVoteButtons.Num(); i++)
+		{
+			if (LeadingVoteButtons[i].VoteButton.IsValid())
 			{
-				BuildMapList();
+				LeadingVoteButtons[i].VoteButton->UnPressed();
 			}
+		}
+
+
+
+	}
+
+	return FReply::Handled();
+}
+
+
+void SUWMapVoteDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	if (GameState.IsValid())
+	{
+		bool bNeedsFullUpdate = false;
+		if (GameState->MapVoteList.Num() == NumMapInfos)
+		{
+			UpdateTopVotes();
+
+			for (int32 i=0; i < VoteButtons.Num(); i++)
+			{
+				if (VoteButtons[i].MapVoteInfo.IsValid() && VoteButtons[i].MapVoteInfo->bNeedsUpdate)
+				{
+					VoteButtons[i].VoteCountText->SetText(FText::AsNumber(VoteButtons[i].MapVoteInfo->VoteCount));
+					GameState->MapVoteList[i]->bNeedsUpdate = false;
+				}
+			}
+		}
+		else
+		{
+			bNeedsFullUpdate = true;
+		}
+
+		if (bNeedsFullUpdate)
+		{
+			BuildMapList();
 		}
 	}
 }
