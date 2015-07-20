@@ -1787,6 +1787,11 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		UTPlayerState->ForceNetUpdate();
 	}
 	AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (!UTGM)
+	{
+		// this is a newly disconnected client
+		return;
+	}
 	if (!UTGM->HasMatchStarted())
 	{
 		if (UTPlayerState)
@@ -1819,7 +1824,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 	{
 		return;
 	}
-	else if (!GetWorld()->GetAuthGameMode()->PlayerCanRestart(this))
+	else if (!UTGM->PlayerCanRestart(this))
 	{
 		return;
 	}
