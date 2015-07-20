@@ -68,11 +68,11 @@ protected:
 		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapInfo> inMapVoteInfo, TSharedPtr<SUTComboButton> inVoteButton, TSharedPtr<SImage> inMapImage, TSharedPtr<STextBlock> inMapTitle, TSharedPtr<STextBlock> inVoteCountText, TSharedPtr<SBorder> inBorderWidget)
 			: MapTexture(inMapTexture)
 			, MapVoteInfo(inMapVoteInfo)
-			, VoteButton(inVoteButton)
 			, MapImage(inMapImage)
+			, BorderWidget(inBorderWidget)
 			, MapTitle(inMapTitle)
 			, VoteCountText(inVoteCountText)
-			, BorderWidget(inBorderWidget)
+			, VoteButton(inVoteButton)
 		{
 		}
 
