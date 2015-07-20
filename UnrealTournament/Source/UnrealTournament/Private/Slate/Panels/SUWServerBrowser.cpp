@@ -65,6 +65,15 @@ struct FCompareServerByPingDesc
 	}
 };
 
+struct FCompareHub
+{
+	FORCEINLINE bool operator()	( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const 
+	{
+		return (A->TrustLevel < B->TrustLevel) || (B->Ping < 0 || (A->Ping >= 0 && A->Ping < B->Ping));	
+	}
+};
+
+
 
 struct FCompareRulesByRule		{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule > B->Rule);	}};
 struct FCompareRulesByRuleDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule < B->Rule);	}};
@@ -919,7 +928,7 @@ void SUWServerBrowser::SortServers(FName ColumnName)
 
 void SUWServerBrowser::SortHUBs()
 {
-	FilteredHubsSource.Sort(FCompareServerByPing());
+	FilteredHubsSource.Sort(FCompareHub());
 	HUBServerList->RequestListRefresh();
 }
 
@@ -1176,6 +1185,17 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			}
 		}
 
+		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
+		{
+			UE_LOG(UT,Log,TEXT("Received a list of %i Internet Servers....."), PingList.Num());
+			for (int32 i=0;i<PingList.Num();i++)
+			{
+				UE_LOG(UT,Log,TEXT("Received Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
+			}
+			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
+		}
+
+
 		AddGameFilters();
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
@@ -1191,22 +1211,20 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 	LanSearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 	LanSearchSettings->MaxSearchResults = 10000;
 	LanSearchSettings->bIsLanQuery = true;
+	LanSearchSettings->TimeoutInSeconds = 5.0;
 	LanSearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 
 	TSharedRef<FUTOnlineGameSearchBase> LanSearchSettingsRef = LanSearchSettings.ToSharedRef();
-
 	FOnFindSessionsCompleteDelegate Delegate;
 	Delegate.BindSP(this, &SUWServerBrowser::OnFindLANSessionsComplete);
-	OnFindSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
+	OnFindLANSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
 	OnlineSessionInterface->FindSessions(0, LanSearchSettingsRef);
-
-	SetBrowserState(EBrowserState::BrowserIdle);
 }
 
 
 void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 {
-	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
+	OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindLANSessionCompleteDelegate);
 
 	if (bWasSuccessful)
 	{
@@ -1228,9 +1246,6 @@ void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 			}
 			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 		}
-
-		// If a server exists in either of the lists but not in the PingList, then let's kill it.
-		ExpireDeadServers();
 
 		if (OnlineSubsystem)
 		{
@@ -1384,7 +1399,6 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 		}
 
 	}
-	SetBrowserState(EBrowserState::BrowserIdle);	
 }
 
 
@@ -1468,6 +1482,22 @@ void SUWServerBrowser::AddServer(TSharedPtr<FServerData> Server)
 
 void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 {
+	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
+
+	int32 ServerIsTrainingGround;
+	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, ServerIsTrainingGround);
+
+	int32 ServerTrustLevel; 
+	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, ServerTrustLevel);
+
+	// Only trusted servers can be training grounds.  TODO: Move this to the MCP.
+	if ( ServerTrustLevel >0 ) ServerIsTrainingGround = 0;
+
+	if ( !bIsBeginner && ServerIsTrainingGround == 1 )
+	{
+		return;
+	}
+
 	for (int32 i=0; i < AllHubServers.Num() ; i++)
 	{
 		if (!AllHubServers[i]->bFakeHUB)

@@ -27,7 +27,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderY = 8;
 	ColumnY = 12;
 	ColumnMedalX = 0.59;
-	FooterPosY = 1020.f;
+	FooterPosY = 996.f;
 	CellHeight = 40;
 
 	FlagX = 0.065;
@@ -174,7 +174,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 {
 	Super::Draw_Implementation(RenderDelta);
 
-	float YOffset = 0.0f;
+	float YOffset = 64.f;
 	DrawGamePanel(RenderDelta, YOffset);
 	if (UTHUDOwner->ScoreboardPage > 0)
 	{
@@ -191,13 +191,13 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 {
 	// Draw the Background
-	DrawTexture(TextureAtlas,0,0, Size.X, 128, 4,2,124, 128, 1.0);
+	DrawTexture(TextureAtlas,0,YOffset, Size.X, 80, 4,2,124, 128, 1.0);
 
 	// Draw the Logo
-	DrawTexture(TextureAtlas, 165, 60, 301, 98, 162,14,301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.5, 0.5));
+	DrawTexture(TextureAtlas, 80, YOffset + 36.f, 150.5f, 49.f, 162,14,301, 98.0, 1.f, FLinearColor::White, FVector2D(0.5, 0.5));
 	
 	// Draw the Spacer Bar
-	DrawTexture(TextureAtlas, 325, 60, 4, 99, 488,13,4,99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
+	DrawTexture(TextureAtlas, 180, YOffset + 30.f, 4, 72, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 	FText MapName = UTHUDOwner ? FText::FromString(UTHUDOwner->GetWorld()->GetMapName().ToUpper()) : FText::GetEmpty();
 	FText GameName = FText::GetEmpty();
 	if (UTGameState && UTGameState->GameModeClass)
@@ -208,17 +208,14 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 			GameName = FText::FromString(DefaultGame->DisplayName.ToString().ToUpper());
 		}
 	}
-	if (!GameName.IsEmpty())
-	{
-		DrawText(GameName, 355, 28, UTHUDOwner->LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
-	}
-	if (!MapName.IsEmpty())
-	{
-		DrawText(MapName, 355, 80, UTHUDOwner->LargeFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
-	}
+	FFormatNamedArguments Args;
+	Args.Add("GameName", FText::AsCultureInvariant(GameName));
+	Args.Add("MapName", FText::AsCultureInvariant(MapName));
+	FText GameMessage = FText::Format(NSLOCTEXT("UTScoreboard", "ScoreboardHeader", "{GameName} in {MapName}"), Args);
+	DrawText(GameMessage, 220, YOffset + 36.f, UTHUDOwner->MediumFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); // 470
 
 	DrawGameOptions(RenderDelta, YOffset);
-	YOffset += 128.f;	// The size of this zone.
+	YOffset += 80.f;	// The size of this zone.
 }
 
 void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
@@ -229,19 +226,19 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		{
 			// Draw Game Text
 			FText Score = FText::Format(NSLOCTEXT("UTScoreboard","GoalScoreFormat","First to {0} Frags"), FText::AsNumber(UTGameState->GoalScore));
-			DrawText(Score, Size.X * 0.985f, 28, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(Score, Size.X * 0.985f, YOffset + 14.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 
 		FText StatusText = UTGameState->GetGameStatusText();
 		if (!StatusText.IsEmpty())
 		{
-			DrawText(StatusText, Size.X * 0.985f, 90, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(StatusText, Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 		else
 		{
 			float RemainingTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
 			FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RemainingTime, true, true, true);
-			DrawText(Timer, Size.X * 0.985f, 88, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(Timer, Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->NumberFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 	}
 }
@@ -440,7 +437,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		{
 			PlayerReady = NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP");
 		}
-		DrawText(PlayerReady, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, PlayerState->ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(PlayerReady, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, PlayerState->ReadyScale, 1.0f, PlayerState->ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
@@ -648,6 +645,7 @@ void UUTScoreboard::SelectionClick()
 		if (LP)
 		{
 			LP->ShowPlayerInfo(SelectedPlayer);
+			ClearSelection();
 		}
 	}
 }

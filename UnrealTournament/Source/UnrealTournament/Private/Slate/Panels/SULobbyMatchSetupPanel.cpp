@@ -15,6 +15,7 @@
 #include "UTGameEngine.h"
 #include "UTLevelSummary.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "UTReplicatedMapInfo.h"
 
 
 #if !UE_SERVER
@@ -22,8 +23,9 @@
 void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 {
 	BlinkyTimer = 0.0f;
-	bWaitingOnMapDownload = false;
 	Dots=0;
+
+	LastMapInfo.Reset();
 
 	bIsHost = InArgs._bIsHost;
 	MatchInfo = InArgs._MatchInfo;
@@ -144,7 +146,11 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 
 	OnMatchInfoUpdated();
 	OnRulesetUpdated();
-	BuildMapList();
+
+	if (MatchInfo.IsValid() && MatchInfo->InitialMapInfo.IsValid())
+	{
+		BuildMapList();
+	}
 }
 
 FReply SULobbyMatchSetupPanel::CancelDownloadClicked()
@@ -168,31 +174,25 @@ void SULobbyMatchSetupPanel::Tick( const FGeometry& AllottedGeometry, const doub
 	{
 		if (MatchInfo->CurrentRuleset.IsValid())
 		{
-			if (MatchInfo->bMapChanged && !bWaitingOnMapDownload)
+			MatchInfo->LoadInitialMapInfo();	
+			if ( MatchInfo->InitialMapInfo.IsValid() )
 			{
-				// Look to see if the MapInfo is valid.  If it's not, then trigger a content get.
-				if (MatchInfo->InitialMapInfo.IsValid())
+				if (!LastMapInfo.IsValid() || !MatchInfo->InitialMapInfo->MapPackageName.Equals(LastMapInfo->MapPackageName))
 				{
-					BuildMapList();
-				}
-				else
-				{
-					bWaitingOnMapDownload = true;
-					TArray<FString> Content;
-					Content.Add(MatchInfo->InitialMap);
-					PlayerOwner->AccquireContent(Content);
+					if (MatchInfo->InitialMapInfo.IsValid())
+					{
+						BuildMapList();
+						LastMapInfo = MatchInfo->InitialMapInfo;
+					}
 				}
 			}
 
-			else if (bWaitingOnMapDownload && !PlayerOwner->IsDownloadInProgress())
+			if (MatchInfo->bRedirectsHaveChanged)
 			{
-				MatchInfo->LoadInitialMapInfo();	
-				if (MatchInfo->InitialMapInfo.IsValid())
-				{
-					bWaitingOnMapDownload = false;
-					BuildMapList();
-				}
+				PlayerOwner->AccquireContent(MatchInfo->Redirects);
+				MatchInfo->bRedirectsHaveChanged = false;
 			}
+
 		}
 		else
 		{
@@ -831,14 +831,6 @@ void SULobbyMatchSetupPanel::OnRulesetUpdated()
 {
 	if (MatchInfo->CurrentRuleset.IsValid())
 	{
-		TArray<FString> RequiredContent;
-		MatchInfo->GetNeededPackagesForCurrentRuleset(RequiredContent);
-
-		if (RequiredContent.Num() > 0)
-		{
-			PlayerOwner->AccquireContent(RequiredContent);		
-		}
-
 		PlayerData.Empty();
 		BuildPlayerList(0);
 	}
@@ -895,9 +887,9 @@ void SULobbyMatchSetupPanel::BuildMapList()
 		];
 
 
-		if (MatchInfo->InitialMapInfo->Screenshot != TEXT(""))
+		if (MatchInfo->InitialMapInfo->MapScreenshotReference!= TEXT(""))
 		{
-			UTexture2D* MapImage = LoadObject<UTexture2D>(nullptr, *MatchInfo->InitialMapInfo->Screenshot);
+			UTexture2D* MapImage = LoadObject<UTexture2D>(nullptr, *MatchInfo->InitialMapInfo->MapScreenshotReference);
 			MapScreenshot = new FSlateDynamicImageBrush(MapImage, FVector2D(256.0, 128.0), NAME_None);
 
 		}

@@ -28,12 +28,14 @@
 #include "UTLevelSummary.h"
 #include "UTHUD_CastingGuide.h"
 #include "UTBotCharacter.h"
-#include "UTReplicatedMapVoteInfo.h"
+#include "UTReplicatedMapInfo.h"
 #include "StatNames.h"
 #include "UTProfileItemMessage.h"
 #include "UTWeap_ImpactHammer.h"
 #include "UTWeap_Translocator.h"
 #include "UTWeap_Enforcer.h"
+#include "Engine/DemoNetDriver.h"
+#include "EngineBuildSettings.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -374,9 +376,10 @@ void AUTGameMode::InitGameState()
 		UTGameState->ForceRespawnTime = ForceRespawnTime;
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bWeaponStay = bWeaponStayActive;
+		UTGameState->bCasterControl = bCasterControl;
 
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
-
+		
 		// Setup the loadout replication
 		for (int32 i=0; i < AvailableLoadout.Num(); i++)
 		{
@@ -982,7 +985,7 @@ void AUTGameMode::DefaultTimer()
 		// Scan the maps and see if we have 
 
 
-		TArray<AUTReplicatedMapVoteInfo*> Best;
+		TArray<AUTReplicatedMapInfo*> Best;
 		for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
 		{
 			if (UTGameState->MapVoteList[i]->VoteCount > 0)
@@ -1174,9 +1177,90 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		}
 	}
 
+	AddKillEventToReplay(Killer, Other, DamageType);
+
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
+	}
+}
+
+void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+{
+	// Could be a suicide
+	if (Killer == nullptr)
+	{
+		return;
+	}
+
+	// Shouldn't happen, but safety first
+	if (Other == nullptr)
+	{
+		return;
+	}
+
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		AUTPlayerState* OtherPlayerState = Cast<AUTPlayerState>(Other->PlayerState);
+		TArray<uint8> Data;
+		FString KillInfo = FString::Printf(TEXT("%s %s %s"),
+											KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"),
+											OtherPlayerState ? *OtherPlayerState->PlayerName : TEXT("None"),
+											*DamageType->GetName());
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
+
+		FString MetaTag = KillerPlayerState->StatsID;
+		if (MetaTag.IsEmpty())
+		{
+			MetaTag = KillerPlayerState->PlayerName;
+		}
+		DemoNetDriver->AddEvent(TEXT("Kills"), MetaTag, Data);
+	}
+}
+
+void AUTGameMode::AddMultiKillEventToReplay(AController* Killer)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		TArray<uint8> Data;
+		FString KillInfo = FString::Printf(TEXT("%s"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"));
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
+
+		FString MetaTag = KillerPlayerState->StatsID;
+		if (MetaTag.IsEmpty())
+		{
+			MetaTag = KillerPlayerState->PlayerName;
+		}
+		DemoNetDriver->AddEvent(TEXT("MultiKills"), MetaTag, Data);
+	}
+}
+
+void AUTGameMode::AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		TArray<uint8> Data;
+		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), SpreeLevel);
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
+
+		FString MetaTag = KillerPlayerState->StatsID;
+		if (MetaTag.IsEmpty())
+		{
+			MetaTag = KillerPlayerState->PlayerName;
+		}
+		DemoNetDriver->AddEvent(TEXT("SpreeKills"), MetaTag, Data);
 	}
 }
 
@@ -1461,6 +1545,11 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 void AUTGameMode::AwardProfileItems()
 {
+#if !UE_BUILD_SHIPPING
+	if (!FEngineBuildSettings::IsInternalBuild())
+	{
+		return;
+	}
 	// TODO: temporarily profile item giveaway for testing
 	// give item to highest scoring player
 	APlayerState* Best = NULL;
@@ -1493,6 +1582,7 @@ void AUTGameMode::AwardProfileItems()
 			}
 		}
 	}
+#endif
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
@@ -3437,8 +3527,8 @@ void AUTGameMode::HandleMapVote()
  **/
 void AUTGameMode::CullMapVotes()
 {
-	TArray<AUTReplicatedMapVoteInfo*> Sorted;
-	TArray<AUTReplicatedMapVoteInfo*> DeleteList;
+	TArray<AUTReplicatedMapInfo*> Sorted;
+	TArray<AUTReplicatedMapInfo*> DeleteList;
 	for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
 	{
 		int32 InsertIndex = 0;
@@ -3537,7 +3627,7 @@ void AUTGameMode::TallyMapVotes()
 	}
 
 
-	TArray<AUTReplicatedMapVoteInfo*> Best;
+	TArray<AUTReplicatedMapInfo*> Best;
 	for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
 	{
 		if (Best.Num() == 0 || Best[0]->VoteCount < UTGameState->MapVoteList[i]->VoteCount)
@@ -3550,10 +3640,103 @@ void AUTGameMode::TallyMapVotes()
 	if (Best.Num() > 0)
 	{
 		int32 Idx = FMath::RandRange(0, Best.Num() - 1);
-		GetWorld()->ServerTravel(Best[Idx]->MapPackage, false);
+		GetWorld()->ServerTravel(Best[Idx]->MapPackageName, false);
 	}
 	else
 	{
 		SendEveryoneBackToLobby();
 	}
+}
+
+//Same as AGameMode except we replicate the new inactive PS
+void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
+{
+	// don't store if it's an old PlayerState from the previous level or if it's a spectator
+	if (!PlayerState->bFromPreviousLevel && !PlayerState->bOnlySpectator)
+	{
+		APlayerState* NewPlayerState = PlayerState->Duplicate();
+		if (NewPlayerState)
+		{
+			GetWorld()->GameState->RemovePlayerState(NewPlayerState);
+
+			//AUTGameMode begin - bIsInactive needs to be set now as we are replicating right away
+			NewPlayerState->bIsInactive = true;
+			//AUTGameMode end
+
+			// delete after some time
+			NewPlayerState->SetLifeSpan(InactivePlayerStateLifeSpan);
+
+			// On console, we have to check the unique net id as network address isn't valid
+			bool bIsConsole = GEngine->IsConsoleBuild();
+
+			// make sure no duplicates
+			for (int32 i = 0; i<InactivePlayerArray.Num(); i++)
+			{
+				APlayerState* CurrentPlayerState = InactivePlayerArray[i];
+				if ((CurrentPlayerState == NULL) || CurrentPlayerState->IsPendingKill() ||
+					(!bIsConsole && (CurrentPlayerState->SavedNetworkAddress == NewPlayerState->SavedNetworkAddress)))
+				{
+					InactivePlayerArray.RemoveAt(i, 1);
+					i--;
+				}
+			}
+			InactivePlayerArray.Add(NewPlayerState);
+
+			// cap at 16 saved PlayerStates
+			if (InactivePlayerArray.Num() > 16)
+			{
+				InactivePlayerArray.RemoveAt(0, InactivePlayerArray.Num() - 16);
+			}
+		}
+	}
+
+	PlayerState->Destroy();
+}
+
+//Same as AGameMode except we duplicate the inactive PS
+bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
+{
+	// don't bother for spectators
+	if (PC->PlayerState->bOnlySpectator)
+	{
+		return false;
+	}
+
+	// On console, we have to check the unique net id as network address isn't valid
+	bool bIsConsole = GEngine->IsConsoleBuild();
+
+	FString NewNetworkAddress = PC->PlayerState->SavedNetworkAddress;
+	FString NewName = PC->PlayerState->PlayerName;
+	for (int32 i = 0; i<InactivePlayerArray.Num(); i++)
+	{
+		APlayerState* CurrentPlayerState = InactivePlayerArray[i];
+		if ((CurrentPlayerState == NULL) || CurrentPlayerState->IsPendingKill())
+		{
+			InactivePlayerArray.RemoveAt(i, 1);
+			i--;
+		}
+		else if ((bIsConsole && (CurrentPlayerState->UniqueId == PC->PlayerState->UniqueId)) ||
+			(!bIsConsole && (FCString::Stricmp(*CurrentPlayerState->SavedNetworkAddress, *NewNetworkAddress) == 0) && (FCString::Stricmp(*CurrentPlayerState->PlayerName, *NewName) == 0)))
+		{
+			// found it!
+			APlayerState* OldPlayerState = PC->PlayerState;
+
+			//AUTGameMode begin - Since bIsInactive is COND_InitialOnly we need to create a new PS
+			PC->PlayerState = CurrentPlayerState->Duplicate();
+			CurrentPlayerState->Destroy();
+			//AUTGameMode end
+
+			PC->PlayerState->SetOwner(PC);
+			OverridePlayerState(PC, OldPlayerState);
+			GetWorld()->GameState->AddPlayerState(PC->PlayerState);
+			InactivePlayerArray.RemoveAt(i, 1);
+			OldPlayerState->bIsInactive = true;
+			// Set the uniqueId to NULL so it will not kill the player's registration 
+			// in UnregisterPlayerWithSession()
+			OldPlayerState->SetUniqueId(NULL);
+			OldPlayerState->Destroy();
+			return true;
+		}
+	}
+	return false;
 }

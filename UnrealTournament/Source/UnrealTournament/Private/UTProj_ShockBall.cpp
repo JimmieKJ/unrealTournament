@@ -12,7 +12,6 @@ AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectIniti
 	ComboDamageParams = FRadialDamageParams(215.0f, 520.0f);
 	ComboAmmoCost = 3;
 	bComboExplosion = false;
-	bUsingClientSideHits = false;
 	ComboMomentum = 330000.0f;
 	bIsEnergyProjectile = true;
 	PrimaryActorTick.bCanEverTick = true;
@@ -32,11 +31,6 @@ void AUTProj_ShockBall::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 			Components[i]->SetCollisionResponseToAllChannels(ECR_Ignore);
 		}
 	}
-}
-
-void AUTProj_ShockBall::SetForwardTicked(bool bWasForwardTicked)
-{
-	bUsingClientSideHits = bWasForwardTicked;
 }
 
 float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -59,7 +53,7 @@ float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEven
 				UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
 			}
 		}
-		else if (!bUsingClientSideHits)
+		else if (GetNetMode() == NM_Standalone)
 		{
 			PerformCombo(EventInstigator, DamageCauser);
 		}

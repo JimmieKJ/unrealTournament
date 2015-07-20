@@ -12,6 +12,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
 #include "UTCTFGameState.h"
+#include "UTCTFGameMode.h"
 #include "UTChatMessage.h"
 #include "Engine/Console.h"
 #include "UTAnalytics.h"
@@ -31,6 +32,7 @@
 #include "UTHUDWidget_NetInfo.h"
 #include "UTWorldSettings.h"
 #include "Engine/DemoNetDriver.h"
+#include "UTGhostComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -49,6 +51,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastTapRightTime = -10.f;
 	LastTapForwardTime = -10.f;
 	LastTapBackTime = -10.f;
+	bAllowSlideFromRun = true;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
 	bHasUsedSpectatingBind = false;
@@ -525,7 +528,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	static FName NAME_Enter(TEXT("Enter"));
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-	if (Key.GetFName() == NAME_Enter && GS != nullptr && !GS->HasMatchStarted() && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
+	if (Key.GetFName() == NAME_Enter && GS != nullptr && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
 	{
 		ServerRestartPlayer();
 		return true;
@@ -1205,7 +1208,7 @@ void AUTPlayerController::OnAltFire()
 	{
 		new(DeferredFireInputs)FDeferredFireInput(1, true);
 	}
-	else if ( GetWorld()->GetGameState<AUTGameState>()->HasMatchStarted() && IsInState(NAME_Spectating) )
+	else if (GetWorld()->GetGameState() != NULL && GetWorld()->GetGameState()->HasMatchStarted() && IsInState(NAME_Spectating) )
 	{
 		PlayMenuSelectSound();
 		if ((PlayerState == nullptr || !PlayerState->bOnlySpectator) && bPlayerIsWaiting)
@@ -1628,6 +1631,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				if (Pickup->IsTaken(GetPawn()))
 				{
 					bTaken = true;
+					Pickup->TimerEffect->SetFloatParameter(NAME_Progress, 1.0f - Pickup->GetRespawnTimeOffset(GetPawn()) / Pickup->RespawnTime);
 				}
 				else
 				{
@@ -1652,6 +1656,10 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				{
 					HiddenComponents.Add(Pickup->GetGhostDepthMesh()->ComponentId);
 				}
+				if (Pickup->TimerEffect != NULL)
+				{
+					HiddenComponents.Add(Pickup->TimerEffect->ComponentId);
+				}
 			}
 		}
 	}
@@ -1663,14 +1671,18 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	if (IsBehindView())
 	{
 		// hide first person weapon
-		if (P != NULL && P->GetWeapon() != NULL)
+		if (P != NULL)
 		{
-			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
-			for (UMeshComponent* WeapMesh : Meshes)
+			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
+			if (P->GetWeapon() != NULL)
 			{
-				if (WeapMesh != NULL)
+				TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
+				for (UMeshComponent* WeapMesh : Meshes)
 				{
-					HideComponentTree(WeapMesh, HiddenComponents);
+					if (WeapMesh != NULL)
+					{
+						HideComponentTree(WeapMesh, HiddenComponents);
+					}
 				}
 			}
 		}
@@ -1678,16 +1690,25 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 	else if (P != NULL)
 	{
 		// hide first person mesh (but not attachments) if hidden weapons
-		if (GetWeaponHand() == HAND_Hidden && P->GetWeapon() != NULL)
+		if (GetWeaponHand() == HAND_Hidden)
 		{
-			TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
-			for (UMeshComponent* WeapMesh : Meshes)
+			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
+			if (P->GetWeapon() != NULL)
 			{
-				if (WeapMesh != NULL)
+				TArray<UMeshComponent*> Meshes = P->GetWeapon()->Get1PMeshes();
+				for (UMeshComponent* WeapMesh : Meshes)
 				{
-					HiddenComponents.Add(WeapMesh->ComponentId);
+					if (WeapMesh != NULL)
+					{
+						HiddenComponents.Add(WeapMesh->ComponentId);
+					}
 				}
 			}
+		}
+		else if (P->GetWeapon() != NULL && P->GetWeapon()->HandsAttachSocket == NAME_None)
+		{
+			// weapon doesn't use hands
+			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
 		}
 		// hide third person character model
 		HideComponentTree(P->GetMesh(), HiddenComponents);
@@ -1719,19 +1740,6 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			{
 				HideComponentTree(OtherP->GetWeapon()->Mesh, HiddenComponents);
 			}
-		}
-	}
-}
-
-void AUTPlayerController::SetName(const FString& S)
-{
-	if (!S.IsEmpty())
-	{
-		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-		if (LP != NULL)
-		{
-			LP->SetNickname(S);
-			LP->SaveProfileSettings();
 		}
 	}
 }
@@ -1778,8 +1786,8 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		UTPlayerState->bChosePrimaryRespawnChoice = true;
 		UTPlayerState->ForceNetUpdate();
 	}
-
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
+	AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (!UTGM->HasMatchStarted())
 	{
 		if (UTPlayerState)
 		{
@@ -1800,6 +1808,12 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 				UTPlayerState->ForceNetUpdate();
 			}
 		}
+	}
+	//Half-time ready up for caster control
+	else if (UTGM->bCasterControl && UTGM->GetMatchState() == MatchState::MatchIsAtHalftime && UTPlayerState != nullptr && UTPlayerState->bCaster)
+	{
+		UTPlayerState->bReadyToPlay = true;
+		UTPlayerState->ForceNetUpdate();
 	}
 	else if (IsFrozen())
 	{
@@ -1879,6 +1893,13 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 	if (Cast<AUTCharacter>(GetViewTarget()) != NULL)
 	{
 		((AUTCharacter*)GetViewTarget())->BehindViewChange(this, bWantBehindView);
+	}
+
+	// make sure we don't have leftover zoom
+	if (bWantBehindView && PlayerCameraManager != NULL)
+	{
+		PlayerCameraManager->UnlockFOV();
+		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
 	}
 }
 
@@ -1986,6 +2007,15 @@ void AUTPlayerController::ShowEndGameScoreboard()
 		MyUTHUD->ToggleScoreboard(true);
 	}
 }
+
+void AUTPlayerController::ShowMenu()
+{
+	ToggleScoreboard(false);
+	Super::ShowMenu();
+	OnStopFire();
+	OnStopAltFire();
+}
+
 
 void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams)
 {
@@ -3505,4 +3535,76 @@ void AUTPlayerController::ClearTokens()
 		}
 	}
 #endif
+}
+
+
+AUTCharacter* AUTPlayerController::GhostTrace()
+{
+	FVector CameraLoc;
+	FRotator CameraRot;
+	GetPlayerViewPoint(CameraLoc, CameraRot);
+	FHitResult Hit;
+	GetWorld()->LineTraceSingleByChannel(Hit, CameraLoc, CameraLoc + CameraRot.Vector() * 50000.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("GhostTrace")), true, GetUTCharacter()));
+
+	return Cast<AUTCharacter>(Hit.Actor.Get());
+}
+
+void AUTPlayerController::GhostStart()
+{
+	if (GetWorld()->WorldType == EWorldType::PIE && Role == ROLE_Authority)
+	{
+		AUTCharacter* HitChar = GhostTrace();
+		if (HitChar != nullptr && (HitChar->GetController() == nullptr || Cast<AAIController>(HitChar->GetController()) != nullptr))
+		{
+			if (HitChar->GhostComponent->bGhostPlaying)
+			{
+				HitChar->GhostComponent->GhostStopPlaying();
+			}
+			//Store our original char so we can switch back later
+			PreGhostChar = GetUTCharacter();
+
+			Possess(HitChar);
+			SetViewTarget(HitChar);
+			HitChar->GhostComponent->GhostStartRecording();
+		}
+	}
+}
+
+void AUTPlayerController::GhostStop()
+{
+	if (GetWorld()->WorldType == EWorldType::PIE && Role == ROLE_Authority)
+	{
+		AUTCharacter* UTC = GetUTCharacter();
+		if (UTC != nullptr && UTC->GhostComponent->bGhostRecording)
+		{
+			UTC->GhostComponent->GhostStopRecording();
+
+			//
+			if (PreGhostChar != nullptr)
+			{
+				Possess(PreGhostChar);
+				SetViewTarget(PreGhostChar);
+			}
+
+			//Give it a controller and move it back to its original position
+			UTC->SpawnDefaultController();
+			UTC->GhostComponent->GhostMoveToStart();
+		}
+	}
+}
+
+void AUTPlayerController::GhostPlay()
+{
+	if (GetWorld()->WorldType == EWorldType::PIE)
+	{
+		AUTCharacter* UTC = GhostTrace();
+		if (UTC != nullptr)
+		{
+			if (UTC->GhostComponent->bGhostPlaying)
+			{
+				UTC->GhostComponent->GhostStopPlaying();
+			}
+			UTC->GhostComponent->GhostStartPlaying();
+		}
+	}
 }

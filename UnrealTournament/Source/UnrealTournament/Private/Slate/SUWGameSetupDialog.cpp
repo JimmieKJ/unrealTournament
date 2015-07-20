@@ -9,6 +9,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTEpicDefaultRulesets.h"
 #include "UTLobbyGameState.h"
+#include "UTReplicatedMapInfo.h"
 
 #if !UE_SERVER
 
@@ -378,22 +379,14 @@ void SUWGameSetupDialog::BuildMapList()
 	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
 	if (SelectedRuleset.IsValid() && GameState)
 	{
-		TArray<TSharedPtr<FMapListItem>> AllowedMapList;
-		GameState->GetAvailableMaps(SelectedRuleset->MapPrefixes, AllowedMapList);
 		MapPlayList.Empty();
-		for (int32 i=0; i< AllowedMapList.Num(); i++)
+		for (int32 i=0; i< SelectedRuleset->MapList.Num(); i++)
 		{
-			// Look to see if this map fits the rules...
+			MapPlayList.Add(FMapPlayListInfo(SelectedRuleset->MapList[i], false));
 
-			int32 OptimalPlayerCount = SelectedRuleset->bTeamGame ? AllowedMapList[i]->OptimalTeamPlayerCount : AllowedMapList[i]->OptimalPlayerCount;
-			if (SelectedRuleset->OptimalPlayers == 0 || OptimalPlayerCount <= SelectedRuleset->OptimalPlayers)
+			if (SelectedRuleset->MapList[i]->MapScreenshotReference!= TEXT(""))
 			{
-				MapPlayList.Add(FMapPlayListInfo(AllowedMapList[i], false));
-			}
-
-			if (AllowedMapList[i]->Screenshot != TEXT(""))
-			{
-				FString Package = AllowedMapList[i]->Screenshot;
+				FString Package = SelectedRuleset->MapList[i]->MapScreenshotReference;
 				const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
 				if ( Pos != INDEX_NONE )
 				{
@@ -403,6 +396,7 @@ void SUWGameSetupDialog::BuildMapList()
 				LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWGameSetupDialog::TextureLoadComplete),0);
 			}
 		}
+
 	}
 
 	// Build the first panel
@@ -415,7 +409,7 @@ void SUWGameSetupDialog::TextureLoadComplete(const FName& InPackageName, UPackag
 	{
 		for (int32 i=0 ;i < MapPlayList.Num(); i++)
 		{
-			FString Screenshot = MapPlayList[i].MapInfo->Screenshot;
+			FString Screenshot = MapPlayList[i].MapInfo->MapScreenshotReference;
 			FString PackageName = InPackageName.ToString();
 			if (Screenshot != TEXT("") && Screenshot.Contains(PackageName))
 			{
@@ -705,7 +699,7 @@ FString SUWGameSetupDialog::GetSelectedMap()
 		if (MapPlayList[i].bSelected)
 		{
 
-			return MapPlayList[i].MapInfo->PackageName;
+			return MapPlayList[i].MapInfo->MapPackageName;
 		}
 	}
 

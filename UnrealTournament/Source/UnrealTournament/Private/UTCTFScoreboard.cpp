@@ -75,15 +75,15 @@ void UUTCTFScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		{
 			// Draw Game Text
 			FText Score = FText::Format(NSLOCTEXT("UTScoreboard", "GoalScoreFormat", "First to {0} Caps"), FText::AsNumber(UTGameState->GoalScore));
-			DrawText(Score, Size.X * 0.575, 28, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+			DrawText(Score, Size.X * 0.7f, YOffset + 40.f, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		}
 
 		FText StatusText = UTGameState->GetGameStatusText();
 		if (!StatusText.IsEmpty())
 		{
-			DrawText(StatusText, 1255, 38, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(StatusText, Size.X * 0.985f, YOffset + 16.f, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		} 
-		DrawText(UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->RemainingTime, true, true, true), 1255, 88, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+		DrawText(UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->RemainingTime, true, true, true), Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	}
 }
 
@@ -214,8 +214,8 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 				CurrentPeriod++;
 				if (CurrentPeriod < 3)
 				{
-					DrawText(PeriodText[CurrentPeriod], XOffset + 0.2f*ScoreWidth, YPos, UTHUDOwner->MediumFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center, TextRenderInfo);
-					YPos += MedYL;
+					DrawText(PeriodText[CurrentPeriod], XOffset + 0.2f*ScoreWidth, YPos, UTHUDOwner->SmallFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center, TextRenderInfo);
+					YPos += SmallYL;
 				}
 			}
 			if (SkippedPlays > 0)
@@ -350,9 +350,11 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	// find top scorer
 	AUTPlayerState* TopScorerRed = NULL;
 	AUTPlayerState* TopScorerBlue = NULL;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AUTPlayerState* PS = (*It);
 		if (PS && PS->Team)
 		{
 			if (!TopScorerRed && (PS->Team->TeamIndex == 0))

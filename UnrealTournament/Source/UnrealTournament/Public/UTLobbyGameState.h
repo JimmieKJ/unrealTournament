@@ -188,7 +188,7 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	int32 AvailabelGameRulesetCount;
 
-	void ScanAssetRegistry();
+	void ScanAssetRegistry(TArray<FAssetData>& MapAssets);
 
 public:
 	// The actual cached copy of all of the game rulesets
@@ -196,8 +196,6 @@ public:
 	TArray<TWeakObjectPtr<AUTReplicatedGameRuleset>> AvailableGameRulesets;
 
 	virtual TWeakObjectPtr<AUTReplicatedGameRuleset> FindRuleset(FString TagToFind);
-
-	void GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 GameInstanceID, const FString& CurrentMap);
 
 public:
 	// This array holds all of the data that a client can configure in his custom dialog.  When this object is created, this array will be filled out.
@@ -217,13 +215,26 @@ public:
 	void ClientAssignGameData(FAllowedData Data);
 
 	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
-	virtual void GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList);
 
+	virtual AUTReplicatedMapInfo* GetMapInfo(FString MapPackageName);
+
+	/**
+	 *	Find all possible playable maps.  This should only be called on the server.
+	 **/
+	virtual void FindAllPlayableMaps(TArray<FAssetData>& MapAssets);
+
+	/**
+	 *	Returns the Replicated Map List.  This should only be called from the client
+	 **/
+	virtual void GetMapList(const TArray<FString>& AllowedMapPrefixes, TArray<AUTReplicatedMapInfo*>& MapList, bool bUseCache=false);
 
 	virtual void AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName);
 
 	AUTLobbyMatchInfo* FindMatch(FGuid MatchID);
-	
+
+	// Holds a list of all maps available on this server.
+	UPROPERTY(Replicated)
+	TArray<AUTReplicatedMapInfo*> AllMapsOnServer;
 
 protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName);
@@ -234,6 +245,8 @@ public:
 	// Sets a limit on the # of spectators allowed in an instance
 	UPROPERTY(Config)
 	int32 MaxSpectatorsInInstance;
+
+	virtual AUTReplicatedMapInfo* CreateMapInfo(const FAssetData& MapAsset) override;
 
 };
 

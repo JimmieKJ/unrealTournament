@@ -28,6 +28,7 @@ class UNREALTOURNAMENT_API SUTReplayWindow : public SCompoundWidget
 	}
 
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
 
 protected:
 
@@ -44,6 +45,20 @@ protected:
 	TSharedPtr<class SButton> MarkEndButton;
 	TSharedPtr<class SBorder> TimeBar;
 
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > BookmarksComboBox;
+	TArray<TSharedPtr<FString>> BookmarkNameList;
+	TSharedPtr<STextBlock> SelectedBookmark;
+	void OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void RefreshBookmarksComboBox();
+	int32 LastSpectedPlayerID;
+	/** utility to generate a simple text widget for list and combo boxes given a string value */
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+	void OnKillBookmarksSelected();
+	void OnMultiKillBookmarksSelected();
+	void OnSpreeKillBookmarksSelected();
+	void OnFlagReturnsBookmarksSelected();
+	FString GetSpectatedPlayerID();
+
 	//Time remaining to auto hide the time bar
 	float HideTimeBarTime;
 	FLinearColor GetTimeBarColor() const;
@@ -51,6 +66,7 @@ protected:
 
 	void OnSetTimeSlider(float NewValue);
 	float GetTimeSlider() const;
+	float GetTimeSliderLength() const;
 
 	void OnSetSpeedSlider(float NewValue);
 	TOptional<float> GetSpeedSlider() const;
@@ -69,6 +85,28 @@ protected:
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
+	
+	struct FBookmarkEvent
+	{
+		FString id;
+		FString meta;
+		float time;
+	};
+
+	void KillsEnumerated(const FString& JsonString, bool bSucceeded);
+	void FlagCapsEnumerated(const FString& JsonString, bool bSucceeded);
+	void FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded);
+	void FlagDenyEnumerated(const FString& JsonString, bool bSucceeded);
+	void MultiKillsEnumerated(const FString& JsonString, bool bSucceeded);
+	void SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded);
+	void ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray);
+
+	TArray<FBookmarkEvent> KillEvents;
+	TArray<FBookmarkEvent> FlagCapEvents;
+	TArray<FBookmarkEvent> FlagDenyEvents;
+	TArray<FBookmarkEvent> FlagReturnEvents;
+	TArray<FBookmarkEvent> MultiKillEvents;
+	TArray<FBookmarkEvent> SpreeKillEvents;
 
 	bool bDrawTooltip;
 	float TooltipTime;

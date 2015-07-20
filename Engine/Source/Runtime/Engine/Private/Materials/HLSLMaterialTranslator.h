@@ -1652,6 +1652,7 @@ protected:
 			{MEVP_FieldOfView, MCT_Float2, TEXT("View.<PREV>FieldOfViewWideAngles"), nullptr},
 			{MEVP_TanHalfFieldOfView, MCT_Float2, TEXT("Get<PREV>TanHalfFieldOfView()"), TEXT("Get<PREV>CotanHalfFieldOfView()")},
 			{MEVP_ViewSize, MCT_Float2, TEXT("View.ViewSizeAndInvSize.xy"), TEXT("View.ViewSizeAndInvSize.zw")},
+			{MEVP_WorldSpaceCameraPosition, MCT_Float3, TEXT("View.<PREV>ViewOrigin"), nullptr},
 		};
 		static_assert((sizeof(ViewPropertyMetaArray) / sizeof(ViewPropertyMetaArray[0])) == MEVP_MAX, "incoherency between EMaterialExposedViewProperty and ViewPropertyMetaArray");
 
@@ -1912,11 +1913,6 @@ protected:
 			bUsesTransformVector = true;
 		}
 		return AddInlinedCodeChunk(MCT_Float3,TEXT("Parameters.CameraVector"));
-	}
-
-	virtual int32 CameraWorldPosition() override
-	{
-		return AddInlinedCodeChunk(MCT_Float3,TEXT("View.ViewOrigin.xyz"));
 	}
 
 	virtual int32 LightVector() override

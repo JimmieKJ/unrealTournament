@@ -96,7 +96,7 @@ public:
 	FString InitialMap;
 
 	// This will be looked up when the inital map is set.
-	TSharedPtr<FMapListItem> InitialMapInfo;
+	TWeakObjectPtr<AUTReplicatedMapInfo> InitialMapInfo;
 
 	// Set by OnRep_InitialMap
 	bool bMapChanged;
@@ -270,13 +270,11 @@ public:
 
 	virtual void SetMatchStats(FString Update);
 
-	bool GetNeededPackagesForCurrentRuleset(TArray<FString>& NeededPackageURLs);
-
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame);
 
 	bool IsBanned(FUniqueNetIdRepl Who);
-	TSharedPtr<FMapListItem> GetMapInformation(FString MapPackage);
+	TWeakObjectPtr<AUTReplicatedMapInfo> GetMapInformation(FString MapPackage);
 
 	void LoadInitialMapInfo();
 
@@ -311,6 +309,20 @@ protected:
 	int32 MinRank;
 	int32 MaxRank;
 
+
+public:
+	/**
+	 *	This holds the list of required packages to play this current match.  
+	 **/
+	UPROPERTY(replicated, ReplicatedUsing = OnRep_RedirectsChanged)
+	TArray<FPackageRedirectReference> Redirects;
+
+	// This will be true if the redirects have changed.  When true, the UI should attempt to download any of the objects within the redirects.
+	bool bRedirectsHaveChanged;
+
+protected:
+	UFUNCTION()
+	void OnRep_RedirectsChanged();
 
 };
 

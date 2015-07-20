@@ -2,65 +2,31 @@
 #include "UnrealTournament.h"
 #include "UTWeaponStateZooming.h"
 
-void FZoomTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	if (ZoomState != NULL && !ZoomState->HasAnyFlags(RF_PendingKill | RF_Unreachable) && ZoomState->GetUTOwner() != NULL && ZoomState->GetUTOwner()->GetWeapon() == ZoomState->GetOuterAUTWeapon())
-	{
-		ZoomState->TickZoom(DeltaTime);
-	}
-}
-FString FZoomTickFunction::DiagnosticMessage()
-{
-	return *FString::Printf(TEXT("%s::ZoomTick()"), *GetPathNameSafe(ZoomState));
-}
-
 UUTWeaponStateZooming::UUTWeaponStateZooming(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	ZoomStartFOV = 80.0f;
-	MinFOV = 12.f;
-	ZoomTime = 0.9f;
 	bDrawHeads = true;
 	bDrawPingAdjustedTargets = true;
 }
 
 void UUTWeaponStateZooming::PendingFireStarted()
 {
-	if (bIsZoomed)
+	if (GetOuterAUTWeapon()->ZoomState != EZoomState::EZS_NotZoomed)
 	{
-		bIsZoomed = false;
-		if (GetUTOwner()->IsLocallyControlled())
-		{
-			GetOuterAUTWeapon()->SetActorHiddenInGame(false);
-			APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
-			if (Camera != NULL)
-			{
-				Camera->UnlockFOV();
-			}
-
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
-		}
+		GetOuterAUTWeapon()->SetZoomState(EZoomState::EZS_NotZoomed);
 	}
 	else
 	{
-		bIsZoomed = true;
-		StartZoomTime = GetWorld()->TimeSeconds;
-		ZoomTickHandler.ZoomState = this;
-		ZoomTickHandler.RegisterTickFunction(GetOuterAUTWeapon()->GetLevel());
-
-		if (GetUTOwner()->IsLocallyControlled())
-		{
-			GetOuterAUTWeapon()->SetActorHiddenInGame(true);
-			UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomInSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
-			ToggleZoomInSound(true);
-		}
+		GetOuterAUTWeapon()->SetZoomState(EZoomState::EZS_ZoomingIn);
 	}
 }
 
 void UUTWeaponStateZooming::PendingFireStopped()
 {
-	ZoomTickHandler.UnRegisterTickFunction();
-	ToggleZoomInSound(false);
+	if (GetOuterAUTWeapon()->ZoomState != EZoomState::EZS_NotZoomed)
+	{
+		GetOuterAUTWeapon()->SetZoomState(EZoomState::EZS_Zoomed);
+	}
 }
 
 bool UUTWeaponStateZooming::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
@@ -80,24 +46,16 @@ void UUTWeaponStateZooming::EndFiringSequence(uint8 FireModeNum)
 
 void UUTWeaponStateZooming::WeaponBecameInactive()
 {
-	if (bIsZoomed && GetUTOwner()->IsLocallyControlled())
+	if (GetOuterAUTWeapon()->ZoomState != EZoomState::EZS_NotZoomed 
+		&& GetUTOwner() != nullptr && GetUTOwner()->Controller != nullptr) //Spectator weapons are alwyas inactive 
 	{
-		bIsZoomed = false;
-		ZoomTickHandler.UnRegisterTickFunction();
-		APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
-		if (Camera != NULL)
-		{
-			Camera->UnlockFOV();
-		}
-		GetOuterAUTWeapon()->SetActorHiddenInGame(false);
-
-		UUTGameplayStatics::UTPlaySound(GetWorld(), ZoomOutSound, GetUTOwner(), SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
+		GetOuterAUTWeapon()->SetZoomState(EZoomState::EZS_NotZoomed);
 	}
 }
 
 bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 {
-	if (bIsZoomed && OverlayMat != NULL)
+	if (GetOuterAUTWeapon()->ZoomState != EZoomState::EZS_NotZoomed && OverlayMat != NULL)
 	{
 		UCanvas* C = WeaponHudWidget->GetCanvas();
 		if (OverlayMI == NULL)
@@ -186,54 +144,37 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 	}
 }
 
-void UUTWeaponStateZooming::TickZoom(float DeltaTime)
-{
-	// only mess with the FOV on the client; it doesn't matter to networking and is easier to maintain
-	if (GetUTOwner()->IsLocallyControlled())
-	{
-		APlayerCameraManager* Camera = GetUTOwner()->GetPlayerCameraManager();
-		if (Camera != NULL)
-		{
-			float StartFOV = (ZoomStartFOV > 0.0f) ? FMath::Min<float>(Camera->DefaultFOV, ZoomStartFOV) : Camera->DefaultFOV;
-			Camera->SetFOV(StartFOV - (StartFOV - MinFOV) * FMath::Min<float>((GetWorld()->TimeSeconds - StartZoomTime) / ZoomTime, 1.0f));
-
-			if (Camera->GetLockedFOV() <= MinFOV)
-			{
-				OnZoomingFinished();
-			}
-		}
-	}
-}
-
 void UUTWeaponStateZooming::OnZoomingFinished()
 {
-	ZoomTickHandler.UnRegisterTickFunction();
 	ToggleZoomInSound(false);
 }
 
 void UUTWeaponStateZooming::ToggleZoomInSound(bool bNowOn)
 {
-	if (ZoomLoopSound != NULL && Cast<APlayerController>(GetUTOwner()->Controller) && GetUTOwner()->IsLocallyControlled())
+	if (GetOuterAUTWeapon()->GetNetMode() != NM_DedicatedServer)
 	{
-		if (ZoomLoopComp == NULL)
+		if (ZoomLoopSound != NULL)
 		{
-			ZoomLoopComp = NewObject<UAudioComponent>(this, UAudioComponent::StaticClass());
-			ZoomLoopComp->bAutoDestroy = false;
-			ZoomLoopComp->bAutoActivate = false;
-			ZoomLoopComp->Sound = ZoomLoopSound;
-			ZoomLoopComp->bAllowSpatialization = false;
-		}
-		if (bNowOn)
-		{
-			ZoomLoopComp->RegisterComponent();
-			// note we don't need to attach to anything because we disabled spatialization
-			ZoomLoopComp->Play();
-		}
-		else if (ZoomLoopComp->IsRegistered())
-		{
-			ZoomLoopComp->Stop();
-			ZoomLoopComp->DetachFromParent();
-			ZoomLoopComp->UnregisterComponent();
+			if (ZoomLoopComp == NULL)
+			{
+				ZoomLoopComp = NewObject<UAudioComponent>(this, UAudioComponent::StaticClass());
+				ZoomLoopComp->bAutoDestroy = false;
+				ZoomLoopComp->bAutoActivate = false;
+				ZoomLoopComp->Sound = ZoomLoopSound;
+				ZoomLoopComp->bAllowSpatialization = false;
+			}
+			if (bNowOn)
+			{
+				ZoomLoopComp->RegisterComponent();
+				// note we don't need to attach to anything because we disabled spatialization
+				ZoomLoopComp->Play();
+			}
+			else if (ZoomLoopComp->IsRegistered())
+			{
+				ZoomLoopComp->Stop();
+				ZoomLoopComp->DetachFromParent();
+				ZoomLoopComp->UnregisterComponent();
+			}
 		}
 	}
 }

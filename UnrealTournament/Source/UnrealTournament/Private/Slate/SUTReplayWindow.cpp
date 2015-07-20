@@ -12,6 +12,7 @@
 #include "UTPlayerState.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Engine/DemoNetDriver.h"
+#include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "UTVideoRecordingFeature.h"
 #include "SceneViewport.h"
@@ -121,6 +122,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(TimeSlider, SUTProgressSlider)
 							.Value(this, &SUTReplayWindow::GetTimeSlider)
+							.TotalValue(this, &SUTReplayWindow::GetTimeSliderLength)
 							.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
 							.SliderBarColor(FColor(33, 93, 220))
 							.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
@@ -194,6 +196,29 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 											.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
 										]
 									]
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
+									[
+										SAssignNew(BookmarksComboBox, SComboBox< TSharedPtr<FString> >)
+										.InitiallySelectedItem(0)
+										.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+										.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+										.OptionsSource(&BookmarkNameList)
+										.OnGenerateWidget(this, &SUTReplayWindow::GenerateStringListWidget)
+										.OnSelectionChanged(this, &SUTReplayWindow::OnBookmarkSetSelected)
+										.Content()
+										[
+											SNew(SHorizontalBox)
+											+ SHorizontalBox::Slot()
+											.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+											[
+												SAssignNew(SelectedBookmark, STextBlock)
+												.Text(FText::FromString(TEXT("Bookmarks")))
+												.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+											]
+										]
+									]
 								]
 							]
 							//Play / Pause button
@@ -258,6 +283,106 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 		MarkStartButton->SetVisibility(EVisibility::Hidden);
 		MarkEndButton->SetVisibility(EVisibility::Hidden);
 	}
+
+	FEnumerateEventsCompleteDelegate EnumKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::KillsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("Kills"), EnumKills);
+}
+
+void SUTReplayWindow::ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray)
+{
+	//UE_LOG(UT, Log, TEXT("%s"), *JsonString);
+	BookmarkArray.Empty();
+
+	TSharedPtr<FJsonObject> JsonObject;
+	TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(JsonString);
+
+	if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
+	{
+		const TArray<TSharedPtr<FJsonValue>>* Events;
+		if (JsonObject->TryGetArrayField(TEXT("events"), Events))
+		{
+			for (int32 EventsIdx = 0; EventsIdx < Events->Num(); EventsIdx++)
+			{
+				FBookmarkEvent BookmarkEvent;
+				const TSharedPtr<FJsonValue>& EventJsonValue = (*Events)[EventsIdx];
+				EventJsonValue->AsObject()->TryGetStringField(TEXT("id"), BookmarkEvent.id);
+				EventJsonValue->AsObject()->TryGetStringField(TEXT("meta"), BookmarkEvent.meta);
+				int32 TimeTemp;
+				EventJsonValue->AsObject()->TryGetNumberField(TEXT("time1"), TimeTemp);
+
+				// time was in ms, should be in seconds
+				BookmarkEvent.time = TimeTemp / 1000.0f;
+
+				BookmarkArray.Add(BookmarkEvent);
+			}
+		}
+	}
+}
+
+void SUTReplayWindow::KillsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, KillEvents);
+	}
+
+	FEnumerateEventsCompleteDelegate EnumFlagCaps = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagCapsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("FlagCaps"), EnumFlagCaps);
+}
+
+
+void SUTReplayWindow::FlagCapsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, FlagCapEvents);
+	}
+
+	FEnumerateEventsCompleteDelegate EnumFlagReturns = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagReturnsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("FlagReturns"), EnumFlagReturns);
+}
+
+void SUTReplayWindow::FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, FlagReturnEvents);
+	}
+
+	FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagDenyEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("FlagDeny"), EnumFlagDeny);
+}
+
+void SUTReplayWindow::FlagDenyEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, FlagDenyEvents);
+	}
+
+	FEnumerateEventsCompleteDelegate EnumMultiKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::MultiKillsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("MultiKills"), EnumMultiKills);
+}
+
+void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, MultiKillEvents);
+	}
+
+	FEnumerateEventsCompleteDelegate EnumSpreeKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::SpreeKillsEnumerated);
+	DemoNetDriver->EnumerateEvents(TEXT("SpreeKills"), EnumSpreeKills);
+}
+
+void SUTReplayWindow::SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		ParseJsonIntoBookmarkArray(JsonString, SpreeKillEvents);
+	}
+
+	RefreshBookmarksComboBox();
 }
 
 FText SUTReplayWindow::GetTimeText() const
@@ -300,6 +425,16 @@ float SUTReplayWindow::GetTimeSlider() const
 		SliderPos = DemoNetDriver->DemoCurrentTime / DemoNetDriver->DemoTotalTime;
 	}
 	return SliderPos;
+}
+
+float SUTReplayWindow::GetTimeSliderLength() const
+{
+	if (DemoNetDriver.IsValid() && DemoNetDriver->DemoTotalTime > 0.0f)
+	{
+		return DemoNetDriver->DemoTotalTime;
+	}
+
+	return 1.0f;
 }
 
 void SUTReplayWindow::OnSetSpeedSlider(float NewValue)
@@ -359,6 +494,29 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 	}
 	HideTimeBarTime -= InDeltaTime;
 
+	// If focus has changed and we're looking at kill bookmarks, refilter the bookmarks
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (UTPC &&	LastSpectedPlayerID != UTPC->LastSpectatedPlayerId)
+	{
+		LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+		if (SelectedBookmark->GetText().ToString() == TEXT("Kills"))
+		{
+			OnKillBookmarksSelected();
+		}
+		else if (SelectedBookmark->GetText().ToString() == TEXT("Multi Kills"))
+		{
+			OnMultiKillBookmarksSelected();
+		}
+		else if (SelectedBookmark->GetText().ToString() == TEXT("Spree Kills"))
+		{
+			OnSpreeKillBookmarksSelected();
+		}
+		else if (SelectedBookmark->GetText().ToString() == TEXT("Flag Returns"))
+		{
+			OnFlagReturnsBookmarksSelected();
+		}
+	}
+
 	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
@@ -388,17 +546,20 @@ FReply SUTReplayWindow::OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, 
 
 bool SUTReplayWindow::MouseClickHUD()
 {
-	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-	if (PC && PC->MyUTHUD)
+	if (GetVis() != EVisibility::Hidden)
 	{
-		FVector2D MousePosition;
-		if (GetGameMousePosition(MousePosition))
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		if (PC && PC->MyUTHUD)
 		{
-			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
-			if (SpectatorWidget)
+			FVector2D MousePosition;
+			if (GetGameMousePosition(MousePosition))
 			{
-				SpectatorWidget->SetMouseInteractive(true);
-				return SpectatorWidget->MouseClick(MousePosition);
+				UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+				if (SpectatorWidget)
+				{
+					SpectatorWidget->SetMouseInteractive(true);
+					return SpectatorWidget->MouseClick(MousePosition);
+				}
 			}
 		}
 	}
@@ -423,15 +584,20 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 	}
 
 	//Update the tooltip if the mouse is over the slider
-	const FGeometry TimeSliderGeometry = FindChildGeometry(MyGeometry, TimeSlider.ToSharedRef());
-	bDrawTooltip = TimeSliderGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
-	if (bDrawTooltip)
+	if (GetVis() != EVisibility::Hidden)
 	{
-		float Alpha = TimeSlider->PositionToValue(TimeSliderGeometry, MouseEvent.GetScreenSpacePosition());
-		TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
+		const FGeometry TimeSliderGeometry = FindChildGeometry(MyGeometry, TimeSlider.ToSharedRef());
+		bDrawTooltip = TimeSliderGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
+		if (bDrawTooltip)
+		{
+			float Alpha = TimeSlider->PositionToValue(TimeSliderGeometry, MouseEvent.GetScreenSpacePosition());
+			TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
 
-		ToolTipPos.X = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X;
-		ToolTipPos.Y = MyGeometry.AbsoluteToLocal(TimeSliderGeometry.LocalToAbsolute(FVector2D(0.0f, 0.0f))).Y;
+			//need to scale the position like we are doing for the whole widget
+			float Scale = MyGeometry.Size.X / 1920.0f;
+			ToolTipPos.X = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X / Scale;
+			ToolTipPos.Y = MyGeometry.AbsoluteToLocal(TimeSliderGeometry.LocalToAbsolute(FVector2D(0.0f, 0.0f))).Y / Scale;
+		}
 	}
 
 	return FReply::Unhandled();
@@ -519,7 +685,287 @@ FText SUTReplayWindow::GetTooltipText() const
 
 EVisibility SUTReplayWindow::GetVis() const
 {
-	return PlayerOwner->AreMenusOpen() ? EVisibility::Hidden : EVisibility::SelfHitTestInvisible;
+	return PlayerOwner->AreMenusOpen() ? EVisibility::Hidden : EVisibility::Visible;
+}
+
+void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
+{
+	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
+	if (ArrangedChildren.Accepts(ChildVisibility))
+	{
+		FVector2D DesiredSize = FVector2D(1920.0f, 1080.0f);
+		FVector2D ActualGeometrySize = AllottedGeometry.Size * AllottedGeometry.Scale;
+		float Scale = 1.0f;
+		if (AllottedGeometry.Size != DesiredSize)
+		{
+			//Scale to fit the width of the screen
+			Scale = AllottedGeometry.Size.X / DesiredSize.X;
+			DesiredSize = ActualGeometrySize / Scale;
+		}
+		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild(ChildSlot.GetWidget(), FVector2D(0.0f, 0.0f), DesiredSize, Scale));
+	}
+}
+
+void SUTReplayWindow::OnKillBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (KillEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+	
+	FString FilterID = GetSpectatedPlayerID();
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Red;
+	for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != KillEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = KillEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
+void SUTReplayWindow::OnMultiKillBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (MultiKillEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+	
+	FString FilterID = GetSpectatedPlayerID();
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Yellow;
+	for (int32 EventsIdx = 0; EventsIdx < MultiKillEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != MultiKillEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = MultiKillEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
+FString SUTReplayWindow::GetSpectatedPlayerID()
+{
+	if (LastSpectedPlayerID > 0)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+		const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (UTPS)
+			{
+				if (UTPS->SpectatingID == LastSpectedPlayerID)
+				{
+					// bots don't have StatsID, they just use playername right now
+					if (!UTPS->StatsID.IsEmpty())
+					{
+						return UTPS->StatsID;
+					}
+					else
+					{
+						return UTPS->PlayerName;
+					}
+				}
+			}
+		}
+	}
+
+	return TEXT("");
+}
+
+void SUTReplayWindow::OnSpreeKillBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (SpreeKillEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+
+	FString FilterID = GetSpectatedPlayerID();
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Yellow;
+	for (int32 EventsIdx = 0; EventsIdx < SpreeKillEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != SpreeKillEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = SpreeKillEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
+void SUTReplayWindow::OnFlagReturnsBookmarksSelected()
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+
+	if (FlagReturnEvents.Num() == 0)
+	{
+		TimeSlider->SetBookmarks(Bookmarks);
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+
+	FString FilterID = GetSpectatedPlayerID();
+
+	FBookmarkTimeAndColor TimeAndColor;
+	TimeAndColor.Color = FLinearColor::Yellow;
+	for (int32 EventsIdx = 0; EventsIdx < FlagReturnEvents.Num(); EventsIdx++)
+	{
+		if (!FilterID.IsEmpty() && FilterID != FlagReturnEvents[EventsIdx].meta)
+		{
+			continue;
+		}
+
+		TimeAndColor.Time = FlagReturnEvents[EventsIdx].time;
+		Bookmarks.Add(TimeAndColor);
+	}
+	TimeSlider->SetBookmarks(Bookmarks);
+}
+
+void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	TArray<FBookmarkTimeAndColor> Bookmarks;
+	FBookmarkTimeAndColor TimeAndColor;
+	SelectedBookmark->SetText(FText::FromString(*NewSelection));
+	if (*NewSelection == TEXT("Bookmarks"))
+	{
+		// clear bookmarks
+		TimeSlider->SetBookmarks(Bookmarks);
+	}
+	else if (*NewSelection == TEXT("Kills"))
+	{
+		OnKillBookmarksSelected();
+	}
+	else if (*NewSelection == TEXT("Flag Captures"))
+	{
+		for (int32 EventsIdx = 0; EventsIdx < FlagCapEvents.Num(); EventsIdx++)
+		{
+			if (FlagCapEvents[EventsIdx].meta == TEXT("0"))
+			{
+				TimeAndColor.Color = FLinearColor::Red;
+			}
+			else
+			{
+				TimeAndColor.Color = FLinearColor::Blue;
+			}
+			TimeAndColor.Time = FlagCapEvents[EventsIdx].time;
+			Bookmarks.Add(TimeAndColor);
+		}
+		TimeSlider->SetBookmarks(Bookmarks);
+	}
+	else if (*NewSelection == TEXT("Flag Denies"))
+	{
+		for (int32 EventsIdx = 0; EventsIdx < FlagDenyEvents.Num(); EventsIdx++)
+		{
+			if (FlagDenyEvents[EventsIdx].meta == TEXT("0"))
+			{
+				TimeAndColor.Color = FLinearColor::Red;
+			}
+			else
+			{
+				TimeAndColor.Color = FLinearColor::Blue;
+			}
+			TimeAndColor.Time = FlagDenyEvents[EventsIdx].time;
+			Bookmarks.Add(TimeAndColor);
+		}
+		TimeSlider->SetBookmarks(Bookmarks);
+	}
+	else if (*NewSelection == TEXT("Flag Returns"))
+	{
+		OnFlagReturnsBookmarksSelected();
+	}
+	else if (*NewSelection == TEXT("Multi Kills"))
+	{
+		OnMultiKillBookmarksSelected();
+	}
+	else if (*NewSelection == TEXT("Spree Kills"))
+	{
+		OnSpreeKillBookmarksSelected();
+	}
+}
+
+void SUTReplayWindow::RefreshBookmarksComboBox()
+{
+	BookmarkNameList.Empty();
+	TSharedPtr<FString> DefaultVariant = MakeShareable(new FString(TEXT("Bookmarks")));
+	BookmarkNameList.Add(DefaultVariant);
+	BookmarksComboBox->SetSelectedItem(DefaultVariant);
+
+	if (KillEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Kills")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+	if (FlagCapEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Captures")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+	if (FlagDenyEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Denies")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+	if (FlagReturnEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Flag Returns")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+	if (MultiKillEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Multi Kills")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+	if (SpreeKillEvents.Num())
+	{
+		TSharedPtr<FString> BookmarkName = MakeShareable(new FString(TEXT("Spree Kills")));
+		BookmarkNameList.Add(BookmarkName);
+	}
+}
+
+TSharedRef<SWidget> SUTReplayWindow::GenerateStringListWidget(TSharedPtr<FString> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(*InItem.Get()))
+			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+		];
 }
 
 #endif

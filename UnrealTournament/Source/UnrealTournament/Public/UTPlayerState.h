@@ -47,7 +47,7 @@ struct FTempBanInfo
 
 };
 
-class AUTReplicatedMapVoteInfo;
+class AUTReplicatedMapInfo;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
@@ -120,13 +120,16 @@ public:
 	/** Color to display ready text. */
 	FLinearColor ReadyColor;
 
+	/** Scale to display ready text. */
+	float ReadyScale;
+
 	/** Last displayed ready state. */
 	uint8 LastReadyState;
 
-	/** Color to display ready text. */
+	/** Last Ready state change time. */
 	float LastReadySwitchTime;
 
-	/** Color to display ready text. */
+	/** Count of fast ready state changes. */
 	int32 ReadySwitchCount;
 
 	virtual void UpdateReady();
@@ -520,8 +523,9 @@ public:
 	uint8 KickPercent;
 
 	UFUNCTION(server, reliable, withvalidation)
-	virtual void RegisterVote(AUTReplicatedMapVoteInfo* VoteInfo);
+	virtual void RegisterVote(AUTReplicatedMapInfo* VoteInfo);
 
+	virtual void OnRep_bIsInactive() override;
 };
 
 

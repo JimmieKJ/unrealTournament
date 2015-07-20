@@ -116,9 +116,18 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 		{
 			if (UTGameState->IsMatchAtHalftime())
 			{
-				FFormatNamedArguments Args;
-				Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
-				SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
+				if (UTGameState->bCasterControl && UTGameState->bStopGameClock == true && UTPS != nullptr)
+				{
+					SpectatorMessage = (UTPS->bCaster)
+						? NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingCasterHalfTime", "Press [Enter] to start next half.")
+						: NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForCasterHalfTime", "Waiting for caster to start next half.");
+				}
+				else
+				{
+					FFormatNamedArguments Args;
+					Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
+					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
+				}
 			}
 			else if (UTPS && UTPS->bOnlySpectator)
 			{

@@ -56,6 +56,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
+	virtual void DefaultTimer() override;
 
 	virtual void CallMatchStateChangeNotify() override;
 
@@ -75,6 +76,9 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
 	void BuildServerResponseRules(FString& OutRules);
 
+	void AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo* Team);
+	void AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team);
+	void AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team);
 protected:
 
 	virtual void HandleMatchHasStarted();

@@ -380,42 +380,6 @@ namespace ERedirectStatus
 	};
 }
 
-/**
- *	Holds information to build a map list.
- **/
-struct FMapListItem
-{
-	/** package name (actual loaded name and also display name if there's no title) */
-	FString PackageName;
-	/** optional title pulled from asset registry, if it exists */
-	FString Title;
-
-	/** Pull this from the asset registery now */
-	FString Author;
-
-	/** Pulled from the asset registery now */
-	FString Description;
-
-	/** reference to the screenshot for this map */
-	FString Screenshot;
-
-	/** The best # of players for this map in a non-team game **/
-	int32 OptimalPlayerCount;
-
-	/** The best # of players for this map in a team game **/
-	int32 OptimalTeamPlayerCount;
-
-	FMapListItem(const FString& InPackageName, const FString& InTitle, const FString& InAuthor, const FString& InDescription, const FString& InScreenshot, int32 inOptimalPlayerCount, int32 inOptimalTeamPlayerCount)
-		: PackageName(InPackageName), Title(InTitle), Author(InAuthor), Description(InDescription), Screenshot(InScreenshot), OptimalPlayerCount(inOptimalPlayerCount), OptimalTeamPlayerCount(inOptimalTeamPlayerCount)
-	{}
-
-	FString GetDisplayName() const
-	{
-		return !Title.IsEmpty() ? Title : PackageName;
-	}
-};
-
-
 /*
 	Describes a package that might be needed
 */
@@ -452,7 +416,67 @@ struct FPackageRedirectReference
 		PackageChecksum = OtherReference->PackageChecksum;
 	}
 
+	// Converts the redirect to a download URL
+	FString ToString()
+	{
+		return PackageURLProtocol + TEXT("://") + PackageURL + TEXT(" ") + PackageChecksum;
+	}
+
 };
+
+
+/**
+ *	Holds information about a map that can be set via config.  This will be used to build the FMapListInfo objects in various places but contains
+ *  a cut down copy of the content to make life easier to manage.
+ **/
+USTRUCT()
+struct FConfigMapInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	// NOTE: this can be the long or short name for the map and will be validated when the maps are loaded
+	UPROPERTY(Config)
+	FString MapName;						
+
+	// The Redirect for this map.
+	UPROPERTY(Config)
+	FPackageRedirectReference Redirect;		
+
+	FConfigMapInfo()
+	{
+		MapName = TEXT("");
+		Redirect.PackageName = TEXT("");
+		Redirect.PackageURL = TEXT("");
+		Redirect.PackageURLProtocol = TEXT("");
+		Redirect.PackageChecksum = TEXT("");
+	}
+
+	FConfigMapInfo(const FString& inMapName)
+	{
+		MapName = inMapName;
+		Redirect.PackageName = TEXT("");
+		Redirect.PackageURL = TEXT("");
+		Redirect.PackageURLProtocol = TEXT("");
+		Redirect.PackageChecksum = TEXT("");
+	}
+
+	FConfigMapInfo(const FConfigMapInfo& ExistingRuleMapInfo)
+	{
+		MapName = ExistingRuleMapInfo.MapName;
+		Redirect = ExistingRuleMapInfo.Redirect;
+	}
+
+	FConfigMapInfo(const FString& inMapName, const FString& inPackageName, const FString& inPackageURL, const FString& inPackageChecksum)
+	{
+		MapName = inMapName;
+		Redirect.PackageName = inPackageName;
+		Redirect.PackageURL = inPackageURL;
+		Redirect.PackageURLProtocol = TEXT("http");
+		Redirect.PackageChecksum = inPackageChecksum;
+	}
+};
+
+
 
 UENUM()
 namespace EGameDataType
@@ -609,4 +633,19 @@ namespace EQuickMatchResults
 	const FName CantJoin = FName(TEXT("CantJoin"));
 	const FName WaitingForStart = FName(TEXT("WaitingForStart"));
 	const FName Join = FName(TEXT("Join"));
+}
+
+namespace EEpicDefaultRuleTags
+{
+	const FString Deathmatch = TEXT("DEATHMATCH");
+	const FString BigDM = TEXT("BIGDM");
+	const FString TDM = TEXT("TDM");
+	const FString DUEL = TEXT("DUEL");
+	const FString SHOWDOWN = TEXT("SHOWDOWN");
+	const FString CTF = TEXT("CTF");
+	const FString BIGCTF = TEXT("BIGCTF");
+	const FString iDM = TEXT("iDM");
+	const FString iTDM = TEXT("iTDM");
+	const FString iCTF = TEXT("iCTF");
+	const FString iCTFT = TEXT("iCTFT");
 }

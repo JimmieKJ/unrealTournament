@@ -53,6 +53,19 @@ void AUTBasePlayerController::SetupInputComponent()
 	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::ShowMenu);
 }
 
+void AUTBasePlayerController::SetName(const FString& S)
+{
+	if (!S.IsEmpty())
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+		if (LP != NULL)
+		{
+			LP->SetNickname(S);
+			LP->SaveProfileSettings();
+		}
+	}
+}
+
 void AUTBasePlayerController::ShowMenu()
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
@@ -60,7 +73,6 @@ void AUTBasePlayerController::ShowMenu()
 	{
 		LP->ShowMenu();
 	}
-
 }
 
 void AUTBasePlayerController::HideMenu()
@@ -90,8 +102,6 @@ void AUTBasePlayerController::DebugTest(FString TestCommand)
 
 void AUTBasePlayerController::ServerDebugTest_Implementation(const FString& TestCommand)
 {
-
-
 }
 
 bool AUTBasePlayerController::ServerDebugTest_Validate(const FString& TestCommand) {return true;}

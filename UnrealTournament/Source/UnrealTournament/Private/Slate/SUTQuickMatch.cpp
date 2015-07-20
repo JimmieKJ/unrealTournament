@@ -329,9 +329,10 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
-			if (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround)
+			// Discard training ground hubs if the player isn't a beginner and discard non-training ground hubs if they are one
+			if ( (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||
+				 (bIsBeginner && !PingTrackers[i].Server->bServerIsTrainingGround) )
 			{
-				// Discard training ground servers if the player isn't a beginner
 				PingTrackers.RemoveAt(i, 1);
 				break;
 			}
@@ -352,8 +353,7 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 
 						FinalList.Insert(PingTrackers[i].Server, Idx);
 						bInserted = true;
-						break;
-					}
+						break;					}
 				}
 
 				if (!bInserted) FinalList.Add(PingTrackers[i].Server);
@@ -389,7 +389,7 @@ void SUTQuickMatch::FindBestMatch()
 			}
 		}
 
-		BestServer = (BestPing->NoPlayers == 0 || BestPlayers->Ping < BestPing->Ping + 40) ? BestPlayers : BestPing;
+		BestServer = (BestPing->NoPlayers == 0 || BestPlayers->Ping < BestPing->Ping + PING_ALLOWANCE) ? BestPlayers : BestPing;
 		AttemptQuickMatch();
 
 	}

@@ -21,8 +21,6 @@ public:
 	virtual void InitPlayerState();
 	virtual void OnRep_PlayerState();
 
-	virtual void SetName(const FString& S);
-
 	virtual void ServerRestartPlayer_Implementation();
 	virtual bool CanRestartPlayer();
 

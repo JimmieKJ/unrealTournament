@@ -1,9 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "AssetData.h"
 #include "UTATypes.h"
 #include "UTGameRuleset.h"
 #include "UTReplicatedGameRuleset.generated.h"
+
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTReplicatedGameRuleset : public AInfo
@@ -30,13 +32,15 @@ public:
 	// Holds the description for this Ruleset.  It will be displayed above the rules selection window.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString Description;
-
-	// Holds a list of maps that can be played in this ruleset.
+	
+	// Holds the maximum # of maps in this map list.  Set to 0 for unlimited.  Epic rulesets will have some of the 
+	// the maps preset
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
-	TArray<FString> MapPrefixes;
+	int32 MaxMapsInList;
 
+	// This is the list of maps that are available to this rule
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
-	FString DefaultMap;
+	TArray<AUTReplicatedMapInfo*> MapList;
 
 	// The number of players needed to start.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
@@ -62,8 +66,8 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	uint32 bCustomRuleset:1;
 
-	UPROPERTY(Replicated)
-	TArray<FPackageRedirectReference> RequiredPackages;
+	UPROPERTY()
+	TArray<FString> RequiredPackages;
 
 	UPROPERTY(Replicated)
 	uint32 bTeamGame:1;
@@ -78,12 +82,15 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	FString GameOptions;
 
-	UFUNCTION()
-	void SetRules(UUTGameRuleset* NewRules);
+	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
+	FString DefaultMap;
 
-#if !UE_SERVER
+	void SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets);
+
 	UPROPERTY()
 	UTexture2D*  BadgeTexture;
+
+#if !UE_SERVER
 	TSharedPtr<FSlateDynamicImageBrush> SlateBadge;
 	const FSlateBrush* GetSlateBadge() const;
 #endif
@@ -102,7 +109,7 @@ protected:
 
 
 	FString Fixup(FString OldText);
-
+	int32 AddMapAssetToMapList(const FAssetData& Asset);
 };
 
 

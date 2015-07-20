@@ -28,6 +28,8 @@
 #include "UTMutator.h"
 #include "UTRewardMessage.h"
 #include "StatNames.h"
+#include "UTGhostComponent.h"
+#include "UTTimedPowerup.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -115,6 +117,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	RagdollBlendOutTime = 0.75f;
 	bApplyWallSlide = false;
 	FeignNudgeMag = 100000.f;
+	bCanPickupItems = true;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -153,6 +156,8 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	bIsTranslocating = false;
 	LastTakeHitTime = -10000.0f;
 	LastTakeHitReplicatedTime = -10000.0f;
+
+	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
 }
 
 void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
@@ -427,7 +432,13 @@ void AUTCharacter::Restart()
 	// make sure equipped weapon state is synchronized
 	if (IsLocallyControlled())
 	{
-		if (PendingWeapon != NULL)
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+		if (PC != NULL && PC->IsInState(NAME_Inactive))
+		{
+			// respawning from dead, switch to best
+			PC->SwitchToBestWeapon();
+		}
+		else if (PendingWeapon != NULL)
 		{
 			SwitchWeapon(PendingWeapon);
 		}
@@ -778,7 +789,6 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			// Let the game Score damage if it wants to
 			// make sure not to count overkill damage!
 			Game->ScoreDamage(ResultDamage + FMath::Min<int32>(Health, 0), Controller, EventInstigator);
-
 			bool bIsSelfDamage = (EventInstigator == Controller && Controller != NULL);
 			if (UTDamageTypeCDO != NULL)
 			{
@@ -798,15 +808,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					}
 				}
 			}
-			// if Z impulse is low enough and currently walking, remove Z impulse to prevent switch to falling physics, preventing lockdown effects
-			else if (GetCharacterMovement()->MovementMode == MOVE_Walking && ((UTDamageTypeCDO != NULL && UTDamageTypeCDO->bPreventWalkingZMomentum) || ResultMomentum.Z < ResultMomentum.Size() * 0.1f))
-			{
-				ResultMomentum.Z = 0.0f;
-			}
+
 			if (IsRagdoll())
 			{
 				// intentionally always apply to root because that replicates better
-				GetMesh()->AddImpulseAtLocation(ResultMomentum, GetMesh()->GetComponentLocation());
+				GetMesh()->AddImpulseAtLocation(1.1f*ResultMomentum, GetMesh()->GetComponentLocation());
 			}
 			else if (UTCharacterMovement != NULL)
 			{
@@ -821,7 +827,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				GetCharacterMovement()->AddImpulse(ResultMomentum, false);
 			}
 			NotifyTakeHit(EventInstigator, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
-			SetLastTakeHitInfo(ResultDamage, ResultMomentum, HitArmor, DamageEvent);
+			SetLastTakeHitInfo(Damage, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			if (Health <= 0)
 			{
 				Died(EventInstigator, DamageEvent);
@@ -847,7 +853,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Health -= int32(Damage);
 				// note: won't be replicated in this case since already torn off but we still need it for clientside impact effects on the corpse
-				SetLastTakeHitInfo(Damage, ResultMomentum, NULL, DamageEvent);
+				SetLastTakeHitInfo(Damage, Damage, ResultMomentum, NULL, DamageEvent);
 				TSubclassOf<UUTDamageType> UTDmg(*DamageEvent.DamageTypeClass);
 				if (UTDmg != NULL && UTDmg.GetDefaultObject()->ShouldGib(this))
 				{
@@ -888,23 +894,28 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& Damage, FVector& Mome
 }
 bool AUTCharacter::ModifyDamageCaused_Implementation(int32& Damage, FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
-	if (!DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld)
+	if (DamageType && !DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld)
 	{
 		Damage *= DamageScaling;
 	}
 	return false;
 }
 
-void AUTCharacter::SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
+void AUTCharacter::SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
 {
 	// if we haven't replicated a previous hit yet (generally, multi hit within same frame), stack with it
 	bool bStackHit = (LastTakeHitTime > LastTakeHitReplicatedTime && DamageEvent.DamageTypeClass == LastTakeHitInfo.DamageType);
 
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
-	if (bStackHit || LastTakeHitInfo.HitArmor == NULL)
+	if (!bStackHit || LastTakeHitInfo.HitArmor == NULL)
 	{
-		LastTakeHitInfo.HitArmor = (HitArmor != NULL) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
+		LastTakeHitInfo.HitArmor = ((HitArmor != NULL) && HitArmor->ShouldDisplayHitEffect(AttemptedDamage, Damage, Health, ArmorAmount)) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
+	}
+	if ((LastTakeHitInfo.HitArmor == NULL) && (HitArmor == NULL) && (Health > 0) && (Damage == AttemptedDamage) && (Health + Damage > 100) && ((Damage > 90) || (Health > 90)))
+	{
+		// notify superhealth hit effect
+		LastTakeHitInfo.HitArmor = AUTTimedPowerup::StaticClass();
 	}
 	LastTakeHitInfo.Momentum = Momentum;
 
@@ -1183,6 +1194,17 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		{
 			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
 		}
+
+		//Stop ghosts on death
+		if (GhostComponent->bGhostRecording)
+		{
+			GhostComponent->GhostStopRecording();
+		}
+		if (GhostComponent->bGhostPlaying)
+		{
+			GhostComponent->GhostStopPlaying();
+		}
+
 		return true;
 	}
 }
@@ -1199,12 +1221,18 @@ void AUTCharacter::AnnounceShred(AUTPlayerController *PC)
 
 void AUTCharacter::StartRagdoll()
 {
+	// force standing
+	UTCharacterMovement->UnCrouch(true);
+	if (RootComponent == GetMesh() && GetMesh()->IsSimulatingPhysics())
+	{
+		// UnCrouch() caused death
+		return;
+	}
+
 	// turn off any taccom  @TODO FIXMESTEVE - should be able to keep on, at least when feigning
 	UpdateTacComMesh(false);
 
-	// APawn::TurnOff disables collision at the end of match, undo that.
 	SetActorEnableCollision(true);
-
 	StopFiring();
 	DisallowWeaponFiring(true);
 	bInRagdollRecovery = false;
@@ -1517,7 +1545,8 @@ bool AUTCharacter::ServerFeignDeath_Validate()
 }
 void AUTCharacter::ServerFeignDeath_Implementation()
 {
-	if (Role == ROLE_Authority && !IsDead())
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (Role == ROLE_Authority && !IsDead() && (!GS || GS->IsMatchInProgress()))
 	{
 		if (bFeigningDeath)
 		{
@@ -1836,6 +1865,11 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 	{
 		Weapon->StartFire(FireModeNum);
 	}
+
+	if (GhostComponent->bGhostRecording && !IsFiringDisabled())
+	{
+		GhostComponent->GhostStartFire(FireModeNum);
+	}
 }
 
 void AUTCharacter::StopFire(uint8 FireModeNum)
@@ -1855,6 +1889,11 @@ void AUTCharacter::StopFire(uint8 FireModeNum)
 	else
 	{
 		SetPendingFire(FireModeNum, false);
+	}
+
+	if (GhostComponent->bGhostRecording && !IsFiringDisabled())
+	{
+		GhostComponent->GhostStopFire(FireModeNum);
 	}
 }
 
@@ -2386,6 +2425,11 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		WeaponAttachmentClass = NULL;
 		UpdateWeaponAttachment();
 	}
+
+	if (GhostComponent->bGhostRecording && Weapon != nullptr)
+	{
+		GhostComponent->GhostSwitchWeapon(Weapon);
+	}
 }
 
 void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
@@ -2613,8 +2657,6 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	{
 		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
 	}
-
-	SwitchToBestWeapon();
 }
 
 bool AUTCharacter::CanDodge() const
@@ -3097,6 +3139,7 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->RegisterComponent();
 				OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
 				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+				OverlayMesh->SetRenderCustomDepth(true);
 			}
 			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
 			// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
@@ -3107,9 +3150,6 @@ void AUTCharacter::UpdateCharOverlays()
 			{
 				static FName NAME_TeamColor(TEXT("TeamColor"));
 				MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-
-				static FName NAME_Damage(TEXT("Damage"));
-				MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
 			}
 			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 			{
@@ -3144,6 +3184,7 @@ void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
 	}
 
 	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
+	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
 	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
 }
 
@@ -3311,6 +3352,15 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (BodyColorFlashCurve != NULL)
 	{
 		UpdateBodyColorFlash(DeltaTime);
+	}
+	if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
+	{
+		UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+		if (MID != NULL)
+		{
+			static FName NAME_Damage(TEXT("Damage"));
+			MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
+		}
 	}
 
 	// tick ragdoll recovery
@@ -3510,6 +3560,21 @@ void AUTCharacter::Tick(float DeltaTime)
 	{
 	UE_LOG(UT, Warning, TEXT("Position %f %f time %f"),GetActorLocation().X, GetActorLocation().Y, GetWorld()->GetTimeSeconds());
 	}*/
+}
+
+float AUTCharacter::GetLastRenderTime() const
+{
+	// ignore special effects (e.g. overlay) using CustomDepth as they will render through walls and we don't want to count them if we can avoid it
+	float LastRenderTime = -1000.f;
+	for (const UActorComponent* ActorComponent : GetComponents())
+	{
+		const UPrimitiveComponent* PrimComp = Cast<const UPrimitiveComponent>(ActorComponent);
+		if (PrimComp != NULL && PrimComp->IsRegistered() && (!PrimComp->bRenderCustomDepth || PrimComp == GetMesh()))
+		{
+			LastRenderTime = FMath::Max(LastRenderTime, PrimComp->LastRenderTime);
+		}
+	}
+	return LastRenderTime;
 }
 
 bool AUTCharacter::IsInWater() const
@@ -3908,7 +3973,7 @@ void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
 	{
 		Super::FellOutOfWorld(DmgType);
 	}
-	else
+	else if (!OverrideFellOutOfWorld(DmgType.GetClass()))
 	{
 		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), DmgType.GetClass());
@@ -4881,6 +4946,16 @@ void AUTCharacter::BehindViewChange(APlayerController* PC, bool bNowBehindView)
 			}
 		}
 	}
+	if (bNowBehindView)
+	{
+		FirstPersonMesh->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->FirstPersonMesh->MeshComponentUpdateFlag;
+	}
+	else
+	{
+		FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose;
+		FirstPersonMesh->LastRenderTime = GetWorld()->TimeSeconds;
+		FirstPersonMesh->bRecentlyRendered = true;
+	}
 }
 void AUTCharacter::BecomeViewTarget(APlayerController* PC)
 {
@@ -4913,6 +4988,12 @@ void AUTCharacter::MovementEventUpdated(EMovementEvent MovementEventType, FVecto
 	if (IsLocallyViewed())
 	{
 		MovementEventReplicated();
+	}
+
+	//Add the event if recording a ghost
+	if (GhostComponent->bGhostRecording)
+	{
+		GhostComponent->GhostMovementEvent(MovementEvent);
 	}
 }
 

@@ -237,6 +237,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 {
 	GENERATED_UCLASS_BODY()
 
+	friend class UUTGhostComponent;
 	friend void UUTCharacterMovement::PerformMovement(float DeltaSeconds);
 
 	virtual void SetBase(UPrimitiveComponent* NewBase, const FName BoneName = NAME_None, bool bNotifyActor = true) override;
@@ -858,7 +859,7 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
 
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
-	virtual void SetLastTakeHitInfo(int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
+	virtual void SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
 
 	/** blood effects (chosen at random when spawning blood)
 	 * note that these are intentionally split instead of a UTImpactEffect because the sound, particles, and decals are all handled with separate logic
@@ -911,6 +912,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
 	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
+
+	/** blueprint override for FellOutOfWorld()
+	 * if you return false, make sure to move the Pawn somewhere valid or you are likely to get spammed with this call
+	 */
+	UFUNCTION(BlueprintImplementableEvent, Category = Pawn)
+	bool OverrideFellOutOfWorld(TSubclassOf<UDamageType> DamageType);
 
 	virtual void FellOutOfWorld(const UDamageType& DmgType) override;
 
@@ -1465,6 +1472,10 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FCharacterDiedSignature OnDied;
 
+	/** whether this pawn can obtain pickup items (UTPickup, UTDroppedPickup) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bCanPickupItems;
+
 	/** Max distance for enemy player indicator */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category =  HUD)
 	float PlayerIndicatorMaxDistance;
@@ -1475,7 +1486,7 @@ public:
 
 	/** Max distance for same team player indicator */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
-		float SpectatorIndicatorMaxDistance;
+	float SpectatorIndicatorMaxDistance;
 
 	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
 	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)
@@ -1520,6 +1531,8 @@ public:
 	/** @return the current object carried by this pawn */
 	UFUNCTION()
 	virtual AUTCarriedObject* GetCarriedObject();
+
+	virtual float GetLastRenderTime() const override;
 
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
 
@@ -1785,6 +1798,9 @@ public:
 	float OldZ;
 
 	virtual bool ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor) override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Ghost)
+	class UUTGhostComponent* GhostComponent;
 };
 
 inline bool AUTCharacter::IsDead()

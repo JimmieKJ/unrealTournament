@@ -31,8 +31,8 @@ protected:
 
 	TSharedPtr<SVerticalBox> GameConfigPanel;
 
-	TArray< TSharedPtr<FMapListItem> > AllMaps;
-	TSharedPtr< SComboBox< TSharedPtr<FMapListItem> > > MapList;
+	TArray< TWeakObjectPtr<AUTReplicatedMapInfo> > AllMaps;
+	TSharedPtr< SComboBox< TWeakObjectPtr<AUTReplicatedMapInfo> > > MapList;
 	TSharedPtr<STextBlock> SelectedMap;
 	TArray<UClass*> AllGametypes;
 	TSharedPtr< SComboBox<UClass*> > GameList;
@@ -66,9 +66,9 @@ protected:
 	// holders for pointers to game config properties so the objects don't die and invalidate the delegates
 	TArray< TSharedPtr<TAttributePropertyBase> > GameConfigProps;
 
-	void OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnMapSelected(TWeakObjectPtr<AUTReplicatedMapInfo> NewSelection, ESelectInfo::Type SelectInfo);
 	TSharedRef<SWidget> GenerateGameNameWidget(UClass* InItem);
-	TSharedRef<SWidget> GenerateMapNameWidget(TSharedPtr<FMapListItem> InItem);
+	TSharedRef<SWidget> GenerateMapNameWidget(TWeakObjectPtr<AUTReplicatedMapInfo> InItem);
 	void OnGameSelected(UClass* NewSelection, ESelectInfo::Type SelectInfo);
 
 	void Cancel();

@@ -319,9 +319,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	{	// Rules and mapsets
 	
 		Style.Set("UT.ComplexButton", FButtonStyle()
-			.SetNormal( FSlateColorBrush(FLinearColor::Gray) )
-			.SetHovered( FSlateColorBrush(FLinearColor::White) )
-			.SetPressed( FSlateColorBrush(FLinearColor(0.94,1.0,0.74,1.0) ) )
+			.SetNormal( FSlateColorBrush(FColor(72,72,72,255) ) )
+			.SetHovered( FSlateColorBrush(FColor(178,191,254 ) ) )
+			.SetPressed( FSlateColorBrush(FColor(254,243,178 ) ) )
 			.SetDisabled( FSlateColorBrush(FLinearColor::Black) )
 			.SetHoveredSound(ButtonHoverSound)
 			.SetPressedSound(ButtonPressSound)

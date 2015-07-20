@@ -32,7 +32,7 @@ class UNREALTOURNAMENT_API AUTPickupWeapon : public AUTPickupInventory
 	AUTPickupWeapon(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	{
-		Collision->InitCapsuleSize(72.0f, 75.0f);
+		Collision->InitCapsuleSize(78.0f, 80.0f);
 	}
 
 protected:

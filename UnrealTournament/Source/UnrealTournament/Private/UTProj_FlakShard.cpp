@@ -36,17 +36,16 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	// Damage
 	DamageParams.BaseDamage = 18.0f;
 	DamageParams.MinimumDamage = 5.0f;
-	Momentum = 30500.f;
+	Momentum = 20000.f;
 
-	DamageAttenuation = 5.0f;
-	DamageAttenuationDelay = 0.75f;
+	DamageAttenuation = 15.0f;
+	DamageAttenuationDelay = 0.5f;
 	MinDamageSpeed = 800.f;
 
 	SelfDamageAttenuation = 25.0f;
 	SelfDamageAttenuationDelay = 0.11f;
 
 	InitialLifeSpan = 2.f;
-	BounceFinalLifeSpanIncrement = 0.5f;
 	BouncesRemaining = 2;
 	FirstBounceDamping = 0.9f;
 	BounceDamping = 0.75f;
@@ -86,7 +85,6 @@ void AUTProj_FlakShard::BeginPlay()
 	}
 }
 
-
 void AUTProj_FlakShard::CatchupTick(float CatchupTickDelta)
 {
 	Super::CatchupTick(CatchupTickDelta);
@@ -122,6 +120,12 @@ void AUTProj_FlakShard::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 
 void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
+	RemoveSatelliteShards();
+	if (GetWorld()->GetTimeSeconds() - CreationTime > 2.f * FullGravityDelay)
+	{
+		ShutDown();
+		return;
+	}
 	float CurrentBounceDamping = (ProjectileMovement->ProjectileGravityScale == 0.f) ? FirstBounceDamping : BounceDamping;
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 
@@ -138,10 +142,8 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 	BouncesRemaining--;
 	if (BouncesRemaining == 0)
 	{
-		SetLifeSpan(GetLifeSpan() + BounceFinalLifeSpanIncrement);
 		ProjectileMovement->bShouldBounce = false;
 	}
-	RemoveSatelliteShards();
 }
 
 void AUTProj_FlakShard::RemoveSatelliteShards()

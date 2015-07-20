@@ -15,7 +15,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "UTReplicatedMapVoteInfo.h"
+#include "UTReplicatedMapInfo.h"
 #include "UTRewardMessage.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
@@ -42,6 +42,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
+	ReadyScale = 1.f;
 	SpectatorNameScale = 1.f;
 	bIsDemoRecording = false;
 }
@@ -133,6 +134,19 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 			P->NotifyTeamChanged();
 		}
 	}
+	// HACK: remember last team player got on the URL for travelling purposes
+	if (Team != NULL)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC != NULL)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+			if (LP != NULL)
+			{
+				LP->SetDefaultURLOption(TEXT("Team"), FString::FromInt(Team->TeamIndex));
+			}
+		}
+	}
 }
 
 void AUTPlayerState::SetWaitingPlayer(bool B)
@@ -166,6 +180,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			if (MyPC != NULL)
 			{
 				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+			}
+
+			AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (GM)
+			{
+				GM->AddMultiKillEventToReplay(Controller);
 			}
 		}
 		else
@@ -231,6 +251,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				{
 					UTChar->CosmeticSpreeCount = FMath::Min(Spree / 5, 4);
 					UTChar->OnRepCosmeticSpreeCount();
+				}
+
+				AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (GM)
+				{
+					GM->AddSpreeKillEventToReplay(Controller, FMath::Min(Spree / 5, 4));
 				}
 			}
 		}
@@ -576,6 +602,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->EyewearVariant = EyewearVariant;
 		PS->SelectedCharacter = SelectedCharacter;
 		PS->StatManager = StatManager;
+		PS->StatsData = StatsData;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);
@@ -1493,12 +1520,12 @@ void AUTPlayerState::ClientShowLoadoutMenu_Implementation()
 void AUTPlayerState::UpdateReady()
 {
 	uint8 NewReadyState = bReadyToPlay + (bPendingTeamSwitch >> 2);
-	if (NewReadyState != LastReadyState)
+	if ((ReadySwitchCount > 2) && bReadyToPlay)
 	{
-		ReadySwitchCount = (GetWorld()->GetTimeSeconds() - LastReadySwitchTime < 0.5f) ? ReadySwitchCount + 1 : 0;
-		LastReadySwitchTime = GetWorld()->GetTimeSeconds();
-		if ((ReadySwitchCount > 2) && (bReadyToPlay || bPendingTeamSwitch))
+		if (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.2f)
 		{
+			ReadySwitchCount++;
+			LastReadySwitchTime = GetWorld()->GetTimeSeconds();
 			if ((ReadySwitchCount & 14) == 0)
 			{
 				ReadySwitchCount += 2;
@@ -1507,11 +1534,22 @@ void AUTPlayerState::UpdateReady()
 			ReadyColor.G = (ReadySwitchCount & 4) ? 1.f : 0.f;
 			ReadyColor.B = (ReadySwitchCount & 8) ? 1.f : 0.f;
 		}
+		if (ReadySwitchCount > 10)
+		{
+			ReadyScale = 1.f + 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime);
+		}
 	}
-	else if (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f)
+	else if (!bReadyToPlay && (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f))
 	{
 		ReadySwitchCount = 0;
 		ReadyColor = FLinearColor::White;
+		ReadyScale = 1.f;
+	}
+	else if (NewReadyState != LastReadyState)
+	{
+		ReadySwitchCount = (GetWorld()->GetTimeSeconds() - LastReadySwitchTime < 0.5f) ? ReadySwitchCount + 1 : 0;
+		LastReadySwitchTime = GetWorld()->GetTimeSeconds();
+		ReadyScale = 1.f;
 	}
 	LastReadyState = NewReadyState;
 }
@@ -1599,8 +1637,8 @@ void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 	StatsData.Add(StatsName, CurrentValue + Change);
 }
 
-bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapVoteInfo* VoteInfo) { return true; }
-void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapVoteInfo* VoteInfo)
+bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapInfo* VoteInfo) { return true; }
+void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapInfo* VoteInfo)
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState)
@@ -1614,3 +1652,11 @@ void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapVoteInfo* VoteI
 	}
 }
 
+void AUTPlayerState::OnRep_bIsInactive()
+{
+	//Now that we replicate InactivePRI's the super function is unsafe without these checks
+	if (GetWorld() && GetWorld()->GameState)
+	{
+		Super::OnRep_bIsInactive();
+	}
+}

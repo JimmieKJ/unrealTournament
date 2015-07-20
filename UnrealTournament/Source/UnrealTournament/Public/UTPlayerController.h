@@ -137,8 +137,6 @@ public:
 
 	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
 
-	virtual void SetName(const FString& S);
-
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
@@ -306,6 +304,10 @@ public:
 
 	UFUNCTION(exec)
 	virtual void SetWeaponBobScaling(float NewScaling);
+
+	/** If true, will slide if running and press crouch. */
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
+		bool bAllowSlideFromRun;
 
 	/** If true, single quick tap will result in wall dodge on release.  Otherwise need double tap to wall dodge. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
@@ -837,13 +839,24 @@ public:
 		ClientShowMapVote();
 	}
 
-	virtual void ShowMenu()
-	{
-		Super::ShowMenu();
-		OnStopFire();
-		OnStopAltFire();
-	}
+	/** Make sure no firing and scoreboard hidden before bringing up menu. */
+	virtual void ShowMenu() override;
+	
+	AUTCharacter* PreGhostChar;
 
+	/** When looking at a GhostCharacter, this will possess the GhostCharacter and begin recording */
+	UFUNCTION(exec)
+	virtual void GhostStart();
+
+	/** Stops the recording GhostCharacter */
+	UFUNCTION(exec)
+	virtual void GhostStop();
+
+	/** Plays the recording of the GhostCharacter you are looking at */
+	UFUNCTION(exec)
+	virtual void GhostPlay();
+
+	class AUTCharacter* GhostTrace();
 };
 
 

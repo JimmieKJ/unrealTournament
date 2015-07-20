@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTDamageType.h"
 #include "UTAnnouncer.h"
+#include "UTTimedPowerup.h"
 
 UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -25,6 +26,12 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> DefaultFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/RedHitFlash.RedHitFlash'"));
 	BodyDamageColor = DefaultFlash.Object;
 	bBodyDamageColorRimOnly = true;
+
+	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> ArmorFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/GoldHitFlash.GoldHitFlash'"));
+	ArmorDamageColor = ArmorFlash.Object;
+
+	static ConstructorHelpers::FObjectFinder<UCurveLinearColor> HealthFlash(TEXT("CurveLinearColor'/Game/RestrictedAssets/Effects/BlueHitFlash.BlueHitFlash'"));
+	SuperHealthDamageColor = HealthFlash.Object;
 
 	ConsoleDeathMessage = NSLOCTEXT("UTDeathMessages","GenericConsoleDeathMessage","{Player1Name} killed {Player2Name} with the {WeaponName}.");
 	MaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericMaleSuicideMessage","{Player2Name} killed himself with the {WeaponName}.");
@@ -108,7 +115,18 @@ void UUTDamageType::PlayHitEffects_Implementation(AUTCharacter* HitPawn, bool bP
 {
 	if (BodyDamageColor != NULL && (HitPawn->LastTakeHitInfo.Damage > 0 || (HitPawn->LastTakeHitInfo.HitArmor != NULL && !bPlayedArmorEffect)))
 	{
-		HitPawn->SetBodyColorFlash(BodyDamageColor, bBodyDamageColorRimOnly);
+		if (HitPawn->LastTakeHitInfo.HitArmor == AUTTimedPowerup::StaticClass())
+		{
+			HitPawn->SetBodyColorFlash(SuperHealthDamageColor, true);
+		}
+		else if (bBlockedByArmor && HitPawn->LastTakeHitInfo.HitArmor && ArmorDamageColor)
+		{
+			HitPawn->SetBodyColorFlash(ArmorDamageColor, true);
+		}
+		else
+		{
+			HitPawn->SetBodyColorFlash(BodyDamageColor, bBodyDamageColorRimOnly);
+		}
 	}
 }
 

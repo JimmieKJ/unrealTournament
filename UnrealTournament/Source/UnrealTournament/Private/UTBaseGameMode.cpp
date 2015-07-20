@@ -32,7 +32,7 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
-	bTrainingGround = EvalBoolOptions(Options, bTrainingGround);
+	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
 
 	
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
@@ -138,7 +138,20 @@ void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 	}
 }
 
-FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
+bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect)
+{
+	for (int32 i = 0; i < RedirectReferences.Num(); i++)
+	{
+		if (RedirectReferences[i].PackageName == PackageName)
+		{
+			Redirect = RedirectReferences[i];
+			return true;
+		}
+	}
+	return false;
+}
+
+FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 {
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine == NULL) // in PIE this will happen
@@ -149,25 +162,26 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
 	{
 		for (int32 i = 0; i < RedirectReferences.Num(); i++)
 		{
-			if (RedirectReferences[i].MapName == MapName)
+			if (RedirectReferences[i].PackageName == PackageName)
 			{
-				return RedirectReferences[i].MapURLProtocol + TEXT("://") + RedirectReferences[i].MapURL + TEXT(" ") + RedirectReferences[i].MapChecksum;
+				FPackageRedirectReference R = RedirectReferences[i];
+				return R.ToString();
 			}
 		}
 
 		FString CloudID = GetCloudID();
 		FString RedirectURL;
-		FString MapChecksum;
-		FString MapBaseFilename = FPaths::GetBaseFilename(MapName) + TEXT("-WindowsNoEditor");
+		FString PackageChecksum;
+		FString PackageBaseFilename = FPaths::GetBaseFilename(PackageName) + TEXT("-WindowsNoEditor");
 		for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
 		{
-			if (It.Key() == MapBaseFilename)
+			if (It.Key() == PackageBaseFilename)
 			{
-				MapChecksum = It.Value();
+				PackageChecksum = It.Value();
 			}
 		}
 
-		if (!CloudID.IsEmpty() && !MapChecksum.IsEmpty())
+		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
 		{
 			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
 			FString McpConfigOverride;
@@ -177,7 +191,7 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& MapName) const
 				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
 			}
 
-			RedirectURL = BaseURL + GetCloudID() + TEXT("/") + MapBaseFilename + TEXT(".pak") + TEXT(" ") + MapChecksum;
+			RedirectURL = BaseURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
 		}
 
 		return RedirectURL;

@@ -28,6 +28,7 @@
 #include "UTCTFGameMode.h"
 #include "UTCarriedObject.h"
 #include "UTCharacterContent.h"
+#include "UTImpactEffect.h"
 
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -81,6 +82,23 @@ void UUTCheatManager::AllAmmo()
 	if (MyPawn != NULL)
 	{
 		MyPawn->AllAmmo();
+	}
+}
+
+void UUTCheatManager::Gibs()
+{
+	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (MyPawn != NULL)
+	{
+		if (MyPawn->GibExplosionEffect != NULL)
+		{
+			MyPawn->GibExplosionEffect.GetDefaultObject()->SpawnEffect(MyPawn->GetWorld(), MyPawn->GetRootComponent()->GetComponentTransform(), MyPawn->GetMesh(), MyPawn, NULL, SRT_None);
+		}
+		for (FName BoneName : MyPawn->GibExplosionBones)
+		{
+			MyPawn->SpawnGib(BoneName, *MyPawn->LastTakeHitInfo.DamageType);
+		}
+		MyPawn->TeleportTo(MyPawn->GetActorLocation() - 800.f * MyPawn->GetActorRotation().Vector(), MyPawn->GetActorRotation(), true);
 	}
 }
 

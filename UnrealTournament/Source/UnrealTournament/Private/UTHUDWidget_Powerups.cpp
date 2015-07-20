@@ -10,11 +10,7 @@ UUTHUDWidget_Powerups::UUTHUDWidget_Powerups(const class FObjectInitializer& Obj
 	Position = FVector2D(260.0f, 0.0f);
 	Size = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.5f, 1.0f);
-}
-
-void UUTHUDWidget_Powerups::InitializeWidget(AUTHUD* Hud)
-{
-	Super::InitializeWidget(Hud);
+	ScaleFactor = 1.25f;
 }
 
 void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
@@ -23,7 +19,7 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 	{
 		float TextWidth;
 		float TextHeight;
-		Canvas->TextSize(TimeText.Font, TEXT("00"), TextWidth, TextHeight);
+		Canvas->TextSize(TimeText.Font, TEXT("00"), TextWidth, TextHeight, ScaleFactor, ScaleFactor);
 		float XOffset = 0;
 		float YOffset = 0;
 
@@ -34,19 +30,21 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 			{
 				float Height = InventoryItem->HUDIcon.VL;
 				float Width = (Height * (InventoryItem->HUDIcon.UL / InventoryItem->HUDIcon.VL));
+				Height *= ScaleFactor;
+				Width *= ScaleFactor;
 				TimeText.Text = InventoryItem->GetHUDText();
-				float BarWidth = Width + 2.f + (TimeText.Text.IsEmpty() ? 0.0f : 8.f+TextWidth);
+				float BarWidth = Width + 2.f + (TimeText.Text.IsEmpty() ? 0.0f : 8.f * ScaleFactor + TextWidth);
 
-				RenderObj_TextureAt(TileTexture[0], XOffset + TileTexture[0].Position.X, YOffset + TileTexture[0].Position.Y, BarWidth, TileTexture[0].GetHeight());
-				RenderObj_TextureAt(TileTexture[1], XOffset + TileTexture[1].Position.X, YOffset + TileTexture[1].Position.Y, BarWidth, TileTexture[1].GetHeight());
+				RenderObj_TextureAt(TileTexture[0], XOffset + TileTexture[0].Position.X, YOffset + TileTexture[0].Position.Y, BarWidth, TileTexture[0].GetHeight() * ScaleFactor);
+				RenderObj_TextureAt(TileTexture[1], XOffset + TileTexture[1].Position.X, YOffset + TileTexture[1].Position.Y, BarWidth, TileTexture[1].GetHeight() * ScaleFactor);
 
-				if (Height > (TileTexture[0].GetHeight() * 0.95f))
+				if (Height > (TileTexture[0].GetHeight() * 0.95f * ScaleFactor))
 				{
-					Height *= (TileTexture[0].GetHeight() * 0.95f) / Height;
+					Height *= (TileTexture[0].GetHeight() * 0.95f * ScaleFactor) / Height;
 				}
 
 				DrawText(InventoryItem->GetHUDText(),
-					IconTexture.Position.X + XOffset + Width + 8.f,
+					IconTexture.Position.X + XOffset + Width + 8.f * ScaleFactor,
 					IconTexture.Position.Y + YOffset,
 					UTHUDOwner->SmallFont,
 					false,
@@ -54,7 +52,7 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 					FLinearColor::Black,
 					false,
 					FLinearColor::Black,
-					1.f,
+					ScaleFactor,
 					UTHUDOwner->HUDWidgetOpacity,
 					FLinearColor::White,
 					ETextHorzPos::Left,
@@ -65,7 +63,7 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 				IconTexture.UVs.UL = InventoryItem->HUDIcon.UL;
 				IconTexture.UVs.VL = InventoryItem->HUDIcon.VL;
 				IconTexture.Atlas = InventoryItem->HUDIcon.Texture;
-				float Scale = 1.f;
+				float Scale = ScaleFactor;
 				if (InventoryItem->FlashTimer > 0.f)
 				{
 					Scale += InventoryItem->InitialFlashScale * (InventoryItem->FlashTimer / InventoryItem->InitialFlashTime);
@@ -73,7 +71,7 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 				}
 
 				RenderObj_TextureAt(IconTexture, IconTexture.Position.X + XOffset, IconTexture.Position.Y + YOffset, Scale*Width, Scale*Height);
-				YOffset += TileTexture[0].GetHeight();
+				YOffset += TileTexture[0].GetHeight() * ScaleFactor;
 			}
 		}
 	}

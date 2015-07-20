@@ -78,7 +78,9 @@ namespace EQueuedHttpRequestType
 		EnumeratingCheckpoints,		// We are in the process of downloading the available checkpoints
 		UploadingCheckpoint,		// We are uploading a checkpoint
 		DownloadingCheckpoint,		// We are downloading a checkpoint
-		AddingUser					// We are adding a user who joined in progress during recording
+		AddingUser,					// We are adding a user who joined in progress during recording
+		UploadingCustomEvent,		// We are uploading a custom event
+		EnumeratingCustomEvent		// We are in the process of enumerating a custom event set
 	};
 
 	inline const TCHAR* ToString( EQueuedHttpRequestType::Type Type )
@@ -111,6 +113,10 @@ namespace EQueuedHttpRequestType
 				return TEXT( "DownloadingCheckpoint" );
 			case AddingUser:
 				return TEXT( "AddingUser" );
+			case UploadingCustomEvent:
+				return TEXT( "UploadingCustomEvent" );
+			case EnumeratingCustomEvent:
+				return TEXT( "EnumeratingCustomEvent" );
 		}
 
 		return TEXT( "Unknown EQueuedHttpRequestType type." );
@@ -171,9 +177,11 @@ public:
 	void ConditionallyRefreshViewer();
 	void SetLastError( const ENetworkReplayError::Type InLastError );
 	void FlushCheckpointInternal( uint32 TimeInMS );
+	void AddEvent( const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data );
 	void AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest >	Request );
 	void EnumerateCheckpoints();
 	void ConditionallyEnumerateCheckpoints();
+	void EnumerateEvents( const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate );
 
 	virtual void ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request );
 
@@ -198,8 +206,10 @@ public:
 	void HttpHeaderUploadFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpUploadStreamFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpUploadCheckpointFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
+	void HttpUploadCustomEventFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpEnumerateSessionsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpEnumerateCheckpointsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
+	void HttpEnumerateEventsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpAddUserFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 
 	bool ProcessNextHttpRequest();
@@ -235,6 +245,7 @@ public:
 	FOnStreamReadyDelegate			StartStreamingDelegate;		// Delegate passed in to StartStreaming
 	FOnEnumerateStreamsComplete		EnumerateStreamsDelegate;
 	FOnCheckpointReadyDelegate		GotoCheckpointDelegate;
+	FEnumerateEventsCompleteDelegate EnumerateEventsDelegate;
 	int32							DownloadCheckpointIndex;
 	int64							LastGotoTimeInMS;
 

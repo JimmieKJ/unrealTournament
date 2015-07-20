@@ -41,35 +41,28 @@ void AUTTeamInfo::Destroyed()
 
 void AUTTeamInfo::UpdateTeamLeaders()
 {
-	for (int32 i = 0; i < TeamMembers.Num(); i++)
-	{
-		if (TeamMembers[i] && TeamMembers[i]->PlayerState)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(TeamMembers[i]->PlayerState);
-			if (PS != NULL)
-			{
-				PS->AttackerScore = PS->GetStatsValue(NAME_AttackerScore);
-				PS->DefenderScore = PS->GetStatsValue(NAME_DefenderScore);
-				PS->SupporterScore = PS->GetStatsValue(NAME_SupporterScore);
-				
-				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-				if ((GS != NULL) && (GS->SecondaryAttackerStat != NAME_None))
-				{
-					PS->SecondaryAttackerScore = PS->GetStatsValue(GS->SecondaryAttackerStat); 
-				}
-			}
-		}
-	}
-
 	TArray<AUTPlayerState*> MemberPS;
-	for (int32 i = 0; i < TeamMembers.Num(); i++)
+
+	//Update scores for all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = TeamMembers[i] ? Cast<AUTPlayerState>(TeamMembers[i]->PlayerState) : NULL;
-		if (PS)
+		AUTPlayerState* PS = (*It);
+		if (PS->GetTeamNum() == GetTeamNum())
 		{
+			PS->AttackerScore = PS->GetStatsValue(NAME_AttackerScore);
+			PS->DefenderScore = PS->GetStatsValue(NAME_DefenderScore);
+			PS->SupporterScore = PS->GetStatsValue(NAME_SupporterScore);
+
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if ((GS != NULL) && (GS->SecondaryAttackerStat != NAME_None))
+			{
+				PS->SecondaryAttackerScore = PS->GetStatsValue(GS->SecondaryAttackerStat);
+			}
+
 			MemberPS.Add(PS);
 		}
 	}
+
 	if (MemberPS.Num() == 0)
 	{
 		return;

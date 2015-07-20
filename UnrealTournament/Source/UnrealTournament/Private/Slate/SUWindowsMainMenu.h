@@ -61,6 +61,8 @@ protected:
 	virtual void StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 	virtual void StartGame(bool bLanGame);
 
-
+	TWeakObjectPtr<class UUserWidget> TutorialMenu;
+public:
+	virtual ~SUWindowsMainMenu();
 };
 #endif

@@ -87,9 +87,16 @@ void AUTWeap_ShockRifle::Tick(float DeltaTime)
 	}
 }
 
-UAnimMontage* AUTWeap_ShockRifle::GetFiringAnim(uint8 FireMode) const
+UAnimMontage* AUTWeap_ShockRifle::GetFiringAnim(uint8 FireMode, bool bOnHands) const
 {
-	return (FireMode == 0 && bPlayComboEffects && ComboFireAnim != NULL) ? ComboFireAnim : Super::GetFiringAnim(FireMode);
+	if (FireMode == 0 && bPlayComboEffects && ComboFireAnim != NULL)
+	{
+		return (bOnHands ? ComboFireAnimHands : ComboFireAnim);
+	}
+	else
+	{
+		return Super::GetFiringAnim(FireMode, bOnHands);
+	}
 }
 
 void AUTWeap_ShockRifle::PlayFiringEffects()

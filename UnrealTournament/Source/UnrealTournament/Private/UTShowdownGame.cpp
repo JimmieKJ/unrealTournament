@@ -250,6 +250,8 @@ AActor* AUTShowdownGame::ChoosePlayerStart_Implementation(AController* Player)
 void AUTShowdownGame::HandleMatchIntermission()
 {
 	IntermissionTimeRemaining = 6;
+	UTGameState->RemainingMinute = 0;
+	UTGameState->RemainingTime = 0;
 	// reset timer for consistency
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation(), true);
 

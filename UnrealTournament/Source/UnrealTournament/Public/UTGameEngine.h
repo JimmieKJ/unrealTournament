@@ -18,6 +18,10 @@ public:
 	UPROPERTY()
 	UTexture2D* DefaultLevelScreenshot;
 
+	/** tutorial menu class, here for cooking */
+	UPROPERTY()
+	TSubclassOf<class UUserWidget> TutorialMenuClass;
+
 	UPROPERTY()
 	FText ReadEULACaption;
 	UPROPERTY()

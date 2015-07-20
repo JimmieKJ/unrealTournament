@@ -128,7 +128,14 @@ int32 AUTMutator::GetIntOption( const FString& Options, const FString& ParseStri
 	return AGameMode::StaticClass()->GetDefaultObject<AGameMode>()->GetIntOption(Options, ParseString, CurrentValue);
 }
 
-
+void AUTMutator::AddDefaultInventory(TSubclassOf<AUTInventory> InventoryClass)
+{
+	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+	if (GameMode != NULL)
+	{
+		GameMode->DefaultInventory.AddUnique(InventoryClass);
+	}
+}
 
 // By default we do nothing.
 void AUTMutator::GetGameURLOptions_Implementation(TArray<FString>& OptionsList)

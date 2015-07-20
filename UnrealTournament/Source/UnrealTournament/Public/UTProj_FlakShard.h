@@ -31,10 +31,6 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 	int32 BouncesRemaining;
 
-	/** Increment lifespan when projectile starts its last bounce */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
-	float BounceFinalLifeSpanIncrement;
-
 	/** How much velocity is damped on first bounce. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Flak Cannon")
 		float FirstBounceDamping;

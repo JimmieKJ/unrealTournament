@@ -22,6 +22,7 @@
 #include "Panels/SUWCreditsPanel.h"
 #include "Panels/SUTFragCenterPanel.h"
 #include "UTEpicDefaultRulesets.h"
+#include "UTReplicatedGameRuleset.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
@@ -30,10 +31,20 @@
 
 #if !UE_SERVER
 
+#include "UserWidget.h"
+
 void SUWindowsMainMenu::CreateDesktop()
 {
 	bNeedToShowGamePanel = false;
 	SUTMenuBase::CreateDesktop();
+}
+
+SUWindowsMainMenu::~SUWindowsMainMenu()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
 }
 
 void SUWindowsMainMenu::SetInitialPanel()
@@ -393,7 +404,58 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 		bNeedToShowGamePanel = false;
 		if (AvailableGameRulesets.Num() == 0)
 		{
-			UUTEpicDefaultRulesets::GetDefaultRules(PlayerOwner->GetWorld()->GetAuthGameMode(), AvailableGameRulesets);
+			TArray<FString> AllowedGameRulesets;
+			UUTEpicDefaultRulesets::GetEpicRulesets(AllowedGameRulesets);
+
+			// Grab all of the available map assets.
+			TArray<FAssetData> MapAssets;
+			GetAllAssetData(UWorld::StaticClass(), MapAssets);
+
+			UE_LOG(UT,Verbose,TEXT("Loading Settings for %i Rules"), AllowedGameRulesets.Num())
+			for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
+			{
+				UE_LOG(UT,Verbose,TEXT("Loading Rule %s"), *AllowedGameRulesets[i])
+				if (!AllowedGameRulesets[i].IsEmpty())
+				{
+					FName RuleName = FName(*AllowedGameRulesets[i]);
+					UUTGameRuleset* NewRuleset = NewObject<UUTGameRuleset>(GetTransientPackage(), RuleName, RF_Transient);
+					if (NewRuleset)
+					{
+						NewRuleset->UniqueTag = AllowedGameRulesets[i];
+						bool bExistsAlready = false;
+						for (int32 j=0; j < AvailableGameRulesets.Num(); j++)
+						{
+							if ( AvailableGameRulesets[j]->UniqueTag.Equals(NewRuleset->UniqueTag, ESearchCase::IgnoreCase) || AvailableGameRulesets[j]->Title.ToLower() == NewRuleset->Title.ToLower() )
+							{
+								bExistsAlready = true;
+								break;
+							}
+						}
+
+						if ( !bExistsAlready )
+						{
+							// Before we create the replicated version of this rule.. if it's an epic rule.. insure they are using our defaults.
+							UUTEpicDefaultRulesets::InsureEpicDefaults(NewRuleset);
+
+							FActorSpawnParameters Params;
+							Params.Owner = PlayerOwner->GetWorld()->GetGameState();
+							AUTReplicatedGameRuleset* NewReplicatedRuleset = PlayerOwner->GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
+							if (NewReplicatedRuleset)
+							{
+								// Build out the map info
+
+								NewReplicatedRuleset->SetRules(NewRuleset, MapAssets);
+								AvailableGameRulesets.Add(NewReplicatedRuleset);
+							}
+						}
+						else
+						{
+							UE_LOG(UT,Verbose,TEXT("Rule %s already exists."), *AllowedGameRulesets[i]);
+						}
+					}
+				}
+			}
+	
 			for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
 			{
 				AvailableGameRulesets[i]->BuildSlateBadge();
@@ -459,9 +521,20 @@ FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, 
 
 FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	if (MenuButton.IsValid())
+	{
+		MenuButton->SetIsOpen(false);
+	}
 
-	ConsoleCommand(TEXT("start TUT-BasicTraining?timelimit=0"));
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
+	{
+		TutorialMenu = CreateWidget<UUserWidget>(PlayerOwner->GetWorld(), UTEngine->TutorialMenuClass);
+		if (TutorialMenu != NULL)
+		{
+			TutorialMenu->AddToViewport(0);
+		}
+	}
 	return FReply::Handled();
 }
 
@@ -763,7 +836,6 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		{
 			// This match wants bots.  
 			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? CreateGameDialog->MapPlayList[0].MapInfo->OptimalTeamPlayerCount : CreateGameDialog->MapPlayList[0].MapInfo->OptimalPlayerCount;
-
 			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
 		}
 		else

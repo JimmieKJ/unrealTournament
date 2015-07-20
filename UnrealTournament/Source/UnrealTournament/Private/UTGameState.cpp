@@ -9,11 +9,12 @@
 #include "UTTimerMessage.h"
 #include "UTReplicatedLoadoutInfo.h"
 #include "UTMutator.h"
-#include "UTReplicatedMapVoteInfo.h"
+#include "UTReplicatedMapInfo.h"
 #include "UTPickup.h"
 #include "UTArmor.h"
 #include "StatNames.h"
 #include "UTGameEngine.h"
+#include "UTBaseGameMode.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -25,6 +26,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
+	bCasterControl = false;
 
 	KickThreshold=51.0;
 
@@ -135,7 +137,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
-	DOREPLIFETIME(AUTGameState, TimeLimit);  
+	DOREPLIFETIME(AUTGameState, bStopGameClock);
 	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
 	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
@@ -170,6 +172,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME(AUTGameState, MapVoteList);
 	DOREPLIFETIME(AUTGameState, VoteTimer);
+
+	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -952,15 +956,17 @@ void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClas
 	}
 }
 
-void AUTGameState::GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList)
+/**
+ *	returns a list of MapAssets give a constrained set of map prefixes.
+ **/
+void AUTGameState::ScanForMaps(const TArray<FString>& AllowedMapPrefixes, TArray<FAssetData>& MapList)
 {
 	TArray<FAssetData> MapAssets;
 	GetAllAssetData(UWorld::StaticClass(), MapAssets);
 	for (const FAssetData& Asset : MapAssets)
 	{
 		FString MapPackageName = Asset.PackageName.ToString();
-		// ignore /Engine/ as those aren't real gameplay maps
-		// make sure expected file is really there
+		// ignore /Engine/ as those aren't real gameplay maps and make sure expected file is really there
 		if ( !MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
 		{
 			// Look to see if this is allowed.
@@ -976,42 +982,76 @@ void AUTGameState::GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, T
 
 			if (bMapIsAllowed)
 			{
-				const FString* Title = Asset.TagsAndValues.Find(NAME_MapInfo_Title); 
-				const FString* Author = Asset.TagsAndValues.Find(NAME_MapInfo_Author);
-				const FString* Description = Asset.TagsAndValues.Find(NAME_MapInfo_Description);
-				const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
-
-				const FString* OptimalPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalPlayerCount);
-				int32 OptimalPlayerCount = 6;
-				if (OptimalPlayerCountStr != NULL)
-				{
-					OptimalPlayerCount = FCString::Atoi(**OptimalPlayerCountStr);
-				}
-
-				const FString* OptimalTeamPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalTeamPlayerCount);
-				int32 OptimalTeamPlayerCount = 10;
-				if (OptimalTeamPlayerCountStr != NULL)
-				{
-					OptimalTeamPlayerCount = FCString::Atoi(**OptimalTeamPlayerCountStr);
-				}
-
-				MapList.Add(MakeShareable(new FMapListItem( Asset.PackageName.ToString(), (Title != NULL && !Title->IsEmpty()) ? *Title : *Asset.AssetName.ToString(), (Author != NULL) ? *Author : FString(),
-												(Description != NULL) ? *Description : FString(), (Screenshot != NULL) ? *Screenshot : FString(), OptimalPlayerCount, OptimalTeamPlayerCount)));
+				MapList.Add(Asset);
 			}
-
 		}
 	}
+}
+
+/**
+ *	Creates a replicated map info that represents the data regarding a map.
+ **/
+AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
+{
+	const FString* Title = MapAsset.TagsAndValues.Find(NAME_MapInfo_Title); 
+	const FString* Author = MapAsset.TagsAndValues.Find(NAME_MapInfo_Author);
+	const FString* Description = MapAsset.TagsAndValues.Find(NAME_MapInfo_Description);
+	const FString* Screenshot = MapAsset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+
+	const FString* OptimalPlayerCountStr = MapAsset.TagsAndValues.Find(NAME_MapInfo_OptimalPlayerCount);
+	int32 OptimalPlayerCount = 6;
+	if (OptimalPlayerCountStr != NULL)
+	{
+		OptimalPlayerCount = FCString::Atoi(**OptimalPlayerCountStr);
+	}
+
+	const FString* OptimalTeamPlayerCountStr = MapAsset.TagsAndValues.Find(NAME_MapInfo_OptimalTeamPlayerCount);
+	int32 OptimalTeamPlayerCount = 10;
+	if (OptimalTeamPlayerCountStr != NULL)
+	{
+		OptimalTeamPlayerCount = FCString::Atoi(**OptimalTeamPlayerCountStr);
+	}
+
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	AUTReplicatedMapInfo* MapInfo = GetWorld()->SpawnActor<AUTReplicatedMapInfo>(Params);
+	if (MapInfo)
+	{
+		MapInfo->MapPackageName = MapAsset.PackageName.ToString();
+		MapInfo->MapAssetName = MapAsset.AssetName.ToString();
+		MapInfo->Title = (Title != NULL && !Title->IsEmpty()) ? *Title : *MapAsset.AssetName.ToString();
+		MapInfo->Author = (Author != NULL) ? *Author : FString();
+		MapInfo->Description = (Description != NULL) ? *Description : FString();
+		MapInfo->MapScreenshotReference = (Screenshot != NULL) ? *Screenshot : FString();
+		MapInfo->OptimalPlayerCount = OptimalPlayerCount;
+		MapInfo->OptimalTeamPlayerCount = OptimalTeamPlayerCount;
+
+		if (Role == ROLE_Authority)
+		{
+			// Look up it's redirect information if it has any.
+			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+			if (BaseGameMode)
+			{
+				BaseGameMode->FindRedirect(MapInfo->MapPackageName, MapInfo->Redirect);
+			}
+		}
+	}
+
+	return MapInfo;
+
 }
 
 void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference)
 {
 	FActorSpawnParameters Params;
 	Params.Owner = this;
-	AUTReplicatedMapVoteInfo* MapVoteInfo = GetWorld()->SpawnActor<AUTReplicatedMapVoteInfo>(Params);
+	AUTReplicatedMapInfo* MapVoteInfo = GetWorld()->SpawnActor<AUTReplicatedMapInfo>(Params);
 	if (MapVoteInfo)
 	{
-		MapVoteInfo->MapPackage = MapPackage;
-		MapVoteInfo->MapTitle = MapTitle;
+		UE_LOG(UT,Verbose,TEXT("Creating Map Vote for map %s [%s]"), *MapPackage, *MapTitle);
+
+		MapVoteInfo->MapPackageName= MapPackage;
+		MapVoteInfo->Title = MapTitle;
 		MapVoteInfo->MapScreenshotReference = MapScreenshotReference;
 		MapVoteList.Add(MapVoteInfo);
 	}
@@ -1021,10 +1061,10 @@ void AUTGameState::SortVotes()
 {
 	for (int32 i=0; i<MapVoteList.Num()-1; i++)
 	{
-		AUTReplicatedMapVoteInfo* V1 = Cast<AUTReplicatedMapVoteInfo>(MapVoteList[i]);
+		AUTReplicatedMapInfo* V1 = Cast<AUTReplicatedMapInfo>(MapVoteList[i]);
 		for (int32 j=i+1; j<MapVoteList.Num(); j++)
 		{
-			AUTReplicatedMapVoteInfo* V2 = Cast<AUTReplicatedMapVoteInfo>(MapVoteList[j]);
+			AUTReplicatedMapInfo* V2 = Cast<AUTReplicatedMapInfo>(MapVoteList[j]);
 			if( V2->VoteCount > V1->VoteCount )
 			{
 				MapVoteList[i] = V2;

@@ -32,8 +32,10 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 
 	virtual void InitInputSystem() override;
 
+	virtual void SetName(const FString& S);
+
 	/**	Will popup the in-game menu	 **/
-	UFUNCTION(exec)
+	UFUNCTION(exec, BlueprintCallable, Category = "UI")
 	virtual void ShowMenu();
 
 	UFUNCTION(exec)

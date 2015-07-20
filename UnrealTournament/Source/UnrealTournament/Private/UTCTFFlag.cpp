@@ -109,11 +109,12 @@ void AUTCTFFlag::Drop(AController* Killer)
 			AUTCTFFlagBase* OtherBase = GameState->FlagBases[1-GetTeamNum()];
 			if (OtherBase && (OtherBase->GetFlagState() == CarriedObjectState::Home) && OtherBase->ActorIsNearMe(this))
 			{
-				AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				AUTCTFGameMode* GM = GetWorld()->GetAuthGameMode<AUTCTFGameMode>();
 				if (GM)
 				{
 					bDelayDroppedMessage = true;
 					GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, Killer->PlayerState, Holder, NULL);
+					GM->AddDeniedEventToReplay(Killer->PlayerState, Holder, Holder->Team);
 				}
 			}
 		}

@@ -67,11 +67,6 @@ void AUTLobbyPC::PlayerTick( float DeltaTime )
 	}
 }
 
-void AUTLobbyPC::SetName(const FString& S)
-{
-}
-
-
 void  AUTLobbyPC::ServerRestartPlayer_Implementation()
 {
 }

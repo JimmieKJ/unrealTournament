@@ -51,8 +51,12 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	MaximumSmoothedTime = 0.04f;
 
 	ServerMaxPredictionPing = 160.f;
-}
 
+#if !UE_SERVER
+	ConstructorHelpers::FObjectFinder<UClass> TutorialMenuFinder(TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutMainMenuWidget.TutMainMenuWidget_C"));
+	TutorialMenuClass = TutorialMenuFinder.Object;
+#endif
+}
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {

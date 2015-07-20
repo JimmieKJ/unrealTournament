@@ -6,6 +6,9 @@
 #include "UTPlayerState.h"
 #include "UTPickup.generated.h"
 
+extern FName NAME_Progress;
+extern FName NAME_RespawnTime;
+
 USTRUCT()
 struct FPickupReplicatedState
 {

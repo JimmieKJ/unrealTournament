@@ -908,6 +908,18 @@ void UDemoNetDriver::SaveCheckpoint()
 	UE_LOG( LogDemo, Verbose, TEXT( "Checkpoint. Total: %i, Rep size: %i, PackageMap: %u, Time: %2.2f" ), TotalSize, CheckpointSize, GuidCacheSize, CheckpointTimeInMS );
 }
 
+void UDemoNetDriver::AddEvent(const FString& Group, const FString& Meta, const TArray<uint8>& Data)
+{
+	uint32 SavedTimeMS = GetDemoCurrentTimeInMS();
+	ReplayStreamer->AddEvent(SavedTimeMS, Group, Meta, Data);
+	UE_LOG(LogDemo, Verbose, TEXT("Custom Event %s. Total: %i, Time: %2.2f"), *Group, Data.Num(), SavedTimeMS);
+}
+
+void UDemoNetDriver::EnumerateEvents(const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate)
+{
+	ReplayStreamer->EnumerateEvents(Group, EnumerationCompleteDelegate);
+}
+
 void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 {
 	if ( ClientConnections.Num() == 0 )

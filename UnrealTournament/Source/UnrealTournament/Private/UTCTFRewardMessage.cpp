@@ -18,6 +18,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	BlueScoreMessage = NSLOCTEXT("CTFRewardMessage", "Blue Score", "BLUE Team Scores!");
 	RedScoreMessage = NSLOCTEXT("CTFRewardMessage", "Red Score", "RED Team Scores!");
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
+	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
 	bIsStatusAnnouncement = false;
 }
 
@@ -78,7 +79,7 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	case 2: return AssistMessage; break;
 	case 3: return RedScoreMessage; break;
 	case 4: return BlueScoreMessage; break;
-	case 5: return HatTrickMessage; break;
+	case 5: return (bTargetsPlayerState1 ? HatTrickMessage : OtherHatTrickMessage); break;
 	}
 
 	return FText::GetEmpty();

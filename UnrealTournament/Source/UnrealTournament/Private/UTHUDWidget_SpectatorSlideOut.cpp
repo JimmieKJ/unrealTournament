@@ -312,8 +312,12 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				}
 			}
 			DrawOffset += 0.25f*(10.f-float(NumCameras))*CellHeight;
+
+			bool bOverflow = false;
+			float StartCamOffset = DrawOffset;
+			float EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
 			DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
-			DrawOffset += CellHeight;
+			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 
 			AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
@@ -322,12 +326,12 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				if ((RedFlagBind != NAME_None) && CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
 				{
 					DrawFlag(RedFlagBind, "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
-					DrawOffset += CellHeight;
+					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 				}
 				if ((BlueFlagBind != NAME_None) && CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
 				{
 					DrawFlag(BlueFlagBind, "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset, DrawOffset);
-					DrawOffset += CellHeight;
+					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 				}
 			}
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
@@ -335,54 +339,40 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				if ((Input->SpectatorBinds[i].FriendlyName != "") && (Input->SpectatorBinds[i].KeyName != NAME_None))
 				{
 					DrawCamBind(Input->SpectatorBinds[i].KeyName, Input->SpectatorBinds[i].FriendlyName, DeltaTime, XOffset, DrawOffset, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
-					DrawOffset += CellHeight;
+					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 				}
 			}
 			static FName NAME_PressFire = FName(TEXT("Fire"));
 			DrawCamBind(NAME_PressFire, "Camera Rotation Control", DeltaTime, XOffset, DrawOffset, false);
-			DrawOffset += CellHeight;
+			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
-			DrawOffset += CellHeight;
+			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 
 			if (Cast<AUTDemoRecSpectator>(UTHUDOwner->PlayerOwner) != nullptr)
 			{
 				DrawCamBind(DemoRestartBind, "Restart Demo", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
+				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 
 				DrawCamBind(DemoRewindBind, "Rewind Demo", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
+				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 
 				DrawCamBind(DemoFastForwardBind, "Fast Forward", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
+				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 
 				DrawCamBind(DemoLiveBind, "Jump to Real Time", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
+				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 
 				DrawCamBind(DemoPauseBind, "Pause Demo", DeltaTime, XOffset, DrawOffset, false);
-				DrawOffset += CellHeight;
+				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 			}
 
-			bool bOverflow = false;
 			for (int32 i = 0; i < NumCameras; i++)
 			{
 				if (CameraBind[i] != NAME_None)
 				{
 					DrawCamBind(CameraBind[i], CameraString[i], DeltaTime, XOffset, DrawOffset, false);
-					if (!bOverflow)
-					{
-						DrawOffset += CellHeight;
-						if (DrawOffset > Canvas->ClipY - CellHeight)
-						{
-							bOverflow = true;
-							XOffset = XOffset + 0.75f * Size.X + 2.f;
-							DrawOffset -= CellHeight;
-						}
-					}
-					else
-					{
-						DrawOffset -= CellHeight;
-					}
+					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 				}
 			}
 		}
@@ -508,6 +498,31 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 		DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+}
+
+void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, float& XOffset, bool& bOverflow, float StartOffset, float& EndCamOffset)
+{
+	if (!bOverflow)
+	{
+		DrawOffset += CellHeight;
+		if (DrawOffset > (Canvas->ClipY / RenderScale) - (CellHeight * 6))
+		{
+			bOverflow = true;
+			XOffset = XOffset + 0.75f * Size.X + 2.f;
+			DrawOffset -= CellHeight;
+			EndCamOffset = DrawOffset;
+		}
+	}
+	else
+	{
+		//Once we overflow once, always start at the bottom and work our way up
+		DrawOffset -= CellHeight;
+		if (DrawOffset < StartOffset)
+		{
+			XOffset = XOffset + 0.75f * Size.X + 2.f;
+			DrawOffset = EndCamOffset;
+		}
+	}
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)

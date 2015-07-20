@@ -89,6 +89,8 @@ DECLARE_DELEGATE_OneParam( FOnDeleteFinishedStreamComplete, const bool );
  */
 DECLARE_DELEGATE_OneParam( FOnEnumerateStreamsComplete, const TArray<FNetworkReplayStreamInfo>& );
 
+DECLARE_DELEGATE_TwoParams(FEnumerateEventsCompleteDelegate, const FString&, bool);
+
 class FNetworkReplayVersion
 {
 public:
@@ -121,7 +123,9 @@ public:
 	virtual void SetHighPriorityTimeRange( const uint32 StartTimeInMS, const uint32 EndTimeInMS ) = 0;
 	virtual bool IsDataAvailableForTimeRange( const uint32 StartTimeInMS, const uint32 EndTimeInMS ) = 0;
 	virtual bool IsLoadingCheckpoint() const = 0;
-	
+	virtual void AddEvent( const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) = 0;
+	virtual void EnumerateEvents( const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate ) = 0;
+
 	/** Returns true if the playing stream is currently in progress */
 	virtual bool IsLive() const = 0;
 

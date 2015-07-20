@@ -9,7 +9,7 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTEpicDefaultRulesets.h"
 #include "UTLobbyGameState.h"
-#include "UTReplicatedMapVoteInfo.h"
+#include "UTReplicatedMapInfo.h"
 
 #if !UE_SERVER
 
@@ -112,16 +112,16 @@ void SUWMapVoteDialog::BuildMapList()
 		// We need 2 lists.. one sorted by votes (use the main one in the GameState) and one that is sorted alphabetically.
 		// We will build that one here.
 		
-		TArray<AUTReplicatedMapVoteInfo*>  AlphaSortedList;
+		TArray<AUTReplicatedMapInfo*>  AlphaSortedList;
 		for (int32 i=0; i < GameState->MapVoteList.Num(); i++)
 		{
-			AUTReplicatedMapVoteInfo* VoteInfo = GameState->MapVoteList[i];
+			AUTReplicatedMapInfo* VoteInfo = GameState->MapVoteList[i];
 			if (VoteInfo)
 			{
 				bool bAdd = true;
 				for (int32 j=0; j < AlphaSortedList.Num(); j++)
 				{
-					if (AlphaSortedList[j]->MapTitle > VoteInfo->MapTitle)
+					if (AlphaSortedList[j]->Title > VoteInfo->Title)
 					{
 						AlphaSortedList.Insert(VoteInfo, j);
 						bAdd = false;
@@ -143,7 +143,7 @@ void SUWMapVoteDialog::BuildMapList()
 		{
 			if (GameState->MapVoteList[i])
 			{
-				TWeakObjectPtr<AUTReplicatedMapVoteInfo> MapVoteInfo = GameState->MapVoteList[i];
+				TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo = GameState->MapVoteList[i];
 				TSharedPtr<SImage> ImageWidget;
 
 				// If this map has votes or if we are in the final seconds, then show draw the map.
@@ -235,7 +235,7 @@ void SUWMapVoteDialog::BuildMapList()
 								.AutoHeight()
 								[
 									SNew(STextBlock)
-									.Text(FText::FromString(MapVoteInfo->MapTitle))
+									.Text(FText::FromString(MapVoteInfo->Title))
 									.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
 									.ColorAndOpacity(FLinearColor::Black)
 								]
@@ -288,7 +288,7 @@ void SUWMapVoteDialog::BuildMapList()
 					int32 Row = i / NoColumns;
 					int32 Col = i % NoColumns;
 
-					TWeakObjectPtr<AUTReplicatedMapVoteInfo> MapVoteInfo = AlphaSortedList[i];
+					TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo = AlphaSortedList[i];
 			
 					if (MapVoteInfo.IsValid())
 					{
@@ -381,7 +381,7 @@ void SUWMapVoteDialog::BuildMapList()
 									.AutoHeight()
 									[
 										SNew(STextBlock)
-										.Text(FText::FromString(MapVoteInfo->MapTitle))
+										.Text(FText::FromString(MapVoteInfo->Title))
 										.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
 										.ColorAndOpacity(FLinearColor::Black)
 									]
@@ -421,7 +421,7 @@ void SUWMapVoteDialog::TextureLoadComplete(const FName& InPackageName, UPackage*
 
 
 
-FReply SUWMapVoteDialog::OnMapClick(TWeakObjectPtr<AUTReplicatedMapVoteInfo> MapInfo)
+FReply SUWMapVoteDialog::OnMapClick(TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo)
 {
 
 	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);

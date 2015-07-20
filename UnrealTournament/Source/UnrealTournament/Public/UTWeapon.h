@@ -69,6 +69,34 @@ struct FDelayedHitScanInfo
 	{}
 };
 
+UENUM(BlueprintType)
+namespace EZoomState
+{
+	enum Type
+	{
+		EZS_NotZoomed,
+		EZS_ZoomingIn,
+		EZS_ZoomingOut,
+		EZS_Zoomed,
+	};
+}
+
+USTRUCT(BlueprintType)
+struct FZoomInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** FOV angle at start of zoom, or zero to start at the camera's default FOV */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	float StartFOV;
+	/** FOV angle at the end of the zoom, or zero to end at the camera's default FOV */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	float EndFOV;
+	/** time to reach EndFOV from StartFOV */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	float Time;
+};
+
 UCLASS(Blueprintable, Abstract, NotPlaceable, Config = Game)
 class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 {
@@ -135,6 +163,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Synchronize random seed on server and firing client so projectiles stay synchronized */
 	virtual void NetSynchRandomSeed();
 
+	/** socket to attach weapon to hands; if None, then the hands are hidden */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+	FName HandsAttachSocket;
+
 	/** time between shots, trigger checks, etc */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon", meta = (ClampMin = "0.1"))
 	TArray<float> FireInterval;
@@ -150,6 +182,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** AnimMontage to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<UAnimMontage*> FireAnimation;
+	/** AnimMontage to play on hands each time we fire */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TArray<UAnimMontage*> FireAnimationHands;
 	/** particle component for muzzle flash */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystemComponent*> MuzzleFlash;
@@ -301,9 +336,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** equip anims */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* BringUpAnim;
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* BringUpAnimHands;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	UAnimMontage* PutDownAnim;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	UAnimMontage* PutDownAnimHands;
 
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
@@ -470,9 +508,14 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintImplementableEvent)
 	bool FireShotOverride();
 
+	/** plays an anim on the weapon and optionally hands
+	 * automatically handles fire rate modifiers by default, overridden if RateOverride is > 0.0
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual void PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim = NULL, float RateOverride = 0.0f);
 	/** returns montage to play on the weapon for the specified firing mode */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual UAnimMontage* GetFiringAnim(uint8 FireMode) const;
+	virtual UAnimMontage* GetFiringAnim(uint8 FireMode, bool bOnHands = false) const;
 	/** play firing effects not associated with the shot's results (e.g. muzzle flash but generally NOT emitter to target) */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayFiringEffects();
@@ -826,4 +869,55 @@ public:
 	void FiringExtraUpdated(uint8 NewFlashExtra, uint8 InFireMode);
 	UFUNCTION(BlueprintNativeEvent, Category = Weapon)
 	void FiringEffectsUpdated(uint8 InFireMode, FVector InFlashLocation);
+
+	//Zoom Stuff
+
+	/**Used to reset the ZoomTime*/
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_ZoomCount)
+	uint8 ZoomCount;
+	UFUNCTION()
+	virtual void OnRep_ZoomCount();
+
+	/**The state of the weapons zoom. Override OnRep_ZoomState to handle any state changes*/
+	UPROPERTY(BlueprintReadOnly, Category = Zoom, Replicated, ReplicatedUsing = OnRep_ZoomState)
+	TEnumAsByte<EZoomState::Type> ZoomState;
+	UFUNCTION(BlueprintNativeEvent)
+	void OnRep_ZoomState();
+
+	/**Current zoom mode. An index into ZoomModes array*/
+	UPROPERTY(BlueprintReadOnly, Category = Zoom, Replicated)
+	uint8 CurrentZoomMode;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Zoom)
+	TArray<FZoomInfo> ZoomModes;
+
+	/**How long the weapon been zooming for*/
+	UPROPERTY(BlueprintReadOnly, Category = Zoom, Replicated)
+	float ZoomTime;
+
+	/**Sets a new zoom mode. Index into ZoomModes*/
+	UFUNCTION(BlueprintCallable, Category = Zoom)
+	virtual void SetZoomMode(uint8 NewZoomMode);
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetZoomMode(uint8 NewZoomMode);
+	virtual void LocalSetZoomMode(uint8 NewZoomMode);
+
+	/**Sets the zoom state*/
+	UFUNCTION(BlueprintCallable, Category = Zoom)
+	virtual void SetZoomState(TEnumAsByte<EZoomState::Type> NewZoomState);
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetZoomState(uint8 NewZoomState);
+	virtual void LocalSetZoomState(uint8 NewZoomState);
+
+	/**Called when the weapon has zoomed in as far as it can go. Default is EZoomState::EZS_Zoomed*/
+	UFUNCTION(BlueprintNativeEvent)
+	void OnZoomedIn();
+
+	/**Called when the weapon has zoomed all the way out. Default is EZoomState::EZS_NotZoomed*/
+	UFUNCTION(BlueprintNativeEvent)
+	void OnZoomedOut();
+
+	virtual void TickZoom(float DeltaTime);
+	float BeginPlayTime;
+
 };

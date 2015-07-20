@@ -162,6 +162,9 @@ protected:
 	uint32 bSingleTapAfterJump : 1;
 
 	UPROPERTY()
+	uint32 bAllowSlideFromRun : 1;
+
+	UPROPERTY()
 	FKey ConsoleKey;
 
 	UPROPERTY()

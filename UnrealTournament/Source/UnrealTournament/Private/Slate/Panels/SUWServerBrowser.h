@@ -735,6 +735,7 @@ private:
 	FName CurrentPlayersSortColumn;
 
 	FDelegateHandle OnFindSessionCompleteDelegate;
+	FDelegateHandle OnFindLANSessionCompleteDelegate;
 	TSharedPtr<class FUTOnlineGameSearchBase> SearchSettings;
 	TSharedPtr<class FUTOnlineGameSearchBase> LanSearchSettings;
 

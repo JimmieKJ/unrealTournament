@@ -7,7 +7,7 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
 
 class AUTGameMode;
-class AUTReplicatedMapVoteInfo;
+class AUTReplicatedMapInfo;
 
 struct FLoadoutInfo;
 
@@ -52,6 +52,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** If true, we will stop the game clock */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
 	uint32 bStopGameClock : 1;
+
+	/**If enabled, the server grants special control for casters*/
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	uint32 bCasterControl : 1;
 
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
@@ -326,7 +330,12 @@ public:
 	// available local content however, in hubs it will be from data replicated from the server.
 
 	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
-	virtual void GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList);
+
+
+	virtual void ScanForMaps(const TArray<FString>& AllowedMapPrefixes, TArray<FAssetData>& MapList);
+
+	// Create a replicated map info from a map's asset registry data
+	virtual AUTReplicatedMapInfo* CreateMapInfo(const FAssetData& MapAsset);
 
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
@@ -344,7 +353,7 @@ public:
 		TArray<FName> MovementStats;
 
 	UPROPERTY(Replicated)
-	TArray<AUTReplicatedMapVoteInfo*> MapVoteList;
+	TArray<AUTReplicatedMapInfo*> MapVoteList;
 
 	virtual void CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference);
 	void SortVotes();
@@ -389,6 +398,8 @@ public:
 	/** Returns true if all players are ready */
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	bool AreAllPlayersReady();
+
+
 };
 
 

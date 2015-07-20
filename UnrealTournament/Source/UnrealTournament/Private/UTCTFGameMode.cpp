@@ -15,6 +15,7 @@
 #include "Slate/Widgets/SUTTabWidget.h"
 #include "Slate/SUWPlayerInfoDialog.h"
 #include "StatNames.h"
+#include "Engine/DemoNetDriver.h"
 
 namespace MatchState
 {
@@ -158,6 +159,7 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 			Holder->Team->Score++;
 			Holder->Team->ForceNetUpdate();
 			BroadcastScoreUpdate(Holder, Holder->Team);
+			AddCaptureEventToReplay(Holder, Holder->Team);
 			if (Holder->FlagCaptures == 3)
 			{
 				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
@@ -194,6 +196,60 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 				}
 			}
 		}
+	}
+}
+
+void AUTCTFGameMode::AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo* Team)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		TArray<uint8> Data;
+		FString CapInfo = FString::Printf(TEXT("%s"), Holder ? *Holder->PlayerName : TEXT("None"));
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*CapInfo), CapInfo.Len() + 1);
+
+		FString MetaTag = FString::FromInt(Team->TeamIndex);
+
+		DemoNetDriver->AddEvent(TEXT("FlagCaps"), MetaTag, Data);
+	}
+}
+
+void AUTCTFGameMode::AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (Returner && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		TArray<uint8> Data;
+		FString ReturnInfo = FString::Printf(TEXT("%s"), Returner ? *Returner->PlayerName : TEXT("None"));
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*ReturnInfo), ReturnInfo.Len() + 1);
+
+		FString MetaTag = Returner->StatsID;
+		if (MetaTag.IsEmpty())
+		{
+			MetaTag = Returner->PlayerName;
+		}
+		DemoNetDriver->AddEvent(TEXT("FlagReturns"), MetaTag, Data);
+	}
+}
+
+void AUTCTFGameMode::AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team)
+{
+	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
+	{
+		TArray<uint8> Data;
+		FString CapInfo = FString::Printf(TEXT("%s %s"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), Holder ? *Holder->PlayerName : TEXT("None"));
+
+		FMemoryWriter MemoryWriter(Data);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*CapInfo), CapInfo.Len() + 1);
+
+		FString MetaTag = FString::FromInt(Team->TeamIndex);
+
+		DemoNetDriver->AddEvent(TEXT("FlagDeny"), MetaTag, Data);
 	}
 }
 
@@ -468,10 +524,54 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 	CTFGameState->OnHalftimeChanged();
 	CTFGameState->bPlayingAdvantage = false;
 	CTFGameState->AdvantageTeamIndex = 255;
-	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
+
+	if (bCasterControl)
+	{
+		//Reset all casters to "not ready"
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS != nullptr && PS->bCaster)
+			{
+				PS->bReadyToPlay = false;
+			}
+		}
+		CTFGameState->bStopGameClock = true;
+		CTFGameState->SetTimeLimit(10);
+	}
+	else
+	{
+		CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
+	}
 
 	SetMatchState(MatchState::MatchIsAtHalftime);
 	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 11, NULL, NULL, NULL);
+}
+
+void AUTCTFGameMode::DefaultTimer()
+{
+	Super::DefaultTimer();
+
+	//If caster control is enabled. check to see if one caster is ready then start the timer
+	if (GetMatchState() == MatchState::MatchIsAtHalftime && bCasterControl)
+	{
+		bool bReady = false;
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS != nullptr && PS->bCaster && PS->bReadyToPlay)
+			{
+				bReady = true;
+				break;
+			}
+		}
+
+		if (bReady && CTFGameState->bStopGameClock == true)
+		{
+			CTFGameState->bStopGameClock = false;
+			CTFGameState->SetTimeLimit(11);
+		}
+	}
 }
 
 void AUTCTFGameMode::HalftimeIsOver()
@@ -583,6 +683,8 @@ void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* 
 	CTFScoring->ScoreKill(Killer, Other, KilledPawn, DamageType);
 	if ((Killer != NULL && Killer != Other))
 	{
+		AddKillEventToReplay(Killer, Other, DamageType);
+
 		AUTPlayerState* AttackerPS = Cast<AUTPlayerState>(Killer->PlayerState);
 		if (AttackerPS != NULL)
 		{
