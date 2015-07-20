@@ -1705,7 +1705,7 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 				}
 			}
 		}
-		else if (P->GetWeapon() != NULL && P->GetWeapon()->HandsAttachSocket == NAME_None)
+		else if (P->GetWeapon() == NULL || P->GetWeapon()->HandsAttachSocket == NAME_None)
 		{
 			// weapon doesn't use hands
 			HiddenComponents.Add(P->FirstPersonMesh->ComponentId);
