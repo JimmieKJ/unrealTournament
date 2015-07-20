@@ -376,9 +376,10 @@ void AUTGameMode::InitGameState()
 		UTGameState->ForceRespawnTime = ForceRespawnTime;
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bWeaponStay = bWeaponStayActive;
+		UTGameState->bCasterControl = bCasterControl;
 
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
-
+		
 		// Setup the loadout replication
 		for (int32 i=0; i < AvailableLoadout.Num(); i++)
 		{

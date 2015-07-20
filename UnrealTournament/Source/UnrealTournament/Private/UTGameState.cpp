@@ -26,6 +26,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
+	bCasterControl = false;
 
 	KickThreshold=51.0;
 
@@ -136,7 +137,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, RemainingMinute);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
-	DOREPLIFETIME(AUTGameState, TimeLimit);  
+	DOREPLIFETIME(AUTGameState, bStopGameClock);
 	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
 	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
@@ -171,6 +172,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME(AUTGameState, MapVoteList);
 	DOREPLIFETIME(AUTGameState, VoteTimer);
+
+	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)

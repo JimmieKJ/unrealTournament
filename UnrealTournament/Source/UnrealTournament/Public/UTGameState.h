@@ -53,6 +53,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameState)
 	uint32 bStopGameClock : 1;
 
+	/**If enabled, the server grants special control for casters*/
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	uint32 bCasterControl : 1;
+
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
 	int32 GoalScore;

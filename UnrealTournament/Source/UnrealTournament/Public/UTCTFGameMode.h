@@ -56,6 +56,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
 	virtual void CheckGameTime();
 	virtual void GameObjectiveInitialized(AUTGameObjective* Obj);
+	virtual void DefaultTimer() override;
 
 	virtual void CallMatchStateChangeNotify() override;
 

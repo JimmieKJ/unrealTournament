@@ -12,6 +12,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTCheatManager.h"
 #include "UTCTFGameState.h"
+#include "UTCTFGameMode.h"
 #include "UTChatMessage.h"
 #include "Engine/Console.h"
 #include "UTAnalytics.h"
@@ -527,7 +528,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	static FName NAME_Enter(TEXT("Enter"));
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-	if (Key.GetFName() == NAME_Enter && GS != nullptr && !GS->HasMatchStarted() && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
+	if (Key.GetFName() == NAME_Enter && GS != nullptr && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
 	{
 		ServerRestartPlayer();
 		return true;
@@ -1785,8 +1786,8 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		UTPlayerState->bChosePrimaryRespawnChoice = true;
 		UTPlayerState->ForceNetUpdate();
 	}
-
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
+	AUTGameMode* UTGM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (!UTGM->HasMatchStarted())
 	{
 		if (UTPlayerState)
 		{
@@ -1807,6 +1808,12 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 				UTPlayerState->ForceNetUpdate();
 			}
 		}
+	}
+	//Half-time ready up for caster control
+	else if (UTGM->bCasterControl && UTGM->GetMatchState() == MatchState::MatchIsAtHalftime && UTPlayerState != nullptr && UTPlayerState->bCaster)
+	{
+		UTPlayerState->bReadyToPlay = true;
+		UTPlayerState->ForceNetUpdate();
 	}
 	else if (IsFrozen())
 	{

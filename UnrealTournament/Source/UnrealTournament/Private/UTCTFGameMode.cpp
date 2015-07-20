@@ -524,10 +524,54 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 	CTFGameState->OnHalftimeChanged();
 	CTFGameState->bPlayingAdvantage = false;
 	CTFGameState->AdvantageTeamIndex = 255;
-	CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
+
+	if (bCasterControl)
+	{
+		//Reset all casters to "not ready"
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS != nullptr && PS->bCaster)
+			{
+				PS->bReadyToPlay = false;
+			}
+		}
+		CTFGameState->bStopGameClock = true;
+		CTFGameState->SetTimeLimit(10);
+	}
+	else
+	{
+		CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
+	}
 
 	SetMatchState(MatchState::MatchIsAtHalftime);
 	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 11, NULL, NULL, NULL);
+}
+
+void AUTCTFGameMode::DefaultTimer()
+{
+	Super::DefaultTimer();
+
+	//If caster control is enabled. check to see if one caster is ready then start the timer
+	if (GetMatchState() == MatchState::MatchIsAtHalftime && bCasterControl)
+	{
+		bool bReady = false;
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS != nullptr && PS->bCaster && PS->bReadyToPlay)
+			{
+				bReady = true;
+				break;
+			}
+		}
+
+		if (bReady && CTFGameState->bStopGameClock == true)
+		{
+			CTFGameState->bStopGameClock = false;
+			CTFGameState->SetTimeLimit(11);
+		}
+	}
 }
 
 void AUTCTFGameMode::HalftimeIsOver()
