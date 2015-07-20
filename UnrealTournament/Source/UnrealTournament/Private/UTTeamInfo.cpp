@@ -43,7 +43,7 @@ void AUTTeamInfo::UpdateTeamLeaders()
 {
 	TArray<AUTPlayerState*> MemberPS;
 
-	//Check all player states. Including InactivePRIs
+	//Update scores for all player states. Including InactivePRIs
 	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
 		AUTPlayerState* PS = (*It);
@@ -61,6 +61,11 @@ void AUTTeamInfo::UpdateTeamLeaders()
 
 			MemberPS.Add(PS);
 		}
+	}
+
+	if (MemberPS.Num() == 0)
+	{
+		return;
 	}
 
 	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
