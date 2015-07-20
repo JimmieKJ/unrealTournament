@@ -185,7 +185,6 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 			if (GM)
 			{
-				AController* Controller = Cast<AController>(GetOwner());
 				GM->AddMultiKillEventToReplay(Controller);
 			}
 		}
@@ -257,7 +256,6 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 				if (GM)
 				{
-					AController* Controller = Cast<AController>(GetOwner());
 					GM->AddSpreeKillEventToReplay(Controller, FMath::Min(Spree / 5, 4));
 				}
 			}
