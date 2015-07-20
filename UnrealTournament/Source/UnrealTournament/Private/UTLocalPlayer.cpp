@@ -323,6 +323,16 @@ void UUTLocalPlayer::HideMenu()
 #endif
 }
 
+void UUTLocalPlayer::OpenTutorialMenu()
+{
+#if !UE_SERVER
+	if (IsMenuGame() && DesktopSlateWidget.IsValid())
+	{
+		StaticCastSharedPtr<SUWindowsMainMenu>(DesktopSlateWidget)->OpenTutorialMenu();
+	}
+#endif
+}
+
 void UUTLocalPlayer::MessageBox(FText MessageTitle, FText MessageText)
 {
 #if !UE_SERVER

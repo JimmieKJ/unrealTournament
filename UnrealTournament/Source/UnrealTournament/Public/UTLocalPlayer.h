@@ -71,6 +71,7 @@ public:
 
 	virtual void ShowMenu();
 	virtual void HideMenu();
+	virtual void OpenTutorialMenu();
 	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
 
 	virtual void MessageBox(FText MessageTitle, FText MessageText);

@@ -32,6 +32,20 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 	{
 		PC->ClientReturnedToMenus();
 		PC->ShowMenu();
+#if !UE_SERVER
+		// start with tutorial menu if requested
+		FURL& LastURL = GEngine->GetWorldContextFromWorld(GetWorld())->LastURL;
+		if (LastURL.HasOption(TEXT("tutorialmenu")))
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+			if (LP != NULL)
+			{
+				LP->OpenTutorialMenu();
+			}
+			// make sure this doesn't get kept around
+			LastURL.RemoveOption(TEXT("tutorialmenu"));
+		}
+#endif
 	}
 }
 

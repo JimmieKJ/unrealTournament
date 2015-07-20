@@ -63,6 +63,15 @@ void SUWindowsMainMenu::SetInitialPanel()
 	}
 }
 
+FReply SUWindowsMainMenu::OnShowHomePanel()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+	return SUTMenuBase::OnShowHomePanel();
+}
+
 /****************************** [ Build Sub Menus ] *****************************************/
 
 void SUWindowsMainMenu::BuildLeftMenuBar()
@@ -497,13 +506,6 @@ void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dia
 	}
 }
 
-FReply SUWindowsMainMenu::OnTutorialClick()
-{
-	ConsoleCommand(TEXT("Open " + PlayerOwner->TutorialLaunchParams));
-	return FReply::Handled();
-}
-
-
 FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FString QuickMatchType)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
@@ -526,6 +528,12 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 		MenuButton->SetIsOpen(false);
 	}
 
+	OpenTutorialMenu();
+	return FReply::Handled();
+}
+
+void SUWindowsMainMenu::OpenTutorialMenu()
+{
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
 	{
@@ -535,7 +543,6 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 			TutorialMenu->AddToViewport(0);
 		}
 	}
-	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton)
