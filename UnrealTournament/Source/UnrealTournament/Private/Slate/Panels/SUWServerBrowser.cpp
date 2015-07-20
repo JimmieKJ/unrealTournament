@@ -65,6 +65,15 @@ struct FCompareServerByPingDesc
 	}
 };
 
+struct FCompareHub
+{
+	FORCEINLINE bool operator()	( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const 
+	{
+		return (A->TrustLevel < B->TrustLevel) || (B->Ping < 0 || (A->Ping >= 0 && A->Ping < B->Ping));	
+	}
+};
+
+
 
 struct FCompareRulesByRule		{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule > B->Rule);	}};
 struct FCompareRulesByRuleDesc	{FORCEINLINE bool operator()( const TSharedPtr< FServerRuleData > A, const TSharedPtr< FServerRuleData > B ) const {return ( A->Rule < B->Rule);	}};
@@ -919,7 +928,7 @@ void SUWServerBrowser::SortServers(FName ColumnName)
 
 void SUWServerBrowser::SortHUBs()
 {
-	FilteredHubsSource.Sort(FCompareServerByPing());
+	FilteredHubsSource.Sort(FCompareHub());
 	HUBServerList->RequestListRefresh();
 }
 
