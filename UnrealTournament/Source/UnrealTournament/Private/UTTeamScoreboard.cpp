@@ -221,6 +221,26 @@ AUTPlayerState* UUTTeamScoreboard::FindTopTeamKDFor(uint8 TeamNum)
 	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
 }
 
+AUTPlayerState* UUTTeamScoreboard::FindTopTeamScoreFor(uint8 TeamNum)
+{
+	TArray<AUTPlayerState*> MemberPS;
+	//Check all player states. Including InactivePRIs
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
+	{
+		AUTPlayerState* PS = (*It);
+		if (PS && (PS->GetTeamNum() == TeamNum))
+		{
+			MemberPS.Add(PS);
+		}
+	}
+
+	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
+	{
+		return A.Score > B.Score;
+	});
+	return ((MemberPS.Num() > 0) && (MemberPS[0]->Score > 0.f)) ? MemberPS[0] : NULL;
+}
+
 AUTPlayerState* UUTTeamScoreboard::FindTopTeamSPMFor(uint8 TeamNum)
 {
 	TArray<AUTPlayerState*> MemberPS;
@@ -315,30 +335,9 @@ void UUTTeamScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffse
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 
 	// find top scorer
-	AUTPlayerState* TopScorerRed = NULL;
-	AUTPlayerState* TopScorerBlue = NULL;
-
-	//Check all player states. Including InactivePRIs
-	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
-	{
-		AUTPlayerState* PS = (*It);
-		if (PS && PS->Team)
-		{
-			if (!TopScorerRed && (PS->Team->TeamIndex == 0))
-			{
-				TopScorerRed = PS;
-			}
-			else if (!TopScorerBlue && (PS->Team->TeamIndex == 1))
-			{
-				TopScorerBlue = PS;
-			}
-			if (TopScorerRed && TopScorerBlue)
-			{
-				break;
-			}
-		}
-	}
-
+	AUTPlayerState* TopScorerRed = FindTopTeamScoreFor(0);
+	AUTPlayerState* TopScorerBlue = FindTopTeamScoreFor(1);
+	
 	// find top kills && KD
 	AUTPlayerState* TopKillerRed = FindTopTeamKillerFor(0);
 	AUTPlayerState* TopKillerBlue = FindTopTeamKillerFor(1);
