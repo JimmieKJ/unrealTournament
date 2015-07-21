@@ -1546,7 +1546,7 @@ bool AUTCharacter::ServerFeignDeath_Validate()
 void AUTCharacter::ServerFeignDeath_Implementation()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (Role == ROLE_Authority && !IsDead() && (!GS || GS->IsMatchInProgress()) && CanFeignDeath())
+	if (Role == ROLE_Authority && !IsDead() && (!GS || GS->IsMatchInProgress()) && !BlockFeignDeath())
 	{
 		if (bFeigningDeath)
 		{
