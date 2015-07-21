@@ -479,28 +479,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 
 			if ((CharacterOwner->Role == ROLE_Authority) && !bOwnerIsRagdoll)
 			{
-				FVector StartMoveLoc = GetActorLocation();
 				PerformMovement(DeltaTime);
-				AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
-				if (PS)
-				{
-					float Dist = (GetActorLocation() - StartMoveLoc).Size();
-					FName MovementName = bIsSprinting ? NAME_SprintDist : NAME_RunDist;
-					if (MovementMode == MOVE_Falling)
-					{
-						AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
-						MovementName = (UTCharOwner && UTCharOwner->bApplyWallSlide) ? NAME_WallRunDist : NAME_InAirDist;
-					}
-					else if (MovementMode == MOVE_Swimming)
-					{
-						MovementName = NAME_SwimDist;
-					}
-					else if (bIsFloorSliding)
-					{
-						MovementName = NAME_SlideDist;
-					}
-					PS->ModifyStatsValue(MovementName, Dist);
-				}
 			}
 			else if (bIsClient)
 			{
@@ -939,7 +918,9 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		UE_LOG(UTNet, Warning, TEXT("SERVER Move at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsFloorSliding, bIsSprinting, bPressedSlide);
 		}
 		*/
+		FVector StartMoveLoc = GetActorLocation();
 		Super::PerformMovement(DeltaSeconds);
+		UpdateMovementStats(StartMoveLoc);
 		bWantsToCrouch = bSavedWantsToCrouch;
 		GroundFriction = RealGroundFriction;
 		BrakingDecelerationWalking = DefaultBrakingDecelerationWalking;
@@ -954,6 +935,33 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		if (UTOwner->WalkMovementReductionTime <= 0.0f)
 		{
 			UTOwner->WalkMovementReductionPct = 0.0f;
+		}
+	}
+}
+
+void UUTCharacterMovement::UpdateMovementStats(const FVector& StartLocation)
+{
+	if (CharacterOwner && CharacterOwner->Role == ROLE_Authority)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(CharacterOwner->PlayerState);
+		if (PS)
+		{
+			float Dist = (GetActorLocation() - StartLocation).Size();
+			FName MovementName = bIsSprinting ? NAME_SprintDist : NAME_RunDist;
+			if (MovementMode == MOVE_Falling)
+			{
+				AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+				MovementName = (UTCharOwner && UTCharOwner->bApplyWallSlide) ? NAME_WallRunDist : NAME_InAirDist;
+			}
+			else if (MovementMode == MOVE_Swimming)
+			{
+				MovementName = NAME_SwimDist;
+			}
+			else if (bIsFloorSliding)
+			{
+				MovementName = NAME_SlideDist;
+			}
+			PS->ModifyStatsValue(MovementName, Dist);
 		}
 	}
 }

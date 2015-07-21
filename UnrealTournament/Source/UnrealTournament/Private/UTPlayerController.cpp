@@ -3487,6 +3487,13 @@ void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* 
 				StatsName = GS->RewardStats[StatsIndex];
 			}
 		}
+		else if (StatsPage == 3)
+		{
+			if (StatsUpdateIndex < GS->MovementStats.Num())
+			{
+				StatsName = GS->MovementStats[StatsIndex];
+			}
+		}
 		ViewedPS->SetStatsValue(StatsName, NewValue);
 	}
 }

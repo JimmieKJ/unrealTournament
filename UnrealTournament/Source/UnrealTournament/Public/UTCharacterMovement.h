@@ -78,6 +78,9 @@ public:
 	virtual void PerformMovement(float DeltaSeconds) override;
 	virtual float ComputeAnalogInputModifier() const override;
 
+	/** Update traversal stats. */
+	virtual void UpdateMovementStats(const FVector& StartLocation);
+
 	/** Try to base on lift that just ran into me, return true if success */
 	virtual bool CanBaseOnLift(UPrimitiveComponent* LiftPrim, const FVector& LiftMoveDelta);
 
