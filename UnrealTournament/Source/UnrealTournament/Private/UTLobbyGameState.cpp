@@ -883,6 +883,7 @@ bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& 
 		NewMatchInfo->bDedicatedMatch = true;
 		NewMatchInfo->AccessKey = AccessKey;
 		NewMatchInfo->DedicatedServerName = ServerName;
+		NewMatchInfo->GameInstanceGUID = InstanceGUID.ToString();
 		return true;
 	}			
 
@@ -920,8 +921,18 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			// We have found a potential quick play match.  See if this player could be added to it.
 			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
 			{
-				// We can add the player to this match so do so.
-				Beacon->ClientJoinQuickplay(GameInstances[i].MatchInfo->GameInstanceGUID);
+				if (GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching)
+				{
+					// We have to defer until it's done launching.
+					Beacon->ClientWaitForQuickplay(0);
+					GameInstances[i].MatchInfo->NotifyBeacons.Add(Beacon);
+				}
+				else
+				{
+					// We can add the player to this match so do so.
+					Beacon->ClientJoinQuickplay(GameInstances[i].MatchInfo->GameInstanceGUID);
+				}
+
 				return;			
 			}
 		}
@@ -933,7 +944,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 	if (CanLaunch())
 	{
 		// Tell the client they will have to wait while we spool up a match
-		Beacon->ClientWaitForQuickplay();
+		Beacon->ClientWaitForQuickplay(1);
 		AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
 		if (NewMatchInfo)
 		{

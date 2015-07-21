@@ -85,7 +85,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	// If the hub has to spool up an instance for a quickplay match, this function will be called to let the client know a join is coming.  ClientJoinQuickplay below will
 	// be triggered when the instance is ready.
 	UFUNCTION(client, reliable)
-	virtual void ClientWaitForQuickplay();
+	virtual void ClientWaitForQuickplay(uint32 bNewInstance);
 
 	// This will be called when a hub is ready for a client to transition to an instance for quick play. 
 	UFUNCTION(client, reliable)

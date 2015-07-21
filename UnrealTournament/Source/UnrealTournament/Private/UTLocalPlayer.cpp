@@ -55,6 +55,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
 	DownloadStatusText = FText::GetEmpty();
+	QuickMatchLimitTime = -60.0;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -2000,6 +2001,12 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 	{
 		if (QuickMatchDialog.IsValid())
 		{
+			return;
+		}
+
+		if (GetWorld()->GetTimeSeconds() < QuickMatchLimitTime)
+		{
+			MessageBox(NSLOCTEXT("Generic","CantStartQuickMatchTitle","Please Wait"), NSLOCTEXT("Generic","CantStartQuickMatchText","You need to wait for at least 1 minute before you can attempt to quickmatch again."));
 			return;
 		}
 

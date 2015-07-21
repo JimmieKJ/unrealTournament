@@ -632,6 +632,7 @@ namespace EQuickMatchResults
 {
 	const FName CantJoin = FName(TEXT("CantJoin"));
 	const FName WaitingForStart = FName(TEXT("WaitingForStart"));
+	const FName WaitingForStartNew = FName(TEXT("WaitingForStartNew"));
 	const FName Join = FName(TEXT("Join"));
 }
 
