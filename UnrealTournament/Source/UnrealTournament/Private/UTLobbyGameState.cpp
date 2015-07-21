@@ -42,6 +42,20 @@ void AUTLobbyGameState::PostInitializeComponents()
 		TArray<FAssetData> MapAssets;
 		FindAllPlayableMaps(MapAssets);
 
+		TArray<FString> AllowedGameRulesets;
+
+		UUTEpicDefaultRulesets* DefaultRulesets = UUTEpicDefaultRulesets::StaticClass()->GetDefaultObject<UUTEpicDefaultRulesets>();
+		if (DefaultRulesets && DefaultRulesets->AllowedRulesets.Num() > 0)
+		{
+			AllowedGameRulesets.Append(DefaultRulesets->AllowedRulesets);
+		}
+
+		// If someone has screwed up the ini completely, just load all of the Epic defaults
+		if (AllowedGameRulesets.Num() <= 0)
+		{
+			UUTEpicDefaultRulesets::GetEpicRulesets(AllowedGameRulesets);
+		}
+
 		UE_LOG(UT,Verbose,TEXT("Loading Settings for %i Rules"), AllowedGameRulesets.Num())
 		for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
 		{

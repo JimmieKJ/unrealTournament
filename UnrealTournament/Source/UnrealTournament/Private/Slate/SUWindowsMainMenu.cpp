@@ -421,7 +421,18 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 		if (AvailableGameRulesets.Num() == 0)
 		{
 			TArray<FString> AllowedGameRulesets;
-			UUTEpicDefaultRulesets::GetEpicRulesets(AllowedGameRulesets);
+
+			UUTEpicDefaultRulesets* DefaultRulesets = UUTEpicDefaultRulesets::StaticClass()->GetDefaultObject<UUTEpicDefaultRulesets>();
+			if (DefaultRulesets && DefaultRulesets->AllowedRulesets.Num() > 0)
+			{
+				AllowedGameRulesets.Append(DefaultRulesets->AllowedRulesets);
+			}
+
+			// If someone has screwed up the ini completely, just load all of the Epic defaults
+			if (AllowedGameRulesets.Num() <= 0)
+			{
+				UUTEpicDefaultRulesets::GetEpicRulesets(AllowedGameRulesets);
+			}
 
 			// Grab all of the available map assets.
 			TArray<FAssetData> MapAssets;

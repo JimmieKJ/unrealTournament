@@ -180,10 +180,6 @@ protected:
 
 	AUTLobbyMatchInfo* FindMatchPlayerIsIn(FString PlayerID);
 
-	// A list of GameRulesets to create.  These are just names that will be applied to the objects.  Per-Object-Config does the rest.
-	UPROPERTY(Config)
-	TArray<FString> AllowedGameRulesets;
-
 	// We replicate the count seperately so that the client can check and test their array to see if replication has been completed.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
 	int32 AvailabelGameRulesetCount;

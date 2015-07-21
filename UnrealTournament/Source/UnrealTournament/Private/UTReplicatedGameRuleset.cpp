@@ -101,7 +101,7 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	// Now add the custom maps..
 	for (int32 i = 0; i < NewRules->CustomMapList.Num(); i++)
 	{
-		//if (MaxMapsInList > 0 && MapList.Num() >= MaxMapsInList) break;
+		if (MaxMapsInList > 0 && MapList.Num() >= MaxMapsInList) break;
 
 		// Look for the map in the asset registry...
 		for (const FAssetData& Asset : MapAssets)
@@ -164,12 +164,14 @@ AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 {
 	if (!GameMode.IsEmpty())
 	{
-		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *GameMode, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		FString LongGameModeClassname = AGameMode::StaticGetFullGameClassName(GameMode);
+		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *LongGameModeClassname, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 		if (GModeClass)
 		{
 			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();
 			return DefaultGameModeObject;
 		}
+	
 	}
 	else
 	{

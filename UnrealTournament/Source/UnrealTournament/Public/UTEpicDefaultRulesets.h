@@ -36,6 +36,10 @@ public:
 	UPROPERTY(Config)
 	TArray<FRuleCategoryData> RuleCategories;
 
+	// Holds the complete list of rules allowed in a Hub.  
+	UPROPERTY(Config)
+	TArray<FString> AllowedRulesets;
+
 	static void GetEpicRulesets(TArray<FString>& Rules)
 	{
 		Rules.Add(EEpicDefaultRuleTags::Deathmatch);
@@ -71,6 +75,8 @@ public:
 			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0");
 			NewRuleset->bTeamGame = false;
 
+			NewRuleset->MaxMapsInList=16;
+
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Vortex";
@@ -104,6 +110,8 @@ public:
 			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0");
 			NewRuleset->bTeamGame = false;
 
+			NewRuleset->MaxMapsInList=16;
+
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Vortex";
@@ -131,6 +139,8 @@ public:
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamDMGameMode");
 			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0");
 			NewRuleset->bTeamGame = true;
+
+			NewRuleset->MaxMapsInList=16;
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
@@ -164,6 +174,8 @@ public:
 			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0");
 			NewRuleset->bTeamGame = true;
 
+			NewRuleset->MaxMapsInList=16;
+
 			NewRuleset->EpicMaps =							"/Game/RestrictedAssets/Maps/WIP/DM-ASDF";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps +	",/Game/RestrictedAssets/Maps/WIP/DM-Solo";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Decktest";
@@ -185,6 +197,8 @@ public:
 			NewRuleset->GameOptions = TEXT("?Timelimit==2?GoalScore=50");
 			NewRuleset->bTeamGame = true;
 
+			NewRuleset->MaxMapsInList=16;
+
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/DM-ASDF";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Solo";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Decktest";
@@ -205,6 +219,8 @@ public:
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
 			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=1");
 			NewRuleset->bTeamGame = true;
+
+			NewRuleset->MaxMapsInList=16;
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/CTF-Outside";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
@@ -232,6 +248,8 @@ public:
 			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0");
 			NewRuleset->bTeamGame = true;
 
+			NewRuleset->MaxMapsInList=16;
+
 			NewRuleset->EpicMaps =							"/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps +	",/Game/RestrictedAssets/Maps/WIP/CTF-Dam";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps +	",/Game/RestrictedAssets/Maps/WIP/CTF-FaceTest";
@@ -254,6 +272,8 @@ public:
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
 			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0?Mutator=Instagib");
 			NewRuleset->bTeamGame = false;
+
+			NewRuleset->MaxMapsInList=16;
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
@@ -287,6 +307,8 @@ public:
 			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib");
 			NewRuleset->bTeamGame = true;
 
+			NewRuleset->MaxMapsInList=16;
+
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Vortex";
@@ -319,6 +341,8 @@ public:
 			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib");
 			NewRuleset->bTeamGame = true;
 
+			NewRuleset->MaxMapsInList=16;
+
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/CTF-Outside";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
@@ -344,6 +368,8 @@ public:
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
 			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib,AddTrans");
 			NewRuleset->bTeamGame = true;
+
+			NewRuleset->MaxMapsInList=16;
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/CTF-Outside";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
