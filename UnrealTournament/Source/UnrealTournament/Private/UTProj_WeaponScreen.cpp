@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTProj_WeaponScreen.h"
 #include "UTImpactEffect.h"
+#include "UTProj_TransDisk.h"
 
 AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -49,6 +50,7 @@ float AUTProj_WeaponScreen::TakeDamage(float DamageAmount, FDamageEvent const& D
 	}
 	return 0.f;
 }
+
 void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	AUTProjectile* OtherProj = Cast<AUTProjectile>(OtherActor);
@@ -57,7 +59,18 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		OtherProj->FFInstigatorController = InstigatorController;
 		OtherProj->FFDamageType = BlockedProjDamageType;
 		OtherProj->ImpactedActor = this;
-		OtherProj->Explode(OtherProj->GetActorLocation(), -HitNormal);
+		if (Cast<AUTProj_TransDisk>(OtherProj))
+		{
+			if (((AUTProj_TransDisk *)(OtherProj))->bCanShieldBounce)
+			{
+				((AUTProj_TransDisk *)(OtherProj))->bCanShieldBounce = false;
+				OtherProj->ProjectileMovement->Velocity = OtherProj->ProjectileMovement->Velocity - 2.f * (OtherProj->ProjectileMovement->Velocity | HitNormal) * HitNormal;
+			}
+		}
+		else
+		{
+			OtherProj->Explode(OtherProj->GetActorLocation(), -HitNormal);
+		}
 	}
 	else if (bCauseMomentumToPawns && Cast<APawn>(OtherActor) != NULL && OtherActor != Instigator && !HitPawns.Contains((APawn*)OtherActor))
 	{
