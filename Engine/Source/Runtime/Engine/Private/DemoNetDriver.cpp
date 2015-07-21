@@ -1250,10 +1250,11 @@ void UDemoNetDriver::JumpToEndOfLiveReplay()
 
 	const uint32 JoinTimeInMS = ReplayStreamer->GetTotalDemoTime() - BufferInMS;
 
+	OldDemoCurrentTime	= DemoCurrentTime;		// So we can restore on failure
+	DemoCurrentTime		= ( float )( JoinTimeInMS ) / 1000.0f;
+
 	ReplayStreamer->GotoTimeInMS( JoinTimeInMS, FOnCheckpointReadyDelegate::CreateUObject( this, &UDemoNetDriver::CheckpointReady ) );
 
-	OldDemoCurrentTime	= DemoCurrentTime;		// So we can restore on failure
-	DemoCurrentTime		= (float)( JoinTimeInMS ) / 1000.0f;
 	InitialLiveDemoTime = 0;
 }
 
@@ -1323,9 +1324,11 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 		// Process any queued scrub time
 		if ( QueuedGotoTimeInSeconds >= 0.0f )
 		{
+			OldDemoCurrentTime		= DemoCurrentTime;			// So we can restore on failure
+			DemoCurrentTime			= QueuedGotoTimeInSeconds;
+
 			ReplayStreamer->GotoTimeInMS( QueuedGotoTimeInSeconds * 1000, FOnCheckpointReadyDelegate::CreateUObject( this, &UDemoNetDriver::CheckpointReady ) );
-			OldDemoCurrentTime = DemoCurrentTime;		// So we can restore on failure
-			DemoCurrentTime = QueuedGotoTimeInSeconds;
+
 			QueuedGotoTimeInSeconds = -1.0f;
 		}
 	}
