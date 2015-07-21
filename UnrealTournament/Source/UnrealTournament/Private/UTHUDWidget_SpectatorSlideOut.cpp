@@ -19,8 +19,8 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 
 	FlagX = 0.09;
 	ColumnHeaderPlayerX = 0.18f;
-	ColumnHeaderScoreX = 0.7f;
-	ColumnHeaderArmor = 0.89f;
+	ColumnHeaderScoreX = 0.8f;
+	ColumnHeaderArmor = 0.95f;
 	ColumnY = 0.11f * Size.Y;
 
 	CellHeight = 32;
@@ -170,10 +170,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		float DrawOffset = 0.27f * Canvas->ClipY;
 		SlideOutFont = UTHUDOwner->SmallFont;
 
-		if (UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
-		{
-			DrawCamBind(NAME_None, "Press number to view player", DeltaTime, XOffset, DrawOffset, false);
-		}
+		DrawPlayerHeader(DeltaTime, XOffset, DrawOffset);
 		DrawOffset += CellHeight;
 
 		TArray<AUTPlayerState*> RedPlayerList, BluePlayerList;
@@ -525,6 +522,23 @@ void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, f
 	}
 }
 
+void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float XOffset, float YOffset)
+{
+	FLinearColor DrawColor = FLinearColor::White;
+	float BarOpacity = 0.3f;
+	float Width = Size.X;
+
+	// Draw the background border.
+	FLinearColor BarColor = FLinearColor::White;
+	float FinalBarOpacity = BarOpacity;
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+
+	// Draw the Text
+	DrawText(FText::FromString("Press number to view player"), XOffset + (Width * 0.01f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawTexture(HealthIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White);
+	DrawTexture(ArmorIcon.Texture, XOffset + (Width * (ColumnHeaderArmor - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White);
+}
+
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
 {
 	if (PlayerState == NULL) return;
@@ -585,31 +599,31 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	{
 		if (Character)
 		{
-			if (PlayerState->CarriedObject)
-			{
-				FLinearColor FlagColor = PlayerState->CarriedObject->Team ? PlayerState->CarriedObject->Team->TeamColor : FLinearColor::White;
-				DrawTexture(FlagIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.1f)), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
-			}
+			float FlagOffset = -0.05f;
 			if (Character->GetWeaponOverlayFlags() != 0)
 			{
 				// @TODO FIXMESTEVE - support actual overlays for different powerups - save related class when setting up overlays in GameState, so have easy mapping. 
 				// For now just assume UDamage
 				DrawTexture(UDamageHUDIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.05f*Width, 0.1f*Width, 0.1f*Width, UDamageHUDIcon.U, UDamageHUDIcon.V, UDamageHUDIcon.UL, UDamageHUDIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
+				FlagOffset = -0.15f;
+			}
+			if (PlayerState->CarriedObject)
+			{
+				FLinearColor FlagColor = PlayerState->CarriedObject->Team ? PlayerState->CarriedObject->Team->TeamColor : FLinearColor::White;
+				DrawTexture(FlagIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX + FlagOffset)), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
 			}
 
-			DrawTexture(HealthIcon.Texture, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY - 0.015f*Width, 0.07f*Width, 0.07f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 			FFormatNamedArguments Args;
 			Args.Add("Health", FText::AsNumber(Character->Health));
 			DrawColor = FLinearColor(0.5f, 1.f, 0.5f);
-			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * (ColumnHeaderScoreX + 0.06f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
 			if (Character->ArmorAmount > 0)
 			{
-				DrawTexture(ArmorIcon.Texture, XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY - 0.015f*Width, 0.065f*Width, 0.065f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 				FFormatNamedArguments ArmorArgs;
 				ArmorArgs.Add("Armor", FText::AsNumber(Character->ArmorAmount));
 				DrawColor = FLinearColor(1.f, 1.f, 0.5f);
-				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * (ColumnHeaderArmor + 0.062f)), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 			}
 			if (Character->GetWeaponClass())
 			{
@@ -624,7 +638,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 		else
 		{
 			// skull
-			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderScoreX), YOffset, 0.075f*Width, 0.075f*Width, 725, 0, 28, 36, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
+			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + Width * ColumnHeaderScoreX - 0.0375*Width, YOffset, 0.075f*Width, 0.075f*Width, 725, 0, 28, 36, 1.0, FLinearColor::White);
 		}
 	}
 }
