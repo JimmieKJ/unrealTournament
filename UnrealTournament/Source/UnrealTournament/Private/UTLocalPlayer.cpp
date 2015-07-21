@@ -1958,7 +1958,7 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 	PendingFriendInviteSessionId = FString();
 }
 
-uint32 UUTLocalPlayer::GetCountryFlag()
+FName UUTLocalPlayer::GetCountryFlag()
 {
 	if (CurrentProfileSettings)
 	{
@@ -1972,10 +1972,10 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 			return PS->CountryFlag;
 		}
 	}
-	return 0;
+	return NAME_None;
 }
 
-void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
+void UUTLocalPlayer::SetCountryFlag(FName NewFlag, bool bSave)
 {
 	if (CurrentProfileSettings)
 	{

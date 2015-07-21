@@ -6,6 +6,8 @@
 #include "Slate/SlateGameResources.h"
 #include "FriendsAndChatStyle.h"
 #include "SUWindowsStyle.h"
+#include "UTGameEngine.h"
+#include "UTFlagInfo.h"
 
 #if !UE_SERVER
 TSharedPtr<FSlateStyleSet> SUWindowsStyle::UWindowsStyleInstance = NULL;
@@ -596,6 +598,18 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	
 		//Style.Set("UWindows.Desktop.Background", new IMAGE_BRUSH("UWindows.Desktop.Background", FVector2D(512, 512), FLinearColor(1, 1, 1, 1), ESlateBrushTileType::Both));
 		//Style.Set("UWindows.Desktop.Background.Logo", new IMAGE_BRUSH("UWindows.Desktop.Background.Logo", FVector2D(3980,1698), FLinearColor(1, 1, 1, 1), ESlateBrushTileType::NoTile));
+	}
+
+	{//Load the flags
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine != nullptr)
+		{
+			for (auto FlagPair : UTEngine->FlagList)
+			{
+				UUTFlagInfo* Flag = FlagPair.Value;
+				Style.Set(Flag->GetSlatePropertyName(), new IMAGE_BRUSH(*Flag->GetSlateFilePath(), FVector2D(Flag->UV.UL, Flag->UV.VL)));
+			}
+		}
 	}
 
 	SetMidGameMenuRedStyle(StyleRef);

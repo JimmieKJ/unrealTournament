@@ -163,5 +163,15 @@ public:
 private:
 	FGuid UniqueAnalyticSessionGuid;
 
+
+
+public:
+
+	UPROPERTY()
+	TMap<FName, class UUTFlagInfo*> FlagList;
+
+	class UUTFlagInfo* GetFlag(FName FlagName);
+
+	virtual void InitializeObjectReferences() override;
 };
 

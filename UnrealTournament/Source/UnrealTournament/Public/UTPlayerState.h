@@ -359,7 +359,7 @@ public:
 	virtual void ServerNextChatDestination();
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
-	int32 CountryFlag;
+	FName CountryFlag;
 
 	virtual void SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId) override;
 	/** read profile items for this user from the backend */

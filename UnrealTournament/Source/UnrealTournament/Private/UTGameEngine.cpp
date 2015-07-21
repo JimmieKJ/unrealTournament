@@ -11,6 +11,7 @@
 #include "Runtime/Launch/Resources/Version.h"
 #include "Net/UnrealNetwork.h"
 #include "UTConsole.h"
+#include "UTFlagInfo.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -854,4 +855,39 @@ UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
 		}
 	}
 	return Summary;
+}
+
+void UUTGameEngine::InitializeObjectReferences()
+{
+	Super::InitializeObjectReferences();
+
+	//Load all the flags from the config
+	TArray<FString> FlagClassNames;
+	GConfig->GetPerObjectConfigSections(GetConfigFilename(UUTFlagInfo::StaticClass()->GetDefaultObject()), TEXT("UTFlagInfo"), FlagClassNames);
+
+	for (FString& Class : FlagClassNames)
+	{
+		UUTFlagInfo* NewFlag = NewObject<UUTFlagInfo>(this, FName(*Class.Replace(TEXT(" UTFlagInfo"), TEXT(""))));
+		if (NewFlag != nullptr)
+		{
+			FlagList.Add(NewFlag->GetFName(), NewFlag);
+		}
+	}
+}
+
+UUTFlagInfo* UUTGameEngine::GetFlag(FName FlagName)
+{
+	static const FName DefaultFlag(TEXT("Unreal"));
+	if (FlagName == NAME_None)
+	{
+		FlagName = DefaultFlag;
+	}
+	UUTFlagInfo** Flag = FlagList.Find(FlagName);
+
+	if (Flag != nullptr)
+	{
+		return *Flag;
+	}
+	UE_LOG(UT, Warning, TEXT("UUTGameEngine::GetFlag() Couldn't find flag for '%s'"), *FlagName.ToString());
+	return nullptr;
 }

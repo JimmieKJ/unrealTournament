@@ -101,7 +101,7 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	FString CharacterPath;
 
 	UPROPERTY()
-	uint32 CountryFlag;
+	FName CountryFlag;
 
 	bool bNeedProfileWriteOnLevelChange;
 

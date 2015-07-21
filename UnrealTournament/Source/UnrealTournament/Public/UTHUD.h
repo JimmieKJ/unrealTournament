@@ -319,14 +319,9 @@ public:
 private:
 	UTexture2D* DamageIndicatorTexture;
 
-protected:
-	TArray<UTexture2D*> FlagTextures;
-
 public:
-	UPROPERTY(Config)
-	TArray<FFlagInfo> FlagList;
 
-	UTexture2D* ResolveFlag(int32 FlagID, int32& X, int32& Y);
+	UTexture2D* ResolveFlag(FName Flag, FTextureUVs& UV);
 
 	/**Returns the necessary input mode for the hud this tick*/
 	UFUNCTION(BlueprintNativeEvent)

@@ -17,6 +17,8 @@
 #include "Json.h"
 #include "DisplayDebugHelpers.h"
 #include "UTRemoteRedeemer.h"
+#include "UTGameEngine.h"
+#include "UTFlagInfo.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -65,10 +67,6 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
-
-	// Store off any flag pages....
-	static ConstructorHelpers::FObjectFinder<UTexture2D> FlagTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/CountryFlags.CountryFlags'"));
-	FlagTextures.Add(FlagTex.Object);
 
 	KillMsgStyle = EHudKillMsgStyle::KMS_Icon;
 	bDrawPopupKillMsg = true;
@@ -755,13 +753,19 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 	return FText::GetEmpty();
 }
 
-UTexture2D* AUTHUD::ResolveFlag(int32 FlagID, int32& X, int32& Y)
+UTexture2D* AUTHUD::ResolveFlag(FName Flag, FTextureUVs& UV)
 {
-	int32 Page = 0;
-	X = (FlagID % 28) * 36;
-	Y = (FlagID / 28) * 26;
-
-	return Page < FlagTextures.Num() ? FlagTextures[Page] : NULL;
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine != nullptr)
+	{
+		UUTFlagInfo* FlagInfo = UTEngine->GetFlag(Flag);
+		if (FlagInfo != nullptr)
+		{
+			UV = FlagInfo->UV;
+			return FlagInfo->GetTexture();
+		}
+	}
+	return nullptr;
 }
 
 EInputMode::Type AUTHUD::GetInputMode_Implementation() 
