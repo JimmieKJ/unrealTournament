@@ -15,9 +15,25 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 
     LinkGun->PlayFiringEffects();
 
-	if (LinkGun != NULL && LinkGun->GetLinkTarget() == NULL)
+	if (LinkGun != NULL)
     {
-        LinkGun->ConsumeAmmo(LinkGun->GetCurrentFireMode());
+		if (LinkGun->GetLinkTarget() == NULL)
+		{
+			LinkGun->ConsumeAmmo(LinkGun->GetCurrentFireMode());
+		}
+
+		//Special case for hidden weapons since we really need the MuzzleFlash to play for the link beam
+		if (LinkGun->ShouldPlay1PVisuals() && LinkGun->GetWeaponHand() == HAND_Hidden)
+		{
+			if (LinkGun->MuzzleFlash.IsValidIndex(LinkGun->GetCurrentFireMode()) && LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()] != NULL && LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()]->Template != NULL)
+			{
+				// if we detect a looping particle system, then don't reactivate it
+				if (!LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()]->bIsActive || LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()]->bSuppressSpawning || !IsLoopingParticleSystem(LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()]->Template))
+				{
+					LinkGun->MuzzleFlash[LinkGun->GetCurrentFireMode()]->ActivateSystem();
+				}
+			}
+		}
     }
     
 	if (GetUTOwner() != NULL)

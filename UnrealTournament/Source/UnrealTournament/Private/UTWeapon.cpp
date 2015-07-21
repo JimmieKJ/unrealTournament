@@ -727,7 +727,7 @@ void AUTWeapon::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
 		}
 
-		if (ShouldPlay1PVisuals())
+		if (ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
 			// try and play a firing animation if specified
