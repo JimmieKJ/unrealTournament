@@ -611,7 +611,6 @@ bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode,
 void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame)
 {
 	// We need to build a one off custom replicated ruleset just for this hub.  :)
-
 	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 
 	FActorSpawnParameters Params;
@@ -619,9 +618,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 	AUTReplicatedGameRuleset* NewReplicatedRuleset = GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
 	if (NewReplicatedRuleset)
 	{
-
 		// Look up the game mode in the AllowedGameData array and get the text description.
-
 		NewReplicatedRuleset->Title = TEXT("Custom Rule");
 		NewReplicatedRuleset->Tooltip = TEXT("");
 		NewReplicatedRuleset->Description = Description;
@@ -645,7 +642,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo = GetMapInformation(StartingMap);
 		if (MapInfo.IsValid())
 		{
-			OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
+			OptimalPlayerCount = (NewReplicatedRuleset->GetDefaultGameModeObject() && NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame) ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
 		}
 
 		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount > 0 ? DesiredPlayerCount : OptimalPlayerCount;
@@ -654,8 +651,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), NewReplicatedRuleset->MaxPlayers, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
 		}
 		NewReplicatedRuleset->GameOptions = FinalGameOptions;
-
-
 		NewReplicatedRuleset->MinPlayersToStart = 2;
 		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
 		NewReplicatedRuleset->bCustomRuleset = true;
@@ -674,14 +669,9 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		else
 		{
 			MatchBadge = FString::Printf(TEXT("Setting up a custom match on %s."), *InitialMapInfo->Title);
-			
 		}
-
-
 		MatchBadge = TEXT("Setting up a custom match.");
-
 	}
-
 }
 
 bool AUTLobbyMatchInfo::IsBanned(FUniqueNetIdRepl Who)

@@ -48,11 +48,19 @@ class UNREALTOURNAMENT_API UUTGameViewportClient : public UGameViewportClient
 	virtual void PeekTravelFailureMessages(UWorld* World, enum ETravelFailure::Type FailureType, const FString& ErrorString) override;
 	virtual void PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, enum ENetworkFailure::Type FailureType, const FString& ErrorString) override;
 
+	virtual void Draw(FViewport* InViewport, FCanvas* SceneCanvas) override;
 	virtual void FinalizeViews(FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap) override;
 	virtual void UpdateActiveSplitscreenType() override;
 	virtual void PostRender(UCanvas* Canvas) override;
 
 	virtual void Tick(float DeltaSeconds) override;
+
+	/** panini project the given location using the player's view
+	 * PaniniParamsMat will be used to grab parameters for the projection if available, otherwise reasonable default values are used
+	 */
+	FVector PaniniProjectLocation(const FSceneView* SceneView, const FVector& WorldLoc, UMaterialInterface* PaniniParamsMat = NULL) const;
+	/** calls PaniniProjectLocation() with a SceneView representing the player's view (slower, don't use if SceneView is already available) */
+	FVector PaniniProjectLocationForPlayer(ULocalPlayer* Player, const FVector& WorldLoc, UMaterialInterface* PaniniParamsMat = NULL) const;
 
 protected:
 

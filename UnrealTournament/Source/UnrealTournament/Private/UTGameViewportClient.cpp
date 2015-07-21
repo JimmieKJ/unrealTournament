@@ -385,6 +385,113 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 #endif
 }
 
+static FVector2D PaniniProjection(FVector2D OM, float d, float s)
+{
+	float PaniniDirectionXZInvLength = 1.0f / FMath::Sqrt(1.0f + OM.X * OM.X);
+	float SinPhi = OM.X * PaniniDirectionXZInvLength;
+	float TanTheta = OM.Y * PaniniDirectionXZInvLength;
+	float CosPhi = FMath::Sqrt(1.0f - SinPhi * SinPhi);
+	float S = (d + 1.0f) / (d + CosPhi);
+
+	return S * FVector2D(SinPhi, FMath::Lerp(TanTheta, TanTheta / CosPhi, s));
+}
+
+static FName NAME_d(TEXT("d"));
+static FName NAME_s(TEXT("s"));
+static FName NAME_FOVMulti(TEXT("FOV Multi"));
+static FName NAME_Scale(TEXT("Scale"));
+FVector UUTGameViewportClient::PaniniProjectLocation(const FSceneView* SceneView, const FVector& WorldLoc, UMaterialInterface* PaniniParamsMat) const
+{
+	float d = 1.0f;
+	float s = 0.0f;
+	float FOVMulti = 0.5f;
+	float Scale = 1.0f;
+	if (PaniniParamsMat != NULL)
+	{
+		PaniniParamsMat->GetScalarParameterValue(NAME_d, d);
+		PaniniParamsMat->GetScalarParameterValue(NAME_s, s);
+		PaniniParamsMat->GetScalarParameterValue(NAME_FOVMulti, FOVMulti);
+		PaniniParamsMat->GetScalarParameterValue(NAME_Scale, Scale);
+	}
+
+	FVector ViewSpaceLoc = SceneView->ViewMatrices.ViewMatrix.TransformPosition(WorldLoc);
+	FVector2D PaniniResult = PaniniProjection(FVector2D(ViewSpaceLoc.X / ViewSpaceLoc.Z, ViewSpaceLoc.Y / ViewSpaceLoc.Z), d, s);
+
+	FMatrix ClipToView = SceneView->ViewMatrices.GetInvProjMatrix();
+	float ScreenSpaceScaleFactor = (ClipToView.M[0][0] / PaniniProjection(FVector2D(ClipToView.M[0][0], ClipToView.M[1][1]), d, 0.0f).X) * Scale;
+	float FOVModifier = ((ClipToView.M[0][0] - 1.0f) * FOVMulti + 1.0f) * ScreenSpaceScaleFactor;
+
+	PaniniResult *= (ViewSpaceLoc.Z * FOVModifier);
+
+	return SceneView->ViewMatrices.GetInvViewMatrix().TransformPosition(FVector(PaniniResult.X, PaniniResult.Y, ViewSpaceLoc.Z));
+}
+
+FVector UUTGameViewportClient::PaniniProjectLocationForPlayer(ULocalPlayer* Player, const FVector& WorldLoc, UMaterialInterface* PaniniParamsMat) const
+{
+	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(Viewport, GetWorld()->Scene, EngineShowFlags).SetRealtimeUpdate(true));
+
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	FSceneView* SceneView = Player->CalcSceneView(&ViewFamily, ViewLocation, ViewRotation, Viewport);
+	return (SceneView != NULL) ? PaniniProjectLocation(SceneView, WorldLoc, PaniniParamsMat) : WorldLoc;
+}
+
+void UUTGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
+{
+	// apply panini projection to first person weapon
+
+	struct FSavedTransform
+	{
+		USceneComponent* Component;
+		FTransform Transform;
+		FSavedTransform(USceneComponent* InComp, const FTransform& InTransform)
+			: Component(InComp), Transform(InTransform)
+		{}
+	};
+	TArray<FSavedTransform> SavedTransforms;
+
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+		if (UTPC != NULL && !UTPC->IsBehindView())
+		{
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->PlayerController->GetViewTarget());
+			if (UTC != NULL && UTC->GetWeapon() != NULL && UTC->GetWeapon()->GetMesh() != NULL)
+			{
+				FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(Viewport, GetWorld()->Scene, EngineShowFlags).SetRealtimeUpdate(true));
+
+				FVector ViewLocation;
+				FRotator ViewRotation;
+				FSceneView* SceneView = It->CalcSceneView(&ViewFamily, ViewLocation, ViewRotation, Viewport);
+				if (SceneView != NULL)
+				{
+					TArray<UMeshComponent*> WeaponMeshes = UTC->GetWeapon()->Get1PMeshes();
+					for (USceneComponent* Attachment : UTC->GetWeapon()->GetMesh()->AttachChildren)
+					{
+						// any additional weapon meshes are assumed to be projected in the shader if desired
+						if (!WeaponMeshes.Contains(Attachment) && !SavedTransforms.ContainsByPredicate([Attachment](const FSavedTransform& TestItem) { return TestItem.Component == Attachment; }))
+						{
+							FVector AdjustedLoc = PaniniProjectLocation(SceneView, Attachment->GetComponentLocation(), UTC->GetWeapon()->GetMesh()->GetMaterial(0));
+
+							new(SavedTransforms) FSavedTransform(Attachment, Attachment->GetComponentTransform());
+							Attachment->SetWorldLocation(AdjustedLoc);
+							Attachment->DoDeferredRenderUpdates_Concurrent();
+						}
+					}
+				}
+			}
+		}
+	}
+
+	Super::Draw(InViewport, SceneCanvas);
+
+	// revert components to their normal location
+	for (const FSavedTransform& RestoreItem : SavedTransforms)
+	{
+		RestoreItem.Component->SetWorldTransform(RestoreItem.Transform);
+	}
+}
+
 void UUTGameViewportClient::FinalizeViews(FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap)
 {
 	Super::FinalizeViews(ViewFamily, PlayerViewMap);

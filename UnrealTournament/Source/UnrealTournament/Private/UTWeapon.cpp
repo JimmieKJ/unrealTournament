@@ -19,6 +19,7 @@
 #include "UTWorldSettings.h"
 #include "UTPlayerCameraManager.h"
 #include "UTHUD.h"
+#include "UTGameViewportClient.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -794,8 +795,25 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 		FireEffectCount++;
 		if (FireEffect.IsValidIndex(FireMode) && (FireEffect[FireMode] != NULL) && (FireEffectCount >= FireEffectInterval))
 		{
+			FVector AdjustedSpawnLocation = SpawnLocation;
+			// panini project the location, if necessary
+			if (Mesh != NULL)
+			{
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+				{
+					if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == UTOwner)
+					{
+						UUTGameViewportClient* UTViewport = Cast<UUTGameViewportClient>(It->ViewportClient);
+						if (UTViewport != NULL)
+						{
+							AdjustedSpawnLocation = UTViewport->PaniniProjectLocationForPlayer(*It, SpawnLocation, Mesh->GetMaterial(0));
+							break;
+						}
+					}
+				}
+			}
 			FireEffectCount = 0;
-			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], SpawnLocation, SpawnRotation, true);
+			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], AdjustedSpawnLocation, SpawnRotation, true);
 			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
 			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));
 			ModifyFireEffect(PSC);
@@ -1728,7 +1746,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 	AUTGameState* GS = WeaponActor ? WeaponActor->GetWorld()->GetGameState<AUTGameState>() : NULL;
 	if (GS != NULL && InOwner != NULL && InMesh != NULL)
 	{
-		UMaterialInterface* TopOverlay = GS->GetFirstOverlay(InOwner->GetWeaponOverlayFlags());
+		UMaterialInterface* TopOverlay = GS->GetFirstOverlay(InOwner->GetWeaponOverlayFlags(), Cast<AUTWeapon>(WeaponActor) != NULL);
 		if (TopOverlay != NULL)
 		{
 			if (InOverlayMesh == NULL)

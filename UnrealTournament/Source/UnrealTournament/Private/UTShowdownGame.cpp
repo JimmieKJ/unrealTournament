@@ -253,7 +253,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	UTGameState->RemainingMinute = 0;
 	UTGameState->RemainingTime = 0;
 	// reset timer for consistency
-	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation(), true);
+	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 
 	// reset pickups in advance so they show up on the spawn previews
 	for (FActorIterator It(GetWorld()); It; ++It)

@@ -137,15 +137,22 @@ public class ICU : ModuleRules
                     }
                     break;
                 case EICULinkType.Dynamic:
-                    foreach (string Stem in LibraryNameStems)
+                    if (Target.Platform == UnrealTargetPlatform.Linux)
                     {
-                        if (Target.Platform == UnrealTargetPlatform.Linux)
+                        string PathToBinary = String.Format("$(EngineDir)/Binaries/ThirdParty/ICU/{0}/{1}/{2}/", ICUVersion, Target.Platform.ToString(), 
+                            Target.Architecture);
+                            
+                        foreach (string Stem in LibraryNameStems)
                         {
                             string LibraryName = "icu" + Stem + LibraryNamePostfix;
                             string LibraryPath = UEBuildConfiguration.UEThirdPartyBinariesDirectory + "ICU/icu4c-53_1/Linux/" + Target.Architecture + "/";
 
                             PublicLibraryPaths.Add(LibraryPath);
                             PublicAdditionalLibraries.Add(LibraryName);
+                            
+                            // add runtime dependencies (for staging)
+                            RuntimeDependencies.Add(new RuntimeDependency(PathToBinary + "lib" + LibraryName + ".so"));
+                            RuntimeDependencies.Add(new RuntimeDependency(PathToBinary + "lib" + LibraryName + ".so.53"));  // version-dependent
                         }
                     }
                     break;

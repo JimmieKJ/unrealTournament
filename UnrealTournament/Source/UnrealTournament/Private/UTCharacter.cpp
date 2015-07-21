@@ -3141,7 +3141,7 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 				OverlayMesh->SetRenderCustomDepth(true);
 			}
-			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags);
+			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
 			// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
 			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
 			// apply team color, if applicable

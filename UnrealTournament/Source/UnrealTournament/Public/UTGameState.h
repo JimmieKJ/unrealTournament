@@ -197,7 +197,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	/** add an overlay to the OverlayMaterials list */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
-	virtual void AddOverlayMaterial(UMaterialInterface* NewOverlay);
+	virtual void AddOverlayMaterial(UMaterialInterface* NewOverlay, UMaterialInterface* NewOverlay1P = NULL);
 	/** find an overlay in the OverlayMaterials list, return its index */
 	int32 FindOverlayMaterial(UMaterialInterface* TestOverlay)
 	{
@@ -211,12 +211,19 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 		return INDEX_NONE;
 	}
 	/** get overlay material from index */
-	UMaterialInterface* GetOverlayMaterial(int32 Index)
+	UMaterialInterface* GetOverlayMaterial(int32 Index, bool bFirstPerson)
 	{
-		return (Index >= 0 && Index < ARRAY_COUNT(OverlayMaterials)) ? OverlayMaterials[Index] : NULL;
+		if (Index >= 0 && Index < ARRAY_COUNT(OverlayMaterials))
+		{
+			return (bFirstPerson && OverlayMaterials1P[Index] != NULL) ? OverlayMaterials1P[Index] : OverlayMaterials[Index];
+		}
+		else
+		{
+			return NULL;
+		}
 	}
 	/** returns first active overlay material given the passed in flags */
-	UMaterialInterface* GetFirstOverlay(uint16 Flags)
+	UMaterialInterface* GetFirstOverlay(uint16 Flags, bool bFirstPerson)
 	{
 		// early out
 		if (Flags == 0)
@@ -229,7 +236,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 			{
 				if (Flags & (1 << i))
 				{
-					return OverlayMaterials[i];
+					return (bFirstPerson && OverlayMaterials1P[i] != NULL) ? OverlayMaterials1P[i] : OverlayMaterials[i];
 				}
 			}
 			return NULL;
@@ -269,11 +276,14 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 		FName SecondaryAttackerStat;
 
 protected:
+	static const uint8 MAX_OVERLAY_MATERIALS = 16;
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()
 	 */
 	UPROPERTY(Replicated)
-	UMaterialInterface* OverlayMaterials[16];
+	UMaterialInterface* OverlayMaterials[MAX_OVERLAY_MATERIALS];
+	UPROPERTY(Replicated)
+	UMaterialInterface* OverlayMaterials1P[MAX_OVERLAY_MATERIALS];
 
 	virtual void HandleMatchHasEnded() override
 	{

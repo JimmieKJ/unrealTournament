@@ -56,7 +56,6 @@ int32 AUTReplicatedGameRuleset::AddMapAssetToMapList(const FAssetData& Asset)
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets)
 {
-
 	UniqueTag			= NewRules->UniqueTag;
 	Categories			= NewRules->Categories;
 	Title				= NewRules->Title;
@@ -65,13 +64,11 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	MinPlayersToStart	= NewRules->MinPlayersToStart;
 	MaxPlayers			= NewRules->MaxPlayers;
 	bTeamGame			= NewRules->bTeamGame;
-
-
+	DefaultMap			= NewRules->DefaultMap;
 
 	MaxMapsInList = NewRules->MaxMapsInList;
 
 	// First add the Epic maps.
-
 	if (!NewRules->EpicMaps.IsEmpty())
 	{
 		TArray<FString> EpicMapList;
@@ -103,13 +100,11 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	}
 
 	// Now add the custom maps..
-
 	for (int32 i = 0; i < NewRules->CustomMapList.Num(); i++)
 	{
-		//if (MaxMapsInList > 0 && MapList.Num() >= MaxMapsInList) break;
+		if (MaxMapsInList > 0 && MapList.Num() >= MaxMapsInList) break;
 
 		// Look for the map in the asset registry...
-
 		for (const FAssetData& Asset : MapAssets)
 		{
 			FString AssetPackageName = Asset.PackageName.ToString();
@@ -124,11 +119,9 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	}
 
 	RequiredPackages = NewRules->RequiredPackages;
-
 	DisplayTexture = NewRules->DisplayTexture;
 	GameMode = NewRules->GameMode;
 	GameOptions = NewRules->GameOptions;
-
 	BuildSlateBadge();
 
 }
@@ -172,12 +165,18 @@ AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 {
 	if (!GameMode.IsEmpty())
 	{
-		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *GameMode, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+		FString LongGameModeClassname = AGameMode::StaticGetFullGameClassName(GameMode);
+		UClass* GModeClass = LoadClass<AUTGameMode>(NULL, *LongGameModeClassname, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
 		if (GModeClass)
 		{
 			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();
 			return DefaultGameModeObject;
 		}
+	
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s Empty GameModeClass for Ruleset %s"), *GetName(), *Title);
 	}
 
 	return NULL;

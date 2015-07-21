@@ -647,5 +647,5 @@ namespace EEpicDefaultRuleTags
 	const FString iDM = TEXT("iDM");
 	const FString iTDM = TEXT("iTDM");
 	const FString iCTF = TEXT("iCTF");
-	const FString iCTFT = TEXT("iCTFT");
+	const FString iCTFT = TEXT("iCTF+T");
 }

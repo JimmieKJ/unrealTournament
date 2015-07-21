@@ -29,6 +29,8 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 	/** overlay material added to the player's weapon while this powerup is in effect */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	UMaterialInterface* OverlayMaterial1P;
 
 	UPROPERTY(BlueprintReadOnly, Category = Powerup)
 	class AUTDroppedPickup* MyPickup;
@@ -44,7 +46,7 @@ class UNREALTOURNAMENT_API AUTTimedPowerup : public AUTInventory
 
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{
-		GS->AddOverlayMaterial(OverlayMaterial);
+		GS->AddOverlayMaterial(OverlayMaterial, OverlayMaterial1P);
 	}
 
 	UFUNCTION(Reliable, Client)

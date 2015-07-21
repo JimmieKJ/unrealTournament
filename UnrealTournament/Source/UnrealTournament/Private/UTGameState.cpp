@@ -182,7 +182,7 @@ void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTra
 	Super::PreReplication(ChangedPropertyTracker);
 }
 
-void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay)
+void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay, UMaterialInterface* NewOverlay1P)
 {
 	if (NewOverlay != NULL && Role == ROLE_Authority)
 	{
@@ -194,11 +194,13 @@ void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay)
 		{
 			if (OverlayMaterials[i] == NewOverlay)
 			{
+				OverlayMaterials1P[i] = NewOverlay1P;
 				return;
 			}
 			else if (OverlayMaterials[i] == NULL)
 			{
 				OverlayMaterials[i] = NewOverlay;
+				OverlayMaterials1P[i] = NewOverlay1P;
 				return;
 			}
 		}

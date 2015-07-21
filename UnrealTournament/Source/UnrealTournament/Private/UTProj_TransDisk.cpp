@@ -21,6 +21,7 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	MaxSpeedUnderWater = 1300.f;
 	DisruptDestroyTime = 11.f;
 	RemainingHealth = 35;
+	bCanShieldBounce = true;
 }
 
 void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
@@ -226,16 +227,6 @@ void AUTProj_TransDisk::Recall()
 	else
 	{
 		ShutDown();
-	}
-}
-
-void AUTProj_TransDisk::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
-{
-	if (!bExploded)
-	{
-		// hack to handle explode call from weapon screen and bounce instead (just once)
-		bExploded = true;
-		ProjectileMovement->Velocity = ProjectileMovement->Velocity - 2.f * (ProjectileMovement->Velocity | HitNormal) * HitNormal;
 	}
 }
 

@@ -3308,6 +3308,12 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 				FunctionOutput->ConditionallyGenerateId(true);
 				FunctionOutput->ValidateName();
 			}
+
+			UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>( NewExpression );
+			if( FunctionCall )
+			{
+				FunctionCall->UpdateFromFunctionResource();
+			}
 		}
 		else if (UMaterialGraphNode_Comment* CommentNode = Cast<UMaterialGraphNode_Comment>(Node))
 		{

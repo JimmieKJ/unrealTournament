@@ -136,7 +136,12 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		}
 
 		bExploded = true;
-		
+		TArray<USceneComponent*> Components;
+		GetComponents<USceneComponent>(Components);
+		for (int32 i = 0; i < Components.Num(); i++)
+		{
+			Components[i]->SetHiddenInGame(true);
+		}
 		if (Role == ROLE_Authority)
 		{
 			bTearOff = true;

@@ -81,6 +81,9 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
 	int32 RemainingHealth;
 
+	UPROPERTY(BlueprintReadWrite, Category = TransDisk)
+		bool bCanShieldBounce;
+
 	FVector ComputeBounceResult(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta);
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
@@ -94,8 +97,6 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 	virtual bool IsAcceptableTranslocationTo(const FVector& DesiredDest);
 
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
-
-	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp = NULL) override;
 
 protected:
 	/** utility to trigger bot translocation and reset translocation related data */
