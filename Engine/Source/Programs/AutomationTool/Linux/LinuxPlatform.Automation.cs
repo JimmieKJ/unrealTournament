@@ -49,11 +49,7 @@ public abstract class BaseLinuxPlatform : Platform
         {
             SC.StageBuildProductsFromReceipt(Receipt);
         }
-
-		{
-			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1/", SC.PlatformDir, BuildArchitecture), Params.bDebugBuildsActuallyUseDebugCRT ? "*d.so*" : "*.so*", false, new[] { Params.bDebugBuildsActuallyUseDebugCRT ? "*.so*" : "*d.so*" }, CombinePaths("Engine/Binaries", SC.PlatformDir));
-		}
-
+        
 		// assume that we always have to deploy Steam (FIXME: should be automatic - UEPLAT-807)
 		{
 			string SteamVersion = "Steamv132";
