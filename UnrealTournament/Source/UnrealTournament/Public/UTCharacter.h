@@ -931,8 +931,10 @@ public:
 	virtual void StartRagdoll();
 	virtual void StopRagdoll();
 
+	/** Return true to prevent feigning. */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = Pawn)
-	bool CanFeignDeath();
+	bool BlockFeignDeath();
+
 	UFUNCTION(Exec, BlueprintCallable, Category = Pawn)
 	virtual void FeignDeath();
 	UFUNCTION(Reliable, Server, WithValidation, Category = Pawn)

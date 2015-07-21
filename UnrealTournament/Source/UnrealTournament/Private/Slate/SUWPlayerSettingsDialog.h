@@ -3,6 +3,7 @@
 
 #include "SlateBasics.h"
 #include "SUWDialog.h"
+#include "UTFlagInfo.h"
 
 #if !UE_SERVER
 class UNREALTOURNAMENT_API SUWPlayerSettingsDialog : public SUWDialog, public FGCObject
@@ -105,10 +106,13 @@ protected:
 	TSharedPtr<STextBlock> SelectedCharacter;
 	void OnCharacterSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
-	TSharedPtr<STextBlock> SelectedFlag;
-	TArray<TSharedPtr<FFlagInfo>> CountyFlagNames;
-	TSharedPtr< SComboBox< TSharedPtr<FFlagInfo> > > CountryFlagComboBox;
-	void OnFlagSelected(TSharedPtr<FFlagInfo> NewSelection, ESelectInfo::Type SelectInfo);
+	TArray<TWeakObjectPtr<class UUTFlagInfo> > CountryFlags;
+	TWeakObjectPtr<class UUTFlagInfo> SelectedFlag;
+	TSharedPtr<SOverlay> SelectedFlagWidget;
+	TSharedPtr< SComboBox< TWeakObjectPtr<class UUTFlagInfo> > > CountryFlagComboBox;
+	void OnFlagSelected(TWeakObjectPtr<class UUTFlagInfo> NewSelection, ESelectInfo::Type SelectInfo);
+	virtual TSharedRef<SWidget> GenerateFlagListWidget(TWeakObjectPtr<class UUTFlagInfo> InItem);
+	virtual TSharedRef<SWidget> GenerateSelectedFlagWidget();
 
 	int32 Emote1Index;
 	int32 Emote2Index;
@@ -145,6 +149,5 @@ protected:
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-	virtual TSharedRef<SWidget> GenerateFlagListWidget(TSharedPtr<FFlagInfo> InItem);
 };
 #endif

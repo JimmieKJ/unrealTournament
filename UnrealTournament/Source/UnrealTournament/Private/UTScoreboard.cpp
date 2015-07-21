@@ -406,11 +406,10 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
 
-	int32 FlagU = 0;
-	int32 FlagV = 0;
+	FTextureUVs FlagUV;
 
-	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagU, FlagV);
-	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 36, 26, FlagU, FlagV, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	// Add a function to support additional flags
+	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagUV);
+	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
 	// Draw the Text
 	if (UTGameState && !UTGameState->bTeamGame)

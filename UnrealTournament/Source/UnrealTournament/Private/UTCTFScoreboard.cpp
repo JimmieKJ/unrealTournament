@@ -348,29 +348,8 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 
 	// find top scorer
-	AUTPlayerState* TopScorerRed = NULL;
-	AUTPlayerState* TopScorerBlue = NULL;
-
-	//Check all player states. Including InactivePRIs
-	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
-	{
-		AUTPlayerState* PS = (*It);
-		if (PS && PS->Team)
-		{
-			if (!TopScorerRed && (PS->Team->TeamIndex == 0))
-			{
-				TopScorerRed = PS;
-			}
-			else if (!TopScorerBlue && (PS->Team->TeamIndex == 1))
-			{
-				TopScorerBlue = PS;
-			}
-			if (TopScorerRed && TopScorerBlue)
-			{
-				break;
-			}
-		}
-	}
+	AUTPlayerState* TopScorerRed = FindTopTeamScoreFor(0);
+	AUTPlayerState* TopScorerBlue = FindTopTeamScoreFor(1);
 
 	// find top kills && KD
 	AUTPlayerState* TopKillerRed = FindTopTeamKillerFor(0);

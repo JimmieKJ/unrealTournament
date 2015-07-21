@@ -277,7 +277,10 @@ void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> Jso
 		if (Stat && Stat->bBackendStat && PS)
 		{
 			float NewStatValue = PS->GetStatsValue(Stat->StatName);
-			JsonObject->SetNumberField(Stat->StatName.ToString(), NewStatValue);
+			if (NewStatValue != 0)
+			{
+				JsonObject->SetNumberField(Stat->StatName.ToString(), NewStatValue);
+			}
 		}
 	}
 }

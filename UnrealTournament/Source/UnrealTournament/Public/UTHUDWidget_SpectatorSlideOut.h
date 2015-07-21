@@ -39,6 +39,7 @@ class UNREALTOURNAMENT_API UUTHUDWidget_SpectatorSlideOut : public UUTHUDWidget
 public:
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
+	virtual void DrawPlayerHeader(float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);

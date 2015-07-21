@@ -107,7 +107,7 @@ void SUWDialog::Construct(const FArguments& InArgs)
 					+ SVerticalBox::Slot()
 					.Padding(0.0f, 5.0f, 0.0f, 5.0f)
 					.AutoHeight()
-					.VAlign(VAlign_Center)
+					.VAlign(VAlign_Top)
 					.HAlign(HAlign_Fill)
 					[
 						BuildTitleBar(InArgs._DialogTitle)
@@ -115,6 +115,7 @@ void SUWDialog::Construct(const FArguments& InArgs)
 
 					// The content section
 					+ SVerticalBox::Slot()
+					.FillHeight(1.0)
 					.Padding(InArgs._ContentPadding.X, InArgs._ContentPadding.Y, InArgs._ContentPadding.X, InArgs._ContentPadding.Y)
 					[
 						FinalContent.ToSharedRef()

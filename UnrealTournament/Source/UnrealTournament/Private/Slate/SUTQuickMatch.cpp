@@ -26,8 +26,7 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 	FVector2D ViewportSize;
 	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
 	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
-	//float ScaledX = ViewportSize.X / DPIScale;
-	FVector2D DesignedRez = ViewportSize / DPIScale; //(ScaledX, Viewport);
+	FVector2D DesignedRez(1920,1080);
 	FVector2D DesignedSize(800, 220);
 	FVector2D Pos = (DesignedRez * 0.5f) - (DesignedSize * 0.5f);
 	ChildSlot
@@ -529,10 +528,14 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 		// Restart the serarch
 		FindBestMatch();		
 	}
-	else if (CommandCode == EQuickMatchResults::WaitingForStart)
+	else if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
 	{
 		UE_LOG(UT,Log,TEXT("Quickplay hub is spooling up instance"));
 		bWaitingForMatch = true;
+		if ( CommandCode == EQuickMatchResults::WaitingForStartNew )
+		{
+			PlayerOwner->QuickMatchLimitTime = PlayerOwner->GetWorld()->GetTimeSeconds() + 60.0;
+		}
 	}
 	else if (CommandCode == EQuickMatchResults::Join)
 	{

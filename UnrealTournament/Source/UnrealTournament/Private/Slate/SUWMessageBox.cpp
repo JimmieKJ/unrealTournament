@@ -37,12 +37,17 @@ void SUWMessageBox::Construct(const FArguments& InArgs)
 		TSharedPtr<SRichTextBlock> MessageTextBlock;
 		DialogContent->AddSlot()
 		[
-			SAssignNew(MessageTextBlock, SRichTextBlock)
-			.TextStyle(SUWindowsStyle::Get(), *InArgs._MessageTextStyleName)
-			.Justification(ETextJustify::Center)
-			.DecoratorStyleSet(&SUWindowsStyle::Get())
-			.AutoWrapText(true)
-			.Text(InArgs._MessageText)
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[			
+				SAssignNew(MessageTextBlock, SRichTextBlock)
+				.TextStyle(SUWindowsStyle::Get(), *InArgs._MessageTextStyleName)
+				.Justification(ETextJustify::Center)
+				.DecoratorStyleSet(&SUWindowsStyle::Get())
+				.AutoWrapText(true)
+				.Text(InArgs._MessageText)
+			]
 		];
 	}
 }

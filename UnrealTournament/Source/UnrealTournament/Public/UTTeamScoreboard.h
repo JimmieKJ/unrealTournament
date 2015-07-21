@@ -36,6 +36,9 @@ protected:
 	/** Return player with best score per minute for Team. */
 	virtual AUTPlayerState* FindTopTeamSPMFor(uint8 TeamNum);
 
+	/** Return player with best score for Team. */
+	virtual AUTPlayerState* FindTopTeamScoreFor(uint8 TeamNum);
+
 	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
 	virtual void OpenScoringPlaysPage() override;
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;

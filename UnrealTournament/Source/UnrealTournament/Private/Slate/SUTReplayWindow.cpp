@@ -836,22 +836,25 @@ FString SUTReplayWindow::GetSpectatedPlayerID()
 	if (LastSpectedPlayerID > 0)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
-		const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
-		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		if (UTPC->GetWorld()->GameState)
 		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
-			if (UTPS)
+			const TArray<APlayerState*>& PlayerArray = UTPC->GetWorld()->GameState->PlayerArray;
+			for (int32 i = 0; i < PlayerArray.Num(); i++)
 			{
-				if (UTPS->SpectatingID == LastSpectedPlayerID)
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[i]);
+				if (UTPS)
 				{
-					// bots don't have StatsID, they just use playername right now
-					if (!UTPS->StatsID.IsEmpty())
+					if (UTPS->SpectatingID == LastSpectedPlayerID)
 					{
-						return UTPS->StatsID;
-					}
-					else
-					{
-						return UTPS->PlayerName;
+						// bots don't have StatsID, they just use playername right now
+						if (!UTPS->StatsID.IsEmpty())
+						{
+							return UTPS->StatsID;
+						}
+						else
+						{
+							return UTPS->PlayerName;
+						}
 					}
 				}
 			}

@@ -761,7 +761,7 @@ public:
 	void ResolveKeybind(FString Command, TArray<FString>& Keys, bool bIncludeGamepad=false, bool bIncludeAxis=true);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveCountryFlag(uint32 NewCountryFlag);
+	virtual void ServerReceiveCountryFlag(FName NewCountryFlag);
 
 	virtual void DebugTest(FString TestCommand) override;
 

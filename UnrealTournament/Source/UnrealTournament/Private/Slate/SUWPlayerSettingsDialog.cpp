@@ -14,6 +14,8 @@
 #include "UTWeaponAttachment.h"
 #include "UTHUD.h"
 #include "Engine/UserInterfaceSettings.h"
+#include "UTGameEngine.h"
+#include "UTFlagInfo.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -55,27 +57,22 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	WeaponConfigDelayFrames = 0;
 
-
-	AUTHUD* DefaultHud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
-	if (DefaultHud)
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine != nullptr && GetPlayerOwner().IsValid())
 	{
-		for (int32 i=0; i< DefaultHud->FlagList.Num(); i++)
+		for (auto FlagPair : UTEngine->FlagList)
 		{
-			CountyFlagNames.Add(MakeShareable(new FFlagInfo(DefaultHud->FlagList[i])));
+			if (FlagPair.Value->IsEntitled(GetPlayerOwner()->CommunityRole))
+			{
+				CountryFlags.Add(FlagPair.Value);
+			}
 		}
-	
-	}
-	
-	CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Unreal"),0)));
 
-	if (GetPlayerOwner()->CommunityRole != EUnrealRoles::Gamer)
-	{
-		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Red Team"),140)));
-		CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Blue Team"),141)));
-		if (GetPlayerOwner()->CommunityRole == EUnrealRoles::Developer)
+		//Sort the flag list by priority and alphabetically
+		CountryFlags.Sort([](const TWeakObjectPtr<UUTFlagInfo>& A, const TWeakObjectPtr<UUTFlagInfo>& B) -> bool
 		{
-			CountyFlagNames.Add(MakeShareable(new FFlagInfo(TEXT("Epic Logo"),142)));
-		}
+			return A->Priority < B->Priority || (A->Priority == B->Priority && A->GetFriendlyName() < B->GetFriendlyName());
+		});
 	}
 
 	// allocate a preview scene for rendering
@@ -305,23 +302,16 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							SNew( SBox )
 							.WidthOverride(250.f)
 							[
-								SAssignNew(CountryFlagComboBox, SComboBox< TSharedPtr<FFlagInfo> >)
-								.InitiallySelectedItem(0)
+								SAssignNew(CountryFlagComboBox, SComboBox< TWeakObjectPtr<UUTFlagInfo> >)
+								.InitiallySelectedItem(SelectedFlag)
 								.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
 								.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-								.OptionsSource(&CountyFlagNames)
+								.OptionsSource(&CountryFlags)
 								.OnGenerateWidget(this, &SUWPlayerSettingsDialog::GenerateFlagListWidget)
 								.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnFlagSelected)
 								.Content()
 								[
-									SNew(SHorizontalBox)
-									+ SHorizontalBox::Slot()
-									.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-									[
-										SAssignNew(SelectedFlag, STextBlock)
-										.Text(FText::FromString(TEXT("Unreal")))
-										.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-									]
+									SAssignNew(SelectedFlagWidget, SOverlay)
 								]
 							]
 						]
@@ -749,22 +739,13 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		{
 			CharacterComboBox->SetSelectedItem(CharacterList[0]);
 		}
-	}
 
-	if (GetPlayerOwner().IsValid())
-	{
-		uint32 CountryFlag = GetPlayerOwner()->GetCountryFlag();
-
-		for (int32 i=0; i < CountyFlagNames.Num(); i++)
+		if (GetPlayerOwner().IsValid())
 		{
-			if (CountyFlagNames[i]->Id == CountryFlag)
-			{
-				CountryFlagComboBox->SetSelectedItem(CountyFlagNames[i]);
-				break;
-			}
+			SelectedFlag = UTEngine->GetFlag(GetPlayerOwner()->GetCountryFlag());
+			OnFlagSelected(SelectedFlag, ESelectInfo::Direct);
 		}
 	}
-
 }
 
 SUWPlayerSettingsDialog::~SUWPlayerSettingsDialog()
@@ -837,17 +818,10 @@ FReply SUWPlayerSettingsDialog::OKClick()
 {
 	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
 
-	uint32 NewFlag = 0;
-	for (int32 i=0; i<CountyFlagNames.Num();i++)
+	if (SelectedFlag.IsValid())
 	{
-		if (CountyFlagNames[i]->Title == SelectedFlag->GetText().ToString())
-		{
-			NewFlag = CountyFlagNames[i]->Id;
-			break;
-		}
+		GetPlayerOwner()->SetCountryFlag(SelectedFlag->GetFName(), false);
 	}
-	
-	GetPlayerOwner()->SetCountryFlag(NewFlag,false);
 
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
@@ -1358,21 +1332,80 @@ void SUWPlayerSettingsDialog::ZoomPlayerPreview(float WheelDelta)
 	ZoomOffset = FMath::Clamp(ZoomOffset + (-WheelDelta * 10.0f), -100.0f, 400.0f);
 }
 
-void SUWPlayerSettingsDialog::OnFlagSelected(TSharedPtr<FFlagInfo> NewSelection, ESelectInfo::Type SelectInfo)
+void SUWPlayerSettingsDialog::OnFlagSelected(TWeakObjectPtr<UUTFlagInfo> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedFlag->SetText(NewSelection->Title);
+	SelectedFlag = NewSelection;
+
+	SelectedFlagWidget->ClearChildren();
+
+	if (SelectedFlag.IsValid())
+	{
+		SelectedFlagWidget->AddSlot()
+		[
+			GenerateSelectedFlagWidget()
+		];
+	}
 }
 
 
-TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateFlagListWidget(TSharedPtr<FFlagInfo> InItem)
+TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateFlagListWidget(TWeakObjectPtr<UUTFlagInfo> InItem)
 {
-	return SNew(SBox)
-		.Padding(5)
-		[
-			SNew(STextBlock)
-			.Text(FText::FromString(InItem->Title))
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-		];
+	return 	SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Left)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(36.0f)
+				.HeightOverride(26.0f)
+				.MaxDesiredWidth(36.0f)
+				.MaxDesiredHeight(26.0f)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush(InItem->GetSlatePropertyName()))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Left)
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(InItem->GetFriendlyName()))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			];
+}
+
+TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateSelectedFlagWidget()
+{
+	return 	SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Left)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(36.0f)
+				.HeightOverride(26.0f)
+				.MaxDesiredWidth(36.0f)
+				.MaxDesiredHeight(26.0f)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush(SelectedFlag->GetSlatePropertyName()))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Left)
+			.AutoWidth()
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(SelectedFlag->GetFriendlyName()))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+			];
 }
 
 

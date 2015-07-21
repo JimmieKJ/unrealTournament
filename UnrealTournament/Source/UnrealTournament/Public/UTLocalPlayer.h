@@ -407,8 +407,8 @@ protected:
 
 
 public:
-	virtual uint32 GetCountryFlag();
-	virtual void SetCountryFlag(uint32 NewFlag, bool bSave=false);
+	virtual FName GetCountryFlag();
+	virtual void SetCountryFlag(FName NewFlag, bool bSave=false);
 
 	// If the player switches profiles and is in a session, we have to delay the switch until we can leave the current session
 	// and exit back to the main menu.  To do this, we store the Pending info here and when the main menu sees that the player has left a session
@@ -542,6 +542,9 @@ public:
 	}
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
 	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
+
+	float QuickMatchLimitTime;
+
 };
 
 

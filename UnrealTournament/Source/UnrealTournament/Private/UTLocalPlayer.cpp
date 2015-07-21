@@ -55,6 +55,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
 	DownloadStatusText = FText::GetEmpty();
+	QuickMatchLimitTime = -60.0;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -1957,7 +1958,7 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 	PendingFriendInviteSessionId = FString();
 }
 
-uint32 UUTLocalPlayer::GetCountryFlag()
+FName UUTLocalPlayer::GetCountryFlag()
 {
 	if (CurrentProfileSettings)
 	{
@@ -1971,10 +1972,10 @@ uint32 UUTLocalPlayer::GetCountryFlag()
 			return PS->CountryFlag;
 		}
 	}
-	return 0;
+	return NAME_None;
 }
 
-void UUTLocalPlayer::SetCountryFlag(uint32 NewFlag, bool bSave)
+void UUTLocalPlayer::SetCountryFlag(FName NewFlag, bool bSave)
 {
 	if (CurrentProfileSettings)
 	{
@@ -2000,6 +2001,12 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 	{
 		if (QuickMatchDialog.IsValid())
 		{
+			return;
+		}
+
+		if (GetWorld()->GetTimeSeconds() < QuickMatchLimitTime)
+		{
+			MessageBox(NSLOCTEXT("Generic","CantStartQuickMatchTitle","Please Wait"), NSLOCTEXT("Generic","CantStartQuickMatchText","You need to wait for at least 1 minute before you can attempt to quickmatch again."));
 			return;
 		}
 

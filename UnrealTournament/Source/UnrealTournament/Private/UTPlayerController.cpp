@@ -33,6 +33,8 @@
 #include "UTWorldSettings.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTGhostComponent.h"
+#include "UTGameEngine.h"
+#include "UTFlagInfo.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -2740,34 +2742,28 @@ void AUTPlayerController::ReceivedPlayer()
 		UUTProfileSettings* Settings = LP->GetProfileSettings();
 		if (Settings != NULL)
 		{
-			uint32 CountryFlag = Settings->CountryFlag;
+			FName CountryFlag = Settings->CountryFlag;
 
-			if (LP->CommunityRole != EUnrealRoles::Gamer)
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine != nullptr)
 			{
-				// If we are a contributor ,but are trying to use the developer flag, set back to unreal flag
-				if (LP->CommunityRole != EUnrealRoles::Developer)
+				UUTFlagInfo* Flag = UTEngine->GetFlag(CountryFlag);
+				if (Flag == nullptr || !Flag->IsEntitled(LP->CommunityRole))
 				{
-					if (CountryFlag == 142)
-					{
-						CountryFlag = 0;
-					}
+					CountryFlag = NAME_None;
 				}
 			}
-			else if (CountryFlag >= 140)
-			{
-				CountryFlag = 0;
-			}		
 
 			ServerReceiveCountryFlag(CountryFlag);
 		}
 	}
 }
 
-bool AUTPlayerController::ServerReceiveCountryFlag_Validate(uint32 NewCountryFlag)
+bool AUTPlayerController::ServerReceiveCountryFlag_Validate(FName NewCountryFlag)
 {
 	return true;
 }
-void AUTPlayerController::ServerReceiveCountryFlag_Implementation(uint32 NewCountryFlag)
+void AUTPlayerController::ServerReceiveCountryFlag_Implementation(FName NewCountryFlag)
 {
 	if (UTPlayerState != NULL)
 	{
@@ -2776,7 +2772,7 @@ void AUTPlayerController::ServerReceiveCountryFlag_Implementation(uint32 NewCoun
 		if (FUTAnalytics::IsAvailable())
 		{
 			TArray<FAnalyticsEventAttribute> ParamArray;
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("CountryFlag"), UTPlayerState->CountryFlag));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("CountryFlag"), UTPlayerState->CountryFlag.ToString()));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("UserId"), UTPlayerState->UniqueId.ToString()));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("FlagChange"), ParamArray);
 		}

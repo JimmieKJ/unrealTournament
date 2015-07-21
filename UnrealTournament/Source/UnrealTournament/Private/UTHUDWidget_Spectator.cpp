@@ -30,7 +30,7 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 	return false;
 }
 
-void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bShortMessage)
+void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaTime, bool bViewingMessage)
 {
 	if (SimpleMessage.IsEmpty() || (TextureAtlas == NULL))
 	{
@@ -39,18 +39,24 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	float BackgroundWidth = 1920.f;
 	float TextPosition = 360.f;
 	float MessageOffset = 0.f;
-	if (bShortMessage && UTHUDOwner->LargeFont)
+	float YOffset = 0.f;
+	if (bViewingMessage && UTHUDOwner->LargeFont)
 	{
 		float YL = 0.0f;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
 		BackgroundWidth += 64.f;
-		MessageOffset = UTGameState->HasMatchEnded() ? 960.f - 0.5f*BackgroundWidth : 0.f;
+		MessageOffset = UTGameState->HasMatchEnded() ? 960.f - 0.5f*BackgroundWidth : 1920.f - BackgroundWidth;
 		TextPosition = 32.f + MessageOffset;
+		YOffset = -32.f;
 	}
 
 	// Draw the Background
-	DrawTexture(TextureAtlas, MessageOffset, 0, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
-	if (!bShortMessage)
+	DrawTexture(TextureAtlas, MessageOffset, YOffset, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
+	if (bViewingMessage)
+	{
+		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	}
+	else
 	{
 		// Draw the Logo
 		DrawTexture(TextureAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
@@ -58,19 +64,19 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		// Draw the Spacer Bar
 		DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 	}
-	DrawText(SimpleMessage, TextPosition, 50.f, UTHUDOwner->LargeFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(SimpleMessage, TextPosition, YOffset + 50.f, UTHUDOwner->LargeFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
-	bool bShortMessage = false;
-	FText SpectatorMessage = GetSpectatorMessageText(bShortMessage);
-	DrawSimpleMessage(SpectatorMessage, DeltaTime, bShortMessage);
+	bool bViewingMessage = false;
+	FText SpectatorMessage = GetSpectatorMessageText(bViewingMessage);
+	DrawSimpleMessage(SpectatorMessage, DeltaTime, bViewingMessage);
 }
 
-FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
+FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 {
 	FText SpectatorMessage;
 	if (UTGameState)
@@ -145,7 +151,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 				{
 					FFormatNamedArguments Args;
 					Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
-					bShortMessage = true;
+					bViewingMessage = true;
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 				}
 				else if (!UTHUDOwner->UTPlayerOwner->bHasUsedSpectatingBind)
@@ -184,7 +190,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 			{
 				FFormatNamedArguments Args;
 				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
-				bShortMessage = true;
+				bViewingMessage = true;
 				AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
 				if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
 				{

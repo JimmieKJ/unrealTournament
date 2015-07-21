@@ -177,9 +177,9 @@ void AUTServerBeaconClient::ClientQuickplayNotAvailable_Implementation()
 	OnRequestQuickplay.ExecuteIfBound(this, EQuickMatchResults::CantJoin, TEXT(""));
 }
 
-void AUTServerBeaconClient::ClientWaitForQuickplay_Implementation()
+void AUTServerBeaconClient::ClientWaitForQuickplay_Implementation(uint32 bNewInstance)
 {
-	OnRequestQuickplay.ExecuteIfBound(this, EQuickMatchResults::WaitingForStart, TEXT(""));
+	OnRequestQuickplay.ExecuteIfBound(this, bNewInstance == 1 ? EQuickMatchResults::WaitingForStartNew : EQuickMatchResults::WaitingForStart, TEXT(""));
 }
 
 void AUTServerBeaconClient::ClientJoinQuickplay_Implementation(const FString& InstanceGuid)
