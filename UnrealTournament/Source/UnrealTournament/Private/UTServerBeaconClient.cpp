@@ -118,7 +118,7 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 	UE_LOG(LogBeacon, Verbose,TEXT("ServerRequestInstances %i %i"), InstanceIDs.Num(), LastInstanceIndex);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 
-	if ( LobbyGameState && LastInstanceIndex < InstanceIDs.Num() )
+	if ( LobbyGameState && (LastInstanceIndex >= 0) && (LastInstanceIndex < InstanceIDs.Num()) )
 	{
 		UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
 		AUTLobbyMatchInfo* Match = LobbyGameState->FindMatch(InstanceIDs[LastInstanceIndex]);
@@ -126,7 +126,6 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 		{
 			ClientReceiveInstance(LastInstanceIndex, InstanceIDs.Num(), Match->CurrentRuleset->DisplayTexture, Match->MatchBadge);
 		}
-		
 	}
 
 	UE_LOG(LogBeacon, Verbose, TEXT("<--- Out of Instances [%i] %i"), LastInstanceIndex, InstanceIDs.Num());
