@@ -149,7 +149,7 @@ void AUTInventory::OnRep_Instigator()
 {
 	Super::OnRep_Instigator();
 	// this is for inventory replicated to non-owner
-	if (!bPendingClientGivenTo && GetUTOwner() == NULL)
+	if (!bPendingClientGivenTo && (GetUTOwner() == NULL || Instigator != NULL))
 	{
 		UTOwner = Cast<AUTCharacter>(Instigator);
 	}
