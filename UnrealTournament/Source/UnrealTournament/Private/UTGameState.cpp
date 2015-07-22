@@ -964,7 +964,7 @@ void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClas
 void AUTGameState::ScanForMaps(const TArray<FString>& AllowedMapPrefixes, TArray<FAssetData>& MapList)
 {
 	TArray<FAssetData> MapAssets;
-	GetAllAssetData(UWorld::StaticClass(), MapAssets, !IsRunningDedicatedServer());
+	GetAllAssetData(UWorld::StaticClass(), MapAssets);
 	for (const FAssetData& Asset : MapAssets)
 	{
 		FString MapPackageName = Asset.PackageName.ToString();

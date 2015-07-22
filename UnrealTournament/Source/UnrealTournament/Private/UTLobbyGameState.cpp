@@ -657,7 +657,7 @@ void AUTLobbyGameState::ScanAssetRegistry(TArray<FAssetData>& MapAssets)
 	}
 
 	// Next , Grab the maps...
-	GetAllAssetData(UWorld::StaticClass(), MapAssets, !IsRunningDedicatedServer());
+	GetAllAssetData(UWorld::StaticClass(), MapAssets);
 	for (const FAssetData& Asset : MapAssets)
 	{
 		FString MapPackageName = Asset.PackageName.ToString();
