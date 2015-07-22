@@ -641,10 +641,15 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)
 	int32 Health;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	int32 HealthMax;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	int32 SuperHealthMax;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
+	bool bDamageHurtsHealth;
 
 	/** Replicated to spectators, not authoritative. */
 	UPROPERTY(BlueprintReadWrite, Category = Pawn, Replicated)

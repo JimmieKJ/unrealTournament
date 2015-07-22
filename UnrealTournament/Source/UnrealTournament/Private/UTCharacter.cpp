@@ -78,6 +78,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	HealthMax = 100;
 	SuperHealthMax = 199;
 	DamageScaling = 1.0f;
+	bDamageHurtsHealth = true;
 	FireRateMultiplier = 1.0f;
 	bSpawnProtectionEligible = true;
 	MaxSafeFallSpeed = 2400.0f;
@@ -779,7 +780,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 
-			if (Game->bDamageHurtsHealth || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))))
+			if ((Game->bDamageHurtsHealth && bDamageHurtsHealth) || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))))
 			{
 				Health -= ResultDamage;
 				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
