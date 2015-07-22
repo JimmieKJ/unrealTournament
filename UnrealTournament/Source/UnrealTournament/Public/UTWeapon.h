@@ -712,6 +712,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
 	float	MaxPitchLag;
 
+	/** If true, the weapon's rotation will procedurally lag behind the holder's rotation */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon Rotation")
+		bool bProceduralLagRotation;
+
 	/** @return whether the weapon's rotation is allowed to lag behind the holder's rotation */
 	virtual bool ShouldLagRot();
 
