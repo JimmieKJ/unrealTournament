@@ -22,7 +22,8 @@ AUTMutator_WeaponArena::AUTMutator_WeaponArena(const FObjectInitializer& ObjectI
 #if !UE_SERVER
 	if (!IsRunningDedicatedServer())
 	{
-		ConfigMenu = LoadClass<UUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/ArenaMutatorMenu.ArenaMutatorMenu_C"), NULL, LOAD_None, NULL);
+		static ConstructorHelpers::FObjectFinder<UClass> ConfigMenuClass(TEXT("/Game/RestrictedAssets/Blueprints/ArenaMutatorMenu.ArenaMutatorMenu_C"));
+		ConfigMenu = ConfigMenuClass.Object;
 	}
 #endif
 }
