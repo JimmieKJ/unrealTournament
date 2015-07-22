@@ -52,6 +52,8 @@ public:
 	void RegisterVoter(AUTPlayerState* Voter);
 	void UnregisterVoter(AUTPlayerState* Voter);
 
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
+
 protected:
 	TArray<AUTPlayerState*> VoterRegistry;
 
