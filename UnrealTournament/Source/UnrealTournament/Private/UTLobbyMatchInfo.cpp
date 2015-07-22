@@ -402,12 +402,16 @@ void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 {
 	GameInstanceGUID = inGameInstanceGUID.ToString();
-	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+
+	UWorld* World = GetWorld();
+	if (World == NULL) return;
+
+	AUTLobbyGameMode* GM = World->GetAuthGameMode<AUTLobbyGameMode>();
 	if (GM)
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			if (Players[i].IsValid())
+			if (Players[i].IsValid() && !Players[i]->bPendingKillPending)	//  Just in case.. they shouldn't be here anyway..
 			{
 				// Tell the client to connect to the instance
 
@@ -415,6 +419,7 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 			}
 		}
 	}
+
 	SetLobbyMatchState(ELobbyMatchState::InProgress);
 
 	for (int32 i = 0; i < NotifyBeacons.Num(); i++)
