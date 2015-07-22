@@ -2619,10 +2619,10 @@ void AUTCharacter::PostNetReceive()
 		{
 			SavedWeapon->DetachFromOwner();
 		}
-		if (Weapon != NULL && !Weapon->Mesh->IsAttachedTo(CharacterCameraComponent) && Weapon->ShouldPlay1PVisuals())
-		{
-			Weapon->AttachToOwner();
-		}
+	}
+	if (Weapon != NULL && !Weapon->Mesh->IsAttachedTo(CharacterCameraComponent) && Weapon->ShouldPlay1PVisuals())
+	{
+		Weapon->AttachToOwner();
 	}
 }
 
@@ -4056,7 +4056,6 @@ bool AUTCharacter::CanBlockTelefrags()
 	return false;
 }
 
-// @TODO FIXMESTEVE - why isn't this just an implementation of ReceiveActorBeginOverlap()
 void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 {
 	if (Role == ROLE_Authority && OtherActor != this && GetCapsuleComponent()->GetCollisionObjectType() == COLLISION_TELEPORTING_OBJECT) // need to make sure this ISN'T reflexive, only teleporting Pawn should be checking for telefrags
@@ -4067,7 +4066,7 @@ void AUTCharacter::OnOverlapBegin(AActor* OtherActor)
 			AUTTeamGameMode* TeamGame = GetWorld()->GetAuthGameMode<AUTTeamGameMode>();
 			float MinTelefragOverlap = bIsTranslocating ? MinOverlapToTelefrag : 1.f;
 			if ((TeamGame == NULL || TeamGame->TeamDamagePct > 0.0f || !GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(OtherC, this)) 
-				&& ((OtherC->GetActorLocation() - GetActorLocation()).Size2D() < OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinTelefragOverlap))
+				&& (OtherC->IsRagdoll() || (OtherC->GetActorLocation() - GetActorLocation()).Size2D() < OtherC->GetCapsuleComponent()->GetUnscaledCapsuleRadius() + GetCapsuleComponent()->GetUnscaledCapsuleRadius() - MinTelefragOverlap))
 			{
 				FUTPointDamageEvent DamageEvent(100000.0f, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Telefragged::StaticClass());
 				if (bIsTranslocating && OtherC->CanBlockTelefrags())
