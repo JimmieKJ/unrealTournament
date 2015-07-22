@@ -49,7 +49,7 @@ public:
 	FString DefaultMap;
 
 	UPROPERTY(Config)
-	TArray<FConfigMapInfo> CustomMapList;
+	TArray<FString> CustomMapList;
 
 	// The number of players needed to start.
 	UPROPERTY(Config)
