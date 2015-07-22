@@ -918,6 +918,5 @@ public:
 	void OnZoomedOut();
 
 	virtual void TickZoom(float DeltaTime);
-	float BeginPlayTime;
 
 };

@@ -2932,6 +2932,10 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_None);
+			if (FeetAreInWater())
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), WaterEntrySound, this, SRT_None);
+			}
 		}
 		else if (FeetAreInWater())
 		{

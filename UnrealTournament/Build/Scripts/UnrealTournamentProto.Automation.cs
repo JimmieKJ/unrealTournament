@@ -662,6 +662,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../VisualStudioSourceCodeAccess/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../XCodeSourceCodeAccess/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../OculusAudio/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../AnalyticsBlueprintLibrary/...");
 
 			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 		}

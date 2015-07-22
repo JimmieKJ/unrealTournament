@@ -1675,7 +1675,23 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	// This is to make absolutely sure the replay menu doesn't persist into the main menu
 	CloseReplayWindow();
 
-	Exec(GetWorld(), TEXT("disconnect"), *GLog);
+	if ( GetWorld() != nullptr )
+	{
+		Exec( GetWorld(), TEXT( "disconnect" ), *GLog );
+	}
+	else
+	{
+		// If we don't have a world, we likely failed to load one during replays
+		// Recover by loading default map
+		FURL DefaultURL;
+		DefaultURL.LoadURLConfig( TEXT( "DefaultPlayer" ), GGameIni );
+
+		FURL URL( &DefaultURL, TEXT( "" ), TRAVEL_Partial );
+
+		FString Error;
+
+		GEngine->Browse( *GetGameInstance()->GetWorldContext(), URL, Error );
+	}
 }
 
 bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam)

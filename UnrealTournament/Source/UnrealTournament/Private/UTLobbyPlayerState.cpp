@@ -201,7 +201,7 @@ void AUTLobbyPlayerState::Server_SendDataBlock_Implementation(int32 Block)
 
 	//UE_LOG(UT,Log,TEXT("[DataPush] - Sending Block %i (%s)"), Block, GameState ? TEXT("Good To Send") : TEXT("Can't Send"));
 
-	if (GameState && Block < GameState->AllowedGameData.Num())
+	if (GameState && (Block >= 0) && (Block < GameState->AllowedGameData.Num()))
 	{
 		Client_ReceiveBlock(Block, GameState->AllowedGameData[Block]);
 	}

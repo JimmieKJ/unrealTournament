@@ -350,6 +350,17 @@ bool UDemoNetDriver::InitConnectInternal( FString& Error )
 
 	if ( !GEngine->LoadMap( *WorldContext, DemoURL, NewPendingNetGame, LoadMapError ) )
 	{
+		StopDemo();
+
+		// If we don't have a world that means we failed loading the new world.
+		// Since there is no world, we must free the net driver ourselves
+		// Technically the pending net game should handle it, but things aren't quite setup properly to handle that either
+		if ( WorldContext->World() == NULL )
+		{
+			GEngine->DestroyNamedNetDriver( WorldContext->PendingNetGame, NetDriverName );
+			WorldContext->PendingNetGame = NULL;
+		}
+
 		Error = LoadMapError;
 		UE_LOG( LogDemo, Error, TEXT( "UDemoNetDriver::InitConnect: LoadMap failed: failed: %s" ), *Error );
 		GameInstance->HandleDemoPlaybackFailure( EDemoPlayFailure::Generic, FString( TEXT( "LoadMap failed" ) ) );
@@ -1250,10 +1261,11 @@ void UDemoNetDriver::JumpToEndOfLiveReplay()
 
 	const uint32 JoinTimeInMS = ReplayStreamer->GetTotalDemoTime() - BufferInMS;
 
+	OldDemoCurrentTime	= DemoCurrentTime;		// So we can restore on failure
+	DemoCurrentTime		= ( float )( JoinTimeInMS ) / 1000.0f;
+
 	ReplayStreamer->GotoTimeInMS( JoinTimeInMS, FOnCheckpointReadyDelegate::CreateUObject( this, &UDemoNetDriver::CheckpointReady ) );
 
-	OldDemoCurrentTime	= DemoCurrentTime;		// So we can restore on failure
-	DemoCurrentTime		= (float)( JoinTimeInMS ) / 1000.0f;
 	InitialLiveDemoTime = 0;
 }
 
@@ -1323,9 +1335,11 @@ void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )
 		// Process any queued scrub time
 		if ( QueuedGotoTimeInSeconds >= 0.0f )
 		{
+			OldDemoCurrentTime		= DemoCurrentTime;			// So we can restore on failure
+			DemoCurrentTime			= QueuedGotoTimeInSeconds;
+
 			ReplayStreamer->GotoTimeInMS( QueuedGotoTimeInSeconds * 1000, FOnCheckpointReadyDelegate::CreateUObject( this, &UDemoNetDriver::CheckpointReady ) );
-			OldDemoCurrentTime = DemoCurrentTime;		// So we can restore on failure
-			DemoCurrentTime = QueuedGotoTimeInSeconds;
+
 			QueuedGotoTimeInSeconds = -1.0f;
 		}
 	}
@@ -1495,7 +1509,10 @@ void UDemoNetDriver::ReplayStreamingReady( bool bSuccess, bool bRecord )
 		
 		const double StartTime = FPlatformTime::Seconds();
 
-		InitConnectInternal( Error );
+		if ( !InitConnectInternal( Error ) )
+		{
+			return;
+		}
 
 		if ( ReplayStreamer->IsLive() && ReplayStreamer->GetTotalDemoTime() > 15 * 1000 )
 		{

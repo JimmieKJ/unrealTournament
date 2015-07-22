@@ -1785,7 +1785,7 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 
 void AUTGameMode::PlayEndOfMatchMessage()
 {
-	if (!UTGameState)
+	if (!UTGameState || !UTGameState->WinnerPlayerState)
 	{
 		return;
 	}

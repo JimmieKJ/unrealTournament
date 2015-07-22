@@ -172,8 +172,6 @@ void AUTWeapon::BeginPlay()
 		GotoState(InactiveState);
 	}
 	checkSlow(CurrentState != NULL);
-
-	BeginPlayTime = GetWorld()->TimeSeconds;
 }
 
 void AUTWeapon::GotoState(UUTWeaponState* NewState)
@@ -729,7 +727,7 @@ void AUTWeapon::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
 		}
 
-		if (ShouldPlay1PVisuals())
+		if (ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
 			// try and play a firing animation if specified
@@ -2223,8 +2221,8 @@ void AUTWeapon::OnRep_ZoomState_Implementation()
 void AUTWeapon::OnRep_ZoomCount()
 {
 	//For spectators we don't want to clear the time if ZoomTime was just replicated (COND_InitialOnly). Can't do custom rep or we'll loose the COND_SkipOwner
-	//BeginPlayTime will be 0 for regular spectator, for demo rec it will be close to GetWorld()->TimeSeconds
-	if (BeginPlayTime != 0.0f && GetWorld()->TimeSeconds - BeginPlayTime > 0.2)
+	//CreationTime will be 0 for regular spectator, for demo rec it will be close to GetWorld()->TimeSeconds
+	if (CreationTime != 0.0f && GetWorld()->TimeSeconds - CreationTime > 0.2)
 	{
 		ZoomTime = 0.0f;
 	}

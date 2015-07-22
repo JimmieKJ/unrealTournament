@@ -3372,7 +3372,7 @@ bool AUTPlayerController::ServerRegisterBanVote_Validate(AUTPlayerState* BadGuy)
 void AUTPlayerController::ServerRegisterBanVote_Implementation(AUTPlayerState* BadGuy)
 {
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState && UTPlayerState)
+	if (GameState && UTPlayerState && BadGuy)
 	{
 		GameState->VoteForTempBan(BadGuy, UTPlayerState);	
 	}
@@ -3485,6 +3485,13 @@ void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* 
 			if (StatsUpdateIndex < GS->RewardStats.Num())
 			{
 				StatsName = GS->RewardStats[StatsIndex];
+			}
+		}
+		else if (StatsPage == 3)
+		{
+			if (StatsUpdateIndex < GS->MovementStats.Num())
+			{
+				StatsName = GS->MovementStats[StatsIndex];
 			}
 		}
 		ViewedPS->SetStatsValue(StatsName, NewValue);
