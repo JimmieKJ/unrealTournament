@@ -1376,7 +1376,7 @@ void AUTGameMode::StartMatch()
 		{
 			TArray<FAnalyticsEventAttribute> ParamArray;
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("MapName"), GetWorld()->GetMapName()));
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(this)));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(GetClass())));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("GoalScore"), GoalScore));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TimeLimit"), TimeLimit));
 			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
@@ -2635,6 +2635,7 @@ void AUTGameMode::Logout(AController* Exiting)
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Kills"), PS->Kills));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Deaths));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Score"), PS->Score));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(GetClass())));
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
 		PS->RespawnChoiceA = NULL;
 		PS->RespawnChoiceB = NULL;
