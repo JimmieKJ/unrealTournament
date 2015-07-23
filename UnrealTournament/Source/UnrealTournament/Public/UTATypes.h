@@ -419,7 +419,7 @@ struct FPackageRedirectReference
 	// Converts the redirect to a download URL
 	FString ToString()
 	{
-		return PackageURLProtocol + TEXT("://") + PackageURL + TEXT(" ") + PackageChecksum;
+		return PackageURLProtocol + TEXT("://") + PackageURL + TEXT(" ");
 	}
 
 };

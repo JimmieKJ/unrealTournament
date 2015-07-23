@@ -457,6 +457,7 @@ public:
 	TArray<FString> SinglePlayerMapList;
 
 	virtual void UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft);
+	virtual bool ContentExists(const FPackageRedirectReference& Redirect);
 	virtual void AccquireContent(TArray<FPackageRedirectReference>& Redirects);
 	virtual void CancelDownload();
 

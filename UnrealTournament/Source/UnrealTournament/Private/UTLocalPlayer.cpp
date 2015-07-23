@@ -2127,6 +2127,78 @@ void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, floa
 	UE_LOG(UT,Verbose,TEXT("Redirect: %s %i [%f%%]"), *FileURL, NumBytes, Progress);
 }
 
+bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
+{
+	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine)
+	{
+		if (UTEngine->LocalContentChecksums.Contains(Redirect.PackageName))
+		{
+			if (UTEngine->LocalContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
+			{
+				return true;
+			}
+			else
+			{
+				// Local content has a non-matching md5, not sure if we should try to unmount/delete it
+				return false;
+			}
+		}
+
+		if (UTEngine->MountedDownloadedContentChecksums.Contains(Redirect.PackageName))
+		{
+			if (UTEngine->MountedDownloadedContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
+			{
+				// We've already mounted the content needed and the checksum matches
+				return true;
+			}
+			else
+			{
+				// Unmount the pak
+				if (FCoreDelegates::OnUnmountPak.IsBound())
+				{
+					FCoreDelegates::OnUnmountPak.Execute(Path);
+				}
+
+				// Remove the CRC entry
+				UTEngine->MountedDownloadedContentChecksums.Remove(Redirect.PackageName);
+				UTEngine->DownloadedContentChecksums.Remove(Redirect.PackageName);
+
+				// Delete the original file
+				FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
+			}
+		}
+
+		if (UTEngine->DownloadedContentChecksums.Contains(Redirect.PackageName))
+		{
+			if (UTEngine->DownloadedContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
+			{
+				// Mount the pak
+				if (FCoreDelegates::OnMountPak.IsBound())
+				{
+					FCoreDelegates::OnMountPak.Execute(Path, 0);
+					UTEngine->MountedDownloadedContentChecksums.Add(Redirect.PackageName, Redirect.PackageChecksum);
+				}
+
+				return true;
+			}
+			else
+			{
+				UTEngine->DownloadedContentChecksums.Remove(Redirect.PackageName);
+
+				// Delete the original file
+				FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
+			}
+		}
+
+		return false;
+	}
+
+	return true;
+
+}
+
 void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirects)
 {
 	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
@@ -2134,7 +2206,7 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 	{
 		for (int32 i = 0; i < Redirects.Num(); i++)
 		{
-			if (!Redirects[i].PackageName.IsEmpty())
+			if (!Redirects[i].PackageName.IsEmpty() && !ContentExists(Redirects[i]))
 			{
 				UTGameViewport->DownloadRedirect(Redirects[i]);
 			}
