@@ -687,3 +687,8 @@ FKey UUTHUDWidget_SpectatorSlideOut::NumberToKey(int32 InNumber)
 	}
 	return FKey();
 }
+
+float UUTHUDWidget_SpectatorSlideOut::GetDrawScaleOverride()
+{
+	return 1.0;
+}

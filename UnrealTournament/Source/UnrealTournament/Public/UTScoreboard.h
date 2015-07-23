@@ -246,5 +246,7 @@ public:
 	virtual void SelectionRight();
 	virtual void SelectionClick();
 
+	virtual float GetDrawScaleOverride();
+
 };
 

@@ -207,3 +207,8 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 	}
 	return SpectatorMessage;
 }
+
+float UUTHUDWidget_Spectator::GetDrawScaleOverride()
+{
+	return 1.0;
+}
