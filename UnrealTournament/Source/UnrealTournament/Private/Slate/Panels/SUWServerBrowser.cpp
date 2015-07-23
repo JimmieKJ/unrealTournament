@@ -1635,6 +1635,8 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
+	SetBrowserState(EBrowserState::BrowserIdle);	
+
 	// Flag the browser as needing a refresh the next time it is shown
 	bNeedsRefresh = true;
 	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
