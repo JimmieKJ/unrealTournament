@@ -36,6 +36,30 @@ void AUTReplicatedMapInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME(AUTReplicatedMapInfo, VoteCount);
 }
 
+bool AUTReplicatedMapInfo::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
+{
+	// prevent replication to clients that are not entitled to use this map, unless some other user selects it
+	// that prevents unentitled clients from starting the map themselves
+	if (VoteCount > 0)
+	{
+		return true;
+	}
+	else
+	{
+		const APlayerController* PC = Cast<APlayerController>(RealViewer);
+		if (PC == NULL || PC->PlayerState == NULL || !PC->PlayerState->UniqueId.IsValid())
+		{
+			return true;
+		}
+		else
+		{
+			IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+			FUniqueEntitlementId Entitlement = GetRequiredEntitlementFromPackageName(FName(*MapPackageName));
+			return (!EntitlementInterface.IsValid() || Entitlement.IsEmpty() || EntitlementInterface->GetItemEntitlement(*PC->PlayerState->UniqueId.GetUniqueNetId().Get(), Entitlement).IsValid());
+		}
+	}
+}
+
 void AUTReplicatedMapInfo::RegisterVoter(AUTPlayerState* Voter)
 {
 	int32 Index = VoterRegistry.Find(Voter);

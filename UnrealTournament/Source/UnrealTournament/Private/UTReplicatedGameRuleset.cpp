@@ -104,15 +104,32 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	{
 		if (MaxMapsInList > 0 && MapList.Num() >= MaxMapsInList) break;
 
+		FString MapPackageName = NewRules->CustomMapList[i];
+		if ( FPackageName::IsShortPackageName(MapPackageName) )
+		{
+			FPackageName::SearchForPackageOnDisk(MapPackageName, &MapPackageName); 
+		}
+
 		// Look for the map in the asset registry...
 		for (const FAssetData& Asset : MapAssets)
 		{
 			FString AssetPackageName = Asset.PackageName.ToString();
-			if ( NewRules->CustomMapList[i].MapName.Equals(AssetPackageName, ESearchCase::IgnoreCase) )
+			if ( MapPackageName.Equals(AssetPackageName, ESearchCase::IgnoreCase) )
 			{
 				// Found the asset data for this map.  Build the FMapListInfo.
 				int32 Idx = AddMapAssetToMapList(Asset);
-				MapList[Idx]->Redirect = NewRules->CustomMapList[i].Redirect;
+
+				AUTBaseGameMode* DefaultBaseGameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+				if (DefaultBaseGameMode)
+				{
+					// Look to see if there are redirects for this map
+					
+					FPackageRedirectReference Redirect;
+					if ( DefaultBaseGameMode->FindRedirect(NewRules->CustomMapList[i], Redirect) )
+					{
+						MapList[Idx]->Redirect = Redirect;
+					}
+				}
 				break;
 			}
 		}

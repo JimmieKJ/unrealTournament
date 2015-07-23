@@ -2771,8 +2771,29 @@ void UNavigationSystem::AddNavigationBoundsUpdateRequest(const FNavigationBounds
 
 	if (ExistingIdx != INDEX_NONE)
 	{
-		// Overwrite any previous updates
-		PendingNavBoundsUpdates[ExistingIdx] = UpdateRequest;
+		// catch the case where the bounds was removed and immediately re-added with the same bounds as before
+		// in that case, we can cancel any update at all
+		bool bCanCancelUpdate = false;
+		if (PendingNavBoundsUpdates[ExistingIdx].UpdateRequest == FNavigationBoundsUpdateRequest::Removed && UpdateRequest.UpdateRequest == FNavigationBoundsUpdateRequest::Added)
+		{
+			for (TSet<FNavigationBounds>::TConstIterator It(RegisteredNavBounds); It; ++It)
+			{
+				if (*It == UpdateRequest.NavBounds)
+				{
+					bCanCancelUpdate = true;
+					break;
+				}
+			}
+		}
+		if (bCanCancelUpdate)
+		{
+			PendingNavBoundsUpdates.RemoveAt(ExistingIdx);
+		}
+		else
+		{
+			// Overwrite any previous updates
+			PendingNavBoundsUpdates[ExistingIdx] = UpdateRequest;
+		}
 	}
 	else
 	{

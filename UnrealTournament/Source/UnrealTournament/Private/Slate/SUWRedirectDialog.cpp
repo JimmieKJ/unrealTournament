@@ -238,10 +238,15 @@ bool SUWRedirectDialog::DownloadFile(FString URL)
 		HttpRequest->OnProcessRequestComplete().BindRaw(this, &SUWRedirectDialog::HttpRequestComplete);
 		HttpRequest->OnRequestProgress().BindRaw(this, &SUWRedirectDialog::HttpRequestProgress);
 
-		if (URL.Contains(TEXT("epicgames")) && OnlineIdentityInterface.IsValid())
+		FString NeedAuthUrl1 = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+		FString NeedAuthUrl2 = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+		if (OnlineIdentityInterface.IsValid())
 		{
-			FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
-			HttpRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+			if (URL.StartsWith(NeedAuthUrl1) || URL.StartsWith(NeedAuthUrl2))
+			{
+				FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+				HttpRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+			}
 		}
 
 		HttpRequest->SetVerb("GET");

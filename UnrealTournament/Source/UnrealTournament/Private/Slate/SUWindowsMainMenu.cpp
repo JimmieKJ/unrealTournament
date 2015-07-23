@@ -418,74 +418,72 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 	if (bNeedToShowGamePanel)
 	{
 		bNeedToShowGamePanel = false;
-		if (AvailableGameRulesets.Num() == 0)
+		AvailableGameRulesets.Empty();
+		TArray<FString> AllowedGameRulesets;
+
+		UUTEpicDefaultRulesets* DefaultRulesets = UUTEpicDefaultRulesets::StaticClass()->GetDefaultObject<UUTEpicDefaultRulesets>();
+		if (DefaultRulesets && DefaultRulesets->AllowedRulesets.Num() > 0)
 		{
-			TArray<FString> AllowedGameRulesets;
+			AllowedGameRulesets.Append(DefaultRulesets->AllowedRulesets);
+		}
 
-			UUTEpicDefaultRulesets* DefaultRulesets = UUTEpicDefaultRulesets::StaticClass()->GetDefaultObject<UUTEpicDefaultRulesets>();
-			if (DefaultRulesets && DefaultRulesets->AllowedRulesets.Num() > 0)
+		// If someone has screwed up the ini completely, just load all of the Epic defaults
+		if (AllowedGameRulesets.Num() <= 0)
+		{
+			UUTEpicDefaultRulesets::GetEpicRulesets(AllowedGameRulesets);
+		}
+
+		// Grab all of the available map assets.
+		TArray<FAssetData> MapAssets;
+		GetAllAssetData(UWorld::StaticClass(), MapAssets);
+
+		UE_LOG(UT,Verbose,TEXT("Loading Settings for %i Rules"), AllowedGameRulesets.Num())
+		for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
+		{
+			UE_LOG(UT,Verbose,TEXT("Loading Rule %s"), *AllowedGameRulesets[i])
+			if (!AllowedGameRulesets[i].IsEmpty())
 			{
-				AllowedGameRulesets.Append(DefaultRulesets->AllowedRulesets);
-			}
-
-			// If someone has screwed up the ini completely, just load all of the Epic defaults
-			if (AllowedGameRulesets.Num() <= 0)
-			{
-				UUTEpicDefaultRulesets::GetEpicRulesets(AllowedGameRulesets);
-			}
-
-			// Grab all of the available map assets.
-			TArray<FAssetData> MapAssets;
-			GetAllAssetData(UWorld::StaticClass(), MapAssets);
-
-			UE_LOG(UT,Verbose,TEXT("Loading Settings for %i Rules"), AllowedGameRulesets.Num())
-			for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
-			{
-				UE_LOG(UT,Verbose,TEXT("Loading Rule %s"), *AllowedGameRulesets[i])
-				if (!AllowedGameRulesets[i].IsEmpty())
+				FName RuleName = FName(*AllowedGameRulesets[i]);
+				UUTGameRuleset* NewRuleset = NewObject<UUTGameRuleset>(GetTransientPackage(), RuleName, RF_Transient);
+				if (NewRuleset)
 				{
-					FName RuleName = FName(*AllowedGameRulesets[i]);
-					UUTGameRuleset* NewRuleset = NewObject<UUTGameRuleset>(GetTransientPackage(), RuleName, RF_Transient);
-					if (NewRuleset)
+					NewRuleset->UniqueTag = AllowedGameRulesets[i];
+					bool bExistsAlready = false;
+					for (int32 j=0; j < AvailableGameRulesets.Num(); j++)
 					{
-						NewRuleset->UniqueTag = AllowedGameRulesets[i];
-						bool bExistsAlready = false;
-						for (int32 j=0; j < AvailableGameRulesets.Num(); j++)
+						if ( AvailableGameRulesets[j]->UniqueTag.Equals(NewRuleset->UniqueTag, ESearchCase::IgnoreCase) || AvailableGameRulesets[j]->Title.ToLower() == NewRuleset->Title.ToLower() )
 						{
-							if ( AvailableGameRulesets[j]->UniqueTag.Equals(NewRuleset->UniqueTag, ESearchCase::IgnoreCase) || AvailableGameRulesets[j]->Title.ToLower() == NewRuleset->Title.ToLower() )
-							{
-								bExistsAlready = true;
-								break;
-							}
+							bExistsAlready = true;
+							break;
 						}
+					}
 
-						if ( !bExistsAlready )
-						{
-							// Before we create the replicated version of this rule.. if it's an epic rule.. insure they are using our defaults.
-							UUTEpicDefaultRulesets::InsureEpicDefaults(NewRuleset);
+					if ( !bExistsAlready )
+					{
+						// Before we create the replicated version of this rule.. if it's an epic rule.. insure they are using our defaults.
+						UUTEpicDefaultRulesets::InsureEpicDefaults(NewRuleset);
 
-							FActorSpawnParameters Params;
-							Params.Owner = PlayerOwner->GetWorld()->GetGameState();
-							AUTReplicatedGameRuleset* NewReplicatedRuleset = PlayerOwner->GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
-							if (NewReplicatedRuleset)
-							{
-								// Build out the map info
-								NewReplicatedRuleset->SetRules(NewRuleset, MapAssets);
-								AvailableGameRulesets.Add(NewReplicatedRuleset);
-							}
-						}
-						else
+						FActorSpawnParameters Params;
+						Params.Owner = PlayerOwner->GetWorld()->GetGameState();
+						AUTReplicatedGameRuleset* NewReplicatedRuleset = PlayerOwner->GetWorld()->SpawnActor<AUTReplicatedGameRuleset>(Params);
+						if (NewReplicatedRuleset)
 						{
-							UE_LOG(UT,Verbose,TEXT("Rule %s already exists."), *AllowedGameRulesets[i]);
+							// Build out the map info
+							NewReplicatedRuleset->SetRules(NewRuleset, MapAssets);
+							AvailableGameRulesets.Add(NewReplicatedRuleset);
 						}
+					}
+					else
+					{
+						UE_LOG(UT,Verbose,TEXT("Rule %s already exists."), *AllowedGameRulesets[i]);
 					}
 				}
 			}
+		}
 	
-			for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
-			{
-				AvailableGameRulesets[i]->BuildSlateBadge();
-			}
+		for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
+		{
+			AvailableGameRulesets[i]->BuildSlateBadge();
 		}
 
 		if (AvailableGameRulesets.Num() > 0)

@@ -82,6 +82,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	MaxYawLag = 4.4f;
 	MaxPitchLag = 3.3f;
 	FOVOffset = FVector(1.f);
+	bProceduralLagRotation = true;
 
 	// default icon texture
 	static ConstructorHelpers::FObjectFinder<UTexture> WeaponTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseB.UI_HUD_BaseB'"));
@@ -1457,7 +1458,7 @@ bool AUTWeapon::StackPickup_Implementation(AUTInventory* ContainedInv)
 
 bool AUTWeapon::ShouldLagRot()
 {
-	return true;
+	return bProceduralLagRotation;
 }
 
 float AUTWeapon::LagWeaponRotation(float NewValue, float LastValue, float DeltaTime, float MaxDiff, int32 Index)

@@ -256,3 +256,25 @@ void UUTCheatManager::SetChar(const FString& NewChar)
 		}
 	}
 }
+
+void UUTCheatManager::God()
+{
+	AUTCharacter* UTChar = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (UTChar != NULL)
+	{
+		if (UTChar->bDamageHurtsHealth)
+		{
+			UTChar->bDamageHurtsHealth = false;
+			GetOuterAPlayerController()->ClientMessage(TEXT("God mode on"));
+		}
+		else
+		{
+			UTChar->bDamageHurtsHealth = true;
+			GetOuterAPlayerController()->ClientMessage(TEXT("God Mode off"));
+		}
+	}
+	else
+	{
+		Super::God();
+	}
+}

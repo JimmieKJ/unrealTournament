@@ -92,6 +92,8 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Decktest";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Tuba";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-ASDF";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Lea/DM-Lea";
+
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 
 		}
@@ -194,7 +196,7 @@ public:
 			NewRuleset->MaxPlayers = 2;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTShowdownGame");
-			NewRuleset->GameOptions = TEXT("?Timelimit==2?GoalScore=50");
+			NewRuleset->GameOptions = TEXT("?Timelimit==2?GoalScore=5");
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
@@ -217,7 +219,7 @@ public:
 			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=1");
+			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0");
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;

@@ -241,6 +241,9 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 		return;
 	}
 
+	// force disable local entitlement checks on dedicated server
+	bRequireEntitlements = bRequireEntitlements && !IsRunningDedicatedServer();
+
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
@@ -259,6 +262,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Weapons/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/ProfileItems/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Lea/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -300,6 +304,9 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 
 void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
 {
+	// force disable local entitlement checks on dedicated server
+	bRequireEntitlements = bRequireEntitlements && !IsRunningDedicatedServer();
+
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 

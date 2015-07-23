@@ -19,7 +19,8 @@ AUTMutator_WeaponReplacement::AUTMutator_WeaponReplacement(const FObjectInitiali
 #if !UE_SERVER
 	if (!IsRunningDedicatedServer())
 	{
-		ConfigMenu = LoadClass<UUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Blueprints/Mutator_WeaponReplacementUI.Mutator_WeaponReplacementUI_C"), NULL, LOAD_None, NULL);
+		static ConstructorHelpers::FObjectFinder<UClass> ConfigMenuClass(TEXT("/Game/RestrictedAssets/Blueprints/Mutator_WeaponReplacementUI.Mutator_WeaponReplacementUI_C"));
+		ConfigMenu = ConfigMenuClass.Object;
 	}
 #endif
 }
