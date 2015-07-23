@@ -1369,7 +1369,7 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 
 						for (int32 ServerIndex = 0; ServerIndex < AllInternetServers.Num(); ServerIndex++)
 						{
-							if (AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
+							if (AllInternetServers[ServerIndex].IsValid() && AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
 							{
 								AllInternetServers[ServerIndex]->NumFriends++;
 								bRequiresUpdate = true;
