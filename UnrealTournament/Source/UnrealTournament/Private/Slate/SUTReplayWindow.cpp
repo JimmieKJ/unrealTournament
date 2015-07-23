@@ -661,7 +661,10 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 		if (bDrawTooltip)
 		{
 			float Alpha = TimeSlider->PositionToValue(TimeSliderGeometry, MouseEvent.GetScreenSpacePosition());
-			TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
+			if (DemoNetDriver.IsValid())
+			{
+				TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
+			}
 
 			//need to scale the position like we are doing for the whole widget
 			float Scale = MyGeometry.Size.X / 1920.0f;
