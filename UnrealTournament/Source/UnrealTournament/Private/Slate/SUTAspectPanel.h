@@ -16,9 +16,12 @@ class UNREALTOURNAMENT_API SUTAspectPanel : public SCompoundWidget
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
+	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
 
 	/** See Content slot */
 	void SetContent(TSharedRef<SWidget> InContent);
 
+private:
+	mutable float CachedLayoutScale;
 };
 #endif
