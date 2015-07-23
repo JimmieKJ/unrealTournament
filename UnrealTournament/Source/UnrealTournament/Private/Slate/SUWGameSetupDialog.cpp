@@ -165,12 +165,15 @@ void SUWGameSetupDialog::BuildCategories()
 	TArray<FName> Categories;
 	for(int32 i=0; i < GameRulesets.Num(); i++)
 	{
-		for (int32 j=0; j < GameRulesets[i]->Categories.Num(); j++)
+		if (GameRulesets[i].IsValid())
 		{
-			FName Cat = GameRulesets[i]->Categories[j];
-			if (Categories.Find(Cat) == INDEX_NONE)
+			for (int32 j = 0; j < GameRulesets[i]->Categories.Num(); j++)
 			{
-				Categories.Add(Cat);
+				FName Cat = GameRulesets[i]->Categories[j];
+				if (Categories.Find(Cat) == INDEX_NONE)
+				{
+					Categories.Add(Cat);
+				}
 			}
 		}
 	}
