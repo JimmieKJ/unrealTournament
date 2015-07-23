@@ -18,7 +18,7 @@ public class UnrealTournament : ModuleRules
 		);
         
         PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "OnlineSubsystem", "OnlineSubsystemUtils", "RenderCore", "Navmesh", "WebBrowser", "Json", "HTTP", "UMG", "EngineSettings" });
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets", "UTReplayStreamer" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer", "MoviePlayer" });
