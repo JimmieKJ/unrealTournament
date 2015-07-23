@@ -962,7 +962,9 @@ void FDeferredShadingSceneRenderer::RenderStandardDeferredImageBasedReflections(
 	{
 		FViewInfo& View = Views[ViewIndex];
 
-		bool bRequiresApply = bSkyLight;
+		// FIXME: UT workaround for rendering bug when reflection environments are off and map has a skylight
+		//bool bRequiresApply = bSkyLight;
+		bool bRequiresApply = false;
 
 		const bool bSSR = DoScreenSpaceReflections(View);
 
