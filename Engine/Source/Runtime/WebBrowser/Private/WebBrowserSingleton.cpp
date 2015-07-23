@@ -37,6 +37,7 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	CefSettings Settings;
 	Settings.no_sandbox = true;
 	Settings.command_line_args_disabled = true;
+	Settings.log_severity = LOGSEVERITY_WARNING;
 
 	// Enable on disk cache
 	FString CachePath(FPaths::Combine(*FPaths::GameSavedDir(), TEXT("webcache")));
