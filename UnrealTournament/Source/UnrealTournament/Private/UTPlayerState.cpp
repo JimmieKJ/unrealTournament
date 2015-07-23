@@ -17,6 +17,8 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTReplicatedMapInfo.h"
 #include "UTRewardMessage.h"
+#include "UTGameEngine.h"
+#include "UTFlagInfo.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1289,6 +1291,8 @@ const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
 
 void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
+	UUTFlagInfo* Flag = Cast<UUTGameEngine>(GEngine) ? Cast<UUTGameEngine>(GEngine)->GetFlag(CountryFlag) : nullptr;
+
 	TabWidget->AddTab(NSLOCTEXT("AUTPlayerState", "PlayerInfo", "Player Info"), 
 	SNew(SVerticalBox)
 	+ SVerticalBox::Slot()
@@ -1351,7 +1355,51 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			]
 		]
 	]
-
+	+ SVerticalBox::Slot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "PlayerFlagPrompt", "Flag :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Left)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(36.0f)
+			.HeightOverride(26.0f)
+			.MaxDesiredWidth(36.0f)
+			.MaxDesiredHeight(26.0f)
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush(Flag ? Flag->GetSlatePropertyName() : NAME_None))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+		.VAlign(VAlign_Center)
+		.HAlign(HAlign_Left)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(Flag ? Flag->GetFriendlyName() : TEXT("")))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
+	]
 	+SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
