@@ -115,7 +115,8 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 
 void AUTShowdownGame::CheckGameTime()
 {
-	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0)
+	static FName NAME_StartIntermission(TEXT("StartIntermission"));
+	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0 && !IsTimerActiveUFunc(this, NAME_StartIntermission))
 	{
 		// end round; player with highest health + armor wins
 		TArray< AUTPlayerState*, TInlineAllocator<2> > AlivePlayers;
@@ -168,7 +169,7 @@ void AUTShowdownGame::CheckGameTime()
 			}
 			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 0, RoundWinner);
 		}
-		SetTimerUFunc(this, FName(TEXT("StartIntermission")), 2.0f, false);
+		SetTimerUFunc(this, NAME_StartIntermission, 2.0f, false);
 	}
 }
 
