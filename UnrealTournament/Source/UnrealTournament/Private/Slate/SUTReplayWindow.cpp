@@ -340,7 +340,10 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	}
 
 	FEnumerateEventsCompleteDelegate EnumKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::KillsEnumerated);
-	DemoNetDriver->EnumerateEvents(TEXT("Kills"), EnumKills);
+	if (DemoNetDriver.IsValid())
+	{
+		DemoNetDriver->EnumerateEvents(TEXT("Kills"), EnumKills);
+	}
 }
 
 void SUTReplayWindow::ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray)
@@ -393,8 +396,11 @@ void SUTReplayWindow::FlagCapsEnumerated(const FString& JsonString, bool bSuccee
 		ParseJsonIntoBookmarkArray(JsonString, FlagCapEvents);
 	}
 
-	FEnumerateEventsCompleteDelegate EnumFlagReturns = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagReturnsEnumerated);
-	DemoNetDriver->EnumerateEvents(TEXT("FlagReturns"), EnumFlagReturns);
+	if (DemoNetDriver.IsValid())
+	{
+		FEnumerateEventsCompleteDelegate EnumFlagReturns = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagReturnsEnumerated);
+		DemoNetDriver->EnumerateEvents(TEXT("FlagReturns"), EnumFlagReturns);
+	}
 }
 
 void SUTReplayWindow::FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded)
@@ -404,8 +410,11 @@ void SUTReplayWindow::FlagReturnsEnumerated(const FString& JsonString, bool bSuc
 		ParseJsonIntoBookmarkArray(JsonString, FlagReturnEvents);
 	}
 
-	FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagDenyEnumerated);
-	DemoNetDriver->EnumerateEvents(TEXT("FlagDeny"), EnumFlagDeny);
+	if (DemoNetDriver.IsValid())
+	{
+		FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagDenyEnumerated);
+		DemoNetDriver->EnumerateEvents(TEXT("FlagDeny"), EnumFlagDeny);
+	}
 }
 
 void SUTReplayWindow::FlagDenyEnumerated(const FString& JsonString, bool bSucceeded)
@@ -415,8 +424,11 @@ void SUTReplayWindow::FlagDenyEnumerated(const FString& JsonString, bool bSuccee
 		ParseJsonIntoBookmarkArray(JsonString, FlagDenyEvents);
 	}
 
-	FEnumerateEventsCompleteDelegate EnumMultiKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::MultiKillsEnumerated);
-	DemoNetDriver->EnumerateEvents(TEXT("MultiKills"), EnumMultiKills);
+	if (DemoNetDriver.IsValid())
+	{
+		FEnumerateEventsCompleteDelegate EnumMultiKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::MultiKillsEnumerated);
+		DemoNetDriver->EnumerateEvents(TEXT("MultiKills"), EnumMultiKills);
+	}
 }
 
 void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucceeded)
@@ -426,8 +438,11 @@ void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucc
 		ParseJsonIntoBookmarkArray(JsonString, MultiKillEvents);
 	}
 
-	FEnumerateEventsCompleteDelegate EnumSpreeKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::SpreeKillsEnumerated);
-	DemoNetDriver->EnumerateEvents(TEXT("SpreeKills"), EnumSpreeKills);
+	if (DemoNetDriver.IsValid())
+	{
+		FEnumerateEventsCompleteDelegate EnumSpreeKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::SpreeKillsEnumerated);
+		DemoNetDriver->EnumerateEvents(TEXT("SpreeKills"), EnumSpreeKills);
+	}
 }
 
 void SUTReplayWindow::SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded)
