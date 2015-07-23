@@ -358,7 +358,10 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = GUIDSessionSearchSettings.ToSharedRef();
 
-		// Cancel any existing find session calls.
+		if (OnlineSessionInterface.IsValid())
+		{
+			OnlineSessionInterface->CancelFindSessions();				
+		}
 
 		OnFindGUIDSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnFindSessionsComplete);
 		OnFindGUIDSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegate);
