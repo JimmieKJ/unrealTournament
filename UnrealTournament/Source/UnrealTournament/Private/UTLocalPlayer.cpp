@@ -2312,6 +2312,12 @@ void UUTLocalPlayer::OpenReplayWindow()
 	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
 	if (DemoDriver)
 	{
+		// If the demo net driver changed, reopen the window, we're in a different replay.
+		if (ReplayWindow.IsValid() && ReplayWindow->GetDemoNetDriver() != DemoDriver)
+		{
+			CloseReplayWindow();
+		}
+
 		if (!ReplayWindow.IsValid())
 		{
 			SAssignNew(ReplayWindow, SUTReplayWindow)
