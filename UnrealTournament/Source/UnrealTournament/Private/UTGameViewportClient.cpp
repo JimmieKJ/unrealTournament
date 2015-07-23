@@ -933,7 +933,9 @@ void UUTGameViewportClient::HttpRequestProgress(FHttpRequestPtr HttpRequest, int
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	
 	if (FirstPlayer && PendingDownloads.Num() > 0)
 	{
-		float Perc = HttpRequest->GetResponse()->GetContentLength() > 0 ? (NumBytesRecv / HttpRequest->GetResponse()->GetContentLength()) : 0.0f;
+		int32 ContentLength = HttpRequest->GetResponse()->GetContentLength();
+
+		float Perc = ContentLength > 0 ? (NumBytesRecv / float(ContentLength)) : 0.0f;
 		FirstPlayer->UpdateRedirect(PendingDownloads[0].FileURL, NumBytesRecv, Perc, PendingDownloads.Num());
 	}
 }

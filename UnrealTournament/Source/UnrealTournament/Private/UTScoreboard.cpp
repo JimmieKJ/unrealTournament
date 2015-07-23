@@ -951,3 +951,8 @@ void UUTScoreboard::DrawMovementStats(AUTPlayerState* PS, float DeltaTime, float
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumImpactJumps", "Impact Jumps"), PS->GetStatsValue(NAME_NumImpactJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 //	DrawStatsLine(NSLOCTEXT("UTScoreboard", "NumRocketJumps", "Rocket Jumps"), PS->GetStatsValue(NAME_NumRocketJumps), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 }
+
+float UUTScoreboard::GetDrawScaleOverride()
+{
+	return 1.0;
+}

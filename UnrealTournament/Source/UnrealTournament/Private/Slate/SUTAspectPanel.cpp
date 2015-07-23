@@ -7,6 +7,8 @@
 
 void SUTAspectPanel::Construct(const SUTAspectPanel::FArguments& InArgs)
 {
+	CachedLayoutScale = 1.0f;
+
 	ChildSlot
 		[
 			SNew(SBox).WidthOverride(1920.0f).HeightOverride(1080.0f)
@@ -56,8 +58,15 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 			FinalOffset /= AllottedGeometry.Scale;
 		}
 
+		CachedLayoutScale = Scale;
+
 		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild( ChildSlot.GetWidget(), FinalOffset, DesiredSize, Scale));
 	}
+}
+
+float SUTAspectPanel::GetRelativeLayoutScale(const FSlotBase& Child) const
+{
+	return CachedLayoutScale;
 }
 
 void SUTAspectPanel::SetContent(TSharedRef<SWidget> InContent)

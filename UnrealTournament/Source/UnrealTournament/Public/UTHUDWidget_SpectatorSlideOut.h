@@ -159,6 +159,7 @@ protected:
 	bool bPowerupListInitialized;
 
 	virtual void InitPowerupList();
+	virtual float GetDrawScaleOverride();
 
 private:
 	FVector2D MousePosition;
