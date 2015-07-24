@@ -19,6 +19,7 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FUTModule, UnrealTournament, "UnrealTournament");
  
 DEFINE_LOG_CATEGORY(UT);
 DEFINE_LOG_CATEGORY(UTNet);
+DEFINE_LOG_CATEGORY(UTLoading);
 
 static uint32 UTGetNetworkVersion()
 {
