@@ -18,10 +18,9 @@ void UUTProfileSettings::ClearWeaponPriorities()
 	WeaponPriorities.Empty();
 }
 
-
 void UUTProfileSettings::VersionFixup()
 {
-	if (SettingsRevisionNum == EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION)
+	if (SettingsRevisionNum <= EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION)
 	{
 		for (auto Iter = ActionMappings.CreateIterator(); Iter; ++Iter)
 		{
@@ -39,12 +38,16 @@ void UUTProfileSettings::VersionFixup()
 			}
 		}
 	}
-	if (SettingsRevisionNum == TAUNTFIXUP_PROFILESETTINGS_VERSION)
+	if (SettingsRevisionNum <= TAUNTFIXUP_PROFILESETTINGS_VERSION)
 	{
 		FInputActionKeyMapping Taunt2;
 		Taunt2.ActionName = FName(TEXT("PlayTaunt2"));
 		Taunt2.Key = EKeys::K;
 		ActionMappings.AddUnique(Taunt2);
+	}
+	if (SettingsRevisionNum <= SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		bAllowSlideFromRun = true;
 	}
 }
 
