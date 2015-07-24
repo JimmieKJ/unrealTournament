@@ -123,8 +123,9 @@ void AUTServerBeaconClient::ServerRequestInstances_Implementation(int32 LastInst
 		UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
 		AUTLobbyMatchInfo* Match = LobbyGameState->FindMatch(InstanceIDs[LastInstanceIndex]);
 		if (Match)
-		{
+		{ 
 			ClientReceiveInstance(LastInstanceIndex, InstanceIDs.Num(), Match->CurrentRuleset->DisplayTexture, Match->MatchBadge);
+			return;
 		}
 	}
 
