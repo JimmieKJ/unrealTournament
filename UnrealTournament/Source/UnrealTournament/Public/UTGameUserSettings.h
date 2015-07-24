@@ -109,5 +109,7 @@ private:
 
 	FSettingsAutodetected SettingsAutodetectedEvent;
 	TSharedPtr<class SUWDialog> AutoDetectingSettingsDialog;
+
+	TWeakObjectPtr<UUTLocalPlayer> BenchmarkingLocalPlayer;
 #endif // !UE_SERVER
 };
