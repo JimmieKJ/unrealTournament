@@ -903,34 +903,38 @@ void AUTGameState::VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter)
 
 void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList)
 {
+	UE_LOG(UTLoading, Log, TEXT("Iterate through UClasses"));
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
+		UClass* CurrentClass = (*It);
 		// non-native classes are detected by asset search even if they're loaded for consistency
-		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && It->HasAnyClassFlags(CLASS_Native))
+		if (!CurrentClass->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && CurrentClass->HasAnyClassFlags(CLASS_Native))
 		{
-			if (It->IsChildOf(AUTGameMode::StaticClass()))
+			if (CurrentClass->IsChildOf(AUTGameMode::StaticClass()))
 			{
-				if (!It->GetDefaultObject<AUTGameMode>()->bHideInUI)
+				if (!CurrentClass->GetDefaultObject<AUTGameMode>()->bHideInUI)
 				{
-					GameModes.Add(*It);
+					GameModes.Add(CurrentClass);
 				}
 			}
-			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
+			else if (CurrentClass->IsChildOf(AUTMutator::StaticClass()) && !CurrentClass->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
 			{
-				MutatorList.Add(*It);
+				MutatorList.Add(CurrentClass);
 			}
 		}
 	}
 
 	{
+		UE_LOG(UTLoading, Log, TEXT("Load Gamemode blueprints"));
 		TArray<FAssetData> AssetList;
 		GetAllBlueprintAssetData(AUTGameMode::StaticClass(), AssetList);
 		for (const FAssetData& Asset : AssetList)
 		{
 			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
 			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if (ClassPath != NULL)
+			if ((ClassPath != NULL) && !ClassPath->IsEmpty())
 			{
+				UE_LOG(UTLoading, Log, TEXT("load gamemode object classpath %s"), **ClassPath);
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTGameMode::StaticClass()) && !TestClass->GetDefaultObject<AUTGameMode>()->bHideInUI)
 				{
@@ -941,14 +945,16 @@ void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClas
 	}
 
 	{
+		UE_LOG(UTLoading, Log, TEXT("Load Mutator blueprints"));
 		TArray<FAssetData> AssetList;
 		GetAllBlueprintAssetData(AUTMutator::StaticClass(), AssetList);
 		for (const FAssetData& Asset : AssetList)
 		{
 			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
 			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-			if (ClassPath != NULL)
+			if ((ClassPath != NULL) && !ClassPath->IsEmpty())
 			{
+				UE_LOG(UTLoading, Log, TEXT("load mutator object classpath %s"), **ClassPath);
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTMutator::StaticClass()) && !TestClass->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
 				{
