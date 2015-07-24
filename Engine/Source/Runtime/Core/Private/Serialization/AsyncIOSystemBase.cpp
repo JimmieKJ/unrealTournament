@@ -54,7 +54,7 @@ uint64 FAsyncIOSystemBase::QueueIORequest(
 	IORequest.RequestIndex				= RequestIndex++;
 	IORequest.FileSortKey				= INDEX_NONE;
 	IORequest.FileName					= FileName;
-	IORequest.FileNameHash				= FCrc::StrCrc32<TCHAR>(FileName.ToLower().GetCharArray().GetData());
+	IORequest.FileNameHash				= FCrc::StrCrc32<TCHAR>(*FileName.ToLower());
 	IORequest.Offset					= Offset;
 	IORequest.Size						= Size;
 	IORequest.UncompressedSize			= UncompressedSize;
@@ -97,7 +97,7 @@ uint64 FAsyncIOSystemBase::QueueDestroyHandleRequest(const FString& FileName)
 	FAsyncIORequest IORequest;
 	IORequest.RequestIndex				= RequestIndex++;
 	IORequest.FileName					= FileName;
-	IORequest.FileNameHash				= FCrc::StrCrc32<TCHAR>(FileName.ToLower().GetCharArray().GetData());
+	IORequest.FileNameHash				= FCrc::StrCrc32<TCHAR>(*FileName.ToLower());
 	IORequest.Priority					= AIOP_MIN;
 	IORequest.bIsDestroyHandleRequest	= true;
 
@@ -410,7 +410,7 @@ IFileHandle* FAsyncIOSystemBase::GetCachedFileHandle( const FString& FileName )
 		// Make sure it's valid before caching and using it.
 		if( FileHandle )
 		{
-			NameHashToHandleMap.Add(FCrc::StrCrc32<TCHAR>(FileName.ToLower().GetCharArray().GetData()), FileHandle);
+			NameHashToHandleMap.Add(FCrc::StrCrc32<TCHAR>(*FileName.ToLower()), FileHandle);
 		}
 	}
 
@@ -419,7 +419,7 @@ IFileHandle* FAsyncIOSystemBase::GetCachedFileHandle( const FString& FileName )
 
 IFileHandle* FAsyncIOSystemBase::FindCachedFileHandle( const FString& FileName )
 {
-	return FindCachedFileHandle(FCrc::StrCrc32<TCHAR>(FileName.ToLower().GetCharArray().GetData()));
+	return FindCachedFileHandle(FCrc::StrCrc32<TCHAR>(*FileName.ToLower()));
 }
 
 IFileHandle* FAsyncIOSystemBase::FindCachedFileHandle(const uint32 FileNameHash)
