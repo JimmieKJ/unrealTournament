@@ -196,7 +196,7 @@ public:
 			NewRuleset->MaxPlayers = 2;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTShowdownGame");
-			NewRuleset->GameOptions = TEXT("?Timelimit==2?GoalScore=5");
+			NewRuleset->GameOptions = TEXT("?Timelimit=2?GoalScore=5");
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
