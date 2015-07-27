@@ -443,16 +443,19 @@ void SUWMapVoteDialog::TextureLoadComplete(const FName& InPackageName, UPackage*
 	{
 		for (int32 i=0 ;i < VoteButtons.Num(); i++)
 		{
-			FString Screenshot = VoteButtons[i].MapVoteInfo->MapScreenshotReference;
-			FString PackageName = InPackageName.ToString();
-			if (Screenshot != TEXT("") && Screenshot.Contains(PackageName))
+			if (VoteButtons[i].MapVoteInfo.IsValid())
 			{
-				UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
-				if (Tex)
+				FString Screenshot = VoteButtons[i].MapVoteInfo->MapScreenshotReference;
+				FString PackageName = InPackageName.ToString();
+				if (Screenshot != TEXT("") && Screenshot.Contains(PackageName))
 				{
-					VoteButtons[i].MapTexture = Tex;
-					VoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
-					VoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
+					UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
+					if (Tex)
+					{
+						VoteButtons[i].MapTexture = Tex;
+						VoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
+						VoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
+					}
 				}
 			}
 		}
@@ -465,17 +468,20 @@ void SUWMapVoteDialog::LeaderTextureLoadComplete(const FName& InPackageName, UPa
 	{
 		for (int32 i=0 ;i < LeadingVoteButtons.Num(); i++)
 		{
-			FString Screenshot = LeadingVoteButtons[i].MapVoteInfo->MapScreenshotReference;
-			FString PackageName = InPackageName.ToString();
-			if (Screenshot != TEXT("") && Screenshot.Contains(PackageName))
+			if (LeadingVoteButtons[i].MapVoteInfo.IsValid())
 			{
-				UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
-				if (Tex)
+				FString Screenshot = LeadingVoteButtons[i].MapVoteInfo->MapScreenshotReference;
+				FString PackageName = InPackageName.ToString();
+				if (Screenshot != TEXT("") && Screenshot.Contains(PackageName))
 				{
-					LeadingVoteButtons[i].MapTexture = Tex;
-					LeadingVoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
-					LeadingVoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
-					LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
+					UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
+					if (Tex)
+					{
+						LeadingVoteButtons[i].MapTexture = Tex;
+						LeadingVoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
+						LeadingVoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
+						LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
+					}
 				}
 			}
 		}
