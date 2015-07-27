@@ -1074,7 +1074,7 @@ void AUTGameState::SortVotes()
 		for (int32 j=i+1; j<MapVoteList.Num(); j++)
 		{
 			AUTReplicatedMapInfo* V2 = Cast<AUTReplicatedMapInfo>(MapVoteList[j]);
-			if( V2->VoteCount > V1->VoteCount )
+			if( V2 && (!V1 || (V2->VoteCount > V1->VoteCount)) )
 			{
 				MapVoteList[i] = V2;
 				MapVoteList[j] = V1;
