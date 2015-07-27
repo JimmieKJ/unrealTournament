@@ -49,7 +49,6 @@ void AUTKMGameMode::ScoreKill(AController* Killer, AController* Other, APawn* Ki
 			// We killed a king.  So we score points.
 			KillerPlayerState->AdjustScore(+1);
 			KillerPlayerState->IncrementKills(DamageType, true);
-			FindAndMarkHighScorer();
 			CheckScore(KillerPlayerState);
 		}
 		else
@@ -75,7 +74,7 @@ void AUTKMGameMode::ScoreKill(AController* Killer, AController* Other, APawn* Ki
 	{
 		KingHasBeenKilled(OtherPlayerState, KilledPawn, NULL);
 	}
-
+	FindAndMarkHighScorer();
 }
 
 void AUTKMGameMode::BecomeKing(AUTPlayerState* KingPlayerState)

@@ -132,6 +132,7 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		{
 			BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
 		}
+		FindAndMarkHighScorer();
 
 		if ( Reason == FName("SentHome") )
 		{
@@ -694,13 +695,13 @@ void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* 
 				bFirstBloodOccurred = true;
 			}
 			AttackerPS->IncrementKills(DamageType, true);
-			FindAndMarkHighScorer();
 		}
 	}
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
+	FindAndMarkHighScorer();
 }
 
 bool AUTCTFGameMode::IsMatchInSuddenDeath()
