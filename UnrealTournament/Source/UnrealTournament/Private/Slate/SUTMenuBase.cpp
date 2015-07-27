@@ -865,7 +865,7 @@ void SUTMenuBase::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, EL
 
 FReply SUTMenuBase::OnOnlineClick()
 {
-	PlayerOwner->LoginOnline(TEXT(""),TEXT(""),false);
+	PlayerOwner->GetAuth();
 	return FReply::Handled();
 }
 
