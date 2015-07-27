@@ -37,6 +37,7 @@
 #include "Engine/DemoNetDriver.h"
 #include "EngineBuildSettings.h"
 #include "UTEngineMessage.h"
+#include "UTRemoteRedeemer.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1750,6 +1751,11 @@ void AUTGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 	if (Winner == NULL) return; // It's possible to call this with Winner == NULL if timelimit is hit with noone on the server
 
 	EndGameFocus = Cast<AController>(Winner->GetOwner())->GetPawn();
+	AUTRemoteRedeemer* Missile = Cast<AUTRemoteRedeemer>(EndGameFocus);
+	if (Missile && Missile->Driver)
+	{
+		EndGameFocus = Missile->Driver;
+	}
 	if ( (EndGameFocus == NULL) && (Cast<AController>(Winner->GetOwner()) != NULL) )
 	{
 		// If the controller of the winner does not have a pawn, give him one.
