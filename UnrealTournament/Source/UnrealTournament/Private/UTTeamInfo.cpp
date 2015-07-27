@@ -29,7 +29,10 @@ void AUTTeamInfo::BeginPlay()
 	if (!IsPendingKillPending())
 	{
 		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTTeamInfo::UpdateTeamLeaders, 3.f, true);
+		if (Role == ROLE_Authority)
+		{
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTTeamInfo::UpdateTeamLeaders, 3.f, true);
+		}
 	}
 }
 
