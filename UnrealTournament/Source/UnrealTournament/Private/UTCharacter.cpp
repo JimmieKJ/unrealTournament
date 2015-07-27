@@ -4099,7 +4099,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
+		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating || GS->HasMatchEnded() || GS->IsMatchAtHalftime()) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
