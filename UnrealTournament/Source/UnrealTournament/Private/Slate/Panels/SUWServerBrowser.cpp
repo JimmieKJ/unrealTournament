@@ -1373,7 +1373,8 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 
 						for (int32 ServerIndex = 0; ServerIndex < AllInternetServers.Num(); ServerIndex++)
 						{
-							if (AllInternetServers[ServerIndex].IsValid() && AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
+							if (AllInternetServers[ServerIndex].IsValid() && AllInternetServers[ServerIndex]->SearchResult.IsValid() && AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo.IsValid() &&
+									AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
 							{
 								AllInternetServers[ServerIndex]->NumFriends++;
 								bRequiresUpdate = true;
@@ -1384,7 +1385,8 @@ void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSu
 						for (int32 HUBIndex = 0; HUBIndex < AllHubServers.Num(); HUBIndex++)
 						{
 							// NOTE: We have to check the search result here because of the fake HUB.  
-							if (AllHubServers[HUBIndex]->SearchResult.IsValid() && AllHubServers[HUBIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
+							if (AllHubServers[HUBIndex]->SearchResult.IsValid() && AllHubServers[HUBIndex]->SearchResult.IsValid() && AllHubServers[HUBIndex]->SearchResult.Session.SessionInfo.IsValid() &&
+									AllHubServers[HUBIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
 							{
 								AllHubServers[HUBIndex]->NumFriends++;
 								bRequiresUpdate = true;
