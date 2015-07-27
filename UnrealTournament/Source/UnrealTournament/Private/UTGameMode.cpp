@@ -36,6 +36,7 @@
 #include "UTWeap_Enforcer.h"
 #include "Engine/DemoNetDriver.h"
 #include "EngineBuildSettings.h"
+#include "UTEngineMessage.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -67,6 +68,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	GameStateClass = AUTGameState::StaticClass();
 	PlayerStateClass = AUTPlayerState::StaticClass();
+	EngineMessageClass = UUTEngineMessage::StaticClass();
 
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 	BotClass = AUTBot::StaticClass();
@@ -1166,7 +1168,6 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		{
 			KillerPlayerState->AdjustScore(+1);
 			KillerPlayerState->IncrementKills(DamageType, true);
-			FindAndMarkHighScorer();
 			CheckScore(KillerPlayerState);
 		}
 
@@ -1183,6 +1184,7 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 	{
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
+	FindAndMarkHighScorer();
 }
 
 void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)

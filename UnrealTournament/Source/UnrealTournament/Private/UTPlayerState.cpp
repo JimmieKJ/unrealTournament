@@ -662,7 +662,14 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 	{
 		Team->RemoveFromTeam(Cast<AController>(GetOwner()));
 	}
-
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PlayerController = *Iterator;
+		if (PlayerController && PlayerController->IsLocalPlayerController())
+		{
+			PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, 4, this);
+		}
+	}
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::EndPlay(Reason);
 }
