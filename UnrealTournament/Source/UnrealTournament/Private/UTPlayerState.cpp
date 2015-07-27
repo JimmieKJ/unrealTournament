@@ -1486,11 +1486,17 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		.Padding(5.0, 0.0, 0.0, 0.0)
 		.AutoWidth()
 		[
-			SNew(STextBlock)
+			SNew(SHyperlink)
 			.Text(FText::FromString(StatsID))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.OnNavigate(FSimpleDelegate::CreateUObject(this, &AUTPlayerState::EpicIDClicked))
 		]
 	]);
+}
+
+void AUTPlayerState::EpicIDClicked()
+{
+	FPlatformMisc::ClipboardCopy(*StatsID);
 }
 #endif
 
