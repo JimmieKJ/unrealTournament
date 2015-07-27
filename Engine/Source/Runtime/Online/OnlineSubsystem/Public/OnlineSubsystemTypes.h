@@ -1063,6 +1063,15 @@ public:
 	 * @return Any additional auth data associated with a registered user
 	 */
 	virtual bool GetAuthAttribute(const FString& AttrName, FString& OutAttrValue) const = 0;
+
+	/**
+	 *	Accessor for getting account data and returning it.
+	 **/
+	virtual bool GetUserAccountData(const FString& Item, FString& OutValue)  const
+	{
+		return false;
+	}
+
 };
 
 /** 

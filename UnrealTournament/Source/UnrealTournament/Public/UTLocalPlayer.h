@@ -65,6 +65,7 @@ public:
 
 	virtual FString GetNickname() const;
 	virtual FText GetAccountSummary() const;
+	virtual FString GetAccountName() const;
 	virtual FText GetAccountDisplayName() const;
 
 	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
@@ -256,6 +257,7 @@ protected:
 	virtual void AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
+public:
 	// Call this function to Attempt to load the Online Profile Settings for this user.
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
 

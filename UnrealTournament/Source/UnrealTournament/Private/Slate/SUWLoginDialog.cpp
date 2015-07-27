@@ -16,11 +16,16 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 	FVector2D ViewportSize;
 	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
 
+	FString UserID = InArgs._UserIDText;
+	if (UserID.IsEmpty())
+	{
+		// Attemtp to lookup the current user id.
+		UserID = PlayerOwner->GetAccountName();
+	}
+
 	OnDialogResult = InArgs._OnDialogResult;
 
-	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
-	//float ScaledX = ViewportSize.X / DPIScale;
-	FVector2D DesignedRez = ViewportSize / DPIScale; //(ScaledX, Viewport);
+	FVector2D DesignedRez(1920,1080);
 	FVector2D DesignedSize(500, 800);
 	FVector2D Pos = (DesignedRez * 0.5f) - (DesignedSize * 0.5f);
 	ChildSlot
@@ -169,7 +174,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 								[
 									SAssignNew(UserEditBox, SEditableTextBox)
 									.MinDesiredWidth(425)
-									.Text(FText::FromString(InArgs._UserIDText))
+									.Text(FText::FromString(UserID))
 									.Style(SUWindowsStyle::Get(), "UT.Login.Editbox")
 								]
 							]

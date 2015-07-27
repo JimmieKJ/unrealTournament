@@ -168,6 +168,27 @@ FText UUTLocalPlayer::GetAccountDisplayName() const
 	return FText::GetEmpty();
 }
 
+FString UUTLocalPlayer::GetAccountName() const
+{
+	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
+	{
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		if (UserId.IsValid())
+		{
+			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
+			if (UserAccount.IsValid())
+			{
+				FString Result;
+				UserAccount->GetUserAccountData(TEXT("email"), Result);
+				return Result;
+			}
+		}
+	}
+
+	return TEXT("");
+}
+
+
 FText UUTLocalPlayer::GetAccountSummary() const
 {
 	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
@@ -527,64 +548,54 @@ void UUTLocalPlayer::LoginOnline(FString EpicID, FString Auth, bool bIsRememberT
 {
 	if ( !OnlineIdentityInterface.IsValid() ) return;
 
-	if (IsLoggedIn() )
+	FString Override;
+	if ( FParse::Value(FCommandLine::Get(),TEXT("-id="),Override))
 	{
-		// Allow users to switch accounts
-		PendingLoginUserName = LastEpicIDLogin;
-		GetAuth();
+		EpicID = Override;
 	}
-	else
+
+	if ( FParse::Value(FCommandLine::Get(),TEXT("-pass="),Override))
 	{
+		Auth=Override;
+		bIsRememberToken=false;
+	}
 
-		FString Override;
-		if ( FParse::Value(FCommandLine::Get(),TEXT("-id="),Override))
-		{
-			EpicID = Override;
-		}
+	if (EpicID == TEXT(""))
+	{
+		EpicID = LastEpicIDLogin;
+	}
 
-		if ( FParse::Value(FCommandLine::Get(),TEXT("-pass="),Override))
-		{
-			Auth=Override;
-			bIsRememberToken=false;
-		}
+	// Save this for later.
+	PendingLoginUserName = EpicID;
+	bSilentLoginFail = bSilentlyFail;
 
-		if (EpicID == TEXT(""))
-		{
-			EpicID = LastEpicIDLogin;
-		}
+	if (EpicID == TEXT("") || Auth == TEXT(""))
+	{
+		GetAuth();
+		return;
+	}
 
-		// Save this for later.
-		PendingLoginUserName = EpicID;
-		bSilentLoginFail = bSilentlyFail;
+	FOnlineAccountCredentials AccountCreds(TEXT("epic"), EpicID, Auth);
+	if (bIsRememberToken)
+	{
+		AccountCreds.Type = TEXT("refresh");
+	}
 
-		if (EpicID == TEXT("") || Auth == TEXT(""))
-		{
-			GetAuth();
-			return;
-		}
-
-		FOnlineAccountCredentials AccountCreds(TEXT("epic"), EpicID, Auth);
-		if (bIsRememberToken)
-		{
-			AccountCreds.Type = TEXT("refresh");
-		}
-
-		// Begin the Login Process...
-		if (!OnlineIdentityInterface->Login(GetControllerId(), AccountCreds))
-		{
+	// Begin the Login Process...
+	if (!OnlineIdentityInterface->Login(GetControllerId(), AccountCreds))
+	{
 #if !UE_SERVER
-			// We should never fail here unless something has gone horribly wrong
-			if (bSilentLoginFail)
-			{
-				UE_LOG(UT, Warning, TEXT("Could not connect to the online subsystem. Please check your connection and try again."));
-			}
-			else
-			{
-				ShowMessage(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "UnknownLoginFailuire", "Could not connect to the online subsystem.  Please check your connection and try again."), UTDIALOG_BUTTON_OK, NULL);
-			}
-			return;
-#endif
+		// We should never fail here unless something has gone horribly wrong
+		if (bSilentLoginFail)
+		{
+			UE_LOG(UT, Warning, TEXT("Could not connect to the online subsystem. Please check your connection and try again."));
 		}
+		else
+		{
+			ShowMessage(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "UnknownLoginFailuire", "Could not connect to the online subsystem.  Please check your connection and try again."), UTDIALOG_BUTTON_OK, NULL);
+		}
+		return;
+#endif
 	}
 }
 
@@ -693,6 +704,8 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 	// Otherwise if this is the first attempt, then silently fair
 	else if (!bSilentLoginFail)
 	{
+		// Broadcast the failure to the UI.
+		PlayerOnlineStatusChanged.Broadcast(this, ELoginStatus::NotLoggedIn, UniqueID);
 		GetAuth(ErrorMessage);
 	}
 }
@@ -816,6 +829,19 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 	// TO-DO: Add a Toast system for displaying stuff like this
 
 	GetWorld()->GetTimerManager().ClearTimer(ProfileWriteTimerHandle);
+
+	// If we have pending login creds then try to log right back in.
+	if (bPendingLoginCreds)
+	{
+		bPendingLoginCreds = false;
+		LoginOnline(PendingLoginName, PendingLoginPassword);
+		PendingLoginPassword = TEXT("");
+	}
+	else
+	{
+		ShowToast(NSLOCTEXT("UTLocalPlayer","LoggedOutMsg","You have logged out!"));
+	}
+
 }
 
 #if !UE_SERVER

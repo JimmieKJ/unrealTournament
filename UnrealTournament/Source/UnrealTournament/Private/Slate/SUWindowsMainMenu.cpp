@@ -527,7 +527,7 @@ FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, 
 
 	if (!PlayerOwner->IsLoggedIn())
 	{
-		PlayerOwner->LoginOnline(TEXT(""),TEXT(""));
+		PlayerOwner->GetAuth();
 		return FReply::Handled();
 	}
 
