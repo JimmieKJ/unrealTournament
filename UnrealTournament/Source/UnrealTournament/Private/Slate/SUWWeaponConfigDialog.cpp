@@ -7,10 +7,10 @@
 #include "../Public/UTCanvasRenderTarget2D.h"
 #include "EngineModule.h"
 #include "SlateMaterialBrush.h"
-#include "SColorPicker.h"
 #include "SNumericEntryBox.h"
 
 #if !UE_SERVER
+#include "SColorPicker.h"
 
 void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 {
