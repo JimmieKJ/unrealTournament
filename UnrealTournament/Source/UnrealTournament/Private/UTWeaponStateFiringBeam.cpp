@@ -18,8 +18,7 @@ void UUTWeaponStateFiringBeam::FireShot()
 	GetOuterAUTWeapon()->ConsumeAmmo(GetOuterAUTWeapon()->GetCurrentFireMode());
 	if (GetUTOwner() != NULL)
 	{
-		static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
-		GetUTOwner()->InventoryEvent(NAME_FiredWeapon);
+		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 	}
 }
 

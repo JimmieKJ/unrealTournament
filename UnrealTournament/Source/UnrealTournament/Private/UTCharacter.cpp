@@ -913,7 +913,7 @@ void AUTCharacter::SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const
 	{
 		LastTakeHitInfo.HitArmor = ((HitArmor != NULL) && HitArmor->ShouldDisplayHitEffect(AttemptedDamage, Damage, Health, ArmorAmount)) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
 	}
-	if ((LastTakeHitInfo.HitArmor == NULL) && (HitArmor == NULL) && (Health > 0) && (Damage == AttemptedDamage) && (Health + Damage > 100) && ((Damage > 90) || (Health > 90)))
+	if ((LastTakeHitInfo.HitArmor == NULL) && (HitArmor == NULL) && (Health > 0) && (Damage == AttemptedDamage) && (Health + Damage > HealthMax) && ((Damage > 90) || (Health > 90)))
 	{
 		// notify superhealth hit effect
 		LastTakeHitInfo.HitArmor = AUTTimedPowerup::StaticClass();
@@ -2925,8 +2925,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 	if (!bClientUpdating)
 	{
-		static FName NAME_Landed(TEXT("Landed"));
-		InventoryEvent(NAME_Landed);
+		InventoryEvent(InventoryEventName::Landed);
 
 		LastHitBy = NULL;
 

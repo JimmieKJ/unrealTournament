@@ -61,6 +61,15 @@ namespace CarriedObjectState
 	const FName Dropped = FName(TEXT("Dropped"));
 }
 
+namespace InventoryEventName
+{
+	const FName Landed = FName(TEXT("Landed"));
+	const FName LandedWater = FName(TEXT("LandedWater"));
+	const FName FiredWeapon = FName(TEXT("FiredWeapon"));
+	const FName Jump = FName(TEXT("Jump"));
+	const FName MultiJump = FName(TEXT("MultiJump"));
+}
+
 namespace ChatDestinations
 {
 	// You can chat with your friends from anywhere

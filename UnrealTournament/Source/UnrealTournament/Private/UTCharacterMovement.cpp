@@ -291,6 +291,7 @@ void UUTCharacterMovement::OnMovementModeChanged(EMovementMode PreviousMovementM
 			if (UTCharOwner)
 			{
 				UTCharOwner->bApplyWallSlide = false;
+				UTCharOwner->InventoryEvent(InventoryEventName::LandedWater);
 			}
 			bExplicitJump = false;
 			ClearRestrictedJump();
@@ -1223,8 +1224,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
-			static FName NAME_Jump(TEXT("Jump"));
-			((AUTCharacter*)CharacterOwner)->InventoryEvent(NAME_Jump);
+			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
@@ -1251,8 +1251,7 @@ bool UUTCharacterMovement::DoMultiJump()
 		CurrentMultiJumpCount++;
 		if (CharacterOwner->IsA(AUTCharacter::StaticClass()))
 		{
-			static FName NAME_MultiJump(TEXT("MultiJump"));
-			((AUTCharacter*)CharacterOwner)->InventoryEvent(NAME_MultiJump);
+			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::MultiJump);
 		}
 		return true;
 	}
