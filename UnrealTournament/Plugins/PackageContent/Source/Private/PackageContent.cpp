@@ -83,7 +83,7 @@ public:
 					.Padding(12.0f)
 					[
 						SNew(SHyperlink)
-						.OnNavigate(this, &SPackageCompleteChoiceDialog::HandleFilePathHyperlinkNaviate)
+						.OnNavigate(this, &SPackageCompleteChoiceDialog::HandleFilePathHyperlinkNavigate)
 						.Text(FilePathLinkText)
 						.ToolTipText(FText::FromString(FilePath))
 					]
@@ -254,7 +254,7 @@ private:
 		CopyMessageToClipboard();
 	}
 	
-	void HandleFilePathHyperlinkNaviate()
+	void HandleFilePathHyperlinkNavigate()
 	{
 		FPlatformProcess::ExploreFolder(*FilePath);
 	}
