@@ -295,6 +295,7 @@ public:
 	virtual bool CanAddPlayer(int32 ELORank, bool bForceRankLock = false);
 
 	// When the hub receives the notice that the instance for this match is ready, notify any beacons in this array.
+	UPROPERTY()
 	TArray<AUTServerBeaconClient*> NotifyBeacons;
 
 	// Holds the average rank of the players in this match
