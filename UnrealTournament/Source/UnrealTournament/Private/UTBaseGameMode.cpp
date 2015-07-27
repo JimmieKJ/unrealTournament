@@ -164,7 +164,7 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 	{
 		for (int32 i = 0; i < RedirectReferences.Num(); i++)
 		{
-			if (RedirectReferences[i].PackageName == PackageName)
+			if (RedirectReferences[i].PackageName == PackageName + TEXT("-WindowsNoEditor"))
 			{
 				FPackageRedirectReference R = RedirectReferences[i];
 				return R.ToString();
