@@ -650,3 +650,36 @@ namespace EEpicDefaultRuleTags
 	const FString iCTF = TEXT("iCTF");
 	const FString iCTFT = TEXT("iCTF+T");
 }
+
+
+USTRUCT(BlueprintType)
+struct FCrosshairInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+		FCrosshairInfo()
+	{
+		//Global is used to describe the crosshair that is used when bCustomWeaponCrosshairs == false
+		WeaponClassName = TEXT("Global");
+		CrosshairClassName = TEXT("/Game/RestrictedAssets/UI/Crosshairs/BP_DefaultCrosshair.BP_DefaultCrosshair_C");
+		Color = FLinearColor::White;
+		Scale = 1.0f;
+	}
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	FString CrosshairClassName;
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	FString WeaponClassName;
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	float Scale;
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	FLinearColor Color;
+
+	bool operator==(const FCrosshairInfo& Other) const
+	{
+		return WeaponClassName == Other.WeaponClassName;
+	}
+};

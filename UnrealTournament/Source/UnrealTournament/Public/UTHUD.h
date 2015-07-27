@@ -326,5 +326,23 @@ public:
 	/**Returns the necessary input mode for the hud this tick*/
 	UFUNCTION(BlueprintNativeEvent)
 	EInputMode::Type GetInputMode();
+
+	/**The list of crosshair information for each weapon*/
+	UPROPERTY(globalconfig)
+	TArray<FCrosshairInfo> CrosshairInfos;
+
+	/**If true, crosshairs can be unique per weapon*/
+	UPROPERTY(globalconfig)
+	bool bCustomWeaponCrosshairs;
+
+	/**Gets the crosshair for the weapon. Creates a new one if necessary*/
+	UFUNCTION(BlueprintCallable, Category = Crosshair)
+	class UUTCrosshair* GetCrosshair(AUTWeapon* Weapon);
+
+	FCrosshairInfo* GetCrosshairInfo(AUTWeapon* Weapon);
+
+	UPROPERTY()
+	TArray<class UUTCrosshair*> LoadedCrosshairs;
+
 };
 

@@ -599,7 +599,9 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	}
 	
 	//Draw the crosshair
-	if (LoadCrosshairTextures.IsValidIndex(NumLoadedRockets) && LoadCrosshairTextures[NumLoadedRockets] != NULL)
+	//TODO TIM: Move this over to a custom UTCrosshair
+	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
+	/*if (LoadCrosshairTextures.IsValidIndex(NumLoadedRockets) && LoadCrosshairTextures[NumLoadedRockets] != NULL)
 	{
 		UTexture2D* Tex = LoadCrosshairTextures[NumLoadedRockets];
 		float W = Tex->GetSurfaceWidth();
@@ -626,7 +628,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		{
 			UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 		}
-	}
+	}*/
 
 	//Draw the locked on crosshair
 	if (HasLockedTarget())

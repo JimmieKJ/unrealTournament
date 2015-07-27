@@ -319,6 +319,7 @@ void FPackageContent::Initialize()
 		ActionList->MapAction(Commands.PackageHat, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageHatWindow));
 		ActionList->MapAction(Commands.PackageTaunt, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageTauntWindow));
 		ActionList->MapAction(Commands.PackageCharacter, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageCharacterWindow));
+		ActionList->MapAction(Commands.PackageCrosshair, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageCrosshairWindow));
 	}
 }
 
@@ -758,6 +759,16 @@ void FPackageContent::PackageCharacter(UClass* CharacterClass)
 	}
 }
 
+void FPackageContent::PackageCrosshair(UClass* CrosshairClass)
+{
+	UBlueprintGeneratedClass* UBGC = Cast<UBlueprintGeneratedClass>(CrosshairClass);
+	if (UBGC && UBGC->ClassGeneratedBy)
+	{
+		FString CrosshairName = UBGC->ClassGeneratedBy->GetName();
+		PackageDLC(CrosshairName, LOCTEXT("PackageCrosshairTaskName", "Packaging Crosshair"), LOCTEXT("CookingTaskName", "Publishing"));
+	}
+}
+
 void FPackageContent::OpenPackageCharacterWindow()
 {
 	bool bPromptUserToSave = true;
@@ -862,6 +873,32 @@ void FPackageContent::OpenPackageHatWindow()
 	}
 }
 
+void FPackageContent::OpenPackageCrosshairWindow()
+{
+	bool bPromptUserToSave = true;
+	bool bSaveMapPackages = false;
+	bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+		PackageDialogTitle = LOCTEXT("PackageCrosshairDialogTitle", "Share A Crosshair");
+
+		/** Create the window to host our package dialog widget */
+		TSharedRef< SWindow > EditorPackageWeaponDialogWindowRef = SNew(SWindow)
+			.Title(PackageDialogTitle)
+			.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
+
+		TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageWeaponDialogWindowRef)
+			.PackageContent(SharedThis(this))
+			.DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Crosshair);
+
+		// Set the content of the window to our package dialog widget
+		EditorPackageWeaponDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+
+		// Show the package dialog window as a modal window
+		GEditor->EditorAddModalWindow(EditorPackageWeaponDialogWindowRef);
+	}
+}
+
 void FPackageContent::CreatePackageContentMenu(FToolBarBuilder& Builder)
 {
 	Builder.AddComboButton(FUIAction(),	FOnGetContent::CreateSP(this, &FPackageContent::GenerateOpenPackageMenuContent),
@@ -882,6 +919,7 @@ TSharedRef<SWidget> FPackageContent::GenerateOpenPackageMenuContent()
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageHat);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageCharacter);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageTaunt);
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageCrosshair);
 #else
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().ComingSoon);
 #endif
@@ -924,6 +962,12 @@ void SPackageContentDialog::Construct(const FArguments& InArgs, TSharedPtr<SWind
 		Options.ClassFilter = Filter;
 		Options.ViewerTitleString = FText::FromString(LOCTEXT("CharacterClassSelect", "Select Character Blueprint").ToString());
 	}
+	else if (DialogMode == PACKAGE_Crosshair)
+	{
+		TSharedPtr<FCrosshairClassFilter> Filter = MakeShareable(new FCrosshairClassFilter);
+		Options.ClassFilter = Filter;
+		Options.ViewerTitleString = FText::FromString(LOCTEXT("CrosshairClassSelect", "Select Crosshair Blueprint").ToString());
+	}
 	else
 	{
 		UE_LOG(LogPackageContent, Warning, TEXT("Dialog mode not set for SPackageContentDialog!!"));
@@ -962,6 +1006,10 @@ void SPackageContentDialog::ClassChosen(UClass* ChosenClass)
 	else if (DialogMode == PACKAGE_Taunt)
 	{
 		PackageContent->PackageTaunt(ChosenClass);
+	}
+	else if (DialogMode == PACKAGE_Crosshair)
+	{
+		PackageContent->PackageCrosshair(ChosenClass);
 	}
 	else
 	{

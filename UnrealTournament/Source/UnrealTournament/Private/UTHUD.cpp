@@ -19,6 +19,7 @@
 #include "UTRemoteRedeemer.h"
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
+#include "UTCrosshair.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -70,6 +71,8 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	KillMsgStyle = EHudKillMsgStyle::KMS_Icon;
 	bDrawPopupKillMsg = true;
+
+	bCustomWeaponCrosshairs = true;
 }
 
 void AUTHUD::BeginPlay()
@@ -771,4 +774,57 @@ UTexture2D* AUTHUD::ResolveFlag(FName Flag, FTextureUVs& UV)
 EInputMode::Type AUTHUD::GetInputMode_Implementation() 
 {
 	return EInputMode::EIM_None;
+}
+
+UUTCrosshair* AUTHUD::GetCrosshair(AUTWeapon* Weapon)
+{
+	FCrosshairInfo* CrosshairInfo = GetCrosshairInfo(Weapon);
+	if (CrosshairInfo != nullptr)
+	{
+		for (int32 i = 0; i < LoadedCrosshairs.Num(); i++)
+		{
+			if (LoadedCrosshairs[i]->GetClass()->GetPathName() == CrosshairInfo->CrosshairClassName)
+			{
+				return LoadedCrosshairs[i];
+			}
+		}
+
+		//Didn't find it so create a new one
+		UClass* TestClass = LoadObject<UClass>(NULL, *CrosshairInfo->CrosshairClassName);
+		if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(UUTCrosshair::StaticClass()))
+		{
+			UUTCrosshair* NewCrosshair = NewObject<UUTCrosshair>(this, TestClass);
+			LoadedCrosshairs.Add(NewCrosshair);
+		}
+	}
+	return nullptr;
+}
+
+FCrosshairInfo* AUTHUD::GetCrosshairInfo(AUTWeapon* Weapon)
+{
+	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetClass()->GetPathName();
+
+	FCrosshairInfo* FoundInfo = CrosshairInfos.FindByPredicate([WeaponClass](const FCrosshairInfo& Info) { return Info.WeaponClassName == WeaponClass; });
+	if (FoundInfo != nullptr)
+	{
+		return FoundInfo;
+	}
+
+	//Make a Global one if we couldn't find one
+	if (WeaponClass == TEXT("Global"))
+	{
+		return &CrosshairInfos[CrosshairInfos.Add(FCrosshairInfo())];
+	}
+	else
+	{
+		//Create a new crosshair for this weapon based off the global one
+		FCrosshairInfo NewInfo;
+		FCrosshairInfo* GlobalCrosshair = CrosshairInfos.FindByPredicate([](const FCrosshairInfo& Info){ return Info.WeaponClassName == TEXT("Global"); });
+		if (GlobalCrosshair != nullptr)
+		{
+			NewInfo = *GlobalCrosshair;
+		}
+		NewInfo.WeaponClassName = WeaponClass;
+		return &CrosshairInfos[CrosshairInfos.Add(NewInfo)];
+	}
 }

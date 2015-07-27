@@ -20,6 +20,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTHUD.h"
 #include "UTGameViewportClient.h"
+#include "UTCrosshair.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -1696,7 +1697,17 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 			}
 			else
 			{
-				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(this);
+				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(this);
+
+				if (Crosshair != nullptr && CrosshairInfo != nullptr)
+				{
+					Crosshair->DrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, GetCrosshairScale(WeaponHudWidget->UTHUDOwner) * CrosshairInfo->Scale, WeaponHudWidget->UTHUDOwner->GetCrosshairColor(CrosshairInfo->Color));
+				}
+				else
+				{
+					WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+				}
 				UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 			}
 		}
