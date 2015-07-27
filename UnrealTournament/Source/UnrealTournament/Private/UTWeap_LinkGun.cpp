@@ -167,20 +167,12 @@ bool AUTWeap_LinkGun::IsLinkValid_Implementation()
 		return false;
 	}
 
-	if (!(FVector::DotProduct(Dir, TargetDir) > LinkFlexibility))
-	{
-		// exceeded angle
-		return false;
-	}
-
-	return true;
+	return (FVector::DotProduct(Dir, TargetDir) > LinkFlexibility);
 }
-
 
 void AUTWeap_LinkGun::ConsumeAmmo(uint8 FireModeNum)
 {
 	LinkedConsumeAmmo(FireModeNum);
-
 	Super::ConsumeAmmo(FireModeNum);
 }
 
