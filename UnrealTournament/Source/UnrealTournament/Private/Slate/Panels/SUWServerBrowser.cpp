@@ -1206,6 +1206,9 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		UE_LOG(UT,Log,TEXT("Server List Request Failed!!!"));
 	}
 
+	SetBrowserState(EBrowserState::BrowserIdle);
+
+/*
 	// Search for LAN Servers
 
 	LanSearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
@@ -1219,6 +1222,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 	Delegate.BindSP(this, &SUWServerBrowser::OnFindLANSessionsComplete);
 	OnFindLANSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
 	OnlineSessionInterface->FindSessions(0, LanSearchSettingsRef);
+*/
 }
 
 
