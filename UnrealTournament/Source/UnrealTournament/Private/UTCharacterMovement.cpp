@@ -53,6 +53,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 6000.f; 
 	MaxFallingAcceleration = 4200.f;
+	MaxSwimmingAcceleration = 6000.f;
 	BrakingDecelerationWalking = 500.f;
 	DefaultBrakingDecelerationWalking = BrakingDecelerationWalking;
 	BrakingDecelerationFalling = 0.f;
@@ -977,6 +978,10 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 	else if (MovementMode == MOVE_Falling)
 	{
 		Result = MaxFallingAcceleration;
+	}
+	else if (MovementMode == MOVE_Swimming)
+	{
+		Result = MaxSwimmingAcceleration;
 	}
 	else
 	{
