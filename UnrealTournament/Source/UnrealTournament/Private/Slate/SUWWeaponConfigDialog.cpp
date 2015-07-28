@@ -803,6 +803,12 @@ FReply SUWWeaponConfigDialog::OKClick()
 		Hud->SaveConfig();
 	}
 
+	if (ProfileSettings != nullptr)
+	{
+		ProfileSettings->CrosshairInfos = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->CrosshairInfos;
+		ProfileSettings->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+	}
+
 	GetPlayerOwner()->SaveProfileSettings();
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 

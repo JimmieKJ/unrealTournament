@@ -104,6 +104,12 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	FName CountryFlag;
 
+	UPROPERTY()
+	TArray<FCrosshairInfo> CrosshairInfos;
+
+	UPROPERTY(globalconfig)
+	bool bCustomWeaponCrosshairs;
+
 	bool bNeedProfileWriteOnLevelChange;
 
 protected:
@@ -202,5 +208,4 @@ protected:
 	// If true, then the player will not show toasts in game.
 	UPROPERTY()
 	uint32 bSuppressToastsInGame : 1;
-
 };
