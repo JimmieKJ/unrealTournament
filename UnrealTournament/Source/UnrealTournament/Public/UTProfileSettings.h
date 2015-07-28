@@ -107,7 +107,7 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	TArray<FCrosshairInfo> CrosshairInfos;
 
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	bool bCustomWeaponCrosshairs;
 
 	bool bNeedProfileWriteOnLevelChange;
