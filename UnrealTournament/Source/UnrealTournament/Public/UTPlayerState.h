@@ -347,6 +347,8 @@ public:
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
 	{}
 
+	virtual bool ShouldBroadCastWelcomeMessage(bool bExiting = false) override;
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 

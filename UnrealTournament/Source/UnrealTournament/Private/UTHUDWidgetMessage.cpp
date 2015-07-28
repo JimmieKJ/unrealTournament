@@ -181,7 +181,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 {
 	if (MessageClass->IsChildOf(UUTEngineMessage::StaticClass()))
 	{
-		LocalMessageText = GetDefault<UUTLocalMessage>(MessageClass)->GetText(MessageIndex, true, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		LocalMessageText = GetDefault<UUTLocalMessage>(MessageClass)->ResolveMessage(MessageIndex, true, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
 	if (MessageClass == NULL || LocalMessageText.IsEmpty())
 	{

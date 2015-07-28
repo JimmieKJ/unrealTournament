@@ -19,6 +19,7 @@
 #include "UTRewardMessage.h"
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
+#include "UTEngineMessage.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -47,6 +48,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	ReadyScale = 1.f;
 	SpectatorNameScale = 1.f;
 	bIsDemoRecording = false;
+	EngineMessageClass = UUTEngineMessage::StaticClass();
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -124,6 +126,12 @@ void AUTPlayerState::CalculatePing(float NewPing)
 			PC->ServerUpdatePing(ExactPing);
 		}
 	}
+}
+
+
+bool AUTPlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
+{
+	return !bIsInactive && ((GetNetMode() == NM_Standalone) || (GetNetMode() == NM_Client));
 }
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()
@@ -661,14 +669,6 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 	if (!bIsInactive && Team != NULL && GetOwner() != NULL)
 	{
 		Team->RemoveFromTeam(Cast<AController>(GetOwner()));
-	}
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-	{
-		APlayerController* PlayerController = *Iterator;
-		if (PlayerController && PlayerController->IsLocalPlayerController())
-		{
-			PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, 4, this);
-		}
 	}
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::EndPlay(Reason);
