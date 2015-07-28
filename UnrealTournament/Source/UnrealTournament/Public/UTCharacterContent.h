@@ -42,16 +42,23 @@ public:
 	/** character gender */
 	UPROPERTY(EditDefaultsOnly)
 	bool bIsFemale;
+
 	/** if set hide from the menus (i.e. intended for testing or built-in to a specific gametype or mod) */
 	UPROPERTY(EditDefaultsOnly)
 	bool bHideInUI;
+
 	/** if set a UTProfileItem is required for this character to be available */
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
 	bool bRequiresItem;
 
+	/* Voice associated with this character. */
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
+		TSubclassOf<class UUTCharacterVoice> CharacterVoice;
+
 protected:
 	UPROPERTY(VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;
+
 	//FIXME: TEMP FOR GDC: material overrides when playing a team game (NULL for an entry means use default)
 	UPROPERTY(EditDefaultsOnly)
 	TArray<UMaterialInterface*> TeamMaterials;

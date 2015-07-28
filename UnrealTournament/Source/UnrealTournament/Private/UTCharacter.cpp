@@ -3747,13 +3747,13 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
 	TSubclassOf<AUTCharacterContent> DefaultClass = LoadClass<AUTCharacterContent>(NULL, TEXT("/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C"), NULL, LOAD_None, NULL);
 
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : (DefaultClass != NULL ? DefaultClass.GetDefaultObject() : NULL);
 	if (Data->Mesh != NULL)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
 		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
 		// FIXME: TEMP FOR GDC: team override materials
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		if (PS != NULL && PS->Team != NULL)
 		{
 			for (int32 i = FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()) - 1; i >= 0; i--)
@@ -3782,6 +3782,12 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
 		}
 	}
+
+	if (Data->CharacterVoice && PS)
+	{
+		PS->CharacterVoice = Data->CharacterVoice;
+	}
+
 }
 
 void AUTCharacter::NotifyTeamChanged()

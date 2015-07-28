@@ -122,9 +122,13 @@ void UUTAnnouncer::PlayNextAnnouncement()
 		QueuedAnnouncements.RemoveAt(0);
 
 		FName SoundName = Next.MessageClass.GetDefaultObject()->GetAnnouncementName(Next.Switch, Next.OptionalObject);
-		if (SoundName != NAME_None)
+		USoundBase* Audio = NULL;
+		if (SoundName == NAME_Custom)
 		{
-			USoundBase* Audio = NULL;
+			Audio = Next.MessageClass.GetDefaultObject()->GetAnnouncementSound(Next.Switch, Next.OptionalObject);
+		}
+		else if (SoundName != NAME_None)
+		{
 			USoundBase** CachePtr = Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement ? StatusCachedAudio.Find(SoundName) : RewardCachedAudio.Find(SoundName);
 			// note that we store a NULL in the map for sounds known to not exist
 			if (CachePtr == NULL || (*CachePtr) != NULL)
@@ -175,17 +179,17 @@ void UUTAnnouncer::PlayNextAnnouncement()
 						RewardCachedAudio.Add(SoundName, Audio);
 					}
 				}
-				if (Audio != NULL)
-				{
-					AnnouncementComp->Sound = Audio;
-					AnnouncementComp->Play();
-					CurrentAnnouncement = Next;
-				}
-				else
-				{
-					CurrentAnnouncement = FAnnouncementInfo();
-					PlayNextAnnouncement();
-				}
+			}
+			if (Audio != NULL)
+			{
+				AnnouncementComp->Sound = Audio;
+				AnnouncementComp->Play();
+				CurrentAnnouncement = Next;
+			}
+			else if (SoundName != NAME_None)
+			{
+				CurrentAnnouncement = FAnnouncementInfo();
+				PlayNextAnnouncement();
 			}
 		}
 	}

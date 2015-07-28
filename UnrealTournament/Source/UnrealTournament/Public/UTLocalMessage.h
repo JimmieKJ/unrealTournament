@@ -69,6 +69,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent)
 	FName GetAnnouncementName(int32 Switch, const UObject* OptionalObject) const;
 
+	/** return the sound to play for the announcement, if GetAnnouncementName() returned NAME_Custom. */
+	UFUNCTION(BlueprintNativeEvent)
+		USoundBase* GetAnnouncementSound(int32 Switch, const UObject* OptionalObject) const;
+
 	/** Return true if message should be displayed with large font. */
 	virtual bool UseLargeFont(int32 MessageIndex) const;
 

@@ -167,6 +167,11 @@ FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UO
 	return NAME_None;
 }
 
+USoundBase* UUTLocalMessage::GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	return NULL;
+}
+
 bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
 	// by default interrupt messages of same type, and countdown messages

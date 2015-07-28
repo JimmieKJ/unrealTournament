@@ -13,6 +13,7 @@
 #include "Http.h"
 #include "UTProfileItem.h"
 #include "SHyperlink.h"
+#include "UTCharacterVoice.h"
 
 #include "UTPlayerState.generated.h"
 
@@ -81,6 +82,9 @@ public:
 		return SelectedCharacter;
 	}
 
+	UPROPERTY(BlueprintReadOnly, Category = Sounds)
+		TSubclassOf<class UUTCharacterVoice> CharacterVoice;
+
 	/** Don't do engine style ping updating. */
 	virtual void UpdatePing(float InPing) override;
 
@@ -134,6 +138,8 @@ public:
 	int32 ReadySwitchCount;
 
 	virtual void UpdateReady();
+
+	virtual void AnnounceKill();
 
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)

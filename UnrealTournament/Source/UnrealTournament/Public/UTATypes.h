@@ -54,6 +54,8 @@ namespace ETextVertPos
 	};
 }
 
+const FName NAME_Custom = FName(TEXT("Custom"));
+
 namespace CarriedObjectState
 {
 	const FName Home = FName(TEXT("Home"));

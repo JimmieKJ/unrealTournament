@@ -49,6 +49,9 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	SpectatorNameScale = 1.f;
 	bIsDemoRecording = false;
 	EngineMessageClass = UUTEngineMessage::StaticClass();
+
+	static ConstructorHelpers::FObjectFinder<UClass> DefaultVoice(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Character/DefaultMaleVoice.DefaultMaleVoice_C'"));
+	CharacterVoice = DefaultVoice.Object;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -128,6 +131,13 @@ void AUTPlayerState::CalculatePing(float NewPing)
 	}
 }
 
+void AUTPlayerState::AnnounceKill()
+{
+	if (CharacterVoice && GetWorld()->GetAuthGameMode())
+	{
+		GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, FMath::RandRange(0, CharacterVoice.GetDefaultObject()->TauntMessages.Num() - 1), this);
+	}
+}
 
 bool AUTPlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
 {

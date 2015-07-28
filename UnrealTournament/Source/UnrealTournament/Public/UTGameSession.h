@@ -22,6 +22,7 @@ public:
 	void ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
 
 	// Cached reference to the Game Mode
+	UPROPERTY()
 	AUTBaseGameMode* UTGameMode;
 
 	// Will be true if this server has been registered with the MCP
