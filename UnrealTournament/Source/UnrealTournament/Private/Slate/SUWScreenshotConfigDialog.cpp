@@ -28,7 +28,8 @@ void SUWScreenshotConfigDialog::Construct(const FArguments& InArgs)
 	ResolutionList.Add(MakeShareable(new FString(TEXT("3840x2160 4K UHD"))));
 	ResolutionList.Add(MakeShareable(new FString(TEXT("7680x4320 8K UHD"))));
 	ResolutionList.Add(MakeShareable(new FString(TEXT("15360x8640 16K UHD"))));
-	ResolutionList.Add(MakeShareable(new FString(TEXT("30720x17280 32K UHD"))));
+	// GMaxTextureDimensions on DX11 is 16384
+	//ResolutionList.Add(MakeShareable(new FString(TEXT("30720x17280 32K UHD"))));
 
 	FMargin NameColumnPadding = FMargin(10, 4);
 	FMargin ValueColumnPadding = FMargin(0, 4);
