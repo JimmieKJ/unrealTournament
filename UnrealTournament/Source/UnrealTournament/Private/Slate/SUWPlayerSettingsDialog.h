@@ -143,7 +143,7 @@ protected:
 	void OnFOVChange(float NewValue);
 	FString GetFOVLabelText(float SliderValue);
 
-	virtual void DragPlayerPreview(FVector2D MouseDelta);
+	virtual void DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	virtual void ZoomPlayerPreview(float WheelDelta);
 	virtual void RecreatePlayerPreview();
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);

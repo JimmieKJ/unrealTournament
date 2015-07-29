@@ -1318,12 +1318,12 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
 }
 
-void SUWPlayerSettingsDialog::DragPlayerPreview(const FVector2D MouseDelta)
+void SUWPlayerSettingsDialog::DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	if (PlayerPreviewMesh != nullptr)
 	{
 		bSpinPlayer = false;
-		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.2f * -MouseDelta.X, 0.0f));
+		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.2f * -MouseEvent.GetCursorDelta().X, 0.0f));
 	}
 }
 

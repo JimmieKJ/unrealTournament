@@ -5,7 +5,7 @@
 
 #if !UE_SERVER
 
-DECLARE_DELEGATE_OneParam(FDragHandler, FVector2D);
+DECLARE_DELEGATE_TwoParams(FMouseHandler, const FGeometry&, const FPointerEvent&);
 DECLARE_DELEGATE_OneParam(FZoomHandler, float);
 
 class UNREALTOURNAMENT_API SDragImage : public SImage
@@ -16,6 +16,9 @@ public:
 		, _ColorAndOpacity(FLinearColor::White)
 		, _OnDrag()
 		, _OnZoom()
+		, _OnMove()
+		, _OnMousePressed()
+		, _OnMouseReleased()
 	{}
 
 		/** Image resource */
@@ -25,7 +28,16 @@ public:
 		SLATE_ATTRIBUTE(FSlateColor, ColorAndOpacity)
 
 		/** Invoked when the mouse is dragged in the widget */
-		SLATE_EVENT(FDragHandler, OnDrag)
+		SLATE_EVENT(FMouseHandler, OnDrag)
+
+		/** Invoked when the mouse is dragged in the widget */
+		SLATE_EVENT(FMouseHandler, OnMove)
+
+		/** Invoked when a mouse button is pressed in the widget */
+		SLATE_EVENT(FMouseHandler, OnMousePressed)
+
+		/** Invoked when a mouse button is released in the widget */
+		SLATE_EVENT(FMouseHandler, OnMouseReleased)
 
 		/** Invoked when the mouse is scrolled in the widget */
 		SLATE_EVENT(FZoomHandler, OnZoom)
@@ -36,6 +48,9 @@ public:
 	{
 		OnDrag = InArgs._OnDrag;
 		OnZoom = InArgs._OnZoom;
+		OnMove = InArgs._OnMove;
+		OnMousePressed = InArgs._OnMousePressed;
+		OnMouseReleased = InArgs._OnMouseReleased;
 		SImage::Construct(SImage::FArguments().Image(InArgs._Image).ColorAndOpacity(InArgs._ColorAndOpacity));
 	}
 
@@ -46,11 +61,13 @@ public:
 
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
+		OnMousePressed.ExecuteIfBound(MyGeometry, MouseEvent);
 		return FReply::Handled().SetUserFocus(AsShared(), EFocusCause::Mouse).CaptureMouse(AsShared());
 	}
 
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
+		OnMouseReleased.ExecuteIfBound(MyGeometry, MouseEvent);
 		if (HasMouseCapture())
 		{
 			return FReply::Handled().ReleaseMouseCapture();
@@ -65,8 +82,9 @@ public:
 	{
 		if (HasMouseCapture())
 		{
-			OnDrag.ExecuteIfBound(MouseEvent.GetCursorDelta());
+			OnDrag.ExecuteIfBound(MyGeometry, MouseEvent);
 		}
+		OnMove.ExecuteIfBound(MyGeometry, MouseEvent);
 		return FReply::Handled();
 	}
 
@@ -77,7 +95,10 @@ public:
 	}
 
 protected:
-	FDragHandler OnDrag;
+	FMouseHandler OnDrag;
+	FMouseHandler OnMove;
+	FMouseHandler OnMousePressed;
+	FMouseHandler OnMouseReleased;
 	FZoomHandler OnZoom;
 };
 
