@@ -85,11 +85,11 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		else if (EntrySound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
-			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(Other);
-			if (Flag)
-			{
-				Flag->EnteredPainVolume(this);
-			}
+		}
+		AUTCarriedObject* Flag = Cast<AUTCarriedObject>(Other);
+		if (bPainCausing && Flag)
+		{
+			Flag->EnteredPainVolume(this);
 		}
 		if (bPainCausing && bEntryPain && Other->bCanBeDamaged)
 		{
