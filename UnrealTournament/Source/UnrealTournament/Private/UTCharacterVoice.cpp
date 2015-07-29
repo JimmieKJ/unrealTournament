@@ -8,6 +8,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsStatusAnnouncement = false;
+	bOptionalSpoken = true;
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -38,6 +39,21 @@ void UUTCharacterVoice::PrecacheAnnouncements_Implementation(UUTAnnouncer* Annou
 
 bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return true;
+	return !Cast<AUTPlayerController>(ClientData.LocalPC) || ((AUTPlayerController*)(ClientData.LocalPC))->bHearsTaunts;
+}
+
+bool UUTCharacterVoice::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+{
+	return false;
+}
+
+bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+{
+	return (GetClass() != OtherMessageClass);
+}
+
+float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
+{
+	return 0.f;
 }
 

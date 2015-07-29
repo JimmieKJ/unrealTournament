@@ -371,8 +371,15 @@ public:
 	FName CountryFlag;
 
 	virtual void SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId) override;
+	
 	/** read profile items for this user from the backend */
 	virtual void ReadProfileItems();
+
+	UPROPERTY()
+		bool bShouldAutoTaunt;
+
+	/** Whether this player plays auto-taunts. */
+	virtual bool ShouldAutoTaunt();
 
 private:
 	FHttpRequestPtr ItemListReq;

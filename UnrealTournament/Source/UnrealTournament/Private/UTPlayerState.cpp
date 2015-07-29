@@ -32,6 +32,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	Kills = 0;
 	bOutOfLives = false;
 	Deaths = 0;
+	bShouldAutoTaunt = false;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -131,9 +132,14 @@ void AUTPlayerState::CalculatePing(float NewPing)
 	}
 }
 
+bool AUTPlayerState::ShouldAutoTaunt()
+{
+	return bIsABot || bShouldAutoTaunt;
+}
+
 void AUTPlayerState::AnnounceKill()
 {
-	if (CharacterVoice && GetWorld()->GetAuthGameMode())
+	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode())
 	{
 		GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, FMath::RandRange(0, CharacterVoice.GetDefaultObject()->TauntMessages.Num() - 1), this);
 	}
