@@ -111,7 +111,12 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	bool bCustomWeaponCrosshairs;
 
 	bool bNeedProfileWriteOnLevelChange;
+	
+	UPROPERTY()
+	uint32 ReplayScreenshotResX;
 
+	UPROPERTY()
+	uint32 ReplayScreenshotResY;
 protected:
 
 	/**

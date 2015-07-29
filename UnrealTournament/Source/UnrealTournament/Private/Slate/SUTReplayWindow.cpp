@@ -15,6 +15,7 @@
 #include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "UTVideoRecordingFeature.h"
+#include "SUWScreenshotConfigDialog.h"
 #include "SceneViewport.h"
 
 #if !UE_SERVER
@@ -246,6 +247,30 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 												[
 													SNew(SImage)
 													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Screenshot"))
+												]
+											]
+										]
+									]
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
+									[									
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.HAlign(HAlign_Fill)
+										.AutoHeight()
+										[
+											SNew(SBox)
+											.HeightOverride(32)
+											.WidthOverride(32)
+											[
+												SAssignNew(MarkEndButton, SButton)
+												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+												.OnClicked(this, &SUTReplayWindow::OnScreenshotConfigButtonClicked)
+												.Content()
+												[
+													SNew(SImage)
+													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.ScreenshotConfig"))
 												]
 											]
 										]
@@ -727,12 +752,39 @@ FReply SUTReplayWindow::OnRecordButtonClicked()
 
 FReply SUTReplayWindow::OnScreenshotButtonClicked()
 {
-	// 4k resolution isn't actually >= 4000
-	GScreenshotResolutionX = 3840;
-	GScreenshotResolutionY = 2160;
+	GScreenshotResolutionX = GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResX;
+	GScreenshotResolutionY = GetPlayerOwner()->GetProfileSettings()->ReplayScreenshotResY;
+
+	if (GScreenshotResolutionX <= 0)
+	{
+		// 4k resolution isn't actually >= 4000
+		GScreenshotResolutionX = 3840;
+		GScreenshotResolutionY = 2160;
+	}
+
 	PlayerOwner->ViewportClient->GetGameViewport()->TakeHighResScreenShot();
 
 	return FReply::Handled();
+}
+
+FReply SUTReplayWindow::OnScreenshotConfigButtonClicked()
+{
+	FDialogResultDelegate Callback;
+	Callback.BindRaw(this, &SUTReplayWindow::ScreenshotConfigResult);
+
+	TSharedPtr<SUWDialog> NewDialog; // important to make sure the ref count stays until OpenDialog()
+	SAssignNew(NewDialog, SUWScreenshotConfigDialog)
+		.PlayerOwner(PlayerOwner)
+		.ButtonMask(UTDIALOG_BUTTON_OK)
+		.OnDialogResult(Callback);
+
+	PlayerOwner->OpenDialog(NewDialog.ToSharedRef());
+
+	return FReply::Handled();
+}
+
+void SUTReplayWindow::ScreenshotConfigResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID)
+{
 }
 
 void SUTReplayWindow::RecordSeekCompleted(bool bSucceeded)

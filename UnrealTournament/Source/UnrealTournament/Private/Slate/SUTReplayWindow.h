@@ -39,6 +39,8 @@ protected:
 	FReply OnRecordButtonClicked();
 	void RecordSeekCompleted(bool bSucceeded);
 	FReply OnScreenshotButtonClicked();
+	FReply OnScreenshotConfigButtonClicked();
+	void ScreenshotConfigResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 
 	TSharedPtr<class SUTProgressSlider> TimeSlider;
 	TSharedPtr<class SButton> RecordButton;
