@@ -180,17 +180,17 @@ void UUTAnnouncer::PlayNextAnnouncement()
 					}
 				}
 			}
-			if (Audio != NULL)
-			{
-				AnnouncementComp->Sound = Audio;
-				AnnouncementComp->Play();
-				CurrentAnnouncement = Next;
-			}
-			else if (SoundName != NAME_None)
-			{
-				CurrentAnnouncement = FAnnouncementInfo();
-				PlayNextAnnouncement();
-			}
+		}
+		if (Audio != NULL)
+		{
+			AnnouncementComp->Sound = Audio;
+			AnnouncementComp->Play();
+			CurrentAnnouncement = Next;
+		}
+		else
+		{
+			CurrentAnnouncement = FAnnouncementInfo();
+			PlayNextAnnouncement();
 		}
 	}
 }

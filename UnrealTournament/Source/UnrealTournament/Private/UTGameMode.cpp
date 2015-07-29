@@ -1170,7 +1170,6 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 			KillerPlayerState->AdjustScore(+1);
 			KillerPlayerState->IncrementKills(DamageType, true);
 			CheckScore(KillerPlayerState);
-			KillerPlayerState->AnnounceKill();
 		}
 
 		if (!bFirstBloodOccurred)

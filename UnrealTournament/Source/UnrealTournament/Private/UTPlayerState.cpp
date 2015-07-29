@@ -188,6 +188,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		{
 			Pawn = Controller->GetPawn();
 			UTChar = Cast<AUTCharacter>(Pawn);
+			AnnounceKill();
 		}
 		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);

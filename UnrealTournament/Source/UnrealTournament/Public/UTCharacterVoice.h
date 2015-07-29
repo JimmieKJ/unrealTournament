@@ -27,6 +27,7 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
-
 	virtual USoundBase* GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const override;
+	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
+	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override;
 };
