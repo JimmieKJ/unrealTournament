@@ -93,37 +93,6 @@ protected:
 	// The actual instance query port to use.
 	int32 InstanceQueryPort;
 
-	/**
-	 * Converts a string to a bool.  If the string is empty, it will return the default.
-	 **/
-	inline bool EvalBoolOptions(FString InOpt, bool Default)
-	{
-		if (!InOpt.IsEmpty())
-		{
-			if (FCString::Stricmp(*InOpt,TEXT("True") )==0 
-				||	FCString::Stricmp(*InOpt,*GTrue.ToString())==0
-				||	FCString::Stricmp(*InOpt,*GYes.ToString())==0)
-			{
-				return true;
-			}
-			else if(FCString::Stricmp(*InOpt,TEXT("False"))==0
-				||	FCString::Stricmp(*InOpt,*GFalse.ToString())==0
-				||	FCString::Stricmp(*InOpt,TEXT("No"))==0
-				||	FCString::Stricmp(*InOpt,*GNo.ToString())==0)
-			{
-				return false;
-			}
-			else
-			{
-				return FCString::Atoi(*InOpt) != 0;
-			}
-		}
-		else
-		{
-			return Default;
-		}
-	}
-
 public:
 	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
 	virtual int32 GetInstanceData(TArray<FGuid>& InstanceIDs);

@@ -253,6 +253,8 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_MatchStats();
 
+	/** return current size of teams for team game */
+	TArray<int32> GetTeamSizes() const;
 public:
 	int32 MatchGameTime;
 

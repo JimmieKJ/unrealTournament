@@ -103,6 +103,26 @@ void AUTLobbyMatchInfo::RecycleMatchInfo()
 	}
 }
 
+TArray<int32> AUTLobbyMatchInfo::GetTeamSizes() const
+{
+	// get the team sizes;
+	TArray<int32> TeamSizes;
+	if (CurrentRuleset.IsValid() && CurrentRuleset->bTeamGame)
+	{
+		TeamSizes.SetNumZeroed(2);
+
+		for (int32 i = 0; i < Players.Num(); i++)
+		{
+			if (Players[i]->DesiredTeamNum >= 0 && Players[i]->DesiredTeamNum < 255)
+			{
+				TeamSizes.SetNumZeroed(FMath::Max<int32>(TeamSizes.Num(), Players[i]->DesiredTeamNum));
+				TeamSizes[Players[i]->DesiredTeamNum]++;
+			}
+		}
+	}
+	return TeamSizes;
+}
+
 void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner)
 {
 	if (bIsOwner && !OwnerId.IsValid())
@@ -125,23 +145,21 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 		if (IsBanned(PlayerToAdd->UniqueId))
 		{
 			PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
+			return;
 		}
 		
 		if (CurrentRuleset.IsValid() && CurrentRuleset->bTeamGame)
 		{
-			// get the team sizes;
-			int TeamSizes[2];
-			TeamSizes[0] = 0;
-			TeamSizes[1] = 0;
-
-			for (int32 i=0;i<Players.Num();i++)
+			TArray<int32> TeamSizes = GetTeamSizes();
+			int32 BestTeam = 0;
+			for (int32 i = 1; i < TeamSizes.Num(); i++)
 			{
-				if (Players[i]->DesiredTeamNum >=0 && Players[i]->DesiredTeamNum <= 1)
+				if (TeamSizes[i] < TeamSizes[BestTeam])
 				{
-					TeamSizes[Players[i]->DesiredTeamNum]++;
+					BestTeam = i;
 				}
 			}
-			PlayerToAdd->DesiredTeamNum = (TeamSizes[0] > TeamSizes[1]) ? 1 : 0;
+			PlayerToAdd->DesiredTeamNum = BestTeam;
 
 		}
 		else
@@ -342,6 +360,28 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 		{
 			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManySpectators","There are too many spectators in this match to start."));
 			return;
+		}
+
+		AUTTeamGameMode* TeamGame = Cast<AUTTeamGameMode>(CurrentRuleset->GetDefaultGameModeObject());
+		if (TeamGame != NULL)
+		{
+			bool bBalanceTeams = AUTBaseGameMode::EvalBoolOptions(TeamGame->ParseOption(CurrentRuleset->GameOptions, TEXT("BalanceTeams")), TeamGame->bBalanceTeams);
+			if (bBalanceTeams)
+			{
+				 // don't allow starting if the teams aren't balanced
+				TArray<int32> TeamSizes = GetTeamSizes();
+				for (int32 i = 0; i < TeamSizes.Num(); i++)
+				{
+					for (int32 j = 0; j < TeamSizes.Num(); j++)
+					{
+						if (FMath::Abs<int32>(TeamSizes[i] - TeamSizes[j]) > 1)
+						{
+							GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "UnbalancedTeams", "The teams must be balanced to start the match."));
+							return;
+						}
+					}
+				}
+			}
 		}
 
 		// TODO: need to check for ready ups on server side

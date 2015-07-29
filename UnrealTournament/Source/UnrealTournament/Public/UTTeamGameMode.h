@@ -31,7 +31,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	bool bAllowURLTeamCountOverride;
 
 	/** whether we should attempt to keep teams balanced */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	bool bBalanceTeams;
 
 	/** whether we should announce your team */
