@@ -1292,6 +1292,8 @@ void AUTCharacter::StopRagdoll()
 		CheckRagdollFallingDamage(FHitResult(NULL, NULL, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
 	}
 
+	UTCharacterMovement->Velocity = GetMesh()->GetComponentVelocity();
+
 	GetCapsuleComponent()->DetachFromParent(true);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
 	FixedRotation.Pitch = FixedRotation.Roll = 0.0f;
@@ -1561,30 +1563,32 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
 				static const FName NAME_FeignTrace = FName(TEXT("FeignTrace"));
 				FCollisionQueryParams CapsuleParams(NAME_FeignTrace, false, this);
-				FCollisionResponseParams ResponseParam;
-
-				// Expand in place 
-				TArray<FOverlapResult> Overlaps;
-				bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, ActorLocation, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
-				if (!bEncroached)
+				// don't allow unfeigning if flying through the air
+				if (IsInWater() || GetWorld()->SweepTest(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
 				{
-					UnfeignCount = 0;
-					bFeigningDeath = false;
-					PlayFeignDeath();
-				}
-				else if (UnfeignCount > 5)
-				{
-					FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
-					FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
-					UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
-					Died(NULL, FakeDamageEvent);
-				}
-				else
-				{
-					// nudge body in random direction
-					FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).GetSafeNormal();
-					FeignNudge.Z = 0.4f*FeignNudgeMag;
-					GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
+					// Expand in place 
+					TArray<FOverlapResult> Overlaps;
+					bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, ActorLocation, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams);
+					if (!bEncroached)
+					{
+						UnfeignCount = 0;
+						bFeigningDeath = false;
+						PlayFeignDeath();
+					}
+					else if (UnfeignCount > 5)
+					{
+						FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
+						FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
+						UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+						Died(NULL, FakeDamageEvent);
+					}
+					else
+					{
+						// nudge body in random direction
+						FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).GetSafeNormal();
+						FeignNudge.Z = 0.4f*FeignNudgeMag;
+						GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
+					}
 				}
 			}
 		}
