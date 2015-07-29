@@ -49,7 +49,7 @@ bool UUTCharacterVoice::InterruptAnnouncement_Implementation(int32 Switch, const
 
 bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	return (GetClass() != OtherMessageClass);
+	return true;
 }
 
 float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
