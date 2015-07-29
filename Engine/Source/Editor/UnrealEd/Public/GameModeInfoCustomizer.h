@@ -178,13 +178,13 @@ public:
 		ConstructorHelpers::StripObjectClass(StrippedClassName);
 
 		// Just returned the cached value if it's already up-to-date, or if we're saving packages since we can't search for the object while a save is happening
-		if ((CachedGameModeClass && CachedGameModeClass->GetPathName() == StrippedClassName) || GIsSavingPackage)
+		if ((CachedGameModeClass.IsValid() && CachedGameModeClass->GetPathName() == StrippedClassName) || GIsSavingPackage)
 		{
-			return CachedGameModeClass;
+			return CachedGameModeClass.Get();
 		}
 
 		CachedGameModeClass = FindObject<UClass>(ANY_PACKAGE, *StrippedClassName);
-		return CachedGameModeClass;
+		return CachedGameModeClass.Get();
 	}
 
 	void SetCurrentGameModeClass(const UClass* NewGameModeClass)
@@ -346,7 +346,7 @@ private:
 	/** Handle to the DefaultGameMode property */
 	TSharedPtr<IPropertyHandle> DefaultGameModeClassHandle;
 	/** Cached class pointer from the DefaultGameModeClassHandle */
-	mutable const UClass* CachedGameModeClass;
+	mutable TWeakObjectPtr<const UClass> CachedGameModeClass;
 };
 
 #undef LOCTEXT_NAMESPACE
