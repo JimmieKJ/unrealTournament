@@ -16,6 +16,7 @@
 #include "Slate/SUWPlayerInfoDialog.h"
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
+#include "UTGameEngine.h"
 
 namespace MatchState
 {
@@ -47,14 +48,23 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	CTFScoringClass = AUTCTFScoring::StaticClass();
 
 	//Add the translocator here for now :(
-	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C'"));
-	DefaultInventory.Add(WeapTranslocator.Object);
-
+	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
+	
 	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }
 
 void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
+	if (!TranslocatorObject.IsNull())
+	{
+		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+		if (Engine)
+		{
+			TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(TranslocatorObject.ToStringReference()));
+			DefaultInventory.Add(WeaponClass);
+		}
+	}
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	bSuddenDeath = EvalBoolOptions(ParseOption(Options, TEXT("SuddenDeath")), bSuddenDeath);
