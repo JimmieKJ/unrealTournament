@@ -409,8 +409,11 @@ void SUTReplayWindow::KillsEnumerated(const FString& JsonString, bool bSucceeded
 		ParseJsonIntoBookmarkArray(JsonString, KillEvents);
 	}
 
-	FEnumerateEventsCompleteDelegate EnumFlagCaps = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagCapsEnumerated);
-	DemoNetDriver->EnumerateEvents(TEXT("FlagCaps"), EnumFlagCaps);
+	if (DemoNetDriver.IsValid())
+	{
+		FEnumerateEventsCompleteDelegate EnumFlagCaps = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagCapsEnumerated);
+		DemoNetDriver->EnumerateEvents(TEXT("FlagCaps"), EnumFlagCaps);
+	}
 }
 
 
