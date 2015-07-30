@@ -33,6 +33,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
+	TauntSelectionIndex = 0;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -139,15 +140,22 @@ bool AUTPlayerState::ShouldAutoTaunt()
 
 void AUTPlayerState::AnnounceKill()
 {
-	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode())
+	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode() && (CharacterVoice.GetDefaultObject()->TauntMessages.Num() > 0))
 	{
-		GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, FMath::RandRange(0, CharacterVoice.GetDefaultObject()->TauntMessages.Num() - 1), this);
+		int32 SelectedTaunt = TauntSelectionIndex + FMath::Min(FMath::RandRange(0, 2), CharacterVoice.GetDefaultObject()->TauntMessages.Num() - TauntSelectionIndex - 1);
+		TauntSelectionIndex += 3;
+		if (TauntSelectionIndex >= CharacterVoice.GetDefaultObject()->TauntMessages.Num())
+		{
+			TauntSelectionIndex -= FMath::Max(3, CharacterVoice.GetDefaultObject()->TauntMessages.Num());
+		}
+		GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, SelectedTaunt, this);
 	}
 }
 
 void AUTPlayerState::AnnounceSameTeam(AUTPlayerController* ShooterPC)
 {
-	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode() && (GetWorld()->GetTimeSeconds() - ShooterPC->LastSameTeamTime > 5.f) )
+	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode() && (GetWorld()->GetTimeSeconds() - ShooterPC->LastSameTeamTime > 5.f) 
+		&& (CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() > 0))
 	{
 		ShooterPC->LastSameTeamTime = GetWorld()->GetTimeSeconds();
 		ShooterPC->ClientReceiveLocalizedMessage(CharacterVoice, 1000 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() - 1), this, ShooterPC->PlayerState, NULL);
