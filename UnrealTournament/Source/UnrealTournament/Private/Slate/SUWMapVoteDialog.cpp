@@ -238,7 +238,7 @@ void SUWMapVoteDialog::UpdateTopVotes()
 							Package = Package.Left(Pos);
 						}
 
-						LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWMapVoteDialog::LeaderTextureLoadComplete),0);
+						LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUWMapVoteDialog::LeaderTextureLoadComplete), 0);
 					}
 					else
 					{
@@ -342,7 +342,7 @@ void SUWMapVoteDialog::BuildAllVotes()
 								Package = Package.Left(Pos);
 							}
 
-							LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWMapVoteDialog::TextureLoadComplete),0);
+							LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUWMapVoteDialog::TextureLoadComplete), 0);
 						}
 						else
 						{

@@ -76,10 +76,10 @@ void SUTWebBrowserPanel::Browse(FString URL)
 			.InitialURL(URL)
 			.ShowControls(ShowControls)
 			.ViewportSize(DesiredViewportSize)
-			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryReceived))
-			.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateRaw(this, &SUTWebBrowserPanel::QueryCancelled))
-			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateRaw(this, &SUTWebBrowserPanel::BeforeBrowse))
-			.OnBeforePopup(FOnBeforePopupDelegate::CreateRaw(this, &SUTWebBrowserPanel::BeforePopup))
+			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryReceived))
+			.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryCancelled))
+			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
+			.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
 		];
 	}
 }

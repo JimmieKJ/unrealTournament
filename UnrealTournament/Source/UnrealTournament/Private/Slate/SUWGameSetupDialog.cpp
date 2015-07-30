@@ -396,7 +396,7 @@ void SUWGameSetupDialog::BuildMapList()
 					Package = Package.Left(Pos);
 				}
 
-				LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWGameSetupDialog::TextureLoadComplete),0);
+				LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUWGameSetupDialog::TextureLoadComplete), 0);
 			}
 		}
 

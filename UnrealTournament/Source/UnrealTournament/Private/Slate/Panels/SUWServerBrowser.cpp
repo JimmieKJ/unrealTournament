@@ -1181,7 +1181,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			if (FriendsInterface.IsValid())
 			{
 				// Grab a list of my online friends.
-				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateRaw(this, &SUWServerBrowser::OnReadFriendsListComplete));
+				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateSP(this, &SUWServerBrowser::OnReadFriendsListComplete));
 			}
 		}
 
@@ -1257,7 +1257,7 @@ void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 			if (FriendsInterface.IsValid())
 			{
 				// Grab a list of my online friends.
-				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateRaw(this, &SUWServerBrowser::OnReadFriendsListComplete));
+				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateSP(this, &SUWServerBrowser::OnReadFriendsListComplete));
 			}
 		}
 

@@ -44,7 +44,7 @@ void SUWYoutubeConsent::Construct(const FArguments& InArgs)
 				.InitialURL(ConsentURL)
 				.ShowControls(false)
 				.ViewportSize(WebBrowserSize)
-				.OnTitleChanged(FOnTextChanged::CreateRaw(this, &SUWYoutubeConsent::OnTitleChanged))
+				.OnTitleChanged(FOnTextChanged::CreateSP(this, &SUWYoutubeConsent::OnTitleChanged))
 			]
 		];
 	}
