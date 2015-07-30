@@ -829,7 +829,7 @@ bool AUTWeap_RocketLauncher::IsPreparingAttack_Implementation()
 
 void AUTWeap_RocketLauncher::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)
 {
-	if (InFireMode > 0 && NewFlashExtra > 0)
+	if (InFireMode == 1)
 	{
 		int32 NewNumLoadedRockets;
 		GetRocketFlashExtra(NewFlashExtra, InFireMode, NewNumLoadedRockets, CurrentRocketFireMode, bDrawRocketModeString);
@@ -839,10 +839,13 @@ void AUTWeap_RocketLauncher::FiringExtraUpdated_Implementation(uint8 NewFlashExt
 		{
 			NumLoadedRockets = NewNumLoadedRockets;
 
-			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-			if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets - 1) && LoadingAnimation[NumLoadedRockets-1] != NULL)
+			if (NumLoadedRockets > 0)
 			{
-				AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets - 1], LoadingAnimation[NumLoadedRockets - 1]->SequenceLength / GetLoadTime(NumLoadedRockets-1));
+				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+				if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets - 1) && LoadingAnimation[NumLoadedRockets - 1] != NULL)
+				{
+					AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets - 1], LoadingAnimation[NumLoadedRockets - 1]->SequenceLength / GetLoadTime(NumLoadedRockets - 1));
+				}
 			}
 		}
 	}
