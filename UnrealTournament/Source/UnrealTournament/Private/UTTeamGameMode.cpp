@@ -169,7 +169,7 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 					for (int32 i = 0; i < Teams.Num(); i++)
 					{
 						// don't allow switching to a team with more players, or equal players if the player is on a team now
-						if (i != NewTeam && Teams[i]->GetSize() - ((PS->Team != NULL && PS->Team->TeamIndex == i) ? 1 : 0)  < Teams[NewTeam]->GetSize())
+						if (i != NewTeam && Teams[i]->GetNumHumans() - ((PS->Team != NULL && PS->Team->TeamIndex == i) ? 1 : 0)  < Teams[NewTeam]->GetNumHumans())
 						{
 							bForceTeam = true;
 							break;
