@@ -62,7 +62,7 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 	// if we landed on a mover, attach to it
 	if (OtherComp != NULL && OtherComp->Mobility == EComponentMobility::Movable && (Hit.Normal.Z > 0.7f))
 	{
-		RootComponent->AttachTo(Hit.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+		RootComponent->AttachTo(OtherComp, NAME_None, EAttachLocation::KeepWorldPosition);
 	}
 
 	// maybe spawn blood as we smack into things

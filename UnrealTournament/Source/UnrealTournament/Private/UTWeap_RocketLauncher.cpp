@@ -395,7 +395,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	{
 		case 0://rockets
 		{
-			float RotDegree = 360.0f / NumLoadedRockets;
+			float RotDegree = 360.0f / FMath::Max(1,NumLoadedRockets);
 			FVector SpreadLoc = SpawnLocation;
 			SpawnRotation.Roll = RotDegree * NumLoadedRockets;
 			if (ShouldFireLoad())
