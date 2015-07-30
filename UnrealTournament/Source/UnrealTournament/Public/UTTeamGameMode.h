@@ -71,6 +71,10 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void CheckBotCount() override;
 	virtual void DefaultTimer() override;
 
+	/** whether we should force teams to be balanced right now
+	 * @param bInitialTeam - if true, request comes from a player requesting its initial team (not a team switch)
+	 */
+	virtual bool ShouldBalanceTeams(bool bInitialTeam) const;
 	/** Process team change request.  May fail based on team sizes and balancing rules. */
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
 
