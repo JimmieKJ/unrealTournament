@@ -9,6 +9,99 @@
 
 #if !UE_SERVER
 
+class SSlateConsoleVarDelegate : public TSharedFromThis<SSlateConsoleVarDelegate>
+{
+	const TCHAR* VarName;
+	IConsoleVariable* CVar;
+	const FString StartingValue;
+	const FVector2D ValueRange;
+	const bool bIntegerValue;
+public:
+	SSlateConsoleVarDelegate(const TCHAR* InCVarName, const FVector2D& InValueRange = FVector2D::ZeroVector)
+		: VarName(InCVarName), CVar(IConsoleManager::Get().FindConsoleVariable(InCVarName)), StartingValue(CVar->GetString()), ValueRange(InValueRange), bIntegerValue(CVar->AsVariableInt() != NULL)
+	{
+		CVar->ClearFlags(ECVF_SetByConsoleVariablesIni); // workaround for badly thought out priority system
+	}
+
+	bool IsInteger() const
+	{
+		return bIntegerValue;
+	}
+
+	inline FText GetTooltip() const
+	{
+		return FText::FromString(FString(CVar->GetHelp()));
+	}
+	inline const TCHAR* GetVarName() const
+	{
+		return VarName;
+	}
+
+	void RestoreValue() const
+	{
+		CVar->Set(*StartingValue);
+	}
+
+	float GetFloat() const
+	{
+		return CVar->GetFloat();
+	}
+	void SetFloat(float InValue)
+	{
+		CVar->Set(InValue);
+	}
+	int32 GetInt() const
+	{
+		return CVar->GetInt();
+	}
+	void SetInt(int32 InValue)
+	{
+		CVar->Set(InValue);
+	}
+	bool GetBool() const
+	{
+		return (CVar->GetInt() != 0);
+	}
+	void SetBool(bool InValue)
+	{
+		CVar->Set(InValue ? 1 : 0);
+	}
+	FString GetString() const
+	{
+		return CVar->GetString();
+	}
+	void SetString(const FString& InValue)
+	{
+		CVar->Set(*InValue);
+	}
+	ECheckBoxState GetCheckbox() const
+	{
+		return GetBool() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+	void SetCheckbox(ECheckBoxState NewState)
+	{
+		SetBool(NewState == ECheckBoxState::Checked);
+	}
+	/** used when value is on a slider */
+	void SetFromSlider(float InSliderValue)
+	{
+		float AdjustedValue = ValueRange.IsZero() ? InSliderValue : FMath::Lerp<float>(ValueRange.X, ValueRange.Y, InSliderValue);
+		if (bIntegerValue)
+		{
+			CVar->Set(FMath::RoundToInt(AdjustedValue));
+		}
+		else
+		{
+			CVar->Set(AdjustedValue);
+		}
+	}
+	float GetForSlider() const
+	{
+		float Value = CVar->GetFloat();
+		return ValueRange.IsZero() ? Value : ((Value - ValueRange.X) / (ValueRange.Y - ValueRange.X));
+	}
+};
+
 class UNREALTOURNAMENT_API SUWSystemSettingsDialog : public SUWDialog
 {
 public:
@@ -33,6 +126,11 @@ public:
 
 	void Construct(const FArguments& InArgs);
 protected:
+
+	bool bAdvancedMode;
+	FDelegateHandle AutodetectHandle;
+
+	virtual TSharedRef<class SWidget> BuildCustomButtonBar() override;
 
 	TArray< TSharedPtr<FString> > ResList;
 	TSharedPtr<STextBlock> SelectedRes;
@@ -72,6 +170,11 @@ protected:
 	TSharedPtr<STextBlock> ScreenPercentageLabel;
 	FVector2D ScreenPercentageRange;
 
+	TArray<TSharedRef<SSlateConsoleVarDelegate>> CVarDelegates;
+
+	// widgets only shown in advanced mode
+	TArray<TSharedRef<SWidget>> AdvancedWidgets;
+
 	/** range of values passed to PlayerInput->SetMouseSensitivity() which will be normalized to 0.0 - 1.0 for the slider widget */
 	FVector2D MouseSensitivityRange;
 	/** range of values for decal lifetime which will be normalized to 0.0 - 1.0 for the slider widget
@@ -104,6 +207,8 @@ protected:
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
+	void OnAdvancedCheckChanged(ECheckBoxState NewState);
+	void UpdateAdvancedWidgets();
 
 	void OnAAModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	int32 ConvertAAModeToComboSelection(int32 AAMode);
@@ -123,7 +228,8 @@ protected:
 	SVerticalBox::FSlot& AddGeneralScalabilityWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue, const TAttribute<FText>& TooltipText = TAttribute<FText>());
 	SVerticalBox::FSlot& AddAAModeWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue, const TAttribute<FText>& TooltipText = TAttribute<FText>());
 	SVerticalBox::FSlot& AddGeneralSliderWidget(const FString& Desc, TSharedPtr<SSlider>& SliderWidget, float SettingValue, const TAttribute<FText>& TooltipText = TAttribute<FText>());
-
+	SVerticalBox::FSlot& AddConsoleVarSliderWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label);
+	SVerticalBox::FSlot& AddConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label);
 	SVerticalBox::FSlot& AddGeneralSliderWithLabelWidget(TSharedPtr<SSlider>& SliderWidget, TSharedPtr<STextBlock>& LabelWidget, void(SUWSystemSettingsDialog::*SelectionFunc)(float), const FString& InitialLabel, float SettingValue, const TAttribute<FText>& TooltipText = TAttribute<FText>());
 };
 

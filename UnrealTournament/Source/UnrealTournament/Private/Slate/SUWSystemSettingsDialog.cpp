@@ -71,6 +71,84 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 		];
 }
 
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddConsoleVarSliderWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label)
+{
+	CVarDelegates.Add(CVar);
+
+	return SVerticalBox::Slot()
+		.HAlign(HAlign_Fill)
+		.AutoHeight()
+		.Padding(FMargin(40.0f, 15.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(650)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.SmallText")
+					.Text(Label)
+					.ToolTip(SUTUtils::CreateTooltip(CVar->GetTooltip()))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300.0f)
+				.Padding(FMargin(0.0f, 2.0f, 60.0f, 2.0f))
+				.Content()
+				[
+					SNew(SSlider)
+					.Style(SUWindowsStyle::Get(), "UT.Common.Slider")
+					.Value(CVar, &SSlateConsoleVarDelegate::GetForSlider)
+					.OnValueChanged(CVar, &SSlateConsoleVarDelegate::SetFromSlider)
+				]
+			]
+		];
+}
+
+SVerticalBox::FSlot& SUWSystemSettingsDialog::AddConsoleVarCheckboxWidget(TSharedRef<SSlateConsoleVarDelegate> CVar, const FText& Label)
+{
+	CVarDelegates.Add(CVar);
+
+	return SVerticalBox::Slot()
+		.HAlign(HAlign_Fill)
+		.AutoHeight()
+		.Padding(FMargin(40.0f, 15.0f, 10.0f, 5.0f))
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(650)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.SmallText")
+					.Text(Label)
+					.ToolTip(SUTUtils::CreateTooltip(CVar->GetTooltip()))
+				]
+			]
+			+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(300.0f)
+					.Padding(FMargin(0.0f, 2.0f))
+					.Content()
+					[
+						SNew(SCheckBox)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.IsChecked(CVar, &SSlateConsoleVarDelegate::GetCheckbox)
+						.OnCheckStateChanged(CVar, &SSlateConsoleVarDelegate::SetCheckbox)
+					]
+				]
+		];
+}
+
 SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Desc, TSharedPtr< SComboBox< TSharedPtr<FString> > >& ComboBox, TSharedPtr<STextBlock>& SelectedItemWidget, void (SUWSystemSettingsDialog::*SelectionFunc)(TSharedPtr<FString>, ESelectInfo::Type), int32 SettingValue, const TAttribute<FText>& TooltipText)
 {
 	return SVerticalBox::Slot()
@@ -193,6 +271,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 {
 	DecalLifetimeRange = FVector2D(5.0f, 105.0f);
 	ScreenPercentageRange = FVector2D(25.0f, 100.0f);
+	bAdvancedMode = false;
 
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -208,11 +287,13 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 
 	if (DialogContent.IsValid())
 	{
+		DialogContent->ClearChildren();
+		CVarDelegates.Empty();
+
 		DialogContent->AddSlot()
 		[
-
 			SNew(SOverlay)
-			+SOverlay::Slot()
+			+ SOverlay::Slot()
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
@@ -232,7 +313,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 				]
 
 			]
-			+SOverlay::Slot()
+			+ SOverlay::Slot()
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
@@ -243,7 +324,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
-						.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))
+						.Padding(FMargin(25.0f, 0.0f, 0.0f, 0.0f))
 						.AutoWidth()
 						[
 							SAssignNew(GeneralSettingsTabButton, SUTTabButton)
@@ -256,7 +337,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						]
 
 						+ SHorizontalBox::Slot()
-						.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))
+						.Padding(FMargin(25.0f, 0.0f, 0.0f, 0.0f))
 						.AutoWidth()
 						[
 							SAssignNew(GraphicsSettingsTabButton, SUTTabButton)
@@ -269,7 +350,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 						]
 
 						+ SHorizontalBox::Slot()
-						.Padding(FMargin(25.0f,0.0f,0.0f,0.0f))
+						.Padding(FMargin(25.0f, 0.0f, 0.0f, 0.0f))
 						.AutoWidth()
 						[
 							SAssignNew(AudioSettingsTabButton, SUTTabButton)
@@ -292,7 +373,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 
 				// Content
 
-				+ SVerticalBox::Slot()
+				+SVerticalBox::Slot()
 				.AutoHeight()
 				.HAlign(HAlign_Fill)
 				.Padding(5.0f, 0.0f, 5.0f, 0.0f)
@@ -315,24 +396,66 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 
 						// Graphics Settings
 						+ SWidgetSwitcher::Slot()
-						[
-							BuildGraphicsTab()
-						]
+							[
+								BuildGraphicsTab()
+							]
 
 						// Audio Settings
 						+ SWidgetSwitcher::Slot()
-						[
-							BuildAudioTab()
-						]
+							[
+								BuildAudioTab()
+							]
 					]
 				]
 			]
 		];
 	}
 
+	UpdateAdvancedWidgets();
 	OnTabClickGeneral();
 }
 
+TSharedRef<class SWidget> SUWSystemSettingsDialog::BuildCustomButtonBar()
+{
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.FillWidth(0.6f)
+		.HAlign(HAlign_Left)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.9f)
+			.HAlign(HAlign_Left)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Advanced", "Show Advanced Options"))
+			]
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.1f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SCheckBox)
+				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+				.OnCheckStateChanged(this, &SUWSystemSettingsDialog::OnAdvancedCheckChanged)
+				.IsChecked(bAdvancedMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+			]
+		];
+}
+
+void SUWSystemSettingsDialog::OnAdvancedCheckChanged(ECheckBoxState NewState)
+{
+	bAdvancedMode = (NewState == ECheckBoxState::Checked);
+	UpdateAdvancedWidgets();
+}
+
+void SUWSystemSettingsDialog::UpdateAdvancedWidgets()
+{
+	for (TSharedRef<SWidget> Widget : AdvancedWidgets)
+	{
+		Widget->SetVisibility(bAdvancedMode ? EVisibility::Visible : EVisibility::Collapsed);
+	}
+}
 
 TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 {
@@ -538,8 +661,11 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 {
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 
-	// find current and available engine scalability options	
-	UserSettings->OnSettingsAutodetected().AddSP(this, &SUWSystemSettingsDialog::OnSettingsAutodetected);
+	// find current and available engine scalability options
+	if (!AutodetectHandle.IsValid())
+	{
+		AutodetectHandle = UserSettings->OnSettingsAutodetected().AddSP(this, &SUWSystemSettingsDialog::OnSettingsAutodetected);
+	}
 	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
 	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsLow", "Low").ToString())));
 	GeneralScalabilityList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "SettingsMedium", "Medium").ToString())));
@@ -565,48 +691,101 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 
 	float ScreenPercentageSliderSetting = (float(ScreenPercentage) - ScreenPercentageRange.X) / (ScreenPercentageRange.Y - ScreenPercentageRange.X);
 
-	return SNew(SVerticalBox)
+	TSharedRef<SBox> ShadowAdvanced = SNew(SBox)
+		[
+			SNew(SVerticalBox)
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.LightFunctionQuality"))), NSLOCTEXT("SUWSystemSettingsDialog", "LightFunctions", "Light Functions"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.ShadowQuality"), FVector2D(0.0f, 5.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "ShadowDetail", "Shadow Precision"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.Shadow.MaxResolution"), FVector2D(512.0f, 1024.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "ShadowRes", "Shadow Texture Resolution"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.DistanceFieldShadowing"))), NSLOCTEXT("SUWSystemSettingsDialog", "DistanceFieldShadow", "Distance Field Shadows"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.DistanceFieldAO"))), NSLOCTEXT("SUWSystemSettingsDialog", "DistanceFieldAO", "Distance Field Ambient Occlusion"))
+		];
+	TSharedRef<SBox> EffectsAdvanced = SNew(SBox)
+		[
+			SNew(SVerticalBox)
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.RefractionQuality"), FVector2D(0.0f, 2.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "RFQuality", "Refraction Quality"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.ReflectionEnvironment"))), NSLOCTEXT("SUWSystemSettingsDialog", "ReflectionEnv", "Reflection Environment Mapping"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.TranslucencyVolumeBlur"))), NSLOCTEXT("SUWSystemSettingsDialog", "TranslucencyVolume", "Translucency Volume Blur"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.MaterialQualityLevel"))), NSLOCTEXT("SUWSystemSettingsDialog", "MaterialQuality", "High Detail Shaders"))
+		];
+	TSharedRef<SBox> PPAdvanced = SNew(SBox)
+		[
+			SNew(SVerticalBox)
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.DepthOfFieldQuality"), FVector2D(0.0f, 2.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "DOFQuality", "Depth Of Field Quality"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.LensFlareQuality"), FVector2D(0.0f, 2.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "LFQuality", "Lens Flare Quality"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.SceneColorFringeQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "SceneFringeQuality", "Scene Color Fringe Quality"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.BloomQuality"), FVector2D(1.0f, 5.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "BloomQuality", "Bloom Quality"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.FastBlurThreshold"), FVector2D(0.0f, 7.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "FastBlurThreshold", "Fast Blur Threshold"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.TonemapperQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "TonemapperQuality", "Tonemapper Quality"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.LightShaftQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "LightShaftQuality", "Light Shaft Quality"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.SeparateTranslucency"))), NSLOCTEXT("SUWSystemSettingsDialog", "SeparateTranslucency", "Separate Translucency Pass"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.TonemapperFilm"))), NSLOCTEXT("SUWSystemSettingsDialog", "TonemapperFilm", "Tonemapper Film"))
+		];
+	AdvancedWidgets.Add(ShadowAdvanced);
+	AdvancedWidgets.Add(EffectsAdvanced);
+	AdvancedWidgets.Add(PPAdvanced);
 
-	+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange, 
-		GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting, 
+	return SNew(SVerticalBox)
+		+ AddGeneralSliderWithLabelWidget(ScreenPercentageSlider, ScreenPercentageLabel, &SUWSystemSettingsDialog::OnScreenPercentageChange,
+		GetScreenPercentageLabelText(ScreenPercentageSliderSetting), ScreenPercentageSliderSetting,
 		NSLOCTEXT("SUWSystemSettingsDialog", "ScreenPercentage_Tooltip", "Reducing screen percentage reduces the effective 3D rendering resolution, with the result upsampled to your desired resolution.\nThis improves performance while keeping your UI and HUD at full resolution and not affecting screen size on certain LCD screens."))
 
-	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes, 
-		&SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality, 
+		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail", "Texture Detail").ToString(), TextureRes, SelectedTextureRes,
+		&SUWSystemSettingsDialog::OnTextureResolutionSelected, QualitySettings.TextureQuality,
 		NSLOCTEXT("SUWSystemSettingsDialog", "TextureDetail_Tooltip", "Controls the quality of textures, lower setting can improve performance when GPU preformance is an issue."))
 
-	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality, 
+		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality", "Shadow Quality").ToString(), ShadowQuality, SelectedShadowQuality,
 		&SUWSystemSettingsDialog::OnShadowQualitySelected, QualitySettings.ShadowQuality,
 		NSLOCTEXT("SUWSystemSettingsDialog", "ShadowQuality_Tooltip", "Controls the quality of shadows, lower setting can improve performance on both CPU and GPU."))
-	
-	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality, 
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			ShadowAdvanced
+		]
+
+		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "EffectsQuality", "Effects Quality").ToString(), EffectQuality, SelectedEffectQuality,
 		&SUWSystemSettingsDialog::OnEffectQualitySelected, QualitySettings.EffectsQuality,
 		NSLOCTEXT("SUWSystemSettingsDialog", "EffectQuality_Tooltip", "Controls the quality of effects, lower setting can improve performance on both CPU and GPU."))
 
-	+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality, 
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			EffectsAdvanced
+		]
+
+		+ AddGeneralScalabilityWidget(NSLOCTEXT("SUWSystemSettingsDialog", "PP Quality", "Post Process Quality").ToString(), PPQuality, SelectedPPQuality,
 		&SUWSystemSettingsDialog::OnPPQualitySelected, QualitySettings.PostProcessQuality,
 		NSLOCTEXT("SUWSystemSettingsDialog", "PPQuality_Tooltip", "Controls the quality of post processing effect, lower setting can improve performance when GPU preformance is an issue."))
 
-	+ AddAAModeWidget(NSLOCTEXT("SUWSystemSettingsDialog", "AAMode", "Anti Aliasing Mode").ToString(), AAMode, SelectedAAMode, 
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			PPAdvanced
+		]
+
+		+ AddAAModeWidget(NSLOCTEXT("SUWSystemSettingsDialog", "AAMode", "Anti Aliasing Mode").ToString(), AAMode, SelectedAAMode,
 		&SUWSystemSettingsDialog::OnAAModeSelected, AAModeSelection,
 		NSLOCTEXT("SUWSystemSettingsDialog", "AAMode_Tooltip", "Controls the type of antialiasing, turning it off can improve performance."))
 
-	+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUWSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting,
+		+ AddGeneralSliderWithLabelWidget(DecalLifetime, DecalLifetimeLabel, &SUWSystemSettingsDialog::OnDecalLifetimeChange, GetDecalLifetimeLabelText(DecalSliderSetting), DecalSliderSetting,
 		NSLOCTEXT("SUWSystemSettingsDialog", "DecalLifetime_Tooltip", "Controls how long decals last (like the bullet impact marks left on walls)."))
-	
-	// Autodetect settings button
-	+SVerticalBox::Slot()
-	.HAlign(HAlign_Center)
-	[
-		SNew(SButton)
+
+
+		// Autodetect settings button
+		+SVerticalBox::Slot()
 		.HAlign(HAlign_Center)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
-		.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-		.ForegroundColor(FLinearColor::Black)
-		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-		.Text(NSLOCTEXT("SUWSystemSettingsDialog", "AutoSettingsButtonText", "Auto Detect Settings"))
-		.OnClicked(this, &SUWSystemSettingsDialog::OnAutodetectClick)
-	];
+		.AutoHeight()
+		[
+			SNew(SButton)
+			.HAlign(HAlign_Center)
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+			.ForegroundColor(FLinearColor::Black)
+			.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+			.Text(NSLOCTEXT("SUWSystemSettingsDialog", "AutoSettingsButtonText", "Auto Detect Settings"))
+			.OnClicked(this, &SUWSystemSettingsDialog::OnAutodetectClick)
+		];
 }
 
 TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
@@ -784,12 +963,12 @@ FReply SUWSystemSettingsDialog::OKClick()
 		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
 	}
 	// engine scalability
-	UserSettings->ScalabilityQuality.TextureQuality = GeneralScalabilityList.Find(TextureRes->GetSelectedItem());
-	UserSettings->ScalabilityQuality.ShadowQuality = GeneralScalabilityList.Find(ShadowQuality->GetSelectedItem());
-	UserSettings->ScalabilityQuality.PostProcessQuality = GeneralScalabilityList.Find(PPQuality->GetSelectedItem());
-	UserSettings->ScalabilityQuality.EffectsQuality = GeneralScalabilityList.Find(EffectQuality->GetSelectedItem());
-	Scalability::SetQualityLevels(UserSettings->ScalabilityQuality);
-	Scalability::SaveState(GGameUserSettingsIni);
+	Scalability::SaveState(GGameUserSettingsIni); // note: settings were applied previously on change of individual items
+	for (TSharedRef<SSlateConsoleVarDelegate> CVar : CVarDelegates)
+	{
+		GConfig->SetString(TEXT("ConsoleVariables"), CVar->GetVarName(), *CVar->GetString(), GEngineIni);
+	}
+	GConfig->Flush(false, GEngineIni);
 	// resolution
 	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
 	TArray<FString> Suffixes;
@@ -859,6 +1038,11 @@ FReply SUWSystemSettingsDialog::CancelClick()
 	{
 		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), UserSettings->GetSoundClassVolume(EUTSoundClass::Type(i)));
 	}
+	// revert cvars
+	for (TSharedRef<SSlateConsoleVarDelegate> CVar : CVarDelegates)
+	{
+		CVar->RestoreValue();
+	}
 
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 	return FReply::Handled();
@@ -874,18 +1058,30 @@ void SUWSystemSettingsDialog::OnDisplayModeSelected(TSharedPtr<FString> NewSelec
 }
 void SUWSystemSettingsDialog::OnTextureResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
+	Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+	ScalabilityQuality.TextureQuality = GeneralScalabilityList.Find(TextureRes->GetSelectedItem());
+	Scalability::SetQualityLevels(ScalabilityQuality);
 	SelectedTextureRes->SetText(*NewSelection.Get());
 }
 void SUWSystemSettingsDialog::OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
+	Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+	ScalabilityQuality.ShadowQuality = GeneralScalabilityList.Find(ShadowQuality->GetSelectedItem());
+	Scalability::SetQualityLevels(ScalabilityQuality);
 	SelectedShadowQuality->SetText(*NewSelection.Get());
 }
 void SUWSystemSettingsDialog::OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
+	Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+	ScalabilityQuality.PostProcessQuality = GeneralScalabilityList.Find(PPQuality->GetSelectedItem());
+	Scalability::SetQualityLevels(ScalabilityQuality);
 	SelectedPPQuality->SetText(*NewSelection.Get());
 }
 void SUWSystemSettingsDialog::OnEffectQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
+	Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
+	ScalabilityQuality.EffectsQuality = GeneralScalabilityList.Find(EffectQuality->GetSelectedItem());
+	Scalability::SetQualityLevels(ScalabilityQuality);
 	SelectedEffectQuality->SetText(*NewSelection.Get());
 }
 void SUWSystemSettingsDialog::OnAAModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)

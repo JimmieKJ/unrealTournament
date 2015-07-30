@@ -684,6 +684,11 @@ void SUWindowsStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
+	Style.Set("UT.Common.SmallText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 14))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
 	Style.Set("UT.Common.NormalText.Black", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 20))
 		.SetColorAndOpacity(FLinearColor::Black)
