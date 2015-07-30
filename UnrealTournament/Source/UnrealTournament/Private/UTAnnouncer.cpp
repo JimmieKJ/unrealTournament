@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTAnnouncer.h"
+#include "UTPlayerState.h"
 
 UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -8,7 +9,7 @@ UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
 	AnnouncementComp = ObjectInitializer.CreateDefaultSubobject<UAudioComponent>(this, TEXT("AnnouncementComp"));
 	AnnouncementComp->OnAudioFinished.AddDynamic(this, &UUTAnnouncer::AnnouncementFinished);
 
-	Spacing = 0.5f;
+	Spacing = 0.25f;
 }
 
 void UUTAnnouncer::PostInitProperties()
@@ -29,14 +30,14 @@ void UUTAnnouncer::PostInitProperties()
 	}
 }
 
-void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const UObject* OptionalObject)
+void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const APlayerState* PlayerState1, const APlayerState* PlayerState2, const UObject* OptionalObject)
 {
 	if (MessageClass != NULL)
 	{
 		FName SoundName = MessageClass.GetDefaultObject()->GetAnnouncementName(Switch, OptionalObject);
 		if (SoundName != NAME_None)
 		{
-			FAnnouncementInfo NewAnnouncement(MessageClass, Switch, OptionalObject);
+			FAnnouncementInfo NewAnnouncement(MessageClass, Switch, PlayerState1, PlayerState2, OptionalObject);
 			// if we should cancel the current announcement, then play the new one over top of it
 			if (CurrentAnnouncement.MessageClass != NULL && MessageClass.GetDefaultObject()->InterruptAnnouncement(Switch, OptionalObject, CurrentAnnouncement.MessageClass, CurrentAnnouncement.Switch, CurrentAnnouncement.OptionalObject))
 			{
@@ -101,6 +102,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 
 void UUTAnnouncer::AnnouncementFinished()
 {
+	ReactionAnnouncement = (CurrentAnnouncement.MessageClass && CurrentAnnouncement.MessageClass.GetDefaultObject()->bWantsBotReaction) ? CurrentAnnouncement : FAnnouncementInfo();
 	CurrentAnnouncement = FAnnouncementInfo();
 	GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Spacing, false);
 }
@@ -193,6 +195,31 @@ void UUTAnnouncer::PlayNextAnnouncement()
 			PlayNextAnnouncement();
 		}
 	}
+	else if (ReactionAnnouncement.MessageClass != NULL)
+	{
+		RequestReaction();
+		ReactionAnnouncement = FAnnouncementInfo();
+	}
+}
+
+void UUTAnnouncer::RequestReaction()
+{
+	const AUTPlayerState* BestReacter = Cast<AUTPlayerState>(ReactionAnnouncement.RelatedPlayerState_2);
+	const AUTPlayerState* ReactionPS = Cast<AUTPlayerState>(ReactionAnnouncement.RelatedPlayerState_1);
+	if (BestReacter && ReactionPS)
+	{
+		BestReacter->AnnounceReactionTo(ReactionPS);
+	}
+	// target, live teammate or dead enemy
+/*	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS != NULL && PS->bIsABot)
+		{
+
+			if (!BestReacter || (!BestReacter->))
+		}
+	}*/
 }
 
 void UUTAnnouncer::PrecacheAnnouncement(FName SoundName)

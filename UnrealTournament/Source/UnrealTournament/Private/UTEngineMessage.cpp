@@ -24,8 +24,6 @@ Super(ObjectInitializer)
 
 FText UUTEngineMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
-	UE_LOG(UT, Warning, TEXT("UTEngineMessage get text %d"), Switch);
-
 	switch (Switch)
 	{
 	case 1:

@@ -45,6 +45,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bOptionalSpoken : 1;
 
+	// for announcements - will request a bot reaction after playing this announcement. 
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bWantsBotReaction : 1;
+
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    

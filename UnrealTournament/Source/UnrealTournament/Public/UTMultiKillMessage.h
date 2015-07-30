@@ -33,6 +33,7 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
+		bWantsBotReaction = true;
 	}
 
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const

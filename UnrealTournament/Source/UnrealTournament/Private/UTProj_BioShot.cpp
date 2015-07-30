@@ -1023,7 +1023,7 @@ void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPr
 			{
 				SnotRanking = (SnotSkill > 6.f) ? 5 : 1;
 			}
-			PC->SendPersonalMessage(AirSnotRewardClass, SnotRanking);
+			PC->SendPersonalMessage(AirSnotRewardClass, SnotRanking, PS, HitCharacter->PlayerState);
 		}
 	}
 }

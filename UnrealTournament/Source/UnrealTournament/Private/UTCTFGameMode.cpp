@@ -181,7 +181,7 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
 					if (PS && PS->bNeedsAssistAnnouncement)
 					{
-						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, NULL, NULL);
+						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, Holder, NULL);
 						PS->bNeedsAssistAnnouncement = false;
 					}
 				}
@@ -699,7 +699,8 @@ void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* 
 				BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, AttackerPS, NULL, NULL);
 				bFirstBloodOccurred = true;
 			}
-			AttackerPS->IncrementKills(DamageType, true);
+			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
+			AttackerPS->IncrementKills(DamageType, true, OtherPlayerState);
 		}
 	}
 	if (BaseMutator != NULL)

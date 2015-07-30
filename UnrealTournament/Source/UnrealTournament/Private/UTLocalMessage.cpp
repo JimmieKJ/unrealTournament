@@ -16,6 +16,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	StyleTag = FName(TEXT("Default"));
 	bOptionalSpoken = false;
 	AnnouncementDelay = 0.f;
+	bWantsBotReaction = false;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -49,7 +50,7 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (PC != NULL && PC->Announcer != NULL)
 		{
-			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 		}
 	}
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);

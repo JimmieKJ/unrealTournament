@@ -23,6 +23,14 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	{
 		Args.Add("TauntMessage", SameTeamMessages[Switch-1000].SpeechText);
 	}
+	else if (FriendlyReactions.Num() > Switch - 2000)
+	{
+		Args.Add("TauntMessage", FriendlyReactions[Switch - 2000].SpeechText);
+	}
+	else if (EnemyReactions.Num() > Switch - 2500)
+	{
+		Args.Add("TauntMessage", EnemyReactions[Switch - 2500].SpeechText);
+	}
 	else
 	{
 		return FText::GetEmpty();
@@ -44,6 +52,14 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 	else if (SameTeamMessages.Num() > Switch - 1000)
 	{
 		return SameTeamMessages[Switch-1000].SpeechSound;
+	}
+	else if (FriendlyReactions.Num() > Switch - 2000)
+	{
+		return FriendlyReactions[Switch - 2000].SpeechSound;
+	}
+	else if (EnemyReactions.Num() > Switch - 2500)
+	{
+		return EnemyReactions[Switch - 2500].SpeechSound;
 	}
 	return NULL;
 }

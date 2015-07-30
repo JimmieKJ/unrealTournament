@@ -1152,14 +1152,14 @@ void AUTGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Vi
 
 void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
+	AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
 	if( (Killer == Other) || (Killer == NULL) )
 	{
 		// If it's a suicide, subtract a kill from the player...
-
-		if (Other != NULL && Other->PlayerState != NULL && Cast<AUTPlayerState>(Other->PlayerState) != NULL)
+		if (OtherPlayerState)
 		{
-			Cast<AUTPlayerState>(Other->PlayerState)->AdjustScore(-1);
-			Cast<AUTPlayerState>(Other->PlayerState)->IncrementKills(DamageType, false);
+			OtherPlayerState->AdjustScore(-1);
+			OtherPlayerState->IncrementKills(DamageType, false, OtherPlayerState);
 		}
 	}
 	else 
@@ -1168,7 +1168,7 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		if ( KillerPlayerState != NULL )
 		{
 			KillerPlayerState->AdjustScore(+1);
-			KillerPlayerState->IncrementKills(DamageType, true);
+			KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
 			CheckScore(KillerPlayerState);
 		}
 

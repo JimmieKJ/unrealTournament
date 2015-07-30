@@ -18,6 +18,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
 		AnnouncementHS = FName(TEXT("RW_HolyShit"));
+		bWantsBotReaction = true;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)

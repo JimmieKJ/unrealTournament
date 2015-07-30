@@ -48,7 +48,7 @@ void AUTKMGameMode::ScoreKill(AController* Killer, AController* Other, APawn* Ki
 
 			// We killed a king.  So we score points.
 			KillerPlayerState->AdjustScore(+1);
-			KillerPlayerState->IncrementKills(DamageType, true);
+			KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
 			CheckScore(KillerPlayerState);
 		}
 		else
@@ -59,7 +59,7 @@ void AUTKMGameMode::ScoreKill(AController* Killer, AController* Other, APawn* Ki
 			{
 				UTCharacter->Health = FMath::Min<int32>(UTCharacter->Health + (KillerPlayerState->bSpecialPlayer ? 25 : 10), 100);
 			}
-			KillerPlayerState->IncrementKills(DamageType, true);
+			KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
 
 			// If we are the king, we get credit for our kills...
 

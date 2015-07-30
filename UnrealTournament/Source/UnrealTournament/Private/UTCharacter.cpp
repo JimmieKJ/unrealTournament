@@ -1191,7 +1191,7 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
 
 		PlayDying();
-		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && (FlakShredInstigator == EventInstigator))
+		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
 		{
 			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
 		}
@@ -1210,13 +1210,13 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 	}
 }
 
-void AUTCharacter::AnnounceShred(AUTPlayerController *PC)
+void AUTCharacter::AnnounceShred(AUTPlayerController *KillerPC)
 {
-	AUTPlayerState* PS = PC ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
-	if (PS && CloseFlakRewardMessageClass)
+	AUTPlayerState* KillerPS = KillerPC ? Cast<AUTPlayerState>(KillerPC->PlayerState) : NULL;
+	if (KillerPS && CloseFlakRewardMessageClass)
 	{
-		PS->ModifyStatsValue(FlakShredStatName, 1);
-		PC->SendPersonalMessage(CloseFlakRewardMessageClass, PS->GetStatsValue(FlakShredStatName));
+		KillerPS->ModifyStatsValue(FlakShredStatName, 1);
+		KillerPC->SendPersonalMessage(CloseFlakRewardMessageClass, KillerPS->GetStatsValue(FlakShredStatName), PlayerState, KillerPS);
 	}
 }
 

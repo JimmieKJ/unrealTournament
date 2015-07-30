@@ -20,6 +20,7 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
 	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
 	bIsStatusAnnouncement = false;
+	bWantsBotReaction = true;
 }
 
 FLinearColor UUTCTFRewardMessage::GetMessageColor(int32 MessageIndex) const

@@ -20,6 +20,7 @@
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
 #include "UTEngineMessage.h"
+#include "UTGameState.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -133,22 +134,26 @@ void AUTPlayerState::CalculatePing(float NewPing)
 	}
 }
 
-bool AUTPlayerState::ShouldAutoTaunt()
+bool AUTPlayerState::ShouldAutoTaunt() const
 {
 	return bIsABot || bShouldAutoTaunt;
 }
 
 void AUTPlayerState::AnnounceKill()
 {
-	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode() && (CharacterVoice.GetDefaultObject()->TauntMessages.Num() > 0))
+	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode())
 	{
-		int32 SelectedTaunt = TauntSelectionIndex + FMath::Min(FMath::RandRange(0, 2), CharacterVoice.GetDefaultObject()->TauntMessages.Num() - TauntSelectionIndex - 1);
-		TauntSelectionIndex += 3;
-		if (TauntSelectionIndex >= CharacterVoice.GetDefaultObject()->TauntMessages.Num())
+		int32 NumTaunts = CharacterVoice.GetDefaultObject()->TauntMessages.Num();
+		if (NumTaunts > 0)
 		{
-			TauntSelectionIndex -= FMath::Max(3, CharacterVoice.GetDefaultObject()->TauntMessages.Num());
+			int32 SelectedTaunt = TauntSelectionIndex + FMath::Min(FMath::RandRange(0, 2), NumTaunts - TauntSelectionIndex - 1);
+			TauntSelectionIndex += 3;
+			if (TauntSelectionIndex >= NumTaunts)
+			{
+				TauntSelectionIndex -= FMath::Max(3, NumTaunts);
+			}
+			GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, SelectedTaunt, this);
 		}
-		GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, SelectedTaunt, this);
 	}
 }
 
@@ -159,6 +164,36 @@ void AUTPlayerState::AnnounceSameTeam(AUTPlayerController* ShooterPC)
 	{
 		ShooterPC->LastSameTeamTime = GetWorld()->GetTimeSeconds();
 		ShooterPC->ClientReceiveLocalizedMessage(CharacterVoice, 1000 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() - 1), this, ShooterPC->PlayerState, NULL);
+	}
+}
+
+void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
+{
+	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode())
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(ReactionPS->GetOwner());
+		if (!PC)
+		{
+			return;
+		}
+		int32 NumFriendlyReactions = CharacterVoice.GetDefaultObject()->FriendlyReactions.Num();
+		int32 NumEnemyReactions = CharacterVoice.GetDefaultObject()->EnemyReactions.Num();
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		bool bSameTeam = GS->OnSameTeam(this, ReactionPS);
+		if (GS == NULL || bSameTeam || (NumEnemyReactions == 0) || (FMath::FRand() < 0.6f))
+		{
+			// only friendly reaction if on same team
+			if (NumFriendlyReactions > 0)
+			{
+				PC->ClientReceiveLocalizedMessage(CharacterVoice, 2000 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->FriendlyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
+				return;
+			}
+			else if (bSameTeam || (NumEnemyReactions == 0))
+			{
+				return;
+			}
+		}
+		PC->ClientReceiveLocalizedMessage(CharacterVoice, 2500 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->EnemyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
 	}
 }
 
@@ -199,7 +234,7 @@ void AUTPlayerState::SetWaitingPlayer(bool B)
 	ForceNetUpdate();
 }
 
-void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill)
+void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
 {
 	if (bEnemyKill)
 	{
@@ -223,7 +258,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			MultiKillLevel++;
 			if (MyPC != NULL)
 			{
-				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, VictimPS);
 			}
 
 			AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -266,7 +301,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 				if (MyPC && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
 				{
-					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, WeaponSprees[SpreeIndex].Kills);
+					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, WeaponSprees[SpreeIndex].Kills, this, VictimPS);
 				}
 				// delay actual announcement to keep multiple announcements in preferred order
 				bAnnounceWeaponSpree = (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount);
@@ -275,7 +310,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			}
 			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass && MyPC != nullptr)
 			{
-				MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
+				MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, 0, this, VictimPS);
 			}
 		}
 		if (Pawn != NULL)
@@ -288,7 +323,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
-					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / 5, this);
+					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / 5, this, VictimPS);
 				}
 
 				if (UTChar != NULL && UTChar->IsWearingAnyCosmetic())

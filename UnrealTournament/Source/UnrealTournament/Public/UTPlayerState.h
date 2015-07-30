@@ -82,9 +82,6 @@ public:
 		return SelectedCharacter;
 	}
 
-	UPROPERTY(BlueprintReadOnly, Category = Sounds)
-		TSubclassOf<class UUTCharacterVoice> CharacterVoice;
-
 	/** Don't do engine style ping updating. */
 	virtual void UpdatePing(float InPing) override;
 
@@ -139,9 +136,25 @@ public:
 
 	virtual void UpdateReady();
 
+	/** Voice used by this player/bot for speech (taunts, etc.). */
+	UPROPERTY(BlueprintReadOnly, Category = Sounds)
+		TSubclassOf<class UUTCharacterVoice> CharacterVoice;
+
+	UPROPERTY()
+		bool bShouldAutoTaunt;
+
+	/** Current index to use as basis for next selection in Taunt list. */
+	UPROPERTY()
+		int32 TauntSelectionIndex;
+
+	/** Whether this player plays auto-taunts. */
+	virtual bool ShouldAutoTaunt() const;
+
 	virtual void AnnounceKill();
 
 	virtual void AnnounceSameTeam(class AUTPlayerController* ShooterPC);
+
+	virtual void AnnounceReactionTo(const AUTPlayerState* ReactionPS) const;
 
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
@@ -277,10 +290,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
-	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill);
+	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS=NULL);
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState);
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void AdjustScore(int32 ScoreAdjustment);
 
@@ -376,16 +392,6 @@ public:
 	
 	/** read profile items for this user from the backend */
 	virtual void ReadProfileItems();
-
-	UPROPERTY()
-		bool bShouldAutoTaunt;
-
-	/** Current index to use as basis for next selection in Taunt list. */
-	UPROPERTY()
-		int32 TauntSelectionIndex;
-
-	/** Whether this player plays auto-taunts. */
-	virtual bool ShouldAutoTaunt();
 
 private:
 	FHttpRequestPtr ItemListReq;

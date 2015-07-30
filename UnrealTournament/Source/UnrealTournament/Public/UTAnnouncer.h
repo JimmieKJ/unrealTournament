@@ -13,13 +13,17 @@ struct FAnnouncementInfo
 	UPROPERTY(BlueprintReadWrite, Category = Announcement)
 	int32 Switch;
 	UPROPERTY(BlueprintReadWrite, Category = Announcement)
+	const class APlayerState* RelatedPlayerState_1;
+	UPROPERTY(BlueprintReadWrite, Category = Announcement)
+	const class APlayerState* RelatedPlayerState_2;
+	UPROPERTY(BlueprintReadWrite, Category = Announcement)
 	const UObject* OptionalObject;
 
 	FAnnouncementInfo()
-		: MessageClass(NULL), Switch(0), OptionalObject(NULL)
+		: MessageClass(NULL), Switch(0), RelatedPlayerState_1(NULL), RelatedPlayerState_2(NULL), OptionalObject(NULL)
 	{}
-	FAnnouncementInfo(TSubclassOf<UUTLocalMessage> InMessageClass, int32 InSwitch, const UObject* InOptionalObject)
-		: MessageClass(InMessageClass), Switch(InSwitch), OptionalObject(InOptionalObject)
+	FAnnouncementInfo(TSubclassOf<UUTLocalMessage> InMessageClass, int32 InSwitch, const class APlayerState* InRelatedPlayerState_1, const class APlayerState* InRelatedPlayerState_2, const UObject* InOptionalObject)
+		: MessageClass(InMessageClass), Switch(InSwitch), RelatedPlayerState_1(InRelatedPlayerState_1), RelatedPlayerState_2(InRelatedPlayerState_2), OptionalObject(InOptionalObject)
 	{}
 };
 
@@ -95,9 +99,16 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 
 	/** currently playing announcement */
 	FAnnouncementInfo CurrentAnnouncement;
+
 	/** list of queued announcements */
 	UPROPERTY(Transient)
 	TArray<FAnnouncementInfo> QueuedAnnouncements;
+
+	/** Set if the announcement wants a reaction from bots after being played. */
+	FAnnouncementInfo ReactionAnnouncement;
+
+	/** Find best bot to provide reaction. */
+	virtual void RequestReaction();
 
 	/** component used to control the audio */
 	UPROPERTY()
@@ -121,7 +132,7 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	}
 
 	UFUNCTION(BlueprintCallable, Category = Announcement)
-	virtual void PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const UObject* OptionalObject);
+		virtual void PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const APlayerState* PlayerState1, const APlayerState* PlayerState2, const UObject* OptionalObject);
 
 	/** play next announcement in queue (if any)
 	 * cancels any currently playing announcement

@@ -70,7 +70,7 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 				PS->ModifyStatsValue(NAME_AirRox, 1);
 				AirRoxCount = PS->GetStatsValue(NAME_AirRox);
 			}
-			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount);
+			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount, PS, HitCharacter->PlayerState);
 		}
 	}
 }

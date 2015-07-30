@@ -85,7 +85,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.f;
-
+		bWantsBotReaction = true;
 	}
 
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
@@ -96,7 +96,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		{
 			if (PC != NULL && PC->Announcer != NULL)
 			{
-				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 			}
 		}
 		else if (PC != NULL)
