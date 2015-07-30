@@ -191,7 +191,7 @@ public:
 
 			NewRuleset->Title = TEXT("Showdown");
 			NewRuleset->Tooltip = TEXT("New School one vs one test of deathmatch skill.");
-			NewRuleset->Description = TEXT("New School one vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n<UT.Hub.RulesText_Small>Maximum players : 2</>");
+			NewRuleset->Description = TEXT("New School one vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2 minute rounds</>\n<UT.Hub.RulesText_Small>Mercy Rule : OFF</>\n<UT.Hub.RulesText_Small>Maximum players : 2</>");
 			NewRuleset->MinPlayersToStart = 2;
 			NewRuleset->MaxPlayers = 2;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'");
