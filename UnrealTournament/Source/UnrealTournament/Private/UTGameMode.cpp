@@ -380,6 +380,12 @@ void AUTGameMode::InitGameState()
 		// Setup the loadout replication
 		for (int32 i=0; i < AvailableLoadout.Num(); i++)
 		{
+			UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+			if (Engine && !AvailableLoadout[i].ItemClassStringRef.IsEmpty())
+			{
+				AvailableLoadout[i].ItemClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(AvailableLoadout[i].ItemClassStringRef));
+			}
+
 			if (AvailableLoadout[i].ItemClass)
 			{
 				UTGameState->AddLoadoutItem(AvailableLoadout[i]);

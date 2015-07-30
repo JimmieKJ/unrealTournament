@@ -24,6 +24,10 @@ struct FLoadoutInfo
 
 	// The class of the weapon to include
 	UPROPERTY()
+	FString ItemClassStringRef;
+
+	// The class of the weapon to include
+	UPROPERTY()
 	TSubclassOf<AUTInventory> ItemClass;
 
 	// What rounds should this weapon be available
