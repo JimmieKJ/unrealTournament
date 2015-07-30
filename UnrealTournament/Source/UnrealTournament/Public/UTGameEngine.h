@@ -9,6 +9,8 @@ class UNREALTOURNAMENT_API UUTGameEngine : public UGameEngine
 	GENERATED_UCLASS_BODY()
 
 private:
+	TArray< TAssetSubclassOf<AUTWeapon> > AlwaysLoadedWeaponsStringRefs;
+
 	/** used to have the standard weapon set always loaded for UI performance and load times */
 	UPROPERTY()
 	TArray< TSubclassOf<AUTWeapon> > AlwaysLoadedWeapons;
