@@ -124,7 +124,8 @@ void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherCom
 
 bool AUTPickup::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
-	bool bAllowPickup = bDefaultAllowPickup;
+	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
+	bool bAllowPickup = bDefaultAllowPickup && (UTC == NULL || UTC->bCanPickupItems);
 	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, NULL, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
 }
