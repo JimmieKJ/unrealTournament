@@ -18,6 +18,15 @@ void AUTBaseGameMode::PreInitializeComponents()
 
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
+	if (!PlayerPawnObject.IsNull())
+	{
+		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+		if (Engine)
+		{
+			DefaultPawnClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(PlayerPawnObject.ToStringReference()));
+		}
+	}
+
 	// Grab the InstanceID if it's there.
 	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
 	

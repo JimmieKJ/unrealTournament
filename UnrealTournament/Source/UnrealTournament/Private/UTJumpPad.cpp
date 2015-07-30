@@ -9,6 +9,7 @@
 #include "AI/NavigationSystemHelpers.h"
 #include "AI/NavigationOctree.h"
 #include "UTReachSpec_JumpPad.h"
+#include "UTGameEngine.h"
 
 AUTJumpPad::AUTJumpPad(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -315,7 +316,22 @@ void AUTJumpPad::CheckForErrors()
 		GConfig->GetString(TEXT("/Script/EngineSettings.GameMapsSettings"), TEXT("GlobalDefaultGameMode"), GameClassPath, GEngineIni);
 		GameClass = LoadClass<AGameMode>(NULL, *GameClassPath, NULL, 0, NULL);
 	}
-	const ACharacter* DefaultChar = (GameClass != NULL) ? Cast<ACharacter>(GameClass.GetDefaultObject()->DefaultPawnClass.GetDefaultObject()) : GetDefault<AUTCharacter>();
+	const ACharacter* DefaultChar = GetDefault<AUTCharacter>();
+	
+	TSubclassOf<AUTGameMode> UTGameClass = *GameClass;
+	if (UTGameClass)
+	{
+		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+		if (Engine)
+		{
+			DefaultChar = Cast<ACharacter>(Cast<UClass>(Engine->StreamableManager.SynchronousLoad(UTGameClass.GetDefaultObject()->PlayerPawnObject.ToStringReference()))->GetDefaultObject());
+		}
+	}
+	else
+	{
+		DefaultChar = Cast<ACharacter>(GameClass.GetDefaultObject()->DefaultPawnClass.GetDefaultObject());
+	}
+
 	if (DefaultChar != NULL && DefaultChar->GetCharacterMovement() != NULL)
 	{
 		JumpVelocity *= FMath::Sqrt(DefaultChar->GetCharacterMovement()->GravityScale);

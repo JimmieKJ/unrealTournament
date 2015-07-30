@@ -26,6 +26,8 @@ public:
 
 	uint32 bRequirePassword:1;
 
+	TAssetSubclassOf<APawn> PlayerPawnObject;
+
 #if !UE_SERVER
 
 	/**

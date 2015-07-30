@@ -14,6 +14,7 @@
 #include "Engine/UserInterfaceSettings.h"
 #include "UTHUDWidget_ReplayTimeSlider.h"
 #include "UTPlayerInput.h"
+#include "UTGameEngine.h"
 
 #if !UE_SERVER
 
@@ -212,38 +213,43 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 	AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
 	if (DefaultGameMode)
 	{
-		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultGameMode->DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
-		if (PlayerPreviewMesh)
+		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+		if (Engine)
 		{
-			PlayerPreviewMesh->ApplyCharacterData(TargetPlayerState->GetSelectedCharacter());
-			PlayerPreviewMesh->SetHatClass(TargetPlayerState->HatClass);
-			PlayerPreviewMesh->SetHatVariant(TargetPlayerState->HatVariant);
-			PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
-			PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
-
-			if ( PoseAnimation )
+			TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(DefaultGameMode->PlayerPawnObject.ToStringReference()));
+			PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
+			if (PlayerPreviewMesh)
 			{
-				PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
-				PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-			}
+				PlayerPreviewMesh->ApplyCharacterData(TargetPlayerState->GetSelectedCharacter());
+				PlayerPreviewMesh->SetHatClass(TargetPlayerState->HatClass);
+				PlayerPreviewMesh->SetHatVariant(TargetPlayerState->HatVariant);
+				PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
+				PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
 
-			UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
-			if (PreviewAttachmentType != NULL)
-			{
-				PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
-				PreviewWeapon->Instigator = PlayerPreviewMesh;
-			}
+				if ( PoseAnimation )
+				{
+					PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
+					PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+				}
 
-			// Tick the world to make sure the animation is up to date.
-			if ( PlayerPreviewWorld != nullptr )
-			{
-				PlayerPreviewWorld->Tick(LEVELTICK_All, 0.0);
-			}
+				UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+				if (PreviewAttachmentType != NULL)
+				{
+					PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
+					PreviewWeapon->Instigator = PlayerPreviewMesh;
+				}
 
-			if ( PreviewWeapon )
-			{
-				PreviewWeapon->BeginPlay();
-				PreviewWeapon->AttachToOwner();
+				// Tick the world to make sure the animation is up to date.
+				if ( PlayerPreviewWorld != nullptr )
+				{
+					PlayerPreviewWorld->Tick(LEVELTICK_All, 0.0);
+				}
+
+				if ( PreviewWeapon )
+				{
+					PreviewWeapon->BeginPlay();
+					PreviewWeapon->AttachToOwner();
+				}
 			}
 		}
 		else

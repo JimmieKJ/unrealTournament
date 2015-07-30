@@ -18,7 +18,6 @@
 AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	DefaultPawnClass = NULL;
 	MinPlayersToStart = 2;
 
 	// use our custom HUD class

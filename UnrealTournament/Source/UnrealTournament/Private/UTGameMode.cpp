@@ -55,13 +55,7 @@ namespace MatchState
 AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FObjectFinder<UClass> PlayerPawnObject(TEXT("Class'/Game/RestrictedAssets/Blueprints/DefaultCharacter.DefaultCharacter_C'"));
-	
-	if (PlayerPawnObject.Object != NULL)
-	{
-		DefaultPawnClass = (UClass*)PlayerPawnObject.Object;
-	}
+	PlayerPawnObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Blueprints/DefaultCharacter.DefaultCharacter_C"));
 
 	// use our custom HUD class
 	HUDClass = AUTHUD::StaticClass();

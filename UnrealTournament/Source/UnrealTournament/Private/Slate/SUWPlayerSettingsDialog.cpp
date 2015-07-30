@@ -1108,9 +1108,14 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		PreviewWeapon->Destroy();
 	}
 
-	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
-	PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
-	
+	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+	if (Engine)
+	{
+		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference()));
+		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
+		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
+	}
+
 	// set character mesh
 	// NOTE: important this is first since it may affect the following items (socket locations, etc)
 	int32 Index = CharacterList.Find(CharacterComboBox->GetSelectedItem());
