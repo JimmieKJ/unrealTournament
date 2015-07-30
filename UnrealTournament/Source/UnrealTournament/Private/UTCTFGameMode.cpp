@@ -16,7 +16,6 @@
 #include "Slate/SUWPlayerInfoDialog.h"
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
-#include "UTGameEngine.h"
 
 namespace MatchState
 {
@@ -57,12 +56,8 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 {
 	if (!TranslocatorObject.IsNull())
 	{
-		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
-		if (Engine)
-		{
-			TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(TranslocatorObject.ToStringReference()));
-			DefaultInventory.Add(WeaponClass);
-		}
+		TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		DefaultInventory.Add(WeaponClass);
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);

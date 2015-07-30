@@ -20,11 +20,7 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 {
 	if (!PlayerPawnObject.IsNull())
 	{
-		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
-		if (Engine)
-		{
-			DefaultPawnClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(PlayerPawnObject.ToStringReference()));
-		}
+		DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
 	}
 
 	// Grab the InstanceID if it's there.

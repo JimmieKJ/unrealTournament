@@ -321,11 +321,7 @@ void AUTJumpPad::CheckForErrors()
 	TSubclassOf<AUTGameMode> UTGameClass = *GameClass;
 	if (UTGameClass)
 	{
-		UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
-		if (Engine)
-		{
-			DefaultChar = Cast<ACharacter>(Cast<UClass>(Engine->StreamableManager.SynchronousLoad(UTGameClass.GetDefaultObject()->PlayerPawnObject.ToStringReference()))->GetDefaultObject());
-		}
+		DefaultChar = Cast<ACharacter>(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *UTGameClass.GetDefaultObject()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn)));
 	}
 	else
 	{

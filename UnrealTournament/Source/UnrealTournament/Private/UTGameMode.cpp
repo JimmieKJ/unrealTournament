@@ -383,7 +383,7 @@ void AUTGameMode::InitGameState()
 			UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
 			if (Engine && !AvailableLoadout[i].ItemClassStringRef.IsEmpty())
 			{
-				AvailableLoadout[i].ItemClass = Cast<UClass>(Engine->StreamableManager.SynchronousLoad(AvailableLoadout[i].ItemClassStringRef));
+				AvailableLoadout[i].ItemClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *AvailableLoadout[i].ItemClassStringRef, NULL, LOAD_NoWarn));
 			}
 
 			if (AvailableLoadout[i].ItemClass)

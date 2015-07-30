@@ -120,9 +120,7 @@ public:
 	static class UUTLevelSummary* LoadLevelSummary(const FString& MapName);
 
 	bool GetMonitorRefreshRate(int32& MonitorRefreshRate);
-
-	FStreamableManager StreamableManager;
-
+	
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
 	void OnLoadingMoviePlaybackFinished();

@@ -74,7 +74,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		for (auto WeaponClassRef : AlwaysLoadedWeaponsStringRefs)
 		{
-			AlwaysLoadedWeapons.Add(Cast<UClass>(StreamableManager.SynchronousLoad(WeaponClassRef.ToStringReference())));
+			AlwaysLoadedWeapons.Add(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *WeaponClassRef.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn)));
 		}
 	}
 
