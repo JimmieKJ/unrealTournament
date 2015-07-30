@@ -6,10 +6,7 @@
 #include "SUWDialog.h"
 #include "SUWindowsStyle.h"
 #include "Engine/UserInterfaceSettings.h"
-#include "Engine/Console.h"
 
-static FName NAME_Typing = FName(TEXT("Typing"));
-static FName NAME_Open = FName(TEXT("Open"));
 
 #if !UE_SERVER
 
@@ -285,6 +282,16 @@ FReply SUWDialog::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent
 		.ReleaseMouseCapture();
 }
 
+FReply SUWDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		OnButtonClick(UTDIALOG_BUTTON_CANCEL);
+	}
+
+	return FReply::Unhandled();
+}
+
 FReply SUWDialog::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	return FReply::Handled();
@@ -328,47 +335,10 @@ FReply SUWDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyE
 
 		FSlateApplication::Get().SetKeyboardFocus(TabTable[TabStop], EKeyboardFocusCause::Keyboard);	
 	}
-
-	//HACK: Send Input to the console if its open to workaround focus problems
-	UConsole* Console = (GetPlayerOwner() != nullptr && GetPlayerOwner()->ViewportClient != nullptr) ? GetPlayerOwner()->ViewportClient->ViewportConsole : nullptr;
-	if (Console != nullptr && (Console->ConsoleState == NAME_Open || Console->ConsoleState == NAME_Typing))
-	{
-		Console->InputKey(InKeyEvent.GetUserIndex(), InKeyEvent.GetKey(), EInputEvent::IE_Pressed);
-	}
-
 	return FReply::Handled();
+
+
 }
-
-FReply SUWDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
-{
-	if (InKeyEvent.GetKey() == EKeys::Escape)
-	{
-		OnButtonClick(UTDIALOG_BUTTON_CANCEL);
-	}
-
-	//HACK: Send Input to the console if its open to workaround focus problems
-	UConsole* Console = (GetPlayerOwner() != nullptr && GetPlayerOwner()->ViewportClient != nullptr) ? GetPlayerOwner()->ViewportClient->ViewportConsole : nullptr;
-	if (Console != nullptr && (Console->ConsoleState == NAME_Open || Console->ConsoleState == NAME_Typing))
-	{
-		Console->InputKey(InKeyEvent.GetUserIndex(), InKeyEvent.GetKey(), EInputEvent::IE_Released);
-	}
-
-	return FReply::Unhandled();
-}
-
-FReply SUWDialog::OnKeyChar(const FGeometry& InGeometry, const FCharacterEvent& InCharacterEvent)
-{
-	//HACK: Send Input to the console if its open to workaround focus problems
-	UConsole* Console = (GetPlayerOwner() != nullptr && GetPlayerOwner()->ViewportClient != nullptr) ? GetPlayerOwner()->ViewportClient->ViewportConsole : nullptr;
-	if (Console != nullptr && (Console->ConsoleState == NAME_Open || Console->ConsoleState == NAME_Typing))
-	{
-		FString CharacterString;
-		CharacterString += InCharacterEvent.GetCharacter();
-		Console->InputChar(InCharacterEvent.GetUserIndex(), CharacterString);
-	}
-	return FReply::Unhandled();
-}
-
 
 void SUWDialog::EnableButton(uint16 ButtonID)
 {
