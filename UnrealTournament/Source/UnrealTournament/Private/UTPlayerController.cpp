@@ -1735,15 +1735,15 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		}
 	}
 
-	// hide other local players' first person weapons
-	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	// hide other pawns' first person hands/weapons
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (It->PlayerController != this && It->PlayerController != NULL)
+		if (It->IsValid() && It->Get() != GetViewTarget() && It->Get() != GetPawn())
 		{
-			AUTCharacter* OtherP = Cast<AUTCharacter>(It->PlayerController->GetViewTarget());
-			if (OtherP != NULL && OtherP->GetWeapon() != NULL)
+			AUTCharacter* OtherP = Cast<AUTCharacter>(It->Get());
+			if (OtherP != NULL)
 			{
-				HideComponentTree(OtherP->GetWeapon()->Mesh, HiddenComponents);
+				HideComponentTree(OtherP->FirstPersonMesh, HiddenComponents);
 			}
 		}
 	}
