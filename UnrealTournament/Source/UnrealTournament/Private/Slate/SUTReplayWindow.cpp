@@ -631,6 +631,11 @@ bool SUTReplayWindow::GetGameMousePosition(FVector2D& MousePosition) const
 
 FReply SUTReplayWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
+	FGeometry TimeBarGeometry = FindChildGeometry(MyGeometry, TimeBar.ToSharedRef());
+	if (TimeBarGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
+	{
+		return FReply::Handled();
+	}
 	return MouseClickHUD() ? FReply::Handled() : FReply::Unhandled();
 }
 
