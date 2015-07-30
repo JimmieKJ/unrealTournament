@@ -141,6 +141,8 @@ public:
 
 	virtual void AnnounceKill();
 
+	virtual void AnnounceSameTeam(class AUTPlayerController* ShooterPC);
+
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;

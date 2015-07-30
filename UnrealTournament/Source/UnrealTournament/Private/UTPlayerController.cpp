@@ -58,7 +58,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSingleTapAfterJump = true;
 	bHasUsedSpectatingBind = false;
 	bAutoCam = true;
+
 	bHearsTaunts = true;
+	LastSameTeamTime = 0.f;
 
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();

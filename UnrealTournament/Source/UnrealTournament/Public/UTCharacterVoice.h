@@ -24,6 +24,9 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 	TArray<FCharacterSpeech> TauntMessages;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> SameTeamMessages;
+
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;

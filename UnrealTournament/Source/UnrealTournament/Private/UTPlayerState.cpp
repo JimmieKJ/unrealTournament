@@ -145,6 +145,15 @@ void AUTPlayerState::AnnounceKill()
 	}
 }
 
+void AUTPlayerState::AnnounceSameTeam(AUTPlayerController* ShooterPC)
+{
+	if (CharacterVoice && ShouldAutoTaunt() && GetWorld()->GetAuthGameMode() && (GetWorld()->GetTimeSeconds() - ShooterPC->LastSameTeamTime > 5.f) )
+	{
+		ShooterPC->LastSameTeamTime = GetWorld()->GetTimeSeconds();
+		ShooterPC->ClientReceiveLocalizedMessage(CharacterVoice, 1000 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() - 1), this, ShooterPC->PlayerState, NULL);
+	}
+}
+
 bool AUTPlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
 {
 	return !bIsInactive && ((GetNetMode() == NM_Standalone) || (GetNetMode() == NM_Client));

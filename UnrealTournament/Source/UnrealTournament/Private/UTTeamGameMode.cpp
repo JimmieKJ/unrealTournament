@@ -373,6 +373,11 @@ bool AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Moment
 	{
 		Damage *= TeamDamagePct;
 		Momentum *= TeamMomentumPct;
+		AUTPlayerController* InstigatorPC = Cast<AUTPlayerController>(InstigatedBy);
+		if (InstigatorPC && Cast<AUTPlayerState>(Injured->PlayerState))
+		{
+			((AUTPlayerState *)(Injured->PlayerState))->AnnounceSameTeam(InstigatorPC);
+		}
 	}
 	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	return true;
