@@ -39,7 +39,7 @@ void SUWVideoCompressionDialog::Construct(const FArguments& InArgs)
 
 	VideoRecorder = InArgs._VideoRecorder;
 	VideoRecorder->StartCompressing(InArgs._VideoFilename);
-	VideoRecorder->OnCompressingComplete().AddRaw(this, &SUWVideoCompressionDialog::CompressingComplete);
+	VideoRecorder->OnCompressingComplete().AddSP(this, &SUWVideoCompressionDialog::CompressingComplete);
 }
 
 FReply SUWVideoCompressionDialog::OnButtonClick(uint16 ButtonID)
