@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTConsole.h"
 #include "UTFlagInfo.h"
+#include "UTLobbyGameMode.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -388,6 +389,13 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 			{
 				// We're a dedicated server, use the LAN or Net tick rate.
 				MaxTickRate = FMath::Clamp(NetDriver->NetServerMaxTickRate, 10, 120);
+
+				// Allow hubs to override the tick rate
+				AUTLobbyGameMode* LobbyGame = Cast<AUTLobbyGameMode>(World->GetAuthGameMode());
+				if (LobbyGame)
+				{
+					MaxTickRate = LobbyGame->LobbyMaxTickRate;
+				}
 			}
 		}
 		return MaxTickRate;

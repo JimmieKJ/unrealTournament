@@ -55,6 +55,9 @@ public:
 	UPROPERTY()
 	TSubclassOf<class UUTLocalMessage>  GameMessageClass;
 
+	UPROPERTY(GlobalConfig)
+	int32 LobbyMaxTickRate;
+
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState();
 	virtual void StartMatch();
