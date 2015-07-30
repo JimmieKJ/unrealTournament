@@ -364,7 +364,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 		MarkEndButton->SetVisibility(EVisibility::Hidden);
 	}
 
-	FEnumerateEventsCompleteDelegate EnumKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::KillsEnumerated);
+	FEnumerateEventsCompleteDelegate EnumKills = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::KillsEnumerated);
 	if (DemoNetDriver.IsValid())
 	{
 		DemoNetDriver->EnumerateEvents(TEXT("Kills"), EnumKills);
@@ -411,7 +411,7 @@ void SUTReplayWindow::KillsEnumerated(const FString& JsonString, bool bSucceeded
 
 	if (DemoNetDriver.IsValid())
 	{
-		FEnumerateEventsCompleteDelegate EnumFlagCaps = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagCapsEnumerated);
+		FEnumerateEventsCompleteDelegate EnumFlagCaps = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::FlagCapsEnumerated);
 		DemoNetDriver->EnumerateEvents(TEXT("FlagCaps"), EnumFlagCaps);
 	}
 }
@@ -426,7 +426,7 @@ void SUTReplayWindow::FlagCapsEnumerated(const FString& JsonString, bool bSuccee
 
 	if (DemoNetDriver.IsValid())
 	{
-		FEnumerateEventsCompleteDelegate EnumFlagReturns = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagReturnsEnumerated);
+		FEnumerateEventsCompleteDelegate EnumFlagReturns = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::FlagReturnsEnumerated);
 		DemoNetDriver->EnumerateEvents(TEXT("FlagReturns"), EnumFlagReturns);
 	}
 }
@@ -440,7 +440,7 @@ void SUTReplayWindow::FlagReturnsEnumerated(const FString& JsonString, bool bSuc
 
 	if (DemoNetDriver.IsValid())
 	{
-		FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::FlagDenyEnumerated);
+		FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::FlagDenyEnumerated);
 		DemoNetDriver->EnumerateEvents(TEXT("FlagDeny"), EnumFlagDeny);
 	}
 }
@@ -454,7 +454,7 @@ void SUTReplayWindow::FlagDenyEnumerated(const FString& JsonString, bool bSuccee
 
 	if (DemoNetDriver.IsValid())
 	{
-		FEnumerateEventsCompleteDelegate EnumMultiKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::MultiKillsEnumerated);
+		FEnumerateEventsCompleteDelegate EnumMultiKills = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::MultiKillsEnumerated);
 		DemoNetDriver->EnumerateEvents(TEXT("MultiKills"), EnumMultiKills);
 	}
 }
@@ -468,7 +468,7 @@ void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucc
 
 	if (DemoNetDriver.IsValid())
 	{
-		FEnumerateEventsCompleteDelegate EnumSpreeKills = FEnumerateEventsCompleteDelegate::CreateRaw(this, &SUTReplayWindow::SpreeKillsEnumerated);
+		FEnumerateEventsCompleteDelegate EnumSpreeKills = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::SpreeKillsEnumerated);
 		DemoNetDriver->EnumerateEvents(TEXT("SpreeKills"), EnumSpreeKills);
 	}
 }
@@ -751,7 +751,7 @@ FReply SUTReplayWindow::OnRecordButtonClicked()
 			WorldSettings->Pauser = nullptr;
 
 			PlayerOwner->GetWorld()->GetWorldSettings()->DemoPlayTimeDilation = 1.0f;
-			DemoNetDriver->GotoTimeInSeconds(RecordTimeStart, FOnGotoTimeDelegate::CreateRaw(this, &SUTReplayWindow::RecordSeekCompleted));
+			DemoNetDriver->GotoTimeInSeconds(RecordTimeStart, FOnGotoTimeDelegate::CreateSP(this, &SUTReplayWindow::RecordSeekCompleted));
 		}
 	}
 
