@@ -47,4 +47,6 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 
 	virtual void SmoothTargetViewRotation(APawn* TargetPawn, float DeltaSeconds) override;
+
+	virtual void ViewFlag(uint8 Index) override;
 };

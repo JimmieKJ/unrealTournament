@@ -146,6 +146,13 @@ void AUTDemoRecSpectator::ShowEndGameScoreboard()
 	Super::ShowEndGameScoreboard();
 }
 
+void AUTDemoRecSpectator::ViewFlag(uint8 Index)
+{
+	//Avoid the RPC and call the implementation directly
+	bAutoCam = false;
+	ServerViewFlag_Implementation(Index);
+}
+
 void AUTDemoRecSpectator::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
 	SetViewTarget(EndGameFocus);
