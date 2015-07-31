@@ -462,7 +462,7 @@ void SUWGameSetupDialog::BuildMapPanel()
 					.Padding(10.0f,0.0f,0.0f,0.0f)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select Starting Map..."))
+						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select Starting Map"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 					]
 				]

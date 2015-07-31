@@ -61,7 +61,7 @@ void SUWMapVoteDialog::BuildMapList()
 				+SVerticalBox::Slot().HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWMapVoewDialog","Finalists","Choose from one of these finalist"))
+					.Text(NSLOCTEXT("SUWMapVoteDialog","Finalists","Choose from the finalists:"))
 					.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
 				]
 			];
@@ -74,7 +74,7 @@ void SUWMapVoteDialog::BuildMapList()
 				+SVerticalBox::Slot().HAlign(HAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWMapVoewDialog","Lead","Maps with the most votes..."))
+					.Text(NSLOCTEXT("SUWMapVoteDialog","Lead","Maps with the most votes:"))
 					.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
 				]
 			];

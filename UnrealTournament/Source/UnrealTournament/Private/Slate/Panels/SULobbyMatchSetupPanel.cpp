@@ -874,7 +874,7 @@ void SULobbyMatchSetupPanel::BuildMapList()
 		MapListPanel->AddSlot().AutoHeight().HAlign(HAlign_Left)
 		[
 			SNew(STextBlock)
-			.Text(NSLOCTEXT("SULobbyMatchSetupPanel", "StartingMap","Starting Map..."))
+			.Text(NSLOCTEXT("SULobbyMatchSetupPanel", "StartingMap",""))
 			.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
 			.ColorAndOpacity(FLinearColor::White)
 		];
