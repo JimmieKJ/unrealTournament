@@ -350,6 +350,9 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	FString GoalString;
 
+	/** last time bot died */
+	UPROPERTY()
+	float LastDeathTime;
 	/** last time bot respawned (not necessarily lining up with Pawn creation time due to vehicles, etc) */
 	UPROPERTY()
 	float LastRespawnTime;

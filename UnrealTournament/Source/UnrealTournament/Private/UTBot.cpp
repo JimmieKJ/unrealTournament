@@ -373,6 +373,7 @@ void AUTBot::Possess(APawn* InPawn)
 
 void AUTBot::PawnPendingDestroy(APawn* InPawn)
 {
+	LastDeathTime = GetWorld()->TimeSeconds;
 	Enemy = NULL;
 	StartNewAction(NULL);
 	MoveTarget.Clear();
@@ -457,7 +458,8 @@ void AUTBot::Tick(float DeltaTime)
 	if (MyPawn == NULL)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-		if (PS == NULL || PS->RespawnTime <= 0.0f)
+		// add some additional delay for low skill bots
+		if ((PS == NULL || PS->RespawnTime <= 0.0f) && GetWorld()->TimeSeconds - LastDeathTime > 3.9f - (Skill * 1.3f))
 		{
 			GetWorld()->GetAuthGameMode()->RestartPlayer(this);
 		}
