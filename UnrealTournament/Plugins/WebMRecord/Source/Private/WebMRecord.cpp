@@ -514,7 +514,8 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 	}
 
 	// Open the file for writing
-	FILE* file = fopen(TCHAR_TO_ANSI(*WebMPath), "wb");
+	FILE* file = nullptr;
+	fopen_s(&file, TCHAR_TO_ANSI(*WebMPath), "wb");
 	if (!file)
 	{
 		return;
