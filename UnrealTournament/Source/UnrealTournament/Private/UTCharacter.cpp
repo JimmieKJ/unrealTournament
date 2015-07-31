@@ -3524,7 +3524,7 @@ void AUTCharacter::Tick(float DeltaTime)
 
 	if (IsInWater())
 	{
-		if (IsRagdoll() && GetMesh())
+		if (IsRagdoll() && GetMesh() && (!GS || GS->IsMatchInProgress()))
 		{
 			// apply force to fake buoyancy and fluid friction
 			float FloatMag = (IsDead() || !PositionIsInWater(GetActorLocation() + FVector(0.f, 0.f, 30.f))) ? 80.f : 190.f;
