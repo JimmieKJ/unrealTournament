@@ -40,6 +40,7 @@ public:
 	void RestoreValue() const
 	{
 		CVar->Set(*StartingValue);
+		CVar->ClearFlags(ECVF_SetByCode);
 	}
 
 	float GetFloat() const

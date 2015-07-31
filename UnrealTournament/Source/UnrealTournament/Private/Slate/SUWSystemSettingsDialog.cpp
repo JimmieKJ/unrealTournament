@@ -676,6 +676,16 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 	QualitySettings.PostProcessQuality = FMath::Clamp<int32>(QualitySettings.PostProcessQuality, 0, GeneralScalabilityList.Num() - 1);
 	QualitySettings.EffectsQuality = FMath::Clamp<int32>(QualitySettings.EffectsQuality, 0, GeneralScalabilityList.Num() - 1);
 
+	// these are to restore the 'simple' settings since we apply the changes to them immediately as well
+	// NOTE: IMPORTANT THAT THESE ARE FIRST! When restoring previous settings, we want to start with the combination settings and then restore individual overrides
+	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.ResolutionQuality"))));
+	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.ViewDistanceQuality"))));
+	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.AntiAliasingQuality"))));
+	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.ShadowQuality"))));
+	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.PostProcessQuality"))));
+	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.TextureQuality"))));
+	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.EffectsQuality"))));
+
 	AAModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "AAModeNone", "None").ToString())));
 	AAModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "AAModeFXAA", "FXAA").ToString())));
 	AAModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "AAModeTemporal", "Temporal").ToString())));
@@ -963,6 +973,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 		UserSettings->SetSoundClassVolume(EUTSoundClass::Type(i), SoundVolumes[i]->GetValue());
 	}
 	// engine scalability
+	UserSettings->ScalabilityQuality = Scalability::GetQualityLevels(); // sets in UserSettings what was already applied
 	Scalability::SaveState(GGameUserSettingsIni); // note: settings were applied previously on change of individual items
 	for (TSharedRef<SSlateConsoleVarDelegate> CVar : CVarDelegates)
 	{
