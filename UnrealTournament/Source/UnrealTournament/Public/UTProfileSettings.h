@@ -118,6 +118,34 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 
 	UPROPERTY()
 	uint32 ReplayScreenshotResY;
+	
+	UPROPERTY()
+	bool bReplayCustomPostProcess;
+
+	UPROPERTY()
+	float ReplayCustomBloomIntensity;
+	
+	UPROPERTY()
+	float ReplayCustomDOFAmount;
+
+	UPROPERTY()
+	float ReplayCustomDOFDistance;
+
+	UPROPERTY()
+	float ReplayCustomDOFScale;
+
+	UPROPERTY()
+	float ReplayCustomDOFNearBlur;
+
+	UPROPERTY()
+	float ReplayCustomDOFFarBlur;
+
+	UPROPERTY()
+	float ReplayCustomMotionBlurAmount;
+
+	UPROPERTY()
+	float ReplayCustomMotionBlurMax;
+
 protected:
 
 	/**

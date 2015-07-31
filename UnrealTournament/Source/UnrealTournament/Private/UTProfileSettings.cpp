@@ -11,6 +11,9 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 	bSuppressToastsInGame = false;
 
 	bNeedProfileWriteOnLevelChange = false;
+
+	ReplayCustomBloomIntensity = 0.2f;
+	ReplayCustomDOFScale = 1.0f;
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()

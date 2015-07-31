@@ -39,6 +39,16 @@ class UNREALTOURNAMENT_API SUWScreenshotConfigDialog : public SUWDialog
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > ResolutionComboBox;
 	TSharedPtr<STextBlock> SelectedResolution;
 	void OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	TSharedPtr< SCheckBox > CustomPostCheckBox;
+	TSharedPtr< SSlider > BloomIntensitySlider;
+	TSharedPtr< SSlider > MotionBlurMaxSlider;
+	TSharedPtr< SSlider > MotionBlurAmountSlider;
+	TSharedPtr< SSlider > DOFScaleSlider;
+	TSharedPtr< SSlider > DOFDistanceSlider;
+	TSharedPtr< SSlider > DOFAmountSlider;
+	TSharedPtr< SSlider > DOFNearBlurSlider;
+	TSharedPtr< SSlider > DOFFarBlurSlider;
 };
 
 #endif
