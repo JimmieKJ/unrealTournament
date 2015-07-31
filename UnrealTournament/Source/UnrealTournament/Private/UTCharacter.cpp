@@ -1564,7 +1564,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 				static const FName NAME_FeignTrace = FName(TEXT("FeignTrace"));
 				FCollisionQueryParams CapsuleParams(NAME_FeignTrace, false, this);
 				// don't allow unfeigning if flying through the air
-				if (IsInWater() || GetWorld()->SweepTest(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
+				if (IsInWater() || GetWorld()->SweepTestByChannel(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
 				{
 					// Expand in place 
 					TArray<FOverlapResult> Overlaps;
