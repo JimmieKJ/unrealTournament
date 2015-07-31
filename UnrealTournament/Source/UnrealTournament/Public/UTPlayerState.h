@@ -147,6 +147,10 @@ public:
 	UPROPERTY()
 		int32 TauntSelectionIndex;
 
+	/** Last time this player sent a taunt voice message. */
+	UPROPERTY()
+		float LastTauntTime;
+
 	/** Whether this player plays auto-taunts. */
 	virtual bool ShouldAutoTaunt() const;
 

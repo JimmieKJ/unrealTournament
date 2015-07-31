@@ -52,6 +52,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	SpectatorNameScale = 1.f;
 	bIsDemoRecording = false;
 	EngineMessageClass = UUTEngineMessage::StaticClass();
+	LastTauntTime = -1000.f;
 
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultVoice(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Character/DefaultMaleVoice.DefaultMaleVoice_C'"));
 	CharacterVoice = DefaultVoice.Object;
@@ -266,14 +267,15 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 	if (bEnemyKill)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		AController* Controller = Cast<AController>(GetOwner());
 		APawn* Pawn = nullptr;
 		AUTCharacter* UTChar = nullptr;
+		bool bShouldTauntKill = false;
 		if (Controller)
 		{
 			Pawn = Controller->GetPawn();
 			UTChar = Cast<AUTCharacter>(Pawn);
-			AnnounceKill();
 		}
 		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
@@ -283,12 +285,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
 			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
 			MultiKillLevel++;
+			bShouldTauntKill = true;
 			if (MyPC != NULL)
 			{
 				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, VictimPS);
 			}
 
-			AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 			if (GM)
 			{
 				GM->AddMultiKillEventToReplay(Controller);
@@ -326,18 +328,19 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 				WeaponSprees[SpreeIndex].Kills++;
 
-				if (MyPC && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
-				{
-					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, WeaponSprees[SpreeIndex].Kills, this, VictimPS);
-				}
 				// delay actual announcement to keep multiple announcements in preferred order
 				bAnnounceWeaponSpree = (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount);
+				bShouldTauntKill = bShouldTauntKill || bAnnounceWeaponSpree;
 				// more likely to kill again with same weapon, so shorten search through array by swapping
 				WeaponSprees.Swap(0, SpreeIndex);
 			}
-			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass && MyPC != nullptr)
+			if (UTDamage.GetDefaultObject()->RewardAnnouncementClass)
 			{
-				MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, 0, this, VictimPS);
+				bShouldTauntKill = true;
+				if (MyPC != nullptr)
+				{
+					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, 0, this, VictimPS);
+				}
 			}
 		}
 		if (Pawn != NULL)
@@ -347,6 +350,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			{
 				FName SKStat[5] = { NAME_SpreeKillLevel0, NAME_SpreeKillLevel1, NAME_SpreeKillLevel2, NAME_SpreeKillLevel3, NAME_SpreeKillLevel4 };
 				ModifyStatsValue(SKStat[FMath::Min(Spree / 5, 4)], 1);
+				bShouldTauntKill = true;
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
@@ -359,7 +363,6 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 					UTChar->OnRepCosmeticSpreeCount();
 				}
 
-				AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 				if (GM)
 				{
 					GM->AddSpreeKillEventToReplay(Controller, FMath::Min(Spree / 5, 4));
@@ -381,7 +384,16 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		{
 			AnnounceWeaponSpree(UTDamage);
 		}
-
+		bShouldTauntKill = bShouldTauntKill || (GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 15.f)) || Cast<AUTPlayerController>(VictimPS->GetOwner());
+		if (bShouldTauntKill && Controller)
+		{
+			if ((GetWorld()->GetTimeSeconds() - LastTauntTime > 6.f) && GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 3.f))
+			{
+				LastTauntTime = GetWorld()->GetTimeSeconds();
+				GM->LastGlobalTauntTime = LastTauntTime;
+				AnnounceKill();
+			}
+		}
 		ModifyStatsValue(NAME_Kills, 1);
 	}
 	else

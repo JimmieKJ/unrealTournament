@@ -102,6 +102,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bDedicatedInstance = false;
 
 	MapVoteTime = 30;
+	LastGlobalTauntTime = -1000.f;
 
 	bSpeedHackDetection = false;
 	MaxTimeMargin = 2.0f;

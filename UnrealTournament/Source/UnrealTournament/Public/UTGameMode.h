@@ -225,6 +225,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bAmmoIsLimited;
 
+	/** Last time asnyone sent a taunt voice message. */
+	UPROPERTY()
+		float LastGlobalTauntTime;
+
 	/** Toggle invulnerability */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual void Demigod();
