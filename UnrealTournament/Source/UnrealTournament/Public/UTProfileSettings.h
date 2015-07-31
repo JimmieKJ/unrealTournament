@@ -15,7 +15,8 @@ static const uint32 EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION = 6;
 static const uint32 TAUNTFIXUP_PROFILESETTINGS_VERSION = 7;
 static const uint32 SPECTATING_FIXUP_PROFILESETTINGS_VERSION = 8;
 static const uint32 SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION = 8;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 10;
+static const uint32 HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION = 10;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 11;
 
 class UUTLocalPlayer;
 
@@ -175,6 +176,9 @@ protected:
 
 	UPROPERTY()
 	uint32 bAllowSlideFromRun : 1;
+
+	UPROPERTY()
+	uint32 bHearsTaunts : 1;
 
 	UPROPERTY()
 	FKey ConsoleKey;

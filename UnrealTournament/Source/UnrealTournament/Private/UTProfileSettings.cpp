@@ -49,6 +49,11 @@ void UUTProfileSettings::VersionFixup()
 	{
 		bAllowSlideFromRun = true;
 	}
+	if (SettingsRevisionNum <= HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		bHearsTaunts = true;
+	}
+	
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
@@ -102,6 +107,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
 		bAllowSlideFromRun = PC->bAllowSlideFromRun;
+		bHearsTaunts = PC->bHearsTaunts;
 		WeaponBob = PC->WeaponBobGlobalScaling;
 		WeaponHand = PC->GetWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
@@ -184,6 +190,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
 		PC->bAllowSlideFromRun = bAllowSlideFromRun;
+		PC->bHearsTaunts = bHearsTaunts;
 		PC->WeaponBobGlobalScaling = WeaponBob;
 		PC->SetWeaponHand(WeaponHand);
 		PC->FFAPlayerColor = FFAPlayerColor;

@@ -87,7 +87,7 @@ public:
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
-	UPROPERTY()
+	UPROPERTY(GlobalConfig)
 		bool bHearsTaunts;
 
 	UPROPERTY()
