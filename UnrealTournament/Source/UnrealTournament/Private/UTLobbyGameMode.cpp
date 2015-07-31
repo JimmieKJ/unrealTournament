@@ -39,6 +39,8 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 	UE_LOG(UT,Log,TEXT("  Init Lobby Game"));
 	UE_LOG(UT,Log,TEXT("===================="));
 
+	GetWorld()->bShouldSimulatePhysics = false;
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	MinPlayersToStart = FMath::Max(1, GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
