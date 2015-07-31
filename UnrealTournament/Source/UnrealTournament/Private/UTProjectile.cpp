@@ -624,8 +624,6 @@ void AUTProjectile::OnStop(const FHitResult& Hit)
 
 void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
-	bCanHitInstigator = true;
-
 	if (Cast<AUTProjectile>(ImpactResult.Actor.Get()) == NULL || InteractsWithProj(Cast<AUTProjectile>(ImpactResult.Actor.Get())))
 	{
 		// Spawn bounce effect
@@ -637,6 +635,15 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 		if (BounceSound != NULL)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false);
+		}
+	}
+
+	if (!bCanHitInstigator)
+	{
+		bCanHitInstigator = true;
+		if (Instigator != NULL && IsOverlappingActor(Instigator))
+		{
+			ProcessHit(Instigator, Cast<UPrimitiveComponent>(Instigator->GetRootComponent()), GetActorLocation(), ImpactVelocity.GetSafeNormal());
 		}
 	}
 }
