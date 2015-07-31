@@ -9,6 +9,26 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsStatusAnnouncement = false;
 	bOptionalSpoken = true;
+
+	// < 1000 is reserved for taunts
+	SameTeamBaseIndex = 1000;
+	FriendlyReactionBaseIndex = 2000;
+	EnemyReactionBaseIndex = 2500;
+
+	// 10000+ is reserved for status messages
+	StatusBaseIndex = 10000;
+	StatusOffsets.Add(StatusMessage::NeedBackup, 0);
+	StatusOffsets.Add(StatusMessage::EnemyFCHere, 100);
+	StatusOffsets.Add(StatusMessage::AreaSecure, 200);
+	StatusOffsets.Add(StatusMessage::IGotFlag, 300);
+	StatusOffsets.Add(StatusMessage::DefendFlag, 400);
+	StatusOffsets.Add(StatusMessage::DefendFC, 500);
+	StatusOffsets.Add(StatusMessage::GetFlagBack, 600);
+	StatusOffsets.Add(StatusMessage::ImOnDefense, 700);
+	StatusOffsets.Add(StatusMessage::ImGoingIn, 800);
+	StatusOffsets.Add(StatusMessage::ImOnOffense, 900);
+	StatusOffsets.Add(StatusMessage::SpreadOut, 1000);
+	StatusOffsets.Add(StatusMessage::BaseUnderAttack, 1100);
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -19,17 +39,117 @@ FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class 
 	{
 		Args.Add("TauntMessage", TauntMessages[Switch].SpeechText);
 	}
-	else if (SameTeamMessages.Num() > Switch - 1000)
+	else if (SameTeamMessages.Num() > Switch - SameTeamBaseIndex)
 	{
-		Args.Add("TauntMessage", SameTeamMessages[Switch-1000].SpeechText);
+		Args.Add("TauntMessage", SameTeamMessages[Switch - SameTeamBaseIndex].SpeechText);
 	}
-	else if (FriendlyReactions.Num() > Switch - 2000)
+	else if (FriendlyReactions.Num() > Switch - FriendlyReactionBaseIndex)
 	{
-		Args.Add("TauntMessage", FriendlyReactions[Switch - 2000].SpeechText);
+		Args.Add("TauntMessage", FriendlyReactions[Switch - FriendlyReactionBaseIndex].SpeechText);
 	}
-	else if (EnemyReactions.Num() > Switch - 2500)
+	else if (EnemyReactions.Num() > Switch - EnemyReactionBaseIndex)
 	{
-		Args.Add("TauntMessage", EnemyReactions[Switch - 2500].SpeechText);
+		Args.Add("TauntMessage", EnemyReactions[Switch - EnemyReactionBaseIndex].SpeechText);
+	}
+	else if (Switch >= StatusBaseIndex)
+	{
+		Switch -= StatusBaseIndex;
+		if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
+		{
+			if (NeedBackupMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return NeedBackupMessages[FMath::RandRange(0, NeedBackupMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::EnemyFCHere))
+		{
+			if (EnemyFCHereMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return EnemyFCHereMessages[FMath::RandRange(0, EnemyFCHereMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::AreaSecure))
+		{
+			if (AreaSecureMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return AreaSecureMessages[FMath::RandRange(0, AreaSecureMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::IGotFlag))
+		{
+			if (IGotFlagMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return IGotFlagMessages[FMath::RandRange(0, IGotFlagMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::DefendFlag))
+		{
+			if (DefendFlagMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return DefendFlagMessages[FMath::RandRange(0, DefendFlagMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::DefendFC))
+		{
+			if (DefendFCMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return DefendFCMessages[FMath::RandRange(0, DefendFCMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::GetFlagBack))
+		{
+			if (GetFlagBackMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return GetFlagBackMessages[FMath::RandRange(0, GetFlagBackMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::ImOnDefense))
+		{
+			if (ImOnDefenseMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return ImOnDefenseMessages[FMath::RandRange(0, ImOnDefenseMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::ImGoingIn))
+		{
+			if (ImGoingInMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return ImGoingInMessages[FMath::RandRange(0, ImGoingInMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::ImOnOffense))
+		{
+			if (ImOnOffenseMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return ImOnOffenseMessages[FMath::RandRange(0, ImOnOffenseMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::BaseUnderAttack))
+		{
+			if (BaseUnderAttackMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return BaseUnderAttackMessages[FMath::RandRange(0, BaseUnderAttackMessages.Num() - 1)].SpeechText;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::SpreadOut))
+		{
+			if (SpreadOutMessages.Num() == 0)
+			{
+				return FText::GetEmpty();
+			}
+			return SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechText;
+		}
 	}
 	else
 	{
@@ -49,17 +169,117 @@ USoundBase* UUTCharacterVoice::GetAnnouncementSound_Implementation(int32 Switch,
 	{
 		return TauntMessages[Switch].SpeechSound;
 	}
-	else if (SameTeamMessages.Num() > Switch - 1000)
+	else if (SameTeamMessages.Num() > Switch - SameTeamBaseIndex)
 	{
-		return SameTeamMessages[Switch-1000].SpeechSound;
+		return SameTeamMessages[Switch - SameTeamBaseIndex].SpeechSound;
 	}
-	else if (FriendlyReactions.Num() > Switch - 2000)
+	else if (FriendlyReactions.Num() > Switch - FriendlyReactionBaseIndex)
 	{
-		return FriendlyReactions[Switch - 2000].SpeechSound;
+		return FriendlyReactions[Switch - FriendlyReactionBaseIndex].SpeechSound;
 	}
-	else if (EnemyReactions.Num() > Switch - 2500)
+	else if (EnemyReactions.Num() > Switch - EnemyReactionBaseIndex)
 	{
-		return EnemyReactions[Switch - 2500].SpeechSound;
+		return EnemyReactions[Switch - EnemyReactionBaseIndex].SpeechSound;
+	}
+	else if (Switch >= StatusBaseIndex)
+	{
+		Switch -= StatusBaseIndex;
+		if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
+		{
+			if (NeedBackupMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return NeedBackupMessages[FMath::RandRange(0, NeedBackupMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::EnemyFCHere))
+		{
+			if (EnemyFCHereMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return EnemyFCHereMessages[FMath::RandRange(0, EnemyFCHereMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::AreaSecure))
+		{
+			if (AreaSecureMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return AreaSecureMessages[FMath::RandRange(0, AreaSecureMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::IGotFlag))
+		{
+			if (IGotFlagMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return IGotFlagMessages[FMath::RandRange(0, IGotFlagMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::DefendFlag))
+		{
+			if (DefendFlagMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return DefendFlagMessages[FMath::RandRange(0, DefendFlagMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::DefendFC))
+		{
+			if (DefendFCMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return DefendFCMessages[FMath::RandRange(0, DefendFCMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::GetFlagBack))
+		{
+			if (GetFlagBackMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return GetFlagBackMessages[FMath::RandRange(0, GetFlagBackMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::ImOnDefense))
+		{
+			if (ImOnDefenseMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return ImOnDefenseMessages[FMath::RandRange(0, ImOnDefenseMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::ImGoingIn))
+		{
+			if (ImGoingInMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return ImGoingInMessages[FMath::RandRange(0, ImGoingInMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::ImOnOffense))
+		{
+			if (ImOnOffenseMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return ImOnOffenseMessages[FMath::RandRange(0, ImOnOffenseMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::BaseUnderAttack))
+		{
+			if (BaseUnderAttackMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return BaseUnderAttackMessages[FMath::RandRange(0, BaseUnderAttackMessages.Num() - 1)].SpeechSound;
+		}
+		if (Switch == GetStatusIndex(StatusMessage::SpreadOut))
+		{
+			if (SpreadOutMessages.Num() == 0)
+			{
+				return NULL;
+			}
+			return SpreadOutMessages[FMath::RandRange(0, SpreadOutMessages.Num() - 1)].SpeechSound;
+		}
 	}
 	return NULL;
 }
@@ -86,5 +306,10 @@ bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const 
 float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
 {
 	return 0.f;
+}
+
+int32 UUTCharacterVoice::GetStatusIndex(FName NewStatus) const
+{
+	return StatusBaseIndex + StatusOffsets.FindRef(NewStatus);
 }
 

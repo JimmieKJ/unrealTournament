@@ -72,6 +72,22 @@ namespace InventoryEventName
 	const FName MultiJump = FName(TEXT("MultiJump"));
 }
 
+namespace StatusMessage
+{
+	const FName NeedBackup = FName(TEXT("NeedBackup"));
+	const FName EnemyFCHere = FName(TEXT("EnemyFCHere"));
+	const FName AreaSecure = FName(TEXT("AreaSecure"));
+	const FName IGotFlag = FName(TEXT("IGotFlag"));
+	const FName DefendFlag = FName(TEXT("DefendFlag"));
+	const FName DefendFC = FName(TEXT("DefendFC"));
+	const FName GetFlagBack = FName(TEXT("GetFlagBack"));
+	const FName ImGoingIn = FName(TEXT("ImGoingIn"));
+	const FName ImOnDefense = FName(TEXT("ImOnDefense"));
+	const FName ImOnOffense = FName(TEXT("ImOnOffense"));
+	const FName SpreadOut = FName(TEXT("SpreadOut"));
+	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
+}
+
 namespace ChatDestinations
 {
 	// You can chat with your friends from anywhere

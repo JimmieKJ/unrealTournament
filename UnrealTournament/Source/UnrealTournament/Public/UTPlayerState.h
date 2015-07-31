@@ -156,6 +156,8 @@ public:
 
 	virtual void AnnounceReactionTo(const AUTPlayerState* ReactionPS) const;
 
+	virtual void AnnounceStatus(FName NewStatus);
+
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;

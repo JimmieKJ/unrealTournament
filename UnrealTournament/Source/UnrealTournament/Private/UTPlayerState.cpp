@@ -163,7 +163,7 @@ void AUTPlayerState::AnnounceSameTeam(AUTPlayerController* ShooterPC)
 		&& (CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() > 0))
 	{
 		ShooterPC->LastSameTeamTime = GetWorld()->GetTimeSeconds();
-		ShooterPC->ClientReceiveLocalizedMessage(CharacterVoice, 1000 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() - 1), this, ShooterPC->PlayerState, NULL);
+		ShooterPC->ClientReceiveLocalizedMessage(CharacterVoice, CharacterVoice.GetDefaultObject()->SameTeamBaseIndex + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->SameTeamMessages.Num() - 1), this, ShooterPC->PlayerState, NULL);
 	}
 }
 
@@ -179,13 +179,13 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 		int32 NumFriendlyReactions = CharacterVoice.GetDefaultObject()->FriendlyReactions.Num();
 		int32 NumEnemyReactions = CharacterVoice.GetDefaultObject()->EnemyReactions.Num();
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bool bSameTeam = GS->OnSameTeam(this, ReactionPS);
+		bool bSameTeam = GS ? GS->OnSameTeam(this, ReactionPS) : false;
 		if (GS == NULL || bSameTeam || (NumEnemyReactions == 0) || (FMath::FRand() < 0.6f))
 		{
 			// only friendly reaction if on same team
 			if (NumFriendlyReactions > 0)
 			{
-				PC->ClientReceiveLocalizedMessage(CharacterVoice, 2000 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->FriendlyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
+				PC->ClientReceiveLocalizedMessage(CharacterVoice, CharacterVoice.GetDefaultObject()->FriendlyReactionBaseIndex + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->FriendlyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
 				return;
 			}
 			else if (bSameTeam || (NumEnemyReactions == 0))
@@ -193,7 +193,34 @@ void AUTPlayerState::AnnounceReactionTo(const AUTPlayerState* ReactionPS) const
 				return;
 			}
 		}
-		PC->ClientReceiveLocalizedMessage(CharacterVoice, 2500 + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->EnemyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
+		PC->ClientReceiveLocalizedMessage(CharacterVoice, CharacterVoice.GetDefaultObject()->EnemyReactionBaseIndex + FMath::RandRange(0, CharacterVoice.GetDefaultObject()->EnemyReactions.Num() - 1), const_cast<AUTPlayerState*>(this), PC->PlayerState, NULL);
+	}
+}
+
+void AUTPlayerState::AnnounceStatus(FName NewStatus)
+{
+	if (CharacterVoice && ShouldAutoTaunt())
+	{
+		// send to same team only
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (!GS)
+		{
+			return;
+		}
+		int32 Switch = CharacterVoice.GetDefaultObject()->GetStatusIndex(NewStatus);
+		if (Switch < 0)
+		{
+			// no valid index found (NewStatus was not a valid selection)
+			return;
+		}
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC && GS->OnSameTeam(this, PC))
+			{
+				PC->ClientReceiveLocalizedMessage(CharacterVoice, Switch, PC->PlayerState, this, NULL);
+			}
+		}
 	}
 }
 
