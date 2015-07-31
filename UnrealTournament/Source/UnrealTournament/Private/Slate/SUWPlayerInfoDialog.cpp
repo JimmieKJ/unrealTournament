@@ -131,10 +131,22 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 
 	OnUpdatePlayerState();
 	TabWidget->SelectTab(0);
+
+	// Turn on Screen Space Reflection max quality
+	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
+	OldSSRQuality = SSRQualityCVar->GetInt();
+	SSRQualityCVar->Set(4, ECVF_SetByCode);
 }
 
 SUWPlayerInfoDialog::~SUWPlayerInfoDialog()
 {
+	// Reset Screen Space Reflection max quality, wish there was a cleaner way to reset the flags
+	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
+	EConsoleVariableFlags Flags = SSRQualityCVar->GetFlags();
+	Flags = (EConsoleVariableFlags)(((uint32)Flags & ~ECVF_SetByMask) | ECVF_SetByScalability);
+	SSRQualityCVar->Set(OldSSRQuality, ECVF_SetByCode);
+	SSRQualityCVar->SetFlags(Flags);
+
 	if (PlayerPreviewTexture != NULL)
 	{
 		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();

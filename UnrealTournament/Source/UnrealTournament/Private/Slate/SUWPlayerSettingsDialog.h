@@ -57,6 +57,8 @@ protected:
 	/** counter for displaying weapon dialog since we need to display the "Loading Content" message first */
 	int32 WeaponConfigDelayFrames;
 
+	int32 OldSSRQuality;
+
 	AActor* PreviewEnvironment;
 
 	TSharedPtr<SEditableTextBox> PlayerName;

@@ -120,6 +120,8 @@ protected:
 	AActor* PreviewEnvironment;
 	UAnimationAsset* PoseAnimation;
 
+	int32 OldSSRQuality;
+
 
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 	virtual FReply OnButtonClick(uint16 ButtonID);
