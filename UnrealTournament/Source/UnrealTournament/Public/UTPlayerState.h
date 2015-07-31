@@ -151,6 +151,8 @@ public:
 	UPROPERTY()
 		float LastTauntTime;
 
+	FTimerHandle PlayKillAnnouncement;
+
 	/** Whether this player plays auto-taunts. */
 	virtual bool ShouldAutoTaunt() const;
 
@@ -398,6 +400,8 @@ public:
 	
 	/** read profile items for this user from the backend */
 	virtual void ReadProfileItems();
+
+	virtual void Destroyed() override;
 
 private:
 	FHttpRequestPtr ItemListReq;

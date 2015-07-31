@@ -103,6 +103,12 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bIsDemoRecording, COND_InitialOnly);
 }
 
+void AUTPlayerState::Destroyed()
+{
+	Super::Destroyed();
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+}
+
 void AUTPlayerState::SetPlayerName(const FString& S)
 {
 	Super::SetPlayerName(S);
@@ -384,14 +390,19 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		{
 			AnnounceWeaponSpree(UTDamage);
 		}
-		bShouldTauntKill = bShouldTauntKill || (GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 15.f)) || Cast<AUTPlayerController>(VictimPS->GetOwner());
+		bool bVictimIsLocalPlayer = (Cast<AUTPlayerController>(VictimPS->GetOwner()) != NULL);
+		bShouldTauntKill = bShouldTauntKill || (GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 15.f)) || bVictimIsLocalPlayer;
+		bVictimIsLocalPlayer = bVictimIsLocalPlayer && (GetWorld()->GetNetMode() == NM_Standalone);
 		if (bShouldTauntKill && Controller)
 		{
-			if ((GetWorld()->GetTimeSeconds() - LastTauntTime > 6.f) && GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 3.f))
+			if (bVictimIsLocalPlayer || ((GetWorld()->GetTimeSeconds() - LastTauntTime > 6.f) && GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 3.f)))
 			{
 				LastTauntTime = GetWorld()->GetTimeSeconds();
 				GM->LastGlobalTauntTime = LastTauntTime;
-				AnnounceKill();
+				if (!GetWorldTimerManager().IsTimerActive(PlayKillAnnouncement))
+				{
+					GetWorldTimerManager().SetTimer(PlayKillAnnouncement, this, &AUTPlayerState::AnnounceKill, 0.7f, false);
+				}
 			}
 		}
 		ModifyStatsValue(NAME_Kills, 1);
