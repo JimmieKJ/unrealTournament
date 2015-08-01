@@ -124,9 +124,7 @@ AUTTeamInfo* AUTCTFGameState::FindLeadingTeam()
 
 		if (bTied) WinningTeam = NULL;
 	}
-
 	return WinningTeam;	
-
 }
 
 FName AUTCTFGameState::GetFlagState(uint8 TeamNum)
@@ -135,7 +133,6 @@ FName AUTCTFGameState::GetFlagState(uint8 TeamNum)
 	{
 		return FlagBases[TeamNum]->GetFlagState();
 	}
-
 	return NAME_None;
 }
 
@@ -145,7 +142,6 @@ AUTPlayerState* AUTCTFGameState::GetFlagHolder(uint8 TeamNum)
 	{
 		return FlagBases[TeamNum]->GetCarriedObjectHolder();
 	}
-
 	return NULL;
 }
 
@@ -155,10 +151,8 @@ AUTCTFFlagBase* AUTCTFGameState::GetFlagBase(uint8 TeamNum)
 	{
 		return FlagBases[TeamNum];
 	}
-
 	return NULL;
 }
-
 
 void AUTCTFGameState::ResetFlags()
 {
@@ -169,54 +163,33 @@ void AUTCTFGameState::ResetFlags()
 			FlagBases[i]->RecallFlag();
 		}
 	}
-
 }
 
 bool AUTCTFGameState::IsMatchInProgress() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIsAtHalftime ||
-			MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime ||
-			MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIsAtHalftime ||
+		MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime ||
+		MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
 }
 
 bool AUTCTFGameState::IsMatchInOvertime() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::MatchIsInOvertime ||	MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
 }
 
 
 bool AUTCTFGameState::IsMatchAtHalftime() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
 }
 
 bool AUTCTFGameState::IsMatchInSuddenDeath() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
 }
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
