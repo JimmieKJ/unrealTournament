@@ -73,6 +73,10 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	UPROPERTY()
 	int32 FireCount;
 
+	/** Toggle when firing dual enforcers to make them alternate. */
+	UPROPERTY()
+		bool bFireLeftSide;
+
 	UPROPERTY()
 	int32 ImpactCount;
 

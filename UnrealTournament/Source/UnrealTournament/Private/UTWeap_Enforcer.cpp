@@ -36,6 +36,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	bDualEnforcerMode = false;
 	bBecomeDual = false;
 	bCanThrowWeapon = false;
+	bFireLeftSide = false;
 	FOVOffset = FVector(0.7f, 1.f, 1.f);
 
 	LeftMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("LeftMesh"));
@@ -176,8 +177,8 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 
 	if (UTOwner != NULL)
 	{
-		// If they last fired the right hand enforcer
-		if (!bDualEnforcerMode || (bDualEnforcerMode && !BurstFireMode && FireCount % 2 == 0) || (bDualEnforcerMode && BurstFireMode && FireCount / BurstFireMode->BurstSize == 0))
+		// Fire on right side by default, unless dual and bFireLeftSide
+		if (!bDualEnforcerMode || !bFireLeftSide)
 		{
 			if (!BurstFireMode || BurstFireMode->CurrentShot == 0)
 			{
@@ -230,6 +231,7 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 				}
 			}
 		}
+		bFireLeftSide = !bFireLeftSide;
 	}
 }
 
