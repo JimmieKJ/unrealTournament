@@ -25,6 +25,7 @@
 #include "UTMultiKillMessage.h"
 #include "UTGameMode.h"
 #include "UTWeap_Translocator.h"
+#include "UTWeap_Enforcer.h"
 #include "UTCTFGameMode.h"
 #include "UTCarriedObject.h"
 #include "UTCharacterContent.h"
@@ -128,6 +129,11 @@ void UUTCheatManager::Loaded()
 					MyPawn->AddInventory(MyPawn->GetWorld()->SpawnActor<AUTInventory>(*It, FVector(0.0f), FRotator(0, 0, 0)), true);
 				}
 			}
+		}
+		AUTWeap_Enforcer* Enforcer = Cast<AUTWeap_Enforcer>(MyPawn->FindInventoryType(TSubclassOf<AUTInventory>(AUTWeap_Enforcer::StaticClass()), false));
+		if (Enforcer)
+		{
+			Enforcer->BecomeDual();
 		}
 		MyPawn->AllAmmo();
 	}
