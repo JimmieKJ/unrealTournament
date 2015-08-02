@@ -54,6 +54,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MaxAcceleration = 6000.f; 
 	MaxFallingAcceleration = 4200.f;
 	MaxSwimmingAcceleration = 6000.f;
+	MaxRelativeSwimmingAccelNumerator = 0.f;
+	MaxRelativeSwimmingAccelDenominator = 1000.f;
 	BrakingDecelerationWalking = 500.f;
 	DefaultBrakingDecelerationWalking = BrakingDecelerationWalking;
 	BrakingDecelerationFalling = 0.f;
@@ -981,7 +983,7 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 	}
 	else if (MovementMode == MOVE_Swimming)
 	{
-		Result = MaxSwimmingAcceleration;
+		Result = MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator / (Velocity.Size() + MaxRelativeSwimmingAccelDenominator);
 	}
 	else
 	{

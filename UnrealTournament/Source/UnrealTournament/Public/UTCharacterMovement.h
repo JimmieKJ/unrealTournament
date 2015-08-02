@@ -119,9 +119,17 @@ public:
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxFallingAcceleration;
 
-	/** Max Acceleration when swimming. */
+	/** Max constant Acceleration when swimming. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 		float MaxSwimmingAcceleration;
+
+	/** Additional Acceleration when swimming, divided by Velocity magnitude.  Swimming acceleration is MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator/(Speed + MaxRelativeSwimmingAccelDenominator). */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float MaxRelativeSwimmingAccelNumerator;
+
+	/** Part of swimming acceleration formula.  Swimming acceleration is MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator/(Speed + MaxRelativeSwimmingAccelDenominator). */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float MaxRelativeSwimmingAccelDenominator;
 
 	/** Ground friction when braking. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
