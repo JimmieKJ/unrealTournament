@@ -1145,10 +1145,17 @@ public:
 	//================================
 	// Swimming
 
+	/** Played for character pushing off underwater. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* SwimPushSound;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterEntrySound;
+
+	/** Played for character entering water fast. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* FastWaterEntrySound;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterExitSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
@@ -1184,6 +1191,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void PlayWaterSound(USoundBase* WaterSound);
+
+	/** Called when character enters water volume. */
+	virtual void EnteredWater(class AUTWaterVolume* WaterVolume);
 
 	/** Returns true if core is in water. */
 	virtual bool IsInWater() const;

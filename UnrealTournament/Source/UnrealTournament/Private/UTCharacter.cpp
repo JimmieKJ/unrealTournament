@@ -30,6 +30,7 @@
 #include "StatNames.h"
 #include "UTGhostComponent.h"
 #include "UTTimedPowerup.h"
+#include "UTWaterVolume.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -2961,6 +2962,20 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		{
 			B->NotifyLanded(Hit);
 		}
+	}
+}
+
+void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
+{
+	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : WaterEntrySound);
+	if (UTCharacterMovement)
+	{
+		if (FMath::Abs(GetCharacterMovement()->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FastWaterEntrySound, this, SRT_None);
+		}
+		UTCharacterMovement->Velocity.Z *= WaterVolume->PawnEntryVelZScaling;
+		UTCharacterMovement->BrakingDecelerationSwimming = WaterVolume->BrakingDecelerationSwimming;
 	}
 }
 

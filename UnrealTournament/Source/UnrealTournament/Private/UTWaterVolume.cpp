@@ -35,12 +35,7 @@ void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		if (P)
 		{
-			P->PlayWaterSound(EntrySound ? EntrySound : P->WaterEntrySound);
-			if (P->GetCharacterMovement())
-			{
-				P->GetCharacterMovement()->Velocity.Z *= PawnEntryVelZScaling;
-				P->GetCharacterMovement()->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
-			}
+			P->EnteredWater(this);
 		}
 		else if (EntrySound)
 		{
