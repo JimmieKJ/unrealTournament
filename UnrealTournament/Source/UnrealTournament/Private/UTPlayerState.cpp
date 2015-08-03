@@ -1112,7 +1112,7 @@ void AUTPlayerState::AddMatchToStats(const FString& GameType, const TArray<class
 int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 {
 	int32 SkillRating = 0;
-	
+		
 	if (SkillStatName == FName(TEXT("SkillRating")))
 	{
 		SkillRating = DuelSkillRatingThisMatch;
@@ -1138,6 +1138,14 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	if (SkillRating <= 0)
 	{
 		SkillRating = 1500;
+	}
+
+	// Going to try bots out at 1200, meaning you'll get ~4 ELO per win at 1500 in a bot grind match and ~3 at 1600
+	// 70 bot matches to climb to silver seems fair for now
+	// Once a player get near 1950 ELO (assuming KFactor 32), a win against a 1200 will be 0 points making it impossible to grind bot wins to gold
+	if (bIsABot)
+	{
+		SkillRating = 1200;
 	}
 
 	return SkillRating;
