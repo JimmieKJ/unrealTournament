@@ -78,6 +78,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, ChatDestination);
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
+	DOREPLIFETIME(AUTPlayerState, TrainingLevel);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
@@ -1587,7 +1588,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	]
-	+ SVerticalBox::Slot()
+	+SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1617,7 +1618,47 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 			.OnNavigate(FSimpleDelegate::CreateUObject(this, &AUTPlayerState::EpicIDClicked))
 		]
+	]
+	+SVerticalBox::Slot()
+	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "TrainingPrompt", "Training :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(STextBlock)
+			.Text(GetTrainingLevelText())
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		]
 	]);
+}
+
+FText AUTPlayerState::GetTrainingLevelText()
+{
+	return FText::FromString(TEXT("Untested"));
+	//return FText::FromString(TEXT("Incomplete"));
+	//return FText::FromString(TEXT("Competent"));
+	//return FText::FromString(TEXT("Mastered"));
+	//return FText::FromString(TEXT("Expert"));
+	//return FText::FromString(TEXT("Pro"));
 }
 
 void AUTPlayerState::EpicIDClicked()

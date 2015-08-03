@@ -490,6 +490,13 @@ public:
 	UPROPERTY(Replicated)
 	int32 AverageRank;
 
+	UPROPERTY(Replicated)
+	int32 TrainingLevel;
+
+#if !UE_SERVER
+	FText GetTrainingLevelText();
+#endif
+
 	// transient, for TeamInfo leader updates - persistent value is stored in StatsData
 	float AttackerScore;
 	float SecondaryAttackerScore;
