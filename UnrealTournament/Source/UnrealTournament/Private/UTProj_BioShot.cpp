@@ -806,12 +806,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			ProjectileMovement->bIsHomingProjectile = false;
 			TrackedPawn = NULL;
 			bLanded = true;
-			if (FearSpot == NULL)
-			{
-				FActorSpawnParameters Params;
-				Params.Owner = this;
-				FearSpot = GetWorld()->SpawnActor<AUTAvoidMarker>(GetActorLocation(), GetActorRotation(), Params);
-			}
+			BioStabilityTimer();
 		}
 	}
 	else
