@@ -2970,7 +2970,7 @@ void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : WaterEntrySound);
 	if (UTCharacterMovement)
 	{
-		if (FMath::Abs(GetCharacterMovement()->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed)
+		if (FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FastWaterEntrySound, this, SRT_None);
 		}
@@ -3542,10 +3542,19 @@ void AUTCharacter::Tick(float DeltaTime)
 		if (IsRagdoll() && GetMesh() && (!GS || GS->IsMatchInProgress()))
 		{
 			// apply force to fake buoyancy and fluid friction
-			float FloatMag = (IsDead() || !PositionIsInWater(GetActorLocation() + FVector(0.f, 0.f, 30.f))) ? 80.f : 190.f;
+			float FloatMag = (IsDead() || !PositionIsInWater(GetMesh()->GetBoneLocation(TEXT("neck_01")) +FVector(0.f, 0.f, 10.f))) ? 110.f : 190.f;
 			FVector FluidForce = -500.f * GetVelocity() - FVector(0.f, 0.f, FloatMag*GetWorld()->GetGravityZ());
-			GetMesh()->AddForce(0.7f*FluidForce, FName((TEXT("spine_02"))));
-			GetMesh()->AddForce(0.3f*FluidForce);
+
+			GetMesh()->AddForce(0.3f*FluidForce, FName((TEXT("spine_02"))));
+			GetMesh()->AddForce(0.1f*FluidForce);
+			GetMesh()->AddForce(0.1f*FluidForce, FName((TEXT("spine_03"))));
+			GetMesh()->AddForce(0.07f*FluidForce, FName((TEXT("neck_01"))));
+
+			FVector SpineLoc = GetMesh()->GetBoneLocation(TEXT("spine_02"));
+			GetMesh()->AddForce(0.025f*FluidForce + 2500.f * (GetMesh()->GetBoneLocation(TEXT("lowerarm_l")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("lowerarm_l"))));
+			GetMesh()->AddForce(0.025f*FluidForce + 2500.f * (GetMesh()->GetBoneLocation(TEXT("lowerarm_r")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("lowerarm_r"))));
+			GetMesh()->AddForce(0.04f*FluidForce + 5000.f * (GetMesh()->GetBoneLocation(TEXT("foot_l")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("foot_l"))));
+			GetMesh()->AddForce(0.04f*FluidForce + 5000.f * (GetMesh()->GetBoneLocation(TEXT("foot_r")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("foot_r"))));
 		}
 		if ((Role == ROLE_Authority) && (Health > 0))
 		{
