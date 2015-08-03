@@ -50,7 +50,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 
 	GlobStrength = 1.f;
 	MaxRestingGlobStrength = 6;
-	DamageRadiusGain = 60.0f;
+	DamageRadiusGain = 45.0f;
 	InitialLifeSpan = 0.f;
 	ExtraRestTimePerStrength = 1.5f;
 
