@@ -3817,9 +3817,18 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
 			GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
 		}
+		// reapply any temporary override effects
+		if (OverlayMesh != NULL)
+		{
+			OverlayMesh->DetachFromParent();
+			OverlayMesh->UnregisterComponent();
+			OverlayMesh = NULL;
+			UpdateCharOverlays();
+		}
+		UpdateSkin();
 	}
 
-	if (Data->CharacterVoice && PS)
+	if (Data->CharacterVoice && PS != NULL)
 	{
 		PS->CharacterVoice = Data->CharacterVoice;
 	}
