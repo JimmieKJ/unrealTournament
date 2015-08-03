@@ -1423,6 +1423,13 @@ void AUTCharacter::PlayDying()
 		}
 	}
 
+	if (Eyewear && Eyewear->GetAttachParentActor())
+	{
+		Eyewear->DetachRootComponentFromParent(true);
+
+		Eyewear->OnWearerDeath(LastTakeHitInfo.DamageType);
+	}
+
 	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
 	{
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
