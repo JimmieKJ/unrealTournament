@@ -22,7 +22,7 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 
 	GlobConsumeTime = 0.33f;
 
-	MaxGlobStrength = 10;
+	MaxGlobStrength = 9;
 	GlobStrength = 0;
 
 	SqueezeFireInterval = 0.2f;
