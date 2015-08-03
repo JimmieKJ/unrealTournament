@@ -143,7 +143,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 	MaxShotSynchDelay = 0.1f;
 
-	MaxStackedArmor = 200;
+	MaxStackedArmor = 150;
 	MaxDeathLifeSpan = 30.0f;
 	MinWaterSoundInterval = 0.8f;
 	LastWaterSoundTime = 0.f;
