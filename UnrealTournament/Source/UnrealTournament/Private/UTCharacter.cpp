@@ -1114,7 +1114,8 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 		if (PC != NULL)
 		{
-			PC->NotifyTakeHit(InstigatedBy, Damage, Momentum, DamageEvent);
+			// pass some damage even if armor absorbed all of it, so client will get visual hit indicator
+			PC->NotifyTakeHit(InstigatedBy, HitArmor ? FMath::Max(Damage, 1) : Damage, Momentum, DamageEvent);
 		}
 		else
 		{
