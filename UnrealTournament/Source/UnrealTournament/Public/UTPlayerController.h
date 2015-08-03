@@ -148,7 +148,10 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
-		
+	
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerSelectSpawnPoint(APlayerStart* DesiredStart);
+
 	/** Attempts to restart this player, generally called from the client upon respawn request. */
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
@@ -160,6 +163,7 @@ public:
 	virtual bool CanRestartPlayer();
 
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
+	virtual bool InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad) override;
 
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = Camera)
 	bool bAllowPlayingBehindView;

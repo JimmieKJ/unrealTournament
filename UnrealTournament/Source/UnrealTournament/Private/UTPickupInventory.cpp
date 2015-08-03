@@ -290,6 +290,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 		OnRep_RespawnTimeRemaining();
 	}
 
+	HUDIcon = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->HUDIcon : FCanvasIcon();
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 }
 

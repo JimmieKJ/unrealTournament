@@ -397,11 +397,6 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 		FLinearColor DrawColor = FLinearColor::Yellow;
 		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.16f*Size.X, YOffset + ColumnY, SlideOutFont, FVector2D(1.f, 1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
-	else if (PickupInventory)
-	{
-		FCanvasIcon HUDIcon = PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
-		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.021f*Size.X, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
-	}
 	else
 	{
 		FCanvasIcon HUDIcon = Pickup->HUDIcon;

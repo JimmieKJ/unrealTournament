@@ -273,7 +273,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void CompactSpectatingIDs();
 
 	UPROPERTY()
-		FName SecondaryAttackerStat;
+	FName SecondaryAttackerStat;
 
 protected:
 	static const uint8 MAX_OVERLAY_MATERIALS = 16;
@@ -409,7 +409,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	bool AreAllPlayersReady();
 
-
+	/** returns whether the player can choose to spawn at the passed in start point (for game modes that allow players to pick)
+	 * valid on both client and server
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = GameState)
+	bool IsAllowedSpawnPoint(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const;
 };
 
 

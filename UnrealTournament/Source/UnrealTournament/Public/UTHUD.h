@@ -344,5 +344,12 @@ public:
 	UPROPERTY()
 	TArray<class UUTCrosshair*> LoadedCrosshairs;
 
+	/** called by PlayerController (locally) when clicking mouse while crosshair is selected
+	 * return true to override default behavior
+	 */
+	virtual bool OverrideMouseClick(FKey Key, EInputEvent EventType)
+	{
+		return false;
+	}
 };
 

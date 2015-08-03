@@ -1163,3 +1163,8 @@ bool AUTGameState::AreAllPlayersReady()
 	}
 	return true;
 }
+
+bool AUTGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const
+{
+	return true;
+}

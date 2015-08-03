@@ -3,6 +3,8 @@
 #include "UTShowdownGame.h"
 #include "UTTimerMessage.h"
 #include "UTShowdownGameMessage.h"
+#include "UTHUD_Showdown.h"
+#include "UTShowdownGameState.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -12,11 +14,16 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	DisplayName = NSLOCTEXT("UTGameMode", "Showdown", "Showdown");
 	TimeLimit = 2.0f; // per round
 	GoalScore = 5;
+	SpawnSelectionTime = 5;
 	PowerupDuration = 15.0f;
+	bHasRespawnChoices = false; // unique system
+	HUDClass = AUTHUD_Showdown::StaticClass();
+	GameStateClass = AUTShowdownGameState::StaticClass();
 }
 
 void AUTShowdownGame::StartNewRound()
 {
+	LastRoundWinner = NULL;
 	// reset everything
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
@@ -44,8 +51,6 @@ void AUTShowdownGame::StartNewRound()
 		}
 	}
 	bAllowPlayerRespawns = false;
-
-	bHasRespawnChoices = false;
 
 	UTGameState->SetTimeLimit(TimeLimit);
 
@@ -77,7 +82,8 @@ void AUTShowdownGame::HandleMatchHasStarted()
 		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
 	}
 
-	StartNewRound();
+	SetMatchState(MatchState::MatchIntermission);
+	Cast<AUTShowdownGameState>(GameState)->IntermissionStageTime = 1;
 }
 
 void AUTShowdownGame::SetPlayerDefaults(APawn* PlayerPawn)
@@ -95,7 +101,6 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 {
 	if (GetMatchState() != MatchState::MatchIntermission && (TimeLimit <= 0 || UTGameState->RemainingTime > 0))
 	{
-		bHasRespawnChoices = false; // make sure this is set so choices aren't displayed early
 		if (Other != NULL)
 		{
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
@@ -104,6 +109,15 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
 				KillerTeam->Score += 1;
+
+				if (LastRoundWinner == NULL)
+				{
+					LastRoundWinner = KillerTeam;
+				}
+				else if (LastRoundWinner != KillerTeam)
+				{
+					LastRoundWinner = NULL; // both teams got a point so nobody won
+				}
 
 				// this is delayed so mutual kills can happen
 				SetTimerUFunc(this, FName(TEXT("StartIntermission")), 1.0f, false);
@@ -158,6 +172,7 @@ void AUTShowdownGame::CheckGameTime()
 					}
 				}
 			}
+			LastRoundWinner = NULL;
 			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
 		}
 		else
@@ -167,6 +182,7 @@ void AUTShowdownGame::CheckGameTime()
 			{
 				RoundWinner->Team->Score += 1.0f;
 			}
+			LastRoundWinner = RoundWinner->Team;
 			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 0, RoundWinner);
 		}
 		SetTimerUFunc(this, NAME_StartIntermission, 2.0f, false);
@@ -195,64 +211,28 @@ void AUTShowdownGame::StartIntermission()
 
 AActor* AUTShowdownGame::ChoosePlayerStart_Implementation(AController* Player)
 {
+	// if they pre-selected, apply it
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(Player->PlayerState);
-	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
+	if (UTPS->RespawnChoiceA != nullptr)
 	{
-		if (UTPS->bChosePrimaryRespawnChoice)
-		{
-			return UTPS->RespawnChoiceA;
-		}
-		else
-		{
-			return UTPS->RespawnChoiceB;
-		}
-	}
-
-	// since we only allow respawning between rounds, skip all the traces and just give a random unique spawn point not in any other player's respawn choices
-
-	TArray<APlayerStart*> PlayerStarts;
-	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
-	{
-		PlayerStarts.Add(*It);
-	}
-
-	if (PlayerStarts.Num() < NumPlayers * 2) // min to not have dupes
-	{
-		return Super::ChoosePlayerStart_Implementation(Player);
+		return UTPS->RespawnChoiceA;
 	}
 	else
 	{
-		APlayerStart* Pick = NULL;
-		bool bTaken;
-		int32 Tries = 0; // just in case
-		do
-		{
-			bTaken = false;
-			Pick = PlayerStarts[FMath::RandHelper(PlayerStarts.Num())];
-			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
-			{
-				AController* C = It->Get();
-				if (C != NULL)
-				{
-					AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
-					if (PS != NULL && !PS->bOnlySpectator && (PS->RespawnChoiceA == Pick || PS->RespawnChoiceB == Pick))
-					{
-						bTaken = true;
-						break;
-					}
-				}
-			}
-		} while (bTaken && ++Tries < 100);
-
-		return Pick;
+		return Super::ChoosePlayerStart_Implementation(Player);
 	}
 }
 
 void AUTShowdownGame::HandleMatchIntermission()
 {
-	IntermissionTimeRemaining = 6;
-	UTGameState->RemainingMinute = 0;
-	UTGameState->RemainingTime = 0;
+	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
+
+	GS->IntermissionStageTime = 3;
+	GS->bFinalIntermissionDelay = false;
+	RemainingPicks.Empty();
+	GS->SpawnSelector = NULL;
+	GS->RemainingMinute = 0;
+	GS->RemainingTime = 0;
 	// reset timer for consistency
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 
@@ -268,8 +248,6 @@ void AUTShowdownGame::HandleMatchIntermission()
 	}
 
 	// give players spawn point selection
-	bHasRespawnChoices = true;
-	TArray<AController*> Players;
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
 		AController* C = It->Get();
@@ -282,26 +260,22 @@ void AUTShowdownGame::HandleMatchIntermission()
 				P->Destroy();
 			}
 			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
-			if (PS != NULL && !PS->bOnlySpectator)
+			if (PS != NULL && !PS->bOnlySpectator && PS->Team != NULL)
 			{
-				PS->RespawnChoiceA = nullptr;
-				PS->RespawnChoiceB = nullptr;
-				PS->bChosePrimaryRespawnChoice = true;
-				Players.Add(C);
+				PS->RespawnChoiceA = NULL;
+				PS->RespawnChoiceB = NULL;
+				RemainingPicks.Add(PS);
 			}
 		}
 	}
-
-	// TODO: better idea: player who died gets to choose first, then second player chooses from what remains, both players know spawn points in advance
-	for (AController* C : Players)
+	if (LastRoundWinner != NULL)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
-		PS->RespawnChoiceA = Cast<APlayerStart>(ChoosePlayerStart(C));
+		RemainingPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Team != LastRoundWinner || B.Team == LastRoundWinner; });
 	}
-	for (AController* C : Players)
+	else
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
-		PS->RespawnChoiceB = Cast<APlayerStart>(ChoosePlayerStart(C));
+		// if last round didn't have a winner, pick based on current score
+		RemainingPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Team->Score > B.Team->Score; });
 	}
 }
 
@@ -325,14 +299,54 @@ void AUTShowdownGame::DefaultTimer()
 {
 	if (GetMatchState() == MatchState::MatchIntermission)
 	{
-		IntermissionTimeRemaining--;
-		if (IntermissionTimeRemaining <= 0)
+		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
+
+		if (GS->SpawnSelector != NULL && GS->SpawnSelector->RespawnChoiceA != NULL)
 		{
-			SetMatchState(MatchState::InProgress);
+			GS->IntermissionStageTime = 0;
 		}
-		else if (IntermissionTimeRemaining <= 5)
+		else if (GS->IntermissionStageTime > 0)
 		{
-			BroadcastLocalized(NULL, UUTTimerMessage::StaticClass(), IntermissionTimeRemaining - 1);
+			GS->IntermissionStageTime--;
+		}
+		if (GS->IntermissionStageTime == 0)
+		{
+			if (GS->SpawnSelector != NULL)
+			{
+				if (GS->SpawnSelector->RespawnChoiceA == NULL)
+				{
+					GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
+				}
+				RemainingPicks.Remove(GS->SpawnSelector);
+				GS->SpawnSelector = NULL;
+			}
+			// make sure we don't have any stale entries from quitters
+			for (int32 i = RemainingPicks.Num() - 1; i >= 0; i--)
+			{
+				if (RemainingPicks[i] == NULL || RemainingPicks[i]->bPendingKillPending)
+				{
+					RemainingPicks.RemoveAt(i);
+				}
+			}
+			if (RemainingPicks.Num() > 0)
+			{
+				GS->SpawnSelector = RemainingPicks[0];
+				GS->IntermissionStageTime = FMath::Max<uint8>(1, SpawnSelectionTime);
+			}
+			else if (!GS->bFinalIntermissionDelay)
+			{
+				GS->bFinalIntermissionDelay = true;
+				GS->IntermissionStageTime = 3;
+			}
+			else
+			{
+				GS->bFinalIntermissionDelay = false;
+				SetMatchState(MatchState::InProgress);
+			}
+		}
+		if (GS->bFinalIntermissionDelay)
+		{
+			BroadcastLocalized(NULL, UUTTimerMessage::StaticClass(), int32(GS->IntermissionStageTime) - 1);
 		}
 	}
 	else

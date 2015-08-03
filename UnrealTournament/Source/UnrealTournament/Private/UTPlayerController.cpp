@@ -492,10 +492,29 @@ void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
 }
 
+bool AUTPlayerController::InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
+{
+	if (bShowMouseCursor)
+	{
+		// override the axes so the pointer movement doesn't also move the view around
+		return true;
+	}
+	else
+	{
+		return Super::InputAxis(Key, Delta, DeltaTime, NumSamples, bGamepad);
+	}
+}
+
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
 	if (GetWorld()->RealTimeSeconds < 0.5f)
+	{
+		return true;
+	}
+
+	// pass mouse events to HUD if requested
+	if (bShowMouseCursor && MyUTHUD != NULL && Key.IsMouseButton() && MyUTHUD->OverrideMouseClick(Key, EventType))
 	{
 		return true;
 	}
@@ -1882,6 +1901,21 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	}
 
 	Super::ServerRestartPlayer_Implementation();
+}
+
+bool AUTPlayerController::ServerSelectSpawnPoint_Validate(APlayerStart* DesiredStart)
+{
+	return true;
+}
+void AUTPlayerController::ServerSelectSpawnPoint_Implementation(APlayerStart* DesiredStart)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (GS != NULL && PS != NULL)
+	{
+		PS->RespawnChoiceA = GS->IsAllowedSpawnPoint(PS, DesiredStart) ? DesiredStart : NULL;
+		PS->ForceNetUpdate();
+	}
 }
 
 bool AUTPlayerController::CanRestartPlayer()

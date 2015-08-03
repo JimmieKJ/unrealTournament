@@ -20,14 +20,24 @@ protected:
 	virtual void HandleMatchHasStarted() override;
 	virtual void StartNewRound();
 
-	int32 IntermissionTimeRemaining;
-
 public:
 	AUTShowdownGame(const FObjectInitializer& OI);
 
 	/** extra health added to players */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	int32 ExtraHealth;
+
+	/** time in seconds for players to choose spawn points */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	uint8 SpawnSelectionTime;
+
+	/** players that still need to pick their spawn points after current player */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<AUTPlayerState*> RemainingPicks;
+
+	/** team that won last round */
+	UPROPERTY(BlueprintReadOnly)
+	AUTTeamInfo* LastRoundWinner;
 
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
