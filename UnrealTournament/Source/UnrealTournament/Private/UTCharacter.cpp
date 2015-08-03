@@ -4249,6 +4249,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->OnVariantSelected(HatVariant);
 
+			// We may already be invisible
+			Hat->SetActorHiddenInGame(bInvisible);
+
 			// If replication of has high score happened before hat replication, locally update it here
 			if (bHasHighScore)
 			{
@@ -4287,6 +4290,8 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		{
 			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget, true);
 			Eyewear->OnVariantSelected(EyewearVariant);
+			// We may already be invisible
+			Eyewear->SetActorHiddenInGame(bInvisible);
 		}
 	}
 	else
@@ -4905,6 +4910,9 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
 				LeaderHat->OnVariantSelected(HatVariant);
+
+				// We may already be invisible
+				LeaderHat->SetActorHiddenInGame(bInvisible);
 
 				if (Hat)
 				{
