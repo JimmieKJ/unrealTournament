@@ -925,12 +925,6 @@ void FHttpNetworkReplayStreamer::ConditionallyEnumerateCheckpoints()
 
 void FHttpNetworkReplayStreamer::EnumerateEvents(const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate)
 {
-	// Only have one EnumerateEventsDelegate right now
-	if (IsHttpRequestInFlight())
-	{
-		EnumerationCompleteDelegate.ExecuteIfBound(TEXT(""), false);
-		return;
-	}
 
 	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 
@@ -938,8 +932,7 @@ void FHttpNetworkReplayStreamer::EnumerateEvents(const FString& Group, FEnumerat
 	HttpRequest->SetURL(FString::Printf(TEXT("%senumevents?Session=%s&Group=%s"), *ServerURL, *SessionName, *Group));
 	HttpRequest->SetVerb(TEXT("GET"));
 
-	EnumerateEventsDelegate = EnumerationCompleteDelegate;
-	HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished);
+	HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished, EnumerationCompleteDelegate);
 
 	AddRequestToQueue(EQueuedHttpRequestType::EnumeratingCustomEvent, HttpRequest);
 }
@@ -1387,7 +1380,7 @@ void FHttpNetworkReplayStreamer::HttpEnumerateCheckpointsFinished( FHttpRequestP
 	StartStreamingDelegate = FOnStreamReadyDelegate();
 }
 
-void FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FEnumerateEventsCompleteDelegate EnumerateEventsDelegate)
 {
 	RequestFinished(EStreamerState::StreamingDown, EQueuedHttpRequestType::EnumeratingCustomEvent, HttpRequest);
 
@@ -1402,10 +1395,7 @@ void FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished(FHttpRequestPtr Htt
 		UE_LOG(LogHttpReplay, Warning, TEXT("FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished. FAILED, Response code: %d"), HttpResponse.IsValid() ? HttpResponse->GetResponseCode() : 0);
 		
 		EnumerateEventsDelegate.ExecuteIfBound(TEXT(""), false);
-
-		// Reset delegate
-		EnumerateEventsDelegate = FEnumerateEventsCompleteDelegate();
-
+		
 		SetLastError(ENetworkReplayError::ServiceUnavailable);
 	}
 }
