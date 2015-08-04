@@ -19,7 +19,7 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
 }
 
-float UUTCountDownMessage::GetScaleInSize(int32 MessageIndex) const
+float UUTCountDownMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
 	return 4.f;
 }

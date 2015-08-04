@@ -38,7 +38,7 @@ public:
 		}
 	}
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::White;
 	}

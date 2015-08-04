@@ -43,12 +43,12 @@ class UNREALTOURNAMENT_API UUTCTFGameMessage : public UUTCarriedObjectMessage
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override;
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override;
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override;
 	virtual FName GetTeamAnnouncement(int32 Switch, uint8 TeamIndex) const;
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual bool UseMegaFont(int32 MessageIndex) const override;
-	virtual float GetScaleInSize(int32 MessageIndex) const override;
+	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override;
 	virtual float GetAnnouncementPriority(int32 Switch) const override;
 
 };

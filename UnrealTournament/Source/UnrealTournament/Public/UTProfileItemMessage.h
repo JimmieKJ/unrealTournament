@@ -28,7 +28,7 @@ public:
 			return FText::Format(NSLOCTEXT("UTProfileItemMessage", "GotItemHighScore", "Congratulations! You got the item {0} for having the highest score!"), Item->DisplayName);
 		}
 	}
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::White;
 	}

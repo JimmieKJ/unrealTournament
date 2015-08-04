@@ -76,17 +76,17 @@ bool UUTLocalMessage::UseLargeFont(int32 MessageIndex) const
 	return true;
 }
 
-FLinearColor UUTLocalMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTLocalMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
 }
 
-float UUTLocalMessage::GetScaleInTime(int32 MessageIndex) const
+float UUTLocalMessage::GetScaleInTime_Implementation(int32 MessageIndex) const
 {
 	return 0.2f;
 }
 
-float UUTLocalMessage::GetScaleInSize(int32 MessageIndex) const
+float UUTLocalMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
 	return 1.f;
 }

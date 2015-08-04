@@ -109,7 +109,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		}
 	}
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 0.5f, 0.f, 1.f);
 	}

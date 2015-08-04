@@ -23,7 +23,7 @@ bool UUTChatMessage::UseLargeFont(int32 MessageIndex) const
 	return false;
 }
 
-FLinearColor UUTChatMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTChatMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::Green;
 }
