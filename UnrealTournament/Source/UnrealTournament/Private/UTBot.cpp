@@ -243,6 +243,12 @@ float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, co
 void AUTBot::InitializeSkill(float NewBaseSkill)
 {
 	Skill = FMath::Clamp<float>(NewBaseSkill, 0.0f, 8.0f);
+	
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS)
+	{
+		PS->AverageRank = Skill;
+	}
 
 	float AimingSkill = Skill + Personality.Accuracy;
 
