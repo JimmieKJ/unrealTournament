@@ -1504,7 +1504,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			.WidthOverride(150)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "PlayerFlagPrompt", "Flag :"))
+				.Text(NSLOCTEXT("Generic", "PlayerFlagPrompt", ""))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -1580,7 +1580,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			.WidthOverride(150)
 			[
 				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "RankPrompt", "Rank :"))
+				.Text(bIsABot ? NSLOCTEXT("Generic", "SkillPrompt", "Skill Level ") : NSLOCTEXT("Generic", "RankPrompt", "Rank :"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -1592,7 +1592,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		.AutoWidth()
 		[
 			SNew(STextBlock)
-			.Text(FText::AsNumber(AverageRank))
+			.Text(bIsABot && Cast<AUTBot>(GetOwner()) ? FText::AsNumber(((AUTBot *)(GetOwner()))->Skill) : FText::AsNumber(AverageRank))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	]
