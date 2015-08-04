@@ -23,3 +23,4 @@
 #include "IFriendsAndChatManager.h"
 #include "IFriendsAndChatModule.h"
 #include "FriendsAndChatStyle.h"
+#include "IFriendItem.h"

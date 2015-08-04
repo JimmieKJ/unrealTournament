@@ -77,6 +77,14 @@ public:
 	 * @return The chat view model.
 	 */
 	virtual TSharedPtr<IChatViewModel> GetChatViewModel() = 0;
+	
+	/**
+	 * Get the friends filtered list of friends.
+	 *
+	 * @param OutFriendsList  Array of friends to fill in.
+	 * @return the friend list count.
+	 */
+	virtual int32 GetFilteredFriendsList( TArray< TSharedPtr< IFriendItem > >& OutFriendsList ) = 0;
 
 	/**
 	 * Insert a network chat message.
