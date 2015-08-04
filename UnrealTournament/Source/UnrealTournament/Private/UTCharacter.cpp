@@ -57,7 +57,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CrouchedEyeHeight = 40.f;
 	DefaultCrouchedEyeHeight = 40.f;
-	FloorSlideEyeHeight = 5.f;
+	FloorSlideEyeHeight = 1.f;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)

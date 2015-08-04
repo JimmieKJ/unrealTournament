@@ -22,7 +22,7 @@ AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
 {
 	bWaterVolume = true;
 	FluidFriction = 0.5f;
-	PawnEntryVelZScaling = 0.4f;
+	PawnEntryVelZScaling = 0.8f;
 	BrakingDecelerationSwimming = 2000.f;
 	TerminalVelocity = 3000.f;
 	bEntryPain = false;
