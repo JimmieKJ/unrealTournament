@@ -226,7 +226,7 @@ void AUTPlayerState::AnnounceStatus(FName NewStatus)
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 			if (PC && GS->OnSameTeam(this, PC))
 			{
-				PC->ClientReceiveLocalizedMessage(CharacterVoice, Switch, PC->PlayerState, this, NULL);
+				PC->ClientReceiveLocalizedMessage(CharacterVoice, Switch, this, PC->PlayerState, NULL);
 			}
 		}
 	}

@@ -34,6 +34,11 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
 	FFormatNamedArguments Args;
+	if (!RelatedPlayerState_1)
+	{
+		UE_LOG(UT, Warning, TEXT("Character voice w/ no playerstate index %d"), Switch);
+		return FText::GetEmpty();
+	}
 	Args.Add("PlayerName", FText::AsCultureInvariant(RelatedPlayerState_1->PlayerName));
 	if (TauntMessages.Num() > Switch)
 	{
