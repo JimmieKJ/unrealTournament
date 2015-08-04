@@ -2147,7 +2147,21 @@ int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
 	for (auto Friend : FriendsList)
 	{
-		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetOnlineUser()->GetDisplayName()));
+		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetName()));
+	}
+
+	return RetVal;
+}
+
+int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayersList)
+{
+	OutRecentPlayersList.Empty();
+
+	TArray< TSharedPtr< IFriendItem > > RecentPlayersList;
+	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetRecentPlayersList(RecentPlayersList);
+	for (auto RecentPlayer : RecentPlayersList)
+	{
+		OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUniqueID()->ToString(), RecentPlayer->GetName()));
 	}
 
 	return RetVal;

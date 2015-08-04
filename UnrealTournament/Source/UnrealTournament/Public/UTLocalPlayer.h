@@ -463,6 +463,7 @@ public:
 	virtual void CloseConnectingDialog();
 
 	virtual int32 GetFriendsList(TArray< FUTFriend >& OutFriendsList);
+	virtual int32 GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayersList);
 
 	// returns true if this player is in a session
 	virtual bool IsInSession();

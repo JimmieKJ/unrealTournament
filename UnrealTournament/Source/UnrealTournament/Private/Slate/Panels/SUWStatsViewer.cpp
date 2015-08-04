@@ -45,9 +45,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Monthly"))));
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Weekly"))));
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("Daily"))));
-
-	PlayerOwner->GetFriendsList(OnlineFriendsList);
-	
+		
 	FriendList.Add(MakeShareable(new FString(TEXT("My Stats")))); 
 	
 	if (OnlineIdentityInterface.IsValid())
@@ -67,12 +65,22 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		FriendStatIDList.AddZeroed();
 	}
 
+	TArray<FUTFriend> OnlineFriendsList;
+	PlayerOwner->GetFriendsList(OnlineFriendsList);
 	for (auto Friend : OnlineFriendsList)
 	{
 		FriendList.Add(MakeShareable(new FString(Friend.DisplayName)));
 		FriendStatIDList.Add(Friend.UserId);
 	}
-	
+
+	TArray<FUTFriend> OnlineRecentPlayersList;
+	PlayerOwner->GetRecentPlayersList(OnlineRecentPlayersList);
+	for (auto RecentPlayer : OnlineRecentPlayersList)
+	{
+		FriendList.Add(MakeShareable(new FString(RecentPlayer.DisplayName)));
+		FriendStatIDList.Add(RecentPlayer.UserId);
+	}
+
 	this->ChildSlot
 	[
 		SNew(SOverlay)

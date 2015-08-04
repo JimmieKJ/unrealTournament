@@ -48,7 +48,6 @@ protected:
 	TArray<FString> FriendStatIDList;
 	TSharedPtr<STextBlock> SelectedFriend;
 	void OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	TArray<FUTFriend> OnlineFriendsList;
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > QueryWindowComboBox;
 	TArray<TSharedPtr<FString>> QueryWindowList;
