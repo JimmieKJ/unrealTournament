@@ -41,6 +41,11 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		OnReadUserFileCompleteDelegateHandle = OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegate);
 	}
 
+	QueryWindowList.Add(MakeShareable(new FString(TEXT("All Time"))));
+	QueryWindowList.Add(MakeShareable(new FString(TEXT("Monthly"))));
+	QueryWindowList.Add(MakeShareable(new FString(TEXT("Weekly"))));
+	QueryWindowList.Add(MakeShareable(new FString(TEXT("Daily"))));
+
 	PlayerOwner->GetFriendsList(OnlineFriendsList);
 	
 	FriendList.Add(MakeShareable(new FString(TEXT("My Stats")))); 
@@ -102,6 +107,28 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 						]
 					]
 				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SAssignNew(QueryWindowComboBox, SComboBox< TSharedPtr<FString> >)
+					.InitiallySelectedItem(0)
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+					.OptionsSource(&QueryWindowList)
+					.OnGenerateWidget(this, &SUWStatsViewer::GenerateStringListWidget)
+					.OnSelectionChanged(this, &SUWStatsViewer::OnQueryWindowSelected)
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						[
+							SAssignNew(SelectedQueryWindow, STextBlock)
+							.Text(FText::FromString(TEXT("Query Window")))
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+						]
+					]
+				]
 			]
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Fill)
@@ -159,7 +186,9 @@ void SUWStatsViewer::SetStatsID(const FString& InStatsID)
 void SUWStatsViewer::DownloadStats()
 {
 	double TimeDiff = FApp::GetCurrentTime() - LastStatsDownloadTime;
-	if (LastStatsIDDownload == StatsID && LastStatsDownloadTime > 0 && TimeDiff < 30.0)
+	if (LastQueryWindowDownload == QueryWindow && 
+		LastStatsIDDownload == StatsID && 
+		LastStatsDownloadTime > 0 && TimeDiff < 30.0)
 	{
 		return;
 	}
@@ -178,6 +207,7 @@ void SUWStatsViewer::DownloadStats()
 	{
 		LastStatsDownloadTime = FApp::GetCurrentTime();
 		LastStatsIDDownload = StatsID;
+		LastQueryWindowDownload = QueryWindow;
 				
 		FHttpRequestCompleteDelegate Delegate;
 		Delegate.BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
@@ -295,7 +325,6 @@ FString SUWStatsViewer::GetStatsFilename()
 	return TEXT("stats.json");
 }
 
-
 void SUWStatsViewer::OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	int32 Index = INDEX_NONE;
@@ -305,6 +334,30 @@ void SUWStatsViewer::OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectI
 		StatsID = FriendStatIDList[Index];
 		DownloadStats();
 	}
+}
+
+void SUWStatsViewer::OnQueryWindowSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedQueryWindow->SetText(FText::FromString(*NewSelection));
+
+	if (*NewSelection == TEXT("Monthly"))
+	{
+		QueryWindow = TEXT("monthly");
+	}
+	else if (*NewSelection == TEXT("Weekly"))
+	{
+		QueryWindow = TEXT("weekly");
+	}
+	else if (*NewSelection == TEXT("Daily"))
+	{
+		QueryWindow = TEXT("daily");
+	}
+	else
+	{
+		QueryWindow = TEXT("alltime");
+	}
+		
+	DownloadStats();
 }
 
 #endif

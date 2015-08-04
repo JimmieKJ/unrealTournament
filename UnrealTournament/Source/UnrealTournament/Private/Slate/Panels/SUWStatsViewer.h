@@ -26,6 +26,7 @@ protected:
 
 	double LastStatsDownloadTime;
 	FString LastStatsIDDownload;
+	FString LastQueryWindowDownload;
 
 	virtual void DownloadStats();
 
@@ -48,6 +49,11 @@ protected:
 	TSharedPtr<STextBlock> SelectedFriend;
 	void OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	TArray<FUTFriend> OnlineFriendsList;
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > QueryWindowComboBox;
+	TArray<TSharedPtr<FString>> QueryWindowList;
+	TSharedPtr<STextBlock> SelectedQueryWindow;
+	void OnQueryWindowSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 public:
 	virtual void SetQueryWindow(const FString& InQueryWindow);
