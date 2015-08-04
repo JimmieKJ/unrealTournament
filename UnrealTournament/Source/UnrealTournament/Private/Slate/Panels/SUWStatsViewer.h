@@ -34,12 +34,10 @@ protected:
 	TSharedPtr<SWebBrowser> StatsWebBrowser;
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
-	IOnlineUserCloudPtr OnlineUserCloudInterface;
-	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
-	FDelegateHandle OnReadUserFileCompleteDelegateHandle;
-	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual FString GetStatsFilename();
 
+	void ReadCloudStats();
+	void ReadCloudStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ShowErrorPage();
 

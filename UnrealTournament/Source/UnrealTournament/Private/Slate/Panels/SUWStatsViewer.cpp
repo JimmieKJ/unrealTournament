@@ -8,10 +8,6 @@
 
 SUWStatsViewer::~SUWStatsViewer()
 {
-	if (OnlineUserCloudInterface.IsValid())
-	{
-		OnlineUserCloudInterface->ClearOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegateHandle);
-	}
 	if (PlayerOwner.IsValid())
 	{
 		PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
@@ -27,18 +23,11 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 	if (OnlineSubsystem)
 	{
 		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-		OnlineUserCloudInterface = OnlineSubsystem->GetUserCloudInterface();
 	}
 
 	if (!PlayerOnlineStatusChangedDelegate.IsValid())
 	{
 		PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUWStatsViewer::OwnerLoginStatusChanged));
-	}
-
-	if (OnlineUserCloudInterface.IsValid())
-	{
-		OnReadUserFileCompleteDelegate.BindSP(this, &SUWStatsViewer::OnReadUserFileComplete);
-		OnReadUserFileCompleteDelegateHandle = OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegate);
 	}
 
 	QueryWindowList.Add(MakeShareable(new FString(TEXT("All Time"))));
@@ -211,14 +200,14 @@ void SUWStatsViewer::DownloadStats()
 		}
 	}
 
-	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid())
+	if (!StatsID.IsEmpty())
 	{
 		LastStatsDownloadTime = FApp::GetCurrentTime();
 		LastStatsIDDownload = StatsID;
 		LastQueryWindowDownload = QueryWindow;
 				
 		FHttpRequestCompleteDelegate Delegate;
-		Delegate.BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
+		Delegate.BindSP(this, &SUWStatsViewer::ReadBackendStatsComplete);
 		ReadBackendStats(Delegate, StatsID, QueryWindow);
 	}
 }
@@ -244,11 +233,7 @@ void SUWStatsViewer::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttp
 				FileOut->Close();
 			}
 
-			// Read the cloud stats now
-			// Invalidate the local cache, this seems to be the best way to do that
-			OnlineUserCloudInterface->DeleteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), false, true);
-
-			OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
+			ReadCloudStats();
 			
 			bShowErrorPage = false;
 		}
@@ -264,59 +249,92 @@ void SUWStatsViewer::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttp
 	}
 }
 
-void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
+void SUWStatsViewer::ReadCloudStats()
 {
-	// this notification is for us
-	if (InUserId.ToString() == StatsID && FileName == GetStatsFilename())
+	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
+	if (StatsReadRequest.IsValid())
 	{
-		bool bShowingStats = false;
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+	}
+	FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
 
-		// Get the html out of the Content dir
-		FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.html"));
-		FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+#endif
+	FString McpConfigOverride;
+	FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+	if (McpConfigOverride == TEXT("localhost"))
+	{
+		BaseURL = TEXT("http://localhost:8080/ut/api/cloudstorage/user/");
+	}
+	else if (McpConfigOverride == TEXT("gamedev"))
+	{
+		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+	}
 
-		TArray<uint8> FileContents;
-		if (bWasSuccessful && OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents) && FileContents.Num() > 0 && FileContents.GetData()[FileContents.Num() - 1] == 0)
+	FString FinalStatsURL = BaseURL + StatsID + TEXT("/stats.json");
+
+	StatsReadRequest->SetURL(FinalStatsURL);
+	StatsReadRequest->OnProcessRequestComplete().BindSP(this, &SUWStatsViewer::ReadCloudStatsComplete);
+	StatsReadRequest->SetVerb(TEXT("GET"));
+
+	if (OnlineIdentityInterface.IsValid())
+	{
+		FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+		StatsReadRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+	}
+	StatsReadRequest->ProcessRequest();
+}
+
+void SUWStatsViewer::ReadCloudStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	bool bShowingStats = false;
+
+	// Get the html out of the Content dir
+	FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.html"));
+	FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
+
+	if (bSucceeded)
+	{
+		const TArray<uint8> FileContents = HttpResponse->GetContent();
+		// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
+		FString JSONString = FString(TEXT("var Stats = ")) + ANSI_TO_TCHAR((char*)FileContents.GetData()) + TEXT(";");
+
+		FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.json"));
+		FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
+		if (FileOut)
 		{
-			// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
-			FString JSONString = FString(TEXT("var Stats = ")) + ANSI_TO_TCHAR((char*)FileContents.GetData()) + TEXT(";");
+			FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
+			FileOut->Close();
 
-			FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.json"));
-			FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
-			if (FileOut)
-			{
-				FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
-				FileOut->Close();
+			StatsWebBrowser->LoadURL(TEXT("file://") + HTMLPath);
 
-				StatsWebBrowser->LoadURL(TEXT("file://") + HTMLPath);
-
-				bShowingStats = true;
-			}
+			bShowingStats = true;
 		}
-		else
+	}
+	else
+	{
+		// Couldn't read cloud stats, try to show just the backend stats
+
+		// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
+		FString JSONString = FString(TEXT("var Stats = {\"PlayerName\":\"") + SelectedFriend->GetText().ToString() + TEXT("\"};"));
+
+		FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.json"));
+		FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
+		if (FileOut)
 		{
-			// Couldn't read cloud stats, try to show just the backend stats
+			FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
+			FileOut->Close();
 
-			// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
-			FString JSONString = FString(TEXT("var Stats = {\"PlayerName\":\"") + SelectedFriend->GetText().ToString() + TEXT("\"};"));
+			StatsWebBrowser->LoadURL(TEXT("file://") + HTMLPath);
 
-			FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.json"));
-			FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
-			if (FileOut)
-			{
-				FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
-				FileOut->Close();
-
-				StatsWebBrowser->LoadURL(TEXT("file://") + HTMLPath);
-
-				bShowingStats = true;
-			}
+			bShowingStats = true;
 		}
+	}
 
-		if (!bShowingStats)
-		{
-			ShowErrorPage();
-		}
+	if (!bShowingStats)
+	{
+		ShowErrorPage();
 	}
 }
 
