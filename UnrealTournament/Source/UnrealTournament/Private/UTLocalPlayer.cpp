@@ -2139,6 +2139,20 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 #endif
 }
 
+int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
+{
+	OutFriendsList.Empty();
+
+	TArray< TSharedPtr< IFriendItem > > FriendsList;
+	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
+	for (auto Friend : FriendsList)
+	{
+		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetOnlineUser()->GetDisplayName()));
+	}
+
+	return RetVal;
+}
+
 void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
 {
 	if (OnlineFriendsInterface.IsValid() && FriendID.IsValid())

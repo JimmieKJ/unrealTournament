@@ -52,6 +52,24 @@ public:
 
 };
 
+USTRUCT()
+struct FUTFriend
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FUTFriend()
+	{}
+
+	FUTFriend(FString inUserId, FString inDisplayName)
+		: UserId(inUserId), DisplayName(inDisplayName)
+	{}
+
+	UPROPERTY()
+	FString UserId;
+
+	UPROPERTY()
+	FString DisplayName;
+};
 
 UCLASS(config=Engine)
 class UNREALTOURNAMENT_API UUTLocalPlayer : public ULocalPlayer
@@ -443,6 +461,8 @@ protected:
 public:
 	virtual void ShowConnectingDialog();
 	virtual void CloseConnectingDialog();
+
+	virtual int32 GetFriendsList(TArray< FUTFriend >& OutFriendsList);
 
 	// returns true if this player is in a session
 	virtual bool IsInSession();

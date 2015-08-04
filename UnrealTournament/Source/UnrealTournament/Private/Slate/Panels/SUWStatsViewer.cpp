@@ -40,13 +40,69 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		OnReadUserFileCompleteDelegate.BindSP(this, &SUWStatsViewer::OnReadUserFileComplete);
 		OnReadUserFileCompleteDelegateHandle = OnlineUserCloudInterface->AddOnReadUserFileCompleteDelegate_Handle(OnReadUserFileCompleteDelegate);
 	}
-		
+
+	PlayerOwner->GetFriendsList(OnlineFriendsList);
+	
+	FriendList.Add(MakeShareable(new FString(TEXT("My Stats")))); 
+	
+	if (OnlineIdentityInterface.IsValid())
+	{
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+		if (UserId.IsValid())
+		{
+			FriendStatIDList.Add(UserId->ToString());
+		}
+		else
+		{
+			FriendStatIDList.AddZeroed();
+		}
+	}
+	else
+	{
+		FriendStatIDList.AddZeroed();
+	}
+
+	for (auto Friend : OnlineFriendsList)
+	{
+		FriendList.Add(MakeShareable(new FString(Friend.DisplayName)));
+		FriendStatIDList.Add(Friend.UserId);
+	}
+	
 	this->ChildSlot
 	[
 		SNew(SOverlay)
 		+ SOverlay::Slot()
 		[
 			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SAssignNew(FriendListComboBox, SComboBox< TSharedPtr<FString> >)
+					.InitiallySelectedItem(0)
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+					.OptionsSource(&FriendList)
+					.OnGenerateWidget(this, &SUWStatsViewer::GenerateStringListWidget)
+					.OnSelectionChanged(this, &SUWStatsViewer::OnFriendSelected)
+					.Content()
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						[
+							SAssignNew(SelectedFriend, STextBlock)
+							.Text(FText::FromString(TEXT("Friends")))
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+						]
+					]
+				]
+			]
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Fill)
@@ -95,29 +151,37 @@ void SUWStatsViewer::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, E
 	}
 }
 
+void SUWStatsViewer::SetStatsID(const FString& InStatsID)
+{
+	StatsID = InStatsID;
+}
+
 void SUWStatsViewer::DownloadStats()
 {
 	double TimeDiff = FApp::GetCurrentTime() - LastStatsDownloadTime;
-	if (LastStatsDownloadTime > 0 && TimeDiff < 30.0)
+	if (LastStatsIDDownload == StatsID && LastStatsDownloadTime > 0 && TimeDiff < 30.0)
 	{
 		return;
 	}
 
-	if (OnlineIdentityInterface.IsValid())
+	// If stats ID is empty, grab our own stats
+	if (StatsID.IsEmpty() && OnlineIdentityInterface.IsValid())
 	{
 		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
 		if (UserId.IsValid())
 		{
 			StatsID = UserId->ToString();
-			if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid())
-			{
-				LastStatsDownloadTime = FApp::GetCurrentTime();
-				
-				FHttpRequestCompleteDelegate Delegate;
-				Delegate.BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
-				ReadBackendStats(Delegate, StatsID, QueryWindow);
-			}
 		}
+	}
+
+	if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid())
+	{
+		LastStatsDownloadTime = FApp::GetCurrentTime();
+		LastStatsIDDownload = StatsID;
+				
+		FHttpRequestCompleteDelegate Delegate;
+		Delegate.BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
+		ReadBackendStats(Delegate, StatsID, QueryWindow);
 	}
 }
 
@@ -169,13 +233,13 @@ void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	{
 		bool bShowingStats = false;
 
+		// Get the html out of the Content dir
+		FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.html"));
+		FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
+
 		TArray<uint8> FileContents;
 		if (bWasSuccessful && OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents) && FileContents.Num() > 0 && FileContents.GetData()[FileContents.Num() - 1] == 0)
 		{
-			// Get the html out of the Content dir
-			FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.html"));
-			FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
-
 			// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
 			FString JSONString = FString(TEXT("var Stats = ")) + ANSI_TO_TCHAR((char*)FileContents.GetData()) + TEXT(";");
 
@@ -186,15 +250,26 @@ void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
 				FileOut->Close();
 
+				StatsWebBrowser->LoadURL(TEXT("file://") + HTMLPath);
 
-				// Have to hack around SWebBrowser not allowing url changes
-				WebBrowserBox->RemoveSlot(StatsWebBrowser.ToSharedRef());
-				WebBrowserBox->AddSlot()
-					[
-						SAssignNew(StatsWebBrowser, SWebBrowser)
-						.InitialURL(TEXT("file://") + HTMLPath)
-						.ShowControls(false)
-					];
+				bShowingStats = true;
+			}
+		}
+		else
+		{
+			// Couldn't read cloud stats, try to show just the backend stats
+
+			// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
+			FString JSONString = FString(TEXT("var Stats = {\"PlayerName\":\"") + SelectedFriend->GetText().ToString() + TEXT("\"};"));
+
+			FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/stats.json"));
+			FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
+			if (FileOut)
+			{
+				FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
+				FileOut->Close();
+
+				StatsWebBrowser->LoadURL(TEXT("file://") + HTMLPath);
 
 				bShowingStats = true;
 			}
@@ -212,19 +287,24 @@ void SUWStatsViewer::ShowErrorPage()
 	FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/nostats.html"));
 	FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
 
-	// Have to hack around SWebBrowser not allowing url changes
-	WebBrowserBox->RemoveSlot(StatsWebBrowser.ToSharedRef());
-	WebBrowserBox->AddSlot()
-		[
-			SAssignNew(StatsWebBrowser, SWebBrowser)
-			.InitialURL(TEXT("file://") + HTMLPath)
-			.ShowControls(false)
-		];
+	StatsWebBrowser->LoadURL(TEXT("file://") + HTMLPath);
 }
 
 FString SUWStatsViewer::GetStatsFilename()
 {
 	return TEXT("stats.json");
+}
+
+
+void SUWStatsViewer::OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	int32 Index = INDEX_NONE;
+	if (FriendList.Find(NewSelection, Index))
+	{
+		SelectedFriend->SetText(FText::FromString(*NewSelection));
+		StatsID = FriendStatIDList[Index];
+		DownloadStats();
+	}
 }
 
 #endif

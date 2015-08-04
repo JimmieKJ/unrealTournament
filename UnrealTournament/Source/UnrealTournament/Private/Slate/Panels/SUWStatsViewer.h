@@ -25,6 +25,7 @@ protected:
 	FString QueryWindow;
 
 	double LastStatsDownloadTime;
+	FString LastStatsIDDownload;
 
 	virtual void DownloadStats();
 
@@ -40,8 +41,18 @@ protected:
 
 	void ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ShowErrorPage();
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > FriendListComboBox;
+	TArray<TSharedPtr<FString>> FriendList;
+	TArray<FString> FriendStatIDList;
+	TSharedPtr<STextBlock> SelectedFriend;
+	void OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	TArray<FUTFriend> OnlineFriendsList;
+
 public:
 	virtual void SetQueryWindow(const FString& InQueryWindow);
+	virtual void SetStatsID(const FString& InStatsID);
+	virtual void ClearStatsID() { StatsID.Empty(); }
 	virtual ~SUWStatsViewer();
 };
 
