@@ -163,6 +163,9 @@ protected:
 
 	virtual void DrawServerPanel(float RenderDelta, float YOffset);
 
+public:
+	virtual bool IsInteractive() { return bIsInteractive; };
+
 protected:
 
 	// Will be true when the scoreboard is interactive.  This will cause the

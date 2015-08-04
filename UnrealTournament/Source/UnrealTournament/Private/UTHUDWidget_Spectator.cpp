@@ -111,6 +111,10 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
 			}
+			else if (UTHUDOwner->GetScoreboard() && UTHUDOwner->GetScoreboard()->IsInteractive())
+			{
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "CloseMenu", "Press [ESC] to change ready status.");
+			}
 			else
 			{
 				SpectatorMessage = (UTGameState->bTeamGame && UTGameState->bAllowTeamSwitches)
