@@ -1357,6 +1357,10 @@ public:
 	UFUNCTION()
 		virtual void MovementEventReplicated();
 
+	/** Effective target height when sliding. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement)
+		float SlideTargetHeight;
+
 	//--------------------------
 	// Weapon bob and eye offset
 

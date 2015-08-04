@@ -1122,50 +1122,68 @@ void AUTWeapon::NetSynchRandomSeed()
 
 void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime)
 {
-	bool bRewindPlayers = ((PredictionTime > 0.f) && (Role == ROLE_Authority));
-	ECollisionChannel TraceChannel = bRewindPlayers ? COLLISION_TRACE_WEAPONNOCHARACTER : COLLISION_TRACE_WEAPON;
+	ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
 	if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), true, UTOwner)))
 	{
 		Hit.Location = EndTrace;
 	}
-	if (bRewindPlayers && !(Hit.Location - StartLocation).IsNearlyZero())
+	if (!(Hit.Location - StartLocation).IsNearlyZero())
 	{
 		AUTCharacter* BestTarget = NULL;
 		FVector BestPoint(0.f);
+		FVector BestCapsulePoint(0.f);
+		float BestCollisionRadius = 0.f;
 		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
 			AUTCharacter* Target = Cast<AUTCharacter>(*Iterator);
 			if (Target && (Target != UTOwner))
 			{
 				// find appropriate rewind position, and test against trace from StartLocation to Hit.Location
-				FVector TargetLocation = Target->GetRewindLocation(PredictionTime);
+				FVector TargetLocation = ((PredictionTime > 0.f) && (Role == ROLE_Authority)) ? Target->GetRewindLocation(PredictionTime) : Target->GetActorLocation();
 
 				// now see if trace would hit the capsule
-				// @TODO FIXMESTEVE actually make this a check against a capsule, not a cylinder
-				float CollisionRadius = Target->GetCapsuleComponent()->GetScaledCapsuleRadius();
 				float CollisionHeight = Target->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-				FVector ClosestPoint = FMath::ClosestPointOnSegment(TargetLocation, StartLocation, Hit.Location);
-				// if ClosestPoint is end of segment, then almost certainly something else was hit first
-				if (!(ClosestPoint - Hit.Location).IsNearlyZero()
-					&& (FMath::Abs(TargetLocation.Z - ClosestPoint.Z) < CollisionHeight)
-					&& ((TargetLocation - ClosestPoint).Size2D() < CollisionRadius))
+				if (Target->UTCharacterMovement && Target->UTCharacterMovement->bIsFloorSliding)
 				{
-					// we would hit this character - see if it is the best hit
-					if (!BestTarget || ((ClosestPoint - StartLocation).SizeSquared() < (BestPoint - StartLocation).SizeSquared()))
-					{
-						BestTarget = Target;
-						BestPoint = ClosestPoint;
-					}
+					TargetLocation.Z = TargetLocation.Z - CollisionHeight + Target->SlideTargetHeight;
+					CollisionHeight = Target->SlideTargetHeight;
+				}
+				float CollisionRadius = Target->GetCapsuleComponent()->GetScaledCapsuleRadius();
+
+				bool bHitTarget = false;
+				FVector ClosestPoint(0.f);
+				FVector ClosestCapsulePoint = TargetLocation;
+				if (CollisionRadius >= CollisionHeight)
+				{
+					ClosestPoint = FMath::ClosestPointOnSegment(TargetLocation, StartLocation, Hit.Location);
+					bHitTarget = ((ClosestPoint - TargetLocation).SizeSquared() < FMath::Square(CollisionHeight));
+				}
+				else
+				{
+					FVector CapsuleSegment = FVector(0.f, 0.f, CollisionHeight - CollisionRadius);
+					FMath::SegmentDistToSegmentSafe(StartLocation, Hit.Location, TargetLocation - CapsuleSegment, TargetLocation + CapsuleSegment, ClosestPoint, ClosestCapsulePoint);
+					bHitTarget = ((ClosestPoint - ClosestCapsulePoint).SizeSquared() < FMath::Square(CollisionRadius));
+				}
+				if (bHitTarget &&  (!BestTarget || ((ClosestPoint - StartLocation).SizeSquared() < (BestPoint - StartLocation).SizeSquared())))
+				{
+					BestTarget = Target;
+					BestPoint = ClosestPoint;
+					BestCapsulePoint = ClosestCapsulePoint;
+					BestCollisionRadius = CollisionRadius;
 				}
 			}
 		}
 		if (BestTarget)
 		{
 			// we found a player to hit, so update hit result
-			// @TODO FIXMESTEVE - need proper hit location for shot on surface of capsule
-			Hit.Location = BestPoint;
-			Hit.Normal = (EndTrace - StartLocation).GetSafeNormal();
-			Hit.ImpactNormal = Hit.Normal;
+
+			// first find proper hit location on surface of capsule
+			float ClosestDistSq = (BestPoint - BestCapsulePoint).SizeSquared();
+			float BackDist = FMath::Sqrt(FMath::Max(0.f, BestCollisionRadius*BestCollisionRadius - ClosestDistSq));
+
+			Hit.Location = BestPoint + BackDist * (StartLocation - EndTrace).GetSafeNormal();
+			Hit.Normal = (Hit.Location - BestCapsulePoint).GetSafeNormal();
+			Hit.ImpactNormal = Hit.Normal; 
 			Hit.Actor = BestTarget;
 			Hit.bBlockingHit = true;
 			Hit.Component = BestTarget->GetCapsuleComponent();

@@ -66,7 +66,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
 	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
-	CrouchedHalfHeight = 55.0f;
+	CrouchedHalfHeight = 64.0f;
 	SlopeDodgeScaling = 0.93f;
 
 	FloorSlideAcceleration = 1500.f;
