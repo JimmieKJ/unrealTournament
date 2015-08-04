@@ -1009,6 +1009,12 @@ int32 FFriendsAndChatManager::GetFilteredFriendsList( TArray< TSharedPtr< IFrien
 	return OutFriendsList.Num();
 }
 
+int32 FFriendsAndChatManager::GetRecentPlayersList(TArray< TSharedPtr< IFriendItem > >& OutRecentPlayersList)
+{
+	OutRecentPlayersList = RecentPlayersList;
+	return OutRecentPlayersList.Num();
+}
+
 TArray< TSharedPtr< IFriendItem > >& FFriendsAndChatManager::GetRecentPlayerList()
 {
 	return RecentPlayersList;

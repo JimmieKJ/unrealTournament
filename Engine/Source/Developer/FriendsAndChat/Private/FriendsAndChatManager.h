@@ -237,6 +237,14 @@ public:
 	 * @return the friend list count.
 	 */
 	int32 GetFilteredFriendsList( TArray< TSharedPtr< IFriendItem > >& OutFriendsList );
+	
+	/**
+	 * Get recent players list.
+	 *
+	 * @param OutFriendsList  Array of friends to fill in.
+	 * @return the friend list count.
+	 */
+	int32 GetRecentPlayersList(TArray< TSharedPtr< IFriendItem > >& OutRecentPlayersList);
 
 	/**
 	 * Get the recent players list.
