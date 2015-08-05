@@ -772,6 +772,7 @@ public:
 		}
 	}
 
+	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void TurnOff() override;
 
 	virtual bool IsFeigningDeath();
