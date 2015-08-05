@@ -88,6 +88,14 @@ namespace StatusMessage
 	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
 }
 
+namespace ArmorTypeName
+{
+	const FName ShieldBelt = FName(TEXT("ShieldBelt"));
+	const FName ThighPads = FName(TEXT("ThighPads"));
+	const FName FlakVest = FName(TEXT("FlakVest"));
+	const FName Helmet = FName(TEXT("Helmet"));
+}
+
 namespace ChatDestinations
 {
 	// You can chat with your friends from anywhere

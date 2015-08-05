@@ -3554,10 +3554,10 @@ void AUTCharacter::Tick(float DeltaTime)
 			float FloatMag = (IsDead() || !PositionIsInWater(GetMesh()->GetBoneLocation(TEXT("neck_01")) +FVector(0.f, 0.f, 10.f))) ? 110.f : 190.f;
 			FVector FluidForce = -500.f * GetVelocity() - FVector(0.f, 0.f, FloatMag*GetWorld()->GetGravityZ());
 
-			GetMesh()->AddForce(0.3f*FluidForce, FName((TEXT("spine_02"))));
+			GetMesh()->AddForce(0.3f*FluidForce, FName(TEXT("spine_02")));
 			GetMesh()->AddForce(0.1f*FluidForce);
-			GetMesh()->AddForce(0.1f*FluidForce, FName((TEXT("spine_03"))));
-			GetMesh()->AddForce(0.07f*FluidForce, FName((TEXT("neck_01"))));
+			GetMesh()->AddForce(0.1f*FluidForce, FName(TEXT("spine_03")));
+			GetMesh()->AddForce(0.07f*FluidForce, FName(TEXT("neck_01")));
 
 			FVector SpineLoc = GetMesh()->GetBoneLocation(TEXT("spine_02"));
 			GetMesh()->AddForce(0.025f*FluidForce + 2500.f * (GetMesh()->GetBoneLocation(TEXT("lowerarm_l")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("lowerarm_l"))));
@@ -4099,7 +4099,7 @@ bool AUTCharacter::CanBlockTelefrags()
 {
 	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
 	{
-		if (It->ArmorType == FName(TEXT("ShieldBelt")))
+		if (It->ArmorType == ArmorTypeName::ShieldBelt)
 		{
 			return true;
 		}

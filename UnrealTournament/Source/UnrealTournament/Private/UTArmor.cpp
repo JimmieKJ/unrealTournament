@@ -17,7 +17,7 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 {
 	Super::GivenTo(NewOwner, bAutoActivate);
 
-	if (ArmorType == FName(TEXT("Helmet")))
+	if (ArmorType == ArmorTypeName::Helmet)
 	{
 		NewOwner->bIsWearingHelmet = true;
 	}
@@ -31,7 +31,7 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 
 void AUTArmor::Removed()
 {
-	if (ArmorType == FName(TEXT("Helmet")))
+	if (ArmorType == ArmorTypeName::Helmet)
 	{
 		GetUTOwner()->bIsWearingHelmet = false;
 	}
