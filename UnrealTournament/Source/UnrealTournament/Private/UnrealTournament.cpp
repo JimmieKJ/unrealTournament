@@ -229,6 +229,24 @@ bool LocallyOwnsItemFor(const FString& Path)
 	return false;
 }
 
+bool LocallyHasAchievement(FName Achievement)
+{
+	const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
+	for (const FWorldContext& Context : AllWorlds)
+	{
+		for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
+			if (LP != NULL && LP->GetProfileSettings() != NULL && LP->GetProfileSettings()->Achievements.Contains(Achievement))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
 {
 	// calling this with UBlueprint::StaticClass() is probably a bug where the user intended to call GetAllBlueprintAssetData()
@@ -293,10 +311,18 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 			}
 			else
 			{
-				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
-				if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+				const FString* ReqAchievement = AssetList[i].TagsAndValues.Find(FName(TEXT("RequiredAchievement")));
+				if (ReqAchievement != NULL && !LocallyHasAchievement(**ReqAchievement))
 				{
 					AssetList.RemoveAt(i);
+				}
+				else
+				{
+					const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+					if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+					{
+						AssetList.RemoveAt(i);
+					}
 				}
 			}
 		}

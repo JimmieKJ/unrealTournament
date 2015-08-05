@@ -18,6 +18,11 @@ static const uint32 SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION = 8;
 static const uint32 HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION = 10;
 static const uint32 CURRENT_PROFILESETTINGS_VERSION = 11;
 
+namespace AchievementIDs
+{
+	extern const FName TutorialComplete;
+};
+
 class UUTLocalPlayer;
 
 USTRUCT()
@@ -145,6 +150,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 
 	UPROPERTY()
 	float ReplayCustomMotionBlurMax;
+
+	UPROPERTY()
+	TArray<FName> Achievements;
 
 protected:
 

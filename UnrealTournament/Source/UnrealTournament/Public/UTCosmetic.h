@@ -22,8 +22,13 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	GENERATED_UCLASS_BODY()
 
 	/** if set a UTProfileItem is required for this character to be available */
-	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
 	bool bRequiresItem;
+	/** if set this achievement is required for this character to be available
+	 * (note: achievements are currently client side only and not validated by server)
+	 */
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
+	FName RequiredAchievement;
 
 	UPROPERTY(EditDefaultsOnly)
 	FString CosmeticName;

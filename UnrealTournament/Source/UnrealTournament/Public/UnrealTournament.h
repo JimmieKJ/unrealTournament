@@ -83,6 +83,8 @@ extern UNREALTOURNAMENT_API FString GetRequiredEntitlementFromPackageName(FName 
 extern UNREALTOURNAMENT_API bool LocallyHasEntitlement(const FString& Entitlement);
 /** returns whether any local player has the profile item required to use the specified object (cosmetic, character, etc) */
 extern UNREALTOURNAMENT_API bool LocallyOwnsItemFor(const FString& Path);
+/** returns whether any local player has the given achievement */
+extern UNREALTOURNAMENT_API bool LocallyHasAchievement(FName Achievement);
 
 /** returns asset data for all assets of the specified class 
  * do not use for Blueprints as you can only query for all blueprints period; use GetAllBlueprintAssetData() to query the blueprint's underlying class

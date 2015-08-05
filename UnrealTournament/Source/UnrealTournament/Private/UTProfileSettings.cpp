@@ -4,6 +4,8 @@
 #include "UTPlayerInput.h"
 #include "GameFramework/InputSettings.h"
 
+const FName AchievementIDs::TutorialComplete(TEXT("TutorialComplete"));
+
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -323,10 +325,64 @@ void UUTProfileSettings::TokenRevoke(FName TokenUniqueID)
 
 void UUTProfileSettings::TokensCommit()
 {
-	for (auto ID : TempFoundTokenUniqueIDs)
+	for (FName ID : TempFoundTokenUniqueIDs)
 	{
 		FoundTokenUniqueIDs.AddUnique(ID);
 		bNeedProfileWriteOnLevelChange = true;
+	}
+
+	// see if all achievement tokens have been picked up
+	if (!Achievements.Contains(AchievementIDs::TutorialComplete))
+	{
+		bool bCompletedTutorial = true;
+		static TArray<FName, TInlineAllocator<60>> TutorialTokens = []()
+		{
+			TArray<FName, TInlineAllocator<60>> List;
+			FNumberFormattingOptions Options;
+			Options.MinimumIntegralDigits = 3;
+			for (int32 i = 0; i < 15; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("movementtraining_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 15; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("weapontraining_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 10; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("pickuptraining_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("tuba_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("outpost23_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("face_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("asdf_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			return List;
+		}();
+		for (FName TestToken : TutorialTokens)
+		{
+			if (!FoundTokenUniqueIDs.Contains(TestToken))
+			{
+				bCompletedTutorial = false;
+				break;
+			}
+		}
+		if (bCompletedTutorial)
+		{
+			Achievements.Add(AchievementIDs::TutorialComplete);
+			// TODO: toast
+		}
 	}
 
 	TempFoundTokenUniqueIDs.Empty();
