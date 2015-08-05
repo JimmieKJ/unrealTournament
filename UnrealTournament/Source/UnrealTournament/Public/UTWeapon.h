@@ -852,8 +852,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 		FName AltDeathStatsName;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName HitsStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName ShotsStatsName;
+
 	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
 	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
+	virtual int32 GetWeaponShotsStats(AUTPlayerState * PS) const;
+	virtual int32 GetWeaponHitsStats(AUTPlayerState * PS) const;
 
 	// TEMP for testing 1p offsets
 	UFUNCTION(exec)

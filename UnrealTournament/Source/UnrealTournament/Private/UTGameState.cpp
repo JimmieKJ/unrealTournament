@@ -128,6 +128,41 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MovementStats.Add(NAME_NumRocketJumps);
 	MovementStats.Add(NAME_SlideDist);
 	MovementStats.Add(NAME_WallRunDist);
+
+	WeaponStats.Add(NAME_EnforcerShots);
+	WeaponStats.Add(NAME_BioRifleShots);
+	WeaponStats.Add(NAME_ShockBeamShots);
+	WeaponStats.Add(NAME_ShockCoreShots);
+	WeaponStats.Add(NAME_ShockComboShots);
+	WeaponStats.Add(NAME_LinkShots);
+	WeaponStats.Add(NAME_LinkBeamShots);
+	WeaponStats.Add(NAME_MinigunShots);
+	WeaponStats.Add(NAME_MinigunShardShots);
+	WeaponStats.Add(NAME_FlakShardShots);
+	WeaponStats.Add(NAME_FlakShellShots);
+	WeaponStats.Add(NAME_RocketShots);
+	WeaponStats.Add(NAME_GrenadeShots);
+	WeaponStats.Add(NAME_SniperShots);
+	WeaponStats.Add(NAME_RedeemerShots);
+	WeaponStats.Add(NAME_InstagibShots);
+
+	WeaponStats.Add(NAME_EnforcerHits);
+	WeaponStats.Add(NAME_BioRifleHits);
+	WeaponStats.Add(NAME_ShockBeamHits);
+	WeaponStats.Add(NAME_ShockCoreHits);
+	WeaponStats.Add(NAME_ShockComboHits);
+	WeaponStats.Add(NAME_LinkHits);
+	WeaponStats.Add(NAME_LinkBeamHits);
+	WeaponStats.Add(NAME_MinigunHits);
+	WeaponStats.Add(NAME_MinigunShardHits);
+	WeaponStats.Add(NAME_FlakShardHits);
+	WeaponStats.Add(NAME_FlakShellHits);
+	WeaponStats.Add(NAME_RocketHits);
+	WeaponStats.Add(NAME_GrenadeHits);
+	WeaponStats.Add(NAME_SniperHits);
+	WeaponStats.Add(NAME_RedeemerHits);
+	WeaponStats.Add(NAME_InstagibHits);
+
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const

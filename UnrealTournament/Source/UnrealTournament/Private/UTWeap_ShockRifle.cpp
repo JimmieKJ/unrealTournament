@@ -21,6 +21,8 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	AltKillStatsName = NAME_ShockCoreKills;
 	DeathStatsName = NAME_ShockBeamDeaths;
 	AltDeathStatsName = NAME_ShockCoreDeaths;
+	HitsStatsName = NAME_ShockBeamHits;
+	ShotsStatsName = NAME_ShockBeamShots;
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()

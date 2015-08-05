@@ -31,6 +31,8 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	AltKillStatsName = NAME_SniperHeadshotKills;
 	DeathStatsName = NAME_SniperDeaths;
 	AltDeathStatsName = NAME_SniperHeadshotDeaths;
+	HitsStatsName = NAME_SniperHits;
+	ShotsStatsName = NAME_SniperShots;
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const

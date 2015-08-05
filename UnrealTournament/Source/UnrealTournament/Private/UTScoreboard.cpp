@@ -685,7 +685,7 @@ void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FStrin
 	YPos += StatsFontInfo.TextHeight;
 }
 
-void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
+void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
 {
 	Canvas->SetLinearDrawColor(bIsBestWeapon ? FLinearColor::Yellow : FLinearColor::White);
 	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
@@ -698,14 +698,27 @@ void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 
 	if (ScoreValue >= 0)
 	{
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + 0.62f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	if (Shots >= 0)
+	{
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), Shots), XOffset + 0.75f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %3.1f%%"), Accuracy), XOffset + 0.87f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
 }
 
 void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
 {
-	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WeaponColumnTitle", "Weapon"), "Kills With", "Deaths By", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Kills W/", XOffset + 0.45*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Deaths by", XOffset + 0.57f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Shots", XOffset + 0.70f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Accuracy", XOffset + 0.82f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
 
 	/** List of weapons to display stats for. */
 	if (StatsWeapons.Num() == 0)
@@ -730,7 +743,9 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	for (int32 i = 0; i < StatsWeapons.Num(); i++)
 	{
 		int32 Kills = StatsWeapons[i]->GetWeaponKillStats(PS);
-		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
+		float Shots = StatsWeapons[i]->GetWeaponShotsStats(PS);
+		float Accuracy = (Shots > 0) ? 100.f * float(StatsWeapons[i]->GetWeaponHitsStats(PS))/ Shots : 0.f;
+		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), Shots, Accuracy, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
 		if (Kills > BestWeaponKills)
 		{
 			BestWeaponKills = Kills;
@@ -751,7 +766,7 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
 
-	float BestComboRating = 0.01f*PS->GetStatsValue(NAME_BestShockCombo);
+	float BestComboRating = PS->GetStatsValue(NAME_BestShockCombo);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboRating", "Best Shock Combo Rating"), FString::Printf(TEXT(" %4.1f"), BestComboRating), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (BestComboRating > 8.f));
 }
 

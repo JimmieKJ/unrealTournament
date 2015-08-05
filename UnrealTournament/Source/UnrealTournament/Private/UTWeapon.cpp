@@ -1206,10 +1206,15 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 	FHitResult Hit;
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
+	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
 	if (Role == ROLE_Authority)
 	{
+		if (PS && (ShotsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(ShotsStatsName, 1);
+		}
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 		// warn bot target, if any
 		if (UTPC != NULL)
@@ -1256,6 +1261,10 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
+		if ((Role == ROLE_Authority) && PS && (HitsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(HitsStatsName, 1);
+		}
 		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * GetImpartedMomentumMag(Hit.Actor.Get())), UTOwner->Controller, this);
 	}
 	if (OutHit != NULL)
@@ -2022,7 +2031,7 @@ void AUTWeapon::NotifyKillWhileHolding_Implementation(TSubclassOf<UDamageType> D
 {
 }
 
-int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState * PS) const
+int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState* PS) const
 {
 	int32 KillCount = 0;
 	if (PS)
@@ -2039,7 +2048,7 @@ int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState * PS) const
 	return KillCount;
 }
 
-int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
+int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState* PS) const
 {
 	int32 DeathCount = 0;
 	if (PS)
@@ -2054,6 +2063,30 @@ int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
 		}
 	}
 	return DeathCount;
+}
+
+int32 AUTWeapon::GetWeaponHitsStats(AUTPlayerState* PS) const
+{
+	if (PS)
+	{
+		if (HitsStatsName != NAME_None)
+		{
+			return PS->GetStatsValue(HitsStatsName);
+		}
+	}
+	return 0;
+}
+
+int32 AUTWeapon::GetWeaponShotsStats(AUTPlayerState* PS) const
+{
+	if (PS)
+	{
+		if (ShotsStatsName != NAME_None)
+		{
+			return PS->GetStatsValue(ShotsStatsName);
+		}
+	}
+	return 0;
 }
 
 // TEMP for testing 1p offsets
