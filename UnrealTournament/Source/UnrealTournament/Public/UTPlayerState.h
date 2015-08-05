@@ -3,7 +3,6 @@
 #pragma once
 
 #include "UTTeamInterface.h"
-#include "Stat.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
 #include "UTDamageType.h"
@@ -14,6 +13,7 @@
 #include "UTProfileItem.h"
 #include "SHyperlink.h"
 #include "UTCharacterVoice.h"
+#include "StatManager.h"
 
 #include "UTPlayerState.generated.h"
 

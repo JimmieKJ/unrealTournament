@@ -9,132 +9,132 @@ DEFINE_LOG_CATEGORY(LogGameStats);
 UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Stats.Add(MakeStat(NAME_SkillRating, false));
-	Stats.Add(MakeStat(NAME_TDMSkillRating, false));
-	Stats.Add(MakeStat(NAME_DMSkillRating, false));
-	Stats.Add(MakeStat(NAME_CTFSkillRating, false));
+	Stats.Add(NAME_SkillRating, new FStat(false));
+	Stats.Add(NAME_TDMSkillRating, new FStat(false));
+	Stats.Add(NAME_DMSkillRating, new FStat(false));
+	Stats.Add(NAME_CTFSkillRating, new FStat(false));
 
-	Stats.Add(MakeStat(NAME_SkillRatingSamples, false));
-	Stats.Add(MakeStat(NAME_TDMSkillRatingSamples, false));
-	Stats.Add(MakeStat(NAME_DMSkillRatingSamples, false));
-	Stats.Add(MakeStat(NAME_CTFSkillRatingSamples, false));
+	Stats.Add(NAME_SkillRatingSamples, new FStat(false));
+	Stats.Add(NAME_TDMSkillRatingSamples, new FStat(false));
+	Stats.Add(NAME_DMSkillRatingSamples, new FStat(false));
+	Stats.Add(NAME_CTFSkillRatingSamples, new FStat(false));
 
-	Stats.Add(MakeStat(NAME_MatchesPlayed, true));
-	Stats.Add(MakeStat(NAME_MatchesQuit, true));
-	Stats.Add(MakeStat(NAME_TimePlayed, true));
-	Stats.Add(MakeStat(NAME_Wins, true));
-	Stats.Add(MakeStat(NAME_Losses, true));
-	Stats.Add(MakeStat(NAME_Kills, true));
-	Stats.Add(MakeStat(NAME_Deaths, true));
-	Stats.Add(MakeStat(NAME_Suicides, true));
+	Stats.Add(NAME_MatchesPlayed, new FStat(true));
+	Stats.Add(NAME_MatchesQuit, new FStat(true));
+	Stats.Add(NAME_TimePlayed, new FStat(true));
+	Stats.Add(NAME_Wins, new FStat(true));
+	Stats.Add(NAME_Losses, new FStat(true));
+	Stats.Add(NAME_Kills, new FStat(true));
+	Stats.Add(NAME_Deaths, new FStat(true));
+	Stats.Add(NAME_Suicides, new FStat(true));
 	
-	Stats.Add(MakeStat(NAME_MultiKillLevel0, true));
-	Stats.Add(MakeStat(NAME_MultiKillLevel1, true));
-	Stats.Add(MakeStat(NAME_MultiKillLevel2, true));
-	Stats.Add(MakeStat(NAME_MultiKillLevel3, true));
+	Stats.Add(NAME_MultiKillLevel0, new FStat(true));
+	Stats.Add(NAME_MultiKillLevel1, new FStat(true));
+	Stats.Add(NAME_MultiKillLevel2, new FStat(true));
+	Stats.Add(NAME_MultiKillLevel3, new FStat(true));
 
-	Stats.Add(MakeStat(NAME_SpreeKillLevel0, true));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel1, true));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel2, true));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel3, true));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel4, true));
+	Stats.Add(NAME_SpreeKillLevel0, new FStat(true));
+	Stats.Add(NAME_SpreeKillLevel1, new FStat(true));
+	Stats.Add(NAME_SpreeKillLevel2, new FStat(true));
+	Stats.Add(NAME_SpreeKillLevel3, new FStat(true));
+	Stats.Add(NAME_SpreeKillLevel4, new FStat(true));
 
-	Stats.Add(MakeStat(NAME_ImpactHammerKills, true));
-	Stats.Add(MakeStat(NAME_EnforcerKills, true));
-	Stats.Add(MakeStat(NAME_BioRifleKills, true));
-	Stats.Add(MakeStat(NAME_ShockBeamKills, true));
-	Stats.Add(MakeStat(NAME_ShockCoreKills, true));
-	Stats.Add(MakeStat(NAME_ShockComboKills, true));
-	Stats.Add(MakeStat(NAME_LinkKills, true));
-	Stats.Add(MakeStat(NAME_LinkBeamKills, true));
-	Stats.Add(MakeStat(NAME_MinigunKills, true));
-	Stats.Add(MakeStat(NAME_MinigunShardKills, true));
-	Stats.Add(MakeStat(NAME_FlakShardKills, true));
-	Stats.Add(MakeStat(NAME_FlakShellKills, true));
-	Stats.Add(MakeStat(NAME_RocketKills, true));
-	Stats.Add(MakeStat(NAME_SniperKills, true));
-	Stats.Add(MakeStat(NAME_SniperHeadshotKills, true));
-	Stats.Add(MakeStat(NAME_RedeemerKills, true));
-	Stats.Add(MakeStat(NAME_InstagibKills, true));
-	Stats.Add(MakeStat(NAME_TelefragKills, true));
+	Stats.Add(NAME_ImpactHammerKills, new FStat(true));
+	Stats.Add(NAME_EnforcerKills, new FStat(true));
+	Stats.Add(NAME_BioRifleKills, new FStat(true));
+	Stats.Add(NAME_ShockBeamKills, new FStat(true));
+	Stats.Add(NAME_ShockCoreKills, new FStat(true));
+	Stats.Add(NAME_ShockComboKills, new FStat(true));
+	Stats.Add(NAME_LinkKills, new FStat(true));
+	Stats.Add(NAME_LinkBeamKills, new FStat(true));
+	Stats.Add(NAME_MinigunKills, new FStat(true));
+	Stats.Add(NAME_MinigunShardKills, new FStat(true));
+	Stats.Add(NAME_FlakShardKills, new FStat(true));
+	Stats.Add(NAME_FlakShellKills, new FStat(true));
+	Stats.Add(NAME_RocketKills, new FStat(true));
+	Stats.Add(NAME_SniperKills, new FStat(true));
+	Stats.Add(NAME_SniperHeadshotKills, new FStat(true));
+	Stats.Add(NAME_RedeemerKills, new FStat(true));
+	Stats.Add(NAME_InstagibKills, new FStat(true));
+	Stats.Add(NAME_TelefragKills, new FStat(true));
 
-	Stats.Add(MakeStat(NAME_ImpactHammerDeaths, true));
-	Stats.Add(MakeStat(NAME_EnforcerDeaths, true));
-	Stats.Add(MakeStat(NAME_BioRifleDeaths, true));
-	Stats.Add(MakeStat(NAME_ShockBeamDeaths, true));
-	Stats.Add(MakeStat(NAME_ShockCoreDeaths, true));
-	Stats.Add(MakeStat(NAME_ShockComboDeaths, true));
-	Stats.Add(MakeStat(NAME_LinkDeaths, true));
-	Stats.Add(MakeStat(NAME_LinkBeamDeaths, true));
-	Stats.Add(MakeStat(NAME_MinigunDeaths, true));
-	Stats.Add(MakeStat(NAME_MinigunShardDeaths, true));
-	Stats.Add(MakeStat(NAME_FlakShardDeaths, true));
-	Stats.Add(MakeStat(NAME_FlakShellDeaths, true));
-	Stats.Add(MakeStat(NAME_RocketDeaths, true));
-	Stats.Add(MakeStat(NAME_SniperDeaths, true));
-	Stats.Add(MakeStat(NAME_SniperHeadshotDeaths, true));
-	Stats.Add(MakeStat(NAME_RedeemerDeaths, true));
-	Stats.Add(MakeStat(NAME_InstagibDeaths, true));
-	Stats.Add(MakeStat(NAME_TelefragDeaths, true));
+	Stats.Add(NAME_ImpactHammerDeaths, new FStat(true));
+	Stats.Add(NAME_EnforcerDeaths, new FStat(true));
+	Stats.Add(NAME_BioRifleDeaths, new FStat(true));
+	Stats.Add(NAME_ShockBeamDeaths, new FStat(true));
+	Stats.Add(NAME_ShockCoreDeaths, new FStat(true));
+	Stats.Add(NAME_ShockComboDeaths, new FStat(true));
+	Stats.Add(NAME_LinkDeaths, new FStat(true));
+	Stats.Add(NAME_LinkBeamDeaths, new FStat(true));
+	Stats.Add(NAME_MinigunDeaths, new FStat(true));
+	Stats.Add(NAME_MinigunShardDeaths, new FStat(true));
+	Stats.Add(NAME_FlakShardDeaths, new FStat(true));
+	Stats.Add(NAME_FlakShellDeaths, new FStat(true));
+	Stats.Add(NAME_RocketDeaths, new FStat(true));
+	Stats.Add(NAME_SniperDeaths, new FStat(true));
+	Stats.Add(NAME_SniperHeadshotDeaths, new FStat(true));
+	Stats.Add(NAME_RedeemerDeaths, new FStat(true));
+	Stats.Add(NAME_InstagibDeaths, new FStat(true));
+	Stats.Add(NAME_TelefragDeaths, new FStat(true));
 
-	Stats.Add(MakeStat(NAME_UDamageTime, true));
-	Stats.Add(MakeStat(NAME_BerserkTime, true));
-	Stats.Add(MakeStat(NAME_InvisibilityTime, true));
-	Stats.Add(MakeStat(NAME_UDamageCount, true));
-	Stats.Add(MakeStat(NAME_BerserkCount, true));
-	Stats.Add(MakeStat(NAME_InvisibilityCount, true));
-	Stats.Add(MakeStat(NAME_BootJumps, true));
-	Stats.Add(MakeStat(NAME_ShieldBeltCount, true));
-	Stats.Add(MakeStat(NAME_ArmorVestCount, true));
-	Stats.Add(MakeStat(NAME_ArmorPadsCount, true));
-	Stats.Add(MakeStat(NAME_HelmetCount, true));
+	Stats.Add(NAME_UDamageTime, new FStat(true));
+	Stats.Add(NAME_BerserkTime, new FStat(true));
+	Stats.Add(NAME_InvisibilityTime, new FStat(true));
+	Stats.Add(NAME_UDamageCount, new FStat(true));
+	Stats.Add(NAME_BerserkCount, new FStat(true));
+	Stats.Add(NAME_InvisibilityCount, new FStat(true));
+	Stats.Add(NAME_BootJumps, new FStat(true));
+	Stats.Add(NAME_ShieldBeltCount, new FStat(true));
+	Stats.Add(NAME_ArmorVestCount, new FStat(true));
+	Stats.Add(NAME_ArmorPadsCount, new FStat(true));
+	Stats.Add(NAME_HelmetCount, new FStat(true));
 
-	Stats.Add(MakeStat(NAME_BestShockCombo, true));
-	Stats.Add(MakeStat(NAME_AmazingCombos, true));
-	Stats.Add(MakeStat(NAME_AirRox, true));
-	Stats.Add(MakeStat(NAME_FlakShreds, true));
-	Stats.Add(MakeStat(NAME_AirSnot, true));
+	Stats.Add(NAME_BestShockCombo, new FStat(true));
+	Stats.Add(NAME_AmazingCombos, new FStat(true));
+	Stats.Add(NAME_AirRox, new FStat(true));
+	Stats.Add(NAME_FlakShreds, new FStat(true));
+	Stats.Add(NAME_AirSnot, new FStat(true));
 
-	Stats.Add(MakeStat(NAME_RunDist, true));
-	Stats.Add(MakeStat(NAME_SprintDist, true));
-	Stats.Add(MakeStat(NAME_InAirDist, true));
-	Stats.Add(MakeStat(NAME_SwimDist, true));
-	Stats.Add(MakeStat(NAME_TranslocDist, true));
-	Stats.Add(MakeStat(NAME_NumDodges, true));
-	Stats.Add(MakeStat(NAME_NumWallDodges, true));
-	Stats.Add(MakeStat(NAME_NumJumps, true));
-	Stats.Add(MakeStat(NAME_NumLiftJumps, true));
-	Stats.Add(MakeStat(NAME_NumFloorSlides, true));
-	Stats.Add(MakeStat(NAME_NumWallRuns, true));
-	Stats.Add(MakeStat(NAME_NumImpactJumps, true));
-	Stats.Add(MakeStat(NAME_NumRocketJumps, true));
-	Stats.Add(MakeStat(NAME_SlideDist, true));
-	Stats.Add(MakeStat(NAME_WallRunDist, true));
+	Stats.Add(NAME_RunDist, new FStat(true));
+	Stats.Add(NAME_SprintDist, new FStat(true));
+	Stats.Add(NAME_InAirDist, new FStat(true));
+	Stats.Add(NAME_SwimDist, new FStat(true));
+	Stats.Add(NAME_TranslocDist, new FStat(true));
+	Stats.Add(NAME_NumDodges, new FStat(true));
+	Stats.Add(NAME_NumWallDodges, new FStat(true));
+	Stats.Add(NAME_NumJumps, new FStat(true));
+	Stats.Add(NAME_NumLiftJumps, new FStat(true));
+	Stats.Add(NAME_NumFloorSlides, new FStat(true));
+	Stats.Add(NAME_NumWallRuns, new FStat(true));
+	Stats.Add(NAME_NumImpactJumps, new FStat(true));
+	Stats.Add(NAME_NumRocketJumps, new FStat(true));
+	Stats.Add(NAME_SlideDist, new FStat(true));
+	Stats.Add(NAME_WallRunDist, new FStat(true));
 
-	Stats.Add(MakeStat(NAME_FlagHeldDeny, true));
-	Stats.Add(MakeStat(NAME_FlagHeldDenyTime, true));
-	Stats.Add(MakeStat(NAME_FlagHeldTime, true));
-	Stats.Add(MakeStat(NAME_FlagReturnPoints, true));
-	Stats.Add(MakeStat(NAME_CarryAssist, true));
-	Stats.Add(MakeStat(NAME_CarryAssistPoints, true));
-	Stats.Add(MakeStat(NAME_FlagCapPoints, true));
-	Stats.Add(MakeStat(NAME_DefendAssist, true));
-	Stats.Add(MakeStat(NAME_DefendAssistPoints, true));
-	Stats.Add(MakeStat(NAME_ReturnAssist, true));
-	Stats.Add(MakeStat(NAME_ReturnAssistPoints, true));
-	Stats.Add(MakeStat(NAME_TeamCapPoints, true));
-	Stats.Add(MakeStat(NAME_EnemyFCDamage, true));
-	Stats.Add(MakeStat(NAME_FCKills, true));
-	Stats.Add(MakeStat(NAME_FCKillPoints, true));
-	Stats.Add(MakeStat(NAME_FlagSupportKills, true));
-	Stats.Add(MakeStat(NAME_FlagSupportKillPoints, true));
-	Stats.Add(MakeStat(NAME_RegularKillPoints, true));
-	Stats.Add(MakeStat(NAME_FlagGrabs, true));
-	Stats.Add(MakeStat(NAME_AttackerScore, true));
-	Stats.Add(MakeStat(NAME_DefenderScore, true));
-	Stats.Add(MakeStat(NAME_SupporterScore, true));
+	Stats.Add(NAME_FlagHeldDeny, new FStat(true));
+	Stats.Add(NAME_FlagHeldDenyTime, new FStat(true));
+	Stats.Add(NAME_FlagHeldTime, new FStat(true));
+	Stats.Add(NAME_FlagReturnPoints, new FStat(true));
+	Stats.Add(NAME_CarryAssist, new FStat(true));
+	Stats.Add(NAME_CarryAssistPoints, new FStat(true));
+	Stats.Add(NAME_FlagCapPoints, new FStat(true));
+	Stats.Add(NAME_DefendAssist, new FStat(true));
+	Stats.Add(NAME_DefendAssistPoints, new FStat(true));
+	Stats.Add(NAME_ReturnAssist, new FStat(true));
+	Stats.Add(NAME_ReturnAssistPoints, new FStat(true));
+	Stats.Add(NAME_TeamCapPoints, new FStat(true));
+	Stats.Add(NAME_EnemyFCDamage, new FStat(true));
+	Stats.Add(NAME_FCKills, new FStat(true));
+	Stats.Add(NAME_FCKillPoints, new FStat(true));
+	Stats.Add(NAME_FlagSupportKills, new FStat(true));
+	Stats.Add(NAME_FlagSupportKillPoints, new FStat(true));
+	Stats.Add(NAME_RegularKillPoints, new FStat(true));
+	Stats.Add(NAME_FlagGrabs, new FStat(true));
+	Stats.Add(NAME_AttackerScore, new FStat(true));
+	Stats.Add(NAME_DefenderScore, new FStat(true));
+	Stats.Add(NAME_SupporterScore, new FStat(true));
 	
-	Stats.Add(MakeStat(NAME_PlayerXP, true));
+	Stats.Add(NAME_PlayerXP, new FStat(true));
 
 	NumMatchesToKeep = 5;
 	NumPreviousPlayerNamesToKeep = 5;
@@ -142,14 +142,34 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	JSONVersionNumber = 0;
 }
 
-UStat* UStatManager::MakeStat(FName StatName, bool bBackendStat)
+void FStat::ModifyStat(int32 Amount, EStatMod::Type ModType)
 {
-	UStat* Stat = NewObject<UStat>(this, StatName);
-	Stat->StatName = StatName;
-	Stat->HighestPeriodToTrack = EStatRecordingPeriod::Persistent;
-	Stat->bBackendStat = bBackendStat;
-
-	return Stat;
+	if (ModType == EStatMod::Set)
+	{
+		StatData = Amount;
+	}
+	else if (ModType == EStatMod::Maximum)
+	{
+		StatData = FMath::Max(StatData, Amount);
+	}
+	else
+	{
+		if (Amount < 0 && StatData + Amount > StatData)
+		{
+			//Bind to MIN_int32
+			StatData = MIN_int32;
+		}
+		//Attempted to add and the result is less than what we started at.
+		else if (Amount > 0 && StatData + Amount < StatData)
+		{
+			//Bind to MAX_int32
+			StatData = MAX_int32;
+		}
+		else
+		{
+			StatData = StatData + Amount;
+		}
+	}
 }
 
 /** Initialize the manager from the config variables
@@ -169,9 +189,7 @@ void UStatManager::InitializeManager(AUTPlayerState *inUTPS)
  */
 bool UStatManager::ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModType)
 {
-	UStat *Stat;
-
-	Stat = GetStatByName(StatName);
+	FStat* Stat = GetStatByName(StatName);
 	if (Stat != NULL)
 	{
 		Stat->ModifyStat(Amount, ModType);
@@ -184,102 +202,45 @@ bool UStatManager::ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModTy
 	}
 }
 
-UStat* UStatManager::GetStatByName(FName StatName)
+FStat* UStatManager::GetStatByName(FName StatName)
 {
-	return StatLookup.FindRef(StatName);
+	return Stats.FindRef(StatName);
 }
 
-const UStat* UStatManager::GetStatByName(FName StatName) const
+const FStat* UStatManager::GetStatByName(FName StatName) const
 {
-	return StatLookup.FindRef(StatName);
+	return Stats.FindRef(StatName);
 }
 
-int32 UStatManager::GetStatValueByName(FName StatName, EStatRecordingPeriod::Type Period) const
+int32 UStatManager::GetStatValueByName(FName StatName) const
 {
-	const UStat* Stat = GetStatByName(StatName);
+	const FStat* Stat = GetStatByName(StatName);
 	if (Stat != NULL)
 	{
-		return Stat->StatDataByPeriod[Period];
+		return Stat->StatData;
 	}
 	return 0;
 }
 
-int32 UStatManager::GetStatValue(const UStat *Stat, EStatRecordingPeriod::Type Period) const
+int32 UStatManager::GetStatValue(const FStat *Stat) const
 {
 	if (Stat != NULL)
 	{
-		return Stat->StatDataByPeriod[Period];
+		return Stat->StatData;
 	}
 	return 0;
-}
-
-/**
- * Debugging function to list all stats having certain substring
- */
-void UStatManager::DumpStats( FString FilteringMask )
-{
-	UStat *Stat;
-	FString StatOutputString;
-
-	UE_LOG(LogGameStats, Log, TEXT("Showing stats that match substring '%s'"), *FilteringMask);
-	for (int32 i =0; i < Stats.Num(); i++)
-	{
-		Stat = Stats[i];
-		if ( FilteringMask == TEXT("") || Stat->StatName.ToString().Contains(FilteringMask) )
-		{
-			StatOutputString = FString::Printf(TEXT(" - (Campaign:%d), (Map:%d), (Persistent:%d), (Life:%d)"),
-				Stat->StatDataByPeriod[EStatRecordingPeriod::Campaign],
-				Stat->StatDataByPeriod[EStatRecordingPeriod::Map],
-				Stat->StatDataByPeriod[EStatRecordingPeriod::Persistent],
-				Stat->StatDataByPeriod[EStatRecordingPeriod::Life]);
-
-			UE_LOG(LogGameStats, Log, TEXT("Stat '%s'  %s'"), *(Stat->StatName.ToString()), *StatOutputString);
-		}
-	}
-}
-
-void UStatManager::PostInitProperties()
-{
-	Super::PostInitProperties();
-
-	if ( !HasAnyFlags(RF_ClassDefaultObject) )
-	{
-		// Populate the stat lookup table with any stats that were added in the constructor.
-		PopulateStatLookup();
-	}
-}
-
-void UStatManager::PostLoad()
-{
-	Super::PostLoad();
-
-	// Populate the stat lookup table with any stats that were loaded from file.
-	PopulateStatLookup();
-}
-
-void UStatManager::PopulateStatLookup()
-{
-	StatLookup.Empty(Stats.Num());
-
-	for (auto* Stat : Stats)
-	{
-		if (Stat)
-		{
-			StatLookup.Add(Stat->StatName, Stat);
-		}
-	}
 }
 
 void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject, AUTPlayerState* PS)
 {
-	for (auto* Stat : Stats)
+	for (auto Stat = Stats.CreateConstIterator(); Stat; ++Stat)
 	{
-		if (Stat && Stat->bBackendStat && PS)
+		if (Stat.Value()->bBackendStat && PS)
 		{
-			float NewStatValue = PS->GetStatsValue(Stat->StatName);
+			float NewStatValue = PS->GetStatsValue(Stat.Key());
 			if (NewStatValue != 0)
 			{
-				JsonObject->SetNumberField(Stat->StatName.ToString(), NewStatValue);
+				JsonObject->SetNumberField(Stat.Key().ToString(), NewStatValue);
 			}
 		}
 	}
@@ -289,11 +250,11 @@ void UStatManager::PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> 
 {
 	JsonObject->SetNumberField(TEXT("Version"), JSONVersionNumber);
 
-	for (auto* Stat : Stats)
+	for (auto Stat = Stats.CreateConstIterator(); Stat; ++Stat)
 	{
-		if (Stat && !Stat->bBackendStat)
+		if (Stat.Value()->bBackendStat)
 		{
-			JsonObject->SetNumberField(Stat->StatName.ToString(), GetStatValue(Stat, EStatRecordingPeriod::Persistent));
+			JsonObject->SetNumberField(Stat.Key().ToString(), GetStatValue(Stat.Value()));
 		}
 	}
 
@@ -373,14 +334,14 @@ void UStatManager::PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> 
 
 void UStatManager::InsertDataFromNonBackendJsonObject(TSharedPtr<FJsonObject> JsonObject)
 {
-	for (auto* Stat : Stats)
+	for (auto Stat = Stats.CreateConstIterator(); Stat; ++Stat)
 	{
-		if (Stat && !Stat->bBackendStat)
+		if (!Stat.Value()->bBackendStat)
 		{
 			int32 StatInput = 0;
-			if (JsonObject->TryGetNumberField(Stat->StatName.ToString(), StatInput))
+			if (JsonObject->TryGetNumberField(Stat.Key().ToString(), StatInput))
 			{
-				Stat->ModifyStat(StatInput, EStatMod::Set);
+				Stat.Value()->ModifyStat(StatInput, EStatMod::Set);
 			}
 		}
 	}

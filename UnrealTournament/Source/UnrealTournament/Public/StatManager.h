@@ -8,15 +8,73 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGameStats, Log, All);
 
+/** The different ways that a stat can be modified */
+UENUM(BlueprintType)
+namespace EStatMod
+{
+	enum Type
+	{
+		//Add the given value to the existing value already stored in the stat. The most common modification.
+		Delta,
+		//Set the stat to the given value, ignoring any previous value.
+		Set,
+		//Set the stat to the max of the given value and the previous value. Like Set, except it can't lower the stat.
+		Maximum,
+	};
+}
+
+USTRUCT()
+struct FMatchStatsPlayer
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FString PlayerName;
+	FString StatsID;
+	int32 TeamIndex;
+	int32 Score;
+	int32 Kills;
+	int32 Deaths;
+	int32 FlagCaptures;
+	int32 FlagReturns;
+};
+
+USTRUCT()
+struct FMatchStats
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	TArray<int32> Teams;
+	TArray<FMatchStatsPlayer> Players;
+	FString GameType;
+};
+
+USTRUCT()
+struct FStat
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FStat()
+	{}
+
+	FStat(bool inbBackendStat)
+		: bBackendStat(inbBackendStat)
+	{}
+	
+	UPROPERTY()
+	int32 StatData;
+
+	UPROPERTY()
+	bool bBackendStat;
+
+	void ModifyStat(int32 Amount, EStatMod::Type ModType);
+};
+
 // Class that manages all of the stats needed by the game
 UCLASS()
 class UNREALTOURNAMENT_API UStatManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
-	
-	/** Helper function that makes a stat object */
-	UStat* MakeStat(FName StatName, bool bBackendStat);
-	
+		
 	/** Initialize the manager from the config variables
 	 *  @param UTPC The PC that uses this stat manager
 	 */
@@ -32,21 +90,11 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	bool ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModType);
 
 	//Methods to get a stat or the value of a stat
-	UStat* GetStatByName(FName StatName);
-	const UStat* GetStatByName(FName StatName) const;
-	int32 GetStatValueByName(FName StatName, EStatRecordingPeriod::Type Period) const;
-	int32 GetStatValue(const UStat *Stat, EStatRecordingPeriod::Type Period) const;
-
-	/**
-	 * Debugging function to list all stats having certain substring
-	 */
-	void DumpStats( FString FilteringMask );
-
-	// Begin UObject interface
-	virtual void PostInitProperties() override;
-	virtual void PostLoad() override;
-	// End UObject interface
-
+	FStat* GetStatByName(FName StatName);
+	const FStat* GetStatByName(FName StatName) const;
+	int32 GetStatValueByName(FName StatName) const;
+	int32 GetStatValue(const FStat* Stat) const;
+	
 	AUTPlayerState* GetPlayerState() { return UTPS; }
 
 	virtual void PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject, AUTPlayerState* PS);
@@ -60,21 +108,10 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 private:
 	int32 NumMatchesToKeep;
 	int32 JSONVersionNumber;
-
-	/**
-	 * Called during load to populate the StatLookup map. This is used to look up stat objects quickly.
-	 * This is called during PostLoad to populate the map with stats that were previously saved.
-	 * The StatLookup map will then be updates as stats are created at runtime, so this function should only be called once.
-	 */
-	void PopulateStatLookup();
-
-	/** Map to look up stats by name quickly */
-	TMap<FName, UStat*> StatLookup;
-
-	/** Array of stats tracked */
-	UPROPERTY()
-	TArray<UStat*> Stats;
 	
+	/** Map to look up stats by name quickly */
+	TMap<FName, FStat*> Stats;
+		
 	/** Reference to the PS that controls this StatManager */
 	UPROPERTY()
 	AUTPlayerState *UTPS;
