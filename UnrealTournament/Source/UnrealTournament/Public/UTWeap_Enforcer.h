@@ -113,7 +113,7 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 
 	/** Switch to second enforcer mode
 	*/
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void BecomeDual();
 	virtual	float GetImpartedMomentumMag(AActor* HitActor) override;
 	virtual void DetachFromOwner_Implementation() override;
