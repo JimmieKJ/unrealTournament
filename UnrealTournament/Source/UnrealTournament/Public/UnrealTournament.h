@@ -45,7 +45,6 @@ DECLARE_LOG_CATEGORY_EXTERN(UTLoading, Log, All);
 #include "UTCarriedObject.h"
 #include "UTGameMode.h"
 #include "UTTeamGameMode.h"
-#include "Stat.h"
 #include "StatManager.h"
 #include "OnlineEntitlementsInterface.h"
 

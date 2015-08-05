@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "Stat.h"
-
 #include "StatManager.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGameStats, Log, All);
