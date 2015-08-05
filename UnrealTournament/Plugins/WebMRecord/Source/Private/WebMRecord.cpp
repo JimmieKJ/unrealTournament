@@ -143,6 +143,7 @@ void FWebMRecord::StopRecording()
 	bRecording = false;
 
 	CloseTempFrameFile();
+	UnmapReadbackTextures();
 
 	AudioWorker->bStopCapture = true;
 	AudioWorker->WaitForCompletion();
@@ -322,6 +323,47 @@ void FWebMRecord::SaveCurrentFrameToDisk()
 			});
 		}
 	}
+}
+
+void FWebMRecord::UnmapReadbackTextures()
+{
+	if (ReadbackBuffers[0] != nullptr)
+	{
+		struct FReadbackFromStagingBufferContext
+		{
+			FWebMRecord* This;
+		};
+		FReadbackFromStagingBufferContext ReadbackFromStagingBufferContext =
+		{
+			this
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			ReadbackFromStagingBuffer,
+			FReadbackFromStagingBufferContext, Context, ReadbackFromStagingBufferContext,
+			{
+			RHICmdList.UnmapStagingSurface(Context.This->ReadbackTextures[0]);
+		});
+	}
+	if (ReadbackBuffers[1] != nullptr)
+	{
+		struct FReadbackFromStagingBufferContext
+		{
+			FWebMRecord* This;
+		};
+		FReadbackFromStagingBufferContext ReadbackFromStagingBufferContext =
+		{
+			this
+		};
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			ReadbackFromStagingBuffer,
+			FReadbackFromStagingBufferContext, Context, ReadbackFromStagingBufferContext,
+			{
+			RHICmdList.UnmapStagingSurface(Context.This->ReadbackTextures[1]);
+		});
+	}
+
+	ReadbackTextureIndex = 0;
+	ReadbackBufferIndex = 0;
 }
 
 void FWebMRecord::StartCopyingNextGameFrame(const FViewportRHIRef& ViewportRHI)

@@ -187,6 +187,8 @@ protected:
 
 	void DebugWriteAudioToOGG();
 	void DebugUploadLastVideo(UWorld* InWorld);
+
+	void UnmapReadbackTextures();
 };
 
 
