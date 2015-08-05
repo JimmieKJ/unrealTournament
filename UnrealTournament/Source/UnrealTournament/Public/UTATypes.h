@@ -70,6 +70,7 @@ namespace InventoryEventName
 	const FName FiredWeapon = FName(TEXT("FiredWeapon"));
 	const FName Jump = FName(TEXT("Jump"));
 	const FName MultiJump = FName(TEXT("MultiJump"));
+	const FName Dodge = FName(TEXT("Dodge"));
 }
 
 namespace StatusMessage

@@ -2709,6 +2709,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			MovementEventUpdated(bPotentialWallDodge ? EME_WallDodge : EME_Dodge, DodgeDir);
+			InventoryEvent(InventoryEventName::Dodge);
 			return true;
 		}
 	}
