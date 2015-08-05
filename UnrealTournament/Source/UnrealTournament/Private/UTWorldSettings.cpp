@@ -88,6 +88,7 @@ void AUTWorldSettings::BeginPlay()
 	{
 		MusicComp = NewObject<UAudioComponent>(this);
 		MusicComp->bAllowSpatialization = false;
+		MusicComp->bShouldRemainActiveIfDropped = true;
 		MusicComp->SetSound(Music);
 		MusicComp->Play();
 	}
