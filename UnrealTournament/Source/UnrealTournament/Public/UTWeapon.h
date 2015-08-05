@@ -860,8 +860,8 @@ public:
 
 	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
 	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
-	virtual int32 GetWeaponShotsStats(AUTPlayerState * PS) const;
-	virtual int32 GetWeaponHitsStats(AUTPlayerState * PS) const;
+	virtual float GetWeaponShotsStats(AUTPlayerState * PS) const;
+	virtual float GetWeaponHitsStats(AUTPlayerState * PS) const;
 
 	// TEMP for testing 1p offsets
 	UFUNCTION(exec)

@@ -1355,6 +1355,11 @@ AUTProjectile* AUTWeapon::FireProjectile()
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->IncrementFlashCount(CurrentFireMode);
+		AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+		if (PS && (ShotsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(ShotsStatsName, 1);
+		}
 	}
 	// spawn the projectile at the muzzle
 	const FVector SpawnLocation = GetFireStartLoc();
@@ -1412,6 +1417,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 	{
 		if (Role == ROLE_Authority)
 		{
+			NewProjectile->HitsStatsName = HitsStatsName;
 			if ((CatchupTickDelta > 0.f) && NewProjectile->ProjectileMovement)
 			{
 				// server ticks projectile to match with when client actually fired
@@ -2065,28 +2071,14 @@ int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState* PS) const
 	return DeathCount;
 }
 
-int32 AUTWeapon::GetWeaponHitsStats(AUTPlayerState* PS) const
+float AUTWeapon::GetWeaponHitsStats(AUTPlayerState* PS) const
 {
-	if (PS)
-	{
-		if (HitsStatsName != NAME_None)
-		{
-			return PS->GetStatsValue(HitsStatsName);
-		}
-	}
-	return 0;
+	return (PS && (HitsStatsName != NAME_None)) ? PS->GetStatsValue(HitsStatsName) : 0.f;
 }
 
-int32 AUTWeapon::GetWeaponShotsStats(AUTPlayerState* PS) const
+float AUTWeapon::GetWeaponShotsStats(AUTPlayerState* PS) const
 {
-	if (PS)
-	{
-		if (ShotsStatsName != NAME_None)
-		{
-			return PS->GetStatsValue(ShotsStatsName);
-		}
-	}
-	return 0;
+	return (PS && (ShotsStatsName != NAME_None)) ? PS->GetStatsValue(ShotsStatsName) : 0.f;
 }
 
 // TEMP for testing 1p offsets

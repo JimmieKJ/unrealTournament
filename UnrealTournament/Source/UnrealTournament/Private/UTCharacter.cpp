@@ -694,6 +694,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 		int32 ResultDamage = FMath::TruncToInt(Damage);
 		FVector ResultMomentum = UTGetDamageMomentum(DamageEvent, this, EventInstigator);
+		bool bRadialDamage = false;
 		if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
 		{
 			bool bScaleMomentum = !DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID) || ((const FUTRadialDamageEvent&)DamageEvent).bScaleMomentum;
@@ -713,6 +714,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					ResultMomentum *= AdjustedDamage / Damage;
 				}
 				ResultDamage = FMath::TruncToInt(AdjustedDamage);
+				bRadialDamage = true;
 			}
 		}
 		if (!IsDead())
@@ -730,6 +732,15 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser, DamageEvent.DamageTypeClass);
 			}
+			if (bRadialDamage)
+			{
+				AUTProjectile* Proj = Cast<AUTProjectile>(DamageCauser);
+				if (Proj)
+				{
+					Proj->StatsHitCredit += ResultDamage;
+				}
+			}
+
 			AUTInventory* HitArmor = NULL;
 			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
 			if (HitArmor)

@@ -35,6 +35,8 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 	}
 	KillStatsName = NAME_BioRifleKills;
 	DeathStatsName = NAME_BioRifleDeaths;
+	HitsStatsName = NAME_BioRifleHits;
+	ShotsStatsName = NAME_BioRifleShots;
 }
 
 void AUTWeap_BioRifle::UpdateSqueeze()

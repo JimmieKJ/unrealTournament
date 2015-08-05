@@ -55,6 +55,8 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	KillStatsName = NAME_RocketKills;
 	DeathStatsName = NAME_RocketDeaths;
+	HitsStatsName = NAME_RocketHits;
+	ShotsStatsName = NAME_RocketShots;
 }
 
 void AUTWeap_RocketLauncher::Destroyed()
@@ -251,6 +253,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 	}
 
 	UTOwner->SetFlashExtra(0, CurrentFireMode);
+	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 
 	//For the alternate fire, the number of flashes are replicated by the FireMode. 
 	if (CurrentFireMode == 1)
@@ -281,6 +284,10 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		if ((Role == ROLE_Authority)/* && RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash*/)
 		{
 			UTOwner->IncrementFlashCount(NumLoadedRockets);
+			if (PS && (ShotsStatsName != NAME_None))
+			{
+				PS->ModifyStatsValue(ShotsStatsName, NumLoadedRockets);
+			}
 		}
 			
 		return FireRocketProjectile();
@@ -291,6 +298,14 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		if (Role == ROLE_Authority)
 		{
 			UTOwner->IncrementFlashCount(CurrentFireMode);
+			if (Role == ROLE_Authority)
+			{
+				AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+				if (PS && (ShotsStatsName != NAME_None))
+				{
+					PS->ModifyStatsValue(ShotsStatsName, 1);
+				}
+			}
 		}
 
 		FVector SpawnLocation = GetFireStartLoc();

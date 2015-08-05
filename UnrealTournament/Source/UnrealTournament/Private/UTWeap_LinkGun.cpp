@@ -50,6 +50,8 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	AltKillStatsName = NAME_LinkBeamKills;
 	DeathStatsName = NAME_LinkDeaths;
 	AltDeathStatsName = NAME_LinkBeamDeaths;
+	HitsStatsName = NAME_LinkHits;
+	ShotsStatsName = NAME_LinkShots;
 }
 
 AUTProjectile* AUTWeap_LinkGun::FireProjectile()

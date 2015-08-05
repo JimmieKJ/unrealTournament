@@ -716,8 +716,8 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	Canvas->DrawText(UTHUDOwner->TinyFont, "Kills W/", XOffset + 0.45*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	Canvas->DrawText(UTHUDOwner->TinyFont, "Deaths by", XOffset + 0.57f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->TinyFont, "Shots", XOffset + 0.70f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->TinyFont, "Accuracy", XOffset + 0.82f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Shots", XOffset + 0.72f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Accuracy", XOffset + 0.83f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
 
 	/** List of weapons to display stats for. */
@@ -744,7 +744,7 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	{
 		int32 Kills = StatsWeapons[i]->GetWeaponKillStats(PS);
 		float Shots = StatsWeapons[i]->GetWeaponShotsStats(PS);
-		float Accuracy = (Shots > 0) ? 100.f * float(StatsWeapons[i]->GetWeaponHitsStats(PS))/ Shots : 0.f;
+		float Accuracy = (Shots > 0) ? 100.f * StatsWeapons[i]->GetWeaponHitsStats(PS)/ Shots : 0.f;
 		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), Shots, Accuracy, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
 		if (Kills > BestWeaponKills)
 		{

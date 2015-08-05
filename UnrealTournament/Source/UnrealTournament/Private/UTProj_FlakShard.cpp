@@ -57,6 +57,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	bNetTemporary = true;
 	NumSatelliteShards = 1;
+	StatsHitCredit = 0.111f;
 }
 
 void AUTProj_FlakShard::BeginPlay()
