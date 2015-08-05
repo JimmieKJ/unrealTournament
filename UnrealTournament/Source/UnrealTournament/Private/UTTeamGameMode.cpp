@@ -242,13 +242,6 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		}
 	}
 
-	for (int32 i = 0; i < BestTeams.Num(); i++)
-	{
-		if (BestTeams[i]->TeamIndex == RequestedTeam)
-		{
-			return RequestedTeam;
-		}
-	}
 	// if in doubt choose team with bots on it as the bots will leave if necessary to balance
 	{
 		TArray< AUTTeamInfo*, TInlineAllocator<4> > TeamsWithBots;
@@ -271,7 +264,23 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		}
 		if (TeamsWithBots.Num() > 0)
 		{
+			for (int32 i = 0; i < TeamsWithBots.Num(); i++)
+			{
+				if (TeamsWithBots[i]->TeamIndex == RequestedTeam)
+				{
+					return RequestedTeam;
+				}
+			}
+
 			return TeamsWithBots[FMath::RandHelper(TeamsWithBots.Num())]->TeamIndex;
+		}
+	}
+
+	for (int32 i = 0; i < BestTeams.Num(); i++)
+	{
+		if (BestTeams[i]->TeamIndex == RequestedTeam)
+		{
+			return RequestedTeam;
 		}
 	}
 
