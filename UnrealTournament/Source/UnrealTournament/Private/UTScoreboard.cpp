@@ -51,6 +51,10 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
 	TextureAtlas = Tex.Object;
 
+	KillsColumn = 0.4f;
+	DeathsColumn = 0.52f;
+	ShotsColumn = 0.72f;
+	AccuracyColumn = 0.84f;
 	ValueColumn = 0.5f;
 	ScoreColumn = 0.75f;
 	bHighlightStatsLineTopValue = false;
@@ -693,20 +697,20 @@ void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 
 	if (StatValue >= 0)
 	{
 		Canvas->SetLinearDrawColor((StatValue >= 15) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + KillsColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	if (ScoreValue >= 0)
 	{
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + 0.62f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + DeathsColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	if (Shots >= 0)
 	{
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), Shots), XOffset + 0.75f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), Shots), XOffset + ShotsColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %3.1f%%"), Accuracy), XOffset + 0.87f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %3.1f%%"), Accuracy), XOffset + AccuracyColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
 }
@@ -714,10 +718,10 @@ void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 
 void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
 {
 	Canvas->SetLinearDrawColor(FLinearColor::White);
-	Canvas->DrawText(UTHUDOwner->TinyFont, "Kills W/", XOffset + 0.45*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->TinyFont, "Deaths by", XOffset + 0.57f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->TinyFont, "Shots", XOffset + 0.72f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->TinyFont, "Accuracy", XOffset + 0.83f*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Kills with", XOffset + (KillsColumn-0.05f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Deaths by", XOffset + (DeathsColumn - 0.05f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Shots", XOffset + (ShotsColumn - 0.02f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Accuracy", XOffset + (AccuracyColumn - 0.03f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
 
 	/** List of weapons to display stats for. */
