@@ -579,61 +579,53 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 		{
 			GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 		}
-		
-		TArray<const FAssetData*> EligibleBots;
-		for (const FAssetData& Asset : BotAssets)
+
+		if (EligibleBots.Num() == 0)
 		{
-			const FString* SkillText = Asset.TagsAndValues.Find(TEXT("Skill"));
-			if (SkillText != NULL)
+			for (const FAssetData& Asset : BotAssets)
 			{
-				float BaseSkill = FCString::Atof(**SkillText);
-				if (BaseSkill >= GameDifficulty - 0.5f && BaseSkill < GameDifficulty + 1.0f)
+				UUTBotCharacter* EligibleCharacter = Cast<UUTBotCharacter>(Asset.GetAsset());
+				if (EligibleCharacter != NULL)
 				{
-					EligibleBots.Add(&Asset);
+					EligibleBots.Add(EligibleCharacter);
 				}
 			}
+
+			EligibleBots.Sort([](const UUTBotCharacter& A, const UUTBotCharacter& B) -> bool
+			{
+				return A.Skill < B.Skill;
+			});
 		}
-		bool bLoadedBotData = false;
-		while (EligibleBots.Num() > 0 && !bLoadedBotData)
+
+		if (EligibleBots.Num() > 0)
 		{
-			int32 Index = FMath::RandHelper(EligibleBots.Num());
-			const UUTBotCharacter* BotData = Cast<UUTBotCharacter>(EligibleBots[Index]->GetAsset());
-			if (BotData != NULL)
+			int32 BestMatch = 0;
+			for (int32 i = 0; i < EligibleBots.Num(); i++)
 			{
-				NewBot->CharacterData = BotData;
-				NewBot->Personality = BotData->Personality;
-				SetUniqueBotName(NewBot, BotData);
-				NewBot->InitializeSkill(BotData->Skill);
-				AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-				if (PS != NULL)
+				if (EligibleBots[i]->Skill >= GameDifficulty)
 				{
-					PS->SetCharacter(BotData->Character.ToString());
-					PS->ServerReceiveHatClass(BotData->HatType.ToString());
-					PS->ServerReceiveHatVariant(BotData->HatVariantId);
-					PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
-					PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
+					BestMatch = i;
+					break;
 				}
-				bLoadedBotData = true;
 			}
-			else
-			{
-				EligibleBots.RemoveAt(Index);
-			}
+			int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
+			EligibleBots[Index]->Skill = FMath::Clamp(EligibleBots[Index]->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
+			NewBot->InitializeCharacter(EligibleBots[Index]);
+			SetUniqueBotName(NewBot, EligibleBots[Index]);
+			EligibleBots.RemoveAt(Index);
 		}
-		// pick bot character
-		if (!bLoadedBotData)
+		else
 		{
 			UE_LOG(UT, Warning, TEXT("AddBot(): No BotCharacters defined that are appropriate for game difficulty %f"), GameDifficulty);
 			static int32 NameCount = 0;
 			NewBot->PlayerState->SetPlayerName(FString(TEXT("TestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
 			NewBot->InitializeSkill(GameDifficulty);
 			NameCount++;
-		}
-
-		AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-		if (PS != NULL)
-		{
-			PS->bReadyToPlay = true;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
 		}
 
 		NumBots++;
@@ -642,6 +634,7 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 	}
 	return NewBot;
 }
+
 AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 {
 	if (BotAssets.Num() == 0)
@@ -649,7 +642,7 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 		GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 	}
 
-	const UUTBotCharacter* BotData = NULL;
+	UUTBotCharacter* BotData = NULL;
 	for (const FAssetData& Asset : BotAssets)
 	{
 		if (Asset.AssetName.ToString() == BotName)
@@ -662,7 +655,6 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 		}
 	}
 
-
 	if (BotData == NULL)
 	{
 		UE_LOG(UT, Error, TEXT("Character data for bot '%s' not found"), *BotName);
@@ -673,64 +665,33 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
 		if (NewBot != NULL)
 		{
-			NewBot->CharacterData = BotData;
-			NewBot->Personality = BotData->Personality;
+			NewBot->InitializeCharacter(BotData);
 			SetUniqueBotName(NewBot, BotData);
-
-			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-			if (PS != NULL)
-			{
-				PS->bReadyToPlay = true;
-				PS->SetCharacter(BotData->Character.ToString());
-				PS->ServerReceiveHatClass(BotData->HatType.ToString());
-				PS->ServerReceiveHatVariant(BotData->HatVariantId);
-				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
-				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
-			}
-
-			NewBot->InitializeSkill(BotData->Skill);
 			NumBots++;
 			ChangeTeam(NewBot, TeamNum);
 			GenericPlayerInitialization(NewBot);
 		}
-
 		return NewBot;
 	}
 }
+
 AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum)
 {
-	const UUTBotCharacter* BotData = Cast<UUTBotCharacter>(BotAssetPath.TryLoad());
+	UUTBotCharacter* BotData = Cast<UUTBotCharacter>(BotAssetPath.TryLoad());
+	AUTBot* NewBot = NULL;
 	if (BotData != NULL)
 	{
-		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
+		NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
 		if (NewBot != NULL)
 		{
-			NewBot->CharacterData = BotData;
-			NewBot->Personality = BotData->Personality;
+			NewBot->InitializeCharacter(BotData);
 			SetUniqueBotName(NewBot, BotData);
-
-			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-			if (PS != NULL)
-			{
-				PS->bReadyToPlay = true;
-				PS->SetCharacter(BotData->Character.ToString());
-				PS->ServerReceiveHatClass(BotData->HatType.ToString());
-				PS->ServerReceiveHatVariant(BotData->HatVariantId);
-				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
-				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
-			}
-
-			NewBot->InitializeSkill(BotData->Skill);
 			NumBots++;
 			ChangeTeam(NewBot, TeamNum);
 			GenericPlayerInitialization(NewBot);
 		}
-		return NewBot;
 	}
-	else
-	{
-		return NULL;
-	}
+	return NewBot;
 }
 
 void AUTGameMode::SetUniqueBotName(AUTBot* B, const UUTBotCharacter* BotData)

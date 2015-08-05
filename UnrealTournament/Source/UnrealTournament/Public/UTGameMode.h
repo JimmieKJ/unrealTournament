@@ -287,6 +287,9 @@ public:
 	/** cached list of UTBotCharacter assets from the asset registry, so we don't need to query the registry every time we add a bot */
 	TArray<FAssetData> BotAssets;
 
+	/** Sorted array of remaining eligible bot characters to select from. */
+	TArray<UUTBotCharacter*> EligibleBots;
+
 	/** type of SquadAI that contains game specific AI logic for this gametype */
 	UPROPERTY(EditDefaultsOnly, Category = AI)
 	TSubclassOf<class AUTSquadAI> SquadType;

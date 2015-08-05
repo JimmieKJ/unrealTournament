@@ -14,6 +14,7 @@
 #include "UTSquadAI.h"
 #include "UTReachSpec_HighJump.h"
 #include "UTAvoidMarker.h"
+#include "UTBotCharacter.h"
 
 void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
 {
@@ -129,6 +130,25 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	TacticalMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_TacticalMove>(this, FName(TEXT("TacticalMove")));
 	RangedAttackAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_RangedAttack>(this, FName(TEXT("RangedAttack")));
 	ChargeAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_Charge>(this, FName(TEXT("Charge")));
+}
+
+void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
+{
+	CharacterData = NewCharacterData;
+	Personality = CharacterData->Personality;
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL)
+	{
+		PS->bReadyToPlay = true;
+		PS->SetCharacter(CharacterData->Character.ToString());
+		PS->ServerReceiveHatClass(CharacterData->HatType.ToString());
+		PS->ServerReceiveHatVariant(CharacterData->HatVariantId);
+		PS->ServerReceiveEyewearClass(CharacterData->EyewearType.ToString());
+		PS->ServerReceiveEyewearVariant(CharacterData->EyewearVariantId);
+	}
+
+	InitializeSkill(CharacterData->Skill);
 }
 
 float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
