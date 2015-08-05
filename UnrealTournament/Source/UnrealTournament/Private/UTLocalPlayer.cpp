@@ -269,6 +269,20 @@ bool UUTLocalPlayer::IsMenuGame()
 void UUTLocalPlayer::ShowMenu()
 {
 #if !UE_SERVER
+	
+	if (bRecordingReplay)
+	{
+		static const FName VideoRecordingFeatureName("VideoRecording");
+		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+		{
+			UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+			if (VideoRecorder)
+			{
+				VideoRecorder->CancelRecording();
+			}
+		}
+	}
+
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
