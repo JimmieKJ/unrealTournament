@@ -502,12 +502,12 @@ public:
 	/** called to gather blueprint replicated properties */
 	virtual void GetLifetimeBlueprintReplicationList(TArray<class FLifetimeProperty>& OutLifetimeProps) const;
 	/** called prior to replication of an instance of this BP class */
-	virtual void InstancePreReplication(class IRepChangedPropertyTracker& ChangedPropertyTracker) const
+	virtual void InstancePreReplication(UObject* Obj, class IRepChangedPropertyTracker& ChangedPropertyTracker) const
 	{
 		UBlueprintGeneratedClass* SuperBPClass = Cast<UBlueprintGeneratedClass>(GetSuperStruct());
 		if (SuperBPClass != NULL)
 		{
-			SuperBPClass->InstancePreReplication(ChangedPropertyTracker);
+			SuperBPClass->InstancePreReplication(Obj, ChangedPropertyTracker);
 		}
 	}
 };
