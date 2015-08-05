@@ -115,7 +115,7 @@ static const FName NAME_BioRifleShots(TEXT("BioRifleShots"));
 static const FName NAME_ShockRifleShots(TEXT("ShockRifleShots"));
 static const FName NAME_LinkShots(TEXT("LinkShots"));
 static const FName NAME_MinigunShots(TEXT("MinigunShots"));
-static const FName NAME_FlakShots(TEXT("FlakShardShots"));
+static const FName NAME_FlakShots(TEXT("FlakShots"));
 static const FName NAME_RocketShots(TEXT("RocketShots"));
 static const FName NAME_SniperShots(TEXT("SniperShots"));
 static const FName NAME_RedeemerShots(TEXT("RedeemerShots"));

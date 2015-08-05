@@ -77,6 +77,28 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_InstagibDeaths, new FStat(true));
 	Stats.Add(NAME_TelefragDeaths, new FStat(true));
 
+	Stats.Add(NAME_EnforcerShots, new FStat(true));
+	Stats.Add(NAME_BioRifleShots, new FStat(true));
+	Stats.Add(NAME_ShockRifleShots, new FStat(true));
+	Stats.Add(NAME_LinkShots, new FStat(true));
+	Stats.Add(NAME_MinigunShots, new FStat(true));
+	Stats.Add(NAME_FlakShots, new FStat(true));
+	Stats.Add(NAME_RocketShots, new FStat(true));
+	Stats.Add(NAME_SniperShots, new FStat(true));
+	Stats.Add(NAME_RedeemerShots, new FStat(true));
+	Stats.Add(NAME_InstagibShots, new FStat(true));
+
+	Stats.Add(NAME_EnforcerHits, new FStat(true));
+	Stats.Add(NAME_BioRifleHits, new FStat(true));
+	Stats.Add(NAME_ShockRifleHits, new FStat(true));
+	Stats.Add(NAME_LinkHits, new FStat(true));
+	Stats.Add(NAME_MinigunHits, new FStat(true));
+	Stats.Add(NAME_FlakHits, new FStat(true));
+	Stats.Add(NAME_RocketHits, new FStat(true));
+	Stats.Add(NAME_SniperHits, new FStat(true));
+	Stats.Add(NAME_RedeemerHits, new FStat(true));
+	Stats.Add(NAME_InstagibHits, new FStat(true));
+
 	Stats.Add(NAME_UDamageTime, new FStat(true));
 	Stats.Add(NAME_BerserkTime, new FStat(true));
 	Stats.Add(NAME_InvisibilityTime, new FStat(true));
