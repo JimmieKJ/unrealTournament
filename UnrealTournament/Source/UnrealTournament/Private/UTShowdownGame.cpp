@@ -212,8 +212,8 @@ void AUTShowdownGame::StartIntermission()
 AActor* AUTShowdownGame::ChoosePlayerStart_Implementation(AController* Player)
 {
 	// if they pre-selected, apply it
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(Player->PlayerState);
-	if (UTPS->RespawnChoiceA != nullptr)
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>((Player != NULL) ? Player->PlayerState : NULL);
+	if (UTPS != NULL && UTPS->RespawnChoiceA != nullptr)
 	{
 		return UTPS->RespawnChoiceA;
 	}
