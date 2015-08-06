@@ -40,4 +40,11 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 
 	virtual void BeginPlay() override;
 	virtual void DrawHUD() override;
+
+protected:
+	/** set when PlayerOwner's look input has been locked for interacting with the spawn selection map, so we know to restore the input later */
+	bool bLockedLookInput;
+
+	/** calculates MinimapTransform from the given level bounding box */
+	virtual void CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight);
 };

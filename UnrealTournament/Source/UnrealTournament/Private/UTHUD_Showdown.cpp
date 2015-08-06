@@ -24,15 +24,24 @@ void AUTHUD_Showdown::BeginPlay()
 	}
 }
 
+void AUTHUD_Showdown::CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight)
+{
+	const bool bLargerXAxis = LevelBox.GetExtent().X > LevelBox.GetExtent().Y;
+	const float LevelRadius = bLargerXAxis ? LevelBox.GetExtent().X : LevelBox.GetExtent().Y;
+	const float ScaleFactor = float(MapWidth) / (LevelRadius * 2.0f);
+	const FVector CenteringAdjust = bLargerXAxis ? FVector(0.0f, (LevelBox.GetExtent().X - LevelBox.GetExtent().Y), 0.0f) : FVector((LevelBox.GetExtent().Y - LevelBox.GetExtent().X), 0.0f, 0.0f);
+	MinimapTransform = FTranslationMatrix(-LevelBox.Min + CenteringAdjust) * FScaleMatrix(FVector(ScaleFactor));
+}
+
 void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height)
 {
+	FBox LevelBox(0);
 	AUTRecastNavMesh* NavMesh = GetUTNavData(GetWorld());
 	if (NavMesh != NULL)
 	{
 		TMap<const UUTPathNode*, FNavMeshTriangleList> TriangleMap;
 		NavMesh->GetNodeTriangleMap(TriangleMap);
 		// calculate a bounding box for the level
-		FBox LevelBox(0);
 		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
 		{
 			const FNavMeshTriangleList& TriList = It.Value();
@@ -42,11 +51,7 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 			}
 		}
 		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
-		const bool bLargerXAxis = LevelBox.GetExtent().X > LevelBox.GetExtent().Y;
-		const float LevelRadius = bLargerXAxis ? LevelBox.GetExtent().X : LevelBox.GetExtent().Y;
-		const float ScaleFactor = float(Width) / (LevelRadius * 2.0f);
-		const FVector CenteringAdjust = bLargerXAxis ? FVector(0.0f, (LevelBox.GetExtent().X - LevelBox.GetExtent().Y), 0.0f) : FVector((LevelBox.GetExtent().Y - LevelBox.GetExtent().X), 0.0f, 0.0f);
-		MinimapTransform = FTranslationMatrix(-LevelBox.Min + CenteringAdjust) * FScaleMatrix(FVector(ScaleFactor));
+		CalcMinimapTransform(LevelBox, Width, Height);
 		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
 		{
 			const FNavMeshTriangleList& TriList = It.Value();
@@ -58,6 +63,24 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 			}
 		}
 	}
+	else
+	{
+		// set minimap scale based on colliding geometry so map has some functionality without a working navmesh
+		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+		{
+			TArray<UPrimitiveComponent*> Components;
+			It->GetComponents(Components);
+			for (UPrimitiveComponent* Prim : Components)
+			{
+				if (Prim->IsCollisionEnabled())
+				{
+					LevelBox += Prim->Bounds.GetBox();
+				}
+			}
+		}
+		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
+		CalcMinimapTransform(LevelBox, Width, Height);
+	}
 }
 
 void AUTHUD_Showdown::DrawHUD()
@@ -67,6 +90,12 @@ void AUTHUD_Showdown::DrawHUD()
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && (GS->SpawnSelector != NULL || GS->bFinalIntermissionDelay))
 	{
+		if (!bLockedLookInput)
+		{
+			PlayerOwner->SetIgnoreLookInput(true);
+			bLockedLookInput = true;
+		}
+
 		const float MapSize = float(Canvas->SizeY) * 0.75f;
 		MapToScreen = FTranslationMatrix(FVector((Canvas->SizeX - MapSize) * 0.5f * (MinimapTexture->GetSurfaceWidth() / MapSize), (Canvas->SizeY - MapSize) * 0.5f, 0.0f)) * FScaleMatrix(FVector(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f));
 		if (MinimapTexture != NULL)
@@ -116,6 +145,11 @@ void AUTHUD_Showdown::DrawHUD()
 				Canvas->DrawTile(It->HUDIcon.Texture, Pos.X - 16.0f * Ratio * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * Ratio * RenderScale, 32.0f * RenderScale, It->HUDIcon.U, It->HUDIcon.V, It->HUDIcon.UL, It->HUDIcon.VL);
 			}
 		}
+	}
+	else if (bLockedLookInput)
+	{
+		PlayerOwner->SetIgnoreLookInput(false);
+		bLockedLookInput = false;
 	}
 }
 
