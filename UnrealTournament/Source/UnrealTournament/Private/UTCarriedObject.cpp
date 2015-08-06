@@ -27,6 +27,7 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	NetPriority=3.0;
 	LastGameMessageTime = 0.f;
 	AutoReturnTime = 30.0f;
+	bMovementEnabled = true;
 }
 
 void AUTCarriedObject::OnConstruction(const FTransform& Transform)
