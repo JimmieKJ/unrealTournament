@@ -455,53 +455,61 @@ void UStatManager::AddMatchToStats(const FString& GameType, const TArray<class A
 
 	for (int32 i = 0; i < ActivePlayerStates->Num(); i++)
 	{
-		int32 NewIndex = NewMatchStats.Players.AddZeroed();
-		FMatchStatsPlayer& MatchPlayer = NewMatchStats.Players[NewIndex];
 		if (Cast<AUTPlayerState>((*ActivePlayerStates)[i]) != nullptr)
 		{
 			const AUTPlayerState& PlayerState = *(Cast<AUTPlayerState>((*ActivePlayerStates)[i]));
-			MatchPlayer.PlayerName = PlayerState.PlayerName;
-			if (PlayerState.Team != nullptr)
+			if (!PlayerState.bOnlySpectator)
 			{
-				MatchPlayer.TeamIndex = PlayerState.Team->TeamIndex;
+				int32 NewIndex = NewMatchStats.Players.AddZeroed();
+				FMatchStatsPlayer& MatchPlayer = NewMatchStats.Players[NewIndex];
+
+				MatchPlayer.PlayerName = PlayerState.PlayerName;
+				if (PlayerState.Team != nullptr)
+				{
+					MatchPlayer.TeamIndex = PlayerState.Team->TeamIndex;
+				}
+				else
+				{
+					MatchPlayer.TeamIndex = 0;
+				}
+				MatchPlayer.StatsID = PlayerState.StatsID;
+				MatchPlayer.Score = PlayerState.Score;
+				MatchPlayer.Kills = PlayerState.Kills;
+				MatchPlayer.Deaths = PlayerState.Deaths;
+				MatchPlayer.Score = PlayerState.Score;
+				MatchPlayer.FlagCaptures = PlayerState.FlagCaptures;
+				MatchPlayer.FlagReturns = PlayerState.FlagReturns;
 			}
-			else
-			{
-				MatchPlayer.TeamIndex = 0;
-			}
-			MatchPlayer.StatsID = PlayerState.StatsID;
-			MatchPlayer.Score = PlayerState.Score;
-			MatchPlayer.Kills = PlayerState.Kills;
-			MatchPlayer.Deaths = PlayerState.Deaths;
-			MatchPlayer.Score = PlayerState.Score;
-			MatchPlayer.FlagCaptures = PlayerState.FlagCaptures;
-			MatchPlayer.FlagReturns = PlayerState.FlagReturns;
 		}
 	}
 
 	for (int32 i = 0; i < InactivePlayerStates->Num(); i++)
 	{
-		int32 NewIndex = NewMatchStats.Players.AddZeroed();
-		FMatchStatsPlayer& MatchPlayer = NewMatchStats.Players[NewIndex];
 		if (Cast<AUTPlayerState>((*InactivePlayerStates)[i]) != nullptr)
 		{
 			const AUTPlayerState& PlayerState = *(Cast<AUTPlayerState>((*InactivePlayerStates)[i]));
-			MatchPlayer.PlayerName = PlayerState.PlayerName;
-			if (PlayerState.Team != nullptr)
+			if (!PlayerState.bOnlySpectator)
 			{
-				MatchPlayer.TeamIndex = PlayerState.Team->TeamIndex;
+				int32 NewIndex = NewMatchStats.Players.AddZeroed();
+				FMatchStatsPlayer& MatchPlayer = NewMatchStats.Players[NewIndex];
+
+				MatchPlayer.PlayerName = PlayerState.PlayerName;
+				if (PlayerState.Team != nullptr)
+				{
+					MatchPlayer.TeamIndex = PlayerState.Team->TeamIndex;
+				}
+				else
+				{
+					MatchPlayer.TeamIndex = 0;
+				}
+				MatchPlayer.StatsID = PlayerState.StatsID;
+				MatchPlayer.Score = PlayerState.Score;
+				MatchPlayer.Kills = PlayerState.Kills;
+				MatchPlayer.Deaths = PlayerState.Deaths;
+				MatchPlayer.Score = PlayerState.Score;
+				MatchPlayer.FlagCaptures = PlayerState.FlagCaptures;
+				MatchPlayer.FlagReturns = PlayerState.FlagReturns;
 			}
-			else
-			{
-				MatchPlayer.TeamIndex = 0;
-			}
-			MatchPlayer.StatsID = PlayerState.StatsID;
-			MatchPlayer.Score = PlayerState.Score;
-			MatchPlayer.Kills = PlayerState.Kills;
-			MatchPlayer.Deaths = PlayerState.Deaths;
-			MatchPlayer.Score = PlayerState.Score;
-			MatchPlayer.FlagCaptures = PlayerState.FlagCaptures;
-			MatchPlayer.FlagReturns = PlayerState.FlagReturns;
 		}
 	}
 
