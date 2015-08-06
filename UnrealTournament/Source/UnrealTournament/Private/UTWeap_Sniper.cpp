@@ -73,6 +73,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 	FHitResult Hit;
 	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
+	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
 	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
 
@@ -89,6 +90,11 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 	if (Role == ROLE_Authority)
 	{
+		if (PS && (ShotsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(ShotsStatsName, 1);
+		}
+
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 		// warn bot target, if any
 		if (UTPC != NULL)
@@ -148,6 +154,11 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 			}
 		}
 		Hit.Actor->TakeDamage(Damage, FUTPointDamageEvent(Damage, Hit, FireDir, DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
+
+		if ((Role == ROLE_Authority) && PS && (HitsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(HitsStatsName, 1);
+		}
 	}
 	if (OutHit != NULL)
 	{
