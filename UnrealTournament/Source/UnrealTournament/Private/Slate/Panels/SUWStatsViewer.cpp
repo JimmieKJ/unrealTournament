@@ -54,6 +54,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		FriendStatIDList.AddZeroed();
 	}
 
+	// Real friends
 	TArray<FUTFriend> OnlineFriendsList;
 	PlayerOwner->GetFriendsList(OnlineFriendsList);
 	for (auto Friend : OnlineFriendsList)
@@ -62,6 +63,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		FriendStatIDList.Add(Friend.UserId);
 	}
 
+	// Recent players
 	TArray<FUTFriend> OnlineRecentPlayersList;
 	PlayerOwner->GetRecentPlayersList(OnlineRecentPlayersList);
 	for (auto RecentPlayer : OnlineRecentPlayersList)
@@ -70,9 +72,40 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 		FriendStatIDList.Add(RecentPlayer.UserId);
 	}
 
+	// Players in current game
+	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		for (auto PlayerState : GameState->PlayerArray)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS && !PS->StatsID.IsEmpty() && !FriendStatIDList.Contains(PS->StatsID))
+			{
+				FriendList.Add(MakeShareable(new FString(PS->PlayerName)));
+				FriendStatIDList.Add(PS->StatsID);
+			}
+		}
+	}
+
 	this->ChildSlot
 	[
 		SNew(SOverlay)
+		+ SOverlay::Slot()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Fill)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.Backdrop"))
+				]
+			]
+		]
 		+ SOverlay::Slot()
 		[
 			SNew(SVerticalBox)
