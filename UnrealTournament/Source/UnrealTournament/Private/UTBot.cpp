@@ -142,10 +142,16 @@ void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
 	{
 		PS->bReadyToPlay = true;
 		PS->SetCharacter(CharacterData->Character.ToString());
-		PS->ServerReceiveHatClass(CharacterData->HatType.ToString());
-		PS->ServerReceiveHatVariant(CharacterData->HatVariantId);
-		PS->ServerReceiveEyewearClass(CharacterData->EyewearType.ToString());
-		PS->ServerReceiveEyewearVariant(CharacterData->EyewearVariantId);
+		if (!CharacterData->HatType.ToString().IsEmpty())
+		{
+			PS->ServerReceiveHatClass(CharacterData->HatType.ToString());
+			PS->ServerReceiveHatVariant(CharacterData->HatVariantId);
+		}
+		if (!CharacterData->EyewearType.ToString().IsEmpty())
+		{
+			PS->ServerReceiveEyewearClass(CharacterData->EyewearType.ToString());
+			PS->ServerReceiveEyewearVariant(CharacterData->EyewearVariantId);
+		}
 	}
 
 	InitializeSkill(CharacterData->Skill);
