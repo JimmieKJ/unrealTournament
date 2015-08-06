@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UTHUD_TeamDM.h"
+#include "UTHUD_Duel.h"
 #include "UTTimedPowerup.h"
 #include "UTPickupWeapon.h"
 #include "Slate/SlateGameResources.h"
@@ -13,7 +13,7 @@
 AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	HUDClass = AUTHUD_TeamDM::StaticClass();
+	HUDClass = AUTHUD_Duel::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "Duel", "Duel");
 	PowerupDuration = 10.f;
 	GoalScore = 0;

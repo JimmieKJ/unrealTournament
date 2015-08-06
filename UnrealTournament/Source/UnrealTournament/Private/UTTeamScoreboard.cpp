@@ -8,6 +8,7 @@
 UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NumPages = 2;
+	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Scoring Breakdown");
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -307,13 +308,12 @@ void UUTTeamScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, flo
 	StatsFontInfo.TextFont = UTHUDOwner->SmallFont;
 	bHighlightStatsLineTopValue = true;
 
-	FText CombinedHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Scoring Breakdown");
 	float XL, SmallYL ;
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	StatsFontInfo.TextHeight = SmallYL;
 	float MedYL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->TextSize(UTHUDOwner->MediumFont, TeamScoringHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, TeamScoringHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += 1.1f * MedYL;
 
 	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL)
