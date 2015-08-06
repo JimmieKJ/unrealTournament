@@ -163,7 +163,6 @@ public:
 	virtual bool CanRestartPlayer();
 
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad) override;
-	virtual bool InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad) override;
 
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = Camera)
 	bool bAllowPlayingBehindView;

@@ -492,19 +492,6 @@ void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
 }
 
-bool AUTPlayerController::InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
-{
-	if (bShowMouseCursor)
-	{
-		// override the axes so the pointer movement doesn't also move the view around
-		return true;
-	}
-	else
-	{
-		return Super::InputAxis(Key, Delta, DeltaTime, NumSamples, bGamepad);
-	}
-}
-
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
