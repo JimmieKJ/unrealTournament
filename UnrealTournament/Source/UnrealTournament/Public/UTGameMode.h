@@ -288,6 +288,7 @@ public:
 	TArray<FAssetData> BotAssets;
 
 	/** Sorted array of remaining eligible bot characters to select from. */
+	UPROPERTY()
 	TArray<UUTBotCharacter*> EligibleBots;
 
 	/** type of SquadAI that contains game specific AI logic for this gametype */
