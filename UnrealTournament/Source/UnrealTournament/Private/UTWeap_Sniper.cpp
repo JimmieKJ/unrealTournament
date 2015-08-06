@@ -74,7 +74,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	FHitResult Hit;
 	AUTPlayerController* UTPC = UTOwner ? Cast<AUTPlayerController>(UTOwner->Controller) : NULL;
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
-	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
+	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
 
 	if (Role == ROLE_Authority && Cast<AUTCharacter>(Hit.Actor.Get()) == NULL)
 	{

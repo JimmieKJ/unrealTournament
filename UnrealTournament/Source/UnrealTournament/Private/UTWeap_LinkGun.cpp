@@ -6,6 +6,8 @@
 #include "UTTeamGameMode.h"
 #include "UnrealNetwork.h"
 #include "StatNames.h"
+#include "UTSquadAI.h"
+#include "UTWeaponStateFiring.h"
 
 AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 : Super(OI)
@@ -414,6 +416,53 @@ void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
 		bPendingBeamPulse = true;
 	}
 	Super::OnMultiPress_Implementation(OtherFireMode);
+}
+
+void AUTWeap_LinkGun::StateChanged()
+{
+	Super::StateChanged();
+
+	// set AI timer for beam pulse
+	static FName NAME_CheckBotPulseFire(TEXT("CheckBotPulseFire"));
+	if (CurrentFireMode == 1 && Cast<UUTWeaponStateFiring>(CurrentState) != NULL && Cast<AUTBot>(UTOwner->Controller) != NULL)
+	{
+		SetTimerUFunc(this, NAME_CheckBotPulseFire, 0.1f, true);
+	}
+	else
+	{
+		ClearTimerUFunc(this, NAME_CheckBotPulseFire);
+	}
+}
+
+void AUTWeap_LinkGun::CheckBotPulseFire()
+{
+	if (UTOwner != NULL && LinkTarget == NULL && CurrentFireMode == 1 && InstantHitInfo.IsValidIndex(1) && !bPendingBeamPulse)
+	{
+		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+		if ( B != NULL && (B->Skill + B->Personality.Tactics >= 3.0f || B->IsFavoriteWeapon(GetClass())) && B->GetEnemy() != NULL && B->GetTarget() == B->GetEnemy() &&
+			(B->IsCharging() || B->GetSquad()->MustKeepEnemy(B->GetEnemy()) || B->RelativeStrength(B->GetEnemy()) < 0.0f) )
+		{
+			const FVector SpawnLocation = GetFireStartLoc();
+			const FVector EndTrace = SpawnLocation + GetAdjustedAim(SpawnLocation).Vector() * InstantHitInfo[1].TraceRange;
+
+			bool bTryPulse = FMath::FRand() < 0.2f;
+			if (bTryPulse)
+			{
+				// if bot has good reflexes only pulse if enemy is being hit
+				if (FMath::FRand() < 0.07f * B->Skill + B->Personality.ReactionTime)
+				{
+					FHitResult Hit;
+					HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[1].TraceHalfSize, Hit, 0.0f);
+					bTryPulse = Hit.Actor.Get() == B->GetEnemy();
+				}
+				if (bTryPulse)
+				{
+					StartFire(0);
+					StopFire(0);
+				}
+			}
+		}
+	}
 }
 
 void AUTWeap_LinkGun::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

@@ -1120,12 +1120,27 @@ void AUTWeapon::NetSynchRandomSeed()
 	}
 }
 
-void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime)
+void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime)
 {
 	ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
-	if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), true, UTOwner)))
+	FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, UTOwner);
+	if (TraceRadius <= 0.0f)
 	{
-		Hit.Location = EndTrace;
+		if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
+		{
+			Hit.Location = EndTrace;
+		}
+	}
+	else
+	{
+		if (GetWorld()->SweepSingleByChannel(Hit, StartLocation, EndTrace, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(TraceRadius), QueryParams))
+		{
+			Hit.Location += (EndTrace - StartLocation).GetSafeNormal() * TraceRadius; // so impact point is still on the surface of the target collision
+		}
+		else
+		{
+			Hit.Location = EndTrace;
+		}
 	}
 	if (!(Hit.Location - StartLocation).IsNearlyZero())
 	{
@@ -1156,13 +1171,13 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 				if (CollisionRadius >= CollisionHeight)
 				{
 					ClosestPoint = FMath::ClosestPointOnSegment(TargetLocation, StartLocation, Hit.Location);
-					bHitTarget = ((ClosestPoint - TargetLocation).SizeSquared() < FMath::Square(CollisionHeight));
+					bHitTarget = ((ClosestPoint - TargetLocation).SizeSquared() < FMath::Square(CollisionHeight + TraceRadius));
 				}
 				else
 				{
 					FVector CapsuleSegment = FVector(0.f, 0.f, CollisionHeight - CollisionRadius);
 					FMath::SegmentDistToSegmentSafe(StartLocation, Hit.Location, TargetLocation - CapsuleSegment, TargetLocation + CapsuleSegment, ClosestPoint, ClosestCapsulePoint);
-					bHitTarget = ((ClosestPoint - ClosestCapsulePoint).SizeSquared() < FMath::Square(CollisionRadius));
+					bHitTarget = ((ClosestPoint - ClosestCapsulePoint).SizeSquared() < FMath::Square(CollisionRadius + TraceRadius));
 				}
 				if (bHitTarget &&  (!BestTarget || ((ClosestPoint - StartLocation).SizeSquared() < (BestPoint - StartLocation).SizeSquared())))
 				{
@@ -1208,7 +1223,7 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
 	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
-	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
+	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
 	if (Role == ROLE_Authority)
 	{
 		if (PS && (ShotsStatsName != NAME_None))

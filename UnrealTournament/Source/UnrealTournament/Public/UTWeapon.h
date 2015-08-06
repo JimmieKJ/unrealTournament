@@ -22,9 +22,12 @@ struct FInstantHitDamageInfo
 	float Momentum;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
 	float TraceRange;
+	/** size of trace (radius of sphere); if <= 0, line trace is used */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	float TraceHalfSize;
 
 	FInstantHitDamageInfo()
-		: Damage(10), TraceRange(25000.0f)
+		: Damage(10), Momentum(0.0f), TraceRange(25000.0f), TraceHalfSize(0.0f)
 	{}
 };
 
@@ -573,7 +576,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	void K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit);
 
 	/** Handles rewind functionality for net games with ping prediction */
-	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime);
+	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime);
 
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireProjectile();
