@@ -152,6 +152,10 @@ public:
 		float LastTauntTime;
 
 	FTimerHandle PlayKillAnnouncement;
+	FTimerHandle UpdateOldNameHandle;
+
+	/** Delay oldname update so it's available for name change notification. */
+	virtual void UpdateOldName();
 
 	/** Whether this player plays auto-taunts. */
 	virtual bool ShouldAutoTaunt() const;

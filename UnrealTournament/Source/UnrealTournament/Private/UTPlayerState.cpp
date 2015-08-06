@@ -112,7 +112,15 @@ void AUTPlayerState::Destroyed()
 
 void AUTPlayerState::SetPlayerName(const FString& S)
 {
-	Super::SetPlayerName(S);
+	PlayerName = S;
+
+	// RepNotify callback won't get called by net code if we are the server
+	ENetMode NetMode = GetNetMode();
+	if (NetMode == NM_Standalone || NetMode == NM_ListenServer)
+	{
+		OnRep_PlayerName();
+	}
+	ForceNetUpdate();
 	bHasValidClampedName = false;
 }
 
@@ -1675,10 +1683,57 @@ void AUTPlayerState::EpicIDClicked()
 }
 #endif
 
+void AUTPlayerState::UpdateOldName()
+{
+	OldName = PlayerName;
+}
+
 void AUTPlayerState::OnRep_PlayerName()
 {
-	Super::OnRep_PlayerName();
-	bHasValidClampedName = false;
+	if (GetWorld()->TimeSeconds < 2.f)
+	{
+		OldName = PlayerName;
+		bHasBeenWelcomed = true;
+		return;
+	}
+
+	if (!GetWorldTimerManager().IsTimerActive(UpdateOldNameHandle))
+	{
+		GetWorldTimerManager().SetTimer(UpdateOldNameHandle, this, &AUTPlayerState::UpdateOldName, 5.f, false);
+	}
+
+	// new player or name change
+	if (bHasBeenWelcomed)
+	{
+		if (ShouldBroadCastWelcomeMessage())
+		{
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				APlayerController* PlayerController = *Iterator;
+				if (PlayerController)
+				{
+					PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, 2, this);
+				}
+			}
+		}
+	}
+	else
+	{
+		int32 WelcomeMessageNum = bOnlySpectator ? 16 : 1;
+		bHasBeenWelcomed = true;
+
+		if (ShouldBroadCastWelcomeMessage())
+		{
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				APlayerController* PlayerController = *Iterator;
+				if (PlayerController)
+				{
+					PlayerController->ClientReceiveLocalizedMessage(EngineMessageClass, WelcomeMessageNum, this);
+				}
+			}
+		}
+	}	bHasValidClampedName = false;
 }
 
 
