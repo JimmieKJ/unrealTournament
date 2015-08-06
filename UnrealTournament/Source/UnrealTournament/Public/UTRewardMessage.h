@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		FName AnnouncementHS;
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::Red;
 	}

@@ -36,7 +36,7 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		bWantsBotReaction = true;
 	}
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::Red;
 	}
