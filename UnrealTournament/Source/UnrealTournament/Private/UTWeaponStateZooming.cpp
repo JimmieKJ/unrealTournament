@@ -58,6 +58,12 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 	if (GetOuterAUTWeapon()->ZoomState != EZoomState::EZS_NotZoomed && OverlayMat != NULL)
 	{
 		UCanvas* C = WeaponHudWidget->GetCanvas();
+		AUTPlayerController* UTPC = GetUTOwner()->GetLocalViewer();
+		if (UTPC && UTPC->IsBehindView())
+		{
+			// no zoom overlay in 3rd person
+			return true;
+		}
 		if (OverlayMI == NULL)
 		{
 			OverlayMI = UMaterialInstanceDynamic::Create(OverlayMat, this);
@@ -84,7 +90,6 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 			{
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 				APlayerState* OwnerState = GetUTOwner()->PlayerState;
-				AUTPlayerController* UTPC = GetUTOwner()->GetLocalViewer();
 				float WorldTime = GetWorld()->TimeSeconds;
 				FVector FireStart = GetOuterAUTWeapon()->GetFireStartLoc();
 				for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
