@@ -132,14 +132,14 @@ void AUTCTFFlag::Drop(AController* Killer)
 	}
 	NoLongerHeld();
 
-	// Toss is out
-	TossObject(LastHoldingPawn);
-
 	if (HomeBase != NULL)
 	{
 		HomeBase->ObjectWasDropped(LastHoldingPawn);
 	}
 	ChangeState(CarriedObjectState::Dropped);
+
+	// Toss is out
+	TossObject(LastHoldingPawn);
 }
 
 void AUTCTFFlag::DelayedDropMessage()

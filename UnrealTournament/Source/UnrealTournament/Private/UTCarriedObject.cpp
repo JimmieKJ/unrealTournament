@@ -70,6 +70,7 @@ void AUTCarriedObject::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & 
 	DOREPLIFETIME(AUTCarriedObject, ObjectState);
 	DOREPLIFETIME(AUTCarriedObject, Holder);
 	DOREPLIFETIME(AUTCarriedObject, Team);
+	DOREPLIFETIME(AUTCarriedObject, bMovementEnabled);
 	DOREPLIFETIME_CONDITION(AUTCarriedObject, HomeBase, COND_InitialOnly);
 }
 
@@ -118,21 +119,35 @@ void AUTCarriedObject::TryPickup_Implementation(AUTCharacter* Character)
 
 void AUTCarriedObject::OnObjectStateChanged()
 {
-	// Look to see if the 
-
-	if (ObjectState == CarriedObjectState::Held)
+	if (Role == ROLE_Authority)
 	{
-		// Turn off movement on this actor
-
-		MovementComponent->StopMovementImmediately();
-		MovementComponent->SetUpdatedComponent(NULL);
-	}
-	else 
-	{
-		MovementComponent->SetUpdatedComponent(Collision);
+		// update movement component based on state; note that clients do this via OnRep_Moving() so as not to get physics out of sync if there is an inaccuracy in the location of blocking objects
+		if (ObjectState == CarriedObjectState::Held)
+		{
+			// Turn off movement on this actor
+			MovementComponent->StopMovementImmediately();
+			MovementComponent->SetUpdatedComponent(NULL);
+		}
+		else
+		{
+			MovementComponent->SetUpdatedComponent(Collision);
+		}
 	}
 
 	OnCarriedObjectStateChangedDelegate.Broadcast(this, ObjectState);
+}
+
+void AUTCarriedObject::OnRep_Moving()
+{
+	if (bMovementEnabled)
+	{
+		MovementComponent->SetUpdatedComponent(Collision);
+	}
+	else
+	{
+		MovementComponent->StopMovementImmediately();
+		MovementComponent->SetUpdatedComponent(NULL);
+	}
 }
 
 void AUTCarriedObject::OnHolderChanged()
@@ -327,8 +342,34 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 		FVector Loc = ObjectHolder->GetActorLocation();
 		Loc.Z -= ObjectHolder->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 		Loc.Z += Collision->GetUnscaledCapsuleHalfHeight() * 1.1f;
-		SetActorLocationAndRotation(Loc, Extra.IsZero() ? FRotator::ZeroRotator : Extra.Rotation());
-		MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + Extra + (218.0f * (0.5f + FMath::FRand()) * FMath::VRand() + FVector(0.0f, 0.0f, 100.0f));
+		const FRotator DesiredRot = Extra.IsZero() ? FRotator::ZeroRotator : Extra.Rotation();
+		bool bSuccess = true;
+		if (!TeleportTo(Loc, DesiredRot))
+		{
+			const float AdjustDist = ObjectHolder->GetSimpleCollisionRadius() * 0.5f;
+			FVector AdjustedLocs[] = { Loc + FVector(AdjustDist, 0.0f, 0.0f), Loc - FVector(AdjustDist, 0.0f, 0.0f), Loc + FVector(0.0f, AdjustDist, 0.0f), Loc - FVector(0.0f, AdjustDist, 0.0f) };
+			bSuccess = false;
+			for (int32 i = 0; i < ARRAY_COUNT(AdjustedLocs); i++)
+			{
+				if (TeleportTo(AdjustedLocs[i], DesiredRot))
+				{
+					bSuccess = true;
+					break;
+				}
+			}
+		}
+		if (bSuccess)
+		{
+			MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + Extra + (218.0f * (0.5f + FMath::FRand()) * FMath::VRand() + FVector(0.0f, 0.0f, 100.0f));
+		}
+		else
+		{
+			// put the flag exactly in the desired location without encroachment checks, then disable movement so it stays exactly there
+			// since the prior holder is there, it should be still possible to touch it to acquire/return, but movement might cause the penetration resolution to put it on the wrong side of walls, etc
+			TeleportTo(Loc, DesiredRot, false, true);
+			MovementComponent->StopMovementImmediately();
+			MovementComponent->SetUpdatedComponent(NULL);
+		}
 	}
 	
 }

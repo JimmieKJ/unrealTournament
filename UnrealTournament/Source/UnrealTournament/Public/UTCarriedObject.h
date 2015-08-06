@@ -40,7 +40,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	FName ObjectState;
 
 	UFUNCTION(BlueprintCallable, Category = GameObject)
-		virtual bool IsHome();
+	virtual bool IsHome();
 
 	// Holds the UTPlayerState of the person currently holding this object.  
 	UPROPERTY(Replicated, BlueprintReadOnly, ReplicatedUsing = OnHolderChanged, Category = GameObject)
@@ -206,6 +206,12 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 		return -1;
 	}
 
+	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override
+	{
+		bMovementEnabled = MovementComponent != NULL && MovementComponent->UpdatedComponent != NULL;
+		Super::PreReplication(ChangedPropertyTracker);
+	}
+
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override
 	{
 		MovementComponent->Velocity = NewVelocity;
@@ -215,6 +221,13 @@ protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 	AUTCharacter* LastHoldingPawn;
+
+	/** whether the movement component is enabled, to make sure clients stay in sync */
+	UPROPERTY(ReplicatedUsing = OnRep_Moving)
+	bool bMovementEnabled;
+
+	UFUNCTION()
+	virtual void OnRep_Moving();
 
 	// The timestamp of when this object was last taken.
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
