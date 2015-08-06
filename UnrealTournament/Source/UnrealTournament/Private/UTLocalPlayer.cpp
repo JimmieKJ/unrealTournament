@@ -1035,6 +1035,13 @@ void UUTLocalPlayer::LoadProfileSettings()
 
 void UUTLocalPlayer::ReadProfileItems()
 {
+#if !UE_BUILD_SHIPPING
+	// this code ends up invoking the asset registry (slow in dev builds) so command line option to skip
+	if (FParse::Param(FCommandLine::Get(), TEXT("noitems")))
+	{
+		return;
+	}
+#endif
 	TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 	if (UserID.IsValid() && FPlatformTime::Seconds() > LastItemReadTime + 60.0)
 	{
