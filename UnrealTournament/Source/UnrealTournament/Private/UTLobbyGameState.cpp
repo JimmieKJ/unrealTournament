@@ -437,7 +437,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		FString SLevel;
 		if (FParse::Value(FCommandLine::Get(), TEXT("SLevel="), SLevel))
 		{
-			Options += TEXT(" ") + SLevel;
+			Options += TEXT(" -SLevel=") + SLevel;
 		}
 
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
