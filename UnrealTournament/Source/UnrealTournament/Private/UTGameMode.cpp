@@ -1187,14 +1187,14 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 	}
 }
 
-void AUTGameMode::AddMultiKillEventToReplay(AController* Killer)
+void AUTGameMode::AddMultiKillEventToReplay(AController* Killer, int32 MultiKillLevel)
 {
 	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
 	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"));
+		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), MultiKillLevel);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);

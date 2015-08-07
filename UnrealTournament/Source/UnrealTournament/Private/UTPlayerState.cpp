@@ -308,7 +308,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 			if (GM)
 			{
-				GM->AddMultiKillEventToReplay(Controller);
+				GM->AddMultiKillEventToReplay(Controller, MultiKillLevel - 1);
 			}
 		}
 		else

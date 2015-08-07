@@ -1133,6 +1133,24 @@ void SUTReplayWindow::BookmarkDataReady(const TArray<uint8>& Data, bool bSucceed
 					StringData = Parsed[0] + TEXT(" killed ") + Parsed[1];
 				}
 			}
+			else if (EventType == TEXT("Multi Kills"))
+			{
+				TArray<FString> Parsed;
+				StringData.ParseIntoArray(Parsed, TEXT(" "), true);
+				if (Parsed.Num() >= 2)
+				{
+					StringData = Parsed[0] + TEXT(" with ") + Parsed[1];
+				}
+			}
+			else if (EventType == TEXT("Spree Kills"))
+			{
+				TArray<FString> Parsed;
+				StringData.ParseIntoArray(Parsed, TEXT(" "), true);
+				if (Parsed.Num() >= 2)
+				{
+					StringData = Parsed[0] + TEXT(" with ") + Parsed[1];
+				}
+			}
 
 			EventDataInfo.Add(EventID, StringData);
 		}

@@ -423,7 +423,7 @@ public:
 	virtual void BuildServerResponseRules(FString& OutRules);
 
 	void AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
-	void AddMultiKillEventToReplay(AController* Killer);
+	void AddMultiKillEventToReplay(AController* Killer, int32 MultiKillLevel);
 	void AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel);
 protected:
 
