@@ -503,14 +503,12 @@ void FHttpNetworkReplayStreamer::RequestEventData(const FString& EventID, const 
 	HttpRequest->SetURL(FString::Printf(TEXT("%sdownloadevent?Session=%s&ID=%s"), *ServerURL, *SessionName, *EventID));
 	HttpRequest->SetVerb(TEXT("GET"));
 
-	HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpRequestEventDataFinished);
-
-	RequestEventDataCompleteDelegate = Delegate;
-
+	HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpRequestEventDataFinished, Delegate);
+	
 	AddRequestToQueue(EQueuedHttpRequestType::RequestEventData, HttpRequest);
 }
 
-void FHttpNetworkReplayStreamer::HttpRequestEventDataFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void FHttpNetworkReplayStreamer::HttpRequestEventDataFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FOnRequestEventDataComplete RequestEventDataCompleteDelegate)
 {
 	RequestFinished(EStreamerState::StreamingDown, EQueuedHttpRequestType::RequestEventData, HttpRequest);
 
@@ -518,10 +516,7 @@ void FHttpNetworkReplayStreamer::HttpRequestEventDataFinished(FHttpRequestPtr Ht
 
 	if (bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
-		// Use a temp variable to hold the delegate because we want the delegate to be able to start the next request.
-		FOnRequestEventDataComplete Delegate = RequestEventDataCompleteDelegate;
-		RequestEventDataCompleteDelegate = FOnRequestEventDataComplete();
-		Delegate.ExecuteIfBound(HttpResponse->GetContent(), true);
+		RequestEventDataCompleteDelegate.ExecuteIfBound(HttpResponse->GetContent(), true);
 		UE_LOG(LogHttpReplay, Log, TEXT("FHttpNetworkReplayStreamer::HttpRequestEventDataFinished."));
 	}
 	else
@@ -530,7 +525,6 @@ void FHttpNetworkReplayStreamer::HttpRequestEventDataFinished(FHttpRequestPtr Ht
 		UE_LOG(LogHttpReplay, Error, TEXT("FHttpNetworkReplayStreamer::HttpRequestEventDataFinished. FAILED, Response code: %d"), HttpResponse.IsValid() ? HttpResponse->GetResponseCode() : 0);
 
 		RequestEventDataCompleteDelegate.ExecuteIfBound(TArray<uint8>(), false);
-		RequestEventDataCompleteDelegate = FOnRequestEventDataComplete();
 
 		SetLastError(ENetworkReplayError::ServiceUnavailable);
 	}
