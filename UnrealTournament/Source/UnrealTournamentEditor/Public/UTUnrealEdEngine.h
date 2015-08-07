@@ -22,6 +22,14 @@ class UNREALTOURNAMENTEDITOR_API UUTUnrealEdEngine : public UUnrealEdEngine
 
 	UT_LOADMAP_DEFINITION()
 
+	virtual void Init(IEngineLoop* InEngineLoop) override
+	{
+		Super::Init(InEngineLoop);
+
+		// remove the priority of "ConsoleVariables.ini" from console variables because it prevents the UI from working
+		IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+	}
+
 	virtual FString BuildPlayWorldURL(const TCHAR* MapName, bool bSpectatorMode, FString AdditionalURLOptions) override
 	{
 		FString URL = Super::BuildPlayWorldURL(MapName, bSpectatorMode, AdditionalURLOptions);
