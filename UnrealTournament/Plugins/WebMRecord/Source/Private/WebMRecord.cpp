@@ -129,6 +129,8 @@ void FWebMRecord::StartRecording(float RecordTime)
 	VideoDeltaTimeAccum = VideoFrameDelay;
 	TotalVideoTime = 0;
 	TimeLeftToRecord = RecordTime;
+	ReadbackBuffers[0] = nullptr;
+	ReadbackBuffers[1] = nullptr;
 
 	VideoFramesCaptured = 0;
 
