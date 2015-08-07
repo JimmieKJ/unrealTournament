@@ -3805,7 +3805,8 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 		// FIXME: TEMP FOR GDC: team override materials
 		if (PS != NULL && PS->Team != NULL)
 		{
-			for (int32 i = FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()) - 1; i >= 0; i--)
+			GetMesh()->OverrideMaterials.SetNumZeroed(FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()));
+			for (int32 i = GetMesh()->OverrideMaterials.Num() - 1; i >= 0; i--)
 			{
 				if (Data->TeamMaterials[i] != NULL)
 				{
