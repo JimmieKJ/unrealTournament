@@ -3,6 +3,7 @@
 
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
 
 #if !UE_SERVER
 
@@ -89,27 +90,19 @@ protected:
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
 	
-	struct FBookmarkEvent
-	{
-		FString id;
-		FString meta;
-		float time;
-	};
+	void KillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void FlagCapsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void FlagReturnsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void FlagDenyEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void MultiKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void SpreeKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
 
-	void KillsEnumerated(const FString& JsonString, bool bSucceeded);
-	void FlagCapsEnumerated(const FString& JsonString, bool bSucceeded);
-	void FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded);
-	void FlagDenyEnumerated(const FString& JsonString, bool bSucceeded);
-	void MultiKillsEnumerated(const FString& JsonString, bool bSucceeded);
-	void SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded);
-	void ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray);
-
-	TArray<FBookmarkEvent> KillEvents;
-	TArray<FBookmarkEvent> FlagCapEvents;
-	TArray<FBookmarkEvent> FlagDenyEvents;
-	TArray<FBookmarkEvent> FlagReturnEvents;
-	TArray<FBookmarkEvent> MultiKillEvents;
-	TArray<FBookmarkEvent> SpreeKillEvents;
+	TArray<FReplayEventListItem> KillEvents;
+	TArray<FReplayEventListItem> FlagCapEvents;
+	TArray<FReplayEventListItem> FlagDenyEvents;
+	TArray<FReplayEventListItem> FlagReturnEvents;
+	TArray<FReplayEventListItem> MultiKillEvents;
+	TArray<FReplayEventListItem> SpreeKillEvents;
 
 	bool bDrawTooltip;
 	float TooltipTime;

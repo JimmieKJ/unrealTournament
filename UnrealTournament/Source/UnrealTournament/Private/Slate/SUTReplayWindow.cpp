@@ -12,7 +12,6 @@
 #include "UTPlayerState.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Engine/DemoNetDriver.h"
-#include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "UTVideoRecordingFeature.h"
 #include "SUWScreenshotConfigDialog.h"
@@ -381,83 +380,51 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	}
 }
 
-void SUTReplayWindow::ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray)
-{
-	//UE_LOG(UT, Log, TEXT("%s"), *JsonString);
-	BookmarkArray.Empty();
-
-	TSharedPtr<FJsonObject> JsonObject;
-	TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(JsonString);
-
-	if (FJsonSerializer::Deserialize(JsonReader, JsonObject) && JsonObject.IsValid())
-	{
-		const TArray<TSharedPtr<FJsonValue>>* Events;
-		if (JsonObject->TryGetArrayField(TEXT("events"), Events))
-		{
-			for (int32 EventsIdx = 0; EventsIdx < Events->Num(); EventsIdx++)
-			{
-				FBookmarkEvent BookmarkEvent;
-				const TSharedPtr<FJsonValue>& EventJsonValue = (*Events)[EventsIdx];
-				EventJsonValue->AsObject()->TryGetStringField(TEXT("id"), BookmarkEvent.id);
-				EventJsonValue->AsObject()->TryGetStringField(TEXT("meta"), BookmarkEvent.meta);
-				int32 TimeTemp;
-				EventJsonValue->AsObject()->TryGetNumberField(TEXT("time1"), TimeTemp);
-
-				// time was in ms, should be in seconds
-				BookmarkEvent.time = TimeTemp / 1000.0f;
-
-				BookmarkArray.Add(BookmarkEvent);
-			}
-		}
-	}
-}
-
-void SUTReplayWindow::KillsEnumerated(const FString& JsonString, bool bSucceeded)
+void SUTReplayWindow::KillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded)
 {
 	if (bSucceeded)
 	{
-		ParseJsonIntoBookmarkArray(JsonString, KillEvents);
+		KillEvents = ReplayEventList.ReplayEvents;
 	}
 }
 
-
-void SUTReplayWindow::FlagCapsEnumerated(const FString& JsonString, bool bSucceeded)
+void SUTReplayWindow::FlagCapsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded)
 {
 	if (bSucceeded)
 	{
-		ParseJsonIntoBookmarkArray(JsonString, FlagCapEvents);
+		FlagCapEvents = ReplayEventList.ReplayEvents;
 	}
 }
 
-void SUTReplayWindow::FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded)
+void SUTReplayWindow::FlagReturnsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded)
 {
 	if (bSucceeded)
 	{
-		ParseJsonIntoBookmarkArray(JsonString, FlagReturnEvents);
+		FlagReturnEvents = ReplayEventList.ReplayEvents;
 	}
 }
 
-void SUTReplayWindow::FlagDenyEnumerated(const FString& JsonString, bool bSucceeded)
+void SUTReplayWindow::FlagDenyEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded)
 {
 	if (bSucceeded)
 	{
-		ParseJsonIntoBookmarkArray(JsonString, FlagDenyEvents);
+		FlagDenyEvents = ReplayEventList.ReplayEvents;
 	}
 }
 
-void SUTReplayWindow::MultiKillsEnumerated(const FString& JsonString, bool bSucceeded)
+void SUTReplayWindow::MultiKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded)
 {
 	if (bSucceeded)
 	{
-		ParseJsonIntoBookmarkArray(JsonString, MultiKillEvents);
+		MultiKillEvents = ReplayEventList.ReplayEvents;
 	}
 }
 
-void SUTReplayWindow::SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded)
+void SUTReplayWindow::SpreeKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded)
 {
 	if (bSucceeded)
 	{
-		ParseJsonIntoBookmarkArray(JsonString, SpreeKillEvents);
+		SpreeKillEvents = ReplayEventList.ReplayEvents;
 	}
 
 	RefreshBookmarksComboBox();
@@ -848,12 +815,12 @@ void SUTReplayWindow::OnKillBookmarksSelected()
 	TimeAndColor.Color = FLinearColor::Red;
 	for (int32 EventsIdx = 0; EventsIdx < KillEvents.Num(); EventsIdx++)
 	{
-		if (!FilterID.IsEmpty() && FilterID != KillEvents[EventsIdx].meta)
+		if (!FilterID.IsEmpty() && FilterID != KillEvents[EventsIdx].Metadata)
 		{
 			continue;
 		}
 
-		TimeAndColor.Time = KillEvents[EventsIdx].time;
+		TimeAndColor.Time = KillEvents[EventsIdx].Time1 / 1000.0f;
 		Bookmarks.Add(TimeAndColor);
 	}
 	TimeSlider->SetBookmarks(Bookmarks);
@@ -878,12 +845,12 @@ void SUTReplayWindow::OnMultiKillBookmarksSelected()
 	TimeAndColor.Color = FLinearColor::Yellow;
 	for (int32 EventsIdx = 0; EventsIdx < MultiKillEvents.Num(); EventsIdx++)
 	{
-		if (!FilterID.IsEmpty() && FilterID != MultiKillEvents[EventsIdx].meta)
+		if (!FilterID.IsEmpty() && FilterID != MultiKillEvents[EventsIdx].Metadata)
 		{
 			continue;
 		}
 
-		TimeAndColor.Time = MultiKillEvents[EventsIdx].time;
+		TimeAndColor.Time = MultiKillEvents[EventsIdx].Time1 / 1000.0f;
 		Bookmarks.Add(TimeAndColor);
 	}
 	TimeSlider->SetBookmarks(Bookmarks);
@@ -941,12 +908,12 @@ void SUTReplayWindow::OnSpreeKillBookmarksSelected()
 	TimeAndColor.Color = FLinearColor::Yellow;
 	for (int32 EventsIdx = 0; EventsIdx < SpreeKillEvents.Num(); EventsIdx++)
 	{
-		if (!FilterID.IsEmpty() && FilterID != SpreeKillEvents[EventsIdx].meta)
+		if (!FilterID.IsEmpty() && FilterID != SpreeKillEvents[EventsIdx].Metadata)
 		{
 			continue;
 		}
 
-		TimeAndColor.Time = SpreeKillEvents[EventsIdx].time;
+		TimeAndColor.Time = SpreeKillEvents[EventsIdx].Time1 / 1000.0f;
 		Bookmarks.Add(TimeAndColor);
 	}
 	TimeSlider->SetBookmarks(Bookmarks);
@@ -971,12 +938,12 @@ void SUTReplayWindow::OnFlagReturnsBookmarksSelected()
 	TimeAndColor.Color = FLinearColor::Yellow;
 	for (int32 EventsIdx = 0; EventsIdx < FlagReturnEvents.Num(); EventsIdx++)
 	{
-		if (!FilterID.IsEmpty() && FilterID != FlagReturnEvents[EventsIdx].meta)
+		if (!FilterID.IsEmpty() && FilterID != FlagReturnEvents[EventsIdx].Metadata)
 		{
 			continue;
 		}
 
-		TimeAndColor.Time = FlagReturnEvents[EventsIdx].time;
+		TimeAndColor.Time = FlagReturnEvents[EventsIdx].Time1 / 1000.0f;
 		Bookmarks.Add(TimeAndColor);
 	}
 	TimeSlider->SetBookmarks(Bookmarks);
@@ -1000,7 +967,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 	{
 		for (int32 EventsIdx = 0; EventsIdx < FlagCapEvents.Num(); EventsIdx++)
 		{
-			if (FlagCapEvents[EventsIdx].meta == TEXT("0"))
+			if (FlagCapEvents[EventsIdx].Metadata == TEXT("0"))
 			{
 				TimeAndColor.Color = FLinearColor::Red;
 			}
@@ -1008,7 +975,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 			{
 				TimeAndColor.Color = FLinearColor::Blue;
 			}
-			TimeAndColor.Time = FlagCapEvents[EventsIdx].time;
+			TimeAndColor.Time = FlagCapEvents[EventsIdx].Time1 / 1000.0f;
 			Bookmarks.Add(TimeAndColor);
 		}
 		TimeSlider->SetBookmarks(Bookmarks);
@@ -1017,7 +984,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 	{
 		for (int32 EventsIdx = 0; EventsIdx < FlagDenyEvents.Num(); EventsIdx++)
 		{
-			if (FlagDenyEvents[EventsIdx].meta == TEXT("0"))
+			if (FlagDenyEvents[EventsIdx].Metadata == TEXT("0"))
 			{
 				TimeAndColor.Color = FLinearColor::Red;
 			}
@@ -1025,7 +992,7 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 			{
 				TimeAndColor.Color = FLinearColor::Blue;
 			}
-			TimeAndColor.Time = FlagDenyEvents[EventsIdx].time;
+			TimeAndColor.Time = FlagDenyEvents[EventsIdx].Time1 / 1000.0f;
 			Bookmarks.Add(TimeAndColor);
 		}
 		TimeSlider->SetBookmarks(Bookmarks);

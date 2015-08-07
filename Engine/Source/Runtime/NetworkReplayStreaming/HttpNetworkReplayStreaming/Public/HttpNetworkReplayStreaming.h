@@ -6,43 +6,6 @@
 #include "Runtime/Engine/Public/Tickable.h"
 #include "OnlineJsonSerializer.h"
 
-class FCheckpointListItem : public FOnlineJsonSerializable
-{
-public:
-	FCheckpointListItem() {}
-	virtual ~FCheckpointListItem() {}
-
-	FString		ID;
-	FString		Group;
-	FString		Metadata;
-	uint32		Time1;
-	uint32		Time2;
-
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE( "id",			ID );
-		ONLINE_JSON_SERIALIZE( "group",			Group );
-		ONLINE_JSON_SERIALIZE( "meta",			Metadata );
-		ONLINE_JSON_SERIALIZE( "time1",			Time1 );
-		ONLINE_JSON_SERIALIZE( "time2",			Time2 );
-	END_ONLINE_JSON_SERIALIZER
-};
-
-class FCheckpointList : public FOnlineJsonSerializable
-{
-public:
-	FCheckpointList()
-	{}
-	virtual ~FCheckpointList() {}
-
-	TArray< FCheckpointListItem > Checkpoints;
-
-	// FOnlineJsonSerializable
-	BEGIN_ONLINE_JSON_SERIALIZER
-		ONLINE_JSON_SERIALIZE_ARRAY_SERIALIZABLE( "events", Checkpoints, FCheckpointListItem );
-	END_ONLINE_JSON_SERIALIZER
-};
-
 /**
  * Archive used to buffer stream over http
  */
@@ -80,7 +43,8 @@ namespace EQueuedHttpRequestType
 		DownloadingCheckpoint,		// We are downloading a checkpoint
 		AddingUser,					// We are adding a user who joined in progress during recording
 		UploadingCustomEvent,		// We are uploading a custom event
-		EnumeratingCustomEvent		// We are in the process of enumerating a custom event set
+		EnumeratingCustomEvent,		// We are in the process of enumerating a custom event set
+		RequestEventData,			// We are in the process of requesting the data for a specific event
 	};
 
 	inline const TCHAR* ToString( EQueuedHttpRequestType::Type Type )
@@ -117,6 +81,8 @@ namespace EQueuedHttpRequestType
 				return TEXT( "UploadingCustomEvent" );
 			case EnumeratingCustomEvent:
 				return TEXT( "EnumeratingCustomEvent" );
+			case RequestEventData:
+				return TEXT("RequestEventData");
 		}
 
 		return TEXT( "Unknown EQueuedHttpRequestType type." );
@@ -163,7 +129,8 @@ public:
 	virtual void		EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate ) override;
 	virtual void		EnumerateRecentStreams( const FNetworkReplayVersion& ReplayVersion, const FString& RecentViewer, const FOnEnumerateStreamsComplete& Delegate ) override;
 	virtual void		AddUserToReplay(const FString& UserString);
-
+	virtual void		RequestEventData(const FString& EventId, const FOnRequestEventDataComplete& Delegate) override;
+	virtual void		SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) override;
 	virtual ENetworkReplayError::Type GetLastError() const override;
 
 	/** FHttpNetworkReplayStreamer */
@@ -181,7 +148,7 @@ public:
 	void AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest >	Request );
 	void EnumerateCheckpoints();
 	void ConditionallyEnumerateCheckpoints();
-	void EnumerateEvents( const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate );
+	void EnumerateEvents( const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate );
 
 	virtual void ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request );
 
@@ -211,6 +178,7 @@ public:
 	void HttpEnumerateCheckpointsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpEnumerateEventsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FEnumerateEventsCompleteDelegate EnumerateEventsDelegate );
 	void HttpAddUserFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
+	void HttpRequestEventDataFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 	bool ProcessNextHttpRequest();
 	void Tick( const float DeltaTime );
@@ -245,10 +213,11 @@ public:
 	FOnStreamReadyDelegate			StartStreamingDelegate;		// Delegate passed in to StartStreaming
 	FOnEnumerateStreamsComplete		EnumerateStreamsDelegate;
 	FOnCheckpointReadyDelegate		GotoCheckpointDelegate;
+	FOnRequestEventDataComplete		RequestEventDataCompleteDelegate;
 	int32							DownloadCheckpointIndex;
 	int64							LastGotoTimeInMS;
 
-	FCheckpointList					CheckpointList;
+	FReplayEventList					CheckpointList;
 
 	TQueue< TSharedPtr< FQueuedHttpRequest > >	QueuedHttpRequests;
 	TSharedPtr< FQueuedHttpRequest >			InFlightHttpRequest;

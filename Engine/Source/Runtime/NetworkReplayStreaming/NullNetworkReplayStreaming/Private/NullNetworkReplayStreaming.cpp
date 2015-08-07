@@ -377,9 +377,19 @@ void FNullNetworkReplayStreamer::AddEvent( const uint32 TimeInMS, const FString&
 	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::AddEvent is currently unsupported."));
 }
 
-void FNullNetworkReplayStreamer::EnumerateEvents( const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate )
+void FNullNetworkReplayStreamer::EnumerateEvents( const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate )
 {
 	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::EnumerateEvents is currently unsupported."));
+}
+
+void FNullNetworkReplayStreamer::RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete)
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::RequestEventData is currently unsupported."));
+}
+
+void FNullNetworkReplayStreamer::SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate)
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::SearchEvents is currently unsupported."));
 }
 
 FArchive* FNullNetworkReplayStreamer::GetCheckpointArchive()
