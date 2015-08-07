@@ -4,6 +4,7 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
+#include "Widgets/SUTProgressSlider.h"
 
 #if !UE_SERVER
 
@@ -104,15 +105,25 @@ protected:
 	TArray<FReplayEventListItem> MultiKillEvents;
 	TArray<FReplayEventListItem> SpreeKillEvents;
 
+	TArray<FBookmarkTimeAndColor> CurrentBookmarks;
+	TArray<FString> EventDataRequests;
+	TMap<FString, FString> EventDataInfo;
+
 	bool bDrawTooltip;
 	float TooltipTime;
 	FVector2D ToolTipPos;
+	FString TooltipBookmarkText;
+	float ToolTipTargetSizeX;
+	float ToolTipCurrentSizeX;
+	float ToolTipCurrentSizeY;
 
 	FText GetTooltipText() const;
 	FVector2D GetTimeTooltipSize() const;
 	FVector2D GetTimeTooltipPosition() const;
 
 	EVisibility GetVis() const;
+
+	void BookmarkDataReady(const TArray<uint8>& Data, bool bSucceeded, FString EventID, FString EventType);
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;

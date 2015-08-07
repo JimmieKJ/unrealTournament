@@ -8,7 +8,6 @@
 #include "SUWindowsStyle.h"
 #include "Widgets/SUTButton.h"
 #include "SNumericEntryBox.h"
-#include "Widgets/SUTProgressSlider.h"
 #include "UTPlayerState.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Engine/DemoNetDriver.h"
@@ -561,6 +560,24 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 			OnFlagReturnsBookmarksSelected();
 		}
 	}
+	
+	ToolTipTargetSizeX = 0;
+	ToolTipCurrentSizeY = 0;
+	if (bDrawTooltip)
+	{
+		if (TooltipBookmarkText.IsEmpty())
+		{
+			ToolTipTargetSizeX = 110.0f;
+			ToolTipCurrentSizeY = 55.0f;
+		}
+		else
+		{
+			ToolTipTargetSizeX = 10.0f + 15.0f * TooltipBookmarkText.Len();
+			ToolTipCurrentSizeY = 55.0f;
+		}
+	}
+
+	ToolTipCurrentSizeX = FMath::FInterpTo(ToolTipCurrentSizeX, ToolTipTargetSizeX, InDeltaTime, 10.0f);
 
 	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
@@ -644,6 +661,40 @@ FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerE
 			if (DemoNetDriver.IsValid())
 			{
 				TooltipTime = DemoNetDriver->DemoTotalTime * Alpha;
+			}
+
+			float BestBookmarkDist = 1.0f;
+			FString BestBookmarkID;
+			for (int32 BookmarkIdx = 0; BookmarkIdx < CurrentBookmarks.Num(); BookmarkIdx++)
+			{
+				float BookmarkDist = FMath::Abs(Alpha - (CurrentBookmarks[BookmarkIdx].Time / DemoNetDriver->DemoTotalTime));
+				if (BookmarkDist < 0.01)
+				{
+					if (!EventDataInfo.Contains(CurrentBookmarks[BookmarkIdx].ID))
+					{
+						if (!EventDataRequests.Contains(CurrentBookmarks[BookmarkIdx].ID))
+						{
+							EventDataRequests.Add(CurrentBookmarks[BookmarkIdx].ID);
+							FOnRequestEventDataComplete RequestEventDataDelegate = FOnRequestEventDataComplete::CreateSP(this, &SUTReplayWindow::BookmarkDataReady, CurrentBookmarks[BookmarkIdx].ID, SelectedBookmark->GetText().ToString());
+							DemoNetDriver->RequestEventData(CurrentBookmarks[BookmarkIdx].ID, RequestEventDataDelegate);
+						}
+					}
+
+					if (BookmarkDist < BestBookmarkDist)
+					{
+						BestBookmarkDist = BookmarkDist;
+						BestBookmarkID = CurrentBookmarks[BookmarkIdx].ID;
+					}
+				}
+			}
+
+			if (!BestBookmarkID.IsEmpty() && EventDataInfo.Contains(BestBookmarkID))
+			{
+				TooltipBookmarkText = EventDataInfo[BestBookmarkID];
+			}
+			else
+			{
+				TooltipBookmarkText.Empty();
 			}
 
 			//need to scale the position like we are doing for the whole widget
@@ -764,13 +815,17 @@ FVector2D SUTReplayWindow::GetTimeTooltipPosition() const
 
 FVector2D SUTReplayWindow::GetTimeTooltipSize() const
 {
-	//TODO: Do a fancy interp when we have more to put in this tooltip other than the time (game events)
-	return bDrawTooltip ? FVector2D(110.0f, 55.0f) : FVector2D(0.0f, 0.0f);
+	return FVector2D(ToolTipCurrentSizeX, ToolTipCurrentSizeY);
 }
 
 FText SUTReplayWindow::GetTooltipText() const
 {
-	return FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(TooltipTime)));
+	if (TooltipBookmarkText.IsEmpty())
+	{
+		return FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(TooltipTime)));
+	}
+
+	return FText::FromString(TooltipBookmarkText);
 }
 
 EVisibility SUTReplayWindow::GetVis() const
@@ -798,11 +853,9 @@ void SUTReplayWindow::OnArrangeChildren(const FGeometry& AllottedGeometry, FArra
 
 void SUTReplayWindow::OnKillBookmarksSelected()
 {
-	TArray<FBookmarkTimeAndColor> Bookmarks;
-
 	if (KillEvents.Num() == 0)
 	{
-		TimeSlider->SetBookmarks(Bookmarks);
+		TimeSlider->SetBookmarks(CurrentBookmarks);
 		return;
 	}
 
@@ -820,19 +873,18 @@ void SUTReplayWindow::OnKillBookmarksSelected()
 			continue;
 		}
 
+		TimeAndColor.ID = KillEvents[EventsIdx].ID;
 		TimeAndColor.Time = KillEvents[EventsIdx].Time1 / 1000.0f;
-		Bookmarks.Add(TimeAndColor);
+		CurrentBookmarks.Add(TimeAndColor);
 	}
-	TimeSlider->SetBookmarks(Bookmarks);
+	TimeSlider->SetBookmarks(CurrentBookmarks);
 }
 
 void SUTReplayWindow::OnMultiKillBookmarksSelected()
 {
-	TArray<FBookmarkTimeAndColor> Bookmarks;
-
 	if (MultiKillEvents.Num() == 0)
 	{
-		TimeSlider->SetBookmarks(Bookmarks);
+		TimeSlider->SetBookmarks(CurrentBookmarks);
 		return;
 	}
 
@@ -850,10 +902,11 @@ void SUTReplayWindow::OnMultiKillBookmarksSelected()
 			continue;
 		}
 
+		TimeAndColor.ID = MultiKillEvents[EventsIdx].ID;
 		TimeAndColor.Time = MultiKillEvents[EventsIdx].Time1 / 1000.0f;
-		Bookmarks.Add(TimeAndColor);
+		CurrentBookmarks.Add(TimeAndColor);
 	}
-	TimeSlider->SetBookmarks(Bookmarks);
+	TimeSlider->SetBookmarks(CurrentBookmarks);
 }
 
 FString SUTReplayWindow::GetSpectatedPlayerID()
@@ -891,11 +944,9 @@ FString SUTReplayWindow::GetSpectatedPlayerID()
 
 void SUTReplayWindow::OnSpreeKillBookmarksSelected()
 {
-	TArray<FBookmarkTimeAndColor> Bookmarks;
-
 	if (SpreeKillEvents.Num() == 0)
 	{
-		TimeSlider->SetBookmarks(Bookmarks);
+		TimeSlider->SetBookmarks(CurrentBookmarks);
 		return;
 	}
 
@@ -913,19 +964,18 @@ void SUTReplayWindow::OnSpreeKillBookmarksSelected()
 			continue;
 		}
 
+		TimeAndColor.ID = SpreeKillEvents[EventsIdx].ID;
 		TimeAndColor.Time = SpreeKillEvents[EventsIdx].Time1 / 1000.0f;
-		Bookmarks.Add(TimeAndColor);
+		CurrentBookmarks.Add(TimeAndColor);
 	}
-	TimeSlider->SetBookmarks(Bookmarks);
+	TimeSlider->SetBookmarks(CurrentBookmarks);
 }
 
 void SUTReplayWindow::OnFlagReturnsBookmarksSelected()
 {
-	TArray<FBookmarkTimeAndColor> Bookmarks;
-
 	if (FlagReturnEvents.Num() == 0)
 	{
-		TimeSlider->SetBookmarks(Bookmarks);
+		TimeSlider->SetBookmarks(CurrentBookmarks);
 		return;
 	}
 
@@ -943,21 +993,22 @@ void SUTReplayWindow::OnFlagReturnsBookmarksSelected()
 			continue;
 		}
 
+		TimeAndColor.ID = FlagReturnEvents[EventsIdx].ID;
 		TimeAndColor.Time = FlagReturnEvents[EventsIdx].Time1 / 1000.0f;
-		Bookmarks.Add(TimeAndColor);
+		CurrentBookmarks.Add(TimeAndColor);
 	}
-	TimeSlider->SetBookmarks(Bookmarks);
+	TimeSlider->SetBookmarks(CurrentBookmarks);
 }
 
 void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	TArray<FBookmarkTimeAndColor> Bookmarks;
+	CurrentBookmarks.Empty();
 	FBookmarkTimeAndColor TimeAndColor;
 	SelectedBookmark->SetText(FText::FromString(*NewSelection));
 	if (*NewSelection == TEXT("Bookmarks"))
 	{
 		// clear bookmarks
-		TimeSlider->SetBookmarks(Bookmarks);
+		TimeSlider->SetBookmarks(CurrentBookmarks);
 	}
 	else if (*NewSelection == TEXT("Kills"))
 	{
@@ -975,10 +1026,11 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 			{
 				TimeAndColor.Color = FLinearColor::Blue;
 			}
+			TimeAndColor.ID = FlagCapEvents[EventsIdx].ID;
 			TimeAndColor.Time = FlagCapEvents[EventsIdx].Time1 / 1000.0f;
-			Bookmarks.Add(TimeAndColor);
+			CurrentBookmarks.Add(TimeAndColor);
 		}
-		TimeSlider->SetBookmarks(Bookmarks);
+		TimeSlider->SetBookmarks(CurrentBookmarks);
 	}
 	else if (*NewSelection == TEXT("Flag Denies"))
 	{
@@ -992,10 +1044,11 @@ void SUTReplayWindow::OnBookmarkSetSelected(TSharedPtr<FString> NewSelection, ES
 			{
 				TimeAndColor.Color = FLinearColor::Blue;
 			}
+			TimeAndColor.ID = FlagDenyEvents[EventsIdx].ID;
 			TimeAndColor.Time = FlagDenyEvents[EventsIdx].Time1 / 1000.0f;
-			Bookmarks.Add(TimeAndColor);
+			CurrentBookmarks.Add(TimeAndColor);
 		}
-		TimeSlider->SetBookmarks(Bookmarks);
+		TimeSlider->SetBookmarks(CurrentBookmarks);
 	}
 	else if (*NewSelection == TEXT("Flag Returns"))
 	{
@@ -1059,6 +1112,36 @@ TSharedRef<SWidget> SUTReplayWindow::GenerateStringListWidget(TSharedPtr<FString
 			.Text(FText::FromString(*InItem.Get()))
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 		];
+}
+
+void SUTReplayWindow::BookmarkDataReady(const TArray<uint8>& Data, bool bSucceeded, FString EventID, FString EventType)
+{
+	EventDataRequests.Remove(EventID);
+
+	if (bSucceeded)
+	{
+		if (Data.Num() > 0 && Data[Data.Num() - 1] == 0)
+		{
+			FString StringData(ANSI_TO_TCHAR((char*)Data.GetData()));
+
+			if (EventType == TEXT("Kills"))
+			{
+				TArray<FString> Parsed;
+				StringData.ParseIntoArray(Parsed, TEXT(" "), true);
+				if (Parsed.Num() >= 2)
+				{
+					StringData = Parsed[0] + TEXT(" killed ") + Parsed[1];
+				}
+			}
+
+			EventDataInfo.Add(EventID, StringData);
+		}
+		else
+		{
+			FString EmptyStringData;
+			EventDataInfo.Add(EventID, EmptyStringData);
+		}
+	}
 }
 
 #endif

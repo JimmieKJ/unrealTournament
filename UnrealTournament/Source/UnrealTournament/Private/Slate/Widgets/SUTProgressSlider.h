@@ -9,6 +9,7 @@ struct FBookmarkTimeAndColor
 {
 	float Time;
 	FLinearColor Color;
+	FString ID;
 };
 
 /**
