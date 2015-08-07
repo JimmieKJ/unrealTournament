@@ -433,6 +433,12 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		
 		// Add in additional command line params
 		if (!AdditionalInstanceCommandLine.IsEmpty()) Options += TEXT(" ") + AdditionalInstanceCommandLine;
+		
+		FString SLevel;
+		if (FParse::Value(FCommandLine::Get(), TEXT("SLevel="), SLevel))
+		{
+			Options += TEXT(" ") + SLevel;
+		}
 
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
 
