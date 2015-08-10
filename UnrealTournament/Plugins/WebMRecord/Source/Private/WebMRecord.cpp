@@ -874,18 +874,18 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 		}
 	}
 
-	vpx_img_free(&raw);
-	if (vpx_codec_destroy(&codec))
-	{
-		// failed to destroy
-	}
-
 	write_webm_file_footer(&ebml);
 
 	fclose(file);
 
 	bCompressionSuccessful = true;
 	UE_LOG(LogUTWebM, Display, TEXT("Selfie video complete! %s"), *WebMPath);
+
+	vpx_img_free(&raw);
+	if (vpx_codec_destroy(&codec))
+	{
+		// failed to destroy
+	}
 }
 
 void FWebMRecord::DebugUploadLastVideo(UWorld* InWorld)
