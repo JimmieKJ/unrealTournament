@@ -45,7 +45,10 @@ The current Unreal Tournament project is based on Unreal Engine version 4.7. The
 - Build the UnrealTournament project. UE4Editor.exe will then be available in Engine\Binaries\Win64\.
 - Run "UE4Editor.exe UnrealTournament" from a command line or right click the Unreal Tournament project in Visual Studio and start a debug session.
 
-
+How to get started (Linux)
+-------------------
+ 
+You can follow this tutorial: https://wiki.unrealengine.com/Building_On_Linux
 
 Contributing through GitHub
 -----------------------
