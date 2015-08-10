@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTVideoRecordingFeature.h"
 #include "UTGameEngine.generated.h"
 
 UCLASS()
@@ -81,6 +82,8 @@ public:
 
 	/** set to process ID of owning game client when running a "listen" server (which is really dedicated + client on same machine) */
 	uint32 OwningProcessID;
+	
+	UTVideoRecordingFeature* VideoRecorder;
 
 	TMap<FString, FString> DownloadedContentChecksums;
 	TMap<FString, FString> MountedDownloadedContentChecksums;

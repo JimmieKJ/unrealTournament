@@ -44,9 +44,10 @@ FWebMRecord::FWebMRecord()
 
 	VideoFrameRate = 30;
 	VideoFrameDelay = 1.0f / VideoFrameRate;
-	VideoDeltaTimeAccum = 0;
 	TotalVideoTime = 0;
 	TimeLeftToRecord = -1;
+	VideoRecordStart = 0;
+	VideoRecordFirstFrame = -1;
 
 	bRegisteredSlateDelegate = false;
 	ReadbackTextureIndex = 0;
@@ -126,13 +127,15 @@ void FWebMRecord::OnWorldDestroyed(UWorld* World)
 void FWebMRecord::StartRecording(float RecordTime)
 {
 	bRecording = true;
-	VideoDeltaTimeAccum = VideoFrameDelay;
 	TotalVideoTime = 0;
 	TimeLeftToRecord = RecordTime;
 	ReadbackBuffers[0] = nullptr;
 	ReadbackBuffers[1] = nullptr;
 
 	VideoFramesCaptured = 0;
+	VideoRecordStart = FApp::GetLastTime();
+	VideoRecordFirstFrame = -1;
+	VideoRecordLagTime = 0;
 
 	OpenTempFrameFile();
 
@@ -150,7 +153,7 @@ void FWebMRecord::StopRecording()
 	AudioWorker->bStopCapture = true;
 	AudioWorker->WaitForCompletion();
 
-	UE_LOG(LogUTWebM, Log, TEXT("Recording finished, %f seconds, %d video frames"), TotalVideoTime, VideoFramesCaptured);
+	UE_LOG(LogUTWebM, Log, TEXT("Recording finished, %f seconds, %d video frames, %f video lag time"), TotalVideoTime, VideoFramesCaptured, VideoRecordFirstFrame - VideoRecordStart);
 
 	OnRecordingCompleteEvent.Broadcast();
 }
@@ -196,7 +199,6 @@ void FWebMRecord::Tick(float DeltaTime)
 
 	if (bRecording)
 	{
-		VideoDeltaTimeAccum += DeltaTime;
 		TotalVideoTime += DeltaTime;
 
 		if (TimeLeftToRecord > 0)
@@ -228,15 +230,12 @@ void FWebMRecord::OnSlateWindowRenderedDuringCapture(SWindow& SlateWindow, void*
 	{
 		if (GameViewportClient->GetWindow() == SlateWindow.AsShared())
 		{
-			if (VideoDeltaTimeAccum >= VideoFrameDelay)
-			{
-				//UE_LOG(LogUTWebM, Log, TEXT("Saving video frame %f"), VideoDeltaTimeAccum);
+			//UE_LOG(LogUTWebM, Log, TEXT("Saving video frame %f"), VideoDeltaTimeAccum);
 
-				SaveCurrentFrameToDisk();
+			SaveCurrentFrameToDisk();
 
-				const FViewportRHIRef* ViewportRHI = (const FViewportRHIRef*)ViewportRHIPtr;
-				StartCopyingNextGameFrame(*ViewportRHI);
-			}
+			const FViewportRHIRef* ViewportRHI = (const FViewportRHIRef*)ViewportRHIPtr;
+			StartCopyingNextGameFrame(*ViewportRHI);
 		}
 	}
 }
@@ -258,54 +257,75 @@ void FWebMRecord::CloseTempFrameFile()
 	}
 }
 
+void FWebMRecord::WriteFrameToTempFile()
+{
+	if (VideoTempFile)
+	{
+		if (bWriteYUVToTempFile)
+		{
+			if (YPlaneTemp.Num() < VideoWidth * VideoHeight)
+			{
+				YPlaneTemp.Empty(VideoWidth * VideoHeight);
+				YPlaneTemp.AddZeroed(VideoWidth * VideoHeight);
+			}
+			if (UPlaneTemp.Num() < VideoWidth * VideoHeight / 4)
+			{
+				UPlaneTemp.Empty(VideoWidth * VideoHeight / 4);
+				UPlaneTemp.AddZeroed(VideoWidth * VideoHeight / 4);
+			}
+			if (VPlaneTemp.Num() < VideoWidth * VideoHeight / 4)
+			{
+				VPlaneTemp.Empty(VideoWidth * VideoHeight / 4);
+				VPlaneTemp.AddZeroed(VideoWidth * VideoHeight / 4);
+			}
+			// Use libyuv to convert from ARGB to YUV
+			libyuv::ARGBToI420((const uint8*)ReadbackBuffers[ReadbackBufferIndex], VideoWidth * 4,
+				YPlaneTemp.GetData(), VideoWidth,
+				UPlaneTemp.GetData(), VideoWidth / 2,
+				VPlaneTemp.GetData(), VideoWidth / 2, VideoWidth, VideoHeight);
+
+			VideoTempFile->Serialize(YPlaneTemp.GetData(), VideoWidth * VideoHeight);
+			VideoTempFile->Serialize(UPlaneTemp.GetData(), VideoWidth * VideoHeight / 4);
+			VideoTempFile->Serialize(VPlaneTemp.GetData(), VideoWidth * VideoHeight / 4);
+		}
+		else
+		{
+			VideoTempFile->Serialize(ReadbackBuffers[ReadbackBufferIndex], VideoWidth * VideoHeight * sizeof(FColor));
+		}
+	}
+}
+
 void FWebMRecord::SaveCurrentFrameToDisk()
 {
 	if (ReadbackBuffers[ReadbackBufferIndex] != nullptr)
 	{
 		// Have a new buffer from the GPU
-		while (VideoDeltaTimeAccum >= VideoFrameDelay)
+
+		// Write this frame to disk
+		WriteFrameToTempFile();
+
+		// Make up for video lag when possible by writing the frame over
+		while (VideoRecordLagTime > VideoFrameDelay)
 		{
-			// Write this frame to disk
-			if (VideoTempFile)
-			{			
-				if (bWriteYUVToTempFile)
-				{
-					if (YPlaneTemp.Num() < VideoWidth * VideoHeight)
-					{
-						YPlaneTemp.Empty(VideoWidth * VideoHeight);
-						YPlaneTemp.AddZeroed(VideoWidth * VideoHeight);
-					}
-					if (UPlaneTemp.Num() < VideoWidth * VideoHeight / 4)
-					{
-						UPlaneTemp.Empty(VideoWidth * VideoHeight / 4);
-						UPlaneTemp.AddZeroed(VideoWidth * VideoHeight / 4);
-					}
-					if (VPlaneTemp.Num() < VideoWidth * VideoHeight / 4)
-					{
-						VPlaneTemp.Empty(VideoWidth * VideoHeight / 4);
-						VPlaneTemp.AddZeroed(VideoWidth * VideoHeight / 4);
-					}
-					// Use libyuv to convert from ARGB to YUV
-					libyuv::ARGBToI420((const uint8*)ReadbackBuffers[ReadbackBufferIndex], VideoWidth * 4,
-						YPlaneTemp.GetData(), VideoWidth,
-						UPlaneTemp.GetData(), VideoWidth / 2,
-						VPlaneTemp.GetData(), VideoWidth / 2, VideoWidth, VideoHeight);
-					
-					VideoTempFile->Serialize(YPlaneTemp.GetData(), VideoWidth * VideoHeight);
-					VideoTempFile->Serialize(UPlaneTemp.GetData(), VideoWidth * VideoHeight / 4);
-					VideoTempFile->Serialize(VPlaneTemp.GetData(), VideoWidth * VideoHeight / 4);
-				}
-				else
-				{
-					VideoTempFile->Serialize(ReadbackBuffers[ReadbackBufferIndex], VideoWidth * VideoHeight * sizeof(FColor));
-				}
-			}
-
-			// If we get hung, just write the same frame over so that audio will match
-			VideoFramesCaptured++;
-
-			VideoDeltaTimeAccum -= VideoFrameDelay;
+			WriteFrameToTempFile();
+			VideoRecordLagTime -= VideoFrameDelay;
 		}
+
+		if (VideoRecordFirstFrame < 0)
+		{
+			VideoRecordFirstFrame = FApp::GetLastTime();
+		}
+		
+		if (VideoRecordPreviousFrame > 0)
+		{
+			double FrameLength = FApp::GetLastTime() - VideoRecordPreviousFrame;
+			//UE_LOG(LogUTWebM, Log, TEXT("Actual video delay %f"), FrameLength);
+			VideoRecordLagTime += FrameLength - VideoFrameDelay;
+		}
+		VideoRecordPreviousFrame = FApp::GetLastTime();
+
+		// If we get hung, just write the same frame over so that audio will match
+		VideoFramesCaptured++;
 
 		// Unmap the buffer now that we've pushed out the frame
 		{
@@ -641,6 +661,13 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 		{
 			UE_LOG(LogUTWebM, Warning, TEXT("Could not find data chunk"));
 		}
+	}
+
+	if (VideoRecordStart > 0 && VideoRecordFirstFrame > 0)
+	{
+		// Read (VideoRecordFirstFrame - VideoRecordStart) * AudioSampleRate out of the buffer to make up for video recording lag
+		int32 ExtraSamples = (VideoRecordFirstFrame - VideoRecordStart) * AudioSampleRate;
+		int32 BytesRead = mmioRead(hAudioFile, (HPSTR)ReadBuffer, ExtraSamples * 2 * SAMPLE_SIZE);
 	}
 	
 	// Start configuring vorbis for audio compression
@@ -1348,6 +1375,12 @@ void FWebMRecord::CancelCompressing()
 		CompressWorker->WaitForCompletion();
 	}
 	bCompressing = false;
+}
+
+bool FWebMRecord::IsRecording(uint32& TickRate)
+{
+	TickRate = VideoFrameRate;
+	return bRecording;
 }
 
 FCompressVideoWorker* FCompressVideoWorker::Runnable = nullptr;

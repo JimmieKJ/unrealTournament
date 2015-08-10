@@ -142,6 +142,8 @@ public:
 	bool bCompressionSuccessful;
 	void EncodeVideoAndAudio(const FString& Filename);
 
+	virtual bool IsRecording(uint32& TickRate) override;
+
 protected:
 	bool bRecording;
 	bool bCompressing;
@@ -151,9 +153,12 @@ protected:
 	uint32 VideoFrameRate;
 	int32 VideoFramesCaptured;
 	float VideoFrameDelay;
-	float VideoDeltaTimeAccum;
 	float TotalVideoTime;
 	float TimeLeftToRecord;
+	double VideoRecordStart;
+	double VideoRecordFirstFrame;
+	double VideoRecordPreviousFrame;
+	float VideoRecordLagTime;
 
 	bool bWriteYUVToTempFile;
 	TArray<uint8> YPlaneTemp;
@@ -174,6 +179,7 @@ protected:
 	int32 ReadbackBufferIndex;
 	void OnSlateWindowRenderedDuringCapture(SWindow& SlateWindow, void* ViewportRHIPtr);
 	void SaveCurrentFrameToDisk();
+	void WriteFrameToTempFile();
 	void StartCopyingNextGameFrame(const FViewportRHIRef& ViewportRHI);
 	bool bRegisteredSlateDelegate;
 

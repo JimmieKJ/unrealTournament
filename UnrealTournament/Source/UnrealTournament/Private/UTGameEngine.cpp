@@ -4,7 +4,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
 #include "Engine/Console.h"
@@ -60,6 +60,7 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	MaximumSmoothedTime = 0.04f;
 
 	ServerMaxPredictionPing = 160.f;
+	VideoRecorder = nullptr;
 
 #if !UE_SERVER
 	ConstructorHelpers::FObjectFinder<UClass> TutorialMenuFinder(TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutMainMenuWidget.TutMainMenuWidget_C"));
@@ -135,6 +136,15 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	}
 
 	FParse::Value(FCommandLine::Get(), TEXT("ClientProcID="), OwningProcessID);
+
+	if (!IsRunningDedicatedServer())
+	{
+		static const FName VideoRecordingFeatureName("VideoRecording");
+		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+		{
+			VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+		}
+	}
 }
 
 void UUTGameEngine::PreExit()
@@ -415,6 +425,15 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 			}
 		}
 		return MaxTickRate;
+	}
+
+	if (VideoRecorder)
+	{
+		uint32 VideoRecorderTickRate = 0;
+		if (VideoRecorder->IsRecording(VideoRecorderTickRate))
+		{
+			return VideoRecorderTickRate;
+		}
 	}
 
 	if (CVarUnsteadyFPS.GetValueOnGameThread())
