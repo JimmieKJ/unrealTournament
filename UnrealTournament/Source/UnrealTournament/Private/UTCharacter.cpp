@@ -2991,7 +2991,7 @@ void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : WaterEntrySound);
 	if (UTCharacterMovement)
 	{
-		if (FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed)
+		if ((FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed) && IsLocallyControlled() && Cast<APlayerController>(GetController()))
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FastWaterEntrySound, this, SRT_None);
 		}
