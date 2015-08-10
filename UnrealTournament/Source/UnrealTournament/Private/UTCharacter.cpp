@@ -1900,13 +1900,9 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 
 void AUTCharacter::StopFire(uint8 FireModeNum)
 {
-	if (DrivenVehicle && !DrivenVehicle->IsLocallyControlled())
+	if (DrivenVehicle ? !DrivenVehicle->IsLocallyControlled() : !IsLocallyControlled())
 	{
-		UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
-	}
-	else if (!DrivenVehicle && !IsLocallyControlled())
-	{
-		UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
+			// UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
 	}
 	else if (Weapon != NULL)
 	{
