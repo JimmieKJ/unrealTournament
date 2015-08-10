@@ -164,6 +164,15 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	JSONVersionNumber = 0;
 }
 
+UStatManager::~UStatManager()
+{
+	for (auto Stat = Stats.CreateIterator(); Stat; ++Stat)
+	{
+		delete Stat.Value();
+	}
+	Stat.Empty();
+}
+
 void FStat::ModifyStat(int32 Amount, EStatMod::Type ModType)
 {
 	if (ModType == EStatMod::Set)

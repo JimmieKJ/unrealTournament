@@ -72,7 +72,9 @@ UCLASS()
 class UNREALTOURNAMENT_API UStatManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
-		
+
+	~UStatManager();
+
 	/** Initialize the manager from the config variables
 	 *  @param UTPC The PC that uses this stat manager
 	 */
