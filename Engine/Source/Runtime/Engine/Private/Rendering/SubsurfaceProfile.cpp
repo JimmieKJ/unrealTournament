@@ -27,13 +27,6 @@ FSubsurfaceProfileTexture::FSubsurfaceProfileTexture()
 
 FSubsurfaceProfileTexture::~FSubsurfaceProfileTexture()
 {
-	check(IsInGameThread());
-
-	// we assume all ~USubsurfaceProfile() have been called already
-	for (int32 i = 0; i < SubsurfaceProfileEntries.Num(); ++i)
-	{
-		check(SubsurfaceProfileEntries[i].Profile == 0);
-	}
 }
 
 int32 FSubsurfaceProfileTexture::AddProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfile* InProfile)
