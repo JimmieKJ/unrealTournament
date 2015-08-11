@@ -503,10 +503,11 @@ bool AUTWeap_RocketLauncher::WithinLockAim(AActor *Target)
 {
 	if (CanLockTarget(Target))
 	{
-		const FVector Dir = GetAdjustedAim(GetFireStartLoc()).Vector();
+		const FVector FireLoc = GetFireStartLoc();
+		const FVector Dir = GetAdjustedAim(FireLoc).Vector();
 		const FVector TargetDir = (Target->GetActorLocation() - UTOwner->GetActorLocation()).GetSafeNormal();
 		// note that we're not tracing to retain existing target; allows locking through walls to a limited extent
-		return (FVector::DotProduct(Dir, TargetDir) > LockAim || UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, GetFireStartLoc(), Dir, LockAim, LockRange, AUTCharacter::StaticClass()) == Target);
+		return (FVector::DotProduct(Dir, TargetDir) > LockAim || UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, Dir, LockAim, LockRange, AUTCharacter::StaticClass()) == Target);
 	}
 	else
 	{
@@ -588,7 +589,8 @@ void AUTWeap_RocketLauncher::UpdateLock()
 	//Trace to see if we are looking at a new target
 	else
 	{
-		AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, GetFireStartLoc(), GetAdjustedAim(GetFireStartLoc()).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
+		const FVector FireLoc = GetFireStartLoc();
+		AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, GetAdjustedAim(FireLoc).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
 		if (NewTarget != NULL)
 		{
 			PendingLockedTarget = NewTarget;
