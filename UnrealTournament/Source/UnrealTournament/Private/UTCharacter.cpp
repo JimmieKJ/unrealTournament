@@ -739,6 +739,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				{
 					Proj->StatsHitCredit += ResultDamage;
 				}
+				else if (Cast<AUTRemoteRedeemer>(DamageCauser))
+				{
+					Cast<AUTRemoteRedeemer>(DamageCauser)->StatsHitCredit += ResultDamage;
+				}
 			}
 
 			AUTInventory* HitArmor = NULL;

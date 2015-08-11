@@ -7,6 +7,7 @@
 #include "UTRemoteRedeemer.h"
 #include "UTCTFRewardMessage.h"
 #include "UTHUD.h"
+#include "StatNames.h"
 
 AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -69,6 +70,8 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	ExplosionRadii[5] = 1.0f;
 
 	CollisionFreeRadius = 1200.f;
+	StatsHitCredit = 0.f;
+	HitsStatsName = NAME_RedeemerHits;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -236,8 +239,17 @@ void AUTRemoteRedeemer::Detonate()
 				TArray<AActor*> IgnoreActors;
 				FVector ExplosionCenter = GetActorLocation();
 
+				StatsHitCredit = 0.f;
 				UUTGameplayStatics::UTHurtRadius(this, DetonateDamageParams.BaseDamage, DetonateDamageParams.MinimumDamage, DefaultRedeemer->DetonateMomentum, ExplosionCenter, DetonateDamageParams.InnerRadius, DetonateDamageParams.OuterRadius, DetonateDamageParams.DamageFalloff,
 					DefaultRedeemer->DetonateDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, 0.f);
+				if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
+				{
+					AUTPlayerState* PS = GetController() ? Cast<AUTPlayerState>(GetController()->PlayerState) : NULL;
+					if (PS)
+					{
+						PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / DetonateDamageParams.BaseDamage);
+					}
+				}
 			}
 		}
 		else
@@ -382,8 +394,17 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 			TArray<AActor*> IgnoreActors;
 			FVector ExplosionCenter = GetActorLocation();
 
+			StatsHitCredit = 0.f;
 			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, ExplosionCenter, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, CollisionFreeRadius);
+			if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
+			{
+				AUTPlayerState* PS = GetController() ? Cast<AUTPlayerState>(GetController()->PlayerState) : NULL;
+				if (PS)
+				{
+					PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / AdjustedDamageParams.BaseDamage);
+				}
+			}
 		}
 	}
 	else

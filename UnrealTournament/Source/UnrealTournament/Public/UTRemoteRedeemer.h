@@ -95,6 +95,12 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	void ServerBlowUp();
 
 	UPROPERTY()
+		float StatsHitCredit;
+
+	UPROPERTY()
+		FName HitsStatsName;
+
+	UPROPERTY()
 	float YawAccel;
 
 	UPROPERTY()

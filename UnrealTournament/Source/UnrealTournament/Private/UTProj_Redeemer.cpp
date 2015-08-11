@@ -105,8 +105,17 @@ void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
 			if (DetonateDamageParams.OuterRadius > 0.0f)
 			{
 				TArray<AActor*> IgnoreActors;
+				StatsHitCredit = 0.f;
 				UUTGameplayStatics::UTHurtRadius(this, DetonateDamageParams.BaseDamage, DetonateDamageParams.MinimumDamage, DetonateMomentum, GetActorLocation(), DetonateDamageParams.InnerRadius, DetonateDamageParams.OuterRadius, DetonateDamageParams.DamageFalloff,
 					DetonateDamageType, IgnoreActors, this, InstigatedBy, nullptr, nullptr, 0.f);
+				if (HitsStatsName != NAME_None)
+				{
+					AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
+					if (PS)
+					{
+						PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / DetonateDamageParams.BaseDamage);
+					}
+				}
 			}
 		}
 		ShutDown();
@@ -174,8 +183,17 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 			IgnoreActors.Add(ImpactedActor);
 		}
 
+		StatsHitCredit = 0.f;
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);
+		if ((Role==ROLE_Authority) && (HitsStatsName != NAME_None))
+		{
+			AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
+			if (PS)
+			{
+				PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / AdjustedDamageParams.BaseDamage);
+			}
+		}
 	}
 }
 
