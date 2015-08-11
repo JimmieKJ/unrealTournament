@@ -175,6 +175,9 @@ public:
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
+	/** Handles bWantsBehindView. */
+	virtual void ResetCameraMode() override;
+
 	/** Timer function to bring up scoreboard after end of game. */
 	virtual void ShowEndGameScoreboard();
 
@@ -362,6 +365,10 @@ public:
 	/** whether player wants behindview when spectating */
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;
+
+	/** Whether should remaing in freecam on camera resets. */
+	UPROPERTY(BlueprintReadOnly)
+		bool bCurrentlyBehindView;
 
 	UPROPERTY(BlueprintReadOnly)
 		bool bRequestingSlideOut;

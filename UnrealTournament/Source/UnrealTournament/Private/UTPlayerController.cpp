@@ -1910,12 +1910,25 @@ bool AUTPlayerController::CanRestartPlayer()
 	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f && (bShortConnectTimeOut || GetWorld()->TimeSeconds - CreationTime > 15.0f ||(GetNetMode() == NM_Standalone));
 }
 
+void AUTPlayerController::ResetCameraMode()
+{
+	if (bCurrentlyBehindView && (bAllowPlayingBehindView || (GetNetMode() == NM_Standalone) || (GetWorld()->WorldType == EWorldType::PIE)))
+	{
+		SetCameraMode(FName(TEXT("FreeCam")));
+	}
+	else
+	{
+		Super::ResetCameraMode();
+	}
+}
+
 void AUTPlayerController::BehindView(bool bWantBehindView)
 {
 	if (GetPawn() != NULL && !GetPawn()->bTearOff && !bAllowPlayingBehindView && GetNetMode() != NM_Standalone && (GetWorld()->WorldType != EWorldType::PIE))
 	{
 		bWantBehindView = false;
 	}
+	bCurrentlyBehindView = bWantBehindView;
 	if (IsInState(NAME_Spectating))
 	{
 		bSpectateBehindView = bWantBehindView;
