@@ -840,7 +840,7 @@ void SUTReplayWindow::CommentDialogResult(TSharedPtr<SCompoundWidget> Widget, ui
 				if (OnlineIdentityInterface.IsValid())
 				{
 					FString PlayerId = OnlineIdentityInterface->GetUniquePlayerId(0)->ToString();
-					if (!PlayerId.IsEmpty())
+					if (!PlayerId.IsEmpty() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
 					{
 						FString CommentEvent = FString::Printf(TEXT("%s: %s"), *PlayerOwner->PlayerController->PlayerState->PlayerName, *CommentText);
 
