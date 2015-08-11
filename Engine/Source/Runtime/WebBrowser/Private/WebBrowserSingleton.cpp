@@ -121,7 +121,8 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 	// CefRefPtr takes care of delete
 	WebBrowserApp = nullptr;
 	// Shut down CEF.
-	CefShutdown();
+	// PLK - this causes a crash in the current CEF binaries, just skip it
+	//CefShutdown();
 #endif
 }
 
