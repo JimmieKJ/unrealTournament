@@ -8,7 +8,7 @@ public class CEF3 : ModuleRules
 	public CEF3(TargetInfo Target)
 	{
 		/** Mark the current version of the library */
-		string CEFVersion = "3.2272.2077";
+        string CEFVersion = "3.2357.1287.g861c26e";
 		string CEFPlatform = "";
 
 		Type = ModuleType.External;
