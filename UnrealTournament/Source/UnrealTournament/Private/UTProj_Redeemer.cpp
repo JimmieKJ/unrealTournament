@@ -39,7 +39,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	ExplosionRadii[4] = 0.825f;
 	ExplosionRadii[5] = 1.0f;
 
-	CollisionFreeRadius = 1200;
+	CollisionFreeRadius = 1000.f;
 
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;

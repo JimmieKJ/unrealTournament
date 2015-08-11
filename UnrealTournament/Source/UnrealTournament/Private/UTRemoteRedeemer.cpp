@@ -69,7 +69,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	ExplosionRadii[4] = 0.825f;
 	ExplosionRadii[5] = 1.0f;
 
-	CollisionFreeRadius = 1200.f;
+	CollisionFreeRadius = 1000.f;
 	StatsHitCredit = 0.f;
 	HitsStatsName = NAME_RedeemerHits;
 }
