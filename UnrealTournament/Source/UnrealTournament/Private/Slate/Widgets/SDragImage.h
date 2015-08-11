@@ -15,10 +15,10 @@ public:
 		: _Image(FCoreStyle::Get().GetDefaultBrush())
 		, _ColorAndOpacity(FLinearColor::White)
 		, _OnDrag()
-		, _OnZoom()
 		, _OnMove()
 		, _OnMousePressed()
 		, _OnMouseReleased()
+		, _OnZoom()
 	{}
 
 		/** Image resource */
