@@ -107,9 +107,8 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
 		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += 1;
+		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->GetClockTime();
 
-		// TODO: need to handle no timelimit
-		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->RemainingTime;
 		if (CTFGameState->IsMatchInOvertime())
 		{
 			NewScoringPlay.Period = 2;
