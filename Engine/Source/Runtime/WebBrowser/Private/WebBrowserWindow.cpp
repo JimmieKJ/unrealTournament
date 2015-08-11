@@ -500,10 +500,9 @@ void FWebBrowserWindow::OnPaint(CefRenderHandler::PaintElementType Type, const C
     NeedsRedrawEvent.Broadcast();
 }
 
-void FWebBrowserWindow::OnCursorChange(CefCursorHandle Cursor)
+void FWebBrowserWindow::OnCursorChange(CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo)
 {
-	// TODO: Figure out Unreal cursor type from this,
-	// may need to reload unreal cursors to compare handles
+	// TODO: Figure out Unreal cursor type from CefRenderHandler::CursorType,
 	//::SetCursor( Cursor );
 }
 

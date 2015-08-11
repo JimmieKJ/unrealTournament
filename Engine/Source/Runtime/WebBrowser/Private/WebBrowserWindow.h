@@ -195,7 +195,7 @@ private:
 	 * 
 	 * @param Cursor Handle to CEF mouse cursor.
 	 */
-	void OnCursorChange(CefCursorHandle Cursor);
+    void OnCursorChange(CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo);
 
 	/**
      * Called when JavaScript code sends a message to the UE process.

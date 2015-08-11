@@ -8,7 +8,7 @@ public class CEF3 : ModuleRules
 	public CEF3(TargetInfo Target)
 	{
 		/** Mark the current version of the library */
-		string CEFVersion = "3.1750.1738";
+		string CEFVersion = "3.2272.2077";
 		string CEFPlatform = "";
 
 		Type = ModuleType.External;
@@ -23,7 +23,7 @@ public class CEF3 : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			CEFVersion = "3.1750.1805";
+			CEFVersion = "3.2272.24.ga8ab9ad";
 			CEFPlatform = "macosx64";
 		}
 
@@ -53,27 +53,25 @@ public class CEF3 : ModuleRules
 				}
 
 				PublicDelayLoadDLLs.Add("d3dcompiler_43.dll");
-				PublicDelayLoadDLLs.Add("d3dcompiler_46.dll");
+				PublicDelayLoadDLLs.Add("d3dcompiler_47.dll");
 				PublicDelayLoadDLLs.Add("ffmpegsumo.dll");
-				PublicDelayLoadDLLs.Add("icudt.dll");
 				PublicDelayLoadDLLs.Add("libcef.dll");
 				PublicDelayLoadDLLs.Add("libEGL.dll");
-				PublicDelayLoadDLLs.Add("libGLESv2.dll");
+                PublicDelayLoadDLLs.Add("libGLESv2.dll");
+                PublicDelayLoadDLLs.Add("pdf.dll");
 
 				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/" + Target.Platform.ToString() + "/UnrealCEFSubProcess.exe"));
 			}
 			// TODO: Ensure these are filled out correctly when adding other platforms
 			else if (Target.Platform == UnrealTargetPlatform.Mac)
 			{
-				string CEFPath = LibraryPath + "/libplugin_carbon_interpose.dylib";
-                string WrapperPath = LibraryPath + "/libcef_dll_wrapper.a";
+				string WrapperPath = LibraryPath + "/libcef_dll_wrapper.a";
                 string FrameworkPath = UEBuildConfiguration.UEThirdPartyBinariesDirectory + "CEF3/Mac/Chromium Embedded Framework.framework";
 
-				PublicAdditionalLibraries.Add(CEFPath);
-                PublicAdditionalLibraries.Add(WrapperPath);
+				PublicAdditionalLibraries.Add(WrapperPath);
                 PublicFrameworks.Add(FrameworkPath);
 
-				var LocaleFolders = Directory.GetFileSystemEntries(LibraryPath + "/locale", "*.lproj");
+                var LocaleFolders = Directory.GetFileSystemEntries(LibraryPath + "/locale", "*.lproj");
 				foreach (var FolderName in LocaleFolders)
 				{
 					AdditionalBundleResources.Add(new UEBuildBundleResource(FolderName, bInShouldLog:false));

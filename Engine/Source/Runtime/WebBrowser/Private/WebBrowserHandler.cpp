@@ -137,15 +137,17 @@ void FWebBrowserHandler::OnPaint(CefRefPtr<CefBrowser> Browser,
 	}
 }
 
-void FWebBrowserHandler::OnCursorChange(CefRefPtr<CefBrowser> Browser, CefCursorHandle Cursor)
+void FWebBrowserHandler::OnCursorChange(CefRefPtr<CefBrowser> Browser, CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo)
 {
-	TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
-
-	if (BrowserWindow.IsValid())
-	{
-		BrowserWindow->OnCursorChange(Cursor);
-	}
+    TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
+    
+    if (BrowserWindow.IsValid())
+    {
+        BrowserWindow->OnCursorChange(Cursor, Type, CustomCursorInfo);
+    }
+    
 }
+
 
 bool FWebBrowserHandler::OnBeforeResourceLoad(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefRequest> Request)
 {

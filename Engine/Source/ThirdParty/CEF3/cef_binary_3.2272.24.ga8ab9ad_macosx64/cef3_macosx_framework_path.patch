@@ -1,0 +1,17 @@
+--- libcef/common/main_delegate.cc.orig	2015-02-12 17:38:40.000000000 +0100
++++ libcef/common/main_delegate.cc	2015-02-12 17:38:35.000000000 +0100
+@@ -71,8 +71,12 @@
+ 
+ // The framework bundle path is used for loading resources, libraries, etc.
+ base::FilePath GetFrameworkBundlePath() {
+-  return GetFrameworksPath().Append(
+-      FILE_PATH_LITERAL("Chromium Embedded Framework.framework"));
++  CFBundleRef bundleRef = CFBundleGetBundleWithIdentifier(CFSTR("org.chromium.ContentShell.framework"));
++  CFURLRef urlRef = CFBundleCopyBundleURL(bundleRef);
++  UInt8 frameworkBundlePathStr[PATH_MAX];
++  CFURLGetFileSystemRepresentation(urlRef, true, frameworkBundlePathStr, sizeof(frameworkBundlePathStr));
++  std::string frameworkBundlePathCppStr((char*) frameworkBundlePathStr);
++  return base::FilePath(frameworkBundlePathCppStr);
+ }
+ 
+ base::FilePath GetResourcesFilePath() {
