@@ -643,7 +643,10 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
 			if (PS && !PS->HasWrittenStatsToCloud())
 			{
-				PS->SetStatsValue(NAME_MatchesQuit, 1);
+				if (!PS->bAllowedEarlyLeave)
+				{
+					PS->SetStatsValue(NAME_MatchesQuit, 1);
+				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);

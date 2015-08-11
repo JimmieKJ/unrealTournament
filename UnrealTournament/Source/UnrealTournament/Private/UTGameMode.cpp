@@ -1334,6 +1334,17 @@ void AUTGameMode::StartMatch()
 	{
 		SetMatchState(MatchState::CountdownToBegin);	
 	}
+	
+	// Any player that join pre-StartMatch is given a free pass to quit
+	// Rejoining will not copy this flag to their new playerstate, so if they rejoin the server post-StartMatch and drop, they will get a quit notice
+	for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+		if (PS)
+		{
+			PS->bAllowedEarlyLeave = true;
+		}
+	}
 
 	if (FUTAnalytics::IsAvailable())
 	{
@@ -1487,7 +1498,10 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
 			if (PS && !PS->HasWrittenStatsToCloud())
 			{
-				PS->SetStatsValue(NAME_MatchesQuit, 1);
+				if (!PS->bAllowedEarlyLeave)
+				{
+					PS->SetStatsValue(NAME_MatchesQuit, 1);
+				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);

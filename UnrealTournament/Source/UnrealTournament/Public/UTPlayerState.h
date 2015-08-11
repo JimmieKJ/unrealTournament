@@ -218,6 +218,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	bool bIsDemoRecording;
 
+	UPROPERTY()
+	bool bAllowedEarlyLeave;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/
