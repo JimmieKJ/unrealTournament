@@ -90,7 +90,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	}
 
 	AUTWeapon* SelectedWeapon = UTCharacterOwner->GetPendingWeapon();
-	if (SelectedWeapon == NULL)
+	if (SelectedWeapon == NULL) 
 	{
 		SelectedWeapon = UTCharacterOwner->GetWeapon();
 		if (SelectedWeapon)
@@ -100,7 +100,9 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	}
 	else
 	{
-		if (!WeaponNameText.Text.EqualTo(SelectedWeapon->DisplayName))
+		AUTWeapon* CurrentWeapon = UTCharacterOwner->GetWeapon();
+
+		if ((!CurrentWeapon || CurrentWeapon->IsUnEquipping()) && !WeaponNameText.Text.EqualTo(SelectedWeapon->DisplayName))
 		{
 			WeaponNameText.Text = SelectedWeapon->DisplayName;
 			WeaponNameText.RenderOpacity = 1.f;

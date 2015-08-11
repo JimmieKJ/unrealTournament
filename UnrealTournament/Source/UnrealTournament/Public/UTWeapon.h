@@ -736,6 +736,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual void GotoEquippingState(float OverflowTime);
 	
+	virtual bool IsUnEquipping() { return GetCurrentState() == UnequippingState; };
+
 	/** informational function that returns the damage radius that a given fire mode has (used by e.g. bots) */
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	float GetDamageRadius(uint8 TestMode) const;
