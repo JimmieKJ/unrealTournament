@@ -69,6 +69,9 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	UFUNCTION(BlueprintNativeEvent, meta = (DisplayName = "On Cosmetic Wearer Death"))
 	void OnWearerDeath(TSubclassOf<UDamageType> DamageType);
 
+	UFUNCTION(BlueprintCallable, Category="Cosmetic")
+	virtual void SetBodiesToSimulatePhysics();
+
 	virtual void PreInitializeComponents() override;
 	virtual void PostInitializeComponents() override;
 };
