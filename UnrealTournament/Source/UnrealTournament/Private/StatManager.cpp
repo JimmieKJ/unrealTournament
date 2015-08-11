@@ -170,7 +170,7 @@ UStatManager::~UStatManager()
 	{
 		delete Stat.Value();
 	}
-	Stat.Empty();
+	Stats.Empty();
 }
 
 void FStat::ModifyStat(int32 Amount, EStatMod::Type ModType)
