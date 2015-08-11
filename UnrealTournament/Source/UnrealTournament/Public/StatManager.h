@@ -55,7 +55,11 @@ public:
 	{}
 
 	FStat(bool inbBackendStat)
-		: bBackendStat(inbBackendStat)
+		: bBackendStat(inbBackendStat), WriteMultiplier(0.0f)
+	{}
+
+	FStat(bool inbBackendStat, float inWriteMultiplier)
+		: bBackendStat(inbBackendStat), WriteMultiplier(inWriteMultiplier)
 	{}
 	
 	UPROPERTY()
@@ -63,6 +67,9 @@ public:
 
 	UPROPERTY()
 	bool bBackendStat;
+
+	UPROPERTY()
+	float WriteMultiplier;
 
 	void ModifyStat(int32 Amount, EStatMod::Type ModType);
 };

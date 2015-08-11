@@ -88,16 +88,17 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_RedeemerShots, new FStat(true));
 	Stats.Add(NAME_InstagibShots, new FStat(true));
 
-	Stats.Add(NAME_EnforcerHits, new FStat(true));
-	Stats.Add(NAME_BioRifleHits, new FStat(true));
-	Stats.Add(NAME_ShockRifleHits, new FStat(true));
-	Stats.Add(NAME_LinkHits, new FStat(true));
-	Stats.Add(NAME_MinigunHits, new FStat(true));
-	Stats.Add(NAME_FlakHits, new FStat(true));
-	Stats.Add(NAME_RocketHits, new FStat(true));
-	Stats.Add(NAME_SniperHits, new FStat(true));
-	Stats.Add(NAME_RedeemerHits, new FStat(true));
-	Stats.Add(NAME_InstagibHits, new FStat(true));
+	// Hits can be fractional, multiply by 100 to make sure that we don't lose much precision when going to integers
+	Stats.Add(NAME_EnforcerHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_BioRifleHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_ShockRifleHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_LinkHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_MinigunHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_FlakHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_RocketHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_SniperHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_RedeemerHits, new FStat(true, 100.0f));
+	Stats.Add(NAME_InstagibHits, new FStat(true, 100.0f));
 
 	Stats.Add(NAME_UDamageTime, new FStat(true));
 	Stats.Add(NAME_BerserkTime, new FStat(true));
@@ -269,6 +270,11 @@ void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> Jso
 		if (Stat.Value()->bBackendStat && PS)
 		{
 			float NewStatValue = PS->GetStatsValue(Stat.Key());
+			if (Stat.Value()->WriteMultiplier > 0.0f)
+			{
+				NewStatValue *= Stat.Value()->WriteMultiplier;
+			}
+
 			if (NewStatValue != 0)
 			{
 				JsonObject->SetNumberField(Stat.Key().ToString(), NewStatValue);
