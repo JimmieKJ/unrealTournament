@@ -3572,12 +3572,19 @@ void AUTCharacter::Tick(float DeltaTime)
 			float FloatMag = (IsDead() || !PositionIsInWater(GetMesh()->GetBoneLocation(TEXT("neck_01")) +FVector(0.f, 0.f, 10.f))) ? 110.f : 190.f;
 			FVector FluidForce = -500.f * GetVelocity() - FVector(0.f, 0.f, FloatMag*GetWorld()->GetGravityZ());
 
+			// also apply any current force
+			FVector SpineLoc = GetMesh()->GetBoneLocation(TEXT("spine_02"));
+			AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(PositionIsInWater(GetActorLocation()));
+			if (WaterVolume)
+			{
+				FluidForce += 3.f * FloatMag * WaterVolume->GetCurrentFor(this);
+			}
+
 			GetMesh()->AddForce(0.3f*FluidForce, FName(TEXT("spine_02")));
 			GetMesh()->AddForce(0.1f*FluidForce);
 			GetMesh()->AddForce(0.1f*FluidForce, FName(TEXT("spine_03")));
 			GetMesh()->AddForce(0.07f*FluidForce, FName(TEXT("neck_01")));
 
-			FVector SpineLoc = GetMesh()->GetBoneLocation(TEXT("spine_02"));
 			GetMesh()->AddForce(0.025f*FluidForce + 2500.f * (GetMesh()->GetBoneLocation(TEXT("lowerarm_l")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("lowerarm_l"))));
 			GetMesh()->AddForce(0.025f*FluidForce + 2500.f * (GetMesh()->GetBoneLocation(TEXT("lowerarm_r")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("lowerarm_r"))));
 			GetMesh()->AddForce(0.04f*FluidForce + 5000.f * (GetMesh()->GetBoneLocation(TEXT("foot_l")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("foot_l"))));
@@ -3640,7 +3647,7 @@ bool AUTCharacter::IsInWater() const
 {
 	if (IsRagdoll())
 	{
-		return PositionIsInWater(GetActorLocation());
+		return (PositionIsInWater(GetActorLocation()) != NULL);
 	}
 	return (GetCharacterMovement() && GetCharacterMovement()->IsInWater());
 }
@@ -3648,16 +3655,16 @@ bool AUTCharacter::IsInWater() const
 bool AUTCharacter::HeadIsUnderWater() const
 {
 	FVector HeadLocation = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
-	return PositionIsInWater(HeadLocation);
+	return (PositionIsInWater(HeadLocation) != NULL);
 }
 
 bool AUTCharacter::FeetAreInWater() const
 {
 	FVector FootLocation = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
-	return PositionIsInWater(FootLocation);
+	return (PositionIsInWater(FootLocation) != NULL);
 }
 
-bool AUTCharacter::PositionIsInWater(const FVector& Position) const
+APhysicsVolume* AUTCharacter::PositionIsInWater(const FVector& Position) const
 {
 	// check for all volumes that overlapposition
 	APhysicsVolume* NewVolume = NULL;
@@ -3675,7 +3682,7 @@ bool AUTCharacter::PositionIsInWater(const FVector& Position) const
 			NewVolume = V;
 		}
 	}
-	return (NewVolume && NewVolume->bWaterVolume);
+	return (NewVolume && NewVolume->bWaterVolume) ? NewVolume : NULL;
 }
 
 void AUTCharacter::TakeDrowningDamage()

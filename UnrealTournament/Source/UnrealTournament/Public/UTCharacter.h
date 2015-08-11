@@ -1208,7 +1208,8 @@ public:
 	/** Returns true if bottom of capsule is in water */
 	virtual bool FeetAreInWater() const;
 
-	virtual bool PositionIsInWater(const FVector& Position) const;
+	/** Return the water volume character is in, if currently in water.  Return null if not in water. */
+	virtual APhysicsVolume* PositionIsInWater(const FVector& Position) const;
 
 	/** Take drowning damage, play drowning sound */
 	virtual void TakeDrowningDamage();
