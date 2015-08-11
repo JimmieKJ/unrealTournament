@@ -397,6 +397,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Replay.Button.Record", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Record", Icon24x24));
 		Style.Set("UT.Replay.Button.MarkStart", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkStart", Icon24x24));
 		Style.Set("UT.Replay.Button.MarkEnd", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkEnd", Icon24x24));
+		Style.Set("UT.Replay.Button.Comment", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Comment", Icon24x24));
 		Style.Set("UT.Replay.Button.Screenshot", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Screenshot", Icon24x24));
 		Style.Set("UT.Replay.Button.ScreenshotConfig", new IMAGE_BRUSH("Icons/UT.Icon.Replay.ScreenshotConfig", Icon24x24));
 

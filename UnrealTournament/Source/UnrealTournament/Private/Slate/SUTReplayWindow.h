@@ -42,6 +42,7 @@ protected:
 	void RecordSeekCompleted(bool bSucceeded);
 	FReply OnScreenshotButtonClicked();
 	FReply OnScreenshotConfigButtonClicked();
+	FReply OnCommentButtonClicked();
 	void ScreenshotConfigResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 
 	TSharedPtr<class SUTProgressSlider> TimeSlider;
@@ -97,6 +98,7 @@ protected:
 	void FlagDenyEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
 	void MultiKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
 	void SpreeKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void CommentsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
 
 	TArray<FReplayEventListItem> KillEvents;
 	TArray<FReplayEventListItem> FlagCapEvents;
@@ -104,6 +106,7 @@ protected:
 	TArray<FReplayEventListItem> FlagReturnEvents;
 	TArray<FReplayEventListItem> MultiKillEvents;
 	TArray<FReplayEventListItem> SpreeKillEvents;
+	TArray<FReplayEventListItem> CommentEvents;
 
 	TArray<FBookmarkTimeAndColor> CurrentBookmarks;
 	TArray<FString> EventDataRequests;
@@ -124,7 +127,7 @@ protected:
 	EVisibility GetVis() const;
 
 	void BookmarkDataReady(const TArray<uint8>& Data, bool bSucceeded, FString EventID, FString EventType);
-
+	void CommentDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TWeakObjectPtr<class UDemoNetDriver> DemoNetDriver;

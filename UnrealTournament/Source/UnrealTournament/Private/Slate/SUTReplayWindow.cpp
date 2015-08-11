@@ -15,6 +15,7 @@
 #include "UTVideoRecordingFeature.h"
 #include "SUWScreenshotConfigDialog.h"
 #include "SceneViewport.h"
+#include "SUWInputBox.h"
 
 #if !UE_SERVER
 
@@ -276,6 +277,30 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
+									[									
+										SNew(SVerticalBox)
+										+ SVerticalBox::Slot()
+										.HAlign(HAlign_Fill)
+										.AutoHeight()
+										[
+											SNew(SBox)
+											.HeightOverride(32)
+											.WidthOverride(32)
+											[
+												SAssignNew(MarkEndButton, SButton)
+												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+												.OnClicked(this, &SUTReplayWindow::OnCommentButtonClicked)
+												.Content()
+												[
+													SNew(SImage)
+													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Comment"))
+												]
+											]
+										]
+									]
+									+ SHorizontalBox::Slot()
+									.HAlign(HAlign_Left)
+									.AutoWidth()
 									.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 									[
 										SAssignNew(BookmarksComboBox, SComboBox< TSharedPtr<FString> >)
@@ -370,12 +395,14 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 		FEnumerateEventsCompleteDelegate EnumFlagDeny = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::FlagDenyEnumerated);
 		FEnumerateEventsCompleteDelegate EnumMultiKills = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::MultiKillsEnumerated);
 		FEnumerateEventsCompleteDelegate EnumSpreeKills = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::SpreeKillsEnumerated);
+		FEnumerateEventsCompleteDelegate EnumComments = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::CommentsEnumerated);
 		DemoNetDriver->EnumerateEvents(TEXT("Kills"), EnumKills);
 		DemoNetDriver->EnumerateEvents(TEXT("FlagCaps"), EnumFlagCaps);
 		DemoNetDriver->EnumerateEvents(TEXT("FlagReturns"), EnumFlagReturns);
 		DemoNetDriver->EnumerateEvents(TEXT("FlagDeny"), EnumFlagDeny);
 		DemoNetDriver->EnumerateEvents(TEXT("MultiKills"), EnumMultiKills);
 		DemoNetDriver->EnumerateEvents(TEXT("SpreeKills"), EnumSpreeKills);
+		DemoNetDriver->EnumerateEvents(TEXT("Comments"), EnumComments);
 	}
 }
 
@@ -424,6 +451,14 @@ void SUTReplayWindow::SpreeKillsEnumerated(const FReplayEventList& ReplayEventLi
 	if (bSucceeded)
 	{
 		SpreeKillEvents = ReplayEventList.ReplayEvents;
+	}
+}
+
+void SUTReplayWindow::CommentsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded)
+{
+	if (bSucceeded)
+	{
+		CommentEvents = ReplayEventList.ReplayEvents;
 	}
 
 	RefreshBookmarksComboBox();
@@ -771,6 +806,57 @@ FReply SUTReplayWindow::OnScreenshotButtonClicked()
 	PlayerOwner->ViewportClient->GetGameViewport()->TakeHighResScreenShot();
 
 	return FReply::Handled();
+}
+
+FReply SUTReplayWindow::OnCommentButtonClicked()
+{
+	PlayerOwner->OpenDialog(SNew(SUWInputBox)
+		.OnDialogResult(FDialogResultDelegate::CreateSP(this, &SUTReplayWindow::CommentDialogResult))
+		.PlayerOwner(PlayerOwner)
+		.DialogSize(FVector2D(700, 400))
+		.bDialogSizeIsRelative(false)
+		.DefaultInput(TEXT(""))
+		.DialogTitle(NSLOCTEXT("ReplayWindow", "CommentTitle", "Enter Your Comment"))
+		.MessageText(NSLOCTEXT("ReplayWindow", "Comment", "Your comment will be viewable by everyone, your player id is saved along with the comment.\nInappropriate comments will result in your account being closed. Please be nice!"))
+		.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
+		);
+
+	return FReply::Handled();
+}
+
+void SUTReplayWindow::CommentDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			FString CommentText = Box->GetInputText();
+			
+			IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+			if (OnlineSubsystem)
+			{
+				IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+				if (OnlineIdentityInterface.IsValid())
+				{
+					FString PlayerId = OnlineIdentityInterface->GetUniquePlayerId(0)->ToString();
+					if (!PlayerId.IsEmpty())
+					{
+						FString CommentEvent = FString::Printf(TEXT("%s: %s"), *PlayerOwner->PlayerController->PlayerState->PlayerName, *CommentText);
+
+						TArray<uint8> Data;
+						FMemoryWriter MemoryWriter(Data);
+						MemoryWriter.Serialize(TCHAR_TO_ANSI(*CommentEvent), CommentEvent.Len() + 1);
+
+						DemoNetDriver->AddEvent(TEXT("Comments"), PlayerId, Data);
+
+						FEnumerateEventsCompleteDelegate EnumComments = FEnumerateEventsCompleteDelegate::CreateSP(this, &SUTReplayWindow::CommentsEnumerated);
+						DemoNetDriver->EnumerateEvents(TEXT("Comments"), EnumComments);
+					}
+				}
+			}
+		}
+	}
 }
 
 FReply SUTReplayWindow::OnScreenshotConfigButtonClicked()
