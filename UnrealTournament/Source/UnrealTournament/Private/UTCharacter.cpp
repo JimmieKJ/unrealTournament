@@ -163,6 +163,12 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
 }
 
+float AUTCharacter::GetWeaponBobScaling()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetController());
+	return PC ? PC->WeaponBobGlobalScaling : 1.f;
+}
+
 void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
 {
 	// @TODO FIXMESTEVE - BaseChange() would be useful for this if it passed the old base as well

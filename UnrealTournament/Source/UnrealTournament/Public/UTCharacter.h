@@ -349,6 +349,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRepCosmeticSpreeCount();
 
+	UFUNCTION(BlueprintCallable, Category=Weapon)
+	virtual float GetWeaponBobScaling();
+
 	UPROPERTY(replicatedUsing=OnRepTaunt)
 	FEmoteRepInfo EmoteReplicationInfo;
 	
