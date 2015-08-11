@@ -179,6 +179,17 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 	LastStatsDownloadTime = -1;
 }
 
+TSharedRef<SWidget> SUWStatsViewer::GenerateStringListWidget(TSharedPtr<FString> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::White)
+			.Text(FText::FromString(*InItem.Get()))
+		];
+}
+
 void SUWStatsViewer::SetQueryWindow(const FString& InQueryWindow)
 {
 	if (InQueryWindow != QueryWindow)

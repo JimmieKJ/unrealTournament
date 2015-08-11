@@ -52,6 +52,8 @@ protected:
 	TSharedPtr<STextBlock> SelectedQueryWindow;
 	void OnQueryWindowSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+
 public:
 	virtual void SetQueryWindow(const FString& InQueryWindow);
 	virtual void SetStatsID(const FString& InStatsID);
