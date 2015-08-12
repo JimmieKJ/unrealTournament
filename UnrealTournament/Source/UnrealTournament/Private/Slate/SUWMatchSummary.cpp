@@ -35,9 +35,11 @@
 static const float BOB_SCALING_FACTOR = 1.f;
 
 static const float PLAYER_SPACING = 180.0f;
-static const float TEAM_CAMERA_OFFSET = 1200.0f;
-static const float ALL_CAMERA_OFFSET = 4000.0f;
-static const float ALL_CAMERA_ANGLE = 15.0f;
+static const float TEAM_CAMERA_OFFSET = 500.0f;
+static const float TEAM_CAMERA_ZOFFSET = 50.0f;
+static const float ALL_CAMERA_OFFSET = 3000.0f;
+static const float ALL_CAMERA_ZOFFSET = 800.0f;
+static const float ALL_CAMERA_ANGLE = -15.0f;
 
 #if !UE_SERVER
 
@@ -62,6 +64,8 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	CameraTransform.SetRotation(FRotator(0.0f, 180.0f, 0.0f).Quaternion());
 	DesiredCameraTransform = CameraTransform;
 	TeamCamAlpha = 0.5f;
+	bAutoScrollTeam = true;
+	AutoScrollTeamDirection = 1.0f;
 
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Game, true); // NOTE: Custom depth does not work with EWorldType::Preview
@@ -273,13 +277,26 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.HAlign(HAlign_Right)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-				.ContentPadding(FMargin(20.0f, 5.0f, 20.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWMatchSummary", "Close", "Close"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-				.OnClicked(this, &SUWMatchSummary::OnClose)
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				.HAlign(HAlign_Fill)
+				.VAlign(VAlign_Fill)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.Fill"))
+				]
+				+ SOverlay::Slot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Right)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+					.ContentPadding(FMargin(20.0f, 5.0f, 20.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWMatchSummary", "Close", "Close"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+					.OnClicked(this, &SUWMatchSummary::OnClose)
+				]
 			]
 		]
 	];
@@ -598,6 +615,16 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	{
 		UpdateAutoCam();
 	}
+	else if (ViewMode == VM_Team && bAutoScrollTeam)
+	{
+		TeamCamAlpha += InDeltaTime * AutoScrollTeamDirection * 0.05;
+		TeamCamAlpha = FMath::Clamp(TeamCamAlpha, 0.0f, 1.0f);
+
+		if (TeamCamAlpha == 0.0f || TeamCamAlpha == 1.0f)
+		{
+			AutoScrollTeamDirection *= -1.0f;
+		}
+	}
 
 	if (ViewMode == VM_Team)
 	{
@@ -656,7 +683,9 @@ void SUWMatchSummary::UpdateAutoCam()
 {
 	if (!ViewedChar.IsValid() && ViewMode == EViewMode::VM_Team)
 	{
-		if (IntroTime > 5.0f)
+		TeamCamAlpha = IntroTime / 7.0f;
+		//Halftime uses the around the flag circle view so just skip it
+		if (IntroTime > 7.0f || GameState->GetMatchState() == MatchState::MatchEnteringHalftime || GameState->GetMatchState() == MatchState::MatchIsAtHalftime)
 		{
 			ViewAll();
 			IntroTime = 0.0f;
@@ -685,7 +714,7 @@ void SUWMatchSummary::UpdateAutoCam()
 			IntroTime = 0.0f;
 		}
 	}
-	else if (IntroTime > 3.0f && (ViewMode == EViewMode::VM_All || ViewMode == EViewMode::VM_Player))
+	else if (IntroTime > 2.0f && (ViewMode == EViewMode::VM_All || ViewMode == EViewMode::VM_Player))
 	{
 		bool bFound = false;
 		bool bFinished = true;
@@ -707,7 +736,7 @@ void SUWMatchSummary::UpdateAutoCam()
 
 		if (bFinished)
 		{
-			ViewTeam(ViewedTeamNum);
+			ViewAll();
 			CameraState = CS_FreeCam;
 		}
 
@@ -1000,7 +1029,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 		{
 			if (UTC->PlayerState != nullptr && FVector::DotProduct(CameraTransform.Rotator().Vector(), (UTC->GetActorLocation() - CameraTransform.GetLocation())) > 0.0f)
 			{
-				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 170.0f);
+				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 140.0f);
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
@@ -1019,7 +1048,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 		FVector CamLoc = CameraTransform.GetLocation();
 		PlayerNames.Sort([CamLoc](const FPlayerName& A, const FPlayerName& B) -> bool
 		{
-			return  FVector::DistSquared(CamLoc, A.Location3D) < FVector::DistSquared(CamLoc, B.Location3D);
+			return  FVector::DistSquared(CamLoc, A.Location3D) > FVector::DistSquared(CamLoc, B.Location3D);
 		});
 
 		for (int32 i = 0; i < PlayerNames.Num(); i++)
@@ -1041,7 +1070,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 				if (A.Location.X < B.Location.X + B.Size.X && A.Location.X + A.Size.X > B.Location.X
 					&& A.Location.Y < B.Location.Y + B.Size.Y && A.Location.Y + A.Size.Y > B.Location.Y)
 				{
-					B.Location.Y = A.Location.Y - (B.Size.Y * 1.5f);
+					B.Location.Y = A.Location.Y - (B.Size.Y * 0.6f);
 				}
 			}
 		}
@@ -1183,7 +1212,7 @@ void SUWMatchSummary::SetViewMode(EViewMode NewViewMode)
 		{
 			for (int32 iCharacter = 0; iCharacter < TeamPreviewMeshs[iTeam].Num(); iCharacter++)
 			{
-				if (TeamAnchors.IsValidIndex(iCharacter))
+				if (TeamAnchors.IsValidIndex(iTeam))
 				{
 					TeamPreviewMeshs[iTeam][iCharacter]->SetActorRotation(TeamAnchors[iTeam]->GetActorRotation());
 				}
@@ -1255,29 +1284,28 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 
 	//Figure out the start and end camera tranforms for the team pan
 	TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[ViewedTeamNum];
+	if (TeamCharacters.Num() > 0)
 	{
-		if (TeamCharacters.Num() > 0)
-		{
-			AUTCharacter* StartChar = TeamCharacters[TeamCharacters.Num() - 1];
-			FRotator Dir = StartChar->GetActorRotation();
-			FVector Location = StartChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET);
+		AUTCharacter* StartChar = TeamCharacters[TeamCharacters.Num() - 1];
+		FRotator Dir = StartChar->GetActorRotation();
+		FVector Location = StartChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
 
-			Dir.Yaw += 180.0f;
-			TeamStartCamera.SetLocation(Location);
-			TeamStartCamera.SetRotation(Dir.Quaternion());
-		}
+		Dir.Yaw += 180.0f;
+		TeamStartCamera.SetLocation(Location);
+		TeamStartCamera.SetRotation(Dir.Quaternion());
 	}
 	if (TeamCharacters.Num() > 0)
 	{
 		AUTCharacter* EndChar = TeamCharacters[0];
 		FRotator Dir = EndChar->GetActorRotation();
-		FVector Location = EndChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET);
+		FVector Location = EndChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
 
 		Dir.Yaw += 180.0f;
 		TeamEndCamera.SetLocation(Location);
 		TeamEndCamera.SetRotation(Dir.Quaternion());
 	}
 	TeamCamAlpha = 0.5f;
+	bAutoScrollTeam = true;
 
 	BuildInfoPanel();
 }
@@ -1285,8 +1313,8 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 void SUWMatchSummary::ViewAll()
 {
 	SetViewMode(EViewMode::VM_All);
-	DesiredCameraTransform.SetLocation(FVector(4000.0f, 0.0f, 900.0f));
-	DesiredCameraTransform.SetRotation(FRotator(-15.0f, 180.0f, 0.0f).Quaternion());
+	DesiredCameraTransform.SetLocation(FVector(ALL_CAMERA_OFFSET, 0.0f, ALL_CAMERA_ZOFFSET));
+	DesiredCameraTransform.SetRotation(FRotator(ALL_CAMERA_ANGLE, 180.0f, 0.0f).Quaternion());
 
 	UUTScoreboard* Scoreboard = GetScoreboard();
 	if (Scoreboard != nullptr)
@@ -1367,6 +1395,8 @@ void SUWMatchSummary::DragPlayerPreview(const FGeometry& MyGeometry, const FPoin
 				{
 					TeamCamAlpha = 0.5f;
 				}
+
+				bAutoScrollTeam = false;
 			}
 		}
 		else if (ViewMode == VM_Player && ViewedChar.IsValid())
@@ -1380,7 +1410,7 @@ void SUWMatchSummary::DragPlayerPreview(const FGeometry& MyGeometry, const FPoin
 			else if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
 			{
 				FVector Location = DesiredCameraTransform.GetLocation();
-				Location.Z = FMath::Clamp(Location.Z + MouseEvent.GetCursorDelta().Y, -80.0f, 80.0f);
+				Location.Z = FMath::Clamp(Location.Z + MouseEvent.GetCursorDelta().Y, -25.0f, 70.0f);
 				DesiredCameraTransform.SetLocation(Location);
 			}
 		}

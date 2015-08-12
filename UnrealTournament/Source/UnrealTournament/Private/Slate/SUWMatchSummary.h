@@ -105,6 +105,8 @@ protected:
 	FTransform TeamStartCamera;
 	FTransform TeamEndCamera;
 	float TeamCamAlpha;
+	bool bAutoScrollTeam;
+	float AutoScrollTeamDirection;
 
 	double IntroTime;
 

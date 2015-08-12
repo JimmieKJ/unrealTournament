@@ -27,25 +27,33 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
-	if (MyUTScoreboard != NULL)
-	{
-		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
-	}
-
 	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
 	if (UTLP != nullptr)
 	{
 		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch
-			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro
-			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime)
+			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro)
 		{
-
-			UTLP->OpenMatchSummary(Cast<AUTGameState>(GetWorld()->GetGameState()));
+			OpenMatchSummary();			
+		}
+		else if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime)
+		{
+			FTimerHandle TempHandle;
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD_CTF::OpenMatchSummary, 7.0f);
 		}
 		else
 		{
 			UTLP->CloseMatchSummary();
+			GetWorldTimerManager().ClearTimer(MatchSummaryHandle);
 		}
+	}
+}
+
+void AUTHUD_CTF::OpenMatchSummary()
+{
+	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
+	if (UTLP != nullptr)
+	{
+		UTLP->OpenMatchSummary(Cast<AUTGameState>(GetWorld()->GetGameState()));
 	}
 }
 
