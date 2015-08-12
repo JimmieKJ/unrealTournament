@@ -34,7 +34,7 @@ class UNREALTOURNAMENTEDITOR_API UUTUnrealEdEngine : public UUnrealEdEngine
 	{
 		FString URL = Super::BuildPlayWorldURL(MapName, bSpectatorMode, AdditionalURLOptions);
 
-		if (!URL.Contains(TEXT("Taunt")))
+		if (!URL.Contains(TEXT("Taunt")) && PlayWorld != NULL) // PlayWorld is NULL when doing "play standalone game" or "play on XXX" in the editor, because they launch a separate process
 		{
 			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(PlayWorld));
 			if (LP)
