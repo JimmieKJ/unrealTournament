@@ -3887,11 +3887,6 @@ void FFXSystem::InitGPUSimulation()
 
 void FFXSystem::DestroyGPUSimulation()
 {
-	UE_LOG(LogParticles,Log,
-		TEXT("Destroying %d GPU particle simulations for FXSystem 0x%p"),
-		GPUSimulations.Num(),
-		this
-		);
 	for ( TSparseArray<FParticleSimulationGPU*>::TIterator It(GPUSimulations); It; ++It )
 	{
 		FParticleSimulationGPU* Simulation = *It;
