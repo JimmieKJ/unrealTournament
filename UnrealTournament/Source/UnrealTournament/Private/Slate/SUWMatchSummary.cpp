@@ -1461,7 +1461,7 @@ FText SUWMatchSummary::GetSwitcherText() const
 	}
 	if (ViewMode == VM_Team && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
 	{
-		return FText::Format(NSLOCTEXT("SUWMatchSummary", "Team", "Team {0}"), GameState->Teams[ViewedTeamNum]->TeamName);
+		return FText::Format(NSLOCTEXT("SUWMatchSummary", "Team", "{0} Team"), GameState->Teams[ViewedTeamNum]->TeamName);
 	}
 	return FText::GetEmpty();
 }

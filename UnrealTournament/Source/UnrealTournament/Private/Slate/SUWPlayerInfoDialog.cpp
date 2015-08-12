@@ -377,11 +377,7 @@ FReply SUWPlayerInfoDialog::OnSendFriendRequest()
 
 FText SUWPlayerInfoDialog::GetFunnyText()
 {
-	float Rnd = FMath::FRand();
-	if (Rnd < 0.2) return NSLOCTEXT("SUWPlayerInfoDialog", "FunnyOne", "Narcissistic Much?");
-	if (Rnd < 0.4) return NSLOCTEXT("SUWPlayerInfoDialog", "Funnytwo", "Mirror Mirror...");
-
-	return NSLOCTEXT("SUWPlayerInfoDialog", "FunnyDefault", "Viewing Yourself!");
+	return NSLOCTEXT("SUWPlayerInfoDialog", "FunnyDefault", "Viewing self.");
 }
 
 void SUWPlayerInfoDialog::BuildFriendPanel()
