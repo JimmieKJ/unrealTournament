@@ -809,7 +809,7 @@ void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnL
 
 bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
 {
-	return ImpactHit.Actor.IsValid() && (Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get()));
+	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
 }
 
 void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
