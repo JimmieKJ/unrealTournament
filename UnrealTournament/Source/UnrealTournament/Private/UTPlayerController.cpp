@@ -2062,7 +2062,8 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 		ClientData.LocalPC = this;
 		ClientData.MessageIndex = 0;
 
-		int32 PrevLevel, NewLevel;
+		int32 PrevLevel = 0;
+		int32 NewLevel = 0;
 		if (LP->IsOnTrustedServer())
 		{
 			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i ONLINE XP FOR THIS MATCH"), GainedXP.Total());
@@ -2077,6 +2078,7 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 			LP->GetProfileSettings()->LocalXP += GainedXP.Total();
 			NewLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
 		}
+
 		UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
 		if (PrevLevel < NewLevel)
 		{
