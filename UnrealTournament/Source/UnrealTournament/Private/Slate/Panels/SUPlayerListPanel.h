@@ -61,8 +61,8 @@ public:
 	TWeakObjectPtr<AUTPlayerState> PlayerState;
 
 	FTrackedPlayer(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
-		: PlayerName(inHeaderText)
-		, EntryType(inEntryType)
+		: EntryType(inEntryType)
+		, PlayerName(inHeaderText)
 	{
 		bPendingKill = false;
 		TeamNum = 255;
@@ -72,13 +72,13 @@ public:
 	}
 
 	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, int32 inAvatarID, bool inbIsOwner, bool inbIsHost)
-		: PlayerState(inPlayerState)
-		, PlayerID(inPlayerID)
+		: PlayerID(inPlayerID)
 		, PlayerName(inPlayerName)
-		, TeamNum(inTeamNum)
 		, AvatarID(inAvatarID)
-		, bIsOwner(inbIsOwner)
 		, bIsHost(inbIsHost)
+		, bIsOwner(inbIsOwner)
+		, TeamNum(inTeamNum)
+		, PlayerState(inPlayerState)
 	{
 		bPendingKill = false;
 		TeamNum = 255;

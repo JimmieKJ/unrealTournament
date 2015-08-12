@@ -46,8 +46,8 @@ struct FPlayerListInfo
 		, bIsSpectator(inbIsSpectator)
 		, PlayerName(inPlayerName)
 		, PlayerScore(inPlayerScore)
-		, TeamNum(inTeamNum)
 		, PlayerRank(inPlayerRank)
+		, TeamNum(inTeamNum)
 	{
 	}
 
