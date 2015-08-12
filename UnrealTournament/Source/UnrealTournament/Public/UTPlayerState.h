@@ -227,6 +227,29 @@ public:
 	UPROPERTY(replicated)
 	FString StatsID;
 	
+protected:
+	/** XP player had before current match, read from backend (-1 until successful read) */
+	UPROPERTY()
+	int32 PrevXP;
+	/** XP awarded to this player so far (server only, replicated to owning client via RPC after end of game) */
+	UPROPERTY()
+	FXPBreakdown XP;
+public:
+	inline int32 GetPrevXP() const
+	{
+		return PrevXP;
+	}
+	inline const FXPBreakdown& GetXP() const
+	{
+		return XP;
+	}
+	inline bool CanAwardOnlineXP() const
+	{
+		return PrevXP >= 0 && UniqueId.IsValid() && !StatsID.IsEmpty(); // PrevXP == -1 before a successful read, should always be >= 0 after even if there was no value
+	}
+
+	void GiveXP(const FXPBreakdown& AddXP);
+
 	// How long until this player can respawn.  It's not directly replicated to the clients instead it's set
 	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
 

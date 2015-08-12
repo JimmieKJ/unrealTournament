@@ -142,11 +142,13 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 					NewScoringPlay.Assists.AddUnique(NewAssist);
 					FlagRunner->ModifyStatsValue(NAME_CarryAssist, 1);
 					FlagRunner->ModifyStatsValue(NAME_CarryAssistPoints, Points);
+					// gets XP via stat system
 				}
 				else
 				{
 					Points += FlagCapPoints;
 					FlagRunner->ModifyStatsValue(NAME_FlagCapPoints, Points);
+					FlagRunner->GiveXP(FNewOffenseXP(5));
 				}
 				FlagRunner->AdjustScore(Points);
 				FlagRunner->ModifyStatsValue(NAME_AttackerScore, Points);

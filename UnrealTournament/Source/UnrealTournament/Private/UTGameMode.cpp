@@ -30,7 +30,6 @@
 #include "UTBotCharacter.h"
 #include "UTReplicatedMapInfo.h"
 #include "StatNames.h"
-#include "UTProfileItemMessage.h"
 #include "UTWeap_ImpactHammer.h"
 #include "UTWeap_Translocator.h"
 #include "UTWeap_Enforcer.h"
@@ -95,6 +94,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAmmoIsLimited = true;
 	bAllowOvertime = true;
 	bForceRespawn = false;
+	XPMultiplier = 1.0f;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -1476,6 +1476,8 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 	if (!bDisableCloudStats)
 	{
+		AwardXP();
+
 		UpdateSkillRating();
 
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
@@ -1485,7 +1487,10 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 			PS->SetStatsValue(NAME_MatchesPlayed, 1);
 			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+			if (PS->CanAwardOnlineXP())
+			{
+				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+			}
 			
 			PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 			if (PS != nullptr)
@@ -1506,7 +1511,11 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+				// quitters don't get XP
+				//if (PS->CanAwardOnlineXP())
+				//{
+				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+				//}
 
 				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)
@@ -1519,50 +1528,35 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
-
-	AwardProfileItems();
 }
 
-void AUTGameMode::AwardProfileItems()
+void AUTGameMode::AwardXP()
 {
-#if !UE_BUILD_SHIPPING
-	if (!FEngineBuildSettings::IsInternalBuild())
+	// TODO: ideally we wouldn't execute this if the server isn't approved for XP, but servers can't easily get their own status...
+	// client does a redundant check anyway so not a huge deal
+	for (APlayerState* PS : GameState->PlayerArray)
 	{
-		return;
-	}
-	// TODO: temporarily profile item giveaway for testing
-	// give item to highest scoring player
-	APlayerState* Best = NULL;
-	float BestScore = 0.0f;
-	for (APlayerState* PS : GetWorld()->GameState->PlayerArray)
-	{
-		if (PS != NULL && PS->Score > BestScore)
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+		if (UTPS != NULL)
 		{
-			Best = PS;
-			BestScore = PS->Score;
-		}
-	}
-	if (Best != NULL && Best->UniqueId.GetUniqueNetId().IsValid())
-	{
-		TArray<FAssetData> AllItems;
-		GetAllAssetData(UUTProfileItem::StaticClass(), AllItems, false);
-		if (AllItems.Num() > 0)
-		{
-			TArray<FProfileItemEntry> Rewards;
-			new(Rewards)FProfileItemEntry(Cast<UUTProfileItem>(AllItems[FMath::RandHelper(AllItems.Num())].GetAsset()), 1);
-
-			if (Rewards[0].Item != NULL)
+			AUTPlayerController* PC = Cast<AUTPlayerController>(UTPS->GetOwner());
+			if (PC != NULL)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(Best->GetOwner());
-				if (PC != NULL)
+				UTPS->GiveXP(FNewScoreXP(FMath::TruncToInt(UTPS->Score)));
+				if (UTPS->CanAwardOnlineXP()) // if we failed to read their previous values, we can't award them anything
 				{
-					PC->ClientReceiveLocalizedMessage(UUTProfileItemMessage::StaticClass(), 0, Best, NULL, Rewards[0].Item);
+					int32 PrevLevel = GetLevelForXP(UTPS->GetPrevXP());
+					int32 NewLevel = GetLevelForXP(UTPS->GetPrevXP() + UTPS->GetXP().Total());
+					for (int32 CurrentLevel = PrevLevel + 1; CurrentLevel <= NewLevel; CurrentLevel++)
+					{
+						//PC->ClientReceiveLevelReward(CurrentLevel, ItemPath);
+					}
 				}
-				GiveProfileItems(Best->UniqueId.GetUniqueNetId(), Rewards);
+				// still send RPC for offline/untrusted server XP
+				PC->ClientReceiveXP(UTPS->GetXP());
 			}
 		}
 	}
-#endif
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
@@ -2633,6 +2627,7 @@ void AUTGameMode::Logout(AController* Exiting)
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Deaths));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Score"), PS->Score));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(GetClass())));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerXP"), PS->GetXP().Total()));
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
 		PS->RespawnChoiceA = NULL;
 		PS->RespawnChoiceB = NULL;

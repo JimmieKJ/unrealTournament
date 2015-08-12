@@ -181,6 +181,8 @@ protected:
 
 	int32 ConnectDesiredTeam;
 
+	int32 CurrentSessionTrustLevel;
+
 public:
 	FProcHandle DedicatedServerProcessHandle;
 
@@ -220,7 +222,7 @@ public:
 	virtual void InitializeOnlineSubsystem();
 
 	// Returns true if this player is logged in to the UT Online Services
-	virtual bool IsLoggedIn();
+	virtual bool IsLoggedIn() const;
 
 	virtual FString GetOnlinePlayerNickname();
 
@@ -409,6 +411,7 @@ public:
 	bool IsPlayerShowingSocialNotification() const;
 
 protected:
+	virtual void JoinPendingSession();
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 	virtual void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
@@ -584,6 +587,10 @@ protected:
 	UPROPERTY()
 	TArray<FProfileItemEntry> ProfileItems;
 
+	/** XP gained in trusted online servers - read from backend */
+	UPROPERTY()
+	int32 OnlineXP;
+
 	/** Used to avoid reading too often */
 	double LastItemReadTime;
 	
@@ -599,8 +606,17 @@ public:
 
 	float QuickMatchLimitTime;
 
+	inline int32 GetOnlineXP() const
+	{
+		return OnlineXP;
+	}
+	inline void AddOnlineXP(int32 NewXP)
+	{
+		OnlineXP += FMath::Max<float>(0, NewXP);
+	}
+
+	bool IsOnTrustedServer() const
+	{
+		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel == 0;
+	}
 };
-
-
-
-

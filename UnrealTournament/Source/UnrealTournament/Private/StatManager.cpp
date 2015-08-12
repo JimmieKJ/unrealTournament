@@ -28,16 +28,16 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_Deaths, new FStat(true));
 	Stats.Add(NAME_Suicides, new FStat(true));
 	
-	Stats.Add(NAME_MultiKillLevel0, new FStat(true));
-	Stats.Add(NAME_MultiKillLevel1, new FStat(true));
-	Stats.Add(NAME_MultiKillLevel2, new FStat(true));
-	Stats.Add(NAME_MultiKillLevel3, new FStat(true));
+	Stats.Add(NAME_MultiKillLevel0, new FStat(true, FNewKillAwardXP(5)));
+	Stats.Add(NAME_MultiKillLevel1, new FStat(true, FNewKillAwardXP(7)));
+	Stats.Add(NAME_MultiKillLevel2, new FStat(true, FNewKillAwardXP(9)));
+	Stats.Add(NAME_MultiKillLevel3, new FStat(true, FNewKillAwardXP(10)));
 
-	Stats.Add(NAME_SpreeKillLevel0, new FStat(true));
-	Stats.Add(NAME_SpreeKillLevel1, new FStat(true));
-	Stats.Add(NAME_SpreeKillLevel2, new FStat(true));
-	Stats.Add(NAME_SpreeKillLevel3, new FStat(true));
-	Stats.Add(NAME_SpreeKillLevel4, new FStat(true));
+	Stats.Add(NAME_SpreeKillLevel0, new FStat(true, FNewKillAwardXP(10)));
+	Stats.Add(NAME_SpreeKillLevel1, new FStat(true, FNewKillAwardXP(15)));
+	Stats.Add(NAME_SpreeKillLevel2, new FStat(true, FNewKillAwardXP(20)));
+	Stats.Add(NAME_SpreeKillLevel3, new FStat(true, FNewKillAwardXP(25)));
+	Stats.Add(NAME_SpreeKillLevel4, new FStat(true, FNewKillAwardXP(30)));
 
 	Stats.Add(NAME_ImpactHammerKills, new FStat(true));
 	Stats.Add(NAME_EnforcerKills, new FStat(true));
@@ -53,7 +53,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_FlakShellKills, new FStat(true));
 	Stats.Add(NAME_RocketKills, new FStat(true));
 	Stats.Add(NAME_SniperKills, new FStat(true));
-	Stats.Add(NAME_SniperHeadshotKills, new FStat(true));
+	Stats.Add(NAME_SniperHeadshotKills, new FStat(true, FNewKillAwardXP(3)));
 	Stats.Add(NAME_RedeemerKills, new FStat(true));
 	Stats.Add(NAME_InstagibKills, new FStat(true));
 	Stats.Add(NAME_TelefragKills, new FStat(true));
@@ -113,10 +113,10 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_HelmetCount, new FStat(true));
 
 	Stats.Add(NAME_BestShockCombo, new FStat(true));
-	Stats.Add(NAME_AmazingCombos, new FStat(true));
-	Stats.Add(NAME_AirRox, new FStat(true));
-	Stats.Add(NAME_FlakShreds, new FStat(true));
-	Stats.Add(NAME_AirSnot, new FStat(true));
+	Stats.Add(NAME_AmazingCombos, new FStat(true, FNewKillAwardXP(3)));
+	Stats.Add(NAME_AirRox, new FStat(true, FNewKillAwardXP(3)));
+	Stats.Add(NAME_FlakShreds, new FStat(true, FNewKillAwardXP(3)));
+	Stats.Add(NAME_AirSnot, new FStat(true, FNewKillAwardXP(3)));
 
 	Stats.Add(NAME_RunDist, new FStat(true));
 	Stats.Add(NAME_SprintDist, new FStat(true));
@@ -138,21 +138,21 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_FlagHeldDenyTime, new FStat(true));
 	Stats.Add(NAME_FlagHeldTime, new FStat(true));
 	Stats.Add(NAME_FlagReturnPoints, new FStat(true));
-	Stats.Add(NAME_CarryAssist, new FStat(true));
+	Stats.Add(NAME_CarryAssist, new FStat(true, FNewOffenseXP(5)));
 	Stats.Add(NAME_CarryAssistPoints, new FStat(true));
 	Stats.Add(NAME_FlagCapPoints, new FStat(true));
-	Stats.Add(NAME_DefendAssist, new FStat(true));
+	Stats.Add(NAME_DefendAssist, new FStat(true, FNewDefenseXP(5)));
 	Stats.Add(NAME_DefendAssistPoints, new FStat(true));
-	Stats.Add(NAME_ReturnAssist, new FStat(true));
+	Stats.Add(NAME_ReturnAssist, new FStat(true, FNewDefenseXP(5)));
 	Stats.Add(NAME_ReturnAssistPoints, new FStat(true));
 	Stats.Add(NAME_TeamCapPoints, new FStat(true));
 	Stats.Add(NAME_EnemyFCDamage, new FStat(true));
-	Stats.Add(NAME_FCKills, new FStat(true));
+	Stats.Add(NAME_FCKills, new FStat(true, FNewDefenseXP(5)));
 	Stats.Add(NAME_FCKillPoints, new FStat(true));
-	Stats.Add(NAME_FlagSupportKills, new FStat(true));
+	Stats.Add(NAME_FlagSupportKills, new FStat(true, FNewOffenseXP(3)));
 	Stats.Add(NAME_FlagSupportKillPoints, new FStat(true));
 	Stats.Add(NAME_RegularKillPoints, new FStat(true));
-	Stats.Add(NAME_FlagGrabs, new FStat(true));
+	Stats.Add(NAME_FlagGrabs, new FStat(true, FNewOffenseXP(1)));
 	Stats.Add(NAME_AttackerScore, new FStat(true));
 	Stats.Add(NAME_DefenderScore, new FStat(true));
 	Stats.Add(NAME_SupporterScore, new FStat(true));

@@ -181,6 +181,9 @@ public:
 	/** Timer function to bring up scoreboard after end of game. */
 	virtual void ShowEndGameScoreboard();
 
+	UFUNCTION(reliable, client)
+	virtual void ClientReceiveXP(FXPBreakdown GainedXP);
+
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
 	void ClientHalftime();

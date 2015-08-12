@@ -56,6 +56,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultVoice(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Character/Voices/SkaarjVoice.SkaarjVoice_C'"));
 	CharacterVoice = DefaultVoice.Object;
+
+	PrevXP = -1;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -874,10 +876,26 @@ bool AUTPlayerState::ModifyStat(FName StatName, int32 Amount, EStatMod::Type Mod
 {
 	if (StatManager != nullptr)
 	{
-		return StatManager->ModifyStat(StatName, Amount, ModType);
+		FStat* Stat = StatManager->GetStatByName(StatName);
+		if (Stat != NULL)
+		{
+			Stat->ModifyStat(Amount, ModType);
+			if (ModType == EStatMod::Delta && Amount > 0)
+			{
+				// award XP
+				GiveXP(Stat->XPPerPoint * Amount);
+			}
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
-
-	return false;
+	else
+	{
+		return false;
+	}
 }
 
 bool AUTPlayerState::ServerNextChatDestination_Validate() { return true; }
@@ -914,10 +932,19 @@ void AUTPlayerState::ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHt
 {
 	if (bSucceeded)
 	{
-		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems);
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, PrevXP);
 	}
 	ItemListReq.Reset();
 	ValidateEntitlements();
+}
+
+void AUTPlayerState::GiveXP(const FXPBreakdown& AddXP)
+{
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Role == ROLE_Authority && Game != NULL)
+	{
+		XP += (AddXP * Game->XPMultiplier);
+	}
 }
 
 void AUTPlayerState::ReadStatsFromCloud()
@@ -1374,15 +1401,13 @@ void AUTPlayerState::ValidateEntitlements()
 	}
 }
 
-/**
- *	Find the current first local player and asks if I'm their friend.  NOTE: the UTLocalPlayer will, when he friends list changes
- *  update these as well.
- **/
 void AUTPlayerState::OnRep_UniqueId()
 {
 	Super::OnRep_UniqueId();
+	// Find the current first local player and asks if I'm their friend.  NOTE: the UTLocalPlayer will, when the friends list changes
+	// update these as well.
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(),0));
-	if (LP)
+	if (LP != NULL)
 	{
 		bIsFriend = LP->IsAFriend(UniqueId);
 	}

@@ -116,7 +116,7 @@ extern UNREALTOURNAMENT_API FHttpRequestPtr ReadBackendStats(const FHttpRequestC
 /** reads profile item json and fills in the items array
  * array is emptied first
  */
-extern UNREALTOURNAMENT_API void ParseProfileItemJson(const FString& Data, TArray<struct FProfileItemEntry>& ItemList);
+extern UNREALTOURNAMENT_API void ParseProfileItemJson(const FString& Data, TArray<struct FProfileItemEntry>& ItemList, int32& XP);
 /** returns whether the given object requires an inventory item to grant rights to it */
 extern UNREALTOURNAMENT_API bool NeedsProfileItem(UObject* TestObj);
 /** sends backend request to give item(s) to a player */
@@ -124,3 +124,6 @@ extern UNREALTOURNAMENT_API void GiveProfileItems(TSharedPtr<FUniqueNetId> Uniqu
 
 /** prefix for stat names for our hacky "inventory as stats" implementation */
 extern const FString ITEM_STAT_PREFIX;
+
+/** looks up XP in level table */
+extern UNREALTOURNAMENT_API int32 GetLevelForXP(int32 XPValue);

@@ -154,6 +154,10 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	TArray<FName> Achievements;
 
+	/** local XP, not synced with backend - granted for local play and untrusted servers */
+	UPROPERTY()
+	int32 LocalXP;
+
 protected:
 
 	/**

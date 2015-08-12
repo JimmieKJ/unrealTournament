@@ -46,6 +46,100 @@ public:
 	FString GameType;
 };
 
+/** XP awards for a player */
+USTRUCT()
+struct FXPBreakdown
+{
+	GENERATED_USTRUCT_BODY()
+
+	FXPBreakdown() = default;
+	FXPBreakdown(EForceInit)
+	: ScoreXP(0), KillAwardXP(0), OffenseXP(0), DefenseXP(0)
+	{}
+
+	/** XP given for match score */
+	UPROPERTY()
+	int32 ScoreXP;
+	/** XP given for kill awards (multikill, killing spree, etc) */
+	UPROPERTY()
+	int32 KillAwardXP;
+	/** XP given for offensive objective accomplishments (flag cap, assist) */
+	UPROPERTY()
+	int32 OffenseXP;
+	/** XP given for defensive objective accomplishments (flag carrier kill, return) */
+	UPROPERTY()
+	int32 DefenseXP;
+
+	/** returns sum of all XP awards */
+	inline int32 Total() const
+	{
+		return ScoreXP + KillAwardXP + OffenseXP + DefenseXP;
+	}
+
+	void operator+= (const FXPBreakdown& B)
+	{
+		ScoreXP += B.ScoreXP;
+		KillAwardXP += B.KillAwardXP;
+		OffenseXP += B.OffenseXP;
+		DefenseXP += B.DefenseXP;
+	}
+	FXPBreakdown operator+ (const FXPBreakdown& B) const
+	{
+		FXPBreakdown NewXP(*this);
+		NewXP += B;
+		return NewXP;
+	}
+	template<typename NumberType>
+	void operator*= (const NumberType B)
+	{
+		ScoreXP *= B;
+		KillAwardXP *= B;
+		OffenseXP *= B;
+		DefenseXP *= B;
+	}
+	template<typename NumberType>
+	FXPBreakdown operator* (const NumberType B) const
+	{
+		FXPBreakdown NewXP(*this);
+		NewXP *= B;
+		return NewXP;
+	}
+};
+
+// convenient overrides for XPBreakdown to make it easier to grant specific types
+struct FNewScoreXP : public FXPBreakdown
+{
+	FNewScoreXP(int32 Value)
+	: FXPBreakdown(EForceInit::ForceInitToZero)
+	{
+		ScoreXP = Value;
+	}
+};
+struct FNewKillAwardXP : public FXPBreakdown
+{
+	FNewKillAwardXP(int32 Value)
+	: FXPBreakdown(EForceInit::ForceInitToZero)
+	{
+		KillAwardXP = Value;
+	}
+};
+struct FNewOffenseXP : public FXPBreakdown
+{
+	FNewOffenseXP(int32 Value)
+	: FXPBreakdown(EForceInit::ForceInitToZero)
+	{
+		OffenseXP = Value;
+	}
+};
+struct FNewDefenseXP : public FXPBreakdown
+{
+	FNewDefenseXP(int32 Value)
+	: FXPBreakdown(EForceInit::ForceInitToZero)
+	{
+		DefenseXP = Value;
+	}
+};
+
 USTRUCT()
 struct FStat
 {
@@ -54,14 +148,14 @@ public:
 	FStat()
 	{}
 
-	FStat(bool inbBackendStat)
-		: bBackendStat(inbBackendStat), WriteMultiplier(0.0f)
+	explicit FStat(bool inbBackendStat, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
+		: bBackendStat(inbBackendStat), WriteMultiplier(0.0f), XPPerPoint(InXP)
 	{}
 
-	FStat(bool inbBackendStat, float inWriteMultiplier)
-		: bBackendStat(inbBackendStat), WriteMultiplier(inWriteMultiplier)
+	FStat(bool inbBackendStat, float inWriteMultiplier, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
+		: bBackendStat(inbBackendStat), WriteMultiplier(inWriteMultiplier), XPPerPoint(InXP)
 	{}
-	
+
 	UPROPERTY()
 	int32 StatData;
 
@@ -70,6 +164,10 @@ public:
 
 	UPROPERTY()
 	float WriteMultiplier;
+
+	/** XP per point gained of this stat (only applied for player stats and only for Delta mod type) */
+	UPROPERTY()
+	FXPBreakdown XPPerPoint;
 
 	void ModifyStat(int32 Amount, EStatMod::Type ModType);
 };

@@ -2052,6 +2052,40 @@ void AUTPlayerController::ShowEndGameScoreboard()
 	}
 }
 
+void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
+	{
+		// FIXME: temp until there is UI
+		FClientReceiveData ClientData;
+		ClientData.LocalPC = this;
+		ClientData.MessageIndex = 0;
+
+		int32 PrevLevel, NewLevel;
+		if (LP->IsOnTrustedServer())
+		{
+			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i ONLINE XP FOR THIS MATCH"), GainedXP.Total());
+			PrevLevel = GetLevelForXP(LP->GetOnlineXP());
+			LP->AddOnlineXP(GainedXP.Total());
+			NewLevel = GetLevelForXP(LP->GetOnlineXP());
+		}
+		else if (LP->GetProfileSettings() != NULL)
+		{
+			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i OFFLINE XP FOR THIS MATCH"), GainedXP.Total());
+			PrevLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
+			LP->GetProfileSettings()->LocalXP += GainedXP.Total();
+			NewLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
+		}
+		UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
+		if (PrevLevel < NewLevel)
+		{
+			ClientData.MessageString = FString::Printf(TEXT("YOU ARE NOW LEVEL %i!"), NewLevel);
+			UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
+		}
+	}
+}
+
 void AUTPlayerController::ShowMenu()
 {
 	ToggleScoreboard(false);

@@ -556,7 +556,7 @@ void UUTLocalPlayer::HideHUDSettings()
 #endif
 }
 
-bool UUTLocalPlayer::IsLoggedIn() 
+bool UUTLocalPlayer::IsLoggedIn() const
 { 
 	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId());
 }
@@ -793,12 +793,8 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		}
 		FUTAnalytics::LoginStatusChanged(UniqueID.ToString());
 
-		// If we hage a pending session, then join it.
-		if (bPendingSession)
-		{
-			bPendingSession = false;
-			OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
-		}
+		// If we have a pending session, then join it.
+		JoinPendingSession();
 	}
 
 
@@ -1191,7 +1187,7 @@ void UUTLocalPlayer::OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHt
 {
 	if (bSucceeded)
 	{
-		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems);
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, OnlineXP);
 	}
 }
 
@@ -1786,10 +1782,21 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 		}
 		else
 		{
+			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
 			OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 		}
 
 		return true;
+	}
+}
+
+void UUTLocalPlayer::JoinPendingSession()
+{
+	if (bPendingSession)
+	{
+		bPendingSession = false;
+		PendingSession.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
+		OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
 	}
 }
 
@@ -1912,10 +1919,9 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 	{
 		Logout();
 	}
-	else if (bPendingSession)
+	else
 	{
-		bPendingSession = false;
-		OnlineSessionInterface->JoinSession(0,GameSessionName,PendingSession);
+		JoinPendingSession();
 	}
 
 }

@@ -620,7 +620,10 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			
 			PS->SetStatsValue(NAME_MatchesPlayed, 1);
 			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+			if (PS->CanAwardOnlineXP())
+			{
+				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+			}
 
 			if (UTGameState->WinningTeam == PS->Team)
 			{
@@ -650,7 +653,11 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+				// quitters don't get XP
+				//if (PS->CanAwardOnlineXP())
+				//{
+				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+				//}
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
@@ -673,7 +680,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
 
-	AwardProfileItems();
+	AwardXP();
 }
 
 void AUTTeamGameMode::FindAndMarkHighScorer()

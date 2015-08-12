@@ -131,6 +131,10 @@ public:
 	UPROPERTY(config)
 	int32 TimeLimit;    
 
+	/** multiplier to all XP awarded */
+	UPROPERTY()
+	float XPMultiplier;
+
 	/** Will be TRUE if the game has ended */
 	UPROPERTY()
 	uint32 bGameEnded:1;    
@@ -228,7 +232,7 @@ public:
 
 	/** Last time asnyone sent a taunt voice message. */
 	UPROPERTY()
-		float LastGlobalTauntTime;
+	float LastGlobalTauntTime;
 
 	/** Toggle invulnerability */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
@@ -565,7 +569,7 @@ protected:
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateSkillRating();
 
-	virtual void AwardProfileItems();
+	virtual void AwardXP();
 
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
