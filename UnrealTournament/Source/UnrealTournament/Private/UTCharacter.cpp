@@ -3294,12 +3294,20 @@ void AUTCharacter::UpdateSkin()
 		{
 			GetMesh()->SetMaterial(i, ReplicatedBodyMaterial);
 		}
+		for (int32 i = 0; i < FirstPersonMesh->GetNumMaterials(); i++)
+		{
+			FirstPersonMesh->SetMaterial(i, ReplicatedBodyMaterial);
+		}
 	}
 	else
 	{
 		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
 		{
 			GetMesh()->SetMaterial(i, BodyMIs.IsValidIndex(i) ? BodyMIs[i] : GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->GetMaterial(i));
+		}
+		for (int32 i = 0; i < FirstPersonMesh->GetNumMaterials(); i++)
+		{
+			FirstPersonMesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTCharacter>()->FirstPersonMesh->GetMaterial(i));
 		}
 	}
 	if (Weapon != NULL)
