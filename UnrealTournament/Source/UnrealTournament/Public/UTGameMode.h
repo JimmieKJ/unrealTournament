@@ -645,6 +645,9 @@ public:
 
 	// Allow game modes to restrict some content.
 	virtual bool ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass);
+	
+	UPROPERTY(EditDefaultsOnly, Category="Game")
+	bool bNoDefaultLeaderHat;
 
 	UPROPERTY(Config)
 	TArray<FLoadoutInfo> AvailableLoadout;

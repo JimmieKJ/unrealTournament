@@ -25,6 +25,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	bHasRespawnChoices = true;
 	bWeaponStayActive = false;
 	bOnlyTheStrongSurvive = false;
+	bNoDefaultLeaderHat = true;
 }
 
 void AUTDuelGame::InitGameState()
@@ -236,5 +237,5 @@ void AUTDuelGame::UpdateSkillRating()
 
 void AUTDuelGame::FindAndMarkHighScorer()
 {
-	// Everyone would always be the high scorer
+	AUTGameMode::FindAndMarkHighScorer();
 }

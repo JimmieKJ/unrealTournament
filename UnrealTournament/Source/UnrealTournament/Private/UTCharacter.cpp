@@ -4937,8 +4937,19 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 			{
 				LeaderHatClass = Hat->LeaderHatClass;
 			}
-			else
+
+			if (LeaderHatClass == nullptr)
 			{
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS != nullptr && GS->GameModeClass != nullptr)
+				{
+					TSubclassOf<AUTGameMode> UTGameClass(*GS->GameModeClass);
+					if (UTGameClass->GetDefaultObject<AUTGameMode>()->bNoDefaultLeaderHat)
+					{
+						return;
+					}
+				}
+
 				LeaderHatClass = DefaultLeaderHatClass;
 			}
 
