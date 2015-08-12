@@ -17,6 +17,7 @@ void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 
 void UUTWeaponStateFiring::EndState()
 {
+	bDelayShot = false;
 	ToggleLoopingEffects(false);
 	GetOuterAUTWeapon()->OnStoppedFiring();
 	GetOuterAUTWeapon()->StopFiringEffects();
@@ -42,8 +43,6 @@ bool UUTWeaponStateFiring::WillSpawnShot(float DeltaTime)
 {
 	return (GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode())) && (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle) < DeltaTime);
 }
-
-static float LastShotTime = 0.f;
 
 void UUTWeaponStateFiring::RefireCheckTimer()
 {
@@ -76,7 +75,6 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 			bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound();
 			if (!bDelayShot)
 			{
-				LastShotTime = GetWorld()->GetTimeSeconds();
 				FireShot();
 			}
 		}
