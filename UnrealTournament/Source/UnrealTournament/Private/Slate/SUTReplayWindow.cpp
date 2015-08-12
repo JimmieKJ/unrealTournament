@@ -274,6 +274,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 											]
 										]
 									]
+									/*
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
@@ -297,7 +298,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 												]
 											]
 										]
-									]
+									]*/
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
