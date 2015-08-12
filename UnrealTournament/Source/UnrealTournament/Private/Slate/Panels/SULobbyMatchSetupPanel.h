@@ -95,7 +95,7 @@ protected:
 	FReply CancelDownloadClicked();
 	EVisibility CancelButtonVisible() const;
 
-	const FSlateBrush* SULobbyMatchSetupPanel::GetMapImage() const;
+	const FSlateBrush* GetMapImage() const;
 	FSlateDynamicImageBrush* DefaultLevelScreenshot;
 protected:
 	TWeakObjectPtr<AUTReplicatedMapInfo> LastMapInfo;

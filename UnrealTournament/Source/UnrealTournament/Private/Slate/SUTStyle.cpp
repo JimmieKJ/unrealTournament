@@ -37,32 +37,6 @@ FName SUTStyle::GetStyleSetName()
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-// Note, these sizes are in Slate Units.
-// Slate Units do NOT have to map to pixels.
-const FVector2D Icon5x16(5.0f, 16.0f);
-const FVector2D Icon8x4(8.0f, 4.0f);
-const FVector2D Icon16x4(16.0f, 4.0f);
-const FVector2D Icon8x8(8.0f, 8.0f);
-const FVector2D Icon10x10(10.0f, 10.0f);
-const FVector2D Icon12x12(12.0f, 12.0f);
-const FVector2D Icon12x16(12.0f, 16.0f);
-const FVector2D Icon14x14(14.0f, 14.0f);
-const FVector2D Icon16x16(16.0f, 16.0f);
-const FVector2D Icon20x20(20.0f, 20.0f);
-const FVector2D Icon22x22(22.0f, 22.0f);
-const FVector2D Icon24x24(24.0f, 24.0f);
-const FVector2D Icon25x25(25.0f, 25.0f);
-const FVector2D Icon32x32(32.0f, 32.0f);
-const FVector2D Icon36x36(36.0f, 36.0f);
-const FVector2D Icon40x40(40.0f, 40.0f);
-const FVector2D Icon48x48(48.0f, 48.0f);
-const FVector2D Icon54x54(54.0f, 54.0f);
-const FVector2D Icon64x64(64.0f, 64.0f);
-const FVector2D Icon36x24(36.0f, 24.0f);
-const FVector2D Icon17x22(17.0f, 22.0f);
-const FVector2D Icon128x128(128.0f, 128.0f);
-const FVector2D Icon256x256(256.0f, 256.0f);
-
 const int32 FONT_SIZE_Tiny = 12;
 const int32 FONT_SIZE_Small = 14;
 const int32 FONT_SIZE_Medium = 24;
@@ -184,12 +158,12 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.CheckBox", FCheckBoxStyle()
 		.SetCheckBoxType(ESlateCheckBoxType::CheckBox)
-		.SetUncheckedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.UnChecked.Normal", Icon32x32))
-		.SetUncheckedHoveredImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.UnChecked.Hovered", Icon32x32))
-		.SetUncheckedPressedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.UnChecked.Pressed", Icon32x32))
-		.SetCheckedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.Checked.Normal", Icon32x32))
-		.SetCheckedHoveredImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.Checked.Normal", Icon32x32))
-		.SetCheckedPressedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.Checked.Normal", Icon32x32))
+		.SetUncheckedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.UnChecked.Normal", FVector2D(32,32)))
+		.SetUncheckedHoveredImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.UnChecked.Hovered", FVector2D(32,32)))
+		.SetUncheckedPressedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.UnChecked.Pressed", FVector2D(32,32)))
+		.SetCheckedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.Checked.Normal", FVector2D(32,32)))
+		.SetCheckedHoveredImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.Checked.Normal", FVector2D(32,32)))
+		.SetCheckedPressedImage(IMAGE_BRUSH("UTStyle/CommonControls/CheckBox/UT.CheckBox.Checked.Normal", FVector2D(32,32)))
 		.SetUndeterminedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
 		.SetUndeterminedHoveredImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
 		.SetUndeterminedPressedImage(FSlateNoResource(FVector2D(256.0f, 256.0f)))
