@@ -4467,6 +4467,15 @@ void AUTCharacter::PlayTauntByIndex(int32 TauntIndex)
 			EmoteReplicationInfo.EmoteIndex = TauntIndex;
 			PlayTauntByClass(UTPS->Taunt2Class);
 		}
+
+		//Play the taunt in the playerinfo dialog
+#if !UE_SERVER
+		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(), 0));
+		if (FirstPlayer != nullptr)
+		{
+			FirstPlayer->OnTauntPlayed(UTPS, TauntIndex);
+		}
+#endif
 	}
 }
 

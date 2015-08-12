@@ -625,6 +625,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	SetFriendsChatStyle(StyleRef);
 	SetMatchBadgeStyle(StyleRef);
 	SetMOTDStyle(StyleRef);
+	SetMatchSummaryStyle(StyleRef);
 
 	return StyleRef;
 }
@@ -1708,6 +1709,29 @@ void SUWindowsStyle::SetMOTDStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("MOTD.Header.Huge", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Regular", 32))
 		.SetColorAndOpacity(FLinearColor::White)
+		);
+}
+
+void SUWindowsStyle::SetMatchSummaryStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.MatchSummary.HighlightText.Normal", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor::Gray)
+		);
+
+	Style.Set("UT.MatchSummary.HighlightText.Value", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor(0.7f,0.5f,0.0f))
+		);
+
+	Style.Set("UT.MatchSummary.Highlight.BG", new FSlateColorBrush(FLinearColor(0.01f, 0.01f, 0.01f, 1.0f)));
+	Style.Set("UT.MatchSummary.Highlight.Border", new FSlateColorBrush(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f)));
+
+	Style.Set("UT.MatchSummary.TabButton.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 16))
+		.SetColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f, 1.0f))
 		);
 }
 

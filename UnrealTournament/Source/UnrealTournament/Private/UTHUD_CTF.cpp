@@ -31,5 +31,21 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 	{
 		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
 	}
+
+	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
+	if (UTLP != nullptr)
+	{
+		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch
+			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro
+			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime)
+		{
+
+			UTLP->OpenMatchSummary(Cast<AUTGameState>(GetWorld()->GetGameState()));
+		}
+		else
+		{
+			UTLP->CloseMatchSummary();
+		}
+	}
 }
 

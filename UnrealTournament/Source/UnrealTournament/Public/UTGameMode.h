@@ -10,6 +10,7 @@
 
 namespace MatchState
 {
+	extern UNREALTOURNAMENT_API const FName PlayerIntro;					// Playing the player intro in the match summary window
 	extern UNREALTOURNAMENT_API const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
 	extern UNREALTOURNAMENT_API const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
@@ -396,6 +397,9 @@ public:
 	virtual void HandleCountdownToBegin();
 	virtual void CheckCountDown();
 
+	virtual void HandlePlayerIntro();
+	virtual void EndPlayerIntro();
+
 	virtual void HandleMatchIsWaitingToStart() override;
 	virtual void HandleMatchHasStarted();
 	virtual void AnnounceMatchStart();
@@ -633,8 +637,9 @@ public:
 	virtual void BuildRewardInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
-
 #endif
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+	TArray<FText> GetPlayerHighlights(AUTPlayerState* PlayerState);
 
 	virtual void InstanceNextMap(const FString& NextMap);
 

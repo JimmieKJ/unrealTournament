@@ -583,7 +583,7 @@ bool AUTGameState::IsMatchInCountdown() const
 
 bool AUTGameState::HasMatchStarted() const
 {
-	return Super::HasMatchStarted() && GetMatchState() != MatchState::CountdownToBegin;
+	return Super::HasMatchStarted() && GetMatchState() != MatchState::CountdownToBegin && GetMatchState() != MatchState::PlayerIntro;
 }
 
 bool AUTGameState::IsMatchInProgress() const

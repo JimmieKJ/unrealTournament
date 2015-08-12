@@ -44,6 +44,7 @@
 #include "UTVideoRecordingFeature.h"
 #include "Slate/SUWYoutubeUpload.h"
 #include "Slate/SUWYoutubeConsent.h"
+#include "Slate/SUWMatchSummary.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -503,6 +504,7 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 bool UUTLocalPlayer::AreMenusOpen()
 {
 	return DesktopSlateWidget.IsValid()
+		|| MatchSummaryWindow.IsValid()
 		|| LoadoutMenu.IsValid()
 		|| OpenDialogs.Num() > 0;
 	//Add any widget thats not in the menu here
@@ -2156,7 +2158,14 @@ bool UUTLocalPlayer::IsInSession()
 void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 {
 #if !UE_SERVER
-	OpenDialog(SNew(SUWPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+	if (MatchSummaryWindow.IsValid() && Target.IsValid())
+	{
+		MatchSummaryWindow->SelectPlayerState(Target.Get());
+	}
+	else
+	{
+		OpenDialog(SNew(SUWPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+	}
 #endif
 }
 
@@ -2187,6 +2196,18 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 
 	return RetVal;
 }
+
+
+void UUTLocalPlayer::OnTauntPlayed(AUTPlayerState* PS, int32 TauntIndex)
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		MatchSummaryWindow->PlayTauntByIndex(PS, TauntIndex);
+	}
+#endif
+}
+
 
 void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
 {
@@ -2377,6 +2398,48 @@ void UUTLocalPlayer::CloseMapVote()
 	{
 		CloseDialog(MapVoteMenu.ToSharedRef());		
 		MapVoteMenu.Reset();
+	}
+#endif
+}
+
+void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		CloseMatchSummary();
+	}
+	SAssignNew(MatchSummaryWindow, SUWMatchSummary).PlayerOwner(this).GameState(GameState);
+
+	//Disable world rendering since this is a fullscreen widget with a render target
+	GEngine->GameViewport->bDisableWorldRendering = true;
+
+	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
+	{
+		UTGVC->AddViewportWidgetContent(MatchSummaryWindow.ToSharedRef(), -1);
+		FSlateApplication::Get().SetKeyboardFocus(MatchSummaryWindow.ToSharedRef(), EKeyboardFocusCause::Keyboard);
+	}
+#endif
+}
+void UUTLocalPlayer::CloseMatchSummary()
+{
+#if !UE_SERVER
+	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
+	{
+		UTGVC->RemoveViewportWidgetContent(MatchSummaryWindow.ToSharedRef());
+		MatchSummaryWindow.Reset();
+
+		//Enable rendering again
+		GEngine->GameViewport->bDisableWorldRendering = false;
+
+		//Since we use SUInGameHomePanel for the time being for chat, we need to clear bForceScores
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+		if (PC && PC->MyUTHUD)
+		{
+			PC->MyUTHUD->bForceScores = false;
+		}
 	}
 #endif
 }
@@ -2836,5 +2899,6 @@ void UUTLocalPlayer::CloseAllUI()
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
+	MatchSummaryWindow.Reset();
 #endif
 }

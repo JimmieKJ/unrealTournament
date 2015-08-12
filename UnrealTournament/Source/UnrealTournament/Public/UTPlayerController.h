@@ -873,6 +873,10 @@ public:
 	virtual void GhostPlay();
 
 	class AUTCharacter* GhostTrace();
+
+
+	UFUNCTION(exec)
+	virtual void OpenMatchSummary();
 };
 
 

@@ -28,6 +28,7 @@ private:
 	static void SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetMatchBadgeStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetMOTDStyle(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetMatchSummaryStyle(TSharedRef<FSlateStyleSet> StyleRef);
 
 	static FSlateSound ButtonPressSound;
 	static FSlateSound ButtonHoverSound;

@@ -4,15 +4,20 @@
 #include "SlateBasics.h"
 #include "SWidgetSwitcher.h"
 #include "SUTTabButton.h"
-
+#include "../SUWindowsStyle.h"
 #if !UE_SERVER
 
 class UNREALTOURNAMENT_API SUTTabWidget : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUTTabWidget)
+		: _TabTextStyle(&SUWindowsStyle::Get().GetWidgetStyle< FTextBlockStyle >("UT.TopMenu.Button.SmallTextStyle"))
 	{}
 		SLATE_EVENT(FOnTextChanged, OnTabButtonSelectionChanged)
 		SLATE_EVENT(FOnInt32ValueChanged, OnTabButtonNumberChanged)
+
+		/** The text style of the Tab button */
+		SLATE_STYLE_ARGUMENT(FTextBlockStyle, TabTextStyle)
+
 		SLATE_END_ARGS()
 
 		void Construct(const FArguments& InArgs);
@@ -35,6 +40,7 @@ protected:
 
 	FText CurrentTabButton;
 
+	const FTextBlockStyle* TabTextStyle;
 };
 
 #endif

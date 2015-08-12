@@ -3653,3 +3653,13 @@ void AUTPlayerController::GhostPlay()
 		}
 	}
 }
+
+void AUTPlayerController::OpenMatchSummary()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (LocalPlayer != nullptr && UTGS != nullptr)
+	{
+		LocalPlayer->OpenMatchSummary(UTGS);
+	}
+}

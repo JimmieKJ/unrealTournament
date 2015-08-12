@@ -23,6 +23,7 @@ class SUWMapVoteDialog;
 class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
+class SUWMatchSummary;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -472,6 +473,7 @@ public:
 	int32 ServerPingBlockSize;
 
 	virtual void ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target);
+	virtual void OnTauntPlayed(AUTPlayerState* PS, int32 TauntIndex);
 
 	// Request someone be my friend...
 	virtual void RequestFriendship(TSharedPtr<FUniqueNetId> FriendID);
@@ -494,6 +496,7 @@ protected:
 #if !UE_SERVER
 	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
 	TSharedPtr<SUWMapVoteDialog> MapVoteMenu;
+	TSharedPtr<SUWMatchSummary> MatchSummaryWindow;
 #endif
 
 public:
@@ -502,6 +505,9 @@ public:
 
 	virtual void OpenMapVote(AUTGameState* GameState);
 	virtual void CloseMapVote();
+
+	virtual void OpenMatchSummary(AUTGameState* GameState);
+	virtual void CloseMatchSummary();
 
 	// What is your role within the unreal community.
 	EUnrealRoles::Type CommunityRole;
