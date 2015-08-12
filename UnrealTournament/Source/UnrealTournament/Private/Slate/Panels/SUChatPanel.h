@@ -17,8 +17,6 @@ public:
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
 	virtual void SortUserList();
 
-	AUTPlayerState* GetOwnerPlayerState();
-
 protected:
 
 	// Lists of users on the server

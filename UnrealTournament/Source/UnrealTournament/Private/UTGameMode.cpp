@@ -2557,15 +2557,12 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 		if (C && Cast<AUTPlayerController>(C) && C->PlayerState)
 		{
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
-			if (PlayerState)
+			if (PlayerState && !PlayerState->bIsDemoRecording)
 			{
-				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, false, PlayerState->AverageRank);
+				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, PlayerState->AverageRank);
 			}
 		}
 	}
-
-
-
 }
 
 void AUTGameMode::PostLogin( APlayerController* NewPlayer )
@@ -2661,9 +2658,9 @@ void AUTGameMode::Logout(AController* Exiting)
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
+		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 		{
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, true, PS->AverageRank);
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, PS->AverageRank);
 		}
 	}
 
@@ -3115,9 +3112,9 @@ void AUTGameMode::UpdateLobbyPlayerList()
 		for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
+			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 			{
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, false, PS->AverageRank);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, PS->AverageRank);
 			}
 		}
 	}

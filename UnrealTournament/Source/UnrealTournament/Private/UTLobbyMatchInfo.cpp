@@ -167,6 +167,7 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 			PlayerToAdd->DesiredTeamNum = 0;
 		}
 	}
+
 	
 	Players.Add(PlayerToAdd);
 	PlayerToAdd->AddedToMatch(this);
@@ -570,12 +571,7 @@ void AUTLobbyMatchInfo::OnRep_Update()
 void AUTLobbyMatchInfo::OnRep_InitialMap()
 {
 	bMapChanged = true;
-	LoadInitialMapInfo();
-}
-
-void AUTLobbyMatchInfo::LoadInitialMapInfo()
-{
-	InitialMapInfo = GetMapInformation(InitialMap);
+	GetMapInformation();
 }
 
 
@@ -584,7 +580,7 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 	CurrentRuleset = NewRuleset;
 
 	InitialMap = StartingMap;
-	InitialMapInfo = GetMapInformation(InitialMap);
+	GetMapInformation();
 
 	// Copy any required redirects in to match info.  The UI will pickup on the replication and pull them.
 	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
@@ -684,10 +680,12 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		int32 OptimalPlayerCount = 4;
 
-		TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo = GetMapInformation(StartingMap);
-		if (MapInfo.IsValid())
+		InitialMap = StartingMap;
+		GetMapInformation();
+
+		if (InitialMapInfo.IsValid())
 		{
-			OptimalPlayerCount = (NewReplicatedRuleset->GetDefaultGameModeObject() && NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame) ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
+			OptimalPlayerCount = (NewReplicatedRuleset->GetDefaultGameModeObject() && NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame) ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
 		}
 
 		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount > 0 ? DesiredPlayerCount : OptimalPlayerCount;
@@ -702,8 +700,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		// Add code to setup the required packages array
 		CurrentRuleset = NewReplicatedRuleset;
-		InitialMap = StartingMap;
-		InitialMapInfo = GetMapInformation(InitialMap);
 
 		NewReplicatedRuleset->bTeamGame = bTeamGame;
 
@@ -732,16 +728,17 @@ bool AUTLobbyMatchInfo::IsBanned(FUniqueNetIdRepl Who)
 	return false;
 }
 
-TWeakObjectPtr<AUTReplicatedMapInfo> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage)
+void AUTLobbyMatchInfo::GetMapInformation()
 {
-	TWeakObjectPtr<AUTReplicatedMapInfo> MapInfo;
-
 	if ( CheckLobbyGameState() )
 	{
-		MapInfo = LobbyGameState->GetMapInfo(MapPackage);
+		InitialMapInfo = LobbyGameState->GetMapInfo(InitialMap);
 	}
-
-	return MapInfo;
+	else
+	{
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyMatchInfo::GetMapInformation, 0.25);
+	}
 }
 
 int32 AUTLobbyMatchInfo::NumPlayersInMatch()
@@ -749,7 +746,7 @@ int32 AUTLobbyMatchInfo::NumPlayersInMatch()
 	int32 ActualPlayerCount = 0;
 	for (int32 i = 0; i < Players.Num(); i++)
 	{
-		if (Players[i]->DesiredTeamNum != 255) ActualPlayerCount++;
+		if (Players[i].IsValid() && Players[i]->DesiredTeamNum != 255) ActualPlayerCount++;
 	}
 
 	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers)
@@ -777,7 +774,7 @@ int32 AUTLobbyMatchInfo::NumSpectatorsInMatch()
 	int32 ActualPlayerCount = 0;
 	for (int32 i = 0; i < Players.Num(); i++)
 	{
-		if (Players[i]->DesiredTeamNum == 255) ActualPlayerCount++;
+		if (Players[i].IsValid() && Players[i]->DesiredTeamNum == 255) ActualPlayerCount++;
 	}
 
 	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers)
@@ -895,4 +892,87 @@ void AUTLobbyMatchInfo::UpdateRank()
 void AUTLobbyMatchInfo::OnRep_RedirectsChanged()
 {
 	bRedirectsHaveChanged = true;
+}
+
+void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruct>& FirstColumn, TArray<FMatchPlayerListStruct>& SecondColumn, FString& Spectators)
+{
+	if (CurrentRuleset.IsValid())
+	{
+		if (CurrentRuleset->bTeamGame)
+		{
+			for (int32 i=0; i < Players.Num(); i++)
+			{
+				if (Players[i].IsValid())
+				{
+					if (Players[i]->GetTeamNum() == 0) FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")) );
+					else if (Players[i]->GetTeamNum() == 1) SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")) );
+					else 
+					{
+						Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT(", %s"), *Players[i]->PlayerName);
+					}
+				}
+
+			}
+
+			for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+			{
+				if (PlayersInMatchInstance[i].TeamNum == 0) FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)) );
+				else if (PlayersInMatchInstance[i].TeamNum == 1) SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)) );
+				else 
+				{
+					Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT(", %s"), *Players[i]->PlayerName);
+				}
+			}
+		}
+		else
+		{
+			int32 cnt=0;
+			for (int32 i=0; i < Players.Num(); i++)
+			{
+				if (Players[i].IsValid())
+				{
+					if (Players[i]->bIsSpectator) 
+					{
+						Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT("%s, %s"),*Spectators, *Players[i]->PlayerName);
+					}
+					else 
+					{
+						if (cnt % 2 == 0) 
+						{
+							FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")));
+						}
+						else
+						{
+							SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")));
+						}
+						cnt++;
+					}
+				}
+			}
+
+			for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+			{
+				if (PlayersInMatchInstance[i].bIsSpectator) 
+				{
+					Spectators = Spectators.IsEmpty() ? PlayersInMatchInstance[i].PlayerName : FString::Printf(TEXT("%s, %s"), *Spectators , *PlayersInMatchInstance[i].PlayerName);
+				}
+				else
+				{
+					if (cnt % 2 == 0) 
+					{
+						FirstColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)));
+					}
+					else
+					{
+						SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)));
+					}
+					cnt++;
+				}
+			}
+		}
+	}
+
+	if (FirstColumn.Num() > 0) FirstColumn.Sort(FMatchPlayerListCompare());
+	if (SecondColumn.Num() > 0) SecondColumn.Sort(FMatchPlayerListCompare());
+
 }

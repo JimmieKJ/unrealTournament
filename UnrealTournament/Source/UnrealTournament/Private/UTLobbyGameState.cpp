@@ -543,7 +543,7 @@ void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, c
 }
 
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -570,6 +570,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 							Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
 							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
 							Match->PlayersInMatchInstance[j].PlayerRank = PlayerRank;
+							Match->PlayersInMatchInstance[j].TeamNum = TeamNum;
 							Match->UpdateRank();
 							return;
 						}
@@ -578,7 +579,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				}
 
 				// A player not in the instance table.. add them
-				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, PlayerRank));
+				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, PlayerRank));
 				Match->UpdateRank();
 			}
 		}
@@ -975,5 +976,5 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 		// We couldn't create a match, so tell the client to look elsewhere.
 		Beacon->ClientQuickplayNotAvailable();
 	}
-
 }
+

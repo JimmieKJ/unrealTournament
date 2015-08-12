@@ -719,3 +719,49 @@ struct FCrosshairInfo
 		return WeaponClassName == Other.WeaponClassName;
 	}
 };
+
+namespace EPlayerListContentCommand
+{
+	const FName PlayerCard = FName(TEXT("PlayerCard"));
+	const FName ChangeTeam = FName(TEXT("ChangeTeam"));
+	const FName Spectate = FName(TEXT("Spectate"));
+	const FName Kick = FName(TEXT("Kick"));
+	const FName Ban = FName(TEXT("Ban"));
+	const FName Invite = FName(TEXT("Invite"));
+}
+
+
+USTRUCT()
+struct FMatchPlayerListStruct
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PlayerName;
+
+	UPROPERTY()
+	FString PlayerScore;
+
+	FMatchPlayerListStruct()
+	{
+		PlayerName = TEXT("");
+		PlayerScore = TEXT("");
+	}
+
+	FMatchPlayerListStruct(const FString& inPlayerName, const FString& inPlayerScore)
+		: PlayerName(inPlayerName)
+		, PlayerScore(inPlayerScore)
+	{
+	}
+
+};
+
+
+struct FMatchPlayerListCompare
+{
+	FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const 
+	{
+		return A.PlayerName < B.PlayerName;
+	}
+};
+

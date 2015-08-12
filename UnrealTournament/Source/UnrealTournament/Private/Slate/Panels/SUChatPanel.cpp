@@ -16,16 +16,6 @@
 
 #if !UE_SERVER
 
-AUTPlayerState* SUChatPanel::GetOwnerPlayerState()
-{
-	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
-	if (PC) 
-	{
-		return Cast<AUTPlayerState>(PC->PlayerState);
-	}
-	return NULL;
-}
-
 
 struct FCompareUsersChat
 {

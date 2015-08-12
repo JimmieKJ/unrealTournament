@@ -72,18 +72,8 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(ClientData.LocalPC->Player);
 			if (LocalPlayer)
 			{
-				FString StoredMessage;
 				FLinearColor ChatColor = (ClientData.MessageIndex && PlayerController->UTPlayerState && PlayerController->UTPlayerState->Team) ? PlayerController->UTPlayerState->Team->TeamColor : FLinearColor::White;
-
-				if (Destination == ChatDestinations::MOTD || Destination == ChatDestinations::System)
-				{
-					StoredMessage = FString::Printf(TEXT("[System] %s"), *ClientData.MessageString);
-				}
-				else
-				{
-					StoredMessage = FString::Printf(TEXT("%s: %s"), *PlayerName, *ClientData.MessageString);
-				}
-				LocalPlayer->SaveChat(Destination, StoredMessage, ChatColor);
+				LocalPlayer->SaveChat(Destination, PlayerName, ClientData.MessageString, ChatColor);
 			}
 		}
 	}

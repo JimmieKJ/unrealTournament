@@ -22,7 +22,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	virtual void OnFailure();
 	
 	virtual void UpdateMatch(FString Update);
-	virtual void UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank);
+	virtual void UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank);
 	virtual void EndGame(FString FinalUpdate);
 	virtual void Empty();
 
@@ -49,7 +49,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	 *	Allows the instance to update the lobby regarding a given player.
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_UpdatePlayer(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank);
+	virtual void Lobby_UpdatePlayer(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank);
 
 	/**
 	 *	Tells the Lobby that this instance is at Game Over

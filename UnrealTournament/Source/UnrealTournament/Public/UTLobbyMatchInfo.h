@@ -36,13 +36,17 @@ struct FPlayerListInfo
 	UPROPERTY()
 	int32 PlayerRank;
 
+	UPROPERTY()
+	uint8 TeamNum;
+
 	FPlayerListInfo() {};
 
-	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, int32 inPlayerRank)
+	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank)
 		: PlayerID(inPlayerID)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerName(inPlayerName)
 		, PlayerScore(inPlayerScore)
+		, TeamNum(inTeamNum)
 		, PlayerRank(inPlayerRank)
 	{
 	}
@@ -276,9 +280,7 @@ public:
 	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame);
 
 	bool IsBanned(FUniqueNetIdRepl Who);
-	TWeakObjectPtr<AUTReplicatedMapInfo> GetMapInformation(FString MapPackage);
-
-	void LoadInitialMapInfo();
+	void GetMapInformation();
 
 public:
 	// Unique for each match on this hub.  This will be used to lookup data regarding a given instance.
@@ -322,6 +324,8 @@ public:
 
 	// This will be true if the redirects have changed.  When true, the UI should attempt to download any of the objects within the redirects.
 	bool bRedirectsHaveChanged;
+
+	void FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruct>& FirstColumn, TArray<FMatchPlayerListStruct>& SecondColumn, FString& Spectators);
 
 protected:
 	UFUNCTION()

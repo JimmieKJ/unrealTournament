@@ -27,12 +27,18 @@ class SUWMatchSummary;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
-class FStoredChatMessage
+// This delegate will be triggered whenever a chat message is updated.
+
+class FStoredChatMessage : public TSharedFromThis<FStoredChatMessage>
 {
 public:
 	// Where did this chat come from
 	UPROPERTY()
 	FName Type;
+
+	// The Name of the server
+	UPROPERTY()
+	FString Sender;
 
 	// What was the message
 	UPROPERTY()
@@ -42,16 +48,21 @@ public:
 	UPROPERTY()
 	FLinearColor Color;
 
-	FStoredChatMessage(FName inType, FString inMessage, FLinearColor inColor)
-		: Type(inType), Message(inMessage), Color(inColor)
+	UPROPERTY()
+	int32 Timestamp;
+
+	FStoredChatMessage(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp)
+		: Type(inType), Sender(inSender), Message(inMessage), Color(inColor), Timestamp(inTimestamp)
 	{}
 
-	static TSharedRef<FStoredChatMessage> Make(FName inType, FString inMessage, FLinearColor inColor)
+	static TSharedRef<FStoredChatMessage> Make(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp)
 	{
-		return MakeShareable( new FStoredChatMessage( inType, inMessage, inColor ) );
+		return MakeShareable( new FStoredChatMessage( inType, inSender, inMessage, inColor, inTimestamp ) );
 	}
 
 };
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FChatArchiveChanged, class UUTLocalPlayer*, TSharedPtr<FStoredChatMessage>);
 
 USTRUCT()
 struct FUTFriend
@@ -64,6 +75,7 @@ public:
 	FUTFriend(FString inUserId, FString inDisplayName)
 		: UserId(inUserId), DisplayName(inDisplayName)
 	{}
+
 
 	UPROPERTY()
 	FString UserId;
@@ -123,7 +135,7 @@ public:
 
 	// Holds all of the chat this client has received.
 	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;
-	virtual void SaveChat(FName Type, FString Message, FLinearColor Color);
+	virtual void SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color);
 
 	UPROPERTY(Config)
 	FString TutorialLaunchParams;
@@ -237,6 +249,17 @@ public:
 	virtual void RemovePlayerOnlineStatusChangedDelegate(FDelegateHandle DelegateHandle);
 
 
+	/**
+	 *	Registeres a delegate to get notifications of chat messages
+	 **/
+	virtual FDelegateHandle RegisterChatArchiveChangedDelegate(const FChatArchiveChanged::FDelegate& NewDelegate);
+
+	/**
+	 *	Removes a chat notification delegate.
+	 **/
+	virtual void RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHandle);
+
+
 #if !UE_SERVER
 	virtual void ToastCompleted();
 	virtual void CloseAuth();
@@ -267,6 +290,7 @@ protected:
 	virtual void OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful);
 
 	FPlayerOnlineStatusChanged PlayerOnlineStatusChanged;
+	FChatArchiveChanged ChatArchiveChanged;
 
 	double LastProfileCloudWriteTime;
 	double ProfileCloudWriteCooldownTime;

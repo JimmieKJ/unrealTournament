@@ -14,54 +14,6 @@
 
 class SUWGameSetupDialog;
 
-
-class FMatchPlayerData
-{
-public:
-	TWeakObjectPtr<AUTLobbyPlayerState> PlayerState;
-	TSharedPtr<SWidget> Button;
-	TSharedPtr<SUTComboButton> ComboButton;
-	TSharedPtr<STextBlock> StatusText;
-
-	// Cached values to look for changes.
-	uint8 TeamNum;
-	bool bReadyToPlay;
-
-	FMatchPlayerData(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState)
-		: PlayerState(inPlayerState)
-		, Button(nullptr)
-		, ComboButton(nullptr)
-		, StatusText(nullptr)
-	{
-		if (inPlayerState.IsValid())
-		{
-			TeamNum = inPlayerState->DesiredTeamNum;
-			bReadyToPlay = inPlayerState->bReadyToPlay;
-		}
-		else
-		{
-			TeamNum = 0;
-			bReadyToPlay = false;
-		}
-	}
-
-	bool NeedsStatusRefresh()
-	{
-		if (PlayerState.IsValid())
-		{
-			return (PlayerState->bReadyToPlay != bReadyToPlay);
-		}
-
-		return false;
-	}
-
-	static TSharedRef<FMatchPlayerData> Make(TWeakObjectPtr<AUTLobbyPlayerState> inPlayerState)
-	{
-		return MakeShareable( new FMatchPlayerData(inPlayerState));
-	}
-};
-
-
 class UNREALTOURNAMENT_API SULobbyMatchSetupPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SULobbyMatchSetupPanel)
@@ -70,6 +22,7 @@ class UNREALTOURNAMENT_API SULobbyMatchSetupPanel : public SCompoundWidget
 		SLATE_ARGUMENT( TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner )
 		SLATE_ARGUMENT( TWeakObjectPtr<AUTLobbyMatchInfo>, MatchInfo )
 		SLATE_ARGUMENT( bool, bIsHost )
+		SLATE_EVENT(FOnRulesetUpdated, OnRulesetUpdated);
 
 	SLATE_END_ARGS()
 
@@ -78,6 +31,8 @@ class UNREALTOURNAMENT_API SULobbyMatchSetupPanel : public SCompoundWidget
 
 	/** We need to build the player list each frame.  */
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+
+
 
 protected:
 
@@ -104,15 +59,6 @@ protected:
 	void AllowSpectatorChanged(ECheckBoxState NewState);
 	void RankCeilingChanged(ECheckBoxState NewState);
 
-	// Holds a cached list of player data and the slot they belong too.  
-	TArray<TSharedPtr<FMatchPlayerData>> PlayerData;
-
-	TSharedPtr<SHorizontalBox> PlayerListBox;
-	virtual void BuildPlayerList(float DeltaTime);
-	TSharedRef<SWidget> BuildELOBadgeForPlayer(TWeakObjectPtr<AUTPlayerState> PlayerState);
-
-	void OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
-
 	float BlinkyTimer;
 	int32 Dots;
 
@@ -133,11 +79,9 @@ protected:
 	FText GetMatchRulesDescription() const;
 
 	TSharedRef<SWidget> AddChangeButton();
+	TSharedRef<SWidget> AddActionButtons();
 	bool CanChooseGame() const;
 	FReply ChooseGameClicked();
-
-	TSharedPtr<SVerticalBox> MapListPanel;
-	virtual void BuildMapList();
 
 	ECheckBoxState GetLimitRankState() const;
 	ECheckBoxState GetAllowSpectatingState() const;
@@ -151,8 +95,17 @@ protected:
 	FReply CancelDownloadClicked();
 	EVisibility CancelButtonVisible() const;
 
+	const FSlateBrush* SULobbyMatchSetupPanel::GetMapImage() const;
+	FSlateDynamicImageBrush* DefaultLevelScreenshot;
 protected:
 	TWeakObjectPtr<AUTReplicatedMapInfo> LastMapInfo;
+
+	FText GetStartMatchText() const;
+	FText GetMapName() const;
+	FReply StartMatchClicked();
+	FReply LeaveMatchClicked();
+
+	FOnRulesetUpdated RulesetUpdatedDelegate;
 
 };
 

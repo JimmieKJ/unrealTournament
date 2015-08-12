@@ -73,10 +73,6 @@ void AUTLobbyGameMode::InitGameState()
 
 		// Setupo the beacons to listen for updates from Game Server Instances
 		UTLobbyGameState->SetupLobbyBeacons();
-
-		// Break the MOTD up in to strings to be sent to clients when they login.
-		FString Converted = UTLobbyGameState->ServerMOTD.Replace( TEXT("\\n"), TEXT("\n"));
-		Converted.ParseIntoArray(ParsedMOTD,TEXT("\n"),true);
 	}
 	else
 	{
@@ -216,11 +212,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	if (PC)
 	{
-		for (int32 i = 0; i < ParsedMOTD.Num(); i++)
-		{
-			PC->ClientSay(NULL, ParsedMOTD[i], ChatDestinations::MOTD);
-		}
-
+		PC->ClientSay(NULL, UTLobbyGameState->ServerMOTD, ChatDestinations::MOTD);
 		// Set my initial presence....
 		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false);
 	}

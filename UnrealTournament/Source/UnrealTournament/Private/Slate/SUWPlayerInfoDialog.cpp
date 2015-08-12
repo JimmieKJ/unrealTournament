@@ -221,7 +221,8 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 		PreviewWeapon->Destroy();
 	}
 
-	AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
+	AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
+	AUTBaseGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
 	if (DefaultGameMode)
 	{
 		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *DefaultGameMode->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
@@ -653,7 +654,7 @@ void SUWPlayerInfoDialog::OnUpdatePlayerState()
 		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
-		AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
+		AUTBaseGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
 		if (DefaultGameMode)
 		{
 			DefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);

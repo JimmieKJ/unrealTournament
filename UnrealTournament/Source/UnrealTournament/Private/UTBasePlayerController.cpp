@@ -205,7 +205,7 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			AUTBasePlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
 			if (UTPC != nullptr)
 			{
 				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())

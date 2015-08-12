@@ -107,7 +107,4 @@ public:
 	virtual void UpdateLobbySession();
 
 	virtual void DefaultTimer();
-
-protected:
-	TArray<FString> ParsedMOTD;
 };

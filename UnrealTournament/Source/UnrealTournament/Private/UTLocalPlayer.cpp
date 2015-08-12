@@ -16,6 +16,7 @@
 #include "Slate/Panels/SUWCreditsPanel.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
+#include "Slate/SUTStyle.h"
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWToast.h"
 #include "Slate/SUWInputBox.h"
@@ -215,6 +216,7 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 {
 #if !UE_SERVER
 	SUWindowsStyle::Initialize();
+	SUTStyle::Initialize();
 #endif
 
 	Super::PlayerAdded(InViewportClient, InControllerID);
@@ -954,6 +956,16 @@ void UUTLocalPlayer::RemovePlayerOnlineStatusChangedDelegate(FDelegateHandle Del
 	PlayerOnlineStatusChanged.Remove(DelegateHandle);
 }
 
+FDelegateHandle UUTLocalPlayer::RegisterChatArchiveChangedDelegate(const FChatArchiveChanged::FDelegate& NewDelegate)
+{
+	return ChatArchiveChanged.Add(NewDelegate);
+}
+
+void UUTLocalPlayer::RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHandle)
+{
+	ChatArchiveChanged.Remove(DelegateHandle);
+}
+
 
 void UUTLocalPlayer::ShowToast(FText ToastText)
 {
@@ -1271,9 +1283,11 @@ void UUTLocalPlayer::SetNickname(FString NewName)
 	}
 }
 
-void UUTLocalPlayer::SaveChat(FName Type, FString Message, FLinearColor Color)
+void UUTLocalPlayer::SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color)
 {
-	ChatArchive.Add( FStoredChatMessage::Make(Type, Message, Color));
+	TSharedPtr<FStoredChatMessage> ArchiveMessage = FStoredChatMessage::Make(Type, Sender, Message, Color, int32(GetWorld()->GetRealTimeSeconds()));
+	ChatArchive.Add( ArchiveMessage );
+	ChatArchiveChanged.Broadcast(this, ArchiveMessage );
 }
 
 FName UUTLocalPlayer::TeamStyleRef(FName InName)
@@ -2880,6 +2894,8 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 
 void UUTLocalPlayer::CloseAllUI()
 {
+	ChatArchive.Empty();
+
 	GEngine->GameViewport->RemoveAllViewportWidgets();
 #if !UE_SERVER
 	OpenDialogs.Empty();
@@ -2901,4 +2917,5 @@ void UUTLocalPlayer::CloseAllUI()
 	YoutubeConsentDialog.Reset();
 	MatchSummaryWindow.Reset();
 #endif
+
 }

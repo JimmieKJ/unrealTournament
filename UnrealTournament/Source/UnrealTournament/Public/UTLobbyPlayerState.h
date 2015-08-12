@@ -110,6 +110,12 @@ public:
 	// We don't need TeamInfo's for the lobby, just store a desired team num for now.  255 will be spectator.
 	UPROPERTY(Replicated)
 	uint8 DesiredTeamNum;
+
+	virtual uint8 GetTeamNum() const 
+	{
+		return DesiredTeamNum;
+	}
+
 };
 
 
