@@ -797,7 +797,7 @@ FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> Pop
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 			if (LobbyPlayerState)
 			{
-				LobbyPlayerState->ServerJoinMatch(LobbyMatchInfo,false);
+				LobbyPlayerState->ServerJoinMatch(LobbyMatchInfo,true);
 			}
 		}
 	}	
