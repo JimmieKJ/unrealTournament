@@ -10,6 +10,8 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void PreInitializeComponents() override;
+
 	// The weapon
 	UPROPERTY(Replicated)
 	FString MapPackageName;
@@ -32,7 +34,7 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 	UPROPERTY(Replicated)
 	int32 OptimalTeamPlayerCount;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MapScreenshotReference)
 	FString MapScreenshotReference;
 
 	UPROPERTY(Replicated)
@@ -48,6 +50,9 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 	FSlateDynamicImageBrush* MapBrush;
 #endif
 
+	UPROPERTY()
+	UTexture2D* MapScreenshot;
+
 public:
 	void RegisterVoter(AUTPlayerState* Voter);
 	void UnregisterVoter(AUTPlayerState* Voter);
@@ -60,7 +65,11 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_VoteCount();
 
+	UFUNCTION()
+	virtual void OnRep_MapScreenshotReference();
 
+	virtual void PreLoadScreenshot();
+	void MapTextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
 };
 
 
