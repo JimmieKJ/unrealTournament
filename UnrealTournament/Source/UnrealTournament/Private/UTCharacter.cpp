@@ -107,7 +107,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CrouchEyeOffset = EyeOffset;
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = FVector(18.f, 9.f, 9.f);
-	CrouchEyeOffsetInterpRate = 6.f;
+	CrouchEyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = FVector(7.f, 7.f, 7.f);
 	EyeOffsetJumpBob = 20.f;
 	EyeOffsetLandBob = -110.f;
