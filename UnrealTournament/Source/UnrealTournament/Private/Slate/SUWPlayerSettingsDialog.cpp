@@ -24,7 +24,7 @@
 #include "AssetData.h"
 
 // scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
-static const float BOB_SCALING_FACTOR = 1.f;
+const float SUWPlayerSettingsDialog::BOB_SCALING_FACTOR = 1.f;
 
 #if !UE_SERVER
 

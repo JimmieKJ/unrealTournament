@@ -33,6 +33,7 @@ public:
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 protected:
+	static const float BOB_SCALING_FACTOR;
 
 	/** world for rendering the player preview */
 	class UWorld* PlayerPreviewWorld;
