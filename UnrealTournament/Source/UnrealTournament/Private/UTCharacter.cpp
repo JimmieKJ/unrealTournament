@@ -835,8 +835,31 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 			if (IsRagdoll())
 			{
-				// intentionally always apply to root because that replicates better
-				GetMesh()->AddImpulseAtLocation(ResultMomentum, GetMesh()->GetComponentLocation());
+				if (GetNetMode() != NM_Standalone)
+				{
+					// intentionally always apply to root because that replicates better, and damp to prevent excessive team boost
+					// @TODO FIXMESTEVE - want to always apply to correct bone, and damp scaled based on mesh GetMass().
+					AUTGameState* GS = EventInstigator ? Cast<AUTGameState>(GetWorld()->GetGameState()) : NULL;
+					float PushScaling = (GS && GS->OnSameTeam(this, EventInstigator)) ? 0.5f : 1.f;
+					GetMesh()->AddImpulseAtLocation(PushScaling*ResultMomentum, GetMesh()->GetComponentLocation());
+				}
+				else
+				{
+					FVector HitLocation = GetMesh()->GetComponentLocation();
+					if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+					{
+						HitLocation = ((const FPointDamageEvent&)DamageEvent).HitInfo.Location;
+					}
+					else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
+					{
+						const FRadialDamageEvent& RadialEvent = (const FRadialDamageEvent&)DamageEvent;
+						if (RadialEvent.ComponentHits.Num() > 0)
+						{
+							HitLocation = RadialEvent.ComponentHits[0].Location;
+						}
+					}
+					GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
+				}
 			}
 			else if (UTCharacterMovement != NULL)
 			{
