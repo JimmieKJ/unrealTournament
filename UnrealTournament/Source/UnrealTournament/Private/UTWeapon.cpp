@@ -357,7 +357,6 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 		bool bClientFired = BeginFiringSequence(FireModeNum, false);
 		if (Role < ROLE_Authority)
 		{
-			uint8 ZOffset = 0;
 			if (UTOwner)
 			{
 				float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
