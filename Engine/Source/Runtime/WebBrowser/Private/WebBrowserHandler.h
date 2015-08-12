@@ -128,10 +128,15 @@ public:
 		const RectList& DirtyRects,
 		const void* Buffer,
 		int Width, int Height) override;
+
+#if PLATFORM_MAC
     virtual void OnCursorChange(CefRefPtr<CefBrowser> Browser,
         CefCursorHandle Cursor,
         CefRenderHandler::CursorType Type,
-        const CefCursorInfo& CustomCursorInfo) override;
+        const CefCursorInfo& CustomCursorInfo) override; 
+#else
+	virtual void OnCursorChange(CefRefPtr<CefBrowser> Browser, CefCursorHandle Cursor) override;
+#endif
 
 public:
 

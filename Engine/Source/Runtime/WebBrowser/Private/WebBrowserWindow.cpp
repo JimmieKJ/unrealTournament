@@ -500,11 +500,20 @@ void FWebBrowserWindow::OnPaint(CefRenderHandler::PaintElementType Type, const C
     NeedsRedrawEvent.Broadcast();
 }
 
+#if PLATFORM_MAC
 void FWebBrowserWindow::OnCursorChange(CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo)
 {
 	// TODO: Figure out Unreal cursor type from CefRenderHandler::CursorType,
 	//::SetCursor( Cursor );
 }
+#else
+void FWebBrowserWindow::OnCursorChange(CefCursorHandle Cursor)
+{
+	// TODO: Figure out Unreal cursor type from this,
+	// may need to reload unreal cursors to compare handles
+	//::SetCursor( Cursor );
+}
+#endif
 
 int32 FWebBrowserWindow::GetCefKeyboardModifiers(const FKeyEvent& KeyEvent)
 {

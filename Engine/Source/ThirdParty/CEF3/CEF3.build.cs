@@ -8,7 +8,7 @@ public class CEF3 : ModuleRules
 	public CEF3(TargetInfo Target)
 	{
 		/** Mark the current version of the library */
-        string CEFVersion = "3.2272.2077";
+        string CEFVersion = "3.1750.1738";
 		string CEFPlatform = "";
 
 		Type = ModuleType.External;
@@ -52,13 +52,13 @@ public class CEF3 : ModuleRules
 					PublicAdditionalLibraries.Add("libcef_dll_wrapper.lib");
 				}
 
-				PublicDelayLoadDLLs.Add("d3dcompiler_43.dll");
-				PublicDelayLoadDLLs.Add("d3dcompiler_47.dll");
-				PublicDelayLoadDLLs.Add("ffmpegsumo.dll");
-				PublicDelayLoadDLLs.Add("libcef.dll");
-				PublicDelayLoadDLLs.Add("libEGL.dll");
+                PublicDelayLoadDLLs.Add("d3dcompiler_43.dll");
+                PublicDelayLoadDLLs.Add("d3dcompiler_46.dll");
+                PublicDelayLoadDLLs.Add("ffmpegsumo.dll");
+                PublicDelayLoadDLLs.Add("icudt.dll");
+                PublicDelayLoadDLLs.Add("libcef.dll");
+                PublicDelayLoadDLLs.Add("libEGL.dll");
                 PublicDelayLoadDLLs.Add("libGLESv2.dll");
-                PublicDelayLoadDLLs.Add("pdf.dll");
 
 				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/" + Target.Platform.ToString() + "/UnrealCEFSubProcess.exe"));
 			}

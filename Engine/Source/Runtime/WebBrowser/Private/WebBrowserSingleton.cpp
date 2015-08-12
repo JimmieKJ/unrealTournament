@@ -139,8 +139,14 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(void* OS
 	CefWindowHandle WindowHandle = (CefWindowHandle)OSWindowHandle; // TODO: check this is correct for all platforms
 	CefWindowInfo WindowInfo;
 
+#if PLATFORM_MAC
 	// Always use off screen rendering so we can integrate with our windows
 	WindowInfo.SetAsWindowless(WindowHandle, bUseTransparency);
+#else	
+	// Always use off screen rendering so we can integrate with our windows
+	WindowInfo.SetAsOffScreen(WindowHandle);
+	WindowInfo.SetTransparentPainting(bUseTransparency);
+#endif
 
 	// Specify CEF browser settings here.
 	CefBrowserSettings BrowserSettings;

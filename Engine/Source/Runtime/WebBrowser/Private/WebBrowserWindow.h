@@ -190,12 +190,16 @@ private:
 	 */
 	void OnPaint(CefRenderHandler::PaintElementType Type, const CefRenderHandler::RectList& DirtyRects, const void* Buffer, int Width, int Height);
 	
+#if PLATFORM_MAC
 	/**
 	 * Called when cursor would change due to web browser interaction.
 	 * 
 	 * @param Cursor Handle to CEF mouse cursor.
 	 */
     void OnCursorChange(CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo);
+#else
+	void OnCursorChange(CefCursorHandle Cursor);
+#endif
 
 	/**
      * Called when JavaScript code sends a message to the UE process.
