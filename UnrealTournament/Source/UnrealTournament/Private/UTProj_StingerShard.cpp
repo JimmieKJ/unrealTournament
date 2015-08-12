@@ -27,7 +27,11 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 
 void AUTProj_StingerShard::Destroyed()
 {
-	Explode(GetActorLocation(), ImpactNormal, CollisionComp);
+	// detonate shards embedded in walls when they time out
+	if (!ImpactNormal.IsZero())
+	{
+		Explode(GetActorLocation(), ImpactNormal, CollisionComp);
+	}
 	Super::Destroyed();
 }
 
