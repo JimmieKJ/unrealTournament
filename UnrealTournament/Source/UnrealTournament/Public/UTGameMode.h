@@ -230,6 +230,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bAmmoIsLimited;
 
+	/** If true, the intro cinematic will play just before the countown to begin */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+	bool bPlayPlayerIntro;
+
 	/** Last time asnyone sent a taunt voice message. */
 	UPROPERTY()
 	float LastGlobalTauntTime;

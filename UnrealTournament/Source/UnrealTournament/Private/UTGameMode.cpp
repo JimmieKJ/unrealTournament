@@ -111,6 +111,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	TimeMarginSlack = 0.001f;
 
 	bCasterControl = false;
+	bPlayPlayerIntro = true;
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -241,6 +242,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			DemoFilename = InOpt;
 		}
 	}
+
+	InOpt = ParseOption(Options, TEXT("PlayPlayerIntro"));
+	bPlayPlayerIntro = EvalBoolOptions(InOpt, bPlayPlayerIntro);
 
 	PostInitGame(Options);
 
@@ -1333,7 +1337,14 @@ void AUTGameMode::StartMatch()
 	}
 	else
 	{
-		SetMatchState(MatchState::PlayerIntro);
+		if (bPlayPlayerIntro)
+		{
+			SetMatchState(MatchState::PlayerIntro);
+		}
+		else
+		{
+			SetMatchState(MatchState::CountdownToBegin);
+		}
 	}
 	
 	// Any player that join pre-StartMatch is given a free pass to quit
