@@ -1255,14 +1255,18 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 	//Figure out the start and end camera tranforms for the team pan
 	TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[ViewedTeamNum];
 	{
-		AUTCharacter* StartChar = TeamCharacters[TeamCharacters.Num() - 1];
-		FRotator Dir = StartChar->GetActorRotation();
-		FVector Location = StartChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET);
+		if (TeamCharacters.Num() > 0)
+		{
+			AUTCharacter* StartChar = TeamCharacters[TeamCharacters.Num() - 1];
+			FRotator Dir = StartChar->GetActorRotation();
+			FVector Location = StartChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET);
 
-		Dir.Yaw += 180.0f;
-		TeamStartCamera.SetLocation(Location);
-		TeamStartCamera.SetRotation(Dir.Quaternion());
+			Dir.Yaw += 180.0f;
+			TeamStartCamera.SetLocation(Location);
+			TeamStartCamera.SetRotation(Dir.Quaternion());
+		}
 	}
+	if (TeamCharacters.Num() > 0)
 	{
 		AUTCharacter* EndChar = TeamCharacters[0];
 		FRotator Dir = EndChar->GetActorRotation();
