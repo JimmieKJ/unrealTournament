@@ -52,6 +52,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	FriendlyMomentumScaling = 1.f;
 	FireEffectInterval = 1;
 	FireEffectCount = 0;
+	FireZOffset = 0.f;
+	FireZOffsetTime = 0.f;
 
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
@@ -355,6 +357,16 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 		bool bClientFired = BeginFiringSequence(FireModeNum, false);
 		if (Role < ROLE_Authority)
 		{
+			uint8 ZOffset = 0;
+			if (UTOwner)
+			{
+				float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
+				if (ZOffset != uint8(FMath::Clamp(UTOwner->BaseEyeHeight + 127.5f, 0.f, 255.f)))
+				{
+					ServerStartFireOffset(FireModeNum, ZOffset, bClientFired);
+					return;
+				}
+			}
 			ServerStartFire(FireModeNum, bClientFired); 
 		}
 	}
@@ -364,11 +376,27 @@ void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, bool bClientFi
 {
 	if (!UTOwner->IsFiringDisabled())
 	{
+		FireZOffsetTime = 0.f;
 		BeginFiringSequence(FireModeNum, bClientFired);
 	}
 }
 
 bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, bool bClientFired)
+{
+	return true;
+}
+
+void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 ZOffset, bool bClientFired)
+{
+	if (!UTOwner->IsFiringDisabled())
+	{
+		FireZOffset = ZOffset - 127;
+		FireZOffsetTime = GetWorld()->GetTimeSeconds();
+		BeginFiringSequence(FireModeNum, bClientFired);
+	}
+}
+
+bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 ZOffset, bool bClientFired)
 {
 	return true;
 }
@@ -871,6 +899,7 @@ void AUTWeapon::FireShot()
 	{
 		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 	}
+	FireZOffsetTime = 0.f;
 }
 
 bool AUTWeapon::IsFiring() const
@@ -998,6 +1027,10 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 		if (bFPFireFromCenter && bIsFirstPerson)
 		{
 			BaseLoc = UTOwner->GetPawnViewLocation();
+			if (GetWorld()->GetTimeSeconds() - FireZOffsetTime < 0.06f)
+			{
+				BaseLoc.Z = FireZOffset + UTOwner->GetActorLocation().Z;
+			}
 		}
 		else
 		{

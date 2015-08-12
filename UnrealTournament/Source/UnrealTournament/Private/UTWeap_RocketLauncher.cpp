@@ -242,6 +242,7 @@ void AUTWeap_RocketLauncher::FireShot()
 	{
 		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 	}
+	FireZOffsetTime = 0.f;
 }
 
 AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()

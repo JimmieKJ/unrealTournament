@@ -426,7 +426,19 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerStartFire(uint8 FireModeNum, bool bClientFired);
+		virtual void ServerStartFire(uint8 FireModeNum, bool bClientFired);
+
+	/** ServerStartFire, also pass Z offset since it is interpolating. */
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 ZOffset, bool bClientFired);
+
+	/** Just replicated ZOffset for shot fire location. */
+	UPROPERTY()
+		float FireZOffset;
+
+	/** When received FireZOffset - only valid for same time and next frame. */
+	UPROPERTY()
+		float FireZOffsetTime;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerStopFire(uint8 FireModeNum);

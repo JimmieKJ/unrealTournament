@@ -234,6 +234,7 @@ void AUTWeap_Translocator::FireShot()
 	{
 		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 	}
+	FireZOffsetTime = 0.f; 
 }
 
 //Dont drop Weapon when killed
