@@ -355,8 +355,8 @@ void AUTHUD::NotifyMatchStateChange()
 		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
 	}
 
-	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
-	if (UTLP != nullptr)
+	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+	if (UTLP && GetWorld()->GetGameState())
 	{
 		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch
 			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro)
