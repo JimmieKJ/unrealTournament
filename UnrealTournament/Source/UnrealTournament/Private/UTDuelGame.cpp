@@ -234,4 +234,7 @@ void AUTDuelGame::UpdateSkillRating()
 	}
 }
 
-
+void AUTDuelGame::FindAndMarkHighScorer()
+{
+	// Everyone would always be the high scorer
+}

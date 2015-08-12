@@ -23,6 +23,8 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 	}
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 
+	virtual void FindAndMarkHighScorer() override;
+
 	/** How long powerups last in Duel */
 	UPROPERTY()
 	float PowerupDuration;
