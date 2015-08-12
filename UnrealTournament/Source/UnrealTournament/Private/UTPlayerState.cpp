@@ -54,7 +54,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	EngineMessageClass = UUTEngineMessage::StaticClass();
 	LastTauntTime = -1000.f;
 
-	static ConstructorHelpers::FObjectFinder<UClass> DefaultVoice(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Character/DefaultMaleVoice.DefaultMaleVoice_C'"));
+	static ConstructorHelpers::FObjectFinder<UClass> DefaultVoice(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Character/Voices/SkaarjVoice.SkaarjVoice_C'"));
 	CharacterVoice = DefaultVoice.Object;
 }
 
