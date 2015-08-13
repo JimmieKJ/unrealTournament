@@ -151,6 +151,45 @@ void AUTHUD_Showdown::DrawHUD()
 		PlayerOwner->SetIgnoreLookInput(false);
 		bLockedLookInput = false;
 	}
+
+	if (GS != NULL && GS->bBroadcastPlayerHealth && !bShowScores && GS->IsMatchInProgress())
+	{
+		for (int32 i = 0; i < 2; i++)
+		{
+			float YPos = 1.0f;
+			for (APlayerState* PS : GS->PlayerArray)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+				if (UTPS->GetTeamNum() == i)
+				{
+					float XL, YL;
+					Canvas->DrawColor = UTPS->Team->TeamColor;
+					Canvas->TextSize(LargeFont, UTPS->PlayerName, XL, YL);
+					Canvas->DrawText(LargeFont, UTPS->PlayerName, i == 0 ? 1.0f : Canvas->SizeX - XL - 1.0f, YPos);
+					YPos += YL;
+					int32 Health = 0;
+					int32 Armor = 0;
+					for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+					{
+						if (It->IsValid() && It->Get()->PlayerState == UTPS)
+						{
+							AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+							if (UTC != NULL)
+							{
+								Health = UTC->Health;
+								Armor = UTC->ArmorAmount;
+								break;
+							}
+						}
+					}
+					FString StatusText = FString::Printf(TEXT("HEALTH: %i | ARMOR: %i"), Health, Armor);
+					Canvas->TextSize(LargeFont, StatusText, XL, YL);
+					Canvas->DrawText(LargeFont, StatusText, i == 0 ? 1.0f : Canvas->SizeX - XL - 1.0f, YPos);
+					YPos += YL;
+				}
+			}
+		}
+	}
 }
 
 EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()

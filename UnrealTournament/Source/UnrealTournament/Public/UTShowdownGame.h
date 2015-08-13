@@ -20,6 +20,26 @@ protected:
 	virtual void HandleMatchHasStarted() override;
 	virtual void StartNewRound();
 
+	// experimental tiebreaker options
+	// will be removed once we decide on a path
+	UPROPERTY(config)
+	bool bAlternateScoring; // 3 for win by kill, 2 and 1 for time expired
+	UPROPERTY(config)
+	bool bLowHealthRegen; // player low on health regenerates
+	UPROPERTY(config)
+	bool bXRayBreaker; // both players see others through walls after 60 seconds
+	UPROPERTY(config)
+	bool bPowerupBreaker; // spawn super powerup at 60 seconds
+	UPROPERTY(config)
+	bool bBroadcastPlayerHealth; // show both players' health on HUD at all times
+
+	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTPickupInventory"))
+	FStringClassReference PowerupBreakerPickupClass;
+	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTTimedPowerup"))
+	FStringClassReference PowerupBreakerItemClass;
+
+	UPROPERTY()
+	AUTPickupInventory* BreakerPickup;
 public:
 	AUTShowdownGame(const FObjectInitializer& OI);
 
@@ -35,10 +55,17 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<AUTPlayerState*> RemainingPicks;
 
+	/** elapsed time in the current round */
+	UPROPERTY(BlueprintReadOnly)
+	int32 RoundElapsedTime;
+
 	/** team that won last round */
 	UPROPERTY(BlueprintReadOnly)
 	AUTTeamInfo* LastRoundWinner;
 
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual void InitGameState() override;
+	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void RestartPlayer(AController* aPlayer) override
@@ -53,4 +80,8 @@ public:
 	virtual void CheckGameTime() override;
 	virtual void CallMatchStateChangeNotify() override;
 	virtual void DefaultTimer() override;
+
+#if !UE_SERVER
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
+#endif
 };

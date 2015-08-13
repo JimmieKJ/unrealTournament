@@ -1182,6 +1182,11 @@ void AUTCharacter::OnRepFloorSliding()
 	}
 }
 
+bool AUTCharacter::K2_Died(AController* EventInstigator, TSubclassOf<UDamageType> DamageType)
+{
+	return Died(EventInstigator, FUTPointDamageEvent(Health + 1, FHitResult(), FVector(0.0f, 0.0f, -1.0f), DamageType));
+}
+
 bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& DamageEvent)
 {
 	if (Role < ROLE_Authority || IsDead())
@@ -1278,8 +1283,11 @@ void AUTCharacter::StartRagdoll()
 		return;
 	}
 
-	// turn off any taccom  @TODO FIXMESTEVE - should be able to keep on, at least when feigning
-	UpdateTacComMesh(false);
+	// turn off any taccom when dead
+	if (bTearOff || !bFeigningDeath)
+	{
+		UpdateTacComMesh(false);
+	}
 
 	SetActorEnableCollision(true);
 	StopFiring();
@@ -3446,11 +3454,24 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 	if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
 	{
-		UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
-		if (MID != NULL)
+		// FIXME: temp hack for showdown prototype
+		bool bSendHealthToOverlay = false;
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
-			static FName NAME_Damage(TEXT("Damage"));
-			MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
+			if (It->PlayerController != NULL && It->PlayerController->PlayerState != NULL && It->PlayerController->PlayerState->bOnlySpectator)
+			{
+				bSendHealthToOverlay = true;
+				break;
+			}
+		}
+		if (bSendHealthToOverlay)
+		{
+			UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+			if (MID != NULL)
+			{
+				static FName NAME_Damage(TEXT("Damage"));
+				MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
+			}
 		}
 	}
 

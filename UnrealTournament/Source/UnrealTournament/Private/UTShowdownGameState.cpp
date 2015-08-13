@@ -13,9 +13,12 @@ void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
+	DOREPLIFETIME_CONDITION(AUTShowdownGameState, bBroadcastPlayerHealth, COND_InitialOnly);
 	DOREPLIFETIME(AUTShowdownGameState, SpawnSelector);
 	DOREPLIFETIME(AUTShowdownGameState, IntermissionStageTime);
 	DOREPLIFETIME(AUTShowdownGameState, bFinalIntermissionDelay);
+	
+	DOREPLIFETIME(AUTShowdownGameState, bActivateXRayVision);
 }
 
 bool AUTShowdownGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const
@@ -41,5 +44,20 @@ bool AUTShowdownGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Ch
 			}
 		}
 		return true;
+	}
+}
+
+void AUTShowdownGameState::OnRep_XRayVision()
+{
+	if (bActivateXRayVision)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+			if (UTC != NULL && !UTC->bTearOff && (!UTC->IsLocallyControlled() || Cast<APlayerController>(UTC->Controller) == NULL))
+			{
+				UTC->UpdateTacComMesh(true);
+			}
+		}
 	}
 }

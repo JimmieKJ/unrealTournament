@@ -1959,7 +1959,7 @@ FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const
 
 AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 {
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(Player->PlayerState);
+	AUTPlayerState* UTPS = Player != NULL ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
 	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
 	{
 		if (UTPS->bChosePrimaryRespawnChoice)

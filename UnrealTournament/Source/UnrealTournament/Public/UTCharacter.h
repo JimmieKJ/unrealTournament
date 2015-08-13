@@ -919,7 +919,8 @@ public:
 	 *  SERVER ONLY - do not do visual effects here!
 	 * return true if we can die, false if immortal (gametype effect, powerup, mutator, etc)
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Meta = (DisplayName = "Died"), Category = Pawn)
+	bool K2_Died(AController* EventInstigator, TSubclassOf<UDamageType> DamageType);
 	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
 
 	/** blueprint override for FellOutOfWorld()
