@@ -58,6 +58,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	CharacterVoice = DefaultVoice.Object;
 
 	PrevXP = -1;
+
+	EmoteSpeed = 1.0f;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -107,6 +109,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, bUTIsInactive);
 	DOREPLIFETIME(AUTPlayerState, MatchHighlights);
 	DOREPLIFETIME(AUTPlayerState, MatchHighlightData);
+	DOREPLIFETIME(AUTPlayerState, EmoteReplicationInfo);
+	DOREPLIFETIME(AUTPlayerState, EmoteSpeed);
 }
 
 void AUTPlayerState::Destroyed()
@@ -1989,5 +1993,100 @@ void AUTPlayerState::OnRep_bIsInactive()
 	if (GetWorld() && GetWorld()->GameState)
 	{
 		Super::OnRep_bIsInactive();
+	}
+}
+
+bool AUTPlayerState::ServerFasterEmote_Validate()
+{
+	return true;
+}
+
+void AUTPlayerState::ServerFasterEmote_Implementation()
+{
+	EmoteSpeed = FMath::Min(EmoteSpeed + 0.25f, 3.0f);
+	OnRepEmoteSpeed();
+}
+
+bool AUTPlayerState::ServerSlowerEmote_Validate()
+{
+	return true;
+}
+
+void AUTPlayerState::ServerSlowerEmote_Implementation()
+{
+	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, 0.0f);
+	OnRepEmoteSpeed();
+}
+
+bool AUTPlayerState::ServerSetEmoteSpeed_Validate(float NewEmoteSpeed)
+{
+	return true;
+}
+
+void AUTPlayerState::ServerSetEmoteSpeed_Implementation(float NewEmoteSpeed)
+{
+	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, 0.0f, 3.0f);
+	OnRepEmoteSpeed();
+}
+
+void AUTPlayerState::OnRepEmoteSpeed()
+{
+	AUTCharacter* UTC = GetUTCharacter();
+	if (UTC != nullptr)
+	{
+		UTC->SetEmoteSpeed(EmoteSpeed);
+	}
+#if !UE_SERVER
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(), 0));
+	if (FirstPlayer != nullptr)
+	{
+		FirstPlayer->OnEmoteSpeedChanged(this, EmoteSpeed);
+	}
+#endif
+}
+
+void AUTPlayerState::OnRepTaunt()
+{
+	PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
+}
+
+void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
+{
+	if (TauntIndex == 0 && TauntClass != nullptr)
+	{
+		EmoteReplicationInfo.EmoteIndex = TauntIndex;
+		PlayTauntByClass(TauntClass);
+	}
+	else if (TauntIndex == 1 && Taunt2Class != nullptr)
+	{
+		EmoteReplicationInfo.EmoteIndex = TauntIndex;
+		PlayTauntByClass(Taunt2Class);
+	}
+}
+
+void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
+{
+	if (TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
+	{
+		if (Role == ROLE_Authority)
+		{
+			EmoteReplicationInfo.EmoteCount++;
+			ForceNetUpdate();
+		}
+
+		//Play taunt on the character in the game world
+		AUTCharacter* UTC = GetUTCharacter();
+		if (UTC != nullptr)
+		{
+			UTC->PlayTauntByClass(TauntToPlay, EmoteSpeed);
+		}
+		//Pass the taunt along to characters in the MatchSummary
+#if !UE_SERVER
+		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(), 0));
+		if (FirstPlayer != nullptr)
+		{
+			FirstPlayer->OnTauntPlayed(this, TauntToPlay, EmoteSpeed);
+		}
+#endif
 	}
 }

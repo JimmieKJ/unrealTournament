@@ -90,7 +90,6 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	HeadRadius = 18.0f;
 	HeadHeight = 8.0f;
 	HeadBone = FName(TEXT("head"));
-	EmoteSpeed = 1.0f;
 	UnfeignCount = 0;
 
 	BobTime = 0.f;
@@ -2651,8 +2650,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepFloorSliding, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteReplicationInfo, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteSpeed, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
@@ -4459,97 +4456,22 @@ void AUTCharacter::OnRepCosmeticSpreeCount()
 	}
 }
 
-bool AUTCharacter::ServerFasterEmote_Validate()
-{
-	return true;
-}
-
-void AUTCharacter::ServerFasterEmote_Implementation()
-{
-	EmoteSpeed = FMath::Min(EmoteSpeed + 0.25f, 3.0f);	
-	OnRepEmoteSpeed();
-}
-
-bool AUTCharacter::ServerSlowerEmote_Validate()
-{
-	return true;
-}
-
-void AUTCharacter::ServerSlowerEmote_Implementation()
-{
-	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, 0.0f);
-	OnRepEmoteSpeed();
-}
-
-bool AUTCharacter::ServerSetEmoteSpeed_Validate(float NewEmoteSpeed)
-{
-	return true;
-}
-
-void AUTCharacter::ServerSetEmoteSpeed_Implementation(float NewEmoteSpeed)
-{
-	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, 0.0f, 3.0f);
-	OnRepEmoteSpeed();
-}
-
-void AUTCharacter::OnRepEmoteSpeed()
+void AUTCharacter::SetEmoteSpeed(float NewEmoteSpeed)
 {
 	if (CurrentEmote)
 	{
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
-			AnimInstance->Montage_SetPlayRate(CurrentEmote, EmoteSpeed);
+			AnimInstance->Montage_SetPlayRate(CurrentEmote, NewEmoteSpeed);
 		}
 	}
 }
 
-void AUTCharacter::OnRepTaunt()
-{
-	PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
-}
-
-void AUTCharacter::PlayTaunt()
-{
-	PlayTauntByIndex(0);
-}
-
-void AUTCharacter::PlayTauntByIndex(int32 TauntIndex)
-{
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
-	if (UTPS != nullptr && !bFeigningDeath)
-	{
-		if (TauntIndex == 0 && UTPS->TauntClass != nullptr)
-		{
-			EmoteReplicationInfo.EmoteIndex = TauntIndex;
-			PlayTauntByClass(UTPS->TauntClass);
-		}
-		else if (TauntIndex == 1 && UTPS->Taunt2Class != nullptr)
-		{
-			EmoteReplicationInfo.EmoteIndex = TauntIndex;
-			PlayTauntByClass(UTPS->Taunt2Class);
-		}
-
-		//Play the taunt in the playerinfo dialog
-#if !UE_SERVER
-		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(), 0));
-		if (FirstPlayer != nullptr)
-		{
-			FirstPlayer->OnTauntPlayed(UTPS, TauntIndex);
-		}
-#endif
-	}
-}
-
-void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
+void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
 	if (!bFeigningDeath && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
 	{
-		if (Role == ROLE_Authority)
-		{
-			EmoteReplicationInfo.EmoteCount++;
-		}
-
 		StopFiring();
 		if (Hat)
 		{

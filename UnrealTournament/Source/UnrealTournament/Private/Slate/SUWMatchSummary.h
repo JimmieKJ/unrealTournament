@@ -55,7 +55,8 @@ public:
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnKeyChar(const FGeometry& InGeometry, const FCharacterEvent& InCharacterEvent) override;
-	virtual void PlayTauntByIndex(AUTPlayerState* PS, int32 TauntIndex);
+	virtual void PlayTauntByClass(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed);
+	virtual void SetEmoteSpeed(AUTPlayerState* PS, float EmoteSpeed);
 	virtual void SelectPlayerState(AUTPlayerState* PS);
 
 protected:

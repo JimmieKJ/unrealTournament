@@ -1194,12 +1194,21 @@ FReply SUWMatchSummary::OnKeyChar(const FGeometry& InGeometry, const FCharacterE
 	return FReply::Unhandled();
 }
 
-void SUWMatchSummary::PlayTauntByIndex(AUTPlayerState* PS, int32 TauntIndex)
+void SUWMatchSummary::PlayTauntByClass(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
 	AUTCharacter* UTC = FindCharacter(PS);
 	if (UTC != nullptr)
 	{
-		UTC->PlayTauntByIndex(TauntIndex);
+		UTC->PlayTauntByClass(TauntToPlay, EmoteSpeed);
+	}
+}
+
+void SUWMatchSummary::SetEmoteSpeed(AUTPlayerState* PS, float EmoteSpeed)
+{
+	AUTCharacter* UTC = FindCharacter(PS);
+	if (UTC != nullptr)
+	{
+		UTC->SetEmoteSpeed(EmoteSpeed);
 	}
 }
 
@@ -1438,6 +1447,14 @@ void SUWMatchSummary::ZoomPlayerPreview(float WheelDelta)
 		{
 			ViewAll();
 		}
+	}
+
+	//Send the scroll wheel to player input so they can change speed of the taunt
+	UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
+	if (UTInput != nullptr)
+	{
+		FKey ScrollKey = WheelDelta > 0.0f ? EKeys::MouseScrollUp : EKeys::MouseScrollDown;
+		UTInput->InputKey(ScrollKey, EInputEvent::IE_Pressed, 1.0f, false);
 	}
 }
 

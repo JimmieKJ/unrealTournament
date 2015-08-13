@@ -2218,16 +2218,25 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 }
 
 
-void UUTLocalPlayer::OnTauntPlayed(AUTPlayerState* PS, int32 TauntIndex)
+void UUTLocalPlayer::OnTauntPlayed(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
 #if !UE_SERVER
 	if (MatchSummaryWindow.IsValid())
 	{
-		MatchSummaryWindow->PlayTauntByIndex(PS, TauntIndex);
+		MatchSummaryWindow->PlayTauntByClass(PS, TauntToPlay, EmoteSpeed);
 	}
 #endif
 }
 
+void UUTLocalPlayer::OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed)
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		MatchSummaryWindow->SetEmoteSpeed(PS, EmoteSpeed);
+	}
+#endif
+}
 
 void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
 {

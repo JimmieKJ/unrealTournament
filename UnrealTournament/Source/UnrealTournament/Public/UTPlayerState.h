@@ -49,6 +49,18 @@ struct FTempBanInfo
 
 };
 
+USTRUCT()
+struct FEmoteRepInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	uint8 EmoteCount;
+
+	UPROPERTY()
+	int32 EmoteIndex;
+};
+
 class AUTReplicatedMapInfo;
 
 UCLASS()
@@ -626,6 +638,33 @@ public:
 	virtual void OnRep_UTIsInactive();
 
 	virtual void OnRep_bIsInactive() override;
+
+	UPROPERTY(replicatedUsing = OnRepTaunt)
+	FEmoteRepInfo EmoteReplicationInfo;
+
+	UFUNCTION()
+	virtual void OnRepTaunt();
+
+	UPROPERTY(replicatedUsing = OnRepEmoteSpeed)
+	float EmoteSpeed;
+
+	UFUNCTION()
+	virtual void OnRepEmoteSpeed();
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayTauntByIndex(int32 TauntIndex);
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetEmoteSpeed(float NewEmoteSpeed);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerFasterEmote();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSlowerEmote();
 };
 
 

@@ -500,7 +500,8 @@ public:
 	int32 ServerPingBlockSize;
 
 	virtual void ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target);
-	virtual void OnTauntPlayed(AUTPlayerState* PS, int32 TauntIndex);
+	virtual void OnTauntPlayed(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed);
+	virtual void OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed);
 
 	// Request someone be my friend...
 	virtual void RequestFriendship(TSharedPtr<FUniqueNetId> FriendID);

@@ -2773,9 +2773,9 @@ bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
 
 void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 {
-	if (UTCharacter != nullptr && UTPlayerState != nullptr)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->PlayTauntByIndex(EmoteIndex);
+		UTPlayerState->PlayTauntByIndex(EmoteIndex);
 	}
 }
 
@@ -2909,25 +2909,25 @@ bool AUTPlayerController::HasDeferredFireInputs()
 
 void AUTPlayerController::SetEmoteSpeed(float NewEmoteSpeed)
 {
-	if (UTCharacter != nullptr)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->ServerSetEmoteSpeed(NewEmoteSpeed);
+		UTPlayerState->ServerSetEmoteSpeed(NewEmoteSpeed);
 	}
 }
 
 void AUTPlayerController::FasterEmote()
 {
-	if (UTCharacter != nullptr && UTCharacter->EmoteCount > 0)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->ServerFasterEmote();
+		UTPlayerState->ServerFasterEmote();
 	}
 }
 
 void AUTPlayerController::SlowerEmote()
 {
-	if (UTCharacter != nullptr && UTCharacter->EmoteCount > 0)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->ServerSlowerEmote();
+		UTPlayerState->ServerSlowerEmote();
 	}
 }
 

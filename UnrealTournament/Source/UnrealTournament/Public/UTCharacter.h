@@ -135,18 +135,6 @@ struct FStoredAmmo
 	int32 Amount;
 };
 
-USTRUCT()
-struct FEmoteRepInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	uint8 EmoteCount;
-
-	UPROPERTY()
-	int32 EmoteIndex;
-};
-
 USTRUCT(BlueprintType)
 struct FSavedPosition
 {
@@ -352,35 +340,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category=Weapon)
 	virtual float GetWeaponBobScaling();
 
-	UPROPERTY(replicatedUsing=OnRepTaunt)
-	FEmoteRepInfo EmoteReplicationInfo;
-	
-	UFUNCTION()
-	virtual void OnRepTaunt();
-
-	UPROPERTY(replicatedUsing=OnRepEmoteSpeed)
-	float EmoteSpeed;
-	
-	UFUNCTION()
-	virtual void OnRepEmoteSpeed();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetEmoteSpeed(float NewEmoteSpeed);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerFasterEmote();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSlowerEmote();
-
-	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (DisplayName = "Play Taunt"))
-	void PlayTaunt();
+	virtual void SetEmoteSpeed(float NewEmoteSpeed);
 
 	UFUNCTION(BlueprintCallable, Category = Taunt)
-	void PlayTauntByIndex(int32 TauntIndex);
-
-	UFUNCTION(BlueprintCallable, Category = Taunt)
-	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
+	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed = 1.0f);
 
 	UFUNCTION()
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
