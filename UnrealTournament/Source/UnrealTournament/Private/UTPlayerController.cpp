@@ -2055,7 +2055,7 @@ void AUTPlayerController::ShowEndGameScoreboard()
 void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL)
+	if (LP != NULL && (LP->IsOnTrustedServer() || LP->GetProfileSettings() != NULL))
 	{
 		// FIXME: temp until there is UI
 		FClientReceiveData ClientData;
@@ -2071,7 +2071,7 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 			LP->AddOnlineXP(GainedXP.Total());
 			NewLevel = GetLevelForXP(LP->GetOnlineXP());
 		}
-		else if (LP->GetProfileSettings() != NULL)
+		else
 		{
 			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i OFFLINE XP FOR THIS MATCH"), GainedXP.Total());
 			PrevLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
