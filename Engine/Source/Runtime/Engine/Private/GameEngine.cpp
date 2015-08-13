@@ -965,10 +965,13 @@ void UGameEngine::Tick( float DeltaSeconds, bool bIdleMode )
 			Context.World()->UpdateLevelStreaming();
 		}
 
-		// Update Audio. This needs to occur after rendering as the rendering code updates the listener position.
-		if (FAudioDevice* AudioDevice = Context.World()->GetAudioDevice())
+		if (Context.WorldType != EWorldType::Preview)
 		{
-			AudioDevice->Update(!Context.World()->IsPaused());
+			// Update Audio. This needs to occur after rendering as the rendering code updates the listener position.
+			if (FAudioDevice* AudioDevice = Context.World()->GetAudioDevice())
+			{
+				AudioDevice->Update(!Context.World()->IsPaused());
+			}
 		}
 
 		if( GIsClient )
