@@ -350,13 +350,8 @@ void AUTHUD::ToggleScoreboard(bool bShow)
 
 void AUTHUD::NotifyMatchStateChange()
 {
-	if (MyUTScoreboard != NULL)
-	{
-		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
-	}
-
 	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
-	if (UTLP && GetWorld()->GetGameState())
+	if (UTLP && GetWorld()->GetGameState() != nullptr && GetWorld()->GetGameState()->GetMatchState() != MatchState::CountdownToBegin)
 	{
 		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch
 			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro)

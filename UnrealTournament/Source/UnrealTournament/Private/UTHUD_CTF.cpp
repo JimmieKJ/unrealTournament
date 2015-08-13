@@ -28,7 +28,7 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
 	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
-	if (UTLP != nullptr)
+	if (UTLP != nullptr && GetWorld()->GetGameState() != nullptr && GetWorld()->GetGameState()->GetMatchState() != MatchState::CountdownToBegin)
 	{
 		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch
 			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro)
