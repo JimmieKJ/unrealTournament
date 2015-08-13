@@ -911,23 +911,23 @@ struct FPostProcessSettings
 		SceneFringeIntensity = 0.0f;
 		SceneFringeSaturation = 0.5f;
 		// next value might get overwritten by r.DefaultFeature.Bloom
-		BloomIntensity = 1.0f;
-		BloomThreshold = 1.0f;
-		Bloom1Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		BloomIntensity = 0.675f;
+		BloomThreshold = -1.0f;
+		Bloom1Tint = FLinearColor(0.3034f, 0.37f, 0.366823f);
 		// default is 4 to maintain old settings after fixing something that caused a factor of 4
 		BloomSizeScale = 4.0;
-		Bloom1Size = 1.0f;
-		Bloom2Tint = FLinearColor(0.5f, 0.5f, 0.5f);
-		Bloom2Size = 4.0f;
-		Bloom3Tint = FLinearColor(0.5f, 0.5f, 0.5f);
-		Bloom3Size = 16.0f;
-		Bloom4Tint = FLinearColor(0.5f, 0.5f, 0.5f);
-		Bloom4Size = 32.0f;
-		Bloom5Tint = FLinearColor(0.5f, 0.5f, 0.5f);
-		Bloom5Size = 64.0f;
-		Bloom6Tint = FLinearColor(0.5f, 0.5f, 0.5f);
+		Bloom1Size = 0.3f;
+		Bloom2Tint = FLinearColor(0.116966f, 0.15f, 0.148567f);
+		Bloom2Size = 1.0f;
+		Bloom3Tint = FLinearColor(0.104394f, 0.13f, 0.119775f);
+		Bloom3Size = 2.0f;
+		Bloom4Tint = FLinearColor(0.051f, 0.073243f, 0.075f);
+		Bloom4Size = 10.0f;
+		Bloom5Tint = FLinearColor(0.075f, 0.062625f, 0.062625f);
+		Bloom5Size = 30.0f;
+		Bloom6Tint = FLinearColor(0.075f, 0.064338f, 0.07335f);
 		Bloom6Size = 64.0f;
-		BloomDirtMaskIntensity = 1.0f;
+		BloomDirtMaskIntensity = 10.0f;
 		BloomDirtMaskTint = FLinearColor(0.5f, 0.5f, 0.5f);
 		AmbientCubemapIntensity = 1.0f;
 		AmbientCubemapTint = FLinearColor(1, 1, 1);
