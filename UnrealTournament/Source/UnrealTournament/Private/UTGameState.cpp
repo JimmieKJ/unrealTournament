@@ -151,7 +151,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_RedeemerHits);
 	WeaponStats.Add(NAME_InstagibHits);
 
-	HighlightMap.Add(HighlightNames::TopScorer, NSLOCTEXT("AUTGameMode", "HighlightTopScore", "Top Score with <UT.MatchSummary.HighlightText.Value>{0}</> points."));
+	HighlightMap.Add(HighlightNames::TopScorer, NSLOCTEXT("AUTGameMode", "HighlightTopScore", "Top Score overall with <UT.MatchSummary.HighlightText.Value>{0}</> points."));
 	HighlightMap.Add(HighlightNames::MostKills, NSLOCTEXT("AUTGameMode", "MostKills", "Most Kills with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::LeastDeaths, NSLOCTEXT("AUTGameMode", "LeastDeaths", "Least Deaths with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::BestKD, NSLOCTEXT("AUTGameMode", "BestKD", "Best Kill/Death ratio <UT.MatchSummary.HighlightText.Value>{0}</>."));

@@ -191,6 +191,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	virtual void ToggleScoreboards();
 
+	virtual void UpdateHighlights_Implementation() override;
+	virtual void AddMinorHighlights_Implementation(AUTPlayerState* PS) override;
+
 private:
 	/** list of scoring plays
 	 * replicating dynamic arrays is dangerous for bandwidth and performance, but the alternative in this case is some painful code so we're as safe as possible by tightly restricting access

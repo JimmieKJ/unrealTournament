@@ -100,7 +100,17 @@ namespace HighlightNames
 	const FName MostHeadShots = FName(TEXT("MostHeadShots"));
 	const FName MostAirRockets = FName(TEXT("MostAirRockets"));
 
-	const FName TopTeamScorer = FName(TEXT("TopTeamScorer"));
+	const FName TopScorerRed = FName(TEXT("TopScorerRed"));
+	const FName TopScorerBlue = FName(TEXT("TopScorerBlue"));
+	const FName TopFlagCapturesRed = FName(TEXT("TopFlagCapturesRed"));
+	const FName TopFlagCapturesBlue = FName(TEXT("TopFlagCapturesBlue"));
+	const FName FlagCaptures = FName(TEXT("FlagCaptures"));
+	const FName TopAssistsRed = FName(TEXT("TopAssistsRed"));
+	const FName TopAssistsBlue = FName(TEXT("TopAssistsBlue"));
+	const FName Assists = FName(TEXT("Assists"));
+	const FName TopFlagReturnsRed = FName(TEXT("TopFlagReturnsRed"));
+	const FName TopFlagReturnsBlue = FName(TEXT("TopFlagReturnsBlue"));
+	const FName FlagReturns = FName(TEXT("FlagReturns"));
 }
 
 namespace ArmorTypeName
