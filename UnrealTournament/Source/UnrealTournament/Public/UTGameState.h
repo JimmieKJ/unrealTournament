@@ -280,15 +280,18 @@ protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()
 	 */
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_OverlayMaterials)
 	UMaterialInterface* OverlayMaterials[MAX_OVERLAY_MATERIALS];
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_OverlayMaterials)
 	UMaterialInterface* OverlayMaterials1P[MAX_OVERLAY_MATERIALS];
 
 	virtual void HandleMatchHasEnded() override
 	{
 		MatchEndTime = GetWorld()->TimeSeconds;
 	}
+
+	UFUNCTION()
+	virtual void OnRep_OverlayMaterials();
 
 public:
 	// Will be true if this is an instanced server from a lobby.

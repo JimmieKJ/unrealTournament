@@ -232,6 +232,19 @@ void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay, UMaterialI
 	}
 }
 
+void AUTGameState::OnRep_OverlayMaterials()
+{
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+		if (UTC != NULL)
+		{
+			UTC->UpdateCharOverlays();
+			UTC->UpdateWeaponOverlays();
+		}
+	}
+}
+
 void AUTGameState::BeginPlay()
 {
 	Super::BeginPlay();
