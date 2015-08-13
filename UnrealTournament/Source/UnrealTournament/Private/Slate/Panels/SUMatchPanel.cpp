@@ -84,7 +84,7 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 								.AutoWidth()
 								[
 									SNew(STextBlock)
-									.Text(NSLOCTEXT("SUMatchPanel","UnJoinableTitle","hide unjoinable matches"))
+									.Text(NSLOCTEXT("SUMatchPanel","UnJoinableTitle","Hide unjoinable matches."))
 									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 								]
 							]
