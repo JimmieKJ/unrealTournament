@@ -89,6 +89,20 @@ namespace StatusMessage
 	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
 }
 
+namespace HighlightNames
+{
+	const FName TopScorer = FName(TEXT("TopScorer"));
+	const FName MostKills = FName(TEXT("MostKills"));
+	const FName LeastDeaths = FName(TEXT("LeastDeaths"));
+	const FName BestKD = FName(TEXT("BestKD"));
+	const FName MostWeaponKills = FName(TEXT("MostWeaponKills"));
+	const FName BestCombo = FName(TEXT("BestCombo"));
+	const FName MostHeadShots = FName(TEXT("MostHeadShots"));
+	const FName MostAirRockets = FName(TEXT("MostAirRockets"));
+
+	const FName TopTeamScorer = FName(TEXT("TopTeamScorer"));
+}
+
 namespace ArmorTypeName
 {
 	const FName ShieldBelt = FName(TEXT("ShieldBelt"));

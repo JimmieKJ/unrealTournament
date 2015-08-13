@@ -104,8 +104,9 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, SpectatingIDTeam);
 	DOREPLIFETIME(AUTPlayerState, bCaster);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bIsDemoRecording, COND_InitialOnly);
-
 	DOREPLIFETIME(AUTPlayerState, bUTIsInactive);
+	DOREPLIFETIME(AUTPlayerState, MatchHighlights);
+	DOREPLIFETIME(AUTPlayerState, MatchHighlightData);
 }
 
 void AUTPlayerState::Destroyed()
@@ -1011,6 +1012,19 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("CTFSkillRating"))));
 				}
 			}
+		}
+	}
+}
+
+void AUTPlayerState::AddMatchHighlight(FName NewHighlight, float HighlightData)
+{
+	for (int32 i = 0; i < 5; i++)
+	{
+		if (MatchHighlights[i] == NAME_None)
+		{
+			MatchHighlights[i] = NewHighlight;
+			MatchHighlightData[i] = HighlightData;
+			return;
 		}
 	}
 }

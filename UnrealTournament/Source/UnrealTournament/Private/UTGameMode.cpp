@@ -1447,6 +1447,9 @@ void AUTGameMode::BeginGame()
 void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
+
+	UTGameState->UpdateMatchHighlights();
+
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
 
@@ -3476,103 +3479,6 @@ void AUTGameMode::BuildPlayerInfo(AUTPlayerState* PlayerState, TSharedPtr<SUTTab
 	BuildMovementInfo(PlayerState, TabWidget, StatList);
 }
 #endif
-
-TArray<FText> AUTGameMode::GetPlayerHighlights_Implementation(AUTPlayerState* PlayerState)
-{
-	TArray<FText> Highlights;
-
-	//Top Score
-	bool bTopScore = true;
-	bool bTopKills = true;
-	bool bLeastDeaths = true;
-	for (TActorIterator<AUTPlayerState> It(PlayerState->GetWorld()); It; ++It)
-	{
-		AUTPlayerState* OtherPS = (*It);
-		if (OtherPS != PlayerState)
-		{
-			if (OtherPS->Score >= PlayerState->Score)
-			{
-				bTopScore = false;
-			}
-			if (OtherPS->Kills >= PlayerState->Kills)
-			{
-				bTopKills = false;
-			}
-			if (OtherPS->Deaths <= PlayerState->Deaths)
-			{
-				bLeastDeaths = false;
-			}
-		}
-	}
-
-	if (bTopScore)
-	{
-		Highlights.Add(FText::Format(NSLOCTEXT("AUTGameMode", "HighlightTopScore", "Top Score with <UT.MatchSummary.HighlightText.Value>{0}</> points"), FText::AsNumber(PlayerState->Score)));
-	}
-
-	if (bTopKills)
-	{
-		Highlights.Add(FText::Format(NSLOCTEXT("AUTGameMode", "HighlightTopKills", "Top Kills with <UT.MatchSummary.HighlightText.Value>{0}</> kills"), FText::AsNumber(PlayerState->Kills)));
-	}
-
-	if (bLeastDeaths)
-	{
-		Highlights.Add(FText::Format(NSLOCTEXT("AUTGameMode", "HighlightLeastDeaths", "Least Deaths with <UT.MatchSummary.HighlightText.Value>{0}</> deaths"), FText::AsNumber(PlayerState->Deaths)));
-	}
-
-
-	//Figure out what weapon killed the most
-	TArray<AUTWeapon *> StatsWeapons;
-	if (StatsWeapons.Num() == 0)
-	{
-		// add default weapons - needs to be automated
-		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
-		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
-
-		for (FActorIterator It(PlayerState->GetWorld()); It; ++It)
-		{
-			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
-			if (Pickup && Pickup->GetInventoryType())
-			{
-				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
-			}
-		}
-		StatsWeapons.AddUnique(AUTWeap_Translocator::StaticClass()->GetDefaultObject<AUTWeapon>());
-	}
-
-	int32 BestKills = 0;
-	AUTWeapon* BestKillsWeapon = nullptr;
-	float BestAccuracy = 0;
-	AUTWeapon* BestAccuracyWeapon = nullptr;
-	for (AUTWeapon* Weapon : StatsWeapons)
-	{
-		int32 Kills = Weapon->GetWeaponKillStats(PlayerState);
-		float Shots = Weapon->GetWeaponShotsStats(PlayerState);
-		float Accuracy = (Shots > 0) ? 100.f * Weapon->GetWeaponHitsStats(PlayerState) / Shots : 0.f;
-		if (Kills > BestKills)
-		{
-			BestKills = Kills;
-			BestKillsWeapon = Weapon;
-		}
-		if (Accuracy > BestAccuracy)
-		{
-			BestAccuracy = Accuracy;
-			BestAccuracyWeapon = Weapon;
-		}
-	}
-
-	if (BestKillsWeapon != nullptr)
-	{
-		Highlights.Add(FText::Format(NSLOCTEXT("AUTGameMode", "HighlightKillWeapon", "Killed <UT.MatchSummary.HighlightText.Value>{0}</> enemies with the {1}"), FText::AsNumber(BestKills), BestKillsWeapon->DisplayName));
-	}
-
-	if (BestAccuracyWeapon != nullptr)
-	{
-		Highlights.Add(FText::Format(NSLOCTEXT("AUTGameMode", "HighlightKillWeapon", "<UT.MatchSummary.HighlightText.Value>{0}%</> {1} accuracy"), FText::AsNumber(FMath::RoundToFloat(BestAccuracy)), BestAccuracyWeapon->DisplayName));
-	}
-
-	return Highlights;
-}
 
 bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 {

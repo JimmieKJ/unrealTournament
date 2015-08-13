@@ -350,6 +350,27 @@ public:
 	// Create a replicated map info from a map's asset registry data
 	virtual AUTReplicatedMapInfo* CreateMapInfo(const FAssetData& MapAsset);
 
+	/** Used to translate replicated FName refs to highlights into text. */
+	TMap< FName, FText> HighlightMap;
+
+	/** Clear highlights array. */
+	UFUNCTION(BlueprintCallable, Category = "Game")
+		virtual void ClearHighlights();
+
+	virtual void UpdateMatchHighlights();
+
+	/** On server side - generate a list of highlights for each player.  Every UTPlayerStates' MatchHighlights array will have been cleared when this is called. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+		void UpdateHighlights();
+
+	/** On client side, returns an array of text based on the PlayerStates Highlights. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+		TArray<FText> GetPlayerHighlights(AUTPlayerState* PlayerState);
+
+	/** After all major highlights added, fill in some minor ones if there is space left. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+		void AddMinorHighlights(AUTPlayerState* PS);
+
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
 

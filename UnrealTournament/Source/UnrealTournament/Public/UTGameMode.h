@@ -646,8 +646,6 @@ public:
 	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 #endif
-	UFUNCTION(BlueprintNativeEvent, Category = "Game")
-	TArray<FText> GetPlayerHighlights(AUTPlayerState* PlayerState);
 
 	virtual void InstanceNextMap(const FString& NextMap);
 

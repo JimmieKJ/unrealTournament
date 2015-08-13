@@ -227,6 +227,22 @@ public:
 	UPROPERTY(replicated)
 	FString StatsID;
 	
+	/** Add an entry to MatchHighlights only if an empty slot is found. */
+	virtual void AddMatchHighlight(FName NewHighlight, float HighlightData);
+
+	/** Set at end of match and half-time. */
+	UPROPERTY(replicated)
+		FName MatchHighlights[5];
+
+	/** Set at end of match and half-time. */
+	UPROPERTY(replicated)
+		float MatchHighlightData[5];
+
+	/** Set at end of match and half-time. */
+	UPROPERTY(replicated)
+		TSubclassOf<class AUTWeapon> FavoriteWeapon;
+
+
 protected:
 	/** XP player had before current match, read from backend (-1 until successful read) */
 	UPROPERTY()

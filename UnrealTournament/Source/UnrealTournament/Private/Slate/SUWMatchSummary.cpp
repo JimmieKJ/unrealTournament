@@ -431,8 +431,8 @@ void SUWMatchSummary::BuildInfoPanel()
 		AUTPlayerState* UTPS = ViewedChar.IsValid() ? Cast<AUTPlayerState>(ViewedChar->PlayerState) : nullptr;
 		if (UTPS != nullptr && !UTPS->IsPendingKill() && UTPS->IsValidLowLevel())
 		{
-			AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
-			if (UTPS != nullptr && DefaultGameMode != nullptr)
+			AUTGameMode* DefaultGameMode = GameState.IsValid() ? GameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+			if (DefaultGameMode != nullptr)
 			{
 				//Build the highlights
 				if (GameState->HasMatchStarted())
@@ -447,13 +447,10 @@ void SUWMatchSummary::BuildInfoPanel()
 							SAssignNew(VBox, SVerticalBox)
 						]);
 
-					TArray<FText> Highlights = DefaultGameMode->GetPlayerHighlights(UTPS);
-					if (Highlights.Num() == 0)
-					{
-						Highlights.Add(NSLOCTEXT("AUTGameMode", "HighlightTopScore", "No Highlights"));
-					}
+					TArray<FText> Highlights = GameState->GetPlayerHighlights(UTPS);
+
 					//Cap at 5 highlights
-					else if (Highlights.Num() > 5)
+					if (Highlights.Num() > 5)
 					{
 						Highlights.SetNum(5);
 					}
@@ -499,7 +496,7 @@ void SUWMatchSummary::BuildInfoPanel()
 				UTPS->BuildPlayerInfo(TabWidget, StatList);
 
 				//Build the player stats only if the match has started
-				if (GameState.IsValid() && GameState->HasMatchStarted())
+				if (GameState->HasMatchStarted())
 				{
 					DefaultGameMode->BuildPlayerInfo(UTPS, TabWidget, StatList);
 				}
@@ -901,7 +898,18 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 		PlayerPreviewMesh->SetEyewearClass(NewPS->EyewearClass);
 		PlayerPreviewMesh->SetEyewearVariant(NewPS->EyewearVariant);
 
-		PreviewWeapon = GetFavoriteWeaponAttachment(NewPS);
+		if (!PreviewWeapon)
+		{
+			UClass* PreviewAttachmentType = NewPS->FavoriteWeapon ? NewPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
+			if (!PreviewAttachmentType)
+			{
+				PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
+			}
+			if (PreviewAttachmentType != NULL)
+			{
+				PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
+			}
+		}
 		if (PreviewWeapon)
 		{
 			PreviewWeapon->Instigator = PlayerPreviewMesh;
@@ -914,50 +922,6 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 		return PlayerPreviewMesh;
 	}
 	return nullptr;
-}
-
-AUTWeaponAttachment* SUWMatchSummary::GetFavoriteWeaponAttachment(AUTPlayerState* PS)
-{
-	TSubclassOf<class AUTWeaponAttachment> AttachmentType = nullptr;
-
-	//Collect all the weapons
-	TArray<AUTWeapon *> StatsWeapons;
-	if (StatsWeapons.Num() == 0)
-	{
-		for (FActorIterator It(PS->GetWorld()); It; ++It)
-		{
-			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
-			if (Pickup && Pickup->GetInventoryType())
-			{
-				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
-			}
-		}
-	}
-
-	//Figure out what weapon killed the most
-	int32 BestKills = 0;
-	AUTWeapon* BestKillsWeapon = nullptr;
-	for (AUTWeapon* Weapon : StatsWeapons)
-	{
-		int32 Kills = Weapon->GetWeaponKillStats(PS);
-		if (Kills > BestKills)
-		{
-			BestKills = Kills;
-			BestKillsWeapon = Weapon;
-		}
-	}
-
-	//Get the attachment class of the best weapon, or a random one if no best
-	if (BestKillsWeapon != nullptr)
-	{
-		AttachmentType = BestKillsWeapon->AttachmentType;
-	}
-	else
-	{
-		AttachmentType = StatsWeapons[FMath::RandRange(0, StatsWeapons.Num() - 1)]->AttachmentType;
-	}
-
-	return AttachmentType != nullptr ? PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(AttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0)) : nullptr;
 }
 
 void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
