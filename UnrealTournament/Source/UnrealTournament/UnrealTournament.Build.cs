@@ -16,8 +16,25 @@ public class UnrealTournament : ModuleRules
 				"UTReplayStreamer",
 			}
 		);
-        
-        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "AIModule", "OnlineSubsystem", "OnlineSubsystemUtils", "RenderCore", "Navmesh", "WebBrowser", "Json", "HTTP", "UMG", "EngineSettings" });
+
+        PublicDependencyModuleNames.AddRange(new string[] { 
+                                                    "Core", 
+                                                    "CoreUObject", 
+                                                    "Engine", 
+                                                    "InputCore", 
+                                                    "AIModule", 
+                                                    "OnlineSubsystem", 
+                                                    "OnlineSubsystemUtils", 
+                                                    "RenderCore", 
+                                                    "Navmesh", 
+                                                    "WebBrowser", 
+                                                    "Json", 
+                                                    "HTTP", 
+                                                    "UMG", 
+                                                    "EngineSettings", 
+			                                        "Landscape",
+                                                    "Foliage", });
+
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
