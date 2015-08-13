@@ -31,6 +31,7 @@
 #include "UTGhostComponent.h"
 #include "UTTimedPowerup.h"
 #include "UTWaterVolume.h"
+#include "UTLift.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -3383,6 +3384,15 @@ AUTPlayerController* AUTCharacter::GetLocalViewer()
 void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	if (GetMovementBase() && Cast<AUTLift>(GetMovementBase()->GetOwner()) && (GetMovementBase()->GetOwner()->GetVelocity().Z >= 0.f))
+	{
+		GetMesh()->ClothBlendWeight = 0.5f;
+	}
+	else
+	{
+		GetMesh()->ClothBlendWeight = 1.0f;
+	}
 
 	if (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !GetMesh()->bRecentlyRendered && !IsLocallyControlled() 
 		&& GetCharacterMovement()->MovementMode == MOVE_Walking && !bFeigningDeath && !IsDead())
