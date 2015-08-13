@@ -24,6 +24,9 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 {
 	FVector2D ViewportSize;
 	InArgs._PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+
+	TargetPlayerState = InArgs._TargetPlayerState;
+
 	FText DialogTitle = FText::Format(NSLOCTEXT("SUWindowsDesktop", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(InArgs._TargetPlayerState->PlayerName));
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -38,7 +41,6 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 							.bShadow(false)
 						);
 
-	TargetPlayerState = InArgs._TargetPlayerState;
 	if (TargetPlayerState.IsValid()) 
 	{
 		TargetUniqueId = TargetPlayerState->UniqueId.GetUniqueNetId();
@@ -100,7 +102,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 				.AutoWidth()
 				[
 					SNew(SBox)
-					.WidthOverride(350)
+					.WidthOverride(850)
 					[
 						SNew(SScaleBox)
 						.Stretch(EStretch::ScaleToFill)
