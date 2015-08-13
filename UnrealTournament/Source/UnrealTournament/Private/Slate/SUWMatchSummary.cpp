@@ -901,25 +901,63 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 		PlayerPreviewMesh->SetEyewearClass(NewPS->EyewearClass);
 		PlayerPreviewMesh->SetEyewearVariant(NewPS->EyewearVariant);
 
-		// TODO TIM: Show the players best/favorite weapon
-		UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
-		if (PreviewAttachmentType != NULL)
-		{
-			PreviewWeapon = PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0));
-			PreviewWeapon->Instigator = PlayerPreviewMesh;
-		}
-
+		PreviewWeapon = GetFavoriteWeaponAttachment(NewPS);
 		if (PreviewWeapon)
 		{
+			PreviewWeapon->Instigator = PlayerPreviewMesh;
 			PreviewWeapon->BeginPlay();
 			PreviewWeapon->AttachToOwner();
+			PreviewWeapons.Add(PreviewWeapon);
 		}
 
 		PlayerPreviewMeshs.Add(PlayerPreviewMesh);
-		PreviewWeapons.Add(PreviewWeapon);
 		return PlayerPreviewMesh;
 	}
 	return nullptr;
+}
+
+AUTWeaponAttachment* SUWMatchSummary::GetFavoriteWeaponAttachment(AUTPlayerState* PS)
+{
+	TSubclassOf<class AUTWeaponAttachment> AttachmentType = nullptr;
+
+	//Collect all the weapons
+	TArray<AUTWeapon *> StatsWeapons;
+	if (StatsWeapons.Num() == 0)
+	{
+		for (FActorIterator It(PS->GetWorld()); It; ++It)
+		{
+			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+			if (Pickup && Pickup->GetInventoryType())
+			{
+				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+			}
+		}
+	}
+
+	//Figure out what weapon killed the most
+	int32 BestKills = 0;
+	AUTWeapon* BestKillsWeapon = nullptr;
+	for (AUTWeapon* Weapon : StatsWeapons)
+	{
+		int32 Kills = Weapon->GetWeaponKillStats(PS);
+		if (Kills > BestKills)
+		{
+			BestKills = Kills;
+			BestKillsWeapon = Weapon;
+		}
+	}
+
+	//Get the attachment class of the best weapon, or a random one if no best
+	if (BestKillsWeapon != nullptr)
+	{
+		AttachmentType = BestKillsWeapon->AttachmentType;
+	}
+	else
+	{
+		AttachmentType = StatsWeapons[FMath::RandRange(0, StatsWeapons.Num() - 1)]->AttachmentType;
+	}
+
+	return AttachmentType != nullptr ? PlayerPreviewWorld->SpawnActor<AUTWeaponAttachment>(AttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0)) : nullptr;
 }
 
 void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)

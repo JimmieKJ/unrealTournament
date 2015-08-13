@@ -141,6 +141,7 @@ protected:
 
 	virtual AUTCharacter* RecreatePlayerPreview(AUTPlayerState* NewPS, FVector Location, FRotator Rotation);
 	virtual void RecreateAllPlayers();
+	virtual class AUTWeaponAttachment* GetFavoriteWeaponAttachment(AUTPlayerState* PS);
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 	virtual void UpdateIntroCam();
 	virtual void UpdateAutoCam();
