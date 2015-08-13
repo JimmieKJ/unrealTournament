@@ -260,7 +260,31 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 						]
 						+ SOverlay::Slot()
 						[
-							SAssignNew(InfoPanel, SOverlay)
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.VAlign(VAlign_Fill)
+							[
+								SAssignNew(InfoPanel, SOverlay)
+							]
+							+ SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(SBox)
+								.MaxDesiredHeight(2.0f)
+								.WidthOverride(1000.0f)
+								.Content()
+								[
+									SNew(SImage)
+									.Image(FCoreStyle::Get().GetBrush("GenericWhiteBox"))
+									.ColorAndOpacity(FLinearColor(0.4f, 0.4f, 0.4f, 0.8f))
+								]
+							]
+							+ SVerticalBox::Slot()
+							.Padding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+							.AutoHeight()
+							[
+								SAssignNew(FriendPanel, SHorizontalBox)
+							]
 						]
 					]
 				]
@@ -633,6 +657,7 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	CameraTransform.SetRotation(FMath::RInterpTo(CameraTransform.Rotator(), DesiredCameraTransform.Rotator(), InDeltaTime, 5.0f).Quaternion());
 
 	UpdateChatText();
+	BuildFriendPanel();
 }
 
 void SUWMatchSummary::UpdateIntroCam()
@@ -1267,6 +1292,7 @@ void SUWMatchSummary::ViewCharacter(AUTCharacter* NewChar)
 	DesiredCameraTransform.SetLocation(Location);
 	DesiredCameraTransform.SetRotation(Dir.Quaternion());
 
+	FriendStatus = NAME_None;
 	BuildInfoPanel();
 }
 
@@ -1573,6 +1599,123 @@ FReply SUWMatchSummary::OnClose()
 {
 	GetPlayerOwner()->CloseMatchSummary();
 	return FReply::Handled();
+}
+
+FReply SUWMatchSummary::OnSendFriendRequest()
+{
+	if (ViewedChar.IsValid() && ViewedChar->PlayerState != nullptr)
+	{
+		if (FriendStatus != FFriendsStatus::FriendRequestPending && FriendStatus != FFriendsStatus::IsBot)
+		{
+			GetPlayerOwner()->RequestFriendship(ViewedChar->PlayerState->UniqueId.GetUniqueNetId());
+
+			FriendPanel->ClearChildren();
+			FriendPanel->AddSlot()
+				.Padding(10.0, 0.0, 0.0, 0.0)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("SUWPlayerInfoDialog", "FriendRequestPending", "You have sent a friend request..."))
+					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+				];
+
+			FriendStatus = FFriendsStatus::FriendRequestPending;
+		}
+	}
+	return FReply::Handled();
+}
+
+FText SUWMatchSummary::GetFunnyText()
+{
+	return NSLOCTEXT("SUWPlayerInfoDialog", "FunnyDefault", "Viewing self.");
+}
+
+void SUWMatchSummary::BuildFriendPanel()
+{
+	if (ViewedChar.IsValid() && ViewedChar->PlayerState != nullptr)
+	{
+		FName NewFriendStatus;
+		if (GetPlayerOwner()->PlayerController->PlayerState == ViewedChar->PlayerState)
+		{
+			NewFriendStatus = FFriendsStatus::IsYou;
+		}
+		else if (ViewedChar->PlayerState->bIsABot)
+		{
+			NewFriendStatus = FFriendsStatus::IsBot;
+		}
+		else
+		{
+			NewFriendStatus = GetPlayerOwner()->IsAFriend(ViewedChar->PlayerState->UniqueId) ? FFriendsStatus::Friend : FFriendsStatus::NotAFriend;
+		}
+
+		bool bRequiresRefresh = false;
+		if (FriendStatus == FFriendsStatus::FriendRequestPending)
+		{
+			if (NewFriendStatus == FFriendsStatus::Friend)
+			{
+				FriendStatus = NewFriendStatus;
+				bRequiresRefresh = true;
+			}
+		}
+		else
+		{
+			bRequiresRefresh = FriendStatus != NewFriendStatus;
+			FriendStatus = NewFriendStatus;
+		}
+
+		if (bRequiresRefresh)
+		{
+			FriendPanel->ClearChildren();
+			if (FriendStatus == FFriendsStatus::IsYou)
+			{
+				FText FunnyText = GetFunnyText();
+				FriendPanel->AddSlot()
+					.Padding(10.0, 0.0, 0.0, 0.0)
+					[
+						SNew(STextBlock)
+						.Text(FunnyText)
+						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+					];
+			}
+			else if (FriendStatus == FFriendsStatus::IsBot)
+			{
+				FriendPanel->AddSlot()
+					.Padding(10.0, 0.0, 0.0, 0.0)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUWPlayerInfoDialog", "IsABot", "AI (C) Liandri Corp."))
+						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+					];
+			}
+			else if (FriendStatus == FFriendsStatus::Friend)
+			{
+				FriendPanel->AddSlot()
+					.Padding(10.0, 0.0, 0.0, 0.0)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUWPlayerInfoDialog", "IsAFriend", "Is your friend"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+					];
+			}
+			else if (FriendStatus == FFriendsStatus::FriendRequestPending)
+			{
+			}
+			else
+			{
+				FriendPanel->AddSlot()
+					.AutoWidth()
+					.Padding(10.0, 0.0, 0.0, 0.0)
+					[
+						SNew(SButton)
+						.HAlign(HAlign_Center)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+						.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+						.Text(NSLOCTEXT("SUWPlayerInfoDialog", "SendFriendRequest", "Send Friend Request"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+						.OnClicked(this, &SUWMatchSummary::OnSendFriendRequest)
+					];
+			}
+		}
+	}
 }
 
 #endif

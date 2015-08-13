@@ -155,6 +155,15 @@ protected:
 
 	virtual FReply OnClose();
 
+
+	// Friends...
+	TSharedPtr<class SHorizontalBox> FriendPanel;
+	FName FriendStatus;
+
+	FText GetFunnyText();
+	virtual void BuildFriendPanel();
+	virtual FReply OnSendFriendRequest();
+
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 };
