@@ -2085,6 +2085,8 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 			ClientData.MessageString = FString::Printf(TEXT("YOU ARE NOW LEVEL %i!"), NewLevel);
 			UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
 		}
+
+		LP->SaveProfileSettings();
 	}
 }
 
