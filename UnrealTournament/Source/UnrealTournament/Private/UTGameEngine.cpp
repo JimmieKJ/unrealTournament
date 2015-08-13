@@ -81,6 +81,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 
 	// workaround for engine bugs when loading classes that reference UMG on a dedicated server (i.e. mutators)
 	FModuleManager::Get().LoadModule("UMGEditor");
+	FModuleManager::Get().LoadModule("Foliage");
 
 	if(bFirstRun)
 	{
@@ -602,7 +603,7 @@ void UUTGameEngine::IndexExpansionContent()
 					{
 						UE_LOG(UT, Warning, TEXT("%s had no version file"), *PakFilename);
 					}
-
+					
 					if (bValidPak)
 					{
 						TArray<uint8> Data;
