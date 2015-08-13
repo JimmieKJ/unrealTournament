@@ -60,6 +60,10 @@ void AUTShowdownGame::StartNewRound()
 			Pickup->bDelayedSpawn = false;
 			Pickup->RespawnTime = 0.0f;
 		}
+		if (Cast<AUTCharacter>(*It) != NULL)
+		{
+			It->Destroy();
+		}
 		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
 		{
 			IUTResetInterface::Execute_Reset(*It);
@@ -295,16 +299,19 @@ void AUTShowdownGame::HandleMatchIntermission()
 				FRandomDestEval NodeEval;
 				float Weight = 0.0f;
 				TArray<FRouteCacheItem> Route;
+				FVector SpawnLoc = StartSpot->GetActorLocation();
 				if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 				{
 					FVector SpawnLoc = Route.Last().GetLocation(NULL);
-					BreakerPickup = GetWorld()->SpawnActor<AUTPickupInventory>(PickupClass, SpawnLoc + Extent.Z, FRotator(0.0f, 360.0f * FMath::FRand(), 0.0f));
-					if (BreakerPickup != NULL)
-					{
-						BreakerPickup->SetInventoryType(PowerupClass);
-						BreakerPickup->bDelayedSpawn = true;
-						BreakerPickup->RespawnTime = 60.0f;
-					}
+				}
+				FActorSpawnParameters Params;
+				Params.bNoCollisionFail = true;
+				BreakerPickup = GetWorld()->SpawnActor<AUTPickupInventory>(PickupClass, SpawnLoc + Extent.Z, FRotator(0.0f, 360.0f * FMath::FRand(), 0.0f), Params);
+				if (BreakerPickup != NULL)
+				{
+					BreakerPickup->SetInventoryType(PowerupClass);
+					BreakerPickup->bDelayedSpawn = true;
+					BreakerPickup->RespawnTime = 60.0f;
 				}
 			}
 		}
@@ -342,8 +349,9 @@ void AUTShowdownGame::HandleMatchIntermission()
 			APawn* P = C->GetPawn();
 			if (P != NULL)
 			{
+				APlayerState* SavedPlayerState = P->PlayerState; // keep the PlayerState reference for end of round HUD stuff
 				C->UnPossess();
-				P->Destroy();
+				P->PlayerState = SavedPlayerState;
 			}
 			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
 			if (PS != NULL && !PS->bOnlySpectator && PS->Team != NULL)

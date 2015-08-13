@@ -152,40 +152,66 @@ void AUTHUD_Showdown::DrawHUD()
 		bLockedLookInput = false;
 	}
 
-	if (GS != NULL && GS->bBroadcastPlayerHealth && !bShowScores && GS->IsMatchInProgress())
+	if ( GS != NULL && !bShowScores && PlayerOwner->PlayerState != NULL && !PlayerOwner->PlayerState->bOnlySpectator &&
+		((GS->bBroadcastPlayerHealth && GS->IsMatchInProgress()) || (GS->GetMatchState() == MatchState::MatchIntermission && !GS->bFinalIntermissionDelay)) )
 	{
-		for (int32 i = 0; i < 2; i++)
+		// don't bother displaying if there are no live characters (e.g. match start)
+		bool bAnyPawns = false;
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
-			float YPos = 1.0f;
-			for (APlayerState* PS : GS->PlayerArray)
+			if (Cast<AUTCharacter>(It->Get()) != NULL && !It->Get()->bTearOff)
 			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-				if (UTPS->GetTeamNum() == i)
+				bAnyPawns = true;
+				break;
+			}
+		}
+
+		if (bAnyPawns)
+		{
+			for (int32 i = 0; i < 2; i++)
+			{
+				float YPos = Canvas->ClipY * 0.1f;
+				for (APlayerState* PS : GS->PlayerArray)
 				{
-					float XL, YL;
-					Canvas->DrawColor = UTPS->Team->TeamColor;
-					Canvas->TextSize(LargeFont, UTPS->PlayerName, XL, YL);
-					Canvas->DrawText(LargeFont, UTPS->PlayerName, i == 0 ? 1.0f : Canvas->SizeX - XL - 1.0f, YPos);
-					YPos += YL;
-					int32 Health = 0;
-					int32 Armor = 0;
-					for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+					if (UTPS->GetTeamNum() == i)
 					{
-						if (It->IsValid() && It->Get()->PlayerState == UTPS)
+						float XL, YL;
+						Canvas->DrawColor = UTPS->Team->TeamColor;
+						Canvas->TextSize(MediumFont, UTPS->PlayerName, XL, YL);
+						Canvas->DrawText(MediumFont, UTPS->PlayerName, i == 0 ? 1.0f : Canvas->SizeX - XL - 1.0f, YPos);
+						YPos += YL;
+						float HealthPct = 0.0f;
+						float ArmorPct = 0.0f;
+						for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 						{
-							AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
-							if (UTC != NULL)
+							if (It->IsValid() && It->Get()->PlayerState == UTPS)
 							{
-								Health = UTC->Health;
-								Armor = UTC->ArmorAmount;
-								break;
+								AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+								if (UTC != NULL)
+								{
+									HealthPct = float(UTC->Health) / float(UTC->SuperHealthMax);
+									ArmorPct = float(UTC->ArmorAmount) / float(UTC->MaxStackedArmor);
+									break;
+								}
 							}
 						}
+						YL = 26.0f;
+						XL = 200.0f;
+						float StartX = (i == 0) ? 0.0f : Canvas->SizeX - XL * 2.25f - 2.0f;
+						// health BG
+						Canvas->DrawColor = FColor(128, 128, 128, 192);
+						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 1.0f, YPos, XL, YL, 0.0f, 0.0f, 1.0f, 1.0f);
+						// armor BG
+						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 1.0f + XL * 1.25f, YPos, XL, YL, 0.0f, 0.0f, 1.0f, 1.0f);
+						// health bar
+						Canvas->DrawColor = FColor::Green;
+						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 2.0f, YPos + 1.0f, (XL - 2.0f) * HealthPct, YL - 2.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+						// armor bar
+						Canvas->DrawColor = FColor::Yellow;
+						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 2.0f + XL * 1.25f, YPos + 1.0f, (XL - 2.0f) * ArmorPct, YL - 2.0f, 0.0f, 0.0f, 1.0f, 1.0f);
+						YPos += YL;
 					}
-					FString StatusText = FString::Printf(TEXT("HEALTH: %i | ARMOR: %i"), Health, Armor);
-					Canvas->TextSize(LargeFont, StatusText, XL, YL);
-					Canvas->DrawText(LargeFont, StatusText, i == 0 ? 1.0f : Canvas->SizeX - XL - 1.0f, YPos);
-					YPos += YL;
 				}
 			}
 		}
