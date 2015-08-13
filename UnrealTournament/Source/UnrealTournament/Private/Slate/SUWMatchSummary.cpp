@@ -305,7 +305,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	//Set the camera state based on the game state
 	if (GameState.IsValid())
 	{
-		if (GameState->GetMatchState() == MatchState::PlayerIntro)
+		if (!GameState->HasMatchStarted())
 		{
 			//Play the intro music
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
@@ -435,7 +435,7 @@ void SUWMatchSummary::BuildInfoPanel()
 			if (UTPS != nullptr && DefaultGameMode != nullptr)
 			{
 				//Build the highlights
-				if (GameState->GetMatchState() != MatchState::PlayerIntro)
+				if (GameState->HasMatchStarted())
 				{
 					TSharedPtr<SVerticalBox> VBox;
 					TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Highlights", "Highlights"),
@@ -1006,7 +1006,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 	}
 
 	//Draw the player names above their heads
-	if (ViewMode == VM_Team || GameState->GetMatchState() == MatchState::PlayerIntro)
+	if (ViewMode == VM_Team || !GameState->HasMatchStarted())
 	{
 		//Helper for making sure player names don't overlap
 		//TODO: do this better. Smooth the spacing of names when they overlap
@@ -1356,11 +1356,11 @@ void SUWMatchSummary::OnMouseDownPlayerPreview(const FGeometry& MyGeometry, cons
 
 bool SUWMatchSummary::ShouldShowScoreboard()
 {
-	return ViewMode == EViewMode::VM_All && GameState->GetMatchState() != MatchState::PlayerIntro;
+	return ViewMode == EViewMode::VM_All && GameState->HasMatchStarted();
 }
 bool SUWMatchSummary::CanClickScoreboard()
 {
-	return ShouldShowScoreboard();
+	return ShouldShowScoreboard() && CameraState != CS_CamAuto;
 }
 
 void SUWMatchSummary::OnMouseMovePlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -1370,8 +1370,15 @@ void SUWMatchSummary::OnMouseMovePlayerPreview(const FGeometry& MyGeometry, cons
 	UUTScoreboard* Scoreboard = GetScoreboard();
 	if (Scoreboard != nullptr)
 	{
-		Scoreboard->BecomeInteractive();
-		Scoreboard->TrackMouseMovement(MousePos);
+		if (CanClickScoreboard())
+		{
+			Scoreboard->BecomeInteractive();
+			Scoreboard->TrackMouseMovement(MousePos);
+		}
+		else
+		{
+			Scoreboard->BecomeNonInteractive();
+		}
 	}
 }
 
