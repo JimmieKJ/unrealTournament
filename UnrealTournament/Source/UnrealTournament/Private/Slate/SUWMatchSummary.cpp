@@ -1547,7 +1547,7 @@ FOptionalSize SUWMatchSummary::GetStatsWidth() const
 			WantedWidth = 1050.0f;
 		}
 	}
-	StatsWidth = FMath::FInterpTo(StatsWidth, WantedWidth, GameState->GetWorld()->DeltaTimeSeconds, 10.0f);
+	StatsWidth = GameState.IsValid() && GameState->GetWorld() ? FMath::FInterpTo(StatsWidth, WantedWidth, GameState->GetWorld()->DeltaTimeSeconds, 10.0f) : 10.f;
 
 	return FOptionalSize(StatsWidth);
 }
