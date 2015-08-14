@@ -24,6 +24,8 @@ class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
 class SUWMatchSummary;
+class SUTJoinInstance;
+class FServerData;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -400,7 +402,7 @@ public:
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false, int32 DesiredTeam = -1);
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -595,6 +597,9 @@ protected:
 	/** Used to avoid reading too often */
 	double LastItemReadTime;
 	
+	// When connecting to a hub, if this is set it will be passed in.
+	FString PendingJoinMatchId;
+
 public:
 	/** Read profile items from the backend */
 	virtual void ReadProfileItems();
@@ -620,4 +625,14 @@ public:
 	{
 		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel == 0;
 	}
+
+	virtual void AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FString InstanceId, bool bSpectate);
+	virtual void CloseJoinInstanceDialog();
+
+protected:
+#if !UE_SERVER
+	TSharedPtr<SUTJoinInstance> JoinInstanceDialog;
+#endif
+
+
 };

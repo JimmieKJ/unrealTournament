@@ -25,6 +25,7 @@
 #include "Slate/SUWPlayerInfoDialog.h"
 #include "Slate/SUWHUDSettingsDialog.h"
 #include "Slate/SUTQuickMatch.h"
+#include "Slate/SUTJoinInstance.h"
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
 #include "Slate/SUWVideoCompressionDialog.h"
@@ -1754,7 +1755,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	}
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam,  FString MatchId)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
@@ -1767,7 +1768,11 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 
 	ConnectDesiredTeam = DesiredTeam;
 
+	PendingJoinMatchId =  MatchId;
+
+
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
+
 	if (!UniqueId.IsValid())
 	{
 		return false;
@@ -1851,6 +1856,12 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			if (ConnectDesiredTeam >= 0)
 			{
 				ConnectionString += FString::Printf(TEXT("?Team=%i"), ConnectDesiredTeam);
+			}
+
+			if (!PendingJoinMatchId.IsEmpty())
+			{
+				ConnectionString += FString::Printf(TEXT("?MatchId=%s"), * PendingJoinMatchId);
+				PendingJoinMatchId.Empty();
 			}
 
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
@@ -2937,5 +2948,32 @@ void UUTLocalPlayer::CloseAllUI()
 	YoutubeConsentDialog.Reset();
 	MatchSummaryWindow.Reset();
 #endif
+}
+
+void UUTLocalPlayer::AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FString InstanceId, bool bSpectate)
+{
+#if !UE_SERVER
+
+	SAssignNew(JoinInstanceDialog, SUTJoinInstance)
+		.PlayerOwner(this)
+		.ServerData(ServerData)
+		.InstanceId(InstanceId)
+		.bSpectator(bSpectate);
+
+	if (JoinInstanceDialog.IsValid())
+	{
+		GEngine->GameViewport->AddViewportWidgetContent(JoinInstanceDialog.ToSharedRef(), 151);
+		JoinInstanceDialog->TellSlateIWantKeyboardFocus();
+	}
+#endif
+}
+void UUTLocalPlayer::CloseJoinInstanceDialog()
+{
+	if (JoinInstanceDialog.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(JoinInstanceDialog.ToSharedRef());
+		JoinInstanceDialog.Reset();
+	}
 
 }
+

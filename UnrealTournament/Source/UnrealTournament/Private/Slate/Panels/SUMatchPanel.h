@@ -14,6 +14,7 @@ class FTrackedMatch : public TSharedFromThis<FTrackedMatch>
 {
 public:
 
+	FGuid MatchId;
 	TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo;
 	FString RuleTitle;
 	FString MapName;
@@ -30,8 +31,9 @@ public:
 		MatchInfo.Reset();
 	};
 
-	FTrackedMatch(const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
-		: RuleTitle(inRuleTitle)
+	FTrackedMatch(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
+		: MatchId(inMatchId)
+		, RuleTitle(inRuleTitle)
 		, MapName(inMapName)
 		, NumPlayers(inNumPlayers)
 		, MaxPlayers(inMaxPlayers)
@@ -49,14 +51,9 @@ public:
 		bPendingKill = false;
 	};
 
-	static TSharedRef<FTrackedMatch> Make()
+	static TSharedRef<FTrackedMatch> Make(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
 	{
-		return MakeShareable( new FTrackedMatch(TEXT("????"), TEXT("????"), 0, 32, 0, 0x0, 1500));
-	}
-
-	static TSharedRef<FTrackedMatch> Make(const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
-	{
-		return MakeShareable( new FTrackedMatch(inRuleTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank));
+		return MakeShareable( new FTrackedMatch(inMatchId, inRuleTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank));
 	}
 
 	static TSharedRef<FTrackedMatch> Make(const TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo)
@@ -152,12 +149,18 @@ public:
 	}
 };
 
+class FServerData;
+
+DECLARE_DELEGATE_TwoParams(FMatchPanelJoinMatchDelegate, const FString& , bool );
 
 class UNREALTOURNAMENT_API SUMatchPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUMatchPanel)
+	: _bExpectServerData(false)
 	{}
 		SLATE_ARGUMENT( TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner )
+		SLATE_ARGUMENT( bool, bExpectServerData)
+		SLATE_EVENT(FMatchPanelJoinMatchDelegate, OnJoinMatchDelegate )
 
 	SLATE_END_ARGS()
 
@@ -165,8 +168,12 @@ class UNREALTOURNAMENT_API SUMatchPanel : public SCompoundWidget
 public:	
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
-	
+
+	void SetServerData(TSharedPtr<FServerData> inServerData);
+
 protected:
+	TSharedPtr<FServerData> ServerData;
+	bool bExpectServerData;
 
 	/**
 	 *	Returns INDEX_NONDE if not.
@@ -196,9 +203,12 @@ protected:
 	virtual TSharedRef<SWidget> OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor);
 	virtual TSharedRef<SWidget> OnGetPopupContent(TSharedPtr<SUTPopOverAnchor> Anchor);
 
-	FReply JoinMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor);
-	FReply SpectateMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor);
+	FReply JoinMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor, FString AssociatedString);
+	FReply SpectateMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor, FString AssociatedString);
 	bool CanSpectateGame(TWeakObjectPtr<AActor> AssoicatedActor) const;
+
+	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
+
 };
 
 #endif

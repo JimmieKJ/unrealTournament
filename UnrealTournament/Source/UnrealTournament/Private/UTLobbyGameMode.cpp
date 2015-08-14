@@ -164,6 +164,17 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 			PS->DesiredFriendToJoin = FriendID;
 		}
 
+		FString MatchId = ParseOption(Options, TEXT("MatchId"));
+		if (!MatchId.IsEmpty())
+		{
+			PS->DesiredMatchIdToJoin = MatchId;
+			
+			if (GetIntOption(Options, TEXT("SpectatorOnly"), 0) > 0)
+			{
+				PS->DesiredTeamNum=255;
+			}
+		}
+
 		PS->bReturnedFromMatch = HasOption(Options,"RTM");
 	}
 
@@ -283,32 +294,23 @@ void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
-int32 AUTLobbyGameMode::GetInstanceData(TArray<FGuid>& InstanceIDs)
+void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& InstanceData)
 {
-	InstanceIDs.Empty();
 	if (UTLobbyGameState)
 	{
-		for (int32 i=0;i<UTLobbyGameState->GameInstances.Num(); i++)
-		{
-			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
-
-			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
-			{
-				InstanceIDs.Add(MatchInfo->UniqueMatchID);
-			}
-		}
-
 		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num();i++)
 		{
 			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->AvailableMatches[i];
 
 			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
 			{
-				InstanceIDs.Add(MatchInfo->UniqueMatchID);
+				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
+				TSharedPtr<FServerInstanceData> Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), NumPlayers, MatchInfo->CurrentRuleset->MaxPlayers, 0, MatchInfo->GetFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame);
+				MatchInfo->GetPlayerData(Data->Players);
+				InstanceData.Add(Data);
 			}
 		}
 	}
-	return InstanceIDs.Num();
 }
 
 int32 AUTLobbyGameMode::GetNumPlayers()

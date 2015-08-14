@@ -25,9 +25,11 @@ struct FServerBeaconInfo
 
 
 class AUTServerBeaconClient;
+
 DECLARE_DELEGATE_TwoParams(FServerRequestResultsDelegate, AUTServerBeaconClient*, FServerBeaconInfo);
 DECLARE_DELEGATE_OneParam(FServerRequestFailureDelegate, AUTServerBeaconClient*);
 DECLARE_DELEGATE_ThreeParams(FServerRequestQuickplayDelegate, AUTServerBeaconClient*, const FName&, const FString&);
+DECLARE_DELEGATE_TwoParams(FServerRequestJoinInstanceResult, EInstanceJoinResult::Type, const FString&);
 
 /**
 * A beacon client used for making reservations with an existing game session
@@ -64,13 +66,23 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	virtual void ClientReceiveInfo(const FServerBeaconInfo ServerInfo, int32 NumInstances);
 
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerRequestInstances(int32 LastInstanceIndex);
+	virtual void ServerRequestNextInstance(int32 LastInstanceIndex);
 
 	UFUNCTION(client, reliable)
-	virtual void ClientReceiveInstance(uint32 InInstanceCount, uint32 TotalInstances, const FString& InstanceRuleIcon, const FString& InstanceDescription);
+	virtual void ClientReceiveInstance(int32 InInstanceCount, int32 TotalInstances, FGuid InstanceId, const FString& InstanceRuleName, const FString& InstanceMap, int32 InstanceNumPlayers, int32 InstanceMaxPlayers, int32 InstanceNumFriends, uint32 InstanceFlags, int32 InstanceRank, bool bTeamGame);
 
 	UFUNCTION(client, reliable)
-	virtual void ClientReceivedAllInstance(uint32 FinalCount);
+	virtual void ClientReceivedAllInstance(int32 FinalCount);
+
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void ServerRequestNextInstancePlayer(int32 InstanceIndex, int32 LastInstancePlayersIndex);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientReceiveInstancePlayer(int32 InstanceIndex, int32 InInstancePlayersCount, const FMatchPlayerListStruct& inPlayerInfo);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientReceivedAllInstancePlayers(int32 InstanceIndex, int32 FinalCount);
+
 
 	// Asks the hub if this client can get added to a quick play session.  This will be called because
 	// the quickplay manager has decided this server is the best match.  The server will respond with one of the 3 functions below.
@@ -94,13 +106,20 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	FServerRequestResultsDelegate OnServerRequestResults;
 	FServerRequestFailureDelegate OnServerRequestFailure;
 	FServerRequestQuickplayDelegate OnRequestQuickplay;
+	FServerRequestJoinInstanceResult OnRequestJoinInstanceResult;
 
 	FString ServerMOTD;
 
-	TArray<FGuid> InstanceIDs;
-	TArray<FServerInstanceData> InstanceInfo;
-	int32 InstanceCount;
-	
+	int32 ExpectedInstanceCount;
+	TArray<TSharedPtr<FServerInstanceData>> Instances;
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerRequestInstanceJoin(const FString& InstanceId, bool bSpectator, int32 Rank);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientRequestInstanceResult(EInstanceJoinResult::Type JoinResult, const FString& Params);
+
+
 protected:
 	FServerBeaconInfo HostServerInfo;
 	

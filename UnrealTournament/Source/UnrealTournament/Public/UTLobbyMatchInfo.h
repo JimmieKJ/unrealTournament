@@ -131,7 +131,7 @@ public:
 	// Cache some data
 	virtual void PreInitializeComponents() override;
 
-	virtual void AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner = false);
+	virtual void AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner = false, bool bIsSpectator = false);
 	virtual bool RemovePlayer(AUTLobbyPlayerState* PlayerToRemove);
 	virtual FText GetActionText();
 
@@ -326,6 +326,7 @@ public:
 	bool bRedirectsHaveChanged;
 
 	void FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruct>& FirstColumn, TArray<FMatchPlayerListStruct>& SecondColumn, FString& Spectators);
+	void GetPlayerData(TArray<FMatchPlayerListStruct>& PlayerData);
 
 protected:
 	UFUNCTION()

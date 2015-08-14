@@ -12,6 +12,7 @@
 void SUTPopOverAnchor::Construct(const FArguments& InArgs)
 {
 	AssociatedActor = InArgs._AssociatedActor;
+	AssociatedString = InArgs._AssociatedString;
 	OnGetPopoverWidget = InArgs._OnGetPopoverWidget;
 	bWaitingToPopup = false;
 	TSharedPtr<SHorizontalBox> HBox;
@@ -31,7 +32,7 @@ void SUTPopOverAnchor::Construct(const FArguments& InArgs)
 void SUTPopOverAnchor::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 
-	if (bWaitingToPopup && GWorld->GetRealTimeSeconds() - PopupStartTime > 1.0)
+	if (bWaitingToPopup && GWorld->GetRealTimeSeconds() - PopupStartTime > 0.33)
 	{
 		Popup();
 	}

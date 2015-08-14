@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
 #include "../SUWPanel.h"
+#include "SUMatchPanel.h"
 #include "UTLocalPlayer.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
@@ -666,13 +667,14 @@ protected:
 
 	TSharedPtr<class SEditableTextBox> QuickFilterText;
 	TSharedPtr<class SBox> InternetServerBrowser;
-	TSharedPtr<class SBox> LobbyBrowser;
+	TSharedPtr<class SVerticalBox> LobbyBrowser;
 
 	TSharedPtr<class SSplitter> VertSplitter;
 	TSharedPtr<class SSplitter> HorzSplitter;
 
-	TSharedPtr<class SSplitter> LobbySplitter;
 	TSharedPtr<class SVerticalBox> LobbyInfoBox;
+	TSharedPtr<class SRichTextBlock> LobbyInfoText;
+	TSharedPtr<class SUMatchPanel> LobbyMatchPanel;
 
 	bool bRequireSave;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
@@ -761,6 +763,7 @@ protected:
 	int32 TotalPlayersPlaying;
 
 	void FoundServer(FOnlineSessionSearchResult& Result);
+	void JoinQuickInstance(const FString& InstanceGuid, bool bAsSpectator);
 };
 
 #endif

@@ -636,42 +636,112 @@ static FName NAME_MapInfo_ScreenshotReference(TEXT("ScreenshotReference"));
 // Called upon completion of a redirect transfer.  
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FContentDownloadComplete, class UUTGameViewportClient*, ERedirectStatus::Type, const FString&);
 
+
+
+USTRUCT()
+struct FMatchPlayerListStruct
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PlayerName;
+
+	UPROPERTY()
+	FString PlayerScore;
+
+	UPROPERTY()
+	uint32 TeamNum;
+
+	FMatchPlayerListStruct()
+	{
+		PlayerName = TEXT("");
+		PlayerScore = TEXT("");
+		TeamNum=255;
+	}
+
+	FMatchPlayerListStruct(const FString& inPlayerName, const FString& inPlayerScore, uint32 inTeamNum)
+		: PlayerName(inPlayerName)
+		, PlayerScore(inPlayerScore)
+		, TeamNum(inTeamNum)
+	{
+	}
+};
+
+
+struct FMatchPlayerListCompare
+{
+	FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const 
+	{
+		return A.PlayerName < B.PlayerName;
+	}
+};
+
+
 USTRUCT()
 struct FServerInstanceData 
 {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString RuleSetIcon;
+	FGuid InstanceId;
 
 	UPROPERTY()
-	FString Description;
+	FString RulesTitle;
 
 	UPROPERTY()
-	UTexture2D* BadgeTexture;
+	FString MapName;
+	
+	UPROPERTY()
+	int32 NumPlayers;
 
-#if !UE_SERVER
-	FSlateDynamicImageBrush* SlateBadge;
-#endif
+	UPROPERTY()
+	int32 MaxPlayers;
+
+	UPROPERTY()
+	int32 NumFriends;
+
+	UPROPERTY()
+	uint32 Flags;
+
+	UPROPERTY()
+	int32 Rank;
+
+	UPROPERTY()
+	bool bTeamGame;
+
+	UPROPERTY()
+	TArray<FMatchPlayerListStruct> Players;
 
 	FServerInstanceData()
-		: RuleSetIcon(TEXT(""))
-		, Description(TEXT(""))
-		, BadgeTexture(NULL)
+		: RulesTitle(TEXT(""))
+		, MapName(TEXT(""))
+		, NumPlayers(0)
+		, MaxPlayers(0)
+		, NumFriends(0)
+		, Flags(0x00)
+		, Rank(1500)
+		, bTeamGame(false)
 	{
 	}
 
-	FServerInstanceData(FString inRuleSetIcon, FString inDescription)
-		: RuleSetIcon(inRuleSetIcon)
-		, Description(inDescription)
-		, BadgeTexture(NULL)
+	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame)
+		: InstanceId(inInstanceId)
+		, RulesTitle(inRulesTitle)
+		, MapName(inMapName)
+		, NumPlayers(inNumPlayers)
+		, MaxPlayers(inMaxPlayers)
+		, NumFriends(inNumFriends)
+		, Flags(inFlags)
+		, Rank(inRank)
+		, bTeamGame(inbTeamGame)
 	{
 	}
 
-	static TSharedRef<FServerInstanceData> Make(FServerInstanceData& inData)
+	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame)
 	{
-		return MakeShareable( new FServerInstanceData( inData.RuleSetIcon, inData.Description) );
+		return MakeShareable( new FServerInstanceData( inInstanceId, inRulesTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbTeamGame) );
 	}
+
 
 };
 
@@ -741,38 +811,17 @@ namespace EPlayerListContentCommand
 	const FName Invite = FName(TEXT("Invite"));
 }
 
-
-USTRUCT()
-struct FMatchPlayerListStruct
+UENUM()
+namespace EInstanceJoinResult
 {
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	FString PlayerName;
-
-	UPROPERTY()
-	FString PlayerScore;
-
-	FMatchPlayerListStruct()
+	enum Type
 	{
-		PlayerName = TEXT("");
-		PlayerScore = TEXT("");
-	}
-
-	FMatchPlayerListStruct(const FString& inPlayerName, const FString& inPlayerScore)
-		: PlayerName(inPlayerName)
-		, PlayerScore(inPlayerScore)
-	{
-	}
-
-};
-
-
-struct FMatchPlayerListCompare
-{
-	FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const 
-	{
-		return A.PlayerName < B.PlayerName;
-	}
-};
+		MatchNoLongerExists,
+		MatchLocked,
+		MatchRankFail,
+		JoinViaLobby,
+		JoinDirectly,
+		MAX,
+	};
+}
 

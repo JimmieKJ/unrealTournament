@@ -243,6 +243,9 @@ public:
 
 	virtual AUTReplicatedMapInfo* CreateMapInfo(const FAssetData& MapAsset) override;
 
+	// An external client wants to join to an instance.. see if they can
+	virtual void RequestInstanceJoin(AUTServerBeaconClient* Beacon, const FString& InstanceId, bool bSpectator, int32 Rank);
+
 };
 
 

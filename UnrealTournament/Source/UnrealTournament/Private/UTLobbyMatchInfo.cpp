@@ -123,7 +123,7 @@ TArray<int32> AUTLobbyMatchInfo::GetTeamSizes() const
 	return TeamSizes;
 }
 
-void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner)
+void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner, bool bIsSpectator)
 {
 	if (bIsOwner && !OwnerId.IsValid())
 	{
@@ -168,6 +168,10 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 		}
 	}
 
+	if (bIsSpectator)
+	{
+		PlayerToAdd->DesiredTeamNum = 255;
+	}
 	
 	Players.Add(PlayerToAdd);
 	PlayerToAdd->AddedToMatch(this);
@@ -904,8 +908,8 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 			{
 				if (Players[i].IsValid())
 				{
-					if (Players[i]->GetTeamNum() == 0) FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")) );
-					else if (Players[i]->GetTeamNum() == 1) SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")) );
+					if (Players[i]->GetTeamNum() == 0) FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),0) );
+					else if (Players[i]->GetTeamNum() == 1) SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),1) );
 					else 
 					{
 						Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT(", %s"), *Players[i]->PlayerName);
@@ -916,8 +920,8 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 
 			for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
 			{
-				if (PlayersInMatchInstance[i].TeamNum == 0) FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)) );
-				else if (PlayersInMatchInstance[i].TeamNum == 1) SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)) );
+				if (PlayersInMatchInstance[i].TeamNum == 0) FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),0) );
+				else if (PlayersInMatchInstance[i].TeamNum == 1) SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),1) );
 				else 
 				{
 					Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT(", %s"), *Players[i]->PlayerName);
@@ -939,11 +943,11 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 					{
 						if (cnt % 2 == 0) 
 						{
-							FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")));
+							FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),0));
 						}
 						else
 						{
-							SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0")));
+							SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),0));
 						}
 						cnt++;
 					}
@@ -960,11 +964,11 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 				{
 					if (cnt % 2 == 0) 
 					{
-						FirstColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)));
+						FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),PlayersInMatchInstance[i].TeamNum));
 					}
 					else
 					{
-						SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore)));
+						SecondColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),PlayersInMatchInstance[i].TeamNum));
 					}
 					cnt++;
 				}
@@ -975,4 +979,20 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 	if (FirstColumn.Num() > 0) FirstColumn.Sort(FMatchPlayerListCompare());
 	if (SecondColumn.Num() > 0) SecondColumn.Sort(FMatchPlayerListCompare());
 
+}
+
+void AUTLobbyMatchInfo::GetPlayerData(TArray<FMatchPlayerListStruct>& PlayerData)
+{
+	TArray<FMatchPlayerListStruct> ColumnA;
+	TArray<FMatchPlayerListStruct> ColumnB;
+	FString Specs;
+
+	FillPlayerColumnsForDisplay(ColumnA, ColumnB, Specs);
+	int32 Max = FMath::Max<int32>(ColumnA.Num(), ColumnB.Num());
+
+	for (int32 i=0; i < Max; i++)
+	{
+		if (i < ColumnA.Num()) PlayerData.Add(FMatchPlayerListStruct(ColumnA[i].PlayerName, ColumnA[i].PlayerScore, ColumnA[i].TeamNum));
+		if (i < ColumnB.Num()) PlayerData.Add(FMatchPlayerListStruct(ColumnB[i].PlayerName, ColumnB[i].PlayerScore, ColumnB[i].TeamNum));
+	}
 }

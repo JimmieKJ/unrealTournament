@@ -78,6 +78,9 @@ public:
 	// The Unique ID of a friend this player wants to join
 	FString DesiredFriendToJoin;
 
+	// The Match Id we are trying to join
+	FString DesiredMatchIdToJoin;
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void Server_ReadyToBeginDataPush();
 

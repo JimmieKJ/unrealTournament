@@ -8,6 +8,7 @@
 #include "../SUWPanel.h"
 #include "../SUWindowsDesktop.h"
 #include "../SUWindowsStyle.h"
+#include "../SUTStyle.h"
 #include "SUWServerBrowser.h"
 #include "Online.h"
 #include "UTBaseGameMode.h"
@@ -691,81 +692,93 @@ TSharedRef<SWidget> SUWServerBrowser::BuildServerBrowser()
 
 TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 {
-	return SNew(SDPIScaler)
-		.DPIScale(this, &SUWServerBrowser::GetReverseScale)
+	return SAssignNew(LobbyBrowser, SVerticalBox)
+		+SVerticalBox::Slot()
+		.Padding(64.0, 15.0, 64.0, 15.0)
+		.AutoHeight()
 		[
-			SAssignNew(LobbyBrowser, SBox)
-			.Visibility(EVisibility::Hidden)
-				.HeightOverride(500.0f)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SBox).WidthOverride(1792).HeightOverride(860)
 				[
-					SAssignNew(LobbySplitter, SSplitter)
-					.Orientation(Orient_Horizontal)
-					.OnSplitterFinishedResizing(this, &SUWServerBrowser::VertSplitterResized)
-
-					+ SSplitter::Slot()
-					.Value(0.7)
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.Padding(0.0f,0.0f,6.0f,0.0f)
+					.AutoWidth()
 					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()
-						.VAlign(VAlign_Top)
-						.HAlign(HAlign_Fill)
+						SNew(SBox).WidthOverride(826)
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.FillWidth(1.0)
-							.VAlign(VAlign_Center)
+							SNew(SBorder)
+							.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 							[
-								// The list view being tested
-								SAssignNew(HUBServerList, SListView< TSharedPtr<FServerData> >)
-								// List view items are this tall
-								.ItemHeight(64)
-								// When the list view needs to generate a widget for some data item, use this method
-								.OnGenerateRow(this, &SUWServerBrowser::OnGenerateWidgetForHUBList)
-								.SelectionMode(ESelectionMode::Single)
-								.ListItemsSource(&FilteredHubsSource)
-								.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
-								.OnSelectionChanged(this, &SUWServerBrowser::OnHUBListSelectionChanged)
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								.HAlign(HAlign_Fill)
+								[
+									SNew(SBox).HeightOverride(860)
+									[
+										// The list view being tested
+										SAssignNew(HUBServerList, SListView< TSharedPtr<FServerData> >)
+										// List view items are this tall
+										.ItemHeight(64)
+										// When the list view needs to generate a widget for some data item, use this method
+										.OnGenerateRow(this, &SUWServerBrowser::OnGenerateWidgetForHUBList)
+										.SelectionMode(ESelectionMode::Single)
+										.ListItemsSource(&FilteredHubsSource)
+										.OnMouseButtonDoubleClick(this, &SUWServerBrowser::OnListMouseButtonDoubleClick)
+										.OnSelectionChanged(this, &SUWServerBrowser::OnHUBListSelectionChanged)								
+									]
+								]
 							]
 						]
 					]
-					+ SSplitter::Slot()
-					.Value(0.3)
+					+SHorizontalBox::Slot()
+					.Padding(6.0f,0.0f,0.0f,0.0f)
+					.AutoWidth()
 					[
-						SNew(SOverlay)
-						+ SOverlay::Slot()
-						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.FillWidth(1.0)
-							.VAlign(VAlign_Fill)
-							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Dialog.Background"))
-							]
-						]
-						+ SOverlay::Slot()
-						[
-							SNew(SScrollBox)
-							+ SScrollBox::Slot()
-							.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
-							[
-								SAssignNew(LobbyInfoBox, SVerticalBox)
 
-								+ SVerticalBox::Slot()
-								.Padding(5.0, 5.0, 5.0, 5.0)
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Fill)
+						.AutoHeight()
+						[
+							SNew(SBox).HeightOverride(200)
+							[
+								SNew(SBorder)
+								.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
 								[
-									SNew(STextBlock)
-									.Text(NSLOCTEXT("HUBBrowser", "NoneSelected", "No Server Selected!"))
-									.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
-
+									SNew(SScrollBox)
+									+ SScrollBox::Slot()
+									.Padding(FMargin(0.0f, 5.0f, 0.0f, 5.0f))
+									[
+										SAssignNew(LobbyInfoText, SRichTextBlock)
+										.Text(NSLOCTEXT("HUBBrowser", "NoneSelected", "No Server Selected!"))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+										.Justification(ETextJustify::Center)
+										.DecoratorStyleSet(&SUTStyle::Get())
+										.AutoWrapText(true)
+									]
 								]
 							]
-
+						]
+						+SVerticalBox::Slot()
+						.HAlign(HAlign_Fill)
+						.FillHeight(1.0)
+						.Padding(0.0,12.0,0.0,0.0)
+						[
+							SNew(SBox).HeightOverride(648)
+							[
+								SAssignNew(LobbyMatchPanel, SUMatchPanel).PlayerOwner(PlayerOwner).bExpectServerData(true)
+								.OnJoinMatchDelegate(this, &SUWServerBrowser::JoinQuickInstance)
+							]
 						]
 					]
 				]
+			]
 		];
-
 }
 
 ECheckBoxState SUWServerBrowser::ShouldHideUnresponsiveServers() const
@@ -1590,9 +1603,9 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			PingTrackers[i].Server->AddRule(TEXT("Version"), PingTrackers[i].Server->Version);
 
 			PingTrackers[i].Server->HUBInstances.Empty();
-			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceInfo.Num(); InstIndex++ )
+			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->Instances.Num(); InstIndex++ )
 			{
-				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceInfo[InstIndex]));	
+				PingTrackers[i].Server->HUBInstances.Add(PingTrackers[i].Beacon->Instances[InstIndex]);	
 			}
 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
@@ -1979,7 +1992,8 @@ void SUWServerBrowser::ShowHUBs()
 TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return SNew(STableRow<TSharedPtr<FServerData>>, OwnerTable)
-		.Style(SUWindowsStyle::Get(),"UWindows.Standard.HUBBrowser.Row")
+		//.Style(SUWindowsStyle::Get(),"UWindows.Standard.HUBBrowser.Row")
+		.Style(SUTStyle::Get(),"UT.MatchList.Row")
 		[
 			SNew(SBox)
 			.HeightOverride(64)
@@ -2157,6 +2171,7 @@ TSharedRef<SWidget> SUWServerBrowser::AddStars(TSharedPtr<FServerData> HUB)
 
 TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HUB)
 {
+/*
 	if (!HUB->bFakeHUB && HUB->HUBInstances.Num() > 0)
 	{
 		TSharedPtr<SVerticalBox> VBox;
@@ -2233,7 +2248,7 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HU
 		}
 		return VBox.ToSharedRef();
 	}
-
+*/
 	return SNew(STextBlock)
 		.Text(NSLOCTEXT("ServerBrowser","NoInstances","No Game Sessions Available"))
 		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText");
@@ -2241,37 +2256,11 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HU
 
 void SUWServerBrowser::AddHUBInfo(TSharedPtr<FServerData> HUB)
 {
-	LobbyInfoBox->ClearChildren();
-
-	LobbyInfoBox->AddSlot()
-	.AutoHeight()
-	.Padding(5.0,5.0,5.0,5.0)
-	[
-		SNew(SRichTextBlock)
-		.TextStyle(SUWindowsStyle::Get(),"MOTD.Normal")
-		.Justification(ETextJustify::Center)
-		.DecoratorStyleSet( &SUWindowsStyle::Get() )
-		.AutoWrapText( true )
-		.Text(FText::FromString(*HUB->MOTD))
-	];
-
-	LobbyInfoBox->AddSlot()
-	.AutoHeight()
-	.HAlign(HAlign_Center)
-	.Padding(5.0,10.0,5.0,10.0)
-	[
-		SNew(STextBlock)	
-		.Text(NSLOCTEXT("ServerBrowser","InstaceHeader","-- Available Matches --"))
-		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BoldText")
-	];
-
-	LobbyInfoBox->AddSlot()
-	.AutoHeight()
-	.HAlign(HAlign_Center)
-	.Padding(5.0,5.0,5.0,5.0)
-	[
-		AddHUBInstances(HUB)
-	];
+	if (LobbyInfoText.IsValid())
+	{
+		LobbyInfoText->SetText(FText::FromString(HUB->MOTD));
+	}
+	LobbyMatchPanel->SetServerData(HUB);
 
 }
 
@@ -2377,5 +2366,14 @@ FName SUWServerBrowser::GetBrowserState()
 	return BrowserState;
 }
 
+void SUWServerBrowser::JoinQuickInstance(const FString& InstanceGuid, bool bAsSpectator)
+{
+	TArray<TSharedPtr<FServerData>> SelectedHubs = HUBServerList->GetSelectedItems();
+	if (SelectedHubs.Num() > 0 && SelectedHubs[0].IsValid())
+	{
+		PlayerOwner->AttemptJoinInstance(SelectedHubs[0], InstanceGuid, bAsSpectator);
+	}
+
+}
 
 #endif

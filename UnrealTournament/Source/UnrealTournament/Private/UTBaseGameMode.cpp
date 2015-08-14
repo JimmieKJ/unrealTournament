@@ -57,9 +57,8 @@ FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName
 	return ChatDestinations::Local;
 }
 
-int32 AUTBaseGameMode::GetInstanceData(TArray<FGuid>& InstanceIDs)
+void AUTBaseGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& InstanceData)
 {
-	return 0;
 }
 
 int32 AUTBaseGameMode::GetNumPlayers()
