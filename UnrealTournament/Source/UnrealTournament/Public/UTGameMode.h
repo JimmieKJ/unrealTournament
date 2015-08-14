@@ -143,10 +143,6 @@ public:
 	UPROPERTY()
 	uint32 bTeamGame:1;
 
-	/** TRUE if we have started the count down to the match starting */
-	UPROPERTY()
-	bool bStartedCountDown;
-
 	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	bool bFirstBloodOccurred;
 

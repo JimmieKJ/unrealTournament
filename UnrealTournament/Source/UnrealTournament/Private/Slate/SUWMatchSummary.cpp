@@ -1039,16 +1039,18 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 		//TODO: do this better. Smooth the spacing of names when they overlap
 		struct FPlayerName
 		{
-			FPlayerName(FString InPlayerName, FVector InLocation3D, FVector2D InLocation, FVector2D InSize)
-				: PlayerName(InPlayerName), Location3D(InLocation3D), Location(InLocation), Size(InSize){}
+			FPlayerName(FString InPlayerName, FVector InLocation3D, FVector2D InLocation, FVector2D InSize, UFont* InFont)
+				: PlayerName(InPlayerName), Location3D(InLocation3D), Location(InLocation), Size(InSize), DrawFont(InFont) {}
 			FString PlayerName;
 			FVector Location3D;
 			FVector2D Location;
 			FVector2D Size;
+			UFont* DrawFont;
 		};
 
-
-		UFont* Font = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
+		UFont* SmallFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
+		UFont* SelectFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
+		AUTCharacter* SelectedChar = ViewedChar.IsValid() ? ViewedChar.Get() : (HighlightedChar.IsValid() ? HighlightedChar.Get() : NULL);
 
 		//Gather all of the player names
 		TArray<FPlayerName> PlayerNames;
@@ -1060,14 +1062,15 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
-				float XL = 0, YL = 0;
+				float XL = 0.f, YL = 0.f;
+				UFont* Font = (UTC == SelectedChar) ? SelectFont : SmallFont;
 				C->TextSize(Font, UTC->PlayerState->PlayerName, XL, YL);
 
 				//center the text
 				ScreenLoc.X -= XL * 0.5f;
-				ScreenLoc.Y -= YL * 0.5f;
+				ScreenLoc.Y -= YL * 0.75f;
 
-				PlayerNames.Add(FPlayerName(UTC->PlayerState->PlayerName, ActorLocation, ScreenLoc, FVector2D(XL, YL)));
+				PlayerNames.Add(FPlayerName(UTC->PlayerState->PlayerName, ActorLocation, ScreenLoc, FVector2D(XL, YL), Font));
 			}
 		}
 
@@ -1085,7 +1088,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			FontInfo.bEnableShadow = true;
 			FontInfo.bClipText = true;
 			C->DrawColor = FLinearColor::White;
-			C->DrawText(Font, FText::FromString(PlayerNames[i].PlayerName), PlayerNames[i].Location.X, PlayerNames[i].Location.Y, 1.0f, 1.0f, FontInfo);
+			C->DrawText(PlayerNames[i].DrawFont, FText::FromString(PlayerNames[i].PlayerName), PlayerNames[i].Location.X, PlayerNames[i].Location.Y, 1.0f, 1.0f, FontInfo);
 
 			//Move the remaining names out of the way
 			for (int32 j = i + 1; j < PlayerNames.Num(); j++)
