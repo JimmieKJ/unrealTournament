@@ -123,7 +123,9 @@ public:
 	static class UUTLevelSummary* LoadLevelSummary(const FString& MapName);
 
 	bool GetMonitorRefreshRate(int32& MonitorRefreshRate);
-	
+
+	bool CheckVersionOfPakFile(const FString& PakFilename) const;
+
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
 	void OnLoadingMoviePlaybackFinished();

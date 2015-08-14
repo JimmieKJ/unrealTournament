@@ -2259,7 +2259,7 @@ void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, floa
 
 bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 {
-	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
+	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine)
 	{
