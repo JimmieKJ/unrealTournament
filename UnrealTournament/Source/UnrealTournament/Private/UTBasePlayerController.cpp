@@ -201,8 +201,10 @@ bool AUTBasePlayerController::ServerSay_Validate(const FString& Message, bool bT
 
 void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
 {
-	if (AllowTextMessage(Message))
+	if (AllowTextMessage(Message) && PlayerState != nullptr)
 	{
+		bool bSpectatorMsg = PlayerState->bOnlySpectator;
+
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
@@ -210,7 +212,11 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 			{
 				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
 				{
-					UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+					// Dont send spectator chat to players
+					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator))
+					{
+						UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+					}
 				}
 			}
 		}
