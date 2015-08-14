@@ -58,6 +58,7 @@ public:
 	void SetCustomWeaponCrosshairs(ECheckBoxState NewState);
 
 	TSharedPtr<SImage> CrosshairImage;
+	TSharedPtr<SOverlay> ColorOverlay;
 	TSharedPtr<class SUTColorPicker> ColorPicker;
 	TSharedPtr<STextBlock> CrosshairText;
 

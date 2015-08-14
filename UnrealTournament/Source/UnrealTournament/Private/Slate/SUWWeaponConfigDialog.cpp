@@ -27,16 +27,9 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 		);
 
 	
-		//Add all the crosshairs from the config
-		AUTHUD* Hud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
-		for (auto& CrosshairInfo : Hud->CrosshairInfos)
-		{
-			TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
-			*NewCrosshairInfo = CrosshairInfo;
-			CrosshairInfos.Add(NewCrosshairInfo);
-		}
+	
 		
-
+	AUTHUD* Hud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
 {
 	TArray<FAssetData> AssetList;
 	GetAllBlueprintAssetData(AUTWeapon::StaticClass(), AssetList);
@@ -47,14 +40,8 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 		if (ClassPath != NULL && !ClassPath->Contains(TEXT("/EpicInternal/"))) // exclude debug/test weapons
 		{
 			UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-			if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
+			if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()) && !TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
 			{
-				//Dont want for weapon priority but need for crosshair (eg Instagib)
-				if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
-				{
-					WeaponList.Add(TestClass);
-				}
-
 				//Only add crosshairs for new weapons that might not be in the config already
 				FCrosshairInfo* FoundPtr = Hud->CrosshairInfos.FindByPredicate([TestClass](const FCrosshairInfo& Info)
 				{
@@ -69,9 +56,16 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 					NewCrosshairInfo->Scale = 1.0f;
 					CrosshairInfos.Add(NewCrosshairInfo);
 				}
+				else
+				{
+					TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
+					*NewCrosshairInfo = *FoundPtr;
+					CrosshairInfos.Add(NewCrosshairInfo);
+				}
 					
 				//Add weapon to a map for easy weapon class lookup
 				WeaponMap.Add(TestClass->GetPathName(), TestClass);
+				WeaponList.Add(TestClass);
 			}
 		}
 	}
@@ -464,12 +458,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 				.VAlign(VAlign_Fill)
 				.HAlign(HAlign_Center)
 				[
-					SAssignNew(ColorPicker, SUTColorPicker)
-					.TargetColorAttribute(this, &SUWWeaponConfigDialog::GetCrosshairColor)
-					.OnColorCommitted(this, &SUWWeaponConfigDialog::SetCrosshairColor)
-					.PreColorCommitted(this, &SUWWeaponConfigDialog::SetCrosshairColor)
-					.DisplayInlineVersion(true)
-					.UseAlpha(true)
+					SAssignNew(ColorOverlay, SOverlay)
 				]
 			]	
 			+ SHorizontalBox::Slot()
@@ -534,10 +523,16 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 
 		SetCustomWeaponCrosshairs(bCustomWeaponCrosshairs ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
 
-		if (SelectedCrosshairInfo.IsValid())
-		{
-			CrosshairInfosList->SetSelection(SelectedCrosshairInfo);
-		}
+		//Color picker needs to be created after the weapon has been selected due to a SColorPicker animation quirk
+		ColorOverlay->AddSlot()
+		[
+			SAssignNew(ColorPicker, SUTColorPicker)
+			.TargetColorAttribute(this, &SUWWeaponConfigDialog::GetCrosshairColor)
+			.OnColorCommitted(this, &SUWWeaponConfigDialog::SetCrosshairColor)
+			.PreColorCommitted(this, &SUWWeaponConfigDialog::SetCrosshairColor)
+			.DisplayInlineVersion(true)
+			.UseAlpha(true)
+		];
 	}
 }
 
@@ -619,7 +614,10 @@ void SUWWeaponConfigDialog::OnCrosshairInfoSelected(TSharedPtr<FCrosshairInfo> N
 		CrosshairComboBox->SetSelectedItem(SelectedCrosshair);
 		
 		//Update the color
-		ColorPicker->UTSetNewTargetColorRGB(SelectedCrosshairInfo->Color);
+		if (ColorPicker.IsValid())
+		{
+			ColorPicker->UTSetNewTargetColorRGB(SelectedCrosshairInfo->Color);
+		}
 	}
 }
 
