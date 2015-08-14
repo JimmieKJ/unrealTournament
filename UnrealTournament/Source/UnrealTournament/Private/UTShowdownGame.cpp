@@ -302,7 +302,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 				FVector SpawnLoc = StartSpot->GetActorLocation();
 				if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 				{
-					FVector SpawnLoc = Route.Last().GetLocation(NULL);
+					SpawnLoc = Route.Last().GetLocation(NULL);
 				}
 				FActorSpawnParameters Params;
 				Params.bNoCollisionFail = true;
