@@ -675,19 +675,6 @@ struct FServerInstanceData
 
 };
 
-UENUM()
-namespace EHudKillMsgStyle
-{
-	enum Type
-	{
-		KMS_Text,
-		KMS_Icon,
-		KMS_Both,
-		KMS_None,
-		MAX,
-	};
-}
-
 namespace EQuickMatchResults
 {
 	const FName CantJoin = FName(TEXT("CantJoin"));

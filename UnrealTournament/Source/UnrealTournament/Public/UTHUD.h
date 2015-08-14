@@ -240,7 +240,7 @@ public:
 	bool bUseWeaponColors;
 
 	UPROPERTY(globalconfig)
-	TEnumAsByte<EHudKillMsgStyle::Type> KillMsgStyle;
+	bool bDrawChatKillMsg;
 
 	UPROPERTY(globalconfig)
 	bool bDrawPopupKillMsg;

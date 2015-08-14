@@ -69,7 +69,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
-	KillMsgStyle = EHudKillMsgStyle::KMS_Icon;
+	bDrawChatKillMsg = false;
 	bDrawPopupKillMsg = true;
 
 	bCustomWeaponCrosshairs = true;
