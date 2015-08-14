@@ -1364,7 +1364,17 @@ void SUWMatchSummary::ViewAll()
 UUTScoreboard* SUWMatchSummary::GetScoreboard()
 {
 	AUTPlayerController* UTPC = GetPlayerOwner().IsValid() ? Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) : nullptr;
-	return (UTPC != nullptr && UTPC->MyUTHUD != nullptr) ? UTPC->MyUTHUD->GetScoreboard() : nullptr;
+	if (UTPC != nullptr && UTPC->MyUTHUD != nullptr)
+	{
+		UUTScoreboard* Scoreboard = UTPC->MyUTHUD->GetScoreboard();
+		if (Scoreboard != nullptr)
+		{
+			//Make sure the hud owner is set before calling any Scoreboard functions
+			Scoreboard->UTHUDOwner = UTPC->MyUTHUD;
+			return Scoreboard;
+		}
+	}
+	return nullptr;
 }
 
 void SUWMatchSummary::OnMouseDownPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
