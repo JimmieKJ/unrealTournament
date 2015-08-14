@@ -360,6 +360,11 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	float LastRespawnTime;
 
+	/** used to avoid spamming voice messages */
+	TMap<FName, float> LastVoiceMessageTime;
+	/** set after bot has called out its squad orders (role) */
+	FName AnnouncedOrders;
+
 private:
 	/** current action, if any */
 	UPROPERTY()
@@ -468,6 +473,11 @@ public:
 	/** cache of last found route */
 	UPROPERTY()
 	TArray<FRouteCacheItem> RouteCache;
+
+	/** returns path distance of current route (RouteCache) using current movement options
+	 * this is in "path units" so it includes, e.g. cost penalties for impact jumps
+	 */
+	int32 GetRouteDist() const;
 
 	/** evaluate enemy list (on Team if available, otherwise bot's personal list) and pick best enemy to focus on */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
@@ -842,9 +852,14 @@ public:
 	 * @param InTarget - target to examine (must be valid)
 	 * @param TargetLoc - guess of current target location (if InTarget is an enemy in the bot's enemy list, this value is ignored and the enemy list is used instead)
 	 * @param bDoSkillChecks - if true, low skill bots may not return all potential results (some checks skipped)
-	 * @param FoundPoints (out) - list of appearance points to consider for  targeting
+	 * @param FoundPoints (out) - list of appearance points to consider for targeting
 	 */
 	virtual void GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints);
+
+	/** call to send a voice message of the given type
+	 * this function does spam protection so you don't have to!
+	 */
+	virtual void SendVoiceMessage(FName MessageName);
 
 protected:
 	FTimerHandle CheckWeaponFiringTimerHandle;

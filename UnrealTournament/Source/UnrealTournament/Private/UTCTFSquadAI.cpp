@@ -109,7 +109,12 @@ bool AUTCTFSquadAI::TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowD
 	}
 	else
 	{
-		return Super::TryPathTowardObjective(B, Goal, bAllowDetours, SuccessGoalString);
+		bool bResult = Super::TryPathTowardObjective(B, Goal, bAllowDetours, SuccessGoalString);
+		if (bResult && EnemyBase != NULL && (Goal == EnemyBase || Goal == EnemyBase->GetCarriedObject()) && B->GetRouteDist() < 2500 && B->LineOfSightTo(Goal))
+		{
+			B->SendVoiceMessage(StatusMessage::IGotFlag);
+		}
+		return bResult;
 	}
 }
 
@@ -191,6 +196,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 							// TODO: Camp action
 							B->SetMoveTarget(HideTarget);
 							B->StartWaitForMove();
+							B->SendVoiceMessage(StatusMessage::GetFlagBack);
 							return true;
 						}
 					}
@@ -236,8 +242,13 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	HideTarget.Clear();
 	StartHideTime = 0.0f;
 	// return to base
-	// TODO: much more to do here
-	bool bAllowDetours = (FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home) || (B->GetPawn()->GetActorLocation() - EnemyBase->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size();
+	bool bOnFriendlySide = (B->GetPawn()->GetActorLocation() - EnemyBase->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size();
+	if (bOnFriendlySide && FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() == CarriedObjectState::Home)
+	{
+		B->SendVoiceMessage(StatusMessage::DefendFlag);
+	}
+	// TODO: check super pickups? (at low range)
+	bool bAllowDetours = (FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() != CarriedObjectState::Home) || bOnFriendlySide;
 	return TryPathTowardObjective(B, FriendlyBase, bAllowDetours, "Return to base with enemy flag");
 }
 
