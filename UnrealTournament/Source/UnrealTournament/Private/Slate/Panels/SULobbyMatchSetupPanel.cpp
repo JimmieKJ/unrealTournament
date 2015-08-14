@@ -498,6 +498,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::AddActionButtons()
 		[
 			SNew(SHorizontalBox)
 			+SHorizontalBox::Slot().AutoWidth()
+			.Padding(0.0,0.0,10.0,0.0)
 			[
 				SNew(SBox).WidthOverride(200).HeightOverride(32)
 				[

@@ -1528,6 +1528,20 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 				if (AllHubServers[i] != Hub)
 				{
 					AllHubServers[i]->Update(Hub);
+
+					if (HUBServerList.IsValid())
+					{
+						TArray<TSharedPtr<FServerData>> Selected = HUBServerList->GetSelectedItems();
+						if (Selected.Num() > 0)
+						{
+							// If this is an update for the currently selected hub update it's information
+							if (Selected[0] == Hub)
+							{
+								OnHUBListSelectionChanged(Hub, ESelectInfo::Direct);
+							}
+						}
+					}
+
 				}
 
 				return; 
@@ -2169,90 +2183,6 @@ TSharedRef<SWidget> SUWServerBrowser::AddStars(TSharedPtr<FServerData> HUB)
 	return StarBox.ToSharedRef();
 }
 
-TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HUB)
-{
-/*
-	if (!HUB->bFakeHUB && HUB->HUBInstances.Num() > 0)
-	{
-		TSharedPtr<SVerticalBox> VBox;
-		SAssignNew(VBox,SVerticalBox);
-		TSharedPtr<SHorizontalBox> Box;
-		int32 Column = 0;
-		for (int32 i=0;i<HUB->HUBInstances.Num();i++)
-		{
-
-			HUB->HUBInstances[i]->BadgeTexture = LoadObject<UTexture2D>(nullptr, *HUB->HUBInstances[i]->RuleSetIcon, nullptr, LOAD_None, nullptr);
-			HUB->HUBInstances[i]->SlateBadge = new FSlateDynamicImageBrush(HUB->HUBInstances[i]->BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None);
-
-			if (Column == 0)
-			{
-				VBox->AddSlot()
-				.AutoHeight()
-				.HAlign(HAlign_Left)
-				[
-					SAssignNew(Box, SHorizontalBox)
-				];
-			}
-
-			Box->AddSlot()
-			.AutoWidth()
-			.VAlign(VAlign_Center)
-			.Padding(5.0,0.0,5.0,5.0)
-			[
-				SNew(SDPIScaler)
-				.DPIScale(0.75)
-				[
-					SNew(SBox)
-					.WidthOverride(202)
-					.HeightOverride(202)
-					[
-						SNew(SOverlay)
-						+SOverlay::Slot()
-						[
-							SNew(SBox)
-							.HeightOverride(192)
-							.WidthOverride(192)
-							[
-								SNew(SImage)
-								.Image(HUB->HUBInstances[i]->SlateBadge)
-							]
-						]
-						+SOverlay::Slot()
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.HAlign(HAlign_Center)
-							.VAlign(VAlign_Center)
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.Padding(5.0,5.0,5.0,5.0)
-								.HAlign(HAlign_Center)
-								[
-									SNew(SRichTextBlock)
-									.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
-									.Justification(ETextJustify::Center)
-									.DecoratorStyleSet( &SUWindowsStyle::Get() )
-									.AutoWrapText( true )
-									.Text(FText::FromString(*HUB->HUBInstances[i]->Description))
-								]
-							]
-						]
-					]
-
-				]
-			];
-
-			Column++;
-			if (Column > 2) Column = 0;
-		}
-		return VBox.ToSharedRef();
-	}
-*/
-	return SNew(STextBlock)
-		.Text(NSLOCTEXT("ServerBrowser","NoInstances","No Game Sessions Available"))
-		.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.NormalText");
-}
 
 void SUWServerBrowser::AddHUBInfo(TSharedPtr<FServerData> HUB)
 {

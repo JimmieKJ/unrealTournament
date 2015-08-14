@@ -203,9 +203,10 @@ protected:
 	virtual TSharedRef<SWidget> OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor);
 	virtual TSharedRef<SWidget> OnGetPopupContent(TSharedPtr<SUTPopOverAnchor> Anchor);
 
-	FReply JoinMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor, FString AssociatedString);
-	FReply SpectateMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor, FString AssociatedString);
-	bool CanSpectateGame(TWeakObjectPtr<AActor> AssoicatedActor) const;
+	FReply JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
+	FReply SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
+
+	bool CanSpectateGame(TSharedPtr<FTrackedMatch> InItem) const;
 
 	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
 

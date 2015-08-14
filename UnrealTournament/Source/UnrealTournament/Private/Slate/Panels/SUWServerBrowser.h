@@ -719,7 +719,7 @@ protected:
 
 	virtual TSharedRef<SWidget> AddHUBBadge(TSharedPtr<FServerData> HUB);
 	virtual TSharedRef<SWidget> AddStars(TSharedPtr<FServerData> HUB);
-	virtual TSharedRef<SWidget> AddHUBInstances(TSharedPtr<FServerData> HUB);
+
 	virtual void AddHUBInfo(TSharedPtr<FServerData> HUB);
 	virtual void BuildServerListControlBox();
 

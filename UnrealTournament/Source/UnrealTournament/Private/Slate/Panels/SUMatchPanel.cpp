@@ -214,7 +214,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						SNew(SBox).HeightOverride(78).WidthOverride(468).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
+						SNew(SBox).HeightOverride(78).WidthOverride(348).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -295,39 +295,94 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					[
 						SNew(SBox).WidthOverride(92).HeightOverride(78)
 						[
-							SNew(SBox).WidthOverride(78).HeightOverride(78)
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
 							[
-
-								SNew(SOverlay)
-								+SOverlay::Slot()
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.AutoHeight()
 								[
-									SNew(SImage)
-									.Image(SUTStyle::Get().GetBrush("UT.MatchBadge.Circle"))
-									.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetBadgeColor)))
-								]
-								+SOverlay::Slot()
-								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.FillHeight(1.0)
-									.VAlign(VAlign_Center)
+									SNew(SBox).WidthOverride(78).HeightOverride(78)
 									[
-										SNew(SHorizontalBox)
-										+SHorizontalBox::Slot()
-										.FillWidth(1.0)
-										.HAlign(HAlign_Center)
+
+										SNew(SOverlay)
+										+SOverlay::Slot()
 										[
-											SNew(STextBlock)
-											.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRank)))
-											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
-											.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
+											SNew(SImage)
+											.Image(SUTStyle::Get().GetBrush("UT.MatchBadge.Circle"))
+											.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetBadgeColor)))
+										]
+										+SOverlay::Slot()
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot()
+											.FillHeight(1.0)
+											.VAlign(VAlign_Center)
+											[
+												SNew(SHorizontalBox)
+												+SHorizontalBox::Slot()
+												.FillWidth(1.0)
+												.HAlign(HAlign_Center)
+												[
+													SNew(STextBlock)
+													.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRank)))
+													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+													.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
+												]
+											]
 										]
 									]
 								]
 							]
 						]
 					]
-
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(0.0,0.0,5.0,0.0)
+					[
+						SNew(SBox).WidthOverride(115).HeightOverride(78)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.Padding(0.0,8.0,0.0,0.0)
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
+								.OnClicked(this, &SUMatchPanel::JoinMatchButtonClicked, InItem)
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUMatchPanel","JoinText","JOIN"))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+									]
+								]
+							]
+							+SVerticalBox::Slot()
+							.Padding(0.0,10.0,0.0,0.0)
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
+								.OnClicked(this, &SUMatchPanel::SpectateMatchButtonClicked, InItem)
+								.IsEnabled(this, &SUMatchPanel::CanSpectateGame, InItem)
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUMatchPanel","SpectateText","SPECTATE"))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+									]
+								]
+							
+							]
+						]
+					]
 				]
 
 			]
@@ -754,56 +809,6 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 		}
 
 	}
-	VertBox->AddSlot()
-	.HAlign(HAlign_Center)
-	.VAlign(VAlign_Bottom)
-	.AutoHeight()
-	.Padding(0.0f,12.0f,0.0f,5.0)
-	[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.Padding(0.0,0.0,5.0,0.0)
-		.AutoWidth()
-		[
-			SNew(SBox).WidthOverride(150)
-			[
-				SNew(SButton)
-				.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
-				.OnClicked(this, &SUMatchPanel::JoinMatchButtonClicked, Anchor, Anchor->AssociatedActor, Anchor->AssociatedString)
-				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUMatchPanel","JoinText","JOIN"))
-						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-					]
-				]
-			]
-		]
-		+SHorizontalBox::Slot()
-		.Padding(5.0,0.0,0.0,0.0)
-		.AutoWidth()
-		[
-			SNew(SBox).WidthOverride(150)
-			[
-				SNew(SButton)
-				.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
-				.OnClicked(this, &SUMatchPanel::SpectateMatchButtonClicked, Anchor, Anchor->AssociatedActor, Anchor->AssociatedString )
-				.IsEnabled(this, &SUMatchPanel::CanSpectateGame, Anchor->AssociatedActor)
-				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUMatchPanel","SpectateText","SPECTATE"))
-						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-					]
-				]
-			]
-		]
-	];
-
 	return VertBox.ToSharedRef();
 
 }
@@ -856,69 +861,63 @@ void SUMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> Select
 
 
 
-FReply SUMatchPanel::JoinMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor, FString AssociatedString)
+FReply SUMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	if (PopOver.IsValid()) PopOver->SetIsOpen(false,false);
-	
-	if (bExpectServerData)
+	if (InItem.IsValid())
 	{
-		if (OnJoinMatchDelegate.IsBound())
+		if (bExpectServerData)
 		{
-			OnJoinMatchDelegate.Execute(AssociatedString, false);
-		}
-	}
-	else if (AssoicatedActor.IsValid())
-	{
-		AUTLobbyMatchInfo* LobbyMatchInfo = Cast<AUTLobbyMatchInfo>(AssoicatedActor.Get());
-		if (LobbyMatchInfo && PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
-		{
-			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-			if (LobbyPlayerState)
+			if (OnJoinMatchDelegate.IsBound())
 			{
-				LobbyPlayerState->ServerJoinMatch(LobbyMatchInfo,false);
+				OnJoinMatchDelegate.Execute(InItem->MatchId.ToString(), false);
 			}
 		}
+		else if (InItem.IsValid() && InItem->MatchInfo.IsValid())
+		{
+			if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+			{
+				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+				if (LobbyPlayerState)
+				{
+					LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),false);
+				}
+			}
+		}
+	}
+	return FReply::Handled();
+}
+FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
+{
+	if (InItem.IsValid())
+	{
+		if (bExpectServerData)
+		{
+			if (OnJoinMatchDelegate.IsBound())
+			{
+				OnJoinMatchDelegate.Execute(InItem->MatchId.ToString(), true);
+			}
+		}
+		else if (InItem.IsValid() && InItem->MatchInfo.IsValid())
+		{
+			if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+			{
+				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+				if (LobbyPlayerState)
+				{
+					LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),true);
+				}
+			}
+		}	
 	}
 
 	return FReply::Handled();
 }
-FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<SUTPopOverAnchor> PopOver, TWeakObjectPtr<AActor> AssoicatedActor, FString AssociatedString)
+
+bool SUMatchPanel::CanSpectateGame(TSharedPtr<FTrackedMatch> InItem) const
 {
-	if (PopOver.IsValid()) PopOver->SetIsOpen(false,false);
-
-	if (bExpectServerData)
+	if (InItem.IsValid() && InItem->MatchInfo.IsValid())
 	{
-		if (OnJoinMatchDelegate.IsBound())
-		{
-			OnJoinMatchDelegate.Execute(AssociatedString, true);
-		}
-	}
-	else if (AssoicatedActor.IsValid())
-	{
-		AUTLobbyMatchInfo* LobbyMatchInfo = Cast<AUTLobbyMatchInfo>(AssoicatedActor.Get());
-		if (LobbyMatchInfo && PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
-		{
-			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-			if (LobbyPlayerState)
-			{
-				LobbyPlayerState->ServerJoinMatch(LobbyMatchInfo,true);
-			}
-		}
-	}	
-
-	return FReply::Handled();
-}
-
-bool SUMatchPanel::CanSpectateGame(TWeakObjectPtr<AActor> AssoicatedActor) const
-{
-	if (AssoicatedActor.IsValid())
-	{
-		AUTLobbyMatchInfo* LobbyMatchInfo = Cast<AUTLobbyMatchInfo>(AssoicatedActor.Get());
-		if (LobbyMatchInfo)
-		{
-			return (LobbyMatchInfo->CurrentState == ELobbyMatchState::InProgress && LobbyMatchInfo->bSpectatable);
-		}
-	
+		return (InItem->MatchInfo->bSpectatable);
 	}
 	return true;
 }
