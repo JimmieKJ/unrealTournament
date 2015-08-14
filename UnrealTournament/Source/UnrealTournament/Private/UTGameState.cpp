@@ -1228,9 +1228,9 @@ void AUTGameState::ClearHighlights()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS)
 		{
-			for (int32 i = 0; i < 5; i++)
+			for (int32 j = 0; j < 5; j++)
 			{
-				PS->MatchHighlights[i] = NAME_None;
+				PS->MatchHighlights[j] = NAME_None;
 			}
 		}
 	}
