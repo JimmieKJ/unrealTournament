@@ -37,9 +37,9 @@ static const float BOB_SCALING_FACTOR = 1.f;
 static const float PLAYER_SPACING = 180.0f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
 static const float TEAM_CAMERA_ZOFFSET = 50.0f;
-static const float ALL_CAMERA_OFFSET = 3000.0f;
-static const float ALL_CAMERA_ZOFFSET = 800.0f;
-static const float ALL_CAMERA_ANGLE = -15.0f;
+static const float ALL_CAMERA_OFFSET = 2000.0f;
+static const float ALL_CAMERA_ZOFFSET = 400.0f;
+static const float ALL_CAMERA_ANGLE = -10.0f;
 
 #if !UE_SERVER
 
@@ -877,10 +877,10 @@ void SUWMatchSummary::RecreateAllPlayers()
 	}
 	else if (TeamAnchors.Num() == 2)
 	{
-		static const float TeamAngle = 50.0f;
+		static const float TeamAngle = 30.0f;
 		//Angle the teams a bit. TODO make this work for any number of teams
 		{
-			float Dist = (TeamPlayerStates[0].Num() - 1) * PLAYER_SPACING * 0.5 + 400.0f;
+			float Dist = (TeamPlayerStates[0].Num() - 1) * PLAYER_SPACING * 0.5 + 100.0f;
 
 			FRotator Dir(0.0f, TeamAngle, 0.0f);
 			FVector Location = Dir.Vector() * Dist;
@@ -888,7 +888,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 			TeamAnchors[0]->SetActorLocationAndRotation(Location, Dir);
 		}
 		{
-			float Dist = (TeamPlayerStates[1].Num() - 1) * PLAYER_SPACING * 0.5 + 400.0f;
+			float Dist = (TeamPlayerStates[1].Num() - 1) * PLAYER_SPACING * 0.5 + 100.0f;
 			
 			FRotator Dir(0.0f, -TeamAngle, 0.0f);
 			FVector Location = Dir.Vector() * Dist;
