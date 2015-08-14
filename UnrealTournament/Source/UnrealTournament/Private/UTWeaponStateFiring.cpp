@@ -72,7 +72,7 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 		}
 		else if (GetOuterAUTWeapon()->HandleContinuedFiring())
 		{
-			bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound();
+			bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound() && Cast<APlayerController>(GetUTOwner()->GetController());
 			if (!bDelayShot)
 			{
 				FireShot();
@@ -87,8 +87,8 @@ void UUTWeaponStateFiring::HandleDelayedShot()
 	if (bDelayShot)
 	{
 		GetOuterAUTWeapon()->bNetDelayedShot = true;
-		FireShot();
 		bDelayShot = false;
+		FireShot();
 		GetOuterAUTWeapon()->bNetDelayedShot = false;
 	}
 }
