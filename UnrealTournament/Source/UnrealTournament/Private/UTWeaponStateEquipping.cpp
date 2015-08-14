@@ -4,6 +4,7 @@
 #include "UTWeaponState.h"
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
+#include "ComponentRecreateRenderStateContext.h"
 
 void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 {
@@ -61,6 +62,16 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(BringUpFinishedHandle, this, &UUTWeaponStateEquipping::BringUpFinished, EquipTime);
 		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnimHands, GetOuterAUTWeapon()->BringUpAnim->SequenceLength / EquipTime);
+		// now that the anim is playing, force update first person meshes
+		// this is necessary to avoid one frame artifacts since the meshes may have been set to not update while the weapon was down
+		GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh->TickAnimation(0.0f);
+		GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh->RefreshBoneTransforms();
+		GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh->UpdateComponentToWorld();
+		GetOuterAUTWeapon()->Mesh->TickAnimation(0.0f);
+		GetOuterAUTWeapon()->Mesh->RefreshBoneTransforms();
+		GetOuterAUTWeapon()->Mesh->UpdateComponentToWorld();
+		FComponentRecreateRenderStateContext ReregisterContext(GetOuterAUTWeapon()->GetUTOwner()->FirstPersonMesh);
+		FComponentRecreateRenderStateContext ReregisterContext2(GetOuterAUTWeapon()->Mesh);
 	}
 }
 
