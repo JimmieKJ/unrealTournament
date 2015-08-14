@@ -10,7 +10,7 @@
 #include "SNumericEntryBox.h"
 
 #if !UE_SERVER
-#include "SColorPicker.h"
+#include "Widgets/SUTColorPicker.h"
 
 void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 {
@@ -367,8 +367,12 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 
 		WeaponPriorities->SetSelection(WeaponList[0]);
 
-
 		//Crosshair Info
+		if (CrosshairInfos.Num() > 0)
+		{
+			SelectedCrosshairInfo = CrosshairInfos[0];
+		}
+
 		TabWidget->AddTab(FText::FromString(TEXT("Crosshair")),
 		SNew(SOverlay)
 		+ SOverlay::Slot()
@@ -460,7 +464,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 				.VAlign(VAlign_Fill)
 				.HAlign(HAlign_Center)
 				[
-					SAssignNew(ColorPicker, SColorPicker)
+					SAssignNew(ColorPicker, SUTColorPicker)
 					.TargetColorAttribute(this, &SUWWeaponConfigDialog::GetCrosshairColor)
 					.OnColorCommitted(this, &SUWWeaponConfigDialog::SetCrosshairColor)
 					.PreColorCommitted(this, &SUWWeaponConfigDialog::SetCrosshairColor)
@@ -529,6 +533,11 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 		]);
 
 		SetCustomWeaponCrosshairs(bCustomWeaponCrosshairs ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
+
+		if (SelectedCrosshairInfo.IsValid())
+		{
+			CrosshairInfosList->SetSelection(SelectedCrosshairInfo);
+		}
 	}
 }
 
@@ -602,11 +611,15 @@ void SUWWeaponConfigDialog::OnCrosshairInfoSelected(TSharedPtr<FCrosshairInfo> N
 		}
 	}
 
-	//Change the crosshair combobox text
+	
 	if (SelectedCrosshairInfo.IsValid() && CrosshairMap.Contains(SelectedCrosshairInfo->CrosshairClassName))
 	{
+		//Change the crosshair combobox text
 		UClass* SelectedCrosshair = CrosshairMap[SelectedCrosshairInfo->CrosshairClassName];
 		CrosshairText->SetText(SelectedCrosshair->GetDefaultObject<UUTCrosshair>()->CrosshairName);
+		
+		//Update the color
+		ColorPicker->UTSetNewTargetColorRGB(SelectedCrosshairInfo->Color);
 	}
 }
 

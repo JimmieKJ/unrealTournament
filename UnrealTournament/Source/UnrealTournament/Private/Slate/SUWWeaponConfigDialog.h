@@ -58,7 +58,7 @@ public:
 	void SetCustomWeaponCrosshairs(ECheckBoxState NewState);
 
 	TSharedPtr<SImage> CrosshairImage;
-	TSharedPtr<class SColorPicker> ColorPicker;
+	TSharedPtr<class SUTColorPicker> ColorPicker;
 	TSharedPtr<STextBlock> CrosshairText;
 
 	TSharedPtr<FCrosshairInfo> SelectedCrosshairInfo;
