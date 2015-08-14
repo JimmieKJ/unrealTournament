@@ -277,6 +277,19 @@ AActor* AUTShowdownGame::ChoosePlayerStart_Implementation(AController* Player)
 	}
 }
 
+float AUTShowdownGame::RatePlayerStart(APlayerStart* P, AController* Player)
+{
+	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
+	if (Player != NULL && GS->SpawnSelector == Player->PlayerState && !GS->IsAllowedSpawnPoint(Cast<AUTPlayerState>(Player->PlayerState), P))
+	{
+		return -1000.0f;
+	}
+	else
+	{
+		return Super::RatePlayerStart(P, Player);
+	}
+}
+
 void AUTShowdownGame::HandleMatchIntermission()
 {
 	// respawn breaker pickup

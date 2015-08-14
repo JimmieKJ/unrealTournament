@@ -76,6 +76,7 @@ public:
 		}
 	}
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
+	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 
 	virtual void CheckGameTime() override;
 	virtual void CallMatchStateChangeNotify() override;
