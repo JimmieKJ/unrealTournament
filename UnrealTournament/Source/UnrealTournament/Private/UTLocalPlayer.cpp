@@ -2184,6 +2184,10 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 	}
 	else
 	{
+		if (DesktopSlateWidget.IsValid())
+		{
+			HideMenu();
+		}
 		OpenDialog(SNew(SUWPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
 	}
 #endif
