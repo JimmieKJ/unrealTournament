@@ -46,7 +46,7 @@
 #include "Slate/SUWYoutubeUpload.h"
 #include "Slate/SUWYoutubeConsent.h"
 #include "Slate/SUWMatchSummary.h"
-#include "UTLobbyGameMode.h"
+#include "UTLobbyGameState.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -2185,7 +2185,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 	}
 	else
 	{
-		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameMode>(GetWorld()->GetAuthGameMode()) == nullptr)
+		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameState>(GetWorld()->GameState) == nullptr)
 		{
 			HideMenu();
 		}
