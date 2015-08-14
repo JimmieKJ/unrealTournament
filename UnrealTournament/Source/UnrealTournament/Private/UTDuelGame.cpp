@@ -102,10 +102,9 @@ void AUTDuelGame::PlayEndOfMatchMessage()
 	AUTGameMode::PlayEndOfMatchMessage();
 }
 
-void AUTDuelGame::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
+void AUTDuelGame::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
-	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
-	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
+	Super::GetGameURLOptions(MenuProps, OptionsList, DesiredPlayerCount);
 	DesiredPlayerCount = 2;
 }
 

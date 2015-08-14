@@ -34,5 +34,5 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 #endif
 
 public:
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
+	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount) override;
 };

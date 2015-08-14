@@ -103,8 +103,4 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 protected:
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateLobbyBadge(FString BadgeText);
-
-public:
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
-
 };

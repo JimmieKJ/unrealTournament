@@ -2761,11 +2761,15 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	}
 }
 
-void AUTGameMode::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
+void AUTGameMode::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
-	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
-	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
-	OptionsList.Add(FString::Printf(TEXT("bForceRespawn=%i"), bForceRespawn));
+	for (TSharedPtr<TAttributePropertyBase> Prop : MenuProps)
+	{
+		if (Prop.IsValid())
+		{
+			OptionsList.Add(Prop->GetURLString());
+		}
+	}
 
 	DesiredPlayerCount = BotFillCount;
 }

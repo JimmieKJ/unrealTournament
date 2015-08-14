@@ -777,7 +777,7 @@ void SUWCreateGamePanel::GetCustomGameSettings(FString& GameMode, FString& Start
 
 		Description = FString::Printf(TEXT("A custom %s match!\nJoin at your own risk!\n"), *DefaultGameMode->DisplayName.ToString());			
 
-		DefaultGameMode->GetGameURLOptions(GameOptions, DesiredPlayerCount);
+		DefaultGameMode->GetGameURLOptions(GameConfigProps, GameOptions, DesiredPlayerCount);
 		bTeamGame = DefaultGameMode->bTeamGame;
 
 		// If we don't want bots, clear BotFillCount
