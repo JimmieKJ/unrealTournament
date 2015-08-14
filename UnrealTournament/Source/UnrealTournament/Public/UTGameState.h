@@ -371,6 +371,9 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Game")
 		void AddMinorHighlights(AUTPlayerState* PS);
 
+	/** Add appropriate top scorer highlights to each team score leader. */
+	virtual void SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue);
+
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
 

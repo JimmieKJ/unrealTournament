@@ -160,6 +160,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_InstagibHits);
 
 	HighlightMap.Add(HighlightNames::TopScorer, NSLOCTEXT("AUTGameMode", "HighlightTopScore", "Top Score overall with <UT.MatchSummary.HighlightText.Value>{0}</> points."));
+	HighlightMap.Add(HighlightNames::TopScorerRed, NSLOCTEXT("AUTGameMode", "HighlightTopScoreRed", "Red Team Top Score with <UT.MatchSummary.HighlightText.Value>{0}</> points."));
+	HighlightMap.Add(HighlightNames::TopScorerBlue, NSLOCTEXT("AUTGameMode", "HighlightTopScoreBlue", "Blue Team Top Score with <UT.MatchSummary.HighlightText.Value>{0}</> points."));
 	HighlightMap.Add(HighlightNames::MostKills, NSLOCTEXT("AUTGameMode", "MostKills", "Most Kills with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::LeastDeaths, NSLOCTEXT("AUTGameMode", "LeastDeaths", "Least Deaths with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::BestKD, NSLOCTEXT("AUTGameMode", "BestKD", "Best Kill/Death ratio <UT.MatchSummary.HighlightText.Value>{0}</>."));
@@ -1253,7 +1255,7 @@ void AUTGameState::UpdateMatchHighlights()
 void AUTGameState::UpdateHighlights_Implementation()
 {
 	// add highlights to each player in order of highlight priority, filling to 5 if possible
-	AUTPlayerState* TopScorer = NULL;
+	AUTPlayerState* TopScorer[2] = { NULL, NULL };
 	AUTPlayerState* MostKills = NULL;
 	AUTPlayerState* LeastDeaths = NULL;
 	AUTPlayerState* BestKDPS = NULL;
@@ -1278,12 +1280,14 @@ void AUTGameState::UpdateHighlights_Implementation()
 	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
-		if (PS)
+		if (PS && !PS->bOnlySpectator)
 		{
+			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
+
 			// @TODO FIXMESTEVE support tie scores!
-			if (PS->Score >(TopScorer ? TopScorer->Score : 0))
+			if (PS->Score >(TopScorer[TeamIndex] ? TopScorer[TeamIndex]->Score : 0))
 			{
-				TopScorer = PS;
+				TopScorer[TeamIndex] = PS;
 			}
 			if (PS->Kills > (MostKills ? MostKills->Kills : 0))
 			{
@@ -1340,10 +1344,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 		}
 	}
 
-	if (TopScorer)
-	{
-		TopScorer->AddMatchHighlight(HighlightNames::TopScorer, TopScorer->Score);
-	}
+	SetTopScorerHighlights(TopScorer[0], TopScorer[1]);
 	if (MostKills)
 	{
 		MostKills->AddMatchHighlight(HighlightNames::MostKills, MostKills->Kills);
@@ -1376,6 +1377,43 @@ void AUTGameState::UpdateHighlights_Implementation()
 		{
 			AddMinorHighlights(PS);
 		}
+	}
+}
+
+void AUTGameState::SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue)
+{
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (Game && Game->NumPlayers < 3)
+	{
+		// don't show top scorer highlight if 2 or fewer players
+		return;
+	}
+	if (TopScorerBlue == NULL)
+	{
+		if (TopScorerRed != NULL)
+		{
+			TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+		}
+	}
+	else if (TopScorerRed == NULL)
+	{
+		if (TopScorerBlue != NULL)
+		{
+			TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
+		}
+	}
+	else if (TopScorerBlue->Score == TopScorerRed->Score)
+	{
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+	}
+	else if (TopScorerBlue->Score > TopScorerRed->Score)
+	{
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
+	}
+	else
+	{
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
 	}
 }
 

@@ -38,8 +38,6 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 
 	SecondaryAttackerStat = NAME_FlagHeldTime;
 
-	HighlightMap.Add(HighlightNames::TopScorerRed, NSLOCTEXT("AUTGameMode", "HighlightTopScoreRed", "Red Team Top Score with <UT.MatchSummary.HighlightText.Value>{0}</> points."));
-	HighlightMap.Add(HighlightNames::TopScorerBlue, NSLOCTEXT("AUTGameMode", "HighlightTopScoreBlue", "Blue Team Top Score with <UT.MatchSummary.HighlightText.Value>{0}</> points."));
 	HighlightMap.Add(HighlightNames::TopFlagCapturesRed, NSLOCTEXT("AUTGameMode", "TopFlagCapturesRed", "Most Flag Caps for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopFlagCapturesBlue, NSLOCTEXT("AUTGameMode", "TopFlagCapturesBlue", "Most Flag Caps for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "TopAssistsRed", "Most Assists for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
@@ -378,7 +376,6 @@ bool AUTCTFGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& Pic
 
 void AUTCTFGameState::UpdateHighlights_Implementation()
 {
-	AUTPlayerState* TopScorer[2] = { NULL, NULL };
 	AUTPlayerState* TopFlagCaps[2] = { NULL, NULL };
 	AUTPlayerState* TopAssists[2] = { NULL, NULL };
 	AUTPlayerState* TopFlagReturns[2] = { NULL, NULL };
@@ -386,14 +383,10 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
-		if (PS && PS->Team)
+		if (PS && !PS->bOnlySpectator)
 		{
-			int32 TeamIndex = PS->Team->TeamIndex;
+			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
 			// @TODO FIXMESTEVE support tie scores!
-			if (PS->Score >(TopScorer[TeamIndex] ? TopScorer[TeamIndex]->Score : 0))
-			{
-				TopScorer[TeamIndex] = PS;
-			}
 			if (PS->FlagCaptures > (TopFlagCaps[TeamIndex] ? TopFlagCaps[TeamIndex]->FlagCaptures : 0))
 			{
 				TopFlagCaps[TeamIndex] = PS;
@@ -408,36 +401,6 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 			}
 		}
 	}
-
-	// FIXMESTEVE move to team game, with flag to turn off (for duel, etc.)
-	if (TopScorer[0] == NULL)
-	{
-		if (TopScorer[1] != NULL)
-		{
-			TopScorer[1]->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorer[1]->Score);
-		}
-	}
-	else if (TopScorer[1] == NULL)
-	{
-		if (TopScorer[0] != NULL)
-		{
-			TopScorer[0]->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorer[0]->Score);
-		}
-	}
-	else if (TopScorer[0]->Score == TopScorer[1]->Score)
-	{
-		TopScorer[0]->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorer[0]->Score);
-		TopScorer[1]->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorer[1]->Score);
-	}
-	else if (TopScorer[0]->Score > TopScorer[1]->Score)
-	{
-		TopScorer[1]->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorer[1]->Score);
-	}
-	else
-	{
-		TopScorer[0]->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorer[0]->Score);
-	}
-
 
 	if (TopFlagCaps[0] != NULL)
 	{
