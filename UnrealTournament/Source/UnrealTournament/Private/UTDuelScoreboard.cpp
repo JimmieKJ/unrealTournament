@@ -30,8 +30,13 @@ void UUTDuelScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffse
 
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "Dueler", " "), GetPlayerNameFor(TopScorerRed), GetPlayerNameFor(TopScorerBlue), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
 
-	// draw team stats
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "TeamKills", "Kills"), UTGameState->Teams[0]->GetStatsValue(NAME_TeamKills), UTGameState->Teams[1]->GetStatsValue(NAME_TeamKills), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	FText RedFavoriteWeapon = (TopScorerRed && TopScorerRed->FavoriteWeapon) ? TopScorerRed->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
+	FText BlueFavoriteWeapon = (TopScorerBlue && TopScorerBlue->FavoriteWeapon) ? TopScorerBlue->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
+	if (!RedFavoriteWeapon.IsEmpty() || !BlueFavoriteWeapon.IsEmpty())
+	{
+		DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "FavoriteWeapon", "Favorite Weapon"), RedFavoriteWeapon.ToString(), BlueFavoriteWeapon.ToString(), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	}
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ShieldBeltCount), UTGameState->Teams[1]->GetStatsValue(NAME_ShieldBeltCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
