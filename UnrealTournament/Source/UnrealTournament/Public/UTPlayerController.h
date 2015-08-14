@@ -617,6 +617,12 @@ protected:
 public:
 	inline EWeaponHand GetWeaponHand() const
 	{
+		//Spectators always see right handed weapons
+		return IsInState(NAME_Spectating) ? HAND_Right : GetPreferredWeaponHand();
+	}
+
+	inline EWeaponHand GetPreferredWeaponHand() const
+	{
 		return WeaponHand;
 	}
 

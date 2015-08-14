@@ -114,7 +114,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bAllowSlideFromRun = PC->bAllowSlideFromRun;
 		bHearsTaunts = PC->bHearsTaunts;
 		WeaponBob = PC->WeaponBobGlobalScaling;
-		WeaponHand = PC->GetWeaponHand();
+		WeaponHand = PC->GetPreferredWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
 
 		PlayerFOV = PC->ConfigDefaultFOV;
