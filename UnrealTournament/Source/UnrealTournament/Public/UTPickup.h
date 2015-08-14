@@ -168,6 +168,7 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	 * this is used for bot pickup timing
 	 * only valid on server
 	 */
+	UFUNCTION(BlueprintCallable, Category = AI)
 	virtual float GetRespawnTimeOffset(APawn* Asker) const;
 
 	/**Enables overriding the auto teamside for this pickup*/

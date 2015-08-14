@@ -44,6 +44,15 @@ void AUTShowdownGame::InitGameState()
 	Super::InitGameState();
 
 	Cast<AUTShowdownGameState>(GameState)->bBroadcastPlayerHealth = bBroadcastPlayerHealth;
+
+	if (bPowerupBreaker)
+	{
+		TSubclassOf<AUTTimedPowerup> PowerupClass = Cast<UClass>(PowerupBreakerItemClass.TryLoad());
+		if (PowerupClass != NULL)
+		{
+			PowerupClass.GetDefaultObject()->AddOverlayMaterials(UTGameState);
+		}
+	}
 }
 
 void AUTShowdownGame::StartNewRound()
@@ -89,7 +98,7 @@ void AUTShowdownGame::StartNewRound()
 
 bool AUTShowdownGame::CheckRelevance_Implementation(AActor* Other)
 {
-	if (Cast<AUTTimedPowerup>(Other) != NULL && Other->GetPathName() == PowerupBreakerItemClass.AssetLongPathname)
+	if (BreakerPickup != NULL && Cast<AUTTimedPowerup>(Other) != NULL && Other->GetClass() == BreakerPickup->GetInventoryType())
 	{
 		// don't override breaker powerup duration
 		return true;
@@ -324,7 +333,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 				{
 					BreakerPickup->SetInventoryType(PowerupClass);
 					BreakerPickup->bDelayedSpawn = true;
-					BreakerPickup->RespawnTime = 60.0f;
+					BreakerPickup->RespawnTime = 70.0f;
 				}
 			}
 		}
@@ -460,7 +469,7 @@ void AUTShowdownGame::DefaultTimer()
 	{
 		RoundElapsedTime++;
 
-		Cast<AUTShowdownGameState>(GameState)->bActivateXRayVision = bXRayBreaker && RoundElapsedTime >= 60;
+		Cast<AUTShowdownGameState>(GameState)->bActivateXRayVision = bXRayBreaker && RoundElapsedTime >= 70;
 
 		if (bLowHealthRegen)
 		{
@@ -699,7 +708,7 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "PowerupBreaker", "Spawn Overcharge Powerup after 60s"))
+				.Text(NSLOCTEXT("UTGameMode", "PowerupBreaker", "Spawn Overcharge Powerup after 70s"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -787,7 +796,7 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "XRayBreaker", "Get XRay Vision at 60s"))
+				.Text(NSLOCTEXT("UTGameMode", "XRayBreaker", "Get XRay Vision at 70s"))
 			]
 		]
 		+ SHorizontalBox::Slot()
