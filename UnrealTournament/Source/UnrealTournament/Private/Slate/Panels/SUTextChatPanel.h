@@ -56,7 +56,6 @@ public:
 
 	void HandleChat(TSharedPtr<FStoredChatMessage> ChatMessage)
 	{
-
 		TOptional<EFocusCause> FocusCause = ChatBox->HasAnyUserFocus();
 		if (FocusCause.IsSet())
 		{
@@ -78,8 +77,6 @@ public:
 		
 			if (ChatMessage->Type == ChatDestinations::MOTD || ChatMessage->Type == ChatDestinations::System)
 			{
-				FText SystemTitle = FText::Format(NSLOCTEXT("TextChat","SystemDest","SYSTEM MESSAGE ({0})"), UUTGameEngine::ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ChatMessage->Timestamp, false, true));
-
 				ChatBox->AddSlot()
 				.AutoHeight()
 				.Padding(0.0f,10.0f)
@@ -91,25 +88,10 @@ public:
 					[
 						SNew(SVerticalBox)
 						+SVerticalBox::Slot()
-						.Padding(5.0f)
-						.HAlign(HAlign_Center)
 						.AutoHeight()
 						[
-							SNew(STextBlock)
-							.Text(SystemTitle)
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
-							.ColorAndOpacity(FLinearColor::Yellow)
-						]
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							SNew(SOverlay)
-							+SOverlay::Slot()
-							[
-								SNew(SImage)
-								.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Navy"))
-							]
-							+SOverlay::Slot()
+							SNew(SBorder)
+							.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Navy"))
 							[
 								SNew(SVerticalBox)
 								+SVerticalBox::Slot()
@@ -126,73 +108,53 @@ public:
 						]
 					]
 				];
-
 			}
 			else
 			{
 				ChatBox->AddSlot()
 				.AutoHeight()
-				.Padding(0.0f,10.0f)
+				.Padding(0.0,0.0,0.0,0.0)
+				.VAlign(VAlign_Top)
 				[
 					SNew(SHorizontalBox)
+
 					+SHorizontalBox::Slot()
+					.Padding(5.0,7.0,5.0,0.0)
 					.AutoWidth()
-					.VAlign(VAlign_Center)
 					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot().AutoHeight()
+						SNew(SBox).WidthOverride(70)
 						[
-							SNew(SBox).WidthOverride(48).HeightOverride(48)
-							[
-								SNew(SImage)
-								.Image(SUTStyle::Get().GetBrush("UT.Avatar.0"))
-							]
+							SNew(STextBlock)
+							.Text(UUTGameEngine::ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ChatMessage->Timestamp, true, true))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
 						]
 					]
+/*
 					+SHorizontalBox::Slot()
-					.FillWidth(1.0)
-					.Padding(5.0f)
+					.AutoWidth()
+					.Padding(5.0,7.0,10.0,0.0)
+					[
+						SNew(STextBlock)
+						.Text()
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+					]
+*/
+					+SHorizontalBox::Slot()
+					.Padding(5.0)
 					[
 						SNew(SVerticalBox)
 						+SVerticalBox::Slot()
-						.Padding(5.0f)
-						.AutoHeight()
+						.Padding(0.0f,0.0f,5.0f,0.0f)
 						[
-							SNew(STextBlock)
-							.Text(FText::FromString(ChatMessage->Sender))
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
-						]
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							SNew(SOverlay)
-							+SOverlay::Slot()
+							SNew(SBorder)
+							.BorderImage(SUTStyle::Get().GetBrush( (ChatMessage->bMyChat ? "UT.HeaderBackground.Shaded" : "UT.NoStyle")))
 							[
-								SNew(SImage)
-								.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+								SNew(SRichTextBlock)
+								.Text(FText::Format(NSLOCTEXT("SUTextChatPanel","TextFormat","<UT.Font.NormalText.Small.Italic>{0}</>:   {1}"), FText::FromString(ChatMessage->Sender), FText::FromString(ChatMessage->Message)))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								.DecoratorStyleSet(&SUTStyle::Get())
+								.AutoWrapText(true)
 							]
-							+SOverlay::Slot()
-							[
-								SNew(SVerticalBox)
-								+SVerticalBox::Slot()
-								.Padding(5.0f,5.0f,5.0f,5.0f)
-								[
-									SNew(STextBlock)
-									.Text(FText::FromString(ChatMessage->Message))
-									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-									.AutoWrapText(true)
-								]
-							]
-						]
-					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SBox).WidthOverride(60)
-						[
-							SNew(STextBlock)
-							.Text(UUTGameEngine::ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ChatMessage->Timestamp, false, true))
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
 						]
 					]
 				];
@@ -241,6 +203,7 @@ protected:
 	TSharedPtr<SHorizontalBox> ChatDestinationBar;
 	TSharedPtr<SScrollBox> ChatScrollBox;
 	TSharedPtr<SEditableTextBox> ChatEditBox;
+	TSharedPtr<STextBlock> TypeMsg;
 
 	FReply OnDestinationClick(TSharedPtr<FChatDestination> Destination);
 

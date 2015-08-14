@@ -73,7 +73,7 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 			if (LocalPlayer)
 			{
 				FLinearColor ChatColor = (ClientData.MessageIndex && PlayerController->UTPlayerState && PlayerController->UTPlayerState->Team) ? PlayerController->UTPlayerState->Team->TeamColor : FLinearColor::White;
-				LocalPlayer->SaveChat(Destination, PlayerName, ClientData.MessageString, ChatColor);
+				LocalPlayer->SaveChat(Destination, PlayerName, ClientData.MessageString, ChatColor, ClientData.RelatedPlayerState_1 == PlayerController->PlayerState);
 			}
 		}
 	}

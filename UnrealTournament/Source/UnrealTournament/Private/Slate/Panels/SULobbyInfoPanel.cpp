@@ -132,7 +132,7 @@ void SULobbyInfoPanel::BuildChatAndPlayerList()
 		{
 			TextChatPanel->RemoveDestination(ChatDestinations::Match);
 		}
-
+/*
 		RightPanel->AddSlot()
 		.FillHeight(1.0)
 		.HAlign(HAlign_Left)
@@ -181,6 +181,7 @@ void SULobbyInfoPanel::BuildChatAndPlayerList()
 				]
 			]
 		];
+*/
 	}
 	else
 	{
@@ -189,42 +190,41 @@ void SULobbyInfoPanel::BuildChatAndPlayerList()
 		{
 			TextChatPanel->AddDestination(NSLOCTEXT("LobbyChatDestinations","Match","Match"), ChatDestinations::Match,2.0,true);
 		}
+	}
 
-		RightPanel->AddSlot()
+	RightPanel->AddSlot()
+	.FillHeight(1.0)
+	.HAlign(HAlign_Left)
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
 		.FillHeight(1.0)
-		.HAlign(HAlign_Left)
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.FillHeight(1.0)
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
+				SNew(SBox).WidthOverride(826)
 				[
-					SNew(SBox).WidthOverride(826)
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.FillWidth(1.0)
 					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.FillWidth(1.0)
-						[
-							TextChatPanel.ToSharedRef()
-						]
+						TextChatPanel.ToSharedRef()
+					]
 
-						+SHorizontalBox::Slot()
-						.AutoWidth()
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox).WidthOverride(208)
 						[
-							SNew(SBox).WidthOverride(208)
-							[
-								PlayerListPanel.ToSharedRef()
-							]
+							PlayerListPanel.ToSharedRef()
 						]
 					]
 				]
 			]
-		];
-	}
-
+		]
+	];
 }
 
 

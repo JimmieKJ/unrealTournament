@@ -34,7 +34,7 @@ struct FPlayerCompare
 		}
 		else
 		{
-			AValue = (A->bIsInMatch ? 10 : 150) + (A->bInInstance ? 2000 : 0) + (!A->bIsHost ? -5 : 0);
+			AValue = (A->bIsInMatch ? 10 : 150) + (A->bInInstance ? 2000 : 0) + (A->bIsHost ? -5 : 0);
 		}
 
 		int32 BValue = 0;
@@ -48,10 +48,8 @@ struct FPlayerCompare
 		}
 		else
 		{
-			BValue = (B->bIsInMatch ? 10 : 150) + (B->bInInstance ? 2000 : 0) + (!B->bIsHost ? -5 : 0);
+			BValue = (B->bIsInMatch ? 10 : 150) + (B->bInInstance ? 2000 : 0) + (B->bIsHost ? -5 : 0);
 		}
-
-		UE_LOG(UT,Log,TEXT("A = %s (%i) B = %s (%i)"), (A->PlayerName.IsEmpty() ? TEXT("None") : *A->PlayerName), AValue, (B->PlayerName.IsEmpty() ? TEXT("None") : *B->PlayerName), BValue)
 			
 		return AValue < BValue;
 	}

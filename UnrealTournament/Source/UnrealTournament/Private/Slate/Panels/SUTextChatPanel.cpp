@@ -65,6 +65,15 @@ void SUTextChatPanel::Construct(const FArguments& InArgs)
 				+SVerticalBox::Slot()
 				.AutoHeight()
 				[
+					SNew(SBox).HeightOverride(3)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+					]
+				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
 					.AutoWidth()
@@ -78,13 +87,29 @@ void SUTextChatPanel::Construct(const FArguments& InArgs)
 					.FillWidth(1.0)
 					.Padding(5.0)
 					[
-						SAssignNew(ChatEditBox, SEditableTextBox)
-						.Style(SUTStyle::Get(), "UT.ChatEditBox")
-						.OnTextChanged(this, &SUTextChatPanel::ChatTextChanged)
-						.OnTextCommitted(this, &SUTextChatPanel::ChatTextCommited)
-						.ClearKeyboardFocusOnCommit(false)
-						.MinDesiredWidth(500.0f)
-						.Text(FText::GetEmpty())
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.Padding(8.0, 5.0)
+							[
+								SAssignNew(TypeMsg, STextBlock)
+								.Text(FText::FromString(TEXT("type your message here")))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								.ColorAndOpacity(FLinearColor(1.0,1.0,1.0,0.3))
+							]
+						]
+						+SOverlay::Slot()
+						[
+							SAssignNew(ChatEditBox, SEditableTextBox)
+							.Style(SUTStyle::Get(), "UT.ChatEditBox")
+							.OnTextChanged(this, &SUTextChatPanel::ChatTextChanged)
+							.OnTextCommitted(this, &SUTextChatPanel::ChatTextCommited)
+							.ClearKeyboardFocusOnCommit(false)
+							.MinDesiredWidth(500.0f)
+							.Text(FText::GetEmpty())
+						]
 					]
 				]
 				+SVerticalBox::Slot()
@@ -286,6 +311,7 @@ void SUTextChatPanel::RouteChat(UUTLocalPlayer* LocalPlayer, TSharedPtr<FStoredC
 
 void SUTextChatPanel::ChatTextChanged(const FText& NewText)
 {
+	TypeMsg->SetVisibility( NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
 	if (NewText.ToString().Len() > 128)
 	{
 		ChatEditBox->SetText(FText::FromString(NewText.ToString().Left(128)));

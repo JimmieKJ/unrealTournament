@@ -53,13 +53,17 @@ public:
 	UPROPERTY()
 	int32 Timestamp;
 
-	FStoredChatMessage(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp)
-		: Type(inType), Sender(inSender), Message(inMessage), Color(inColor), Timestamp(inTimestamp)
+	// If this chat message was owned by the player
+	UPROPERTY()
+	bool bMyChat;
+
+	FStoredChatMessage(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp, bool inbMyChat)
+		: Type(inType), Sender(inSender), Message(inMessage), Color(inColor), Timestamp(inTimestamp), bMyChat(inbMyChat)
 	{}
 
-	static TSharedRef<FStoredChatMessage> Make(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp)
+	static TSharedRef<FStoredChatMessage> Make(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp, bool inbMyChat)
 	{
-		return MakeShareable( new FStoredChatMessage( inType, inSender, inMessage, inColor, inTimestamp ) );
+		return MakeShareable( new FStoredChatMessage( inType, inSender, inMessage, inColor, inTimestamp, inbMyChat ) );
 	}
 
 };
@@ -137,7 +141,7 @@ public:
 
 	// Holds all of the chat this client has received.
 	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;
-	virtual void SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color);
+	virtual void SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color, bool bMyChat);
 
 	UPROPERTY(Config)
 	FString TutorialLaunchParams;

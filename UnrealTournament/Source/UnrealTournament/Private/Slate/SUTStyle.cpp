@@ -72,6 +72,7 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Font.NormalText.Small", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Small.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.NormalText.Small.Italic", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Italic", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor(0.7,0.7,0.7,1.0)));
 
 	Style.Set("UT.Font.NormalText.Medium", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Medium.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::White));
@@ -89,8 +90,8 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	FSlateStyleSet& Style = StyleRef.Get();
 
 	Style.Set("UT.SimpleButton", FButtonStyle()
-		.SetNormal( FSlateColorBrush(FColor(53,119,224,255)) )
-		.SetHovered( FSlateColorBrush(FColor(87,148,244,255)) )
+		.SetNormal( FSlateColorBrush(FColor(25,48,180,255)) )
+		.SetHovered( FSlateColorBrush(FColor(67,128,224,255)) )
 		.SetPressed( FSlateColorBrush(FColor(32,32,32,255)) )
 		.SetDisabled( FSlateColorBrush(FColor(1,1,1,255)) )
 		.SetHoveredSound(ButtonHoverSound)
@@ -116,7 +117,8 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetPressedSound(ButtonPressSound)
 	);
 
-	Style.Set("UT.TeamColor.None", new FSlateNoResource(FVector2D(128.0f, 128.0f)));
+	Style.Set("UT.NoStyle", new FSlateNoResource(FVector2D(128.0f, 128.0f)));
+
 	Style.Set("UT.TeamColor.Red", new FSlateColorBrush(FColor(255,12,0,255)));
 	Style.Set("UT.TeamColor.Blue", new FSlateColorBrush(FColor(12,12,255,255)));
 	Style.Set("UT.TeamColor.Spectator", new FSlateColorBrush(FColor(200,200,200,255)));
