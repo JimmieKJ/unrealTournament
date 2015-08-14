@@ -404,7 +404,7 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 				AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 				if (UTGameMode != nullptr)
 				{
-					UTGameMode->BroadcastSpectatorPickup(PS, Inventory);
+					UTGameMode->BroadcastSpectatorPickup(PS, Inventory->StatsNameCount, Inventory->GetClass());
 				}
 			}
 		}

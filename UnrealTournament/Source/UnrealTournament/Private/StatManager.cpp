@@ -106,6 +106,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_UDamageCount, new FStat(true));
 	Stats.Add(NAME_BerserkCount, new FStat(true));
 	Stats.Add(NAME_InvisibilityCount, new FStat(true));
+	Stats.Add(NAME_KegCount, new FStat(true));
 	Stats.Add(NAME_BootJumps, new FStat(true));
 	Stats.Add(NAME_ShieldBeltCount, new FStat(true));
 	Stats.Add(NAME_ArmorVestCount, new FStat(true));

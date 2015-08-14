@@ -12,6 +12,7 @@ extern const FName NAME_InvisibilityTime;
 extern const FName NAME_UDamageCount;
 extern const FName NAME_BerserkCount;
 extern const FName NAME_InvisibilityCount;
+extern const FName NAME_KegCount;
 extern const FName NAME_BootJumps;
 extern const FName NAME_ShieldBeltCount;
 extern const FName NAME_ArmorVestCount;

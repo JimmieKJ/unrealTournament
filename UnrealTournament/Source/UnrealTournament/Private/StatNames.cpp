@@ -18,6 +18,7 @@ const FName NAME_ShieldBeltCount(TEXT("ShieldBeltCount"));
 const FName NAME_ArmorVestCount(TEXT("ArmorVestCount"));
 const FName NAME_ArmorPadsCount(TEXT("ArmorPadsCount"));
 const FName NAME_HelmetCount(TEXT("HelmetCount"));
+const FName NAME_KegCount(TEXT("KegCount"));
 
 const FName NAME_SkillRating(TEXT("SkillRating"));
 const FName NAME_TDMSkillRating(TEXT("TDMSkillRating"));

@@ -38,6 +38,30 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 	{
 		AUTPickup::GiveTo_Implementation(Target);
 		P->Health = FMath::Max<int32>(P->Health, FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)));
+
+		//Add to the stats pickup count
+		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
+		if (PS != nullptr && StatsNameCount != NAME_None)
+		{
+			PS->ModifyStatsValue(StatsNameCount, 1);
+			if (PS->Team)
+			{
+				PS->Team->ModifyStatsValue(StatsNameCount, 1);
+			}
+
+			AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
+			if (GS != nullptr)
+			{
+				GS->ModifyStatsValue(StatsNameCount, 1);
+			}
+
+			//Send the pickup message to the spectators
+			AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (UTGameMode != nullptr)
+			{
+				UTGameMode->BroadcastSpectatorPickup(PS, StatsNameCount, GetClass());
+			}
+		}
 	}
 }
 

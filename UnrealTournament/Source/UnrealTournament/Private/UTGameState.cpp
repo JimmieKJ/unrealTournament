@@ -42,6 +42,10 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_UDamageTime);
 	GameScoreStats.Add(NAME_BerserkTime);
 	GameScoreStats.Add(NAME_InvisibilityTime);
+	GameScoreStats.Add(NAME_UDamageCount);
+	GameScoreStats.Add(NAME_BerserkCount);
+	GameScoreStats.Add(NAME_InvisibilityCount);
+	GameScoreStats.Add(NAME_KegCount);
 	GameScoreStats.Add(NAME_BootJumps);
 	GameScoreStats.Add(NAME_ShieldBeltCount);
 	GameScoreStats.Add(NAME_ArmorVestCount);
@@ -52,6 +56,10 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	TeamStats.Add(NAME_UDamageTime);
 	TeamStats.Add(NAME_BerserkTime);
 	TeamStats.Add(NAME_InvisibilityTime);
+	TeamStats.Add(NAME_UDamageCount);
+	TeamStats.Add(NAME_BerserkCount);
+	TeamStats.Add(NAME_InvisibilityCount);
+	TeamStats.Add(NAME_KegCount);
 	TeamStats.Add(NAME_BootJumps);
 	TeamStats.Add(NAME_ShieldBeltCount);
 	TeamStats.Add(NAME_ArmorVestCount);

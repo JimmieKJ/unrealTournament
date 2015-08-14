@@ -891,6 +891,27 @@ void UUTScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), PS->GetStatsValue(NAME_ArmorPadsCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), PS->GetStatsValue(NAME_HelmetCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 
+	int32 PickupCount = PS->GetStatsValue(NAME_UDamageCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "UDamagePickups", "UDamage Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	PickupCount = PS->GetStatsValue(NAME_BerserkCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "BerserkPickups", "Berserk Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	PickupCount = PS->GetStatsValue(NAME_InvisibilityCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "InvisibilityPickups", "Invisibility Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	PickupCount = PS->GetStatsValue(NAME_KegCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "KegPickups", "Keg Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+
 	int32 ClockVal = PS->GetStatsValue(NAME_UDamageTime);
 	if (ClockVal > 0)
 	{

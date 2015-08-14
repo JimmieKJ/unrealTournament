@@ -19,6 +19,10 @@ class UNREALTOURNAMENT_API AUTPickupHealth : public AUTPickup
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Pickup)
 	int32 GetHealMax(AUTCharacter* P);
 
+	/**The stat for how many times this was pickup up*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pickup)
+	FName StatsNameCount;
+
 	virtual bool AllowPickupBy_Implementation(APawn* TouchedBy, bool bDefaultAllowPickup) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
 
