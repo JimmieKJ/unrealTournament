@@ -616,7 +616,7 @@ void SUWWeaponConfigDialog::OnCrosshairInfoSelected(TSharedPtr<FCrosshairInfo> N
 	{
 		//Change the crosshair combobox text
 		UClass* SelectedCrosshair = CrosshairMap[SelectedCrosshairInfo->CrosshairClassName];
-		CrosshairText->SetText(SelectedCrosshair->GetDefaultObject<UUTCrosshair>()->CrosshairName);
+		CrosshairComboBox->SetSelectedItem(SelectedCrosshair);
 		
 		//Update the color
 		ColorPicker->UTSetNewTargetColorRGB(SelectedCrosshairInfo->Color);
