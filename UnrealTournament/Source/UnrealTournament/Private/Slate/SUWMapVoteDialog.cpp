@@ -214,7 +214,7 @@ void SUWMapVoteDialog::UpdateTopVotes()
 		bool bClear = true;
 
 		TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo;
-		if (i < GameState->MapVoteList.Num() && (GameState->MapVoteList[i]->VoteCount > 0 || GameState->VoteTimer <= 10))
+		if (i >=0 && i < GameState->MapVoteList.Num() && GameState->MapVoteList[i] && (GameState->MapVoteList[i]->VoteCount > 0 || GameState->VoteTimer <= 10))
 		{
 			MapVoteInfo = GameState->MapVoteList[i];
 		}
