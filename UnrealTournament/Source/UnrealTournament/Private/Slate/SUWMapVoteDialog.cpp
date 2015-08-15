@@ -479,7 +479,7 @@ void SUWMapVoteDialog::LeaderTextureLoadComplete(const FName& InPackageName, UPa
 					{
 						LeadingVoteButtons[i].MapTexture = Tex;
 						LeadingVoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
-						LeadingVoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
+						LeadingVoteButtons[i].MapImage->SetImage(LeadingVoteButtons[i].MapVoteInfo->MapBrush);
 						LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
 					}
 				}
