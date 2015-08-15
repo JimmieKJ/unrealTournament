@@ -545,6 +545,7 @@ void SUWMatchSummary::UpdateChatText()
 			if (Msg->Type != ChatDestinations::MOTD)
 			{
 				FString Style;
+				FString PlayerName = Msg->Sender + TEXT(": ");
 
 				if (Msg->Type == ChatDestinations::Friends)
 				{
@@ -553,6 +554,7 @@ void SUWMatchSummary::UpdateChatText()
 				else if (Msg->Type == ChatDestinations::System || Msg->Type == ChatDestinations::MOTD)
 				{
 					Style = TEXT("UWindows.Chat.Text.Admin");
+					PlayerName.Empty(); //Don't show player name for system messages
 				}
 				else if (Msg->Type == ChatDestinations::Lobby)
 				{
@@ -582,7 +584,7 @@ void SUWMatchSummary::UpdateChatText()
 					Style = TEXT("UWindows.Chat.Text.Global");
 				}
 
-				RichText += FString::Printf(TEXT("<%s>[%s]%s</>"), *Style, *(ChatPanel->GetChatDestinationTag(Msg->Type).ToString()), *Msg->Message);
+				RichText += FString::Printf(TEXT("<%s>%s%s</>"), *Style, *PlayerName, *Msg->Message);
 			}
 			else
 			{
