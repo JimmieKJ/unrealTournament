@@ -37,9 +37,9 @@ static const float BOB_SCALING_FACTOR = 1.f;
 static const float PLAYER_SPACING = 180.0f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
 static const float TEAM_CAMERA_ZOFFSET = 50.0f;
-static const float ALL_CAMERA_OFFSET = 2000.0f;
-static const float ALL_CAMERA_ZOFFSET = 400.0f;
-static const float ALL_CAMERA_ANGLE = -10.0f;
+static const float ALL_CAMERA_OFFSET = 800.0f;
+static const float ALL_CAMERA_ANGLE = -5.0f;
+static const float TEAMANGLE = 8.0f;
 
 #if !UE_SERVER
 
@@ -844,7 +844,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 			//Spawn a flag if its a ctf game TODO: Let the gamemode pick the mesh
 			if (GameState.IsValid() && Cast<AUTCTFGameState>(GameState.Get()) != nullptr)
 			{
-				FVector FlagLocation = FVector(-200.0f, (TeamPlayerStates[iTeam].Num() - 1) * PLAYER_SPACING * 0.5f, 0.0f);
+				FVector FlagLocation = FVector(-120.0f, (TeamPlayerStates[iTeam].Num() - 1) * PLAYER_SPACING * 0.5f, 0.0f);
 
 				USkeletalMesh* const FlagMesh = Cast<USkeletalMesh>(StaticLoadObject(USkeletalMesh::StaticClass(), NULL, TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"), NULL, LOAD_None, NULL));
 				ASkeletalMeshActor* NewFlag = PlayerPreviewWorld->SpawnActor<ASkeletalMeshActor>(ASkeletalMeshActor::StaticClass(), FlagLocation, FRotator(0.0f, 90.0f, 0.0f));
@@ -877,24 +877,12 @@ void SUWMatchSummary::RecreateAllPlayers()
 	}
 	else if (TeamAnchors.Num() == 2)
 	{
-		static const float TeamAngle = 30.0f;
-		//Angle the teams a bit. TODO make this work for any number of teams
-		{
-			float Dist = (TeamPlayerStates[0].Num() - 1) * PLAYER_SPACING * 0.5 + 100.0f;
+		//Angle the teams a bit.
+		float Dist = 220.f + (TeamPlayerStates[0].Num() - 1) * 0.5f * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI/180.f);
+		TeamAnchors[0]->SetActorLocationAndRotation(FVector(0.f, Dist, 0.f), FRotator(0, TEAMANGLE - 90.f, 0.0f));
 
-			FRotator Dir(0.0f, TeamAngle, 0.0f);
-			FVector Location = Dir.Vector() * Dist;
-			Dir.Yaw += -90.0f;
-			TeamAnchors[0]->SetActorLocationAndRotation(Location, Dir);
-		}
-		{
-			float Dist = (TeamPlayerStates[1].Num() - 1) * PLAYER_SPACING * 0.5 + 100.0f;
-			
-			FRotator Dir(0.0f, -TeamAngle, 0.0f);
-			FVector Location = Dir.Vector() * Dist;
-			Dir.Yaw += 90.0f;
-			TeamAnchors[1]->SetActorLocationAndRotation(Location, Dir);
-		}
+		Dist = 220.f + (TeamPlayerStates[1].Num() - 1) * 0.5f * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
+		TeamAnchors[1]->SetActorLocationAndRotation(FVector(0.f, -1.f*Dist, 0.f), FRotator(0.f, 90.f - TEAMANGLE, 0.0f));
 	}
 }
 
@@ -1048,7 +1036,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			UFont* DrawFont;
 		};
 
-		UFont* SmallFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
+		UFont* SmallFont = (ViewMode == EViewMode::VM_Team) ? AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont : AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 		UFont* SelectFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
 		AUTCharacter* SelectedChar = ViewedChar.IsValid() ? ViewedChar.Get() : (HighlightedChar.IsValid() ? HighlightedChar.Get() : NULL);
 
@@ -1322,6 +1310,26 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 		ViewedTeamNum = 0;
 	}
 
+	// hide everyone else, show this team
+	for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
+	{
+		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
+		if (i == ViewedTeamNum)
+		{
+			for (int32 j = 0; j < TeamCharacters.Num(); j++)
+			{
+				TeamCharacters[j]->SetActorHiddenInGame(false);
+			}
+		}
+		else
+		{
+			for (int32 j = 0; j < TeamCharacters.Num(); j++)
+			{
+				TeamCharacters[j]->SetActorHiddenInGame(true);
+			}
+		}
+	}
+
 	//Figure out the start and end camera tranforms for the team pan
 	TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[ViewedTeamNum];
 	if (TeamCharacters.Num() > 0)
@@ -1353,7 +1361,19 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 void SUWMatchSummary::ViewAll()
 {
 	SetViewMode(EViewMode::VM_All);
-	DesiredCameraTransform.SetLocation(FVector(ALL_CAMERA_OFFSET, 0.0f, ALL_CAMERA_ZOFFSET));
+
+	// show everyone
+	for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
+	{
+		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
+		for (int32 j = 0; j < TeamCharacters.Num(); j++)
+		{
+			TeamCharacters[j]->SetActorHiddenInGame(false);
+		}
+	}
+
+	float CameraOffset = ALL_CAMERA_OFFSET + 2.5f * PLAYER_SPACING * FMath::Cos(TEAMANGLE * PI / 180.f);
+	DesiredCameraTransform.SetLocation(FVector(CameraOffset, 0.0f, -1.f * CameraOffset * FMath::Sin(ALL_CAMERA_ANGLE * PI/180.f)));
 	DesiredCameraTransform.SetRotation(FRotator(ALL_CAMERA_ANGLE, 180.0f, 0.0f).Quaternion());
 
 	UUTScoreboard* Scoreboard = GetScoreboard();
