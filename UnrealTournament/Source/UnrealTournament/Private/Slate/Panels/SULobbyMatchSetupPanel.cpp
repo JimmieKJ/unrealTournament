@@ -751,9 +751,9 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 
 const FSlateBrush* SULobbyMatchSetupPanel::GetGameModeBadge() const
 {
-	if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid() && MatchInfo->CurrentRuleset->SlateBadge.IsValid())
+	if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
 	{
-		return MatchInfo->CurrentRuleset->SlateBadge.Get();
+		return MatchInfo->CurrentRuleset->GetSlateBadge();
 	}
 
 	return SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");
