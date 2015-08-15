@@ -2969,11 +2969,13 @@ void UUTLocalPlayer::AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FSt
 }
 void UUTLocalPlayer::CloseJoinInstanceDialog()
 {
+#if !UE_SERVER
 	if (JoinInstanceDialog.IsValid())
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(JoinInstanceDialog.ToSharedRef());
 		JoinInstanceDialog.Reset();
 	}
+#endif
 
 }
 
