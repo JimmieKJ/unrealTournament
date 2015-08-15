@@ -328,9 +328,13 @@ public:
 	void FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruct>& FirstColumn, TArray<FMatchPlayerListStruct>& SecondColumn, FString& Spectators);
 	void GetPlayerData(TArray<FMatchPlayerListStruct>& PlayerData);
 
+	int32 CountFriendsInMatch(const TArray<FUTFriend>& Friends);
+
 protected:
 	UFUNCTION()
 	void OnRep_RedirectsChanged();
+
+
 
 };
 

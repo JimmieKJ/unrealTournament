@@ -472,7 +472,7 @@ void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurre
 				}
 			}
 		}
-
+	
 	}
 
 	// Remove any entries that are pending kill
@@ -484,6 +484,19 @@ void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurre
 			TrackedMatches.RemoveAt(i);
 		}
 	}
+
+	// Update the friends.
+	TArray<FUTFriend> FriendsList;
+	PlayerOwner->GetFriendsList(FriendsList);
+
+	for (int32 i=0; i < TrackedMatches.Num(); i++)
+	{
+		if (TrackedMatches[i]->MatchInfo.IsValid())
+		{
+			TrackedMatches[i]->NumFriends = TrackedMatches[i]->MatchInfo->CountFriendsInMatch(FriendsList);
+		}
+	}
+
 
 	if (bShowingNoMatches && TrackedMatches.Num() > 0)
 	{
@@ -926,13 +939,33 @@ void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 {
 	TrackedMatches.Empty();
 
+	// Update the friends.
+	TArray<FUTFriend> FriendsList;
+	PlayerOwner->GetFriendsList(FriendsList);
+
 	ServerData = inServerData;
 	for (int32 i=0; i < ServerData->HUBInstances.Num(); i++)
 	{
 		TSharedPtr<FServerInstanceData> Instance = ServerData->HUBInstances[i];
 		if (Instance.IsValid())
 		{
-			TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank));
+			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank));
+
+			// Count the # of friends....
+			int32 NumFriends = 0;
+			for (int32 j=0; j < Instance->Players.Num(); j++)
+			{
+				for (int32 k=0; k < FriendsList.Num(); k++)
+				{
+					if (FriendsList[k].UserId == Instance->Players[j].PlayerId)
+					{
+						NumFriends++;
+						break;
+					}
+				}
+			}
+
+			TrackedMatches[Index]->NumFriends = NumFriends;
 		}
 	}
 	MatchList->RequestListRefresh();

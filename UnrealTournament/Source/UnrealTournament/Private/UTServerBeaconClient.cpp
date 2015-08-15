@@ -184,7 +184,7 @@ void AUTServerBeaconClient::ClientReceiveInstancePlayer_Implementation(int32 Ins
 		TSharedPtr<FServerInstanceData> Instance = Instances[InstanceIndex];
 		if (Instance.IsValid())
 		{
-			Instance->Players.Add(FMatchPlayerListStruct(inPlayerInfo.PlayerName, inPlayerInfo.PlayerScore, inPlayerInfo.TeamNum));
+			Instance->Players.Add(FMatchPlayerListStruct(inPlayerInfo.PlayerName, inPlayerInfo.PlayerId, inPlayerInfo.PlayerScore, inPlayerInfo.TeamNum));
 		}
 	}
 	ServerRequestNextInstancePlayer(InstanceIndex, InInstancePlayersCount);

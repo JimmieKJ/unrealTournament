@@ -647,20 +647,25 @@ struct FMatchPlayerListStruct
 	FString PlayerName;
 
 	UPROPERTY()
+	FString PlayerId;
+
+	UPROPERTY()
 	FString PlayerScore;
 
 	UPROPERTY()
 	uint32 TeamNum;
 
 	FMatchPlayerListStruct()
+		: PlayerName(TEXT(""))
+		, PlayerId(TEXT(""))
+		, PlayerScore(TEXT(""))
+		, TeamNum(255)
 	{
-		PlayerName = TEXT("");
-		PlayerScore = TEXT("");
-		TeamNum=255;
 	}
 
-	FMatchPlayerListStruct(const FString& inPlayerName, const FString& inPlayerScore, uint32 inTeamNum)
+	FMatchPlayerListStruct(const FString& inPlayerName, const FString& inPlayerId, const FString& inPlayerScore, uint32 inTeamNum)
 		: PlayerName(inPlayerName)
+		, PlayerId(inPlayerId)
 		, PlayerScore(inPlayerScore)
 		, TeamNum(inTeamNum)
 	{

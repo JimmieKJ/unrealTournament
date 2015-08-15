@@ -908,8 +908,8 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 			{
 				if (Players[i].IsValid())
 				{
-					if (Players[i]->GetTeamNum() == 0) FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),0) );
-					else if (Players[i]->GetTeamNum() == 1) SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),1) );
+					if (Players[i]->GetTeamNum() == 0) FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, Players[i]->UniqueId.ToString(), TEXT("0"),0) );
+					else if (Players[i]->GetTeamNum() == 1) SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, Players[i]->UniqueId.ToString() ,TEXT("0"),1) );
 					else 
 					{
 						Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT(", %s"), *Players[i]->PlayerName);
@@ -920,8 +920,8 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 
 			for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
 			{
-				if (PlayersInMatchInstance[i].TeamNum == 0) FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),0) );
-				else if (PlayersInMatchInstance[i].TeamNum == 1) SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),1) );
+				if (PlayersInMatchInstance[i].TeamNum == 0) FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, PlayersInMatchInstance[i].PlayerID.ToString(), FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),0) );
+				else if (PlayersInMatchInstance[i].TeamNum == 1) SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, PlayersInMatchInstance[i].PlayerID.ToString(), FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),1) );
 				else 
 				{
 					Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT(", %s"), *Players[i]->PlayerName);
@@ -943,11 +943,11 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 					{
 						if (cnt % 2 == 0) 
 						{
-							FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),0));
+							FirstColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, Players[i]->UniqueId.ToString(), TEXT("0"),0));
 						}
 						else
 						{
-							SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, TEXT("0"),0));
+							SecondColumn.Add( FMatchPlayerListStruct(Players[i]->PlayerName, Players[i]->UniqueId.ToString(), TEXT("0"),0));
 						}
 						cnt++;
 					}
@@ -964,11 +964,11 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 				{
 					if (cnt % 2 == 0) 
 					{
-						FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),PlayersInMatchInstance[i].TeamNum));
+						FirstColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, PlayersInMatchInstance[i].PlayerID.ToString(), FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),PlayersInMatchInstance[i].TeamNum));
 					}
 					else
 					{
-						SecondColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),PlayersInMatchInstance[i].TeamNum));
+						SecondColumn.Add( FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, PlayersInMatchInstance[i].PlayerID.ToString(), FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),PlayersInMatchInstance[i].TeamNum));
 					}
 					cnt++;
 				}
@@ -992,7 +992,39 @@ void AUTLobbyMatchInfo::GetPlayerData(TArray<FMatchPlayerListStruct>& PlayerData
 
 	for (int32 i=0; i < Max; i++)
 	{
-		if (i < ColumnA.Num()) PlayerData.Add(FMatchPlayerListStruct(ColumnA[i].PlayerName, ColumnA[i].PlayerScore, ColumnA[i].TeamNum));
-		if (i < ColumnB.Num()) PlayerData.Add(FMatchPlayerListStruct(ColumnB[i].PlayerName, ColumnB[i].PlayerScore, ColumnB[i].TeamNum));
+		if (i < ColumnA.Num()) PlayerData.Add(FMatchPlayerListStruct(ColumnA[i].PlayerName, ColumnA[i].PlayerId, ColumnA[i].PlayerScore, ColumnA[i].TeamNum));
+		if (i < ColumnB.Num()) PlayerData.Add(FMatchPlayerListStruct(ColumnB[i].PlayerName, ColumnB[i].PlayerId, ColumnB[i].PlayerScore, ColumnB[i].TeamNum));
 	}
+}
+
+int32 AUTLobbyMatchInfo::CountFriendsInMatch(const TArray<FUTFriend>& Friends)
+{
+	int32 NumFriends = 0;
+
+	for (int32 i=0; i < Players.Num(); i++)
+	{
+		for (int32 j = 0 ; j < Friends.Num(); j++)
+		{
+			if (Players[i].IsValid() && Players[i]->UniqueId.ToString() == Friends[j].UserId)
+			{
+				NumFriends++;
+				break;
+			}
+		}
+	}
+
+	for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+	{
+		for (int32 j = 0 ; j < Friends.Num(); j++)
+		{
+			if (PlayersInMatchInstance[i].PlayerID.ToString() == Friends[j].UserId)
+			{
+				NumFriends++;
+				break;
+			}
+		}
+	}
+
+	return NumFriends;
+
 }
