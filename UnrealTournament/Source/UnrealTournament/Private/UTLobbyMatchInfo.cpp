@@ -737,12 +737,12 @@ void AUTLobbyMatchInfo::GetMapInformation()
 	if ( CheckLobbyGameState() )
 	{
 		InitialMapInfo = LobbyGameState->GetMapInfo(InitialMap);
+		if (InitialMapInfo.IsValid()) return;
 	}
-	else
-	{
-		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyMatchInfo::GetMapInformation, 0.25);
-	}
+
+	// We need to keep trying this until we get a valid map info.
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyMatchInfo::GetMapInformation, 0.25);
 }
 
 int32 AUTLobbyMatchInfo::NumPlayersInMatch()
