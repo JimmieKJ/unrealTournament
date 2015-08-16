@@ -229,6 +229,13 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 	if (DefaultGameMode)
 	{
 		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *DefaultGameMode->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+
+		//For gamemodes without a default pawn class (menu gamemodes), spawn our default one
+		if (DefaultPawnClass == nullptr)
+		{
+			DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		}
+
 		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
 		if (PlayerPreviewMesh)
 		{
