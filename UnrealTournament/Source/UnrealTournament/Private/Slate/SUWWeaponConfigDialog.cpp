@@ -48,20 +48,18 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 					return Info.WeaponClassName == TestClass->GetPathName();
 				});
 
-				if (FoundPtr == nullptr)
-				{
-					TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
+				TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
+				if (FoundPtr == nullptr || LoadObject<UClass>(NULL, *FoundPtr->CrosshairClassName) == nullptr)
+				{	
 					NewCrosshairInfo->WeaponClassName = TestClass->GetPathName();
 					NewCrosshairInfo->Color = FLinearColor::White;
 					NewCrosshairInfo->Scale = 1.0f;
-					CrosshairInfos.Add(NewCrosshairInfo);
 				}
 				else
 				{
-					TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
 					*NewCrosshairInfo = *FoundPtr;
-					CrosshairInfos.Add(NewCrosshairInfo);
 				}
+				CrosshairInfos.Add(NewCrosshairInfo);
 					
 				//Add weapon to a map for easy weapon class lookup
 				WeaponMap.Add(TestClass->GetPathName(), TestClass);
@@ -73,14 +71,18 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 
 	bCustomWeaponCrosshairs = Hud->bCustomWeaponCrosshairs;
 
-	//Check to see if we have a global crosshair. Add one if it is somehow missing
+	//Add the global crosshair. Make a new one if it is somehow missing
 	{
 		bool bFoundGlobal = false;
-		for (int32 i = 0; i < CrosshairInfos.Num(); i++)
+		for (int32 i = 0; i < Hud->CrosshairInfos.Num(); i++)
 		{
-			if (CrosshairInfos[i]->WeaponClassName == TEXT("Global"))
+			if (Hud->CrosshairInfos[i].WeaponClassName == TEXT("Global"))
 			{
+				TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
+				*NewCrosshairInfo = Hud->CrosshairInfos[i];
+				CrosshairInfos.Add(NewCrosshairInfo);
 				bFoundGlobal = true;
+				break;
 			}
 		}
 		if (!bFoundGlobal)
@@ -641,29 +643,14 @@ void SUWWeaponConfigDialog::SetCustomWeaponCrosshairs(ECheckBoxState NewState)
 	bCustomWeaponCrosshairs = NewState == ECheckBoxState::Checked;
 	CrosshairInfosList->SetEnabled(bCustomWeaponCrosshairs);
 
-	if (bCustomWeaponCrosshairs)
+	for (int32 i = 0; i < CrosshairInfos.Num(); i++)
 	{
-		for (int32 i = 0; i < CrosshairInfos.Num(); i++)
+		//Select the first weapon crosshair we find or the global one if not using custom crosshairs
+		if ((bCustomWeaponCrosshairs && CrosshairInfos[i]->WeaponClassName != TEXT("Global")) ||
+			(!bCustomWeaponCrosshairs && CrosshairInfos[i]->WeaponClassName == TEXT("Global")))
 		{
-			//Select the first weapon crosshair we find
-			if (CrosshairInfos[i]->WeaponClassName != TEXT("Global"))
-			{
-				CrosshairInfosList->SetSelection(CrosshairInfos[i], ESelectInfo::Direct);
-				break;
-			}
-		}
-	}
-	else
-	{
-		CrosshairInfosList->ClearSelection();
-
-		//Make sure we select the global since ClearSelection() with no selection wont call OnCrosshairInfoSelected()
-		for (int32 i = 0; i < CrosshairInfos.Num(); i++)
-		{
-			if (CrosshairInfos[i]->WeaponClassName == TEXT("Global"))
-			{
-				SelectedCrosshairInfo = CrosshairInfos[i];
-			}
+			CrosshairInfosList->SetSelection(CrosshairInfos[i], ESelectInfo::Direct);
+			break;
 		}
 	}
 }
@@ -880,15 +867,20 @@ TSharedRef<ITableRow> SUWWeaponConfigDialog::GenerateCrosshairListRow(TSharedPtr
 		if (WeaponMap.Contains(CrosshairInfo->WeaponClassName))
 		{
 			UClass* WeaponType = WeaponMap[CrosshairInfo->WeaponClassName];
-			checkSlow(WeaponType->IsChildOf(AUTWeapon::StaticClass()));
 
-			return SNew(STableRow<TSharedPtr<FCrosshairInfo>>, OwningList)
-				.Padding(5)
-				[
-					SNew(STextBlock)
-					.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName)
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				];
+			// Sanity check for UT-1101 just in case
+			if (WeaponType != nullptr && WeaponType->IsValidLowLevel())
+			{
+				checkSlow(WeaponType->IsChildOf(AUTWeapon::StaticClass()));
+
+				return SNew(STableRow<TSharedPtr<FCrosshairInfo>>, OwningList)
+					.Padding(5)
+					[
+						SNew(STextBlock)
+						.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					];
+			}
 		}
 	}
 	return SNew(STableRow<TSharedPtr<FCrosshairInfo>>, OwningList).Padding(0).Visibility(EVisibility::Hidden);
