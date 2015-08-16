@@ -1188,16 +1188,6 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		// If a server exists in either of the lists but not in the PingList, then let's kill it.
 		ExpireDeadServers();
 
-		if (OnlineSubsystem)
-		{
-			IOnlineFriendsPtr FriendsInterface = OnlineSubsystem->GetFriendsInterface();
-			if (FriendsInterface.IsValid())
-			{
-				// Grab a list of my online friends.
-				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateSP(this, &SUWServerBrowser::OnReadFriendsListComplete));
-			}
-		}
-
 		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
 		{
 			UE_LOG(UT,Log,TEXT("Received a list of %i Internet Servers....."), PingList.Num());
@@ -1262,16 +1252,6 @@ void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 				UE_LOG(UT,Log,TEXT("Received Server %i - %s %s  : Players %i/%i"), i, *PingList[i]->Name, *PingList[i]->IP, PingList[i]->NumPlayers, PingList[i]->MaxPlayers);
 			}
 			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
-		}
-
-		if (OnlineSubsystem)
-		{
-			IOnlineFriendsPtr FriendsInterface = OnlineSubsystem->GetFriendsInterface();
-			if (FriendsInterface.IsValid())
-			{
-				// Grab a list of my online friends.
-				FriendsInterface->ReadFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FOnReadFriendsListComplete::CreateSP(this, &SUWServerBrowser::OnReadFriendsListComplete));
-			}
 		}
 
 		AddGameFilters();
@@ -1346,80 +1326,6 @@ void SUWServerBrowser::ExpireDeadServers()
 	} 
 }
 
-void SUWServerBrowser::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
-{
-	if (bWasSuccessful)
-	{
-		bool bRequiresUpdate = false;
-		if (OnlineSubsystem)
-		{
-			IOnlineFriendsPtr FriendsInterface = OnlineSubsystem->GetFriendsInterface();
-			if (FriendsInterface.IsValid())
-			{
-				TArray< TSharedRef<FOnlineFriend> > FriendsCache;
-				FriendsInterface->GetFriendsList(0, EFriendsLists::ToString(EFriendsLists::InGamePlayers), FriendsCache);
-
-				for (int32 PlayerIndex=0; PlayerIndex < FriendsCache.Num(); PlayerIndex++)
-				{
-					const FOnlineFriend& Friend = *FriendsCache[PlayerIndex];
-					const FOnlineUserPresence& FriendPresence = Friend.GetPresence();
-
-					if (FriendPresence.bIsOnline)
-					{
-						FString SessionIdAsString = TEXT("");
-						
-						// Look to see if we have a HUB id.  If we do, use that otherwise use the actual session Id if there is one
-
-						const FVariantData* HUBSessionId = FriendPresence.Status.Properties.Find(HUBSessionIdKey);
-						if (HUBSessionId != nullptr && HUBSessionId->GetType() == EOnlineKeyValuePairDataType::String)
-						{
-							HUBSessionId->GetValue(SessionIdAsString);
-						}
-
-						// If we didn't have a HUB Id, then grab the player's current session Id if they have one.
-						if (SessionIdAsString == TEXT("") && FriendPresence.SessionId.IsValid())
-						{
-							SessionIdAsString = FriendPresence.SessionId->ToString();
-						}
-
-						// Itterate over all servers and update their friend counts
-
-						for (int32 ServerIndex = 0; ServerIndex < AllInternetServers.Num(); ServerIndex++)
-						{
-							if (AllInternetServers[ServerIndex].IsValid() && AllInternetServers[ServerIndex]->SearchResult.IsValid() && AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo.IsValid() &&
-									AllInternetServers[ServerIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
-							{
-								AllInternetServers[ServerIndex]->NumFriends++;
-								bRequiresUpdate = true;
-								break;
-							}
-						}
-
-						for (int32 HUBIndex = 0; HUBIndex < AllHubServers.Num(); HUBIndex++)
-						{
-							// NOTE: We have to check the search result here because of the fake HUB.  
-							if (AllHubServers[HUBIndex]->SearchResult.IsValid() && AllHubServers[HUBIndex]->SearchResult.IsValid() && AllHubServers[HUBIndex]->SearchResult.Session.SessionInfo.IsValid() &&
-									AllHubServers[HUBIndex]->SearchResult.Session.SessionInfo->GetSessionId().ToString() == SessionIdAsString)
-							{
-								AllHubServers[HUBIndex]->NumFriends++;
-								bRequiresUpdate = true;
-								break;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		if (bRequiresUpdate)
-		{
-			InternetServerList->RequestListRefresh();
-			HUBServerList->RequestListRefresh();
-		}
-
-	}
-}
-
 
 void SUWServerBrowser::CleanupQoS()
 {
@@ -1480,6 +1386,7 @@ void SUWServerBrowser::PingServer(TSharedPtr<FServerData> ServerToPing)
 
 void SUWServerBrowser::AddServer(TSharedPtr<FServerData> Server)
 {
+	Server->UpdateFriends(PlayerOwner);
 	for (int32 i=0; i < AllInternetServers.Num() ; i++)
 	{
 		if (AllInternetServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Server->SearchResult.Session.SessionInfo->GetSessionId())
@@ -1502,6 +1409,8 @@ void SUWServerBrowser::AddServer(TSharedPtr<FServerData> Server)
 void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 {
 	bool bIsBeginner = GetPlayerOwner()->IsConsideredABeginnner();
+
+	Hub->UpdateFriends(PlayerOwner);
 
 	int32 ServerIsTrainingGround;
 	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, ServerIsTrainingGround);

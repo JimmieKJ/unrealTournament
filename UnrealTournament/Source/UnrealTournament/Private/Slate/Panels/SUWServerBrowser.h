@@ -384,6 +384,50 @@ public:
 		return FText::Format(NSLOCTEXT("HUBBrowser", "NumFriendsFormat", "{0} Friends"), FText::AsNumber(NumFriends));
 	}
 
+	void UpdateFriends(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
+	{
+		NumFriends = 0;
+		if (PlayerOwner.IsValid())
+		{
+			TArray<FUTFriend> FriendsList;
+			PlayerOwner->GetFriendsList(FriendsList);
+			{
+				for (int32 i = 0; i < Players.Num(); i++)
+				{
+					for (int32 j = 0; j < FriendsList.Num(); j++)
+					{
+						if (Players[i]->Id == FriendsList[j].UserId)
+						{
+							NumFriends++;
+							FriendsList.RemoveAt(j,1);
+							break;
+						}
+					}
+				}
+
+				for (int32 i = 0; i < HUBInstances.Num(); i++)
+				{
+					if (HUBInstances[i].IsValid())
+					{
+						TSharedPtr<FServerInstanceData> Instance = HUBInstances[i];
+						for (int32 j=0; j < Instance->Players.Num(); j++)
+						{
+							for (int32 k=0; k < FriendsList.Num(); k++)
+							{
+								if (Instance->Players[j].PlayerId == FriendsList[k].UserId)
+								{
+									NumFriends++;
+									FriendsList.RemoveAt(k,1);
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 };
 
 
@@ -745,9 +789,6 @@ private:
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
 	float GetReverseScale() const;
-	
-	void OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr);
-
 	virtual FText GetStatusText() const;
 
 protected:
