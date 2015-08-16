@@ -10,6 +10,8 @@
 #include "UTEpicDefaultRulesets.h"
 #include "UTLobbyGameState.h"
 #include "UTReplicatedMapInfo.h"
+#include "./Panels/SUPlayerListPanel.h"
+#include "./Panels/SUTextChatPanel.h"
 
 #if !UE_SERVER
 
@@ -23,22 +25,143 @@ void SUWMapVoteDialog::Construct(const FArguments& InArgs)
 							.DialogSize(InArgs._DialogSize)
 							.bDialogSizeIsRelative(InArgs._bDialogSizeIsRelative)
 							.DialogPosition(InArgs._DialogPosition)
+							.IsScrollable(false)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
 							.ContentPadding(InArgs._ContentPadding)
 							.ButtonMask(InArgs._ButtonMask)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
 
+	TSharedPtr<SVerticalBox> LeftPanel;
+	TSharedPtr<SVerticalBox> RightPanel;
+
 	if (DialogContent.IsValid())
 	{
 		DialogContent->AddSlot()
+		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Fill)
+		.Padding(10.0,10.0,10.0,10.0)
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().FillHeight(1.0).HAlign(HAlign_Center)
+			SNew(SOverlay)
+			+SOverlay::Slot()
 			[
-				SAssignNew(MapBox,SScrollBox)
+				SNew(SImage)
+				.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+			
+			]
+			+SOverlay::Slot()
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(15.0,15.0,15.0,15.0)
+					[
+						SNew(SBox).WidthOverride(1730).HeightOverride(820)
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(0.0,0.0,6.0,0.0)
+							[
+								SNew(SBox).WidthOverride(820)
+								[
+									SAssignNew(LeftPanel,SVerticalBox)
+								]
+							]
+							+SHorizontalBox::Slot()
+							.Padding(6.0,0.0,10.0,0.0)
+							.AutoWidth()
+							[
+								SNew(SBox).WidthOverride(900)
+								[
+									SAssignNew(RightPanel,SVerticalBox)
+								]
+							]
+						]
+					]		
+				]
 			]
 		];
+
+		LeftPanel->AddSlot().FillHeight(1.0).HAlign(HAlign_Center)
+		[
+			SAssignNew(MapBox,SScrollBox)
+		];
+
+
+		if (!PlayerListPanel.IsValid())
+		{
+			SAssignNew(PlayerListPanel, SUPlayerListPanel)
+				.PlayerOwner(GetPlayerOwner());
+				//.OnPlayerClicked(FPlayerClicked::CreateSP(this, &SULobbyInfoPanel::PlayerClicked));
+		}
+
+		if (!TextChatPanel.IsValid())
+		{
+			SAssignNew(TextChatPanel, SUTextChatPanel)
+				.PlayerOwner(GetPlayerOwner());
+				//.OnChatDestinationChanged(FChatDestinationChangedDelegate::CreateSP(this, &SULobbyInfoPanel::ChatDestionationChanged));
+
+			if (TextChatPanel.IsValid())
+			{
+				TextChatPanel->AddDestination(NSLOCTEXT("LobbyChatDestinations","Game","Game"), ChatDestinations::Local,0.0,true);
+				TextChatPanel->RouteBufferedChat();
+				
+				if (GameState->bTeamGame)
+				{
+					TextChatPanel->AddDestination(NSLOCTEXT("LobbyChatDestinations","Team","Team"), ChatDestinations::Team, 4.0, false);
+				}
+			}
+		}
+
+		// Make sure the two panels are connected.
+		if (PlayerListPanel.IsValid() && TextChatPanel.IsValid())
+		{
+			PlayerListPanel->ConnectedChatPanel = TextChatPanel;
+			TextChatPanel->ConnectedPlayerListPanel = PlayerListPanel;
+		}
+
+
+		RightPanel->AddSlot()
+		.FillHeight(1.0)
+		.HAlign(HAlign_Left)
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.FillHeight(1.0)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox).WidthOverride(900)
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.FillWidth(1.0)
+						[
+							TextChatPanel.ToSharedRef()
+						]
+
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							SNew(SBox).WidthOverride(208)
+							[
+								PlayerListPanel.ToSharedRef()
+							]
+						]
+					]
+				]
+			]
+		];
+
+
 	}
 	BuildMapList();
 }
@@ -104,7 +227,7 @@ void SUWMapVoteDialog::BuildMapList()
 void SUWMapVoteDialog::BuildTopVotes()
 {
 	// Figure out the # of columns needed.
-	int32 NoColumns = FMath::Min<int32>(GameState->MapVoteList.Num(), 6);
+	int32 NoColumns = FMath::Min<int32>(GameState->MapVoteList.Num(), MAP_COLUMNS);
 
 	LeadingVoteButtons.Empty();
 	TopPanel->ClearChildren();
@@ -275,7 +398,7 @@ void SUWMapVoteDialog::UpdateTopVotes()
 void SUWMapVoteDialog::BuildAllVotes()
 {
 	// Figure out the # of columns needed.
-	int32 NoColumns = FMath::Min<int32>(GameState->MapVoteList.Num(), 6);
+	int32 NoColumns = FMath::Min<int32>(GameState->MapVoteList.Num(), MAP_COLUMNS);
 
 	VoteButtons.Empty();
 	MapPanel->ClearChildren();

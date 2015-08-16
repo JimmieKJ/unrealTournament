@@ -16,6 +16,11 @@
 
 #if !UE_SERVER
 
+class SUPlayerListPanel;
+class SUTextChatPanel;
+
+const int32 MAP_COLUMNS = 3;
+
 class UNREALTOURNAMENT_API SUWMapVoteDialog : public SUWDialog, public FGCObject
 {
 	SLATE_BEGIN_ARGS(SUWMapVoteDialog)
@@ -45,6 +50,9 @@ class UNREALTOURNAMENT_API SUWMapVoteDialog : public SUWDialog, public FGCObject
 	TWeakObjectPtr<class AUTGameState> GameState;
 
 protected:
+
+	TSharedPtr<SUPlayerListPanel> PlayerListPanel;
+	TSharedPtr<SUTextChatPanel> TextChatPanel;
 
 	FSlateDynamicImageBrush* DefaultLevelScreenshot;
 

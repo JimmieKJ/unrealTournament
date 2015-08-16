@@ -2432,8 +2432,18 @@ void UUTLocalPlayer::CloseLoadout()
 void UUTLocalPlayer::OpenMapVote(AUTGameState* GameState)
 {
 #if !UE_SERVER
-	SAssignNew(MapVoteMenu,SUWMapVoteDialog).PlayerOwner(this).GameState(GameState);
-	OpenDialog( MapVoteMenu.ToSharedRef(), 200 );
+	if (!MapVoteMenu.IsValid())
+	{
+
+		if (GameState == NULL)
+		{
+			GameState = GetWorld()->GetGameState<AUTGameState>();
+			if (GameState == NULL) return;
+		}
+
+		SAssignNew(MapVoteMenu,SUWMapVoteDialog).PlayerOwner(this).GameState(GameState);
+		OpenDialog( MapVoteMenu.ToSharedRef(), 200 );
+	}
 #endif
 }
 void UUTLocalPlayer::CloseMapVote()

@@ -74,6 +74,8 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					]
 				]
 			];
+
+			PlayerOwner->OpenMapVote(NULL);
 		}
 
 
