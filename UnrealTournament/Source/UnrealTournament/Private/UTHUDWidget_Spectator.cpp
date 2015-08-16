@@ -36,7 +36,8 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	{
 		return;
 	}
-	float BackgroundWidth = 1920.f;
+	float ScreenWidth = (Canvas->ClipX / RenderScale);
+	float BackgroundWidth = ScreenWidth;
 	float TextPosition = 360.f;
 	float MessageOffset = 0.f;
 	float YOffset = 0.f;
@@ -45,12 +46,13 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		float YL = 0.0f;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
 		BackgroundWidth += 64.f;
-		MessageOffset = UTGameState->HasMatchEnded() ? 960.f - 0.5f*BackgroundWidth : 1920.f - BackgroundWidth;
+		MessageOffset = UTGameState->HasMatchEnded() ? (ScreenWidth * 0.5f) - 0.5f*BackgroundWidth : ScreenWidth - BackgroundWidth;
 		TextPosition = 32.f + MessageOffset;
 		YOffset = -32.f;
 	}
 
 	// Draw the Background
+	bMaintainAspectRatio = false;
 	DrawTexture(TextureAtlas, MessageOffset, YOffset, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
@@ -58,6 +60,8 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	}
 	else
 	{
+		bMaintainAspectRatio = true;
+
 		// Draw the Logo
 		DrawTexture(TextureAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
