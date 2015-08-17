@@ -242,7 +242,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	HideTarget.Clear();
 	StartHideTime = 0.0f;
 	// return to base
-	bool bOnFriendlySide = (B->GetPawn()->GetActorLocation() - EnemyBase->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size();
+	bool bOnFriendlySide = (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - EnemyBase->GetActorLocation()).Size();
 	if (bOnFriendlySide && FriendlyBase != NULL && FriendlyBase->GetCarriedObjectState() == CarriedObjectState::Home)
 	{
 		B->SendVoiceMessage(StatusMessage::DefendFlag);
