@@ -2438,7 +2438,7 @@ void AUTGameMode::HandleMatchInOvertime()
 void AUTGameMode::HandlePlayerIntro()
 {
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 10.0f, false);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.0f, false);
 }
 
 void AUTGameMode::EndPlayerIntro()
