@@ -161,6 +161,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,210.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
@@ -213,6 +214,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,210.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
@@ -282,6 +284,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,230.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
@@ -325,6 +328,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,230.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
@@ -392,6 +396,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,155.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
@@ -437,6 +442,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,155.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
@@ -487,6 +493,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,155.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
@@ -536,6 +543,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,155.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))

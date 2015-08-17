@@ -122,23 +122,10 @@ public:
 					.Padding(5.0,7.0,5.0,0.0)
 					.AutoWidth()
 					[
-						SNew(SBox).WidthOverride(70)
-						[
-							SNew(STextBlock)
-							.Text(UUTGameEngine::ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ChatMessage->Timestamp, true, true))
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
-						]
-					]
-/*
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0,7.0,10.0,0.0)
-					[
 						SNew(STextBlock)
-						.Text()
+						.Text(UUTGameEngine::ConvertTime(FText::GetEmpty(), FText::GetEmpty(), ChatMessage->Timestamp, false, true))
 						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
 					]
-*/
 					+SHorizontalBox::Slot()
 					.Padding(5.0)
 					[
@@ -150,8 +137,8 @@ public:
 							.BorderImage(SUTStyle::Get().GetBrush( (ChatMessage->bMyChat ? "UT.HeaderBackground.Shaded" : "UT.NoStyle")))
 							[
 								SNew(SRichTextBlock)
-								.Text(FText::Format(NSLOCTEXT("SUTextChatPanel","TextFormat","<UT.Font.NormalText.Small.Italic>{0}</>:   {1}"), FText::FromString(ChatMessage->Sender), FText::FromString(ChatMessage->Message)))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								.Text(FText::Format(NSLOCTEXT("SUTextChatPanel","TextFormat","<UT.Font.ChatText.Name>{0}</>:   {1}"), FText::FromString(ChatMessage->Sender), FText::FromString(ChatMessage->Message)))
+								.TextStyle(SUTStyle::Get(), "UT.Font.ChatText.Text")
 								.DecoratorStyleSet(&SUTStyle::Get())
 								.AutoWrapText(true)
 							]

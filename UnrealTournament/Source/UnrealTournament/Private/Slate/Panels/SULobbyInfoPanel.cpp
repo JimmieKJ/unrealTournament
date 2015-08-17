@@ -60,9 +60,9 @@ void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
 				.AutoWidth()
-				.Padding(64.0,15.0,0.0,0.0)
+				.Padding(15.0,15.0,0.0,0.0)
 				[
-					SNew(SBox).WidthOverride(1792).HeightOverride(980)
+					SNew(SBox).WidthOverride(1888).HeightOverride(980)
 					[
 						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
@@ -78,7 +78,7 @@ void SULobbyInfoPanel::ConstructPanel(FVector2D ViewportSize)
 						.Padding(6.0,0.0,0.0,0.0)
 						.AutoWidth()
 						[
-							SNew(SBox).WidthOverride(826)
+							SNew(SBox).WidthOverride(922)
 							[
 								SAssignNew(RightPanel,SVerticalBox)
 							]
@@ -204,7 +204,7 @@ void SULobbyInfoPanel::BuildChatAndPlayerList()
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SBox).WidthOverride(826)
+				SNew(SBox).WidthOverride(922)
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
