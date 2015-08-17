@@ -328,14 +328,6 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	{
 		if (!GameState->HasMatchStarted())
 		{
-			//Play the intro music
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-			USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/FragCenterIntro.FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
-			if (UTPC != nullptr && Music != nullptr)
-			{
-				UTPC->ClientPlaySound(Music);
-			}
-
 			CameraState = CS_CamIntro;
 			ViewAll();
 			ViewedTeamNum = -1;
@@ -665,8 +657,16 @@ void SUWMatchSummary::UpdateIntroCam()
 	{
 		IntroTime = 0.f;
 	}
-	if (ViewedTeamNum < 0 && IntroTime > 0.9f)
+	if (ViewedTeamNum < 0 && IntroTime > 0.6f)
 	{
+		//Play the intro music
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+		USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/FragCenterIntro.FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
+		if (UTPC != nullptr && Music != nullptr)
+		{
+			UTPC->ClientPlaySound(Music);
+		}
+
 		ViewTeam(0);
 		IntroTime = 0.0f;
 	}

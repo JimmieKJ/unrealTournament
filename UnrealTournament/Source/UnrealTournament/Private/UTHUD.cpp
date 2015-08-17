@@ -354,13 +354,13 @@ void AUTHUD::NotifyMatchStateChange()
 	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending() && (GS->GetMatchState() != MatchState::CountdownToBegin)
-		&& (GS->GetMatchState() != MatchState::PlayerIntro))
+		) //&& (GS->GetMatchState() != MatchState::PlayerIntro))
 	{
 		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 3.0f, false);
 		}
-		else if (GS->GetMatchState() == MatchState::WaitingToStart)
+		else if (GS->GetMatchState() == MatchState::PlayerIntro) //MatchState::WaitingToStart)
 		{
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
 		}
