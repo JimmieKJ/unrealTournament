@@ -374,6 +374,7 @@ void AUTTeamGameMode::DefaultTimer()
 					if (B != NULL && B->GetPawn() == NULL)
 					{
 						ChangeTeam(B, SortedTeams[i]->GetTeamNum(), true);
+						break;
 					}
 				}
 			}
