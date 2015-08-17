@@ -1546,6 +1546,11 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 void AUTGameMode::AwardXP()
 {
+#if !UE_BUILD_SHIPPING
+	if (!FEngineBuildSettings::IsInternalBuild())
+	{
+		return;
+	}
 	// TODO: ideally we wouldn't execute this if the server isn't approved for XP, but servers can't easily get their own status...
 	// client does a redundant check anyway so not a huge deal
 	for (APlayerState* PS : GameState->PlayerArray)
@@ -1571,6 +1576,7 @@ void AUTGameMode::AwardXP()
 			}
 		}
 	}
+#endif
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )

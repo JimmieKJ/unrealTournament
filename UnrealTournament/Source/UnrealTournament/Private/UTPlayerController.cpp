@@ -2066,6 +2066,11 @@ void AUTPlayerController::ShowEndGameScoreboard()
 
 void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 {
+#if !UE_BUILD_SHIPPING
+	if (!FEngineBuildSettings::IsInternalBuild())
+	{
+		return;
+	}
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL && (LP->IsOnTrustedServer() || LP->GetProfileSettings() != NULL))
 	{
@@ -2100,6 +2105,7 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 
 		LP->SaveProfileSettings();
 	}
+#endif
 }
 
 void AUTPlayerController::ShowMenu()
