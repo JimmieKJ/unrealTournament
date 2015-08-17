@@ -2036,7 +2036,7 @@ void AUTCharacter::FiringInfoUpdated()
 	}
 
 	AUTPlayerController* UTPC = GetLocalViewer();
-	if (Weapon != NULL && (bLocalFlashLoc || UTPC == NULL || UTPC->GetPredictionTime() == 0.f) && Weapon != NULL && Weapon->ShouldPlay1PVisuals())
+	if ((bLocalFlashLoc || UTPC == NULL || UTPC->GetPredictionTime() == 0.f || !IsLocallyControlled()) && Weapon != NULL && Weapon->ShouldPlay1PVisuals())
 	{
 		if (!FlashLocation.IsZero())
 		{
