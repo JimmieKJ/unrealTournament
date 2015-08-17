@@ -93,6 +93,9 @@ protected:
 	virtual void ViewCharacter(AUTCharacter* NewChar);
 	virtual void ViewTeam(int32 NewTeam);
 	virtual void ViewAll();
+
+	// Camera offset when viewing all players
+	virtual float GetAllCameraOffset();
 	
 	EViewMode ViewMode;
 	FVector2D MousePos;

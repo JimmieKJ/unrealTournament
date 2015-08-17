@@ -32,9 +32,10 @@
 #include "AssetData.h"
 
 static const float PLAYER_SPACING = 180.0f;
+static const float MIN_TEAM_SPACING = 120.f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
 static const float TEAM_CAMERA_ZOFFSET = 50.0f;
-static const float ALL_CAMERA_OFFSET = 620.0f;
+static const float ALL_CAMERA_OFFSET = 400.0f;
 static const float ALL_CAMERA_ANGLE = -5.0f;
 static const float TEAMANGLE = 12.0f;
 
@@ -625,6 +626,12 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	if (!bPlayersAreValid)
 	{
 		RecreateAllPlayers();
+		if (ViewMode == EViewMode::VM_All)
+		{
+			float CameraOffset = GetAllCameraOffset();
+			DesiredCameraTransform.SetLocation(FVector(CameraOffset, 0.0f, -1.f * CameraOffset * FMath::Sin(ALL_CAMERA_ANGLE * PI / 180.f)));
+			CameraTransform = DesiredCameraTransform;
+		}
 	}
 	if (PlayerPreviewWorld != nullptr)
 	{
@@ -701,11 +708,8 @@ void SUWMatchSummary::UpdateIntroCam()
 	}
 	else if (ViewedTeamNum >= 0)
 	{
-		int32 NumViewTeams = GameState->Teams.Num();
-		if (NumViewTeams == 0)
-		{
-			NumViewTeams = 1;
-		}
+		int32 NumViewTeams = FMath::Max(GameState->Teams.Num(), 1);
+
 		//6 seconds for the team camera pan works well with the current song
 		float TimePerTeam = 6.0f / NumViewTeams;
 		TeamCamAlpha = IntroTime / TimePerTeam;
@@ -884,10 +888,10 @@ void SUWMatchSummary::RecreateAllPlayers()
 	{
 		//Angle the teams a bit.
 		float YDistPerPlayer = 0.5f * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
-		float Dist = 120.f + (TeamPlayerStates[0].Num() - 1) * YDistPerPlayer;
+		float Dist = MIN_TEAM_SPACING + (TeamPlayerStates[0].Num() - 1) * YDistPerPlayer;
 		TeamAnchors[0]->SetActorLocationAndRotation(FVector(0.f, Dist, 0.f), FRotator(0, TEAMANGLE - 90.f, 0.0f));
 
-		Dist = 120.f + (TeamPlayerStates[1].Num() - 1) * YDistPerPlayer;
+		Dist = MIN_TEAM_SPACING + (TeamPlayerStates[1].Num() - 1) * YDistPerPlayer;
 		TeamAnchors[1]->SetActorLocationAndRotation(FVector(0.f, -1.f*Dist, 0.f), FRotator(0.f, 90.f - TEAMANGLE, 0.0f));
 
 		if (GameState.IsValid() && Cast<AUTCTFGameState>(GameState.Get()) != nullptr)
@@ -895,7 +899,8 @@ void SUWMatchSummary::RecreateAllPlayers()
 			for (int32 iTeam = 0; iTeam < 2; iTeam++)
 			{
 				//Spawn a flag if its a ctf game TODO: Let the gamemode pick the mesh
-				FVector FlagLocation = TeamAnchors[iTeam]->GetActorLocation() - 100.f * TeamAnchors[iTeam]->GetActorRotation().Vector();
+				FVector FlagLocation = TeamAnchors[iTeam]->GetActorLocation() - 120.f * TeamAnchors[iTeam]->GetActorRotation().Vector();
+				FlagLocation.Z = -20.f;
 				FRotator FlagRotation = (iTeam == 0) ? FRotator(0.0f, 90.0f, 0.0f) : FRotator(0.0f, -90.0f, 0.0f);
 				USkeletalMesh* const FlagMesh = Cast<USkeletalMesh>(StaticLoadObject(USkeletalMesh::StaticClass(), NULL, TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"), NULL, LOAD_None, NULL));
 				ASkeletalMeshActor* NewFlag = PlayerPreviewWorld->SpawnActor<ASkeletalMeshActor>(ASkeletalMeshActor::StaticClass(), FlagLocation, FlagRotation);
@@ -1395,6 +1400,24 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 	BuildInfoPanel();
 }
 
+float SUWMatchSummary::GetAllCameraOffset()
+{
+	int32 MaxSize = 1;
+	for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
+	{
+		MaxSize = FMath::Max(MaxSize, TeamPreviewMeshs[iTeam].Num());
+	}
+	MaxSize += 1.f;
+	if (TeamPreviewMeshs.Num() < 2)
+	{
+		// players are across rather than angled  @FIXMESTEVE use actual FOV if can change in this view
+		return ALL_CAMERA_OFFSET + (MaxSize * PLAYER_SPACING) / FMath::Tan(45.f * PI / 180.f);
+	}
+	float BaseCameraOffset = ALL_CAMERA_OFFSET + 0.5f * MaxSize * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
+	float Width = 2.f*MIN_TEAM_SPACING + 0.5f * MaxSize * PLAYER_SPACING * FMath::Cos(TEAMANGLE * PI / 180.f);
+	return BaseCameraOffset + Width / FMath::Tan(45.f * PI / 180.f);
+}
+
 void SUWMatchSummary::ViewAll()
 {
 	SetViewMode(EViewMode::VM_All);
@@ -1413,7 +1436,7 @@ void SUWMatchSummary::ViewAll()
 		Weapon->SetActorHiddenInGame(false);
 	}
 
-	float CameraOffset = ALL_CAMERA_OFFSET + 2.5f * PLAYER_SPACING * FMath::Cos(TEAMANGLE * PI / 180.f);
+	float CameraOffset = GetAllCameraOffset();
 	DesiredCameraTransform.SetLocation(FVector(CameraOffset, 0.0f, -1.f * CameraOffset * FMath::Sin(ALL_CAMERA_ANGLE * PI/180.f)));
 	DesiredCameraTransform.SetRotation(FRotator(ALL_CAMERA_ANGLE, 180.0f, 0.0f).Quaternion());
 
