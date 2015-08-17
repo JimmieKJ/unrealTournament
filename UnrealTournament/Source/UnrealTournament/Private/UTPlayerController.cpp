@@ -1848,17 +1848,11 @@ bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
 	return true;
 }
 
-void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
+void AUTPlayerController::SwitchTeam()
 {
-	if (UTPlayerState != nullptr)
+	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 	{
-		UTPlayerState->bChosePrimaryRespawnChoice = false;
-		UTPlayerState->ForceNetUpdate();
-	}
-
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
-	{
-		if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
+		if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 		{
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
@@ -1872,8 +1866,26 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 					UTPlayerState->bReadyToPlay = false;
 				}
 			}
-			UTPlayerState->ForceNetUpdate();
 		}
+		else
+		{
+			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+		}
+		UTPlayerState->ForceNetUpdate();
+	}
+}
+
+void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
+{
+	if (UTPlayerState != nullptr)
+	{
+		UTPlayerState->bChosePrimaryRespawnChoice = false;
+		UTPlayerState->ForceNetUpdate();
+	}
+
+	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
+	{
+		SwitchTeam();
 	}
 	else 
 	{
@@ -2683,14 +2695,6 @@ void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, u
 void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
 	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
-}
-
-void AUTPlayerController::SwitchTeam()
-{
-	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
-	{
-		ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
-	}
 }
 
 void AUTPlayerController::ChangeTeam(uint8 NewTeamIndex)
