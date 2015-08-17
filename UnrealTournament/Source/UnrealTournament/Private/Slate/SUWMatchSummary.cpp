@@ -31,15 +31,12 @@
 
 #include "AssetData.h"
 
-// scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
-static const float BOB_SCALING_FACTOR = 1.f;
-
 static const float PLAYER_SPACING = 180.0f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
 static const float TEAM_CAMERA_ZOFFSET = 50.0f;
-static const float ALL_CAMERA_OFFSET = 800.0f;
+static const float ALL_CAMERA_OFFSET = 620.0f;
 static const float ALL_CAMERA_ANGLE = -5.0f;
-static const float TEAMANGLE = 8.0f;
+static const float TEAMANGLE = 12.0f;
 
 #if !UE_SERVER
 
@@ -91,7 +88,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 			NewGS->AddOverlayMaterial(DefaultPawnClass.GetDefaultObject()->TacComOverlayMaterial);
 		}
 	}
-	
+
 	PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
 
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
@@ -118,7 +115,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	FVector2D ResolutionScale(ViewportSize.X / 1280.0f, ViewportSize.Y / 720.0f);
 
 	UUTGameUserSettings* Settings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	
+
 	ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
@@ -185,7 +182,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 				+ SHorizontalBox::Slot()
 				.VAlign(VAlign_Bottom)
 				.HAlign(HAlign_Center)
-				.Padding(0.0f,0.0f,0.0f,160.0f)
+				.Padding(0.0f, 0.0f, 0.0f, 160.0f)
 				[
 					SNew(SBorder)
 					.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f))
@@ -252,11 +249,11 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 						[
 							SNew(SBorder)
 						]
-						+SOverlay::Slot()
+						+ SOverlay::Slot()
 						[
 							SNew(SImage)
 							.Image(FCoreStyle::Get().GetBrush("GenericWhiteBox"))
-							.ColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,0.7f))
+							.ColorAndOpacity(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f))
 						]
 						+ SOverlay::Slot()
 						[
@@ -664,6 +661,10 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 
 void SUWMatchSummary::UpdateIntroCam()
 {
+	if (GameState.IsValid() && (GameState->GetMatchState() == MatchState::WaitingToStart))
+	{
+		IntroTime = 0.f;
+	}
 	if (ViewedTeamNum < 0 && IntroTime > 0.9f)
 	{
 		ViewTeam(0);
@@ -690,7 +691,7 @@ void SUWMatchSummary::UpdateIntroCam()
 				if (ViewedTeamNum > 0)
 				{
 					//Snap the camera backwards so it swoops down on the team
-					CameraTransform.SetLocation(FVector(5000.0f, 0.0f, 35.0f));
+					//CameraTransform.SetLocation(FVector(2000.0f, 0.0f, 35.0f));
 					CameraTransform.SetRotation(FRotator(0.0f, 180.0f, 0.0f).Quaternion());
 				}
 			}
@@ -880,10 +881,11 @@ void SUWMatchSummary::RecreateAllPlayers()
 	else if (TeamAnchors.Num() == 2)
 	{
 		//Angle the teams a bit.
-		float Dist = 220.f + (TeamPlayerStates[0].Num() - 1) * 0.5f * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI/180.f);
+		float YDistPerPlayer = 0.5f * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
+		float Dist = 120.f + (TeamPlayerStates[0].Num() - 1) * YDistPerPlayer;
 		TeamAnchors[0]->SetActorLocationAndRotation(FVector(0.f, Dist, 0.f), FRotator(0, TEAMANGLE - 90.f, 0.0f));
 
-		Dist = 220.f + (TeamPlayerStates[1].Num() - 1) * 0.5f * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
+		Dist = 120.f + (TeamPlayerStates[1].Num() - 1) * YDistPerPlayer;
 		TeamAnchors[1]->SetActorLocationAndRotation(FVector(0.f, -1.f*Dist, 0.f), FRotator(0.f, 90.f - TEAMANGLE, 0.0f));
 	}
 }
@@ -1313,26 +1315,27 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 	}
 
 	// hide everyone else, show this team
-	for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
+	if (TeamPreviewMeshs.Num() > 1)
 	{
-		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-		if (i == ViewedTeamNum)
+		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
 		{
+			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
+			bool bViewedTeam = (i == ViewedTeamNum);
 			for (int32 j = 0; j < TeamCharacters.Num(); j++)
 			{
-				TeamCharacters[j]->SetActorHiddenInGame(false);
+				TeamCharacters[j]->HideCharacter(!bViewedTeam);
 			}
 		}
-		else
+		for (auto Weapon : PreviewWeapons)
 		{
-			for (int32 j = 0; j < TeamCharacters.Num(); j++)
-			{
-				TeamCharacters[j]->SetActorHiddenInGame(true);
-			}
+			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->GetAttachParentActor());
+			AUTPlayerState* PS = Holder ? Cast<AUTPlayerState>(Holder->PlayerState) : NULL;
+			bool bSameTeamWeapon = (PS && PS->Team && (PS->Team->TeamIndex == ViewedTeamNum));
+			Weapon->SetActorHiddenInGame(!bSameTeamWeapon);
 		}
 	}
 
-	//Figure out the start and end camera tranforms for the team pan
+	//Figure out the start and end camera transforms for the team pan
 	TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[ViewedTeamNum];
 	if (TeamCharacters.Num() > 0)
 	{
@@ -1372,6 +1375,10 @@ void SUWMatchSummary::ViewAll()
 		{
 			TeamCharacters[j]->SetActorHiddenInGame(false);
 		}
+	}
+	for (auto Weapon : PreviewWeapons)
+	{
+		Weapon->SetActorHiddenInGame(false);
 	}
 
 	float CameraOffset = ALL_CAMERA_OFFSET + 2.5f * PLAYER_SPACING * FMath::Cos(TEAMANGLE * PI / 180.f);
@@ -1428,7 +1435,7 @@ void SUWMatchSummary::OnMouseDownPlayerPreview(const FGeometry& MyGeometry, cons
 
 bool SUWMatchSummary::ShouldShowScoreboard()
 {
-	return ViewMode == EViewMode::VM_All && GameState->HasMatchStarted();
+	return ViewMode == EViewMode::VM_All && (GameState->HasMatchStarted() || (GameState->GetMatchState() == MatchState::WaitingToStart));
 }
 bool SUWMatchSummary::CanClickScoreboard()
 {
@@ -1587,6 +1594,7 @@ FText SUWMatchSummary::GetSwitcherText() const
 	}
 	return FText::GetEmpty();
 }
+
 FSlateColor SUWMatchSummary::GetSwitcherColor() const
 {
 	if (ViewMode == VM_Team && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
@@ -1607,32 +1615,26 @@ EVisibility SUWMatchSummary::GetSwitcherVisibility() const
 
 EVisibility SUWMatchSummary::GetSwitcherButtonVisibility() const
 {
-	if (CameraState == CS_FreeCam && ViewMode != EViewMode::VM_All)
-	{
-		return EVisibility::Visible;
-	}
-	return EVisibility::Hidden;
+	return (CameraState == CS_FreeCam && ViewMode != EViewMode::VM_All) ? EVisibility::Visible : EVisibility::Hidden;
 }
 
 FOptionalSize SUWMatchSummary::GetStatsWidth() const
 {
-	float WantedWidth = 0.0f;
-	
-	if (CameraState != CS_CamIntro)
-	{
-		if (ViewMode == VM_Player)
-		{
-			WantedWidth = 1050.0f;
-		}
-	}
+	float WantedWidth = ((CameraState != CS_CamIntro) && (ViewMode == VM_Player)) ? 1050.f : 0.0f;
 	StatsWidth = GameState.IsValid() && GameState->GetWorld() ? FMath::FInterpTo(StatsWidth, WantedWidth, GameState->GetWorld()->DeltaTimeSeconds, 10.0f) : 10.f;
-
 	return FOptionalSize(StatsWidth);
 }
 
 FReply SUWMatchSummary::OnClose()
 {
-	GetPlayerOwner()->CloseMatchSummary();
+	if (GameState.IsValid() && ((GameState->GetMatchState() == MatchState::WaitingToStart) || (GameState->GetMatchState() == MatchState::WaitingPostMatch)))
+	{
+		ViewAll();
+	}
+	else
+	{
+		GetPlayerOwner()->CloseMatchSummary();
+	}
 	return FReply::Handled();
 }
 
