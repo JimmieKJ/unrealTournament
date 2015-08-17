@@ -361,11 +361,11 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::WaitingToStart)
 		{
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
+			// GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
 		}
 		else if ((GS->GetMatchState() == MatchState::PlayerIntro) || (GS->GetMatchState() == MatchState::CountdownToBegin))
 		{
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.2f, false);
 		}
 		else
 		{
@@ -381,7 +381,7 @@ void AUTHUD::OpenMatchSummary()
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
 		UTLP->OpenMatchSummary(GS);
-		if (!GS->HasMatchStarted())
+		if (GS->GetMatchState() == MatchState::WaitingToStart)
 		{
 			UTLP->ShowMenu();
 		}
