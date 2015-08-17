@@ -828,7 +828,6 @@ void SUWMatchSummary::RecreateAllPlayers()
 	}
 	TeamAnchors.Empty();
 
-
 	//Gather All of the playerstates
 	TArray<TArray<class AUTPlayerState*> > TeamPlayerStates;
 	if (GameState.IsValid())
@@ -864,7 +863,9 @@ void SUWMatchSummary::RecreateAllPlayers()
 			for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[iTeam].Num(); iPlayer++)
 			{
 				AUTPlayerState* PS = TeamPlayerStates[iTeam][iPlayer];
-				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation, FRotator::ZeroRotator);
+				// slightly oppose rotation imposed by teamplayerstate
+				FRotator PlayerRotation = (iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
+				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation, PlayerRotation);
 				NewCharacter->AttachRootComponentToActor(TeamAnchor, NAME_None, EAttachLocation::KeepWorldPosition);
 
 				//Add the character to the team list
@@ -873,7 +874,6 @@ void SUWMatchSummary::RecreateAllPlayers()
 					TeamPreviewMeshs.SetNum(iTeam + 1);
 				}
 				TeamPreviewMeshs[iTeam].Add(NewCharacter);
-
 				PlayerLocation.Y += PLAYER_SPACING;
 			}
 		}
@@ -988,8 +988,6 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
 
 	//	EngineShowFlagOverride(ESFIM_Game, VMI_Lit, ViewFamily.EngineShowFlags, NAME_None, false);
-
-
 	const float PreviewFOV = 45;
 	const float AspectRatio = Width / (float)Height;
 
