@@ -200,6 +200,10 @@ public:
 
 	virtual void NotifyMatchStateChange();
 
+	FTimerHandle MatchSummaryHandle;
+
+	virtual void OpenMatchSummary();
+
 	inline UUTScoreboard* GetScoreboard() const
 	{
 		return MyUTScoreboard;

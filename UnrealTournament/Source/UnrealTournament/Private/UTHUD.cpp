@@ -350,19 +350,34 @@ void AUTHUD::ToggleScoreboard(bool bShow)
 
 void AUTHUD::NotifyMatchStateChange()
 {
+	// FIXMESTEVE - in playerintro mode, open match summary if not open (option for UTLP openmatchsummary)
 	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
-	if (UTLP && GetWorld()->GetGameState() != nullptr && GetWorld()->GetGameState()->GetMatchState() != MatchState::CountdownToBegin)
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+	if (UTLP && GS && !GS->IsPendingKillPending() && (GS->GetMatchState() != MatchState::CountdownToBegin)
+		&& (GS->GetMatchState() != MatchState::PlayerIntro))
 	{
-		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch
-			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro)
+		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-
-			UTLP->OpenMatchSummary(Cast<AUTGameState>(GetWorld()->GetGameState()));
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 3.0f, false);
+		}
+		else if (GS->GetMatchState() == MatchState::WaitingToStart)
+		{
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
 		}
 		else
 		{
 			UTLP->CloseMatchSummary();
 		}
+	}
+}
+
+void AUTHUD::OpenMatchSummary()
+{
+	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+	if (UTLP && GS && !GS->IsPendingKillPending())
+	{
+		UTLP->OpenMatchSummary(GS);
 	}
 }
 

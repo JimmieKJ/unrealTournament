@@ -27,33 +27,14 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
-	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
-	if (UTLP != nullptr && GetWorld()->GetGameState() != nullptr && GetWorld()->GetGameState()->GetMatchState() != MatchState::CountdownToBegin)
+	if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime)
 	{
-		if (GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch
-			|| GetWorld()->GetGameState()->GetMatchState() == MatchState::PlayerIntro)
-		{
-			OpenMatchSummary();			
-		}
-		else if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime)
-		{
-			FTimerHandle TempHandle;
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD_CTF::OpenMatchSummary, 7.0f);
-		}
-		else
-		{
-			UTLP->CloseMatchSummary();
-			GetWorldTimerManager().ClearTimer(MatchSummaryHandle);
-		}
+		GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 7.0f);
+	}
+	else
+	{
+		Super::NotifyMatchStateChange();
 	}
 }
 
-void AUTHUD_CTF::OpenMatchSummary()
-{
-	UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(UTPlayerOwner->Player);
-	if (UTLP != nullptr)
-	{
-		UTLP->OpenMatchSummary(Cast<AUTGameState>(GetWorld()->GetGameState()));
-	}
-}
 

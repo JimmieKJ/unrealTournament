@@ -11,8 +11,4 @@ class UNREALTOURNAMENT_API AUTHUD_CTF : public AUTHUD
 
 	virtual FLinearColor GetBaseHUDColor() override;
 	virtual void NotifyMatchStateChange() override;
-
-	virtual void OpenMatchSummary();
-
-	FTimerHandle MatchSummaryHandle;
 };
