@@ -2956,7 +2956,7 @@ void UUTLocalPlayer::CloseAllUI()
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
-	MatchSummaryWindow.Reset();
+	CloseMatchSummary();
 #endif
 }
 
