@@ -32,7 +32,8 @@ public class UnrealTournament : ModuleRules
                                                     "HTTP", 
                                                     "UMG", 
                                                     "EngineSettings", 
-			                                        "Landscape",
+			                                        "Landscape",                                                 
+				                                    "SourceControl",
                                                     "Foliage", });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
