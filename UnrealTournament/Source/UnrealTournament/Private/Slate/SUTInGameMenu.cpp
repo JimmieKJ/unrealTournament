@@ -30,7 +30,9 @@ void SUTInGameMenu::BuildLeftMenuBar()
 	if (LeftMenuBar.IsValid())
 	{
 		AUTGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (GS && GS->bTeamGame)
+		AUTPlayerState* PS = PlayerOwner->PlayerController ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : NULL;
+		bool bIsSpectator = PS && PS->bOnlySpectator;
+		if (GS && GS->bTeamGame && !bIsSpectator)
 		{
 			LeftMenuBar->AddSlot()
 			.Padding(5.0f,0.0f,0.0f,0.0f)
@@ -76,7 +78,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 						]
 					];
 			}
-			else
+			else if (!bIsSpectator)
 			{
 				LeftMenuBar->AddSlot()
 					.Padding(5.0f, 0.0f, 0.0f, 0.0f)
