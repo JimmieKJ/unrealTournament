@@ -20,6 +20,7 @@
 #include "Panels/SUWReplayBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
+#include "Panels/SUHomePanel.h"
 #include "Panels/SUTFragCenterPanel.h"
 #include "UTEpicDefaultRulesets.h"
 #include "UTReplicatedGameRuleset.h"
@@ -47,18 +48,49 @@ SUWindowsMainMenu::~SUWindowsMainMenu()
 	}
 }
 
+FReply SUWindowsMainMenu::OnFragCenterClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	ShowFragCenter();
+	return FReply::Handled();
+}
+
+void SUWindowsMainMenu::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate)
+{
+	if (FragCenterPanel.IsValid()) FragCenterPanel.Reset();
+
+	SUTMenuBase::DeactivatePanel(PanelToDeactivate);
+}
+
+void SUWindowsMainMenu::ShowFragCenter()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
+
+	if (!FragCenterPanel.IsValid())
+	{
+		SAssignNew(FragCenterPanel, SUTFragCenterPanel, PlayerOwner)
+			.ViewportSize(FVector2D(1920, 1020))
+			.AllowScaling(true)
+			.ShowControls(false);
+
+		if (FragCenterPanel.IsValid())
+		{
+			FragCenterPanel->Browse(TEXT("http://www.unrealtournament.com/fragcenter"));
+			ActivatePanel(FragCenterPanel);
+		}
+	}
+}
+
 void SUWindowsMainMenu::SetInitialPanel()
 {
-
-	SAssignNew(HomePanel, SUTFragCenterPanel, PlayerOwner)
-		.ViewportSize(FVector2D(1920,1020))
-		.AllowScaling(true)
-		.ShowControls(false);
+	SAssignNew(HomePanel, SUHomePanel, PlayerOwner);
 
 	if (HomePanel.IsValid())
 	{
-		TSharedPtr<SUTFragCenterPanel> FragCenterPanel = StaticCastSharedPtr<SUTFragCenterPanel>(HomePanel);
-		FragCenterPanel->Browse(TEXT("http://www.unrealtournament.com/fragcenter"));
 		ActivatePanel(HomePanel);
 	}
 }
@@ -137,6 +169,29 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildWatchSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Watch_FragCenter", "Frag Center"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnFragCenterClick, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			.AutoHeight()
+			.Padding(FMargin(0.0f, 0.0f))
+			[
+				SNew(SBox)
+				.HeightOverride(16)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_YourReplays", "Your Replays"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnYourReplaysClick, DropDownButton)
@@ -144,10 +199,15 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildWatchSubMenu()
 			+ SVerticalBox::Slot()
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Fill)
-			.Padding(FMargin(0.0f, 2.0f))
+			.AutoHeight()
+			.Padding(FMargin(0.0f, 0.0f))
 			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+				SNew(SBox)
+				.HeightOverride(16)
+				[
+					SNew(SImage)
+					.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+				]
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
@@ -394,6 +454,18 @@ FReply SUWindowsMainMenu::OnShowGamePanel(TSharedPtr<SComboButton> MenuButton)
 	{
 		MenuButton->SetIsOpen(false);
 	}
+	
+	ShowGamePanel();
+	return FReply::Handled();
+}
+
+void SUWindowsMainMenu::ShowGamePanel()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
 
 	if (TickCountDown <= 0)
 	{
@@ -408,12 +480,17 @@ FReply SUWindowsMainMenu::OnShowGamePanel(TSharedPtr<SComboButton> MenuButton)
 			TickCountDown = 3;
 		}
 	}
-
-	return FReply::Handled();
 }
 
 void SUWindowsMainMenu::OpenDelayedMenu()
 {
+
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
+
 	SUTMenuBase::OpenDelayedMenu();
 	if (bNeedToShowGamePanel)
 	{
@@ -523,17 +600,23 @@ void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dia
 
 FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FString QuickMatchType)
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	QuickPlay(QuickMatchType);
+	return FReply::Handled();
+}
+
+
+void SUWindowsMainMenu::QuickPlay(const FString& QuickMatchType)
+{
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->GetAuth();
-		return FReply::Handled();
+		return;
 	}
 
 	UE_LOG(UT,Log,TEXT("QuickMatch: %s"),*QuickMatchType);
 	PlayerOwner->StartQuickMatch(QuickMatchType);
-	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
@@ -560,9 +643,16 @@ void SUWindowsMainMenu::OpenTutorialMenu()
 	}
 }
 
+
 FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
 
 	if (!PlayerOwner->IsLoggedIn())
 	{
@@ -593,11 +683,22 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	RecentReplays();
+	return FReply::Handled();
+}
+
+void SUWindowsMainMenu::RecentReplays()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
 
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
-		return FReply::Handled();
+		return;
 	}
 
 	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
@@ -617,17 +718,29 @@ FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButt
 		}
 	}
 
-	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+	ShowLiveGameReplays();
+
+	return FReply::Handled();
+}
+
+void SUWindowsMainMenu::ShowLiveGameReplays()
+{
+
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
 
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
-		return FReply::Handled();
+		return;
 	}
 
 	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
@@ -647,7 +760,7 @@ FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuBu
 		}
 	}
 
-	return FReply::Handled();
+	return;
 }
 
 FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
@@ -656,6 +769,20 @@ FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
 	{
 		MenuButton->SetIsOpen(false);
 	}
+
+	ShowCommunity();
+	return FReply::Handled();
+}
+
+void SUWindowsMainMenu::ShowCommunity()
+{
+
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
+
 	if ( !WebPanel.IsValid() )
 	{
 		// Create the Web panel
@@ -670,7 +797,6 @@ FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
 		}
 		WebPanel->Browse(CommunityVideoURL);
 	}
-	return FReply::Handled();
 }
 
 FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
@@ -925,5 +1051,15 @@ void SUWindowsMainMenu::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget,
 	}
 }
 
+FReply SUWindowsMainMenu::OnShowServerBrowserPanel()
+{
+	if (TutorialMenu.IsValid())
+	{
+		TutorialMenu->RemoveFromViewport();
+	}
+
+	return SUTMenuBase::OnShowServerBrowserPanel();
+
+}
 
 #endif

@@ -41,7 +41,7 @@ const int32 FONT_SIZE_Tiny = 12;
 const int32 FONT_SIZE_Small = 14;
 const int32 FONT_SIZE_Medium = 24;
 const int32 FONT_SIZE_Large = 32;
-const int32 FONT_SIZE_Huge = 49;
+const int32 FONT_SIZE_Huge = 64;
 
 FSlateSound SUTStyle::ButtonPressSound;
 FSlateSound SUTStyle::ButtonHoverSound;
@@ -214,6 +214,28 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetTextColor(FLinearColor::White)
 		.SetSelectedTextColor(FLinearColor::Black)
 		);
+
+
+	Style.Set("UT.HomePanel.TutorialLogo", new IMAGE_BRUSH("UTStyle/MainPanel/T_TUT_ULogo_Shadow", FVector2D(2048,1024), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.FragCenterLogo", new IMAGE_BRUSH("UTStyle/MainPanel/FragCenterEmblem", FVector2D(644, 644), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.HomePanel.Background", new IMAGE_BRUSH( "UTStyle/MainPanel/Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.Flak", new IMAGE_BRUSH( "UTStyle/MainPanel/Flak", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.IABadge", new IMAGE_BRUSH( "UTStyle/MainPanel/IABadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.FMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/FMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.DMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/DMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.CTFBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/CTFBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.Replays", new IMAGE_BRUSH( "UTStyle/MainPanel/Replays", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.HomePanel.Live", new IMAGE_BRUSH( "UTStyle/MainPanel/Live", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+	Style.Set("UT.HomePanel.Button", FButtonStyle()
+		.SetNormal( FSlateNoResource(FVector2D(256.0f, 256.0f) ))
+		.SetHovered( BOX_BRUSH("UTStyle/MainPanel/Highlight", FVector2D(256,256), FMargin(16.0f / 256.0f, 16.0f/256.0f, 16.0f / 256.0f, 16.0f/256.0f), FLinearColor(1.0,1.0,0.0,0.2) ))
+		.SetPressed( BOX_BRUSH("UTStyle/MainPanel/Highlight", FVector2D(256,256), FMargin(16.0f / 256.0f, 16.0f/256.0f, 16.0f / 256.0f, 16.0f/256.0f), FLinearColor(1.0,1.0,1.0,0.2) ))
+		.SetDisabled( FSlateNoResource(FVector2D(256.0f, 256.0f) ))
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
 }
 
 void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
