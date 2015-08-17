@@ -864,7 +864,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 			{
 				AUTPlayerState* PS = TeamPlayerStates[iTeam][iPlayer];
 				// slightly oppose rotation imposed by teamplayerstate
-				FRotator PlayerRotation = (iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
+				FRotator PlayerRotation = FRotator(0.f); //(iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
 				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation, PlayerRotation);
 				NewCharacter->AttachRootComponentToActor(TeamAnchor, NAME_None, EAttachLocation::KeepWorldPosition);
 
