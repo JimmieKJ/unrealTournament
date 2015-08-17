@@ -597,6 +597,35 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
+	// recreate players if something has changed
+	bool bPlayersAreValid = true;
+	int32 TotalPlayers = 0;
+	if (GameState.IsValid() && (GameState->GetMatchState() == MatchState::WaitingToStart))
+	{
+		// @TODO FIXMESTEVE - this could be reported  to match summary on valid change, rather than
+		for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
+		{
+			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[iTeam];
+			for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
+			{
+				AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
+				if (!PS || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != iTeam))))
+				{
+					bPlayersAreValid = false;
+					break;
+				}
+				TotalPlayers++;
+			}
+		}
+		if (TotalPlayers != GameState->PlayerArray.Num())
+		{
+			bPlayersAreValid = false;
+		}
+	}
+	if (!bPlayersAreValid)
+	{
+		RecreateAllPlayers();
+	}
 	if (PlayerPreviewWorld != nullptr)
 	{
 		PlayerPreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
@@ -843,33 +872,6 @@ void SUWMatchSummary::RecreateAllPlayers()
 
 				PlayerLocation.Y += PLAYER_SPACING;
 			}
-
-			//Spawn a flag if its a ctf game TODO: Let the gamemode pick the mesh
-			if (GameState.IsValid() && Cast<AUTCTFGameState>(GameState.Get()) != nullptr)
-			{
-				FVector FlagLocation = FVector(-120.0f, (TeamPlayerStates[iTeam].Num() - 1) * PLAYER_SPACING * 0.5f, 0.0f);
-
-				USkeletalMesh* const FlagMesh = Cast<USkeletalMesh>(StaticLoadObject(USkeletalMesh::StaticClass(), NULL, TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"), NULL, LOAD_None, NULL));
-				ASkeletalMeshActor* NewFlag = PlayerPreviewWorld->SpawnActor<ASkeletalMeshActor>(ASkeletalMeshActor::StaticClass(), FlagLocation, FRotator(0.0f, 90.0f, 0.0f));
-				if (NewFlag != nullptr && FlagMesh != nullptr)
-				{
-					UMaterialInstanceConstant* FlagMat = nullptr;
-					if (iTeam == 0)
-					{
-						FlagMat = Cast<UMaterialInstanceConstant>(StaticLoadObject(UMaterialInstanceConstant::StaticClass(), NULL, TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/MI_CTF_RedFlag.MI_CTF_RedFlag'"), NULL, LOAD_None, NULL));
-					}
-					else
-					{
-						FlagMat = Cast<UMaterialInstanceConstant>(StaticLoadObject(UMaterialInstanceConstant::StaticClass(), NULL, TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/MI_CTF_BlueFlag.MI_CTF_BlueFlag'"), NULL, LOAD_None, NULL));
-					}
-
-					NewFlag->GetSkeletalMeshComponent()->SetSkeletalMesh(FlagMesh);
-					NewFlag->GetSkeletalMeshComponent()->SetMaterial(1, FlagMat);
-					NewFlag->SetActorScale3D(FVector(1.8f));
-					NewFlag->AttachRootComponentToActor(TeamAnchor, NAME_None, EAttachLocation::KeepWorldPosition);
-					PreviewFlags.Add(NewFlag);
-				}
-			}
 		}
 	}
 
@@ -887,6 +889,36 @@ void SUWMatchSummary::RecreateAllPlayers()
 
 		Dist = 120.f + (TeamPlayerStates[1].Num() - 1) * YDistPerPlayer;
 		TeamAnchors[1]->SetActorLocationAndRotation(FVector(0.f, -1.f*Dist, 0.f), FRotator(0.f, 90.f - TEAMANGLE, 0.0f));
+
+		if (GameState.IsValid() && Cast<AUTCTFGameState>(GameState.Get()) != nullptr)
+		{
+			for (int32 iTeam = 0; iTeam < 2; iTeam++)
+			{
+				//Spawn a flag if its a ctf game TODO: Let the gamemode pick the mesh
+				FVector FlagLocation = TeamAnchors[iTeam]->GetActorLocation() - 100.f * TeamAnchors[iTeam]->GetActorRotation().Vector();
+				FRotator FlagRotation = (iTeam == 0) ? FRotator(0.0f, 90.0f, 0.0f) : FRotator(0.0f, -90.0f, 0.0f);
+				USkeletalMesh* const FlagMesh = Cast<USkeletalMesh>(StaticLoadObject(USkeletalMesh::StaticClass(), NULL, TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"), NULL, LOAD_None, NULL));
+				ASkeletalMeshActor* NewFlag = PlayerPreviewWorld->SpawnActor<ASkeletalMeshActor>(ASkeletalMeshActor::StaticClass(), FlagLocation, FlagRotation);
+				if (NewFlag != nullptr && FlagMesh != nullptr)
+				{
+					UMaterialInstanceConstant* FlagMat = nullptr;
+					if (iTeam == 0)
+					{
+						FlagMat = Cast<UMaterialInstanceConstant>(StaticLoadObject(UMaterialInstanceConstant::StaticClass(), NULL, TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/MI_CTF_RedFlag.MI_CTF_RedFlag'"), NULL, LOAD_None, NULL));
+					}
+					else
+					{
+						FlagMat = Cast<UMaterialInstanceConstant>(StaticLoadObject(UMaterialInstanceConstant::StaticClass(), NULL, TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/MI_CTF_BlueFlag.MI_CTF_BlueFlag'"), NULL, LOAD_None, NULL));
+					}
+
+					NewFlag->GetSkeletalMeshComponent()->SetSkeletalMesh(FlagMesh);
+					NewFlag->GetSkeletalMeshComponent()->SetMaterial(1, FlagMat);
+					NewFlag->SetActorScale3D(FVector(1.8f));
+					NewFlag->AttachRootComponentToActor(TeamAnchors[iTeam], NAME_None, EAttachLocation::KeepWorldPosition);
+					PreviewFlags.Add(NewFlag);
+				}
+			}
+		}
 	}
 }
 

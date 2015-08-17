@@ -322,7 +322,6 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 
 void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
 {
-	//MyUTScoreboard = ConstructObject<UUTScoreboard>(NewScoreboardClass, GetTransientPackage());
 	// Scoreboards are now HUD widgets
 }
 
@@ -361,6 +360,10 @@ void AUTHUD::NotifyMatchStateChange()
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 3.0f, false);
 		}
 		else if (GS->GetMatchState() == MatchState::WaitingToStart)
+		{
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
+		}
+		else if ((GS->GetMatchState() == MatchState::PlayerIntro) || (GS->GetMatchState() == MatchState::CountdownToBegin))
 		{
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
 		}
