@@ -664,6 +664,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void OnRep_Invisible();
 
+	virtual void HideCharacter(bool bHideCharacter);
+
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetInvisible(bool bNowInvisible);
 

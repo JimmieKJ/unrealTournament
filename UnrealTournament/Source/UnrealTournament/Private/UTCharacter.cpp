@@ -4986,6 +4986,23 @@ void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
 	}
 }
 
+void AUTCharacter::HideCharacter(bool bHideCharacter)
+{
+	SetActorHiddenInGame(bHideCharacter);
+	if (Hat)
+	{
+		Hat->SetActorHiddenInGame(bHideCharacter);
+	}
+	if (Eyewear)
+	{
+		Eyewear->SetActorHiddenInGame(bHideCharacter);
+	}
+	if (WeaponAttachment)
+	{
+		WeaponAttachment->SetActorHiddenInGame(bHideCharacter);
+	}
+}
+
 void AUTCharacter::OnRep_Invisible_Implementation()
 {
 	if (Hat)

@@ -77,6 +77,16 @@ void UUTCheatManager::Ann(int32 Switch)
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 }
 
+void UUTCheatManager::Sum()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
+	if (LP && GS)
+	{
+		LP->OpenMatchSummary(GS);
+	}
+}
+
 void UUTCheatManager::AllAmmo()
 {
 	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
