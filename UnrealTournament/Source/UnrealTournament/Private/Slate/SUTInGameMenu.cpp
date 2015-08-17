@@ -52,8 +52,54 @@ void SUTInGameMenu::BuildLeftMenuBar()
 				]
 			];
 		}
-
-		if (GS && GS->GetMatchState() == MatchState::MapVoteHappening)
+		if (GS && GS->GetMatchState() == MatchState::WaitingToStart)
+		{
+			if (GS->GetNetMode() == NM_Standalone)
+			{
+				LeftMenuBar->AddSlot()
+					.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+						.OnClicked(this, &SUTInGameMenu::OnReadyChangeClick)
+						.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_StartMatch", "START MATCH"))
+								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+							]
+						]
+					];
+			}
+			else
+			{
+				LeftMenuBar->AddSlot()
+					.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+						.OnClicked(this, &SUTInGameMenu::OnReadyChangeClick)
+						.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_ChangeReady", "CHANGE READY"))
+								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+							]
+						]
+					];
+			}
+		}
+		else if (GS && GS->GetMatchState() == MatchState::MapVoteHappening)
 		{
 			LeftMenuBar->AddSlot()
 			.Padding(5.0f,0.0f,0.0f,0.0f)
@@ -77,29 +123,6 @@ void SUTInGameMenu::BuildLeftMenuBar()
 
 			PlayerOwner->OpenMapVote(NULL);
 		}
-
-
-/*
-		LeftMenuBar->AddSlot()
-		.Padding(5.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-			.OnClicked(this, &SUTInGameMenu::OnSpectateClick)
-			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_Spectate","SPECTATE"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-				]
-			]
-		];
-*/
 	}
 }
 
@@ -222,6 +245,18 @@ FReply SUTInGameMenu::OnTeamChangeClick()
 	if (PC)
 	{
 		PC->SwitchTeam();
+	}
+	return FReply::Handled();
+}
+
+FReply SUTInGameMenu::OnReadyChangeClick()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC)
+	{
+//		PC->PlayMenuSelectSound();
+		PC->ServerRestartPlayer();
+		PlayerOwner->HideMenu();
 	}
 	return FReply::Handled();
 }
