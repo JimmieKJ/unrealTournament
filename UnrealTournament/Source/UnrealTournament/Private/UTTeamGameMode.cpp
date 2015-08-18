@@ -304,6 +304,7 @@ void AUTTeamGameMode::HandleCountdownToBegin()
 				{
 					if (SortedTeams[i]->GetSize() > SortedTeams[j]->GetSize() + 1)
 					{
+						UTGameState->bForcedBalance = true;
 						ChangeTeam(SortedTeams[i]->GetTeamMembers()[0], j);
 						SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
 					}

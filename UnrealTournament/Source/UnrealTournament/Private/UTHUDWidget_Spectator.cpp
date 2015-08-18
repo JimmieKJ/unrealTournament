@@ -91,9 +91,18 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
 			if (UTGameState->IsMatchInCountdown())
 			{
-				SpectatorMessage = (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
-					? NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position")
-					: NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
+				if (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position");
+				}
+				else if (UTGameState->bForcedBalance)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "BalanceTeams", "Balancing teams - match is about to start.");
+				}
+				else
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
+				}
 			}
 			else if (UTGameState->PlayersNeeded > 0)
 			{
@@ -117,7 +126,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			}
 			else if (UTHUDOwner->GetScoreboard() && UTHUDOwner->GetScoreboard()->IsInteractive())
 			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "CloseMenu", "Press [ESC] to change ready status.");
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "CloseMenu", "Press [ESC] to close menu.");
 			}
 			else
 			{

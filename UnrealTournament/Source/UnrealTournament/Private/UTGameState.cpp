@@ -27,8 +27,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
 	bCasterControl = false;
-
-	KickThreshold=51.0;
+	bForcedBalance = false;
+	KickThreshold=51.0f;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -231,6 +231,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, VoteTimer);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
+	DOREPLIFETIME(AUTGameState, bForcedBalance);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)

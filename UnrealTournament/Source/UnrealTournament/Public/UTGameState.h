@@ -57,6 +57,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bCasterControl : 1;
 
+	/**If true, had to force balance teams. */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+		uint32 bForcedBalance : 1;
+
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
 	int32 GoalScore;
