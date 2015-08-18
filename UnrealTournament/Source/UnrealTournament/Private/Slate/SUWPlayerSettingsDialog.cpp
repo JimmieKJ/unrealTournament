@@ -16,6 +16,8 @@
 #include "Engine/UserInterfaceSettings.h"
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
+#include "SUTStyle.h"
+#include "Widgets/SUTButton.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -54,6 +56,12 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
 	ZoomOffset = 0;
+
+	AvatarList.Add(FName("UT.Avatar.0"));
+	AvatarList.Add(FName("UT.Avatar.1"));
+	AvatarList.Add(FName("UT.Avatar.2"));
+	AvatarList.Add(FName("UT.Avatar.3"));
+	AvatarList.Add(FName("UT.Avatar.4"));
 
 	WeaponConfigDelayFrames = 0;
 
@@ -635,6 +643,32 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						]
 					]
 
+
+					// ------------------------ Avatar
+
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0,20.0)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(LOCTEXT("Avatar", "Select your avatar"))
+					]
+
+					+SVerticalBox::Slot()
+					.AutoHeight().HAlign(HAlign_Fill)
+					.Padding(0.0,5.0,0,0)
+					[
+						SNew(SBox).HeightOverride(148)
+						[
+							SNew(SScrollBox).Orientation(EOrientation::Orient_Vertical)
+							+SScrollBox::Slot()
+							[
+								SAssignNew(AvatarGrid, SGridPanel)
+							]
+						]
+					]
+
 					//+ SVerticalBox::Slot()
 					//.AutoHeight()
 					//[
@@ -655,6 +689,16 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				]
 			]
 		];
+
+		SelectedAvatar = GetPlayerOwner()->GetAvatar();
+		for (int32 i = 0 ; i <AvatarList.Num(); i++)
+		{
+			TSharedPtr<SUTButton> Button = AddAvatar(AvatarList[i], i);
+			if (AvatarList[i] == SelectedAvatar)
+			{
+				Button->BePressed();
+			}
+		}
 
 		bool bFoundSelectedHat = false;
 		for (int32 i = 0; i < HatPathList.Num(); i++)
@@ -835,6 +879,8 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	{
 		GetPlayerOwner()->SetCountryFlag(SelectedFlag->GetFName(), false);
 	}
+
+	GetPlayerOwner()->SetAvatar(SelectedAvatar);
 
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
@@ -1424,6 +1470,59 @@ TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateSelectedFlagWidget()
 				.Text(FText::FromString(SelectedFlag->GetFriendlyName()))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 			];
+}
+
+
+TSharedPtr<SUTButton> SUWPlayerSettingsDialog::AddAvatar(FName Avatar, int32 Index)
+{
+	int32 Col = Index % 8;
+	int32 Row = Index / 8;
+
+	TSharedPtr<SUTButton> Button;
+	AvatarGrid->AddSlot(Col, Row)
+	.Padding(5.0,0.0,0.0,5.0)
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SBox).WidthOverride(64).HeightOverride(64)
+				[
+					SAssignNew(Button, SUTButton)
+					.IsToggleButton(true)
+					.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Dark")
+					.OnClicked(this, &SUWPlayerSettingsDialog::SelectAvatar, Index, Avatar)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush(Avatar))
+					]
+				]
+			]
+		]
+	];
+
+	AvatarButtons.Add(Button);
+	return Button;
+}
+
+FReply SUWPlayerSettingsDialog::SelectAvatar(int32 Index, FName Avatar)
+{
+	SelectedAvatar = Avatar;
+	for (int32 i = 0; i < AvatarButtons.Num(); i++ )
+	{
+		if (i == Index)
+		{
+			AvatarButtons[i]->BePressed();
+		}
+		else
+		{
+			AvatarButtons[i]->UnPressed();
+		}
+	}
+
+	return FReply::Handled();
 }
 
 

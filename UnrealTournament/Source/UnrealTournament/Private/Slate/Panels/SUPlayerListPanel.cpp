@@ -151,7 +151,7 @@ TSharedRef<ITableRow> SUPlayerListPanel::OnGenerateWidgetForPlayerList( TSharedP
 						SNew(SBox).WidthOverride(64).HeightOverride(64)
 						[
 							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.Avatar.0"))
+							.Image(InItem.Get(), &FTrackedPlayer::GetAvatar)
 						]
 					]
 					+SHorizontalBox::Slot().Padding(FMargin(5.0f ,0.0f ,0.0f ,0.0f)).VAlign(VAlign_Top).FillWidth(1.0)
@@ -384,12 +384,18 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 						}
 
 						TrackedPlayers[Idx]->bIsHost = bIsHost;
+
+						AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
+						if (UTPlayerState)
+						{
+							TrackedPlayers[Idx]->Avatar = UTPlayerState->Avatar;
+						}
 					}
 					else
 					{
 						bListNeedsUpdate = true;
 						// This is a new player.. Add them.
-						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, 0, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost));
+						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost));
 					}
 
 
@@ -420,7 +426,8 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 								bListNeedsUpdate = true;
 								TrackedPlayers.Add(FTrackedPlayer::Make(nullptr, MatchInfo->PlayersInMatchInstance[j].PlayerID, 
 																				MatchInfo->PlayersInMatchInstance[j].PlayerName,
-																				MatchInfo->PlayersInMatchInstance[j].TeamNum, 0, false, false));
+																				MatchInfo->PlayersInMatchInstance[j].TeamNum,
+																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false));
 							}
 						}
 					}

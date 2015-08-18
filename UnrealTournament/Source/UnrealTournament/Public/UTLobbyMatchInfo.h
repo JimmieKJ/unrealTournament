@@ -39,15 +39,19 @@ struct FPlayerListInfo
 	UPROPERTY()
 	uint8 TeamNum;
 
+	UPROPERTY()
+	FName Avatar;
+
 	FPlayerListInfo() {};
 
-	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank)
+	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank, FName inAvatar)
 		: PlayerID(inPlayerID)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerName(inPlayerName)
 		, PlayerScore(inPlayerScore)
 		, PlayerRank(inPlayerRank)
 		, TeamNum(inTeamNum)
+		, Avatar(inAvatar)
 	{
 	}
 

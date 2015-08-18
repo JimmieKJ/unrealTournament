@@ -2090,6 +2090,40 @@ void UUTLocalPlayer::SetCountryFlag(FName NewFlag, bool bSave)
 	}
 }
 
+FName UUTLocalPlayer::GetAvatar()
+{
+	if (CurrentProfileSettings)
+	{
+		return CurrentProfileSettings->Avatar;
+	}
+
+	if (PlayerController)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS) return PS->Avatar;
+	}
+	return NAME_None;
+}
+
+void UUTLocalPlayer::SetAvatar(FName NewAvatar, bool bSave)
+{
+	if (CurrentProfileSettings)
+	{
+		CurrentProfileSettings->Avatar = NewAvatar;
+		if (bSave)
+		{
+			SaveProfileSettings();
+		}
+	}
+
+	AUTBasePlayerController * BasePC = Cast<AUTBasePlayerController>(PlayerController);
+	if (BasePC != NULL)
+	{
+		BasePC->ServerSetAvatar(NewAvatar);
+	}
+}
+
+
 #if !UE_SERVER
 
 void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)

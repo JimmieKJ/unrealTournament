@@ -6,6 +6,9 @@
 #include "UTFlagInfo.h"
 
 #if !UE_SERVER
+
+class SUTButton;
+
 class UNREALTOURNAMENT_API SUWPlayerSettingsDialog : public SUWDialog, public FGCObject
 {
 public:
@@ -152,5 +155,14 @@ protected:
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	TSharedPtr<SGridPanel> AvatarGrid;
+	TArray<TSharedPtr<SUTButton>> AvatarButtons;
+
+	TSharedPtr<SUTButton> AddAvatar(FName AvatarStyleReference, int32 Index);
+	FReply SelectAvatar(int32 Index, FName Avatar);
+	FName SelectedAvatar;
+	TArray<FName> AvatarList;
+
 };
 #endif

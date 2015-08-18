@@ -461,6 +461,9 @@ public:
 
 	virtual void Destroyed() override;
 
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
+	FName Avatar;
+
 private:
 	FHttpRequestPtr ItemListReq;
 	void ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);

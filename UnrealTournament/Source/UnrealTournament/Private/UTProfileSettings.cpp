@@ -16,6 +16,8 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 
 	ReplayCustomBloomIntensity = 0.2f;
 	ReplayCustomDOFScale = 1.0f;
+
+	Avatar = FName("UT.Avatar.0");
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()

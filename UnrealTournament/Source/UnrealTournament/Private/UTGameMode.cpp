@@ -2578,7 +2578,7 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
 			if (PlayerState && !PlayerState->bIsDemoRecording)
 			{
-				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, PlayerState->AverageRank);
+				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, PlayerState->AverageRank, PlayerState->Avatar);
 			}
 		}
 	}
@@ -2680,7 +2680,7 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 		{
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, PS->AverageRank);
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, PS->AverageRank, PS->Avatar);
 		}
 	}
 
@@ -3138,7 +3138,7 @@ void AUTGameMode::UpdateLobbyPlayerList()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 			{
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, PS->AverageRank);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, PS->AverageRank, PS->Avatar);
 			}
 		}
 	}

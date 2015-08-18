@@ -158,6 +158,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	int32 LocalXP;
 
+	UPROPERTY()
+	FName Avatar;
+
 protected:
 
 	/**

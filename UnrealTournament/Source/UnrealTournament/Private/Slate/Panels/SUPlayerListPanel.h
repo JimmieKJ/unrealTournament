@@ -36,7 +36,7 @@ public:
 	FString PlayerName;
 
 	// The ID of this player's Avatar
-	int32 AvatarID;
+	FName Avatar;
 
 	// Will be true if this player is in the same match as the owner
 	bool bIsInMatch;
@@ -71,10 +71,10 @@ public:
 		bInInstance = false;
 	}
 
-	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, int32 inAvatarID, bool inbIsOwner, bool inbIsHost)
+	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost)
 		: PlayerID(inPlayerID)
 		, PlayerName(inPlayerName)
-		, AvatarID(inAvatarID)
+		, Avatar(inAvatar)
 		, bIsHost(inbIsHost)
 		, bIsOwner(inbIsOwner)
 		, TeamNum(inTeamNum)
@@ -88,9 +88,9 @@ public:
 		bInInstance = inPlayerState == NULL;
 	}
 
-	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, int32 inAvatarID, bool inbIsOwner, bool inbIsHost)
+	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost)
 	{
-		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatarID, inbIsOwner, inbIsHost));
+		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost));
 	}
 
 	static TSharedRef<FTrackedPlayer> MakeHeader(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
@@ -131,8 +131,14 @@ public:
 
 	const FSlateBrush* GetAvatar() const
 	{
-		FName AvatarName = FName("UT.Avatar.0");
-		return SUTStyle::Get().GetBrush(AvatarName);			
+		if (Avatar == NAME_None) 
+		{
+			return SUTStyle::Get().GetBrush("UT.NoStyle");
+		}
+		else
+		{
+			return SUTStyle::Get().GetBrush(Avatar);			
+		}
 	}
 };
 

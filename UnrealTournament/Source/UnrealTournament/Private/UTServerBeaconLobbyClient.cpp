@@ -60,10 +60,10 @@ void AUTServerBeaconLobbyClient::UpdateMatch(FString Update)
 	Lobby_UpdateMatch(GameInstanceID, Update);
 }
 
-void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank)
+void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
 {
 	UE_LOG(UT,Verbose,TEXT("UpdatePlayer: Instance %i [%s] Player = %s [%s] Score = %i"), GameInstanceID, *GameInstanceGUID.ToString(), *PlayerName, *PlayerID.ToString(),  PlayerScore);
-	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, bLastUpdate, PlayerRank);
+	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, bLastUpdate, PlayerRank, Avatar);
 }
 
 void AUTServerBeaconLobbyClient::EndGame(FString FinalUpdate)
@@ -110,14 +110,14 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 Instanc
 }
 
 
-bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank)
+bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
 {
 	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate = %i, PlayerRank = %i"), InstanceID, *PlayerName, *PlayerID.ToString(), PlayerScore, bLastUpdate, PlayerRank);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, bLastUpdate, PlayerRank);
+		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, bLastUpdate, PlayerRank, Avatar);
 	}
 }
 

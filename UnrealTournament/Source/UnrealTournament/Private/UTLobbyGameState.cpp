@@ -555,7 +555,7 @@ void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, c
 }
 
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -583,6 +583,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
 							Match->PlayersInMatchInstance[j].PlayerRank = PlayerRank;
 							Match->PlayersInMatchInstance[j].TeamNum = TeamNum;
+							Match->PlayersInMatchInstance[j].Avatar = Avatar;
 							Match->UpdateRank();
 							return;
 						}
@@ -591,7 +592,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				}
 
 				// A player not in the instance table.. add them
-				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, PlayerRank));
+				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, PlayerRank, Avatar));
 				Match->UpdateRank();
 			}
 		}

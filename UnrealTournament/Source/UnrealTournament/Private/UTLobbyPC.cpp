@@ -114,6 +114,11 @@ bool AUTLobbyPC::ServerChat_Validate(const FName Destination, const FString& Mes
 
 void AUTLobbyPC::ReceivedPlayer()
 {
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (UTLocalPlayer)
+	{
+		ServerSetAvatar(UTLocalPlayer->GetAvatar());
+	}
 }
 
 

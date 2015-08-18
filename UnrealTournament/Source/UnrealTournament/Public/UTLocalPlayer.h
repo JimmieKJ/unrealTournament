@@ -468,6 +468,10 @@ public:
 	// and exit back to the main menu.  To do this, we store the Pending info here and when the main menu sees that the player has left a session
 	// THEN we perform the login.
 
+	virtual FName GetAvatar();
+	virtual void SetAvatar(FName NewAvatar, bool bSave=false);
+
+
 protected:
 	bool bPendingLoginCreds;
 	FString PendingLoginName;
