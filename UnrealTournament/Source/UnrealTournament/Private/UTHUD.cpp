@@ -798,16 +798,19 @@ UTexture2D* AUTHUD::ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV)
 	if (PS && UTEngine)
 	{
 		FName FlagName = PS->CountryFlag;
-		if (PS->bIsABot && PS->CountryFlag == NAME_None && PS->Team)
+		if (FlagName == NAME_None)
 		{
-			if (PS->Team)
+			if (PS->bIsABot)
 			{
-				// use team flag
-				FlagName = (PS->Team->TeamIndex == 0) ? NAME_RedCountryFlag : NAME_BlueCountryFlag;
-			}
-			else
-			{
-				return nullptr;
+				if (PS->Team)
+				{
+					// use team flag
+					FlagName = (PS->Team->TeamIndex == 0) ? NAME_RedCountryFlag : NAME_BlueCountryFlag;
+				}
+				else
+				{
+					return nullptr;
+				}
 			}
 		}
 		UUTFlagInfo* FlagInfo = UTEngine->GetFlag(FlagName);
