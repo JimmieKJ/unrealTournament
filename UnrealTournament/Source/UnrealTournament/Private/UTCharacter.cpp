@@ -4258,7 +4258,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
 			float X, Y;
-			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
+			Canvas->TextSize(TinyFont, FString("+999  A999"), X, Y, Scale, Scale);
 			float XL = bFarAway ? TextXL : FMath::Max(X, TextXL);
 			FVector WorldPosition = GetMesh()->GetComponentLocation();
 			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
@@ -4270,10 +4270,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				TeamColor.R *= 0.3f;
 				TeamColor.G *= 0.3f;
 				TeamColor.B *= 0.3f;
-				TeamColor.A = 0.4f;
+				TeamColor.A = 0.3f;
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
-				float Height = bFarAway ? 0.75*YL : YL + 0.5*YL;
+				float Height = bFarAway ? 0.75*YL : YL + 0.45*YL;
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
 				BeaconTextColor.A = 0.6f;
@@ -4294,9 +4294,9 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 					if (ArmorAmount == 0)
 					{
 						Canvas->TextSize(TinyFont, TextItem.Text.ToString(), X, Y, Scale, Scale);
-						XOffset += 0.5 * (XL - X);
+						XOffset += 0.5f * (XL - X);
 					}
-					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
+					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.51f*YL));
 					Canvas->DrawItem(TextItem);
 
 					if (ArmorAmount > 0)
