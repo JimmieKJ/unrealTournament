@@ -23,12 +23,10 @@ struct FPlayerCompare
 		
 		if (A->EntryType == ETrackedPlayerType::MatchHeader) 
 		{
-			UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - A is a MatchHeader"), *A->PlayerName, *B->PlayerName);
 			return true;
 		}
 		if (B->EntryType == ETrackedPlayerType::MatchHeader) 
 		{
-			UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - B is a MatchHeader"), *A->PlayerName, *B->PlayerName);
 			return false;
 		}
 
@@ -67,7 +65,7 @@ struct FPlayerCompare
 		{
 			BValue = (B->bIsInMatch ? 10 : 150) + (B->bInInstance ? 2000 : 0) + (B->bIsHost ? -5 : 0);
 		}
-		UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - %i < %i???"), *A->PlayerName, *B->PlayerName, AValue, BValue);			
+		//UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - %i < %i???"), *A->PlayerName, *B->PlayerName, AValue, BValue);			
 		return AValue < BValue;
 	}
 };
