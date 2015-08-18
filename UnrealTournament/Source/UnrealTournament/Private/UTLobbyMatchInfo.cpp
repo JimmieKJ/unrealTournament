@@ -505,7 +505,7 @@ bool AUTLobbyMatchInfo::ShouldShowInDock()
 	}
 	else
 	{
-		return OwnerId.IsValid() && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && 
+		return (OwnerId.IsValid() || bQuickPlayMatch) && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && 
 				CurrentRuleset.IsValid() && 
 				(CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers);
 	}

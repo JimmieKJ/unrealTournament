@@ -20,13 +20,26 @@ struct FPlayerCompare
 {
 	FORCEINLINE bool operator()( const TSharedPtr< FTrackedPlayer > A, const TSharedPtr< FTrackedPlayer > B ) const 
 	{
-		if (A->EntryType == ETrackedPlayerType::MatchHeader) return true;
-		if (B->EntryType == ETrackedPlayerType::MatchHeader) return false;
+		
+		if (A->EntryType == ETrackedPlayerType::MatchHeader) 
+		{
+			UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - A is a MatchHeader"), *A->PlayerName, *B->PlayerName);
+			return true;
+		}
+		if (B->EntryType == ETrackedPlayerType::MatchHeader) 
+		{
+			UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - B is a MatchHeader"), *A->PlayerName, *B->PlayerName);
+			return false;
+		}
 
 		int32 AValue = 0;
 		if (A->EntryType == ETrackedPlayerType::EveryoneHeader) 
 		{
 			AValue = 100;
+		}
+		else if (A->EntryType == ETrackedPlayerType::InstanceHeader)
+		{
+			AValue = 900;
 		}
 		else if (A->EntryType == ETrackedPlayerType::InstancePlayer) 
 		{
@@ -42,6 +55,10 @@ struct FPlayerCompare
 		{
 			BValue = 100;
 		}
+		else if (B->EntryType == ETrackedPlayerType::InstanceHeader)
+		{
+			BValue = 900;
+		}
 		else if (B->EntryType == ETrackedPlayerType::InstancePlayer) 
 		{
 			BValue = 1000;
@@ -50,7 +67,7 @@ struct FPlayerCompare
 		{
 			BValue = (B->bIsInMatch ? 10 : 150) + (B->bInInstance ? 2000 : 0) + (B->bIsHost ? -5 : 0);
 		}
-			
+		UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - %i < %i???"), *A->PlayerName, *B->PlayerName, AValue, BValue);			
 		return AValue < BValue;
 	}
 };
@@ -420,6 +437,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 							if (Idx != INDEX_NONE)
 							{
 								TrackedPlayers[Idx]->bPendingKill = false;
+								TrackedPlayers[Idx]->Avatar = MatchInfo->PlayersInMatchInstance[j].Avatar;
 							}
 							else
 							{
@@ -453,7 +471,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 	{
 		if (!InstanceHeader.IsValid())
 		{
-			InstanceHeader = FTrackedPlayer::MakeHeader(TEXT("- Playing -"), ETrackedPlayerType::EveryoneHeader);
+			InstanceHeader = FTrackedPlayer::MakeHeader(TEXT("- Playing -"), ETrackedPlayerType::InstanceHeader);
 			TrackedPlayers.Add(InstanceHeader);
 			bListNeedsUpdate = true;
 		}

@@ -18,6 +18,7 @@ namespace ETrackedPlayerType
 		MatchHeader,
 		EveryoneHeader, 
 		InstancePlayer,
+		InstanceHeader,
 		MAX,
 	};
 };
